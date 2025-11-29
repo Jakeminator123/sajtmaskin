@@ -32,6 +32,8 @@ function BuilderContent() {
     setQuality,
     clearChat,
     demoUrl,
+    chatId,
+    versionId,
     setProjectId,
     loadFromProject,
     isSaving,
@@ -142,6 +144,12 @@ function BuilderContent() {
             variant="outline"
             size="sm"
             className="gap-2 border-zinc-700 text-zinc-300 hover:bg-zinc-800"
+            disabled={!chatId || !versionId}
+            onClick={() => {
+              if (chatId && versionId) {
+                window.open(`/api/download?chatId=${chatId}&versionId=${versionId}`, '_blank');
+              }
+            }}
           >
             <Download className="h-4 w-4" />
             Ladda ner

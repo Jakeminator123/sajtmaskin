@@ -27,6 +27,8 @@ interface BuilderState {
   files: GeneratedFile[];
   currentCode: string | null;
   demoUrl: string | null;
+  screenshotUrl: string | null;
+  versionId: string | null;
 
   // UI state
   viewMode: "preview" | "code";
@@ -45,6 +47,8 @@ interface BuilderState {
   setFiles: (files: GeneratedFile[]) => void;
   setCurrentCode: (code: string) => void;
   setDemoUrl: (url: string) => void;
+  setScreenshotUrl: (url: string) => void;
+  setVersionId: (id: string) => void;
   setViewMode: (mode: "preview" | "code") => void;
   setDeviceSize: (size: "desktop" | "tablet" | "mobile") => void;
   setQuality: (quality: "budget" | "standard" | "premium") => void;
@@ -75,6 +79,8 @@ export const useBuilderStore = create<BuilderState>()(
       files: [],
       currentCode: null,
       demoUrl: null,
+      screenshotUrl: null,
+      versionId: null,
       viewMode: "preview",
       deviceSize: "desktop",
       quality: "standard",
@@ -122,6 +128,15 @@ export const useBuilderStore = create<BuilderState>()(
         get().saveToDatabase();
       },
 
+      setScreenshotUrl: (url) => {
+        set({ screenshotUrl: url });
+      },
+
+      setVersionId: (id) => {
+        set({ versionId: id });
+        get().saveToDatabase();
+      },
+
       setViewMode: (mode) => set({ viewMode: mode }),
 
       setDeviceSize: (size) => set({ deviceSize: size }),
@@ -136,6 +151,8 @@ export const useBuilderStore = create<BuilderState>()(
           files: [],
           currentCode: null,
           demoUrl: null,
+          screenshotUrl: null,
+          versionId: null,
         }),
 
       // Load project data from database
@@ -170,7 +187,7 @@ export const useBuilderStore = create<BuilderState>()(
         // Debounce saves - get FRESH state inside the callback
         saveTimeout = setTimeout(async () => {
           const state = get(); // Get fresh state at save time!
-          
+
           // Double-check projectId still exists
           if (!state.projectId) {
             return;

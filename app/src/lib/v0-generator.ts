@@ -76,7 +76,26 @@ export interface GenerationResult {
   files: GeneratedFile[];
   chatId: string;
   demoUrl?: string;
+  screenshotUrl?: string;
+  versionId?: string;
+  webUrl?: string;
   model: string;
+}
+
+/**
+ * Download a chat version as ZIP
+ */
+export async function downloadVersionAsZip(
+  chatId: string,
+  versionId: string
+): Promise<ArrayBuffer> {
+  const v0 = getV0Client();
+  return v0.chats.downloadVersion({
+    chatId,
+    versionId,
+    format: "zip",
+    includeDefaultFiles: true,
+  });
 }
 
 /**
@@ -248,6 +267,9 @@ export async function generateCode(
     files,
     chatId: chat.id,
     demoUrl: chat.latestVersion?.demoUrl,
+    screenshotUrl: chat.latestVersion?.screenshotUrl,
+    versionId: chat.latestVersion?.id,
+    webUrl: chat.webUrl,
     model: modelId,
   };
 }
@@ -321,6 +343,9 @@ export async function refineCode(
       files,
       chatId: chat.id,
       demoUrl: chat.latestVersion?.demoUrl,
+      screenshotUrl: chat.latestVersion?.screenshotUrl,
+      versionId: chat.latestVersion?.id,
+      webUrl: chat.webUrl,
       model: modelId,
     };
   }
@@ -387,6 +412,9 @@ export async function generateFromTemplate(
       files,
       chatId: chat.id,
       demoUrl: chat.latestVersion?.demoUrl,
+      screenshotUrl: chat.latestVersion?.screenshotUrl,
+      versionId: chat.latestVersion?.id,
+      webUrl: chat.webUrl,
       model: "template",
     };
   } catch (error) {
