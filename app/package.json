@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@ai-sdk/vercel": "^1.0.29",
+    "@codesandbox/sandpack-react": "^2.20.0",
     "@radix-ui/react-scroll-area": "^1.2.10",
     "@radix-ui/react-tooltip": "^1.2.8",
     "ai": "^5.0.104",

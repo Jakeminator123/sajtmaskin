@@ -1,6 +1,6 @@
 ================================================================================
                     SAJTMASKIN - BYGGPROGRESS
-                    Senast uppdaterad: 2024-11-29
+                    Senast uppdaterad: 2025-11-29
 ================================================================================
 
 PROJEKTÖVERSIKT
@@ -107,17 +107,29 @@ WHITE-LABEL:
   - Användare ser aldrig v0 i nätverksfliken
 
 ================================================================================
-                    FAS 4: SANDPACK PREVIEW ⏳ NÄSTA
+                    FAS 4: SANDPACK PREVIEW ✅ KLAR
 ================================================================================
 
-[ ] Installera @codesandbox/sandpack-react
-[ ] Parsa genererad kod till filer
-[ ] Konfigurera Sandpack med React-template
-[ ] Implementera live preview av genererad kod
-[ ] Synkronisera med enhetstogglar
+[✅] Installera @codesandbox/sandpack-react
+[✅] Skapa code-parser.ts för att parsa v0-kod till Sandpack-filformat
+[✅] Konfigurera Sandpack med React-template och mörkt tema
+[✅] Implementera live preview av genererad kod
+[✅] Synkronisera enhetstogglar (desktop/tablet/mobile) med container-bredd
+
+SKAPADE FILER:
+- app/src/lib/code-parser.ts (parser för v0-kod → Sandpack-filer)
+- app/src/components/code-preview.tsx (uppdaterad med Sandpack)
+
+TEKNISK IMPLEMENTATION:
+- Sandpack renderar preview lokalt (INGEN v0 iframe)
+- Kod parsas från markdown-format till React-filer
+- Tailwind CSS laddas via CDN i preview
+- Mörkt tema matchar appens design
+- Enhetstogglar ändrar container-bredd: 100%/768px/375px
+- Kodvisning med syntax highlighting och filnavigering
 
 ================================================================================
-                    FAS 5: ENHANCEMENTS PANEL ⬚ VÄNTAR
+                    FAS 5: ENHANCEMENTS PANEL ⏳ NÄSTA
 ================================================================================
 
 [ ] Skapa kollapsbar panel under preview
@@ -164,6 +176,7 @@ INSTALLERADE PAKET:
   - zustand (state management)
   - @ai-sdk/vercel, ai (v0 API integration)
   - ShadCN UI komponenter
+  - @codesandbox/sandpack-react (live code preview)
 
 ================================================================================
                     FÖR NY AI-AGENT
@@ -176,6 +189,6 @@ Om du startar med en ny AI-agent, ge den:
 3. info/02_v0_ai_build_instructions.txt för tekniska detaljer
 4. info/03_v0_api_whitelabel_integration.txt för API-integration
 
-Be agenten: "Fortsätt med Fas 4 enligt PROGRESS.txt"
+Be agenten: "Fortsätt med Fas 5 enligt PROGRESS.txt"
 
 ================================================================================
