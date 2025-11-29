@@ -120,12 +120,12 @@ async function waitForVersionReady(
       console.log("[v0-generator] Version status:", status);
       console.log("[v0-generator] demoUrl:", chat.latestVersion?.demoUrl);
 
-      if (status === "ready" || status === "completed") {
+      if (status === "completed") {
         console.log("[v0-generator] Version is ready!");
         return chat;
       }
 
-      if (status === "failed" || status === "error") {
+      if (status === "failed") {
         console.error("[v0-generator] Version failed:", status);
         return chat; // Return anyway, let caller handle
       }
@@ -220,11 +220,7 @@ export async function generateCode(
     (chat.latestVersion?.files?.length ?? 0) > 0 && chat.latestVersion?.demoUrl;
 
   // If version is not ready yet and no content, poll for completion
-  if (
-    !hasContent &&
-    chat.latestVersion?.status !== "ready" &&
-    chat.latestVersion?.status !== "completed"
-  ) {
+  if (!hasContent && chat.latestVersion?.status !== "completed") {
     console.log("[v0-generator] Waiting for version to be ready...");
     const readyChat = await waitForVersionReady(chat.id);
     if (readyChat) {
@@ -320,10 +316,7 @@ export async function refineCode(
     );
 
     // If version is not ready yet, poll for completion
-    if (
-      chat.latestVersion?.status !== "ready" &&
-      chat.latestVersion?.status !== "completed"
-    ) {
+    if (chat.latestVersion?.status !== "completed") {
       const readyChat = await waitForVersionReady(existingChatId);
       if (readyChat) {
         chat = readyChat;

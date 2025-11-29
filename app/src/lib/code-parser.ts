@@ -142,7 +142,10 @@ body {
 
   console.log(
     "[code-parser] Created Sandpack files:",
-    Object.keys(result).filter((k) => !result[k]?.hidden)
+    Object.keys(result).filter((k) => {
+      const file = result[k];
+      return typeof file === "string" || !file?.hidden;
+    })
   );
 
   return result;

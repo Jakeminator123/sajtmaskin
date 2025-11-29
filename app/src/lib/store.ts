@@ -230,8 +230,13 @@ export const useBuilderStore = create<BuilderState>()(
       // Custom storage with Date serialization
       storage: createJSONStorage(() => localStorage, {
         reviver: (key, value) => {
-          if (value && typeof value === "object" && value.__type === "Date") {
-            return new Date(value.value);
+          if (
+            value &&
+            typeof value === "object" &&
+            "__type" in value &&
+            value.__type === "Date"
+          ) {
+            return new Date((value as unknown as { value: string }).value);
           }
           if (key === "timestamp" && typeof value === "string") {
             return new Date(value);
