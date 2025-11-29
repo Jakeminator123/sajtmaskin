@@ -23,6 +23,8 @@ import {
   Copy,
   Check,
   AlertTriangle,
+  Download,
+  Image,
 } from "lucide-react";
 import { useState, useMemo, useEffect } from "react";
 
@@ -64,6 +66,9 @@ export function CodePreview() {
     currentCode,
     files,
     demoUrl,
+    screenshotUrl,
+    chatId,
+    versionId,
     viewMode,
     deviceSize,
     isLoading,
@@ -72,6 +77,17 @@ export function CodePreview() {
   } = useBuilderStore();
   const [copied, setCopied] = useState(false);
   const [sandpackError, setSandpackError] = useState<string | null>(null);
+  const [iframeError, setIframeError] = useState(false);
+
+  // Handle download
+  const handleDownload = () => {
+    if (chatId && versionId) {
+      window.open(
+        `/api/download?chatId=${chatId}&versionId=${versionId}`,
+        "_blank"
+      );
+    }
+  };
 
   // Convert files to Sandpack format with error handling
   // Prefer using structured files from v0-sdk if available
@@ -261,16 +277,50 @@ export function CodePreview() {
               </div>
             ) : demoUrl ? (
               // v0's hosted preview (iframe) - most reliable
-              <div className="flex-1 h-full overflow-hidden">
-                <iframe
-                  src={demoUrl}
-                  className="w-full h-full border-0"
-                  title="Website Preview"
-                  sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-downloads allow-presentation"
-                  allow="accelerometer; camera; encrypted-media; geolocation; gyroscope; microphone; midi; payment; usb; xr-spatial-tracking"
-                  referrerPolicy="no-referrer-when-downgrade"
-                  loading="eager"
-                />
+              <div className="flex-1 h-full overflow-hidden relative">
+                {!iframeError ? (
+                  <iframe
+                    src={demoUrl}
+                    className="w-full h-full border-0"
+                    title="Website Preview"
+                    sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-downloads allow-presentation"
+                    allow="accelerometer; camera; encrypted-media; geolocation; gyroscope; microphone; midi; payment; usb; xr-spatial-tracking"
+                    referrerPolicy="no-referrer-when-downgrade"
+                    loading="eager"
+                    onError={() => setIframeError(true)}
+                  />
+                ) : screenshotUrl ? (
+                  // Fallback to screenshot if iframe fails
+                  <div className="flex-1 h-full flex flex-col items-center justify-center p-4 bg-zinc-900">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={screenshotUrl}
+                      alt="Preview"
+                      className="max-w-full max-h-[70%] rounded-lg shadow-2xl border border-zinc-700"
+                    />
+                    <p className="text-zinc-400 text-sm mt-4">
+                      Live-förhandsgranskning kunde inte laddas, visar skärmdump
+                    </p>
+                  </div>
+                ) : (
+                  <div className="flex-1 h-full flex items-center justify-center">
+                    <p className="text-zinc-500">
+                      Förhandsgranskning kunde inte laddas
+                    </p>
+                  </div>
+                )}
+
+                {/* Floating download button */}
+                {chatId && versionId && (
+                  <Button
+                    onClick={handleDownload}
+                    className="absolute bottom-4 right-4 gap-2 bg-blue-600 hover:bg-blue-500 shadow-lg"
+                    size="sm"
+                  >
+                    <Download className="h-4 w-4" />
+                    Ladda ner ZIP
+                  </Button>
+                )}
               </div>
             ) : currentCode ? (
               // Fallback to Sandpack preview if no demoUrl

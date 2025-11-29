@@ -41,6 +41,8 @@ export function ChatPanel({
     setChatId,
     setFiles,
     setDemoUrl,
+    setScreenshotUrl,
+    setVersionId,
     clearChat,
   } = useBuilderStore();
 
@@ -250,6 +252,16 @@ export function ChatPanel({
           setDemoUrl(response.demoUrl);
         }
 
+        // Save screenshotUrl for fallback preview
+        if (response.screenshotUrl) {
+          setScreenshotUrl(response.screenshotUrl);
+        }
+
+        // Save versionId for ZIP download
+        if (response.versionId) {
+          setVersionId(response.versionId);
+        }
+
         // Save files if we got them
         if (response.files && response.files.length > 0) {
           console.log(
@@ -321,6 +333,16 @@ export function ChatPanel({
         // Update demoUrl if we got a new one
         if (response.demoUrl) {
           setDemoUrl(response.demoUrl);
+        }
+
+        // Update screenshotUrl if we got a new one
+        if (response.screenshotUrl) {
+          setScreenshotUrl(response.screenshotUrl);
+        }
+
+        // Update versionId if we got a new one
+        if (response.versionId) {
+          setVersionId(response.versionId);
         }
 
         // Update files if we got them

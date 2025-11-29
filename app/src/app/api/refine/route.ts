@@ -107,6 +107,8 @@ export async function POST(req: NextRequest) {
       files: cleanedFiles,
       chatId: result.chatId,
       demoUrl: result.demoUrl,
+      screenshotUrl: result.screenshotUrl,
+      versionId: result.versionId,
       model: result.model,
     });
   } catch (error) {

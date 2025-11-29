@@ -15,6 +15,8 @@ export interface GenerateResponse {
   files?: GeneratedFile[];
   chatId?: string;
   demoUrl?: string;
+  screenshotUrl?: string;
+  versionId?: string;
   model?: string;
   error?: string;
 }
@@ -26,6 +28,8 @@ export interface RefineResponse {
   files?: GeneratedFile[];
   chatId?: string;
   demoUrl?: string;
+  screenshotUrl?: string;
+  versionId?: string;
   model?: string;
   error?: string;
 }
