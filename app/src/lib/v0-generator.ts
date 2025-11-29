@@ -103,8 +103,8 @@ export async function downloadVersionAsZip(
  */
 async function waitForVersionReady(
   chatId: string,
-  maxAttempts = 30,
-  delayMs = 2000
+  maxAttempts = 60, // 60 × 5s = 5 minutes timeout
+  delayMs = 5000 // 5 seconds between polls
 ): Promise<ChatDetail | null> {
   const v0 = getV0Client();
 
@@ -114,7 +114,7 @@ async function waitForVersionReady(
     );
 
     try {
-      const chat = (await v0.chats.get({ chatId })) as ChatDetail;
+      const chat = (await v0.chats.getById({ chatId })) as ChatDetail;
       const status = chat.latestVersion?.status;
 
       console.log("[v0-generator] Version status:", status);
@@ -213,16 +213,27 @@ export async function generateCode(
   console.log("[v0-generator] Chat created:", chat.id);
   console.log("[v0-generator] Version status:", chat.latestVersion?.status);
   console.log("[v0-generator] Files count:", chat.latestVersion?.files?.length);
+  console.log("[v0-generator] demoUrl:", chat.latestVersion?.demoUrl);
 
-  // If version is not ready yet, poll for completion
+  // Skip polling if we already have files and demoUrl
+  const hasContent =
+    (chat.latestVersion?.files?.length ?? 0) > 0 && chat.latestVersion?.demoUrl;
+
+  // If version is not ready yet and no content, poll for completion
   if (
+    !hasContent &&
     chat.latestVersion?.status !== "ready" &&
     chat.latestVersion?.status !== "completed"
   ) {
+    console.log("[v0-generator] Waiting for version to be ready...");
     const readyChat = await waitForVersionReady(chat.id);
     if (readyChat) {
       chat = readyChat;
+    } else {
+      console.warn("[v0-generator] Polling timed out, using current response");
     }
+  } else if (hasContent) {
+    console.log("[v0-generator] Already have content, skipping polling");
   }
 
   // Extract files from the response

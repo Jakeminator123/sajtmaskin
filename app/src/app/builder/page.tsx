@@ -147,7 +147,10 @@ function BuilderContent() {
             disabled={!chatId || !versionId}
             onClick={() => {
               if (chatId && versionId) {
-                window.open(`/api/download?chatId=${chatId}&versionId=${versionId}`, '_blank');
+                window.open(
+                  `/api/download?chatId=${chatId}&versionId=${versionId}`,
+                  "_blank"
+                );
               }
             }}
           >
