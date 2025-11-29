@@ -1,0 +1,189 @@
+================================================================================
+                    SAJTMASKIN - DOCUMENTATION INDEX
+                    READ THIS FIRST
+================================================================================
+
+This folder contains all documentation for building the SajtMaskin platform -
+a white-labeled website builder powered by v0's API.
+
+FOR HUMANS: Start with 00_HOW_TO_USE_THESE_FILES.txt
+FOR AI: Start with this file, then follow the reading order below.
+
+⚠️ CRITICAL: Use @ai-sdk/vercel package, NOT direct fetch() to v0 API!
+   Direct fetch fails with 500 errors for premium model (v0-1.5-lg).
+
+================================================================================
+                    FOLDER STRUCTURE
+================================================================================
+
+info/
+├── 00_HOW_TO_USE_THESE_FILES.txt    ◄── HUMAN GUIDE (how to instruct AI)
+├── 00_INDEX_READ_FIRST.txt          ◄── AI GUIDE (you are here)
+│
+├── 01_v0_project_report.txt         ◄── Project overview, timeline, priorities
+├── 02_v0_ai_build_instructions.txt  ◄── Complete build spec for AI
+├── 03_v0_api_whitelabel_integration.txt  ◄── API integration & white-labeling
+├── 04_ux_category_structure.txt     ◄── UX flow & category segmentation (NEW)
+│
+├── reference/                        ◄── Background research (optional reading)
+│   ├── v0_info_original.txt         (Original v0 research)
+│   ├── v0_api_details.txt           (API documentation notes)
+│   ├── ai_website_builders.txt      (Competitor research)
+│   └── design_reference.txt         (Design inspiration)
+│
+├── gpt-api/                          ◄── Separate topic (GPT integration)
+│   └── (various files)
+│
+└── archive/                          ◄── Old files (can ignore)
+    └── (troubleshooting, old notes)
+
+
+================================================================================
+                    READING ORDER FOR AI
+================================================================================
+
+To build the SajtMaskin platform, read files in this order:
+
+1. 00_INDEX_READ_FIRST.txt     (this file - understand the structure)
+2. 04_ux_category_structure.txt (understand the UX segmentation)
+3. 01_v0_project_report.txt    (understand scope and timeline)
+4. 02_v0_ai_build_instructions.txt (detailed implementation)
+5. 03_v0_api_whitelabel_integration.txt (API and white-labeling)
+
+The reference/ folder is optional - only read if you need more context.
+
+
+================================================================================
+                    PROJECT SUMMARY
+================================================================================
+
+WHAT WE'RE BUILDING:
+A platform where users can create their own websites using AI.
+Users interact with OUR frontend, but v0's API powers the generation.
+v0 should be completely invisible to end users (white-labeled).
+
+TECH STACK:
+- Next.js 14+ (App Router)
+- React 18+
+- TypeScript
+- Tailwind CSS
+- ShadCN UI
+- v0 Platform API (hidden behind our backend)
+
+KEY FEATURES:
+1. Template selection (12 categories, properly segmented)
+2. Free-form prompt input
+3. Live preview (self-hosted, not v0's iframe)
+4. Iterative refinement via chat
+5. Code export (ZIP, GitHub)
+6. One-click deploy (optional)
+
+
+================================================================================
+                    UX CATEGORY SEGMENTATION (CRITICAL)
+================================================================================
+
+The 12 v0 categories are NOT all equal. They must be segmented:
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│   TIER 1: PRIMARY CHOICES (What do you want to build?)                      │
+│   ─────────────────────────────────────────────────────                     │
+│   User picks ONE of these as their starting point:                          │
+│                                                                             │
+│   • Landing Page    → Single promotional page                               │
+│   • Full Website    → Multi-page site (uses Website Templates)              │
+│   • Dashboard       → Admin/analytics interface                             │
+│   • E-commerce      → Online store                                          │
+│   • Blog            → Content/article site                                  │
+│   • Portfolio       → Showcase work                                         │
+│   • Web App         → Interactive application (uses Apps & Games)           │
+│                                                                             │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│   TIER 2: ENHANCEMENTS (Add to your project)                                │
+│   ──────────────────────────────────────────                                │
+│   After initial generation, user can ADD these:                             │
+│                                                                             │
+│   • Components      → Individual UI blocks (buttons, cards, forms)          │
+│   • Animations      → Motion effects, transitions                           │
+│   • Login/Signup    → Authentication pages                                  │
+│                                                                             │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│   TIER 3: FOUNDATIONS (Apply to any project)                                │
+│   ──────────────────────────────────────────                                │
+│   These affect the STYLE of the entire project:                             │
+│                                                                             │
+│   • Design Systems  → Color palette, typography, component library          │
+│   • Layouts         → Page structure templates                              │
+│                                                                             │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│   SPECIAL: AI INTERFACES                                                    │
+│   ──────────────────────                                                    │
+│   Specialized category for AI/chatbot UIs                                   │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+
+================================================================================
+                    FILE DESCRIPTIONS
+================================================================================
+
+01_v0_project_report.txt
+------------------------
+- Project overview and goals
+- 5-phase implementation timeline
+- Priority matrix (must-have vs nice-to-have)
+- Cost estimates and risks
+- Success metrics
+
+02_v0_ai_build_instructions.txt
+-------------------------------
+- Complete technical specification
+- Project structure and file organization
+- UI wireframes (ASCII art)
+- Component specifications
+- API implementation code
+- Help tooltip system (Swedish texts)
+- Step-by-step user guidance
+- Styling guidelines
+
+03_v0_api_whitelabel_integration.txt
+------------------------------------
+- How to hide v0 completely
+- Backend proxy architecture
+- Self-hosted preview alternatives
+- Response sanitization
+- Caching strategies
+- Cost optimization
+- Legal considerations
+
+04_ux_category_structure.txt
+----------------------------
+- Detailed UX flow diagrams
+- Category segmentation logic
+- User journey maps
+- Decision tree for category selection
+- How enhancements work
+
+
+================================================================================
+                    QUICK START FOR AI
+================================================================================
+
+If you need to build this platform quickly:
+
+1. READ: 04_ux_category_structure.txt (understand the flow)
+2. READ: 02_v0_ai_build_instructions.txt (implementation details)
+3. BUILD: Start with the home page (category selection)
+4. BUILD: Add the builder page (preview + chat)
+5. INTEGRATE: Connect to v0 API via backend proxy
+6. TEST: Verify white-labeling works
+
+
+================================================================================
+                            END OF INDEX
+================================================================================
+

@@ -1,0 +1,592 @@
+================================================================================
+            HOW TO INSTRUCT AN AI TO BUILD THIS PROJECT
+            Complete Guide with Prompts for Each Phase
+================================================================================
+
+This document explains exactly how to use these files when working with
+an AI assistant to build your website builder platform.
+
+FOR YOU: Read this entire file before starting.
+FOR AI: This file is for the human, not you. Start with 00_INDEX_READ_FIRST.txt
+
+
+================================================================================
+                    QUICK START CHECKLIST
+================================================================================
+
+Before you begin, make sure you have:
+
+[ ] v0 Premium account ($20/month) - https://v0.app/pricing
+[ ] v0 API key (get from v0.app dashboard → Settings → API Keys)
+[ ] Auto-recharge ENABLED in v0 settings (required for Premium model!)
+[ ] API key saved in .env as: V0_API_KEY=your_key_here
+[ ] Node.js installed (v18+)
+[ ] Ran 'npm install ai @ai-sdk/vercel' in the /app folder
+[ ] Tested API works (run: node test_v0_api.mjs in project root)
+
+
+================================================================================
+            ⚠️ CRITICAL WARNING: API INTEGRATION ⚠️
+================================================================================
+
+DO NOT use direct fetch() to v0 API - it fails with 500 errors!
+ALWAYS use the official @ai-sdk/vercel package.
+
+❌ WRONG (causes 500 errors with premium model):
+   fetch('https://api.v0.dev/v1/chat/completions', ...)
+
+✅ CORRECT (works for all models):
+   import { generateText } from 'ai';
+   import { createVercel } from '@ai-sdk/vercel';
+   
+   const vercel = createVercel({ apiKey: process.env.V0_API_KEY });
+   const { text } = await generateText({ model: vercel('v0-1.5-lg'), prompt });
+
+
+================================================================================
+                    THREE QUALITY LEVELS
+================================================================================
+
+Your platform offers users THREE quality options:
+
+┌──────────────────────────────────────────────────────────────────────────────┐
+│ Option      │ Model      │ Cost (per 1M tokens) │ Best For                   │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ ⚡ Snabb    │ v0-1.5-md  │ $1.5 in / $7.5 out   │ Quick drafts, simple pages │
+│ ⭐ Standard │ v0-1.5-md  │ $1.5 in / $7.5 out   │ Most use cases             │
+│ 💎 Premium  │ v0-1.5-lg  │ $15 in / $75 out     │ Complex code, best quality │
+└──────────────────────────────────────────────────────────────────────────────┘
+
+NOTE: Snabb and Standard use the same model (both are v0-1.5-md).
+      Premium uses the larger model with 4x context window (512K tokens).
+
+
+================================================================================
+                    FILE OVERVIEW
+================================================================================
+
+MAIN FILES (give these to AI):
+------------------------------
+00_INDEX_READ_FIRST.txt              - AI starting point
+01_v0_project_report.txt             - Scope, timeline, priorities
+02_v0_ai_build_instructions.txt      - Full technical spec
+03_v0_api_whitelabel_integration.txt - API & white-label (Phase 4)
+04_ux_category_structure.txt         - UX flow & categories
+
+REFERENCE FILES (background only):
+----------------------------------
+reference/                           - Old research, don't need
+
+
+================================================================================
+                    THE 8 PHASES
+================================================================================
+
+Build this project in 8 separate AI conversations.
+Each phase = 1 conversation with clear goal.
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  PHASE 1: Home Page              │  Est. time: 1-2 hours                    │
+│  PHASE 2: Builder Layout         │  Est. time: 1-2 hours                    │
+│  PHASE 3: Chat & State           │  Est. time: 1-2 hours                    │
+│  PHASE 4: Backend API Proxy      │  Est. time: 2-3 hours                    │
+│  PHASE 5: Sandpack Preview       │  Est. time: 1-2 hours                    │
+│  PHASE 6: Enhancements Panel     │  Est. time: 1-2 hours                    │
+│  PHASE 7: Export Features        │  Est. time: 1-2 hours                    │
+│  PHASE 8: Polish & Deploy        │  Est. time: 2-3 hours                    │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+Total estimated: 10-18 hours of AI-assisted work
+
+
+================================================================================
+                    PHASE 1: HOME PAGE
+================================================================================
+
+GOAL: Create the landing page where users choose what to build.
+
+FILES TO GIVE AI:
+- 00_INDEX_READ_FIRST.txt
+- 04_ux_category_structure.txt
+- 02_v0_ai_build_instructions.txt (sections: PROJECT STRUCTURE, SCREEN 1)
+
+PROMPT TO USE:
+--------------
+I'm building a website builder platform called SajtMaskin.
+Users will create websites using AI (v0 API, but hidden/white-labeled).
+
+Please read these documentation files I'm providing.
+
+For this first phase, I need you to build the HOME PAGE:
+
+1. A grid of 7 category cards (from 04_ux_category_structure.txt):
+   - Landing Page, Full Website, Dashboard, E-commerce, Blog, Portfolio, Web App
+   
+2. Each card should have:
+   - Icon (use Lucide icons)
+   - Swedish title
+   - Brief description
+   - Help tooltip (?) with more info in Swedish
+   - Hover effect
+   
+3. Below the cards: "ELLER" divider and a text input for custom prompts
+
+4. Example prompts shown below the input
+
+5. Navigation to /builder when card clicked or prompt submitted
+
+Use the existing Next.js setup in /app with ShadCN UI.
+All visible text should be in Swedish. Code comments in English.
+
+Start by creating the page.tsx file for the home page.
+--------------
+
+TEST AFTER PHASE 1:
+- Run: cd app && npm run dev
+- Open: http://localhost:3000
+- Verify: Cards display, hover works, clicking navigates
+
+
+================================================================================
+                    PHASE 2: BUILDER LAYOUT
+================================================================================
+
+GOAL: Create the 3-panel builder page structure.
+
+FILES TO GIVE AI:
+- 02_v0_ai_build_instructions.txt (section: SCREEN 2: BUILDER)
+
+PROMPT TO USE:
+--------------
+Continuing from Phase 1. The home page is done.
+
+Now I need the BUILDER PAGE (/builder):
+
+1. Three-panel layout:
+   - Left (30%): Chat panel
+   - Right (70%): Preview panel
+   - Header with back button, title, export buttons
+   
+2. Chat panel should have:
+   - Scrollable message area (empty for now)
+   - Input field at bottom with send button
+   
+3. Preview panel should have:
+   - Large preview area (placeholder for now)
+   - Device toggle buttons: Desktop, Tablet, Mobile
+   - Toggle: Preview / Code
+   
+4. Responsive design:
+   - On mobile: stack vertically or use tabs
+   
+5. Get URL params (?type= or ?prompt=) but don't process yet
+
+Just build the layout and structure. No API calls yet.
+All text in Swedish. Use ShadCN components.
+--------------
+
+TEST AFTER PHASE 2:
+- Navigate from home to builder
+- Resize window - check responsive behavior
+- Device toggles visible (non-functional is OK)
+
+
+================================================================================
+                    PHASE 3: CHAT & STATE MANAGEMENT
+================================================================================
+
+GOAL: Make the chat panel functional with mock data.
+
+FILES TO GIVE AI:
+- 02_v0_ai_build_instructions.txt (section: STATE MANAGEMENT)
+
+PROMPT TO USE:
+--------------
+Continuing from Phase 2. The builder layout is done.
+
+Now I need CHAT FUNCTIONALITY with state management:
+
+1. Create a Zustand store (or useState) for:
+   - messages: Array of {role: 'user'|'ai', content: string}
+   - isLoading: boolean
+   - chatId: string | null
+   
+2. Chat panel should:
+   - Display messages with different styling for user vs AI
+   - Auto-scroll to bottom on new message
+   - Show loading indicator when isLoading
+   
+3. When user sends a message:
+   - Add to messages array
+   - Set isLoading = true
+   - After 2 seconds (mock delay), add AI response
+   - Set isLoading = false
+   
+4. Use mock responses for now, like:
+   "Här är din [type] sida! Jag har skapat en modern design med..."
+   
+5. When page loads with ?prompt= or ?type=:
+   - Auto-send the initial message
+   - Show generation in progress
+
+No real API yet - just mock data and UI.
+--------------
+
+TEST AFTER PHASE 3:
+- Type message, click send
+- See message appear
+- See loading state
+- See mock AI response
+- Auto-scroll works
+
+
+================================================================================
+                    PHASE 4: BACKEND API PROXY
+================================================================================
+
+GOAL: Connect to v0 API through your backend (hidden).
+
+FILES TO GIVE AI:
+- 03_v0_api_whitelabel_integration.txt (FULL FILE)
+
+PROMPT TO USE:
+--------------
+Continuing from Phase 3. Chat UI works with mock data.
+
+Now I need REAL API INTEGRATION with v0:
+
+1. Read the white-label integration guide I'm providing.
+
+2. Create API routes:
+   - /api/v0/generate (POST) - Create new chat
+   - /api/v0/refine (POST) - Send follow-up message
+   
+3. These routes should:
+   - Read V0_API_KEY from environment
+   - Call v0's API from backend (NEVER from frontend)
+   - Sanitize response to remove v0/Vercel references
+   - Return cleaned data to frontend
+   
+4. Update the frontend to:
+   - Call YOUR API routes (not v0 directly)
+   - Handle loading and errors
+   - Store the chatId for follow-up messages
+   
+5. For now, just get the TEXT response working.
+   Preview will come in next phase.
+
+Make sure users NEVER see v0 in network tab or responses.
+My API key is in .env.local as V0_API_KEY.
+--------------
+
+TEST AFTER PHASE 4:
+- Open browser DevTools → Network tab
+- Send a message
+- Verify: Only YOUR domain in network requests
+- Verify: AI response contains generated code description
+
+
+================================================================================
+                    PHASE 5: SANDPACK PREVIEW
+================================================================================
+
+GOAL: Show live preview using Sandpack (not v0's iframe).
+
+FILES TO GIVE AI:
+- This prompt is self-contained
+
+PROMPT TO USE:
+--------------
+Continuing from Phase 4. API works and returns generated code.
+
+Now I need LIVE PREVIEW using Sandpack:
+
+1. Install Sandpack:
+   npm install @codesandbox/sandpack-react
+
+2. When API returns generated files:
+   - Parse the files from response
+   - Pass them to Sandpack component
+   
+3. Sandpack setup:
+   - Template: "react" or "nextjs" 
+   - Show only preview (hide editor)
+   - Match our dark theme
+   
+4. Device size toggle should:
+   - Change Sandpack container width
+   - Desktop: 100%, Tablet: 768px, Mobile: 375px
+   
+5. Preview/Code toggle:
+   - Preview: Show Sandpack
+   - Code: Show syntax-highlighted code with tabs per file
+   
+6. Handle loading:
+   - Show skeleton while generating
+   - Show Sandpack once code is ready
+
+The key: NO v0 IFRAME. All preview is self-hosted via Sandpack.
+--------------
+
+TEST AFTER PHASE 5:
+- Generate a landing page
+- See live preview in Sandpack
+- Toggle device sizes
+- Toggle to Code view
+
+
+================================================================================
+                    PHASE 6: ENHANCEMENTS PANEL
+================================================================================
+
+GOAL: Add the "Add features" panel for Tier 2 enhancements.
+
+FILES TO GIVE AI:
+- 04_ux_category_structure.txt (section: TIER 2: ENHANCEMENTS)
+
+PROMPT TO USE:
+--------------
+Continuing from Phase 5. Preview works.
+
+Now I need the ENHANCEMENTS PANEL:
+
+1. Below the preview, add a collapsible panel:
+   "💡 LÄGG TILL (Tillägg)"
+   
+2. Four buttons:
+   - 🧩 Komponenter
+   - 🔐 Inloggning
+   - ✨ Animationer
+   - 🤖 AI-chatt
+   
+3. When clicking "Komponenter", show dropdown:
+   - Prissättningstabell
+   - Kundrecensioner
+   - FAQ
+   - Kontaktformulär
+   - Nyhetsbrev
+   - etc. (from documentation)
+   
+4. Selecting an enhancement:
+   - Adds a message to chat: "Lägg till [enhancement]"
+   - Sends to API
+   - Updates preview
+   
+5. Add tooltip (?) on each button explaining what it does.
+
+All text in Swedish.
+--------------
+
+TEST AFTER PHASE 6:
+- Generate initial page
+- Click "Komponenter"
+- Select "Prissättningstabell"
+- See chat update
+- See preview update with new section
+
+
+================================================================================
+                    PHASE 7: EXPORT FEATURES
+================================================================================
+
+GOAL: Let users download their code.
+
+FILES TO GIVE AI:
+- This prompt is self-contained
+
+PROMPT TO USE:
+--------------
+Continuing from Phase 6. Enhancements work.
+
+Now I need EXPORT FEATURES:
+
+1. "Ladda ner" button in header:
+   - Creates ZIP file with all generated files
+   - Uses jszip library
+   - Includes README.md with setup instructions
+   
+2. Code viewer improvements:
+   - Tabs for each file
+   - Syntax highlighting (use Prism or highlight.js)
+   - "Kopiera" button per file
+   - Line numbers
+   
+3. ZIP should contain:
+   - All component files
+   - CSS/Tailwind files
+   - A package.json snippet
+   - README with "npm install" instructions
+   
+4. Install jszip:
+   npm install jszip file-saver
+   npm install prismjs (for syntax highlighting)
+
+When user downloads, they should be able to:
+1. Unzip
+2. Copy files to their project
+3. Run npm install
+4. It works!
+--------------
+
+TEST AFTER PHASE 7:
+- Generate a page
+- Click "Ladda ner"
+- ZIP downloads
+- Unzip and verify contents
+- Code viewer shows all files with highlighting
+
+
+================================================================================
+                    PHASE 8: POLISH & DEPLOY
+================================================================================
+
+GOAL: Final polish and deployment preparation.
+
+FILES TO GIVE AI:
+- 02_v0_ai_build_instructions.txt (sections: HELP TOOLTIPS, STEP-BY-STEP GUIDANCE)
+
+PROMPT TO USE:
+--------------
+Final phase! Everything works. Now I need POLISH:
+
+1. Add step indicator:
+   "Steg 1 av 4: Välj kategori"
+   "Steg 2 av 4: AI genererar..."
+   etc.
+   
+2. Add all help tooltips (?) from documentation:
+   - On each category card
+   - On chat input
+   - On preview
+   - On export buttons
+   - Swedish text with value ratings
+   
+3. Loading states:
+   - Skeleton while generating
+   - Progress messages: "Analyserar...", "Designar...", "Bygger..."
+   
+4. Error handling:
+   - Toast messages for errors
+   - Retry button
+   - Graceful fallbacks
+   
+5. Check mobile responsive on all pages
+
+6. Prepare for Render.com:
+   - Verify environment variables work
+   - Check build command: npm run build
+   - Check start command: npm run start
+
+7. Final code review:
+   - No v0/Vercel mentions visible
+   - All text in Swedish
+   - Clean console (no errors)
+--------------
+
+TEST AFTER PHASE 8:
+- Full flow: Home → Generate → Refine → Download
+- Check mobile view
+- Check all tooltips
+- Run: npm run build (should succeed)
+- Ready to deploy!
+
+
+================================================================================
+                    API KEY SETUP
+================================================================================
+
+Your v0 API key should be stored securely:
+
+FOR LOCAL DEVELOPMENT:
+----------------------
+File: /app/.env.local (create if not exists)
+
+V0_API_KEY=your_v0_api_key_here
+
+This file is gitignored - safe from commits.
+
+
+FOR PRODUCTION (Render.com):
+----------------------------
+1. Go to Render dashboard
+2. Select your service
+3. Go to Environment → Environment Variables
+4. Add: V0_API_KEY = your_key
+
+
+TO TEST YOUR API KEY:
+---------------------
+Run the test script in project root:
+
+cd C:\Users\Propietario\Desktop\sajtmaskin
+node test_v0_api.js
+
+This will verify your API key works.
+
+
+================================================================================
+                    COMMON PROBLEMS & SOLUTIONS
+================================================================================
+
+PROBLEM: "API key not found"
+SOLUTION: Make sure .env.local is in /app folder, not root
+
+PROBLEM: "v0 visible in network tab"
+SOLUTION: All API calls must go through YOUR /api routes
+
+PROBLEM: "Preview doesn't show"
+SOLUTION: Check Sandpack receives files in correct format
+
+PROBLEM: "Swedish characters broken (ä, ö, å)"
+SOLUTION: Ensure UTF-8 encoding in files and API responses
+
+PROBLEM: "Rate limited by v0"
+SOLUTION: Add caching (see white-label guide)
+
+PROBLEM: "Build fails on Render"
+SOLUTION: Check all environment variables are set
+
+
+================================================================================
+                    FINAL TIPS
+================================================================================
+
+1. ONE PHASE AT A TIME
+   Don't rush. Test each phase before moving on.
+
+2. SAVE YOUR PROGRESS
+   Commit to Git after each working phase.
+
+3. MOCK DATA FIRST
+   Test UI before connecting real API.
+
+4. CHECK NETWORK TAB
+   Regularly verify v0 is hidden.
+
+5. KEEP CONTEXT
+   Start each AI conversation with:
+   "Continuing SajtMaskin project. Phase X is done. Now Phase Y..."
+
+6. ASK FOR CLARIFICATION
+   If AI does something wrong, explain and ask to fix.
+
+7. REFERENCE DOCUMENTATION
+   Point AI to specific sections in the docs.
+
+
+================================================================================
+                    GOOD LUCK! 🚀
+================================================================================
+
+You have everything you need:
+- Complete documentation
+- Step-by-step phases  
+- Exact prompts to use
+- Test instructions
+
+Build something amazing!
+
+
+================================================================================
+                        END OF GUIDE
+================================================================================

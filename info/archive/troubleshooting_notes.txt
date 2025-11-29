@@ -1,0 +1,225 @@
+================================================================================
+           FELRAPPORT & INSTRUKTIONER - CURSOR/VS CODE TERMINAL
+================================================================================
+
+DATUM: November 2024
+GÄLLER: Windows 11, Cursor, VS Code
+
+================================================================================
+                            VAD VAR FELET?
+================================================================================
+
+HUVUDPROBLEMET: Felaktig terminal-sökväg
+
+I både Cursor och VS Code globala inställningar fanns denna rad:
+
+    "terminal.integrated.cwd": "%USERPROFILE%"
+
+PROBLEMET:
+%USERPROFILE% är Windows CMD-syntax för miljövariabler, men Cursor/VS Code
+förstår INTE denna syntax. Istället behandlades %USERPROFILE% som en bokstavlig
+textsträng och lades till på slutet av workspace-sökvägen:
+
+    FEL:  C:\Users\Propietario\Desktop\sajtstudio\%USERPROFILE%
+
+Denna mapp existerar inte -> terminalen kunde inte starta -> allt hängde sig.
+
+SEKUNDÄRA PROBLEM:
+- Korrupt cache i Cursor
+- Duplicerade keybindings
+
+================================================================================
+                          SYMPTOM ATT KÄNNA IGEN
+================================================================================
+
+- Terminal startar inte
+- Felmeddelande med konstiga sökvägar (t.ex. %USERPROFILE% som text i sökvägen)
+- Kan inte spara filer
+- Kommandon hänger sig
+- Keybindings fungerar inte som förväntat
+- Extensions klagar på saknade profiler
+
+================================================================================
+                     STEG-FÖR-STEG LÖSNING
+================================================================================
+
+STEG 1: Stäng Cursor/VS Code helt
+        (Kontrollera i Aktivitetshanteraren att inga processer körs)
+
+STEG 2: Öppna PowerShell från Windows Start-meny (INTE inne i Cursor)
+
+STEG 3: Rensa cache med följande kommandon:
+
+FÖR CURSOR:
+-----------
+Remove-Item -Path "$env:APPDATA\Cursor\Cache" -Recurse -Force -ErrorAction SilentlyContinue
+Remove-Item -Path "$env:APPDATA\Cursor\CachedData" -Recurse -Force -ErrorAction SilentlyContinue
+Remove-Item -Path "$env:APPDATA\Cursor\User\workspaceStorage" -Recurse -Force -ErrorAction SilentlyContinue
+
+FÖR VS CODE:
+------------
+Remove-Item -Path "$env:APPDATA\Code\Cache" -Recurse -Force -ErrorAction SilentlyContinue
+Remove-Item -Path "$env:APPDATA\Code\CachedData" -Recurse -Force -ErrorAction SilentlyContinue
+Remove-Item -Path "$env:APPDATA\Code\User\workspaceStorage" -Recurse -Force -ErrorAction SilentlyContinue
+
+STEG 4: Kontrollera och redigera settings.json
+
+FÖR CURSOR:
+    notepad "$env:APPDATA\Cursor\User\settings.json"
+
+FÖR VS CODE:
+    notepad "$env:APPDATA\Code\User\settings.json"
+
+Leta efter och TA BORT rader som innehåller:
+- %USERPROFILE%
+- %APPDATA%
+- Andra Windows-miljövariabler i sökvägar
+
+STEG 5: Starta Cursor/VS Code igen
+
+================================================================================
+                    KORREKT SYNTAX FÖR SÖKVÄGAR
+================================================================================
+
+I Cursor/VS Code settings.json ska du använda DERAS syntax, inte Windows CMD:
+
+RÄTT (Cursor/VS Code syntax):
+-----------------------------
+${userHome}           -> Din hemmapp (C:\Users\Propietario)
+${workspaceFolder}    -> Aktuell projektmapp
+${env:VARIABEL}       -> Miljövariabel (t.ex. ${env:USERPROFILE})
+
+FEL (Windows CMD syntax - fungerar INTE):
+-----------------------------------------
+%USERPROFILE%
+%APPDATA%
+%PATH%
+
+EXEMPEL PÅ KORREKTA INSTÄLLNINGAR:
+----------------------------------
+{
+    "terminal.integrated.cwd": "${workspaceFolder}"
+}
+
+ELLER (för hemmapp som standard):
+{
+    "terminal.integrated.cwd": "${userHome}"
+}
+
+================================================================================
+                    FILPLATSER ATT KÄNNA TILL
+================================================================================
+
+CURSOR:
+-------
+Inställningar:    %APPDATA%\Cursor\User\settings.json
+Keybindings:      %APPDATA%\Cursor\User\keybindings.json
+Cache:            %APPDATA%\Cursor\Cache\
+Extensions:       %USERPROFILE%\.cursor\extensions\
+
+VS CODE:
+--------
+Inställningar:    %APPDATA%\Code\User\settings.json
+Keybindings:      %APPDATA%\Code\User\keybindings.json
+Cache:            %APPDATA%\Code\Cache\
+Extensions:       %USERPROFILE%\.vscode\extensions\
+
+WORKSPACE-SPECIFIKT:
+--------------------
+Workspace settings:    .vscode\settings.json (i projektmappen)
+Workspace file:        *.code-workspace
+
+================================================================================
+                    FULLSTÄNDIG ÅTERSTÄLLNING (sista utvägen)
+================================================================================
+
+Om inget annat fungerar kan du göra en fullständig återställning.
+VARNING: Detta raderar ALLA inställningar och extensions!
+
+FÖR CURSOR:
+-----------
+# Säkerhetskopiera först
+Copy-Item -Path "$env:APPDATA\Cursor" -Destination "$env:APPDATA\Cursor_backup" -Recurse
+
+# Radera allt
+Remove-Item -Path "$env:APPDATA\Cursor" -Recurse -Force
+Remove-Item -Path "$env:USERPROFILE\.cursor" -Recurse -Force
+
+FÖR VS CODE:
+------------
+# Säkerhetskopiera först
+Copy-Item -Path "$env:APPDATA\Code" -Destination "$env:APPDATA\Code_backup" -Recurse
+
+# Radera allt
+Remove-Item -Path "$env:APPDATA\Code" -Recurse -Force
+Remove-Item -Path "$env:USERPROFILE\.vscode" -Recurse -Force
+
+================================================================================
+                    REKOMMENDERADE INSTÄLLNINGAR
+================================================================================
+
+Här är en bra grundkonfiguration för settings.json:
+
+{
+    "terminal.integrated.defaultProfile.windows": "PowerShell",
+    "terminal.integrated.profiles.windows": {
+        "PowerShell": {
+            "path": "pwsh.exe"
+        },
+        "Command Prompt": {
+            "path": "C:\\Windows\\System32\\cmd.exe"
+        }
+    },
+    "terminal.integrated.copyOnSelection": true,
+    "terminal.integrated.rightClickBehavior": "paste",
+    "terminal.integrated.sendKeybindingsToShell": false,
+    "terminal.integrated.env.windows": {
+        "PYTHONUTF8": "1",
+        "PYTHONIOENCODING": "utf-8"
+    },
+    "files.autoSave": "off",
+    "editor.formatOnSave": false
+}
+
+================================================================================
+                    NYTTIGA TANGENTBORDSKOMMANDON
+================================================================================
+
+Avbryta körande kommando:     Ctrl+C (i terminalen)
+Öppna ny terminal:            Ctrl+Shift+ö  eller  Ctrl+`
+Stänga terminal:              Skriv "exit" eller klicka X på tabben
+Döda hängande terminal:       Högerklicka på terminal -> "Kill Terminal"
+Öppna Command Palette:        Ctrl+Shift+P
+Öppna User Settings:          Ctrl+,
+Öppna Settings JSON:          Ctrl+Shift+P -> "Preferences: Open User Settings (JSON)"
+
+================================================================================
+                    DIAGNOSTIK-KOMMANDON
+================================================================================
+
+Kör dessa i PowerShell för att felsöka:
+
+# Vilken PowerShell används?
+(Get-Process -Id $PID).Path
+
+# PowerShell version
+$PSVersionTable.PSVersion
+
+# Aktuell användare och rättigheter
+whoami /all
+
+# Testa skrivrättigheter till Cursor-mappen
+$testFile = "$env:APPDATA\Cursor\User\test.tmp"
+"test" | Out-File $testFile
+if (Test-Path $testFile) {
+    Write-Host "Skrivrättigheter OK"
+    Remove-Item $testFile
+}
+
+# Lista alla körande Cursor/Code-processer
+Get-Process | Where-Object { $_.Name -match "cursor|code" }
+
+================================================================================
+                              SLUT
+================================================================================
+
