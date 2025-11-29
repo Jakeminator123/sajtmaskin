@@ -196,7 +196,10 @@ export async function generateCode(
   console.log("[v0-generator] Files count:", chat.latestVersion?.files?.length);
 
   // If version is not ready yet, poll for completion
-  if (chat.latestVersion?.status !== "ready" && chat.latestVersion?.status !== "completed") {
+  if (
+    chat.latestVersion?.status !== "ready" &&
+    chat.latestVersion?.status !== "completed"
+  ) {
     const readyChat = await waitForVersionReady(chat.id);
     if (readyChat) {
       chat = readyChat;
@@ -235,7 +238,10 @@ export async function generateCode(
     );
   }
 
-  console.log("[v0-generator] Generation complete, demoUrl:", chat.latestVersion?.demoUrl);
+  console.log(
+    "[v0-generator] Generation complete, demoUrl:",
+    chat.latestVersion?.demoUrl
+  );
 
   return {
     code: combinedCode,
@@ -275,10 +281,16 @@ export async function refineCode(
       },
     })) as ChatDetail;
 
-    console.log("[v0-generator] Message sent, version status:", chat.latestVersion?.status);
+    console.log(
+      "[v0-generator] Message sent, version status:",
+      chat.latestVersion?.status
+    );
 
     // If version is not ready yet, poll for completion
-    if (chat.latestVersion?.status !== "ready" && chat.latestVersion?.status !== "completed") {
+    if (
+      chat.latestVersion?.status !== "ready" &&
+      chat.latestVersion?.status !== "completed"
+    ) {
       const readyChat = await waitForVersionReady(existingChatId);
       if (readyChat) {
         chat = readyChat;
@@ -299,7 +311,10 @@ export async function refineCode(
           f.name.endsWith(".tsx")
       ) || files[0];
 
-    console.log("[v0-generator] Refinement complete, demoUrl:", chat.latestVersion?.demoUrl);
+    console.log(
+      "[v0-generator] Refinement complete, demoUrl:",
+      chat.latestVersion?.demoUrl
+    );
 
     return {
       code: mainFile?.content || chat.text || "",

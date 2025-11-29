@@ -157,10 +157,8 @@ export const useBuilderStore = create<BuilderState>()(
 
       // Save to database (debounced)
       saveToDatabase: async () => {
-        const state = get();
-
-        // Don't save if no project
-        if (!state.projectId) {
+        // Quick check if we have a project (use current state)
+        if (!get().projectId) {
           return;
         }
 
@@ -169,12 +167,19 @@ export const useBuilderStore = create<BuilderState>()(
           clearTimeout(saveTimeout);
         }
 
-        // Debounce saves
+        // Debounce saves - get FRESH state inside the callback
         saveTimeout = setTimeout(async () => {
+          const state = get(); // Get fresh state at save time!
+          
+          // Double-check projectId still exists
+          if (!state.projectId) {
+            return;
+          }
+
           set({ isSaving: true });
 
           try {
-            await apiSaveProjectData(state.projectId!, {
+            await apiSaveProjectData(state.projectId, {
               chatId: state.chatId || undefined,
               demoUrl: state.demoUrl || undefined,
               currentCode: state.currentCode || undefined,

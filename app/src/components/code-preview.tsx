@@ -266,7 +266,10 @@ export function CodePreview() {
                   src={demoUrl}
                   className="w-full h-full border-0"
                   title="Website Preview"
-                  sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+                  sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-downloads allow-presentation"
+                  allow="accelerometer; camera; encrypted-media; geolocation; gyroscope; microphone; midi; payment; usb; xr-spatial-tracking"
+                  referrerPolicy="no-referrer-when-downgrade"
+                  loading="eager"
                 />
               </div>
             ) : currentCode ? (
