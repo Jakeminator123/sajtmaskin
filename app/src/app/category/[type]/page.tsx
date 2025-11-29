@@ -5,6 +5,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { HelpTooltip } from "@/components/help-tooltip";
+import { TemplateCard } from "@/components/template-card";
 import {
   ArrowLeft,
   Rocket,
@@ -14,8 +15,13 @@ import {
   LayoutDashboard,
   Zap,
   Loader2,
+  Layout,
 } from "lucide-react";
 import { getCategory, type QuickPrompt } from "@/lib/template-data";
+import {
+  getTemplatesForCategory,
+  type CuratedTemplate,
+} from "@/lib/curated-templates";
 import { createProject } from "@/lib/project-client";
 
 // Icon mapping
@@ -31,8 +37,10 @@ export default function CategoryPage() {
   const router = useRouter();
   const type = params.type as string;
   const [prompt, setPrompt] = useState("");
+  const [isCreating, setIsCreating] = useState(false);
 
   const category = getCategory(type);
+  const templates = getTemplatesForCategory(type);
 
   if (!category) {
     return (
@@ -48,7 +56,6 @@ export default function CategoryPage() {
   }
 
   const Icon = iconMap[category.icon] || FileText;
-  const [isCreating, setIsCreating] = useState(false);
 
   const handlePromptSubmit = async () => {
     if (prompt.trim() && !isCreating) {
@@ -61,7 +68,9 @@ export default function CategoryPage() {
           prompt.trim().substring(0, 100)
         );
         router.push(
-          `/builder?project=${project.id}&type=${type}&prompt=${encodeURIComponent(prompt.trim())}`
+          `/builder?project=${
+            project.id
+          }&type=${type}&prompt=${encodeURIComponent(prompt.trim())}`
         );
       } catch (error) {
         console.error("Failed to create project:", error);
@@ -81,11 +90,33 @@ export default function CategoryPage() {
         quickPrompt.prompt.substring(0, 100)
       );
       router.push(
-        `/builder?project=${project.id}&type=${type}&prompt=${encodeURIComponent(quickPrompt.prompt)}`
+        `/builder?project=${
+          project.id
+        }&type=${type}&prompt=${encodeURIComponent(quickPrompt.prompt)}`
       );
     } catch (error) {
       console.error("Failed to create project:", error);
       setIsCreating(false);
+    }
+  };
+
+  const handleTemplateSelect = async (template: CuratedTemplate) => {
+    if (isCreating) return;
+    setIsCreating(true);
+    try {
+      // Create project in database
+      const project = await createProject(
+        `${template.name} - ${new Date().toLocaleDateString("sv-SE")}`,
+        type,
+        `Baserat på mall: ${template.name}`
+      );
+      // Navigate to builder with templateId
+      router.push(`/builder?project=${project.id}&templateId=${template.id}`);
+    } catch (error) {
+      console.error("Failed to create project from template:", error);
+      setIsCreating(false);
+      // Re-throw so template-card can reset its loading state
+      throw error;
     }
   };
 
@@ -103,7 +134,7 @@ export default function CategoryPage() {
 
       <div className="relative min-h-screen px-4 py-8">
         {/* Header */}
-        <div className="max-w-4xl mx-auto mb-8">
+        <div className="max-w-5xl mx-auto mb-8">
           <Link href="/">
             <Button
               variant="ghost"
@@ -128,7 +159,7 @@ export default function CategoryPage() {
           </div>
         </div>
 
-        <div className="max-w-4xl mx-auto space-y-8">
+        <div className="max-w-5xl mx-auto space-y-10">
           {/* Section 1: Custom prompt */}
           <section>
             <div className="flex items-center gap-2 mb-4">
@@ -182,8 +213,9 @@ export default function CategoryPage() {
                   <Button
                     key={quickPrompt.label}
                     onClick={() => handleQuickPrompt(quickPrompt)}
+                    disabled={isCreating}
                     variant="outline"
-                    className="h-auto py-4 px-4 flex flex-col items-start text-left gap-1 bg-zinc-900/50 border-zinc-700 hover:border-amber-500/50 hover:bg-amber-500/5 transition-all group"
+                    className="h-auto py-4 px-4 flex flex-col items-start text-left gap-1 bg-zinc-900/50 border-zinc-700 hover:border-amber-500/50 hover:bg-amber-500/5 transition-all group disabled:opacity-50"
                   >
                     <span className="font-medium text-zinc-200 group-hover:text-amber-300">
                       {quickPrompt.label}
@@ -197,17 +229,33 @@ export default function CategoryPage() {
             </section>
           )}
 
-          {/* Info about templates - coming soon */}
-          <section className="opacity-50">
-            <div className="bg-zinc-900/30 border border-zinc-800/50 rounded-xl p-6 text-center">
-              <p className="text-zinc-500 text-sm">
-                🎨 Färdiga mallar från v0 kommer snart...
+          {/* Section 3: Pre-made templates from v0 */}
+          {templates.length > 0 && (
+            <section>
+              <div className="flex items-center gap-2 mb-4">
+                <Layout className="h-5 w-5 text-emerald-400" />
+                <h2 className="text-lg font-semibold text-zinc-100">
+                  Färdiga mallar
+                </h2>
+                <HelpTooltip text="Populära mallar från v0-communityt. Klicka för att använda som startpunkt och anpassa efter dina behov." />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {templates.map((template) => (
+                  <TemplateCard
+                    key={template.id}
+                    template={template}
+                    onSelect={handleTemplateSelect}
+                    disabled={isCreating}
+                  />
+                ))}
+              </div>
+
+              <p className="text-xs text-zinc-600 text-center mt-4">
+                Klicka på en mall för att använda den som grund för ditt projekt
               </p>
-              <p className="text-zinc-600 text-xs mt-1">
-                Använd snabbvalen ovan för att komma igång snabbt!
-              </p>
-            </div>
-          </section>
+            </section>
+          )}
         </div>
       </div>
     </main>

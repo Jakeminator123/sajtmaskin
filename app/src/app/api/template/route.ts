@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { generateFromTemplate } from "@/lib/v0-generator";
 
+// Allow 5 minutes for v0 API responses
+export const maxDuration = 300;
+
 // Fun loading messages for template initialization
 const loadingMessages = [
   "Laddar template...",

@@ -2,6 +2,9 @@
 // POST /api/generate
 
 import { NextRequest, NextResponse } from "next/server";
+
+// Allow 5 minutes for v0 API responses
+export const maxDuration = 300;
 import {
   generateCode,
   sanitizeCode,

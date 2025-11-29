@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
+import { getCategory, CATEGORIES } from "@/lib/template-data";
 import {
-  getCategory,
   getTemplatesForCategory,
-  CATEGORIES,
-} from "@/lib/template-data";
+  getAllTemplates,
+  CURATED_TEMPLATES,
+} from "@/lib/curated-templates";
 
 /**
  * GET /api/templates
- * List templates, optionally filtered by category
+ * List curated templates, optionally filtered by category
  */
 export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
@@ -23,26 +24,33 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const templates = getTemplatesForCategory(categoryId);
+
     return NextResponse.json({
       category: {
         id: category.id,
         title: category.title,
         description: category.description,
       },
-      templates: category.templates,
+      templates,
     });
   }
 
   // Return all categories with their templates
-  const categoriesData = Object.values(CATEGORIES).map((cat) => ({
-    id: cat.id,
-    title: cat.title,
-    description: cat.description,
-    templateCount: cat.templates.length,
-    templates: cat.templates,
-  }));
+  const categoriesData = Object.keys(CATEGORIES).map((catId) => {
+    const cat = CATEGORIES[catId];
+    const templates = getTemplatesForCategory(catId);
+    return {
+      id: cat.id,
+      title: cat.title,
+      description: cat.description,
+      templateCount: templates.length,
+      templates,
+    };
+  });
 
   return NextResponse.json({
     categories: categoriesData,
+    totalTemplates: getAllTemplates().length,
   });
 }
