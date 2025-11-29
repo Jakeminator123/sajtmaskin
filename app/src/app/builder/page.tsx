@@ -1,0 +1,133 @@
+"use client";
+
+import { useSearchParams } from "next/navigation";
+import { Suspense, useEffect } from "react";
+import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { QualitySelector } from "@/components/quality-selector";
+import { ChatPanel } from "@/components/chat-panel";
+import { CodePreview } from "@/components/code-preview";
+import { HelpTooltip } from "@/components/help-tooltip";
+import { useBuilderStore } from "@/lib/store";
+import { ArrowLeft, Download, Rocket } from "lucide-react";
+
+// Category titles in Swedish
+const categoryTitles: Record<string, string> = {
+  "landing-page": "Landing Page",
+  website: "Hemsida",
+  dashboard: "Dashboard",
+  ecommerce: "Webbshop",
+  blog: "Blogg",
+  portfolio: "Portfolio",
+  webapp: "Web App",
+};
+
+function BuilderContent() {
+  const searchParams = useSearchParams();
+  const type = searchParams.get("type");
+  const prompt = searchParams.get("prompt");
+
+  const { quality, setQuality, clearChat } = useBuilderStore();
+
+  // Clear chat when navigating to builder with new params
+  useEffect(() => {
+    clearChat();
+  }, [type, prompt, clearChat]);
+
+  const title = type
+    ? categoryTitles[type] || type
+    : prompt
+      ? "Egen beskrivning"
+      : "Ny webbplats";
+
+  return (
+    <div className="min-h-screen bg-zinc-950 flex flex-col">
+      {/* Header */}
+      <header className="h-14 border-b border-zinc-800 flex items-center justify-between px-4 bg-zinc-900/50 backdrop-blur-sm">
+        <div className="flex items-center gap-4">
+          <Link href="/">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="gap-2 text-zinc-400 hover:text-zinc-100"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Tillbaka
+            </Button>
+          </Link>
+          <div className="h-5 w-px bg-zinc-800" />
+          <div className="flex items-center gap-2">
+            <Rocket className="h-5 w-5 text-blue-500" />
+            <span className="font-semibold text-zinc-100">SajtMaskin</span>
+            <span className="text-zinc-500">|</span>
+            <span className="text-zinc-400">{title}</span>
+          </div>
+        </div>
+        <div className="flex items-center gap-3">
+          <QualitySelector value={quality} onChange={setQuality} />
+          <div className="h-5 w-px bg-zinc-800" />
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2 border-zinc-700 text-zinc-300 hover:bg-zinc-800"
+          >
+            <Download className="h-4 w-4" />
+            Ladda ner
+            <HelpTooltip text="Laddar ner alla genererade filer som en ZIP-fil. Packa upp och lägg filerna i ditt projekt." />
+          </Button>
+          <Button size="sm" className="gap-2 bg-blue-600 hover:bg-blue-500">
+            <Rocket className="h-4 w-4" />
+            Publicera
+            <HelpTooltip text="Publicerar din webbplats live på internet med ett klick. Du får en unik URL inom ~60 sekunder." />
+          </Button>
+        </div>
+      </header>
+
+      {/* Main content - 3 panel layout */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Chat Panel (30%) */}
+        <div className="w-[30%] min-w-[300px] border-r border-zinc-800 bg-zinc-900/30">
+          <ChatPanel
+            categoryType={type || undefined}
+            initialPrompt={prompt || undefined}
+          />
+        </div>
+
+        {/* Preview Panel (70%) */}
+        <div className="flex-1">
+          <CodePreview />
+        </div>
+      </div>
+
+      {/* Step indicator */}
+      <div className="h-10 border-t border-zinc-800 flex items-center justify-center bg-zinc-900/50">
+        <p className="text-xs text-zinc-500">
+          Steg 3 av 4: Granska och förfina
+          <HelpTooltip text="Du kan fortsätta förfina din design genom att skicka fler instruktioner i chatten. När du är nöjd, ladda ner eller publicera!" />
+        </p>
+      </div>
+    </div>
+  );
+}
+
+export default function BuilderPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
+          <div className="flex gap-2">
+            {[1, 2, 3].map((i) => (
+              <div
+                key={i}
+                className="w-3 h-3 rounded-full bg-blue-500 animate-pulse"
+                style={{ animationDelay: `${i * 150}ms` }}
+              />
+            ))}
+          </div>
+        </div>
+      }
+    >
+      <BuilderContent />
+    </Suspense>
+  );
+}

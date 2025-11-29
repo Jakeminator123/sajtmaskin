@@ -10,6 +10,8 @@
   },
   "dependencies": {
     "@ai-sdk/vercel": "^1.0.29",
+    "@radix-ui/react-scroll-area": "^1.2.10",
+    "@radix-ui/react-tooltip": "^1.2.8",
     "ai": "^5.0.104",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
@@ -17,7 +19,8 @@
     "next": "^15.1.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "tailwind-merge": "^2.6.0"
+    "tailwind-merge": "^2.6.0",
+    "zustand": "^5.0.8"
   },
   "devDependencies": {
     "@types/node": "^22.10.1",

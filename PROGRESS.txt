@@ -1,0 +1,161 @@
+================================================================================
+                    SAJTMASKIN - BYGGPROGRESS
+                    Senast uppdaterad: 2024-11-29
+================================================================================
+
+PROJEKTÖVERSIKT
+---------------
+Bygger en white-label webbplatsbyggare med v0 API.
+Användare väljer kategori → AI genererar kod → Användare förfinar → Exporterar.
+
+================================================================================
+                    FAS 1: STARTSIDAN ✅ KLAR
+================================================================================
+
+[✅] Installera ShadCN-komponenter (card, input, textarea, tooltip, scroll-area)
+[✅] Skapa HelpTooltip-komponent med (?) ikon och svenska texter
+[✅] Skapa TemplateGallery med 7 kategorikort och hover-effekter
+[✅] Skapa PromptInput-komponent med textarea och skicka-knapp
+[✅] Skapa QualitySelector-komponent (Snabb/Standard/Premium)
+[✅] Implementera startsidan med alla komponenter och design
+[✅] Skapa placeholder builder-sida som läser URL-parametrar
+
+SKAPADE FILER:
+- app/src/components/help-tooltip.tsx
+- app/src/components/template-gallery.tsx
+- app/src/components/prompt-input.tsx
+- app/src/components/quality-selector.tsx
+- app/src/app/page.tsx (uppdaterad)
+- app/src/app/builder/page.tsx (ny)
+- app/src/app/globals.css (uppdaterad för mörkt tema)
+- app/src/components/ui/*.tsx (ShadCN komponenter)
+
+================================================================================
+                    FAS 2: CHAT & STATE ✅ KLAR
+================================================================================
+
+[✅] Installera Zustand för state management
+[✅] Skapa Zustand store med:
+    - messages: Array av chat-meddelanden
+    - isLoading: boolean
+    - chatId: string | null
+    - currentCode: string | null
+    - viewMode, deviceSize, quality
+
+[✅] Skapa ChatMessage-komponent med user/AI styling
+[✅] Skapa ChatPanel med:
+    - Meddelandehistorik
+    - Auto-scroll till senaste meddelande
+    - Loading-indikator
+    - Input för nya meddelanden
+
+[✅] Skapa mock AI-svar med:
+    - 2-4 sekunders delay (simulerar API)
+    - Olika svar per kategori (landing-page, dashboard, etc.)
+    - Svensk text i alla svar
+    - Mock-kod för varje kategori
+
+[✅] Skapa CodePreview-komponent med:
+    - Preview/Kod toggle
+    - Enhetstogglar (desktop/tablet/mobil)
+    - Kopiera-knapp för kod
+
+[✅] Auto-generering vid sidladdning:
+    - ?type=kategori → genererar automatiskt
+    - ?prompt=text → genererar baserat på prompten
+
+SKAPADE FILER:
+- app/src/lib/store.ts (Zustand store)
+- app/src/lib/mock-generator.ts (Mock AI-svar)
+- app/src/components/chat-message.tsx
+- app/src/components/chat-panel.tsx
+- app/src/components/code-preview.tsx
+- app/src/app/builder/page.tsx (uppdaterad)
+
+================================================================================
+                    FAS 3: BACKEND API PROXY ⏳ NÄSTA
+================================================================================
+
+[ ] Skapa /api/generate route
+[ ] Skapa /api/refine route
+[ ] Implementera v0 API-anrop via @ai-sdk/vercel
+[ ] Sanera svar (ta bort v0/Vercel-referenser)
+[ ] Hantera kvalitetsnivåer (budget/standard/premium)
+[ ] Ersätt mock-generator med riktiga API-anrop
+
+KRÄVER: v0 API-nyckel i app/.env.local
+  V0_API_KEY=din_nyckel_här
+
+================================================================================
+                    FAS 4: SANDPACK PREVIEW ⬚ VÄNTAR
+================================================================================
+
+[ ] Installera @codesandbox/sandpack-react
+[ ] Parsa genererad kod till filer
+[ ] Konfigurera Sandpack med React-template
+[ ] Implementera live preview av genererad kod
+[ ] Synkronisera med enhetstogglar
+
+================================================================================
+                    FAS 5: ENHANCEMENTS PANEL ⬚ VÄNTAR
+================================================================================
+
+[ ] Skapa kollapsbar panel under preview
+[ ] Lägg till knappar: Komponenter, Inloggning, Animationer, AI-chatt
+[ ] Implementera dropdown för komponentval
+[ ] Koppla val till chat (skickar meddelande)
+
+================================================================================
+                    FAS 6: EXPORT FEATURES ⬚ VÄNTAR
+================================================================================
+
+[ ] Installera jszip och file-saver
+[ ] Implementera ZIP-export
+[ ] Lägg till syntax highlighting (prismjs)
+[ ] Skapa kodvisare med flikar per fil
+[ ] Kopiera-knapp per fil
+
+================================================================================
+                    FAS 7: POLISH & DEPLOY ⬚ VÄNTAR
+================================================================================
+
+[ ] Lägg till stegindikator
+[ ] Lägg till alla hjälp-tooltips
+[ ] Implementera loading-states med progressmeddelanden
+[ ] Felhantering med toast-meddelanden
+[ ] Kontrollera mobilresponsivitet
+[ ] Förbered för Render.com-deployment
+[ ] Slutlig kodgranskning (ingen v0-branding synlig)
+
+================================================================================
+                    TEKNISK INFO
+================================================================================
+
+KÖRA PROJEKTET:
+  cd app
+  npm run dev
+  → Öppna http://localhost:3000
+
+API-NYCKEL (för Fas 3+):
+  Skapa fil: app/.env.local
+  Innehåll: V0_API_KEY=din_nyckel_här
+
+INSTALLERADE PAKET:
+  - zustand (state management)
+  - @ai-sdk/vercel, ai (för API i Fas 3)
+  - ShadCN UI komponenter
+
+================================================================================
+                    FÖR NY AI-AGENT
+================================================================================
+
+Om du startar med en ny AI-agent, ge den:
+
+1. Denna fil (PROGRESS.txt) för att se vad som är klart
+2. info/00_INDEX_READ_FIRST.txt för projektöversikt
+3. info/02_v0_ai_build_instructions.txt för tekniska detaljer
+4. info/03_v0_api_whitelabel_integration.txt för API-integration
+
+Be agenten: "Fortsätt med Fas 3 enligt PROGRESS.txt"
+
+================================================================================
