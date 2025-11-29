@@ -142,7 +142,7 @@ export function CodePreview() {
                     Live preview med Sandpack kommer i Fas 5
                   </p>
                   <p className="text-zinc-600 text-xs">
-                    Kod genererad! Klicka på "Kod" för att se den.
+                    Kod genererad! Klicka på &quot;Kod&quot; för att se den.
                   </p>
                 </div>
               </div>

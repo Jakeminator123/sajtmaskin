@@ -66,28 +66,48 @@ SKAPADE FILER:
 
 SKAPADE FILER:
 - app/src/lib/store.ts (Zustand store)
-- app/src/lib/mock-generator.ts (Mock AI-svar)
+- app/src/lib/mock-generator.ts (Mock AI-svar - ersatt i Fas 3)
 - app/src/components/chat-message.tsx
 - app/src/components/chat-panel.tsx
 - app/src/components/code-preview.tsx
 - app/src/app/builder/page.tsx (uppdaterad)
 
 ================================================================================
-                    FAS 3: BACKEND API PROXY ⏳ NÄSTA
+                    FAS 3: BACKEND API PROXY ✅ KLAR
 ================================================================================
 
-[ ] Skapa /api/generate route
-[ ] Skapa /api/refine route
-[ ] Implementera v0 API-anrop via @ai-sdk/vercel
-[ ] Sanera svar (ta bort v0/Vercel-referenser)
-[ ] Hantera kvalitetsnivåer (budget/standard/premium)
-[ ] Ersätt mock-generator med riktiga API-anrop
+[✅] Skapa /api/generate route
+[✅] Skapa /api/refine route
+[✅] Implementera v0 API-anrop via @ai-sdk/vercel
+[✅] Sanera svar (ta bort v0/Vercel-referenser)
+[✅] Hantera kvalitetsnivåer (budget/standard/premium)
+[✅] Ersätt mock-generator med riktiga API-anrop
 
-KRÄVER: v0 API-nyckel i app/.env.local
-  V0_API_KEY=din_nyckel_här
+SKAPADE FILER:
+- app/src/lib/v0-generator.ts (Backend v0 API wrapper)
+- app/src/app/api/generate/route.ts (POST /api/generate)
+- app/src/app/api/refine/route.ts (POST /api/refine)
+- app/src/lib/api-client.ts (Frontend API client)
+- app/src/components/chat-panel.tsx (uppdaterad - använder api-client)
+
+KRÄVER FÖR ATT FUNGERA:
+  Skapa fil: app/.env.local
+  Innehåll: V0_API_KEY=din_nyckel_här
+  
+  OBS: Auto-recharge måste vara aktiverat i v0 för premium-modellen (v0-1.5-lg)
+
+KVALITETSNIVÅER:
+  - budget: v0-1.5-md (billig, snabb)
+  - standard: v0-1.5-md (balanserad)
+  - premium: v0-1.5-lg (bäst kvalitet, 10x kostnad)
+
+WHITE-LABEL:
+  - Alla v0/Vercel-referenser tas bort automatiskt från responses
+  - API-anrop går endast genom /api/generate och /api/refine
+  - Användare ser aldrig v0 i nätverksfliken
 
 ================================================================================
-                    FAS 4: SANDPACK PREVIEW ⬚ VÄNTAR
+                    FAS 4: SANDPACK PREVIEW ⏳ NÄSTA
 ================================================================================
 
 [ ] Installera @codesandbox/sandpack-react
@@ -136,13 +156,13 @@ KÖRA PROJEKTET:
   npm run dev
   → Öppna http://localhost:3000
 
-API-NYCKEL (för Fas 3+):
+API-NYCKEL:
   Skapa fil: app/.env.local
   Innehåll: V0_API_KEY=din_nyckel_här
 
 INSTALLERADE PAKET:
   - zustand (state management)
-  - @ai-sdk/vercel, ai (för API i Fas 3)
+  - @ai-sdk/vercel, ai (v0 API integration)
   - ShadCN UI komponenter
 
 ================================================================================
@@ -156,6 +176,6 @@ Om du startar med en ny AI-agent, ge den:
 3. info/02_v0_ai_build_instructions.txt för tekniska detaljer
 4. info/03_v0_api_whitelabel_integration.txt för API-integration
 
-Be agenten: "Fortsätt med Fas 3 enligt PROGRESS.txt"
+Be agenten: "Fortsätt med Fas 4 enligt PROGRESS.txt"
 
 ================================================================================

@@ -2,10 +2,7 @@
 
 import { useEffect, useRef, useState, KeyboardEvent } from "react";
 import { useBuilderStore } from "@/lib/store";
-import {
-  generateMockResponse,
-  generateMockRefinement,
-} from "@/lib/mock-generator";
+import { generateWebsite, refineWebsite } from "@/lib/api-client";
 import { ChatMessage } from "@/components/chat-message";
 import { HelpTooltip } from "@/components/help-tooltip";
 import { Button } from "@/components/ui/button";
@@ -22,8 +19,15 @@ export function ChatPanel({ categoryType, initialPrompt }: ChatPanelProps) {
   const inputRef = useRef<HTMLInputElement>(null);
   const hasInitialized = useRef(false);
 
-  const { messages, isLoading, addMessage, setLoading, setCurrentCode } =
-    useBuilderStore();
+  const {
+    messages,
+    isLoading,
+    currentCode,
+    quality,
+    addMessage,
+    setLoading,
+    setCurrentCode,
+  } = useBuilderStore();
 
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
@@ -44,6 +48,7 @@ export function ChatPanel({ categoryType, initialPrompt }: ChatPanelProps) {
     if (initialMessage) {
       handleGenerate(initialMessage, categoryType);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [categoryType, initialPrompt]);
 
   const getCategoryName = (type: string): string => {
@@ -64,10 +69,21 @@ export function ChatPanel({ categoryType, initialPrompt }: ChatPanelProps) {
     setLoading(true);
 
     try {
-      const response = await generateMockResponse(prompt, type);
-      addMessage("assistant", response.message);
-      setCurrentCode(response.code);
+      const response = await generateWebsite(prompt, type, quality);
+
+      if (response.success && response.message) {
+        addMessage("assistant", response.message);
+        if (response.code) {
+          setCurrentCode(response.code);
+        }
+      } else {
+        addMessage(
+          "assistant",
+          response.error || "Något gick fel. Försök igen."
+        );
+      }
     } catch (error) {
+      console.error("Generation error:", error);
       addMessage("assistant", "Något gick fel. Försök igen.");
     } finally {
       setLoading(false);
@@ -75,14 +91,37 @@ export function ChatPanel({ categoryType, initialPrompt }: ChatPanelProps) {
   };
 
   const handleRefinement = async (instruction: string) => {
+    // Don't allow refinement if no code exists yet
+    if (!currentCode) {
+      addMessage("user", instruction);
+      addMessage(
+        "assistant",
+        "Ingen kod finns ännu att förfina. Genererar en ny design baserat på din beskrivning..."
+      );
+      // Treat as new generation instead
+      handleGenerate(instruction);
+      return;
+    }
+
     addMessage("user", instruction);
     setLoading(true);
 
     try {
-      const response = await generateMockRefinement(instruction);
-      addMessage("assistant", response.message);
-      // In real implementation, this would update the code
+      const response = await refineWebsite(currentCode, instruction, quality);
+
+      if (response.success && response.message) {
+        addMessage("assistant", response.message);
+        if (response.code) {
+          setCurrentCode(response.code);
+        }
+      } else {
+        addMessage(
+          "assistant",
+          response.error || "Något gick fel. Försök igen."
+        );
+      }
     } catch (error) {
+      console.error("Refinement error:", error);
       addMessage("assistant", "Något gick fel. Försök igen.");
     } finally {
       setLoading(false);
@@ -142,14 +181,19 @@ export function ChatPanel({ categoryType, initialPrompt }: ChatPanelProps) {
                   <div className="w-8 h-8 rounded-full bg-zinc-700 flex items-center justify-center">
                     <Loader2 className="h-4 w-4 text-zinc-300 animate-spin" />
                   </div>
-                  <div className="flex gap-1">
-                    {[0, 1, 2].map((i) => (
-                      <div
-                        key={i}
-                        className="w-2 h-2 rounded-full bg-zinc-600 animate-pulse"
-                        style={{ animationDelay: `${i * 150}ms` }}
-                      />
-                    ))}
+                  <div className="flex flex-col gap-1">
+                    <div className="flex gap-1">
+                      {[0, 1, 2].map((i) => (
+                        <div
+                          key={i}
+                          className="w-2 h-2 rounded-full bg-zinc-600 animate-pulse"
+                          style={{ animationDelay: `${i * 150}ms` }}
+                        />
+                      ))}
+                    </div>
+                    <span className="text-xs text-zinc-500">
+                      AI:n genererar...
+                    </span>
                   </div>
                 </div>
               )}
