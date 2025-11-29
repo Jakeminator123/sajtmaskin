@@ -2,7 +2,11 @@
 
 import { useEffect, useRef, useState, KeyboardEvent } from "react";
 import { useBuilderStore } from "@/lib/store";
-import { generateWebsite, refineWebsite } from "@/lib/api-client";
+import {
+  generateWebsite,
+  refineWebsite,
+  generateFromTemplate,
+} from "@/lib/api-client";
 import { ChatMessage } from "@/components/chat-message";
 import { HelpTooltip } from "@/components/help-tooltip";
 import { Button } from "@/components/ui/button";
@@ -11,9 +15,14 @@ import { MessageSquare, ArrowUp, Loader2 } from "lucide-react";
 interface ChatPanelProps {
   categoryType?: string;
   initialPrompt?: string;
+  templateId?: string;
 }
 
-export function ChatPanel({ categoryType, initialPrompt }: ChatPanelProps) {
+export function ChatPanel({
+  categoryType,
+  initialPrompt,
+  templateId,
+}: ChatPanelProps) {
   const [input, setInput] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -46,7 +55,7 @@ export function ChatPanel({ categoryType, initialPrompt }: ChatPanelProps) {
 
   // Auto-generate on initial load or when params change
   useEffect(() => {
-    const currentKey = `${categoryType || ""}-${initialPrompt || ""}`;
+    const currentKey = `${categoryType || ""}-${initialPrompt || ""}-${templateId || ""}`;
 
     // If we already initialized with these exact params, skip
     if (hasInitialized.current && initializedWith.current === currentKey) {
@@ -81,6 +90,13 @@ export function ChatPanel({ categoryType, initialPrompt }: ChatPanelProps) {
     hasInitialized.current = true;
     initializedWith.current = currentKey;
 
+    // If we have a templateId, generate from template
+    if (templateId) {
+      console.log("[ChatPanel] Starting template generation:", templateId);
+      handleTemplateGeneration(templateId);
+      return;
+    }
+
     const initialMessage =
       initialPrompt ||
       (categoryType ? `Skapa en ${getCategoryName(categoryType)}` : null);
@@ -93,19 +109,78 @@ export function ChatPanel({ categoryType, initialPrompt }: ChatPanelProps) {
       handleGenerate(initialMessage, categoryType);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [categoryType, initialPrompt, isLoading, demoUrl, messages.length]);
+  }, [categoryType, initialPrompt, templateId, isLoading, demoUrl, messages.length]);
 
   const getCategoryName = (type: string): string => {
     const names: Record<string, string> = {
       "landing-page": "landing page",
       website: "hemsida",
+      "apps-games": "app eller spel",
       dashboard: "dashboard",
       ecommerce: "webbshop",
-      blog: "blogg",
-      portfolio: "portfolio",
-      webapp: "web app",
+      "blog-portfolio": "blogg eller portfolio",
+      components: "komponent",
+      "login-signup": "inloggningssida",
+      animations: "animerad komponent",
     };
     return names[type] || type;
+  };
+
+  // Handle template generation
+  const handleTemplateGeneration = async (templateId: string) => {
+    addMessage("user", `Laddar template: ${templateId}`);
+    setLoading(true);
+
+    try {
+      console.log("[ChatPanel] Calling template API...");
+      const response = await generateFromTemplate(templateId, quality);
+      console.log("[ChatPanel] Template API response:", {
+        success: response.success,
+        hasCode: !!response.code,
+        hasFiles: !!response.files?.length,
+        hasChatId: !!response.chatId,
+        hasDemoUrl: !!response.demoUrl,
+      });
+
+      if (response.success) {
+        // Save chatId for subsequent refinements
+        if (response.chatId) {
+          console.log("[ChatPanel] Saving chatId:", response.chatId);
+          setChatId(response.chatId);
+        }
+
+        // Save files from v0-sdk response
+        if (response.files && response.files.length > 0) {
+          console.log("[ChatPanel] Saving files, count:", response.files.length);
+          setFiles(response.files);
+        }
+
+        // Save demo URL
+        if (response.demoUrl) {
+          console.log("[ChatPanel] Saving demoUrl:", response.demoUrl);
+          setDemoUrl(response.demoUrl);
+        }
+
+        // Set the main code
+        if (response.code) {
+          console.log("[ChatPanel] Setting code, length:", response.code.length);
+          setCurrentCode(response.code);
+        }
+
+        addMessage(
+          "assistant",
+          response.message || "Template laddad! Du kan nu anpassa den."
+        );
+      }
+    } catch (error) {
+      console.error("[ChatPanel] Template generation error:", error);
+      addMessage(
+        "assistant",
+        `Kunde inte ladda template: ${error instanceof Error ? error.message : "Okänt fel"}`
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleGenerate = async (prompt: string, type?: string) => {

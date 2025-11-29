@@ -109,3 +109,40 @@ export async function refineWebsite(
     };
   }
 }
+
+/**
+ * Generate website from a v0 community template
+ */
+export async function generateFromTemplate(
+  templateId: string,
+  quality: QualityLevel = "standard"
+): Promise<GenerateResponse> {
+  try {
+    const response = await fetch("/api/template", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        templateId,
+        quality,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      return {
+        success: false,
+        error: data.error || "Kunde inte ladda template.",
+      };
+    }
+
+    return data;
+  } catch (error) {
+    console.error("Template error:", error);
+    return {
+      success: false,
+      error:
+        "Kunde inte ansluta till servern. Kontrollera din internetanslutning.",
+    };
+  }
+}

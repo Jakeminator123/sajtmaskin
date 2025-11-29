@@ -8,9 +8,11 @@ import {
   Globe,
   LayoutDashboard,
   ShoppingCart,
-  FileEdit,
   Briefcase,
   Gamepad2,
+  Puzzle,
+  LogIn,
+  Sparkles,
 } from "lucide-react";
 
 interface Category {
@@ -30,7 +32,7 @@ const categories: Category[] = [
     description: "Produktsidor, startups, kampanjer",
     icon: FileText,
     helpText:
-      "Perfekt för produktlanseringar, startups och kampanjer. Innehåller hero-sektion, funktioner, priser och kontaktformulär. Snabbast att komma igång med!",
+      "Perfekt för produktlanseringar, startups och kampanjer. Innehåller hero-sektion, funktioner, priser och kontaktformulär.",
     helpValue: 9,
     helpTips: "Bäst för: Företag som vill visa upp en produkt eller tjänst",
   },
@@ -40,9 +42,19 @@ const categories: Category[] = [
     description: "Flersidiga webbplatser för företag",
     icon: Globe,
     helpText:
-      "Komplett webbplats med flera sidor: hem, om oss, tjänster och kontakt. Passar företag och organisationer som behöver en professionell närvaro online.",
+      "Komplett webbplats med flera sidor: hem, om oss, tjänster och kontakt. Passar företag och organisationer.",
     helpValue: 8,
     helpTips: "Bäst för: Företag, byråer, organisationer",
+  },
+  {
+    id: "apps-games",
+    title: "Apps & Spel",
+    description: "Interaktiva applikationer",
+    icon: Gamepad2,
+    helpText:
+      "Bygg funktionella webbapplikationer och spel med interaktiva element.",
+    helpValue: 7,
+    helpTips: "Bäst för: Verktyg, spel, specialiserade applikationer",
   },
   {
     id: "dashboard",
@@ -50,49 +62,59 @@ const categories: Category[] = [
     description: "Admin-paneler, statistik, data",
     icon: LayoutDashboard,
     helpText:
-      "Skapar ett administratörsgränssnitt med diagram, tabeller och statistik. Passar för interna verktyg och datavisualisering.",
+      "Skapar ett administratörsgränssnitt med diagram, tabeller och statistik.",
     helpValue: 8,
     helpTips: "Bäst för: SaaS-produkter, admin-paneler, analysverktyg",
   },
   {
     id: "ecommerce",
-    title: "Webbshop",
-    description: "E-handel, produktkataloger",
+    title: "E-commerce",
+    description: "Webbshoppar, produktkataloger",
     icon: ShoppingCart,
     helpText:
-      "Webbshop med produktlistor, kategorier, kundvagn och checkout. OBS: Kräver egen backend för faktisk betalning.",
+      "Webbshop med produktlistor, kategorier och checkout. OBS: Kräver egen backend för betalning.",
     helpValue: 7,
-    helpTips: "Bäst för: Onlinebutiker. Komplexare att implementera fullt ut.",
+    helpTips: "Bäst för: Onlinebutiker",
   },
   {
-    id: "blog",
-    title: "Blogg",
-    description: "Artiklar, nyheter, innehåll",
-    icon: FileEdit,
-    helpText:
-      "Blogg eller nyhetssajt med artikellistor, kategorier och nyhetsbrev-signup. Enkel struktur, snabb att anpassa.",
-    helpValue: 8,
-    helpTips: "Bäst för: Innehållsskapare, företagsbloggar, nyhetssidor",
-  },
-  {
-    id: "portfolio",
-    title: "Portfolio",
-    description: "Visa upp ditt arbete",
+    id: "blog-portfolio",
+    title: "Blogg & Portfolio",
+    description: "Visa upp arbete och innehåll",
     icon: Briefcase,
     helpText:
-      "Visa upp ditt arbete med bildgallerier, projektbeskrivningar och kontaktinfo. Perfekt för kreativa yrken.",
+      "Blogg eller portfolio med artikellistor, bildgallerier och projektbeskrivningar.",
     helpValue: 8,
-    helpTips: "Bäst för: Fotografer, designers, konstnärer, frilansare",
+    helpTips: "Bäst för: Innehållsskapare, fotografer, designers",
   },
   {
-    id: "webapp",
-    title: "Web App",
-    description: "Interaktiva applikationer",
-    icon: Gamepad2,
+    id: "components",
+    title: "Komponenter",
+    description: "Enskilda UI-komponenter",
+    icon: Puzzle,
     helpText:
-      "Bygg funktionella webbapplikationer med interaktiva element. Passar för verktyg, spel och specialanpassade lösningar.",
+      "Skapa enskilda komponenter som formulär, knappar, kort och modaler.",
+    helpValue: 9,
+    helpTips: "Bäst för: Utvecklare som vill bygga egna komponenter",
+  },
+  {
+    id: "login-signup",
+    title: "Login & Sign Up",
+    description: "Autentiseringssidor",
+    icon: LogIn,
+    helpText:
+      "Inloggnings- och registreringssidor med formulär och social login.",
+    helpValue: 8,
+    helpTips: "Bäst för: Appar som behöver användarautentisering",
+  },
+  {
+    id: "animations",
+    title: "Animationer",
+    description: "Animerade komponenter",
+    icon: Sparkles,
+    helpText:
+      "Animerade komponenter och effekter som ger liv åt din webbplats.",
     helpValue: 7,
-    helpTips: "Bäst för: Verktyg, spel, specialiserade applikationer",
+    helpTips: "Bäst för: Kreativa projekt som behöver extra polish",
   },
 ];
 
@@ -107,11 +129,12 @@ export function TemplateGallery({ onSelect }: TemplateGalleryProps) {
     if (onSelect) {
       onSelect(categoryId);
     }
-    router.push(`/builder?type=${categoryId}`);
+    // Navigate to category page instead of builder
+    router.push(`/category/${categoryId}`);
   };
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full max-w-4xl">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 w-full max-w-4xl">
       {categories.map((category) => {
         const Icon = category.icon;
         return (
@@ -142,4 +165,3 @@ export function TemplateGallery({ onSelect }: TemplateGalleryProps) {
     </div>
   );
 }
-

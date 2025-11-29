@@ -47,6 +47,14 @@ Use a dark theme with blue accents. Make it fully responsive.`,
 - Consistent header and footer across all pages
 Use a professional design. Include navigation between pages.`,
 
+  "apps-games": `Create an interactive web application or game with:
+- Engaging visual interface
+- Interactive elements and user controls
+- Clear feedback on user actions
+- Game mechanics or app functionality
+- Score/progress tracking if applicable
+Make it fun and engaging. Use animations where appropriate.`,
+
   dashboard: `Create an admin dashboard with:
 - Sidebar navigation with icons
 - Top header with user menu and notifications
@@ -65,31 +73,40 @@ Make it fully responsive with collapsible sidebar on mobile.`,
 - Footer with links and newsletter signup
 Make it fully responsive.`,
 
-  blog: `Create a blog website with:
+  "blog-portfolio": `Create a blog or portfolio website with:
 - Header with logo and navigation
-- Featured article hero section
-- Article grid with thumbnails and excerpts (6 articles)
-- Sidebar with categories and popular posts
-- Newsletter signup section
+- Hero section with name/title
+- Featured content section
+- Grid of articles/projects with thumbnails
+- About section
+- Contact form
 - Footer
 Use a clean, readable design. Make it fully responsive.`,
 
-  portfolio: `Create a portfolio website with:
-- Hero section with name and title
-- About me section
-- Project gallery with hover effects (6 projects)
-- Skills/expertise section
-- Testimonials section
-- Contact form
-Use a dark, modern theme. Make it fully responsive.`,
+  components: `Create a reusable UI component with:
+- Clean, modern design
+- Proper accessibility (ARIA attributes)
+- Hover and focus states
+- Animation/transitions
+- Multiple variants if applicable
+Make it production-ready and easy to customize.`,
 
-  webapp: `Create a web application interface with:
-- Clean, functional interface
-- Main workspace area
-- Toolbar or action buttons
-- Settings or configuration panel
-- Responsive layout
-Focus on usability and functionality.`,
+  "login-signup": `Create an authentication page with:
+- Clean login form with email/password fields
+- Social login buttons (Google, GitHub, etc.)
+- Registration form option
+- Password recovery link
+- Remember me checkbox
+- Form validation
+Use a modern, secure-looking design.`,
+
+  animations: `Create an animated component with:
+- Smooth, modern animations
+- CSS transitions or Framer Motion
+- Interactive hover effects
+- Entrance/exit animations
+- Attention-grabbing but not distracting
+Focus on polish and micro-interactions.`,
 };
 
 // System prompt for v0 to generate better code
@@ -292,6 +309,73 @@ Please modify it according to this instruction: ${instruction}
 Keep the same overall structure and only make the requested changes.`;
 
   return generateCode(refinementPrompt, quality);
+}
+
+/**
+ * Generate from a v0 community template
+ * Uses v0.chats.init() with type: 'template'
+ */
+export async function generateFromTemplate(
+  templateId: string
+): Promise<GenerationResult> {
+  console.log("[v0-generator] Initializing from template:", templateId);
+
+  const v0 = getV0Client();
+
+  try {
+    const chat = (await v0.chats.init({
+      type: "template",
+      templateId: templateId,
+      chatPrivacy: "private",
+    })) as ChatDetail;
+
+    console.log("[v0-generator] Template initialized:", chat.id);
+    console.log("[v0-generator] Version status:", chat.latestVersion?.status);
+    console.log(
+      "[v0-generator] Files count:",
+      chat.latestVersion?.files?.length
+    );
+
+    // Extract files from the response
+    const files: GeneratedFile[] =
+      chat.latestVersion?.files?.map((file) => ({
+        name: file.name,
+        content: file.content,
+      })) || [];
+
+    // Find the main component file
+    const mainFile =
+      files.find(
+        (f) =>
+          f.name.includes("page.tsx") ||
+          f.name.includes("Page.tsx") ||
+          f.name.endsWith(".tsx")
+      ) || files[0];
+
+    return {
+      code: mainFile?.content || chat.text || "",
+      files,
+      chatId: chat.id,
+      demoUrl: chat.latestVersion?.demoUrl,
+      model: "template",
+    };
+  } catch (error) {
+    console.error("[v0-generator] Template init error:", error);
+
+    // Check for specific error types
+    if (error instanceof Error) {
+      if (error.message.includes("not found") || error.message.includes("404")) {
+        throw new Error("Template not found");
+      }
+      if (
+        error.message.includes("rate limit") ||
+        error.message.includes("429")
+      ) {
+        throw new Error("rate limit exceeded");
+      }
+    }
+    throw error;
+  }
 }
 
 /**

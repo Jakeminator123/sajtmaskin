@@ -16,17 +16,20 @@ import { ArrowLeft, Download, Rocket, RefreshCw } from "lucide-react";
 const categoryTitles: Record<string, string> = {
   "landing-page": "Landing Page",
   website: "Hemsida",
+  "apps-games": "Apps & Spel",
   dashboard: "Dashboard",
-  ecommerce: "Webbshop",
-  blog: "Blogg",
-  portfolio: "Portfolio",
-  webapp: "Web App",
+  ecommerce: "E-commerce",
+  "blog-portfolio": "Blogg & Portfolio",
+  components: "Komponenter",
+  "login-signup": "Login & Sign Up",
+  animations: "Animationer",
 };
 
 function BuilderContent() {
   const searchParams = useSearchParams();
   const type = searchParams.get("type");
   const prompt = searchParams.get("prompt");
+  const templateId = searchParams.get("templateId");
 
   const { quality, setQuality, clearChat, demoUrl } = useBuilderStore();
 
@@ -36,7 +39,9 @@ function BuilderContent() {
     // The ChatPanel will automatically start a new generation
   };
 
-  const title = type
+  const title = templateId
+    ? "Template"
+    : type
     ? categoryTitles[type] || type
     : prompt
     ? "Egen beskrivning"
@@ -106,6 +111,7 @@ function BuilderContent() {
           <ChatPanel
             categoryType={type || undefined}
             initialPrompt={prompt || undefined}
+            templateId={templateId || undefined}
           />
         </div>
 

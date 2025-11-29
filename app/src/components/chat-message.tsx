@@ -11,6 +11,19 @@ interface ChatMessageProps {
 export function ChatMessage({ message }: ChatMessageProps) {
   const isUser = message.role === "user";
 
+  // Handle timestamp which might be serialized as string from localStorage
+  const formatTime = (timestamp: Date | string | number): string => {
+    try {
+      const date = timestamp instanceof Date ? timestamp : new Date(timestamp);
+      return date.toLocaleTimeString("sv-SE", {
+        hour: "2-digit",
+        minute: "2-digit",
+      });
+    } catch {
+      return "";
+    }
+  };
+
   return (
     <div
       className={cn(
@@ -39,10 +52,7 @@ export function ChatMessage({ message }: ChatMessageProps) {
             {isUser ? "Du" : "SajtMaskin AI"}
           </span>
           <span className="text-xs text-zinc-600">
-            {message.timestamp.toLocaleTimeString("sv-SE", {
-              hour: "2-digit",
-              minute: "2-digit",
-            })}
+            {formatTime(message.timestamp)}
           </span>
         </div>
         <p className="text-sm text-zinc-300 whitespace-pre-wrap">
