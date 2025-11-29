@@ -54,29 +54,178 @@ The reference/ folder is optional - only read if you need more context.
 
 
 ================================================================================
-                    PROJECT SUMMARY
+                    🎯 PROJECT GOAL (CRITICAL TO UNDERSTAND)
 ================================================================================
 
 WHAT WE'RE BUILDING:
-A platform where users can create their own websites using AI.
-Users interact with OUR frontend, but v0's API powers the generation.
-v0 should be completely invisible to end users (white-labeled).
+────────────────────
+SajtMaskin is a WHITE-LABELED website builder platform.
 
-TECH STACK:
-- Next.js 14+ (App Router)
-- React 18+
-- TypeScript
-- Tailwind CSS
-- ShadCN UI
-- v0 Platform API (hidden behind our backend)
+Users come to OUR website → describe what they want → get generated code.
+The AI generation is powered by v0's API, but users NEVER see v0.
+They think it's OUR proprietary AI technology.
 
-KEY FEATURES:
-1. Template selection (12 categories, properly segmented)
-2. Free-form prompt input
-3. Live preview (self-hosted, not v0's iframe)
-4. Iterative refinement via chat
-5. Code export (ZIP, GitHub)
-6. One-click deploy (optional)
+TWO TYPES OF CODE - DON'T CONFUSE THEM:
+───────────────────────────────────────
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                                                                             │
+│  1. PLATFORM CODE (OUR website - what YOU are building)                     │
+│  ──────────────────────────────────────────────────────                     │
+│  Location: /app folder                                                      │
+│  Purpose:  The SajtMaskin website itself                                    │
+│  Contains: Home page, builder page, API routes, components                  │
+│  Built with: Next.js, React, ShadCN, Tailwind (fixed versions)              │
+│  Deployed to: Render.com (or Vercel)                                        │
+│                                                                             │
+│  This is the code that makes sajtmaskin.se work.                            │
+│  Users interact with this.                                                  │
+│                                                                             │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  2. GENERATED CODE (what users CREATE using our platform)                   │
+│  ────────────────────────────────────────────────────────                   │
+│  Location: Generated dynamically, shown in preview, downloadable            │
+│  Purpose:  The websites our users are building                              │
+│  Contains: React components, pages, styles                                  │
+│  Built with: Whatever v0 generates (React + Tailwind + ShadCN)              │
+│  Deployed to: User's choice (they download and deploy themselves)           │
+│                                                                             │
+│  This is the code that v0 API generates for our users.                      │
+│  We display it, let users refine it, and let them export it.                │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+IMPORTANT DISTINCTION:
+- We BUILD the platform (code in /app folder)
+- Users USE our platform to GENERATE their own websites
+- Generated code is displayed in Sandpack preview, not mixed with our code
+
+
+================================================================================
+                    TECH STACK (LOCKED VERSIONS)
+================================================================================
+
+To avoid version conflicts, use these EXACT versions:
+
+PLATFORM CODE (/app folder):
+────────────────────────────
+{
+  "dependencies": {
+    "next": "^14.0.0",           // Next.js 14+ with App Router
+    "react": "^18.2.0",          // React 18
+    "react-dom": "^18.2.0",
+    "typescript": "^5.0.0",
+    "tailwindcss": "^3.4.0",     // Tailwind CSS 3.4+
+    "@radix-ui/react-*": "^1.0.0", // Radix UI (via ShadCN)
+    "class-variance-authority": "^0.7.0",
+    "clsx": "^2.0.0",
+    "tailwind-merge": "^2.0.0",
+    
+    // AI SDK (CRITICAL - must use this, not direct fetch!)
+    "ai": "^3.0.0",
+    "@ai-sdk/vercel": "^0.0.30",
+    
+    // Preview (for showing generated code)
+    "@codesandbox/sandpack-react": "^2.0.0",
+    
+    // Export
+    "jszip": "^3.10.0",
+    "file-saver": "^2.0.0"
+  }
+}
+
+ShadCN COMPONENTS (install via CLI):
+────────────────────────────────────
+npx shadcn-ui@latest init
+npx shadcn-ui@latest add button card input textarea tabs tooltip scroll-area skeleton toast
+
+WHY THESE VERSIONS:
+- Next.js 14: Stable App Router, Server Components
+- React 18: Concurrent features, Suspense
+- Tailwind 3.4: Latest features, no breaking changes
+- ShadCN: Accessible, customizable, Radix-based
+- AI SDK: Official v0 integration, reliable
+
+
+================================================================================
+                    FOLDER STRUCTURE (COMPLETE)
+================================================================================
+
+sajtmaskin/
+├── .env                          # API keys (NEVER commit!)
+├── .gitignore                    # Protects .env
+├── package.json                  # Root dependencies (ai, @ai-sdk/vercel)
+├── test_v0_api.mjs               # API test script
+│
+├── app/                          # ◄── PLATFORM CODE (our website)
+│   ├── .env.local                # Copy API keys here too
+│   ├── package.json              # Next.js dependencies
+│   ├── next.config.ts
+│   ├── tailwind.config.ts
+│   ├── tsconfig.json
+│   │
+│   └── src/
+│       ├── app/                  # Next.js App Router pages
+│       │   ├── layout.tsx        # Root layout
+│       │   ├── page.tsx          # Home page (category selection)
+│       │   ├── globals.css       # Global styles
+│       │   │
+│       │   ├── builder/
+│       │   │   └── page.tsx      # Builder page (preview + chat)
+│       │   │
+│       │   └── api/              # Backend API routes
+│       │       ├── generate/
+│       │       │   └── route.ts  # Calls v0 API, returns code
+│       │       └── refine/
+│       │           └── route.ts  # Iterative refinement
+│       │
+│       ├── components/
+│       │   ├── ui/               # ShadCN components
+│       │   │   ├── button.tsx
+│       │   │   ├── card.tsx
+│       │   │   └── ...
+│       │   │
+│       │   ├── template-gallery.tsx   # Category selection grid
+│       │   ├── prompt-input.tsx       # Chat input
+│       │   ├── preview-frame.tsx      # Sandpack preview
+│       │   ├── code-viewer.tsx        # Syntax highlighted code
+│       │   ├── chat-history.tsx       # Message list
+│       │   ├── export-options.tsx     # Download/deploy buttons
+│       │   └── help-tooltip.tsx       # (?) help icons
+│       │
+│       ├── lib/
+│       │   ├── v0-generator.ts   # AI SDK wrapper (CORRECT approach)
+│       │   ├── v0-client.ts      # Frontend API client
+│       │   └── utils.ts          # Helpers
+│       │
+│       └── types/
+│           └── index.ts          # TypeScript types
+│
+└── info/                         # ◄── DOCUMENTATION (for AI/human)
+    ├── 00_HOW_TO_USE_THESE_FILES.txt
+    ├── 00_INDEX_READ_FIRST.txt   # (this file)
+    ├── 01_v0_project_report.txt
+    ├── 02_v0_ai_build_instructions.txt
+    ├── 03_v0_api_whitelabel_integration.txt
+    ├── 04_ux_category_structure.txt
+    ├── reference/
+    ├── gpt-api/
+    └── archive/
+
+
+================================================================================
+                    KEY FEATURES
+================================================================================
+
+1. Template selection (12 categories, properly segmented into 3 tiers)
+2. Free-form prompt input (describe anything)
+3. Three quality levels: ⚡Snabb, ⭐Standard, 💎Premium
+4. Live preview (Sandpack - self-hosted, NOT v0's iframe)
+5. Iterative refinement via chat
+6. Code export (ZIP with all files)
+7. Help tooltips in Swedish with value ratings
+8. Fully white-labeled (v0 invisible to users)
 
 
 ================================================================================
