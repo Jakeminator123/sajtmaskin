@@ -4,24 +4,17 @@ import { useParams, useRouter } from "next/navigation";
 import { useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { HelpTooltip } from "@/components/help-tooltip";
 import {
   ArrowLeft,
-  ArrowRight,
   Rocket,
   Sparkles,
   FileText,
   Globe,
   LayoutDashboard,
   Zap,
-  Palette,
 } from "lucide-react";
-import {
-  getCategory,
-  type Template,
-  type QuickPrompt,
-} from "@/lib/template-data";
+import { getCategory, type QuickPrompt } from "@/lib/template-data";
 
 // Icon mapping
 const iconMap: Record<string, React.ElementType> = {
@@ -63,13 +56,10 @@ export default function CategoryPage() {
   };
 
   const handleQuickPrompt = (quickPrompt: QuickPrompt) => {
+    // Quick prompts just send the prompt text - no template loading
     router.push(
       `/builder?type=${type}&prompt=${encodeURIComponent(quickPrompt.prompt)}`
     );
-  };
-
-  const handleTemplateSelect = (template: Template) => {
-    router.push(`/builder?templateId=${template.id}&type=${type}`);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -86,7 +76,7 @@ export default function CategoryPage() {
 
       <div className="relative min-h-screen px-4 py-8">
         {/* Header */}
-        <div className="max-w-5xl mx-auto mb-8">
+        <div className="max-w-4xl mx-auto mb-8">
           <Link href="/">
             <Button
               variant="ghost"
@@ -109,7 +99,7 @@ export default function CategoryPage() {
           </div>
         </div>
 
-        <div className="max-w-5xl mx-auto space-y-8">
+        <div className="max-w-4xl mx-auto space-y-8">
           {/* Section 1: Custom prompt */}
           <section>
             <div className="flex items-center gap-2 mb-4">
@@ -152,7 +142,7 @@ export default function CategoryPage() {
                 <HelpTooltip text="Klicka på ett snabbval för att snabbt komma igång med en fördefinierad design." />
               </div>
 
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {category.quickPrompts.map((quickPrompt) => (
                   <Button
                     key={quickPrompt.label}
@@ -164,7 +154,7 @@ export default function CategoryPage() {
                       {quickPrompt.label}
                     </span>
                     <span className="text-xs text-zinc-500 line-clamp-2">
-                      Fördefinierad prompt
+                      AI genererar baserat på fördefinierad beskrivning
                     </span>
                   </Button>
                 ))}
@@ -172,50 +162,16 @@ export default function CategoryPage() {
             </section>
           )}
 
-          {/* Section 3: Templates */}
-          <section>
-            <div className="flex items-center gap-2 mb-4">
-              <Palette className="h-5 w-5 text-emerald-400" />
-              <h2 className="text-lg font-semibold text-zinc-100">
-                Färdiga mallar
-              </h2>
-              <HelpTooltip text="Börja från en färdig design och anpassa den efter dina behov." />
+          {/* Info about templates - coming soon */}
+          <section className="opacity-50">
+            <div className="bg-zinc-900/30 border border-zinc-800/50 rounded-xl p-6 text-center">
+              <p className="text-zinc-500 text-sm">
+                🎨 Färdiga mallar från v0 kommer snart...
+              </p>
+              <p className="text-zinc-600 text-xs mt-1">
+                Använd snabbvalen ovan för att komma igång snabbt!
+              </p>
             </div>
-
-            {category.templates.length > 0 ? (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {category.templates.map((template) => (
-                  <Card
-                    key={template.id}
-                    onClick={() => handleTemplateSelect(template)}
-                    className="group cursor-pointer bg-zinc-900/50 border-zinc-800 hover:border-emerald-500/50 hover:bg-emerald-500/5 transition-all"
-                  >
-                    <CardContent className="p-5">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex-1">
-                          <h3 className="font-medium text-zinc-100 group-hover:text-emerald-300">
-                            {template.name}
-                          </h3>
-                          <p className="text-sm text-zinc-500 mt-1">
-                            {template.description}
-                          </p>
-                        </div>
-                        <ArrowRight className="h-5 w-5 text-zinc-600 group-hover:text-emerald-400 transition-colors flex-shrink-0 mt-0.5" />
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            ) : (
-              <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-8 text-center">
-                <p className="text-zinc-500">
-                  Inga templates tillgängliga för denna kategori ännu.
-                </p>
-                <p className="text-zinc-600 text-sm mt-2">
-                  Använd snabbval eller skriv din egen beskrivning ovan!
-                </p>
-              </div>
-            )}
           </section>
         </div>
       </div>

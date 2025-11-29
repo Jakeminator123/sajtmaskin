@@ -1,12 +1,5 @@
-// Curated template data for each category
-// Template IDs are from v0.app/templates community
-
-export interface Template {
-  id: string; // v0 chat ID
-  name: string;
-  description: string;
-  previewUrl?: string; // Screenshot URL
-}
+// Category data with quick prompts
+// Templates are placeholder for future v0 integration
 
 export interface QuickPrompt {
   label: string;
@@ -18,11 +11,10 @@ export interface CategoryInfo {
   title: string;
   description: string;
   icon: string; // Lucide icon name
-  templates: Template[];
   quickPrompts: QuickPrompt[];
 }
 
-// Category metadata with templates and quick prompts
+// Category metadata with quick prompts
 export const CATEGORIES: Record<string, CategoryInfo> = {
   "landing-page": {
     id: "landing-page",
@@ -49,33 +41,6 @@ export const CATEGORIES: Record<string, CategoryInfo> = {
         label: "Event/konferens",
         prompt:
           "Skapa en landing page för en tech-konferens med datum, talare, agenda, plats och registreringsformulär. Modern och energisk design.",
-      },
-    ],
-    templates: [
-      {
-        id: "brillance-saas",
-        name: "Brillance SaaS",
-        description: "Elegant SaaS landing med gradient och animationer",
-      },
-      {
-        id: "pointer-ai",
-        name: "Pointer AI",
-        description: "Modern AI-produkt landing page",
-      },
-      {
-        id: "skal-ventures",
-        name: "Skal Ventures",
-        description: "Professionell startup/VC landing",
-      },
-      {
-        id: "mindspace-saas",
-        name: "MindSpace SaaS",
-        description: "Minimalistisk SaaS-template",
-      },
-      {
-        id: "auralink-saas",
-        name: "Auralink",
-        description: "Färgglad SaaS med glassmorphism",
       },
     ],
   },
@@ -106,23 +71,6 @@ export const CATEGORIES: Record<string, CategoryInfo> = {
           "Skapa en webbplats för en ideell organisation med startsida, om oss, projekt, hur man kan hjälpa till och kontakt. Engagerande och inspirerande design.",
       },
     ],
-    templates: [
-      {
-        id: "marketing-website",
-        name: "Marketing Website",
-        description: "Komplett marknadsföringssajt med flera sidor",
-      },
-      {
-        id: "agency-liquid-glass",
-        name: "Agency Liquid Glass",
-        description: "Modern byrå-webbplats med glaseffekter",
-      },
-      {
-        id: "katachi-website",
-        name: "Katachi",
-        description: "Japansk-inspirerad minimalistisk design",
-      },
-    ],
   },
   dashboard: {
     id: "dashboard",
@@ -149,23 +97,6 @@ export const CATEGORIES: Record<string, CategoryInfo> = {
         label: "CRM-översikt",
         prompt:
           "Skapa en CRM-dashboard med leads pipeline, kundlista, aktivitetslogg och försäljningsmål. Professionell B2B-design.",
-      },
-    ],
-    templates: [
-      {
-        id: "monky-dashboard",
-        name: "M.O.N.K.Y Dashboard",
-        description: "Mörk admin-panel med diagram och statistik",
-      },
-      {
-        id: "finbro-dashboard",
-        name: "FINBRO Dashboard",
-        description: "Finansiell dashboard med grafer",
-      },
-      {
-        id: "cms-admin",
-        name: "CMS Admin",
-        description: "Content management system-panel",
       },
     ],
   },
@@ -229,11 +160,6 @@ export const CATEGORY_IDS = Object.keys(CATEGORIES);
 // Get category by ID
 export function getCategory(id: string): CategoryInfo | undefined {
   return CATEGORIES[id];
-}
-
-// Get templates for a category
-export function getTemplatesForCategory(categoryId: string): Template[] {
-  return CATEGORIES[categoryId]?.templates || [];
 }
 
 // Get quick prompts for a category

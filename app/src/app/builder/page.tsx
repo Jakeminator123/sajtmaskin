@@ -35,10 +35,10 @@ function BuilderContent() {
   const title = templateId
     ? "Template"
     : type
-      ? categoryTitles[type] || type
-      : prompt
-        ? "Egen beskrivning"
-        : "Ny webbplats";
+    ? categoryTitles[type] || type
+    : prompt
+    ? "Egen beskrivning"
+    : "Ny webbplats";
 
   return (
     <div
