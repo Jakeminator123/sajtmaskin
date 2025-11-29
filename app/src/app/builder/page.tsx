@@ -1,7 +1,7 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { Suspense } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { QualitySelector } from "@/components/quality-selector";
@@ -9,8 +9,9 @@ import { ChatPanel } from "@/components/chat-panel";
 import { CodePreview } from "@/components/code-preview";
 import { HelpTooltip } from "@/components/help-tooltip";
 import { ClientOnly } from "@/components/client-only";
-import { useBuilderStore } from "@/lib/store";
-import { ArrowLeft, Download, Rocket, RefreshCw } from "lucide-react";
+import { useBuilderStore, GeneratedFile } from "@/lib/store";
+import { getProject } from "@/lib/project-client";
+import { ArrowLeft, Download, Rocket, RefreshCw, Save } from "lucide-react";
 
 // Category titles in Swedish
 const categoryTitles: Record<string, string> = {
@@ -21,18 +22,59 @@ const categoryTitles: Record<string, string> = {
 
 function BuilderContent() {
   const searchParams = useSearchParams();
+  const projectId = searchParams.get("project");
   const type = searchParams.get("type");
   const prompt = searchParams.get("prompt");
   const templateId = searchParams.get("templateId");
 
-  const { quality, setQuality, clearChat, demoUrl } = useBuilderStore();
+  const {
+    quality,
+    setQuality,
+    clearChat,
+    demoUrl,
+    setProjectId,
+    loadFromProject,
+    isSaving,
+    lastSaved,
+  } = useBuilderStore();
+
+  const [projectName, setProjectName] = useState<string | null>(null);
+
+  // Load project data on mount
+  useEffect(() => {
+    if (projectId) {
+      setProjectId(projectId);
+
+      // Load existing project data if any
+      getProject(projectId)
+        .then(({ project, data }) => {
+          setProjectName(project.name);
+
+          // If project has existing data (from a previous session), load it
+          if (data && data.chat_id) {
+            loadFromProject({
+              chatId: data.chat_id,
+              demoUrl: data.demo_url,
+              currentCode: data.current_code,
+              files: data.files as GeneratedFile[],
+              messages: data.messages,
+            });
+          }
+        })
+        .catch((err) => {
+          console.error("Failed to load project:", err);
+        });
+    }
+  }, [projectId, setProjectId, loadFromProject]);
 
   // Handle starting a new design
   const handleNewDesign = () => {
     clearChat();
   };
 
-  const title = templateId
+  const title = projectName
+    ? projectName
+    : templateId
     ? "Template"
     : type
     ? categoryTitles[type] || type
@@ -69,6 +111,22 @@ function BuilderContent() {
         <div className="flex items-center gap-3">
           <QualitySelector value={quality} onChange={setQuality} />
           <div className="h-5 w-px bg-zinc-800" />
+          {/* Saving indicator */}
+          {projectId && (
+            <div className="flex items-center gap-2 text-xs text-zinc-500">
+              {isSaving ? (
+                <>
+                  <Save className="h-3 w-3 animate-pulse" />
+                  Sparar...
+                </>
+              ) : lastSaved ? (
+                <>
+                  <Save className="h-3 w-3 text-green-500" />
+                  Sparad
+                </>
+              ) : null}
+            </div>
+          )}
           {demoUrl && (
             <Button
               variant="ghost"

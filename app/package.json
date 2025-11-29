@@ -14,6 +14,7 @@
     "@radix-ui/react-scroll-area": "^1.2.10",
     "@radix-ui/react-tooltip": "^1.2.8",
     "ai": "^5.0.104",
+    "better-sqlite3": "^12.5.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "lucide-react": "^0.468.0",
@@ -25,6 +26,7 @@
     "zustand": "^5.0.8"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^22.10.1",
     "@types/react": "^19.0.1",
     "@types/react-dom": "^19.0.1",

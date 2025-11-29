@@ -13,8 +13,10 @@ import {
   Globe,
   LayoutDashboard,
   Zap,
+  Loader2,
 } from "lucide-react";
 import { getCategory, type QuickPrompt } from "@/lib/template-data";
+import { createProject } from "@/lib/project-client";
 
 // Icon mapping
 const iconMap: Record<string, React.ElementType> = {
@@ -46,20 +48,45 @@ export default function CategoryPage() {
   }
 
   const Icon = iconMap[category.icon] || FileText;
+  const [isCreating, setIsCreating] = useState(false);
 
-  const handlePromptSubmit = () => {
-    if (prompt.trim()) {
-      router.push(
-        `/builder?type=${type}&prompt=${encodeURIComponent(prompt.trim())}`
-      );
+  const handlePromptSubmit = async () => {
+    if (prompt.trim() && !isCreating) {
+      setIsCreating(true);
+      try {
+        // Create project in database first
+        const project = await createProject(
+          `${category.title} - ${new Date().toLocaleDateString("sv-SE")}`,
+          type,
+          prompt.trim().substring(0, 100)
+        );
+        router.push(
+          `/builder?project=${project.id}&type=${type}&prompt=${encodeURIComponent(prompt.trim())}`
+        );
+      } catch (error) {
+        console.error("Failed to create project:", error);
+        setIsCreating(false);
+      }
     }
   };
 
-  const handleQuickPrompt = (quickPrompt: QuickPrompt) => {
-    // Quick prompts just send the prompt text - no template loading
-    router.push(
-      `/builder?type=${type}&prompt=${encodeURIComponent(quickPrompt.prompt)}`
-    );
+  const handleQuickPrompt = async (quickPrompt: QuickPrompt) => {
+    if (isCreating) return;
+    setIsCreating(true);
+    try {
+      // Create project in database first
+      const project = await createProject(
+        `${quickPrompt.label} - ${new Date().toLocaleDateString("sv-SE")}`,
+        type,
+        quickPrompt.prompt.substring(0, 100)
+      );
+      router.push(
+        `/builder?project=${project.id}&type=${type}&prompt=${encodeURIComponent(quickPrompt.prompt)}`
+      );
+    } catch (error) {
+      console.error("Failed to create project:", error);
+      setIsCreating(false);
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -93,7 +120,9 @@ export default function CategoryPage() {
               <Icon className="h-6 w-6 text-white" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-white">{category.title}</h1>
+              <h1 className="text-2xl font-bold text-white">
+                {category.title}
+              </h1>
               <p className="text-zinc-400">{category.description}</p>
             </div>
           </div>
@@ -121,11 +150,17 @@ export default function CategoryPage() {
                 />
                 <Button
                   onClick={handlePromptSubmit}
-                  disabled={!prompt.trim()}
+                  disabled={!prompt.trim() || isCreating}
                   className="h-24 px-6 gap-2 bg-blue-600 hover:bg-blue-500"
                 >
-                  <Rocket className="h-5 w-5" />
-                  <span className="hidden sm:inline">Skapa</span>
+                  {isCreating ? (
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                  ) : (
+                    <Rocket className="h-5 w-5" />
+                  )}
+                  <span className="hidden sm:inline">
+                    {isCreating ? "Skapar..." : "Skapa"}
+                  </span>
                 </Button>
               </div>
             </div>

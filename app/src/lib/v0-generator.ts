@@ -80,6 +80,50 @@ export interface GenerationResult {
 }
 
 /**
+ * Wait for a chat version to be ready (poll for completion)
+ */
+async function waitForVersionReady(
+  chatId: string,
+  maxAttempts = 30,
+  delayMs = 2000
+): Promise<ChatDetail | null> {
+  const v0 = getV0Client();
+
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    console.log(
+      `[v0-generator] Polling version status (attempt ${attempt}/${maxAttempts})...`
+    );
+
+    try {
+      const chat = (await v0.chats.get({ chatId })) as ChatDetail;
+      const status = chat.latestVersion?.status;
+
+      console.log("[v0-generator] Version status:", status);
+      console.log("[v0-generator] demoUrl:", chat.latestVersion?.demoUrl);
+
+      if (status === "ready" || status === "completed") {
+        console.log("[v0-generator] Version is ready!");
+        return chat;
+      }
+
+      if (status === "failed" || status === "error") {
+        console.error("[v0-generator] Version failed:", status);
+        return chat; // Return anyway, let caller handle
+      }
+
+      // Still generating, wait and retry
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    } catch (error) {
+      console.error("[v0-generator] Error polling version:", error);
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+  }
+
+  console.warn("[v0-generator] Max polling attempts reached");
+  return null;
+}
+
+/**
  * Generate code using v0 Platform API
  * This uses the same API that v0.dev website uses
  */
@@ -151,6 +195,14 @@ export async function generateCode(
   console.log("[v0-generator] Version status:", chat.latestVersion?.status);
   console.log("[v0-generator] Files count:", chat.latestVersion?.files?.length);
 
+  // If version is not ready yet, poll for completion
+  if (chat.latestVersion?.status !== "ready" && chat.latestVersion?.status !== "completed") {
+    const readyChat = await waitForVersionReady(chat.id);
+    if (readyChat) {
+      chat = readyChat;
+    }
+  }
+
   // Extract files from the response
   const files: GeneratedFile[] =
     chat.latestVersion?.files?.map((file) => ({
@@ -183,6 +235,8 @@ export async function generateCode(
     );
   }
 
+  console.log("[v0-generator] Generation complete, demoUrl:", chat.latestVersion?.demoUrl);
+
   return {
     code: combinedCode,
     files,
@@ -212,13 +266,24 @@ export async function refineCode(
       existingChatId
     );
 
-    const chat = (await v0.chats.sendMessage({
+    // Send the message
+    let chat = (await v0.chats.sendMessage({
       chatId: existingChatId,
       message: instruction,
       modelConfiguration: {
         modelId: modelId as "v0-1.5-md" | "v0-1.5-lg",
       },
     })) as ChatDetail;
+
+    console.log("[v0-generator] Message sent, version status:", chat.latestVersion?.status);
+
+    // If version is not ready yet, poll for completion
+    if (chat.latestVersion?.status !== "ready" && chat.latestVersion?.status !== "completed") {
+      const readyChat = await waitForVersionReady(existingChatId);
+      if (readyChat) {
+        chat = readyChat;
+      }
+    }
 
     const files: GeneratedFile[] =
       chat.latestVersion?.files?.map((file) => ({
@@ -233,6 +298,8 @@ export async function refineCode(
           f.name.includes("Page.tsx") ||
           f.name.endsWith(".tsx")
       ) || files[0];
+
+    console.log("[v0-generator] Refinement complete, demoUrl:", chat.latestVersion?.demoUrl);
 
     return {
       code: mainFile?.content || chat.text || "",

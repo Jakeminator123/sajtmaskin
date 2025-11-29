@@ -1,13 +1,25 @@
+import Link from "next/link";
 import { TemplateGallery } from "@/components/template-gallery";
 import { PromptInput } from "@/components/prompt-input";
 import { HelpTooltip } from "@/components/help-tooltip";
-import { Rocket } from "lucide-react";
+import { Rocket, FolderOpen } from "lucide-react";
 
 export default function Home() {
   return (
     <main className="min-h-screen bg-gradient-to-b from-zinc-950 via-zinc-950 to-zinc-900">
       {/* Background pattern */}
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-blue-900/10 via-transparent to-transparent pointer-events-none" />
+
+      {/* Top navigation */}
+      <nav className="absolute top-0 right-0 p-4 z-10">
+        <Link
+          href="/projects"
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-zinc-800/80 hover:bg-zinc-700/80 text-zinc-300 hover:text-white text-sm font-medium transition-colors"
+        >
+          <FolderOpen className="h-4 w-4" />
+          Mina Projekt
+        </Link>
+      </nav>
 
       <div className="relative flex flex-col items-center justify-center min-h-screen px-4 py-16 space-y-12">
         {/* Header */}

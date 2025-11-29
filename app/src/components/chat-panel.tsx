@@ -27,9 +27,6 @@ export function ChatPanel({
   const [input, setInput] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const hasInitialized = useRef(false);
-  // Track what we initialized with to detect changes
-  const initializedWith = useRef<string | null>(null);
 
   const {
     messages,
@@ -54,45 +51,49 @@ export function ChatPanel({
     }
   }, [messages]);
 
+  // Track the last generated key to detect changes
+  const lastGeneratedKey = useRef<string | null>(null);
+
   // Auto-generate on initial load or when params change
   useEffect(() => {
     const currentKey = `${categoryType || ""}-${initialPrompt || ""}-${
       templateId || ""
     }`;
 
-    // If we already initialized with these exact params, skip
-    if (hasInitialized.current && initializedWith.current === currentKey) {
-      console.log(
-        "[ChatPanel] Already initialized with these params, skipping"
-      );
-      return;
-    }
+    console.log("[ChatPanel] Effect running, currentKey:", currentKey);
+    console.log("[ChatPanel] lastGeneratedKey:", lastGeneratedKey.current);
+    console.log(
+      "[ChatPanel] messages:",
+      messages.length,
+      "demoUrl:",
+      !!demoUrl
+    );
 
-    // If already loading, don't start another request
+    // If we're loading, skip
     if (isLoading) {
-      console.log("[ChatPanel] Already loading, skipping duplicate request");
+      console.log("[ChatPanel] Already loading, skipping");
       return;
     }
 
-    // Check if params changed - if so, clear old state and regenerate
-    const paramsChanged =
-      hasInitialized.current && initializedWith.current !== currentKey;
+    // Check if this is a new request (different from last generated)
+    const isNewRequest = lastGeneratedKey.current !== currentKey;
 
-    if (paramsChanged) {
-      console.log("[ChatPanel] Params changed, clearing chat");
+    // If we have content but it's from a DIFFERENT request, clear it first
+    if (isNewRequest && (messages.length > 0 || demoUrl)) {
+      console.log("[ChatPanel] New request detected, clearing old content");
       clearChat();
-    } else if (demoUrl && messages.length > 0) {
-      // Only skip if we have persisted content AND params haven't changed
-      console.log(
-        "[ChatPanel] Already have content from persisted state, skipping"
-      );
-      hasInitialized.current = true;
-      initializedWith.current = currentKey;
+      lastGeneratedKey.current = null;
+      return; // Wait for state to clear, effect will re-run
+    }
+
+    // If we already generated this exact request, skip
+    if (lastGeneratedKey.current === currentKey) {
+      console.log("[ChatPanel] Already generated this request, skipping");
       return;
     }
 
-    hasInitialized.current = true;
-    initializedWith.current = currentKey;
+    // Ready to generate - mark this key as being generated
+    lastGeneratedKey.current = currentKey;
 
     // If we have a templateId, generate from template
     if (templateId) {
@@ -101,15 +102,16 @@ export function ChatPanel({
       return;
     }
 
+    // Use the prompt (either from URL or generate default based on category)
     const initialMessage =
       initialPrompt ||
       (categoryType ? `Skapa en ${getCategoryName(categoryType)}` : null);
 
     if (initialMessage) {
-      console.log("[ChatPanel] Starting initial generation:", {
-        categoryType,
-        initialPrompt,
-      });
+      console.log(
+        "[ChatPanel] Starting generation with prompt:",
+        initialMessage.substring(0, 50) + "..."
+      );
       handleGenerate(initialMessage, categoryType);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps

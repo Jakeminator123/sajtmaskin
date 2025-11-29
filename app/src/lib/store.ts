@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
+import { saveProjectData as apiSaveProjectData } from "./project-client";
 
 export interface Message {
   id: string;
@@ -14,6 +15,9 @@ export interface GeneratedFile {
 }
 
 interface BuilderState {
+  // Project state
+  projectId: string | null;
+
   // Chat state
   messages: Message[];
   isLoading: boolean;
@@ -22,14 +26,19 @@ interface BuilderState {
   // Generated content
   files: GeneratedFile[];
   currentCode: string | null;
-  demoUrl: string | null; // v0's hosted preview URL
+  demoUrl: string | null;
 
   // UI state
   viewMode: "preview" | "code";
   deviceSize: "desktop" | "tablet" | "mobile";
   quality: "budget" | "standard" | "premium";
 
+  // Saving state
+  isSaving: boolean;
+  lastSaved: Date | null;
+
   // Actions
+  setProjectId: (id: string | null) => void;
   addMessage: (role: "user" | "assistant", content: string) => void;
   setLoading: (loading: boolean) => void;
   setChatId: (id: string) => void;
@@ -40,12 +49,26 @@ interface BuilderState {
   setDeviceSize: (size: "desktop" | "tablet" | "mobile") => void;
   setQuality: (quality: "budget" | "standard" | "premium") => void;
   clearChat: () => void;
+
+  // Database operations
+  loadFromProject: (data: {
+    chatId?: string;
+    demoUrl?: string;
+    currentCode?: string;
+    files?: GeneratedFile[];
+    messages?: Message[];
+  }) => void;
+  saveToDatabase: () => Promise<void>;
 }
+
+// Debounce timer for auto-save
+let saveTimeout: NodeJS.Timeout | null = null;
 
 export const useBuilderStore = create<BuilderState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       // Initial state
+      projectId: null,
       messages: [],
       isLoading: false,
       chatId: null,
@@ -55,9 +78,13 @@ export const useBuilderStore = create<BuilderState>()(
       viewMode: "preview",
       deviceSize: "desktop",
       quality: "standard",
+      isSaving: false,
+      lastSaved: null,
 
       // Actions
-      addMessage: (role, content) =>
+      setProjectId: (id) => set({ projectId: id }),
+
+      addMessage: (role, content) => {
         set((state) => ({
           messages: [
             ...state.messages,
@@ -68,17 +95,32 @@ export const useBuilderStore = create<BuilderState>()(
               timestamp: new Date(),
             },
           ],
-        })),
+        }));
+        // Trigger auto-save after message
+        get().saveToDatabase();
+      },
 
       setLoading: (loading) => set({ isLoading: loading }),
 
-      setChatId: (id) => set({ chatId: id }),
+      setChatId: (id) => {
+        set({ chatId: id });
+        get().saveToDatabase();
+      },
 
-      setFiles: (files) => set({ files }),
+      setFiles: (files) => {
+        set({ files });
+        get().saveToDatabase();
+      },
 
-      setCurrentCode: (code) => set({ currentCode: code }),
+      setCurrentCode: (code) => {
+        set({ currentCode: code });
+        get().saveToDatabase();
+      },
 
-      setDemoUrl: (url) => set({ demoUrl: url }),
+      setDemoUrl: (url) => {
+        set({ demoUrl: url });
+        get().saveToDatabase();
+      },
 
       setViewMode: (mode) => set({ viewMode: mode }),
 
@@ -95,11 +137,67 @@ export const useBuilderStore = create<BuilderState>()(
           currentCode: null,
           demoUrl: null,
         }),
+
+      // Load project data from database
+      loadFromProject: (data) => {
+        set({
+          chatId: data.chatId || null,
+          demoUrl: data.demoUrl || null,
+          currentCode: data.currentCode || null,
+          files: data.files || [],
+          messages: (data.messages || []).map((msg: any) => ({
+            ...msg,
+            timestamp:
+              msg.timestamp instanceof Date
+                ? msg.timestamp
+                : new Date(msg.timestamp),
+          })),
+        });
+      },
+
+      // Save to database (debounced)
+      saveToDatabase: async () => {
+        const state = get();
+
+        // Don't save if no project
+        if (!state.projectId) {
+          return;
+        }
+
+        // Clear existing timeout
+        if (saveTimeout) {
+          clearTimeout(saveTimeout);
+        }
+
+        // Debounce saves
+        saveTimeout = setTimeout(async () => {
+          set({ isSaving: true });
+
+          try {
+            await apiSaveProjectData(state.projectId!, {
+              chatId: state.chatId || undefined,
+              demoUrl: state.demoUrl || undefined,
+              currentCode: state.currentCode || undefined,
+              files: state.files,
+              messages: state.messages.map((msg) => ({
+                ...msg,
+                timestamp: msg.timestamp.toISOString(),
+              })),
+            });
+            set({ lastSaved: new Date(), isSaving: false });
+            console.log("[Store] Saved to database");
+          } catch (error) {
+            console.error("[Store] Failed to save to database:", error);
+            set({ isSaving: false });
+          }
+        }, 1000); // 1 second debounce
+      },
     }),
     {
       name: "sajtmaskin-builder-state",
-      // Only persist these fields (not isLoading)
+      // Only persist these fields locally (backup)
       partialize: (state) => ({
+        projectId: state.projectId,
         messages: state.messages,
         chatId: state.chatId,
         files: state.files,
@@ -110,18 +208,15 @@ export const useBuilderStore = create<BuilderState>()(
       // Custom storage with Date serialization
       storage: createJSONStorage(() => localStorage, {
         reviver: (key, value) => {
-          // Restore Date objects from ISO strings
           if (value && typeof value === "object" && value.__type === "Date") {
             return new Date(value.value);
           }
-          // Handle plain ISO date strings in messages array
           if (key === "timestamp" && typeof value === "string") {
             return new Date(value);
           }
           return value;
         },
         replacer: (key, value) => {
-          // Serialize Date objects with type marker
           if (value instanceof Date) {
             return { __type: "Date", value: value.toISOString() };
           }
