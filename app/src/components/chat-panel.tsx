@@ -9,6 +9,7 @@ import {
 } from "@/lib/api-client";
 import { ChatMessage } from "@/components/chat-message";
 import { HelpTooltip } from "@/components/help-tooltip";
+import { ComponentPicker } from "@/components/component-picker";
 import { Button } from "@/components/ui/button";
 import { MessageSquare, ArrowUp, Loader2 } from "lucide-react";
 
@@ -189,7 +190,10 @@ export function ChatPanel({
         );
       } else {
         // Handle failed response
-        console.error("[ChatPanel] Template generation failed:", response.error);
+        console.error(
+          "[ChatPanel] Template generation failed:",
+          response.error
+        );
         addMessage(
           "assistant",
           response.error || "Kunde inte ladda template. Försök igen."
@@ -415,7 +419,21 @@ export function ChatPanel({
       </div>
 
       {/* Input */}
-      <div className="p-4 border-t border-zinc-800">
+      <div className="p-4 border-t border-zinc-800 space-y-3">
+        {/* Component picker - only show when we have content */}
+        {demoUrl && (
+          <ComponentPicker
+            onSelect={(prompt) => {
+              setInput(prompt);
+              // Auto-submit the component request
+              setTimeout(() => {
+                handleRefinement(prompt);
+              }, 100);
+            }}
+            disabled={isLoading}
+          />
+        )}
+
         <div className="flex items-center gap-2 p-3 bg-zinc-800/50 rounded-lg border border-zinc-700/50 focus-within:border-zinc-600">
           <input
             ref={inputRef}
@@ -444,7 +462,7 @@ export function ChatPanel({
             )}
           </Button>
         </div>
-        <p className="text-xs text-zinc-600 mt-2 text-center">
+        <p className="text-xs text-zinc-600 text-center">
           {messages.length === 0
             ? "Tryck Enter för att generera"
             : "Skriv ändringar för att förfina designen"}

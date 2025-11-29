@@ -47,14 +47,6 @@ Use a dark theme with blue accents. Make it fully responsive.`,
 - Consistent header and footer across all pages
 Use a professional design. Include navigation between pages.`,
 
-  "apps-games": `Create an interactive web application or game with:
-- Engaging visual interface
-- Interactive elements and user controls
-- Clear feedback on user actions
-- Game mechanics or app functionality
-- Score/progress tracking if applicable
-Make it fun and engaging. Use animations where appropriate.`,
-
   dashboard: `Create an admin dashboard with:
 - Sidebar navigation with icons
 - Top header with user menu and notifications
@@ -63,50 +55,6 @@ Make it fun and engaging. Use animations where appropriate.`,
 - Charts section (line or bar chart placeholder)
 - Dark theme preferred
 Make it fully responsive with collapsible sidebar on mobile.`,
-
-  ecommerce: `Create an e-commerce storefront with:
-- Header with logo, search bar, cart icon
-- Category navigation
-- Product grid with images, prices, ratings (6-8 products)
-- Filter sidebar (price, category)
-- Product quick-view capability
-- Footer with links and newsletter signup
-Make it fully responsive.`,
-
-  "blog-portfolio": `Create a blog or portfolio website with:
-- Header with logo and navigation
-- Hero section with name/title
-- Featured content section
-- Grid of articles/projects with thumbnails
-- About section
-- Contact form
-- Footer
-Use a clean, readable design. Make it fully responsive.`,
-
-  components: `Create a reusable UI component with:
-- Clean, modern design
-- Proper accessibility (ARIA attributes)
-- Hover and focus states
-- Animation/transitions
-- Multiple variants if applicable
-Make it production-ready and easy to customize.`,
-
-  "login-signup": `Create an authentication page with:
-- Clean login form with email/password fields
-- Social login buttons (Google, GitHub, etc.)
-- Registration form option
-- Password recovery link
-- Remember me checkbox
-- Form validation
-Use a modern, secure-looking design.`,
-
-  animations: `Create an animated component with:
-- Smooth, modern animations
-- CSS transitions or Framer Motion
-- Interactive hover effects
-- Entrance/exit animations
-- Attention-grabbing but not distracting
-Focus on polish and micro-interactions.`,
 };
 
 // System prompt for v0 to generate better code

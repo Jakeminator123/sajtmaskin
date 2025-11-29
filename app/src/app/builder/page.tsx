@@ -16,13 +16,7 @@ import { ArrowLeft, Download, Rocket, RefreshCw } from "lucide-react";
 const categoryTitles: Record<string, string> = {
   "landing-page": "Landing Page",
   website: "Hemsida",
-  "apps-games": "Apps & Spel",
   dashboard: "Dashboard",
-  ecommerce: "E-commerce",
-  "blog-portfolio": "Blogg & Portfolio",
-  components: "Komponenter",
-  "login-signup": "Login & Sign Up",
-  animations: "Animationer",
 };
 
 function BuilderContent() {
@@ -36,16 +30,15 @@ function BuilderContent() {
   // Handle starting a new design
   const handleNewDesign = () => {
     clearChat();
-    // The ChatPanel will automatically start a new generation
   };
 
   const title = templateId
     ? "Template"
     : type
-    ? categoryTitles[type] || type
-    : prompt
-    ? "Egen beskrivning"
-    : "Ny webbplats";
+      ? categoryTitles[type] || type
+      : prompt
+        ? "Egen beskrivning"
+        : "Ny webbplats";
 
   return (
     <div
@@ -104,7 +97,7 @@ function BuilderContent() {
         </div>
       </header>
 
-      {/* Main content - 3 panel layout */}
+      {/* Main content - 2 panel layout */}
       <div className="flex-1 flex overflow-hidden">
         {/* Chat Panel (30%) */}
         <div className="w-[30%] min-w-[300px] border-r border-zinc-800 bg-zinc-900/30">
@@ -124,7 +117,7 @@ function BuilderContent() {
       {/* Step indicator */}
       <div className="h-10 border-t border-zinc-800 flex items-center justify-center bg-zinc-900/50">
         <p className="text-xs text-zinc-500">
-          Steg 3 av 4: Granska och förfina
+          Granska och förfina din design
           <HelpTooltip text="Du kan fortsätta förfina din design genom att skicka fler instruktioner i chatten. När du är nöjd, ladda ner eller publicera!" />
         </p>
       </div>
