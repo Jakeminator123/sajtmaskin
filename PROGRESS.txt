@@ -38,7 +38,9 @@ SKAPADE FILER:
 [✅] Skapa Zustand store med:
     - messages: Array av chat-meddelanden
     - isLoading: boolean
-    - chatId: string | null
+    - chatId: string | null (för v0 konversation)
+    - demoUrl: string | null (v0:s hostade preview)
+    - files: GeneratedFile[] (alla genererade filer)
     - currentCode: string | null
     - viewMode, deviceSize, quality
 
@@ -48,12 +50,6 @@ SKAPADE FILER:
     - Auto-scroll till senaste meddelande
     - Loading-indikator
     - Input för nya meddelanden
-
-[✅] Skapa mock AI-svar med:
-    - 2-4 sekunders delay (simulerar API)
-    - Olika svar per kategori (landing-page, dashboard, etc.)
-    - Svensk text i alla svar
-    - Mock-kod för varje kategori
 
 [✅] Skapa CodePreview-komponent med:
     - Preview/Kod toggle
@@ -66,7 +62,6 @@ SKAPADE FILER:
 
 SKAPADE FILER:
 - app/src/lib/store.ts (Zustand store)
-- app/src/lib/mock-generator.ts (Mock AI-svar - ersatt i Fas 3)
 - app/src/components/chat-message.tsx
 - app/src/components/chat-panel.tsx
 - app/src/components/code-preview.tsx
@@ -78,7 +73,7 @@ SKAPADE FILER:
 
 [✅] Skapa /api/generate route
 [✅] Skapa /api/refine route
-[✅] Implementera v0 API-anrop via @ai-sdk/vercel
+[✅] Implementera v0 API-anrop via v0-sdk (Platform API)
 [✅] Sanera svar (ta bort v0/Vercel-referenser)
 [✅] Hantera kvalitetsnivåer (budget/standard/premium)
 [✅] Ersätt mock-generator med riktiga API-anrop
@@ -107,29 +102,80 @@ WHITE-LABEL:
   - Användare ser aldrig v0 i nätverksfliken
 
 ================================================================================
-                    FAS 4: SANDPACK PREVIEW ✅ KLAR
+                    FAS 4: LIVE PREVIEW ✅ KLAR
 ================================================================================
 
-[✅] Installera @codesandbox/sandpack-react
+[✅] Installera v0-sdk (Platform API istället för Model API)
+[✅] Installera @codesandbox/sandpack-react (fallback)
 [✅] Skapa code-parser.ts för att parsa v0-kod till Sandpack-filformat
-[✅] Konfigurera Sandpack med React-template och mörkt tema
-[✅] Implementera live preview av genererad kod
+[✅] Konfigurera Sandpack med React-template och mörkt tema (fallback)
+[✅] Implementera IFRAME-PREVIEW via v0:s demoUrl (primär metod)
 [✅] Synkronisera enhetstogglar (desktop/tablet/mobile) med container-bredd
 
 SKAPADE FILER:
 - app/src/lib/code-parser.ts (parser för v0-kod → Sandpack-filer)
-- app/src/components/code-preview.tsx (uppdaterad med Sandpack)
+- app/src/components/code-preview.tsx (uppdaterad med iframe + Sandpack fallback)
 
 TEKNISK IMPLEMENTATION:
-- Sandpack renderar preview lokalt (INGEN v0 iframe)
-- Kod parsas från markdown-format till React-filer
-- Tailwind CSS laddas via CDN i preview
-- Mörkt tema matchar appens design
-- Enhetstogglar ändrar container-bredd: 100%/768px/375px
-- Kodvisning med syntax highlighting och filnavigering
+━━━━━━━━━━━━━━━━━━━━━━
+PRIMÄR METOD: v0 Demo URL (iframe)
+- v0 Platform API returnerar demoUrl för varje genererad version
+- demoUrl pekar på v0:s hostade preview (t.ex. demo-xxx.vusercontent.net)
+- Vi visar denna URL i en iframe - PÅLITLIGT, fungerar alltid!
+- Ingen komplicerad kod-rendering lokalt
+
+FALLBACK: Sandpack (om ingen demoUrl)
+- Sandpack renderar preview lokalt
+- Kod parsas från v0-format till React-filer
+- Path aliases (@/) konverteras till relativa sökvägar
+- Tailwind CSS laddas via CDN
+
+PREVIEW-PRIORITET:
+1. Om demoUrl finns → Visa iframe med v0:s preview ✅
+2. Om bara currentCode finns → Försök Sandpack (kan misslyckas)
+3. Om ingenting finns → Visa "Väntar på generering..."
 
 ================================================================================
-                    FAS 5: ENHANCEMENTS PANEL ⏳ NÄSTA
+              FAS 5: v0-SDK PLATFORM API INTEGRATION ✅ KLAR
+================================================================================
+
+[✅] Byt från @ai-sdk/vercel (Model API) till v0-sdk (Platform API)
+[✅] Platform API returnerar strukturerade filer (inte bara text)
+[✅] Spara chatId för att fortsätta konversationer
+[✅] Spara demoUrl för iframe-preview
+[✅] Spara alla filer för kodvisning och export
+[✅] Refinement via v0.chats.sendMessage() med chatId
+
+VIKTIGA SKILLNADER FRÅN MODEL API:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Model API (@ai-sdk/vercel):
+- Returnerar RAW TEXT (måste parsas)
+- Ingen demoUrl
+- Ingen chatId för konversation
+- Svårare att få korrekt formaterad kod
+
+Platform API (v0-sdk) - DET VI ANVÄNDER NU:
+- Returnerar STRUKTURERADE FILER (latestVersion.files)
+- Inkluderar demoUrl för preview
+- Har chatId för att fortsätta konversationer
+- Samma API som v0.dev webbplatsen använder!
+
+API-RESPONS STRUKTUR:
+{
+  chatId: "abc123",
+  latestVersion: {
+    status: "completed",
+    demoUrl: "https://demo-xxx.vusercontent.net",
+    files: [
+      { name: "app/page.tsx", content: "..." },
+      { name: "components/header.tsx", content: "..." },
+      ...
+    ]
+  }
+}
+
+================================================================================
+                    FAS 6: ENHANCEMENTS PANEL ⏳ NÄSTA
 ================================================================================
 
 [ ] Skapa kollapsbar panel under preview
@@ -138,17 +184,17 @@ TEKNISK IMPLEMENTATION:
 [ ] Koppla val till chat (skickar meddelande)
 
 ================================================================================
-                    FAS 6: EXPORT FEATURES ⬚ VÄNTAR
+                    FAS 7: EXPORT FEATURES ⬚ VÄNTAR
 ================================================================================
 
 [ ] Installera jszip och file-saver
-[ ] Implementera ZIP-export
+[ ] Implementera ZIP-export med alla filer från v0
 [ ] Lägg till syntax highlighting (prismjs)
 [ ] Skapa kodvisare med flikar per fil
 [ ] Kopiera-knapp per fil
 
 ================================================================================
-                    FAS 7: POLISH & DEPLOY ⬚ VÄNTAR
+                    FAS 8: POLISH & DEPLOY ⬚ VÄNTAR
 ================================================================================
 
 [ ] Lägg till stegindikator
@@ -174,9 +220,40 @@ API-NYCKEL:
 
 INSTALLERADE PAKET:
   - zustand (state management)
-  - @ai-sdk/vercel, ai (v0 API integration)
+  - v0-sdk (Platform API - primär integration)
+  - @ai-sdk/vercel, ai (Model API - ej i aktiv användning)
   - ShadCN UI komponenter
-  - @codesandbox/sandpack-react (live code preview)
+  - @codesandbox/sandpack-react (fallback live code preview)
+
+FLÖDE (hur systemet fungerar nu):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. ANVÄNDARE VÄLJER KATEGORI (startsida)
+   → Navigerar till /builder?type=landing-page
+   
+2. CHAT-PANEL STARTAR GENERERING
+   → Anropar /api/generate med prompt + kategori
+   
+3. BACKEND ANROPAR v0 PLATFORM API
+   → v0.chats.create({ message: prompt })
+   → v0 genererar kod och hostar preview
+   → Returnerar: chatId, demoUrl, files[]
+   
+4. FRONTEND SPARAR ALLT I STORE
+   → setChatId(chatId)
+   → setDemoUrl(demoUrl)
+   → setFiles(files)
+   → setCurrentCode(mainFile.content)
+   
+5. PREVIEW VISAR IFRAME
+   → <iframe src={demoUrl} />
+   → Exakt samma preview som v0.dev visar!
+   
+6. ANVÄNDARE FÖRFINAR (skriver i chatten)
+   → Anropar /api/refine med instruction + chatId
+   → v0.chats.sendMessage({ chatId, message })
+   → Ny demoUrl och filer returneras
+   → Preview uppdateras
 
 ================================================================================
                     FÖR NY AI-AGENT
@@ -189,6 +266,22 @@ Om du startar med en ny AI-agent, ge den:
 3. info/02_v0_ai_build_instructions.txt för tekniska detaljer
 4. info/03_v0_api_whitelabel_integration.txt för API-integration
 
-Be agenten: "Fortsätt med Fas 5 enligt PROGRESS.txt"
+Be agenten: "Fortsätt med Fas 6 enligt PROGRESS.txt"
+
+================================================================================
+                    KÄNDA PROBLEM & LÖSNINGAR
+================================================================================
+
+PROBLEM: v0 API är långsam (2-3 minuter per anrop)
+LÖSNING: Visa loading-state med "15-30 sekunder" meddelande.
+         Premium-modellen (v0-1.5-lg) kan vara snabbare.
+
+PROBLEM: Sandpack kan inte rendera Next.js-kod med @/ path aliases
+LÖSNING: Vi använder v0:s demoUrl i iframe istället!
+         Sandpack är bara fallback om demoUrl saknas.
+
+PROBLEM: Flera API-anrop kan köras parallellt om sidan laddas om
+LÖSNING: hasInitialized ref förhindrar dubbla anrop.
+         initializedWith ref spårar vilka params som redan genererats.
 
 ================================================================================

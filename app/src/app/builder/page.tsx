@@ -1,15 +1,16 @@
 "use client";
 
 import { useSearchParams } from "next/navigation";
-import { Suspense, useEffect } from "react";
+import { Suspense } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { QualitySelector } from "@/components/quality-selector";
 import { ChatPanel } from "@/components/chat-panel";
 import { CodePreview } from "@/components/code-preview";
 import { HelpTooltip } from "@/components/help-tooltip";
+import { ClientOnly } from "@/components/client-only";
 import { useBuilderStore } from "@/lib/store";
-import { ArrowLeft, Download, Rocket } from "lucide-react";
+import { ArrowLeft, Download, Rocket, RefreshCw } from "lucide-react";
 
 // Category titles in Swedish
 const categoryTitles: Record<string, string> = {
@@ -27,21 +28,25 @@ function BuilderContent() {
   const type = searchParams.get("type");
   const prompt = searchParams.get("prompt");
 
-  const { quality, setQuality, clearChat } = useBuilderStore();
+  const { quality, setQuality, clearChat, demoUrl } = useBuilderStore();
 
-  // Clear chat when navigating to builder with new params
-  useEffect(() => {
+  // Handle starting a new design
+  const handleNewDesign = () => {
     clearChat();
-  }, [type, prompt, clearChat]);
+    // The ChatPanel will automatically start a new generation
+  };
 
   const title = type
     ? categoryTitles[type] || type
     : prompt
-      ? "Egen beskrivning"
-      : "Ny webbplats";
+    ? "Egen beskrivning"
+    : "Ny webbplats";
 
   return (
-    <div className="min-h-screen bg-zinc-950 flex flex-col">
+    <div
+      className="min-h-screen bg-zinc-950 flex flex-col"
+      suppressHydrationWarning
+    >
       {/* Header */}
       <header className="h-14 border-b border-zinc-800 flex items-center justify-between px-4 bg-zinc-900/50 backdrop-blur-sm">
         <div className="flex items-center gap-4">
@@ -66,6 +71,17 @@ function BuilderContent() {
         <div className="flex items-center gap-3">
           <QualitySelector value={quality} onChange={setQuality} />
           <div className="h-5 w-px bg-zinc-800" />
+          {demoUrl && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleNewDesign}
+              className="gap-2 text-zinc-400 hover:text-zinc-100"
+            >
+              <RefreshCw className="h-4 w-4" />
+              Ny design
+            </Button>
+          )}
           <Button
             variant="outline"
             size="sm"
@@ -110,24 +126,29 @@ function BuilderContent() {
   );
 }
 
+// Loading fallback component
+function LoadingFallback() {
+  return (
+    <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
+      <div className="flex gap-2">
+        {[1, 2, 3].map((i) => (
+          <div
+            key={i}
+            className="w-3 h-3 rounded-full bg-blue-500 animate-pulse"
+            style={{ animationDelay: `${i * 150}ms` }}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function BuilderPage() {
   return (
-    <Suspense
-      fallback={
-        <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
-          <div className="flex gap-2">
-            {[1, 2, 3].map((i) => (
-              <div
-                key={i}
-                className="w-3 h-3 rounded-full bg-blue-500 animate-pulse"
-                style={{ animationDelay: `${i * 150}ms` }}
-              />
-            ))}
-          </div>
-        </div>
-      }
-    >
-      <BuilderContent />
-    </Suspense>
+    <ClientOnly fallback={<LoadingFallback />}>
+      <Suspense fallback={<LoadingFallback />}>
+        <BuilderContent />
+      </Suspense>
+    </ClientOnly>
   );
 }

@@ -18,15 +18,23 @@ export function ChatPanel({ categoryType, initialPrompt }: ChatPanelProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const hasInitialized = useRef(false);
+  // Track what we initialized with to detect changes
+  const initializedWith = useRef<string | null>(null);
 
   const {
     messages,
     isLoading,
     currentCode,
+    demoUrl,
+    chatId,
     quality,
     addMessage,
     setLoading,
     setCurrentCode,
+    setChatId,
+    setFiles,
+    setDemoUrl,
+    clearChat,
   } = useBuilderStore();
 
   // Auto-scroll to bottom when new messages arrive
@@ -36,20 +44,56 @@ export function ChatPanel({ categoryType, initialPrompt }: ChatPanelProps) {
     }
   }, [messages]);
 
-  // Auto-generate on initial load
+  // Auto-generate on initial load or when params change
   useEffect(() => {
-    if (hasInitialized.current) return;
+    const currentKey = `${categoryType || ""}-${initialPrompt || ""}`;
+
+    // If we already initialized with these exact params, skip
+    if (hasInitialized.current && initializedWith.current === currentKey) {
+      console.log(
+        "[ChatPanel] Already initialized with these params, skipping"
+      );
+      return;
+    }
+
+    // If already loading, don't start another request
+    if (isLoading) {
+      console.log("[ChatPanel] Already loading, skipping duplicate request");
+      return;
+    }
+
+    // If we already have content from localStorage (persisted state), don't regenerate
+    if (demoUrl && messages.length > 0) {
+      console.log(
+        "[ChatPanel] Already have content from persisted state, skipping"
+      );
+      hasInitialized.current = true;
+      initializedWith.current = currentKey;
+      return;
+    }
+
+    // Clear previous chat if params changed
+    if (hasInitialized.current && initializedWith.current !== currentKey) {
+      console.log("[ChatPanel] Params changed, clearing chat");
+      clearChat();
+    }
+
     hasInitialized.current = true;
+    initializedWith.current = currentKey;
 
     const initialMessage =
       initialPrompt ||
       (categoryType ? `Skapa en ${getCategoryName(categoryType)}` : null);
 
     if (initialMessage) {
+      console.log("[ChatPanel] Starting initial generation:", {
+        categoryType,
+        initialPrompt,
+      });
       handleGenerate(initialMessage, categoryType);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [categoryType, initialPrompt]);
+  }, [categoryType, initialPrompt, isLoading, demoUrl, messages.length]);
 
   const getCategoryName = (type: string): string => {
     const names: Record<string, string> = {
@@ -65,25 +109,69 @@ export function ChatPanel({ categoryType, initialPrompt }: ChatPanelProps) {
   };
 
   const handleGenerate = async (prompt: string, type?: string) => {
+    console.log("[ChatPanel] handleGenerate called:", {
+      prompt,
+      type,
+      quality,
+    });
     addMessage("user", prompt);
     setLoading(true);
 
     try {
+      console.log("[ChatPanel] Calling API...");
       const response = await generateWebsite(prompt, type, quality);
+      console.log("[ChatPanel] API response:", {
+        success: response.success,
+        hasCode: !!response.code,
+        hasFiles: !!response.files?.length,
+        hasChatId: !!response.chatId,
+        hasMessage: !!response.message,
+        error: response.error,
+      });
 
       if (response.success && response.message) {
         addMessage("assistant", response.message);
+
+        // Save chatId for future refinements
+        if (response.chatId) {
+          console.log("[ChatPanel] Saving chatId:", response.chatId);
+          setChatId(response.chatId);
+        }
+
+        // Save demoUrl for iframe preview (v0's hosted preview)
+        if (response.demoUrl) {
+          console.log("[ChatPanel] Saving demoUrl:", response.demoUrl);
+          setDemoUrl(response.demoUrl);
+        }
+
+        // Save files if we got them
+        if (response.files && response.files.length > 0) {
+          console.log(
+            "[ChatPanel] Saving files, count:",
+            response.files.length
+          );
+          setFiles(response.files);
+        }
+
+        // Set the main code
         if (response.code) {
+          console.log(
+            "[ChatPanel] Setting code, length:",
+            response.code.length
+          );
           setCurrentCode(response.code);
+        } else {
+          console.warn(
+            "[ChatPanel] Response was successful but no code received"
+          );
         }
       } else {
-        addMessage(
-          "assistant",
-          response.error || "Något gick fel. Försök igen."
-        );
+        const errorMsg = response.error || "Något gick fel. Försök igen.";
+        console.error("[ChatPanel] Generation failed:", errorMsg);
+        addMessage("assistant", errorMsg);
       }
     } catch (error) {
-      console.error("Generation error:", error);
+      console.error("[ChatPanel] Generation error:", error);
       addMessage("assistant", "Något gick fel. Försök igen.");
     } finally {
       setLoading(false);
@@ -107,10 +195,34 @@ export function ChatPanel({ categoryType, initialPrompt }: ChatPanelProps) {
     setLoading(true);
 
     try {
-      const response = await refineWebsite(currentCode, instruction, quality);
+      console.log("[ChatPanel] Refining with chatId:", chatId);
+      // Pass chatId to continue the conversation with v0
+      const response = await refineWebsite(
+        currentCode,
+        instruction,
+        quality,
+        chatId || undefined
+      );
 
       if (response.success && response.message) {
         addMessage("assistant", response.message);
+
+        // Update chatId if we got a new one
+        if (response.chatId) {
+          setChatId(response.chatId);
+        }
+
+        // Update demoUrl if we got a new one
+        if (response.demoUrl) {
+          setDemoUrl(response.demoUrl);
+        }
+
+        // Update files if we got them
+        if (response.files && response.files.length > 0) {
+          setFiles(response.files);
+        }
+
+        // Update the code
         if (response.code) {
           setCurrentCode(response.code);
         }

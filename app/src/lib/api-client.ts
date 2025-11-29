@@ -3,10 +3,18 @@
 
 export type QualityLevel = "budget" | "standard" | "premium";
 
+export interface GeneratedFile {
+  name: string;
+  content: string;
+}
+
 export interface GenerateResponse {
   success: boolean;
   message?: string;
   code?: string;
+  files?: GeneratedFile[];
+  chatId?: string;
+  demoUrl?: string;
   model?: string;
   error?: string;
 }
@@ -15,6 +23,9 @@ export interface RefineResponse {
   success: boolean;
   message?: string;
   code?: string;
+  files?: GeneratedFile[];
+  chatId?: string;
+  demoUrl?: string;
   model?: string;
   error?: string;
 }
@@ -52,7 +63,8 @@ export async function generateWebsite(
     console.error("Generate error:", error);
     return {
       success: false,
-      error: "Kunde inte ansluta till servern. Kontrollera din internetanslutning.",
+      error:
+        "Kunde inte ansluta till servern. Kontrollera din internetanslutning.",
     };
   }
 }
@@ -63,7 +75,8 @@ export async function generateWebsite(
 export async function refineWebsite(
   existingCode: string,
   instruction: string,
-  quality: QualityLevel = "standard"
+  quality: QualityLevel = "standard",
+  chatId?: string
 ): Promise<RefineResponse> {
   try {
     const response = await fetch("/api/refine", {
@@ -71,6 +84,7 @@ export async function refineWebsite(
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         existingCode,
+        chatId,
         instruction,
         quality,
       }),
@@ -90,8 +104,8 @@ export async function refineWebsite(
     console.error("Refine error:", error);
     return {
       success: false,
-      error: "Kunde inte ansluta till servern. Kontrollera din internetanslutning.",
+      error:
+        "Kunde inte ansluta till servern. Kontrollera din internetanslutning.",
     };
   }
 }
-

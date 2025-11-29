@@ -24,17 +24,28 @@ function getRandomMessage(): string {
 }
 
 export async function POST(req: NextRequest) {
+  console.log("[API/refine] Request received");
+
   try {
     const body = await req.json();
     const {
       existingCode,
+      chatId,
       instruction,
       quality = "standard",
     } = body as {
       existingCode?: string;
+      chatId?: string;
       instruction?: string;
       quality?: QualityLevel;
     };
+
+    console.log("[API/refine] Params:", {
+      chatId,
+      instruction: instruction?.substring(0, 50),
+      quality,
+      hasExistingCode: !!existingCode,
+    });
 
     // Validate input
     if (!instruction || instruction.trim().length === 0) {
@@ -53,7 +64,7 @@ export async function POST(req: NextRequest) {
 
     // Check for API key
     if (!process.env.V0_API_KEY) {
-      console.error("V0_API_KEY is not configured");
+      console.error("[API/refine] V0_API_KEY is not configured");
       return NextResponse.json(
         {
           success: false,
@@ -63,24 +74,43 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Refine code using v0 API
+    console.log("[API/refine] Calling v0 API...");
+
+    // Refine code using v0 API (with optional chatId for conversation continuation)
     const result = await refineCode(
+      chatId || null,
       existingCode,
       instruction,
       quality as QualityLevel
     );
 
+    console.log(
+      "[API/refine] Response received, code length:",
+      result.code?.length || 0
+    );
+    console.log("[API/refine] Files count:", result.files?.length || 0);
+    console.log("[API/refine] Chat ID:", result.chatId);
+
     // Sanitize the code (remove v0/Vercel references)
     const cleanedCode = sanitizeCode(result.code);
+
+    // Sanitize files too
+    const cleanedFiles = result.files?.map((file) => ({
+      name: file.name,
+      content: sanitizeCode(file.content),
+    }));
 
     return NextResponse.json({
       success: true,
       message: getRandomMessage(),
       code: cleanedCode,
+      files: cleanedFiles,
+      chatId: result.chatId,
+      demoUrl: result.demoUrl,
       model: result.model,
     });
   } catch (error) {
-    console.error("Refinement error:", error);
+    console.error("[API/refine] Error:", error);
 
     // Generic error message (don't expose v0 details)
     const errorMessage =
@@ -91,8 +121,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          error:
-            "Vår AI är upptagen just nu. Vänta en stund och försök igen.",
+          error: "Vår AI är upptagen just nu. Vänta en stund och försök igen.",
         },
         { status: 429 }
       );
@@ -117,4 +146,3 @@ export async function POST(req: NextRequest) {
     );
   }
 }
-

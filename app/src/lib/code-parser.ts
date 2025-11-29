@@ -10,6 +10,191 @@ export interface SandpackFile {
 
 export type SandpackFiles = Record<string, SandpackFile | string>;
 
+// v0 API returns structured files
+export interface GeneratedFile {
+  name: string;
+  content: string;
+}
+
+/**
+ * Convert v0 Platform API files directly to Sandpack format
+ * This is the preferred method when using v0-sdk
+ */
+export function convertV0FilesToSandpack(
+  files: GeneratedFile[]
+): SandpackFiles {
+  if (!files || files.length === 0) {
+    console.log("[code-parser] No files provided, returning defaults");
+    return getDefaultFiles();
+  }
+
+  console.log(
+    "[code-parser] Converting",
+    files.length,
+    "v0 files to Sandpack format"
+  );
+
+  const sandpackFiles: SandpackFiles = {};
+
+  // First, add all the v0 files
+  files.forEach((file) => {
+    // Normalize the path: v0 returns paths like "app/page.tsx" or "components/header.tsx"
+    let path = file.name;
+
+    // Ensure path starts with /
+    if (!path.startsWith("/")) {
+      path = "/" + path;
+    }
+
+    // v0 uses Next.js structure (app/page.tsx), but Sandpack expects React structure
+    // Map common patterns
+    if (path === "/app/page.tsx" || path === "/page.tsx") {
+      path = "/App.tsx";
+    } else if (path.startsWith("/app/")) {
+      // Remove 'app/' prefix for other files
+      path = path.replace("/app/", "/");
+    }
+
+    // Convert @/ path aliases to relative paths for Sandpack compatibility
+    // Sandpack doesn't understand Next.js path aliases
+    let content = convertPathAliases(file.content, path);
+
+    sandpackFiles[path] = {
+      code: content,
+      active: path === "/App.tsx",
+    };
+  });
+
+  // Check if we have an App.tsx, if not create one that imports page.tsx
+  if (!sandpackFiles["/App.tsx"]) {
+    // Look for a page.tsx or similar entry point
+    const pageFile = files.find(
+      (f) =>
+        f.name.includes("page.tsx") ||
+        f.name.includes("Page.tsx") ||
+        f.name.includes("index.tsx")
+    );
+
+    if (pageFile) {
+      sandpackFiles["/App.tsx"] = {
+        code: convertPathAliases(pageFile.content, "/App.tsx"),
+        active: true,
+      };
+    }
+  }
+
+  // Create proper index and entry files for Sandpack
+  const result: SandpackFiles = {
+    // Entry point
+    "/index.tsx": {
+      code: `import React from "react";
+import ReactDOM from "react-dom/client";
+import App from "./App";
+import "./styles.css";
+
+const root = ReactDOM.createRoot(document.getElementById("root")!);
+root.render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
+);`,
+      hidden: true,
+    },
+    // Global styles
+    "/styles.css": {
+      code: `@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body, #root {
+  min-height: 100%;
+}
+
+body {
+  font-family: system-ui, -apple-system, sans-serif;
+}`,
+      hidden: true,
+    },
+    // HTML template
+    "/public/index.html": {
+      code: `<!DOCTYPE html>
+<html lang="sv">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Preview - SajtMaskin</title>
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>`,
+      hidden: true,
+    },
+    // Add all the v0 generated files
+    ...sandpackFiles,
+  };
+
+  console.log(
+    "[code-parser] Created Sandpack files:",
+    Object.keys(result).filter((k) => !result[k]?.hidden)
+  );
+
+  return result;
+}
+
+/**
+ * Convert Next.js path aliases (@/) to relative paths for Sandpack
+ * @param content - The file content with imports
+ * @param currentFilePath - The path of the current file (e.g., "/App.tsx" or "/components/header.tsx")
+ */
+function convertPathAliases(content: string, currentFilePath: string): string {
+  if (!content) return content;
+
+  // Calculate the depth of the current file to determine relative path prefix
+  const pathParts = currentFilePath.split("/").filter(Boolean);
+  const depth = pathParts.length - 1; // -1 because the filename itself doesn't count
+
+  // Create the relative prefix based on depth
+  // If we're at root (/App.tsx), depth is 0, so we use "./"
+  // If we're in /components/header.tsx, depth is 1, so we use "./"
+  // The key insight: @/ always refers to the root, so we need to go up 'depth' levels
+  const getRelativePrefix = (targetPath: string) => {
+    // If depth is 0 (root level file), just use "./"
+    if (depth === 0) {
+      return "./";
+    }
+    // Otherwise, go up 'depth' levels
+    return "../".repeat(depth);
+  };
+
+  // Replace @/ imports with relative paths
+  // Match: from "@/something" or from '@/something'
+  const result = content.replace(
+    /from\s+["']@\/([^"']+)["']/g,
+    (match, importPath) => {
+      const relativePrefix = getRelativePrefix(importPath);
+      return `from "${relativePrefix}${importPath}"`;
+    }
+  );
+
+  // Also handle import() dynamic imports
+  const result2 = result.replace(
+    /import\(["']@\/([^"']+)["']\)/g,
+    (match, importPath) => {
+      const relativePrefix = getRelativePrefix(importPath);
+      return `import("${relativePrefix}${importPath}")`;
+    }
+  );
+
+  return result2;
+}
+
 /**
  * Parse code from v0 API response into Sandpack file format
  * v0 typically returns React/TSX code, sometimes with multiple files in code blocks
@@ -19,15 +204,51 @@ export function parseCodeToSandpackFiles(code: string): SandpackFiles {
     return getDefaultFiles();
   }
 
+  console.log("[code-parser] Input code starts with:", code.substring(0, 50));
+
   // Try to extract code blocks from markdown format
   const codeBlocks = extractCodeBlocks(code);
+  console.log("[code-parser] Found code blocks:", codeBlocks.length);
 
   if (codeBlocks.length > 0) {
+    console.log(
+      "[code-parser] Using code blocks, first block content starts:",
+      codeBlocks[0].content.substring(0, 50)
+    );
     return createFilesFromCodeBlocks(codeBlocks);
   }
 
+  // If no code blocks found but code contains markdown backticks, try to extract manually
+  const cleanedCode = stripMarkdownWrapper(code);
+  console.log(
+    "[code-parser] No blocks found, stripped code starts:",
+    cleanedCode.substring(0, 50)
+  );
+
   // If no code blocks found, treat the entire content as a single component
-  return createFilesFromRawCode(code);
+  return createFilesFromRawCode(cleanedCode);
+}
+
+/**
+ * Strip markdown code block wrapper if present
+ * Handles cases where the regex didn't match
+ */
+function stripMarkdownWrapper(code: string): string {
+  let result = code.trim();
+
+  // Remove opening ```tsx or ```jsx etc.
+  result = result.replace(
+    /^```(?:tsx?|jsx?|typescript|javascript|css|html)?\s*\n?/i,
+    ""
+  );
+
+  // Remove closing ```
+  result = result.replace(/\n?```\s*$/i, "");
+
+  // Also handle 'use client' directive at the very start
+  result = result.trim();
+
+  return result;
 }
 
 interface CodeBlock {
@@ -45,8 +266,9 @@ function extractCodeBlocks(text: string): CodeBlock[] {
 
   // Match code blocks with optional filename: ```tsx filename="App.tsx"
   // or just language: ```tsx
+  // Made more flexible: allows spaces/newlines after language, handles various formats
   const codeBlockRegex =
-    /```(tsx?|jsx?|typescript|javascript|css|html)(?:\s+(?:filename=["']([^"']+)["'])?)?\n([\s\S]*?)```/g;
+    /```(tsx?|jsx?|typescript|javascript|css|html)(?:\s+filename=["']([^"']+)["'])?\s*\n([\s\S]*?)```/g;
 
   let match;
   while ((match = codeBlockRegex.exec(text)) !== null) {
@@ -56,6 +278,23 @@ function extractCodeBlocks(text: string): CodeBlock[] {
       filename: filename || undefined,
       content: content.trim(),
     });
+  }
+
+  // If no blocks found, try alternative patterns
+  if (blocks.length === 0) {
+    // Try matching without strict newline requirement
+    const altRegex =
+      /```(tsx?|jsx?|typescript|javascript|css|html)\s*([\s\S]*?)```/g;
+    while ((match = altRegex.exec(text)) !== null) {
+      const [, language, content] = match;
+      // Skip if content starts with another backtick (nested)
+      if (!content.trim().startsWith("```")) {
+        blocks.push({
+          language: normalizeLanguage(language),
+          content: content.trim(),
+        });
+      }
+    }
   }
 
   return blocks;
@@ -206,11 +445,29 @@ function wrapAsAppComponent(code: string): string {
     return ensureImports(modified);
   }
 
+  // Handle arrow function components: const ComponentName: React.FC = ...
+  // or const ComponentName = () => ...
+  const arrowFunctionMatch = code.match(
+    /const\s+(\w+)(?:\s*:\s*React\.FC[^=]*)?\s*=\s*(?:\([^)]*\)|[^=])\s*=>/
+  );
+  if (arrowFunctionMatch && !hasDefaultExport) {
+    const componentName = arrowFunctionMatch[1];
+    // Add export default at the end
+    return ensureImports(code) + `\n\nexport default ${componentName};`;
+  }
+
   // If it has a named export like export function Component (but no default export)
   const namedExportMatch = code.match(/export function (\w+)/);
   if (namedExportMatch && !hasDefaultExport) {
     const componentName = namedExportMatch[1];
     // Add a default export
+    return ensureImports(code) + `\n\nexport default ${componentName};`;
+  }
+
+  // Handle const Component = () => ... without type annotation
+  const simpleArrowMatch = code.match(/const\s+(\w+)\s*=\s*\(/);
+  if (simpleArrowMatch && !hasDefaultExport && code.includes("=>")) {
+    const componentName = simpleArrowMatch[1];
     return ensureImports(code) + `\n\nexport default ${componentName};`;
   }
 

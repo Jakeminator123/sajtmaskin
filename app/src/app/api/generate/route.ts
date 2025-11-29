@@ -29,6 +29,8 @@ const DEFAULT_MESSAGE =
   "Jag har skapat en design baserat på din beskrivning. Du kan förfina den genom att ge mig mer specifika instruktioner!";
 
 export async function POST(req: NextRequest) {
+  console.log("[API/generate] Request received");
+
   try {
     const body = await req.json();
     const {
@@ -41,8 +43,15 @@ export async function POST(req: NextRequest) {
       quality?: QualityLevel;
     };
 
+    console.log("[API/generate] Params:", {
+      prompt: prompt?.substring(0, 50),
+      categoryType,
+      quality,
+    });
+
     // Validate input
     if (!prompt && !categoryType) {
+      console.log("[API/generate] Missing prompt and categoryType");
       return NextResponse.json(
         { success: false, error: "Prompt or category type is required" },
         { status: 400 }
@@ -51,7 +60,7 @@ export async function POST(req: NextRequest) {
 
     // Check for API key
     if (!process.env.V0_API_KEY) {
-      console.error("V0_API_KEY is not configured");
+      console.error("[API/generate] V0_API_KEY is not configured");
       return NextResponse.json(
         {
           success: false,
@@ -61,6 +70,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    console.log("[API/generate] Calling v0 API...");
+
     // Generate code using v0 API
     const result = await generateCode(
       prompt || "",
@@ -68,8 +79,22 @@ export async function POST(req: NextRequest) {
       categoryType
     );
 
+    console.log(
+      "[API/generate] v0 API response received, code length:",
+      result.code?.length || 0
+    );
+    console.log("[API/generate] Files count:", result.files?.length || 0);
+    console.log("[API/generate] Chat ID:", result.chatId);
+    console.log("[API/generate] Demo URL:", result.demoUrl);
+
     // Sanitize the code (remove v0/Vercel references)
     const cleanedCode = sanitizeCode(result.code);
+
+    // Sanitize files too
+    const cleanedFiles = result.files?.map((file) => ({
+      name: file.name,
+      content: sanitizeCode(file.content),
+    }));
 
     // Get appropriate response message
     const message =
@@ -77,14 +102,19 @@ export async function POST(req: NextRequest) {
         ? CATEGORY_MESSAGES[categoryType]
         : DEFAULT_MESSAGE;
 
+    console.log("[API/generate] Success, returning response");
+
     return NextResponse.json({
       success: true,
       message,
       code: cleanedCode,
+      files: cleanedFiles,
+      chatId: result.chatId,
+      demoUrl: result.demoUrl,
       model: result.model,
     });
   } catch (error) {
-    console.error("Generation error:", error);
+    console.error("[API/generate] Error:", error);
 
     // Generic error message (don't expose v0 details)
     const errorMessage =
@@ -95,8 +125,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          error:
-            "Vår AI är upptagen just nu. Vänta en stund och försök igen.",
+          error: "Vår AI är upptagen just nu. Vänta en stund och försök igen.",
         },
         { status: 429 }
       );
@@ -121,4 +150,3 @@ export async function POST(req: NextRequest) {
     );
   }
 }
-

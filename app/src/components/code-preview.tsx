@@ -1,7 +1,10 @@
 "use client";
 
 import { useBuilderStore } from "@/lib/store";
-import { parseCodeToSandpackFiles } from "@/lib/code-parser";
+import {
+  parseCodeToSandpackFiles,
+  convertV0FilesToSandpack,
+} from "@/lib/code-parser";
 import { HelpTooltip } from "@/components/help-tooltip";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -19,9 +22,9 @@ import {
   Code,
   Copy,
   Check,
-  Loader2,
+  AlertTriangle,
 } from "lucide-react";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 
 // Custom dark theme matching the app's design
 const customTheme = {
@@ -59,6 +62,8 @@ const customTheme = {
 export function CodePreview() {
   const {
     currentCode,
+    files,
+    demoUrl,
     viewMode,
     deviceSize,
     isLoading,
@@ -66,10 +71,53 @@ export function CodePreview() {
     setDeviceSize,
   } = useBuilderStore();
   const [copied, setCopied] = useState(false);
+  const [sandpackError, setSandpackError] = useState<string | null>(null);
 
-  // Parse code into Sandpack files format
+  // Convert files to Sandpack format with error handling
+  // Prefer using structured files from v0-sdk if available
   const sandpackFiles = useMemo(() => {
-    return parseCodeToSandpackFiles(currentCode || "");
+    try {
+      // If we have structured files from v0-sdk, use them directly
+      if (files && files.length > 0) {
+        console.log("[CodePreview] Using v0-sdk files, count:", files.length);
+        const result = convertV0FilesToSandpack(files);
+        console.log(
+          "[CodePreview] Converted files:",
+          Object.keys(result).filter((k) => {
+            const file = result[k];
+            return typeof file === "string" || !file?.hidden;
+          })
+        );
+        setSandpackError(null);
+        return result;
+      }
+
+      // Fallback: parse single code string (for backward compatibility)
+      console.log(
+        "[CodePreview] Falling back to parseCodeToSandpackFiles, code length:",
+        currentCode?.length || 0
+      );
+      const parsedFiles = parseCodeToSandpackFiles(currentCode || "");
+      console.log("[CodePreview] Parsed files:", Object.keys(parsedFiles));
+      setSandpackError(null);
+      return parsedFiles;
+    } catch (error) {
+      console.error("[CodePreview] Error parsing code:", error);
+      setSandpackError(
+        error instanceof Error ? error.message : "Failed to parse code"
+      );
+      return parseCodeToSandpackFiles(""); // Return default files
+    }
+  }, [currentCode, files]);
+
+  // Log when currentCode changes
+  useEffect(() => {
+    if (currentCode) {
+      console.log(
+        "[CodePreview] currentCode updated, first 200 chars:",
+        currentCode.substring(0, 200)
+      );
+    }
   }, [currentCode]);
 
   const handleCopy = async () => {
@@ -211,36 +259,69 @@ export function CodePreview() {
                   </p>
                 </div>
               </div>
-            ) : currentCode ? (
-              // Sandpack preview
+            ) : demoUrl ? (
+              // v0's hosted preview (iframe) - most reliable
               <div className="flex-1 h-full overflow-hidden">
-                <SandpackProvider
-                  template="react-ts"
-                  theme={customTheme}
-                  files={sandpackFiles}
-                  customSetup={{
-                    dependencies: {
-                      "lucide-react": "^0.468.0",
-                      "class-variance-authority": "^0.7.1",
-                      clsx: "^2.1.1",
-                      "tailwind-merge": "^2.6.0",
-                    },
-                  }}
-                  options={{
-                    externalResources: ["https://cdn.tailwindcss.com"],
-                    classes: {
-                      "sp-wrapper": "h-full",
-                      "sp-layout": "h-full",
-                      "sp-stack": "h-full",
-                    },
-                  }}
-                >
-                  <SandpackPreview
-                    showOpenInCodeSandbox={false}
-                    showRefreshButton={true}
-                    style={{ height: "100%", minHeight: "400px" }}
-                  />
-                </SandpackProvider>
+                <iframe
+                  src={demoUrl}
+                  className="w-full h-full border-0"
+                  title="Website Preview"
+                  sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+                />
+              </div>
+            ) : currentCode ? (
+              // Fallback to Sandpack preview if no demoUrl
+              <div className="flex-1 h-full overflow-hidden">
+                {sandpackError ? (
+                  // Error state
+                  <div className="flex-1 flex items-center justify-center p-8">
+                    <div className="text-center space-y-4">
+                      <AlertTriangle className="h-8 w-8 text-amber-500 mx-auto" />
+                      <p className="text-zinc-400 text-sm">
+                        Kunde inte rendera förhandsvisning
+                      </p>
+                      <p className="text-zinc-600 text-xs max-w-xs">
+                        {sandpackError}
+                      </p>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setViewMode("code")}
+                        className="mt-2"
+                      >
+                        Visa kod istället
+                      </Button>
+                    </div>
+                  </div>
+                ) : (
+                  <SandpackProvider
+                    template="react-ts"
+                    theme={customTheme}
+                    files={sandpackFiles}
+                    customSetup={{
+                      dependencies: {
+                        "lucide-react": "^0.468.0",
+                        "class-variance-authority": "^0.7.1",
+                        clsx: "^2.1.1",
+                        "tailwind-merge": "^2.6.0",
+                      },
+                    }}
+                    options={{
+                      externalResources: ["https://cdn.tailwindcss.com"],
+                      classes: {
+                        "sp-wrapper": "h-full",
+                        "sp-layout": "h-full",
+                        "sp-stack": "h-full",
+                      },
+                    }}
+                  >
+                    <SandpackPreview
+                      showOpenInCodeSandbox={false}
+                      showRefreshButton={true}
+                      style={{ height: "100%", minHeight: "400px" }}
+                    />
+                  </SandpackProvider>
+                )}
               </div>
             ) : (
               // Empty state
