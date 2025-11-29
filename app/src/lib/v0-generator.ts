@@ -364,7 +364,10 @@ export async function generateFromTemplate(
 
     // Check for specific error types
     if (error instanceof Error) {
-      if (error.message.includes("not found") || error.message.includes("404")) {
+      if (
+        error.message.includes("not found") ||
+        error.message.includes("404")
+      ) {
         throw new Error("Template not found");
       }
       if (

@@ -247,4 +247,3 @@ export const CATEGORY_TITLES: Record<string, string> = {
   "login-signup": "Login & Sign Up",
   animations: "Animationer",
 };
-

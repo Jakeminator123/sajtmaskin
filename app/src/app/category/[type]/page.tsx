@@ -101,7 +101,9 @@ export default function CategoryPage() {
               <Icon className="h-6 w-6 text-white" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-white">{category.title}</h1>
+              <h1 className="text-2xl font-bold text-white">
+                {category.title}
+              </h1>
               <p className="text-zinc-400">{category.description}</p>
             </div>
           </div>
@@ -190,4 +192,3 @@ export default function CategoryPage() {
     </main>
   );
 }
-

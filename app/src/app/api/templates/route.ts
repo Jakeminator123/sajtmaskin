@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCategory, getTemplatesForCategory, CATEGORIES } from "@/lib/template-data";
+import {
+  getCategory,
+  getTemplatesForCategory,
+  CATEGORIES,
+} from "@/lib/template-data";
 
 /**
  * GET /api/templates
@@ -42,4 +46,3 @@ export async function GET(request: NextRequest) {
     categories: categoriesData,
   });
 }
-

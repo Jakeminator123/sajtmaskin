@@ -55,7 +55,9 @@ export function ChatPanel({
 
   // Auto-generate on initial load or when params change
   useEffect(() => {
-    const currentKey = `${categoryType || ""}-${initialPrompt || ""}-${templateId || ""}`;
+    const currentKey = `${categoryType || ""}-${initialPrompt || ""}-${
+      templateId || ""
+    }`;
 
     // If we already initialized with these exact params, skip
     if (hasInitialized.current && initializedWith.current === currentKey) {
@@ -71,20 +73,21 @@ export function ChatPanel({
       return;
     }
 
-    // If we already have content from localStorage (persisted state), don't regenerate
-    if (demoUrl && messages.length > 0) {
+    // Check if params changed - if so, clear old state and regenerate
+    const paramsChanged =
+      hasInitialized.current && initializedWith.current !== currentKey;
+
+    if (paramsChanged) {
+      console.log("[ChatPanel] Params changed, clearing chat");
+      clearChat();
+    } else if (demoUrl && messages.length > 0) {
+      // Only skip if we have persisted content AND params haven't changed
       console.log(
         "[ChatPanel] Already have content from persisted state, skipping"
       );
       hasInitialized.current = true;
       initializedWith.current = currentKey;
       return;
-    }
-
-    // Clear previous chat if params changed
-    if (hasInitialized.current && initializedWith.current !== currentKey) {
-      console.log("[ChatPanel] Params changed, clearing chat");
-      clearChat();
     }
 
     hasInitialized.current = true;
@@ -109,7 +112,14 @@ export function ChatPanel({
       handleGenerate(initialMessage, categoryType);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [categoryType, initialPrompt, templateId, isLoading, demoUrl, messages.length]);
+  }, [
+    categoryType,
+    initialPrompt,
+    templateId,
+    isLoading,
+    demoUrl,
+    messages.length,
+  ]);
 
   const getCategoryName = (type: string): string => {
     const names: Record<string, string> = {
@@ -151,7 +161,10 @@ export function ChatPanel({
 
         // Save files from v0-sdk response
         if (response.files && response.files.length > 0) {
-          console.log("[ChatPanel] Saving files, count:", response.files.length);
+          console.log(
+            "[ChatPanel] Saving files, count:",
+            response.files.length
+          );
           setFiles(response.files);
         }
 
@@ -163,7 +176,10 @@ export function ChatPanel({
 
         // Set the main code
         if (response.code) {
-          console.log("[ChatPanel] Setting code, length:", response.code.length);
+          console.log(
+            "[ChatPanel] Setting code, length:",
+            response.code.length
+          );
           setCurrentCode(response.code);
         }
 
@@ -171,12 +187,21 @@ export function ChatPanel({
           "assistant",
           response.message || "Template laddad! Du kan nu anpassa den."
         );
+      } else {
+        // Handle failed response
+        console.error("[ChatPanel] Template generation failed:", response.error);
+        addMessage(
+          "assistant",
+          response.error || "Kunde inte ladda template. Försök igen."
+        );
       }
     } catch (error) {
       console.error("[ChatPanel] Template generation error:", error);
       addMessage(
         "assistant",
-        `Kunde inte ladda template: ${error instanceof Error ? error.message : "Okänt fel"}`
+        `Kunde inte ladda template: ${
+          error instanceof Error ? error.message : "Okänt fel"
+        }`
       );
     } finally {
       setLoading(false);

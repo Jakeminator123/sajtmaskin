@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { persist, createJSONStorage } from "zustand/middleware";
 
 export interface Message {
   id: string;
@@ -106,6 +106,27 @@ export const useBuilderStore = create<BuilderState>()(
         currentCode: state.currentCode,
         demoUrl: state.demoUrl,
         quality: state.quality,
+      }),
+      // Custom storage with Date serialization
+      storage: createJSONStorage(() => localStorage, {
+        reviver: (key, value) => {
+          // Restore Date objects from ISO strings
+          if (value && typeof value === "object" && value.__type === "Date") {
+            return new Date(value.value);
+          }
+          // Handle plain ISO date strings in messages array
+          if (key === "timestamp" && typeof value === "string") {
+            return new Date(value);
+          }
+          return value;
+        },
+        replacer: (key, value) => {
+          // Serialize Date objects with type marker
+          if (value instanceof Date) {
+            return { __type: "Date", value: value.toISOString() };
+          }
+          return value;
+        },
       }),
     }
   )
