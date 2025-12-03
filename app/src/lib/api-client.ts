@@ -75,11 +75,12 @@ export async function generateWebsite(
   categoryType?: string,
   quality: QualityLevel = "standard"
 ): Promise<GenerateResponse> {
-  if (DEBUG) console.log("[API-Client] generateWebsite called:", {
-    prompt: prompt?.substring(0, 50) + "...",
-    categoryType,
-    quality,
-  });
+  if (DEBUG)
+    console.log("[API-Client] generateWebsite called:", {
+      prompt: prompt?.substring(0, 50) + "...",
+      categoryType,
+      quality,
+    });
 
   try {
     const response = await fetch("/api/generate", {
@@ -93,13 +94,14 @@ export async function generateWebsite(
     });
 
     const data = await response.json();
-    if (DEBUG) console.log("[API-Client] generateWebsite response:", {
-      success: data.success,
-      hasCode: !!data.code,
-      filesCount: data.files?.length || 0,
-      hasDemoUrl: !!data.demoUrl,
-      chatId: data.chatId,
-    });
+    if (DEBUG)
+      console.log("[API-Client] generateWebsite response:", {
+        success: data.success,
+        hasCode: !!data.code,
+        filesCount: data.files?.length || 0,
+        hasDemoUrl: !!data.demoUrl,
+        chatId: data.chatId,
+      });
 
     if (!response.ok) {
       console.error("[API-Client] generateWebsite error:", data.error);
@@ -129,12 +131,13 @@ export async function refineWebsite(
   quality: QualityLevel = "standard",
   chatId?: string
 ): Promise<RefineResponse> {
-  if (DEBUG) console.log("[API-Client] refineWebsite called:", {
-    codeLength: existingCode?.length || 0,
-    instruction: instruction?.substring(0, 50) + "...",
-    quality,
-    chatId,
-  });
+  if (DEBUG)
+    console.log("[API-Client] refineWebsite called:", {
+      codeLength: existingCode?.length || 0,
+      instruction: instruction?.substring(0, 50) + "...",
+      quality,
+      chatId,
+    });
 
   try {
     const response = await fetch("/api/refine", {
@@ -149,13 +152,14 @@ export async function refineWebsite(
     });
 
     const data = await response.json();
-    if (DEBUG) console.log("[API-Client] refineWebsite response:", {
-      success: data.success,
-      hasCode: !!data.code,
-      filesCount: data.files?.length || 0,
-      hasDemoUrl: !!data.demoUrl,
-      chatId: data.chatId,
-    });
+    if (DEBUG)
+      console.log("[API-Client] refineWebsite response:", {
+        success: data.success,
+        hasCode: !!data.code,
+        filesCount: data.files?.length || 0,
+        hasDemoUrl: !!data.demoUrl,
+        chatId: data.chatId,
+      });
 
     if (!response.ok) {
       console.error("[API-Client] refineWebsite error:", data.error);
@@ -183,10 +187,11 @@ export async function generateFromTemplate(
   templateId: string,
   quality: QualityLevel = "standard"
 ): Promise<GenerateResponse> {
-  if (DEBUG) console.log("[API-Client] generateFromTemplate called:", {
-    templateId,
-    quality,
-  });
+  if (DEBUG)
+    console.log("[API-Client] generateFromTemplate called:", {
+      templateId,
+      quality,
+    });
 
   try {
     const response = await fetch("/api/template", {
@@ -199,12 +204,13 @@ export async function generateFromTemplate(
     });
 
     const data = await response.json();
-    if (DEBUG) console.log("[API-Client] generateFromTemplate response:", {
-      success: data.success,
-      hasCode: !!data.code,
-      filesCount: data.files?.length || 0,
-      hasDemoUrl: !!data.demoUrl,
-    });
+    if (DEBUG)
+      console.log("[API-Client] generateFromTemplate response:", {
+        success: data.success,
+        hasCode: !!data.code,
+        filesCount: data.files?.length || 0,
+        hasDemoUrl: !!data.demoUrl,
+      });
 
     if (!response.ok) {
       console.error("[API-Client] generateFromTemplate error:", data.error);

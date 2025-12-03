@@ -223,10 +223,11 @@ export function ChatPanel({
       // SMART: If template signals useV0Api (has v0TemplateId, no local files)
       // → Skip file handling, go directly to v0 API
       if (data.useV0Api && data.template?.v0TemplateId) {
-        if (DEBUG) console.log(
-          "[ChatPanel] Template uses v0 API directly:",
-          data.template.v0TemplateId
-        );
+        if (DEBUG)
+          console.log(
+            "[ChatPanel] Template uses v0 API directly:",
+            data.template.v0TemplateId
+          );
         addMessage(
           "assistant",
           `Mall "${data.template.name}" hittad! Laddar från v0 direkt...`
@@ -315,11 +316,26 @@ ${mainCode.substring(0, 18000)}`;
         if (v0Response.files && v0Response.files.length > 0) {
           setFiles(v0Response.files);
         }
-        if (v0Response.code) {
-          setCurrentCode(v0Response.code);
-        }
         if (v0Response.versionId) {
           setVersionId(v0Response.versionId);
+        }
+
+        // IMPORTANT: Set currentCode for refinement to work!
+        // Try code first, then extract from files if needed
+        let codeToSet = v0Response.code;
+        if (!codeToSet && v0Response.files && v0Response.files.length > 0) {
+          // Find main file and extract code
+          const mainFile =
+            v0Response.files.find(
+              (f: { name: string; content: string }) =>
+                f.name.includes("page.tsx") ||
+                f.name.includes("Page.tsx") ||
+                f.name.endsWith(".tsx")
+            ) || v0Response.files[0];
+          codeToSet = mainFile?.content || "";
+        }
+        if (codeToSet) {
+          setCurrentCode(codeToSet);
         }
 
         addMessage(
@@ -328,7 +344,8 @@ ${mainCode.substring(0, 18000)}`;
         );
       } else {
         // Fallback: show code-only mode
-        if (DEBUG) console.warn("[ChatPanel] v0 generation failed:", v0Response?.error);
+        if (DEBUG)
+          console.warn("[ChatPanel] v0 generation failed:", v0Response?.error);
         addMessage(
           "assistant",
           `Mallen laddades men live preview kunde inte genereras. Klicka på "Kod" för att se koden, eller försök skriva en prompt för att generera en ny version.`
@@ -355,13 +372,14 @@ ${mainCode.substring(0, 18000)}`;
     try {
       if (DEBUG) console.log("[ChatPanel] Calling template API...");
       const response = await generateFromTemplate(templateId, quality);
-      if (DEBUG) console.log("[ChatPanel] Template API response:", {
-        success: response.success,
-        hasCode: !!response.code,
-        hasFiles: !!response.files?.length,
-        hasChatId: !!response.chatId,
-        hasDemoUrl: !!response.demoUrl,
-      });
+      if (DEBUG)
+        console.log("[ChatPanel] Template API response:", {
+          success: response.success,
+          hasCode: !!response.code,
+          hasFiles: !!response.files?.length,
+          hasChatId: !!response.chatId,
+          hasDemoUrl: !!response.demoUrl,
+        });
 
       if (response.success) {
         // Save chatId for subsequent refinements
@@ -372,25 +390,28 @@ ${mainCode.substring(0, 18000)}`;
 
         // Save files from v0-sdk response
         if (response.files && response.files.length > 0) {
-          if (DEBUG) console.log(
-            "[ChatPanel] Saving files, count:",
-            response.files.length
-          );
+          if (DEBUG)
+            console.log(
+              "[ChatPanel] Saving files, count:",
+              response.files.length
+            );
           setFiles(response.files);
         }
 
         // Save demo URL
         if (response.demoUrl) {
-          if (DEBUG) console.log("[ChatPanel] Saving demoUrl:", response.demoUrl);
+          if (DEBUG)
+            console.log("[ChatPanel] Saving demoUrl:", response.demoUrl);
           setDemoUrl(response.demoUrl);
         }
 
         // Set the main code
         if (response.code) {
-          if (DEBUG) console.log(
-            "[ChatPanel] Setting code, length:",
-            response.code.length
-          );
+          if (DEBUG)
+            console.log(
+              "[ChatPanel] Setting code, length:",
+              response.code.length
+            );
           setCurrentCode(response.code);
         }
 
@@ -423,25 +444,27 @@ ${mainCode.substring(0, 18000)}`;
   };
 
   const handleGenerate = async (prompt: string, type?: string) => {
-    if (DEBUG) console.log("[ChatPanel] handleGenerate called:", {
-      prompt,
-      type,
-      quality,
-    });
+    if (DEBUG)
+      console.log("[ChatPanel] handleGenerate called:", {
+        prompt,
+        type,
+        quality,
+      });
     addMessage("user", prompt);
     setLoading(true);
 
     try {
       if (DEBUG) console.log("[ChatPanel] Calling API...");
       const response = await generateWebsite(prompt, type, quality);
-      if (DEBUG) console.log("[ChatPanel] API response:", {
-        success: response.success,
-        hasCode: !!response.code,
-        hasFiles: !!response.files?.length,
-        hasChatId: !!response.chatId,
-        hasMessage: !!response.message,
-        error: response.error,
-      });
+      if (DEBUG)
+        console.log("[ChatPanel] API response:", {
+          success: response.success,
+          hasCode: !!response.code,
+          hasFiles: !!response.files?.length,
+          hasChatId: !!response.chatId,
+          hasMessage: !!response.message,
+          error: response.error,
+        });
 
       if (response.success && response.message) {
         addMessage("assistant", response.message);
@@ -454,7 +477,8 @@ ${mainCode.substring(0, 18000)}`;
 
         // Save demoUrl for iframe preview (v0's hosted preview)
         if (response.demoUrl) {
-          if (DEBUG) console.log("[ChatPanel] Saving demoUrl:", response.demoUrl);
+          if (DEBUG)
+            console.log("[ChatPanel] Saving demoUrl:", response.demoUrl);
           setDemoUrl(response.demoUrl);
         }
 
@@ -470,24 +494,27 @@ ${mainCode.substring(0, 18000)}`;
 
         // Save files if we got them
         if (response.files && response.files.length > 0) {
-          if (DEBUG) console.log(
-            "[ChatPanel] Saving files, count:",
-            response.files.length
-          );
+          if (DEBUG)
+            console.log(
+              "[ChatPanel] Saving files, count:",
+              response.files.length
+            );
           setFiles(response.files);
         }
 
         // Set the main code
         if (response.code) {
-          if (DEBUG) console.log(
-            "[ChatPanel] Setting code, length:",
-            response.code.length
-          );
+          if (DEBUG)
+            console.log(
+              "[ChatPanel] Setting code, length:",
+              response.code.length
+            );
           setCurrentCode(response.code);
         } else {
-          if (DEBUG) console.warn(
-            "[ChatPanel] Response was successful but no code received"
-          );
+          if (DEBUG)
+            console.warn(
+              "[ChatPanel] Response was successful but no code received"
+            );
         }
       } else {
         const errorMsg = response.error || "Något gick fel. Försök igen.";
