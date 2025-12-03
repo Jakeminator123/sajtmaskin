@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Image from "next/image";
 import {
   Loader2,
   LayoutDashboard,
@@ -212,13 +211,12 @@ export function LocalTemplateCard({
 
           {/* Thumbnail image (cached screenshot or OG image) */}
           {!isLoadingScreenshot && displayImageUrl && !imageError && (
-            <Image
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
               src={displayImageUrl}
               alt={template.name}
-              fill
-              className="object-cover"
+              className="absolute inset-0 w-full h-full object-cover"
               onError={() => setImageError(true)}
-              unoptimized
               loading="lazy"
             />
           )}
@@ -247,11 +245,6 @@ export function LocalTemplateCard({
             {template.complexity === "advanced" && (
               <span className="absolute top-2 left-2 px-2 py-1 text-xs font-medium bg-purple-500/20 text-purple-300 rounded-full border border-purple-500/30 backdrop-blur-sm">
                 ✨ Avancerad
-              </span>
-            )}
-            {screenshotUrl && (
-              <span className="absolute bottom-2 left-2 px-2 py-1 text-xs font-medium bg-blue-500/20 text-blue-300 rounded-full border border-blue-500/30 backdrop-blur-sm">
-                Cachad
               </span>
             )}
           </>
