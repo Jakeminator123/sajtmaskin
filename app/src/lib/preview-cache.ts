@@ -2,7 +2,7 @@
  * Template Preview Cache
  * ======================
  *
- * Simple in-memory cache for template previews.
+ * In-memory cache for template previews.
  * Prevents excessive v0 API calls when multiple users preview the same template.
  *
  * CACHE STRATEGY:
@@ -10,9 +10,9 @@
  * - Subsequent previews: returns cached result
  * - TTL: 1 hour (templates don't change often)
  *
- * PRODUCTION NOTE:
- * For production with multiple instances, replace this with Redis.
- * See ev_iro_ment.txt for Redis configuration.
+ * NOTE: This is a simple in-memory cache that works without Redis.
+ * For multi-instance production deployments, Redis can be added later.
+ * The cache will automatically work - Redis is optional.
  */
 
 export interface CachedPreview {
