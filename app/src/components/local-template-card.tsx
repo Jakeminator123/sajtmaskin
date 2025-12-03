@@ -316,6 +316,11 @@ export function LocalTemplateCard({
           onClose={() => setShowModal(false)}
           demoUrl={demoUrl}
           templateName={template.name}
+          templateId={template.id}
+          onScreenshotCaptured={() => {
+            // Refresh the screenshot URL to use the newly captured local one
+            setScreenshotUrl(`/screenshots/${template.id}.jpg?t=${Date.now()}`);
+          }}
         />
       )}
     </>

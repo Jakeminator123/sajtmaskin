@@ -8,6 +8,8 @@ interface PreviewModalProps {
   onClose: () => void;
   demoUrl: string;
   templateName: string;
+  templateId: string;
+  onScreenshotCaptured?: () => void;
 }
 
 export function PreviewModal({
@@ -15,13 +17,19 @@ export function PreviewModal({
   onClose,
   demoUrl,
   templateName,
+  templateId,
+  onScreenshotCaptured,
 }: PreviewModalProps) {
   const iframeRef = useRef<HTMLIFrameElement>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isAutoScrolling, setIsAutoScrolling] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
+  const [isCapturing, setIsCapturing] = useState(false);
+  const [captureStatus, setCaptureStatus] = useState<string | null>(null);
   const scrollIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const isPausedRef = useRef(false); // Ref to track pause state in interval
+  const captureTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const statusClearTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Handle escape key to close
   useEffect(() => {
@@ -121,8 +129,83 @@ export function PreviewModal({
       if (scrollIntervalRef.current) {
         clearInterval(scrollIntervalRef.current);
       }
+      if (captureTimeoutRef.current) {
+        clearTimeout(captureTimeoutRef.current);
+      }
+      if (statusClearTimeoutRef.current) {
+        clearTimeout(statusClearTimeoutRef.current);
+      }
     };
   }, []);
+
+  // Capture screenshot 3 seconds after modal opens
+  useEffect(() => {
+    if (!isOpen || !demoUrl || !templateId) return;
+
+    // Clear any existing timeout
+    if (captureTimeoutRef.current) {
+      clearTimeout(captureTimeoutRef.current);
+    }
+
+    // Wait 3 seconds then capture screenshot
+    captureTimeoutRef.current = setTimeout(async () => {
+      setIsCapturing(true);
+      setCaptureStatus("Sparar förhandsvisning...");
+
+      try {
+        const response = await fetch("/api/template/screenshot/capture", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ templateId, demoUrl }),
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+          setCaptureStatus("✓ Sparad!");
+          onScreenshotCaptured?.();
+          // Clear status after 2 seconds
+          if (statusClearTimeoutRef.current) {
+            clearTimeout(statusClearTimeoutRef.current);
+          }
+          statusClearTimeoutRef.current = setTimeout(
+            () => setCaptureStatus(null),
+            2000
+          );
+        } else {
+          setCaptureStatus("Kunde inte spara");
+          if (statusClearTimeoutRef.current) {
+            clearTimeout(statusClearTimeoutRef.current);
+          }
+          statusClearTimeoutRef.current = setTimeout(
+            () => setCaptureStatus(null),
+            3000
+          );
+        }
+      } catch (error) {
+        console.error("[PreviewModal] Screenshot capture error:", error);
+        setCaptureStatus("Fel vid sparning");
+        if (statusClearTimeoutRef.current) {
+          clearTimeout(statusClearTimeoutRef.current);
+        }
+        statusClearTimeoutRef.current = setTimeout(
+          () => setCaptureStatus(null),
+          3000
+        );
+      } finally {
+        setIsCapturing(false);
+      }
+    }, 3000);
+
+    return () => {
+      if (captureTimeoutRef.current) {
+        clearTimeout(captureTimeoutRef.current);
+      }
+      if (statusClearTimeoutRef.current) {
+        clearTimeout(statusClearTimeoutRef.current);
+      }
+    };
+  }, [isOpen, demoUrl, templateId, onScreenshotCaptured]);
 
   const handleIframeLoad = () => {
     setIsLoading(false);
@@ -163,6 +246,14 @@ export function PreviewModal({
               <span className="text-xs text-emerald-400 flex items-center gap-1">
                 <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
                 Auto-scrollar...
+              </span>
+            )}
+            {captureStatus && (
+              <span className="text-xs text-blue-400 flex items-center gap-1">
+                {isCapturing && (
+                  <span className="w-2 h-2 bg-blue-400 rounded-full animate-pulse" />
+                )}
+                {captureStatus}
               </span>
             )}
           </div>
