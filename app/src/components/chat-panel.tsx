@@ -42,6 +42,9 @@ import { ComponentPicker } from "@/components/component-picker";
 import { Button } from "@/components/ui/button";
 import { MessageSquare, ArrowUp, Loader2, Sparkles } from "lucide-react";
 
+// Debug flag - set to true for verbose logging
+const DEBUG = false;
+
 // Rotating loading messages for better UX
 const LOADING_MESSAGES = [
   { text: "Analyserar din beskrivning...", emoji: "🔍" },
@@ -220,7 +223,7 @@ export function ChatPanel({
       // SMART: If template signals useV0Api (has v0TemplateId, no local files)
       // → Skip file handling, go directly to v0 API
       if (data.useV0Api && data.template?.v0TemplateId) {
-        console.log(
+        if (DEBUG) console.log(
           "[ChatPanel] Template uses v0 API directly:",
           data.template.v0TemplateId
         );
@@ -296,7 +299,11 @@ This is the EXACT code to recreate - do NOT simplify or change the design:
 
 ${mainCode.substring(0, 18000)}`;
 
-          v0Response = await generateWebsite(templatePrompt, undefined, quality);
+          v0Response = await generateWebsite(
+            templatePrompt,
+            undefined,
+            quality
+          );
         }
       } // Close else block
 
@@ -321,7 +328,7 @@ ${mainCode.substring(0, 18000)}`;
         );
       } else {
         // Fallback: show code-only mode
-        console.warn("[ChatPanel] v0 generation failed:", v0Response?.error);
+        if (DEBUG) console.warn("[ChatPanel] v0 generation failed:", v0Response?.error);
         addMessage(
           "assistant",
           `Mallen laddades men live preview kunde inte genereras. Klicka på "Kod" för att se koden, eller försök skriva en prompt för att generera en ny version.`
@@ -346,9 +353,9 @@ ${mainCode.substring(0, 18000)}`;
     setLoading(true);
 
     try {
-      console.log("[ChatPanel] Calling template API...");
+      if (DEBUG) console.log("[ChatPanel] Calling template API...");
       const response = await generateFromTemplate(templateId, quality);
-      console.log("[ChatPanel] Template API response:", {
+      if (DEBUG) console.log("[ChatPanel] Template API response:", {
         success: response.success,
         hasCode: !!response.code,
         hasFiles: !!response.files?.length,
@@ -359,13 +366,13 @@ ${mainCode.substring(0, 18000)}`;
       if (response.success) {
         // Save chatId for subsequent refinements
         if (response.chatId) {
-          console.log("[ChatPanel] Saving chatId:", response.chatId);
+          if (DEBUG) console.log("[ChatPanel] Saving chatId:", response.chatId);
           setChatId(response.chatId);
         }
 
         // Save files from v0-sdk response
         if (response.files && response.files.length > 0) {
-          console.log(
+          if (DEBUG) console.log(
             "[ChatPanel] Saving files, count:",
             response.files.length
           );
@@ -374,13 +381,13 @@ ${mainCode.substring(0, 18000)}`;
 
         // Save demo URL
         if (response.demoUrl) {
-          console.log("[ChatPanel] Saving demoUrl:", response.demoUrl);
+          if (DEBUG) console.log("[ChatPanel] Saving demoUrl:", response.demoUrl);
           setDemoUrl(response.demoUrl);
         }
 
         // Set the main code
         if (response.code) {
-          console.log(
+          if (DEBUG) console.log(
             "[ChatPanel] Setting code, length:",
             response.code.length
           );
@@ -416,7 +423,7 @@ ${mainCode.substring(0, 18000)}`;
   };
 
   const handleGenerate = async (prompt: string, type?: string) => {
-    console.log("[ChatPanel] handleGenerate called:", {
+    if (DEBUG) console.log("[ChatPanel] handleGenerate called:", {
       prompt,
       type,
       quality,
@@ -425,9 +432,9 @@ ${mainCode.substring(0, 18000)}`;
     setLoading(true);
 
     try {
-      console.log("[ChatPanel] Calling API...");
+      if (DEBUG) console.log("[ChatPanel] Calling API...");
       const response = await generateWebsite(prompt, type, quality);
-      console.log("[ChatPanel] API response:", {
+      if (DEBUG) console.log("[ChatPanel] API response:", {
         success: response.success,
         hasCode: !!response.code,
         hasFiles: !!response.files?.length,
@@ -441,13 +448,13 @@ ${mainCode.substring(0, 18000)}`;
 
         // Save chatId for future refinements
         if (response.chatId) {
-          console.log("[ChatPanel] Saving chatId:", response.chatId);
+          if (DEBUG) console.log("[ChatPanel] Saving chatId:", response.chatId);
           setChatId(response.chatId);
         }
 
         // Save demoUrl for iframe preview (v0's hosted preview)
         if (response.demoUrl) {
-          console.log("[ChatPanel] Saving demoUrl:", response.demoUrl);
+          if (DEBUG) console.log("[ChatPanel] Saving demoUrl:", response.demoUrl);
           setDemoUrl(response.demoUrl);
         }
 
@@ -463,7 +470,7 @@ ${mainCode.substring(0, 18000)}`;
 
         // Save files if we got them
         if (response.files && response.files.length > 0) {
-          console.log(
+          if (DEBUG) console.log(
             "[ChatPanel] Saving files, count:",
             response.files.length
           );
@@ -472,13 +479,13 @@ ${mainCode.substring(0, 18000)}`;
 
         // Set the main code
         if (response.code) {
-          console.log(
+          if (DEBUG) console.log(
             "[ChatPanel] Setting code, length:",
             response.code.length
           );
           setCurrentCode(response.code);
         } else {
-          console.warn(
+          if (DEBUG) console.warn(
             "[ChatPanel] Response was successful but no code received"
           );
         }
@@ -512,7 +519,7 @@ ${mainCode.substring(0, 18000)}`;
     setLoading(true);
 
     try {
-      console.log("[ChatPanel] Refining with chatId:", chatId);
+      if (DEBUG) console.log("[ChatPanel] Refining with chatId:", chatId);
       // Pass chatId to continue the conversation with v0
       const response = await refineWebsite(
         currentCode,

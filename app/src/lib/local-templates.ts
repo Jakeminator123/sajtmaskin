@@ -2,49 +2,77 @@
  * Local Templates Registry
  * ========================
  *
- * Nedladdade v0-mallar som användare kan använda som utgångspunkt.
- * Mallarna lagras i: src/templates/{category}/{template-id}/
+ * Hanterar mallar som användare kan använda som utgångspunkt.
+ *
+ * TVÅ TYPER AV MALLAR:
+ *
+ * TYP A: v0TemplateId-baserade (REKOMMENDERAT)
+ * ─────────────────────────────────────────────
+ * - Har v0TemplateId satt (t.ex. "hUI7hCyGNye")
+ * - mainFile och folderPath kan vara tomma ("")
+ * - Laddas DIREKT från v0 API - inget lokalt behövs!
+ * - Ger fullständig mall med alla filer och demoUrl
+ * - KAN REDIGERAS efteråt (chatId returneras)
+ *
+ * TYP B: Lokal-kod-baserade (fallback)
+ * ─────────────────────────────────────
+ * - Har INTE v0TemplateId (eller det är en chat-URL)
+ * - Kräver mainFile och folderPath till lokal kod
+ * - Kod lagras i: src/templates/{category}/{template-id}/
+ * - Koden skickas till v0 API för att generera preview
  *
  * FLÖDE NÄR ANVÄNDARE VÄLJER EN MALL:
  *
- * 1. Om mallen har v0TemplateId:
- *    → Försök ladda direkt från v0 API (bästa kvalitet)
- *    → Om det misslyckas, fall tillbaka till kod-baserad approach
+ * 1. Frontend anropar /api/local-template?id=xxx
+ * 2. Om mallen har v0TemplateId OCH tomma filsökvägar:
+ *    → Returnerar useV0Api: true
+ *    → Frontend anropar generateFromTemplate(v0TemplateId)
+ *    → v0 API returnerar demoUrl + chatId + filer
  *
- * 2. Om mallen INTE har v0TemplateId (chat-URL):
- *    → Läs lokal kod från src/templates/
- *    → Skicka koden till v0 API för att få hostad preview
- *    → v0 genererar en förenklad version baserad på koden
+ * 3. Om mallen har lokal kod:
+ *    → Läser filer från src/templates/
+ *    → Skickar till generateWebsite() för att få demoUrl
+ *
+ * VIKTIGT OM v0TemplateId:
+ * ────────────────────────
+ * Template ID är BARA hash-delen av URL:en!
+ *
+ * Exempel:
+ *   URL: https://v0.app/templates/vercel-style-black-friday-map-hUI7hCyGNye
+ *   ID:  hUI7hCyGNye  ✅ (bara hashen!)
+ *   FEL: vercel-style-black-friday-map-hUI7hCyGNye ❌ (hela sluggen)
  *
  * COMPLEXITY-FÄLTET:
  * - "simple": CSS/SVG/standard React - v0 kan återskapa nära originalet
- * - "advanced": Three.js/d3/WebGL - v0 skapar förenklad "inspirerad" version
- *
- * MAPPSTRUKTUR (src/templates/):
- * └── landing-page/
- *     ├── cosmos-3d/        (advanced - Three.js)
- *     ├── animated-hero/    (simple - CSS/SVG)
- *     └── brillance-saas/   (simple - standard React)
+ * - "advanced": Three.js/d3/WebGL - v0 skapar förenklad version
  */
 
 export interface LocalTemplate {
-  id: string;
-  name: string;
-  description: string;
-  category: string;
-  previewUrl: string; // For display (can be placeholder or screenshot)
-  sourceUrl: string; // Original v0 URL for reference
-  mainFile: string; // Path to the main page.tsx file
-  folderPath: string; // Path to the template folder
-  v0TemplateId?: string; // Direct v0 template ID if available (use this first!)
-  complexity: "simple" | "advanced"; // Simple = can recreate, Advanced = needs simplification
+  id: string; // Unikt ID för denna mall (används i URL)
+  name: string; // Visningsnamn
+  description: string; // Beskrivning för UI
+  category: string; // "landing-page" | "dashboard" | "website"
+  previewUrl: string; // Bild för UI (kan vara placeholder)
+  sourceUrl: string; // Original v0 URL för referens
+
+  // TYP A (v0TemplateId): Sätt dessa tomma ("")
+  // TYP B (lokal kod): Sätt dessa till filsökvägar
+  mainFile: string; // "app/page.tsx" eller "" för TYP A
+  folderPath: string; // "landing-page/cosmos-3d" eller "" för TYP A
+
+  // VIKTIG: Bara hash-delen av URL! Se dokumentation ovan.
+  v0TemplateId?: string; // "hUI7hCyGNye" (ej full slug!)
+
+  complexity: "simple" | "advanced";
 }
 
 export const LOCAL_TEMPLATES: LocalTemplate[] = [
-  // ========== LANDING PAGES ==========
-  // NOTE: Template ID is the HASH part of the URL, not the full slug!
+  // ════════════════════════════════════════════════════════════════════════════
+  // LANDING PAGES
+  // ════════════════════════════════════════════════════════════════════════════
+
+  // TYP A: v0TemplateId + lokal kod (v0 API prioriteras, lokal som fallback)
   // URL: https://v0.app/templates/cosmos-3d-orbit-gallery-template-W8w0SZdos3x
-  // ID: W8w0SZdos3x (just the hash!)
   {
     id: "cosmos-3d",
     name: "Cosmos — 3D Orbit Gallery",
@@ -54,11 +82,13 @@ export const LOCAL_TEMPLATES: LocalTemplate[] = [
     previewUrl: "/templates/landing_page/1/preview.png",
     sourceUrl:
       "https://v0.app/templates/cosmos-3d-orbit-gallery-template-W8w0SZdos3x",
-    mainFile: "app/page.tsx",
+    mainFile: "app/page.tsx", // Lokal fallback finns
     folderPath: "landing-page/cosmos-3d",
-    v0TemplateId: "W8w0SZdos3x", // Just the hash part of the URL!
-    complexity: "advanced", // Three.js - will be simplified
+    v0TemplateId: "W8w0SZdos3x", // ← HASH ONLY! Prioriteras
+    complexity: "advanced",
   },
+
+  // TYP B: Endast lokal kod (chat-URL har inget templateId)
   {
     id: "animated-hero",
     name: "Minimal Animated Hero",
@@ -69,9 +99,11 @@ export const LOCAL_TEMPLATES: LocalTemplate[] = [
     sourceUrl: "https://v0.app/chat/mnimal-animated-hero-xGyEFskYA9w",
     mainFile: "app/page.tsx",
     folderPath: "landing-page/animated-hero",
-    // No v0TemplateId - it's a chat URL, will use code
-    complexity: "simple", // Pure CSS/SVG - can recreate accurately
+    // Inget v0TemplateId - chat-URL → använder lokal kod
+    complexity: "simple",
   },
+
+  // TYP B: Endast lokal kod
   {
     id: "brillance-saas",
     name: "Brillance SaaS Landing Page",
@@ -82,29 +114,43 @@ export const LOCAL_TEMPLATES: LocalTemplate[] = [
     sourceUrl: "https://v0.app/chat/brillance-saa-s-landing-page-Kqi1r3AuLk3",
     mainFile: "app/page.tsx",
     folderPath: "landing-page/brillance-saas",
-    // No v0TemplateId - it's a chat URL, will use code
-    complexity: "simple", // Standard React - can recreate accurately
+    // Inget v0TemplateId - chat-URL → använder lokal kod
+    complexity: "simple",
   },
 
-  // ========== DASHBOARDS ==========
-  // TEST: Using v0TemplateId directly - no local files needed!
-  // NOTE: Template ID is the HASH part of the URL, not the full slug!
+  // ════════════════════════════════════════════════════════════════════════════
+  // DASHBOARDS
+  // ════════════════════════════════════════════════════════════════════════════
+
+  // TYP A: Endast v0TemplateId (ingen lokal kod behövs!)
   // URL: https://v0.app/templates/vercel-style-black-friday-map-hUI7hCyGNye
-  // ID: hUI7hCyGNye (just the hash!)
   {
     id: "black-friday-map",
     name: "Vercel Black Friday Map",
     description:
       "Pixelerad världskarta i Vercel-stil med interaktiv datavisualisering",
     category: "dashboard",
-    previewUrl: "/templates/dashboards/1/preview.png", // Placeholder - can add later
+    previewUrl: "/templates/dashboards/1/preview.png",
     sourceUrl:
       "https://v0.app/templates/vercel-style-black-friday-map-hUI7hCyGNye",
-    mainFile: "", // Not needed - using v0TemplateId
-    folderPath: "", // Not needed - using v0TemplateId
-    v0TemplateId: "hUI7hCyGNye", // Just the hash part of the URL!
-    complexity: "advanced", // Pixel map visualization
+    mainFile: "", // TYP A: tomma filsökvägar
+    folderPath: "", // TYP A: ingen lokal kod
+    v0TemplateId: "hUI7hCyGNye", // ← HASH ONLY! Laddas direkt från v0
+    complexity: "advanced",
   },
+
+  // ════════════════════════════════════════════════════════════════════════════
+  // WEBSITES (TODO: Lägg till 3 mallar)
+  // ════════════════════════════════════════════════════════════════════════════
+  // Exempel på hur en website-mall ser ut:
+  // {
+  //   id: "business-template",
+  //   name: "Business Website",
+  //   category: "website",
+  //   v0TemplateId: "ABC123xyz", // ← Hämta hash från v0.app/templates
+  //   mainFile: "", folderPath: "", // Tomma för TYP A
+  //   ...
+  // }
 ];
 
 // Get templates for a specific category

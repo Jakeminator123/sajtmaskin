@@ -28,10 +28,11 @@
  * - premium:  v0-1.5-lg (512K context, bäst, 10x kostnad)
  *
  * VIKTIGT: demoUrl är den URL som visas i iframe-preview.
- * chatId behövs för att fortsätta konversation (refinement).
  *
- * DEBUG: Alla anrop loggas till console med [API-Client] prefix.
+ * DEBUG: Sätt till true för att se detaljerade loggar i konsolen.
  */
+
+const DEBUG = false; // Set to true for verbose logging
 
 export type QualityLevel = "standard" | "premium";
 
@@ -74,7 +75,7 @@ export async function generateWebsite(
   categoryType?: string,
   quality: QualityLevel = "standard"
 ): Promise<GenerateResponse> {
-  console.log("[API-Client] generateWebsite called:", {
+  if (DEBUG) console.log("[API-Client] generateWebsite called:", {
     prompt: prompt?.substring(0, 50) + "...",
     categoryType,
     quality,
@@ -92,7 +93,7 @@ export async function generateWebsite(
     });
 
     const data = await response.json();
-    console.log("[API-Client] generateWebsite response:", {
+    if (DEBUG) console.log("[API-Client] generateWebsite response:", {
       success: data.success,
       hasCode: !!data.code,
       filesCount: data.files?.length || 0,
@@ -128,7 +129,7 @@ export async function refineWebsite(
   quality: QualityLevel = "standard",
   chatId?: string
 ): Promise<RefineResponse> {
-  console.log("[API-Client] refineWebsite called:", {
+  if (DEBUG) console.log("[API-Client] refineWebsite called:", {
     codeLength: existingCode?.length || 0,
     instruction: instruction?.substring(0, 50) + "...",
     quality,
@@ -148,7 +149,7 @@ export async function refineWebsite(
     });
 
     const data = await response.json();
-    console.log("[API-Client] refineWebsite response:", {
+    if (DEBUG) console.log("[API-Client] refineWebsite response:", {
       success: data.success,
       hasCode: !!data.code,
       filesCount: data.files?.length || 0,
@@ -182,7 +183,7 @@ export async function generateFromTemplate(
   templateId: string,
   quality: QualityLevel = "standard"
 ): Promise<GenerateResponse> {
-  console.log("[API-Client] generateFromTemplate called:", {
+  if (DEBUG) console.log("[API-Client] generateFromTemplate called:", {
     templateId,
     quality,
   });
@@ -198,7 +199,7 @@ export async function generateFromTemplate(
     });
 
     const data = await response.json();
-    console.log("[API-Client] generateFromTemplate response:", {
+    if (DEBUG) console.log("[API-Client] generateFromTemplate response:", {
       success: data.success,
       hasCode: !!data.code,
       filesCount: data.files?.length || 0,

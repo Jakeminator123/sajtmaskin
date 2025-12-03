@@ -3,12 +3,12 @@
 /**
  * QualitySelector Component
  * =========================
- * 
+ *
  * Låter användaren välja mellan 2 kvalitetsnivåer:
- * 
+ *
  * - Standard (v0-1.5-md): 128K context, snabb, billig
  * - Premium (v0-1.5-lg):  512K context, bäst kvalitet, 10x kostnad
- * 
+ *
  * Båda använder samma V0_API_KEY.
  */
 
@@ -60,8 +60,8 @@ export function QualitySelector({
   onChange,
   disabled = false,
 }: QualitySelectorProps) {
-  console.log("[QualitySelector] Current value:", value);
-  
+  // Debug log removed - was causing excessive console output
+
   return (
     <div className="flex items-center gap-1 p-1 bg-zinc-900/50 rounded-lg border border-zinc-800">
       {qualityOptions.map((option) => {
@@ -85,12 +85,7 @@ export function QualitySelector({
                   : "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/50"
               )}
             >
-              <Icon
-                className={cn(
-                  "h-3.5 w-3.5",
-                  isSelected && option.color
-                )}
-              />
+              <Icon className={cn("h-3.5 w-3.5", isSelected && option.color)} />
               {option.label}
             </Button>
             <div className="absolute -top-1 -right-1">
@@ -102,4 +97,3 @@ export function QualitySelector({
     </div>
   );
 }
-
