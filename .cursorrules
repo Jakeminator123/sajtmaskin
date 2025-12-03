@@ -17,7 +17,6 @@
 
 ## Code Style
 
-- Keep it simple - no over-engineering
 - Fix what's asked, don't refactor surrounding code
 - Delete old/unused code when replacing
 - Run `npm run build` in `/app` to verify changes
