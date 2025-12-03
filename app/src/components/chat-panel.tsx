@@ -40,7 +40,17 @@ import { ChatMessage } from "@/components/chat-message";
 import { HelpTooltip } from "@/components/help-tooltip";
 import { ComponentPicker } from "@/components/component-picker";
 import { Button } from "@/components/ui/button";
-import { MessageSquare, ArrowUp, Loader2 } from "lucide-react";
+import { MessageSquare, ArrowUp, Loader2, Sparkles } from "lucide-react";
+
+// Rotating loading messages for better UX
+const LOADING_MESSAGES = [
+  { text: "Analyserar din beskrivning...", emoji: "🔍" },
+  { text: "Designar layouten...", emoji: "🎨" },
+  { text: "Bygger komponenter...", emoji: "🧱" },
+  { text: "Applicerar stilar...", emoji: "✨" },
+  { text: "Optimerar för mobil...", emoji: "📱" },
+  { text: "Lägger sista touchen...", emoji: "🎯" },
+];
 
 interface ChatPanelProps {
   categoryType?: string;
@@ -56,6 +66,7 @@ export function ChatPanel({
   localTemplateId,
 }: ChatPanelProps) {
   const [input, setInput] = useState("");
+  const [loadingMessageIndex, setLoadingMessageIndex] = useState(0);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -83,6 +94,20 @@ export function ChatPanel({
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages]);
+
+  // Rotate loading messages every 3 seconds while loading
+  useEffect(() => {
+    if (!isLoading) {
+      setLoadingMessageIndex(0);
+      return;
+    }
+
+    const interval = setInterval(() => {
+      setLoadingMessageIndex((prev) => (prev + 1) % LOADING_MESSAGES.length);
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [isLoading]);
 
   // Track the last generated key to detect changes
   const lastGeneratedKey = useRef<string | null>(null);
@@ -553,13 +578,18 @@ ${mainCode.substring(0, 18000)}`;
         <div className="p-4 space-y-4">
           {messages.length === 0 && !isLoading ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
-              <div className="p-3 rounded-full bg-zinc-800/50 mb-4">
-                <MessageSquare className="h-8 w-8 text-zinc-600" />
+              <div className="p-4 rounded-2xl bg-gradient-to-br from-blue-600/20 to-purple-600/20 border border-blue-500/20 mb-4">
+                <Sparkles className="h-8 w-8 text-blue-400" />
               </div>
-              <p className="text-sm text-zinc-500 max-w-[200px]">
+              <h3 className="text-lg font-medium text-zinc-200 mb-2">
                 {categoryType
-                  ? `Genererar din ${getCategoryName(categoryType)}...`
-                  : "Skriv något för att börja!"}
+                  ? `Redo att skapa din ${getCategoryName(categoryType)}`
+                  : "Beskriv din vision"}
+              </h3>
+              <p className="text-sm text-zinc-500 max-w-[250px]">
+                {categoryType
+                  ? "AI:n kommer generera en professionell design åt dig"
+                  : "Skriv vad du vill bygga så skapar AI:n det åt dig"}
               </p>
             </div>
           ) : (
@@ -568,23 +598,33 @@ ${mainCode.substring(0, 18000)}`;
                 <ChatMessage key={message.id} message={message} />
               ))}
               {isLoading && (
-                <div className="flex items-center gap-3 p-4 bg-zinc-800/50 rounded-lg mr-8">
-                  <div className="w-8 h-8 rounded-full bg-zinc-700 flex items-center justify-center">
-                    <Loader2 className="h-4 w-4 text-zinc-300 animate-spin" />
+                <div className="flex items-center gap-3 p-4 bg-gradient-to-r from-zinc-800/50 to-zinc-800/30 rounded-lg mr-8 border border-zinc-700/30">
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
+                    <Sparkles className="h-5 w-5 text-white animate-pulse" />
                   </div>
-                  <div className="flex flex-col gap-1">
-                    <div className="flex gap-1">
-                      {[0, 1, 2].map((i) => (
-                        <div
-                          key={i}
-                          className="w-2 h-2 rounded-full bg-zinc-600 animate-pulse"
-                          style={{ animationDelay: `${i * 150}ms` }}
-                        />
-                      ))}
+                  <div className="flex flex-col gap-1.5">
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg">
+                        {LOADING_MESSAGES[loadingMessageIndex].emoji}
+                      </span>
+                      <span className="text-sm text-zinc-200 font-medium">
+                        {LOADING_MESSAGES[loadingMessageIndex].text}
+                      </span>
                     </div>
-                    <span className="text-xs text-zinc-500">
-                      AI:n genererar...
-                    </span>
+                    <div className="flex items-center gap-2">
+                      <div className="flex gap-1">
+                        {[0, 1, 2].map((i) => (
+                          <div
+                            key={i}
+                            className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"
+                            style={{ animationDelay: `${i * 150}ms` }}
+                          />
+                        ))}
+                      </div>
+                      <span className="text-xs text-zinc-500">
+                        Tar vanligtvis 15-30 sekunder
+                      </span>
+                    </div>
                   </div>
                 </div>
               )}

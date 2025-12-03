@@ -258,24 +258,38 @@ export function CodePreview() {
             }}
           >
             {isLoading ? (
-              // Loading state
-              <div className="flex-1 flex items-center justify-center p-8">
-                <div className="text-center space-y-4">
-                  <div className="flex justify-center gap-2">
-                    {[0, 1, 2].map((i) => (
+              // Loading state with beautiful animation
+              <div className="flex-1 flex items-center justify-center p-8 bg-gradient-to-br from-zinc-900 to-zinc-950">
+                <div className="text-center space-y-6">
+                  {/* Animated rings */}
+                  <div className="relative w-20 h-20 mx-auto">
+                    <div className="absolute inset-0 rounded-full border-2 border-blue-500/30 animate-ping" />
+                    <div className="absolute inset-2 rounded-full border-2 border-purple-500/40 animate-ping" style={{ animationDelay: "0.2s" }} />
+                    <div className="absolute inset-4 rounded-full border-2 border-blue-500/50 animate-ping" style={{ animationDelay: "0.4s" }} />
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center shadow-lg shadow-blue-500/30">
+                        <Code className="h-5 w-5 text-white" />
+                      </div>
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <p className="text-zinc-200 text-base font-medium">
+                      Skapar din webbplats...
+                    </p>
+                    <p className="text-zinc-500 text-sm">
+                      AI:n designar och bygger din sida
+                    </p>
+                  </div>
+                  {/* Progress dots */}
+                  <div className="flex justify-center gap-1.5">
+                    {[0, 1, 2, 3, 4].map((i) => (
                       <div
                         key={i}
-                        className="w-3 h-3 rounded-full bg-blue-500 animate-pulse"
-                        style={{ animationDelay: `${i * 150}ms` }}
+                        className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"
+                        style={{ animationDelay: `${i * 100}ms` }}
                       />
                     ))}
                   </div>
-                  <p className="text-zinc-400 text-sm">
-                    AI:n genererar din webbplats...
-                  </p>
-                  <p className="text-zinc-600 text-xs">
-                    Detta tar vanligtvis 15-30 sekunder
-                  </p>
                 </div>
               </div>
             ) : demoUrl ? (
@@ -443,24 +457,30 @@ export function CodePreview() {
                 )}
               </div>
             ) : (
-              // Empty state
-              <div className="flex-1 flex items-center justify-center p-8">
-                <div className="text-center space-y-4">
+              // Empty state with beautiful design
+              <div className="flex-1 flex items-center justify-center p-8 bg-gradient-to-br from-zinc-900/50 to-zinc-950/50">
+                <div className="text-center space-y-6 max-w-md">
+                  {/* Icon with gradient background */}
+                  <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-zinc-800 to-zinc-900 border border-zinc-700/50 flex items-center justify-center shadow-xl">
+                    <Eye className="h-8 w-8 text-zinc-500" />
+                  </div>
+                  <div className="space-y-2">
+                    <h3 className="text-lg font-medium text-zinc-300">
+                      Förhandsgranskning
+                    </h3>
+                    <p className="text-zinc-500 text-sm">
+                      Din webbplats visas här när AI:n har genererat den
+                    </p>
+                  </div>
+                  {/* Decorative dots */}
                   <div className="flex justify-center gap-2">
                     {[1, 2, 3].map((i) => (
                       <div
                         key={i}
-                        className="w-3 h-3 rounded-full bg-zinc-700 animate-pulse"
-                        style={{ animationDelay: `${i * 150}ms` }}
+                        className="w-2 h-2 rounded-full bg-zinc-700"
                       />
                     ))}
                   </div>
-                  <p className="text-zinc-500 text-sm">
-                    Väntar på generering...
-                  </p>
-                  <p className="text-zinc-600 text-xs">
-                    Välj en kategori eller skriv en beskrivning
-                  </p>
                 </div>
               </div>
             )}
