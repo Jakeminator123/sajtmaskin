@@ -39,3 +39,7 @@ coverage/
 *.log
 *.tmp
 
+# Large media files (keep locally, not in repo)
+/Sajtmaskin.mp4
+/Sajtmaskin.srt
+/old/
