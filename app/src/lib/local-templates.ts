@@ -143,15 +143,75 @@ export const LOCAL_TEMPLATES: LocalTemplate[] = [
   },
 
   // ════════════════════════════════════════════════════════════════════════════
-  // WEBSITES (TODO: Lägg till 3 mallar)
+  // WEBSITES / HOMEPAGES (5 st)
   // ════════════════════════════════════════════════════════════════════════════
-  // Exempel på hur en website-mall ser ut:
+
+  // Website 1: Lorenzo Motocross Landing Page
+  // URL: https://v0.app/templates/lorenzo-motocross-landing-page-jz21jJIFr0i
+  {
+    id: "lorenzo-motocross",
+    name: "Lorenzo Motocross",
+    description: "Dynamisk motocross-landningssida med action-bilder och modern design",
+    category: "website",
+    previewUrl: "/templates/homepage/1/preview.jpg",
+    sourceUrl: "https://v0.app/templates/lorenzo-motocross-landing-page-jz21jJIFr0i",
+    mainFile: "",
+    folderPath: "",
+    v0TemplateId: "jz21jJIFr0i",
+    complexity: "simple",
+  },
+
+  // Website 2: Marketing Website
+  // URL: https://v0.app/templates/marketing-website-sV0OtrkXM6x
+  {
+    id: "marketing-website",
+    name: "Marketing Website",
+    description: "Professionell marknadsföringssida med clean design och CTA-sektioner",
+    category: "website",
+    previewUrl: "/templates/homepage/2/preview.jpg",
+    sourceUrl: "https://v0.app/templates/marketing-website-sV0OtrkXM6x",
+    mainFile: "",
+    folderPath: "",
+    v0TemplateId: "sV0OtrkXM6x",
+    complexity: "simple",
+  },
+
+  // Website 3: Paperfolio
+  // URL: https://v0.app/templates/paperfolio-dDPFIVqPGXR
+  {
+    id: "paperfolio",
+    name: "Paperfolio",
+    description: "Minimalistisk portfolio-webbplats med elegant typografi",
+    category: "website",
+    previewUrl: "/templates/homepage/3/preview.jpg",
+    sourceUrl: "https://v0.app/templates/paperfolio-dDPFIVqPGXR",
+    mainFile: "",
+    folderPath: "",
+    v0TemplateId: "dDPFIVqPGXR",
+    complexity: "simple",
+  },
+
+  // Website 4: A Boring Agency
+  // URL: https://v0.app/templates/a-boring-agency-Nynl8DJ6xUH
+  {
+    id: "boring-agency",
+    name: "A Boring Agency",
+    description: "Kreativ byrå-webbplats med unik design och interaktiva element",
+    category: "website",
+    previewUrl: "/templates/homepage/4/preview.jpg",
+    sourceUrl: "https://v0.app/templates/a-boring-agency-Nynl8DJ6xUH",
+    mainFile: "",
+    folderPath: "",
+    v0TemplateId: "Nynl8DJ6xUH",
+    complexity: "simple",
+  },
+
+  // Website 5: TODO - Ge mig en till URL för att ersätta duplicatet!
   // {
-  //   id: "business-template",
-  //   name: "Business Website",
+  //   id: "website-5",
+  //   name: "???",
   //   category: "website",
-  //   v0TemplateId: "ABC123xyz", // ← Hämta hash från v0.app/templates
-  //   mainFile: "", folderPath: "", // Tomma för TYP A
+  //   v0TemplateId: "???",
   //   ...
   // }
 ];
