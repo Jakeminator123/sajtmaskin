@@ -12,6 +12,7 @@ interface PromptInputProps {
   isLoading?: boolean;
   placeholder?: string;
   navigateOnSubmit?: boolean;
+  initialValue?: string;
 }
 
 const examplePrompts = [
@@ -25,10 +26,18 @@ export function PromptInput({
   isLoading = false,
   placeholder = "Beskriv din webbplats med egna ord...",
   navigateOnSubmit = true,
+  initialValue,
 }: PromptInputProps) {
-  const [prompt, setPrompt] = useState("");
+  const [prompt, setPrompt] = useState(initialValue || "");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const router = useRouter();
+
+  // Update prompt when initialValue changes
+  useEffect(() => {
+    if (initialValue) {
+      setPrompt(initialValue);
+    }
+  }, [initialValue]);
 
   // Auto-resize textarea
   useEffect(() => {
