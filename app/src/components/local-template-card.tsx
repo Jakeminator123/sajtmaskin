@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
 import Image from "next/image";
 import {
   Loader2,
@@ -75,7 +75,10 @@ function getCategoryIcon(category: string) {
 
 interface LocalTemplateCardProps {
   template: LocalTemplate;
-  onSelect: (template: LocalTemplate, previewChatId?: string) => void | Promise<void>;
+  onSelect: (
+    template: LocalTemplate,
+    previewChatId?: string
+  ) => void | Promise<void>;
   disabled?: boolean;
 }
 
@@ -174,12 +177,59 @@ export function LocalTemplateCard({
     setShowPreview(false);
   };
 
+  // Ref for hover timeout (cleanup on mouse leave)
+  const hoverTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Preload preview data on hover (speculative loading)
+  const handleMouseEnter = useCallback(() => {
+    // Only preload if we have a v0TemplateId and haven't loaded yet
+    if (
+      template.v0TemplateId &&
+      !demoUrl &&
+      !isLoadingPreview &&
+      !previewError
+    ) {
+      // Start loading in background after short delay
+      hoverTimeoutRef.current = setTimeout(async () => {
+        try {
+          const response = await getTemplatePreview(template.id);
+          if (response.success) {
+            if (response.demoUrl) setDemoUrl(response.demoUrl);
+            if (response.screenshotUrl)
+              setScreenshotUrl(response.screenshotUrl);
+            if (response.chatId) setPreviewChatId(response.chatId);
+          }
+        } catch {
+          // Silently fail on preload - user hasn't explicitly requested it
+        }
+      }, 800); // 800ms delay before preloading (enough time to detect intentional hover)
+    }
+  }, [
+    template.v0TemplateId,
+    template.id,
+    demoUrl,
+    isLoadingPreview,
+    previewError,
+  ]);
+
+  // Cancel preload on mouse leave
+  const handleMouseLeave = useCallback(() => {
+    if (hoverTimeoutRef.current) {
+      clearTimeout(hoverTimeoutRef.current);
+      hoverTimeoutRef.current = null;
+    }
+  }, []);
+
   // ─────────────────────────────────────────────────────────────────────────
   // RENDER
   // ─────────────────────────────────────────────────────────────────────────
 
   return (
-    <div className="group relative w-full text-left bg-zinc-900/50 border border-zinc-800 rounded-xl overflow-hidden hover:border-emerald-500/50 hover:bg-zinc-900 transition-all duration-300 disabled:opacity-50">
+    <div
+      className="group relative w-full text-left bg-zinc-900/50 border border-zinc-800 rounded-xl overflow-hidden hover:border-emerald-500/50 hover:bg-zinc-900 transition-all duration-300 disabled:opacity-50"
+      onMouseEnter={handleMouseEnter}
+      onMouseLeave={handleMouseLeave}
+    >
       {/* ═══════════════════════════════════════════════════════════════════ */}
       {/* PREVIEW AREA */}
       {/* ═══════════════════════════════════════════════════════════════════ */}
@@ -213,7 +263,7 @@ export function LocalTemplateCard({
           </div>
         )}
 
-        {/* Static image (screenshot or OG image) */}
+        {/* Static image (screenshot or OG image) - lazy loaded */}
         {!showPreview && displayImageUrl && (
           <Image
             src={displayImageUrl}
@@ -222,6 +272,8 @@ export function LocalTemplateCard({
             className="object-cover"
             onError={() => setImageError(true)}
             unoptimized
+            loading="lazy" // Lazy load images
+            placeholder="empty"
           />
         )}
 

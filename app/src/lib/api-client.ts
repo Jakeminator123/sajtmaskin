@@ -253,8 +253,7 @@ export interface TemplatePreviewResponse {
 export async function getTemplatePreview(
   templateId: string
 ): Promise<TemplatePreviewResponse> {
-  if (DEBUG)
-    console.log("[API-Client] getTemplatePreview called:", templateId);
+  if (DEBUG) console.log("[API-Client] getTemplatePreview called:", templateId);
 
   try {
     const response = await fetch(

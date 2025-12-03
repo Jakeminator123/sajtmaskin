@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getLocalTemplateById } from "@/lib/local-templates";
 import { initTemplatePreview } from "@/lib/v0-generator";
-import {
-  getCachedPreview,
-  setCachedPreview,
-} from "@/lib/preview-cache";
+import { getCachedPreview, setCachedPreview } from "@/lib/preview-cache";
 
 // Allow 2 minutes for preview initialization
 export const maxDuration = 120;
@@ -51,7 +48,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(
       {
         success: false,
-        error: "Template has no v0TemplateId (TYP B templates not supported for preview)",
+        error:
+          "Template has no v0TemplateId (TYP B templates not supported for preview)",
       },
       { status: 400 }
     );
@@ -101,7 +99,10 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    if (errorMessage.includes("rate limit") || errorMessage.includes("Rate limit")) {
+    if (
+      errorMessage.includes("rate limit") ||
+      errorMessage.includes("Rate limit")
+    ) {
       return NextResponse.json(
         { success: false, error: "Rate limit exceeded. Try again later." },
         { status: 429 }
@@ -114,4 +115,3 @@ export async function GET(request: NextRequest) {
     );
   }
 }
-
