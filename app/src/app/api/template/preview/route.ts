@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getLocalTemplateById } from "@/lib/local-templates";
 import { initTemplatePreview } from "@/lib/v0-generator";
 import { getCachedPreview, setCachedPreview } from "@/lib/preview-cache";
+import { saveTemplateScreenshot } from "@/lib/database";
 
 // Allow 2 minutes for preview initialization
 export const maxDuration = 120;
@@ -74,8 +75,25 @@ export async function GET(request: NextRequest) {
     console.log("[API /template/preview] Fetching preview for:", templateId);
     const preview = await initTemplatePreview(template.v0TemplateId);
 
-    // Cache the result
+    // Cache the result in memory
     setCachedPreview(templateId, preview);
+
+    // Auto-save screenshot to SQLite database for persistent caching
+    if (preview.screenshotUrl) {
+      try {
+        saveTemplateScreenshot(templateId, preview.screenshotUrl);
+        console.log(
+          "[API /template/preview] Saved screenshot to DB for:",
+          templateId
+        );
+      } catch (dbError) {
+        console.error(
+          "[API /template/preview] Failed to save screenshot to DB:",
+          dbError
+        );
+        // Continue anyway - this is not critical
+      }
+    }
 
     return NextResponse.json({
       success: true,

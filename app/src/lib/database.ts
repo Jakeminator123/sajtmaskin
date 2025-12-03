@@ -69,6 +69,16 @@ function initializeDatabase(database: Database.Database) {
     )
   `);
 
+  // Template screenshots cache - stores v0 API screenshots for template cards
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS template_screenshots (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      template_id TEXT NOT NULL UNIQUE,
+      screenshot_url TEXT NOT NULL,
+      created_at TEXT DEFAULT (datetime('now'))
+    )
+  `);
+
   // ═══════════════════════════════════════════════════════════════════════════
   // INDEXES for better query performance
   // ═══════════════════════════════════════════════════════════════════════════
@@ -77,6 +87,7 @@ function initializeDatabase(database: Database.Database) {
     CREATE INDEX IF NOT EXISTS idx_projects_updated_at ON projects(updated_at DESC);
     CREATE INDEX IF NOT EXISTS idx_project_data_chat_id ON project_data(chat_id);
     CREATE INDEX IF NOT EXISTS idx_images_project_id ON images(project_id);
+    CREATE INDEX IF NOT EXISTS idx_template_screenshots_template_id ON template_screenshots(template_id);
   `);
 
   console.log("[Database] Initialized successfully at:", DB_PATH);
@@ -339,4 +350,50 @@ export function deleteImage(imageId: number): boolean {
 // Get uploads directory path
 export function getUploadsDir(): string {
   return UPLOADS_DIR;
+}
+
+// ============ Template Screenshot Cache Operations ============
+
+export interface TemplateScreenshot {
+  id: number;
+  template_id: string;
+  screenshot_url: string;
+  created_at: string;
+}
+
+// Get cached screenshot for a template
+export function getTemplateScreenshot(
+  templateId: string
+): TemplateScreenshot | null {
+  const db = getDb();
+  const stmt = db.prepare(
+    "SELECT * FROM template_screenshots WHERE template_id = ?"
+  );
+  return stmt.get(templateId) as TemplateScreenshot | null;
+}
+
+// Save screenshot URL for a template (upsert)
+export function saveTemplateScreenshot(
+  templateId: string,
+  screenshotUrl: string
+): TemplateScreenshot {
+  const db = getDb();
+
+  const stmt = db.prepare(`
+    INSERT INTO template_screenshots (template_id, screenshot_url)
+    VALUES (?, ?)
+    ON CONFLICT(template_id) DO UPDATE SET
+      screenshot_url = excluded.screenshot_url,
+      created_at = datetime('now')
+  `);
+  stmt.run(templateId, screenshotUrl);
+
+  return getTemplateScreenshot(templateId)!;
+}
+
+// Get all cached template screenshots
+export function getAllTemplateScreenshots(): TemplateScreenshot[] {
+  const db = getDb();
+  const stmt = db.prepare("SELECT * FROM template_screenshots");
+  return stmt.all() as TemplateScreenshot[];
 }
