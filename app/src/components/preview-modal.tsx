@@ -21,6 +21,7 @@ export function PreviewModal({
   const [isAutoScrolling, setIsAutoScrolling] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const scrollIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const isPausedRef = useRef(false); // Ref to track pause state in interval
 
   // Handle escape key to close
   useEffect(() => {
@@ -47,6 +48,7 @@ export function PreviewModal({
 
     setIsAutoScrolling(true);
     setIsPaused(false);
+    isPausedRef.current = false;
 
     const iframe = iframeRef.current;
     let scrollPosition = 0;
@@ -62,7 +64,7 @@ export function PreviewModal({
     }
 
     scrollIntervalRef.current = setInterval(() => {
-      if (isPaused) return;
+      if (isPausedRef.current) return;
 
       try {
         const contentWindow = iframe.contentWindow;
@@ -102,7 +104,7 @@ export function PreviewModal({
         console.error("[PreviewModal] Auto-scroll error:", error);
       }
     }, 1000 / frameRate);
-  }, [isPaused]);
+  }, []);
 
   // Stop auto-scroll on close
   useEffect(() => {
@@ -131,7 +133,9 @@ export function PreviewModal({
   };
 
   const togglePause = () => {
-    setIsPaused(!isPaused);
+    const newPaused = !isPaused;
+    setIsPaused(newPaused);
+    isPausedRef.current = newPaused;
   };
 
   const handleBackdropClick = (e: React.MouseEvent) => {
@@ -225,4 +229,3 @@ export function PreviewModal({
     </div>
   );
 }
-
