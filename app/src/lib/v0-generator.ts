@@ -4,6 +4,10 @@
  *
  * KÄRNMODUL för all AI-kodgenerering. Kommunicerar med Vercel's v0 Platform API.
  *
+ * API-TYPER (båda använder samma V0_API_KEY):
+ * - Platform API (v0-sdk): Returnerar filer, demoUrl, chatId - ANVÄNDS HÄR
+ * - Model API (@ai-sdk/vercel): OpenAI-kompatibelt, returnerar text - EJ ANVÄND
+ *
  * HUVUDFUNKTIONER:
  *
  * 1. generateCode(prompt, quality)
@@ -30,9 +34,11 @@
  * - "completed": Klart → returnera resultat
  * - "failed": Fel → sluta polla, logga error
  *
- * MODELLER:
- * - v0-1.5-md: Budget/Standard (snabb, billig)
- * - v0-1.5-lg: Premium (bäst kvalitet, 10x kostnad)
+ * MODELLER (2 st):
+ * - v0-1.5-md: Standard (128K context, snabb, $1.5/$7.5 per 1M tokens)
+ * - v0-1.5-lg: Premium (512K context, bäst, $15/$75 per 1M tokens)
+ *
+ * DEBUG: Alla operationer loggas till console med [v0-generator] prefix.
  */
 
 import { createClient, type ChatDetail } from "v0-sdk";
@@ -52,11 +58,23 @@ function getV0Client() {
   return _v0Client;
 }
 
-// Map user-facing quality options to v0 models
+/**
+ * v0 Model Configuration
+ * ======================
+ *
+ * TWO quality levels (mapped to v0 models):
+ * - standard: v0-1.5-md (128K context, fast, cheap)
+ * - premium:  v0-1.5-lg (512K context, best quality, 10x cost)
+ *
+ * Pricing (per 1M tokens):
+ * - v0-1.5-md: $1.5 input / $7.5 output
+ * - v0-1.5-lg: $15 input / $75 output
+ *
+ * Note: There's also v0-1.0-md (legacy) but we don't use it.
+ */
 const MODEL_MAP = {
-  budget: "v0-1.5-md", // Fast, cheap ($1.5/$7.5 per 1M tokens)
-  standard: "v0-1.5-md", // Balanced (same model as budget)
-  premium: "v0-1.5-lg", // Best quality, 10x cost ($15/$75 per 1M tokens)
+  standard: "v0-1.5-md", // Fast, 128K context ($1.5/$7.5 per 1M tokens)
+  premium: "v0-1.5-lg", // Best quality, 512K context ($15/$75 per 1M tokens)
 } as const;
 
 export type QualityLevel = keyof typeof MODEL_MAP;

@@ -70,7 +70,7 @@ interface BuilderState {
   // UI state
   viewMode: "preview" | "code";
   deviceSize: "desktop" | "tablet" | "mobile";
-  quality: "budget" | "standard" | "premium";
+  quality: "standard" | "premium"; // 2 levels: standard (v0-1.5-md) or premium (v0-1.5-lg)
 
   // Saving state
   isSaving: boolean;
@@ -89,7 +89,7 @@ interface BuilderState {
   setVersionId: (id: string) => void;
   setViewMode: (mode: "preview" | "code") => void;
   setDeviceSize: (size: "desktop" | "tablet" | "mobile") => void;
-  setQuality: (quality: "budget" | "standard" | "premium") => void;
+  setQuality: (quality: "standard" | "premium") => void;
   clearChat: () => void;
 
   // Database operations

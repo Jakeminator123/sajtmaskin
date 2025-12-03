@@ -1,12 +1,47 @@
 ================================================================================
                     SAJTMASKIN - BYGGPROGRESS
-                    Senast uppdaterad: 2025-11-29
+                    Senast uppdaterad: 2025-12-03
 ================================================================================
 
 PROJEKTÖVERSIKT
 ---------------
 Bygger en white-label webbplatsbyggare med v0 API.
 Användare väljer kategori → AI genererar kod → Användare förfinar → Exporterar.
+
+================================================================================
+                    API-KONFIGURATION ✅
+================================================================================
+
+v0 API-NYCKLAR (endast EN nyckel behövs):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+V0_API_KEY - Används för BÅDA v0 API:erna:
+
+1. Platform API (v0-sdk) - PRIMÄRT ANVÄND
+   - Returnerar: filer, demoUrl, chatId
+   - Används för: Kodgenerering, preview, konversationer
+   
+2. Model API (@ai-sdk/vercel) - INSTALLERAD MEN EJ ANVÄND
+   - Returnerar: Raw text (OpenAI-format)
+   - Kan användas för: Bild→Kod (multimodal)
+
+OPENAI_API_KEY - RESERVERAD FÖR FRAMTIDA ANVÄNDNING
+   - Kan användas för: DALL-E bildgenerering, GPT-chatbot
+   - Status: Finns i .env.local men används ej i koden
+
+v0 MODELLER (2 st):
+━━━━━━━━━━━━━━━━━━
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ Modell       │ Context   │ Kostnad (per 1M tokens) │ Användning             │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ v0-1.5-md    │ 128K      │ $1.5 in / $7.5 out      │ Standard (snabb)       │
+│ v0-1.5-lg    │ 512K      │ $15 in / $75 out (10x)  │ Premium (bäst kvalitet)│
+│ v0-1.0-md    │ 128K      │ Legacy                  │ EJ ANVÄND              │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+KVALITETSNIVÅER I UI (2 st):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- ⭐ Standard: v0-1.5-md (128K context, snabb, billig)
+- 💎 Premium:  v0-1.5-lg (512K context, bäst kvalitet, 10x kostnad)
 
 ================================================================================
                     FAS 1: STARTSIDAN ✅ KLAR
@@ -16,7 +51,7 @@ Användare väljer kategori → AI genererar kod → Användare förfinar → Ex
 [✅] Skapa HelpTooltip-komponent med (?) ikon och svenska texter
 [✅] Skapa TemplateGallery med 7 kategorikort och hover-effekter
 [✅] Skapa PromptInput-komponent med textarea och skicka-knapp
-[✅] Skapa QualitySelector-komponent (Snabb/Standard/Premium)
+[✅] Skapa QualitySelector-komponent (Standard/Premium) ← UPPDATERAD till 2 val
 [✅] Implementera startsidan med alla komponenter och design
 [✅] Skapa placeholder builder-sida som läser URL-parametrar
 
@@ -75,8 +110,9 @@ SKAPADE FILER:
 [✅] Skapa /api/refine route
 [✅] Implementera v0 API-anrop via v0-sdk (Platform API)
 [✅] Sanera svar (ta bort v0/Vercel-referenser)
-[✅] Hantera kvalitetsnivåer (budget/standard/premium)
+[✅] Hantera kvalitetsnivåer (standard/premium) ← FÖRENKLAT till 2 nivåer
 [✅] Ersätt mock-generator med riktiga API-anrop
+[✅] Lägg till debug-loggning med [prefix] för alla operationer
 
 SKAPADE FILER:
 - app/src/lib/v0-generator.ts (Backend v0 API wrapper)
@@ -90,11 +126,6 @@ KRÄVER FÖR ATT FUNGERA:
   Innehåll: V0_API_KEY=din_nyckel_här
   
   OBS: Auto-recharge måste vara aktiverat i v0 för premium-modellen (v0-1.5-lg)
-
-KVALITETSNIVÅER:
-  - budget: v0-1.5-md (billig, snabb)
-  - standard: v0-1.5-md (balanserad)
-  - premium: v0-1.5-lg (bäst kvalitet, 10x kostnad)
 
 WHITE-LABEL:
   - Alla v0/Vercel-referenser tas bort automatiskt från responses
@@ -146,15 +177,17 @@ PREVIEW-PRIORITET:
 [✅] Spara alla filer för kodvisning och export
 [✅] Refinement via v0.chats.sendMessage() med chatId
 
-VIKTIGA SKILLNADER FRÅN MODEL API:
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-Model API (@ai-sdk/vercel):
+VIKTIGA SKILLNADER MELLAN API:ERNA:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Model API (@ai-sdk/vercel) - EJ ANVÄND:
+- OpenAI-kompatibelt format
 - Returnerar RAW TEXT (måste parsas)
 - Ingen demoUrl
 - Ingen chatId för konversation
-- Svårare att få korrekt formaterad kod
+- STÖDER bilder som input (multimodal)
 
-Platform API (v0-sdk) - DET VI ANVÄNDER NU:
+Platform API (v0-sdk) - ANVÄNDS:
 - Returnerar STRUKTURERADE FILER (latestVersion.files)
 - Inkluderar demoUrl för preview
 - Har chatId för att fortsätta konversationer
@@ -214,16 +247,27 @@ KÖRA PROJEKTET:
   npm run dev
   → Öppna http://localhost:3000
 
-API-NYCKEL:
+API-NYCKLAR:
   Skapa fil: app/.env.local
-  Innehåll: V0_API_KEY=din_nyckel_här
+  Innehåll:
+    V0_API_KEY=din_v0_nyckel_här
+    OPENAI_API_KEY=din_openai_nyckel_här  # Valfritt, för framtida funktioner
 
 INSTALLERADE PAKET:
   - zustand (state management)
   - v0-sdk (Platform API - primär integration)
-  - @ai-sdk/vercel, ai (Model API - ej i aktiv användning)
+  - @ai-sdk/vercel, ai (Model API - installerad, ej aktiv)
   - ShadCN UI komponenter
   - @codesandbox/sandpack-react (fallback live code preview)
+
+DEBUG-LOGGNING:
+  Alla viktiga operationer loggas till console med prefix:
+  - [v0-generator] - Backend API-anrop
+  - [API-Client] - Frontend API-anrop
+  - [QualitySelector] - Kvalitetsval
+  - [Store] - State-ändringar
+  - [API/generate] - Generate route
+  - [API/refine] - Refine route
 
 FLÖDE (hur systemet fungerar nu):
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -283,5 +327,34 @@ LÖSNING: Vi använder v0:s demoUrl i iframe istället!
 PROBLEM: Flera API-anrop kan köras parallellt om sidan laddas om
 LÖSNING: hasInitialized ref förhindrar dubbla anrop.
          initializedWith ref spårar vilka params som redan genererats.
+
+PROBLEM: explicitSave visar "Sparad" även vid fel
+LÖSNING: FIXAT - hasUserSaved återställs vid fel
+
+PROBLEM: Polling hängde vid "ready" eller "error" status
+LÖSNING: FIXAT - Hanterar korrekt "completed" och "failed" statusar
+
+================================================================================
+                    SENASTE ÄNDRINGAR (2025-12-03)
+================================================================================
+
+✅ Förenklat kvalitetsnivåer från 3 till 2:
+   - Borttaget: "budget" (var identisk med standard)
+   - Kvar: "standard" (v0-1.5-md) och "premium" (v0-1.5-lg)
+
+✅ Uppdaterat alla filer för 2 kvalitetsnivåer:
+   - v0-generator.ts
+   - store.ts
+   - api-client.ts
+   - quality-selector.tsx
+
+✅ Lagt till debug-loggning i alla API-anrop:
+   - [v0-generator] prefix för backend
+   - [API-Client] prefix för frontend
+   - [QualitySelector] prefix för UI
+
+✅ Dokumenterat API-konfiguration:
+   - Klargjort att V0_API_KEY fungerar för båda v0 API:erna
+   - OPENAI_API_KEY reserverad för framtida bildgenerering
 
 ================================================================================

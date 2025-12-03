@@ -1,33 +1,39 @@
 /**
  * Frontend API Client
  * ====================
- * 
+ *
  * Hanterar alla API-anrop från frontend till backend.
  * Backend kommunicerar sedan med v0 API (aldrig direkt från frontend).
- * 
+ *
  * ENDPOINTS:
- * 
+ *
  * POST /api/generate    → generateWebsite()
  *   - Input: prompt, categoryType?, quality
  *   - Output: code, files, demoUrl, chatId, versionId
- * 
+ *
  * POST /api/refine      → refineWebsite()
  *   - Input: existingCode, instruction, chatId?, quality
  *   - Output: uppdaterad code + files + demoUrl
- * 
+ *
  * POST /api/template    → generateFromTemplate()
  *   - Input: templateId, quality
  *   - Output: template code + files + demoUrl
- * 
+ *
  * GET /api/local-template?id=xxx → (används av chat-panel direkt)
  *   - Läser lokal mall från disk
  *   - Returnerar kod + filer + metadata
- * 
+ *
+ * KVALITETSNIVÅER (2 st):
+ * - standard: v0-1.5-md (128K context, snabb, billig)
+ * - premium:  v0-1.5-lg (512K context, bäst, 10x kostnad)
+ *
  * VIKTIGT: demoUrl är den URL som visas i iframe-preview.
  * chatId behövs för att fortsätta konversation (refinement).
+ *
+ * DEBUG: Alla anrop loggas till console med [API-Client] prefix.
  */
 
-export type QualityLevel = "budget" | "standard" | "premium";
+export type QualityLevel = "standard" | "premium";
 
 export interface GeneratedFile {
   name: string;
@@ -68,6 +74,12 @@ export async function generateWebsite(
   categoryType?: string,
   quality: QualityLevel = "standard"
 ): Promise<GenerateResponse> {
+  console.log("[API-Client] generateWebsite called:", {
+    prompt: prompt?.substring(0, 50) + "...",
+    categoryType,
+    quality,
+  });
+
   try {
     const response = await fetch("/api/generate", {
       method: "POST",
@@ -80,8 +92,16 @@ export async function generateWebsite(
     });
 
     const data = await response.json();
+    console.log("[API-Client] generateWebsite response:", {
+      success: data.success,
+      hasCode: !!data.code,
+      filesCount: data.files?.length || 0,
+      hasDemoUrl: !!data.demoUrl,
+      chatId: data.chatId,
+    });
 
     if (!response.ok) {
+      console.error("[API-Client] generateWebsite error:", data.error);
       return {
         success: false,
         error: data.error || "Något gick fel. Försök igen.",
@@ -90,7 +110,7 @@ export async function generateWebsite(
 
     return data;
   } catch (error) {
-    console.error("Generate error:", error);
+    console.error("[API-Client] generateWebsite network error:", error);
     return {
       success: false,
       error:
@@ -108,6 +128,13 @@ export async function refineWebsite(
   quality: QualityLevel = "standard",
   chatId?: string
 ): Promise<RefineResponse> {
+  console.log("[API-Client] refineWebsite called:", {
+    codeLength: existingCode?.length || 0,
+    instruction: instruction?.substring(0, 50) + "...",
+    quality,
+    chatId,
+  });
+
   try {
     const response = await fetch("/api/refine", {
       method: "POST",
@@ -121,8 +148,16 @@ export async function refineWebsite(
     });
 
     const data = await response.json();
+    console.log("[API-Client] refineWebsite response:", {
+      success: data.success,
+      hasCode: !!data.code,
+      filesCount: data.files?.length || 0,
+      hasDemoUrl: !!data.demoUrl,
+      chatId: data.chatId,
+    });
 
     if (!response.ok) {
+      console.error("[API-Client] refineWebsite error:", data.error);
       return {
         success: false,
         error: data.error || "Något gick fel. Försök igen.",
@@ -131,7 +166,7 @@ export async function refineWebsite(
 
     return data;
   } catch (error) {
-    console.error("Refine error:", error);
+    console.error("[API-Client] refineWebsite network error:", error);
     return {
       success: false,
       error:
@@ -147,6 +182,11 @@ export async function generateFromTemplate(
   templateId: string,
   quality: QualityLevel = "standard"
 ): Promise<GenerateResponse> {
+  console.log("[API-Client] generateFromTemplate called:", {
+    templateId,
+    quality,
+  });
+
   try {
     const response = await fetch("/api/template", {
       method: "POST",
@@ -158,8 +198,15 @@ export async function generateFromTemplate(
     });
 
     const data = await response.json();
+    console.log("[API-Client] generateFromTemplate response:", {
+      success: data.success,
+      hasCode: !!data.code,
+      filesCount: data.files?.length || 0,
+      hasDemoUrl: !!data.demoUrl,
+    });
 
     if (!response.ok) {
+      console.error("[API-Client] generateFromTemplate error:", data.error);
       return {
         success: false,
         error: data.error || "Kunde inte ladda template.",
@@ -168,7 +215,7 @@ export async function generateFromTemplate(
 
     return data;
   } catch (error) {
-    console.error("Template error:", error);
+    console.error("[API-Client] generateFromTemplate network error:", error);
     return {
       success: false,
       error:

@@ -1,11 +1,23 @@
 "use client";
 
+/**
+ * QualitySelector Component
+ * =========================
+ * 
+ * Låter användaren välja mellan 2 kvalitetsnivåer:
+ * 
+ * - Standard (v0-1.5-md): 128K context, snabb, billig
+ * - Premium (v0-1.5-lg):  512K context, bäst kvalitet, 10x kostnad
+ * 
+ * Båda använder samma V0_API_KEY.
+ */
+
 import { Button } from "@/components/ui/button";
 import { HelpTooltip } from "@/components/help-tooltip";
-import { Zap, Star, Diamond } from "lucide-react";
+import { Star, Diamond } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-export type QualityLevel = "budget" | "standard" | "premium";
+export type QualityLevel = "standard" | "premium";
 
 interface QualitySelectorProps {
   value: QualityLevel;
@@ -19,24 +31,18 @@ interface QualityOption {
   icon: React.ElementType;
   description: string;
   helpText: string;
+  color: string;
 }
 
 const qualityOptions: QualityOption[] = [
   {
-    id: "budget",
-    label: "Snabb",
-    icon: Zap,
-    description: "Snabba utkast",
-    helpText:
-      "Snabbaste alternativet för enkla sidor och utkast. Använder v0-1.5-md modellen. Lägst kostnad per generering.",
-  },
-  {
     id: "standard",
     label: "Standard",
     icon: Star,
-    description: "Balanserad",
+    description: "Snabb & billig",
     helpText:
-      "Bra balans mellan hastighet och kvalitet. Rekommenderas för de flesta projekt. Använder v0-1.5-md modellen.",
+      "Snabb generering med 128K context window. Använder v0-1.5-md modellen. Perfekt för de flesta projekt. Kostnad: ~$1.5/$7.5 per 1M tokens.",
+    color: "text-blue-500",
   },
   {
     id: "premium",
@@ -44,7 +50,8 @@ const qualityOptions: QualityOption[] = [
     icon: Diamond,
     description: "Bäst kvalitet",
     helpText:
-      "Högsta kvaliteten med störst kontextfönster (512K tokens). Använder v0-1.5-lg modellen. Bäst för komplexa projekt.",
+      "Högsta kvaliteten med 512K context window (4x större). Använder v0-1.5-lg modellen. Bäst för komplexa projekt. Kostnad: ~$15/$75 per 1M tokens (10x).",
+    color: "text-purple-500",
   },
 ];
 
@@ -53,6 +60,8 @@ export function QualitySelector({
   onChange,
   disabled = false,
 }: QualitySelectorProps) {
+  console.log("[QualitySelector] Current value:", value);
+  
   return (
     <div className="flex items-center gap-1 p-1 bg-zinc-900/50 rounded-lg border border-zinc-800">
       {qualityOptions.map((option) => {
@@ -64,7 +73,10 @@ export function QualitySelector({
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => onChange(option.id)}
+              onClick={() => {
+                console.log("[QualitySelector] Changed to:", option.id);
+                onChange(option.id);
+              }}
               disabled={disabled}
               className={cn(
                 "h-8 px-3 gap-1.5 text-xs font-medium transition-all",
@@ -76,9 +88,7 @@ export function QualitySelector({
               <Icon
                 className={cn(
                   "h-3.5 w-3.5",
-                  isSelected && option.id === "budget" && "text-yellow-500",
-                  isSelected && option.id === "standard" && "text-blue-500",
-                  isSelected && option.id === "premium" && "text-purple-500"
+                  isSelected && option.color
                 )}
               />
               {option.label}
