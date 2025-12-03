@@ -69,6 +69,16 @@ function initializeDatabase(database: Database.Database) {
     )
   `);
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // INDEXES for better query performance
+  // ═══════════════════════════════════════════════════════════════════════════
+  database.exec(`
+    CREATE INDEX IF NOT EXISTS idx_projects_category ON projects(category);
+    CREATE INDEX IF NOT EXISTS idx_projects_updated_at ON projects(updated_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_project_data_chat_id ON project_data(chat_id);
+    CREATE INDEX IF NOT EXISTS idx_images_project_id ON images(project_id);
+  `);
+
   console.log("[Database] Initialized successfully at:", DB_PATH);
 }
 
