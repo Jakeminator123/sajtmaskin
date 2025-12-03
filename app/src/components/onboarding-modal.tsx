@@ -42,7 +42,6 @@ interface OnboardingModalProps {
 }
 
 export function OnboardingModal({ onComplete, onSkip }: OnboardingModalProps) {
-  const [isVisible, setIsVisible] = useState(false);
   const [step, setStep] = useState<"video" | "form">("video");
   const videoRef = useRef<HTMLVideoElement>(null);
 
@@ -52,16 +51,6 @@ export function OnboardingModal({ onComplete, onSkip }: OnboardingModalProps) {
   const [showPurposeDropdown, setShowPurposeDropdown] = useState(false);
   const [analyzeFromWeb, setAnalyzeFromWeb] = useState(false);
   const [description, setDescription] = useState("");
-
-  // Check if user has seen onboarding before
-  useEffect(() => {
-    const hasSeenOnboarding = localStorage.getItem(
-      "sajtmaskin_onboarding_seen"
-    );
-    if (!hasSeenOnboarding) {
-      setIsVisible(true);
-    }
-  }, []);
 
   const handleVideoEnd = () => {
     setStep("form");
@@ -76,7 +65,6 @@ export function OnboardingModal({ onComplete, onSkip }: OnboardingModalProps) {
 
   const handleSubmit = () => {
     localStorage.setItem("sajtmaskin_onboarding_seen", "true");
-    setIsVisible(false);
     onComplete({
       existingUrl,
       urlPurpose,
@@ -87,7 +75,6 @@ export function OnboardingModal({ onComplete, onSkip }: OnboardingModalProps) {
 
   const handleSkip = () => {
     localStorage.setItem("sajtmaskin_onboarding_seen", "true");
-    setIsVisible(false);
     onSkip();
   };
 
@@ -96,8 +83,6 @@ export function OnboardingModal({ onComplete, onSkip }: OnboardingModalProps) {
     audit: "Jag vill enbart ha en audit av denna sida",
     inspiration: "Jag vill ta inspiration från denna sida (ej min)",
   };
-
-  if (!isVisible) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
