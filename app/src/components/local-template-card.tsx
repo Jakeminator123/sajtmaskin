@@ -111,11 +111,11 @@ export function LocalTemplateCard({
   const ogImageUrl = getV0OgImageUrl(template.sourceUrl);
 
   // Try local preview first, then OG image, then screenshot
-  // If any image fails to load, fall back to gradient
+  // If local preview fails to load, fall back to OG image
   const displayImageUrl =
     screenshotUrl ||
     (template.previewUrl && !imageError ? template.previewUrl : null) ||
-    (!imageError ? ogImageUrl : null);
+    ogImageUrl;
 
   // ─────────────────────────────────────────────────────────────────────────
   // HANDLERS
