@@ -68,53 +68,56 @@ export interface LocalTemplate {
 
 export const LOCAL_TEMPLATES: LocalTemplate[] = [
   // ════════════════════════════════════════════════════════════════════════════
-  // LANDING PAGES
+  // LANDING PAGES (alla TYP A - direkt från v0 API!)
   // ════════════════════════════════════════════════════════════════════════════
 
-  // TYP A: v0TemplateId + lokal kod (v0 API prioriteras, lokal som fallback)
+  // Landing Page 1: Cosmos 3D Orbit Gallery
   // URL: https://v0.app/templates/cosmos-3d-orbit-gallery-template-W8w0SZdos3x
   {
     id: "cosmos-3d",
     name: "Cosmos — 3D Orbit Gallery",
     description:
-      "Fantastisk 3D-partikelsfär med orbiterande bildgalleri och rymdtema",
+      "Hero-sektion med 3D-sfär av bilder och partiklar som liknar kosmos",
     category: "landing-page",
-    previewUrl: "/templates/landing_page/1/preview.png",
+    previewUrl: "/templates/landing_page/1/preview.jpg",
     sourceUrl:
       "https://v0.app/templates/cosmos-3d-orbit-gallery-template-W8w0SZdos3x",
-    mainFile: "app/page.tsx", // Lokal fallback finns
-    folderPath: "landing-page/cosmos-3d",
-    v0TemplateId: "W8w0SZdos3x", // ← HASH ONLY! Prioriteras
+    mainFile: "", // TYP A: ingen lokal kod behövs
+    folderPath: "", // TYP A: ingen lokal kod behövs
+    v0TemplateId: "W8w0SZdos3x",
     complexity: "advanced",
   },
 
-  // TYP B: Endast lokal kod (chat-URL har inget templateId)
+  // Landing Page 2: AI Agency Landing Page & Portfolio Site
+  // URL: https://v0.app/templates/ai-agency-landing-page-and-portfolio-site-Ka8r7wzBAS0
   {
-    id: "animated-hero",
-    name: "Minimal Animated Hero",
+    id: "ai-agency",
+    name: "AI Agency Landing Page",
     description:
-      "Modern hero-sektion med orange neonlinjer, animationer och responsiv design",
+      "Modern landningssida för AI-byråer med dark mode, portfolio och kontaktformulär",
     category: "landing-page",
-    previewUrl: "/templates/landing_page/2/preview.png",
-    sourceUrl: "https://v0.app/chat/mnimal-animated-hero-xGyEFskYA9w",
-    mainFile: "app/page.tsx",
-    folderPath: "landing-page/animated-hero",
-    // Inget v0TemplateId - chat-URL → använder lokal kod
+    previewUrl: "/templates/landing_page/2/preview.jpg",
+    sourceUrl:
+      "https://v0.app/templates/ai-agency-landing-page-and-portfolio-site-Ka8r7wzBAS0",
+    mainFile: "", // TYP A
+    folderPath: "", // TYP A
+    v0TemplateId: "Ka8r7wzBAS0",
     complexity: "simple",
   },
 
-  // TYP B: Endast lokal kod
+  // Landing Page 3: Next.js Boilerplate (ComponentCraft UI Library)
+  // URL: https://v0.app/templates/next-js-boilerplate-dNTdgBEhEAn
   {
-    id: "brillance-saas",
-    name: "Brillance SaaS Landing Page",
+    id: "nextjs-boilerplate",
+    name: "Next.js Boilerplate",
     description:
-      "Komplett SaaS-landningssida med hero, pricing, testimonials, FAQ och footer",
+      "Modern UI-komponentbibliotek med TypeScript, Tailwind CSS och Framer Motion",
     category: "landing-page",
-    previewUrl: "/templates/landing_page/3/preview.png",
-    sourceUrl: "https://v0.app/chat/brillance-saa-s-landing-page-Kqi1r3AuLk3",
-    mainFile: "app/page.tsx",
-    folderPath: "landing-page/brillance-saas",
-    // Inget v0TemplateId - chat-URL → använder lokal kod
+    previewUrl: "/templates/landing_page/3/preview.jpg",
+    sourceUrl: "https://v0.app/templates/next-js-boilerplate-dNTdgBEhEAn",
+    mainFile: "", // TYP A
+    folderPath: "", // TYP A
+    v0TemplateId: "dNTdgBEhEAn",
     complexity: "simple",
   },
 
