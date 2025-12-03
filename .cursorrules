@@ -32,7 +32,9 @@
 
 ## Process
 
+- ALWAYS check terminals folder FIRST before running any command
 - ALWAYS stop `npm run dev` before running `npm run build` (use: taskkill /F /IM node.exe)
 - Stop any running processes before starting new ones
+- Never start background processes and forget about them
 - Commit frequently with clear messages
 - Always verify builds pass before pushing
