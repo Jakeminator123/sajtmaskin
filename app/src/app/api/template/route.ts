@@ -19,7 +19,7 @@ function getRandomMessage() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { templateId } = body;
+    const { templateId, quality = "standard" } = body;
 
     if (!templateId) {
       return NextResponse.json(
@@ -28,10 +28,15 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log("[API /template] Initializing from template:", templateId);
+    console.log(
+      "[API /template] Initializing from template:",
+      templateId,
+      "quality:",
+      quality
+    );
 
     // Generate from template using v0 Platform API
-    const result = await generateFromTemplate(templateId);
+    const result = await generateFromTemplate(templateId, quality);
 
     console.log("[API /template] Result:", {
       hasFiles: !!result.files?.length,

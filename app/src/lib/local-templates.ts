@@ -115,9 +115,74 @@ export const LOCAL_TEMPLATES: LocalTemplate[] = [
     category: "landing-page",
     previewUrl: "/templates/landing_page/3/preview.jpg",
     sourceUrl: "https://v0.app/templates/next-js-boilerplate-dNTdgBEhEAn",
-    mainFile: "", // TYP A
-    folderPath: "", // TYP A
+    mainFile: "",
+    folderPath: "",
     v0TemplateId: "dNTdgBEhEAn",
+    complexity: "simple",
+  },
+
+  // Landing Page 4: Pointer AI Landing Page
+  // URL: https://v0.app/templates/pointer-ai-landing-page-XQxxv76lK5w
+  {
+    id: "pointer-ai",
+    name: "Pointer AI Landing Page",
+    description:
+      "AI-fokuserad landningssida med snabb anpassning via prompts, animationer och responsiv layout",
+    category: "landing-page",
+    previewUrl: "/templates/landing_page/4/preview.jpg",
+    sourceUrl: "https://v0.app/templates/pointer-ai-landing-page-XQxxv76lK5w",
+    mainFile: "",
+    folderPath: "",
+    v0TemplateId: "XQxxv76lK5w",
+    complexity: "simple",
+  },
+
+  // Landing Page 5: Shaders Landing Page
+  // URL: https://v0.app/templates/shaders-landing-page-R3n0gnvYFbO
+  {
+    id: "shaders-landing",
+    name: "Shaders Landing Page",
+    description:
+      "Visuellt slående landningssida med Three.js, WebGL och interaktiva shader-effekter",
+    category: "landing-page",
+    previewUrl: "/templates/landing_page/5/preview.jpg",
+    sourceUrl: "https://v0.app/templates/shaders-landing-page-R3n0gnvYFbO",
+    mainFile: "",
+    folderPath: "",
+    v0TemplateId: "R3n0gnvYFbO",
+    complexity: "advanced",
+  },
+
+  // Landing Page 6: Skal Ventures Template
+  // URL: https://v0.app/templates/skal-ventures-template-tnZGzubtsTc
+  {
+    id: "skal-ventures",
+    name: "Skal Ventures",
+    description:
+      "Djärv landningssida för riskkapitalbolag med imponerande shaders och WebGL-partikelanimationer",
+    category: "landing-page",
+    previewUrl: "/templates/landing_page/6/preview.jpg",
+    sourceUrl: "https://v0.app/templates/skal-ventures-template-tnZGzubtsTc",
+    mainFile: "",
+    folderPath: "",
+    v0TemplateId: "tnZGzubtsTc",
+    complexity: "advanced",
+  },
+
+  // Landing Page 7: Auralink SaaS Landing Page
+  // URL: https://v0.app/templates/auralink-saas-landing-page-zoQPxUaTqvE
+  {
+    id: "auralink-saas",
+    name: "Auralink SaaS",
+    description:
+      "Modern SaaS-landningssida för AI-kommunikationsplattform med clean, minimal design",
+    category: "landing-page",
+    previewUrl: "/templates/landing_page/7/preview.jpg",
+    sourceUrl:
+      "https://v0.app/templates/auralink-saas-landing-page-zoQPxUaTqvE",
+    mainFile: "",
+    folderPath: "",
+    v0TemplateId: "zoQPxUaTqvE",
     complexity: "simple",
   },
 
@@ -162,18 +227,84 @@ export const LOCAL_TEMPLATES: LocalTemplate[] = [
   {
     id: "brillance-dashboard",
     name: "Brillance SaaS Dashboard",
-    description: "Professionell SaaS-dashboard med analytics och datavisualisering",
+    description:
+      "Professionell SaaS-dashboard med analytics och datavisualisering",
     category: "dashboard",
     previewUrl: "/templates/dashboards/3/preview.jpg",
-    sourceUrl: "https://v0.app/templates/brillance-saa-s-landing-page-zdiN8dHwaaT",
+    sourceUrl:
+      "https://v0.app/templates/brillance-saa-s-landing-page-zdiN8dHwaaT",
     mainFile: "",
     folderPath: "",
     v0TemplateId: "zdiN8dHwaaT",
     complexity: "simple",
   },
 
+  // Dashboard 4: Shadcn Dashboard
+  // URL: https://v0.app/templates/shadcn-dashboard-Pf7lw1nypu5
+  {
+    id: "shadcn-dashboard",
+    name: "Shadcn Dashboard",
+    description:
+      "Projekthantering och analytics-dashboard med sidofält, metrikkort, area-diagram och datatabeller",
+    category: "dashboard",
+    previewUrl: "/templates/dashboards/4/preview.jpg",
+    sourceUrl: "https://v0.app/templates/shadcn-dashboard-Pf7lw1nypu5",
+    mainFile: "",
+    folderPath: "",
+    v0TemplateId: "Pf7lw1nypu5",
+    complexity: "simple",
+  },
+
+  // Dashboard 5: Workflow Design Dashboard
+  // URL: https://v0.app/templates/workflow-design-dashboard-IVWc0rHCBAL
+  {
+    id: "workflow-dashboard",
+    name: "Workflow Design Dashboard",
+    description:
+      "Arbetsflödeshantering med sektioner för översikt, analytics, mallar och team-inställningar",
+    category: "dashboard",
+    previewUrl: "/templates/dashboards/5/preview.jpg",
+    sourceUrl: "https://v0.app/templates/workflow-design-dashboard-IVWc0rHCBAL",
+    mainFile: "",
+    folderPath: "",
+    v0TemplateId: "IVWc0rHCBAL",
+    complexity: "simple",
+  },
+
+  // Dashboard 6: Simple Dashboard
+  // URL: https://v0.app/templates/simple-dashboard-ZZFpa3jFqnO
+  {
+    id: "simple-dashboard",
+    name: "Simple Dashboard",
+    description:
+      "Affärsöversikt med intäkter, prenumerationer, aktiva användare och konverteringsgrad",
+    category: "dashboard",
+    previewUrl: "/templates/dashboards/6/preview.jpg",
+    sourceUrl: "https://v0.app/templates/simple-dashboard-ZZFpa3jFqnO",
+    mainFile: "",
+    folderPath: "",
+    v0TemplateId: "ZZFpa3jFqnO",
+    complexity: "simple",
+  },
+
+  // Dashboard 7: Analytics Dashboard
+  // URL: https://v0.app/templates/analytics-dashboard-NtDCHfJthfA
+  {
+    id: "analytics-dashboard",
+    name: "Analytics Dashboard",
+    description:
+      "Dashboard för användarengagemang och app-prestanda med flikar för statistik, insikter och feedback",
+    category: "dashboard",
+    previewUrl: "/templates/dashboards/7/preview.jpg",
+    sourceUrl: "https://v0.app/templates/analytics-dashboard-NtDCHfJthfA",
+    mainFile: "",
+    folderPath: "",
+    v0TemplateId: "NtDCHfJthfA",
+    complexity: "simple",
+  },
+
   // ════════════════════════════════════════════════════════════════════════════
-  // WEBSITES / HOMEPAGES (5 st)
+  // WEBSITES / HOMEPAGES
   // ════════════════════════════════════════════════════════════════════════════
 
   // Website 1: Lorenzo Motocross Landing Page
@@ -254,6 +385,87 @@ export const LOCAL_TEMPLATES: LocalTemplate[] = [
     mainFile: "",
     folderPath: "",
     v0TemplateId: "Nynl8DJ6xUH",
+    complexity: "simple",
+  },
+
+  // Website 6: An Unusual Hero
+  // URL: https://v0.app/templates/an-unusual-hero-VZ9EEGUUq9M
+  {
+    id: "unusual-hero",
+    name: "An Unusual Hero",
+    description:
+      "Modern hero-sektion med SVG-maskning och GSAP-animationer för dynamiska visuella effekter",
+    category: "website",
+    previewUrl: "/templates/homepage/6/preview.jpg",
+    sourceUrl: "https://v0.app/templates/an-unusual-hero-VZ9EEGUUq9M",
+    mainFile: "",
+    folderPath: "",
+    v0TemplateId: "VZ9EEGUUq9M",
+    complexity: "advanced",
+  },
+
+  // Website 7: Modern Agency Website – Liquid Glass
+  // URL: https://v0.app/templates/modern-agency-website-liquid-glass-ezmvVsZJxz8
+  {
+    id: "liquid-glass",
+    name: "Liquid Glass Agency",
+    description:
+      "Fullständig flersidorswebbplats för byrå med unika flytande glas-effekter (MIT-licens)",
+    category: "website",
+    previewUrl: "/templates/homepage/7/preview.jpg",
+    sourceUrl:
+      "https://v0.app/templates/modern-agency-website-liquid-glass-ezmvVsZJxz8",
+    mainFile: "",
+    folderPath: "",
+    v0TemplateId: "ezmvVsZJxz8",
+    complexity: "advanced",
+  },
+
+  // Website 8: Enhanced Travel Website
+  // URL: https://v0.app/templates/enhanced-travel-website-mEefgKyVifq
+  {
+    id: "travel-website",
+    name: "Enhanced Travel Website",
+    description:
+      "Reseplaneringssida med hero, destinationer, testimonials, resetips och nyhetsbrev",
+    category: "website",
+    previewUrl: "/templates/homepage/8/preview.jpg",
+    sourceUrl: "https://v0.app/templates/enhanced-travel-website-mEefgKyVifq",
+    mainFile: "",
+    folderPath: "",
+    v0TemplateId: "mEefgKyVifq",
+    complexity: "simple",
+  },
+
+  // Website 9: Minimalist Portfolio
+  // URL: https://v0.app/templates/minimalist-portfolio-1DPeR9dunMc
+  {
+    id: "minimalist-portfolio",
+    name: "Minimalist Portfolio",
+    description:
+      "Minimal portfolio med dark/light tema, elegant typografi och full responsivitet",
+    category: "website",
+    previewUrl: "/templates/homepage/9/preview.jpg",
+    sourceUrl: "https://v0.app/templates/minimalist-portfolio-1DPeR9dunMc",
+    mainFile: "",
+    folderPath: "",
+    v0TemplateId: "1DPeR9dunMc",
+    complexity: "simple",
+  },
+
+  // Website 10: Portfolio by v0
+  // URL: https://v0.app/templates/portfolio-template-by-v0-X6XcPALhbJD
+  {
+    id: "portfolio-v0",
+    name: "Portfolio by v0",
+    description:
+      "Portfolio för personliga projekt med automatisk GitHub-synk och Vercel-deploy",
+    category: "website",
+    previewUrl: "/templates/homepage/10/preview.jpg",
+    sourceUrl: "https://v0.app/templates/portfolio-template-by-v0-X6XcPALhbJD",
+    mainFile: "",
+    folderPath: "",
+    v0TemplateId: "X6XcPALhbJD",
     complexity: "simple",
   },
 ];

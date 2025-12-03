@@ -430,18 +430,34 @@ Keep the same overall structure and only make the requested changes.`;
 /**
  * Generate from a v0 community template
  * Uses v0.chats.init() with type: 'template'
+ *
+ * NOTE: Quality/model parameter is accepted for API consistency,
+ * but template initialization just clones existing code - no AI
+ * generation happens. Model selection only matters for refinements.
  */
 export async function generateFromTemplate(
-  templateId: string
+  templateId: string,
+  quality: QualityLevel = "standard"
 ): Promise<GenerationResult> {
-  console.log("[v0-generator] Initializing from template:", templateId);
+  const model = MODEL_MAP[quality];
+  console.log(
+    "[v0-generator] Initializing from template:",
+    templateId,
+    "quality:",
+    quality,
+    "→",
+    model
+  );
 
   const v0 = getV0Client();
 
   try {
+    // Note: model parameter may not apply to template init (just cloning)
+    // but we include it for future compatibility
     const chat = (await v0.chats.init({
       type: "template",
       templateId: templateId,
+      model: model, // May be ignored by SDK for template init
       chatPrivacy: "private",
     })) as ChatDetail;
 
@@ -476,7 +492,7 @@ export async function generateFromTemplate(
       screenshotUrl: chat.latestVersion?.screenshotUrl,
       versionId: chat.latestVersion?.id,
       webUrl: chat.webUrl,
-      model: "template",
+      model: model, // Return actual model used (even if SDK ignored it for template)
     };
   } catch (error) {
     console.error("[v0-generator] Template init error:", error);
