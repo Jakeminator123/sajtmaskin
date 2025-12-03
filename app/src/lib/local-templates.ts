@@ -41,6 +41,7 @@ export interface LocalTemplate {
 }
 
 export const LOCAL_TEMPLATES: LocalTemplate[] = [
+  // ========== LANDING PAGES ==========
   {
     id: "cosmos-3d",
     name: "Cosmos — 3D Orbit Gallery",
@@ -80,6 +81,23 @@ export const LOCAL_TEMPLATES: LocalTemplate[] = [
     folderPath: "landing-page/brillance-saas",
     // No v0TemplateId - it's a chat URL, will use code
     complexity: "simple", // Standard React - can recreate accurately
+  },
+
+  // ========== DASHBOARDS ==========
+  // TEST: Using v0TemplateId directly - no local files needed!
+  {
+    id: "black-friday-map",
+    name: "Vercel Black Friday Map",
+    description:
+      "Pixelerad världskarta i Vercel-stil med interaktiv datavisualisering",
+    category: "dashboard",
+    previewUrl: "/templates/dashboards/1/preview.png", // Placeholder - can add later
+    sourceUrl:
+      "https://v0.app/templates/vercel-style-black-friday-map-hUI7hCyGNye",
+    mainFile: "", // Not needed - using v0TemplateId
+    folderPath: "", // Not needed - using v0TemplateId
+    v0TemplateId: "vercel-style-black-friday-map-hUI7hCyGNye", // Direct v0 template!
+    complexity: "advanced", // Pixel map visualization
   },
 ];
 

@@ -264,8 +264,14 @@ export function CodePreview() {
                   {/* Animated rings */}
                   <div className="relative w-20 h-20 mx-auto">
                     <div className="absolute inset-0 rounded-full border-2 border-blue-500/30 animate-ping" />
-                    <div className="absolute inset-2 rounded-full border-2 border-purple-500/40 animate-ping" style={{ animationDelay: "0.2s" }} />
-                    <div className="absolute inset-4 rounded-full border-2 border-blue-500/50 animate-ping" style={{ animationDelay: "0.4s" }} />
+                    <div
+                      className="absolute inset-2 rounded-full border-2 border-purple-500/40 animate-ping"
+                      style={{ animationDelay: "0.2s" }}
+                    />
+                    <div
+                      className="absolute inset-4 rounded-full border-2 border-blue-500/50 animate-ping"
+                      style={{ animationDelay: "0.4s" }}
+                    />
                     <div className="absolute inset-0 flex items-center justify-center">
                       <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center shadow-lg shadow-blue-500/30">
                         <Code className="h-5 w-5 text-white" />
