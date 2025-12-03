@@ -343,12 +343,46 @@ ${mainCode.substring(0, 18000)}`;
           `Mallen är redo! Du kan nu se preview och fortsätta anpassa den genom att skriva ändringar nedan.`
         );
       } else {
-        // Fallback: show code-only mode
+        // Fallback: v0 API failed
         if (DEBUG)
           console.warn("[ChatPanel] v0 generation failed:", v0Response?.error);
+
+        // For TYP A templates (v0TemplateId only, no local files), provide fallback code
+        // so the code view isn't empty
+        if (data.useV0Api && !currentCode) {
+          const fallbackCode = `// Mall: ${data.template?.name || templateId}
+// 
+// ⚠️ Kunde inte ladda mallen från v0 API.
+// 
+// Möjliga orsaker:
+// - v0 API är tillfälligt otillgänglig
+// - Template-ID kan vara felaktigt
+// - Nätverksfel
+//
+// Prova:
+// 1. Ladda om sidan
+// 2. Skriv en egen prompt för att generera innehåll
+// 3. Välj en annan mall
+//
+// Template URL: ${data.template?.sourceUrl || "N/A"}
+// Template ID: ${data.template?.v0TemplateId || "N/A"}
+
+export default function Page() {
+  return (
+    <div className="flex items-center justify-center min-h-screen bg-zinc-900 text-white">
+      <div className="text-center p-8">
+        <h1 className="text-2xl font-bold mb-4">Mall kunde inte laddas</h1>
+        <p className="text-zinc-400">Prova att ladda om eller välj en annan mall.</p>
+      </div>
+    </div>
+  );
+}`;
+          setCurrentCode(fallbackCode);
+        }
+
         addMessage(
           "assistant",
-          `Mallen laddades men live preview kunde inte genereras. Klicka på "Kod" för att se koden, eller försök skriva en prompt för att generera en ny version.`
+          `Mallen kunde inte laddas från v0 API. Du kan prova att ladda om sidan eller skriva en egen prompt för att generera innehåll.`
         );
       }
     } catch (error) {

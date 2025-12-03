@@ -125,7 +125,7 @@ export const LOCAL_TEMPLATES: LocalTemplate[] = [
   // DASHBOARDS
   // ════════════════════════════════════════════════════════════════════════════
 
-  // TYP A: Endast v0TemplateId (ingen lokal kod behövs!)
+  // Dashboard 1: Vercel Black Friday Map
   // URL: https://v0.app/templates/vercel-style-black-friday-map-hUI7hCyGNye
   {
     id: "black-friday-map",
@@ -136,10 +136,40 @@ export const LOCAL_TEMPLATES: LocalTemplate[] = [
     previewUrl: "/templates/dashboards/1/preview.png",
     sourceUrl:
       "https://v0.app/templates/vercel-style-black-friday-map-hUI7hCyGNye",
-    mainFile: "", // TYP A: tomma filsökvägar
-    folderPath: "", // TYP A: ingen lokal kod
-    v0TemplateId: "hUI7hCyGNye", // ← HASH ONLY! Laddas direkt från v0
+    mainFile: "",
+    folderPath: "",
+    v0TemplateId: "hUI7hCyGNye",
     complexity: "advanced",
+  },
+
+  // Dashboard 2: Shaders Hero Section
+  // URL: https://v0.app/templates/shaders-hero-section-lJXGkoM1koN
+  {
+    id: "shaders-hero",
+    name: "Shaders Hero Section",
+    description: "Imponerande shader-baserad hero-sektion med WebGL-effekter",
+    category: "dashboard",
+    previewUrl: "/templates/dashboards/2/preview.jpg",
+    sourceUrl: "https://v0.app/templates/shaders-hero-section-lJXGkoM1koN",
+    mainFile: "",
+    folderPath: "",
+    v0TemplateId: "lJXGkoM1koN",
+    complexity: "advanced",
+  },
+
+  // Dashboard 3: Brillance SaaS Landing Page
+  // URL: https://v0.app/templates/brillance-saa-s-landing-page-zdiN8dHwaaT
+  {
+    id: "brillance-dashboard",
+    name: "Brillance SaaS Dashboard",
+    description: "Professionell SaaS-dashboard med analytics och datavisualisering",
+    category: "dashboard",
+    previewUrl: "/templates/dashboards/3/preview.jpg",
+    sourceUrl: "https://v0.app/templates/brillance-saa-s-landing-page-zdiN8dHwaaT",
+    mainFile: "",
+    folderPath: "",
+    v0TemplateId: "zdiN8dHwaaT",
+    complexity: "simple",
   },
 
   // ════════════════════════════════════════════════════════════════════════════
@@ -184,10 +214,12 @@ export const LOCAL_TEMPLATES: LocalTemplate[] = [
   {
     id: "modern-artist",
     name: "Modern Artist Landing",
-    description: "Stilren konstnärs-landningssida med galleri och portfolio-fokus",
+    description:
+      "Stilren konstnärs-landningssida med galleri och portfolio-fokus",
     category: "website",
     previewUrl: "/templates/homepage/3/preview.jpg",
-    sourceUrl: "https://v0.app/templates/modern-artist-landing-template-QRieAUkBLIh",
+    sourceUrl:
+      "https://v0.app/templates/modern-artist-landing-template-QRieAUkBLIh",
     mainFile: "",
     folderPath: "",
     v0TemplateId: "QRieAUkBLIh",
@@ -214,7 +246,8 @@ export const LOCAL_TEMPLATES: LocalTemplate[] = [
   {
     id: "boring-agency",
     name: "A Boring Agency",
-    description: "Kreativ byrå-webbplats med unik design och interaktiva element",
+    description:
+      "Kreativ byrå-webbplats med unik design och interaktiva element",
     category: "website",
     previewUrl: "/templates/homepage/5/preview.jpg",
     sourceUrl: "https://v0.app/templates/a-boring-agency-Nynl8DJ6xUH",
