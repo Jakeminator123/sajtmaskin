@@ -1,0 +1,9 @@
+Run this in your console: "npx shadcn@latest add "https://v0.app/chat/b/tHyOnykSFOA?token=eyJhbGciOiJkaXIiLCJlbmMiOiJBMjU2R0NNIn0..sRWPBSJ1ckK8L77d.vqBeAOV991wLZskbE8lfed6Bn45QsDrqODJNVGSQziECgasmnUCS2t39.TGDqyAK2Vw-6f6wMyFBntg"
+
+or
+
+https://v0.app/templates/globe-to-map-transform-99MAOQptgL3
+
+or maybee..
+
+or maybee: "https://v0.app/chat/globe-to-map-transform-7x9HkU9SeXj"

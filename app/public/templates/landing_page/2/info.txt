@@ -1,0 +1,5 @@
+"Run this in your console": "npx shadcn@latest add "https://v0.app/chat/b/ospNtwHdV8y?token=eyJhbGciOiJkaXIiLCJlbmMiOiJBMjU2R0NNIn0..xUFh3tqUMabH0tp5.9P3sZq8nwwRtgtz894d_sgcBeCmUzDFxMmexmykKyjS5gRZpBkxUXmRd.BtvgjPQgwn5yx5UGqnhz9w"
+
+or..
+
+https://v0.app/chat/mnimal-animated-hero-xGyEFskYA9w

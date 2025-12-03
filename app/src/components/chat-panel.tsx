@@ -17,12 +17,14 @@ interface ChatPanelProps {
   categoryType?: string;
   initialPrompt?: string;
   templateId?: string;
+  localTemplateId?: string;
 }
 
 export function ChatPanel({
   categoryType,
   initialPrompt,
   templateId,
+  localTemplateId,
 }: ChatPanelProps) {
   const [input, setInput] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -60,7 +62,7 @@ export function ChatPanel({
   useEffect(() => {
     const currentKey = `${categoryType || ""}-${initialPrompt || ""}-${
       templateId || ""
-    }`;
+    }-${localTemplateId || ""}`;
 
     console.log("[ChatPanel] Effect running, currentKey:", currentKey);
     console.log("[ChatPanel] lastGeneratedKey:", lastGeneratedKey.current);
@@ -97,7 +99,14 @@ export function ChatPanel({
     // Ready to generate - mark this key as being generated
     lastGeneratedKey.current = currentKey;
 
-    // If we have a templateId, generate from template
+    // If we have a localTemplateId, load from local templates
+    if (localTemplateId) {
+      console.log("[ChatPanel] Starting local template load:", localTemplateId);
+      handleLocalTemplateLoad(localTemplateId);
+      return;
+    }
+
+    // If we have a templateId, generate from v0 template API
     if (templateId) {
       console.log("[ChatPanel] Starting template generation:", templateId);
       handleTemplateGeneration(templateId);
@@ -121,6 +130,7 @@ export function ChatPanel({
     categoryType,
     initialPrompt,
     templateId,
+    localTemplateId,
     isLoading,
     demoUrl,
     messages.length,
@@ -139,6 +149,127 @@ export function ChatPanel({
       animations: "animerad komponent",
     };
     return names[type] || type;
+  };
+
+  // Handle local template loading
+  // Instead of rendering in Sandpack (which fails due to missing deps),
+  // we load the template code and then use v0 API to generate a hosted preview
+  const handleLocalTemplateLoad = async (templateId: string) => {
+    addMessage("user", `Laddar mall: ${templateId}`);
+    setLoading(true);
+
+    try {
+      console.log("[ChatPanel] Fetching local template...");
+      const response = await fetch(`/api/local-template?id=${templateId}`);
+      const data = await response.json();
+
+      console.log("[ChatPanel] Local template response:", {
+        success: data.success,
+        hasCode: !!data.code,
+        hasFiles: !!data.files?.length,
+        templateName: data.template?.name,
+      });
+
+      if (!data.success) {
+        console.error("[ChatPanel] Local template load failed:", data.error);
+        addMessage(
+          "assistant",
+          data.error || "Kunde inte ladda mallen. Försök igen."
+        );
+        return;
+      }
+
+      // Get the main code from template
+      let mainCode = data.code;
+      if (!mainCode && data.files && data.files.length > 0) {
+        const mainFile = data.files.find(
+          (f: { name: string; content: string }) =>
+            f.name === "page.tsx" ||
+            f.name === "App.tsx" ||
+            f.name.endsWith("/page.tsx")
+        );
+        mainCode = mainFile?.content || "";
+      }
+
+      if (!mainCode) {
+        addMessage("assistant", "Kunde inte hitta mallens huvudfil.");
+        return;
+      }
+
+      // Save files locally for code view
+      if (data.files && data.files.length > 0) {
+        console.log(
+          "[ChatPanel] Setting",
+          data.files.length,
+          "files for code view"
+        );
+        setFiles(data.files);
+      }
+      setCurrentCode(mainCode);
+
+      // Now use v0 API to generate a hosted preview (this actually WORKS!)
+      addMessage(
+        "assistant",
+        `Mall "${
+          data.template?.name || templateId
+        }" hittad! Genererar live preview...`
+      );
+
+      // Send template code to v0 API for hosted preview
+      const templatePrompt = `Recreate this exact React component. Keep ALL the functionality, styling, and structure exactly as shown. This is a complete landing page template:\n\n${mainCode.substring(
+        0,
+        12000
+      )}`;
+
+      console.log("[ChatPanel] Sending template to v0 API for preview...");
+      const v0Response = await generateWebsite(
+        templatePrompt,
+        undefined,
+        quality
+      );
+
+      if (v0Response.success) {
+        // v0 generated a working preview!
+        if (v0Response.chatId) {
+          setChatId(v0Response.chatId);
+        }
+        if (v0Response.demoUrl) {
+          console.log("[ChatPanel] Got demoUrl from v0:", v0Response.demoUrl);
+          setDemoUrl(v0Response.demoUrl);
+        }
+        if (v0Response.files && v0Response.files.length > 0) {
+          setFiles(v0Response.files);
+        }
+        if (v0Response.code) {
+          setCurrentCode(v0Response.code);
+        }
+        if (v0Response.versionId) {
+          setVersionId(v0Response.versionId);
+        }
+
+        addMessage(
+          "assistant",
+          `Mallen är redo! Du kan nu se preview och fortsätta anpassa den genom att skriva ändringar nedan.`
+        );
+      } else {
+        // Fallback: show code-only mode
+        console.warn("[ChatPanel] v0 generation failed:", v0Response.error);
+        addMessage(
+          "assistant",
+          `Mallen laddades men live preview kunde inte genereras. Klicka på "Kod" för att se koden, eller försök skriva en prompt för att generera en ny version.`
+        );
+      }
+    } catch (error) {
+      console.error("[ChatPanel] Local template load error:", error);
+      addMessage(
+        "assistant",
+        `Kunde inte ladda mallen: ${
+          error instanceof Error ? error.message : "Okänt fel"
+        }`
+      );
+    } finally {
+      setLoading(false);
+    }
   };
 
   // Handle template generation

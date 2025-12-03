@@ -324,7 +324,10 @@ export function CodePreview() {
               </div>
             ) : currentCode ? (
               // Fallback to Sandpack preview if no demoUrl
-              <div className="flex-1 h-full overflow-hidden">
+              <div
+                className="flex-1 flex flex-col min-h-0"
+                style={{ height: "100%" }}
+              >
                 {sandpackError ? (
                   // Error state
                   <div className="flex-1 flex items-center justify-center p-8">
@@ -353,26 +356,86 @@ export function CodePreview() {
                     files={sandpackFiles}
                     customSetup={{
                       dependencies: {
+                        // Base dependencies
                         "lucide-react": "^0.468.0",
                         "class-variance-authority": "^0.7.1",
                         clsx: "^2.1.1",
                         "tailwind-merge": "^2.6.0",
+
+                        // Radix UI (för shadcn/ui komponenter)
+                        "@radix-ui/react-slot": "^1.1.1",
+                        "@radix-ui/react-dialog": "^1.1.4",
+                        "@radix-ui/react-dropdown-menu": "^2.1.4",
+                        "@radix-ui/react-tabs": "^1.1.2",
+                        "@radix-ui/react-tooltip": "^1.1.6",
+                        "@radix-ui/react-slider": "^1.2.2",
+                        "@radix-ui/react-accordion": "^1.2.2",
+                        "@radix-ui/react-popover": "^1.1.4",
+                        "@radix-ui/react-select": "^2.1.4",
+                        "@radix-ui/react-checkbox": "^1.1.3",
+                        "@radix-ui/react-switch": "^1.1.2",
+                        "@radix-ui/react-scroll-area": "^1.2.2",
+                        "@radix-ui/react-separator": "^1.1.1",
+                        "@radix-ui/react-label": "^2.1.1",
+                        "@radix-ui/react-avatar": "^1.1.2",
+                        "@radix-ui/react-progress": "^1.1.1",
+                        "@radix-ui/react-navigation-menu": "^1.2.3",
+                        "@radix-ui/react-toast": "^1.2.4",
+                        "@radix-ui/react-toggle": "^1.1.1",
+                        "@radix-ui/react-toggle-group": "^1.1.1",
+
+                        // Charts & visualization
+                        recharts: "^2.15.0",
+                        d3: "^7.9.0",
+                        "topojson-client": "^3.1.0",
+
+                        // 3D
+                        three: "^0.170.0",
+                        "@react-three/fiber": "^8.17.0",
+                        "@react-three/drei": "^9.117.0",
+
+                        // UI libraries
+                        cmdk: "^1.0.4",
+                        sonner: "^1.7.0",
+                        vaul: "^0.9.0",
+                        "embla-carousel-react": "^8.5.0",
+                        "framer-motion": "^11.15.0",
+                        motion: "^11.15.0",
+
+                        // Form & validation
+                        zod: "^3.24.0",
+                        "react-hook-form": "^7.54.0",
+                        "@hookform/resolvers": "^3.10.0",
+
+                        // Utils
+                        "date-fns": "^4.1.0",
+                        "next-themes": "^0.4.4",
+                        "tailwindcss-animate": "^1.0.7",
                       },
                     }}
                     options={{
                       externalResources: ["https://cdn.tailwindcss.com"],
                       classes: {
-                        "sp-wrapper": "h-full",
-                        "sp-layout": "h-full",
-                        "sp-stack": "h-full",
+                        "sp-wrapper": "!h-full",
+                        "sp-layout": "!h-full !min-h-0",
+                        "sp-stack": "!h-full !min-h-0",
+                        "sp-preview-container": "!h-full !bg-white",
+                        "sp-preview-iframe": "!h-full",
                       },
                     }}
                   >
-                    <SandpackPreview
-                      showOpenInCodeSandbox={false}
-                      showRefreshButton={true}
-                      style={{ height: "100%", minHeight: "400px" }}
-                    />
+                    <div className="h-full min-h-[500px] flex flex-col">
+                      <SandpackPreview
+                        showOpenInCodeSandbox={false}
+                        showRefreshButton={true}
+                        style={{
+                          flex: 1,
+                          height: "100%",
+                          minHeight: "500px",
+                          backgroundColor: "white",
+                        }}
+                      />
+                    </div>
                   </SandpackProvider>
                 )}
               </div>

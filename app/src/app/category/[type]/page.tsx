@@ -5,7 +5,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { HelpTooltip } from "@/components/help-tooltip";
-import { TemplateCard } from "@/components/template-card";
+import { LocalTemplateCard } from "@/components/local-template-card";
 import {
   ArrowLeft,
   Rocket,
@@ -19,9 +19,9 @@ import {
 } from "lucide-react";
 import { getCategory, type QuickPrompt } from "@/lib/template-data";
 import {
-  getTemplatesForCategory,
-  type CuratedTemplate,
-} from "@/lib/curated-templates";
+  getLocalTemplatesForCategory,
+  type LocalTemplate,
+} from "@/lib/local-templates";
 import { createProject } from "@/lib/project-client";
 
 // Icon mapping
@@ -40,7 +40,7 @@ export default function CategoryPage() {
   const [isCreating, setIsCreating] = useState(false);
 
   const category = getCategory(type);
-  const templates = getTemplatesForCategory(type);
+  const templates = getLocalTemplatesForCategory(type);
 
   if (!category) {
     return (
@@ -100,7 +100,7 @@ export default function CategoryPage() {
     }
   };
 
-  const handleTemplateSelect = async (template: CuratedTemplate) => {
+  const handleTemplateSelect = async (template: LocalTemplate) => {
     if (isCreating) return;
     setIsCreating(true);
     try {
@@ -108,10 +108,12 @@ export default function CategoryPage() {
       const project = await createProject(
         `${template.name} - ${new Date().toLocaleDateString("sv-SE")}`,
         type,
-        `Baserat på mall: ${template.name}`
+        `Baserat på lokal mall: ${template.name}`
       );
-      // Navigate to builder with templateId
-      router.push(`/builder?project=${project.id}&templateId=${template.id}`);
+      // Navigate to builder with localTemplateId (local templates use different param)
+      router.push(
+        `/builder?project=${project.id}&localTemplateId=${template.id}`
+      );
     } catch (error) {
       console.error("Failed to create project from template:", error);
       setIsCreating(false);
@@ -229,7 +231,7 @@ export default function CategoryPage() {
             </section>
           )}
 
-          {/* Section 3: Pre-made templates from v0 */}
+          {/* Section 3: Local pre-made templates */}
           {templates.length > 0 && (
             <section>
               <div className="flex items-center gap-2 mb-4">
@@ -237,12 +239,12 @@ export default function CategoryPage() {
                 <h2 className="text-lg font-semibold text-zinc-100">
                   Färdiga mallar
                 </h2>
-                <HelpTooltip text="Populära mallar från v0-communityt. Klicka för att använda som startpunkt och anpassa efter dina behov." />
+                <HelpTooltip text="Nedladdade mallar från v0-communityt. Klicka för att använda som startpunkt och anpassa efter dina behov." />
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {templates.map((template) => (
-                  <TemplateCard
+                  <LocalTemplateCard
                     key={template.id}
                     template={template}
                     onSelect={handleTemplateSelect}

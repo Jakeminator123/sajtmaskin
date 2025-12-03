@@ -26,6 +26,7 @@ function BuilderContent() {
   const type = searchParams.get("type");
   const prompt = searchParams.get("prompt");
   const templateId = searchParams.get("templateId");
+  const localTemplateId = searchParams.get("localTemplateId");
 
   const {
     quality,
@@ -76,6 +77,8 @@ function BuilderContent() {
 
   const title = projectName
     ? projectName
+    : localTemplateId
+    ? "Lokal mall"
     : templateId
     ? "Template"
     : type
@@ -174,6 +177,7 @@ function BuilderContent() {
             categoryType={type || undefined}
             initialPrompt={prompt || undefined}
             templateId={templateId || undefined}
+            localTemplateId={localTemplateId || undefined}
           />
         </div>
 

@@ -9,6 +9,12 @@ const compat = new FlatCompat({
   baseDirectory: __dirname,
 });
 
-const eslintConfig = [...compat.extends("next/core-web-vitals")];
+const eslintConfig = [
+  // Ignore template source files (they're read as data, not compiled)
+  {
+    ignores: ["src/templates/**/*"],
+  },
+  ...compat.extends("next/core-web-vitals"),
+];
 
 export default eslintConfig;
