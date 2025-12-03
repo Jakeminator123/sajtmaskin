@@ -1,5 +1,31 @@
-// Local templates stored in the project
-// These are downloaded v0 templates that users can use as starting points
+/**
+ * Local Templates Registry
+ * ========================
+ *
+ * Nedladdade v0-mallar som användare kan använda som utgångspunkt.
+ * Mallarna lagras i: src/templates/{category}/{template-id}/
+ *
+ * FLÖDE NÄR ANVÄNDARE VÄLJER EN MALL:
+ *
+ * 1. Om mallen har v0TemplateId:
+ *    → Försök ladda direkt från v0 API (bästa kvalitet)
+ *    → Om det misslyckas, fall tillbaka till kod-baserad approach
+ *
+ * 2. Om mallen INTE har v0TemplateId (chat-URL):
+ *    → Läs lokal kod från src/templates/
+ *    → Skicka koden till v0 API för att få hostad preview
+ *    → v0 genererar en förenklad version baserad på koden
+ *
+ * COMPLEXITY-FÄLTET:
+ * - "simple": CSS/SVG/standard React - v0 kan återskapa nära originalet
+ * - "advanced": Three.js/d3/WebGL - v0 skapar förenklad "inspirerad" version
+ *
+ * MAPPSTRUKTUR (src/templates/):
+ * └── landing-page/
+ *     ├── cosmos-3d/        (advanced - Three.js)
+ *     ├── animated-hero/    (simple - CSS/SVG)
+ *     └── brillance-saas/   (simple - standard React)
+ */
 
 export interface LocalTemplate {
   id: string;
@@ -10,19 +36,24 @@ export interface LocalTemplate {
   sourceUrl: string; // Original v0 URL for reference
   mainFile: string; // Path to the main page.tsx file
   folderPath: string; // Path to the template folder
+  v0TemplateId?: string; // Direct v0 template ID if available (use this first!)
+  complexity: "simple" | "advanced"; // Simple = can recreate, Advanced = needs simplification
 }
 
 export const LOCAL_TEMPLATES: LocalTemplate[] = [
   {
-    id: "globe-to-map",
-    name: "Globe To Map Transform",
+    id: "cosmos-3d",
+    name: "Cosmos — 3D Orbit Gallery",
     description:
-      "Interaktiv 3D-visualisering som transformerar en glob till en 2D-karta med animationer",
+      "Fantastisk 3D-partikelsfär med orbiterande bildgalleri och rymdtema",
     category: "landing-page",
     previewUrl: "/templates/landing_page/1/preview.png",
-    sourceUrl: "https://v0.app/templates/globe-to-map-transform-99MAOQptgL3",
+    sourceUrl:
+      "https://v0.app/templates/cosmos-3d-orbit-gallery-template-W8w0SZdos3x",
     mainFile: "app/page.tsx",
-    folderPath: "landing-page/globe-to-map",
+    folderPath: "landing-page/cosmos-3d",
+    v0TemplateId: "cosmos-3d-orbit-gallery-template-W8w0SZdos3x", // Can use directly!
+    complexity: "advanced", // Three.js - will be simplified
   },
   {
     id: "animated-hero",
@@ -34,6 +65,8 @@ export const LOCAL_TEMPLATES: LocalTemplate[] = [
     sourceUrl: "https://v0.app/chat/mnimal-animated-hero-xGyEFskYA9w",
     mainFile: "app/page.tsx",
     folderPath: "landing-page/animated-hero",
+    // No v0TemplateId - it's a chat URL, will use code
+    complexity: "simple", // Pure CSS/SVG - can recreate accurately
   },
   {
     id: "brillance-saas",
@@ -45,6 +78,8 @@ export const LOCAL_TEMPLATES: LocalTemplate[] = [
     sourceUrl: "https://v0.app/chat/brillance-saa-s-landing-page-Kqi1r3AuLk3",
     mainFile: "app/page.tsx",
     folderPath: "landing-page/brillance-saas",
+    // No v0TemplateId - it's a chat URL, will use code
+    complexity: "simple", // Standard React - can recreate accurately
   },
 ];
 

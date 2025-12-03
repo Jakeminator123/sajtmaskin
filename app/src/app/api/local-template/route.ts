@@ -148,6 +148,8 @@ export async function GET(request: NextRequest) {
         id: template.id,
         name: template.name,
         description: template.description,
+        v0TemplateId: template.v0TemplateId, // Can use v0 API directly if available!
+        complexity: template.complexity,
       },
       code,
       files,

@@ -1,9 +1,10 @@
-Run this in your console: "npx shadcn@latest add "https://v0.app/chat/b/tHyOnykSFOA?token=eyJhbGciOiJkaXIiLCJlbmMiOiJBMjU2R0NNIn0..sRWPBSJ1ckK8L77d.vqBeAOV991wLZskbE8lfed6Bn45QsDrqODJNVGSQziECgasmnUCS2t39.TGDqyAK2Vw-6f6wMyFBntg"
+Cosmos — 3d orbit gallery template
 
-or
+https://v0.app/chat/cosmos-3d-orbit-gallery-template-dXLclkP4Li3
 
-https://v0.app/templates/globe-to-map-transform-99MAOQptgL3
+https://v0.app/templates/cosmos-3d-orbit-gallery-template-W8w0SZdos3x
 
-or maybee..
+"Add to codebase run command: npx shadcn@latest add "https://v0.app/chat/b/tGUUgeapJpK?token=eyJhbGciOiJkaXIiLCJlbmMiOiJBMjU2R0NNIn0..q_aWS8_iZLlf27-j.HJ3qmiAG9c9GuDA7cwJ44YOLKXJw9OuMG1gVLS2gy7NruEUjLQiJ81MH.ScZhNyUDVx-EUn-aFWR46Q"
 
-or maybee: "https://v0.app/chat/globe-to-map-transform-7x9HkU9SeXj"
+
+https://v0.app/chat/cosmos-3d-orbit-gallery-template-dXLclkP4Li3?b=v0-preview-tGUUgeapJpK&f=1&path=%2F

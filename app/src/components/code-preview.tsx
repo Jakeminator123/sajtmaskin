@@ -1,5 +1,29 @@
 "use client";
 
+/**
+ * CodePreview Component
+ * =====================
+ *
+ * PREVIEW ARCHITECTURE (prioritetsordning):
+ *
+ * 1. v0 API iframe (demoUrl) - PRIMÄR METOD
+ *    - Körs på Vercels servrar med alla beroenden
+ *    - Fungerar för komplexa mallar (Three.js, d3, etc.)
+ *    - Tar 15-30 sekunder att generera
+ *    - ANVÄNDS ALLTID när demoUrl finns
+ *
+ * 2. Sandpack (in-browser) - BACKUP/FALLBACK
+ *    - Körs i webbläsaren via CDN
+ *    - Fungerar INTE bra för stora projekt
+ *    - Problem: långsam (30-60s), saknade beroenden, kraschar ofta
+ *    - ANVÄNDS ENDAST om demoUrl saknas (sällan)
+ *
+ * 3. Screenshot - SISTA UTVÄG
+ *    - Statisk bild om iframe misslyckas
+ *
+ * Se: info/more/extra_info.txt för fullständig teknisk analys
+ */
+
 import { useBuilderStore } from "@/lib/store";
 import {
   parseCodeToSandpackFiles,
@@ -8,6 +32,9 @@ import {
 import { HelpTooltip } from "@/components/help-tooltip";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
+
+// Sandpack - ENDAST FALLBACK, används sällan i praktiken
+// Behålls som backup om v0 API skulle misslyckas
 import {
   Sandpack,
   SandpackProvider,
@@ -89,32 +116,18 @@ export function CodePreview() {
     }
   };
 
-  // Convert files to Sandpack format with error handling
-  // Prefer using structured files from v0-sdk if available
+  // Convert files to Sandpack format (BACKUP only - primary is v0's demoUrl iframe)
   const sandpackFiles = useMemo(() => {
     try {
-      // If we have structured files from v0-sdk, use them directly
+      // If we have structured files from v0-sdk, use them
       if (files && files.length > 0) {
-        console.log("[CodePreview] Using v0-sdk files, count:", files.length);
         const result = convertV0FilesToSandpack(files);
-        console.log(
-          "[CodePreview] Converted files:",
-          Object.keys(result).filter((k) => {
-            const file = result[k];
-            return typeof file === "string" || !file?.hidden;
-          })
-        );
         setSandpackError(null);
         return result;
       }
 
       // Fallback: parse single code string (for backward compatibility)
-      console.log(
-        "[CodePreview] Falling back to parseCodeToSandpackFiles, code length:",
-        currentCode?.length || 0
-      );
       const parsedFiles = parseCodeToSandpackFiles(currentCode || "");
-      console.log("[CodePreview] Parsed files:", Object.keys(parsedFiles));
       setSandpackError(null);
       return parsedFiles;
     } catch (error) {
@@ -125,16 +138,6 @@ export function CodePreview() {
       return parseCodeToSandpackFiles(""); // Return default files
     }
   }, [currentCode, files]);
-
-  // Log when currentCode changes
-  useEffect(() => {
-    if (currentCode) {
-      console.log(
-        "[CodePreview] currentCode updated, first 200 chars:",
-        currentCode.substring(0, 200)
-      );
-    }
-  }, [currentCode]);
 
   const handleCopy = async () => {
     if (currentCode) {

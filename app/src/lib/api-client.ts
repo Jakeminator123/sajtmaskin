@@ -1,5 +1,31 @@
-// Frontend API client for website generation
-// All requests go through YOUR backend, never directly to v0
+/**
+ * Frontend API Client
+ * ====================
+ * 
+ * Hanterar alla API-anrop från frontend till backend.
+ * Backend kommunicerar sedan med v0 API (aldrig direkt från frontend).
+ * 
+ * ENDPOINTS:
+ * 
+ * POST /api/generate    → generateWebsite()
+ *   - Input: prompt, categoryType?, quality
+ *   - Output: code, files, demoUrl, chatId, versionId
+ * 
+ * POST /api/refine      → refineWebsite()
+ *   - Input: existingCode, instruction, chatId?, quality
+ *   - Output: uppdaterad code + files + demoUrl
+ * 
+ * POST /api/template    → generateFromTemplate()
+ *   - Input: templateId, quality
+ *   - Output: template code + files + demoUrl
+ * 
+ * GET /api/local-template?id=xxx → (används av chat-panel direkt)
+ *   - Läser lokal mall från disk
+ *   - Returnerar kod + filer + metadata
+ * 
+ * VIKTIGT: demoUrl är den URL som visas i iframe-preview.
+ * chatId behövs för att fortsätta konversation (refinement).
+ */
 
 export type QualityLevel = "budget" | "standard" | "premium";
 

@@ -1,5 +1,39 @@
-// v0 API Generator using v0-sdk Platform API
-// This module handles all communication with v0 API from the backend
+/**
+ * v0 API Generator
+ * =================
+ *
+ * KÄRNMODUL för all AI-kodgenerering. Kommunicerar med Vercel's v0 Platform API.
+ *
+ * HUVUDFUNKTIONER:
+ *
+ * 1. generateCode(prompt, quality)
+ *    - Skapar ny webbplats från prompt
+ *    - Returnerar: { code, files, demoUrl, chatId, versionId }
+ *
+ * 2. refineCode(code, instruction, chatId, quality)
+ *    - Förfinar existerande kod baserat på instruktion
+ *    - Använder chatId för konversationskontext
+ *    - Returnerar: uppdaterad kod + ny demoUrl
+ *
+ * 3. generateFromTemplate(templateId, quality)
+ *    - Initierar från v0 community template
+ *    - Returnerar: template-kod + demoUrl
+ *
+ * VIKTIGA RETURVÄRDEN:
+ * - demoUrl: Hostad preview på Vercels servrar (visas i iframe)
+ * - chatId: ID för att fortsätta konversation (refinement)
+ * - versionId: ID för att ladda ner ZIP
+ * - files: Array av genererade filer
+ *
+ * STATUS-HANTERING:
+ * - "pending": Generering pågår → vänta och polla
+ * - "completed": Klart → returnera resultat
+ * - "failed": Fel → sluta polla, logga error
+ *
+ * MODELLER:
+ * - v0-1.5-md: Budget/Standard (snabb, billig)
+ * - v0-1.5-lg: Premium (bäst kvalitet, 10x kostnad)
+ */
 
 import { createClient, type ChatDetail } from "v0-sdk";
 
@@ -220,7 +254,9 @@ export async function generateCode(
     (chat.latestVersion?.files?.length ?? 0) > 0 && chat.latestVersion?.demoUrl;
 
   // If version is not ready yet and no content, poll for completion
-  if (!hasContent && chat.latestVersion?.status !== "completed") {
+  // Only poll if status is "pending" (not "completed" or "failed")
+  const status = chat.latestVersion?.status;
+  if (!hasContent && status !== "completed" && status !== "failed") {
     console.log("[v0-generator] Waiting for version to be ready...");
     const readyChat = await waitForVersionReady(chat.id);
     if (readyChat) {
@@ -228,6 +264,8 @@ export async function generateCode(
     } else {
       console.warn("[v0-generator] Polling timed out, using current response");
     }
+  } else if (status === "failed") {
+    console.error("[v0-generator] Generation failed");
   } else if (hasContent) {
     console.log("[v0-generator] Already have content, skipping polling");
   }
@@ -310,17 +348,18 @@ export async function refineCode(
       },
     })) as ChatDetail;
 
-    console.log(
-      "[v0-generator] Message sent, version status:",
-      chat.latestVersion?.status
-    );
+    const refineStatus = chat.latestVersion?.status;
+    console.log("[v0-generator] Message sent, version status:", refineStatus);
 
     // If version is not ready yet, poll for completion
-    if (chat.latestVersion?.status !== "completed") {
+    // Only poll if status is "pending" (not "completed" or "failed")
+    if (refineStatus !== "completed" && refineStatus !== "failed") {
       const readyChat = await waitForVersionReady(existingChatId);
       if (readyChat) {
         chat = readyChat;
       }
+    } else if (refineStatus === "failed") {
+      console.error("[v0-generator] Refine generation failed");
     }
 
     const files: GeneratedFile[] =

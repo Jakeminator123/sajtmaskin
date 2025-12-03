@@ -1,11 +1,40 @@
 "use client";
 
+/**
+ * ChatPanel Component
+ * ===================
+ *
+ * Hanterar all AI-interaktion och kodgenerering.
+ *
+ * TRE HUVUDFLÖDEN:
+ *
+ * 1. EGEN PROMPT (initialPrompt):
+ *    → generateWebsite(prompt) → v0 API → demoUrl + kod
+ *
+ * 2. V0 COMMUNITY TEMPLATE (templateId):
+ *    → generateFromTemplate(templateId) → v0 API → demoUrl + kod
+ *    → Används för externa v0-mallar (ej lokala)
+ *
+ * 3. LOKAL MALL (localTemplateId):
+ *    a) Om mallen har v0TemplateId:
+ *       → generateFromTemplate() → v0 API direkt (bästa kvalitet)
+ *    b) Annars:
+ *       → Läs lokal kod → Skicka till generateWebsite() → v0 återskapar
+ *
+ * REFINEMENT (förfining av existerande kod):
+ *    → refineWebsite(kod, instruktion, chatId) → v0 API → uppdaterad demoUrl
+ *    → Använder samma chatId för konversationskontext
+ *
+ * VIKTIGT: Alla vägar leder till v0 API som ger oss demoUrl för iframe-preview.
+ * Sandpack används ALDRIG för generering, endast som fallback för visning.
+ */
+
 import { useEffect, useRef, useState, KeyboardEvent } from "react";
 import { useBuilderStore } from "@/lib/store";
 import {
-  generateWebsite,
-  refineWebsite,
-  generateFromTemplate,
+  generateWebsite, // Generera från prompt eller kod
+  refineWebsite, // Förfina existerande design
+  generateFromTemplate, // Ladda v0 community template
 } from "@/lib/api-client";
 import { ChatMessage } from "@/components/chat-message";
 import { HelpTooltip } from "@/components/help-tooltip";
@@ -58,57 +87,52 @@ export function ChatPanel({
   // Track the last generated key to detect changes
   const lastGeneratedKey = useRef<string | null>(null);
 
+  // Check if we're in test mode (force regeneration, skip cache)
+  const isTestMode =
+    typeof window !== "undefined" &&
+    new URLSearchParams(window.location.search).get("testMode") === "true";
+
   // Auto-generate on initial load or when params change
   useEffect(() => {
     const currentKey = `${categoryType || ""}-${initialPrompt || ""}-${
       templateId || ""
     }-${localTemplateId || ""}`;
 
-    console.log("[ChatPanel] Effect running, currentKey:", currentKey);
-    console.log("[ChatPanel] lastGeneratedKey:", lastGeneratedKey.current);
-    console.log(
-      "[ChatPanel] messages:",
-      messages.length,
-      "demoUrl:",
-      !!demoUrl
-    );
-
-    // If we're loading, skip
-    if (isLoading) {
-      console.log("[ChatPanel] Already loading, skipping");
-      return;
-    }
+    // Skip if already loading
+    if (isLoading) return;
 
     // Check if this is a new request (different from last generated)
     const isNewRequest = lastGeneratedKey.current !== currentKey;
 
+    // In test mode, always clear and regenerate
+    if (isTestMode && (messages.length > 0 || demoUrl)) {
+      clearChat();
+      lastGeneratedKey.current = null;
+      return;
+    }
+
     // If we have content but it's from a DIFFERENT request, clear it first
     if (isNewRequest && (messages.length > 0 || demoUrl)) {
-      console.log("[ChatPanel] New request detected, clearing old content");
       clearChat();
       lastGeneratedKey.current = null;
       return; // Wait for state to clear, effect will re-run
     }
 
-    // If we already generated this exact request, skip
-    if (lastGeneratedKey.current === currentKey) {
-      console.log("[ChatPanel] Already generated this request, skipping");
+    // Skip if already generated this exact request
+    if (lastGeneratedKey.current === currentKey && !isTestMode) {
       return;
     }
 
     // Ready to generate - mark this key as being generated
     lastGeneratedKey.current = currentKey;
 
-    // If we have a localTemplateId, load from local templates
+    // Handle different generation modes
     if (localTemplateId) {
-      console.log("[ChatPanel] Starting local template load:", localTemplateId);
       handleLocalTemplateLoad(localTemplateId);
       return;
     }
 
-    // If we have a templateId, generate from v0 template API
     if (templateId) {
-      console.log("[ChatPanel] Starting template generation:", templateId);
       handleTemplateGeneration(templateId);
       return;
     }
@@ -119,10 +143,6 @@ export function ChatPanel({
       (categoryType ? `Skapa en ${getCategoryName(categoryType)}` : null);
 
     if (initialMessage) {
-      console.log(
-        "[ChatPanel] Starting generation with prompt:",
-        initialMessage.substring(0, 50) + "..."
-      );
       handleGenerate(initialMessage, categoryType);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -159,19 +179,10 @@ export function ChatPanel({
     setLoading(true);
 
     try {
-      console.log("[ChatPanel] Fetching local template...");
       const response = await fetch(`/api/local-template?id=${templateId}`);
       const data = await response.json();
 
-      console.log("[ChatPanel] Local template response:", {
-        success: data.success,
-        hasCode: !!data.code,
-        hasFiles: !!data.files?.length,
-        templateName: data.template?.name,
-      });
-
       if (!data.success) {
-        console.error("[ChatPanel] Local template load failed:", data.error);
         addMessage(
           "assistant",
           data.error || "Kunde inte ladda mallen. Försök igen."
@@ -198,16 +209,11 @@ export function ChatPanel({
 
       // Save files locally for code view
       if (data.files && data.files.length > 0) {
-        console.log(
-          "[ChatPanel] Setting",
-          data.files.length,
-          "files for code view"
-        );
         setFiles(data.files);
       }
       setCurrentCode(mainCode);
 
-      // Now use v0 API to generate a hosted preview (this actually WORKS!)
+      // Show progress to user
       addMessage(
         "assistant",
         `Mall "${
@@ -215,28 +221,42 @@ export function ChatPanel({
         }" hittad! Genererar live preview...`
       );
 
-      // Send template code to v0 API for hosted preview
-      const templatePrompt = `Recreate this exact React component. Keep ALL the functionality, styling, and structure exactly as shown. This is a complete landing page template:\n\n${mainCode.substring(
-        0,
-        12000
-      )}`;
+      let v0Response;
 
-      console.log("[ChatPanel] Sending template to v0 API for preview...");
-      const v0Response = await generateWebsite(
-        templatePrompt,
-        undefined,
-        quality
-      );
+      // SMART APPROACH: Try v0 template ID first if available (much better quality!)
+      if (data.template?.v0TemplateId) {
+        addMessage("assistant", "Laddar från v0 direkt (bästa kvalitet)...");
+        v0Response = await generateFromTemplate(
+          data.template.v0TemplateId,
+          quality
+        );
+      }
+
+      // Fallback: Use code-based approach if v0TemplateId failed or doesn't exist
+      if (!v0Response?.success) {
+        // Use a STRICT prompt to recreate as faithfully as possible
+        const templatePrompt = `RECREATE this React component as EXACTLY as possible.
+
+STRICT REQUIREMENTS:
+1. Generate a SINGLE self-contained React component (no external imports)
+2. PRESERVE ALL visual elements: colors, gradients, shadows, animations
+3. PRESERVE the exact layout, spacing, and typography
+4. PRESERVE all SVG elements and their animations (animateMotion, keyframes, etc.)
+5. PRESERVE all CSS styles including @keyframes animations
+6. You CAN use: react, lucide-react, framer-motion/motion, tailwindcss
+7. If the code has SVG paths/shapes, include them EXACTLY as shown
+
+This is the EXACT code to recreate - do NOT simplify or change the design:
+
+${mainCode.substring(0, 18000)}`;
+
+        v0Response = await generateWebsite(templatePrompt, undefined, quality);
+      }
 
       if (v0Response.success) {
-        // v0 generated a working preview!
-        if (v0Response.chatId) {
-          setChatId(v0Response.chatId);
-        }
-        if (v0Response.demoUrl) {
-          console.log("[ChatPanel] Got demoUrl from v0:", v0Response.demoUrl);
-          setDemoUrl(v0Response.demoUrl);
-        }
+        // Save the v0 response to state
+        if (v0Response.chatId) setChatId(v0Response.chatId);
+        if (v0Response.demoUrl) setDemoUrl(v0Response.demoUrl);
         if (v0Response.files && v0Response.files.length > 0) {
           setFiles(v0Response.files);
         }

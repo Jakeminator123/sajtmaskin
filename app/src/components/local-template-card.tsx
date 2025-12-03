@@ -57,8 +57,12 @@ export function LocalTemplateCard({
     setIsLoading(true);
     try {
       await onSelect(template);
+      // Note: If navigation succeeds, component unmounts and this doesn't matter
+      // But if something goes wrong, we need to reset
     } catch (error) {
-      // Reset loading state on error so user can retry
+      console.error("[LocalTemplateCard] Error selecting template:", error);
+    } finally {
+      // Always reset loading state (component may unmount before this runs if navigation succeeds)
       setIsLoading(false);
     }
   };

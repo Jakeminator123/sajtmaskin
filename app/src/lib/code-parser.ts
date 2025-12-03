@@ -24,15 +24,8 @@ export function convertV0FilesToSandpack(
   files: GeneratedFile[]
 ): SandpackFiles {
   if (!files || files.length === 0) {
-    console.log("[code-parser] No files provided, returning defaults");
     return getDefaultFiles();
   }
-
-  console.log(
-    "[code-parser] Converting",
-    files.length,
-    "v0 files to Sandpack format"
-  );
 
   const sandpackFiles: SandpackFiles = {};
 
@@ -139,14 +132,6 @@ body {
     // Add all the v0 generated files
     ...sandpackFiles,
   };
-
-  console.log(
-    "[code-parser] Created Sandpack files:",
-    Object.keys(result).filter((k) => {
-      const file = result[k];
-      return typeof file === "string" || !file?.hidden;
-    })
-  );
 
   return result;
 }

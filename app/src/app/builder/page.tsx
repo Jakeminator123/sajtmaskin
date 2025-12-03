@@ -39,6 +39,8 @@ function BuilderContent() {
     loadFromProject,
     isSaving,
     lastSaved,
+    hasUserSaved,
+    explicitSave,
   } = useBuilderStore();
 
   const [projectName, setProjectName] = useState<string | null>(null);
@@ -116,20 +118,33 @@ function BuilderContent() {
         <div className="flex items-center gap-3">
           <QualitySelector value={quality} onChange={setQuality} />
           <div className="h-5 w-px bg-zinc-800" />
-          {/* Saving indicator */}
+          {/* Saving indicator and save button */}
           {projectId && (
-            <div className="flex items-center gap-2 text-xs text-zinc-500">
+            <div className="flex items-center gap-2">
               {isSaving ? (
-                <>
+                <span className="flex items-center gap-1 text-xs text-zinc-500">
                   <Save className="h-3 w-3 animate-pulse" />
                   Sparar...
-                </>
-              ) : lastSaved ? (
-                <>
-                  <Save className="h-3 w-3 text-green-500" />
+                </span>
+              ) : hasUserSaved ? (
+                <span className="flex items-center gap-1 text-xs text-green-500">
+                  <Save className="h-3 w-3" />
                   Sparad
+                </span>
+              ) : (
+                <>
+                  <span className="text-xs text-amber-500">Ej sparad</span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => explicitSave()}
+                    className="gap-1 h-7 px-2 border-amber-600 text-amber-500 hover:bg-amber-900/20 hover:text-amber-400"
+                  >
+                    <Save className="h-3 w-3" />
+                    Spara
+                  </Button>
                 </>
-              ) : null}
+              )}
             </div>
           )}
           {demoUrl && (

@@ -1,6 +1,43 @@
+/**
+ * Builder State Store (Zustand)
+ * ==============================
+ *
+ * Central state management för hela Builder-vyn.
+ *
+ * VIKTIGA STATE-VÄRDEN:
+ *
+ * - demoUrl: v0's hostade preview-URL (visas i iframe)
+ *   → Detta är PRIMÄRA sättet att visa preview
+ *   → Sätts av generateCode/refineCode/generateFromTemplate
+ *
+ * - chatId: v0 konversations-ID
+ *   → Behövs för refinement (fortsätta samma konversation)
+ *   → Utan chatId skapas ny konversation vid varje prompt
+ *
+ * - currentCode: Huvudfilens kod (för kod-vyn och Sandpack-fallback)
+ * - files: Alla genererade filer (för kod-vyn och download)
+ * - versionId: Behövs för ZIP-download
+ *
+ * SPARNING (Database):
+ * - hasUserSaved: Användaren måste klicka "Spara" först
+ * - EFTER första sparningen: auto-save aktiveras
+ * - testMode=true i URL: Skippar all sparning (för testning)
+ *
+ * PERSISTENCE:
+ * - Använder localStorage som backup
+ * - SQLite-databas för permanent lagring (via API)
+ */
+
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import { saveProjectData as apiSaveProjectData } from "./project-client";
+
+// Helper to check if we're in test mode (skip database saves)
+function isTestMode(): boolean {
+  if (typeof window === "undefined") return false;
+  const params = new URLSearchParams(window.location.search);
+  return params.get("testMode") === "true";
+}
 
 export interface Message {
   id: string;
@@ -38,6 +75,7 @@ interface BuilderState {
   // Saving state
   isSaving: boolean;
   lastSaved: Date | null;
+  hasUserSaved: boolean; // User must explicitly save first before auto-save kicks in
 
   // Actions
   setProjectId: (id: string | null) => void;
@@ -63,6 +101,10 @@ interface BuilderState {
     messages?: Message[];
   }) => void;
   saveToDatabase: () => Promise<void>;
+
+  // Explicit save (user must save first)
+  explicitSave: () => Promise<void>; // Force save and enable auto-save
+  setHasUserSaved: (saved: boolean) => void;
 }
 
 // Debounce timer for auto-save
@@ -86,6 +128,7 @@ export const useBuilderStore = create<BuilderState>()(
       quality: "standard",
       isSaving: false,
       lastSaved: null,
+      hasUserSaved: false, // Must be true for auto-save to work
 
       // Actions
       setProjectId: (id) => set({ projectId: id }),
@@ -157,6 +200,14 @@ export const useBuilderStore = create<BuilderState>()(
 
       // Load project data from database
       loadFromProject: (data) => {
+        // If we're loading saved data, user has previously saved this project
+        const hasSavedData = !!(
+          data.chatId ||
+          data.demoUrl ||
+          data.currentCode ||
+          (data.files && data.files.length > 0)
+        );
+
         set({
           chatId: data.chatId || null,
           demoUrl: data.demoUrl || null,
@@ -169,13 +220,17 @@ export const useBuilderStore = create<BuilderState>()(
                 ? msg.timestamp
                 : new Date(msg.timestamp),
           })),
+          hasUserSaved: hasSavedData, // Enable auto-save if project has saved data
         });
       },
 
-      // Save to database (debounced)
+      // Set hasUserSaved flag
+      setHasUserSaved: (saved) => set({ hasUserSaved: saved }),
+
+      // Save to database (debounced) - only works after user has explicitly saved
       saveToDatabase: async () => {
-        // Quick check if we have a project (use current state)
-        if (!get().projectId) {
+        // Skip silently if user hasn't saved yet (no need to log every time)
+        if (!get().hasUserSaved || isTestMode() || !get().projectId) {
           return;
         }
 
@@ -213,6 +268,43 @@ export const useBuilderStore = create<BuilderState>()(
             set({ isSaving: false });
           }
         }, 1000); // 1 second debounce
+      },
+
+      // Explicit save - bypasses hasUserSaved check and enables future auto-saves
+      explicitSave: async () => {
+        const state = get();
+
+        if (isTestMode()) {
+          console.log("[Store] Test mode - skipping explicit save");
+          return;
+        }
+
+        if (!state.projectId) {
+          console.warn("[Store] Cannot save - no project ID");
+          return;
+        }
+
+        // Track previous state in case save fails
+        const previousHasUserSaved = state.hasUserSaved;
+        set({ isSaving: true, hasUserSaved: true });
+
+        try {
+          await apiSaveProjectData(state.projectId, {
+            chatId: state.chatId || undefined,
+            demoUrl: state.demoUrl || undefined,
+            currentCode: state.currentCode || undefined,
+            files: state.files,
+            messages: state.messages.map((msg) => ({
+              ...msg,
+              timestamp: msg.timestamp.toISOString(),
+            })),
+          });
+          set({ lastSaved: new Date(), isSaving: false });
+        } catch (error) {
+          console.error("[Store] Failed to save to database:", error);
+          // Reset hasUserSaved to previous state on error - don't falsely indicate saved
+          set({ isSaving: false, hasUserSaved: previousHasUserSaved });
+        }
       },
     }),
     {
