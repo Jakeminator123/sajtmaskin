@@ -291,7 +291,6 @@ export function LocalTemplateCard({
               )}
             </button>
           </div>
-
         </div>
       </div>
 

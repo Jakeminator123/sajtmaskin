@@ -171,13 +171,17 @@ export function OnboardingModal({ onComplete, onSkip }: OnboardingModalProps) {
               {/* FIELD 1: Existing URL */}
               {/* ─────────────────────────────────────────────────────────────── */}
               <div className="space-y-3">
-                <label className="flex items-center gap-2 text-sm font-medium text-zinc-300">
+                <label
+                  htmlFor="existing-url"
+                  className="flex items-center gap-2 text-sm font-medium text-zinc-300"
+                >
                   <Globe className="h-4 w-4 text-emerald-500" />
                   Har du en befintlig webbplats?
                 </label>
 
                 <div className="flex gap-2">
                   <input
+                    id="existing-url"
                     type="url"
                     value={existingUrl}
                     onChange={(e) => setExistingUrl(e.target.value)}
@@ -266,11 +270,15 @@ export function OnboardingModal({ onComplete, onSkip }: OnboardingModalProps) {
               {/* FIELD 3: Free text description */}
               {/* ─────────────────────────────────────────────────────────────── */}
               <div className="space-y-3">
-                <label className="flex items-center gap-2 text-sm font-medium text-zinc-300">
+                <label
+                  htmlFor="project-description"
+                  className="flex items-center gap-2 text-sm font-medium text-zinc-300"
+                >
                   <FileText className="h-4 w-4 text-purple-400" />
                   Beskriv ditt projekt (valfritt)
                 </label>
                 <textarea
+                  id="project-description"
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="Beskriv vilken typ av sajt du vill skapa, ditt företag, din målgrupp, etc..."
