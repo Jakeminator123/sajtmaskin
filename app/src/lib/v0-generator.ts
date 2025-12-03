@@ -452,12 +452,11 @@ export async function generateFromTemplate(
   const v0 = getV0Client();
 
   try {
-    // Note: model parameter may not apply to template init (just cloning)
-    // but we include it for future compatibility
+    // Note: Template initialization uses the model from the original template
+    // The model parameter is not supported for type: "template"
     const chat = (await v0.chats.init({
       type: "template",
       templateId: templateId,
-      model: model, // May be ignored by SDK for template init
       chatPrivacy: "private",
     })) as ChatDetail;
 

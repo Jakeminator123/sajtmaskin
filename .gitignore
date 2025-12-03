@@ -9,6 +9,7 @@ node_modules/
 .env.*.local
 ev_iro_ment.txt
 ev_iro_ment*
+config.env
 
 # Build outputs
 .next/

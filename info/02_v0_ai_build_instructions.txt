@@ -163,10 +163,9 @@ const vercel = createVercel({
   apiKey: process.env.V0_API_KEY,
 });
 
-// Three quality levels for users
+// Two quality levels for users
 const MODEL_MAP = {
-  budget: 'v0-1.5-md',    // ⚡ Fast, cheap ($1.5/$7.5 per 1M tokens)
-  standard: 'v0-1.5-md',  // ⭐ Balanced (same model as budget)
+  standard: 'v0-1.5-md',  // ⭐ Standard ($1.5/$7.5 per 1M tokens)
   premium: 'v0-1.5-lg',   // 💎 Best quality ($15/$75 per 1M tokens)
 } as const;
 
@@ -288,7 +287,7 @@ FILE: src/lib/v0-client.ts (Frontend client)
 ```typescript
 // Frontend calls YOUR API, not v0 directly
 
-type QualityLevel = 'budget' | 'standard' | 'premium';
+type QualityLevel = 'standard' | 'premium';
 
 export async function generateWebsite(
   prompt: string, 

@@ -96,7 +96,7 @@ export const LOCAL_TEMPLATES: LocalTemplate[] = [
     description:
       "Modern landningssida för AI-byråer med dark mode, portfolio och kontaktformulär",
     category: "landing-page",
-    previewUrl: "/templates/landing_page/2/preview.jpg",
+    previewUrl: "", // Uses v0 OG image automatically
     sourceUrl:
       "https://v0.app/templates/ai-agency-landing-page-and-portfolio-site-Ka8r7wzBAS0",
     mainFile: "", // TYP A
@@ -113,7 +113,7 @@ export const LOCAL_TEMPLATES: LocalTemplate[] = [
     description:
       "Modern UI-komponentbibliotek med TypeScript, Tailwind CSS och Framer Motion",
     category: "landing-page",
-    previewUrl: "/templates/landing_page/3/preview.jpg",
+    previewUrl: "", // Uses v0 OG image automatically
     sourceUrl: "https://v0.app/templates/next-js-boilerplate-dNTdgBEhEAn",
     mainFile: "",
     folderPath: "",

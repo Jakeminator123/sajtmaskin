@@ -33,7 +33,10 @@ import { getTemplatePreview } from "@/lib/api-client";
 
 function getV0OgImageUrl(sourceUrl: string): string | null {
   try {
-    const match = sourceUrl.match(/\/templates\/([a-zA-Z0-9-]+)$/);
+    // Extract just the template ID (last 11 chars after last dash)
+    // Example: https://v0.app/templates/ai-agency-landing-page-Ka8r7wzBAS0
+    // We want: Ka8r7wzBAS0
+    const match = sourceUrl.match(/-([A-Za-z0-9]{11})$/);
     if (match) {
       return `https://v0.dev/api/og?path=/t/${match[1]}`;
     }
@@ -104,9 +107,15 @@ export function LocalTemplateCard({
   const CategoryIcon = getCategoryIcon(template.category);
   const gradientClass = getCategoryGradient(template.category);
 
-  // Determine which image to show (priority: screenshot > OG > gradient)
+  // Determine which image to show (priority: screenshot > local preview > OG > gradient)
   const ogImageUrl = getV0OgImageUrl(template.sourceUrl);
-  const displayImageUrl = screenshotUrl || (imageError ? null : ogImageUrl);
+
+  // Try local preview first, then OG image, then screenshot
+  // If any image fails to load, fall back to gradient
+  const displayImageUrl =
+    screenshotUrl ||
+    (template.previewUrl && !imageError ? template.previewUrl : null) ||
+    (!imageError ? ogImageUrl : null);
 
   // ─────────────────────────────────────────────────────────────────────────
   // HANDLERS

@@ -100,7 +100,10 @@ export default function CategoryPage() {
     }
   };
 
-  const handleTemplateSelect = async (template: LocalTemplate) => {
+  const handleTemplateSelect = async (
+    template: LocalTemplate,
+    previewChatId?: string
+  ) => {
     if (isCreating) return;
     setIsCreating(true);
     try {
@@ -110,10 +113,12 @@ export default function CategoryPage() {
         type,
         `Baserat på lokal mall: ${template.name}`
       );
-      // Navigate to builder with localTemplateId (local templates use different param)
-      router.push(
-        `/builder?project=${project.id}&localTemplateId=${template.id}`
-      );
+      // Navigate to builder with localTemplateId and optional previewChatId
+      // previewChatId allows seamless refinement of previewed templates
+      const url = `/builder?project=${project.id}&localTemplateId=${
+        template.id
+      }${previewChatId ? `&chatId=${previewChatId}` : ""}`;
+      router.push(url);
     } catch (error) {
       console.error("Failed to create project from template:", error);
       setIsCreating(false);

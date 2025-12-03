@@ -8,6 +8,11 @@ const nextConfig: NextConfig = {
         hostname: "v0.dev",
         pathname: "/api/og/**",
       },
+      {
+        protocol: "https",
+        hostname: "api.v0.dev",
+        pathname: "/v1/chats/**/screenshot",
+      },
     ],
   },
 };

@@ -52,6 +52,7 @@ export async function GET(request: NextRequest) {
           description: template.description,
           v0TemplateId: template.v0TemplateId,
           complexity: template.complexity,
+          sourceUrl: template.sourceUrl,
         },
         code: "", // No local code
         files: [], // No local files
@@ -175,6 +176,7 @@ export async function GET(request: NextRequest) {
         description: template.description,
         v0TemplateId: template.v0TemplateId, // Can use v0 API directly if available!
         complexity: template.complexity,
+        sourceUrl: template.sourceUrl,
       },
       code,
       files,
