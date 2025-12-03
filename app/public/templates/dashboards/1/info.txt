@@ -10,7 +10,7 @@ CHAT URL:
 https://v0.app/chat/vercel-style-black-friday-map-x0rPROsuEAO
 
 v0 TEMPLATE ID:
-vercel-style-black-friday-map-hUI7hCyGNye
+hUI7hCyGNye (bara hash-delen av URL:en!)
 
 BESKRIVNING:
 Pixelerad världskarta i Vercel-stil med interaktiv datavisualisering.

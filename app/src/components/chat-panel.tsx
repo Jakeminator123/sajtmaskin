@@ -215,52 +215,73 @@ export function ChatPanel({
         return;
       }
 
-      // Get the main code from template
-      let mainCode = data.code;
-      if (!mainCode && data.files && data.files.length > 0) {
-        const mainFile = data.files.find(
-          (f: { name: string; content: string }) =>
-            f.name === "page.tsx" ||
-            f.name === "App.tsx" ||
-            f.name.endsWith("/page.tsx")
-        );
-        mainCode = mainFile?.content || "";
-      }
-
-      if (!mainCode) {
-        addMessage("assistant", "Kunde inte hitta mallens huvudfil.");
-        return;
-      }
-
-      // Save files locally for code view
-      if (data.files && data.files.length > 0) {
-        setFiles(data.files);
-      }
-      setCurrentCode(mainCode);
-
-      // Show progress to user
-      addMessage(
-        "assistant",
-        `Mall "${
-          data.template?.name || templateId
-        }" hittad! Genererar live preview...`
-      );
-
       let v0Response;
 
-      // SMART APPROACH: Try v0 template ID first if available (much better quality!)
-      if (data.template?.v0TemplateId) {
-        addMessage("assistant", "Laddar från v0 direkt (bästa kvalitet)...");
+      // SMART: If template signals useV0Api (has v0TemplateId, no local files)
+      // → Skip file handling, go directly to v0 API
+      if (data.useV0Api && data.template?.v0TemplateId) {
+        console.log(
+          "[ChatPanel] Template uses v0 API directly:",
+          data.template.v0TemplateId
+        );
+        addMessage(
+          "assistant",
+          `Mall "${data.template.name}" hittad! Laddar från v0 direkt...`
+        );
+
         v0Response = await generateFromTemplate(
           data.template.v0TemplateId,
           quality
         );
-      }
 
-      // Fallback: Use code-based approach if v0TemplateId failed or doesn't exist
-      if (!v0Response?.success) {
-        // Use a STRICT prompt to recreate as faithfully as possible
-        const templatePrompt = `RECREATE this React component as EXACTLY as possible.
+        // Skip to result handling below
+      } else {
+        // Normal flow: Template has local files
+
+        // Get the main code from template
+        let mainCode = data.code;
+        if (!mainCode && data.files && data.files.length > 0) {
+          const mainFile = data.files.find(
+            (f: { name: string; content: string }) =>
+              f.name === "page.tsx" ||
+              f.name === "App.tsx" ||
+              f.name.endsWith("/page.tsx")
+          );
+          mainCode = mainFile?.content || "";
+        }
+
+        if (!mainCode) {
+          addMessage("assistant", "Kunde inte hitta mallens huvudfil.");
+          return;
+        }
+
+        // Save files locally for code view
+        if (data.files && data.files.length > 0) {
+          setFiles(data.files);
+        }
+        setCurrentCode(mainCode);
+
+        // Show progress to user
+        addMessage(
+          "assistant",
+          `Mall "${
+            data.template?.name || templateId
+          }" hittad! Genererar live preview...`
+        );
+
+        // SMART APPROACH: Try v0 template ID first if available (much better quality!)
+        if (data.template?.v0TemplateId) {
+          addMessage("assistant", "Laddar från v0 direkt (bästa kvalitet)...");
+          v0Response = await generateFromTemplate(
+            data.template.v0TemplateId,
+            quality
+          );
+        }
+
+        // Fallback: Use code-based approach if v0TemplateId failed or doesn't exist
+        if (!v0Response?.success) {
+          // Use a STRICT prompt to recreate as faithfully as possible
+          const templatePrompt = `RECREATE this React component as EXACTLY as possible.
 
 STRICT REQUIREMENTS:
 1. Generate a SINGLE self-contained React component (no external imports)
@@ -275,10 +296,12 @@ This is the EXACT code to recreate - do NOT simplify or change the design:
 
 ${mainCode.substring(0, 18000)}`;
 
-        v0Response = await generateWebsite(templatePrompt, undefined, quality);
-      }
+          v0Response = await generateWebsite(templatePrompt, undefined, quality);
+        }
+      } // Close else block
 
-      if (v0Response.success) {
+      // Handle v0 response (for both direct API and local-to-v0 flow)
+      if (v0Response?.success) {
         // Save the v0 response to state
         if (v0Response.chatId) setChatId(v0Response.chatId);
         if (v0Response.demoUrl) setDemoUrl(v0Response.demoUrl);
@@ -298,7 +321,7 @@ ${mainCode.substring(0, 18000)}`;
         );
       } else {
         // Fallback: show code-only mode
-        console.warn("[ChatPanel] v0 generation failed:", v0Response.error);
+        console.warn("[ChatPanel] v0 generation failed:", v0Response?.error);
         addMessage(
           "assistant",
           `Mallen laddades men live preview kunde inte genereras. Klicka på "Kod" för att se koden, eller försök skriva en prompt för att generera en ny version.`

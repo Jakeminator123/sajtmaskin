@@ -42,6 +42,9 @@ export interface LocalTemplate {
 
 export const LOCAL_TEMPLATES: LocalTemplate[] = [
   // ========== LANDING PAGES ==========
+  // NOTE: Template ID is the HASH part of the URL, not the full slug!
+  // URL: https://v0.app/templates/cosmos-3d-orbit-gallery-template-W8w0SZdos3x
+  // ID: W8w0SZdos3x (just the hash!)
   {
     id: "cosmos-3d",
     name: "Cosmos — 3D Orbit Gallery",
@@ -53,7 +56,7 @@ export const LOCAL_TEMPLATES: LocalTemplate[] = [
       "https://v0.app/templates/cosmos-3d-orbit-gallery-template-W8w0SZdos3x",
     mainFile: "app/page.tsx",
     folderPath: "landing-page/cosmos-3d",
-    v0TemplateId: "cosmos-3d-orbit-gallery-template-W8w0SZdos3x", // Can use directly!
+    v0TemplateId: "W8w0SZdos3x", // Just the hash part of the URL!
     complexity: "advanced", // Three.js - will be simplified
   },
   {
@@ -85,6 +88,9 @@ export const LOCAL_TEMPLATES: LocalTemplate[] = [
 
   // ========== DASHBOARDS ==========
   // TEST: Using v0TemplateId directly - no local files needed!
+  // NOTE: Template ID is the HASH part of the URL, not the full slug!
+  // URL: https://v0.app/templates/vercel-style-black-friday-map-hUI7hCyGNye
+  // ID: hUI7hCyGNye (just the hash!)
   {
     id: "black-friday-map",
     name: "Vercel Black Friday Map",
@@ -96,7 +102,7 @@ export const LOCAL_TEMPLATES: LocalTemplate[] = [
       "https://v0.app/templates/vercel-style-black-friday-map-hUI7hCyGNye",
     mainFile: "", // Not needed - using v0TemplateId
     folderPath: "", // Not needed - using v0TemplateId
-    v0TemplateId: "vercel-style-black-friday-map-hUI7hCyGNye", // Direct v0 template!
+    v0TemplateId: "hUI7hCyGNye", // Just the hash part of the URL!
     complexity: "advanced", // Pixel map visualization
   },
 ];

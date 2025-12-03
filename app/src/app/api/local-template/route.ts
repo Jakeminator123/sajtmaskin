@@ -35,6 +35,31 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    // SMART: If template has v0TemplateId but no local files, return early
+    // Frontend will use generateFromTemplate() directly with v0 API
+    if (template.v0TemplateId && (!template.folderPath || !template.mainFile)) {
+      console.log(
+        "[local-template] Template has v0TemplateId, skipping file read:",
+        template.id,
+        "→",
+        template.v0TemplateId
+      );
+      return NextResponse.json({
+        success: true,
+        template: {
+          id: template.id,
+          name: template.name,
+          description: template.description,
+          v0TemplateId: template.v0TemplateId,
+          complexity: template.complexity,
+        },
+        code: "", // No local code
+        files: [], // No local files
+        hasMainFile: false,
+        useV0Api: true, // Signal to frontend to use v0 API directly
+      });
+    }
+
     // Build the path to the template folder
     const templatesBasePath = path.join(process.cwd(), "src", "templates");
     const templateFolderPath = path.join(
