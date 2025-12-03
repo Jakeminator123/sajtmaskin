@@ -30,6 +30,12 @@ export function PreviewModal({
   const isPausedRef = useRef(false); // Ref to track pause state in interval
   const captureTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const statusClearTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const onScreenshotCapturedRef = useRef(onScreenshotCaptured);
+
+  // Keep ref updated with latest callback
+  useEffect(() => {
+    onScreenshotCapturedRef.current = onScreenshotCaptured;
+  }, [onScreenshotCaptured]);
 
   // Handle escape key to close
   useEffect(() => {
@@ -147,7 +153,7 @@ export function PreviewModal({
       clearTimeout(captureTimeoutRef.current);
     }
 
-    // Wait 3 seconds then capture screenshot
+    // Wait 12 seconds then capture screenshot (ensures template content is fully loaded)
     captureTimeoutRef.current = setTimeout(async () => {
       setIsCapturing(true);
       setCaptureStatus("Sparar förhandsvisning...");
@@ -163,7 +169,7 @@ export function PreviewModal({
 
         if (data.success) {
           setCaptureStatus("✓ Sparad!");
-          onScreenshotCaptured?.();
+          onScreenshotCapturedRef.current?.();
           // Clear status after 2 seconds
           if (statusClearTimeoutRef.current) {
             clearTimeout(statusClearTimeoutRef.current);
@@ -195,7 +201,7 @@ export function PreviewModal({
       } finally {
         setIsCapturing(false);
       }
-    }, 3000);
+    }, 12000);
 
     return () => {
       if (captureTimeoutRef.current) {
@@ -205,7 +211,7 @@ export function PreviewModal({
         clearTimeout(statusClearTimeoutRef.current);
       }
     };
-  }, [isOpen, demoUrl, templateId, onScreenshotCaptured]);
+  }, [isOpen, demoUrl, templateId]);
 
   const handleIframeLoad = () => {
     setIsLoading(false);

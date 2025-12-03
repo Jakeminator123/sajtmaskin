@@ -7,7 +7,6 @@ import {
   FileText,
   Globe,
   Sparkles,
-  ExternalLink,
   Play,
 } from "lucide-react";
 import type { LocalTemplate } from "@/lib/local-templates";
@@ -293,19 +292,6 @@ export function LocalTemplateCard({
             </button>
           </div>
 
-          {/* Source link */}
-          <div className="flex items-center gap-2 mt-3 text-xs text-zinc-600">
-            <ExternalLink className="h-3 w-3" />
-            <a
-              href={template.sourceUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={(e) => e.stopPropagation()}
-              className="truncate hover:text-zinc-400 transition-colors"
-            >
-              Visa på v0.app
-            </a>
-          </div>
         </div>
       </div>
 

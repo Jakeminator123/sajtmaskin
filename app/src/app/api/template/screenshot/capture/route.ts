@@ -29,24 +29,37 @@ export async function POST(request: NextRequest) {
 
     console.log(
       "[API /screenshot/capture] Capturing screenshot for:",
-      templateId
+      templateId,
+      "URL:",
+      demoUrl
     );
 
     // Use thum.io free screenshot service
-    const screenshotApiUrl = `https://image.thum.io/get/width/800/crop/500/noanimate/${encodeURIComponent(
-      demoUrl
-    )}`;
+    // Format: https://image.thum.io/get/width/800/https://example.com
+    const screenshotApiUrl = `https://image.thum.io/get/width/800/${demoUrl}`;
+
+    console.log("[API /screenshot/capture] Fetching from:", screenshotApiUrl);
 
     // Fetch the screenshot
-    const response = await fetch(screenshotApiUrl);
+    const response = await fetch(screenshotApiUrl, {
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+      },
+    });
 
     if (!response.ok) {
+      const errorText = await response.text().catch(() => "");
       console.error(
         "[API /screenshot/capture] Failed to fetch screenshot:",
-        response.status
+        response.status,
+        errorText.substring(0, 200)
       );
       return NextResponse.json(
-        { success: false, error: "Failed to capture screenshot" },
+        {
+          success: false,
+          error: `Screenshot service error: ${response.status}`,
+        },
         { status: 500 }
       );
     }
