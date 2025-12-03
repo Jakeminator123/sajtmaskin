@@ -151,10 +151,12 @@ export const LOCAL_TEMPLATES: LocalTemplate[] = [
   {
     id: "lorenzo-motocross",
     name: "Lorenzo Motocross",
-    description: "Dynamisk motocross-landningssida med action-bilder och modern design",
+    description:
+      "Dynamisk motocross-landningssida med action-bilder och modern design",
     category: "website",
     previewUrl: "/templates/homepage/1/preview.jpg",
-    sourceUrl: "https://v0.app/templates/lorenzo-motocross-landing-page-jz21jJIFr0i",
+    sourceUrl:
+      "https://v0.app/templates/lorenzo-motocross-landing-page-jz21jJIFr0i",
     mainFile: "",
     folderPath: "",
     v0TemplateId: "jz21jJIFr0i",
@@ -166,7 +168,8 @@ export const LOCAL_TEMPLATES: LocalTemplate[] = [
   {
     id: "marketing-website",
     name: "Marketing Website",
-    description: "Professionell marknadsföringssida med clean design och CTA-sektioner",
+    description:
+      "Professionell marknadsföringssida med clean design och CTA-sektioner",
     category: "website",
     previewUrl: "/templates/homepage/2/preview.jpg",
     sourceUrl: "https://v0.app/templates/marketing-website-sV0OtrkXM6x",
@@ -176,14 +179,29 @@ export const LOCAL_TEMPLATES: LocalTemplate[] = [
     complexity: "simple",
   },
 
-  // Website 3: Paperfolio
+  // Website 3: Modern Artist Landing Template
+  // URL: https://v0.app/templates/modern-artist-landing-template-QRieAUkBLIh
+  {
+    id: "modern-artist",
+    name: "Modern Artist Landing",
+    description: "Stilren konstnärs-landningssida med galleri och portfolio-fokus",
+    category: "website",
+    previewUrl: "/templates/homepage/3/preview.jpg",
+    sourceUrl: "https://v0.app/templates/modern-artist-landing-template-QRieAUkBLIh",
+    mainFile: "",
+    folderPath: "",
+    v0TemplateId: "QRieAUkBLIh",
+    complexity: "simple",
+  },
+
+  // Website 4: Paperfolio
   // URL: https://v0.app/templates/paperfolio-dDPFIVqPGXR
   {
     id: "paperfolio",
     name: "Paperfolio",
     description: "Minimalistisk portfolio-webbplats med elegant typografi",
     category: "website",
-    previewUrl: "/templates/homepage/3/preview.jpg",
+    previewUrl: "/templates/homepage/4/preview.jpg",
     sourceUrl: "https://v0.app/templates/paperfolio-dDPFIVqPGXR",
     mainFile: "",
     folderPath: "",
@@ -191,29 +209,20 @@ export const LOCAL_TEMPLATES: LocalTemplate[] = [
     complexity: "simple",
   },
 
-  // Website 4: A Boring Agency
+  // Website 5: A Boring Agency
   // URL: https://v0.app/templates/a-boring-agency-Nynl8DJ6xUH
   {
     id: "boring-agency",
     name: "A Boring Agency",
     description: "Kreativ byrå-webbplats med unik design och interaktiva element",
     category: "website",
-    previewUrl: "/templates/homepage/4/preview.jpg",
+    previewUrl: "/templates/homepage/5/preview.jpg",
     sourceUrl: "https://v0.app/templates/a-boring-agency-Nynl8DJ6xUH",
     mainFile: "",
     folderPath: "",
     v0TemplateId: "Nynl8DJ6xUH",
     complexity: "simple",
   },
-
-  // Website 5: TODO - Ge mig en till URL för att ersätta duplicatet!
-  // {
-  //   id: "website-5",
-  //   name: "???",
-  //   category: "website",
-  //   v0TemplateId: "???",
-  //   ...
-  // }
 ];
 
 // Get templates for a specific category
