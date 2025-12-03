@@ -9,24 +9,33 @@ import {
   Globe,
   Sparkles,
   ExternalLink,
+  Eye,
+  X,
+  Play,
 } from "lucide-react";
 import type { LocalTemplate } from "@/lib/local-templates";
+import { getTemplatePreview } from "@/lib/api-client";
 
 /**
- * Generate v0 OG image URL from template sourceUrl
- * v0 templates have OG images at: https://v0.dev/api/og?path=/t/{slug}
+ * LocalTemplateCard with Live Preview Support
+ * ============================================
  *
- * Example:
- * sourceUrl: https://v0.app/templates/shadcn-dashboard-Pf7lw1nypu5
- * ogUrl: https://v0.dev/api/og?path=/t/shadcn-dashboard-Pf7lw1nypu5
+ * Features:
+ * 1. Shows OG image or gradient placeholder initially
+ * 2. "Preview" button loads live iframe from v0
+ * 3. Updates image to actual screenshot when available
+ * 4. Saves chatId for seamless refinement after selection
  */
+
+// ═══════════════════════════════════════════════════════════════════════════
+// HELPER FUNCTIONS
+// ═══════════════════════════════════════════════════════════════════════════
+
 function getV0OgImageUrl(sourceUrl: string): string | null {
   try {
-    // Extract slug from URL like: https://v0.app/templates/shadcn-dashboard-Pf7lw1nypu5
     const match = sourceUrl.match(/\/templates\/([a-zA-Z0-9-]+)$/);
     if (match) {
-      const slug = match[1];
-      return `https://v0.dev/api/og?path=/t/${slug}`;
+      return `https://v0.dev/api/og?path=/t/${match[1]}`;
     }
     return null;
   } catch {
@@ -34,13 +43,6 @@ function getV0OgImageUrl(sourceUrl: string): string | null {
   }
 }
 
-interface LocalTemplateCardProps {
-  template: LocalTemplate;
-  onSelect: (template: LocalTemplate) => void | Promise<void>;
-  disabled?: boolean;
-}
-
-// Get gradient colors based on category
 function getCategoryGradient(category: string): string {
   switch (category) {
     case "dashboard":
@@ -54,7 +56,6 @@ function getCategoryGradient(category: string): string {
   }
 }
 
-// Get icon based on category
 function getCategoryIcon(category: string) {
   switch (category) {
     case "dashboard":
@@ -68,74 +69,173 @@ function getCategoryIcon(category: string) {
   }
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// COMPONENT
+// ═══════════════════════════════════════════════════════════════════════════
+
+interface LocalTemplateCardProps {
+  template: LocalTemplate;
+  onSelect: (template: LocalTemplate, previewChatId?: string) => void | Promise<void>;
+  disabled?: boolean;
+}
+
 export function LocalTemplateCard({
   template,
   onSelect,
   disabled,
 }: LocalTemplateCardProps) {
-  const [isLoading, setIsLoading] = useState(false);
-  const [imageError, setImageError] = useState(false);
+  // Loading states
+  const [isSelecting, setIsSelecting] = useState(false);
+  const [isLoadingPreview, setIsLoadingPreview] = useState(false);
 
-  const handleClick = async () => {
-    if (disabled || isLoading) return;
-    setIsLoading(true);
-    try {
-      await onSelect(template);
-    } catch (error) {
-      console.error("[LocalTemplateCard] Error selecting template:", error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  // Image state
+  const [imageError, setImageError] = useState(false);
+  const [screenshotUrl, setScreenshotUrl] = useState<string | null>(null);
+
+  // Preview state
+  const [showPreview, setShowPreview] = useState(false);
+  const [demoUrl, setDemoUrl] = useState<string | null>(null);
+  const [previewChatId, setPreviewChatId] = useState<string | null>(null);
+  const [previewError, setPreviewError] = useState<string | null>(null);
 
   const CategoryIcon = getCategoryIcon(template.category);
   const gradientClass = getCategoryGradient(template.category);
 
-  // Try to get v0 OG image for preview
+  // Determine which image to show (priority: screenshot > OG > gradient)
   const ogImageUrl = getV0OgImageUrl(template.sourceUrl);
-  const showOgImage = ogImageUrl && !imageError;
+  const displayImageUrl = screenshotUrl || (imageError ? null : ogImageUrl);
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // HANDLERS
+  // ─────────────────────────────────────────────────────────────────────────
+
+  const handlePreviewClick = async (e: React.MouseEvent) => {
+    e.stopPropagation(); // Don't trigger card selection
+
+    if (demoUrl) {
+      // Already loaded - just toggle visibility
+      setShowPreview(!showPreview);
+      return;
+    }
+
+    if (!template.v0TemplateId) {
+      setPreviewError("Preview inte tillgängligt för denna mall");
+      return;
+    }
+
+    setIsLoadingPreview(true);
+    setPreviewError(null);
+
+    try {
+      const response = await getTemplatePreview(template.id);
+
+      if (!response.success) {
+        setPreviewError(response.error || "Kunde inte ladda preview");
+        return;
+      }
+
+      // Update state with preview data
+      if (response.demoUrl) {
+        setDemoUrl(response.demoUrl);
+        setShowPreview(true);
+      }
+
+      if (response.screenshotUrl) {
+        setScreenshotUrl(response.screenshotUrl);
+      }
+
+      if (response.chatId) {
+        setPreviewChatId(response.chatId);
+      }
+    } catch (error) {
+      console.error("[LocalTemplateCard] Preview error:", error);
+      setPreviewError("Nätverksfel vid laddning");
+    } finally {
+      setIsLoadingPreview(false);
+    }
+  };
+
+  const handleSelectClick = async () => {
+    if (disabled || isSelecting) return;
+
+    setIsSelecting(true);
+    try {
+      // Pass previewChatId if available (for seamless refinement)
+      await onSelect(template, previewChatId || undefined);
+    } catch (error) {
+      console.error("[LocalTemplateCard] Select error:", error);
+    } finally {
+      setIsSelecting(false);
+    }
+  };
+
+  const handleClosePreview = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setShowPreview(false);
+  };
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // RENDER
+  // ─────────────────────────────────────────────────────────────────────────
 
   return (
-    <button
-      onClick={handleClick}
-      disabled={disabled || isLoading}
-      className="group relative w-full text-left bg-zinc-900/50 border border-zinc-800 rounded-xl overflow-hidden hover:border-emerald-500/50 hover:bg-zinc-900 transition-all duration-300 hover:scale-[1.02] hover:shadow-xl hover:shadow-emerald-500/10 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:scale-100"
-    >
-      {/* Preview area with OG image or gradient fallback */}
+    <div className="group relative w-full text-left bg-zinc-900/50 border border-zinc-800 rounded-xl overflow-hidden hover:border-emerald-500/50 hover:bg-zinc-900 transition-all duration-300 disabled:opacity-50">
+      {/* ═══════════════════════════════════════════════════════════════════ */}
+      {/* PREVIEW AREA */}
+      {/* ═══════════════════════════════════════════════════════════════════ */}
       <div className="relative aspect-[16/10] bg-zinc-800 overflow-hidden">
-        {isLoading && (
-          <div className="absolute inset-0 bg-zinc-900/80 flex items-center justify-center z-10">
+        {/* Loading overlay */}
+        {(isSelecting || isLoadingPreview) && (
+          <div className="absolute inset-0 bg-zinc-900/80 flex flex-col items-center justify-center z-20">
             <Loader2 className="h-8 w-8 text-emerald-500 animate-spin" />
+            <span className="text-sm text-zinc-400 mt-2">
+              {isLoadingPreview ? "Laddar preview..." : "Laddar mall..."}
+            </span>
           </div>
         )}
 
-        {/* v0 OG Image (if available) */}
-        {showOgImage && (
+        {/* Live iframe preview (when activated) */}
+        {showPreview && demoUrl && (
+          <div className="absolute inset-0 z-10">
+            <iframe
+              src={demoUrl}
+              className="w-full h-full border-0"
+              sandbox="allow-same-origin allow-scripts allow-forms allow-pointer-lock allow-popups"
+              title={`Preview: ${template.name}`}
+            />
+            {/* Close button */}
+            <button
+              onClick={handleClosePreview}
+              className="absolute top-2 right-2 p-1 bg-black/60 hover:bg-black/80 rounded-full transition-colors"
+            >
+              <X className="h-4 w-4 text-white" />
+            </button>
+          </div>
+        )}
+
+        {/* Static image (screenshot or OG image) */}
+        {!showPreview && displayImageUrl && (
           <Image
-            src={ogImageUrl}
+            src={displayImageUrl}
             alt={template.name}
             fill
             className="object-cover"
             onError={() => setImageError(true)}
-            unoptimized // External image, skip Next.js optimization
+            unoptimized
           />
         )}
 
-        {/* Gradient fallback with icon and pattern (shown if no OG image) */}
-        {!showOgImage && (
+        {/* Gradient fallback (when no image available) */}
+        {!showPreview && !displayImageUrl && (
           <div
             className={`absolute inset-0 bg-gradient-to-br ${gradientClass} flex flex-col items-center justify-center`}
           >
-            {/* Decorative pattern */}
             <div className="absolute inset-0 opacity-10">
               <div className="absolute top-4 left-4 w-20 h-20 border border-white/20 rounded-lg" />
               <div className="absolute top-8 left-8 w-16 h-16 border border-white/20 rounded-lg" />
               <div className="absolute bottom-4 right-4 w-24 h-12 border border-white/20 rounded-lg" />
               <div className="absolute bottom-12 right-8 w-16 h-8 border border-white/20 rounded-lg" />
-              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-32 h-24 border border-white/10 rounded-lg" />
             </div>
-
-            {/* Icon */}
             <CategoryIcon className="h-12 w-12 text-white/40 mb-2" />
             <span className="text-sm font-medium text-white/60 text-center px-4">
               {template.name}
@@ -143,30 +243,27 @@ export function LocalTemplateCard({
           </div>
         )}
 
-        {/* Category badge */}
-        <span className="absolute top-2 right-2 px-2 py-1 text-xs font-medium bg-emerald-500/20 text-emerald-300 rounded-full border border-emerald-500/30 backdrop-blur-sm">
-          {template.v0TemplateId ? "v0 Template" : "Lokal mall"}
-        </span>
+        {/* Badges (hidden when preview is showing) */}
+        {!showPreview && (
+          <>
+            {/* Category badge */}
+            <span className="absolute top-2 right-2 px-2 py-1 text-xs font-medium bg-emerald-500/20 text-emerald-300 rounded-full border border-emerald-500/30 backdrop-blur-sm">
+              {template.v0TemplateId ? "v0 Template" : "Lokal mall"}
+            </span>
 
-        {/* Complexity badge */}
-        {template.complexity === "advanced" && (
-          <span className="absolute top-2 left-2 px-2 py-1 text-xs font-medium bg-purple-500/20 text-purple-300 rounded-full border border-purple-500/30 backdrop-blur-sm">
-            ✨ Avancerad
-          </span>
+            {/* Complexity badge */}
+            {template.complexity === "advanced" && (
+              <span className="absolute top-2 left-2 px-2 py-1 text-xs font-medium bg-purple-500/20 text-purple-300 rounded-full border border-purple-500/30 backdrop-blur-sm">
+                ✨ Avancerad
+              </span>
+            )}
+          </>
         )}
-
-        {/* Hover overlay */}
-        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-
-        {/* "Use template" text on hover */}
-        <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-          <span className="px-4 py-2 bg-emerald-600 text-white text-sm font-medium rounded-lg shadow-lg">
-            Använd mall
-          </span>
-        </div>
       </div>
 
-      {/* Content */}
+      {/* ═══════════════════════════════════════════════════════════════════ */}
+      {/* CONTENT AREA */}
+      {/* ═══════════════════════════════════════════════════════════════════ */}
       <div className="p-4">
         <h3 className="font-semibold text-zinc-100 group-hover:text-white transition-colors truncate">
           {template.name}
@@ -175,12 +272,59 @@ export function LocalTemplateCard({
           {template.description}
         </p>
 
+        {/* Error message */}
+        {previewError && (
+          <p className="text-xs text-red-400 mt-2">{previewError}</p>
+        )}
+
+        {/* Action buttons */}
+        <div className="flex items-center gap-2 mt-3">
+          {/* Preview button (only for v0 templates) */}
+          {template.v0TemplateId && (
+            <button
+              onClick={handlePreviewClick}
+              disabled={isLoadingPreview || isSelecting}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white rounded-lg transition-colors disabled:opacity-50"
+            >
+              {isLoadingPreview ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : demoUrl ? (
+                <Eye className="h-3 w-3" />
+              ) : (
+                <Play className="h-3 w-3" />
+              )}
+              {demoUrl ? (showPreview ? "Dölj" : "Visa") : "Preview"}
+            </button>
+          )}
+
+          {/* Select button */}
+          <button
+            onClick={handleSelectClick}
+            disabled={disabled || isSelecting}
+            className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg transition-colors disabled:opacity-50 flex-1 justify-center"
+          >
+            {isSelecting ? (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            ) : (
+              "Använd mall"
+            )}
+          </button>
+        </div>
+
         {/* Source link */}
         <div className="flex items-center gap-2 mt-3 text-xs text-zinc-600">
           <ExternalLink className="h-3 w-3" />
-          <span className="truncate">Från v0.app</span>
+          <a
+            href={template.sourceUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className="truncate hover:text-zinc-400 transition-colors"
+          >
+            Visa på v0.app
+          </a>
         </div>
       </div>
-    </button>
+    </div>
   );
 }

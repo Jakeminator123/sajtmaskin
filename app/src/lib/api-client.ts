@@ -230,3 +230,60 @@ export async function generateFromTemplate(
     };
   }
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// TEMPLATE PREVIEW (Lightweight - for gallery preview before selection)
+// ═══════════════════════════════════════════════════════════════════════════
+
+export interface TemplatePreviewResponse {
+  success: boolean;
+  templateId?: string;
+  templateName?: string;
+  chatId?: string;
+  demoUrl?: string | null;
+  screenshotUrl?: string | null;
+  cached?: boolean;
+  error?: string;
+}
+
+/**
+ * Get preview data for a template WITHOUT selecting it
+ * Returns chatId, demoUrl, and screenshotUrl for gallery preview
+ */
+export async function getTemplatePreview(
+  templateId: string
+): Promise<TemplatePreviewResponse> {
+  if (DEBUG)
+    console.log("[API-Client] getTemplatePreview called:", templateId);
+
+  try {
+    const response = await fetch(
+      `/api/template/preview?id=${encodeURIComponent(templateId)}`
+    );
+
+    const data = await response.json();
+
+    if (DEBUG)
+      console.log("[API-Client] getTemplatePreview response:", {
+        success: data.success,
+        hasDemoUrl: !!data.demoUrl,
+        hasScreenshot: !!data.screenshotUrl,
+        cached: data.cached,
+      });
+
+    if (!response.ok) {
+      return {
+        success: false,
+        error: data.error || "Kunde inte ladda förhandsvisning.",
+      };
+    }
+
+    return data;
+  } catch (error) {
+    console.error("[API-Client] getTemplatePreview network error:", error);
+    return {
+      success: false,
+      error: "Nätverksfel vid laddning av förhandsvisning.",
+    };
+  }
+}

@@ -516,6 +516,70 @@ export async function generateFromTemplate(
   }
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// TEMPLATE PREVIEW (Lightweight - just gets demoUrl + screenshotUrl)
+// ═══════════════════════════════════════════════════════════════════════════
+
+export interface TemplatePreviewResult {
+  chatId: string;
+  demoUrl: string | null;
+  screenshotUrl: string | null;
+}
+
+/**
+ * Initialize a lightweight preview for a v0 template
+ * Returns chatId, demoUrl, and screenshotUrl WITHOUT downloading all files
+ * Used for gallery preview before user selects the template
+ */
+export async function initTemplatePreview(
+  v0TemplateId: string
+): Promise<TemplatePreviewResult> {
+  console.log(
+    "[v0-generator] Initializing preview for template:",
+    v0TemplateId
+  );
+
+  const v0 = getV0Client();
+
+  try {
+    const chat = (await v0.chats.init({
+      type: "template",
+      templateId: v0TemplateId,
+      chatPrivacy: "private",
+    })) as ChatDetail;
+
+    console.log("[v0-generator] Preview initialized:", {
+      chatId: chat.id,
+      hasDemoUrl: !!chat.latestVersion?.demoUrl,
+      hasScreenshot: !!chat.latestVersion?.screenshotUrl,
+    });
+
+    return {
+      chatId: chat.id,
+      demoUrl: chat.latestVersion?.demoUrl ?? null,
+      screenshotUrl: chat.latestVersion?.screenshotUrl ?? null,
+    };
+  } catch (error) {
+    console.error("[v0-generator] Preview init error:", error);
+
+    if (error instanceof Error) {
+      if (
+        error.message.includes("not found") ||
+        error.message.includes("404")
+      ) {
+        throw new Error("Template not found");
+      }
+      if (
+        error.message.includes("rate limit") ||
+        error.message.includes("429")
+      ) {
+        throw new Error("Rate limit exceeded");
+      }
+    }
+    throw error;
+  }
+}
+
 /**
  * Sanitize response to remove v0/Vercel references (white-label)
  */
