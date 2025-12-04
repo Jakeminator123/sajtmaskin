@@ -27,6 +27,32 @@ export function getDb(): Database.Database {
 
 // Initialize database schema
 function initializeDatabase(database: Database.Database) {
+  // Users table - for future Google OAuth
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS users (
+      id TEXT PRIMARY KEY,
+      email TEXT UNIQUE,
+      name TEXT,
+      image TEXT,
+      provider TEXT DEFAULT 'anonymous',
+      created_at TEXT DEFAULT (datetime('now')),
+      last_login TEXT DEFAULT (datetime('now'))
+    )
+  `);
+
+  // Sessions table - for tracking user sessions
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS sessions (
+      id TEXT PRIMARY KEY,
+      user_id TEXT,
+      ip_address TEXT,
+      user_agent TEXT,
+      created_at TEXT DEFAULT (datetime('now')),
+      expires_at TEXT,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )
+  `);
+
   // Projects table - main project info
   database.exec(`
     CREATE TABLE IF NOT EXISTS projects (
@@ -35,8 +61,11 @@ function initializeDatabase(database: Database.Database) {
       category TEXT,
       description TEXT,
       thumbnail_path TEXT,
+      session_id TEXT,
+      user_id TEXT,
       created_at TEXT DEFAULT (datetime('now')),
-      updated_at TEXT DEFAULT (datetime('now'))
+      updated_at TEXT DEFAULT (datetime('now')),
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE SET NULL
     )
   `);
 
@@ -133,12 +162,17 @@ function initializeDatabase(database: Database.Database) {
   database.exec(`
     CREATE INDEX IF NOT EXISTS idx_projects_category ON projects(category);
     CREATE INDEX IF NOT EXISTS idx_projects_updated_at ON projects(updated_at DESC);
+    CREATE INDEX IF NOT EXISTS idx_projects_session_id ON projects(session_id);
+    CREATE INDEX IF NOT EXISTS idx_projects_user_id ON projects(user_id);
     CREATE INDEX IF NOT EXISTS idx_project_data_chat_id ON project_data(chat_id);
     CREATE INDEX IF NOT EXISTS idx_images_project_id ON images(project_id);
     CREATE INDEX IF NOT EXISTS idx_template_screenshots_template_id ON template_screenshots(template_id);
     CREATE INDEX IF NOT EXISTS idx_company_profiles_company_name ON company_profiles(company_name);
     CREATE INDEX IF NOT EXISTS idx_company_profiles_industry ON company_profiles(industry);
     CREATE INDEX IF NOT EXISTS idx_company_profiles_project_id ON company_profiles(project_id);
+    CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+    CREATE INDEX IF NOT EXISTS idx_sessions_user_id ON sessions(user_id);
+    CREATE INDEX IF NOT EXISTS idx_sessions_expires_at ON sessions(expires_at);
   `);
 
   console.log("[Database] Initialized successfully at:", DB_PATH);
@@ -152,6 +186,8 @@ export interface Project {
   category?: string;
   description?: string;
   thumbnail_path?: string;
+  session_id?: string; // Links project to anonymous session
+  user_id?: string; // Links project to authenticated user
   created_at: string;
   updated_at: string;
 }
@@ -174,16 +210,25 @@ function generateId(): string {
 export function createProject(
   name: string,
   category?: string,
-  description?: string
+  description?: string,
+  sessionId?: string,
+  userId?: string
 ): Project {
   const db = getDb();
   const id = generateId();
 
   const stmt = db.prepare(`
-    INSERT INTO projects (id, name, category, description)
-    VALUES (?, ?, ?, ?)
+    INSERT INTO projects (id, name, category, description, session_id, user_id)
+    VALUES (?, ?, ?, ?, ?, ?)
   `);
-  stmt.run(id, name, category || null, description || null);
+  stmt.run(
+    id,
+    name,
+    category || null,
+    description || null,
+    sessionId || null,
+    userId || null
+  );
 
   // Also create empty project_data entry
   const dataStmt = db.prepare(`
@@ -207,6 +252,37 @@ export function getAllProjects(): Project[] {
   const db = getDb();
   const stmt = db.prepare("SELECT * FROM projects ORDER BY updated_at DESC");
   return stmt.all() as Project[];
+}
+
+// Get projects by session ID (for anonymous users)
+export function getProjectsBySession(sessionId: string): Project[] {
+  const db = getDb();
+  const stmt = db.prepare(
+    "SELECT * FROM projects WHERE session_id = ? ORDER BY updated_at DESC"
+  );
+  return stmt.all(sessionId) as Project[];
+}
+
+// Get projects by user ID (for authenticated users)
+export function getProjectsByUser(userId: string): Project[] {
+  const db = getDb();
+  const stmt = db.prepare(
+    "SELECT * FROM projects WHERE user_id = ? ORDER BY updated_at DESC"
+  );
+  return stmt.all(userId) as Project[];
+}
+
+// Transfer projects from session to user (after login)
+export function transferProjectsToUser(
+  sessionId: string,
+  userId: string
+): number {
+  const db = getDb();
+  const stmt = db.prepare(
+    "UPDATE projects SET user_id = ?, session_id = NULL WHERE session_id = ?"
+  );
+  const result = stmt.run(userId, sessionId);
+  return result.changes;
 }
 
 // Update project
