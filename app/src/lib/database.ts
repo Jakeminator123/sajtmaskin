@@ -24,13 +24,11 @@ function hashPasswordInternal(password: string): string {
 }
 
 // Uploads directory for images - use DATA_DIR for persistent storage
-const UPLOADS_DIR = process.env.DATA_DIR
-  ? path.join(process.env.DATA_DIR, "uploads")
-  : path.join(process.cwd(), "public", "uploads");
-
-// Ensure uploads directory exists
-if (!fs.existsSync(UPLOADS_DIR)) {
-  fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+// NOTE: Directory is created lazily via getUploadsDir() to avoid build-time errors on Render
+function getUploadsPath(): string {
+  return process.env.DATA_DIR
+    ? path.join(process.env.DATA_DIR, "uploads")
+    : path.join(process.cwd(), "public", "uploads");
 }
 
 // Create database connection (singleton pattern)
@@ -599,9 +597,22 @@ export function deleteImage(imageId: number): boolean {
   return result.changes > 0;
 }
 
-// Get uploads directory path
+// Get uploads directory path - creates directory if it doesn't exist (lazy initialization)
 export function getUploadsDir(): string {
-  return UPLOADS_DIR;
+  const uploadsDir = getUploadsPath();
+
+  // Create directory lazily at runtime (not during build)
+  try {
+    if (!fs.existsSync(uploadsDir)) {
+      fs.mkdirSync(uploadsDir, { recursive: true });
+      console.log("[Database] Created uploads directory:", uploadsDir);
+    }
+  } catch (err) {
+    // Silently fail during build, will work at runtime
+    console.warn("[Database] Could not create uploads directory:", err);
+  }
+
+  return uploadsDir;
 }
 
 // ============ Template Screenshot Cache Operations ============
