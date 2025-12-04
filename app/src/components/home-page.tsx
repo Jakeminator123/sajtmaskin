@@ -12,7 +12,7 @@ import { SiteAuditSection } from "@/components/site-audit-section";
 import { AuditModal } from "@/components/audit-modal";
 import { RotateCcw, Sparkles } from "lucide-react";
 import { useAuth } from "@/lib/auth-store";
-import { AvatarChat } from "@/components/avatar";
+import { FloatingAvatar } from "@/components/avatar";
 import type { AuditResult } from "@/types/audit";
 
 export function HomePage() {
@@ -249,12 +249,8 @@ export function HomePage() {
         </p>
       </div>
 
-      {/* 3D Avatar Guide */}
-      <AvatarChat
-        currentSection="home"
-        proactive={true}
-        defaultCollapsed={true}
-      />
+      {/* 3D Avatar Guide - Floating character with walk-in animation */}
+      <FloatingAvatar section="home" showWelcome={true} />
     </main>
   );
 }

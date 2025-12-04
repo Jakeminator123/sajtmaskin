@@ -1,7 +1,23 @@
-// Avatar components for 3D guide
-export { Avatar3D } from "./Avatar3D";
-export { AvatarModel, ANIMATION_FILES } from "./AvatarModel";
-export type { AvatarAnimation } from "./AvatarModel";
-export { AvatarChat } from "./AvatarChat";
-export { useAvatarGuide } from "./useAvatarGuide";
+/**
+ * Avatar Module Exports
+ * =====================
+ * Public API for the 3D avatar system.
+ */
 
+// Main floating avatar component (use this in pages)
+export { FloatingAvatar } from "./FloatingAvatar";
+
+// Core 3D model component
+export { AvatarModel, ANIMATION_FILES } from "./AvatarModel";
+
+// UI components
+export { AvatarTooltip } from "./AvatarTooltip";
+
+// Hooks
+export { useAvatarBehavior } from "./useAvatarBehavior";
+
+// Configuration
+export { AVATAR_CONFIG } from "./avatar-config";
+
+// Types
+export type { AvatarAnimation } from "./AvatarModel";

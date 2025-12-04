@@ -21,6 +21,8 @@ import {
   Save,
   Diamond,
 } from "lucide-react";
+import { FloatingAvatar } from "@/components/avatar";
+import { useAvatar } from "@/contexts/AvatarContext";
 
 // Category titles in Swedish
 const categoryTitles: Record<string, string> = {
@@ -54,6 +56,9 @@ function BuilderContent() {
 
   const { isAuthenticated, diamonds, fetchUser } = useAuth();
   const [projectName, setProjectName] = useState<string | null>(null);
+
+  // Avatar context for triggering reactions
+  const { triggerReaction } = useAvatar();
 
   // Fetch user on mount to get diamond balance
   useEffect(() => {
@@ -90,6 +95,10 @@ function BuilderContent() {
   // Handle starting a new design
   const handleNewDesign = () => {
     clearChat();
+    triggerReaction(
+      "generation_start",
+      "Ny design! Låt oss skapa något fantastiskt!"
+    );
   };
 
   const title = projectName
@@ -244,6 +253,9 @@ function BuilderContent() {
           <HelpTooltip text="Du kan fortsätta förfina din design genom att skicka fler instruktioner i chatten. När du är nöjd, ladda ner eller publicera!" />
         </p>
       </div>
+
+      {/* 3D Avatar Guide */}
+      <FloatingAvatar section="builder" showWelcome={false} />
     </div>
   );
 }

@@ -3,6 +3,7 @@ import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { AnalyticsTracker } from "@/components/analytics-tracker";
 import { CookieBanner } from "@/components/cookie-banner";
+import { AvatarProvider } from "@/contexts/AvatarContext";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -34,9 +35,11 @@ export default function RootLayout({
         className="font-mono antialiased"
         style={{ backgroundColor: "#000000" }}
       >
-        <AnalyticsTracker />
-        {children}
-        <CookieBanner />
+        <AvatarProvider>
+          <AnalyticsTracker />
+          {children}
+          <CookieBanner />
+        </AvatarProvider>
       </body>
     </html>
   );

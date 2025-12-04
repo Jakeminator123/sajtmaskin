@@ -1,11 +1,27 @@
 "use client";
 
-import { useRef, useEffect, useState, useMemo } from "react";
+/**
+ * AvatarModel.tsx
+ * ===============
+ * 3D Avatar component that loads GLB models and plays animations.
+ *
+ * Each animation is a separate GLB file containing both the mesh and animation data.
+ * When the animation prop changes, a new GLB is loaded and played automatically.
+ *
+ * IMPORTANT: Uses the scene directly (not cloned) to ensure animations work correctly.
+ * Cloning the scene breaks the animation bindings to the skinned mesh.
+ */
+
+import { useRef, useEffect } from "react";
 import { useFrame } from "@react-three/fiber";
 import { useGLTF, useAnimations } from "@react-three/drei";
 import * as THREE from "three";
 
-// Animation type mapping
+// ============================================================================
+// TYPES
+// ============================================================================
+
+/** Available animation types for the avatar */
 export type AvatarAnimation =
   | "idle"
   | "idle2"
@@ -19,7 +35,11 @@ export type AvatarAnimation =
   | "shuffle"
   | "sleep";
 
-// Map animation names to GLB files
+// ============================================================================
+// ANIMATION FILE MAPPING
+// ============================================================================
+
+/** Map animation names to their GLB file paths */
 const ANIMATION_FILES: Record<AvatarAnimation, string> = {
   idle: "/models/avatar/Animation_Idle_02_withSkin.glb",
   idle2: "/models/avatar/Animation_Idle_3_withSkin.glb",
@@ -34,16 +54,34 @@ const ANIMATION_FILES: Record<AvatarAnimation, string> = {
   sleep: "/models/avatar/Animation_Cough_While_Sleeping_withSkin.glb",
 };
 
-// Preload all animations
+/** Animations that should loop infinitely */
+const LOOPING_ANIMATIONS: AvatarAnimation[] = [
+  "idle",
+  "idle2",
+  "idle3",
+  "walk",
+  "run",
+];
+
+// Preload all GLB files for smooth transitions between animations
 Object.values(ANIMATION_FILES).forEach((path) => {
   useGLTF.preload(path);
 });
 
+// ============================================================================
+// COMPONENT
+// ============================================================================
+
 interface AvatarModelProps {
+  /** Which animation to play */
   animation?: AvatarAnimation;
+  /** Position in 3D space [x, y, z] */
   position?: [number, number, number];
+  /** Rotation in radians [x, y, z] */
   rotation?: [number, number, number];
+  /** Scale multiplier */
   scale?: number;
+  /** Callback when non-looping animation completes */
   onAnimationComplete?: () => void;
 }
 
@@ -55,88 +93,76 @@ export function AvatarModel({
   onAnimationComplete,
 }: AvatarModelProps) {
   const group = useRef<THREE.Group>(null);
-  const [currentAnimation, setCurrentAnimation] =
-    useState<AvatarAnimation>(animation);
+  const baseY = useRef(position[1]);
 
-  // Load the GLB file for current animation
-  const { scene, animations } = useGLTF(ANIMATION_FILES[currentAnimation]);
+  // Load the GLB file for the current animation
+  // IMPORTANT: Each GLB contains both mesh + animation data
+  const { scene, animations } = useGLTF(ANIMATION_FILES[animation]);
 
-  // Clone the scene to avoid sharing issues
-  const clonedScene = useMemo(() => {
-    const clone = scene.clone(true);
-    clone.traverse((child) => {
-      if ((child as THREE.Mesh).isMesh) {
-        const mesh = child as THREE.Mesh;
-        mesh.castShadow = true;
-        mesh.receiveShadow = true;
-      }
-    });
-    return clone;
-  }, [scene]);
+  // Setup animation mixer and actions
+  // Pass scene directly (not group) to bind animations to the actual skinned mesh
+  const { actions, mixer } = useAnimations(animations, scene);
 
-  // Setup animations
-  const { actions, mixer } = useAnimations(animations, group);
-
-  // Play animation when it changes
+  // Play animation when loaded or when animation prop changes
   useEffect(() => {
-    if (actions && Object.keys(actions).length > 0) {
-      // Get the first (and usually only) animation
-      const actionName = Object.keys(actions)[0];
-      const action = actions[actionName];
+    if (!actions || Object.keys(actions).length === 0) {
+      return;
+    }
 
-      if (action) {
-        // Reset and play
-        action.reset();
-        action.fadeIn(0.3);
-        action.play();
+    // Get the first animation clip from the GLB (usually only one per file)
+    const actionName = Object.keys(actions)[0];
+    const action = actions[actionName];
 
-        // Handle animation completion for non-looping animations
-        if (
-          animation !== "idle" &&
-          animation !== "idle2" &&
-          animation !== "idle3"
-        ) {
-          action.setLoop(THREE.LoopOnce, 1);
-          action.clampWhenFinished = true;
+    if (!action) {
+      console.warn(`[AvatarModel] No action found for: ${animation}`);
+      return;
+    }
 
-          const onFinished = () => {
-            onAnimationComplete?.();
-          };
+    // Fade out any currently playing animations
+    Object.values(actions).forEach((a) => {
+      if (a) a.fadeOut(0.2);
+    });
 
-          mixer?.addEventListener("finished", onFinished);
-          return () => {
-            mixer?.removeEventListener("finished", onFinished);
-          };
-        } else {
-          action.setLoop(THREE.LoopRepeat, Infinity);
-        }
-      }
+    // Configure looping behavior
+    const shouldLoop = LOOPING_ANIMATIONS.includes(animation);
+    action.setLoop(
+      shouldLoop ? THREE.LoopRepeat : THREE.LoopOnce,
+      shouldLoop ? Infinity : 1
+    );
+
+    if (!shouldLoop) {
+      action.clampWhenFinished = true;
+    }
+
+    // Play the animation
+    action.reset().fadeIn(0.3).play();
+
+    // Handle completion callback for non-looping animations
+    if (!shouldLoop && onAnimationComplete && mixer) {
+      const handleFinished = () => onAnimationComplete();
+      mixer.addEventListener("finished", handleFinished);
+      return () => mixer.removeEventListener("finished", handleFinished);
     }
   }, [actions, mixer, animation, onAnimationComplete]);
 
-  // Update animation when prop changes
+  // Update base Y position when props change
   useEffect(() => {
-    if (animation !== currentAnimation) {
-      setCurrentAnimation(animation);
-    }
-  }, [animation, currentAnimation]);
+    baseY.current = position[1];
+  }, [position]);
 
-  // Subtle idle movement
+  // Subtle floating/breathing animation
   useFrame((state) => {
     if (group.current) {
-      // Gentle floating effect
       group.current.position.y =
-        position[1] + Math.sin(state.clock.elapsedTime * 0.5) * 0.02;
+        baseY.current + Math.sin(state.clock.elapsedTime * 0.8) * 0.015;
     }
   });
 
   return (
     <group ref={group} position={position} rotation={rotation} scale={scale}>
-      <primitive object={clonedScene} />
+      <primitive object={scene} />
     </group>
   );
 }
 
-// Export for preloading
 export { ANIMATION_FILES };
-
