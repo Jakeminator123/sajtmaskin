@@ -33,11 +33,8 @@ export function getRedis(): Redis | null {
         username: REDIS_USERNAME,
         password: REDIS_PASSWORD,
         maxRetriesPerRequest: 3,
-        retryDelayOnFailover: 100,
         lazyConnect: true,
-        // Connection timeout
         connectTimeout: 10000,
-        // Keep alive
         keepAlive: 30000,
       });
 

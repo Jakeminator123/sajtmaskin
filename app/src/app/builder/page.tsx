@@ -9,6 +9,7 @@ import { ChatPanel } from "@/components/chat-panel";
 import { CodePreview } from "@/components/code-preview";
 import { HelpTooltip } from "@/components/help-tooltip";
 import { ClientOnly } from "@/components/client-only";
+import { ShaderBackground } from "@/components/shader-background";
 import { useBuilderStore, GeneratedFile } from "@/lib/store";
 import { useAuth } from "@/lib/auth-store";
 import { getProject } from "@/lib/project-client";
@@ -105,28 +106,31 @@ function BuilderContent() {
 
   return (
     <div
-      className="min-h-screen bg-zinc-950 flex flex-col"
+      className="min-h-screen bg-black flex flex-col"
       suppressHydrationWarning
     >
+      {/* Shader Background - very subtle for builder */}
+      <ShaderBackground color="#002020" speed={0.15} opacity={0.25} />
+
       {/* Header */}
-      <header className="h-14 border-b border-zinc-800 flex items-center justify-between px-4 bg-zinc-900/50 backdrop-blur-sm">
+      <header className="relative z-20 h-14 border-b border-gray-800 flex items-center justify-between px-4 bg-black/80 backdrop-blur-sm">
         <div className="flex items-center gap-4">
           <Link href="/">
             <Button
               variant="ghost"
               size="sm"
-              className="gap-2 text-zinc-400 hover:text-zinc-100"
+              className="gap-2 text-gray-400 hover:text-white hover:bg-gray-800"
             >
               <ArrowLeft className="h-4 w-4" />
               Tillbaka
             </Button>
           </Link>
-          <div className="h-5 w-px bg-zinc-800" />
+          <div className="h-5 w-px bg-gray-800" />
           <div className="flex items-center gap-2">
-            <Rocket className="h-5 w-5 text-blue-500" />
-            <span className="font-semibold text-zinc-100">SajtMaskin</span>
-            <span className="text-zinc-500">|</span>
-            <span className="text-zinc-400">{title}</span>
+            <Rocket className="h-5 w-5 text-teal-500" />
+            <span className="font-semibold text-white">SajtMaskin</span>
+            <span className="text-gray-600">|</span>
+            <span className="text-gray-400">{title}</span>
           </div>
         </div>
         <div className="flex items-center gap-3">
@@ -134,28 +138,28 @@ function BuilderContent() {
           {isAuthenticated && (
             <>
               <Link href="/buy-credits">
-                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gradient-to-r from-amber-500/10 to-yellow-500/10 border border-amber-500/20 hover:border-amber-500/40 transition-colors cursor-pointer group">
+                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-black/50 border border-amber-500/30 hover:border-amber-500/60 transition-colors cursor-pointer group">
                   <Diamond className="h-4 w-4 text-amber-400 group-hover:text-amber-300" />
                   <span className="text-sm font-semibold text-amber-400 group-hover:text-amber-300">
                     {diamonds}
                   </span>
                 </div>
               </Link>
-              <div className="h-5 w-px bg-zinc-800" />
+              <div className="h-5 w-px bg-gray-800" />
             </>
           )}
           <QualitySelector value={quality} onChange={setQuality} />
-          <div className="h-5 w-px bg-zinc-800" />
+          <div className="h-5 w-px bg-gray-800" />
           {/* Saving indicator and save button */}
           {projectId && (
             <div className="flex items-center gap-2">
               {isSaving ? (
-                <span className="flex items-center gap-1 text-xs text-zinc-500">
+                <span className="flex items-center gap-1 text-xs text-gray-500">
                   <Save className="h-3 w-3 animate-pulse" />
                   Sparar...
                 </span>
               ) : hasUserSaved ? (
-                <span className="flex items-center gap-1 text-xs text-green-500">
+                <span className="flex items-center gap-1 text-xs text-teal-500">
                   <Save className="h-3 w-3" />
                   Sparad
                 </span>
@@ -180,7 +184,7 @@ function BuilderContent() {
               variant="ghost"
               size="sm"
               onClick={handleNewDesign}
-              className="gap-2 text-zinc-400 hover:text-zinc-100"
+              className="gap-2 text-gray-400 hover:text-white hover:bg-gray-800"
             >
               <RefreshCw className="h-4 w-4" />
               Ny design
@@ -189,7 +193,7 @@ function BuilderContent() {
           <Button
             variant="outline"
             size="sm"
-            className="gap-2 border-zinc-700 text-zinc-300 hover:bg-zinc-800"
+            className="gap-2 border-gray-700 text-gray-300 hover:bg-gray-800 hover:text-white"
             disabled={!chatId || !versionId}
             onClick={() => {
               if (chatId && versionId) {
@@ -204,7 +208,10 @@ function BuilderContent() {
             Ladda ner
             <HelpTooltip text="Laddar ner alla genererade filer som en ZIP-fil. Packa upp och lägg filerna i ditt projekt." />
           </Button>
-          <Button size="sm" className="gap-2 bg-blue-600 hover:bg-blue-500">
+          <Button
+            size="sm"
+            className="gap-2 bg-teal-600 hover:bg-teal-500 text-white"
+          >
             <Rocket className="h-4 w-4" />
             Publicera
             <HelpTooltip text="Publicerar din webbplats live på internet med ett klick. Du får en unik URL inom ~60 sekunder." />
@@ -213,9 +220,9 @@ function BuilderContent() {
       </header>
 
       {/* Main content - 2 panel layout */}
-      <div className="flex-1 flex overflow-hidden">
+      <div className="relative z-10 flex-1 flex overflow-hidden">
         {/* Chat Panel (30%) */}
-        <div className="w-[30%] min-w-[300px] border-r border-zinc-800 bg-zinc-900/30">
+        <div className="w-[30%] min-w-[300px] border-r border-gray-800 bg-black/70 backdrop-blur-sm">
           <ChatPanel
             categoryType={type || undefined}
             initialPrompt={prompt || undefined}
@@ -225,14 +232,14 @@ function BuilderContent() {
         </div>
 
         {/* Preview Panel (70%) */}
-        <div className="flex-1">
+        <div className="flex-1 bg-black/50">
           <CodePreview />
         </div>
       </div>
 
       {/* Step indicator */}
-      <div className="h-10 border-t border-zinc-800 flex items-center justify-center bg-zinc-900/50">
-        <p className="text-xs text-zinc-500">
+      <div className="relative z-10 h-10 border-t border-gray-800 flex items-center justify-center bg-black/80">
+        <p className="text-xs text-gray-500">
           Granska och förfina din design
           <HelpTooltip text="Du kan fortsätta förfina din design genom att skicka fler instruktioner i chatten. När du är nöjd, ladda ner eller publicera!" />
         </p>
@@ -244,12 +251,12 @@ function BuilderContent() {
 // Loading fallback component
 function LoadingFallback() {
   return (
-    <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
+    <div className="min-h-screen bg-black flex items-center justify-center">
       <div className="flex gap-2">
         {[1, 2, 3].map((i) => (
           <div
             key={i}
-            className="w-3 h-3 rounded-full bg-blue-500 animate-pulse"
+            className="w-3 h-3 bg-teal-500 animate-pulse"
             style={{ animationDelay: `${i * 150}ms` }}
           />
         ))}

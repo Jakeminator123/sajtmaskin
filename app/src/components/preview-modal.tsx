@@ -241,23 +241,23 @@ export function PreviewModal({
       onClick={handleBackdropClick}
     >
       {/* Modal container */}
-      <div className="relative w-[90vw] h-[85vh] max-w-6xl bg-zinc-900 rounded-2xl overflow-hidden shadow-2xl border border-zinc-700">
+      <div className="relative w-[90vw] h-[85vh] max-w-6xl bg-black overflow-hidden shadow-2xl border border-gray-800">
         {/* Header */}
-        <div className="absolute top-0 left-0 right-0 h-14 bg-zinc-900/95 backdrop-blur border-b border-zinc-800 flex items-center justify-between px-4 z-10">
+        <div className="absolute top-0 left-0 right-0 h-14 bg-black/95 backdrop-blur border-b border-gray-800 flex items-center justify-between px-4 z-10">
           <div className="flex items-center gap-3">
             <h3 className="text-lg font-semibold text-white truncate">
               {templateName}
             </h3>
             {isAutoScrolling && (
-              <span className="text-xs text-emerald-400 flex items-center gap-1">
-                <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
+              <span className="text-xs text-teal-400 flex items-center gap-1">
+                <span className="w-2 h-2 bg-teal-400 animate-pulse" />
                 Auto-scrollar...
               </span>
             )}
             {captureStatus && (
-              <span className="text-xs text-blue-400 flex items-center gap-1">
+              <span className="text-xs text-teal-400 flex items-center gap-1">
                 {isCapturing && (
-                  <span className="w-2 h-2 bg-blue-400 rounded-full animate-pulse" />
+                  <span className="w-2 h-2 bg-teal-400 animate-pulse" />
                 )}
                 {captureStatus}
               </span>
@@ -269,7 +269,7 @@ export function PreviewModal({
             {isAutoScrolling && (
               <button
                 onClick={togglePause}
-                className="p-2 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors"
+                className="p-2 text-gray-400 hover:text-white hover:bg-gray-800 transition-colors"
                 title={isPaused ? "Fortsätt" : "Pausa"}
               >
                 {isPaused ? (
@@ -284,7 +284,7 @@ export function PreviewModal({
             {!isAutoScrolling && !isLoading && (
               <button
                 onClick={startAutoScroll}
-                className="px-3 py-1.5 text-xs font-medium text-zinc-300 hover:text-white bg-zinc-800 hover:bg-zinc-700 rounded-lg transition-colors"
+                className="px-3 py-1.5 text-xs font-medium text-gray-300 hover:text-white bg-gray-800 hover:bg-gray-700 transition-colors"
               >
                 Scrolla igen
               </button>
@@ -293,7 +293,7 @@ export function PreviewModal({
             {/* Close button */}
             <button
               onClick={onClose}
-              className="p-2 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors"
+              className="p-2 text-gray-400 hover:text-white hover:bg-gray-800 transition-colors"
             >
               <X className="h-5 w-5" />
             </button>
@@ -302,9 +302,9 @@ export function PreviewModal({
 
         {/* Loading overlay */}
         {isLoading && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-zinc-900 z-20">
-            <Loader2 className="h-10 w-10 text-emerald-500 animate-spin mb-4" />
-            <p className="text-zinc-400">Laddar preview...</p>
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black z-20">
+            <Loader2 className="h-10 w-10 text-teal-500 animate-spin mb-4" />
+            <p className="text-gray-400">Laddar preview...</p>
           </div>
         )}
 
@@ -321,7 +321,7 @@ export function PreviewModal({
         </div>
 
         {/* Gradient overlay at bottom for visual effect */}
-        <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-zinc-900/50 to-transparent pointer-events-none" />
+        <div className="absolute bottom-0 left-0 right-0 h-20 bg-gradient-to-t from-black/50 to-transparent pointer-events-none" />
       </div>
     </div>
   );

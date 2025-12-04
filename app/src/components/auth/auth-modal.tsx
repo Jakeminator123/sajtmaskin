@@ -13,7 +13,6 @@ import {
   EyeOff,
   Loader2,
   Diamond,
-  CheckCircle,
 } from "lucide-react";
 
 interface AuthModalProps {
@@ -93,16 +92,16 @@ export function AuthModal({
     <div className="fixed inset-0 z-[100] flex items-center justify-center">
       {/* Backdrop */}
       <div
-        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        className="absolute inset-0 bg-black/80 backdrop-blur-sm"
         onClick={onClose}
       />
 
       {/* Modal */}
-      <div className="relative w-full max-w-md mx-4 bg-zinc-900 rounded-2xl border border-zinc-800 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+      <div className="relative w-full max-w-md mx-4 bg-black border border-gray-800 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
         {/* Close button */}
         <button
           onClick={onClose}
-          className="absolute right-4 top-4 p-1.5 rounded-lg hover:bg-zinc-800 text-zinc-500 hover:text-zinc-300 transition-colors"
+          className="absolute right-4 top-4 p-1.5 hover:bg-gray-800 text-gray-500 hover:text-gray-300 transition-colors"
         >
           <X className="h-5 w-5" />
         </button>
@@ -112,7 +111,7 @@ export function AuthModal({
           <h2 className="text-2xl font-bold text-white">
             {mode === "login" ? "Välkommen tillbaka!" : "Skapa konto"}
           </h2>
-          <p className="mt-2 text-sm text-zinc-400">
+          <p className="mt-2 text-sm text-gray-400">
             {mode === "login"
               ? "Logga in för att fortsätta bygga"
               : "Få 5 gratis diamanter när du skapar konto"}
@@ -120,7 +119,7 @@ export function AuthModal({
 
           {/* Signup bonus indicator */}
           {mode === "register" && (
-            <div className="mt-4 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-amber-500/10 to-yellow-500/10 border border-amber-500/20">
+            <div className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-amber-500/10 border border-amber-500/30">
               <Diamond className="h-4 w-4 text-amber-400" />
               <span className="text-sm font-medium text-amber-400">
                 +5 diamanter gratis
@@ -135,7 +134,7 @@ export function AuthModal({
           <Button
             type="button"
             variant="outline"
-            className="w-full h-11 border-zinc-700 bg-zinc-800/50 hover:bg-zinc-800 text-white"
+            className="w-full h-11 border-gray-700 bg-gray-900/50 hover:bg-gray-800 text-white"
             onClick={handleGoogleLogin}
           >
             <svg className="h-5 w-5 mr-2" viewBox="0 0 24 24">
@@ -162,10 +161,10 @@ export function AuthModal({
           {/* Divider */}
           <div className="relative">
             <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-zinc-800" />
+              <div className="w-full border-t border-gray-800" />
             </div>
             <div className="relative flex justify-center text-xs">
-              <span className="px-2 bg-zinc-900 text-zinc-500">
+              <span className="px-2 bg-black text-gray-500">
                 eller med e-post
               </span>
             </div>
@@ -174,17 +173,17 @@ export function AuthModal({
           {/* Name field (register only) */}
           {mode === "register" && (
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-zinc-300">
+              <label className="text-sm font-medium text-gray-300">
                 Namn (valfritt)
               </label>
               <div className="relative">
-                <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
+                <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
                 <Input
                   type="text"
                   placeholder="Ditt namn"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="pl-10 h-11 bg-zinc-800/50 border-zinc-700 text-white placeholder:text-zinc-500 focus:border-blue-500"
+                  className="pl-10 h-11 bg-black/50 border-gray-700 text-white placeholder:text-gray-500 focus:border-teal-500"
                 />
               </div>
             </div>
@@ -192,27 +191,27 @@ export function AuthModal({
 
           {/* Email field */}
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-zinc-300">E-post</label>
+            <label className="text-sm font-medium text-gray-300">E-post</label>
             <div className="relative">
-              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
+              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
               <Input
                 type="email"
                 placeholder="din@email.se"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="pl-10 h-11 bg-zinc-800/50 border-zinc-700 text-white placeholder:text-zinc-500 focus:border-blue-500"
+                className="pl-10 h-11 bg-black/50 border-gray-700 text-white placeholder:text-gray-500 focus:border-teal-500"
               />
             </div>
           </div>
 
           {/* Password field */}
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-zinc-300">
+            <label className="text-sm font-medium text-gray-300">
               Lösenord
             </label>
             <div className="relative">
-              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-zinc-500" />
+              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
               <Input
                 type={showPassword ? "text" : "password"}
                 placeholder={
@@ -222,12 +221,12 @@ export function AuthModal({
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 minLength={mode === "register" ? 6 : undefined}
-                className="pl-10 pr-10 h-11 bg-zinc-800/50 border-zinc-700 text-white placeholder:text-zinc-500 focus:border-blue-500"
+                className="pl-10 pr-10 h-11 bg-black/50 border-gray-700 text-white placeholder:text-gray-500 focus:border-teal-500"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300"
               >
                 {showPassword ? (
                   <EyeOff className="h-4 w-4" />
@@ -240,7 +239,7 @@ export function AuthModal({
 
           {/* Error message */}
           {error && (
-            <div className="p-3 rounded-lg bg-red-500/10 border border-red-500/20 text-sm text-red-400">
+            <div className="p-3 bg-red-500/10 border border-red-500/30 text-sm text-red-400">
               {error}
             </div>
           )}
@@ -248,7 +247,7 @@ export function AuthModal({
           {/* Submit button */}
           <Button
             type="submit"
-            className="w-full h-11 bg-blue-600 hover:bg-blue-500 text-white font-medium"
+            className="w-full h-11 bg-teal-600 hover:bg-teal-500 text-white font-medium"
             disabled={isLoading}
           >
             {isLoading ? (
@@ -262,7 +261,7 @@ export function AuthModal({
         </form>
 
         {/* Toggle mode */}
-        <div className="p-6 pt-0 text-center text-sm text-zinc-400">
+        <div className="p-6 pt-0 text-center text-sm text-gray-400">
           {mode === "login" ? (
             <>
               Har du inget konto?{" "}
@@ -271,7 +270,7 @@ export function AuthModal({
                   setMode("register");
                   setError(null);
                 }}
-                className="text-blue-400 hover:text-blue-300 font-medium"
+                className="text-teal-400 hover:text-teal-300 font-medium"
               >
                 Skapa konto
               </button>
@@ -284,7 +283,7 @@ export function AuthModal({
                   setMode("login");
                   setError(null);
                 }}
-                className="text-blue-400 hover:text-blue-300 font-medium"
+                className="text-teal-400 hover:text-teal-300 font-medium"
               >
                 Logga in
               </button>

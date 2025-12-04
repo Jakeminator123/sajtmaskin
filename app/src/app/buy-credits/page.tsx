@@ -5,6 +5,7 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Navbar } from "@/components/navbar";
 import { AuthModal } from "@/components/auth/auth-modal";
+import { ShaderBackground } from "@/components/shader-background";
 import { useAuth } from "@/lib/auth-store";
 import { Button } from "@/components/ui/button";
 import {
@@ -108,19 +109,22 @@ function BuyCreditsContent() {
   };
 
   return (
-    <div className="min-h-screen bg-zinc-950">
+    <div className="min-h-screen bg-black">
+      {/* Shader Background - subtle amber for credits page */}
+      <ShaderBackground color="#2a2000" speed={0.2} opacity={0.3} />
+
       <Navbar
         onLoginClick={() => setShowAuthModal(true)}
         onRegisterClick={() => setShowAuthModal(true)}
       />
 
       {/* Main content with padding for navbar */}
-      <main className="pt-24 pb-16 px-4">
+      <main className="relative z-10 pt-24 pb-16 px-4">
         <div className="max-w-4xl mx-auto">
           {/* Back link */}
           <Link
             href="/"
-            className="inline-flex items-center gap-2 text-sm text-zinc-500 hover:text-zinc-300 mb-8"
+            className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-gray-300 mb-8"
           >
             <ArrowLeft className="h-4 w-4" />
             Tillbaka till start
@@ -128,22 +132,22 @@ function BuyCreditsContent() {
 
           {/* Header */}
           <div className="text-center mb-12">
-            <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-500/20 to-yellow-500/20 border border-amber-500/20 mb-6">
+            <div className="inline-flex items-center justify-center w-16 h-16 bg-amber-500/10 border border-amber-500/30 mb-6">
               <Diamond className="h-8 w-8 text-amber-400" />
             </div>
             <h1 className="text-3xl sm:text-4xl font-bold text-white mb-4">
               Köp Diamanter
             </h1>
-            <p className="text-zinc-400 max-w-md mx-auto">
+            <p className="text-gray-400 max-w-md mx-auto">
               Varje diamant ger dig en AI-generering eller förfining. Större
               paket = mer värde!
             </p>
 
             {/* Current balance */}
             {isAuthenticated && (
-              <div className="mt-6 inline-flex items-center gap-2 px-4 py-2 rounded-full bg-zinc-800/50 border border-zinc-700">
+              <div className="mt-6 inline-flex items-center gap-2 px-4 py-2 bg-black/50 border border-gray-700">
                 <Diamond className="h-4 w-4 text-amber-400" />
-                <span className="text-sm text-zinc-300">
+                <span className="text-sm text-gray-300">
                   Ditt saldo:{" "}
                   <span className="font-semibold text-amber-400">
                     {diamonds} diamanter
@@ -155,9 +159,9 @@ function BuyCreditsContent() {
 
           {/* Success message */}
           {successMessage && (
-            <div className="mb-8 p-4 rounded-xl bg-green-500/10 border border-green-500/20 flex items-center gap-3">
-              <CheckCircle className="h-5 w-5 text-green-400 flex-shrink-0" />
-              <p className="text-green-400">{successMessage}</p>
+            <div className="mb-8 p-4 bg-teal-500/10 border border-teal-500/30 flex items-center gap-3">
+              <CheckCircle className="h-5 w-5 text-teal-400 flex-shrink-0" />
+              <p className="text-teal-400">{successMessage}</p>
             </div>
           )}
 
@@ -166,16 +170,16 @@ function BuyCreditsContent() {
             {PACKAGES.map((pkg) => (
               <div
                 key={pkg.id}
-                className={`relative rounded-2xl border ${
+                className={`relative border ${
                   pkg.popular
-                    ? "border-blue-500/50 bg-gradient-to-b from-blue-500/10 to-transparent"
-                    : "border-zinc-800 bg-zinc-900/50"
+                    ? "border-teal-500/50 bg-teal-500/5"
+                    : "border-gray-800 bg-black/50"
                 } p-6 flex flex-col`}
               >
                 {/* Popular badge */}
                 {pkg.popular && (
                   <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                    <div className="flex items-center gap-1 px-3 py-1 rounded-full bg-blue-500 text-white text-xs font-medium">
+                    <div className="flex items-center gap-1 px-3 py-1 bg-teal-500 text-white text-xs font-medium">
                       <Star className="h-3 w-3 fill-current" />
                       Populär
                     </div>
@@ -193,7 +197,7 @@ function BuyCreditsContent() {
                   <span className="text-3xl font-bold text-white">
                     {pkg.diamonds}
                   </span>
-                  <span className="text-zinc-500">diamanter</span>
+                  <span className="text-gray-500">diamanter</span>
                 </div>
 
                 {/* Price */}
@@ -202,24 +206,24 @@ function BuyCreditsContent() {
                     {pkg.price} kr
                   </span>
                   {pkg.savings > 0 && (
-                    <span className="ml-2 text-sm text-green-400">
+                    <span className="ml-2 text-sm text-teal-400">
                       Spara {pkg.savings}%
                     </span>
                   )}
                 </div>
 
                 {/* Price per diamond */}
-                <p className="text-sm text-zinc-500 mb-6">
+                <p className="text-sm text-gray-500 mb-6">
                   {(pkg.price / pkg.diamonds).toFixed(1)} kr per diamant
                 </p>
 
                 {/* Features */}
                 <ul className="space-y-2 mb-6 flex-grow">
-                  <li className="flex items-center gap-2 text-sm text-zinc-400">
-                    <Sparkles className="h-4 w-4 text-blue-400" />
+                  <li className="flex items-center gap-2 text-sm text-gray-400">
+                    <Sparkles className="h-4 w-4 text-teal-400" />
                     {pkg.diamonds} AI-generationer
                   </li>
-                  <li className="flex items-center gap-2 text-sm text-zinc-400">
+                  <li className="flex items-center gap-2 text-sm text-gray-400">
                     <Zap className="h-4 w-4 text-amber-400" />
                     Aldrig utgångsdatum
                   </li>
@@ -231,8 +235,8 @@ function BuyCreditsContent() {
                   disabled={isLoading}
                   className={`w-full h-11 ${
                     pkg.popular
-                      ? "bg-blue-600 hover:bg-blue-500"
-                      : "bg-zinc-800 hover:bg-zinc-700"
+                      ? "bg-teal-600 hover:bg-teal-500"
+                      : "bg-gray-800 hover:bg-gray-700"
                   } text-white font-medium`}
                 >
                   {isLoading && selectedPackage === pkg.id ? (
@@ -252,31 +256,31 @@ function BuyCreditsContent() {
             </h2>
             <div className="grid sm:grid-cols-3 gap-8">
               <div>
-                <div className="w-12 h-12 rounded-xl bg-blue-500/10 flex items-center justify-center mx-auto mb-4">
-                  <Sparkles className="h-6 w-6 text-blue-400" />
+                <div className="w-12 h-12 bg-teal-500/10 flex items-center justify-center mx-auto mb-4">
+                  <Sparkles className="h-6 w-6 text-teal-400" />
                 </div>
                 <h3 className="font-medium text-white mb-2">AI-generering</h3>
-                <p className="text-sm text-zinc-500">
+                <p className="text-sm text-gray-500">
                   Varje diamant = en komplett webbplats-generering
                 </p>
               </div>
               <div>
-                <div className="w-12 h-12 rounded-xl bg-amber-500/10 flex items-center justify-center mx-auto mb-4">
+                <div className="w-12 h-12 bg-amber-500/10 flex items-center justify-center mx-auto mb-4">
                   <Zap className="h-6 w-6 text-amber-400" />
                 </div>
                 <h3 className="font-medium text-white mb-2">Förfining</h3>
-                <p className="text-sm text-zinc-500">
+                <p className="text-sm text-gray-500">
                   Varje diamant = en förfining av din design
                 </p>
               </div>
               <div>
-                <div className="w-12 h-12 rounded-xl bg-green-500/10 flex items-center justify-center mx-auto mb-4">
-                  <CheckCircle className="h-6 w-6 text-green-400" />
+                <div className="w-12 h-12 bg-teal-500/10 flex items-center justify-center mx-auto mb-4">
+                  <CheckCircle className="h-6 w-6 text-teal-400" />
                 </div>
                 <h3 className="font-medium text-white mb-2">
                   Ingen prenumeration
                 </h3>
-                <p className="text-sm text-zinc-500">
+                <p className="text-sm text-gray-500">
                   Engångsköp, diamanterna gäller för alltid
                 </p>
               </div>
@@ -284,13 +288,13 @@ function BuyCreditsContent() {
           </div>
 
           {/* Payment info */}
-          <div className="mt-16 text-center text-sm text-zinc-500">
+          <div className="mt-16 text-center text-sm text-gray-500">
             <p>Säker betalning via Stripe. Vi accepterar kort.</p>
             <p className="mt-2">
               Har du frågor?{" "}
               <a
                 href="mailto:support@sajtmaskin.se"
-                className="text-blue-400 hover:text-blue-300"
+                className="text-teal-400 hover:text-teal-300"
               >
                 Kontakta oss
               </a>
@@ -312,8 +316,8 @@ function BuyCreditsContent() {
 // Loading fallback
 function BuyCreditsLoading() {
   return (
-    <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
-      <Loader2 className="h-8 w-8 animate-spin text-zinc-500" />
+    <div className="min-h-screen bg-black flex items-center justify-center">
+      <Loader2 className="h-8 w-8 animate-spin text-gray-500" />
     </div>
   );
 }

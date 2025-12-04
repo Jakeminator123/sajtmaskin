@@ -60,28 +60,28 @@ export function RequireAuthModal({
       <div className="fixed inset-0 z-[100] flex items-center justify-center">
         {/* Backdrop */}
         <div
-          className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+          className="absolute inset-0 bg-black/80 backdrop-blur-sm"
           onClick={onClose}
         />
 
         {/* Modal */}
-        <div className="relative w-full max-w-md mx-4 bg-zinc-900 rounded-2xl border border-zinc-800 shadow-2xl animate-in fade-in zoom-in-95 duration-200 overflow-hidden">
+        <div className="relative w-full max-w-md mx-4 bg-black border border-gray-800 shadow-2xl animate-in fade-in zoom-in-95 duration-200 overflow-hidden">
           {/* Close button */}
           <button
             onClick={onClose}
-            className="absolute right-4 top-4 p-1.5 rounded-lg hover:bg-zinc-800 text-zinc-500 hover:text-zinc-300 transition-colors z-10"
+            className="absolute right-4 top-4 p-1.5 hover:bg-gray-800 text-gray-500 hover:text-gray-300 transition-colors z-10"
           >
             <X className="h-5 w-5" />
           </button>
 
           {/* Decorative gradient */}
-          <div className="absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-blue-500/10 to-transparent" />
+          <div className="absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-teal-500/10 to-transparent" />
 
           {/* Content */}
           <div className="relative p-8 text-center">
             {/* Icon */}
-            <div className="mx-auto w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500/20 to-purple-500/20 border border-blue-500/20 flex items-center justify-center mb-6">
-              <Icon className="h-8 w-8 text-blue-400" />
+            <div className="mx-auto w-16 h-16 bg-teal-500/10 border border-teal-500/30 flex items-center justify-center mb-6">
+              <Icon className="h-8 w-8 text-teal-400" />
             </div>
 
             {/* Title */}
@@ -90,11 +90,11 @@ export function RequireAuthModal({
             </h2>
 
             {/* Description */}
-            <p className="text-zinc-400 mb-6">{reasonData.description}</p>
+            <p className="text-gray-400 mb-6">{reasonData.description}</p>
 
             {/* Bonus badge */}
             {reason !== "credits" && (
-              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-gradient-to-r from-amber-500/10 to-yellow-500/10 border border-amber-500/20 mb-6">
+              <div className="inline-flex items-center gap-2 px-4 py-2 bg-amber-500/10 border border-amber-500/30 mb-6">
                 <Diamond className="h-4 w-4 text-amber-400" />
                 <span className="text-sm font-medium text-amber-400">
                   +5 diamanter gratis vid registrering
@@ -109,7 +109,7 @@ export function RequireAuthModal({
                 <>
                   <Button
                     onClick={() => (window.location.href = "/buy-credits")}
-                    className="w-full h-11 bg-blue-600 hover:bg-blue-500 text-white font-medium"
+                    className="w-full h-11 bg-teal-600 hover:bg-teal-500 text-white font-medium"
                   >
                     <Diamond className="h-4 w-4 mr-2" />
                     Köp diamanter
@@ -117,7 +117,7 @@ export function RequireAuthModal({
                   <Button
                     variant="ghost"
                     onClick={onClose}
-                    className="w-full h-11 text-zinc-400 hover:text-white"
+                    className="w-full h-11 text-gray-400 hover:text-white"
                   >
                     Avbryt
                   </Button>
@@ -127,14 +127,14 @@ export function RequireAuthModal({
                 <>
                   <Button
                     onClick={() => handleAuthClick("register")}
-                    className="w-full h-11 bg-blue-600 hover:bg-blue-500 text-white font-medium"
+                    className="w-full h-11 bg-teal-600 hover:bg-teal-500 text-white font-medium"
                   >
                     Skapa gratis konto
                   </Button>
                   <Button
                     variant="ghost"
                     onClick={() => handleAuthClick("login")}
-                    className="w-full h-11 text-zinc-400 hover:text-white"
+                    className="w-full h-11 text-gray-400 hover:text-white"
                   >
                     Har redan konto? Logga in
                   </Button>

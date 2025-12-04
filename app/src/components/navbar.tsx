@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { useAuth, useAuthStore } from "@/lib/auth-store";
+import { useAuth } from "@/lib/auth-store";
 import { Button } from "@/components/ui/button";
 import {
   Rocket,
@@ -55,11 +55,11 @@ export function Navbar({ onLoginClick, onRegisterClick }: NavbarProps) {
   const isActive = (path: string) => pathname === path;
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 h-16 bg-zinc-950/80 backdrop-blur-xl border-b border-zinc-800/50">
+    <nav className="fixed top-0 left-0 right-0 z-50 h-16 bg-black/80 backdrop-blur-xl border-b border-gray-800">
       <div className="max-w-7xl mx-auto h-full px-4 flex items-center justify-between">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2.5 group">
-          <div className="p-1.5 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 shadow-lg shadow-blue-500/20 group-hover:shadow-blue-500/30 transition-shadow">
+          <div className="p-1.5 bg-teal-600 group-hover:bg-teal-500 transition-colors">
             <Rocket className="h-5 w-5 text-white" />
           </div>
           <span className="text-lg font-bold text-white tracking-tight">
@@ -75,8 +75,8 @@ export function Navbar({ onLoginClick, onRegisterClick }: NavbarProps) {
               size="sm"
               className={`text-sm ${
                 isActive("/")
-                  ? "text-white bg-zinc-800/50"
-                  : "text-zinc-400 hover:text-white"
+                  ? "text-white bg-gray-800/50"
+                  : "text-gray-400 hover:text-white hover:bg-gray-800/50"
               }`}
             >
               <Sparkles className="h-4 w-4 mr-1.5" />
@@ -89,8 +89,8 @@ export function Navbar({ onLoginClick, onRegisterClick }: NavbarProps) {
               size="sm"
               className={`text-sm ${
                 isActive("/projects")
-                  ? "text-white bg-zinc-800/50"
-                  : "text-zinc-400 hover:text-white"
+                  ? "text-white bg-gray-800/50"
+                  : "text-gray-400 hover:text-white hover:bg-gray-800/50"
               }`}
             >
               <FolderOpen className="h-4 w-4 mr-1.5" />
@@ -104,7 +104,7 @@ export function Navbar({ onLoginClick, onRegisterClick }: NavbarProps) {
           {/* Diamond counter - only show for authenticated users */}
           {isAuthenticated && (
             <Link href="/buy-credits">
-              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gradient-to-r from-amber-500/10 to-yellow-500/10 border border-amber-500/20 hover:border-amber-500/40 transition-colors cursor-pointer group">
+              <div className="flex items-center gap-1.5 px-3 py-1.5 bg-black/50 border border-amber-500/30 hover:border-amber-500/60 transition-colors cursor-pointer group">
                 <Diamond className="h-4 w-4 text-amber-400 group-hover:text-amber-300" />
                 <span className="text-sm font-semibold text-amber-400 group-hover:text-amber-300">
                   {diamonds}
@@ -116,13 +116,13 @@ export function Navbar({ onLoginClick, onRegisterClick }: NavbarProps) {
           {/* Auth section */}
           {!isInitialized ? (
             // Loading skeleton
-            <div className="w-20 h-8 rounded-lg bg-zinc-800/50 animate-pulse" />
+            <div className="w-20 h-8 bg-gray-800/50 animate-pulse" />
           ) : isAuthenticated ? (
             // User menu
             <div className="relative" data-user-menu>
               <button
                 onClick={() => setShowUserMenu(!showUserMenu)}
-                className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-zinc-800/50 hover:bg-zinc-800 border border-zinc-700/50 transition-colors"
+                className="flex items-center gap-2 px-3 py-1.5 bg-gray-800/50 hover:bg-gray-800 border border-gray-700 transition-colors"
               >
                 {user?.image ? (
                   <Image
@@ -130,18 +130,18 @@ export function Navbar({ onLoginClick, onRegisterClick }: NavbarProps) {
                     alt={user.name || ""}
                     width={24}
                     height={24}
-                    className="rounded-full"
+                    className="rounded-none"
                   />
                 ) : (
-                  <div className="w-6 h-6 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center">
+                  <div className="w-6 h-6 bg-gradient-to-br from-teal-500 to-teal-600 flex items-center justify-center">
                     <User className="h-3.5 w-3.5 text-white" />
                   </div>
                 )}
-                <span className="text-sm text-zinc-300 max-w-[100px] truncate hidden sm:block">
+                <span className="text-sm text-gray-300 max-w-[100px] truncate hidden sm:block">
                   {user?.name || user?.email?.split("@")[0] || "Användare"}
                 </span>
                 <ChevronDown
-                  className={`h-4 w-4 text-zinc-500 transition-transform ${
+                  className={`h-4 w-4 text-gray-500 transition-transform ${
                     showUserMenu ? "rotate-180" : ""
                   }`}
                 />
@@ -149,13 +149,13 @@ export function Navbar({ onLoginClick, onRegisterClick }: NavbarProps) {
 
               {/* Dropdown menu */}
               {showUserMenu && (
-                <div className="absolute right-0 mt-2 w-56 rounded-xl bg-zinc-900 border border-zinc-800 shadow-xl shadow-black/20 py-1 animate-in fade-in slide-in-from-top-2 duration-200">
+                <div className="absolute right-0 mt-2 w-56 bg-black border border-gray-800 shadow-xl shadow-black/50 py-1 animate-in fade-in slide-in-from-top-2 duration-200">
                   {/* User info */}
-                  <div className="px-4 py-3 border-b border-zinc-800">
+                  <div className="px-4 py-3 border-b border-gray-800">
                     <p className="text-sm font-medium text-white truncate">
                       {user?.name || "Användare"}
                     </p>
-                    <p className="text-xs text-zinc-500 truncate">
+                    <p className="text-xs text-gray-500 truncate">
                       {user?.email}
                     </p>
                   </div>
@@ -163,10 +163,10 @@ export function Navbar({ onLoginClick, onRegisterClick }: NavbarProps) {
                   {/* Balance */}
                   <Link
                     href="/buy-credits"
-                    className="flex items-center justify-between px-4 py-2.5 hover:bg-zinc-800/50 transition-colors"
+                    className="flex items-center justify-between px-4 py-2.5 hover:bg-gray-800/50 transition-colors"
                     onClick={() => setShowUserMenu(false)}
                   >
-                    <span className="text-sm text-zinc-400">Diamanter</span>
+                    <span className="text-sm text-gray-400">Diamanter</span>
                     <div className="flex items-center gap-1.5">
                       <Diamond className="h-4 w-4 text-amber-400" />
                       <span className="text-sm font-semibold text-amber-400">
@@ -178,15 +178,15 @@ export function Navbar({ onLoginClick, onRegisterClick }: NavbarProps) {
                   {/* Buy credits */}
                   <Link
                     href="/buy-credits"
-                    className="flex items-center gap-2 px-4 py-2.5 hover:bg-zinc-800/50 transition-colors text-sm text-zinc-300"
+                    className="flex items-center gap-2 px-4 py-2.5 hover:bg-gray-800/50 transition-colors text-sm text-gray-300"
                     onClick={() => setShowUserMenu(false)}
                   >
-                    <Sparkles className="h-4 w-4 text-blue-400" />
+                    <Sparkles className="h-4 w-4 text-teal-400" />
                     Köp diamanter
                   </Link>
 
                   {/* Divider */}
-                  <div className="h-px bg-zinc-800 my-1" />
+                  <div className="h-px bg-gray-800 my-1" />
 
                   {/* Logout */}
                   <button
@@ -194,7 +194,7 @@ export function Navbar({ onLoginClick, onRegisterClick }: NavbarProps) {
                       logout();
                       setShowUserMenu(false);
                     }}
-                    className="flex items-center gap-2 w-full px-4 py-2.5 hover:bg-zinc-800/50 transition-colors text-sm text-zinc-400"
+                    className="flex items-center gap-2 w-full px-4 py-2.5 hover:bg-gray-800/50 transition-colors text-sm text-gray-400"
                   >
                     <LogOut className="h-4 w-4" />
                     Logga ut
@@ -209,7 +209,7 @@ export function Navbar({ onLoginClick, onRegisterClick }: NavbarProps) {
                 variant="ghost"
                 size="sm"
                 onClick={onLoginClick}
-                className="text-zinc-400 hover:text-white"
+                className="text-gray-400 hover:text-white hover:bg-gray-800"
               >
                 <LogIn className="h-4 w-4 mr-1.5" />
                 Logga in
@@ -217,7 +217,7 @@ export function Navbar({ onLoginClick, onRegisterClick }: NavbarProps) {
               <Button
                 size="sm"
                 onClick={onRegisterClick}
-                className="bg-blue-600 hover:bg-blue-500 text-white"
+                className="bg-teal-600 hover:bg-teal-500 text-white"
               >
                 Skapa konto
               </Button>
@@ -226,7 +226,7 @@ export function Navbar({ onLoginClick, onRegisterClick }: NavbarProps) {
 
           {/* Mobile menu button */}
           <button
-            className="md:hidden p-2 rounded-lg hover:bg-zinc-800/50 text-zinc-400"
+            className="md:hidden p-2 hover:bg-gray-800/50 text-gray-400"
             onClick={() => setShowMobileMenu(!showMobileMenu)}
             data-mobile-menu
           >
@@ -242,15 +242,15 @@ export function Navbar({ onLoginClick, onRegisterClick }: NavbarProps) {
       {/* Mobile menu */}
       {showMobileMenu && (
         <div
-          className="md:hidden absolute top-16 left-0 right-0 bg-zinc-950/95 backdrop-blur-xl border-b border-zinc-800 py-4 animate-in slide-in-from-top-2"
+          className="md:hidden absolute top-16 left-0 right-0 bg-black/95 backdrop-blur-xl border-b border-gray-800 py-4 animate-in slide-in-from-top-2"
           data-mobile-menu
         >
           <div className="max-w-7xl mx-auto px-4 space-y-2">
             <Link
               href="/"
               onClick={() => setShowMobileMenu(false)}
-              className={`flex items-center gap-2 px-4 py-3 rounded-lg ${
-                isActive("/") ? "bg-zinc-800/50 text-white" : "text-zinc-400"
+              className={`flex items-center gap-2 px-4 py-3 ${
+                isActive("/") ? "bg-gray-800/50 text-white" : "text-gray-400"
               }`}
             >
               <Sparkles className="h-5 w-5" />
@@ -259,10 +259,10 @@ export function Navbar({ onLoginClick, onRegisterClick }: NavbarProps) {
             <Link
               href="/projects"
               onClick={() => setShowMobileMenu(false)}
-              className={`flex items-center gap-2 px-4 py-3 rounded-lg ${
+              className={`flex items-center gap-2 px-4 py-3 ${
                 isActive("/projects")
-                  ? "bg-zinc-800/50 text-white"
-                  : "text-zinc-400"
+                  ? "bg-gray-800/50 text-white"
+                  : "text-gray-400"
               }`}
             >
               <FolderOpen className="h-5 w-5" />
@@ -272,7 +272,7 @@ export function Navbar({ onLoginClick, onRegisterClick }: NavbarProps) {
               <Link
                 href="/buy-credits"
                 onClick={() => setShowMobileMenu(false)}
-                className="flex items-center gap-2 px-4 py-3 rounded-lg text-zinc-400"
+                className="flex items-center gap-2 px-4 py-3 text-gray-400"
               >
                 <Diamond className="h-5 w-5 text-amber-400" />
                 Köp diamanter

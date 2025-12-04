@@ -7,6 +7,7 @@ import { HelpTooltip } from "@/components/help-tooltip";
 import { OnboardingModal, useOnboarding } from "@/components/onboarding-modal";
 import { Navbar } from "@/components/navbar";
 import { AuthModal } from "@/components/auth/auth-modal";
+import { ShaderBackground } from "@/components/shader-background";
 import { RotateCcw } from "lucide-react";
 
 export function HomePage() {
@@ -68,7 +69,10 @@ export function HomePage() {
   const initialContext = getInitialContext();
 
   return (
-    <main className="min-h-screen bg-gradient-to-b from-zinc-950 via-zinc-950 to-zinc-900">
+    <main className="min-h-screen bg-black">
+      {/* Shader Background - subtle and subdued */}
+      <ShaderBackground color="#002020" speed={0.2} opacity={0.35} />
+
       {/* Navbar */}
       <Navbar
         onLoginClick={handleLoginClick}
@@ -87,26 +91,23 @@ export function HomePage() {
         <OnboardingModal onComplete={handleComplete} onSkip={handleSkip} />
       )}
 
-      {/* Background pattern */}
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-blue-900/10 via-transparent to-transparent pointer-events-none" />
-
       {/* Reset onboarding button (dev/testing only) */}
       <button
         onClick={resetOnboarding}
-        className="fixed bottom-4 left-4 z-50 inline-flex items-center gap-2 px-3 py-1.5 rounded-lg bg-zinc-800/50 hover:bg-zinc-700/50 text-zinc-500 hover:text-zinc-300 text-xs transition-colors"
+        className="fixed bottom-4 left-4 z-50 inline-flex items-center gap-2 px-3 py-1.5 bg-black/70 hover:bg-black/90 text-gray-500 hover:text-gray-300 text-xs transition-colors border border-gray-700"
         title="Visa introduktion igen"
       >
         <RotateCcw className="h-3 w-3" />
         Intro
       </button>
 
-      <div className="relative flex flex-col items-center justify-center min-h-screen px-4 pt-24 pb-16 space-y-12">
+      <div className="relative z-10 flex flex-col items-center justify-center min-h-screen px-4 pt-24 pb-16 space-y-12">
         {/* Header */}
         <div className="text-center space-y-4">
           <h1 className="text-3xl sm:text-4xl font-bold text-white tracking-tight">
             Vad vill du bygga idag?
           </h1>
-          <p className="text-zinc-400 max-w-md mx-auto flex items-center justify-center gap-2">
+          <p className="text-gray-400 max-w-md mx-auto flex items-center justify-center gap-2 text-sm">
             Skapa professionella webbplatser på minuter med hjälp av AI.
             <HelpTooltip text="Välj en kategori för att komma igång snabbt, eller beskriv din webbplats med egna ord i textfältet nedan." />
           </p>
@@ -114,19 +115,19 @@ export function HomePage() {
 
         {/* Show context from onboarding if available */}
         {initialContext && (
-          <div className="w-full max-w-2xl bg-zinc-800/50 border border-zinc-700 rounded-xl p-4">
+          <div className="w-full max-w-2xl bg-black/70 border border-gray-700 p-4">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-medium text-emerald-400">
+              <span className="text-xs font-medium text-teal-400">
                 ✓ Din information sparad
               </span>
               <button
                 onClick={resetOnboarding}
-                className="text-xs text-zinc-500 hover:text-zinc-300"
+                className="text-xs text-gray-500 hover:text-gray-300"
               >
                 Ändra
               </button>
             </div>
-            <p className="text-sm text-zinc-400 whitespace-pre-line line-clamp-3">
+            <p className="text-sm text-gray-400 whitespace-pre-line line-clamp-3">
               {initialContext}
             </p>
           </div>
@@ -137,18 +138,18 @@ export function HomePage() {
 
         {/* Divider */}
         <div className="flex items-center gap-4 w-full max-w-md">
-          <div className="flex-1 h-px bg-gradient-to-r from-transparent via-zinc-700 to-transparent" />
-          <span className="text-sm font-medium text-zinc-500 uppercase tracking-wider">
+          <div className="flex-1 h-px bg-gradient-to-r from-transparent via-gray-700 to-transparent" />
+          <span className="text-sm font-medium text-gray-500 uppercase tracking-wider">
             Eller
           </span>
-          <div className="flex-1 h-px bg-gradient-to-r from-transparent via-zinc-700 to-transparent" />
+          <div className="flex-1 h-px bg-gradient-to-r from-transparent via-gray-700 to-transparent" />
         </div>
 
         {/* Prompt Input */}
         <PromptInput initialValue={initialContext || undefined} />
 
         {/* Footer hint */}
-        <p className="text-xs text-zinc-600 text-center max-w-sm">
+        <p className="text-xs text-gray-600 text-center max-w-sm">
           Tryck Enter för att skicka, Shift+Enter för ny rad.
           <br />
           AI genererar kod som du kan ladda ner och använda.

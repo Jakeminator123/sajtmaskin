@@ -749,24 +749,24 @@ export function PromptWizardModal({
       />
 
       {/* Modal */}
-      <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto overflow-x-hidden overscroll-contain bg-zinc-950 border border-zinc-800 rounded-2xl shadow-2xl mx-4">
+      <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto overflow-x-hidden overscroll-contain bg-black border border-gray-800 shadow-2xl mx-4">
         {/* Decorative background elements */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute -top-24 -right-24 w-48 h-48 bg-blue-500/10 rounded-full blur-3xl" />
-          <div className="absolute -bottom-24 -left-24 w-48 h-48 bg-purple-500/10 rounded-full blur-3xl" />
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-gradient-to-br from-blue-500/5 to-purple-500/5 rounded-full blur-3xl" />
+          <div className="absolute -top-24 -right-24 w-48 h-48 bg-teal-500/10 blur-3xl" />
+          <div className="absolute -bottom-24 -left-24 w-48 h-48 bg-teal-500/5 blur-3xl" />
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-gradient-to-br from-teal-500/5 to-gray-500/5 blur-3xl" />
         </div>
 
         {/* Close button */}
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 p-2 text-zinc-500 hover:text-white transition-colors z-10 hover:rotate-90 duration-200"
+          className="absolute top-4 right-4 p-2 text-gray-500 hover:text-white transition-colors z-10 hover:rotate-90 duration-200"
         >
           <X className="h-5 w-5" />
         </button>
 
         {/* Header with unique design */}
-        <div className="relative p-6 border-b border-zinc-800/50">
+        <div className="relative p-6 border-b border-gray-800/50">
           {/* Step indicator circles */}
           <div className="flex items-center justify-center gap-2 mb-4">
             {steps.map((s, idx) => (
@@ -774,17 +774,17 @@ export function PromptWizardModal({
                 key={s.id}
                 className={`transition-all duration-300 ${
                   idx + 1 < displayStep
-                    ? "w-2 h-2 rounded-full bg-gradient-to-r from-blue-500 to-purple-500"
+                    ? "w-2 h-2 bg-teal-500"
                     : idx + 1 === displayStep
-                    ? "w-8 h-2 rounded-full bg-gradient-to-r from-blue-400 to-purple-400 animate-pulse"
-                    : "w-2 h-2 rounded-full bg-zinc-700"
+                    ? "w-8 h-2 bg-teal-400 animate-pulse"
+                    : "w-2 h-2 bg-gray-700"
                 }`}
               />
             ))}
           </div>
 
           <div className="text-center space-y-3">
-            <h2 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-white via-purple-200 to-pink-300 bg-clip-text text-transparent animate-gradient leading-tight transition-all duration-300">
+            <h2 className="text-3xl sm:text-4xl font-bold text-white leading-tight transition-all duration-300">
               {step === 1 && "Berätta om dig"}
               {step === 2 && "Vilken värld tillhör du?"}
               {step === 3 && "Var finns magin?"}
@@ -797,7 +797,7 @@ export function PromptWizardModal({
               {step === 10 && "Design & Komponenter"}
               {step === 11 && "Välj din palett"}
             </h2>
-            <p className="text-base sm:text-lg text-zinc-400 font-medium">
+            <p className="text-base sm:text-lg text-gray-400 font-medium">
               Steg {displayStep} av {totalSteps}
             </p>
           </div>
@@ -831,11 +831,11 @@ export function PromptWizardModal({
                   value={companyName}
                   onChange={(e) => setCompanyName(e.target.value)}
                   placeholder="Skriv ditt företagsnamn..."
-                  className="w-full px-6 py-5 bg-zinc-900/50 border-2 border-zinc-800 rounded-xl text-xl text-white placeholder-zinc-500 focus:border-blue-500/50 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all duration-200 hover:border-zinc-700"
+                  className="w-full px-6 py-5 bg-black/50 border-2 border-gray-800 text-xl text-white placeholder-gray-500 focus:border-teal-500/50 focus:outline-none focus:ring-2 focus:ring-teal-500/20 transition-all duration-200 hover:border-gray-700"
                   autoFocus
                 />
                 {companyName && (
-                  <div className="absolute right-4 top-1/2 -translate-y-1/2 text-emerald-400">
+                  <div className="absolute right-4 top-1/2 -translate-y-1/2 text-teal-400">
                     ✓
                   </div>
                 )}
@@ -866,10 +866,10 @@ export function PromptWizardModal({
                     key={option.id}
                     onClick={() => handleIndustryChange(option.id)}
                     style={{ animationDelay: `${idx * 30}ms` }}
-                    className={`group relative flex flex-col items-center gap-2 p-4 rounded-xl border-2 transition-all duration-200 text-center animate-fadeIn ${
+                    className={`group relative flex flex-col items-center gap-2 p-4 border-2 transition-all duration-200 text-center animate-fadeIn ${
                       industry === option.id
-                        ? "border-amber-400/50 bg-gradient-to-br from-amber-500/20 to-orange-500/10 shadow-lg shadow-amber-500/10"
-                        : "border-zinc-800 hover:border-zinc-700 hover:bg-zinc-800/50"
+                        ? "border-teal-400/50 bg-teal-500/10"
+                        : "border-gray-800 hover:border-gray-700 hover:bg-gray-800/50"
                     }`}
                   >
                     <span
@@ -884,8 +884,8 @@ export function PromptWizardModal({
                     <span
                       className={`text-sm font-medium ${
                         industry === option.id
-                          ? "text-amber-300"
-                          : "text-zinc-400 group-hover:text-zinc-300"
+                          ? "text-teal-300"
+                          : "text-gray-400 group-hover:text-gray-300"
                       }`}
                     >
                       {option.label}
@@ -893,7 +893,7 @@ export function PromptWizardModal({
 
                     {/* Selected indicator */}
                     {industry === option.id && (
-                      <div className="absolute -top-1 -right-1 w-5 h-5 bg-amber-400 rounded-full flex items-center justify-center text-xs text-zinc-900 font-bold">
+                      <div className="absolute -top-1 -right-1 w-5 h-5 bg-teal-400 flex items-center justify-center text-xs text-black font-bold">
                         ✓
                       </div>
                     )}
@@ -903,10 +903,10 @@ export function PromptWizardModal({
 
               {/* Show what we'll customize */}
               {industry && (
-                <div className="p-4 bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/30 rounded-xl text-base text-zinc-200 font-medium animate-fadeIn">
-                  <span className="text-amber-400 text-lg">→</span> Vi föreslår
+                <div className="p-4 bg-teal-500/10 border border-teal-500/30 text-base text-gray-200 font-medium animate-fadeIn">
+                  <span className="text-teal-400 text-lg">→</span> Vi föreslår
                   nu{" "}
-                  <span className="text-amber-300 font-semibold">
+                  <span className="text-teal-300 font-semibold">
                     {currentIndustry?.label}
                   </span>
                   -anpassade färger och funktioner
@@ -918,16 +918,16 @@ export function PromptWizardModal({
           {/* Step 3: Location with Google Maps */}
           {step === 3 && (
             <div className="space-y-4">
-              <div className="flex items-center gap-3 text-zinc-300">
-                <MapPin className="h-6 w-6 text-emerald-400" />
+              <div className="flex items-center gap-3 text-gray-300">
+                <MapPin className="h-6 w-6 text-teal-400" />
                 <h3 className="text-2xl sm:text-3xl font-bold">
                   Var finns ni?{" "}
-                  <span className="text-base font-normal text-zinc-500">
+                  <span className="text-base font-normal text-gray-500">
                     (valfritt)
                   </span>
                 </h3>
               </div>
-              <p className="text-base sm:text-lg text-zinc-300 leading-relaxed">
+              <p className="text-base sm:text-lg text-gray-300 leading-relaxed">
                 Sök eller välj på kartan för att få lokalt anpassade förslag och
                 hitta konkurrenter i närheten
               </p>
@@ -944,9 +944,9 @@ export function PromptWizardModal({
                 placeholder="Sök efter adress, stad eller område..."
               />
 
-              <div className="flex items-start gap-2 p-3 bg-purple-500/10 border border-purple-500/20 rounded-lg">
+              <div className="flex items-start gap-2 p-3 bg-teal-500/10 border border-teal-500/30">
                 <span className="text-lg">💡</span>
-                <p className="text-sm text-purple-300">
+                <p className="text-sm text-teal-300">
                   Med din plats kan vi hitta konkurrenter i området och ge dig
                   branschspecifika tips för din region!
                 </p>
@@ -957,16 +957,16 @@ export function PromptWizardModal({
           {/* Step 4: Existing website */}
           {step === 4 && (
             <div className="space-y-4">
-              <div className="flex items-center gap-3 text-zinc-300">
-                <Globe className="h-6 w-6 text-blue-400" />
+              <div className="flex items-center gap-3 text-gray-300">
+                <Globe className="h-6 w-6 text-teal-400" />
                 <h3 className="text-2xl sm:text-3xl font-bold">
                   Har du en befintlig webbplats?{" "}
-                  <span className="text-base font-normal text-zinc-500">
+                  <span className="text-base font-normal text-gray-500">
                     (valfritt)
                   </span>
                 </h3>
               </div>
-              <p className="text-base sm:text-lg text-zinc-300 leading-relaxed">
+              <p className="text-base sm:text-lg text-gray-300 leading-relaxed">
                 Vi kan analysera din nuvarande sajt och ge förbättringsförslag
               </p>
               <input
@@ -977,10 +977,10 @@ export function PromptWizardModal({
                 value={existingWebsite}
                 onChange={(e) => setExistingWebsite(e.target.value)}
                 placeholder="https://din-nuvarande-sajt.se"
-                className="w-full px-5 py-4 bg-zinc-800 border-2 border-zinc-700 rounded-xl text-lg text-white placeholder-zinc-400 focus:border-blue-500/50 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all hover:border-zinc-600"
+                className="w-full px-5 py-4 bg-black border-2 border-gray-800 text-lg text-white placeholder-gray-400 focus:border-teal-500/50 focus:outline-none focus:ring-2 focus:ring-teal-500/20 transition-all hover:border-gray-700"
               />
               {existingWebsite && (
-                <p className="text-sm text-emerald-400 font-medium">
+                <p className="text-sm text-teal-400 font-medium">
                   ✓ Vi analyserar din sajt i nästa steg
                 </p>
               )}
@@ -990,8 +990,8 @@ export function PromptWizardModal({
           {/* Step 5: Site feedback (only if existing website) */}
           {step === 5 && existingWebsite && (
             <div className="space-y-6">
-              <div className="flex items-center gap-3 text-zinc-300">
-                <ThumbsUp className="h-6 w-6 text-emerald-400" />
+              <div className="flex items-center gap-3 text-gray-300">
+                <ThumbsUp className="h-6 w-6 text-teal-400" />
                 <h3 className="text-2xl sm:text-3xl font-bold">
                   Vad tycker du om din nuvarande sajt?
                 </h3>
@@ -999,9 +999,9 @@ export function PromptWizardModal({
 
               {/* Analyzing indicator */}
               {isAnalyzing && (
-                <div className="flex items-center gap-2 p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
-                  <Loader2 className="h-4 w-4 animate-spin text-blue-400" />
-                  <span className="text-sm text-blue-400">
+                <div className="flex items-center gap-2 p-3 bg-teal-500/10 border border-teal-500/30">
+                  <Loader2 className="h-4 w-4 animate-spin text-teal-400" />
+                  <span className="text-sm text-teal-400">
                     Analyserar din webbplats med AI...
                   </span>
                 </div>
@@ -1009,11 +1009,11 @@ export function PromptWizardModal({
 
               {/* Analysis result */}
               {websiteAnalysis && (
-                <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-lg">
-                  <p className="text-xs text-emerald-400 font-medium mb-1">
+                <div className="p-3 bg-teal-500/10 border border-teal-500/30">
+                  <p className="text-xs text-teal-400 font-medium mb-1">
                     AI-analys av din sajt:
                   </p>
-                  <p className="text-base text-zinc-200 leading-relaxed">
+                  <p className="text-base text-gray-200 leading-relaxed">
                     {websiteAnalysis}
                   </p>
                 </div>
@@ -1021,8 +1021,8 @@ export function PromptWizardModal({
 
               {/* Likes */}
               <div className="space-y-3">
-                <p className="text-lg font-semibold text-zinc-200 flex items-center gap-2">
-                  <ThumbsUp className="h-5 w-5 text-emerald-400" />
+                <p className="text-lg font-semibold text-gray-200 flex items-center gap-2">
+                  <ThumbsUp className="h-5 w-5 text-teal-400" />
                   Vad gillar du?
                 </p>
                 <div className="flex flex-wrap gap-2">
@@ -1030,10 +1030,10 @@ export function PromptWizardModal({
                     <button
                       key={item.id}
                       onClick={() => toggleSiteLike(item.id)}
-                      className={`px-3 py-1.5 rounded-full text-sm transition-all ${
+                      className={`px-3 py-1.5 text-sm transition-all ${
                         siteLikes.includes(item.id)
-                          ? "bg-emerald-500/20 text-emerald-400 border border-emerald-500/50"
-                          : "bg-zinc-800 text-zinc-400 border border-zinc-700 hover:border-zinc-600"
+                          ? "bg-teal-500/20 text-teal-400 border border-teal-500/50"
+                          : "bg-gray-900 text-gray-400 border border-gray-800 hover:border-gray-700"
                       }`}
                     >
                       {item.label}
@@ -1044,7 +1044,7 @@ export function PromptWizardModal({
 
               {/* Dislikes */}
               <div className="space-y-3">
-                <p className="text-lg font-semibold text-zinc-200 flex items-center gap-2">
+                <p className="text-lg font-semibold text-gray-200 flex items-center gap-2">
                   <ThumbsDown className="h-5 w-5 text-red-400" />
                   Vad vill du ändra/förbättra?
                 </p>
@@ -1053,10 +1053,10 @@ export function PromptWizardModal({
                     <button
                       key={item.id}
                       onClick={() => toggleSiteDislike(item.id)}
-                      className={`px-3 py-1.5 rounded-full text-sm transition-all ${
+                      className={`px-3 py-1.5 text-sm transition-all ${
                         siteDislikes.includes(item.id)
                           ? "bg-red-500/20 text-red-400 border border-red-500/50"
-                          : "bg-zinc-800 text-zinc-400 border border-zinc-700 hover:border-zinc-600"
+                          : "bg-gray-900 text-gray-400 border border-gray-800 hover:border-gray-700"
                       }`}
                     >
                       {item.label}
@@ -1067,9 +1067,9 @@ export function PromptWizardModal({
 
               {/* Other feedback */}
               <div className="space-y-3">
-                <p className="text-lg font-semibold text-zinc-200">
+                <p className="text-lg font-semibold text-gray-200">
                   Övrig feedback{" "}
-                  <span className="text-zinc-500 font-normal">(valfritt)</span>
+                  <span className="text-gray-500 font-normal">(valfritt)</span>
                 </p>
                 <textarea
                   id="wizard-site-feedback"
@@ -1079,7 +1079,7 @@ export function PromptWizardModal({
                   onChange={(e) => setSiteOtherFeedback(e.target.value)}
                   placeholder="Beskriv mer i detalj vad du vill ändra..."
                   rows={3}
-                  className="w-full px-5 py-4 bg-zinc-800 border-2 border-zinc-700 rounded-xl text-base text-white placeholder-zinc-400 focus:border-blue-500/50 focus:outline-none focus:ring-2 focus:ring-blue-500/20 resize-none leading-relaxed transition-all hover:border-zinc-600"
+                  className="w-full px-5 py-4 bg-black border-2 border-gray-800 text-base text-white placeholder-gray-400 focus:border-teal-500/50 focus:outline-none focus:ring-2 focus:ring-teal-500/20 resize-none leading-relaxed transition-all hover:border-gray-700"
                 />
               </div>
             </div>
@@ -1088,16 +1088,16 @@ export function PromptWizardModal({
           {/* Step 6: Inspiration sites */}
           {step === 6 && (
             <div className="space-y-4">
-              <div className="flex items-center gap-3 text-zinc-300">
-                <Lightbulb className="h-6 w-6 text-yellow-400" />
+              <div className="flex items-center gap-3 text-gray-300">
+                <Lightbulb className="h-6 w-6 text-amber-400" />
                 <h3 className="text-2xl sm:text-3xl font-bold">
                   Inspirationssajter{" "}
-                  <span className="text-base font-normal text-zinc-500">
+                  <span className="text-base font-normal text-gray-500">
                     (valfritt)
                   </span>
                 </h3>
               </div>
-              <p className="text-base sm:text-lg text-zinc-300 leading-relaxed">
+              <p className="text-base sm:text-lg text-gray-300 leading-relaxed">
                 Finns det webbplatser du gillar designen på? Lägg till upp till
                 3 st.
               </p>
@@ -1115,7 +1115,7 @@ export function PromptWizardModal({
                         updateInspirationSite(index, e.target.value)
                       }
                       placeholder={`https://inspiration-${index + 1}.se`}
-                      className="flex-1 px-5 py-4 bg-zinc-800 border-2 border-zinc-700 rounded-xl text-lg text-white placeholder-zinc-400 focus:border-blue-500/50 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all hover:border-zinc-600"
+                      className="flex-1 px-5 py-4 bg-black border-2 border-gray-800 text-lg text-white placeholder-gray-400 focus:border-teal-500/50 focus:outline-none focus:ring-2 focus:ring-teal-500/20 transition-all hover:border-gray-700"
                     />
                     {inspirationSites.length > 1 && (
                       <Button
@@ -1150,7 +1150,7 @@ export function PromptWizardModal({
                 <h3 className="text-2xl sm:text-3xl font-bold text-white leading-tight">
                   Vad vill du uppnå?
                 </h3>
-                <p className="text-base sm:text-lg text-zinc-300 leading-relaxed">
+                <p className="text-base sm:text-lg text-gray-300 leading-relaxed">
                   Välj ett eller flera mål — vi anpassar designen efter detta
                 </p>
               </div>
@@ -1161,10 +1161,10 @@ export function PromptWizardModal({
                     key={option.id}
                     onClick={() => togglePurpose(option.id)}
                     style={{ animationDelay: `${idx * 50}ms` }}
-                    className={`group relative flex items-center gap-4 p-4 rounded-xl border-2 transition-all duration-200 text-left ${
+                    className={`group relative flex items-center gap-4 p-4 border-2 transition-all duration-200 text-left ${
                       purposes.includes(option.id)
-                        ? "border-blue-400/50 bg-gradient-to-r from-blue-500/20 to-cyan-500/10"
-                        : "border-zinc-800 hover:border-zinc-700 hover:bg-zinc-800/30"
+                        ? "border-teal-400/50 bg-teal-500/10"
+                        : "border-gray-800 hover:border-gray-700 hover:bg-gray-800/30"
                     }`}
                   >
                     <span
@@ -1180,23 +1180,23 @@ export function PromptWizardModal({
                       <span
                         className={`font-medium block ${
                           purposes.includes(option.id)
-                            ? "text-blue-300"
-                            : "text-zinc-300"
+                            ? "text-teal-300"
+                            : "text-gray-300"
                         }`}
                       >
                         {option.label}
                       </span>
-                      <span className="text-xs text-zinc-500">
+                      <span className="text-xs text-gray-500">
                         {option.desc}
                       </span>
                     </div>
 
                     {/* Checkbox style indicator */}
                     <div
-                      className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all ${
+                      className={`w-6 h-6 border-2 flex items-center justify-center transition-all ${
                         purposes.includes(option.id)
-                          ? "bg-blue-500 border-blue-400"
-                          : "border-zinc-600 group-hover:border-zinc-500"
+                          ? "bg-teal-500 border-teal-400"
+                          : "border-gray-600 group-hover:border-gray-500"
                       }`}
                     >
                       {purposes.includes(option.id) && (
@@ -1209,8 +1209,8 @@ export function PromptWizardModal({
 
               {/* Summary */}
               {purposes.length > 0 && (
-                <div className="p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg text-sm">
-                  <span className="text-blue-400">
+                <div className="p-3 bg-teal-500/10 border border-teal-500/30 text-sm">
+                  <span className="text-teal-400">
                     {purposes.length} mål valda —
                     {purposes.length === 1 && " fokuserad strategi"}
                     {purposes.length === 2 && " balanserad strategi"}
@@ -1224,8 +1224,8 @@ export function PromptWizardModal({
           {/* Step 8: Target audience */}
           {step === 8 && (
             <div className="space-y-4">
-              <div className="flex items-center gap-3 text-zinc-300">
-                <Users className="h-6 w-6 text-emerald-400" />
+              <div className="flex items-center gap-3 text-gray-300">
+                <Users className="h-6 w-6 text-teal-400" />
                 <h3 className="text-2xl sm:text-3xl font-bold">
                   Vilka är dina kunder?
                 </h3>
@@ -1233,13 +1233,13 @@ export function PromptWizardModal({
 
               {/* Smart suggestion based on industry and location */}
               {currentIndustry?.suggestedAudience && (
-                <div className="p-3 bg-gradient-to-r from-emerald-500/10 to-blue-500/10 border border-emerald-500/30 rounded-lg">
-                  <p className="text-xs text-emerald-400 font-medium mb-1 flex items-center gap-1">
-                    <span className="inline-block w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                <div className="p-3 bg-teal-500/10 border border-teal-500/30">
+                  <p className="text-xs text-teal-400 font-medium mb-1 flex items-center gap-1">
+                    <span className="inline-block w-2 h-2 bg-teal-400 animate-pulse"></span>
                     AI-förslag baserat på {currentIndustry.label}
                     {location && ` i ${location}`}:
                   </p>
-                  <p className="text-base text-zinc-200 italic leading-relaxed">
+                  <p className="text-base text-gray-200 italic leading-relaxed">
                     &quot;{currentIndustry.suggestedAudience}&quot;
                   </p>
                   {targetAudience !== currentIndustry.suggestedAudience && (
@@ -1247,7 +1247,7 @@ export function PromptWizardModal({
                       onClick={() =>
                         setTargetAudience(currentIndustry.suggestedAudience)
                       }
-                      className="mt-2 text-xs text-emerald-400 hover:text-emerald-300 underline"
+                      className="mt-2 text-xs text-teal-400 hover:text-teal-300 underline"
                     >
                       Använd detta förslag →
                     </button>
@@ -1255,7 +1255,7 @@ export function PromptWizardModal({
                 </div>
               )}
 
-              <p className="text-base text-zinc-300 leading-relaxed">
+              <p className="text-base text-gray-300 leading-relaxed">
                 Beskriv din målgrupp - anpassa gärna förslaget ovan eller skriv
                 helt eget
               </p>
@@ -1267,11 +1267,11 @@ export function PromptWizardModal({
                 onChange={(e) => setTargetAudience(e.target.value)}
                 placeholder="T.ex. Lokala kaffeälskare i Vasastan, unga yrkesarbetande 25-40 år som söker en mysig miljö..."
                 rows={4}
-                className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-lg text-white placeholder-zinc-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 resize-none"
+                className="w-full px-4 py-3 bg-black border border-gray-800 text-white placeholder-gray-500 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500 resize-none"
               />
 
               {/* Character count */}
-              <div className="flex justify-between text-sm text-zinc-400">
+              <div className="flex justify-between text-sm text-gray-400">
                 <span>{targetAudience.length} tecken</span>
                 {targetAudience.length > 0 && targetAudience.length < 30 && (
                   <span className="text-amber-400 font-medium">
@@ -1285,11 +1285,11 @@ export function PromptWizardModal({
           {/* Step 9: Special wishes */}
           {step === 9 && (
             <div className="space-y-4">
-              <div className="flex items-center gap-3 text-zinc-300">
-                <Sparkles className="h-6 w-6 text-purple-400" />
+              <div className="flex items-center gap-3 text-gray-300">
+                <Sparkles className="h-6 w-6 text-teal-400" />
                 <h3 className="text-2xl sm:text-3xl font-bold">
                   Funktioner &amp; önskemål{" "}
-                  <span className="text-base font-normal text-zinc-500">
+                  <span className="text-base font-normal text-gray-500">
                     (valfritt)
                   </span>
                 </h3>
@@ -1299,7 +1299,7 @@ export function PromptWizardModal({
               {currentIndustry?.suggestedFeatures &&
                 currentIndustry.suggestedFeatures.length > 0 && (
                   <div className="space-y-2">
-                    <p className="text-xs text-purple-400 font-medium">
+                    <p className="text-xs text-teal-400 font-medium">
                       Populära funktioner för {currentIndustry.label}:
                     </p>
                     <div className="flex flex-wrap gap-2">
@@ -1320,10 +1320,10 @@ export function PromptWizardModal({
                               }
                             }}
                             disabled={isIncluded}
-                            className={`px-3 py-1.5 rounded-full text-sm transition-all ${
+                            className={`px-3 py-1.5 text-sm transition-all ${
                               isIncluded
-                                ? "bg-purple-500/30 text-purple-300 border border-purple-500/50"
-                                : "bg-zinc-800 text-zinc-400 border border-zinc-700 hover:border-purple-500/50 hover:text-purple-400"
+                                ? "bg-teal-500/30 text-teal-300 border border-teal-500/50"
+                                : "bg-gray-900 text-gray-400 border border-gray-800 hover:border-teal-500/50 hover:text-teal-400"
                             }`}
                           >
                             {isIncluded ? "✓ " : "+ "}
@@ -1335,7 +1335,7 @@ export function PromptWizardModal({
                   </div>
                 )}
 
-              <p className="text-base text-zinc-300 leading-relaxed">
+              <p className="text-base text-gray-300 leading-relaxed">
                 Klicka på förslagen ovan eller skriv fritt nedan:
               </p>
               <textarea
@@ -1346,14 +1346,14 @@ export function PromptWizardModal({
                 onChange={(e) => setSpecialWishes(e.target.value)}
                 placeholder="T.ex. Jag vill ha meny med priser, öppettider, bildgalleri på lokalen, onlinebokning för bord..."
                 rows={5}
-                className="w-full px-5 py-4 bg-zinc-800 border-2 border-zinc-700 rounded-xl text-base text-white placeholder-zinc-400 focus:border-purple-500/50 focus:outline-none focus:ring-2 focus:ring-purple-500/20 resize-none leading-relaxed transition-all hover:border-zinc-600"
+                className="w-full px-5 py-4 bg-black border-2 border-gray-800 text-base text-white placeholder-gray-400 focus:border-teal-500/50 focus:outline-none focus:ring-2 focus:ring-teal-500/20 resize-none leading-relaxed transition-all hover:border-gray-700"
               />
 
               {/* Voice input option */}
-              <div className="pt-4 border-t border-zinc-700/50">
+              <div className="pt-4 border-t border-gray-800/50">
                 <div className="flex items-center gap-2 mb-3">
-                  <Mic className="h-5 w-5 text-purple-400" />
-                  <h4 className="text-base font-semibold text-zinc-300">
+                  <Mic className="h-5 w-5 text-teal-400" />
+                  <h4 className="text-base font-semibold text-gray-300">
                     Eller beskriv med rösten
                   </h4>
                 </div>
@@ -1371,7 +1371,7 @@ export function PromptWizardModal({
                   placeholder="Börja prata..."
                 />
                 {voiceTranscript && (
-                  <p className="text-xs text-zinc-500 mt-2">
+                  <p className="text-xs text-gray-500 mt-2">
                     Senaste röstinmatning: &quot;
                     {voiceTranscript.substring(0, 50)}
                     {voiceTranscript.length > 50 ? "..." : ""}&quot;
@@ -1386,7 +1386,7 @@ export function PromptWizardModal({
                     setSpecialWishes("");
                     setVoiceTranscript("");
                   }}
-                  className="text-sm text-zinc-500 hover:text-zinc-300 font-medium transition-colors"
+                  className="text-sm text-gray-500 hover:text-gray-300 font-medium transition-colors"
                 >
                   Rensa allt
                 </button>
@@ -1397,19 +1397,19 @@ export function PromptWizardModal({
           {/* Step 10: Design & Component styles */}
           {step === 10 && (
             <div className="space-y-6">
-              <div className="flex items-center gap-3 text-zinc-300">
-                <Sparkles className="h-6 w-6 text-purple-400" />
+              <div className="flex items-center gap-3 text-gray-300">
+                <Sparkles className="h-6 w-6 text-teal-400" />
                 <h3 className="text-2xl sm:text-3xl font-bold">
                   Välj design och stil
                 </h3>
               </div>
-              <p className="text-base text-zinc-300 leading-relaxed">
+              <p className="text-base text-gray-300 leading-relaxed">
                 Inspirerat av{" "}
                 <a
                   href="https://v0.app/templates/components"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-purple-400 hover:underline"
+                  className="text-teal-400 hover:underline"
                 >
                   v0 templates
                 </a>
@@ -1418,7 +1418,7 @@ export function PromptWizardModal({
 
               {/* Hero Style */}
               <div className="space-y-3">
-                <h4 className="text-sm font-semibold text-zinc-400 uppercase tracking-wide">
+                <h4 className="text-sm font-semibold text-gray-400 uppercase tracking-wide">
                   Hero-sektion
                 </h4>
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
@@ -1431,10 +1431,10 @@ export function PromptWizardModal({
                           hero: style.id,
                         }))
                       }
-                      className={`p-3 rounded-xl border-2 transition-all text-left ${
+                      className={`p-3 border-2 transition-all text-left ${
                         componentChoices.hero === style.id
-                          ? "border-purple-500 bg-purple-500/20"
-                          : "border-zinc-700 hover:border-zinc-600 bg-zinc-800/50"
+                          ? "border-teal-500 bg-teal-500/20"
+                          : "border-gray-800 hover:border-gray-700 bg-gray-900/50"
                       }`}
                     >
                       <span className="text-xl mb-1 block">{style.icon}</span>
@@ -1448,7 +1448,7 @@ export function PromptWizardModal({
 
               {/* Navigation Style */}
               <div className="space-y-3">
-                <h4 className="text-sm font-semibold text-zinc-400 uppercase tracking-wide">
+                <h4 className="text-sm font-semibold text-gray-400 uppercase tracking-wide">
                   Navigation
                 </h4>
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
@@ -1461,10 +1461,10 @@ export function PromptWizardModal({
                           navigation: style.id,
                         }))
                       }
-                      className={`p-3 rounded-xl border-2 transition-all text-left ${
+                      className={`p-3 border-2 transition-all text-left ${
                         componentChoices.navigation === style.id
-                          ? "border-purple-500 bg-purple-500/20"
-                          : "border-zinc-700 hover:border-zinc-600 bg-zinc-800/50"
+                          ? "border-teal-500 bg-teal-500/20"
+                          : "border-gray-800 hover:border-gray-700 bg-gray-900/50"
                       }`}
                     >
                       <span className="text-xl mb-1 block">{style.icon}</span>
@@ -1478,7 +1478,7 @@ export function PromptWizardModal({
 
               {/* Layout Style */}
               <div className="space-y-3">
-                <h4 className="text-sm font-semibold text-zinc-400 uppercase tracking-wide">
+                <h4 className="text-sm font-semibold text-gray-400 uppercase tracking-wide">
                   Layout
                 </h4>
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
@@ -1491,10 +1491,10 @@ export function PromptWizardModal({
                           layout: style.id,
                         }))
                       }
-                      className={`p-3 rounded-xl border-2 transition-all text-left ${
+                      className={`p-3 border-2 transition-all text-left ${
                         componentChoices.layout === style.id
-                          ? "border-purple-500 bg-purple-500/20"
-                          : "border-zinc-700 hover:border-zinc-600 bg-zinc-800/50"
+                          ? "border-teal-500 bg-teal-500/20"
+                          : "border-gray-800 hover:border-gray-700 bg-gray-900/50"
                       }`}
                     >
                       <span className="text-xl mb-1 block">{style.icon}</span>
@@ -1508,7 +1508,7 @@ export function PromptWizardModal({
 
               {/* Effects */}
               <div className="space-y-3">
-                <h4 className="text-sm font-semibold text-zinc-400 uppercase tracking-wide">
+                <h4 className="text-sm font-semibold text-gray-400 uppercase tracking-wide">
                   Animeringar & Effekter
                 </h4>
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
@@ -1521,10 +1521,10 @@ export function PromptWizardModal({
                           effects: style.id,
                         }))
                       }
-                      className={`p-3 rounded-xl border-2 transition-all text-left ${
+                      className={`p-3 border-2 transition-all text-left ${
                         componentChoices.effects === style.id
-                          ? "border-purple-500 bg-purple-500/20"
-                          : "border-zinc-700 hover:border-zinc-600 bg-zinc-800/50"
+                          ? "border-teal-500 bg-teal-500/20"
+                          : "border-gray-800 hover:border-gray-700 bg-gray-900/50"
                       }`}
                     >
                       <span className="text-xl mb-1 block">{style.icon}</span>
@@ -1538,7 +1538,7 @@ export function PromptWizardModal({
 
               {/* Overall Vibe */}
               <div className="space-y-3">
-                <h4 className="text-sm font-semibold text-zinc-400 uppercase tracking-wide">
+                <h4 className="text-sm font-semibold text-gray-400 uppercase tracking-wide">
                   Övergripande Stil / Vibe
                 </h4>
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
@@ -1551,17 +1551,17 @@ export function PromptWizardModal({
                           vibe: style.id,
                         }))
                       }
-                      className={`p-4 rounded-xl border-2 transition-all text-left ${
+                      className={`p-4 border-2 transition-all text-left ${
                         componentChoices.vibe === style.id
-                          ? "border-purple-500 bg-purple-500/20"
-                          : "border-zinc-700 hover:border-zinc-600 bg-zinc-800/50"
+                          ? "border-teal-500 bg-teal-500/20"
+                          : "border-gray-800 hover:border-gray-700 bg-gray-900/50"
                       }`}
                     >
                       <span className="text-2xl mb-2 block">{style.icon}</span>
                       <span className="text-sm font-medium text-white block">
                         {style.label}
                       </span>
-                      <span className="text-xs text-zinc-500 block">
+                      <span className="text-xs text-gray-500 block">
                         {style.desc}
                       </span>
                     </button>
@@ -1574,13 +1574,13 @@ export function PromptWizardModal({
           {/* Step 11: Color palette */}
           {step === 11 && (
             <div className="space-y-4">
-              <div className="flex items-center gap-3 text-zinc-300">
-                <Palette className="h-6 w-6 text-pink-400" />
+              <div className="flex items-center gap-3 text-gray-300">
+                <Palette className="h-6 w-6 text-teal-400" />
                 <h3 className="text-2xl sm:text-3xl font-bold">
                   Välj färgpalett för din webbplats
                 </h3>
               </div>
-              <p className="text-base text-zinc-300 leading-relaxed">
+              <p className="text-base text-gray-300 leading-relaxed">
                 {industry
                   ? `Rekommenderade färger för ${
                       INDUSTRY_OPTIONS.find((i) => i.id === industry)?.label ||
@@ -1603,12 +1603,12 @@ export function PromptWizardModal({
             <div className="space-y-6 animate-fadeIn">
               <div className="space-y-3">
                 <div className="flex items-center gap-3">
-                  <Sparkles className="h-6 w-6 text-purple-400" />
+                  <Sparkles className="h-6 w-6 text-teal-400" />
                   <h3 className="text-2xl sm:text-3xl font-bold text-white">
                     Din genererade prompt
                   </h3>
                 </div>
-                <p className="text-base text-zinc-300 leading-relaxed">
+                <p className="text-base text-gray-300 leading-relaxed">
                   Redigera prompten om du vill, eller fortsätt med den som den
                   är. Du kan också låta AI:n förbättra den.
                 </p>
@@ -1621,10 +1621,10 @@ export function PromptWizardModal({
                   value={editedPrompt}
                   onChange={(e) => setEditedPrompt(e.target.value)}
                   rows={12}
-                  className="w-full px-6 py-5 bg-zinc-900/50 border-2 border-zinc-800 rounded-xl text-base text-white placeholder-zinc-500 focus:border-blue-500/50 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all font-mono resize-none leading-relaxed"
+                  className="w-full px-6 py-5 bg-black/50 border-2 border-gray-800 text-base text-white placeholder-gray-500 focus:border-teal-500/50 focus:outline-none focus:ring-2 focus:ring-teal-500/20 transition-all font-mono resize-none leading-relaxed"
                   placeholder="Din prompt kommer att visas här..."
                 />
-                <div className="absolute bottom-4 right-4 text-xs text-zinc-500">
+                <div className="absolute bottom-4 right-4 text-xs text-gray-500">
                   {editedPrompt.length} tecken
                 </div>
               </div>
@@ -1674,7 +1674,7 @@ export function PromptWizardModal({
                   }}
                   disabled={isExpanding}
                   variant="outline"
-                  className="gap-2 border-purple-500/50 text-purple-400 hover:bg-purple-500/10"
+                  className="gap-2 border-teal-500/50 text-teal-400 hover:bg-teal-500/10"
                 >
                   <Sparkles className="h-4 w-4" />
                   {isExpanding ? "Förbättrar..." : "Förbättra med AI"}
@@ -1685,7 +1685,7 @@ export function PromptWizardModal({
                     setEditedPrompt(generatedPrompt || "");
                   }}
                   variant="ghost"
-                  className="gap-2 text-zinc-400 hover:text-white"
+                  className="gap-2 text-gray-400 hover:text-white"
                 >
                   <RotateCcw className="h-4 w-4" />
                   Återställ
@@ -1696,21 +1696,21 @@ export function PromptWizardModal({
 
           {/* Error message */}
           {error && (
-            <div className="mt-4 p-4 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-base">
+            <div className="mt-4 p-4 bg-red-500/10 border border-red-500/30 text-red-400 text-base">
               {error}
             </div>
           )}
         </div>
 
         {/* Footer */}
-        <div className="relative p-6 border-t border-zinc-800/50 flex flex-wrap justify-between items-center gap-3">
+        <div className="relative p-6 border-t border-gray-800/50 flex flex-wrap justify-between items-center gap-3">
           {/* Back/Cancel button - hide when in edit mode */}
           {!showEditMode && (
             <Button
               variant="ghost"
               onClick={step === 1 ? onClose : handleBack}
               disabled={isExpanding}
-              className="gap-2 text-zinc-400 hover:text-white hover:bg-zinc-800"
+              className="gap-2 text-gray-400 hover:text-white hover:bg-gray-800"
             >
               {step === 1 ? (
                 "Avbryt"
@@ -1725,11 +1725,11 @@ export function PromptWizardModal({
 
           {/* Step indicator in footer - only show on large screens and not in edit mode */}
           {!showEditMode && (
-            <div className="hidden lg:flex items-center gap-1 text-xs text-zinc-600 max-w-xs truncate">
+            <div className="hidden lg:flex items-center gap-1 text-xs text-gray-600 max-w-xs truncate">
               {steps.map((s, idx) => (
                 <span
                   key={s.id}
-                  className={idx + 1 <= displayStep ? "text-zinc-400" : ""}
+                  className={idx + 1 <= displayStep ? "text-gray-400" : ""}
                 >
                   {s.name}
                   {idx < steps.length - 1 && <span className="mx-1">→</span>}
@@ -1747,7 +1747,7 @@ export function PromptWizardModal({
                   setEditedPrompt("");
                 }}
                 variant="ghost"
-                className="gap-2 text-zinc-400 hover:text-white hover:bg-zinc-800"
+                className="gap-2 text-gray-400 hover:text-white hover:bg-gray-800"
               >
                 <ArrowLeft className="h-4 w-4" />
                 Tillbaka till wizard
@@ -1778,7 +1778,7 @@ export function PromptWizardModal({
                   };
                   onComplete(wizardData, editedPrompt);
                 }}
-                className="gap-2 bg-gradient-to-r from-blue-600 via-purple-600 to-pink-500 hover:from-blue-500 hover:via-purple-500 hover:to-pink-400 shadow-lg shadow-purple-500/20 px-6 text-lg"
+                className="gap-2 bg-teal-600 hover:bg-teal-500 px-6 text-lg"
               >
                 <Rocket className="h-5 w-5" />
                 Skapa webbplats
@@ -1788,7 +1788,7 @@ export function PromptWizardModal({
             <Button
               onClick={handleNext}
               disabled={!canProceed()}
-              className="gap-2 bg-gradient-to-r from-blue-600 to-blue-500 hover:from-blue-500 hover:to-blue-400 shadow-lg shadow-blue-500/20 disabled:opacity-50 disabled:shadow-none transition-all"
+              className="gap-2 bg-teal-600 hover:bg-teal-500 disabled:opacity-50 transition-all"
             >
               Nästa
               <ArrowRight className="h-4 w-4" />
@@ -1797,7 +1797,7 @@ export function PromptWizardModal({
             <Button
               onClick={handleComplete}
               disabled={!canProceed() || isExpanding}
-              className="gap-2 bg-gradient-to-r from-blue-600 via-purple-600 to-pink-500 hover:from-blue-500 hover:via-purple-500 hover:to-pink-400 shadow-lg shadow-purple-500/20 disabled:opacity-50 disabled:shadow-none transition-all px-6"
+              className="gap-2 bg-teal-600 hover:bg-teal-500 disabled:opacity-50 transition-all px-6"
             >
               {isExpanding ? (
                 <>

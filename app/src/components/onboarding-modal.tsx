@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef } from "react";
 import {
   X,
-  Play,
   Globe,
   Search,
   Sparkles,
@@ -93,35 +92,33 @@ export function OnboardingModal({ onComplete, onSkip }: OnboardingModalProps) {
       />
 
       {/* Modal */}
-      <div className="relative w-full max-w-3xl max-h-[90vh] overflow-y-auto bg-zinc-900 border border-zinc-700 rounded-2xl shadow-2xl mx-4">
+      <div className="relative w-full max-w-3xl max-h-[90vh] overflow-y-auto bg-black border border-gray-800 shadow-2xl mx-4">
         {/* Close button */}
         <button
           onClick={handleSkip}
-          className="absolute top-4 right-4 p-2 text-zinc-400 hover:text-white transition-colors z-10"
+          className="absolute top-4 right-4 p-2 text-gray-400 hover:text-white transition-colors z-10"
         >
           <X className="h-5 w-5" />
         </button>
 
-        {/* ═══════════════════════════════════════════════════════════════════ */}
         {/* VIDEO STEP */}
-        {/* ═══════════════════════════════════════════════════════════════════ */}
         {step === "video" && (
           <div className="p-6">
             <div className="text-center mb-6">
-              <div className="inline-flex items-center gap-2 px-4 py-2 bg-emerald-500/10 border border-emerald-500/30 rounded-full text-emerald-400 text-sm mb-4">
+              <div className="inline-flex items-center gap-2 px-4 py-2 bg-teal-500/10 border border-teal-500/30 text-teal-400 text-sm mb-4">
                 <Sparkles className="h-4 w-4" />
                 Välkommen till SajtMaskin
               </div>
               <h2 className="text-2xl font-bold text-white">
                 Din AI-partner för hemsidor
               </h2>
-              <p className="text-zinc-400 mt-2">
+              <p className="text-gray-400 mt-2">
                 Se denna korta introduktion (ca 2 min)
               </p>
             </div>
 
             {/* Video player */}
-            <div className="relative aspect-video bg-black rounded-xl overflow-hidden mb-4">
+            <div className="relative aspect-video bg-black border border-gray-800 overflow-hidden mb-4">
               <video
                 ref={videoRef}
                 className="w-full h-full"
@@ -145,7 +142,7 @@ export function OnboardingModal({ onComplete, onSkip }: OnboardingModalProps) {
             <div className="flex justify-center">
               <button
                 onClick={handleSkipVideo}
-                className="flex items-center gap-2 px-6 py-3 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg transition-colors"
+                className="flex items-center gap-2 px-6 py-3 bg-gray-900 hover:bg-gray-800 text-gray-300 transition-colors border border-gray-800"
               >
                 Hoppa över videon
                 <ArrowRight className="h-4 w-4" />
@@ -154,28 +151,24 @@ export function OnboardingModal({ onComplete, onSkip }: OnboardingModalProps) {
           </div>
         )}
 
-        {/* ═══════════════════════════════════════════════════════════════════ */}
         {/* FORM STEP */}
-        {/* ═══════════════════════════════════════════════════════════════════ */}
         {step === "form" && (
           <div className="p-6">
             <div className="text-center mb-8">
               <h2 className="text-2xl font-bold text-white">
                 Berätta om ditt projekt
               </h2>
-              <p className="text-zinc-400 mt-2">Så kan vi hjälpa dig bättre</p>
+              <p className="text-gray-400 mt-2">Så kan vi hjälpa dig bättre</p>
             </div>
 
             <div className="space-y-6">
-              {/* ─────────────────────────────────────────────────────────────── */}
               {/* FIELD 1: Existing URL */}
-              {/* ─────────────────────────────────────────────────────────────── */}
               <div className="space-y-3">
                 <label
                   htmlFor="existing-url"
-                  className="flex items-center gap-2 text-sm font-medium text-zinc-300"
+                  className="flex items-center gap-2 text-sm font-medium text-gray-300"
                 >
-                  <Globe className="h-4 w-4 text-emerald-500" />
+                  <Globe className="h-4 w-4 text-teal-500" />
                   Har du en befintlig webbplats?
                 </label>
 
@@ -186,7 +179,7 @@ export function OnboardingModal({ onComplete, onSkip }: OnboardingModalProps) {
                     value={existingUrl}
                     onChange={(e) => setExistingUrl(e.target.value)}
                     placeholder="https://ditt-foretag.se"
-                    className="flex-1 px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-lg text-white placeholder-zinc-500 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                    className="flex-1 px-4 py-3 bg-black border border-gray-800 text-white placeholder-gray-500 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
                   />
                 </div>
 
@@ -198,24 +191,24 @@ export function OnboardingModal({ onComplete, onSkip }: OnboardingModalProps) {
                       onClick={() =>
                         setShowPurposeDropdown(!showPurposeDropdown)
                       }
-                      className="w-full flex items-center justify-between px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-lg text-left hover:border-zinc-600 transition-colors"
+                      className="w-full flex items-center justify-between px-4 py-3 bg-black border border-gray-800 text-left hover:border-gray-700 transition-colors"
                     >
                       <span
-                        className={urlPurpose ? "text-white" : "text-zinc-500"}
+                        className={urlPurpose ? "text-white" : "text-gray-500"}
                       >
                         {urlPurpose
                           ? purposeLabels[urlPurpose]
                           : "Vad vill du göra med denna URL?"}
                       </span>
                       <ChevronDown
-                        className={`h-4 w-4 text-zinc-400 transition-transform ${
+                        className={`h-4 w-4 text-gray-400 transition-transform ${
                           showPurposeDropdown ? "rotate-180" : ""
                         }`}
                       />
                     </button>
 
                     {showPurposeDropdown && (
-                      <div className="absolute top-full left-0 right-0 mt-1 bg-zinc-800 border border-zinc-700 rounded-lg shadow-xl z-10 overflow-hidden">
+                      <div className="absolute top-full left-0 right-0 mt-1 bg-black border border-gray-800 shadow-xl z-10 overflow-hidden">
                         {(Object.keys(purposeLabels) as UrlPurpose[]).map(
                           (purpose) => (
                             <button
@@ -225,10 +218,10 @@ export function OnboardingModal({ onComplete, onSkip }: OnboardingModalProps) {
                                 setUrlPurpose(purpose);
                                 setShowPurposeDropdown(false);
                               }}
-                              className={`w-full px-4 py-3 text-left hover:bg-zinc-700 transition-colors ${
+                              className={`w-full px-4 py-3 text-left hover:bg-gray-900 transition-colors ${
                                 urlPurpose === purpose
-                                  ? "bg-emerald-500/10 text-emerald-400"
-                                  : "text-zinc-300"
+                                  ? "bg-teal-500/10 text-teal-400"
+                                  : "text-gray-300"
                               }`}
                             >
                               {purposeLabels[purpose]}
@@ -241,23 +234,21 @@ export function OnboardingModal({ onComplete, onSkip }: OnboardingModalProps) {
                 )}
               </div>
 
-              {/* ─────────────────────────────────────────────────────────────── */}
               {/* FIELD 2: Analyze from web checkbox */}
-              {/* ─────────────────────────────────────────────────────────────── */}
               <div className="space-y-3">
-                <label className="flex items-start gap-3 p-4 bg-zinc-800/50 border border-zinc-700 rounded-lg cursor-pointer hover:border-zinc-600 transition-colors">
+                <label className="flex items-start gap-3 p-4 bg-gray-900/50 border border-gray-800 cursor-pointer hover:border-gray-700 transition-colors">
                   <input
                     type="checkbox"
                     checked={analyzeFromWeb}
                     onChange={(e) => setAnalyzeFromWeb(e.target.checked)}
-                    className="mt-1 h-5 w-5 rounded border-zinc-600 bg-zinc-700 text-emerald-500 focus:ring-emerald-500 focus:ring-offset-0"
+                    className="mt-1 h-5 w-5 border-gray-700 bg-black text-teal-500 focus:ring-teal-500 focus:ring-offset-0"
                   />
                   <div>
                     <div className="flex items-center gap-2 text-white font-medium">
-                      <Search className="h-4 w-4 text-blue-400" />
+                      <Search className="h-4 w-4 text-teal-400" />
                       Analysera mitt företag från internet
                     </div>
-                    <p className="text-sm text-zinc-400 mt-1">
+                    <p className="text-sm text-gray-400 mt-1">
                       Jag vill att min företagsprofil, kundsegment och annan
                       offentlig information hämtas och analyseras för att skapa
                       en bättre sajt.
@@ -266,15 +257,13 @@ export function OnboardingModal({ onComplete, onSkip }: OnboardingModalProps) {
                 </label>
               </div>
 
-              {/* ─────────────────────────────────────────────────────────────── */}
               {/* FIELD 3: Free text description */}
-              {/* ─────────────────────────────────────────────────────────────── */}
               <div className="space-y-3">
                 <label
                   htmlFor="project-description"
-                  className="flex items-center gap-2 text-sm font-medium text-zinc-300"
+                  className="flex items-center gap-2 text-sm font-medium text-gray-300"
                 >
-                  <FileText className="h-4 w-4 text-purple-400" />
+                  <FileText className="h-4 w-4 text-gray-400" />
                   Beskriv ditt projekt (valfritt)
                 </label>
                 <textarea
@@ -283,25 +272,23 @@ export function OnboardingModal({ onComplete, onSkip }: OnboardingModalProps) {
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="Beskriv vilken typ av sajt du vill skapa, ditt företag, din målgrupp, etc..."
                   rows={4}
-                  className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-lg text-white placeholder-zinc-500 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 resize-none"
+                  className="w-full px-4 py-3 bg-black border border-gray-800 text-white placeholder-gray-500 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500 resize-none"
                 />
               </div>
 
-              {/* ─────────────────────────────────────────────────────────────── */}
               {/* SUBMIT BUTTONS */}
-              {/* ─────────────────────────────────────────────────────────────── */}
               <div className="flex gap-3 pt-4">
                 <button
                   type="button"
                   onClick={handleSkip}
-                  className="flex-1 px-6 py-3 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 rounded-lg transition-colors"
+                  className="flex-1 px-6 py-3 bg-gray-900 hover:bg-gray-800 text-gray-300 transition-colors border border-gray-800"
                 >
                   Hoppa över
                 </button>
                 <button
                   type="button"
                   onClick={handleSubmit}
-                  className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-medium rounded-lg transition-colors"
+                  className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-teal-600 hover:bg-teal-500 text-white font-medium transition-colors"
                 >
                   <Building2 className="h-4 w-4" />
                   Kom igång

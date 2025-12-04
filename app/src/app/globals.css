@@ -4,27 +4,31 @@
 
 @layer base {
   :root {
-    /* Dark theme as default */
-    --background: 0 0% 4%;
-    --foreground: 0 0% 98%;
-    --card: 0 0% 7%;
-    --card-foreground: 0 0% 98%;
-    --popover: 0 0% 7%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 217 91% 60%;
-    --primary-foreground: 0 0% 100%;
-    --secondary: 0 0% 15%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 0 0% 15%;
-    --muted-foreground: 0 0% 64%;
-    --accent: 0 0% 15%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 15%;
-    --input: 0 0% 15%;
-    --ring: 217 91% 60%;
-    --radius: 0.5rem;
+    /* All-black Nano Banana theme */
+    --background: 0 0% 0%;
+    --foreground: 0 0% 100%;
+    --card: 0 0% 0%;
+    --card-foreground: 0 0% 100%;
+    --popover: 0 0% 0%;
+    --popover-foreground: 0 0% 100%;
+    --primary: 0 0% 100%;
+    --primary-foreground: 0 0% 0%;
+    --secondary: 0 0% 7%;
+    --secondary-foreground: 0 0% 100%;
+    --muted: 0 0% 4%;
+    --muted-foreground: 0 0% 60%;
+    --accent: 0 0% 10%;
+    --accent-foreground: 0 0% 100%;
+    --destructive: 0 0% 100%;
+    --destructive-foreground: 0 0% 0%;
+    --border: 0 0% 20%;
+    --input: 0 0% 0%;
+    --ring: 0 0% 100%;
+    --radius: 0rem;
+
+    /* Font variables */
+    --font-inter: "Inter", sans-serif;
+    --font-jetbrains-mono: "JetBrains Mono", monospace;
   }
 }
 
@@ -35,10 +39,44 @@
 
   html {
     color-scheme: dark;
+    background-color: #000000 !important;
   }
 
   body {
     @apply bg-background text-foreground antialiased;
+    background-color: #000000 !important;
+    font-family: var(--font-jetbrains-mono), monospace;
+  }
+
+  /* Sharp corners via --radius: 0rem variable above.
+     Shadcn/ui components use var(--radius) automatically. */
+
+  /* Optimize shader background rendering */
+  .shader-background {
+    contain: layout style paint;
+    will-change: transform;
+    transform: translateZ(0);
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+  }
+
+  /* Smooth transitions for auth state changes */
+  .smooth-transition {
+    transition: opacity 0.3s ease-in-out, transform 0.3s ease-in-out;
+  }
+
+  /* Prevent layout shift during auth transitions */
+  .auth-persist {
+    position: relative;
+    z-index: 1;
+  }
+
+  /* Optimize rendering performance for dropdowns and overlays */
+  .dropdown-content,
+  .dialog-content,
+  .popover-content {
+    transform: translateZ(0);
+    will-change: transform, opacity;
   }
 }
 
@@ -60,7 +98,7 @@
 
   .scrollbar-thin::-webkit-scrollbar-thumb {
     background-color: hsl(0 0% 25%);
-    border-radius: 3px;
+    border-radius: 0;
   }
 
   .scrollbar-thin::-webkit-scrollbar-thumb:hover {
@@ -97,5 +135,17 @@
 
   .animate-fadeIn {
     animation: fadeIn 0.4s ease-out;
+  }
+
+  /* Prevent content jump during state changes */
+  .prevent-shift {
+    min-height: 100vh;
+    position: relative;
+  }
+
+  .gpu-accelerate {
+    transform: translateZ(0);
+    backface-visibility: hidden;
+    perspective: 1000px;
   }
 }
