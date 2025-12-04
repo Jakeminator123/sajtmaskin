@@ -18,6 +18,8 @@ import {
   ThumbsDown,
   Lightbulb,
   Briefcase,
+  RotateCcw,
+  Rocket,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -274,6 +276,9 @@ export function PromptWizardModal({
   const [isExpanding, setIsExpanding] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [generatedPrompt, setGeneratedPrompt] = useState<string | null>(null);
+  const [editedPrompt, setEditedPrompt] = useState<string>("");
+  const [showEditMode, setShowEditMode] = useState(false);
 
   // Form state
   const [companyName, setCompanyName] = useState("");
@@ -497,9 +502,11 @@ export function PromptWizardModal({
         throw new Error(data.error || "Failed to expand prompt");
       }
 
-      // Reset state before calling onComplete (which closes the modal)
+      // Show edit mode instead of closing immediately
       setIsExpanding(false);
-      onComplete(wizardData, data.expandedPrompt);
+      setGeneratedPrompt(data.expandedPrompt);
+      setEditedPrompt(data.expandedPrompt);
+      setShowEditMode(true);
     } catch (err) {
       console.error("Failed to expand prompt:", err);
       setError(
@@ -553,7 +560,7 @@ export function PromptWizardModal({
       />
 
       {/* Modal */}
-      <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-zinc-950 border border-zinc-800 rounded-2xl shadow-2xl mx-4">
+      <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto overflow-x-hidden overscroll-contain bg-zinc-950 border border-zinc-800 rounded-2xl shadow-2xl mx-4">
         {/* Decorative background elements */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
           <div className="absolute -top-24 -right-24 w-48 h-48 bg-blue-500/10 rounded-full blur-3xl" />
@@ -587,8 +594,8 @@ export function PromptWizardModal({
             ))}
           </div>
 
-          <div className="text-center">
-            <h2 className="text-2xl font-bold bg-gradient-to-r from-white via-blue-100 to-purple-100 bg-clip-text text-transparent">
+          <div className="text-center space-y-3">
+            <h2 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-white via-blue-200 via-purple-200 to-pink-200 bg-clip-text text-transparent animate-gradient leading-tight transition-all duration-300">
               {step === 1 && "Berätta om dig"}
               {step === 2 && "Vilken värld tillhör du?"}
               {step === 3 && "Var finns magin?"}
@@ -600,27 +607,27 @@ export function PromptWizardModal({
               {step === 9 && "Drömfunktioner"}
               {step === 10 && "Välj din palett"}
             </h2>
-            <p className="text-sm text-zinc-500 mt-1">
+            <p className="text-base sm:text-lg text-zinc-400 font-medium">
               Steg {displayStep} av {totalSteps}
             </p>
           </div>
         </div>
 
         {/* Content */}
-        <div className="p-6 min-h-[300px]">
+        <div className="p-6 min-h-[300px] overflow-x-hidden">
           {/* Step 1: Company name */}
           {step === 1 && (
             <div className="space-y-6 relative">
               {/* Decorative element */}
-              <div className="absolute -top-4 -right-4 text-6xl opacity-10 select-none">
+              <div className="absolute -top-4 -right-4 text-8xl opacity-10 select-none animate-pulse">
                 🏢
               </div>
 
-              <div className="space-y-2">
-                <h3 className="text-xl font-semibold text-white">
+              <div className="space-y-3">
+                <h3 className="text-2xl sm:text-3xl font-bold text-white leading-tight">
                   Vad heter ditt företag eller projekt?
                 </h3>
-                <p className="text-zinc-400">
+                <p className="text-base sm:text-lg text-zinc-300 leading-relaxed">
                   Vi använder detta för att skapa personlig text och tonalitet
                 </p>
               </div>
@@ -634,7 +641,7 @@ export function PromptWizardModal({
                   value={companyName}
                   onChange={(e) => setCompanyName(e.target.value)}
                   placeholder="Skriv ditt företagsnamn..."
-                  className="w-full px-5 py-4 bg-zinc-900/50 border-2 border-zinc-800 rounded-xl text-lg text-white placeholder-zinc-600 focus:border-blue-500/50 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all"
+                  className="w-full px-6 py-5 bg-zinc-900/50 border-2 border-zinc-800 rounded-xl text-xl text-white placeholder-zinc-500 focus:border-blue-500/50 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all duration-200 hover:border-zinc-700"
                   autoFocus
                 />
                 {companyName && (
@@ -654,11 +661,11 @@ export function PromptWizardModal({
           {/* Step 2: Industry */}
           {step === 2 && (
             <div className="space-y-5">
-              <div className="space-y-2">
-                <h3 className="text-xl font-semibold text-white">
+              <div className="space-y-3">
+                <h3 className="text-2xl sm:text-3xl font-bold text-white leading-tight">
                   Vilken bransch passar bäst?
                 </h3>
-                <p className="text-zinc-400">
+                <p className="text-base sm:text-lg text-zinc-300 leading-relaxed">
                   Vi anpassar design, färger och funktionsförslag
                 </p>
               </div>
@@ -706,9 +713,9 @@ export function PromptWizardModal({
 
               {/* Show what we'll customize */}
               {industry && (
-                <div className="p-3 bg-zinc-800/50 rounded-lg text-sm text-zinc-400 animate-fadeIn">
-                  <span className="text-amber-400">→</span> Vi föreslår nu{" "}
-                  {currentIndustry?.label}-anpassade färger och funktioner
+                <div className="p-4 bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/30 rounded-xl text-base text-zinc-200 font-medium animate-fadeIn">
+                  <span className="text-amber-400 text-lg">→</span> Vi föreslår nu{" "}
+                  <span className="text-amber-300 font-semibold">{currentIndustry?.label}</span>-anpassade färger och funktioner
                 </div>
               )}
             </div>
@@ -717,13 +724,13 @@ export function PromptWizardModal({
           {/* Step 3: Location */}
           {step === 3 && (
             <div className="space-y-4">
-              <div className="flex items-center gap-2 text-zinc-300">
-                <MapPin className="h-5 w-5 text-emerald-400" />
-                <h3 className="text-lg font-medium">
-                  Var finns ni? (valfritt)
+              <div className="flex items-center gap-3 text-zinc-300">
+                <MapPin className="h-6 w-6 text-emerald-400" />
+                <h3 className="text-2xl sm:text-3xl font-bold">
+                  Var finns ni? <span className="text-base font-normal text-zinc-500">(valfritt)</span>
                 </h3>
               </div>
-              <p className="text-sm text-zinc-500">
+              <p className="text-base sm:text-lg text-zinc-300 leading-relaxed">
                 Ange adress eller område för att få lokalt anpassade förslag
               </p>
               <input
@@ -734,9 +741,9 @@ export function PromptWizardModal({
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
                 placeholder="T.ex. Vasastan, Stockholm eller Storgatan 12, Göteborg"
-                className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-lg text-white placeholder-zinc-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="w-full px-5 py-4 bg-zinc-800 border-2 border-zinc-700 rounded-xl text-lg text-white placeholder-zinc-400 focus:border-blue-500/50 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all hover:border-zinc-600"
               />
-              <p className="text-xs text-zinc-600">
+              <p className="text-sm text-zinc-500">
                 Lämna tomt om du inte vill ange plats
               </p>
             </div>
@@ -745,13 +752,13 @@ export function PromptWizardModal({
           {/* Step 4: Existing website */}
           {step === 4 && (
             <div className="space-y-4">
-              <div className="flex items-center gap-2 text-zinc-300">
-                <Globe className="h-5 w-5 text-blue-400" />
-                <h3 className="text-lg font-medium">
-                  Har du en befintlig webbplats? (valfritt)
+              <div className="flex items-center gap-3 text-zinc-300">
+                <Globe className="h-6 w-6 text-blue-400" />
+                <h3 className="text-2xl sm:text-3xl font-bold">
+                  Har du en befintlig webbplats? <span className="text-base font-normal text-zinc-500">(valfritt)</span>
                 </h3>
               </div>
-              <p className="text-sm text-zinc-500">
+              <p className="text-base sm:text-lg text-zinc-300 leading-relaxed">
                 Vi kan analysera din nuvarande sajt och ge förbättringsförslag
               </p>
               <input
@@ -762,10 +769,10 @@ export function PromptWizardModal({
                 value={existingWebsite}
                 onChange={(e) => setExistingWebsite(e.target.value)}
                 placeholder="https://din-nuvarande-sajt.se"
-                className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-lg text-white placeholder-zinc-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="w-full px-5 py-4 bg-zinc-800 border-2 border-zinc-700 rounded-xl text-lg text-white placeholder-zinc-400 focus:border-blue-500/50 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all hover:border-zinc-600"
               />
               {existingWebsite && (
-                <p className="text-xs text-emerald-400">
+                <p className="text-sm text-emerald-400 font-medium">
                   ✓ Vi analyserar din sajt i nästa steg
                 </p>
               )}
@@ -775,9 +782,9 @@ export function PromptWizardModal({
           {/* Step 5: Site feedback (only if existing website) */}
           {step === 5 && existingWebsite && (
             <div className="space-y-6">
-              <div className="flex items-center gap-2 text-zinc-300">
-                <ThumbsUp className="h-5 w-5 text-emerald-400" />
-                <h3 className="text-lg font-medium">
+              <div className="flex items-center gap-3 text-zinc-300">
+                <ThumbsUp className="h-6 w-6 text-emerald-400" />
+                <h3 className="text-2xl sm:text-3xl font-bold">
                   Vad tycker du om din nuvarande sajt?
                 </h3>
               </div>
@@ -798,14 +805,14 @@ export function PromptWizardModal({
                   <p className="text-xs text-emerald-400 font-medium mb-1">
                     AI-analys av din sajt:
                   </p>
-                  <p className="text-sm text-zinc-300">{websiteAnalysis}</p>
+                  <p className="text-base text-zinc-200 leading-relaxed">{websiteAnalysis}</p>
                 </div>
               )}
 
               {/* Likes */}
-              <div className="space-y-2">
-                <p className="text-sm text-zinc-400 flex items-center gap-2">
-                  <ThumbsUp className="h-4 w-4 text-emerald-400" />
+              <div className="space-y-3">
+                <p className="text-lg font-semibold text-zinc-200 flex items-center gap-2">
+                  <ThumbsUp className="h-5 w-5 text-emerald-400" />
                   Vad gillar du?
                 </p>
                 <div className="flex flex-wrap gap-2">
@@ -826,9 +833,9 @@ export function PromptWizardModal({
               </div>
 
               {/* Dislikes */}
-              <div className="space-y-2">
-                <p className="text-sm text-zinc-400 flex items-center gap-2">
-                  <ThumbsDown className="h-4 w-4 text-red-400" />
+              <div className="space-y-3">
+                <p className="text-lg font-semibold text-zinc-200 flex items-center gap-2">
+                  <ThumbsDown className="h-5 w-5 text-red-400" />
                   Vad vill du ändra/förbättra?
                 </p>
                 <div className="flex flex-wrap gap-2">
@@ -849,9 +856,9 @@ export function PromptWizardModal({
               </div>
 
               {/* Other feedback */}
-              <div className="space-y-2">
-                <p className="text-sm text-zinc-400">
-                  Övrig feedback (valfritt)
+              <div className="space-y-3">
+                <p className="text-lg font-semibold text-zinc-200">
+                  Övrig feedback <span className="text-zinc-500 font-normal">(valfritt)</span>
                 </p>
                 <textarea
                   id="wizard-site-feedback"
@@ -861,7 +868,7 @@ export function PromptWizardModal({
                   onChange={(e) => setSiteOtherFeedback(e.target.value)}
                   placeholder="Beskriv mer i detalj vad du vill ändra..."
                   rows={3}
-                  className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-lg text-white placeholder-zinc-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 resize-none"
+                  className="w-full px-5 py-4 bg-zinc-800 border-2 border-zinc-700 rounded-xl text-base text-white placeholder-zinc-400 focus:border-blue-500/50 focus:outline-none focus:ring-2 focus:ring-blue-500/20 resize-none leading-relaxed transition-all hover:border-zinc-600"
                 />
               </div>
             </div>
@@ -870,13 +877,13 @@ export function PromptWizardModal({
           {/* Step 6: Inspiration sites */}
           {step === 6 && (
             <div className="space-y-4">
-              <div className="flex items-center gap-2 text-zinc-300">
-                <Lightbulb className="h-5 w-5 text-yellow-400" />
-                <h3 className="text-lg font-medium">
-                  Inspirationssajter (valfritt)
+              <div className="flex items-center gap-3 text-zinc-300">
+                <Lightbulb className="h-6 w-6 text-yellow-400" />
+                <h3 className="text-2xl sm:text-3xl font-bold">
+                  Inspirationssajter <span className="text-base font-normal text-zinc-500">(valfritt)</span>
                 </h3>
               </div>
-              <p className="text-sm text-zinc-500">
+              <p className="text-base sm:text-lg text-zinc-300 leading-relaxed">
                 Finns det webbplatser du gillar designen på? Lägg till upp till
                 3 st.
               </p>
@@ -894,7 +901,7 @@ export function PromptWizardModal({
                         updateInspirationSite(index, e.target.value)
                       }
                       placeholder={`https://inspiration-${index + 1}.se`}
-                      className="flex-1 px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-lg text-white placeholder-zinc-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                      className="flex-1 px-5 py-4 bg-zinc-800 border-2 border-zinc-700 rounded-xl text-lg text-white placeholder-zinc-400 focus:border-blue-500/50 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all hover:border-zinc-600"
                     />
                     {inspirationSites.length > 1 && (
                       <Button
@@ -925,11 +932,11 @@ export function PromptWizardModal({
           {/* Step 7: Purpose */}
           {step === 7 && (
             <div className="space-y-5">
-              <div className="space-y-2">
-                <h3 className="text-xl font-semibold text-white">
+              <div className="space-y-3">
+                <h3 className="text-2xl sm:text-3xl font-bold text-white leading-tight">
                   Vad vill du uppnå?
                 </h3>
-                <p className="text-zinc-400">
+                <p className="text-base sm:text-lg text-zinc-300 leading-relaxed">
                   Välj ett eller flera mål — vi anpassar designen efter detta
                 </p>
               </div>
@@ -1003,9 +1010,9 @@ export function PromptWizardModal({
           {/* Step 8: Target audience */}
           {step === 8 && (
             <div className="space-y-4">
-              <div className="flex items-center gap-2 text-zinc-300">
-                <Users className="h-5 w-5 text-emerald-400" />
-                <h3 className="text-lg font-medium">Vilka är dina kunder?</h3>
+              <div className="flex items-center gap-3 text-zinc-300">
+                <Users className="h-6 w-6 text-emerald-400" />
+                <h3 className="text-2xl sm:text-3xl font-bold">Vilka är dina kunder?</h3>
               </div>
 
               {/* Smart suggestion based on industry and location */}
@@ -1016,7 +1023,7 @@ export function PromptWizardModal({
                     AI-förslag baserat på {currentIndustry.label}
                     {location && ` i ${location}`}:
                   </p>
-                  <p className="text-sm text-zinc-300 italic">
+                  <p className="text-base text-zinc-200 italic leading-relaxed">
                     &quot;{currentIndustry.suggestedAudience}&quot;
                   </p>
                   {targetAudience !== currentIndustry.suggestedAudience && (
@@ -1032,7 +1039,7 @@ export function PromptWizardModal({
                 </div>
               )}
 
-              <p className="text-sm text-zinc-500">
+              <p className="text-base text-zinc-300 leading-relaxed">
                 Beskriv din målgrupp - anpassa gärna förslaget ovan eller skriv
                 helt eget
               </p>
@@ -1048,10 +1055,10 @@ export function PromptWizardModal({
               />
 
               {/* Character count */}
-              <div className="flex justify-between text-xs text-zinc-500">
+              <div className="flex justify-between text-sm text-zinc-400">
                 <span>{targetAudience.length} tecken</span>
                 {targetAudience.length > 0 && targetAudience.length < 30 && (
-                  <span className="text-amber-400">
+                  <span className="text-amber-400 font-medium">
                     Försök ge mer detaljer för bästa resultat
                   </span>
                 )}
@@ -1062,10 +1069,10 @@ export function PromptWizardModal({
           {/* Step 9: Special wishes */}
           {step === 9 && (
             <div className="space-y-4">
-              <div className="flex items-center gap-2 text-zinc-300">
-                <Sparkles className="h-5 w-5 text-purple-400" />
-                <h3 className="text-lg font-medium">
-                  Funktioner &amp; önskemål (valfritt)
+              <div className="flex items-center gap-3 text-zinc-300">
+                <Sparkles className="h-6 w-6 text-purple-400" />
+                <h3 className="text-2xl sm:text-3xl font-bold">
+                  Funktioner &amp; önskemål <span className="text-base font-normal text-zinc-500">(valfritt)</span>
                 </h3>
               </div>
 
@@ -1109,7 +1116,7 @@ export function PromptWizardModal({
                   </div>
                 )}
 
-              <p className="text-sm text-zinc-500">
+              <p className="text-base text-zinc-300 leading-relaxed">
                 Klicka på förslagen ovan eller skriv fritt nedan:
               </p>
               <textarea
@@ -1120,14 +1127,14 @@ export function PromptWizardModal({
                 onChange={(e) => setSpecialWishes(e.target.value)}
                 placeholder="T.ex. Jag vill ha meny med priser, öppettider, bildgalleri på lokalen, onlinebokning för bord..."
                 rows={5}
-                className="w-full px-4 py-3 bg-zinc-800 border border-zinc-700 rounded-lg text-white placeholder-zinc-500 focus:border-purple-500 focus:outline-none focus:ring-1 focus:ring-purple-500 resize-none"
+                className="w-full px-5 py-4 bg-zinc-800 border-2 border-zinc-700 rounded-xl text-base text-white placeholder-zinc-400 focus:border-purple-500/50 focus:outline-none focus:ring-2 focus:ring-purple-500/20 resize-none leading-relaxed transition-all hover:border-zinc-600"
               />
 
               {/* Clear button if there's content */}
               {specialWishes && (
                 <button
                   onClick={() => setSpecialWishes("")}
-                  className="text-xs text-zinc-500 hover:text-zinc-400"
+                  className="text-sm text-zinc-500 hover:text-zinc-300 font-medium transition-colors"
                 >
                   Rensa allt
                 </button>
@@ -1138,13 +1145,13 @@ export function PromptWizardModal({
           {/* Step 10: Color palette */}
           {step === 10 && (
             <div className="space-y-4">
-              <div className="flex items-center gap-2 text-zinc-300">
-                <Palette className="h-5 w-5 text-pink-400" />
-                <h3 className="text-lg font-medium">
+              <div className="flex items-center gap-3 text-zinc-300">
+                <Palette className="h-6 w-6 text-pink-400" />
+                <h3 className="text-2xl sm:text-3xl font-bold">
                   Välj färgpalett för din webbplats
                 </h3>
               </div>
-              <p className="text-sm text-zinc-500">
+              <p className="text-base text-zinc-300 leading-relaxed">
                 {industry
                   ? `Rekommenderade färger för ${
                       INDUSTRY_OPTIONS.find((i) => i.id === industry)?.label ||
@@ -1162,16 +1169,108 @@ export function PromptWizardModal({
             </div>
           )}
 
+          {/* Edit Mode - Show after prompt generation */}
+          {showEditMode && (
+            <div className="space-y-6 animate-fadeIn">
+              <div className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <Sparkles className="h-6 w-6 text-purple-400" />
+                  <h3 className="text-2xl sm:text-3xl font-bold text-white">
+                    Din genererade prompt
+                  </h3>
+                </div>
+                <p className="text-base text-zinc-300 leading-relaxed">
+                  Redigera prompten om du vill, eller fortsätt med den som den är. Du kan också låta AI:n förbättra den.
+                </p>
+              </div>
+
+              <div className="relative">
+                <textarea
+                  id="wizard-edit-prompt"
+                  name="edit-prompt"
+                  value={editedPrompt}
+                  onChange={(e) => setEditedPrompt(e.target.value)}
+                  rows={12}
+                  className="w-full px-6 py-5 bg-zinc-900/50 border-2 border-zinc-800 rounded-xl text-base text-white placeholder-zinc-500 focus:border-blue-500/50 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all font-mono resize-none leading-relaxed"
+                  placeholder="Din prompt kommer att visas här..."
+                />
+                <div className="absolute bottom-4 right-4 text-xs text-zinc-500">
+                  {editedPrompt.length} tecken
+                </div>
+              </div>
+
+              <div className="flex gap-3">
+                <Button
+                  onClick={async () => {
+                    // Improve prompt with AI
+                    setIsExpanding(true);
+                    try {
+                      const response = await fetch("/api/expand-prompt", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          companyName,
+                          industry,
+                          location,
+                          existingWebsite,
+                          siteLikes,
+                          siteDislikes,
+                          siteOtherFeedback,
+                          inspirationSites: inspirationSites.filter((s) => s.trim()),
+                          purposes,
+                          targetAudience,
+                          specialWishes: editedPrompt, // Use edited prompt as special wishes
+                          palette: selectedPalette,
+                          customColors,
+                          categoryType,
+                          initialPrompt: editedPrompt, // Pass edited prompt as initial
+                          websiteAnalysis,
+                        }),
+                      });
+
+                      const data = await response.json();
+                      if (response.ok && data.success) {
+                        setEditedPrompt(data.expandedPrompt);
+                        setGeneratedPrompt(data.expandedPrompt);
+                      }
+                    } catch (err) {
+                      console.error("Failed to improve prompt:", err);
+                    } finally {
+                      setIsExpanding(false);
+                    }
+                  }}
+                  disabled={isExpanding}
+                  variant="outline"
+                  className="gap-2 border-purple-500/50 text-purple-400 hover:bg-purple-500/10"
+                >
+                  <Sparkles className="h-4 w-4" />
+                  {isExpanding ? "Förbättrar..." : "Förbättra med AI"}
+                </Button>
+                <Button
+                  onClick={() => {
+                    // Reset to original
+                    setEditedPrompt(generatedPrompt || "");
+                  }}
+                  variant="ghost"
+                  className="gap-2 text-zinc-400 hover:text-white"
+                >
+                  <RotateCcw className="h-4 w-4" />
+                  Återställ
+                </Button>
+              </div>
+            </div>
+          )}
+
           {/* Error message */}
           {error && (
-            <div className="mt-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm">
+            <div className="mt-4 p-4 bg-red-500/10 border border-red-500/30 rounded-xl text-red-400 text-base">
               {error}
             </div>
           )}
         </div>
 
         {/* Footer */}
-        <div className="relative p-6 border-t border-zinc-800/50 flex justify-between items-center">
+        <div className="relative p-6 border-t border-zinc-800/50 flex flex-wrap justify-between items-center gap-3">
           {/* Back/Cancel button */}
           <Button
             variant="ghost"
@@ -1189,8 +1288,8 @@ export function PromptWizardModal({
             )}
           </Button>
 
-          {/* Step indicator in footer */}
-          <div className="hidden sm:flex items-center gap-1 text-xs text-zinc-600">
+          {/* Step indicator in footer - only show on large screens */}
+          <div className="hidden lg:flex items-center gap-1 text-xs text-zinc-600 max-w-xs truncate">
             {steps.map((s, idx) => (
               <span
                 key={s.id}
@@ -1202,7 +1301,46 @@ export function PromptWizardModal({
             ))}
           </div>
 
-          {displayStep < totalSteps ? (
+          {showEditMode ? (
+            <>
+              <Button
+                onClick={() => {
+                  setShowEditMode(false);
+                  setGeneratedPrompt(null);
+                  setEditedPrompt("");
+                }}
+                variant="ghost"
+                className="gap-2 text-zinc-400 hover:text-white hover:bg-zinc-800"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Tillbaka
+              </Button>
+              <Button
+                onClick={() => {
+                  const wizardData: WizardData = {
+                    companyName,
+                    industry,
+                    location,
+                    existingWebsite,
+                    siteLikes,
+                    siteDislikes,
+                    siteOtherFeedback,
+                    inspirationSites: inspirationSites.filter((s) => s.trim()),
+                    purposes,
+                    targetAudience,
+                    specialWishes,
+                    palette: selectedPalette,
+                    customColors,
+                  };
+                  onComplete(wizardData, editedPrompt);
+                }}
+                className="gap-2 bg-gradient-to-r from-blue-600 via-purple-600 to-pink-500 hover:from-blue-500 hover:via-purple-500 hover:to-pink-400 shadow-lg shadow-purple-500/20 px-6 text-lg"
+              >
+                <Rocket className="h-5 w-5" />
+                Skapa webbplats
+              </Button>
+            </>
+          ) : displayStep < totalSteps ? (
             <Button
               onClick={handleNext}
               disabled={!canProceed()}

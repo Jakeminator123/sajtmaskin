@@ -3,13 +3,13 @@
  * POST /api/expand-prompt
  *
  * Takes wizard data and generates a detailed prompt for v0 API.
- * Uses gpt-5-mini (cost-optimized reasoning) with fallback to gpt-4o-mini.
+ * Uses gpt-5-mini with Responses API (new GPT-5 API format) with fallback to gpt-4o-mini via Chat Completions.
  *
  * Also fetches relevant stock photos from Pexels with markers (P1, P2, etc.)
  * for easy replacement later.
  *
  * Note: v0 does the heavy lifting with v0-1.5-md/lg models.
- * We only need a simple model to structure the prompt.
+ * We use GPT-5 with medium reasoning and high verbosity for detailed, well-structured prompts.
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -18,10 +18,10 @@ import { MarkedImage } from "../pexels/route";
 // Allow 60 seconds for OpenAI response
 export const maxDuration = 60;
 
-// OpenAI Chat Completions API
-const OPENAI_API_URL = "https://api.openai.com/v1/chat/completions";
-const PRIMARY_MODEL = "gpt-5-mini"; // Cost-optimized reasoning
-const FALLBACK_MODEL = "gpt-4o-mini"; // Fallback if gpt-5-mini unavailable
+// OpenAI Responses API (new API for GPT-5 models)
+const OPENAI_API_URL = "https://api.openai.com/v1/responses";
+const PRIMARY_MODEL = "gpt-5-mini"; // Cost-optimized reasoning model
+const FALLBACK_MODEL = "gpt-4o-mini"; // Fallback via chat completions if gpt-5-mini unavailable
 
 // System prompt for expanding user input
 const SYSTEM_PROMPT = `Du är en expert på att skriva detaljerade prompts för webbplatsgenerering med AI (v0/Vercel).
@@ -284,8 +284,8 @@ ${imagesString}`.trim();
     let usedModel = PRIMARY_MODEL;
     let expandedPrompt: string | undefined;
 
-    // Try gpt-5-mini first
-    console.log(`[API/expand-prompt] Trying ${PRIMARY_MODEL}...`);
+    // Try gpt-5-mini with Responses API first
+    console.log(`[API/expand-prompt] Trying ${PRIMARY_MODEL} with Responses API...`);
     let response = await fetch(OPENAI_API_URL, {
       method: "POST",
       headers: {
@@ -294,24 +294,24 @@ ${imagesString}`.trim();
       },
       body: JSON.stringify({
         model: PRIMARY_MODEL,
-        messages: [
-          { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: userMessageWithImages },
-        ],
-        temperature: 0.7,
-        max_tokens: 1500,
+        instructions: SYSTEM_PROMPT,
+        input: userMessageWithImages,
+        reasoning: { effort: "medium" }, // Medium reasoning for balanced quality/speed
+        text: { verbosity: "high" }, // High verbosity for detailed prompts
+        max_output_tokens: 2500, // Allow longer prompts
       }),
     });
 
-    // If primary model fails (not found or other error), try fallback
+    // If primary model fails (not found or other error), try fallback via chat completions
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       console.log(
-        `[API/expand-prompt] ${PRIMARY_MODEL} failed, trying ${FALLBACK_MODEL}...`
+        `[API/expand-prompt] ${PRIMARY_MODEL} failed, trying ${FALLBACK_MODEL} via Chat Completions...`
       );
 
       usedModel = FALLBACK_MODEL;
-      response = await fetch(OPENAI_API_URL, {
+      // Fallback to chat completions for older models
+      response = await fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -347,7 +347,15 @@ ${imagesString}`.trim();
     }
 
     const data = await response.json();
-    expandedPrompt = data.choices?.[0]?.message?.content?.trim();
+    
+    // Parse response based on API type
+    if (usedModel === PRIMARY_MODEL) {
+      // Responses API format
+      expandedPrompt = data.output_text?.trim();
+    } else {
+      // Chat Completions API format (fallback)
+      expandedPrompt = data.choices?.[0]?.message?.content?.trim();
+    }
 
     if (!expandedPrompt) {
       console.error("[API/expand-prompt] No content in response");

@@ -5,7 +5,8 @@
  * Takes a URL and uses AI to analyze the website's design,
  * colors, and structure based on the URL pattern.
  *
- * Uses gpt-5-mini with fallback to gpt-4o-mini.
+ * Uses gpt-5-mini with Responses API (low reasoning, medium verbosity for fast, concise analysis)
+ * with fallback to gpt-4o-mini via Chat Completions.
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -13,8 +14,8 @@ import { NextRequest, NextResponse } from "next/server";
 // Allow 60 seconds for analysis
 export const maxDuration = 60;
 
-// OpenAI Chat Completions API
-const OPENAI_API_URL = "https://api.openai.com/v1/chat/completions";
+// OpenAI Responses API (new API for GPT-5 models)
+const OPENAI_API_URL = "https://api.openai.com/v1/responses";
 const PRIMARY_MODEL = "gpt-5-mini";
 const FALLBACK_MODEL = "gpt-4o-mini";
 
@@ -73,7 +74,7 @@ export async function POST(req: NextRequest) {
     let usedModel = PRIMARY_MODEL;
     let analysis: string | undefined;
 
-    console.log(`[API/analyze-website] Trying ${PRIMARY_MODEL}...`);
+    console.log(`[API/analyze-website] Trying ${PRIMARY_MODEL} with Responses API...`);
     let response = await fetch(OPENAI_API_URL, {
       method: "POST",
       headers: {
@@ -82,21 +83,21 @@ export async function POST(req: NextRequest) {
       },
       body: JSON.stringify({
         model: PRIMARY_MODEL,
-        messages: [
-          { role: "system", content: ANALYSIS_PROMPT },
-          { role: "user", content: userPrompt },
-        ],
-        temperature: 0.7,
-        max_tokens: 500,
+        instructions: ANALYSIS_PROMPT,
+        input: userPrompt,
+        reasoning: { effort: "low" }, // Low reasoning for fast analysis
+        text: { verbosity: "medium" }, // Medium verbosity for concise analysis
+        max_output_tokens: 500,
       }),
     });
 
-    // If primary model fails, try fallback
+    // If primary model fails, try fallback via chat completions
     if (!response.ok) {
-      console.log(`[API/analyze-website] ${PRIMARY_MODEL} failed, trying ${FALLBACK_MODEL}...`);
+      console.log(`[API/analyze-website] ${PRIMARY_MODEL} failed, trying ${FALLBACK_MODEL} via Chat Completions...`);
       usedModel = FALLBACK_MODEL;
       
-      response = await fetch(OPENAI_API_URL, {
+      // Fallback to chat completions for older models
+      response = await fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -132,7 +133,15 @@ export async function POST(req: NextRequest) {
     }
 
     const data = await response.json();
-    analysis = data.choices?.[0]?.message?.content?.trim();
+    
+    // Parse response based on API type
+    if (usedModel === PRIMARY_MODEL) {
+      // Responses API format
+      analysis = data.output_text?.trim();
+    } else {
+      // Chat Completions API format (fallback)
+      analysis = data.choices?.[0]?.message?.content?.trim();
+    }
 
     if (!analysis) {
       console.error("[API/analyze-website] No content in response");
