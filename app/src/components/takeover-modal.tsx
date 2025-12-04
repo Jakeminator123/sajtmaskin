@@ -159,13 +159,18 @@ export function TakeoverModal({
                 </div>
               </div>
 
-              <div className="p-4 bg-purple-500/10 border border-purple-500/30 rounded-xl">
-                <p className="text-sm text-purple-300">
-                  <strong>Nästa steg:</strong> Gå till &quot;Mina projekt&quot;
-                  och klicka på projektet för att börja redigera med AI. Varje
-                  ändring kostar 1 💎.
-                </p>
-              </div>
+              <a
+                href={`/project/${projectId}`}
+                className="flex items-center justify-center gap-2 p-4 bg-purple-600 hover:bg-purple-500 rounded-xl text-white font-medium transition-colors"
+              >
+                <Sparkles className="h-5 w-5" />
+                Öppna AI Studio
+                <ArrowRight className="h-4 w-4" />
+              </a>
+
+              <p className="text-xs text-gray-500 text-center">
+                💎 AI-redigering kostar 1-5 diamanter per ändring
+              </p>
             </div>
           )}
 
@@ -203,12 +208,18 @@ export function TakeoverModal({
                 </a>
               </div>
 
-              <div className="p-4 bg-purple-500/10 border border-purple-500/30 rounded-xl">
-                <p className="text-sm text-purple-300">
-                  <strong>Du äger nu all kod!</strong> Redigera med AI från
-                  editorn, eller klona repot och jobba lokalt.
-                </p>
-              </div>
+              <a
+                href={`/project/${result.github.repoName}?owner=${result.github.owner}`}
+                className="flex items-center justify-center gap-2 p-4 bg-purple-600 hover:bg-purple-500 rounded-xl text-white font-medium transition-colors"
+              >
+                <Sparkles className="h-5 w-5" />
+                Öppna AI Studio
+                <ArrowRight className="h-4 w-4" />
+              </a>
+
+              <p className="text-xs text-gray-500 text-center">
+                💎 AI-redigering kostar 1-5 diamanter per ändring
+              </p>
             </div>
           )}
 

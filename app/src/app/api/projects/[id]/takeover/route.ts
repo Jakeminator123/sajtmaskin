@@ -355,12 +355,29 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     console.log("[Takeover] Files pushed successfully!");
 
-    // Also save to Redis for agent editing (GitHub is the source of truth, Redis is cache)
-    await saveProjectFiles(projectId, files);
+    // Create GitHub-style project ID for URL routing (owner_repo format)
+    const githubProjectId = `${githubUsername}_${repo.name}`;
 
-    // Save project metadata
+    // Save to Redis for agent editing (GitHub is the source of truth, Redis is cache)
+    // Save with BOTH database ID and GitHub-style ID for flexibility
+    await saveProjectFiles(projectId, files);
+    await saveProjectFiles(githubProjectId, files); // Also save with GitHub-style ID
+
+    // Save project metadata with database ID
     await saveProjectMeta({
       projectId,
+      userId: user.id,
+      name: project.name,
+      takenOverAt: new Date().toISOString(),
+      storageType: "github",
+      githubRepo: repo.name,
+      githubOwner: githubUsername,
+      filesCount: files.length,
+    });
+
+    // Also save metadata with GitHub-style ID (for /project/[repo]?owner=user routing)
+    await saveProjectMeta({
+      projectId: githubProjectId,
       userId: user.id,
       name: project.name,
       takenOverAt: new Date().toISOString(),

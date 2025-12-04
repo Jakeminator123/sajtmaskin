@@ -41,7 +41,14 @@ import {
  * - Image generation support
  * - Web search integration
  *
- * URL: /project/[repoId]?owner=username
+ * URL FORMATS:
+ * 1. GitHub mode: /project/[repoId]?owner=username
+ *    - repoId = GitHub repo name
+ *    - owner = GitHub username
+ *
+ * 2. Redis mode: /project/[projectId]
+ *    - projectId = Database project ID (UUID)
+ *    - No owner parameter needed
  */
 
 interface AgentMessage {
@@ -77,7 +84,14 @@ function OwnedProjectContent() {
 
   const repoId = params.repoId as string;
   const owner = searchParams.get("owner");
-  const repoFullName = owner ? `${owner}/${repoId}` : null;
+
+  // Determine mode and project ID:
+  // - GitHub mode: owner param exists → projectId = "owner_repo", repoFullName for display
+  // - Redis mode: no owner → projectId = repoId (database UUID)
+  const isGitHubMode = !!owner;
+  const projectId = isGitHubMode ? `${owner}_${repoId}` : repoId;
+  const repoFullName = isGitHubMode ? `${owner}/${repoId}` : null;
+  const displayName = repoFullName || repoId;
 
   const { user, isAuthenticated, diamonds, fetchUser, hasGitHub } = useAuth();
 
@@ -116,7 +130,7 @@ function OwnedProjectContent() {
 
   // Handle sending a message
   const handleSend = async () => {
-    if (!input.trim() || isLoading || !repoFullName) return;
+    if (!input.trim() || isLoading || !projectId) return;
 
     const cost = getModeCost(selectedMode);
     if (diamonds < cost) {
@@ -143,7 +157,7 @@ function OwnedProjectContent() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           instruction: userMessage.content,
-          projectId: repoFullName?.replace("/", "_"),
+          projectId, // Use the resolved projectId (works for both Redis and GitHub mode)
           taskType: selectedMode,
           previousResponseId,
         }),
@@ -206,19 +220,14 @@ function OwnedProjectContent() {
     }
   };
 
-  // Missing repo info
-  if (!repoFullName) {
+  // Missing project ID (shouldn't happen if URL is valid)
+  if (!projectId) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="text-center space-y-4">
           <AlertCircle className="h-12 w-12 text-amber-500 mx-auto" />
-          <h1 className="text-xl font-semibold text-white">Repo saknas</h1>
-          <p className="text-gray-400">
-            URL måste inkludera owner parameter, t.ex.
-            <code className="ml-2 px-2 py-1 bg-gray-800 rounded text-teal-400">
-              /project/my-site?owner=username
-            </code>
-          </p>
+          <h1 className="text-xl font-semibold text-white">Projekt saknas</h1>
+          <p className="text-gray-400">Inget projekt-ID angivet i URL:en.</p>
           <Link href="/projects">
             <Button className="bg-teal-600 hover:bg-teal-500">
               Gå till Mina Projekt
@@ -246,8 +255,8 @@ function OwnedProjectContent() {
     );
   }
 
-  // No GitHub connected
-  if (!hasGitHub) {
+  // No GitHub connected (only required for GitHub mode)
+  if (isGitHubMode && !hasGitHub) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="text-center space-y-4">
@@ -256,7 +265,7 @@ function OwnedProjectContent() {
             Anslut GitHub först
           </h1>
           <p className="text-gray-400">
-            Du måste ansluta ditt GitHub-konto för att redigera projekt.
+            Du måste ansluta ditt GitHub-konto för att redigera GitHub-projekt.
           </p>
           <a
             href={`/api/auth/github?returnTo=/project/${repoId}?owner=${owner}`}
@@ -295,7 +304,7 @@ function OwnedProjectContent() {
             <span className="font-semibold text-white">AI Studio</span>
             <span className="text-gray-600">|</span>
             <span className="text-gray-400 font-mono text-sm">
-              {repoFullName}
+              {displayName}
             </span>
           </div>
         </div>
@@ -327,22 +336,24 @@ function OwnedProjectContent() {
             )}
           </Button>
 
-          {/* GitHub link */}
-          <a
-            href={`https://github.com/${repoFullName}`}
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-2 border-gray-700 text-gray-300 hover:bg-gray-800"
+          {/* GitHub link (only show in GitHub mode) */}
+          {isGitHubMode && repoFullName && (
+            <a
+              href={`https://github.com/${repoFullName}`}
+              target="_blank"
+              rel="noopener noreferrer"
             >
-              <Github className="h-4 w-4" />
-              <span className="hidden sm:inline">GitHub</span>
-              <ExternalLink className="h-3 w-3" />
-            </Button>
-          </a>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2 border-gray-700 text-gray-300 hover:bg-gray-800"
+              >
+                <Github className="h-4 w-4" />
+                <span className="hidden sm:inline">GitHub</span>
+                <ExternalLink className="h-3 w-3" />
+              </Button>
+            </a>
+          )}
         </div>
       </header>
 
