@@ -105,32 +105,42 @@ function BuilderContent() {
     fetchUser();
   }, [fetchUser]);
 
+  // Track if we've already loaded this project (prevents double-load from StrictMode)
+  const [hasLoadedProject, setHasLoadedProject] = useState<string | null>(null);
+
   // Load project data on mount
   useEffect(() => {
-    if (projectId) {
-      setProjectId(projectId);
-
-      // Load existing project data if any
-      getProject(projectId)
-        .then(({ project, data }) => {
-          setProjectName(project.name);
-
-          // If project has existing data (from a previous session), load it
-          if (data && data.chat_id) {
-            loadFromProject({
-              chatId: data.chat_id,
-              demoUrl: data.demo_url,
-              currentCode: data.current_code,
-              files: data.files as GeneratedFile[],
-              messages: data.messages,
-            });
-          }
-        })
-        .catch((err) => {
-          console.error("Failed to load project:", err);
-        });
+    // Skip if already loaded this project (React StrictMode protection)
+    if (!projectId || hasLoadedProject === projectId) {
+      return;
     }
-  }, [projectId, setProjectId, loadFromProject]);
+
+    setProjectId(projectId);
+    setHasLoadedProject(projectId);
+
+    // Clear any stale state from localStorage before loading fresh data
+    clearChat();
+
+    // Load existing project data if any
+    getProject(projectId)
+      .then(({ project, data }) => {
+        setProjectName(project.name);
+
+        // If project has existing data (from a previous session), load it
+        if (data && data.chat_id) {
+          loadFromProject({
+            chatId: data.chat_id,
+            demoUrl: data.demo_url,
+            currentCode: data.current_code,
+            files: data.files as GeneratedFile[],
+            messages: data.messages,
+          });
+        }
+      })
+      .catch((err) => {
+        console.error("Failed to load project:", err);
+      });
+  }, [projectId, setProjectId, loadFromProject, clearChat, hasLoadedProject]);
 
   // Handle starting a new design
   const handleNewDesign = () => {

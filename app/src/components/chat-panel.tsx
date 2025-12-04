@@ -122,10 +122,12 @@ export function ChatPanel({
     }
   }, [messages]);
 
-  // Track the last generated key to detect changes
+  // Track the last generated key to detect changes (persisted across StrictMode re-mounts)
   const lastGeneratedKey = useRef<string | null>(null);
-  // Track if generation has started (prevents double-execution)
-  const generationStarted = useRef(false);
+  // Track if generation is currently in progress (prevents double-execution)
+  const generationInProgress = useRef(false);
+  // Track if this effect has run (for StrictMode detection)
+  const effectRanOnce = useRef(false);
 
   // Check if we're in test mode (force regeneration, skip cache)
   const isTestMode =
@@ -138,8 +140,25 @@ export function ChatPanel({
       templateId || ""
     }-${localTemplateId || ""}`;
 
-    // Skip if already loading or generation already started for this key
-    if (isLoading || generationStarted.current) return;
+    // Skip if no key (no params set)
+    if (!currentKey || currentKey === "---") return;
+
+    // Skip if already loading or generation in progress
+    if (isLoading || generationInProgress.current) {
+      if (DEBUG) console.log("[ChatPanel] Skipping - already loading");
+      return;
+    }
+
+    // StrictMode protection: Skip second run if key hasn't changed
+    if (
+      effectRanOnce.current &&
+      lastGeneratedKey.current === currentKey &&
+      !isTestMode
+    ) {
+      if (DEBUG)
+        console.log("[ChatPanel] Skipping - StrictMode double-run detected");
+      return;
+    }
 
     // Check if this is a new request (different from last generated)
     const isNewRequest = lastGeneratedKey.current !== currentKey;
@@ -148,46 +167,60 @@ export function ChatPanel({
     if (isTestMode && (messages.length > 0 || demoUrl)) {
       clearChat();
       lastGeneratedKey.current = null;
-      generationStarted.current = false;
+      generationInProgress.current = false;
+      effectRanOnce.current = false;
       return;
     }
 
     // If we have content but it's from a DIFFERENT request, clear it first
     if (isNewRequest && (messages.length > 0 || demoUrl)) {
+      if (DEBUG) console.log("[ChatPanel] Clearing for new request");
       clearChat();
       lastGeneratedKey.current = null;
-      generationStarted.current = false;
+      generationInProgress.current = false;
       return; // Wait for state to clear, effect will re-run
     }
 
     // Skip if already generated this exact request
     if (lastGeneratedKey.current === currentKey && !isTestMode) {
+      if (DEBUG)
+        console.log("[ChatPanel] Skipping - already generated this key");
       return;
     }
+
+    // Mark as having run
+    effectRanOnce.current = true;
 
     // Ready to generate - mark this key as being generated
     lastGeneratedKey.current = currentKey;
-    generationStarted.current = true; // Prevent double-execution
+    generationInProgress.current = true;
+
+    if (DEBUG)
+      console.log("[ChatPanel] Starting generation for key:", currentKey);
 
     // Handle different generation modes
-    if (localTemplateId) {
-      handleLocalTemplateLoad(localTemplateId);
-      return;
-    }
+    const startGeneration = async () => {
+      try {
+        if (localTemplateId) {
+          await handleLocalTemplateLoad(localTemplateId);
+        } else if (templateId) {
+          await handleTemplateGeneration(templateId);
+        } else {
+          // Use the prompt (either from URL or generate default based on category)
+          const initialMessage =
+            initialPrompt ||
+            (categoryType ? `Skapa en ${getCategoryName(categoryType)}` : null);
 
-    if (templateId) {
-      handleTemplateGeneration(templateId);
-      return;
-    }
+          if (initialMessage) {
+            await handleGenerate(initialMessage, categoryType);
+          }
+        }
+      } finally {
+        generationInProgress.current = false;
+      }
+    };
 
-    // Use the prompt (either from URL or generate default based on category)
-    const initialMessage =
-      initialPrompt ||
-      (categoryType ? `Skapa en ${getCategoryName(categoryType)}` : null);
-
-    if (initialMessage) {
-      handleGenerate(initialMessage, categoryType);
-    }
+    startGeneration();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     categoryType,

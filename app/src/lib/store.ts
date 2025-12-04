@@ -199,6 +199,8 @@ export const useBuilderStore = create<BuilderState>()(
         }),
 
       // Load project data from database
+      // IMPORTANT: This completely replaces current state to avoid duplicates
+      // from localStorage persist + database load race condition
       loadFromProject: (data) => {
         // If we're loading saved data, user has previously saved this project
         const hasSavedData = !!(
@@ -208,20 +210,30 @@ export const useBuilderStore = create<BuilderState>()(
           (data.files && data.files.length > 0)
         );
 
+        // Parse messages from database format
+        const parsedMessages = (data.messages || []).map((msg: any) => ({
+          ...msg,
+          id:
+            msg.id ||
+            `msg-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+          timestamp:
+            msg.timestamp instanceof Date
+              ? msg.timestamp
+              : new Date(msg.timestamp),
+        }));
+
+        // REPLACE state entirely (don't merge with localStorage)
         set({
           chatId: data.chatId || null,
           demoUrl: data.demoUrl || null,
           currentCode: data.currentCode || null,
           files: data.files || [],
-          messages: (data.messages || []).map((msg: any) => ({
-            ...msg,
-            timestamp:
-              msg.timestamp instanceof Date
-                ? msg.timestamp
-                : new Date(msg.timestamp),
-          })),
+          messages: parsedMessages,
           hasUserSaved: hasSavedData, // Enable auto-save if project has saved data
+          isLoading: false, // Reset loading state
         });
+
+        console.log("[Store] Loaded project, messages:", parsedMessages.length);
       },
 
       // Set hasUserSaved flag
