@@ -10,7 +10,8 @@ import { AuthModal } from "@/components/auth/auth-modal";
 import { ShaderBackground } from "@/components/shader-background";
 import { SiteAuditSection } from "@/components/site-audit-section";
 import { AuditModal } from "@/components/audit-modal";
-import { RotateCcw } from "lucide-react";
+import { RotateCcw, Sparkles } from "lucide-react";
+import { useAuth } from "@/lib/auth-store";
 import type { AuditResult } from "@/types/audit";
 
 export function HomePage() {
@@ -23,6 +24,9 @@ export function HomePage() {
   >(null);
   const promptInputRef = useRef<HTMLDivElement>(null);
 
+  // Get user state for personalized experience
+  const { user, isAuthenticated } = useAuth();
+
   const {
     showOnboarding,
     onboardingData,
@@ -30,6 +34,9 @@ export function HomePage() {
     handleSkip,
     resetOnboarding,
   } = useOnboarding();
+
+  // Get user's first name for greeting
+  const firstName = user?.name?.split(" ")[0] || user?.email?.split("@")[0];
 
   const handleLoginClick = () => {
     setAuthMode("login");
@@ -103,8 +110,14 @@ export function HomePage() {
 
   return (
     <main className="min-h-screen bg-black">
-      {/* Shader Background - subtle and subdued */}
-      <ShaderBackground color="#002020" speed={0.2} opacity={0.35} />
+      {/* Shader Background - shimmer effect for logged in users */}
+      <ShaderBackground
+        theme={isAuthenticated ? "aurora" : "default"}
+        speed={0.2}
+        opacity={isAuthenticated ? 0.45 : 0.35}
+        shimmer={isAuthenticated}
+        shimmerSpeed={10}
+      />
 
       {/* Navbar */}
       <Navbar
@@ -143,13 +156,31 @@ export function HomePage() {
       </button>
 
       <div className="relative z-10 flex flex-col items-center justify-center min-h-screen px-4 pt-24 pb-16 space-y-12">
+        {/* Personalized greeting for logged-in users */}
+        {isAuthenticated && firstName && (
+          <div className="text-center animate-fadeIn">
+            <div className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-500/10 via-pink-500/10 to-amber-500/10 border border-purple-500/20 rounded-full mb-4">
+              <Sparkles className="h-4 w-4 text-amber-400" />
+              <span className="text-sm text-gray-300">
+                Välkommen tillbaka,{" "}
+                <span className="text-white font-medium">{firstName}</span>!
+              </span>
+              <span className="text-xs text-gray-500">{user?.diamonds} 💎</span>
+            </div>
+          </div>
+        )}
+
         {/* Header */}
         <div className="text-center space-y-4">
           <h1 className="text-3xl sm:text-4xl font-bold text-white tracking-tight">
-            Vad vill du bygga idag?
+            {isAuthenticated
+              ? "Vad vill du skapa idag?"
+              : "Vad vill du bygga idag?"}
           </h1>
           <p className="text-gray-400 max-w-md mx-auto flex items-center justify-center gap-2 text-sm">
-            Skapa professionella webbplatser på minuter med hjälp av AI.
+            {isAuthenticated
+              ? "Dina projekt och analyser sparas automatiskt i ditt konto."
+              : "Skapa professionella webbplatser på minuter med hjälp av AI."}
             <HelpTooltip text="Välj en kategori för att komma igång snabbt, eller beskriv din webbplats med egna ord i textfältet nedan." />
           </p>
         </div>
