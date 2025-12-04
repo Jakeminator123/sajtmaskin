@@ -1,42 +1,88 @@
 /**
- * API Route: Analyze website with AI
+ * API Route: Analyze website with AI + Web Search
  * POST /api/analyze-website
  *
- * Takes a URL and uses AI to analyze the website's design,
- * colors, and structure based on the URL pattern.
+ * Takes a URL and uses AI with Web Search to ACTUALLY analyze the website's
+ * content, design, and structure by crawling/searching the site.
  *
- * Uses gpt-5-mini with Responses API (low reasoning, medium verbosity for fast, concise analysis)
- * with fallback to gpt-4o-mini via Chat Completions.
+ * Uses gpt-4o with web_search tool for real website analysis.
+ * Falls back to gpt-4o-mini without web search if needed.
  */
 
 import { NextRequest, NextResponse } from "next/server";
 
-// Allow 60 seconds for analysis
-export const maxDuration = 60;
+// Allow 90 seconds for web search + analysis
+export const maxDuration = 90;
 
-// OpenAI Responses API (new API for GPT-5 models)
-const OPENAI_API_URL = "https://api.openai.com/v1/responses";
-const PRIMARY_MODEL = "gpt-5-mini";
+// OpenAI Responses API with Web Search
+const OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses";
+const WEB_SEARCH_MODEL = "gpt-4o"; // Web search works best with gpt-4o
 const FALLBACK_MODEL = "gpt-4o-mini";
 
-// System prompt for website analysis
-const ANALYSIS_PROMPT = `Du är en expert på webbdesign och UX. Användaren vill förbättra sin webbplats.
+// System prompt for website analysis with web search
+const ANALYSIS_PROMPT_WITH_SEARCH = `Du är en expert på webbdesign, UX och digital marknadsföring. 
+Din uppgift är att analysera en webbplats genom att SÖKA och UNDERSÖKA den på webben.
+
+INSTRUKTIONER:
+1. Använd web search för att besöka och analysera webbplatsen
+2. Hitta information om företaget, deras tjänster/produkter
+3. Leta efter recensioner, omdömen eller social media-närvaro
+4. Analysera konkurrenter om möjligt
+
+GE EN ANALYS PÅ SVENSKA (max 200 ord) med:
+
+**Om företaget:**
+- Vad de gör och vilken bransch
+- Deras huvudsakliga tjänster/produkter
+- Geografiskt område (om relevant)
+
+**Designanalys:**
+- Generellt intryck av sajten
+- Vad som fungerar bra
+- 2-3 konkreta förbättringsförslag
+
+**Marknadstips:**
+- Hur de kan sticka ut mot konkurrenter
+- Förslag på funktioner som kan öka konvertering
+
+Var konstruktiv, positiv och ge KONKRETA, HANDLINGSBARA råd!
+Inkludera källor där relevant.`;
+
+// Simpler prompt without web search
+const ANALYSIS_PROMPT_SIMPLE = `Du är en expert på webbdesign och UX. 
 
 Baserat på URL:en, gör en kvalificerad bedömning och ge konstruktiva råd.
 Om du kan gissa företagstyp från URL:en (t.ex. "cafesvensson.se" = café), anpassa råden.
 
-Ge en kort analys på SVENSKA (max 120 ord) med:
+Ge en kort analys på SVENSKA (max 150 ord) med:
 1. Vad sajten troligen handlar om
 2. 2-3 vanliga styrkor för denna typ av sajt
 3. 2-3 konkreta förbättringsförslag
 
 Var konstruktiv, positiv och inspirerande!`;
 
+interface WebSearchAnnotation {
+  type: string;
+  url?: string;
+  title?: string;
+}
+
+interface AnalysisResponse {
+  success: boolean;
+  analysis: string;
+  sources?: Array<{ url: string; title: string }>;
+  model: string;
+  usedWebSearch: boolean;
+}
+
 export async function POST(req: NextRequest) {
   console.log("[API/analyze-website] Request received");
 
   try {
-    const { url } = (await req.json()) as { url: string };
+    const { url, deepAnalysis = true } = (await req.json()) as {
+      url: string;
+      deepAnalysis?: boolean;
+    };
 
     if (!url) {
       return NextResponse.json(
@@ -46,8 +92,9 @@ export async function POST(req: NextRequest) {
     }
 
     // Validate URL
+    let parsedUrl: URL;
     try {
-      new URL(url);
+      parsedUrl = new URL(url);
     } catch {
       return NextResponse.json(
         { success: false, error: "Invalid URL format" },
@@ -68,63 +115,129 @@ export async function POST(req: NextRequest) {
 
     console.log("[API/analyze-website] Analyzing URL:", url);
 
-    const userPrompt = `Analysera och ge förbättringsförslag för denna webbplats: ${url}`;
+    const userPrompt = `Analysera denna webbplats grundligt: ${url}
+    
+Domän: ${parsedUrl.hostname}
+Sökord att undersöka: "${
+      parsedUrl.hostname.replace("www.", "").split(".")[0]
+    }" företag`;
 
-    // Try primary model first, fallback if needed
-    let usedModel = PRIMARY_MODEL;
     let analysis: string | undefined;
+    let sources: Array<{ url: string; title: string }> = [];
+    let usedModel = WEB_SEARCH_MODEL;
+    let usedWebSearch = false;
 
-    console.log(
-      `[API/analyze-website] Trying ${PRIMARY_MODEL} with Responses API...`
-    );
-    let response = await fetch(OPENAI_API_URL, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${openaiApiKey}`,
-      },
-      body: JSON.stringify({
-        model: PRIMARY_MODEL,
-        input: [
-          { role: "system", content: ANALYSIS_PROMPT },
-          { role: "user", content: userPrompt },
-        ],
-        reasoning: { effort: "low" }, // Low reasoning for fast analysis
-        text: { verbosity: "medium" }, // Medium verbosity for concise analysis
-        max_output_tokens: 500,
-      }),
-    });
-
-    // If primary model fails, try fallback via chat completions
-    if (!response.ok) {
+    // Try with Web Search first (if deepAnalysis is enabled)
+    if (deepAnalysis) {
       console.log(
-        `[API/analyze-website] ${PRIMARY_MODEL} failed, trying ${FALLBACK_MODEL} via Chat Completions...`
+        `[API/analyze-website] Trying ${WEB_SEARCH_MODEL} with Web Search...`
+      );
+
+      try {
+        const webSearchResponse = await fetch(OPENAI_RESPONSES_URL, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${openaiApiKey}`,
+          },
+          body: JSON.stringify({
+            model: WEB_SEARCH_MODEL,
+            input: [
+              { role: "system", content: ANALYSIS_PROMPT_WITH_SEARCH },
+              { role: "user", content: userPrompt },
+            ],
+            tools: [{ type: "web_search" }], // Enable web search!
+            max_output_tokens: 1000,
+          }),
+        });
+
+        if (webSearchResponse.ok) {
+          const data = await webSearchResponse.json();
+
+          // Extract text from response
+          analysis = data.output_text?.trim();
+
+          // Extract sources from annotations
+          if (data.output && Array.isArray(data.output)) {
+            for (const item of data.output) {
+              if (item.content && Array.isArray(item.content)) {
+                for (const content of item.content) {
+                  if (
+                    content.annotations &&
+                    Array.isArray(content.annotations)
+                  ) {
+                    for (const annotation of content.annotations as WebSearchAnnotation[]) {
+                      if (
+                        annotation.type === "url_citation" &&
+                        annotation.url
+                      ) {
+                        sources.push({
+                          url: annotation.url,
+                          title: annotation.title || annotation.url,
+                        });
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+
+          if (analysis) {
+            usedWebSearch = true;
+            console.log(
+              `[API/analyze-website] Web Search success, found ${sources.length} sources`
+            );
+          }
+        } else {
+          const errorText = await webSearchResponse.text();
+          console.log(
+            `[API/analyze-website] Web Search failed: ${webSearchResponse.status}`,
+            errorText
+          );
+        }
+      } catch (webSearchError) {
+        console.error(
+          "[API/analyze-website] Web Search error:",
+          webSearchError
+        );
+      }
+    }
+
+    // Fallback to simple analysis without web search
+    if (!analysis) {
+      console.log(
+        `[API/analyze-website] Falling back to ${FALLBACK_MODEL} without Web Search...`
       );
       usedModel = FALLBACK_MODEL;
 
-      // Fallback to chat completions for older models
-      response = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${openaiApiKey}`,
-        },
-        body: JSON.stringify({
-          model: FALLBACK_MODEL,
-          messages: [
-            { role: "system", content: ANALYSIS_PROMPT },
-            { role: "user", content: userPrompt },
-          ],
-          temperature: 0.7,
-          max_tokens: 500,
-        }),
-      });
+      const simplePrompt = `Analysera och ge förbättringsförslag för denna webbplats: ${url}`;
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        console.error("[API/analyze-website] Both models failed:", errorData);
+      const fallbackResponse = await fetch(
+        "https://api.openai.com/v1/chat/completions",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${openaiApiKey}`,
+          },
+          body: JSON.stringify({
+            model: FALLBACK_MODEL,
+            messages: [
+              { role: "system", content: ANALYSIS_PROMPT_SIMPLE },
+              { role: "user", content: simplePrompt },
+            ],
+            temperature: 0.7,
+            max_tokens: 500,
+          }),
+        }
+      );
 
-        if (response.status === 429) {
+      if (!fallbackResponse.ok) {
+        const errorData = await fallbackResponse.json().catch(() => ({}));
+        console.error("[API/analyze-website] Fallback failed:", errorData);
+
+        if (fallbackResponse.status === 429) {
           return NextResponse.json(
             { success: false, error: "Rate limit exceeded. Try again later." },
             { status: 429 }
@@ -136,17 +249,9 @@ export async function POST(req: NextRequest) {
           { status: 500 }
         );
       }
-    }
 
-    const data = await response.json();
-
-    // Parse response based on API type
-    if (usedModel === PRIMARY_MODEL) {
-      // Responses API format
-      analysis = data.output_text?.trim();
-    } else {
-      // Chat Completions API format (fallback)
-      analysis = data.choices?.[0]?.message?.content?.trim();
+      const fallbackData = await fallbackResponse.json();
+      analysis = fallbackData.choices?.[0]?.message?.content?.trim();
     }
 
     if (!analysis) {
@@ -158,15 +263,23 @@ export async function POST(req: NextRequest) {
     }
 
     console.log(
-      `[API/analyze-website] Success with ${usedModel}, length:`,
+      `[API/analyze-website] Success with ${usedModel}, web search: ${usedWebSearch}, length:`,
       analysis.length
     );
 
-    return NextResponse.json({
+    const result: AnalysisResponse = {
       success: true,
       analysis,
       model: usedModel,
-    });
+      usedWebSearch,
+    };
+
+    // Include sources if we have any
+    if (sources.length > 0) {
+      result.sources = sources.slice(0, 5); // Max 5 sources
+    }
+
+    return NextResponse.json(result);
   } catch (error) {
     console.error("[API/analyze-website] Error:", error);
 

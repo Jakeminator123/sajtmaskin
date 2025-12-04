@@ -129,6 +129,74 @@ Image placement suggestions:
 - P5: Secondary visual or footer`;
 }
 
+// Research industry trends with Web Search (optional enhancement)
+async function researchIndustryTrends(
+  industry: string,
+  location: string | undefined,
+  apiKey: string
+): Promise<{ trends: string; sources: Array<{ url: string; title: string }> }> {
+  const industryName = INDUSTRY_MAP[industry] || industry;
+  const locationStr = location ? ` i ${location}` : " i Sverige";
+
+  const prompt = `Sök efter de senaste trenderna inom ${industryName}${locationStr}.
+
+Hitta:
+1. Aktuella designtrender för webbplatser inom denna bransch
+2. Vad kunderna förväntar sig av moderna ${industryName}-sajter
+3. Funktioner som ökar konvertering för denna typ av verksamhet
+
+Ge en KORT sammanfattning (max 100 ord) på ENGELSKA med konkreta förslag för webbdesign.`;
+
+  try {
+    const response = await fetch("https://api.openai.com/v1/responses", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: "gpt-4o",
+        input: prompt,
+        tools: [{ type: "web_search" }],
+        max_output_tokens: 500,
+      }),
+    });
+
+    if (!response.ok) {
+      return { trends: "", sources: [] };
+    }
+
+    const data = await response.json();
+    const trends = data.output_text?.trim() || "";
+
+    // Extract sources
+    const sources: Array<{ url: string; title: string }> = [];
+    if (data.output && Array.isArray(data.output)) {
+      for (const item of data.output) {
+        if (item.content && Array.isArray(item.content)) {
+          for (const content of item.content) {
+            if (content.annotations && Array.isArray(content.annotations)) {
+              for (const annotation of content.annotations) {
+                if (annotation.type === "url_citation" && annotation.url) {
+                  sources.push({
+                    url: annotation.url,
+                    title: annotation.title || annotation.url,
+                  });
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    return { trends, sources: sources.slice(0, 3) };
+  } catch (error) {
+    console.error("[API/expand-prompt] Industry research error:", error);
+    return { trends: "", sources: [] };
+  }
+}
+
 // Site feedback mapping
 const SITE_LIKES_MAP: Record<string, string> = {
   design: "design/appearance",
@@ -271,9 +339,24 @@ Inkludera specifika sektioner, funktioner och designelement som passar branschen
     const pexelsImages = await fetchPexelsImages(industry || "other");
     const imagesString = formatImagesForPrompt(pexelsImages);
 
-    // Add images to user message
+    // Optional: Research industry trends with Web Search (for better prompts)
+    let trendsString = "";
+    if (industry && industry !== "other") {
+      console.log("[API/expand-prompt] Researching industry trends...");
+      const { trends } = await researchIndustryTrends(
+        industry,
+        location,
+        openaiApiKey
+      );
+      if (trends) {
+        trendsString = `\n\nINDUSTRY TRENDS & BEST PRACTICES (from web research):\n${trends}`;
+        console.log("[API/expand-prompt] Got industry trends");
+      }
+    }
+
+    // Add images and trends to user message
     const userMessageWithImages = `${userMessage}
-${imagesString}`.trim();
+${imagesString}${trendsString}`.trim();
 
     console.log(
       "[API/expand-prompt] User message length:",

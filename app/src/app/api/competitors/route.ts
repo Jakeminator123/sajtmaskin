@@ -1,11 +1,14 @@
 /**
- * API Route: Find competitors using Google Places API
+ * API Route: Find competitors using Google Places API + Web Search
  * POST /api/competitors
  *
  * Takes location and industry type, finds nearby competitors
  * and returns their information (name, rating, reviews, etc.)
  *
- * Requires GOOGLE_MAPS_API_KEY environment variable
+ * Can optionally use OpenAI Web Search for deeper analysis of competitor websites.
+ *
+ * Requires GOOGLE_MAPS_API_KEY for local search
+ * Uses OPENAI_API_KEY for web search analysis (optional)
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -53,15 +56,103 @@ export interface Competitor {
   priceLevel: number | null;
   website?: string;
   distance?: string;
+  // Web search enhanced data
+  description?: string;
+  socialMedia?: string[];
+  keyFeatures?: string[];
+}
+
+// Web Search analysis of competitors
+async function analyzeCompetitorsWithWebSearch(
+  competitors: Competitor[],
+  industry: string,
+  location: string,
+  apiKey: string
+): Promise<{
+  insights: string;
+  sources: Array<{ url: string; title: string }>;
+}> {
+  const competitorNames = competitors
+    .slice(0, 5)
+    .map((c) => c.name)
+    .join(", ");
+
+  const prompt = `Analysera dessa konkurrenter inom ${industry} i ${location}: ${competitorNames}
+
+Sök på webben för att hitta:
+1. Deras webbplatser och sociala medier
+2. Vad kunderna säger (recensioner, omdömen)
+3. Deras starkaste erbjudanden/USP
+4. Prisnivå och positionering
+
+Ge en KORT sammanfattning (max 150 ord) på SVENSKA av:
+- Vad som gör dem framgångsrika
+- Luckor i marknaden som nya aktörer kan fylla
+- Tips för att sticka ut`;
+
+  try {
+    const response = await fetch("https://api.openai.com/v1/responses", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: "gpt-4o",
+        input: prompt,
+        tools: [{ type: "web_search" }],
+        max_output_tokens: 800,
+      }),
+    });
+
+    if (!response.ok) {
+      console.log("[API/competitors] Web Search failed, skipping analysis");
+      return { insights: "", sources: [] };
+    }
+
+    const data = await response.json();
+    const insights = data.output_text?.trim() || "";
+
+    // Extract sources
+    const sources: Array<{ url: string; title: string }> = [];
+    if (data.output && Array.isArray(data.output)) {
+      for (const item of data.output) {
+        if (item.content && Array.isArray(item.content)) {
+          for (const content of item.content) {
+            if (content.annotations && Array.isArray(content.annotations)) {
+              for (const annotation of content.annotations) {
+                if (annotation.type === "url_citation" && annotation.url) {
+                  sources.push({
+                    url: annotation.url,
+                    title: annotation.title || annotation.url,
+                  });
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+
+    return { insights, sources: sources.slice(0, 5) };
+  } catch (error) {
+    console.error("[API/competitors] Web Search error:", error);
+    return { insights: "", sources: [] };
+  }
 }
 
 export async function POST(req: NextRequest) {
   console.log("[API/competitors] Request received");
 
   try {
-    const { location, industry } = (await req.json()) as {
+    const {
+      location,
+      industry,
+      deepAnalysis = false,
+    } = (await req.json()) as {
       location: string;
       industry: string;
+      deepAnalysis?: boolean;
     };
 
     if (!location) {
@@ -153,6 +244,23 @@ export async function POST(req: NextRequest) {
 
     console.log("[API/competitors] Found:", competitors.length, "competitors");
 
+    // Optionally enhance with Web Search analysis
+    let competitorInsights = "";
+    let insightSources: Array<{ url: string; title: string }> = [];
+
+    const openaiApiKey = process.env.OPENAI_API_KEY || process.env.OPEN_AI_API;
+    if (deepAnalysis && openaiApiKey && competitors.length > 0) {
+      console.log("[API/competitors] Running Web Search analysis...");
+      const analysis = await analyzeCompetitorsWithWebSearch(
+        competitors,
+        industry,
+        location,
+        openaiApiKey
+      );
+      competitorInsights = analysis.insights;
+      insightSources = analysis.sources;
+    }
+
     return NextResponse.json({
       success: true,
       competitors,
@@ -160,6 +268,10 @@ export async function POST(req: NextRequest) {
         formatted: geocodeData.results[0].formatted_address,
         coordinates: { lat, lng },
       },
+      ...(competitorInsights && {
+        insights: competitorInsights,
+        sources: insightSources,
+      }),
     });
   } catch (error) {
     console.error("[API/competitors] Error:", error);
