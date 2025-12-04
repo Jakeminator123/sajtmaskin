@@ -1,15 +1,19 @@
 /**
  * API Route: Admin Database Operations
  * GET /api/admin/database - Get database stats and download
- * POST /api/admin/database - Clear/reset database tables
+ * POST /api/admin/database - Clear/reset database tables, manage uploads
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
-import { getDb, TEST_USER_EMAIL } from "@/lib/database";
+import { getDb, TEST_USER_EMAIL, getUploadsDir } from "@/lib/database";
 import { getRedisInfo, flushRedisCache } from "@/lib/redis";
 import fs from "fs";
 import path from "path";
+
+// Get data directory (supports DATA_DIR env var for Render persistent disk)
+const DATA_DIR = process.env.DATA_DIR || process.cwd();
+const DB_PATH = path.join(DATA_DIR, "sajtmaskin.db");
 
 // Check if user is admin
 async function isAdmin(req: NextRequest): Promise<boolean> {
@@ -33,16 +37,14 @@ export async function GET(req: NextRequest) {
 
     // Download database file
     if (action === "download") {
-      const dbPath = path.join(process.cwd(), "sajtmaskin.db");
-
-      if (!fs.existsSync(dbPath)) {
+      if (!fs.existsSync(DB_PATH)) {
         return NextResponse.json(
           { success: false, error: "Database file not found" },
           { status: 404 }
         );
       }
 
-      const fileBuffer = fs.readFileSync(dbPath);
+      const fileBuffer = fs.readFileSync(DB_PATH);
 
       return new NextResponse(fileBuffer, {
         headers: {
@@ -55,6 +57,7 @@ export async function GET(req: NextRequest) {
     }
 
     // Get stats
+    const uploadsInfo = getUploadsInfo();
     const stats = {
       sqlite: {
         users:
@@ -84,6 +87,8 @@ export async function GET(req: NextRequest) {
       },
       redis: await getRedisInfo(),
       dbFileSize: getDbFileSize(),
+      uploads: uploadsInfo,
+      dataDir: DATA_DIR,
     };
 
     return NextResponse.json({ success: true, stats });
@@ -160,8 +165,23 @@ export async function POST(req: NextRequest) {
       // Also flush Redis
       await flushRedisCache();
 
+      // Clear uploads folder
+      clearUploadsFolder();
+
       console.log("[Admin] Reset all databases");
       return NextResponse.json({ success: true, message: "All data cleared" });
+    }
+
+    if (action === "clear-uploads") {
+      const result = clearUploadsFolder();
+      return NextResponse.json({
+        success: result.success,
+        message: result.success
+          ? `Deleted ${result.deletedCount} files (${result.freedSpace})`
+          : result.error,
+        deletedCount: result.deletedCount,
+        freedSpace: result.freedSpace,
+      });
     }
 
     return NextResponse.json(
@@ -179,14 +199,112 @@ export async function POST(req: NextRequest) {
 
 function getDbFileSize(): string {
   try {
-    const dbPath = path.join(process.cwd(), "sajtmaskin.db");
-    const stats = fs.statSync(dbPath);
+    const stats = fs.statSync(DB_PATH);
     const bytes = stats.size;
-
-    if (bytes < 1024) return `${bytes} B`;
-    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+    return formatBytes(bytes);
   } catch {
     return "Unknown";
+  }
+}
+
+function formatBytes(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  if (bytes < 1024 * 1024 * 1024)
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+}
+
+function getUploadsInfo(): {
+  fileCount: number;
+  totalSize: string;
+  files: { name: string; size: string }[];
+} {
+  try {
+    const uploadsDir = getUploadsDir();
+
+    if (!fs.existsSync(uploadsDir)) {
+      return { fileCount: 0, totalSize: "0 B", files: [] };
+    }
+
+    const files = fs.readdirSync(uploadsDir);
+    let totalBytes = 0;
+    const fileList: { name: string; size: string }[] = [];
+
+    for (const file of files) {
+      try {
+        const filePath = path.join(uploadsDir, file);
+        const stat = fs.statSync(filePath);
+        if (stat.isFile()) {
+          totalBytes += stat.size;
+          fileList.push({
+            name: file,
+            size: formatBytes(stat.size),
+          });
+        }
+      } catch {
+        // Skip files we can't read
+      }
+    }
+
+    return {
+      fileCount: fileList.length,
+      totalSize: formatBytes(totalBytes),
+      files: fileList.slice(0, 20), // Only return first 20 files
+    };
+  } catch {
+    return { fileCount: 0, totalSize: "0 B", files: [] };
+  }
+}
+
+function clearUploadsFolder(): {
+  success: boolean;
+  deletedCount: number;
+  freedSpace: string;
+  error?: string;
+} {
+  try {
+    const uploadsDir = getUploadsDir();
+
+    if (!fs.existsSync(uploadsDir)) {
+      return { success: true, deletedCount: 0, freedSpace: "0 B" };
+    }
+
+    const files = fs.readdirSync(uploadsDir);
+    let deletedCount = 0;
+    let freedBytes = 0;
+
+    for (const file of files) {
+      try {
+        const filePath = path.join(uploadsDir, file);
+        const stat = fs.statSync(filePath);
+        if (stat.isFile()) {
+          freedBytes += stat.size;
+          fs.unlinkSync(filePath);
+          deletedCount++;
+        }
+      } catch (err) {
+        console.error(`[Admin] Failed to delete file ${file}:`, err);
+      }
+    }
+
+    console.log(
+      `[Admin] Cleared uploads: ${deletedCount} files, ${formatBytes(
+        freedBytes
+      )} freed`
+    );
+    return {
+      success: true,
+      deletedCount,
+      freedSpace: formatBytes(freedBytes),
+    };
+  } catch (err) {
+    console.error("[Admin] Failed to clear uploads:", err);
+    return {
+      success: false,
+      deletedCount: 0,
+      freedSpace: "0 B",
+      error: "Failed to clear uploads folder",
+    };
   }
 }

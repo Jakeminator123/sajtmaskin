@@ -53,6 +53,12 @@ interface DatabaseStats {
     uptime?: number;
   } | null;
   dbFileSize: string;
+  uploads?: {
+    fileCount: number;
+    totalSize: string;
+    files: { name: string; size: string }[];
+  };
+  dataDir?: string;
 }
 
 export default function AdminPage() {
@@ -259,6 +265,28 @@ export default function AdminPage() {
       await fetchStats();
     } catch (err) {
       console.error("Failed to reset all:", err);
+    } finally {
+      setActionLoading(null);
+      setConfirmAction(null);
+    }
+  };
+
+  const handleClearUploads = async () => {
+    if (confirmAction !== "uploads") {
+      setConfirmAction("uploads");
+      return;
+    }
+
+    setActionLoading("uploads");
+    try {
+      await fetch("/api/admin/database", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "clear-uploads" }),
+      });
+      await fetchDbStats();
+    } catch (err) {
+      console.error("Failed to clear uploads:", err);
     } finally {
       setActionLoading(null);
       setConfirmAction(null);
@@ -748,6 +776,84 @@ export default function AdminPage() {
                 <div className="p-4 bg-amber-500/10 border border-amber-500/30 text-amber-400 text-sm">
                   Redis är inte konfigurerat. Lägg till REDIS_PASSWORD i
                   .env.local för att aktivera caching.
+                </div>
+              )}
+            </div>
+
+            {/* Persistent Disk / Uploads Section */}
+            <div className="bg-black/50 border border-gray-800 p-6">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-purple-500/10 flex items-center justify-center">
+                    <HardDrive className="h-5 w-5 text-purple-400" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-semibold text-white">
+                      Persistent Disk
+                    </h2>
+                    <p className="text-sm text-gray-500">
+                      {dbStats?.dataDir || "Ej konfigurerad"} •{" "}
+                      {dbStats?.uploads?.fileCount || 0} filer •{" "}
+                      {dbStats?.uploads?.totalSize || "0 B"}
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleClearUploads}
+                  disabled={
+                    actionLoading === "uploads" || !dbStats?.uploads?.fileCount
+                  }
+                  className={`gap-2 ${
+                    confirmAction === "uploads"
+                      ? "border-red-500 text-red-400"
+                      : "border-gray-700 text-gray-400 hover:text-white hover:bg-gray-800"
+                  }`}
+                >
+                  {actionLoading === "uploads" ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : confirmAction === "uploads" ? (
+                    <AlertTriangle className="h-4 w-4" />
+                  ) : (
+                    <Trash2 className="h-4 w-4" />
+                  )}
+                  {confirmAction === "uploads" ? "Bekräfta?" : "Rensa uploads"}
+                </Button>
+              </div>
+
+              {/* Show uploaded files */}
+              {dbStats?.uploads?.files && dbStats.uploads.files.length > 0 && (
+                <div className="border-t border-gray-800 pt-4">
+                  <h3 className="text-sm font-medium text-gray-400 mb-3">
+                    Uppladdade filer ({dbStats.uploads.fileCount} st)
+                  </h3>
+                  <div className="max-h-40 overflow-y-auto space-y-1 text-sm">
+                    {dbStats.uploads.files.map((file, i) => (
+                      <div
+                        key={i}
+                        className="flex items-center justify-between py-1 text-gray-500"
+                      >
+                        <span className="truncate max-w-[250px]">
+                          {file.name}
+                        </span>
+                        <span className="font-mono text-xs">{file.size}</span>
+                      </div>
+                    ))}
+                    {dbStats.uploads.fileCount > 20 && (
+                      <p className="text-gray-600 text-xs pt-2">
+                        ...och {dbStats.uploads.fileCount - 20} filer till
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {dbStats?.dataDir && !dbStats.dataDir.includes("/var/data") && (
+                <div className="p-4 bg-amber-500/10 border border-amber-500/30 text-amber-400 text-sm mt-4">
+                  ⚠️ Persistent disk är inte konfigurerad. Lägg till
+                  DATA_DIR=/var/data i miljövariabler på Render för att bevara
+                  data mellan deploys.
                 </div>
               )}
             </div>
