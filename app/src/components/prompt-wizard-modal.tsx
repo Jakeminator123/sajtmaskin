@@ -1416,7 +1416,11 @@ export function PromptWizardModal({
                     inspirationSites: inspirationSites.filter((s) => s.trim()),
                     purposes,
                     targetAudience,
-                    specialWishes,
+                    // Use editedPrompt if user modified it, otherwise original
+                    specialWishes:
+                      editedPrompt !== generatedPrompt
+                        ? `${specialWishes}\n\n[Redigerad prompt]: ${editedPrompt}`
+                        : specialWishes,
                     palette: selectedPalette,
                     customColors,
                     voiceTranscript: voiceTranscript || undefined,
