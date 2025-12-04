@@ -30,6 +30,7 @@ import {
   getIndustryPalettes,
 } from "@/components/color-palette-picker";
 import { VoiceRecorder } from "@/components/voice-recorder";
+import { LocationPicker } from "@/components/location-picker";
 
 /**
  * PromptWizardModal - Extended Business Analysis Wizard
@@ -335,7 +336,8 @@ export function PromptWizardModal({
           special_wishes: data.specialWishes,
           color_palette_name: data.palette?.name,
           color_primary: data.customColors?.primary || data.palette?.primary,
-          color_secondary: data.customColors?.secondary || data.palette?.secondary,
+          color_secondary:
+            data.customColors?.secondary || data.palette?.secondary,
           color_accent: data.customColors?.accent || data.palette?.accent,
           industry_trends: industryTrends,
           inspiration_sites: data.inspirationSites,
@@ -774,7 +776,7 @@ export function PromptWizardModal({
             </div>
           )}
 
-          {/* Step 3: Location */}
+          {/* Step 3: Location with Google Maps */}
           {step === 3 && (
             <div className="space-y-4">
               <div className="flex items-center gap-3 text-zinc-300">
@@ -787,21 +789,29 @@ export function PromptWizardModal({
                 </h3>
               </div>
               <p className="text-base sm:text-lg text-zinc-300 leading-relaxed">
-                Ange adress eller område för att få lokalt anpassade förslag
+                Sök eller välj på kartan för att få lokalt anpassade förslag och
+                hitta konkurrenter i närheten
               </p>
-              <input
-                id="wizard-location"
-                name="location"
-                type="text"
-                autoComplete="street-address"
+
+              <LocationPicker
                 value={location}
-                onChange={(e) => setLocation(e.target.value)}
-                placeholder="T.ex. Vasastan, Stockholm eller Storgatan 12, Göteborg"
-                className="w-full px-5 py-4 bg-zinc-800 border-2 border-zinc-700 rounded-xl text-lg text-white placeholder-zinc-400 focus:border-blue-500/50 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all hover:border-zinc-600"
+                onChange={(newLocation, coords) => {
+                  setLocation(newLocation);
+                  // Optionally store coordinates for competitor search
+                  if (coords) {
+                    console.log("[Wizard] Location coords:", coords);
+                  }
+                }}
+                placeholder="Sök efter adress, stad eller område..."
               />
-              <p className="text-sm text-zinc-500">
-                Lämna tomt om du inte vill ange plats
-              </p>
+
+              <div className="flex items-start gap-2 p-3 bg-purple-500/10 border border-purple-500/20 rounded-lg">
+                <span className="text-lg">💡</span>
+                <p className="text-sm text-purple-300">
+                  Med din plats kan vi hitta konkurrenter i området och ge dig
+                  branschspecifika tips för din region!
+                </p>
+              </div>
             </div>
           )}
 
@@ -1223,7 +1233,8 @@ export function PromptWizardModal({
                 />
                 {voiceTranscript && (
                   <p className="text-xs text-zinc-500 mt-2">
-                    Senaste röstinmatning: &quot;{voiceTranscript.substring(0, 50)}
+                    Senaste röstinmatning: &quot;
+                    {voiceTranscript.substring(0, 50)}
                     {voiceTranscript.length > 50 ? "..." : ""}&quot;
                   </p>
                 )}
@@ -1440,6 +1451,7 @@ export function PromptWizardModal({
                     specialWishes,
                     palette: selectedPalette,
                     customColors,
+                    voiceTranscript: voiceTranscript || undefined, // Include voice input!
                   };
                   onComplete(wizardData, editedPrompt);
                 }}

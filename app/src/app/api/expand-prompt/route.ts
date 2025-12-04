@@ -156,7 +156,7 @@ Ge en KORT sammanfattning (max 100 ord) på ENGELSKA med konkreta förslag för 
       },
       body: JSON.stringify({
         model: "gpt-4o",
-        input: prompt,
+        input: [{ role: "user", content: prompt }], // Must be array of messages
         tools: [{ type: "web_search" }],
         max_output_tokens: 500,
       }),
@@ -341,6 +341,7 @@ Inkludera specifika sektioner, funktioner och designelement som passar branschen
 
     // Optional: Research industry trends with Web Search (for better prompts)
     let trendsString = "";
+    let industryTrends = ""; // Store for database
     if (industry && industry !== "other") {
       console.log("[API/expand-prompt] Researching industry trends...");
       const { trends } = await researchIndustryTrends(
@@ -349,6 +350,7 @@ Inkludera specifika sektioner, funktioner och designelement som passar branschen
         openaiApiKey
       );
       if (trends) {
+        industryTrends = trends; // Save raw trends for database
         trendsString = `\n\nINDUSTRY TRENDS & BEST PRACTICES (from web research):\n${trends}`;
         console.log("[API/expand-prompt] Got industry trends");
       }
@@ -462,6 +464,7 @@ ${imagesString}${trendsString}`.trim();
       expandedPrompt,
       model: usedModel,
       images: pexelsImages, // Include images for frontend reference
+      industryTrends: industryTrends || undefined, // Include trends for database storage
     });
   } catch (error) {
     console.error("[API/expand-prompt] Error:", error);

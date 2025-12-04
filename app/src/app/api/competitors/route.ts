@@ -99,7 +99,7 @@ Ge en KORT sammanfattning (max 150 ord) på SVENSKA av:
       },
       body: JSON.stringify({
         model: "gpt-4o",
-        input: prompt,
+        input: [{ role: "user", content: prompt }], // Must be array of messages
         tools: [{ type: "web_search" }],
         max_output_tokens: 800,
       }),
