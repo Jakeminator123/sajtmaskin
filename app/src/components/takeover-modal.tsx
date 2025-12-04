@@ -363,7 +363,10 @@ export function TakeoverModal({
                           Repo-namn (valfritt)
                         </label>
                         <input
+                          id="repo-name"
+                          name="repo-name"
                           type="text"
+                          autoComplete="off"
                           value={customRepoName}
                           onChange={(e) => setCustomRepoName(e.target.value)}
                           placeholder={defaultRepoName}
