@@ -1,0 +1,317 @@
+/**
+ * API Route: Expand prompt using OpenAI
+ * POST /api/expand-prompt
+ *
+ * Takes wizard data and generates a detailed prompt for v0 API.
+ * Uses gpt-5-mini (cost-optimized reasoning) with fallback to gpt-4o-mini.
+ *
+ * Note: v0 does the heavy lifting with v0-1.5-md/lg models.
+ * We only need a simple model to structure the prompt.
+ */
+
+import { NextRequest, NextResponse } from "next/server";
+
+// Allow 60 seconds for OpenAI response
+export const maxDuration = 60;
+
+// OpenAI Chat Completions API
+const OPENAI_API_URL = "https://api.openai.com/v1/chat/completions";
+const PRIMARY_MODEL = "gpt-5-mini"; // Cost-optimized reasoning
+const FALLBACK_MODEL = "gpt-4o-mini"; // Fallback if gpt-5-mini unavailable
+
+// System prompt for expanding user input
+const SYSTEM_PROMPT = `Du är en expert på att skriva detaljerade prompts för webbplatsgenerering med AI (v0/Vercel).
+
+Din uppgift är att ta användarens information (inklusive eventuell affärsanalys) och omvandla det till en professionell, detaljerad prompt som genererar en fantastisk webbplats.
+
+REGLER:
+1. Skriv alltid på ENGELSKA (v0 API förstår engelska bäst)
+2. Var specifik med sektioner, komponenter och layout
+3. Inkludera de valda färgerna som hex-koder i Tailwind-format
+4. Anpassa tonen och stilen efter företaget, branschen och målgruppen
+5. Föreslå lämpliga sektioner baserat på syftet
+6. Om befintlig sajt nämnts, inkludera förbättringsförslag
+7. Om inspirationssajter nämnts, ta inspiration från dem
+8. Om plats nämnts, inkludera lokalt anpassade element
+9. Håll prompten under 2500 tecken men var detaljerad
+10. Använd React/Next.js och Tailwind CSS terminologi
+
+VIKTIGT FÖR BRANSCHSPECIFIKA SAJTER:
+- Café/Restaurang: Inkludera meny, öppettider, bildgalleri, bordbokning
+- Butik: Produktvisning, erbjudanden, butikslokalisering
+- Konsult: Case studies, tjänster, kontaktformulär, testimonials
+- Tech: Modern/minimalistisk design, features, pricing, dokumentation
+- Hälsa: Lugn design, tjänster, bokning, team
+
+OUTPUT-FORMAT:
+Returnera ENDAST den expanderade prompten, ingen annan text.
+Börja direkt med "Create a..." eller "Build a...".`;
+
+// Purpose mapping to English
+const PURPOSE_MAP: Record<string, string> = {
+  sell: "sell products/services online",
+  leads: "generate leads and contact inquiries",
+  portfolio: "showcase portfolio and work",
+  inform: "inform and educate visitors",
+  brand: "build brand awareness",
+  booking: "accept bookings and reservations",
+};
+
+// Industry mapping to English
+const INDUSTRY_MAP: Record<string, string> = {
+  cafe: "café/coffee shop",
+  restaurant: "restaurant/bar",
+  retail: "retail store",
+  tech: "technology company",
+  consulting: "consulting firm",
+  health: "health/wellness business",
+  creative: "creative agency",
+  education: "education/courses",
+  ecommerce: "e-commerce",
+  nonprofit: "nonprofit organization",
+  realestate: "real estate agency",
+  other: "business",
+};
+
+// Category type mapping
+const CATEGORY_MAP: Record<string, string> = {
+  "landing-page": "landing page",
+  website: "multi-page website",
+  dashboard: "admin dashboard",
+};
+
+// Site feedback mapping
+const SITE_LIKES_MAP: Record<string, string> = {
+  design: "design/appearance",
+  navigation: "navigation/structure",
+  content: "content",
+  speed: "speed/performance",
+  mobile: "mobile responsiveness",
+};
+
+const SITE_DISLIKES_MAP: Record<string, string> = {
+  outdated: "looks outdated",
+  confusing: "confusing navigation",
+  slow: "slow/sluggish",
+  not_mobile: "poor mobile experience",
+  boring: "boring/uninspiring",
+  hard_to_update: "difficult to update",
+};
+
+interface ExpandPromptRequest {
+  companyName: string;
+  industry?: string;
+  location?: string;
+  existingWebsite?: string;
+  siteLikes?: string[];
+  siteDislikes?: string[];
+  siteOtherFeedback?: string;
+  inspirationSites?: string[];
+  purposes: string[];
+  targetAudience: string;
+  specialWishes: string;
+  palette: {
+    name: string;
+    primary: string;
+    secondary: string;
+    accent: string;
+  } | null;
+  customColors: {
+    primary: string;
+    secondary: string;
+    accent: string;
+  } | null;
+  categoryType: string;
+  initialPrompt: string;
+  websiteAnalysis?: string; // AI analysis of existing website
+}
+
+export async function POST(req: NextRequest) {
+  console.log("[API/expand-prompt] Request received");
+
+  try {
+    const body: ExpandPromptRequest = await req.json();
+
+    const {
+      companyName,
+      industry,
+      location,
+      existingWebsite,
+      siteLikes,
+      siteDislikes,
+      siteOtherFeedback,
+      inspirationSites,
+      purposes,
+      targetAudience,
+      specialWishes,
+      palette,
+      customColors,
+      categoryType,
+      initialPrompt,
+      websiteAnalysis,
+    } = body;
+
+    // Get OpenAI API key
+    const openaiApiKey = process.env.OPENAI_API_KEY || process.env.OPEN_AI_API;
+
+    if (!openaiApiKey) {
+      console.error("[API/expand-prompt] OpenAI API key not configured");
+      return NextResponse.json(
+        { success: false, error: "OpenAI API is not configured" },
+        { status: 500 }
+      );
+    }
+
+    // Build the colors string
+    const colors = customColors || palette;
+    const colorString = colors
+      ? `Primary: ${colors.primary}, Secondary: ${colors.secondary}, Accent: ${colors.accent}`
+      : "Professional blue theme";
+
+    // Build purposes string
+    const purposesString = purposes.map((p) => PURPOSE_MAP[p] || p).join(", ");
+
+    // Build site feedback string
+    let siteFeedbackString = "";
+    if (existingWebsite) {
+      const likes = (siteLikes || [])
+        .map((l) => SITE_LIKES_MAP[l] || l)
+        .join(", ");
+      const dislikes = (siteDislikes || [])
+        .map((d) => SITE_DISLIKES_MAP[d] || d)
+        .join(", ");
+
+      siteFeedbackString = `
+BEFINTLIG SAJT: ${existingWebsite}
+${likes ? `Vad de gillar: ${likes}` : ""}
+${dislikes ? `Vad de vill ändra: ${dislikes}` : ""}
+${siteOtherFeedback ? `Övrig feedback: ${siteOtherFeedback}` : ""}
+${websiteAnalysis ? `AI-ANALYS AV BEFINTLIG SAJT: ${websiteAnalysis}` : ""}`;
+    }
+
+    // Build inspiration string
+    const validInspiration = (inspirationSites || []).filter((s) => s.trim());
+    const inspirationString =
+      validInspiration.length > 0
+        ? `INSPIRATIONSSAJTER: ${validInspiration.join(", ")}`
+        : "";
+
+    // Build the user message for OpenAI
+    const userMessage = `
+FÖRETAG: ${companyName}
+${industry ? `BRANSCH: ${INDUSTRY_MAP[industry] || industry}` : ""}
+${location ? `PLATS: ${location}` : ""}
+TYP: ${CATEGORY_MAP[categoryType] || categoryType}
+SYFTEN: ${purposesString}
+MÅLGRUPP: ${targetAudience}
+FÄRGER: ${colorString}
+${siteFeedbackString}
+${inspirationString}
+${specialWishes ? `SPECIELLA ÖNSKEMÅL: ${specialWishes}` : ""}
+${initialPrompt ? `URSPRUNGLIG BESKRIVNING: ${initialPrompt}` : ""}
+
+Skapa en detaljerad prompt för att generera denna webbplats.
+Inkludera specifika sektioner, funktioner och designelement som passar branschen och syftet.
+`.trim();
+
+    console.log("[API/expand-prompt] User message length:", userMessage.length);
+
+    // Try primary model first, fallback if needed
+    let usedModel = PRIMARY_MODEL;
+    let expandedPrompt: string | undefined;
+
+    // Try gpt-5-mini first
+    console.log(`[API/expand-prompt] Trying ${PRIMARY_MODEL}...`);
+    let response = await fetch(OPENAI_API_URL, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${openaiApiKey}`,
+      },
+      body: JSON.stringify({
+        model: PRIMARY_MODEL,
+        messages: [
+          { role: "system", content: SYSTEM_PROMPT },
+          { role: "user", content: userMessage },
+        ],
+        temperature: 0.7,
+        max_tokens: 1500,
+      }),
+    });
+
+    // If primary model fails (not found or other error), try fallback
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      console.log(
+        `[API/expand-prompt] ${PRIMARY_MODEL} failed, trying ${FALLBACK_MODEL}...`
+      );
+
+      usedModel = FALLBACK_MODEL;
+      response = await fetch(OPENAI_API_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${openaiApiKey}`,
+        },
+        body: JSON.stringify({
+          model: FALLBACK_MODEL,
+          messages: [
+            { role: "system", content: SYSTEM_PROMPT },
+            { role: "user", content: userMessage },
+          ],
+          temperature: 0.7,
+          max_tokens: 1500,
+        }),
+      });
+
+      if (!response.ok) {
+        const fallbackError = await response.json().catch(() => ({}));
+        console.error("[API/expand-prompt] Both models failed:", fallbackError);
+
+        if (response.status === 429) {
+          return NextResponse.json(
+            { success: false, error: "Rate limit exceeded. Try again later." },
+            { status: 429 }
+          );
+        }
+
+        return NextResponse.json(
+          { success: false, error: "Failed to expand prompt" },
+          { status: 500 }
+        );
+      }
+    }
+
+    const data = await response.json();
+    expandedPrompt = data.choices?.[0]?.message?.content?.trim();
+
+    if (!expandedPrompt) {
+      console.error("[API/expand-prompt] No content in response");
+      return NextResponse.json(
+        { success: false, error: "No response from AI" },
+        { status: 500 }
+      );
+    }
+
+    console.log(
+      `[API/expand-prompt] Success with ${usedModel}, length:`,
+      expandedPrompt.length
+    );
+
+    return NextResponse.json({
+      success: true,
+      expandedPrompt,
+      model: usedModel,
+    });
+  } catch (error) {
+    console.error("[API/expand-prompt] Error:", error);
+
+    return NextResponse.json(
+      {
+        success: false,
+        error: "Failed to expand prompt. Please try again.",
+      },
+      { status: 500 }
+    );
+  }
+}

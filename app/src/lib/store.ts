@@ -125,7 +125,7 @@ export const useBuilderStore = create<BuilderState>()(
       versionId: null,
       viewMode: "preview",
       deviceSize: "desktop",
-      quality: "standard",
+      quality: "premium",
       isSaving: false,
       lastSaved: null,
       hasUserSaved: false, // Must be true for auto-save to work

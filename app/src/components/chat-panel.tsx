@@ -743,7 +743,10 @@ export default function Page() {
         <div className="flex items-center gap-2 p-3 bg-zinc-800/50 rounded-lg border border-zinc-700/50 focus-within:border-zinc-600">
           <input
             ref={inputRef}
+            id="chat-message-input"
+            name="chat-message"
             type="text"
+            autoComplete="off"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}

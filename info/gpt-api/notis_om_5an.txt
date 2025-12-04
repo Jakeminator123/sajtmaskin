@@ -1,8 +1,34 @@
-reasoning_effort
-string
+Logo
+Hi,
 
-Optional
-Defaults to medium
-Constrains effort on reasoning for reasoning models. Currently supported values are minimal, low, medium, and high. Reducing reasoning effort can result in faster responses and fewer tokens used on reasoning in a response.
+ 
 
-Note: The gpt-5-pro model defaults to (and only supports) high reasoning effort.
+We’ve released GPT-5.1 in the API, the next model in the GPT-5 series built to balance intelligence and speed across agentic and coding tasks.
+
+ 
+
+Here’s what’s new in GPT 5.1:
+
+Adaptive reasoning that adjusts thinking time by task complexity—spending more time on complex tasks and responding faster on simple tasks.
+New reasoning_effort = 'none' mode, offers a fast, accurate non-reasoning path for latency sensitive use cases. Defaults to none when unspecified.
+Extended prompt caching with retention up to 24 hours to reduce latency for long-running conversations.
+Upgrades to coding: more communicative, highly steerable, better code quality, improved frontend UI generation.
+New tools: apply_patch (structured diffs) and shell (controlled local CLI).
+Pricing: Same pricing and rate limits as GPT-5
+Codex Models: We also shipped gpt-5.1-codex and gpt-5.1-codex-mini. Here’s how to think about these models:
+
+gpt-5.1: for everyday coding tasks
+gpt-5.1-codex: for complex, long-running agentic coding
+gpt-5.1-codex-mini: for cost-efficient edits and changes
+ 
+
+Next Steps:
+
+We recommend you test GPT-5.1 for coding and consider switching from GPT-4.1 to GPT-5.1 on reasoning_effort='none' for fast general-purpose tasks.
+
+ 
+
+Start building with GPT-5.1 and the latest examples in our API docs:
+
+Try GPT-5.1 now
+- The OpenAI Team

@@ -7,6 +7,10 @@ import { Button } from "@/components/ui/button";
 import { HelpTooltip } from "@/components/help-tooltip";
 import { LocalTemplateCard } from "@/components/local-template-card";
 import {
+  PromptWizardModal,
+  type WizardData,
+} from "@/components/prompt-wizard-modal";
+import {
   ArrowLeft,
   Rocket,
   Sparkles,
@@ -16,6 +20,7 @@ import {
   Zap,
   Loader2,
   Layout,
+  Wand2,
 } from "lucide-react";
 import { getCategory, type QuickPrompt } from "@/lib/template-data";
 import {
@@ -38,6 +43,7 @@ export default function CategoryPage() {
   const type = params.type as string;
   const [prompt, setPrompt] = useState("");
   const [isCreating, setIsCreating] = useState(false);
+  const [showWizard, setShowWizard] = useState(false);
 
   const category = getCategory(type);
   const templates = getLocalTemplatesForCategory(type);
@@ -134,8 +140,51 @@ export default function CategoryPage() {
     }
   };
 
+  // Handle wizard completion - create project and navigate to builder immediately
+  const handleWizardComplete = async (
+    wizardData: WizardData,
+    expandedPrompt: string
+  ) => {
+    // Close wizard and start creating
+    setShowWizard(false);
+    setPrompt(expandedPrompt);
+    setIsCreating(true);
+
+    try {
+      // Create project in database with company name if available
+      const projectName = wizardData.companyName
+        ? `${wizardData.companyName} - ${category.title}`
+        : `${category.title} - ${new Date().toLocaleDateString("sv-SE")}`;
+
+      const project = await createProject(
+        projectName,
+        type,
+        expandedPrompt.substring(0, 100)
+      );
+
+      // Navigate directly to builder with the expanded prompt
+      router.push(
+        `/builder?project=${
+          project.id
+        }&type=${type}&prompt=${encodeURIComponent(expandedPrompt)}`
+      );
+    } catch (error) {
+      console.error("Failed to create project:", error);
+      setIsCreating(false);
+    }
+  };
+
   return (
     <main className="min-h-screen bg-gradient-to-b from-zinc-950 via-zinc-950 to-zinc-900">
+      {/* Prompt Wizard Modal */}
+      <PromptWizardModal
+        isOpen={showWizard}
+        onClose={() => setShowWizard(false)}
+        onComplete={handleWizardComplete}
+        initialPrompt={prompt}
+        categoryType={type}
+      />
+
       {/* Background pattern */}
       <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-blue-900/10 via-transparent to-transparent pointer-events-none" />
 
@@ -179,13 +228,30 @@ export default function CategoryPage() {
 
             <div className="bg-zinc-900/50 border border-zinc-800 rounded-xl p-4">
               <div className="flex gap-4">
-                <textarea
-                  value={prompt}
-                  onChange={(e) => setPrompt(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  placeholder={`Beskriv din ${category.title.toLowerCase()}...`}
-                  className="flex-1 h-24 bg-zinc-800/50 border border-zinc-700 rounded-lg p-3 text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 resize-none"
-                />
+                <div className="flex-1 flex flex-col">
+                  <textarea
+                    value={prompt}
+                    onChange={(e) => setPrompt(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    placeholder={`Beskriv din ${category.title.toLowerCase()}...`}
+                    className="flex-1 h-24 bg-zinc-800/50 border border-zinc-700 rounded-lg p-3 text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 resize-none"
+                  />
+                  <div className="flex justify-between items-center mt-2">
+                    <span className="text-xs text-zinc-500">
+                      {prompt.length} tecken
+                    </span>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => setShowWizard(true)}
+                      disabled={isCreating}
+                      className="gap-1.5 text-purple-400 hover:text-purple-300 hover:bg-purple-500/10 h-7 px-2"
+                    >
+                      <Wand2 className="h-3.5 w-3.5" />
+                      <span className="text-xs">Bygg ut med AI</span>
+                    </Button>
+                  </div>
+                </div>
                 <Button
                   onClick={handlePromptSubmit}
                   disabled={!prompt.trim() || isCreating}

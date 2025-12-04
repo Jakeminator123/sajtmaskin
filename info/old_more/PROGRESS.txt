@@ -1,0 +1,421 @@
+================================================================================
+                    SAJTMASKIN - BYGGPROGRESS
+                    Senast uppdaterad: 2025-12-03
+================================================================================
+
+PROJEKTÖVERSIKT
+---------------
+Bygger en white-label webbplatsbyggare med v0 API.
+Användare väljer kategori → AI genererar kod → Användare förfinar → Exporterar.
+
+================================================================================
+                    API-KONFIGURATION ✅
+================================================================================
+
+v0 API-NYCKLAR (endast EN nyckel behövs):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+V0_API_KEY - Används för BÅDA v0 API:erna:
+
+1. Platform API (v0-sdk) - PRIMÄRT ANVÄND
+   - Returnerar: filer, demoUrl, chatId
+   - Används för: Kodgenerering, preview, konversationer
+   
+2. Model API (@ai-sdk/vercel) - INSTALLERAD MEN EJ ANVÄND
+   - Returnerar: Raw text (OpenAI-format)
+   - Kan användas för: Bild→Kod (multimodal)
+
+OPENAI_API_KEY - RESERVERAD FÖR FRAMTIDA ANVÄNDNING
+   - Kan användas för: DALL-E bildgenerering, GPT-chatbot
+   - Status: Finns i .env.local men används ej i koden
+
+v0 MODELLER (2 st):
+━━━━━━━━━━━━━━━━━━
+┌─────────────────────────────────────────────────────────────────────────────┐
+│ Modell       │ Context   │ Kostnad (per 1M tokens) │ Användning             │
+├─────────────────────────────────────────────────────────────────────────────┤
+│ v0-1.5-md    │ 128K      │ $1.5 in / $7.5 out      │ Standard (snabb)       │
+│ v0-1.5-lg    │ 512K      │ $15 in / $75 out (10x)  │ Premium (bäst kvalitet)│
+│ v0-1.0-md    │ 128K      │ Legacy                  │ EJ ANVÄND              │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+KVALITETSNIVÅER I UI (2 st):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━
+- ⭐ Standard: v0-1.5-md (128K context, snabb, billig)
+- 💎 Premium:  v0-1.5-lg (512K context, bäst kvalitet, 10x kostnad)
+
+================================================================================
+                    FAS 1: STARTSIDAN ✅ KLAR
+================================================================================
+
+[✅] Installera ShadCN-komponenter (card, input, textarea, tooltip, scroll-area)
+[✅] Skapa HelpTooltip-komponent med (?) ikon och svenska texter
+[✅] Skapa TemplateGallery med 7 kategorikort och hover-effekter
+[✅] Skapa PromptInput-komponent med textarea och skicka-knapp
+[✅] Skapa QualitySelector-komponent (Standard/Premium) ← UPPDATERAD till 2 val
+[✅] Implementera startsidan med alla komponenter och design
+[✅] Skapa placeholder builder-sida som läser URL-parametrar
+
+SKAPADE FILER:
+- app/src/components/help-tooltip.tsx
+- app/src/components/template-gallery.tsx
+- app/src/components/prompt-input.tsx
+- app/src/components/quality-selector.tsx
+- app/src/app/page.tsx (uppdaterad)
+- app/src/app/builder/page.tsx (ny)
+- app/src/app/globals.css (uppdaterad för mörkt tema)
+- app/src/components/ui/*.tsx (ShadCN komponenter)
+
+================================================================================
+                    FAS 2: CHAT & STATE ✅ KLAR
+================================================================================
+
+[✅] Installera Zustand för state management
+[✅] Skapa Zustand store med:
+    - messages: Array av chat-meddelanden
+    - isLoading: boolean
+    - chatId: string | null (för v0 konversation)
+    - demoUrl: string | null (v0:s hostade preview)
+    - files: GeneratedFile[] (alla genererade filer)
+    - currentCode: string | null
+    - viewMode, deviceSize, quality
+
+[✅] Skapa ChatMessage-komponent med user/AI styling
+[✅] Skapa ChatPanel med:
+    - Meddelandehistorik
+    - Auto-scroll till senaste meddelande
+    - Loading-indikator
+    - Input för nya meddelanden
+
+[✅] Skapa CodePreview-komponent med:
+    - Preview/Kod toggle
+    - Enhetstogglar (desktop/tablet/mobil)
+    - Kopiera-knapp för kod
+
+[✅] Auto-generering vid sidladdning:
+    - ?type=kategori → genererar automatiskt
+    - ?prompt=text → genererar baserat på prompten
+
+SKAPADE FILER:
+- app/src/lib/store.ts (Zustand store)
+- app/src/components/chat-message.tsx
+- app/src/components/chat-panel.tsx
+- app/src/components/code-preview.tsx
+- app/src/app/builder/page.tsx (uppdaterad)
+
+================================================================================
+                    FAS 3: BACKEND API PROXY ✅ KLAR
+================================================================================
+
+[✅] Skapa /api/generate route
+[✅] Skapa /api/refine route
+[✅] Implementera v0 API-anrop via v0-sdk (Platform API)
+[✅] Sanera svar (ta bort v0/Vercel-referenser)
+[✅] Hantera kvalitetsnivåer (standard/premium) ← FÖRENKLAT till 2 nivåer
+[✅] Ersätt mock-generator med riktiga API-anrop
+[✅] Lägg till debug-loggning med [prefix] för alla operationer
+
+SKAPADE FILER:
+- app/src/lib/v0-generator.ts (Backend v0 API wrapper)
+- app/src/app/api/generate/route.ts (POST /api/generate)
+- app/src/app/api/refine/route.ts (POST /api/refine)
+- app/src/lib/api-client.ts (Frontend API client)
+- app/src/components/chat-panel.tsx (uppdaterad - använder api-client)
+
+KRÄVER FÖR ATT FUNGERA:
+  Skapa fil: app/.env.local
+  Innehåll: V0_API_KEY=din_nyckel_här
+  
+  OBS: Auto-recharge måste vara aktiverat i v0 för premium-modellen (v0-1.5-lg)
+
+WHITE-LABEL:
+  - Alla v0/Vercel-referenser tas bort automatiskt från responses
+  - API-anrop går endast genom /api/generate och /api/refine
+  - Användare ser aldrig v0 i nätverksfliken
+
+================================================================================
+                    FAS 4: LIVE PREVIEW ✅ KLAR
+================================================================================
+
+[✅] Installera v0-sdk (Platform API istället för Model API)
+[✅] Installera @codesandbox/sandpack-react (fallback)
+[✅] Skapa code-parser.ts för att parsa v0-kod till Sandpack-filformat
+[✅] Konfigurera Sandpack med React-template och mörkt tema (fallback)
+[✅] Implementera IFRAME-PREVIEW via v0:s demoUrl (primär metod)
+[✅] Synkronisera enhetstogglar (desktop/tablet/mobile) med container-bredd
+
+SKAPADE FILER:
+- app/src/lib/code-parser.ts (parser för v0-kod → Sandpack-filer)
+- app/src/components/code-preview.tsx (uppdaterad med iframe + Sandpack fallback)
+
+TEKNISK IMPLEMENTATION:
+━━━━━━━━━━━━━━━━━━━━━━
+PRIMÄR METOD: v0 Demo URL (iframe)
+- v0 Platform API returnerar demoUrl för varje genererad version
+- demoUrl pekar på v0:s hostade preview (t.ex. demo-xxx.vusercontent.net)
+- Vi visar denna URL i en iframe - PÅLITLIGT, fungerar alltid!
+- Ingen komplicerad kod-rendering lokalt
+
+FALLBACK: Sandpack (om ingen demoUrl)
+- Sandpack renderar preview lokalt
+- Kod parsas från v0-format till React-filer
+- Path aliases (@/) konverteras till relativa sökvägar
+- Tailwind CSS laddas via CDN
+
+PREVIEW-PRIORITET:
+1. Om demoUrl finns → Visa iframe med v0:s preview ✅
+2. Om bara currentCode finns → Försök Sandpack (kan misslyckas)
+3. Om ingenting finns → Visa "Väntar på generering..."
+
+================================================================================
+              FAS 5: v0-SDK PLATFORM API INTEGRATION ✅ KLAR
+================================================================================
+
+[✅] Byt från @ai-sdk/vercel (Model API) till v0-sdk (Platform API)
+[✅] Platform API returnerar strukturerade filer (inte bara text)
+[✅] Spara chatId för att fortsätta konversationer
+[✅] Spara demoUrl för iframe-preview
+[✅] Spara alla filer för kodvisning och export
+[✅] Refinement via v0.chats.sendMessage() med chatId
+
+VIKTIGA SKILLNADER MELLAN API:ERNA:
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Model API (@ai-sdk/vercel) - EJ ANVÄND:
+- OpenAI-kompatibelt format
+- Returnerar RAW TEXT (måste parsas)
+- Ingen demoUrl
+- Ingen chatId för konversation
+- STÖDER bilder som input (multimodal)
+
+Platform API (v0-sdk) - ANVÄNDS:
+- Returnerar STRUKTURERADE FILER (latestVersion.files)
+- Inkluderar demoUrl för preview
+- Har chatId för att fortsätta konversationer
+- Samma API som v0.dev webbplatsen använder!
+
+API-RESPONS STRUKTUR:
+{
+  chatId: "abc123",
+  latestVersion: {
+    status: "completed",
+    demoUrl: "https://demo-xxx.vusercontent.net",
+    files: [
+      { name: "app/page.tsx", content: "..." },
+      { name: "components/header.tsx", content: "..." },
+      ...
+    ]
+  }
+}
+
+================================================================================
+                    FAS 6: ENHANCEMENTS PANEL ✅ KLAR
+================================================================================
+
+[✅] Skapa kollapsbar panel under preview
+[✅] Lägg till knappar: Komponenter, Inloggning, Animationer, AI-chatt
+[✅] Implementera dropdown för komponentval
+[✅] Koppla val till chat (skickar meddelande)
+
+IMPLEMENTERAD:
+- ComponentPicker-komponent finns i chat-panel
+- Visas när demoUrl finns (efter första generering)
+- 10 fördefinierade komponenter (Header, Footer, Pricing, etc.)
+- Skickar automatiskt meddelande till chat när vald
+
+================================================================================
+                    FAS 7: EXPORT FEATURES ✅ KLAR
+================================================================================
+
+[✅] Installera jszip och file-saver (ej behövs - v0 API ger ZIP direkt)
+[✅] Implementera ZIP-export med alla filer från v0
+[✅] Lägg till syntax highlighting (prismjs)
+[✅] Skapa kodvisare med flikar per fil
+[✅] Kopiera-knapp per fil
+
+IMPLEMENTERAD:
+- /api/download route hämtar ZIP från v0 API
+- "Ladda ner" knapp i builder header
+- Kodvisare med flikar (Code view i CodePreview)
+- Kopiera-funktion för kod
+- Syntax highlighting via Sandpack
+
+================================================================================
+                    FAS 8: POLISH & DEPLOY ⚠️ NÄSTAN KLAR
+================================================================================
+
+[✅] Lägg till stegindikator
+[✅] Lägg till alla hjälp-tooltips
+[✅] Implementera loading-states med progressmeddelanden
+[✅] Felhantering med toast-meddelanden
+[✅] Kontrollera mobilresponsivitet
+[⚪] Förbered för Render.com-deployment (kan göras vid deploy)
+[✅] Slutlig kodgranskning (ingen v0-branding synlig)
+[⚪] "Publicera" knapp - UI finns men funktionalitet ej implementerad
+
+IMPLEMENTERAD:
+- HelpTooltip på alla viktiga element
+- Roterande loading-meddelanden (6 olika)
+- Error handling i alla API routes
+- Step indicator i builder footer
+- Responsiv design
+- "Publicera" knapp finns men kräver Vercel deployment-integration
+
+================================================================================
+                    TEKNISK INFO
+================================================================================
+
+KÖRA PROJEKTET:
+  cd app
+  npm run dev
+  → Öppna http://localhost:3000
+
+API-NYCKLAR:
+  Skapa fil: app/.env.local (från config.env mall)
+  Innehåll:
+    V0_API_KEY=din_v0_nyckel_här
+    OPENAI_API_KEY=din_openai_nyckel_här  # Valfritt, för framtida funktioner
+    REDIS_URL=redis://...  # Valfritt, för caching
+    
+  OBS: config.env innehåller alla credentials och är gitignored!
+        Kopiera värden därifrån till app/.env.local vid behov.
+
+INSTALLERADE PAKET:
+  - zustand (state management)
+  - v0-sdk (Platform API - primär integration)
+  - @ai-sdk/vercel, ai (Model API - installerad, ej aktiv)
+  - ShadCN UI komponenter
+  - @codesandbox/sandpack-react (fallback live code preview)
+
+DEBUG-LOGGNING:
+  Alla viktiga operationer loggas till console med prefix:
+  - [v0-generator] - Backend API-anrop
+  - [API-Client] - Frontend API-anrop
+  - [QualitySelector] - Kvalitetsval
+  - [Store] - State-ändringar
+  - [API/generate] - Generate route
+  - [API/refine] - Refine route
+
+FLÖDE (hur systemet fungerar nu):
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+1. ANVÄNDARE VÄLJER KATEGORI (startsida)
+   → Navigerar till /builder?type=landing-page
+   
+2. CHAT-PANEL STARTAR GENERERING
+   → Anropar /api/generate med prompt + kategori
+   
+3. BACKEND ANROPAR v0 PLATFORM API
+   → v0.chats.create({ message: prompt })
+   → v0 genererar kod och hostar preview
+   → Returnerar: chatId, demoUrl, files[]
+   
+4. FRONTEND SPARAR ALLT I STORE
+   → setChatId(chatId)
+   → setDemoUrl(demoUrl)
+   → setFiles(files)
+   → setCurrentCode(mainFile.content)
+   
+5. PREVIEW VISAR IFRAME
+   → <iframe src={demoUrl} />
+   → Exakt samma preview som v0.dev visar!
+   
+6. ANVÄNDARE FÖRFINAR (skriver i chatten)
+   → Anropar /api/refine med instruction + chatId
+   → v0.chats.sendMessage({ chatId, message })
+   → Ny demoUrl och filer returneras
+   → Preview uppdateras
+
+================================================================================
+                    FÖR NY AI-AGENT
+================================================================================
+
+Om du startar med en ny AI-agent, ge den:
+
+1. Denna fil (PROGRESS.txt) för att se vad som är klart
+2. info/00_INDEX_READ_FIRST.txt för projektöversikt
+3. info/02_v0_ai_build_instructions.txt för tekniska detaljer
+4. info/03_v0_api_whitelabel_integration.txt för API-integration
+
+Be agenten: "Fortsätt med Fas 6 enligt PROGRESS.txt"
+
+================================================================================
+                    KÄNDA PROBLEM & LÖSNINGAR
+================================================================================
+
+PROBLEM: v0 API är långsam (2-3 minuter per anrop)
+LÖSNING: Visa loading-state med "15-30 sekunder" meddelande.
+         Premium-modellen (v0-1.5-lg) kan vara snabbare.
+
+PROBLEM: Sandpack kan inte rendera Next.js-kod med @/ path aliases
+LÖSNING: Vi använder v0:s demoUrl i iframe istället!
+         Sandpack är bara fallback om demoUrl saknas.
+
+PROBLEM: Flera API-anrop kan köras parallellt om sidan laddas om
+LÖSNING: hasInitialized ref förhindrar dubbla anrop.
+         initializedWith ref spårar vilka params som redan genererats.
+
+PROBLEM: explicitSave visar "Sparad" även vid fel
+LÖSNING: FIXAT - hasUserSaved återställs vid fel
+
+PROBLEM: Polling hängde vid "ready" eller "error" status
+LÖSNING: FIXAT - Hanterar korrekt "completed" och "failed" statusar
+
+================================================================================
+                    SENASTE ÄNDRINGAR (2025-12-03)
+================================================================================
+
+✅ Förenklat kvalitetsnivåer från 3 till 2:
+   - Borttaget: "budget" (var identisk med standard)
+   - Kvar: "standard" (v0-1.5-md) och "premium" (v0-1.5-lg)
+
+✅ Uppdaterat alla filer för 2 kvalitetsnivåer:
+   - v0-generator.ts
+   - store.ts
+   - api-client.ts
+   - quality-selector.tsx
+
+✅ Lagt till debug-loggning i alla API-anrop:
+   - [v0-generator] prefix för backend
+   - [API-Client] prefix för frontend
+   - [QualitySelector] prefix för UI
+
+✅ Dokumenterat API-konfiguration:
+   - Klargjort att V0_API_KEY fungerar för båda v0 API:erna
+   - OPENAI_API_KEY reserverad för framtida bildgenerering
+
+✅ Bugfixar (samma dag):
+   - Fix: LocalTemplateCard onSelect parameter mismatch
+   - Fix: Credentials flyttade till config.env (gitignored)
+   - Fix: sourceUrl saknas i template API responses
+
+✅ Komplettering av implementering:
+   - Fas 6: ComponentPicker implementerad och fungerande
+   - Fas 7: ZIP download via v0 API fullständigt implementerad
+   - Fas 8: Alla polish-features klara utom faktisk deploy-funktion
+
+================================================================================
+                    STATUS SAMMANFATTNING
+================================================================================
+
+FÄRDIGT (Fas 1-7):
+✅ Startsida med kategorival
+✅ Builder med 2-panel layout (Chat + Preview)
+✅ State management (Zustand)
+✅ Backend API proxy (alla v0-anrop via backend)
+✅ Live preview (v0 demoUrl iframe + Sandpack fallback)
+✅ v0-SDK Platform API integration
+✅ Enhancements panel (ComponentPicker)
+✅ Export (ZIP download från v0)
+✅ Help tooltips överallt
+✅ Loading states & error handling
+✅ Responsive design
+✅ Lokala templates med preview-cache
+✅ Projects-system med SQLite databas
+
+ÅTERSTÅR (Fas 8 - Deploy):
+⚪ One-click deploy till Vercel (knapp finns, funktion saknas)
+⚪ Production deployment konfiguration
+⚪ Environment variables setup på hosting
+
+PLATTFORMEN ÄR FULLT FUNKTIONELL! 🎉
+================================================================================
