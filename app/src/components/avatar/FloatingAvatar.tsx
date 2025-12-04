@@ -43,37 +43,29 @@ interface FloatingAvatarProps {
 }
 
 // ============================================================================
-// PROACTIVE TIPS CONFIG
+// PROACTIVE TIPS CONFIG - Less intrusive, more helpful
 // ============================================================================
 
 /** Time in ms before showing a proactive tip when user is idle */
-const PROACTIVE_TIP_DELAY = 30000; // 30 seconds
+const PROACTIVE_TIP_DELAY = 90000; // 90 seconds - much less intrusive
+
+/** Maximum tips per session to avoid annoyance */
+const MAX_PROACTIVE_TIPS_PER_SESSION = 3;
 
 /** Tips shown when user seems stuck on a section */
 const PROACTIVE_TIPS: Record<AppSection, string[]> = {
   home: [
-    "Testa att skriva vad du vill bygga! 🚀",
-    "Kolla in mallarna för inspiration!",
-    "Behöver du hjälp? Klicka på mig!",
+    "Prova att skriva vad du vill bygga! 🚀",
+    "Kolla mallarna för snabbstart!",
   ],
   builder: [
-    "Skriv i chatten för att förfina designen!",
-    "Inte nöjd? Be om ändringar så fixar vi!",
-    "Klicka 'Ladda ner' för att spara koden.",
+    "Skriv ändringar i chatten för att förfina.",
+    "Klicka 'Ladda ner' när du är nöjd!",
   ],
-  templates: [
-    "Klicka på en mall för att komma igång!",
-    "Varje mall är anpassningsbar efteråt.",
-  ],
-  audit: [
-    "Skriv in din webbadress för analys!",
-    "Jag kan hitta förbättringsmöjligheter. 🔍",
-  ],
-  projects: [
-    "Klicka på ett projekt för att fortsätta.",
-    "Här sparas allt du bygger!",
-  ],
-  category: ["Välj en underkategori för mer specifika mallar!"],
+  templates: ["Klicka på en mall för att börja!"],
+  audit: ["Skriv in webbadressen för analys."],
+  projects: ["Välj ett projekt för att fortsätta."],
+  category: ["Välj en kategori!"],
 };
 
 // ============================================================================
@@ -151,6 +143,7 @@ export function FloatingAvatar({
   const [canvasReady, setCanvasReady] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
   const [isMinimized, setIsMinimized] = useState(false);
+  const [webglError, setWebglError] = useState(false);
   const proactiveTipTimerRef = useRef<NodeJS.Timeout | null>(null);
   const lastInteractionRef = useRef<number>(Date.now());
 
@@ -198,9 +191,15 @@ export function FloatingAvatar({
     showAvatar();
   }, [showAvatar]);
 
-  // Setup proactive tips - show tip if user is idle for a while
+  // Track tips shown this session
+  const tipsShownRef = useRef(0);
+  const shownTipsRef = useRef(new Set<string>());
+
+  // Setup proactive tips - much less intrusive
   useEffect(() => {
     if (!isLoaded || avatarState !== "idle" || isMinimized) return;
+    // Stop if we've shown enough tips already
+    if (tipsShownRef.current >= MAX_PROACTIVE_TIPS_PER_SESSION) return;
 
     const checkAndShowTip = () => {
       const timeSinceInteraction = Date.now() - lastInteractionRef.current;
@@ -208,17 +207,25 @@ export function FloatingAvatar({
       if (
         timeSinceInteraction >= PROACTIVE_TIP_DELAY &&
         !chatOpen &&
-        !tooltipVisible
+        !tooltipVisible &&
+        tipsShownRef.current < MAX_PROACTIVE_TIPS_PER_SESSION
       ) {
         const tips = PROACTIVE_TIPS[section] || PROACTIVE_TIPS.home;
-        const randomTip = tips[Math.floor(Math.random() * tips.length)];
+        // Get a tip we haven't shown yet
+        const unshownTips = tips.filter((t) => !shownTipsRef.current.has(t));
+        if (unshownTips.length === 0) return;
+
+        const randomTip =
+          unshownTips[Math.floor(Math.random() * unshownTips.length)];
+        shownTipsRef.current.add(randomTip);
+        tipsShownRef.current++;
         triggerReaction("preview_toggle", randomTip);
         lastInteractionRef.current = Date.now();
       }
     };
 
-    // Check every 10 seconds
-    proactiveTipTimerRef.current = setInterval(checkAndShowTip, 10000);
+    // Check less frequently - every 30 seconds
+    proactiveTipTimerRef.current = setInterval(checkAndShowTip, 30000);
 
     return () => {
       if (proactiveTipTimerRef.current) {
@@ -250,6 +257,18 @@ export function FloatingAvatar({
       window.removeEventListener("keydown", handleActivity);
       window.removeEventListener("scroll", handleActivity);
     };
+  }, []);
+
+  // Handle WebGL context lost gracefully
+  useEffect(() => {
+    const handleContextLost = () => {
+      console.warn("[Avatar] WebGL context lost, showing fallback");
+      setWebglError(true);
+    };
+
+    window.addEventListener("webglcontextlost", handleContextLost);
+    return () =>
+      window.removeEventListener("webglcontextlost", handleContextLost);
   }, []);
 
   // Show minimized button when avatar is hidden
@@ -319,53 +338,68 @@ export function FloatingAvatar({
               <X className="w-3 h-3 text-gray-400 hover:text-red-400" />
             </motion.button>
 
-            {/* Three.js Canvas */}
-            <Canvas
-              camera={{
-                position: [
-                  AVATAR_CONFIG.camera.position.x,
-                  AVATAR_CONFIG.camera.position.y,
-                  AVATAR_CONFIG.camera.position.z,
-                ],
-                fov: AVATAR_CONFIG.camera.fov,
-              }}
-              dpr={[1, 2]}
-              gl={{ antialias: true, alpha: true }}
-              style={{ background: "transparent" }}
-              onCreated={handleCanvasCreated}
-            >
-              {/* Lighting setup */}
-              <ambientLight intensity={AVATAR_CONFIG.lighting.ambient} />
-              <directionalLight
-                position={[5, 5, 5]}
-                intensity={AVATAR_CONFIG.lighting.directional1}
-              />
-              <directionalLight
-                position={[-3, 3, -3]}
-                intensity={AVATAR_CONFIG.lighting.directional2}
-              />
-
-              {/* Environment for realistic reflections */}
-              <Environment preset="city" />
-
-              {/* 3D Avatar */}
-              <Suspense fallback={<LoadingFallback />}>
-                <AvatarModel
-                  animation={currentAnimation}
-                  position={[
-                    AVATAR_CONFIG.avatar.position.x,
-                    AVATAR_CONFIG.avatar.position.y,
-                    AVATAR_CONFIG.avatar.position.z,
-                  ]}
-                  rotation={[
-                    AVATAR_CONFIG.avatar.rotation.x,
-                    AVATAR_CONFIG.avatar.rotation.y,
-                    AVATAR_CONFIG.avatar.rotation.z,
-                  ]}
-                  scale={AVATAR_CONFIG.avatar.scale}
+            {/* Three.js Canvas - with WebGL error handling */}
+            {webglError ? (
+              <div className="w-full h-full flex items-center justify-center">
+                <div className="text-center text-gray-400 text-xs">
+                  <MessageCircle className="w-8 h-8 mx-auto mb-1 text-teal-500" />
+                  <span>Assistent</span>
+                </div>
+              </div>
+            ) : (
+              <Canvas
+                camera={{
+                  position: [
+                    AVATAR_CONFIG.camera.position.x,
+                    AVATAR_CONFIG.camera.position.y,
+                    AVATAR_CONFIG.camera.position.z,
+                  ],
+                  fov: AVATAR_CONFIG.camera.fov,
+                }}
+                dpr={[1, 1.5]} // Reduced for better performance
+                gl={{
+                  antialias: true,
+                  alpha: true,
+                  powerPreference: "low-power", // Better battery/performance
+                  failIfMajorPerformanceCaveat: false,
+                }}
+                style={{ background: "transparent" }}
+                onCreated={handleCanvasCreated}
+                onError={() => setWebglError(true)}
+              >
+                {/* Lighting setup */}
+                <ambientLight intensity={AVATAR_CONFIG.lighting.ambient} />
+                <directionalLight
+                  position={[5, 5, 5]}
+                  intensity={AVATAR_CONFIG.lighting.directional1}
                 />
-              </Suspense>
-            </Canvas>
+                <directionalLight
+                  position={[-3, 3, -3]}
+                  intensity={AVATAR_CONFIG.lighting.directional2}
+                />
+
+                {/* Environment for realistic reflections */}
+                <Environment preset="city" />
+
+                {/* 3D Avatar */}
+                <Suspense fallback={<LoadingFallback />}>
+                  <AvatarModel
+                    animation={currentAnimation}
+                    position={[
+                      AVATAR_CONFIG.avatar.position.x,
+                      AVATAR_CONFIG.avatar.position.y,
+                      AVATAR_CONFIG.avatar.position.z,
+                    ]}
+                    rotation={[
+                      AVATAR_CONFIG.avatar.rotation.x,
+                      AVATAR_CONFIG.avatar.rotation.y,
+                      AVATAR_CONFIG.avatar.rotation.z,
+                    ]}
+                    scale={AVATAR_CONFIG.avatar.scale}
+                  />
+                </Suspense>
+              </Canvas>
+            )}
 
             {/* Hover hint */}
             <div

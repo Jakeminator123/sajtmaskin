@@ -41,21 +41,13 @@ import { ChatMessage } from "@/components/chat-message";
 import { HelpTooltip } from "@/components/help-tooltip";
 import { ComponentPicker } from "@/components/component-picker";
 import { RequireAuthModal } from "@/components/auth/require-auth-modal";
+import { GenerationProgress } from "@/components/generation-progress";
+import { DomainSuggestions } from "@/components/domain-suggestions";
 import { Button } from "@/components/ui/button";
-import { MessageSquare, ArrowUp, Loader2, Sparkles } from "lucide-react";
+import { MessageSquare, ArrowUp, Loader2, Sparkles, Globe } from "lucide-react";
 
 // Debug flag - set to true for verbose logging
 const DEBUG = false;
-
-// Rotating loading messages for better UX
-const LOADING_MESSAGES = [
-  { text: "Analyserar din beskrivning...", emoji: "🔍" },
-  { text: "Designar layouten...", emoji: "🎨" },
-  { text: "Bygger komponenter...", emoji: "🧱" },
-  { text: "Applicerar stilar...", emoji: "✨" },
-  { text: "Optimerar för mobil...", emoji: "📱" },
-  { text: "Lägger sista touchen...", emoji: "🎯" },
-];
 
 interface ChatPanelProps {
   categoryType?: string;
@@ -71,13 +63,37 @@ export function ChatPanel({
   localTemplateId,
 }: ChatPanelProps) {
   const [input, setInput] = useState("");
-  const [loadingMessageIndex, setLoadingMessageIndex] = useState(0);
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authModalReason, setAuthModalReason] = useState<
     "generation" | "refine" | "credits"
   >("generation");
+  const [generationStartTime, setGenerationStartTime] = useState<number | null>(
+    null
+  );
+  const [currentPromptLength, setCurrentPromptLength] = useState(0);
+  const [isRefinementMode, setIsRefinementMode] = useState(false);
+  const [refinementCount, setRefinementCount] = useState(0);
+  const [showDomainModal, setShowDomainModal] = useState(false);
+  const [projectName, setProjectName] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Generate unique user seed for DiceBear avatar (persisted in sessionStorage)
+  // Uses useEffect to avoid hydration mismatch between server and client
+  const [userSeed, setUserSeed] = useState("user");
+
+  useEffect(() => {
+    const stored = sessionStorage.getItem("sajtmaskin-user-seed");
+    if (stored) {
+      setUserSeed(stored);
+    } else {
+      const newSeed = `user-${Date.now()}-${Math.random()
+        .toString(36)
+        .slice(2, 9)}`;
+      sessionStorage.setItem("sajtmaskin-user-seed", newSeed);
+      setUserSeed(newSeed);
+    }
+  }, []);
 
   const { updateDiamonds, fetchUser } = useAuth();
 
@@ -105,20 +121,6 @@ export function ChatPanel({
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages]);
-
-  // Rotate loading messages every 3 seconds while loading
-  useEffect(() => {
-    if (!isLoading) {
-      setLoadingMessageIndex(0);
-      return;
-    }
-
-    const interval = setInterval(() => {
-      setLoadingMessageIndex((prev) => (prev + 1) % LOADING_MESSAGES.length);
-    }, 3000);
-
-    return () => clearInterval(interval);
-  }, [isLoading]);
 
   // Track the last generated key to detect changes
   const lastGeneratedKey = useRef<string | null>(null);
@@ -494,6 +496,9 @@ export default function Page() {
       });
     addMessage("user", prompt);
     setLoading(true);
+    setGenerationStartTime(Date.now());
+    setCurrentPromptLength(prompt.length);
+    setIsRefinementMode(false);
 
     try {
       if (DEBUG) console.log("[ChatPanel] Calling API...");
@@ -600,6 +605,9 @@ export default function Page() {
 
     addMessage("user", instruction);
     setLoading(true);
+    setGenerationStartTime(Date.now());
+    setCurrentPromptLength(instruction.length);
+    setIsRefinementMode(true);
 
     try {
       if (DEBUG) console.log("[ChatPanel] Refining with chatId:", chatId);
@@ -613,6 +621,25 @@ export default function Page() {
 
       if (response.success && response.message) {
         addMessage("assistant", response.message);
+
+        // Track successful refinements for domain suggestion trigger
+        const newCount = refinementCount + 1;
+        setRefinementCount(newCount);
+
+        // Show domain suggestions after 3 successful refinements
+        if (newCount === 3) {
+          // Extract project name from the first user message
+          const firstUserMessage = messages.find((m) => m.role === "user");
+          if (firstUserMessage) {
+            // Try to extract company/project name from the prompt
+            const nameMatch = firstUserMessage.content.match(
+              /(?:för|for|called|named|om)\s+([A-Za-zÅÄÖåäö0-9\s]+?)(?:\.|,|med|with|som|that)/i
+            );
+            setProjectName(nameMatch?.[1]?.trim() || "");
+          }
+          // Auto-show domain modal
+          setTimeout(() => setShowDomainModal(true), 1000);
+        }
 
         // Update chatId if we got a new one
         if (response.chatId) {
@@ -733,38 +760,19 @@ export default function Page() {
           ) : (
             <>
               {messages.map((message) => (
-                <ChatMessage key={message.id} message={message} />
+                <ChatMessage
+                  key={message.id}
+                  message={message}
+                  userSeed={userSeed}
+                />
               ))}
               {isLoading && (
-                <div className="flex items-center gap-3 p-4 bg-gray-800/50 mr-8 border border-gray-700/30">
-                  <div className="w-10 h-10 bg-teal-600 flex items-center justify-center">
-                    <Sparkles className="h-5 w-5 text-white animate-pulse" />
-                  </div>
-                  <div className="flex flex-col gap-1.5">
-                    <div className="flex items-center gap-2">
-                      <span className="text-lg">
-                        {LOADING_MESSAGES[loadingMessageIndex].emoji}
-                      </span>
-                      <span className="text-sm text-gray-200 font-medium">
-                        {LOADING_MESSAGES[loadingMessageIndex].text}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="flex gap-1">
-                        {[0, 1, 2].map((i) => (
-                          <div
-                            key={i}
-                            className="w-1.5 h-1.5 bg-teal-500 animate-pulse"
-                            style={{ animationDelay: `${i * 150}ms` }}
-                          />
-                        ))}
-                      </div>
-                      <span className="text-xs text-gray-500">
-                        Tar vanligtvis 15-30 sekunder
-                      </span>
-                    </div>
-                  </div>
-                </div>
+                <GenerationProgress
+                  isLoading={isLoading}
+                  promptLength={currentPromptLength}
+                  isRefinement={isRefinementMode}
+                  startTime={generationStartTime || undefined}
+                />
               )}
             </>
           )}
@@ -773,15 +781,17 @@ export default function Page() {
 
       {/* Input */}
       <div className="p-4 border-t border-gray-800 space-y-3">
-        {/* Component picker - only show when we have content */}
-        {demoUrl && (
+        {/* Component picker - show after first generation started */}
+        {messages.length > 0 && (
           <ComponentPicker
             onSelect={(prompt) => {
               setInput(prompt);
-              // Auto-submit the component request
-              setTimeout(() => {
-                handleRefinement(prompt);
-              }, 100);
+              // Auto-submit if we have a preview to refine
+              if (demoUrl || currentCode) {
+                setTimeout(() => {
+                  handleRefinement(prompt);
+                }, 100);
+              }
             }}
             disabled={isLoading}
           />
@@ -800,11 +810,22 @@ export default function Page() {
             placeholder={
               messages.length === 0
                 ? "Beskriv din webbplats..."
-                : "Förfina din webbplats..."
+                : "Förfina eller lägg till komponenter..."
             }
             disabled={isLoading}
             className="flex-1 bg-transparent text-sm text-white placeholder:text-gray-500 outline-none"
           />
+          {/* Domain suggestions button - always available */}
+          <Button
+            size="sm"
+            variant="ghost"
+            onClick={() => setShowDomainModal(true)}
+            disabled={isLoading}
+            className="h-8 w-8 p-0 text-gray-400 hover:text-teal-400 hover:bg-gray-800"
+            title="Hitta domännamn (WHOIS-koll)"
+          >
+            <Globe className="h-4 w-4" />
+          </Button>
           <Button
             size="sm"
             onClick={handleSubmit}
@@ -821,9 +842,16 @@ export default function Page() {
         <p className="text-xs text-gray-600 text-center">
           {messages.length === 0
             ? "Tryck Enter för att generera"
-            : "Skriv ändringar för att förfina designen"}
+            : "Skriv ändringar eller välj komponenter ovan"}
         </p>
       </div>
+
+      {/* Domain Suggestions Modal */}
+      <DomainSuggestions
+        companyName={projectName}
+        isOpen={showDomainModal}
+        onClose={() => setShowDomainModal(false)}
+      />
     </div>
   );
 }

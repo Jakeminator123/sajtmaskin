@@ -6,74 +6,73 @@
  * Makes the avatar act as an intelligent agent that monitors
  * what's happening on the site and provides contextual feedback.
  *
- * Features:
- * - Monitors builder state for generation/errors
- * - Provides tips when user seems stuck
- * - Reacts to form validation errors
- * - Celebrates successes
+ * IMPROVED: Less intrusive, smarter timing, tracks shown tips
  */
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useCallback } from "react";
 import { useAvatar } from "@/contexts/AvatarContext";
 import { useBuilderStore } from "@/lib/store";
 
-// Tips for different situations
+// Track which tips have been shown this session
+const shownTips = new Set<string>();
+let tipCount = 0;
+const MAX_TIPS_PER_SESSION = 5;
+
+// Shorter, less intrusive tips
 const AGENT_TIPS = {
-  emptyPrompt: [
-    "Skriv vad du vill bygga! T.ex. 'En landningssida för mitt kafé'",
-    "Beskriv din sajt - vad ska den göra?",
-    "Prova: 'En portfolio för fotograf med bildgalleri'",
-  ],
-  shortPrompt: [
-    "Ju mer detaljer, desto bättre resultat! 💡",
-    "Lägg till mer info - färger, stil, funktioner?",
-    "Beskriv målgruppen för bättre design!",
-  ],
-  generationTakingLong: [
-    "Generering tar lite tid - v0 skapar din sajt! ⏳",
-    "Snart klar! AI:n bygger din design...",
-    "Håll ut! Kvalitet tar tid. 🎨",
-  ],
-  afterSuccess: [
-    "Snyggt! Du kan förfina genom att skriva i chatten.",
-    "Bra! Klicka på koden för att se detaljerna.",
-    "Nu kan du ladda ner eller fortsätta justera!",
-  ],
-  afterError: [
-    "Något gick fel - prova igen!",
-    "Hmm, det funkade inte. Testa en annan formulering?",
-    "Fel uppstod. Kolla din internetanslutning.",
-  ],
+  generationTakingLong: ["Generering pågår... ⏳", "Snart klar!"],
+  afterSuccess: ["Klar! Förfina i chatten.", "Snyggt! 🎉"],
+  afterError: ["Något gick fel - prova igen."],
 };
+
+// Get a tip that hasn't been shown yet
+function getUniqueTip(tips: string[]): string | null {
+  if (tipCount >= MAX_TIPS_PER_SESSION) return null;
+
+  const unshown = tips.filter((t) => !shownTips.has(t));
+  if (unshown.length === 0) return null;
+
+  const tip = unshown[Math.floor(Math.random() * unshown.length)];
+  shownTips.add(tip);
+  tipCount++;
+  return tip;
+}
 
 /**
  * Hook that makes the avatar act as an agent
- * monitoring user activity and providing feedback
+ * monitoring user activity - now less intrusive
  */
 export function useAvatarAgent() {
   const { triggerReaction, avatarState, isLoaded } = useAvatar();
 
   // Get builder state
-  const { isLoading, currentCode, demoUrl, messages } = useBuilderStore();
+  const { isLoading, demoUrl, messages } = useBuilderStore();
 
   // Track previous states
   const prevIsLoading = useRef(isLoading);
   const prevDemoUrl = useRef(demoUrl);
   const loadingStartTime = useRef<number | null>(null);
   const hasGivenLoadingTip = useRef(false);
+  const lastReactionTime = useRef(0);
 
-  // Monitor generation state changes
+  // Throttle reactions - minimum 10 seconds between
+  const canReact = useCallback(() => {
+    const now = Date.now();
+    if (now - lastReactionTime.current < 10000) return false;
+    lastReactionTime.current = now;
+    return true;
+  }, []);
+
+  // Monitor generation state changes - less chatty
   useEffect(() => {
     if (!isLoaded || avatarState === "hidden") return;
 
-    // Generation started
+    // Generation started - just animate, no message
     if (isLoading && !prevIsLoading.current) {
       loadingStartTime.current = Date.now();
       hasGivenLoadingTip.current = false;
-      triggerReaction(
-        "generation_start",
-        "Nu kör vi! Genererar din sajt... 🚀"
-      );
+      // Silent reaction - just animation change
+      triggerReaction("generation_start", "");
     }
 
     // Generation completed successfully
@@ -83,15 +82,19 @@ export function useAvatarAgent() {
       demoUrl &&
       demoUrl !== prevDemoUrl.current
     ) {
-      const tip =
-        AGENT_TIPS.afterSuccess[
-          Math.floor(Math.random() * AGENT_TIPS.afterSuccess.length)
-        ];
-      triggerReaction("generation_complete", tip);
+      if (canReact()) {
+        const tip = getUniqueTip(AGENT_TIPS.afterSuccess);
+        if (tip) {
+          triggerReaction("generation_complete", tip);
+        } else {
+          // Just animate without text
+          triggerReaction("generation_complete", "");
+        }
+      }
       loadingStartTime.current = null;
     }
 
-    // Generation failed (loading stopped but no new demoUrl)
+    // Generation failed - only react if clear error
     if (
       !isLoading &&
       prevIsLoading.current &&
@@ -101,57 +104,51 @@ export function useAvatarAgent() {
       const lastMessage = messages[messages.length - 1];
       if (
         lastMessage?.role === "assistant" &&
-        lastMessage?.content?.toLowerCase().includes("fel")
+        lastMessage?.content?.toLowerCase().includes("fel") &&
+        canReact()
       ) {
-        const tip =
-          AGENT_TIPS.afterError[
-            Math.floor(Math.random() * AGENT_TIPS.afterError.length)
-          ];
-        triggerReaction("generation_error", tip);
+        const tip = getUniqueTip(AGENT_TIPS.afterError);
+        if (tip) triggerReaction("generation_error", tip);
       }
     }
 
     prevIsLoading.current = isLoading;
     prevDemoUrl.current = demoUrl;
-  }, [isLoading, demoUrl, messages, isLoaded, avatarState, triggerReaction]);
+  }, [
+    isLoading,
+    demoUrl,
+    messages,
+    isLoaded,
+    avatarState,
+    triggerReaction,
+    canReact,
+  ]);
 
-  // Give tip if generation takes too long (>15 seconds)
+  // Give tip only if generation takes very long (>45 seconds)
   useEffect(() => {
     if (!isLoading || !loadingStartTime.current || hasGivenLoadingTip.current)
       return;
 
-    const checkTimer = setInterval(() => {
-      if (loadingStartTime.current) {
+    const checkTimer = setTimeout(() => {
+      if (loadingStartTime.current && canReact()) {
         const elapsed = Date.now() - loadingStartTime.current;
-        if (elapsed > 15000 && !hasGivenLoadingTip.current) {
+        if (elapsed > 45000 && !hasGivenLoadingTip.current) {
           hasGivenLoadingTip.current = true;
-          const tip =
-            AGENT_TIPS.generationTakingLong[
-              Math.floor(Math.random() * AGENT_TIPS.generationTakingLong.length)
-            ];
-          triggerReaction("form_submit", tip);
+          const tip = getUniqueTip(AGENT_TIPS.generationTakingLong);
+          if (tip) triggerReaction("form_submit", tip);
         }
       }
-    }, 5000);
+    }, 45000);
 
-    return () => clearInterval(checkTimer);
-  }, [isLoading, triggerReaction]);
+    return () => clearTimeout(checkTimer);
+  }, [isLoading, triggerReaction, canReact]);
 
   return {
-    // Expose methods for manual triggers if needed
     suggestPromptTip: () => {
-      const tip =
-        AGENT_TIPS.emptyPrompt[
-          Math.floor(Math.random() * AGENT_TIPS.emptyPrompt.length)
-        ];
-      triggerReaction("section_change", tip);
+      // Disabled - less intrusive
     },
     suggestDetailsTip: () => {
-      const tip =
-        AGENT_TIPS.shortPrompt[
-          Math.floor(Math.random() * AGENT_TIPS.shortPrompt.length)
-        ];
-      triggerReaction("preview_toggle", tip);
+      // Disabled - less intrusive
     },
   };
 }

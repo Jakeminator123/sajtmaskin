@@ -13,6 +13,24 @@ const nextConfig: NextConfig = {
         hostname: "api.v0.dev",
         pathname: "/v1/chats/**",
       },
+      // DiceBear avatars
+      {
+        protocol: "https",
+        hostname: "api.dicebear.com",
+        pathname: "/**",
+      },
+      // QuickChart (QR codes & charts)
+      {
+        protocol: "https",
+        hostname: "quickchart.io",
+        pathname: "/**",
+      },
+      // Lorem Picsum (placeholder images)
+      {
+        protocol: "https",
+        hostname: "picsum.photos",
+        pathname: "/**",
+      },
     ],
   },
 };

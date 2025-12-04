@@ -54,6 +54,7 @@ import {
   Image,
 } from "lucide-react";
 import { useState, useMemo, useEffect } from "react";
+import { QrShare } from "@/components/qr-share";
 
 // Custom dark theme matching the app's design
 const customTheme = {
@@ -334,16 +335,20 @@ export function CodePreview() {
                 )}
 
                 {/* Floating download button */}
-                {chatId && versionId && (
-                  <Button
-                    onClick={handleDownload}
-                    className="absolute bottom-4 right-4 gap-2 bg-teal-600 hover:bg-teal-500 shadow-lg"
-                    size="sm"
-                  >
-                    <Download className="h-4 w-4" />
-                    Ladda ner ZIP
-                  </Button>
-                )}
+                {/* Action buttons */}
+                <div className="absolute bottom-4 right-4 flex gap-2">
+                  {demoUrl && <QrShare url={demoUrl} title="Dela preview" />}
+                  {chatId && versionId && (
+                    <Button
+                      onClick={handleDownload}
+                      className="gap-2 bg-teal-600 hover:bg-teal-500 shadow-lg"
+                      size="sm"
+                    >
+                      <Download className="h-4 w-4" />
+                      Ladda ner ZIP
+                    </Button>
+                  )}
+                </div>
               </div>
             ) : currentCode ? (
               // Fallback to Sandpack preview if no demoUrl

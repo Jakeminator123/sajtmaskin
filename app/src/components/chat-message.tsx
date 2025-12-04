@@ -1,15 +1,42 @@
 "use client";
 
 import { Message } from "@/lib/store";
-import { Bot, User } from "lucide-react";
+import { Bot } from "lucide-react";
 import { cn } from "@/lib/utils";
+import Image from "next/image";
+import { useMemo } from "react";
+
+// DiceBear avatar styles available
+const AVATAR_STYLES = [
+  "avataaars",
+  "bottts",
+  "fun-emoji",
+  "lorelei",
+  "notionists",
+  "open-peeps",
+  "personas",
+  "pixel-art",
+];
 
 interface ChatMessageProps {
   message: Message;
+  userSeed?: string; // Unique seed for user avatar (e.g., session ID)
 }
 
-export function ChatMessage({ message }: ChatMessageProps) {
+export function ChatMessage({ message, userSeed = "user" }: ChatMessageProps) {
   const isUser = message.role === "user";
+
+  // Generate consistent avatar URL based on seed
+  const userAvatarUrl = useMemo(() => {
+    // Use a consistent style based on the seed
+    const styleIndex =
+      userSeed.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0) %
+      AVATAR_STYLES.length;
+    const style = AVATAR_STYLES[styleIndex];
+    return `https://api.dicebear.com/9.x/${style}/svg?seed=${encodeURIComponent(
+      userSeed
+    )}&backgroundColor=0d9488&radius=0`;
+  }, [userSeed]);
 
   // Handle timestamp which might be serialized as string from localStorage
   const formatTime = (timestamp: Date | string | number): string => {
@@ -34,12 +61,19 @@ export function ChatMessage({ message }: ChatMessageProps) {
       {/* Avatar */}
       <div
         className={cn(
-          "flex-shrink-0 w-8 h-8 flex items-center justify-center",
+          "flex-shrink-0 w-8 h-8 flex items-center justify-center overflow-hidden",
           isUser ? "bg-teal-600" : "bg-gray-700"
         )}
       >
         {isUser ? (
-          <User className="h-4 w-4 text-white" />
+          <Image
+            src={userAvatarUrl}
+            alt="Din avatar"
+            width={32}
+            height={32}
+            className="w-full h-full"
+            unoptimized // External URL
+          />
         ) : (
           <Bot className="h-4 w-4 text-gray-300" />
         )}

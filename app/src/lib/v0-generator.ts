@@ -155,7 +155,7 @@ export async function downloadVersionAsZip(
  */
 async function waitForVersionReady(
   chatId: string,
-  maxAttempts = 60, // 60 × 5s = 5 minutes timeout
+  maxAttempts = 120, // 120 × 5s = 10 minutes timeout
   delayMs = 5000 // 5 seconds between polls
 ): Promise<ChatDetail | null> {
   const v0 = getV0Client();

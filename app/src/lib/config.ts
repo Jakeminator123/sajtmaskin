@@ -14,14 +14,23 @@ export const IS_RENDER = Boolean(process.env.RENDER);
  * - Production (Render): /var/data (persistent disk)
  * - Local development: ./data (relative to app root)
  */
+// Track if we've already warned about DATA_DIR (avoid spam during build)
+let hasWarnedAboutDataDir = false;
+
 function getDataDir(): string {
   // Render persistent disk
   if (process.env.DATA_DIR) {
     return process.env.DATA_DIR;
   }
 
-  // Production without DATA_DIR set - warn and use fallback
-  if (IS_PRODUCTION) {
+  // Production without DATA_DIR set - warn once (skip during build/static generation)
+  // Only warn at runtime, not during build phase
+  const isBuildPhase =
+    process.env.NEXT_PHASE === "phase-production-build" ||
+    process.env.NEXT_PHASE === "phase-export";
+
+  if (IS_PRODUCTION && !IS_RENDER && !hasWarnedAboutDataDir && !isBuildPhase) {
+    hasWarnedAboutDataDir = true;
     console.warn(
       "[Config] WARNING: DATA_DIR not set in production. Data may be lost on restart!"
     );

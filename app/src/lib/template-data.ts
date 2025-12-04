@@ -532,57 +532,386 @@ Design: Professional dark sidebar (#1f2937), white content area, emerald (#10B98
   },
 };
 
+// Component categories for better organization
+export interface ComponentCategory {
+  name: string;
+  components: QuickPrompt[];
+}
+
 // Components that can be added to any project (used in builder)
-export const COMPONENTS: QuickPrompt[] = [
+// Organized by category: Basic → Advanced
+export const COMPONENT_CATEGORIES: ComponentCategory[] = [
   {
-    label: "Header/Navigation",
-    prompt: "Lägg till en modern header med logotyp, navigation och CTA-knapp.",
+    name: "🎯 Essential",
+    components: [
+      {
+        label: "Hero Section",
+        prompt:
+          "Add a hero section with large headline, subheadline, description, CTA buttons (primary + secondary), and optional background image with dark overlay.",
+      },
+      {
+        label: "Header/Navigation",
+        prompt:
+          "Add a sticky header with logo, navigation menu (Home, About, Services, Contact), mobile hamburger menu, and CTA button. Transparent initially, solid background on scroll.",
+      },
+      {
+        label: "Footer",
+        prompt:
+          "Add a footer with 4-column layout (Company, Product, Resources, Legal), newsletter signup, social media icons (Twitter, LinkedIn, Instagram, Facebook), and copyright text.",
+      },
+      {
+        label: "Contact Form",
+        prompt:
+          "Add a contact form with fields: Name, Email, Phone (optional), Message (textarea), Submit button with loading state, form validation, and success/error messages.",
+      },
+      {
+        label: "CTA Section",
+        prompt:
+          "Add a call-to-action section with gradient or colored background, compelling headline, supporting text, primary action button, and optional secondary link.",
+      },
+    ],
   },
   {
-    label: "Footer",
-    prompt:
-      "Lägg till en footer med länkar, sociala medier-ikoner och copyright.",
+    name: "📦 Content Blocks",
+    components: [
+      {
+        label: "Feature Grid",
+        prompt:
+          "Add a features section with 3-column grid layout, each feature has icon (Lucide React), title, description, and optional hover animation (lift effect).",
+      },
+      {
+        label: "Pricing Table",
+        prompt:
+          "Add pricing section with 3 tiers in card layout: features list with checkmarks, price with period toggle (monthly/yearly), 'Most Popular' badge on middle tier, and CTA button per plan.",
+      },
+      {
+        label: "Testimonials",
+        prompt:
+          "Add testimonials section with customer quotes in card layout, customer photo, name, role, company name, 5-star rating, and subtle card shadows with hover effects.",
+      },
+      {
+        label: "FAQ Accordion",
+        prompt:
+          "Add FAQ section with collapsible accordion items, each with question, expandable answer, smooth transition animation, and optional category tabs for organization.",
+      },
+      {
+        label: "Stats/Metrics",
+        prompt:
+          "Add statistics section with 4-column grid showing key metrics: large numbers (animated count-up), labels, percentage change indicators, and trend icons (up/down arrows).",
+      },
+      {
+        label: "Team Section",
+        prompt:
+          "Add team section with grid of team member cards, each showing photo, name, role, short bio, and social media links (LinkedIn, Twitter). Hover reveals additional info.",
+      },
+    ],
   },
   {
-    label: "Pricing Table",
-    prompt: "Lägg till en pricing-sektion med 3 prisplaner och features-lista.",
+    name: "🖼️ Visual Components",
+    components: [
+      {
+        label: "Image Gallery",
+        prompt:
+          "Add image gallery with masonry or grid layout, hover zoom effects, lightbox functionality for full-screen view, image captions, and navigation arrows in lightbox.",
+      },
+      {
+        label: "Logo Cloud",
+        prompt:
+          "Add logo showcase section with client/partner logos in grid or horizontal scroll, grayscale filter with color on hover, infinite auto-scroll animation option.",
+      },
+      {
+        label: "Before/After Slider",
+        prompt:
+          "Add before/after image comparison slider with draggable divider, labels for 'Before' and 'After', smooth dragging interaction, and optional auto-play animation.",
+      },
+      {
+        label: "Video Section",
+        prompt:
+          "Add video section with embedded YouTube/Vimeo player or native video, custom play button overlay, thumbnail image before play, and optional video caption/description.",
+      },
+      {
+        label: "Icon Grid",
+        prompt:
+          "Add icon grid with colorful icons (Lucide React), each with title and short description underneath, 3-4 column responsive layout, and subtle hover animations.",
+      },
+    ],
   },
   {
-    label: "Contact Form",
-    prompt:
-      "Lägg till ett kontaktformulär med namn, email, meddelande och skicka-knapp.",
+    name: "📝 Forms & Inputs",
+    components: [
+      {
+        label: "Newsletter Signup",
+        prompt:
+          "Add newsletter section with headline, email input field, subscribe button (inline or stacked), privacy text, and success confirmation message after submission.",
+      },
+      {
+        label: "Multi-Step Form",
+        prompt:
+          "Add multi-step form with progress indicator (steps 1/2/3), next/previous buttons, form validation per step, smooth transitions between steps, and final review screen.",
+      },
+      {
+        label: "Search Bar",
+        prompt:
+          "Add search component with input field, search icon, autocomplete suggestions dropdown, recent searches, and clear button. Full-width or compact variant.",
+      },
+      {
+        label: "Booking Form",
+        prompt:
+          "Add booking/reservation form with date picker, time slot selector, number of people, special requests textarea, and confirmation summary with total price.",
+      },
+      {
+        label: "Login/Signup Modal",
+        prompt:
+          "Add authentication modal with tabs for Login/Signup, email and password inputs, 'Forgot Password' link, social login buttons (Google, Facebook), and close button.",
+      },
+    ],
   },
   {
-    label: "Testimonials",
-    prompt:
-      "Lägg till en testimonials-sektion med kundcitat, bilder och företagsnamn.",
+    name: "🛍️ E-commerce",
+    components: [
+      {
+        label: "Product Grid",
+        prompt:
+          "Add product grid with product cards showing image, title, price (with discount if applicable), rating stars, 'Add to Cart' button, and quick view on hover.",
+      },
+      {
+        label: "Product Card",
+        prompt:
+          "Add detailed product card with large image, image thumbnails, title, price, variant selector (size/color), quantity input, 'Add to Cart' and 'Buy Now' buttons, reviews section.",
+      },
+      {
+        label: "Shopping Cart",
+        prompt:
+          "Add shopping cart component with item list (image, title, price, quantity controls), subtotal calculation, promo code input, shipping estimate, and checkout button.",
+      },
+      {
+        label: "Product Reviews",
+        prompt:
+          "Add product reviews section with star rating histogram, filter by rating, individual reviews with user photo, name, date, rating, helpful votes, and 'Write Review' button.",
+      },
+      {
+        label: "Category Filter",
+        prompt:
+          "Add product filter sidebar with category checkboxes, price range slider, brand filters, color swatches, rating filter, and 'Clear All Filters' button.",
+      },
+    ],
   },
   {
-    label: "FAQ Accordion",
-    prompt:
-      "Lägg till en FAQ-sektion med expanderbara frågor och svar i accordion-stil.",
+    name: "📊 Dashboard & Data",
+    components: [
+      {
+        label: "Dashboard Cards",
+        prompt:
+          "Add dashboard metric cards with icon, metric title, large number display, percentage change (green/red), mini trend chart (sparkline), and timeframe selector.",
+      },
+      {
+        label: "Data Table",
+        prompt:
+          "Add data table with sortable columns, search/filter functionality, pagination controls, row actions (edit/delete icons), row selection checkboxes, and export button.",
+      },
+      {
+        label: "Chart Section",
+        prompt:
+          "Add charts section with tabs for different chart types (line, bar, pie), chart controls (date range, data toggle), legend, tooltips on hover, and download chart option.",
+      },
+      {
+        label: "Activity Feed",
+        prompt:
+          "Add activity feed with timeline layout, activity items showing icon, description, timestamp, user avatar, and 'Load More' button at bottom.",
+      },
+      {
+        label: "Progress Tracker",
+        prompt:
+          "Add progress tracking component with visual steps (completed/current/upcoming), percentage complete, milestone markers, estimated completion date, and status badges.",
+      },
+    ],
   },
   {
-    label: "Feature Grid",
-    prompt:
-      "Lägg till en feature-sektion med ikoner, rubriker och beskrivningar i ett grid.",
+    name: "🎨 Advanced UI",
+    components: [
+      {
+        label: "Tabs Component",
+        prompt:
+          "Add tabbed interface with tab navigation bar (horizontal or vertical), smooth content transitions, active tab indicator (underline or background), and lazy loading per tab.",
+      },
+      {
+        label: "Accordion List",
+        prompt:
+          "Add accordion component with multiple expandable sections, smooth open/close animations, optional 'Expand All/Collapse All' controls, and icon rotation on toggle.",
+      },
+      {
+        label: "Breadcrumbs",
+        prompt:
+          "Add breadcrumb navigation with home icon, page links separated by arrows or slashes, current page highlighted, truncation for long paths, and hover states.",
+      },
+      {
+        label: "Pagination",
+        prompt:
+          "Add pagination component with previous/next buttons, page number buttons, current page highlighted, ellipsis for skipped pages, and 'Go to page' input option.",
+      },
+      {
+        label: "Modal Dialog",
+        prompt:
+          "Add modal dialog with overlay backdrop, centered content area, close button (X icon), header/body/footer sections, smooth fade-in animation, and click-outside to close.",
+      },
+      {
+        label: "Dropdown Menu",
+        prompt:
+          "Add dropdown menu with trigger button, menu items list, dividers between groups, icons next to labels, keyboard navigation support, and smooth slide-down animation.",
+      },
+      {
+        label: "Toast Notifications",
+        prompt:
+          "Add toast notification system with success/error/warning/info variants, auto-dismiss timer, close button, stacking for multiple toasts, and slide-in animation from corner.",
+      },
+      {
+        label: "Tooltip",
+        prompt:
+          "Add tooltip component that appears on hover, arrow pointing to target element, dark background with white text, fade-in animation, and smart positioning (top/bottom/left/right).",
+      },
+    ],
   },
   {
-    label: "Newsletter Signup",
-    prompt:
-      "Lägg till en newsletter-sektion med email-input och prenumerera-knapp.",
+    name: "🌟 Interactive",
+    components: [
+      {
+        label: "Image Carousel",
+        prompt:
+          "Add image carousel with auto-play, previous/next arrow buttons, dot indicators for slides, pause on hover, smooth slide transitions, and optional thumbnails navigation.",
+      },
+      {
+        label: "Countdown Timer",
+        prompt:
+          "Add countdown timer displaying days, hours, minutes, seconds in card layout, animated number flips, optional labels, and custom styling for urgency (red when close).",
+      },
+      {
+        label: "Animated Counter",
+        prompt:
+          "Add animated number counter that counts up when scrolled into view, smooth easing animation, optional prefix/suffix (€, +, %), and milestone celebration effect.",
+      },
+      {
+        label: "Scroll Progress Bar",
+        prompt:
+          "Add scroll progress indicator at top of page, smooth horizontal bar that fills as user scrolls, custom color gradient, and optional percentage display.",
+      },
+      {
+        label: "Parallax Section",
+        prompt:
+          "Add parallax scrolling section with background image that moves slower than foreground, overlay content, smooth motion effect, and optional multiple layers.",
+      },
+    ],
   },
   {
-    label: "Hero Section",
-    prompt:
-      "Lägg till en hero-sektion med stor rubrik, beskrivning och CTA-knappar.",
+    name: "🗂️ Navigation",
+    components: [
+      {
+        label: "Sidebar Navigation",
+        prompt:
+          "Add collapsible sidebar with navigation links, icons for each item, active state highlighting, nested sub-menus with indentation, collapse/expand button, and mobile slide-over.",
+      },
+      {
+        label: "Mega Menu",
+        prompt:
+          "Add mega menu dropdown with multi-column layout, category sections with headers, featured items with images, 'View All' links, and smooth dropdown animation.",
+      },
+      {
+        label: "Floating Action Button",
+        prompt:
+          "Add floating action button (FAB) fixed in corner, circular design with icon, ripple effect on click, optional speed dial (multiple actions), and smooth animations.",
+      },
+      {
+        label: "Sticky Sidebar",
+        prompt:
+          "Add sticky sidebar that stays visible during scroll, table of contents with anchor links, active section highlighting, smooth scroll to sections, and responsive collapse on mobile.",
+      },
+    ],
   },
   {
-    label: "Image Gallery",
-    prompt:
-      "Lägg till ett bildgalleri med hover-effekter och lightbox-funktionalitet.",
+    name: "📱 Modern Layouts",
+    components: [
+      {
+        label: "Bento Grid",
+        prompt:
+          "Add bento grid layout (Pinterest-style) with mixed-size cards, each card has image/icon, title, description, hover lift effect, and responsive reflow.",
+      },
+      {
+        label: "Timeline",
+        prompt:
+          "Add vertical timeline with alternating left/right content cards, connecting line in center, date markers, event icons, and smooth scroll animations as items appear.",
+      },
+      {
+        label: "Kanban Board",
+        prompt:
+          "Add kanban-style board with drag-and-drop columns (To Do, In Progress, Done), task cards with title/tags/assignee, add new task button, and column limits indicator.",
+      },
+      {
+        label: "Masonry Grid",
+        prompt:
+          "Add masonry grid layout (like Pinterest) with variable-height items, responsive columns (1-4 based on screen), lazy loading on scroll, and smooth item animations.",
+      },
+      {
+        label: "Split Screen",
+        prompt:
+          "Add split-screen layout with two sections (50/50 or adjustable), left side for content/form, right side for image/graphic, responsive stack on mobile.",
+      },
+    ],
+  },
+  {
+    name: "💬 Social & Community",
+    components: [
+      {
+        label: "Comment Section",
+        prompt:
+          "Add comment section with nested replies (thread style), user avatars, timestamps, like/reply buttons, 'Load More' for pagination, and markdown support for formatting.",
+      },
+      {
+        label: "Social Share",
+        prompt:
+          "Add social sharing buttons for Twitter, Facebook, LinkedIn, WhatsApp, Email, with share counts, copy link button, and optional compact/expanded view toggle.",
+      },
+      {
+        label: "Author Bio",
+        prompt:
+          "Add author bio card with circular profile photo, name, role/title, short biography, social media links, 'Follow' button, and article count or stats.",
+      },
+      {
+        label: "Rating Widget",
+        prompt:
+          "Add rating component with star display (1-5), half-star support, average rating number, total ratings count, and interactive hover preview for user rating input.",
+      },
+    ],
+  },
+  {
+    name: "📄 Content",
+    components: [
+      {
+        label: "Blog Card",
+        prompt:
+          "Add blog post card with featured image, category tag, title, excerpt (truncated), author info with avatar, publish date, read time estimate, and 'Read More' link.",
+      },
+      {
+        label: "Article Header",
+        prompt:
+          "Add article header with large title, subtitle/excerpt, author avatar and name, publish date, reading time, category tags, social share buttons, and featured image.",
+      },
+      {
+        label: "Related Posts",
+        prompt:
+          "Add related posts section at article bottom, 3-4 post cards with thumbnail, title, brief excerpt, and 'Read More' link. Algorithm suggestion: same category or tags.",
+      },
+      {
+        label: "Table of Contents",
+        prompt:
+          "Add table of contents component extracted from article headings (H2, H3), anchor links to scroll to sections, active section highlighting, and sticky positioning.",
+      },
+    ],
   },
 ];
+
+// Legacy flat array for backward compatibility
+export const COMPONENTS: QuickPrompt[] = COMPONENT_CATEGORIES.flatMap(
+  (cat) => cat.components
+);
 
 // Get all category IDs
 export const CATEGORY_IDS = Object.keys(CATEGORIES);
