@@ -619,9 +619,11 @@ export function PromptWizardModal({
       case 9:
         return true; // Optional
       case 10:
+        return true; // Design & Stil - always has defaults
+      case 11:
         return selectedPalette !== null || customColors !== null;
       default:
-        return false;
+        return true; // Allow proceeding for any unlisted step
     }
   };
 
