@@ -52,6 +52,10 @@ export interface GenerateResponse {
   versionId?: string;
   model?: string;
   error?: string;
+  // Credits/auth fields
+  balance?: number;
+  requireAuth?: boolean;
+  requireCredits?: boolean;
 }
 
 export interface RefineResponse {
@@ -65,6 +69,10 @@ export interface RefineResponse {
   versionId?: string;
   model?: string;
   error?: string;
+  // Credits/auth fields
+  balance?: number;
+  requireAuth?: boolean;
+  requireCredits?: boolean;
 }
 
 /**
@@ -108,6 +116,8 @@ export async function generateWebsite(
       return {
         success: false,
         error: data.error || "Något gick fel. Försök igen.",
+        requireAuth: data.requireAuth,
+        requireCredits: data.requireCredits,
       };
     }
 
@@ -166,6 +176,8 @@ export async function refineWebsite(
       return {
         success: false,
         error: data.error || "Något gick fel. Försök igen.",
+        requireAuth: data.requireAuth,
+        requireCredits: data.requireCredits,
       };
     }
 

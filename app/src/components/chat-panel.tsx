@@ -31,6 +31,7 @@
 
 import { useEffect, useRef, useState, KeyboardEvent } from "react";
 import { useBuilderStore } from "@/lib/store";
+import { useAuth } from "@/lib/auth-store";
 import {
   generateWebsite, // Generera från prompt eller kod
   refineWebsite, // Förfina existerande design
@@ -39,6 +40,7 @@ import {
 import { ChatMessage } from "@/components/chat-message";
 import { HelpTooltip } from "@/components/help-tooltip";
 import { ComponentPicker } from "@/components/component-picker";
+import { RequireAuthModal } from "@/components/auth/require-auth-modal";
 import { Button } from "@/components/ui/button";
 import { MessageSquare, ArrowUp, Loader2, Sparkles } from "lucide-react";
 
@@ -70,8 +72,14 @@ export function ChatPanel({
 }: ChatPanelProps) {
   const [input, setInput] = useState("");
   const [loadingMessageIndex, setLoadingMessageIndex] = useState(0);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authModalReason, setAuthModalReason] = useState<
+    "generation" | "refine" | "credits"
+  >("generation");
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  const { updateDiamonds, fetchUser } = useAuth();
 
   const {
     messages,
@@ -550,10 +558,24 @@ export default function Page() {
               "[ChatPanel] Response was successful but no code received"
             );
         }
+
+        // Update diamond balance if returned
+        if (response.balance !== undefined) {
+          updateDiamonds(response.balance);
+        }
       } else {
-        const errorMsg = response.error || "Något gick fel. Försök igen.";
-        console.error("[ChatPanel] Generation failed:", errorMsg);
-        addMessage("assistant", errorMsg);
+        // Check if error is due to credits/auth
+        if (response.requireAuth) {
+          setAuthModalReason("generation");
+          setShowAuthModal(true);
+        } else if (response.requireCredits) {
+          setAuthModalReason("credits");
+          setShowAuthModal(true);
+        } else {
+          const errorMsg = response.error || "Något gick fel. Försök igen.";
+          console.error("[ChatPanel] Generation failed:", errorMsg);
+          addMessage("assistant", errorMsg);
+        }
       }
     } catch (error) {
       console.error("[ChatPanel] Generation error:", error);
@@ -621,11 +643,25 @@ export default function Page() {
         if (response.code) {
           setCurrentCode(response.code);
         }
+
+        // Update diamond balance if returned
+        if (response.balance !== undefined) {
+          updateDiamonds(response.balance);
+        }
       } else {
-        addMessage(
-          "assistant",
-          response.error || "Något gick fel. Försök igen."
-        );
+        // Check if error is due to credits/auth
+        if (response.requireAuth) {
+          setAuthModalReason("refine");
+          setShowAuthModal(true);
+        } else if (response.requireCredits) {
+          setAuthModalReason("credits");
+          setShowAuthModal(true);
+        } else {
+          addMessage(
+            "assistant",
+            response.error || "Något gick fel. Försök igen."
+          );
+        }
       }
     } catch (error) {
       console.error("Refinement error:", error);
@@ -657,6 +693,17 @@ export default function Page() {
 
   return (
     <div className="flex flex-col h-full">
+      {/* Auth/Credits modal */}
+      <RequireAuthModal
+        isOpen={showAuthModal}
+        onClose={() => {
+          setShowAuthModal(false);
+          // Refresh user data after modal closes (in case they logged in)
+          fetchUser();
+        }}
+        reason={authModalReason}
+      />
+
       {/* Header */}
       <div className="p-4 border-b border-zinc-800 flex items-center gap-2">
         <MessageSquare className="h-4 w-4 text-zinc-500" />

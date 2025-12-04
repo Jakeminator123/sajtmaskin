@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { AnalyticsTracker } from "@/components/analytics-tracker";
 
 export const metadata: Metadata = {
   title: "Sajtmaskin",
@@ -13,7 +14,10 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="sv">
-      <body className="antialiased">{children}</body>
+      <body className="antialiased">
+        <AnalyticsTracker />
+        {children}
+      </body>
     </html>
   );
 }

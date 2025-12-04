@@ -1,0 +1,7 @@
+ Test-användare (för oändliga krediter)
+E-post: test
+Lösenord: Ma!!orca123
+Logga in via vanliga login-knappen på sidan
+🔒 Admin-sidan (/admin)
+Lösenord: sajtmaskin-admin-2024 (standard)
+Eller sätt ADMIN_PASSWORD i .env.local för eget lösenord

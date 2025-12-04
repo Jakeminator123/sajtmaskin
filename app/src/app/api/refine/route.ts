@@ -10,6 +10,13 @@ import {
   sanitizeCode,
   type QualityLevel,
 } from "@/lib/v0-generator";
+import { getCurrentUser } from "@/lib/auth";
+import { getSessionIdFromRequest } from "@/lib/session";
+import {
+  getOrCreateGuestUsage,
+  incrementGuestRefines,
+  deductRefineDiamond,
+} from "@/lib/database";
 
 // Refinement response messages in Swedish
 const REFINEMENT_MESSAGES = [
@@ -31,7 +38,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const {
+    let {
       existingCode,
       chatId,
       instruction,
@@ -63,6 +70,51 @@ export async function POST(req: NextRequest) {
         { success: false, error: "Existing code is required for refinement" },
         { status: 400 }
       );
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // CREDIT CHECK: Verify user has credits or guest can refine
+    // ═══════════════════════════════════════════════════════════════════════════
+    const user = await getCurrentUser(req);
+    const sessionId = getSessionIdFromRequest(req);
+    let newBalance: number | null = null;
+
+    if (user) {
+      // Authenticated user - check diamonds
+      if (user.diamonds < 1) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "Du har slut på diamanter. Köp fler för att fortsätta.",
+            requireCredits: true,
+          },
+          { status: 402 }
+        );
+      }
+      console.log("[API/refine] User has", user.diamonds, "diamonds");
+    } else {
+      // Guest user - check usage limits
+      if (sessionId) {
+        const guestUsage = getOrCreateGuestUsage(sessionId);
+        if (guestUsage.refines_used >= 1) {
+          return NextResponse.json(
+            {
+              success: false,
+              error:
+                "Du har använt din gratis förfining. Skapa ett konto för att fortsätta!",
+              requireAuth: true,
+            },
+            { status: 402 }
+          );
+        }
+        console.log(
+          "[API/refine] Guest has used",
+          guestUsage.refines_used,
+          "refines"
+        );
+      }
+      // Force standard quality for guests
+      quality = "standard";
     }
 
     // Check for API key
@@ -103,6 +155,25 @@ export async function POST(req: NextRequest) {
       content: sanitizeCode(file.content),
     }));
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // DEDUCT CREDITS after successful refinement
+    // ═══════════════════════════════════════════════════════════════════════════
+    if (user) {
+      // Deduct diamond from authenticated user
+      const transaction = deductRefineDiamond(user.id);
+      if (transaction) {
+        newBalance = transaction.balance_after;
+        console.log(
+          "[API/refine] Deducted 1 diamond, new balance:",
+          newBalance
+        );
+      }
+    } else if (sessionId) {
+      // Increment guest usage
+      incrementGuestRefines(sessionId);
+      console.log("[API/refine] Incremented guest refine count");
+    }
+
     return NextResponse.json({
       success: true,
       message: getRandomMessage(),
@@ -113,6 +184,8 @@ export async function POST(req: NextRequest) {
       screenshotUrl: result.screenshotUrl,
       versionId: result.versionId,
       model: result.model,
+      // Include updated balance for authenticated users
+      ...(newBalance !== null && { balance: newBalance }),
     });
   } catch (error) {
     console.error("[API/refine] Error:", error);

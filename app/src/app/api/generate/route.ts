@@ -10,6 +10,13 @@ import {
   sanitizeCode,
   type QualityLevel,
 } from "@/lib/v0-generator";
+import { getCurrentUser } from "@/lib/auth";
+import { getSessionIdFromRequest } from "@/lib/session";
+import {
+  getOrCreateGuestUsage,
+  incrementGuestGenerations,
+  deductGenerationDiamond,
+} from "@/lib/database";
 
 // Category names in Swedish for response messages
 const CATEGORY_MESSAGES: Record<string, string> = {
@@ -36,7 +43,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const {
+    let {
       prompt,
       categoryType,
       quality = "standard",
@@ -59,6 +66,51 @@ export async function POST(req: NextRequest) {
         { success: false, error: "Prompt or category type is required" },
         { status: 400 }
       );
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════════
+    // CREDIT CHECK: Verify user has credits or guest can generate
+    // ═══════════════════════════════════════════════════════════════════════════
+    const user = await getCurrentUser(req);
+    const sessionId = getSessionIdFromRequest(req);
+    let newBalance: number | null = null;
+
+    if (user) {
+      // Authenticated user - check diamonds
+      if (user.diamonds < 1) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "Du har slut på diamanter. Köp fler för att fortsätta.",
+            requireCredits: true,
+          },
+          { status: 402 }
+        );
+      }
+      console.log("[API/generate] User has", user.diamonds, "diamonds");
+    } else {
+      // Guest user - check usage limits
+      if (sessionId) {
+        const guestUsage = getOrCreateGuestUsage(sessionId);
+        if (guestUsage.generations_used >= 1) {
+          return NextResponse.json(
+            {
+              success: false,
+              error:
+                "Du har använt din gratis generation. Skapa ett konto för att fortsätta bygga!",
+              requireAuth: true,
+            },
+            { status: 402 }
+          );
+        }
+        console.log(
+          "[API/generate] Guest has used",
+          guestUsage.generations_used,
+          "generations"
+        );
+      }
+      // Force standard quality for guests
+      quality = "standard";
     }
 
     // Check for API key
@@ -105,6 +157,25 @@ export async function POST(req: NextRequest) {
         ? CATEGORY_MESSAGES[categoryType]
         : DEFAULT_MESSAGE;
 
+    // ═══════════════════════════════════════════════════════════════════════════
+    // DEDUCT CREDITS after successful generation
+    // ═══════════════════════════════════════════════════════════════════════════
+    if (user) {
+      // Deduct diamond from authenticated user
+      const transaction = deductGenerationDiamond(user.id);
+      if (transaction) {
+        newBalance = transaction.balance_after;
+        console.log(
+          "[API/generate] Deducted 1 diamond, new balance:",
+          newBalance
+        );
+      }
+    } else if (sessionId) {
+      // Increment guest usage
+      incrementGuestGenerations(sessionId);
+      console.log("[API/generate] Incremented guest generation count");
+    }
+
     console.log("[API/generate] Success, returning response");
 
     return NextResponse.json({
@@ -117,6 +188,8 @@ export async function POST(req: NextRequest) {
       screenshotUrl: result.screenshotUrl,
       versionId: result.versionId,
       model: result.model,
+      // Include updated balance for authenticated users
+      ...(newBalance !== null && { balance: newBalance }),
     });
   } catch (error) {
     console.error("[API/generate] Error:", error);

@@ -3,20 +3,16 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import {
-  ArrowLeft,
-  Plus,
-  Trash2,
-  ExternalLink,
-  Clock,
-  Folder,
-} from "lucide-react";
+import { Navbar } from "@/components/navbar";
+import { AuthModal } from "@/components/auth/auth-modal";
+import { Plus, Trash2, ExternalLink, Clock, Folder } from "lucide-react";
 import { getProjects, deleteProject, Project } from "@/lib/project-client";
 
 export default function ProjectsPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [showAuthModal, setShowAuthModal] = useState(false);
 
   useEffect(() => {
     loadProjects();
@@ -69,22 +65,24 @@ export default function ProjectsPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-zinc-950 via-zinc-900 to-zinc-950">
-      <div className="max-w-6xl mx-auto px-6 py-12">
+      <Navbar
+        onLoginClick={() => setShowAuthModal(true)}
+        onRegisterClick={() => setShowAuthModal(true)}
+      />
+      <AuthModal
+        isOpen={showAuthModal}
+        onClose={() => setShowAuthModal(false)}
+        defaultMode="login"
+      />
+
+      <div className="max-w-6xl mx-auto px-6 pt-24 pb-12">
         {/* Header */}
         <div className="flex items-center justify-between mb-10">
-          <div className="flex items-center gap-4">
-            <Link href="/">
-              <Button variant="ghost" size="sm" className="gap-2">
-                <ArrowLeft className="h-4 w-4" />
-                Tillbaka
-              </Button>
-            </Link>
-            <div>
-              <h1 className="text-3xl font-bold text-zinc-100">Mina Projekt</h1>
-              <p className="text-zinc-400 mt-1">
-                {projects.length} sparade projekt
-              </p>
-            </div>
+          <div>
+            <h1 className="text-3xl font-bold text-zinc-100">Mina Projekt</h1>
+            <p className="text-zinc-400 mt-1">
+              {projects.length} sparade projekt
+            </p>
           </div>
           <Link href="/">
             <Button className="gap-2 bg-blue-600 hover:bg-blue-700">

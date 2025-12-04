@@ -10,8 +10,16 @@ import { CodePreview } from "@/components/code-preview";
 import { HelpTooltip } from "@/components/help-tooltip";
 import { ClientOnly } from "@/components/client-only";
 import { useBuilderStore, GeneratedFile } from "@/lib/store";
+import { useAuth } from "@/lib/auth-store";
 import { getProject } from "@/lib/project-client";
-import { ArrowLeft, Download, Rocket, RefreshCw, Save } from "lucide-react";
+import {
+  ArrowLeft,
+  Download,
+  Rocket,
+  RefreshCw,
+  Save,
+  Diamond,
+} from "lucide-react";
 
 // Category titles in Swedish
 const categoryTitles: Record<string, string> = {
@@ -43,7 +51,13 @@ function BuilderContent() {
     explicitSave,
   } = useBuilderStore();
 
+  const { isAuthenticated, diamonds, fetchUser } = useAuth();
   const [projectName, setProjectName] = useState<string | null>(null);
+
+  // Fetch user on mount to get diamond balance
+  useEffect(() => {
+    fetchUser();
+  }, [fetchUser]);
 
   // Load project data on mount
   useEffect(() => {
@@ -116,6 +130,20 @@ function BuilderContent() {
           </div>
         </div>
         <div className="flex items-center gap-3">
+          {/* Diamond counter */}
+          {isAuthenticated && (
+            <>
+              <Link href="/buy-credits">
+                <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gradient-to-r from-amber-500/10 to-yellow-500/10 border border-amber-500/20 hover:border-amber-500/40 transition-colors cursor-pointer group">
+                  <Diamond className="h-4 w-4 text-amber-400 group-hover:text-amber-300" />
+                  <span className="text-sm font-semibold text-amber-400 group-hover:text-amber-300">
+                    {diamonds}
+                  </span>
+                </div>
+              </Link>
+              <div className="h-5 w-px bg-zinc-800" />
+            </>
+          )}
           <QualitySelector value={quality} onChange={setQuality} />
           <div className="h-5 w-px bg-zinc-800" />
           {/* Saving indicator and save button */}
