@@ -29,6 +29,8 @@ import {
   type LocalTemplate,
 } from "@/lib/local-templates";
 import { createProject } from "@/lib/project-client";
+import { FloatingAvatar } from "@/components/avatar";
+import { useAvatar } from "@/contexts/AvatarContext";
 
 // Icon mapping
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -45,6 +47,7 @@ export default function CategoryPage() {
   const [prompt, setPrompt] = useState("");
   const [isCreating, setIsCreating] = useState(false);
   const [showWizard, setShowWizard] = useState(false);
+  const { triggerReaction } = useAvatar();
 
   const category = getCategory(type);
   const templates = getLocalTemplatesForCategory(type);
@@ -366,6 +369,9 @@ export default function CategoryPage() {
           )}
         </div>
       </div>
+
+      {/* 3D Avatar Guide */}
+      <FloatingAvatar section="category" showWelcome={false} />
     </main>
   );
 }

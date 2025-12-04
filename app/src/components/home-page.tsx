@@ -13,6 +13,7 @@ import { AuditModal } from "@/components/audit-modal";
 import { RotateCcw, Sparkles } from "lucide-react";
 import { useAuth } from "@/lib/auth-store";
 import { FloatingAvatar } from "@/components/avatar";
+import { useAvatar } from "@/contexts/AvatarContext";
 import type { AuditResult } from "@/types/audit";
 
 export function HomePage() {
@@ -27,6 +28,7 @@ export function HomePage() {
 
   // Get user state for personalized experience
   const { user, isAuthenticated } = useAuth();
+  const { triggerReaction } = useAvatar();
 
   const {
     showOnboarding,
@@ -52,6 +54,24 @@ export function HomePage() {
   const handleAuditComplete = (result: AuditResult) => {
     setAuditResult(result);
     setShowAuditModal(true);
+    // Avatar reacts to audit completion
+    const score = result.audit_scores?.overall || 0;
+    if (score >= 80) {
+      triggerReaction(
+        "generation_complete",
+        `Bra sajt! ${score}/100 poäng! 🎉`
+      );
+    } else if (score >= 50) {
+      triggerReaction(
+        "form_submit",
+        `${score}/100 - Det finns förbättringar att göra!`
+      );
+    } else {
+      triggerReaction(
+        "generation_error",
+        `${score}/100 - Vi kan hjälpa dig fixa det här!`
+      );
+    }
   };
 
   const handleRequireAuth = () => {

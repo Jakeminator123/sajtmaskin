@@ -21,7 +21,7 @@ import {
   Save,
   Diamond,
 } from "lucide-react";
-import { FloatingAvatar } from "@/components/avatar";
+import { FloatingAvatar, useAvatarAgent } from "@/components/avatar";
 import { useAvatar } from "@/contexts/AvatarContext";
 
 // Category titles in Swedish
@@ -59,6 +59,9 @@ function BuilderContent() {
 
   // Avatar context for triggering reactions
   const { triggerReaction } = useAvatar();
+
+  // Avatar agent - monitors builder state and provides feedback
+  useAvatarAgent();
 
   // Fetch user on mount to get diamond balance
   useEffect(() => {

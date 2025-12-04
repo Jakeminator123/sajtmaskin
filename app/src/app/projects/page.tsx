@@ -8,12 +8,15 @@ import { AuthModal } from "@/components/auth/auth-modal";
 import { ShaderBackground } from "@/components/shader-background";
 import { Plus, Trash2, ExternalLink, Clock, Folder } from "lucide-react";
 import { getProjects, deleteProject, Project } from "@/lib/project-client";
+import { FloatingAvatar } from "@/components/avatar";
+import { useAvatar } from "@/contexts/AvatarContext";
 
 export default function ProjectsPage() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const { triggerReaction } = useAvatar();
 
   useEffect(() => {
     loadProjects();
@@ -39,8 +42,10 @@ export default function ProjectsPage() {
     try {
       await deleteProject(id);
       setProjects((prev) => prev.filter((p) => p.id !== id));
+      triggerReaction("download", `"${name}" borttaget!`);
     } catch (err: any) {
       alert(`Kunde inte ta bort projekt: ${err.message}`);
+      triggerReaction("generation_error", "Kunde inte ta bort projektet.");
     }
   }
 
@@ -203,6 +208,9 @@ export default function ProjectsPage() {
           </div>
         )}
       </div>
+
+      {/* 3D Avatar Guide */}
+      <FloatingAvatar section="projects" showWelcome={false} />
     </div>
   );
 }
