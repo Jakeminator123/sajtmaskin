@@ -1,0 +1,50 @@
+📄 DOKUMENT 2 – Testdokument 1: Basplattform & Migrering
+
+Titel: BYGGDEL 1 – Basplattform och migrering av befintliga sajter
+
+Version: 1.0
+
+1. Kartläggning av nuvarande sajter
+
+Samla alla projekt jag byggt (v0 eller andra miljöer).
+
+Notera teknik, design, funktioner och exportmöjligheter.
+
+2. Exportera koden till eget Git-repo
+
+Skapa repo: web-builder-platform/
+
+Lägg alla existerande sajter i legacy-sites/
+
+Se till att alla funkar lokalt (npm install, npm run dev).
+
+3. Välj grundstack
+
+Rekommenderad setup:
+
+Frontend: Next.js + React + Tailwind
+Backend: FastAPI (Python) eller Next.js API routes
+Hosting: Render + ev. Vercel+
+
+4. Templatesystem
+
+Skapa:
+
+/templates
+  /landing
+  /dashboard
+  /components
+templates.json
+
+
+Flytta in dina v0-genererade sidor och omvandla dem till clean templates.
+
+Lägg metadata i templates.json.
+
+5. Hosting & miljöer
+
+Sätt upp dev och prod miljöer.
+
+Flytta alla API-nycklar till .env på servern.
+
+Ingen kod får innehålla hemligheter.

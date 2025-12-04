@@ -6,21 +6,30 @@ import {
   getUserById,
   updateProject,
 } from "@/lib/database";
-import { downloadVersionAsZip } from "@/lib/v0-generator";
+import { saveProjectFiles, saveProjectMeta, ProjectFile } from "@/lib/redis";
 import JSZip from "jszip";
 
 /**
  * Project Takeover API
  *
- * Takes a project from v0 and pushes it to the user's GitHub account.
- * After takeover, the project can be edited using OpenAI Agents instead of v0.
+ * Takes a project from v0 and stores it for editing with OpenAI Agents.
+ *
+ * TWO MODES:
+ * 1. REDIS (default) - Simple, no GitHub required
+ *    - Files stored in Redis
+ *    - User can edit with AI agent
+ *    - Can download as ZIP anytime
+ *
+ * 2. GITHUB (optional) - Full ownership
+ *    - Creates repo on user's GitHub
+ *    - Pushes all files
+ *    - User has complete control
  *
  * Flow:
- * 1. Get project data (chatId, versionId)
- * 2. Download ZIP from v0
- * 3. Create GitHub repo
- * 4. Push all files to repo
- * 5. Update project with github_repo_url
+ * 1. Get project data (chatId, files)
+ * 2. Extract files from project
+ * 3. Store in Redis OR push to GitHub
+ * 4. Update project metadata
  */
 
 interface RouteParams {
@@ -38,14 +47,18 @@ interface GitHubCreateRepoResponse {
 
 interface TakeoverRequest {
   repoName?: string; // Optional custom repo name
+  mode?: "redis" | "github"; // Storage mode (default: redis)
 }
 
 export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
     const { id: projectId } = await params;
     const body: TakeoverRequest = await request.json().catch(() => ({}));
+    const mode = body.mode || "redis"; // Default to Redis (simple, no GitHub required)
 
-    console.log("[Takeover] Starting takeover for project:", projectId);
+    console.log(
+      `[Takeover] Starting takeover for project: ${projectId}, mode: ${mode}`
+    );
 
     // 1. Verify user is authenticated
     const user = await getCurrentUser(request);
@@ -59,17 +72,19 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // 2. Check if user has GitHub connected
+    // 2. Check GitHub connection ONLY if github mode is requested
     const fullUser = getUserById(user.id);
-    if (!fullUser?.github_token || !fullUser?.github_username) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Du måste ansluta ditt GitHub-konto först",
-          requireGitHub: true,
-        },
-        { status: 400 }
-      );
+    if (mode === "github") {
+      if (!fullUser?.github_token || !fullUser?.github_username) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "Du måste ansluta ditt GitHub-konto först",
+            requireGitHub: true,
+          },
+          { status: 400 }
+        );
+      }
     }
 
     // 3. Get project and project data
@@ -89,73 +104,77 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // We need versionId to download - try to get it from stored data
-    // If not available, we'll need to get it from the v0 chat
-    const chatId = projectData.chat_id;
+    console.log("[Takeover] Project chat ID:", projectData.chat_id);
 
-    console.log("[Takeover] Project chat ID:", chatId);
+    // 4. Get files from project data
+    console.log("[Takeover] Getting project files...");
 
-    // 4. Download ZIP from v0
-    console.log("[Takeover] Downloading project from v0...");
+    let files: ProjectFile[] = [];
 
-    let zipBuffer: ArrayBuffer;
-    try {
-      // We need to get the latest version ID - for now, try to extract from files
-      // The download endpoint usually requires versionId, but let's see if we can work around it
-      // For now, we'll assume the project has the latest version accessible via chatId
-
-      // Try to get version from the project data or use a workaround
-      // The v0 SDK should have a way to get the latest version
-
-      // Simplified: Assume we can get files from projectData.files directly if available
-      if (projectData.files && projectData.files.length > 0) {
-        console.log("[Takeover] Using cached files from project data");
-        // Create a ZIP from cached files
-        const zip = new JSZip();
-        for (const file of projectData.files) {
-          zip.file(file.name, file.content);
-        }
-        zipBuffer = await zip.generateAsync({ type: "arraybuffer" });
-      } else {
-        // Need to get version ID - this requires fetching the chat details
-        // For now, return an error asking to regenerate the project first
-        return NextResponse.json(
-          {
-            success: false,
-            error:
-              "Projektet saknar fil-data. Försök generera eller förfina projektet först.",
-          },
-          { status: 400 }
-        );
-      }
-    } catch (downloadError) {
-      console.error("[Takeover] Failed to get project files:", downloadError);
+    if (projectData.files && projectData.files.length > 0) {
+      console.log("[Takeover] Using cached files from project data");
+      files = projectData.files.map((f: { name: string; content: string }) => ({
+        path: f.name,
+        content: f.content,
+        lastModified: new Date().toISOString(),
+      }));
+    } else {
       return NextResponse.json(
-        { success: false, error: "Kunde inte hämta projektfiler" },
-        { status: 500 }
+        {
+          success: false,
+          error:
+            "Projektet saknar fil-data. Försök generera eller förfina projektet först.",
+        },
+        { status: 400 }
       );
     }
 
-    // 5. Extract files from ZIP
-    console.log("[Takeover] Extracting files...");
-    const zip = await JSZip.loadAsync(zipBuffer);
-    const files: { path: string; content: string }[] = [];
+    console.log("[Takeover] Got", files.length, "files");
 
-    const filePromises: Promise<void>[] = [];
-    zip.forEach((relativePath, file) => {
-      if (!file.dir) {
-        filePromises.push(
-          file.async("string").then((content) => {
-            files.push({ path: relativePath, content });
-          })
+    // ============ REDIS MODE (Simple, no GitHub required) ============
+    if (mode === "redis") {
+      console.log("[Takeover] Saving to Redis...");
+
+      // Save files to Redis
+      const filesSaved = await saveProjectFiles(projectId, files);
+      if (!filesSaved) {
+        return NextResponse.json(
+          { success: false, error: "Kunde inte spara projektfiler" },
+          { status: 500 }
         );
       }
-    });
-    await Promise.all(filePromises);
 
-    console.log("[Takeover] Extracted", files.length, "files");
+      // Save project metadata
+      await saveProjectMeta({
+        projectId,
+        userId: user.id,
+        name: project.name,
+        takenOverAt: new Date().toISOString(),
+        storageType: "redis",
+        filesCount: files.length,
+      });
 
-    // 6. Create GitHub repo
+      // Update project in database
+      updateProject(projectId, {
+        name: `${project.name} ✏️`,
+        description: "Övertagen - kan redigeras med AI",
+      });
+
+      console.log("[Takeover] Project saved to Redis successfully!");
+
+      return NextResponse.json({
+        success: true,
+        message: "Projektet har tagits över! Du kan nu redigera med AI.",
+        mode: "redis",
+        filesCount: files.length,
+        files: files.map((f) => ({ path: f.path, size: f.content.length })),
+      });
+    }
+
+    // ============ GITHUB MODE (Full ownership) ============
+    console.log("[Takeover] Pushing to GitHub...");
+
+    // Create GitHub repo
     const repoName =
       body.repoName ||
       `sajt-${project.name
@@ -164,12 +183,16 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     console.log("[Takeover] Creating GitHub repo:", repoName);
 
+    // At this point we know fullUser has github_token (checked at line ~63-73)
+    const githubToken = fullUser!.github_token!;
+    const githubUsername = fullUser!.github_username!;
+
     const createRepoResponse = await fetch(
       "https://api.github.com/user/repos",
       {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${fullUser.github_token}`,
+          Authorization: `Bearer ${githubToken}`,
           Accept: "application/vnd.github.v3+json",
           "Content-Type": "application/json",
         },
@@ -217,7 +240,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         {
           method: "POST",
           headers: {
-            Authorization: `Bearer ${fullUser.github_token}`,
+            Authorization: `Bearer ${githubToken}`,
             Accept: "application/vnd.github.v3+json",
             "Content-Type": "application/json",
           },
@@ -243,7 +266,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${fullUser.github_token}`,
+          Authorization: `Bearer ${githubToken}`,
           Accept: "application/vnd.github.v3+json",
           "Content-Type": "application/json",
         },
@@ -274,7 +297,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${fullUser.github_token}`,
+          Authorization: `Bearer ${githubToken}`,
           Accept: "application/vnd.github.v3+json",
           "Content-Type": "application/json",
         },
@@ -303,7 +326,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       {
         method: "PATCH",
         headers: {
-          Authorization: `Bearer ${fullUser.github_token}`,
+          Authorization: `Bearer ${githubToken}`,
           Accept: "application/vnd.github.v3+json",
           "Content-Type": "application/json",
         },
@@ -319,7 +342,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       await fetch(`https://api.github.com/repos/${repo.full_name}/git/refs`, {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${fullUser.github_token}`,
+          Authorization: `Bearer ${githubToken}`,
           Accept: "application/vnd.github.v3+json",
           "Content-Type": "application/json",
         },
@@ -332,28 +355,38 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     console.log("[Takeover] Files pushed successfully!");
 
-    // 8. Update project with GitHub repo URL
-    // We'll add a github_repo_url field to the project
-    // For now, store it in the description field or create a new table
-    // Let's update the project with the repo URL in a structured way
+    // Also save to Redis for agent editing (GitHub is the source of truth, Redis is cache)
+    await saveProjectFiles(projectId, files);
 
-    // Store GitHub info in project (we'll need to add this column later)
-    // For now, let's just return the repo URL and update the project name
+    // Save project metadata
+    await saveProjectMeta({
+      projectId,
+      userId: user.id,
+      name: project.name,
+      takenOverAt: new Date().toISOString(),
+      storageType: "github",
+      githubRepo: repo.name,
+      githubOwner: githubUsername,
+      filesCount: files.length,
+    });
+
+    // Update project in database
     updateProject(projectId, {
-      name: `${project.name} (GitHub)`,
+      name: `${project.name} 🔗`,
       description: `GitHub: ${repo.html_url}`,
     });
 
-    console.log("[Takeover] Project updated with GitHub URL");
+    console.log("[Takeover] Project saved to GitHub and Redis!");
 
     return NextResponse.json({
       success: true,
-      message: "Projektet har tagits över till GitHub!",
+      message: "Projektet har pushats till GitHub! Du äger nu all kod.",
+      mode: "github",
       github: {
         repoUrl: repo.html_url,
         cloneUrl: repo.clone_url,
         fullName: repo.full_name,
-        owner: fullUser.github_username,
+        owner: githubUsername,
         repoName: repo.name,
       },
       filesCount: files.length,

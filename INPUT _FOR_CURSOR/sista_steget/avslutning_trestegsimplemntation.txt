@@ -1,0 +1,231 @@
+Här är ett kort, skarpt och professionellt sammanfattningsdokument som du kan lägga in i Cursor, GitHub eller använda som övergripande riktlinje.
+
+Det här dokumentet styr riktningen, men tillåter agenten att overrida detaljer om den har en bättre lösning.
+Fokus: Bygga en proffsversion av ditt AI-drivna hemsidebyggarverktyg.
+
+📄 Strategiskt Sammanfattningsdokument – Proffsversion av AI-Webbsidebyggaren
+1. Övergripande mål
+
+Syftet med projektet är att utveckla en avancerad, professionell och hållbar version av mitt AI-baserade hemsidebyggarsystem. MVP med v0 fungerar redan, men nu ska plattformen:
+
+äga och hantera sina egna projekt (Project Takeover)
+
+generera och redigera kod via OpenAI Agents
+
+lagra projekt på ett robust sätt med Redis
+
+presentera en förbättrad editor och flows
+
+stödja framtida premiumfunktioner (t.ex. autospar, GitHub push, mallar, AI-optimeringar)
+
+Detta steg är alltså en uppgradering till en riktig SaaS-nivå.
+
+2. Tekniska grundprinciper
+
+Det här är principer som ska följas – om inte agenten föreslår en bättre lösning (vilket är tillåtet):
+
+2.1 Ingen omskrivning av MVP-flöden
+
+v0-baserad generering och refinement ska fungera som idag.
+
+Befintliga API-routes, user-system och download-funktioner ska inte ändras i onödan.
+
+2.2 Ny funktionalitet byggs ovanpå befintlig struktur
+
+Ingen monorepo.
+
+Ingen Prisma/SQL.
+
+Redis används för projektlagring:
+
+metadata
+
+filer
+
+projektstruktur
+
+2.3 Takeover-flödet är en separat “premium-väg”
+
+När ett projekt “tas över” flyttas det från v0-flowet till:
+
+ditt eget lagringssystem
+
+egen AI-editor
+
+agent-driven kodförändring
+
+2.4 OpenAI Agents + Responses API används som standard
+
+Agents får definierade tools:
+
+read_file
+
+update_file
+
+list_files
+
+Agents får tolka och förbättra kod, layout och copy.
+
+Agents ska kunna föreslå bättre implementationer.
+
+3. Funktioner som ska förbättras i proffsversionen
+3.1 IntelliEdit – avancerad kodförfining
+
+Agenten ska förstå:
+
+komponentstruktur
+
+layout
+
+färgteman
+
+Tailwind-klasser
+
+Next.js-konventioner
+
+Ändringar ska bli mer precisa, stabila och produktionsredo.
+
+3.2 Förbättrad projekteditor
+
+Editor ska:
+
+visa filstruktur
+
+visa aktiv fil
+
+kunna växla mellan filer
+
+ha preview i realtid
+
+stödja agentbaserade “refinement prompts”
+
+erbjuda “Suggested improvements” från agenten
+
+3.3 Bättre mall- och komponenthantering
+
+Lokala templates i Redis eller filsystem
+
+Agenten kan välja bra mall
+
+Agenten kan optimera en mall för användarens ändamål
+
+3.4 GitHub-integration för framtiden
+
+OAuth finns redan
+
+Senare kan vi:
+
+auto-create repo
+
+push changes
+
+sync Webhook
+
+Men detta är inte krav just nu, endast stöd för framtiden.
+
+4. Vad agenten får göra (overrule-rätt)
+
+AI-agenten får:
+
+optimera arkitekturen
+
+föreslå bättre API-design
+
+omstrukturera kod när det förbättrar stabilitet, skalbarhet eller tydlighet
+
+föreslå bättre lagringstaktik inom ramen för Redis
+
+ändra endpoint-upplägg om flödet blir renare
+
+föreslå UI-/UX-förbättringar
+
+ersätta manuella steg med automatiserade agent-drivna pipelines
+
+Agenten får inte:
+
+byta bort Redis
+
+införa SQL/Prisma
+
+ta bort v0-MVP-funktionalitet
+
+införa en monorepo-struktur
+
+låsa fast systemet i en icke-utbyggbar arkitektur
+
+5. Roadmap (öppen för förbättring av AI)
+
+Detta är den nuvarande uppdelningen – AI får optimera ordningen:
+
+Steg 1 – Stabil Takeover
+
+GitHub OAuth redan klar
+
+Takeover-endpoint klar → ska förbättras
+
+Projekt skapas i Redis med filstruktur
+
+Editor-vy för takeover-projekt
+
+Steg 2 – Agent-Edit Mode
+
+Tools: read/update/list files
+
+Endpoint: /api/agent/edit
+
+Kodförfining via Responses/Agents
+
+Editor UI som visar agentens ändringar
+
+Steg 3 – Smart Templates
+
+Lokala mallar
+
+AI som väljer mall
+
+AI som optimerar mall baserat på prompt
+
+Steg 4 – Proffsversion av användarflowet
+
+AI-suggestions
+
+History/undo (Redis snapshots)
+
+Bättre komponentinspektion
+
+Förbättrade previews
+
+Steg 5 – GitHub Automation (framtid)
+
+Auto-repo
+
+Auto-push
+
+Auto-sync
+
+6. Slutmål
+
+Att skapa en självgående, professionell, AI-driven hemsidebyggare där användaren enkelt:
+
+genererar en sida
+
+tar över projektet
+
+får full agentbaserad redigering
+
+exporterar eller deployar projektet
+
+får kontinuerliga förslag och förbättringar från AI
+
+Systemet ska uppgraderas från “MVP baserad på v0” till en komplett proffslösning där:
+
+koden är hållbar
+
+flöden är konsistenta
+
+agenten är central
+
+systemet är redo för betalplaner och framtida features
+
+Vill du ha en kort version av detta (för plan.md),
+eller en teknisk version (för din repo README)?

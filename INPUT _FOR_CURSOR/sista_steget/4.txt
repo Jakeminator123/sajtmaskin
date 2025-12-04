@@ -1,0 +1,55 @@
+📄 DOKUMENT 4 – Testdokument 3: Editor & User Experience
+
+Titel: BYGGDEL 3 – Editor, preview och användarflöde
+
+1. Startvyn
+
+Användaren väljer:
+
+Typ av sida (hemsida/dashboard/landing)
+
+Genereringssätt (fri prompt / preset / template)
+
+2. Genereringsvy
+
+När agenten svarar:
+
+Visa kod i Monaco/CodeMirror
+
+Visa preview i iframe
+
+Visa metadata (titel, sektioner etc.)
+
+3. Continue Editing
+
+Användaren skriver:
+
+“Ändra bakgrunden till mörk och lägg till testimonials”
+
+Backend skickar kod + instruktion → agenten returnerar uppdaterad kod → editor uppdateras.
+
+4. Manuell kodredigering
+
+Användaren kan själv ändra TSX-koden.
+
+Knapp:
+
+“AI: Städa upp kod”
+
+“AI: Förklara denna kod”
+
+“AI: Förbättra layout”
+
+5. Export
+
+Ladda ner ZIP med all kod.
+
+Senare: auto-publish via CDN/domän.
+
+✔️ KLART!
+
+Vill du att jag:
+
+✅ lägger dessa fyra dokument i varsin nedladdningsbar textfil?
+✅ gör dem om till PDF?
+✅ strukturerar om dem för Cursor Plan-läge (t.ex. “Steg 1: skapa fil X”, etc.)?

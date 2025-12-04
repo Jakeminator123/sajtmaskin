@@ -8,6 +8,9 @@ import {
   Loader2,
   ExternalLink,
   Sparkles,
+  Zap,
+  Cloud,
+  ArrowRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth-store";
@@ -23,6 +26,7 @@ interface TakeoverResult {
   success: boolean;
   message?: string;
   error?: string;
+  mode?: "redis" | "github";
   requireGitHub?: boolean;
   github?: {
     repoUrl: string;
@@ -32,7 +36,10 @@ interface TakeoverResult {
     repoName: string;
   };
   filesCount?: number;
+  files?: { path: string; size: number }[];
 }
+
+type TakeoverMode = "simple" | "github";
 
 export function TakeoverModal({
   isOpen,
@@ -43,6 +50,7 @@ export function TakeoverModal({
   const { user, refreshUser } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<TakeoverResult | null>(null);
+  const [selectedMode, setSelectedMode] = useState<TakeoverMode>("simple");
   const [customRepoName, setCustomRepoName] = useState("");
 
   // Check if user has GitHub connected
@@ -57,13 +65,13 @@ export function TakeoverModal({
     if (isOpen) {
       setResult(null);
       setCustomRepoName("");
+      setSelectedMode("simple");
     }
   }, [isOpen]);
 
   if (!isOpen) return null;
 
   const handleConnectGitHub = () => {
-    // Redirect to GitHub OAuth
     const returnTo = window.location.pathname;
     window.location.href = `/api/auth/github?returnTo=${encodeURIComponent(
       returnTo
@@ -79,7 +87,9 @@ export function TakeoverModal({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          repoName: customRepoName || undefined,
+          mode: selectedMode === "simple" ? "redis" : "github",
+          repoName:
+            selectedMode === "github" ? customRepoName || undefined : undefined,
         }),
       });
 
@@ -87,7 +97,6 @@ export function TakeoverModal({
       setResult(data);
 
       if (data.success) {
-        // Refresh user data in case we need it
         refreshUser();
       }
     } catch (error) {
@@ -121,7 +130,7 @@ export function TakeoverModal({
                 Ta över projekt
               </h2>
               <p className="text-sm text-gray-400">
-                Flytta till GitHub för full kontroll
+                Redigera med AI när som helst
               </p>
             </div>
           </div>
@@ -135,17 +144,42 @@ export function TakeoverModal({
 
         {/* Content */}
         <div className="p-6 space-y-6">
-          {/* Success state */}
-          {result?.success && result.github && (
+          {/* Success state - Redis */}
+          {result?.success && result.mode === "redis" && (
             <div className="space-y-4">
               <div className="flex items-center gap-3 p-4 bg-green-500/10 border border-green-500/30 rounded-xl">
                 <Check className="h-6 w-6 text-green-500" />
                 <div>
                   <p className="text-green-400 font-medium">
-                    Projektet har tagits över!
+                    Projektet är redo att redigera!
                   </p>
                   <p className="text-sm text-gray-400">
-                    {result.filesCount} filer pushade till GitHub
+                    {result.filesCount} filer sparade
+                  </p>
+                </div>
+              </div>
+
+              <div className="p-4 bg-purple-500/10 border border-purple-500/30 rounded-xl">
+                <p className="text-sm text-purple-300">
+                  <strong>Nästa steg:</strong> Gå till &quot;Mina projekt&quot;
+                  och klicka på projektet för att börja redigera med AI. Varje
+                  ändring kostar 1 💎.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Success state - GitHub */}
+          {result?.success && result.mode === "github" && result.github && (
+            <div className="space-y-4">
+              <div className="flex items-center gap-3 p-4 bg-green-500/10 border border-green-500/30 rounded-xl">
+                <Check className="h-6 w-6 text-green-500" />
+                <div>
+                  <p className="text-green-400 font-medium">
+                    Projektet har pushats till GitHub!
+                  </p>
+                  <p className="text-sm text-gray-400">
+                    {result.filesCount} filer i ditt repo
                   </p>
                 </div>
               </div>
@@ -171,9 +205,8 @@ export function TakeoverModal({
 
               <div className="p-4 bg-purple-500/10 border border-purple-500/30 rounded-xl">
                 <p className="text-sm text-purple-300">
-                  <strong>Nästa steg:</strong> Du kan nu redigera projektet med
-                  AI direkt från editorn. Alla ändringar sparas automatiskt till
-                  GitHub!
+                  <strong>Du äger nu all kod!</strong> Redigera med AI från
+                  editorn, eller klona repot och jobba lokalt.
                 </p>
               </div>
             </div>
@@ -195,77 +228,159 @@ export function TakeoverModal({
             </div>
           )}
 
-          {/* Initial state - not started */}
+          {/* Initial state - Mode selection */}
           {!result && (
             <>
-              {/* GitHub connection check */}
-              {!hasGitHub ? (
-                <div className="space-y-4">
-                  <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-xl">
-                    <p className="text-amber-400">
-                      Du måste ansluta ditt GitHub-konto för att kunna ta över
-                      projekt.
-                    </p>
-                  </div>
+              {/* Mode selection cards */}
+              <div className="space-y-3">
+                <h3 className="text-sm font-medium text-gray-400">
+                  Välj hur du vill ta över projektet:
+                </h3>
 
-                  <Button
-                    onClick={handleConnectGitHub}
-                    className="w-full bg-gray-800 hover:bg-gray-700"
-                  >
-                    <Github className="h-5 w-5 mr-2" />
-                    Anslut GitHub-konto
-                  </Button>
+                {/* Simple mode (Redis) */}
+                <button
+                  onClick={() => setSelectedMode("simple")}
+                  className={`w-full p-4 rounded-xl border-2 transition-all text-left ${
+                    selectedMode === "simple"
+                      ? "border-teal-500 bg-teal-500/10"
+                      : "border-gray-700 bg-gray-800/50 hover:border-gray-600"
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    <div
+                      className={`p-2 rounded-lg ${
+                        selectedMode === "simple"
+                          ? "bg-teal-500/20"
+                          : "bg-gray-700"
+                      }`}
+                    >
+                      <Zap
+                        className={`h-5 w-5 ${
+                          selectedMode === "simple"
+                            ? "text-teal-400"
+                            : "text-gray-400"
+                        }`}
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-white">
+                          Snabb & Enkel
+                        </span>
+                        <span className="px-2 py-0.5 text-xs bg-teal-500/20 text-teal-400 rounded-full">
+                          Rekommenderad
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-400 mt-1">
+                        Börja redigera direkt med AI. Inget GitHub-konto krävs.
+                        Du kan ladda ner koden som ZIP när som helst.
+                      </p>
+                    </div>
+                    {selectedMode === "simple" && (
+                      <Check className="h-5 w-5 text-teal-500" />
+                    )}
+                  </div>
+                </button>
+
+                {/* GitHub mode */}
+                <button
+                  onClick={() => setSelectedMode("github")}
+                  className={`w-full p-4 rounded-xl border-2 transition-all text-left ${
+                    selectedMode === "github"
+                      ? "border-purple-500 bg-purple-500/10"
+                      : "border-gray-700 bg-gray-800/50 hover:border-gray-600"
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    <div
+                      className={`p-2 rounded-lg ${
+                        selectedMode === "github"
+                          ? "bg-purple-500/20"
+                          : "bg-gray-700"
+                      }`}
+                    >
+                      <Github
+                        className={`h-5 w-5 ${
+                          selectedMode === "github"
+                            ? "text-purple-400"
+                            : "text-gray-400"
+                        }`}
+                      />
+                    </div>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-medium text-white">
+                          Pusha till GitHub
+                        </span>
+                        <span className="px-2 py-0.5 text-xs bg-purple-500/20 text-purple-400 rounded-full">
+                          För utvecklare
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-400 mt-1">
+                        Skapa ett repo på ditt GitHub. Du äger all kod och kan
+                        klona, deploya och versionshantera.
+                      </p>
+                    </div>
+                    {selectedMode === "github" && (
+                      <Check className="h-5 w-5 text-purple-500" />
+                    )}
+                  </div>
+                </button>
+              </div>
+
+              {/* GitHub-specific options */}
+              {selectedMode === "github" && (
+                <div className="space-y-4 pt-2">
+                  {!hasGitHub ? (
+                    <div className="p-4 bg-amber-500/10 border border-amber-500/30 rounded-xl">
+                      <p className="text-amber-400 text-sm">
+                        Du behöver ansluta ditt GitHub-konto först.
+                      </p>
+                      <Button
+                        onClick={handleConnectGitHub}
+                        className="mt-3 bg-gray-800 hover:bg-gray-700"
+                        size="sm"
+                      >
+                        <Github className="h-4 w-4 mr-2" />
+                        Anslut GitHub
+                      </Button>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="flex items-center gap-3 p-3 bg-gray-800/50 rounded-lg">
+                        <Github className="h-5 w-5 text-gray-400" />
+                        <span className="text-gray-300 text-sm">
+                          Ansluten som{" "}
+                          <strong className="text-white">
+                            {user?.github_username}
+                          </strong>
+                        </span>
+                        <Check className="h-4 w-4 text-green-500 ml-auto" />
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-sm text-gray-400">
+                          Repo-namn (valfritt)
+                        </label>
+                        <input
+                          type="text"
+                          value={customRepoName}
+                          onChange={(e) => setCustomRepoName(e.target.value)}
+                          placeholder={defaultRepoName}
+                          className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-purple-500"
+                        />
+                      </div>
+                    </>
+                  )}
                 </div>
-              ) : (
-                <>
-                  {/* GitHub connected - show takeover options */}
-                  <div className="flex items-center gap-3 p-3 bg-gray-800/50 rounded-lg">
-                    <Github className="h-5 w-5 text-gray-400" />
-                    <span className="text-gray-300">
-                      Ansluten som{" "}
-                      <strong className="text-white">
-                        {user?.github_username}
-                      </strong>
-                    </span>
-                    <Check className="h-4 w-4 text-green-500 ml-auto" />
-                  </div>
-
-                  {/* What happens */}
-                  <div className="space-y-2">
-                    <h3 className="text-sm font-medium text-gray-400">
-                      Vad händer?
-                    </h3>
-                    <ul className="space-y-2 text-sm text-gray-300">
-                      <li className="flex items-start gap-2">
-                        <span className="text-teal-500 mt-0.5">1.</span>
-                        Ett nytt privat repo skapas på ditt GitHub
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <span className="text-teal-500 mt-0.5">2.</span>
-                        All kod pushas dit automatiskt
-                      </li>
-                      <li className="flex items-start gap-2">
-                        <span className="text-teal-500 mt-0.5">3.</span>
-                        Du kan sedan redigera med AI (1 💎/ändring)
-                      </li>
-                    </ul>
-                  </div>
-
-                  {/* Custom repo name */}
-                  <div className="space-y-2">
-                    <label className="text-sm text-gray-400">
-                      Repo-namn (valfritt)
-                    </label>
-                    <input
-                      type="text"
-                      value={customRepoName}
-                      onChange={(e) => setCustomRepoName(e.target.value)}
-                      placeholder={defaultRepoName}
-                      className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-teal-500"
-                    />
-                  </div>
-                </>
               )}
+
+              {/* Cost info */}
+              <div className="p-3 bg-gray-800/30 rounded-lg">
+                <p className="text-xs text-gray-500 text-center">
+                  💎 AI-redigering kostar 1 diamant per ändring
+                </p>
+              </div>
             </>
           )}
         </div>
@@ -281,11 +396,15 @@ export function TakeoverModal({
             {result?.success ? "Stäng" : "Avbryt"}
           </Button>
 
-          {!result?.success && hasGitHub && (
+          {!result?.success && (
             <Button
               onClick={handleTakeover}
-              disabled={isLoading}
-              className="flex-1 bg-purple-600 hover:bg-purple-500 text-white"
+              disabled={isLoading || (selectedMode === "github" && !hasGitHub)}
+              className={`flex-1 text-white ${
+                selectedMode === "simple"
+                  ? "bg-teal-600 hover:bg-teal-500"
+                  : "bg-purple-600 hover:bg-purple-500"
+              }`}
             >
               {isLoading ? (
                 <span className="flex items-center gap-2">
@@ -294,8 +413,17 @@ export function TakeoverModal({
                 </span>
               ) : (
                 <>
-                  <Github className="h-4 w-4 mr-2" />
-                  Ta över till GitHub
+                  {selectedMode === "simple" ? (
+                    <>
+                      <Zap className="h-4 w-4 mr-2" />
+                      Ta över nu
+                    </>
+                  ) : (
+                    <>
+                      <Github className="h-4 w-4 mr-2" />
+                      Pusha till GitHub
+                    </>
+                  )}
                 </>
               )}
             </Button>

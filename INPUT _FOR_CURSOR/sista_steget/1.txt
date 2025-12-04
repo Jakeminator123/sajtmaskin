@@ -1,0 +1,63 @@
+📄 DOKUMENT 1 – Mål & Syfte
+
+Titel: Mål och syfte för min egen webbsideplattform (AI-driven)
+
+Version: 1.0
+
+1. Syfte
+
+Syftet med projektet är att skapa en egen plattform där jag kan:
+
+Äga all kod och hosting själv.
+
+Bygga, generera och redigera hemsidor med hjälp av AI.
+
+Utgå från mina nuvarande v0- och andra templates.
+
+Erbjuda användare ett verktyg där de kan skapa professionella sidor genom:
+
+fria prompts
+
+fördefinierade prompts
+
+färdiga templates
+
+Låta användaren göra enkla ändringar (“gör hero större”, “ändra tema”, “lägg till sektion”) där OpenAI Agents uppdaterar koden automatiskt.
+
+Målet är att skapa en flexibel, säker och skalbar miljö där jag har full kontroll över kod, AI-flöden och användarupplevelse.
+
+2. Vision
+
+Plattformen ska i framtiden fungera som en:
+
+AI-driven webbsidebyggare
+
+Logogenerator
+
+Textgenerator
+
+Komponentbibliotek
+
+Editor med direkt live-preview
+
+Det långsiktiga målet är att bygga något som liknar Webflow/Framer/Wix – men drivet helt av AI och 100 % anpassningsbart.
+
+3. Målbild
+
+Templates ligger i mitt repo → inte i v0:s sandbox.
+
+AI tar emot prompts och genererar/redigerar TSX/HTML-kod.
+
+Användaren får direkt feedback i en realtids-editor.
+
+Sidan kan exporteras som ZIP eller publiceras senare.
+
+Backend (Python eller Node) pratar med OpenAI Agents API.
+
+Plattformen är byggd i tre lager:
+
+Basplattform (struktur, hosting, templates)
+
+AI/Agents-backend
+
+Editor & användarflöde

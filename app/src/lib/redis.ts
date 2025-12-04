@@ -384,6 +384,220 @@ export async function flushRedisCache(): Promise<boolean> {
   }
 }
 
+// ============ Project Files Storage ============
+// For "taken over" projects - stores files in Redis for agent editing
+
+const PROJECT_FILES_PREFIX = "project:files:";
+const PROJECT_META_PREFIX = "project:meta:";
+const PROJECT_FILES_TTL = 60 * 60 * 24 * 30; // 30 days
+
+export interface ProjectFile {
+  path: string;
+  content: string;
+  lastModified?: string;
+}
+
+export interface ProjectMeta {
+  projectId: string;
+  userId: string;
+  name: string;
+  takenOverAt: string;
+  storageType: "redis" | "github";
+  githubRepo?: string;
+  githubOwner?: string;
+  filesCount: number;
+}
+
+/**
+ * Save project files to Redis (for takeover without GitHub)
+ */
+export async function saveProjectFiles(
+  projectId: string,
+  files: ProjectFile[]
+): Promise<boolean> {
+  const redis = getRedis();
+  if (!redis) {
+    console.error("[Redis] Cannot save project files - Redis not available");
+    return false;
+  }
+
+  try {
+    // Store files as JSON
+    await redis.setex(
+      `${PROJECT_FILES_PREFIX}${projectId}`,
+      PROJECT_FILES_TTL,
+      JSON.stringify(files)
+    );
+    console.log(`[Redis] Saved ${files.length} files for project ${projectId}`);
+    return true;
+  } catch (error) {
+    console.error("[Redis] Failed to save project files:", error);
+    return false;
+  }
+}
+
+/**
+ * Get project files from Redis
+ */
+export async function getProjectFiles(
+  projectId: string
+): Promise<ProjectFile[] | null> {
+  const redis = getRedis();
+  if (!redis) return null;
+
+  try {
+    const data = await redis.get(`${PROJECT_FILES_PREFIX}${projectId}`);
+    if (data) {
+      return JSON.parse(data) as ProjectFile[];
+    }
+  } catch (error) {
+    console.error("[Redis] Failed to get project files:", error);
+  }
+  return null;
+}
+
+/**
+ * Update a single file in the project
+ */
+export async function updateProjectFile(
+  projectId: string,
+  filePath: string,
+  content: string
+): Promise<boolean> {
+  const redis = getRedis();
+  if (!redis) return false;
+
+  try {
+    const files = await getProjectFiles(projectId);
+    if (!files) return false;
+
+    const fileIndex = files.findIndex((f) => f.path === filePath);
+    if (fileIndex >= 0) {
+      files[fileIndex].content = content;
+      files[fileIndex].lastModified = new Date().toISOString();
+    } else {
+      // Add new file
+      files.push({
+        path: filePath,
+        content,
+        lastModified: new Date().toISOString(),
+      });
+    }
+
+    await redis.setex(
+      `${PROJECT_FILES_PREFIX}${projectId}`,
+      PROJECT_FILES_TTL,
+      JSON.stringify(files)
+    );
+    return true;
+  } catch (error) {
+    console.error("[Redis] Failed to update project file:", error);
+    return false;
+  }
+}
+
+/**
+ * Delete a file from the project
+ */
+export async function deleteProjectFile(
+  projectId: string,
+  filePath: string
+): Promise<boolean> {
+  const redis = getRedis();
+  if (!redis) return false;
+
+  try {
+    const files = await getProjectFiles(projectId);
+    if (!files) return false;
+
+    const filteredFiles = files.filter((f) => f.path !== filePath);
+    await redis.setex(
+      `${PROJECT_FILES_PREFIX}${projectId}`,
+      PROJECT_FILES_TTL,
+      JSON.stringify(filteredFiles)
+    );
+    return true;
+  } catch (error) {
+    console.error("[Redis] Failed to delete project file:", error);
+    return false;
+  }
+}
+
+/**
+ * Save project metadata
+ */
+export async function saveProjectMeta(meta: ProjectMeta): Promise<boolean> {
+  const redis = getRedis();
+  if (!redis) return false;
+
+  try {
+    await redis.setex(
+      `${PROJECT_META_PREFIX}${meta.projectId}`,
+      PROJECT_FILES_TTL,
+      JSON.stringify(meta)
+    );
+    return true;
+  } catch (error) {
+    console.error("[Redis] Failed to save project meta:", error);
+    return false;
+  }
+}
+
+/**
+ * Get project metadata
+ */
+export async function getProjectMeta(
+  projectId: string
+): Promise<ProjectMeta | null> {
+  const redis = getRedis();
+  if (!redis) return null;
+
+  try {
+    const data = await redis.get(`${PROJECT_META_PREFIX}${projectId}`);
+    if (data) {
+      return JSON.parse(data) as ProjectMeta;
+    }
+  } catch (error) {
+    console.error("[Redis] Failed to get project meta:", error);
+  }
+  return null;
+}
+
+/**
+ * List all taken-over projects for a user
+ */
+export async function listUserTakenOverProjects(
+  userId: string
+): Promise<ProjectMeta[]> {
+  const redis = getRedis();
+  if (!redis) return [];
+
+  try {
+    // Scan for all project meta keys
+    const keys = await redis.keys(`${PROJECT_META_PREFIX}*`);
+    const projects: ProjectMeta[] = [];
+
+    for (const key of keys) {
+      const data = await redis.get(key);
+      if (data) {
+        const meta = JSON.parse(data) as ProjectMeta;
+        if (meta.userId === userId) {
+          projects.push(meta);
+        }
+      }
+    }
+
+    // Sort by takenOverAt descending (newest first)
+    return projects.sort(
+      (a, b) =>
+        new Date(b.takenOverAt).getTime() - new Date(a.takenOverAt).getTime()
+    );
+  } catch (error) {
+    console.error("[Redis] Failed to list user projects:", error);
+    return [];
+  }
+}
+
 // ============ Cleanup ============
 
 export async function closeRedis(): Promise<void> {

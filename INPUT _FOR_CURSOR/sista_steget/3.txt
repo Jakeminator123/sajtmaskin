@@ -1,0 +1,64 @@
+📄 DOKUMENT 3 – Testdokument 2: AI/Agents-backend
+
+Titel: BYGGDEL 2 – Backend, Agents och genereringsmotor
+
+1. OpenAI Agent setup
+
+Agenten ska kunna:
+
+Ladda templates från filsystem
+
+Modifiera kod
+
+Generera ny kod
+
+Skapa copy
+
+Generera logoförslag
+
+Hantera “continue editing”
+
+Systemprompten beskriver plattformen, strukturen och reglerna.
+
+2. Use Cases / Behaviors
+2.1 Generera ny sida
+
+Input: sida-typ + template + prompt
+Output: färdig TSX-/HTML-kod + metadata
+
+2.2 Modifiera befintlig kod
+
+Input: kod + ändringsprompt
+Output: ny kod
+
+2.3 Generera copy
+
+Input: sektionstyp + tonalitet
+Output: textförslag
+
+2.4 Logogenerator
+
+Input: stil + färger + namn
+Output: bild → lagras lokalt
+
+3. API-endpoints
+
+POST /api/generate-page
+
+POST /api/edit-page
+
+POST /api/generate-copy
+
+(valfritt) POST /api/generate-logo
+
+4. Project storage
+/projects/{user_id}/{project_id}/
+  page.tsx
+  metadata.json
+
+
+Backendfunktioner:
+
+save_project()
+
+load_project()

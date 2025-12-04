@@ -3,18 +3,28 @@
  * =============================
  *
  * Uses OpenAI's Responses API with function calling to edit code
- * in GitHub repositories. This replaces v0 refinement for "taken over" projects.
+ * in taken-over projects. Supports TWO storage modes:
  *
- * Features:
- * - Read files from GitHub
- * - Update files on GitHub
- * - List all files in repo
- * - Multi-turn conversation support
+ * 1. REDIS (default) - Simple, no GitHub required
+ *    - Files stored in Redis
+ *    - Fast reads/writes
+ *    - User can download as ZIP
+ *
+ * 2. GITHUB - Full ownership for developers
+ *    - Files on user's GitHub
+ *    - Full version control
+ *    - Can clone/deploy
  *
  * Cost: 1 diamond per edit request
  */
 
 import OpenAI from "openai";
+import {
+  getProjectFiles,
+  updateProjectFile,
+  getProjectMeta,
+  ProjectFile,
+} from "./redis";
 
 // Initialize OpenAI client
 const openai = new OpenAI({
@@ -28,16 +38,20 @@ export interface AgentFile {
 }
 
 export interface AgentContext {
-  githubToken: string;
-  repoFullName: string; // e.g. "username/repo-name"
-  previousResponseId?: string; // For multi-turn conversations
+  projectId: string;
+  storageType: "redis" | "github";
+  // GitHub-specific
+  githubToken?: string;
+  repoFullName?: string; // e.g. "username/repo-name"
+  // Conversation continuity
+  previousResponseId?: string;
 }
 
 export interface AgentResult {
   success: boolean;
   message: string;
   updatedFiles: AgentFile[];
-  responseId: string; // For continuing conversation
+  responseId: string;
   tokensUsed?: number;
 }
 
@@ -46,7 +60,7 @@ const AGENT_TOOLS: OpenAI.Responses.Tool[] = [
   {
     type: "function",
     name: "read_file",
-    description: "Read the contents of a file from the repository",
+    description: "Read the contents of a file from the project",
     strict: true,
     parameters: {
       type: "object",
@@ -54,7 +68,7 @@ const AGENT_TOOLS: OpenAI.Responses.Tool[] = [
         path: {
           type: "string",
           description:
-            "The file path relative to repository root (e.g. 'src/app/page.tsx')",
+            "The file path relative to project root (e.g. 'src/app/page.tsx')",
         },
       },
       required: ["path"],
@@ -64,14 +78,14 @@ const AGENT_TOOLS: OpenAI.Responses.Tool[] = [
   {
     type: "function",
     name: "update_file",
-    description: "Update or create a file in the repository",
+    description: "Update or create a file in the project",
     strict: true,
     parameters: {
       type: "object",
       properties: {
         path: {
           type: "string",
-          description: "The file path relative to repository root",
+          description: "The file path relative to project root",
         },
         content: {
           type: "string",
@@ -79,7 +93,8 @@ const AGENT_TOOLS: OpenAI.Responses.Tool[] = [
         },
         commitMessage: {
           type: "string",
-          description: "Git commit message for the change",
+          description:
+            "Description of the change (used for Git commit if GitHub mode)",
         },
       },
       required: ["path", "content", "commitMessage"],
@@ -89,14 +104,15 @@ const AGENT_TOOLS: OpenAI.Responses.Tool[] = [
   {
     type: "function",
     name: "list_files",
-    description: "List all files in the repository",
+    description: "List all files in the project",
     strict: true,
     parameters: {
       type: "object",
       properties: {
         path: {
           type: "string",
-          description: "Optional subdirectory path to list (default: root)",
+          description:
+            "Optional subdirectory path to filter (default: all files)",
         },
       },
       required: [],
@@ -116,7 +132,7 @@ REGLER:
 3. Gör minimala, fokuserade ändringar
 4. Använd TypeScript och Tailwind CSS
 5. Skriv clean, läsbar kod
-6. Committa med tydliga meddelanden på engelska
+6. Beskriv ändringar tydligt
 
 VIKTIGT:
 - Ändra BARA det som användaren ber om
@@ -125,48 +141,92 @@ VIKTIGT:
 
 Börja alltid med att läsa de relevanta filerna för att förstå kontexten.`;
 
-/**
- * Read a file from GitHub
- */
+// ============ REDIS Storage Functions ============
+
+async function readRedisFile(projectId: string, path: string): Promise<string> {
+  const files = await getProjectFiles(projectId);
+  if (!files) {
+    throw new Error("Projektet hittades inte");
+  }
+
+  const file = files.find((f) => f.path === path);
+  if (!file) {
+    throw new Error(`Filen hittades inte: ${path}`);
+  }
+
+  return file.content;
+}
+
+async function updateRedisFile(
+  projectId: string,
+  path: string,
+  content: string
+): Promise<void> {
+  const success = await updateProjectFile(projectId, path, content);
+  if (!success) {
+    throw new Error(`Kunde inte uppdatera fil: ${path}`);
+  }
+}
+
+async function listRedisFiles(
+  projectId: string,
+  subPath?: string
+): Promise<string[]> {
+  const files = await getProjectFiles(projectId);
+  if (!files) {
+    throw new Error("Projektet hittades inte");
+  }
+
+  let paths = files.map((f) => f.path);
+
+  // Filter by subpath if provided
+  if (subPath) {
+    paths = paths.filter((p) => p.startsWith(subPath));
+  }
+
+  return paths;
+}
+
+// ============ GitHub Storage Functions ============
+
 async function readGitHubFile(
-  context: AgentContext,
+  token: string,
+  repoFullName: string,
   path: string
 ): Promise<string> {
   const response = await fetch(
-    `https://api.github.com/repos/${context.repoFullName}/contents/${path}`,
+    `https://api.github.com/repos/${repoFullName}/contents/${path}`,
     {
       headers: {
-        Authorization: `Bearer ${context.githubToken}`,
+        Authorization: `Bearer ${token}`,
         Accept: "application/vnd.github.v3+json",
       },
     }
   );
 
   if (!response.ok) {
-    throw new Error(`File not found: ${path}`);
+    throw new Error(`Filen hittades inte: ${path}`);
   }
 
   const data = await response.json();
   return Buffer.from(data.content, "base64").toString("utf-8");
 }
 
-/**
- * Update a file on GitHub
- */
 async function updateGitHubFile(
-  context: AgentContext,
+  token: string,
+  repoFullName: string,
   path: string,
   content: string,
   commitMessage: string
 ): Promise<void> {
-  // First, try to get the current file to get its SHA (needed for updates)
+  // Get current file SHA if it exists
   let sha: string | undefined;
   try {
     const getResponse = await fetch(
-      `https://api.github.com/repos/${context.repoFullName}/contents/${path}`,
+      `https://api.github.com/repos/${repoFullName}/contents/${path}`,
       {
         headers: {
-          Authorization: `Bearer ${context.githubToken}`,
+          Authorization: `Bearer ${token}`,
           Accept: "application/vnd.github.v3+json",
         },
       }
@@ -179,13 +239,12 @@ async function updateGitHubFile(
     // File doesn't exist, that's fine for new files
   }
 
-  // Create or update the file
   const response = await fetch(
-    `https://api.github.com/repos/${context.repoFullName}/contents/${path}`,
+    `https://api.github.com/repos/${repoFullName}/contents/${path}`,
     {
       method: "PUT",
       headers: {
-        Authorization: `Bearer ${context.githubToken}`,
+        Authorization: `Bearer ${token}`,
         Accept: "application/vnd.github.v3+json",
         "Content-Type": "application/json",
       },
@@ -199,30 +258,28 @@ async function updateGitHubFile(
 
   if (!response.ok) {
     const error = await response.json();
-    throw new Error(`Failed to update file: ${error.message}`);
+    throw new Error(`Kunde inte uppdatera fil: ${error.message}`);
   }
 }
 
-/**
- * List files in a GitHub repository
- */
 async function listGitHubFiles(
-  context: AgentContext,
+  token: string,
+  repoFullName: string,
   path: string = ""
 ): Promise<string[]> {
   const url = path
-    ? `https://api.github.com/repos/${context.repoFullName}/contents/${path}`
-    : `https://api.github.com/repos/${context.repoFullName}/contents`;
+    ? `https://api.github.com/repos/${repoFullName}/contents/${path}`
+    : `https://api.github.com/repos/${repoFullName}/contents`;
 
   const response = await fetch(url, {
     headers: {
-      Authorization: `Bearer ${context.githubToken}`,
+      Authorization: `Bearer ${token}`,
       Accept: "application/vnd.github.v3+json",
     },
   });
 
   if (!response.ok) {
-    throw new Error(`Failed to list files in: ${path || "root"}`);
+    throw new Error(`Kunde inte lista filer i: ${path || "root"}`);
   }
 
   const data = await response.json();
@@ -232,8 +289,7 @@ async function listGitHubFiles(
     if (item.type === "file") {
       files.push(item.path);
     } else if (item.type === "dir") {
-      // Recursively get files in subdirectories
-      const subFiles = await listGitHubFiles(context, item.path);
+      const subFiles = await listGitHubFiles(token, repoFullName, item.path);
       files.push(...subFiles);
     }
   }
@@ -241,9 +297,8 @@ async function listGitHubFiles(
   return files;
 }
 
-/**
- * Execute a tool call from the agent
- */
+// ============ Unified Tool Executor ============
+
 async function executeTool(
   context: AgentContext,
   toolName: string,
@@ -251,31 +306,56 @@ async function executeTool(
 ): Promise<string> {
   console.log(`[Agent] Executing tool: ${toolName}`, args);
 
+  const { projectId, storageType, githubToken, repoFullName } = context;
+
   switch (toolName) {
     case "read_file": {
-      const content = await readGitHubFile(context, args.path as string);
-      return content;
+      const path = args.path as string;
+      if (storageType === "github" && githubToken && repoFullName) {
+        return await readGitHubFile(githubToken, repoFullName, path);
+      } else {
+        return await readRedisFile(projectId, path);
+      }
     }
 
     case "update_file": {
-      await updateGitHubFile(
-        context,
-        args.path as string,
-        args.content as string,
-        args.commitMessage as string
-      );
-      return `File updated: ${args.path}`;
+      const path = args.path as string;
+      const content = args.content as string;
+      const commitMessage = args.commitMessage as string;
+
+      if (storageType === "github" && githubToken && repoFullName) {
+        await updateGitHubFile(
+          githubToken,
+          repoFullName,
+          path,
+          content,
+          commitMessage
+        );
+        // Also update Redis cache
+        await updateRedisFile(projectId, path, content);
+      } else {
+        await updateRedisFile(projectId, path, content);
+      }
+      return `Fil uppdaterad: ${path}`;
     }
 
     case "list_files": {
-      const files = await listGitHubFiles(context, (args.path as string) || "");
-      return files.join("\n");
+      const subPath = (args.path as string) || "";
+      if (storageType === "github" && githubToken && repoFullName) {
+        const files = await listGitHubFiles(githubToken, repoFullName, subPath);
+        return files.join("\n");
+      } else {
+        const files = await listRedisFiles(projectId, subPath);
+        return files.join("\n");
+      }
     }
 
     default:
-      throw new Error(`Unknown tool: ${toolName}`);
+      throw new Error(`Okänt verktyg: ${toolName}`);
   }
 }
+
+// ============ Main Agent Function ============
 
 /**
  * Run the agent to process a user instruction
@@ -288,17 +368,18 @@ export async function runAgent(
     "[Agent] Starting with instruction:",
     instruction.substring(0, 100)
   );
+  console.log("[Agent] Storage type:", context.storageType);
 
   const updatedFiles: AgentFile[] = [];
 
   try {
     // Create initial response
     let response = await openai.responses.create({
-      model: "gpt-4.1", // Use latest model with good code capabilities
+      model: "gpt-4.1",
       instructions: SYSTEM_INSTRUCTIONS,
       input: instruction,
       tools: AGENT_TOOLS,
-      store: true, // Enable stateful conversations
+      store: true,
       ...(context.previousResponseId
         ? { previous_response_id: context.previousResponseId }
         : {}),
@@ -320,7 +401,6 @@ export async function runAgent(
       );
 
       if (functionCalls.length === 0) {
-        // No more function calls, agent is done
         break;
       }
 
@@ -349,11 +429,11 @@ export async function runAgent(
           });
         } catch (error) {
           const errorMessage =
-            error instanceof Error ? error.message : "Unknown error";
+            error instanceof Error ? error.message : "Okänt fel";
           functionResults.push({
             type: "function_call_output",
             call_id: call.call_id,
-            output: `Error: ${errorMessage}`,
+            output: `Fel: ${errorMessage}`,
           });
         }
       }
@@ -392,8 +472,7 @@ export async function runAgent(
     };
   } catch (error) {
     console.error("[Agent] Error:", error);
-    const errorMessage =
-      error instanceof Error ? error.message : "Unknown error";
+    const errorMessage = error instanceof Error ? error.message : "Okänt fel";
 
     return {
       success: false,
@@ -402,6 +481,33 @@ export async function runAgent(
       responseId: "",
     };
   }
+}
+
+/**
+ * Helper function to create agent context from project ID
+ * Automatically determines storage type from project metadata
+ */
+export async function createAgentContext(
+  projectId: string,
+  githubToken?: string
+): Promise<AgentContext | null> {
+  const meta = await getProjectMeta(projectId);
+  if (!meta) {
+    console.error("[Agent] Project metadata not found:", projectId);
+    return null;
+  }
+
+  const context: AgentContext = {
+    projectId,
+    storageType: meta.storageType,
+  };
+
+  if (meta.storageType === "github" && meta.githubOwner && meta.githubRepo) {
+    context.githubToken = githubToken;
+    context.repoFullName = `${meta.githubOwner}/${meta.githubRepo}`;
+  }
+
+  return context;
 }
 
 /**
