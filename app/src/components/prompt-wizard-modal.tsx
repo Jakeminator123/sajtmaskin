@@ -595,7 +595,7 @@ export function PromptWizardModal({
           </div>
 
           <div className="text-center space-y-3">
-            <h2 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-white via-blue-200 via-purple-200 to-pink-200 bg-clip-text text-transparent animate-gradient leading-tight transition-all duration-300">
+            <h2 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-white via-purple-200 to-pink-300 bg-clip-text text-transparent animate-gradient leading-tight transition-all duration-300">
               {step === 1 && "Berätta om dig"}
               {step === 2 && "Vilken värld tillhör du?"}
               {step === 3 && "Var finns magin?"}
@@ -714,8 +714,12 @@ export function PromptWizardModal({
               {/* Show what we'll customize */}
               {industry && (
                 <div className="p-4 bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/30 rounded-xl text-base text-zinc-200 font-medium animate-fadeIn">
-                  <span className="text-amber-400 text-lg">→</span> Vi föreslår nu{" "}
-                  <span className="text-amber-300 font-semibold">{currentIndustry?.label}</span>-anpassade färger och funktioner
+                  <span className="text-amber-400 text-lg">→</span> Vi föreslår
+                  nu{" "}
+                  <span className="text-amber-300 font-semibold">
+                    {currentIndustry?.label}
+                  </span>
+                  -anpassade färger och funktioner
                 </div>
               )}
             </div>
@@ -727,7 +731,10 @@ export function PromptWizardModal({
               <div className="flex items-center gap-3 text-zinc-300">
                 <MapPin className="h-6 w-6 text-emerald-400" />
                 <h3 className="text-2xl sm:text-3xl font-bold">
-                  Var finns ni? <span className="text-base font-normal text-zinc-500">(valfritt)</span>
+                  Var finns ni?{" "}
+                  <span className="text-base font-normal text-zinc-500">
+                    (valfritt)
+                  </span>
                 </h3>
               </div>
               <p className="text-base sm:text-lg text-zinc-300 leading-relaxed">
@@ -755,7 +762,10 @@ export function PromptWizardModal({
               <div className="flex items-center gap-3 text-zinc-300">
                 <Globe className="h-6 w-6 text-blue-400" />
                 <h3 className="text-2xl sm:text-3xl font-bold">
-                  Har du en befintlig webbplats? <span className="text-base font-normal text-zinc-500">(valfritt)</span>
+                  Har du en befintlig webbplats?{" "}
+                  <span className="text-base font-normal text-zinc-500">
+                    (valfritt)
+                  </span>
                 </h3>
               </div>
               <p className="text-base sm:text-lg text-zinc-300 leading-relaxed">
@@ -805,7 +815,9 @@ export function PromptWizardModal({
                   <p className="text-xs text-emerald-400 font-medium mb-1">
                     AI-analys av din sajt:
                   </p>
-                  <p className="text-base text-zinc-200 leading-relaxed">{websiteAnalysis}</p>
+                  <p className="text-base text-zinc-200 leading-relaxed">
+                    {websiteAnalysis}
+                  </p>
                 </div>
               )}
 
@@ -858,7 +870,8 @@ export function PromptWizardModal({
               {/* Other feedback */}
               <div className="space-y-3">
                 <p className="text-lg font-semibold text-zinc-200">
-                  Övrig feedback <span className="text-zinc-500 font-normal">(valfritt)</span>
+                  Övrig feedback{" "}
+                  <span className="text-zinc-500 font-normal">(valfritt)</span>
                 </p>
                 <textarea
                   id="wizard-site-feedback"
@@ -880,7 +893,10 @@ export function PromptWizardModal({
               <div className="flex items-center gap-3 text-zinc-300">
                 <Lightbulb className="h-6 w-6 text-yellow-400" />
                 <h3 className="text-2xl sm:text-3xl font-bold">
-                  Inspirationssajter <span className="text-base font-normal text-zinc-500">(valfritt)</span>
+                  Inspirationssajter{" "}
+                  <span className="text-base font-normal text-zinc-500">
+                    (valfritt)
+                  </span>
                 </h3>
               </div>
               <p className="text-base sm:text-lg text-zinc-300 leading-relaxed">
@@ -1012,7 +1028,9 @@ export function PromptWizardModal({
             <div className="space-y-4">
               <div className="flex items-center gap-3 text-zinc-300">
                 <Users className="h-6 w-6 text-emerald-400" />
-                <h3 className="text-2xl sm:text-3xl font-bold">Vilka är dina kunder?</h3>
+                <h3 className="text-2xl sm:text-3xl font-bold">
+                  Vilka är dina kunder?
+                </h3>
               </div>
 
               {/* Smart suggestion based on industry and location */}
@@ -1072,7 +1090,10 @@ export function PromptWizardModal({
               <div className="flex items-center gap-3 text-zinc-300">
                 <Sparkles className="h-6 w-6 text-purple-400" />
                 <h3 className="text-2xl sm:text-3xl font-bold">
-                  Funktioner &amp; önskemål <span className="text-base font-normal text-zinc-500">(valfritt)</span>
+                  Funktioner &amp; önskemål{" "}
+                  <span className="text-base font-normal text-zinc-500">
+                    (valfritt)
+                  </span>
                 </h3>
               </div>
 
@@ -1180,7 +1201,8 @@ export function PromptWizardModal({
                   </h3>
                 </div>
                 <p className="text-base text-zinc-300 leading-relaxed">
-                  Redigera prompten om du vill, eller fortsätt med den som den är. Du kan också låta AI:n förbättra den.
+                  Redigera prompten om du vill, eller fortsätt med den som den
+                  är. Du kan också låta AI:n förbättra den.
                 </p>
               </div>
 
@@ -1216,7 +1238,9 @@ export function PromptWizardModal({
                           siteLikes,
                           siteDislikes,
                           siteOtherFeedback,
-                          inspirationSites: inspirationSites.filter((s) => s.trim()),
+                          inspirationSites: inspirationSites.filter((s) =>
+                            s.trim()
+                          ),
                           purposes,
                           targetAudience,
                           specialWishes: editedPrompt, // Use edited prompt as special wishes
@@ -1271,35 +1295,39 @@ export function PromptWizardModal({
 
         {/* Footer */}
         <div className="relative p-6 border-t border-zinc-800/50 flex flex-wrap justify-between items-center gap-3">
-          {/* Back/Cancel button */}
-          <Button
-            variant="ghost"
-            onClick={step === 1 ? onClose : handleBack}
-            disabled={isExpanding}
-            className="gap-2 text-zinc-400 hover:text-white hover:bg-zinc-800"
-          >
-            {step === 1 ? (
-              "Avbryt"
-            ) : (
-              <>
-                <ArrowLeft className="h-4 w-4" />
-                Tillbaka
-              </>
-            )}
-          </Button>
+          {/* Back/Cancel button - hide when in edit mode */}
+          {!showEditMode && (
+            <Button
+              variant="ghost"
+              onClick={step === 1 ? onClose : handleBack}
+              disabled={isExpanding}
+              className="gap-2 text-zinc-400 hover:text-white hover:bg-zinc-800"
+            >
+              {step === 1 ? (
+                "Avbryt"
+              ) : (
+                <>
+                  <ArrowLeft className="h-4 w-4" />
+                  Tillbaka
+                </>
+              )}
+            </Button>
+          )}
 
-          {/* Step indicator in footer - only show on large screens */}
-          <div className="hidden lg:flex items-center gap-1 text-xs text-zinc-600 max-w-xs truncate">
-            {steps.map((s, idx) => (
-              <span
-                key={s.id}
-                className={idx + 1 <= displayStep ? "text-zinc-400" : ""}
-              >
-                {s.name}
-                {idx < steps.length - 1 && <span className="mx-1">→</span>}
-              </span>
-            ))}
-          </div>
+          {/* Step indicator in footer - only show on large screens and not in edit mode */}
+          {!showEditMode && (
+            <div className="hidden lg:flex items-center gap-1 text-xs text-zinc-600 max-w-xs truncate">
+              {steps.map((s, idx) => (
+                <span
+                  key={s.id}
+                  className={idx + 1 <= displayStep ? "text-zinc-400" : ""}
+                >
+                  {s.name}
+                  {idx < steps.length - 1 && <span className="mx-1">→</span>}
+                </span>
+              ))}
+            </div>
+          )}
 
           {showEditMode ? (
             <>
@@ -1313,7 +1341,7 @@ export function PromptWizardModal({
                 className="gap-2 text-zinc-400 hover:text-white hover:bg-zinc-800"
               >
                 <ArrowLeft className="h-4 w-4" />
-                Tillbaka
+                Tillbaka till wizard
               </Button>
               <Button
                 onClick={() => {

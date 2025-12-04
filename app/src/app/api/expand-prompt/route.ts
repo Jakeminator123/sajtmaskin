@@ -285,7 +285,9 @@ ${imagesString}`.trim();
     let expandedPrompt: string | undefined;
 
     // Try gpt-5-mini with Responses API first
-    console.log(`[API/expand-prompt] Trying ${PRIMARY_MODEL} with Responses API...`);
+    console.log(
+      `[API/expand-prompt] Trying ${PRIMARY_MODEL} with Responses API...`
+    );
     let response = await fetch(OPENAI_API_URL, {
       method: "POST",
       headers: {
@@ -294,8 +296,10 @@ ${imagesString}`.trim();
       },
       body: JSON.stringify({
         model: PRIMARY_MODEL,
-        instructions: SYSTEM_PROMPT,
-        input: userMessageWithImages,
+        input: [
+          { role: "system", content: SYSTEM_PROMPT },
+          { role: "user", content: userMessageWithImages },
+        ],
         reasoning: { effort: "medium" }, // Medium reasoning for balanced quality/speed
         text: { verbosity: "high" }, // High verbosity for detailed prompts
         max_output_tokens: 2500, // Allow longer prompts
@@ -347,7 +351,7 @@ ${imagesString}`.trim();
     }
 
     const data = await response.json();
-    
+
     // Parse response based on API type
     if (usedModel === PRIMARY_MODEL) {
       // Responses API format

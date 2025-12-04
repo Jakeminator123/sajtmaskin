@@ -74,7 +74,9 @@ export async function POST(req: NextRequest) {
     let usedModel = PRIMARY_MODEL;
     let analysis: string | undefined;
 
-    console.log(`[API/analyze-website] Trying ${PRIMARY_MODEL} with Responses API...`);
+    console.log(
+      `[API/analyze-website] Trying ${PRIMARY_MODEL} with Responses API...`
+    );
     let response = await fetch(OPENAI_API_URL, {
       method: "POST",
       headers: {
@@ -83,8 +85,10 @@ export async function POST(req: NextRequest) {
       },
       body: JSON.stringify({
         model: PRIMARY_MODEL,
-        instructions: ANALYSIS_PROMPT,
-        input: userPrompt,
+        input: [
+          { role: "system", content: ANALYSIS_PROMPT },
+          { role: "user", content: userPrompt },
+        ],
         reasoning: { effort: "low" }, // Low reasoning for fast analysis
         text: { verbosity: "medium" }, // Medium verbosity for concise analysis
         max_output_tokens: 500,
@@ -93,9 +97,11 @@ export async function POST(req: NextRequest) {
 
     // If primary model fails, try fallback via chat completions
     if (!response.ok) {
-      console.log(`[API/analyze-website] ${PRIMARY_MODEL} failed, trying ${FALLBACK_MODEL} via Chat Completions...`);
+      console.log(
+        `[API/analyze-website] ${PRIMARY_MODEL} failed, trying ${FALLBACK_MODEL} via Chat Completions...`
+      );
       usedModel = FALLBACK_MODEL;
-      
+
       // Fallback to chat completions for older models
       response = await fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",
@@ -133,7 +139,7 @@ export async function POST(req: NextRequest) {
     }
 
     const data = await response.json();
-    
+
     // Parse response based on API type
     if (usedModel === PRIMARY_MODEL) {
       // Responses API format
