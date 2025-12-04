@@ -259,6 +259,9 @@ export interface WizardData {
   palette: ColorPalette | null;
   customColors: { primary: string; secondary: string; accent: string } | null;
   voiceTranscript?: string; // Voice input transcript
+  // Data from AI analysis (for saving to database)
+  industryTrends?: string;
+  websiteAnalysis?: string;
 }
 
 interface PromptWizardModalProps {
@@ -312,44 +315,8 @@ export function PromptWizardModal({
   // Website analysis result (from GPT-4o Vision)
   const [websiteAnalysis, setWebsiteAnalysis] = useState<string | null>(null);
 
-  // Save company profile to database
-  const saveCompanyProfile = async (
-    data: WizardData,
-    industryTrends?: string,
-    websiteAnalysisData?: string | null
-  ) => {
-    try {
-      await fetch("/api/company-profile", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          company_name: data.companyName,
-          industry: data.industry,
-          location: data.location,
-          existing_website: data.existingWebsite,
-          website_analysis: websiteAnalysisData,
-          site_likes: data.siteLikes,
-          site_dislikes: data.siteDislikes,
-          site_feedback: data.siteOtherFeedback,
-          target_audience: data.targetAudience,
-          purposes: data.purposes,
-          special_wishes: data.specialWishes,
-          color_palette_name: data.palette?.name,
-          color_primary: data.customColors?.primary || data.palette?.primary,
-          color_secondary:
-            data.customColors?.secondary || data.palette?.secondary,
-          color_accent: data.customColors?.accent || data.palette?.accent,
-          industry_trends: industryTrends,
-          inspiration_sites: data.inspirationSites,
-          voice_transcript: data.voiceTranscript,
-        }),
-      });
-      console.log("[Wizard] Company profile saved");
-    } catch (err) {
-      console.error("[Wizard] Failed to save company profile:", err);
-      // Don't block the user flow - this is non-critical
-    }
-  };
+  // Store industry trends for passing to parent
+  const [industryTrends, setIndustryTrends] = useState<string | null>(null);
 
   // Dynamic step calculation (skip step 5 if no existing website)
   const getSteps = () => {
@@ -550,8 +517,10 @@ export function PromptWizardModal({
         throw new Error(data.error || "Failed to expand prompt");
       }
 
-      // Save company profile to database (fire and forget)
-      saveCompanyProfile(wizardData, data.industryTrends, websiteAnalysis);
+      // Store industry trends for later (will be saved with project)
+      if (data.industryTrends) {
+        setIndustryTrends(data.industryTrends);
+      }
 
       // Show edit mode instead of closing immediately
       setIsExpanding(false);
@@ -1451,7 +1420,9 @@ export function PromptWizardModal({
                     specialWishes,
                     palette: selectedPalette,
                     customColors,
-                    voiceTranscript: voiceTranscript || undefined, // Include voice input!
+                    voiceTranscript: voiceTranscript || undefined,
+                    industryTrends: industryTrends || undefined,
+                    websiteAnalysis: websiteAnalysis || undefined,
                   };
                   onComplete(wizardData, editedPrompt);
                 }}

@@ -162,6 +162,41 @@ export default function CategoryPage() {
         expandedPrompt.substring(0, 100)
       );
 
+      // Save company profile linked to project (fire and forget)
+      if (wizardData.companyName) {
+        fetch("/api/company-profile", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            project_id: project.id, // Link to project!
+            company_name: wizardData.companyName,
+            industry: wizardData.industry,
+            location: wizardData.location,
+            existing_website: wizardData.existingWebsite,
+            website_analysis: wizardData.websiteAnalysis,
+            site_likes: wizardData.siteLikes,
+            site_dislikes: wizardData.siteDislikes,
+            site_feedback: wizardData.siteOtherFeedback,
+            target_audience: wizardData.targetAudience,
+            purposes: wizardData.purposes,
+            special_wishes: wizardData.specialWishes,
+            color_palette_name: wizardData.palette?.name,
+            color_primary:
+              wizardData.customColors?.primary || wizardData.palette?.primary,
+            color_secondary:
+              wizardData.customColors?.secondary ||
+              wizardData.palette?.secondary,
+            color_accent:
+              wizardData.customColors?.accent || wizardData.palette?.accent,
+            industry_trends: wizardData.industryTrends,
+            inspiration_sites: wizardData.inspirationSites,
+            voice_transcript: wizardData.voiceTranscript,
+          }),
+        }).catch((err) =>
+          console.error("Failed to save company profile:", err)
+        );
+      }
+
       // Navigate directly to builder with the expanded prompt
       router.push(
         `/builder?project=${
