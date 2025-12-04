@@ -5,11 +5,15 @@
  * Takes wizard data and generates a detailed prompt for v0 API.
  * Uses gpt-5-mini (cost-optimized reasoning) with fallback to gpt-4o-mini.
  *
+ * Also fetches relevant stock photos from Pexels with markers (P1, P2, etc.)
+ * for easy replacement later.
+ *
  * Note: v0 does the heavy lifting with v0-1.5-md/lg models.
  * We only need a simple model to structure the prompt.
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { MarkedImage } from "../pexels/route";
 
 // Allow 60 seconds for OpenAI response
 export const maxDuration = 60;
@@ -35,6 +39,8 @@ REGLER:
 8. Om plats nämnts, inkludera lokalt anpassade element
 9. Håll prompten under 2500 tecken men var detaljerad
 10. Använd React/Next.js och Tailwind CSS terminologi
+11. Om bildförslag ges (P1, P2...), använd dessa URL:er i relevanta sektioner
+12. Märk bilderna i prompten med kommentarer som {/* Image P1 */} så de enkelt kan bytas
 
 VIKTIGT FÖR BRANSCHSPECIFIKA SAJTER:
 - Café/Restaurang: Inkludera meny, öppettider, bildgalleri, bordbokning
@@ -79,6 +85,49 @@ const CATEGORY_MAP: Record<string, string> = {
   website: "multi-page website",
   dashboard: "admin dashboard",
 };
+
+// Fetch images from Pexels API
+async function fetchPexelsImages(industry: string): Promise<MarkedImage[]> {
+  try {
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
+    const response = await fetch(`${baseUrl}/api/pexels`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ industry, count: 5 }),
+    });
+
+    if (!response.ok) {
+      console.log("[API/expand-prompt] Pexels fetch failed, using fallback");
+      return [];
+    }
+
+    const data = await response.json();
+    return data.images || [];
+  } catch (error) {
+    console.error("[API/expand-prompt] Error fetching Pexels images:", error);
+    return [];
+  }
+}
+
+// Format images for prompt inclusion
+function formatImagesForPrompt(images: MarkedImage[]): string {
+  if (images.length === 0) return "";
+
+  const imageList = images
+    .map((img) => `  - ${img.marker}: ${img.url} (${img.alt})`)
+    .join("\n");
+
+  return `
+STOCK PHOTOS (use these URLs in relevant sections, mark with {/* Image ${images[0]?.marker} */} comments for easy replacement):
+${imageList}
+
+Image placement suggestions:
+- P1: Hero section background or main visual
+- P2: About section or feature highlight
+- P3: Services/Products section
+- P4: Team or testimonials section
+- P5: Secondary visual or footer`;
+}
 
 // Site feedback mapping
 const SITE_LIKES_MAP: Record<string, string> = {
@@ -214,7 +263,22 @@ Skapa en detaljerad prompt för att generera denna webbplats.
 Inkludera specifika sektioner, funktioner och designelement som passar branschen och syftet.
 `.trim();
 
-    console.log("[API/expand-prompt] User message length:", userMessage.length);
+    // Fetch Pexels images based on industry
+    console.log(
+      "[API/expand-prompt] Fetching Pexels images for industry:",
+      industry
+    );
+    const pexelsImages = await fetchPexelsImages(industry || "other");
+    const imagesString = formatImagesForPrompt(pexelsImages);
+
+    // Add images to user message
+    const userMessageWithImages = `${userMessage}
+${imagesString}`.trim();
+
+    console.log(
+      "[API/expand-prompt] User message length:",
+      userMessageWithImages.length
+    );
 
     // Try primary model first, fallback if needed
     let usedModel = PRIMARY_MODEL;
@@ -232,7 +296,7 @@ Inkludera specifika sektioner, funktioner och designelement som passar branschen
         model: PRIMARY_MODEL,
         messages: [
           { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: userMessage },
+          { role: "user", content: userMessageWithImages },
         ],
         temperature: 0.7,
         max_tokens: 1500,
@@ -257,7 +321,7 @@ Inkludera specifika sektioner, funktioner och designelement som passar branschen
           model: FALLBACK_MODEL,
           messages: [
             { role: "system", content: SYSTEM_PROMPT },
-            { role: "user", content: userMessage },
+            { role: "user", content: userMessageWithImages },
           ],
           temperature: 0.7,
           max_tokens: 1500,
@@ -302,6 +366,7 @@ Inkludera specifika sektioner, funktioner och designelement som passar branschen
       success: true,
       expandedPrompt,
       model: usedModel,
+      images: pexelsImages, // Include images for frontend reference
     });
   } catch (error) {
     console.error("[API/expand-prompt] Error:", error);
