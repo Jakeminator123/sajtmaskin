@@ -124,6 +124,8 @@ export function ChatPanel({
 
   // Track the last generated key to detect changes
   const lastGeneratedKey = useRef<string | null>(null);
+  // Track if generation has started (prevents double-execution)
+  const generationStarted = useRef(false);
 
   // Check if we're in test mode (force regeneration, skip cache)
   const isTestMode =
@@ -136,8 +138,8 @@ export function ChatPanel({
       templateId || ""
     }-${localTemplateId || ""}`;
 
-    // Skip if already loading
-    if (isLoading) return;
+    // Skip if already loading or generation already started for this key
+    if (isLoading || generationStarted.current) return;
 
     // Check if this is a new request (different from last generated)
     const isNewRequest = lastGeneratedKey.current !== currentKey;
@@ -146,6 +148,7 @@ export function ChatPanel({
     if (isTestMode && (messages.length > 0 || demoUrl)) {
       clearChat();
       lastGeneratedKey.current = null;
+      generationStarted.current = false;
       return;
     }
 
@@ -153,6 +156,7 @@ export function ChatPanel({
     if (isNewRequest && (messages.length > 0 || demoUrl)) {
       clearChat();
       lastGeneratedKey.current = null;
+      generationStarted.current = false;
       return; // Wait for state to clear, effect will re-run
     }
 
@@ -163,6 +167,7 @@ export function ChatPanel({
 
     // Ready to generate - mark this key as being generated
     lastGeneratedKey.current = currentKey;
+    generationStarted.current = true; // Prevent double-execution
 
     // Handle different generation modes
     if (localTemplateId) {
@@ -191,7 +196,7 @@ export function ChatPanel({
     localTemplateId,
     isLoading,
     demoUrl,
-    messages.length,
+    // Note: messages.length removed to prevent double-execution when addMessage is called
   ]);
 
   const getCategoryName = (type: string): string => {
