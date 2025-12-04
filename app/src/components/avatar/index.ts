@@ -12,6 +12,7 @@ export { AvatarModel, ANIMATION_FILES } from "./AvatarModel";
 
 // UI components
 export { AvatarTooltip } from "./AvatarTooltip";
+export { AvatarChatModal } from "./AvatarChatModal";
 
 // Hooks
 export { useAvatarBehavior } from "./useAvatarBehavior";

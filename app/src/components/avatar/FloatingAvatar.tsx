@@ -10,16 +10,21 @@
  * - Walk-in animation from off-screen
  * - Reactive animations based on user actions
  * - Floating tooltip for messages
+ * - Click to open chat modal for asking questions
+ * - Proactive tips when user seems stuck
+ * - Dismiss/minimize button to hide avatar
  * - Fully configurable via avatar-config.ts
  */
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Canvas } from "@react-three/fiber";
 import { Environment } from "@react-three/drei";
 import { Suspense } from "react";
+import { X, MessageCircle } from "lucide-react";
 import { AvatarModel } from "./AvatarModel";
 import { AvatarTooltip } from "./AvatarTooltip";
+import { AvatarChatModal } from "./AvatarChatModal";
 import { useAvatar, AppSection } from "@/contexts/AvatarContext";
 import { useAvatarBehavior } from "./useAvatarBehavior";
 import { AVATAR_CONFIG } from "./avatar-config";
@@ -38,6 +43,40 @@ interface FloatingAvatarProps {
 }
 
 // ============================================================================
+// PROACTIVE TIPS CONFIG
+// ============================================================================
+
+/** Time in ms before showing a proactive tip when user is idle */
+const PROACTIVE_TIP_DELAY = 30000; // 30 seconds
+
+/** Tips shown when user seems stuck on a section */
+const PROACTIVE_TIPS: Record<AppSection, string[]> = {
+  home: [
+    "Testa att skriva vad du vill bygga! 🚀",
+    "Kolla in mallarna för inspiration!",
+    "Behöver du hjälp? Klicka på mig!",
+  ],
+  builder: [
+    "Skriv i chatten för att förfina designen!",
+    "Inte nöjd? Be om ändringar så fixar vi!",
+    "Klicka 'Ladda ner' för att spara koden.",
+  ],
+  templates: [
+    "Klicka på en mall för att komma igång!",
+    "Varje mall är anpassningsbar efteråt.",
+  ],
+  audit: [
+    "Skriv in din webbadress för analys!",
+    "Jag kan hitta förbättringsmöjligheter. 🔍",
+  ],
+  projects: [
+    "Klicka på ett projekt för att fortsätta.",
+    "Här sparas allt du bygger!",
+  ],
+  category: ["Välj en underkategori för mer specifika mallar!"],
+};
+
+// ============================================================================
 // LOADING FALLBACK
 // ============================================================================
 
@@ -48,6 +87,35 @@ function LoadingFallback() {
       <boxGeometry args={[0.5, 0.5, 0.5]} />
       <meshStandardMaterial color="#00b8b8" wireframe />
     </mesh>
+  );
+}
+
+// ============================================================================
+// MINIMIZED BUTTON (shown when avatar is dismissed)
+// ============================================================================
+
+function MinimizedButton({ onClick }: { onClick: () => void }) {
+  return (
+    <motion.button
+      initial={{ scale: 0, opacity: 0 }}
+      animate={{ scale: 1, opacity: 1 }}
+      exit={{ scale: 0, opacity: 0 }}
+      whileHover={{ scale: 1.1 }}
+      whileTap={{ scale: 0.95 }}
+      onClick={onClick}
+      className="fixed bottom-4 right-4 z-50 w-12 h-12 
+                 bg-gradient-to-br from-teal-600 to-teal-800 
+                 rounded-full shadow-lg shadow-teal-500/30 
+                 border border-teal-400/30
+                 flex items-center justify-center
+                 hover:from-teal-500 hover:to-teal-700
+                 transition-colors group"
+      title="Visa guiden"
+    >
+      <MessageCircle className="w-5 h-5 text-white group-hover:scale-110 transition-transform" />
+      {/* Pulse effect */}
+      <span className="absolute inset-0 rounded-full bg-teal-500/30 animate-ping" />
+    </motion.button>
   );
 }
 
@@ -67,10 +135,13 @@ export function FloatingAvatar({
     tooltipMessage,
     tooltipVisible,
     hideTooltip,
+    triggerReaction,
+    hideAvatar,
+    showAvatar,
   } = useAvatar();
 
   // Setup behavior (walk-in, section changes, etc.)
-  const { handleModelLoaded } = useAvatarBehavior({
+  const { handleModelLoaded, isLoaded } = useAvatarBehavior({
     section,
     walkInDelay: AVATAR_CONFIG.walkIn.delay,
     walkInDuration: AVATAR_CONFIG.walkIn.duration,
@@ -78,6 +149,10 @@ export function FloatingAvatar({
   });
 
   const [canvasReady, setCanvasReady] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [isMinimized, setIsMinimized] = useState(false);
+  const proactiveTipTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const lastInteractionRef = useRef<number>(Date.now());
 
   // Called when Three.js canvas is ready
   const handleCanvasCreated = useCallback(() => {
@@ -97,9 +172,93 @@ export function FloatingAvatar({
     }
   };
 
-  // Don't render anything if avatar is hidden
-  if (avatarState === "hidden") {
-    return null;
+  // Handle avatar click - open chat
+  const handleAvatarClick = useCallback(() => {
+    lastInteractionRef.current = Date.now();
+    setChatOpen((prev) => !prev);
+    if (!chatOpen) {
+      hideTooltip();
+    }
+  }, [chatOpen, hideTooltip]);
+
+  // Handle dismiss - hide avatar and show minimized button
+  const handleDismiss = useCallback(
+    (e: React.MouseEvent) => {
+      e.stopPropagation(); // Don't trigger avatar click
+      setIsMinimized(true);
+      hideAvatar();
+      setChatOpen(false);
+    },
+    [hideAvatar]
+  );
+
+  // Handle restore - show avatar again
+  const handleRestore = useCallback(() => {
+    setIsMinimized(false);
+    showAvatar();
+  }, [showAvatar]);
+
+  // Setup proactive tips - show tip if user is idle for a while
+  useEffect(() => {
+    if (!isLoaded || avatarState !== "idle" || isMinimized) return;
+
+    const checkAndShowTip = () => {
+      const timeSinceInteraction = Date.now() - lastInteractionRef.current;
+
+      if (
+        timeSinceInteraction >= PROACTIVE_TIP_DELAY &&
+        !chatOpen &&
+        !tooltipVisible
+      ) {
+        const tips = PROACTIVE_TIPS[section] || PROACTIVE_TIPS.home;
+        const randomTip = tips[Math.floor(Math.random() * tips.length)];
+        triggerReaction("preview_toggle", randomTip);
+        lastInteractionRef.current = Date.now();
+      }
+    };
+
+    // Check every 10 seconds
+    proactiveTipTimerRef.current = setInterval(checkAndShowTip, 10000);
+
+    return () => {
+      if (proactiveTipTimerRef.current) {
+        clearInterval(proactiveTipTimerRef.current);
+      }
+    };
+  }, [
+    isLoaded,
+    avatarState,
+    section,
+    chatOpen,
+    tooltipVisible,
+    triggerReaction,
+    isMinimized,
+  ]);
+
+  // Reset interaction timer on user activity
+  useEffect(() => {
+    const handleActivity = () => {
+      lastInteractionRef.current = Date.now();
+    };
+
+    window.addEventListener("click", handleActivity);
+    window.addEventListener("keydown", handleActivity);
+    window.addEventListener("scroll", handleActivity);
+
+    return () => {
+      window.removeEventListener("click", handleActivity);
+      window.removeEventListener("keydown", handleActivity);
+      window.removeEventListener("scroll", handleActivity);
+    };
+  }, []);
+
+  // Show minimized button when avatar is hidden
+  if (isMinimized || avatarState === "hidden") {
+    return (
+      <AnimatePresence>
+        <MinimizedButton onClick={handleRestore} />
+      </AnimatePresence>
+    );
   }
 
   return (
@@ -122,18 +281,44 @@ export function FloatingAvatar({
             duration: avatarState === "walking_in" ? 2 : 0.5,
           }}
         >
-          {/* Tooltip - positioned to the left of avatar */}
-          <AvatarTooltip
-            message={tooltipMessage}
-            visible={tooltipVisible}
-            onClose={hideTooltip}
-            position="left"
+          {/* Chat Modal */}
+          <AvatarChatModal
+            isOpen={chatOpen}
+            onClose={() => setChatOpen(false)}
+            currentSection={section}
           />
+
+          {/* Tooltip - positioned to the left of avatar */}
+          {!chatOpen && (
+            <AvatarTooltip
+              message={tooltipMessage}
+              visible={tooltipVisible}
+              onClose={hideTooltip}
+              position="left"
+            />
+          )}
 
           {/* Avatar container */}
           <div
             className={`relative ${AVATAR_CONFIG.containerWidth} ${AVATAR_CONFIG.containerHeight} cursor-pointer group`}
+            onClick={handleAvatarClick}
           >
+            {/* Dismiss/Minimize button */}
+            <motion.button
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              onClick={handleDismiss}
+              className="absolute -top-1 -right-1 z-10 w-6 h-6 
+                         bg-gray-900/90 border border-gray-700 rounded-full
+                         flex items-center justify-center
+                         opacity-0 group-hover:opacity-100
+                         hover:bg-red-900/80 hover:border-red-500/50
+                         transition-all duration-200"
+              title="Göm guiden"
+            >
+              <X className="w-3 h-3 text-gray-400 hover:text-red-400" />
+            </motion.button>
+
             {/* Three.js Canvas */}
             <Canvas
               camera={{
@@ -190,8 +375,17 @@ export function FloatingAvatar({
                          opacity-0 group-hover:opacity-100 transition-opacity
                          whitespace-nowrap pointer-events-none"
             >
-              Klicka för hjälp
+              {chatOpen ? "Stäng chat" : "Klicka för hjälp"}
             </div>
+
+            {/* Pulsing indicator when idle for a while */}
+            {avatarState === "idle" && !chatOpen && !tooltipVisible && (
+              <motion.div
+                className="absolute top-2 left-2 w-3 h-3 bg-teal-500 rounded-full"
+                animate={{ scale: [1, 1.2, 1], opacity: [0.7, 1, 0.7] }}
+                transition={{ duration: 2, repeat: Infinity }}
+              />
+            )}
           </div>
         </motion.div>
       </AnimatePresence>
