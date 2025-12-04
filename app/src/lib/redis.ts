@@ -222,6 +222,121 @@ export async function deleteCache(key: string): Promise<void> {
   }
 }
 
+// ============ Audit Caching ============
+
+const AUDIT_CACHE_PREFIX = "audit:";
+const AUDIT_LIST_PREFIX = "audit_list:";
+const AUDIT_CACHE_TTL = 86400; // 24 hours
+
+/**
+ * Cache a single audit result
+ */
+export async function cacheAudit(
+  auditId: number,
+  userId: string,
+  auditData: Record<string, unknown>
+): Promise<void> {
+  const redis = getRedis();
+  if (!redis) return;
+
+  try {
+    await redis.setex(
+      `${AUDIT_CACHE_PREFIX}${auditId}`,
+      AUDIT_CACHE_TTL,
+      JSON.stringify(auditData)
+    );
+    // Invalidate user's audit list cache
+    await redis.del(`${AUDIT_LIST_PREFIX}${userId}`);
+  } catch (error) {
+    console.error("[Redis] Failed to cache audit:", error);
+  }
+}
+
+/**
+ * Get cached audit by ID
+ */
+export async function getCachedAudit(
+  auditId: number
+): Promise<Record<string, unknown> | null> {
+  const redis = getRedis();
+  if (!redis) return null;
+
+  try {
+    const data = await redis.get(`${AUDIT_CACHE_PREFIX}${auditId}`);
+    if (data) {
+      return JSON.parse(data);
+    }
+  } catch (error) {
+    console.error("[Redis] Failed to get cached audit:", error);
+  }
+  return null;
+}
+
+/**
+ * Cache user's audit list (lightweight metadata only)
+ */
+export async function cacheUserAuditList(
+  userId: string,
+  audits: Array<{
+    id: number;
+    domain: string;
+    company_name: string | null;
+    score_overall: number | null;
+    created_at: string;
+  }>
+): Promise<void> {
+  const redis = getRedis();
+  if (!redis) return;
+
+  try {
+    await redis.setex(
+      `${AUDIT_LIST_PREFIX}${userId}`,
+      AUDIT_CACHE_TTL,
+      JSON.stringify(audits)
+    );
+  } catch (error) {
+    console.error("[Redis] Failed to cache audit list:", error);
+  }
+}
+
+/**
+ * Get cached user audit list
+ */
+export async function getCachedUserAuditList(userId: string): Promise<Array<{
+  id: number;
+  domain: string;
+  company_name: string | null;
+  score_overall: number | null;
+  created_at: string;
+}> | null> {
+  const redis = getRedis();
+  if (!redis) return null;
+
+  try {
+    const data = await redis.get(`${AUDIT_LIST_PREFIX}${userId}`);
+    if (data) {
+      return JSON.parse(data);
+    }
+  } catch (error) {
+    console.error("[Redis] Failed to get cached audit list:", error);
+  }
+  return null;
+}
+
+/**
+ * Invalidate audit caches for a user
+ */
+export async function invalidateUserAuditCache(userId: string): Promise<void> {
+  const redis = getRedis();
+  if (!redis) return;
+
+  try {
+    await redis.del(`${AUDIT_LIST_PREFIX}${userId}`);
+  } catch (error) {
+    console.error("[Redis] Failed to invalidate audit cache:", error);
+  }
+}
+
 // ============ Admin Operations ============
 
 export async function getRedisInfo(): Promise<{

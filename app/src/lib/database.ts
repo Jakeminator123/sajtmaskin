@@ -257,6 +257,36 @@ function initializeDatabase(database: Database.Database) {
   `);
 
   // ═══════════════════════════════════════════════════════════════════════════
+  // USER AUDITS - stores saved website audits for each user
+  // ═══════════════════════════════════════════════════════════════════════════
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS user_audits (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id TEXT NOT NULL,
+      
+      -- Audit metadata
+      url TEXT NOT NULL,
+      domain TEXT NOT NULL,
+      company_name TEXT,
+      
+      -- Audit data (JSON)
+      audit_result TEXT NOT NULL,
+      
+      -- Scores (denormalized for easy querying)
+      score_seo INTEGER,
+      score_ux INTEGER,
+      score_performance INTEGER,
+      score_security INTEGER,
+      score_overall INTEGER,
+      
+      -- Timestamps
+      created_at TEXT DEFAULT (datetime('now')),
+      
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )
+  `);
+
+  // ═══════════════════════════════════════════════════════════════════════════
   // INDEXES for better query performance
   // ═══════════════════════════════════════════════════════════════════════════
   database.exec(`
@@ -276,6 +306,9 @@ function initializeDatabase(database: Database.Database) {
     CREATE INDEX IF NOT EXISTS idx_guest_usage_session_id ON guest_usage(session_id);
     CREATE INDEX IF NOT EXISTS idx_transactions_user_id ON transactions(user_id);
     CREATE INDEX IF NOT EXISTS idx_transactions_stripe_session_id ON transactions(stripe_session_id);
+    CREATE INDEX IF NOT EXISTS idx_user_audits_user_id ON user_audits(user_id);
+    CREATE INDEX IF NOT EXISTS idx_user_audits_domain ON user_audits(domain);
+    CREATE INDEX IF NOT EXISTS idx_user_audits_created_at ON user_audits(created_at DESC);
   `);
 
   // Create test/admin user if it doesn't exist
@@ -1476,4 +1509,141 @@ export function getAnalyticsStats(days: number = 30): AnalyticsStats {
     dailyViews,
     topReferrers,
   };
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// USER AUDITS FUNCTIONS
+// ═══════════════════════════════════════════════════════════════════════════
+
+export interface SavedAudit {
+  id: number;
+  user_id: string;
+  url: string;
+  domain: string;
+  company_name: string | null;
+  audit_result: string; // JSON string
+  score_seo: number | null;
+  score_ux: number | null;
+  score_performance: number | null;
+  score_security: number | null;
+  score_overall: number | null;
+  created_at: string;
+}
+
+/**
+ * Save an audit result for a user
+ */
+export function saveUserAudit(
+  userId: string,
+  url: string,
+  domain: string,
+  auditResult: Record<string, unknown>
+): SavedAudit {
+  const db = getDb();
+
+  // Extract scores from audit result
+  const scores = auditResult.audit_scores as Record<string, number> | undefined;
+  const scoreSeo = scores?.seo ?? null;
+  const scoreUx = scores?.ux ?? null;
+  const scorePerformance = scores?.performance ?? null;
+  const scoreSecurity = scores?.security ?? null;
+
+  // Calculate overall score (average of available scores)
+  const availableScores = [
+    scoreSeo,
+    scoreUx,
+    scorePerformance,
+    scoreSecurity,
+  ].filter((s) => s !== null) as number[];
+  const scoreOverall =
+    availableScores.length > 0
+      ? Math.round(
+          availableScores.reduce((a, b) => a + b, 0) / availableScores.length
+        )
+      : null;
+
+  const companyName = (auditResult.company as string) || null;
+
+  const stmt = db.prepare(`
+    INSERT INTO user_audits (
+      user_id, url, domain, company_name, audit_result,
+      score_seo, score_ux, score_performance, score_security, score_overall
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `);
+
+  const result = stmt.run(
+    userId,
+    url,
+    domain,
+    companyName,
+    JSON.stringify(auditResult),
+    scoreSeo,
+    scoreUx,
+    scorePerformance,
+    scoreSecurity,
+    scoreOverall
+  );
+
+  return {
+    id: result.lastInsertRowid as number,
+    user_id: userId,
+    url,
+    domain,
+    company_name: companyName,
+    audit_result: JSON.stringify(auditResult),
+    score_seo: scoreSeo,
+    score_ux: scoreUx,
+    score_performance: scorePerformance,
+    score_security: scoreSecurity,
+    score_overall: scoreOverall,
+    created_at: new Date().toISOString(),
+  };
+}
+
+/**
+ * Get all audits for a user
+ */
+export function getUserAudits(userId: string): SavedAudit[] {
+  const db = getDb();
+  return db
+    .prepare(
+      `SELECT * FROM user_audits WHERE user_id = ? ORDER BY created_at DESC`
+    )
+    .all(userId) as SavedAudit[];
+}
+
+/**
+ * Get a specific audit by ID (with user ownership check)
+ */
+export function getUserAuditById(
+  auditId: number,
+  userId: string
+): SavedAudit | null {
+  const db = getDb();
+  const audit = db
+    .prepare(`SELECT * FROM user_audits WHERE id = ? AND user_id = ?`)
+    .get(auditId, userId) as SavedAudit | undefined;
+  return audit || null;
+}
+
+/**
+ * Delete an audit (with user ownership check)
+ */
+export function deleteUserAudit(auditId: number, userId: string): boolean {
+  const db = getDb();
+  const result = db
+    .prepare(`DELETE FROM user_audits WHERE id = ? AND user_id = ?`)
+    .run(auditId, userId);
+  return result.changes > 0;
+}
+
+/**
+ * Get audit count for a user
+ */
+export function getUserAuditCount(userId: string): number {
+  const db = getDb();
+  const result = db
+    .prepare(`SELECT COUNT(*) as count FROM user_audits WHERE user_id = ?`)
+    .get(userId) as { count: number };
+  return result.count;
 }

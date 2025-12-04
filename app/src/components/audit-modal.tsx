@@ -8,12 +8,18 @@ import {
   ChevronLeft,
   ChevronRight,
   ExternalLink,
+  FileText,
+  Save,
+  Hammer,
+  Check,
+  Loader2,
 } from "lucide-react";
 import {
   MetricsChart,
   ImprovementsList,
   SecurityReport,
   BudgetEstimate,
+  AuditPdfReport,
 } from "@/components/audit";
 import type { AuditResult } from "@/types/audit";
 
@@ -21,6 +27,7 @@ interface AuditModalProps {
   result: AuditResult | null;
   isOpen: boolean;
   onClose: () => void;
+  onBuildFromAudit?: (prompt: string) => void;
 }
 
 type TabId = "overview" | "improvements" | "technical" | "business";
@@ -38,15 +45,116 @@ const tabs: Tab[] = [
   { id: "business", label: "Budget", icon: "💰" },
 ];
 
-export function AuditModal({ result, isOpen, onClose }: AuditModalProps) {
+export function AuditModal({
+  result,
+  isOpen,
+  onClose,
+  onBuildFromAudit,
+}: AuditModalProps) {
   const [activeTab, setActiveTab] = useState<TabId>("overview");
+  const [showPdfModal, setShowPdfModal] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [isSaved, setIsSaved] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
-  // Reset tab when modal opens with new result
+  // Reset state when modal opens with new result
   useEffect(() => {
     if (isOpen && result) {
       setActiveTab("overview");
+      setIsSaved(false);
+      setSaveError(null);
     }
   }, [isOpen, result]);
+
+  // Save audit to user's storage
+  const handleSaveAudit = useCallback(async () => {
+    if (!result || isSaving || isSaved) return;
+
+    setIsSaving(true);
+    setSaveError(null);
+
+    try {
+      const response = await fetch("/api/audits", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          url: result.domain ? `https://${result.domain}` : "",
+          domain: result.domain || "unknown",
+          auditResult: result,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || "Kunde inte spara audit");
+      }
+
+      setIsSaved(true);
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : "Ett fel uppstod");
+    } finally {
+      setIsSaving(false);
+    }
+  }, [result, isSaving, isSaved]);
+
+  // Generate prompt for building a site from this audit
+  const handleBuildFromAudit = useCallback(() => {
+    if (!result || !onBuildFromAudit) return;
+
+    // Build a smart prompt from the audit data
+    const parts: string[] = [];
+
+    // Company/domain
+    if (result.company) {
+      parts.push(`Bygg en professionell hemsida för ${result.company}`);
+    } else if (result.domain) {
+      parts.push(`Bygg en ny förbättrad hemsida för ${result.domain}`);
+    }
+
+    // Design direction
+    if (result.design_direction?.style) {
+      parts.push(`med ${result.design_direction.style} design`);
+    }
+
+    // Target audience
+    if (result.target_audience_analysis?.demographics) {
+      parts.push(`riktad mot ${result.target_audience_analysis.demographics}`);
+    }
+
+    // Key content
+    if (
+      result.content_strategy?.key_pages &&
+      result.content_strategy.key_pages.length > 0
+    ) {
+      parts.push(
+        `Inkludera: ${result.content_strategy.key_pages.slice(0, 4).join(", ")}`
+      );
+    }
+
+    // Tech stack suggestion
+    if (result.technical_architecture?.recommended_stack?.frontend) {
+      parts.push(
+        `Använd ${result.technical_architecture.recommended_stack.frontend}`
+      );
+    }
+
+    // Quick wins as features
+    if (
+      result.priority_matrix?.quick_wins &&
+      result.priority_matrix.quick_wins.length > 0
+    ) {
+      parts.push(
+        `Prioritera: ${result.priority_matrix.quick_wins
+          .slice(0, 3)
+          .join(", ")}`
+      );
+    }
+
+    const prompt = parts.join(". ") + ".";
+    onBuildFromAudit(prompt);
+    onClose();
+  }, [result, onBuildFromAudit, onClose]);
 
   // Handle escape key
   useEffect(() => {
@@ -142,13 +250,61 @@ export function AuditModal({ result, isOpen, onClose }: AuditModalProps) {
               </div>
 
               <div className="flex items-center gap-2">
+                {/* Save to account */}
+                <button
+                  onClick={handleSaveAudit}
+                  disabled={isSaving || isSaved}
+                  className={`flex items-center gap-2 px-3 py-1.5 text-sm transition-colors ${
+                    isSaved
+                      ? "bg-green-600/20 text-green-400 cursor-default"
+                      : "bg-gray-800 hover:bg-gray-700 text-gray-300"
+                  }`}
+                  title={
+                    isSaved ? "Sparad i ditt konto" : "Spara till ditt konto"
+                  }
+                >
+                  {isSaving ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : isSaved ? (
+                    <Check className="h-4 w-4" />
+                  ) : (
+                    <Save className="h-4 w-4" />
+                  )}
+                  {isSaved ? "Sparad" : "Spara"}
+                </button>
+
+                {/* PDF Report */}
+                <button
+                  onClick={() => setShowPdfModal(true)}
+                  className="flex items-center gap-2 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-300 text-sm transition-colors"
+                  title="Ladda ner som PDF"
+                >
+                  <FileText className="h-4 w-4" />
+                  PDF
+                </button>
+
+                {/* JSON Download */}
                 <button
                   onClick={downloadJSON}
                   className="flex items-center gap-2 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-300 text-sm transition-colors"
+                  title="Ladda ner rådata som JSON"
                 >
                   <Download className="h-4 w-4" />
                   JSON
                 </button>
+
+                {/* Build from Audit */}
+                {onBuildFromAudit && (
+                  <button
+                    onClick={handleBuildFromAudit}
+                    className="flex items-center gap-2 px-3 py-1.5 bg-teal-600 hover:bg-teal-500 text-white text-sm font-medium transition-colors"
+                    title="Skapa en ny sida baserad på denna analys"
+                  >
+                    <Hammer className="h-4 w-4" />
+                    Bygg sida
+                  </button>
+                )}
+
                 <button
                   onClick={onClose}
                   className="p-2 hover:bg-gray-800 text-gray-400 hover:text-white transition-colors"
@@ -435,9 +591,24 @@ export function AuditModal({ result, isOpen, onClose }: AuditModalProps) {
                 )}
               </div>
               {/* Cost hidden from user - only logged server-side */}
+
+              {/* Save error message */}
+              {saveError && (
+                <div className="mt-2 p-2 bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
+                  {saveError}
+                </div>
+              )}
             </div>
           </motion.div>
         </motion.div>
+      )}
+
+      {/* PDF Report Modal */}
+      {showPdfModal && result && (
+        <AuditPdfReport
+          result={result}
+          onClose={() => setShowPdfModal(false)}
+        />
       )}
     </AnimatePresence>
   );

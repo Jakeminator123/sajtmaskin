@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { TemplateGallery } from "@/components/template-gallery";
 import { PromptInput } from "@/components/prompt-input";
 import { HelpTooltip } from "@/components/help-tooltip";
@@ -18,6 +18,10 @@ export function HomePage() {
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [auditResult, setAuditResult] = useState<AuditResult | null>(null);
   const [showAuditModal, setShowAuditModal] = useState(false);
+  const [auditGeneratedPrompt, setAuditGeneratedPrompt] = useState<
+    string | null
+  >(null);
+  const promptInputRef = useRef<HTMLDivElement>(null);
 
   const {
     showOnboarding,
@@ -45,6 +49,20 @@ export function HomePage() {
   const handleRequireAuth = () => {
     setAuthMode("login");
     setShowAuthModal(true);
+  };
+
+  // Handle "Build site from audit" - scroll to prompt input with pre-filled prompt
+  const handleBuildFromAudit = (prompt: string) => {
+    setAuditGeneratedPrompt(prompt);
+    setShowAuditModal(false);
+
+    // Scroll to prompt input section
+    setTimeout(() => {
+      promptInputRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+    }, 100);
   };
 
   // Build initial prompt from onboarding data
@@ -106,6 +124,7 @@ export function HomePage() {
         result={auditResult}
         isOpen={showAuditModal}
         onClose={() => setShowAuditModal(false)}
+        onBuildFromAudit={handleBuildFromAudit}
       />
 
       {/* Onboarding Modal */}
@@ -183,7 +202,12 @@ export function HomePage() {
         </div>
 
         {/* Prompt Input */}
-        <PromptInput initialValue={initialContext || undefined} />
+        <div ref={promptInputRef}>
+          <PromptInput
+            initialValue={auditGeneratedPrompt || initialContext || undefined}
+            key={auditGeneratedPrompt || "default"} // Force re-render when prompt changes
+          />
+        </div>
 
         {/* Footer hint */}
         <p className="text-xs text-gray-600 text-center max-w-sm">
