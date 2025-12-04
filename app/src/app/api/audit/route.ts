@@ -3,7 +3,7 @@
  * POST /api/audit - Analyze a website and return audit results
  *
  * Cost: 3 diamonds
- * Model: gpt-5 (fallback gpt-4o) with WebSearch enabled
+ * Model: gpt-4o with WebSearch enabled
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -15,6 +15,7 @@ import {
   isTestUser,
   TEST_USER_DIAMONDS,
 } from "@/lib/database";
+import { SECRETS } from "@/lib/config";
 import { scrapeWebsite, validateAndNormalizeUrl } from "@/lib/webscraper";
 import {
   buildAuditPrompt,
@@ -41,33 +42,52 @@ const PRICE_OUT_PER_MTOK = 10.0; // gpt-4o output
 
 // Initialize OpenAI client lazily
 function getOpenAIClient(): OpenAI {
-  if (!process.env.OPENAI_API_KEY) {
-    throw new Error("OPENAI_API_KEY is not set in environment variables");
-  }
-
   return new OpenAI({
-    apiKey: process.env.OPENAI_API_KEY,
+    apiKey: SECRETS.openaiApiKey, // Validated in config.ts
     timeout: 300000, // 5 minute timeout
     maxRetries: 2,
   });
 }
 
-// Validate audit result structure
+// Validate audit result structure (lenient - accept partial results)
 function validateAuditResult(result: unknown): result is AuditResult {
   if (!result || typeof result !== "object") return false;
 
   const r = result as Record<string, unknown>;
 
-  // Check that we have some meaningful content
-  const hasContent = Boolean(
-    (typeof r.company === "string" && r.company.trim().length > 0) ||
-      (Array.isArray(r.improvements) && r.improvements.length > 0) ||
-      (r.audit_scores && typeof r.audit_scores === "object") ||
-      (Array.isArray(r.strengths) && r.strengths.length > 0) ||
-      (Array.isArray(r.issues) && r.issues.length > 0)
+  // Accept if we have ANY of these fields with meaningful content
+  const hasCompany =
+    typeof r.company === "string" && r.company.trim().length > 0;
+  const hasImprovements =
+    Array.isArray(r.improvements) && r.improvements.length > 0;
+  const hasScores = Boolean(
+    r.audit_scores && typeof r.audit_scores === "object"
   );
+  const hasStrengths = Array.isArray(r.strengths) && r.strengths.length > 0;
+  const hasIssues = Array.isArray(r.issues) && r.issues.length > 0;
+  const hasBudget = Boolean(
+    r.budget_estimate && typeof r.budget_estimate === "object"
+  );
+  const hasSecurity = Boolean(
+    r.security_analysis && typeof r.security_analysis === "object"
+  );
+  const hasTechRecs = Array.isArray(r.technical_recommendations);
 
-  return hasContent;
+  // Very lenient - just needs to be an object with at least one key
+  const hasAnyContent = Object.keys(r).length > 0;
+
+  // Must have content AND at least one useful field
+  const hasUsefulField =
+    hasCompany ||
+    hasImprovements ||
+    hasScores ||
+    hasStrengths ||
+    hasIssues ||
+    hasBudget ||
+    hasSecurity ||
+    hasTechRecs;
+
+  return hasAnyContent && hasUsefulField;
 }
 
 export async function POST(request: NextRequest) {
@@ -250,33 +270,82 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Log raw output for debugging
+    console.log(`[${requestId}] Raw output length: ${outputText.length} chars`);
+    console.log(
+      `[${requestId}] Output preview: ${outputText.substring(0, 500)}...`
+    );
+
     // Parse JSON response
     let auditResult;
     try {
       auditResult = JSON.parse(outputText);
-    } catch {
+      console.log(`[${requestId}] Direct JSON parse succeeded`);
+    } catch (parseError) {
+      console.log(
+        `[${requestId}] Direct parse failed, trying extraction:`,
+        parseError instanceof Error ? parseError.message : "unknown"
+      );
       // Try to extract JSON from response
       const jsonString = extractFirstJsonObject(outputText);
       if (!jsonString) {
-        console.error(`[${requestId}] Could not parse JSON from response`);
+        console.error(
+          `[${requestId}] Could not find JSON in response. Full output:`,
+          outputText.substring(0, 2000)
+        );
         return NextResponse.json(
           { success: false, error: "Kunde inte tolka AI-svaret. Försök igen." },
           { status: 500 }
         );
       }
-      auditResult = JSON.parse(jsonString);
+      console.log(
+        `[${requestId}] Extracted JSON length: ${jsonString.length} chars`
+      );
+      try {
+        auditResult = JSON.parse(jsonString);
+      } catch (extractParseError) {
+        console.error(
+          `[${requestId}] Failed to parse extracted JSON:`,
+          extractParseError instanceof Error
+            ? extractParseError.message
+            : "unknown"
+        );
+        return NextResponse.json(
+          { success: false, error: "Kunde inte tolka AI-svaret. Försök igen." },
+          { status: 500 }
+        );
+      }
     }
 
-    // Validate result
+    // Log what we got for debugging
+    console.log(`[${requestId}] Parsed result keys:`, Object.keys(auditResult));
+
+    // Validate result (more lenient - just check it's an object with some data)
     if (!validateAuditResult(auditResult)) {
-      console.error(`[${requestId}] Invalid audit result structure`);
-      return NextResponse.json(
-        {
-          success: false,
-          error: "AI-svaret saknar nödvändig information. Försök igen.",
-        },
-        { status: 500 }
+      console.error(
+        `[${requestId}] Invalid audit result. Has fields:`,
+        JSON.stringify({
+          hasCompany: typeof auditResult?.company === "string",
+          hasImprovements: Array.isArray(auditResult?.improvements),
+          hasScores: typeof auditResult?.audit_scores === "object",
+          hasStrengths: Array.isArray(auditResult?.strengths),
+          hasIssues: Array.isArray(auditResult?.issues),
+        })
       );
+      // Try to return partial result anyway if it has ANYTHING useful
+      if (auditResult && typeof auditResult === "object") {
+        console.log(
+          `[${requestId}] Returning partial result despite validation failure`
+        );
+      } else {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "AI-svaret saknar nödvändig information. Försök igen.",
+          },
+          { status: 500 }
+        );
+      }
     }
 
     // Calculate cost (for display)

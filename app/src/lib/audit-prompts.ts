@@ -219,54 +219,132 @@ export function combinePromptForResponsesApi(prompt: PromptMessage[]): {
 
 /**
  * Extract text from OpenAI Responses API response
+ * Handles multiple response formats from different API versions
  * @param response - API response object
  * @returns Extracted text content
  */
 export function extractOutputText(response: Record<string, unknown>): string {
-  // Try output_text first (most common)
+  // Log response structure for debugging
+  console.log(
+    "[extractOutputText] Response keys:",
+    Object.keys(response || {})
+  );
+
+  // Try output_text first (Responses API standard)
   if (
     typeof response?.output_text === "string" &&
     response.output_text.trim()
   ) {
+    console.log("[extractOutputText] Found output_text");
     return response.output_text;
   }
 
-  // Try to extract from output array (for tool calls)
+  // Try choices array (Chat Completions API format)
+  if (Array.isArray(response?.choices) && response.choices.length > 0) {
+    const choice = response.choices[0] as Record<string, unknown>;
+    const message = choice?.message as Record<string, unknown>;
+    if (typeof message?.content === "string") {
+      console.log("[extractOutputText] Found choices[0].message.content");
+      return message.content;
+    }
+  }
+
+  // Try content directly (some API versions)
+  if (typeof response?.content === "string" && response.content.trim()) {
+    console.log("[extractOutputText] Found content");
+    return response.content;
+  }
+
+  // Try text directly
+  if (typeof response?.text === "string" && response.text.trim()) {
+    console.log("[extractOutputText] Found text");
+    return response.text;
+  }
+
+  // Try to extract from output array (for tool calls in Responses API)
   if (Array.isArray(response?.output)) {
+    console.log(
+      "[extractOutputText] Processing output array with",
+      response.output.length,
+      "items"
+    );
+
     const combined = response.output
-      .map((item: Record<string, unknown>) => {
-        if (!item?.content) return "";
-        if (!Array.isArray(item.content)) return "";
+      .map((item: Record<string, unknown>, idx: number) => {
+        console.log(
+          `[extractOutputText] Output item ${idx} type:`,
+          item?.type,
+          "keys:",
+          Object.keys(item || {})
+        );
 
-        return item.content
-          .map((contentItem: Record<string, unknown>) => {
-            const textCandidate = contentItem?.text ?? contentItem?.value;
+        // Handle message type with content array
+        if (item?.type === "message" && Array.isArray(item?.content)) {
+          return (item.content as Array<Record<string, unknown>>)
+            .map((c) => {
+              if (c?.type === "output_text" && typeof c?.text === "string") {
+                return c.text;
+              }
+              if (typeof c?.text === "string") {
+                return c.text;
+              }
+              return "";
+            })
+            .join("");
+        }
 
-            if (typeof textCandidate === "string") {
-              return textCandidate;
-            }
+        // Handle direct content array
+        if (Array.isArray(item?.content)) {
+          return (item.content as Array<Record<string, unknown>>)
+            .map((contentItem) => {
+              const textCandidate = contentItem?.text ?? contentItem?.value;
 
-            if (Array.isArray(textCandidate)) {
-              return textCandidate
-                .map((entry: string | Record<string, unknown>) => {
-                  if (typeof entry === "string") return entry;
-                  if (typeof entry?.text === "string") return entry.text;
-                  if (typeof entry?.value === "string") return entry.value;
-                  return "";
-                })
-                .join("");
-            }
+              if (typeof textCandidate === "string") {
+                return textCandidate;
+              }
 
-            return "";
-          })
-          .join("");
+              if (Array.isArray(textCandidate)) {
+                return textCandidate
+                  .map((entry: string | Record<string, unknown>) => {
+                    if (typeof entry === "string") return entry;
+                    if (typeof entry?.text === "string") return entry.text;
+                    if (typeof entry?.value === "string") return entry.value;
+                    return "";
+                  })
+                  .join("");
+              }
+
+              return "";
+            })
+            .join("");
+        }
+
+        // Handle direct text in item
+        if (typeof item?.text === "string") {
+          return item.text;
+        }
+
+        return "";
       })
       .join("\n")
       .trim();
 
     if (combined) {
+      console.log(
+        "[extractOutputText] Extracted from output array, length:",
+        combined.length
+      );
       return combined;
     }
+  }
+
+  // Last resort: stringify and look for JSON
+  console.log(
+    "[extractOutputText] No standard field found, checking full response"
+  );
+  const responseStr = JSON.stringify(response);
+  if (responseStr.includes("{") && responseStr.includes("}")) {
+    console.log("[extractOutputText] Response contains JSON-like content");
   }
 
   return "";

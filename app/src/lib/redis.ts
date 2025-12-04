@@ -6,32 +6,25 @@
  */
 
 import Redis from "ioredis";
-
-// Redis configuration from environment variables
-const REDIS_HOST =
-  process.env.REDIS_HOST ||
-  "redis-12352.fcrce259.eu-central-1-3.ec2.cloud.redislabs.com";
-const REDIS_PORT = parseInt(process.env.REDIS_PORT || "12352");
-const REDIS_PASSWORD = process.env.REDIS_PASSWORD || "";
-const REDIS_USERNAME = process.env.REDIS_USERNAME || "default";
+import { REDIS_CONFIG, FEATURES } from "./config";
 
 // Create Redis client (singleton)
 let redisClient: Redis | null = null;
 
 export function getRedis(): Redis | null {
-  // Skip if no password configured (development without Redis)
-  if (!REDIS_PASSWORD) {
-    console.log("[Redis] No password configured, skipping Redis connection");
+  // Skip if Redis not configured
+  if (!FEATURES.useRedisCache) {
+    console.log("[Redis] Not configured, skipping Redis connection");
     return null;
   }
 
   if (!redisClient) {
     try {
       redisClient = new Redis({
-        host: REDIS_HOST,
-        port: REDIS_PORT,
-        username: REDIS_USERNAME,
-        password: REDIS_PASSWORD,
+        host: REDIS_CONFIG.host,
+        port: REDIS_CONFIG.port,
+        username: REDIS_CONFIG.username,
+        password: REDIS_CONFIG.password,
         maxRetriesPerRequest: 3,
         lazyConnect: true,
         connectTimeout: 10000,

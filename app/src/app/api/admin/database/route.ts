@@ -8,12 +8,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { getDb, TEST_USER_EMAIL, getUploadsDir } from "@/lib/database";
 import { getRedisInfo, flushRedisCache } from "@/lib/redis";
+import { PATHS } from "@/lib/config";
 import fs from "fs";
 import path from "path";
 
-// Get data directory (supports DATA_DIR env var for Render persistent disk)
-const DATA_DIR = process.env.DATA_DIR || process.cwd();
-const DB_PATH = path.join(DATA_DIR, "sajtmaskin.db");
+// Use centralized path configuration
+const DB_PATH = PATHS.database;
 
 // Check if user is admin
 async function isAdmin(req: NextRequest): Promise<boolean> {
@@ -88,7 +88,7 @@ export async function GET(req: NextRequest) {
       redis: await getRedisInfo(),
       dbFileSize: getDbFileSize(),
       uploads: uploadsInfo,
-      dataDir: DATA_DIR,
+      dataDir: PATHS.dataDir,
     };
 
     return NextResponse.json({ success: true, stats });

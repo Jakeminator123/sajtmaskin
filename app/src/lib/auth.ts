@@ -14,17 +14,17 @@ import {
   updateUserLastLogin,
   type User,
 } from "./database";
+import { SECRETS, URLS, IS_PRODUCTION } from "./config";
 
-// JWT configuration
-const JWT_SECRET = process.env.JWT_SECRET || "dev-secret-change-in-production";
+// JWT configuration - use centralized secrets
+const JWT_SECRET = SECRETS.jwtSecret;
 const JWT_EXPIRY = 7 * 24 * 60 * 60; // 7 days in seconds
 const AUTH_COOKIE_NAME = "sajtmaskin_auth";
 
-// Google OAuth configuration
-const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID;
-const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET;
-const GOOGLE_REDIRECT_URI =
-  process.env.NEXT_PUBLIC_BASE_URL + "/api/auth/google/callback";
+// Google OAuth configuration - use centralized secrets
+const GOOGLE_CLIENT_ID = SECRETS.googleClientId;
+const GOOGLE_CLIENT_SECRET = SECRETS.googleClientSecret;
+const GOOGLE_REDIRECT_URI = URLS.googleCallbackUrl;
 
 // ============ Password Hashing ============
 
@@ -129,7 +129,7 @@ export async function setAuthCookie(token: string): Promise<void> {
   const cookieStore = await cookies();
   cookieStore.set(AUTH_COOKIE_NAME, token, {
     httpOnly: true,
-    secure: process.env.NODE_ENV === "production",
+    secure: IS_PRODUCTION,
     sameSite: "lax",
     path: "/",
     maxAge: JWT_EXPIRY,

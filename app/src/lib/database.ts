@@ -1,11 +1,10 @@
 import Database from "better-sqlite3";
-import path from "path";
 import fs from "fs";
 import crypto from "crypto";
+import { PATHS, logConfig } from "./config";
 
-// Database file location - use DATA_DIR env var for persistent storage (e.g., /var/data on Render)
-const DATA_DIR = process.env.DATA_DIR || process.cwd();
-const DB_PATH = path.join(DATA_DIR, "sajtmaskin.db");
+// Use centralized path configuration
+const DB_PATH = PATHS.database;
 
 // Test user configuration - unlimited credits for testing
 // Login with email: "test@gmail.com" and password: "Ma!!orca123"
@@ -23,19 +22,30 @@ function hashPasswordInternal(password: string): string {
   return `${salt}:${hash}`;
 }
 
-// Uploads directory for images - use DATA_DIR for persistent storage
-// NOTE: Directory is created lazily via getUploadsDir() to avoid build-time errors on Render
+// Uploads directory - use centralized config
 function getUploadsPath(): string {
-  return process.env.DATA_DIR
-    ? path.join(process.env.DATA_DIR, "uploads")
-    : path.join(process.cwd(), "public", "uploads");
+  return PATHS.uploads;
 }
 
 // Create database connection (singleton pattern)
 let db: Database.Database | null = null;
+let configLogged = false;
 
 export function getDb(): Database.Database {
   if (!db) {
+    // Log configuration on first database access
+    if (!configLogged) {
+      logConfig();
+      configLogged = true;
+    }
+
+    // Ensure data directory exists
+    const dataDir = PATHS.dataDir;
+    if (!fs.existsSync(dataDir)) {
+      fs.mkdirSync(dataDir, { recursive: true });
+      console.log("[Database] Created data directory:", dataDir);
+    }
+
     db = new Database(DB_PATH);
     db.pragma("journal_mode = WAL"); // Better performance for concurrent access
     initializeDatabase(db);
