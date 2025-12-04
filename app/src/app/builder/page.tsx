@@ -10,6 +10,7 @@ import { CodePreview } from "@/components/code-preview";
 import { HelpTooltip } from "@/components/help-tooltip";
 import { ClientOnly } from "@/components/client-only";
 import { ShaderBackground } from "@/components/shader-background";
+import { BackofficeOptionModal } from "@/components/backoffice-option-modal";
 import { useBuilderStore, GeneratedFile } from "@/lib/store";
 import { useAuth } from "@/lib/auth-store";
 import { getProject } from "@/lib/project-client";
@@ -76,6 +77,11 @@ function BuilderContent() {
   const [projectName, setProjectName] = useState<string | null>(null);
   const [mobileTab, setMobileTab] = useState<"chat" | "preview">("chat");
   const [showMobileMenu, setShowMobileMenu] = useState(false);
+  const [showBackofficeModal, setShowBackofficeModal] = useState(false);
+  const [backofficeMode, setBackofficeMode] = useState<"download" | "publish">(
+    "download"
+  );
+  const [isDownloading, setIsDownloading] = useState(false);
   const isMobile = useIsMobile();
 
   // Avatar context for triggering reactions
@@ -130,6 +136,58 @@ function BuilderContent() {
       "generation_start",
       "Ny design! Låt oss skapa något fantastiskt!"
     );
+  };
+
+  // Handle download button click - show modal
+  const handleDownloadClick = () => {
+    setBackofficeMode("download");
+    setShowBackofficeModal(true);
+  };
+
+  // Handle publish button click - show modal
+  const handlePublishClick = () => {
+    setBackofficeMode("publish");
+    setShowBackofficeModal(true);
+  };
+
+  // Handle backoffice modal confirmation
+  const handleBackofficeConfirm = async (
+    includeBackoffice: boolean,
+    password?: string
+  ) => {
+    if (!chatId || !versionId) return;
+
+    if (backofficeMode === "download") {
+      setIsDownloading(true);
+      try {
+        const params = new URLSearchParams({
+          chatId,
+          versionId,
+          ...(includeBackoffice && { includeBackoffice: "true" }),
+          ...(includeBackoffice && password && { password }),
+        });
+
+        // Open download in new tab with password included for .env generation
+        window.open(`/api/download?${params}`, "_blank");
+
+        setShowBackofficeModal(false);
+        triggerReaction(
+          "generation_complete",
+          includeBackoffice
+            ? "Din sajt med backoffice laddas ner! Kolla BACKOFFICE-SETUP.md för instruktioner."
+            : "Din sajt laddas ner!"
+        );
+      } finally {
+        setIsDownloading(false);
+      }
+    } else {
+      // Publish mode - TODO: implement publish with backoffice
+      setShowBackofficeModal(false);
+      triggerReaction(
+        "generation_start",
+        "Publicering kommer snart! För nu, ladda ner och deploya manuellt."
+      );
+    }
   };
 
   const title = projectName
@@ -235,22 +293,17 @@ function BuilderContent() {
             size="sm"
             className="gap-2 border-gray-700 text-gray-300 hover:bg-gray-800 hover:text-white"
             disabled={!chatId || !versionId}
-            onClick={() => {
-              if (chatId && versionId) {
-                window.open(
-                  `/api/download?chatId=${chatId}&versionId=${versionId}`,
-                  "_blank"
-                );
-              }
-            }}
+            onClick={handleDownloadClick}
           >
             <Download className="h-4 w-4" />
             Ladda ner
-            <HelpTooltip text="Laddar ner alla genererade filer som en ZIP-fil. Packa upp och lägg filerna i ditt projekt." />
+            <HelpTooltip text="Laddar ner alla genererade filer som en ZIP-fil med möjlighet att inkludera backoffice." />
           </Button>
           <Button
             size="sm"
             className="gap-2 bg-teal-600 hover:bg-teal-500 text-white"
+            disabled={!chatId || !versionId}
+            onClick={handlePublishClick}
           >
             <Rocket className="h-4 w-4" />
             Publicera
@@ -309,13 +362,8 @@ function BuilderContent() {
               className="flex-1 gap-2 border-gray-700 text-gray-300"
               disabled={!chatId || !versionId}
               onClick={() => {
-                if (chatId && versionId) {
-                  window.open(
-                    `/api/download?chatId=${chatId}&versionId=${versionId}`,
-                    "_blank"
-                  );
-                }
                 setShowMobileMenu(false);
+                handleDownloadClick();
               }}
             >
               <Download className="h-4 w-4" />
@@ -324,6 +372,11 @@ function BuilderContent() {
             <Button
               size="sm"
               className="flex-1 gap-2 bg-teal-600 hover:bg-teal-500"
+              disabled={!chatId || !versionId}
+              onClick={() => {
+                setShowMobileMenu(false);
+                handlePublishClick();
+              }}
             >
               <Rocket className="h-4 w-4" />
               Publicera
@@ -425,6 +478,15 @@ function BuilderContent() {
 
       {/* 3D Avatar Guide - Desktop only */}
       {!isMobile && <FloatingAvatar section="builder" showWelcome={false} />}
+
+      {/* Backoffice Option Modal */}
+      <BackofficeOptionModal
+        isOpen={showBackofficeModal}
+        onClose={() => setShowBackofficeModal(false)}
+        onConfirm={handleBackofficeConfirm}
+        mode={backofficeMode}
+        isLoading={isDownloading}
+      />
     </div>
   );
 }
