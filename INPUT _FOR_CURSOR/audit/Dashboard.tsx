@@ -1,20 +1,20 @@
-'use client';
+"use client";
 
-import { motion, AnimatePresence } from 'framer-motion';
-import { useState } from 'react';
-import MetricsChart from './MetricsChart';
-import ImprovementMatrix from './ImprovementMatrix';
-import SecurityReport from './SecurityReport';
-import CompetitorInsights from './CompetitorInsights';
-import TechnicalRecommendations from './TechnicalRecommendations';
-import BudgetBreakdown from './BudgetBreakdown';
-import RoadmapView from './RoadmapView';
-import WebsiteTypeCard from './WebsiteTypeCard';
-import ContentStrategy from './ContentStrategy';
-import DesignDirection from './DesignDirection';
-import CompetitorBenchmark from './CompetitorBenchmark';
-import SuccessMetrics from './SuccessMetrics';
-import type { AuditResult } from '@/types/audit';
+import { motion, AnimatePresence } from "framer-motion";
+import { useState } from "react";
+import MetricsChart from "./MetricsChart";
+import ImprovementMatrix from "./ImprovementMatrix";
+import SecurityReport from "./SecurityReport";
+import CompetitorInsights from "./CompetitorInsights";
+import TechnicalRecommendations from "./TechnicalRecommendations";
+import BudgetBreakdown from "./BudgetBreakdown";
+import RoadmapView from "./RoadmapView";
+import WebsiteTypeCard from "./WebsiteTypeCard";
+import ContentStrategy from "./ContentStrategy";
+import DesignDirection from "./DesignDirection";
+import CompetitorBenchmark from "./CompetitorBenchmark";
+import SuccessMetrics from "./SuccessMetrics";
+import type { AuditResult } from "@/types/audit";
 
 interface DashboardProps {
   result: AuditResult;
@@ -24,24 +24,33 @@ interface DashboardProps {
   onCopyLink?: () => void;
 }
 
-type ViewMode = 'overview' | 'technical' | 'business' | 'roadmap';
+type ViewMode = "overview" | "technical" | "business" | "roadmap";
 
-export default function Dashboard({ result, onDownloadPDF, onDownloadJSON, isGeneratingPDF = false, onCopyLink }: DashboardProps) {
-  const [activeView, setActiveView] = useState<ViewMode>('overview');
+export default function Dashboard({
+  result,
+  onDownloadPDF,
+  onDownloadJSON,
+  isGeneratingPDF = false,
+  onCopyLink,
+}: DashboardProps) {
+  const [activeView, setActiveView] = useState<ViewMode>("overview");
 
   const viewModes = [
-    { id: 'overview', label: 'Översikt', icon: '📊' },
-    { id: 'technical', label: 'Teknisk', icon: '⚙️' },
-    { id: 'business', label: 'Affär', icon: '💼' },
-    { id: 'roadmap', label: 'Roadmap', icon: '🗺️' },
+    { id: "overview", label: "Översikt", icon: "📊" },
+    { id: "technical", label: "Teknisk", icon: "⚙️" },
+    { id: "business", label: "Affär", icon: "💼" },
+    { id: "roadmap", label: "Roadmap", icon: "🗺️" },
   ];
 
-  const hasAuditScores = result.audit_scores && Object.keys(result.audit_scores).length > 0;
+  const hasAuditScores =
+    result.audit_scores && Object.keys(result.audit_scores).length > 0;
   const hasImprovements = result.improvements && result.improvements.length > 0;
   const hasPriorityMatrix = result.priority_matrix;
   const hasSecurityAnalysis = result.security_analysis;
   const hasCompetitorInsights = result.competitor_insights;
-  const hasTechnicalRecs = result.technical_recommendations && result.technical_recommendations.length > 0;
+  const hasTechnicalRecs =
+    result.technical_recommendations &&
+    result.technical_recommendations.length > 0;
   const hasBudget = result.budget_estimate;
   const hasRoadmap = result.implementation_roadmap;
   const hasWebsiteType = Boolean(result.website_type_recommendation);
@@ -49,7 +58,9 @@ export default function Dashboard({ result, onDownloadPDF, onDownloadJSON, isGen
   const hasDesignDirection = Boolean(result.design_direction);
   const hasBenchmarking = Boolean(result.competitor_benchmarking);
   const hasSuccessMetrics = Boolean(result.success_metrics);
-  const hasTechnicalContent = Boolean(hasSecurityAnalysis || hasTechnicalRecs || result.technical_architecture);
+  const hasTechnicalContent = Boolean(
+    hasSecurityAnalysis || hasTechnicalRecs || result.technical_architecture
+  );
   const hasBusinessContent = Boolean(
     hasCompetitorInsights ||
       hasBudget ||
@@ -65,18 +76,20 @@ export default function Dashboard({ result, onDownloadPDF, onDownloadJSON, isGen
       {/* Header with Actions */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
         <div>
-          <motion.h1 
+          <motion.h1
             className="text-4xl md:text-5xl lg:text-6xl font-black mb-3"
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
           >
             <span className="inline-block bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600">
-              {result.audit_type === 'website_audit' ? 'Analysresultat' : 'Rekommendationer'}
+              {result.audit_type === "website_audit"
+                ? "Analysresultat"
+                : "Rekommendationer"}
             </span>
           </motion.h1>
           {result.company && (
-            <motion.p 
+            <motion.p
               className="text-xl md:text-2xl text-gray-300 font-semibold"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -86,7 +99,7 @@ export default function Dashboard({ result, onDownloadPDF, onDownloadJSON, isGen
             </motion.p>
           )}
           {result.domain && (
-            <motion.p 
+            <motion.p
               className="text-lg text-gray-400 mt-1"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
@@ -104,7 +117,7 @@ export default function Dashboard({ result, onDownloadPDF, onDownloadJSON, isGen
             onClick={onDownloadPDF}
             disabled={isGeneratingPDF}
             className={`px-6 py-3 bg-white/10 hover:bg-white/20 text-white rounded-xl transition-all flex items-center gap-2 backdrop-blur-xl ${
-              isGeneratingPDF ? 'opacity-50 cursor-not-allowed' : ''
+              isGeneratingPDF ? "opacity-50 cursor-not-allowed" : ""
             }`}
             title="Ladda ner som PDF"
           >
@@ -112,7 +125,7 @@ export default function Dashboard({ result, onDownloadPDF, onDownloadJSON, isGen
               <>
                 <motion.span
                   animate={{ rotate: 360 }}
-                  transition={{ duration: 1, repeat: Infinity, ease: 'linear' }}
+                  transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
                   className="inline-block"
                 >
                   ⏳
@@ -158,8 +171,8 @@ export default function Dashboard({ result, onDownloadPDF, onDownloadJSON, isGen
             onClick={() => setActiveView(mode.id as ViewMode)}
             className={`flex-1 px-4 py-3 rounded-lg transition-all flex items-center justify-center gap-2 ${
               activeView === mode.id
-                ? 'bg-accent text-white'
-                : 'text-gray-400 hover:text-white hover:bg-white/10'
+                ? "bg-accent text-white"
+                : "text-gray-400 hover:text-white hover:bg-white/10"
             }`}
           >
             <span>{mode.icon}</span>
@@ -179,10 +192,17 @@ export default function Dashboard({ result, onDownloadPDF, onDownloadJSON, isGen
             <span className="text-gray-400">Analys kostnad</span>
             <div className="text-right">
               <span className="text-2xl font-bold text-white">
-                {typeof result.cost.sek === 'number' ? result.cost.sek.toFixed(2) : '0.00'} SEK
+                {typeof result.cost.sek === "number"
+                  ? result.cost.sek.toFixed(2)
+                  : "0.00"}{" "}
+                SEK
               </span>
               <span className="text-sm text-gray-500 ml-2">
-                ({typeof result.cost.tokens === 'number' ? result.cost.tokens : 0} tokens)
+                (
+                {typeof result.cost.tokens === "number"
+                  ? result.cost.tokens
+                  : 0}{" "}
+                tokens)
               </span>
             </div>
           </div>
@@ -191,7 +211,7 @@ export default function Dashboard({ result, onDownloadPDF, onDownloadJSON, isGen
 
       <AnimatePresence mode="wait">
         {/* Overview View */}
-        {activeView === 'overview' && (
+        {activeView === "overview" && (
           <motion.div
             key="overview"
             initial={{ opacity: 0, x: 20 }}
@@ -201,11 +221,15 @@ export default function Dashboard({ result, onDownloadPDF, onDownloadJSON, isGen
           >
             {/* Metrics Overview */}
             {hasAuditScores && result.audit_scores && (
-              <MetricsChart scores={result.audit_scores as { [key: string]: number }} />
+              <MetricsChart
+                scores={result.audit_scores as { [key: string]: number }}
+              />
             )}
 
             {hasWebsiteType && result.website_type_recommendation && (
-              <WebsiteTypeCard recommendation={result.website_type_recommendation} />
+              <WebsiteTypeCard
+                recommendation={result.website_type_recommendation}
+              />
             )}
 
             {/* Strengths and Issues */}
@@ -219,7 +243,11 @@ export default function Dashboard({ result, onDownloadPDF, onDownloadJSON, isGen
                   <h3 className="text-2xl md:text-3xl font-black text-green-400 mb-6 flex items-center gap-3">
                     <motion.span
                       animate={{ rotate: [0, 10, -10, 0] }}
-                      transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                      transition={{
+                        duration: 2,
+                        repeat: Infinity,
+                        ease: "easeInOut",
+                      }}
                     >
                       ✅
                     </motion.span>
@@ -228,18 +256,20 @@ export default function Dashboard({ result, onDownloadPDF, onDownloadJSON, isGen
                     </span>
                   </h3>
                   <ul className="space-y-2">
-                    {result.strengths.slice(0, 5).map((strength: string, index: number) => (
-                      <motion.li
-                        key={index}
-                        initial={{ opacity: 0, x: -20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: index * 0.1 }}
-                        className="text-gray-300 flex items-start gap-2"
-                      >
-                        <span className="text-green-400 mt-1">•</span>
-                        <span>{strength}</span>
-                      </motion.li>
-                    ))}
+                    {result.strengths
+                      .slice(0, 5)
+                      .map((strength: string, index: number) => (
+                        <motion.li
+                          key={index}
+                          initial={{ opacity: 0, x: -20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: index * 0.1 }}
+                          className="text-gray-300 flex items-start gap-2"
+                        >
+                          <span className="text-green-400 mt-1">•</span>
+                          <span>{strength}</span>
+                        </motion.li>
+                      ))}
                   </ul>
                   {result.strengths.length > 5 && (
                     <p className="text-sm text-gray-500 mt-4">
@@ -259,7 +289,11 @@ export default function Dashboard({ result, onDownloadPDF, onDownloadJSON, isGen
                   <h3 className="text-2xl md:text-3xl font-black text-red-400 mb-6 flex items-center gap-3">
                     <motion.span
                       animate={{ scale: [1, 1.2, 1] }}
-                      transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                      transition={{
+                        duration: 2,
+                        repeat: Infinity,
+                        ease: "easeInOut",
+                      }}
                     >
                       ⚠️
                     </motion.span>
@@ -268,18 +302,20 @@ export default function Dashboard({ result, onDownloadPDF, onDownloadJSON, isGen
                     </span>
                   </h3>
                   <ul className="space-y-2">
-                    {result.issues.slice(0, 5).map((issue: string, index: number) => (
-                      <motion.li
-                        key={index}
-                        initial={{ opacity: 0, x: -20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: index * 0.1 }}
-                        className="text-gray-300 flex items-start gap-2"
-                      >
-                        <span className="text-red-400 mt-1">•</span>
-                        <span>{issue}</span>
-                      </motion.li>
-                    ))}
+                    {result.issues
+                      .slice(0, 5)
+                      .map((issue: string, index: number) => (
+                        <motion.li
+                          key={index}
+                          initial={{ opacity: 0, x: -20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: index * 0.1 }}
+                          className="text-gray-300 flex items-start gap-2"
+                        >
+                          <span className="text-red-400 mt-1">•</span>
+                          <span>{issue}</span>
+                        </motion.li>
+                      ))}
                   </ul>
                   {result.issues.length > 5 && (
                     <p className="text-sm text-gray-500 mt-4">
@@ -291,57 +327,69 @@ export default function Dashboard({ result, onDownloadPDF, onDownloadJSON, isGen
             </div>
 
             {/* Priority Matrix */}
-            {hasPriorityMatrix && hasImprovements && result.improvements && result.priority_matrix && (
-              <ImprovementMatrix
-                improvements={result.improvements}
-                priorityMatrix={result.priority_matrix as {
-                  quick_wins: string[]
-                  major_projects: string[]
-                  fill_ins: string[]
-                  thankless_tasks?: string[]
-                }}
-              />
-            )}
+            {hasPriorityMatrix &&
+              hasImprovements &&
+              result.improvements &&
+              result.priority_matrix && (
+                <ImprovementMatrix
+                  improvements={result.improvements}
+                  priorityMatrix={
+                    result.priority_matrix as {
+                      quick_wins: string[];
+                      major_projects: string[];
+                      fill_ins: string[];
+                      thankless_tasks?: string[];
+                    }
+                  }
+                />
+              )}
 
             {/* Expected Outcomes */}
-            {result.expected_outcomes && result.expected_outcomes.length > 0 && (
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="backdrop-blur-xl bg-white/10 border border-white/20 rounded-2xl p-6"
-              >
-                <h3 className="text-2xl md:text-3xl font-black text-white mb-6 flex items-center gap-3">
-                  <motion.span
-                    animate={{ rotate: [0, 360] }}
-                    transition={{ duration: 3, repeat: Infinity, ease: "linear" }}
-                  >
-                    🎯
-                  </motion.span>
-                  <span className="bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600">
-                    Förväntade resultat
-                  </span>
-                </h3>
-                <div className="grid md:grid-cols-2 gap-4">
-                  {result.expected_outcomes.map((outcome: string, index: number) => (
-                    <motion.div
-                      key={index}
-                      initial={{ opacity: 0, scale: 0.9 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      transition={{ delay: index * 0.1 }}
-                      className="flex items-center gap-3 p-4 bg-white/5 rounded-xl"
+            {result.expected_outcomes &&
+              result.expected_outcomes.length > 0 && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="backdrop-blur-xl bg-white/10 border border-white/20 rounded-2xl p-6"
+                >
+                  <h3 className="text-2xl md:text-3xl font-black text-white mb-6 flex items-center gap-3">
+                    <motion.span
+                      animate={{ rotate: [0, 360] }}
+                      transition={{
+                        duration: 3,
+                        repeat: Infinity,
+                        ease: "linear",
+                      }}
                     >
-                      <span className="text-2xl">📈</span>
-                      <span className="text-gray-300">{outcome}</span>
-                    </motion.div>
-                  ))}
-                </div>
-              </motion.div>
-            )}
+                      🎯
+                    </motion.span>
+                    <span className="bg-clip-text text-transparent bg-gradient-to-r from-cyan-400 via-blue-500 to-purple-600">
+                      Förväntade resultat
+                    </span>
+                  </h3>
+                  <div className="grid md:grid-cols-2 gap-4">
+                    {result.expected_outcomes.map(
+                      (outcome: string, index: number) => (
+                        <motion.div
+                          key={index}
+                          initial={{ opacity: 0, scale: 0.9 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          transition={{ delay: index * 0.1 }}
+                          className="flex items-center gap-3 p-4 bg-white/5 rounded-xl"
+                        >
+                          <span className="text-2xl">📈</span>
+                          <span className="text-gray-300">{outcome}</span>
+                        </motion.div>
+                      )
+                    )}
+                  </div>
+                </motion.div>
+              )}
           </motion.div>
         )}
 
         {/* Technical View */}
-        {activeView === 'technical' && (
+        {activeView === "technical" && (
           <motion.div
             key="technical"
             initial={{ opacity: 0, x: 20 }}
@@ -350,16 +398,22 @@ export default function Dashboard({ result, onDownloadPDF, onDownloadJSON, isGen
             className="space-y-8"
           >
             {hasSecurityAnalysis && result.security_analysis && (
-              <SecurityReport securityAnalysis={result.security_analysis as {
-                https_status: string
-                headers_analysis: string
-                cookie_policy: string
-                vulnerabilities: string[]
-              }} />
+              <SecurityReport
+                securityAnalysis={
+                  result.security_analysis as {
+                    https_status: string;
+                    headers_analysis: string;
+                    cookie_policy: string;
+                    vulnerabilities: string[];
+                  }
+                }
+              />
             )}
 
             {hasTechnicalRecs && result.technical_recommendations && (
-              <TechnicalRecommendations recommendations={result.technical_recommendations} />
+              <TechnicalRecommendations
+                recommendations={result.technical_recommendations}
+              />
             )}
 
             {result.technical_architecture && (
@@ -381,47 +435,69 @@ export default function Dashboard({ result, onDownloadPDF, onDownloadJSON, isGen
                         <span>Rekommenderad stack</span>
                       </h4>
                       <div className="grid md:grid-cols-2 gap-4">
-                        {Object.entries(result.technical_architecture.recommended_stack).map(([key, value]) => (
-                          <div key={key} className="flex justify-between items-center p-3 bg-white/5 rounded-lg">
-                            <span className="text-gray-400 capitalize">{key}:</span>
-                            <span className="text-white font-medium">{value as string}</span>
+                        {Object.entries(
+                          result.technical_architecture.recommended_stack
+                        ).map(([key, value]) => (
+                          <div
+                            key={key}
+                            className="flex justify-between items-center p-3 bg-white/5 rounded-lg"
+                          >
+                            <span className="text-gray-400 capitalize">
+                              {key}:
+                            </span>
+                            <span className="text-white font-medium">
+                              {value as string}
+                            </span>
                           </div>
                         ))}
                       </div>
                     </div>
                   )}
-                  {result.technical_architecture.integrations && result.technical_architecture.integrations.length > 0 && (
-                    <div>
-                      <h4 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-                        <span className="text-purple-400">🔌</span>
-                        <span>Integrationer</span>
-                      </h4>
-                      <ul className="grid sm:grid-cols-2 gap-2 text-gray-300 text-sm">
-                        {result.technical_architecture.integrations.map((integration: string) => (
-                          <li key={integration} className="flex items-center gap-2 p-2 rounded-lg bg-white/5">
-                            <span className="text-accent text-lg">🔌</span>
-                            {integration}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                  {result.technical_architecture.security_measures && result.technical_architecture.security_measures.length > 0 && (
-                    <div>
-                      <h4 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-                        <span className="text-green-400">🔒</span>
-                        <span>Säkerhetsåtgärder</span>
-                      </h4>
-                      <ul className="space-y-2 text-gray-300 text-sm">
-                        {result.technical_architecture.security_measures.map((measure: string) => (
-                          <li key={measure} className="flex items-start gap-2">
-                            <span className="text-green-400 mt-0.5">•</span>
-                            {measure}
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
+                  {result.technical_architecture.integrations &&
+                    result.technical_architecture.integrations.length > 0 && (
+                      <div>
+                        <h4 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                          <span className="text-purple-400">🔌</span>
+                          <span>Integrationer</span>
+                        </h4>
+                        <ul className="grid sm:grid-cols-2 gap-2 text-gray-300 text-sm">
+                          {result.technical_architecture.integrations.map(
+                            (integration: string) => (
+                              <li
+                                key={integration}
+                                className="flex items-center gap-2 p-2 rounded-lg bg-white/5"
+                              >
+                                <span className="text-accent text-lg">🔌</span>
+                                {integration}
+                              </li>
+                            )
+                          )}
+                        </ul>
+                      </div>
+                    )}
+                  {result.technical_architecture.security_measures &&
+                    result.technical_architecture.security_measures.length >
+                      0 && (
+                      <div>
+                        <h4 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
+                          <span className="text-green-400">🔒</span>
+                          <span>Säkerhetsåtgärder</span>
+                        </h4>
+                        <ul className="space-y-2 text-gray-300 text-sm">
+                          {result.technical_architecture.security_measures.map(
+                            (measure: string) => (
+                              <li
+                                key={measure}
+                                className="flex items-start gap-2"
+                              >
+                                <span className="text-green-400 mt-0.5">•</span>
+                                {measure}
+                              </li>
+                            )
+                          )}
+                        </ul>
+                      </div>
+                    )}
                 </div>
               </motion.div>
             )}
@@ -437,7 +513,7 @@ export default function Dashboard({ result, onDownloadPDF, onDownloadJSON, isGen
         )}
 
         {/* Business View */}
-        {activeView === 'business' && (
+        {activeView === "business" && (
           <motion.div
             key="business"
             initial={{ opacity: 0, x: 20 }}
@@ -465,14 +541,16 @@ export default function Dashboard({ result, onDownloadPDF, onDownloadJSON, isGen
                   </span>
                 </h3>
                 <div className="grid md:grid-cols-2 gap-6">
-                  {Object.entries(result.target_audience_analysis).map(([key, value]) => (
-                    <div key={key}>
-                      <h4 className="text-lg font-bold text-white mb-3 capitalize">
-                        {key.replace('_', ' ')}
-                      </h4>
-                      <p className="text-gray-400">{value as string}</p>
-                    </div>
-                  ))}
+                  {Object.entries(result.target_audience_analysis).map(
+                    ([key, value]) => (
+                      <div key={key}>
+                        <h4 className="text-lg font-bold text-white mb-3 capitalize">
+                          {key.replace("_", " ")}
+                        </h4>
+                        <p className="text-gray-400">{value as string}</p>
+                      </div>
+                    )
+                  )}
                 </div>
               </motion.div>
             )}
@@ -489,7 +567,9 @@ export default function Dashboard({ result, onDownloadPDF, onDownloadJSON, isGen
             )}
 
             {hasBenchmarking && result.competitor_benchmarking && (
-              <CompetitorBenchmark benchmarking={result.competitor_benchmarking} />
+              <CompetitorBenchmark
+                benchmarking={result.competitor_benchmarking}
+              />
             )}
 
             {hasSuccessMetrics && result.success_metrics && (
@@ -507,7 +587,7 @@ export default function Dashboard({ result, onDownloadPDF, onDownloadJSON, isGen
         )}
 
         {/* Roadmap View */}
-        {activeView === 'roadmap' && (
+        {activeView === "roadmap" && (
           <motion.div
             key="roadmap"
             initial={{ opacity: 0, x: 20 }}

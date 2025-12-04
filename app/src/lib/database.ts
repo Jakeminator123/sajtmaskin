@@ -1150,7 +1150,8 @@ export type TransactionType =
   | "generation"
   | "refine"
   | "purchase"
-  | "admin_adjust";
+  | "admin_adjust"
+  | "audit";
 
 export interface Transaction {
   id: number;

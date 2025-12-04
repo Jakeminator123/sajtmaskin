@@ -8,11 +8,16 @@ import { OnboardingModal, useOnboarding } from "@/components/onboarding-modal";
 import { Navbar } from "@/components/navbar";
 import { AuthModal } from "@/components/auth/auth-modal";
 import { ShaderBackground } from "@/components/shader-background";
+import { SiteAuditSection } from "@/components/site-audit-section";
+import { AuditModal } from "@/components/audit-modal";
 import { RotateCcw } from "lucide-react";
+import type { AuditResult } from "@/types/audit";
 
 export function HomePage() {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
+  const [auditResult, setAuditResult] = useState<AuditResult | null>(null);
+  const [showAuditModal, setShowAuditModal] = useState(false);
 
   const {
     showOnboarding,
@@ -29,6 +34,16 @@ export function HomePage() {
 
   const handleRegisterClick = () => {
     setAuthMode("register");
+    setShowAuthModal(true);
+  };
+
+  const handleAuditComplete = (result: AuditResult) => {
+    setAuditResult(result);
+    setShowAuditModal(true);
+  };
+
+  const handleRequireAuth = () => {
+    setAuthMode("login");
     setShowAuthModal(true);
   };
 
@@ -86,6 +101,13 @@ export function HomePage() {
         defaultMode={authMode}
       />
 
+      {/* Audit Result Modal */}
+      <AuditModal
+        result={auditResult}
+        isOpen={showAuditModal}
+        onClose={() => setShowAuditModal(false)}
+      />
+
       {/* Onboarding Modal */}
       {showOnboarding && (
         <OnboardingModal onComplete={handleComplete} onSkip={handleSkip} />
@@ -136,11 +158,26 @@ export function HomePage() {
         {/* Template Gallery */}
         <TemplateGallery />
 
-        {/* Divider */}
+        {/* Divider - Site Audit */}
+        <div className="flex items-center gap-4 w-full max-w-2xl">
+          <div className="flex-1 h-px bg-gradient-to-r from-transparent via-teal-700/50 to-transparent" />
+          <span className="text-sm font-medium text-teal-500/70 uppercase tracking-wider">
+            Analysera
+          </span>
+          <div className="flex-1 h-px bg-gradient-to-r from-transparent via-teal-700/50 to-transparent" />
+        </div>
+
+        {/* Site Audit Section */}
+        <SiteAuditSection
+          onAuditComplete={handleAuditComplete}
+          onRequireAuth={handleRequireAuth}
+        />
+
+        {/* Divider - Custom Build */}
         <div className="flex items-center gap-4 w-full max-w-md">
           <div className="flex-1 h-px bg-gradient-to-r from-transparent via-gray-700 to-transparent" />
           <span className="text-sm font-medium text-gray-500 uppercase tracking-wider">
-            Eller
+            Eller beskriv
           </span>
           <div className="flex-1 h-px bg-gradient-to-r from-transparent via-gray-700 to-transparent" />
         </div>
