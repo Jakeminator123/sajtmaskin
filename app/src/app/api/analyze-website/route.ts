@@ -153,6 +153,7 @@ Sökord att undersöka: "${
 
         if (webSearchResponse.ok) {
           const data = await webSearchResponse.json();
+          console.log("[API/analyze-website] Web Search response received");
 
           // Extract text from response
           analysis = data.output_text?.trim();
@@ -193,7 +194,7 @@ Sökord att undersöka: "${
           const errorText = await webSearchResponse.text();
           console.log(
             `[API/analyze-website] Web Search failed: ${webSearchResponse.status}`,
-            errorText
+            errorText.substring(0, 500) // Truncate for readability
           );
         }
       } catch (webSearchError) {

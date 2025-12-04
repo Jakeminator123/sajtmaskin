@@ -3,13 +3,18 @@
  * POST /api/expand-prompt
  *
  * Takes wizard data and generates a detailed prompt for v0 API.
- * Uses gpt-5-mini with Responses API (new GPT-5 API format) with fallback to gpt-4o-mini via Chat Completions.
+ * Uses gpt-5-mini via Responses API (new GPT-5 API format) for prompt expansion.
  *
  * Also fetches relevant stock photos from Pexels with markers (P1, P2, etc.)
  * for easy replacement later.
  *
  * Note: v0 does the heavy lifting with v0-1.5-md/lg models.
- * We use GPT-5 with medium reasoning and high verbosity for detailed, well-structured prompts.
+ * We use GPT-5 mini for detailed, well-structured prompts (cost-effective with great quality).
+ *
+ * GPT-5 models available:
+ * - gpt-5.1: Flagship model, best for complex tasks ($1.25/$10 per 1M tokens)
+ * - gpt-5-mini: Cost-efficient, 400k context ($0.25/$2 per 1M tokens) ← We use this
+ * - gpt-5-nano: Fastest and cheapest ($0.05/$0.40 per 1M tokens)
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -19,9 +24,10 @@ import { MarkedImage } from "../pexels/route";
 export const maxDuration = 60;
 
 // OpenAI Responses API (new API for GPT-5 models)
-const OPENAI_API_URL = "https://api.openai.com/v1/responses";
-const PRIMARY_MODEL = "gpt-5-mini"; // Cost-optimized reasoning model
-const FALLBACK_MODEL = "gpt-4o-mini"; // Fallback via chat completions if gpt-5-mini unavailable
+const OPENAI_RESPONSES_API_URL = "https://api.openai.com/v1/responses";
+const OPENAI_CHAT_API_URL = "https://api.openai.com/v1/chat/completions";
+const PRIMARY_MODEL = "gpt-5-mini"; // Cost-efficient GPT-5 model with 400k context
+const FALLBACK_MODEL = "gpt-4o-mini"; // Fallback if gpt-5-mini unavailable
 
 // System prompt for expanding user input
 const SYSTEM_PROMPT = `Du är en expert på att skriva detaljerade prompts för webbplatsgenerering med AI (v0/Vercel).
@@ -365,15 +371,14 @@ ${imagesString}${trendsString}`.trim();
       userMessageWithImages.length
     );
 
-    // Try primary model first, fallback if needed
+    // Try GPT-5 mini with Responses API first, fallback to Chat Completions if needed
     let usedModel = PRIMARY_MODEL;
     let expandedPrompt: string | undefined;
 
-    // Try gpt-5-mini with Responses API first
-    console.log(
-      `[API/expand-prompt] Trying ${PRIMARY_MODEL} with Responses API...`
-    );
-    let response = await fetch(OPENAI_API_URL, {
+    console.log(`[API/expand-prompt] Trying ${PRIMARY_MODEL} with Responses API...`);
+
+    // Try Responses API with gpt-5-mini
+    let response = await fetch(OPENAI_RESPONSES_API_URL, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -381,26 +386,22 @@ ${imagesString}${trendsString}`.trim();
       },
       body: JSON.stringify({
         model: PRIMARY_MODEL,
-        input: [
-          { role: "system", content: SYSTEM_PROMPT },
-          { role: "user", content: userMessageWithImages },
-        ],
-        reasoning: { effort: "medium" }, // Medium reasoning for balanced quality/speed
-        text: { verbosity: "high" }, // High verbosity for detailed prompts
+        instructions: SYSTEM_PROMPT, // System prompt as instructions
+        input: userMessageWithImages, // User message as input string
         max_output_tokens: 2500, // Allow longer prompts
       }),
     });
 
-    // If primary model fails (not found or other error), try fallback via chat completions
+    // If primary model fails (e.g., not available), try fallback via Chat Completions
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
       console.log(
-        `[API/expand-prompt] ${PRIMARY_MODEL} failed, trying ${FALLBACK_MODEL} via Chat Completions...`
+        `[API/expand-prompt] ${PRIMARY_MODEL} failed (${response.status}), trying ${FALLBACK_MODEL} via Chat Completions...`,
+        errorData.error?.message || ""
       );
 
       usedModel = FALLBACK_MODEL;
-      // Fallback to chat completions for older models
-      response = await fetch("https://api.openai.com/v1/chat/completions", {
+      response = await fetch(OPENAI_CHAT_API_URL, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -413,7 +414,7 @@ ${imagesString}${trendsString}`.trim();
             { role: "user", content: userMessageWithImages },
           ],
           temperature: 0.7,
-          max_tokens: 1500,
+          max_tokens: 2000,
         }),
       });
 
@@ -439,7 +440,7 @@ ${imagesString}${trendsString}`.trim();
 
     // Parse response based on API type
     if (usedModel === PRIMARY_MODEL) {
-      // Responses API format
+      // Responses API format - output_text is the direct text response
       expandedPrompt = data.output_text?.trim();
     } else {
       // Chat Completions API format (fallback)
