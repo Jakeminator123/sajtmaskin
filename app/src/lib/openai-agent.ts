@@ -2,47 +2,61 @@
  * OpenAI Agent for Code Editing
  * =============================
  *
- * Uses OpenAI's Responses API with function calling to edit code
- * in taken-over projects. Supports TWO storage modes:
+ * Uses OpenAI's Responses API with GPT-5 models and function calling
+ * to edit code in taken-over projects.
  *
- * 1. REDIS (default) - Simple, no GitHub required
- *    - Files stored in Redis
- *    - Fast reads/writes
- *    - User can download as ZIP
+ * MODEL SELECTION (GPT-5 Series):
+ * - gpt-5-mini: Fast, cost-efficient for standard edits
+ * - gpt-5: Complex reasoning, refactoring, multi-step tasks
+ * - gpt-image-1: Image generation (via image_generation tool)
  *
- * 2. GITHUB - Full ownership for developers
- *    - Files on user's GitHub
- *    - Full version control
- *    - Can clone/deploy
+ * TASK TYPES:
+ * - code_edit: Standard code changes (gpt-5-mini, minimal reasoning)
+ * - copy: Text generation (gpt-5-mini, low reasoning)
+ * - image: Logo/hero image generation (gpt-5 + image_generation tool)
+ * - web_search: Search web for info (gpt-5-mini + web_search tool)
+ * - code_refactor: Heavy refactoring (gpt-5, medium reasoning)
  *
- * Cost: 1 diamond per edit request
+ * STORAGE MODES:
+ * 1. REDIS (default) - Files stored in Redis, download as ZIP
+ * 2. GITHUB - Full version control on user's GitHub
  */
 
 import OpenAI from "openai";
-import {
-  getProjectFiles,
-  updateProjectFile,
-  getProjectMeta,
-  ProjectFile,
-} from "./redis";
+import { getProjectFiles, updateProjectFile, getProjectMeta } from "./redis";
 
 // Initialize OpenAI client
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-// Types
+// ============ Types ============
+
+export type TaskType =
+  | "code_edit"
+  | "copy"
+  | "image"
+  | "web_search"
+  | "code_refactor";
+
 export interface AgentFile {
   path: string;
   content: string;
 }
 
+export interface GeneratedImage {
+  base64: string;
+  path: string;
+  prompt: string;
+}
+
 export interface AgentContext {
   projectId: string;
   storageType: "redis" | "github";
+  taskType: TaskType;
   // GitHub-specific
   githubToken?: string;
-  repoFullName?: string; // e.g. "username/repo-name"
+  repoFullName?: string;
   // Conversation continuity
   previousResponseId?: string;
 }
@@ -51,12 +65,27 @@ export interface AgentResult {
   success: boolean;
   message: string;
   updatedFiles: AgentFile[];
+  generatedImages?: GeneratedImage[];
   responseId: string;
   tokensUsed?: number;
+  webSearchSources?: { title: string; url: string }[];
 }
 
-// Tool definitions for the agent
-const AGENT_TOOLS: OpenAI.Responses.Tool[] = [
+// ============ Model Configuration ============
+
+type ReasoningEffort = "minimal" | "low" | "medium" | "high";
+type Verbosity = "low" | "medium" | "high";
+
+interface ModelConfig {
+  model: string;
+  reasoning?: { effort: ReasoningEffort };
+  text?: { verbosity: Verbosity };
+  tools: OpenAI.Responses.Tool[];
+  diamondCost: number;
+}
+
+// Custom function tools for file operations
+const FILE_TOOLS: OpenAI.Responses.Tool[] = [
   {
     type: "function",
     name: "read_file",
@@ -121,8 +150,52 @@ const AGENT_TOOLS: OpenAI.Responses.Tool[] = [
   },
 ];
 
-// System instructions for the agent
-const SYSTEM_INSTRUCTIONS = `Du är en expert på React, Next.js, TypeScript och Tailwind CSS.
+// Model configuration per task type
+const MODEL_CONFIGS: Record<TaskType, ModelConfig> = {
+  code_edit: {
+    model: "gpt-5-mini",
+    reasoning: { effort: "minimal" },
+    text: { verbosity: "low" },
+    tools: FILE_TOOLS,
+    diamondCost: 1,
+  },
+  copy: {
+    model: "gpt-5-mini",
+    reasoning: { effort: "low" },
+    text: { verbosity: "medium" },
+    tools: FILE_TOOLS,
+    diamondCost: 1,
+  },
+  image: {
+    model: "gpt-5",
+    reasoning: { effort: "low" },
+    tools: [...FILE_TOOLS, { type: "image_generation" }],
+    diamondCost: 3,
+  },
+  web_search: {
+    model: "gpt-5-mini",
+    reasoning: { effort: "low" },
+    tools: [...FILE_TOOLS, { type: "web_search" }],
+    diamondCost: 2,
+  },
+  code_refactor: {
+    model: "gpt-5",
+    reasoning: { effort: "medium" },
+    text: { verbosity: "medium" },
+    tools: FILE_TOOLS,
+    diamondCost: 5,
+  },
+};
+
+// Get diamond cost for a task type
+export function getDiamondCost(taskType: TaskType): number {
+  return MODEL_CONFIGS[taskType].diamondCost;
+}
+
+// ============ System Instructions per Task ============
+
+const SYSTEM_INSTRUCTIONS: Record<TaskType, string> = {
+  code_edit: `Du är en expert på React, Next.js, TypeScript och Tailwind CSS.
 
 Din uppgift är att hjälpa användaren redigera sin webbplats-kod baserat på deras instruktioner.
 
@@ -132,14 +205,90 @@ REGLER:
 3. Gör minimala, fokuserade ändringar
 4. Använd TypeScript och Tailwind CSS
 5. Skriv clean, läsbar kod
-6. Beskriv ändringar tydligt
+6. Beskriv ändringar kort
 
 VIKTIGT:
 - Ändra BARA det som användaren ber om
 - Lägg inte till onödiga funktioner
-- Förklara kort vad du ändrar
+- Svara kortfattat
 
-Börja alltid med att läsa de relevanta filerna för att förstå kontexten.`;
+Börja med att lista och läsa relevanta filer.`,
+
+  copy: `Du är en copywriter-expert som hjälper till att skriva webbplats-texter.
+
+Din uppgift är att generera eller förbättra texter för webbplatsen.
+
+DU KAN:
+- Skriva rubriker, underrubriker, CTA-texter
+- Förbättra befintliga texter
+- Generera sektionstexter, beskrivningar
+- Skriva SEO-optimerade meta-texter
+
+STIL:
+- Anpassa tonen efter webbplatsen
+- Skriv på svenska om inte annat anges
+- Var koncis och övertygande
+- Använd aktiv röst
+
+Läs först relevanta filer för att förstå kontexten.`,
+
+  image: `Du är en kreativ AI-assistent som kan generera bilder och integrera dem i webbprojekt.
+
+DU KAN GENERERA:
+- Logotyper och varumärkes-grafik
+- Hero-bilder och bakgrunder
+- Illustrationer och ikoner
+- Marknadsföringsbilder
+
+PROCESS:
+1. Förstå användarens behov
+2. Generera bild med image_generation tool
+3. Spara bilden i projektet (public/images/)
+4. Uppdatera relevant kod för att använda bilden
+
+TIPS FÖR BRA BILDPROMPTS:
+- Var specifik med stil (minimalistisk, modern, etc.)
+- Ange färger om viktigt
+- Beskriv komposition
+- Nämn användningsområde (logo, hero, etc.)`,
+
+  web_search: `Du är en research-assistent som kan söka på webben för att hjälpa användaren.
+
+DU KAN:
+- Söka efter designinspiration
+- Hitta färgpaletter och typsnitt
+- Researcha konkurrenter
+- Hitta kodexempel och best practices
+- Söka efter ikoner, bilder, resurser
+
+PROCESS:
+1. Förstå vad användaren behöver
+2. Sök på webben med web_search tool
+3. Sammanfatta resultaten
+4. Föreslå hur det kan användas i projektet
+
+Ange alltid källor för information du hittar.`,
+
+  code_refactor: `Du är en senior utvecklare som specialiserar sig på kodrefaktorering.
+
+Din uppgift är att göra större strukturella förändringar i kodbasen.
+
+DU KAN:
+- Bryta ut komponenter
+- Skapa delade layouts
+- Implementera design systems
+- Optimera prestanda
+- Förbättra kodstruktur
+
+PROCESS:
+1. Analysera hela kodbasen noggrant
+2. Planera ändringarna
+3. Implementera steg för steg
+4. Verifiera att allt hänger ihop
+
+VARNING: Denna mode kostar mer och tar längre tid.
+Se till att förstå helheten innan du börjar ändra.`,
+};
 
 // ============ REDIS Storage Functions ============
 
@@ -179,12 +328,38 @@ async function listRedisFiles(
 
   let paths = files.map((f) => f.path);
 
-  // Filter by subpath if provided
   if (subPath) {
     paths = paths.filter((p) => p.startsWith(subPath));
   }
 
   return paths;
+}
+
+// Save a base64 image to the project
+async function saveImageToProject(
+  projectId: string,
+  imageName: string,
+  base64Data: string,
+  storageType: "redis" | "github",
+  githubToken?: string,
+  repoFullName?: string
+): Promise<string> {
+  const imagePath = `public/images/${imageName}`;
+
+  if (storageType === "github" && githubToken && repoFullName) {
+    await updateGitHubFile(
+      githubToken,
+      repoFullName,
+      imagePath,
+      base64Data,
+      `Add generated image: ${imageName}`
+    );
+  }
+
+  // Also save to Redis (updateProjectFile handles both update and create)
+  await updateProjectFile(projectId, imagePath, `[BASE64_IMAGE:${imageName}]`);
+
+  return imagePath;
 }
 
 // ============ GitHub Storage Functions ============
@@ -219,7 +394,6 @@ async function updateGitHubFile(
   content: string,
   commitMessage: string
 ): Promise<void> {
-  // Get current file SHA if it exists
   let sha: string | undefined;
   try {
     const getResponse = await fetch(
@@ -236,7 +410,7 @@ async function updateGitHubFile(
       sha = data.sha;
     }
   } catch {
-    // File doesn't exist, that's fine for new files
+    // File doesn't exist
   }
 
   const response = await fetch(
@@ -302,7 +476,8 @@ async function listGitHubFiles(
 async function executeTool(
   context: AgentContext,
   toolName: string,
-  args: Record<string, unknown>
+  args: Record<string, unknown>,
+  generatedImages: GeneratedImage[]
 ): Promise<string> {
   console.log(`[Agent] Executing tool: ${toolName}`, args);
 
@@ -331,7 +506,6 @@ async function executeTool(
           content,
           commitMessage
         );
-        // Also update Redis cache
         await updateRedisFile(projectId, path, content);
       } else {
         await updateRedisFile(projectId, path, content);
@@ -364,57 +538,131 @@ export async function runAgent(
   instruction: string,
   context: AgentContext
 ): Promise<AgentResult> {
-  console.log(
-    "[Agent] Starting with instruction:",
-    instruction.substring(0, 100)
-  );
-  console.log("[Agent] Storage type:", context.storageType);
+  const { taskType } = context;
+  const config = MODEL_CONFIGS[taskType];
+
+  console.log("[Agent] Starting with:", {
+    instruction: instruction.substring(0, 100),
+    taskType,
+    model: config.model,
+    reasoning: config.reasoning,
+  });
 
   const updatedFiles: AgentFile[] = [];
+  const generatedImages: GeneratedImage[] = [];
+  const webSearchSources: { title: string; url: string }[] = [];
 
   try {
-    // Create initial response
-    let response = await openai.responses.create({
-      model: "gpt-4.1",
-      instructions: SYSTEM_INSTRUCTIONS,
+    // Build request options based on task type
+    const requestOptions: OpenAI.Responses.ResponseCreateParams = {
+      model: config.model,
+      instructions: SYSTEM_INSTRUCTIONS[taskType],
       input: instruction,
-      tools: AGENT_TOOLS,
+      tools: config.tools,
       store: true,
-      ...(context.previousResponseId
-        ? { previous_response_id: context.previousResponseId }
-        : {}),
-    });
+    };
+
+    // Add reasoning config for GPT-5 models
+    if (config.reasoning) {
+      requestOptions.reasoning = config.reasoning;
+    }
+
+    // Add text verbosity config
+    if (config.text) {
+      requestOptions.text = config.text;
+    }
+
+    // Continue previous conversation if ID provided
+    if (context.previousResponseId) {
+      requestOptions.previous_response_id = context.previousResponseId;
+    }
+
+    // Create initial response
+    let response = await openai.responses.create(requestOptions);
 
     console.log("[Agent] Initial response ID:", response.id);
 
-    // Process tool calls in a loop until the agent is done
+    // Process tool calls in a loop
     let iterations = 0;
-    const MAX_ITERATIONS = 10;
+    const MAX_ITERATIONS = 15;
 
     while (iterations < MAX_ITERATIONS) {
       iterations++;
 
-      // Check if there are any function calls to execute
+      // Check for function calls
       const functionCalls = response.output.filter(
         (item): item is OpenAI.Responses.ResponseFunctionToolCall =>
           item.type === "function_call"
       );
 
+      // Check for image generation results
+      const imageResults = response.output.filter(
+        (item) => item.type === "image_generation_call"
+      );
+
+      // Check for web search results
+      const webSearchResults = response.output.filter(
+        (item) => item.type === "web_search_call"
+      );
+
+      // Process image generation results
+      for (const imgResult of imageResults) {
+        if ("result" in imgResult && imgResult.result) {
+          const imageName = `generated_${Date.now()}.png`;
+          const imagePath = await saveImageToProject(
+            context.projectId,
+            imageName,
+            imgResult.result as string,
+            context.storageType,
+            context.githubToken,
+            context.repoFullName
+          );
+
+          generatedImages.push({
+            base64: imgResult.result as string,
+            path: imagePath,
+            prompt: "Generated image",
+          });
+
+          console.log("[Agent] Image generated and saved:", imagePath);
+        }
+      }
+
+      // Process web search results for sources
+      for (const searchResult of webSearchResults) {
+        if ("results" in searchResult) {
+          const results = searchResult.results as Array<{
+            title?: string;
+            url?: string;
+          }>;
+          for (const r of results) {
+            if (r.title && r.url) {
+              webSearchSources.push({ title: r.title, url: r.url });
+            }
+          }
+        }
+      }
+
+      // If no function calls, we're done
       if (functionCalls.length === 0) {
         break;
       }
 
       console.log(`[Agent] Processing ${functionCalls.length} function calls`);
 
-      // Execute all function calls and collect results
+      // Execute function calls
       const functionResults: OpenAI.Responses.ResponseInputItem[] = [];
 
       for (const call of functionCalls) {
         try {
           const args = JSON.parse(call.arguments);
-          const result = await executeTool(context, call.name, args);
+          const result = await executeTool(
+            context,
+            call.name,
+            args,
+            generatedImages
+          );
 
-          // Track updated files
           if (call.name === "update_file") {
             updatedFiles.push({
               path: args.path,
@@ -438,17 +686,18 @@ export async function runAgent(
         }
       }
 
-      // Continue the conversation with function results
+      // Continue with function results
       response = await openai.responses.create({
-        model: "gpt-4.1",
+        model: config.model,
         input: functionResults,
         previous_response_id: response.id,
-        tools: AGENT_TOOLS,
+        tools: config.tools,
         store: true,
+        ...(config.reasoning ? { reasoning: config.reasoning } : {}),
       });
     }
 
-    // Extract final message from response
+    // Extract final message
     const messageItem = response.output.find(
       (item): item is OpenAI.Responses.ResponseOutputMessage =>
         item.type === "message"
@@ -467,8 +716,11 @@ export async function runAgent(
       success: true,
       message: finalMessage,
       updatedFiles,
+      generatedImages: generatedImages.length > 0 ? generatedImages : undefined,
       responseId: response.id,
       tokensUsed: response.usage?.total_tokens,
+      webSearchSources:
+        webSearchSources.length > 0 ? webSearchSources : undefined,
     };
   } catch (error) {
     console.error("[Agent] Error:", error);
@@ -484,12 +736,12 @@ export async function runAgent(
 }
 
 /**
- * Helper function to create agent context from project ID
- * Automatically determines storage type from project metadata
+ * Create agent context from project ID
  */
 export async function createAgentContext(
   projectId: string,
-  githubToken?: string
+  githubToken?: string,
+  taskType: TaskType = "code_edit"
 ): Promise<AgentContext | null> {
   const meta = await getProjectMeta(projectId);
   if (!meta) {
@@ -500,6 +752,7 @@ export async function createAgentContext(
   const context: AgentContext = {
     projectId,
     storageType: meta.storageType,
+    taskType,
   };
 
   if (meta.storageType === "github" && meta.githubOwner && meta.githubRepo) {
@@ -522,4 +775,34 @@ export async function continueConversation(
     ...context,
     previousResponseId,
   });
+}
+
+/**
+ * Generate image directly (standalone, without agent context)
+ */
+export async function generateImage(
+  prompt: string,
+  size: "1024x1024" | "1536x1024" | "1024x1536" = "1024x1024",
+  quality: "low" | "medium" | "high" = "medium"
+): Promise<{ base64: string; revisedPrompt?: string }> {
+  console.log("[Image] Generating with prompt:", prompt.substring(0, 100));
+
+  const result = await openai.images.generate({
+    model: "gpt-image-1",
+    prompt,
+    size,
+    quality,
+    n: 1,
+  });
+
+  if (!result.data || result.data.length === 0) {
+    throw new Error("No image data returned from API");
+  }
+
+  const imageData = result.data[0];
+
+  return {
+    base64: imageData.b64_json || "",
+    revisedPrompt: imageData.revised_prompt,
+  };
 }

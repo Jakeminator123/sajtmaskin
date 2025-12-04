@@ -1383,6 +1383,37 @@ export function deductRefineDiamond(userId: string): Transaction | null {
   return createTransaction(userId, "refine", -1, "AI-förfining");
 }
 
+// Deduct a custom amount of diamonds
+// Used for different task types with varying costs
+export function deductDiamonds(
+  userId: string,
+  amount: number,
+  description: string = "AI-operation"
+): Transaction | null {
+  const user = getUserById(userId);
+  if (!user || user.diamonds < amount) {
+    return null;
+  }
+
+  // Test user gets unlimited credits - no deduction
+  if (isTestUser(user)) {
+    console.log("[Database] Test user - skipping diamond deduction");
+    return {
+      id: -1,
+      user_id: userId,
+      type: "generation",
+      amount: 0,
+      balance_after: TEST_USER_DIAMONDS,
+      description: "Test user - unlimited credits",
+      stripe_payment_id: null,
+      stripe_session_id: null,
+      created_at: new Date().toISOString(),
+    };
+  }
+
+  return createTransaction(userId, "generation", -amount, description);
+}
+
 // ============ Analytics Operations ============
 
 export interface PageView {

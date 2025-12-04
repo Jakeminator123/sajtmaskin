@@ -1,45 +1,49 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
-import {
-  getUserById,
-  deductGenerationDiamond,
-  isTestUser,
-} from "@/lib/database";
+import { getUserById, deductDiamonds, isTestUser } from "@/lib/database";
 import {
   runAgent,
   createAgentContext,
   continueConversation,
+  getDiamondCost,
+  TaskType,
 } from "@/lib/openai-agent";
 import { getProjectMeta } from "@/lib/redis";
 
 /**
  * Agent Edit API
  *
- * Uses OpenAI Responses API to edit code in taken-over projects.
- * Supports both Redis (simple) and GitHub (full ownership) storage.
+ * Uses OpenAI Responses API with GPT-5 models to edit code in taken-over projects.
+ * Supports multiple task types with different models and costs.
  *
- * Cost: 1 diamond per request
+ * TASK TYPES & COSTS:
+ * - code_edit: 1 diamond (gpt-5-mini, minimal reasoning)
+ * - copy: 1 diamond (gpt-5-mini, text generation)
+ * - image: 3 diamonds (gpt-5 + image_generation tool)
+ * - web_search: 2 diamonds (gpt-5-mini + web_search tool)
+ * - code_refactor: 5 diamonds (gpt-5, medium reasoning)
  *
  * POST /api/agent/edit
- * Body: {
- *   projectId: string           - The project to edit
- *   instruction: string         - What the user wants to change
- *   previousResponseId?: string - For multi-turn conversations
- * }
  */
 
 interface EditRequest {
   projectId: string;
   instruction: string;
+  taskType?: TaskType;
   previousResponseId?: string;
 }
 
 export async function POST(request: NextRequest) {
   try {
     const body: EditRequest = await request.json();
-    const { projectId, instruction, previousResponseId } = body;
+    const {
+      projectId,
+      instruction,
+      taskType = "code_edit",
+      previousResponseId,
+    } = body;
 
-    console.log("[Agent/Edit] Request for project:", projectId);
+    console.log("[Agent/Edit] Request:", { projectId, taskType });
 
     // Validate input
     if (!instruction || instruction.trim().length === 0) {
@@ -55,6 +59,24 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
+
+    // Validate task type
+    const validTaskTypes: TaskType[] = [
+      "code_edit",
+      "copy",
+      "image",
+      "web_search",
+      "code_refactor",
+    ];
+    if (!validTaskTypes.includes(taskType)) {
+      return NextResponse.json(
+        { success: false, error: `Ogiltig taskType: ${taskType}` },
+        { status: 400 }
+      );
+    }
+
+    // Get diamond cost for this task type
+    const diamondCost = getDiamondCost(taskType);
 
     // Get current user
     const user = await getCurrentUser(request);
@@ -110,39 +132,42 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Check credits (1 diamond per edit)
-    if (!isTestUser(fullUser) && fullUser.diamonds < 1) {
+    // Check credits (dynamic cost based on task type)
+    if (!isTestUser(fullUser) && fullUser.diamonds < diamondCost) {
       return NextResponse.json(
         {
           success: false,
-          error: "Du har slut på diamanter. Köp fler för att fortsätta.",
+          error: `Du behöver ${diamondCost} diamanter för denna åtgärd. Du har ${fullUser.diamonds}.`,
           requireCredits: true,
+          requiredDiamonds: diamondCost,
+          currentDiamonds: fullUser.diamonds,
         },
         { status: 402 }
       );
     }
 
-    // Deduct diamond
-    const transaction = deductGenerationDiamond(user.id);
+    // Deduct diamonds (dynamic amount)
+    const transaction = deductDiamonds(user.id, diamondCost);
     if (!transaction && !isTestUser(fullUser)) {
       return NextResponse.json(
         {
           success: false,
-          error: "Kunde inte dra diamant. Försök igen.",
+          error: "Kunde inte dra diamanter. Försök igen.",
         },
         { status: 500 }
       );
     }
 
     console.log(
-      "[Agent/Edit] Diamond deducted, new balance:",
+      `[Agent/Edit] ${diamondCost} diamonds deducted, new balance:`,
       transaction?.balance_after
     );
 
-    // Create agent context (handles both Redis and GitHub)
+    // Create agent context with task type
     const context = await createAgentContext(
       projectId,
-      fullUser.github_token || undefined
+      fullUser.github_token || undefined,
+      taskType
     );
 
     if (!context) {
@@ -153,12 +178,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Run the agent
-    console.log(
-      "[Agent/Edit] Running agent (storage:",
-      context.storageType,
-      ") with instruction:",
-      instruction.substring(0, 100)
-    );
+    console.log("[Agent/Edit] Running agent:", {
+      storage: context.storageType,
+      taskType,
+      instruction: instruction.substring(0, 100),
+    });
 
     const result = previousResponseId
       ? await continueConversation(instruction, context, previousResponseId)
@@ -172,19 +196,24 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log(
-      "[Agent/Edit] Agent completed, updated files:",
-      result.updatedFiles.length
-    );
+    console.log("[Agent/Edit] Agent completed:", {
+      updatedFiles: result.updatedFiles.length,
+      generatedImages: result.generatedImages?.length || 0,
+      webSearchSources: result.webSearchSources?.length || 0,
+    });
 
     return NextResponse.json({
       success: true,
       message: result.message,
       updatedFiles: result.updatedFiles,
+      generatedImages: result.generatedImages,
+      webSearchSources: result.webSearchSources,
       responseId: result.responseId,
       tokensUsed: result.tokensUsed,
       newBalance: transaction?.balance_after,
       storageType: context.storageType,
+      taskType,
+      diamondCost,
     });
   } catch (error: unknown) {
     const errorMessage =
