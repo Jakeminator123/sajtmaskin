@@ -19,7 +19,10 @@ import {
 } from "lucide-react";
 
 // Icon mapping for components
-const componentIcons: Record<string, React.ElementType> = {
+const componentIcons: Record<
+  string,
+  React.ComponentType<{ className?: string }>
+> = {
   "Header/Navigation": Menu,
   Footer: AlignJustify,
   "Pricing Table": CreditCard,
@@ -94,7 +97,8 @@ export function ComponentPicker({ onSelect, disabled }: ComponentPickerProps) {
           </div>
           <div className="max-h-64 overflow-y-auto space-y-1">
             {COMPONENTS.map((component) => {
-              const Icon = componentIcons[component.label] || LayoutTemplate;
+              const Icon: React.ComponentType<{ className?: string }> =
+                componentIcons[component.label] || LayoutTemplate;
               return (
                 <button
                   key={component.label}

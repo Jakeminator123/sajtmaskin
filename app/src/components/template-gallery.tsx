@@ -9,7 +9,7 @@ interface Category {
   id: string;
   title: string;
   description: string;
-  icon: React.ElementType;
+  icon: React.ComponentType<{ className?: string }>;
   helpText: string;
   examples: string[];
 }
@@ -61,7 +61,7 @@ export function TemplateGallery({ onSelect }: TemplateGalleryProps) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-5xl">
       {categories.map((category) => {
-        const Icon = category.icon;
+        const Icon: React.ComponentType<{ className?: string }> = category.icon;
         return (
           <Card
             key={category.id}

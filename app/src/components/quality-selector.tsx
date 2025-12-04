@@ -28,7 +28,7 @@ interface QualitySelectorProps {
 interface QualityOption {
   id: QualityLevel;
   label: string;
-  icon: React.ElementType;
+  icon: React.ComponentType<{ className?: string }>;
   description: string;
   helpText: string;
   color: string;
@@ -65,7 +65,7 @@ export function QualitySelector({
   return (
     <div className="flex items-center gap-1 p-1 bg-black/50 border border-gray-800">
       {qualityOptions.map((option) => {
-        const Icon = option.icon;
+        const Icon: React.ComponentType<{ className?: string }> = option.icon;
         const isSelected = value === option.id;
 
         return (

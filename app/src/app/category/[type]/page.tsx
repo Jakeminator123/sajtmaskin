@@ -31,7 +31,7 @@ import {
 import { createProject } from "@/lib/project-client";
 
 // Icon mapping
-const iconMap: Record<string, React.ElementType> = {
+const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   FileText,
   Globe,
   LayoutDashboard,
@@ -62,7 +62,8 @@ export default function CategoryPage() {
     );
   }
 
-  const Icon = iconMap[category.icon] || FileText;
+  const Icon: React.ComponentType<{ className?: string }> =
+    iconMap[category.icon] || FileText;
 
   const handlePromptSubmit = async () => {
     if (prompt.trim() && !isCreating) {
