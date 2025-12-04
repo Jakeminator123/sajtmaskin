@@ -434,12 +434,7 @@ export function AuditModal({ result, isOpen, onClose }: AuditModalProps) {
                   </span>
                 )}
               </div>
-              {result.cost && (
-                <div className="text-xs text-gray-500">
-                  Kostnad: {result.cost.sek.toFixed(2)} SEK (
-                  {result.cost.tokens} tokens)
-                </div>
-              )}
+              {/* Cost hidden from user - only logged server-side */}
             </div>
           </motion.div>
         </motion.div>

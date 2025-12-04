@@ -42,8 +42,12 @@ const PRICE_OUT_PER_MTOK = 10.0; // gpt-4o output
 
 // Initialize OpenAI client lazily
 function getOpenAIClient(): OpenAI {
+  const apiKey = SECRETS.openaiApiKey;
+  if (!apiKey) {
+    throw new Error("OPENAI_API_KEY is not configured");
+  }
   return new OpenAI({
-    apiKey: SECRETS.openaiApiKey, // Validated in config.ts
+    apiKey,
     timeout: 300000, // 5 minute timeout
     maxRetries: 2,
   });

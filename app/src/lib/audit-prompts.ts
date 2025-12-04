@@ -112,12 +112,14 @@ LEVERERA JSON MED FÖLJANDE FÄLT (FYLL ALLTID I, ÄVEN OM DU MÅSTE GÖRA EN KV
 }
 
 VIKTIGT:
+- SKRIV ALLTID PÅ SVENSKA - all text, alla förklaringar, alla förslag
 - Var specifik och detaljerad i varje punkt
 - Ge minst 8-10 förbättringsförslag sorterade efter prioritet
 - Inkludera konkreta kodexempel där relevant
-- Budgetuppskattningar ska vara realistiska för svenska marknaden
+- Budgetuppskattningar ska vara realistiska för svenska marknaden (SEK)
 - Använd WebSearch för att jämföra med branschstandarder om möjligt
-- Svara ENDAST med JSON, ingen Markdown eller annan text`;
+- Svara ENDAST med JSON, ingen Markdown eller annan text
+- Alla strängar i JSON ska vara på svenska`;
 
 /**
  * Build the audit prompt for OpenAI Responses API

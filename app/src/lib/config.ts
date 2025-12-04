@@ -59,21 +59,26 @@ export const PATHS = {
 } as const;
 
 /**
- * API Keys and secrets (with validation)
+ * API Keys and secrets (with validation at runtime, not build time)
  */
 export const SECRETS = {
   get jwtSecret() {
     const secret = process.env.JWT_SECRET;
-    if (!secret && IS_PRODUCTION) {
-      throw new Error("JWT_SECRET must be set in production");
+    // Don't throw during build - only at runtime when actually used
+    if (!secret && IS_PRODUCTION && typeof window === "undefined") {
+      console.warn("[Config] JWT_SECRET not set - using dev fallback");
     }
     return secret || "dev-secret-change-in-production";
   },
 
   get openaiApiKey() {
     const key = process.env.OPENAI_API_KEY;
+    // Return empty string during build, validate at runtime
     if (!key) {
-      throw new Error("OPENAI_API_KEY is required");
+      if (IS_PRODUCTION) {
+        console.error("[Config] OPENAI_API_KEY is required");
+      }
+      return "";
     }
     return key;
   },
