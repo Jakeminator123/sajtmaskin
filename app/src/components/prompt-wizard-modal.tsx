@@ -310,7 +310,6 @@ export function PromptWizardModal({
 
   // Voice input transcript
   const [voiceTranscript, setVoiceTranscript] = useState<string>("");
-  const [isVoiceRecording, setIsVoiceRecording] = useState(false);
 
   // Website analysis result (from GPT-4o Vision)
   const [websiteAnalysis, setWebsiteAnalysis] = useState<string | null>(null);
@@ -1197,7 +1196,7 @@ export function PromptWizardModal({
                         : `[Röstinmatning]: ${transcript}`
                     );
                   }}
-                  onRecordingChange={setIsVoiceRecording}
+                  onRecordingChange={() => {}} // Optional: add visual feedback if needed
                   placeholder="Börja prata..."
                 />
                 {voiceTranscript && (
