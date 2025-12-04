@@ -11,6 +11,7 @@ import { HelpTooltip } from "@/components/help-tooltip";
 import { ClientOnly } from "@/components/client-only";
 import { ShaderBackground } from "@/components/shader-background";
 import { BackofficeOptionModal } from "@/components/backoffice-option-modal";
+import { TakeoverModal } from "@/components/takeover-modal";
 import { useBuilderStore, GeneratedFile } from "@/lib/store";
 import { useAuth } from "@/lib/auth-store";
 import { getProject } from "@/lib/project-client";
@@ -24,6 +25,7 @@ import {
   MessageSquare,
   Eye,
   Menu,
+  Github,
 } from "lucide-react";
 import { FloatingAvatar, useAvatarAgent } from "@/components/avatar";
 import { useAvatar } from "@/contexts/AvatarContext";
@@ -82,6 +84,7 @@ function BuilderContent() {
     "download"
   );
   const [isDownloading, setIsDownloading] = useState(false);
+  const [showTakeoverModal, setShowTakeoverModal] = useState(false);
   const isMobile = useIsMobile();
 
   // Avatar context for triggering reactions
@@ -309,6 +312,20 @@ function BuilderContent() {
             Publicera
             <HelpTooltip text="Publicerar din webbplats live på internet med ett klick. Du får en unik URL inom ~60 sekunder." />
           </Button>
+          {/* GitHub Takeover button */}
+          {isAuthenticated && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2 border-purple-600 text-purple-400 hover:bg-purple-900/20 hover:text-purple-300"
+              disabled={!chatId}
+              onClick={() => setShowTakeoverModal(true)}
+            >
+              <Github className="h-4 w-4" />
+              Ta över
+              <HelpTooltip text="Flytta projektet till ditt GitHub-konto för full kontroll. Redigera sedan med AI direkt i koden!" />
+            </Button>
+          )}
         </div>
       </header>
 
@@ -487,6 +504,16 @@ function BuilderContent() {
         mode={backofficeMode}
         isLoading={isDownloading}
       />
+
+      {/* Takeover Modal */}
+      {projectId && (
+        <TakeoverModal
+          isOpen={showTakeoverModal}
+          onClose={() => setShowTakeoverModal(false)}
+          projectId={projectId}
+          projectName={projectName || title}
+        />
+      )}
     </div>
   );
 }

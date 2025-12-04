@@ -15,6 +15,8 @@ export interface AuthUser {
   image: string | null;
   diamonds: number;
   provider: "google" | "email" | "anonymous";
+  github_token: string | null;
+  github_username: string | null;
 }
 
 export interface GuestInfo {
@@ -133,6 +135,11 @@ export function useAuth() {
     updateDiamonds,
   } = useAuthStore();
 
+  // Function to refresh user data from server
+  const refreshUser = async () => {
+    await fetchUser();
+  };
+
   return {
     user,
     guest,
@@ -140,8 +147,10 @@ export function useAuth() {
     isInitialized,
     isAuthenticated: !!user,
     diamonds: user?.diamonds ?? 0,
+    hasGitHub: !!(user?.github_token && user?.github_username),
     logout,
     fetchUser,
+    refreshUser,
     updateDiamonds,
   };
 }

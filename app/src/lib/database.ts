@@ -89,6 +89,16 @@ function initializeDatabase(database: Database.Database) {
   } catch {
     // Column already exists
   }
+  try {
+    database.exec(`ALTER TABLE users ADD COLUMN github_token TEXT`);
+  } catch {
+    // Column already exists
+  }
+  try {
+    database.exec(`ALTER TABLE users ADD COLUMN github_username TEXT`);
+  } catch {
+    // Column already exists
+  }
 
   // Guest usage tracking - tracks anonymous session usage
   database.exec(`
@@ -943,6 +953,8 @@ export interface User {
   email_verified: boolean;
   provider: "google" | "email" | "anonymous";
   diamonds: number;
+  github_token: string | null;
+  github_username: string | null;
   created_at: string;
   last_login: string;
 }
@@ -1103,9 +1115,41 @@ function parseUserRow(row: any): User {
     email_verified: row.email_verified === 1,
     provider: row.provider || "anonymous",
     diamonds: isTest ? TEST_USER_DIAMONDS : row.diamonds ?? 5,
+    github_token: row.github_token || null,
+    github_username: row.github_username || null,
     created_at: row.created_at,
     last_login: row.last_login,
   };
+}
+
+// ============ GitHub Integration Operations ============
+
+// Update user's GitHub token and username
+export function updateUserGitHub(
+  userId: string,
+  githubToken: string,
+  githubUsername: string
+): void {
+  const db = getDb();
+  const stmt = db.prepare(
+    "UPDATE users SET github_token = ?, github_username = ? WHERE id = ?"
+  );
+  stmt.run(githubToken, githubUsername, userId);
+}
+
+// Remove user's GitHub connection
+export function removeUserGitHub(userId: string): void {
+  const db = getDb();
+  const stmt = db.prepare(
+    "UPDATE users SET github_token = NULL, github_username = NULL WHERE id = ?"
+  );
+  stmt.run(userId);
+}
+
+// Check if user has GitHub connected
+export function hasGitHubConnected(userId: string): boolean {
+  const user = getUserById(userId);
+  return !!(user?.github_token && user?.github_username);
 }
 
 // ============ Guest Usage Operations ============
