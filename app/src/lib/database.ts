@@ -3,8 +3,9 @@ import path from "path";
 import fs from "fs";
 import crypto from "crypto";
 
-// Database file location - stored in app root
-const DB_PATH = path.join(process.cwd(), "sajtmaskin.db");
+// Database file location - use DATA_DIR env var for persistent storage (e.g., /var/data on Render)
+const DATA_DIR = process.env.DATA_DIR || process.cwd();
+const DB_PATH = path.join(DATA_DIR, "sajtmaskin.db");
 
 // Test user configuration - unlimited credits for testing
 // Login with email: "test@gmail.com" and password: "Ma!!orca123"
@@ -22,8 +23,10 @@ function hashPasswordInternal(password: string): string {
   return `${salt}:${hash}`;
 }
 
-// Uploads directory for images
-const UPLOADS_DIR = path.join(process.cwd(), "public", "uploads");
+// Uploads directory for images - use DATA_DIR for persistent storage
+const UPLOADS_DIR = process.env.DATA_DIR
+  ? path.join(process.env.DATA_DIR, "uploads")
+  : path.join(process.cwd(), "public", "uploads");
 
 // Ensure uploads directory exists
 if (!fs.existsSync(UPLOADS_DIR)) {

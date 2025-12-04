@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { AnalyticsTracker } from "@/components/analytics-tracker";
+import { CookieBanner } from "@/components/cookie-banner";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -35,6 +36,7 @@ export default function RootLayout({
       >
         <AnalyticsTracker />
         {children}
+        <CookieBanner />
       </body>
     </html>
   );
