@@ -29,14 +29,6 @@ export default function RootLayout({
       className={`${inter.variable} ${jetbrainsMono.variable}`}
       style={{ backgroundColor: "#000000" }}
     >
-      <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link
-          rel="preconnect"
-          href="https://fonts.gstatic.com"
-          crossOrigin="anonymous"
-        />
-      </head>
       <body
         className="font-mono antialiased"
         style={{ backgroundColor: "#000000" }}

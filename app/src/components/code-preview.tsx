@@ -162,10 +162,10 @@ export function CodePreview() {
   return (
     <div className="flex flex-col h-full">
       {/* Header */}
-      <div className="p-4 border-b border-zinc-800 flex items-center justify-between bg-zinc-900/30">
+      <div className="p-4 border-b border-gray-800 flex items-center justify-between bg-black/30">
         <div className="flex items-center gap-2">
-          <Eye className="h-4 w-4 text-zinc-500" />
-          <span className="text-sm font-medium text-zinc-300">
+          <Eye className="h-4 w-4 text-gray-500" />
+          <span className="text-sm font-medium text-gray-300">
             Förhandsgranskning
           </span>
           <HelpTooltip text="Live-förhandsgranskning av din webbplats. Uppdateras automatiskt efter varje ändring. Klicka på enhetsknapparna för att se hur den ser ut på olika skärmstorlekar." />
@@ -173,15 +173,15 @@ export function CodePreview() {
 
         <div className="flex items-center gap-4">
           {/* Device size toggle */}
-          <div className="flex items-center gap-1 p-1 bg-zinc-800/50 rounded-lg">
+          <div className="flex items-center gap-1 p-1 bg-gray-800/50">
             <Button
               variant="ghost"
               size="sm"
               onClick={() => setDeviceSize("desktop")}
               className={`h-7 px-2 ${
                 deviceSize === "desktop"
-                  ? "bg-zinc-700 text-zinc-100"
-                  : "text-zinc-500 hover:text-zinc-300"
+                  ? "bg-gray-700 text-white"
+                  : "text-gray-500 hover:text-gray-300"
               }`}
               title="Desktop"
             >
@@ -193,8 +193,8 @@ export function CodePreview() {
               onClick={() => setDeviceSize("tablet")}
               className={`h-7 px-2 ${
                 deviceSize === "tablet"
-                  ? "bg-zinc-700 text-zinc-100"
-                  : "text-zinc-500 hover:text-zinc-300"
+                  ? "bg-gray-700 text-white"
+                  : "text-gray-500 hover:text-gray-300"
               }`}
               title="Tablet (768px)"
             >
@@ -206,8 +206,8 @@ export function CodePreview() {
               onClick={() => setDeviceSize("mobile")}
               className={`h-7 px-2 ${
                 deviceSize === "mobile"
-                  ? "bg-zinc-700 text-zinc-100"
-                  : "text-zinc-500 hover:text-zinc-300"
+                  ? "bg-gray-700 text-white"
+                  : "text-gray-500 hover:text-gray-300"
               }`}
               title="Mobil (375px)"
             >
@@ -216,15 +216,15 @@ export function CodePreview() {
           </div>
 
           {/* View mode toggle */}
-          <div className="flex items-center gap-1 p-1 bg-zinc-800/50 rounded-lg">
+          <div className="flex items-center gap-1 p-1 bg-gray-800/50">
             <Button
               variant="ghost"
               size="sm"
               onClick={() => setViewMode("preview")}
               className={`h-7 px-3 gap-1.5 ${
                 viewMode === "preview"
-                  ? "bg-zinc-700 text-zinc-100"
-                  : "text-zinc-500 hover:text-zinc-300"
+                  ? "bg-gray-700 text-white"
+                  : "text-gray-500 hover:text-gray-300"
               }`}
             >
               <Eye className="h-3.5 w-3.5" />
@@ -236,8 +236,8 @@ export function CodePreview() {
               onClick={() => setViewMode("code")}
               className={`h-7 px-3 gap-1.5 ${
                 viewMode === "code"
-                  ? "bg-zinc-700 text-zinc-100"
-                  : "text-zinc-500 hover:text-zinc-300"
+                  ? "bg-gray-700 text-white"
+                  : "text-gray-500 hover:text-gray-300"
               }`}
             >
               <Code className="h-3.5 w-3.5" />
@@ -248,10 +248,10 @@ export function CodePreview() {
       </div>
 
       {/* Content */}
-      <div className="flex-1 flex items-center justify-center bg-zinc-950/50 p-4 overflow-hidden">
+      <div className="flex-1 flex items-center justify-center bg-black/50 p-4 overflow-hidden">
         {viewMode === "preview" ? (
           <div
-            className="bg-zinc-900 rounded-lg border border-zinc-800 h-full transition-all duration-300 overflow-hidden flex flex-col"
+            className="bg-black border border-gray-800 h-full transition-all duration-300 overflow-hidden flex flex-col"
             style={{
               width: getPreviewWidth(),
               maxWidth: "100%",
@@ -259,30 +259,30 @@ export function CodePreview() {
           >
             {isLoading ? (
               // Loading state with beautiful animation
-              <div className="flex-1 flex items-center justify-center p-8 bg-gradient-to-br from-zinc-900 to-zinc-950">
+              <div className="flex-1 flex items-center justify-center p-8 bg-black">
                 <div className="text-center space-y-6">
                   {/* Animated rings */}
                   <div className="relative w-20 h-20 mx-auto">
-                    <div className="absolute inset-0 rounded-full border-2 border-blue-500/30 animate-ping" />
+                    <div className="absolute inset-0 border-2 border-teal-500/30 animate-ping" />
                     <div
-                      className="absolute inset-2 rounded-full border-2 border-purple-500/40 animate-ping"
+                      className="absolute inset-2 border-2 border-teal-500/40 animate-ping"
                       style={{ animationDelay: "0.2s" }}
                     />
                     <div
-                      className="absolute inset-4 rounded-full border-2 border-blue-500/50 animate-ping"
+                      className="absolute inset-4 border-2 border-teal-500/50 animate-ping"
                       style={{ animationDelay: "0.4s" }}
                     />
                     <div className="absolute inset-0 flex items-center justify-center">
-                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center shadow-lg shadow-blue-500/30">
+                      <div className="w-10 h-10 bg-teal-600 flex items-center justify-center">
                         <Code className="h-5 w-5 text-white" />
                       </div>
                     </div>
                   </div>
                   <div className="space-y-2">
-                    <p className="text-zinc-200 text-base font-medium">
+                    <p className="text-gray-200 text-base font-medium">
                       Skapar din webbplats...
                     </p>
-                    <p className="text-zinc-500 text-sm">
+                    <p className="text-gray-500 text-sm">
                       AI:n designar och bygger din sida
                     </p>
                   </div>
@@ -291,7 +291,7 @@ export function CodePreview() {
                     {[0, 1, 2, 3, 4].map((i) => (
                       <div
                         key={i}
-                        className="w-2 h-2 rounded-full bg-blue-500 animate-pulse"
+                        className="w-2 h-2 bg-teal-500 animate-pulse"
                         style={{ animationDelay: `${i * 100}ms` }}
                       />
                     ))}
@@ -314,20 +314,20 @@ export function CodePreview() {
                   />
                 ) : screenshotUrl ? (
                   // Fallback to screenshot if iframe fails
-                  <div className="flex-1 h-full flex flex-col items-center justify-center p-4 bg-zinc-900">
+                  <div className="flex-1 h-full flex flex-col items-center justify-center p-4 bg-black">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={screenshotUrl}
                       alt="Preview"
-                      className="max-w-full max-h-[70%] rounded-lg shadow-2xl border border-zinc-700"
+                      className="max-w-full max-h-[70%] shadow-2xl border border-gray-700"
                     />
-                    <p className="text-zinc-400 text-sm mt-4">
+                    <p className="text-gray-400 text-sm mt-4">
                       Live-förhandsgranskning kunde inte laddas, visar skärmdump
                     </p>
                   </div>
                 ) : (
                   <div className="flex-1 h-full flex items-center justify-center">
-                    <p className="text-zinc-500">
+                    <p className="text-gray-500">
                       Förhandsgranskning kunde inte laddas
                     </p>
                   </div>
@@ -337,7 +337,7 @@ export function CodePreview() {
                 {chatId && versionId && (
                   <Button
                     onClick={handleDownload}
-                    className="absolute bottom-4 right-4 gap-2 bg-blue-600 hover:bg-blue-500 shadow-lg"
+                    className="absolute bottom-4 right-4 gap-2 bg-teal-600 hover:bg-teal-500 shadow-lg"
                     size="sm"
                   >
                     <Download className="h-4 w-4" />
@@ -356,10 +356,10 @@ export function CodePreview() {
                   <div className="flex-1 flex items-center justify-center p-8">
                     <div className="text-center space-y-4">
                       <AlertTriangle className="h-8 w-8 text-amber-500 mx-auto" />
-                      <p className="text-zinc-400 text-sm">
+                      <p className="text-gray-400 text-sm">
                         Kunde inte rendera förhandsvisning
                       </p>
-                      <p className="text-zinc-600 text-xs max-w-xs">
+                      <p className="text-gray-600 text-xs max-w-xs">
                         {sandpackError}
                       </p>
                       <Button
@@ -464,27 +464,24 @@ export function CodePreview() {
               </div>
             ) : (
               // Empty state with beautiful design
-              <div className="flex-1 flex items-center justify-center p-8 bg-gradient-to-br from-zinc-900/50 to-zinc-950/50">
+              <div className="flex-1 flex items-center justify-center p-8 bg-black/50">
                 <div className="text-center space-y-6 max-w-md">
                   {/* Icon with gradient background */}
-                  <div className="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-br from-zinc-800 to-zinc-900 border border-zinc-700/50 flex items-center justify-center shadow-xl">
-                    <Eye className="h-8 w-8 text-zinc-500" />
+                  <div className="w-16 h-16 mx-auto bg-gray-900 border border-gray-800 flex items-center justify-center">
+                    <Eye className="h-8 w-8 text-gray-500" />
                   </div>
                   <div className="space-y-2">
-                    <h3 className="text-lg font-medium text-zinc-300">
+                    <h3 className="text-lg font-medium text-gray-300">
                       Förhandsgranskning
                     </h3>
-                    <p className="text-zinc-500 text-sm">
+                    <p className="text-gray-500 text-sm">
                       Din webbplats visas här när AI:n har genererat den
                     </p>
                   </div>
                   {/* Decorative dots */}
                   <div className="flex justify-center gap-2">
                     {[1, 2, 3].map((i) => (
-                      <div
-                        key={i}
-                        className="w-2 h-2 rounded-full bg-zinc-700"
-                      />
+                      <div key={i} className="w-2 h-2 bg-gray-700" />
                     ))}
                   </div>
                 </div>
@@ -493,21 +490,21 @@ export function CodePreview() {
           </div>
         ) : (
           // Code view
-          <div className="w-full h-full bg-zinc-900 rounded-lg border border-zinc-800 overflow-hidden">
+          <div className="w-full h-full bg-black border border-gray-800 overflow-hidden">
             {currentCode ? (
               <div className="h-full flex flex-col">
                 {/* Code header */}
-                <div className="flex items-center justify-between px-4 py-2 border-b border-zinc-800 bg-zinc-800/50">
-                  <span className="text-sm text-zinc-400">App.tsx</span>
+                <div className="flex items-center justify-between px-4 py-2 border-b border-gray-800 bg-gray-800/50">
+                  <span className="text-sm text-gray-400">App.tsx</span>
                   <Button
                     variant="ghost"
                     size="sm"
                     onClick={handleCopy}
-                    className="h-7 gap-1.5 text-zinc-400 hover:text-zinc-100"
+                    className="h-7 gap-1.5 text-gray-400 hover:text-white"
                   >
                     {copied ? (
                       <>
-                        <Check className="h-3.5 w-3.5 text-green-500" />
+                        <Check className="h-3.5 w-3.5 text-teal-500" />
                         Kopierat!
                       </>
                     ) : (
@@ -541,7 +538,7 @@ export function CodePreview() {
               </div>
             ) : (
               <div className="h-full flex items-center justify-center">
-                <p className="text-zinc-500 text-sm">
+                <p className="text-gray-500 text-sm">
                   Ingen kod genererad ännu
                 </p>
               </div>

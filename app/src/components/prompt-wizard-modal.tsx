@@ -817,7 +817,7 @@ export function PromptWizardModal({
                 <h3 className="text-2xl sm:text-3xl font-bold text-white leading-tight">
                   Vad heter ditt företag eller projekt?
                 </h3>
-                <p className="text-base sm:text-lg text-zinc-300 leading-relaxed">
+                <p className="text-base sm:text-lg text-gray-300 leading-relaxed">
                   Vi använder detta för att skapa personlig text och tonalitet
                 </p>
               </div>
@@ -855,7 +855,7 @@ export function PromptWizardModal({
                 <h3 className="text-2xl sm:text-3xl font-bold text-white leading-tight">
                   Vilken bransch passar bäst?
                 </h3>
-                <p className="text-base sm:text-lg text-zinc-300 leading-relaxed">
+                <p className="text-base sm:text-lg text-gray-300 leading-relaxed">
                   Vi anpassar design, färger och funktionsförslag
                 </p>
               </div>

@@ -31,21 +31,20 @@ export function HelpTooltip({ text, value, tips, className }: HelpTooltipProps) 
           />
         </TooltipTrigger>
         <TooltipContent
-          className="max-w-xs bg-zinc-900/95 border-zinc-800 p-3 rounded-lg"
+          className="max-w-xs bg-black/95 border-gray-800 p-3"
           sideOffset={5}
         >
-          <p className="text-sm text-zinc-100">{text}</p>
+          <p className="text-sm text-white">{text}</p>
           {value && (
-            <p className="text-xs mt-2 text-zinc-400">
+            <p className="text-xs mt-2 text-gray-400">
               Värde: {value}/10 {renderStars(value)}
             </p>
           )}
           {tips && (
-            <p className="text-xs mt-1 text-blue-400 italic">{tips}</p>
+            <p className="text-xs mt-1 text-teal-400 italic">{tips}</p>
           )}
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>
   );
 }
-

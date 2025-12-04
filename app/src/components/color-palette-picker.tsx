@@ -307,11 +307,11 @@ export function ColorPalettePicker({
                   onSelect(palette);
                   setShowCustom(false);
                 }}
-                className={`relative p-3 rounded-lg border transition-all ${
-                  selectedPalette?.id === palette.id && !showCustom
-                    ? "border-amber-500 ring-2 ring-amber-500/20"
-                    : "border-zinc-700 hover:border-zinc-600"
-                }`}
+              className={`relative p-3 border transition-all ${
+                selectedPalette?.id === palette.id && !showCustom
+                  ? "border-amber-500 ring-2 ring-amber-500/20"
+                  : "border-gray-700 hover:border-gray-600"
+              }`}
               >
                 {selectedPalette?.id === palette.id && !showCustom && (
                   <div className="absolute -top-2 -right-2 bg-amber-500 rounded-full p-0.5">
@@ -320,22 +320,22 @@ export function ColorPalettePicker({
                 )}
                 <div className="flex gap-1 mb-2">
                   <div
-                    className="w-6 h-6 rounded-full border border-zinc-600"
+                    className="w-6 h-6 border border-gray-600"
                     style={{ backgroundColor: palette.primary }}
                     title="Primär"
                   />
                   <div
-                    className="w-6 h-6 rounded-full border border-zinc-600"
+                    className="w-6 h-6 border border-gray-600"
                     style={{ backgroundColor: palette.secondary }}
                     title="Sekundär"
                   />
                   <div
-                    className="w-6 h-6 rounded-full border border-zinc-600"
+                    className="w-6 h-6 border border-gray-600"
                     style={{ backgroundColor: palette.accent }}
                     title="Accent"
                   />
                 </div>
-                <span className="text-xs text-zinc-300 block truncate">
+                <span className="text-xs text-gray-300 block truncate">
                   {palette.name}
                 </span>
               </button>
@@ -347,7 +347,7 @@ export function ColorPalettePicker({
       {/* Other palettes */}
       <div className="space-y-2">
         {recommendedPalettes.length > 0 && (
-          <span className="text-sm text-zinc-500">Övriga paletter</span>
+          <span className="text-sm text-gray-500">Övriga paletter</span>
         )}
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
           {otherPalettes.map((palette) => (
@@ -357,35 +357,35 @@ export function ColorPalettePicker({
                 onSelect(palette);
                 setShowCustom(false);
               }}
-              className={`relative p-3 rounded-lg border transition-all ${
+              className={`relative p-3 border transition-all ${
                 selectedPalette?.id === palette.id && !showCustom
-                  ? "border-blue-500 ring-2 ring-blue-500/20"
-                  : "border-zinc-700 hover:border-zinc-600"
+                  ? "border-teal-500 ring-2 ring-teal-500/20"
+                  : "border-gray-700 hover:border-gray-600"
               }`}
             >
               {selectedPalette?.id === palette.id && !showCustom && (
-                <div className="absolute -top-2 -right-2 bg-blue-500 rounded-full p-0.5">
+                <div className="absolute -top-2 -right-2 bg-teal-500 p-0.5">
                   <Check className="h-3 w-3 text-white" />
                 </div>
               )}
               <div className="flex gap-1 mb-2">
                 <div
-                  className="w-6 h-6 rounded-full border border-zinc-600"
+                  className="w-6 h-6 border border-gray-600"
                   style={{ backgroundColor: palette.primary }}
                   title="Primär"
                 />
                 <div
-                  className="w-6 h-6 rounded-full border border-zinc-600"
+                  className="w-6 h-6 border border-gray-600"
                   style={{ backgroundColor: palette.secondary }}
                   title="Sekundär"
                 />
                 <div
-                  className="w-6 h-6 rounded-full border border-zinc-600"
+                  className="w-6 h-6 border border-gray-600"
                   style={{ backgroundColor: palette.accent }}
                   title="Accent"
                 />
               </div>
-              <span className="text-xs text-zinc-300 block truncate">
+              <span className="text-xs text-gray-300 block truncate">
                 {palette.name}
               </span>
             </button>
@@ -396,10 +396,10 @@ export function ColorPalettePicker({
       {/* Custom color toggle */}
       <button
         onClick={() => setShowCustom(!showCustom)}
-        className={`w-full flex items-center justify-center gap-2 py-2 px-4 rounded-lg border transition-all ${
+        className={`w-full flex items-center justify-center gap-2 py-2 px-4 border transition-all ${
           showCustom
-            ? "border-blue-500 bg-blue-500/10 text-blue-400"
-            : "border-zinc-700 hover:border-zinc-600 text-zinc-400"
+            ? "border-teal-500 bg-teal-500/10 text-teal-400"
+            : "border-gray-700 hover:border-gray-600 text-gray-400"
         }`}
       >
         <Palette className="h-4 w-4" />
@@ -410,8 +410,8 @@ export function ColorPalettePicker({
 
       {/* Custom color pickers */}
       {showCustom && (
-        <div className="bg-zinc-800/50 border border-zinc-700 rounded-lg p-4 space-y-4">
-          <p className="text-xs text-zinc-500">
+        <div className="bg-gray-800/50 border border-gray-700 p-4 space-y-4">
+          <p className="text-xs text-gray-500">
             Klicka på färgcirkeln för att välja egen färg
           </p>
 
@@ -420,7 +420,7 @@ export function ColorPalettePicker({
             <div className="space-y-2">
               <label
                 htmlFor="color-primary"
-                className="text-xs text-zinc-400 block"
+                className="text-xs text-gray-400 block"
               >
                 Primär
               </label>
@@ -438,7 +438,7 @@ export function ColorPalettePicker({
                   className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                 />
                 <div
-                  className="w-full h-10 rounded-lg border border-zinc-600 cursor-pointer"
+                  className="w-full h-10 border border-gray-600 cursor-pointer"
                   style={{
                     backgroundColor:
                       customColors?.primary ||
@@ -447,7 +447,7 @@ export function ColorPalettePicker({
                   }}
                 />
               </div>
-              <span className="text-xs text-zinc-500 font-mono">
+              <span className="text-xs text-gray-500 font-mono">
                 {customColors?.primary || selectedPalette?.primary || "#1E40AF"}
               </span>
             </div>
@@ -456,7 +456,7 @@ export function ColorPalettePicker({
             <div className="space-y-2">
               <label
                 htmlFor="color-secondary"
-                className="text-xs text-zinc-400 block"
+                className="text-xs text-gray-400 block"
               >
                 Sekundär
               </label>
@@ -476,7 +476,7 @@ export function ColorPalettePicker({
                   className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                 />
                 <div
-                  className="w-full h-10 rounded-lg border border-zinc-600 cursor-pointer"
+                  className="w-full h-10 border border-gray-600 cursor-pointer"
                   style={{
                     backgroundColor:
                       customColors?.secondary ||
@@ -485,7 +485,7 @@ export function ColorPalettePicker({
                   }}
                 />
               </div>
-              <span className="text-xs text-zinc-500 font-mono">
+              <span className="text-xs text-gray-500 font-mono">
                 {customColors?.secondary ||
                   selectedPalette?.secondary ||
                   "#3B82F6"}
@@ -496,7 +496,7 @@ export function ColorPalettePicker({
             <div className="space-y-2">
               <label
                 htmlFor="color-accent"
-                className="text-xs text-zinc-400 block"
+                className="text-xs text-gray-400 block"
               >
                 Accent
               </label>
@@ -512,7 +512,7 @@ export function ColorPalettePicker({
                   className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                 />
                 <div
-                  className="w-full h-10 rounded-lg border border-zinc-600 cursor-pointer"
+                  className="w-full h-10 border border-gray-600 cursor-pointer"
                   style={{
                     backgroundColor:
                       customColors?.accent ||
@@ -521,7 +521,7 @@ export function ColorPalettePicker({
                   }}
                 />
               </div>
-              <span className="text-xs text-zinc-500 font-mono">
+              <span className="text-xs text-gray-500 font-mono">
                 {customColors?.accent || selectedPalette?.accent || "#60A5FA"}
               </span>
             </div>

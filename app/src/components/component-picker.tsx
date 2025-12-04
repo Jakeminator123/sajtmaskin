@@ -73,21 +73,21 @@ export function ComponentPicker({ onSelect, disabled }: ComponentPickerProps) {
         size="sm"
         disabled={disabled}
         onClick={() => setOpen(!open)}
-        className="gap-2 border-zinc-700 text-zinc-300 hover:bg-zinc-800 hover:border-zinc-600"
+        className="gap-2 border-gray-700 text-gray-300 hover:bg-gray-800 hover:border-gray-600"
       >
         <Plus className="h-4 w-4" />
         Lägg till komponent
       </Button>
 
       {open && (
-        <div className="absolute bottom-full left-0 mb-2 w-72 p-2 bg-zinc-900 border border-zinc-700 rounded-lg shadow-xl z-50">
+        <div className="absolute bottom-full left-0 mb-2 w-72 p-2 bg-black border border-gray-700 shadow-xl z-50">
           <div className="flex items-center justify-between px-2 py-1.5 mb-1">
-            <span className="text-xs font-medium text-zinc-500 uppercase tracking-wider">
+            <span className="text-xs font-medium text-gray-500 uppercase tracking-wider">
               Välj komponent
             </span>
             <button
               onClick={() => setOpen(false)}
-              className="p-1 rounded hover:bg-zinc-800 text-zinc-500 hover:text-zinc-300"
+              className="p-1 hover:bg-gray-800 text-gray-500 hover:text-gray-300"
             >
               <X className="h-3 w-3" />
             </button>
@@ -99,13 +99,13 @@ export function ComponentPicker({ onSelect, disabled }: ComponentPickerProps) {
                 <button
                   key={component.label}
                   onClick={() => handleSelect(component)}
-                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-left hover:bg-zinc-800 transition-colors group"
+                  className="w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-gray-800 transition-colors group"
                 >
-                  <div className="p-1.5 rounded-md bg-zinc-800 group-hover:bg-blue-500/20 transition-colors">
-                    <Icon className="h-4 w-4 text-zinc-400 group-hover:text-blue-400" />
+                  <div className="p-1.5 bg-gray-800 group-hover:bg-teal-500/20 transition-colors">
+                    <Icon className="h-4 w-4 text-gray-400 group-hover:text-teal-400" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className="text-sm font-medium text-zinc-200 group-hover:text-white">
+                    <div className="text-sm font-medium text-gray-200 group-hover:text-white">
                       {component.label}
                     </div>
                   </div>

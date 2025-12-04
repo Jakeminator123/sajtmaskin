@@ -377,10 +377,10 @@ ${mainCode.substring(0, 18000)}`;
 
 export default function Page() {
   return (
-    <div className="flex items-center justify-center min-h-screen bg-zinc-900 text-white">
+    <div className="flex items-center justify-center min-h-screen bg-black text-white">
       <div className="text-center p-8">
         <h1 className="text-2xl font-bold mb-4">Mall kunde inte laddas</h1>
-        <p className="text-zinc-400">Prova att ladda om eller välj en annan mall.</p>
+        <p className="text-gray-400">Prova att ladda om eller välj en annan mall.</p>
       </div>
     </div>
   );
@@ -705,9 +705,9 @@ export default function Page() {
       />
 
       {/* Header */}
-      <div className="p-4 border-b border-zinc-800 flex items-center gap-2">
-        <MessageSquare className="h-4 w-4 text-zinc-500" />
-        <span className="text-sm font-medium text-zinc-300">Chatt</span>
+      <div className="p-4 border-b border-gray-800 flex items-center gap-2">
+        <MessageSquare className="h-4 w-4 text-gray-500" />
+        <span className="text-sm font-medium text-gray-300">Chatt</span>
         <HelpTooltip text="Här ser du konversationen med AI:n. Varje meddelande du skickar uppdaterar din webbplats. Tänk på det som att prata med en designer!" />
       </div>
 
@@ -716,15 +716,15 @@ export default function Page() {
         <div className="p-4 space-y-4">
           {messages.length === 0 && !isLoading ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">
-              <div className="p-4 rounded-2xl bg-gradient-to-br from-blue-600/20 to-purple-600/20 border border-blue-500/20 mb-4">
-                <Sparkles className="h-8 w-8 text-blue-400" />
+              <div className="p-4 bg-teal-600/20 border border-teal-500/30 mb-4">
+                <Sparkles className="h-8 w-8 text-teal-400" />
               </div>
-              <h3 className="text-lg font-medium text-zinc-200 mb-2">
+              <h3 className="text-lg font-medium text-gray-200 mb-2">
                 {categoryType
                   ? `Redo att skapa din ${getCategoryName(categoryType)}`
                   : "Beskriv din vision"}
               </h3>
-              <p className="text-sm text-zinc-500 max-w-[250px]">
+              <p className="text-sm text-gray-500 max-w-[250px]">
                 {categoryType
                   ? "AI:n kommer generera en professionell design åt dig"
                   : "Skriv vad du vill bygga så skapar AI:n det åt dig"}
@@ -736,8 +736,8 @@ export default function Page() {
                 <ChatMessage key={message.id} message={message} />
               ))}
               {isLoading && (
-                <div className="flex items-center gap-3 p-4 bg-gradient-to-r from-zinc-800/50 to-zinc-800/30 rounded-lg mr-8 border border-zinc-700/30">
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-600 to-purple-600 flex items-center justify-center shadow-lg shadow-blue-500/20">
+                <div className="flex items-center gap-3 p-4 bg-gray-800/50 mr-8 border border-gray-700/30">
+                  <div className="w-10 h-10 bg-teal-600 flex items-center justify-center">
                     <Sparkles className="h-5 w-5 text-white animate-pulse" />
                   </div>
                   <div className="flex flex-col gap-1.5">
@@ -745,7 +745,7 @@ export default function Page() {
                       <span className="text-lg">
                         {LOADING_MESSAGES[loadingMessageIndex].emoji}
                       </span>
-                      <span className="text-sm text-zinc-200 font-medium">
+                      <span className="text-sm text-gray-200 font-medium">
                         {LOADING_MESSAGES[loadingMessageIndex].text}
                       </span>
                     </div>
@@ -754,12 +754,12 @@ export default function Page() {
                         {[0, 1, 2].map((i) => (
                           <div
                             key={i}
-                            className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"
+                            className="w-1.5 h-1.5 bg-teal-500 animate-pulse"
                             style={{ animationDelay: `${i * 150}ms` }}
                           />
                         ))}
                       </div>
-                      <span className="text-xs text-zinc-500">
+                      <span className="text-xs text-gray-500">
                         Tar vanligtvis 15-30 sekunder
                       </span>
                     </div>
@@ -772,7 +772,7 @@ export default function Page() {
       </div>
 
       {/* Input */}
-      <div className="p-4 border-t border-zinc-800 space-y-3">
+      <div className="p-4 border-t border-gray-800 space-y-3">
         {/* Component picker - only show when we have content */}
         {demoUrl && (
           <ComponentPicker
@@ -787,7 +787,7 @@ export default function Page() {
           />
         )}
 
-        <div className="flex items-center gap-2 p-3 bg-zinc-800/50 rounded-lg border border-zinc-700/50 focus-within:border-zinc-600">
+        <div className="flex items-center gap-2 p-3 bg-gray-800/50 border border-gray-700/50 focus-within:border-gray-600">
           <input
             ref={inputRef}
             id="chat-message-input"
@@ -803,13 +803,13 @@ export default function Page() {
                 : "Förfina din webbplats..."
             }
             disabled={isLoading}
-            className="flex-1 bg-transparent text-sm text-zinc-100 placeholder:text-zinc-500 outline-none"
+            className="flex-1 bg-transparent text-sm text-white placeholder:text-gray-500 outline-none"
           />
           <Button
             size="sm"
             onClick={handleSubmit}
             disabled={!input.trim() || isLoading}
-            className="h-8 w-8 p-0 bg-blue-600 hover:bg-blue-500"
+            className="h-8 w-8 p-0 bg-teal-600 hover:bg-teal-500"
           >
             {isLoading ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -818,7 +818,7 @@ export default function Page() {
             )}
           </Button>
         </div>
-        <p className="text-xs text-zinc-600 text-center">
+        <p className="text-xs text-gray-600 text-center">
           {messages.length === 0
             ? "Tryck Enter för att generera"
             : "Skriv ändringar för att förfina designen"}

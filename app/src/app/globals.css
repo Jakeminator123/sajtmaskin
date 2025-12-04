@@ -26,9 +26,8 @@
     --ring: 0 0% 100%;
     --radius: 0rem;
 
-    /* Font variables */
-    --font-inter: "Inter", sans-serif;
-    --font-jetbrains-mono: "JetBrains Mono", monospace;
+    /* Font variables are set by next/font in layout.tsx via className.
+       Tailwind's fontFamily.mono and fontFamily.sans reference these in tailwind.config.ts */
   }
 }
 
@@ -43,9 +42,8 @@
   }
 
   body {
-    @apply bg-background text-foreground antialiased;
+    @apply bg-background text-foreground antialiased font-mono;
     background-color: #000000 !important;
-    font-family: var(--font-jetbrains-mono), monospace;
   }
 
   /* Sharp corners via --radius: 0rem variable above.

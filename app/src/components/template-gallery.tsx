@@ -66,21 +66,21 @@ export function TemplateGallery({ onSelect }: TemplateGalleryProps) {
           <Card
             key={category.id}
             onClick={() => handleSelect(category.id)}
-            className="group cursor-pointer bg-zinc-900/50 border-zinc-800 hover:border-blue-500/50 hover:bg-zinc-900 transition-all duration-300 hover:scale-[1.02] hover:shadow-xl hover:shadow-blue-500/10"
+            className="group cursor-pointer bg-black/50 border-gray-800 hover:border-teal-500/50 hover:bg-black/70 transition-all duration-300 hover:scale-[1.02]"
           >
             <CardContent className="p-8 flex flex-col items-center text-center space-y-4">
               {/* Large icon */}
-              <div className="p-5 rounded-2xl bg-gradient-to-br from-zinc-800 to-zinc-800/50 group-hover:from-blue-600/20 group-hover:to-blue-500/10 transition-all duration-300 shadow-lg">
-                <Icon className="h-10 w-10 text-zinc-300 group-hover:text-blue-400 transition-colors" />
+              <div className="p-5 bg-gray-900/50 group-hover:bg-teal-600/20 transition-all duration-300 border border-gray-800 group-hover:border-teal-500/30">
+                <Icon className="h-10 w-10 text-gray-300 group-hover:text-teal-400 transition-colors" />
               </div>
 
               {/* Title and description */}
               <div className="space-y-2">
-                <h3 className="text-xl font-bold text-zinc-100 group-hover:text-white flex items-center justify-center gap-2">
+                <h3 className="text-xl font-bold text-white group-hover:text-white flex items-center justify-center gap-2">
                   {category.title}
                   <HelpTooltip text={category.helpText} />
                 </h3>
-                <p className="text-sm text-zinc-400 leading-relaxed">
+                <p className="text-sm text-gray-400 leading-relaxed">
                   {category.description}
                 </p>
               </div>
@@ -90,7 +90,7 @@ export function TemplateGallery({ onSelect }: TemplateGalleryProps) {
                 {category.examples.map((example) => (
                   <span
                     key={example}
-                    className="text-xs px-2 py-1 rounded-full bg-zinc-800/50 text-zinc-500 group-hover:bg-blue-500/10 group-hover:text-blue-300 transition-colors"
+                    className="text-xs px-2 py-1 bg-gray-800/50 text-gray-500 group-hover:bg-teal-500/10 group-hover:text-teal-300 transition-colors"
                   >
                     {example}
                   </span>

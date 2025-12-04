@@ -103,7 +103,7 @@ export function PromptInput({
 
       <div className="w-full max-w-2xl space-y-4">
         <div className="relative">
-          <div className="flex items-start gap-2 p-3 bg-zinc-900/50 border border-zinc-800 rounded-xl focus-within:border-zinc-700 focus-within:ring-1 focus-within:ring-zinc-700 transition-all">
+          <div className="flex items-start gap-2 p-3 bg-black/50 border border-gray-800 focus-within:border-gray-700 focus-within:ring-1 focus-within:ring-gray-700 transition-all">
             <Textarea
               ref={textareaRef}
               value={prompt}
@@ -111,7 +111,7 @@ export function PromptInput({
               onKeyDown={handleKeyDown}
               placeholder={placeholder}
               disabled={isLoading}
-              className="flex-1 min-h-[44px] max-h-[200px] resize-none border-0 bg-transparent text-zinc-100 placeholder:text-zinc-500 focus-visible:ring-0 focus-visible:ring-offset-0 p-0"
+              className="flex-1 min-h-[44px] max-h-[200px] resize-none border-0 bg-transparent text-white placeholder:text-gray-500 focus-visible:ring-0 focus-visible:ring-offset-0 p-0"
               rows={1}
             />
             <Button
@@ -119,7 +119,7 @@ export function PromptInput({
               disabled={isLoading}
               size="icon"
               title="Bygg ut med AI"
-              className="h-9 w-9 shrink-0 rounded-lg bg-purple-600 hover:bg-purple-500 disabled:opacity-50"
+              className="h-9 w-9 shrink-0 bg-teal-600 hover:bg-teal-500 disabled:opacity-50"
             >
               <Wand2 className="h-4 w-4" />
             </Button>
@@ -128,7 +128,7 @@ export function PromptInput({
               disabled={!prompt.trim() || isLoading}
               size="icon"
               title="Skapa webbplats"
-              className="h-9 w-9 shrink-0 rounded-lg bg-blue-600 hover:bg-blue-500 disabled:opacity-50"
+              className="h-9 w-9 shrink-0 bg-teal-600 hover:bg-teal-500 disabled:opacity-50"
             >
               {isLoading ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -140,14 +140,14 @@ export function PromptInput({
           <div className="absolute -top-2 right-3">
             <HelpTooltip
               text="Beskriv din drömwebbplats här. Ju mer detaljer du ger, desto bättre blir resultatet. Exempel: 'En modern SaaS-landningssida för ett projekthanteringsverktyg med mörkt tema och blåa accenter'"
-              className="bg-zinc-900"
+              className="bg-black"
             />
           </div>
         </div>
 
         {/* Example prompts */}
         <div className="space-y-2">
-          <p className="text-xs text-zinc-500 text-center">
+          <p className="text-xs text-gray-500 text-center">
             Prova ett exempel:
           </p>
           <div className="flex flex-wrap justify-center gap-2">
@@ -155,7 +155,7 @@ export function PromptInput({
               <button
                 key={index}
                 onClick={() => handleExampleClick(example)}
-                className="text-xs px-3 py-1.5 rounded-full bg-zinc-800/50 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-300 transition-colors truncate max-w-[280px]"
+                className="text-xs px-3 py-1.5 bg-gray-800/50 text-gray-400 hover:bg-gray-800 hover:text-gray-300 transition-colors truncate max-w-[280px]"
               >
                 &quot;{example.slice(0, 40)}...&quot;
               </button>
@@ -164,11 +164,11 @@ export function PromptInput({
 
           {/* Character count and hint */}
           <div className="flex justify-between items-center px-1">
-            <span className="text-xs text-zinc-500">
+            <span className="text-xs text-gray-500">
               {prompt.length} tecken
             </span>
-            <span className="text-xs text-zinc-600">
-              Enter = skapa direkt • Lila knapp = bygg ut med AI
+            <span className="text-xs text-gray-600">
+              Enter = skapa direkt • Teal knapp = bygg ut med AI
             </span>
           </div>
         </div>

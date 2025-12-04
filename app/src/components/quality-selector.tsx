@@ -42,7 +42,7 @@ const qualityOptions: QualityOption[] = [
     description: "Snabb & billig",
     helpText:
       "Snabb generering med 128K context window. Använder v0-1.5-md modellen. Perfekt för de flesta projekt. Kostnad: ~$1.5/$7.5 per 1M tokens.",
-    color: "text-blue-500",
+    color: "text-teal-500",
   },
   {
     id: "premium",
@@ -51,7 +51,7 @@ const qualityOptions: QualityOption[] = [
     description: "Bäst kvalitet",
     helpText:
       "Högsta kvaliteten med 512K context window (4x större). Använder v0-1.5-lg modellen. Bäst för komplexa projekt. Kostnad: ~$15/$75 per 1M tokens (10x).",
-    color: "text-purple-500",
+    color: "text-amber-500",
   },
 ];
 
@@ -63,7 +63,7 @@ export function QualitySelector({
   // Debug log removed - was causing excessive console output
 
   return (
-    <div className="flex items-center gap-1 p-1 bg-zinc-900/50 rounded-lg border border-zinc-800">
+    <div className="flex items-center gap-1 p-1 bg-black/50 border border-gray-800">
       {qualityOptions.map((option) => {
         const Icon = option.icon;
         const isSelected = value === option.id;
@@ -81,8 +81,8 @@ export function QualitySelector({
               className={cn(
                 "h-8 px-3 gap-1.5 text-xs font-medium transition-all",
                 isSelected
-                  ? "bg-zinc-800 text-zinc-100 hover:bg-zinc-800"
-                  : "text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/50"
+                  ? "bg-gray-800 text-white hover:bg-gray-800"
+                  : "text-gray-500 hover:text-gray-300 hover:bg-gray-800/50"
               )}
             >
               <Icon className={cn("h-3.5 w-3.5", isSelected && option.color)} />

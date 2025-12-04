@@ -27,35 +27,35 @@ export function ChatMessage({ message }: ChatMessageProps) {
   return (
     <div
       className={cn(
-        "flex gap-3 p-4 rounded-lg",
-        isUser ? "bg-blue-600/10 ml-8" : "bg-zinc-800/50 mr-8"
+        "flex gap-3 p-4",
+        isUser ? "bg-teal-600/10 ml-8" : "bg-gray-800/50 mr-8"
       )}
     >
       {/* Avatar */}
       <div
         className={cn(
-          "flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center",
-          isUser ? "bg-blue-600" : "bg-zinc-700"
+          "flex-shrink-0 w-8 h-8 flex items-center justify-center",
+          isUser ? "bg-teal-600" : "bg-gray-700"
         )}
       >
         {isUser ? (
           <User className="h-4 w-4 text-white" />
         ) : (
-          <Bot className="h-4 w-4 text-zinc-300" />
+          <Bot className="h-4 w-4 text-gray-300" />
         )}
       </div>
 
       {/* Content */}
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 mb-1">
-          <span className="text-sm font-medium text-zinc-300">
+          <span className="text-sm font-medium text-gray-300">
             {isUser ? "Du" : "SajtMaskin AI"}
           </span>
-          <span className="text-xs text-zinc-600">
+          <span className="text-xs text-gray-600">
             {formatTime(message.timestamp)}
           </span>
         </div>
-        <p className="text-sm text-zinc-300 whitespace-pre-wrap">
+        <p className="text-sm text-gray-300 whitespace-pre-wrap">
           {message.content}
         </p>
       </div>
