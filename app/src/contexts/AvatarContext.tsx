@@ -210,9 +210,13 @@ interface AvatarContextValue extends AvatarContextState {
 
 const AvatarContext = createContext<AvatarContextValue | null>(null);
 
+// Idle animation variants for natural variation
+const IDLE_VARIANTS: AvatarAnimation[] = ["idle", "idle2", "idle3"];
+
 export function AvatarProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(avatarReducer, initialState);
   const idleTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const idleVariationRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const clearIdleTimeout = useCallback(() => {
     if (idleTimeoutRef.current) {
@@ -220,6 +224,36 @@ export function AvatarProvider({ children }: { children: ReactNode }) {
       idleTimeoutRef.current = null;
     }
   }, []);
+
+  // Randomly vary idle animation for natural feel
+  useEffect(() => {
+    const varyIdleAnimation = () => {
+      if (state.avatarState === "idle" && state.isLoaded) {
+        const randomIdle =
+          IDLE_VARIANTS[Math.floor(Math.random() * IDLE_VARIANTS.length)];
+        dispatch({ type: "SET_ANIMATION", animation: randomIdle });
+      }
+    };
+
+    // Change idle variant every 8-15 seconds
+    const scheduleNextVariation = () => {
+      const delay = 8000 + Math.random() * 7000; // 8-15 seconds
+      idleVariationRef.current = setTimeout(() => {
+        varyIdleAnimation();
+        scheduleNextVariation();
+      }, delay);
+    };
+
+    if (state.avatarState === "idle" && state.isLoaded) {
+      scheduleNextVariation();
+    }
+
+    return () => {
+      if (idleVariationRef.current) {
+        clearTimeout(idleVariationRef.current);
+      }
+    };
+  }, [state.avatarState, state.isLoaded]);
 
   const setLoaded = useCallback(() => {
     dispatch({ type: "SET_LOADED" });
