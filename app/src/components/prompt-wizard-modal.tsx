@@ -244,6 +244,164 @@ const SITE_DISLIKES = [
   { id: "hard_to_update", label: "Svår att uppdatera" },
 ];
 
+// v0 Component styles and effects - inspired by v0.app/templates/components
+const COMPONENT_STYLES = {
+  hero: [
+    {
+      id: "geometric",
+      label: "Geometric Background",
+      desc: "Animerade geometriska former",
+      icon: "◆",
+    },
+    {
+      id: "gradient",
+      label: "Gradient Flow",
+      desc: "Mjuka färgövergångar",
+      icon: "🌈",
+    },
+    {
+      id: "particles",
+      label: "Particle Effect",
+      desc: "Interaktiva partiklar",
+      icon: "✨",
+    },
+    {
+      id: "minimal",
+      label: "Clean Minimal",
+      desc: "Enkel och stilren",
+      icon: "◻️",
+    },
+    {
+      id: "video",
+      label: "Video Background",
+      desc: "Bakgrundsvideo/loop",
+      icon: "🎬",
+    },
+  ],
+  navigation: [
+    {
+      id: "sticky",
+      label: "Sticky Header",
+      desc: "Fast navigation som följer med",
+      icon: "📌",
+    },
+    {
+      id: "glass",
+      label: "Glassmorphism",
+      desc: "Frostat glas-effekt",
+      icon: "🪟",
+    },
+    {
+      id: "glow",
+      label: "Glow Menu",
+      desc: "Lysande hover-effekt",
+      icon: "💫",
+    },
+    { id: "minimal", label: "Minimal", desc: "Enkel utan effekter", icon: "—" },
+    {
+      id: "sidebar",
+      label: "Sidebar Nav",
+      desc: "Navigation på sidan",
+      icon: "☰",
+    },
+  ],
+  layout: [
+    {
+      id: "bento",
+      label: "Bento Grid",
+      desc: "Asymmetriskt rutnät",
+      icon: "⊞",
+    },
+    { id: "cards", label: "Card Layout", desc: "Klassiska kort", icon: "🃏" },
+    {
+      id: "sections",
+      label: "Full Sections",
+      desc: "Stora sektioner",
+      icon: "▭",
+    },
+    { id: "masonry", label: "Masonry", desc: "Pinterest-stil", icon: "🧱" },
+    {
+      id: "split",
+      label: "Split Screen",
+      desc: "Delad skärm 50/50",
+      icon: "⬜⬛",
+    },
+  ],
+  effects: [
+    { id: "none", label: "Inga effekter", desc: "Snabb och enkel", icon: "⚡" },
+    {
+      id: "scroll",
+      label: "Scroll Animations",
+      desc: "Element animeras in",
+      icon: "↓",
+    },
+    {
+      id: "parallax",
+      label: "Parallax",
+      desc: "Djupkänsla vid scroll",
+      icon: "🎭",
+    },
+    {
+      id: "hover",
+      label: "Hover Effects",
+      desc: "Interaktiva hover",
+      icon: "👆",
+    },
+    {
+      id: "beam",
+      label: "Animated Beams",
+      desc: "Ljusstrålar och linjer",
+      icon: "⚡",
+    },
+  ],
+  vibe: [
+    {
+      id: "modern",
+      label: "Modern & Clean",
+      desc: "Stilrent och professionellt",
+      icon: "✨",
+    },
+    {
+      id: "playful",
+      label: "Playful & Fun",
+      desc: "Lekfull med personlighet",
+      icon: "🎨",
+    },
+    {
+      id: "brutalist",
+      label: "Brutalist",
+      desc: "Rå och djärv design",
+      icon: "🏗️",
+    },
+    {
+      id: "luxury",
+      label: "Luxury & Premium",
+      desc: "Exklusiv känsla",
+      icon: "💎",
+    },
+    {
+      id: "retro",
+      label: "Retro / Vintage",
+      desc: "Nostalgisk stil",
+      icon: "📻",
+    },
+    {
+      id: "tech",
+      label: "Tech / Futuristic",
+      desc: "Framtid och innovation",
+      icon: "🚀",
+    },
+  ],
+};
+
+export interface ComponentChoices {
+  hero: string;
+  navigation: string;
+  layout: string;
+  effects: string;
+  vibe: string;
+}
+
 export interface WizardData {
   companyName: string;
   industry: string;
@@ -259,6 +417,7 @@ export interface WizardData {
   palette: ColorPalette | null;
   customColors: { primary: string; secondary: string; accent: string } | null;
   voiceTranscript?: string; // Voice input transcript
+  componentChoices?: ComponentChoices; // v0 component style choices
   // Data from AI analysis (for saving to database)
   industryTrends?: string;
   websiteAnalysis?: string;
@@ -308,6 +467,15 @@ export function PromptWizardModal({
     accent: string;
   } | null>(null);
 
+  // Component style choices (v0 templates)
+  const [componentChoices, setComponentChoices] = useState<ComponentChoices>({
+    hero: "geometric",
+    navigation: "sticky",
+    layout: "sections",
+    effects: "scroll",
+    vibe: "modern",
+  });
+
   // Voice input transcript
   const [voiceTranscript, setVoiceTranscript] = useState<string>("");
 
@@ -329,7 +497,8 @@ export function PromptWizardModal({
       { id: 7, name: "Syfte" },
       { id: 8, name: "Målgrupp" },
       { id: 9, name: "Önskemål" },
-      { id: 10, name: "Färger" },
+      { id: 10, name: "Design & Stil" },
+      { id: 11, name: "Färger" },
     ];
     return steps.filter((s) => !s.skip);
   };
@@ -495,6 +664,7 @@ export function PromptWizardModal({
       palette: selectedPalette,
       customColors,
       voiceTranscript: voiceTranscript || undefined,
+      componentChoices,
     };
 
     try {
@@ -624,7 +794,8 @@ export function PromptWizardModal({
               {step === 7 && "Dina mål"}
               {step === 8 && "Dina drömkunder"}
               {step === 9 && "Drömfunktioner"}
-              {step === 10 && "Välj din palett"}
+              {step === 10 && "Design & Komponenter"}
+              {step === 11 && "Välj din palett"}
             </h2>
             <p className="text-base sm:text-lg text-zinc-400 font-medium">
               Steg {displayStep} av {totalSteps}
@@ -1223,8 +1394,185 @@ export function PromptWizardModal({
             </div>
           )}
 
-          {/* Step 10: Color palette */}
+          {/* Step 10: Design & Component styles */}
           {step === 10 && (
+            <div className="space-y-6">
+              <div className="flex items-center gap-3 text-zinc-300">
+                <Sparkles className="h-6 w-6 text-purple-400" />
+                <h3 className="text-2xl sm:text-3xl font-bold">
+                  Välj design och stil
+                </h3>
+              </div>
+              <p className="text-base text-zinc-300 leading-relaxed">
+                Inspirerat av{" "}
+                <a
+                  href="https://v0.app/templates/components"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-purple-400 hover:underline"
+                >
+                  v0 templates
+                </a>
+                . Välj en stil för varje kategori.
+              </p>
+
+              {/* Hero Style */}
+              <div className="space-y-3">
+                <h4 className="text-sm font-semibold text-zinc-400 uppercase tracking-wide">
+                  Hero-sektion
+                </h4>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
+                  {COMPONENT_STYLES.hero.map((style) => (
+                    <button
+                      key={style.id}
+                      onClick={() =>
+                        setComponentChoices((prev) => ({
+                          ...prev,
+                          hero: style.id,
+                        }))
+                      }
+                      className={`p-3 rounded-xl border-2 transition-all text-left ${
+                        componentChoices.hero === style.id
+                          ? "border-purple-500 bg-purple-500/20"
+                          : "border-zinc-700 hover:border-zinc-600 bg-zinc-800/50"
+                      }`}
+                    >
+                      <span className="text-xl mb-1 block">{style.icon}</span>
+                      <span className="text-xs font-medium text-white block truncate">
+                        {style.label}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Navigation Style */}
+              <div className="space-y-3">
+                <h4 className="text-sm font-semibold text-zinc-400 uppercase tracking-wide">
+                  Navigation
+                </h4>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
+                  {COMPONENT_STYLES.navigation.map((style) => (
+                    <button
+                      key={style.id}
+                      onClick={() =>
+                        setComponentChoices((prev) => ({
+                          ...prev,
+                          navigation: style.id,
+                        }))
+                      }
+                      className={`p-3 rounded-xl border-2 transition-all text-left ${
+                        componentChoices.navigation === style.id
+                          ? "border-purple-500 bg-purple-500/20"
+                          : "border-zinc-700 hover:border-zinc-600 bg-zinc-800/50"
+                      }`}
+                    >
+                      <span className="text-xl mb-1 block">{style.icon}</span>
+                      <span className="text-xs font-medium text-white block truncate">
+                        {style.label}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Layout Style */}
+              <div className="space-y-3">
+                <h4 className="text-sm font-semibold text-zinc-400 uppercase tracking-wide">
+                  Layout
+                </h4>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
+                  {COMPONENT_STYLES.layout.map((style) => (
+                    <button
+                      key={style.id}
+                      onClick={() =>
+                        setComponentChoices((prev) => ({
+                          ...prev,
+                          layout: style.id,
+                        }))
+                      }
+                      className={`p-3 rounded-xl border-2 transition-all text-left ${
+                        componentChoices.layout === style.id
+                          ? "border-purple-500 bg-purple-500/20"
+                          : "border-zinc-700 hover:border-zinc-600 bg-zinc-800/50"
+                      }`}
+                    >
+                      <span className="text-xl mb-1 block">{style.icon}</span>
+                      <span className="text-xs font-medium text-white block truncate">
+                        {style.label}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Effects */}
+              <div className="space-y-3">
+                <h4 className="text-sm font-semibold text-zinc-400 uppercase tracking-wide">
+                  Animeringar & Effekter
+                </h4>
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2">
+                  {COMPONENT_STYLES.effects.map((style) => (
+                    <button
+                      key={style.id}
+                      onClick={() =>
+                        setComponentChoices((prev) => ({
+                          ...prev,
+                          effects: style.id,
+                        }))
+                      }
+                      className={`p-3 rounded-xl border-2 transition-all text-left ${
+                        componentChoices.effects === style.id
+                          ? "border-purple-500 bg-purple-500/20"
+                          : "border-zinc-700 hover:border-zinc-600 bg-zinc-800/50"
+                      }`}
+                    >
+                      <span className="text-xl mb-1 block">{style.icon}</span>
+                      <span className="text-xs font-medium text-white block truncate">
+                        {style.label}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Overall Vibe */}
+              <div className="space-y-3">
+                <h4 className="text-sm font-semibold text-zinc-400 uppercase tracking-wide">
+                  Övergripande Stil / Vibe
+                </h4>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                  {COMPONENT_STYLES.vibe.map((style) => (
+                    <button
+                      key={style.id}
+                      onClick={() =>
+                        setComponentChoices((prev) => ({
+                          ...prev,
+                          vibe: style.id,
+                        }))
+                      }
+                      className={`p-4 rounded-xl border-2 transition-all text-left ${
+                        componentChoices.vibe === style.id
+                          ? "border-purple-500 bg-purple-500/20"
+                          : "border-zinc-700 hover:border-zinc-600 bg-zinc-800/50"
+                      }`}
+                    >
+                      <span className="text-2xl mb-2 block">{style.icon}</span>
+                      <span className="text-sm font-medium text-white block">
+                        {style.label}
+                      </span>
+                      <span className="text-xs text-zinc-500 block">
+                        {style.desc}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Step 11: Color palette */}
+          {step === 11 && (
             <div className="space-y-4">
               <div className="flex items-center gap-3 text-zinc-300">
                 <Palette className="h-6 w-6 text-pink-400" />
@@ -1306,6 +1654,7 @@ export function PromptWizardModal({
                           specialWishes: editedPrompt, // Use edited prompt as special wishes
                           palette: selectedPalette,
                           customColors,
+                          componentChoices,
                           categoryType,
                           initialPrompt: editedPrompt, // Pass edited prompt as initial
                           websiteAnalysis,

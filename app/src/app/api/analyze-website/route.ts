@@ -5,8 +5,13 @@
  * Takes a URL and uses AI with Web Search to ACTUALLY analyze the website's
  * content, design, and structure by crawling/searching the site.
  *
- * Uses gpt-4o with web_search tool for real website analysis.
- * Falls back to gpt-4o-mini without web search if needed.
+ * Uses Responses API with web_search tool for real website analysis.
+ * Web search works with gpt-4o and gpt-4o-mini.
+ *
+ * API Format (Responses API):
+ * - instructions: System prompt
+ * - input: User message (string)
+ * - tools: [{ type: "web_search" }]
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -16,7 +21,9 @@ export const maxDuration = 90;
 
 // OpenAI Responses API with Web Search
 const OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses";
-const WEB_SEARCH_MODEL = "gpt-4o"; // Web search works best with gpt-4o
+const OPENAI_CHAT_URL = "https://api.openai.com/v1/chat/completions";
+// gpt-4o-mini is stable and supports web_search
+const WEB_SEARCH_MODEL = "gpt-4o-mini";
 const FALLBACK_MODEL = "gpt-4o-mini";
 
 // System prompt for website analysis with web search
@@ -134,6 +141,7 @@ Sökord att undersöka: "${
       );
 
       try {
+        // Responses API format: instructions (system) + input (user string) + tools
         const webSearchResponse = await fetch(OPENAI_RESPONSES_URL, {
           method: "POST",
           headers: {
@@ -142,23 +150,41 @@ Sökord att undersöka: "${
           },
           body: JSON.stringify({
             model: WEB_SEARCH_MODEL,
-            input: [
-              { role: "system", content: ANALYSIS_PROMPT_WITH_SEARCH },
-              { role: "user", content: userPrompt },
-            ],
-            tools: [{ type: "web_search" }], // Enable web search!
-            max_output_tokens: 1000,
+            instructions: ANALYSIS_PROMPT_WITH_SEARCH, // System prompt
+            input: userPrompt, // User message as string
+            tools: [{ type: "web_search" }], // Enable web search
           }),
         });
 
         if (webSearchResponse.ok) {
           const data = await webSearchResponse.json();
-          console.log("[API/analyze-website] Web Search response received");
 
-          // Extract text from response
+          // Extract text from output_text (primary) or output array (fallback)
           analysis = data.output_text?.trim();
 
-          // Extract sources from annotations
+          // If output_text not available, parse the output array
+          if (!analysis && data.output && Array.isArray(data.output)) {
+            for (const item of data.output) {
+              if (
+                item.type === "message" &&
+                item.content &&
+                Array.isArray(item.content)
+              ) {
+                for (const content of item.content) {
+                  if (
+                    content.type === "output_text" ||
+                    content.type === "text"
+                  ) {
+                    analysis = content.text?.trim();
+                    if (analysis) break;
+                  }
+                }
+              }
+              if (analysis) break;
+            }
+          }
+
+          // Extract sources from annotations in output array
           if (data.output && Array.isArray(data.output)) {
             for (const item of data.output) {
               if (item.content && Array.isArray(item.content)) {
@@ -187,14 +213,18 @@ Sökord att undersöka: "${
           if (analysis) {
             usedWebSearch = true;
             console.log(
-              `[API/analyze-website] Web Search success, found ${sources.length} sources`
+              `[API/analyze-website] Web Search success, found ${sources.length} sources, length: ${analysis.length}`
+            );
+          } else {
+            console.log(
+              "[API/analyze-website] Web Search returned empty analysis, falling back..."
             );
           }
         } else {
-          const errorText = await webSearchResponse.text();
+          const errorData = await webSearchResponse.json().catch(() => ({}));
           console.log(
-            `[API/analyze-website] Web Search failed: ${webSearchResponse.status}`,
-            errorText.substring(0, 500) // Truncate for readability
+            `[API/analyze-website] Web Search failed (${webSearchResponse.status}):`,
+            errorData.error?.message || "unknown error"
           );
         }
       } catch (webSearchError) {
