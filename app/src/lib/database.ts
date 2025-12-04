@@ -79,6 +79,54 @@ function initializeDatabase(database: Database.Database) {
     )
   `);
 
+  // Company profiles - stores wizard data and research for reuse
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS company_profiles (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      project_id TEXT UNIQUE,
+      
+      -- Basic info
+      company_name TEXT NOT NULL,
+      industry TEXT,
+      location TEXT,
+      
+      -- Website info
+      existing_website TEXT,
+      website_analysis TEXT,
+      site_likes TEXT,
+      site_dislikes TEXT,
+      site_feedback TEXT,
+      
+      -- Business info
+      target_audience TEXT,
+      purposes TEXT,
+      special_wishes TEXT,
+      
+      -- Design preferences
+      color_palette_name TEXT,
+      color_primary TEXT,
+      color_secondary TEXT,
+      color_accent TEXT,
+      
+      -- Research data (from Web Search)
+      competitor_insights TEXT,
+      industry_trends TEXT,
+      research_sources TEXT,
+      
+      -- Inspiration
+      inspiration_sites TEXT,
+      
+      -- Voice input transcript (if used)
+      voice_transcript TEXT,
+      
+      -- Metadata
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now')),
+      
+      FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE SET NULL
+    )
+  `);
+
   // ═══════════════════════════════════════════════════════════════════════════
   // INDEXES for better query performance
   // ═══════════════════════════════════════════════════════════════════════════
@@ -88,6 +136,9 @@ function initializeDatabase(database: Database.Database) {
     CREATE INDEX IF NOT EXISTS idx_project_data_chat_id ON project_data(chat_id);
     CREATE INDEX IF NOT EXISTS idx_images_project_id ON images(project_id);
     CREATE INDEX IF NOT EXISTS idx_template_screenshots_template_id ON template_screenshots(template_id);
+    CREATE INDEX IF NOT EXISTS idx_company_profiles_company_name ON company_profiles(company_name);
+    CREATE INDEX IF NOT EXISTS idx_company_profiles_industry ON company_profiles(industry);
+    CREATE INDEX IF NOT EXISTS idx_company_profiles_project_id ON company_profiles(project_id);
   `);
 
   console.log("[Database] Initialized successfully at:", DB_PATH);
@@ -396,4 +447,232 @@ export function getAllTemplateScreenshots(): TemplateScreenshot[] {
   const db = getDb();
   const stmt = db.prepare("SELECT * FROM template_screenshots");
   return stmt.all() as TemplateScreenshot[];
+}
+
+// ============ Company Profile Operations ============
+
+export interface CompanyProfile {
+  id: number;
+  project_id?: string;
+
+  // Basic info
+  company_name: string;
+  industry?: string;
+  location?: string;
+
+  // Website info
+  existing_website?: string;
+  website_analysis?: string;
+  site_likes?: string[];
+  site_dislikes?: string[];
+  site_feedback?: string;
+
+  // Business info
+  target_audience?: string;
+  purposes?: string[];
+  special_wishes?: string;
+
+  // Design preferences
+  color_palette_name?: string;
+  color_primary?: string;
+  color_secondary?: string;
+  color_accent?: string;
+
+  // Research data
+  competitor_insights?: string;
+  industry_trends?: string;
+  research_sources?: Array<{ url: string; title: string }>;
+
+  // Inspiration
+  inspiration_sites?: string[];
+
+  // Voice input
+  voice_transcript?: string;
+
+  // Metadata
+  created_at: string;
+  updated_at: string;
+}
+
+// Create or update company profile
+export function saveCompanyProfile(
+  profile: Omit<CompanyProfile, "id" | "created_at" | "updated_at">
+): CompanyProfile {
+  const db = getDb();
+
+  const stmt = db.prepare(`
+    INSERT INTO company_profiles (
+      project_id, company_name, industry, location,
+      existing_website, website_analysis, site_likes, site_dislikes, site_feedback,
+      target_audience, purposes, special_wishes,
+      color_palette_name, color_primary, color_secondary, color_accent,
+      competitor_insights, industry_trends, research_sources,
+      inspiration_sites, voice_transcript
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    ON CONFLICT(project_id) DO UPDATE SET
+      company_name = excluded.company_name,
+      industry = excluded.industry,
+      location = excluded.location,
+      existing_website = excluded.existing_website,
+      website_analysis = excluded.website_analysis,
+      site_likes = excluded.site_likes,
+      site_dislikes = excluded.site_dislikes,
+      site_feedback = excluded.site_feedback,
+      target_audience = excluded.target_audience,
+      purposes = excluded.purposes,
+      special_wishes = excluded.special_wishes,
+      color_palette_name = excluded.color_palette_name,
+      color_primary = excluded.color_primary,
+      color_secondary = excluded.color_secondary,
+      color_accent = excluded.color_accent,
+      competitor_insights = excluded.competitor_insights,
+      industry_trends = excluded.industry_trends,
+      research_sources = excluded.research_sources,
+      inspiration_sites = excluded.inspiration_sites,
+      voice_transcript = excluded.voice_transcript,
+      updated_at = datetime('now')
+  `);
+
+  const result = stmt.run(
+    profile.project_id || null,
+    profile.company_name,
+    profile.industry || null,
+    profile.location || null,
+    profile.existing_website || null,
+    profile.website_analysis || null,
+    profile.site_likes ? JSON.stringify(profile.site_likes) : null,
+    profile.site_dislikes ? JSON.stringify(profile.site_dislikes) : null,
+    profile.site_feedback || null,
+    profile.target_audience || null,
+    profile.purposes ? JSON.stringify(profile.purposes) : null,
+    profile.special_wishes || null,
+    profile.color_palette_name || null,
+    profile.color_primary || null,
+    profile.color_secondary || null,
+    profile.color_accent || null,
+    profile.competitor_insights || null,
+    profile.industry_trends || null,
+    profile.research_sources ? JSON.stringify(profile.research_sources) : null,
+    profile.inspiration_sites
+      ? JSON.stringify(profile.inspiration_sites)
+      : null,
+    profile.voice_transcript || null
+  );
+
+  return getCompanyProfileById(result.lastInsertRowid as number)!;
+}
+
+// Get company profile by ID
+export function getCompanyProfileById(id: number): CompanyProfile | null {
+  const db = getDb();
+  const stmt = db.prepare("SELECT * FROM company_profiles WHERE id = ?");
+  const row = stmt.get(id) as any;
+
+  if (!row) return null;
+
+  return parseCompanyProfileRow(row);
+}
+
+// Get company profile by project ID
+export function getCompanyProfileByProjectId(
+  projectId: string
+): CompanyProfile | null {
+  const db = getDb();
+  const stmt = db.prepare(
+    "SELECT * FROM company_profiles WHERE project_id = ?"
+  );
+  const row = stmt.get(projectId) as any;
+
+  if (!row) return null;
+
+  return parseCompanyProfileRow(row);
+}
+
+// Get company profile by company name (for reuse)
+export function getCompanyProfileByName(
+  companyName: string
+): CompanyProfile | null {
+  const db = getDb();
+  const stmt = db.prepare(
+    "SELECT * FROM company_profiles WHERE company_name = ? ORDER BY updated_at DESC LIMIT 1"
+  );
+  const row = stmt.get(companyName) as any;
+
+  if (!row) return null;
+
+  return parseCompanyProfileRow(row);
+}
+
+// Get all company profiles
+export function getAllCompanyProfiles(): CompanyProfile[] {
+  const db = getDb();
+  const stmt = db.prepare(
+    "SELECT * FROM company_profiles ORDER BY updated_at DESC"
+  );
+  const rows = stmt.all() as any[];
+
+  return rows.map(parseCompanyProfileRow);
+}
+
+// Search company profiles by name or industry
+export function searchCompanyProfiles(query: string): CompanyProfile[] {
+  const db = getDb();
+  const stmt = db.prepare(`
+    SELECT * FROM company_profiles 
+    WHERE company_name LIKE ? OR industry LIKE ? OR location LIKE ?
+    ORDER BY updated_at DESC
+    LIMIT 20
+  `);
+  const searchTerm = `%${query}%`;
+  const rows = stmt.all(searchTerm, searchTerm, searchTerm) as any[];
+
+  return rows.map(parseCompanyProfileRow);
+}
+
+// Link company profile to a project
+export function linkCompanyProfileToProject(
+  profileId: number,
+  projectId: string
+): void {
+  const db = getDb();
+  const stmt = db.prepare(
+    "UPDATE company_profiles SET project_id = ?, updated_at = datetime('now') WHERE id = ?"
+  );
+  stmt.run(projectId, profileId);
+}
+
+// Helper to parse database row to CompanyProfile
+function parseCompanyProfileRow(row: any): CompanyProfile {
+  return {
+    id: row.id,
+    project_id: row.project_id,
+    company_name: row.company_name,
+    industry: row.industry,
+    location: row.location,
+    existing_website: row.existing_website,
+    website_analysis: row.website_analysis,
+    site_likes: row.site_likes ? JSON.parse(row.site_likes) : undefined,
+    site_dislikes: row.site_dislikes
+      ? JSON.parse(row.site_dislikes)
+      : undefined,
+    site_feedback: row.site_feedback,
+    target_audience: row.target_audience,
+    purposes: row.purposes ? JSON.parse(row.purposes) : undefined,
+    special_wishes: row.special_wishes,
+    color_palette_name: row.color_palette_name,
+    color_primary: row.color_primary,
+    color_secondary: row.color_secondary,
+    color_accent: row.color_accent,
+    competitor_insights: row.competitor_insights,
+    industry_trends: row.industry_trends,
+    research_sources: row.research_sources
+      ? JSON.parse(row.research_sources)
+      : undefined,
+    inspiration_sites: row.inspiration_sites
+      ? JSON.parse(row.inspiration_sites)
+      : undefined,
+    voice_transcript: row.voice_transcript,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+  };
 }

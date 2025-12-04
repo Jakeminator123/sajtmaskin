@@ -20,6 +20,7 @@ import {
   Briefcase,
   RotateCcw,
   Rocket,
+  Mic,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -28,6 +29,7 @@ import {
   PREDEFINED_PALETTES,
   getIndustryPalettes,
 } from "@/components/color-palette-picker";
+import { VoiceRecorder } from "@/components/voice-recorder";
 
 /**
  * PromptWizardModal - Extended Business Analysis Wizard
@@ -255,6 +257,7 @@ export interface WizardData {
   specialWishes: string;
   palette: ColorPalette | null;
   customColors: { primary: string; secondary: string; accent: string } | null;
+  voiceTranscript?: string; // Voice input transcript
 }
 
 interface PromptWizardModalProps {
@@ -301,8 +304,50 @@ export function PromptWizardModal({
     accent: string;
   } | null>(null);
 
+  // Voice input transcript
+  const [voiceTranscript, setVoiceTranscript] = useState<string>("");
+  const [isVoiceRecording, setIsVoiceRecording] = useState(false);
+
   // Website analysis result (from GPT-4o Vision)
   const [websiteAnalysis, setWebsiteAnalysis] = useState<string | null>(null);
+
+  // Save company profile to database
+  const saveCompanyProfile = async (
+    data: WizardData,
+    industryTrends?: string,
+    websiteAnalysisData?: string | null
+  ) => {
+    try {
+      await fetch("/api/company-profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          company_name: data.companyName,
+          industry: data.industry,
+          location: data.location,
+          existing_website: data.existingWebsite,
+          website_analysis: websiteAnalysisData,
+          site_likes: data.siteLikes,
+          site_dislikes: data.siteDislikes,
+          site_feedback: data.siteOtherFeedback,
+          target_audience: data.targetAudience,
+          purposes: data.purposes,
+          special_wishes: data.specialWishes,
+          color_palette_name: data.palette?.name,
+          color_primary: data.customColors?.primary || data.palette?.primary,
+          color_secondary: data.customColors?.secondary || data.palette?.secondary,
+          color_accent: data.customColors?.accent || data.palette?.accent,
+          industry_trends: industryTrends,
+          inspiration_sites: data.inspirationSites,
+          voice_transcript: data.voiceTranscript,
+        }),
+      });
+      console.log("[Wizard] Company profile saved");
+    } catch (err) {
+      console.error("[Wizard] Failed to save company profile:", err);
+      // Don't block the user flow - this is non-critical
+    }
+  };
 
   // Dynamic step calculation (skip step 5 if no existing website)
   const getSteps = () => {
@@ -481,6 +526,7 @@ export function PromptWizardModal({
       specialWishes,
       palette: selectedPalette,
       customColors,
+      voiceTranscript: voiceTranscript || undefined,
     };
 
     try {
@@ -501,6 +547,9 @@ export function PromptWizardModal({
       if (!response.ok || !data.success) {
         throw new Error(data.error || "Failed to expand prompt");
       }
+
+      // Save company profile to database (fire and forget)
+      saveCompanyProfile(wizardData, data.industryTrends, websiteAnalysis);
 
       // Show edit mode instead of closing immediately
       setIsExpanding(false);
@@ -1151,10 +1200,42 @@ export function PromptWizardModal({
                 className="w-full px-5 py-4 bg-zinc-800 border-2 border-zinc-700 rounded-xl text-base text-white placeholder-zinc-400 focus:border-purple-500/50 focus:outline-none focus:ring-2 focus:ring-purple-500/20 resize-none leading-relaxed transition-all hover:border-zinc-600"
               />
 
+              {/* Voice input option */}
+              <div className="pt-4 border-t border-zinc-700/50">
+                <div className="flex items-center gap-2 mb-3">
+                  <Mic className="h-5 w-5 text-purple-400" />
+                  <h4 className="text-base font-semibold text-zinc-300">
+                    Eller beskriv med rösten
+                  </h4>
+                </div>
+                <VoiceRecorder
+                  onTranscript={(transcript) => {
+                    // Append voice transcript to special wishes
+                    setVoiceTranscript(transcript);
+                    setSpecialWishes((prev) =>
+                      prev
+                        ? `${prev}\n\n[Röstinmatning]: ${transcript}`
+                        : `[Röstinmatning]: ${transcript}`
+                    );
+                  }}
+                  onRecordingChange={setIsVoiceRecording}
+                  placeholder="Börja prata..."
+                />
+                {voiceTranscript && (
+                  <p className="text-xs text-zinc-500 mt-2">
+                    Senaste röstinmatning: &quot;{voiceTranscript.substring(0, 50)}
+                    {voiceTranscript.length > 50 ? "..." : ""}&quot;
+                  </p>
+                )}
+              </div>
+
               {/* Clear button if there's content */}
               {specialWishes && (
                 <button
-                  onClick={() => setSpecialWishes("")}
+                  onClick={() => {
+                    setSpecialWishes("");
+                    setVoiceTranscript("");
+                  }}
                   className="text-sm text-zinc-500 hover:text-zinc-300 font-medium transition-colors"
                 >
                   Rensa allt
