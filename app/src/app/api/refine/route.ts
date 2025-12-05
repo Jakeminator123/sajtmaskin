@@ -216,6 +216,23 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Handle timeout errors specifically
+    if (
+      errorMessage.includes("timeout") ||
+      errorMessage.includes("TIMEOUT") ||
+      errorMessage.includes("fetch failed")
+    ) {
+      console.error("[API/refine] Timeout error - v0 API took too long");
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "AI:n tog för lång tid att svara. Prova en enklare ändring eller försök igen.",
+        },
+        { status: 504 }
+      );
+    }
+
     return NextResponse.json(
       {
         success: false,

@@ -51,6 +51,9 @@ function getV0Client() {
     if (!process.env.V0_API_KEY) {
       throw new Error("V0_API_KEY environment variable is not set");
     }
+    // Note: v0-sdk doesn't support timeout config
+    // Long-running operations (5+ min) may timeout at HTTP level
+    // maxDuration in route.ts is set to 600s to help
     _v0Client = createClient({
       apiKey: process.env.V0_API_KEY,
     });
