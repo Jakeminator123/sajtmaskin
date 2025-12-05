@@ -29,6 +29,7 @@ import {
   Globe,
   PanelRightClose,
   PanelRight,
+  Download,
 } from "lucide-react";
 
 /**
@@ -335,6 +336,20 @@ function OwnedProjectContent() {
               <PanelRight className="h-4 w-4" />
             )}
           </Button>
+
+          {/* Download ZIP button (only for Redis mode) */}
+          {!isGitHubMode && (
+            <a href={`/api/projects/${projectId}/download`} download>
+              <Button
+                variant="outline"
+                size="sm"
+                className="gap-2 border-gray-700 text-gray-300 hover:bg-gray-800"
+              >
+                <Download className="h-4 w-4" />
+                <span className="hidden sm:inline">ZIP</span>
+              </Button>
+            </a>
+          )}
 
           {/* GitHub link (only show in GitHub mode) */}
           {isGitHubMode && repoFullName && (

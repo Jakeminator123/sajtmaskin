@@ -389,7 +389,7 @@ export async function flushRedisCache(): Promise<boolean> {
 
 const PROJECT_FILES_PREFIX = "project:files:";
 const PROJECT_META_PREFIX = "project:meta:";
-const PROJECT_FILES_TTL = 60 * 60 * 24 * 30; // 30 days
+const PROJECT_FILES_TTL = 60 * 60 * 24 * 365; // 365 days (1 year) - extended to prevent data loss
 
 export interface ProjectFile {
   path: string;
@@ -438,6 +438,7 @@ export async function saveProjectFiles(
 
 /**
  * Get project files from Redis
+ * Also refreshes TTL on each read to prevent data expiration for active projects
  */
 export async function getProjectFiles(
   projectId: string
@@ -446,8 +447,11 @@ export async function getProjectFiles(
   if (!redis) return null;
 
   try {
-    const data = await redis.get(`${PROJECT_FILES_PREFIX}${projectId}`);
+    const key = `${PROJECT_FILES_PREFIX}${projectId}`;
+    const data = await redis.get(key);
     if (data) {
+      // Touch TTL on read to keep active projects alive
+      await redis.expire(key, PROJECT_FILES_TTL);
       return JSON.parse(data) as ProjectFile[];
     }
   } catch (error) {
@@ -545,6 +549,7 @@ export async function saveProjectMeta(meta: ProjectMeta): Promise<boolean> {
 
 /**
  * Get project metadata
+ * Also refreshes TTL on each read to prevent data expiration for active projects
  */
 export async function getProjectMeta(
   projectId: string
@@ -553,8 +558,11 @@ export async function getProjectMeta(
   if (!redis) return null;
 
   try {
-    const data = await redis.get(`${PROJECT_META_PREFIX}${projectId}`);
+    const key = `${PROJECT_META_PREFIX}${projectId}`;
+    const data = await redis.get(key);
     if (data) {
+      // Touch TTL on read to keep active projects alive
+      await redis.expire(key, PROJECT_FILES_TTL);
       return JSON.parse(data) as ProjectMeta;
     }
   } catch (error) {
@@ -565,6 +573,7 @@ export async function getProjectMeta(
 
 /**
  * List all taken-over projects for a user
+ * Uses SCAN instead of KEYS to avoid blocking Redis with large datasets
  */
 export async function listUserTakenOverProjects(
   userId: string
@@ -573,19 +582,46 @@ export async function listUserTakenOverProjects(
   if (!redis) return [];
 
   try {
-    // Scan for all project meta keys
-    const keys = await redis.keys(`${PROJECT_META_PREFIX}*`);
     const projects: ProjectMeta[] = [];
+    let cursor = "0";
+    const pattern = `${PROJECT_META_PREFIX}*`;
 
-    for (const key of keys) {
-      const data = await redis.get(key);
-      if (data) {
-        const meta = JSON.parse(data) as ProjectMeta;
-        if (meta.userId === userId) {
-          projects.push(meta);
+    // Use SCAN to iterate through keys without blocking Redis
+    do {
+      const [nextCursor, keys] = await redis.scan(
+        cursor,
+        "MATCH",
+        pattern,
+        "COUNT",
+        100
+      );
+      cursor = nextCursor;
+
+      // Fetch project metadata for each key
+      if (keys.length > 0) {
+        // Use pipeline for batch fetching (more efficient)
+        const pipeline = redis.pipeline();
+        for (const key of keys) {
+          pipeline.get(key);
+        }
+        const results = await pipeline.exec();
+
+        if (results) {
+          for (const [err, data] of results) {
+            if (!err && data) {
+              try {
+                const meta = JSON.parse(data as string) as ProjectMeta;
+                if (meta.userId === userId) {
+                  projects.push(meta);
+                }
+              } catch {
+                // Skip invalid JSON
+              }
+            }
+          }
         }
       }
-    }
+    } while (cursor !== "0");
 
     // Sort by takenOverAt descending (newest first)
     return projects.sort(

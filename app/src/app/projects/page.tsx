@@ -6,13 +6,30 @@ import { Button } from "@/components/ui/button";
 import { Navbar } from "@/components/navbar";
 import { AuthModal } from "@/components/auth/auth-modal";
 import { ShaderBackground } from "@/components/shader-background";
-import { Plus, Trash2, ExternalLink, Clock, Folder } from "lucide-react";
-import { getProjects, deleteProject, Project } from "@/lib/project-client";
+import {
+  Plus,
+  Trash2,
+  ExternalLink,
+  Clock,
+  Folder,
+  Sparkles,
+  Github,
+} from "lucide-react";
+import {
+  getProjects,
+  deleteProject,
+  Project,
+  getTakenOverProjects,
+  TakenOverProject,
+} from "@/lib/project-client";
 import { FloatingAvatar } from "@/components/avatar";
 import { useAvatar } from "@/contexts/AvatarContext";
 
 export default function ProjectsPage() {
   const [projects, setProjects] = useState<Project[]>([]);
+  const [takenOverProjects, setTakenOverProjects] = useState<
+    TakenOverProject[]
+  >([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -25,8 +42,13 @@ export default function ProjectsPage() {
   async function loadProjects() {
     try {
       setLoading(true);
-      const data = await getProjects();
-      setProjects(data);
+      // Load both regular projects and taken-over projects in parallel
+      const [regularProjects, aiProjects] = await Promise.all([
+        getProjects(),
+        getTakenOverProjects(),
+      ]);
+      setProjects(regularProjects);
+      setTakenOverProjects(aiProjects);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -90,7 +112,12 @@ export default function ProjectsPage() {
           <div>
             <h1 className="text-3xl font-bold text-white">Mina Projekt</h1>
             <p className="text-gray-400 mt-1">
-              {projects.length} sparade projekt
+              {projects.length + takenOverProjects.length} projekt totalt
+              {takenOverProjects.length > 0 && (
+                <span className="ml-2 text-purple-400">
+                  ({takenOverProjects.length} med AI Studio)
+                </span>
+              )}
             </p>
           </div>
           <Link href="/">
@@ -116,95 +143,190 @@ export default function ProjectsPage() {
         )}
 
         {/* Empty state */}
-        {!loading && !error && projects.length === 0 && (
-          <div className="text-center py-20">
-            <Folder className="h-16 w-16 text-gray-600 mx-auto mb-4" />
-            <h2 className="text-xl font-semibold text-gray-300 mb-2">
-              Inga projekt än
-            </h2>
-            <p className="text-gray-500 mb-6">
-              Skapa ditt första projekt för att komma igång!
-            </p>
-            <Link href="/">
-              <Button className="gap-2 bg-teal-600 hover:bg-teal-500">
-                <Plus className="h-4 w-4" />
-                Skapa projekt
-              </Button>
-            </Link>
+        {!loading &&
+          !error &&
+          projects.length === 0 &&
+          takenOverProjects.length === 0 && (
+            <div className="text-center py-20">
+              <Folder className="h-16 w-16 text-gray-600 mx-auto mb-4" />
+              <h2 className="text-xl font-semibold text-gray-300 mb-2">
+                Inga projekt än
+              </h2>
+              <p className="text-gray-500 mb-6">
+                Skapa ditt första projekt för att komma igång!
+              </p>
+              <Link href="/">
+                <Button className="gap-2 bg-teal-600 hover:bg-teal-500">
+                  <Plus className="h-4 w-4" />
+                  Skapa projekt
+                </Button>
+              </Link>
+            </div>
+          )}
+
+        {/* AI Studio Projects Section */}
+        {!loading && takenOverProjects.length > 0 && (
+          <div className="mb-10">
+            <div className="flex items-center gap-2 mb-4">
+              <Sparkles className="h-5 w-5 text-purple-400" />
+              <h2 className="text-xl font-semibold text-white">
+                AI Studio Projekt
+              </h2>
+              <span className="px-2 py-0.5 bg-purple-500/20 text-purple-400 text-xs rounded-full">
+                {takenOverProjects.length}
+              </span>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {takenOverProjects.map((project) => (
+                <div
+                  key={project.id}
+                  className="group bg-black/50 border border-purple-500/30 overflow-hidden hover:border-purple-500/60 transition-all"
+                >
+                  {/* AI Studio badge */}
+                  <div className="aspect-video bg-gradient-to-br from-purple-900/30 to-black relative">
+                    <div className="absolute inset-0 flex flex-col items-center justify-center">
+                      <Sparkles className="h-12 w-12 text-purple-400/50 mb-2" />
+                      <span className="text-xs text-purple-400/70">
+                        {project.filesCount} filer
+                      </span>
+                    </div>
+
+                    {/* Storage type badge */}
+                    <div className="absolute top-2 right-2">
+                      {project.storageType === "github" ? (
+                        <span className="flex items-center gap-1 px-2 py-1 bg-gray-800/80 text-gray-300 text-xs rounded">
+                          <Github className="h-3 w-3" />
+                          GitHub
+                        </span>
+                      ) : (
+                        <span className="px-2 py-1 bg-teal-500/20 text-teal-400 text-xs rounded">
+                          Redis
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Hover overlay */}
+                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
+                      <Link href={project.editUrl}>
+                        <Button
+                          size="sm"
+                          className="gap-2 bg-purple-600 hover:bg-purple-500"
+                        >
+                          <Sparkles className="h-4 w-4" />
+                          AI Studio
+                        </Button>
+                      </Link>
+                    </div>
+                  </div>
+
+                  {/* Info */}
+                  <div className="p-4">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <h3 className="font-semibold text-white line-clamp-1">
+                          {project.name}
+                        </h3>
+                        <span className="inline-block mt-1 px-2 py-0.5 bg-purple-500/20 text-xs text-purple-400">
+                          Övertaget
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="mt-3 flex items-center gap-1 text-xs text-gray-600">
+                      <Clock className="h-3 w-3" />
+                      {formatDate(project.takenOverAt)}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
 
-        {/* Project grid */}
+        {/* Regular Project grid */}
         {!loading && projects.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {projects.map((project) => (
-              <div
-                key={project.id}
-                className="group bg-black/50 border border-gray-800 overflow-hidden hover:border-gray-700 transition-all"
-              >
-                {/* Thumbnail placeholder */}
-                <div className="aspect-video bg-gradient-to-br from-gray-900 to-black relative">
-                  {project.thumbnail_path ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={project.thumbnail_path}
-                      alt={project.name}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="absolute inset-0 flex items-center justify-center text-gray-700">
-                      <Folder className="h-12 w-12" />
-                    </div>
-                  )}
-
-                  {/* Hover overlay */}
-                  <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
-                    <Link href={`/builder?project=${project.id}`}>
-                      <Button
-                        size="sm"
-                        className="gap-2 bg-teal-600 hover:bg-teal-500"
-                      >
-                        <ExternalLink className="h-4 w-4" />
-                        Öppna
-                      </Button>
-                    </Link>
-                  </div>
-                </div>
-
-                {/* Info */}
-                <div className="p-4">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <h3 className="font-semibold text-white line-clamp-1">
-                        {project.name}
-                      </h3>
-                      <span className="inline-block mt-1 px-2 py-0.5 bg-gray-800 text-xs text-gray-400">
-                        {getCategoryLabel(project.category)}
-                      </span>
-                    </div>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8 text-gray-500 hover:text-red-400 hover:bg-red-500/10"
-                      onClick={() => handleDelete(project.id, project.name)}
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
-                  </div>
-
-                  {project.description && (
-                    <p className="mt-2 text-sm text-gray-500 line-clamp-2">
-                      {project.description}
-                    </p>
-                  )}
-
-                  <div className="mt-3 flex items-center gap-1 text-xs text-gray-600">
-                    <Clock className="h-3 w-3" />
-                    {formatDate(project.updated_at)}
-                  </div>
-                </div>
+          <div>
+            {takenOverProjects.length > 0 && (
+              <div className="flex items-center gap-2 mb-4">
+                <Folder className="h-5 w-5 text-teal-400" />
+                <h2 className="text-xl font-semibold text-white">
+                  Byggprojekt
+                </h2>
+                <span className="px-2 py-0.5 bg-teal-500/20 text-teal-400 text-xs rounded-full">
+                  {projects.length}
+                </span>
               </div>
-            ))}
+            )}
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {projects.map((project) => (
+                <div
+                  key={project.id}
+                  className="group bg-black/50 border border-gray-800 overflow-hidden hover:border-gray-700 transition-all"
+                >
+                  {/* Thumbnail placeholder */}
+                  <div className="aspect-video bg-gradient-to-br from-gray-900 to-black relative">
+                    {project.thumbnail_path ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={project.thumbnail_path}
+                        alt={project.name}
+                        className="w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="absolute inset-0 flex items-center justify-center text-gray-700">
+                        <Folder className="h-12 w-12" />
+                      </div>
+                    )}
+
+                    {/* Hover overlay */}
+                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
+                      <Link href={`/builder?project=${project.id}`}>
+                        <Button
+                          size="sm"
+                          className="gap-2 bg-teal-600 hover:bg-teal-500"
+                        >
+                          <ExternalLink className="h-4 w-4" />
+                          Öppna
+                        </Button>
+                      </Link>
+                    </div>
+                  </div>
+
+                  {/* Info */}
+                  <div className="p-4">
+                    <div className="flex items-start justify-between">
+                      <div>
+                        <h3 className="font-semibold text-white line-clamp-1">
+                          {project.name}
+                        </h3>
+                        <span className="inline-block mt-1 px-2 py-0.5 bg-gray-800 text-xs text-gray-400">
+                          {getCategoryLabel(project.category)}
+                        </span>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-gray-500 hover:text-red-400 hover:bg-red-500/10"
+                        onClick={() => handleDelete(project.id, project.name)}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+
+                    {project.description && (
+                      <p className="mt-2 text-sm text-gray-500 line-clamp-2">
+                        {project.description}
+                      </p>
+                    )}
+
+                    <div className="mt-3 flex items-center gap-1 text-xs text-gray-600">
+                      <Clock className="h-3 w-3" />
+                      {formatDate(project.updated_at)}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </div>

@@ -2,20 +2,22 @@
  * OpenAI Agent for Code Editing
  * =============================
  *
- * Uses OpenAI's Responses API with GPT-5 models and function calling
+ * Uses OpenAI's Responses API with GPT-5.1 Codex models and function calling
  * to edit code in taken-over projects.
  *
- * MODEL SELECTION (GPT-5 Series):
- * - gpt-5-mini: Fast, cost-efficient for standard edits
- * - gpt-5: Complex reasoning, refactoring, multi-step tasks
+ * MODEL SELECTION (GPT-5.1 Codex Series for code, GPT-5 Series for text):
+ * - gpt-5.1-codex-mini: Fast, cost-efficient for standard code edits
+ * - gpt-5.1-codex: Complex, long-running agentic coding tasks
+ * - gpt-5-mini: Text generation, copywriting
+ * - gpt-5: Complex reasoning, image generation with tools
  * - gpt-image-1: Image generation (via image_generation tool)
  *
  * TASK TYPES:
- * - code_edit: Standard code changes (gpt-5-mini, minimal reasoning)
- * - copy: Text generation (gpt-5-mini, low reasoning)
+ * - code_edit: Standard code changes (gpt-5.1-codex-mini)
+ * - copy: Text generation (gpt-5-mini)
  * - image: Logo/hero image generation (gpt-5 + image_generation tool)
  * - web_search: Search web for info (gpt-5-mini + web_search tool)
- * - code_refactor: Heavy refactoring (gpt-5, medium reasoning)
+ * - code_refactor: Heavy refactoring (gpt-5.1-codex)
  *
  * STORAGE MODES:
  * 1. REDIS (default) - Files stored in Redis, download as ZIP
@@ -73,12 +75,10 @@ export interface AgentResult {
 
 // ============ Model Configuration ============
 
-type ReasoningEffort = "minimal" | "low" | "medium" | "high";
 type Verbosity = "low" | "medium" | "high";
 
 interface ModelConfig {
   model: string;
-  reasoning?: { effort: ReasoningEffort };
   text?: { verbosity: Verbosity };
   tools: OpenAI.Responses.Tool[];
   diamondCost: number;
@@ -151,36 +151,37 @@ const FILE_TOOLS: OpenAI.Responses.Tool[] = [
 ];
 
 // Model configuration per task type
+// GPT-5.1 Codex models for code, GPT-5 models for text/reasoning
 const MODEL_CONFIGS: Record<TaskType, ModelConfig> = {
   code_edit: {
-    model: "gpt-5-mini",
-    reasoning: { effort: "minimal" },
+    // gpt-5.1-codex-mini: Fast, cost-efficient for everyday coding tasks
+    model: "gpt-5.1-codex-mini",
     text: { verbosity: "low" },
     tools: FILE_TOOLS,
     diamondCost: 1,
   },
   copy: {
+    // gpt-5-mini: Good for text generation and copywriting
     model: "gpt-5-mini",
-    reasoning: { effort: "low" },
     text: { verbosity: "medium" },
     tools: FILE_TOOLS,
     diamondCost: 1,
   },
   image: {
+    // gpt-5: Full model for image generation orchestration
     model: "gpt-5",
-    reasoning: { effort: "low" },
     tools: [...FILE_TOOLS, { type: "image_generation" }],
     diamondCost: 3,
   },
   web_search: {
+    // gpt-5-mini: Good for web search and research tasks
     model: "gpt-5-mini",
-    reasoning: { effort: "low" },
     tools: [...FILE_TOOLS, { type: "web_search" }],
     diamondCost: 2,
   },
   code_refactor: {
-    model: "gpt-5",
-    reasoning: { effort: "medium" },
+    // gpt-5.1-codex: Complex, long-running agentic coding
+    model: "gpt-5.1-codex",
     text: { verbosity: "medium" },
     tools: FILE_TOOLS,
     diamondCost: 5,
@@ -545,7 +546,6 @@ export async function runAgent(
     instruction: instruction.substring(0, 100),
     taskType,
     model: config.model,
-    reasoning: config.reasoning,
   });
 
   const updatedFiles: AgentFile[] = [];
@@ -562,12 +562,7 @@ export async function runAgent(
       store: true,
     };
 
-    // Add reasoning config for GPT-5 models
-    if (config.reasoning) {
-      requestOptions.reasoning = config.reasoning;
-    }
-
-    // Add text verbosity config
+    // Add text verbosity config if specified
     if (config.text) {
       requestOptions.text = config.text;
     }
@@ -693,7 +688,6 @@ export async function runAgent(
         previous_response_id: response.id,
         tools: config.tools,
         store: true,
-        ...(config.reasoning ? { reasoning: config.reasoning } : {}),
       });
     }
 
@@ -779,13 +773,17 @@ export async function continueConversation(
 
 /**
  * Generate image directly (standalone, without agent context)
+ * Uses gpt-image-1 model for high-quality image generation
  */
 export async function generateImage(
   prompt: string,
   size: "1024x1024" | "1536x1024" | "1024x1536" = "1024x1024",
   quality: "low" | "medium" | "high" = "medium"
 ): Promise<{ base64: string; revisedPrompt?: string }> {
-  console.log("[Image] Generating with prompt:", prompt.substring(0, 100));
+  console.log(
+    "[Image] Generating with gpt-image-1, prompt:",
+    prompt.substring(0, 100)
+  );
 
   const result = await openai.images.generate({
     model: "gpt-image-1",
@@ -793,6 +791,7 @@ export async function generateImage(
     size,
     quality,
     n: 1,
+    response_format: "b64_json", // Ensure we get base64 data
   });
 
   if (!result.data || result.data.length === 0) {
