@@ -6,23 +6,28 @@
  * Makes the avatar act as an intelligent agent that monitors
  * what's happening on the site and provides contextual feedback.
  *
- * IMPROVED: Less intrusive, smarter timing, tracks shown tips
+ * ENHANCED: Now supports project analysis, points, and value tracking
  */
 
 import { useEffect, useRef, useCallback } from "react";
-import { useAvatar } from "@/contexts/AvatarContext";
+import { useAvatar, AppSection } from "@/contexts/AvatarContext";
 import { useBuilderStore } from "@/lib/store";
 
 // Track which tips have been shown this session
 const shownTips = new Set<string>();
 let tipCount = 0;
-const MAX_TIPS_PER_SESSION = 5;
+const MAX_TIPS_PER_SESSION = 8;
 
-// Shorter, less intrusive tips
+// Tips for different scenarios
 const AGENT_TIPS = {
   generationTakingLong: ["Generering pågår... ⏳", "Snart klar!"],
-  afterSuccess: ["Klar! Förfina i chatten.", "Snyggt! 🎉"],
+  afterSuccess: ["Klar! Förfina i chatten.", "Snyggt! 🎉", "Bra jobbat! ✨"],
   afterError: ["Något gick fel - prova igen."],
+  projectOpened: ["Kolla igenom projektet!", "Jag kan analysera din kod."],
+  firstProject: [
+    "Ditt första projekt! 🎉",
+    "Jag kan hjälpa dig förbättra det.",
+  ],
 };
 
 // Get a tip that hasn't been shown yet
@@ -38,40 +43,99 @@ function getUniqueTip(tips: string[]): string | null {
   return tip;
 }
 
+interface UseAvatarAgentOptions {
+  projectId?: string;
+  section?: AppSection;
+}
+
 /**
- * Hook that makes the avatar act as an agent
- * monitoring user activity - now less intrusive
+ * Hook that makes the avatar act as an intelligent agent
+ * monitoring user activity and providing contextual help
  */
-export function useAvatarAgent() {
-  const { triggerReaction, avatarState, isLoaded } = useAvatar();
+export function useAvatarAgent(options: UseAvatarAgentOptions = {}) {
+  const { projectId, section } = options;
+
+  const {
+    triggerReaction,
+    avatarState,
+    isLoaded,
+    addPoints,
+    setValueMessage,
+    setCurrentProject,
+    currentProjectId,
+    setConversationId,
+  } = useAvatar();
 
   // Get builder state
-  const { isLoading, demoUrl, messages } = useBuilderStore();
+  const { isLoading, demoUrl, messages, currentCode } = useBuilderStore();
 
   // Track previous states
   const prevIsLoading = useRef(isLoading);
   const prevDemoUrl = useRef(demoUrl);
+  const prevProjectId = useRef<string | undefined>(undefined);
   const loadingStartTime = useRef<number | null>(null);
   const hasGivenLoadingTip = useRef(false);
   const lastReactionTime = useRef(0);
+  const hasAnalyzedProject = useRef(false);
 
-  // Throttle reactions - minimum 10 seconds between
+  // Throttle reactions - minimum 8 seconds between
   const canReact = useCallback(() => {
     const now = Date.now();
-    if (now - lastReactionTime.current < 10000) return false;
+    if (now - lastReactionTime.current < 8000) return false;
     lastReactionTime.current = now;
     return true;
   }, []);
 
-  // Monitor generation state changes - less chatty
+  // Track current project
+  useEffect(() => {
+    if (projectId && projectId !== currentProjectId) {
+      setCurrentProject(projectId);
+    }
+  }, [projectId, currentProjectId, setCurrentProject]);
+
+  // Monitor project changes - offer to analyze new projects
   useEffect(() => {
     if (!isLoaded || avatarState === "hidden") return;
 
-    // Generation started - just animate, no message
+    // Project just opened
+    if (projectId && projectId !== prevProjectId.current && canReact()) {
+      prevProjectId.current = projectId;
+
+      // First project ever?
+      if (!hasAnalyzedProject.current) {
+        hasAnalyzedProject.current = true;
+        const tip = getUniqueTip(AGENT_TIPS.firstProject);
+        if (tip) {
+          triggerReaction("celebrating", tip);
+          addPoints(10);
+          setValueMessage("Du har startat ditt första projekt!");
+        }
+      } else {
+        const tip = getUniqueTip(AGENT_TIPS.projectOpened);
+        if (tip) {
+          triggerReaction("template_select", tip);
+        }
+      }
+    }
+  }, [
+    projectId,
+    isLoaded,
+    avatarState,
+    canReact,
+    triggerReaction,
+    addPoints,
+    setValueMessage,
+  ]);
+
+  // Monitor generation state changes
+  useEffect(() => {
+    if (!isLoaded || avatarState === "hidden") return;
+
+    // Generation started
     if (isLoading && !prevIsLoading.current) {
       loadingStartTime.current = Date.now();
       hasGivenLoadingTip.current = false;
-      // Silent reaction - just animation change
+      // Show thinking animation without text
       triggerReaction("generation_start", "");
     }
 
@@ -86,15 +150,17 @@ export function useAvatarAgent() {
         const tip = getUniqueTip(AGENT_TIPS.afterSuccess);
         if (tip) {
           triggerReaction("generation_complete", tip);
+          // Award points for successful generation
+          addPoints(5);
+          setValueMessage("Din sajt växer! Fortsätt så.");
         } else {
-          // Just animate without text
           triggerReaction("generation_complete", "");
         }
       }
       loadingStartTime.current = null;
     }
 
-    // Generation failed - only react if clear error
+    // Generation failed
     if (
       !isLoading &&
       prevIsLoading.current &&
@@ -104,7 +170,8 @@ export function useAvatarAgent() {
       const lastMessage = messages[messages.length - 1];
       if (
         lastMessage?.role === "assistant" &&
-        lastMessage?.content?.toLowerCase().includes("fel") &&
+        (lastMessage?.content?.toLowerCase().includes("fel") ||
+          lastMessage?.content?.toLowerCase().includes("error")) &&
         canReact()
       ) {
         const tip = getUniqueTip(AGENT_TIPS.afterError);
@@ -121,6 +188,8 @@ export function useAvatarAgent() {
     isLoaded,
     avatarState,
     triggerReaction,
+    addPoints,
+    setValueMessage,
     canReact,
   ]);
 
@@ -135,7 +204,7 @@ export function useAvatarAgent() {
         if (elapsed > 45000 && !hasGivenLoadingTip.current) {
           hasGivenLoadingTip.current = true;
           const tip = getUniqueTip(AGENT_TIPS.generationTakingLong);
-          if (tip) triggerReaction("form_submit", tip);
+          if (tip) triggerReaction("waiting", tip);
         }
       }
     }, 45000);
@@ -143,13 +212,58 @@ export function useAvatarAgent() {
     return () => clearTimeout(checkTimer);
   }, [isLoading, triggerReaction, canReact]);
 
+  // Request proactive analysis of current project
+  const requestAnalysis = useCallback(async () => {
+    if (!projectId) return;
+
+    try {
+      const response = await fetch("/api/avatar-guide", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          message: "[PROACTIVE_TIP]",
+          currentSection: section || "builder",
+          lastAction: "opened_project",
+          conversationHistory: [],
+          projectId,
+        }),
+      });
+
+      if (!response.ok) return;
+
+      const data = await response.json();
+
+      if (data.responseId) {
+        setConversationId(data.responseId);
+      }
+
+      if (data.points > 0) {
+        addPoints(data.points);
+      }
+
+      if (data.valueMessage) {
+        setValueMessage(data.valueMessage);
+      }
+
+      if (data.message) {
+        triggerReaction("form_submit", data.message);
+      }
+    } catch (error) {
+      console.error("[AvatarAgent] Analysis request failed:", error);
+    }
+  }, [
+    projectId,
+    section,
+    triggerReaction,
+    addPoints,
+    setValueMessage,
+    setConversationId,
+  ]);
+
   return {
-    suggestPromptTip: () => {
-      // Disabled - less intrusive
-    },
-    suggestDetailsTip: () => {
-      // Disabled - less intrusive
-    },
+    requestAnalysis,
+    hasProject: !!projectId,
+    canReact,
   };
 }
 

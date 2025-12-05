@@ -42,6 +42,7 @@ interface AvatarChatModalProps {
   isOpen: boolean;
   onClose: () => void;
   currentSection: AppSection;
+  projectId?: string; // Current project for context-aware responses
 }
 
 // Map API animation names to our animation types
@@ -60,6 +61,8 @@ const ANIMATION_MAP: Record<string, AvatarAnimation> = {
   SHUFFLE: "shuffle",
   URGENT: "run",
   SLEEP: "sleep",
+  FUN: "fun",
+  CELEBRATING: "fun",
 };
 
 // ============================================================================
@@ -142,14 +145,17 @@ export function AvatarChatModal({
   isOpen,
   onClose,
   currentSection,
+  projectId,
 }: AvatarChatModalProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const responseIdRef = useRef<string | null>(null);
 
-  const { triggerReaction } = useAvatar();
+  const { triggerReaction, addPoints, setValueMessage, setConversationId } =
+    useAvatar();
   const {
     isListening,
     transcript,
@@ -198,7 +204,7 @@ export function AvatarChatModal({
       setIsLoading(true);
 
       // Show thinking animation
-      triggerReaction("generation_start", "Låt mig tänka...");
+      triggerReaction("thinking", "Låt mig tänka...");
 
       try {
         const response = await fetch("/api/avatar-guide", {
@@ -209,6 +215,8 @@ export function AvatarChatModal({
             currentSection,
             lastAction: "",
             conversationHistory: messages.slice(-6),
+            projectId, // Pass current project for context
+            previousResponseId: responseIdRef.current, // For conversation continuity
           }),
         });
 
@@ -216,18 +224,41 @@ export function AvatarChatModal({
 
         const data = await response.json();
 
+        // Store response ID for conversation continuity
+        if (data.responseId) {
+          responseIdRef.current = data.responseId;
+          setConversationId(data.responseId);
+        }
+
+        // Handle points if awarded
+        if (data.points && data.points > 0) {
+          addPoints(data.points);
+        }
+
+        // Handle value message if present
+        if (data.valueMessage) {
+          setValueMessage(data.valueMessage);
+        }
+
         // Add assistant message
         setMessages((prev) => [
           ...prev,
           { role: "assistant", content: data.message },
         ]);
 
-        // Trigger appropriate animation
-        const animation = ANIMATION_MAP[data.animation] || "talk";
-        if (animation === "confident") {
+        // Trigger appropriate animation based on API response
+        const animationName = data.animation?.toUpperCase() || "TALK";
+        const animation = ANIMATION_MAP[animationName] || "talk";
+
+        // Map animation to reaction type
+        if (animation === "fun" || animationName === "CELEBRATING") {
+          triggerReaction("celebrating", data.message);
+        } else if (animation === "confident") {
           triggerReaction("generation_complete", data.message);
-        } else if (animation === "run") {
+        } else if (animation === "run" || animationName === "URGENT") {
           triggerReaction("generation_error", data.message);
+        } else if (animation === "shuffle") {
+          triggerReaction("thinking", data.message);
         } else {
           triggerReaction("form_submit", data.message);
         }
@@ -255,7 +286,11 @@ export function AvatarChatModal({
       isLoading,
       messages,
       currentSection,
+      projectId,
       triggerReaction,
+      addPoints,
+      setValueMessage,
+      setConversationId,
       isVoiceEnabled,
       speak,
     ]

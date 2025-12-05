@@ -27,6 +27,7 @@ import { AvatarTooltip } from "./AvatarTooltip";
 import { AvatarChatModal } from "./AvatarChatModal";
 import { useAvatar, AppSection } from "@/contexts/AvatarContext";
 import { useAvatarBehavior } from "./useAvatarBehavior";
+import { useAvatarAgent } from "./useAvatarAgent";
 import { AVATAR_CONFIG } from "./avatar-config";
 
 // ============================================================================
@@ -40,6 +41,8 @@ interface FloatingAvatarProps {
   showWelcome?: boolean;
   /** Additional CSS classes */
   className?: string;
+  /** Current project ID for context-aware responses */
+  projectId?: string;
 }
 
 // ============================================================================
@@ -119,6 +122,7 @@ export function FloatingAvatar({
   section = "home",
   showWelcome = true,
   className = "",
+  projectId,
 }: FloatingAvatarProps) {
   // Get avatar state from context
   const {
@@ -139,6 +143,9 @@ export function FloatingAvatar({
     walkInDuration: AVATAR_CONFIG.walkIn.duration,
     showWelcome,
   });
+
+  // Setup agent behavior (project monitoring, points, analysis)
+  useAvatarAgent({ projectId, section });
 
   const [canvasReady, setCanvasReady] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
@@ -305,6 +312,7 @@ export function FloatingAvatar({
             isOpen={chatOpen}
             onClose={() => setChatOpen(false)}
             currentSection={section}
+            projectId={projectId}
           />
 
           {/* Tooltip - positioned to the left of avatar */}
