@@ -56,6 +56,13 @@ interface AvatarContextState {
   tooltipVisible: boolean;
   isLoaded: boolean;
   lastAction: UserAction | null;
+  // Points and value tracking
+  totalPoints: number;
+  sessionPoints: number;
+  lastPointsGained: number;
+  valueMessage: string | null;
+  currentProjectId: string | null;
+  conversationId: string | null;
 }
 
 type AvatarAction =
@@ -69,7 +76,11 @@ type AvatarAction =
   | { type: "TRIGGER_REACTION"; action: UserAction; message?: string }
   | { type: "RETURN_TO_IDLE" }
   | { type: "HIDE_AVATAR" }
-  | { type: "SHOW_AVATAR" };
+  | { type: "SHOW_AVATAR" }
+  | { type: "ADD_POINTS"; points: number }
+  | { type: "SET_VALUE_MESSAGE"; message: string | null }
+  | { type: "SET_PROJECT"; projectId: string | null }
+  | { type: "SET_CONVERSATION_ID"; conversationId: string | null };
 
 const initialState: AvatarContextState = {
   avatarState: "loading",
@@ -79,6 +90,13 @@ const initialState: AvatarContextState = {
   tooltipVisible: false,
   isLoaded: false,
   lastAction: null,
+  // Points and value tracking
+  totalPoints: 0,
+  sessionPoints: 0,
+  lastPointsGained: 0,
+  valueMessage: null,
+  currentProjectId: null,
+  conversationId: null,
 };
 
 // Map actions to animations and messages
@@ -231,6 +249,32 @@ function avatarReducer(
         currentAnimation: "idle",
       };
 
+    case "ADD_POINTS":
+      return {
+        ...state,
+        totalPoints: state.totalPoints + action.points,
+        sessionPoints: state.sessionPoints + action.points,
+        lastPointsGained: action.points,
+      };
+
+    case "SET_VALUE_MESSAGE":
+      return {
+        ...state,
+        valueMessage: action.message,
+      };
+
+    case "SET_PROJECT":
+      return {
+        ...state,
+        currentProjectId: action.projectId,
+      };
+
+    case "SET_CONVERSATION_ID":
+      return {
+        ...state,
+        conversationId: action.conversationId,
+      };
+
     default:
       return state;
   }
@@ -248,6 +292,11 @@ interface AvatarContextValue extends AvatarContextState {
   hideTooltip: () => void;
   hideAvatar: () => void;
   showAvatar: () => void;
+  // Points and value
+  addPoints: (points: number) => void;
+  setValueMessage: (message: string | null) => void;
+  setCurrentProject: (projectId: string | null) => void;
+  setConversationId: (conversationId: string | null) => void;
 }
 
 const AvatarContext = createContext<AvatarContextValue | null>(null);
@@ -456,6 +505,22 @@ export function AvatarProvider({ children }: { children: ReactNode }) {
     dispatch({ type: "SHOW_AVATAR" });
   }, []);
 
+  const addPoints = useCallback((points: number) => {
+    dispatch({ type: "ADD_POINTS", points });
+  }, []);
+
+  const setValueMessage = useCallback((message: string | null) => {
+    dispatch({ type: "SET_VALUE_MESSAGE", message });
+  }, []);
+
+  const setCurrentProject = useCallback((projectId: string | null) => {
+    dispatch({ type: "SET_PROJECT", projectId });
+  }, []);
+
+  const setConversationId = useCallback((conversationId: string | null) => {
+    dispatch({ type: "SET_CONVERSATION_ID", conversationId });
+  }, []);
+
   useEffect(() => {
     return () => {
       clearIdleTimeout();
@@ -474,6 +539,10 @@ export function AvatarProvider({ children }: { children: ReactNode }) {
     hideTooltip,
     hideAvatar,
     showAvatar,
+    addPoints,
+    setValueMessage,
+    setCurrentProject,
+    setConversationId,
   };
 
   return (
