@@ -28,7 +28,8 @@ export type UserAction =
   | "user_playing_game"
   | "thinking"
   | "celebrating"
-  | "waiting";
+  | "waiting"
+  | "user_inactive";
 
 // Avatar states
 export type AvatarState =
@@ -155,6 +156,11 @@ const ACTION_REACTIONS: Record<
     defaultMessage: "Jag väntar här...",
     duration: 6000,
   },
+  user_inactive: {
+    animation: "sleep",
+    defaultMessage: "💤 Zzz...",
+    duration: 0, // Stay asleep until user interacts
+  },
 };
 
 function avatarReducer(
@@ -268,10 +274,16 @@ function getRandomIdleAnimation(): AvatarAnimation {
   ];
 }
 
+// Time before avatar falls asleep (4 minutes)
+const INACTIVITY_SLEEP_DELAY = 4 * 60 * 1000; // 240,000 ms
+
 export function AvatarProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(avatarReducer, initialState);
   const idleTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const idleVariationRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const inactivityTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastActivityRef = useRef<number>(Date.now());
+  const isSleepingRef = useRef(false);
 
   const clearIdleTimeout = useCallback(() => {
     if (idleTimeoutRef.current) {
@@ -316,6 +328,64 @@ export function AvatarProvider({ children }: { children: ReactNode }) {
     return () => {
       if (idleVariationRef.current) {
         clearTimeout(idleVariationRef.current);
+      }
+    };
+  }, [state.avatarState, state.isLoaded]);
+
+  // Inactivity detection - avatar falls asleep after 4 minutes
+  useEffect(() => {
+    const resetInactivityTimer = () => {
+      lastActivityRef.current = Date.now();
+
+      // Clear existing timer
+      if (inactivityTimerRef.current) {
+        clearTimeout(inactivityTimerRef.current);
+      }
+
+      // If sleeping, wake up
+      if (isSleepingRef.current && state.avatarState === "reacting") {
+        isSleepingRef.current = false;
+        dispatch({ type: "RETURN_TO_IDLE" });
+      }
+
+      // Start new timer
+      inactivityTimerRef.current = setTimeout(() => {
+        if (
+          state.avatarState === "idle" &&
+          state.isLoaded &&
+          !isSleepingRef.current
+        ) {
+          isSleepingRef.current = true;
+          dispatch({
+            type: "TRIGGER_REACTION",
+            action: "user_inactive",
+            message: "💤 Zzz...",
+          });
+        }
+      }, INACTIVITY_SLEEP_DELAY);
+    };
+
+    // Track user activity
+    const events = [
+      "mousemove",
+      "mousedown",
+      "keydown",
+      "scroll",
+      "touchstart",
+    ];
+    events.forEach((event) =>
+      window.addEventListener(event, resetInactivityTimer)
+    );
+
+    // Start initial timer
+    resetInactivityTimer();
+
+    return () => {
+      events.forEach((event) =>
+        window.removeEventListener(event, resetInactivityTimer)
+      );
+      if (inactivityTimerRef.current) {
+        clearTimeout(inactivityTimerRef.current);
       }
     };
   }, [state.avatarState, state.isLoaded]);
