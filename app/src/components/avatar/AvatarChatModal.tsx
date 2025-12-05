@@ -15,9 +15,19 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { X, Send, Sparkles, Loader2, Mic, MicOff } from "lucide-react";
+import {
+  X,
+  Send,
+  Sparkles,
+  Loader2,
+  Mic,
+  MicOff,
+  Volume2,
+  VolumeX,
+} from "lucide-react";
 import { useAvatar, AppSection } from "@/contexts/AvatarContext";
 import type { AvatarAnimation } from "./AvatarModel";
+import { useAvatarVoice } from "./useAvatarVoice";
 
 // ============================================================================
 // TYPES
@@ -148,6 +158,16 @@ export function AvatarChatModal({
     stopListening,
   } = useSpeechRecognition();
 
+  // Voice output (TTS)
+  const {
+    isLoading: isVoiceLoading,
+    isPlaying: isVoicePlaying,
+    speak,
+    stop: stopVoice,
+    isEnabled: isVoiceEnabled,
+    toggleVoice,
+  } = useAvatarVoice();
+
   // Scroll to bottom when new messages arrive
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -211,6 +231,11 @@ export function AvatarChatModal({
         } else {
           triggerReaction("form_submit", data.message);
         }
+
+        // Speak the response if voice is enabled
+        if (isVoiceEnabled && data.message) {
+          speak(data.message);
+        }
       } catch (error) {
         console.error("[AvatarChat] Error:", error);
         setMessages((prev) => [
@@ -225,7 +250,15 @@ export function AvatarChatModal({
         setIsLoading(false);
       }
     },
-    [input, isLoading, messages, currentSection, triggerReaction]
+    [
+      input,
+      isLoading,
+      messages,
+      currentSection,
+      triggerReaction,
+      isVoiceEnabled,
+      speak,
+    ]
   );
 
   // Handle Enter key
@@ -274,12 +307,30 @@ export function AvatarChatModal({
                 <span className="text-xs text-gray-500">(röst OK)</span>
               )}
             </div>
-            <button
-              onClick={onClose}
-              className="p-1 hover:bg-white/10 rounded-lg transition-colors"
-            >
-              <X className="w-4 h-4 text-gray-400" />
-            </button>
+            <div className="flex items-center gap-1">
+              {/* Voice toggle button */}
+              <button
+                onClick={toggleVoice}
+                className={`p-1.5 rounded-lg transition-colors ${
+                  isVoiceEnabled
+                    ? "hover:bg-white/10 text-teal-400"
+                    : "hover:bg-white/10 text-gray-500"
+                }`}
+                title={isVoiceEnabled ? "Stäng av röst" : "Slå på röst"}
+              >
+                {isVoiceEnabled ? (
+                  <Volume2 className="w-4 h-4" />
+                ) : (
+                  <VolumeX className="w-4 h-4" />
+                )}
+              </button>
+              <button
+                onClick={onClose}
+                className="p-1 hover:bg-white/10 rounded-lg transition-colors"
+              >
+                <X className="w-4 h-4 text-gray-400" />
+              </button>
+            </div>
           </div>
 
           {/* Messages */}
@@ -328,6 +379,46 @@ export function AvatarChatModal({
                 <div className="bg-gray-800 border border-gray-700 px-4 py-2 rounded-xl flex items-center gap-2">
                   <Loader2 className="w-4 h-4 text-teal-400 animate-spin" />
                   <span className="text-sm text-gray-400">Tänker...</span>
+                </div>
+              </motion.div>
+            )}
+
+            {/* Voice loading/playing indicator */}
+            {(isVoiceLoading || isVoicePlaying) && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                className="flex justify-start"
+              >
+                <div className="bg-teal-900/30 border border-teal-500/30 px-3 py-1.5 rounded-xl flex items-center gap-2">
+                  {isVoiceLoading ? (
+                    <>
+                      <Loader2 className="w-3 h-3 text-teal-400 animate-spin" />
+                      <span className="text-xs text-teal-300">
+                        Laddar röst...
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <motion.div
+                        className="flex items-center gap-0.5"
+                        animate={{ opacity: [0.5, 1, 0.5] }}
+                        transition={{ duration: 1, repeat: Infinity }}
+                      >
+                        <div className="w-1 h-2 bg-teal-400 rounded-full" />
+                        <div className="w-1 h-3 bg-teal-400 rounded-full" />
+                        <div className="w-1 h-2 bg-teal-400 rounded-full" />
+                      </motion.div>
+                      <span className="text-xs text-teal-300">Pratar...</span>
+                      <button
+                        onClick={stopVoice}
+                        className="ml-1 p-0.5 hover:bg-teal-800/50 rounded"
+                        title="Stoppa"
+                      >
+                        <X className="w-3 h-3 text-teal-400" />
+                      </button>
+                    </>
+                  )}
                 </div>
               </motion.div>
             )}

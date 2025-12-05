@@ -17,6 +17,7 @@ export { AvatarChatModal } from "./AvatarChatModal";
 // Hooks
 export { useAvatarBehavior } from "./useAvatarBehavior";
 export { useAvatarAgent } from "./useAvatarAgent";
+export { useAvatarVoice } from "./useAvatarVoice";
 
 // Configuration
 export { AVATAR_CONFIG } from "./avatar-config";

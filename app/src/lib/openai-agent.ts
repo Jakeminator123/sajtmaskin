@@ -682,12 +682,15 @@ export async function runAgent(
       }
 
       // Continue with function results
+      // IMPORTANT: Include text config for consistent verbosity across all responses
       response = await openai.responses.create({
         model: config.model,
         input: functionResults,
         previous_response_id: response.id,
         tools: config.tools,
         store: true,
+        // Apply same text verbosity settings as initial response
+        ...(config.text && { text: config.text }),
       });
     }
 

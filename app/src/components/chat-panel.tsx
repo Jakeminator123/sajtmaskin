@@ -128,6 +128,10 @@ export function ChatPanel({
   const generationInProgress = useRef(false);
   // Track if this effect has run (for StrictMode detection)
   const effectRanOnce = useRef(false);
+  // Synchronous ref for submit protection (prevents race conditions from React batching)
+  const isSubmittingRef = useRef(false);
+  // Abort controller for canceling previous requests
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   // Check if we're in test mode (force regeneration, skip cache)
   const isTestMode =
@@ -737,16 +741,29 @@ export default function Page() {
   };
 
   const handleSubmit = () => {
-    if (!input.trim() || isLoading) return;
+    // Use ref for synchronous check (prevents race condition from React batching)
+    if (!input.trim() || isLoading || isSubmittingRef.current) return;
+
+    // Set synchronous flag immediately to prevent double-submit
+    isSubmittingRef.current = true;
 
     const message = input.trim();
     setInput("");
 
-    if (messages.length === 0) {
-      handleGenerate(message);
-    } else {
-      handleRefinement(message);
-    }
+    // Wrap in async to reset flag after completion
+    const executeSubmit = async () => {
+      try {
+        if (messages.length === 0) {
+          await handleGenerate(message);
+        } else {
+          await handleRefinement(message);
+        }
+      } finally {
+        isSubmittingRef.current = false;
+      }
+    };
+
+    executeSubmit();
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
