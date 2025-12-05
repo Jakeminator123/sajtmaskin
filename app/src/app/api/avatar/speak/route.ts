@@ -8,8 +8,8 @@ import { NextRequest, NextResponse } from "next/server";
  * Returns: audio/mpeg stream
  */
 
-// Allow up to 30 seconds for TTS generation
-export const maxDuration = 30;
+// Allow up to 60 seconds for TTS generation (complex speech)
+export const maxDuration = 60;
 
 // ElevenLabs configuration
 const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY;

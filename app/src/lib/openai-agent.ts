@@ -2,22 +2,20 @@
  * OpenAI Agent for Code Editing
  * =============================
  *
- * Uses OpenAI's Responses API with GPT-5.1 Codex models and function calling
+ * Uses OpenAI's API with GPT-4o models and function calling
  * to edit code in taken-over projects.
  *
- * MODEL SELECTION (GPT-5.1 Codex Series for code, GPT-5 Series for text):
- * - gpt-5.1-codex-mini: Fast, cost-efficient for standard code edits
- * - gpt-5.1-codex: Complex, long-running agentic coding tasks
- * - gpt-5-mini: Text generation, copywriting
- * - gpt-5: Complex reasoning, image generation with tools
- * - gpt-image-1: Image generation (via image_generation tool)
+ * MODEL SELECTION:
+ * - gpt-4o-mini: Fast, cost-efficient for standard tasks
+ * - gpt-4o: Complex reasoning, image generation orchestration
+ * - dall-e-3: Image generation
  *
  * TASK TYPES:
- * - code_edit: Standard code changes (gpt-5.1-codex-mini)
- * - copy: Text generation (gpt-5-mini)
- * - image: Logo/hero image generation (gpt-5 + image_generation tool)
- * - web_search: Search web for info (gpt-5-mini + web_search tool)
- * - code_refactor: Heavy refactoring (gpt-5.1-codex)
+ * - code_edit: Standard code changes (gpt-4o-mini)
+ * - copy: Text generation (gpt-4o-mini)
+ * - image: Logo/hero image generation (gpt-4o + dall-e-3)
+ * - web_search: Search web for info (gpt-4o-mini + web_search)
+ * - code_refactor: Heavy refactoring (gpt-4o)
  *
  * STORAGE MODES:
  * 1. REDIS (default) - Files stored in Redis, download as ZIP
@@ -151,37 +149,37 @@ const FILE_TOOLS: OpenAI.Responses.Tool[] = [
 ];
 
 // Model configuration per task type
-// GPT-5.1 Codex models for code, GPT-5 models for text/reasoning
+// gpt-4o-mini for fast tasks, gpt-4o for complex reasoning
 const MODEL_CONFIGS: Record<TaskType, ModelConfig> = {
   code_edit: {
-    // gpt-5.1-codex-mini: Fast, cost-efficient for everyday coding tasks
-    model: "gpt-5.1-codex-mini",
+    // gpt-4o-mini: Fast, cost-efficient for everyday coding tasks
+    model: "gpt-4o-mini",
     text: { verbosity: "low" },
     tools: FILE_TOOLS,
     diamondCost: 1,
   },
   copy: {
-    // gpt-5-mini: Good for text generation and copywriting
-    model: "gpt-5-mini",
+    // gpt-4o-mini: Good for text generation and copywriting
+    model: "gpt-4o-mini",
     text: { verbosity: "medium" },
     tools: FILE_TOOLS,
     diamondCost: 1,
   },
   image: {
-    // gpt-5: Full model for image generation orchestration
-    model: "gpt-5",
+    // gpt-4o: Full model for image generation orchestration
+    model: "gpt-4o",
     tools: [...FILE_TOOLS, { type: "image_generation" }],
     diamondCost: 3,
   },
   web_search: {
-    // gpt-5-mini: Good for web search and research tasks
-    model: "gpt-5-mini",
+    // gpt-4o-mini: Good for web search and research tasks
+    model: "gpt-4o-mini",
     tools: [...FILE_TOOLS, { type: "web_search" }],
     diamondCost: 2,
   },
   code_refactor: {
-    // gpt-5.1-codex: Complex, long-running agentic coding
-    model: "gpt-5.1-codex",
+    // gpt-4o: Complex reasoning for refactoring
+    model: "gpt-4o",
     text: { verbosity: "medium" },
     tools: FILE_TOOLS,
     diamondCost: 5,
@@ -776,20 +774,20 @@ export async function continueConversation(
 
 /**
  * Generate image directly (standalone, without agent context)
- * Uses gpt-image-1 model for high-quality image generation
+ * Uses DALL-E 3 model for high-quality image generation
  */
 export async function generateImage(
   prompt: string,
-  size: "1024x1024" | "1536x1024" | "1024x1536" = "1024x1024",
-  quality: "low" | "medium" | "high" = "medium"
+  size: "1024x1024" | "1792x1024" | "1024x1792" = "1024x1024",
+  quality: "standard" | "hd" = "standard"
 ): Promise<{ base64: string; revisedPrompt?: string }> {
   console.log(
-    "[Image] Generating with gpt-image-1, prompt:",
+    "[Image] Generating with dall-e-3, prompt:",
     prompt.substring(0, 100)
   );
 
   const result = await openai.images.generate({
-    model: "gpt-image-1",
+    model: "dall-e-3",
     prompt,
     size,
     quality,

@@ -10,18 +10,21 @@ import {
 } from "@/lib/openai-agent";
 import { getProjectMeta } from "@/lib/redis";
 
+// Allow up to 2 minutes for complex AI code editing
+export const maxDuration = 120;
+
 /**
  * Agent Edit API
  *
- * Uses OpenAI Responses API with GPT-5 models to edit code in taken-over projects.
+ * Uses OpenAI API with GPT-4o models to edit code in taken-over projects.
  * Supports multiple task types with different models and costs.
  *
  * TASK TYPES & COSTS:
- * - code_edit: 1 diamond (gpt-5-mini, minimal reasoning)
- * - copy: 1 diamond (gpt-5-mini, text generation)
- * - image: 3 diamonds (gpt-5 + image_generation tool)
- * - web_search: 2 diamonds (gpt-5-mini + web_search tool)
- * - code_refactor: 5 diamonds (gpt-5, medium reasoning)
+ * - code_edit: 1 diamond (gpt-4o-mini, fast editing)
+ * - copy: 1 diamond (gpt-4o-mini, text generation)
+ * - image: 3 diamonds (gpt-4o + dall-e-3)
+ * - web_search: 2 diamonds (gpt-4o-mini + web_search)
+ * - code_refactor: 5 diamonds (gpt-4o, complex reasoning)
  *
  * POST /api/agent/edit
  */

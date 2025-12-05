@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 
 // Allow 30 seconds for response
-export const maxDuration = 30;
+// Allow up to 60 seconds for AI responses
+export const maxDuration = 60;
 
 const openai = new OpenAI();
 

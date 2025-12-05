@@ -277,6 +277,9 @@ function getRandomIdleAnimation(): AvatarAnimation {
 // Time before avatar falls asleep (4 minutes)
 const INACTIVITY_SLEEP_DELAY = 4 * 60 * 1000; // 240,000 ms
 
+// Debounce time for reactions (prevents duplicate triggers)
+const REACTION_DEBOUNCE_MS = 500;
+
 export function AvatarProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(avatarReducer, initialState);
   const idleTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -284,6 +287,7 @@ export function AvatarProvider({ children }: { children: ReactNode }) {
   const inactivityTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastActivityRef = useRef<number>(Date.now());
   const isSleepingRef = useRef(false);
+  const lastReactionTimeRef = useRef<number>(0);
 
   const clearIdleTimeout = useCallback(() => {
     if (idleTimeoutRef.current) {
@@ -408,6 +412,13 @@ export function AvatarProvider({ children }: { children: ReactNode }) {
 
   const triggerReaction = useCallback(
     (action: UserAction, customMessage?: string) => {
+      // Debounce rapid reactions to prevent duplicates
+      const now = Date.now();
+      if (now - lastReactionTimeRef.current < REACTION_DEBOUNCE_MS) {
+        return; // Skip if too soon after last reaction
+      }
+      lastReactionTimeRef.current = now;
+
       clearIdleTimeout();
       dispatch({ type: "TRIGGER_REACTION", action, message: customMessage });
 

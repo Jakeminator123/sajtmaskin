@@ -4,8 +4,8 @@ import { initTemplatePreview } from "@/lib/v0-generator";
 import { getCachedPreview, setCachedPreview } from "@/lib/preview-cache";
 import { saveTemplateScreenshot } from "@/lib/database";
 
-// Allow 2 minutes for preview initialization
-export const maxDuration = 120;
+// Allow 5 minutes for preview initialization (complex v0 generation)
+export const maxDuration = 300;
 
 /**
  * GET /api/template/preview?id=<localTemplateId>

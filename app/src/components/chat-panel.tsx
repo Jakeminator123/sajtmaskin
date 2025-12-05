@@ -714,13 +714,13 @@ export default function Page() {
 
   const handleRefinement = async (instruction: string) => {
     // Don't allow refinement if no code exists yet
+    // Note: handleGenerate already adds the user message, so we only add assistant response
     if (!currentCode) {
-      addMessage("user", instruction);
       addMessage(
         "assistant",
         "Ingen kod finns ännu att förfina. Genererar en ny design baserat på din beskrivning..."
       );
-      // Treat as new generation instead
+      // Treat as new generation instead (this will add the user message)
       handleGenerate(instruction);
       return;
     }
@@ -823,6 +823,13 @@ export default function Page() {
   const handleSubmit = () => {
     // Use ref for synchronous check (prevents race condition from React batching)
     if (!input.trim() || isLoading || isSubmittingRef.current) return;
+
+    // Clear typing detection to prevent interference with avatar
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+      typingTimeoutRef.current = null;
+    }
+    isTypingRef.current = false;
 
     // Set synchronous flag immediately to prevent double-submit
     isSubmittingRef.current = true;
