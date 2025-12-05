@@ -390,19 +390,46 @@ function getComponentStyleLabel(category: string, id: string): string {
 async function researchIndustryTrends(
   industry: string,
   location: string | undefined,
-  apiKey: string
+  apiKey: string,
+  companyName?: string,
+  inspirationSites?: string[]
 ): Promise<{ trends: string; sources: Array<{ url: string; title: string }> }> {
   const industryName = INDUSTRY_MAP[industry] || industry;
-  const locationStr = location ? ` i ${location}` : " i Sverige";
+  const locationStr = location ? ` in ${location}` : " in Sweden/Scandinavia";
 
-  const prompt = `Sök efter de senaste trenderna inom ${industryName}${locationStr}.
+  // Build a more comprehensive research prompt
+  let prompt = `Research the latest web design trends and best practices for ${industryName} businesses${locationStr}.
 
-Hitta:
-1. Aktuella designtrender för webbplatser inom denna bransch
-2. Vad kunderna förväntar sig av moderna ${industryName}-sajter
-3. Funktioner som ökar konvertering för denna typ av verksamhet
+REQUIRED INFORMATION:
+1. Current website design trends for ${industryName} in 2024-2025
+2. Essential features that modern ${industryName} websites must have
+3. UX patterns that increase conversion for this industry
+4. Color schemes and typography commonly used
+5. Mobile-first considerations for this industry`;
 
-Ge en KORT sammanfattning (max 100 ord) på ENGELSKA med konkreta förslag för webbdesign.`;
+  // Add competitor analysis if company name provided
+  if (companyName) {
+    prompt += `\n\n6. What successful competitors in the ${industryName} space are doing well with their websites`;
+  }
+
+  // Add inspiration site analysis if provided
+  if (inspirationSites && inspirationSites.length > 0) {
+    const sites = inspirationSites.filter(s => s.trim()).slice(0, 3);
+    if (sites.length > 0) {
+      prompt += `\n\n7. Analyze these inspiration websites and extract what makes them effective: ${sites.join(", ")}`;
+    }
+  }
+
+  prompt += `
+
+OUTPUT FORMAT (respond in ENGLISH, be specific and actionable):
+- Design Trends: [2-3 specific trends]
+- Must-Have Features: [3-4 features]
+- Conversion Tips: [2-3 tips]
+- Color/Typography: [1-2 recommendations]
+${inspirationSites?.length ? "- Inspiration Insights: [key takeaways from analyzed sites]" : ""}
+
+Keep response under 200 words but make it actionable for web design.`;
 
   try {
     // Try Responses API with web_search tool
@@ -417,7 +444,7 @@ Ge en KORT sammanfattning (max 100 ord) på ENGELSKA med konkreta förslag för 
       body: JSON.stringify({
         model: WEB_SEARCH_MODEL, // gpt-4o-mini supports web_search
         instructions:
-          "You are a web research assistant. Search the web and provide concise, actionable insights about industry trends and website design best practices. Always respond in English with specific, practical recommendations.",
+          "You are an expert web design researcher. Search the web for current industry trends, competitor websites, and design best practices. Provide specific, actionable insights that can directly inform website design decisions. Always respond in English with practical recommendations that a web designer can implement immediately.",
         input: prompt,
         tools: [{ type: "web_search" }],
       }),
@@ -721,7 +748,9 @@ Generate a detailed, production-ready prompt for v0 that will create a stunning,
       const { trends } = await researchIndustryTrends(
         industry,
         location,
-        openaiApiKey
+        openaiApiKey,
+        companyName, // Pass company name for competitor analysis
+        inspirationSites // Pass inspiration sites for analysis
       );
       if (trends) {
         industryTrends = trends; // Save raw trends for database

@@ -11,6 +11,9 @@ import {
   Zap,
   Cloud,
   ArrowRight,
+  BarChart3,
+  ChevronDown,
+  ChevronUp,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth-store";
@@ -40,6 +43,13 @@ interface TakeoverResult {
   files?: { path: string; size: number }[];
 }
 
+interface AnalysisResult {
+  success: boolean;
+  analysis?: string;
+  filesAnalyzed?: number;
+  error?: string;
+}
+
 type TakeoverMode = "simple" | "github";
 
 export function TakeoverModal({
@@ -54,6 +64,11 @@ export function TakeoverModal({
   const [result, setResult] = useState<TakeoverResult | null>(null);
   const [selectedMode, setSelectedMode] = useState<TakeoverMode>("simple");
   const [customRepoName, setCustomRepoName] = useState("");
+  
+  // Analysis state
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
+  const [showAnalysis, setShowAnalysis] = useState(true);
 
   // Check if user has GitHub connected
   const hasGitHub = !!(user?.github_token && user?.github_username);
@@ -68,10 +83,33 @@ export function TakeoverModal({
       setResult(null);
       setCustomRepoName("");
       setSelectedMode("simple");
+      setAnalysisResult(null);
+      setIsAnalyzing(false);
+      setShowAnalysis(true);
     }
   }, [isOpen]);
 
   if (!isOpen) return null;
+
+  // Run automatic project analysis
+  const runAnalysis = async () => {
+    setIsAnalyzing(true);
+    try {
+      const response = await fetch(`/api/projects/${projectId}/analyze`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+      });
+      const data: AnalysisResult = await response.json();
+      setAnalysisResult(data);
+    } catch {
+      setAnalysisResult({
+        success: false,
+        error: "Kunde inte analysera projektet",
+      });
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
 
   const handleConnectGitHub = () => {
     const returnTo = window.location.pathname;
@@ -103,6 +141,8 @@ export function TakeoverModal({
         setProjectOwned(true, data.mode || "redis");
         // Refresh user data (diamonds may have changed)
         refreshUser();
+        // Automatically run project analysis (in background)
+        runAnalysis();
       }
     } catch (error) {
       setResult({
@@ -164,6 +204,72 @@ export function TakeoverModal({
                 </div>
               </div>
 
+              {/* Project Analysis Section */}
+              <div className="border border-gray-700 rounded-xl overflow-hidden">
+                <button
+                  onClick={() => setShowAnalysis(!showAnalysis)}
+                  className="w-full flex items-center justify-between p-4 bg-gray-800/50 hover:bg-gray-800 transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <BarChart3 className="h-4 w-4 text-teal-400" />
+                    <span className="text-sm font-medium text-white">
+                      Projektanalys
+                    </span>
+                    {isAnalyzing && (
+                      <Loader2 className="h-3 w-3 text-teal-400 animate-spin" />
+                    )}
+                    {analysisResult?.success && (
+                      <span className="text-xs text-gray-500">
+                        ({analysisResult.filesAnalyzed} filer analyserade)
+                      </span>
+                    )}
+                  </div>
+                  {showAnalysis ? (
+                    <ChevronUp className="h-4 w-4 text-gray-400" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4 text-gray-400" />
+                  )}
+                </button>
+                
+                {showAnalysis && (
+                  <div className="p-4 border-t border-gray-700 max-h-64 overflow-y-auto">
+                    {isAnalyzing && (
+                      <div className="flex items-center gap-2 text-gray-400">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <span className="text-sm">Analyserar projektet...</span>
+                      </div>
+                    )}
+                    {analysisResult?.success && analysisResult.analysis && (
+                      <div className="prose prose-sm prose-invert max-w-none">
+                        <div 
+                          className="text-sm text-gray-300 whitespace-pre-wrap [&_h2]:text-base [&_h2]:font-semibold [&_h2]:text-white [&_h2]:mt-4 [&_h2]:mb-2 [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4"
+                          dangerouslySetInnerHTML={{ 
+                            __html: analysisResult.analysis
+                              .replace(/^## /gm, '<h2>')
+                              .replace(/\n(?=##)/g, '</h2>\n')
+                              .replace(/^- /gm, '• ')
+                              .replace(/\n/g, '<br/>') 
+                          }}
+                        />
+                      </div>
+                    )}
+                    {analysisResult && !analysisResult.success && (
+                      <p className="text-sm text-amber-400">
+                        {analysisResult.error || "Kunde inte analysera projektet"}
+                      </p>
+                    )}
+                    {!isAnalyzing && !analysisResult && (
+                      <button
+                        onClick={runAnalysis}
+                        className="text-sm text-teal-400 hover:text-teal-300"
+                      >
+                        Klicka för att analysera
+                      </button>
+                    )}
+                  </div>
+                )}
+              </div>
+
               <a
                 href={`/project/${projectId}`}
                 className="flex items-center justify-center gap-2 p-4 bg-purple-600 hover:bg-purple-500 rounded-xl text-white font-medium transition-colors"
@@ -211,6 +317,57 @@ export function TakeoverModal({
                   <ExternalLink className="h-4 w-4" />
                   Öppna på GitHub
                 </a>
+              </div>
+
+              {/* Project Analysis Section */}
+              <div className="border border-gray-700 rounded-xl overflow-hidden">
+                <button
+                  onClick={() => setShowAnalysis(!showAnalysis)}
+                  className="w-full flex items-center justify-between p-4 bg-gray-800/50 hover:bg-gray-800 transition-colors"
+                >
+                  <div className="flex items-center gap-2">
+                    <BarChart3 className="h-4 w-4 text-teal-400" />
+                    <span className="text-sm font-medium text-white">
+                      Projektanalys
+                    </span>
+                    {isAnalyzing && (
+                      <Loader2 className="h-3 w-3 text-teal-400 animate-spin" />
+                    )}
+                  </div>
+                  {showAnalysis ? (
+                    <ChevronUp className="h-4 w-4 text-gray-400" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4 text-gray-400" />
+                  )}
+                </button>
+                
+                {showAnalysis && (
+                  <div className="p-4 border-t border-gray-700 max-h-64 overflow-y-auto">
+                    {isAnalyzing && (
+                      <div className="flex items-center gap-2 text-gray-400">
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                        <span className="text-sm">Analyserar projektet...</span>
+                      </div>
+                    )}
+                    {analysisResult?.success && analysisResult.analysis && (
+                      <div 
+                        className="text-sm text-gray-300 whitespace-pre-wrap [&_h2]:text-base [&_h2]:font-semibold [&_h2]:text-white [&_h2]:mt-4 [&_h2]:mb-2"
+                        dangerouslySetInnerHTML={{ 
+                          __html: analysisResult.analysis
+                            .replace(/^## /gm, '<h2>')
+                            .replace(/\n(?=##)/g, '</h2>\n')
+                            .replace(/^- /gm, '• ')
+                            .replace(/\n/g, '<br/>') 
+                        }}
+                      />
+                    )}
+                    {analysisResult && !analysisResult.success && (
+                      <p className="text-sm text-amber-400">
+                        {analysisResult.error}
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
 
               <a

@@ -93,12 +93,25 @@ function BuilderContent() {
   // Avatar agent - monitors builder state and provides feedback
   useAvatarAgent();
 
-  // Auto-switch to preview when generation completes on mobile
+  // Track if we've already auto-switched to preview (prevents repeated switches)
+  const [hasAutoSwitched, setHasAutoSwitched] = useState(false);
+
+  // Reset auto-switch flag when a new generation starts (isLoading becomes true and demoUrl is cleared)
+  // This allows auto-switch to happen again for subsequent generations
   useEffect(() => {
-    if (isMobile && demoUrl && !isLoading) {
-      setMobileTab("preview");
+    if (isLoading && !demoUrl) {
+      setHasAutoSwitched(false);
     }
-  }, [demoUrl, isLoading, isMobile]);
+  }, [isLoading, demoUrl]);
+
+  // Auto-switch to preview ONCE when generation completes on mobile
+  // Using a flag to prevent re-switching when user manually goes back to chat
+  useEffect(() => {
+    if (isMobile && demoUrl && !isLoading && !hasAutoSwitched) {
+      setMobileTab("preview");
+      setHasAutoSwitched(true);
+    }
+  }, [demoUrl, isLoading, isMobile, hasAutoSwitched]);
 
   // Fetch user on mount to get diamond balance
   useEffect(() => {
@@ -145,6 +158,10 @@ function BuilderContent() {
   // Handle starting a new design
   const handleNewDesign = () => {
     clearChat();
+    setHasAutoSwitched(false); // Reset so auto-switch works for new generation
+    if (isMobile) {
+      setMobileTab("chat"); // Switch back to chat on mobile when starting new design
+    }
     triggerReaction(
       "generation_start",
       "Ny design! Låt oss skapa något fantastiskt!"
@@ -446,24 +463,31 @@ function BuilderContent() {
       </div>
 
       {/* Main content - Mobile: Tabbed layout */}
+      {/* IMPORTANT: Using CSS hidden instead of conditional rendering to prevent 
+          ChatPanel from unmounting/remounting when switching tabs (which causes re-generation) */}
       <div className="relative z-10 flex-1 flex flex-col md:hidden overflow-hidden">
-        {/* Mobile Tab Content */}
-        <div className="flex-1 overflow-hidden">
-          {mobileTab === "chat" ? (
-            <div className="h-full bg-black/70">
-              <ChatPanel
-                categoryType={type || undefined}
-                initialPrompt={prompt || undefined}
-                templateId={templateId || undefined}
-                localTemplateId={localTemplateId || undefined}
-                onTakeoverClick={() => setShowTakeoverModal(true)}
-              />
-            </div>
-          ) : (
-            <div className="h-full bg-black/50">
-              <CodePreview />
-            </div>
-          )}
+        {/* Mobile Tab Content - Both panels stay mounted, visibility controlled by CSS */}
+        <div className="flex-1 overflow-hidden relative">
+          <div
+            className={`absolute inset-0 bg-black/70 ${
+              mobileTab !== "chat" ? "hidden" : ""
+            }`}
+          >
+            <ChatPanel
+              categoryType={type || undefined}
+              initialPrompt={prompt || undefined}
+              templateId={templateId || undefined}
+              localTemplateId={localTemplateId || undefined}
+              onTakeoverClick={() => setShowTakeoverModal(true)}
+            />
+          </div>
+          <div
+            className={`absolute inset-0 bg-black/50 ${
+              mobileTab !== "preview" ? "hidden" : ""
+            }`}
+          >
+            <CodePreview />
+          </div>
         </div>
 
         {/* Mobile Tab Bar */}

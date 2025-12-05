@@ -117,7 +117,8 @@ const FILE_TOOLS: OpenAI.Responses.Tool[] = [
   {
     type: "function",
     name: "read_file",
-    description: "Read the contents of a file from the project",
+    description:
+      "Read the contents of a file from the project. Use this to understand existing code before making changes.",
     strict: true,
     parameters: {
       type: "object",
@@ -178,18 +179,33 @@ const FILE_TOOLS: OpenAI.Responses.Tool[] = [
   },
 ];
 
+// Code interpreter tool configuration (requires container settings)
+const CODE_INTERPRETER_TOOL: OpenAI.Responses.Tool = {
+  type: "code_interpreter",
+  container: {
+    type: "auto", // Automatically select appropriate container
+  },
+};
+
 // Model configuration per task type
 // Primary models: GPT-5.1 Codex series (optimized for agentic coding)
 // Fallback models: GPT-4o series (stable, widely available)
+//
+// TOOL NOTES:
+// - code_interpreter: Can execute Python/JS code in sandbox for validation
+// - image_generation: Generate images with gpt-image-1/dall-e-3
+// - web_search: Search the web for information
+// - FILE_TOOLS: Custom function tools for file operations (read/write/list)
 const MODEL_CONFIGS: Record<TaskType, ModelConfig> = {
   code_edit: {
     // gpt-5.1-codex-mini: Optimized for cost-efficient code edits
     model: "gpt-5.1-codex-mini",
     fallbackModel: "gpt-4o-mini",
     text: { verbosity: "low" },
-    tools: FILE_TOOLS,
+    // Include code_interpreter for syntax validation
+    tools: [...FILE_TOOLS, CODE_INTERPRETER_TOOL],
     diamondCost: 1,
-    description: "Standard code editing",
+    description: "Standard code editing with validation",
   },
   copy: {
     // gpt-5-mini: Good for text generation and copywriting
@@ -229,23 +245,25 @@ const MODEL_CONFIGS: Record<TaskType, ModelConfig> = {
   },
   code_refactor: {
     // gpt-5.1-codex: Complex, long-running agentic coding
+    // Include code_interpreter for validation of refactored code
     model: "gpt-5.1-codex",
     fallbackModel: "gpt-4o",
     reasoning: { effort: "medium", summary: "auto" },
     text: { verbosity: "medium" },
-    tools: FILE_TOOLS,
+    tools: [...FILE_TOOLS, CODE_INTERPRETER_TOOL],
     diamondCost: 5,
-    description: "Heavy refactoring and restructuring",
+    description: "Heavy refactoring with validation",
   },
   analyze: {
     // gpt-5: Deep analysis and improvement suggestions
+    // Include code_interpreter for running analysis scripts
     model: "gpt-5",
     fallbackModel: "gpt-4o",
     reasoning: { effort: "medium", summary: "auto" },
     text: { verbosity: "high" },
-    tools: FILE_TOOLS,
+    tools: [...FILE_TOOLS, CODE_INTERPRETER_TOOL],
     diamondCost: 3,
-    description: "Project analysis and suggestions",
+    description: "Project analysis with code execution",
   },
 };
 
@@ -269,10 +287,15 @@ REGLER:
 5. Skriv clean, läsbar kod
 6. Beskriv ändringar kort
 
+KODVALIDERING (använd code_interpreter):
+- För komplexa ändringar, validera TypeScript-syntax med code_interpreter
+- Kontrollera att imports är korrekta
+- Verifiera att Tailwind-klasser följer konventioner
+
 VIKTIGT:
 - Ändra BARA det som användaren ber om
 - Lägg inte till onödiga funktioner
-- Svara kortfattat
+- Svara kortfattat på svenska
 
 Börja med att lista och läsa relevanta filer.`,
 
@@ -729,6 +752,157 @@ async function executeTool(
   }
 }
 
+// ============ Smart Context Functions ============
+
+/**
+ * Automatically gather relevant context files based on the instruction
+ * This helps the AI understand the project better before making changes
+ */
+async function gatherSmartContext(
+  instruction: string,
+  projectId: string,
+  storageType: "redis" | "github",
+  githubToken?: string,
+  repoFullName?: string
+): Promise<string> {
+  try {
+    // Get all files in project
+    let allFiles: string[];
+    if (storageType === "github" && githubToken && repoFullName) {
+      allFiles = await listGitHubFiles(githubToken, repoFullName);
+    } else {
+      allFiles = await listRedisFiles(projectId);
+    }
+
+    if (!allFiles || allFiles.length === 0) {
+      return "";
+    }
+
+    // Priority files to always include (if they exist)
+    const priorityPatterns = [
+      /^(src\/)?app\/layout\.tsx$/,
+      /^(src\/)?app\/page\.tsx$/,
+      /^package\.json$/,
+      /^tailwind\.config/,
+      /^(src\/)?components\/ui\//,
+    ];
+
+    // Keywords from instruction to match relevant files
+    const instructionLower = instruction.toLowerCase();
+    const keywords: string[] = [];
+
+    // Extract potential component/file references
+    const componentMatches = instruction.match(
+      /(?:komponent|component|sida|page|fil|file|header|footer|nav|button|form|card|modal)\s*[:\s]?\s*["']?([a-zA-Z0-9-_]+)/gi
+    );
+    if (componentMatches) {
+      componentMatches.forEach((m) => {
+        const name = m.split(/[:\s"']+/).pop();
+        if (name && name.length > 2) keywords.push(name.toLowerCase());
+      });
+    }
+
+    // Common keywords mapping
+    if (instructionLower.includes("färg") || instructionLower.includes("color"))
+      keywords.push("tailwind", "globals.css");
+    if (
+      instructionLower.includes("layout") ||
+      instructionLower.includes("struktur")
+    )
+      keywords.push("layout");
+    if (
+      instructionLower.includes("navigat") ||
+      instructionLower.includes("meny") ||
+      instructionLower.includes("nav")
+    )
+      keywords.push("nav", "header", "menu");
+    if (
+      instructionLower.includes("footer") ||
+      instructionLower.includes("sidfot")
+    )
+      keywords.push("footer");
+    if (
+      instructionLower.includes("hero") ||
+      instructionLower.includes("banner")
+    )
+      keywords.push("hero");
+    if (
+      instructionLower.includes("button") ||
+      instructionLower.includes("knapp")
+    )
+      keywords.push("button");
+    if (
+      instructionLower.includes("form") ||
+      instructionLower.includes("formulär")
+    )
+      keywords.push("form");
+
+    // Select files to include
+    const selectedFiles: string[] = [];
+    const MAX_CONTEXT_FILES = 5;
+    const MAX_CHARS_PER_FILE = 2000;
+
+    // First add priority files
+    for (const file of allFiles) {
+      if (selectedFiles.length >= MAX_CONTEXT_FILES) break;
+      if (priorityPatterns.some((p) => p.test(file))) {
+        selectedFiles.push(file);
+      }
+    }
+
+    // Then add keyword-matched files
+    for (const file of allFiles) {
+      if (selectedFiles.length >= MAX_CONTEXT_FILES) break;
+      if (selectedFiles.includes(file)) continue;
+
+      const fileLower = file.toLowerCase();
+      if (keywords.some((k) => fileLower.includes(k))) {
+        selectedFiles.push(file);
+      }
+    }
+
+    if (selectedFiles.length === 0) {
+      return "";
+    }
+
+    // Build context string
+    let contextStr = "\n\n[AUTO-LOADED CONTEXT FILES FOR REFERENCE]\n";
+
+    for (const filePath of selectedFiles) {
+      try {
+        let content: string;
+        if (storageType === "github" && githubToken && repoFullName) {
+          content = await readGitHubFile(githubToken, repoFullName, filePath);
+        } else {
+          content = await readRedisFile(projectId, filePath);
+        }
+
+        // Truncate if too long
+        if (content.length > MAX_CHARS_PER_FILE) {
+          content =
+            content.substring(0, MAX_CHARS_PER_FILE) + "\n... [truncated]";
+        }
+
+        contextStr += `\n--- ${filePath} ---\n${content}\n`;
+      } catch {
+        // File read failed, skip
+      }
+    }
+
+    contextStr += "\n[END AUTO-LOADED CONTEXT]\n";
+
+    logApiCall("Gathered smart context", {
+      filesLoaded: selectedFiles.length,
+      keywords,
+    });
+
+    return contextStr;
+  } catch (error) {
+    logApiCall("Smart context gathering failed", { error }, "warn");
+    return "";
+  }
+}
+
 // ============ Main Agent Function ============
 
 /**
@@ -738,7 +912,8 @@ export async function runAgent(
   instruction: string,
   context: AgentContext
 ): Promise<AgentResult> {
-  const { taskType } = context;
+  const { taskType, projectId, storageType, githubToken, repoFullName } =
+    context;
   const config = MODEL_CONFIGS[taskType];
   let usedModel = config.model;
   let usedFallback = false;
@@ -754,6 +929,22 @@ export async function runAgent(
   const updatedFiles: AgentFile[] = [];
   const generatedImages: GeneratedImage[] = [];
   const webSearchSources: { title: string; url: string }[] = [];
+
+  // Gather smart context for code_edit and code_refactor tasks
+  let smartContext = "";
+  if (
+    taskType === "code_edit" ||
+    taskType === "code_refactor" ||
+    taskType === "copy"
+  ) {
+    smartContext = await gatherSmartContext(
+      instruction,
+      projectId,
+      storageType,
+      githubToken,
+      repoFullName
+    );
+  }
 
   // Helper function to create response with optional fallback
   async function createResponseWithFallback(
@@ -798,11 +989,16 @@ export async function runAgent(
   }
 
   try {
+    // Enhance instruction with smart context if available
+    const enhancedInstruction = smartContext
+      ? `${instruction}${smartContext}`
+      : instruction;
+
     // Build request options based on task type
     const requestOptions: OpenAI.Responses.ResponseCreateParamsNonStreaming = {
       model: config.model,
       instructions: SYSTEM_INSTRUCTIONS[taskType],
-      input: instruction,
+      input: enhancedInstruction,
       tools: config.tools,
       store: true,
     };

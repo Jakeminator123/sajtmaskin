@@ -83,43 +83,244 @@ const MODEL_MAP = {
 export type QualityLevel = keyof typeof MODEL_MAP;
 
 // Category-specific prompts for initial generation
+// These are detailed prompts that guide v0 to generate high-quality, production-ready code
 const CATEGORY_PROMPTS: Record<string, string> = {
-  "landing-page": `Create a modern, professional landing page with:
-- Hero section with headline and CTA button
-- Features/benefits grid (3-4 items)
-- Social proof section (testimonials or logos)
-- Pricing table with 3 tiers
-- FAQ section
-- Contact/signup form
-- Footer with links
-Use a dark theme with blue accents. Make it fully responsive.`,
+  "landing-page": `Create a stunning, conversion-optimized landing page with:
 
-  website: `Create a complete multi-page website structure with:
-- Home page with hero and key sections
-- About page content
-- Services/products page
-- Contact page with form
-- Consistent header and footer across all pages
-Use a professional design. Include navigation between pages.`,
+HERO SECTION (full viewport height):
+- Large, bold headline (H1) with gradient text effect
+- Compelling subheadline explaining the value proposition
+- Primary CTA button with hover animation (scale + shadow)
+- Secondary CTA link
+- Optional: floating shapes, particles, or subtle animation
+- Background: gradient or subtle pattern
 
-  dashboard: `Create an admin dashboard with:
-- Sidebar navigation with icons
-- Top header with user menu and notifications
-- Main content area with metric cards (4 cards)
-- Data table with sample data
-- Charts section (line or bar chart placeholder)
-- Dark theme preferred
-Make it fully responsive with collapsible sidebar on mobile.`,
+FEATURES SECTION:
+- 3-4 feature cards in a responsive grid
+- Each card: icon (Lucide), title, description
+- Hover effect: subtle lift + shadow
+- Alternating background pattern for visual interest
+
+SOCIAL PROOF:
+- Testimonials carousel OR static grid (2-3 testimonials)
+- Avatar image placeholder, name, title, company
+- Optional: star rating
+- Client/partner logo bar
+
+PRICING SECTION:
+- 3 pricing tiers in cards
+- Middle tier highlighted as "Popular"
+- Feature list with checkmarks
+- CTA button per tier
+- Monthly/yearly toggle (optional)
+
+FAQ SECTION:
+- Accordion-style FAQ (5-6 questions)
+- Smooth expand/collapse animation
+- Common questions about the product/service
+
+CTA SECTION:
+- Full-width section with contrasting background
+- Compelling headline
+- Email signup form OR CTA button
+
+FOOTER:
+- Multi-column layout (4 columns on desktop)
+- Logo, description
+- Quick links, social icons
+- Copyright notice
+
+DESIGN REQUIREMENTS:
+- Dark theme with teal/cyan accents (or user's color scheme)
+- Smooth scroll behavior
+- Intersection Observer animations (fade in on scroll)
+- Mobile-first responsive design
+- Sticky header with blur background effect`,
+
+  website: `Create a professional multi-section website with:
+
+NAVIGATION:
+- Sticky header with logo and nav links
+- Mobile hamburger menu with smooth slide animation
+- Active link indicator
+- CTA button in header
+
+HOME PAGE SECTIONS:
+1. Hero with headline, subheadline, CTA
+2. About/Introduction section
+3. Services/Products grid (4-6 items)
+4. Why Choose Us (3-4 differentiators)
+5. Testimonials slider
+6. Contact CTA section
+7. Footer
+
+SERVICES/PRODUCTS SECTION:
+- Card-based grid layout
+- Image placeholder, title, description
+- "Learn more" link per item
+- Category filtering (optional)
+
+ABOUT SECTION:
+- Company story/mission
+- Team photos placeholder (2-3 members)
+- Stats/achievements (3-4 numbers)
+
+CONTACT SECTION:
+- Contact form (name, email, message)
+- Form validation visual feedback
+- Address, phone, email info
+- Optional: embedded map placeholder
+
+DESIGN REQUIREMENTS:
+- Professional, trustworthy aesthetic
+- Consistent spacing and typography scale
+- Smooth transitions between sections
+- Schema-ready semantic HTML
+- Full responsive design (mobile, tablet, desktop)`,
+
+  dashboard: `Create a modern admin dashboard with:
+
+LAYOUT STRUCTURE:
+- Fixed sidebar (collapsible on mobile)
+- Top header bar
+- Main scrollable content area
+- Dark theme with accent colors
+
+SIDEBAR:
+- Logo at top
+- Navigation menu with icons (Lucide)
+- Sections: Dashboard, Analytics, Users, Settings, etc.
+- Active state indicator
+- Collapse toggle button
+- User profile section at bottom
+
+TOP HEADER:
+- Search input with keyboard shortcut hint
+- Notification bell with badge count
+- User avatar dropdown menu
+- Quick action button
+
+DASHBOARD CONTENT:
+- Welcome message with date
+- Metric cards row (4 cards):
+  * Total Revenue, Users, Orders, Growth %
+  * Each with icon, value, change indicator
+- Charts section:
+  * Line chart placeholder (Revenue over time)
+  * Pie/donut chart placeholder (Distribution)
+- Recent Activity table:
+  * Columns: Date, User, Action, Status
+  * Status badges (Success, Pending, Failed)
+  * Pagination controls
+- Quick Actions panel
+
+DESIGN REQUIREMENTS:
+- Dark theme (gray-900 base, gray-800 cards)
+- Accent color for highlights (teal/blue)
+- Data visualization placeholders (can use placeholder data)
+- Responsive: sidebar collapses to overlay on mobile
+- Subtle hover states on interactive elements
+- Loading state skeletons (optional)`,
+
+  ecommerce: `Create a modern e-commerce storefront with:
+
+NAVIGATION:
+- Logo, search bar, cart icon with count, user menu
+- Category dropdown menu
+- Mobile-friendly navigation
+
+PRODUCT GRID:
+- Responsive grid (2-4 columns based on screen)
+- Product cards: image, title, price, rating, add to cart
+- Hover: quick view button, wishlist heart
+- Category filters sidebar
+
+PRODUCT QUICK VIEW:
+- Image gallery with thumbnails
+- Title, price, description
+- Size/color selector
+- Quantity selector
+- Add to cart button
+- Reviews summary
+
+FEATURED SECTIONS:
+- Hero banner with promotional content
+- Best sellers carousel
+- New arrivals grid
+- Categories showcase
+
+CART PREVIEW:
+- Slide-out cart drawer
+- Item list with quantity controls
+- Subtotal and checkout button
+
+FOOTER:
+- Customer service links
+- Payment method icons
+- Newsletter signup`,
+
+  "blog-portfolio": `Create a creative portfolio/blog with:
+
+PORTFOLIO GRID:
+- Masonry or grid layout for projects
+- Image thumbnails with hover overlay
+- Project title, category, date
+- Lightbox or modal for project details
+- Category filtering
+
+ABOUT SECTION:
+- Large hero image/avatar
+- Bio text with personality
+- Skills/tools list
+- Download resume button
+
+BLOG SECTION:
+- Article cards with featured image
+- Title, excerpt, date, read time
+- Category tags
+- Pagination or infinite scroll
+
+CONTACT:
+- Creative contact form
+- Social media links
+- Availability status
+
+DESIGN:
+- Creative, portfolio-worthy aesthetic
+- Subtle animations and transitions
+- Typography-focused design
+- Dark/light theme toggle (optional)`,
 };
 
 // System prompt for v0 to generate better code
-const SYSTEM_PROMPT = `You are an expert React and Next.js developer. Generate clean, production-ready React components using:
-- React functional components with TypeScript
-- Tailwind CSS for all styling (no external CSS files)
-- Lucide React for icons
-- Modern best practices and accessibility
-- Fully responsive design
-- Proper component structure`;
+const SYSTEM_PROMPT = `You are an expert React and Next.js developer creating production-ready websites.
+
+TECHNICAL REQUIREMENTS:
+- React 18+ functional components with TypeScript
+- Tailwind CSS for ALL styling (no external CSS files)
+- Lucide React for icons (import from 'lucide-react')
+- Next.js App Router conventions
+- Responsive design (mobile-first approach)
+
+CODE QUALITY:
+- Clean, readable code with proper formatting
+- Semantic HTML elements (nav, main, section, article)
+- Proper TypeScript types (no 'any')
+- Accessible (ARIA labels, keyboard navigation, focus states)
+- SEO-friendly structure (proper heading hierarchy)
+
+STYLING GUIDELINES:
+- Use Tailwind utility classes exclusively
+- Consistent spacing scale (4, 8, 12, 16, 24, 32, 48)
+- CSS variables for theme colors when appropriate
+- Smooth transitions: transition-all duration-300
+- Proper hover/focus/active states
+
+COMPONENT STRUCTURE:
+- Single file when possible
+- Extract repeated patterns into sub-components
+- Props interfaces for reusable components
+- Default export for main component`;
 
 export interface GeneratedFile {
   name: string;

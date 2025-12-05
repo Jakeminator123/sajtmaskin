@@ -285,13 +285,18 @@ export function ChatPanel({
   // Abort controller for canceling previous requests
   const abortControllerRef = useRef<AbortController | null>(null);
 
+  // Track if initial generation has been triggered for THIS component instance
+  // This prevents re-generation when component remounts (e.g., mobile tab switching)
+  const hasInitialGeneratedRef = useRef(false);
+  const lastGeneratedKeyRef = useRef<string | null>(null);
+
   // Check if we're in test mode (force regeneration, skip cache)
   const isTestMode =
     typeof window !== "undefined" &&
     new URLSearchParams(window.location.search).get("testMode") === "true";
 
   // Auto-generate on initial load or when params change
-  // Uses MODULE-LEVEL state to prevent double-execution in StrictMode
+  // Uses BOTH module-level state AND ref-level state for robust protection
   useEffect(() => {
     const currentKey = `${categoryType || ""}-${initialPrompt || ""}-${
       templateId || ""
@@ -306,6 +311,28 @@ export function ChatPanel({
       return;
     }
 
+    // REF-LEVEL protection: Skip if we already generated for this key in THIS instance
+    // This is crucial for mobile tab switching where component remounts
+    if (
+      hasInitialGeneratedRef.current &&
+      lastGeneratedKeyRef.current === currentKey
+    ) {
+      if (DEBUG)
+        console.log(
+          "[ChatPanel] Skipping - ref protection (same key, same instance)"
+        );
+      return;
+    }
+
+    // Skip if we already have content (demoUrl means generation completed)
+    // This prevents re-generation when switching tabs on mobile
+    if (demoUrl && lastGeneratedKeyRef.current === currentKey) {
+      if (DEBUG)
+        console.log("[ChatPanel] Skipping - already have demoUrl for this key");
+      hasInitialGeneratedRef.current = true;
+      return;
+    }
+
     // MODULE-LEVEL protection: Check if we can start generation
     if (!canStartGeneration(currentKey) && !isTestMode) {
       if (DEBUG) console.log("[ChatPanel] Skipping - module protection active");
@@ -317,21 +344,28 @@ export function ChatPanel({
       clearChat();
       moduleLastGeneratedKey = null;
       moduleGenerationInProgress = false;
+      hasInitialGeneratedRef.current = false;
+      lastGeneratedKeyRef.current = null;
       return;
     }
 
     // If we have content but it's from a DIFFERENT request, clear it first
-    const isNewRequest = moduleLastGeneratedKey !== currentKey;
+    const isNewRequest =
+      moduleLastGeneratedKey !== currentKey && moduleLastGeneratedKey !== null;
     if (isNewRequest && (messages.length > 0 || demoUrl)) {
       if (DEBUG) console.log("[ChatPanel] Clearing for new request");
       clearChat();
       moduleLastGeneratedKey = null;
       moduleGenerationInProgress = false;
+      hasInitialGeneratedRef.current = false;
+      lastGeneratedKeyRef.current = null;
       return; // Wait for state to clear, effect will re-run
     }
 
-    // Mark generation as started (MODULE-LEVEL)
+    // Mark generation as started (both MODULE-LEVEL and REF-LEVEL)
     markGenerationStarted(currentKey);
+    hasInitialGeneratedRef.current = true;
+    lastGeneratedKeyRef.current = currentKey;
 
     if (DEBUG)
       console.log("[ChatPanel] Starting generation for key:", currentKey);
@@ -366,8 +400,8 @@ export function ChatPanel({
     templateId,
     localTemplateId,
     isLoading,
-    demoUrl,
-    // Note: messages.length removed to prevent double-execution when addMessage is called
+    // NOTE: demoUrl REMOVED from deps - it was causing re-runs when generation completed
+    // We now check demoUrl inside the effect instead
   ]);
 
   const getCategoryName = (type: string): string => {
