@@ -19,8 +19,8 @@
  * - versionId: Behövs för ZIP-download
  *
  * SPARNING (Database):
- * - hasUserSaved: Användaren måste klicka "Spara" först
- * - EFTER första sparningen: auto-save aktiveras
+ * - FILES: Sparas automatiskt direkt vid generering (för takeover)
+ * - hasUserSaved: Används för messages/chat auto-save
  * - testMode=true i URL: Skippar all sparning (för testning)
  *
  * PERSISTENCE:
@@ -158,7 +158,33 @@ export const useBuilderStore = create<BuilderState>()(
 
       setFiles: (files) => {
         set({ files });
-        get().saveToDatabase();
+
+        // IMPORTANT: Auto-save files immediately when generated
+        // This ensures "Ta över" (takeover) works without requiring manual save
+        const state = get();
+        if (files.length > 0 && state.projectId && !isTestMode()) {
+          // Save files directly without waiting for hasUserSaved
+          apiSaveProjectData(state.projectId, {
+            chatId: state.chatId || undefined,
+            demoUrl: state.demoUrl || undefined,
+            currentCode: state.currentCode || undefined,
+            files: files,
+            messages: state.messages.map((msg) => ({
+              ...msg,
+              timestamp: msg.timestamp.toISOString(),
+            })),
+          })
+            .then(() => {
+              console.log("[Store] Auto-saved files to database");
+              set({ lastSaved: new Date() });
+            })
+            .catch((err) =>
+              console.error("[Store] Failed to auto-save files:", err)
+            );
+        } else {
+          // Still trigger normal saveToDatabase for other scenarios
+          get().saveToDatabase();
+        }
       },
 
       setCurrentCode: (code) => {
