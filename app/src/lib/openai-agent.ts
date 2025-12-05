@@ -2,24 +2,29 @@
  * OpenAI Agent for Code Editing
  * =============================
  *
- * Uses OpenAI's API with GPT-4o models and function calling
+ * Uses OpenAI's Responses API with GPT-5.1 Codex models and function calling
  * to edit code in taken-over projects.
  *
- * MODEL SELECTION:
- * - gpt-4o-mini: Fast, cost-efficient for standard tasks
- * - gpt-4o: Complex reasoning, image generation orchestration
- * - dall-e-3: Image generation
+ * MODEL SELECTION (primary → fallback):
+ * - gpt-5.1-codex-mini → gpt-4o-mini: Fast, cost-efficient for standard tasks
+ * - gpt-5.1-codex → gpt-4o: Complex, long-running agentic coding
+ * - gpt-5-mini → gpt-4o-mini: Text generation and copywriting
+ * - gpt-5 → gpt-4o: Image orchestration with tools
+ * - gpt-image-1 → dall-e-3: Direct image generation
  *
  * TASK TYPES:
- * - code_edit: Standard code changes (gpt-4o-mini)
- * - copy: Text generation (gpt-4o-mini)
- * - image: Logo/hero image generation (gpt-4o + dall-e-3)
+ * - code_edit: Standard code changes (gpt-5.1-codex-mini)
+ * - copy: Text generation (gpt-5-mini)
+ * - image: Logo/hero image generation (gpt-5 + image_generation tool)
  * - web_search: Search web for info (gpt-4o-mini + web_search)
- * - code_refactor: Heavy refactoring (gpt-4o)
+ * - code_refactor: Heavy refactoring (gpt-5.1-codex)
+ * - analyze: Analyze project and suggest improvements (gpt-5)
  *
  * STORAGE MODES:
  * 1. REDIS (default) - Files stored in Redis, download as ZIP
  * 2. GITHUB - Full version control on user's GitHub
+ *
+ * All API calls are logged for debugging and monitoring.
  */
 
 import OpenAI from "openai";
@@ -37,7 +42,8 @@ export type TaskType =
   | "copy"
   | "image"
   | "web_search"
-  | "code_refactor";
+  | "code_refactor"
+  | "analyze";
 
 export interface AgentFile {
   path: string;
@@ -74,12 +80,34 @@ export interface AgentResult {
 // ============ Model Configuration ============
 
 type Verbosity = "low" | "medium" | "high";
+type ReasoningEffort = "minimal" | "low" | "medium" | "high";
 
 interface ModelConfig {
   model: string;
+  fallbackModel: string;
+  reasoning?: { effort: ReasoningEffort };
   text?: { verbosity: Verbosity };
   tools: OpenAI.Responses.Tool[];
   diamondCost: number;
+  description: string;
+}
+
+// Logging helper for API calls
+function logApiCall(
+  action: string,
+  details: Record<string, unknown>,
+  level: "info" | "warn" | "error" = "info"
+) {
+  const timestamp = new Date().toISOString();
+  const prefix = `[Agent:${timestamp}]`;
+
+  if (level === "error") {
+    console.error(prefix, action, details);
+  } else if (level === "warn") {
+    console.warn(prefix, action, details);
+  } else {
+    console.log(prefix, action, details);
+  }
 }
 
 // Custom function tools for file operations
@@ -149,40 +177,63 @@ const FILE_TOOLS: OpenAI.Responses.Tool[] = [
 ];
 
 // Model configuration per task type
-// gpt-4o-mini for fast tasks, gpt-4o for complex reasoning
+// Primary models: GPT-5.1 Codex series (optimized for agentic coding)
+// Fallback models: GPT-4o series (stable, widely available)
 const MODEL_CONFIGS: Record<TaskType, ModelConfig> = {
   code_edit: {
-    // gpt-4o-mini: Fast, cost-efficient for everyday coding tasks
-    model: "gpt-4o-mini",
+    // gpt-5.1-codex-mini: Optimized for cost-efficient code edits
+    model: "gpt-5.1-codex-mini",
+    fallbackModel: "gpt-4o-mini",
     text: { verbosity: "low" },
     tools: FILE_TOOLS,
     diamondCost: 1,
+    description: "Standard code editing",
   },
   copy: {
-    // gpt-4o-mini: Good for text generation and copywriting
-    model: "gpt-4o-mini",
+    // gpt-5-mini: Good for text generation and copywriting
+    model: "gpt-5-mini",
+    fallbackModel: "gpt-4o-mini",
     text: { verbosity: "medium" },
     tools: FILE_TOOLS,
     diamondCost: 1,
+    description: "Copywriting and text generation",
   },
   image: {
-    // gpt-4o: Full model for image generation orchestration
-    model: "gpt-4o",
+    // gpt-5: Full model for image generation orchestration
+    model: "gpt-5",
+    fallbackModel: "gpt-4o",
+    reasoning: { effort: "low" },
     tools: [...FILE_TOOLS, { type: "image_generation" }],
     diamondCost: 3,
+    description: "Image generation with context",
   },
   web_search: {
-    // gpt-4o-mini: Good for web search and research tasks
+    // gpt-4o-mini: Stable support for web_search tool
     model: "gpt-4o-mini",
+    fallbackModel: "gpt-4o-mini",
     tools: [...FILE_TOOLS, { type: "web_search" }],
     diamondCost: 2,
+    description: "Web search and research",
   },
   code_refactor: {
-    // gpt-4o: Complex reasoning for refactoring
-    model: "gpt-4o",
+    // gpt-5.1-codex: Complex, long-running agentic coding
+    model: "gpt-5.1-codex",
+    fallbackModel: "gpt-4o",
+    reasoning: { effort: "medium" },
     text: { verbosity: "medium" },
     tools: FILE_TOOLS,
     diamondCost: 5,
+    description: "Heavy refactoring and restructuring",
+  },
+  analyze: {
+    // gpt-5: Deep analysis and improvement suggestions
+    model: "gpt-5",
+    fallbackModel: "gpt-4o",
+    reasoning: { effort: "medium" },
+    text: { verbosity: "high" },
+    tools: FILE_TOOLS,
+    diamondCost: 3,
+    description: "Project analysis and suggestions",
   },
 };
 
@@ -287,6 +338,32 @@ PROCESS:
 
 VARNING: Denna mode kostar mer och tar längre tid.
 Se till att förstå helheten innan du börjar ändra.`,
+
+  analyze: `Du är en erfaren webbplats-analytiker och arkitekt.
+
+Din uppgift är att analysera användarens uppladdade webbplats och ge konkreta förbättringsförslag.
+
+ANALYSERA:
+1. Kodkvalitet och struktur
+2. Designmönster och arkitektur
+3. Prestanda och optimeringsmöjligheter
+4. Tillgänglighet (a11y)
+5. SEO-potential
+6. Användbarhet och UX
+
+PROCESS:
+1. Lista alla filer i projektet
+2. Läs de viktigaste filerna (package.json, huvudkomponenter, layoutfiler)
+3. Identifiera styrkor och svagheter
+4. Ge prioriterade förbättringsförslag
+
+OUTPUT FORMAT:
+- Kort sammanfattning av projektet
+- 3-5 styrkor
+- 3-5 förbättringsområden med konkreta förslag
+- Rekommenderad nästa steg
+
+Var konstruktiv och fokusera på det som ger mest värde.`,
 };
 
 // ============ REDIS Storage Functions ============
@@ -539,26 +616,77 @@ export async function runAgent(
 ): Promise<AgentResult> {
   const { taskType } = context;
   const config = MODEL_CONFIGS[taskType];
+  let usedModel = config.model;
+  let usedFallback = false;
 
-  console.log("[Agent] Starting with:", {
+  logApiCall("Starting agent", {
     instruction: instruction.substring(0, 100),
     taskType,
-    model: config.model,
+    primaryModel: config.model,
+    fallbackModel: config.fallbackModel,
+    description: config.description,
   });
 
   const updatedFiles: AgentFile[] = [];
   const generatedImages: GeneratedImage[] = [];
   const webSearchSources: { title: string; url: string }[] = [];
 
+  // Helper function to create response with optional fallback
+  async function createResponseWithFallback(
+    options: OpenAI.Responses.ResponseCreateParamsNonStreaming
+  ): Promise<OpenAI.Responses.Response> {
+    try {
+      logApiCall("Trying primary model", { model: options.model });
+      return await openai.responses.create(options);
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Unknown error";
+
+      // Check if error indicates model not available
+      if (
+        errorMessage.includes("model") ||
+        errorMessage.includes("not found") ||
+        errorMessage.includes("does not exist") ||
+        errorMessage.includes("invalid_model")
+      ) {
+        logApiCall(
+          "Primary model failed, trying fallback",
+          {
+            primaryModel: options.model,
+            fallbackModel: config.fallbackModel,
+            error: errorMessage,
+          },
+          "warn"
+        );
+
+        usedModel = config.fallbackModel;
+        usedFallback = true;
+
+        return await openai.responses.create({
+          ...options,
+          model: config.fallbackModel,
+        });
+      }
+
+      // Re-throw other errors
+      throw error;
+    }
+  }
+
   try {
     // Build request options based on task type
-    const requestOptions: OpenAI.Responses.ResponseCreateParams = {
+    const requestOptions: OpenAI.Responses.ResponseCreateParamsNonStreaming = {
       model: config.model,
       instructions: SYSTEM_INSTRUCTIONS[taskType],
       input: instruction,
       tools: config.tools,
       store: true,
     };
+
+    // Add reasoning config if specified
+    if (config.reasoning) {
+      requestOptions.reasoning = config.reasoning;
+    }
 
     // Add text verbosity config if specified
     if (config.text) {
@@ -570,8 +698,8 @@ export async function runAgent(
       requestOptions.previous_response_id = context.previousResponseId;
     }
 
-    // Create initial response
-    let response = await openai.responses.create(requestOptions);
+    // Create initial response with fallback support
+    let response = await createResponseWithFallback(requestOptions);
 
     console.log("[Agent] Initial response ID:", response.id);
 
@@ -681,14 +809,24 @@ export async function runAgent(
 
       // Continue with function results
       // IMPORTANT: Include text config for consistent verbosity across all responses
-      response = await openai.responses.create({
-        model: config.model,
-        input: functionResults,
-        previous_response_id: response.id,
-        tools: config.tools,
-        store: true,
-        // Apply same text verbosity settings as initial response
-        ...(config.text && { text: config.text }),
+      const continueOptions: OpenAI.Responses.ResponseCreateParamsNonStreaming =
+        {
+          model: usedModel, // Use the model that worked (primary or fallback)
+          input: functionResults,
+          previous_response_id: response.id,
+          tools: config.tools,
+          store: true,
+          // Apply same text verbosity settings as initial response
+          ...(config.text && { text: config.text }),
+          ...(config.reasoning && { reasoning: config.reasoning }),
+        };
+
+      response = await openai.responses.create(continueOptions);
+
+      logApiCall("Continued conversation", {
+        model: usedModel,
+        responseId: response.id,
+        iteration: iterations,
       });
     }
 
@@ -707,6 +845,16 @@ export async function runAgent(
         .map((c) => c.text)
         .join("\n") || "Ändringar genomförda.";
 
+    logApiCall("Agent completed successfully", {
+      taskType,
+      model: usedModel,
+      usedFallback,
+      responseId: response.id,
+      tokensUsed: response.usage?.total_tokens,
+      updatedFilesCount: updatedFiles.length,
+      generatedImagesCount: generatedImages.length,
+    });
+
     return {
       success: true,
       message: finalMessage,
@@ -718,8 +866,18 @@ export async function runAgent(
         webSearchSources.length > 0 ? webSearchSources : undefined,
     };
   } catch (error) {
-    console.error("[Agent] Error:", error);
     const errorMessage = error instanceof Error ? error.message : "Okänt fel";
+
+    logApiCall(
+      "Agent error",
+      {
+        taskType,
+        model: usedModel,
+        usedFallback,
+        error: errorMessage,
+      },
+      "error"
+    );
 
     return {
       success: false,
@@ -774,35 +932,145 @@ export async function continueConversation(
 
 /**
  * Generate image directly (standalone, without agent context)
- * Uses DALL-E 3 model for high-quality image generation
+ * Uses gpt-image-1 as primary model with dall-e-3 as fallback
  */
 export async function generateImage(
   prompt: string,
   size: "1024x1024" | "1792x1024" | "1024x1792" = "1024x1024",
-  quality: "standard" | "hd" = "standard"
-): Promise<{ base64: string; revisedPrompt?: string }> {
-  console.log(
-    "[Image] Generating with dall-e-3, prompt:",
-    prompt.substring(0, 100)
-  );
+  quality: "low" | "medium" | "high" | "standard" | "hd" = "medium"
+): Promise<{ base64: string; revisedPrompt?: string; model: string }> {
+  const primaryModel = "gpt-image-1";
+  const fallbackModel = "dall-e-3";
+  let usedModel = primaryModel;
 
-  const result = await openai.images.generate({
-    model: "dall-e-3",
-    prompt,
+  // Map quality for different models
+  const gptImageQuality =
+    quality === "hd" || quality === "high"
+      ? "high"
+      : quality === "standard"
+      ? "medium"
+      : quality;
+  const dalleQuality =
+    quality === "high" || quality === "hd" ? "hd" : "standard";
+
+  logApiCall("Generating image", {
+    prompt: prompt.substring(0, 100),
     size,
     quality,
-    n: 1,
-    response_format: "b64_json", // Ensure we get base64 data
+    primaryModel,
+    fallbackModel,
   });
 
-  if (!result.data || result.data.length === 0) {
-    throw new Error("No image data returned from API");
+  try {
+    // Try gpt-image-1 first
+    const result = await openai.images.generate({
+      model: primaryModel,
+      prompt,
+      size,
+      quality: gptImageQuality as "low" | "medium" | "high",
+      n: 1,
+      output_format: "png",
+    });
+
+    if (!result.data || result.data.length === 0) {
+      throw new Error("No image data returned from API");
+    }
+
+    const imageData = result.data[0];
+
+    logApiCall("Image generated successfully", {
+      model: usedModel,
+      hasData: !!imageData.b64_json,
+    });
+
+    return {
+      base64: imageData.b64_json || "",
+      revisedPrompt: imageData.revised_prompt,
+      model: usedModel,
+    };
+  } catch (error) {
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error";
+
+    // Check if we should try fallback
+    if (
+      errorMessage.includes("model") ||
+      errorMessage.includes("not found") ||
+      errorMessage.includes("does not exist")
+    ) {
+      logApiCall(
+        "Primary image model failed, trying fallback",
+        {
+          primaryModel,
+          fallbackModel,
+          error: errorMessage,
+        },
+        "warn"
+      );
+
+      usedModel = fallbackModel;
+
+      const result = await openai.images.generate({
+        model: fallbackModel,
+        prompt,
+        size,
+        quality: dalleQuality,
+        n: 1,
+        response_format: "b64_json",
+      });
+
+      if (!result.data || result.data.length === 0) {
+        throw new Error("No image data returned from fallback API");
+      }
+
+      const imageData = result.data[0];
+
+      logApiCall("Image generated with fallback", {
+        model: usedModel,
+        hasData: !!imageData.b64_json,
+      });
+
+      return {
+        base64: imageData.b64_json || "",
+        revisedPrompt: imageData.revised_prompt,
+        model: usedModel,
+      };
+    }
+
+    logApiCall("Image generation failed", { error: errorMessage }, "error");
+    throw error;
+  }
+}
+
+/**
+ * Analyze a project and provide improvement suggestions
+ * This is called by the avatar/agent to understand the user's uploaded site
+ */
+export async function analyzeProject(
+  projectId: string,
+  githubToken?: string
+): Promise<AgentResult> {
+  const context = await createAgentContext(projectId, githubToken, "analyze");
+
+  if (!context) {
+    return {
+      success: false,
+      message: "Projektet kunde inte hittas",
+      updatedFiles: [],
+      responseId: "",
+    };
   }
 
-  const imageData = result.data[0];
+  const instruction = `Analysera detta projekt och ge konkreta förbättringsförslag.
+  
+Börja med att lista alla filer och läs de viktigaste (package.json, huvudsidor, komponenter).
+Fokusera på:
+1. Övergripande struktur och arkitektur
+2. Kodkvalitet och best practices
+3. Potentiella förbättringar
+4. Nästa steg för att göra sajten bättre
 
-  return {
-    base64: imageData.b64_json || "",
-    revisedPrompt: imageData.revised_prompt,
-  };
+Ge en sammanfattning som användaren kan förstå utan teknisk bakgrund.`;
+
+  return runAgent(instruction, context);
 }
