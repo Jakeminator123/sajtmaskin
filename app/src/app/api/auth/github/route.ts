@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { SECRETS, URLS, FEATURES } from "@/lib/config";
 
 /**
  * GitHub OAuth - Start Flow
@@ -7,21 +8,18 @@ import { NextRequest, NextResponse } from "next/server";
  * After authorization, GitHub redirects back to /api/auth/github/callback
  */
 
-const GITHUB_CLIENT_ID = process.env.GITHUB_CLIENT_ID;
-const REDIRECT_URI =
-  process.env.GITHUB_REDIRECT_URI ||
-  `${
-    process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"
-  }/api/auth/github/callback`;
-
 export async function GET(request: NextRequest) {
-  if (!GITHUB_CLIENT_ID) {
-    console.error("[GitHub OAuth] GITHUB_CLIENT_ID is not configured");
+  // Check if GitHub OAuth is enabled
+  if (!FEATURES.useGitHubAuth) {
+    console.error("[GitHub OAuth] GitHub OAuth is not configured");
     return NextResponse.json(
       { success: false, error: "GitHub OAuth is not configured" },
       { status: 500 }
     );
   }
+
+  const GITHUB_CLIENT_ID = SECRETS.githubClientId;
+  const REDIRECT_URI = URLS.githubCallbackUrl;
 
   // Get the return URL from query params (where to redirect after OAuth)
   const searchParams = request.nextUrl.searchParams;

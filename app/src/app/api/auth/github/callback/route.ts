@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { updateUserGitHub } from "@/lib/database";
+import { SECRETS, FEATURES } from "@/lib/config";
 
 /**
  * GitHub OAuth - Callback Handler
@@ -8,9 +9,6 @@ import { updateUserGitHub } from "@/lib/database";
  * Receives the authorization code from GitHub, exchanges it for an access token,
  * and stores the token in the user's record.
  */
-
-const GITHUB_CLIENT_ID = process.env.GITHUB_CLIENT_ID;
-const GITHUB_CLIENT_SECRET = process.env.GITHUB_CLIENT_SECRET;
 
 interface GitHubTokenResponse {
   access_token: string;
@@ -59,7 +57,11 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(errorUrl.toString());
   }
 
-  if (!GITHUB_CLIENT_ID || !GITHUB_CLIENT_SECRET) {
+  // Use centralized secrets
+  const GITHUB_CLIENT_ID = SECRETS.githubClientId;
+  const GITHUB_CLIENT_SECRET = SECRETS.githubClientSecret;
+
+  if (!FEATURES.useGitHubAuth) {
     console.error("[GitHub OAuth] GitHub OAuth is not configured");
     const errorUrl = new URL(returnTo, request.url);
     errorUrl.searchParams.set("github_error", "not_configured");

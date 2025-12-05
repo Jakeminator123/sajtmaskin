@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { SECRETS, FEATURES } from "@/lib/config";
 
 /**
  * Avatar TTS API - Uses ElevenLabs to generate speech
@@ -11,11 +12,6 @@ import { NextRequest, NextResponse } from "next/server";
 // Allow up to 60 seconds for TTS generation (complex speech)
 export const maxDuration = 60;
 
-// ElevenLabs configuration
-const ELEVENLABS_API_KEY = process.env.ELEVENLABS_API_KEY;
-const ELEVENLABS_VOICE_ID =
-  process.env.ELEVENLABS_VOICE_ID || "qydUmqn0YV5FQorXLObQ";
-
 // Voice settings for natural Swedish speech
 const VOICE_SETTINGS = {
   stability: 0.5, // Balance between variability and consistency
@@ -26,13 +22,10 @@ const VOICE_SETTINGS = {
 
 export async function POST(request: NextRequest) {
   try {
-    // Check for API key - detailed logging for debugging
-    if (!ELEVENLABS_API_KEY) {
+    // Check for API key using centralized config
+    if (!FEATURES.useElevenLabs) {
       console.error(
         "[Avatar/Speak] Missing ELEVENLABS_API_KEY in environment variables"
-      );
-      console.error(
-        "[Avatar/Speak] Make sure to add ELEVENLABS_API_KEY=sk_xxx to your .env.local file"
       );
       return NextResponse.json(
         {
@@ -44,10 +37,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Log that we have a key (but not the key itself)
+    // Get secrets from centralized config
+    const ELEVENLABS_API_KEY = SECRETS.elevenLabsApiKey;
+    const ELEVENLABS_VOICE_ID = SECRETS.elevenLabsVoiceId || "qydUmqn0YV5FQorXLObQ";
+
+    // Log that we have a key (but not the key itself - security!)
     console.log(
-      "[Avatar/Speak] API key found, length:",
-      ELEVENLABS_API_KEY.length
+      "[Avatar/Speak] API key configured, proceeding with TTS generation"
     );
 
     // Parse request body

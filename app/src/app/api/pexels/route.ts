@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { SECRETS, FEATURES } from "@/lib/config";
 
 /**
  * Pexels API Integration
@@ -146,13 +147,11 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { industry, customTerms, count = 5 } = body;
 
-    const apiKey = process.env.PEXELS_API_KEY;
-
-    if (!apiKey) {
+    // Use centralized config for API key
+    if (!FEATURES.usePexels) {
       console.log(
         "[API/pexels] No PEXELS_API_KEY found, using fallback placeholders"
       );
-      // Return fallback placeholder images
       return NextResponse.json({
         success: true,
         images: generateFallbackImages(industry, count),
@@ -161,6 +160,8 @@ export async function POST(req: NextRequest) {
           "Using placeholder images. Add PEXELS_API_KEY for real photos.",
       });
     }
+
+    const apiKey = SECRETS.pexelsApiKey;
 
     const searchTerms = getSearchTerms(industry, customTerms);
     const allImages: MarkedImage[] = [];
@@ -237,15 +238,16 @@ export async function GET(req: NextRequest) {
   const query = searchParams.get("query") || "business";
   const count = parseInt(searchParams.get("count") || "5", 10);
 
-  const apiKey = process.env.PEXELS_API_KEY;
-
-  if (!apiKey) {
+  // Use centralized config
+  if (!FEATURES.usePexels) {
     return NextResponse.json({
       success: true,
       images: generateFallbackImages("other", count),
       source: "fallback",
     });
   }
+
+  const apiKey = SECRETS.pexelsApiKey;
 
   try {
     const response = await fetch(

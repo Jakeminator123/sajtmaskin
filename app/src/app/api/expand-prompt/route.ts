@@ -20,6 +20,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { MarkedImage } from "../pexels/route";
+import { SECRETS, FEATURES } from "@/lib/config";
 
 // Allow 60 seconds for OpenAI response
 export const maxDuration = 60;
@@ -559,16 +560,16 @@ export async function POST(req: NextRequest) {
       websiteAnalysis,
     } = body;
 
-    // Get OpenAI API key
-    const openaiApiKey = process.env.OPENAI_API_KEY || process.env.OPEN_AI_API;
-
-    if (!openaiApiKey) {
+    // Use centralized config for API key
+    if (!FEATURES.useOpenAI) {
       console.error("[API/expand-prompt] OpenAI API key not configured");
       return NextResponse.json(
         { success: false, error: "OpenAI API is not configured" },
         { status: 500 }
       );
     }
+
+    const openaiApiKey = SECRETS.openaiApiKey;
 
     // Build the colors string
     const colors = customColors || palette;

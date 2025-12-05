@@ -118,8 +118,9 @@ export async function POST(req: NextRequest) {
       quality = "standard";
     }
 
-    // Check for API key
-    if (!process.env.V0_API_KEY) {
+    // Check for API key using centralized config
+    const { FEATURES } = await import("@/lib/config");
+    if (!FEATURES.useV0Api) {
       console.error("[API/refine] V0_API_KEY is not configured");
       return NextResponse.json(
         {

@@ -9,6 +9,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { SECRETS, FEATURES } from "@/lib/config";
 
 // Allow 60 seconds for audio processing
 export const maxDuration = 60;
@@ -29,16 +30,16 @@ export async function POST(req: NextRequest) {
   console.log("[API/transcribe] Request received");
 
   try {
-    // Get OpenAI API key
-    const openaiApiKey = process.env.OPENAI_API_KEY || process.env.OPEN_AI_API;
-
-    if (!openaiApiKey) {
+    // Use centralized config for API key
+    if (!FEATURES.useOpenAI) {
       console.error("[API/transcribe] OpenAI API key not configured");
       return NextResponse.json(
         { success: false, error: "Speech service is not configured" },
         { status: 500 }
       );
     }
+
+    const openaiApiKey = SECRETS.openaiApiKey;
 
     // Parse form data
     const formData = await req.formData();

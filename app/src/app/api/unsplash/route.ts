@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { SECRETS, FEATURES } from "@/lib/config";
 
 /**
  * Unsplash API Integration
@@ -128,9 +129,8 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { industry, customTerms, count = 5 } = body;
 
-    const accessKey = process.env.UNSPLASH_ACCESS_KEY;
-
-    if (!accessKey) {
+    // Use centralized config
+    if (!FEATURES.useUnsplash) {
       console.log(
         "[API/unsplash] No UNSPLASH_ACCESS_KEY found, using fallback"
       );
@@ -141,6 +141,8 @@ export async function POST(req: NextRequest) {
         message: "Add UNSPLASH_ACCESS_KEY for real Unsplash photos.",
       });
     }
+
+    const accessKey = SECRETS.unsplashAccessKey;
 
     const searchTerms = getSearchTerms(industry, customTerms);
     const allImages: MarkedImage[] = [];
@@ -220,15 +222,16 @@ export async function GET(req: NextRequest) {
   const query = searchParams.get("query") || "business";
   const count = parseInt(searchParams.get("count") || "5", 10);
 
-  const accessKey = process.env.UNSPLASH_ACCESS_KEY;
-
-  if (!accessKey) {
+  // Use centralized config
+  if (!FEATURES.useUnsplash) {
     return NextResponse.json({
       success: true,
       images: generateFallbackImages("other", count),
       source: "fallback",
     });
   }
+
+  const accessKey = SECRETS.unsplashAccessKey;
 
   try {
     const response = await fetch(

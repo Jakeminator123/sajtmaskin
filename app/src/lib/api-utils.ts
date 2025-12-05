@@ -2,30 +2,41 @@
  * Shared API utilities
  *
  * Common functions used across API routes to reduce duplication.
+ * Uses centralized SECRETS from config.ts for security.
  */
 
 import { NextResponse } from "next/server";
+import { SECRETS, FEATURES } from "./config";
 
 /**
- * Get OpenAI API key from environment
- * Checks both OPENAI_API_KEY and OPEN_AI_API for compatibility
+ * Get OpenAI API key from centralized config
  */
 export function getOpenAIApiKey(): string | null {
-  return process.env.OPENAI_API_KEY || process.env.OPEN_AI_API || null;
+  const key = SECRETS.openaiApiKey;
+  return key || null;
 }
 
 /**
- * Get Google Maps API key from environment
+ * Get Google Maps API key from centralized config
  */
 export function getGoogleMapsApiKey(): string | null {
-  return process.env.GOOGLE_MAPS_API_KEY || process.env.GOOGLE_API_KEY || null;
+  const key = SECRETS.googleApiKey;
+  return key || null;
 }
 
 /**
- * Get Pexels API key from environment
+ * Get Pexels API key from centralized config
  */
 export function getPexelsApiKey(): string | null {
-  return process.env.PEXELS_API_KEY || null;
+  const key = SECRETS.pexelsApiKey;
+  return key || null;
+}
+
+/**
+ * Check if a feature is enabled
+ */
+export function isFeatureEnabled(feature: keyof typeof FEATURES): boolean {
+  return FEATURES[feature];
 }
 
 /**
