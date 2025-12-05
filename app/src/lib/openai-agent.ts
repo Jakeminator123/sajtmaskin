@@ -81,11 +81,12 @@ export interface AgentResult {
 
 type Verbosity = "low" | "medium" | "high";
 type ReasoningEffort = "minimal" | "low" | "medium" | "high";
+type ReasoningSummary = "auto" | "concise" | "detailed";
 
 interface ModelConfig {
   model: string;
   fallbackModel: string;
-  reasoning?: { effort: ReasoningEffort };
+  reasoning?: { effort: ReasoningEffort; summary?: ReasoningSummary };
   text?: { verbosity: Verbosity };
   tools: OpenAI.Responses.Tool[];
   diamondCost: number;
@@ -202,7 +203,7 @@ const MODEL_CONFIGS: Record<TaskType, ModelConfig> = {
     // gpt-5: Full model for image generation orchestration
     model: "gpt-5",
     fallbackModel: "gpt-4o",
-    reasoning: { effort: "low" },
+    reasoning: { effort: "low", summary: "auto" },
     tools: [...FILE_TOOLS, { type: "image_generation" }],
     diamondCost: 3,
     description: "Image generation with context",
@@ -219,7 +220,7 @@ const MODEL_CONFIGS: Record<TaskType, ModelConfig> = {
     // gpt-5.1-codex: Complex, long-running agentic coding
     model: "gpt-5.1-codex",
     fallbackModel: "gpt-4o",
-    reasoning: { effort: "medium" },
+    reasoning: { effort: "medium", summary: "auto" },
     text: { verbosity: "medium" },
     tools: FILE_TOOLS,
     diamondCost: 5,
@@ -229,7 +230,7 @@ const MODEL_CONFIGS: Record<TaskType, ModelConfig> = {
     // gpt-5: Deep analysis and improvement suggestions
     model: "gpt-5",
     fallbackModel: "gpt-4o",
-    reasoning: { effort: "medium" },
+    reasoning: { effort: "medium", summary: "auto" },
     text: { verbosity: "high" },
     tools: FILE_TOOLS,
     diamondCost: 3,
@@ -409,6 +410,95 @@ async function listRedisFiles(
   }
 
   return paths;
+}
+
+// ============ Direct Image Generation ============
+
+/**
+ * Generate an image directly using gpt-image-1 API
+ * This is faster than using the image_generation tool through Responses API
+ */
+export async function generateImageDirect(
+  prompt: string,
+  options?: {
+    size?: "1024x1024" | "1536x1024" | "1024x1536";
+    quality?: "low" | "medium" | "high";
+    background?: "transparent" | "opaque" | "auto";
+  }
+): Promise<{ base64: string; revisedPrompt?: string }> {
+  logApiCall("Direct image generation", {
+    prompt: prompt.substring(0, 100),
+    ...options,
+  });
+
+  try {
+    const result = await openai.images.generate({
+      model: "gpt-image-1",
+      prompt,
+      n: 1,
+      size: options?.size || "1024x1024",
+      quality: options?.quality || "medium",
+      background: options?.background || "auto",
+      output_format: "png",
+    });
+
+    if (!result.data || result.data.length === 0) {
+      throw new Error("No image data returned");
+    }
+
+    const imageData = result.data[0];
+    if (!imageData?.b64_json) {
+      throw new Error("No b64_json in image data");
+    }
+
+    logApiCall("Image generated successfully", {
+      size: options?.size || "1024x1024",
+      hasRevisedPrompt: !!imageData.revised_prompt,
+    });
+
+    return {
+      base64: imageData.b64_json,
+      revisedPrompt: imageData.revised_prompt,
+    };
+  } catch (error) {
+    const errorMessage =
+      error instanceof Error ? error.message : "Unknown error";
+    logApiCall("Image generation failed", { error: errorMessage }, "error");
+
+    // Fallback to dall-e-3 if gpt-image-1 is not available
+    if (
+      errorMessage.includes("model") ||
+      errorMessage.includes("not found") ||
+      errorMessage.includes("does not exist")
+    ) {
+      logApiCall("Falling back to dall-e-3", {}, "warn");
+
+      const fallbackResult = await openai.images.generate({
+        model: "dall-e-3",
+        prompt,
+        n: 1,
+        size: "1024x1024",
+        quality: "standard",
+        response_format: "b64_json",
+      });
+
+      if (!fallbackResult.data || fallbackResult.data.length === 0) {
+        throw new Error("No image data from fallback");
+      }
+
+      const fallbackImageData = fallbackResult.data[0];
+      if (!fallbackImageData?.b64_json) {
+        throw new Error("No b64_json in fallback image data");
+      }
+
+      return {
+        base64: fallbackImageData.b64_json,
+        revisedPrompt: fallbackImageData.revised_prompt,
+      };
+    }
+
+    throw error;
+  }
 }
 
 // Save a base64 image to the project

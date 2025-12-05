@@ -10,21 +10,22 @@ import {
 } from "@/lib/openai-agent";
 import { getProjectMeta } from "@/lib/redis";
 
-// Allow up to 2 minutes for complex AI code editing
-export const maxDuration = 120;
+// Allow up to 3 minutes for complex AI code editing (code_refactor needs more time)
+export const maxDuration = 180;
 
 /**
  * Agent Edit API
  *
- * Uses OpenAI API with GPT-4o models to edit code in taken-over projects.
- * Supports multiple task types with different models and costs.
+ * Uses OpenAI Responses API with GPT-5/5.1 models for AI code editing.
+ * Primary models with automatic fallback to GPT-4o series.
  *
  * TASK TYPES & COSTS:
- * - code_edit: 1 diamond (gpt-4o-mini, fast editing)
- * - copy: 1 diamond (gpt-4o-mini, text generation)
- * - image: 3 diamonds (gpt-4o + dall-e-3)
+ * - code_edit: 1 diamond (gpt-5.1-codex-mini → gpt-4o-mini)
+ * - copy: 1 diamond (gpt-5-mini → gpt-4o-mini)
+ * - image: 3 diamonds (gpt-5 + image_generation tool)
  * - web_search: 2 diamonds (gpt-4o-mini + web_search)
- * - code_refactor: 5 diamonds (gpt-4o, complex reasoning)
+ * - code_refactor: 5 diamonds (gpt-5.1-codex → gpt-4o)
+ * - analyze: 3 diamonds (gpt-5 with reasoning)
  *
  * POST /api/agent/edit
  */
@@ -63,13 +64,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate task type
+    // Validate task type - must match MODEL_CONFIGS in openai-agent.ts
     const validTaskTypes: TaskType[] = [
       "code_edit",
       "copy",
       "image",
       "web_search",
       "code_refactor",
+      "analyze", // Project analysis and suggestions
     ];
     if (!validTaskTypes.includes(taskType)) {
       return NextResponse.json(

@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 import { getProjectFiles, getProjectMeta } from "@/lib/redis";
 
-// Allow up to 60 seconds for AI responses
-export const maxDuration = 60;
+// Allow up to 90 seconds for AI responses with reasoning
+export const maxDuration = 90;
 
 const openai = new OpenAI();
 
