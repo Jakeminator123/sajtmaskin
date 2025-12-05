@@ -8,12 +8,13 @@
  * GET: Poll for video status and download when complete
  *
  * Video generation is asynchronous - it can take 30-120 seconds.
- * Use polling or webhooks to check completion.
+ * Jobs are stored in Redis for multi-instance deployments.
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
-import { cookies } from "next/headers";
+import { saveVideoJob, updateVideoJob, VideoJob } from "@/lib/redis";
+import { getCurrentUser } from "@/lib/auth";
 
 // Allow up to 5 minutes for long-running video operations
 export const maxDuration = 300;
@@ -33,27 +34,14 @@ interface VideoGenerationRequest {
   projectId?: string;
 }
 
-interface VideoJob {
-  videoId: string;
-  status: "queued" | "in_progress" | "completed" | "failed";
-  prompt: string;
-  model: VideoModel;
-  createdAt: string;
-}
-
-// In-memory store for video jobs (in production, use Redis)
-const videoJobs = new Map<string, VideoJob>();
-
 /**
  * POST - Start a new video generation job
  */
 export async function POST(request: NextRequest) {
   try {
-    // Check authentication
-    const cookieStore = await cookies();
-    const sessionCookie = cookieStore.get("session");
-
-    if (!sessionCookie?.value) {
+    // Check authentication using auth.ts
+    const user = await getCurrentUser(request);
+    if (!user) {
       return NextResponse.json(
         { error: "Autentisering krävs", requireAuth: true },
         { status: 401 }
@@ -61,13 +49,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body: VideoGenerationRequest = await request.json();
-    const {
-      prompt,
-      quality = "fast",
-      size = "1280x720",
-      seconds = 8,
-      projectId,
-    } = body;
+    const { prompt, quality = "fast", size = "1280x720", seconds = 8 } = body;
 
     if (!prompt || prompt.trim().length < 10) {
       return NextResponse.json(
@@ -83,6 +65,7 @@ export async function POST(request: NextRequest) {
       prompt: prompt.substring(0, 100),
       size,
       seconds,
+      userId: user.id,
     });
 
     // Start video generation job
@@ -96,15 +79,16 @@ export async function POST(request: NextRequest) {
 
     const videoId = video.id;
 
-    // Store job info
+    // Store job in Redis (production-ready)
     const job: VideoJob = {
       videoId,
+      userId: user.id,
       status: video.status || "queued",
       prompt,
       model,
       createdAt: new Date().toISOString(),
     };
-    videoJobs.set(videoId, job);
+    await saveVideoJob(job);
 
     console.log(`[Video API] Job created: ${videoId}, status: ${job.status}`);
 
@@ -160,41 +144,58 @@ export async function GET(request: NextRequest) {
 
     console.log(`[Video API] Polling status for: ${videoId}`);
 
-    // Check video status
+    // Check video status from OpenAI
     const video = await openai.videos.retrieve(videoId as any);
 
     const status = video.status;
-    const job = videoJobs.get(videoId);
 
-    // Update stored job status
-    if (job) {
-      job.status = status;
-      videoJobs.set(videoId, job);
-    }
+    // Update job in Redis
+    await updateVideoJob(videoId, { status });
 
     // If completed, include download info
     if (status === "completed") {
-      // Get video content/download URL
-      // Note: The exact API for downloading may vary
-      const content = await openai.videos.content(videoId as any);
+      // Get video download URL from the video object
+      // Note: Sora API may return download_url directly or require separate call
+      const downloadUrl =
+        (video as any).download_url || (video as any).url || null;
+
+      // Update Redis with completion info
+      await updateVideoJob(videoId, {
+        status: "completed",
+        completedAt: new Date().toISOString(),
+        downloadUrl,
+      });
 
       return NextResponse.json({
         success: true,
         videoId,
         status: "completed",
-        downloadUrl: content?.url || null,
-        duration: video.duration || null,
+        downloadUrl,
+        duration: (video as any).duration || null,
         message: "Din video är klar!",
       });
     }
 
     // If failed
     if (status === "failed") {
+      // video.error can be string or object - normalize to string
+      const rawError = (video as any).error;
+      const errorMsg =
+        typeof rawError === "string"
+          ? rawError
+          : rawError?.message || "Videogenerering misslyckades";
+
+      // Update Redis with failure info
+      await updateVideoJob(videoId, {
+        status: "failed",
+        error: errorMsg,
+      });
+
       return NextResponse.json({
         success: false,
         videoId,
         status: "failed",
-        error: video.error || "Videogenerering misslyckades",
+        error: errorMsg,
       });
     }
 

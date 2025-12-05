@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth-store";
+import { useBuilderStore } from "@/lib/store";
 
 interface TakeoverModalProps {
   isOpen: boolean;
@@ -48,6 +49,7 @@ export function TakeoverModal({
   projectName,
 }: TakeoverModalProps) {
   const { user, refreshUser } = useAuth();
+  const { setProjectOwned } = useBuilderStore();
   const [isLoading, setIsLoading] = useState(false);
   const [result, setResult] = useState<TakeoverResult | null>(null);
   const [selectedMode, setSelectedMode] = useState<TakeoverMode>("simple");
@@ -97,6 +99,9 @@ export function TakeoverModal({
       setResult(data);
 
       if (data.success) {
+        // Update ownership state in store
+        setProjectOwned(true, data.mode || "redis");
+        // Refresh user data (diamonds may have changed)
         refreshUser();
       }
     } catch (error) {

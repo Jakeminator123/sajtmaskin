@@ -124,6 +124,7 @@ interface ChatPanelProps {
   initialPrompt?: string;
   templateId?: string;
   localTemplateId?: string;
+  onTakeoverClick?: () => void; // Callback to open takeover modal
 }
 
 export function ChatPanel({
@@ -131,6 +132,7 @@ export function ChatPanel({
   initialPrompt,
   templateId,
   localTemplateId,
+  onTakeoverClick,
 }: ChatPanelProps) {
   const [input, setInput] = useState("");
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -194,7 +196,6 @@ export function ChatPanel({
     setVersionId,
     clearChat,
     isProjectOwned,
-    setProjectOwned,
     projectId,
   } = useBuilderStore();
 
@@ -1006,8 +1007,10 @@ export default function Page() {
             }}
             isProjectOwned={isProjectOwned}
             onUnlockClick={() => {
-              // Trigger takeover modal in parent
-              setProjectOwned(true, "redis");
+              // Trigger takeover modal in parent component
+              if (onTakeoverClick) {
+                onTakeoverClick();
+              }
             }}
             disabled={isLoading}
             diamonds={diamonds}

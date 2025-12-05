@@ -435,6 +435,7 @@ function BuilderContent() {
             initialPrompt={prompt || undefined}
             templateId={templateId || undefined}
             localTemplateId={localTemplateId || undefined}
+            onTakeoverClick={() => setShowTakeoverModal(true)}
           />
         </div>
 
@@ -455,6 +456,7 @@ function BuilderContent() {
                 initialPrompt={prompt || undefined}
                 templateId={templateId || undefined}
                 localTemplateId={localTemplateId || undefined}
+                onTakeoverClick={() => setShowTakeoverModal(true)}
               />
             </div>
           ) : (

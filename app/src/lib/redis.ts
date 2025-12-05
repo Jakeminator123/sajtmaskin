@@ -1,8 +1,35 @@
 /**
  * Redis Client Configuration
+ * ==========================
  *
  * Uses Redis Cloud for caching user sessions and frequently accessed data.
  * Reduces database load and improves response times.
+ *
+ * REDIS KEY STRUCTURE:
+ * ====================
+ *
+ * User Sessions:
+ *   user:session:{userId}       → CachedUser JSON (TTL: 7 days)
+ *
+ * Rate Limiting:
+ *   ratelimit:{key}             → Counter (TTL: variable)
+ *
+ * General Cache:
+ *   cache:{key}                 → Any JSON (TTL: 1 hour default)
+ *
+ * Audit Caching:
+ *   audit:{auditId}             → Audit JSON (TTL: 24 hours)
+ *   audit_list:{userId}         → Audit list JSON (TTL: 24 hours)
+ *
+ * Project Storage (Takeover):
+ *   project:files:{projectId}   → ProjectFile[] JSON (TTL: 365 days)
+ *   project:meta:{projectId}    → ProjectMeta JSON (TTL: 365 days)
+ *
+ * Video Jobs (Sora):
+ *   video:job:{videoId}         → VideoJob JSON (TTL: 1 hour)
+ *
+ * Preview Cache:
+ *   preview:{templateId}        → CachedPreview JSON (TTL: 24 hours)
  */
 
 import Redis from "ioredis";
@@ -631,6 +658,163 @@ export async function listUserTakenOverProjects(
   } catch (error) {
     console.error("[Redis] Failed to list user projects:", error);
     return [];
+  }
+}
+
+// ============ Video Job Storage ============
+// For async video generation tracking (Sora API)
+
+const VIDEO_JOB_PREFIX = "video:job:";
+const VIDEO_JOB_TTL = 60 * 60; // 1 hour - video jobs expire after completion
+
+export interface VideoJob {
+  videoId: string;
+  userId: string;
+  status: "queued" | "in_progress" | "completed" | "failed";
+  prompt: string;
+  model: string;
+  createdAt: string;
+  completedAt?: string;
+  downloadUrl?: string;
+  error?: string;
+}
+
+/**
+ * Save a video generation job
+ */
+export async function saveVideoJob(job: VideoJob): Promise<boolean> {
+  const redis = getRedis();
+  if (!redis) {
+    console.warn("[Redis] Cannot save video job - Redis not available");
+    return false;
+  }
+
+  try {
+    await redis.setex(
+      `${VIDEO_JOB_PREFIX}${job.videoId}`,
+      VIDEO_JOB_TTL,
+      JSON.stringify(job)
+    );
+    console.log(`[Redis] Saved video job: ${job.videoId}`);
+    return true;
+  } catch (error) {
+    console.error("[Redis] Failed to save video job:", error);
+    return false;
+  }
+}
+
+/**
+ * Get a video job by ID
+ */
+export async function getVideoJob(videoId: string): Promise<VideoJob | null> {
+  const redis = getRedis();
+  if (!redis) return null;
+
+  try {
+    const data = await redis.get(`${VIDEO_JOB_PREFIX}${videoId}`);
+    if (data) {
+      return JSON.parse(data) as VideoJob;
+    }
+  } catch (error) {
+    console.error("[Redis] Failed to get video job:", error);
+  }
+  return null;
+}
+
+/**
+ * Update a video job's status
+ */
+export async function updateVideoJob(
+  videoId: string,
+  updates: Partial<VideoJob>
+): Promise<boolean> {
+  const redis = getRedis();
+  if (!redis) return false;
+
+  try {
+    const job = await getVideoJob(videoId);
+    if (!job) return false;
+
+    const updatedJob = { ...job, ...updates };
+    await redis.setex(
+      `${VIDEO_JOB_PREFIX}${videoId}`,
+      VIDEO_JOB_TTL,
+      JSON.stringify(updatedJob)
+    );
+    return true;
+  } catch (error) {
+    console.error("[Redis] Failed to update video job:", error);
+    return false;
+  }
+}
+
+// ============ Preview Cache ============
+// For template preview caching (reduces v0 API calls)
+
+const PREVIEW_CACHE_PREFIX = "preview:";
+const PREVIEW_CACHE_TTL = 60 * 60 * 24; // 24 hours
+
+export interface CachedPreview {
+  templateId: string;
+  demoUrl: string;
+  chatId: string;
+  versionId: string;
+  code?: string;
+  cachedAt: string;
+}
+
+/**
+ * Cache a template preview
+ */
+export async function cachePreview(preview: CachedPreview): Promise<boolean> {
+  const redis = getRedis();
+  if (!redis) return false;
+
+  try {
+    await redis.setex(
+      `${PREVIEW_CACHE_PREFIX}${preview.templateId}`,
+      PREVIEW_CACHE_TTL,
+      JSON.stringify(preview)
+    );
+    console.log(`[Redis] Cached preview for template: ${preview.templateId}`);
+    return true;
+  } catch (error) {
+    console.error("[Redis] Failed to cache preview:", error);
+    return false;
+  }
+}
+
+/**
+ * Get cached preview for a template
+ */
+export async function getCachedPreview(
+  templateId: string
+): Promise<CachedPreview | null> {
+  const redis = getRedis();
+  if (!redis) return null;
+
+  try {
+    const data = await redis.get(`${PREVIEW_CACHE_PREFIX}${templateId}`);
+    if (data) {
+      return JSON.parse(data) as CachedPreview;
+    }
+  } catch (error) {
+    console.error("[Redis] Failed to get cached preview:", error);
+  }
+  return null;
+}
+
+/**
+ * Invalidate a cached preview
+ */
+export async function invalidatePreview(templateId: string): Promise<void> {
+  const redis = getRedis();
+  if (!redis) return;
+
+  try {
+    await redis.del(`${PREVIEW_CACHE_PREFIX}${templateId}`);
+  } catch (error) {
+    console.error("[Redis] Failed to invalidate preview:", error);
   }
 }
 

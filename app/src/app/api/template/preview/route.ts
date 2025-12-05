@@ -57,8 +57,8 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    // Check cache first
-    const cached = getCachedPreview(templateId);
+    // Check cache first (Redis with in-memory fallback)
+    const cached = await getCachedPreview(templateId);
     if (cached) {
       return NextResponse.json({
         success: true,
@@ -75,8 +75,8 @@ export async function GET(request: NextRequest) {
     console.log("[API /template/preview] Fetching preview for:", templateId);
     const preview = await initTemplatePreview(template.v0TemplateId);
 
-    // Cache the result in memory
-    setCachedPreview(templateId, preview);
+    // Cache the result (Redis with in-memory fallback)
+    await setCachedPreview(templateId, preview);
 
     // Auto-save screenshot to SQLite database for persistent caching
     if (preview.screenshotUrl) {
