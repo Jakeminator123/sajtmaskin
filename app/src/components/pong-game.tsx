@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Play, Pause, RotateCcw } from "lucide-react";
+import { useAvatar } from "@/contexts/AvatarContext";
 
 interface PongGameProps {
   compact?: boolean;
@@ -14,6 +15,9 @@ export function PongGame({ compact = false }: PongGameProps) {
   const [isPaused, setIsPaused] = useState(false);
   const [gameStarted, setGameStarted] = useState(false);
   const animationRef = useRef<number | null>(null);
+
+  // Avatar reacts to playing game
+  const { triggerReaction } = useAvatar();
 
   // Game state refs (to avoid re-renders)
   const gameState = useRef({
@@ -44,7 +48,9 @@ export function PongGame({ compact = false }: PongGameProps) {
     gameState.current.aiPaddle.y = gameState.current.canvasHeight / 2 - 20;
     setGameStarted(true);
     setIsPaused(false);
-  }, [resetBall]);
+    // Avatar gets excited when user starts playing
+    triggerReaction("user_playing_game", "Kör hårt! 🎮");
+  }, [resetBall, triggerReaction]);
 
   // Mouse/touch control
   useEffect(() => {

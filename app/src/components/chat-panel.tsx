@@ -29,9 +29,10 @@
  * Sandpack används ALDRIG för generering, endast som fallback för visning.
  */
 
-import { useEffect, useRef, useState, KeyboardEvent } from "react";
+import { useEffect, useRef, useState, KeyboardEvent, useCallback } from "react";
 import { useBuilderStore } from "@/lib/store";
 import { useAuth } from "@/lib/auth-store";
+import { useAvatar } from "@/contexts/AvatarContext";
 import {
   generateWebsite, // Generera från prompt eller kod
   refineWebsite, // Förfina existerande design
@@ -97,6 +98,11 @@ export function ChatPanel({
 
   const { updateDiamonds, fetchUser } = useAuth();
 
+  // Avatar reactions for typing and generation
+  const { triggerReaction } = useAvatar();
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isTypingRef = useRef(false);
+
   const {
     messages,
     isLoading,
@@ -115,12 +121,86 @@ export function ChatPanel({
     clearChat,
   } = useBuilderStore();
 
+  // Handle user typing - avatar watches attentively
+  const handleTypingStart = useCallback(() => {
+    if (!isTypingRef.current) {
+      isTypingRef.current = true;
+      triggerReaction("user_typing");
+    }
+  }, [triggerReaction]);
+
+  const handleTypingStop = useCallback(() => {
+    if (isTypingRef.current) {
+      isTypingRef.current = false;
+      triggerReaction("user_stopped_typing");
+    }
+  }, [triggerReaction]);
+
+  // Debounced typing detection
+  const handleInputChange = useCallback(
+    (value: string) => {
+      setInput(value);
+
+      // Start typing animation
+      if (value.length > 0) {
+        handleTypingStart();
+
+        // Reset the stop timer
+        if (typingTimeoutRef.current) {
+          clearTimeout(typingTimeoutRef.current);
+        }
+
+        // Stop typing after 1.5 seconds of no input
+        typingTimeoutRef.current = setTimeout(() => {
+          handleTypingStop();
+        }, 1500);
+      } else {
+        // Input cleared
+        if (typingTimeoutRef.current) {
+          clearTimeout(typingTimeoutRef.current);
+        }
+        handleTypingStop();
+      }
+    },
+    [handleTypingStart, handleTypingStop]
+  );
+
+  // Cleanup typing timeout
+  useEffect(() => {
+    return () => {
+      if (typingTimeoutRef.current) {
+        clearTimeout(typingTimeoutRef.current);
+      }
+    };
+  }, []);
+
   // Auto-scroll to bottom when new messages arrive
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages]);
+
+  // Avatar reacts to generation state changes
+  const wasLoadingRef = useRef(false);
+  useEffect(() => {
+    if (isLoading && !wasLoadingRef.current) {
+      // Generation started
+      triggerReaction("generation_start", "Nu skapar vi något fantastiskt! ✨");
+    } else if (!isLoading && wasLoadingRef.current) {
+      // Generation completed - check last message for success/error
+      const lastMsg = messages[messages.length - 1];
+      if (lastMsg?.content?.includes("gick fel")) {
+        triggerReaction(
+          "generation_error",
+          "Oj, något gick snett! Försök igen."
+        );
+      } else if (demoUrl) {
+        triggerReaction("generation_complete", "Tadaa! Din sajt är klar! 🎉");
+      }
+    }
+    wasLoadingRef.current = isLoading;
+  }, [isLoading, messages, demoUrl, triggerReaction]);
 
   // Track the last generated key to detect changes (persisted across StrictMode re-mounts)
   const lastGeneratedKey = useRef<string | null>(null);
@@ -860,7 +940,7 @@ export default function Page() {
             type="text"
             autoComplete="off"
             value={input}
-            onChange={(e) => setInput(e.target.value)}
+            onChange={(e) => handleInputChange(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder={
               messages.length === 0

@@ -33,7 +33,8 @@ export type AvatarAnimation =
   | "run"
   | "confident"
   | "shuffle"
-  | "sleep";
+  | "sleep"
+  | "fun";
 
 // ============================================================================
 // ANIMATION FILE MAPPING
@@ -52,6 +53,7 @@ const ANIMATION_FILES: Record<AvatarAnimation, string> = {
   confident: "/models/avatar/Animation_Confident_Strut_withSkin.glb",
   shuffle: "/models/avatar/Animation_Arm_Circle_Shuffle_withSkin.glb",
   sleep: "/models/avatar/Animation_Cough_While_Sleeping_withSkin.glb",
+  fun: "/models/avatar/Animation_fun.glb",
 };
 
 /** Animations that should loop infinitely */

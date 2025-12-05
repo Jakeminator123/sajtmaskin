@@ -22,7 +22,13 @@ export type UserAction =
   | "template_select"
   | "code_copy"
   | "download"
-  | "first_visit";
+  | "first_visit"
+  | "user_typing"
+  | "user_stopped_typing"
+  | "user_playing_game"
+  | "thinking"
+  | "celebrating"
+  | "waiting";
 
 // Avatar states
 export type AvatarState =
@@ -77,7 +83,7 @@ const initialState: AvatarContextState = {
 // Map actions to animations and messages
 const ACTION_REACTIONS: Record<
   UserAction,
-  { animation: AvatarAnimation; defaultMessage: string }
+  { animation: AvatarAnimation; defaultMessage: string; duration?: number }
 > = {
   section_change: {
     animation: "talk",
@@ -86,10 +92,11 @@ const ACTION_REACTIONS: Record<
   generation_start: {
     animation: "shuffle",
     defaultMessage: "Nu genererar vi! Det tar några sekunder...",
+    duration: 8000,
   },
   generation_complete: {
-    animation: "confident",
-    defaultMessage: "Klart! Kolla in resultatet!",
+    animation: "fun",
+    defaultMessage: "Klart! Kolla in resultatet! 🎉",
   },
   generation_error: {
     animation: "talk_left",
@@ -104,7 +111,7 @@ const ACTION_REACTIONS: Record<
     defaultMessage: "Snyggt! Kolla förhandsgranskningen.",
   },
   template_select: {
-    animation: "talk",
+    animation: "confident",
     defaultMessage: "Bra val! Den mallen är populär.",
   },
   code_copy: {
@@ -112,12 +119,41 @@ const ACTION_REACTIONS: Record<
     defaultMessage: "Kopierat! Klistra in i ditt projekt.",
   },
   download: {
-    animation: "talk_hands",
-    defaultMessage: "Laddar ner... Snart redo!",
+    animation: "fun",
+    defaultMessage: "Laddar ner... Snart redo! 📦",
   },
   first_visit: {
-    animation: "talk",
+    animation: "talk_hands",
     defaultMessage: "Välkommen! Jag hjälper dig bygga din sajt.",
+  },
+  user_typing: {
+    animation: "idle3",
+    defaultMessage: "",
+    duration: 0, // No auto-return, wait for user_stopped_typing
+  },
+  user_stopped_typing: {
+    animation: "talk_left",
+    defaultMessage: "Hmm, låt mig tänka...",
+    duration: 3000,
+  },
+  user_playing_game: {
+    animation: "fun",
+    defaultMessage: "Ha så kul! 🎮",
+    duration: 10000,
+  },
+  thinking: {
+    animation: "shuffle",
+    defaultMessage: "Låt mig fundera...",
+    duration: 5000,
+  },
+  celebrating: {
+    animation: "fun",
+    defaultMessage: "Woho! 🎉",
+  },
+  waiting: {
+    animation: "idle2",
+    defaultMessage: "Jag väntar här...",
+    duration: 6000,
   },
 };
 
@@ -211,7 +247,26 @@ interface AvatarContextValue extends AvatarContextState {
 const AvatarContext = createContext<AvatarContextValue | null>(null);
 
 // Idle animation variants for natural variation
+// Common idles are weighted more heavily
 const IDLE_VARIANTS: AvatarAnimation[] = ["idle", "idle2", "idle3"];
+
+// Special animations that play occasionally when idle (less frequently)
+const SPECIAL_IDLE_ANIMATIONS: AvatarAnimation[] = [
+  "shuffle",
+  "confident",
+  "fun",
+];
+
+// Get a random idle animation with weighted probability
+function getRandomIdleAnimation(): AvatarAnimation {
+  // 85% chance for regular idle, 15% for special animation
+  if (Math.random() < 0.85) {
+    return IDLE_VARIANTS[Math.floor(Math.random() * IDLE_VARIANTS.length)];
+  }
+  return SPECIAL_IDLE_ANIMATIONS[
+    Math.floor(Math.random() * SPECIAL_IDLE_ANIMATIONS.length)
+  ];
+}
 
 export function AvatarProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(avatarReducer, initialState);
@@ -229,15 +284,25 @@ export function AvatarProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const varyIdleAnimation = () => {
       if (state.avatarState === "idle" && state.isLoaded) {
-        const randomIdle =
-          IDLE_VARIANTS[Math.floor(Math.random() * IDLE_VARIANTS.length)];
-        dispatch({ type: "SET_ANIMATION", animation: randomIdle });
+        const randomAnimation = getRandomIdleAnimation();
+        dispatch({ type: "SET_ANIMATION", animation: randomAnimation });
+
+        // If it's a special animation, return to regular idle after it plays
+        if (SPECIAL_IDLE_ANIMATIONS.includes(randomAnimation)) {
+          setTimeout(() => {
+            if (state.avatarState === "idle") {
+              const regularIdle =
+                IDLE_VARIANTS[Math.floor(Math.random() * IDLE_VARIANTS.length)];
+              dispatch({ type: "SET_ANIMATION", animation: regularIdle });
+            }
+          }, 4000); // Special animations play for ~4 seconds
+        }
       }
     };
 
-    // Change idle variant every 8-15 seconds
+    // Change idle variant every 6-12 seconds for more liveliness
     const scheduleNextVariation = () => {
-      const delay = 8000 + Math.random() * 7000; // 8-15 seconds
+      const delay = 6000 + Math.random() * 6000; // 6-12 seconds
       idleVariationRef.current = setTimeout(() => {
         varyIdleAnimation();
         scheduleNextVariation();
@@ -276,10 +341,15 @@ export function AvatarProvider({ children }: { children: ReactNode }) {
       clearIdleTimeout();
       dispatch({ type: "TRIGGER_REACTION", action, message: customMessage });
 
-      // Auto-return to idle after animation
-      idleTimeoutRef.current = setTimeout(() => {
-        dispatch({ type: "RETURN_TO_IDLE" });
-      }, 4000);
+      const reaction = ACTION_REACTIONS[action];
+      const duration = reaction.duration ?? 4000;
+
+      // Only auto-return to idle if duration > 0
+      if (duration > 0) {
+        idleTimeoutRef.current = setTimeout(() => {
+          dispatch({ type: "RETURN_TO_IDLE" });
+        }, duration);
+      }
     },
     [clearIdleTimeout]
   );
