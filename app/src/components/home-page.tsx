@@ -1,5 +1,29 @@
 "use client";
 
+/**
+ * HomePage Component
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * Main landing page for SajtMaskin with:
+ *
+ * SECTIONS:
+ * 1. Hero with personalized greeting (for logged-in users)
+ * 2. Template Gallery - Quick start with preset categories
+ * 3. Site Audit - Analyze existing websites
+ * 4. Prompt Input - Custom website description
+ *
+ * FEATURES:
+ * - Shader background with theme variations
+ * - Onboarding flow for new users
+ * - 3D Avatar guide integration
+ * - Responsive design (mobile-first)
+ *
+ * STATE MANAGEMENT:
+ * - Auth state via useAuth hook
+ * - Avatar reactions via useAvatar context
+ * - Onboarding via custom hook
+ */
+
 import { useState, useRef } from "react";
 import { TemplateGallery } from "@/components/template-gallery";
 import { PromptInput } from "@/components/prompt-input";
@@ -15,6 +39,10 @@ import { useAuth } from "@/lib/auth-store";
 import { FloatingAvatar } from "@/components/avatar";
 import { useAvatar } from "@/contexts/AvatarContext";
 import type { AuditResult } from "@/types/audit";
+
+// ═══════════════════════════════════════════════════════════════
+// COMPONENT
+// ═══════════════════════════════════════════════════════════════
 
 export function HomePage() {
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -191,14 +219,14 @@ export function HomePage() {
           </div>
         )}
 
-        {/* Header */}
-        <div className="text-center space-y-4">
-          <h1 className="text-3xl sm:text-4xl font-bold text-white tracking-tight">
+        {/* Header - Main heading with animated entrance */}
+        <div className="text-center space-y-4 animate-fadeInUp">
+          <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-white tracking-tight">
             {isAuthenticated
               ? "Vad vill du skapa idag?"
               : "Vad vill du bygga idag?"}
           </h1>
-          <p className="text-gray-400 max-w-md mx-auto flex items-center justify-center gap-2 text-sm">
+          <p className="text-gray-400 max-w-md mx-auto flex items-center justify-center gap-2 text-sm sm:text-base">
             {isAuthenticated
               ? "Dina projekt och analyser sparas automatiskt i ditt konto."
               : "Skapa professionella webbplatser på minuter med hjälp av AI."}
@@ -229,10 +257,16 @@ export function HomePage() {
         {/* Template Gallery */}
         <TemplateGallery />
 
+        {/* ═══════════════════════════════════════════════════════════
+            SECTION: Site Audit
+            Allows users to analyze their existing websites
+            ═══════════════════════════════════════════════════════════ */}
+        
         {/* Divider - Site Audit */}
-        <div className="flex items-center gap-4 w-full max-w-2xl">
+        <div className="flex items-center gap-4 w-full max-w-2xl animate-fadeIn stagger-4 opacity-0 [animation-fill-mode:forwards]">
           <div className="flex-1 h-px bg-gradient-to-r from-transparent via-teal-700/50 to-transparent" />
-          <span className="text-sm font-medium text-teal-500/70 uppercase tracking-wider">
+          <span className="text-sm font-medium text-teal-500/70 uppercase tracking-wider flex items-center gap-2">
+            <span className="w-1.5 h-1.5 bg-teal-500 rounded-full animate-pulse" />
             Analysera
           </span>
           <div className="flex-1 h-px bg-gradient-to-r from-transparent via-teal-700/50 to-transparent" />
@@ -244,8 +278,13 @@ export function HomePage() {
           onRequireAuth={handleRequireAuth}
         />
 
+        {/* ═══════════════════════════════════════════════════════════
+            SECTION: Custom Prompt
+            Free-form text input for custom website descriptions
+            ═══════════════════════════════════════════════════════════ */}
+        
         {/* Divider - Custom Build */}
-        <div className="flex items-center gap-4 w-full max-w-md">
+        <div className="flex items-center gap-4 w-full max-w-md animate-fadeIn stagger-5 opacity-0 [animation-fill-mode:forwards]">
           <div className="flex-1 h-px bg-gradient-to-r from-transparent via-gray-700 to-transparent" />
           <span className="text-sm font-medium text-gray-500 uppercase tracking-wider">
             Eller beskriv
@@ -254,18 +293,21 @@ export function HomePage() {
         </div>
 
         {/* Prompt Input */}
-        <div ref={promptInputRef}>
+        <div ref={promptInputRef} className="animate-fadeInUp stagger-6 opacity-0 [animation-fill-mode:forwards]">
           <PromptInput
             initialValue={auditGeneratedPrompt || initialContext || undefined}
             key={auditGeneratedPrompt || "default"} // Force re-render when prompt changes
           />
         </div>
 
-        {/* Footer hint */}
-        <p className="text-xs text-gray-600 text-center max-w-sm">
-          Tryck Enter för att skicka, Shift+Enter för ny rad.
+        {/* Footer hint - keyboard shortcuts */}
+        <p className="text-xs text-gray-600 text-center max-w-sm animate-fadeIn" style={{ animationDelay: '0.4s' }}>
+          <kbd className="px-1.5 py-0.5 bg-gray-800 text-gray-400 text-[10px] rounded">Enter</kbd> för att skicka • 
+          <kbd className="px-1.5 py-0.5 bg-gray-800 text-gray-400 text-[10px] rounded ml-1">Shift+Enter</kbd> för ny rad
           <br />
-          AI genererar kod som du kan ladda ner och använda.
+          <span className="text-gray-500 mt-1 inline-block">
+            AI genererar kod som du kan ladda ner och använda.
+          </span>
         </p>
       </div>
 

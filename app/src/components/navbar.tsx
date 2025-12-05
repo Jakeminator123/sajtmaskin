@@ -1,6 +1,22 @@
 "use client";
 
-import { useEffect, useState } from "react";
+/**
+ * Navbar Component
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * Main navigation bar with:
+ * - Responsive design (desktop/mobile)
+ * - User authentication state handling
+ * - Diamond counter with low-balance warning animation
+ * - Smooth dropdown animations
+ *
+ * ACCESSIBILITY:
+ * - Proper ARIA labels for dropdowns
+ * - Keyboard navigation support
+ * - Focus management
+ */
+
+import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
@@ -17,12 +33,28 @@ import {
   Sparkles,
   Menu,
   X,
+  AlertCircle,
 } from "lucide-react";
+
+// ═══════════════════════════════════════════════════════════════
+// CONSTANTS
+// ═══════════════════════════════════════════════════════════════
+
+/** Diamond threshold for low-balance warning animation */
+const LOW_DIAMOND_THRESHOLD = 3;
+
+// ═══════════════════════════════════════════════════════════════
+// TYPES
+// ═══════════════════════════════════════════════════════════════
 
 interface NavbarProps {
   onLoginClick?: () => void;
   onRegisterClick?: () => void;
 }
+
+// ═══════════════════════════════════════════════════════════════
+// COMPONENT
+// ═══════════════════════════════════════════════════════════════
 
 export function Navbar({ onLoginClick, onRegisterClick }: NavbarProps) {
   const pathname = usePathname();
@@ -30,6 +62,11 @@ export function Navbar({ onLoginClick, onRegisterClick }: NavbarProps) {
     useAuth();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
+
+  // Check if diamonds are running low (for warning animation)
+  const isLowBalance = useMemo(() => {
+    return diamonds !== null && diamonds <= LOW_DIAMOND_THRESHOLD;
+  }, [diamonds]);
 
   // Fetch user on mount
   useEffect(() => {
@@ -51,6 +88,11 @@ export function Navbar({ onLoginClick, onRegisterClick }: NavbarProps) {
     document.addEventListener("click", handleClickOutside);
     return () => document.removeEventListener("click", handleClickOutside);
   }, []);
+
+  // Close mobile menu on route change
+  useEffect(() => {
+    setShowMobileMenu(false);
+  }, [pathname]);
 
   const isActive = (path: string) => pathname === path;
 
@@ -103,12 +145,53 @@ export function Navbar({ onLoginClick, onRegisterClick }: NavbarProps) {
         <div className="flex items-center gap-3">
           {/* Diamond counter - only show for authenticated users */}
           {isAuthenticated && (
-            <Link href="/buy-credits">
-              <div className="flex items-center gap-1.5 px-3 py-1.5 bg-black/50 border border-amber-500/30 hover:border-amber-500/60 transition-colors cursor-pointer group">
-                <Diamond className="h-4 w-4 text-amber-400 group-hover:text-amber-300" />
-                <span className="text-sm font-semibold text-amber-400 group-hover:text-amber-300">
+            <Link href="/buy-credits" aria-label={`Du har ${diamonds} diamanter. Klicka för att köpa fler.`}>
+              <div 
+                className={`
+                  flex items-center gap-1.5 px-3 py-1.5 
+                  bg-black/50 border cursor-pointer group
+                  transition-all duration-300
+                  ${isLowBalance 
+                    ? 'border-red-500/50 hover:border-red-400 hover:bg-red-500/10' 
+                    : 'border-amber-500/30 hover:border-amber-500/60'
+                  }
+                `}
+              >
+                {/* Low balance warning icon */}
+                {isLowBalance && (
+                  <AlertCircle className="h-3.5 w-3.5 text-red-400 animate-pulse" />
+                )}
+                
+                {/* Diamond icon with pulse animation when low */}
+                <Diamond 
+                  className={`
+                    h-4 w-4 transition-all
+                    ${isLowBalance 
+                      ? 'text-red-400 animate-diamondPulse' 
+                      : 'text-amber-400 group-hover:text-amber-300'
+                    }
+                  `} 
+                />
+                
+                {/* Diamond count */}
+                <span 
+                  className={`
+                    text-sm font-semibold transition-colors
+                    ${isLowBalance 
+                      ? 'text-red-400' 
+                      : 'text-amber-400 group-hover:text-amber-300'
+                    }
+                  `}
+                >
                   {diamonds}
                 </span>
+                
+                {/* "Buy more" hint on hover when low */}
+                {isLowBalance && (
+                  <span className="text-[10px] text-red-400/70 hidden group-hover:inline ml-0.5">
+                    Köp
+                  </span>
+                )}
               </div>
             </Link>
           )}

@@ -119,7 +119,11 @@
     animation: gradient 3s ease infinite;
   }
 
-  /* Fade in animation */
+  /* ═══════════════════════════════════════════════════════════════
+     ANIMATION LIBRARY - Reusable UI animations
+     ═══════════════════════════════════════════════════════════════ */
+
+  /* --- Fade Animations --- */
   @keyframes fadeIn {
     from {
       opacity: 0;
@@ -131,8 +135,166 @@
     }
   }
 
+  @keyframes fadeInUp {
+    from {
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes fadeInDown {
+    from {
+      opacity: 0;
+      transform: translateY(-20px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes fadeInScale {
+    from {
+      opacity: 0;
+      transform: scale(0.95);
+    }
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
   .animate-fadeIn {
     animation: fadeIn 0.4s ease-out;
+  }
+
+  .animate-fadeInUp {
+    animation: fadeInUp 0.5s ease-out;
+  }
+
+  .animate-fadeInDown {
+    animation: fadeInDown 0.5s ease-out;
+  }
+
+  .animate-fadeInScale {
+    animation: fadeInScale 0.3s ease-out;
+  }
+
+  /* --- Stagger Delays (for sequential animations) --- */
+  .stagger-1 { animation-delay: 0.05s; }
+  .stagger-2 { animation-delay: 0.1s; }
+  .stagger-3 { animation-delay: 0.15s; }
+  .stagger-4 { animation-delay: 0.2s; }
+  .stagger-5 { animation-delay: 0.25s; }
+  .stagger-6 { animation-delay: 0.3s; }
+
+  /* --- Glow Effects --- */
+  @keyframes glow {
+    0%, 100% {
+      box-shadow: 0 0 5px rgba(20, 184, 166, 0.3);
+    }
+    50% {
+      box-shadow: 0 0 20px rgba(20, 184, 166, 0.6), 0 0 30px rgba(20, 184, 166, 0.3);
+    }
+  }
+
+  @keyframes glowPulse {
+    0%, 100% {
+      opacity: 0.5;
+    }
+    50% {
+      opacity: 1;
+    }
+  }
+
+  .animate-glow {
+    animation: glow 2s ease-in-out infinite;
+  }
+
+  .animate-glowPulse {
+    animation: glowPulse 2s ease-in-out infinite;
+  }
+
+  /* --- Diamond/Credit Warning Animation --- */
+  @keyframes diamondPulse {
+    0%, 100% {
+      transform: scale(1);
+      filter: drop-shadow(0 0 2px rgba(251, 191, 36, 0.3));
+    }
+    50% {
+      transform: scale(1.1);
+      filter: drop-shadow(0 0 8px rgba(251, 191, 36, 0.6));
+    }
+  }
+
+  .animate-diamondPulse {
+    animation: diamondPulse 1.5s ease-in-out infinite;
+  }
+
+  /* --- Shimmer Effect (for loading states) --- */
+  @keyframes shimmer {
+    0% {
+      background-position: -200% 0;
+    }
+    100% {
+      background-position: 200% 0;
+    }
+  }
+
+  .animate-shimmer {
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(255, 255, 255, 0.05) 50%,
+      transparent 100%
+    );
+    background-size: 200% 100%;
+    animation: shimmer 2s infinite;
+  }
+
+  /* --- Bounce Animation (for attention) --- */
+  @keyframes bounce {
+    0%, 100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-5px);
+    }
+  }
+
+  .animate-bounce-subtle {
+    animation: bounce 2s ease-in-out infinite;
+  }
+
+  /* --- Card Hover Effect --- */
+  .hover-lift {
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+  }
+
+  .hover-lift:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 10px 40px -10px rgba(20, 184, 166, 0.3);
+  }
+
+  /* --- Focus Ring Animation --- */
+  @keyframes focusRing {
+    0% {
+      box-shadow: 0 0 0 0 rgba(20, 184, 166, 0.4);
+    }
+    70% {
+      box-shadow: 0 0 0 6px rgba(20, 184, 166, 0);
+    }
+    100% {
+      box-shadow: 0 0 0 0 rgba(20, 184, 166, 0);
+    }
+  }
+
+  .focus-ring-animate:focus {
+    animation: focusRing 0.5s ease-out;
   }
 
   /* Prevent content jump during state changes */

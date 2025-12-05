@@ -1,5 +1,21 @@
 "use client";
 
+/**
+ * PromptInput Component
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * Main input field for website descriptions with:
+ * - Auto-resizing textarea
+ * - Keyboard shortcuts (Enter to submit, Shift+Enter for newline)
+ * - AI Wizard integration for guided prompt building
+ * - Example prompts for inspiration
+ *
+ * ACCESSIBILITY:
+ * - Proper focus management
+ * - Keyboard navigation
+ * - ARIA labels for buttons
+ */
+
 import { useState, useRef, useEffect, KeyboardEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Textarea } from "@/components/ui/textarea";
@@ -9,7 +25,11 @@ import {
   PromptWizardModal,
   type WizardData,
 } from "@/components/prompt-wizard-modal";
-import { ArrowUp, Loader2, Wand2 } from "lucide-react";
+import { ArrowUp, Loader2, Wand2, Lightbulb } from "lucide-react";
+
+// ═══════════════════════════════════════════════════════════════
+// TYPES
+// ═══════════════════════════════════════════════════════════════
 
 interface PromptInputProps {
   onSubmit?: (prompt: string) => void;
@@ -145,9 +165,10 @@ export function PromptInput({
           </div>
         </div>
 
-        {/* Example prompts */}
-        <div className="space-y-2">
-          <p className="text-xs text-gray-500 text-center">
+        {/* Example prompts - inspiration för användare */}
+        <div className="space-y-3">
+          <p className="text-xs text-gray-500 text-center flex items-center justify-center gap-1.5">
+            <Lightbulb className="h-3 w-3 text-amber-500/70" />
             Prova ett exempel:
           </p>
           <div className="flex flex-wrap justify-center gap-2">
@@ -155,7 +176,16 @@ export function PromptInput({
               <button
                 key={index}
                 onClick={() => handleExampleClick(example)}
-                className="text-xs px-3 py-1.5 bg-gray-800/50 text-gray-400 hover:bg-gray-800 hover:text-gray-300 transition-colors truncate max-w-[280px]"
+                aria-label={`Använd exempel: ${example}`}
+                className="
+                  text-xs px-3 py-1.5 
+                  bg-gray-800/50 text-gray-400 
+                  hover:bg-teal-500/10 hover:text-teal-300 hover:border-teal-500/30
+                  border border-transparent
+                  transition-all duration-200 
+                  truncate max-w-[280px]
+                  focus:outline-none focus:ring-2 focus:ring-teal-500/30
+                "
               >
                 &quot;{example.slice(0, 40)}...&quot;
               </button>
@@ -164,11 +194,13 @@ export function PromptInput({
 
           {/* Character count and hint */}
           <div className="flex justify-between items-center px-1">
-            <span className="text-xs text-gray-500">
+            <span className={`text-xs transition-colors ${prompt.length > 500 ? 'text-amber-400' : 'text-gray-500'}`}>
               {prompt.length} tecken
+              {prompt.length > 500 && <span className="ml-1 text-amber-400/70">(detaljerat ✓)</span>}
             </span>
-            <span className="text-xs text-gray-600">
-              Enter = skapa direkt • Teal knapp = bygg ut med AI
+            <span className="text-xs text-gray-600 hidden sm:inline">
+              <Wand2 className="h-3 w-3 inline mr-1 text-teal-500/70" />
+              Teal-knappen bygger ut med AI
             </span>
           </div>
         </div>
