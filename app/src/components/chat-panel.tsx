@@ -50,6 +50,63 @@ import { MessageSquare, ArrowUp, Loader2, Sparkles, Globe } from "lucide-react";
 // Debug flag - set to true for verbose logging
 const DEBUG = false;
 
+// ============================================================================
+// MODULE-LEVEL STATE (persists across React StrictMode remounts)
+// ============================================================================
+// These variables persist even when component unmounts/remounts in StrictMode
+let moduleLastGeneratedKey: string | null = null;
+let moduleGenerationInProgress = false;
+let moduleGenerationTimestamp = 0;
+
+// Reset module state after a timeout (prevents stale state blocking new generations)
+const GENERATION_TIMEOUT_MS = 60000; // 1 minute
+
+function canStartGeneration(key: string): boolean {
+  const now = Date.now();
+
+  // If generation is in progress but took too long, allow new one
+  if (
+    moduleGenerationInProgress &&
+    now - moduleGenerationTimestamp > GENERATION_TIMEOUT_MS
+  ) {
+    if (DEBUG)
+      console.log("[ChatPanel] Generation timeout, allowing new generation");
+    moduleGenerationInProgress = false;
+  }
+
+  // Don't allow if generation is in progress
+  if (moduleGenerationInProgress) {
+    if (DEBUG)
+      console.log("[ChatPanel] Module: Generation already in progress");
+    return false;
+  }
+
+  // Don't allow if same key was just generated (within 5 seconds)
+  if (
+    moduleLastGeneratedKey === key &&
+    now - moduleGenerationTimestamp < 5000
+  ) {
+    if (DEBUG) console.log("[ChatPanel] Module: Same key generated recently");
+    return false;
+  }
+
+  return true;
+}
+
+function markGenerationStarted(key: string): void {
+  moduleLastGeneratedKey = key;
+  moduleGenerationInProgress = true;
+  moduleGenerationTimestamp = Date.now();
+  if (DEBUG)
+    console.log("[ChatPanel] Module: Generation started for key:", key);
+}
+
+function markGenerationEnded(): void {
+  moduleGenerationInProgress = false;
+  if (DEBUG) console.log("[ChatPanel] Module: Generation ended");
+}
+// ============================================================================
+
 interface ChatPanelProps {
   categoryType?: string;
   initialPrompt?: string;
@@ -202,12 +259,6 @@ export function ChatPanel({
     wasLoadingRef.current = isLoading;
   }, [isLoading, messages, demoUrl, triggerReaction]);
 
-  // Track the last generated key to detect changes (persisted across StrictMode re-mounts)
-  const lastGeneratedKey = useRef<string | null>(null);
-  // Track if generation is currently in progress (prevents double-execution)
-  const generationInProgress = useRef(false);
-  // Track if this effect has run (for StrictMode detection)
-  const effectRanOnce = useRef(false);
   // Synchronous ref for submit protection (prevents race conditions from React batching)
   const isSubmittingRef = useRef(false);
   // Abort controller for canceling previous requests
@@ -219,6 +270,7 @@ export function ChatPanel({
     new URLSearchParams(window.location.search).get("testMode") === "true";
 
   // Auto-generate on initial load or when params change
+  // Uses MODULE-LEVEL state to prevent double-execution in StrictMode
   useEffect(() => {
     const currentKey = `${categoryType || ""}-${initialPrompt || ""}-${
       templateId || ""
@@ -227,57 +279,38 @@ export function ChatPanel({
     // Skip if no key (no params set)
     if (!currentKey || currentKey === "---") return;
 
-    // Skip if already loading or generation in progress
-    if (isLoading || generationInProgress.current) {
-      if (DEBUG) console.log("[ChatPanel] Skipping - already loading");
+    // Skip if already loading (React state)
+    if (isLoading) {
+      if (DEBUG) console.log("[ChatPanel] Skipping - already loading (state)");
       return;
     }
 
-    // StrictMode protection: Skip second run if key hasn't changed
-    if (
-      effectRanOnce.current &&
-      lastGeneratedKey.current === currentKey &&
-      !isTestMode
-    ) {
-      if (DEBUG)
-        console.log("[ChatPanel] Skipping - StrictMode double-run detected");
+    // MODULE-LEVEL protection: Check if we can start generation
+    if (!canStartGeneration(currentKey) && !isTestMode) {
+      if (DEBUG) console.log("[ChatPanel] Skipping - module protection active");
       return;
     }
-
-    // Check if this is a new request (different from last generated)
-    const isNewRequest = lastGeneratedKey.current !== currentKey;
 
     // In test mode, always clear and regenerate
     if (isTestMode && (messages.length > 0 || demoUrl)) {
       clearChat();
-      lastGeneratedKey.current = null;
-      generationInProgress.current = false;
-      effectRanOnce.current = false;
+      moduleLastGeneratedKey = null;
+      moduleGenerationInProgress = false;
       return;
     }
 
     // If we have content but it's from a DIFFERENT request, clear it first
+    const isNewRequest = moduleLastGeneratedKey !== currentKey;
     if (isNewRequest && (messages.length > 0 || demoUrl)) {
       if (DEBUG) console.log("[ChatPanel] Clearing for new request");
       clearChat();
-      lastGeneratedKey.current = null;
-      generationInProgress.current = false;
+      moduleLastGeneratedKey = null;
+      moduleGenerationInProgress = false;
       return; // Wait for state to clear, effect will re-run
     }
 
-    // Skip if already generated this exact request
-    if (lastGeneratedKey.current === currentKey && !isTestMode) {
-      if (DEBUG)
-        console.log("[ChatPanel] Skipping - already generated this key");
-      return;
-    }
-
-    // Mark as having run
-    effectRanOnce.current = true;
-
-    // Ready to generate - mark this key as being generated
-    lastGeneratedKey.current = currentKey;
-    generationInProgress.current = true;
+    // Mark generation as started (MODULE-LEVEL)
+    markGenerationStarted(currentKey);
 
     if (DEBUG)
       console.log("[ChatPanel] Starting generation for key:", currentKey);
@@ -300,7 +333,7 @@ export function ChatPanel({
           }
         }
       } finally {
-        generationInProgress.current = false;
+        markGenerationEnded();
       }
     };
 
