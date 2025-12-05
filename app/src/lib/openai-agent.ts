@@ -41,6 +41,7 @@ export type TaskType =
   | "code_edit"
   | "copy"
   | "image"
+  | "video"
   | "web_search"
   | "code_refactor"
   | "analyze";
@@ -208,6 +209,16 @@ const MODEL_CONFIGS: Record<TaskType, ModelConfig> = {
     diamondCost: 3,
     description: "Image generation with context",
   },
+  video: {
+    // sora-2: Video generation (asynchronous, handled separately)
+    // Note: Video generation uses the Videos API, not Responses API
+    // This config is for reference and cost tracking only
+    model: "sora-2",
+    fallbackModel: "sora-2",
+    tools: FILE_TOOLS,
+    diamondCost: 10,
+    description: "Video generation with Sora",
+  },
   web_search: {
     // gpt-4o-mini: Stable support for web_search tool
     model: "gpt-4o-mini",
@@ -302,6 +313,29 @@ TIPS FÖR BRA BILDPROMPTS:
 - Ange färger om viktigt
 - Beskriv komposition
 - Nämn användningsområde (logo, hero, etc.)`,
+
+  video: `Du är en kreativ assistent som hjälper till att generera videor med Sora.
+
+DU KAN GENERERA:
+- Marknadsföringsvideor
+- Hero-videor för webbplatser
+- Produktdemos
+- Bakgrundsvideor
+
+PROCESS:
+1. Förstå användarens vision
+2. Formulera en detaljerad videobeskrivning
+3. Inkludera: scen, rörelse, ljus, stämning, kameravinkel
+4. Generera videon via /api/generate-video
+
+TIPS FÖR BRA VIDEOPROMPTS:
+- Beskriv scenen tydligt (plats, tid på dygnet)
+- Ange kamerarörelse (zoom, pan, stillastående)
+- Beskriv ljussättning och färgton
+- Inkludera atmosfär och känsla
+- Nämn duration om relevant
+
+VIKTIGT: Videogenerering är asynkront och kan ta 1-2 minuter.`,
 
   web_search: `Du är en research-assistent som kan söka på webben för att hjälpa användaren.
 

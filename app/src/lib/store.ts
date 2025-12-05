@@ -77,6 +77,10 @@ interface BuilderState {
   lastSaved: Date | null;
   hasUserSaved: boolean; // User must explicitly save first before auto-save kicks in
 
+  // Ownership state (for advanced features)
+  isProjectOwned: boolean; // True when project is saved to Redis/GitHub (takeover)
+  ownershipMode: "none" | "redis" | "github"; // Storage type
+
   // Actions
   setProjectId: (id: string | null) => void;
   addMessage: (role: "user" | "assistant", content: string) => void;
@@ -105,6 +109,10 @@ interface BuilderState {
   // Explicit save (user must save first)
   explicitSave: () => Promise<void>; // Force save and enable auto-save
   setHasUserSaved: (saved: boolean) => void;
+
+  // Ownership actions (for advanced features)
+  setProjectOwned: (owned: boolean, mode?: "redis" | "github") => void;
+  checkProjectOwnership: (projectId: string) => Promise<boolean>;
 }
 
 // Debounce timer for auto-save
@@ -129,6 +137,8 @@ export const useBuilderStore = create<BuilderState>()(
       isSaving: false,
       lastSaved: null,
       hasUserSaved: false, // Must be true for auto-save to work
+      isProjectOwned: false, // Set to true after takeover
+      ownershipMode: "none",
 
       // Actions
       setProjectId: (id) => set({ projectId: id }),
@@ -342,6 +352,36 @@ export const useBuilderStore = create<BuilderState>()(
           console.error("[Store] Failed to save to database:", error);
           // Reset hasUserSaved to previous state on error - don't falsely indicate saved
           set({ isSaving: false, hasUserSaved: previousHasUserSaved });
+        }
+      },
+
+      // Set project ownership state (called after takeover)
+      setProjectOwned: (owned, mode = "redis") => {
+        set({
+          isProjectOwned: owned,
+          ownershipMode: owned ? mode : "none",
+        });
+        console.log(`[Store] Project ownership set: ${owned} (${mode})`);
+      },
+
+      // Check if project is owned (exists in Redis/GitHub)
+      checkProjectOwnership: async (projectId) => {
+        try {
+          const response = await fetch(`/api/projects/${projectId}/status`);
+          if (response.ok) {
+            const data = await response.json();
+            if (data.isOwned) {
+              set({
+                isProjectOwned: true,
+                ownershipMode: data.storageType || "redis",
+              });
+              return true;
+            }
+          }
+          return false;
+        } catch (error) {
+          console.error("[Store] Failed to check ownership:", error);
+          return false;
         }
       },
     }),

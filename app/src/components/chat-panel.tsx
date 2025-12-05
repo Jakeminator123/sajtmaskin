@@ -44,8 +44,20 @@ import { ComponentPicker } from "@/components/component-picker";
 import { RequireAuthModal } from "@/components/auth/require-auth-modal";
 import { GenerationProgress } from "@/components/generation-progress";
 import { DomainSuggestions } from "@/components/domain-suggestions";
+import {
+  AdvancedToolsBar,
+  AdvancedTool,
+} from "@/components/advanced-tools-bar";
+import { VideoGenerator } from "@/components/video-generator";
 import { Button } from "@/components/ui/button";
-import { MessageSquare, ArrowUp, Loader2, Sparkles, Globe } from "lucide-react";
+import {
+  MessageSquare,
+  ArrowUp,
+  Loader2,
+  Sparkles,
+  Globe,
+  Video,
+} from "lucide-react";
 
 // Debug flag - set to true for verbose logging
 const DEBUG = false;
@@ -153,7 +165,12 @@ export function ChatPanel({
     }
   }, []);
 
-  const { updateDiamonds, fetchUser } = useAuth();
+  const { updateDiamonds, fetchUser, diamonds, isAuthenticated } = useAuth();
+
+  // Advanced tools state (available after project takeover)
+  const [selectedAdvancedTool, setSelectedAdvancedTool] =
+    useState<AdvancedTool | null>(null);
+  const [showVideoGenerator, setShowVideoGenerator] = useState(false);
 
   // Avatar reactions for typing and generation
   const { triggerReaction } = useAvatar();
@@ -176,6 +193,9 @@ export function ChatPanel({
     setScreenshotUrl,
     setVersionId,
     clearChat,
+    isProjectOwned,
+    setProjectOwned,
+    projectId,
   } = useBuilderStore();
 
   // Handle user typing - avatar watches attentively
@@ -970,6 +990,42 @@ export default function Page() {
             }}
             disabled={isLoading}
           />
+        )}
+
+        {/* Advanced Tools Bar - show after first generation */}
+        {messages.length > 0 && isAuthenticated && (
+          <AdvancedToolsBar
+            selectedTool={selectedAdvancedTool}
+            onToolSelect={(tool) => {
+              setSelectedAdvancedTool(tool);
+              if (tool === "video") {
+                setShowVideoGenerator(true);
+              } else {
+                setShowVideoGenerator(false);
+              }
+            }}
+            isProjectOwned={isProjectOwned}
+            onUnlockClick={() => {
+              // Trigger takeover modal in parent
+              setProjectOwned(true, "redis");
+            }}
+            disabled={isLoading}
+            diamonds={diamonds}
+          />
+        )}
+
+        {/* Video Generator - show when video tool is selected */}
+        {showVideoGenerator && isProjectOwned && (
+          <div className="border border-gray-800 rounded-lg p-4 bg-gray-900/50">
+            <VideoGenerator
+              projectId={projectId || undefined}
+              diamonds={diamonds}
+              disabled={isLoading}
+              onVideoGenerated={(url) => {
+                addMessage("assistant", `Video genererad! ${url}`);
+              }}
+            />
+          </div>
         )}
 
         <div className="flex items-center gap-2 p-3 bg-gray-800/50 border border-gray-700/50 focus-within:border-gray-600">

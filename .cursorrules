@@ -1,40 +1,28 @@
-# Sajtmaskin Project Rules
+# Cursor Rules for Sajtmaskin Project
 
-## Language
+## OpenAI API Usage
 
-- UI text: Swedish (sidan är på svenska)
+When working with OpenAI API implementations, always refer to `docs/OPENAI_API_LATEST_FEATURES.md` for the latest patterns and best practices.
+
+### Key Guidelines:
+
+1. **Use Responses API** (`/v1/responses`) for new projects, not Chat Completions
+2. **Prefer built-in tools** (`web_search`, `image_generation`, `file_search`, `code_interpreter`) over custom implementations
+3. **Model selection**: Default to `gpt-4.1-mini` or `gpt-5-mini` for general tasks
+4. **Use `output_text`** helper instead of parsing `choices[0].message.content`
+5. **For multi-turn**: Use `previous_response_id` + `store: true`
+6. **Reasoning models**: Use `reasoning={"effort": "minimal|low|medium|high"}` instead of temperature
+
+### When in Doubt:
+
+If unsure about OpenAI API implementation, read `docs/OPENAI_API_LATEST_FEATURES.md` first before suggesting code.
+
+## Project-Specific Rules
+
+- UI text: Swedish
 - Code & comments: English
 - Chat responses: Swedish
-
-## Tech Stack
-
-- Next.js 15 (App Router) in `/app` folder
-- TypeScript, Tailwind CSS, shadcn/ui
-- SQLite for persistence (local DB)
-- Redis Cloud for caching (optional, in progress)
-- v0 API for code generation (demoUrl → iframe preview)
-- Hosted on Render
-
-## Code Style
-
-- Fix what's asked, don't refactor surrounding code
-- Delete old/unused code when replacing
-- Run `npm run build` in `/app` to verify changes
-
-## Environment
-
-- Windows 11 (local dev)
-- Render (production hosting)
-- Main code lives in `app/src/`
-- Required env vars: V0_API_KEY
-- Optional env vars: REDIS_URL (for caching)
-- Never commit .env files or API keys
-
-## Process
-
-- ALWAYS check terminals folder FIRST before running any command
-- ALWAYS stop `npm run dev` before running `npm run build` (use: taskkill /F /IM node.exe)
-- Stop any running processes before starting new ones
-- Never start background processes and forget about them
-- Commit frequently with clear messages
-- Always verify builds pass before pushing
+- Tech stack: Next.js 15 (App Router), TypeScript, Tailwind CSS, shadcn/ui
+- Main code: `app/src/`
+- Always check terminals folder before running commands
+- Stop `npm run dev` before running `npm run build`
