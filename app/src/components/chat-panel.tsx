@@ -115,6 +115,7 @@ interface ChatPanelProps {
   initialPrompt?: string;
   templateId?: string;
   localTemplateId?: string;
+  previewChatId?: string; // Reuse chatId from preview (for seamless template loading)
   onTakeoverClick?: () => void; // Callback to open takeover modal
 }
 
@@ -123,6 +124,7 @@ export function ChatPanel({
   initialPrompt,
   templateId,
   localTemplateId,
+  previewChatId,
   onTakeoverClick,
 }: ChatPanelProps) {
   const [input, setInput] = useState("");
@@ -418,6 +420,37 @@ export function ChatPanel({
     setLoading(true);
 
     try {
+      // If we have a previewChatId, we already have a v0 session - just fetch the details
+      if (previewChatId) {
+        console.log("[ChatPanel] Reusing preview chatId:", previewChatId);
+        addMessage("assistant", `Återanvänder förhandsgranskad session...`);
+        
+        // Fetch full template data to get files and demoUrl
+        const v0Response = await generateFromTemplate(
+          // Get the v0TemplateId from local-template API
+          (await fetch(`/api/local-template?id=${templateId}`).then(r => r.json())).template?.v0TemplateId || templateId,
+          quality
+        );
+        
+        if (v0Response?.success) {
+          if (v0Response.chatId) setChatId(v0Response.chatId);
+          if (v0Response.demoUrl) setDemoUrl(v0Response.demoUrl);
+          if (v0Response.files?.length) setFiles(v0Response.files);
+          if (v0Response.versionId) setVersionId(v0Response.versionId);
+          
+          const mainCode = v0Response.code || v0Response.files?.find(
+            (f: { name: string; content: string }) => f.name.includes("page.tsx") || f.name.endsWith(".tsx")
+          )?.content || "";
+          
+          if (mainCode) setCurrentCode(mainCode);
+          
+          addMessage("assistant", `Mallen är redo! Du kan nu förfina den genom att skriva ändringar nedan.`);
+        } else {
+          addMessage("assistant", v0Response?.error || "Kunde inte ladda mallen.");
+        }
+        return;
+      }
+
       const response = await fetch(`/api/local-template?id=${templateId}`);
       const data = await response.json();
 

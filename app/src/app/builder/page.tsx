@@ -59,6 +59,8 @@ function BuilderContent() {
   const prompt = searchParams.get("prompt");
   const templateId = searchParams.get("templateId");
   const localTemplateId = searchParams.get("localTemplateId");
+  // Reuse chatId from preview (if template was previewed before selection)
+  const previewChatId = searchParams.get("chatId");
 
   const {
     quality,
@@ -455,6 +457,7 @@ function BuilderContent() {
             initialPrompt={prompt || undefined}
             templateId={templateId || undefined}
             localTemplateId={localTemplateId || undefined}
+            previewChatId={previewChatId || undefined}
             onTakeoverClick={() => setShowTakeoverModal(true)}
           />
         </div>
@@ -481,6 +484,7 @@ function BuilderContent() {
               initialPrompt={prompt || undefined}
               templateId={templateId || undefined}
               localTemplateId={localTemplateId || undefined}
+              previewChatId={previewChatId || undefined}
               onTakeoverClick={() => setShowTakeoverModal(true)}
             />
           </div>
