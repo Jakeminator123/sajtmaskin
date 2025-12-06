@@ -124,6 +124,12 @@ function BuilderContent() {
   // Track if we've already loaded this project (prevents double-load from StrictMode)
   const [hasLoadedProject, setHasLoadedProject] = useState<string | null>(null);
 
+  // Track if we're still loading project data (prevents race condition with ChatPanel)
+  const [isProjectDataLoading, setIsProjectDataLoading] = useState(true);
+
+  // Track if project has existing saved data (prevents re-generation if data exists)
+  const [hasExistingData, setHasExistingData] = useState(false);
+
   // Load project data on mount
   useEffect(() => {
     // Skip if already loaded this project (React StrictMode protection)
@@ -133,6 +139,7 @@ function BuilderContent() {
 
     setProjectId(projectId);
     setHasLoadedProject(projectId);
+    setIsProjectDataLoading(true);
 
     // Clear any stale state from localStorage before loading fresh data
     clearChat();
@@ -142,8 +149,23 @@ function BuilderContent() {
       .then(({ project, data }) => {
         setProjectName(project.name);
 
-        // If project has existing data (from a previous session), load it
-        if (data && data.chat_id) {
+        // Check if project has ANY existing data (not just chat_id)
+        const hasData =
+          data &&
+          (data.chat_id ||
+            data.demo_url ||
+            data.current_code ||
+            (data.files && data.files.length > 0));
+
+        if (hasData) {
+          console.log("[Builder] Loading existing project data:", {
+            hasChatId: !!data.chat_id,
+            hasDemoUrl: !!data.demo_url,
+            hasCode: !!data.current_code,
+            filesCount: data.files?.length || 0,
+            messagesCount: data.messages?.length || 0,
+          });
+
           loadFromProject({
             chatId: data.chat_id,
             demoUrl: data.demo_url,
@@ -151,10 +173,21 @@ function BuilderContent() {
             files: data.files as GeneratedFile[],
             messages: data.messages,
           });
+          setHasExistingData(true);
+        } else {
+          console.log(
+            "[Builder] No existing project data, will allow new generation"
+          );
+          setHasExistingData(false);
         }
       })
       .catch((err) => {
         console.error("Failed to load project:", err);
+        setHasExistingData(false);
+      })
+      .finally(() => {
+        // Mark loading as complete so ChatPanel knows it can proceed
+        setIsProjectDataLoading(false);
       });
   }, [projectId, setProjectId, loadFromProject, clearChat, hasLoadedProject]);
 
@@ -465,7 +498,7 @@ function BuilderContent() {
 
       {/* Main content - Desktop: 2 panel layout */}
       <div className="relative z-10 flex-1 hidden md:flex overflow-hidden">
-        {/* Chat Panel (30%) */}
+        {/* Chat Panel (30%) - Desktop (PRIMARY instance that triggers generation) */}
         <div className="w-[30%] min-w-[300px] border-r border-gray-800 bg-black/70 backdrop-blur-sm">
           <ChatPanel
             categoryType={type || undefined}
@@ -474,6 +507,10 @@ function BuilderContent() {
             localTemplateId={localTemplateId || undefined}
             previewChatId={previewChatId || undefined}
             onTakeoverClick={() => setShowTakeoverModal(true)}
+            instanceId="desktop"
+            isPrimaryInstance={true}
+            isProjectDataLoading={isProjectDataLoading}
+            hasExistingData={hasExistingData}
           />
         </div>
 
@@ -494,6 +531,7 @@ function BuilderContent() {
               mobileTab !== "chat" ? "hidden" : ""
             }`}
           >
+            {/* Mobile instance - NOT primary, won't trigger duplicate generation */}
             <ChatPanel
               categoryType={type || undefined}
               initialPrompt={prompt || undefined}
@@ -501,6 +539,10 @@ function BuilderContent() {
               localTemplateId={localTemplateId || undefined}
               previewChatId={previewChatId || undefined}
               onTakeoverClick={() => setShowTakeoverModal(true)}
+              instanceId="mobile"
+              isPrimaryInstance={false}
+              isProjectDataLoading={isProjectDataLoading}
+              hasExistingData={hasExistingData}
             />
           </div>
           <div

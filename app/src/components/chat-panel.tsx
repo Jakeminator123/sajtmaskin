@@ -70,7 +70,8 @@ let moduleGenerationInProgress = false;
 let moduleGenerationTimestamp = 0;
 
 // Reset module state after a timeout (prevents stale state blocking new generations)
-const GENERATION_TIMEOUT_MS = 60000; // 1 minute
+// v0 API can take 5-10 minutes for complex premium generations, so we use a generous timeout
+const GENERATION_TIMEOUT_MS = 600000; // 10 minutes (matches Next.js maxDuration in route.ts)
 
 function canStartGeneration(key: string): boolean {
   const now = Date.now();
@@ -117,6 +118,10 @@ interface ChatPanelProps {
   localTemplateId?: string;
   previewChatId?: string; // Reuse chatId from preview (for seamless template loading)
   onTakeoverClick?: () => void; // Callback to open takeover modal
+  instanceId?: string; // Unique ID to differentiate between desktop/mobile instances
+  isPrimaryInstance?: boolean; // Only primary instance triggers generation (prevents duplicates)
+  isProjectDataLoading?: boolean; // True while loading project data from database
+  hasExistingData?: boolean; // True if project has saved data (skip auto-generation)
 }
 
 export function ChatPanel({
@@ -126,6 +131,10 @@ export function ChatPanel({
   localTemplateId,
   previewChatId,
   onTakeoverClick,
+  instanceId = "default",
+  isPrimaryInstance = true, // Only primary instance triggers auto-generation
+  isProjectDataLoading = false, // Wait for project data before generating
+  hasExistingData = false, // Skip generation if project has saved data
 }: ChatPanelProps) {
   const [input, setInput] = useState("");
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -191,6 +200,7 @@ export function ChatPanel({
     clearChat,
     isProjectOwned,
     projectId,
+    explicitSave,
   } = useBuilderStore();
 
   // Handle user typing - avatar watches attentively
@@ -293,6 +303,28 @@ export function ChatPanel({
   // Auto-generate on initial load or when params change
   // Uses BOTH module-level state AND ref-level state for robust protection
   useEffect(() => {
+    // CRITICAL: Only primary instance triggers generation (prevents duplicates from desktop/mobile)
+    if (!isPrimaryInstance) {
+      return;
+    }
+
+    // WAIT for project data to load before deciding to generate
+    // This prevents race condition where we start generating before saved data is loaded
+    if (isProjectDataLoading) {
+      console.log("[ChatPanel] Waiting for project data to load...");
+      return;
+    }
+
+    // SKIP generation if project already has saved data
+    // The data will be loaded by builder/page.tsx via loadFromProject()
+    if (hasExistingData) {
+      console.log(
+        "[ChatPanel] Project has existing data, skipping auto-generation"
+      );
+      hasInitialGeneratedRef.current = true;
+      return;
+    }
+
     const currentKey = `${categoryType || ""}-${initialPrompt || ""}-${
       templateId || ""
     }-${localTemplateId || ""}`;
@@ -374,7 +406,9 @@ export function ChatPanel({
         console.error("[ChatPanel] Generation error:", error);
         addMessage(
           "assistant",
-          `Ett fel uppstod: ${error instanceof Error ? error.message : "Okänt fel"}`
+          `Ett fel uppstod: ${
+            error instanceof Error ? error.message : "Okänt fel"
+          }`
         );
       } finally {
         markGenerationEnded();
@@ -393,6 +427,8 @@ export function ChatPanel({
     templateId,
     localTemplateId,
     isLoading,
+    isProjectDataLoading, // Wait for project data before generating
+    hasExistingData, // Skip if project has saved data
     // NOTE: demoUrl REMOVED from deps - it was causing re-runs when generation completed
     // We now check demoUrl inside the effect instead
   ]);
@@ -424,29 +460,43 @@ export function ChatPanel({
       if (previewChatId) {
         console.log("[ChatPanel] Reusing preview chatId:", previewChatId);
         addMessage("assistant", `Återanvänder förhandsgranskad session...`);
-        
+
         // Fetch full template data to get files and demoUrl
         const v0Response = await generateFromTemplate(
           // Get the v0TemplateId from local-template API
-          (await fetch(`/api/local-template?id=${templateId}`).then(r => r.json())).template?.v0TemplateId || templateId,
+          (
+            await fetch(`/api/local-template?id=${templateId}`).then((r) =>
+              r.json()
+            )
+          ).template?.v0TemplateId || templateId,
           quality
         );
-        
+
         if (v0Response?.success) {
           if (v0Response.chatId) setChatId(v0Response.chatId);
           if (v0Response.demoUrl) setDemoUrl(v0Response.demoUrl);
           if (v0Response.files?.length) setFiles(v0Response.files);
           if (v0Response.versionId) setVersionId(v0Response.versionId);
-          
-          const mainCode = v0Response.code || v0Response.files?.find(
-            (f: { name: string; content: string }) => f.name.includes("page.tsx") || f.name.endsWith(".tsx")
-          )?.content || "";
-          
+
+          const mainCode =
+            v0Response.code ||
+            v0Response.files?.find(
+              (f: { name: string; content: string }) =>
+                f.name.includes("page.tsx") || f.name.endsWith(".tsx")
+            )?.content ||
+            "";
+
           if (mainCode) setCurrentCode(mainCode);
-          
-          addMessage("assistant", `Mallen är redo! Du kan nu förfina den genom att skriva ändringar nedan.`);
+
+          addMessage(
+            "assistant",
+            `Mallen är redo! Du kan nu förfina den genom att skriva ändringar nedan.`
+          );
         } else {
-          addMessage("assistant", v0Response?.error || "Kunde inte ladda mallen.");
+          addMessage(
+            "assistant",
+            v0Response?.error || "Kunde inte ladda mallen."
+          );
         }
         return;
       }
@@ -546,10 +596,17 @@ ${mainCode.substring(0, 18000)}`;
               quality
             );
           } catch (fallbackError) {
-            console.error("[ChatPanel] Fallback generation also failed:", fallbackError);
+            console.error(
+              "[ChatPanel] Fallback generation also failed:",
+              fallbackError
+            );
             v0Response = {
               success: false,
-              error: `Både v0 template och fallback-generering misslyckades: ${fallbackError instanceof Error ? fallbackError.message : "Okänt fel"}`,
+              error: `Både v0 template och fallback-generering misslyckades: ${
+                fallbackError instanceof Error
+                  ? fallbackError.message
+                  : "Okänt fel"
+              }`,
             };
           }
         }
@@ -564,7 +621,11 @@ ${mainCode.substring(0, 18000)}`;
         if (v0Response.demoUrl) {
           setDemoUrl(v0Response.demoUrl);
         }
-        if (v0Response.files && Array.isArray(v0Response.files) && v0Response.files.length > 0) {
+        if (
+          v0Response.files &&
+          Array.isArray(v0Response.files) &&
+          v0Response.files.length > 0
+        ) {
           setFiles(v0Response.files);
         }
         if (v0Response.versionId) {
@@ -593,6 +654,16 @@ ${mainCode.substring(0, 18000)}`;
           "assistant",
           `Mallen är redo! Du kan nu se preview och fortsätta anpassa den genom att skriva ändringar nedan.`
         );
+
+        // AUTO-SAVE: Save to database after successful template load
+        if (projectId && (v0Response.demoUrl || codeToSet)) {
+          explicitSave().catch((err) => {
+            console.warn(
+              "[ChatPanel] Auto-save after template load failed:",
+              err
+            );
+          });
+        }
       } else {
         // Fallback: v0 API failed
         const errorMsg = v0Response?.error || "Okänt fel";
@@ -752,6 +823,14 @@ export default function Page() {
         if (response.balance !== undefined) {
           updateDiamonds(response.balance);
         }
+
+        // AUTO-SAVE: Save to database after successful generation
+        // This ensures the user doesn't lose their work if they navigate away
+        if (projectId && (response.demoUrl || response.code)) {
+          explicitSave().catch((err) => {
+            console.warn("[ChatPanel] Auto-save after generation failed:", err);
+          });
+        }
       } else {
         // Check if error is due to credits/auth
         if (response.requireAuth) {
@@ -789,7 +868,9 @@ export default function Page() {
 
     // Warn if chatId is missing (refinement may create new conversation)
     if (!chatId) {
-      console.warn("[ChatPanel] Refining without chatId - will create new conversation");
+      console.warn(
+        "[ChatPanel] Refining without chatId - will create new conversation"
+      );
     }
 
     addMessage("user", instruction);
@@ -862,6 +943,13 @@ export default function Page() {
         // Update diamond balance if returned
         if (response.balance !== undefined) {
           updateDiamonds(response.balance);
+        }
+
+        // AUTO-SAVE: Save to database after successful refinement
+        if (projectId && (response.demoUrl || response.code)) {
+          explicitSave().catch((err) => {
+            console.warn("[ChatPanel] Auto-save after refinement failed:", err);
+          });
         }
       } else {
         // Check if error is due to credits/auth
@@ -1046,8 +1134,8 @@ export default function Page() {
         <div className="flex items-center gap-2 p-3 bg-gray-800/50 border border-gray-700/50 focus-within:border-gray-600">
           <input
             ref={inputRef}
-            id="chat-message-input"
-            name="chat-message"
+            id={`chat-message-input-${instanceId}`}
+            name={`chat-message-${instanceId}`}
             type="text"
             autoComplete="off"
             value={input}
