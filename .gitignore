@@ -43,3 +43,19 @@ coverage/
 /Sajtmaskin.mp4
 /Sajtmaskin.srt
 /old/
+
+# Database files (use Redis in production)
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
+*.sqlite3
+
+# Large binary files
+*.zip
+*.rar
+*.7z
+
+# Input files (reference only, not needed in repo)
+INPUT _FOR_CURSOR/old/
+INPUT _FOR_CURSOR/more_animations_3d/
