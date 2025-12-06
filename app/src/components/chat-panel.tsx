@@ -389,12 +389,22 @@ export function ChatPanel({
             await handleGenerate(initialMessage, categoryType);
           }
         }
+      } catch (error) {
+        console.error("[ChatPanel] Generation error:", error);
+        addMessage(
+          "assistant",
+          `Ett fel uppstod: ${error instanceof Error ? error.message : "Okänt fel"}`
+        );
       } finally {
         markGenerationEnded();
       }
     };
 
-    startGeneration();
+    // Fire-and-forget async operation (errors handled internally)
+    startGeneration().catch((error) => {
+      console.error("[ChatPanel] Unhandled generation error:", error);
+      markGenerationEnded();
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
     categoryType,
@@ -813,6 +823,11 @@ export default function Page() {
       // Treat as new generation instead (this will add the user message)
       handleGenerate(instruction);
       return;
+    }
+
+    // Warn if chatId is missing (refinement may create new conversation)
+    if (!chatId) {
+      console.warn("[ChatPanel] Refining without chatId - will create new conversation");
     }
 
     addMessage("user", instruction);

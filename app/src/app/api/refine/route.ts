@@ -132,8 +132,10 @@ export async function POST(req: NextRequest) {
     }
 
     console.log("[API/refine] Calling v0 API...");
+    console.log("[API/refine] ChatId provided:", !!chatId);
 
     // Refine code using v0 API (with optional chatId for conversation continuation)
+    // If chatId is null/undefined, refineCode will create a new chat (which is acceptable)
     const result = await refineCode(
       chatId || null,
       existingCode,

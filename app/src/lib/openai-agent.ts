@@ -988,10 +988,28 @@ export async function runAgent(
         usedModel = config.fallbackModel;
         usedFallback = true;
 
-        return await openai.responses.create({
-          ...options,
-          model: config.fallbackModel,
-        });
+        try {
+          return await openai.responses.create({
+            ...options,
+            model: config.fallbackModel,
+          });
+        } catch (fallbackError) {
+          const fallbackErrorMessage =
+            fallbackError instanceof Error ? fallbackError.message : "Unknown error";
+          logApiCall(
+            "Both primary and fallback models failed",
+            {
+              primaryModel: options.model,
+              fallbackModel: config.fallbackModel,
+              primaryError: errorMessage,
+              fallbackError: fallbackErrorMessage,
+            },
+            "error"
+          );
+          throw new Error(
+            `Både primär modell (${options.model}) och fallback-modell (${config.fallbackModel}) misslyckades: ${fallbackErrorMessage}`
+          );
+        }
       }
 
       // Re-throw other errors

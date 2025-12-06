@@ -172,9 +172,20 @@ export async function POST(request: NextRequest) {
       instruction: instruction.substring(0, 100),
     });
 
-    const result = previousResponseId
-      ? await continueConversation(instruction, context, previousResponseId)
-      : await runAgent(instruction, context);
+    let result;
+    try {
+      result = previousResponseId
+        ? await continueConversation(instruction, context, previousResponseId)
+        : await runAgent(instruction, context);
+    } catch (error) {
+      const errorMessage =
+        error instanceof Error ? error.message : "Okänt fel vid agent-anrop";
+      console.error("[Agent/Edit] Agent call failed:", errorMessage);
+      return NextResponse.json(
+        { success: false, error: errorMessage },
+        { status: 500 }
+      );
+    }
 
     if (!result.success) {
       console.error("[Agent/Edit] Agent failed:", result.message);
