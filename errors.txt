@@ -18,3 +18,33 @@ error 17: home-page.tsx:70 - firstName kan vara undefined om både user?.name oc
 error 18: onboarding-modal.tsx:66,76 - localStorage.setItem() anropas direkt utan SSR-check. Kan krascha under SSR.
 error 19: store.ts:401-422 - Custom storage serialization för Date-objekt kan orsaka problem om Date-objektet är invalid eller om localStorage är korrupt.
 error 20: builder/page.tsx:201 - window.open() används utan kontroll att window finns. Kan krascha i vissa miljöer.
+error 21: api/generate/route.ts:166 - transaction kan vara null men används direkt utan kontroll. Om deductGenerationDiamond returnerar null, kommer newBalance att vara null vilket kan orsaka problem.
+error 22: api/refine/route.ts:165 - Samma problem som error 21. transaction kan vara null men används direkt.
+error 23: api/agent/edit/route.ts:155-164 - Diamond deduction sker INNAN agent-anropet. Om agent-anropet misslyckas, förlorar användaren ändå diamanterna. Bör flyttas till efter lyckat anrop.
+error 24: api/agent/edit/route.ts:218 - transaction?.balance_after kan vara undefined om transaction är null, men returneras utan kontroll.
+error 25: openai-agent.ts:1000-1004 - requestOptions kan sakna required fields om config.reasoning eller config.text är undefined. TypeScript kan inte garantera att dessa finns.
+error 26: openai-agent.ts:1028 - MAX_ITERATIONS är 15, men det finns ingen timeout. En agent kan köra i evighet om den fortsätter göra tool calls.
+error 27: openai-agent.ts:1099 - JSON.parse(call.arguments) kan krascha om arguments är ogiltig JSON. Bör ha try-catch eller validering.
+error 28: openai-agent.ts:1120-1126 - Om executeTool kastar ett fel, läggs det till som "Fel: ..." i functionResults. Men detta kan göra att agenten fortsätter med felaktig information.
+error 29: chat-panel.tsx:158 - sessionStorage används utan SSR-check. Kan orsaka hydration errors i Next.js.
+error 30: chat-panel.tsx:296 - window.location.search används utan SSR-check. Kan krascha under SSR.
+error 31: chat-panel.tsx:506-528 - Om v0Response?.success är false, används generateWebsite() som fallback. Men om detta också misslyckas, finns ingen ytterligare felhantering.
+error 32: chat-panel.tsx:534-541 - Om v0Response.chatId eller v0Response.demoUrl är undefined, sätts de inte. Men senare kod kan förvänta sig att dessa finns.
+error 33: chat-panel.tsx:700-710 - handleGenerate() sätter isLoading till true, men om generateWebsite() kastar ett fel innan try-catch, kommer isLoading att förbli true.
+error 34: api-client.ts:104-122 - Om response.ok är false men data.error är undefined, returneras en generisk felmeddelande. Men det kan finnas mer information i response.status eller response.statusText.
+error 35: api-client.ts:125-132 - Network errors fångas, men om fetch() kastar ett annat fel (t.ex. AbortError), hanteras det inte specifikt.
+error 36: v0-generator.ts:360-399 - waitForVersionReady() har en maxAttempts på 120 med 5 sekunders delay = 10 minuter. Men maxDuration i route.ts är 600 sekunder (10 minuter), så timeout kan inträffa innan polling är klar.
+error 37: v0-generator.ts:373 - chat kan vara null från v0.chats.getById(), men används direkt utan null-check.
+error 38: v0-generator.ts:476 - Nullish coalescing används korrekt, men logiken kontrollerar både files.length och demoUrl. Om files.length är 0 men demoUrl finns, hoppar den över polling, vilket kan vara felaktigt.
+error 39: openai-agent.ts:429-440 - readRedisFile() kastar Error om filen inte finns, men detta kan vara förväntat beteende. Bör kanske returnera null eller tom sträng istället.
+error 40: openai-agent.ts:610 - Buffer.from(data.content, "base64") kan krascha om data.content är ogiltig base64. Bör ha try-catch.
+error 41: openai-agent.ts:650 - Buffer.from(content).toString("base64") används för GitHub, men om content är för stor kan detta orsaka problem. GitHub har en gräns på 100MB per fil.
+error 42: chat-panel.tsx:374-395 - startGeneration() är en async funktion men anropas utan await. Om den kastar ett fel, kommer det inte att fångas av den omgivande koden.
+error 43: api/refine/route.ts:138 - chatId kan vara null men skickas till refineCode(). Om chatId är null skapas en ny chat, vilket kan vara oönskat beteende.
+error 44: api/generate/route.ts:132-136 - Om generateCode() kastar ett fel efter att credits redan dragits, förlorar användaren diamanterna utan att få något resultat.
+error 45: openai-agent.ts:950-989 - createResponseWithFallback() försöker fallback om modellen inte finns, men om fallback-modellen också saknas, kastas felet vidare utan tydligt felmeddelande.
+error 46: chat-panel.tsx:730-732 - Om response.chatId är undefined, sätts den inte. Men senare kod kan förvänta sig att chatId finns för refinement.
+error 47: openai-agent.ts:1034-1037 - Type guard för function calls kan misslyckas om response.output har oväntad struktur. Bör ha fallback-hantering.
+error 48: api/agent/edit/route.ts:192-194 - Om previousResponseId finns men continueConversation() misslyckas, finns ingen fallback till runAgent().
+error 49: v0-generator.ts:621-631 - Om existingChatId är null, skapas en ny chat med refinementPrompt. Men detta kan skapa förvirring eftersom det inte är en refinement utan en ny generation.
+error 50: openai-agent.ts:1160-1166 - Om response.output inte har någon message item, används "Ändringar genomförda." som default. Men detta kan vara missvisande om inga ändringar gjordes.
