@@ -25,10 +25,34 @@ export async function GET(request: NextRequest) {
   const searchParams = request.nextUrl.searchParams;
   const returnTo = searchParams.get("returnTo") || "/projects";
 
+  // Sanitize return path to avoid unsafe/remote redirects
+  const sanitizeReturnTo = (
+    value: string | null
+  ): { path: string; sanitized: boolean } => {
+    const fallback = "/projects";
+    if (!value) return { path: fallback, sanitized: false };
+
+    try {
+      const baseOrigin = new URL(URLS.baseUrl).origin;
+      const candidate = new URL(value, baseOrigin);
+      // Only allow same-origin redirects
+      if (candidate.origin !== baseOrigin) {
+        return { path: fallback, sanitized: true };
+      }
+      // Always return path+search+hash to avoid host leakage
+      const safePath = `${candidate.pathname}${candidate.search}${candidate.hash}`;
+      return { path: safePath || fallback, sanitized: safePath !== value };
+    } catch {
+      return { path: fallback, sanitized: true };
+    }
+  };
+
+  const { path: safeReturnTo } = sanitizeReturnTo(returnTo);
+
   // Create state parameter to prevent CSRF and store return URL
   const state = Buffer.from(
     JSON.stringify({
-      returnTo,
+      returnTo: safeReturnTo,
       timestamp: Date.now(),
     })
   ).toString("base64");

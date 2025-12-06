@@ -4,7 +4,7 @@ import { listUserTakenOverProjects, ProjectMeta } from "@/lib/redis";
 
 /**
  * GET /api/projects/taken-over
- * 
+ *
  * Returns all taken-over projects for the current user from Redis.
  * These are projects that have been "taken over" for AI editing.
  */
@@ -33,9 +33,10 @@ export async function GET(request: NextRequest) {
         githubRepo: p.githubRepo,
         githubOwner: p.githubOwner,
         // For URL routing
-        editUrl: p.storageType === "github" && p.githubOwner && p.githubRepo
-          ? `/project/${p.githubRepo}?owner=${p.githubOwner}`
-          : `/project/${p.projectId}`,
+        editUrl:
+          p.storageType === "github" && p.githubOwner && p.githubRepo
+            ? `/project/${p.githubRepo}?owner=${p.githubOwner}`
+            : `/project/${p.projectId}`,
       })),
     });
   } catch (error) {
@@ -46,4 +47,3 @@ export async function GET(request: NextRequest) {
     );
   }
 }
-

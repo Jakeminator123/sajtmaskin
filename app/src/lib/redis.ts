@@ -34,6 +34,7 @@
 
 import Redis from "ioredis";
 import { REDIS_CONFIG, FEATURES } from "./config";
+import { debugLog } from "./debug";
 
 // Create Redis client (singleton)
 let redisClient: Redis | null = null;
@@ -52,6 +53,11 @@ export function getRedis(): Redis | null {
 
   if (!redisClient) {
     try {
+      debugLog("[Redis] Creating client", {
+        host: REDIS_CONFIG.host,
+        port: REDIS_CONFIG.port,
+        username: REDIS_CONFIG.username,
+      });
       redisClient = new Redis({
         host: REDIS_CONFIG.host,
         port: REDIS_CONFIG.port,
@@ -68,11 +74,11 @@ export function getRedis(): Redis | null {
       });
 
       redisClient.on("connect", () => {
-        // Redis connected successfully
+        debugLog("[Redis] Connected");
       });
 
       redisClient.on("ready", () => {
-        // Redis ready to accept commands
+        debugLog("[Redis] Ready");
       });
     } catch (error) {
       console.error("[Redis] Failed to create client:", error);
@@ -503,6 +509,10 @@ export async function saveProjectFiles(
   }
 
   try {
+    debugLog("[Redis] Saving project files", {
+      projectId,
+      files: files.length,
+    });
     // Store files as JSON
     await redis.setex(
       `${PROJECT_FILES_PREFIX}${projectId}`,
@@ -529,11 +539,17 @@ export async function getProjectFiles(
 
   try {
     const key = `${PROJECT_FILES_PREFIX}${projectId}`;
+    debugLog("[Redis] Fetching project files", { projectId });
     const data = await redis.get(key);
     if (data) {
       // Touch TTL on read to keep active projects alive
       await redis.expire(key, PROJECT_FILES_TTL);
-      return JSON.parse(data) as ProjectFile[];
+      const parsed = JSON.parse(data) as ProjectFile[];
+      debugLog("[Redis] Fetched project files", {
+        projectId,
+        files: parsed.length,
+      });
+      return parsed;
     }
   } catch (error) {
     console.error("[Redis] Failed to get project files:", error);
@@ -574,6 +590,7 @@ export async function updateProjectFile(
       PROJECT_FILES_TTL,
       JSON.stringify(files)
     );
+    debugLog("[Redis] Updated project file", { projectId, filePath });
     return true;
   } catch (error) {
     console.error("[Redis] Failed to update project file:", error);
@@ -601,6 +618,7 @@ export async function deleteProjectFile(
       PROJECT_FILES_TTL,
       JSON.stringify(filteredFiles)
     );
+    debugLog("[Redis] Deleted project file", { projectId, filePath });
     return true;
   } catch (error) {
     console.error("[Redis] Failed to delete project file:", error);
@@ -616,6 +634,11 @@ export async function saveProjectMeta(meta: ProjectMeta): Promise<boolean> {
   if (!redis) return false;
 
   try {
+    debugLog("[Redis] Saving project meta", {
+      projectId: meta.projectId,
+      storageType: meta.storageType,
+      filesCount: meta.filesCount,
+    });
     await redis.setex(
       `${PROJECT_META_PREFIX}${meta.projectId}`,
       PROJECT_FILES_TTL,
@@ -640,11 +663,18 @@ export async function getProjectMeta(
 
   try {
     const key = `${PROJECT_META_PREFIX}${projectId}`;
+    debugLog("[Redis] Fetching project meta", { projectId });
     const data = await redis.get(key);
     if (data) {
       // Touch TTL on read to keep active projects alive
       await redis.expire(key, PROJECT_FILES_TTL);
-      return JSON.parse(data) as ProjectMeta;
+      const parsed = JSON.parse(data) as ProjectMeta;
+      debugLog("[Redis] Fetched project meta", {
+        projectId,
+        storageType: parsed.storageType,
+        filesCount: parsed.filesCount,
+      });
+      return parsed;
     }
   } catch (error) {
     console.error("[Redis] Failed to get project meta:", error);
@@ -705,10 +735,15 @@ export async function listUserTakenOverProjects(
     } while (cursor !== "0");
 
     // Sort by takenOverAt descending (newest first)
-    return projects.sort(
+    const sorted = projects.sort(
       (a, b) =>
         new Date(b.takenOverAt).getTime() - new Date(a.takenOverAt).getTime()
     );
+    debugLog("[Redis] Listed taken-over projects", {
+      userId,
+      projects: sorted.length,
+    });
+    return sorted;
   } catch (error) {
     console.error("[Redis] Failed to list user projects:", error);
     return [];

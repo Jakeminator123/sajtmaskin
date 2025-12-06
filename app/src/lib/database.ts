@@ -2,6 +2,7 @@ import Database from "better-sqlite3";
 import fs from "fs";
 import crypto from "crypto";
 import { PATHS, logConfig } from "./config";
+import { debugLog } from "./debug";
 
 // Use centralized path configuration
 const DB_PATH = PATHS.database;
@@ -46,9 +47,12 @@ export function getDb(): Database.Database {
       console.log("[Database] Created data directory:", dataDir);
     }
 
+    debugLog("[Database] Opening SQLite database", { path: DB_PATH });
     db = new Database(DB_PATH);
     db.pragma("journal_mode = WAL"); // Better performance for concurrent access
+    db.pragma("foreign_keys = ON"); // Enforce cascades and referential integrity
     initializeDatabase(db);
+    debugLog("[Database] Database ready");
   }
   return db;
 }
@@ -413,6 +417,13 @@ export function createProject(
   `);
   dataStmt.run(id);
 
+  debugLog("[Database] Created project", {
+    id,
+    name,
+    category,
+    hasUser: Boolean(userId),
+    hasSession: Boolean(sessionId),
+  });
   return getProjectById(id)!;
 }
 
@@ -530,7 +541,7 @@ export function getProjectData(projectId: string): ProjectData | null {
 
   if (!row) return null;
 
-  return {
+  const parsed: ProjectData = {
     project_id: row.project_id,
     chat_id: row.chat_id,
     demo_url: row.demo_url,
@@ -538,6 +549,14 @@ export function getProjectData(projectId: string): ProjectData | null {
     files: row.files_json ? JSON.parse(row.files_json) : [],
     messages: row.messages_json ? JSON.parse(row.messages_json) : [],
   };
+  debugLog("[Database] Loaded project data", {
+    projectId,
+    hasChat: Boolean(parsed.chat_id),
+    hasDemoUrl: Boolean(parsed.demo_url),
+    files: parsed.files.length,
+    messages: parsed.messages.length,
+  });
+  return parsed;
 }
 
 // Save project data (upsert)
@@ -569,6 +588,13 @@ export function saveProjectData(data: ProjectData): void {
     "UPDATE projects SET updated_at = datetime('now') WHERE id = ?"
   );
   updateStmt.run(data.project_id);
+  debugLog("[Database] Saved project data", {
+    projectId: data.project_id,
+    hasChat: Boolean(data.chat_id),
+    hasDemoUrl: Boolean(data.demo_url),
+    files: data.files.length,
+    messages: data.messages.length,
+  });
 }
 
 // ============ Image Operations ============
@@ -1238,7 +1264,13 @@ export type TransactionType =
   | "refine"
   | "purchase"
   | "admin_adjust"
-  | "audit";
+  | "audit"
+  | "agent_code_edit"
+  | "agent_copy"
+  | "agent_image"
+  | "agent_web_search"
+  | "agent_code_refactor"
+  | "agent_analyze";
 
 export interface Transaction {
   id: number;
@@ -1388,7 +1420,8 @@ export function deductRefineDiamond(userId: string): Transaction | null {
 export function deductDiamonds(
   userId: string,
   amount: number,
-  description: string = "AI-operation"
+  description: string = "AI-operation",
+  transactionType: TransactionType = "generation"
 ): Transaction | null {
   const user = getUserById(userId);
   if (!user || user.diamonds < amount) {
@@ -1401,7 +1434,7 @@ export function deductDiamonds(
     return {
       id: -1,
       user_id: userId,
-      type: "generation",
+      type: transactionType,
       amount: 0,
       balance_after: TEST_USER_DIAMONDS,
       description: "Test user - unlimited credits",
@@ -1411,7 +1444,7 @@ export function deductDiamonds(
     };
   }
 
-  return createTransaction(userId, "generation", -amount, description);
+  return createTransaction(userId, transactionType, -amount, description);
 }
 
 // ============ Analytics Operations ============

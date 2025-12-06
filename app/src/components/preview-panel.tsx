@@ -17,22 +17,38 @@ interface PreviewPanelProps {
   previewUrl?: string;
   lastUpdatedFile?: { path: string; content: string };
   generatedImage?: { base64: string; path: string };
+  projectFiles?: { path: string; content: string }[];
+  isLoading?: boolean;
   className?: string;
 }
 
-type ViewMode = "preview" | "code" | "image";
+type ViewMode = "preview" | "code" | "image" | "files";
 
 export function PreviewPanel({
   previewUrl,
   lastUpdatedFile,
   generatedImage,
+  projectFiles = [],
+  isLoading = false,
   className,
 }: PreviewPanelProps) {
-  const [viewMode, setViewMode] = useState<ViewMode>(
-    previewUrl ? "preview" : generatedImage ? "image" : "code"
-  );
+  // Default to "code" view when there are files but no live preview URL
+  // This ensures users see their AI changes immediately instead of stale v0 preview
+  const initialViewMode: ViewMode = previewUrl
+    ? "preview"
+    : generatedImage
+    ? "image"
+    : projectFiles.length > 0 || lastUpdatedFile
+    ? "code"
+    : "preview";
+
+  const [viewMode, setViewMode] = useState<ViewMode>(initialViewMode);
   const [isExpanded, setIsExpanded] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [selectedFileIndex, setSelectedFileIndex] = useState(0);
+
+  // Get the file to display - either the last updated one or selected from project files
+  const displayFile = lastUpdatedFile || (projectFiles.length > 0 ? projectFiles[selectedFileIndex] : undefined);
 
   const handleRefresh = () => {
     setRefreshKey((prev) => prev + 1);
@@ -65,7 +81,7 @@ export function PreviewPanel({
                 Preview
               </button>
             )}
-            {lastUpdatedFile && (
+            {(displayFile || projectFiles.length > 0) && (
               <button
                 onClick={() => setViewMode("code")}
                 className={cn(
@@ -77,6 +93,20 @@ export function PreviewPanel({
               >
                 <Code className="h-3 w-3" />
                 Kod
+              </button>
+            )}
+            {projectFiles.length > 1 && (
+              <button
+                onClick={() => setViewMode("files")}
+                className={cn(
+                  "flex items-center gap-1 px-2 py-1 rounded text-xs transition-colors",
+                  viewMode === "files"
+                    ? "bg-blue-500/20 text-blue-400"
+                    : "text-gray-400 hover:text-gray-200"
+                )}
+              >
+                <Code className="h-3 w-3" />
+                Filer ({projectFiles.length})
               </button>
             )}
             {generatedImage && (
@@ -96,9 +126,9 @@ export function PreviewPanel({
           </div>
 
           {/* File path indicator */}
-          {viewMode === "code" && lastUpdatedFile && (
+          {viewMode === "code" && displayFile && (
             <span className="text-xs text-gray-500 font-mono">
-              {lastUpdatedFile.path}
+              {displayFile.path}
             </span>
           )}
         </div>
@@ -143,8 +173,18 @@ export function PreviewPanel({
 
       {/* Content */}
       <div className="flex-1 overflow-hidden">
+        {/* Loading state */}
+        {isLoading && (
+          <div className="h-full flex items-center justify-center text-gray-500">
+            <div className="text-center space-y-2">
+              <div className="animate-spin h-8 w-8 border-2 border-purple-500 border-t-transparent rounded-full mx-auto" />
+              <p className="text-sm">Laddar projektfiler...</p>
+            </div>
+          </div>
+        )}
+
         {/* Preview iframe */}
-        {viewMode === "preview" && previewUrl && (
+        {!isLoading && viewMode === "preview" && previewUrl && (
           <iframe
             key={refreshKey}
             src={previewUrl}
@@ -154,16 +194,42 @@ export function PreviewPanel({
         )}
 
         {/* Code view */}
-        {viewMode === "code" && lastUpdatedFile && (
+        {!isLoading && viewMode === "code" && displayFile && (
           <div className="h-full overflow-auto p-4">
             <pre className="text-xs text-gray-300 font-mono whitespace-pre-wrap">
-              <code>{lastUpdatedFile.content}</code>
+              <code>{displayFile.content}</code>
             </pre>
           </div>
         )}
 
+        {/* Files list view */}
+        {!isLoading && viewMode === "files" && projectFiles.length > 0 && (
+          <div className="h-full overflow-auto">
+            <div className="divide-y divide-gray-800">
+              {projectFiles.map((file, index) => (
+                <button
+                  key={file.path}
+                  onClick={() => {
+                    setSelectedFileIndex(index);
+                    setViewMode("code");
+                  }}
+                  className={cn(
+                    "w-full px-4 py-3 text-left hover:bg-gray-800/50 transition-colors",
+                    selectedFileIndex === index && "bg-gray-800/30"
+                  )}
+                >
+                  <p className="text-sm text-gray-300 font-mono">{file.path}</p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {file.content.length} tecken
+                  </p>
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Image view */}
-        {viewMode === "image" && generatedImage && (
+        {!isLoading && viewMode === "image" && generatedImage && (
           <div className="h-full flex items-center justify-center p-4 bg-[url('/grid-pattern.svg')] bg-repeat">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
@@ -175,13 +241,13 @@ export function PreviewPanel({
         )}
 
         {/* Empty state */}
-        {!previewUrl && !lastUpdatedFile && !generatedImage && (
+        {!isLoading && !previewUrl && !displayFile && !generatedImage && projectFiles.length === 0 && (
           <div className="h-full flex items-center justify-center text-gray-500">
             <div className="text-center space-y-2">
               <Globe className="h-10 w-10 mx-auto opacity-30" />
-              <p className="text-sm">Ingen preview tillgänglig</p>
+              <p className="text-sm">Inga filer hittades</p>
               <p className="text-xs text-gray-600">
-                Gör ändringar för att se preview
+                Projektet verkar vara tomt
               </p>
             </div>
           </div>

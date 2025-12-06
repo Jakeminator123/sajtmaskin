@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
-import { getProjectMeta, getProjectFiles } from "@/lib/redis";
+import { getProjectMeta, getProjectFiles, saveProjectFiles, ProjectFile } from "@/lib/redis";
+import { getProjectData } from "@/lib/database";
 import OpenAI from "openai";
 
 /**
@@ -94,8 +95,48 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // 4. Get project files
-    const files = await getProjectFiles(projectId);
+    // 4. Get project files (with DB fallback to seed Redis if empty)
+    const loadFilesWithFallback = async (): Promise<ProjectFile[] | null> => {
+      const redisFiles = await getProjectFiles(projectId);
+      if (redisFiles && redisFiles.length > 0) {
+        return redisFiles;
+      }
+
+      const projectData = getProjectData(projectId);
+      if (
+        projectData?.files &&
+        Array.isArray(projectData.files) &&
+        projectData.files.length > 0
+      ) {
+        const filesFromDb: ProjectFile[] = projectData.files
+          .filter(
+            (f: unknown) =>
+              f &&
+              typeof f === "object" &&
+              "name" in f &&
+              "content" in f &&
+              typeof (f as { name: unknown }).name === "string" &&
+              typeof (f as { content: unknown }).content === "string"
+          )
+          .map((f: { name: string; content: string }) => ({
+            path: f.name,
+            content: f.content,
+            lastModified: new Date().toISOString(),
+          }));
+
+        if (filesFromDb.length > 0) {
+          try {
+            await saveProjectFiles(projectId, filesFromDb);
+          } catch (error) {
+            console.warn("[Analyze] Failed to seed Redis from DB fallback", error);
+          }
+          return filesFromDb;
+        }
+      }
+      return null;
+    };
+
+    const files = await loadFilesWithFallback();
     if (!files || files.length === 0) {
       return NextResponse.json(
         { success: false, error: "Inga filer hittades i projektet" },

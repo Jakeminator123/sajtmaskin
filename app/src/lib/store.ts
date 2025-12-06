@@ -31,6 +31,7 @@
 import { create } from "zustand";
 import { persist, createJSONStorage } from "zustand/middleware";
 import { saveProjectData as apiSaveProjectData } from "./project-client";
+import { debugLog } from "./debug";
 
 // Helper to check if we're in test mode (skip database saves)
 function isTestMode(): boolean {
@@ -179,6 +180,12 @@ export const useBuilderStore = create<BuilderState>()(
         // This ensures "Ta över" (takeover) works without requiring manual save
         const state = get();
         if (files.length > 0 && state.projectId && !isTestMode()) {
+          debugLog("[Store] Auto-saving generated files", {
+            projectId: state.projectId,
+            files: files.length,
+            hasDemoUrl: Boolean(state.demoUrl),
+            hasChatId: Boolean(state.chatId),
+          });
           // Save files directly without waiting for hasUserSaved
           apiSaveProjectData(state.projectId, {
             chatId: state.chatId || undefined,
@@ -212,6 +219,10 @@ export const useBuilderStore = create<BuilderState>()(
 
       setDemoUrl: (url) => {
         set({ demoUrl: url });
+        debugLog("[Store] Updated demoUrl", {
+          hasUrl: Boolean(url),
+          url,
+        });
         get()
           .saveToDatabase()
           .catch((err) =>
@@ -285,6 +296,13 @@ export const useBuilderStore = create<BuilderState>()(
           isLoading: false, // Reset loading state
         });
 
+        debugLog("[Store] Loaded project data", {
+          hasChatId: Boolean(data.chatId),
+          hasDemoUrl: Boolean(data.demoUrl),
+          files: data.files?.length || 0,
+          messages: parsedMessages.length,
+        });
+
         // Project loaded from database
       },
 
@@ -305,38 +323,38 @@ export const useBuilderStore = create<BuilderState>()(
         }
 
         // Debounce saves - get FRESH state inside the callback
-        saveTimeout = setTimeout(async () => {
-          const state = get(); // Get fresh state at save time!
+        return new Promise<void>((resolve, reject) => {
+          saveTimeout = setTimeout(async () => {
+            const latestState = get(); // Get fresh state at save time!
 
-          // Double-check projectId still exists
-          if (!state.projectId) {
-            return Promise.resolve();
-          }
+            // Double-check projectId still exists
+            if (!latestState.projectId) {
+              resolve();
+              return;
+            }
 
-          set({ isSaving: true });
+            set({ isSaving: true });
 
-          try {
-            await apiSaveProjectData(state.projectId, {
-              chatId: state.chatId || undefined,
-              demoUrl: state.demoUrl || undefined,
-              currentCode: state.currentCode || undefined,
-              files: state.files,
-              messages: state.messages.map((msg) => ({
-                ...msg,
-                timestamp: msg.timestamp.toISOString(),
-              })),
-            });
-            set({ lastSaved: new Date(), isSaving: false });
-            // Saved to database successfully
-          } catch (error) {
-            console.error("[Store] Failed to save to database:", error);
-            set({ isSaving: false });
-            throw error; // Re-throw so callers can catch if needed
-          }
-        }, 1000); // 1 second debounce
-
-        // Return a promise that resolves when the timeout completes
-        return Promise.resolve();
+            try {
+              await apiSaveProjectData(latestState.projectId, {
+                chatId: latestState.chatId || undefined,
+                demoUrl: latestState.demoUrl || undefined,
+                currentCode: latestState.currentCode || undefined,
+                files: latestState.files,
+                messages: latestState.messages.map((msg) => ({
+                  ...msg,
+                  timestamp: msg.timestamp.toISOString(),
+                })),
+              });
+              set({ lastSaved: new Date(), isSaving: false });
+              resolve();
+            } catch (error) {
+              console.error("[Store] Failed to save to database:", error);
+              set({ isSaving: false });
+              reject(error);
+            }
+          }, 1000); // 1 second debounce
+        });
       },
 
       // Explicit save - bypasses hasUserSaved check and enables future auto-saves

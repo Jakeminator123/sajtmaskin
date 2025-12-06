@@ -128,6 +128,12 @@ function OwnedProjectContent() {
     base64: string;
     path: string;
   } | null>(null);
+  const [projectFiles, setProjectFiles] = useState<
+    { path: string; content: string }[]
+  >([]);
+  const [isProjectLoading, setIsProjectLoading] = useState(true);
+  const [projectLoadError, setProjectLoadError] = useState<string | null>(null);
+  const [projectDemoUrl, setProjectDemoUrl] = useState<string | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -150,9 +156,83 @@ function OwnedProjectContent() {
     }
   }, [isGitHubMode, refreshUser]);
 
+  // Load project files and demoUrl (Redis mode) so editor/preview can show content immediately
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadProjectData = async () => {
+      if (!projectId) return;
+
+      // GitHub projects are edited via GitHub storage, no direct file fetch here
+      if (isGitHubMode) {
+        setIsProjectLoading(false);
+        setProjectLoadError(null);
+        return;
+      }
+
+      setIsProjectLoading(true);
+      setProjectLoadError(null);
+
+      try {
+        // Fetch project data to get demoUrl for preview
+        const projectRes = await fetch(`/api/projects/${encodeURIComponent(projectId)}`);
+        if (projectRes.ok) {
+          const projectData = await projectRes.json();
+          if (projectData.success && projectData.data?.demo_url) {
+            setProjectDemoUrl(projectData.data.demo_url);
+          }
+        }
+
+        // Fetch files from Redis/takeover storage
+        const res = await fetch(
+          `/api/projects/${encodeURIComponent(projectId)}/files`
+        );
+        const data = await res.json();
+
+        if (cancelled) return;
+
+        if (!res.ok || !data.success) {
+          throw new Error(data.error || "Kunde inte ladda projektfiler");
+        }
+
+        const files = (data.files as { path: string; content: string }[]) || [];
+        setProjectFiles(files);
+
+        // Show first file in preview if nothing has been updated yet
+        if (files.length > 0) {
+          setLastUpdatedFile((prev) => prev ?? files[0]);
+        }
+      } catch (err) {
+        if (cancelled) return;
+        const msg =
+          err instanceof Error ? err.message : "Kunde inte ladda projektfiler";
+        setProjectLoadError(msg);
+      } finally {
+        if (!cancelled) {
+          setIsProjectLoading(false);
+        }
+      }
+    };
+
+    loadProjectData();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [projectId, isGitHubMode]);
+
   // Handle sending a message
   const handleSend = async () => {
     if (!input.trim() || isLoading || !projectId) return;
+
+    if (isProjectLoading) {
+      setError("Vänta tills projektet har laddats färdigt.");
+      return;
+    }
+    if (projectLoadError) {
+      setError(`Projektet är inte redo: ${projectLoadError}`);
+      return;
+    }
 
     // Refresh user data to get latest diamond balance before checking
     await refreshUser();
@@ -343,6 +423,11 @@ function OwnedProjectContent() {
             <span className="text-gray-400 font-mono text-sm">
               {displayName}
             </span>
+            {!isProjectLoading && projectFiles.length > 0 && (
+              <span className="text-gray-500 text-xs">
+                · {projectFiles.length} filer
+              </span>
+            )}
           </div>
         </div>
 
@@ -426,6 +511,30 @@ function OwnedProjectContent() {
             showPreview ? "w-1/2 border-r border-gray-800" : "w-full"
           }`}
         >
+          {isProjectLoading && (
+            <div className="px-4 py-3 border-b border-purple-800 bg-purple-500/10 text-sm text-purple-300 flex items-center gap-2">
+              <Loader2 className="h-4 w-4 animate-spin text-purple-400" />
+              <span>Laddar projektfiler från Redis...</span>
+            </div>
+          )}
+          {projectLoadError && (
+            <div className="px-4 py-3 border-b border-red-800 bg-red-500/10 text-sm text-red-300 flex items-center gap-2">
+              <AlertCircle className="h-4 w-4" />
+              <span>{projectLoadError}</span>
+            </div>
+          )}
+          {!isProjectLoading && !projectLoadError && projectFiles.length === 0 && (
+            <div className="px-4 py-3 border-b border-amber-800 bg-amber-500/10 text-sm text-amber-300 flex items-center gap-2">
+              <AlertCircle className="h-4 w-4" />
+              <span>Inga filer hittades i projektet. Gör en takeover från Builder först.</span>
+            </div>
+          )}
+          {!isProjectLoading && !projectLoadError && projectFiles.length > 0 && (
+            <div className="px-4 py-3 border-b border-gray-800 text-sm text-gray-400 flex items-center gap-2">
+              <Check className="h-4 w-4 text-green-500" />
+              <span>{projectFiles.length} filer laddade. Välj ett läge och beskriv din ändring.</span>
+            </div>
+          )}
           {/* Welcome message if no messages */}
           {messages.length === 0 && (
             <div className="flex-1 flex items-center justify-center p-8">
@@ -441,28 +550,68 @@ function OwnedProjectContent() {
                   rätt modell och verktyg automatiskt.
                 </p>
                 <div className="grid grid-cols-2 gap-3 text-left">
-                  <div className="p-3 bg-emerald-500/10 border border-emerald-500/20 rounded-lg">
+                  <button
+                    onClick={() => {
+                      setSelectedMode("code_edit");
+                      inputRef.current?.focus();
+                    }}
+                    className={`p-3 border rounded-lg text-left transition-all hover:scale-[1.02] ${
+                      selectedMode === "code_edit"
+                        ? "bg-emerald-500/20 border-emerald-500/50"
+                        : "bg-emerald-500/10 border-emerald-500/20 hover:border-emerald-500/40"
+                    }`}
+                  >
                     <FileCode className="h-4 w-4 text-emerald-400 mb-1" />
                     <p className="text-xs text-emerald-400 font-medium">Kod</p>
                     <p className="text-xs text-gray-500">
                       Redigera komponenter, lägg till sektioner
                     </p>
-                  </div>
-                  <div className="p-3 bg-pink-500/10 border border-pink-500/20 rounded-lg">
+                  </button>
+                  <button
+                    onClick={() => {
+                      setSelectedMode("image");
+                      inputRef.current?.focus();
+                    }}
+                    className={`p-3 border rounded-lg text-left transition-all hover:scale-[1.02] ${
+                      selectedMode === "image"
+                        ? "bg-pink-500/20 border-pink-500/50"
+                        : "bg-pink-500/10 border-pink-500/20 hover:border-pink-500/40"
+                    }`}
+                  >
                     <ImageIcon className="h-4 w-4 text-pink-400 mb-1" />
                     <p className="text-xs text-pink-400 font-medium">Media</p>
                     <p className="text-xs text-gray-500">
                       Generera loggor, hero-bilder
                     </p>
-                  </div>
-                  <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+                  </button>
+                  <button
+                    onClick={() => {
+                      setSelectedMode("web_search");
+                      inputRef.current?.focus();
+                    }}
+                    className={`p-3 border rounded-lg text-left transition-all hover:scale-[1.02] ${
+                      selectedMode === "web_search"
+                        ? "bg-amber-500/20 border-amber-500/50"
+                        : "bg-amber-500/10 border-amber-500/20 hover:border-amber-500/40"
+                    }`}
+                  >
                     <Globe className="h-4 w-4 text-amber-400 mb-1" />
                     <p className="text-xs text-amber-400 font-medium">Sök</p>
                     <p className="text-xs text-gray-500">
                       Hitta inspiration, ikoner, typsnitt
                     </p>
-                  </div>
-                  <div className="p-3 bg-purple-500/10 border border-purple-500/20 rounded-lg">
+                  </button>
+                  <button
+                    onClick={() => {
+                      setSelectedMode("code_refactor");
+                      inputRef.current?.focus();
+                    }}
+                    className={`p-3 border rounded-lg text-left transition-all hover:scale-[1.02] ${
+                      selectedMode === "code_refactor"
+                        ? "bg-purple-500/20 border-purple-500/50"
+                        : "bg-purple-500/10 border-purple-500/20 hover:border-purple-500/40"
+                    }`}
+                  >
                     <Sparkles className="h-4 w-4 text-purple-400 mb-1" />
                     <p className="text-xs text-purple-400 font-medium">
                       Avancerat
@@ -470,7 +619,7 @@ function OwnedProjectContent() {
                     <p className="text-xs text-gray-500">
                       Tung refaktorering, design system
                     </p>
-                  </div>
+                  </button>
                 </div>
               </div>
             </div>
@@ -641,6 +790,8 @@ function OwnedProjectContent() {
                 disabled={
                   !input.trim() ||
                   isLoading ||
+                  isProjectLoading ||
+                  !!projectLoadError ||
                   diamonds < getModeCost(selectedMode)
                 }
                 className="px-4 bg-purple-600 hover:bg-purple-500 disabled:opacity-50"
@@ -666,9 +817,11 @@ function OwnedProjectContent() {
         {showPreview && (
           <div className="w-1/2 p-4">
             <PreviewPanel
-              previewUrl={undefined} // TODO: Add render/github pages URL
-              lastUpdatedFile={lastUpdatedFile || undefined}
+              previewUrl={projectDemoUrl || undefined}
+              lastUpdatedFile={lastUpdatedFile || (projectFiles.length > 0 ? projectFiles[0] : undefined)}
               generatedImage={lastGeneratedImage || undefined}
+              projectFiles={projectFiles}
+              isLoading={isProjectLoading}
               className="h-full"
             />
           </div>

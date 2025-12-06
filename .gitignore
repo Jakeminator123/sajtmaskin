@@ -38,6 +38,7 @@ coverage/
 # Misc
 *.log
 *.tmp
+/@fel/
 
 # Large media files (keep locally, not in repo)
 /Sajtmaskin.mp4

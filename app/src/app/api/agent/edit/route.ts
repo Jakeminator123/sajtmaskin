@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
-import { getUserById, deductDiamonds, isTestUser } from "@/lib/database";
+import {
+  getUserById,
+  deductDiamonds,
+  isTestUser,
+  TransactionType,
+} from "@/lib/database";
 import {
   runAgent,
   createAgentContext,
@@ -82,6 +87,14 @@ export async function POST(request: NextRequest) {
 
     // Get diamond cost for this task type
     const diamondCost = getDiamondCost(taskType);
+    const transactionTypeMap: Record<TaskType, TransactionType> = {
+      code_edit: "agent_code_edit",
+      copy: "agent_copy",
+      image: "agent_image",
+      web_search: "agent_web_search",
+      code_refactor: "agent_code_refactor",
+      analyze: "agent_analyze",
+    };
 
     // Get current user
     const user = await getCurrentUser(request);
@@ -191,7 +204,12 @@ export async function POST(request: NextRequest) {
     }
 
     // Only deduct diamonds AFTER successful agent execution
-    const transaction = deductDiamonds(user.id, diamondCost);
+    const transaction = deductDiamonds(
+      user.id,
+      diamondCost,
+      `AI-${taskType}`,
+      transactionTypeMap[taskType] || "generation"
+    );
     if (!transaction && !isTestUser(fullUser)) {
       // Agent succeeded but diamond deduction failed - log warning but don't fail request
       console.warn("[Agent/Edit] Agent succeeded but diamond deduction failed");

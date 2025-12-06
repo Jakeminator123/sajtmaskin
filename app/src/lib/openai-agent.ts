@@ -28,7 +28,14 @@
  */
 
 import OpenAI from "openai";
-import { getProjectFiles, updateProjectFile, getProjectMeta } from "./redis";
+import {
+  getProjectFiles,
+  updateProjectFile,
+  getProjectMeta,
+  saveProjectFiles,
+  ProjectFile,
+} from "./redis";
+import { getProjectData } from "./database";
 
 // Initialize OpenAI client (lazy initialization to avoid build-time errors)
 function getOpenAIClient(): OpenAI {
@@ -177,7 +184,9 @@ const FILE_TOOLS: OpenAI.Responses.Tool[] = [
             "Optional subdirectory path to filter (default: all files)",
         },
       },
-      required: [],
+      // OpenAI strict mode requires the required array to include every property
+      // even when optional. Using an empty string to represent "root" is fine.
+      required: ["path"],
       additionalProperties: false,
     },
   },
@@ -206,8 +215,8 @@ const MODEL_CONFIGS: Record<TaskType, ModelConfig> = {
     model: "gpt-5.1-codex-mini",
     fallbackModel: "gpt-4o-mini",
     text: { verbosity: "low" },
-    // Include code_interpreter for syntax validation
-    tools: [...FILE_TOOLS, CODE_INTERPRETER_TOOL],
+    // code_interpreter not supported on gpt-5.1-codex-mini
+    tools: FILE_TOOLS,
     diamondCost: 1,
     description: "Standard code editing with validation",
   },
@@ -249,12 +258,12 @@ const MODEL_CONFIGS: Record<TaskType, ModelConfig> = {
   },
   code_refactor: {
     // gpt-5.1-codex: Complex, long-running agentic coding
-    // Include code_interpreter for validation of refactored code
     model: "gpt-5.1-codex",
     fallbackModel: "gpt-4o",
     reasoning: { effort: "medium", summary: "auto" },
     text: { verbosity: "medium" },
-    tools: [...FILE_TOOLS, CODE_INTERPRETER_TOOL],
+    // code_interpreter not supported on gpt-5.1-codex
+    tools: FILE_TOOLS,
     diamondCost: 5,
     description: "Heavy refactoring with validation",
   },
@@ -430,9 +439,55 @@ Var konstruktiv och fokusera på det som ger mest värde.`,
 
 // ============ REDIS Storage Functions ============
 
+async function loadRedisFilesWithFallback(
+  projectId: string
+): Promise<ProjectFile[]> {
+  // Try Redis first
+  const redisFiles = await getProjectFiles(projectId);
+  if (redisFiles && redisFiles.length > 0) {
+    return redisFiles;
+  }
+
+  // Fallback to stored project_data (v0 payload)
+  const projectData = getProjectData(projectId);
+  if (
+    projectData?.files &&
+    Array.isArray(projectData.files) &&
+    projectData.files.length > 0
+  ) {
+    const filesFromDb: ProjectFile[] = projectData.files
+      .filter(
+        (f: unknown) =>
+          f &&
+          typeof f === "object" &&
+          "name" in f &&
+          "content" in f &&
+          typeof (f as { name: unknown }).name === "string" &&
+          typeof (f as { content: unknown }).content === "string"
+      )
+      .map((f: { name: string; content: string }) => ({
+        path: f.name,
+        content: f.content,
+        lastModified: new Date().toISOString(),
+      }));
+
+    if (filesFromDb.length > 0) {
+      // Seed Redis so the editor/agent can continue without DB reads
+      try {
+        await saveProjectFiles(projectId, filesFromDb);
+      } catch (error) {
+        console.warn("[Agent] Failed to seed Redis from DB fallback:", error);
+      }
+      return filesFromDb;
+    }
+  }
+
+  return [];
+}
+
 async function readRedisFile(projectId: string, path: string): Promise<string> {
-  const files = await getProjectFiles(projectId);
-  if (!files) {
+  const files = await loadRedisFilesWithFallback(projectId);
+  if (!files || files.length === 0) {
     throw new Error("Projektet hittades inte");
   }
 
@@ -449,7 +504,24 @@ async function updateRedisFile(
   path: string,
   content: string
 ): Promise<void> {
-  const success = await updateProjectFile(projectId, path, content);
+  // Ensure Redis has a baseline set of files
+  await loadRedisFilesWithFallback(projectId);
+
+  let success = await updateProjectFile(projectId, path, content);
+
+  // If update failed, seed minimal file and retry once
+  if (!success) {
+    const seed: ProjectFile[] = [
+      { path, content, lastModified: new Date().toISOString() },
+    ];
+    try {
+      await saveProjectFiles(projectId, seed);
+      success = await updateProjectFile(projectId, path, content);
+    } catch (error) {
+      console.warn("[Agent] Failed to seed Redis before update:", error);
+    }
+  }
+
   if (!success) {
     throw new Error(`Kunde inte uppdatera fil: ${path}`);
   }
@@ -459,8 +531,8 @@ async function listRedisFiles(
   projectId: string,
   subPath?: string
 ): Promise<string[]> {
-  const files = await getProjectFiles(projectId);
-  if (!files) {
+  const files = await loadRedisFilesWithFallback(projectId);
+  if (!files || files.length === 0) {
     throw new Error("Projektet hittades inte");
   }
 
@@ -648,7 +720,11 @@ async function updateGitHubFile(
   const contentSizeBytes = Buffer.byteLength(content, "utf-8");
   const maxSizeBytes = 100 * 1024 * 1024; // 100MB
   if (contentSizeBytes > maxSizeBytes) {
-    throw new Error(`Filen är för stor (${Math.round(contentSizeBytes / 1024 / 1024)}MB). GitHub-gräns är 100MB.`);
+    throw new Error(
+      `Filen är för stor (${Math.round(
+        contentSizeBytes / 1024 / 1024
+      )}MB). GitHub-gräns är 100MB.`
+    );
   }
 
   const response = await fetch(
@@ -999,7 +1075,9 @@ export async function runAgent(
           });
         } catch (fallbackError) {
           const fallbackErrorMessage =
-            fallbackError instanceof Error ? fallbackError.message : "Unknown error";
+            fallbackError instanceof Error
+              ? fallbackError.message
+              : "Unknown error";
           logApiCall(
             "Both primary and fallback models failed",
             {
@@ -1064,7 +1142,7 @@ export async function runAgent(
 
     while (iterations < MAX_ITERATIONS) {
       iterations++;
-      
+
       // Check for timeout
       if (Date.now() - iterationStartTime > MAX_ITERATION_TIME_MS) {
         console.warn("[Agent] Max iteration time exceeded, stopping");
@@ -1141,15 +1219,21 @@ export async function runAgent(
           try {
             args = JSON.parse(call.arguments);
           } catch (parseError) {
-            console.error("[Agent] Failed to parse function arguments:", parseError);
+            console.error(
+              "[Agent] Failed to parse function arguments:",
+              parseError
+            );
             functionResults.push({
               type: "function_call_output",
               call_id: call.call_id,
-              output: `Fel: Ogiltig JSON i funktionsargument: ${call.arguments.substring(0, 100)}`,
+              output: `Fel: Ogiltig JSON i funktionsargument: ${call.arguments.substring(
+                0,
+                100
+              )}`,
             });
             continue;
           }
-          
+
           const result = await executeTool(
             context,
             call.name,
@@ -1172,7 +1256,10 @@ export async function runAgent(
         } catch (error) {
           const errorMessage =
             error instanceof Error ? error.message : "Okänt fel";
-          console.error(`[Agent] Tool execution failed for ${call.name}:`, errorMessage);
+          console.error(
+            `[Agent] Tool execution failed for ${call.name}:`,
+            errorMessage
+          );
           functionResults.push({
             type: "function_call_output",
             call_id: call.call_id,
@@ -1217,9 +1304,10 @@ export async function runAgent(
             c.type === "output_text"
         )
         .map((c) => c.text)
-        .join("\n") || (updatedFiles.length > 0 || generatedImages.length > 0 
-          ? "Ändringar genomförda." 
-          : "Inga ändringar gjordes.");
+        .join("\n") ||
+      (updatedFiles.length > 0 || generatedImages.length > 0
+        ? "Ändringar genomförda."
+        : "Inga ändringar gjordes.");
 
     logApiCall("Agent completed successfully", {
       taskType,

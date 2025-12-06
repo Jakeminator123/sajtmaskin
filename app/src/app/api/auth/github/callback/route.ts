@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { updateUserGitHub } from "@/lib/database";
-import { SECRETS, FEATURES } from "@/lib/config";
+import { SECRETS, FEATURES, URLS } from "@/lib/config";
 
 /**
  * GitHub OAuth - Callback Handler
@@ -31,29 +31,44 @@ export async function GET(request: NextRequest) {
   const state = searchParams.get("state");
   const error = searchParams.get("error");
 
-  // Parse state to get return URL
-  let returnTo = "/projects";
-  if (state) {
+  // Parse state to get return URL (sanitized)
+  const parseReturnTo = (rawState: string | null): { path: string; sanitized: boolean } => {
+    const fallback = "/projects";
+    if (!rawState) return { path: fallback, sanitized: false };
     try {
-      const stateData = JSON.parse(Buffer.from(state, "base64").toString());
-      returnTo = stateData.returnTo || "/projects";
+      const stateData = JSON.parse(Buffer.from(rawState, "base64").toString());
+      const value = stateData?.returnTo as string | undefined;
+      if (!value) return { path: fallback, sanitized: false };
+
+      const baseOrigin = new URL(URLS.baseUrl).origin;
+      const candidate = new URL(value, baseOrigin);
+      if (candidate.origin !== baseOrigin) {
+        return { path: fallback, sanitized: true };
+      }
+      const safePath = `${candidate.pathname}${candidate.search}${candidate.hash}`;
+      return { path: safePath || fallback, sanitized: safePath !== value };
     } catch {
       console.warn("[GitHub OAuth] Could not parse state parameter");
+      return { path: fallback, sanitized: true };
     }
-  }
+  };
+
+  const { path: returnTo, sanitized: returnSanitized } = parseReturnTo(state);
 
   // Handle OAuth errors
   if (error) {
     console.error("[GitHub OAuth] Error from GitHub:", error);
-    const errorUrl = new URL(returnTo, request.url);
+    const errorUrl = new URL(returnTo, URLS.baseUrl);
     errorUrl.searchParams.set("github_error", error);
+    if (returnSanitized) errorUrl.searchParams.set("github_error_reason", "unsafe_return");
     return NextResponse.redirect(errorUrl.toString());
   }
 
   if (!code) {
     console.error("[GitHub OAuth] No authorization code received");
-    const errorUrl = new URL(returnTo, request.url);
+    const errorUrl = new URL(returnTo, URLS.baseUrl);
     errorUrl.searchParams.set("github_error", "no_code");
+    if (returnSanitized) errorUrl.searchParams.set("github_error_reason", "unsafe_return");
     return NextResponse.redirect(errorUrl.toString());
   }
 
@@ -63,8 +78,9 @@ export async function GET(request: NextRequest) {
 
   if (!FEATURES.useGitHubAuth) {
     console.error("[GitHub OAuth] GitHub OAuth is not configured");
-    const errorUrl = new URL(returnTo, request.url);
+    const errorUrl = new URL(returnTo, URLS.baseUrl);
     errorUrl.searchParams.set("github_error", "not_configured");
+    if (returnSanitized) errorUrl.searchParams.set("github_error_reason", "unsafe_return");
     return NextResponse.redirect(errorUrl.toString());
   }
 
@@ -72,7 +88,7 @@ export async function GET(request: NextRequest) {
   const user = await getCurrentUser(request);
   if (!user) {
     console.error("[GitHub OAuth] No authenticated user");
-    const errorUrl = new URL("/", request.url);
+    const errorUrl = new URL("/", URLS.baseUrl);
     errorUrl.searchParams.set("github_error", "not_authenticated");
     return NextResponse.redirect(errorUrl.toString());
   }
@@ -120,8 +136,9 @@ export async function GET(request: NextRequest) {
 
     if (!userResponse.ok) {
       console.error("[GitHub OAuth] Failed to fetch user info");
-      const errorUrl = new URL(returnTo, request.url);
+      const errorUrl = new URL(returnTo, URLS.baseUrl);
       errorUrl.searchParams.set("github_error", "user_fetch_failed");
+      if (returnSanitized) errorUrl.searchParams.set("github_error_reason", "unsafe_return");
       return NextResponse.redirect(errorUrl.toString());
     }
 
@@ -138,17 +155,19 @@ export async function GET(request: NextRequest) {
     updateUserGitHub(user.id, accessToken, githubUser.login);
 
     // Redirect back with success
-    const successUrl = new URL(returnTo, request.url);
+    const successUrl = new URL(returnTo, URLS.baseUrl);
     successUrl.searchParams.set("github_connected", "true");
     successUrl.searchParams.set("github_username", githubUser.login);
+    if (returnSanitized) successUrl.searchParams.set("github_return_sanitized", "true");
 
     console.log("[GitHub OAuth] Successfully connected GitHub account");
 
     return NextResponse.redirect(successUrl.toString());
   } catch (error) {
     console.error("[GitHub OAuth] Error:", error);
-    const errorUrl = new URL(returnTo, request.url);
+    const errorUrl = new URL(returnTo, URLS.baseUrl);
     errorUrl.searchParams.set("github_error", "unknown");
+    if (returnSanitized) errorUrl.searchParams.set("github_error_reason", "unsafe_return");
     return NextResponse.redirect(errorUrl.toString());
   }
 }

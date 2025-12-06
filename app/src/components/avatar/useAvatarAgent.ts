@@ -96,6 +96,57 @@ export function useAvatarAgent(options: UseAvatarAgentOptions = {}) {
     return true;
   }, []);
 
+  // Request proactive analysis of current project
+  const requestAnalysis = useCallback(
+    async (lastAction: string = "opened_project") => {
+      if (!projectId) return;
+
+      try {
+        const response = await fetch("/api/avatar-guide", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            message: "[PROACTIVE_TIP]",
+            currentSection: section || "builder",
+            lastAction,
+            conversationHistory: [],
+            projectId,
+          }),
+        });
+
+        if (!response.ok) return;
+
+        const data = await response.json();
+
+        if (data.responseId) {
+          setConversationId(data.responseId);
+        }
+
+        if (data.points > 0) {
+          addPoints(data.points);
+        }
+
+        if (data.valueMessage) {
+          setValueMessage(data.valueMessage);
+        }
+
+        if (data.message) {
+          triggerReaction("form_submit", data.message);
+        }
+      } catch (error) {
+        console.error("[AvatarAgent] Analysis request failed:", error);
+      }
+    },
+    [
+      projectId,
+      section,
+      triggerReaction,
+      addPoints,
+      setValueMessage,
+      setConversationId,
+    ]
+  );
+
   // Track current project
   useEffect(() => {
     if (projectId && projectId !== currentProjectId) {
@@ -237,57 +288,6 @@ export function useAvatarAgent(options: UseAvatarAgentOptions = {}) {
 
     return () => clearTimeout(checkTimer);
   }, [isLoading, triggerReaction, canReact]);
-
-  // Request proactive analysis of current project
-  const requestAnalysis = useCallback(
-    async (lastAction: string = "opened_project") => {
-      if (!projectId) return;
-
-      try {
-        const response = await fetch("/api/avatar-guide", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            message: "[PROACTIVE_TIP]",
-            currentSection: section || "builder",
-            lastAction,
-            conversationHistory: [],
-            projectId,
-          }),
-        });
-
-        if (!response.ok) return;
-
-        const data = await response.json();
-
-        if (data.responseId) {
-          setConversationId(data.responseId);
-        }
-
-        if (data.points > 0) {
-          addPoints(data.points);
-        }
-
-        if (data.valueMessage) {
-          setValueMessage(data.valueMessage);
-        }
-
-        if (data.message) {
-          triggerReaction("form_submit", data.message);
-        }
-      } catch (error) {
-        console.error("[AvatarAgent] Analysis request failed:", error);
-      }
-    },
-    [
-      projectId,
-      section,
-      triggerReaction,
-      addPoints,
-      setValueMessage,
-      setConversationId,
-    ]
-  );
 
   return {
     requestAnalysis,

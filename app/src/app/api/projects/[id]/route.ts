@@ -100,6 +100,12 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       );
     }
 
+    // Invalidate caches so deleted project disappears immediately
+    await Promise.all([
+      deleteCache(`project:${id}`),
+      deleteCache("projects:list"),
+    ]);
+
     return NextResponse.json({ success: true });
   } catch (error: any) {
     console.error("[API] Failed to delete project:", error);
