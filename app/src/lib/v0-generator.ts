@@ -682,6 +682,14 @@ export async function generateFromTemplate(
       "[v0-generator] Files count:",
       chat.latestVersion?.files?.length
     );
+    console.log("[v0-generator] demoUrl:", chat.latestVersion?.demoUrl);
+
+    // Check if template loading failed (status check)
+    const status = chat.latestVersion?.status;
+    if (status === "failed") {
+      console.error("[v0-generator] Template loading failed with status: failed");
+      throw new Error("Template loading failed - status was 'failed'");
+    }
 
     // Extract files from the response
     const files: GeneratedFile[] =
@@ -699,6 +707,11 @@ export async function generateFromTemplate(
           f.name.endsWith(".tsx")
       ) || files[0];
 
+    // Warn if no content was returned (but don't throw - demoUrl might still work)
+    if (files.length === 0 && !chat.latestVersion?.demoUrl) {
+      console.warn("[v0-generator] Template returned no files and no demoUrl");
+    }
+
     return {
       code: mainFile?.content || chat.text || "",
       files,
@@ -714,18 +727,21 @@ export async function generateFromTemplate(
 
     // Check for specific error types
     if (error instanceof Error) {
-      if (
-        error.message.includes("not found") ||
-        error.message.includes("404")
-      ) {
-        throw new Error("Template not found");
+      const msg = error.message.toLowerCase();
+      if (msg.includes("not found") || msg.includes("404")) {
+        throw new Error("Template not found - kontrollera template ID");
       }
-      if (
-        error.message.includes("rate limit") ||
-        error.message.includes("429")
-      ) {
-        throw new Error("rate limit exceeded");
+      if (msg.includes("rate limit") || msg.includes("429")) {
+        throw new Error("Rate limit - för många anrop, vänta en stund");
       }
+      if (msg.includes("unauthorized") || msg.includes("401")) {
+        throw new Error("API-nyckel saknas eller är ogiltig");
+      }
+      if (msg.includes("timeout") || msg.includes("timed out")) {
+        throw new Error("Timeout - v0 API svarade inte i tid");
+      }
+      // Pass through the original error message for other cases
+      throw new Error(`v0 API-fel: ${error.message}`);
     }
     throw error;
   }

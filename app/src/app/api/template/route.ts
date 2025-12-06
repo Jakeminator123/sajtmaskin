@@ -45,16 +45,31 @@ export async function POST(request: NextRequest) {
       hasDemoUrl: !!result.demoUrl,
     });
 
+    // Validate that we got useful content
+    const hasFiles = result.files && result.files.length > 0;
+    const hasDemoUrl = !!result.demoUrl;
+    
+    if (!hasFiles && !hasDemoUrl) {
+      console.error("[API /template] No content received from v0 API");
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Mallen kunde inte laddas. v0 API returnerade inget innehåll.",
+        },
+        { status: 502 }
+      );
+    }
+
     // Find the main code file
     let mainCode = "";
-    if (result.files && result.files.length > 0) {
+    if (hasFiles) {
       const mainFile =
-        result.files.find(
+        result.files!.find(
           (f) =>
             f.name.includes("page.tsx") ||
             f.name.includes("Page.tsx") ||
             f.name.endsWith(".tsx")
-        ) || result.files[0];
+        ) || result.files![0];
       mainCode = mainFile?.content || "";
     }
 
