@@ -215,7 +215,7 @@ export async function POST(request: NextRequest) {
       webSearchSources: result.webSearchSources,
       responseId: result.responseId,
       tokensUsed: result.tokensUsed,
-      newBalance: transaction?.balance_after,
+      ...(transaction?.balance_after !== undefined && { newBalance: transaction.balance_after }),
       storageType: context.storageType,
       taskType,
       diamondCost,

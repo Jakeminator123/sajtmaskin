@@ -186,8 +186,8 @@ export async function POST(req: NextRequest) {
       screenshotUrl: result.screenshotUrl,
       versionId: result.versionId,
       model: result.model,
-      // Include updated balance for authenticated users
-      ...(newBalance !== null && { balance: newBalance }),
+      // Include updated balance for authenticated users (only if transaction succeeded)
+      ...(newBalance !== null && newBalance !== undefined && { balance: newBalance }),
     });
   } catch (error) {
     console.error("[API/refine] Error:", error);

@@ -49,8 +49,9 @@ export default function ProjectsPage() {
       ]);
       setProjects(regularProjects);
       setTakenOverProjects(aiProjects);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : "Kunde inte ladda projekt";
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
@@ -65,14 +66,18 @@ export default function ProjectsPage() {
       await deleteProject(id);
       setProjects((prev) => prev.filter((p) => p.id !== id));
       triggerReaction("download", `"${name}" borttaget!`);
-    } catch (err: any) {
-      alert(`Kunde inte ta bort projekt: ${err.message}`);
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : "Okänt fel";
+      alert(`Kunde inte ta bort projekt: ${errorMessage}`);
       triggerReaction("generation_error", "Kunde inte ta bort projektet.");
     }
   }
 
   function formatDate(dateStr: string) {
     const date = new Date(dateStr);
+    if (isNaN(date.getTime())) {
+      return "Ogiltigt datum";
+    }
     return date.toLocaleDateString("sv-SE", {
       year: "numeric",
       month: "short",

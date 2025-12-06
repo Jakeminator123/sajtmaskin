@@ -288,7 +288,8 @@ export const useBuilderStore = create<BuilderState>()(
       // Save to database (debounced) - only works after user has explicitly saved
       saveToDatabase: async () => {
         // Skip silently if user hasn't saved yet (no need to log every time)
-        if (!get().hasUserSaved || isTestMode() || !get().projectId) {
+        const state = get();
+        if (!state.hasUserSaved || isTestMode() || !state.projectId) {
           return Promise.resolve();
         }
 
