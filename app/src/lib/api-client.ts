@@ -112,10 +112,14 @@ export async function generateWebsite(
       });
 
     if (!response.ok) {
-      console.error("[API-Client] generateWebsite error:", data.error);
+      console.error("[API-Client] generateWebsite error:", {
+        status: response.status,
+        statusText: response.statusText,
+        error: data.error,
+      });
       return {
         success: false,
-        error: data.error || "Något gick fel. Försök igen.",
+        error: data.error || `Serverfel (${response.status}): ${response.statusText || "Okänt fel"}`,
         requireAuth: data.requireAuth,
         requireCredits: data.requireCredits,
       };
@@ -123,11 +127,26 @@ export async function generateWebsite(
 
     return data;
   } catch (error) {
-    console.error("[API-Client] generateWebsite network error:", error);
+    const errorMessage = error instanceof Error ? error.message : "Okänt fel";
+    console.error("[API-Client] generateWebsite network error:", errorMessage);
+    
+    // Handle specific error types
+    if (errorMessage.includes("AbortError") || errorMessage.includes("aborted")) {
+      return {
+        success: false,
+        error: "Begäran avbröts. Försök igen.",
+      };
+    }
+    if (errorMessage.includes("Failed to fetch") || errorMessage.includes("NetworkError")) {
+      return {
+        success: false,
+        error: "Kunde inte ansluta till servern. Kontrollera din internetanslutning.",
+      };
+    }
+    
     return {
       success: false,
-      error:
-        "Kunde inte ansluta till servern. Kontrollera din internetanslutning.",
+      error: `Nätverksfel: ${errorMessage}`,
     };
   }
 }
@@ -172,10 +191,14 @@ export async function refineWebsite(
       });
 
     if (!response.ok) {
-      console.error("[API-Client] refineWebsite error:", data.error);
+      console.error("[API-Client] refineWebsite error:", {
+        status: response.status,
+        statusText: response.statusText,
+        error: data.error,
+      });
       return {
         success: false,
-        error: data.error || "Något gick fel. Försök igen.",
+        error: data.error || `Serverfel (${response.status}): ${response.statusText || "Okänt fel"}`,
         requireAuth: data.requireAuth,
         requireCredits: data.requireCredits,
       };
@@ -183,11 +206,26 @@ export async function refineWebsite(
 
     return data;
   } catch (error) {
-    console.error("[API-Client] refineWebsite network error:", error);
+    const errorMessage = error instanceof Error ? error.message : "Okänt fel";
+    console.error("[API-Client] refineWebsite network error:", errorMessage);
+    
+    // Handle specific error types
+    if (errorMessage.includes("AbortError") || errorMessage.includes("aborted")) {
+      return {
+        success: false,
+        error: "Begäran avbröts. Försök igen.",
+      };
+    }
+    if (errorMessage.includes("Failed to fetch") || errorMessage.includes("NetworkError")) {
+      return {
+        success: false,
+        error: "Kunde inte ansluta till servern. Kontrollera din internetanslutning.",
+      };
+    }
+    
     return {
       success: false,
-      error:
-        "Kunde inte ansluta till servern. Kontrollera din internetanslutning.",
+      error: `Nätverksfel: ${errorMessage}`,
     };
   }
 }

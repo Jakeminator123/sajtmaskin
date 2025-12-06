@@ -56,10 +56,15 @@ error 29: chat-panel.tsx:158 - sessionStorage används utan SSR-check. Kan orsak
 error 30: chat-panel.tsx:296 - window.location.search används utan SSR-check. Kan krascha under SSR.
   FIXAD: Lade till extra check för `window.location` innan användning.
 error 31: chat-panel.tsx:506-528 - Om v0Response?.success är false, används generateWebsite() som fallback. Men om detta också misslyckas, finns ingen ytterligare felhantering.
+  FIXAD: Lade till try-catch runt fallback-generering och bättre felmeddelande om båda misslyckas.
 error 32: chat-panel.tsx:534-541 - Om v0Response.chatId eller v0Response.demoUrl är undefined, sätts de inte. Men senare kod kan förvänta sig att dessa finns.
+  FIXAD: Lade till explicit kontroller och Array.isArray() check för files. Detta är korrekt beteende - om värden saknas ska de inte sättas.
 error 33: chat-panel.tsx:700-710 - handleGenerate() sätter isLoading till true, men om generateWebsite() kastar ett fel innan try-catch, kommer isLoading att förbli true.
+  FIXAD: Lade till extra kontroll för isLoading state. Try-catch fångar redan alla fel och finally sätter isLoading till false.
 error 34: api-client.ts:104-122 - Om response.ok är false men data.error är undefined, returneras en generisk felmeddelande. Men det kan finnas mer information i response.status eller response.statusText.
+  FIXAD: Lade till response.status och response.statusText i felmeddelandet för bättre debugging.
 error 35: api-client.ts:125-132 - Network errors fångas, men om fetch() kastar ett annat fel (t.ex. AbortError), hanteras det inte specifikt.
+  FIXAD: Lade till specifik hantering för AbortError och NetworkError med tydliga felmeddelanden.
 error 36: v0-generator.ts:360-399 - waitForVersionReady() har en maxAttempts på 120 med 5 sekunders delay = 10 minuter. Men maxDuration i route.ts är 600 sekunder (10 minuter), så timeout kan inträffa innan polling är klar.
   FIXAD: Minskade maxAttempts till 100 (8.3 minuter) för att lämna buffer för route timeout.
 error 37: v0-generator.ts:373 - chat kan vara null från v0.chats.getById(), men används direkt utan null-check.
@@ -117,9 +122,13 @@ error 65: api/projects/[id]/takeover/route.ts:116-119 - files mappas från proje
 error 66: api/projects/[id]/takeover/route.ts:187 - fullUser!.github_token! använder non-null assertion, men om fullUser eller github_token är null/undefined kommer detta att krascha.
   FIXAD: Ersatte non-null assertions med explicit null-check och returnerar felmeddelande om token saknas.
 error 67: api/download/route.ts:33 - downloadVersionAsZip() kan krascha om chatId eller versionId är ogiltiga, men felet fångas inte specifikt.
+  FIXAD: Lade till input-validering och specifik try-catch runt downloadVersionAsZip() med tydligt felmeddelande.
 error 68: api/download/route.ts:49 - JSZip.loadAsync() kan misslyckas om zipBuffer är ogiltig, men felet fångas inte specifikt.
+  FIXAD: Lade till try-catch runt JSZip.loadAsync() med specifikt felmeddelande för ogiltiga ZIP-filer.
 error 69: api/download/route.ts:64 - file.async("string") kan misslyckas för binära filer eller om filen är korrupt. Ingen specifik felhantering.
+  FIXAD: Lade till .catch() på file.async() för att hoppa över binära/korrupta filer istället för att krascha hela operationen.
 error 70: api/download/route.ts:84 - password || undefined används, men om password är en tom sträng kommer detta att bli undefined. Bör kontrollera password.trim().
+  FIXAD: Lade till password.trim() kontroll för att säkerställa att tomma strängar behandlas som undefined.
 error 71: api/projects/[id]/download/route.ts:71-73 - BASE64_IMAGE placeholders hoppas över, men om filen är en faktisk bild som börjar med "[BASE64_IMAGE:" kommer den att hoppas över felaktigt.
 error 72: api/projects/[id]/download/route.ts:85-89 - meta.name kan vara null eller undefined, vilket skulle orsaka .toLowerCase() att krascha.
   FIXAD: Lade till fallback till "project" om meta.name är null/undefined innan .toLowerCase() anropas.

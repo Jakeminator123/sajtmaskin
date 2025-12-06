@@ -30,7 +30,25 @@ export async function GET(request: NextRequest) {
     console.log("[API/download] Downloading ZIP for:", chatId, versionId);
     console.log("[API/download] Include backoffice:", includeBackoffice);
 
-    const zipBuffer = await downloadVersionAsZip(chatId, versionId);
+    // Validate inputs
+    if (!chatId || !versionId) {
+      return NextResponse.json(
+        { success: false, error: "chatId och versionId krävs" },
+        { status: 400 }
+      );
+    }
+
+    let zipBuffer: ArrayBuffer;
+    try {
+      zipBuffer = await downloadVersionAsZip(chatId, versionId);
+    } catch (downloadError) {
+      const errorMessage = downloadError instanceof Error ? downloadError.message : "Okänt fel";
+      console.error("[API/download] Failed to download ZIP:", errorMessage);
+      return NextResponse.json(
+        { success: false, error: `Kunde inte ladda ner ZIP: ${errorMessage}` },
+        { status: 500 }
+      );
+    }
 
     // If backoffice not requested, return original ZIP
     if (!includeBackoffice) {
@@ -46,7 +64,17 @@ export async function GET(request: NextRequest) {
     console.log("[API/download] Injecting backoffice files...");
 
     // Load original ZIP
-    const zip = await JSZip.loadAsync(zipBuffer);
+    let zip: JSZip;
+    try {
+      zip = await JSZip.loadAsync(zipBuffer);
+    } catch (zipError) {
+      const errorMessage = zipError instanceof Error ? zipError.message : "Okänt fel";
+      console.error("[API/download] Failed to load ZIP:", errorMessage);
+      return NextResponse.json(
+        { success: false, error: `Ogiltig ZIP-fil: ${errorMessage}` },
+        { status: 400 }
+      );
+    }
 
     // Extract all code from the ZIP to analyze
     const codeFiles: { name: string; content: string }[] = [];
@@ -61,9 +89,14 @@ export async function GET(request: NextRequest) {
           relativePath.endsWith(".js"))
       ) {
         filePromises.push(
-          file.async("string").then((content) => {
-            codeFiles.push({ name: relativePath, content });
-          })
+          file.async("string")
+            .then((content) => {
+              codeFiles.push({ name: relativePath, content });
+            })
+            .catch((error) => {
+              console.warn(`[API/download] Failed to read file ${relativePath}:`, error);
+              // Skip binary files or corrupted files, continue with other files
+            })
         );
       }
     });
@@ -81,7 +114,9 @@ export async function GET(request: NextRequest) {
     });
 
     // Generate backoffice files with user's password
-    const backoffice = generateBackofficeFiles(manifest, password || undefined);
+    // Only use password if it's a non-empty string
+    const backofficePassword = password && password.trim().length > 0 ? password.trim() : undefined;
+    const backoffice = generateBackofficeFiles(manifest, backofficePassword);
 
     // Add backoffice files to ZIP
     for (const file of backoffice.files) {

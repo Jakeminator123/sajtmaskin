@@ -516,8 +516,9 @@ export function ChatPanel({
 
         // Fallback: Use code-based approach if v0TemplateId failed or doesn't exist
         if (!v0Response?.success) {
-          // Use a STRICT prompt to recreate as faithfully as possible
-          const templatePrompt = `RECREATE this React component as EXACTLY as possible.
+          try {
+            // Use a STRICT prompt to recreate as faithfully as possible
+            const templatePrompt = `RECREATE this React component as EXACTLY as possible.
 
 STRICT REQUIREMENTS:
 1. Generate a SINGLE self-contained React component (no external imports)
@@ -532,20 +533,31 @@ This is the EXACT code to recreate - do NOT simplify or change the design:
 
 ${mainCode.substring(0, 18000)}`;
 
-          v0Response = await generateWebsite(
-            templatePrompt,
-            undefined,
-            quality
-          );
+            v0Response = await generateWebsite(
+              templatePrompt,
+              undefined,
+              quality
+            );
+          } catch (fallbackError) {
+            console.error("[ChatPanel] Fallback generation also failed:", fallbackError);
+            v0Response = {
+              success: false,
+              error: `Både v0 template och fallback-generering misslyckades: ${fallbackError instanceof Error ? fallbackError.message : "Okänt fel"}`,
+            };
+          }
         }
       } // Close else block
 
       // Handle v0 response (for both direct API and local-to-v0 flow)
       if (v0Response?.success) {
-        // Save the v0 response to state
-        if (v0Response.chatId) setChatId(v0Response.chatId);
-        if (v0Response.demoUrl) setDemoUrl(v0Response.demoUrl);
-        if (v0Response.files && v0Response.files.length > 0) {
+        // Save the v0 response to state (only set if values exist)
+        if (v0Response.chatId) {
+          setChatId(v0Response.chatId);
+        }
+        if (v0Response.demoUrl) {
+          setDemoUrl(v0Response.demoUrl);
+        }
+        if (v0Response.files && Array.isArray(v0Response.files) && v0Response.files.length > 0) {
           setFiles(v0Response.files);
         }
         if (v0Response.versionId) {
@@ -723,6 +735,10 @@ export default function Page() {
     setIsRefinementMode(false);
 
     try {
+      // Ensure loading is set even if generateWebsite throws synchronously
+      if (!isLoading) {
+        setLoading(true);
+      }
       if (DEBUG) console.log("[ChatPanel] Calling API...");
       const response = await generateWebsite(prompt, type, quality);
       if (DEBUG)
