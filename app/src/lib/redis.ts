@@ -41,7 +41,7 @@ let redisClient: Redis | null = null;
 export function getRedis(): Redis | null {
   // Skip if Redis not configured
   if (!FEATURES.useRedisCache) {
-    console.log("[Redis] Not configured, skipping Redis connection");
+    // Redis not configured, skipping connection
     return null;
   }
 
@@ -63,11 +63,11 @@ export function getRedis(): Redis | null {
       });
 
       redisClient.on("connect", () => {
-        console.log("[Redis] Connected successfully");
+        // Redis connected successfully
       });
 
       redisClient.on("ready", () => {
-        console.log("[Redis] Ready to accept commands");
+        // Redis ready to accept commands
       });
     } catch (error) {
       console.error("[Redis] Failed to create client:", error);
@@ -428,7 +428,7 @@ export async function flushRedisCache(): Promise<boolean> {
 
   try {
     await redis.flushdb();
-    console.log("[Redis] Cache flushed");
+    // Cache flushed successfully
     return true;
   } catch (error) {
     console.error("[Redis] Failed to flush cache:", error);
@@ -480,7 +480,7 @@ export async function saveProjectFiles(
       PROJECT_FILES_TTL,
       JSON.stringify(files)
     );
-    console.log(`[Redis] Saved ${files.length} files for project ${projectId}`);
+    // Files saved to Redis
     return true;
   } catch (error) {
     console.error("[Redis] Failed to save project files:", error);
@@ -720,7 +720,7 @@ export async function saveVideoJob(job: VideoJob): Promise<boolean> {
       VIDEO_JOB_TTL,
       JSON.stringify(job)
     );
-    console.log(`[Redis] Saved video job: ${job.videoId}`);
+    // Video job saved to Redis
     return true;
   } catch (error) {
     console.error("[Redis] Failed to save video job:", error);
@@ -801,7 +801,7 @@ export async function cachePreview(preview: CachedPreview): Promise<boolean> {
       PREVIEW_CACHE_TTL,
       JSON.stringify(preview)
     );
-    console.log(`[Redis] Cached preview for template: ${preview.templateId}`);
+    // Preview cached successfully
     return true;
   } catch (error) {
     console.error("[Redis] Failed to cache preview:", error);

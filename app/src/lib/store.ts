@@ -376,7 +376,7 @@ export const useBuilderStore = create<BuilderState>()(
           isProjectOwned: owned,
           ownershipMode: owned ? mode : "none",
         });
-        console.log(`[Store] Project ownership set: ${owned} (${mode})`);
+        // Project ownership updated
       },
 
       // Check if project is owned (exists in Redis/GitHub)

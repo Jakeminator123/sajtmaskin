@@ -300,7 +300,6 @@ export function ChatPanel({
 
     // Skip if already loading (React state)
     if (isLoading) {
-      if (DEBUG) console.log("[ChatPanel] Skipping - already loading (state)");
       return;
     }
 
@@ -339,7 +338,6 @@ export function ChatPanel({
     const isNewRequest =
       moduleLastGeneratedKey !== currentKey && moduleLastGeneratedKey !== null;
     if (isNewRequest && (messages.length > 0 || demoUrl)) {
-      if (DEBUG) console.log("[ChatPanel] Clearing for new request");
       clearChat();
       moduleLastGeneratedKey = null;
       moduleGenerationInProgress = false;
@@ -352,9 +350,6 @@ export function ChatPanel({
     markGenerationStarted(currentKey);
     hasInitialGeneratedRef.current = true;
     lastGeneratedKeyRef.current = currentKey;
-
-    if (DEBUG)
-      console.log("[ChatPanel] Starting generation for key:", currentKey);
 
     // Handle different generation modes
     const startGeneration = async () => {
@@ -632,48 +627,26 @@ export default function Page() {
     setLoading(true);
 
     try {
-      if (DEBUG) console.log("[ChatPanel] Calling template API...");
       const response = await generateFromTemplate(templateId, quality);
-      if (DEBUG)
-        console.log("[ChatPanel] Template API response:", {
-          success: response.success,
-          hasCode: !!response.code,
-          hasFiles: !!response.files?.length,
-          hasChatId: !!response.chatId,
-          hasDemoUrl: !!response.demoUrl,
-        });
 
       if (response.success) {
         // Save chatId for subsequent refinements
         if (response.chatId) {
-          if (DEBUG) console.log("[ChatPanel] Saving chatId:", response.chatId);
           setChatId(response.chatId);
         }
 
         // Save files from v0-sdk response
         if (response.files && response.files.length > 0) {
-          if (DEBUG)
-            console.log(
-              "[ChatPanel] Saving files, count:",
-              response.files.length
-            );
           setFiles(response.files);
         }
 
         // Save demo URL
         if (response.demoUrl) {
-          if (DEBUG)
-            console.log("[ChatPanel] Saving demoUrl:", response.demoUrl);
           setDemoUrl(response.demoUrl);
         }
 
         // Set the main code
         if (response.code) {
-          if (DEBUG)
-            console.log(
-              "[ChatPanel] Setting code, length:",
-              response.code.length
-            );
           setCurrentCode(response.code);
         }
 
@@ -717,31 +690,18 @@ export default function Page() {
       if (!isLoading) {
         setLoading(true);
       }
-      if (DEBUG) console.log("[ChatPanel] Calling API...");
       const response = await generateWebsite(prompt, type, quality);
-      if (DEBUG)
-        console.log("[ChatPanel] API response:", {
-          success: response.success,
-          hasCode: !!response.code,
-          hasFiles: !!response.files?.length,
-          hasChatId: !!response.chatId,
-          hasMessage: !!response.message,
-          error: response.error,
-        });
 
       if (response.success && response.message) {
         addMessage("assistant", response.message);
 
         // Save chatId for future refinements
         if (response.chatId) {
-          if (DEBUG) console.log("[ChatPanel] Saving chatId:", response.chatId);
           setChatId(response.chatId);
         }
 
         // Save demoUrl for iframe preview (v0's hosted preview)
         if (response.demoUrl) {
-          if (DEBUG)
-            console.log("[ChatPanel] Saving demoUrl:", response.demoUrl);
           setDemoUrl(response.demoUrl);
         }
 

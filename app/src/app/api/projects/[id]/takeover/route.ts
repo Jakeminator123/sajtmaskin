@@ -62,9 +62,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
     const mode = body.mode || "redis"; // Default to Redis (simple, no GitHub required)
 
-    console.log(
-      `[Takeover] Starting takeover for project: ${projectId}, mode: ${mode}`
-    );
+    // Starting takeover process
 
     // 1. Verify user is authenticated
     const user = await getCurrentUser(request);
@@ -116,15 +114,12 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    console.log("[Takeover] Project chat ID:", projectData.chat_id);
-
     // 4. Get files from project data
-    console.log("[Takeover] Getting project files...");
 
     let files: ProjectFile[] = [];
 
     if (projectData.files && Array.isArray(projectData.files) && projectData.files.length > 0) {
-      console.log("[Takeover] Using cached files from project data");
+      // Using cached files from project data
       files = projectData.files
         .filter((f: unknown) => 
           f && 
@@ -150,11 +145,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    console.log("[Takeover] Got", files.length, "files");
+    // Files retrieved successfully
 
     // ============ REDIS MODE (Simple, no GitHub required) ============
     if (mode === "redis") {
-      console.log("[Takeover] Saving to Redis...");
+      // Saving to Redis
 
       // Save files to Redis
       try {
@@ -195,7 +190,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         console.warn("[Takeover] Failed to update project in database:", updateError);
       }
 
-      console.log("[Takeover] Project saved to Redis successfully!");
+      // Project saved to Redis successfully
 
       return NextResponse.json({
         success: true,
@@ -207,16 +202,12 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     // ============ GITHUB MODE (Full ownership) ============
-    console.log("[Takeover] Pushing to GitHub...");
-
     // Create GitHub repo
     const repoName =
       body.repoName ||
       `sajt-${project.name
         .toLowerCase()
         .replace(/[^a-z0-9]/g, "-")}-${Date.now()}`;
-
-    console.log("[Takeover] Creating GitHub repo:", repoName);
 
     // At this point we know fullUser has github_token (checked at line ~77-87)
     if (!fullUser?.github_token || !fullUser?.github_username) {
@@ -322,10 +313,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
     
-    console.log("[Takeover] Created repo:", repo.full_name);
-
     // 7. Push all files to repo (create initial commit with all files)
-    console.log("[Takeover] Pushing files to GitHub...");
 
     // Create blobs for all files
     const blobs: { path: string; sha: string }[] = [];
@@ -449,7 +437,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       });
     }
 
-    console.log("[Takeover] Files pushed successfully!");
+    // Files pushed successfully
 
     // Create GitHub-style project ID for URL routing (owner_repo format)
     const githubProjectId = `${githubUsername}_${repo.name}`;
@@ -489,7 +477,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       description: `GitHub: ${repo.html_url}`,
     });
 
-    console.log("[Takeover] Project saved to GitHub and Redis!");
+    // Project saved to GitHub and Redis successfully
 
     return NextResponse.json({
       success: true,
