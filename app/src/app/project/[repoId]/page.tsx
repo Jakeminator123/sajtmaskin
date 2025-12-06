@@ -761,12 +761,15 @@ function OwnedProjectContent() {
 
             <div className="flex gap-3">
               <textarea
+                id="ai-instruction"
+                name="instruction"
                 ref={inputRef}
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder="Beskriv vad du vill göra..."
                 rows={2}
+                autoComplete="off"
                 className="flex-1 px-4 py-3 bg-gray-800/80 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 resize-none"
                 disabled={isLoading}
               />

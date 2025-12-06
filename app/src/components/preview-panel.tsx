@@ -12,7 +12,6 @@ import {
   Minimize2,
   Globe,
   Loader2,
-  Sparkles,
 } from "lucide-react";
 
 interface PreviewPanelProps {
@@ -185,50 +184,40 @@ export function PreviewPanel({
 
         {/* Actions */}
         <div className="flex items-center gap-1">
-          {/* Regenerate preview button - show when we have files but want to update preview */}
+          {/* Single refresh/regenerate button */}
           {projectId && projectFiles.length > 0 && (
             <Button
               variant="ghost"
               size="sm"
-              onClick={handleRegeneratePreview}
+              onClick={
+                activePreviewUrl ? handleRefresh : handleRegeneratePreview
+              }
               disabled={isRegenerating}
-              className="h-7 gap-1 px-2 text-xs text-purple-400 hover:text-purple-300 hover:bg-purple-500/10"
-              title="Generera live preview från koden"
+              className="h-7 w-7 p-0 text-gray-400 hover:text-white"
+              title={activePreviewUrl ? "Ladda om preview" : "Generera preview"}
             >
               {isRegenerating ? (
-                <Loader2 className="h-3 w-3 animate-spin" />
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
               ) : (
-                <Sparkles className="h-3 w-3" />
+                <RefreshCw className="h-3.5 w-3.5" />
               )}
-              <span className="hidden sm:inline">
-                {isRegenerating ? "Genererar..." : "Live preview"}
-              </span>
             </Button>
           )}
-          {viewMode === "preview" && activePreviewUrl && (
-            <>
+          {activePreviewUrl && (
+            <a
+              href={activePreviewUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+            >
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={handleRefresh}
                 className="h-7 w-7 p-0 text-gray-400 hover:text-white"
+                title="Öppna i ny flik"
               >
-                <RefreshCw className="h-3.5 w-3.5" />
+                <ExternalLink className="h-3.5 w-3.5" />
               </Button>
-              <a
-                href={activePreviewUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  className="h-7 w-7 p-0 text-gray-400 hover:text-white"
-                >
-                  <ExternalLink className="h-3.5 w-3.5" />
-                </Button>
-              </a>
-            </>
+            </a>
           )}
           <Button
             variant="ghost"
@@ -347,7 +336,7 @@ export function PreviewPanel({
             <div className="absolute bottom-4 left-4 right-4 p-3 bg-purple-500/10 border border-purple-500/30 rounded-lg">
               <div className="flex items-center justify-between">
                 <p className="text-xs text-purple-300">
-                  Klicka på &quot;Live preview&quot; för att se koden live
+                  Generera en live preview för att se resultatet
                 </p>
                 <Button
                   size="sm"
@@ -358,7 +347,7 @@ export function PreviewPanel({
                   {isRegenerating ? (
                     <Loader2 className="h-3 w-3 animate-spin" />
                   ) : (
-                    <Sparkles className="h-3 w-3" />
+                    <RefreshCw className="h-3 w-3" />
                   )}
                   Generera
                 </Button>
