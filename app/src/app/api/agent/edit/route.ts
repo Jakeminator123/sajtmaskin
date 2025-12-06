@@ -11,6 +11,7 @@ import {
   createAgentContext,
   continueConversation,
   getDiamondCost,
+  detectTaskType,
   TaskType,
 } from "@/lib/openai-agent";
 import { getProjectMeta } from "@/lib/redis";
@@ -38,19 +39,17 @@ export const maxDuration = 180;
 interface EditRequest {
   projectId: string;
   instruction: string;
-  taskType?: TaskType;
+  taskType?: TaskType; // Optional - will be auto-detected if not provided
   previousResponseId?: string;
 }
 
 export async function POST(request: NextRequest) {
   try {
     const body: EditRequest = await request.json();
-    const {
-      projectId,
-      instruction,
-      taskType = "code_edit",
-      previousResponseId,
-    } = body;
+    const { projectId, instruction, previousResponseId } = body;
+
+    // Auto-detect task type from instruction if not explicitly provided
+    const taskType: TaskType = body.taskType || detectTaskType(instruction);
 
     // Processing agent edit request
 
@@ -234,7 +233,9 @@ export async function POST(request: NextRequest) {
       webSearchSources: result.webSearchSources,
       responseId: result.responseId,
       tokensUsed: result.tokensUsed,
-      ...(transaction?.balance_after !== undefined && { newBalance: transaction.balance_after }),
+      ...(transaction?.balance_after !== undefined && {
+        newBalance: transaction.balance_after,
+      }),
       storageType: context.storageType,
       taskType,
       diamondCost,

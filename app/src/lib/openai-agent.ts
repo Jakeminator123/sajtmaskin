@@ -285,6 +285,71 @@ export function getDiamondCost(taskType: TaskType): number {
   return MODEL_CONFIGS[taskType].diamondCost;
 }
 
+/**
+ * Auto-detect the most appropriate task type based on user instruction
+ * This eliminates the need for manual mode selection in the UI
+ */
+export function detectTaskType(instruction: string): TaskType {
+  const lower = instruction.toLowerCase();
+
+  // Image generation patterns
+  const imagePatterns = [
+    /\b(bild|logo|logotyp|ikon|illustration|grafik|bakgrund|hero[\s-]?bild)\b/i,
+    /\b(generera|skapa|rita)\s+(en\s+)?(bild|logo|ikon)/i,
+    /\b(image|logo|icon|picture|graphic|illustration)\b/i,
+  ];
+  if (imagePatterns.some((p) => p.test(lower))) {
+    return "image";
+  }
+
+  // Web search patterns
+  const searchPatterns = [
+    /\b(sök|hitta|leta|researcha|undersök)\s+(efter|på|om)?\b/i,
+    /\b(vad\s+är|hur\s+fungerar|vilka)\b.*\b(bästa|populära)\b/i,
+    /\b(search|find|look\s+up|research)\b/i,
+    /\b(inspiration|exempel|alternativ|konkurrent)\b/i,
+  ];
+  if (searchPatterns.some((p) => p.test(lower))) {
+    return "web_search";
+  }
+
+  // Copy/text generation patterns
+  const copyPatterns = [
+    /\b(skriv|skapa|generera)\s+(text|rubrik|copy|beskrivning|slogan|tagline)/i,
+    /\b(förbättra|omformulera|skriv\s+om)\s+(texten|rubriken|beskrivningen)/i,
+    /\b(text|rubrik|copy|beskrivning|innehåll|meta|seo)\b.*\b(skriv|generera|skapa)\b/i,
+    /\b(copywriting|headline|tagline|description)\b/i,
+  ];
+  if (copyPatterns.some((p) => p.test(lower))) {
+    return "copy";
+  }
+
+  // Heavy refactoring patterns
+  const refactorPatterns = [
+    /\b(refaktorera|omstrukturera|bryt\s+ut|dela\s+upp|organisera\s+om)\b/i,
+    /\b(design\s*system|komponent[\s-]?bibliotek|gemensam|delad)\b/i,
+    /\b(hela|alla|samtliga)\s+(fil|komponent|sidor?)\b/i,
+    /\b(stor|omfattande|komplex)\s+(ändring|förändring|uppdatering)\b/i,
+    /\b(refactor|restructure|reorganize)\b/i,
+  ];
+  if (refactorPatterns.some((p) => p.test(lower))) {
+    return "code_refactor";
+  }
+
+  // Analyze patterns
+  const analyzePatterns = [
+    /\b(analysera|utvärdera|granska|bedöm)\s+(kod|projekt|struktur)/i,
+    /\b(vad\s+kan|hur\s+kan|förslag|förbättring|optimera)\b/i,
+    /\b(analyze|evaluate|assess|review)\b/i,
+  ];
+  if (analyzePatterns.some((p) => p.test(lower))) {
+    return "analyze";
+  }
+
+  // Default to code_edit for everything else (most common case)
+  return "code_edit";
+}
+
 // ============ System Instructions per Task ============
 
 const SYSTEM_INSTRUCTIONS: Record<TaskType, string> = {

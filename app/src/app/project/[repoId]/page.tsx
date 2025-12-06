@@ -7,13 +7,15 @@ import { Button } from "@/components/ui/button";
 import { ClientOnly } from "@/components/client-only";
 import { ShaderBackground } from "@/components/shader-background";
 import { useAuth } from "@/lib/auth-store";
-import {
-  AgentModeSelector,
-  AgentMode,
-  getModeCost,
-} from "@/components/agent-mode-selector";
+// AgentMode type for response taskType (auto-detected by backend)
+type AgentMode =
+  | "code_edit"
+  | "copy"
+  | "image"
+  | "web_search"
+  | "code_refactor"
+  | "analyze";
 import { PreviewPanel } from "@/components/preview-panel";
-import { CostIndicator } from "@/components/cost-indicator";
 import {
   ArrowLeft,
   Github,
@@ -91,23 +93,35 @@ function OwnedProjectContent() {
   // - Redis mode: no owner → projectId = repoId (database UUID)
   const isGitHubMode = useMemo(() => !!owner, [owner]);
   // Sanitize owner and repoId to prevent injection issues
-  const sanitizedOwner = useMemo(() => owner ? owner.replace(/[^a-zA-Z0-9_-]/g, "") : null, [owner]);
-  const sanitizedRepoId = useMemo(() => repoId ? repoId.replace(/[^a-zA-Z0-9_-]/g, "") : "", [repoId]);
-  const projectId = useMemo(() => 
-    isGitHubMode && sanitizedOwner && sanitizedRepoId 
-      ? `${sanitizedOwner}_${sanitizedRepoId}` 
-      : sanitizedRepoId || repoId, 
+  const sanitizedOwner = useMemo(
+    () => (owner ? owner.replace(/[^a-zA-Z0-9_-]/g, "") : null),
+    [owner]
+  );
+  const sanitizedRepoId = useMemo(
+    () => (repoId ? repoId.replace(/[^a-zA-Z0-9_-]/g, "") : ""),
+    [repoId]
+  );
+  const projectId = useMemo(
+    () =>
+      isGitHubMode && sanitizedOwner && sanitizedRepoId
+        ? `${sanitizedOwner}_${sanitizedRepoId}`
+        : sanitizedRepoId || repoId,
     [isGitHubMode, sanitizedOwner, sanitizedRepoId, repoId]
   );
-  const repoFullName = useMemo(() => 
-    isGitHubMode && sanitizedOwner && sanitizedRepoId 
-      ? `${sanitizedOwner}/${sanitizedRepoId}` 
-      : null, 
+  const repoFullName = useMemo(
+    () =>
+      isGitHubMode && sanitizedOwner && sanitizedRepoId
+        ? `${sanitizedOwner}/${sanitizedRepoId}`
+        : null,
     [isGitHubMode, sanitizedOwner, sanitizedRepoId]
   );
-  const displayName = useMemo(() => repoFullName || sanitizedRepoId || repoId, [repoFullName, sanitizedRepoId, repoId]);
+  const displayName = useMemo(
+    () => repoFullName || sanitizedRepoId || repoId,
+    [repoFullName, sanitizedRepoId, repoId]
+  );
 
-  const { user, isAuthenticated, diamonds, fetchUser, hasGitHub, refreshUser } = useAuth();
+  const { user, isAuthenticated, diamonds, fetchUser, hasGitHub, refreshUser } =
+    useAuth();
 
   const [messages, setMessages] = useState<AgentMessage[]>([]);
   const [input, setInput] = useState("");
@@ -117,8 +131,7 @@ function OwnedProjectContent() {
   );
   const [error, setError] = useState<string | null>(null);
 
-  // New state for advanced features
-  const [selectedMode, setSelectedMode] = useState<AgentMode>("code_edit");
+  // Preview state
   const [showPreview, setShowPreview] = useState(true);
   const [lastUpdatedFile, setLastUpdatedFile] = useState<{
     path: string;
@@ -175,7 +188,9 @@ function OwnedProjectContent() {
 
       try {
         // Fetch project data to get demoUrl for preview
-        const projectRes = await fetch(`/api/projects/${encodeURIComponent(projectId)}`);
+        const projectRes = await fetch(
+          `/api/projects/${encodeURIComponent(projectId)}`
+        );
         if (projectRes.ok) {
           const projectData = await projectRes.json();
           if (projectData.success && projectData.data?.demo_url) {
@@ -237,9 +252,11 @@ function OwnedProjectContent() {
     // Refresh user data to get latest diamond balance before checking
     await refreshUser();
     const latestDiamonds = user?.diamonds ?? 0;
-    const cost = getModeCost(selectedMode);
-    if (latestDiamonds < cost) {
-      setError(`Du behöver ${cost} diamanter för denna åtgärd. Du har ${latestDiamonds}.`);
+    // Minimum cost is 1 diamond (code_edit) - API will determine actual cost
+    if (latestDiamonds < 1) {
+      setError(
+        `Du behöver minst 1 diamant för att använda AI. Du har ${latestDiamonds}.`
+      );
       return;
     }
 
@@ -247,7 +264,6 @@ function OwnedProjectContent() {
       id: `msg_${Date.now()}`,
       role: "user",
       content: input.trim(),
-      mode: selectedMode,
       timestamp: new Date(),
     };
 
@@ -257,14 +273,14 @@ function OwnedProjectContent() {
     setError(null);
 
     try {
+      // Let API auto-detect the task type based on instruction
       const response = await fetch("/api/agent/edit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           instruction: userMessage.content,
-          projectId, // Use the resolved projectId (works for both Redis and GitHub mode)
-          taskType: selectedMode,
-          ...(previousResponseId && { previousResponseId }), // Only include if not null
+          projectId,
+          ...(previousResponseId && { previousResponseId }),
         }),
       });
 
@@ -272,7 +288,8 @@ function OwnedProjectContent() {
       try {
         data = await response.json();
       } catch (jsonError) {
-        const errorMsg = jsonError instanceof Error ? jsonError.message : "Okänt fel";
+        const errorMsg =
+          jsonError instanceof Error ? jsonError.message : "Okänt fel";
         setError(`Kunde inte läsa svar från servern: ${errorMsg}`);
         return;
       }
@@ -298,9 +315,20 @@ function OwnedProjectContent() {
           setPreviousResponseId(null);
         }
 
-        // Update preview state
+        // Update preview state with new/changed files
         if (data.updatedFiles && data.updatedFiles.length > 0) {
-          setLastUpdatedFile(data.updatedFiles[data.updatedFiles.length - 1]);
+          const latestFile = data.updatedFiles[data.updatedFiles.length - 1];
+          setLastUpdatedFile(latestFile);
+
+          // Merge updated files into projectFiles for live preview
+          setProjectFiles((prevFiles) => {
+            const updatedPaths = new Set(data.updatedFiles!.map((f) => f.path));
+            // Keep files that weren't updated, add/replace updated ones
+            const unchanged = prevFiles.filter(
+              (f) => !updatedPaths.has(f.path)
+            );
+            return [...unchanged, ...data.updatedFiles!];
+          });
         }
         if (data.generatedImages && data.generatedImages.length > 0) {
           setLastGeneratedImage(data.generatedImages[0]);
@@ -372,7 +400,7 @@ function OwnedProjectContent() {
       </div>
     );
   }
-  
+
   if (isGitHubMode && !hasGitHub) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
@@ -460,7 +488,10 @@ function OwnedProjectContent() {
 
           {/* Download ZIP button (only for Redis mode) */}
           {!isGitHubMode && projectId && (
-            <a href={`/api/projects/${encodeURIComponent(projectId)}/download`} download>
+            <a
+              href={`/api/projects/${encodeURIComponent(projectId)}/download`}
+              download
+            >
               <Button
                 variant="outline"
                 size="sm"
@@ -493,16 +524,6 @@ function OwnedProjectContent() {
         </div>
       </header>
 
-      {/* Mode selector bar */}
-      <div className="relative z-20 px-4 py-2 border-b border-gray-800 bg-black/60 backdrop-blur-sm flex items-center justify-between">
-        <AgentModeSelector
-          selectedMode={selectedMode}
-          onModeChange={setSelectedMode}
-          disabled={isLoading}
-        />
-        <CostIndicator mode={selectedMode} currentBalance={diamonds} />
-      </div>
-
       {/* Main content - Split view */}
       <div className="relative z-10 flex-1 flex overflow-hidden">
         {/* Chat Panel */}
@@ -523,18 +544,28 @@ function OwnedProjectContent() {
               <span>{projectLoadError}</span>
             </div>
           )}
-          {!isProjectLoading && !projectLoadError && projectFiles.length === 0 && (
-            <div className="px-4 py-3 border-b border-amber-800 bg-amber-500/10 text-sm text-amber-300 flex items-center gap-2">
-              <AlertCircle className="h-4 w-4" />
-              <span>Inga filer hittades i projektet. Gör en takeover från Builder först.</span>
-            </div>
-          )}
-          {!isProjectLoading && !projectLoadError && projectFiles.length > 0 && (
-            <div className="px-4 py-3 border-b border-gray-800 text-sm text-gray-400 flex items-center gap-2">
-              <Check className="h-4 w-4 text-green-500" />
-              <span>{projectFiles.length} filer laddade. Välj ett läge och beskriv din ändring.</span>
-            </div>
-          )}
+          {!isProjectLoading &&
+            !projectLoadError &&
+            projectFiles.length === 0 && (
+              <div className="px-4 py-3 border-b border-amber-800 bg-amber-500/10 text-sm text-amber-300 flex items-center gap-2">
+                <AlertCircle className="h-4 w-4" />
+                <span>
+                  Inga filer hittades i projektet. Gör en takeover från Builder
+                  först.
+                </span>
+              </div>
+            )}
+          {!isProjectLoading &&
+            !projectLoadError &&
+            projectFiles.length > 0 && (
+              <div className="px-4 py-3 border-b border-gray-800 text-sm text-gray-400 flex items-center gap-2">
+                <Check className="h-4 w-4 text-green-500" />
+                <span>
+                  {projectFiles.length} filer laddade. Välj ett läge och beskriv
+                  din ändring.
+                </span>
+              </div>
+            )}
           {/* Welcome message if no messages */}
           {messages.length === 0 && (
             <div className="flex-1 flex items-center justify-center p-8">
@@ -542,84 +573,28 @@ function OwnedProjectContent() {
                 <div className="p-4 bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-full w-fit mx-auto">
                   <Sparkles className="h-8 w-8 text-purple-400" />
                 </div>
-                <h2 className="text-xl font-semibold text-white">
-                  AI Studio - GPT-5
-                </h2>
+                <h2 className="text-xl font-semibold text-white">AI Studio</h2>
                 <p className="text-gray-400">
-                  Välj ett läge ovan och beskriv vad du vill göra. AI:n använder
-                  rätt modell och verktyg automatiskt.
+                  Beskriv vad du vill göra med ditt projekt. AI:n väljer
+                  automatiskt rätt verktyg.
                 </p>
-                <div className="grid grid-cols-2 gap-3 text-left">
-                  <button
-                    onClick={() => {
-                      setSelectedMode("code_edit");
-                      inputRef.current?.focus();
-                    }}
-                    className={`p-3 border rounded-lg text-left transition-all hover:scale-[1.02] ${
-                      selectedMode === "code_edit"
-                        ? "bg-emerald-500/20 border-emerald-500/50"
-                        : "bg-emerald-500/10 border-emerald-500/20 hover:border-emerald-500/40"
-                    }`}
-                  >
-                    <FileCode className="h-4 w-4 text-emerald-400 mb-1" />
-                    <p className="text-xs text-emerald-400 font-medium">Kod</p>
-                    <p className="text-xs text-gray-500">
-                      Redigera komponenter, lägg till sektioner
-                    </p>
-                  </button>
-                  <button
-                    onClick={() => {
-                      setSelectedMode("image");
-                      inputRef.current?.focus();
-                    }}
-                    className={`p-3 border rounded-lg text-left transition-all hover:scale-[1.02] ${
-                      selectedMode === "image"
-                        ? "bg-pink-500/20 border-pink-500/50"
-                        : "bg-pink-500/10 border-pink-500/20 hover:border-pink-500/40"
-                    }`}
-                  >
-                    <ImageIcon className="h-4 w-4 text-pink-400 mb-1" />
-                    <p className="text-xs text-pink-400 font-medium">Media</p>
-                    <p className="text-xs text-gray-500">
-                      Generera loggor, hero-bilder
-                    </p>
-                  </button>
-                  <button
-                    onClick={() => {
-                      setSelectedMode("web_search");
-                      inputRef.current?.focus();
-                    }}
-                    className={`p-3 border rounded-lg text-left transition-all hover:scale-[1.02] ${
-                      selectedMode === "web_search"
-                        ? "bg-amber-500/20 border-amber-500/50"
-                        : "bg-amber-500/10 border-amber-500/20 hover:border-amber-500/40"
-                    }`}
-                  >
-                    <Globe className="h-4 w-4 text-amber-400 mb-1" />
-                    <p className="text-xs text-amber-400 font-medium">Sök</p>
-                    <p className="text-xs text-gray-500">
-                      Hitta inspiration, ikoner, typsnitt
-                    </p>
-                  </button>
-                  <button
-                    onClick={() => {
-                      setSelectedMode("code_refactor");
-                      inputRef.current?.focus();
-                    }}
-                    className={`p-3 border rounded-lg text-left transition-all hover:scale-[1.02] ${
-                      selectedMode === "code_refactor"
-                        ? "bg-purple-500/20 border-purple-500/50"
-                        : "bg-purple-500/10 border-purple-500/20 hover:border-purple-500/40"
-                    }`}
-                  >
-                    <Sparkles className="h-4 w-4 text-purple-400 mb-1" />
-                    <p className="text-xs text-purple-400 font-medium">
-                      Avancerat
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      Tung refaktorering, design system
-                    </p>
-                  </button>
+                <div className="grid grid-cols-2 gap-2 text-xs text-gray-500">
+                  <div className="flex items-center gap-2 p-2 bg-gray-800/30 rounded">
+                    <FileCode className="h-3 w-3 text-emerald-400" />
+                    <span>Kod &amp; komponenter</span>
+                  </div>
+                  <div className="flex items-center gap-2 p-2 bg-gray-800/30 rounded">
+                    <ImageIcon className="h-3 w-3 text-pink-400" />
+                    <span>Bilder &amp; loggor</span>
+                  </div>
+                  <div className="flex items-center gap-2 p-2 bg-gray-800/30 rounded">
+                    <Globe className="h-3 w-3 text-amber-400" />
+                    <span>Sök &amp; research</span>
+                  </div>
+                  <div className="flex items-center gap-2 p-2 bg-gray-800/30 rounded">
+                    <Sparkles className="h-3 w-3 text-purple-400" />
+                    <span>Refaktorering</span>
+                  </div>
                 </div>
               </div>
             </div>
@@ -642,17 +617,6 @@ function OwnedProjectContent() {
                         : "bg-gray-800/80 text-gray-200"
                     }`}
                   >
-                    {/* Mode badge for user messages */}
-                    {msg.role === "user" && msg.mode && (
-                      <span className="inline-block px-2 py-0.5 mb-2 text-xs bg-white/10 rounded text-white/70">
-                        {msg.mode === "code_edit" && "Kod"}
-                        {msg.mode === "copy" && "Copy"}
-                        {msg.mode === "image" && "Media"}
-                        {msg.mode === "web_search" && "Sök"}
-                        {msg.mode === "code_refactor" && "Avancerat"}
-                      </span>
-                    )}
-
                     <p className="whitespace-pre-wrap">{msg.content}</p>
 
                     {/* Updated files list */}
@@ -738,15 +702,7 @@ function OwnedProjectContent() {
                   <div className="bg-gray-800/80 p-4 rounded-2xl">
                     <div className="flex items-center gap-2 text-gray-400">
                       <Loader2 className="h-4 w-4 animate-spin" />
-                      <span>
-                        {selectedMode === "image"
-                          ? "Genererar bild..."
-                          : selectedMode === "web_search"
-                          ? "Söker på webben..."
-                          : selectedMode === "code_refactor"
-                          ? "Analyserar kodbas..."
-                          : "AI:n arbetar..."}
-                      </span>
+                      <span>AI:n arbetar...</span>
                     </div>
                   </div>
                 </div>
@@ -770,17 +726,7 @@ function OwnedProjectContent() {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder={
-                  selectedMode === "code_edit"
-                    ? "Beskriv vad du vill ändra i koden..."
-                    : selectedMode === "copy"
-                    ? "Beskriv vilken text du vill generera..."
-                    : selectedMode === "image"
-                    ? "Beskriv bilden du vill generera (logga, hero, etc)..."
-                    : selectedMode === "web_search"
-                    ? "Vad vill du söka efter?"
-                    : "Beskriv den stora ändringen du vill göra..."
-                }
+                placeholder="Beskriv vad du vill göra..."
                 rows={2}
                 className="flex-1 px-4 py-3 bg-gray-800/80 border border-gray-700 rounded-xl text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 resize-none"
                 disabled={isLoading}
@@ -792,7 +738,7 @@ function OwnedProjectContent() {
                   isLoading ||
                   isProjectLoading ||
                   !!projectLoadError ||
-                  diamonds < getModeCost(selectedMode)
+                  diamonds < 1
                 }
                 className="px-4 bg-purple-600 hover:bg-purple-500 disabled:opacity-50"
               >
@@ -805,10 +751,7 @@ function OwnedProjectContent() {
             </div>
 
             <p className="mt-2 text-xs text-gray-500 text-center">
-              Enter = skicka • Shift+Enter = ny rad • GPT-5{" "}
-              {selectedMode === "code_refactor" || selectedMode === "image"
-                ? ""
-                : "-mini"}
+              Enter = skicka • Shift+Enter = ny rad
             </p>
           </div>
         </div>
@@ -818,7 +761,10 @@ function OwnedProjectContent() {
           <div className="w-1/2 p-4">
             <PreviewPanel
               previewUrl={projectDemoUrl || undefined}
-              lastUpdatedFile={lastUpdatedFile || (projectFiles.length > 0 ? projectFiles[0] : undefined)}
+              lastUpdatedFile={
+                lastUpdatedFile ||
+                (projectFiles.length > 0 ? projectFiles[0] : undefined)
+              }
               generatedImage={lastGeneratedImage || undefined}
               projectFiles={projectFiles}
               isLoading={isProjectLoading}
