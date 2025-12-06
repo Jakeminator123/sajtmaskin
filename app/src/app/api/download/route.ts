@@ -104,7 +104,13 @@ export async function GET(request: NextRequest) {
     await Promise.all(filePromises);
 
     // Extract content manifest from the code
-    const combinedCode = codeFiles.map((f) => f.content).join("\n\n");
+    // Limit combined code size to prevent memory issues (max 5MB)
+    const MAX_COMBINED_CODE_SIZE = 5 * 1024 * 1024; // 5MB
+    let combinedCode = codeFiles.map((f) => f.content).join("\n\n");
+    if (combinedCode.length > MAX_COMBINED_CODE_SIZE) {
+      console.warn("[API/download] Combined code exceeds 5MB, truncating");
+      combinedCode = combinedCode.substring(0, MAX_COMBINED_CODE_SIZE);
+    }
     const manifest = extractContent(combinedCode, codeFiles);
 
     console.log("[API/download] Extracted manifest:", {

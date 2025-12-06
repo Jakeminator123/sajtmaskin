@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   X,
   Github,
@@ -73,41 +73,80 @@ export function TakeoverModal({
   // Check if user has GitHub connected
   const hasGitHub = !!(user?.github_token && user?.github_username);
 
-  // Generate default repo name
+  // Generate default repo name (sanitize for GitHub requirements)
   const defaultRepoName = `sajt-${projectName
     .toLowerCase()
-    .replace(/[^a-z0-9]/g, "-")}`;
+    .replace(/[^a-z0-9-]/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "")
+    .substring(0, 100)}`; // GitHub max length is 100 chars
 
   useEffect(() => {
     if (isOpen) {
+      // Reset all state when modal opens
       setResult(null);
       setCustomRepoName("");
       setSelectedMode("simple");
       setAnalysisResult(null);
       setIsAnalyzing(false);
       setShowAnalysis(true);
+      isMountedRef.current = true;
     }
+    // Cleanup on unmount
+    return () => {
+      isMountedRef.current = false;
+    };
   }, [isOpen]);
 
   if (!isOpen) return null;
 
+  // Track if component is mounted to prevent state updates after unmount
+  const isMountedRef = useRef(true);
+  
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
+
   // Run automatic project analysis
   const runAnalysis = async () => {
+    if (!isMountedRef.current) return;
+    
     setIsAnalyzing(true);
     try {
       const response = await fetch(`/api/projects/${projectId}/analyze`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
       });
+      
+      if (!response.ok) {
+        throw new Error(`Analysis failed: ${response.status} ${response.statusText}`);
+      }
+      
       const data: AnalysisResult = await response.json();
-      setAnalysisResult(data);
-    } catch {
-      setAnalysisResult({
-        success: false,
-        error: "Kunde inte analysera projektet",
-      });
+      
+      // Only update state if component is still mounted
+      if (isMountedRef.current) {
+        setAnalysisResult(data);
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Okänt fel";
+      console.error("[TakeoverModal] Analysis error:", errorMessage);
+      
+      // Only update state if component is still mounted
+      if (isMountedRef.current) {
+        setAnalysisResult({
+          success: false,
+          error: `Kunde inte analysera projektet: ${errorMessage}`,
+        });
+      }
     } finally {
-      setIsAnalyzing(false);
+      // Only update state if component is still mounted
+      if (isMountedRef.current) {
+        setIsAnalyzing(false);
+      }
     }
   };
 

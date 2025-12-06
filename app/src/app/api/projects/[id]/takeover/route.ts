@@ -148,10 +148,19 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       console.log("[Takeover] Saving to Redis...");
 
       // Save files to Redis
-      const filesSaved = await saveProjectFiles(projectId, files);
-      if (!filesSaved) {
+      try {
+        const filesSaved = await saveProjectFiles(projectId, files);
+        if (!filesSaved) {
+          return NextResponse.json(
+            { success: false, error: "Kunde inte spara projektfiler till Redis" },
+            { status: 500 }
+          );
+        }
+      } catch (saveError) {
+        const errorMessage = saveError instanceof Error ? saveError.message : "Okänt fel";
+        console.error("[Takeover] Failed to save files to Redis:", errorMessage);
         return NextResponse.json(
-          { success: false, error: "Kunde inte spara projektfiler" },
+          { success: false, error: `Kunde inte spara projektfiler: ${errorMessage}` },
           { status: 500 }
         );
       }
@@ -167,10 +176,15 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       });
 
       // Update project in database
-      updateProject(projectId, {
-        name: `${project.name} ✏️`,
-        description: "Övertagen - kan redigeras med AI",
-      });
+      try {
+        updateProject(projectId, {
+          name: `${project.name} ✏️`,
+          description: "Övertagen - kan redigeras med AI",
+        });
+      } catch (updateError) {
+        // Log but don't fail - files are already saved
+        console.warn("[Takeover] Failed to update project in database:", updateError);
+      }
 
       console.log("[Takeover] Project saved to Redis successfully!");
 

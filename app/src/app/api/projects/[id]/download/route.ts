@@ -46,11 +46,11 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     // For GitHub projects, redirect to GitHub instead
     if (meta.storageType === "github" && meta.githubOwner && meta.githubRepo) {
-      return NextResponse.json({
-        success: false,
-        error: "GitHub-projekt kan laddas ner direkt från GitHub",
-        githubUrl: `https://github.com/${meta.githubOwner}/${meta.githubRepo}/archive/refs/heads/main.zip`,
-      });
+      // Return redirect response instead of JSON (client expects download)
+      return NextResponse.redirect(
+        `https://github.com/${meta.githubOwner}/${meta.githubRepo}/archive/refs/heads/main.zip`,
+        302
+      );
     }
 
     // Get project files from Redis
@@ -67,8 +67,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     // Add each file to the ZIP
     for (const file of files) {
-      // Skip base64 image placeholders
-      if (file.content.startsWith("[BASE64_IMAGE:")) {
+      // Skip base64 image placeholders (these are markers, not actual image data)
+      // Check for exact placeholder format to avoid skipping real files
+      if (file.content && typeof file.content === "string" && file.content.trim() === `[BASE64_IMAGE:${file.path.split("/").pop()}]`) {
         continue;
       }
       zip.file(file.path, file.content);

@@ -37,18 +37,32 @@ export default function ProjectsPage() {
 
   useEffect(() => {
     loadProjects();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run on mount
 
   async function loadProjects() {
     try {
       setLoading(true);
       // Load both regular projects and taken-over projects in parallel
-      const [regularProjects, aiProjects] = await Promise.all([
+      // Use Promise.allSettled to handle partial failures gracefully
+      const [regularResult, aiResult] = await Promise.allSettled([
         getProjects(),
         getTakenOverProjects(),
       ]);
-      setProjects(regularProjects);
-      setTakenOverProjects(aiProjects);
+      
+      if (regularResult.status === "fulfilled") {
+        setProjects(regularResult.value);
+      } else {
+        console.error("[ProjectsPage] Failed to load regular projects:", regularResult.reason);
+        setError("Kunde inte ladda alla projekt");
+      }
+      
+      if (aiResult.status === "fulfilled") {
+        setTakenOverProjects(aiResult.value);
+      } else {
+        console.error("[ProjectsPage] Failed to load AI projects:", aiResult.reason);
+        // Don't set error for AI projects failure, just log it
+      }
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : "Kunde inte ladda projekt";
       setError(errorMessage);
@@ -62,11 +76,16 @@ export default function ProjectsPage() {
       return;
     }
 
+    // Optimistically update UI (remove from list immediately)
+    const previousProjects = [...projects];
+    setProjects((prev) => prev.filter((p) => p.id !== id));
+
     try {
       await deleteProject(id);
-      setProjects((prev) => prev.filter((p) => p.id !== id));
       triggerReaction("download", `"${name}" borttaget!`);
     } catch (err: unknown) {
+      // Revert UI change on error
+      setProjects(previousProjects);
       const errorMessage = err instanceof Error ? err.message : "Okänt fel";
       alert(`Kunde inte ta bort projekt: ${errorMessage}`);
       triggerReaction("generation_error", "Kunde inte ta bort projektet.");
@@ -117,8 +136,8 @@ export default function ProjectsPage() {
           <div>
             <h1 className="text-3xl font-bold text-white">Mina Projekt</h1>
             <p className="text-gray-400 mt-1">
-              {projects.length + takenOverProjects.length} projekt totalt
-              {takenOverProjects.length > 0 && (
+              {(projects?.length || 0) + (takenOverProjects?.length || 0)} projekt totalt
+              {(takenOverProjects?.length || 0) > 0 && (
                 <span className="ml-2 text-purple-400">
                   ({takenOverProjects.length} med AI Studio)
                 </span>
@@ -270,12 +289,17 @@ export default function ProjectsPage() {
                 >
                   {/* Thumbnail placeholder */}
                   <div className="aspect-video bg-gradient-to-br from-gray-900 to-black relative">
-                    {project.thumbnail_path ? (
+                    {project.thumbnail_path && 
+                     (project.thumbnail_path.startsWith("http") || project.thumbnail_path.startsWith("/")) ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
                         src={project.thumbnail_path}
                         alt={project.name}
                         className="w-full h-full object-cover"
+                        onError={(e) => {
+                          // Hide image on error, show placeholder instead
+                          (e.target as HTMLImageElement).style.display = "none";
+                        }}
                       />
                     ) : (
                       <div className="absolute inset-0 flex items-center justify-center text-gray-700">

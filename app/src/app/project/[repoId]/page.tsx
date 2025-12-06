@@ -1,7 +1,7 @@
 "use client";
 
 import { useParams, useSearchParams } from "next/navigation";
-import { useEffect, useState, useRef, KeyboardEvent } from "react";
+import { useEffect, useState, useRef, KeyboardEvent, useMemo } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { ClientOnly } from "@/components/client-only";
@@ -89,12 +89,12 @@ function OwnedProjectContent() {
   // Determine mode and project ID:
   // - GitHub mode: owner param exists → projectId = "owner_repo", repoFullName for display
   // - Redis mode: no owner → projectId = repoId (database UUID)
-  const isGitHubMode = !!owner;
-  const projectId = isGitHubMode ? `${owner}_${repoId}` : repoId;
-  const repoFullName = isGitHubMode ? `${owner}/${repoId}` : null;
-  const displayName = repoFullName || repoId;
+  const isGitHubMode = useMemo(() => !!owner, [owner]);
+  const projectId = useMemo(() => isGitHubMode ? `${owner}_${repoId}` : repoId, [isGitHubMode, owner, repoId]);
+  const repoFullName = useMemo(() => isGitHubMode ? `${owner}/${repoId}` : null, [isGitHubMode, owner, repoId]);
+  const displayName = useMemo(() => repoFullName || repoId, [repoFullName, repoId]);
 
-  const { user, isAuthenticated, diamonds, fetchUser, hasGitHub } = useAuth();
+  const { user, isAuthenticated, diamonds, fetchUser, hasGitHub, refreshUser } = useAuth();
 
   const [messages, setMessages] = useState<AgentMessage[]>([]);
   const [input, setInput] = useState("");
@@ -164,7 +164,14 @@ function OwnedProjectContent() {
         }),
       });
 
-      const data: AgentResponse = await response.json();
+      let data: AgentResponse;
+      try {
+        data = await response.json();
+      } catch (jsonError) {
+        const errorMsg = jsonError instanceof Error ? jsonError.message : "Okänt fel";
+        setError(`Kunde inte läsa svar från servern: ${errorMsg}`);
+        return;
+      }
 
       if (data.success) {
         const assistantMessage: AgentMessage = {
@@ -257,6 +264,13 @@ function OwnedProjectContent() {
   }
 
   // No GitHub connected (only required for GitHub mode)
+  // Refresh user data to ensure hasGitHub is up-to-date
+  useEffect(() => {
+    if (isGitHubMode) {
+      refreshUser();
+    }
+  }, [isGitHubMode, refreshUser]);
+  
   if (isGitHubMode && !hasGitHub) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
@@ -338,8 +352,8 @@ function OwnedProjectContent() {
           </Button>
 
           {/* Download ZIP button (only for Redis mode) */}
-          {!isGitHubMode && (
-            <a href={`/api/projects/${projectId}/download`} download>
+          {!isGitHubMode && projectId && (
+            <a href={`/api/projects/${encodeURIComponent(projectId)}/download`} download>
               <Button
                 variant="outline"
                 size="sm"
