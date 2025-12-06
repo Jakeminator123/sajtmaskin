@@ -156,18 +156,20 @@ export const useBuilderStore = create<BuilderState>()(
           ],
         }));
         // Trigger auto-save after message (fire-and-forget, debounced internally)
-        get().saveToDatabase().catch((err) =>
-          console.error("[Store] Failed to save message:", err)
-        );
+        get()
+          .saveToDatabase()
+          .catch((err) =>
+            console.error("[Store] Failed to save message:", err)
+          );
       },
 
       setLoading: (loading) => set({ isLoading: loading }),
 
       setChatId: (id) => {
         set({ chatId: id });
-        get().saveToDatabase().catch((err) =>
-          console.error("[Store] Failed to save chatId:", err)
-        );
+        get()
+          .saveToDatabase()
+          .catch((err) => console.error("[Store] Failed to save chatId:", err));
       },
 
       setFiles: (files) => {
@@ -203,16 +205,18 @@ export const useBuilderStore = create<BuilderState>()(
 
       setCurrentCode: (code) => {
         set({ currentCode: code });
-        get().saveToDatabase().catch((err) =>
-          console.error("[Store] Failed to save code:", err)
-        );
+        get()
+          .saveToDatabase()
+          .catch((err) => console.error("[Store] Failed to save code:", err));
       },
 
       setDemoUrl: (url) => {
         set({ demoUrl: url });
-        get().saveToDatabase().catch((err) =>
-          console.error("[Store] Failed to save demoUrl:", err)
-        );
+        get()
+          .saveToDatabase()
+          .catch((err) =>
+            console.error("[Store] Failed to save demoUrl:", err)
+          );
       },
 
       setScreenshotUrl: (url) => {
@@ -221,9 +225,11 @@ export const useBuilderStore = create<BuilderState>()(
 
       setVersionId: (id) => {
         set({ versionId: id });
-        get().saveToDatabase().catch((err) =>
-          console.error("[Store] Failed to save versionId:", err)
-        );
+        get()
+          .saveToDatabase()
+          .catch((err) =>
+            console.error("[Store] Failed to save versionId:", err)
+          );
       },
 
       setViewMode: (mode) => set({ viewMode: mode }),
@@ -328,7 +334,7 @@ export const useBuilderStore = create<BuilderState>()(
             throw error; // Re-throw so callers can catch if needed
           }
         }, 1000); // 1 second debounce
-        
+
         // Return a promise that resolves when the timeout completes
         return Promise.resolve();
       },
@@ -402,16 +408,39 @@ export const useBuilderStore = create<BuilderState>()(
     }),
     {
       name: "sajtmaskin-builder-state",
-      // Only persist these fields locally (backup)
+      /**
+       * Persist ONLY lightweight UI/context fields.
+       * Heavy payloads (files/currentCode/messages) must come from backend/Redis,
+       * not localStorage, to avoid bloat and stale state.
+       */
       partialize: (state) => ({
         projectId: state.projectId,
-        messages: state.messages,
         chatId: state.chatId,
-        files: state.files,
-        currentCode: state.currentCode,
         demoUrl: state.demoUrl,
+        viewMode: state.viewMode,
+        deviceSize: state.deviceSize,
         quality: state.quality,
+        ownershipMode: state.ownershipMode,
+        isProjectOwned: state.isProjectOwned,
       }),
+      version: 2,
+      migrate: (persistedState: any, version) => {
+        // Drop heavy fields from older persisted versions
+        if (version < 2) {
+          return {
+            ...persistedState,
+            messages: [],
+            files: [],
+            currentCode: null,
+            screenshotUrl: null,
+            versionId: null,
+            isSaving: false,
+            lastSaved: null,
+            hasUserSaved: persistedState?.hasUserSaved ?? false,
+          };
+        }
+        return persistedState;
+      },
       // Custom storage with Date serialization
       storage: createJSONStorage(() => localStorage, {
         reviver: (key, value) => {
@@ -426,7 +455,10 @@ export const useBuilderStore = create<BuilderState>()(
               const date = new Date(dateValue);
               // Validate date
               if (isNaN(date.getTime())) {
-                console.warn("[Store] Invalid date in storage, using current date:", dateValue);
+                console.warn(
+                  "[Store] Invalid date in storage, using current date:",
+                  dateValue
+                );
                 return new Date();
               }
               return date;
@@ -434,7 +466,10 @@ export const useBuilderStore = create<BuilderState>()(
             if (key === "timestamp" && typeof value === "string") {
               const date = new Date(value);
               if (isNaN(date.getTime())) {
-                console.warn("[Store] Invalid timestamp in storage, using current date:", value);
+                console.warn(
+                  "[Store] Invalid timestamp in storage, using current date:",
+                  value
+                );
                 return new Date();
               }
               return date;
@@ -450,7 +485,9 @@ export const useBuilderStore = create<BuilderState>()(
             if (value instanceof Date) {
               // Validate date before serializing
               if (isNaN(value.getTime())) {
-                console.warn("[Store] Invalid date being serialized, using current date");
+                console.warn(
+                  "[Store] Invalid date being serialized, using current date"
+                );
                 return { __type: "Date", value: new Date().toISOString() };
               }
               return { __type: "Date", value: value.toISOString() };

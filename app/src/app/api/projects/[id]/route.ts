@@ -5,6 +5,7 @@ import {
   deleteProject,
   getProjectData,
 } from "@/lib/database";
+import { getCache, setCache, deleteCache } from "@/lib/redis";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -14,6 +15,19 @@ interface RouteParams {
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
+
+    const cacheKey = `project:${id}`;
+    const cached = await getCache<{ project: any; data: any }>(cacheKey);
+    if (cached) {
+      console.log("[API/projects/:id] Redis cache hit for", id);
+      return NextResponse.json({
+        success: true,
+        project: cached.project,
+        data: cached.data,
+        cached: true,
+      });
+    }
+
     const project = getProjectById(id);
 
     if (!project) {
@@ -25,10 +39,13 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     const projectData = getProjectData(id);
 
+    await setCache(cacheKey, { project, data: projectData }, 120);
+
     return NextResponse.json({
       success: true,
       project,
       data: projectData,
+      cached: false,
     });
   } catch (error: any) {
     console.error("[API] Failed to get project:", error);
@@ -54,6 +71,10 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     }
 
     const updated = updateProject(id, body);
+
+    // Invalidate caches
+    await deleteCache(`project:${id}`);
+    await deleteCache("projects:list");
 
     return NextResponse.json({ success: true, project: updated });
   } catch (error: any) {
@@ -88,4 +109,3 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     );
   }
 }
-

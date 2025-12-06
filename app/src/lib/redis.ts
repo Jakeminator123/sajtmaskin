@@ -37,11 +37,16 @@ import { REDIS_CONFIG, FEATURES } from "./config";
 
 // Create Redis client (singleton)
 let redisClient: Redis | null = null;
+let redisDisabledLogged = false;
+let redisMissingLogged = false;
 
 export function getRedis(): Redis | null {
   // Skip if Redis not configured
   if (!FEATURES.useRedisCache) {
-    // Redis not configured, skipping connection
+    if (!redisDisabledLogged) {
+      console.warn("[Redis] Disabled: REDIS_URL/REDIS config missing");
+      redisDisabledLogged = true;
+    }
     return null;
   }
 
@@ -124,7 +129,10 @@ export async function getCachedUserSession(
       try {
         return JSON.parse(data) as CachedUser;
       } catch (parseError) {
-        console.error("[Redis] Failed to parse cached user session JSON:", parseError);
+        console.error(
+          "[Redis] Failed to parse cached user session JSON:",
+          parseError
+        );
         // Invalid JSON, delete corrupted cache
         await redis.del(`${USER_SESSION_PREFIX}${userId}`);
         return null;
@@ -168,7 +176,10 @@ export async function updateCachedUserDiamonds(
           JSON.stringify(user)
         );
       } catch (parseError) {
-        console.error("[Redis] Failed to parse cached user JSON for diamond update:", parseError);
+        console.error(
+          "[Redis] Failed to parse cached user JSON for diamond update:",
+          parseError
+        );
         // Invalid JSON, delete corrupted cache
         await redis.del(`${USER_SESSION_PREFIX}${userId}`);
       }
@@ -201,7 +212,10 @@ export async function checkRateLimit(
     try {
       current = await redis.incr(redisKey);
     } catch (incrError) {
-      console.error("[Redis] Failed to increment rate limit counter:", incrError);
+      console.error(
+        "[Redis] Failed to increment rate limit counter:",
+        incrError
+      );
       // On error, allow request but log warning
       return { allowed: true, remaining: maxRequests, resetIn: 0 };
     }
@@ -211,7 +225,10 @@ export async function checkRateLimit(
       try {
         await redis.expire(redisKey, windowSeconds);
       } catch (expireError) {
-        console.error("[Redis] Failed to set expiry on rate limit key:", expireError);
+        console.error(
+          "[Redis] Failed to set expiry on rate limit key:",
+          expireError
+        );
         // Continue anyway - expiry will be set on next request
       }
     }
@@ -239,7 +256,13 @@ export async function setCache(
   ttlSeconds: number = 3600
 ): Promise<void> {
   const redis = getRedis();
-  if (!redis) return;
+  if (!redis) {
+    if (!redisMissingLogged) {
+      console.warn("[Redis] Cache skipped (no client)");
+      redisMissingLogged = true;
+    }
+    return;
+  }
 
   try {
     await redis.setex(`cache:${key}`, ttlSeconds, JSON.stringify(value));
@@ -250,7 +273,13 @@ export async function setCache(
 
 export async function getCache<T>(key: string): Promise<T | null> {
   const redis = getRedis();
-  if (!redis) return null;
+  if (!redis) {
+    if (!redisMissingLogged) {
+      console.warn("[Redis] Cache read skipped (no client)");
+      redisMissingLogged = true;
+    }
+    return null;
+  }
 
   try {
     const data = await redis.get(`cache:${key}`);

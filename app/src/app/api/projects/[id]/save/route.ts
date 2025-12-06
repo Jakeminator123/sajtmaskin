@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getProjectById, saveProjectData } from "@/lib/database";
+import { deleteCache } from "@/lib/redis";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -29,6 +30,12 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       files: files || [],
       messages: messages || [],
     });
+
+    // Invalidate caches (project detail + list)
+    await Promise.all([
+      deleteCache(`project:${id}`),
+      deleteCache("projects:list"),
+    ]);
 
     return NextResponse.json({ success: true });
   } catch (error: any) {

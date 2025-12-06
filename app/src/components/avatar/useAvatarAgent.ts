@@ -17,6 +17,7 @@ import { useBuilderStore } from "@/lib/store";
 const shownTips = new Set<string>();
 let tipCount = 0;
 const MAX_TIPS_PER_SESSION = 8;
+const ANALYSIS_COOLDOWN_MS = 90_000; // avoid spamming analysis calls
 
 // Tips for different scenarios
 const AGENT_TIPS = {
@@ -77,12 +78,21 @@ export function useAvatarAgent(options: UseAvatarAgentOptions = {}) {
   const hasGivenLoadingTip = useRef(false);
   const lastReactionTime = useRef(0);
   const hasAnalyzedProject = useRef(false);
+  const lastAnalysisAt = useRef<number>(0);
+  const hasRequestedForProject = useRef<string | null>(null);
 
   // Throttle reactions - minimum 8 seconds between
   const canReact = useCallback(() => {
     const now = Date.now();
     if (now - lastReactionTime.current < 8000) return false;
     lastReactionTime.current = now;
+    return true;
+  }, []);
+
+  const canRequestAnalysis = useCallback(() => {
+    const now = Date.now();
+    if (now - lastAnalysisAt.current < ANALYSIS_COOLDOWN_MS) return false;
+    lastAnalysisAt.current = now;
     return true;
   }, []);
 
@@ -116,6 +126,12 @@ export function useAvatarAgent(options: UseAvatarAgentOptions = {}) {
           triggerReaction("template_select", tip);
         }
       }
+
+      // Fire a proactive analysis once per project
+      if (projectId && canRequestAnalysis()) {
+        hasRequestedForProject.current = projectId;
+        requestAnalysis("opened_project");
+      }
     }
   }, [
     projectId,
@@ -125,6 +141,8 @@ export function useAvatarAgent(options: UseAvatarAgentOptions = {}) {
     triggerReaction,
     addPoints,
     setValueMessage,
+    canRequestAnalysis,
+    requestAnalysis,
   ]);
 
   // Monitor generation state changes
@@ -158,6 +176,11 @@ export function useAvatarAgent(options: UseAvatarAgentOptions = {}) {
         }
       }
       loadingStartTime.current = null;
+
+      // Proactive follow-up after successful generation
+      if (projectId && canRequestAnalysis()) {
+        requestAnalysis("generation_complete");
+      }
     }
 
     // Generation failed
@@ -191,6 +214,9 @@ export function useAvatarAgent(options: UseAvatarAgentOptions = {}) {
     addPoints,
     setValueMessage,
     canReact,
+    projectId,
+    canRequestAnalysis,
+    requestAnalysis,
   ]);
 
   // Give tip only if generation takes very long (>45 seconds)
@@ -213,52 +239,55 @@ export function useAvatarAgent(options: UseAvatarAgentOptions = {}) {
   }, [isLoading, triggerReaction, canReact]);
 
   // Request proactive analysis of current project
-  const requestAnalysis = useCallback(async () => {
-    if (!projectId) return;
+  const requestAnalysis = useCallback(
+    async (lastAction: string = "opened_project") => {
+      if (!projectId) return;
 
-    try {
-      const response = await fetch("/api/avatar-guide", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          message: "[PROACTIVE_TIP]",
-          currentSection: section || "builder",
-          lastAction: "opened_project",
-          conversationHistory: [],
-          projectId,
-        }),
-      });
+      try {
+        const response = await fetch("/api/avatar-guide", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            message: "[PROACTIVE_TIP]",
+            currentSection: section || "builder",
+            lastAction,
+            conversationHistory: [],
+            projectId,
+          }),
+        });
 
-      if (!response.ok) return;
+        if (!response.ok) return;
 
-      const data = await response.json();
+        const data = await response.json();
 
-      if (data.responseId) {
-        setConversationId(data.responseId);
+        if (data.responseId) {
+          setConversationId(data.responseId);
+        }
+
+        if (data.points > 0) {
+          addPoints(data.points);
+        }
+
+        if (data.valueMessage) {
+          setValueMessage(data.valueMessage);
+        }
+
+        if (data.message) {
+          triggerReaction("form_submit", data.message);
+        }
+      } catch (error) {
+        console.error("[AvatarAgent] Analysis request failed:", error);
       }
-
-      if (data.points > 0) {
-        addPoints(data.points);
-      }
-
-      if (data.valueMessage) {
-        setValueMessage(data.valueMessage);
-      }
-
-      if (data.message) {
-        triggerReaction("form_submit", data.message);
-      }
-    } catch (error) {
-      console.error("[AvatarAgent] Analysis request failed:", error);
-    }
-  }, [
-    projectId,
-    section,
-    triggerReaction,
-    addPoints,
-    setValueMessage,
-    setConversationId,
-  ]);
+    },
+    [
+      projectId,
+      section,
+      triggerReaction,
+      addPoints,
+      setValueMessage,
+      setConversationId,
+    ]
+  );
 
   return {
     requestAnalysis,
