@@ -445,6 +445,21 @@ function BuilderContent() {
               Ny design
             </Button>
           )}
+          {/* GitHub Takeover - Mobile */}
+          {isAuthenticated && chatId && (
+            <Button
+              variant="outline"
+              size="sm"
+              className="gap-2 border-purple-600 text-purple-400 hover:bg-purple-900/20"
+              onClick={() => {
+                setShowMobileMenu(false);
+                setShowTakeoverModal(true);
+              }}
+            >
+              <Github className="h-4 w-4" />
+              Ta över projekt
+            </Button>
+          )}
         </div>
       )}
 
