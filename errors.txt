@@ -48,3 +48,53 @@ error 47: openai-agent.ts:1034-1037 - Type guard för function calls kan misslyc
 error 48: api/agent/edit/route.ts:192-194 - Om previousResponseId finns men continueConversation() misslyckas, finns ingen fallback till runAgent().
 error 49: v0-generator.ts:621-631 - Om existingChatId är null, skapas en ny chat med refinementPrompt. Men detta kan skapa förvirring eftersom det inte är en refinement utan en ny generation.
 error 50: openai-agent.ts:1160-1166 - Om response.output inte har någon message item, används "Ändringar genomförda." som default. Men detta kan vara missvisande om inga ändringar gjordes.
+error 51: projects/page.tsx:52-56 - err.message används direkt utan att kontrollera om err är en Error-instans. Om err är något annat kan detta krascha.
+error 52: projects/page.tsx:68-70 - Samma problem som error 51. err.message används utan type check.
+error 53: projects/page.tsx:74-83 - formatDate() tar en sträng men new Date(dateStr) kan returnera Invalid Date om dateStr är ogiltig. Ingen validering.
+error 54: project/[repoId]/page.tsx:93 - projectId skapas som `${owner}_${repoId}` för GitHub mode. Om owner eller repoId innehåller ogiltiga tecken kan detta orsaka problem.
+error 55: project/[repoId]/page.tsx:137 - diamonds < cost kontrolleras på klienten, men detta kan vara stale data. Server-side validering sker också, men användaren kan se felmeddelande baserat på gammal data.
+error 56: project/[repoId]/page.tsx:193-195 - Om data.newBalance är undefined, anropas fetchUser() ändå. Detta kan vara onödigt om balance inte ändrades.
+error 57: project/[repoId]/page.tsx:319 - diamonds visas direkt utan null-check. Kan visa "null" i UI.
+error 58: project/[repoId]/page.tsx:608 - diamonds < getModeCost(selectedMode) kontrolleras i disabled, men om diamonds är null kan detta ge oväntat beteende.
+error 59: takeover-modal.tsx:115-118 - window.location används utan SSR-check. Kan krascha under SSR.
+error 60: takeover-modal.tsx:246-252 - dangerouslySetInnerHTML används med regex-replace för HTML. Detta är osäkert och kan orsaka XSS om analysisResult.analysis innehåller skadlig kod.
+error 61: takeover-modal.tsx:355-361 - Samma problem som error 60. dangerouslySetInnerHTML med regex-replace är osäkert.
+error 62: takeover-modal.tsx:374 - URL konstrueras med result.github.repoName och result.github.owner, men om dessa är undefined eller innehåller ogiltiga tecken kan URL:en bli felaktig.
+error 63: api/projects/[id]/takeover/route.ts:56 - request.json().catch(() => ({})) fångar alla fel och returnerar tomt objekt. Om JSON är ogiltig kommer body att vara {} utan felmeddelande.
+error 64: api/projects/[id]/takeover/route.ts:100 - projectData?.chat_id kontrolleras, men om projectData är null kommer detta att krascha innan kontrollen.
+error 65: api/projects/[id]/takeover/route.ts:116-119 - files mappas från projectData.files, men om projectData.files har fel struktur kan detta orsaka fel.
+error 66: api/projects/[id]/takeover/route.ts:187 - fullUser!.github_token! använder non-null assertion, men om fullUser eller github_token är null/undefined kommer detta att krascha.
+error 67: api/download/route.ts:33 - downloadVersionAsZip() kan krascha om chatId eller versionId är ogiltiga, men felet fångas inte specifikt.
+error 68: api/download/route.ts:49 - JSZip.loadAsync() kan misslyckas om zipBuffer är ogiltig, men felet fångas inte specifikt.
+error 69: api/download/route.ts:64 - file.async("string") kan misslyckas för binära filer eller om filen är korrupt. Ingen specifik felhantering.
+error 70: api/download/route.ts:84 - password || undefined används, men om password är en tom sträng kommer detta att bli undefined. Bör kontrollera password.trim().
+error 71: api/projects/[id]/download/route.ts:71-73 - BASE64_IMAGE placeholders hoppas över, men om filen är en faktisk bild som börjar med "[BASE64_IMAGE:" kommer den att hoppas över felaktigt.
+error 72: api/projects/[id]/download/route.ts:85-89 - meta.name kan vara null eller undefined, vilket skulle orsaka .toLowerCase() att krascha.
+error 73: redis.ts:124 - JSON.parse(data) kan krascha om data är ogiltig JSON. Ingen try-catch eller validering.
+error 74: redis.ts:155 - Samma problem som error 73. JSON.parse() utan try-catch.
+error 75: redis.ts:187 - redis.incr() kan misslyckas om Redis-anslutningen är nere, men felet fångas inte specifikt.
+error 76: projects/page.tsx:115 - projects.length + takenOverProjects.length kan vara felaktigt om någon av arrays är undefined (även om det är osannolikt).
+error 77: projects/page.tsx:268 - project.thumbnail_path används direkt utan att kontrollera om den är en giltig URL eller sökväg.
+error 78: project/[repoId]/page.tsx:633 - previewUrl är undefined i PreviewPanel. Detta betyder att preview inte kommer att fungera för taken-over projekt.
+error 79: takeover-modal.tsx:98-111 - runAnalysis() anropas automatiskt efter lyckad takeover, men om detta misslyckas finns ingen felhantering för användaren.
+error 80: takeover-modal.tsx:144 - runAnalysis() anropas automatiskt, men om användaren stänger modalen innan analysen är klar, kommer state att uppdateras på en unmounted component.
+error 81: api/projects/[id]/takeover/route.ts:200+ - GitHub repo creation kan misslyckas av flera anledningar (repo name taken, rate limit, etc), men felhanteringen är generisk.
+error 82: api/projects/[id]/takeover/route.ts:200+ - Om GitHub API returnerar ett fel men response.ok är true, kan detta orsaka problem senare i koden.
+error 83: project/[repoId]/page.tsx:182 - Om previousResponseId är null men API:et förväntar sig en sträng, kan detta orsaka problem.
+error 84: project/[repoId]/page.tsx:167 - data.responseId kan vara undefined, men sätts till null. Om undefined används senare kan detta orsaka problem.
+error 85: projects/page.tsx:66 - setProjects() anropas med filter, men om deleteProject() misslyckas efter att UI:et redan uppdaterats, kommer UI:et att visa felaktig data.
+error 86: takeover-modal.tsx:77-79 - defaultRepoName genereras från projectName, men om projectName innehåller ogiltiga tecken för GitHub repo-namn kan detta orsaka problem.
+error 87: api/projects/[id]/download/route.ts:48-54 - För GitHub-projekt returneras ett JSON-svar med githubUrl, men klienten förväntar sig en ZIP-fil. Detta kommer att orsaka problem.
+error 88: redis.ts:41-79 - Om Redis-anslutningen misslyckas, returneras null. Men koden som anropar Redis-funktioner kan inte hantera null korrekt överallt.
+error 89: project/[repoId]/page.tsx:260-282 - Om isGitHubMode är true men hasGitHub blir false efter att komponenten mountat, kommer användaren att se felmeddelande även om de har GitHub anslutet.
+error 90: api/projects/[id]/takeover/route.ts:139 - saveProjectFiles() kan returnera false, men om Redis är nere kommer detta att misslyckas utan tydligt felmeddelande.
+error 91: takeover-modal.tsx:242-254 - Om analysisResult.analysis är en mycket lång sträng, kan regex-replace-operationerna vara långsamma och orsaka UI-freeze.
+error 92: projects/page.tsx:46-49 - Promise.all() används för att ladda projekt parallellt. Om en av dem misslyckas kommer hela loadProjects() att misslyckas, även om den andra lyckades.
+error 93: project/[repoId]/page.tsx:156-165 - Om fetch() kastar ett nätverksfel (t.ex. timeout), fångas det i catch men errorMessage kan vara tom, vilket gör att användaren inte får information.
+error 94: api/download/route.ts:74 - combinedCode skapas genom att join:a alla filer med "\n\n". Om det finns många filer kan detta skapa en mycket stor sträng som orsakar minnesproblem.
+error 95: api/projects/[id]/download/route.ts:78-82 - zip.generateAsync() kan ta lång tid för stora projekt, men det finns ingen timeout eller progress-indikator.
+error 96: takeover-modal.tsx:115 - window.location.pathname används utan SSR-check. Kan krascha under SSR.
+error 97: project/[repoId]/page.tsx:342 - download link använder projectId direkt i URL, men om projectId innehåller ogiltiga tecken kan detta orsaka problem.
+error 98: api/projects/[id]/takeover/route.ts:158-161 - updateProject() anropas utan att kontrollera om det lyckades. Om detta misslyckas kommer projektet att vara övertaget men inte uppdaterat i databasen.
+error 99: projects/page.tsx:38-40 - loadProjects() anropas i useEffect utan dependency array. Detta betyder att den kommer att köras vid varje render, vilket kan orsaka oändlig loop om setProjects() triggar re-render.
+error 100: takeover-modal.tsx:81-90 - useEffect har isOpen i dependency array, men resetterar state varje gång isOpen ändras. Om modalen öppnas/stängs snabbt kan detta orsaka race conditions.
