@@ -142,6 +142,14 @@ function OwnedProjectContent() {
     fetchUser();
   }, [fetchUser]);
 
+  // No GitHub connected (only required for GitHub mode)
+  // Refresh user data to ensure hasGitHub is up-to-date
+  useEffect(() => {
+    if (isGitHubMode) {
+      refreshUser();
+    }
+  }, [isGitHubMode, refreshUser]);
+
   // Handle sending a message
   const handleSend = async () => {
     if (!input.trim() || isLoading || !projectId) return;
@@ -284,14 +292,6 @@ function OwnedProjectContent() {
       </div>
     );
   }
-
-  // No GitHub connected (only required for GitHub mode)
-  // Refresh user data to ensure hasGitHub is up-to-date
-  useEffect(() => {
-    if (isGitHubMode) {
-      refreshUser();
-    }
-  }, [isGitHubMode, refreshUser]);
   
   if (isGitHubMode && !hasGitHub) {
     return (

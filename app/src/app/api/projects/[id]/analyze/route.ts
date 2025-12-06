@@ -24,9 +24,13 @@ interface RouteParams {
   params: Promise<{ id: string }>;
 }
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+function getOpenAIClient(): OpenAI {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    throw new Error("OPENAI_API_KEY environment variable is required");
+  }
+  return new OpenAI({ apiKey });
+}
 
 // Analysis system prompt
 const ANALYSIS_SYSTEM_PROMPT = `You are an expert web developer and code analyst. 
@@ -162,7 +166,7 @@ Ge en strukturerad analys enligt formatet.`;
     console.log("[Analyze] Sending to OpenAI, context length:", totalChars);
 
     // 7. Call OpenAI Responses API
-    const response = await openai.responses.create({
+    const response = await getOpenAIClient().responses.create({
       model: "gpt-4o-mini",
       instructions: ANALYSIS_SYSTEM_PROMPT,
       input: analysisPrompt,

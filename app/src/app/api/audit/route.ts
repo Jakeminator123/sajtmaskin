@@ -213,7 +213,7 @@ export async function POST(request: NextRequest) {
     let usedModel = EXPERT_MODEL;
 
     try {
-      response = await openai.responses.create(
+      response = await getOpenAIClient().responses.create(
         {
           model: EXPERT_MODEL,
           input: input,
@@ -239,7 +239,7 @@ export async function POST(request: NextRequest) {
         );
         usedModel = FALLBACK_MODEL;
 
-        response = await openai.responses.create(
+        response = await getOpenAIClient().responses.create(
           {
             model: FALLBACK_MODEL,
             input: input,

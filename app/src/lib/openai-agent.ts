@@ -30,10 +30,14 @@
 import OpenAI from "openai";
 import { getProjectFiles, updateProjectFile, getProjectMeta } from "./redis";
 
-// Initialize OpenAI client
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+// Initialize OpenAI client (lazy initialization to avoid build-time errors)
+function getOpenAIClient(): OpenAI {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    throw new Error("OPENAI_API_KEY environment variable is required");
+  }
+  return new OpenAI({ apiKey });
+}
 
 // ============ Types ============
 
@@ -489,7 +493,7 @@ export async function generateImageDirect(
   });
 
   try {
-    const result = await openai.images.generate({
+    const result = await getOpenAIClient().images.generate({
       model: "gpt-image-1",
       prompt,
       n: 1,
@@ -530,7 +534,7 @@ export async function generateImageDirect(
     ) {
       logApiCall("Falling back to dall-e-3", {}, "warn");
 
-      const fallbackResult = await openai.images.generate({
+      const fallbackResult = await getOpenAIClient().images.generate({
         model: "dall-e-3",
         prompt,
         n: 1,
@@ -640,6 +644,13 @@ async function updateGitHubFile(
     // File doesn't exist
   }
 
+  // Check content size (GitHub has 100MB limit per file)
+  const contentSizeBytes = Buffer.byteLength(content, "utf-8");
+  const maxSizeBytes = 100 * 1024 * 1024; // 100MB
+  if (contentSizeBytes > maxSizeBytes) {
+    throw new Error(`Filen är för stor (${Math.round(contentSizeBytes / 1024 / 1024)}MB). GitHub-gräns är 100MB.`);
+  }
+
   const response = await fetch(
     `https://api.github.com/repos/${repoFullName}/contents/${path}`,
     {
@@ -649,13 +660,6 @@ async function updateGitHubFile(
         Accept: "application/vnd.github.v3+json",
         "Content-Type": "application/json",
       },
-      // Check content size (GitHub has 100MB limit per file)
-      const contentSizeBytes = Buffer.byteLength(content, "utf-8");
-      const maxSizeBytes = 100 * 1024 * 1024; // 100MB
-      if (contentSizeBytes > maxSizeBytes) {
-        throw new Error(`Filen är för stor (${Math.round(contentSizeBytes / 1024 / 1024)}MB). GitHub-gräns är 100MB.`);
-      }
-      
       body: JSON.stringify({
         message: commitMessage,
         content: Buffer.from(content).toString("base64"),
@@ -963,7 +967,7 @@ export async function runAgent(
   ): Promise<OpenAI.Responses.Response> {
     try {
       logApiCall("Trying primary model", { model: options.model });
-      return await openai.responses.create(options);
+      return await getOpenAIClient().responses.create(options);
     } catch (error) {
       const errorMessage =
         error instanceof Error ? error.message : "Unknown error";
@@ -989,7 +993,7 @@ export async function runAgent(
         usedFallback = true;
 
         try {
-          return await openai.responses.create({
+          return await getOpenAIClient().responses.create({
             ...options,
             model: config.fallbackModel,
           });
@@ -1155,8 +1159,8 @@ export async function runAgent(
 
           if (call.name === "update_file") {
             updatedFiles.push({
-              path: args.path,
-              content: args.content,
+              path: args.path as string,
+              content: args.content as string,
             });
           }
 
@@ -1191,7 +1195,7 @@ export async function runAgent(
           ...(config.reasoning && { reasoning: config.reasoning }),
         };
 
-      response = await openai.responses.create(continueOptions);
+      response = await getOpenAIClient().responses.create(continueOptions);
 
       logApiCall("Continued conversation", {
         model: usedModel,
@@ -1335,7 +1339,7 @@ export async function generateImage(
 
   try {
     // Try gpt-image-1 first
-    const result = await openai.images.generate({
+    const result = await getOpenAIClient().images.generate({
       model: primaryModel,
       prompt,
       size,
@@ -1382,7 +1386,7 @@ export async function generateImage(
 
       usedModel = fallbackModel;
 
-      const result = await openai.images.generate({
+      const result = await getOpenAIClient().images.generate({
         model: fallbackModel,
         prompt,
         size,

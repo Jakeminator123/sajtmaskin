@@ -19,9 +19,13 @@ import { getCurrentUser } from "@/lib/auth";
 // Allow up to 5 minutes for long-running video operations
 export const maxDuration = 300;
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+function getOpenAIClient(): OpenAI {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    throw new Error("OPENAI_API_KEY environment variable is required");
+  }
+  return new OpenAI({ apiKey });
+}
 
 // Models available for video generation
 type VideoModel = "sora-2" | "sora-2-pro";
@@ -70,7 +74,7 @@ export async function POST(request: NextRequest) {
 
     // Start video generation job
     // Note: This is based on the Sora API structure from the documentation
-    const video = await openai.videos.create({
+    const video = await getOpenAIClient().videos.create({
       model,
       prompt,
       size,
@@ -145,7 +149,7 @@ export async function GET(request: NextRequest) {
     console.log(`[Video API] Polling status for: ${videoId}`);
 
     // Check video status from OpenAI
-    const video = await openai.videos.retrieve(videoId as any);
+    const video = await getOpenAIClient().videos.retrieve(videoId as any);
 
     const status = video.status;
 

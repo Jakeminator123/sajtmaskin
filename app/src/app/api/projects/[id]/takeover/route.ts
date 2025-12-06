@@ -43,6 +43,9 @@ interface GitHubCreateRepoResponse {
   html_url: string;
   clone_url: string;
   default_branch: string;
+  owner?: {
+    login: string;
+  };
 }
 
 interface TakeoverRequest {
@@ -301,7 +304,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       repo = await createRepoResponse.json();
       
       // Validate response structure
-      if (!repo || !repo.full_name || !repo.name || !repo.owner) {
+      if (!repo || !repo.full_name || !repo.name) {
         throw new Error("Invalid GitHub response structure");
       }
     } catch (jsonError) {

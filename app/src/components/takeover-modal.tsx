@@ -81,6 +81,9 @@ export function TakeoverModal({
     .replace(/^-|-$/g, "")
     .substring(0, 100)}`; // GitHub max length is 100 chars
 
+  // Track if component is mounted to prevent state updates after unmount
+  const isMountedRef = useRef(true);
+
   useEffect(() => {
     if (isOpen) {
       // Reset all state when modal opens
@@ -99,16 +102,6 @@ export function TakeoverModal({
   }, [isOpen]);
 
   if (!isOpen) return null;
-
-  // Track if component is mounted to prevent state updates after unmount
-  const isMountedRef = useRef(true);
-  
-  useEffect(() => {
-    isMountedRef.current = true;
-    return () => {
-      isMountedRef.current = false;
-    };
-  }, []);
 
   // Run automatic project analysis
   const runAnalysis = async () => {

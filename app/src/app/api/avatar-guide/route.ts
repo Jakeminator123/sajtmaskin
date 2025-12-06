@@ -5,7 +5,13 @@ import { getProjectFiles, getProjectMeta } from "@/lib/redis";
 // Allow up to 90 seconds for AI responses with reasoning
 export const maxDuration = 90;
 
-const openai = new OpenAI();
+function getOpenAIClient(): OpenAI {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    throw new Error("OPENAI_API_KEY environment variable is required");
+  }
+  return new OpenAI({ apiKey });
+}
 
 // Model configuration - use GPT-5 for advanced reasoning, fallback to 4o
 const PRIMARY_MODEL = "gpt-5";
@@ -391,7 +397,7 @@ ${
     let response: OpenAI.Responses.Response;
     try {
       console.log(`[Avatar Guide] Trying ${PRIMARY_MODEL}...`);
-      response = await openai.responses.create({
+      response = await getOpenAIClient().responses.create({
         model: PRIMARY_MODEL,
         instructions: AVATAR_SYSTEM_PROMPT,
         input: fullInput,
@@ -407,7 +413,7 @@ ${
           `[Avatar Guide] ${PRIMARY_MODEL} not available, falling back to ${FALLBACK_MODEL}`
         );
         usedModel = FALLBACK_MODEL;
-        response = await openai.responses.create({
+        response = await getOpenAIClient().responses.create({
           model: FALLBACK_MODEL,
           instructions: AVATAR_SYSTEM_PROMPT,
           input: fullInput,
@@ -464,7 +470,7 @@ ${
       }
 
       // Continue conversation with tool results
-      response = await openai.responses.create({
+      response = await getOpenAIClient().responses.create({
         model: usedModel,
         input: functionResults,
         previous_response_id: response.id,

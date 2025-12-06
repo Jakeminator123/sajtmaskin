@@ -37,7 +37,6 @@ export default function ProjectsPage() {
 
   useEffect(() => {
     loadProjects();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Only run on mount
 
   async function loadProjects() {
