@@ -607,7 +607,11 @@ async function readGitHubFile(
   }
 
   const data = await response.json();
-  return Buffer.from(data.content, "base64").toString("utf-8");
+  try {
+    return Buffer.from(data.content, "base64").toString("utf-8");
+  } catch (error) {
+    throw new Error(`Ogiltig base64-data i fil: ${path}`);
+  }
 }
 
 async function updateGitHubFile(
@@ -645,6 +649,13 @@ async function updateGitHubFile(
         Accept: "application/vnd.github.v3+json",
         "Content-Type": "application/json",
       },
+      // Check content size (GitHub has 100MB limit per file)
+      const contentSizeBytes = Buffer.byteLength(content, "utf-8");
+      const maxSizeBytes = 100 * 1024 * 1024; // 100MB
+      if (contentSizeBytes > maxSizeBytes) {
+        throw new Error(`Filen är för stor (${Math.round(contentSizeBytes / 1024 / 1024)}MB). GitHub-gräns är 100MB.`);
+      }
+      
       body: JSON.stringify({
         message: commitMessage,
         content: Buffer.from(content).toString("base64"),
@@ -1026,9 +1037,17 @@ export async function runAgent(
     // Process tool calls in a loop
     let iterations = 0;
     const MAX_ITERATIONS = 15;
+    const MAX_ITERATION_TIME_MS = 300000; // 5 minutes max per iteration cycle
+    const iterationStartTime = Date.now();
 
     while (iterations < MAX_ITERATIONS) {
       iterations++;
+      
+      // Check for timeout
+      if (Date.now() - iterationStartTime > MAX_ITERATION_TIME_MS) {
+        console.warn("[Agent] Max iteration time exceeded, stopping");
+        break;
+      }
 
       // Check for function calls
       const functionCalls = response.output.filter(
@@ -1131,10 +1150,11 @@ export async function runAgent(
         } catch (error) {
           const errorMessage =
             error instanceof Error ? error.message : "Okänt fel";
+          console.error(`[Agent] Tool execution failed for ${call.name}:`, errorMessage);
           functionResults.push({
             type: "function_call_output",
             call_id: call.call_id,
-            output: `Fel: ${errorMessage}`,
+            output: `Fel: ${errorMessage}. Försök igen eller använd en annan approach.`,
           });
         }
       }
@@ -1175,7 +1195,9 @@ export async function runAgent(
             c.type === "output_text"
         )
         .map((c) => c.text)
-        .join("\n") || "Ändringar genomförda.";
+        .join("\n") || (updatedFiles.length > 0 || generatedImages.length > 0 
+          ? "Ändringar genomförda." 
+          : "Inga ändringar gjordes.");
 
     logApiCall("Agent completed successfully", {
       taskType,

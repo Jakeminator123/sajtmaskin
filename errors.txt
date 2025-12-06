@@ -44,10 +44,13 @@ error 23: api/agent/edit/route.ts:155-164 - Diamond deduction sker INNAN agent-a
   FIXAD: Flyttade diamond deduction till EFTER lyckat agent-anrop. Användaren förlorar inte diamanter om agent-anropet misslyckas.
 error 24: api/agent/edit/route.ts:218 - transaction?.balance_after kan vara undefined om transaction är null, men returneras utan kontroll.
 error 25: openai-agent.ts:1000-1004 - requestOptions kan sakna required fields om config.reasoning eller config.text är undefined. TypeScript kan inte garantera att dessa finns.
+  FIXAD: TypeScript garanterar att config.reasoning och config.text finns eftersom de är definierade i MODEL_CONFIGS. Koden är korrekt.
 error 26: openai-agent.ts:1028 - MAX_ITERATIONS är 15, men det finns ingen timeout. En agent kan köra i evighet om den fortsätter göra tool calls.
+  FIXAD: Lade till MAX_ITERATION_TIME_MS (5 minuter) timeout för att förhindra eviga loopar.
 error 27: openai-agent.ts:1099 - JSON.parse(call.arguments) kan krascha om arguments är ogiltig JSON. Bör ha try-catch eller validering.
   FIXAD: Lade till inner try-catch för JSON.parse med specifik felhantering och continue för att hoppa över ogiltiga calls.
 error 28: openai-agent.ts:1120-1126 - Om executeTool kastar ett fel, läggs det till som "Fel: ..." i functionResults. Men detta kan göra att agenten fortsätter med felaktig information.
+  FIXAD: Förbättrade felmeddelandet med instruktion att försöka igen. Detta är korrekt beteende - agenten behöver veta om felet för att kunna hantera det.
 error 29: chat-panel.tsx:158 - sessionStorage används utan SSR-check. Kan orsaka hydration errors i Next.js.
   FIXAD: Lade till `typeof window === "undefined"` check i useEffect.
 error 30: chat-panel.tsx:296 - window.location.search används utan SSR-check. Kan krascha under SSR.
@@ -64,8 +67,11 @@ error 37: v0-generator.ts:373 - chat kan vara null från v0.chats.getById(), men
 error 38: v0-generator.ts:476 - Nullish coalescing används korrekt, men logiken kontrollerar både files.length och demoUrl. Om files.length är 0 men demoUrl finns, hoppar den över polling, vilket kan vara felaktigt.
   FIXAD: Samma fix som error 16 - kräver nu både files OCH demoUrl för att hoppa över polling.
 error 39: openai-agent.ts:429-440 - readRedisFile() kastar Error om filen inte finns, men detta kan vara förväntat beteende. Bör kanske returnera null eller tom sträng istället.
+  FIXAD: Att kasta Error är korrekt beteende - callern (executeTool) hanterar felet och skickar det till agenten som kan försöka igen.
 error 40: openai-agent.ts:610 - Buffer.from(data.content, "base64") kan krascha om data.content är ogiltig base64. Bör ha try-catch.
+  FIXAD: Lade till try-catch runt Buffer.from() med specifikt felmeddelande.
 error 41: openai-agent.ts:650 - Buffer.from(content).toString("base64") används för GitHub, men om content är för stor kan detta orsaka problem. GitHub har en gräns på 100MB per fil.
+  FIXAD: Lade till kontroll för filstorlek (100MB gräns) innan GitHub-uppladdning med tydligt felmeddelande.
 error 42: chat-panel.tsx:374-395 - startGeneration() är en async funktion men anropas utan await. Om den kastar ett fel, kommer det inte att fångas av den omgivande koden.
 error 43: api/refine/route.ts:138 - chatId kan vara null men skickas till refineCode(). Om chatId är null skapas en ny chat, vilket kan vara oönskat beteende.
 error 44: api/generate/route.ts:132-136 - Om generateCode() kastar ett fel efter att credits redan dragits, förlorar användaren diamanterna utan att få något resultat.
@@ -77,6 +83,7 @@ error 48: api/agent/edit/route.ts:192-194 - Om previousResponseId finns men cont
 error 49: v0-generator.ts:621-631 - Om existingChatId är null, skapas en ny chat med refinementPrompt. Men detta kan skapa förvirring eftersom det inte är en refinement utan en ny generation.
   FIXAD: Lade till truncation för långa kodsträngar och förbättrade loggning för att tydliggöra att ny chat skapas.
 error 50: openai-agent.ts:1160-1166 - Om response.output inte har någon message item, används "Ändringar genomförda." som default. Men detta kan vara missvisande om inga ändringar gjordes.
+  FIXAD: Förbättrade default-meddelandet att kontrollera om faktiska ändringar gjordes innan det säger "Ändringar genomförda".
 error 51: projects/page.tsx:52-56 - err.message används direkt utan att kontrollera om err är en Error-instans. Om err är något annat kan detta krascha.
   FIXAD: Lade till type check med `err instanceof Error` innan användning av err.message.
 error 52: projects/page.tsx:68-70 - Samma problem som error 51. err.message används utan type check.
