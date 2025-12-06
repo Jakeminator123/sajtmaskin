@@ -155,6 +155,7 @@ export function ChatPanel({
   const [userSeed, setUserSeed] = useState("user");
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
     const stored = sessionStorage.getItem("sajtmaskin-user-seed");
     if (stored) {
       setUserSeed(stored);
@@ -293,6 +294,7 @@ export function ChatPanel({
   // Check if we're in test mode (force regeneration, skip cache)
   const isTestMode =
     typeof window !== "undefined" &&
+    typeof window.location !== "undefined" &&
     new URLSearchParams(window.location.search).get("testMode") === "true";
 
   // Auto-generate on initial load or when params change

@@ -35,6 +35,7 @@ function useIsMobile() {
   const [isMobile, setIsMobile] = useState(false);
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
     const check = () => setIsMobile(window.innerWidth < 768);
     check();
     window.addEventListener("resize", check);
@@ -198,7 +199,9 @@ function BuilderContent() {
         });
 
         // Open download in new tab with password included for .env generation
-        window.open(`/api/download?${params}`, "_blank");
+        if (typeof window !== "undefined") {
+          window.open(`/api/download?${params}`, "_blank");
+        }
 
         setShowBackofficeModal(false);
         triggerReaction(

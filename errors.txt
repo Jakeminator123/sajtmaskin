@@ -9,6 +9,7 @@ error 4: home-page.tsx:217 - `user?.diamonds` kan vara undefined/null men visas 
 error 5: prompt-input.tsx:62-65 - useEffect med initialValue kan orsaka problem om initialValue ändras från undefined till en sträng. Bör ha bättre dependency-hantering.
 error 6: store.ts:159,202,207 - `get().saveToDatabase()` anropas direkt utan await. Kan orsaka race conditions och flera samtidiga save-operationer.
 error 7: builder/page.tsx:38 - `window.innerWidth` används utan SSR-check. Kan krascha under SSR i Next.js.
+  FIXAD: Lade till `typeof window === "undefined"` check i useIsMobile hook.
 error 8: cookie-banner.tsx:73 - localStorage används utan SSR-check i useEffect. Kan orsaka hydration errors.
   FIXAD: Lade till `typeof window === "undefined"` check i useEffect och alla localStorage-anrop.
 error 9: v0-generator.ts:422 - Logik för att kombinera categoryType och prompt kan vara buggig. Om prompt börjar med "Skapa en" men inte är en kategori-prompt, läggs den inte till som additional requirements.
@@ -20,11 +21,13 @@ error 13: builder/page.tsx:272 - diamonds visas direkt utan null-check. Om diamo
 error 14: builder/page.tsx:382 - diamonds visas direkt utan null-check. Samma problem som ovan.
   FIXAD: Lade till ?? 0 för att visa 0 istället för null.
 error 15: cookie-banner.tsx:222 - KeyboardEvent används utan import från React. Bör vara `React.KeyboardEvent` eller importeras korrekt.
+  FIXAD: Ändrade till `globalThis.KeyboardEvent` för korrekt typning.
 error 16: v0-generator.ts:476 - Nullish coalescing används korrekt, men logiken kan vara förvirrande. Kontrollerar både files.length och demoUrl, men om files.length är 0 men demoUrl finns, hoppar den över polling.
 error 17: home-page.tsx:70 - firstName kan vara undefined om både user?.name och user?.email är undefined/null. Detta kan orsaka problem när det används i JSX.
 error 18: onboarding-modal.tsx:66,76 - localStorage.setItem() anropas direkt utan SSR-check. Kan krascha under SSR.
 error 19: store.ts:401-422 - Custom storage serialization för Date-objekt kan orsaka problem om Date-objektet är invalid eller om localStorage är korrupt.
 error 20: builder/page.tsx:201 - window.open() används utan kontroll att window finns. Kan krascha i vissa miljöer.
+  FIXAD: Lade till `typeof window !== "undefined"` check innan window.open().
 error 21: api/generate/route.ts:166 - transaction kan vara null men används direkt utan kontroll. Om deductGenerationDiamond returnerar null, kommer newBalance att vara null vilket kan orsaka problem.
 error 22: api/refine/route.ts:165 - Samma problem som error 21. transaction kan vara null men används direkt.
 error 23: api/agent/edit/route.ts:155-164 - Diamond deduction sker INNAN agent-anropet. Om agent-anropet misslyckas, förlorar användaren ändå diamanterna. Bör flyttas till efter lyckat anrop.
@@ -34,7 +37,9 @@ error 26: openai-agent.ts:1028 - MAX_ITERATIONS är 15, men det finns ingen time
 error 27: openai-agent.ts:1099 - JSON.parse(call.arguments) kan krascha om arguments är ogiltig JSON. Bör ha try-catch eller validering.
 error 28: openai-agent.ts:1120-1126 - Om executeTool kastar ett fel, läggs det till som "Fel: ..." i functionResults. Men detta kan göra att agenten fortsätter med felaktig information.
 error 29: chat-panel.tsx:158 - sessionStorage används utan SSR-check. Kan orsaka hydration errors i Next.js.
+  FIXAD: Lade till `typeof window === "undefined"` check i useEffect.
 error 30: chat-panel.tsx:296 - window.location.search används utan SSR-check. Kan krascha under SSR.
+  FIXAD: Lade till extra check för `window.location` innan användning.
 error 31: chat-panel.tsx:506-528 - Om v0Response?.success är false, används generateWebsite() som fallback. Men om detta också misslyckas, finns ingen ytterligare felhantering.
 error 32: chat-panel.tsx:534-541 - Om v0Response.chatId eller v0Response.demoUrl är undefined, sätts de inte. Men senare kod kan förvänta sig att dessa finns.
 error 33: chat-panel.tsx:700-710 - handleGenerate() sätter isLoading till true, men om generateWebsite() kastar ett fel innan try-catch, kommer isLoading att förbli true.
@@ -65,6 +70,7 @@ error 57: project/[repoId]/page.tsx:319 - diamonds visas direkt utan null-check.
   FIXAD: Lade till ?? 0 för att visa 0 istället för null.
 error 58: project/[repoId]/page.tsx:608 - diamonds < getModeCost(selectedMode) kontrolleras i disabled, men om diamonds är null kan detta ge oväntat beteende.
 error 59: takeover-modal.tsx:115-118 - window.location används utan SSR-check. Kan krascha under SSR.
+  FIXAD: Lade till `typeof window === "undefined"` check innan window.location används.
 error 60: takeover-modal.tsx:246-252 - dangerouslySetInnerHTML används med regex-replace för HTML. Detta är osäkert och kan orsaka XSS om analysisResult.analysis innehåller skadlig kod.
 error 61: takeover-modal.tsx:355-361 - Samma problem som error 60. dangerouslySetInnerHTML med regex-replace är osäkert.
 error 62: takeover-modal.tsx:374 - URL konstrueras med result.github.repoName och result.github.owner, men om dessa är undefined eller innehåller ogiltiga tecken kan URL:en bli felaktig.

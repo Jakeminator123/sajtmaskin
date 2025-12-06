@@ -223,7 +223,7 @@ export function CookieBanner() {
   // Keyboard controls
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const handleKeyDown = (e: KeyboardEvent) => {
+    const handleKeyDown = (e: globalThis.KeyboardEvent) => {
       if (!isVisible) return;
 
       const keyMap: Record<string, Direction> = {

@@ -112,6 +112,7 @@ export function TakeoverModal({
   };
 
   const handleConnectGitHub = () => {
+    if (typeof window === "undefined") return;
     const returnTo = window.location.pathname;
     window.location.href = `/api/auth/github?returnTo=${encodeURIComponent(
       returnTo
