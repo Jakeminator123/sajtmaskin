@@ -149,7 +149,8 @@ export function FloatingAvatar({
 
   const [canvasReady, setCanvasReady] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
-  const [isMinimized, setIsMinimized] = useState(false);
+  // Start minimized by default; user can click the bubble to open
+  const [isMinimized, setIsMinimized] = useState(true);
   const [webglError, setWebglError] = useState(false);
   const proactiveTipTimerRef = useRef<NodeJS.Timeout | null>(null);
   const lastInteractionRef = useRef<number>(Date.now());
