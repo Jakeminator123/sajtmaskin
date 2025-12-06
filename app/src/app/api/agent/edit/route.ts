@@ -90,6 +90,7 @@ export async function POST(request: NextRequest) {
       code_edit: "agent_code_edit",
       copy: "agent_copy",
       image: "agent_image",
+      video: "agent_video",
       web_search: "agent_web_search",
       code_refactor: "agent_code_refactor",
       analyze: "agent_analyze",

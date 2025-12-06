@@ -147,9 +147,33 @@ function OwnedProjectContent() {
   const [isProjectLoading, setIsProjectLoading] = useState(true);
   const [projectLoadError, setProjectLoadError] = useState<string | null>(null);
   const [projectDemoUrl, setProjectDemoUrl] = useState<string | null>(null);
+  const [isRegeneratingPreview, setIsRegeneratingPreview] = useState(false);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  // Auto-regenerate preview after AI changes
+  const regeneratePreview = async () => {
+    if (!projectId || isRegeneratingPreview) return;
+
+    setIsRegeneratingPreview(true);
+    try {
+      const response = await fetch(
+        `/api/projects/${encodeURIComponent(projectId)}/preview`,
+        {
+          method: "POST",
+        }
+      );
+      const data = await response.json();
+      if (data.success && data.demoUrl) {
+        setProjectDemoUrl(data.demoUrl);
+      }
+    } catch (err) {
+      console.error("Preview regeneration failed:", err);
+    } finally {
+      setIsRegeneratingPreview(false);
+    }
+  };
 
   // Scroll to bottom when messages change
   useEffect(() => {
@@ -329,6 +353,9 @@ function OwnedProjectContent() {
             );
             return [...unchanged, ...data.updatedFiles!];
           });
+
+          // Auto-regenerate preview after code changes
+          regeneratePreview();
         }
         if (data.generatedImages && data.generatedImages.length > 0) {
           setLastGeneratedImage(data.generatedImages[0]);
@@ -708,6 +735,18 @@ function OwnedProjectContent() {
                 </div>
               )}
 
+              {/* Preview regenerating indicator */}
+              {!isLoading && isRegeneratingPreview && (
+                <div className="flex justify-start">
+                  <div className="bg-purple-800/50 p-4 rounded-2xl border border-purple-500/30">
+                    <div className="flex items-center gap-2 text-purple-300">
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      <span>Uppdaterar live preview...</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div ref={messagesEndRef} />
             </div>
           )}
@@ -758,7 +797,7 @@ function OwnedProjectContent() {
 
         {/* Preview Panel */}
         {showPreview && (
-          <div className="w-1/2 p-4">
+          <div className="w-1/2 p-4 relative">
             <PreviewPanel
               previewUrl={projectDemoUrl || undefined}
               lastUpdatedFile={
@@ -767,11 +806,20 @@ function OwnedProjectContent() {
               }
               generatedImage={lastGeneratedImage || undefined}
               projectFiles={projectFiles}
-              isLoading={isProjectLoading}
+              isLoading={isProjectLoading || isRegeneratingPreview}
               className="h-full"
               projectId={projectId}
               onPreviewGenerated={(demoUrl) => setProjectDemoUrl(demoUrl)}
             />
+            {/* Show regenerating indicator */}
+            {isRegeneratingPreview && (
+              <div className="absolute inset-0 flex items-center justify-center bg-black/50 backdrop-blur-sm rounded-xl">
+                <div className="text-center space-y-2">
+                  <Loader2 className="h-8 w-8 animate-spin text-purple-400 mx-auto" />
+                  <p className="text-sm text-white">Uppdaterar preview...</p>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>

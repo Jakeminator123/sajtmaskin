@@ -1268,6 +1268,7 @@ export type TransactionType =
   | "agent_code_edit"
   | "agent_copy"
   | "agent_image"
+  | "agent_video"
   | "agent_web_search"
   | "agent_code_refactor"
   | "agent_analyze";
