@@ -151,24 +151,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Deduct diamonds (dynamic amount)
-    const transaction = deductDiamonds(user.id, diamondCost);
-    if (!transaction && !isTestUser(fullUser)) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Kunde inte dra diamanter. Försök igen.",
-        },
-        { status: 500 }
-      );
-    }
-
-    console.log(
-      `[Agent/Edit] ${diamondCost} diamonds deducted, new balance:`,
-      transaction?.balance_after
-    );
-
-    // Create agent context with task type
+    // Create agent context with task type (before deducting diamonds)
     const context = await createAgentContext(
       projectId,
       fullUser.github_token || undefined,
@@ -182,7 +165,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Run the agent
+    // Run the agent FIRST (before deducting diamonds)
     console.log("[Agent/Edit] Running agent:", {
       storage: context.storageType,
       taskType,
@@ -200,6 +183,18 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       );
     }
+
+    // Only deduct diamonds AFTER successful agent execution
+    const transaction = deductDiamonds(user.id, diamondCost);
+    if (!transaction && !isTestUser(fullUser)) {
+      // Agent succeeded but diamond deduction failed - log warning but don't fail request
+      console.warn("[Agent/Edit] Agent succeeded but diamond deduction failed");
+    }
+
+    console.log(
+      `[Agent/Edit] ${diamondCost} diamonds deducted, new balance:`,
+      transaction?.balance_after
+    );
 
     console.log("[Agent/Edit] Agent completed:", {
       updatedFiles: result.updatedFiles.length,

@@ -1096,7 +1096,19 @@ export async function runAgent(
 
       for (const call of functionCalls) {
         try {
-          const args = JSON.parse(call.arguments);
+          let args: Record<string, unknown>;
+          try {
+            args = JSON.parse(call.arguments);
+          } catch (parseError) {
+            console.error("[Agent] Failed to parse function arguments:", parseError);
+            functionResults.push({
+              type: "function_call_output",
+              call_id: call.call_id,
+              output: `Fel: Ogiltig JSON i funktionsargument: ${call.arguments.substring(0, 100)}`,
+            });
+            continue;
+          }
+          
           const result = await executeTool(
             context,
             call.name,

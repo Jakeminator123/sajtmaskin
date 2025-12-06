@@ -82,7 +82,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     });
 
     // Create filename from project name
-    const safeProjectName = meta.name
+    const safeProjectName = (meta.name || "project")
       .toLowerCase()
       .replace(/[^a-z0-9]/g, "-")
       .replace(/-+/g, "-")

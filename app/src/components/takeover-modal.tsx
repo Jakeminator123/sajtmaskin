@@ -244,14 +244,19 @@ export function TakeoverModal({
                       <div className="prose prose-sm prose-invert max-w-none">
                         <div 
                           className="text-sm text-gray-300 whitespace-pre-wrap [&_h2]:text-base [&_h2]:font-semibold [&_h2]:text-white [&_h2]:mt-4 [&_h2]:mb-2 [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4"
-                          dangerouslySetInnerHTML={{ 
-                            __html: analysisResult.analysis
-                              .replace(/^## /gm, '<h2>')
-                              .replace(/\n(?=##)/g, '</h2>\n')
-                              .replace(/^- /gm, '• ')
-                              .replace(/\n/g, '<br/>') 
-                          }}
-                        />
+                        >
+                          {analysisResult.analysis
+                            .split('\n')
+                            .map((line, idx) => {
+                              if (line.startsWith('## ')) {
+                                return <h2 key={idx} className="text-base font-semibold text-white mt-4 mb-2">{line.replace(/^## /, '')}</h2>;
+                              }
+                              if (line.startsWith('- ')) {
+                                return <div key={idx} className="ml-4">• {line.replace(/^- /, '')}</div>;
+                              }
+                              return <div key={idx}>{line || '\u00A0'}</div>;
+                            })}
+                        </div>
                       </div>
                     )}
                     {analysisResult && !analysisResult.success && (
@@ -353,14 +358,19 @@ export function TakeoverModal({
                     {analysisResult?.success && analysisResult.analysis && (
                       <div 
                         className="text-sm text-gray-300 whitespace-pre-wrap [&_h2]:text-base [&_h2]:font-semibold [&_h2]:text-white [&_h2]:mt-4 [&_h2]:mb-2"
-                        dangerouslySetInnerHTML={{ 
-                          __html: analysisResult.analysis
-                            .replace(/^## /gm, '<h2>')
-                            .replace(/\n(?=##)/g, '</h2>\n')
-                            .replace(/^- /gm, '• ')
-                            .replace(/\n/g, '<br/>') 
-                        }}
-                      />
+                      >
+                        {analysisResult.analysis
+                          .split('\n')
+                          .map((line, idx) => {
+                            if (line.startsWith('## ')) {
+                              return <h2 key={idx} className="text-base font-semibold text-white mt-4 mb-2">{line.replace(/^## /, '')}</h2>;
+                            }
+                            if (line.startsWith('- ')) {
+                              return <div key={idx} className="ml-4">• {line.replace(/^- /, '')}</div>;
+                            }
+                            return <div key={idx}>{line || '\u00A0'}</div>;
+                          })}
+                      </div>
                     )}
                     {analysisResult && !analysisResult.success && (
                       <p className="text-sm text-amber-400">

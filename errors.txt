@@ -39,10 +39,12 @@ error 21: api/generate/route.ts:166 - transaction kan vara null men används dir
 error 24: api/agent/edit/route.ts:218 - transaction?.balance_after kan vara undefined om transaction är null, men returneras utan kontroll.
   FIXAD: Använder spread operator med villkorlig inkludering av newBalance endast om det finns.
 error 23: api/agent/edit/route.ts:155-164 - Diamond deduction sker INNAN agent-anropet. Om agent-anropet misslyckas, förlorar användaren ändå diamanterna. Bör flyttas till efter lyckat anrop.
+  FIXAD: Flyttade diamond deduction till EFTER lyckat agent-anrop. Användaren förlorar inte diamanter om agent-anropet misslyckas.
 error 24: api/agent/edit/route.ts:218 - transaction?.balance_after kan vara undefined om transaction är null, men returneras utan kontroll.
 error 25: openai-agent.ts:1000-1004 - requestOptions kan sakna required fields om config.reasoning eller config.text är undefined. TypeScript kan inte garantera att dessa finns.
 error 26: openai-agent.ts:1028 - MAX_ITERATIONS är 15, men det finns ingen timeout. En agent kan köra i evighet om den fortsätter göra tool calls.
 error 27: openai-agent.ts:1099 - JSON.parse(call.arguments) kan krascha om arguments är ogiltig JSON. Bör ha try-catch eller validering.
+  FIXAD: Lade till inner try-catch för JSON.parse med specifik felhantering och continue för att hoppa över ogiltiga calls.
 error 28: openai-agent.ts:1120-1126 - Om executeTool kastar ett fel, läggs det till som "Fel: ..." i functionResults. Men detta kan göra att agenten fortsätter med felaktig information.
 error 29: chat-panel.tsx:158 - sessionStorage används utan SSR-check. Kan orsaka hydration errors i Next.js.
   FIXAD: Lade till `typeof window === "undefined"` check i useEffect.
@@ -83,7 +85,9 @@ error 58: project/[repoId]/page.tsx:608 - diamonds < getModeCost(selectedMode) k
 error 59: takeover-modal.tsx:115-118 - window.location används utan SSR-check. Kan krascha under SSR.
   FIXAD: Lade till `typeof window === "undefined"` check innan window.location används.
 error 60: takeover-modal.tsx:246-252 - dangerouslySetInnerHTML används med regex-replace för HTML. Detta är osäkert och kan orsaka XSS om analysisResult.analysis innehåller skadlig kod.
+  FIXAD: Ersatte dangerouslySetInnerHTML med säker React-rendering genom att splitta texten och rendera som React-komponenter.
 error 61: takeover-modal.tsx:355-361 - Samma problem som error 60. dangerouslySetInnerHTML med regex-replace är osäkert.
+  FIXAD: Ersatte dangerouslySetInnerHTML med säker React-rendering (samma som error 60).
 error 62: takeover-modal.tsx:374 - URL konstrueras med result.github.repoName och result.github.owner, men om dessa är undefined eller innehåller ogiltiga tecken kan URL:en bli felaktig.
 error 63: api/projects/[id]/takeover/route.ts:56 - request.json().catch(() => ({})) fångar alla fel och returnerar tomt objekt. Om JSON är ogiltig kommer body att vara {} utan felmeddelande.
 error 64: api/projects/[id]/takeover/route.ts:100 - projectData?.chat_id kontrolleras, men om projectData är null kommer detta att krascha innan kontrollen.
@@ -95,6 +99,7 @@ error 69: api/download/route.ts:64 - file.async("string") kan misslyckas för bi
 error 70: api/download/route.ts:84 - password || undefined används, men om password är en tom sträng kommer detta att bli undefined. Bör kontrollera password.trim().
 error 71: api/projects/[id]/download/route.ts:71-73 - BASE64_IMAGE placeholders hoppas över, men om filen är en faktisk bild som börjar med "[BASE64_IMAGE:" kommer den att hoppas över felaktigt.
 error 72: api/projects/[id]/download/route.ts:85-89 - meta.name kan vara null eller undefined, vilket skulle orsaka .toLowerCase() att krascha.
+  FIXAD: Lade till fallback till "project" om meta.name är null/undefined innan .toLowerCase() anropas.
 error 73: redis.ts:124 - JSON.parse(data) kan krascha om data är ogiltig JSON. Ingen try-catch eller validering.
 error 74: redis.ts:155 - Samma problem som error 73. JSON.parse() utan try-catch.
 error 75: redis.ts:187 - redis.incr() kan misslyckas om Redis-anslutningen är nere, men felet fångas inte specifikt.
