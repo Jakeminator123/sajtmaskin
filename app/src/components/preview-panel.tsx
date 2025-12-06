@@ -11,6 +11,8 @@ import {
   Maximize2,
   Minimize2,
   Globe,
+  Loader2,
+  Sparkles,
 } from "lucide-react";
 
 interface PreviewPanelProps {
@@ -20,6 +22,8 @@ interface PreviewPanelProps {
   projectFiles?: { path: string; content: string }[];
   isLoading?: boolean;
   className?: string;
+  projectId?: string; // For regenerating preview
+  onPreviewGenerated?: (demoUrl: string) => void; // Callback when new preview is ready
 }
 
 type ViewMode = "preview" | "code" | "image" | "files";
@@ -31,6 +35,8 @@ export function PreviewPanel({
   projectFiles = [],
   isLoading = false,
   className,
+  projectId,
+  onPreviewGenerated,
 }: PreviewPanelProps) {
   // Default to "code" view when there are files but no live preview URL
   // This ensures users see their AI changes immediately instead of stale v0 preview
@@ -46,12 +52,56 @@ export function PreviewPanel({
   const [isExpanded, setIsExpanded] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [selectedFileIndex, setSelectedFileIndex] = useState(0);
+  const [isRegenerating, setIsRegenerating] = useState(false);
+  const [regenerateError, setRegenerateError] = useState<string | null>(null);
+  const [localPreviewUrl, setLocalPreviewUrl] = useState<string | undefined>(
+    previewUrl
+  );
+
+  // Use local preview URL if we've regenerated, otherwise use prop
+  const activePreviewUrl = localPreviewUrl || previewUrl;
 
   // Get the file to display - either the last updated one or selected from project files
-  const displayFile = lastUpdatedFile || (projectFiles.length > 0 ? projectFiles[selectedFileIndex] : undefined);
+  const displayFile =
+    lastUpdatedFile ||
+    (projectFiles.length > 0 ? projectFiles[selectedFileIndex] : undefined);
 
   const handleRefresh = () => {
     setRefreshKey((prev) => prev + 1);
+  };
+
+  // Regenerate live preview using v0 API
+  const handleRegeneratePreview = async () => {
+    if (!projectId || isRegenerating) return;
+
+    setIsRegenerating(true);
+    setRegenerateError(null);
+
+    try {
+      const response = await fetch(
+        `/api/projects/${encodeURIComponent(projectId)}/preview`,
+        {
+          method: "POST",
+        }
+      );
+
+      const data = await response.json();
+
+      if (data.success && data.demoUrl) {
+        setLocalPreviewUrl(data.demoUrl);
+        setViewMode("preview");
+        setRefreshKey((prev) => prev + 1);
+        onPreviewGenerated?.(data.demoUrl);
+      } else {
+        setRegenerateError(data.error || "Kunde inte generera preview");
+      }
+    } catch (error) {
+      setRegenerateError(
+        error instanceof Error ? error.message : "Nätverksfel"
+      );
+    } finally {
+      setIsRegenerating(false);
+    }
   };
 
   return (
@@ -67,7 +117,7 @@ export function PreviewPanel({
         <div className="flex items-center gap-2">
           {/* View mode tabs */}
           <div className="flex gap-0.5 bg-gray-800/50 p-0.5 rounded-md">
-            {previewUrl && (
+            {activePreviewUrl && (
               <button
                 onClick={() => setViewMode("preview")}
                 className={cn(
@@ -135,7 +185,27 @@ export function PreviewPanel({
 
         {/* Actions */}
         <div className="flex items-center gap-1">
-          {viewMode === "preview" && previewUrl && (
+          {/* Regenerate preview button - show when we have files but want to update preview */}
+          {projectId && projectFiles.length > 0 && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleRegeneratePreview}
+              disabled={isRegenerating}
+              className="h-7 gap-1 px-2 text-xs text-purple-400 hover:text-purple-300 hover:bg-purple-500/10"
+              title="Generera live preview från koden"
+            >
+              {isRegenerating ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <Sparkles className="h-3 w-3" />
+              )}
+              <span className="hidden sm:inline">
+                {isRegenerating ? "Genererar..." : "Live preview"}
+              </span>
+            </Button>
+          )}
+          {viewMode === "preview" && activePreviewUrl && (
             <>
               <Button
                 variant="ghost"
@@ -145,7 +215,11 @@ export function PreviewPanel({
               >
                 <RefreshCw className="h-3.5 w-3.5" />
               </Button>
-              <a href={previewUrl} target="_blank" rel="noopener noreferrer">
+              <a
+                href={activePreviewUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
                 <Button
                   variant="ghost"
                   size="sm"
@@ -171,6 +245,13 @@ export function PreviewPanel({
         </div>
       </div>
 
+      {/* Regenerate error message */}
+      {regenerateError && (
+        <div className="px-3 py-2 bg-red-500/10 border-b border-red-500/30 text-xs text-red-400">
+          {regenerateError}
+        </div>
+      )}
+
       {/* Content */}
       <div className="flex-1 overflow-hidden">
         {/* Loading state */}
@@ -184,10 +265,10 @@ export function PreviewPanel({
         )}
 
         {/* Preview iframe */}
-        {!isLoading && viewMode === "preview" && previewUrl && (
+        {!isLoading && viewMode === "preview" && activePreviewUrl && (
           <iframe
             key={refreshKey}
-            src={previewUrl}
+            src={activePreviewUrl}
             className="w-full h-full border-0 bg-white"
             title="Site preview"
           />
@@ -241,17 +322,49 @@ export function PreviewPanel({
         )}
 
         {/* Empty state */}
-        {!isLoading && !previewUrl && !displayFile && !generatedImage && projectFiles.length === 0 && (
-          <div className="h-full flex items-center justify-center text-gray-500">
-            <div className="text-center space-y-2">
-              <Globe className="h-10 w-10 mx-auto opacity-30" />
-              <p className="text-sm">Inga filer hittades</p>
-              <p className="text-xs text-gray-600">
-                Projektet verkar vara tomt
-              </p>
+        {!isLoading &&
+          !activePreviewUrl &&
+          !displayFile &&
+          !generatedImage &&
+          projectFiles.length === 0 && (
+            <div className="h-full flex items-center justify-center text-gray-500">
+              <div className="text-center space-y-2">
+                <Globe className="h-10 w-10 mx-auto opacity-30" />
+                <p className="text-sm">Inga filer hittades</p>
+                <p className="text-xs text-gray-600">
+                  Projektet verkar vara tomt
+                </p>
+              </div>
             </div>
-          </div>
-        )}
+          )}
+
+        {/* Show hint to generate preview when only code is visible */}
+        {!isLoading &&
+          !activePreviewUrl &&
+          projectFiles.length > 0 &&
+          viewMode === "code" &&
+          projectId && (
+            <div className="absolute bottom-4 left-4 right-4 p-3 bg-purple-500/10 border border-purple-500/30 rounded-lg">
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-purple-300">
+                  Klicka på &quot;Live preview&quot; för att se koden live
+                </p>
+                <Button
+                  size="sm"
+                  onClick={handleRegeneratePreview}
+                  disabled={isRegenerating}
+                  className="h-7 gap-1 bg-purple-600 hover:bg-purple-500 text-white text-xs"
+                >
+                  {isRegenerating ? (
+                    <Loader2 className="h-3 w-3 animate-spin" />
+                  ) : (
+                    <Sparkles className="h-3 w-3" />
+                  )}
+                  Generera
+                </Button>
+              </div>
+            </div>
+          )}
       </div>
     </div>
   );

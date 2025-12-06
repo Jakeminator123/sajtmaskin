@@ -769,6 +769,8 @@ function OwnedProjectContent() {
               projectFiles={projectFiles}
               isLoading={isProjectLoading}
               className="h-full"
+              projectId={projectId}
+              onPreviewGenerated={(demoUrl) => setProjectDemoUrl(demoUrl)}
             />
           </div>
         )}
