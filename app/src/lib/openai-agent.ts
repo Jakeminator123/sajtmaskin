@@ -91,8 +91,9 @@ export interface AgentResult {
 
 // ============ Model Configuration ============
 
-type Verbosity = "low" | "medium" | "high";
-type ReasoningEffort = "minimal" | "low" | "medium" | "high";
+// Note: OpenAI only supports "medium" for text.verbosity and reasoning.effort
+type Verbosity = "medium";
+type ReasoningEffort = "medium" | "high";
 type ReasoningSummary = "auto" | "concise" | "detailed";
 
 interface ModelConfig {
@@ -209,13 +210,14 @@ const CODE_INTERPRETER_TOOL: OpenAI.Responses.Tool = {
 // - image_generation: Generate images with gpt-image-1/dall-e-3
 // - web_search: Search the web for information
 // - FILE_TOOLS: Custom function tools for file operations (read/write/list)
+// NOTE: OpenAI API only supports verbosity: "medium" for text config
+// and reasoning.effort: "medium" or "high" for most models
 const MODEL_CONFIGS: Record<TaskType, ModelConfig> = {
   code_edit: {
     // gpt-5.1-codex-mini: Optimized for cost-efficient code edits
     model: "gpt-5.1-codex-mini",
     fallbackModel: "gpt-4o-mini",
-    text: { verbosity: "low" },
-    // code_interpreter not supported on gpt-5.1-codex-mini
+    // No text/reasoning config - use defaults for maximum compatibility
     tools: FILE_TOOLS,
     diamondCost: 1,
     description: "Standard code editing with validation",
@@ -233,7 +235,7 @@ const MODEL_CONFIGS: Record<TaskType, ModelConfig> = {
     // gpt-5: Full model for image generation orchestration
     model: "gpt-5",
     fallbackModel: "gpt-4o",
-    reasoning: { effort: "low", summary: "auto" },
+    reasoning: { effort: "medium", summary: "auto" },
     tools: [...FILE_TOOLS, { type: "image_generation" }],
     diamondCost: 3,
     description: "Image generation with context",
@@ -262,7 +264,6 @@ const MODEL_CONFIGS: Record<TaskType, ModelConfig> = {
     fallbackModel: "gpt-4o",
     reasoning: { effort: "medium", summary: "auto" },
     text: { verbosity: "medium" },
-    // code_interpreter not supported on gpt-5.1-codex
     tools: FILE_TOOLS,
     diamondCost: 5,
     description: "Heavy refactoring with validation",
@@ -273,7 +274,7 @@ const MODEL_CONFIGS: Record<TaskType, ModelConfig> = {
     model: "gpt-5",
     fallbackModel: "gpt-4o",
     reasoning: { effort: "medium", summary: "auto" },
-    text: { verbosity: "high" },
+    text: { verbosity: "medium" },
     tools: [...FILE_TOOLS, CODE_INTERPRETER_TOOL],
     diamondCost: 3,
     description: "Project analysis with code execution",
@@ -1134,10 +1135,14 @@ export async function runAgent(
         usedFallback = true;
 
         try {
-          return await getOpenAIClient().responses.create({
-            ...options,
-            model: config.fallbackModel,
-          });
+          // Remove text and reasoning configs for fallback models (may not be supported)
+          const fallbackOpts = { ...options } as Record<string, unknown>;
+          delete fallbackOpts.text;
+          delete fallbackOpts.reasoning;
+          fallbackOpts.model = config.fallbackModel;
+          return await getOpenAIClient().responses.create(
+            fallbackOpts as OpenAI.Responses.ResponseCreateParamsNonStreaming
+          );
         } catch (fallbackError) {
           const fallbackErrorMessage =
             fallbackError instanceof Error
@@ -1334,7 +1339,7 @@ export async function runAgent(
       }
 
       // Continue with function results
-      // IMPORTANT: Include text config for consistent verbosity across all responses
+      // Only include text/reasoning config for primary model (fallback may not support them)
       const continueOptions: OpenAI.Responses.ResponseCreateParamsNonStreaming =
         {
           model: usedModel, // Use the model that worked (primary or fallback)
@@ -1342,9 +1347,10 @@ export async function runAgent(
           previous_response_id: response.id,
           tools: config.tools,
           store: true,
-          // Apply same text verbosity settings as initial response
-          ...(config.text && { text: config.text }),
-          ...(config.reasoning && { reasoning: config.reasoning }),
+          // Only apply text/reasoning for primary models, not fallback
+          ...(!usedFallback && config.text && { text: config.text }),
+          ...(!usedFallback &&
+            config.reasoning && { reasoning: config.reasoning }),
         };
 
       response = await getOpenAIClient().responses.create(continueOptions);
