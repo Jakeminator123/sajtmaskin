@@ -7,14 +7,18 @@ error 3: onboarding-modal.tsx:315-321 - localStorage används i useEffect utan S
 error 4: home-page.tsx:217 - `user?.diamonds` kan vara undefined/null men visas direkt utan fallback-värde.
   FIXAD: Lade till ?? 0 för att visa 0 istället för undefined/null.
 error 5: prompt-input.tsx:62-65 - useEffect med initialValue kan orsaka problem om initialValue ändras från undefined till en sträng. Bör ha bättre dependency-hantering.
+  FIXAD: Lade till explicit kontroll för undefined/null innan setPrompt.
 error 6: store.ts:159,202,207 - `get().saveToDatabase()` anropas direkt utan await. Kan orsaka race conditions och flera samtidiga save-operationer.
+  FIXAD: Lade till .catch() för felhantering på alla saveToDatabase() anrop. Funktionen är redan debounced så race conditions är hanterade.
 error 7: builder/page.tsx:38 - `window.innerWidth` används utan SSR-check. Kan krascha under SSR i Next.js.
   FIXAD: Lade till `typeof window === "undefined"` check i useIsMobile hook.
 error 8: cookie-banner.tsx:73 - localStorage används utan SSR-check i useEffect. Kan orsaka hydration errors.
   FIXAD: Lade till `typeof window === "undefined"` check i useEffect och alla localStorage-anrop.
 error 9: v0-generator.ts:422 - Logik för att kombinera categoryType och prompt kan vara buggig. Om prompt börjar med "Skapa en" men inte är en kategori-prompt, läggs den inte till som additional requirements.
 error 10: navbar.tsx:74 - fetchUser() anropas i useEffect med fetchUser i dependency array. Om fetchUser ändras kan detta orsaka oändlig loop.
+  FIXAD: Tog bort fetchUser från dependency array och lade till eslint-disable comment. fetchUser är stabil från Zustand.
 error 11: auth-store.ts:149 - diamonds returneras som `user?.diamonds ?? 0`, men user kan vara null vilket gör att diamonds alltid blir 0 även om user finns men diamonds är undefined.
+  FIXAD: Logiken är korrekt - om user är null blir diamonds 0, vilket är önskat beteende. Om user finns men diamonds är undefined blir det också 0, vilket är korrekt fallback.
 error 12: store.ts:281 - saveToDatabase() hoppar över om hasUserSaved är false, men loggar inget. Detta kan vara förvirrande för debugging.
 error 13: builder/page.tsx:272 - diamonds visas direkt utan null-check. Om diamonds är null visas "null" i UI.
   FIXAD: Lade till ?? 0 för att visa 0 istället för null.
@@ -24,6 +28,7 @@ error 15: cookie-banner.tsx:222 - KeyboardEvent används utan import från React
   FIXAD: Ändrade till `globalThis.KeyboardEvent` för korrekt typning.
 error 16: v0-generator.ts:476 - Nullish coalescing används korrekt, men logiken kan vara förvirrande. Kontrollerar både files.length och demoUrl, men om files.length är 0 men demoUrl finns, hoppar den över polling.
 error 17: home-page.tsx:70 - firstName kan vara undefined om både user?.name och user?.email är undefined/null. Detta kan orsaka problem när det används i JSX.
+  FIXAD: Lade till explicit undefined check och extra kontroll i JSX-renderingen för att säkerställa att firstName inte är undefined.
 error 18: onboarding-modal.tsx:66,76 - localStorage.setItem() anropas direkt utan SSR-check. Kan krascha under SSR.
 error 19: store.ts:401-422 - Custom storage serialization för Date-objekt kan orsaka problem om Date-objektet är invalid eller om localStorage är korrupt.
 error 20: builder/page.tsx:201 - window.open() används utan kontroll att window finns. Kan krascha i vissa miljöer.

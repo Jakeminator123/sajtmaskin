@@ -67,7 +67,7 @@ export function HomePage() {
   } = useOnboarding();
 
   // Get user's first name for greeting
-  const firstName = user?.name?.split(" ")[0] || user?.email?.split("@")[0];
+  const firstName = user?.name?.split(" ")[0] || user?.email?.split("@")[0] || undefined;
 
   const handleLoginClick = () => {
     setAuthMode("login");
@@ -206,7 +206,7 @@ export function HomePage() {
 
       <div className="relative z-10 flex flex-col items-center justify-center min-h-screen px-4 pt-24 pb-16 space-y-12">
         {/* Personalized greeting for logged-in users */}
-        {isAuthenticated && firstName && (
+        {isAuthenticated && firstName && firstName !== undefined && (
           <div className="text-center animate-fadeIn">
             <div className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-500/10 via-pink-500/10 to-amber-500/10 border border-purple-500/20 rounded-full mb-4">
               <Sparkles className="h-4 w-4 text-amber-400" />

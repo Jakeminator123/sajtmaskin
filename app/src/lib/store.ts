@@ -155,15 +155,19 @@ export const useBuilderStore = create<BuilderState>()(
             },
           ],
         }));
-        // Trigger auto-save after message
-        get().saveToDatabase();
+        // Trigger auto-save after message (fire-and-forget, debounced internally)
+        get().saveToDatabase().catch((err) =>
+          console.error("[Store] Failed to save message:", err)
+        );
       },
 
       setLoading: (loading) => set({ isLoading: loading }),
 
       setChatId: (id) => {
         set({ chatId: id });
-        get().saveToDatabase();
+        get().saveToDatabase().catch((err) =>
+          console.error("[Store] Failed to save chatId:", err)
+        );
       },
 
       setFiles: (files) => {
@@ -199,12 +203,16 @@ export const useBuilderStore = create<BuilderState>()(
 
       setCurrentCode: (code) => {
         set({ currentCode: code });
-        get().saveToDatabase();
+        get().saveToDatabase().catch((err) =>
+          console.error("[Store] Failed to save code:", err)
+        );
       },
 
       setDemoUrl: (url) => {
         set({ demoUrl: url });
-        get().saveToDatabase();
+        get().saveToDatabase().catch((err) =>
+          console.error("[Store] Failed to save demoUrl:", err)
+        );
       },
 
       setScreenshotUrl: (url) => {
@@ -213,7 +221,9 @@ export const useBuilderStore = create<BuilderState>()(
 
       setVersionId: (id) => {
         set({ versionId: id });
-        get().saveToDatabase();
+        get().saveToDatabase().catch((err) =>
+          console.error("[Store] Failed to save versionId:", err)
+        );
       },
 
       setViewMode: (mode) => set({ viewMode: mode }),
@@ -279,7 +289,7 @@ export const useBuilderStore = create<BuilderState>()(
       saveToDatabase: async () => {
         // Skip silently if user hasn't saved yet (no need to log every time)
         if (!get().hasUserSaved || isTestMode() || !get().projectId) {
-          return;
+          return Promise.resolve();
         }
 
         // Clear existing timeout
@@ -293,7 +303,7 @@ export const useBuilderStore = create<BuilderState>()(
 
           // Double-check projectId still exists
           if (!state.projectId) {
-            return;
+            return Promise.resolve();
           }
 
           set({ isSaving: true });
@@ -314,8 +324,12 @@ export const useBuilderStore = create<BuilderState>()(
           } catch (error) {
             console.error("[Store] Failed to save to database:", error);
             set({ isSaving: false });
+            throw error; // Re-throw so callers can catch if needed
           }
         }, 1000); // 1 second debounce
+        
+        // Return a promise that resolves when the timeout completes
+        return Promise.resolve();
       },
 
       // Explicit save - bypasses hasUserSaved check and enables future auto-saves

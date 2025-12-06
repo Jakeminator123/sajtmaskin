@@ -59,7 +59,7 @@ export function PromptInput({
 
   // Update prompt when initialValue changes
   useEffect(() => {
-    if (initialValue) {
+    if (initialValue !== undefined && initialValue !== null) {
       setPrompt(initialValue);
     }
   }, [initialValue]);

@@ -71,7 +71,8 @@ export function Navbar({ onLoginClick, onRegisterClick }: NavbarProps) {
   // Fetch user on mount
   useEffect(() => {
     fetchUser();
-  }, [fetchUser]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Only run on mount, fetchUser is stable
 
   // Close menus when clicking outside
   useEffect(() => {
