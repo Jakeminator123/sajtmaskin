@@ -88,8 +88,8 @@ export async function POST(request: NextRequest) {
     const errorMessage =
       error instanceof Error ? error.message : "Unknown error";
 
-    // Handle specific error types
-    if (errorMessage.includes("not found")) {
+    // Handle specific error types with appropriate status codes
+    if (errorMessage.includes("not found") || errorMessage.includes("404")) {
       return NextResponse.json(
         {
           success: false,
@@ -99,7 +99,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (errorMessage.includes("rate limit")) {
+    if (errorMessage.includes("rate limit") || errorMessage.includes("429")) {
       return NextResponse.json(
         {
           success: false,
@@ -109,10 +109,31 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    if (errorMessage.includes("API-nyckel") || errorMessage.includes("401")) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "API-konfigurationsfel. Kontakta support.",
+        },
+        { status: 500 }
+      );
+    }
+
+    // For v0 API errors (500, 502, etc.), pass through the user-friendly message
+    if (errorMessage.includes("v0 API") || errorMessage.includes("tillfällig")) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: errorMessage,
+        },
+        { status: 502 }
+      );
+    }
+
     return NextResponse.json(
       {
         success: false,
-        error: "Kunde inte ladda template. Försök igen.",
+        error: `Kunde inte ladda template: ${errorMessage}`,
       },
       { status: 500 }
     );

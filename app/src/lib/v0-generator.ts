@@ -650,10 +650,13 @@ Keep the same overall structure and only make the requested changes.`;
  * NOTE: Quality/model parameter is accepted for API consistency,
  * but template initialization just clones existing code - no AI
  * generation happens. Model selection only matters for refinements.
+ * 
+ * Includes automatic retry for transient errors (500, 502, 503, 504).
  */
 export async function generateFromTemplate(
   templateId: string,
-  quality: QualityLevel = "standard"
+  quality: QualityLevel = "standard",
+  maxRetries: number = 2
 ): Promise<GenerationResult> {
   const model = MODEL_MAP[quality];
   console.log(
@@ -666,8 +669,15 @@ export async function generateFromTemplate(
   );
 
   const v0 = getV0Client();
+  let lastError: Error | null = null;
 
-  try {
+  for (let attempt = 1; attempt <= maxRetries + 1; attempt++) {
+    try {
+      if (attempt > 1) {
+        console.log(`[v0-generator] Retry attempt ${attempt}/${maxRetries + 1}...`);
+        // Wait before retry (exponential backoff: 2s, 4s)
+        await new Promise(resolve => setTimeout(resolve, attempt * 2000));
+      }
     // Note: model parameter does not apply to template init (just cloning template)
     // Template init only accepts templateId and chatPrivacy
     const chat = (await v0.chats.init({
@@ -722,29 +732,54 @@ export async function generateFromTemplate(
       webUrl: chat.webUrl,
       model: model, // Return actual model used (even if SDK ignored it for template)
     };
-  } catch (error) {
-    console.error("[v0-generator] Template init error:", error);
+    } catch (error) {
+      console.error(`[v0-generator] Template init error (attempt ${attempt}):`, error);
+      lastError = error instanceof Error ? error : new Error(String(error));
 
-    // Check for specific error types
-    if (error instanceof Error) {
-      const msg = error.message.toLowerCase();
-      if (msg.includes("not found") || msg.includes("404")) {
-        throw new Error("Template not found - kontrollera template ID");
+      // Check if error is retryable (transient server errors)
+      const msg = lastError.message.toLowerCase();
+      const isRetryable = 
+        msg.includes("500") || 
+        msg.includes("internal_server_error") ||
+        msg.includes("502") || 
+        msg.includes("503") || 
+        msg.includes("504") ||
+        msg.includes("timeout") ||
+        msg.includes("timed out");
+
+      // Non-retryable errors - throw immediately
+      if (!isRetryable) {
+        if (msg.includes("not found") || msg.includes("404")) {
+          throw new Error("Template not found - kontrollera template ID");
+        }
+        if (msg.includes("rate limit") || msg.includes("429")) {
+          throw new Error("Rate limit - för många anrop, vänta en stund");
+        }
+        if (msg.includes("unauthorized") || msg.includes("401")) {
+          throw new Error("API-nyckel saknas eller är ogiltig");
+        }
+        throw new Error(`v0 API-fel: ${lastError.message}`);
       }
-      if (msg.includes("rate limit") || msg.includes("429")) {
-        throw new Error("Rate limit - för många anrop, vänta en stund");
-      }
-      if (msg.includes("unauthorized") || msg.includes("401")) {
-        throw new Error("API-nyckel saknas eller är ogiltig");
-      }
-      if (msg.includes("timeout") || msg.includes("timed out")) {
+
+      // If this was the last attempt, throw
+      if (attempt === maxRetries + 1) {
+        console.error("[v0-generator] All retry attempts failed");
+        if (msg.includes("500") || msg.includes("internal_server_error")) {
+          throw new Error("v0 API har tillfälliga problem. Prova igen om en stund.");
+        }
+        if (msg.includes("502") || msg.includes("503") || msg.includes("504")) {
+          throw new Error("v0 API är tillfälligt otillgänglig. Prova igen.");
+        }
         throw new Error("Timeout - v0 API svarade inte i tid");
       }
-      // Pass through the original error message for other cases
-      throw new Error(`v0 API-fel: ${error.message}`);
+      
+      // Continue to next retry attempt
+      console.log("[v0-generator] Will retry due to transient error...");
     }
-    throw error;
   }
+
+  // Should never reach here, but TypeScript needs this
+  throw lastError || new Error("Unknown error in template generation");
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

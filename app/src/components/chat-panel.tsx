@@ -595,6 +595,7 @@ ${mainCode.substring(0, 18000)}`;
         );
       } else {
         // Fallback: v0 API failed
+        const errorMsg = v0Response?.error || "Okänt fel";
 
         // For TYP A templates (v0TemplateId only, no local files), provide fallback code
         // so the code view isn't empty
@@ -602,12 +603,8 @@ ${mainCode.substring(0, 18000)}`;
           const fallbackCode = `// Mall: ${data.template?.name || templateId}
 // 
 // ⚠️ Kunde inte ladda mallen från v0 API.
+// Fel: ${errorMsg}
 // 
-// Möjliga orsaker:
-// - v0 API är tillfälligt otillgänglig
-// - Template-ID kan vara felaktigt
-// - Nätverksfel
-//
 // Prova:
 // 1. Ladda om sidan
 // 2. Skriv en egen prompt för att generera innehåll
@@ -631,7 +628,7 @@ export default function Page() {
 
         addMessage(
           "assistant",
-          `Mallen kunde inte laddas från v0 API. Du kan prova att ladda om sidan eller skriva en egen prompt för att generera innehåll.`
+          `Mallen kunde inte laddas: ${errorMsg}. Prova att ladda om sidan eller skriv en egen prompt.`
         );
       }
     } catch (error) {
