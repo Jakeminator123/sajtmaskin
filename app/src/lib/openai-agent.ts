@@ -289,14 +289,31 @@ export function getDiamondCost(taskType: TaskType): number {
 /**
  * Auto-detect the most appropriate task type based on user instruction
  * This eliminates the need for manual mode selection in the UI
+ *
+ * Priority order matters! Check code patterns first to avoid false positives.
  */
 export function detectTaskType(instruction: string): TaskType {
   const lower = instruction.toLowerCase();
 
-  // Image generation patterns
+  // CODE EDIT patterns - check FIRST to catch styling/color changes
+  // These should NOT trigger image generation
+  const codeEditPatterns = [
+    /\b(färg|color|bakgrundsfärg|background[\s-]?color)\b/i,
+    /\b(svart|vit|röd|blå|grön|gul|rosa|lila|grå|orange)\b.*\b(bakgrund|background)\b/i,
+    /\b(bakgrund|background)\b.*\b(svart|vit|röd|blå|grön|gul|rosa|lila|grå|orange)\b/i,
+    /\b(ändra|byt|gör)\b.*\b(css|stil|style|tailwind)\b/i,
+    /\b(padding|margin|border|font|text[\s-]?size)\b/i,
+    /\b(lägg\s+till|ta\s+bort|ändra)\s+(knapp|button|länk|link|sektion|section)\b/i,
+  ];
+  if (codeEditPatterns.some((p) => p.test(lower))) {
+    return "code_edit";
+  }
+
+  // Image generation patterns - be more specific, avoid "bakgrund" alone
   const imagePatterns = [
-    /\b(bild|logo|logotyp|ikon|illustration|grafik|bakgrund|hero[\s-]?bild)\b/i,
-    /\b(generera|skapa|rita)\s+(en\s+)?(bild|logo|ikon)/i,
+    /\b(bild|logo|logotyp|ikon|illustration|grafik)\b/i,
+    /\b(bakgrundsbild|hero[\s-]?bild|banner[\s-]?bild)\b/i,
+    /\b(generera|skapa|rita)\s+(en\s+)?(bild|logo|ikon|grafik)\b/i,
     /\b(image|logo|icon|picture|graphic|illustration)\b/i,
   ];
   if (imagePatterns.some((p) => p.test(lower))) {
