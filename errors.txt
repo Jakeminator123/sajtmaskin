@@ -15,6 +15,7 @@ error 7: builder/page.tsx:38 - `window.innerWidth` används utan SSR-check. Kan 
 error 8: cookie-banner.tsx:73 - localStorage används utan SSR-check i useEffect. Kan orsaka hydration errors.
   FIXAD: Lade till `typeof window === "undefined"` check i useEffect och alla localStorage-anrop.
 error 9: v0-generator.ts:422 - Logik för att kombinera categoryType och prompt kan vara buggig. Om prompt börjar med "Skapa en" men inte är en kategori-prompt, läggs den inte till som additional requirements.
+  FIXAD: Förbättrade logiken med fler keywords och bättre kontroll för om prompt redan är komplett.
 error 10: navbar.tsx:74 - fetchUser() anropas i useEffect med fetchUser i dependency array. Om fetchUser ändras kan detta orsaka oändlig loop.
   FIXAD: Tog bort fetchUser från dependency array och lade till eslint-disable comment. fetchUser är stabil från Zustand.
 error 11: auth-store.ts:149 - diamonds returneras som `user?.diamonds ?? 0`, men user kan vara null vilket gör att diamonds alltid blir 0 även om user finns men diamonds är undefined.
@@ -28,6 +29,7 @@ error 14: builder/page.tsx:382 - diamonds visas direkt utan null-check. Samma pr
 error 15: cookie-banner.tsx:222 - KeyboardEvent används utan import från React. Bör vara `React.KeyboardEvent` eller importeras korrekt.
   FIXAD: Ändrade till `globalThis.KeyboardEvent` för korrekt typning.
 error 16: v0-generator.ts:476 - Nullish coalescing används korrekt, men logiken kan vara förvirrande. Kontrollerar både files.length och demoUrl, men om files.length är 0 men demoUrl finns, hoppar den över polling.
+  FIXAD: Ändrade logiken till att kräva BÅDE files OCH demoUrl för att hoppa över polling. Pollar om något saknas.
 error 17: home-page.tsx:70 - firstName kan vara undefined om både user?.name och user?.email är undefined/null. Detta kan orsaka problem när det används i JSX.
   FIXAD: Lade till explicit undefined check och extra kontroll i JSX-renderingen för att säkerställa att firstName inte är undefined.
 error 18: onboarding-modal.tsx:66,76 - localStorage.setItem() anropas direkt utan SSR-check. Kan krascha under SSR.
@@ -56,8 +58,11 @@ error 33: chat-panel.tsx:700-710 - handleGenerate() sätter isLoading till true,
 error 34: api-client.ts:104-122 - Om response.ok är false men data.error är undefined, returneras en generisk felmeddelande. Men det kan finnas mer information i response.status eller response.statusText.
 error 35: api-client.ts:125-132 - Network errors fångas, men om fetch() kastar ett annat fel (t.ex. AbortError), hanteras det inte specifikt.
 error 36: v0-generator.ts:360-399 - waitForVersionReady() har en maxAttempts på 120 med 5 sekunders delay = 10 minuter. Men maxDuration i route.ts är 600 sekunder (10 minuter), så timeout kan inträffa innan polling är klar.
+  FIXAD: Minskade maxAttempts till 100 (8.3 minuter) för att lämna buffer för route timeout.
 error 37: v0-generator.ts:373 - chat kan vara null från v0.chats.getById(), men används direkt utan null-check.
+  FIXAD: Lade till null-check och returnerar null om chat inte hittas.
 error 38: v0-generator.ts:476 - Nullish coalescing används korrekt, men logiken kontrollerar både files.length och demoUrl. Om files.length är 0 men demoUrl finns, hoppar den över polling, vilket kan vara felaktigt.
+  FIXAD: Samma fix som error 16 - kräver nu både files OCH demoUrl för att hoppa över polling.
 error 39: openai-agent.ts:429-440 - readRedisFile() kastar Error om filen inte finns, men detta kan vara förväntat beteende. Bör kanske returnera null eller tom sträng istället.
 error 40: openai-agent.ts:610 - Buffer.from(data.content, "base64") kan krascha om data.content är ogiltig base64. Bör ha try-catch.
 error 41: openai-agent.ts:650 - Buffer.from(content).toString("base64") används för GitHub, men om content är för stor kan detta orsaka problem. GitHub har en gräns på 100MB per fil.
@@ -70,6 +75,7 @@ error 46: chat-panel.tsx:730-732 - Om response.chatId är undefined, sätts den 
 error 47: openai-agent.ts:1034-1037 - Type guard för function calls kan misslyckas om response.output har oväntad struktur. Bör ha fallback-hantering.
 error 48: api/agent/edit/route.ts:192-194 - Om previousResponseId finns men continueConversation() misslyckas, finns ingen fallback till runAgent().
 error 49: v0-generator.ts:621-631 - Om existingChatId är null, skapas en ny chat med refinementPrompt. Men detta kan skapa förvirring eftersom det inte är en refinement utan en ny generation.
+  FIXAD: Lade till truncation för långa kodsträngar och förbättrade loggning för att tydliggöra att ny chat skapas.
 error 50: openai-agent.ts:1160-1166 - Om response.output inte har någon message item, används "Ändringar genomförda." som default. Men detta kan vara missvisande om inga ändringar gjordes.
 error 51: projects/page.tsx:52-56 - err.message används direkt utan att kontrollera om err är en Error-instans. Om err är något annat kan detta krascha.
   FIXAD: Lade till type check med `err instanceof Error` innan användning av err.message.

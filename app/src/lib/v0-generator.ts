@@ -359,7 +359,7 @@ export async function downloadVersionAsZip(
  */
 async function waitForVersionReady(
   chatId: string,
-  maxAttempts = 120, // 120 × 5s = 10 minutes timeout
+  maxAttempts = 100, // 100 × 5s = 8.3 minutes timeout (leave buffer for route timeout)
   delayMs = 5000 // 5 seconds between polls
 ): Promise<ChatDetail | null> {
   const v0 = getV0Client();
@@ -370,7 +370,11 @@ async function waitForVersionReady(
     );
 
     try {
-      const chat = (await v0.chats.getById({ chatId })) as ChatDetail;
+      const chat = (await v0.chats.getById({ chatId })) as ChatDetail | null;
+      if (!chat) {
+        console.error("[v0-generator] Chat not found:", chatId);
+        return null;
+      }
       const status = chat.latestVersion?.status;
 
       console.log("[v0-generator] Version status:", status);
@@ -419,8 +423,15 @@ export async function generateCode(
   }
 
   // Add user's additional instructions if they provided both category and prompt
-  if (categoryType && prompt && !prompt.startsWith("Skapa en")) {
-    fullPrompt += `\n\nAdditional requirements: ${prompt}`;
+  // Only add if prompt doesn't already contain category-like content
+  if (categoryType && prompt && prompt.trim().length > 0) {
+    const promptLower = prompt.toLowerCase();
+    const categoryKeywords = ["skapa en", "bygg en", "gör en", "designa en"];
+    const isCategoryLikePrompt = categoryKeywords.some(keyword => promptLower.startsWith(keyword));
+    
+    if (!isCategoryLikePrompt) {
+      fullPrompt += `\n\nAdditional requirements: ${prompt}`;
+    }
   }
 
   console.log("[v0-generator] Creating chat with v0 Platform API...");
@@ -471,14 +482,15 @@ export async function generateCode(
   console.log("[v0-generator] Files count:", chat.latestVersion?.files?.length);
   console.log("[v0-generator] demoUrl:", chat.latestVersion?.demoUrl);
 
-  // Skip polling if we already have files and demoUrl
-  const hasContent =
-    (chat.latestVersion?.files?.length ?? 0) > 0 && chat.latestVersion?.demoUrl;
+  // Check if we have complete content (both files AND demoUrl are required)
+  const hasFiles = (chat.latestVersion?.files?.length ?? 0) > 0;
+  const hasDemoUrl = !!chat.latestVersion?.demoUrl;
+  const hasCompleteContent = hasFiles && hasDemoUrl;
 
-  // If version is not ready yet and no content, poll for completion
+  // If version is not ready yet and content is incomplete, poll for completion
   // Only poll if status is "pending" (not "completed" or "failed")
   const status = chat.latestVersion?.status;
-  if (!hasContent && status !== "completed" && status !== "failed") {
+  if (!hasCompleteContent && status !== "completed" && status !== "failed") {
     console.log("[v0-generator] Waiting for version to be ready...");
     const readyChat = await waitForVersionReady(chat.id);
     if (readyChat) {
@@ -488,8 +500,8 @@ export async function generateCode(
     }
   } else if (status === "failed") {
     console.error("[v0-generator] Generation failed");
-  } else if (hasContent) {
-    console.log("[v0-generator] Already have content, skipping polling");
+  } else if (hasCompleteContent) {
+    console.log("[v0-generator] Already have complete content, skipping polling");
   }
 
   // Extract files from the response
@@ -616,12 +628,12 @@ export async function refineCode(
   }
 
   // If no chat ID, create a new chat with the refinement context
-  console.log("[v0-generator] Creating new chat for refinement...");
+  console.log("[v0-generator] No chatId provided, creating new chat for refinement...");
 
   const refinementPrompt = `Here is my existing code:
 
 \`\`\`tsx
-${existingCode}
+${existingCode.substring(0, 50000)}${existingCode.length > 50000 ? "\n... [truncated]" : ""}
 \`\`\`
 
 Please modify it according to this instruction: ${instruction}
