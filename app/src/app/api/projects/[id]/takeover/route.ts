@@ -53,7 +53,13 @@ interface TakeoverRequest {
 export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
     const { id: projectId } = await params;
-    const body: TakeoverRequest = await request.json().catch(() => ({}));
+    let body: TakeoverRequest = {};
+    try {
+      body = await request.json();
+    } catch (jsonError) {
+      console.warn("[Takeover] Failed to parse JSON body, using defaults:", jsonError);
+      // Continue with default values
+    }
     const mode = body.mode || "redis"; // Default to Redis (simple, no GitHub required)
 
     console.log(
@@ -97,7 +103,13 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     const projectData = getProjectData(projectId);
-    if (!projectData?.chat_id) {
+    if (!projectData) {
+      return NextResponse.json(
+        { success: false, error: "Projektdata hittades inte" },
+        { status: 404 }
+      );
+    }
+    if (!projectData.chat_id) {
       return NextResponse.json(
         { success: false, error: "Projektet har ingen v0-data att ta över" },
         { status: 400 }
@@ -183,9 +195,19 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     console.log("[Takeover] Creating GitHub repo:", repoName);
 
-    // At this point we know fullUser has github_token (checked at line ~63-73)
-    const githubToken = fullUser!.github_token!;
-    const githubUsername = fullUser!.github_username!;
+    // At this point we know fullUser has github_token (checked at line ~77-87)
+    if (!fullUser?.github_token || !fullUser?.github_username) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "GitHub-token saknas. Vänligen anslut ditt GitHub-konto igen.",
+          requireGitHub: true,
+        },
+        { status: 400 }
+      );
+    }
+    const githubToken = fullUser.github_token;
+    const githubUsername = fullUser.github_username;
 
     const createRepoResponse = await fetch(
       "https://api.github.com/user/repos",

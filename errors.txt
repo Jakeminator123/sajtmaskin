@@ -64,6 +64,7 @@ error 41: openai-agent.ts:650 - Buffer.from(content).toString("base64") används
 error 42: chat-panel.tsx:374-395 - startGeneration() är en async funktion men anropas utan await. Om den kastar ett fel, kommer det inte att fångas av den omgivande koden.
 error 43: api/refine/route.ts:138 - chatId kan vara null men skickas till refineCode(). Om chatId är null skapas en ny chat, vilket kan vara oönskat beteende.
 error 44: api/generate/route.ts:132-136 - Om generateCode() kastar ett fel efter att credits redan dragits, förlorar användaren diamanterna utan att få något resultat.
+  FIXAD: Credits dras nu endast EFTER lyckad generering (när cleanedCode och cleanedFiles finns). Om generering misslyckas dras inga credits.
 error 45: openai-agent.ts:950-989 - createResponseWithFallback() försöker fallback om modellen inte finns, men om fallback-modellen också saknas, kastas felet vidare utan tydligt felmeddelande.
 error 46: chat-panel.tsx:730-732 - Om response.chatId är undefined, sätts den inte. Men senare kod kan förvänta sig att chatId finns för refinement.
 error 47: openai-agent.ts:1034-1037 - Type guard för function calls kan misslyckas om response.output har oväntad struktur. Bör ha fallback-hantering.
@@ -90,9 +91,12 @@ error 61: takeover-modal.tsx:355-361 - Samma problem som error 60. dangerouslySe
   FIXAD: Ersatte dangerouslySetInnerHTML med säker React-rendering (samma som error 60).
 error 62: takeover-modal.tsx:374 - URL konstrueras med result.github.repoName och result.github.owner, men om dessa är undefined eller innehåller ogiltiga tecken kan URL:en bli felaktig.
 error 63: api/projects/[id]/takeover/route.ts:56 - request.json().catch(() => ({})) fångar alla fel och returnerar tomt objekt. Om JSON är ogiltig kommer body att vara {} utan felmeddelande.
+  FIXAD: Lade till specifik try-catch för JSON parsing med loggning. Fortsätter med default values om parsing misslyckas.
 error 64: api/projects/[id]/takeover/route.ts:100 - projectData?.chat_id kontrolleras, men om projectData är null kommer detta att krascha innan kontrollen.
+  FIXAD: Lade till separat kontroll för projectData === null innan chat_id kontroll.
 error 65: api/projects/[id]/takeover/route.ts:116-119 - files mappas från projectData.files, men om projectData.files har fel struktur kan detta orsaka fel.
 error 66: api/projects/[id]/takeover/route.ts:187 - fullUser!.github_token! använder non-null assertion, men om fullUser eller github_token är null/undefined kommer detta att krascha.
+  FIXAD: Ersatte non-null assertions med explicit null-check och returnerar felmeddelande om token saknas.
 error 67: api/download/route.ts:33 - downloadVersionAsZip() kan krascha om chatId eller versionId är ogiltiga, men felet fångas inte specifikt.
 error 68: api/download/route.ts:49 - JSZip.loadAsync() kan misslyckas om zipBuffer är ogiltig, men felet fångas inte specifikt.
 error 69: api/download/route.ts:64 - file.async("string") kan misslyckas för binära filer eller om filen är korrupt. Ingen specifik felhantering.
@@ -101,7 +105,9 @@ error 71: api/projects/[id]/download/route.ts:71-73 - BASE64_IMAGE placeholders 
 error 72: api/projects/[id]/download/route.ts:85-89 - meta.name kan vara null eller undefined, vilket skulle orsaka .toLowerCase() att krascha.
   FIXAD: Lade till fallback till "project" om meta.name är null/undefined innan .toLowerCase() anropas.
 error 73: redis.ts:124 - JSON.parse(data) kan krascha om data är ogiltig JSON. Ingen try-catch eller validering.
+  FIXAD: Lade till inner try-catch för JSON.parse med specifik felhantering. Raderar korrupt cache om JSON är ogiltig.
 error 74: redis.ts:155 - Samma problem som error 73. JSON.parse() utan try-catch.
+  FIXAD: Lade till inner try-catch för JSON.parse med specifik felhantering (samma som error 73).
 error 75: redis.ts:187 - redis.incr() kan misslyckas om Redis-anslutningen är nere, men felet fångas inte specifikt.
 error 76: projects/page.tsx:115 - projects.length + takenOverProjects.length kan vara felaktigt om någon av arrays är undefined (även om det är osannolikt).
 error 77: projects/page.tsx:268 - project.thumbnail_path används direkt utan att kontrollera om den är en giltig URL eller sökväg.

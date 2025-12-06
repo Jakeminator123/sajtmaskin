@@ -121,7 +121,14 @@ export async function getCachedUserSession(
   try {
     const data = await redis.get(`${USER_SESSION_PREFIX}${userId}`);
     if (data) {
-      return JSON.parse(data) as CachedUser;
+      try {
+        return JSON.parse(data) as CachedUser;
+      } catch (parseError) {
+        console.error("[Redis] Failed to parse cached user session JSON:", parseError);
+        // Invalid JSON, delete corrupted cache
+        await redis.del(`${USER_SESSION_PREFIX}${userId}`);
+        return null;
+      }
     }
   } catch (error) {
     console.error("[Redis] Failed to get cached user session:", error);
@@ -152,13 +159,19 @@ export async function updateCachedUserDiamonds(
   try {
     const data = await redis.get(`${USER_SESSION_PREFIX}${userId}`);
     if (data) {
-      const user = JSON.parse(data) as CachedUser;
-      user.diamonds = diamonds;
-      await redis.setex(
-        `${USER_SESSION_PREFIX}${userId}`,
-        USER_SESSION_TTL,
-        JSON.stringify(user)
-      );
+      try {
+        const user = JSON.parse(data) as CachedUser;
+        user.diamonds = diamonds;
+        await redis.setex(
+          `${USER_SESSION_PREFIX}${userId}`,
+          USER_SESSION_TTL,
+          JSON.stringify(user)
+        );
+      } catch (parseError) {
+        console.error("[Redis] Failed to parse cached user JSON for diamond update:", parseError);
+        // Invalid JSON, delete corrupted cache
+        await redis.del(`${USER_SESSION_PREFIX}${userId}`);
+      }
     }
   } catch (error) {
     console.error("[Redis] Failed to update cached diamonds:", error);

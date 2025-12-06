@@ -161,20 +161,25 @@ export async function POST(req: NextRequest) {
     // ═══════════════════════════════════════════════════════════════════════════
     // DEDUCT CREDITS after successful generation
     // ═══════════════════════════════════════════════════════════════════════════
-    if (user) {
-      // Deduct diamond from authenticated user
-      const transaction = deductGenerationDiamond(user.id);
-      if (transaction) {
-        newBalance = transaction.balance_after;
-        console.log(
-          "[API/generate] Deducted 1 diamond, new balance:",
-          newBalance
-        );
+    // Only deduct if generation was successful (we have code/files)
+    if (cleanedCode && cleanedFiles && cleanedFiles.length > 0) {
+      if (user) {
+        // Deduct diamond from authenticated user
+        const transaction = deductGenerationDiamond(user.id);
+        if (transaction) {
+          newBalance = transaction.balance_after;
+          console.log(
+            "[API/generate] Deducted 1 diamond, new balance:",
+            newBalance
+          );
+        }
+      } else if (sessionId) {
+        // Increment guest usage
+        incrementGuestGenerations(sessionId);
+        console.log("[API/generate] Incremented guest generation count");
       }
-    } else if (sessionId) {
-      // Increment guest usage
-      incrementGuestGenerations(sessionId);
-      console.log("[API/generate] Incremented guest generation count");
+    } else {
+      console.warn("[API/generate] Generation incomplete, skipping credit deduction");
     }
 
     console.log("[API/generate] Success, returning response");
