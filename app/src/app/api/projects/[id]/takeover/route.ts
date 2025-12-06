@@ -123,13 +123,22 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     let files: ProjectFile[] = [];
 
-    if (projectData.files && projectData.files.length > 0) {
+    if (projectData.files && Array.isArray(projectData.files) && projectData.files.length > 0) {
       console.log("[Takeover] Using cached files from project data");
-      files = projectData.files.map((f: { name: string; content: string }) => ({
-        path: f.name,
-        content: f.content,
-        lastModified: new Date().toISOString(),
-      }));
+      files = projectData.files
+        .filter((f: unknown) => 
+          f && 
+          typeof f === "object" && 
+          "name" in f && 
+          "content" in f &&
+          typeof (f as { name: unknown }).name === "string" &&
+          typeof (f as { content: unknown }).content === "string"
+        )
+        .map((f: { name: string; content: string }) => ({
+          path: f.name,
+          content: f.content,
+          lastModified: new Date().toISOString(),
+        }));
     } else {
       return NextResponse.json(
         {
