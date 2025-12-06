@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
       previousResponseId,
     } = body;
 
-    console.log("[Agent/Edit] Request:", { projectId, taskType });
+    // Processing agent edit request
 
     // Validate input
     if (!instruction || instruction.trim().length === 0) {
@@ -166,11 +166,6 @@ export async function POST(request: NextRequest) {
     }
 
     // Run the agent FIRST (before deducting diamonds)
-    console.log("[Agent/Edit] Running agent:", {
-      storage: context.storageType,
-      taskType,
-      instruction: instruction.substring(0, 100),
-    });
 
     let result;
     try {

@@ -434,11 +434,6 @@ export function ChatPanel({
       // SMART: If template signals useV0Api (has v0TemplateId, no local files)
       // → Skip file handling, go directly to v0 API
       if (data.useV0Api && data.template?.v0TemplateId) {
-        if (DEBUG)
-          console.log(
-            "[ChatPanel] Template uses v0 API directly:",
-            data.template.v0TemplateId
-          );
         addMessage(
           "assistant",
           `Mall "${data.template.name}" hittad! Laddar från v0 direkt...`

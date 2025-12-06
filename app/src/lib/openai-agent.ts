@@ -24,7 +24,7 @@
  * 1. REDIS (default) - Files stored in Redis, download as ZIP
  * 2. GITHUB - Full version control on user's GitHub
  *
- * All API calls are logged for debugging and monitoring.
+ * All API calls include error handling and structured responses.
  */
 
 import OpenAI from "openai";

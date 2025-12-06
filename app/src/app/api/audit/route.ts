@@ -274,11 +274,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Log raw output for debugging
-    console.log(`[${requestId}] Raw output length: ${outputText.length} chars`);
-    console.log(
-      `[${requestId}] Output preview: ${outputText.substring(0, 500)}...`
-    );
+    // Processing audit output
 
     // Parse JSON response
     let auditResult;
@@ -321,8 +317,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Log what we got for debugging
-    console.log(`[${requestId}] Parsed result keys:`, Object.keys(auditResult));
+    // Audit result parsed successfully
 
     // Validate result (more lenient - just check it's an object with some data)
     if (!validateAuditResult(auditResult)) {

@@ -31,7 +31,7 @@ export function AnalyticsTracker() {
         });
       } catch (error) {
         // Silently fail - don't interrupt user experience
-        console.debug("[Analytics] Failed to track page view");
+        // Analytics tracking failed silently
       }
     };
 

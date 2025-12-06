@@ -38,7 +38,7 @@
  * - v0-1.5-md: Standard (128K context, snabb, $1.5/$7.5 per 1M tokens)
  * - v0-1.5-lg: Premium (512K context, bäst, $15/$75 per 1M tokens)
  *
- * DEBUG: Alla operationer loggas till console med [v0-generator] prefix.
+ * All operations include error handling and structured logging.
  */
 
 import { createClient, type ChatDetail } from "v0-sdk";

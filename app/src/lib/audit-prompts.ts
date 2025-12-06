@@ -226,11 +226,7 @@ export function combinePromptForResponsesApi(prompt: PromptMessage[]): {
  * @returns Extracted text content
  */
 export function extractOutputText(response: Record<string, unknown>): string {
-  // Log response structure for debugging
-  console.log(
-    "[extractOutputText] Response keys:",
-    Object.keys(response || {})
-  );
+  // Extract text from OpenAI response structure
 
   // Try output_text first (Responses API standard)
   if (

@@ -27,8 +27,7 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    console.log("[API/download] Downloading ZIP for:", chatId, versionId);
-    console.log("[API/download] Include backoffice:", includeBackoffice);
+    // Downloading ZIP for project
 
     // Validate inputs
     if (!chatId || !versionId) {
@@ -61,7 +60,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Inject backoffice files
-    console.log("[API/download] Injecting backoffice files...");
+    // Injecting backoffice files
 
     // Load original ZIP
     let zip: JSZip;
@@ -108,16 +107,12 @@ export async function GET(request: NextRequest) {
     const MAX_COMBINED_CODE_SIZE = 5 * 1024 * 1024; // 5MB
     let combinedCode = codeFiles.map((f) => f.content).join("\n\n");
     if (combinedCode.length > MAX_COMBINED_CODE_SIZE) {
-      console.warn("[API/download] Combined code exceeds 5MB, truncating");
+      // Combined code exceeds 5MB, truncating
       combinedCode = combinedCode.substring(0, MAX_COMBINED_CODE_SIZE);
     }
     const manifest = extractContent(combinedCode, codeFiles);
 
-    console.log("[API/download] Extracted manifest:", {
-      siteType: manifest.siteType,
-      contentCount: manifest.content.length,
-      productCount: manifest.products.length,
-    });
+    // Manifest extracted successfully
 
     // Generate backoffice files with user's password
     // Only use password if it's a non-empty string
@@ -142,7 +137,7 @@ export async function GET(request: NextRequest) {
       compressionOptions: { level: 6 },
     });
 
-    console.log("[API/download] Backoffice injection complete");
+    // Backoffice injection complete
 
     return new NextResponse(newZipBuffer, {
       headers: {

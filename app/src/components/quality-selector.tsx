@@ -60,7 +60,7 @@ export function QualitySelector({
   onChange,
   disabled = false,
 }: QualitySelectorProps) {
-  // Debug log removed - was causing excessive console output
+  // Quality selector component
 
   return (
     <div className="flex items-center gap-1 p-1 bg-black/50 border border-gray-800">
