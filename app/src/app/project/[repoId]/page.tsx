@@ -316,7 +316,7 @@ function OwnedProjectContent() {
             <div className="flex items-center gap-1.5 px-3 py-1.5 bg-black/50 border border-amber-500/30 hover:border-amber-500/60 transition-colors cursor-pointer group">
               <Diamond className="h-4 w-4 text-amber-400 group-hover:text-amber-300" />
               <span className="text-sm font-semibold text-amber-400 group-hover:text-amber-300">
-                {diamonds}
+                {diamonds ?? 0}
               </span>
             </div>
           </Link>

@@ -1,7 +1,9 @@
 error 1: navbar.tsx:186 - diamonds kan vara null men visas direkt utan null-check. Kan visa "null" i UI.
+  FIXAD: Lade till ?? 0 för att visa 0 istället för null.
 error 2: onboarding-modal.tsx:135 - `default` attribut på track-elementet är inte korrekt syntax. Ska vara `default={true}` eller bara `default`.
 error 3: onboarding-modal.tsx:315-321 - localStorage används i useEffect utan SSR-check. Kan orsaka hydration errors i Next.js när koden körs på servern.
 error 4: home-page.tsx:217 - `user?.diamonds` kan vara undefined/null men visas direkt utan fallback-värde.
+  FIXAD: Lade till ?? 0 för att visa 0 istället för undefined/null.
 error 5: prompt-input.tsx:62-65 - useEffect med initialValue kan orsaka problem om initialValue ändras från undefined till en sträng. Bör ha bättre dependency-hantering.
 error 6: store.ts:159,202,207 - `get().saveToDatabase()` anropas direkt utan await. Kan orsaka race conditions och flera samtidiga save-operationer.
 error 7: builder/page.tsx:38 - `window.innerWidth` används utan SSR-check. Kan krascha under SSR i Next.js.
@@ -11,7 +13,9 @@ error 10: navbar.tsx:74 - fetchUser() anropas i useEffect med fetchUser i depend
 error 11: auth-store.ts:149 - diamonds returneras som `user?.diamonds ?? 0`, men user kan vara null vilket gör att diamonds alltid blir 0 även om user finns men diamonds är undefined.
 error 12: store.ts:281 - saveToDatabase() hoppar över om hasUserSaved är false, men loggar inget. Detta kan vara förvirrande för debugging.
 error 13: builder/page.tsx:272 - diamonds visas direkt utan null-check. Om diamonds är null visas "null" i UI.
+  FIXAD: Lade till ?? 0 för att visa 0 istället för null.
 error 14: builder/page.tsx:382 - diamonds visas direkt utan null-check. Samma problem som ovan.
+  FIXAD: Lade till ?? 0 för att visa 0 istället för null.
 error 15: cookie-banner.tsx:222 - KeyboardEvent används utan import från React. Bör vara `React.KeyboardEvent` eller importeras korrekt.
 error 16: v0-generator.ts:476 - Nullish coalescing används korrekt, men logiken kan vara förvirrande. Kontrollerar både files.length och demoUrl, men om files.length är 0 men demoUrl finns, hoppar den över polling.
 error 17: home-page.tsx:70 - firstName kan vara undefined om både user?.name och user?.email är undefined/null. Detta kan orsaka problem när det används i JSX.
@@ -55,6 +59,7 @@ error 54: project/[repoId]/page.tsx:93 - projectId skapas som `${owner}_${repoId
 error 55: project/[repoId]/page.tsx:137 - diamonds < cost kontrolleras på klienten, men detta kan vara stale data. Server-side validering sker också, men användaren kan se felmeddelande baserat på gammal data.
 error 56: project/[repoId]/page.tsx:193-195 - Om data.newBalance är undefined, anropas fetchUser() ändå. Detta kan vara onödigt om balance inte ändrades.
 error 57: project/[repoId]/page.tsx:319 - diamonds visas direkt utan null-check. Kan visa "null" i UI.
+  FIXAD: Lade till ?? 0 för att visa 0 istället för null.
 error 58: project/[repoId]/page.tsx:608 - diamonds < getModeCost(selectedMode) kontrolleras i disabled, men om diamonds är null kan detta ge oväntat beteende.
 error 59: takeover-modal.tsx:115-118 - window.location används utan SSR-check. Kan krascha under SSR.
 error 60: takeover-modal.tsx:246-252 - dangerouslySetInnerHTML används med regex-replace för HTML. Detta är osäkert och kan orsaka XSS om analysisResult.analysis innehåller skadlig kod.

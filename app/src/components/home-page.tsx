@@ -214,7 +214,7 @@ export function HomePage() {
                 Välkommen tillbaka,{" "}
                 <span className="text-white font-medium">{firstName}</span>!
               </span>
-              <span className="text-xs text-gray-500">{user?.diamonds} 💎</span>
+              <span className="text-xs text-gray-500">{user?.diamonds ?? 0} 💎</span>
             </div>
           </div>
         )}

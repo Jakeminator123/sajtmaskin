@@ -183,7 +183,7 @@ export function Navbar({ onLoginClick, onRegisterClick }: NavbarProps) {
                     }
                   `}
                 >
-                  {diamonds}
+                  {diamonds ?? 0}
                 </span>
                 
                 {/* "Buy more" hint on hover when low */}
@@ -253,7 +253,7 @@ export function Navbar({ onLoginClick, onRegisterClick }: NavbarProps) {
                     <div className="flex items-center gap-1.5">
                       <Diamond className="h-4 w-4 text-amber-400" />
                       <span className="text-sm font-semibold text-amber-400">
-                        {diamonds}
+                        {diamonds ?? 0}
                       </span>
                     </div>
                   </Link>
