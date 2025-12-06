@@ -202,7 +202,13 @@ function OwnedProjectContent() {
         };
 
         setMessages((prev) => [...prev, assistantMessage]);
-        setPreviousResponseId(data.responseId || null);
+        // Save response ID for continuation (only if provided and valid)
+        if (data.responseId && typeof data.responseId === "string") {
+          setPreviousResponseId(data.responseId);
+        } else {
+          // Clear previous response ID if not provided or invalid
+          setPreviousResponseId(null);
+        }
 
         // Update preview state
         if (data.updatedFiles && data.updatedFiles.length > 0) {
