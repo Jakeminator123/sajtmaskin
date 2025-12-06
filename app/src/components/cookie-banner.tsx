@@ -70,6 +70,7 @@ export function CookieBanner() {
 
   // Check cookie consent on mount
   useEffect(() => {
+    if (typeof window === "undefined") return;
     const cookieConsent = localStorage.getItem("cookie-consent");
     if (!cookieConsent) {
       const timer = setTimeout(() => setIsVisible(true), 800);
@@ -204,11 +205,13 @@ export function CookieBanner() {
           setHasWon(true);
           setScore((s) => s + 100);
           setTimeout(() => {
-            localStorage.setItem("cookie-consent", "accepted");
-            localStorage.setItem(
-              "cookie-consent-date",
-              new Date().toISOString()
-            );
+            if (typeof window !== "undefined") {
+              localStorage.setItem("cookie-consent", "accepted");
+              localStorage.setItem(
+                "cookie-consent-date",
+                new Date().toISOString()
+              );
+            }
           }, 500);
           setTimeout(() => setIsVisible(false), 2500);
         }
@@ -219,6 +222,7 @@ export function CookieBanner() {
 
   // Keyboard controls
   useEffect(() => {
+    if (typeof window === "undefined") return;
     const handleKeyDown = (e: KeyboardEvent) => {
       if (!isVisible) return;
 
@@ -271,13 +275,17 @@ export function CookieBanner() {
   };
 
   const handleAccept = () => {
-    localStorage.setItem("cookie-consent", "accepted");
-    localStorage.setItem("cookie-consent-date", new Date().toISOString());
+    if (typeof window !== "undefined") {
+      localStorage.setItem("cookie-consent", "accepted");
+      localStorage.setItem("cookie-consent-date", new Date().toISOString());
+    }
     setIsVisible(false);
   };
 
   const handleDecline = () => {
-    localStorage.setItem("cookie-consent", "declined");
+    if (typeof window !== "undefined") {
+      localStorage.setItem("cookie-consent", "declined");
+    }
     setIsVisible(false);
   };
 

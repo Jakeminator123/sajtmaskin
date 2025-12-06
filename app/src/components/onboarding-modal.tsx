@@ -63,7 +63,9 @@ export function OnboardingModal({ onComplete, onSkip }: OnboardingModalProps) {
   };
 
   const handleSubmit = () => {
-    localStorage.setItem("sajtmaskin_onboarding_seen", "true");
+    if (typeof window !== "undefined") {
+      localStorage.setItem("sajtmaskin_onboarding_seen", "true");
+    }
     onComplete({
       existingUrl,
       urlPurpose,
@@ -73,7 +75,9 @@ export function OnboardingModal({ onComplete, onSkip }: OnboardingModalProps) {
   };
 
   const handleSkip = () => {
-    localStorage.setItem("sajtmaskin_onboarding_seen", "true");
+    if (typeof window !== "undefined") {
+      localStorage.setItem("sajtmaskin_onboarding_seen", "true");
+    }
     onSkip();
   };
 
@@ -132,7 +136,7 @@ export function OnboardingModal({ onComplete, onSkip }: OnboardingModalProps) {
                   src="/video/intro.vtt"
                   srcLang="sv"
                   label="Svenska"
-                  default
+                  default={true}
                 />
                 Din webbläsare stödjer inte video.
               </video>
@@ -312,6 +316,7 @@ export function useOnboarding() {
   );
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
     const hasSeenOnboarding = localStorage.getItem(
       "sajtmaskin_onboarding_seen"
     );
@@ -330,7 +335,9 @@ export function useOnboarding() {
   };
 
   const resetOnboarding = () => {
-    localStorage.removeItem("sajtmaskin_onboarding_seen");
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("sajtmaskin_onboarding_seen");
+    }
     setShowOnboarding(true);
     setOnboardingData(null);
   };

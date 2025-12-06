@@ -1,13 +1,16 @@
 error 1: navbar.tsx:186 - diamonds kan vara null men visas direkt utan null-check. Kan visa "null" i UI.
   FIXAD: Lade till ?? 0 för att visa 0 istället för null.
 error 2: onboarding-modal.tsx:135 - `default` attribut på track-elementet är inte korrekt syntax. Ska vara `default={true}` eller bara `default`.
+  FIXAD: Ändrade från `default` till `default={true}` för korrekt React-syntax.
 error 3: onboarding-modal.tsx:315-321 - localStorage används i useEffect utan SSR-check. Kan orsaka hydration errors i Next.js när koden körs på servern.
+  FIXAD: Lade till `typeof window === "undefined"` check i useEffect och alla localStorage-anrop.
 error 4: home-page.tsx:217 - `user?.diamonds` kan vara undefined/null men visas direkt utan fallback-värde.
   FIXAD: Lade till ?? 0 för att visa 0 istället för undefined/null.
 error 5: prompt-input.tsx:62-65 - useEffect med initialValue kan orsaka problem om initialValue ändras från undefined till en sträng. Bör ha bättre dependency-hantering.
 error 6: store.ts:159,202,207 - `get().saveToDatabase()` anropas direkt utan await. Kan orsaka race conditions och flera samtidiga save-operationer.
 error 7: builder/page.tsx:38 - `window.innerWidth` används utan SSR-check. Kan krascha under SSR i Next.js.
 error 8: cookie-banner.tsx:73 - localStorage används utan SSR-check i useEffect. Kan orsaka hydration errors.
+  FIXAD: Lade till `typeof window === "undefined"` check i useEffect och alla localStorage-anrop.
 error 9: v0-generator.ts:422 - Logik för att kombinera categoryType och prompt kan vara buggig. Om prompt börjar med "Skapa en" men inte är en kategori-prompt, läggs den inte till som additional requirements.
 error 10: navbar.tsx:74 - fetchUser() anropas i useEffect med fetchUser i dependency array. Om fetchUser ändras kan detta orsaka oändlig loop.
 error 11: auth-store.ts:149 - diamonds returneras som `user?.diamonds ?? 0`, men user kan vara null vilket gör att diamonds alltid blir 0 även om user finns men diamonds är undefined.
