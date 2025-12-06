@@ -1,13 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
-import { getProjectFiles, getProjectMeta } from "@/lib/redis";
+import { getProjectMeta } from "@/lib/redis";
+import { loadProjectFilesWithFallback } from "@/lib/project-files";
+import { sanitizeProjectPath } from "@/lib/path-utils";
 import JSZip from "jszip";
 
 /**
  * GET /api/projects/[id]/download
  *
  * Downloads a taken-over project as a ZIP file.
- * Only works for Redis-stored projects (GitHub projects can be cloned directly).
+ * Uses centralized file loading with fallback chain: Redis → SQLite → Legacy.
  */
 
 interface RouteParams {
@@ -53,8 +55,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Get project files from Redis
-    const files = await getProjectFiles(projectId);
+    // Get project files (uses centralized fallback chain)
+    const files = await loadProjectFilesWithFallback(projectId);
+
     if (!files || files.length === 0) {
       return NextResponse.json(
         { success: false, error: "Inga filer hittades i projektet" },
@@ -62,14 +65,34 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       );
     }
 
+    // Validate & normalize paths to prevent traversal
+    const normalizedFiles = [];
+    for (const file of files) {
+      const safePath = sanitizeProjectPath(file.path);
+      if (!safePath) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: `Ogiltig filväg upptäcktes: ${file.path}`,
+          },
+          { status: 400 }
+        );
+      }
+      normalizedFiles.push({ ...file, path: safePath });
+    }
+
     // Create ZIP file
     const zip = new JSZip();
 
     // Add each file to the ZIP
-    for (const file of files) {
+    for (const file of normalizedFiles) {
       // Skip base64 image placeholders (these are markers, not actual image data)
       // Check for exact placeholder format to avoid skipping real files
-      if (file.content && typeof file.content === "string" && file.content.trim() === `[BASE64_IMAGE:${file.path.split("/").pop()}]`) {
+      if (
+        file.content &&
+        typeof file.content === "string" &&
+        file.content.trim() === `[BASE64_IMAGE:${file.path.split("/").pop()}]`
+      ) {
         continue;
       }
       zip.file(file.path, file.content);

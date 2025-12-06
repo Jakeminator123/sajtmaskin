@@ -21,7 +21,7 @@
  * - analyze: Analyze project and suggest improvements (gpt-5)
  *
  * STORAGE MODES:
- * 1. REDIS (default) - Files stored in Redis, download as ZIP
+ * 1. SQLITE (primär) + Redis cache - Filer lagras i SQLite, Redis för cache
  * 2. GITHUB - Full version control on user's GitHub
  *
  * All API calls include error handling and structured responses.
@@ -29,13 +29,14 @@
 
 import OpenAI from "openai";
 import {
-  getProjectFiles,
   updateProjectFile,
   getProjectMeta,
   saveProjectFiles,
   ProjectFile,
 } from "./redis";
-import { getProjectData } from "./database";
+import { updateProjectFileInDb } from "./database";
+import { sanitizeProjectPath } from "./path-utils";
+import { loadProjectFilesWithFallback } from "./project-files";
 
 // Initialize OpenAI client (lazy initialization to avoid build-time errors)
 function getOpenAIClient(): OpenAI {
@@ -70,7 +71,7 @@ export interface GeneratedImage {
 
 export interface AgentContext {
   projectId: string;
-  storageType: "redis" | "github";
+  storageType: "redis" | "github" | "sqlite";
   taskType: TaskType;
   // GitHub-specific
   githubToken?: string;
@@ -520,56 +521,13 @@ OUTPUT FORMAT:
 Var konstruktiv och fokusera på det som ger mest värde.`,
 };
 
-// ============ REDIS Storage Functions ============
+// ============ Project File Operations ============
 
-async function loadRedisFilesWithFallback(
-  projectId: string
-): Promise<ProjectFile[]> {
-  // Try Redis first
-  const redisFiles = await getProjectFiles(projectId);
-  if (redisFiles && redisFiles.length > 0) {
-    return redisFiles;
-  }
-
-  // Fallback to stored project_data (v0 payload)
-  const projectData = getProjectData(projectId);
-  if (
-    projectData?.files &&
-    Array.isArray(projectData.files) &&
-    projectData.files.length > 0
-  ) {
-    const filesFromDb: ProjectFile[] = projectData.files
-      .filter(
-        (f: unknown) =>
-          f &&
-          typeof f === "object" &&
-          "name" in f &&
-          "content" in f &&
-          typeof (f as { name: unknown }).name === "string" &&
-          typeof (f as { content: unknown }).content === "string"
-      )
-      .map((f: { name: string; content: string }) => ({
-        path: f.name,
-        content: f.content,
-        lastModified: new Date().toISOString(),
-      }));
-
-    if (filesFromDb.length > 0) {
-      // Seed Redis so the editor/agent can continue without DB reads
-      try {
-        await saveProjectFiles(projectId, filesFromDb);
-      } catch (error) {
-        console.warn("[Agent] Failed to seed Redis from DB fallback:", error);
-      }
-      return filesFromDb;
-    }
-  }
-
-  return [];
-}
-
-async function readRedisFile(projectId: string, path: string): Promise<string> {
-  const files = await loadRedisFilesWithFallback(projectId);
+async function readProjectFile(
+  projectId: string,
+  path: string
+): Promise<string> {
+  const files = await loadProjectFilesWithFallback(projectId);
   if (!files || files.length === 0) {
     throw new Error("Projektet hittades inte");
   }
@@ -582,39 +540,49 @@ async function readRedisFile(projectId: string, path: string): Promise<string> {
   return file.content;
 }
 
-async function updateRedisFile(
+async function updateProjectFileCached(
   projectId: string,
-  path: string,
+  filePath: string,
   content: string
 ): Promise<void> {
-  // Ensure Redis has a baseline set of files
-  await loadRedisFilesWithFallback(projectId);
-
-  let success = await updateProjectFile(projectId, path, content);
-
-  // If update failed, seed minimal file and retry once
-  if (!success) {
-    const seed: ProjectFile[] = [
-      { path, content, lastModified: new Date().toISOString() },
-    ];
-    try {
-      await saveProjectFiles(projectId, seed);
-      success = await updateProjectFile(projectId, path, content);
-    } catch (error) {
-      console.warn("[Agent] Failed to seed Redis before update:", error);
-    }
+  // Validate path to prevent directory traversal attacks
+  const safePath = sanitizeProjectPath(filePath);
+  if (!safePath) {
+    throw new Error(`Ogiltig filväg: ${filePath}`);
   }
 
-  if (!success) {
-    throw new Error(`Kunde inte uppdatera fil: ${path}`);
+  // Write to SQLite (source of truth)
+  try {
+    updateProjectFileInDb(projectId, safePath, content);
+  } catch (error) {
+    console.error("[Agent] Failed to write file to SQLite:", error);
+    throw new Error(`Kunde inte spara fil i SQLite: ${safePath}`);
+  }
+
+  // Best-effort cache update in Redis
+  try {
+    await updateProjectFile(projectId, safePath, content);
+  } catch {
+    // If update fails (e.g., cache missing), seed minimal file and retry once
+    try {
+      await saveProjectFiles(projectId, [
+        { path: safePath, content, lastModified: new Date().toISOString() },
+      ]);
+      await updateProjectFile(projectId, safePath, content);
+    } catch (cacheError) {
+      console.warn(
+        "[Agent] Failed to update Redis cache for file:",
+        cacheError
+      );
+    }
   }
 }
 
-async function listRedisFiles(
+async function listProjectFiles(
   projectId: string,
   subPath?: string
 ): Promise<string[]> {
-  const files = await loadRedisFilesWithFallback(projectId);
+  const files = await loadProjectFilesWithFallback(projectId);
   if (!files || files.length === 0) {
     throw new Error("Projektet hittades inte");
   }
@@ -722,7 +690,7 @@ async function saveImageToProject(
   projectId: string,
   imageName: string,
   base64Data: string,
-  storageType: "redis" | "github",
+  storageType: "redis" | "github" | "sqlite",
   githubToken?: string,
   repoFullName?: string
 ): Promise<string> {
@@ -738,8 +706,12 @@ async function saveImageToProject(
     );
   }
 
-  // Also save to Redis (updateProjectFile handles both update and create)
-  await updateProjectFile(projectId, imagePath, `[BASE64_IMAGE:${imageName}]`);
+  // Persist locally (SQLite + Redis cache) as placeholder reference
+  await updateProjectFileCached(
+    projectId,
+    imagePath,
+    `[BASE64_IMAGE:${imageName}]`
+  );
 
   return imagePath;
 }
@@ -886,7 +858,7 @@ async function executeTool(
       if (storageType === "github" && githubToken && repoFullName) {
         return await readGitHubFile(githubToken, repoFullName, path);
       } else {
-        return await readRedisFile(projectId, path);
+        return await readProjectFile(projectId, path);
       }
     }
 
@@ -903,9 +875,9 @@ async function executeTool(
           content,
           commitMessage
         );
-        await updateRedisFile(projectId, path, content);
+        await updateProjectFileCached(projectId, path, content);
       } else {
-        await updateRedisFile(projectId, path, content);
+        await updateProjectFileCached(projectId, path, content);
       }
       return `Fil uppdaterad: ${path}`;
     }
@@ -916,7 +888,7 @@ async function executeTool(
         const files = await listGitHubFiles(githubToken, repoFullName, subPath);
         return files.join("\n");
       } else {
-        const files = await listRedisFiles(projectId, subPath);
+        const files = await listProjectFiles(projectId, subPath);
         return files.join("\n");
       }
     }
@@ -935,7 +907,7 @@ async function executeTool(
 async function gatherSmartContext(
   instruction: string,
   projectId: string,
-  storageType: "redis" | "github",
+  storageType: "redis" | "github" | "sqlite",
   githubToken?: string,
   repoFullName?: string
 ): Promise<string> {
@@ -945,7 +917,7 @@ async function gatherSmartContext(
     if (storageType === "github" && githubToken && repoFullName) {
       allFiles = await listGitHubFiles(githubToken, repoFullName);
     } else {
-      allFiles = await listRedisFiles(projectId);
+      allFiles = await listProjectFiles(projectId);
     }
 
     if (!allFiles || allFiles.length === 0) {
@@ -1048,7 +1020,7 @@ async function gatherSmartContext(
         if (storageType === "github" && githubToken && repoFullName) {
           content = await readGitHubFile(githubToken, repoFullName, filePath);
         } else {
-          content = await readRedisFile(projectId, filePath);
+          content = await readProjectFile(projectId, filePath);
         }
 
         // Truncate if too long

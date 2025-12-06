@@ -4,6 +4,10 @@ import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
+  WebcontainerPreview,
+  WebcontainerStatus,
+} from "@/components/webcontainer-preview";
+import {
   RefreshCw,
   ExternalLink,
   Code,
@@ -11,7 +15,6 @@ import {
   Maximize2,
   Minimize2,
   Globe,
-  Loader2,
 } from "lucide-react";
 
 interface PreviewPanelProps {
@@ -37,28 +40,30 @@ export function PreviewPanel({
   projectId,
   onPreviewGenerated,
 }: PreviewPanelProps) {
-  // Default to "code" view when there are files but no live preview URL
-  // This ensures users see their AI changes immediately instead of stale v0 preview
-  const initialViewMode: ViewMode = previewUrl
-    ? "preview"
-    : generatedImage
-    ? "image"
-    : projectFiles.length > 0 || lastUpdatedFile
-    ? "code"
-    : "preview";
+  // Default to preview when we have filer (WebContainer), otherwise fall back
+  const initialViewMode: ViewMode =
+    projectFiles.length > 0
+      ? "preview"
+      : previewUrl
+      ? "preview"
+      : generatedImage
+      ? "image"
+      : lastUpdatedFile
+      ? "code"
+      : "preview";
 
   const [viewMode, setViewMode] = useState<ViewMode>(initialViewMode);
   const [isExpanded, setIsExpanded] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [selectedFileIndex, setSelectedFileIndex] = useState(0);
-  const [isRegenerating, setIsRegenerating] = useState(false);
-  const [regenerateError, setRegenerateError] = useState<string | null>(null);
   const [localPreviewUrl, setLocalPreviewUrl] = useState<string | undefined>(
     previewUrl
   );
+  const [wcPreviewUrl, setWcPreviewUrl] = useState<string | undefined>();
+  const [wcStatus, setWcStatus] = useState<WebcontainerStatus>("idle");
 
   // Use local preview URL if we've regenerated, otherwise use prop
-  const activePreviewUrl = localPreviewUrl || previewUrl;
+  const activePreviewUrl = wcPreviewUrl || localPreviewUrl || previewUrl;
 
   // Get the file to display - either the last updated one or selected from project files
   const displayFile =
@@ -67,40 +72,8 @@ export function PreviewPanel({
 
   const handleRefresh = () => {
     setRefreshKey((prev) => prev + 1);
-  };
-
-  // Regenerate live preview using v0 API
-  const handleRegeneratePreview = async () => {
-    if (!projectId || isRegenerating) return;
-
-    setIsRegenerating(true);
-    setRegenerateError(null);
-
-    try {
-      const response = await fetch(
-        `/api/projects/${encodeURIComponent(projectId)}/preview`,
-        {
-          method: "POST",
-        }
-      );
-
-      const data = await response.json();
-
-      if (data.success && data.demoUrl) {
-        setLocalPreviewUrl(data.demoUrl);
-        setViewMode("preview");
-        setRefreshKey((prev) => prev + 1);
-        onPreviewGenerated?.(data.demoUrl);
-      } else {
-        setRegenerateError(data.error || "Kunde inte generera preview");
-      }
-    } catch (error) {
-      setRegenerateError(
-        error instanceof Error ? error.message : "Nätverksfel"
-      );
-    } finally {
-      setIsRegenerating(false);
-    }
+    setWcPreviewUrl(undefined);
+    setLocalPreviewUrl(undefined);
   };
 
   return (
@@ -116,7 +89,7 @@ export function PreviewPanel({
         <div className="flex items-center gap-2">
           {/* View mode tabs */}
           <div className="flex gap-0.5 bg-gray-800/50 p-0.5 rounded-md">
-            {activePreviewUrl && (
+            {(projectFiles.length > 0 || activePreviewUrl) && (
               <button
                 onClick={() => setViewMode("preview")}
                 className={cn(
@@ -184,24 +157,22 @@ export function PreviewPanel({
 
         {/* Actions */}
         <div className="flex items-center gap-1">
-          {/* Single refresh/regenerate button */}
-          {projectId && projectFiles.length > 0 && (
+          {/* Restart preview (WebContainer) */}
+          {projectFiles.length > 0 && (
             <Button
               variant="ghost"
               size="sm"
-              onClick={
-                activePreviewUrl ? handleRefresh : handleRegeneratePreview
-              }
-              disabled={isRegenerating}
+              onClick={handleRefresh}
               className="h-7 w-7 p-0 text-gray-400 hover:text-white"
-              title={activePreviewUrl ? "Ladda om preview" : "Generera preview"}
+              title="Starta om preview"
             >
-              {isRegenerating ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <RefreshCw className="h-3.5 w-3.5" />
-              )}
+              <RefreshCw className="h-3.5 w-3.5" />
             </Button>
+          )}
+          {projectFiles.length > 0 && (
+            <span className="rounded bg-gray-800 px-2 py-0.5 text-[10px] uppercase tracking-wide text-gray-400">
+              {wcStatus}
+            </span>
           )}
           {activePreviewUrl && (
             <a
@@ -234,13 +205,6 @@ export function PreviewPanel({
         </div>
       </div>
 
-      {/* Regenerate error message */}
-      {regenerateError && (
-        <div className="px-3 py-2 bg-red-500/10 border-b border-red-500/30 text-xs text-red-400">
-          {regenerateError}
-        </div>
-      )}
-
       {/* Content */}
       <div className="flex-1 overflow-hidden">
         {/* Loading state */}
@@ -253,14 +217,43 @@ export function PreviewPanel({
           </div>
         )}
 
-        {/* Preview iframe */}
-        {!isLoading && viewMode === "preview" && activePreviewUrl && (
-          <iframe
-            key={refreshKey}
-            src={activePreviewUrl}
-            className="w-full h-full border-0 bg-white"
-            title="Site preview"
-          />
+        {/* Preview via WebContainer or fallback iframe */}
+        {!isLoading && viewMode === "preview" && (
+          <>
+            {projectFiles.length > 0 ? (
+              <WebcontainerPreview
+                key={`${projectId ?? "local"}-${refreshKey}`}
+                files={projectFiles}
+                onReady={(url) => {
+                  setWcPreviewUrl(url);
+                  setLocalPreviewUrl(url);
+                  setViewMode("preview");
+                  onPreviewGenerated?.(url);
+                }}
+                onStatusChange={(status) => {
+                  setWcStatus(status);
+                }}
+                className="h-full"
+              />
+            ) : activePreviewUrl ? (
+              <iframe
+                key={refreshKey}
+                src={activePreviewUrl}
+                className="w-full h-full border-0 bg-white"
+                title="Site preview"
+              />
+            ) : (
+              <div className="h-full flex items-center justify-center text-gray-500">
+                <div className="text-center space-y-2">
+                  <Globe className="h-10 w-10 mx-auto opacity-30" />
+                  <p className="text-sm">Ingen preview tillgänglig</p>
+                  <p className="text-xs text-gray-600">
+                    Lägg till filer för att starta preview
+                  </p>
+                </div>
+              </div>
+            )}
+          </>
         )}
 
         {/* Code view */}
@@ -327,33 +320,6 @@ export function PreviewPanel({
             </div>
           )}
 
-        {/* Show hint to generate preview when only code is visible */}
-        {!isLoading &&
-          !activePreviewUrl &&
-          projectFiles.length > 0 &&
-          viewMode === "code" &&
-          projectId && (
-            <div className="absolute bottom-4 left-4 right-4 p-3 bg-purple-500/10 border border-purple-500/30 rounded-lg">
-              <div className="flex items-center justify-between">
-                <p className="text-xs text-purple-300">
-                  Generera en live preview för att se resultatet
-                </p>
-                <Button
-                  size="sm"
-                  onClick={handleRegeneratePreview}
-                  disabled={isRegenerating}
-                  className="h-7 gap-1 bg-purple-600 hover:bg-purple-500 text-white text-xs"
-                >
-                  {isRegenerating ? (
-                    <Loader2 className="h-3 w-3 animate-spin" />
-                  ) : (
-                    <RefreshCw className="h-3 w-3" />
-                  )}
-                  Generera
-                </Button>
-              </div>
-            </div>
-          )}
       </div>
     </div>
   );

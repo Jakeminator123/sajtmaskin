@@ -1,12 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
-import { getProjectData } from "@/lib/database";
-import {
-  getProjectFiles,
-  getProjectMeta,
-  saveProjectFiles,
-  ProjectFile,
-} from "@/lib/redis";
+import { getProjectMeta } from "@/lib/redis";
+import { loadProjectFilesWithFallback } from "@/lib/project-files";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -16,54 +11,8 @@ interface RouteParams {
  * GET /api/projects/[id]/files
  *
  * Returns files + metadata for a taken-over project.
- * Currently supports Redis-backed projects (default takeover mode).
+ * Uses centralized file loading with fallback chain: Redis → SQLite → Legacy.
  */
-
-async function loadFilesWithFallback(
-  projectId: string
-): Promise<ProjectFile[]> {
-  const redisFiles = await getProjectFiles(projectId);
-  if (redisFiles && redisFiles.length > 0) {
-    return redisFiles;
-  }
-
-  const projectData = getProjectData(projectId);
-  if (
-    projectData?.files &&
-    Array.isArray(projectData.files) &&
-    projectData.files.length > 0
-  ) {
-    const filesFromDb: ProjectFile[] = projectData.files
-      .filter(
-        (f: unknown) =>
-          f &&
-          typeof f === "object" &&
-          "name" in f &&
-          "content" in f &&
-          typeof (f as { name: unknown }).name === "string" &&
-          typeof (f as { content: unknown }).content === "string"
-      )
-      .map((f: { name: string; content: string }) => ({
-        path: f.name,
-        content: f.content,
-        lastModified: new Date().toISOString(),
-      }));
-
-    if (filesFromDb.length > 0) {
-      try {
-        await saveProjectFiles(projectId, filesFromDb);
-      } catch (error) {
-        console.warn(
-          "[Projects/files] Failed to seed Redis from DB fallback",
-          error
-        );
-      }
-      return filesFromDb;
-    }
-  }
-
-  return [];
-}
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     const { id: projectId } = await params;
@@ -103,8 +52,8 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       }
     }
 
-    // Try to load files (works even without formal takeover meta)
-    const files = await loadFilesWithFallback(projectId);
+    // Try to load files (uses centralized fallback chain)
+    const files = await loadProjectFilesWithFallback(projectId);
     
     if (!files || files.length === 0) {
       return NextResponse.json(
@@ -119,7 +68,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     return NextResponse.json({
       success: true,
-      storageType: meta?.storageType || "redis",
+      storageType: meta?.storageType || "sqlite",
       meta: meta || null,
       files,
       filesCount: files.length,

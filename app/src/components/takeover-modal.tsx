@@ -30,7 +30,7 @@ interface TakeoverResult {
   success: boolean;
   message?: string;
   error?: string;
-  mode?: "redis" | "github";
+  mode?: "redis" | "github" | "sqlite";
   requireGitHub?: boolean;
   github?: {
     repoUrl: string;

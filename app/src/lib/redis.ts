@@ -476,7 +476,7 @@ export async function flushRedisCache(): Promise<boolean> {
 
 const PROJECT_FILES_PREFIX = "project:files:";
 const PROJECT_META_PREFIX = "project:meta:";
-const PROJECT_FILES_TTL = 60 * 60 * 24 * 365; // 365 days (1 year) - extended to prevent data loss
+const PROJECT_FILES_TTL = 60 * 60; // 1 hour cache - SQLite är källan efter takeover
 
 export interface ProjectFile {
   path: string;
@@ -489,7 +489,7 @@ export interface ProjectMeta {
   userId: string;
   name: string;
   takenOverAt: string;
-  storageType: "redis" | "github";
+  storageType: "redis" | "github" | "sqlite";
   githubRepo?: string;
   githubOwner?: string;
   filesCount: number;

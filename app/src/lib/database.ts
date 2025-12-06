@@ -197,6 +197,23 @@ function initializeDatabase(database: Database.Database) {
     )
   `);
 
+  // Project files table - stores taken-over project files persistently
+  // NOTE: No FK constraint on project_id because takeover projects may use
+  // IDs like "v0_abc123" or GitHub-style IDs that don't exist in projects table
+  database.exec(`
+    CREATE TABLE IF NOT EXISTS project_files (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      project_id TEXT NOT NULL,
+      path TEXT NOT NULL,
+      content TEXT NOT NULL,
+      mime_type TEXT DEFAULT 'text/plain',
+      size INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now')),
+      updated_at TEXT DEFAULT (datetime('now')),
+      UNIQUE(project_id, path)
+    )
+  `);
+
   // Images table - tracks uploaded images
   database.exec(`
     CREATE TABLE IF NOT EXISTS images (
@@ -309,6 +326,7 @@ function initializeDatabase(database: Database.Database) {
     CREATE INDEX IF NOT EXISTS idx_projects_session_id ON projects(session_id);
     CREATE INDEX IF NOT EXISTS idx_projects_user_id ON projects(user_id);
     CREATE INDEX IF NOT EXISTS idx_project_data_chat_id ON project_data(chat_id);
+    CREATE INDEX IF NOT EXISTS idx_project_files_project ON project_files(project_id);
     CREATE INDEX IF NOT EXISTS idx_images_project_id ON images(project_id);
     CREATE INDEX IF NOT EXISTS idx_template_screenshots_template_id ON template_screenshots(template_id);
     CREATE INDEX IF NOT EXISTS idx_company_profiles_company_name ON company_profiles(company_name);
@@ -595,6 +613,154 @@ export function saveProjectData(data: ProjectData): void {
     files: data.files.length,
     messages: data.messages.length,
   });
+}
+
+// ============ Project Files (SQLite) ============
+
+export interface ProjectFileRecord {
+  project_id?: string;
+  path: string;
+  content: string;
+  mime_type?: string | null;
+  size?: number | null;
+  created_at?: string;
+  updated_at?: string;
+}
+
+/**
+ * Bulk upsert project files into SQLite.
+ * Returns number of files written.
+ */
+export function saveProjectFilesToDb(
+  projectId: string,
+  files: Array<
+    Pick<ProjectFileRecord, "path" | "content" | "mime_type" | "size">
+  >
+): number {
+  const db = getDb();
+
+  const upsert = db.prepare(`
+    INSERT INTO project_files (project_id, path, content, mime_type, size, updated_at)
+    VALUES (?, ?, ?, ?, ?, datetime('now'))
+    ON CONFLICT(project_id, path) DO UPDATE SET
+      content = excluded.content,
+      mime_type = excluded.mime_type,
+      size = excluded.size,
+      updated_at = datetime('now')
+  `);
+
+  const run = db.transaction(
+    (
+      fileList: Array<
+        Pick<ProjectFileRecord, "path" | "content" | "mime_type" | "size">
+      >
+    ) => {
+      let count = 0;
+      for (const file of fileList) {
+        const size =
+          typeof file.size === "number"
+            ? file.size
+            : Buffer.byteLength(file.content || "", "utf8");
+        upsert.run(
+          projectId,
+          file.path,
+          file.content,
+          file.mime_type || "text/plain",
+          size
+        );
+        count += 1;
+      }
+      return count;
+    }
+  );
+
+  const saved = run(files);
+  debugLog("[Database] Saved project files to SQLite", {
+    projectId,
+    files: saved,
+  });
+  return saved;
+}
+
+/**
+ * Fetch project files from SQLite.
+ */
+export function getProjectFilesFromDb(projectId: string): ProjectFileRecord[] {
+  const db = getDb();
+  const stmt = db.prepare(`
+    SELECT project_id, path, content, mime_type, size, created_at, updated_at
+    FROM project_files
+    WHERE project_id = ?
+    ORDER BY path ASC
+  `);
+  const rows = stmt.all(projectId) as any[];
+
+  return rows.map((row) => ({
+    project_id: row.project_id,
+    path: row.path,
+    content: row.content,
+    mime_type: row.mime_type,
+    size: row.size,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+  }));
+}
+
+/**
+ * Upsert a single project file in SQLite.
+ */
+export function updateProjectFileInDb(
+  projectId: string,
+  path: string,
+  content: string,
+  mimeType?: string
+): boolean {
+  const db = getDb();
+  const size = Buffer.byteLength(content || "", "utf8");
+
+  const stmt = db.prepare(`
+    INSERT INTO project_files (project_id, path, content, mime_type, size, updated_at)
+    VALUES (?, ?, ?, ?, ?, datetime('now'))
+    ON CONFLICT(project_id, path) DO UPDATE SET
+      content = excluded.content,
+      mime_type = excluded.mime_type,
+      size = excluded.size,
+      updated_at = datetime('now')
+  `);
+
+  const result = stmt.run(
+    projectId,
+    path,
+    content,
+    mimeType || "text/plain",
+    size
+  );
+  debugLog("[Database] Upserted project file in SQLite", {
+    projectId,
+    path,
+    size,
+  });
+  return result.changes > 0;
+}
+
+/**
+ * Delete a single project file from SQLite.
+ */
+export function deleteProjectFileFromDb(
+  projectId: string,
+  path: string
+): boolean {
+  const db = getDb();
+  const stmt = db.prepare(
+    "DELETE FROM project_files WHERE project_id = ? AND path = ?"
+  );
+  const result = stmt.run(projectId, path);
+  debugLog("[Database] Deleted project file from SQLite", {
+    projectId,
+    path,
+    removed: result.changes,
+  });
+  return result.changes > 0;
 }
 
 // ============ Image Operations ============

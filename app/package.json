@@ -17,6 +17,7 @@
     "@radix-ui/react-tooltip": "^1.2.8",
     "@react-three/drei": "^10.7.7",
     "@react-three/fiber": "^9.4.2",
+    "@webcontainer/api": "^1.6.1",
     "ai": "^5.0.104",
     "better-sqlite3": "^12.5.0",
     "cheerio": "^1.1.2",

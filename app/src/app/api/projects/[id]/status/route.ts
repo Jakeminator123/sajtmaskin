@@ -27,7 +27,7 @@ export async function GET(
     if (meta) {
       return NextResponse.json({
         isOwned: true,
-        storageType: meta.storageType || "redis",
+        storageType: meta.storageType || "sqlite",
         projectId: meta.projectId,
         takenOverAt: meta.takenOverAt,
         filesCount: meta.filesCount,

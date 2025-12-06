@@ -79,8 +79,8 @@ interface BuilderState {
   hasUserSaved: boolean; // User must explicitly save first before auto-save kicks in
 
   // Ownership state (for advanced features)
-  isProjectOwned: boolean; // True when project is saved to Redis/GitHub (takeover)
-  ownershipMode: "none" | "redis" | "github"; // Storage type
+  isProjectOwned: boolean; // True when project är sparat för takeover
+  ownershipMode: "none" | "redis" | "github" | "sqlite"; // Storage type
 
   // Actions
   setProjectId: (id: string | null) => void;
@@ -112,7 +112,10 @@ interface BuilderState {
   setHasUserSaved: (saved: boolean) => void;
 
   // Ownership actions (for advanced features)
-  setProjectOwned: (owned: boolean, mode?: "redis" | "github") => void;
+  setProjectOwned: (
+    owned: boolean,
+    mode?: "redis" | "github" | "sqlite"
+  ) => void;
   checkProjectOwnership: (projectId: string) => Promise<boolean>;
 }
 
@@ -395,7 +398,7 @@ export const useBuilderStore = create<BuilderState>()(
       },
 
       // Set project ownership state (called after takeover)
-      setProjectOwned: (owned, mode = "redis") => {
+      setProjectOwned: (owned, mode = "sqlite") => {
         set({
           isProjectOwned: owned,
           ownershipMode: owned ? mode : "none",
@@ -410,9 +413,15 @@ export const useBuilderStore = create<BuilderState>()(
           if (response.ok) {
             const data = await response.json();
             if (data.isOwned) {
+              const storageMode =
+                data.storageType === "github" ||
+                data.storageType === "redis" ||
+                data.storageType === "sqlite"
+                  ? data.storageType
+                  : "sqlite";
               set({
                 isProjectOwned: true,
-                ownershipMode: data.storageType || "redis",
+                ownershipMode: storageMode,
               });
               return true;
             }

@@ -4,6 +4,7 @@ import {
   getProjectById,
   getProjectData,
   getUserById,
+  saveProjectFilesToDb,
   updateProject,
 } from "@/lib/database";
 import { saveProjectFiles, saveProjectMeta, ProjectFile } from "@/lib/redis";
@@ -152,23 +153,32 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     // ============ REDIS MODE (Simple, no GitHub required) ============
     if (mode === "redis") {
-      // Saving to Redis
-
-      // Save files to Redis
+      // Save files to SQLite (source of truth)
       try {
-        const filesSaved = await saveProjectFiles(projectId, files);
-        if (!filesSaved) {
+        const savedCount = saveProjectFilesToDb(projectId, files);
+        if (savedCount === 0) {
           return NextResponse.json(
-            { success: false, error: "Kunde inte spara projektfiler till Redis" },
+            { success: false, error: "Kunde inte spara projektfiler till SQLite" },
             { status: 500 }
           );
         }
       } catch (saveError) {
-        const errorMessage = saveError instanceof Error ? saveError.message : "Okänt fel";
-        console.error("[Takeover] Failed to save files to Redis:", errorMessage);
+        const errorMessage =
+          saveError instanceof Error ? saveError.message : "Okänt fel";
+        console.error("[Takeover] Failed to save files to SQLite:", errorMessage);
         return NextResponse.json(
           { success: false, error: `Kunde inte spara projektfiler: ${errorMessage}` },
           { status: 500 }
+        );
+      }
+
+      // Best-effort cache in Redis for fast reads (short-lived)
+      try {
+        await saveProjectFiles(projectId, files);
+      } catch (cacheError) {
+        console.warn(
+          "[Takeover] Saved to SQLite men kunde inte cacha i Redis:",
+          cacheError
         );
       }
 
@@ -178,7 +188,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         userId: user.id,
         name: project.name,
         takenOverAt: new Date().toISOString(),
-        storageType: "redis",
+        storageType: "sqlite",
         filesCount: files.length,
       });
 
@@ -197,8 +207,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
       return NextResponse.json({
         success: true,
-        message: "Projektet har tagits över! Du kan nu redigera med AI.",
-        mode: "redis",
+        message:
+          "Projektet har tagits över! Filerna är sparade i SQLite och kan redigeras med AI.",
+        mode: "sqlite",
         filesCount: files.length,
         files: files.map((f) => ({ path: f.path, size: f.content.length })),
       });
