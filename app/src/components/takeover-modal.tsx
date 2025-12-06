@@ -398,17 +398,25 @@ export function TakeoverModal({
                       <div 
                         className="text-sm text-gray-300 whitespace-pre-wrap [&_h2]:text-base [&_h2]:font-semibold [&_h2]:text-white [&_h2]:mt-4 [&_h2]:mb-2"
                       >
-                        {analysisResult.analysis
-                          .split('\n')
-                          .map((line, idx) => {
-                            if (line.startsWith('## ')) {
-                              return <h2 key={idx} className="text-base font-semibold text-white mt-4 mb-2">{line.replace(/^## /, '')}</h2>;
-                            }
-                            if (line.startsWith('- ')) {
-                              return <div key={idx} className="ml-4">• {line.replace(/^- /, '')}</div>;
-                            }
-                            return <div key={idx}>{line || '\u00A0'}</div>;
-                          })}
+                        {(() => {
+                          // Limit analysis length to prevent performance issues (max 10KB)
+                          const MAX_ANALYSIS_LENGTH = 10000;
+                          const analysis = analysisResult.analysis.length > MAX_ANALYSIS_LENGTH
+                            ? analysisResult.analysis.substring(0, MAX_ANALYSIS_LENGTH) + "\n\n[... analysen är för lång för att visas fullt ut ...]"
+                            : analysisResult.analysis;
+                          
+                          return analysis
+                            .split('\n')
+                            .map((line, idx) => {
+                              if (line.startsWith('## ')) {
+                                return <h2 key={idx} className="text-base font-semibold text-white mt-4 mb-2">{line.replace(/^## /, '')}</h2>;
+                              }
+                              if (line.startsWith('- ')) {
+                                return <div key={idx} className="ml-4">• {line.replace(/^- /, '')}</div>;
+                              }
+                              return <div key={idx}>{line || '\u00A0'}</div>;
+                            });
+                        })()}
                       </div>
                     )}
                     {analysisResult && !analysisResult.success && (
@@ -421,7 +429,7 @@ export function TakeoverModal({
               </div>
 
               <a
-                href={`/project/${result.github.repoName}?owner=${result.github.owner}`}
+                  href={`/project/${encodeURIComponent(result.github.repoName || "")}?owner=${encodeURIComponent(result.github.owner || "")}`}
                 className="flex items-center justify-center gap-2 p-4 bg-purple-600 hover:bg-purple-500 rounded-xl text-white font-medium transition-colors"
               >
                 <Sparkles className="h-5 w-5" />

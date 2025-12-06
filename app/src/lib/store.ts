@@ -415,24 +415,51 @@ export const useBuilderStore = create<BuilderState>()(
       // Custom storage with Date serialization
       storage: createJSONStorage(() => localStorage, {
         reviver: (key, value) => {
-          if (
-            value &&
-            typeof value === "object" &&
-            "__type" in value &&
-            value.__type === "Date"
-          ) {
-            return new Date((value as unknown as { value: string }).value);
+          try {
+            if (
+              value &&
+              typeof value === "object" &&
+              "__type" in value &&
+              value.__type === "Date"
+            ) {
+              const dateValue = (value as unknown as { value: string }).value;
+              const date = new Date(dateValue);
+              // Validate date
+              if (isNaN(date.getTime())) {
+                console.warn("[Store] Invalid date in storage, using current date:", dateValue);
+                return new Date();
+              }
+              return date;
+            }
+            if (key === "timestamp" && typeof value === "string") {
+              const date = new Date(value);
+              if (isNaN(date.getTime())) {
+                console.warn("[Store] Invalid timestamp in storage, using current date:", value);
+                return new Date();
+              }
+              return date;
+            }
+            return value;
+          } catch (error) {
+            console.error("[Store] Error reviving storage value:", error);
+            return value;
           }
-          if (key === "timestamp" && typeof value === "string") {
-            return new Date(value);
-          }
-          return value;
         },
         replacer: (key, value) => {
-          if (value instanceof Date) {
-            return { __type: "Date", value: value.toISOString() };
+          try {
+            if (value instanceof Date) {
+              // Validate date before serializing
+              if (isNaN(value.getTime())) {
+                console.warn("[Store] Invalid date being serialized, using current date");
+                return { __type: "Date", value: new Date().toISOString() };
+              }
+              return { __type: "Date", value: value.toISOString() };
+            }
+            return value;
+          } catch (error) {
+            console.error("[Store] Error replacing storage value:", error);
+            return value;
           }
-          return value;
         },
       }),
     }

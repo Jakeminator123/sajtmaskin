@@ -242,26 +242,77 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     );
 
     if (!createRepoResponse.ok) {
-      const errorData = await createRepoResponse.json();
-      console.error("[Takeover] GitHub repo creation failed:", errorData);
+      let errorData: { message?: string; errors?: unknown[] } = {};
+      try {
+        errorData = await createRepoResponse.json();
+      } catch (jsonError) {
+        console.error("[Takeover] Failed to parse GitHub error response:", jsonError);
+      }
+      
+      console.error("[Takeover] GitHub repo creation failed:", {
+        status: createRepoResponse.status,
+        statusText: createRepoResponse.statusText,
+        error: errorData,
+      });
 
+      // Handle specific error cases
       if (createRepoResponse.status === 422) {
+        const errorMessage = errorData.message || `Ett repo med namnet "${repoName}" finns redan.`;
         return NextResponse.json(
           {
             success: false,
-            error: `Ett repo med namnet "${repoName}" finns redan. Välj ett annat namn.`,
+            error: errorMessage,
+            repoNameTaken: true,
           },
           { status: 400 }
         );
       }
+      
+      if (createRepoResponse.status === 401 || createRepoResponse.status === 403) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "GitHub-autentisering misslyckades. Vänligen anslut ditt GitHub-konto igen.",
+            requireGitHub: true,
+          },
+          { status: 401 }
+        );
+      }
+      
+      if (createRepoResponse.status === 429) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "GitHub rate limit nådd. Försök igen om en stund.",
+          },
+          { status: 429 }
+        );
+      }
 
+      const errorMessage = errorData.message || "Kunde inte skapa GitHub-repo";
       return NextResponse.json(
-        { success: false, error: "Kunde inte skapa GitHub-repo" },
-        { status: 500 }
+        { success: false, error: errorMessage },
+        { status: createRepoResponse.status }
       );
     }
 
-    const repo: GitHubCreateRepoResponse = await createRepoResponse.json();
+    let repo: GitHubCreateRepoResponse;
+    try {
+      repo = await createRepoResponse.json();
+      
+      // Validate response structure
+      if (!repo || !repo.full_name || !repo.name || !repo.owner) {
+        throw new Error("Invalid GitHub response structure");
+      }
+    } catch (jsonError) {
+      const errorMsg = jsonError instanceof Error ? jsonError.message : "Okänt fel";
+      console.error("[Takeover] Failed to parse GitHub repo response:", errorMsg);
+      return NextResponse.json(
+        { success: false, error: `Kunde inte läsa GitHub-svar: ${errorMsg}` },
+        { status: 500 }
+      );
+    }
+    
     console.log("[Takeover] Created repo:", repo.full_name);
 
     // 7. Push all files to repo (create initial commit with all files)

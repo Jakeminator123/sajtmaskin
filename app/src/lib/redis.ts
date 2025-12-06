@@ -197,11 +197,23 @@ export async function checkRateLimit(
   const redisKey = `${RATE_LIMIT_PREFIX}${key}`;
 
   try {
-    const current = await redis.incr(redisKey);
+    let current: number;
+    try {
+      current = await redis.incr(redisKey);
+    } catch (incrError) {
+      console.error("[Redis] Failed to increment rate limit counter:", incrError);
+      // On error, allow request but log warning
+      return { allowed: true, remaining: maxRequests, resetIn: 0 };
+    }
 
     if (current === 1) {
       // First request, set expiry
-      await redis.expire(redisKey, windowSeconds);
+      try {
+        await redis.expire(redisKey, windowSeconds);
+      } catch (expireError) {
+        console.error("[Redis] Failed to set expiry on rate limit key:", expireError);
+        // Continue anyway - expiry will be set on next request
+      }
     }
 
     const ttl = await redis.ttl(redisKey);

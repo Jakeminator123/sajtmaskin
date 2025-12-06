@@ -33,7 +33,9 @@ error 16: v0-generator.ts:476 - Nullish coalescing används korrekt, men logiken
 error 17: home-page.tsx:70 - firstName kan vara undefined om både user?.name och user?.email är undefined/null. Detta kan orsaka problem när det används i JSX.
   FIXAD: Lade till explicit undefined check och extra kontroll i JSX-renderingen för att säkerställa att firstName inte är undefined.
 error 18: onboarding-modal.tsx:66,76 - localStorage.setItem() anropas direkt utan SSR-check. Kan krascha under SSR.
+  FIXAD: Redan fixat i error 3 - alla localStorage-anrop har SSR-checks.
 error 19: store.ts:401-422 - Custom storage serialization för Date-objekt kan orsaka problem om Date-objektet är invalid eller om localStorage är korrupt.
+  FIXAD: Lade till try-catch och validering för Date-objekt i både reviver och replacer. Invalid dates ersätts med current date.
 error 20: builder/page.tsx:201 - window.open() används utan kontroll att window finns. Kan krascha i vissa miljöer.
   FIXAD: Lade till `typeof window !== "undefined"` check innan window.open().
 error 21: api/generate/route.ts:166 - transaction kan vara null men används direkt utan kontroll. Om deductGenerationDiamond returnerar null, kommer newBalance att vara null vilket kan orsaka problem.
@@ -102,11 +104,15 @@ error 52: projects/page.tsx:68-70 - Samma problem som error 51. err.message anv�
 error 53: projects/page.tsx:74-83 - formatDate() tar en sträng men new Date(dateStr) kan returnera Invalid Date om dateStr är ogiltig. Ingen validering.
   FIXAD: Lade till kontroll med isNaN(date.getTime()) och returnerar "Ogiltigt datum" om datumet är ogiltigt.
 error 54: project/[repoId]/page.tsx:93 - projectId skapas som `${owner}_${repoId}` för GitHub mode. Om owner eller repoId innehåller ogiltiga tecken kan detta orsaka problem.
+  FIXAD: Lade till sanitization för owner och repoId med regex för att ta bort ogiltiga tecken innan konstruktion av projectId.
 error 55: project/[repoId]/page.tsx:137 - diamonds < cost kontrolleras på klienten, men detta kan vara stale data. Server-side validering sker också, men användaren kan se felmeddelande baserat på gammal data.
+  FIXAD: Lade till refreshUser() innan kostnadskontroll för att säkerställa att senaste diamond-balansen används.
 error 56: project/[repoId]/page.tsx:193-195 - Om data.newBalance är undefined, anropas fetchUser() ändå. Detta kan vara onödigt om balance inte ändrades.
+  FIXAD: Lade till kontroll att balance faktiskt ändrades innan fetchUser() anropas.
 error 57: project/[repoId]/page.tsx:319 - diamonds visas direkt utan null-check. Kan visa "null" i UI.
   FIXAD: Lade till ?? 0 för att visa 0 istället för null.
 error 58: project/[repoId]/page.tsx:608 - diamonds < getModeCost(selectedMode) kontrolleras i disabled, men om diamonds är null kan detta ge oväntat beteende.
+  FIXAD: Lade till nullish coalescing (?? 0) för alla diamond-kontroller i disabled prop.
 error 59: takeover-modal.tsx:115-118 - window.location används utan SSR-check. Kan krascha under SSR.
   FIXAD: Lade till `typeof window === "undefined"` check innan window.location används.
 error 60: takeover-modal.tsx:246-252 - dangerouslySetInnerHTML används med regex-replace för HTML. Detta är osäkert och kan orsaka XSS om analysisResult.analysis innehåller skadlig kod.
@@ -114,11 +120,13 @@ error 60: takeover-modal.tsx:246-252 - dangerouslySetInnerHTML används med rege
 error 61: takeover-modal.tsx:355-361 - Samma problem som error 60. dangerouslySetInnerHTML med regex-replace är osäkert.
   FIXAD: Ersatte dangerouslySetInnerHTML med säker React-rendering (samma som error 60).
 error 62: takeover-modal.tsx:374 - URL konstrueras med result.github.repoName och result.github.owner, men om dessa är undefined eller innehåller ogiltiga tecken kan URL:en bli felaktig.
+  FIXAD: Lade till encodeURIComponent() för repoName och owner, samt fallback till tom sträng om de är undefined.
 error 63: api/projects/[id]/takeover/route.ts:56 - request.json().catch(() => ({})) fångar alla fel och returnerar tomt objekt. Om JSON är ogiltig kommer body att vara {} utan felmeddelande.
   FIXAD: Lade till specifik try-catch för JSON parsing med loggning. Fortsätter med default values om parsing misslyckas.
 error 64: api/projects/[id]/takeover/route.ts:100 - projectData?.chat_id kontrolleras, men om projectData är null kommer detta att krascha innan kontrollen.
   FIXAD: Lade till separat kontroll för projectData === null innan chat_id kontroll.
 error 65: api/projects/[id]/takeover/route.ts:116-119 - files mappas från projectData.files, men om projectData.files har fel struktur kan detta orsaka fel.
+  FIXAD: Lade till validering och filter för att säkerställa att varje fil har korrekt struktur (name och content som strings) innan mapping.
 error 66: api/projects/[id]/takeover/route.ts:187 - fullUser!.github_token! använder non-null assertion, men om fullUser eller github_token är null/undefined kommer detta att krascha.
   FIXAD: Ersatte non-null assertions med explicit null-check och returnerar felmeddelande om token saknas.
 error 67: api/download/route.ts:33 - downloadVersionAsZip() kan krascha om chatId eller versionId är ogiltiga, men felet fångas inte specifikt.
@@ -138,6 +146,7 @@ error 73: redis.ts:124 - JSON.parse(data) kan krascha om data är ogiltig JSON. 
 error 74: redis.ts:155 - Samma problem som error 73. JSON.parse() utan try-catch.
   FIXAD: Lade till inner try-catch för JSON.parse med specifik felhantering (samma som error 73).
 error 75: redis.ts:187 - redis.incr() kan misslyckas om Redis-anslutningen är nere, men felet fångas inte specifikt.
+  FIXAD: Lade till try-catch runt redis.incr() och redis.expire() med specifik felhantering. Vid fel tillåts requesten men loggas.
 error 76: projects/page.tsx:115 - projects.length + takenOverProjects.length kan vara felaktigt om någon av arrays är undefined (även om det är osannolikt).
   FIXAD: Lade till nullish coalescing med fallback till 0 för säkerhet.
 error 77: projects/page.tsx:268 - project.thumbnail_path används direkt utan att kontrollera om den är en giltig URL eller sökväg.
@@ -149,9 +158,13 @@ error 79: takeover-modal.tsx:98-111 - runAnalysis() anropas automatiskt efter ly
 error 80: takeover-modal.tsx:144 - runAnalysis() anropas automatiskt, men om användaren stänger modalen innan analysen är klar, kommer state att uppdateras på en unmounted component.
   FIXAD: Lade till isMountedRef för att förhindra state updates efter unmount.
 error 81: api/projects/[id]/takeover/route.ts:200+ - GitHub repo creation kan misslyckas av flera anledningar (repo name taken, rate limit, etc), men felhanteringen är generisk.
+  FIXAD: Lade till specifik felhantering för olika HTTP-statuskoder (422, 401/403, 429) med tydliga felmeddelanden och metadata.
 error 82: api/projects/[id]/takeover/route.ts:200+ - Om GitHub API returnerar ett fel men response.ok är true, kan detta orsaka problem senare i koden.
+  FIXAD: Lade till validering av GitHub response-struktur (full_name, name, owner) efter JSON parsing för att säkerställa korrekt struktur.
 error 83: project/[repoId]/page.tsx:182 - Om previousResponseId är null men API:et förväntar sig en sträng, kan detta orsaka problem.
+  FIXAD: Använder spread operator med villkorlig inkludering av previousResponseId endast om den inte är null.
 error 84: project/[repoId]/page.tsx:167 - data.responseId kan vara undefined, men sätts till null. Om undefined används senare kan detta orsaka problem.
+  FIXAD: Lade till explicit kontroll att responseId är en sträng innan den sätts. Om den saknas eller är fel typ, sätts den till null.
 error 85: projects/page.tsx:66 - setProjects() anropas med filter, men om deleteProject() misslyckas efter att UI:et redan uppdaterats, kommer UI:et att visa felaktig data.
   FIXAD: Implementerade optimistic update med rollback vid fel. UI uppdateras först, återställs om delete misslyckas.
 error 86: takeover-modal.tsx:77-79 - defaultRepoName genereras från projectName, men om projectName innehåller ogiltiga tecken för GitHub repo-namn kan detta orsaka problem.
@@ -165,6 +178,7 @@ error 89: project/[repoId]/page.tsx:260-282 - Om isGitHubMode är true men hasGi
 error 90: api/projects/[id]/takeover/route.ts:139 - saveProjectFiles() kan returnera false, men om Redis är nere kommer detta att misslyckas utan tydligt felmeddelande.
   FIXAD: Lade till try-catch runt saveProjectFiles() med specifikt felmeddelande om Redis-fel.
 error 91: takeover-modal.tsx:242-254 - Om analysisResult.analysis är en mycket lång sträng, kan regex-replace-operationerna vara långsamma och orsaka UI-freeze.
+  FIXAD: Lade till max-längd (10KB) för analysis-strängen med truncation och meddelande om att analysen är för lång. Förhindrar UI-freeze.
 error 92: projects/page.tsx:46-49 - Promise.all() används för att ladda projekt parallellt. Om en av dem misslyckas kommer hela loadProjects() att misslyckas, även om den andra lyckades.
   FIXAD: Ändrade till Promise.allSettled() för att hantera partiella misslyckanden gracefully.
 error 93: project/[repoId]/page.tsx:156-165 - Om fetch() kastar ett nätverksfel (t.ex. timeout), fångas det i catch men errorMessage kan vara tom, vilket gör att användaren inte får information.

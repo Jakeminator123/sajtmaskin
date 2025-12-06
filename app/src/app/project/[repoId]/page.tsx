@@ -90,9 +90,22 @@ function OwnedProjectContent() {
   // - GitHub mode: owner param exists → projectId = "owner_repo", repoFullName for display
   // - Redis mode: no owner → projectId = repoId (database UUID)
   const isGitHubMode = useMemo(() => !!owner, [owner]);
-  const projectId = useMemo(() => isGitHubMode ? `${owner}_${repoId}` : repoId, [isGitHubMode, owner, repoId]);
-  const repoFullName = useMemo(() => isGitHubMode ? `${owner}/${repoId}` : null, [isGitHubMode, owner, repoId]);
-  const displayName = useMemo(() => repoFullName || repoId, [repoFullName, repoId]);
+  // Sanitize owner and repoId to prevent injection issues
+  const sanitizedOwner = useMemo(() => owner ? owner.replace(/[^a-zA-Z0-9_-]/g, "") : null, [owner]);
+  const sanitizedRepoId = useMemo(() => repoId ? repoId.replace(/[^a-zA-Z0-9_-]/g, "") : "", [repoId]);
+  const projectId = useMemo(() => 
+    isGitHubMode && sanitizedOwner && sanitizedRepoId 
+      ? `${sanitizedOwner}_${sanitizedRepoId}` 
+      : sanitizedRepoId || repoId, 
+    [isGitHubMode, sanitizedOwner, sanitizedRepoId, repoId]
+  );
+  const repoFullName = useMemo(() => 
+    isGitHubMode && sanitizedOwner && sanitizedRepoId 
+      ? `${sanitizedOwner}/${sanitizedRepoId}` 
+      : null, 
+    [isGitHubMode, sanitizedOwner, sanitizedRepoId]
+  );
+  const displayName = useMemo(() => repoFullName || sanitizedRepoId || repoId, [repoFullName, sanitizedRepoId, repoId]);
 
   const { user, isAuthenticated, diamonds, fetchUser, hasGitHub, refreshUser } = useAuth();
 
@@ -133,9 +146,12 @@ function OwnedProjectContent() {
   const handleSend = async () => {
     if (!input.trim() || isLoading || !projectId) return;
 
+    // Refresh user data to get latest diamond balance before checking
+    await refreshUser();
+    const latestDiamonds = user?.diamonds ?? 0;
     const cost = getModeCost(selectedMode);
-    if (diamonds < cost) {
-      setError(`Du behöver ${cost} diamanter för denna åtgärd.`);
+    if (latestDiamonds < cost) {
+      setError(`Du behöver ${cost} diamanter för denna åtgärd. Du har ${latestDiamonds}.`);
       return;
     }
 
@@ -160,7 +176,7 @@ function OwnedProjectContent() {
           instruction: userMessage.content,
           projectId, // Use the resolved projectId (works for both Redis and GitHub mode)
           taskType: selectedMode,
-          previousResponseId,
+          ...(previousResponseId && { previousResponseId }), // Only include if not null
         }),
       });
 
