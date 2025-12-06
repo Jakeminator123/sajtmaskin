@@ -567,8 +567,6 @@ ${mainCode.substring(0, 18000)}`;
         );
       } else {
         // Fallback: v0 API failed
-        if (DEBUG)
-          console.warn("[ChatPanel] v0 generation failed:", v0Response?.error);
 
         // For TYP A templates (v0TemplateId only, no local files), provide fallback code
         // so the code view isn't empty
@@ -717,27 +715,12 @@ export default function Page() {
 
         // Save files if we got them
         if (response.files && response.files.length > 0) {
-          if (DEBUG)
-            console.log(
-              "[ChatPanel] Saving files, count:",
-              response.files.length
-            );
           setFiles(response.files);
         }
 
         // Set the main code
         if (response.code) {
-          if (DEBUG)
-            console.log(
-              "[ChatPanel] Setting code, length:",
-              response.code.length
-            );
           setCurrentCode(response.code);
-        } else {
-          if (DEBUG)
-            console.warn(
-              "[ChatPanel] Response was successful but no code received"
-            );
         }
 
         // Update diamond balance if returned
