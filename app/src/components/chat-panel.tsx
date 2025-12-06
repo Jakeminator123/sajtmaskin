@@ -59,8 +59,7 @@ import {
   Video,
 } from "lucide-react";
 
-// Debug flag - set to true for verbose logging
-const DEBUG = false;
+// Module-level state for preventing duplicate generation requests
 
 // ============================================================================
 // MODULE-LEVEL STATE (persists across React StrictMode remounts)
@@ -81,15 +80,11 @@ function canStartGeneration(key: string): boolean {
     moduleGenerationInProgress &&
     now - moduleGenerationTimestamp > GENERATION_TIMEOUT_MS
   ) {
-    if (DEBUG)
-      console.log("[ChatPanel] Generation timeout, allowing new generation");
     moduleGenerationInProgress = false;
   }
 
   // Don't allow if generation is in progress
   if (moduleGenerationInProgress) {
-    if (DEBUG)
-      console.log("[ChatPanel] Module: Generation already in progress");
     return false;
   }
 
@@ -98,7 +93,6 @@ function canStartGeneration(key: string): boolean {
     moduleLastGeneratedKey === key &&
     now - moduleGenerationTimestamp < 5000
   ) {
-    if (DEBUG) console.log("[ChatPanel] Module: Same key generated recently");
     return false;
   }
 
@@ -109,13 +103,10 @@ function markGenerationStarted(key: string): void {
   moduleLastGeneratedKey = key;
   moduleGenerationInProgress = true;
   moduleGenerationTimestamp = Date.now();
-  if (DEBUG)
-    console.log("[ChatPanel] Module: Generation started for key:", key);
 }
 
 function markGenerationEnded(): void {
   moduleGenerationInProgress = false;
-  if (DEBUG) console.log("[ChatPanel] Module: Generation ended");
 }
 // ============================================================================
 
@@ -319,25 +310,18 @@ export function ChatPanel({
       hasInitialGeneratedRef.current &&
       lastGeneratedKeyRef.current === currentKey
     ) {
-      if (DEBUG)
-        console.log(
-          "[ChatPanel] Skipping - ref protection (same key, same instance)"
-        );
       return;
     }
 
     // Skip if we already have content (demoUrl means generation completed)
     // This prevents re-generation when switching tabs on mobile
     if (demoUrl && lastGeneratedKeyRef.current === currentKey) {
-      if (DEBUG)
-        console.log("[ChatPanel] Skipping - already have demoUrl for this key");
       hasInitialGeneratedRef.current = true;
       return;
     }
 
     // MODULE-LEVEL protection: Check if we can start generation
     if (!canStartGeneration(currentKey) && !isTestMode) {
-      if (DEBUG) console.log("[ChatPanel] Skipping - module protection active");
       return;
     }
 
@@ -722,12 +706,6 @@ export default function Page() {
   };
 
   const handleGenerate = async (prompt: string, type?: string) => {
-    if (DEBUG)
-      console.log("[ChatPanel] handleGenerate called:", {
-        prompt,
-        type,
-        quality,
-      });
     addMessage("user", prompt);
     setLoading(true);
     setGenerationStartTime(Date.now());
@@ -853,7 +831,6 @@ export default function Page() {
     setIsRefinementMode(true);
 
     try {
-      if (DEBUG) console.log("[ChatPanel] Refining with chatId:", chatId);
       // Pass chatId to continue the conversation with v0
       const response = await refineWebsite(
         currentCode,

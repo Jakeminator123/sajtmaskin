@@ -189,7 +189,7 @@ export const useBuilderStore = create<BuilderState>()(
             })),
           })
             .then(() => {
-              console.log("[Store] Auto-saved files to database");
+              // Files auto-saved to database
               set({ lastSaved: new Date() });
             })
             .catch((err) =>
@@ -279,7 +279,7 @@ export const useBuilderStore = create<BuilderState>()(
           isLoading: false, // Reset loading state
         });
 
-        console.log("[Store] Loaded project, messages:", parsedMessages.length);
+        // Project loaded from database
       },
 
       // Set hasUserSaved flag
@@ -321,7 +321,7 @@ export const useBuilderStore = create<BuilderState>()(
               })),
             });
             set({ lastSaved: new Date(), isSaving: false });
-            console.log("[Store] Saved to database");
+            // Saved to database successfully
           } catch (error) {
             console.error("[Store] Failed to save to database:", error);
             set({ isSaving: false });
@@ -338,7 +338,7 @@ export const useBuilderStore = create<BuilderState>()(
         const state = get();
 
         if (isTestMode()) {
-          console.log("[Store] Test mode - skipping explicit save");
+          // Test mode: skipping explicit save
           return;
         }
 

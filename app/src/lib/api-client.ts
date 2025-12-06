@@ -29,10 +29,8 @@
  *
  * VIKTIGT: demoUrl är den URL som visas i iframe-preview.
  *
- * DEBUG: Sätt till true för att se detaljerade loggar i konsolen.
+ * All API calls include error handling and return structured responses.
  */
-
-const DEBUG = false; // Set to true for verbose logging
 
 export type QualityLevel = "standard" | "premium";
 
@@ -83,13 +81,6 @@ export async function generateWebsite(
   categoryType?: string,
   quality: QualityLevel = "standard"
 ): Promise<GenerateResponse> {
-  if (DEBUG)
-    console.log("[API-Client] generateWebsite called:", {
-      prompt: prompt?.substring(0, 50) + "...",
-      categoryType,
-      quality,
-    });
-
   try {
     const response = await fetch("/api/generate", {
       method: "POST",
@@ -102,14 +93,6 @@ export async function generateWebsite(
     });
 
     const data = await response.json();
-    if (DEBUG)
-      console.log("[API-Client] generateWebsite response:", {
-        success: data.success,
-        hasCode: !!data.code,
-        filesCount: data.files?.length || 0,
-        hasDemoUrl: !!data.demoUrl,
-        chatId: data.chatId,
-      });
 
     if (!response.ok) {
       console.error("[API-Client] generateWebsite error:", {
@@ -160,14 +143,6 @@ export async function refineWebsite(
   quality: QualityLevel = "standard",
   chatId?: string
 ): Promise<RefineResponse> {
-  if (DEBUG)
-    console.log("[API-Client] refineWebsite called:", {
-      codeLength: existingCode?.length || 0,
-      instruction: instruction?.substring(0, 50) + "...",
-      quality,
-      chatId,
-    });
-
   try {
     const response = await fetch("/api/refine", {
       method: "POST",
@@ -181,14 +156,6 @@ export async function refineWebsite(
     });
 
     const data = await response.json();
-    if (DEBUG)
-      console.log("[API-Client] refineWebsite response:", {
-        success: data.success,
-        hasCode: !!data.code,
-        filesCount: data.files?.length || 0,
-        hasDemoUrl: !!data.demoUrl,
-        chatId: data.chatId,
-      });
 
     if (!response.ok) {
       console.error("[API-Client] refineWebsite error:", {
@@ -237,11 +204,6 @@ export async function generateFromTemplate(
   templateId: string,
   quality: QualityLevel = "standard"
 ): Promise<GenerateResponse> {
-  if (DEBUG)
-    console.log("[API-Client] generateFromTemplate called:", {
-      templateId,
-      quality,
-    });
 
   try {
     const response = await fetch("/api/template", {
@@ -254,13 +216,6 @@ export async function generateFromTemplate(
     });
 
     const data = await response.json();
-    if (DEBUG)
-      console.log("[API-Client] generateFromTemplate response:", {
-        success: data.success,
-        hasCode: !!data.code,
-        filesCount: data.files?.length || 0,
-        hasDemoUrl: !!data.demoUrl,
-      });
 
     if (!response.ok) {
       console.error("[API-Client] generateFromTemplate error:", data.error);
@@ -303,7 +258,6 @@ export interface TemplatePreviewResponse {
 export async function getTemplatePreview(
   templateId: string
 ): Promise<TemplatePreviewResponse> {
-  if (DEBUG) console.log("[API-Client] getTemplatePreview called:", templateId);
 
   try {
     const response = await fetch(
@@ -311,14 +265,6 @@ export async function getTemplatePreview(
     );
 
     const data = await response.json();
-
-    if (DEBUG)
-      console.log("[API-Client] getTemplatePreview response:", {
-        success: data.success,
-        hasDemoUrl: !!data.demoUrl,
-        hasScreenshot: !!data.screenshotUrl,
-        cached: data.cached,
-      });
 
     if (!response.ok) {
       return {
