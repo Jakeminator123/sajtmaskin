@@ -360,13 +360,14 @@ export function AvatarProvider({ children }: { children: ReactNode }) {
 
         // If it's a special animation, return to regular idle after it plays
         if (SPECIAL_IDLE_ANIMATIONS.includes(randomAnimation)) {
-          setTimeout(() => {
+          const timeoutId = setTimeout(() => {
             if (stateRef.current.avatarState === "idle") {
               const regularIdle =
                 IDLE_VARIANTS[Math.floor(Math.random() * IDLE_VARIANTS.length)];
               dispatch({ type: "SET_ANIMATION", animation: regularIdle });
             }
           }, 4000);
+          idleVariationRef.current = timeoutId;
         }
       }
     };
@@ -376,12 +377,13 @@ export function AvatarProvider({ children }: { children: ReactNode }) {
       varyIdleAnimation();
     }, 8000); // Check every 8 seconds
 
+    // Copy ref value before cleanup function to avoid stale ref warning
+    const currentIdleTimeout = idleVariationRef.current;
+
     return () => {
       clearInterval(intervalId);
-      // Copy ref value to variable to avoid stale ref in cleanup
-      const idleVariationTimeout = idleVariationRef.current;
-      if (idleVariationTimeout) {
-        clearTimeout(idleVariationTimeout);
+      if (currentIdleTimeout) {
+        clearTimeout(currentIdleTimeout);
       }
     };
   }, []); // Empty deps = register once
