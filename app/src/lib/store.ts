@@ -171,9 +171,8 @@ export const useBuilderStore = create<BuilderState>()(
 
       setChatId: (id) => {
         set({ chatId: id });
-        get()
-          .saveToDatabase()
-          .catch((err) => console.error("[Store] Failed to save chatId:", err));
+        // Note: Don't save here - setFiles will save everything together
+        // This prevents race conditions where chatId is saved before demoUrl
       },
 
       setFiles: (files) => {
@@ -181,56 +180,56 @@ export const useBuilderStore = create<BuilderState>()(
 
         // IMPORTANT: Auto-save files immediately when generated
         // This ensures "Ta över" (takeover) works without requiring manual save
-        const state = get();
-        if (files.length > 0 && state.projectId && !isTestMode()) {
-          debugLog("[Store] Auto-saving generated files", {
-            projectId: state.projectId,
-            files: files.length,
-            hasDemoUrl: Boolean(state.demoUrl),
-            hasChatId: Boolean(state.chatId),
-          });
-          // Save files directly without waiting for hasUserSaved
-          apiSaveProjectData(state.projectId, {
-            chatId: state.chatId || undefined,
-            demoUrl: state.demoUrl || undefined,
-            currentCode: state.currentCode || undefined,
-            files: files,
-            messages: state.messages.map((msg) => ({
-              ...msg,
-              timestamp: msg.timestamp.toISOString(),
-            })),
-          })
-            .then(() => {
-              // Files auto-saved to database
-              set({ lastSaved: new Date() });
+        // Use setTimeout(0) to ensure other state updates (demoUrl, chatId) are applied first
+        setTimeout(() => {
+          const state = get();
+          if (files.length > 0 && state.projectId && !isTestMode()) {
+            console.log("[Store] Auto-saving generated files", {
+              projectId: state.projectId,
+              files: files.length,
+              hasDemoUrl: Boolean(state.demoUrl),
+              demoUrl: state.demoUrl?.substring(0, 50),
+              hasChatId: Boolean(state.chatId),
+            });
+
+            // Enable auto-save for this project (generation = implicit save)
+            set({ hasUserSaved: true });
+
+            // Save files directly
+            apiSaveProjectData(state.projectId, {
+              chatId: state.chatId || undefined,
+              demoUrl: state.demoUrl || undefined,
+              currentCode: state.currentCode || undefined,
+              files: files,
+              messages: state.messages.map((msg) => ({
+                ...msg,
+                timestamp: msg.timestamp.toISOString(),
+              })),
             })
-            .catch((err) =>
-              console.error("[Store] Failed to auto-save files:", err)
-            );
-        } else {
-          // Still trigger normal saveToDatabase for other scenarios
-          get().saveToDatabase();
-        }
+              .then(() => {
+                console.log(
+                  "[Store] Auto-save complete for project:",
+                  state.projectId
+                );
+                set({ lastSaved: new Date() });
+              })
+              .catch((err) =>
+                console.error("[Store] Failed to auto-save files:", err)
+              );
+          }
+        }, 0);
       },
 
       setCurrentCode: (code) => {
         set({ currentCode: code });
-        get()
-          .saveToDatabase()
-          .catch((err) => console.error("[Store] Failed to save code:", err));
+        // Note: Don't save here - setFiles will save everything together
       },
 
       setDemoUrl: (url) => {
         set({ demoUrl: url });
-        debugLog("[Store] Updated demoUrl", {
-          hasUrl: Boolean(url),
-          url,
-        });
-        get()
-          .saveToDatabase()
-          .catch((err) =>
-            console.error("[Store] Failed to save demoUrl:", err)
-          );
+        console.log("[Store] Updated demoUrl:", url?.substring(0, 60));
+        // Note: Don't save here - setFiles will save everything together
+        // This ensures all data (chatId, demoUrl, files) is saved atomically
       },
 
       setScreenshotUrl: (url) => {
@@ -239,11 +238,7 @@ export const useBuilderStore = create<BuilderState>()(
 
       setVersionId: (id) => {
         set({ versionId: id });
-        get()
-          .saveToDatabase()
-          .catch((err) =>
-            console.error("[Store] Failed to save versionId:", err)
-          );
+        // Note: Don't save here - setFiles will save everything together
       },
 
       setViewMode: (mode) => set({ viewMode: mode }),
@@ -288,6 +283,15 @@ export const useBuilderStore = create<BuilderState>()(
               : new Date(msg.timestamp),
         }));
 
+        console.log("[Store] loadFromProject called with:", {
+          hasChatId: Boolean(data.chatId),
+          hasDemoUrl: Boolean(data.demoUrl),
+          demoUrl: data.demoUrl?.substring(0, 50),
+          hasCode: Boolean(data.currentCode),
+          filesCount: data.files?.length || 0,
+          messagesCount: parsedMessages.length,
+        });
+
         // REPLACE state entirely (don't merge with localStorage)
         set({
           chatId: data.chatId || null,
@@ -296,17 +300,13 @@ export const useBuilderStore = create<BuilderState>()(
           files: data.files || [],
           messages: parsedMessages,
           hasUserSaved: hasSavedData, // Enable auto-save if project has saved data
-          isLoading: false, // Reset loading state
+          isLoading: false, // CRITICAL: Reset loading state so preview shows
         });
 
-        debugLog("[Store] Loaded project data", {
-          hasChatId: Boolean(data.chatId),
+        console.log("[Store] State after loadFromProject:", {
+          isLoading: false,
           hasDemoUrl: Boolean(data.demoUrl),
-          files: data.files?.length || 0,
-          messages: parsedMessages.length,
         });
-
-        // Project loaded from database
       },
 
       // Set hasUserSaved flag
@@ -361,6 +361,7 @@ export const useBuilderStore = create<BuilderState>()(
       },
 
       // Explicit save - bypasses hasUserSaved check and enables future auto-saves
+      // Includes deduplication to prevent double saves
       explicitSave: async () => {
         const state = get();
 
@@ -371,6 +372,12 @@ export const useBuilderStore = create<BuilderState>()(
 
         if (!state.projectId) {
           console.warn("[Store] Cannot save - no project ID");
+          return;
+        }
+
+        // DEDUPLICATION: Skip if already saving
+        if (state.isSaving) {
+          console.log("[Store] Save already in progress, skipping duplicate");
           return;
         }
 
@@ -440,30 +447,24 @@ export const useBuilderStore = create<BuilderState>()(
        * Heavy payloads (files/currentCode/messages) must come from backend/Redis,
        * not localStorage, to avoid bloat and stale state.
        */
+      // ONLY persist UI preferences, NOT project-specific data
+      // Project data (projectId, chatId, demoUrl) comes from URL params + database
+      // This prevents stale project IDs from causing duplicate projects
       partialize: (state) => ({
-        projectId: state.projectId,
-        chatId: state.chatId,
-        demoUrl: state.demoUrl,
-        viewMode: state.viewMode,
+        // UI preferences only - reset to defaults on new session
         deviceSize: state.deviceSize,
         quality: state.quality,
-        ownershipMode: state.ownershipMode,
-        isProjectOwned: state.isProjectOwned,
+        // viewMode NOT persisted - always start with "preview"
+        // projectId, chatId, demoUrl NOT persisted - comes from URL/database
       }),
-      version: 2,
+      version: 3,
       migrate: (persistedState: any, version) => {
-        // Drop heavy fields from older persisted versions
-        if (version < 2) {
+        // Version 3: Only persist UI preferences, not project data
+        if (version < 3) {
           return {
-            ...persistedState,
-            messages: [],
-            files: [],
-            currentCode: null,
-            screenshotUrl: null,
-            versionId: null,
-            isSaving: false,
-            lastSaved: null,
-            hasUserSaved: persistedState?.hasUserSaved ?? false,
+            deviceSize: persistedState?.deviceSize ?? "desktop",
+            quality: persistedState?.quality ?? "premium",
+            // Clear all project-specific data - will come from URL/database
           };
         }
         return persistedState;

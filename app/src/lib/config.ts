@@ -155,7 +155,9 @@ export function isSecretConfigured(secretName: SecretName): boolean {
  * Validate required secrets at startup
  * Returns list of missing secret names
  */
-export function validateRequiredSecrets(requiredSecrets: SecretName[]): string[] {
+export function validateRequiredSecrets(
+  requiredSecrets: SecretName[]
+): string[] {
   const missing: string[] = [];
   for (const secret of requiredSecrets) {
     if (!isSecretConfigured(secret)) {
@@ -191,7 +193,10 @@ export const URLS = {
   },
 
   get githubCallbackUrl() {
-    return process.env.GITHUB_REDIRECT_URI || `${this.baseUrl}/api/auth/github/callback`;
+    return (
+      process.env.GITHUB_REDIRECT_URI ||
+      `${this.baseUrl}/api/auth/github/callback`
+    );
   },
 } as const;
 
@@ -225,30 +230,39 @@ export const FEATURES = {
   useElevenLabs: Boolean(SECRETS.elevenLabsApiKey),
 } as const;
 
+// Use globalThis to persist across hot reloads in dev mode
+declare global {
+  var __configLogged: boolean | undefined;
+}
+
 /**
  * Log configuration on startup (call once)
+ * Uses globalThis to prevent duplicate logs during hot reload
  * SECURITY: Never log actual secret values!
  */
 export function logConfig(): void {
+  // Skip if already logged in this Node.js process
+  if (globalThis.__configLogged) {
+    return;
+  }
+  globalThis.__configLogged = true;
+
+  // Compact single-line log for cleaner output
+  const features = Object.entries(FEATURES)
+    .filter(([, v]) => v)
+    .map(([k]) =>
+      k
+        .replace("use", "")
+        .replace(/([A-Z])/g, " $1")
+        .trim()
+    )
+    .join(", ");
+
   console.log(
-    "[Config] Environment:",
-    IS_PRODUCTION ? "production" : "development"
+    `[Config] ${IS_PRODUCTION ? "PROD" : "DEV"} | DB: ${
+      PATHS.database
+    } | Features: ${features || "none"}`
   );
-  console.log("[Config] Running on Render:", IS_RENDER);
-  console.log("[Config] Data directory:", PATHS.dataDir);
-  console.log("[Config] Database path:", PATHS.database);
-  console.log("[Config] Uploads path:", PATHS.uploads);
-  console.log("[Config] Features:", {
-    redis: FEATURES.useRedisCache,
-    googleAuth: FEATURES.useGoogleAuth,
-    githubAuth: FEATURES.useGitHubAuth,
-    stripe: FEATURES.useStripePayments,
-    v0Api: FEATURES.useV0Api,
-    openai: FEATURES.useOpenAI,
-    pexels: FEATURES.usePexels,
-    unsplash: FEATURES.useUnsplash,
-    elevenLabs: FEATURES.useElevenLabs,
-  });
 }
 
 /**
@@ -264,7 +278,10 @@ export function validateEnv(): { valid: boolean; missing: string[] } {
   const missing = validateRequiredSecrets(coreSecrets);
 
   if (missing.length > 0 && IS_PRODUCTION) {
-    console.error("[Config] CRITICAL: Missing required environment variables:", missing);
+    console.error(
+      "[Config] CRITICAL: Missing required environment variables:",
+      missing
+    );
   }
 
   return { valid: missing.length === 0, missing };

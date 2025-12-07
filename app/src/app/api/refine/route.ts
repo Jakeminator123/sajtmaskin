@@ -3,9 +3,8 @@
 
 import { NextRequest, NextResponse } from "next/server";
 
-// Allow 5 minutes for v0 API responses
-// Allow 10 minutes for v0 API responses (refinements can take 5+ minutes)
-export const maxDuration = 600;
+// Allow up to 15 minutes for v0 API responses (refinements can take 5–10+ minutes)
+export const maxDuration = 900;
 import {
   refineCode,
   sanitizeCode,
@@ -189,7 +188,8 @@ export async function POST(req: NextRequest) {
       versionId: result.versionId,
       model: result.model,
       // Include updated balance for authenticated users (only if transaction succeeded)
-      ...(newBalance !== null && newBalance !== undefined && { balance: newBalance }),
+      ...(newBalance !== null &&
+        newBalance !== undefined && { balance: newBalance }),
     });
   } catch (error) {
     console.error("[API/refine] Error:", error);

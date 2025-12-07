@@ -3,8 +3,8 @@
 
 import { NextRequest, NextResponse } from "next/server";
 
-// Allow 10 minutes for v0 API responses (complex sites can take 5+ minutes)
-export const maxDuration = 600;
+// Allow up to 15 minutes for v0 API responses (complex sites can take 5–10+ minutes)
+export const maxDuration = 900;
 import {
   generateCode,
   sanitizeCode,
@@ -127,21 +127,70 @@ export async function POST(req: NextRequest) {
     }
 
     console.log("[API/generate] Calling v0 API...");
+    const generateStartTime = Date.now();
 
     // Generate code using v0 API
-    const result = await generateCode(
-      prompt || "",
-      quality as QualityLevel,
-      categoryType
+    let result;
+    try {
+      result = await generateCode(
+        prompt || "",
+        quality as QualityLevel,
+        categoryType
+      );
+    } catch (v0Error) {
+      console.error("[API/generate] v0 API threw error:", v0Error);
+      return NextResponse.json(
+        {
+          success: false,
+          error: `AI-generering misslyckades: ${
+            v0Error instanceof Error ? v0Error.message : "Okänt fel"
+          }`,
+        },
+        { status: 500 }
+      );
+    }
+
+    const generateDuration = Date.now() - generateStartTime;
+    console.log(
+      `[API/generate] v0 API response received in ${generateDuration}ms:`,
+      {
+        codeLength: result?.code?.length || 0,
+        filesCount: result?.files?.length || 0,
+        hasChatId: !!result?.chatId,
+        hasDemoUrl: !!result?.demoUrl,
+      }
     );
 
-    console.log(
-      "[API/generate] v0 API response received, code length:",
-      result.code?.length || 0
-    );
-    console.log("[API/generate] Files count:", result.files?.length || 0);
-    console.log("[API/generate] Chat ID:", result.chatId);
-    console.log("[API/generate] Demo URL:", result.demoUrl);
+    // Validate that we got a useful result
+    if (!result) {
+      console.error("[API/generate] v0 API returned null/undefined result");
+      return NextResponse.json(
+        {
+          success: false,
+          error: "AI-generering returnerade inget resultat. Försök igen.",
+        },
+        { status: 500 }
+      );
+    }
+
+    // Check if we have at least a demoUrl OR some code/files
+    if (
+      !result.demoUrl &&
+      !result.code &&
+      (!result.files || result.files.length === 0)
+    ) {
+      console.error(
+        "[API/generate] v0 API returned empty result (no demoUrl, code, or files)"
+      );
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "AI-generering gav inget resultat. Försök med en annan prompt.",
+        },
+        { status: 500 }
+      );
+    }
 
     // Sanitize the code (remove v0/Vercel references)
     const cleanedCode = sanitizeCode(result.code);
@@ -179,7 +228,9 @@ export async function POST(req: NextRequest) {
         console.log("[API/generate] Incremented guest generation count");
       }
     } else {
-      console.warn("[API/generate] Generation incomplete, skipping credit deduction");
+      console.warn(
+        "[API/generate] Generation incomplete, skipping credit deduction"
+      );
     }
 
     console.log("[API/generate] Success, returning response");
@@ -195,7 +246,8 @@ export async function POST(req: NextRequest) {
       versionId: result.versionId,
       model: result.model,
       // Include updated balance for authenticated users (only if transaction succeeded)
-      ...(newBalance !== null && newBalance !== undefined && { balance: newBalance }),
+      ...(newBalance !== null &&
+        newBalance !== undefined && { balance: newBalance }),
     });
   } catch (error) {
     console.error("[API/generate] Error:", error);

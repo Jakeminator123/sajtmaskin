@@ -359,7 +359,7 @@ export async function downloadVersionAsZip(
  */
 async function waitForVersionReady(
   chatId: string,
-  maxAttempts = 100, // 100 × 5s = 8.3 minutes timeout (leave buffer for route timeout)
+  maxAttempts = 150, // 150 × 5s ≈ 12.5 minutes (aligns with 15m route timeout)
   delayMs = 5000 // 5 seconds between polls
 ): Promise<ChatDetail | null> {
   const v0 = getV0Client();
@@ -427,8 +427,10 @@ export async function generateCode(
   if (categoryType && prompt && prompt.trim().length > 0) {
     const promptLower = prompt.toLowerCase();
     const categoryKeywords = ["skapa en", "bygg en", "gör en", "designa en"];
-    const isCategoryLikePrompt = categoryKeywords.some(keyword => promptLower.startsWith(keyword));
-    
+    const isCategoryLikePrompt = categoryKeywords.some((keyword) =>
+      promptLower.startsWith(keyword)
+    );
+
     if (!isCategoryLikePrompt) {
       fullPrompt += `\n\nAdditional requirements: ${prompt}`;
     }
@@ -501,7 +503,9 @@ export async function generateCode(
   } else if (status === "failed") {
     console.error("[v0-generator] Generation failed");
   } else if (hasCompleteContent) {
-    console.log("[v0-generator] Already have complete content, skipping polling");
+    console.log(
+      "[v0-generator] Already have complete content, skipping polling"
+    );
   }
 
   // Extract files from the response
@@ -628,12 +632,16 @@ export async function refineCode(
   }
 
   // If no chat ID, create a new chat with the refinement context
-  console.log("[v0-generator] No chatId provided, creating new chat for refinement...");
+  console.log(
+    "[v0-generator] No chatId provided, creating new chat for refinement..."
+  );
 
   const refinementPrompt = `Here is my existing code:
 
 \`\`\`tsx
-${existingCode.substring(0, 50000)}${existingCode.length > 50000 ? "\n... [truncated]" : ""}
+${existingCode.substring(0, 50000)}${
+    existingCode.length > 50000 ? "\n... [truncated]" : ""
+  }
 \`\`\`
 
 Please modify it according to this instruction: ${instruction}
@@ -650,7 +658,7 @@ Keep the same overall structure and only make the requested changes.`;
  * NOTE: Quality/model parameter is accepted for API consistency,
  * but template initialization just clones existing code - no AI
  * generation happens. Model selection only matters for refinements.
- * 
+ *
  * Includes automatic retry for transient errors (500, 502, 503, 504).
  */
 export async function generateFromTemplate(
@@ -674,75 +682,84 @@ export async function generateFromTemplate(
   for (let attempt = 1; attempt <= maxRetries + 1; attempt++) {
     try {
       if (attempt > 1) {
-        console.log(`[v0-generator] Retry attempt ${attempt}/${maxRetries + 1}...`);
+        console.log(
+          `[v0-generator] Retry attempt ${attempt}/${maxRetries + 1}...`
+        );
         // Wait before retry (exponential backoff: 2s, 4s)
-        await new Promise(resolve => setTimeout(resolve, attempt * 2000));
+        await new Promise((resolve) => setTimeout(resolve, attempt * 2000));
       }
-    // Note: model parameter does not apply to template init (just cloning template)
-    // Template init only accepts templateId and chatPrivacy
-    const chat = (await v0.chats.init({
-      type: "template",
-      templateId: templateId,
-      chatPrivacy: "private",
-    })) as ChatDetail;
+      // Note: model parameter does not apply to template init (just cloning template)
+      // Template init only accepts templateId and chatPrivacy
+      const chat = (await v0.chats.init({
+        type: "template",
+        templateId: templateId,
+        chatPrivacy: "private",
+      })) as ChatDetail;
 
-    console.log("[v0-generator] Template initialized:", chat.id);
-    console.log("[v0-generator] Version status:", chat.latestVersion?.status);
-    console.log(
-      "[v0-generator] Files count:",
-      chat.latestVersion?.files?.length
-    );
-    console.log("[v0-generator] demoUrl:", chat.latestVersion?.demoUrl);
+      console.log("[v0-generator] Template initialized:", chat.id);
+      console.log("[v0-generator] Version status:", chat.latestVersion?.status);
+      console.log(
+        "[v0-generator] Files count:",
+        chat.latestVersion?.files?.length
+      );
+      console.log("[v0-generator] demoUrl:", chat.latestVersion?.demoUrl);
 
-    // Check if template loading failed (status check)
-    const status = chat.latestVersion?.status;
-    if (status === "failed") {
-      console.error("[v0-generator] Template loading failed with status: failed");
-      throw new Error("Template loading failed - status was 'failed'");
-    }
+      // Check if template loading failed (status check)
+      const status = chat.latestVersion?.status;
+      if (status === "failed") {
+        console.error(
+          "[v0-generator] Template loading failed with status: failed"
+        );
+        throw new Error("Template loading failed - status was 'failed'");
+      }
 
-    // Extract files from the response
-    const files: GeneratedFile[] =
-      chat.latestVersion?.files?.map((file) => ({
-        name: file.name,
-        content: file.content,
-      })) || [];
+      // Extract files from the response
+      const files: GeneratedFile[] =
+        chat.latestVersion?.files?.map((file) => ({
+          name: file.name,
+          content: file.content,
+        })) || [];
 
-    // Find the main component file
-    const mainFile =
-      files.find(
-        (f) =>
-          f.name.includes("page.tsx") ||
-          f.name.includes("Page.tsx") ||
-          f.name.endsWith(".tsx")
-      ) || files[0];
+      // Find the main component file
+      const mainFile =
+        files.find(
+          (f) =>
+            f.name.includes("page.tsx") ||
+            f.name.includes("Page.tsx") ||
+            f.name.endsWith(".tsx")
+        ) || files[0];
 
-    // Warn if no content was returned (but don't throw - demoUrl might still work)
-    if (files.length === 0 && !chat.latestVersion?.demoUrl) {
-      console.warn("[v0-generator] Template returned no files and no demoUrl");
-    }
+      // Warn if no content was returned (but don't throw - demoUrl might still work)
+      if (files.length === 0 && !chat.latestVersion?.demoUrl) {
+        console.warn(
+          "[v0-generator] Template returned no files and no demoUrl"
+        );
+      }
 
-    return {
-      code: mainFile?.content || chat.text || "",
-      files,
-      chatId: chat.id,
-      demoUrl: chat.latestVersion?.demoUrl,
-      screenshotUrl: chat.latestVersion?.screenshotUrl,
-      versionId: chat.latestVersion?.id,
-      webUrl: chat.webUrl,
-      model: model, // Return actual model used (even if SDK ignored it for template)
-    };
+      return {
+        code: mainFile?.content || chat.text || "",
+        files,
+        chatId: chat.id,
+        demoUrl: chat.latestVersion?.demoUrl,
+        screenshotUrl: chat.latestVersion?.screenshotUrl,
+        versionId: chat.latestVersion?.id,
+        webUrl: chat.webUrl,
+        model: model, // Return actual model used (even if SDK ignored it for template)
+      };
     } catch (error) {
-      console.error(`[v0-generator] Template init error (attempt ${attempt}):`, error);
+      console.error(
+        `[v0-generator] Template init error (attempt ${attempt}):`,
+        error
+      );
       lastError = error instanceof Error ? error : new Error(String(error));
 
       // Check if error is retryable (transient server errors)
       const msg = lastError.message.toLowerCase();
-      const isRetryable = 
-        msg.includes("500") || 
+      const isRetryable =
+        msg.includes("500") ||
         msg.includes("internal_server_error") ||
-        msg.includes("502") || 
-        msg.includes("503") || 
+        msg.includes("502") ||
+        msg.includes("503") ||
         msg.includes("504") ||
         msg.includes("timeout") ||
         msg.includes("timed out");
@@ -765,14 +782,16 @@ export async function generateFromTemplate(
       if (attempt === maxRetries + 1) {
         console.error("[v0-generator] All retry attempts failed");
         if (msg.includes("500") || msg.includes("internal_server_error")) {
-          throw new Error("v0 API har tillfälliga problem. Prova igen om en stund.");
+          throw new Error(
+            "v0 API har tillfälliga problem. Prova igen om en stund."
+          );
         }
         if (msg.includes("502") || msg.includes("503") || msg.includes("504")) {
           throw new Error("v0 API är tillfälligt otillgänglig. Prova igen.");
         }
         throw new Error("Timeout - v0 API svarade inte i tid");
       }
-      
+
       // Continue to next retry attempt
       console.log("[v0-generator] Will retry due to transient error...");
     }

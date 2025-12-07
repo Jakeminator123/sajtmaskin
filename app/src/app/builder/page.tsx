@@ -1,7 +1,7 @@
 "use client";
 
-import { useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useState } from "react";
+import { useSearchParams, useRouter } from "next/navigation";
+import { Suspense, useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { QualitySelector } from "@/components/quality-selector";
@@ -14,7 +14,7 @@ import { BackofficeOptionModal } from "@/components/backoffice-option-modal";
 import { TakeoverModal } from "@/components/takeover-modal";
 import { useBuilderStore, GeneratedFile } from "@/lib/store";
 import { useAuth } from "@/lib/auth-store";
-import { getProject } from "@/lib/project-client";
+import { getProject, createProject } from "@/lib/project-client";
 import {
   ArrowLeft,
   Download,
@@ -54,13 +54,17 @@ const categoryTitles: Record<string, string> = {
 
 function BuilderContent() {
   const searchParams = useSearchParams();
-  const projectId = searchParams.get("project");
+  const router = useRouter();
+  const urlProjectId = searchParams.get("project");
   const type = searchParams.get("type");
   const prompt = searchParams.get("prompt");
   const templateId = searchParams.get("templateId");
   const localTemplateId = searchParams.get("localTemplateId");
   // Reuse chatId from preview (if template was previewed before selection)
   const previewChatId = searchParams.get("chatId");
+
+  // Track the active projectId (from URL or auto-created)
+  const [projectId, setLocalProjectId] = useState<string | null>(urlProjectId);
 
   const {
     quality,
@@ -130,10 +134,65 @@ function BuilderContent() {
   // Track if project has existing saved data (prevents re-generation if data exists)
   const [hasExistingData, setHasExistingData] = useState(false);
 
+  // Ref to prevent double project creation from React StrictMode
+  const isCreatingProjectRef = useRef(false);
+
+  // Auto-create project if navigating with prompt but no projectId
+  useEffect(() => {
+    // Skip if we already have a projectId or if there's no prompt
+    if (projectId || !prompt) return;
+
+    // Prevent double creation from React StrictMode
+    if (isCreatingProjectRef.current) {
+      console.log("[Builder] Project creation already in progress, skipping");
+      return;
+    }
+
+    const autoCreateProject = async () => {
+      isCreatingProjectRef.current = true;
+      try {
+        // Extract company name from prompt if possible, otherwise use generic name
+        const nameMatch = prompt.match(/for\s+([^,\.]+)/i);
+        const projectName = nameMatch
+          ? nameMatch[1].trim()
+          : `Webbprojekt - ${new Date().toLocaleDateString("sv-SE")}`;
+
+        console.log("[Builder] Auto-creating project:", projectName);
+        const project = await createProject(projectName, type || "website");
+
+        // Update local state with the new projectId
+        setLocalProjectId(project.id);
+        setProjectId(project.id);
+
+        // Update URL without full page reload (keeps prompt param)
+        const newUrl = `/builder?project=${
+          project.id
+        }&prompt=${encodeURIComponent(prompt)}${type ? `&type=${type}` : ""}`;
+        router.replace(newUrl);
+
+        console.log("[Builder] Project auto-created:", project.id);
+      } catch (error) {
+        console.error("[Builder] Failed to auto-create project:", error);
+        // Continue without projectId - user can still use the builder
+        setIsProjectDataLoading(false);
+      }
+    };
+
+    autoCreateProject();
+  }, [prompt, projectId, type, router, setProjectId]);
+
   // Load project data on mount
   useEffect(() => {
+    // If no projectId, we're starting fresh (e.g., from wizard with just prompt param)
+    // Mark loading complete immediately so ChatPanel can proceed with generation
+    if (!projectId) {
+      setIsProjectDataLoading(false);
+      setHasExistingData(false);
+      return;
+    }
+
     // Skip if already loaded this project (React StrictMode protection)
-    if (!projectId || hasLoadedProject === projectId) {
+    if (hasLoadedProject === projectId) {
       return;
     }
 
@@ -195,6 +254,8 @@ function BuilderContent() {
   const handleNewDesign = () => {
     clearChat();
     setHasAutoSwitched(false); // Reset so auto-switch works for new generation
+    setHasExistingData(false); // Allow new generation
+    setHasLoadedProject(null); // Reset project tracking
     if (isMobile) {
       setMobileTab("chat"); // Switch back to chat on mobile when starting new design
     }
@@ -383,12 +444,18 @@ function BuilderContent() {
               variant="outline"
               size="sm"
               className="gap-2 border-purple-600 text-purple-400 hover:bg-purple-900/20 hover:text-purple-300"
-              disabled={!chatId}
+              disabled={!chatId || !projectId}
               onClick={() => setShowTakeoverModal(true)}
             >
               <Github className="h-4 w-4" />
               Ta över
-              <HelpTooltip text="Flytta projektet till ditt GitHub-konto för full kontroll. Redigera sedan med AI direkt i koden!" />
+              <HelpTooltip
+                text={
+                  projectId
+                    ? "Flytta projektet till ditt GitHub-konto för full kontroll. Redigera sedan med AI direkt i koden!"
+                    : "Spara projektet först för att kunna ta över det."
+                }
+              />
             </Button>
           )}
         </div>
@@ -479,7 +546,7 @@ function BuilderContent() {
             </Button>
           )}
           {/* GitHub Takeover - Mobile */}
-          {isAuthenticated && chatId && (
+          {isAuthenticated && chatId && projectId && (
             <Button
               variant="outline"
               size="sm"

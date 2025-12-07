@@ -59,41 +59,72 @@ import {
   Video,
 } from "lucide-react";
 
-// Module-level state for preventing duplicate generation requests
-
 // ============================================================================
-// MODULE-LEVEL STATE (persists across React StrictMode remounts)
+// GENERATION STATE using sessionStorage for persistence across Fast Refresh
+// This is crucial because React StrictMode and mobile tab switching can cause
+// multiple ChatPanel instances to run simultaneously
 // ============================================================================
-// These variables persist even when component unmounts/remounts in StrictMode
-let moduleLastGeneratedKey: string | null = null;
-let moduleGenerationInProgress = false;
-let moduleGenerationTimestamp = 0;
+const GENERATION_STATE_KEY = "sajtmaskin_generation_state";
 
-// Reset module state after a timeout (prevents stale state blocking new generations)
-// v0 API can take 5-10 minutes for complex premium generations, so we use a generous timeout
-const GENERATION_TIMEOUT_MS = 600000; // 10 minutes (matches Next.js maxDuration in route.ts)
+interface GenerationState {
+  lastKey: string | null;
+  inProgress: boolean;
+  timestamp: number;
+}
+
+function getGenerationState(): GenerationState {
+  if (typeof window === "undefined") {
+    return { lastKey: null, inProgress: false, timestamp: 0 };
+  }
+  try {
+    const stored = sessionStorage.getItem(GENERATION_STATE_KEY);
+    if (stored) {
+      return JSON.parse(stored);
+    }
+  } catch {
+    // Ignore parsing errors
+  }
+  return { lastKey: null, inProgress: false, timestamp: 0 };
+}
+
+function setGenerationState(state: GenerationState): void {
+  if (typeof window === "undefined") return;
+  try {
+    sessionStorage.setItem(GENERATION_STATE_KEY, JSON.stringify(state));
+  } catch {
+    // Ignore storage errors
+  }
+}
+
+// Reset state after a timeout (prevents stale state blocking new generations)
+// v0 API can take 5-10 minutes for complex premium generations
+const GENERATION_TIMEOUT_MS = 600000; // 10 minutes
+const SAME_KEY_COOLDOWN_MS = 120000; // 2 minutes cooldown for same key
 
 function canStartGeneration(key: string): boolean {
+  const state = getGenerationState();
   const now = Date.now();
 
   // If generation is in progress but took too long, allow new one
-  if (
-    moduleGenerationInProgress &&
-    now - moduleGenerationTimestamp > GENERATION_TIMEOUT_MS
-  ) {
-    moduleGenerationInProgress = false;
+  if (state.inProgress && now - state.timestamp > GENERATION_TIMEOUT_MS) {
+    console.log("[ChatPanel] Generation timed out, allowing new one");
+    setGenerationState({ ...state, inProgress: false });
+    return true;
   }
 
   // Don't allow if generation is in progress
-  if (moduleGenerationInProgress) {
+  if (state.inProgress) {
+    console.log("[ChatPanel] Generation already in progress, blocking");
     return false;
   }
 
-  // Don't allow if same key was just generated (within 5 seconds)
-  if (
-    moduleLastGeneratedKey === key &&
-    now - moduleGenerationTimestamp < 5000
-  ) {
+  // Don't allow if same key was just generated (within cooldown period)
+  if (state.lastKey === key && now - state.timestamp < SAME_KEY_COOLDOWN_MS) {
+    console.log(
+      `[ChatPanel] Same key generated ${Math.round(
+        (now - state.timestamp) / 1000
+      )}s ago, blocking`
+    );
     return false;
   }
 
@@ -101,13 +132,19 @@ function canStartGeneration(key: string): boolean {
 }
 
 function markGenerationStarted(key: string): void {
-  moduleLastGeneratedKey = key;
-  moduleGenerationInProgress = true;
-  moduleGenerationTimestamp = Date.now();
+  const state: GenerationState = {
+    lastKey: key,
+    inProgress: true,
+    timestamp: Date.now(),
+  };
+  setGenerationState(state);
+  console.log("[ChatPanel] Generation started for key:", key.substring(0, 50));
 }
 
 function markGenerationEnded(): void {
-  moduleGenerationInProgress = false;
+  const state = getGenerationState();
+  setGenerationState({ ...state, inProgress: false });
+  console.log("[ChatPanel] Generation ended");
 }
 // ============================================================================
 
@@ -361,20 +398,19 @@ export function ChatPanel({
     // In test mode, always clear and regenerate
     if (isTestMode && (messages.length > 0 || demoUrl)) {
       clearChat();
-      moduleLastGeneratedKey = null;
-      moduleGenerationInProgress = false;
+      setGenerationState({ lastKey: null, inProgress: false, timestamp: 0 });
       hasInitialGeneratedRef.current = false;
       lastGeneratedKeyRef.current = null;
       return;
     }
 
     // If we have content but it's from a DIFFERENT request, clear it first
+    const genState = getGenerationState();
     const isNewRequest =
-      moduleLastGeneratedKey !== currentKey && moduleLastGeneratedKey !== null;
+      genState.lastKey !== currentKey && genState.lastKey !== null;
     if (isNewRequest && (messages.length > 0 || demoUrl)) {
       clearChat();
-      moduleLastGeneratedKey = null;
-      moduleGenerationInProgress = false;
+      setGenerationState({ lastKey: null, inProgress: false, timestamp: 0 });
       hasInitialGeneratedRef.current = false;
       lastGeneratedKeyRef.current = null;
       return; // Wait for state to clear, effect will re-run

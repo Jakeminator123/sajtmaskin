@@ -258,6 +258,17 @@ export function CodePreview() {
               maxWidth: "100%",
             }}
           >
+            {(() => {
+              // Debug logging
+              if (typeof window !== "undefined") {
+                console.log("[CodePreview] Render state:", {
+                  isLoading,
+                  hasDemoUrl: !!demoUrl,
+                  hasCode: !!currentCode,
+                });
+              }
+              return null;
+            })()}
             {isLoading ? (
               // Loading state with beautiful animation
               <div className="flex-1 flex items-center justify-center p-8 bg-black">
@@ -285,6 +296,11 @@ export function CodePreview() {
                     </p>
                     <p className="text-gray-500 text-sm">
                       AI:n designar och bygger din sida
+                    </p>
+                    <p className="text-amber-400 text-xs">
+                      Kan ta upp till 3–5 minuter för större projekt. Lämna
+                      fliken öppen så laddas preview automatiskt när den är
+                      klar.
                     </p>
                   </div>
                   {/* Progress dots */}

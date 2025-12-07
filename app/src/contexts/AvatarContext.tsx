@@ -338,6 +338,10 @@ export function AvatarProvider({ children }: { children: ReactNode }) {
   const isSleepingRef = useRef(false);
   const lastReactionTimeRef = useRef<number>(0);
 
+  // Use refs to access current state without causing effect re-runs
+  const stateRef = useRef(state);
+  stateRef.current = state;
+
   const clearIdleTimeout = useCallback(() => {
     if (idleTimeoutRef.current) {
       clearTimeout(idleTimeoutRef.current);
@@ -346,46 +350,43 @@ export function AvatarProvider({ children }: { children: ReactNode }) {
   }, []);
 
   // Randomly vary idle animation for natural feel
+  // Uses interval that checks state via ref (no dependencies = no re-registration)
   useEffect(() => {
     const varyIdleAnimation = () => {
-      if (state.avatarState === "idle" && state.isLoaded) {
+      const currentState = stateRef.current;
+      if (currentState.avatarState === "idle" && currentState.isLoaded) {
         const randomAnimation = getRandomIdleAnimation();
         dispatch({ type: "SET_ANIMATION", animation: randomAnimation });
 
         // If it's a special animation, return to regular idle after it plays
         if (SPECIAL_IDLE_ANIMATIONS.includes(randomAnimation)) {
           setTimeout(() => {
-            if (state.avatarState === "idle") {
+            if (stateRef.current.avatarState === "idle") {
               const regularIdle =
                 IDLE_VARIANTS[Math.floor(Math.random() * IDLE_VARIANTS.length)];
               dispatch({ type: "SET_ANIMATION", animation: regularIdle });
             }
-          }, 4000); // Special animations play for ~4 seconds
+          }, 4000);
         }
       }
     };
 
-    // Change idle variant every 6-12 seconds for more liveliness
-    const scheduleNextVariation = () => {
-      const delay = 6000 + Math.random() * 6000; // 6-12 seconds
-      idleVariationRef.current = setTimeout(() => {
-        varyIdleAnimation();
-        scheduleNextVariation();
-      }, delay);
-    };
-
-    if (state.avatarState === "idle" && state.isLoaded) {
-      scheduleNextVariation();
-    }
+    // Use interval instead of recursive setTimeout for stability
+    const intervalId = setInterval(() => {
+      varyIdleAnimation();
+    }, 8000); // Check every 8 seconds
 
     return () => {
-      if (idleVariationRef.current) {
-        clearTimeout(idleVariationRef.current);
+      clearInterval(intervalId);
+      const idleVariationTimeout = idleVariationRef.current;
+      if (idleVariationTimeout) {
+        clearTimeout(idleVariationTimeout);
       }
     };
-  }, [state.avatarState, state.isLoaded]);
+  }, []); // Empty deps = register once
 
   // Inactivity detection - avatar falls asleep after 4 minutes
+  // Event listeners registered once, use refs for state access
   useEffect(() => {
     const resetInactivityTimer = () => {
       lastActivityRef.current = Date.now();
@@ -395,17 +396,18 @@ export function AvatarProvider({ children }: { children: ReactNode }) {
         clearTimeout(inactivityTimerRef.current);
       }
 
-      // If sleeping, wake up
-      if (isSleepingRef.current && state.avatarState === "reacting") {
+      // If sleeping, wake up (use ref to check current state)
+      if (isSleepingRef.current) {
         isSleepingRef.current = false;
         dispatch({ type: "RETURN_TO_IDLE" });
       }
 
       // Start new timer
       inactivityTimerRef.current = setTimeout(() => {
+        const currentState = stateRef.current;
         if (
-          state.avatarState === "idle" &&
-          state.isLoaded &&
+          currentState.avatarState === "idle" &&
+          currentState.isLoaded &&
           !isSleepingRef.current
         ) {
           isSleepingRef.current = true;
@@ -418,7 +420,7 @@ export function AvatarProvider({ children }: { children: ReactNode }) {
       }, INACTIVITY_SLEEP_DELAY);
     };
 
-    // Track user activity
+    // Track user activity - register ONCE
     const events = [
       "mousemove",
       "mousedown",
@@ -427,7 +429,7 @@ export function AvatarProvider({ children }: { children: ReactNode }) {
       "touchstart",
     ];
     events.forEach((event) =>
-      window.addEventListener(event, resetInactivityTimer)
+      window.addEventListener(event, resetInactivityTimer, { passive: true })
     );
 
     // Start initial timer
@@ -441,7 +443,7 @@ export function AvatarProvider({ children }: { children: ReactNode }) {
         clearTimeout(inactivityTimerRef.current);
       }
     };
-  }, [state.avatarState, state.isLoaded]);
+  }, []); // Empty deps = register once
 
   const setLoaded = useCallback(() => {
     dispatch({ type: "SET_LOADED" });

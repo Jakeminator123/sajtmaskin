@@ -289,15 +289,27 @@ const CATEGORY_MAP: Record<string, string> = {
   dashboard: "admin dashboard",
 };
 
+// Timeout for Unsplash fetch (5 seconds)
+const UNSPLASH_TIMEOUT_MS = 5000;
+
 // Fetch images from Unsplash API (v0 allows Unsplash images!)
 async function fetchUnsplashImages(industry: string): Promise<MarkedImage[]> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => {
+    controller.abort();
+    console.log("[API/expand-prompt] Unsplash fetch timed out after 5s");
+  }, UNSPLASH_TIMEOUT_MS);
+
   try {
     const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
     const response = await fetch(`${baseUrl}/api/unsplash`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ industry, count: 5 }),
+      signal: controller.signal,
     });
+
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
       console.log("[API/expand-prompt] Unsplash fetch failed, using fallback");
@@ -312,6 +324,11 @@ async function fetchUnsplashImages(industry: string): Promise<MarkedImage[]> {
     );
     return data.images || [];
   } catch (error) {
+    clearTimeout(timeoutId);
+    if (error instanceof Error && error.name === "AbortError") {
+      console.log("[API/expand-prompt] Unsplash aborted (timeout)");
+      return [];
+    }
     console.error("[API/expand-prompt] Error fetching Unsplash images:", error);
     return [];
   }
@@ -385,8 +402,12 @@ function getComponentStyleLabel(category: string, id: string): string {
   return COMPONENT_STYLE_LABELS[category]?.[id] || id;
 }
 
+// Timeout for web search (10 seconds - don't block forever)
+const WEB_SEARCH_TIMEOUT_MS = 10000;
+
 // Research industry trends with Web Search (optional enhancement)
 // Uses gpt-4o with web_search tool via Responses API
+// Has a 10-second timeout to prevent blocking
 async function researchIndustryTrends(
   industry: string,
   location: string | undefined,
@@ -414,9 +435,11 @@ REQUIRED INFORMATION:
 
   // Add inspiration site analysis if provided
   if (inspirationSites && inspirationSites.length > 0) {
-    const sites = inspirationSites.filter(s => s.trim()).slice(0, 3);
+    const sites = inspirationSites.filter((s) => s.trim()).slice(0, 3);
     if (sites.length > 0) {
-      prompt += `\n\n7. Analyze these inspiration websites and extract what makes them effective: ${sites.join(", ")}`;
+      prompt += `\n\n7. Analyze these inspiration websites and extract what makes them effective: ${sites.join(
+        ", "
+      )}`;
     }
   }
 
@@ -427,9 +450,20 @@ OUTPUT FORMAT (respond in ENGLISH, be specific and actionable):
 - Must-Have Features: [3-4 features]
 - Conversion Tips: [2-3 tips]
 - Color/Typography: [1-2 recommendations]
-${inspirationSites?.length ? "- Inspiration Insights: [key takeaways from analyzed sites]" : ""}
+${
+  inspirationSites?.length
+    ? "- Inspiration Insights: [key takeaways from analyzed sites]"
+    : ""
+}
 
 Keep response under 200 words but make it actionable for web design.`;
+
+  // Create AbortController for timeout
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => {
+    controller.abort();
+    console.log("[API/expand-prompt] Web search timed out after 10s");
+  }, WEB_SEARCH_TIMEOUT_MS);
 
   try {
     // Try Responses API with web_search tool
@@ -448,7 +482,10 @@ Keep response under 200 words but make it actionable for web design.`;
         input: prompt,
         tools: [{ type: "web_search" }],
       }),
+      signal: controller.signal,
     });
+
+    clearTimeout(timeoutId);
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
@@ -501,6 +538,12 @@ Keep response under 200 words but make it actionable for web design.`;
 
     return { trends, sources: sources.slice(0, 3) };
   } catch (error) {
+    clearTimeout(timeoutId);
+    // Check if it was a timeout (AbortError)
+    if (error instanceof Error && error.name === "AbortError") {
+      console.log("[API/expand-prompt] Web search aborted (timeout)");
+      return { trends: "", sources: [] };
+    }
     console.error("[API/expand-prompt] Industry research error:", error);
     return { trends: "", sources: [] };
   }
@@ -732,32 +775,53 @@ Generate a detailed, production-ready prompt for v0 that will create a stunning,
 - Clear call-to-actions
 `.trim();
 
-    // Fetch Unsplash images based on industry (v0 allows Unsplash!)
+    // Run Unsplash fetch and industry research IN PARALLEL for speed
     console.log(
-      "[API/expand-prompt] Fetching Unsplash images for industry:",
-      industry
+      "[API/expand-prompt] Starting parallel fetch (images + trends)..."
     );
-    const stockImages = await fetchUnsplashImages(industry || "other");
+    const startTime = Date.now();
+
+    // Create promises for parallel execution
+    const unsplashPromise = fetchUnsplashImages(industry || "other");
+    const trendsPromise =
+      industry && industry !== "other"
+        ? researchIndustryTrends(
+            industry,
+            location,
+            openaiApiKey,
+            companyName,
+            inspirationSites
+          )
+        : Promise.resolve({ trends: "", sources: [] });
+
+    // Wait for both to complete (with individual error handling)
+    const [stockImages, trendsResult] = await Promise.all([
+      unsplashPromise.catch((err) => {
+        console.warn("[API/expand-prompt] Unsplash fetch failed:", err);
+        return [] as MarkedImage[];
+      }),
+      trendsPromise.catch((err) => {
+        console.warn("[API/expand-prompt] Trends research failed:", err);
+        return { trends: "", sources: [] };
+      }),
+    ]);
+
     const imagesString = formatImagesForPrompt(stockImages);
 
-    // Optional: Research industry trends with Web Search (for better prompts)
     let trendsString = "";
-    let industryTrends = ""; // Store for database
-    if (industry && industry !== "other") {
-      console.log("[API/expand-prompt] Researching industry trends...");
-      const { trends } = await researchIndustryTrends(
-        industry,
-        location,
-        openaiApiKey,
-        companyName, // Pass company name for competitor analysis
-        inspirationSites // Pass inspiration sites for analysis
-      );
-      if (trends) {
-        industryTrends = trends; // Save raw trends for database
-        trendsString = `\n\nINDUSTRY TRENDS & BEST PRACTICES (from web research):\n${trends}`;
-        console.log("[API/expand-prompt] Got industry trends");
-      }
+    let industryTrends = "";
+    if (trendsResult.trends) {
+      industryTrends = trendsResult.trends;
+      trendsString = `\n\nINDUSTRY TRENDS & BEST PRACTICES (from web research):\n${trendsResult.trends}`;
     }
+
+    console.log(
+      `[API/expand-prompt] Parallel fetch done in ${Date.now() - startTime}ms`,
+      {
+        imagesCount: stockImages.length,
+        hasTrends: !!industryTrends,
+      }
+    );
 
     // Add images and trends to user message
     const userMessageWithImages = `${userMessage}

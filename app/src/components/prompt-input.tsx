@@ -100,14 +100,21 @@ export function PromptInput({
     textareaRef.current?.focus();
   };
 
-  // Handle wizard completion - update prompt with expanded version
+  // Handle wizard completion - auto-submit the expanded prompt
   const handleWizardComplete = (
     _wizardData: WizardData,
     expandedPrompt: string
   ) => {
-    setPrompt(expandedPrompt);
     setShowWizard(false);
-    textareaRef.current?.focus();
+
+    // Auto-submit with the expanded prompt
+    if (onSubmit) {
+      onSubmit(expandedPrompt);
+    }
+
+    if (navigateOnSubmit) {
+      router.push(`/builder?prompt=${encodeURIComponent(expandedPrompt)}`);
+    }
   };
 
   return (
@@ -194,9 +201,15 @@ export function PromptInput({
 
           {/* Character count and hint */}
           <div className="flex justify-between items-center px-1">
-            <span className={`text-xs transition-colors ${prompt.length > 500 ? 'text-amber-400' : 'text-gray-500'}`}>
+            <span
+              className={`text-xs transition-colors ${
+                prompt.length > 500 ? "text-amber-400" : "text-gray-500"
+              }`}
+            >
               {prompt.length} tecken
-              {prompt.length > 500 && <span className="ml-1 text-amber-400/70">(detaljerat ✓)</span>}
+              {prompt.length > 500 && (
+                <span className="ml-1 text-amber-400/70">(detaljerat ✓)</span>
+              )}
             </span>
             <span className="text-xs text-gray-600 hidden sm:inline">
               <Wand2 className="h-3 w-3 inline mr-1 text-teal-500/70" />

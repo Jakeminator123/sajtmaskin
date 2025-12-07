@@ -58,10 +58,21 @@ export function LocationPicker({
   );
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Load Google Maps script
+  // Load Google Maps script (with deduplication to prevent multiple loads)
   useEffect(() => {
+    // Check if already loaded
     if (window.google?.maps) {
       setIsScriptLoaded(true);
+      return;
+    }
+
+    // Check if script is already in DOM (prevents duplicate loading)
+    const existingScript = document.querySelector(
+      'script[src*="maps.googleapis.com/maps/api/js"]'
+    );
+    if (existingScript) {
+      // Script exists but not loaded yet - wait for it
+      existingScript.addEventListener("load", () => setIsScriptLoaded(true));
       return;
     }
 
@@ -85,10 +96,6 @@ export function LocationPicker({
     };
 
     document.head.appendChild(script);
-
-    return () => {
-      // Don't remove script on unmount as other components might use it
-    };
   }, []);
 
   // Initialize services when script loads
