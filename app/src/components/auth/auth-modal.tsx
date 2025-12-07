@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useAuthStore } from "@/lib/auth-store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,6 +37,23 @@ export function AuthModal({
   const { setUser } = useAuthStore();
 
   if (!isOpen) return null;
+
+  useEffect(() => {
+    if (isOpen) {
+      setMode(defaultMode);
+      setError(null);
+    }
+  }, [defaultMode, isOpen]);
+
+  useEffect(() => {
+    if (!isOpen) {
+      setEmail("");
+      setPassword("");
+      setName("");
+      setShowPassword(false);
+      setError(null);
+    }
+  }, [isOpen]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -83,8 +100,12 @@ export function AuthModal({
 
   const handleGoogleLogin = () => {
     // Redirect to Google OAuth
+    const redirectTarget =
+      typeof window !== "undefined"
+        ? `${window.location.pathname}${window.location.search}${window.location.hash}`
+        : "/";
     window.location.href = `/api/auth/google?redirect=${encodeURIComponent(
-      window.location.pathname
+      redirectTarget
     )}`;
   };
 
