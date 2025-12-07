@@ -47,6 +47,8 @@ import { GenerationProgress } from "@/components/generation-progress";
 import { DomainSuggestions } from "@/components/domain-suggestions";
 import { VideoGenerator } from "@/components/video-generator";
 import { Button } from "@/components/ui/button";
+
+type AdvancedTool = "image" | "video";
 import {
   MessageSquare,
   ArrowUp,

@@ -121,26 +121,24 @@ Svara med JSON:
       text: {
         format: {
           type: "json_schema",
-          json_schema: {
-            name: "workflow_plan",
-            strict: true,
-            schema: {
-              type: "object",
-              properties: {
-                needsWebSearch: { type: "boolean" },
-                webSearchQuery: { type: ["string", "null"] },
-                needsImageGeneration: { type: "boolean" },
-                imagePrompts: { 
-                  type: ["array", "null"],
-                  items: { type: "string" }
-                },
-                v0Prompt: { type: "string" },
-                categoryType: { type: ["string", "null"] },
-                reasoning: { type: "string" }
+          name: "workflow_plan",
+          strict: true,
+          schema: {
+            type: "object",
+            properties: {
+              needsWebSearch: { type: "boolean" },
+              webSearchQuery: { type: ["string", "null"] },
+              needsImageGeneration: { type: "boolean" },
+              imagePrompts: { 
+                type: ["array", "null"],
+                items: { type: "string" }
               },
-              required: ["needsWebSearch", "webSearchQuery", "needsImageGeneration", "imagePrompts", "v0Prompt", "categoryType", "reasoning"],
-              additionalProperties: false
-            }
+              v0Prompt: { type: "string" },
+              categoryType: { type: ["string", "null"] },
+              reasoning: { type: "string" }
+            },
+            required: ["needsWebSearch", "webSearchQuery", "needsImageGeneration", "imagePrompts", "v0Prompt", "categoryType", "reasoning"],
+            additionalProperties: false
           }
         }
       }
