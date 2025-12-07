@@ -38,6 +38,7 @@ import {
   refineWebsite, // Förfina existerande design
   generateFromTemplate, // Ladda v0 community template
 } from "@/lib/api-client";
+import { needsOrchestration } from "@/lib/orchestrator-agent";
 import { ChatMessage } from "@/components/chat-message";
 import { HelpTooltip } from "@/components/help-tooltip";
 import { ComponentPicker } from "@/components/component-picker";
@@ -811,7 +812,34 @@ export default function Page() {
       if (!isLoading) {
         setLoading(true);
       }
-      const response = await generateWebsite(prompt, type, quality);
+      
+      // Check if prompt needs orchestration (web search, image generation, etc.)
+      const useOrchestrator = needsOrchestration(prompt);
+      
+      let response;
+      if (useOrchestrator) {
+        // Use orchestrator for complex workflows
+        addMessage("assistant", "🎯 Detekterar komplex workflow - använder orchestrator...");
+        
+        response = await fetch("/api/orchestrate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            prompt,
+            quality,
+            existingChatId: undefined,
+            existingCode: undefined
+          }),
+        }).then(res => res.json());
+        
+        // Show workflow steps to user
+        if (response.workflowSteps && response.workflowSteps.length > 0) {
+          addMessage("assistant", `📋 Arbetsflöde:\n${response.workflowSteps.join('\n')}`);
+        }
+      } else {
+        // Normal v0 generation
+        response = await generateWebsite(prompt, type, quality);
+      }
 
       if (response.success && response.message) {
         addMessage("assistant", response.message);
