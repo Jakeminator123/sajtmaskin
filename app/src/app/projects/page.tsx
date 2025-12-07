@@ -12,24 +12,17 @@ import {
   ExternalLink,
   Clock,
   Folder,
-  Sparkles,
-  Github,
 } from "lucide-react";
 import {
   getProjects,
   deleteProject,
   Project,
-  getTakenOverProjects,
-  TakenOverProject,
 } from "@/lib/project-client";
 import { FloatingAvatar } from "@/components/avatar";
 import { useAvatar } from "@/contexts/AvatarContext";
 
 export default function ProjectsPage() {
   const [projects, setProjects] = useState<Project[]>([]);
-  const [takenOverProjects, setTakenOverProjects] = useState<
-    TakenOverProject[]
-  >([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -42,26 +35,8 @@ export default function ProjectsPage() {
   async function loadProjects() {
     try {
       setLoading(true);
-      // Load both regular projects and taken-over projects in parallel
-      // Use Promise.allSettled to handle partial failures gracefully
-      const [regularResult, aiResult] = await Promise.allSettled([
-        getProjects(),
-        getTakenOverProjects(),
-      ]);
-      
-      if (regularResult.status === "fulfilled") {
-        setProjects(regularResult.value);
-      } else {
-        console.error("[ProjectsPage] Failed to load regular projects:", regularResult.reason);
-        setError("Kunde inte ladda alla projekt");
-      }
-      
-      if (aiResult.status === "fulfilled") {
-        setTakenOverProjects(aiResult.value);
-      } else {
-        console.error("[ProjectsPage] Failed to load AI projects:", aiResult.reason);
-        // Don't set error for AI projects failure, just log it
-      }
+      const regularProjects = await getProjects();
+      setProjects(regularProjects);
     } catch (err: unknown) {
       const errorMessage = err instanceof Error ? err.message : "Kunde inte ladda projekt";
       setError(errorMessage);
@@ -135,12 +110,7 @@ export default function ProjectsPage() {
           <div>
             <h1 className="text-3xl font-bold text-white">Mina Projekt</h1>
             <p className="text-gray-400 mt-1">
-              {(projects?.length || 0) + (takenOverProjects?.length || 0)} projekt totalt
-              {(takenOverProjects?.length || 0) > 0 && (
-                <span className="ml-2 text-purple-400">
-                  ({takenOverProjects.length} med AI Studio)
-                </span>
-              )}
+              {projects?.length || 0} projekt totalt
             </p>
           </div>
           <Link href="/">
@@ -168,8 +138,7 @@ export default function ProjectsPage() {
         {/* Empty state */}
         {!loading &&
           !error &&
-          projects.length === 0 &&
-          takenOverProjects.length === 0 && (
+          projects.length === 0 && (
             <div className="text-center py-20">
               <Folder className="h-16 w-16 text-gray-600 mx-auto mb-4" />
               <h2 className="text-xl font-semibold text-gray-300 mb-2">
@@ -187,99 +156,9 @@ export default function ProjectsPage() {
             </div>
           )}
 
-        {/* AI Studio Projects Section */}
-        {!loading && takenOverProjects.length > 0 && (
-          <div className="mb-10">
-            <div className="flex items-center gap-2 mb-4">
-              <Sparkles className="h-5 w-5 text-purple-400" />
-              <h2 className="text-xl font-semibold text-white">
-                AI Studio Projekt
-              </h2>
-              <span className="px-2 py-0.5 bg-purple-500/20 text-purple-400 text-xs rounded-full">
-                {takenOverProjects.length}
-              </span>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {takenOverProjects.map((project) => (
-                <div
-                  key={project.id}
-                  className="group bg-black/50 border border-purple-500/30 overflow-hidden hover:border-purple-500/60 transition-all"
-                >
-                  {/* AI Studio badge */}
-                  <div className="aspect-video bg-gradient-to-br from-purple-900/30 to-black relative">
-                    <div className="absolute inset-0 flex flex-col items-center justify-center">
-                      <Sparkles className="h-12 w-12 text-purple-400/50 mb-2" />
-                      <span className="text-xs text-purple-400/70">
-                        {project.filesCount} filer
-                      </span>
-                    </div>
-
-                    {/* Storage type badge */}
-                    <div className="absolute top-2 right-2">
-                      {project.storageType === "github" ? (
-                        <span className="flex items-center gap-1 px-2 py-1 bg-gray-800/80 text-gray-300 text-xs rounded">
-                          <Github className="h-3 w-3" />
-                          GitHub
-                        </span>
-                      ) : (
-                        <span className="px-2 py-1 bg-teal-500/20 text-teal-400 text-xs rounded">
-                          Redis
-                        </span>
-                      )}
-                    </div>
-
-                    {/* Hover overlay */}
-                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
-                      <Link href={project.editUrl}>
-                        <Button
-                          size="sm"
-                          className="gap-2 bg-purple-600 hover:bg-purple-500"
-                        >
-                          <Sparkles className="h-4 w-4" />
-                          AI Studio
-                        </Button>
-                      </Link>
-                    </div>
-                  </div>
-
-                  {/* Info */}
-                  <div className="p-4">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <h3 className="font-semibold text-white line-clamp-1">
-                          {project.name}
-                        </h3>
-                        <span className="inline-block mt-1 px-2 py-0.5 bg-purple-500/20 text-xs text-purple-400">
-                          Övertaget
-                        </span>
-                      </div>
-                    </div>
-
-                    <div className="mt-3 flex items-center gap-1 text-xs text-gray-600">
-                      <Clock className="h-3 w-3" />
-                      {formatDate(project.takenOverAt)}
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Regular Project grid */}
+        {/* Project grid */}
         {!loading && projects.length > 0 && (
           <div>
-            {takenOverProjects.length > 0 && (
-              <div className="flex items-center gap-2 mb-4">
-                <Folder className="h-5 w-5 text-teal-400" />
-                <h2 className="text-xl font-semibold text-white">
-                  Byggprojekt
-                </h2>
-                <span className="px-2 py-0.5 bg-teal-500/20 text-teal-400 text-xs rounded-full">
-                  {projects.length}
-                </span>
-              </div>
-            )}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {projects.map((project) => (
                 <div

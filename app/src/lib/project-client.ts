@@ -10,18 +10,6 @@ export interface Project {
   updated_at: string;
 }
 
-// Taken-over project from Redis (for AI Studio editing)
-export interface TakenOverProject {
-  id: string;
-  name: string;
-  takenOverAt: string;
-  storageType: "sqlite" | "github";
-  filesCount: number;
-  githubRepo?: string;
-  githubOwner?: string;
-  editUrl: string;
-}
-
 export interface ProjectData {
   project_id: string;
   chat_id?: string;
@@ -153,17 +141,4 @@ export async function uploadImage(
   }
 
   return { url: data.image.url, filename: data.image.filename };
-}
-
-// Get taken-over projects from Redis (for AI Studio)
-export async function getTakenOverProjects(): Promise<TakenOverProject[]> {
-  const response = await fetch("/api/projects/taken-over");
-  const data = await response.json();
-
-  if (!data.success) {
-    // Return empty array instead of throwing - user might not be logged in
-    return [];
-  }
-
-  return data.projects;
 }

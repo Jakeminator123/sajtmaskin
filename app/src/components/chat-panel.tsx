@@ -44,10 +44,6 @@ import { ComponentPicker } from "@/components/component-picker";
 import { RequireAuthModal } from "@/components/auth/require-auth-modal";
 import { GenerationProgress } from "@/components/generation-progress";
 import { DomainSuggestions } from "@/components/domain-suggestions";
-import {
-  AdvancedToolsBar,
-  AdvancedTool,
-} from "@/components/advanced-tools-bar";
 import { VideoGenerator } from "@/components/video-generator";
 import { Button } from "@/components/ui/button";
 import {
@@ -57,6 +53,7 @@ import {
   Sparkles,
   Globe,
   Video,
+  Image as ImageIcon,
 } from "lucide-react";
 
 // ============================================================================
@@ -154,7 +151,6 @@ interface ChatPanelProps {
   templateId?: string;
   localTemplateId?: string;
   previewChatId?: string; // Reuse chatId from preview (for seamless template loading)
-  onTakeoverClick?: () => void; // Callback to open takeover modal
   instanceId?: string; // Unique ID to differentiate between desktop/mobile instances
   isPrimaryInstance?: boolean; // Only primary instance triggers generation (prevents duplicates)
   isProjectDataLoading?: boolean; // True while loading project data from database
@@ -167,7 +163,6 @@ export function ChatPanel({
   templateId,
   localTemplateId,
   previewChatId,
-  onTakeoverClick,
   instanceId = "default",
   isPrimaryInstance = true, // Only primary instance triggers auto-generation
   isProjectDataLoading = false, // Wait for project data before generating
@@ -1126,27 +1121,46 @@ export default function Page() {
         )}
 
         {/* Advanced Tools Bar - show after first generation */}
-        {messages.length > 0 && isAuthenticated && (
-          <AdvancedToolsBar
-            selectedTool={selectedAdvancedTool}
-            onToolSelect={(tool) => {
-              setSelectedAdvancedTool(tool);
-              if (tool === "video") {
-                setShowVideoGenerator(true);
-              } else {
-                setShowVideoGenerator(false);
-              }
-            }}
-            isProjectOwned={isProjectOwned}
-            onUnlockClick={() => {
-              // Trigger takeover modal in parent component
-              if (onTakeoverClick) {
-                onTakeoverClick();
-              }
-            }}
-            disabled={isLoading}
-            diamonds={diamonds}
-          />
+        {messages.length > 0 && isAuthenticated && isProjectOwned && (
+          <div className="border border-gray-800 rounded-lg p-4 bg-gray-900/50 space-y-3">
+            <div className="flex items-center gap-2">
+              <Sparkles className="h-4 w-4 text-purple-400" />
+              <span className="text-sm font-medium text-white">
+                AI Media Generator
+              </span>
+              <HelpTooltip text="Använd OpenAI för att generera bilder, loggor och videos för din sajt." />
+            </div>
+            
+            {/* Tool selection buttons */}
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                variant={selectedAdvancedTool === "image" ? "default" : "outline"}
+                className="flex items-center gap-2"
+                onClick={() => {
+                  setSelectedAdvancedTool("image");
+                  setShowVideoGenerator(false);
+                }}
+                disabled={isLoading}
+              >
+                <ImageIcon className="h-4 w-4" />
+                Bild (3 💎)
+              </Button>
+              <Button
+                size="sm"
+                variant={selectedAdvancedTool === "video" ? "default" : "outline"}
+                className="flex items-center gap-2"
+                onClick={() => {
+                  setSelectedAdvancedTool("video");
+                  setShowVideoGenerator(true);
+                }}
+                disabled={isLoading}
+              >
+                <Video className="h-4 w-4" />
+                Video (10 💎)
+              </Button>
+            </div>
+          </div>
         )}
 
         {/* Video Generator - show when video tool is selected */}

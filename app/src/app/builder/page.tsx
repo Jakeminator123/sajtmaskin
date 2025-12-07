@@ -11,7 +11,6 @@ import { HelpTooltip } from "@/components/help-tooltip";
 import { ClientOnly } from "@/components/client-only";
 import { ShaderBackground } from "@/components/shader-background";
 import { BackofficeOptionModal } from "@/components/backoffice-option-modal";
-import { TakeoverModal } from "@/components/takeover-modal";
 import { useBuilderStore, GeneratedFile } from "@/lib/store";
 import { useAuth } from "@/lib/auth-store";
 import { getProject, createProject } from "@/lib/project-client";
@@ -91,7 +90,6 @@ function BuilderContent() {
     "download"
   );
   const [isDownloading, setIsDownloading] = useState(false);
-  const [showTakeoverModal, setShowTakeoverModal] = useState(false);
   const isMobile = useIsMobile();
 
   // Avatar context for triggering reactions
@@ -430,26 +428,6 @@ function BuilderContent() {
             Publicera
             <HelpTooltip text="Publicerar din webbplats live på internet med ett klick. Du får en unik URL inom ~60 sekunder." />
           </Button>
-          {/* GitHub Takeover button */}
-          {isAuthenticated && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-2 border-purple-600 text-purple-400 hover:bg-purple-900/20 hover:text-purple-300"
-              disabled={!chatId || !projectId}
-              onClick={() => setShowTakeoverModal(true)}
-            >
-              <Github className="h-4 w-4" />
-              Ta över
-              <HelpTooltip
-                text={
-                  projectId
-                    ? "Flytta projektet till ditt GitHub-konto för full kontroll. Redigera sedan med AI direkt i koden!"
-                    : "Spara projektet först för att kunna ta över det."
-                }
-              />
-            </Button>
-          )}
         </div>
       </header>
 
@@ -537,21 +515,6 @@ function BuilderContent() {
               Ny design
             </Button>
           )}
-          {/* GitHub Takeover - Mobile */}
-          {isAuthenticated && chatId && projectId && (
-            <Button
-              variant="outline"
-              size="sm"
-              className="gap-2 border-purple-600 text-purple-400 hover:bg-purple-900/20"
-              onClick={() => {
-                setShowMobileMenu(false);
-                setShowTakeoverModal(true);
-              }}
-            >
-              <Github className="h-4 w-4" />
-              Ta över projekt
-            </Button>
-          )}
         </div>
       )}
 
@@ -565,7 +528,6 @@ function BuilderContent() {
             templateId={templateId || undefined}
             localTemplateId={localTemplateId || undefined}
             previewChatId={previewChatId || undefined}
-            onTakeoverClick={() => setShowTakeoverModal(true)}
             instanceId="desktop"
             isPrimaryInstance={true}
             isProjectDataLoading={isProjectDataLoading}
@@ -597,7 +559,6 @@ function BuilderContent() {
               templateId={templateId || undefined}
               localTemplateId={localTemplateId || undefined}
               previewChatId={previewChatId || undefined}
-              onTakeoverClick={() => setShowTakeoverModal(true)}
               instanceId="mobile"
               isPrimaryInstance={false}
               isProjectDataLoading={isProjectDataLoading}
@@ -663,16 +624,6 @@ function BuilderContent() {
         mode={backofficeMode}
         isLoading={isDownloading}
       />
-
-      {/* Takeover Modal */}
-      {projectId && (
-        <TakeoverModal
-          isOpen={showTakeoverModal}
-          onClose={() => setShowTakeoverModal(false)}
-          projectId={projectId}
-          projectName={projectName || title}
-        />
-      )}
     </div>
   );
 }
