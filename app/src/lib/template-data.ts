@@ -1,5 +1,7 @@
 // Category data with quick prompts
-// Templates are placeholder for future v0 integration
+// V0 Templates integration
+
+import templatesData from "./templates.json";
 
 export interface QuickPrompt {
   label: string;
@@ -14,7 +16,163 @@ export interface CategoryInfo {
   quickPrompts: QuickPrompt[];
 }
 
-// Category metadata with rich, detailed quick prompts
+// Template interface for v0.app templates
+export interface Template {
+  id: string;
+  title: string;
+  slug: string;
+  viewUrl: string;
+  editUrl: string;
+  imageFilename: string;
+  category: string;
+}
+
+// Import and normalize templates from JSON
+const rawTemplates = templatesData as Array<{
+  id: string;
+  title: string;
+  slug: string;
+  view_url: string;
+  edit_url: string;
+  image_filename: string;
+  category: string;
+}>;
+
+export const TEMPLATES: Template[] = rawTemplates.map((t) => ({
+  id: t.id,
+  title: t.title || t.id,
+  slug: t.slug,
+  viewUrl: t.view_url,
+  editUrl: t.edit_url,
+  imageFilename: t.image_filename,
+  category: t.category,
+}));
+
+// Map template slugs/IDs to category IDs
+function getTemplateCategoryId(template: Template): string {
+  // Category slugs that are actual categories (not templates)
+  const categorySlugs = [
+    "ai",
+    "animations",
+    "components",
+    "login-and-sign-up",
+    "portfolio",
+    "design-systems",
+    "layouts",
+    "website-templates",
+    "apps-and-games",
+    "categories",
+    "templates",
+  ];
+
+  // Skip category templates themselves
+  if (categorySlugs.includes(template.slug)) {
+    return "website-templates"; // Don't show category cards as templates
+  }
+
+  // Available V0 categories to distribute templates across
+  const availableCategories = [
+    "ai",
+    "animations",
+    "components",
+    "login-and-sign-up",
+    "blog-and-portfolio",
+    "design-systems",
+    "layouts",
+    "website-templates",
+    "apps-and-games",
+  ];
+
+  // If template has a specific category that matches a V0 category, use it
+  // Otherwise, distribute templates evenly across categories using hash
+  if (template.category && template.category !== "Templates") {
+    const normalizedCategory = template.category
+      .toLowerCase()
+      .replace(/\s+/g, "-");
+    if (availableCategories.includes(normalizedCategory)) {
+      return normalizedCategory;
+    }
+  }
+
+  // Distribute templates evenly across categories using hash of template ID
+  // This ensures consistent category assignment for each template
+  let hash = 0;
+  for (let i = 0; i < template.id.length; i++) {
+    hash = (hash << 5) - hash + template.id.charCodeAt(i);
+    hash = hash & hash; // Convert to 32-bit integer
+  }
+  const categoryIndex = Math.abs(hash) % availableCategories.length;
+  return availableCategories[categoryIndex];
+}
+
+// V0.app category metadata
+export const V0_CATEGORIES: Record<string, CategoryInfo> = {
+  ai: {
+    id: "ai",
+    title: "AI",
+    description: "AI-powered templates och komponenter",
+    icon: "Sparkles",
+    quickPrompts: [],
+  },
+  animations: {
+    id: "animations",
+    title: "Animations",
+    description: "Animerade komponenter och effekter",
+    icon: "Zap",
+    quickPrompts: [],
+  },
+  components: {
+    id: "components",
+    title: "Components",
+    description: "Återanvändbara UI-komponenter",
+    icon: "Puzzle",
+    quickPrompts: [],
+  },
+  "login-and-sign-up": {
+    id: "login-and-sign-up",
+    title: "Login & Sign Up",
+    description: "Inloggnings- och registreringsformulär",
+    icon: "Lock",
+    quickPrompts: [],
+  },
+  "blog-and-portfolio": {
+    id: "blog-and-portfolio",
+    title: "Blog & Portfolio",
+    description: "Bloggar och portfoliowebbplatser",
+    icon: "FileText",
+    quickPrompts: [],
+  },
+  "design-systems": {
+    id: "design-systems",
+    title: "Design Systems",
+    description: "Designsystem och komponentbibliotek",
+    icon: "Palette",
+    quickPrompts: [],
+  },
+  layouts: {
+    id: "layouts",
+    title: "Layouts",
+    description: "Sidlayouter och strukturer",
+    icon: "Layout",
+    quickPrompts: [],
+  },
+  "website-templates": {
+    id: "website-templates",
+    title: "Website Templates",
+    description: "Kompletta webbplatstemplates",
+    icon: "Globe",
+    quickPrompts: [],
+  },
+  "apps-and-games": {
+    id: "apps-and-games",
+    title: "Apps & Games",
+    description: "Applikationer och spel",
+    icon: "Gamepad2",
+    quickPrompts: [],
+  },
+};
+
+// Legacy category metadata with rich, detailed quick prompts (kept for AI generation)
 export const CATEGORIES: Record<string, CategoryInfo> = {
   "landing-page": {
     id: "landing-page",
@@ -931,4 +1089,45 @@ export const CATEGORY_TITLES: Record<string, string> = {
   "landing-page": "Landing Page",
   website: "Hemsida",
   dashboard: "Dashboard",
+  ai: "AI",
+  animations: "Animations",
+  components: "Components",
+  "login-and-sign-up": "Login & Sign Up",
+  "blog-and-portfolio": "Blog & Portfolio",
+  "design-systems": "Design Systems",
+  layouts: "Layouts",
+  "website-templates": "Website Templates",
+  "apps-and-games": "Apps & Games",
 };
+
+// Get templates by category ID
+export function getTemplatesByCategory(categoryId: string): Template[] {
+  // Filter out category templates themselves (they have matching slug)
+  const categorySlugs = Object.keys(V0_CATEGORIES);
+
+  return TEMPLATES.filter((template) => {
+    // Skip category templates
+    if (categorySlugs.includes(template.slug)) {
+      return false;
+    }
+
+    // Map template to category
+    const templateCategory = getTemplateCategoryId(template);
+    return templateCategory === categoryId;
+  });
+}
+
+// Get all v0 categories
+export function getAllV0Categories(): CategoryInfo[] {
+  return Object.values(V0_CATEGORIES);
+}
+
+// Get template by ID
+export function getTemplateById(id: string): Template | undefined {
+  return TEMPLATES.find((t) => t.id === id);
+}
+
+// Get template image URL
+export function getTemplateImageUrl(template: Template): string {
+  return `/templates/${template.imageFilename}`;
+}

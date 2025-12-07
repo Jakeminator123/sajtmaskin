@@ -16,55 +16,29 @@
 import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { HelpTooltip } from "@/components/help-tooltip";
-import { FileText, Globe, LayoutDashboard, ArrowRight } from "lucide-react";
+import { ArrowRight } from "lucide-react";
+import * as LucideIcons from "lucide-react";
+import {
+  getAllV0Categories,
+  getTemplatesByCategory,
+  V0_CATEGORIES,
+} from "@/lib/template-data";
 
 // ═══════════════════════════════════════════════════════════════
-// CATEGORY DEFINITIONS
+// ICON MAPPING
 // ═══════════════════════════════════════════════════════════════
 
-interface Category {
-  id: string;
-  title: string;
-  description: string;
-  icon: React.ComponentType<{ className?: string }>;
-  helpText: string;
-  examples: string[];
-  /** Accent color for hover glow (Tailwind class) */
-  accentColor: string;
-}
-
-const categories: Category[] = [
-  {
-    id: "landing-page",
-    title: "Landing Page",
-    description: "Enkla one-pagers för produkter, startups och kampanjer",
-    icon: FileText,
-    helpText:
-      "Perfekt för produktlanseringar, startups och kampanjer. En sida med hero-sektion, funktioner, priser och kontaktformulär.",
-    examples: ["SaaS-produkter", "App-lansering", "Eventregistrering"],
-    accentColor: "teal",
-  },
-  {
-    id: "website",
-    title: "Hemsida",
-    description: "Kompletta webbplatser med flera sidor",
-    icon: Globe,
-    helpText:
-      "Komplett webbplats med flera sidor: hem, om oss, tjänster och kontakt. Passar företag och organisationer.",
-    examples: ["Företagssajt", "Restaurang", "Konsultbyrå"],
-    accentColor: "purple",
-  },
-  {
-    id: "dashboard",
-    title: "Dashboard",
-    description: "Admin-paneler, statistik och datavisualisering",
-    icon: LayoutDashboard,
-    helpText:
-      "Administratörsgränssnitt med diagram, tabeller och statistik. Perfekt för SaaS-produkter och interna verktyg.",
-    examples: ["Försäljningsdata", "Projekthantering", "Analytics"],
-    accentColor: "amber",
-  },
-];
+const iconMap: Record<string, keyof typeof LucideIcons> = {
+  Sparkles: "Sparkles",
+  Zap: "Zap",
+  Puzzle: "Puzzle",
+  Lock: "Lock",
+  FileText: "FileText",
+  Palette: "Palette",
+  Layout: "Layout",
+  Globe: "Globe",
+  Gamepad2: "Gamepad2",
+};
 
 // ═══════════════════════════════════════════════════════════════
 // COMPONENT
@@ -76,6 +50,7 @@ interface TemplateGalleryProps {
 
 export function TemplateGallery({ onSelect }: TemplateGalleryProps) {
   const router = useRouter();
+  const categories = getAllV0Categories();
 
   const handleSelect = (categoryId: string) => {
     if (onSelect) {
@@ -93,17 +68,21 @@ export function TemplateGallery({ onSelect }: TemplateGalleryProps) {
   };
 
   return (
-    <div 
-      className="grid grid-cols-1 md:grid-cols-3 gap-6 w-full max-w-5xl"
+    <div
+      className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-6 w-full max-w-7xl"
       role="list"
-      aria-label="Välj webbplatstyp"
+      aria-label="Välj template-kategori"
     >
       {categories.map((category, index) => {
-        const Icon = category.icon;
-        
+        const IconName = iconMap[category.icon] || "FileText";
+        const Icon = LucideIcons[IconName] as React.ComponentType<{
+          className?: string;
+        }>;
+        const templateCount = getTemplatesByCategory(category.id).length;
+
         // Stagger delay classes for animation
         const staggerClass = `stagger-${index + 1}`;
-        
+
         return (
           <Card
             key={category.id}
@@ -126,7 +105,7 @@ export function TemplateGallery({ onSelect }: TemplateGalleryProps) {
             <CardContent className="p-8 flex flex-col items-center text-center space-y-4 relative overflow-hidden">
               {/* Subtle glow effect on hover */}
               <div className="absolute inset-0 bg-gradient-to-b from-teal-500/0 via-teal-500/0 to-teal-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-              
+
               {/* Large icon with enhanced hover */}
               <div className="relative p-5 bg-gray-900/50 group-hover:bg-teal-600/20 transition-all duration-300 border border-gray-800 group-hover:border-teal-500/30 group-hover:shadow-lg group-hover:shadow-teal-500/20">
                 <Icon className="h-10 w-10 text-gray-300 group-hover:text-teal-400 transition-all duration-300 group-hover:scale-110" />
@@ -136,30 +115,17 @@ export function TemplateGallery({ onSelect }: TemplateGalleryProps) {
               <div className="space-y-2 relative">
                 <h3 className="text-xl font-bold text-white group-hover:text-white flex items-center justify-center gap-2">
                   {category.title}
-                  <HelpTooltip text={category.helpText} />
                 </h3>
                 <p className="text-sm text-gray-400 leading-relaxed">
                   {category.description}
                 </p>
               </div>
 
-              {/* Examples with enhanced styling */}
-              <div className="flex flex-wrap justify-center gap-2 pt-2 relative">
-                {category.examples.map((example, exIndex) => (
-                  <span
-                    key={example}
-                    className={`
-                      text-xs px-2.5 py-1.5
-                      bg-gray-800/50 text-gray-500
-                      group-hover:bg-teal-500/10 group-hover:text-teal-300
-                      transition-all duration-300
-                      group-hover:translate-y-0
-                    `}
-                    style={{ transitionDelay: `${exIndex * 50}ms` }}
-                  >
-                    {example}
-                  </span>
-                ))}
+              {/* Template count */}
+              <div className="flex items-center justify-center pt-2">
+                <span className="text-xs px-3 py-1.5 bg-gray-800/50 text-gray-400 rounded-full">
+                  {templateCount} templates
+                </span>
               </div>
 
               {/* "Get started" indicator on hover */}

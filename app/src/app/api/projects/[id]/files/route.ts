@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { getProjectMeta } from "@/lib/redis";
 import { loadProjectFilesWithFallback } from "@/lib/project-files";
+import { getProjectData } from "@/lib/database";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -28,7 +29,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     // Fetch metadata (may not exist if project wasn't formally "taken over")
     const meta = await getProjectMeta(projectId);
-    
+
     // If meta exists, check ownership and storage type
     if (meta) {
       // Ownership check
@@ -54,16 +55,26 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
 
     // Try to load files (uses centralized fallback chain)
     const files = await loadProjectFilesWithFallback(projectId);
-    
+
     if (!files || files.length === 0) {
       return NextResponse.json(
-        { 
-          success: false, 
+        {
+          success: false,
           error: "Inga filer hittades. Gör en takeover från Builder först.",
-          hint: "Gå till Builder, generera en sajt, och tryck 'Ta över'." 
+          hint: "Gå till Builder, generera en sajt, och tryck 'Ta över'.",
         },
         { status: 404 }
       );
+    }
+
+    // Get demoUrl from project data (for preview iframe)
+    let demoUrl: string | null = null;
+    try {
+      const projectData = getProjectData(projectId);
+      demoUrl = projectData?.demo_url || null;
+    } catch (e) {
+      // Not critical - preview still works without demoUrl
+      console.warn("[Projects/files] Could not get demoUrl:", e);
     }
 
     return NextResponse.json({
@@ -72,6 +83,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       meta: meta || null,
       files,
       filesCount: files.length,
+      demoUrl, // v0's hosted preview URL
     });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Okänt fel";

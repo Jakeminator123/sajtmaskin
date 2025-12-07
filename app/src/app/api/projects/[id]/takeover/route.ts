@@ -16,9 +16,9 @@ import JSZip from "jszip";
  * Takes a project from v0 and stores it for editing with OpenAI Agents.
  *
  * TWO MODES:
- * 1. REDIS (default) - Simple, no GitHub required
- *    - Files stored in Redis
- *    - User can edit with AI agent
+ * 1. SQLITE (default) - Simple, no GitHub required
+ *    - Files stored in SQLite (source of truth)
+ *    - Redis cache (1h) for fast reads/agents
  *    - Can download as ZIP anytime
  *
  * 2. GITHUB (optional) - Full ownership
@@ -61,10 +61,13 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     try {
       body = await request.json();
     } catch (jsonError) {
-      console.warn("[Takeover] Failed to parse JSON body, using defaults:", jsonError);
+      console.warn(
+        "[Takeover] Failed to parse JSON body, using defaults:",
+        jsonError
+      );
       // Continue with default values
     }
-    const mode = body.mode || "redis"; // Default to Redis (simple, no GitHub required)
+    const mode = body.mode || "sqlite"; // Default to SQLite (simple, Redis cache)
 
     // Starting takeover process
 
@@ -122,16 +125,21 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     let files: ProjectFile[] = [];
 
-    if (projectData.files && Array.isArray(projectData.files) && projectData.files.length > 0) {
+    if (
+      projectData.files &&
+      Array.isArray(projectData.files) &&
+      projectData.files.length > 0
+    ) {
       // Using cached files from project data
       files = projectData.files
-        .filter((f: unknown) => 
-          f && 
-          typeof f === "object" && 
-          "name" in f && 
-          "content" in f &&
-          typeof (f as { name: unknown }).name === "string" &&
-          typeof (f as { content: unknown }).content === "string"
+        .filter(
+          (f: unknown) =>
+            f &&
+            typeof f === "object" &&
+            "name" in f &&
+            "content" in f &&
+            typeof (f as { name: unknown }).name === "string" &&
+            typeof (f as { content: unknown }).content === "string"
         )
         .map((f: { name: string; content: string }) => ({
           path: f.name,
@@ -151,23 +159,32 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     // Files retrieved successfully
 
-    // ============ REDIS MODE (Simple, no GitHub required) ============
-    if (mode === "redis") {
+    // ============ SQLITE MODE (default, Redis cache) ============
+    if (mode !== "github") {
       // Save files to SQLite (source of truth)
       try {
         const savedCount = saveProjectFilesToDb(projectId, files);
         if (savedCount === 0) {
           return NextResponse.json(
-            { success: false, error: "Kunde inte spara projektfiler till SQLite" },
+            {
+              success: false,
+              error: "Kunde inte spara projektfiler till SQLite",
+            },
             { status: 500 }
           );
         }
       } catch (saveError) {
         const errorMessage =
           saveError instanceof Error ? saveError.message : "Okänt fel";
-        console.error("[Takeover] Failed to save files to SQLite:", errorMessage);
+        console.error(
+          "[Takeover] Failed to save files to SQLite:",
+          errorMessage
+        );
         return NextResponse.json(
-          { success: false, error: `Kunde inte spara projektfiler: ${errorMessage}` },
+          {
+            success: false,
+            error: `Kunde inte spara projektfiler: ${errorMessage}`,
+          },
           { status: 500 }
         );
       }
@@ -200,7 +217,10 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         });
       } catch (updateError) {
         // Log but don't fail - files are already saved
-        console.warn("[Takeover] Failed to update project in database:", updateError);
+        console.warn(
+          "[Takeover] Failed to update project in database:",
+          updateError
+        );
       }
 
       // Project saved to Redis successfully
@@ -260,9 +280,12 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       try {
         errorData = await createRepoResponse.json();
       } catch (jsonError) {
-        console.error("[Takeover] Failed to parse GitHub error response:", jsonError);
+        console.error(
+          "[Takeover] Failed to parse GitHub error response:",
+          jsonError
+        );
       }
-      
+
       console.error("[Takeover] GitHub repo creation failed:", {
         status: createRepoResponse.status,
         statusText: createRepoResponse.statusText,
@@ -271,7 +294,8 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
       // Handle specific error cases
       if (createRepoResponse.status === 422) {
-        const errorMessage = errorData.message || `Ett repo med namnet "${repoName}" finns redan.`;
+        const errorMessage =
+          errorData.message || `Ett repo med namnet "${repoName}" finns redan.`;
         return NextResponse.json(
           {
             success: false,
@@ -281,18 +305,22 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
           { status: 400 }
         );
       }
-      
-      if (createRepoResponse.status === 401 || createRepoResponse.status === 403) {
+
+      if (
+        createRepoResponse.status === 401 ||
+        createRepoResponse.status === 403
+      ) {
         return NextResponse.json(
           {
             success: false,
-            error: "GitHub-autentisering misslyckades. Vänligen anslut ditt GitHub-konto igen.",
+            error:
+              "GitHub-autentisering misslyckades. Vänligen anslut ditt GitHub-konto igen.",
             requireGitHub: true,
           },
           { status: 401 }
         );
       }
-      
+
       if (createRepoResponse.status === 429) {
         return NextResponse.json(
           {
@@ -313,20 +341,24 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     let repo: GitHubCreateRepoResponse;
     try {
       repo = await createRepoResponse.json();
-      
+
       // Validate response structure
       if (!repo || !repo.full_name || !repo.name) {
         throw new Error("Invalid GitHub response structure");
       }
     } catch (jsonError) {
-      const errorMsg = jsonError instanceof Error ? jsonError.message : "Okänt fel";
-      console.error("[Takeover] Failed to parse GitHub repo response:", errorMsg);
+      const errorMsg =
+        jsonError instanceof Error ? jsonError.message : "Okänt fel";
+      console.error(
+        "[Takeover] Failed to parse GitHub repo response:",
+        errorMsg
+      );
       return NextResponse.json(
         { success: false, error: `Kunde inte läsa GitHub-svar: ${errorMsg}` },
         { status: 500 }
       );
     }
-    
+
     // 7. Push all files to repo (create initial commit with all files)
 
     // Create blobs for all files

@@ -217,14 +217,6 @@ function BuilderContent() {
             (data.files && data.files.length > 0));
 
         if (hasData) {
-          console.log("[Builder] Loading existing project data:", {
-            hasChatId: !!data.chat_id,
-            hasDemoUrl: !!data.demo_url,
-            hasCode: !!data.current_code,
-            filesCount: data.files?.length || 0,
-            messagesCount: data.messages?.length || 0,
-          });
-
           loadFromProject({
             chatId: data.chat_id,
             demoUrl: data.demo_url,

@@ -15,7 +15,7 @@ export interface TakenOverProject {
   id: string;
   name: string;
   takenOverAt: string;
-  storageType: "redis" | "github" | "sqlite";
+  storageType: "sqlite" | "github";
   filesCount: number;
   githubRepo?: string;
   githubOwner?: string;

@@ -7,6 +7,7 @@ import {
   Check,
   Loader2,
   ExternalLink,
+  Download,
   Sparkles,
   Zap,
   Cloud,
@@ -30,7 +31,7 @@ interface TakeoverResult {
   success: boolean;
   message?: string;
   error?: string;
-  mode?: "redis" | "github" | "sqlite";
+  mode?: "github" | "sqlite";
   requireGitHub?: boolean;
   github?: {
     repoUrl: string;
@@ -64,10 +65,12 @@ export function TakeoverModal({
   const [result, setResult] = useState<TakeoverResult | null>(null);
   const [selectedMode, setSelectedMode] = useState<TakeoverMode>("simple");
   const [customRepoName, setCustomRepoName] = useState("");
-  
+
   // Analysis state
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(null);
+  const [analysisResult, setAnalysisResult] = useState<AnalysisResult | null>(
+    null
+  );
   const [showAnalysis, setShowAnalysis] = useState(true);
 
   // Check if user has GitHub connected
@@ -106,20 +109,22 @@ export function TakeoverModal({
   // Run automatic project analysis
   const runAnalysis = async () => {
     if (!isMountedRef.current) return;
-    
+
     setIsAnalyzing(true);
     try {
       const response = await fetch(`/api/projects/${projectId}/analyze`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
       });
-      
+
       if (!response.ok) {
-        throw new Error(`Analysis failed: ${response.status} ${response.statusText}`);
+        throw new Error(
+          `Analysis failed: ${response.status} ${response.statusText}`
+        );
       }
-      
+
       const data: AnalysisResult = await response.json();
-      
+
       // Only update state if component is still mounted
       if (isMountedRef.current) {
         setAnalysisResult(data);
@@ -127,7 +132,7 @@ export function TakeoverModal({
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Okänt fel";
       console.error("[TakeoverModal] Analysis error:", errorMessage);
-      
+
       // Only update state if component is still mounted
       if (isMountedRef.current) {
         setAnalysisResult({
@@ -160,7 +165,7 @@ export function TakeoverModal({
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          mode: selectedMode === "simple" ? "redis" : "github",
+          mode: selectedMode === "simple" ? "sqlite" : "github",
           repoName:
             selectedMode === "github" ? customRepoName || undefined : undefined,
         }),
@@ -171,11 +176,11 @@ export function TakeoverModal({
 
       if (data.success) {
         // Update ownership state in store
-        setProjectOwned(true, data.mode || "redis");
+        setProjectOwned(true, data.mode === "github" ? "github" : "sqlite");
         // Refresh user data (diamonds may have changed)
         refreshUser();
-        // Automatically run project analysis (in background)
-        runAnalysis();
+        // Note: Analysis is now manual - user can click "Analysera" button if needed
+        // Removed automatic runAnalysis() to avoid unnecessary API calls
       }
     } catch (error) {
       setResult({
@@ -222,8 +227,8 @@ export function TakeoverModal({
 
         {/* Content */}
         <div className="p-6 space-y-6">
-          {/* Success state - Redis */}
-          {result?.success && result.mode === "redis" && (
+          {/* Success state - SQLite (source-of-truth, Redis cache) */}
+          {result?.success && (result.mode === "sqlite" || !result.mode) && (
             <div className="space-y-4">
               <div className="flex items-center gap-3 p-4 bg-green-500/10 border border-green-500/30 rounded-xl">
                 <Check className="h-6 w-6 text-green-500" />
@@ -233,6 +238,9 @@ export function TakeoverModal({
                   </p>
                   <p className="text-sm text-gray-400">
                     {result.filesCount} filer sparade
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    Lagring: SQLite (källan) med kortlivad Redis-cache.
                   </p>
                 </div>
               </div>
@@ -263,7 +271,7 @@ export function TakeoverModal({
                     <ChevronDown className="h-4 w-4 text-gray-400" />
                   )}
                 </button>
-                
+
                 {showAnalysis && (
                   <div className="p-4 border-t border-gray-700 max-h-64 overflow-y-auto">
                     {isAnalyzing && (
@@ -274,26 +282,36 @@ export function TakeoverModal({
                     )}
                     {analysisResult?.success && analysisResult.analysis && (
                       <div className="prose prose-sm prose-invert max-w-none">
-                        <div 
-                          className="text-sm text-gray-300 whitespace-pre-wrap [&_h2]:text-base [&_h2]:font-semibold [&_h2]:text-white [&_h2]:mt-4 [&_h2]:mb-2 [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4"
-                        >
+                        <div className="text-sm text-gray-300 whitespace-pre-wrap [&_h2]:text-base [&_h2]:font-semibold [&_h2]:text-white [&_h2]:mt-4 [&_h2]:mb-2 [&_ul]:list-disc [&_ul]:pl-4 [&_ol]:list-decimal [&_ol]:pl-4">
                           {analysisResult.analysis
-                            .split('\n')
+                            .split("\n")
                             .map((line, idx) => {
-                              if (line.startsWith('## ')) {
-                                return <h2 key={idx} className="text-base font-semibold text-white mt-4 mb-2">{line.replace(/^## /, '')}</h2>;
+                              if (line.startsWith("## ")) {
+                                return (
+                                  <h2
+                                    key={idx}
+                                    className="text-base font-semibold text-white mt-4 mb-2"
+                                  >
+                                    {line.replace(/^## /, "")}
+                                  </h2>
+                                );
                               }
-                              if (line.startsWith('- ')) {
-                                return <div key={idx} className="ml-4">• {line.replace(/^- /, '')}</div>;
+                              if (line.startsWith("- ")) {
+                                return (
+                                  <div key={idx} className="ml-4">
+                                    • {line.replace(/^- /, "")}
+                                  </div>
+                                );
                               }
-                              return <div key={idx}>{line || '\u00A0'}</div>;
+                              return <div key={idx}>{line || "\u00A0"}</div>;
                             })}
                         </div>
                       </div>
                     )}
                     {analysisResult && !analysisResult.success && (
                       <p className="text-sm text-amber-400">
-                        {analysisResult.error || "Kunde inte analysera projektet"}
+                        {analysisResult.error ||
+                          "Kunde inte analysera projektet"}
                       </p>
                     )}
                     {!isAnalyzing && !analysisResult && (
@@ -307,6 +325,15 @@ export function TakeoverModal({
                   </div>
                 )}
               </div>
+
+              <a
+                href={`/api/projects/${encodeURIComponent(projectId)}/download`}
+                className="flex items-center justify-center gap-2 p-4 bg-gray-800 hover:bg-gray-700 rounded-xl text-white font-medium transition-colors border border-gray-700"
+              >
+                <Download className="h-5 w-5" />
+                Ladda ner ZIP
+                <ArrowRight className="h-4 w-4" />
+              </a>
 
               <a
                 href={`/project/${projectId}`}
@@ -378,7 +405,7 @@ export function TakeoverModal({
                     <ChevronDown className="h-4 w-4 text-gray-400" />
                   )}
                 </button>
-                
+
                 {showAnalysis && (
                   <div className="p-4 border-t border-gray-700 max-h-64 overflow-y-auto">
                     {isAnalyzing && (
@@ -388,27 +415,39 @@ export function TakeoverModal({
                       </div>
                     )}
                     {analysisResult?.success && analysisResult.analysis && (
-                      <div 
-                        className="text-sm text-gray-300 whitespace-pre-wrap [&_h2]:text-base [&_h2]:font-semibold [&_h2]:text-white [&_h2]:mt-4 [&_h2]:mb-2"
-                      >
+                      <div className="text-sm text-gray-300 whitespace-pre-wrap [&_h2]:text-base [&_h2]:font-semibold [&_h2]:text-white [&_h2]:mt-4 [&_h2]:mb-2">
                         {(() => {
                           // Limit analysis length to prevent performance issues (max 10KB)
                           const MAX_ANALYSIS_LENGTH = 10000;
-                          const analysis = analysisResult.analysis.length > MAX_ANALYSIS_LENGTH
-                            ? analysisResult.analysis.substring(0, MAX_ANALYSIS_LENGTH) + "\n\n[... analysen är för lång för att visas fullt ut ...]"
-                            : analysisResult.analysis;
-                          
-                          return analysis
-                            .split('\n')
-                            .map((line, idx) => {
-                              if (line.startsWith('## ')) {
-                                return <h2 key={idx} className="text-base font-semibold text-white mt-4 mb-2">{line.replace(/^## /, '')}</h2>;
-                              }
-                              if (line.startsWith('- ')) {
-                                return <div key={idx} className="ml-4">• {line.replace(/^- /, '')}</div>;
-                              }
-                              return <div key={idx}>{line || '\u00A0'}</div>;
-                            });
+                          const analysis =
+                            analysisResult.analysis.length > MAX_ANALYSIS_LENGTH
+                              ? analysisResult.analysis.substring(
+                                  0,
+                                  MAX_ANALYSIS_LENGTH
+                                ) +
+                                "\n\n[... analysen är för lång för att visas fullt ut ...]"
+                              : analysisResult.analysis;
+
+                          return analysis.split("\n").map((line, idx) => {
+                            if (line.startsWith("## ")) {
+                              return (
+                                <h2
+                                  key={idx}
+                                  className="text-base font-semibold text-white mt-4 mb-2"
+                                >
+                                  {line.replace(/^## /, "")}
+                                </h2>
+                              );
+                            }
+                            if (line.startsWith("- ")) {
+                              return (
+                                <div key={idx} className="ml-4">
+                                  • {line.replace(/^- /, "")}
+                                </div>
+                              );
+                            }
+                            return <div key={idx}>{line || "\u00A0"}</div>;
+                          });
                         })()}
                       </div>
                     )}
@@ -422,7 +461,18 @@ export function TakeoverModal({
               </div>
 
               <a
-                  href={`/project/${encodeURIComponent(result.github.repoName || "")}?owner=${encodeURIComponent(result.github.owner || "")}`}
+                href={`/api/projects/${encodeURIComponent(projectId)}/download`}
+                className="flex items-center justify-center gap-2 p-4 bg-gray-800 hover:bg-gray-700 rounded-xl text-white font-medium transition-colors border border-gray-700"
+              >
+                <Download className="h-5 w-5" />
+                Ladda ner ZIP
+                <ArrowRight className="h-4 w-4" />
+              </a>
+
+              <a
+                href={`/project/${encodeURIComponent(
+                  result.github.repoName || ""
+                )}?owner=${encodeURIComponent(result.github.owner || "")}`}
                 className="flex items-center justify-center gap-2 p-4 bg-purple-600 hover:bg-purple-500 rounded-xl text-white font-medium transition-colors"
               >
                 <Sparkles className="h-5 w-5" />
@@ -461,7 +511,7 @@ export function TakeoverModal({
                   Välj hur du vill ta över projektet:
                 </h3>
 
-                {/* Simple mode (Redis) */}
+                {/* Simple mode (SQLite + Redis cache) */}
                 <button
                   onClick={() => setSelectedMode("simple")}
                   className={`w-full p-4 rounded-xl border-2 transition-all text-left ${

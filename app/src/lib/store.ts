@@ -80,7 +80,7 @@ interface BuilderState {
 
   // Ownership state (for advanced features)
   isProjectOwned: boolean; // True when project är sparat för takeover
-  ownershipMode: "none" | "redis" | "github" | "sqlite"; // Storage type
+  ownershipMode: "none" | "github" | "sqlite"; // Storage type (sqlite is default)
 
   // Actions
   setProjectId: (id: string | null) => void;
@@ -112,10 +112,7 @@ interface BuilderState {
   setHasUserSaved: (saved: boolean) => void;
 
   // Ownership actions (for advanced features)
-  setProjectOwned: (
-    owned: boolean,
-    mode?: "redis" | "github" | "sqlite"
-  ) => void;
+  setProjectOwned: (owned: boolean, mode?: "github" | "sqlite") => void;
   checkProjectOwnership: (projectId: string) => Promise<boolean>;
 }
 
@@ -227,7 +224,6 @@ export const useBuilderStore = create<BuilderState>()(
 
       setDemoUrl: (url) => {
         set({ demoUrl: url });
-        console.log("[Store] Updated demoUrl:", url?.substring(0, 60));
         // Note: Don't save here - setFiles will save everything together
         // This ensures all data (chatId, demoUrl, files) is saved atomically
       },
@@ -283,15 +279,6 @@ export const useBuilderStore = create<BuilderState>()(
               : new Date(msg.timestamp),
         }));
 
-        console.log("[Store] loadFromProject called with:", {
-          hasChatId: Boolean(data.chatId),
-          hasDemoUrl: Boolean(data.demoUrl),
-          demoUrl: data.demoUrl?.substring(0, 50),
-          hasCode: Boolean(data.currentCode),
-          filesCount: data.files?.length || 0,
-          messagesCount: parsedMessages.length,
-        });
-
         // REPLACE state entirely (don't merge with localStorage)
         set({
           chatId: data.chatId || null,
@@ -301,11 +288,6 @@ export const useBuilderStore = create<BuilderState>()(
           messages: parsedMessages,
           hasUserSaved: hasSavedData, // Enable auto-save if project has saved data
           isLoading: false, // CRITICAL: Reset loading state so preview shows
-        });
-
-        console.log("[Store] State after loadFromProject:", {
-          isLoading: false,
-          hasDemoUrl: Boolean(data.demoUrl),
         });
       },
 
@@ -413,7 +395,7 @@ export const useBuilderStore = create<BuilderState>()(
         // Project ownership updated
       },
 
-      // Check if project is owned (exists in Redis/GitHub)
+      // Check if project is owned (exists in takeover storage or GitHub)
       checkProjectOwnership: async (projectId) => {
         try {
           const response = await fetch(`/api/projects/${projectId}/status`);
@@ -421,9 +403,7 @@ export const useBuilderStore = create<BuilderState>()(
             const data = await response.json();
             if (data.isOwned) {
               const storageMode =
-                data.storageType === "github" ||
-                data.storageType === "redis" ||
-                data.storageType === "sqlite"
+                data.storageType === "github" || data.storageType === "sqlite"
                   ? data.storageType
                   : "sqlite";
               set({

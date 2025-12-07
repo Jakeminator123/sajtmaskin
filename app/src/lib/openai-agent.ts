@@ -71,7 +71,7 @@ export interface GeneratedImage {
 
 export interface AgentContext {
   projectId: string;
-  storageType: "redis" | "github" | "sqlite";
+  storageType: "sqlite" | "github";
   taskType: TaskType;
   // GitHub-specific
   githubToken?: string;
@@ -690,7 +690,7 @@ async function saveImageToProject(
   projectId: string,
   imageName: string,
   base64Data: string,
-  storageType: "redis" | "github" | "sqlite",
+  storageType: "sqlite" | "github",
   githubToken?: string,
   repoFullName?: string
 ): Promise<string> {
@@ -907,7 +907,7 @@ async function executeTool(
 async function gatherSmartContext(
   instruction: string,
   projectId: string,
-  storageType: "redis" | "github" | "sqlite",
+  storageType: "sqlite" | "github",
   githubToken?: string,
   repoFullName?: string
 ): Promise<string> {

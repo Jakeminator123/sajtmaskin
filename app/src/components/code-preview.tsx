@@ -258,17 +258,6 @@ export function CodePreview() {
               maxWidth: "100%",
             }}
           >
-            {(() => {
-              // Debug logging
-              if (typeof window !== "undefined") {
-                console.log("[CodePreview] Render state:", {
-                  isLoading,
-                  hasDemoUrl: !!demoUrl,
-                  hasCode: !!currentCode,
-                });
-              }
-              return null;
-            })()}
             {isLoading ? (
               // Loading state with beautiful animation
               <div className="flex-1 flex items-center justify-center p-8 bg-black">

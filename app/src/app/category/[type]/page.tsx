@@ -22,8 +22,19 @@ import {
   Loader2,
   Layout,
   Wand2,
+  Puzzle,
+  Lock,
+  Palette,
+  Gamepad2,
 } from "lucide-react";
-import { getCategory, type QuickPrompt } from "@/lib/template-data";
+import {
+  getCategory,
+  type QuickPrompt,
+  V0_CATEGORIES,
+  getTemplatesByCategory,
+  getTemplateImageUrl,
+  type Template,
+} from "@/lib/template-data";
 import {
   getLocalTemplatesForCategory,
   type LocalTemplate,
@@ -31,13 +42,21 @@ import {
 import { createProject } from "@/lib/project-client";
 import { FloatingAvatar } from "@/components/avatar";
 import { useAvatar } from "@/contexts/AvatarContext";
+import Image from "next/image";
+import { ExternalLink, Edit } from "lucide-react";
 
-// Icon mapping
+// Icon mapping - includes all icons used in V0_CATEGORIES and legacy CATEGORIES
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   FileText,
   Globe,
   LayoutDashboard,
   Sparkles,
+  Zap,
+  Puzzle,
+  Lock,
+  Palette,
+  Layout,
+  Gamepad2,
 };
 
 export default function CategoryPage() {
@@ -51,8 +70,13 @@ export default function CategoryPage() {
 
   const category = getCategory(type);
   const templates = getLocalTemplatesForCategory(type);
+  const v0Category = V0_CATEGORIES[type];
+  const v0Templates = v0Category ? getTemplatesByCategory(type) : [];
 
-  if (!category) {
+  // Use v0 category if available, otherwise use legacy category
+  const displayCategory = v0Category || category;
+
+  if (!displayCategory) {
     return (
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="text-center space-y-4">
@@ -66,7 +90,7 @@ export default function CategoryPage() {
   }
 
   const Icon: React.ComponentType<{ className?: string }> =
-    iconMap[category.icon] || FileText;
+    iconMap[displayCategory.icon] || FileText;
 
   const handlePromptSubmit = async () => {
     if (prompt.trim() && !isCreating) {
@@ -74,7 +98,9 @@ export default function CategoryPage() {
       try {
         // Create project in database first
         const project = await createProject(
-          `${category.title} - ${new Date().toLocaleDateString("sv-SE")}`,
+          `${displayCategory.title} - ${new Date().toLocaleDateString(
+            "sv-SE"
+          )}`,
           type,
           prompt.trim().substring(0, 100)
         );
@@ -158,8 +184,10 @@ export default function CategoryPage() {
     try {
       // Create project in database with company name if available
       const projectName = wizardData.companyName
-        ? `${wizardData.companyName} - ${category.title}`
-        : `${category.title} - ${new Date().toLocaleDateString("sv-SE")}`;
+        ? `${wizardData.companyName} - ${displayCategory.title}`
+        : `${displayCategory.title} - ${new Date().toLocaleDateString(
+            "sv-SE"
+          )}`;
 
       const project = await createProject(
         projectName,
@@ -248,9 +276,9 @@ export default function CategoryPage() {
             </div>
             <div>
               <h1 className="text-2xl font-bold text-white">
-                {category.title}
+                {displayCategory.title}
               </h1>
-              <p className="text-gray-400">{category.description}</p>
+              <p className="text-gray-400">{displayCategory.description}</p>
             </div>
           </div>
         </div>
@@ -273,7 +301,7 @@ export default function CategoryPage() {
                     value={prompt}
                     onChange={(e) => setPrompt(e.target.value)}
                     onKeyDown={handleKeyDown}
-                    placeholder={`Beskriv din ${category.title.toLowerCase()}...`}
+                    placeholder={`Beskriv din ${displayCategory.title.toLowerCase()}...`}
                     className="flex-1 h-24 bg-black/50 border border-gray-800 p-3 text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-teal-500/50 resize-none"
                   />
                   <div className="flex justify-between items-center mt-2">
@@ -311,36 +339,60 @@ export default function CategoryPage() {
           </section>
 
           {/* Section 2: Quick prompts */}
-          {category.quickPrompts && category.quickPrompts.length > 0 && (
+          {displayCategory.quickPrompts &&
+            displayCategory.quickPrompts.length > 0 && (
+              <section>
+                <div className="flex items-center gap-2 mb-4">
+                  <Zap className="h-5 w-5 text-amber-400" />
+                  <h2 className="text-lg font-semibold text-white">Snabbval</h2>
+                  <HelpTooltip text="Klicka på ett snabbval för att snabbt komma igång med en fördefinierad design." />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {displayCategory.quickPrompts.map((quickPrompt) => (
+                    <Button
+                      key={quickPrompt.label}
+                      onClick={() => handleQuickPrompt(quickPrompt)}
+                      disabled={isCreating}
+                      variant="outline"
+                      className="h-auto py-4 px-4 flex flex-col items-start text-left gap-1 bg-black/50 border-gray-800 hover:border-amber-500/50 hover:bg-amber-500/5 transition-all group disabled:opacity-50"
+                    >
+                      <span className="font-medium text-gray-200 group-hover:text-amber-300">
+                        {quickPrompt.label}
+                      </span>
+                      <span className="text-xs text-gray-500 line-clamp-2">
+                        AI genererar baserat på fördefinierad beskrivning
+                      </span>
+                    </Button>
+                  ))}
+                </div>
+              </section>
+            )}
+
+          {/* Section 3: V0 Templates */}
+          {v0Templates.length > 0 && (
             <section>
               <div className="flex items-center gap-2 mb-4">
-                <Zap className="h-5 w-5 text-amber-400" />
-                <h2 className="text-lg font-semibold text-white">Snabbval</h2>
-                <HelpTooltip text="Klicka på ett snabbval för att snabbt komma igång med en fördefinierad design." />
+                <Layout className="h-5 w-5 text-teal-400" />
+                <h2 className="text-lg font-semibold text-white">
+                  V0 Templates
+                </h2>
+                <HelpTooltip text="Templates från v0.app. Klicka för att öppna i v0.app." />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {category.quickPrompts.map((quickPrompt) => (
-                  <Button
-                    key={quickPrompt.label}
-                    onClick={() => handleQuickPrompt(quickPrompt)}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {v0Templates.map((template) => (
+                  <V0TemplateCard
+                    key={template.id}
+                    template={template}
                     disabled={isCreating}
-                    variant="outline"
-                    className="h-auto py-4 px-4 flex flex-col items-start text-left gap-1 bg-black/50 border-gray-800 hover:border-amber-500/50 hover:bg-amber-500/5 transition-all group disabled:opacity-50"
-                  >
-                    <span className="font-medium text-gray-200 group-hover:text-amber-300">
-                      {quickPrompt.label}
-                    </span>
-                    <span className="text-xs text-gray-500 line-clamp-2">
-                      AI genererar baserat på fördefinierad beskrivning
-                    </span>
-                  </Button>
+                  />
                 ))}
               </div>
             </section>
           )}
 
-          {/* Section 3: Local pre-made templates */}
+          {/* Section 4: Local pre-made templates */}
           {templates.length > 0 && (
             <section>
               <div className="flex items-center gap-2 mb-4">
@@ -373,5 +425,87 @@ export default function CategoryPage() {
       {/* 3D Avatar Guide */}
       <FloatingAvatar section="category" showWelcome={false} />
     </main>
+  );
+}
+
+// V0 Template Card Component
+function V0TemplateCard({
+  template,
+  disabled,
+}: {
+  template: Template;
+  disabled: boolean;
+}) {
+  const router = useRouter();
+  const [isCreating, setIsCreating] = useState(false);
+  const imageUrl = getTemplateImageUrl(template);
+  const type = useParams().type as string;
+
+  const handleEdit = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (disabled || isCreating) return;
+
+    setIsCreating(true);
+    try {
+      // Create project in database
+      const project = await createProject(
+        `${template.title || template.id} - ${new Date().toLocaleDateString(
+          "sv-SE"
+        )}`,
+        type,
+        `Baserat på v0 template: ${template.id}`
+      );
+      // Navigate to builder with templateId parameter
+      router.push(`/builder?project=${project.id}&templateId=${template.id}`);
+    } catch (error) {
+      console.error("Failed to create project from v0 template:", error);
+      setIsCreating(false);
+    }
+  };
+
+  return (
+    <div className="group bg-black/50 border border-gray-800 rounded-lg overflow-hidden hover:border-teal-500/50 transition-all cursor-pointer">
+      <div className="relative aspect-video bg-gray-900 overflow-hidden">
+        <Image
+          src={imageUrl}
+          alt={template.title || template.id}
+          fill
+          className="object-cover group-hover:scale-105 transition-transform duration-300"
+          loading="lazy"
+          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+        />
+      </div>
+      <div className="p-4 space-y-3">
+        <h3 className="font-medium text-white text-sm line-clamp-1">
+          {template.title || template.id}
+        </h3>
+        <div className="flex gap-2">
+          <a
+            href={template.viewUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-teal-600/20 hover:bg-teal-600/30 border border-teal-500/30 rounded text-teal-400 text-xs font-medium transition-colors"
+          >
+            <ExternalLink className="h-3.5 w-3.5" />
+            View
+          </a>
+          <button
+            onClick={handleEdit}
+            disabled={disabled || isCreating}
+            className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded text-gray-300 text-xs font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isCreating ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Edit className="h-3.5 w-3.5" />
+            )}
+            {isCreating ? "Skapar..." : "Edit"}
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }

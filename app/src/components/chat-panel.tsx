@@ -348,16 +348,12 @@ export function ChatPanel({
     // WAIT for project data to load before deciding to generate
     // This prevents race condition where we start generating before saved data is loaded
     if (isProjectDataLoading) {
-      console.log("[ChatPanel] Waiting for project data to load...");
       return;
     }
 
     // SKIP generation if project already has saved data
     // The data will be loaded by builder/page.tsx via loadFromProject()
     if (hasExistingData) {
-      console.log(
-        "[ChatPanel] Project has existing data, skipping auto-generation"
-      );
       hasInitialGeneratedRef.current = true;
       return;
     }

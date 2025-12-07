@@ -33,6 +33,8 @@ const nextConfig: NextConfig = {
       },
     ],
   },
+  // NOTE: No COEP/COOP headers - Sandpack iframes need to load without these restrictions
+  // Sandpack runs on CodeSandbox servers and doesn't need these headers
 };
 
 export default nextConfig;

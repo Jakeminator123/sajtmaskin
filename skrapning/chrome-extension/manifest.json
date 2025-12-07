@@ -1,0 +1,18 @@
+{
+  "manifest_version": 3,
+  "name": "V0 Templates Scraper",
+  "version": "1.1",
+  "description": "Extract v0.app template data and send to local server",
+  "permissions": ["activeTab", "scripting"],
+  "host_permissions": ["https://v0.app/*"],
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://v0.app/templates/*"],
+      "js": ["content.js"],
+      "run_at": "document_end"
+    }
+  ]
+}

@@ -22,8 +22,8 @@
  *   audit_list:{userId}         → Audit list JSON (TTL: 24 hours)
  *
  * Project Storage (Takeover):
- *   project:files:{projectId}   → ProjectFile[] JSON (TTL: 365 days)
- *   project:meta:{projectId}    → ProjectMeta JSON (TTL: 365 days)
+ *   project:files:{projectId}   → ProjectFile[] JSON (TTL: 1 hour, cache only; SQLite är källan)
+ *   project:meta:{projectId}    → ProjectMeta JSON (TTL: 1 hour, cache only)
  *
  * Video Jobs (Sora):
  *   video:job:{videoId}         → VideoJob JSON (TTL: 1 hour)
@@ -472,7 +472,7 @@ export async function flushRedisCache(): Promise<boolean> {
 }
 
 // ============ Project Files Storage ============
-// For "taken over" projects - stores files in Redis for agent editing
+// Cache for taken-over projects to speed up agent editing (SQLite is source-of-truth)
 
 const PROJECT_FILES_PREFIX = "project:files:";
 const PROJECT_META_PREFIX = "project:meta:";
@@ -489,7 +489,7 @@ export interface ProjectMeta {
   userId: string;
   name: string;
   takenOverAt: string;
-  storageType: "redis" | "github" | "sqlite";
+  storageType: "sqlite" | "github";
   githubRepo?: string;
   githubOwner?: string;
   filesCount: number;

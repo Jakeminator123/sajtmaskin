@@ -11,6 +11,7 @@
  */
 
 import { cookies } from "next/headers";
+import { randomBytes, randomUUID } from "crypto";
 
 // Session configuration
 const SESSION_COOKIE_NAME = "sajtmaskin_session";
@@ -35,10 +36,12 @@ export interface Session {
  * Generate a secure session ID
  */
 function generateSessionId(): string {
-  const timestamp = Date.now().toString(36);
-  const randomPart = Math.random().toString(36).substring(2, 15);
-  const randomPart2 = Math.random().toString(36).substring(2, 15);
-  return `sess_${timestamp}_${randomPart}${randomPart2}`;
+  // Prefer cryptographically strong IDs; fall back to randomBytes if UUID unavailable
+  try {
+    return `sess_${randomUUID()}`;
+  } catch {
+    return `sess_${randomBytes(16).toString("hex")}`;
+  }
 }
 
 /**
@@ -53,6 +56,16 @@ export async function getSession(): Promise<Session> {
     // Validate session format
     if (existingSessionId.startsWith("sess_")) {
       // TODO: In production, validate against session store (Redis/DB)
+      // Refresh cookie to extend expiry
+      cookieStore.set({
+        name: SESSION_COOKIE_NAME,
+        value: existingSessionId,
+        httpOnly: true,
+        sameSite: "lax",
+        path: "/",
+        maxAge: SESSION_MAX_AGE,
+        secure: process.env.NODE_ENV === "production",
+      });
       return {
         id: existingSessionId,
         user: null, // Will be populated when auth is implemented
@@ -71,8 +84,17 @@ export async function getSession(): Promise<Session> {
     expiresAt: Date.now() + SESSION_MAX_AGE * 1000,
   };
 
-  // Set cookie (will be done in middleware or API response)
-  // For now, return the new session
+  // Set cookie immediately so subsequent requests reuse the same session
+  cookieStore.set({
+    name: SESSION_COOKIE_NAME,
+    value: newSessionId,
+    httpOnly: true,
+    sameSite: "lax",
+    path: "/",
+    maxAge: SESSION_MAX_AGE,
+    secure: process.env.NODE_ENV === "production",
+  });
+
   return session;
 }
 
@@ -172,7 +194,9 @@ export interface GoogleUser {
  */
 export function getGoogleAuthUrl(): string {
   const clientId = process.env.GOOGLE_CLIENT_ID;
-  const redirectUri = `${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/api/auth/google/callback`;
+  const redirectUri = `${
+    process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"
+  }/api/auth/google/callback`;
 
   if (!clientId) {
     throw new Error("GOOGLE_CLIENT_ID not configured");
@@ -189,4 +213,3 @@ export function getGoogleAuthUrl(): string {
 
   return `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
 }
-

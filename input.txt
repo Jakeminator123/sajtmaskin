@@ -1,0 +1,123 @@
+1)
+Timestamp (manual): 2025-12-07 12:00:00 CET
+
+Mal
+- Ha ett enda standardflode nar vi tar over v0-kod och ska redigera vidare via OpenAI Responses.
+
+Rekommenderad lagringsmodell
+- Primar: SQLite som source-of-truth (persistens) + Redis cache (kort TTL) for snabb last och agentjobb.
+- GitHub: valfritt for full agande/versionering; anvands bara nar anvandaren har token kopplad.
+- Lokal export: erbjuda ZIP-nedladdning som offline-sakerhetskopia, men inte som driftlager.
+
+Foreslagen path for Takeover-knappen
+1) Validera session/anvandare (krav for GitHub-mode).
+2) Hamta projectData.chat_id + files; avbryt med tydligt fel om filer saknas.
+3) Normalisera filnamn/paths (sanitize) innan lagring.
+4) Defaultgren (SQLite + Redis):
+   - Skriv alla filer till SQLite (kalla till saveProjectFilesToDb). 
+   - Cachea best-effort i Redis (saveProjectFiles) med kort TTL.
+   - Spara metadata via saveProjectMeta {storageType: "sqlite", filesCount, takenOverAt}.
+   - Uppdatera projektets namn/beskrivning for UI-status.
+5) GitHub-gren (om vald och kopplad):
+   - Skapa privat repo, push initial commit, spara metadata for bade db-id och owner_repo-nyckeln.
+   - Seed Redis med samma filer for agent-prestanda; kalla metadata med storageType: "github".
+6) Lokal/ZIP: exponera downloadVersionAsZip for snabb export efter takeover (ingen extra lagring).
+
+Agent/OPI-flode efter takeover
+- Lasa filer via loadProjectFilesWithFallback (Redis -> SQLite -> legacy) for samlad kodvy.
+- Vid kodandringar: 
+  - Uppdatera SQLite (updateProjectFileInDb) + refresh Redis cache (updateProjectFile/saveProjectFiles).
+  - Om storageType=github: pusha commit med givet meddelande, annars skippa Git.
+- Svara alltid med vilka filer som andrats och lagra responseId for fortsatt kontext.
+
+Stadnings- och samordningspunkter
+- Anvand konsekvent storageType: "sqlite" (inte "redis") for default-laget i metadata/klientstate.
+- Satt TTL och storleksgrans for Redis-cache (preview, filer) sa cache ar ren.
+- Se till att UI visar vilken lagringsgren som valts och nar GitHub saknas.
+- Logga takeover/agentfel strukturerat for enkel felsokning.
+
+Naxta steg (foreslagna snabba tickets)
+- Konsolidera takeover modal + backend till ovan flode.
+- Lagga till zip-exportknapp efter lyckad takeover.
+- Exponera storageType tydligt i store.ts / UI-state sa agenten vet gren.
+- Skapa liten halsa-endpoint for Redis + SQLite for adminpanelen.
+
+2)
+
+"Rekommenderad lagrings- och takeover-väg för v0-kodbaser
+
+1) Enda sanningen
+- Håll den kanoniska koden i ett privat GitHub-repo (main + feature-brancher). Använd branch-namn som takeover/<projekt>/<datum-tid>.
+- All historik, code review och release-flöde utgår från GitHub.
+
+2) Takeover-knappen (flöde)
+- Hämta v0-exporten (källfiler + konfig) och validera struktur (Next.js App Router, app/src, env-nycklar saknas i repo).
+- Initiera git om saknas, sätt origin till privat repo, skapa branch takeover/<projekt>/<datum-tid>.
+- Kör formatter/lint på exporten för att normalisera diffar.
+- Commit:a baseline "takeover: import v0 export" och push:a.
+
+3) Temporära ytor
+- Lokal workspace: använd bara som arbetskopia för AI/utvecklarsteg, synka tillbaka via PR mot GitHub.
+- Redis: använd som kortlivad cache (t.ex. zip av export + snabb rollback-data) med TTL (t.ex. 24h) och storleksgräns. Inget långsiktigt källdata i Redis.
+
+4) ÖppnaAI/Responses-API-flöde för avancerade edits
+- Använd Responses API enligt docs/OPENAI_API_LATEST_FEATURES.md; modell gpt-4.1-mini/gpt-5-mini, built-in tools före custom.
+- Ge modellen read-only åtkomst till GitHub-branch (via API eller förgenererad patch) och skrivbara ändringar till lokal workspace, därefter PR.
+- Automatisk patchning: generera patchar, kör formatter/lint, skriv PR-beskrivning, och håll commits små/tematiska.
+
+5) Säkerhet och secrets
+- Ingen hemlighet i repo. Använd .env.local för lokalt, GitHub Secrets för CI/CD. Kontrollera att v0-export inte innehåller tokens.
+
+6) Rensning och koherens
+- Ingen duplicering: GitHub = sanning, Redis = cache, lokal = arbetskopia. Ta bort gamla Redis-nycklar efter TTL och rensa lokala artifacts efter merge.
+- Dokumentera takeover-flödet kort i utvecklardokumentation (ej README här) och återanvänd samma rutiner per projekt.
+
+Resultat
+- Smidigare takeover: en källa (GitHub), snabb cache (Redis), ren arbetsyta (lokal), samt konsekvent Responses-API-baserat editeringsflöde."
+
+3)
+
+"Handoff path for v0 -> editable code (OpenAI OPI)
+Timestamp: 2025-12-07 03:42:30 UTC
+
+Canonical storage choice
+- Make GitHub the single source of truth for taken-over projects.
+- Use Redis only as an ephemeral cache for in-flight sessions and job status; never as final storage.
+- Use local disk only as a short-lived staging workspace during the handoff job.
+
+Recommended flow (triggered by the Take Over button)
+1) Intake
+   - Capture user/project ids, template/version ids, and the original v0 prompt/spec.
+   - Validate required env (GitHub token, OpenAI key) before continuing.
+2) Normalize export
+   - Pull v0 export, unzip into a clean staging dir, and remove builder-only artifacts.
+   - Enforce consistent layout (Next.js app dir, .env.example, package manager lockfile).
+   - Run dependency install and a fast lint/build check to catch broken exports early.
+3) Baseline commit (source of truth)
+   - Init or reuse repo `sajtmaskin-<projectId>`; create branch `handoff/<timestamp>`.
+   - Commit the normalized export as the immutable baseline.
+   - Tag baseline `v0-import-<timestamp>` for traceability.
+4) Ephemeral cache (Redis)
+   - Store job status, progress logs, and short diffs for the current session only.
+   - Set tight TTLs; do not store source files or secrets.
+5) Durable backup
+   - Optionally push a zipped snapshot to object storage (e.g., S3/Blob) keyed by projectId+timestamp.
+6) OPI editing pipeline
+   - Build an instruction bundle for the model: repo URL/branch, target files, user goals, constraints.
+   - Apply model-suggested patches in the staging workspace; run lint/tests/format.
+   - Commit accepted changes to a new branch `opi/<feature>-<timestamp>` and open a PR for review.
+7) Observability and resume
+   - Log each stage (intake, normalize, baseline, opi-run) with timestamps into Redis + file log in repo.
+   - On failure, preserve staging dir path and last good commit so the job can resume idempotently.
+8) Cleanup
+   - Delete staging workspace after commit/backup; clear Redis keys for the session.
+
+Minimal artifacts kept per project
+- GitHub repo with baseline and OPI branches + tags.
+- Object-storage zip of the imported baseline (optional but recommended).
+- Metadata file in repo: `handoff.json` containing projectId, v0 prompt, import timestamp, branches, and tags.
+
+Notes
+- Avoid storing code or secrets in Redis. Keep final source only in Git.
+- Favor one package manager (pnpm/yarn/npm) consistently across exports.
+- Run OPI edits against the GitHub branch, not Redis/local copies, to prevent drift."

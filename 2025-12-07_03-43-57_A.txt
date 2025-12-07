@@ -1,0 +1,30 @@
+Rekommenderad lagrings- och takeover-väg för v0-kodbaser
+
+1) Enda sanningen
+- Håll den kanoniska koden i ett privat GitHub-repo (main + feature-brancher). Använd branch-namn som takeover/<projekt>/<datum-tid>.
+- All historik, code review och release-flöde utgår från GitHub.
+
+2) Takeover-knappen (flöde)
+- Hämta v0-exporten (källfiler + konfig) och validera struktur (Next.js App Router, app/src, env-nycklar saknas i repo).
+- Initiera git om saknas, sätt origin till privat repo, skapa branch takeover/<projekt>/<datum-tid>.
+- Kör formatter/lint på exporten för att normalisera diffar.
+- Commit:a baseline "takeover: import v0 export" och push:a.
+
+3) Temporära ytor
+- Lokal workspace: använd bara som arbetskopia för AI/utvecklarsteg, synka tillbaka via PR mot GitHub.
+- Redis: använd som kortlivad cache (t.ex. zip av export + snabb rollback-data) med TTL (t.ex. 24h) och storleksgräns. Inget långsiktigt källdata i Redis.
+
+4) ÖppnaAI/Responses-API-flöde för avancerade edits
+- Använd Responses API enligt docs/OPENAI_API_LATEST_FEATURES.md; modell gpt-4.1-mini/gpt-5-mini, built-in tools före custom.
+- Ge modellen read-only åtkomst till GitHub-branch (via API eller förgenererad patch) och skrivbara ändringar till lokal workspace, därefter PR.
+- Automatisk patchning: generera patchar, kör formatter/lint, skriv PR-beskrivning, och håll commits små/tematiska.
+
+5) Säkerhet och secrets
+- Ingen hemlighet i repo. Använd .env.local för lokalt, GitHub Secrets för CI/CD. Kontrollera att v0-export inte innehåller tokens.
+
+6) Rensning och koherens
+- Ingen duplicering: GitHub = sanning, Redis = cache, lokal = arbetskopia. Ta bort gamla Redis-nycklar efter TTL och rensa lokala artifacts efter merge.
+- Dokumentera takeover-flödet kort i utvecklardokumentation (ej README här) och återanvänd samma rutiner per projekt.
+
+Resultat
+- Smidigare takeover: en källa (GitHub), snabb cache (Redis), ren arbetsyta (lokal), samt konsekvent Responses-API-baserat editeringsflöde.

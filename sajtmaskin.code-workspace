@@ -43,7 +43,17 @@
     "[json]": {
       "editor.defaultFormatter": "esbenp.prettier-vscode"
     },
-    "terminal.integrated.altClickMovesCursor": false
+    "terminal.integrated.altClickMovesCursor": false,
+    "terminal.integrated.accessibleViewFocusOnCommandExecution": true,
+    "terminal.integrated.accessibleViewPreserveCursorPosition": true,
+    "terminal.integrated.allowChords": false,
+    "terminal.integrated.defaultProfile.windows": "PowerShell",
+    "terminal.integrated.profiles.windows": {
+      "PowerShell": { "source": "PowerShell" },
+      "Git Bash": { "source": "Git Bash" },
+      "Command Prompt": { "path": "${env:windir}\\System32\\cmd.exe" }
+    },
+    "terminal.integrated.automationProfile.linux": {}
   },
   "extensions": {
     "recommendations": [

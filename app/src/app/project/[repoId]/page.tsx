@@ -49,9 +49,9 @@ import {
  *    - repoId = GitHub repo name
  *    - owner = GitHub username
  *
- * 2. Redis mode: /project/[projectId]
+ * 2. SQLite mode: /project/[projectId]
  *    - projectId = Database project ID (UUID)
- *    - No owner parameter needed
+ *    - No owner parameter needed (Redis är endast cache)
  */
 
 interface AgentMessage {
@@ -90,7 +90,7 @@ function OwnedProjectContent() {
 
   // Determine mode and project ID:
   // - GitHub mode: owner param exists → projectId = "owner_repo", repoFullName for display
-  // - Redis mode: no owner → projectId = repoId (database UUID)
+  // - SQLite mode: no owner → projectId = repoId (database UUID)
   const isGitHubMode = useMemo(() => !!owner, [owner]);
   // Sanitize owner and repoId to prevent injection issues
   const sanitizedOwner = useMemo(
@@ -144,6 +144,7 @@ function OwnedProjectContent() {
   const [projectFiles, setProjectFiles] = useState<
     { path: string; content: string }[]
   >([]);
+  const [projectDemoUrl, setProjectDemoUrl] = useState<string | null>(null);
   const [isProjectLoading, setIsProjectLoading] = useState(true);
   const [projectLoadError, setProjectLoadError] = useState<string | null>(null);
 
@@ -168,7 +169,7 @@ function OwnedProjectContent() {
     }
   }, [isGitHubMode, refreshUser]);
 
-  // Load project files and demoUrl (Redis mode) so editor/preview can show content immediately
+  // Load project files and demoUrl (SQLite source, Redis cache) so editor/preview can show content immediately
   useEffect(() => {
     let cancelled = false;
 
@@ -186,7 +187,7 @@ function OwnedProjectContent() {
       setProjectLoadError(null);
 
       try {
-        // Fetch files from Redis/takeover storage
+        // Fetch files from takeover storage (SQLite source, Redis cache)
         const res = await fetch(
           `/api/projects/${encodeURIComponent(projectId)}/files`
         );
@@ -200,6 +201,11 @@ function OwnedProjectContent() {
 
         const files = (data.files as { path: string; content: string }[]) || [];
         setProjectFiles(files);
+
+        // Save demoUrl for preview iframe
+        if (data.demoUrl) {
+          setProjectDemoUrl(data.demoUrl);
+        }
 
         // Show first file in preview if nothing has been updated yet
         if (files.length > 0) {
@@ -474,7 +480,7 @@ function OwnedProjectContent() {
             )}
           </Button>
 
-          {/* Download ZIP button (only for Redis mode) */}
+          {/* Download ZIP button (only for SQLite mode) */}
           {!isGitHubMode && projectId && (
             <a
               href={`/api/projects/${encodeURIComponent(projectId)}/download`}
@@ -523,7 +529,7 @@ function OwnedProjectContent() {
           {isProjectLoading && (
             <div className="px-4 py-3 border-b border-purple-800 bg-purple-500/10 text-sm text-purple-300 flex items-center gap-2">
               <Loader2 className="h-4 w-4 animate-spin text-purple-400" />
-              <span>Laddar projektfiler från Redis...</span>
+              <span>Laddar projektfiler...</span>
             </div>
           )}
           {projectLoadError && (
@@ -696,7 +702,6 @@ function OwnedProjectContent() {
                 </div>
               )}
 
-
               <div ref={messagesEndRef} />
             </div>
           )}
@@ -752,6 +757,7 @@ function OwnedProjectContent() {
         {showPreview && (
           <div className="w-1/2 p-4 relative">
             <PreviewPanel
+              previewUrl={projectDemoUrl || undefined}
               lastUpdatedFile={
                 lastUpdatedFile ||
                 (projectFiles.length > 0 ? projectFiles[0] : undefined)
