@@ -378,6 +378,7 @@ export function AvatarProvider({ children }: { children: ReactNode }) {
 
     return () => {
       clearInterval(intervalId);
+      // Copy ref value to variable to avoid stale ref in cleanup
       const idleVariationTimeout = idleVariationRef.current;
       if (idleVariationTimeout) {
         clearTimeout(idleVariationTimeout);

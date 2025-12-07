@@ -1437,7 +1437,8 @@ export type TransactionType =
   | "agent_video"
   | "agent_web_search"
   | "agent_code_refactor"
-  | "agent_analyze";
+  | "agent_analyze"
+  | "orchestrator";
 
 export interface Transaction {
   id: number;
