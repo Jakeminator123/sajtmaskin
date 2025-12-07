@@ -332,7 +332,6 @@ const REACTION_DEBOUNCE_MS = 500;
 export function AvatarProvider({ children }: { children: ReactNode }) {
   const [state, dispatch] = useReducer(avatarReducer, initialState);
   const idleTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const idleVariationRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const inactivityTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastActivityRef = useRef<number>(Date.now());
   const isSleepingRef = useRef(false);
@@ -378,10 +377,6 @@ export function AvatarProvider({ children }: { children: ReactNode }) {
 
     return () => {
       clearInterval(intervalId);
-      const idleVariationTimeout = idleVariationRef.current;
-      if (idleVariationTimeout) {
-        clearTimeout(idleVariationTimeout);
-      }
     };
   }, []); // Empty deps = register once
 
