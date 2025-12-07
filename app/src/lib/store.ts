@@ -177,44 +177,46 @@ export const useBuilderStore = create<BuilderState>()(
 
         // IMPORTANT: Auto-save files immediately when generated
         // This ensures "Ta över" (takeover) works without requiring manual save
-        // Use setTimeout(0) to ensure other state updates (demoUrl, chatId) are applied first
-        setTimeout(() => {
-          const state = get();
-          if (files.length > 0 && state.projectId && !isTestMode()) {
-            console.log("[Store] Auto-saving generated files", {
-              projectId: state.projectId,
-              files: files.length,
-              hasDemoUrl: Boolean(state.demoUrl),
-              demoUrl: state.demoUrl?.substring(0, 50),
-              hasChatId: Boolean(state.chatId),
-            });
+        // Use requestAnimationFrame to ensure state updates are applied before save
+        if (typeof window !== "undefined") {
+          requestAnimationFrame(() => {
+            const state = get();
+            if (files.length > 0 && state.projectId && !isTestMode()) {
+              console.log("[Store] Auto-saving generated files", {
+                projectId: state.projectId,
+                files: files.length,
+                hasDemoUrl: Boolean(state.demoUrl),
+                demoUrl: state.demoUrl?.substring(0, 50),
+                hasChatId: Boolean(state.chatId),
+              });
 
-            // Enable auto-save for this project (generation = implicit save)
-            set({ hasUserSaved: true });
+              // Enable auto-save for this project (generation = implicit save)
+              set({ hasUserSaved: true });
 
-            // Save files directly
-            apiSaveProjectData(state.projectId, {
-              chatId: state.chatId || undefined,
-              demoUrl: state.demoUrl || undefined,
-              currentCode: state.currentCode || undefined,
-              files: files,
-              messages: state.messages.map((msg) => ({
-                ...msg,
-                timestamp: msg.timestamp.toISOString(),
-              })),
-            })
-              .then(() => {
-                console.log(
-                  "[Store] Auto-save complete for project:",
-                  state.projectId
-                );
-                set({ lastSaved: new Date() });
+              // Save files directly
+              apiSaveProjectData(state.projectId, {
+                chatId: state.chatId || undefined,
+                demoUrl: state.demoUrl || undefined,
+                currentCode: state.currentCode || undefined,
+                files: files,
+                messages: state.messages.map((msg) => ({
+                  ...msg,
+                  timestamp: msg.timestamp.toISOString(),
+                })),
               })
-              .catch((err) =>
-                console.error("[Store] Failed to auto-save files:", err)
-              );
-          }
-        }, 0);
+                .then(() => {
+                  console.log(
+                    "[Store] Auto-save complete for project:",
+                    state.projectId
+                  );
+                  set({ lastSaved: new Date() });
+                })
+                .catch((err) =>
+                  console.error("[Store] Failed to auto-save files:", err)
+                );
+            }
+          });
+        }
       },
 
       setCurrentCode: (code) => {
@@ -305,11 +307,15 @@ export const useBuilderStore = create<BuilderState>()(
         // Clear existing timeout
         if (saveTimeout) {
           clearTimeout(saveTimeout);
+          saveTimeout = null;
         }
 
         // Debounce saves - get FRESH state inside the callback
         return new Promise<void>((resolve, reject) => {
           saveTimeout = setTimeout(async () => {
+            // Clear timeout reference after execution
+            saveTimeout = null;
+            
             const latestState = get(); // Get fresh state at save time!
 
             // Double-check projectId still exists

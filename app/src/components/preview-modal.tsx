@@ -129,20 +129,23 @@ export function PreviewModal({
     }
   }, [isOpen]);
 
-  // Cleanup on unmount
+  // Cleanup on unmount or when modal closes
   useEffect(() => {
     return () => {
       if (scrollIntervalRef.current) {
         clearInterval(scrollIntervalRef.current);
+        scrollIntervalRef.current = null;
       }
       if (captureTimeoutRef.current) {
         clearTimeout(captureTimeoutRef.current);
+        captureTimeoutRef.current = null;
       }
       if (statusClearTimeoutRef.current) {
         clearTimeout(statusClearTimeoutRef.current);
+        statusClearTimeoutRef.current = null;
       }
     };
-  }, []);
+  }, [isOpen]);
 
   // Capture screenshot 3 seconds after modal opens
   useEffect(() => {

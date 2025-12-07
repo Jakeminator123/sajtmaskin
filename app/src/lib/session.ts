@@ -109,7 +109,10 @@ export function getSessionIdFromRequest(request: Request): string | null {
   if (cookieHeader) {
     const cookies = cookieHeader.split(";").map((c) => c.trim());
     for (const cookie of cookies) {
-      const [name, value] = cookie.split("=");
+      const equalIndex = cookie.indexOf("=");
+      if (equalIndex === -1) continue;
+      const name = cookie.substring(0, equalIndex);
+      const value = cookie.substring(equalIndex + 1);
       if (name === SESSION_COOKIE_NAME) {
         return value;
       }
