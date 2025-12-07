@@ -144,7 +144,6 @@ function OwnedProjectContent() {
   const [projectFiles, setProjectFiles] = useState<
     { path: string; content: string }[]
   >([]);
-  const [projectDemoUrl, setProjectDemoUrl] = useState<string | null>(null);
   const [isProjectLoading, setIsProjectLoading] = useState(true);
   const [projectLoadError, setProjectLoadError] = useState<string | null>(null);
 
@@ -201,11 +200,6 @@ function OwnedProjectContent() {
 
         const files = (data.files as { path: string; content: string }[]) || [];
         setProjectFiles(files);
-
-        // Save demoUrl for preview iframe
-        if (data.demoUrl) {
-          setProjectDemoUrl(data.demoUrl);
-        }
 
         // Show first file in preview if nothing has been updated yet
         if (files.length > 0) {
@@ -757,7 +751,6 @@ function OwnedProjectContent() {
         {showPreview && (
           <div className="w-1/2 p-4 relative">
             <PreviewPanel
-              previewUrl={projectDemoUrl || undefined}
               lastUpdatedFile={
                 lastUpdatedFile ||
                 (projectFiles.length > 0 ? projectFiles[0] : undefined)

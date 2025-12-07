@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { getProjectMeta } from "@/lib/redis";
 import { loadProjectFilesWithFallback } from "@/lib/project-files";
-import { getProjectData } from "@/lib/database";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -67,23 +66,12 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Get demoUrl from project data (for preview iframe)
-    let demoUrl: string | null = null;
-    try {
-      const projectData = getProjectData(projectId);
-      demoUrl = projectData?.demo_url || null;
-    } catch (e) {
-      // Not critical - preview still works without demoUrl
-      console.warn("[Projects/files] Could not get demoUrl:", e);
-    }
-
     return NextResponse.json({
       success: true,
       storageType: meta?.storageType || "sqlite",
       meta: meta || null,
       files,
       filesCount: files.length,
-      demoUrl, // v0's hosted preview URL
     });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Okänt fel";

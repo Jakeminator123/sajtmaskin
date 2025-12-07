@@ -3,7 +3,10 @@
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import { SimplePreview } from "@/components/simple-preview";
+import {
+  WebcontainerPreview,
+  WebcontainerStatus,
+} from "@/components/webcontainer-preview";
 import {
   RefreshCw,
   ExternalLink,
@@ -37,10 +40,10 @@ export function PreviewPanel({
   projectId,
   onPreviewGenerated,
 }: PreviewPanelProps) {
-  // Default to code view for project files (faster, no WebContainer needed)
+  // Default to preview when we have filer (WebContainer), otherwise fall back
   const initialViewMode: ViewMode =
     projectFiles.length > 0
-      ? "code"
+      ? "preview"
       : previewUrl
       ? "preview"
       : generatedImage
@@ -53,19 +56,25 @@ export function PreviewPanel({
   const [isExpanded, setIsExpanded] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [selectedFileIndex, setSelectedFileIndex] = useState(0);
+  const [localPreviewUrl, setLocalPreviewUrl] = useState<string | undefined>(
+    previewUrl
+  );
+  const [wcPreviewUrl, setWcPreviewUrl] = useState<string | undefined>();
+  const [wcStatus, setWcStatus] = useState<WebcontainerStatus>("idle");
 
-  // Use prop preview URL directly
-  const activePreviewUrl = previewUrl;
-
-  // Refresh the embedded preview
-  const handleRefresh = () => {
-    setRefreshKey((prev) => prev + 1);
-  };
+  // Use local preview URL if we've regenerated, otherwise use prop
+  const activePreviewUrl = wcPreviewUrl || localPreviewUrl || previewUrl;
 
   // Get the file to display - either the last updated one or selected from project files
   const displayFile =
     lastUpdatedFile ||
     (projectFiles.length > 0 ? projectFiles[selectedFileIndex] : undefined);
+
+  const handleRefresh = () => {
+    setRefreshKey((prev) => prev + 1);
+    setWcPreviewUrl(undefined);
+    setLocalPreviewUrl(undefined);
+  };
 
   return (
     <div
@@ -148,17 +157,22 @@ export function PreviewPanel({
 
         {/* Actions */}
         <div className="flex items-center gap-1">
-          {/* Refresh preview */}
-          {projectFiles.length > 0 && viewMode === "preview" && (
+          {/* Restart preview (WebContainer) */}
+          {projectFiles.length > 0 && (
             <Button
               variant="ghost"
               size="sm"
               onClick={handleRefresh}
               className="h-7 w-7 p-0 text-gray-400 hover:text-white"
-              title="Ladda om preview"
+              title="Starta om preview"
             >
               <RefreshCw className="h-3.5 w-3.5" />
             </Button>
+          )}
+          {projectFiles.length > 0 && (
+            <span className="rounded bg-gray-800 px-2 py-0.5 text-[10px] uppercase tracking-wide text-gray-400">
+              {wcStatus}
+            </span>
           )}
           {activePreviewUrl && (
             <a
@@ -203,15 +217,22 @@ export function PreviewPanel({
           </div>
         )}
 
-        {/* Preview - SimplePreview with v0 iframe or code browser */}
+        {/* Preview via WebContainer or fallback iframe */}
         {!isLoading && viewMode === "preview" && (
           <>
             {projectFiles.length > 0 ? (
-              <SimplePreview
-                key={`preview-${projectId ?? "local"}-${refreshKey}`}
+              <WebcontainerPreview
+                key={`${projectId ?? "local"}-${refreshKey}`}
                 files={projectFiles}
-                demoUrl={activePreviewUrl}
-                projectId={projectId}
+                onReady={(url) => {
+                  setWcPreviewUrl(url);
+                  setLocalPreviewUrl(url);
+                  setViewMode("preview");
+                  onPreviewGenerated?.(url);
+                }}
+                onStatusChange={(status) => {
+                  setWcStatus(status);
+                }}
                 className="h-full"
               />
             ) : activePreviewUrl ? (

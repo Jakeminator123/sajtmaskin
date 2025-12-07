@@ -33,8 +33,28 @@ const nextConfig: NextConfig = {
       },
     ],
   },
-  // NOTE: No COEP/COOP headers - Sandpack iframes need to load without these restrictions
-  // Sandpack runs on CodeSandbox servers and doesn't need these headers
+  // Cross-Origin Isolation headers required for WebContainer (SharedArrayBuffer)
+  // ONLY applied to /project/* routes where WebContainer is used (after takeover)
+  // NOT applied to /builder/* where we embed v0's demo iframes
+  // See: https://webcontainers.io/guides/configuring-headers
+  async headers() {
+    return [
+      {
+        // Only apply to project pages (where WebContainer runs after takeover)
+        source: "/project/:path*",
+        headers: [
+          {
+            key: "Cross-Origin-Embedder-Policy",
+            value: "require-corp",
+          },
+          {
+            key: "Cross-Origin-Opener-Policy",
+            value: "same-origin",
+          },
+        ],
+      },
+    ];
+  },
 };
 
 export default nextConfig;
