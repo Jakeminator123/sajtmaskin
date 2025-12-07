@@ -801,6 +801,12 @@ export default function Page() {
   };
 
   const handleGenerate = async (prompt: string, type?: string) => {
+    if (!isAuthenticated) {
+      setAuthModalReason("generation");
+      setShowAuthModal(true);
+      return;
+    }
+
     addMessage("user", prompt);
     setLoading(true);
     setGenerationStartTime(Date.now());
@@ -909,6 +915,12 @@ export default function Page() {
   };
 
   const handleRefinement = async (instruction: string) => {
+    if (!isAuthenticated) {
+      setAuthModalReason("refine");
+      setShowAuthModal(true);
+      return;
+    }
+
     // Don't allow refinement if no code exists yet
     // Note: handleGenerate already adds the user message, so we only add assistant response
     if (!currentCode) {
