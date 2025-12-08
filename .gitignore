@@ -33,3 +33,7 @@ app/data/*.db-wal
 app/data/uploads/
 
 app/data/.env.local
+old
+info
+INPUT _FOR_CURSOR
+skrapning
