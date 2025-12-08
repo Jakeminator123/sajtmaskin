@@ -1,0 +1,453 @@
+3) "═══════════════════════════════════════════════════════════════════════════
+BUGGAR OCH STRUKTURELLA PROBLEM I SAJTMASKIN-PROJEKTET
+═══════════════════════════════════════════════════════════════════════════
+
+Datum: 2025-01-27
+Granskad kod: app/src mappen och konfigurationsfiler
+
+═══════════════════════════════════════════════════════════════════════════
+1. TYPESCRIPT TYPE SAFETY PROBLEM
+═══════════════════════════════════════════════════════════════════════════
+
+PROBLEM: Omfattande användning av `as any` type assertions vilket eliminerar 
+TypeScripts type safety.
+
+Förekomster:
+- app/src/lib/database.ts: 46+ användningar av `as any`
+- app/src/lib/project-cleanup.ts: 9+ användningar
+- app/src/components/chat-message.tsx: 4 användningar för file attachments
+- app/src/app/api/generate-video/route.ts: 5 användningar för Sora API types
+- app/src/app/api/admin/database/route.ts: 8+ användningar
+
+Exempel:
+  const row = stmt.get(projectId) as any;  // database.ts:591
+  const rows = stmt.all(projectId) as any[];  // database.ts:729
+  url: (f as any).url,  // chat-message.tsx:291
+
+RISK: 
+- Runtime errors som inte fångas av TypeScript
+- Svårare att refaktorera kod
+- Mindre IDE-stöd och autocomplete
+
+REKOMMENDATION:
+- Skapa proper TypeScript interfaces för alla database rows
+- Använd type guards istället för type assertions
+- Definiera types för Sora API responses istället för `as any`
+
+═══════════════════════════════════════════════════════════════════════════
+2. CONSOLE.LOG I PRODUKTION
+═══════════════════════════════════════════════════════════════════════════
+
+PROBLEM: 577+ console.log/error/warn statements i produktion.
+
+Förekomster:
+- app/src/lib/v0-generator.ts: 50+ console.log statements
+- app/src/lib/redis.ts: 50+ console.error statements
+- app/src/lib/database.ts: 20+ console.log statements
+- app/src/components/chat-panel.tsx: 30+ console.log statements
+- Många fler i API routes och komponenter
+
+RISK:
+- Prestanda: console.log är långsam i produktion
+- Säkerhet: Kan exponera känslig information i logs
+- Log pollution: Svårt att hitta riktiga fel
+
+REKOMMENDATION:
+- Använd debugLog() från lib/debug.ts istället (redan implementerat)
+- Ersätt alla console.log med debugLog() eller ta bort dem
+- Använd proper logging library (t.ex. winston eller pino) för produktion
+- Sätt DEBUG=false i produktion
+
+═══════════════════════════════════════════════════════════════════════════
+3. FELHANTERING I REDIS
+═══════════════════════════════════════════════════════════════════════════
+
+PROBLEM: Många Redis-funktioner faller tillbaka till "allow all" vid fel.
+
+Exempel från redis.ts:
+- checkRateLimit(): Returnerar { allowed: true } vid Redis-fel (rad 226, 253)
+- getCache(): Returnerar null vid fel (OK) men loggar inte konsekvent
+- Många funktioner har try-catch som bara loggar och fortsätter
+
+RISK:
+- Rate limiting fungerar inte om Redis är nere
+- Cache missar kan orsaka prestandaproblem
+- Svårt att debugga när Redis inte fungerar
+
+REKOMMENDATION:
+- Implementera fallback-strategier (t.ex. in-memory rate limiting)
+- Logga Redis-fel mer konsekvent
+- Ha monitoring/alerting för Redis-anslutning
+- Överväg circuit breaker pattern
+
+═══════════════════════════════════════════════════════════════════════════
+4. SESSION VALIDATION - TODO
+═══════════════════════════════════════════════════════════════════════════
+
+PROBLEM: Session validation är inte implementerad i produktion.
+
+Förekomst: app/src/lib/session.ts:58
+  // TODO: In production, validate against session store (Redis/DB)
+
+RISK:
+- Session hijacking möjligt
+- Invaliderade sessions kan fortfarande användas
+- Ingen möjlighet att logga ut användare från alla enheter
+
+REKOMMENDATION:
+- Implementera session validation mot Redis/DB
+- Lagra session metadata (IP, user agent) och validera
+- Implementera session invalidation vid logout
+
+═══════════════════════════════════════════════════════════════════════════
+5. ENVIRONMENT VARIABLES - INKONSEKVENT ANVÄNDNING
+═══════════════════════════════════════════════════════════════════════════
+
+PROBLEM: process.env används direkt på många ställen istället för via config.ts
+
+Förekomster:
+- app/src/lib/v0-generator.ts: process.env.V0_API_KEY direkt (rad 51, 58)
+- app/src/lib/openai-agent.ts: process.env.OPENAI_API_KEY direkt (rad 41)
+- app/src/lib/stripe.ts: process.env.STRIPE_PRICE_* direkt (rad 14, 22, 30)
+- app/src/app/api/stripe/webhook/route.ts: process.env.STRIPE_SECRET_KEY direkt
+- Många fler i API routes
+
+RISK:
+- Svårt att ändra konfiguration centralt
+- Risk för typo i env variable names
+- Ingen validering av required env vars på vissa ställen
+
+REKOMMENDATION:
+- Använd alltid SECRETS från config.ts
+- Ta bort alla direkta process.env användningar
+- Lägg till runtime validering av required secrets
+
+═══════════════════════════════════════════════════════════════════════════
+6. ERROR HANDLING - INKONSEKVENT
+═══════════════════════════════════════════════════════════════════════════
+
+PROBLEM: Inkonsekvent error handling i API routes och komponenter.
+
+Exempel:
+- Vissa catch blocks loggar bara och returnerar generiska fel
+- Vissa returnerar detaljerade felmeddelanden (säkerhetsrisk)
+- Vissa har inga catch blocks alls
+
+Förekomster:
+- app/src/app/api/generate/route.ts: Bra error handling men generiska meddelanden
+- app/src/components/chat-panel.tsx: Många catch blocks som bara loggar
+- app/src/lib/v0-generator.ts: Vissa errors kastas vidare utan context
+
+RISK:
+- Information leakage via error messages
+- Svårt att debugga när fel inte loggas korrekt
+- Användare får inte användbara felmeddelanden
+
+REKOMMENDATION:
+- Skapa standardiserad error handling utility
+- Logga detaljerade errors på server-side
+- Returnera generiska meddelanden till klienten
+- Använd error codes för olika feltyper
+
+═══════════════════════════════════════════════════════════════════════════
+7. MEMORY LEAKS - POTENTIELLA PROBLEM
+═══════════════════════════════════════════════════════════════════════════
+
+PROBLEM: Potentiella memory leaks i React komponenter.
+
+Förekomster att granska:
+- app/src/components/chat-panel.tsx: Många useEffect hooks, behöver cleanup?
+- app/src/components/video-generator.tsx: Polling intervals
+- app/src/components/preview-modal.tsx: Intervals och timeouts
+- app/src/components/voice-recorder.tsx: MediaRecorder cleanup
+
+RISK:
+- Memory leaks över tid
+- Prestandaproblem vid långvarig användning
+- Event listeners som inte tas bort
+
+REKOMMENDATION:
+- Granska alla useEffect hooks för cleanup functions
+- Ta bort event listeners i cleanup
+- Stoppa intervals/timeouts i cleanup
+- Använd React DevTools Profiler för att hitta leaks
+
+═══════════════════════════════════════════════════════════════════════════
+8. DATABASE QUERIES - TYPE SAFETY
+═══════════════════════════════════════════════════════════════════════════
+
+PROBLEM: Database queries använder `as any` istället för proper types.
+
+Förekomster:
+- Alla SELECT queries i database.ts använder `as any`
+- project-cleanup.ts använder `as any` för alla queries
+- admin/database/route.ts använder `as any`
+
+RISK:
+- Runtime errors vid schema changes
+- Ingen compile-time validering av queries
+- Svårt att refaktorera database schema
+
+REKOMMENDATION:
+- Skapa TypeScript interfaces för alla table rows
+- Använd type guards för att validera rows
+- Överväg att använda ORM (t.ex. Drizzle) för type safety
+
+═══════════════════════════════════════════════════════════════════════════
+9. SECURITY - HARDCODED VALUES
+═══════════════════════════════════════════════════════════════════════════
+
+PROBLEM: Hardcoded Redis host i config.ts
+
+Förekomst: app/src/lib/config.ts:188-189
+  host: process.env.REDIS_HOST || 
+    "redis-12352.c135.eu-central-1-1.ec2.redns.redis-cloud.com",
+
+RISK:
+- Exponerar Redis host i koden
+- Svårt att ändra mellan miljöer
+- Risk för att committa produktionscredentials
+
+REKOMMENDATION:
+- Ta bort fallback till hardcoded host
+- Kräv REDIS_HOST i environment
+- Använd olika Redis instances för dev/prod
+
+═══════════════════════════════════════════════════════════════════════════
+10. API ROUTE VALIDATION
+═══════════════════════════════════════════════════════════════════════════
+
+PROBLEM: Inkonsekvent input validation i API routes.
+
+Exempel:
+- app/src/app/api/generate/route.ts: Validerar prompt men inte quality enum
+- app/src/app/api/domain-suggestions/route.ts: Validerar companyName men inte industry/keywords types
+- Många routes använder `as` type assertions istället för validation
+
+RISK:
+- Invalid data kan nå business logic
+- Type errors vid runtime
+- Potentiella security issues
+
+REKOMMENDATION:
+- Använd Zod eller liknande för input validation
+- Validera alla inputs innan processing
+- Returnera tydliga felmeddelanden vid validation errors
+
+═══════════════════════════════════════════════════════════════════════════
+11. ASYNC/AWAIT PATTERNS
+═══════════════════════════════════════════════════════════════════════════
+
+PROBLEM: Några potentiella race conditions och unhandled promises.
+
+Förekomster att granska:
+- app/src/components/chat-panel.tsx: Många async operations utan proper error handling
+- app/src/lib/store.ts: Async operations i Zustand store
+- app/src/lib/v0-generator.ts: Polling med async/await
+
+RISK:
+- Race conditions vid parallella requests
+- Unhandled promise rejections
+- Memory leaks från pending promises
+
+REKOMMENDATION:
+- Använd Promise.allSettled() för parallella operations
+- Lägg till .catch() på alla promises
+- Överväg AbortController för cancellable async operations
+
+═══════════════════════════════════════════════════════════════════════════
+12. CODE DUPLICATION
+═══════════════════════════════════════════════════════════════════════════
+
+PROBLEM: Kodduplicering på flera ställen.
+
+Exempel:
+- Error handling patterns upprepas i varje API route
+- Credit checking logic finns i flera routes
+- Database query patterns upprepas
+
+RISK:
+- Svårt att underhålla
+- Inkonsekvent beteende
+- Risk för att missa buggar vid ändringar
+
+REKOMMENDATION:
+- Skapa utility functions för vanliga patterns
+- Extrahera credit checking till middleware eller utility
+- Skapa database query helpers med proper types
+
+═══════════════════════════════════════════════════════════════════════════
+13. TEST USER LOGIC
+═══════════════════════════════════════════════════════════════════════════
+
+PROBLEM: Test user logic är spridd över flera filer.
+
+Förekomster:
+- app/src/lib/database.ts: TEST_USER_EMAIL, TEST_USER_DIAMONDS
+- app/src/lib/database.ts: isTestUser(), deductGenerationDiamond() har special logic
+- Mock transactions returneras för test user
+
+RISK:
+- Svårt att hitta alla ställen där test user hanteras
+- Risk för att missa test user logic vid refactoring
+- Kan orsaka bugs om test user logic inte är konsekvent
+
+REKOMMENDATION:
+- Centralisera test user logic i en utility
+- Använd feature flag istället för email check
+- Dokumentera test user behavior tydligt
+
+═══════════════════════════════════════════════════════════════════════════
+14. REDIS CONNECTION - SINGLETON PATTERN
+═══════════════════════════════════════════════════════════════════════════
+
+PROBLEM: Redis client är singleton men kan ha connection issues.
+
+Förekomst: app/src/lib/redis.ts:40-90
+
+RISK:
+- Om Redis connection går ner, alla requests misslyckas
+- Ingen reconnection logic
+- Lazy connect kan orsaka första request att misslyckas
+
+REKOMMENDATION:
+- Implementera reconnection logic
+- Använd connection pool
+- Lägg till health check endpoint
+- Överväg circuit breaker pattern
+
+═══════════════════════════════════════════════════════════════════════════
+15. FILE UPLOAD VALIDATION
+═══════════════════════════════════════════════════════════════════════════
+
+PROBLEM: File upload validation behöver granskas.
+
+Förekomster:
+- app/src/app/api/projects/[id]/upload/route.ts
+- app/src/components/file-upload-zone.tsx
+
+RISK:
+- Risk för file upload attacks
+- Ingen validering av file types/sizes
+- Risk för path traversal
+
+REKOMMENDATION:
+- Validera file types (whitelist)
+- Validera file sizes
+- Sanitize filenames
+- Använd secure file storage (t.ex. Vercel Blob)
+
+═══════════════════════════════════════════════════════════════════════════
+16. SQL INJECTION - POTENTIELL RISK
+═══════════════════════════════════════════════════════════════════════════
+
+PROBLEM: Använder prepared statements men vissa queries byggs dynamiskt.
+
+Förekomst: app/src/lib/database.ts:556-559
+  const stmt = db.prepare(`
+    UPDATE projects SET ${fields.join(", ")} WHERE id = ?
+  `);
+
+RISK:
+- SQL injection om fields innehåller user input (vilket det inte gör här, men riskabelt pattern)
+- Svårt att säkerställa att alla dynamiska queries är säkra
+
+REKOMMENDATION:
+- Använd parameterized queries konsekvent
+- Validera alla field names mot whitelist
+- Överväg query builder library
+
+═══════════════════════════════════════════════════════════════════════════
+17. CORS OCH SECURITY HEADERS
+═══════════════════════════════════════════════════════════════════════════
+
+PROBLEM: Security headers sätts i middleware men behöver verifieras.
+
+Förekomst: app/src/middleware.ts:64-68
+
+REKOMMENDATION:
+- Verifiera att alla security headers är korrekta
+- Lägg till Content-Security-Policy
+- Verifiera CORS settings för API routes
+
+═══════════════════════════════════════════════════════════════════════════
+18. RATE LIMITING - INKONSEKVENT
+═══════════════════════════════════════════════════════════════════════════
+
+PROBLEM: Rate limiting finns i Redis men används inte konsekvent.
+
+Förekomst: app/src/lib/redis.ts:202-255
+
+RISK:
+- API routes kan missbrukas
+- Ingen rate limiting på kritiska endpoints
+- Guest users kan bypass limits
+
+REKOMMENDATION:
+- Implementera rate limiting middleware
+- Applicera på alla API routes
+- Olika limits för authenticated/guest users
+
+═══════════════════════════════════════════════════════════════════════════
+19. LOGGING OCH MONITORING
+═══════════════════════════════════════════════════════════════════════════
+
+PROBLEM: Ingen strukturerad logging eller monitoring.
+
+RISK:
+- Svårt att debugga production issues
+- Ingen alerting vid kritiska fel
+- Ingen tracking av performance metrics
+
+REKOMMENDATION:
+- Implementera structured logging (JSON format)
+- Lägg till error tracking (t.ex. Sentry)
+- Lägg till performance monitoring
+- Skapa health check endpoints
+
+═══════════════════════════════════════════════════════════════════════════
+20. DEPENDENCY VULNERABILITIES
+═══════════════════════════════════════════════════════════════════════════
+
+REKOMMENDATION:
+- Kör `npm audit` regelbundet
+- Uppdatera dependencies med kända vulnerabilities
+- Överväg Dependabot eller liknande för automatiska updates
+- Dokumentera breaking changes vid dependency updates
+
+═══════════════════════════════════════════════════════════════════════════
+PRIORITERING
+═══════════════════════════════════════════════════════════════════════════
+
+HÖG PRIORITET:
+1. Session validation (Security)
+2. Error handling konsekvens (Security/UX)
+3. Type safety (Code quality)
+4. Memory leaks (Performance)
+
+MEDEL PRIORITET:
+5. Console.log cleanup (Performance)
+6. Redis error handling (Reliability)
+7. Environment variables konsekvens (Maintainability)
+8. Input validation (Security)
+
+LÅG PRIORITET:
+9. Code duplication (Maintainability)
+10. Logging och monitoring (Observability)
+
+═══════════════════════════════════════════════════════════════════════════
+SLUTSATS
+═══════════════════════════════════════════════════════════════════════════
+
+Projektet är välstrukturerat men har flera områden som behöver förbättras:
+- Type safety kan förbättras avsevärt
+- Error handling behöver standardiseras
+- Security practices behöver förbättras
+- Logging behöver struktureras
+
+De flesta problemen är relaterade till kodkvalitet och maintainability snarare 
+än kritiska buggar. Projektet verkar fungera men skulle dra nytta av 
+refactoring för att förbättra long-term maintainability.
+
+═══════════════════════════════════════════════════════════════════════════
+"

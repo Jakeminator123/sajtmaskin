@@ -1,0 +1,18 @@
+IKONER FÖR CHROME EXTENSION
+============================
+
+Du behöver skapa tre ikoner i denna mapp:
+- icon16.png  (16x16 pixels)
+- icon48.png  (48x48 pixels)
+- icon128.png (128x128 pixels)
+
+SNABBT:
+-------
+Gå till https://www.favicon.io/favicon-generator/
+eller använd vilken ikon som helst.
+
+TILLFÄLLIG LÖSNING:
+-------------------
+Extensionen fungerar även utan ikoner, Chrome visar bara en default-ikon.
+
+Kopiera valfri liten bild och döp om den till icon16.png, icon48.png, icon128.png

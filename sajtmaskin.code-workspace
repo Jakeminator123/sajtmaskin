@@ -1,0 +1,76 @@
+{
+  "folders": [
+    {
+      "path": "."
+    }
+  ],
+  "settings": {
+    "git.autoRepositoryDetection": "subFolders",
+    "editor.formatOnSave": true,
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.tabSize": 2,
+    "editor.wordWrap": "on",
+    "terminal.integrated.defaultProfile.windows": "PowerShell",
+    "terminal.integrated.cwd": "${workspaceFolder}",
+    "terminal.integrated.profiles.windows": {
+      "PowerShell": {
+        "path": "pwsh.exe"
+      },
+      "Command Prompt": {
+        "path": "C:\\Windows\\System32\\cmd.exe"
+      }
+    },
+    "terminal.integrated.copyOnSelection": true,
+    "terminal.integrated.rightClickBehavior": "paste",
+    "terminal.integrated.sendKeybindingsToShell": false,
+    "terminal.integrated.env.windows": {
+      "PYTHONUTF8": "1",
+      "PYTHONIOENCODING": "utf-8"
+    },
+    "files.exclude": {
+      "**/.git": true,
+      "**/.next": true,
+      "**/node_modules": true,
+      "**/__pycache__": true,
+      "**/*.pyc": true
+    },
+    "typescript.tsdk": "app/node_modules/typescript/lib",
+    "typescript.enablePromptUseWorkspaceTsdk": true,
+    "typescript.preferences.importModuleSpecifier": "relative",
+    "typescript.suggest.autoImports": true,
+    "tailwindCSS.experimental.classRegex": [
+      ["cva\\(([^)]*)\\)", "[\"'`]([^\"'`]*).*?[\"'`]"],
+      ["cn\\(([^)]*)\\)", "[\"'`]([^\"'`]*).*?[\"'`]"]
+    ],
+    "tailwindCSS.includeLanguages": {
+      "typescript": "javascript",
+      "typescriptreact": "javascript"
+    },
+    "emmet.includeLanguages": {
+      "typescript": "html",
+      "typescriptreact": "html"
+    },
+    "[python]": {
+      "editor.defaultFormatter": "ms-python.black-formatter",
+      "editor.tabSize": 4
+    },
+    "[typescript]": {
+      "editor.defaultFormatter": "esbenp.prettier-vscode"
+    },
+    "[typescriptreact]": {
+      "editor.defaultFormatter": "esbenp.prettier-vscode"
+    },
+    "[json]": {
+      "editor.defaultFormatter": "esbenp.prettier-vscode"
+    }
+  },
+  "extensions": {
+    "recommendations": [
+      "esbenp.prettier-vscode",
+      "bradlc.vscode-tailwindcss",
+      "dbaeumer.vscode-eslint",
+      "ms-python.python",
+      "ms-python.black-formatter"
+    ]
+  }
+}

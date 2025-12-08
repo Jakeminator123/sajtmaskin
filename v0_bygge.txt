@@ -1,0 +1,805 @@
+================================================================================
+V0 PLATFORM GUIDE FÖR SAJTMASKIN
+================================================================================
+Skapad: 2024-12-08
+Syfte: Komplett guide om v0's API:er, SDK:er, integrationer och hur de kan
+       användas som backend-motor för Sajtmaskin (whitelabel site builder)
+
+================================================================================
+INNEHÅLLSFÖRTECKNING
+================================================================================
+
+1. VAD ÄR V0?
+2. DE TVÅ API:ERNA (Model API vs Platform API)
+3. SDK:ER OCH PAKET
+4. AGENT-FUNKTIONER
+5. INTEGRATIONER
+6. PROBLEMET: MEDIA I PREVIEW MODE
+7. LÖSNINGSFÖRSLAG FÖR SAJTMASKIN
+8. ARKITEKTUR-ALTERNATIV FÖR WHITELABEL
+9. REKOMMENDERAD IMPLEMENTATION
+
+================================================================================
+1. VAD ÄR V0?
+================================================================================
+
+v0 är en AI-driven utvecklingsplattform som tar naturligt språk och genererar
+produktionsredo full-stack webappar (Next.js, React, Tailwind, shadcn/ui).
+
+Det finns TVÅ sätt att använda v0 som utvecklare:
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  1. MODEL API                      │  2. PLATFORM API                       │
+│  ─────────────                     │  ────────────────                      │
+│  OpenAI-kompatibel endpoint        │  Fullständig backend för projekt,      │
+│  Du får bara modellens svar/kod    │  chattar, filer, deployment, etc.      │
+│                                    │                                        │
+│  Bra för: Egen logik, bara         │  Bra för: Whitelabel site builder     │
+│  kodgenerering                     │  där v0 hanterar allt                  │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+För Sajtmaskin (whitelabel site builder) är PLATFORM API mest intressant,
+men MODEL API kan komplettera för enklare/billigare kodgenerering.
+
+================================================================================
+2. DE TVÅ API:ERNA
+================================================================================
+
+────────────────────────────────────────────────────────────────────────────────
+2.1 V0 MODEL API (OpenAI-kompatibel)
+────────────────────────────────────────────────────────────────────────────────
+
+SYFTE: Använd v0:s modeller som en vanlig LLM - perfekt om du vill bygga
+       egen logik men ha en modell som är extra bra på React/Next.js.
+
+ENDPOINT: POST https://api.v0.dev/v1/chat/completions
+
+FORMAT: Samma struktur som OpenAI Chat Completions
+        (messages[], model, stream, tools)
+
+MODELLER:
+┌──────────────┬────────────────────────────────────────────────────┐
+│ v0-1.5-md    │ Vardagliga uppgifter, UI-generering (rekommenderad)│
+│ v0-1.5-lg    │ Avancerat resonemang, komplex logik               │
+│ v0-1.0-md    │ Legacy (undvik)                                    │
+└──────────────┴────────────────────────────────────────────────────┘
+
+FEATURES:
+• Framework-aware - optimerad för Next.js, Vercel, React
+• Multimodal - stöd för text + bilder (base64)
+• Tool/function calling support
+• Snabb streaming (SSE)
+• Auto-fix - identifierar och korrigerar vanliga kodfel
+
+EXEMPEL (med AI SDK):
+```typescript
+import { createV0Model } from "@ai-sdk/vercel";
+import { generateText } from "ai";
+
+const v0 = createV0Model("v0-1.5-md");
+
+const result = await generateText({
+  model: v0,
+  messages: [
+    { role: "user", content: "Skapa en responsiv navbar med Tailwind" }
+  ]
+});
+```
+
+ANVÄNDNING I SAJTMASKIN:
+• Samla in krav från användare (wizard/formulär)
+• Anropa Model API med systemprompt
+• Få tillbaka kod
+• Bygg och hosta själv
+
+FÖRDELAR:
+• Full kontroll över hosting, multi-tenant, prissättning
+• Använder v0 "bara" som kodgenerator
+• Billigare per anrop
+
+NACKDELAR:
+• Du måste själv hantera deploy, projektstruktur, versionshantering
+
+────────────────────────────────────────────────────────────────────────────────
+2.2 V0 PLATFORM API (Full-stack backend)
+────────────────────────────────────────────────────────────────────────────────
+
+SYFTE: Programmatisk access till HELA v0-plattformen - projekt, chattar,
+       filer, deployment, integrationer.
+
+BAS-URL: https://api.v0.dev
+
+CORE-KONCEPT:
+┌───────────────┬─────────────────────────────────────────────────────────────┐
+│ Projects      │ Container för en app (kod, filer, deployment)              │
+│ Chats         │ AI-drivna "sessioner" där kod genereras/itereras           │
+│ Messages      │ Meddelanden i en chat (text, kod, previews, status)        │
+│ Deployments   │ Publicering till Vercel/v0:s hosting                       │
+│ Integrations  │ Kopplingar till DB, API:er, GitHub, etc.                   │
+│ Hooks         │ Webhooks för events                                         │
+└───────────────┴─────────────────────────────────────────────────────────────┘
+
+VAD DU KAN BYGGA:
+• Din egen UI ovanpå v0 (eget chat-gränssnitt, site builder, adminpanel)
+• Automatiska workflows och CI/CD
+• Egna AI-agenter som skapar/kör v0-projekt
+
+ANVÄNDNING I SAJTMASKIN:
+1. Du har en kund → skapa Project för deras sajt via API
+2. Starta Chat som genererar deras sida
+3. Hämta files från chatten ELLER låt v0 deploya direkt
+4. Exponera resultatet i din egen UI
+
+EXEMPEL (med v0-sdk):
+```typescript
+import { V0 } from 'v0-sdk';
+
+const v0 = new V0({ apiKey: process.env.V0_API_KEY });
+
+// Skapa chat som bygger en landningssida
+const chat = await v0.chats.create({
+  message: 'Build a landing page for a SaaS in fintech'
+});
+
+// Få demoUrl för iframe-preview
+const previewUrl = chat.demo;
+
+// Få genererade filer
+const files = chat.files;
+
+// Skapa projekt
+const project = await v0.projects.create({ name: 'Customer X – Website' });
+
+// Deploya till Vercel
+const deployment = await v0.deployments.create({
+  projectId: project.id,
+  chatId: chat.id,
+  versionId: chat.latestVersion.id,
+});
+```
+
+================================================================================
+3. SDK:ER OCH PAKET
+================================================================================
+
+Alla paket är TypeScript/JS, men API:erna är HTTP så Python fungerar också.
+
+────────────────────────────────────────────────────────────────────────────────
+3.1 v0-sdk (Core TypeScript SDK)
+────────────────────────────────────────────────────────────────────────────────
+
+INSTALLATION: pnpm add v0-sdk
+
+FUNKTIONER:
+• v0.chats.create()      - Skapa ny chat med kod-generering
+• v0.chats.sendMessage() - Skicka uppföljningsmeddelande
+• v0.chats.getById()     - Hämta chat-historik
+• v0.projects.create()   - Skapa projekt
+• v0.projects.find()     - Lista alla projekt
+• v0.deployments.create() - Deploya till Vercel
+• v0.user.get()          - Hämta användarinfo
+• v0.user.getBilling()   - Hämta faktureringsinfo
+
+────────────────────────────────────────────────────────────────────────────────
+3.2 @v0-sdk/react (Headless React-komponenter)
+────────────────────────────────────────────────────────────────────────────────
+
+INSTALLATION: pnpm add @v0-sdk/react
+
+KOMPONENTER:
+• StreamingMessage - Renderar streamande svar från v0 i realtid
+• CodeBlock        - Snygga kodblock med copy-knapp, line numbers
+
+PERFEKT FÖR: Bygga eget chat-UI i din site builder.
+
+────────────────────────────────────────────────────────────────────────────────
+3.3 create-v0-sdk-app (CLI)
+────────────────────────────────────────────────────────────────────────────────
+
+INSTALLATION: npx create-v0-sdk-app
+
+TEMPLATES:
+• v0-clone         - Multi-tenant app som liknar v0.dev (auth, Postgres,
+                     Drizzle, streaming, rate limiting)
+                     → PERFEKT SOM BLUEPRINT FÖR WHITELABEL BUILDER
+• classic-v0       - Klassiskt v0-UI (A/B/C-generationsflöde)
+• ai-tools-example - Visar hur man kopplar v0-tools med AI-SDK
+
+────────────────────────────────────────────────────────────────────────────────
+3.4 @v0-sdk/ai-tools (Agent-verktyg)
+────────────────────────────────────────────────────────────────────────────────
+
+INSTALLATION: pnpm add @v0-sdk/ai-tools ai @ai-sdk/openai
+
+SYFTE: Gör v0 till "tools" som en LLM-agent (GPT-4, Claude) kan använda.
+
+FRAMEWORKS SOM STÖDS:
+• Vercel AI SDK (primär)
+• LangChain
+• OpenAI Functions
+
+EXEMPEL:
+```typescript
+import { generateText } from 'ai';
+import { openai } from '@ai-sdk/openai';
+import { v0Tools } from '@v0-sdk/ai-tools';
+
+const result = await generateText({
+  model: openai('gpt-4o-mini'),
+  prompt: 'Create a React dashboard with charts and deploy it',
+  tools: v0Tools({
+    apiKey: process.env.V0_API_KEY,
+  }),
+  maxSteps: 10, // Begränsa antal steg
+});
+```
+
+VAD AGENTEN KAN GÖRA:
+• Skapa projekt
+• Initiera chattar från kod/repo
+• Generera/uppdatera filer
+• Deploya
+• Hantera integrationer
+
+================================================================================
+4. AGENT-FUNKTIONER
+================================================================================
+
+────────────────────────────────────────────────────────────────────────────────
+4.1 Inbyggd agent i v0-UI (på v0.dev)
+────────────────────────────────────────────────────────────────────────────────
+
+v0:s webbgränssnitt har en intelligent agent med:
+
+• Web Search       - Realtidswebbsökning med citerade källor
+• Site Inspection  - Besöker sajter, tar screenshots, extraherar innehåll
+                     (perfekt för "klona den här sajten"-usecase)
+• Auto Error Fix   - Försöker auto-fixa fel i kod (syntax, runtime)
+• External Tools   - Kan använda Vercel Marketplace-integrationer
+
+OBS: Denna agent styrs INTE direkt via API, men du kan få liknande
+funktionalitet via @v0-sdk/ai-tools.
+
+────────────────────────────────────────────────────────────────────────────────
+4.2 MCP Server (Model Context Protocol)
+────────────────────────────────────────────────────────────────────────────────
+
+v0 har en MCP-server så du kan köra v0 inifrån MCP-kompatibla verktyg:
+• Cursor
+• Claude Desktop
+• VS Code (med MCP-extension)
+
+KONFIGURATION FÖR CURSOR (~/.cursor/mcp.json):
+```json
+{
+  "mcpServers": {
+    "v0": {
+      "command": "npx",
+      "args": [
+        "mcp-remote",
+        "https://mcp.v0.dev",
+        "--header",
+        "Authorization: Bearer ${V0_API_KEY}"
+      ]
+    }
+  }
+}
+```
+
+================================================================================
+5. INTEGRATIONER
+================================================================================
+
+────────────────────────────────────────────────────────────────────────────────
+5.1 AI-modeller
+────────────────────────────────────────────────────────────────────────────────
+
+v0 använder Vercel AI Gateway för att prata med modeller.
+
+MARKETPLACE-INTEGRATIONER:
+• Groq
+• fal
+• DeepInfra
+• Grok
+
+Du kan också lägga OPENAI_API_KEY som env-var så v0 kan bygga features
+som använder OpenAI direkt.
+
+────────────────────────────────────────────────────────────────────────────────
+5.2 Databaser
+────────────────────────────────────────────────────────────────────────────────
+
+One-click integrationer:
+• Upstash (Redis)
+• Neon (PostgreSQL)
+• Supabase (PostgreSQL + Auth)
+• Vercel Blob (Fillagring)
+
+v0 kan generera och köra SQL (CREATE, UPDATE, DROP) åt dig.
+→ Site builder kan generera sajter som pratar med riktiga databaser!
+
+────────────────────────────────────────────────────────────────────────────────
+5.3 Externa API:er
+────────────────────────────────────────────────────────────────────────────────
+
+Lägg till API-nycklar som environment variables.
+v0:s genererade kod kan sedan anropa dessa API:er.
+
+EXEMPEL: CRM, betalningar, sociala medier, etc.
+
+────────────────────────────────────────────────────────────────────────────────
+5.4 GitHub
+────────────────────────────────────────────────────────────────────────────────
+
+• Koppla projekt till GitHub-repo
+• Versionshantering
+• PRs och CI/CD
+
+────────────────────────────────────────────────────────────────────────────────
+5.5 Vercel
+────────────────────────────────────────────────────────────────────────────────
+
+• v0-konto = Vercel-konto (samma inloggning)
+• Deploy sker till Vercel-projekt
+• Environment variables syncas mellan v0 och Vercel
+• Custom domains hanteras via Vercel
+
+→ Du kan låta v0+Vercel sköta all hosting åt dig!
+
+────────────────────────────────────────────────────────────────────────────────
+5.6 MCP Integrations (Vercel Marketplace)
+────────────────────────────────────────────────────────────────────────────────
+
+Via Vercel Marketplace kan v0 kopplas till:
+• Databaser (Neon, Supabase, Upstash)
+• Stripe (betalningar)
+• Andra plattformar
+
+PERMISSION MODES:
+• Disabled       - v0 använder inte verktyget
+• Ask Approval   - v0 frågar innan varje anrop (default)
+• Always Run     - v0 kör automatiskt (5 sek cancel-tid)
+
+OBS: MCP Integrations fungerar ENDAST i v0.dev webbgränssnitt,
+INTE via v0-sdk/Platform API!
+
+================================================================================
+6. PROBLEMET: MEDIA I PREVIEW MODE
+================================================================================
+
+────────────────────────────────────────────────────────────────────────────────
+6.1 Vad är problemet?
+────────────────────────────────────────────────────────────────────────────────
+
+v0:s demoUrl renderas på VERCELS SERVRAR - de har inte tillgång till
+dina lokala/privata resurser.
+
+NUVARANDE FLÖDE (FUNGERAR INTE):
+```
+Användare laddar upp bild → Din server → ??? → v0 demoUrl
+                                                    ↓
+                                     v0's preview KAN INTE SE bilden!
+                                     (bilden är inte publik)
+```
+
+────────────────────────────────────────────────────────────────────────────────
+6.2 Varför händer det?
+────────────────────────────────────────────────────────────────────────────────
+
+1. v0 genererar kod som refererar till en bild-URL
+2. Den URL:en måste vara PUBLIKT tillgänglig
+3. Om bilden ligger på din lokala server kan v0's preview inte nå den
+4. Resultat: Brutna bilder i preview
+
+────────────────────────────────────────────────────────────────────────────────
+6.3 Vad som FUNGERAR nu i Sajtmaskin
+────────────────────────────────────────────────────────────────────────────────
+
+Du har redan BLOB_READ_WRITE_TOKEN konfigurerat!
+
+FLÖDE SOM FUNGERAR:
+```
+1. Användare laddar upp bild
+2. Bild sparas till Vercel Blob → Publik URL
+3. Publik URL skickas med i prompt till v0
+4. v0 genererar kod med publik URL
+5. demoUrl fungerar! ✓
+```
+
+PROBLEMET: Detta kräver att bilden laddas upp INNAN v0-anropet.
+
+================================================================================
+7. LÖSNINGSFÖRSLAG FÖR SAJTMASKIN
+================================================================================
+
+────────────────────────────────────────────────────────────────────────────────
+7.1 LÖSNING A: Pre-upload + URL injection (Befintlig + förbättrad)
+────────────────────────────────────────────────────────────────────────────────
+
+FLÖDE:
+1. Användare väljer/laddar upp bilder FÖRST
+2. Bilder sparas till Vercel Blob → Publika URLs
+3. URLs inkluderas i prompten till v0
+4. v0 genererar kod med rätt bild-URLs
+5. demoUrl fungerar perfekt
+
+IMPLEMENTATION (redan delvis på plats):
+```typescript
+// 1. Ladda upp bild till Vercel Blob
+const imageUrl = await uploadBlob(file, `media/${Date.now()}-${file.name}`);
+
+// 2. Inkludera URL i prompten
+const prompt = `
+  Skapa en landningssida för en restaurang.
+  Använd denna bild som hero: ${imageUrl}
+`;
+
+// 3. Skicka till v0
+const chat = await v0.chats.create({ message: prompt });
+```
+
+FÖRDELAR:
+• Enkelt
+• Fungerar med befintlig arkitektur
+• Ingen extra kostnad
+
+NACKDELAR:
+• Användare måste ladda upp bilder innan de beskriver sajten
+• Kräver tydlig UX-flow
+
+────────────────────────────────────────────────────────────────────────────────
+7.2 LÖSNING B: AI Tools för smart orkestrering
+────────────────────────────────────────────────────────────────────────────────
+
+IDÉN: Låt GPT-4 orkestrera hela flödet automatiskt.
+
+INSTALLATION:
+```bash
+pnpm add @v0-sdk/ai-tools ai @ai-sdk/openai
+```
+
+IMPLEMENTATION:
+```typescript
+// Ny fil: app/src/lib/ai-orchestrator-v2.ts
+import { generateText } from "ai";
+import { openai } from "@ai-sdk/openai";
+import { v0Tools } from "@v0-sdk/ai-tools";
+import OpenAI from "openai";
+import { uploadBlob } from "./storage";
+
+export async function createSiteWithMedia(params: {
+  prompt: string;
+  images?: File[];
+  generateImages?: boolean;
+}) {
+  const { prompt, images, generateImages } = params;
+  const uploadedUrls: string[] = [];
+  
+  // Steg 1: Ladda upp användarens bilder
+  if (images) {
+    for (const image of images) {
+      const url = await uploadBlob(image, `user-media/${Date.now()}-${image.name}`);
+      uploadedUrls.push(url);
+    }
+  }
+  
+  // Steg 2: Generera bilder med OpenAI om begärt
+  if (generateImages) {
+    const openaiClient = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+    const generated = await openaiClient.images.generate({
+      model: "gpt-image-1",
+      prompt: `Professional hero image for: ${prompt}`,
+    });
+    
+    // Ladda upp till Vercel Blob för publik åtkomst
+    const response = await fetch(generated.data[0].url!);
+    const blob = await response.blob();
+    const url = await uploadBlob(blob, `generated/${Date.now()}.png`);
+    uploadedUrls.push(url);
+  }
+  
+  // Steg 3: Bygg enriched prompt
+  const enrichedPrompt = `
+    ${prompt}
+    
+    ${uploadedUrls.length > 0 ? `
+    Använd dessa bilder i designen:
+    ${uploadedUrls.map((url, i) => `- Bild ${i + 1}: ${url}`).join('\n')}
+    ` : ''}
+  `;
+  
+  // Steg 4: Använd AI Tools för att orkestrera v0
+  const result = await generateText({
+    model: openai("gpt-4o-mini"),
+    prompt: enrichedPrompt,
+    tools: v0Tools({
+      apiKey: process.env.V0_API_KEY!,
+    }),
+    maxSteps: 5,
+  });
+  
+  return result;
+}
+```
+
+FÖRDELAR:
+• GPT-4 kan intelligent bestämma workflow
+• Automatisk hantering av bilder
+• Flexibelt för komplexa krav
+
+NACKDELAR:
+• Högre kostnad (GPT-4 + v0)
+• Mer komplex debugging
+
+────────────────────────────────────────────────────────────────────────────────
+7.3 LÖSNING C: Custom Preview Server
+────────────────────────────────────────────────────────────────────────────────
+
+IDÉN: Rendera v0:s kod på din egen server istället för att använda demoUrl.
+
+IMPLEMENTATION:
+```typescript
+// Ny fil: app/src/app/api/preview/render/route.ts
+import { NextRequest, NextResponse } from "next/server";
+import { getProjectFiles } from "@/lib/db";
+
+export async function GET(req: NextRequest) {
+  const projectId = req.nextUrl.searchParams.get("projectId");
+  
+  if (!projectId) {
+    return NextResponse.json({ error: "Missing projectId" }, { status: 400 });
+  }
+  
+  // Hämta filer från din databas
+  const files = await getProjectFiles(projectId);
+  
+  // Hitta huvudfilen
+  const mainFile = files.find(f => 
+    f.name.includes("page.tsx") || f.name.includes("index.tsx")
+  );
+  
+  if (!mainFile) {
+    return NextResponse.json({ error: "No main file" }, { status: 404 });
+  }
+  
+  // Returnera HTML som renderar komponenten
+  const html = `
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+        <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+        <script src="https://cdn.tailwindcss.com"></script>
+      </head>
+      <body>
+        <div id="root"></div>
+        <script type="module">
+          ${mainFile.content}
+        </script>
+      </body>
+    </html>
+  `;
+  
+  return new NextResponse(html, {
+    headers: { "Content-Type": "text/html" },
+  });
+}
+```
+
+FÖRDELAR:
+• Full kontroll över preview
+• Tillgång till ALLA dina resurser
+• Kan visa lokala bilder
+
+NACKDELAR:
+• Mer komplext att underhålla
+• Kräver egen rendering-logik
+• Potentiellt säkerhetsproblem (köra godtycklig kod)
+
+────────────────────────────────────────────────────────────────────────────────
+7.4 REKOMMENDERAD HYBRID-LÖSNING
+────────────────────────────────────────────────────────────────────────────────
+
+BÄSTA APPROACH: Kombinera A + B
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  HYBRID WORKFLOW                                                            │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ┌──────────────┐     ┌──────────────┐     ┌──────────────┐                │
+│  │   STEG 1     │     │   STEG 2     │     │   STEG 3     │                │
+│  │  Media först │ ──▶ │  AI Tools    │ ──▶ │   Preview    │                │
+│  │              │     │  orkestrera  │     │              │                │
+│  └──────────────┘     └──────────────┘     └──────────────┘                │
+│         │                    │                    │                         │
+│         ▼                    ▼                    ▼                         │
+│  • Vercel Blob          • GPT-4 styr         • v0 demoUrl (standard)       │
+│  • Publika URLs         • v0Tools            • Custom render (om behövs)   │
+│                         • Smart flöde                                       │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+================================================================================
+8. ARKITEKTUR-ALTERNATIV FÖR WHITELABEL
+================================================================================
+
+────────────────────────────────────────────────────────────────────────────────
+8.1 "API-motor" - Du hostar allt själv
+────────────────────────────────────────────────────────────────────────────────
+
+FLÖDE:
+1. Din app samlar in krav (wizard/form)
+2. Anropa Model API med systemprompt
+3. Spara filerna i ditt eget repo/lagring
+4. Bygg och deploya själv (Vercel, Netlify, egen server)
+
+FÖRDELAR:
+• Full kontroll över hosting, multi-tenant, prissättning
+• v0 används "bara" som kodgenerator
+
+NACKDELAR:
+• Du måste hantera deploy, versionshantering, integrations själv
+
+────────────────────────────────────────────────────────────────────────────────
+8.2 "Full v0 backend" - Rider på Platform API
+────────────────────────────────────────────────────────────────────────────────
+
+FLÖDE:
+1. Skapa Project per kund via API
+2. Starta Chat som bygger deras sajt
+3. Fortsätt chatten programmatiskt vid ändringar
+4. Embedda demoUrl i iframe ELLER hämta filer till eget preview
+5. Använd deployments + Vercel för live-sajt
+
+FÖRDELAR:
+• Extremt nära "backend som tjänst"
+• Minimal egen infrastruktur
+
+NACKDELAR:
+• Beroende av v0:s plattform
+• Begränsad kontroll över hosting
+
+────────────────────────────────────────────────────────────────────────────────
+8.3 Agent-driven "auto-builder"
+────────────────────────────────────────────────────────────────────────────────
+
+FLÖDE:
+1. Kör LLM-agent (GPT-4) med v0 som tool via @v0-sdk/ai-tools
+2. Agenten har verktyg: skapa projekt, chattar, filer, deploya
+3. Ge agenten målet: "Bygg och deploya en marknadsföringssida för X"
+4. Agenten sköter allt automatiskt
+
+FÖRDELAR:
+• "Magisk" upplevelse för slutanvändare
+• Minimal manuell intervention
+
+NACKDELAR:
+• Högre kostnad
+• Mindre förutsägbart beteende
+• Svårare debugging
+
+================================================================================
+9. REKOMMENDERAD IMPLEMENTATION FÖR SAJTMASKIN
+================================================================================
+
+────────────────────────────────────────────────────────────────────────────────
+9.1 Kortsiktig plan (nu)
+────────────────────────────────────────────────────────────────────────────────
+
+BEHÅLL NUVARANDE ARKITEKTUR med förbättringar:
+
+1. ✅ v0-sdk för kod-generering (redan på plats)
+2. ✅ Vercel Blob för media (redan konfigurerat)
+3. ✅ OpenAI för bildgenerering (redan på plats)
+4. ✅ demoUrl för preview (redan på plats)
+
+FÖRBÄTTRA:
+• Tydligare UX-flow för bilduppladdning INNAN v0-anrop
+• Automatisk URL-injection i prompts
+
+────────────────────────────────────────────────────────────────────────────────
+9.2 Medelsiktig plan (nästa iteration)
+────────────────────────────────────────────────────────────────────────────────
+
+LÄGG TILL @v0-sdk/ai-tools:
+
+```bash
+pnpm add @v0-sdk/ai-tools ai @ai-sdk/openai
+```
+
+FÖRDELAR:
+• Smartare orkestrering
+• GPT-4 kan hantera komplexa flöden
+• Bättre användarupplevelse
+
+────────────────────────────────────────────────────────────────────────────────
+9.3 Långsiktig plan (framtida version)
+────────────────────────────────────────────────────────────────────────────────
+
+ÖVERVÄG:
+• Custom preview server för full kontroll
+• Multi-agent system för olika uppgifter
+• Egen hosting-lösning om v0-beroende blir problematiskt
+
+================================================================================
+SAMMANFATTNING
+================================================================================
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│  SAJTMASKIN - REKOMMENDERAD ARKITEKTUR                                      │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                             │
+│  ┌─────────────────┐   ┌─────────────────┐   ┌─────────────────┐           │
+│  │ v0 Platform API │   │   OpenAI API    │   │  Andra API:er   │           │
+│  │    (v0-sdk)     │   │                 │   │                 │           │
+│  │                 │   │                 │   │                 │           │
+│  │ • Kod-generering│   │ • Bildgenerering│   │ • Unsplash      │           │
+│  │ • demoUrl       │   │ • Text-analys   │   │ • Pexels        │           │
+│  │ • Filer         │   │ • Video (Sora)  │   │ • ElevenLabs    │           │
+│  │ • Refinements   │   │ • Transcription │   │ • Stripe        │           │
+│  └─────────────────┘   └─────────────────┘   └─────────────────┘           │
+│           │                     │                     │                     │
+│           └─────────────────────┴─────────────────────┘                     │
+│                                 │                                           │
+│                                 ▼                                           │
+│                  ┌───────────────────────────┐                             │
+│                  │       SAJTMASKIN          │                             │
+│                  │  (Din whitelabel builder) │                             │
+│                  └───────────────────────────┘                             │
+│                                 │                                           │
+│                  ┌──────────────┴──────────────┐                           │
+│                  ▼                              ▼                           │
+│         ┌──────────────┐              ┌──────────────┐                     │
+│         │  Vercel Blob │              │   SQLite/    │                     │
+│         │  (Media)     │              │   Redis      │                     │
+│         └──────────────┘              └──────────────┘                     │
+│                                                                             │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+KÄRNPUNKTER:
+• v0 är din "hemliga motor" för kodgenerering
+• OpenAI hanterar allt annat (bilder, analys, video)
+• Vercel Blob löser media-problemet (publika URLs)
+• Din branding, din UX - tekniken är osynlig för användaren
+
+================================================================================
+KÄLLOR OCH LÄNKAR
+================================================================================
+
+• v0 API Overview: https://v0.app/docs/api
+• v0 Platform API: https://v0.app/docs/api/platform
+• v0 Model API: https://v0.app/docs/api/model
+• v0-sdk: https://v0.app/docs/api/platform/packages/v0-sdk
+• AI Tools: https://v0.app/docs/api/platform/adapters/ai-tools
+• MCP Server: https://v0.app/docs/api/platform/adapters/mcp-server
+
+================================================================================
+
+```
+
+Klart! Jag har skapat dokumentet:
+
+**`info/V0_PLATFORM_GUIDE_FOR_SAJTMASKIN.txt`**
+
+Dokumentet innehåller:
+
+1. **Vad v0 är** - Kort introduktion
+2. **De två API:erna** - Model API vs Platform API med kodexempel
+3. **SDK:er och paket** - v0-sdk, @v0-sdk/react, @v0-sdk/ai-tools, etc.
+4. **Agent-funktioner** - Inbyggd agent + MCP Server
+5. **Integrationer** - AI-modeller, databaser, GitHub, Vercel, etc.
+6. **Problemet** - Varför media inte fungerar i preview
+7. **Tre lösningsförslag** - Med kod och för/nackdelar
+8. **Arkitektur-alternativ** - För whitelabel site builder
+9. **Rekommenderad implementation** - Kort-, medel- och långsiktig plan
+
+Totalt ~500 rader med:
+- ASCII-diagram
+- Kodexempel (TypeScript)
+- Jämförelsetabeller
+- Steg-för-steg flöden
+- Konkreta rekommendationer för Sajtmaskin
+
+Vill du att jag går igenom någon specifik del mer i detalj, eller ska vi börja implementera något av förslagen?

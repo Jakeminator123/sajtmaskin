@@ -1,0 +1,259 @@
+================================================================================
+                    PROJECT TAKEOVER - DOKUMENTATION
+                         Sajtmaskin Feature
+================================================================================
+
+ÖVERSIKT
+--------
+Project Takeover gör att användare kan "ta över" sina v0-genererade projekt
+och redigera dem med en OpenAI Agent istället för v0 API.
+
+Två lägen finns:
+1. SIMPLE (Redis) - Default, ingen GitHub krävs
+2. GITHUB - Full ägandeskap, för utvecklare
+
+
+================================================================================
+                              SIMPLE MODE (Redis)
+================================================================================
+
+Målgrupp: Nybörjare, amatörer, snabba användare
+
+Flöde:
+1. Användare klickar "Ta över projekt" i builder
+2. Väljer "Snabb & Enkel" (default)
+3. Klickar "Ta över nu"
+4. Filer sparas i Redis Cloud
+5. Kan direkt börja redigera med AI
+
+Fördelar:
+✅ Inget GitHub-konto krävs
+✅ Tar ~2 sekunder
+✅ Kan ladda ner ZIP när som helst
+✅ AI-redigering fungerar direkt
+
+Nackdelar:
+❌ Ingen versionshistorik
+❌ Data har 30 dagars TTL i Redis
+
+
+================================================================================
+                              GITHUB MODE
+================================================================================
+
+Målgrupp: Utvecklare som vill ha full kontroll
+
+Flöde:
+1. Användare klickar "Ta över projekt" i builder
+2. Väljer "Pusha till GitHub"
+3. Ansluter GitHub-konto (OAuth) om inte redan gjort
+4. Anger valfritt repo-namn
+5. Klickar "Pusha till GitHub"
+6. Privat repo skapas på användarens GitHub
+7. Alla filer pushas dit
+8. Kopia sparas i Redis för snabb AI-redigering
+
+Fördelar:
+✅ Användaren äger 100% av koden
+✅ Full versionshistorik
+✅ Kan klona lokalt
+✅ Kan deploya var som helst
+✅ Kan samarbeta med andra
+
+Nackdelar:
+❌ Kräver GitHub-konto
+❌ Tar ~10-20 sekunder
+
+
+================================================================================
+                              TEKNISK ARKITEKTUR
+================================================================================
+
+API Routes:
+-----------
+POST /api/projects/[id]/takeover
+  Body: { mode: "redis" | "github", repoName?: string }
+  
+  Redis mode:
+    → Hämtar filer från projectData
+    → Sparar i Redis (saveProjectFiles)
+    → Sparar metadata (saveProjectMeta)
+    → Returnerar success
+    
+  GitHub mode:
+    → Hämtar filer från projectData
+    → Skapar GitHub repo via API
+    → Pushar alla filer (blobs → tree → commit → ref)
+    → Sparar kopia i Redis
+    → Sparar metadata
+    → Returnerar repo URL
+
+POST /api/agent/edit
+  Body: { projectId: string, instruction: string, previousResponseId?: string }
+  
+  → Hämtar projektmetadata från Redis
+  → Skapar AgentContext (auto-detect storage type)
+  → Kör OpenAI Responses API med tools
+  → Uppdaterar filer i Redis (och GitHub om github-mode)
+  → Returnerar ändringar och agent-svar
+
+
+Redis Funktioner (lib/redis.ts):
+--------------------------------
+saveProjectFiles(projectId, files)    - Spara alla filer
+getProjectFiles(projectId)            - Hämta alla filer
+updateProjectFile(projectId, path, content) - Uppdatera en fil
+deleteProjectFile(projectId, path)    - Ta bort en fil
+saveProjectMeta(meta)                 - Spara metadata
+getProjectMeta(projectId)             - Hämta metadata
+listUserTakenOverProjects(userId)     - Lista användarens projekt
+
+Redis Keys:
+  project:files:{projectId}  → JSON array av filer
+  project:meta:{projectId}   → JSON metadata objekt
+  TTL: 30 dagar
+
+
+OpenAI Agent (lib/openai-agent.ts):
+-----------------------------------
+Tools:
+  - read_file(path)                    → Läs fil från Redis/GitHub
+  - update_file(path, content, msg)    → Uppdatera fil
+  - list_files(path?)                  → Lista alla filer
+
+Modell: gpt-4.1
+API: OpenAI Responses API (med function calling)
+Stateful: Ja (previous_response_id för multi-turn)
+
+
+================================================================================
+                              FRONTEND KOMPONENTER
+================================================================================
+
+TakeoverModal (components/takeover-modal.tsx):
+----------------------------------------------
+- Visar två alternativ: Simple / GitHub
+- Hanterar GitHub OAuth-anslutning
+- Visar progress och resultat
+- Anpassad för både nybörjare och utvecklare
+
+ProjectEditorPage (app/project/[repoId]/page.tsx):
+--------------------------------------------------
+- Editor-vy för övertagna projekt
+- Chat-interface för AI-instruktioner
+- Visar fil-lista
+- Kostar 1 💎 per redigering
+
+
+================================================================================
+                              DATAMODELLER
+================================================================================
+
+ProjectFile:
+{
+  path: string;        // "src/app/page.tsx"
+  content: string;     // Filinnehåll
+  lastModified?: string; // ISO timestamp
+}
+
+ProjectMeta:
+{
+  projectId: string;
+  userId: string;
+  name: string;
+  takenOverAt: string; // ISO timestamp
+  storageType: "redis" | "github";
+  githubRepo?: string;
+  githubOwner?: string;
+  filesCount: number;
+}
+
+AgentContext:
+{
+  projectId: string;
+  storageType: "redis" | "github";
+  githubToken?: string;
+  repoFullName?: string;
+  previousResponseId?: string;
+}
+
+
+================================================================================
+                              MILJÖVARIABLER
+================================================================================
+
+Krävs för GitHub OAuth:
+  GITHUB_CLIENT_ID=xxx
+  GITHUB_CLIENT_SECRET=xxx
+  NEXT_PUBLIC_BASE_URL=https://sajtmaskin-1.onrender.com
+
+Krävs för Redis:
+  REDIS_HOST=redis-12352.fcrce259.eu-central-1-3.ec2.cloud.redislabs.com
+  REDIS_PORT=12352
+  REDIS_USERNAME=default
+  REDIS_PASSWORD=xxx
+
+Krävs för OpenAI Agent:
+  OPENAI_API_KEY=sk-xxx
+
+
+================================================================================
+                              KOSTNAD
+================================================================================
+
+Takeover: GRATIS
+AI-redigering: 1 💎 (diamant) per instruktion
+
+Test-användare (test@gmail.com) har obegränsade diamanter.
+
+
+================================================================================
+                              FRAMTIDA FÖRBÄTTRINGAR
+================================================================================
+
+[ ] Webhook för att synka GitHub → Redis vid externa ändringar
+[ ] "Mina övertagna projekt" - dedikerad lista-vy
+[ ] Deploy-integration (Vercel, Netlify)
+[ ] Collaboration - bjud in andra att redigera
+[ ] Bildgenerering via AI_BILD_OCH_VID_2.py
+[ ] Undo/redo för AI-ändringar
+
+
+================================================================================
+                              FILER I DENNA IMPLEMENTATION
+================================================================================
+
+Backend:
+  app/src/app/api/auth/github/route.ts          - Start GitHub OAuth
+  app/src/app/api/auth/github/callback/route.ts - Handle OAuth callback
+  app/src/app/api/projects/[id]/takeover/route.ts - Takeover endpoint
+  app/src/app/api/agent/edit/route.ts           - AI edit endpoint
+  app/src/lib/openai-agent.ts                   - OpenAI agent logic
+  app/src/lib/redis.ts                          - Redis storage functions
+  app/src/lib/database.ts                       - SQLite + GitHub columns
+
+Frontend:
+  app/src/components/takeover-modal.tsx         - Takeover UI modal
+  app/src/app/project/[repoId]/page.tsx         - Project editor page
+  app/src/app/builder/page.tsx                  - "Ta över" button
+  app/src/lib/auth-store.ts                     - GitHub status in state
+
+
+================================================================================
+                              GIT BRANCH
+================================================================================
+
+Branch: tresteg
+Status: Ready for testing/merge
+
+Commits:
+- feat: Add Project Takeover + OpenAI Agent editing
+- fix: Prevent double message execution in chat panel
+- feat: Add two takeover modes - Simple (Redis) and GitHub
+- fix: Add id/name attributes to form inputs for accessibility
+
+
+================================================================================
+                    Senast uppdaterad: 2025-12-04
+================================================================================
+

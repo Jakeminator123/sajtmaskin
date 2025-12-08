@@ -1,0 +1,393 @@
+2) "BUGGAR OCH STRUKTURELLA PROBLEM I SAJTMASKIN
+=============================================
+Granskning genomförd: 2025-01-27
+Omfattning: Hela applikationen (app/src)
+
+================================================================================
+1. KRITISKA BUGGAR OCH SÄKERHETSPROBLE
+================================================================================
+
+1.1 ADMIN-AUTENTISERING HAR HÅRDKODAD EMAIL
+   Fil: app/src/app/admin/page.tsx, rad 175
+   Problem: Email "test@gmail.com" är hårdkodad i frontend-koden
+   Risk: Om någon ändrar admin-email i backend så fungerar inte admin-panelen
+   Lösning: Använd TEST_USER_EMAIL från config istället
+
+1.2 SQL INJECTION RISK I ADMIN ROUTE
+   Fil: app/src/app/api/admin/database/route.ts, rad 158
+   Problem: `db.prepare(\`DELETE FROM ${table}\`).run()` använder template literal
+   Risk: Om table-värdet kommer från användarinput kan SQL injection ske
+   Status: Delvis skyddad via allowedTables-array, men ändå riskabelt
+   Lösning: Använd prepared statements med placeholder även för tabellnamn
+
+1.3 JWT SECRET HAR FALLBACK I PRODUCTION
+   Fil: app/src/lib/config.ts, rad 83
+   Problem: Om JWT_SECRET saknas används "dev-secret-change-in-production"
+   Risk: Säkerhetsrisk om secret saknas i production
+   Lösning: Kasta error i production istället för att använda fallback
+
+1.4 MISSANDE VALIDERING AV USER INPUT
+   Fil: app/src/app/api/projects/route.ts, rad 42-50
+   Problem: Ingen validering av name, category, description längd eller innehåll
+   Risk: XSS, databasöversvämning, eller andra attacker
+   Lösning: Lägg till input validation och sanitization
+
+1.5 HÅRDKODAD TEST USER EMAIL I FRONTEND
+   Fil: app/src/app/admin/page.tsx, rad 175 och 414
+   Problem: "test@gmail.com" är hårdkodad på flera ställen
+   Risk: Inkonsistens om TEST_USER_EMAIL ändras i backend
+   Lösning: Använd environment variable eller config
+
+================================================================================
+2. TYPESCRIPT TYP-SÄKERHETSPROBLEM
+================================================================================
+
+2.1 ÖVERDRIVEN ANVÄNDNING AV 'any' TYP
+   Filer: 
+   - app/src/lib/database.ts (flera ställen)
+   - app/src/app/api/projects/route.ts, rad 13
+   Problem: Många `as any[]` och `as any` casts
+   Risk: Runtime errors som inte fångas av TypeScript
+   Exempel:
+   - rad 729: `stmt.all(projectId) as any[]`
+   - rad 1231: `stmt.all() as any[]`
+   - rad 1843: `.get(cutoffStr) as any`
+   Lösning: Definiera korrekta typer för alla database queries
+
+2.2 MISSANDE TYPER FÖR PROJECT DATA
+   Fil: app/src/lib/database.ts, rad 431-432
+   Problem: `files: any[]` och `messages: any[]` i ProjectData interface
+   Lösning: Definiera specifika typer för files och messages
+
+2.3 TYPE ASSERTIONS ISTÄLLET FÖR VALIDATION
+   Fil: app/src/lib/database.ts, flera ställen
+   Problem: Använder `as Type` utan att validera data först
+   Risk: Runtime errors om databasen returnerar oväntad data
+   Lösning: Lägg till runtime validation eller använd type guards
+
+================================================================================
+3. ERROR HANDLING OCH FELHANTERING
+================================================================================
+
+3.1 INKONSISTENT ERROR HANDLING
+   Filer: Många API routes
+   Problem: Vissa routes returnerar generiska felmeddelanden, andra är specifika
+   Exempel:
+   - app/src/app/api/generate/route.ts har bra error handling
+   - app/src/app/api/projects/route.ts har minimal error handling
+   Lösning: Standardisera error handling med en gemensam error handler
+
+3.2 MISSANDE ERROR HANDLING I DATABASE OPERATIONS
+   Fil: app/src/lib/database.ts
+   Problem: Många database operations saknar try-catch
+   Exempel: 
+   - getAllProjects() saknar error handling
+   - getProjectById() saknar error handling
+   Risk: Applikationen kan krascha vid database errors
+   Lösning: Lägg till try-catch i alla database operations
+
+3.3 REDIS ERRORS IGNORERAS
+   Fil: app/src/lib/redis.ts
+   Problem: Många Redis-operationer har try-catch men fortsätter med null return
+   Risk: Silent failures kan leda till oväntat beteende
+   Lösning: Logga errors mer konsekvent och överväg att kasta errors vid kritiska operationer
+
+3.4 MISSANDE VALIDATION AV API RESPONSES
+   Fil: app/src/lib/api-client.ts
+   Problem: Validerar inte alltid att API responses har rätt struktur
+   Risk: Runtime errors om API returnerar oväntad data
+   Lösning: Lägg till schema validation för API responses
+
+================================================================================
+4. PERFORMANCE OCH SKALBARHETSPROBLEM
+================================================================================
+
+4.1 N+1 QUERY PROBLEM
+   Fil: app/src/app/api/projects/route.ts, rad 23
+   Problem: getAllProjects() hämtar alla projekt utan pagination
+   Risk: Långsamma queries när antal projekt växer
+   Lösning: Lägg till pagination och limit
+
+4.2 MISSANDE DATABASE INDEXES
+   Fil: app/src/lib/database.ts
+   Problem: Vissa queries saknar indexes för vanliga sökningar
+   Exempel: Sökningar på company_name, industry kan vara långsamma
+   Lösning: Lägg till indexes för vanliga query patterns
+
+4.3 REDIS CONNECTION POOLING
+   Fil: app/src/lib/redis.ts
+   Problem: Skapar en singleton Redis client men ingen connection pooling
+   Risk: Kan bli en bottleneck vid hög belastning
+   Lösning: Överväg connection pooling eller Redis cluster
+
+4.4 INEFFEKTIV CACHING
+   Fil: app/src/app/api/projects/route.ts, rad 12-26
+   Problem: Cache TTL är 120 sekunder men invalidates vid varje POST
+   Risk: Cache misslyckas ofta och ger liten fördel
+   Lösning: Överväg längre TTL eller smartare cache invalidation
+
+4.5 MISSANDE RATE LIMITING
+   Problem: Ingen rate limiting på kritiska endpoints
+   Risk: DoS-attacker eller API abuse
+   Lösning: Implementera rate limiting med Redis eller middleware
+
+================================================================================
+5. KODKVALITET OCH BEST PRACTICES
+================================================================================
+
+5.1 DUPLICERAD KOD
+   Problem: Många liknande patterns upprepas
+   Exempel:
+   - Error handling patterns upprepas i varje API route
+   - Database query patterns upprepas
+   Lösning: Skapa helper functions eller middleware
+
+5.2 MAGIC NUMBERS OCH STRINGS
+   Filer: Många
+   Problem: Hårdkodade värden utan konstanter
+   Exempel:
+   - app/src/app/admin/page.tsx, rad 175: "test@gmail.com"
+   - app/src/lib/database.ts, rad 78: DEFAULT 5 (diamonds)
+   Lösning: Flytta till config eller konstanter
+
+5.3 MISSANDE VALIDATION
+   Problem: Många funktioner validerar inte input ordentligt
+   Exempel:
+   - createProject() validerar inte name längd
+   - saveProjectData() validerar inte data struktur
+   Lösning: Lägg till input validation med Zod eller liknande
+
+5.4 INKONSISTENT LOGGING
+   Problem: Vissa delar använder console.log, andra debugLog
+   Exempel:
+   - app/src/lib/database.ts använder både console.log och debugLog
+   - app/src/lib/redis.ts använder console.error
+   Lösning: Standardisera logging med en gemensam logger
+
+5.5 MISSANDE COMMENTS OCH DOCUMENTATION
+   Problem: Vissa komplexa funktioner saknar dokumentation
+   Exempel: orchestrator-agent.ts har bra docs, men många andra saknar
+   Lösning: Lägg till JSDoc comments för alla publika funktioner
+
+================================================================================
+6. DATABASE-SPECIFIKA PROBLEM
+================================================================================
+
+6.1 MIGRATION HANDLING
+   Fil: app/src/lib/database.ts, rad 85-111
+   Problem: ALTER TABLE statements körs med try-catch för att hantera befintliga kolumner
+   Risk: Om migration misslyckas av annan anledning ignoreras det
+   Lösning: Använd en riktig migration system eller checka kolumner explicit
+
+6.2 TRANSACTION MANAGEMENT
+   Problem: Många database operations saknar transactions
+   Exempel: createProject() skapar både project och project_data utan transaction
+   Risk: Data inconsistency om andra operationen misslyckas
+   Lösning: Använd transactions för relaterade operations
+
+6.3 MISSANDE FOREIGN KEY VALIDATION
+   Problem: Vissa operations validerar inte foreign keys innan insert
+   Risk: Database errors eller orphaned records
+   Lösning: Validera foreign keys innan inserts eller använd database constraints
+
+6.4 DATABASE CONNECTION LEAKS
+   Problem: Ingen explicit connection cleanup
+   Risk: Connection leaks vid långvarig körning
+   Lösning: Implementera connection pooling och cleanup
+
+================================================================================
+7. SECURITY ISSUES
+================================================================================
+
+7.1 SESSION MANAGEMENT
+   Fil: app/src/lib/session.ts, rad 58
+   Problem: TODO-kommentar om session validation i production
+   Risk: Sessions kan vara osäkra om inte validerade mot session store
+   Lösning: Implementera session validation mot Redis/DB
+
+7.2 PASSWORD HASHING
+   Fil: app/src/lib/auth.ts, rad 35-40
+   Problem: Använder PBKDF2 med 100000 iterations (kan vara för lite)
+   Risk: Långsammare hashning kan vara bättre för säkerhet
+   Lösning: Överväg att öka iterations eller använda bcrypt/scrypt
+
+7.3 CORS OCH CSRF PROTECTION
+   Problem: Ingen explicit CORS eller CSRF protection synlig
+   Risk: Cross-site attacks
+   Lösning: Implementera CORS och CSRF protection
+
+7.4 SENSITIVE DATA I LOGS
+   Problem: Vissa logs kan innehålla känslig data
+   Exempel: Error messages kan exponera intern struktur
+   Lösning: Sanitize logs innan output
+
+================================================================================
+8. FRONTEND-SPECIFIKA PROBLEM
+================================================================================
+
+8.1 MISSANDE LOADING STATES
+   Problem: Vissa komponenter saknar loading states
+   Risk: Användare vet inte när operationer pågår
+   Lösning: Lägg till loading indicators
+
+8.2 MISSANDE ERROR BOUNDARIES
+   Problem: Ingen React Error Boundary synlig
+   Risk: Applikationen kan krascha helt vid errors
+   Lösning: Implementera Error Boundaries
+
+8.3 INKONSISTENT STATE MANAGEMENT
+   Problem: Använder både useState, Zustand, och localStorage
+   Risk: State kan bli out of sync
+   Lösning: Standardisera state management
+
+8.4 MISSANDE ACCESSIBILITY
+   Problem: Många komponenter saknar ARIA labels och keyboard navigation
+   Risk: Applikationen är inte tillgänglig för alla användare
+   Lösning: Lägg till accessibility features
+
+================================================================================
+9. API DESIGN PROBLEM
+================================================================================
+
+9.1 INKONSISTENT RESPONSE FORMATS
+   Problem: Vissa endpoints returnerar olika response strukturer
+   Exempel: Vissa har success: boolean, andra inte
+   Lösning: Standardisera API response format
+
+9.2 MISSANDE API VERSIONING
+   Problem: Ingen API versioning
+   Risk: Breaking changes kan påverka klienter
+   Lösning: Implementera API versioning (/api/v1/...)
+
+9.3 MISSANDE PAGINATION
+   Problem: Många list-endpoints saknar pagination
+   Risk: Stora responses kan vara långsamma
+   Lösning: Lägg till pagination för alla list-endpoints
+
+9.4 MISSANDE API DOCUMENTATION
+   Problem: Ingen OpenAPI/Swagger dokumentation
+   Risk: Utvecklare vet inte hur API:et fungerar
+   Lösning: Generera API dokumentation
+
+================================================================================
+10. TESTNING OCH KVALITETSSÄKRING
+================================================================================
+
+10.1 MISSANDE UNIT TESTS
+   Problem: Ingen test-kod synlig i projektet
+   Risk: Regression bugs kan introduceras
+   Lösning: Lägg till unit tests för kritiska funktioner
+
+10.2 MISSANDE INTEGRATION TESTS
+   Problem: Ingen integration test-kod
+   Risk: API endpoints kan ha bugs som inte upptäcks
+   Lösning: Lägg till integration tests för API routes
+
+10.3 MISSANDE E2E TESTS
+   Problem: Ingen end-to-end test-kod
+   Risk: Användarflöden kan vara trasiga
+   Lösning: Lägg till E2E tests för kritiska flöden
+
+================================================================================
+11. DEPLOYMENT OCH INFRASTRUKTUR
+================================================================================
+
+11.1 MISSANDE HEALTH CHECKS
+   Problem: Ingen health check endpoint synlig
+   Risk: Deployment tools kan inte verifiera att applikationen fungerar
+   Lösning: Implementera /api/health endpoint
+
+11.2 MISSANDE MONITORING
+   Problem: Ingen monitoring eller alerting synlig
+   Risk: Problem upptäcks för sent
+   Lösning: Lägg till monitoring (Sentry, DataDog, etc.)
+
+11.3 MISSANDE BACKUP STRATEGY
+   Problem: Ingen automatisk backup av database synlig
+   Risk: Data kan gå förlorad
+   Lösning: Implementera automatiska backups
+
+================================================================================
+12. SPECIFIKA KOD-PROBLEM
+================================================================================
+
+12.1 ORCHESTRATOR AGENT - WEB SEARCH SIMULERING
+   Fil: app/src/lib/orchestrator-agent.ts, rad 324-339
+   Problem: "Web search" är faktiskt bara en GPT completion, inte riktig web search
+   Risk: Användare förväntar sig riktig web search men får simulering
+   Lösning: Implementera riktig web search eller dokumentera att det är simulering
+
+12.2 ADMIN PAGE - HÅRDKODAD EMAIL CHECK
+   Fil: app/src/app/admin/page.tsx, rad 175
+   Problem: Kollar mot "test@gmail.com" istället för TEST_USER_EMAIL
+   Risk: Om TEST_USER_EMAIL ändras fungerar inte admin login
+   Lösning: Använd TEST_USER_EMAIL från config
+
+12.3 DATABASE - MISSANDE UNIQUE CONSTRAINT VALIDATION
+   Fil: app/src/lib/database.ts
+   Problem: createUser() kollar om email finns men race condition möjlig
+   Risk: Duplicerade användare kan skapas vid samtidiga requests
+   Lösning: Använd database UNIQUE constraint och hantera errors
+
+12.4 REDIS - MISSANDE CONNECTION ERROR HANDLING
+   Fil: app/src/lib/redis.ts, rad 72-74
+   Problem: Error event loggas men client används fortfarande
+   Risk: Operations kan misslyckas tyst
+   Lösning: Implementera retry logic eller failover
+
+12.5 V0 GENERATOR - MISSANDE POLLING TIMEOUT
+   Fil: app/src/lib/v0-generator.ts
+   Problem: Polling loop saknar explicit timeout
+   Risk: Kan hänga för evigt om v0 API inte svarar
+   Lösning: Lägg till max polling time
+
+================================================================================
+13. REKOMMENDATIONER FÖR FÖRBÄTTRINGAR
+================================================================================
+
+13.1 PRIORITET 1 (KRITISKA):
+   - Fixa SQL injection risk i admin route
+   - Implementera riktig session validation
+   - Lägg till input validation på alla endpoints
+   - Fixa hårdkodad admin email
+
+13.2 PRIORITET 2 (VIKTIGA):
+   - Lägg till error handling i alla database operations
+   - Implementera pagination för list-endpoints
+   - Standardisera error handling
+   - Lägg till rate limiting
+
+13.3 PRIORITET 3 (FÖRBÄTTRINGAR):
+   - Lägg till unit tests
+   - Standardisera logging
+   - Förbättra TypeScript types
+   - Lägg till API dokumentation
+
+13.4 PRIORITET 4 (NICE TO HAVE):
+   - Implementera health checks
+   - Lägg till monitoring
+   - Förbättra accessibility
+   - Lägg till E2E tests
+
+================================================================================
+14. SAMMANFATTNING
+================================================================================
+
+Totalt antal problem identifierade: ~50+
+Kritiska säkerhetsproblem: 5
+Type safety problem: 10+
+Performance problem: 5+
+Kodkvalitetsproblem: 15+
+Saknade features: 10+
+
+ÖVERGRIPANDE BEDÖMNING:
+- Koden är funktionell men har många förbättringsområden
+- Säkerheten behöver förbättras, särskilt input validation och session management
+- Type safety kan förbättras genom att minska användning av 'any'
+- Error handling är inkonsistent och behöver standardiseras
+- Testning saknas helt och bör prioriteras
+
+REKOMMENDATION:
+Börja med prioritet 1-problemen för att säkra applikationen, sedan fokusera på
+kodkvalitet och testning. Många av problemen är relaterade och kan fixas tillsammans.
+"

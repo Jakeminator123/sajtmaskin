@@ -1,0 +1,448 @@
+1) "═══════════════════════════════════════════════════════════════════════════════
+SAJTMASKIN - KODGRANSKNING OCH FELRAPPORT
+═══════════════════════════════════════════════════════════════════════════════
+Genererad: 2025-01-27
+Syfte: Identifiera buggar, felaktigheter, bubblrad kod och strukturella problem
+
+═══════════════════════════════════════════════════════════════════════════════
+1. SÄKERHETSPROBLEM
+═══════════════════════════════════════════════════════════════════════════════
+
+1.1 HARDCODED REDIS HOST I CONFIG
+   Fil: app/src/lib/config.ts:189
+   Problem: Redis host är hårdkodad som fallback:
+   "redis-12352.c135.eu-central-1-1.ec2.redns.redis-cloud.com"
+   Risk: Om miljövariabel saknas används denna specifika host, vilket kan vara
+   felaktig i olika miljöer.
+   Rekommendation: Ta bort hardcoded fallback, kräv REDIS_HOST i miljövariabler.
+
+1.2 JWT SECRET FALLBACK I PRODUCTION
+   Fil: app/src/lib/config.ts:83
+   Problem: "dev-secret-change-in-production" används som fallback även i production
+   om JWT_SECRET saknas.
+   Risk: Säkerhetsrisk om secret saknas i production.
+   Rekommendation: Kasta fel i production istället för att använda fallback.
+
+1.3 TEST USER CREDENTIALS I DATABASE.TS
+   Fil: app/src/lib/database.ts:19-20
+   Problem: TEST_USER_EMAIL och TEST_USER_PASSWORD exporteras direkt från env vars.
+   Risk: Kan exponeras i logs eller felmeddelanden.
+   Rekommendation: Använd getters som i SECRETS-objektet i config.ts.
+
+1.4 SESSION VALIDATION TODO
+   Fil: app/src/lib/session.ts:58
+   Problem: Kommentar "TODO: In production, validate against session store (Redis/DB)"
+   Risk: Sessioner valideras inte korrekt i production.
+   Rekommendation: Implementera session validation mot Redis/DB.
+
+═══════════════════════════════════════════════════════════════════════════════
+2. TYPE SAFETY PROBLEM
+═══════════════════════════════════════════════════════════════════════════════
+
+2.1 EXTENSIVE USE OF 'any' TYPE
+   Problem: 263 instanser av 'any' hittades i kodbasen.
+   Filer med flest instanser:
+   - info/old_more/ (dokumentationsfiler, OK)
+   - app/src/lib/database.ts (många 'as any' casts)
+   - app/src/lib/redis.ts (JSON.parse returnerar any)
+   Risk: Förlorad type safety, svårare att fånga fel vid compile-time.
+   Rekommendation: Definiera typer för alla JSON.parse-resultat och database rows.
+
+2.2 DATABASE ROW PARSING
+   Fil: app/src/lib/database.ts
+   Problem: Många ställen använder 'as any' eller 'as Type' utan validering:
+   - getProjectById: return stmt.get(id) as Project | null;
+   - getUserById: return parseUserRow(row);
+   Risk: Om databasstrukturen ändras kan fel data returneras utan varningar.
+   Rekommendation: Implementera runtime validation med Zod eller liknande.
+
+2.3 JSON.PARSE WITHOUT VALIDATION
+   Fil: app/src/lib/redis.ts (många ställen)
+   Problem: JSON.parse(data) utan try-catch eller validering:
+   - getCachedUserSession: return JSON.parse(data) as CachedUser;
+   - getCache: return JSON.parse(data) as T;
+   Risk: Om Redis innehåller korrupt JSON kan applikationen krascha.
+   Rekommendation: Lägg till try-catch och validering (redan delvis implementerat
+   i vissa funktioner, men inte konsekvent).
+
+═══════════════════════════════════════════════════════════════════════════════
+3. ERROR HANDLING PROBLEM
+═══════════════════════════════════════════════════════════════════════════════
+
+3.1 INCONSISTENT ERROR HANDLING
+   Problem: Olika error handling patterns i olika filer:
+   - redis.ts: Bra try-catch med fallback till null/empty
+   - v0-generator.ts: Kastar errors vid vissa fel, returnerar result vid andra
+   - api-client.ts: Returnerar error objects istället för att kasta
+   Risk: Svårt att förutsäga beteende, inkonsekvent användarupplevelse.
+   Rekommendation: Standardisera error handling pattern (t.ex. Result<T, E> type).
+
+3.2 SILENT FAILURES
+   Fil: app/src/lib/redis.ts (flera funktioner)
+   Problem: Många funktioner returnerar null vid fel utan att logga:
+   - getCache: return null vid error (loggar men användaren ser inget)
+   - getProjectFiles: return null vid error
+   Risk: Användare får ingen feedback när cache misslyckas.
+   Rekommendation: Logga errors konsekvent och överväg att exponera error state.
+
+3.3 MISSING ERROR BOUNDARIES
+   Problem: Inga React Error Boundaries hittades i komponentstrukturen.
+   Risk: Om en komponent kraschar kan hela applikationen krascha.
+   Rekommendation: Lägg till Error Boundaries runt huvudkomponenter.
+
+3.4 RATE LIMIT FALLBACK
+   Fil: app/src/lib/redis.ts:210-211
+   Problem: Om Redis saknas, tillåts alla requests:
+   "if (!redis) { return { allowed: true, remaining: maxRequests, resetIn: 0 }; }"
+   Risk: Utan Redis finns ingen rate limiting alls.
+   Rekommendation: Implementera in-memory rate limiting som fallback.
+
+═══════════════════════════════════════════════════════════════════════════════
+4. KODDUPLIKATION
+═══════════════════════════════════════════════════════════════════════════════
+
+4.1 DUPLICATE ERROR HANDLING I API-CLIENT
+   Fil: app/src/lib/api-client.ts
+   Problem: generateWebsite() och refineWebsite() har nästan identisk error handling:
+   - Samma timeout logic
+   - Samma JSON parsing error handling
+   - Samma network error handling
+   Rekommendation: Extrahera till en gemensam fetchWithErrorHandling() funktion.
+
+4.2 DUPLICATE CONSOLE.LOG PATTERNS
+   Problem: 702 instanser av console.log/error/warn i kodbasen.
+   Filer med flest:
+   - app/src/lib/v0-generator.ts (många debug logs)
+   - app/src/lib/openai-agent.ts (många debug logs)
+   - app/src/lib/redis.ts (error logs)
+   Risk: Svårt att kontrollera logging, kan exponera känslig data i production.
+   Rekommendation: Använd debugLog() konsekvent istället för console.log direkt.
+
+4.3 DUPLICATE JSON PARSING LOGIC
+   Fil: app/src/lib/redis.ts och app/src/lib/database.ts
+   Problem: JSON.parse med error handling upprepas många gånger.
+   Rekommendation: Skapa en safeJsonParse<T>() helper funktion.
+
+4.4 DUPLICATE PROJECT FILE LOADING
+   Problem: Flera ställen laddar project files med liknande logik:
+   - /api/projects/[id]/files
+   - /api/projects/[id]/download
+   - openai-agent.ts
+   Rekommendation: Använd loadProjectFilesWithFallback() konsekvent (redan delvis
+   implementerat i project-files.ts).
+
+═══════════════════════════════════════════════════════════════════════════════
+5. PERFORMANCE PROBLEM
+═══════════════════════════════════════════════════════════════════════════════
+
+5.1 REDIS CLIENT SINGLETON PROBLEM
+   Fil: app/src/lib/redis.ts:40
+   Problem: redisClient är en module-level variabel som kan skapa problem i
+   serverless miljöer där moduler kan återanvändas mellan requests.
+   Risk: Connection leaks eller stale connections.
+   Rekommendation: Överväg connection pooling eller per-request clients.
+
+5.2 DATABASE CONNECTION SINGLETON
+   Fil: app/src/lib/database.ts:38
+   Problem: db är en module-level singleton, kan vara problem i serverless.
+   Risk: Connection leaks eller race conditions.
+   Rekommendation: Överväg connection pooling eller per-request connections.
+
+5.3 MISSING DATABASE INDEXES
+   Fil: app/src/lib/database.ts
+   Problem: Vissa queries saknar indexes:
+   - getProjectsBySession: använder session_id (har index ✓)
+   - getProjectsByUser: använder user_id (har index ✓)
+   - searchCompanyProfiles: LIKE queries utan fulltext index
+   Rekommendation: Lägg till fulltext index för company_profiles search.
+
+5.4 LARGE JSON STORAGE IN DATABASE
+   Fil: app/src/lib/database.ts
+   Problem: Stora JSON-strängar lagras direkt i SQLite:
+   - project_data.files_json
+   - project_data.messages_json
+   - company_profiles.* (många JSON fields)
+   Risk: SQLite prestanda kan bli dålig med stora JSON documents.
+   Rekommendation: Överväg att flytta stora JSON till blob storage eller separata tabeller.
+
+5.5 MISSING CACHE INVALIDATION STRATEGY
+   Fil: app/src/lib/redis.ts
+   Problem: Cache invalidation är manuell och kan missas:
+   - updateCachedUserDiamonds: uppdaterar cache manuellt
+   - invalidateUserSession: måste anropas manuellt
+   Risk: Stale cache data kan visas.
+   Rekommendation: Implementera automatisk cache invalidation via events/hooks.
+
+═══════════════════════════════════════════════════════════════════════════════
+6. KODSTRUKTUR OCH ARKITEKTUR
+═══════════════════════════════════════════════════════════════════════════════
+
+6.1 STORE.TS ÄR FÖR STOR
+   Fil: app/src/lib/store.ts (565+ rader)
+   Problem: Zustand store innehåller för mycket logik:
+   - State management
+   - API calls (saveToDatabase)
+   - Business logic (checkProjectOwnership)
+   Risk: Svårt att testa, svårt att underhålla.
+   Rekommendation: Separera i:
+   - store.ts (endast state)
+   - store-actions.ts (actions och business logic)
+   - store-api.ts (API calls)
+
+6.2 OPENAI-AGENT.TS ÄR FÖR STOR
+   Fil: app/src/lib/openai-agent.ts (1384+ rader)
+   Problem: Enorm fil med många ansvarsområden:
+   - Model configuration
+   - Task detection
+   - Context gathering
+   - Agent execution
+   - File operations
+   Risk: Svårt att testa, svårt att underhålla, svårt att förstå.
+   Rekommendation: Dela upp i:
+   - agent-config.ts (model configs)
+   - agent-task-detector.ts (task detection)
+   - agent-context.ts (context gathering)
+   - agent-executor.ts (main execution)
+   - agent-tools.ts (file operations)
+
+6.3 DATABASE.TS ÄR FÖR STOR
+   Fil: app/src/lib/database.ts (2088+ rader)
+   Problem: Enorm fil med alla database operations.
+   Risk: Svårt att navigera, svårt att testa.
+   Rekommendation: Dela upp i moduler:
+   - database/users.ts
+   - database/projects.ts
+   - database/audits.ts
+   - database/transactions.ts
+   - database/index.ts (exports)
+
+6.4 MISSING VALIDATION LAYER
+   Problem: Ingen konsekvent validering av:
+   - API request bodies
+   - Database inputs
+   - Environment variables
+   Risk: Invalid data kan sparas eller skickas vidare.
+   Rekommendation: Implementera Zod schemas för validering.
+
+6.5 INCONSISTENT NAMING CONVENTIONS
+   Problem: Blandning av svenska och engelska:
+   - Filer: engelska (store.ts, database.ts)
+   - Kommentarer: svenska
+   - Variabler: engelska
+   - UI text: svenska
+   Risk: Förvirring för utvecklare.
+   Rekommendation: Standardisera (föreslagen: kod/kommentarer engelska, UI svenska).
+
+═══════════════════════════════════════════════════════════════════════════════
+7. SPECIFIKA BUGGAR OCH FELAKTIGHETER
+═══════════════════════════════════════════════════════════════════════════════
+
+7.1 MISSING COMMA I API-CLIENT.TS
+   Fil: app/src/lib/api-client.ts:179
+   Problem: Syntax error - saknad komma efter requireAuth:
+   ```
+   requireAuth: data?.requireAuth,
+   ```
+   (Ser ut att vara fixat, men kontrollera)
+
+7.2 ESLINT DISABLE COMMENTS
+   Problem: 13 ställen använder eslint-disable utan förklaring:
+   - voice-recorder.tsx:120
+   - preview-panel.tsx:297
+   - navbar.tsx:74
+   - etc.
+   Risk: Döljer potentiella problem.
+   Rekommendation: Lägg till kommentarer som förklarar varför disable behövs.
+
+7.3 TODO KOMMENTARER SOM INTE ÄR IMPLEMENTERADE
+   Fil: app/src/lib/session.ts:58
+   Problem: "TODO: In production, validate against session store"
+   Status: Inte implementerat.
+   Rekommendation: Implementera eller skapa GitHub issue.
+
+   Fil: app/src/app/builder/page.tsx:389
+   Problem: "TODO: implement publish with backoffice"
+   Status: Inte implementerat.
+   Rekommendation: Implementera eller dokumentera att det är framtida funktion.
+
+7.4 POTENTIAL RACE CONDITION I STORE.TS
+   Fil: app/src/lib/store.ts:164
+   Problem: saveTimeout är en module-level variabel som kan skapa race conditions
+   om flera store instances används.
+   Risk: Auto-save kan missas eller köras flera gånger.
+   Rekommendation: Flytta timeout till store state eller använd refs.
+
+7.5 MISSING NULL CHECKS
+   Fil: app/src/lib/database.ts:478
+   Problem: getProjectById(id)! använder non-null assertion utan kontroll.
+   Risk: Kan returnera null och krascha.
+   Rekommendation: Lägg till null check eller ändra returntyp.
+
+7.6 INCONSISTENT ERROR MESSAGES
+   Problem: Error messages är på svenska i vissa ställen, engelska i andra:
+   - api-client.ts: svenska ("Servern returnerade ett tomt svar")
+   - v0-generator.ts: svenska ("Template not found")
+   - openai-agent.ts: engelska ("Failed to write file")
+   Risk: Inkonsekvent användarupplevelse.
+   Rekommendation: Standardisera till svenska för användarvisade fel.
+
+═══════════════════════════════════════════════════════════════════════════════
+8. TESTNING OCH KVALITET
+═══════════════════════════════════════════════════════════════════════════════
+
+8.1 INGA ENHETSTESTER
+   Problem: Inga test-filer hittades i kodbasen.
+   Risk: Ingen automatiserad verifiering av funktionalitet.
+   Rekommendation: Lägg till unit tests för kritiska funktioner (database, redis, agents).
+
+8.2 INGA INTEGRATIONSTESTER
+   Problem: Inga API integration tests.
+   Risk: API endpoints kan ha buggar som inte upptäcks.
+   Rekommendation: Lägg till integration tests för API routes.
+
+8.3 MISSING TYPE TESTS
+   Problem: Inga TypeScript type tests för komplexa typer.
+   Risk: Type errors kan missas.
+   Rekommendation: Överväg @ts-expect-error kommentarer för expected type errors.
+
+═══════════════════════════════════════════════════════════════════════════════
+9. DOKUMENTATION OCH KOMMENTARER
+═══════════════════════════════════════════════════════════════════════════════
+
+9.1 BRA DOKUMENTATION
+   Positivt: SYSTEM_ARCHITECTURE.ts är mycket bra dokumenterad.
+   Positivt: Många filer har bra header-kommentarer.
+
+9.2 MISSING JSDOC
+   Problem: Många funktioner saknar JSDoc kommentarer:
+   - openai-agent.ts: många funktioner utan dokumentation
+   - database.ts: vissa funktioner saknar dokumentation
+   Rekommendation: Lägg till JSDoc för alla publika funktioner.
+
+9.3 OUTDATED COMMENTS
+   Problem: Vissa kommentarer kan vara outdated:
+   - SYSTEM_ARCHITECTURE.ts: kontrollera att allt stämmer med nuvarande implementation
+   Rekommendation: Gör regelbunden review av dokumentation.
+
+═══════════════════════════════════════════════════════════════════════════════
+10. DEPENDENCIES OCH VERSIONER
+═══════════════════════════════════════════════════════════════════════════════
+
+10.1 REACT 19.0.0
+   Fil: app/package.json:32
+   Problem: React 19 är relativt ny och kan ha breaking changes.
+   Risk: Kompatibilitetsproblem med vissa bibliotek.
+   Rekommendation: Kontrollera att alla dependencies är kompatibla med React 19.
+
+10.2 NEXT.JS 15.5.7
+   Status: Senaste versionen, bra.
+   
+10.3 BETTER-SQLITE3
+   Fil: app/package.json:22
+   Status: Senaste versionen, bra.
+   Notera: Native dependency, kan vara problem i vissa deployment miljöer.
+
+═══════════════════════════════════════════════════════════════════════════════
+11. KONFIGURATION OCH MILJÖVARIABLER
+═══════════════════════════════════════════════════════════════════════════════
+
+11.1 MISSING .env.example
+   Problem: Ingen .env.example fil hittades för att dokumentera required env vars.
+   Risk: Svårt för nya utvecklare att sätta upp projektet.
+   Rekommendation: Skapa .env.example med alla required variabler (utan värden).
+
+11.2 ENVIRONMENT VALIDATION
+   Fil: app/src/lib/config.ts:285
+   Status: validateEnv() finns men anropas inte konsekvent.
+   Rekommendation: Anropa vid app startup (i middleware.ts eller layout.tsx).
+
+11.3 CONFIG LOGGING I PRODUCTION
+   Fil: app/src/lib/config.ts:274
+   Problem: logConfig() loggar database path och features i production.
+   Risk: Kan exponera intern struktur.
+   Rekommendation: Logga endast i development mode.
+
+═══════════════════════════════════════════════════════════════════════════════
+12. SPECIFIKA KODSMELIS
+═══════════════════════════════════════════════════════════════════════════════
+
+12.1 MAGIC NUMBERS
+   Problem: Många magic numbers utan konstanter:
+   - redis.ts: USER_SESSION_TTL = 60 * 60 * 24 * 7 (7 dagar)
+   - api-client.ts: timeout 5 minuter (300000 ms)
+   - database.ts: TEST_USER_DIAMONDS = 999999
+   Rekommendation: Definiera konstanter med beskrivande namn.
+
+12.2 LONG FUNCTIONS
+   Problem: Flera funktioner är för långa:
+   - runAgent() i openai-agent.ts: 300+ rader
+   - orchestrateWorkflow() i orchestrator-agent.ts: 400+ rader
+   Rekommendation: Dela upp i mindre funktioner.
+
+12.3 DEEP NESTING
+   Problem: Vissa funktioner har för djup nesting (4+ nivåer).
+   Rekommendation: Extrahera till separata funktioner eller använd early returns.
+
+12.4 COMPLEX CONDITIONALS
+   Problem: Vissa if-statements är för komplexa:
+   - openai-agent.ts: många nested conditions
+   Rekommendation: Extrahera till helper functions eller använd guard clauses.
+
+═══════════════════════════════════════════════════════════════════════════════
+13. REKOMMENDATIONER PRIORITERADE
+═══════════════════════════════════════════════════════════════════════════════
+
+HÖG PRIORITET:
+1. Fixa säkerhetsproblem (JWT secret, Redis host, session validation)
+2. Implementera error boundaries i React
+3. Standardisera error handling
+4. Lägg till input validation (Zod)
+5. Fixa type safety (ersätt 'any' med proper types)
+
+MEDEL PRIORITET:
+6. Dela upp stora filer (store.ts, openai-agent.ts, database.ts)
+7. Implementera unit tests
+8. Standardisera logging (använd debugLog konsekvent)
+9. Lägg till .env.example
+10. Fixa code duplication (error handling, JSON parsing)
+
+LÅG PRIORITET:
+11. Förbättra dokumentation (JSDoc)
+12. Refaktorera långa funktioner
+13. Lägg till integration tests
+14. Förbättra cache invalidation strategy
+
+═══════════════════════════════════════════════════════════════════════════════
+SLUT RAPPORT
+═══════════════════════════════════════════════════════════════════════════════
+
+Totalt antal problem identifierade: 50+
+Kritiska säkerhetsproblem: 4
+Type safety problem: 3
+Error handling problem: 4
+Kodduplikation: 4
+Performance problem: 5
+Strukturella problem: 6
+Specifika buggar: 6
+Testning: 3
+Dokumentation: 3
+Konfiguration: 3
+Kodsmells: 4
+
+ÖVERGRIPANDE BEDÖMNING:
+Kodbasen är väl strukturerad med bra separation of concerns, men har flera
+områden som behöver förbättras:
+- Säkerhet (env vars, session validation)
+- Type safety (många 'any' types)
+- Error handling (inkonsekvent)
+- Testning (saknas helt)
+- Kodorganisation (några filer är för stora)
+
+Positiva aspekter:
++ Bra dokumentation i SYSTEM_ARCHITECTURE.ts
++ Bra separation mellan frontend/backend
++ Användning av TypeScript
++ Bra caching strategy med Redis
++ Konsekvent användning av Next.js patterns
+
+═══════════════════════════════════════════════════════════════════════════════

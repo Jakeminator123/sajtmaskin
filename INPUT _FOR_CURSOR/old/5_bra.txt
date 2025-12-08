@@ -1,0 +1,382 @@
+5) "================================================================================
+SAJTMASKIN - BUGGAR, STRUKTURPROBLEM & FÖRBÄTTRINGSFÖRSLAG
+================================================================================
+Analyserad: 2024-12-08
+Kodbasens rot: /szr/
+
+================================================================================
+1. KRITISKA STRUKTURPROBLEM - DUPLICERADE MAPPAR
+================================================================================
+
+PROBLEM: Identiska gpt-api/ mappar finns på TRE ställen med exakt samma innehåll:
+  - /gpt-api/
+  - /info/gpt-api/
+  - /INPUT _FOR_CURSOR/gpt-api/
+
+PÅVERKAN:
+  - Förvirring om vilken version som är aktuell
+  - Risk för att uppdateringar görs i fel mapp
+  - Onödigt diskutrymme och Git-historik
+
+REKOMMENDATION:
+  Behåll EN plats (förslagsvis /docs/gpt-api/) och ta bort de andra.
+  Använd symlinks om referens behövs från flera ställen.
+
+--------------------------------------------------------------------------------
+
+PROBLEM: Mappnamn med mellanslag
+  - /INPUT _FOR_CURSOR/ har ett mellanslag före understräcket
+
+PÅVERKAN:
+  - Problem i terminal/CLI (måste använda quotes)
+  - Potentiella problem i scripts
+  - Icke-standard namnkonvention
+
+REKOMMENDATION:
+  Byt namn till /INPUT_FOR_CURSOR/ eller /input-for-cursor/
+
+
+================================================================================
+2. SÄKERHETSPROBLEM
+================================================================================
+
+PROBLEM: Hårdkodade fallback-hemligheter i config.ts (rad 83-84)
+  - JWT_SECRET har fallback: "dev-secret-change-in-production"
+  
+KOD (config.ts):
+  ```
+  return secret || "dev-secret-change-in-production";
+  ```
+
+PÅVERKAN:
+  - Om JWT_SECRET inte sätts i production = alla tokens kan förutsägas
+  - Allvarlig säkerhetsbrist om den fallbacken används i prod
+
+REKOMMENDATION:
+  Låt appen KRASCHA om JWT_SECRET saknas i production istället för fallback.
+  ```
+  if (!secret && IS_PRODUCTION) {
+    throw new Error("JWT_SECRET is required in production");
+  }
+  ```
+
+--------------------------------------------------------------------------------
+
+PROBLEM: Hårdkodade Redis-credentials i config.ts (rad 186-193)
+  ```
+  host: process.env.REDIS_HOST ||
+    "redis-12352.c135.eu-central-1-1.ec2.redns.redis-cloud.com",
+  port: parseInt(process.env.REDIS_PORT || "12352"),
+  ```
+
+PÅVERKAN:
+  - Exponerar Redis-instansens adress i kodbasen
+  - Kan leda till oönskade anslutningar om miljövariabler saknas
+
+REKOMMENDATION:
+  Ta bort hårdkodade fallbacks för känslig infrastruktur.
+
+--------------------------------------------------------------------------------
+
+PROBLEM: Test-användare med obegränsade credits (database.ts rad 21)
+  ```
+  export const TEST_USER_DIAMONDS = 999999;
+  ```
+
+PÅVERKAN:
+  - Risk för missbruk om TEST_USER_EMAIL läcker
+  - Ingen rate limiting för test-användare
+
+REKOMMENDATION:
+  - Aktivera test-user endast i development (IS_PRODUCTION check)
+  - Eller använd feature flag som kan stängas av
+
+
+================================================================================
+3. KODDUPLIKATION
+================================================================================
+
+PROBLEM: hashPassword() definieras DUBBELT
+  - /app/src/lib/auth.ts (rad 35-40)
+  - /app/src/lib/database.ts (rad 24-29) som hashPasswordInternal()
+
+KOD I AUTH.TS:
+  ```
+  export function hashPassword(password: string): string {
+    const salt = crypto.randomBytes(16).toString("hex");
+    const hash = crypto
+      .pbkdf2Sync(password, salt, 100000, 64, "sha512")
+      .toString("hex");
+    return `${salt}:${hash}`;
+  }
+  ```
+
+KOD I DATABASE.TS:
+  ```
+  function hashPasswordInternal(password: string): string {
+    const salt = crypto.randomBytes(16).toString("hex");
+    const hash = crypto
+      .pbkdf2Sync(password, salt, 100000, 64, "sha512")
+      .toString("hex");
+    return `${salt}:${hash}`;
+  }
+  ```
+
+PÅVERKAN:
+  - Duplicerad kod som måste underhållas på två ställen
+  - Risk för osynkade ändringar
+
+REKOMMENDATION:
+  Ta bort hashPasswordInternal() från database.ts och importera från auth.ts
+  (Obs: se upp för cirkulär import - kan behöva extrahera till egen utils-fil)
+
+
+================================================================================
+4. POTENTIELLA BUGGAR
+================================================================================
+
+PROBLEM: Race condition i store.ts saveTimeout (rad 164, 348-397)
+  - let saveTimeout: NodeJS.Timeout | null = null; är en modul-global variabel
+  - Om flera komponenter triggar saveToDatabase() samtidigt kan tidigare save avbrytas
+
+KOD:
+  ```
+  let saveTimeout: NodeJS.Timeout | null = null;
+  ...
+  if (saveTimeout) {
+    clearTimeout(saveTimeout);
+    saveTimeout = null;
+  }
+  ```
+
+PÅVERKAN:
+  - Data kan förloras om saves överlappar
+  - Användaren kan tro att data sparats när det inte har det
+
+REKOMMENDATION:
+  Använd debounce från ett bibliotek (lodash.debounce) eller implementera en queue.
+
+--------------------------------------------------------------------------------
+
+PROBLEM: Väldigt lång maxDuration i API-routes
+  - /api/generate: maxDuration = 900 (15 minuter)
+  - /api/refine: maxDuration = 900 (15 minuter)
+
+PÅVERKAN:
+  - Användare kan vänta 15 minuter på ett svar
+  - Serverresurser blockas länge
+  - Dålig användarupplevelse
+
+REKOMMENDATION:
+  - Implementera streaming för långvariga operationer
+  - Eller queue-baserad arkitektur med status-polling
+
+--------------------------------------------------------------------------------
+
+PROBLEM: Inkonsekvent felhantering i API-routes
+  - Vissa routes kastar errors, andra returnerar JSON med success: false
+  - Vissa fel loggas, andra inte
+
+EXEMPEL (generate/route.ts):
+  - Rad 140-150: Fångar v0Error och returnerar 500
+  - Rad 252-286: Generell catch som returnerar olika status beroende på felmeddelande
+
+REKOMMENDATION:
+  Skapa en gemensam error-handler middleware eller utility-funktion.
+
+
+================================================================================
+5. TYPNINGSPROBLEM (TypeScript)
+================================================================================
+
+PROBLEM: Användning av 'any' typ
+  - database.ts rad 591: const row = stmt.get(projectId) as any;
+  - database.ts rad 1188: const row = stmt.get(id) as any;
+  - database.ts rad 1203: const row = stmt.get(projectId) as any;
+  - database.ts rad 1421: const row = stmt.get(id) as any;
+  - Och många fler...
+
+PÅVERKAN:
+  - Förlorar TypeScript-säkerhet
+  - Svårare att refaktorisera
+  - Runtime-fel som kunde fångats vid kompilering
+
+REKOMMENDATION:
+  Definiera interface för alla database-rows och använd istället för 'any'.
+
+
+================================================================================
+6. LOGGNING & DEBUGGING
+================================================================================
+
+PROBLEM: 521 st console.log/console.error i produktionskod
+  - Fördelat över 83 filer
+
+PÅVERKAN:
+  - Svårt att filtrera viktiga loggar
+  - Prestanda-overhead (särskilt console.log i loopar)
+  - Känslig information kan läcka till browser console
+
+REKOMMENDATION:
+  - Använd debug.ts (som redan finns) konsekvent överallt
+  - Eller implementera en logger med nivåer (debug, info, warn, error)
+  - Konfigurera bort debug/info i production
+
+
+================================================================================
+7. API-DESIGN PROBLEM
+================================================================================
+
+PROBLEM: Inkonsekvent API-svar struktur
+  Vissa API:er returnerar:
+    { success: true, data: ... }
+  Andra returnerar:
+    { authenticated: true, user: ... }
+  Och andra:
+    { code: ..., files: ..., chatId: ... }
+
+REKOMMENDATION:
+  Standardisera alla API-svar till:
+  {
+    success: boolean,
+    data?: T,
+    error?: string,
+    meta?: { ... }
+  }
+
+
+================================================================================
+8. FRONTEND-PROBLEM
+================================================================================
+
+PROBLEM: Redundant villkor i home-page.tsx (rad 209)
+  ```
+  {isAuthenticated && firstName && firstName !== undefined && (
+  ```
+  
+  "firstName !== undefined" är redundant efter "firstName &&"
+
+PÅVERKAN:
+  - Förvirrande kod
+  - Minimal
+
+REKOMMENDATION:
+  Förenkla till: {isAuthenticated && firstName && (
+
+--------------------------------------------------------------------------------
+
+PROBLEM: Key-prop baserad på prompt i home-page.tsx (rad 299)
+  ```
+  key={auditGeneratedPrompt || "default"}
+  ```
+
+PÅVERKAN:
+  - Tvingar full re-render av PromptInput vid varje prompt-ändring
+  - Kan leda till förlorad state
+
+REKOMMENDATION:
+  Använd useEffect för att uppdatera värdet istället för att tvinga re-mount.
+
+
+================================================================================
+9. MINNESLÄCKOR & RESURSHANTERING
+================================================================================
+
+PROBLEM: Redis-client singleton utan cleanup
+  - redis.ts: let redisClient: Redis | null = null;
+  - Ingen hantering av process-shutdown
+
+PÅVERKAN:
+  - Öppna connections vid server-restart i development
+  - Potentiella minnesläckor vid hot-reload
+
+REKOMMENDATION:
+  Lägg till process event handlers:
+  ```
+  process.on('SIGINT', () => closeRedis());
+  process.on('SIGTERM', () => closeRedis());
+  ```
+
+
+================================================================================
+10. MAPSTRUKTUR & ORGANISATION
+================================================================================
+
+PROBLEM: Flera dokumentations-/info-mappar med överlappande innehåll
+  - /docs/
+  - /info/
+  - /info/old_more/
+  - /INPUT _FOR_CURSOR/
+  - /INPUT _FOR_CURSOR/old/
+  - /gpt-api/
+
+REKOMMENDATION:
+  Konsolidera till:
+  - /docs/ - All dokumentation
+  - /docs/archive/ - Gammal dokumentation
+  - Ta bort /info/, /INPUT _FOR_CURSOR/, /gpt-api/ efter att flyttat relevant innehåll
+
+
+================================================================================
+11. SAKNADE FILER/FUNKTIONER
+================================================================================
+
+PROBLEM: Ingen .env.example fil
+  - Svårt för nya utvecklare att veta vilka miljövariabler som behövs
+
+REKOMMENDATION:
+  Skapa .env.example med alla miljövariabler (utan värden) och beskrivningar.
+
+--------------------------------------------------------------------------------
+
+PROBLEM: Ingen error boundary i React-appen
+  - Om en komponent kraschar, kraschar hela sidan
+
+REKOMMENDATION:
+  Implementera Error Boundary i layout.tsx för graceful degradation.
+
+
+================================================================================
+12. PRESTANDA
+================================================================================
+
+PROBLEM: Stora bilder i public/ (380 st .jpg filer)
+  - Kan påverka build-tid och deployment-storlek
+
+REKOMMENDATION:
+  - Flytta till extern bildhost (Vercel Blob, Cloudinary, etc.)
+  - Eller använd Next.js Image optimization konsekvent
+
+
+================================================================================
+SAMMANFATTNING - PRIORITERAD ÅTGÄRDSLISTA
+================================================================================
+
+KRITISKT (Fixa omedelbart):
+1. Ta bort hårdkodade JWT_SECRET fallback i production
+2. Ta bort hårdkodade Redis-credentials
+3. Konsolidera duplicerade gpt-api/ mappar
+
+HÖGT (Fixa snart):
+4. Fixa race condition i store.ts saveTimeout
+5. Ta bort duplicerad hashPassword-funktion
+6. Skapa .env.example
+
+MEDIUM (Planera in):
+7. Standardisera API-svar struktur
+8. Byt ut 'any' typer mot korrekta interfaces
+9. Implementera strukturerad loggning
+10. Fixa mappnamn med mellanslag
+
+LÅGT (Förbättringar):
+11. Konsolidera dokumentationsmappar
+12. Lägg till Error Boundary
+13. Optimera bilder i public/
+14. Implementera streaming för långvariga API-anrop
+
+
+================================================================================
+FIL: Errors_Analysis_Report.txt
+SKAPAD: 2024-12-08
+================================================================================
+"

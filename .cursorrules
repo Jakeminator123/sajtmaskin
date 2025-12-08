@@ -1,0 +1,245 @@
+# Sajtmaskin - Cursor Rules
+
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# These rules apply to ALL files in C:/Users/Propietario/Desktop/sajtmaskin
+
+## LANGUAGE RULES
+
+- **Chat responses**: Swedish (svenska)
+- **Code & comments**: English
+- **UI text in app**: Swedish (if visible to users)
+
+## TECH STACK
+
+- Next.js 15 (App Router)
+- TypeScript (strict mode)
+- Tailwind CSS
+- shadcn/ui components
+- Main source: `app/src/`
+
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# API KEYS & THEIR PURPOSES
+
+# ═══════════════════════════════════════════════════════════════════════════════
+
+## V0_API_KEY (v0-sdk)
+
+**Purpose**: Code generation only
+**Returns**: { chatId, demoUrl, files, versionId }
+**CANNOT**: Generate images, access external APIs, modify code on v0's servers
+
+```typescript
+import { createClient } from "v0-sdk";
+const v0 = createClient({ apiKey: process.env.V0_API_KEY });
+
+// Generate code
+const chat = await v0.chats.create({
+  message: "Create a landing page",
+  responseMode: "sync", // REQUIRED for full response
+  modelConfiguration: { modelId: "v0-1.5-md" },
+});
+
+// Access results
+chat.latestVersion?.demoUrl; // Live preview URL (iframe)
+chat.latestVersion?.files; // Generated source files
+chat.id; // For refinements
+```
+
+## OPENAI_API_KEY
+
+**Purpose**: Everything else!
+
+- Image generation (gpt-image-1, dall-e-3)
+- Text analysis (gpt-4.1-mini, gpt-5-mini)
+- Video generation (Sora)
+- Transcription (Whisper)
+- Web search (Responses API with web_search tool)
+
+```typescript
+import OpenAI from "openai";
+const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
+
+// Image generation
+const image = await openai.images.generate({
+  model: "gpt-image-1",
+  prompt: "A hero image for a bakery",
+});
+```
+
+## OTHER APIS
+
+| Key                 | Purpose                          |
+| ------------------- | -------------------------------- |
+| UNSPLASH_ACCESS_KEY | Stock photos                     |
+| PEXELS_API_KEY      | Stock photos                     |
+| ELEVENLABS_API_KEY  | Text-to-speech                   |
+| VERCEL_API_TOKEN    | Deployment (ONLY for publishing) |
+
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# STORAGE ARCHITECTURE (3 layers, NOT 4)
+
+# ═══════════════════════════════════════════════════════════════════════════════
+
+## During Editing (Preview Mode)
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  USER EDITS IN SAJTMASKIN                                       │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  1. SQLITE (Source of Truth)                                    │
+│     └── project_data, project_files tables                      │
+│                                                                 │
+│  2. REDIS (Fast Cache, 1-24h TTL)                              │
+│     └── Reduces DB queries                                      │
+│                                                                 │
+│  3. V0 demoUrl (Live Preview in iframe)                        │
+│     └── Hosted on Vercel's edge, no build needed               │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+## Publishing (Production)
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  USER CLICKS "PUBLISH"                                          │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  → Files from SQLite sent to Vercel API                        │
+│  → Vercel builds and deploys                                    │
+│  → Production URL generated                                     │
+│                                                                 │
+│  ⚠️ ONLY happens on manual "Publish" action!                   │
+│  ⚠️ NOT during template loading or editing!                    │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# WORKFLOW: Generate Image → Include in v0 Code
+
+# ═══════════════════════════════════════════════════════════════════════════════
+
+The v0 API cannot generate images. Use this flow:
+
+```typescript
+// 1. Generate image with OpenAI
+const imageResult = await openai.images.generate({
+  model: "gpt-image-1",
+  prompt: "Hero image for coffee shop",
+});
+
+// 2. Upload to blob storage (get permanent URL)
+const imageUrl = await uploadToBlob(imageResult.data[0].b64_json);
+
+// 3. Send to v0 with image URL in prompt
+const v0Response = await v0.chats.sendMessage({
+  chatId: existingChatId,
+  message: `Add this hero image: ${imageUrl}`,
+});
+
+// 4. v0 returns updated code with image included
+```
+
+See: `lib/orchestrator-agent.ts` for implementation
+
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# IMPORTANT: VERCEL DEPLOYMENT RULES
+
+# ═══════════════════════════════════════════════════════════════════════════════
+
+## ❌ DON'T auto-deploy during:
+
+- Template loading
+- Code refinement
+- Image uploads
+- Any editing operation
+
+## ✅ DO deploy ONLY when:
+
+- User explicitly clicks "Publish" or "Deploy"
+- User requests production deployment
+
+## Why v0's demoUrl is better for previews:
+
+- No build time (instant)
+- No deployment quota usage
+- Always up-to-date with latest code
+- Free with v0 API
+
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# OPENAI RESPONSES API (Preferred over Chat Completions)
+
+# ═══════════════════════════════════════════════════════════════════════════════
+
+Use Responses API for new code:
+
+```typescript
+const response = await openai.responses.create({
+  model: "gpt-4.1-mini",
+  input: "Analyze this website",
+  tools: [{ type: "web_search" }], // Built-in tools!
+});
+
+// Access output
+const text = response.output_text;
+```
+
+Built-in tools available:
+
+- `web_search` - Search the web
+- `image_generation` - Generate images
+- `code_interpreter` - Run Python
+- `file_search` - Search uploaded files
+
+See: `docs/OPENAI_API_LATEST_FEATURES.md`
+
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# FILE LOCATIONS
+
+# ═══════════════════════════════════════════════════════════════════════════════
+
+| File                               | Purpose                                   |
+| ---------------------------------- | ----------------------------------------- |
+| `lib/v0-generator.ts`              | v0 Platform API wrapper                   |
+| `lib/openai-agent.ts`              | OpenAI agent for code editing             |
+| `lib/orchestrator-agent.ts`        | Combines v0 + OpenAI (images, web search) |
+| `lib/vercel-deployment-service.ts` | Vercel deployment (ONLY for publish)      |
+| `lib/database.ts`                  | SQLite operations                         |
+| `lib/redis.ts`                     | Redis caching                             |
+| `lib/config.ts`                    | All API keys and feature flags            |
+| `lib/SYSTEM_ARCHITECTURE.ts`       | Full architecture documentation           |
+
+# ═══════════════════════════════════════════════════════════════════════════════
+
+# QUICK REFERENCE
+
+# ═══════════════════════════════════════════════════════════════════════════════
+
+## Check terminals before running commands
+
+Always check `terminals` folder before running npm commands.
+
+## Stop dev server before build
+
+```bash
+# Stop npm run dev before running:
+npm run build
+```
+
+## Feature flags (lib/config.ts)
+
+```typescript
+FEATURES.useV0Api; // v0 code generation
+FEATURES.useOpenAI; // OpenAI features
+FEATURES.useUnsplash; // Stock photos
+FEATURES.useVercelApi; // Deployment (publish only!)
+```

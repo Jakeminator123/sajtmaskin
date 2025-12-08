@@ -1,0 +1,431 @@
+# Guide: Förhandsvisning av v0-templates i din sajtbyggare
+
+Det här dokumentet beskriver hur du bygger ett **preview‑flöde** för dina v0‑templates, så att användaren kan:
+
+1. Se en **bild/screenshot** av varje mall i galleri‑vyn.
+2. Öppna en **live‑preview** (inuti din app via `<iframe>`) _innan_ hen väljer mallen.
+3. Återanvända samma `chatId` när mallen väljs, så att refinements fortsätter i samma v0‑chat.
+
+Lösningen är anpassad för din befintliga struktur med `LocalTemplate` och TYP A/TYP B‑mallar.
+
+---
+
+## 1. Förutsättningar
+
+Du bör redan ha:
+
+- En Next.js‑app (App Router eller Pages spelar mindre roll här).
+- En backend med API‑routes under `/api/*`.
+- v0 SDK installerad:
+
+  ```bash
+  pnpm add v0-sdk
+  ```
+
+- API‑nyckel konfigurerad i `.env.local`:
+
+  ```bash
+  V0_API_KEY=din_v0_api_nyckel
+  ```
+
+  v0‑SDK:t plockar automatiskt upp `V0_API_KEY` och behöver ingen extra init‑kod:
+
+  ```ts
+  import { v0 } from "v0-sdk";
+
+  // v0 använder V0_API_KEY automatiskt
+  ```
+
+- Din `LocalTemplate`‑modell (som du redan har):
+
+  ```ts
+  export interface LocalTemplate {
+    id: string;
+    name: string;
+    description: string;
+    category: string; // "landing-page" | "dashboard" | "website"
+    previewUrl: string; // Bild/placeholder
+    sourceUrl: string;  // Original v0 URL
+
+    mainFile: string;   // "" för TYP A
+    folderPath: string; // "" för TYP A
+
+    v0TemplateId?: string;        // t.ex. "W8w0SZdos3x"
+    complexity: "simple" | "advanced";
+  }
+  ```
+
+**Viktigt:** För TYP A‑mallar ska `v0TemplateId` vara **enbart hash‑delen** av v0‑URL:en, inte hela sluggen:
+
+```txt
+https://v0.app/templates/cosmos-3d-orbit-gallery-template-W8w0SZdos3x
+                                                        └───────────┘
+                                                        v0TemplateId
+```
+
+---
+
+## 2. Översikt: hur preview‑flödet funkar
+
+Målet är:
+
+- **Backend** anropar v0:s `chats.init` med `templateId`.
+- v0 skapar en chat och genererar en första **version**.
+- Den versionen har:
+  - `demoUrl` – live‑preview URL.
+  - `screenshotUrl` – bild på versionen.
+
+Enligt v0:s API‑spec returnerar en version bl.a. `demoUrl` och `screenshotUrl` i `latestVersion`.  citeturn0search9
+
+### Flödesdiagram
+
+```txt
+[LocalTemplate (TYP A)]
+       │   (har v0TemplateId)
+       ▼
+Frontend: GET /api/template/preview?id=<localTemplateId>
+       ▼
+Backend: slå upp LocalTemplate → hämta v0TemplateId
+       ▼
+Backend: v0.chats.init({ type: "template", templateId })
+       ▼
+v0: skapar chat + första version (med demoUrl + screenshotUrl)
+       ▼
+Backend → Frontend: { chatId, demoUrl, screenshotUrl }
+       ▼
+Frontend:
+  - uppdaterar kortets bild → screenshotUrl
+  - renderar <iframe src={demoUrl}> som live‑preview
+```
+
+---
+
+## 3. Backend: funktion i `v0-generator.ts`
+
+Lägg till en helper‑funktion som initierar en template‑chat och plockar ut preview‑data.
+
+```ts
+// src/lib/v0-generator.ts
+import { v0 } from "v0-sdk";
+
+export interface TemplatePreviewResult {
+  chatId: string;
+  demoUrl: string | null;
+  screenshotUrl: string | null;
+}
+
+// Initiera preview från en v0-template
+export async function initTemplatePreview(
+  v0TemplateId: string
+): Promise<TemplatePreviewResult> {
+  // OBS: type: "template" + templateId
+  const chat = await v0.chats.init({
+    type: "template",
+    templateId: v0TemplateId,
+  });
+
+  // latestVersion innehåller demoUrl + screenshotUrl
+  const latest = chat.latestVersion;
+
+  return {
+    chatId: chat.id,
+    demoUrl: latest?.demoUrl ?? null,
+    screenshotUrl: latest?.screenshotUrl ?? null,
+  };
+}
+```
+
+Här utnyttjar vi v0:s `chats.init`‑endpoint med `type: "template"` och `templateId`, som enligt dokumentationen används för att starta en chat från en template.  citeturn0search0
+
+---
+
+## 4. Backend‑route: `/api/template/preview`
+
+Skapa en route som frontend kan kalla för att få preview‑info för en `LocalTemplate`.
+
+```ts
+// src/app/api/template/preview/route.ts (App Router)
+import { NextResponse } from "next/server";
+import {
+  getLocalTemplateById,
+} from "@/lib/local-templates";
+import { initTemplatePreview } from "@/lib/v0-generator";
+
+export async function GET(req: Request) {
+  const { searchParams } = new URL(req.url);
+  const templateId = searchParams.get("id");
+
+  if (!templateId) {
+    return NextResponse.json(
+      { error: "Missing id" },
+      { status: 400 }
+    );
+  }
+
+  const tmpl = getLocalTemplateById(templateId);
+
+  if (!tmpl) {
+    return NextResponse.json(
+      { error: "Template not found" },
+      { status: 404 }
+    );
+  }
+
+  if (!tmpl.v0TemplateId) {
+    return NextResponse.json(
+      { error: "Template has no v0TemplateId (TYP B)" },
+      { status: 400 }
+    );
+  }
+
+  // TODO: lägg gärna till caching här (se nästa avsnitt)
+  const preview = await initTemplatePreview(tmpl.v0TemplateId);
+
+  return NextResponse.json({
+    templateId: tmpl.id,
+    chatId: preview.chatId,
+    demoUrl: preview.demoUrl,
+    screenshotUrl: preview.screenshotUrl,
+  });
+}
+```
+
+> För TYP B‑mallar (med lokal kod) returnerar vi fel här – de får använda ditt befintliga flöde där du skickar filer till v0 för generering.
+
+---
+
+## 5. Frontend: Template‑kort med preview + iframe
+
+Nedan ett exempel på en `TemplateCard`‑komponent som:
+
+- Visar `template.previewUrl` som **placeholder**.
+- Anropar `/api/template/preview` när användaren trycker “Preview”.
+- Byter bild till `screenshotUrl` om den finns.
+- Visar en `<iframe>` med `demoUrl` när live‑preview är laddad.
+- Sparar ev. `chatId` i Zustand om du vill återanvända samma chat vid “Använd denna mall”.
+
+```tsx
+// src/components/local-template-card.tsx
+"use client";
+
+import { useState } from "react";
+import { LocalTemplate } from "@/lib/local-templates";
+import { useStore } from "@/lib/store"; // din Zustand-store
+import { apiClient } from "@/lib/api-client";
+
+interface TemplateCardProps {
+  template: LocalTemplate;
+}
+
+export function TemplateCard({ template }: TemplateCardProps) {
+  const [loadingPreview, setLoadingPreview] = useState(false);
+  const [previewImg, setPreviewImg] = useState(template.previewUrl);
+  const [demoUrl, setDemoUrl] = useState<string | null>(null);
+
+  const setCurrentChatId = useStore((s) => s.setCurrentChatId);
+
+  const handlePreviewClick = async () => {
+    if (demoUrl) return; // redan laddad
+
+    setLoadingPreview(true);
+    try {
+      const res = await apiClient.getTemplatePreview(template.id);
+      // Förväntad response: { templateId, chatId, demoUrl, screenshotUrl }
+
+      if (res.screenshotUrl) {
+        setPreviewImg(res.screenshotUrl);
+      }
+
+      if (res.demoUrl) {
+        setDemoUrl(res.demoUrl);
+      }
+
+      if (res.chatId) {
+        setCurrentChatId(res.chatId);
+      }
+    } catch (err) {
+      console.error("Failed to load template preview", err);
+    } finally {
+      setLoadingPreview(false);
+    }
+  };
+
+  return (
+    <div className="rounded-2xl border p-3 flex flex-col gap-2">
+      <div className="relative aspect-video overflow-hidden rounded-xl bg-muted">
+        <img
+          src={previewImg}
+          alt={template.name}
+          className="h-full w-full object-cover"
+        />
+      </div>
+
+      <div className="flex items-center justify-between gap-2">
+        <div className="flex-1 min-w-0">
+          <h3 className="font-semibold text-sm truncate">
+            {template.name}
+          </h3>
+          <p className="text-xs text-muted-foreground line-clamp-2">
+            {template.description}
+          </p>
+        </div>
+
+        <button
+          className="shrink-0 text-xs px-2 py-1 rounded bg-primary text-primary-foreground"
+          onClick={handlePreviewClick}
+          disabled={loadingPreview}
+        >
+          {loadingPreview ? "Laddar…" : demoUrl ? "Visa igen" : "Preview"}
+        </button>
+      </div>
+
+      {demoUrl && (
+        <div className="mt-2 h-64 rounded-xl overflow-hidden border">
+          <iframe
+            src={demoUrl}
+            className="w-full h-full"
+            sandbox="allow-same-origin allow-scripts allow-forms allow-pointer-lock allow-popups"
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+```
+
+### `apiClient.getTemplatePreview`
+
+En enkel helper i `src/lib/api-client.ts`:
+
+```ts
+// src/lib/api-client.ts
+export const apiClient = {
+  async getTemplatePreview(id: string) {
+    const res = await fetch(`/api/template/preview?id=${encodeURIComponent(id)}`);
+    if (!res.ok) {
+      throw new Error(`Preview failed: ${res.status}`);
+    }
+    return res.json() as Promise<{
+      templateId: string;
+      chatId: string;
+      demoUrl: string | null;
+      screenshotUrl: string | null;
+    }>;
+  },
+};
+```
+
+---
+
+## 6. Caching: undvik att initiera samma template om och om igen
+
+Varje `chats.init` skapar en ny chat hos v0. För att inte spamma v0 när många användare förhandsgranskar samma mall, kan du lägga ett enkelt cache‑lager i din backend.
+
+### Enkel minnes‑cache (för prototyper)
+
+```ts
+// src/lib/template-preview-cache.ts
+type PreviewCacheValue = {
+  chatId: string;
+  demoUrl: string | null;
+  screenshotUrl: string | null;
+};
+
+const previewCache = new Map<string, PreviewCacheValue>();
+
+export function getCachedPreview(templateId: string) {
+  return previewCache.get(templateId);
+}
+
+export function setCachedPreview(templateId: string, value: PreviewCacheValue) {
+  previewCache.set(templateId, value);
+}
+```
+
+Använd i din route:
+
+```ts
+// i /api/template/preview/route.ts
+import {
+  getCachedPreview,
+  setCachedPreview,
+} from "@/lib/template-preview-cache";
+
+// ...inne i GET:
+
+const cached = getCachedPreview(tmpl.id);
+if (cached) {
+  return NextResponse.json({
+    templateId: tmpl.id,
+    ...cached,
+  });
+}
+
+const preview = await initTemplatePreview(tmpl.v0TemplateId);
+
+setCachedPreview(tmpl.id, preview);
+
+return NextResponse.json({
+  templateId: tmpl.id,
+  ...preview,
+});
+```
+
+För produktion kan du byta ut denna Map mot Redis eller annan persistent cache, men principen är densamma: **första preview** gör ett v0‑anrop, **senare previews** använder cache.
+
+---
+
+## 7. Koppling till TYP A / TYP B i `LocalTemplate`
+
+Med detta upplägg blir reglerna tydliga:
+
+### TYP A – v0‑template‑baserade (rekommenderat)
+
+- `v0TemplateId` **måste** vara satt (hash‑delen av URL:en).
+- `mainFile` och `folderPath` **ska** vara tomma strängar (`""`).
+- Preview sker via `chats.init({ type: "template", templateId })`.
+- Du får:
+  - `demoUrl` → live‑preview i iframe.
+  - `screenshotUrl` → uppdaterar kortets bild.
+  - `chatId` → kan sparas i Zustand för future refinements.
+
+### TYP B – lokal kod (fallback)
+
+- Har **inte** `v0TemplateId`.
+- Har `mainFile` + `folderPath` som pekar på kod under `src/templates/...`.
+- Preview genereras via ditt befintliga flöde:
+  - läs filer → skicka till `v0.chats.create` eller liknande → få `demo`/`files`.
+- Route `/api/template/preview` bör returnera fel för TYP B (så att du inte blandar flödena), eller hantera ett separat fallback‑flöde där.
+
+---
+
+## 8. Tips & nästa steg
+
+1. **Visa kategorier tydligt**  
+   - Märk kort med `category: "landing-page" | "dashboard" | "website"`.
+   - Filtrera i UI:t med knappar/flikar (Landing / Dashboard / Website).
+
+2. **Använd `complexity` i UI**  
+   - Visa t.ex. en liten badge: “Advanced (WebGL)” för `complexity: "advanced"`.
+   - För dessa templates kan du i din prompt uppmuntra v0 att förenkla layouten om användaren vill redigera mycket.
+
+3. **Återanvänd `chatId` när användaren väljer mallen**  
+   - När användaren klickar “Använd den här mallen”, kan du använda samma `chatId` i `/api/refine` och skicka ett första meddelande:  
+     _“Anpassa mallen för [X‑företag], behåll struktur men ändra färger och texter.”_  
+   - v0 fortsätter då på samma version istället för att skapa en helt ny från scratch.
+
+4. **Hantera fel på ett snyggt sätt**  
+   - Om preview misslyckas (t.ex. nätverksfel) – visa ett fallback‑meddelande och låt användaren försöka igen.
+
+---
+
+## 9. Sammanfattning
+
+Med detta upplägg kan du:
+
+- Hämta **riktiga previews direkt från v0** (screenshot + demoUrl) för alla dina TYP A‑mallar.
+- Visa användaren både **bild och live‑preview** innan hen bestämmer sig för en mall.
+- Återanvända `chatId` så att refinements känns sömlösa.
+- Slippa ladda ned hela sajter lokalt – du använder v0 som “headless” template‑motor.
+
+Kopiera in koden i dina befintliga filer (`v0-generator.ts`, `/api/template/preview`, `local-template-card.tsx`, `api-client.ts`) så är du igång.

@@ -1,0 +1,59 @@
+6) "# Granskningsrapport av Sajtmaskin
+
+Denna rapport sammanfattar hittade buggar, potentiella fel, strukturella problem och kodkvalitetsbrister i projektet.
+
+## 1. Buggar och Ofärdig Kod (TODOs)
+
+Följande delar av koden är markerade som ofärdiga eller saknar kritisk funktionalitet:
+
+- **Säkerhet i Sessioner**: 
+  I `app/src/lib/session.ts` finns en TODO: `// TODO: In production, validate against session store (Redis/DB)`. Detta innebär att sessioner för närvarande inte valideras fullt ut mot databasen, vilket kan vara en säkerhetsrisk.
+
+- **Publiceringsfunktion**:
+  I `app/src/app/builder/page.tsx` (rad 389) finns en TODO: `// Publish mode - TODO: implement publish with backoffice`. Publiceringsknappen i gränssnittet fungerar alltså inte som tänkt än.
+
+- **Hårdkodade Värden/Hemligheter**:
+  I `app/src/lib/database.ts` används `process.env.TEST_USER_PASSWORD` men faller tillbaka på en tom sträng om den saknas. Detta bör hanteras striktare.
+
+## 2. Strukturella Problem & "God Objects"
+
+- **`app/src/lib/database.ts` är för stor (2000+ rader)**:
+  Denna fil hanterar ALL databasinteraktion: användare, projekt, transaktioner, analytics, filer, etc.
+  - **Problem**: Svår att underhålla, stor risk för merge-konflikter, svårtestad.
+  - **Åtgärd**: Bör delas upp i mindre "repositories" eller "services", t.ex. `user-repository.ts`, `project-repository.ts`, `analytics-repository.ts`.
+
+- **`app/src/app/builder/page.tsx` (700+ rader)**:
+  En mycket stor React-komponent som hanterar routing, state, logik och UI samtidigt.
+  - **Åtgärd**: Bryt ut logik till custom hooks (t.ex. `useProjectLoading`, `useBuilderState`) och flytta UI-delar till mindre underkomponenter.
+
+## 3. Kodkvalitet & Typsäkerhet
+
+- **Överdriven användning av `any`**:
+  Sökning visar omfattande användning av `any`, särskilt i `database.ts`.
+  - Exempel: `const row = stmt.get(id) as any;`
+  - **Problem**: Detta sätter TypeScript ur spel. Om databasschemat ändras kommer kompilatorn inte att varna, vilket leder till runtime-fel.
+  - **Åtgärd**: Definiera interface för databasrader (t.ex. `UserRow`, `ProjectRow`) och använd dessa istället för `any`.
+
+- **Blandat Språk (Svenska/Engelska)**:
+  - Kodkommentarer är blandade (vissa filer har svenska, andra engelska).
+  - UI-texter verkar vara blandade eller hårdkodade i komponenter istället för att använda en översättningsfil.
+  - Felmeddelanden i `v0-generator.ts` är ibland på svenska, ibland på engelska.
+
+- **Verbose Logging (`console.log`)**:
+  Filer som `v0-generator.ts` och `preview-cache.ts` har extremt mycket `console.log`-utskrifter. Detta är bra för debugging men bör städas bort eller ersättas med ett riktigt loggningsramverk inför produktion för att inte "skräpa ner" loggarna.
+
+## 4. Duplicerad eller "Bubblad" Kod
+
+- **Prompts i `v0-generator.ts`**:
+  Stora block av textsträngar (prompts) ligger hårdkodade i koden. Dessa borde flyttas till separata filer eller en konfigurationsfil för att göra koden mer läsbar.
+
+- **API Routes**:
+  Många API-routes i `app/src/app/api/` verkar ha liknande felhantering och logik (try-catch block med `console.error`). Detta kunde abstraheras till en "API handler wrapper" för att minska kodupprepning.
+
+## Sammanfattning av Åtgärder
+
+1.  **Dela upp `database.ts`**: Prioritera att bryta ut logik till separata filer.
+2.  **Städa bort `any`**: Gå igenom databaslagret och ersätt `any` med riktiga typer.
+3.  **Fixa TODOs**: Implementera sessionsvalidering och publiceringsfunktionen.
+4.  **Standardisera Språk**: Bestäm att kod/kommentarer ska vara på engelska och UI på svenska.
+"

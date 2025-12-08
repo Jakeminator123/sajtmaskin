@@ -1,0 +1,266 @@
+SAJTSTUDIO.SE - WEBBPLATS OCH DESIGN BESKRIVNING
+==================================================
+
+ÖVERSIKT
+--------
+Sajtstudio.se är en modern företagswebbplats byggd med Next.js 16, React 19, TypeScript, Tailwind CSS och Framer Motion.
+Webbplatsen följer en monokrom minimalistisk designfilosofi med strategiskt placerade accentfärger och stora, kraftfulla typografiska element.
+
+WEBBPLATSENS SYFTE
+------------------
+Sajtstudio är ett webbdesignföretag som skapar skräddarsydda, toppmoderna hemsidor för utvalda företag.
+Webbplatsen fungerar som både portfolio och marknadsföringsmaterial för att visa företagets kompetens och attrahera nya kunder.
+
+SIDSTRUKTUR
+-----------
+- Startsida (/): Hero-sektion, Om oss, Unique Selling Points, Tjänster, Portfolio-animationer,
+  Tech showcase (interaktiv Pacman-demo), Scroll-illusioner, Process, Omdömen, Stor CTA-sektion
+- Portfolio (/portfolio): Portfolio-galleri med projekt
+- Kontakt (/contact): Kontaktformulär
+- Sajtgranskning (/sajtgranskning): Website analyzer-funktionalitet
+- Utvärdera (/utvardera): Utvärderingsverktyg
+
+DESIGNFILOSOFI
+--------------
+Designen följer en monokrom minimalistisk stil med:
+- Svart och vitt som primära färger
+- Strategiskt använda accentfärger för framhävdning
+- Stora, kraftfulla typografiska element
+- Generös whitespace för luftig känsla
+- Smooth animationer och övergångar
+- Moderna interaktiva element
+
+FÄRGTEMA
+--------
+
+PRIMÄRA FÄRGER:
+- Svart: #000000 (bakgrund, primär text på ljusa ytor)
+- Vit: #FFFFFF (text på mörka ytor, bakgrund på ljusa sektioner)
+
+ACCENTFÄRGER:
+- Primär accent (Blå): #0066FF
+  - Hover: #0052CC
+  - Ljus variant: #3385FF
+  - Mörk variant: #0047B3
+  - Användning: Primära CTA-knappar, länkar, hover-effekter, fokus-indikatorer
+
+- Sekundär accent (Röd): #FF0033
+  - Hover: #CC0029
+  - Ljus variant: #FF3366
+  - Mörk variant: #CC0029
+  - Användning: Sparsamt använd för sekundära CTA:er, varningar, gradient-komponenter
+
+NEUTRALA FÄRGER (Gråskala):
+- Gray 50: #FAFAFA (mycket ljus bakgrund)
+- Gray 100: #F7F7F7
+- Gray 200: #F0F0F0
+- Gray 300: #E8E8E8
+- Gray 400: #D0D0D0
+- Gray 500: #A0A0A0 (muted text)
+- Gray 600: #707070 (light text)
+- Gray 700: #505050 (secondary text)
+- Gray 800: #303030
+- Gray 900: #181818 (mörk bakgrund)
+
+BAKGRUNDSFÄRGER:
+- Light: #FFFFFF (ljusa sektioner)
+- Dark: #000000 (mörka sektioner, huvudbakgrund)
+- Section: #FAFAFA (alternativ sektionsbakgrund)
+- Overlay: rgba(0, 0, 0, 0.6) (modal-overlays)
+
+TEXTFÄRGER:
+- Primary: #000000 (huvudtext på ljusa ytor)
+- Secondary: #505050 (sekundär text)
+- Light: #707070 (ljus text)
+- Inverse: #FFFFFF (text på mörka ytor)
+- Muted: #A0A0A0 (diskret text)
+
+TYPOGRAFI
+---------
+
+TYPSNITT:
+- Primärt: Inter (från Google Fonts) - modern, läsbar sans-serif
+- Monospace: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas (för kod/tekniskt innehåll)
+
+FONTSTORLEKAR (Responsiva med clamp()):
+- Display: clamp(4rem, 10vw, 10rem) - Extra stora hero-rubriker
+- Hero: clamp(2.5rem, 6vw, 5rem) - Stora rubriker
+- H1: clamp(2.5rem, 5vw, 4.5rem)
+- H2: clamp(2rem, 4vw, 3.5rem)
+- H3: clamp(1.75rem, 3vw, 2.5rem)
+- H4: clamp(1.5rem, 2.5vw, 2rem)
+- Body: clamp(1.125rem, 1.5vw, 1.25rem) - Huvudtext
+- Lead: clamp(1.25rem, 2vw, 1.5rem) - Lead-text (introduktionstext)
+- Small: clamp(0.875rem, 1vw, 1rem) - Mindre text
+
+FONTVIKTER:
+- Light: 300
+- Normal: 400
+- Medium: 500
+- Semibold: 600
+- Bold: 700
+- Black: 900
+
+LINE HEIGHTS:
+- Tight: 0.9 (mycket tight för stora rubriker)
+- Snug: 1.1 (tight)
+- Normal: 1.5 (standard)
+- Relaxed: 1.75 (luftig text)
+
+LETTER SPACING:
+- Tight: -0.03em (för stora rubriker)
+- Normal: 0
+- Wide: 0.02em (för vissa display-texter)
+
+SPACING SYSTEM
+--------------
+Bas: 8px (0.5rem)
+
+Skalor:
+- xs: 8px (0.5rem)
+- sm: 16px (1rem)
+- md: 24px (1.5rem)
+- lg: 32px (2rem)
+- xl: 48px (3rem)
+- 2xl: 64px (4rem)
+- 3xl: 96px (6rem)
+- 4xl: 128px (8rem)
+
+ANIMATIONER
+-----------
+
+VARAKTIGHET:
+- Instant: 0.1s
+- Fast: 0.25s
+- Normal: 0.4s
+- Slow: 0.8s
+- Slower: 1.2s
+- Slowest: 2s
+
+EASING (Rörelsefunktioner):
+- Default: cubic-bezier(0.25, 0.1, 0.25, 1) - Smooth standard
+- EaseIn: cubic-bezier(0.42, 0, 1, 1)
+- EaseOut: cubic-bezier(0, 0, 0.58, 1)
+- EaseInOut: cubic-bezier(0.42, 0, 0.58, 1)
+- Spring: cubic-bezier(0.34, 1.56, 0.64, 1) - Bounce-effekt
+- Smooth: cubic-bezier(0.4, 0, 0.2, 1) - Extra smooth
+
+ANIMATIONSTYPER:
+- FadeIn: Opacity 0 → 1
+- SlideUp: Opacity 0 + translateY(30px) → 1 + translateY(0)
+- SlideIn: Opacity 0 + translateX(-30px) → 1 + translateX(0)
+- Scale: Opacity 0 + scale(0.9) → 1 + scale(1)
+
+SPECIELLA EFFEKTER:
+- Shimmer: Gradient-animation på länkar och knappar (blå → röd → blå)
+- Glow: Box-shadow med accentfärger för framhävdning
+- Shake: Skak-animation för CTA-knappar vid interaktion
+- Rain: Regn-effekt i hero-sektionen
+- Lightning: Åsk-effekt i hero-sektionen
+- Magnetic: Magnetisk hover-effekt på knappar
+
+SKUGGOR
+-------
+- sm: 0 1px 2px 0 rgba(0, 0, 0, 0.03) - Subtila skuggor
+- md: 0 4px 12px 0 rgba(0, 0, 0, 0.08)
+- lg: 0 12px 24px -4px rgba(0, 0, 0, 0.12)
+- xl: 0 24px 48px -8px rgba(0, 0, 0, 0.16)
+- inner: inset 0 2px 4px 0 rgba(0, 0, 0, 0.06) - Inre skugga
+- glow: 0 0 20px rgba(0, 102, 255, 0.3) - Blå glow för accent-element
+
+BORDER RADIUS
+-------------
+- none: 0
+- sm: 0.25rem (4px)
+- md: 0.5rem (8px)
+- lg: 0.75rem (12px)
+- xl: 1rem (16px)
+- full: 9999px (fullständigt rundade hörn)
+
+RESPONSIVA BREAKPOINTS
+-----------------------
+- sm: 640px (stor mobil)
+- md: 768px (tablet)
+- lg: 1024px (desktop - huvudbreakpoint)
+- xl: 1280px (stor desktop)
+- 2xl: 1536px (extra stor desktop)
+
+KOMPONENTER OCH DESIGNPATTERNS
+-------------------------------
+
+HEADER/NAVIGATION:
+- Fast positionerad header som ändrar stil vid scroll
+- Desktop: Logo (vänster) → Navigation links (mitten) → CTA-knapp (höger)
+- Mobil: Logo (vänster) → Hamburger-meny (höger)
+- Shimmer-effekt på navigation-länkar vid hover
+- CTA-knapp med gradient (blå → röd), shimmer och glow-effekt
+
+HERO-SEKTION:
+- Fullskärms-sektion med video-bakgrund
+- Stora, animerade rubriker med word reveal-effekt
+- Regn och åsk-effekter för atmosfär
+- Magnetiska CTA-knappar med interaktiv hover-effekt
+- Scroll-indikator som försvinner vid scroll
+
+KNAPPAR (BUTTONS):
+- Primary: Svart bakgrund, vit text, hover till accent
+- Secondary: Accent bakgrund, vit text
+- Outline: Border, hover fyller bakgrund
+- CTA: Gradient (accent → tertiary), shimmer-effekt, glow-effekt, rounded-full
+
+MODALER:
+- Mörk overlay (rgba(0, 0, 0, 0.6))
+- Ljus modal med subtil skugga
+- Smooth fade-in animation
+- Custom scrollbar för långt innehåll
+
+KORT (CARDS):
+- Subtila skuggor
+- Hover-effekter med scale och glow
+- 3D-transform-effekter på vissa kort
+
+FORMULÄR:
+- Minimalistisk design
+- Accent-färgad fokus-indikator
+- Tydlig feedback vid validering
+
+BAKGRUNDSEFFEKTER
+-----------------
+- Video-bakgrunder med grayscale-filter och låg opacity
+- Animerade GIF-bakgrunder med slow motion-effekt
+- Gradient-bakgrunder för vissa sektioner
+- Partikel-effekter i CTA-sektioner
+- Matrix-stil bakgrunder för vissa sektioner
+
+INTERAKTIVA ELEMENT
+-------------------
+- Pacman-spel i tech showcase-sektionen (visar tech vs design)
+- Scroll-baserade parallax-effekter
+- 3D-transform-effekter på kort
+- Custom cursor-effekter (på vissa sektioner)
+- Magnetiska knappar som följer muspekaren
+
+TILLGÄNGLIGHET
+--------------
+- Tydliga fokus-indikatorer (blå outline)
+- Skip-länk för keyboard-navigation
+- Screen reader-vänligt innehåll
+- Reduced motion-stöd för användare som föredrar mindre animationer
+- Touch-friendly storlekar på interaktiva element (min 44x44px)
+
+PERFORMANCE OPTIMERINGAR
+------------------------
+- Lazy loading av sektioner som visas senare
+- Prefetching av länkar vid hover
+- Prefetching av komponenter när användaren scrollar nära dem
+- Content visibility optimization för bättre scroll-prestanda
+- Optimerade bilder och videor
+- Smooth scrolling med touch momentum
+
+SAMMANFATTNING
+--------------
+Sajtstudio.se använder en monokrom minimalistisk design med svart och vitt som grund, kompletterad med en kraftfull blå accentfärg (#0066FF)
+och sparsamt använd röd (#FF0033) för sekundära accentpunkter. Designen kännetecknas av stora, kraftfulla typografiska element,
+generös whitespace, smooth animationer och moderna interaktiva effekter. Webbplatsen är byggd med fokus på prestanda, tillgänglighet
+och en premium användarupplevelse.
+

@@ -1,0 +1,510 @@
+4) "═══════════════════════════════════════════════════════════════════════════════
+                    SAJTMASKIN - BUGGAR OCH STRUKTURELLA PROBLEM
+═══════════════════════════════════════════════════════════════════════════════
+
+Analysdatum: 2024
+Granskad kodbas: app/src, API routes, database operations, authentication
+
+═══════════════════════════════════════════════════════════════════════════════
+1. SÄKERHETSPROBLEM
+═══════════════════════════════════════════════════════════════════════════════
+
+1.1 HARDCODED ADMIN EMAIL
+   Fil: app/src/app/admin/page.tsx:175
+   Problem: Admin-kontroll baseras på hardcoded email "test@gmail.com"
+   Risk: Om någon ändrar email i databasen kan de få admin-åtkomst
+   Lösning: Använd en separat admin-roll i databasen eller environment variable
+
+1.2 SVAG JWT-IMPLEMENTATION
+   Fil: app/src/lib/auth.ts:69-87
+   Problem: Egen JWT-implementation utan bibliotek, kan ha säkerhetsbrister
+   Risk: Token kan vara sårbar för manipulation
+   Lösning: Använd ett beprövat bibliotek som 'jose' eller 'jsonwebtoken'
+
+1.3 SESSION VALIDATION SAKNAS
+   Fil: app/src/lib/session.ts:58
+   Problem: TODO-kommentar om att validera mot session store i produktion
+   Risk: Sessioner kan vara ogiltiga eller stulna
+   Lösning: Implementera session validation mot Redis/DB
+
+1.4 ADMIN AUTHENTICATION VIA LOCALSTORAGE
+   Fil: app/src/app/admin/page.tsx:124, 183
+   Problem: Admin-autentisering sparas i localStorage ("admin-auth")
+   Risk: XSS-attacker kan manipulera localStorage
+   Lösning: Använd endast server-side session cookies
+
+1.5 TEST USER MED UNLIMITED CREDITS
+   Fil: app/src/lib/database.ts:19-21, 1461-1476
+   Problem: Test user har 999999 diamonds och kollas via email
+   Risk: Om någon skapar konto med samma email får de unlimited credits
+   Lösning: Använd user ID istället för email för test user check
+
+1.6 MISSING INPUT VALIDATION
+   Fil: app/src/app/api/admin/database/route.ts:132
+   Problem: Body parsing utan validering av struktur
+   Risk: Invalid data kan orsaka fel eller SQL injection (även om prepared statements används)
+   Lösning: Lägg till Zod eller liknande schema validation
+
+1.7 PASSWORD HASHING - INGEN KEY STRETCHING VALIDATION
+   Fil: app/src/lib/auth.ts:35-40
+   Problem: PBKDF2 används men iteration count (100000) är låg för moderna standarder
+   Risk: Brute force-attacker kan vara effektivare
+   Lösning: Öka till minst 600000 iterations eller använd bcrypt/scrypt
+
+═══════════════════════════════════════════════════════════════════════════════
+2. TYPE SAFETY PROBLEM
+═══════════════════════════════════════════════════════════════════════════════
+
+2.1 ÖVERDRIVEN ANVÄNDNING AV 'any' OCH 'unknown'
+   Filer: 
+   - app/src/lib/store.ts:321, 495, 516
+   - app/src/lib/redis.ts:261, 324, 347
+   - app/src/lib/database.ts:591, 729, 1188, 1224, 1421
+   Problem: Många type assertions och 'any' används istället för proper types
+   Risk: Runtime errors som inte fångas av TypeScript
+   Lösning: Definiera proper interfaces för alla datatyper
+
+2.2 TYPE ASSERTIONS ISTÄLLET FÖR VALIDATION
+   Fil: app/src/lib/database.ts:485, 729, 1188
+   Problem: `as Project | null` utan faktisk runtime validation
+   Risk: Om databasen returnerar fel struktur kan appen krascha
+   Lösning: Använd runtime validation (Zod, io-ts) eller proper type guards
+
+2.3 MISSING RETURN TYPE ANNOTATIONS
+   Filer: Flera funktioner saknar explicit return types
+   Problem: TypeScript kan inte validera att funktioner returnerar rätt typ
+   Lösning: Lägg till explicit return types på alla funktioner
+
+═══════════════════════════════════════════════════════════════════════════════
+3. ERROR HANDLING OCH FELHANTERING
+═══════════════════════════════════════════════════════════════════════════════
+
+3.1 INKONSISTENT ERROR HANDLING
+   Filer: 
+   - app/src/app/api/generate/route.ts:252-287
+   - app/src/app/api/refine/route.ts:194-246
+   - app/src/app/api/orchestrate/route.ts:156-164
+   Problem: Olika error handling patterns, vissa returnerar generiska meddelanden
+   Risk: Svårt att debugga, användare får inte användbar feedback
+   Lösning: Standardisera error handling med en central error handler
+
+3.2 TYSTA FEL (SILENT FAILURES)
+   Fil: app/src/lib/database.ts:87-111
+   Problem: ALTER TABLE statements i try-catch som ignorerar alla fel
+   Risk: Om kolumn redan finns är det okej, men andra fel döljs
+   Lösning: Kontrollera specifikt för "column already exists" error
+
+3.3 MISSING ERROR BOUNDARIES I REACT
+   Problem: Inga error boundaries i React-komponenter
+   Risk: Ett fel i en komponent kan krascha hela appen
+   Lösning: Lägg till error boundaries runt större komponenter
+
+3.4 UNHANDLED PROMISE REJECTIONS
+   Fil: app/src/app/admin/page.tsx:128-144
+   Problem: Async operations i useEffect utan proper error handling
+   Risk: Unhandled promise rejections kan krascha appen
+   Lösning: Lägg till .catch() på alla async operations
+
+3.5 GENERISKA ERROR MEDDELANDEN
+   Fil: app/src/app/api/generate/route.ts:283
+   Problem: "Något gick fel vid generering. Försök igen." ger ingen info
+   Risk: Användare vet inte vad som gick fel
+   Lösning: Logga detaljerade errors server-side, ge användbar feedback client-side
+
+═══════════════════════════════════════════════════════════════════════════════
+4. DATABASE OCH DATA INTEGRITY
+═══════════════════════════════════════════════════════════════════════════════
+
+4.1 RACE CONDITIONS I DATABASE OPERATIONS
+   Fil: app/src/lib/database.ts:41-64
+   Problem: Singleton pattern men ingen locking för concurrent access
+   Risk: Race conditions vid samtidiga skrivningar
+   Lösning: Använd database transactions för kritiska operationer
+
+4.2 MISSING TRANSACTION WRAPPING
+   Fil: app/src/lib/database.ts:1618-1655 (createTransaction)
+   Problem: updateUserDiamonds och INSERT körs separat, inte i transaction
+   Risk: Om INSERT misslyckas efter updateUserDiamonds blir balance fel
+   Lösning: Wrap i db.transaction()
+
+4.3 INKONSISTENT NULL HANDLING
+   Fil: app/src/lib/database.ts:591, 600, 629-635
+   Problem: Null värden hanteras olika på olika ställen
+   Risk: Data inconsistency, null pointer exceptions
+   Lösning: Standardisera null handling med proper defaults
+
+4.4 MISSING FOREIGN KEY VALIDATION
+   Fil: app/src/lib/database.ts:207-221 (project_files)
+   Problem: Kommentar säger "No FK constraint on project_id" för takeover projects
+   Risk: Orphaned records, data integrity issues
+   Lösning: Överväg att lägga till FK constraint eller cleanup job
+
+4.5 JSON PARSING UTAN ERROR HANDLING
+   Fil: app/src/lib/database.ts:600, 1273-1296
+   Problem: JSON.parse() utan try-catch
+   Risk: Om JSON är korrupt kan appen krascha
+   Lösning: Wrap JSON.parse() i try-catch med fallback
+
+4.6 DATABASE CONNECTION POOLING SAKNAS
+   Problem: better-sqlite3 använder singleton, ingen connection pooling
+   Risk: Concurrent requests kan blockera varandra
+   Lösning: Överväg connection pooling eller async database library
+
+═══════════════════════════════════════════════════════════════════════════════
+5. PERFORMANCE OCH OPTIMERING
+═══════════════════════════════════════════════════════════════════════════════
+
+5.1 N+1 QUERY PROBLEM
+   Fil: app/src/lib/database.ts:489-511
+   Problem: getProjectsByUser() och getProjectsBySession() kan trigga många queries
+   Risk: Långsam performance vid många projekt
+   Lösning: Använd JOIN queries eller batch loading
+
+5.2 MISSING DATABASE INDEXES
+   Fil: app/src/lib/database.ts:347-368
+   Problem: Vissa queries saknar indexes (t.ex. projects.updated_at används ofta)
+   Risk: Långsamma queries på stora tabeller
+   Lösning: Lägg till indexes för alla kolumner som används i WHERE/ORDER BY
+
+5.3 INEFFEKTIV CACHING
+   Fil: app/src/lib/redis.ts
+   Problem: Cache keys kan bli många utan cleanup
+   Risk: Redis memory kan bli full
+   Lösning: Implementera TTL på alla cache keys och cleanup job
+
+5.4 STORA JSON BLOBS I DATABASE
+   Fil: app/src/lib/database.ts:200, 201, 633-634
+   Problem: files_json och messages_json sparas som TEXT i SQLite
+   Risk: Stora JSON blobs kan göra queries långsamma
+   Lösning: Överväg att flytta till blob storage eller separata tabeller
+
+5.5 POLLING ISTÄLLET FÖR WEBSOCKETS
+   Fil: app/src/lib/v0-generator.ts:360-437
+   Problem: waitForVersionReady() pollar var 4:e sekund
+   Risk: Onödig load på API, långsam response time
+   Lösning: Överväg websockets eller server-sent events om möjligt
+
+5.6 MISSING PAGINATION
+   Fil: app/src/lib/database.ts:489, 1655
+   Problem: getAllProjects() och getUserTransactions() saknar pagination
+   Risk: Kan returnera tusentals rader och krascha
+   Lösning: Lägg till LIMIT och OFFSET
+
+═══════════════════════════════════════════════════════════════════════════════
+6. KODKVALITET OCH STRUKTUR
+═══════════════════════════════════════════════════════════════════════════════
+
+6.1 KODDUPLIKATION
+   Filer:
+   - app/src/app/api/generate/route.ts och app/src/app/api/refine/route.ts
+   - Error handling patterns upprepas i många API routes
+   Problem: Samma kod upprepas på flera ställen
+   Risk: Svårt att underhålla, buggar kan introduceras på flera ställen
+   Lösning: Extrahera till shared utilities/functions
+
+6.2 MAGIC NUMBERS
+   Filer:
+   - app/src/lib/v0-generator.ts:362 (maxAttempts = 30, delayMs = 4000)
+   - app/src/lib/database.ts:78 (diamonds INTEGER DEFAULT 5)
+   - app/src/lib/auth.ts:21 (JWT_EXPIRY = 7 * 24 * 60 * 60)
+   Problem: Hårdkodade värden utan förklaring
+   Risk: Svårt att ändra, kan vara felaktiga
+   Lösning: Flytta till konstanter med beskrivande namn
+
+6.3 INKONSISTENT NAMNGIVNING
+   Problem: Blandning av svenska och engelska i kod
+   Risk: Förvirring, svårt att hålla konsistens
+   Lösning: Standardisera på engelska för kod, svenska för user-facing text
+
+6.4 LÅNG FUNKTIONER
+   Filer:
+   - app/src/lib/orchestrator-agent.ts:162-578 (400+ rader)
+   - app/src/app/admin/page.tsx:67-1109 (1000+ rader)
+   Problem: Funktioner är för långa och gör för mycket
+   Risk: Svårt att testa, underhålla och debugga
+   Lösning: Dela upp i mindre, fokuserade funktioner
+
+6.5 MISSING COMMENTS OCH DOCUMENTATION
+   Problem: Många komplexa funktioner saknar dokumentation
+   Risk: Svårt för nya utvecklare att förstå
+   Lösning: Lägg till JSDoc comments på alla public functions
+
+6.6 INKONSISTENT FILE STRUCTURE
+   Problem: Vissa filer är väldigt långa (database.ts: 2088 rader)
+   Risk: Svårt att navigera och hitta kod
+   Lösning: Dela upp i moduler (users.ts, projects.ts, etc.)
+
+═══════════════════════════════════════════════════════════════════════════════
+7. VALIDATION OCH INPUT SANITIZATION
+═══════════════════════════════════════════════════════════════════════════════
+
+7.1 MISSING INPUT VALIDATION
+   Fil: app/src/app/api/projects/route.ts:42-50
+   Problem: Endast name kollas, category och description valideras inte
+   Risk: Invalid data kan sparas i databasen
+   Lösning: Validera alla inputs med Zod eller liknande
+
+7.2 MISSING SQL INJECTION PROTECTION VALIDATION
+   Fil: app/src/app/api/admin/database/route.ts:158
+   Problem: `DELETE FROM ${table}` använder string interpolation (även om table är whitelisted)
+   Risk: Om whitelist misslyckas kan SQL injection ske
+   Lösning: Använd prepared statements även för table names (via whitelist check)
+
+7.3 MISSING XSS PROTECTION
+   Problem: User input renderas direkt i React utan sanitization
+   Risk: XSS-attacker via user-generated content
+   Lösning: Sanitize all user input innan rendering (dompurify)
+
+7.4 MISSING FILE UPLOAD VALIDATION
+   Fil: app/src/lib/database.ts:813-846
+   Problem: saveImage() validerar inte file type eller size
+   Risk: Stora filer eller felaktiga filtyper kan orsaka problem
+   Lösning: Validera file type, size, och content innan sparning
+
+7.5 MISSING URL VALIDATION
+   Fil: app/src/lib/database.ts:1974-2039 (saveUserAudit)
+   Problem: URL och domain sparas utan validering
+   Risk: Invalid URLs kan orsaka problem senare
+   Lösning: Validera URL format innan sparning
+
+═══════════════════════════════════════════════════════════════════════════════
+8. CONFIGURATION OCH ENVIRONMENT
+═══════════════════════════════════════════════════════════════════════════════
+
+8.1 HARDCODED REDIS HOST
+   Fil: app/src/lib/config.ts:189
+   Problem: Fallback Redis host är hardcoded
+   Risk: Kan peka på fel server i produktion
+   Lösning: Ta bort fallback, kräv environment variable
+
+8.2 MISSING ENVIRONMENT VALIDATION
+   Fil: app/src/lib/config.ts:285-301
+   Problem: validateEnv() körs inte automatiskt vid startup
+   Risk: App kan starta med saknade kritiska configs
+   Lösning: Kör validateEnv() vid app startup och fail fast
+
+8.3 INKONSISTENT DEFAULT VALUES
+   Fil: app/src/lib/config.ts:83, 91, 95
+   Problem: Vissa secrets har fallbacks, andra inte
+   Risk: Oväntat beteende i produktion
+   Lösning: Standardisera - antingen kräv alla eller ha konsekventa fallbacks
+
+8.4 MISSING CONFIG VALIDATION
+   Problem: Config värden valideras inte (t.ex. port måste vara number)
+   Risk: Runtime errors vid felaktiga configs
+   Lösning: Validera config types och ranges vid startup
+
+═══════════════════════════════════════════════════════════════════════════════
+9. LOGGING OCH DEBUGGING
+═══════════════════════════════════════════════════════════════════════════════
+
+9.1 ÖVERDRIVEN CONSOLE.LOG ANVÄNDNING
+   Filer: Många filer använder console.log istället för structured logging
+   Problem: Svårt att filtrera och analysera logs
+   Risk: Performance impact, svårt att debugga i produktion
+   Lösning: Använd structured logging library (pino, winston)
+
+9.2 SENSITIVE DATA I LOGS
+   Problem: Potentiellt känslig data kan loggas (t.ex. user IDs, project IDs)
+   Risk: Privacy issues, GDPR-problem
+   Lösning: Sanitize logs, använd log levels, undvik att logga känslig data
+
+9.3 MISSING LOG LEVELS
+   Problem: Alla logs är på samma nivå (console.log/error)
+   Risk: Svårt att filtrera viktiga events
+   Lösning: Implementera log levels (debug, info, warn, error)
+
+9.4 MISSING REQUEST IDS
+   Problem: Logs saknar request IDs för att spåra requests
+   Risk: Svårt att debugga issues i produktion
+   Lösning: Lägg till request ID i alla logs
+
+═══════════════════════════════════════════════════════════════════════════════
+10. TESTNING OCH KVALITETSSÄKRING
+═══════════════════════════════════════════════════════════════════════════════
+
+10.1 SAKNAR UNIT TESTS
+   Problem: Ingen test coverage synlig i projektet
+   Risk: Regression bugs kan introduceras
+   Lösning: Lägg till unit tests för kritiska funktioner
+
+10.2 SAKNAR INTEGRATION TESTS
+   Problem: Ingen integration testing av API routes
+   Risk: API bugs kan gå oupptäckta
+   Lösning: Lägg till integration tests för API endpoints
+
+10.3 SAKNAR E2E TESTS
+   Problem: Ingen end-to-end testing
+   Risk: User flows kan vara trasiga
+   Lösning: Lägg till E2E tests för kritiska flows
+
+10.4 MISSING ERROR SCENARIO TESTING
+   Problem: Error handling testas inte
+   Risk: Errors kan hanteras felaktigt
+   Lösning: Testa error scenarios explicit
+
+═══════════════════════════════════════════════════════════════════════════════
+11. REACT OCH FRONTEND PROBLEM
+═══════════════════════════════════════════════════════════════════════════════
+
+11.1 MISSING LOADING STATES
+   Problem: Vissa async operations saknar loading states
+   Risk: Användare vet inte att något händer
+   Lösning: Lägg till loading indicators för alla async operations
+
+11.2 MISSING ERROR BOUNDARIES
+   Problem: Inga React error boundaries
+   Risk: Ett fel kan krascha hela appen
+   Lösning: Lägg till error boundaries runt större komponenter
+
+11.3 POTENTIAL MEMORY LEAKS
+   Fil: app/src/app/admin/page.tsx:123-146
+   Problem: useEffect utan cleanup function
+   Risk: Memory leaks vid unmount
+   Lösning: Lägg till cleanup functions där nödvändigt
+
+11.4 MISSING DEBOUNCING
+   Problem: Vissa inputs saknar debouncing (t.ex. search)
+   Risk: För många API calls
+   Lösning: Lägg till debouncing för search och filter inputs
+
+11.5 INEFFEKTIV RE-RENDERING
+   Problem: Komponenter kan re-rendera onödigt
+   Risk: Performance issues
+   Lösning: Använd React.memo, useMemo, useCallback där lämpligt
+
+═══════════════════════════════════════════════════════════════════════════════
+12. API DESIGN OCH INTEGRATION
+═══════════════════════════════════════════════════════════════════════════════
+
+12.1 INKONSISTENT API RESPONSES
+   Problem: Olika endpoints returnerar olika response strukturer
+   Risk: Svårt att hantera på frontend
+   Lösning: Standardisera API response format
+
+12.2 MISSING API VERSIONING
+   Problem: Ingen API versioning
+   Risk: Breaking changes kan bryta frontend
+   Lösning: Lägg till API versioning (/api/v1/...)
+
+12.3 MISSING RATE LIMITING
+   Problem: Ingen rate limiting på API endpoints
+   Risk: API abuse, DoS attacks
+   Lösning: Implementera rate limiting (Redis-based)
+
+12.4 MISSING REQUEST VALIDATION MIDDLEWARE
+   Problem: Varje route validerar input separat
+   Risk: Inkonsistent validation, kodduplikation
+   Lösning: Skapa validation middleware
+
+12.5 MISSING API DOCUMENTATION
+   Problem: Ingen API documentation (OpenAPI/Swagger)
+   Risk: Svårt för utvecklare att använda API
+   Lösning: Generera API docs från code eller skriv OpenAPI spec
+
+═══════════════════════════════════════════════════════════════════════════════
+13. DEPENDENCY OCH UPPDATERINGAR
+═══════════════════════════════════════════════════════════════════════════════
+
+13.1 POTENTIALLY OUTDATED DEPENDENCIES
+   Problem: package.json dependencies kan vara utdaterade
+   Risk: Security vulnerabilities, saknade features
+   Lösning: Kör npm audit och uppdatera dependencies regelbundet
+
+13.2 MISSING DEPENDENCY LOCKING
+   Problem: package-lock.json finns men kan vara utdaterad
+   Risk: Inkonsistent installations mellan miljöer
+   Lösning: Commita package-lock.json och kör npm ci i CI/CD
+
+13.3 MISSING PEER DEPENDENCY VALIDATION
+   Problem: Peer dependencies valideras inte
+   Risk: Runtime errors vid felaktiga versioner
+   Lösning: Validera peer dependencies vid installation
+
+═══════════════════════════════════════════════════════════════════════════════
+14. DEPLOYMENT OCH PRODUCTION
+═══════════════════════════════════════════════════════════════════════════════
+
+14.1 MISSING HEALTH CHECK ENDPOINT
+   Problem: Ingen /health eller /status endpoint
+   Risk: Svårt att monitora app health
+   Lösning: Lägg till health check endpoint
+
+14.2 MISSING METRICS OCH MONITORING
+   Problem: Ingen metrics collection (t.ex. Prometheus)
+   Risk: Svårt att identifiera performance issues
+   Lösning: Lägg till metrics collection och monitoring
+
+14.3 MISSING ERROR TRACKING
+   Problem: Ingen error tracking service (t.ex. Sentry)
+   Risk: Errors i produktion går oupptäckta
+   Lösning: Integrera error tracking service
+
+14.4 MISSING BACKUP STRATEGY
+   Problem: Ingen automatisk backup av database
+   Risk: Data loss vid server crash
+   Lösning: Implementera automatiska backups
+
+═══════════════════════════════════════════════════════════════════════════════
+15. KODSTIL OCH BEST PRACTICES
+═══════════════════════════════════════════════════════════════════════════════
+
+15.1 MISSING ESLINT RULES
+   Problem: ESLint config kan sakna viktiga rules
+   Risk: Konsekventa kodstil-problem
+   Lösning: Granska och uppdatera ESLint config
+
+15.2 MISSING PRETTIER CONFIG
+   Problem: Prettier config kan saknas eller vara inkonsistent
+   Risk: Inkonsistent kodformatering
+   Lösning: Lägg till .prettierrc med standardiserade inställningar
+
+15.3 MISSING GIT HOOKS
+   Problem: Ingen pre-commit validation
+   Risk: Broken code kan committas
+   Lösning: Lägg till husky och lint-staged
+
+15.4 MISSING CODE REVIEW PROCESS
+   Problem: Ingen synlig code review process
+   Risk: Bugs kan gå igenom
+   Lösning: Implementera code review requirements
+
+═══════════════════════════════════════════════════════════════════════════════
+PRIORITERINGAR FÖR ÅTGÄRDER
+═══════════════════════════════════════════════════════════════════════════════
+
+KRITISKT (Gör omedelbart):
+- 1.1 Hardcoded admin email
+- 1.2 Svag JWT implementation
+- 1.5 Test user med unlimited credits
+- 4.2 Missing transaction wrapping
+- 7.1 Missing input validation
+- 9.2 Sensitive data i logs
+
+HÖG PRIORITET (Gör snart):
+- 2.1 Överdriven användning av 'any'
+- 3.1 Inkonsistent error handling
+- 4.1 Race conditions
+- 5.2 Missing database indexes
+- 6.1 Kodduplikation
+- 7.3 Missing XSS protection
+
+MEDEL PRIORITET (Planera för):
+- 3.3 Missing error boundaries
+- 5.1 N+1 query problem
+- 6.4 Långa funktioner
+- 8.2 Missing environment validation
+- 11.2 Missing error boundaries
+- 12.3 Missing rate limiting
+
+LÅG PRIORITET (När tid finns):
+- 6.5 Missing comments
+- 9.1 Överdriven console.log
+- 10.1 Saknar unit tests
+- 13.1 Potentially outdated dependencies
+- 15.1 Missing ESLint rules
+
+═══════════════════════════════════════════════════════════════════════════════
+SLUT
+═══════════════════════════════════════════════════════════════════════════════
+"
