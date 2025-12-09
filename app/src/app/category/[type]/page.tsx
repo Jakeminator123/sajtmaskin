@@ -432,46 +432,9 @@ function V0TemplateCard({
 }) {
   const router = useRouter();
   const [isCreating, setIsCreating] = useState(false);
-  const [isLoadingPreview, setIsLoadingPreview] = useState(false);
   const [showModal, setShowModal] = useState(false);
-  const [demoUrl, setDemoUrl] = useState<string | null>(null);
-  const [previewError, setPreviewError] = useState<string | null>(null);
   const imageUrl = getTemplateImageUrl(template);
   const type = useParams().type as string;
-
-  const handlePreviewClick = async (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-
-    if (disabled || isLoadingPreview) return;
-
-    // If we already have demoUrl, just open modal
-    if (demoUrl) {
-      setShowModal(true);
-      return;
-    }
-
-    setIsLoadingPreview(true);
-    setPreviewError(null);
-
-    try {
-      // Call API route to get preview (runs on server with access to env vars)
-      const response = await fetch(`/api/template/v0-preview?id=${encodeURIComponent(template.id)}`);
-      const data = await response.json();
-
-      if (data.success && data.demoUrl) {
-        setDemoUrl(data.demoUrl);
-        setShowModal(true);
-      } else {
-        setPreviewError(data.error || "Kunde inte ladda preview");
-      }
-    } catch (error) {
-      console.error("[V0TemplateCard] Preview error:", error);
-      setPreviewError(error instanceof Error ? error.message : "Nätverksfel");
-    } finally {
-      setIsLoadingPreview(false);
-    }
-  };
 
   const handleEdit = async (e: React.MouseEvent) => {
     e.preventDefault();
@@ -509,34 +472,23 @@ function V0TemplateCard({
             loading="lazy"
             sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
           />
-          {/* Loading overlay */}
-          {isLoadingPreview && (
-            <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center z-20">
-              <Loader2 className="h-8 w-8 text-teal-500 animate-spin" />
-              <span className="text-sm text-gray-400 mt-2">
-                Laddar preview...
-              </span>
-            </div>
-          )}
         </div>
         <div className="p-4 space-y-3">
           <h3 className="font-medium text-white text-sm line-clamp-1">
             {template.title || template.id}
           </h3>
-          {previewError && (
-            <p className="text-xs text-red-400">{previewError}</p>
-          )}
           <div className="flex gap-2">
             <button
-              onClick={handlePreviewClick}
-              disabled={disabled || isLoadingPreview}
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                if (disabled) return;
+                setShowModal(true);
+              }}
+              disabled={disabled}
               className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-teal-600/20 hover:bg-teal-600/30 border border-teal-500/30 rounded text-teal-400 text-xs font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {isLoadingPreview ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Play className="h-3.5 w-3.5" />
-              )}
+              <Play className="h-3.5 w-3.5" />
               Preview
             </button>
             <button
@@ -555,16 +507,12 @@ function V0TemplateCard({
         </div>
       </div>
 
-      {/* Preview Modal */}
-      {demoUrl && (
-        <PreviewModal
-          isOpen={showModal}
-          onClose={() => setShowModal(false)}
-          demoUrl={demoUrl}
-          templateName={template.title || template.id}
-          templateId={template.id}
-        />
-      )}
+      <PreviewModal
+        isOpen={showModal}
+        onClose={() => setShowModal(false)}
+        imageUrl={imageUrl}
+        templateName={template.title || template.id}
+      />
     </>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import {
   Loader2,
   LayoutDashboard,
@@ -10,19 +10,13 @@ import {
   Play,
 } from "lucide-react";
 import type { LocalTemplate } from "@/lib/local-templates";
-import { getTemplatePreview } from "@/lib/api-client";
 import { PreviewModal } from "./preview-modal";
 
 /**
- * LocalTemplateCard - WITH CACHED SCREENSHOTS
- * ===========================================
+ * LocalTemplateCard
+ * =================
  *
- * Flow:
- * 1. On mount: Check SQLite cache for screenshot via /api/template/screenshot
- * 2. If cached → show cached screenshot as thumbnail
- * 3. If not cached → show OG image or gradient fallback
- * 4. On "Preview" click → open fullscreen modal with auto-scroll
- * 5. Screenshot is auto-saved to DB when preview is fetched
+ * Visar en statisk bild av templaten. Preview-knappen förstorar bilden i en modal.
  */
 
 // Get v0 OG image URL directly from template ID (fallback)
@@ -61,112 +55,24 @@ interface LocalTemplateCardProps {
   template: LocalTemplate;
   onSelect: (template: LocalTemplate) => void | Promise<void>;
   disabled?: boolean;
-  cachedScreenshot?: string | null; // Pre-loaded from parent
 }
 
 export function LocalTemplateCard({
   template,
   onSelect,
   disabled,
-  cachedScreenshot,
 }: LocalTemplateCardProps) {
   const [isSelecting, setIsSelecting] = useState(false);
-  const [isLoadingPreview, setIsLoadingPreview] = useState(false);
   const [imageError, setImageError] = useState(false);
-
-  // Screenshot state
-  const [screenshotUrl, setScreenshotUrl] = useState<string | null>(
-    cachedScreenshot || null
-  );
-  const [isLoadingScreenshot, setIsLoadingScreenshot] = useState(
-    !cachedScreenshot
-  );
-
-  // Modal state
   const [showModal, setShowModal] = useState(false);
-  const [demoUrl, setDemoUrl] = useState<string | null>(null);
-  const [previewError, setPreviewError] = useState<string | null>(null);
 
   const CategoryIcon = getCategoryIcon(template.category);
   const gradientClass = getCategoryGradient(template.category);
 
-  // Fallback to OG image if no cached screenshot
   const ogImageUrl = getOgImageUrl(template.v0TemplateId);
 
-  // Fetch cached screenshot on mount (if not pre-loaded)
-  useEffect(() => {
-    if (cachedScreenshot !== undefined) {
-      setIsLoadingScreenshot(false);
-      return;
-    }
-
-    const fetchCachedScreenshot = async () => {
-      try {
-        const response = await fetch(
-          `/api/template/screenshot?id=${encodeURIComponent(template.id)}`
-        );
-        const data = await response.json();
-
-        if (data.success && data.screenshot_url) {
-          setScreenshotUrl(data.screenshot_url);
-        }
-      } catch (error) {
-        console.error(
-          "[LocalTemplateCard] Failed to fetch cached screenshot:",
-          error
-        );
-      } finally {
-        setIsLoadingScreenshot(false);
-      }
-    };
-
-    fetchCachedScreenshot();
-  }, [template.id, cachedScreenshot]);
-
-  // Determine which image to show
-  const displayImageUrl = screenshotUrl || ogImageUrl;
-
-  const handlePreviewClick = async (e: React.MouseEvent) => {
-    e.stopPropagation();
-
-    // If we already have demoUrl, just open modal
-    if (demoUrl) {
-      setShowModal(true);
-      return;
-    }
-
-    if (!template.v0TemplateId) {
-      setPreviewError("Preview inte tillgängligt");
-      return;
-    }
-
-    setIsLoadingPreview(true);
-    setPreviewError(null);
-
-    try {
-      const response = await getTemplatePreview(template.id);
-
-      if (!response.success) {
-        setPreviewError(response.error || "Kunde inte ladda preview");
-        return;
-      }
-
-      if (response.demoUrl) {
-        setDemoUrl(response.demoUrl);
-        setShowModal(true);
-      }
-
-      // Update screenshot if returned (will be auto-saved to DB by API)
-      if (response.screenshotUrl && !screenshotUrl) {
-        setScreenshotUrl(response.screenshotUrl);
-      }
-    } catch (error) {
-      console.error("[LocalTemplateCard] Preview error:", error);
-      setPreviewError("Nätverksfel");
-    } finally {
-      setIsLoadingPreview(false);
-    }
-  };
+  const displayImageUrl = template.previewUrl || ogImageUrl;
+  const canPreview = !!displayImageUrl && !imageError;
 
   const handleSelectClick = async () => {
     if (disabled || isSelecting) return;
@@ -186,22 +92,15 @@ export function LocalTemplateCard({
         {/* Preview Area */}
         <div className="relative aspect-[16/10] bg-gray-800 overflow-hidden">
           {/* Loading overlay */}
-          {(isSelecting || isLoadingPreview) && (
+          {isSelecting && (
             <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center z-20">
               <Loader2 className="h-8 w-8 text-teal-500 animate-spin" />
-              <span className="text-sm text-gray-400 mt-2">
-                {isLoadingPreview ? "Laddar preview..." : "Laddar mall..."}
-              </span>
+              <span className="text-sm text-gray-400 mt-2">Laddar mall...</span>
             </div>
           )}
 
-          {/* Screenshot loading skeleton */}
-          {isLoadingScreenshot && (
-            <div className="absolute inset-0 bg-gray-800 animate-pulse" />
-          )}
-
-          {/* Thumbnail image (cached screenshot or OG image) */}
-          {!isLoadingScreenshot && displayImageUrl && !imageError && (
+          {/* Thumbnail image */}
+          {displayImageUrl && !imageError && (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={displayImageUrl}
@@ -250,26 +149,21 @@ export function LocalTemplateCard({
             {template.description}
           </p>
 
-          {previewError && (
-            <p className="text-xs text-red-400 mt-2">{previewError}</p>
-          )}
-
           {/* Action buttons */}
           <div className="flex items-center gap-2 mt-3">
-            {template.v0TemplateId && (
-              <button
-                onClick={handlePreviewClick}
-                disabled={isLoadingPreview || isSelecting}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white transition-colors disabled:opacity-50"
-              >
-                {isLoadingPreview ? (
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                ) : (
-                  <Play className="h-3 w-3" />
-                )}
-                Preview
-              </button>
-            )}
+            <button
+              onClick={(event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                if (isSelecting || disabled || !displayImageUrl) return;
+                setShowModal(true);
+              }}
+              disabled={isSelecting || !canPreview}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white transition-colors disabled:opacity-50"
+            >
+              <Play className="h-3 w-3" />
+              Preview
+            </button>
 
             <button
               onClick={handleSelectClick}
@@ -287,19 +181,12 @@ export function LocalTemplateCard({
       </div>
 
       {/* Preview Modal */}
-      {demoUrl && (
-        <PreviewModal
-          isOpen={showModal}
-          onClose={() => setShowModal(false)}
-          demoUrl={demoUrl}
-          templateName={template.name}
-          templateId={template.id}
-          onScreenshotCaptured={() => {
-            // Refresh the screenshot URL to use the newly captured local one
-            setScreenshotUrl(`/screenshots/${template.id}.jpg?t=${Date.now()}`);
-          }}
-        />
-      )}
+      <PreviewModal
+        isOpen={showModal}
+        onClose={() => setShowModal(false)}
+        imageUrl={canPreview ? displayImageUrl : undefined}
+        templateName={template.name}
+      />
     </>
   );
 }
