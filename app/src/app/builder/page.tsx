@@ -59,7 +59,6 @@ function BuilderContent() {
   const templateId = searchParams.get("templateId");
   const localTemplateId = searchParams.get("localTemplateId");
   // Reuse chatId from preview (if template was previewed before selection)
-  const previewChatId = searchParams.get("chatId");
 
   // Track the active projectId (from URL or auto-created)
   const [projectId, setLocalProjectId] = useState<string | null>(urlProjectId);
@@ -617,7 +616,6 @@ function BuilderContent() {
             initialPrompt={prompt || undefined}
             templateId={templateId || undefined}
             localTemplateId={localTemplateId || undefined}
-            previewChatId={previewChatId || undefined}
             instanceId="desktop"
             isPrimaryInstance={true}
             isProjectDataLoading={isProjectDataLoading}
@@ -648,7 +646,6 @@ function BuilderContent() {
               initialPrompt={prompt || undefined}
               templateId={templateId || undefined}
               localTemplateId={localTemplateId || undefined}
-              previewChatId={previewChatId || undefined}
               instanceId="mobile"
               isPrimaryInstance={false}
               isProjectDataLoading={isProjectDataLoading}

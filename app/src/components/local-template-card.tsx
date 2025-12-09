@@ -59,10 +59,7 @@ function getCategoryGradient(category: string): string {
 
 interface LocalTemplateCardProps {
   template: LocalTemplate;
-  onSelect: (
-    template: LocalTemplate,
-    previewChatId?: string
-  ) => void | Promise<void>;
+  onSelect: (template: LocalTemplate) => void | Promise<void>;
   disabled?: boolean;
   cachedScreenshot?: string | null; // Pre-loaded from parent
 }
@@ -88,7 +85,6 @@ export function LocalTemplateCard({
   // Modal state
   const [showModal, setShowModal] = useState(false);
   const [demoUrl, setDemoUrl] = useState<string | null>(null);
-  const [previewChatId, setPreviewChatId] = useState<string | null>(null);
   const [previewError, setPreviewError] = useState<string | null>(null);
 
   const CategoryIcon = getCategoryIcon(template.category);
@@ -160,10 +156,6 @@ export function LocalTemplateCard({
         setShowModal(true);
       }
 
-      if (response.chatId) {
-        setPreviewChatId(response.chatId);
-      }
-
       // Update screenshot if returned (will be auto-saved to DB by API)
       if (response.screenshotUrl && !screenshotUrl) {
         setScreenshotUrl(response.screenshotUrl);
@@ -180,7 +172,7 @@ export function LocalTemplateCard({
     if (disabled || isSelecting) return;
     setIsSelecting(true);
     try {
-      await onSelect(template, previewChatId || undefined);
+      await onSelect(template);
     } catch (error) {
       console.error("[LocalTemplateCard] Select error:", error);
     } finally {

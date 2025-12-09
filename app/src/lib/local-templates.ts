@@ -2,40 +2,11 @@
  * Local Templates Registry
  * ========================
  *
- * Hanterar mallar som användare kan använda som utgångspunkt.
+ * Varje mall pekar direkt på ett offentligt v0-template via `v0TemplateId`.
+ * /api/local-template returnerar bara metadata och frontend anropar
+ * `generateFromTemplate(v0TemplateId)` för att få kod, filer och demoUrl.
  *
- * TVÅ TYPER AV MALLAR:
- *
- * TYP A: v0TemplateId-baserade (REKOMMENDERAT)
- * ─────────────────────────────────────────────
- * - Har v0TemplateId satt (t.ex. "hUI7hCyGNye")
- * - mainFile och folderPath kan vara tomma ("")
- * - Laddas DIREKT från v0 API - inget lokalt behövs!
- * - Ger fullständig mall med alla filer och demoUrl
- * - KAN REDIGERAS efteråt (chatId returneras)
- *
- * TYP B: Lokal-kod-baserade (fallback)
- * ─────────────────────────────────────
- * - Har INTE v0TemplateId (eller det är en chat-URL)
- * - Kräver mainFile och folderPath till lokal kod
- * - Kod lagras i: src/templates/{category}/{template-id}/
- * - Koden skickas till v0 API för att generera preview
- *
- * FLÖDE NÄR ANVÄNDARE VÄLJER EN MALL:
- *
- * 1. Frontend anropar /api/local-template?id=xxx
- * 2. Om mallen har v0TemplateId OCH tomma filsökvägar:
- *    → Returnerar useV0Api: true
- *    → Frontend anropar generateFromTemplate(v0TemplateId)
- *    → v0 API returnerar demoUrl + chatId + filer
- *
- * 3. Om mallen har lokal kod:
- *    → Läser filer från src/templates/
- *    → Skickar till generateWebsite() för att få demoUrl
- *
- * VIKTIGT OM v0TemplateId:
- * ────────────────────────
- * Template ID är BARA hash-delen av URL:en!
+ * VIKTIGT: v0TemplateId är endast hash-delen av URL:en.
  *
  * Exempel:
  *   URL: https://v0.app/templates/vercel-style-black-friday-map-hUI7hCyGNye
@@ -54,15 +25,7 @@ export interface LocalTemplate {
   category: string; // "landing-page" | "dashboard" | "website"
   previewUrl: string; // Bild för UI (kan vara placeholder)
   sourceUrl: string; // Original v0 URL för referens
-
-  // TYP A (v0TemplateId): Sätt dessa tomma ("")
-  // TYP B (lokal kod): Sätt dessa till filsökvägar
-  mainFile: string; // "app/page.tsx" eller "" för TYP A
-  folderPath: string; // "landing-page/cosmos-3d" eller "" för TYP A
-
-  // VIKTIG: Bara hash-delen av URL! Se dokumentation ovan.
-  v0TemplateId?: string; // "hUI7hCyGNye" (ej full slug!)
-
+  v0TemplateId: string; // "hUI7hCyGNye" (ej full slug!)
   complexity: "simple" | "advanced";
 }
 
@@ -82,8 +45,6 @@ export const LOCAL_TEMPLATES: LocalTemplate[] = [
     previewUrl: "/templates/landing_page/1/preview.jpg",
     sourceUrl:
       "https://v0.app/templates/cosmos-3d-orbit-gallery-template-W8w0SZdos3x",
-    mainFile: "", // TYP A: ingen lokal kod behövs
-    folderPath: "", // TYP A: ingen lokal kod behövs
     v0TemplateId: "W8w0SZdos3x",
     complexity: "advanced",
   },
@@ -99,8 +60,6 @@ export const LOCAL_TEMPLATES: LocalTemplate[] = [
     previewUrl: "", // Uses v0 OG image automatically
     sourceUrl:
       "https://v0.app/templates/ai-agency-landing-page-and-portfolio-site-Ka8r7wzBAS0",
-    mainFile: "", // TYP A
-    folderPath: "", // TYP A
     v0TemplateId: "Ka8r7wzBAS0",
     complexity: "simple",
   },
@@ -115,8 +74,6 @@ export const LOCAL_TEMPLATES: LocalTemplate[] = [
     category: "landing-page",
     previewUrl: "", // Uses v0 OG image automatically
     sourceUrl: "https://v0.app/templates/next-js-boilerplate-dNTdgBEhEAn",
-    mainFile: "",
-    folderPath: "",
     v0TemplateId: "dNTdgBEhEAn",
     complexity: "simple",
   },
@@ -131,8 +88,6 @@ export const LOCAL_TEMPLATES: LocalTemplate[] = [
     category: "landing-page",
     previewUrl: "/templates/landing_page/4/preview.jpg",
     sourceUrl: "https://v0.app/templates/pointer-ai-landing-page-XQxxv76lK5w",
-    mainFile: "",
-    folderPath: "",
     v0TemplateId: "XQxxv76lK5w",
     complexity: "simple",
   },
@@ -147,8 +102,6 @@ export const LOCAL_TEMPLATES: LocalTemplate[] = [
     category: "landing-page",
     previewUrl: "/templates/landing_page/5/preview.jpg",
     sourceUrl: "https://v0.app/templates/shaders-landing-page-R3n0gnvYFbO",
-    mainFile: "",
-    folderPath: "",
     v0TemplateId: "R3n0gnvYFbO",
     complexity: "advanced",
   },
@@ -163,8 +116,6 @@ export const LOCAL_TEMPLATES: LocalTemplate[] = [
     category: "landing-page",
     previewUrl: "/templates/landing_page/6/preview.jpg",
     sourceUrl: "https://v0.app/templates/skal-ventures-template-tnZGzubtsTc",
-    mainFile: "",
-    folderPath: "",
     v0TemplateId: "tnZGzubtsTc",
     complexity: "advanced",
   },
@@ -180,8 +131,6 @@ export const LOCAL_TEMPLATES: LocalTemplate[] = [
     previewUrl: "/templates/landing_page/7/preview.jpg",
     sourceUrl:
       "https://v0.app/templates/auralink-saas-landing-page-zoQPxUaTqvE",
-    mainFile: "",
-    folderPath: "",
     v0TemplateId: "zoQPxUaTqvE",
     complexity: "simple",
   },
@@ -201,8 +150,6 @@ export const LOCAL_TEMPLATES: LocalTemplate[] = [
     previewUrl: "/templates/dashboards/1/preview.png",
     sourceUrl:
       "https://v0.app/templates/vercel-style-black-friday-map-hUI7hCyGNye",
-    mainFile: "",
-    folderPath: "",
     v0TemplateId: "hUI7hCyGNye",
     complexity: "advanced",
   },
@@ -216,8 +163,6 @@ export const LOCAL_TEMPLATES: LocalTemplate[] = [
     category: "dashboard",
     previewUrl: "/templates/dashboards/2/preview.jpg",
     sourceUrl: "https://v0.app/templates/shaders-hero-section-lJXGkoM1koN",
-    mainFile: "",
-    folderPath: "",
     v0TemplateId: "lJXGkoM1koN",
     complexity: "advanced",
   },
@@ -233,8 +178,6 @@ export const LOCAL_TEMPLATES: LocalTemplate[] = [
     previewUrl: "/templates/dashboards/3/preview.jpg",
     sourceUrl:
       "https://v0.app/templates/brillance-saa-s-landing-page-zdiN8dHwaaT",
-    mainFile: "",
-    folderPath: "",
     v0TemplateId: "zdiN8dHwaaT",
     complexity: "simple",
   },
@@ -249,8 +192,6 @@ export const LOCAL_TEMPLATES: LocalTemplate[] = [
     category: "dashboard",
     previewUrl: "/templates/dashboards/4/preview.jpg",
     sourceUrl: "https://v0.app/templates/shadcn-dashboard-Pf7lw1nypu5",
-    mainFile: "",
-    folderPath: "",
     v0TemplateId: "Pf7lw1nypu5",
     complexity: "simple",
   },
@@ -265,8 +206,6 @@ export const LOCAL_TEMPLATES: LocalTemplate[] = [
     category: "dashboard",
     previewUrl: "/templates/dashboards/5/preview.jpg",
     sourceUrl: "https://v0.app/templates/workflow-design-dashboard-IVWc0rHCBAL",
-    mainFile: "",
-    folderPath: "",
     v0TemplateId: "IVWc0rHCBAL",
     complexity: "simple",
   },
@@ -281,8 +220,6 @@ export const LOCAL_TEMPLATES: LocalTemplate[] = [
     category: "dashboard",
     previewUrl: "/templates/dashboards/6/preview.jpg",
     sourceUrl: "https://v0.app/templates/simple-dashboard-ZZFpa3jFqnO",
-    mainFile: "",
-    folderPath: "",
     v0TemplateId: "ZZFpa3jFqnO",
     complexity: "simple",
   },
@@ -297,8 +234,6 @@ export const LOCAL_TEMPLATES: LocalTemplate[] = [
     category: "dashboard",
     previewUrl: "/templates/dashboards/7/preview.jpg",
     sourceUrl: "https://v0.app/templates/analytics-dashboard-NtDCHfJthfA",
-    mainFile: "",
-    folderPath: "",
     v0TemplateId: "NtDCHfJthfA",
     complexity: "simple",
   },
@@ -318,8 +253,6 @@ export const LOCAL_TEMPLATES: LocalTemplate[] = [
     previewUrl: "/templates/homepage/1/preview.jpg",
     sourceUrl:
       "https://v0.app/templates/lorenzo-motocross-landing-page-jz21jJIFr0i",
-    mainFile: "",
-    folderPath: "",
     v0TemplateId: "jz21jJIFr0i",
     complexity: "simple",
   },
@@ -334,8 +267,6 @@ export const LOCAL_TEMPLATES: LocalTemplate[] = [
     category: "website",
     previewUrl: "/templates/homepage/2/preview.jpg",
     sourceUrl: "https://v0.app/templates/marketing-website-sV0OtrkXM6x",
-    mainFile: "",
-    folderPath: "",
     v0TemplateId: "sV0OtrkXM6x",
     complexity: "simple",
   },
@@ -351,8 +282,6 @@ export const LOCAL_TEMPLATES: LocalTemplate[] = [
     previewUrl: "/templates/homepage/3/preview.jpg",
     sourceUrl:
       "https://v0.app/templates/modern-artist-landing-template-QRieAUkBLIh",
-    mainFile: "",
-    folderPath: "",
     v0TemplateId: "QRieAUkBLIh",
     complexity: "simple",
   },
@@ -366,8 +295,6 @@ export const LOCAL_TEMPLATES: LocalTemplate[] = [
     category: "website",
     previewUrl: "/templates/homepage/4/preview.jpg",
     sourceUrl: "https://v0.app/templates/paperfolio-dDPFIVqPGXR",
-    mainFile: "",
-    folderPath: "",
     v0TemplateId: "dDPFIVqPGXR",
     complexity: "simple",
   },
@@ -382,8 +309,6 @@ export const LOCAL_TEMPLATES: LocalTemplate[] = [
     category: "website",
     previewUrl: "/templates/homepage/5/preview.jpg",
     sourceUrl: "https://v0.app/templates/a-boring-agency-Nynl8DJ6xUH",
-    mainFile: "",
-    folderPath: "",
     v0TemplateId: "Nynl8DJ6xUH",
     complexity: "simple",
   },
@@ -398,8 +323,6 @@ export const LOCAL_TEMPLATES: LocalTemplate[] = [
     category: "website",
     previewUrl: "/templates/homepage/6/preview.jpg",
     sourceUrl: "https://v0.app/templates/an-unusual-hero-VZ9EEGUUq9M",
-    mainFile: "",
-    folderPath: "",
     v0TemplateId: "VZ9EEGUUq9M",
     complexity: "advanced",
   },
@@ -415,8 +338,6 @@ export const LOCAL_TEMPLATES: LocalTemplate[] = [
     previewUrl: "/templates/homepage/7/preview.jpg",
     sourceUrl:
       "https://v0.app/templates/modern-agency-website-liquid-glass-ezmvVsZJxz8",
-    mainFile: "",
-    folderPath: "",
     v0TemplateId: "ezmvVsZJxz8",
     complexity: "advanced",
   },
@@ -431,8 +352,6 @@ export const LOCAL_TEMPLATES: LocalTemplate[] = [
     category: "website",
     previewUrl: "/templates/homepage/8/preview.jpg",
     sourceUrl: "https://v0.app/templates/enhanced-travel-website-mEefgKyVifq",
-    mainFile: "",
-    folderPath: "",
     v0TemplateId: "mEefgKyVifq",
     complexity: "simple",
   },
@@ -447,8 +366,6 @@ export const LOCAL_TEMPLATES: LocalTemplate[] = [
     category: "website",
     previewUrl: "/templates/homepage/9/preview.jpg",
     sourceUrl: "https://v0.app/templates/minimalist-portfolio-1DPeR9dunMc",
-    mainFile: "",
-    folderPath: "",
     v0TemplateId: "1DPeR9dunMc",
     complexity: "simple",
   },
@@ -463,8 +380,6 @@ export const LOCAL_TEMPLATES: LocalTemplate[] = [
     category: "website",
     previewUrl: "/templates/homepage/10/preview.jpg",
     sourceUrl: "https://v0.app/templates/portfolio-template-by-v0-X6XcPALhbJD",
-    mainFile: "",
-    folderPath: "",
     v0TemplateId: "X6XcPALhbJD",
     complexity: "simple",
   },

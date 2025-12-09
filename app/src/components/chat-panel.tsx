@@ -180,7 +180,6 @@ interface ChatPanelProps {
   initialPrompt?: string;
   templateId?: string;
   localTemplateId?: string;
-  previewChatId?: string; // Reuse chatId from preview (for seamless template loading)
   instanceId?: string; // Unique ID to differentiate between desktop/mobile instances
   isPrimaryInstance?: boolean; // Only primary instance triggers generation (prevents duplicates)
   isProjectDataLoading?: boolean; // True while loading project data from database
@@ -192,7 +191,6 @@ export function ChatPanel({
   initialPrompt,
   templateId,
   localTemplateId,
-  previewChatId,
   instanceId = "default",
   isPrimaryInstance = true, // Only primary instance triggers auto-generation
   isProjectDataLoading = false, // Wait for project data before generating
@@ -531,173 +529,35 @@ export function ChatPanel({
     return names[type] || type;
   };
 
-  // Handle local template loading
-  // Instead of rendering in Sandpack (which fails due to missing deps),
-  // we load the template code and then use v0 API to generate a hosted preview
+  // Handle local template loading via v0 API metadata
   const handleLocalTemplateLoad = async (templateId: string) => {
     addMessage("user", `Laddar mall: ${templateId}`);
     setLoading(true);
 
     try {
-      // If we have a previewChatId, we already have a v0 session - just fetch the details
-      if (previewChatId) {
-        console.log("[ChatPanel] Reusing preview chatId:", previewChatId);
-        addMessage("assistant", `Återanvänder förhandsgranskad session...`);
-
-        // Fetch full template data to get files and demoUrl
-        const v0Response = await generateFromTemplate(
-          // Get the v0TemplateId from local-template API
-          (
-            await fetch(`/api/local-template?id=${templateId}`).then((r) =>
-              r.json()
-            )
-          ).template?.v0TemplateId || templateId,
-          quality
-        );
-
-        if (v0Response?.success) {
-          if (v0Response.chatId) setChatId(v0Response.chatId);
-          if (v0Response.demoUrl) setDemoUrl(v0Response.demoUrl);
-          if (v0Response.files?.length) setFiles(v0Response.files);
-          if (v0Response.versionId) setVersionId(v0Response.versionId);
-
-          const mainCode =
-            v0Response.code ||
-            v0Response.files?.find(
-              (f: { name: string; content: string }) =>
-                f.name.includes("page.tsx") || f.name.endsWith(".tsx")
-            )?.content ||
-            "";
-
-          if (mainCode) setCurrentCode(mainCode);
-
-          addMessage(
-            "assistant",
-            `Mallen är redo! Du kan nu förfina den genom att skriva ändringar nedan.`
-          );
-        } else {
-          addMessage(
-            "assistant",
-            v0Response?.error || "Kunde inte ladda mallen."
-          );
-        }
-        return;
-      }
-
       const response = await fetch(`/api/local-template?id=${templateId}`);
       const data = await response.json();
 
-      if (!data.success) {
+      if (!data.success || !data.template?.v0TemplateId) {
         addMessage(
           "assistant",
-          data.error || "Kunde inte ladda mallen. Försök igen."
+          data.error || "Kunde inte ladda mallens metadata. Försök igen."
         );
         return;
       }
 
-      let v0Response;
+      const templateName = data.template?.name || templateId;
+      addMessage(
+        "assistant",
+        `Mall "${templateName}" hittad! Laddar från v0...`
+      );
 
-      // SMART: If template signals useV0Api (has v0TemplateId, no local files)
-      // → Skip file handling, go directly to v0 API
-      if (data.useV0Api && data.template?.v0TemplateId) {
-        addMessage(
-          "assistant",
-          `Mall "${data.template.name}" hittad! Laddar från v0 direkt...`
-        );
+      const v0Response = await generateFromTemplate(
+        data.template.v0TemplateId,
+        quality
+      );
 
-        v0Response = await generateFromTemplate(
-          data.template.v0TemplateId,
-          quality
-        );
-
-        // Skip to result handling below
-      } else {
-        // Normal flow: Template has local files
-
-        // Get the main code from template
-        let mainCode = data.code;
-        if (!mainCode && data.files && data.files.length > 0) {
-          const mainFile = data.files.find(
-            (f: { name: string; content: string }) =>
-              f.name === "page.tsx" ||
-              f.name === "App.tsx" ||
-              f.name.endsWith("/page.tsx")
-          );
-          mainCode = mainFile?.content || "";
-        }
-
-        if (!mainCode) {
-          addMessage("assistant", "Kunde inte hitta mallens huvudfil.");
-          return;
-        }
-
-        // Save files locally for code view
-        if (data.files && data.files.length > 0) {
-          setFiles(data.files);
-        }
-        setCurrentCode(mainCode);
-
-        // Show progress to user
-        addMessage(
-          "assistant",
-          `Mall "${
-            data.template?.name || templateId
-          }" hittad! Genererar live preview...`
-        );
-
-        // SMART APPROACH: Try v0 template ID first if available (much better quality!)
-        if (data.template?.v0TemplateId) {
-          addMessage("assistant", "Laddar från v0 direkt (bästa kvalitet)...");
-          v0Response = await generateFromTemplate(
-            data.template.v0TemplateId,
-            quality
-          );
-        }
-
-        // Fallback: Use code-based approach if v0TemplateId failed or doesn't exist
-        if (!v0Response?.success) {
-          try {
-            // Use a STRICT prompt to recreate as faithfully as possible
-            const templatePrompt = `RECREATE this React component as EXACTLY as possible.
-
-STRICT REQUIREMENTS:
-1. Generate a SINGLE self-contained React component (no external imports)
-2. PRESERVE ALL visual elements: colors, gradients, shadows, animations
-3. PRESERVE the exact layout, spacing, and typography
-4. PRESERVE all SVG elements and their animations (animateMotion, keyframes, etc.)
-5. PRESERVE all CSS styles including @keyframes animations
-6. You CAN use: react, lucide-react, framer-motion/motion, tailwindcss
-7. If the code has SVG paths/shapes, include them EXACTLY as shown
-
-This is the EXACT code to recreate - do NOT simplify or change the design:
-
-${mainCode.substring(0, 18000)}`;
-
-            v0Response = await generateWebsite(
-              templatePrompt,
-              undefined,
-              quality
-            );
-          } catch (fallbackError) {
-            console.error(
-              "[ChatPanel] Fallback generation also failed:",
-              fallbackError
-            );
-            v0Response = {
-              success: false,
-              error: `Både v0 template och fallback-generering misslyckades: ${
-                fallbackError instanceof Error
-                  ? fallbackError.message
-                  : "Okänt fel"
-              }`,
-            };
-          }
-        }
-      } // Close else block
-
-      // Handle v0 response (for both direct API and local-to-v0 flow)
       if (v0Response?.success) {
-        // Save the v0 response to state (only set if values exist)
         if (v0Response.chatId) {
           setChatId(v0Response.chatId);
         }
@@ -715,11 +575,8 @@ ${mainCode.substring(0, 18000)}`;
           setVersionId(v0Response.versionId);
         }
 
-        // IMPORTANT: Set currentCode for refinement to work!
-        // Try code first, then extract from files if needed
         let codeToSet = v0Response.code;
         if (!codeToSet && v0Response.files && v0Response.files.length > 0) {
-          // Find main file and extract code
           const mainFile =
             v0Response.files.find(
               (f: { name: string; content: string }) =>
@@ -735,51 +592,19 @@ ${mainCode.substring(0, 18000)}`;
 
         addMessage(
           "assistant",
-          `Mallen är redo! Du kan nu se preview och fortsätta anpassa den genom att skriva ändringar nedan.`
+          "Mallen är redo! Du kan nu se preview och fortsätta anpassa den genom att skriva ändringar nedan."
         );
 
-        // AUTO-SAVE: Save to database after successful template load
         if (projectId && (v0Response.demoUrl || codeToSet)) {
           explicitSave().catch((err) => {
             console.warn(
-              "[ChatPanel] Auto-save after template load failed:",
+              "[ChatPanel] Auto-save efter template load misslyckades:",
               err
             );
           });
         }
       } else {
-        // Fallback: v0 API failed
         const errorMsg = v0Response?.error || "Okänt fel";
-
-        // For TYP A templates (v0TemplateId only, no local files), provide fallback code
-        // so the code view isn't empty
-        if (data.useV0Api && !currentCode) {
-          const fallbackCode = `// Mall: ${data.template?.name || templateId}
-// 
-// ⚠️ Kunde inte ladda mallen från v0 API.
-// Fel: ${errorMsg}
-// 
-// Prova:
-// 1. Ladda om sidan
-// 2. Skriv en egen prompt för att generera innehåll
-// 3. Välj en annan mall
-//
-// Template URL: ${data.template?.sourceUrl || "N/A"}
-// Template ID: ${data.template?.v0TemplateId || "N/A"}
-
-export default function Page() {
-  return (
-    <div className="flex items-center justify-center min-h-screen bg-black text-white">
-      <div className="text-center p-8">
-        <h1 className="text-2xl font-bold mb-4">Mall kunde inte laddas</h1>
-        <p className="text-gray-400">Prova att ladda om eller välj en annan mall.</p>
-      </div>
-    </div>
-  );
-}`;
-          setCurrentCode(fallbackCode);
-        }
-
         addMessage(
           "assistant",
           `Mallen kunde inte laddas: ${errorMsg}. Prova att ladda om sidan eller skriv en egen prompt.`
@@ -798,7 +623,7 @@ export default function Page() {
     }
   };
 
-  // Handle template generation
+// Handle template generation
   const handleTemplateGeneration = async (templateId: string) => {
     addMessage("user", `Laddar template: ${templateId}`);
     setLoading(true);
