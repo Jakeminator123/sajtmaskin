@@ -58,6 +58,10 @@ export function getRedis(): Redis | null {
         port: REDIS_CONFIG.port,
         username: REDIS_CONFIG.username,
       });
+      // Redis Cloud: TLS is optional and can be enabled via REDIS_TLS env var
+      // Some Redis Cloud instances use TLS ports (like 6380), others use non-TLS ports
+      const useTLS = process.env.REDIS_TLS === "true" || process.env.REDIS_TLS === "1";
+      
       redisClient = new Redis({
         host: REDIS_CONFIG.host,
         port: REDIS_CONFIG.port,
@@ -67,6 +71,12 @@ export function getRedis(): Redis | null {
         lazyConnect: true,
         connectTimeout: 10000,
         keepAlive: 30000,
+        ...(useTLS && {
+          tls: {
+            // Redis Cloud uses self-signed certificates
+            rejectUnauthorized: false,
+          },
+        }),
       });
 
       redisClient.on("error", (err) => {
