@@ -248,7 +248,12 @@ export async function refineWebsite(
   existingCode: string,
   instruction: string,
   quality: QualityLevel = "standard",
-  chatId?: string
+  chatId?: string,
+  mediaLibrary?: Array<{
+    url: string;
+    filename: string;
+    description?: string;
+  }>
 ): Promise<RefineResponse> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), REFINE_TIMEOUT_MS);
@@ -268,6 +273,7 @@ export async function refineWebsite(
         chatId,
         instruction,
         quality,
+        mediaLibrary,
       }),
       signal: controller.signal,
     });

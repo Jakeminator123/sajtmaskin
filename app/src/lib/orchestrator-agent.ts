@@ -43,6 +43,7 @@ import { isBlobConfigured, uploadBlobFromBase64 } from "@/lib/blob-service";
 import { debugLog } from "@/lib/debug";
 import { generateCode, refineCode } from "@/lib/v0-generator";
 import OpenAI from "openai";
+export { enhancePromptForV0 } from "./prompt-utils";
 
 // Helper to save AI-generated image using centralized blob-service
 // CRITICAL: This function MUST return a URL for v0 preview to work!
@@ -879,7 +880,6 @@ export function needsOrchestration(prompt: string): boolean {
     prompt.includes("blob.vercel-storage.com") ||
     prompt.includes("images.unsplash.com") ||
     prompt.includes("/api/uploads/") ||
-    prompt.includes("https://") ||
     prompt.includes("EXAKTA URLs") ||
     prompt.includes("publika URLs")
   ) {
@@ -985,69 +985,3 @@ export function needsOrchestration(prompt: string): boolean {
   return false;
 }
 
-/**
- * Enhance a prompt for v0 by resolving media library references
- *
- * Transforms vague references like "bilden som ser ut som en tiger"
- * into concrete instructions with actual URLs.
- *
- * @param prompt - User's original prompt
- * @param mediaLibrary - Array of media items with URLs and descriptions
- * @returns Enhanced prompt ready for v0
- */
-export function enhancePromptForV0(
-  prompt: string,
-  mediaLibrary?: Array<{
-    url: string;
-    filename: string;
-    description?: string;
-  }>
-): string {
-  // If no media library provided, return prompt as-is
-  if (!mediaLibrary || mediaLibrary.length === 0) {
-    return prompt;
-  }
-
-  let enhanced = prompt;
-
-  // Check if prompt references media library
-  const mediaReferences = [
-    "mediabibliotek",
-    "min bild",
-    "mina bilder",
-    "uppladdade",
-    "den som ser ut som",
-    "bilden med",
-    "logon",
-    "logotypen",
-  ];
-
-  const hasMediaReference = mediaReferences.some((ref) =>
-    prompt.toLowerCase().includes(ref)
-  );
-
-  if (hasMediaReference) {
-    // Build a media catalog for v0 to understand
-    const mediaCatalog = mediaLibrary
-      .map(
-        (item, i) =>
-          `[Bild ${i + 1}]: ${item.url} - "${
-            item.description || item.filename
-          }"`
-      )
-      .join("\n");
-
-    enhanced = `${prompt}
-
-═══════════════════════════════════════════════════════════════════════
-TILLGÄNGLIGA BILDER FRÅN MEDIABIBLIOTEKET:
-═══════════════════════════════════════════════════════════════════════
-${mediaCatalog}
-
-INSTRUKTION: Använd EXAKTA URLs från listan ovan i <img src="..."> taggar.
-Matcha användarens beskrivning med rätt bild baserat på filnamn/beskrivning.
-═══════════════════════════════════════════════════════════════════════`;
-  }
-
-  return enhanced;
-}

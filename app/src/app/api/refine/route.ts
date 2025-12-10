@@ -11,6 +11,7 @@ import {
   sanitizeCode,
   type QualityLevel,
 } from "@/lib/v0-generator";
+import type { MediaLibraryItem } from "@/lib/prompt-utils";
 import { getCurrentUser } from "@/lib/auth";
 import { getSessionIdFromRequest } from "@/lib/session";
 import {
@@ -44,11 +45,13 @@ export async function POST(req: NextRequest) {
       chatId,
       instruction,
       quality: initialQuality = "premium", // Default to premium for better understanding and code quality
+      mediaLibrary,
     } = body as {
       existingCode?: string;
       chatId?: string;
       instruction?: string;
       quality?: QualityLevel;
+      mediaLibrary?: MediaLibraryItem[];
     };
     let quality = initialQuality;
 
@@ -141,7 +144,8 @@ export async function POST(req: NextRequest) {
       chatId || null,
       existingCode,
       instruction,
-      quality as QualityLevel
+      quality as QualityLevel,
+      mediaLibrary
     );
 
     console.log(

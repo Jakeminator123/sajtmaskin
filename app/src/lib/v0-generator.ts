@@ -42,6 +42,7 @@
  */
 
 import { createClient, type ChatDetail } from "v0-sdk";
+import { enhancePromptForV0, type MediaLibraryItem } from "./prompt-utils";
 
 // Lazy-initialized v0 client (created at request time, not import time)
 let _v0Client: ReturnType<typeof createClient> | null = null;
@@ -647,10 +648,17 @@ export async function refineCode(
   existingChatId: string | null,
   existingCode: string,
   instruction: string,
-  quality: QualityLevel = "standard"
+  quality: QualityLevel = "standard",
+  mediaLibrary?: MediaLibraryItem[]
 ): Promise<GenerationResult> {
   const modelId = MODEL_MAP[quality];
   const v0 = getV0Client();
+
+  // Apply media enhancement once to avoid double-wrapping further up the stack
+  const instructionWithMedia = enhancePromptForV0(
+    instruction,
+    mediaLibrary && mediaLibrary.length > 0 ? mediaLibrary : undefined
+  );
 
   // If we have an existing chat ID, send a message to that chat
   if (existingChatId) {
@@ -676,7 +684,7 @@ export async function refineCode(
     // This ensures v0 ADAPTS the existing design rather than replacing it
     const refinementInstruction = `REFINEMENT INSTRUCTION - ADAPT, DON'T REPLACE:
 
-${instruction}
+${instructionWithMedia}
 
 IMPORTANT RULES FOR THIS REFINEMENT:
 1. PRESERVE the overall structure, layout, and components of the existing design
@@ -775,7 +783,7 @@ ${existingCode.substring(0, 50000)}${
   }
 \`\`\`
 
-REFINEMENT REQUEST: ${instruction}
+REFINEMENT REQUEST: ${instructionWithMedia}
 
 CRITICAL RULES:
 1. PRESERVE the overall structure, layout, and components
