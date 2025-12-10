@@ -4,19 +4,33 @@
  * POST /api/analytics - Record a page view
  */
 
-import { NextRequest, NextResponse } from "next/server";
+import { getCurrentUser } from "@/lib/auth";
 import {
-  recordPageView,
-  getAnalyticsStats,
   TEST_USER_EMAIL,
+  getAnalyticsStats,
+  recordPageView,
 } from "@/lib/database";
 import { getSessionIdFromRequest } from "@/lib/session";
-import { getCurrentUser } from "@/lib/auth";
+import { NextRequest, NextResponse } from "next/server";
+
+// Safely parse JSON without throwing on empty/invalid bodies
+async function parseJsonBody<T>(
+  req: NextRequest
+): Promise<T | Record<string, never>> {
+  try {
+    const text = await req.text();
+    if (!text) return {} as Record<string, never>;
+    return JSON.parse(text) as T;
+  } catch (error) {
+    console.warn("[API/analytics] Failed to parse request body:", error);
+    return {} as Record<string, never>;
+  }
+}
 
 // Record page view
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
+    const body = await parseJsonBody<{ path?: string; referrer?: string }>(req);
     const { path, referrer } = body as { path?: string; referrer?: string };
 
     if (!path) {

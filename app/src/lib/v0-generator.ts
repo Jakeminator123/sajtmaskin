@@ -359,7 +359,7 @@ export async function downloadVersionAsZip(
  */
 async function waitForVersionReady(
   chatId: string,
-  maxAttempts = 30, // 30 × 4s = 2 minutes (reduced from 100, since sync mode should be fast)
+  maxAttempts = 45, // 45 × 4s = 3 minutes (increased for complex refines)
   delayMs = 4000 // 4 seconds between polls
 ): Promise<ChatDetail | null> {
   const v0 = getV0Client();
@@ -626,6 +626,19 @@ export async function refineCode(
       existingChatId
     );
 
+    // Get current chat state to compare before/after
+    let previousDemoUrl: string | undefined;
+    let previousVersionId: string | undefined;
+    try {
+      const previousChat = await v0.chats.getById({ chatId: existingChatId });
+      previousDemoUrl = (previousChat as ChatDetail)?.latestVersion?.demoUrl;
+      previousVersionId = (previousChat as ChatDetail)?.latestVersion?.id;
+      console.log("[v0-generator] Previous demoUrl:", previousDemoUrl);
+      console.log("[v0-generator] Previous versionId:", previousVersionId);
+    } catch (err) {
+      console.warn("[v0-generator] Could not fetch previous chat state:", err);
+    }
+
     // Send the message
     // IMPORTANT: Must use responseMode: 'sync' to get full ChatDetail response
     let chat = (await v0.chats.sendMessage({
@@ -665,18 +678,42 @@ export async function refineCode(
           f.name.endsWith(".tsx")
       ) || files[0];
 
-    console.log(
-      "[v0-generator] Refinement complete, demoUrl:",
-      chat.latestVersion?.demoUrl
-    );
+    const newDemoUrl = chat.latestVersion?.demoUrl;
+    const newVersionId = chat.latestVersion?.id;
+
+    console.log("[v0-generator] Refinement complete:");
+    console.log("  → New demoUrl:", newDemoUrl);
+    console.log("  → New versionId:", newVersionId);
+    console.log("  → Status:", chat.latestVersion?.status);
+    console.log("  → Files count:", files.length);
+
+    // Check if demoUrl changed (important for debugging cache issues)
+    if (previousDemoUrl && newDemoUrl === previousDemoUrl) {
+      console.warn(
+        "[v0-generator] ⚠️  WARNING: demoUrl did not change after refine!"
+      );
+      console.warn(
+        "  This might indicate v0 returned cached version or refine failed"
+      );
+    } else if (previousDemoUrl && newDemoUrl) {
+      console.log(
+        "[v0-generator] ✓ demoUrl changed successfully (version updated)"
+      );
+    }
+
+    if (previousVersionId && newVersionId === previousVersionId) {
+      console.warn(
+        "[v0-generator] ⚠️  WARNING: versionId did not change after refine!"
+      );
+    }
 
     return {
       code: mainFile?.content || chat.text || "",
       files,
       chatId: chat.id,
-      demoUrl: chat.latestVersion?.demoUrl,
+      demoUrl: newDemoUrl,
       screenshotUrl: chat.latestVersion?.screenshotUrl,
-      versionId: chat.latestVersion?.id,
+      versionId: newVersionId,
       webUrl: chat.webUrl,
       model: modelId,
     };

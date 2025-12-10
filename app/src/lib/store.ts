@@ -29,9 +29,9 @@
  */
 
 import { create } from "zustand";
-import { persist, createJSONStorage } from "zustand/middleware";
-import { saveProjectData as apiSaveProjectData } from "./project-client";
+import { createJSONStorage, persist } from "zustand/middleware";
 import { debugLog } from "./debug";
+import { saveProjectData as apiSaveProjectData } from "./project-client";
 
 // ============================================================================
 // TYPES
@@ -107,6 +107,7 @@ interface BuilderState {
   demoUrl: string | null;
   screenshotUrl: string | null;
   versionId: string | null;
+  lastRefreshTimestamp: number; // Timestamp for forcing iframe reload
 
   // UI state
   viewMode: "preview" | "code";
@@ -228,6 +229,7 @@ export const useBuilderStore = create<BuilderState>()(
       demoUrl: null,
       screenshotUrl: null,
       versionId: null,
+      lastRefreshTimestamp: Date.now(),
       viewMode: "preview",
       deviceSize: "desktop",
       quality: "premium",
@@ -286,7 +288,7 @@ export const useBuilderStore = create<BuilderState>()(
 
             // DEDUP: Skip if save was done recently
             const now = Date.now();
-            if (saveInProgress || (now - lastSaveTime) < MIN_SAVE_INTERVAL) {
+            if (saveInProgress || now - lastSaveTime < MIN_SAVE_INTERVAL) {
               debugLog("[Store] Skipping auto-save (recent save in progress)");
               return;
             }
@@ -336,9 +338,10 @@ export const useBuilderStore = create<BuilderState>()(
       },
 
       setDemoUrl: (url) => {
-        set({ demoUrl: url });
+        set({ demoUrl: url, lastRefreshTimestamp: Date.now() });
         // Note: Don't save here - setFiles will save everything together
         // This ensures all data (chatId, demoUrl, files) is saved atomically
+        // lastRefreshTimestamp forces iframe reload even if URL is the same
       },
 
       setScreenshotUrl: (url) => {
@@ -474,7 +477,7 @@ export const useBuilderStore = create<BuilderState>()(
 
         // DEDUP: Skip if save is in progress or was done very recently
         const now = Date.now();
-        if (saveInProgress || (now - lastSaveTime) < MIN_SAVE_INTERVAL) {
+        if (saveInProgress || now - lastSaveTime < MIN_SAVE_INTERVAL) {
           debugLog("[Store] Skipping saveToDatabase (recent save)");
           return Promise.resolve();
         }

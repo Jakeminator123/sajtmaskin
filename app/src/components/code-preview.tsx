@@ -24,34 +24,35 @@
  * Se: info/more/extra_info.txt för fullständig teknisk analys
  */
 
-import { useBuilderStore } from "@/lib/store";
-import {
-  parseCodeToSandpackFiles,
-  convertV0FilesToSandpack,
-} from "@/lib/code-parser";
 import { HelpTooltip } from "@/components/help-tooltip";
 import { Button } from "@/components/ui/button";
+import {
+  convertV0FilesToSandpack,
+  parseCodeToSandpackFiles,
+} from "@/lib/code-parser";
+import { useBuilderStore } from "@/lib/store";
 
 // Sandpack - ENDAST FALLBACK, används sällan i praktiken
 // Behålls som backup om v0 API skulle misslyckas
+import { QrShare } from "@/components/qr-share";
 import {
-  SandpackProvider,
-  SandpackPreview,
   SandpackCodeEditor,
+  SandpackPreview,
+  SandpackProvider,
 } from "@codesandbox/sandpack-react";
 import {
-  Monitor,
-  Tablet,
-  Smartphone,
-  Eye,
+  AlertTriangle,
+  Check,
   Code,
   Copy,
-  Check,
-  AlertTriangle,
   Download,
+  Eye,
+  Monitor,
+  RefreshCw,
+  Smartphone,
+  Tablet,
 } from "lucide-react";
-import { useState, useMemo } from "react";
-import { QrShare } from "@/components/qr-share";
+import { useMemo, useState } from "react";
 
 // Custom dark theme matching the app's design
 const customTheme = {
@@ -97,8 +98,10 @@ export function CodePreview() {
     viewMode,
     deviceSize,
     isLoading,
+    lastRefreshTimestamp,
     setViewMode,
     setDeviceSize,
+    setDemoUrl,
   } = useBuilderStore();
   const [copied, setCopied] = useState(false);
   const [sandpackError, setSandpackError] = useState<string | null>(null);
@@ -111,6 +114,14 @@ export function CodePreview() {
         `/api/download?chatId=${chatId}&versionId=${versionId}`,
         "_blank"
       );
+    }
+  };
+
+  // Handle manual reload of iframe
+  const handleReloadPreview = () => {
+    if (demoUrl) {
+      // Force reload by updating timestamp
+      setDemoUrl(demoUrl);
     }
   };
 
@@ -312,17 +323,45 @@ export function CodePreview() {
               // v0's hosted preview (iframe) - most reliable
               <div className="flex-1 h-full overflow-hidden relative">
                 {!iframeError ? (
-                  <iframe
-                    key={demoUrl} // Force re-render when demoUrl changes
-                    src={demoUrl}
-                    className="w-full h-full border-0"
-                    title="Website Preview"
-                    sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-downloads allow-presentation"
-                    allow="accelerometer; camera; encrypted-media; geolocation; gyroscope; microphone; midi; payment; usb; xr-spatial-tracking"
-                    referrerPolicy="no-referrer-when-downgrade"
-                    loading="eager"
-                    onError={() => setIframeError(true)}
-                  />
+                  <>
+                    <iframe
+                      key={`${demoUrl}-${lastRefreshTimestamp}`} // Force re-render with timestamp
+                      src={`${demoUrl}${
+                        demoUrl.includes("?") ? "&" : "?"
+                      }v=${lastRefreshTimestamp}`} // Cache-buster
+                      className="w-full h-full border-0"
+                      title="Website Preview"
+                      sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-downloads allow-presentation"
+                      allow="accelerometer; camera; encrypted-media; geolocation; gyroscope; microphone; midi; payment; usb; xr-spatial-tracking"
+                      referrerPolicy="no-referrer-when-downgrade"
+                      loading="eager"
+                      onError={() => setIframeError(true)}
+                    />
+                    {/* Loading overlay during refine/generation */}
+                    {isLoading && (
+                      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center gap-4 z-10">
+                        <div className="bg-gray-900/90 border border-teal-500/30 rounded-lg p-6 shadow-2xl">
+                          <div className="flex flex-col items-center gap-3">
+                            <div className="flex gap-1.5">
+                              {[0, 1, 2, 3, 4].map((i) => (
+                                <div
+                                  key={i}
+                                  className="w-2 h-2 bg-teal-500 rounded-full animate-pulse"
+                                  style={{ animationDelay: `${i * 100}ms` }}
+                                />
+                              ))}
+                            </div>
+                            <p className="text-gray-200 text-sm font-medium">
+                              Uppdaterar förhandsgranskning...
+                            </p>
+                            <p className="text-gray-400 text-xs">
+                              AI:n arbetar med dina ändringar
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </>
                 ) : screenshotUrl ? (
                   // Fallback to screenshot if iframe fails
                   <div className="flex-1 h-full flex flex-col items-center justify-center p-4 bg-black">
@@ -347,6 +386,17 @@ export function CodePreview() {
                 {/* Floating download button */}
                 {/* Action buttons */}
                 <div className="absolute bottom-4 right-4 flex gap-2">
+                  {/* Manual reload button */}
+                  {demoUrl && (
+                    <Button
+                      onClick={handleReloadPreview}
+                      className="gap-2 bg-gray-700 hover:bg-gray-600 shadow-lg"
+                      size="sm"
+                      title="Ladda om förhandsgranskning"
+                    >
+                      <RefreshCw className="h-4 w-4" />
+                    </Button>
+                  )}
                   {demoUrl && <QrShare url={demoUrl} title="Dela preview" />}
                   {chatId && versionId && (
                     <Button
