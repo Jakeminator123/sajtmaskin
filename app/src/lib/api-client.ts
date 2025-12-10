@@ -258,18 +258,23 @@ export async function refineWebsite(
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), REFINE_TIMEOUT_MS);
 
+  // OPTIMIZATION: When chatId exists, v0 maintains code state server-side
+  // We only need to send existingCode if there's no chatId (new conversation)
+  const codeToSend = chatId ? "" : existingCode; // Empty string = use v0's state
+
   try {
     console.log("[API-Client] refineWebsite starting...", {
-      codeLength: existingCode.length,
+      codeLength: codeToSend.length,
       instructionLength: instruction.length,
       hasChatId: !!chatId,
+      usingV0State: !!chatId, // When true, v0 already has the code
     });
 
     const response = await fetch("/api/refine", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        existingCode,
+        existingCode: codeToSend, // Empty when chatId exists (v0 has state)
         chatId,
         instruction,
         quality,

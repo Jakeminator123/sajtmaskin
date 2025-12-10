@@ -1,24 +1,24 @@
 // API Route: Refine existing code
 // POST /api/refine
 
-import { NextRequest, NextResponse } from "next/server";
-
-// Allow up to 5 minutes for v0 API responses (Vercel Pro max is 300s)
-// Refinements typically take 1-3 minutes
-export const maxDuration = 300;
+import { getCurrentUser } from "@/lib/auth";
+import {
+  deductRefineDiamond,
+  getOrCreateGuestUsage,
+  incrementGuestRefines,
+} from "@/lib/database";
+import type { MediaLibraryItem } from "@/lib/prompt-utils";
+import { getSessionIdFromRequest } from "@/lib/session";
 import {
   refineCode,
   sanitizeCode,
   type QualityLevel,
 } from "@/lib/v0-generator";
-import type { MediaLibraryItem } from "@/lib/prompt-utils";
-import { getCurrentUser } from "@/lib/auth";
-import { getSessionIdFromRequest } from "@/lib/session";
-import {
-  getOrCreateGuestUsage,
-  incrementGuestRefines,
-  deductRefineDiamond,
-} from "@/lib/database";
+import { NextRequest, NextResponse } from "next/server";
+
+// Allow up to 5 minutes for v0 API responses (Vercel Pro max is 300s)
+// Refinements typically take 1-3 minutes
+export const maxDuration = 300;
 
 // Refinement response messages in Swedish
 const REFINEMENT_MESSAGES = [
@@ -70,9 +70,15 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (!existingCode || existingCode.trim().length === 0) {
+    // OPTIMIZATION: existingCode is only required if NO chatId
+    // When chatId exists, v0 maintains the code state server-side
+    // This reduces payload from ~100KB+ to just the instruction
+    if (!chatId && (!existingCode || existingCode.trim().length === 0)) {
       return NextResponse.json(
-        { success: false, error: "Existing code is required for refinement" },
+        {
+          success: false,
+          error: "Either chatId or existingCode is required for refinement",
+        },
         { status: 400 }
       );
     }
@@ -137,12 +143,17 @@ export async function POST(req: NextRequest) {
 
     console.log("[API/refine] Calling v0 API...");
     console.log("[API/refine] ChatId provided:", !!chatId);
+    console.log(
+      "[API/refine] Code provided:",
+      existingCode ? `${existingCode.length} chars` : "(using v0 state)"
+    );
 
     // Refine code using v0 API (with optional chatId for conversation continuation)
-    // If chatId is null/undefined, refineCode will create a new chat (which is acceptable)
+    // When chatId exists, v0 maintains state server-side - we don't need to send code
+    // When no chatId, we must send code so v0 has context
     const result = await refineCode(
       chatId || null,
-      existingCode,
+      existingCode || "", // Empty string when using chatId (v0 has the code)
       instruction,
       quality as QualityLevel,
       mediaLibrary

@@ -1,4 +1,4 @@
-import { FEATURES, SECRETS } from "@/lib/config";
+import { FEATURES } from "@/lib/config";
 import { NextRequest, NextResponse } from "next/server";
 
 /**
@@ -33,8 +33,6 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: true, tracked: false });
     }
 
-    const accessKey = SECRETS.unsplashAccessKey;
-
     // Use downloadLocation if provided, otherwise construct from photoId
     let trackUrl = downloadLocation;
 
@@ -50,13 +48,8 @@ export async function POST(req: NextRequest) {
     }
 
     // Track the download by calling Unsplash's download endpoint
-    // This is a GET request to the download_location URL
-    const response = await fetch(trackUrl, {
-      headers: {
-        Authorization: `Client-ID ${accessKey}`,
-        "Accept-Version": "v1",
-      },
-    });
+    // Per Unsplash guidelines: call download_location as-is (it already carries auth/params)
+    const response = await fetch(trackUrl);
 
     if (!response.ok) {
       console.error(
