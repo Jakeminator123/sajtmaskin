@@ -924,6 +924,15 @@ export function ChatPanel({
     const actualCurrentCode = latestState.currentCode;
     const actualChatId = latestState.chatId;
 
+    // Debug: Log current state at refinement start
+    console.log("[ChatPanel] handleRefinement - Store state:", {
+      projectId: latestState.projectId,
+      chatId: actualChatId || "(NONE - will create new chat!)",
+      hasCode: !!actualCurrentCode,
+      codeLength: actualCurrentCode?.length || 0,
+      demoUrl: latestState.demoUrl?.slice(0, 50) || "(none)",
+    });
+
     // Don't allow refinement if no code exists yet
     // Note: handleGenerate already adds the user message, so we only add assistant response
     if (!actualCurrentCode) {
@@ -981,6 +990,14 @@ export function ChatPanel({
           "assistant",
           "🎯 Detekterar komplex workflow för förfining - använder orchestrator..."
         );
+
+        // Debug: Log what we're sending to orchestrate
+        console.log("[ChatPanel] Refinement via orchestrator:", {
+          chatId: actualChatId || "(NEW - no existing chatId!)",
+          hasCode: !!actualCurrentCode,
+          codeLength: actualCurrentCode?.length || 0,
+          promptPreview: enhancedInstruction.slice(0, 80) + "...",
+        });
 
         response = await fetch("/api/orchestrate", {
           method: "POST",

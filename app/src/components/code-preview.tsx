@@ -341,13 +341,25 @@ export function CodePreview() {
                     {/*
                       Build cache-busted URL without breaking fragment identifiers.
                       Query params must come before the #fragment, so we insert ?v=... prior to the hash.
+                      FIX: Use indexOf to preserve fragment exactly (including edge cases like trailing #)
                     */}
                     {(() => {
-                      const [base, hash] = demoUrl.split("#", 2);
+                      // Safer hash handling: preserve exact fragment including empty hash
+                      const hashIndex = demoUrl.indexOf("#");
+                      const base =
+                        hashIndex >= 0 ? demoUrl.slice(0, hashIndex) : demoUrl;
+                      const hashPart =
+                        hashIndex >= 0 ? demoUrl.slice(hashIndex) : "";
                       const separator = base.includes("?") ? "&" : "?";
-                      const cacheBustedUrl = `${base}${separator}v=${lastRefreshTimestamp}${
-                        hash ? `#${hash}` : ""
-                      }`;
+                      const cacheBustedUrl = `${base}${separator}v=${lastRefreshTimestamp}${hashPart}`;
+
+                      // Debug logging for preview URL construction
+                      console.log("[CodePreview] Iframe URL:", {
+                        original: demoUrl,
+                        cacheBusted: cacheBustedUrl,
+                        timestamp: lastRefreshTimestamp,
+                        hasHash: hashIndex >= 0,
+                      });
 
                       return (
                         <iframe

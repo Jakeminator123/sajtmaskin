@@ -274,7 +274,15 @@ export const useBuilderStore = create<BuilderState>()(
       setLoading: (loading) => set({ isLoading: loading }),
 
       setChatId: (id) => {
+        const prevChatId = get().chatId;
         set({ chatId: id });
+        // Debug: Log chatId changes for troubleshooting stale context issues
+        console.log("[Store] setChatId:", {
+          previous: prevChatId,
+          new: id,
+          changed: prevChatId !== id,
+          projectId: get().projectId,
+        });
         // Note: Don't save here - setFiles will save everything together
         // This prevents race conditions where chatId is saved before demoUrl
       },
@@ -346,7 +354,18 @@ export const useBuilderStore = create<BuilderState>()(
       },
 
       setDemoUrl: (url) => {
-        set({ demoUrl: url, lastRefreshTimestamp: Date.now() });
+        const prevUrl = get().demoUrl;
+        const newTimestamp = Date.now();
+        set({ demoUrl: url, lastRefreshTimestamp: newTimestamp });
+        // Debug: Log demoUrl changes for troubleshooting preview issues
+        console.log("[Store] setDemoUrl:", {
+          previous: prevUrl?.slice(0, 60) + (prevUrl && prevUrl.length > 60 ? "..." : ""),
+          new: url?.slice(0, 60) + (url && url.length > 60 ? "..." : ""),
+          changed: prevUrl !== url,
+          timestamp: newTimestamp,
+          projectId: get().projectId,
+          chatId: get().chatId,
+        });
         // Note: Don't save here - setFiles will save everything together
         // This ensures all data (chatId, demoUrl, files) is saved atomically
         // lastRefreshTimestamp forces iframe reload even if URL is the same
@@ -460,6 +479,16 @@ export const useBuilderStore = create<BuilderState>()(
               .filter(Boolean) as Message[])
           : [];
 
+        // Debug: Log what we're loading from database
+        console.log("[Store] loadFromProject:", {
+          chatId: data.chatId || "(none)",
+          demoUrl: data.demoUrl?.slice(0, 60) + (data.demoUrl && data.demoUrl.length > 60 ? "..." : "") || "(none)",
+          hasCode: !!data.currentCode,
+          filesCount: parsedFiles.length,
+          messagesCount: parsedMessages.length,
+          hasSavedData,
+        });
+
         // REPLACE state entirely (don't merge with localStorage)
         set({
           chatId: data.chatId || null,
@@ -469,6 +498,7 @@ export const useBuilderStore = create<BuilderState>()(
           messages: parsedMessages,
           hasUserSaved: hasSavedData, // Enable auto-save if project has saved data
           isLoading: false, // CRITICAL: Reset loading state so preview shows
+          lastRefreshTimestamp: Date.now(), // Force iframe refresh when loading project
         });
       },
 

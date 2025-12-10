@@ -67,7 +67,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log("[API:Orchestrate] Starting workflow for user:", user.id);
+    // Debug: Log all incoming parameters
+    console.log("[API:Orchestrate] Starting workflow:", {
+      userId: user.id,
+      promptLength: prompt.length,
+      promptPreview: prompt.slice(0, 100) + (prompt.length > 100 ? "..." : ""),
+      quality,
+      existingChatId: existingChatId || "(NEW CHAT)",
+      hasExistingCode: !!existingCode,
+      existingCodeLength: existingCode?.length || 0,
+    });
 
     // Run orchestrator first to determine intent
     const result = await orchestrateWorkflow(prompt, {
