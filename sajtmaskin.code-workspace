@@ -1,76 +1,107 @@
 {
   "folders": [
-    {
-      "path": "."
-    }
+    { "name": "sajtmaskin", "path": "." }
   ],
   "settings": {
-    "git.autoRepositoryDetection": "subFolders",
+    "typescript.tsdk": "app/node_modules/typescript/lib",
+    "eslint.workingDirectories": [
+      {
+        "directory": "app",
+        "changeProcessCWD": true
+      }
+    ],
     "editor.formatOnSave": true,
     "editor.defaultFormatter": "esbenp.prettier-vscode",
-    "editor.tabSize": 2,
-    "editor.wordWrap": "on",
-    "terminal.integrated.defaultProfile.windows": "PowerShell",
-    "terminal.integrated.cwd": "${workspaceFolder}",
-    "terminal.integrated.profiles.windows": {
-      "PowerShell": {
-        "path": "pwsh.exe"
-      },
-      "Command Prompt": {
-        "path": "C:\\Windows\\System32\\cmd.exe"
-      }
-    },
-    "terminal.integrated.copyOnSelection": true,
-    "terminal.integrated.rightClickBehavior": "paste",
-    "terminal.integrated.sendKeybindingsToShell": false,
-    "terminal.integrated.env.windows": {
-      "PYTHONUTF8": "1",
-      "PYTHONIOENCODING": "utf-8"
+    "editor.codeActionsOnSave": {
+      "source.fixAll": "explicit",
+      "source.organizeImports": "explicit"
     },
     "files.exclude": {
-      "**/.git": true,
       "**/.next": true,
       "**/node_modules": true,
-      "**/__pycache__": true,
-      "**/*.pyc": true
+      "**/.turbo": true,
+      "**/.vercel": true
     },
-    "typescript.tsdk": "app/node_modules/typescript/lib",
-    "typescript.enablePromptUseWorkspaceTsdk": true,
-    "typescript.preferences.importModuleSpecifier": "relative",
-    "typescript.suggest.autoImports": true,
-    "tailwindCSS.experimental.classRegex": [
-      ["cva\\(([^)]*)\\)", "[\"'`]([^\"'`]*).*?[\"'`]"],
-      ["cn\\(([^)]*)\\)", "[\"'`]([^\"'`]*).*?[\"'`]"]
+    "search.exclude": {
+      "**/.next": true,
+      "**/node_modules": true,
+      "**/.turbo": true,
+      "**/.vercel": true
+    },
+    "files.watcherExclude": {
+      "**/.next/**": true,
+      "**/.turbo/**": true
+    },
+    "files.associations": {
+      "*.css": "tailwindcss"
+    },
+    "eslint.validate": [
+      "typescript",
+      "typescriptreact",
+      "javascript",
+      "javascriptreact"
     ],
-    "tailwindCSS.includeLanguages": {
-      "typescript": "javascript",
-      "typescriptreact": "javascript"
-    },
-    "emmet.includeLanguages": {
-      "typescript": "html",
-      "typescriptreact": "html"
-    },
-    "[python]": {
-      "editor.defaultFormatter": "ms-python.black-formatter",
-      "editor.tabSize": 4
-    },
-    "[typescript]": {
-      "editor.defaultFormatter": "esbenp.prettier-vscode"
-    },
-    "[typescriptreact]": {
-      "editor.defaultFormatter": "esbenp.prettier-vscode"
-    },
-    "[json]": {
-      "editor.defaultFormatter": "esbenp.prettier-vscode"
-    }
+    "tailwindCSS.experimental.classRegex": [
+      [
+        "cva\\(([^)]*)\\)",
+        "[\"'`]([^\"'`]*).*?[\"'`]"
+      ]
+    ],
+    "terminal.integrated.defaultProfile.windows": "PowerShell",
+    "terminal.integrated.cwd": "${workspaceFolder:sajtmaskin}"
   },
   "extensions": {
     "recommendations": [
+      "dbaeumer.vscode-eslint",
       "esbenp.prettier-vscode",
       "bradlc.vscode-tailwindcss",
-      "dbaeumer.vscode-eslint",
-      "ms-python.python",
-      "ms-python.black-formatter"
+      "formulahendry.auto-close-tag"
+    ]
+  },
+  "tasks": {
+    "version": "2.0.0",
+    "tasks": [
+      {
+        "label": "dev",
+        "type": "npm",
+        "script": "dev",
+        "path": "app",
+        "problemMatcher": []
+      },
+      {
+        "label": "lint",
+        "type": "npm",
+        "script": "lint",
+        "path": "app",
+        "problemMatcher": "$eslint-stylish",
+        "group": "build"
+      },
+      {
+        "label": "build",
+        "type": "npm",
+        "script": "build",
+        "path": "app",
+        "problemMatcher": []
+      }
+    ]
+  },
+  "launch": {
+    "version": "0.2.0",
+    "configurations": [
+      {
+        "name": "Next.js dev (app)",
+        "type": "node",
+        "request": "launch",
+        "cwd": "${workspaceFolder:app}",
+        "runtimeExecutable": "npm",
+        "runtimeArgs": ["run", "dev"],
+        "console": "integratedTerminal",
+        "skipFiles": [
+          "<node_internals>/**",
+          "${workspaceFolder:app}/node_modules/**"
+        ]
+      }
     ]
   }
 }
+
