@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { generateFromTemplate } from "@/lib/v0-generator";
+import { generateFromTemplate, findMainFile } from "@/lib/v0-generator";
 import { getCachedTemplate, cacheTemplateResult } from "@/lib/database";
 
 // Allow 5 minutes for v0 API responses
@@ -94,18 +94,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Find the main code file
-    let mainCode = "";
-    if (hasFiles) {
-      const mainFile =
-        result.files!.find(
-          (f) =>
-            f.name.includes("page.tsx") ||
-            f.name.includes("Page.tsx") ||
-            f.name.endsWith(".tsx")
-        ) || result.files![0];
-      mainCode = mainFile?.content || "";
-    }
+    // Find the main code file using shared helper
+    const mainFile = hasFiles ? findMainFile(result.files!) : undefined;
+    const mainCode = mainFile?.content || "";
 
     // ═══════════════════════════════════════════════════════════════════════════
     // CACHE RESULT: Save to database for future requests

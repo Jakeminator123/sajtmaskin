@@ -66,6 +66,39 @@ import type { QualityLevel } from "./api-client";
 export type { QualityLevel };
 
 /**
+ * Generated file structure from v0 API
+ */
+export interface GeneratedFile {
+  name: string;
+  content: string;
+}
+
+/**
+ * Find the main component file from a list of generated files.
+ * v0 generates multiple files (components, utils, styles) but we need to identify
+ * the "main" file for display purposes. Priority order:
+ * 1. page.tsx (Next.js app router convention)
+ * 2. Page.tsx (capitalized variant)
+ * 3. Any .tsx file (React component)
+ * 4. First file in the list (fallback)
+ *
+ * @param files - Array of generated files from v0
+ * @returns The main file, or undefined if no files
+ */
+export function findMainFile(files: GeneratedFile[]): GeneratedFile | undefined {
+  if (!files || files.length === 0) return undefined;
+
+  return (
+    files.find(
+      (f) =>
+        f.name.includes("page.tsx") ||
+        f.name.includes("Page.tsx") ||
+        f.name.endsWith(".tsx")
+    ) || files[0]
+  );
+}
+
+/**
  * v0 Model Configuration
  * ======================
  *
@@ -322,10 +355,7 @@ COMPONENT STRUCTURE:
 - Props interfaces for reusable components
 - Default export for main component`;
 
-export interface GeneratedFile {
-  name: string;
-  content: string;
-}
+// GeneratedFile interface is defined at the top of this file
 
 export interface GenerationResult {
   code: string;
@@ -565,23 +595,16 @@ export async function generateCode(
     })) || [];
 
   // Build combined code from all files
+  // Uses findMainFile() helper to identify the primary component (page.tsx priority)
   let combinedCode = "";
-  if (files.length > 0) {
-    // Find the main component file (usually page.tsx or the first .tsx file)
-    const mainFile =
-      files.find(
-        (f) =>
-          f.name.includes("page.tsx") ||
-          f.name.includes("Page.tsx") ||
-          f.name.endsWith(".tsx")
-      ) || files[0];
+  const mainFile = findMainFile(files);
 
-    combinedCode = mainFile?.content || "";
-
-    console.log("[v0-generator] Main file:", mainFile?.name);
+  if (mainFile) {
+    combinedCode = mainFile.content || "";
+    console.log("[v0-generator] Main file:", mainFile.name);
     console.log("[v0-generator] Code length:", combinedCode.length);
   } else {
-    // Fallback: use the text response
+    // Fallback: use the text response if no files were generated
     combinedCode = chat.text || "";
     console.log(
       "[v0-generator] Using text fallback, length:",
@@ -670,13 +693,7 @@ export async function refineCode(
         content: file.content,
       })) || [];
 
-    const mainFile =
-      files.find(
-        (f) =>
-          f.name.includes("page.tsx") ||
-          f.name.includes("Page.tsx") ||
-          f.name.endsWith(".tsx")
-      ) || files[0];
+    const mainFile = findMainFile(files);
 
     const newDemoUrl = chat.latestVersion?.demoUrl;
     const newVersionId = chat.latestVersion?.id;
@@ -808,14 +825,8 @@ export async function generateFromTemplate(
           content: file.content,
         })) || [];
 
-      // Find the main component file
-      const mainFile =
-        files.find(
-          (f) =>
-            f.name.includes("page.tsx") ||
-            f.name.includes("Page.tsx") ||
-            f.name.endsWith(".tsx")
-        ) || files[0];
+      // Find main file using helper (prioritizes page.tsx)
+      const mainFile = findMainFile(files);
 
       // Warn if no content was returned (but don't throw - demoUrl might still work)
       if (files.length === 0 && !chat.latestVersion?.demoUrl) {

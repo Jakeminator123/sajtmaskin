@@ -320,15 +320,29 @@ export function CodePreview() {
                 </div>
               </div>
             ) : demoUrl ? (
-              // v0's hosted preview (iframe) - most reliable
+              /**
+               * v0's hosted preview (iframe)
+               * ============================
+               * The demoUrl points to Vercel's vusercontent.net CDN where v0 hosts
+               * the generated code. This is NOT local - it's fully managed by v0.
+               *
+               * CACHE-BUSTING STRATEGY:
+               * Problem: v0 may return the same demoUrl after refine, but content changed.
+               *          Browser/React won't re-render if URL is identical.
+               * Solution:
+               * 1. key={demoUrl}-{timestamp} - Forces React to unmount/remount iframe
+               * 2. ?v={timestamp} in src - Bypasses browser HTTP cache
+               *
+               * lastRefreshTimestamp updates automatically in store when setDemoUrl() is called.
+               */
               <div className="flex-1 h-full overflow-hidden relative">
                 {!iframeError ? (
                   <>
                     <iframe
-                      key={`${demoUrl}-${lastRefreshTimestamp}`} // Force re-render with timestamp
+                      key={`${demoUrl}-${lastRefreshTimestamp}`}
                       src={`${demoUrl}${
                         demoUrl.includes("?") ? "&" : "?"
-                      }v=${lastRefreshTimestamp}`} // Cache-buster
+                      }v=${lastRefreshTimestamp}`}
                       className="w-full h-full border-0"
                       title="Website Preview"
                       sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-downloads allow-presentation"

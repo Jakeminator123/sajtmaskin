@@ -107,7 +107,15 @@ interface BuilderState {
   demoUrl: string | null;
   screenshotUrl: string | null;
   versionId: string | null;
-  lastRefreshTimestamp: number; // Timestamp for forcing iframe reload
+
+  /**
+   * Timestamp used to force iframe reload in code-preview.tsx
+   * WHY: v0 sometimes returns the same demoUrl after refine (content changed but URL identical).
+   * Browser/React won't re-render iframe if src is the same.
+   * Solution: Append ?v={timestamp} to URL and use as part of React key.
+   * Updated automatically in setDemoUrl() on every URL change.
+   */
+  lastRefreshTimestamp: number;
 
   // UI state
   viewMode: "preview" | "code";
