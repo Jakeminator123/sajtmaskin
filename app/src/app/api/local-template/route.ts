@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from "next/server";
 import { getLocalTemplateById } from "@/lib/local-templates";
+import { NextRequest, NextResponse } from "next/server";
 
 export const dynamic = "force-dynamic";
 
@@ -33,8 +33,11 @@ export async function GET(request: NextRequest) {
       template.id
     );
     return NextResponse.json(
-      { success: false, error: "Template is missing v0TemplateId" },
-      { status: 500 }
+      {
+        success: false,
+        error: "Template configuration error: missing v0TemplateId",
+      },
+      { status: 400 } // Client/config error, not server error
     );
   }
 
