@@ -337,6 +337,14 @@ TECHNICAL REQUIREMENTS:
 - Next.js App Router conventions
 - Responsive design (mobile-first approach)
 
+IMAGE HANDLING (CRITICAL!):
+- If the user provides image URLs in the prompt, USE THOSE EXACT URLs
+- Copy the full URL exactly as provided (e.g. https://images.unsplash.com/... or https://xxx.blob.vercel-storage.com/...)
+- DO NOT use placeholder.com, placeholder.svg, or /images/xxx paths
+- DO NOT invent or modify the URLs - use them EXACTLY as given
+- Place images in appropriate sections (hero, about, services, etc.)
+- Use next/image or <img> tags with the provided URLs
+
 CODE QUALITY:
 - Clean, readable code with proper formatting
 - Semantic HTML elements (nav, main, section, article)
@@ -664,11 +672,27 @@ export async function refineCode(
       console.warn("[v0-generator] Could not fetch previous chat state:", err);
     }
 
+    // Wrap instruction with refinement context to preserve template
+    // This ensures v0 ADAPTS the existing design rather than replacing it
+    const refinementInstruction = `REFINEMENT INSTRUCTION - ADAPT, DON'T REPLACE:
+
+${instruction}
+
+IMPORTANT RULES FOR THIS REFINEMENT:
+1. PRESERVE the overall structure, layout, and components of the existing design
+2. ADAPT specific elements based on the instruction above
+3. DO NOT completely rewrite or replace the entire page
+4. If asked to "make it like [website]", incorporate STYLE elements (colors, typography, spacing) while keeping the current structure
+5. Keep existing images, text content, and sections unless specifically asked to change them
+6. Apply changes incrementally - this is a refinement, not a rebuild
+
+The goal is to ENHANCE the current design, not start over.`;
+
     // Send the message
     // IMPORTANT: Must use responseMode: 'sync' to get full ChatDetail response
     let chat = (await v0.chats.sendMessage({
       chatId: existingChatId,
-      message: instruction,
+      message: refinementInstruction,
       modelConfiguration: {
         modelId: modelId as "v0-1.5-md" | "v0-1.5-lg",
       },
@@ -743,7 +767,7 @@ export async function refineCode(
     "[v0-generator] No chatId provided, creating new chat for refinement..."
   );
 
-  const refinementPrompt = `Here is my existing code:
+  const refinementPrompt = `Here is my existing code that I want to REFINE (not replace):
 
 \`\`\`tsx
 ${existingCode.substring(0, 50000)}${
@@ -751,9 +775,15 @@ ${existingCode.substring(0, 50000)}${
   }
 \`\`\`
 
-Please modify it according to this instruction: ${instruction}
+REFINEMENT REQUEST: ${instruction}
 
-Keep the same overall structure and only make the requested changes.`;
+CRITICAL RULES:
+1. PRESERVE the overall structure, layout, and components
+2. ADAPT specific elements based on my request above
+3. DO NOT completely rewrite or replace the entire page
+4. If I asked to "make it like [website]", incorporate STYLE elements (colors, typography, spacing) while keeping my current structure
+5. Keep existing content and sections unless I specifically asked to change them
+6. This is a REFINEMENT, not a rebuild - enhance what's there`;
 
   return generateCode(refinementPrompt, quality);
 }

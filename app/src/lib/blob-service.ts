@@ -53,8 +53,8 @@ let _blobWarningLogged = false;
  * Check if Vercel Blob is configured
  *
  * CRITICAL: Without BLOB_READ_WRITE_TOKEN, AI-generated images will NOT work
- * in v0's preview! v0's demoUrl is hosted on Vercel servers which cannot
- * access local files - they need public URLs from Vercel Blob.
+ * in v0's preview! v0's demoUrl is hosted on v0's servers (vusercontent.net)
+ * which cannot access local files - they need public URLs from Vercel Blob.
  */
 export function isBlobConfigured(): boolean {
   const configured = !!process.env.BLOB_READ_WRITE_TOKEN;

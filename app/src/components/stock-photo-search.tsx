@@ -4,12 +4,15 @@
  * StockPhotoSearch Component
  * ==========================
  *
- * Search for stock photos from Unsplash/Pexels and add them to MediaLibrary.
+ * Search for stock photos from Unsplash and add them to MediaLibrary.
  * When a user selects a photo, it can be downloaded to Vercel Blob
  * to ensure the URL works in v0 preview.
  *
  * NOTE: Unsplash URLs are already public and SHOULD work in v0 preview.
  * We offer the option to download to Blob for extra reliability.
+ *
+ * PEXELS: Disabled for now. Set ENABLE_PEXELS=true in .env.local to re-enable.
+ * The Pexels API code remains in /api/pexels/route.ts for future use.
  */
 
 import { useState, useCallback } from "react";
@@ -40,6 +43,8 @@ interface StockPhoto {
   source: "unsplash" | "pexels";
   width: number;
   height: number;
+  // Unsplash requires tracking downloads - call this URL when photo is used
+  downloadLocation?: string;
 }
 
 interface StockPhotoSearchProps {
@@ -68,7 +73,9 @@ export function StockPhotoSearch({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [downloadingId, setDownloadingId] = useState<string | null>(null);
-  const [source, setSource] = useState<"unsplash" | "pexels">("unsplash");
+  // NOTE: Pexels disabled - only using Unsplash now
+  // To re-enable: set ENABLE_PEXELS=true in .env.local and uncomment Pexels UI below
+  const source = "unsplash" as const;
 
   /**
    * Search for photos
@@ -98,6 +105,7 @@ export function StockPhotoSearch({
             photographerUrl?: string;
             width: number;
             height: number;
+            downloadLocation?: string;
           }) => ({
             id: String(img.id),
             url: img.url,
@@ -108,6 +116,7 @@ export function StockPhotoSearch({
             source,
             width: img.width,
             height: img.height,
+            downloadLocation: img.downloadLocation,
           })
         );
         setPhotos(mappedPhotos);
@@ -127,10 +136,42 @@ export function StockPhotoSearch({
   }, [query, source, isLoading]);
 
   /**
+   * Track Unsplash download (REQUIRED by Unsplash API guidelines!)
+   * This must be called when a user uses a photo in their application.
+   * See: https://unsplash.com/documentation#track-a-photo-download
+   */
+  const trackUnsplashDownload = useCallback(
+    async (photo: StockPhoto) => {
+      if (photo.source !== "unsplash") return;
+
+      try {
+        // Track via our API endpoint
+        await fetch("/api/unsplash/download", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            downloadLocation: photo.downloadLocation,
+            photoId: photo.id,
+          }),
+        });
+        console.log("[StockPhotoSearch] ✅ Unsplash download tracked");
+      } catch (err) {
+        // Don't fail the selection if tracking fails
+        console.warn("[StockPhotoSearch] Failed to track Unsplash download:", err);
+      }
+    },
+    []
+  );
+
+  /**
    * Select a photo and optionally download to Blob
    */
   const handleSelectPhoto = useCallback(
     async (photo: StockPhoto, downloadToBlob: boolean = false) => {
+      // CRITICAL: Track Unsplash download when photo is used!
+      // This is required by Unsplash API guidelines for production approval.
+      trackUnsplashDownload(photo);
+
       if (downloadToBlob) {
         setDownloadingId(photo.id);
         try {
@@ -189,7 +230,7 @@ export function StockPhotoSearch({
         });
       }
     },
-    [onPhotoSelect]
+    [onPhotoSelect, trackUnsplashDownload]
   );
 
   /**
@@ -233,19 +274,15 @@ export function StockPhotoSearch({
 
       {isExpanded && (
         <div className="p-3 pt-0 space-y-3">
-          {/* Source toggle */}
+          {/* Source indicator - Unsplash only (Pexels disabled) */}
           <div className="flex gap-1">
-            <button
-              onClick={() => setSource("unsplash")}
-              className={cn(
-                "px-2 py-1 text-xs rounded transition-colors",
-                source === "unsplash"
-                  ? "bg-blue-600 text-white"
-                  : "bg-gray-800 text-gray-400 hover:bg-gray-700"
-              )}
-            >
+            <span className="px-2 py-1 text-xs rounded bg-blue-600 text-white">
               Unsplash
-            </button>
+            </span>
+            {/* PEXELS DISABLED - To re-enable:
+                1. Set ENABLE_PEXELS=true in .env.local
+                2. Uncomment the Pexels button below
+                3. Change 'source' back to useState
             <button
               onClick={() => setSource("pexels")}
               className={cn(
@@ -257,6 +294,7 @@ export function StockPhotoSearch({
             >
               Pexels
             </button>
+            */}
           </div>
 
           {/* Search input */}
@@ -418,9 +456,37 @@ function StockPhotoCard({
             Spara till bibliotek
           </Button>
 
-          {/* Photographer credit */}
+          {/* Photographer credit - Required by Unsplash guidelines! */}
+          {/* Format: "Photo by [Name] on Unsplash" with links */}
           <p className="text-[9px] text-gray-400 truncate w-full text-center mt-1">
-            Foto: {photo.photographer}
+            Foto:{" "}
+            {photo.photographerUrl ? (
+              <a
+                href={photo.photographerUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="underline hover:text-white"
+                onClick={(e) => e.stopPropagation()}
+              >
+                {photo.photographer}
+              </a>
+            ) : (
+              photo.photographer
+            )}
+            {photo.source === "unsplash" && (
+              <>
+                {" "}på{" "}
+                <a
+                  href="https://unsplash.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="underline hover:text-white"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  Unsplash
+                </a>
+              </>
+            )}
           </p>
         </div>
       )}

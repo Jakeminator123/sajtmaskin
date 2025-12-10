@@ -1,5 +1,5 @@
+import { FEATURES, SECRETS } from "@/lib/config";
 import { NextRequest, NextResponse } from "next/server";
-import { SECRETS, FEATURES } from "@/lib/config";
 
 /**
  * Unsplash API Integration
@@ -9,9 +9,14 @@ import { SECRETS, FEATURES } from "@/lib/config";
  *
  * Free API: https://unsplash.com/developers
  * - Demo: 50 requests/hour
- * - Production: 5,000 requests/hour
+ * - Production: 5,000 requests/hour (requires approval)
  *
- * v0 ALLOWS Unsplash images (unlike Pexels)!
+ * UNSPLASH REQUIREMENTS (for production approval):
+ * 1. ✅ Hotlinking - We use Unsplash URLs directly (required!)
+ * 2. ✅ Trigger downloads - Call /api/unsplash/download when photo is used
+ * 3. ✅ Attribution - Include photographer name + Unsplash link
+ *
+ * See: https://unsplash.com/documentation#track-a-photo-download
  */
 
 interface UnsplashPhoto {
@@ -59,6 +64,8 @@ export interface MarkedImage {
   height: number;
   // Required for Unsplash attribution
   unsplashUrl: string;
+  // Required for Unsplash download tracking (call when photo is used!)
+  downloadLocation?: string;
 }
 
 // Industry-specific search terms
@@ -188,6 +195,8 @@ export async function POST(req: NextRequest) {
             width: photo.width,
             height: photo.height,
             unsplashUrl: photo.links.html,
+            // CRITICAL: Track downloads per Unsplash API guidelines
+            downloadLocation: photo.links.download_location,
           });
           marker++;
         }
@@ -264,6 +273,8 @@ export async function GET(req: NextRequest) {
       width: photo.width,
       height: photo.height,
       unsplashUrl: photo.links.html,
+      // CRITICAL: Track downloads per Unsplash API guidelines
+      downloadLocation: photo.links.download_location,
     }));
 
     return NextResponse.json({

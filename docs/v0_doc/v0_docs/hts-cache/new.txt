@@ -1,3 +1,0 @@
-date	size'/'remotesize	flags(request:Update,Range state:File response:Modified,Chunked,gZipped)	statuscode	status ('servermsg')	MIME	Etag|Date	URL	localfile	(from URL)
-03:35:38	119/119	---MC-	308	error ('Permanent%20Redirect')	text/html	date:Wed,%2010%20Dec%202025%2002:35:39%20GMT	https://v0.app/docs/	C:/Users/Propietario/Desktop/sajtmaskin/docs/v0_doc/v0_docs/v0.app/docs/index.html	(from )
-03:35:38	179/179	---M--	200	added ('OK')	text/plain	etag:%22a86b8f5007c741393bd44d3fd6a956f4%22	https://v0.app/robots.txt		(from )

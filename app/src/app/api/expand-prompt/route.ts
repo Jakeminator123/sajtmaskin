@@ -3,24 +3,18 @@
  * POST /api/expand-prompt
  *
  * Takes wizard data and generates a detailed prompt for v0 API.
- * Uses Responses API with gpt-5-mini (cost-efficient) or fallback to Chat Completions.
+ * Uses gpt-4o-mini for fast, reliable responses.
  *
- * Also fetches relevant stock photos from Pexels with markers (P1, P2, etc.)
- * for easy replacement later.
+ * Also fetches relevant stock photos from Unsplash with markers (P1, P2, etc.)
+ * for easy image integration.
  *
  * Note: v0 does the heavy lifting with v0-1.5-md/lg models.
  * We use a cost-efficient model for detailed, well-structured prompts.
- *
- * Models available via Responses API (https://platform.openai.com/docs/models):
- * - gpt-5-mini: Cost-efficient, 400k context ($0.25/$2 per 1M tokens) ← PRIMARY
- * - gpt-5-nano: Fastest and cheapest ($0.05/$0.40 per 1M tokens)
- * - gpt-4o-mini: Fast, good quality, supports web_search ← FALLBACK & WEB SEARCH
- * - gpt-4.1-mini: Stable alternative
  */
 
+import { FEATURES, SECRETS } from "@/lib/config";
 import { NextRequest, NextResponse } from "next/server";
-import { MarkedImage } from "../pexels/route";
-import { SECRETS, FEATURES } from "@/lib/config";
+import { MarkedImage } from "../unsplash/route";
 
 // Allow 60 seconds for OpenAI response
 export const maxDuration = 60;
@@ -141,12 +135,12 @@ IMAGE HANDLING (CRITICAL!)
 
 IMPORTANT: When stock photos are provided with URLs, you MUST include the ACTUAL URLs in the generated code!
 
-Format provided: "P1: https://images.pexels.com/... (description)"
+Format provided: "P1: https://images.unsplash.com/... (description)"
 
 How to use them in the prompt:
-- COPY the full Pexels URL into the code
+- COPY the full Unsplash URL into the code
 - Use next/image or img tag with the actual URL
-- Example: <img src="https://images.pexels.com/photos/..." alt="description" />
+- Example: <img src="https://images.unsplash.com/photo-..." alt="description" />
 
 Placement:
 - P1: Hero section - use as background image or main hero visual
@@ -339,7 +333,10 @@ function formatImagesForPrompt(images: MarkedImage[]): string {
   if (images.length === 0) return "";
 
   const imageList = images
-    .map((img) => `${img.marker}: "${img.url}" - ${img.alt}`)
+    .map(
+      (img) =>
+        `${img.marker}: "${img.url}" - ${img.alt} (Photo by ${img.photographer})`
+    )
     .join("\n");
 
   return `
@@ -352,9 +349,10 @@ ${imageList}
 
 INSTRUCTIONS:
 - Copy each URL exactly as shown above into the generated code
-- Use <img src="URL" /> or next/image with the Pexels URL
+- Use <img src="URL" /> or next/image with the Unsplash URL
 - P1 goes in hero section, P2 in about section, P3 in services, etc.
-- These are real, working image URLs from Pexels - use them!`;
+- These are real, working image URLs from Unsplash - use them!
+- ATTRIBUTION: Add small text below images: "Photo by [Name] on Unsplash"`;
 }
 
 // Component style labels for prompt generation

@@ -1,12 +1,14 @@
 # Project Information (Sajtmaskin)
 
 ## Overview
+
 - AI-driven site builder using Next.js 15 (app router), React 19, Tailwind, TypeScript.
 - Core flow: user selects category/template → `/builder` chat drives Vercel v0 generation → demoUrl preview → optional download/publish.
 - Data layer: SQLite (better-sqlite3) with optional Redis cache; uploads stored under `PATHS.uploads`.
 - Credits (“diamonds”) gate generations/refinements; Stripe checkout for purchases.
 
 ## Directory map (short)
+
 - `app/`: Next.js 15 project root (package.json, configs, Tailwind/Next settings).
   - `src/app`: Routes (pages), API routes, layout, globals.css.
   - `src/components`: UI + feature components (builder, auth, avatar, preview, modals, UI kit).
@@ -20,12 +22,14 @@
 - `sajtmaskin.code-workspace`: Workspace settings.
 
 ## Tech & Setup
+
 - Scripts: `npm run dev`, `npm run build`, `npm run start`, `npm run lint`.
 - Styling: Tailwind with dark theme, Inter/JetBrains fonts from `layout.tsx`.
 - Config: see `src/lib/config.ts` (PATHS, SECRETS, FEATURES, URLS, REDIS_CONFIG). DATA_DIR default `./data`; production should set `DATA_DIR=/var/data`.
 - Image domains allowed in `next.config.ts` (v0, DiceBear, QuickChart, Picsum, Google avatars, Vercel blob hosts).
 
 ## Frontend Routes (app router)
+
 - `/` → `src/app/page.tsx` renders `HomePage` (marketing/entry to builder).
 - `/builder` → main AI workspace (`builder/page.tsx`): Chat + preview, auto project creation, download/finalize modal, mobile tabs.
 - `/projects` → list & delete projects (`projects/page.tsx`).
@@ -35,6 +39,7 @@
 - Layout: `layout.tsx` sets `lang="sv"`, wraps in `AvatarProvider`, `ErrorBoundary`, `AnalyticsTracker`, `CookieBanner`; global styles in `globals.css`.
 
 ## Key Components / State
+
 - Chat & generation: `ChatPanel` manages prompts, file uploads, media bank, domain suggestions, AI generation/refine via v0 API, credit gating, demoUrl preview coordination, mobile/desktop instances.
 - Preview: `CodePreview`, `FinalizeModal`, `GenerationProgress`.
 - Templates: `TemplateGallery`, `LocalTemplateCard`, `PreviewModal`; uses `lib/template-data` and cached screenshots/files.
@@ -45,6 +50,7 @@
 - State stores: `lib/store` (builder state: chat, files, demoUrl, projectId, versions), `lib/auth-store` (user/diamonds).
 
 ## Backend / API Highlights (`src/app/api`)
+
 - Generation: `generate` (prompt/category → v0 generateCode, deduct credit/guest limit), `refine` (existingCode + instruction → v0 refineCode).
 - Templates: `template` (fetch v0 template), `local-template`, `orchestrate` (agent), `agent/edit`.
 - Projects: `projects` (list/create with rate limits); `projects/[id]` (get/update/delete); nested: `save`, `download`, `files`, `upload`, `status`, `analyze`.
@@ -57,28 +63,62 @@
 - Vercel integration: `vercel/projects`, `vercel/deploy`, `vercel/domains/price|purchase`, `vercel/purchase-and-deploy`, `vercel/status/[deploymentId]`.
 
 ## Data & Storage
+
 - SQLite schema (`lib/database.ts`): users (with diamonds, provider), sessions, transactions, guest_usage, projects, project_data (chat/demoUrl/code/files/messages), project_files (takeover), images, media_library, company_profiles (wizard data), template_cache, template_screenshots, page_views, vercel_deployments, etc.
 - Redis (optional via REDIS_CONFIG) for caching projects and analytics; `lib/redis`.
 - Uploads stored under `PATHS.uploads`; served via `/uploads`. Admin actions can clear.
 
 ## AI Generation Pipeline
+
 - Client `ChatPanel` calls `/api/generate` or `/api/refine`.
 - Server uses `lib/v0-generator` (v0-sdk) with quality → model map (standard = v0-1.5-md, premium = v0-1.5-lg); sanitizes code to remove Vercel references.
 - Credits: `lib/database` deducts diamonds for authed users; guests limited to 1 generation/1 refine via `guest_usage`.
 - Results persisted to SQLite via project endpoints; demoUrl used for iframe preview; code/files stored for takeover/download.
 
+## Orchestrator Agent
+
+- `lib/orchestrator-agent.ts` handles complex workflows (web search + code, image generation + code).
+- Intent classification: determines what user wants (image_only, code_only, image_and_code, web_search_only, etc.)
+- Only triggers v0 when code changes are needed.
+- Uses `gpt-4o-mini` for intent classification (fast, reliable).
+- `needsOrchestration()` checks if prompt needs special handling (keywords for images, web search, etc.)
+
+## Media & Images
+
+- **Unsplash**: Primary stock photo source. Downloads tracked per API guidelines (required for production).
+- **Pexels**: DISABLED by default - set `ENABLE_PEXELS=true` to enable.
+- **Blob Storage**: `BLOB_READ_WRITE_TOKEN` required for public URLs (v0 preview needs public URLs!).
+- **AI Images**: Generated via gpt-image-1 or dall-e-3, saved to Vercel Blob for public URLs.
+- Attribution: Unsplash photos include "Photo by [Name] on Unsplash" with links.
+
+## OpenAI Models (Agent/Edit API)
+
+- **Code editing** (`code_edit`): `gpt-5.1-codex-mini` → `gpt-4o-mini` (1 diamond)
+- **Copywriting** (`copy`): `gpt-5-mini` → `gpt-4o-mini` (1 diamond)
+- **Image generation** (`image`): `gpt-5` + `image_generation` tool → `gpt-4o` (3 diamonds)
+- **Web search** (`web_search`): `gpt-4o-mini` + `web_search` tool (2 diamonds, note: web_search only works with gpt-4o/gpt-4o-mini)
+- **Code refactoring** (`code_refactor`): `gpt-5.1-codex` → `gpt-4o` (5 diamonds, 400k context)
+- **Analysis** (`analyze`): `gpt-5` + `code_interpreter` tool → `gpt-4o` (3 diamonds)
+- Models configured in `lib/openai-agent.ts` (MODEL_CONFIGS). Uses Responses API (`/v1/responses`) with fallback to Chat Completions API.
+- See `docs/gpt-api/OPENAI_API_LATEST_FEATURES.md` for detailed model information.
+
 ## Auth & Permissions
+
 - `lib/auth` handles sessions/JWT, `auth-store` client side. Admin authorization checks email against `TEST_USER_EMAIL`. Credits required for generation/refine; guests limited by session cookie.
 
 ## Payments
+
 - Stripe checkout session in `/api/stripe/checkout`; webhook updates transactions/diamonds. Packages defined in `/buy-credits` page.
 
 ## Configuration / Environment
-- Required/important env vars (see `config.ts`): `V0_API_KEY`, `OPENAI_API_KEY`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `VERCEL_API_TOKEN`, `REDIS_HOST/PASSWORD` (optional), `GOOGLE_CLIENT_ID/SECRET`, `GITHUB_CLIENT_ID/SECRET`, `JWT_SECRET`, `DATA_DIR`, `BACKOFFICE_PASSWORD`, `TEST_USER_EMAIL/PASSWORD`, `ELEVENLABS_API_KEY` (optional), `UNSPLASH_ACCESS_KEY`, `PEXELS_API_KEY`.
+
+- Required/important env vars (see `config.ts`): `V0_API_KEY`, `OPENAI_API_KEY`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `VERCEL_API_TOKEN`, `REDIS_HOST/PASSWORD` (optional), `GOOGLE_CLIENT_ID/SECRET`, `GITHUB_CLIENT_ID/SECRET`, `JWT_SECRET`, `DATA_DIR`, `BACKOFFICE_PASSWORD`, `TEST_USER_EMAIL/PASSWORD`, `ELEVENLABS_API_KEY` (optional), `UNSPLASH_ACCESS_KEY`, `BLOB_READ_WRITE_TOKEN`.
+- Pexels: **DISABLED** - set `ENABLE_PEXELS=true` to re-enable.
 - Base URL: `NEXT_PUBLIC_BASE_URL` (defaults to http://localhost:3000).
 - Image domains already whitelisted in `next.config.ts`.
 
 ## Build & Run
+
 - Install deps: `npm install` (in `app/`).
 - Dev: `npm run dev` (Next.js).
 - Prod: `npm run build` → `npm run start`.
@@ -86,14 +126,15 @@
 - Ensure `data/` (or DATA_DIR) writable for SQLite/uploads; Redis optional but recommended for caching.
 
 ## Notable UX/behavior
+
 - Strict mobile handling in builder: desktop instance is primary generator; mobile uses shared store without duplicate requests.
 - SessionStorage guard in `ChatPanel` prevents overlapping generations; 10 min timeout and 30s cooldown per key.
 - Category pages auto-create projects and redirect with params; wizard saves `company_profiles`.
 - Admin panel exposes destructive cleanup; MEGA CLEANUP wipes v0, Vercel, SQLite, Redis, uploads.
 
 ## Open Questions / Risks
+
 - Production secrets/keys must be set; many features are no-ops without them (v0, Stripe, OAuth, Redis).
 - DATA_DIR not set in production may lose DB/uploads on restart.
 - Credits logic assumes diamonds ≥1; review guest limits if scaling.
 - v0 timeouts: generation capped at 300s; complex prompts may still fail.
-

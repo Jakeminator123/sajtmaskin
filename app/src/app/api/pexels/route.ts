@@ -4,10 +4,15 @@ import { SECRETS, FEATURES } from "@/lib/config";
 /**
  * Pexels API Integration
  *
+ * ⚠️ CURRENTLY DISABLED - Set ENABLE_PEXELS=true in .env.local to re-enable
+ *
  * Searches for relevant stock photos based on query terms.
  * Returns images with P1, P2, P3... markers for easy reference.
  *
  * Free API: https://www.pexels.com/api/
+ *
+ * NOTE: We're focusing on Unsplash only for now (simpler, works well with v0).
+ * This code remains for future use if we want to add Pexels back.
  */
 
 interface PexelsPhoto {

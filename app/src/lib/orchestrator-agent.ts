@@ -38,15 +38,15 @@
  *    → INGEN v0-kod ändras!
  */
 
-import OpenAI from "openai";
-import { generateCode, refineCode } from "@/lib/v0-generator";
 import type { QualityLevel } from "@/lib/api-client";
+import { isBlobConfigured, uploadBlobFromBase64 } from "@/lib/blob-service";
 import { debugLog } from "@/lib/debug";
-import { uploadBlobFromBase64, isBlobConfigured } from "@/lib/blob-service";
+import { generateCode, refineCode } from "@/lib/v0-generator";
+import OpenAI from "openai";
 
 // Helper to save AI-generated image using centralized blob-service
 // CRITICAL: This function MUST return a URL for v0 preview to work!
-// v0's demoUrl is hosted on Vercel servers and cannot access local files.
+// v0's demoUrl is hosted on v0's servers (vusercontent.net) and cannot access local files.
 async function saveImageToBlob(
   base64: string,
   prompt: string,
@@ -215,7 +215,7 @@ export async function orchestrateWorkflow(
     let intentResponse: Awaited<ReturnType<typeof client.responses.create>>;
     try {
       intentResponse = await client.responses.create({
-        model: "gpt-4.1-mini",
+        model: "gpt-4o-mini",
         instructions: `Du är en intent-klassificerare för en webbplats-byggare.
 
 Analysera användarens meddelande och bestäm VAD de faktiskt vill göra.
@@ -442,7 +442,7 @@ Output: {"intent": "code_only", "reasoning": "Användaren vill ändra bakgrundsf
         let searchResponse: Awaited<ReturnType<typeof client.responses.create>>;
         try {
           searchResponse = await client.responses.create({
-            model: "gpt-4.1-mini",
+            model: "gpt-4o-mini",
             instructions:
               "Du är en webbdesign-expert. Baserat på web search-resultaten, ge en informativ sammanfattning på svenska om designtrender, färger, layouter etc. för den nämnda webbplatsen eller konceptet.",
             input: classification.webSearchQuery,
@@ -853,129 +853,201 @@ Bilderna kommer INTE visas i preview. Lägg till placeholder-bilder tills vidare
 /**
  * Check if prompt needs orchestration
  *
- * Returns true if prompt contains keywords that suggest:
- * - Image generation
- * - Web search/research
- * - Multi-step workflow
+ * STRINGENT MODE: Only triggers for truly complex workflows:
+ * 1. AI image GENERATION (not using existing images)
+ * 2. Web search/research for external info
  *
- * IMPORTANT: Returns false if user already has PUBLIC URLs in prompt
- * (they want to USE their images directly, not have AI generate new ones)
+ * IMPORTANT: Most prompts (80%+) should go DIRECTLY to v0!
+ * v0 is excellent at understanding natural language.
+ *
+ * Returns false for:
+ * - Simple code changes ("gör bakgrunden blå")
+ * - Using existing images from mediabibliotek (URLs already in prompt)
+ * - Layout/design changes
+ * - Text changes
+ * - Component additions
  */
 export function needsOrchestration(prompt: string): boolean {
   const lower = prompt.toLowerCase();
 
-  // If prompt contains public URLs (Vercel Blob or full https), DON'T use orchestrator
-  // User wants to USE these images directly - just send to v0
+  // ═══════════════════════════════════════════════════════════════════════
+  // FAST EXITS - These should go DIRECTLY to v0 (no orchestration)
+  // ═══════════════════════════════════════════════════════════════════════
+
+  // 1. User has PUBLIC URLs in prompt - they want to USE images, not generate
   if (
     prompt.includes("blob.vercel-storage.com") ||
+    prompt.includes("images.unsplash.com") ||
     prompt.includes("/api/uploads/") ||
-    prompt.includes("uppladdade bilder") ||
+    prompt.includes("https://") ||
     prompt.includes("EXAKTA URLs") ||
     prompt.includes("publika URLs")
   ) {
-    debugLog("[Orchestrator] Skipping - user has public URLs in prompt");
+    debugLog("[Orchestrator] SKIP - prompt has public URLs (send to v0)");
     return false;
   }
 
-  // Keywords that suggest web search is needed
-  const webSearchKeywords = [
-    // Navigation/inspection
-    "gå till",
-    "besök",
-    "hämta från",
-    "kopiera från",
-    "inspektera",
-    "kolla på",
-    "titta på",
-    "analysera",
-    "se hur",
-    // Websites
-    "amazon",
-    "netflix",
-    "apple",
-    "google",
-    "spotify",
-    "airbnb",
-    ".com",
-    ".se",
-    ".io",
-    ".dev",
-    ".org",
-    // Search actions
-    "hitta",
-    "sök efter",
-    "researcha",
-    "undersök",
-    "leta efter",
-    // Color/design inspiration
-    "färgpalett",
-    "färger från",
-    "färgschema",
-    "color palette",
-    "deras design",
-    "deras stil",
-    "inspirerad av",
-    // Trends
-    "trender",
-    "populärt",
-    "modern design",
-    "2024",
-    "2025",
+  // 2. References to mediabibliotek with existing images - v0 can handle
+  if (
+    (lower.includes("mediabibliotek") ||
+      lower.includes("uppladdade") ||
+      lower.includes("min bild") ||
+      lower.includes("mina bilder")) &&
+    !lower.includes("generera") &&
+    !lower.includes("skapa ny")
+  ) {
+    debugLog("[Orchestrator] SKIP - references existing media (send to v0)");
+    return false;
+  }
+
+  // 3. Simple design/code changes - v0 excels at these
+  const simpleChangePatterns = [
+    // Colors
+    /^(ändra|byt|gör).*(färg|bakgrund|text).*(till|blå|röd|grön|vit|svart)/i,
+    // Size/spacing
+    /^(gör|ändra).*(större|mindre|bredare|smalare)/i,
+    // Visibility
+    /^(ta bort|dölj|visa|lägg till).*(knapp|text|bild|sektion)/i,
+    // Simple text
+    /^(ändra|byt).*(text|rubrik|titel)/i,
+    // Layout
+    /^(flytta|centrera|justera)/i,
   ];
 
-  // Keywords that suggest image generation
-  const imageKeywords = [
-    // Swedish - various forms
-    "skapa bild",
-    "skapa en bild",
-    "skapa ny bild",
-    "generera bild",
+  for (const pattern of simpleChangePatterns) {
+    if (pattern.test(lower)) {
+      debugLog("[Orchestrator] SKIP - simple change pattern (send to v0)");
+      return false;
+    }
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════
+  // ORCHESTRATION TRIGGERS - Only these COMPLEX cases need orchestrator
+  // ═══════════════════════════════════════════════════════════════════════
+
+  // 1. AI IMAGE GENERATION - user explicitly wants NEW images created
+  const imageGenerationKeywords = [
+    // Must be explicit generation requests
     "generera en bild",
-    "gör en bild",
-    "gör bild",
-    "rita en bild",
-    "rita bild",
-    // Logo variations
+    "generera bild",
+    "skapa en ny bild",
+    "skapa ny bild",
+    "generate image",
+    "create new image",
+    // Logo generation
     "generera logo",
     "generera en logo",
-    "skapa logo",
-    "skapa en logo",
-    "ny logotyp",
-    "ny logo",
-    "designa logo",
-    // Specific image types
-    "hero-bild",
-    "herobild",
-    "bakgrundsbild",
-    "produktbild",
-    "profilbild",
-    "omslagsbild",
-    // Generic image terms
-    "illustration",
-    "grafik",
-    "ikon",
-    "bild på",
-    "bild av",
-    // English
-    "create image",
-    "create an image",
-    "generate image",
-    "generate an image",
-    "make image",
-    "make an image",
-    "generate logo",
-    "create logo",
-    "new logo",
-    "hero image",
-    "background image",
-    "profile image",
-    "cover image",
+    "skapa ny logo",
+    "designa en logo",
+    // AI-specific
+    "ai-generera",
+    "ai generera",
+    "dall-e",
+    "gpt-image",
   ];
 
-  const needsWebSearch = webSearchKeywords.some((keyword) =>
-    lower.includes(keyword)
-  );
-  const needsImages = imageKeywords.some((keyword) => lower.includes(keyword));
+  // 2. WEB SEARCH - user wants info from external websites
+  const webSearchKeywords = [
+    // Explicit web actions
+    "gå till webbplatsen",
+    "besök sidan",
+    "kolla på deras",
+    "analysera webbplatsen",
+    "hämta från",
+    "kopiera från",
+    // Research
+    "researcha",
+    "undersök vad",
+    "leta reda på",
+    // Competitor analysis
+    "konkurrenternas",
+    "deras färgschema",
+    "inspireras av webbplatsen",
+  ];
 
-  return needsWebSearch || needsImages;
+  const needsImageGen = imageGenerationKeywords.some((kw) =>
+    lower.includes(kw)
+  );
+  const needsWebSearch = webSearchKeywords.some((kw) => lower.includes(kw));
+
+  if (needsImageGen) {
+    debugLog("[Orchestrator] TRIGGER - needs AI image generation");
+    return true;
+  }
+
+  if (needsWebSearch) {
+    debugLog("[Orchestrator] TRIGGER - needs web search");
+    return true;
+  }
+
+  // Default: Send to v0 directly (no orchestration)
+  debugLog("[Orchestrator] SKIP - no complex workflow detected (send to v0)");
+  return false;
+}
+
+/**
+ * Enhance a prompt for v0 by resolving media library references
+ *
+ * Transforms vague references like "bilden som ser ut som en tiger"
+ * into concrete instructions with actual URLs.
+ *
+ * @param prompt - User's original prompt
+ * @param mediaLibrary - Array of media items with URLs and descriptions
+ * @returns Enhanced prompt ready for v0
+ */
+export function enhancePromptForV0(
+  prompt: string,
+  mediaLibrary?: Array<{
+    url: string;
+    filename: string;
+    description?: string;
+  }>
+): string {
+  // If no media library provided, return prompt as-is
+  if (!mediaLibrary || mediaLibrary.length === 0) {
+    return prompt;
+  }
+
+  let enhanced = prompt;
+
+  // Check if prompt references media library
+  const mediaReferences = [
+    "mediabibliotek",
+    "min bild",
+    "mina bilder",
+    "uppladdade",
+    "den som ser ut som",
+    "bilden med",
+    "logon",
+    "logotypen",
+  ];
+
+  const hasMediaReference = mediaReferences.some((ref) =>
+    prompt.toLowerCase().includes(ref)
+  );
+
+  if (hasMediaReference) {
+    // Build a media catalog for v0 to understand
+    const mediaCatalog = mediaLibrary
+      .map(
+        (item, i) =>
+          `[Bild ${i + 1}]: ${item.url} - "${
+            item.description || item.filename
+          }"`
+      )
+      .join("\n");
+
+    enhanced = `${prompt}
+
+═══════════════════════════════════════════════════════════════════════
+TILLGÄNGLIGA BILDER FRÅN MEDIABIBLIOTEKET:
+═══════════════════════════════════════════════════════════════════════
+${mediaCatalog}
+
+INSTRUKTION: Använd EXAKTA URLs från listan ovan i <img src="..."> taggar.
+Matcha användarens beskrivning med rätt bild baserat på filnamn/beskrivning.
+═══════════════════════════════════════════════════════════════════════`;
+  }
+
+  return enhanced;
 }

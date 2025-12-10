@@ -6,17 +6,21 @@
  * to edit code in taken-over projects.
  *
  * MODELS USED (see docs/OPENAI_API_LATEST_FEATURES.md):
- * - gpt-4o-mini: Fast, cost-efficient for standard tasks and web search
- * - gpt-4o: Complex tasks, image orchestration with tools
- * - gpt-image-1: Latest image generation model
+ * - gpt-5.1-codex-mini: Code editing (400k context, cost-efficient)
+ * - gpt-5.1-codex: Heavy refactoring (400k context, 128k output)
+ * - gpt-5-mini: Text generation/copywriting
+ * - gpt-5: Complex reasoning, analysis, image orchestration
+ * - gpt-4o-mini: Fallback and web search (web_search tool only works with gpt-4o/gpt-4o-mini)
+ * - gpt-4o: Fallback for complex tasks
+ * - gpt-image-1: Latest image generation model (via image_generation tool)
  *
  * TASK TYPES:
- * - code_edit: Standard code changes (gpt-4o-mini)
- * - copy: Text generation (gpt-4o-mini)
- * - image: Logo/hero image generation (gpt-image-1)
+ * - code_edit: Standard code changes (gpt-5.1-codex-mini → gpt-4o-mini)
+ * - copy: Text generation (gpt-5-mini → gpt-4o-mini)
+ * - image: Logo/hero image generation (gpt-5 + image_generation tool)
  * - web_search: Search web for info (gpt-4o-mini + web_search tool)
- * - code_refactor: Heavy refactoring (gpt-4o)
- * - analyze: Analyze project and suggest improvements (gpt-4o)
+ * - code_refactor: Heavy refactoring (gpt-5.1-codex → gpt-4o)
+ * - analyze: Analyze project and suggest improvements (gpt-5 → gpt-4o)
  *
  * STORAGE MODES:
  * 1. SQLITE (primär) + Redis cache - Filer lagras i SQLite, Redis för cache
@@ -26,10 +30,10 @@
  */
 
 import OpenAI from "openai";
-import { updateProjectFile, getProjectMeta, saveProjectFiles } from "./redis";
 import { updateProjectFileInDb } from "./database";
 import { sanitizeProjectPath } from "./path-utils";
 import { loadProjectFilesWithFallback } from "./project-files";
+import { getProjectMeta, saveProjectFiles, updateProjectFile } from "./redis";
 
 // Initialize OpenAI client (lazy initialization to avoid build-time errors)
 function getOpenAIClient(): OpenAI {
@@ -208,16 +212,16 @@ const CODE_INTERPRETER_TOOL: OpenAI.Responses.Tool = {
 // and reasoning.effort: "medium" or "high" for most models
 const MODEL_CONFIGS: Record<TaskType, ModelConfig> = {
   code_edit: {
-    // gpt-4.1-mini: Stable, fast, supports function calling
-    model: "gpt-4.1-mini",
+    // gpt-5.1-codex-mini: Optimized for agentic coding, 400k context, cost-efficient
+    model: "gpt-5.1-codex-mini",
     fallbackModel: "gpt-4o-mini",
     tools: FILE_TOOLS,
     diamondCost: 1,
     description: "Standard code editing with validation",
   },
   copy: {
-    // gpt-4.1-mini: Cost-efficient for text generation
-    model: "gpt-4.1-mini",
+    // gpt-5-mini: Cost-efficient for text generation
+    model: "gpt-5-mini",
     fallbackModel: "gpt-4o-mini",
     text: { verbosity: "medium" },
     tools: FILE_TOOLS,
@@ -225,8 +229,8 @@ const MODEL_CONFIGS: Record<TaskType, ModelConfig> = {
     description: "Copywriting and text generation",
   },
   image: {
-    // Use 4.1 with native image_generation tool orchestrating gpt-image-1
-    model: "gpt-4.1",
+    // gpt-5: Advanced reasoning for image generation orchestration
+    model: "gpt-5",
     fallbackModel: "gpt-4o",
     tools: [...FILE_TOOLS, { type: "image_generation" }],
     diamondCost: 3,
@@ -243,16 +247,16 @@ const MODEL_CONFIGS: Record<TaskType, ModelConfig> = {
     description: "Video generation with Sora",
   },
   web_search: {
-    // gpt-4.1-mini: Supports web_search tool
-    model: "gpt-4.1-mini",
+    // gpt-4o-mini: Supports web_search tool (web_search only works with gpt-4o/gpt-4o-mini)
+    model: "gpt-4o-mini",
     fallbackModel: "gpt-4o-mini",
     tools: [...FILE_TOOLS, { type: "web_search" }],
     diamondCost: 2,
     description: "Web search and research",
   },
   code_refactor: {
-    // gpt-4.1: Reliable for heavier edits; fallback 4o
-    model: "gpt-4.1",
+    // gpt-5.1-codex: 400k context, optimized for heavy refactoring
+    model: "gpt-5.1-codex",
     fallbackModel: "gpt-4o",
     text: { verbosity: "medium" },
     tools: FILE_TOOLS,
@@ -260,8 +264,8 @@ const MODEL_CONFIGS: Record<TaskType, ModelConfig> = {
     description: "Heavy refactoring with validation",
   },
   analyze: {
-    // gpt-4.1: Deep analysis with code execution
-    model: "gpt-4.1",
+    // gpt-5: Advanced reasoning for deep analysis with code execution
+    model: "gpt-5",
     fallbackModel: "gpt-4o",
     text: { verbosity: "medium" },
     tools: [...FILE_TOOLS, CODE_INTERPRETER_TOOL],
@@ -587,17 +591,22 @@ async function listProjectFiles(
 // ============ Direct Image Generation ============
 
 /**
- * Generate an image using OpenAI's gpt-image-1 API
+ * Generate image using gpt-image-1 model
+ * ═══════════════════════════════════════
  *
- * gpt-image-1 is the latest image generation model with superior
- * instruction following and text rendering.
+ * SINGLE image generation function for the entire app.
+ * Used by orchestrator-agent for AI image generation workflows.
  *
  * Parameters:
- * - size: "1024x1024" | "1536x1024" | "1024x1536" | "auto"
- * - quality: "low" | "medium" | "high" | "auto"
- * - output_format: "png" | "jpeg" | "webp"
+ * - size: "1024x1024" (square), "1536x1024" (landscape), "1024x1536" (portrait)
+ * - quality: "low" (fast), "medium" (balanced), "high" (best)
  *
- * See: docs/OPENAI_API_LATEST_FEATURES.md - GPT Image Models section
+ * Returns base64 image data - upload to Vercel Blob for public URL!
+ * (v0 preview requires public URLs to display images)
+ *
+ * @example
+ * const result = await generateImageDirect("A modern coffee shop logo");
+ * const blobUrl = await uploadBlobFromBase64(userId, result.base64, ...);
  */
 export async function generateImageDirect(
   prompt: string,
@@ -605,23 +614,29 @@ export async function generateImageDirect(
     size?: "1024x1024" | "1536x1024" | "1024x1536";
     quality?: "low" | "medium" | "high";
   }
-): Promise<{ base64: string; revisedPrompt?: string }> {
-  logApiCall("Direct image generation", {
+): Promise<{ base64: string; revisedPrompt?: string; model: string }> {
+  const model = "gpt-image-1";
+  const size = options?.size || "1024x1024";
+  const quality = options?.quality || "medium";
+
+  logApiCall("Generating image", {
     prompt: prompt.substring(0, 100),
-    ...options,
+    size,
+    quality,
+    model,
   });
 
   try {
     const result = await getOpenAIClient().images.generate({
-      model: "gpt-image-1",
+      model,
       prompt,
       n: 1,
-      size: options?.size || "1024x1024",
-      quality: options?.quality || "medium",
+      size,
+      quality,
     });
 
     if (!result.data || result.data.length === 0) {
-      throw new Error("No image data returned");
+      throw new Error("No image data returned from API");
     }
 
     const imageData = result.data[0];
@@ -630,13 +645,15 @@ export async function generateImageDirect(
     }
 
     logApiCall("Image generated successfully", {
-      size: options?.size || "1024x1024",
+      model,
+      size,
       hasRevisedPrompt: !!imageData.revised_prompt,
     });
 
     return {
       base64: imageData.b64_json,
       revisedPrompt: imageData.revised_prompt,
+      model,
     };
   } catch (error) {
     const errorMessage =
@@ -1398,62 +1415,8 @@ export async function continueConversation(
   });
 }
 
-/**
- * Generate image directly (standalone, without agent context)
- * Uses gpt-image-1 model for production image generation.
- *
- * gpt-image-1 parameters:
- * - size: "1024x1024" | "1536x1024" | "1024x1536"
- * - quality: "low" | "medium" | "high"
- *
- * See: docs/OPENAI_API_LATEST_FEATURES.md - GPT Image Models section
- */
-export async function generateImage(
-  prompt: string,
-  size: "1024x1024" | "1536x1024" | "1024x1536" = "1024x1024",
-  quality: "low" | "medium" | "high" = "medium"
-): Promise<{ base64: string; revisedPrompt?: string; model: string }> {
-  const model = "gpt-image-1";
-
-  logApiCall("Generating image", {
-    prompt: prompt.substring(0, 100),
-    size,
-    quality,
-    model,
-  });
-
-  try {
-    const result = await getOpenAIClient().images.generate({
-      model,
-      prompt,
-      size,
-      quality,
-      n: 1,
-    });
-
-    if (!result.data || result.data.length === 0) {
-      throw new Error("No image data returned from API");
-    }
-
-    const imageData = result.data[0];
-
-    logApiCall("Image generated successfully", {
-      model,
-      hasData: !!imageData.b64_json,
-    });
-
-    return {
-      base64: imageData.b64_json || "",
-      revisedPrompt: imageData.revised_prompt,
-      model,
-    };
-  } catch (error) {
-    const errorMessage =
-      error instanceof Error ? error.message : "Unknown error";
-    logApiCall("Image generation failed", { error: errorMessage }, "error");
-    throw error;
-  }
-}
+// NOTE: generateImage function removed - use generateImageDirect() instead
+// This consolidates image generation to a single function for maintainability
 
 /**
  * Analyze a project and provide improvement suggestions

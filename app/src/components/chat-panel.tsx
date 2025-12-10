@@ -53,7 +53,10 @@ import {
   refineWebsite,
 } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth-store";
-import { needsOrchestration } from "@/lib/orchestrator-agent";
+import {
+  needsOrchestration,
+  enhancePromptForV0,
+} from "@/lib/orchestrator-agent";
 import { useBuilderStore, type MessageAttachment } from "@/lib/store";
 import {
   extractTemplateId,
@@ -1107,14 +1110,36 @@ export function ChatPanel({
         setLoading(false);
         return;
       } else {
-        // Normal v0 refinement
+        // Normal v0 refinement (80%+ of cases)
         addMessage(
           "assistant",
           "✏️ Förfinar din sida med v0... Ett ögonblick."
         );
+
+        // Enhance prompt with media library info if user references it
+        // This helps v0 understand which images to use
+        const mediaLibraryForPrompt = mediaBank.items
+          .filter((item) => item.url)
+          .map((item) => ({
+            url: item.url,
+            filename: item.filename || "unknown",
+            description: item.description || item.prompt,
+          }));
+
+        const optimizedPrompt = enhancePromptForV0(
+          enhancedInstruction,
+          mediaLibraryForPrompt.length > 0 ? mediaLibraryForPrompt : undefined
+        );
+
+        console.log("[ChatPanel] Refinement via v0 (no orchestrator):", {
+          originalLength: enhancedInstruction.length,
+          optimizedLength: optimizedPrompt.length,
+          hasMediaEnhancement: optimizedPrompt.length > enhancedInstruction.length,
+        });
+
         response = await refineWebsite(
           actualCurrentCode,
-          enhancedInstruction,
+          optimizedPrompt,
           quality,
           actualChatId || undefined
         );

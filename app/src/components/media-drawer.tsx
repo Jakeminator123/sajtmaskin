@@ -11,7 +11,7 @@
  * - Slide-in animation from right
  * - Upload images/videos
  * - Browse media library
- * - Stock photo search (Unsplash/Pexels)
+ * - Stock photo search (Unsplash only - Pexels disabled)
  * - Drag & drop to chat
  */
 

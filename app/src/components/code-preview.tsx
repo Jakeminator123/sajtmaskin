@@ -323,8 +323,9 @@ export function CodePreview() {
               /**
                * v0's hosted preview (iframe)
                * ============================
-               * The demoUrl points to Vercel's vusercontent.net CDN where v0 hosts
+               * The demoUrl points to v0's servers (vusercontent.net) where v0 hosts
                * the generated code. This is NOT local - it's fully managed by v0.
+               * Note: v0 is owned by Vercel but runs on its own infrastructure.
                *
                * CACHE-BUSTING STRATEGY:
                * Problem: v0 may return the same demoUrl after refine, but content changed.

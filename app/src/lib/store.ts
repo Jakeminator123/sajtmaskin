@@ -359,7 +359,9 @@ export const useBuilderStore = create<BuilderState>()(
         set({ demoUrl: url, lastRefreshTimestamp: newTimestamp });
         // Debug: Log demoUrl changes for troubleshooting preview issues
         console.log("[Store] setDemoUrl:", {
-          previous: prevUrl?.slice(0, 60) + (prevUrl && prevUrl.length > 60 ? "..." : ""),
+          previous:
+            prevUrl?.slice(0, 60) +
+            (prevUrl && prevUrl.length > 60 ? "..." : ""),
           new: url?.slice(0, 60) + (url && url.length > 60 ? "..." : ""),
           changed: prevUrl !== url,
           timestamp: newTimestamp,
@@ -482,7 +484,10 @@ export const useBuilderStore = create<BuilderState>()(
         // Debug: Log what we're loading from database
         console.log("[Store] loadFromProject:", {
           chatId: data.chatId || "(none)",
-          demoUrl: data.demoUrl?.slice(0, 60) + (data.demoUrl && data.demoUrl.length > 60 ? "..." : "") || "(none)",
+          demoUrl:
+            data.demoUrl?.slice(0, 60) +
+              (data.demoUrl && data.demoUrl.length > 60 ? "..." : "") ||
+            "(none)",
           hasCode: !!data.currentCode,
           filesCount: parsedFiles.length,
           messagesCount: parsedMessages.length,

@@ -241,7 +241,11 @@ export const FEATURES = {
   useStripePayments: Boolean(SECRETS.stripeSecretKey),
 
   // Enable image APIs
-  usePexels: Boolean(SECRETS.pexelsApiKey),
+  // NOTE: Pexels is disabled - set ENABLE_PEXELS=true to re-enable
+  // Reason: Focusing on Unsplash only for now (simpler, works well with v0)
+  usePexels:
+    Boolean(SECRETS.pexelsApiKey) &&
+    process.env.ENABLE_PEXELS === "true",
   useUnsplash: Boolean(SECRETS.unsplashAccessKey),
 
   // Enable v0 API for code generation
