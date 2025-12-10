@@ -1,20 +1,24 @@
 "use client";
 
-import Image from "next/image";
 import { X } from "lucide-react";
 
 interface PreviewModalProps {
   isOpen: boolean;
   onClose: () => void;
-  imageUrl?: string | null;
-  templateName: string;
+  imageUrl: string | null;
+  title: string;
 }
 
+/**
+ * PreviewModal
+ * ------------
+ * Endast en statisk bildvisning som förstorar befintlig preview.
+ */
 export function PreviewModal({
   isOpen,
   onClose,
   imageUrl,
-  templateName,
+  title,
 }: PreviewModalProps) {
   if (!isOpen) return null;
 
@@ -30,35 +34,29 @@ export function PreviewModal({
       onClick={handleBackdropClick}
     >
       <div className="relative w-[90vw] max-w-4xl bg-black border border-gray-800 shadow-2xl">
-        <div className="flex items-center justify-between border-b border-gray-800 px-4 py-3">
-          <h3 className="text-base font-semibold text-white truncate">
-            {templateName}
-          </h3>
+        <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800">
+          <h3 className="text-white font-semibold truncate">{title}</h3>
           <button
             onClick={onClose}
             className="p-2 text-gray-400 hover:text-white hover:bg-gray-800 transition-colors"
-            aria-label="Stäng förhandsvisning"
+            aria-label="Stäng preview"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
 
-        <div className="relative bg-black">
+        <div className="p-4 bg-black/80 flex items-center justify-center min-h-[60vh]">
           {imageUrl ? (
-            <div className="relative w-full h-[70vh]">
-              <Image
-                src={imageUrl}
-                alt={`Förhandsbild: ${templateName}`}
-                fill
-                className="object-contain"
-                sizes="(max-width: 640px) 90vw, 70vw"
-                priority
-              />
-            </div>
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={imageUrl}
+              alt={title}
+              className="max-h-[70vh] w-auto rounded border border-gray-800 shadow-xl"
+            />
           ) : (
-            <div className="flex h-[70vh] items-center justify-center text-gray-500">
-              <p>Ingen bild finns tillgänglig.</p>
-            </div>
+            <p className="text-gray-400 text-sm text-center">
+              Ingen förhandsbild finns ännu för den här mallen.
+            </p>
           )}
         </div>
       </div>

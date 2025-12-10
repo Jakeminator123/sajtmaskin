@@ -531,7 +531,8 @@ export function ChatPanel({
 
   // Handle local template loading via v0 API metadata
   const handleLocalTemplateLoad = async (templateId: string) => {
-    addMessage("user", `Laddar mall: ${templateId}`);
+    // Statusmeddelande visas som assistant för att inte rubba "första user prompt"-logik.
+    addMessage("assistant", `Laddar mall: ${templateId}`);
     setLoading(true);
 
     try {
@@ -625,7 +626,7 @@ export function ChatPanel({
 
 // Handle template generation
   const handleTemplateGeneration = async (templateId: string) => {
-    addMessage("user", `Laddar template: ${templateId}`);
+    addMessage("assistant", `Laddar template: ${templateId}`);
     setLoading(true);
 
     try {

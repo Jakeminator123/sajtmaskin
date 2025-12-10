@@ -140,14 +140,15 @@ function BuilderContent() {
   // Ref to prevent double project creation from React StrictMode
   const isCreatingProjectRef = useRef(false);
 
-  // Auto-create project if navigating with prompt but no projectId
+  // Auto-create project if user arrives with prompt/template but no projectId yet
   useEffect(() => {
-    // Skip if we already have a projectId or if there's no prompt
-    if (projectId || !prompt) {
-      // If we have projectId but no prompt, we're done loading
-      if (projectId && !prompt) {
-        // This will be handled by the project data loading effect below
-        return;
+    const shouldAutoCreate =
+      !projectId && (prompt || templateId || localTemplateId);
+
+    if (!shouldAutoCreate) {
+      if (!projectId && !isCreatingProjectRef.current) {
+        setIsProjectDataLoading(false);
+        setHasExistingData(false);
       }
       return;
     }
@@ -166,23 +167,54 @@ function BuilderContent() {
       isCreatingProjectRef.current = true;
       try {
         // Extract company name from prompt if possible, otherwise use generic name
-        const nameMatch = prompt.match(/for\s+([^,\.]+)/i);
-        const projectName = nameMatch
+        const dateLabel = new Date().toLocaleDateString("sv-SE");
+        const nameMatch = prompt?.match(/for\s+([^,\.]+)/i);
+        const promptName = nameMatch
           ? nameMatch[1].trim()
-          : `Webbprojekt - ${new Date().toLocaleDateString("sv-SE")}`;
+          : prompt?.split("\n")[0]?.slice(0, 60)?.trim();
+        const projectName =
+          promptName ||
+          (templateId
+            ? `v0-template ${templateId}`
+            : localTemplateId
+            ? `Lokal mall ${localTemplateId}`
+            : `Webbprojekt - ${dateLabel}`);
+
+        const description = prompt
+          ? prompt.substring(0, 100)
+          : templateId
+          ? `Baserat på v0 template: ${templateId}`
+          : localTemplateId
+          ? `Baserat på lokal mall: ${localTemplateId}`
+          : undefined;
 
         console.log("[Builder] Auto-creating project:", projectName);
-        const project = await createProject(projectName, type || "website");
+        const project = await createProject(
+          projectName,
+          type || "website",
+          description
+        );
 
         // Update local state with the new projectId
         setLocalProjectId(project.id);
         setProjectId(project.id);
 
-        // Update URL without full page reload (keeps prompt param)
-        const newUrl = `/builder?project=${
-          project.id
-        }&prompt=${encodeURIComponent(prompt)}${type ? `&type=${type}` : ""}`;
-        router.replace(newUrl);
+        // Update URL without full page reload (keeps incoming params intact)
+        const params = new URLSearchParams();
+        params.set("project", project.id);
+        if (prompt) {
+          params.set("prompt", prompt);
+        }
+        if (type) {
+          params.set("type", type);
+        }
+        if (templateId) {
+          params.set("templateId", templateId);
+        }
+        if (localTemplateId) {
+          params.set("localTemplateId", localTemplateId);
+        }
+        router.replace(`/builder?${params.toString()}`);
 
         console.log("[Builder] Project auto-created:", project.id);
         // Reset ref so project can be loaded normally
@@ -197,14 +229,27 @@ function BuilderContent() {
     };
 
     autoCreateProject();
-  }, [prompt, projectId, type, router, setProjectId]);
+  }, [
+    prompt,
+    projectId,
+    templateId,
+    localTemplateId,
+    type,
+    router,
+    setProjectId,
+  ]);
 
   // Load project data on mount
   useEffect(() => {
     // If no projectId, check if we're creating one (don't set loading to false yet)
     if (!projectId) {
       // Only set to false if we're NOT creating a project (no prompt means manual entry)
-      if (!prompt && !isCreatingProjectRef.current) {
+      if (
+        !prompt &&
+        !templateId &&
+        !localTemplateId &&
+        !isCreatingProjectRef.current
+      ) {
         setIsProjectDataLoading(false);
         setHasExistingData(false);
       }
@@ -319,7 +364,15 @@ function BuilderContent() {
         isLoadingProjectRef.current = null;
       }
     };
-  }, [projectId, setProjectId, loadFromProject, clearChat, prompt]);
+  }, [
+    projectId,
+    setProjectId,
+    loadFromProject,
+    clearChat,
+    prompt,
+    templateId,
+    localTemplateId,
+  ]);
 
   // Handle starting a new design
   const handleNewDesign = () => {

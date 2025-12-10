@@ -411,7 +411,3 @@ export async function generateFromTemplate(
     };
   }
 }
-
-// ═══════════════════════════════════════════════════════════════════════════
-// TEMPLATE PREVIEW (Lightweight - for gallery preview before selection)
-// ═══════════════════════════════════════════════════════════════════════════

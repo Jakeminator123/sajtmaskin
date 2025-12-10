@@ -14,12 +14,10 @@ import { PreviewModal } from "./preview-modal";
 
 /**
  * LocalTemplateCard
- * =================
- *
- * Visar en statisk bild av templaten. Preview-knappen förstorar bilden i en modal.
+ * -----------------
+ * Visar en statisk thumbnail och öppnar samma bild i en enkel modal.
  */
 
-// Get v0 OG image URL directly from template ID (fallback)
 function getOgImageUrl(v0TemplateId?: string): string | null {
   if (!v0TemplateId) return null;
   return `https://v0.dev/api/og?path=/t/${v0TemplateId}`;
@@ -68,11 +66,15 @@ export function LocalTemplateCard({
 
   const CategoryIcon = getCategoryIcon(template.category);
   const gradientClass = getCategoryGradient(template.category);
-
   const ogImageUrl = getOgImageUrl(template.v0TemplateId);
-
   const displayImageUrl = template.previewUrl || ogImageUrl;
-  const canPreview = !!displayImageUrl && !imageError;
+
+  const handlePreviewClick = (event: React.MouseEvent) => {
+    event.preventDefault();
+    event.stopPropagation();
+    if (!displayImageUrl || imageError || disabled) return;
+    setShowModal(true);
+  };
 
   const handleSelectClick = async () => {
     if (disabled || isSelecting) return;
@@ -86,12 +88,12 @@ export function LocalTemplateCard({
     }
   };
 
+  const canPreview = Boolean(displayImageUrl) && !imageError;
+
   return (
     <>
       <div className="group relative w-full text-left bg-black/50 border border-gray-800 overflow-hidden hover:border-teal-500/50 hover:bg-black/70 transition-all duration-300">
-        {/* Preview Area */}
         <div className="relative aspect-[16/10] bg-gray-800 overflow-hidden">
-          {/* Loading overlay */}
           {isSelecting && (
             <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center z-20">
               <Loader2 className="h-8 w-8 text-teal-500 animate-spin" />
@@ -99,7 +101,6 @@ export function LocalTemplateCard({
             </div>
           )}
 
-          {/* Thumbnail image */}
           {displayImageUrl && !imageError && (
             // eslint-disable-next-line @next/next/no-img-element
             <img
@@ -111,8 +112,7 @@ export function LocalTemplateCard({
             />
           )}
 
-          {/* Gradient fallback when no image available */}
-          {!isLoadingScreenshot && (!displayImageUrl || imageError) && (
+          {(!displayImageUrl || imageError) && (
             <div
               className={`absolute inset-0 bg-gradient-to-br ${gradientClass} flex flex-col items-center justify-center`}
             >
@@ -127,20 +127,16 @@ export function LocalTemplateCard({
             </div>
           )}
 
-          {/* Badges */}
-          <>
-            <span className="absolute top-2 right-2 px-2 py-1 text-xs font-medium bg-teal-500/20 text-teal-300 border border-teal-500/30 backdrop-blur-sm">
-              v0 Template
+          <span className="absolute top-2 right-2 px-2 py-1 text-xs font-medium bg-teal-500/20 text-teal-300 border border-teal-500/30 backdrop-blur-sm">
+            v0 Template
+          </span>
+          {template.complexity === "advanced" && (
+            <span className="absolute top-2 left-2 px-2 py-1 text-xs font-medium bg-amber-500/20 text-amber-300 border border-amber-500/30 backdrop-blur-sm">
+              ✨ Avancerad
             </span>
-            {template.complexity === "advanced" && (
-              <span className="absolute top-2 left-2 px-2 py-1 text-xs font-medium bg-amber-500/20 text-amber-300 border border-amber-500/30 backdrop-blur-sm">
-                ✨ Avancerad
-              </span>
-            )}
-          </>
+          )}
         </div>
 
-        {/* Content Area */}
         <div className="p-4">
           <h3 className="font-semibold text-white group-hover:text-white transition-colors truncate">
             {template.name}
@@ -149,16 +145,10 @@ export function LocalTemplateCard({
             {template.description}
           </p>
 
-          {/* Action buttons */}
           <div className="flex items-center gap-2 mt-3">
             <button
-              onClick={(event) => {
-                event.preventDefault();
-                event.stopPropagation();
-                if (isSelecting || disabled || !displayImageUrl) return;
-                setShowModal(true);
-              }}
-              disabled={isSelecting || !canPreview}
+              onClick={handlePreviewClick}
+              disabled={!canPreview || isSelecting}
               className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white transition-colors disabled:opacity-50"
             >
               <Play className="h-3 w-3" />
@@ -180,12 +170,11 @@ export function LocalTemplateCard({
         </div>
       </div>
 
-      {/* Preview Modal */}
       <PreviewModal
         isOpen={showModal}
         onClose={() => setShowModal(false)}
-        imageUrl={canPreview ? displayImageUrl : undefined}
-        templateName={template.name}
+        imageUrl={canPreview ? displayImageUrl || null : null}
+        title={template.name}
       />
     </>
   );
