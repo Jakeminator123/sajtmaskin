@@ -85,7 +85,9 @@ export interface GeneratedFile {
  * @param files - Array of generated files from v0
  * @returns The main file, or undefined if no files
  */
-export function findMainFile(files: GeneratedFile[]): GeneratedFile | undefined {
+export function findMainFile(
+  files: GeneratedFile[]
+): GeneratedFile | undefined {
   if (!files || files.length === 0) return undefined;
 
   return (

@@ -263,7 +263,8 @@ export const FEATURES = {
 
 // Use globalThis to persist across hot reloads in dev mode
 declare global {
-  let __configLogged: boolean | undefined;
+  // eslint-disable-next-line no-var
+  var __configLogged: boolean | undefined;
 }
 
 /**

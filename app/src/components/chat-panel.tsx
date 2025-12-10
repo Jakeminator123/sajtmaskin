@@ -29,12 +29,12 @@
  * Sandpack används ALDRIG för generering, endast som fallback för visning.
  */
 
+import { AttachmentChips } from "@/components/attachment-chips";
 import { RequireAuthModal } from "@/components/auth/require-auth-modal";
 import { ChatMessage } from "@/components/chat-message";
 import { ComponentPicker } from "@/components/component-picker";
 import { DomainSuggestions } from "@/components/domain-suggestions";
 import {
-  FileUploadZone,
   filesToAttachments,
   filesToPromptText,
   type UploadedFile,
@@ -43,15 +43,14 @@ import { GenerationProgress } from "@/components/generation-progress";
 import { HelpTooltip } from "@/components/help-tooltip";
 import { ImagePlacementModal } from "@/components/image-placement-modal";
 import { MediaBank, useMediaBank } from "@/components/media-bank";
-import { MediaLibraryPanel } from "@/components/media-library-panel";
-import { TextFilesPanel } from "@/components/text-files-panel";
+import { MediaDrawer } from "@/components/media-drawer";
+import { TextProcessorModal } from "@/components/text-processor-modal";
 import { Button } from "@/components/ui/button";
-import { VideoGenerator } from "@/components/video-generator";
 import { useAvatar } from "@/contexts/AvatarContext";
 import {
   generateFromTemplate,
   generateWebsite,
-  refineWebsite, // Förfina existerande design
+  refineWebsite,
 } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth-store";
 import { needsOrchestration } from "@/lib/orchestrator-agent";
@@ -65,15 +64,14 @@ import {
 } from "@/lib/v0-url-parser";
 import {
   ArrowUp,
-  ChevronDown,
+  Blocks,
+  FileText,
   Globe,
+  Image as ImageIcon,
   Loader2,
   MessageSquare,
-  Paperclip,
   Sparkles,
-  Video,
 } from "lucide-react";
-import type { ReactNode } from "react";
 import { KeyboardEvent, useCallback, useEffect, useRef, useState } from "react";
 
 // ============================================================================
@@ -173,13 +171,6 @@ function markGenerationEnded(): void {
 }
 // ============================================================================
 
-interface ToolSectionConfig {
-  id: string;
-  label: string;
-  description: string;
-  content: ReactNode;
-}
-
 interface ChatPanelProps {
   categoryType?: string;
   initialPrompt?: string;
@@ -240,15 +231,15 @@ export function ChatPanel({
     }
   }, []);
 
-  const { updateDiamonds, fetchUser, diamonds, isAuthenticated } = useAuth();
+  const { updateDiamonds, fetchUser, isAuthenticated } = useAuth();
 
-  // Advanced tools state (available after project takeover)
-  const [showVideoGenerator, setShowVideoGenerator] = useState(false);
+  // Toolbar modals state
+  const [showMediaDrawer, setShowMediaDrawer] = useState(false);
+  const [showTextModal, setShowTextModal] = useState(false);
+  const [showComponentPicker, setShowComponentPicker] = useState(false);
 
   // File upload state
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
-  const [openToolSection, setOpenToolSection] = useState<string | null>(null);
-  const hasUserToggledToolSectionsRef = useRef(false); // Preserve user intent for tool accordion
 
   // Media bank for generated images/videos
   const mediaBank = useMediaBank();
@@ -274,7 +265,6 @@ export function ChatPanel({
     setScreenshotUrl,
     setVersionId,
     clearChat,
-    isProjectOwned,
     projectId,
     explicitSave,
   } = useBuilderStore();
@@ -1333,271 +1323,57 @@ export function ChatPanel({
     }
   };
 
-  const toolSections: ToolSectionConfig[] = [];
-
-  if (messages.length > 0) {
-    toolSections.push({
-      id: "components",
-      label: "Komponentidéer",
-      description: "Snabba promptförslag för vanliga sektioner.",
-      content: (
-        <ComponentPicker
-          onSelect={(prompt) => {
-            setInput(prompt);
-            if (demoUrl || currentCode) {
-              setTimeout(() => {
-                handleRefinement(prompt);
-              }, 100);
-            }
-          }}
-          disabled={isLoading}
-        />
-      ),
-    });
-  }
-
-  if (messages.length > 0) {
-    toolSections.push({
-      id: "media",
-      label: "Media & uppladdningar",
-      description: "AI-media, bibliotek och filuppladdningar.",
-      content: (
-        <div className="space-y-4">
-          {isAuthenticated ? (
-            <>
-              {isProjectOwned && (
-                <div className="border border-gray-800 rounded-lg p-4 bg-gray-900/40 space-y-3">
-                  <div className="flex items-center gap-2">
-                    <Sparkles className="h-4 w-4 text-purple-400" />
-                    <span className="text-sm font-medium text-white">
-                      AI Media Generator
-                    </span>
-                    <HelpTooltip text="Generera video eller lägg till AI-media i ditt projekt." />
-                  </div>
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      onClick={() => setShowVideoGenerator((prev) => !prev)}
-                      disabled={isLoading}
-                      className="flex items-center gap-2"
-                    >
-                      <Video className="h-4 w-4" />
-                      {showVideoGenerator ? "Dölj videopanel" : "Video (10 💎)"}
-                    </Button>
-                  </div>
-                  {showVideoGenerator && (
-                    <div className="pt-3">
-                      <VideoGenerator
-                        projectId={projectId || undefined}
-                        diamonds={diamonds}
-                        disabled={isLoading}
-                        onVideoGenerated={(url) => {
-                          addMessage("assistant", `Video genererad! ${url}`);
-                        }}
-                      />
-                    </div>
-                  )}
-                </div>
-              )}
-
-              <MediaLibraryPanel
-                projectId={projectId || undefined}
-                onFileSelect={(item) => {
-                  if (!item.url) return;
-
-                  if (item.type === "image" || item.type === "logo") {
-                    setImagePlacementModal({
-                      isOpen: true,
-                      imageUrl: item.url,
-                      currentCode: currentCode,
-                      onConfirm: (option: string, customPrompt?: string) => {
-                        const prompt =
-                          customPrompt || `Lägg till bild: ${item.url}`;
-                        setInput(prompt);
-                        inputRef.current?.focus();
-                        if (currentCode && chatId) {
-                          setTimeout(() => handleRefinement(prompt), 100);
-                        }
-                      },
-                    });
-                  } else if (item.type === "video") {
-                    const prompt = `Lägg till denna video på ett passande ställe i designen: ${item.url}`;
-                    setInput(prompt);
-                    inputRef.current?.focus();
-                  }
-                }}
-              />
-            </>
-          ) : (
-            <p className="text-xs text-gray-500">
-              Logga in för att nå mediabibliotek och AI-generatorer.
-            </p>
-          )}
-
-          {mediaBank.items.length > 0 && (
-            <MediaBank
-              items={mediaBank.items}
-              onRemove={mediaBank.removeItem}
-              onUseInPrompt={(item) => {
-                const imageRef = item.url
-                  ? `\n\nAnvänd denna bild: ${item.url}`
-                  : `\n\n[Genererad bild: ${item.prompt}]`;
-                setInput((prev) => prev + imageRef);
-              }}
-              onAddToSite={async (item) => {
-                if (item.url) {
-                  setImagePlacementModal({
-                    isOpen: true,
-                    imageUrl: item.url,
-                    currentCode: currentCode,
-                    onConfirm: (option: string, customPrompt?: string) => {
-                      const prompt =
-                        customPrompt || `Lägg till bild: ${item.url}`;
-                      setInput(prompt);
-                      if (currentCode && chatId) {
-                        setTimeout(() => handleRefinement(prompt), 100);
-                      }
-                    },
-                  });
-                  return;
-                }
-
-                if (item.base64 && projectId) {
-                  try {
-                    addMessage(
-                      "assistant",
-                      "⏳ Laddar upp bild till projektet..."
-                    );
-
-                    const response = await fetch(`/api/images/save`, {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({
-                        images: [
-                          {
-                            base64: item.base64,
-                            prompt: item.prompt || "AI-genererad bild",
-                          },
-                        ],
-                        projectId,
-                      }),
-                    });
-
-                    const result = await response.json();
-                    if (result.success && result.images?.[0]?.url) {
-                      const url = result.images[0].url;
-                      item.url = url;
-                      addMessage("assistant", `✅ Bild uppladdad! URL: ${url}`);
-                      setImagePlacementModal({
-                        isOpen: true,
-                        imageUrl: url,
-                        currentCode: currentCode,
-                        onConfirm: (option: string, customPrompt?: string) => {
-                          const prompt =
-                            customPrompt || `Lägg till bild: ${url}`;
-                          setInput(prompt);
-                          if (currentCode && chatId) {
-                            setTimeout(() => handleRefinement(prompt), 100);
-                          }
-                        },
-                      });
-                    } else {
-                      addMessage(
-                        "assistant",
-                        "❌ Kunde inte ladda upp bilden. Kontrollera att BLOB_READ_WRITE_TOKEN är korrekt satt."
-                      );
-                    }
-                  } catch (error) {
-                    console.error("[MediaBank] Upload failed:", error);
-                    addMessage(
-                      "assistant",
-                      "❌ Uppladdning misslyckades. Bilden finns endast lokalt och kan inte användas i V0-preview."
-                    );
-                  }
-                } else {
-                  addMessage(
-                    "assistant",
-                    "Bilden har ingen data att ladda upp. Försök generera en ny bild."
-                  );
-                }
-              }}
-              disabled={isLoading}
-            />
-          )}
-
-          <div className="border border-gray-800 rounded-lg p-3 bg-gray-900/40">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-medium text-gray-400">
-                Bifoga bilder till din design
-              </span>
-              {!projectId && (
-                <span className="text-[11px] text-amber-400">
-                  Spara projektet först
-                </span>
-              )}
-            </div>
-            <FileUploadZone
-              projectId={projectId}
-              files={uploadedFiles}
-              onFilesChange={setUploadedFiles}
-              disabled={isLoading || !projectId}
-            />
-          </div>
-        </div>
-      ),
-    });
-  }
-
-  if (messages.length > 0) {
-    toolSections.push({
-      id: "text",
-      label: "Text & PDF",
-      description: "Låt AI summera dokument till färdiga prompts.",
-      content: (
-        <TextFilesPanel
-          onPromptGenerated={(prompt) => {
-            setInput(prompt);
-            inputRef.current?.focus();
-          }}
-          disabled={isLoading}
-        />
-      ),
-    });
-  }
-
-  const toolSectionsLength = toolSections.length;
-  const firstToolSectionId = toolSections[0]?.id ?? null;
-  const hasCurrentToolSection = toolSections.some(
-    (section) => section.id === openToolSection
-  );
-
-  useEffect(() => {
-    if (toolSectionsLength === 0) {
-      if (openToolSection !== null) {
-        setOpenToolSection(null);
-      }
-      return;
+  // Handle component selection from picker
+  const handleComponentSelect = (prompt: string) => {
+    setInput(prompt);
+    setShowComponentPicker(false);
+    if (demoUrl || currentCode) {
+      setTimeout(() => {
+        handleRefinement(prompt);
+      }, 100);
     }
+  };
 
-    if (
-      openToolSection === null &&
-      firstToolSectionId &&
-      !hasUserToggledToolSectionsRef.current
-    ) {
-      setOpenToolSection(firstToolSectionId);
-      return;
-    }
+  // Handle media file selection from drawer
+  const handleMediaFileSelect = (item: import("./media-bank").MediaItem) => {
+    if (!item.url) return;
 
-    if (!hasCurrentToolSection && firstToolSectionId) {
-      setOpenToolSection(firstToolSectionId);
+    if (item.type === "image" || item.type === "logo") {
+      setImagePlacementModal({
+        isOpen: true,
+        imageUrl: item.url,
+        currentCode: currentCode,
+        onConfirm: (option: string, customPrompt?: string) => {
+          const prompt = customPrompt || `Lägg till bild: ${item.url}`;
+          setInput(prompt);
+          inputRef.current?.focus();
+          if (currentCode && chatId) {
+            setTimeout(() => handleRefinement(prompt), 100);
+          }
+        },
+      });
+    } else if (item.type === "video") {
+      const prompt = `Lägg till denna video på ett passande ställe i designen: ${item.url}`;
+      setInput(prompt);
+      inputRef.current?.focus();
     }
-  }, [
-    toolSectionsLength,
-    hasCurrentToolSection,
-    firstToolSectionId,
-    openToolSection,
-  ]);
+    setShowMediaDrawer(false);
+  };
+
+  // Handle text processor prompt generation
+  const handleTextPromptGenerated = (prompt: string) => {
+    setInput(prompt);
+    inputRef.current?.focus();
+    setShowTextModal(false);
+  };
+
+  // Remove file from attachments
+  const handleRemoveFile = (fileId: string) => {
+    setUploadedFiles((prev) => prev.filter((f) => f.id !== fileId));
+  };
+
+  // Show toolbar only when project has started (messages exist or demoUrl)
+  const showToolbar = messages.length > 0 || demoUrl || currentCode;
 
   return (
     <div className="flex flex-col h-full">
@@ -1621,6 +1397,38 @@ export function ChatPanel({
           imageUrl={imagePlacementModal.imageUrl}
           currentCode={imagePlacementModal.currentCode}
         />
+      )}
+
+      {/* Media Drawer */}
+      <MediaDrawer
+        isOpen={showMediaDrawer}
+        onClose={() => setShowMediaDrawer(false)}
+        projectId={projectId || undefined}
+        onFileSelect={handleMediaFileSelect}
+      />
+
+      {/* Text Processor Modal */}
+      <TextProcessorModal
+        isOpen={showTextModal}
+        onClose={() => setShowTextModal(false)}
+        onPromptGenerated={handleTextPromptGenerated}
+        disabled={isLoading}
+      />
+
+      {/* Component Picker Modal */}
+      {showComponentPicker && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
+          <div
+            className="fixed inset-0 bg-black/60"
+            onClick={() => setShowComponentPicker(false)}
+          />
+          <div className="relative z-10 w-full max-w-lg mx-4 mb-4 sm:mb-0">
+            <ComponentPicker
+              onSelect={handleComponentSelect}
+              disabled={isLoading}
+            />
+          </div>
+        </div>
       )}
 
       {/* Header */}
@@ -1699,53 +1507,155 @@ export function ChatPanel({
         </div>
       </div>
 
-      {/* Input och verktyg */}
-      <div className="p-4 border-t border-gray-800 space-y-4">
-        {toolSections.length > 0 && (
-          <div className="space-y-2">
-            {toolSections.map((section) => {
-              const isOpen = openToolSection === section.id;
-              return (
-                <div
-                  key={section.id}
-                  className="border border-gray-800 rounded-lg bg-black/40"
-                >
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setOpenToolSection((prev) => {
-                        hasUserToggledToolSectionsRef.current = true;
-                        return prev === section.id ? null : section.id;
-                      })
+      {/* Input area with compact toolbar */}
+      <div className="p-4 border-t border-gray-800 space-y-3">
+        {/* Media Bank - show generated AI images */}
+        {mediaBank.items.length > 0 && (
+          <MediaBank
+            items={mediaBank.items}
+            onRemove={mediaBank.removeItem}
+            onUseInPrompt={(item) => {
+              const imageRef = item.url
+                ? `\n\nAnvänd denna bild: ${item.url}`
+                : `\n\n[Genererad bild: ${item.prompt}]`;
+              setInput((prev) => prev + imageRef);
+            }}
+            onAddToSite={async (item) => {
+              if (item.url) {
+                setImagePlacementModal({
+                  isOpen: true,
+                  imageUrl: item.url,
+                  currentCode: currentCode,
+                  onConfirm: (option: string, customPrompt?: string) => {
+                    const prompt =
+                      customPrompt || `Lägg till bild: ${item.url}`;
+                    setInput(prompt);
+                    if (currentCode && chatId) {
+                      setTimeout(() => handleRefinement(prompt), 100);
                     }
-                    className="w-full flex items-center justify-between px-3 py-2 text-left"
-                  >
-                    <div>
-                      <p className="text-sm font-semibold text-white">
-                        {section.label}
-                      </p>
-                      <p className="text-xs text-gray-500">
-                        {section.description}
-                      </p>
-                    </div>
-                    <ChevronDown
-                      className={`h-4 w-4 text-gray-500 transition-transform ${
-                        isOpen ? "rotate-180 text-teal-400" : ""
-                      }`}
-                    />
-                  </button>
-                  {isOpen && (
-                    <div className="border-t border-gray-800 p-4">
-                      {section.content}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
+                  },
+                });
+                return;
+              }
+
+              if (item.base64 && projectId) {
+                try {
+                  addMessage(
+                    "assistant",
+                    "⏳ Laddar upp bild till projektet..."
+                  );
+                  const response = await fetch(`/api/images/save`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      images: [
+                        {
+                          base64: item.base64,
+                          prompt: item.prompt || "AI-genererad bild",
+                        },
+                      ],
+                      projectId,
+                    }),
+                  });
+                  const result = await response.json();
+                  if (result.success && result.images?.[0]?.url) {
+                    const url = result.images[0].url;
+                    item.url = url;
+                    addMessage("assistant", `✅ Bild uppladdad! URL: ${url}`);
+                    setImagePlacementModal({
+                      isOpen: true,
+                      imageUrl: url,
+                      currentCode: currentCode,
+                      onConfirm: (option: string, customPrompt?: string) => {
+                        const prompt = customPrompt || `Lägg till bild: ${url}`;
+                        setInput(prompt);
+                        if (currentCode && chatId) {
+                          setTimeout(() => handleRefinement(prompt), 100);
+                        }
+                      },
+                    });
+                  } else {
+                    addMessage("assistant", "❌ Kunde inte ladda upp bilden.");
+                  }
+                } catch (error) {
+                  console.error("[MediaBank] Upload failed:", error);
+                  addMessage("assistant", "❌ Uppladdning misslyckades.");
+                }
+              }
+            }}
+            disabled={isLoading}
+          />
+        )}
+
+        {/* Attachment chips - show uploaded files compactly */}
+        {uploadedFiles.length > 0 && (
+          <AttachmentChips
+            files={uploadedFiles}
+            onRemove={handleRemoveFile}
+            maxVisible={3}
+          />
+        )}
+
+        {/* Toolbar buttons - only show when project has started */}
+        {showToolbar && (
+          <div className="flex items-center gap-1.5 pb-1">
+            {/* Components button */}
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => setShowComponentPicker(true)}
+              disabled={isLoading}
+              className="h-8 px-2.5 text-xs gap-1.5 text-gray-400 hover:text-white hover:bg-gray-800"
+            >
+              <Blocks className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Komponenter</span>
+            </Button>
+
+            {/* Media button */}
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => setShowMediaDrawer(true)}
+              disabled={isLoading || !isAuthenticated}
+              className="h-8 px-2.5 text-xs gap-1.5 text-gray-400 hover:text-white hover:bg-gray-800"
+              title={
+                !isAuthenticated
+                  ? "Logga in för mediabibliotek"
+                  : "Öppna mediabibliotek"
+              }
+            >
+              <ImageIcon className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Media</span>
+            </Button>
+
+            {/* Text/PDF button */}
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => setShowTextModal(true)}
+              disabled={isLoading}
+              className="h-8 px-2.5 text-xs gap-1.5 text-gray-400 hover:text-white hover:bg-gray-800"
+            >
+              <FileText className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Text/PDF</span>
+            </Button>
+
+            {/* Domain button */}
+            <Button
+              size="sm"
+              variant="ghost"
+              onClick={() => setShowDomainModal(true)}
+              disabled={isLoading}
+              className="h-8 px-2.5 text-xs gap-1.5 text-gray-400 hover:text-white hover:bg-gray-800"
+            >
+              <Globe className="h-3.5 w-3.5" />
+              <span className="hidden sm:inline">Domän</span>
+            </Button>
           </div>
         )}
 
-        <div className="flex items-center gap-2 p-3 bg-gray-800/50 border border-gray-700/50 focus-within:border-gray-600">
+        {/* Input field with send button */}
+        <div className="flex items-center gap-2 p-3 bg-gray-800/50 border border-gray-700/50 rounded-lg focus-within:border-teal-600/50 transition-colors">
           <input
             ref={inputRef}
             id={`chat-message-input-${instanceId}`}
@@ -1758,46 +1668,16 @@ export function ChatPanel({
             placeholder={
               messages.length === 0
                 ? "Beskriv din webbplats..."
-                : "Förfina eller lägg till komponenter..."
+                : "Förfina designen eller lägg till komponenter..."
             }
             disabled={isLoading}
             className="flex-1 bg-transparent text-sm text-white placeholder:text-gray-500 outline-none"
           />
-          {/* Öppna mediasektionen */}
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => {
-              if (!projectId) return;
-              setOpenToolSection((prev) => (prev === "media" ? null : "media"));
-            }}
-            disabled={isLoading || !projectId}
-            className="relative h-8 w-8 p-0 text-gray-400 hover:text-teal-400 hover:bg-gray-800"
-            title="Öppna mediafliken"
-          >
-            <Paperclip className="h-4 w-4" />
-            {uploadedFiles.length > 0 && (
-              <span className="absolute -top-1 -right-1 w-4 h-4 bg-teal-500 text-white text-[10px] rounded-full flex items-center justify-center">
-                {uploadedFiles.length}
-              </span>
-            )}
-          </Button>
-          {/* Domain suggestions button - always available */}
-          <Button
-            size="sm"
-            variant="ghost"
-            onClick={() => setShowDomainModal(true)}
-            disabled={isLoading}
-            className="h-8 w-8 p-0 text-gray-400 hover:text-teal-400 hover:bg-gray-800"
-            title="Hitta domännamn (WHOIS-koll)"
-          >
-            <Globe className="h-4 w-4" />
-          </Button>
           <Button
             size="sm"
             onClick={handleSubmit}
             disabled={!input.trim() || isLoading}
-            className="h-8 w-8 p-0 bg-teal-600 hover:bg-teal-500"
+            className="h-8 w-8 p-0 bg-teal-600 hover:bg-teal-500 flex-shrink-0"
           >
             {isLoading ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -1806,10 +1686,12 @@ export function ChatPanel({
             )}
           </Button>
         </div>
+
+        {/* Help text */}
         <p className="text-xs text-gray-600 text-center">
           {messages.length === 0
             ? "Tryck Enter för att generera"
-            : "Skriv ändringar eller välj komponenter ovan"}
+            : "Tryck Enter eller klicka på knapparna ovan"}
         </p>
       </div>
 
