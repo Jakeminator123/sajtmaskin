@@ -248,6 +248,7 @@ export function ChatPanel({
   // File upload state
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [openToolSection, setOpenToolSection] = useState<string | null>(null);
+  const hasUserToggledToolSectionsRef = useRef(false); // Preserve user intent for tool accordion
 
   // Media bank for generated images/videos
   const mediaBank = useMediaBank();
@@ -1579,7 +1580,11 @@ export function ChatPanel({
       return;
     }
 
-    if (openToolSection === null && firstToolSectionId) {
+    if (
+      openToolSection === null &&
+      firstToolSectionId &&
+      !hasUserToggledToolSectionsRef.current
+    ) {
       setOpenToolSection(firstToolSectionId);
       return;
     }
@@ -1708,9 +1713,10 @@ export function ChatPanel({
                   <button
                     type="button"
                     onClick={() =>
-                      setOpenToolSection((prev) =>
-                        prev === section.id ? null : section.id
-                      )
+                      setOpenToolSection((prev) => {
+                        hasUserToggledToolSectionsRef.current = true;
+                        return prev === section.id ? null : section.id;
+                      })
                     }
                     className="w-full flex items-center justify-between px-3 py-2 text-left"
                   >
