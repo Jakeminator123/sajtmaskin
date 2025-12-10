@@ -25,6 +25,7 @@ import type { AuditResult } from "@/types/audit";
 
 interface AuditModalProps {
   result: AuditResult | null;
+  auditedUrl?: string | null;
   isOpen: boolean;
   onClose: () => void;
   onBuildFromAudit?: (prompt: string) => void;
@@ -47,12 +48,14 @@ const tabs: Tab[] = [
 
 export function AuditModal({
   result,
+  auditedUrl,
   isOpen,
   onClose,
   onBuildFromAudit,
 }: AuditModalProps) {
   const [activeTab, setActiveTab] = useState<TabId>("overview");
   const [showPdfModal, setShowPdfModal] = useState(false);
+  const [showBuildConfirm, setShowBuildConfirm] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -63,6 +66,7 @@ export function AuditModal({
       setActiveTab("overview");
       setIsSaved(false);
       setSaveError(null);
+      setShowBuildConfirm(false);
     }
   }, [isOpen, result]);
 
@@ -102,59 +106,123 @@ export function AuditModal({
   const handleBuildFromAudit = useCallback(() => {
     if (!result || !onBuildFromAudit) return;
 
-    // Build a smart prompt from the audit data
-    const parts: string[] = [];
+    // Build a comprehensive prompt from the audit data
+    const lines: string[] = [];
+
+    // Header with context
+    lines.push("=== BYGG NY SIDA BASERAD PÅ AUDIT ===");
+    lines.push("");
+
+    // Original URL reference
+    if (auditedUrl) {
+      lines.push(`📍 REFERENSSIDA: ${auditedUrl}`);
+      lines.push(
+        "Ta inspiration från strukturen och innehållet på denna befintliga sida, men skapa en helt ny, förbättrad version."
+      );
+      lines.push("");
+    }
 
     // Company/domain
     if (result.company) {
-      parts.push(`Bygg en professionell hemsida för ${result.company}`);
-    } else if (result.domain) {
-      parts.push(`Bygg en ny förbättrad hemsida för ${result.domain}`);
+      lines.push(`🏢 FÖRETAG: ${result.company}`);
+    }
+    if (result.domain) {
+      lines.push(`🌐 DOMÄN: ${result.domain}`);
+    }
+
+    // Audit scores summary
+    if (result.audit_scores) {
+      lines.push("");
+      lines.push("📊 AUDIT-POÄNG (att förbättra):");
+      if (result.audit_scores.overall)
+        lines.push(`   Övergripande: ${result.audit_scores.overall}/100`);
+      if (result.audit_scores.seo)
+        lines.push(`   SEO: ${result.audit_scores.seo}/100`);
+      if (result.audit_scores.design)
+        lines.push(`   Design: ${result.audit_scores.design}/100`);
+      if (result.audit_scores.usability)
+        lines.push(`   Användarvänlighet: ${result.audit_scores.usability}/100`);
+    }
+
+    // Issues to fix
+    if (result.issues && result.issues.length > 0) {
+      lines.push("");
+      lines.push("❌ PROBLEM ATT ÅTGÄRDA:");
+      result.issues.slice(0, 5).forEach((issue) => {
+        lines.push(`   • ${issue}`);
+      });
+    }
+
+    // Improvements to implement
+    if (result.improvements && result.improvements.length > 0) {
+      lines.push("");
+      lines.push("✨ FÖRBÄTTRINGAR ATT IMPLEMENTERA:");
+      result.improvements.slice(0, 5).forEach((imp) => {
+        lines.push(`   • ${imp.title}: ${imp.description}`);
+      });
     }
 
     // Design direction
-    if (result.design_direction?.style) {
-      parts.push(`med ${result.design_direction.style} design`);
+    if (result.design_direction) {
+      lines.push("");
+      lines.push("🎨 DESIGNRIKTNING:");
+      if (result.design_direction.style)
+        lines.push(`   Stil: ${result.design_direction.style}`);
+      if (result.design_direction.color_palette)
+        lines.push(`   Färger: ${result.design_direction.color_palette}`);
+      if (result.design_direction.typography)
+        lines.push(`   Typografi: ${result.design_direction.typography}`);
     }
 
     // Target audience
     if (result.target_audience_analysis?.demographics) {
-      parts.push(`riktad mot ${result.target_audience_analysis.demographics}`);
+      lines.push("");
+      lines.push(`👥 MÅLGRUPP: ${result.target_audience_analysis.demographics}`);
     }
 
-    // Key content
+    // Key pages
     if (
       result.content_strategy?.key_pages &&
       result.content_strategy.key_pages.length > 0
     ) {
-      parts.push(
-        `Inkludera: ${result.content_strategy.key_pages.slice(0, 4).join(", ")}`
-      );
+      lines.push("");
+      lines.push("📄 SIDOR ATT INKLUDERA:");
+      result.content_strategy.key_pages.slice(0, 6).forEach((page) => {
+        lines.push(`   • ${page}`);
+      });
     }
 
-    // Tech stack suggestion
-    if (result.technical_architecture?.recommended_stack?.frontend) {
-      parts.push(
-        `Använd ${result.technical_architecture.recommended_stack.frontend}`
-      );
+    // Strengths to keep
+    if (result.strengths && result.strengths.length > 0) {
+      lines.push("");
+      lines.push("✅ STYRKOR ATT BEHÅLLA:");
+      result.strengths.slice(0, 4).forEach((strength) => {
+        lines.push(`   • ${strength}`);
+      });
     }
 
-    // Quick wins as features
+    // Quick wins
     if (
       result.priority_matrix?.quick_wins &&
       result.priority_matrix.quick_wins.length > 0
     ) {
-      parts.push(
-        `Prioritera: ${result.priority_matrix.quick_wins
-          .slice(0, 3)
-          .join(", ")}`
-      );
+      lines.push("");
+      lines.push("🚀 SNABBA VINSTER:");
+      result.priority_matrix.quick_wins.slice(0, 4).forEach((win) => {
+        lines.push(`   • ${win}`);
+      });
     }
 
-    const prompt = parts.join(". ") + ".";
+    lines.push("");
+    lines.push("=== INSTRUKTIONER ===");
+    lines.push(
+      "Skapa en modern, professionell hemsida som åtgärdar alla identifierade problem och implementerar förbättringarna ovan. Behåll styrkorna från originalsidan men gör allt annat bättre."
+    );
+
+    const prompt = lines.join("\n");
     onBuildFromAudit(prompt);
     onClose();
-  }, [result, onBuildFromAudit, onClose]);
+  }, [result, auditedUrl, onBuildFromAudit, onClose]);
 
   // Handle escape key
   useEffect(() => {
@@ -307,15 +375,15 @@ export function AuditModal({
                   JSON
                 </button>
 
-                {/* Build from Audit */}
+                {/* Build from Audit - Primary CTA */}
                 {onBuildFromAudit && (
                   <button
-                    onClick={handleBuildFromAudit}
-                    className="flex items-center gap-2 px-3 py-1.5 bg-teal-600 hover:bg-teal-500 text-white text-sm font-medium transition-colors"
+                    onClick={() => setShowBuildConfirm(true)}
+                    className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 text-white text-sm font-semibold transition-all shadow-lg shadow-teal-500/25 hover:shadow-teal-500/40"
                     title="Skapa en ny sida baserad på denna analys"
                   >
                     <Hammer className="h-4 w-4" />
-                    Bygg sida
+                    Bygg förbättrad sida
                   </button>
                 )}
 
@@ -623,6 +691,80 @@ export function AuditModal({
           result={result}
           onClose={() => setShowPdfModal(false)}
         />
+      )}
+
+      {/* Build Confirmation Dialog */}
+      {showBuildConfirm && result && (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+          onClick={() => setShowBuildConfirm(false)}
+        >
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0.9, opacity: 0 }}
+            className="bg-gray-900 border border-gray-700 max-w-md w-full p-6 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="text-center">
+              <div className="text-4xl mb-4">🚀</div>
+              <h3 className="text-xl font-bold text-white mb-2">
+                Bygg ny sida från auditen?
+              </h3>
+              <p className="text-gray-400 text-sm mb-4">
+                Vi skapar en helt ny sida baserad på analysen av{" "}
+                <span className="text-teal-400 font-medium">
+                  {auditedUrl || result.domain || "din sida"}
+                </span>
+                .
+              </p>
+              <div className="bg-black/50 border border-gray-800 p-4 text-left mb-6">
+                <p className="text-xs text-gray-500 uppercase mb-2">
+                  Detta kommer att:
+                </p>
+                <ul className="text-sm text-gray-300 space-y-1">
+                  <li className="flex items-start gap-2">
+                    <Check className="h-4 w-4 text-teal-400 mt-0.5 shrink-0" />
+                    <span>Åtgärda identifierade problem</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <Check className="h-4 w-4 text-teal-400 mt-0.5 shrink-0" />
+                    <span>Implementera förbättringsförslag</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <Check className="h-4 w-4 text-teal-400 mt-0.5 shrink-0" />
+                    <span>Behålla dina styrkor och varumärke</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <Check className="h-4 w-4 text-teal-400 mt-0.5 shrink-0" />
+                    <span>Skapa modern, professionell design</span>
+                  </li>
+                </ul>
+              </div>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowBuildConfirm(false)}
+                  className="flex-1 px-4 py-2 border border-gray-700 text-gray-400 hover:text-white hover:border-gray-500 transition-colors"
+                >
+                  Avbryt
+                </button>
+                <button
+                  onClick={() => {
+                    setShowBuildConfirm(false);
+                    handleBuildFromAudit();
+                  }}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 text-white font-semibold transition-all"
+                >
+                  <Hammer className="h-4 w-4" />
+                  Kör igång!
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        </motion.div>
       )}
     </AnimatePresence>
   );

@@ -48,6 +48,7 @@ export function HomePage() {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [auditResult, setAuditResult] = useState<AuditResult | null>(null);
+  const [auditedUrl, setAuditedUrl] = useState<string | null>(null);
   const [showAuditModal, setShowAuditModal] = useState(false);
   const [auditGeneratedPrompt, setAuditGeneratedPrompt] = useState<
     string | null
@@ -79,8 +80,9 @@ export function HomePage() {
     setShowAuthModal(true);
   };
 
-  const handleAuditComplete = (result: AuditResult) => {
+  const handleAuditComplete = (result: AuditResult, url: string) => {
     setAuditResult(result);
+    setAuditedUrl(url);
     setShowAuditModal(true);
     // Avatar reacts to audit completion
     const score = result.audit_scores?.overall || 0;
@@ -184,6 +186,7 @@ export function HomePage() {
       {/* Audit Result Modal */}
       <AuditModal
         result={auditResult}
+        auditedUrl={auditedUrl}
         isOpen={showAuditModal}
         onClose={() => setShowAuditModal(false)}
         onBuildFromAudit={handleBuildFromAudit}

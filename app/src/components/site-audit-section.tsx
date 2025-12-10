@@ -8,7 +8,7 @@ import type { AuditResult } from "@/types/audit";
 const AUDIT_COST = 3;
 
 interface SiteAuditSectionProps {
-  onAuditComplete: (result: AuditResult) => void;
+  onAuditComplete: (result: AuditResult, auditedUrl: string) => void;
   onRequireAuth: () => void;
 }
 
@@ -104,8 +104,8 @@ export function SiteAuditSection({
         updateDiamonds(user.diamonds - AUDIT_COST);
       }
 
-      // Pass result to parent
-      onAuditComplete(data.result);
+      // Pass result and URL to parent
+      onAuditComplete(data.result, normalizedUrl);
       setUrl("");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Ett oväntat fel uppstod.");
