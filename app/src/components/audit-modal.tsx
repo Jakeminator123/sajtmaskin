@@ -1,27 +1,27 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { motion, AnimatePresence } from "framer-motion";
 import {
-  X,
-  Download,
-  ChevronLeft,
-  ChevronRight,
-  ExternalLink,
-  FileText,
-  Save,
-  Hammer,
-  Check,
-  Loader2,
-} from "lucide-react";
-import {
-  MetricsChart,
-  ImprovementsList,
-  SecurityReport,
-  BudgetEstimate,
   AuditPdfReport,
+  BudgetEstimate,
+  ImprovementsList,
+  MetricsChart,
+  SecurityReport,
 } from "@/components/audit";
 import type { AuditResult } from "@/types/audit";
+import { AnimatePresence, motion } from "framer-motion";
+import {
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  Download,
+  ExternalLink,
+  FileText,
+  Hammer,
+  Loader2,
+  Save,
+  X,
+} from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
 
 interface AuditModalProps {
   result: AuditResult | null;
@@ -141,7 +141,9 @@ export function AuditModal({
       if (result.audit_scores.design)
         lines.push(`   Design: ${result.audit_scores.design}/100`);
       if (result.audit_scores.usability)
-        lines.push(`   Användarvänlighet: ${result.audit_scores.usability}/100`);
+        lines.push(
+          `   Användarvänlighet: ${result.audit_scores.usability}/100`
+        );
     }
 
     // Issues to fix
@@ -158,7 +160,8 @@ export function AuditModal({
       lines.push("");
       lines.push("✨ FÖRBÄTTRINGAR ATT IMPLEMENTERA:");
       result.improvements.slice(0, 5).forEach((imp) => {
-        lines.push(`   • ${imp.title}: ${imp.description}`);
+        const desc = imp.why ? ` - ${imp.why}` : "";
+        lines.push(`   • ${imp.item}${desc}`);
       });
     }
 
@@ -168,16 +171,22 @@ export function AuditModal({
       lines.push("🎨 DESIGNRIKTNING:");
       if (result.design_direction.style)
         lines.push(`   Stil: ${result.design_direction.style}`);
-      if (result.design_direction.color_palette)
-        lines.push(`   Färger: ${result.design_direction.color_palette}`);
-      if (result.design_direction.typography)
-        lines.push(`   Typografi: ${result.design_direction.typography}`);
+      if (result.design_direction.color_psychology)
+        lines.push(
+          `   Färgpsykologi: ${result.design_direction.color_psychology}`
+        );
+      if (result.design_direction.accessibility_level)
+        lines.push(
+          `   Tillgänglighet: ${result.design_direction.accessibility_level}`
+        );
     }
 
     // Target audience
     if (result.target_audience_analysis?.demographics) {
       lines.push("");
-      lines.push(`👥 MÅLGRUPP: ${result.target_audience_analysis.demographics}`);
+      lines.push(
+        `👥 MÅLGRUPP: ${result.target_audience_analysis.demographics}`
+      );
     }
 
     // Key pages
@@ -389,6 +398,7 @@ export function AuditModal({
 
                 <button
                   onClick={onClose}
+                  aria-label="Stäng"
                   className="p-2 hover:bg-gray-800 text-gray-400 hover:text-white transition-colors"
                 >
                   <X className="h-5 w-5" />
@@ -401,6 +411,7 @@ export function AuditModal({
               <button
                 onClick={() => navigateTab("prev")}
                 disabled={activeTab === tabs[0].id}
+                aria-label="Föregående flik"
                 className="p-3 text-gray-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed"
               >
                 <ChevronLeft className="h-5 w-5" />
@@ -426,6 +437,7 @@ export function AuditModal({
               <button
                 onClick={() => navigateTab("next")}
                 disabled={activeTab === tabs[tabs.length - 1].id}
+                aria-label="Nästa flik"
                 className="p-3 text-gray-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed"
               >
                 <ChevronRight className="h-5 w-5" />
