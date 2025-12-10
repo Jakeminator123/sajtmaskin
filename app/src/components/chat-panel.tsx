@@ -29,7 +29,14 @@
  * Sandpack används ALDRIG för generering, endast som fallback för visning.
  */
 
-import { useEffect, useRef, useState, KeyboardEvent, useCallback } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  KeyboardEvent,
+  useCallback,
+} from "react";
+import type { ReactNode } from "react";
 import { useBuilderStore, type MessageAttachment } from "@/lib/store";
 import { useAuth } from "@/lib/auth-store";
 import { useAvatar } from "@/contexts/AvatarContext";
@@ -71,9 +78,8 @@ import {
   Sparkles,
   Globe,
   Video,
-  Image as ImageIcon,
   Paperclip,
-  ChevronUp,
+  ChevronDown,
 } from "lucide-react";
 
 // ============================================================================
@@ -173,7 +179,12 @@ function markGenerationEnded(): void {
 }
 // ============================================================================
 
-type AdvancedTool = "image" | "video";
+interface ToolSectionConfig {
+  id: string;
+  label: string;
+  description: string;
+  content: ReactNode;
+}
 
 interface ChatPanelProps {
   categoryType?: string;
@@ -238,13 +249,11 @@ export function ChatPanel({
   const { updateDiamonds, fetchUser, diamonds, isAuthenticated } = useAuth();
 
   // Advanced tools state (available after project takeover)
-  const [selectedAdvancedTool, setSelectedAdvancedTool] =
-    useState<AdvancedTool | null>(null);
   const [showVideoGenerator, setShowVideoGenerator] = useState(false);
 
   // File upload state
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
-  const [showFileUpload, setShowFileUpload] = useState(false);
+  const [openToolSection, setOpenToolSection] = useState<string | null>(null);
 
   // Media bank for generated images/videos
   const mediaBank = useMediaBank();
@@ -1331,6 +1340,256 @@ export function ChatPanel({
     }
   };
 
+  const toolSections: ToolSectionConfig[] = [];
+
+  if (messages.length > 0) {
+    toolSections.push({
+      id: "components",
+      label: "Komponentidéer",
+      description: "Snabba promptförslag för vanliga sektioner.",
+      content: (
+        <ComponentPicker
+          onSelect={(prompt) => {
+            setInput(prompt);
+            if (demoUrl || currentCode) {
+              setTimeout(() => {
+                handleRefinement(prompt);
+              }, 100);
+            }
+          }}
+          disabled={isLoading}
+        />
+      ),
+    });
+  }
+
+  if (messages.length > 0) {
+    toolSections.push({
+      id: "media",
+      label: "Media & uppladdningar",
+      description: "AI-media, bibliotek och filuppladdningar.",
+      content: (
+        <div className="space-y-4">
+          {isAuthenticated ? (
+            <>
+              {isProjectOwned && (
+                <div className="border border-gray-800 rounded-lg p-4 bg-gray-900/40 space-y-3">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="h-4 w-4 text-purple-400" />
+                    <span className="text-sm font-medium text-white">
+                      AI Media Generator
+                    </span>
+                    <HelpTooltip text="Generera video eller lägg till AI-media i ditt projekt." />
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setShowVideoGenerator((prev) => !prev)}
+                      disabled={isLoading}
+                      className="flex items-center gap-2"
+                    >
+                      <Video className="h-4 w-4" />
+                      {showVideoGenerator ? "Dölj videopanel" : "Video (10 💎)"}
+                    </Button>
+                  </div>
+                  {showVideoGenerator && (
+                    <div className="pt-3">
+                      <VideoGenerator
+                        projectId={projectId || undefined}
+                        diamonds={diamonds}
+                        disabled={isLoading}
+                        onVideoGenerated={(url) => {
+                          addMessage("assistant", `Video genererad! ${url}`);
+                        }}
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
+
+              <MediaLibraryPanel
+                projectId={projectId || undefined}
+                onFileSelect={(item) => {
+                  if (!item.url) return;
+
+                  if (item.type === "image" || item.type === "logo") {
+                    setImagePlacementModal({
+                      isOpen: true,
+                      imageUrl: item.url,
+                      currentCode: currentCode,
+                      onConfirm: (option: string, customPrompt?: string) => {
+                        const prompt =
+                          customPrompt || `Lägg till bild: ${item.url}`;
+                        setInput(prompt);
+                        inputRef.current?.focus();
+                        if (currentCode && chatId) {
+                          setTimeout(() => handleRefinement(prompt), 100);
+                        }
+                      },
+                    });
+                  } else if (item.type === "video") {
+                    const prompt = `Lägg till denna video på ett passande ställe i designen: ${item.url}`;
+                    setInput(prompt);
+                    inputRef.current?.focus();
+                  }
+                }}
+              />
+            </>
+          ) : (
+            <p className="text-xs text-gray-500">
+              Logga in för att nå mediabibliotek och AI-generatorer.
+            </p>
+          )}
+
+          {mediaBank.items.length > 0 && (
+            <MediaBank
+              items={mediaBank.items}
+              onRemove={mediaBank.removeItem}
+              onUseInPrompt={(item) => {
+                const imageRef = item.url
+                  ? `\n\nAnvänd denna bild: ${item.url}`
+                  : `\n\n[Genererad bild: ${item.prompt}]`;
+                setInput((prev) => prev + imageRef);
+              }}
+              onAddToSite={async (item) => {
+                if (item.url) {
+                  setImagePlacementModal({
+                    isOpen: true,
+                    imageUrl: item.url,
+                    currentCode: currentCode,
+                    onConfirm: (option: string, customPrompt?: string) => {
+                      const prompt =
+                        customPrompt || `Lägg till bild: ${item.url}`;
+                      setInput(prompt);
+                      if (currentCode && chatId) {
+                        setTimeout(() => handleRefinement(prompt), 100);
+                      }
+                    },
+                  });
+                  return;
+                }
+
+                if (item.base64 && projectId) {
+                  try {
+                    addMessage(
+                      "assistant",
+                      "⏳ Laddar upp bild till projektet..."
+                    );
+
+                    const response = await fetch(`/api/images/save`, {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        images: [
+                          {
+                            base64: item.base64,
+                            prompt: item.prompt || "AI-genererad bild",
+                          },
+                        ],
+                        projectId,
+                      }),
+                    });
+
+                    const result = await response.json();
+                    if (result.success && result.images?.[0]?.url) {
+                      const url = result.images[0].url;
+                      item.url = url;
+                      addMessage("assistant", `✅ Bild uppladdad! URL: ${url}`);
+                      setImagePlacementModal({
+                        isOpen: true,
+                        imageUrl: url,
+                        currentCode: currentCode,
+                        onConfirm: (option: string, customPrompt?: string) => {
+                          const prompt =
+                            customPrompt || `Lägg till bild: ${url}`;
+                          setInput(prompt);
+                          if (currentCode && chatId) {
+                            setTimeout(() => handleRefinement(prompt), 100);
+                          }
+                        },
+                      });
+                    } else {
+                      addMessage(
+                        "assistant",
+                        "❌ Kunde inte ladda upp bilden. Kontrollera att BLOB_READ_WRITE_TOKEN är korrekt satt."
+                      );
+                    }
+                  } catch (error) {
+                    console.error("[MediaBank] Upload failed:", error);
+                    addMessage(
+                      "assistant",
+                      "❌ Uppladdning misslyckades. Bilden finns endast lokalt och kan inte användas i V0-preview."
+                    );
+                  }
+                } else {
+                  addMessage(
+                    "assistant",
+                    "Bilden har ingen data att ladda upp. Försök generera en ny bild."
+                  );
+                }
+              }}
+              disabled={isLoading}
+            />
+          )}
+
+          <div className="border border-gray-800 rounded-lg p-3 bg-gray-900/40">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-medium text-gray-400">
+                Bifoga bilder till din design
+              </span>
+              {!projectId && (
+                <span className="text-[11px] text-amber-400">
+                  Spara projektet först
+                </span>
+              )}
+            </div>
+            <FileUploadZone
+              projectId={projectId}
+              files={uploadedFiles}
+              onFilesChange={setUploadedFiles}
+              disabled={isLoading || !projectId}
+            />
+          </div>
+        </div>
+      ),
+    });
+  }
+
+  if (messages.length > 0) {
+    toolSections.push({
+      id: "text",
+      label: "Text & PDF",
+      description: "Låt AI summera dokument till färdiga prompts.",
+      content: (
+        <TextFilesPanel
+          onPromptGenerated={(prompt) => {
+            setInput(prompt);
+            inputRef.current?.focus();
+          }}
+          disabled={isLoading}
+        />
+      ),
+    });
+  }
+
+  const sectionIdsKey = toolSections.map((section) => section.id).join("|");
+
+  useEffect(() => {
+    if (toolSections.length === 0) {
+      if (openToolSection !== null) {
+        setOpenToolSection(null);
+      }
+      return;
+    }
+    const hasCurrent = toolSections.some(
+      (section) => section.id === openToolSection
+    );
+    if (!hasCurrent) {
+      setOpenToolSection(toolSections[0].id);
+    }
+  }, [sectionIdsKey, toolSections.length, openToolSection]);
+
   return (
     <div className="flex flex-col h-full">
       {/* Auth/Credits modal */}
@@ -1431,246 +1690,48 @@ export function ChatPanel({
         </div>
       </div>
 
-      {/* Input */}
-      <div className="p-4 border-t border-gray-800 space-y-3">
-        {/* Component picker - show after first generation started */}
-        {messages.length > 0 && (
-          <ComponentPicker
-            onSelect={(prompt) => {
-              setInput(prompt);
-              // Auto-submit if we have a preview to refine
-              if (demoUrl || currentCode) {
-                setTimeout(() => {
-                  handleRefinement(prompt);
-                }, 100);
-              }
-            }}
-            disabled={isLoading}
-          />
-        )}
-
-        {/* Advanced Tools Bar - show after first generation */}
-        {messages.length > 0 && isAuthenticated && isProjectOwned && (
-          <div className="border border-gray-800 rounded-lg p-4 bg-gray-900/50 space-y-3">
-            <div className="flex items-center gap-2">
-              <Sparkles className="h-4 w-4 text-purple-400" />
-              <span className="text-sm font-medium text-white">
-                AI Media Generator
-              </span>
-              <HelpTooltip text="Använd OpenAI för att generera bilder, loggor och videos för din sajt." />
-            </div>
-
-            {/* Tool selection buttons */}
-            <div className="flex gap-2">
-              <Button
-                size="sm"
-                variant={
-                  selectedAdvancedTool === "image" ? "default" : "outline"
-                }
-                className="flex items-center gap-2"
-                onClick={() => {
-                  setSelectedAdvancedTool("image");
-                  setShowVideoGenerator(false);
-                }}
-                disabled={isLoading}
-              >
-                <ImageIcon className="h-4 w-4" />
-                Bild (3 💎)
-              </Button>
-              <Button
-                size="sm"
-                variant={
-                  selectedAdvancedTool === "video" ? "default" : "outline"
-                }
-                className="flex items-center gap-2"
-                onClick={() => {
-                  setSelectedAdvancedTool("video");
-                  setShowVideoGenerator(true);
-                }}
-                disabled={isLoading}
-              >
-                <Video className="h-4 w-4" />
-                Video (10 💎)
-              </Button>
-            </div>
-          </div>
-        )}
-
-        {/* Media Library Panel - for images, videos, logos */}
-        {messages.length > 0 && isAuthenticated && (
-          <MediaLibraryPanel
-            projectId={projectId || undefined}
-            onFileSelect={(item) => {
-              // When user clicks a file from the library, show placement modal for images
-              if (!item.url) return;
-
-              if (item.type === "image" || item.type === "logo") {
-                setImagePlacementModal({
-                  isOpen: true,
-                  imageUrl: item.url,
-                  currentCode: currentCode,
-                  onConfirm: (option: string, customPrompt?: string) => {
-                    const prompt =
-                      customPrompt || `Lägg till bild: ${item.url}`;
-                    setInput(prompt);
-                    inputRef.current?.focus();
-                    if (currentCode && chatId) {
-                      setTimeout(() => handleRefinement(prompt), 100);
+      {/* Input och verktyg */}
+      <div className="p-4 border-t border-gray-800 space-y-4">
+        {toolSections.length > 0 && (
+          <div className="space-y-2">
+            {toolSections.map((section) => {
+              const isOpen = openToolSection === section.id;
+              return (
+                <div
+                  key={section.id}
+                  className="border border-gray-800 rounded-lg bg-black/40"
+                >
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setOpenToolSection((prev) =>
+                        prev === section.id ? null : section.id
+                      )
                     }
-                  },
-                });
-              } else if (item.type === "video") {
-                const prompt = `Lägg till denna video på ett passande ställe i designen: ${item.url}`;
-                setInput(prompt);
-                inputRef.current?.focus();
-              }
-            }}
-          />
-        )}
-
-        {/* Text Files Panel - smart handling of text/PDF with AI suggestions */}
-        {messages.length > 0 && (
-          <TextFilesPanel
-            onPromptGenerated={(prompt) => {
-              setInput(prompt);
-              inputRef.current?.focus();
-            }}
-            disabled={isLoading}
-          />
-        )}
-
-        {/* Media Bank - show generated images for drag & drop */}
-        {mediaBank.items.length > 0 && (
-          <MediaBank
-            items={mediaBank.items}
-            onRemove={mediaBank.removeItem}
-            onUseInPrompt={(item) => {
-              // Append image URL to current input
-              const imageRef = item.url
-                ? `\n\nAnvänd denna bild: ${item.url}`
-                : `\n\n[Genererad bild: ${item.prompt}]`;
-              setInput((prev) => prev + imageRef);
-            }}
-            onAddToSite={async (item) => {
-              // If we have a URL, show placement modal with code analysis
-              if (item.url) {
-                setImagePlacementModal({
-                  isOpen: true,
-                  imageUrl: item.url,
-                  currentCode: currentCode,
-                  onConfirm: (option: string, customPrompt?: string) => {
-                    // customPrompt is already the full prompt from analyzer
-                    const prompt =
-                      customPrompt || `Lägg till bild: ${item.url}`;
-                    setInput(prompt);
-                    if (currentCode && chatId) {
-                      setTimeout(() => handleRefinement(prompt), 100);
-                    }
-                  },
-                });
-                return;
-              }
-
-              // No URL - try to upload base64 to project storage
-              if (item.base64 && projectId) {
-                try {
-                  addMessage(
-                    "assistant",
-                    "⏳ Laddar upp bild till projektet..."
-                  );
-
-                  // Convert base64 to blob and upload via form data
-                  const response = await fetch(`/api/images/save`, {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                      images: [
-                        {
-                          base64: item.base64,
-                          prompt: item.prompt || "AI-genererad bild",
-                        },
-                      ],
-                      projectId,
-                    }),
-                  });
-
-                  const result = await response.json();
-                  if (result.success && result.images?.[0]?.url) {
-                    const url = result.images[0].url;
-                    // Update the item with the new URL
-                    item.url = url;
-                    addMessage("assistant", `✅ Bild uppladdad! URL: ${url}`);
-                    // Show placement modal with code analysis
-                    setImagePlacementModal({
-                      isOpen: true,
-                      imageUrl: url,
-                      currentCode: currentCode,
-                      onConfirm: (option: string, customPrompt?: string) => {
-                        const prompt = customPrompt || `Lägg till bild: ${url}`;
-                        setInput(prompt);
-                        if (currentCode && chatId) {
-                          setTimeout(() => handleRefinement(prompt), 100);
-                        }
-                      },
-                    });
-                  } else {
-                    addMessage(
-                      "assistant",
-                      "❌ Kunde inte ladda upp bilden. Kontrollera att BLOB_READ_WRITE_TOKEN är korrekt satt."
-                    );
-                  }
-                } catch (error) {
-                  console.error("[MediaBank] Upload failed:", error);
-                  addMessage(
-                    "assistant",
-                    "❌ Uppladdning misslyckades. Bilden finns endast lokalt och kan inte användas i V0-preview."
-                  );
-                }
-              } else {
-                addMessage(
-                  "assistant",
-                  "Bilden har ingen data att ladda upp. Försök generera en ny bild."
-                );
-              }
-            }}
-            disabled={isLoading}
-          />
-        )}
-
-        {/* Video Generator - show when video tool is selected */}
-        {showVideoGenerator && isProjectOwned && (
-          <div className="border border-gray-800 rounded-lg p-4 bg-gray-900/50">
-            <VideoGenerator
-              projectId={projectId || undefined}
-              diamonds={diamonds}
-              disabled={isLoading}
-              onVideoGenerated={(url) => {
-                addMessage("assistant", `Video genererad! ${url}`);
-              }}
-            />
-          </div>
-        )}
-
-        {/* File Upload Zone - collapsible */}
-        {showFileUpload && (
-          <div className="border border-gray-800 rounded-lg p-3 bg-gray-900/50">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-medium text-gray-400">
-                Bifoga bilder till din design
-              </span>
-              <button
-                onClick={() => setShowFileUpload(false)}
-                className="text-gray-500 hover:text-gray-300"
-              >
-                <ChevronUp className="h-4 w-4" />
-              </button>
-            </div>
-            <FileUploadZone
-              projectId={projectId}
-              files={uploadedFiles}
-              onFilesChange={setUploadedFiles}
-              disabled={isLoading}
-            />
+                    className="w-full flex items-center justify-between px-3 py-2 text-left"
+                  >
+                    <div>
+                      <p className="text-sm font-semibold text-white">
+                        {section.label}
+                      </p>
+                      <p className="text-xs text-gray-500">
+                        {section.description}
+                      </p>
+                    </div>
+                    <ChevronDown
+                      className={`h-4 w-4 text-gray-500 transition-transform ${
+                        isOpen ? "rotate-180 text-teal-400" : ""
+                      }`}
+                    />
+                  </button>
+                  {isOpen && (
+                    <div className="border-t border-gray-800 p-4">
+                      {section.content}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
 
@@ -1692,22 +1753,19 @@ export function ChatPanel({
             disabled={isLoading}
             className="flex-1 bg-transparent text-sm text-white placeholder:text-gray-500 outline-none"
           />
-          {/* File upload toggle button */}
+          {/* Öppna mediasektionen */}
           <Button
             size="sm"
             variant="ghost"
-            onClick={() => setShowFileUpload(!showFileUpload)}
+            onClick={() => {
+              if (!projectId) return;
+              setOpenToolSection((prev) =>
+                prev === "media" ? null : "media"
+              );
+            }}
             disabled={isLoading || !projectId}
-            className={`h-8 w-8 p-0 hover:bg-gray-800 ${
-              showFileUpload || uploadedFiles.length > 0
-                ? "text-teal-400"
-                : "text-gray-400 hover:text-teal-400"
-            }`}
-            title={
-              projectId
-                ? "Bifoga bilder"
-                : "Spara projektet först för att bifoga bilder"
-            }
+            className="relative h-8 w-8 p-0 text-gray-400 hover:text-teal-400 hover:bg-gray-800"
+            title="Öppna mediafliken"
           >
             <Paperclip className="h-4 w-4" />
             {uploadedFiles.length > 0 && (
