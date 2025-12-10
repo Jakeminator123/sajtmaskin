@@ -338,19 +338,31 @@ export function CodePreview() {
               <div className="flex-1 h-full overflow-hidden relative">
                 {!iframeError ? (
                   <>
-                    <iframe
-                      key={`${demoUrl}-${lastRefreshTimestamp}`}
-                      src={`${demoUrl}${
-                        demoUrl.includes("?") ? "&" : "?"
-                      }v=${lastRefreshTimestamp}`}
-                      className="w-full h-full border-0"
-                      title="Website Preview"
-                      sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-downloads allow-presentation"
-                      allow="accelerometer; camera; encrypted-media; geolocation; gyroscope; microphone; midi; payment; usb; xr-spatial-tracking"
-                      referrerPolicy="no-referrer-when-downgrade"
-                      loading="eager"
-                      onError={() => setIframeError(true)}
-                    />
+                    {/*
+                      Build cache-busted URL without breaking fragment identifiers.
+                      Query params must come before the #fragment, so we insert ?v=... prior to the hash.
+                    */}
+                    {(() => {
+                      const [base, hash] = demoUrl.split("#", 2);
+                      const separator = base.includes("?") ? "&" : "?";
+                      const cacheBustedUrl = `${base}${separator}v=${lastRefreshTimestamp}${
+                        hash ? `#${hash}` : ""
+                      }`;
+
+                      return (
+                        <iframe
+                          key={`${demoUrl}-${lastRefreshTimestamp}`}
+                          src={cacheBustedUrl}
+                          className="w-full h-full border-0"
+                          title="Website Preview"
+                          sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-downloads allow-presentation"
+                          allow="accelerometer; camera; encrypted-media; geolocation; gyroscope; microphone; midi; payment; usb; xr-spatial-tracking"
+                          referrerPolicy="no-referrer-when-downgrade"
+                          loading="eager"
+                          onError={() => setIframeError(true)}
+                        />
+                      );
+                    })()}
                     {/* Loading overlay during refine/generation */}
                     {isLoading && (
                       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex flex-col items-center justify-center gap-4 z-10">
