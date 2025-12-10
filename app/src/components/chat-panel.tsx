@@ -74,14 +74,7 @@ import {
   Video,
 } from "lucide-react";
 import type { ReactNode } from "react";
-import {
-  KeyboardEvent,
-  useCallback,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-} from "react";
+import { KeyboardEvent, useCallback, useEffect, useRef, useState } from "react";
 
 // ============================================================================
 // GENERATION STATE using sessionStorage for persistence across Fast Refresh
@@ -1572,12 +1565,10 @@ export function ChatPanel({
     });
   }
 
-  const sectionIdsKey = toolSections.map((section) => section.id).join("|");
   const toolSectionsLength = toolSections.length;
   const firstToolSectionId = toolSections[0]?.id ?? null;
-  const hasCurrentToolSection = useMemo(
-    () => toolSections.some((section) => section.id === openToolSection),
-    [sectionIdsKey, openToolSection]
+  const hasCurrentToolSection = toolSections.some(
+    (section) => section.id === openToolSection
   );
 
   useEffect(() => {
@@ -1585,6 +1576,11 @@ export function ChatPanel({
       if (openToolSection !== null) {
         setOpenToolSection(null);
       }
+      return;
+    }
+
+    if (openToolSection === null && firstToolSectionId) {
+      setOpenToolSection(firstToolSectionId);
       return;
     }
 
