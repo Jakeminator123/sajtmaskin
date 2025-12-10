@@ -263,7 +263,7 @@ export const FEATURES = {
 
 // Use globalThis to persist across hot reloads in dev mode
 declare global {
-  var __configLogged: boolean | undefined;
+  let __configLogged: boolean | undefined;
 }
 
 /**

@@ -29,58 +29,59 @@
  * Sandpack används ALDRIG för generering, endast som fallback för visning.
  */
 
-import {
-  useEffect,
-  useRef,
-  useState,
-  KeyboardEvent,
-  useCallback,
-} from "react";
-import type { ReactNode } from "react";
-import { useBuilderStore, type MessageAttachment } from "@/lib/store";
-import { useAuth } from "@/lib/auth-store";
-import { useAvatar } from "@/contexts/AvatarContext";
-import {
-  generateWebsite, // Generera från prompt eller kod
-  refineWebsite, // Förfina existerande design
-  generateFromTemplate, // Ladda v0 community template
-} from "@/lib/api-client";
-import { needsOrchestration } from "@/lib/orchestrator-agent";
-import {
-  isV0Url,
-  parseV0Url,
-  isNpxShadcnCommand,
-  extractUrlFromNpxCommand,
-  extractTemplateId,
-} from "@/lib/v0-url-parser";
-import { ChatMessage } from "@/components/chat-message";
-import { HelpTooltip } from "@/components/help-tooltip";
-import { ComponentPicker } from "@/components/component-picker";
 import { RequireAuthModal } from "@/components/auth/require-auth-modal";
-import { GenerationProgress } from "@/components/generation-progress";
+import { ChatMessage } from "@/components/chat-message";
+import { ComponentPicker } from "@/components/component-picker";
 import { DomainSuggestions } from "@/components/domain-suggestions";
-import { VideoGenerator } from "@/components/video-generator";
 import {
   FileUploadZone,
-  filesToPromptText,
   filesToAttachments,
+  filesToPromptText,
   type UploadedFile,
 } from "@/components/file-upload-zone";
+import { GenerationProgress } from "@/components/generation-progress";
+import { HelpTooltip } from "@/components/help-tooltip";
+import { ImagePlacementModal } from "@/components/image-placement-modal";
 import { MediaBank, useMediaBank } from "@/components/media-bank";
 import { MediaLibraryPanel } from "@/components/media-library-panel";
 import { TextFilesPanel } from "@/components/text-files-panel";
-import { ImagePlacementModal } from "@/components/image-placement-modal";
 import { Button } from "@/components/ui/button";
+import { VideoGenerator } from "@/components/video-generator";
+import { useAvatar } from "@/contexts/AvatarContext";
 import {
-  MessageSquare,
+  generateFromTemplate,
+  generateWebsite,
+  refineWebsite, // Förfina existerande design
+} from "@/lib/api-client";
+import { useAuth } from "@/lib/auth-store";
+import { needsOrchestration } from "@/lib/orchestrator-agent";
+import { useBuilderStore, type MessageAttachment } from "@/lib/store";
+import {
+  extractTemplateId,
+  extractUrlFromNpxCommand,
+  isNpxShadcnCommand,
+  isV0Url,
+  parseV0Url,
+} from "@/lib/v0-url-parser";
+import {
   ArrowUp,
-  Loader2,
-  Sparkles,
-  Globe,
-  Video,
-  Paperclip,
   ChevronDown,
+  Globe,
+  Loader2,
+  MessageSquare,
+  Paperclip,
+  Sparkles,
+  Video,
 } from "lucide-react";
+import type { ReactNode } from "react";
+import {
+  KeyboardEvent,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 
 // ============================================================================
 // GENERATION STATE using sessionStorage for persistence across Fast Refresh
@@ -633,7 +634,7 @@ export function ChatPanel({
     }
   };
 
-// Handle template generation
+  // Handle template generation
   const handleTemplateGeneration = async (templateId: string) => {
     addMessage("assistant", `Laddar template: ${templateId}`);
     setLoading(true);
@@ -714,7 +715,6 @@ export function ChatPanel({
     // Clear uploaded files after sending
     if (uploadedFiles.length > 0) {
       setUploadedFiles([]);
-      setShowFileUpload(false);
     }
 
     setLoading(true);
@@ -979,7 +979,6 @@ export function ChatPanel({
     // Clear uploaded files after sending
     if (uploadedFiles.length > 0) {
       setUploadedFiles([]);
-      setShowFileUpload(false);
     }
 
     setLoading(true);
@@ -1574,21 +1573,30 @@ export function ChatPanel({
   }
 
   const sectionIdsKey = toolSections.map((section) => section.id).join("|");
+  const toolSectionsLength = toolSections.length;
+  const firstToolSectionId = toolSections[0]?.id ?? null;
+  const hasCurrentToolSection = useMemo(
+    () => toolSections.some((section) => section.id === openToolSection),
+    [sectionIdsKey, openToolSection]
+  );
 
   useEffect(() => {
-    if (toolSections.length === 0) {
+    if (toolSectionsLength === 0) {
       if (openToolSection !== null) {
         setOpenToolSection(null);
       }
       return;
     }
-    const hasCurrent = toolSections.some(
-      (section) => section.id === openToolSection
-    );
-    if (!hasCurrent) {
-      setOpenToolSection(toolSections[0].id);
+
+    if (!hasCurrentToolSection && firstToolSectionId) {
+      setOpenToolSection(firstToolSectionId);
     }
-  }, [sectionIdsKey, toolSections.length, openToolSection]);
+  }, [
+    toolSectionsLength,
+    hasCurrentToolSection,
+    firstToolSectionId,
+    openToolSection,
+  ]);
 
   return (
     <div className="flex flex-col h-full">
@@ -1759,9 +1767,7 @@ export function ChatPanel({
             variant="ghost"
             onClick={() => {
               if (!projectId) return;
-              setOpenToolSection((prev) =>
-                prev === "media" ? null : "media"
-              );
+              setOpenToolSection((prev) => (prev === "media" ? null : "media"));
             }}
             disabled={isLoading || !projectId}
             className="relative h-8 w-8 p-0 text-gray-400 hover:text-teal-400 hover:bg-gray-800"
