@@ -15,6 +15,8 @@
 import { FEATURES, SECRETS } from "@/lib/config";
 import { NextRequest, NextResponse } from "next/server";
 import { MarkedImage } from "../unsplash/route";
+import { routePrompt } from "@/lib/semantic-router";
+import { enrichPrompt, type WebSearchResult } from "@/lib/prompt-enricher";
 
 // Allow 60 seconds for OpenAI response
 export const maxDuration = 60;
@@ -26,6 +28,20 @@ const OPENAI_CHAT_API_URL = "https://api.openai.com/v1/chat/completions";
 const PRIMARY_MODEL = "gpt-4o-mini"; // Stable, fast, cost-efficient
 const FALLBACK_MODEL = "gpt-4o-mini"; // Same model for chat completions fallback
 const WEB_SEARCH_MODEL = "gpt-4o-mini"; // Model that supports web_search tool
+const LANG_DETECT_HINT = /[åäöÅÄÖ]/;
+
+// Lightweight language detection (sv/en)
+function detectLanguage(text: string | undefined): "sv" | "en" {
+  if (!text) return "en";
+  return LANG_DETECT_HINT.test(text) ? "sv" : "en";
+}
+
+function buildLanguageHint(detected: "sv" | "en"): string {
+  if (detected === "sv") {
+    return "Detected user language: Swedish. Rewrite/translate user-provided text to clear English before generating the final v0 prompt.";
+  }
+  return "Detected user language: English. Keep responses concise and production-ready.";
+}
 
 // System prompt for expanding user input - optimized for v0 API
 const SYSTEM_PROMPT = `You are an expert prompt engineer specializing in v0/Vercel website generation.
@@ -628,6 +644,12 @@ export async function POST(req: NextRequest) {
       websiteAnalysis,
     } = body;
 
+    // Detect language early to steer enrichment/LLM
+    const detectedLanguage = detectLanguage(
+      `${initialPrompt || ""} ${specialWishes || ""} ${companyName || ""}`
+    );
+    const languageHint = buildLanguageHint(detectedLanguage);
+
     // Use centralized config for API key
     if (!FEATURES.useOpenAI) {
       console.error("[API/expand-prompt] OpenAI API key not configured");
@@ -773,6 +795,18 @@ Generate a detailed, production-ready prompt for v0 that will create a stunning,
 - Clear call-to-actions
 `.trim();
 
+    // Route intent early (guides research & enrichment)
+    const routerResult = await routePrompt(userMessage, false);
+    console.log("[API/expand-prompt] Router intent:", {
+      intent: routerResult.intent,
+      confidence: routerResult.confidence,
+      needsCodeContext: routerResult.needsCodeContext,
+    });
+
+    const shouldResearchTrends =
+      routerResult.intent === "web_search" ||
+      routerResult.intent === "web_and_code";
+
     // Run Unsplash fetch and industry research IN PARALLEL for speed
     console.log(
       "[API/expand-prompt] Starting parallel fetch (images + trends)..."
@@ -782,7 +816,7 @@ Generate a detailed, production-ready prompt for v0 that will create a stunning,
     // Create promises for parallel execution
     const unsplashPromise = fetchUnsplashImages(industry || "other");
     const trendsPromise =
-      industry && industry !== "other"
+      shouldResearchTrends && industry && industry !== "other"
         ? researchIndustryTrends(
             industry,
             location,
@@ -813,6 +847,17 @@ Generate a detailed, production-ready prompt for v0 that will create a stunning,
       trendsString = `\n\nINDUSTRY TRENDS & BEST PRACTICES (from web research):\n${trendsResult.trends}`;
     }
 
+    const webResults: WebSearchResult[] = (trendsResult.sources || []).map(
+      (source, idx) => ({
+        title: source.title || source.url,
+        url: source.url,
+        snippet:
+          source.title ||
+          source.url ||
+          `Trend source ${idx + 1}: design/UX reference`,
+      })
+    );
+
     console.log(
       `[API/expand-prompt] Parallel fetch done in ${Date.now() - startTime}ms`,
       {
@@ -821,9 +866,21 @@ Generate a detailed, production-ready prompt for v0 that will create a stunning,
       }
     );
 
-    // Add images and trends to user message
-    const userMessageWithImages = `${userMessage}
-${imagesString}${trendsString}`.trim();
+    // Build enriched prompt (orchestrator-style) before hitting LLM
+    const enrichedPrompt = enrichPrompt({
+      originalPrompt: `${languageHint}\n\n${userMessage}`,
+      routerResult,
+      webResults,
+    });
+
+    // Add images, trends, and enrichment to user message
+    const userMessageWithImages = `${languageHint}
+
+${userMessage}
+${imagesString}${trendsString}
+
+ENRICHED CONTEXT (for v0):
+${enrichedPrompt}`.trim();
 
     console.log(
       "[API/expand-prompt] User message length:",
@@ -952,6 +1009,8 @@ ${imagesString}${trendsString}`.trim();
       model: usedModel,
       images: stockImages, // Include images for frontend reference (Unsplash)
       industryTrends: industryTrends || undefined, // Include trends for database storage
+      intent: routerResult.intent,
+      detectedLanguage,
     });
   } catch (error) {
     console.error("[API/expand-prompt] Error:", error);

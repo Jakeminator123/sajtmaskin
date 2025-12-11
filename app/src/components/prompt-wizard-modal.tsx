@@ -442,6 +442,13 @@ export function PromptWizardModal({
   const [generatedPrompt, setGeneratedPrompt] = useState<string | null>(null);
   const [editedPrompt, setEditedPrompt] = useState<string>("");
   const [showEditMode, setShowEditMode] = useState(false);
+  const [progressStage, setProgressStage] = useState<
+    "idle" | "routing" | "research" | "enrich" | "done"
+  >("idle");
+  const [detectedLanguage, setDetectedLanguage] = useState<"sv" | "en" | null>(
+    null
+  );
+  const [detectedIntent, setDetectedIntent] = useState<string | null>(null);
 
   // Form state
   const [companyName, setCompanyName] = useState("");
@@ -647,6 +654,7 @@ export function PromptWizardModal({
   const handleComplete = async () => {
     setIsExpanding(true);
     setError(null);
+    setProgressStage("routing");
 
     const wizardData: WizardData = {
       companyName,
@@ -679,6 +687,8 @@ export function PromptWizardModal({
         }),
       });
 
+      setProgressStage("research");
+
       const data = await response.json();
 
       if (!response.ok || !data.success) {
@@ -689,12 +699,20 @@ export function PromptWizardModal({
       if (data.industryTrends) {
         setIndustryTrends(data.industryTrends);
       }
+      if (data.detectedLanguage) {
+        setDetectedLanguage(data.detectedLanguage);
+      }
+      if (data.intent) {
+        setDetectedIntent(data.intent);
+      }
 
       // Show edit mode instead of closing immediately
       setIsExpanding(false);
+      setProgressStage("enrich");
       setGeneratedPrompt(data.expandedPrompt);
       setEditedPrompt(data.expandedPrompt);
       setShowEditMode(true);
+      setProgressStage("done");
     } catch (err) {
       console.error("Failed to expand prompt:", err);
       setError(
@@ -703,6 +721,7 @@ export function PromptWizardModal({
           : "Kunde inte bygga ut prompten. Försök igen."
       );
       setIsExpanding(false);
+      setProgressStage("idle");
     }
   };
 
@@ -1597,6 +1616,35 @@ export function PromptWizardModal({
             </div>
           )}
 
+          {/* Status badges */}
+          <div className="flex flex-wrap items-center gap-2 text-xs text-gray-400">
+            <span
+              className={`inline-flex items-center gap-1 px-2 py-1 border ${
+                progressStage === "done"
+                  ? "border-teal-500/50 text-teal-300"
+                  : "border-gray-700 text-gray-400"
+              }`}
+            >
+              {progressStage === "idle" && "Redo att skapa superprompt"}
+              {progressStage === "routing" && "Routar intent..."}
+              {progressStage === "research" && "Forskar trender..."}
+              {progressStage === "enrich" && "Berikar prompt..."}
+              {progressStage === "done" && "Superprompt klar"}
+            </span>
+
+            {detectedLanguage && (
+              <span className="inline-flex items-center gap-1 px-2 py-1 border border-gray-700 text-gray-300">
+                Språk: {detectedLanguage === "sv" ? "Svenska (översätts)" : "Engelska"}
+              </span>
+            )}
+
+            {detectedIntent && (
+              <span className="inline-flex items-center gap-1 px-2 py-1 border border-gray-700 text-gray-300">
+                Intent: {detectedIntent}
+              </span>
+            )}
+          </div>
+
           {/* Edit Mode - Show after prompt generation */}
           {showEditMode && (
             <div className="space-y-6 animate-fadeIn">
@@ -1611,6 +1659,23 @@ export function PromptWizardModal({
                   Redigera prompten om du vill, eller fortsätt med den som den
                   är. Du kan också låta AI:n förbättra den.
                 </p>
+                <div className="flex flex-wrap gap-3 text-xs text-gray-400">
+                  {companyName && (
+                    <span className="px-2 py-1 border border-gray-700">
+                      Företag: {companyName}
+                    </span>
+                  )}
+                  {industry && (
+                    <span className="px-2 py-1 border border-gray-700">
+                      Bransch: {industry}
+                    </span>
+                  )}
+                  {selectedPalette && (
+                    <span className="px-2 py-1 border border-gray-700">
+                      Palett: {selectedPalette.name}
+                    </span>
+                  )}
+                </div>
               </div>
 
               <div className="relative">
