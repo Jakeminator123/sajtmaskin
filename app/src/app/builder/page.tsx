@@ -1,32 +1,32 @@
 "use client";
 
-import { useSearchParams, useRouter } from "next/navigation";
-import { Suspense, useEffect, useState, useRef } from "react";
-import Link from "next/link";
-import { Button } from "@/components/ui/button";
-import { QualitySelector } from "@/components/quality-selector";
+import { FloatingAvatar, useAvatarAgent } from "@/components/avatar";
 import { ChatPanel } from "@/components/chat-panel";
-import { CodePreview } from "@/components/code-preview";
-import { HelpTooltip } from "@/components/help-tooltip";
 import { ClientOnly } from "@/components/client-only";
-import { ShaderBackground } from "@/components/shader-background";
+import { CodePreview } from "@/components/code-preview";
 import { FinalizeModal } from "@/components/finalize-modal";
-import { useBuilderStore } from "@/lib/store";
+import { HelpTooltip } from "@/components/help-tooltip";
+import { QualitySelector } from "@/components/quality-selector";
+import { ShaderBackground } from "@/components/shader-background";
+import { Button } from "@/components/ui/button";
+import { useAvatar } from "@/contexts/AvatarContext";
 import { useAuth } from "@/lib/auth-store";
-import { getProject, createProject } from "@/lib/project-client";
+import { createProject, getProject } from "@/lib/project-client";
+import { useBuilderStore } from "@/lib/store";
 import {
   ArrowLeft,
   Check,
-  Rocket,
-  RefreshCw,
-  Save,
   Diamond,
-  MessageSquare,
   Eye,
   Menu,
+  MessageSquare,
+  RefreshCw,
+  Rocket,
+  Save,
 } from "lucide-react";
-import { FloatingAvatar, useAvatarAgent } from "@/components/avatar";
-import { useAvatar } from "@/contexts/AvatarContext";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useRef, useState } from "react";
 
 // Hook to detect mobile
 function useIsMobile() {

@@ -107,6 +107,26 @@ export function CodePreview() {
   const [sandpackError, setSandpackError] = useState<string | null>(null);
   const [iframeError, setIframeError] = useState(false);
 
+  // #region agent log
+  fetch("http://127.0.0.1:7242/ingest/6b09075a-aee5-4a07-956c-0248b3430cfa", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      sessionId: "debug-session",
+      runId: "pre-fix",
+      hypothesisId: "H1",
+      location: "code-preview.tsx:mount",
+      message: "CodePreview mount",
+      data: {
+        viewMode,
+        deviceSize,
+        hasDemoUrl: !!demoUrl,
+      },
+      timestamp: Date.now(),
+    }),
+  }).catch(() => {});
+  // #endregion
+
   // Handle download
   const handleDownload = () => {
     if (chatId && versionId) {
@@ -229,7 +249,27 @@ export function CodePreview() {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => setViewMode("preview")}
+              onClick={() => {
+                // #region agent log
+                fetch(
+                  "http://127.0.0.1:7242/ingest/6b09075a-aee5-4a07-956c-0248b3430cfa",
+                  {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      sessionId: "debug-session",
+                      runId: "pre-fix",
+                      hypothesisId: "H1",
+                      location: "code-preview.tsx:view-toggle",
+                      message: "View mode → preview",
+                      data: { deviceSize, demoUrl: !!demoUrl },
+                      timestamp: Date.now(),
+                    }),
+                  }
+                ).catch(() => {});
+                // #endregion
+                setViewMode("preview");
+              }}
               className={`h-7 px-3 gap-1.5 ${
                 viewMode === "preview"
                   ? "bg-gray-700 text-white"
@@ -242,7 +282,27 @@ export function CodePreview() {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => setViewMode("code")}
+              onClick={() => {
+                // #region agent log
+                fetch(
+                  "http://127.0.0.1:7242/ingest/6b09075a-aee5-4a07-956c-0248b3430cfa",
+                  {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      sessionId: "debug-session",
+                      runId: "pre-fix",
+                      hypothesisId: "H1",
+                      location: "code-preview.tsx:view-toggle",
+                      message: "View mode → code",
+                      data: { deviceSize, demoUrl: !!demoUrl },
+                      timestamp: Date.now(),
+                    }),
+                  }
+                ).catch(() => {});
+                // #endregion
+                setViewMode("code");
+              }}
               className={`h-7 px-3 gap-1.5 ${
                 viewMode === "code"
                   ? "bg-gray-700 text-white"
