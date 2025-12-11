@@ -43,6 +43,7 @@ import {
 import { GenerationProgress } from "@/components/generation-progress";
 import { HelpTooltip } from "@/components/help-tooltip";
 import { MediaBank, useMediaBank } from "@/components/media-bank";
+import type { MediaItem } from "@/components/media-bank";
 import { MediaDrawer } from "@/components/media-drawer";
 import { TextUploader } from "@/components/text-uploader";
 import { Button } from "@/components/ui/button";
@@ -667,7 +668,7 @@ export function ChatPanel({
     const mediaAttachments: MessageAttachment[] = pendingMedia.map((item) => ({
       type: "image" as const,
       url: item.url,
-      prompt: item.description || item.filename,
+      prompt: resolveMediaAttachmentPrompt(item),
     }));
 
     // Combine all attachments
@@ -908,7 +909,7 @@ export function ChatPanel({
     const mediaAttachments: MessageAttachment[] = pendingMedia.map((item) => ({
       type: "image" as const,
       url: item.url,
-      prompt: item.description || item.filename,
+      prompt: resolveMediaAttachmentPrompt(item),
     }));
 
     // Combine all attachments
@@ -1254,9 +1255,32 @@ export function ChatPanel({
   };
 
   // Pending media attachments - media selected from drawer waiting to be included in next message
-  const [pendingMedia, setPendingMedia] = useState<
-    import("./media-bank").MediaItem[]
-  >([]);
+  const [pendingMedia, setPendingMedia] = useState<MediaItem[]>([]);
+
+  const resolveMediaAttachmentPrompt = (item: MediaItem): string => {
+    const description = item.description?.trim();
+    if (description) {
+      return description;
+    }
+
+    const generatedPrompt = item.prompt?.trim();
+    if (generatedPrompt) {
+      return generatedPrompt;
+    }
+
+    const filename = item.filename?.trim();
+    if (filename) {
+      return filename;
+    }
+
+    if (item.type === "logo") {
+      return "Logo asset";
+    }
+    if (item.type === "video") {
+      return "Video attachment";
+    }
+    return "Media attachment";
+  };
 
   // Handle media file selection from drawer - NOW just adds to pending, no auto-submit
   const handleMediaFileSelect = (item: import("./media-bank").MediaItem) => {
