@@ -31,12 +31,23 @@ interface OrchestrateRequest {
   quality?: QualityLevel;
   existingChatId?: string;
   existingCode?: string;
+  mediaLibrary?: Array<{
+    url: string;
+    filename: string;
+    description?: string;
+  }>;
 }
 
 export async function POST(request: NextRequest) {
   try {
     const body: OrchestrateRequest = await request.json();
-    const { prompt, quality = "standard", existingChatId, existingCode } = body;
+    const {
+      prompt,
+      quality = "standard",
+      existingChatId,
+      existingCode,
+      mediaLibrary,
+    } = body;
 
     if (!prompt || prompt.trim().length === 0) {
       return NextResponse.json(
@@ -76,6 +87,7 @@ export async function POST(request: NextRequest) {
       existingChatId: existingChatId || "(NEW CHAT)",
       hasExistingCode: !!existingCode,
       existingCodeLength: existingCode?.length || 0,
+      mediaLibraryCount: mediaLibrary?.length || 0,
     });
 
     // Run orchestrator first to determine intent
@@ -84,6 +96,7 @@ export async function POST(request: NextRequest) {
       quality,
       existingChatId,
       existingCode,
+      mediaLibrary,
     });
 
     if (!result.success) {

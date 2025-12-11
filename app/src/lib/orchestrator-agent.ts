@@ -1,47 +1,46 @@
 /**
- * Orchestrator Agent
- * ==================
+ * Orchestrator Agent 2.0
+ * ======================
  *
  * Smart meta-agent som koordinerar arbetsflöden mellan olika verktyg.
  *
- * VIKTIGT: Orchestratorn ANALYSERAR först vad användaren vill, sedan agerar.
- * Den skickar INTE alltid till v0 - bara när kod faktiskt ska ändras.
+ * NYA FUNKTIONER (2.0):
+ * - Semantic Router: Analyserar ALLA prompts semantiskt (inte keyword-baserat)
+ * - Code Crawler: Söker igenom projektfiler för att hitta relevant kontext
+ * - Prompt Enricher: Kombinerar all kontext till rik prompt för v0
+ *
+ * FLÖDE:
+ * 1. Semantic Router analyserar prompten och bestämmer intent
+ * 2. Om needs_code_context → Code Crawler analyserar filer
+ * 3. Prompt Enricher kombinerar all kontext
+ * 4. Berikad prompt skickas till v0 (eller annan action)
  *
  * INTENT TYPES:
- * - image_only: Bara generera bilder, visa i chat (INGEN kodändring)
- * - code_only: Bara ändra kod via v0
+ * - simple_code: Enkla ändringar, direkt till v0
+ * - needs_code_context: Kräver kodanalys först (Code Crawler)
+ * - image_only: Bara generera bilder (INGEN kodändring)
  * - image_and_code: Generera bilder OCH uppdatera kod
- * - web_search_only: Bara söka/researcha, returnera info
- * - web_search_and_code: Söka OCH uppdatera kod
- * - clarify: Ställ en följdfråga till användaren
- * - chat_response: Bara svara på en fråga, ingen action
- *
- * EXEMPEL-FLÖDEN:
- *
- * 1. "Generera en bild på en ost"
- *    → intent: image_only
- *    → Generera bild, returnera till chat
- *    → INGEN v0-kod ändras!
- *
- * 2. "Lägg till en hero-bild med en solnedgång på startsidan"
- *    → intent: image_and_code
- *    → Generera bild
- *    → Uppdatera kod med v0
- *
- * 3. "Gör bakgrunden blå"
- *    → intent: code_only
- *    → Skicka direkt till v0 (refine)
- *
- * 4. "Kolla på amazon.com och berätta om deras design"
- *    → intent: web_search_only
- *    → Söka, returnera analys
- *    → INGEN v0-kod ändras!
+ * - web_search: Bara söka/researcha
+ * - web_and_code: Söka OCH uppdatera kod
+ * - clarify: Behöver förtydligande
+ * - chat_response: Bara svara, ingen action
  */
 
 import type { QualityLevel } from "@/lib/api-client";
 import { isBlobConfigured, uploadBlobFromBase64 } from "@/lib/blob-service";
+import { crawlCodeContext, type CodeContext } from "@/lib/code-crawler";
 import { debugLog } from "@/lib/debug";
-import { generateCode, refineCode } from "@/lib/v0-generator";
+import {
+  enrichPrompt,
+  createEnrichmentSummary,
+} from "@/lib/prompt-enricher";
+import {
+  routePrompt,
+  shouldRoute,
+  type RouterResult,
+  type SemanticIntent,
+} from "@/lib/semantic-router";
+import { generateCode, refineCode, type GeneratedFile } from "@/lib/v0-generator";
 import OpenAI from "openai";
 export { enhancePromptForV0 } from "./prompt-utils";
 
@@ -159,13 +158,21 @@ export interface OrchestratorContext {
   quality: QualityLevel;
   existingChatId?: string;
   existingCode?: string;
+  // NEW: Project files for Code Crawler analysis
+  projectFiles?: GeneratedFile[];
+  // Media library items (for image references in prompts)
+  mediaLibrary?: Array<{
+    url: string;
+    filename: string;
+    description?: string;
+  }>;
 }
 
 export interface OrchestratorResult {
   success: boolean;
   message: string;
-  // Intent that was detected
-  intent?: UserIntent;
+  // Intent that was detected (now using SemanticIntent from router)
+  intent?: UserIntent | SemanticIntent;
   // v0 generation result (only if code was changed)
   code?: string;
   files?: Array<{ name: string; content: string }>;
@@ -181,13 +188,18 @@ export interface OrchestratorResult {
   // For chat_response intent
   chatResponse?: string;
   error?: string;
+  // NEW: Enrichment info for debugging
+  routerResult?: RouterResult;
+  codeContext?: CodeContext;
+  enrichedPrompt?: string;
 }
 
 /**
  * Orchestrate a workflow based on user prompt
  *
- * SMART: First classifies the user's intent, then only executes
- * the necessary steps. Does NOT always call v0!
+ * SMART 2.0: Uses Semantic Router for better intent detection,
+ * Code Crawler for context enrichment, and Prompt Enricher
+ * for better v0 instructions.
  */
 export async function orchestrateWorkflow(
   userPrompt: string,
@@ -196,193 +208,122 @@ export async function orchestrateWorkflow(
   const workflowSteps: string[] = [];
 
   try {
-    debugLog("[Orchestrator] Starting workflow", {
+    debugLog("[Orchestrator] Starting workflow 2.0", {
       promptLength: userPrompt.length,
       quality: context.quality,
       hasExistingChat: !!context.existingChatId,
       hasExistingCode: !!context.existingCode,
+      hasProjectFiles: !!context.projectFiles?.length,
     });
 
     const client = getOpenAIClient();
 
     // ═══════════════════════════════════════════════════════════════════════
-    // STEP 1: INTENT CLASSIFICATION
-    // Determine what the user ACTUALLY wants before doing anything
+    // STEP 1: SEMANTIC ROUTING (NEW!)
+    // Use the new semantic router for better intent detection
     // ═══════════════════════════════════════════════════════════════════════
 
-    console.log("[Orchestrator] Classifying intent...");
+    console.log("[Orchestrator] === STEP 1: SEMANTIC ROUTING ===");
+    console.log("[Orchestrator] Full prompt:", userPrompt);
 
-    // Use Responses API with structured outputs (text.format) for better performance
-    let intentResponse: Awaited<ReturnType<typeof client.responses.create>>;
-    try {
-      intentResponse = await client.responses.create({
-        model: "gpt-4o-mini",
-        instructions: `Du är en intent-klassificerare för en webbplats-byggare.
+    let codeContext: CodeContext | undefined;
 
-Analysera användarens meddelande och bestäm VAD de faktiskt vill göra.
+    // Use new semantic router
+    const routerResult = await routePrompt(userPrompt, !!context.existingCode);
 
-MÖJLIGA INTENTS:
-1. "image_only" - Användaren vill BARA generera en bild/logo, INTE ändra webbplatskoden
-   Exempel: "generera en bild på en ost", "skapa en logo", "rita en illustration"
-   
-2. "code_only" - Användaren vill BARA ändra webbplatskoden (färger, layout, text, etc)
-   Exempel: "gör bakgrunden blå", "ändra texten till...", "lägg till en knapp"
-   
-3. "image_and_code" - Användaren vill generera bild(er) OCH lägga in dem i webbplatsen
-   Exempel: "lägg till en hero-bild med solnedgång", "skapa en produktbild och visa den"
-   
-4. "web_search_only" - Användaren vill BARA söka/researcha, inte ändra kod
-   Exempel: "berätta om amazons design", "vad är trenderna inom SaaS?"
-   
-5. "web_search_and_code" - Användaren vill söka OCH implementera det i koden
-   Exempel: "kolla spotifys färger och implementera dem", "kopiera amazons layout"
-   
-6. "clarify" - Du behöver mer info för att förstå vad användaren vill
-   Exempel: "lägg till en bild" (vilken bild? var?), "ändra designen" (hur?)
-   
-7. "chat_response" - Användaren ställer en fråga som inte kräver någon action
-   Exempel: "hur fungerar det här?", "vad kan du göra?", "tack!"
+    console.log("[Orchestrator] Router result:", {
+      intent: routerResult.intent,
+      confidence: routerResult.confidence,
+      needsCodeContext: routerResult.needsCodeContext,
+      contextHints: routerResult.contextHints,
+      reasoning: routerResult.reasoning,
+    });
 
-VIKTIGT:
-- Om användaren säger "generera bild" utan att nämna var den ska → image_only
-- Om användaren säger "lägg till en bild på..." → image_and_code  
-- Om användaren bara vill ha info/research → web_search_only
-- Om osäker → clarify (fråga användaren!)
-
-${
-  context.existingCode
-    ? "Användaren har en EXISTERANDE webbplats som de kan vilja ändra."
-    : "Användaren har INGEN webbplats ännu."
-}
-
-SVARA MED EXAKT JSON I DETTA FORMAT (inga markdown-kodblock, bara ren JSON):
-{
-  "intent": "image_only" | "code_only" | "image_and_code" | "web_search_only" | "web_search_and_code" | "clarify" | "chat_response",
-  "reasoning": "Kort förklaring av varför detta intent valdes",
-  "imagePrompts": ["prompt1", "prompt2"] eller [] om inga bilder behövs,
-  "webSearchQuery": "sökfråga" eller "" om ingen sökning behövs,
-  "codeInstruction": "instruktion till v0" eller "" om ingen kodändring behövs,
-  "clarifyQuestion": "fråga till användaren" eller "" om ingen förtydligande behövs,
-  "chatResponse": "svar till användaren" eller "" om inget svar behövs
-}
-
-REGLER FÖR ATT FYLLA I FÄLTEN:
-- Om intent är "image_only" eller "image_and_code": Fyll i "imagePrompts" med array av bildprompts baserat på användarens meddelande
-- Om intent är "web_search_only" eller "web_search_and_code": Fyll i "webSearchQuery" med sökfrågan
-- Om intent är "code_only" eller "image_and_code" eller "web_search_and_code": Fyll i "codeInstruction" med instruktionen som ska skickas till v0 API
-- Om intent är "clarify": Fyll i "clarifyQuestion" med frågan till användaren
-- Om intent är "chat_response": Fyll i "chatResponse" med svaret till användaren
-- "reasoning" ska ALLTID fyllas i med en kort förklaring
-
-EXEMPEL:
-Input: "lägg till en hero-bild med solnedgång"
-Output: {"intent": "image_and_code", "reasoning": "Användaren vill generera en bild och lägga in den i hero-sektionen", "imagePrompts": ["hero-bild med solnedgång, modern design, vacker färgpalett"], "webSearchQuery": "", "codeInstruction": "Lägg till en hero-bild med solnedgång i hero-sektionen", "clarifyQuestion": "", "chatResponse": ""}
-
-Input: "gör bakgrunden blå"
-Output: {"intent": "code_only", "reasoning": "Användaren vill ändra bakgrundsfärg", "imagePrompts": [], "webSearchQuery": "", "codeInstruction": "Ändra bakgrundsfärgen till blå", "clarifyQuestion": "", "chatResponse": ""}`,
-        input: userPrompt,
-        // Note: TypeScript SDK doesn't fully support text.format yet, so we parse JSON from output_text
-        // This is still better than Chat Completions as we use Responses API
-        store: false, // No need to store intent classifications
-      });
-    } catch (error) {
-      // Fallback to Responses API with simpler model if primary fails
-      console.warn(
-        "[Orchestrator] Primary Responses API failed, trying fallback model:",
-        error
-      );
-      try {
-        intentResponse = await client.responses.create({
-          model: "gpt-4o-mini",
-          instructions: `Du är en intent-klassificerare. Analysera användarens meddelande och bestäm vad de vill göra. Svara ENDAST med giltig JSON i formatet: {"intent": "...", "reasoning": "...", "imagePrompts": [...], "webSearchQuery": "...", "codeInstruction": "...", "clarifyQuestion": "...", "chatResponse": "..."}`,
-          input: userPrompt,
-          store: false,
-        });
-      } catch (fallbackError) {
-        console.error(
-          "[Orchestrator] Both Responses API attempts failed:",
-          fallbackError
-        );
-        throw new Error("Kunde inte klassificera intent - API-fel");
-      }
-    }
-
-    // Use output_text helper from Responses API
-    // Parse JSON from output_text (structured outputs not fully supported in TS SDK yet)
-    let responseText = intentResponse.output_text || "{}";
-
-    // Debug: Log raw response to help diagnose issues
-    console.log(
-      "[Orchestrator] Raw intent response:",
-      responseText.substring(0, 500)
+    workflowSteps.push(
+      `Semantic Router: ${routerResult.intent} (${Math.round(
+        routerResult.confidence * 100
+      )}% confidence)`
     );
+    workflowSteps.push(`Reasoning: ${routerResult.reasoning}`);
 
-    // Extract JSON if wrapped in markdown code blocks
-    const jsonMatch = responseText.match(/```(?:json)?\s*([\s\S]*?)```/);
-    if (jsonMatch) {
-      responseText = jsonMatch[1];
-    }
+    // ═══════════════════════════════════════════════════════════════════════
+    // STEP 2: CODE CRAWLER (if needed)
+    // Analyze project files to find relevant code context
+    // ═══════════════════════════════════════════════════════════════════════
 
-    // Also try to extract JSON if it's in the response but not in code blocks
-    // Sometimes AI returns JSON with surrounding text
-    const jsonObjectMatch = responseText.match(/\{[\s\S]*\}/);
-    if (jsonObjectMatch && !responseText.trim().startsWith("{")) {
-      responseText = jsonObjectMatch[0];
-    }
-
-    // Parse and sanitize the classification to avoid runtime failures on bad JSON
-    const VALID_INTENTS: UserIntent[] = [
-      "image_only",
-      "code_only",
-      "image_and_code",
-      "web_search_only",
-      "web_search_and_code",
-      "clarify",
-      "chat_response",
-    ];
-    const sanitizeString = (val: unknown, fallback = "") =>
-      typeof val === "string" ? val : fallback;
-    const sanitizeStringArray = (val: unknown) =>
-      Array.isArray(val)
-        ? val.filter((item) => typeof item === "string").slice(0, 8)
-        : [];
-
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(responseText);
-    } catch (e) {
-      console.error(
-        "[Orchestrator] Failed to parse intent JSON:",
-        e,
-        responseText
+    if (routerResult.needsCodeContext && context.projectFiles?.length) {
+      console.log("[Orchestrator] === STEP 2: CODE CRAWLER ===");
+      console.log(
+        "[Orchestrator] Analyzing",
+        context.projectFiles.length,
+        "files with hints:",
+        routerResult.contextHints
       );
-      throw new Error("Kunde inte klassificera din förfrågan");
+      workflowSteps.push(`Code Crawler: Analyserar ${context.projectFiles.length} filer`);
+
+      codeContext = await crawlCodeContext(
+        context.projectFiles,
+        routerResult.contextHints,
+        userPrompt
+      );
+
+      console.log("[Orchestrator] Code context found:", {
+        filesFound: codeContext.relevantFiles.length,
+        routing: codeContext.routingInfo,
+        summary: codeContext.summary,
+      });
+
+      if (codeContext.relevantFiles.length > 0) {
+        workflowSteps.push(
+          `Hittade ${codeContext.relevantFiles.length} relevanta filer`
+        );
+        workflowSteps.push(`Analys: ${codeContext.summary}`);
+      } else {
+        workflowSteps.push("Inga matchande kodsektioner hittades");
+      }
+    } else if (routerResult.needsCodeContext && !context.projectFiles?.length) {
+      console.log(
+        "[Orchestrator] Code context needed but no project files available"
+      );
+      workflowSteps.push("⚠️ Kodkontext behövs men inga filer tillgängliga");
     }
 
-    const classification = (() => {
-      const raw = (parsed as Record<string, unknown>) || {};
-      const intent = VALID_INTENTS.includes(raw.intent as UserIntent)
-        ? (raw.intent as UserIntent)
-        : "clarify";
+    // ═══════════════════════════════════════════════════════════════════════
+    // STEP 3: MAP SEMANTIC INTENT TO LEGACY INTENT
+    // For backward compatibility with existing code
+    // ═══════════════════════════════════════════════════════════════════════
 
-      return {
-        intent,
-        reasoning: sanitizeString(raw.reasoning, "Behöver förtydligas"),
-        imagePrompts: sanitizeStringArray(raw.imagePrompts),
-        webSearchQuery: sanitizeString(raw.webSearchQuery),
-        codeInstruction: sanitizeString(raw.codeInstruction),
-        clarifyQuestion: sanitizeString(raw.clarifyQuestion),
-        chatResponse: sanitizeString(raw.chatResponse),
-      };
-    })();
-    console.log("[Orchestrator] Intent classification:", classification);
+    // Map new SemanticIntent to old UserIntent
+    const intentMapping: Record<SemanticIntent, UserIntent> = {
+      simple_code: "code_only",
+      needs_code_context: "code_only", // After enrichment, treated as code_only
+      web_search: "web_search_only",
+      image_gen: "image_only",
+      web_and_code: "web_search_and_code",
+      image_and_code: "image_and_code",
+      clarify: "clarify",
+      chat_response: "chat_response",
+    };
 
-    const intent: UserIntent = classification.intent;
-    debugLog("[Orchestrator] Intent classified", {
+    const intent: UserIntent = intentMapping[routerResult.intent];
+
+    // Build classification object for backward compatibility
+    const classification = {
       intent,
+      reasoning: routerResult.reasoning,
+      imagePrompts: routerResult.imagePrompt ? [routerResult.imagePrompt] : [],
+      webSearchQuery: routerResult.searchQuery || "",
+      codeInstruction: routerResult.codeInstruction || userPrompt,
+      clarifyQuestion: routerResult.clarifyQuestion || "",
+      chatResponse: routerResult.chatResponse || "",
+    };
+
+    console.log("[Orchestrator] Mapped intent:", intent);
+    debugLog("[Orchestrator] Intent classified", {
+      originalIntent: routerResult.intent,
+      mappedIntent: intent,
       reasoning: classification.reasoning,
     });
-    workflowSteps.push(`Intent: ${intent} - ${classification.reasoning}`);
 
     // ═══════════════════════════════════════════════════════════════════════
     // STEP 2: HANDLE EACH INTENT TYPE
@@ -722,6 +663,7 @@ Output: {"intent": "code_only", "reasoning": "Användaren vill ändra bakgrundsf
 
     // ═══════════════════════════════════════════════════════════════════════
     // STEP 5: GENERATE/REFINE CODE (only for code-related intents)
+    // Uses Prompt Enricher to build rich context for v0
     // ═══════════════════════════════════════════════════════════════════════
 
     // Only call v0 if intent involves code changes
@@ -730,8 +672,44 @@ Output: {"intent": "code_only", "reasoning": "Användaren vill ändra bakgrundsf
       intent === "image_and_code" ||
       intent === "web_search_and_code"
     ) {
-      // Build the code instruction
+      // Build the code instruction using Prompt Enricher (NEW!)
       let codeInstruction = classification.codeInstruction || userPrompt;
+
+      // Use Prompt Enricher if we have code context
+      if (codeContext && codeContext.relevantFiles.length > 0) {
+        console.log("[Orchestrator] === USING PROMPT ENRICHER ===");
+
+        const enrichedPrompt = enrichPrompt({
+          originalPrompt: userPrompt,
+          routerResult,
+          codeContext,
+          webResults: webSearchResults.length > 0 ? webSearchResults : undefined,
+          generatedImages: generatedImages
+            .filter((img) => img.url)
+            .map((img) => ({
+              url: img.url!,
+              prompt: img.prompt,
+            })),
+        });
+
+        console.log(
+          "[Orchestrator] Enriched prompt preview:",
+          enrichedPrompt.substring(0, 500) + "..."
+        );
+        console.log("[Orchestrator] Enriched prompt length:", enrichedPrompt.length);
+
+        // Log enrichment summary for debugging
+        const summary = createEnrichmentSummary({
+          originalPrompt: userPrompt,
+          routerResult,
+          codeContext,
+          webResults: webSearchResults.length > 0 ? webSearchResults : undefined,
+        });
+        console.log("[Orchestrator] Enrichment summary:", summary);
+
+        workflowSteps.push("Prompt Enricher: Berikade prompten med kodkontext");
+        codeInstruction = enrichedPrompt;
+      }
 
       // Add context from web search if available
       if (webSearchContext && intent === "web_search_and_code") {
@@ -739,6 +717,34 @@ Output: {"intent": "code_only", "reasoning": "Användaren vill ändra bakgrundsf
           0,
           2000
         )}`;
+      }
+
+      // Add info about media library items (existing uploaded images)
+      // These are images the user has uploaded or generated previously
+      if (context.mediaLibrary && context.mediaLibrary.length > 0) {
+        const mediaCatalog = context.mediaLibrary
+          .map(
+            (item, i) =>
+              `[Bild ${i + 1}]: ${item.url} - "${
+                item.description || item.filename
+              }"`
+          )
+          .join("\n");
+
+        codeInstruction += `
+
+═══════════════════════════════════════════════════════════════════════════════
+TILLGÄNGLIGA BILDER FRÅN MEDIABIBLIOTEKET:
+═══════════════════════════════════════════════════════════════════════════════
+${mediaCatalog}
+
+INSTRUKTION: Om användaren refererar till befintliga bilder, använd EXAKTA URLs 
+från listan ovan i <img src="..."> taggar.
+═══════════════════════════════════════════════════════════════════════════════
+`;
+        console.log(
+          `[Orchestrator] Added ${context.mediaLibrary.length} media library items to prompt`
+        );
       }
 
       // Add info about generated images if available
@@ -827,6 +833,10 @@ Bilderna kommer INTE visas i preview. Lägg till placeholder-bilder tills vidare
         generatedImages:
           generatedImages.length > 0 ? generatedImages : undefined,
         workflowSteps,
+        // NEW: Include enrichment info for debugging
+        routerResult,
+        codeContext,
+        enrichedPrompt: codeContext ? codeInstruction : undefined,
       };
     }
 
@@ -854,21 +864,35 @@ Bilderna kommer INTE visas i preview. Lägg till placeholder-bilder tills vidare
 /**
  * Check if prompt needs orchestration
  *
- * STRINGENT MODE: Only triggers for truly complex workflows:
+ * VERSION 2.0: Uses semantic analysis instead of keyword matching!
+ *
+ * This function now delegates to the Semantic Router helper for
+ * a quick check. The actual routing happens in orchestrateWorkflow.
+ *
+ * Returns true when:
  * 1. AI image GENERATION (not using existing images)
  * 2. Web search/research for external info
- *
- * IMPORTANT: Most prompts (80%+) should go DIRECTLY to v0!
- * v0 is excellent at understanding natural language.
+ * 3. References to specific UI elements that need code context
+ * 4. Complex/vague prompts that need semantic understanding
  *
  * Returns false for:
  * - Simple code changes ("gör bakgrunden blå")
- * - Using existing images from mediabibliotek (URLs already in prompt)
- * - Layout/design changes
- * - Text changes
- * - Component additions
+ * - Using existing images from mediabibliotek
+ * - Direct layout/design changes
  */
 export function needsOrchestration(prompt: string): boolean {
+  // Use the new shouldRoute helper from semantic-router
+  // This provides a quick heuristic check
+  const shouldUseRouter = shouldRoute(prompt);
+
+  if (shouldUseRouter) {
+    debugLog("[Orchestrator] TRIGGER - semantic routing needed", {
+      promptPreview: prompt.substring(0, 50),
+    });
+    return true;
+  }
+
+  // Additional legacy checks for backward compatibility
   const lower = prompt.toLowerCase();
 
   // ═══════════════════════════════════════════════════════════════════════
@@ -900,75 +924,53 @@ export function needsOrchestration(prompt: string): boolean {
     return false;
   }
 
-  // 3. Simple design/code changes - v0 excels at these
-  const simpleChangePatterns = [
-    // Colors
-    /^(ändra|byt|gör).*(färg|bakgrund|text).*(till|blå|röd|grön|vit|svart)/i,
-    // Size/spacing
-    /^(gör|ändra).*(större|mindre|bredare|smalare)/i,
-    // Visibility
-    /^(ta bort|dölj|visa|lägg till).*(knapp|text|bild|sektion)/i,
-    // Simple text
-    /^(ändra|byt).*(text|rubrik|titel)/i,
-    // Layout
-    /^(flytta|centrera|justera)/i,
-  ];
-
-  for (const pattern of simpleChangePatterns) {
-    if (pattern.test(lower)) {
-      debugLog("[Orchestrator] SKIP - simple change pattern (send to v0)");
-      return false;
-    }
-  }
-
   // ═══════════════════════════════════════════════════════════════════════
-  // ORCHESTRATION TRIGGERS - Only these COMPLEX cases need orchestrator
+  // ORCHESTRATION TRIGGERS - Complex cases that need smart handling
   // ═══════════════════════════════════════════════════════════════════════
 
   // 1. AI IMAGE GENERATION - user explicitly wants NEW images created
   const imageGenerationKeywords = [
-    // Must be explicit generation requests
     "generera en bild",
     "generera bild",
     "skapa en ny bild",
-    "skapa ny bild",
     "generate image",
-    "create new image",
-    // Logo generation
     "generera logo",
-    "generera en logo",
-    "skapa ny logo",
-    "designa en logo",
-    // AI-specific
     "ai-generera",
-    "ai generera",
     "dall-e",
     "gpt-image",
   ];
 
   // 2. WEB SEARCH - user wants info from external websites
   const webSearchKeywords = [
-    // Explicit web actions
     "gå till webbplatsen",
     "besök sidan",
     "kolla på deras",
     "analysera webbplatsen",
     "hämta från",
     "kopiera från",
-    // Research
     "researcha",
-    "undersök vad",
-    "leta reda på",
-    // Competitor analysis
     "konkurrenternas",
-    "deras färgschema",
-    "inspireras av webbplatsen",
+  ];
+
+  // 3. REFERENCES TO SPECIFIC ELEMENTS (NEW!) - needs code context
+  const codeContextKeywords = [
+    "den länken",
+    "den knappen",
+    "headern",
+    "navbaren",
+    "footern",
+    "den sektionen",
+    "det elementet",
+    "den texten där",
   ];
 
   const needsImageGen = imageGenerationKeywords.some((kw) =>
     lower.includes(kw)
   );
   const needsWebSearch = webSearchKeywords.some((kw) => lower.includes(kw));
+  const needsCodeContext = codeContextKeywords.some((kw) =>
+    lower.includes(kw)
+  );
 
   if (needsImageGen) {
     debugLog("[Orchestrator] TRIGGER - needs AI image generation");
@@ -977,6 +979,11 @@ export function needsOrchestration(prompt: string): boolean {
 
   if (needsWebSearch) {
     debugLog("[Orchestrator] TRIGGER - needs web search");
+    return true;
+  }
+
+  if (needsCodeContext) {
+    debugLog("[Orchestrator] TRIGGER - needs code context analysis");
     return true;
   }
 

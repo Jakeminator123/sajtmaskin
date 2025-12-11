@@ -1,9 +1,8 @@
 {
-  "folders": [
-    { "name": "sajtmaskin", "path": "." }
-  ],
+  "folders": [{ "name": "sajtmaskin", "path": "." }],
   "settings": {
     "typescript.tsdk": "app/node_modules/typescript/lib",
+    "typescript.enablePromptUseWorkspaceTsdk": true,
     "eslint.workingDirectories": [
       {
         "directory": "app",
@@ -42,13 +41,17 @@
       "javascriptreact"
     ],
     "tailwindCSS.experimental.classRegex": [
-      [
-        "cva\\(([^)]*)\\)",
-        "[\"'`]([^\"'`]*).*?[\"'`]"
-      ]
+      ["cva\\(([^)]*)\\)", "[\"'`]([^\"'`]*).*?[\"'`]"]
     ],
     "terminal.integrated.defaultProfile.windows": "PowerShell",
-    "terminal.integrated.cwd": "${workspaceFolder:sajtmaskin}"
+    "terminal.integrated.profiles.windows": {
+      "PowerShell": {
+        "path": "C:\\Program Files\\PowerShell\\7\\pwsh.exe"
+      }
+    },
+    "powershell.integratedConsole.showOnStartup": false,
+    "terminal.integrated.cwd": "${workspaceFolder:sajtmaskin}",
+    "json.schemaDownload.enable": true
   },
   "extensions": {
     "recommendations": [
@@ -104,4 +107,3 @@
     ]
   }
 }
-

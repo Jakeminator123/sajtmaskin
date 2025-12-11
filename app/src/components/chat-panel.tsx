@@ -47,13 +47,8 @@ import { MediaDrawer } from "@/components/media-drawer";
 import { TextProcessorModal } from "@/components/text-processor-modal";
 import { Button } from "@/components/ui/button";
 import { useAvatar } from "@/contexts/AvatarContext";
-import {
-  generateFromTemplate,
-  generateWebsite,
-  refineWebsite,
-} from "@/lib/api-client";
+import { generateFromTemplate, generateWebsite } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth-store";
-import { needsOrchestration } from "@/lib/orchestrator-agent";
 import type { MediaLibraryItem } from "@/lib/prompt-utils";
 import { useBuilderStore, type MessageAttachment } from "@/lib/store";
 import {
@@ -981,203 +976,141 @@ export function ChatPanel({
     setIsRefinementMode(true);
 
     try {
-      // Check if refinement needs orchestration (web search, image generation, etc.)
-      const useOrchestrator = needsOrchestration(enhancedInstruction);
+      // ═══════════════════════════════════════════════════════════════════════
+      // UNIVERSAL GATEKEEPER: ALL prompts go through orchestrator
+      // The orchestrator uses gpt-4o-mini (cheap) as semantic router to decide:
+      // - image_only: Generate image, add to media bank, NO v0 call
+      // - chat_response: Just respond, NO v0 call
+      // - clarify: Ask for clarification, NO v0 call
+      // - web_search_only: Search and return, NO v0 call
+      // - code_only/image_and_code/web_and_code: Call v0 for actual code changes
+      // ═══════════════════════════════════════════════════════════════════════
 
-      let response;
-      if (useOrchestrator) {
-        // Use orchestrator for complex refinement workflows
-        addMessage(
-          "assistant",
-          "🎯 Detekterar komplex workflow för förfining - använder orchestrator..."
-        );
+      // Debug: Log what we're sending to orchestrate
+      console.log("[ChatPanel] Refinement via universal gatekeeper:", {
+        chatId: actualChatId || "(NEW - no existing chatId!)",
+        hasCode: !!actualCurrentCode,
+        codeLength: actualCurrentCode?.length || 0,
+        promptPreview: enhancedInstruction.slice(0, 80) + "...",
+      });
 
-        // Debug: Log what we're sending to orchestrate
-        console.log("[ChatPanel] Refinement via orchestrator:", {
-          chatId: actualChatId || "(NEW - no existing chatId!)",
-          hasCode: !!actualCurrentCode,
-          codeLength: actualCurrentCode?.length || 0,
-          promptPreview: enhancedInstruction.slice(0, 80) + "...",
-        });
+      // Collect media library info so orchestrator can pass to v0 if needed
+      const mediaLibraryForPrompt: MediaLibraryItem[] = mediaBank.items
+        .filter((item) => item.url)
+        .map((item) => ({
+          url: item.url,
+          filename: item.filename || "unknown",
+          description: item.description || item.prompt,
+        }));
 
-        response = await fetch("/api/orchestrate", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            prompt: enhancedInstruction,
-            quality,
-            existingChatId: actualChatId || undefined,
-            existingCode: actualCurrentCode,
-          }),
-        }).then((res) => res.json());
-
-        // Build attachments from orchestrator results
-        const attachments: MessageAttachment[] = [];
-
-        // Add workflow steps
-        if (response.workflowSteps && response.workflowSteps.length > 0) {
-          attachments.push({
-            type: "workflow",
-            steps: response.workflowSteps,
-          });
-        }
-
-        // Add web search results
-        if (response.webSearchResults && response.webSearchResults.length > 0) {
-          attachments.push({
-            type: "web_search",
-            results: response.webSearchResults,
-          });
-        }
-
-        // Add generated images to attachments AND media bank
-        if (response.generatedImages && response.generatedImages.length > 0) {
-          for (const img of response.generatedImages) {
-            attachments.push({
-              type: "image",
-              base64: img.base64,
-              prompt: img.prompt,
-              url: img.url, // Include blob URL if available
-            });
-            // Also add to media bank for later use
-            mediaBank.addGeneratedImage({
-              base64: img.base64,
-              prompt: img.prompt,
-              url: img.url,
-            });
-          }
-        }
-
-        // Show orchestrator results with attachments
-        if (attachments.length > 0) {
-          addMessage(
-            "assistant",
-            response.message || "✨ Orchestrator slutförde arbetsflödet:",
-            attachments
-          );
-        } else if (response.message) {
-          // Show message without attachments (e.g., clarify, chat_response)
-          addMessage("assistant", response.message);
-        }
-
-        // ═══════════════════════════════════════════════════════════════════
-        // SMART: Only update code/preview if intent involves code changes
-        // ═══════════════════════════════════════════════════════════════════
-        const codeChangingIntents = [
-          "code_only",
-          "image_and_code",
-          "web_search_and_code",
-        ];
-        const shouldUpdateCode =
-          !response.intent || codeChangingIntents.includes(response.intent);
-
-        console.log(
-          "[ChatPanel] Refinement orchestrator intent:",
-          response.intent,
-          "shouldUpdateCode:",
-          shouldUpdateCode
-        );
-
-        if (shouldUpdateCode && response.success) {
-          // Update code-related data
-          if (response.chatId) setChatId(response.chatId);
-          if (response.demoUrl) setDemoUrl(response.demoUrl);
-          if (response.screenshotUrl) setScreenshotUrl(response.screenshotUrl);
-          if (response.versionId) setVersionId(response.versionId);
-          if (response.files && response.files.length > 0)
-            setFiles(response.files);
-          if (response.code) setCurrentCode(response.code);
-
-          // AUTO-SAVE: Save to database after code changes
-          if (projectId && (response.demoUrl || response.code)) {
-            explicitSave().catch((err) => {
-              console.warn(
-                "[ChatPanel] Auto-save after refinement failed:",
-                err
-              );
-            });
-          }
-        }
-
-        // Update diamond balance regardless of intent
-        if (response.balance !== undefined) {
-          updateDiamonds(response.balance);
-        }
-
-        // All done for orchestrator path
-        setLoading(false);
-        return;
-      } else {
-        // Normal v0 refinement (80%+ of cases)
-        addMessage(
-          "assistant",
-          "✏️ Förfinar din sida med v0... Ett ögonblick."
-        );
-
-        // Collect media library info so the server can enhance the prompt once
-        const mediaLibraryForPrompt: MediaLibraryItem[] = mediaBank.items
-          .filter((item) => item.url)
-          .map((item) => ({
-            url: item.url,
-            filename: item.filename || "unknown",
-            description: item.description || item.prompt,
-          }));
-
-        response = await refineWebsite(
-          actualCurrentCode,
-          enhancedInstruction,
+      const response = await fetch("/api/orchestrate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt: enhancedInstruction,
           quality,
-          actualChatId || undefined,
-          mediaLibraryForPrompt.length > 0 ? mediaLibraryForPrompt : undefined
-        );
+          existingChatId: actualChatId || undefined,
+          existingCode: actualCurrentCode,
+          mediaLibrary:
+            mediaLibraryForPrompt.length > 0 ? mediaLibraryForPrompt : undefined,
+        }),
+      }).then((res) => res.json());
+
+      // Build attachments from orchestrator results
+      const attachments: MessageAttachment[] = [];
+
+      // Add workflow steps
+      if (response.workflowSteps && response.workflowSteps.length > 0) {
+        attachments.push({
+          type: "workflow",
+          steps: response.workflowSteps,
+        });
       }
 
-      if (response.success && response.message) {
-        addMessage("assistant", response.message);
+      // Add web search results
+      if (response.webSearchResults && response.webSearchResults.length > 0) {
+        attachments.push({
+          type: "web_search",
+          results: response.webSearchResults,
+        });
+      }
 
-        // Update chatId if we got a new one
-        if (response.chatId) {
-          setChatId(response.chatId);
-        }
-
-        // Update demoUrl if we got a new one
-        if (response.demoUrl) {
-          setDemoUrl(response.demoUrl);
-        }
-
-        // Update screenshotUrl if we got a new one
-        if (response.screenshotUrl) {
-          setScreenshotUrl(response.screenshotUrl);
-        }
-
-        // Update versionId if we got a new one
-        if (response.versionId) {
-          setVersionId(response.versionId);
-        }
-
-        // Update files if we got them
-        if (response.files && response.files.length > 0) {
-          setFiles(response.files);
-        }
-
-        // Update the code
-        if (response.code) {
-          setCurrentCode(response.code);
-        }
-
-        // Update diamond balance if returned
-        if (response.balance !== undefined) {
-          updateDiamonds(response.balance);
-        }
-
-        // AUTO-SAVE: Save to database after successful refinement
-        if (projectId && (response.demoUrl || response.code)) {
-          explicitSave().catch((err) => {
-            console.warn("[ChatPanel] Auto-save after refinement failed:", err);
+      // Add generated images to attachments AND media bank
+      if (response.generatedImages && response.generatedImages.length > 0) {
+        for (const img of response.generatedImages) {
+          attachments.push({
+            type: "image",
+            base64: img.base64,
+            prompt: img.prompt,
+            url: img.url, // Include blob URL if available
+          });
+          // Also add to media bank for later use
+          mediaBank.addGeneratedImage({
+            base64: img.base64,
+            prompt: img.prompt,
+            url: img.url,
           });
         }
-      } else {
-        // Check if error is due to credits/auth
+      }
+
+      // Show orchestrator results with attachments
+      if (attachments.length > 0) {
+        addMessage(
+          "assistant",
+          response.message || "✨ Klar!",
+          attachments
+        );
+      } else if (response.message) {
+        // Show message without attachments (e.g., clarify, chat_response)
+        addMessage("assistant", response.message);
+      }
+
+      // ═══════════════════════════════════════════════════════════════════
+      // SMART: Only update code/preview if intent involves code changes
+      // ═══════════════════════════════════════════════════════════════════
+      const codeChangingIntents = [
+        "code_only",
+        "image_and_code",
+        "web_search_and_code",
+      ];
+      const shouldUpdateCode =
+        !response.intent || codeChangingIntents.includes(response.intent);
+
+      console.log(
+        "[ChatPanel] Gatekeeper result - intent:",
+        response.intent,
+        "shouldUpdateCode:",
+        shouldUpdateCode
+      );
+
+      if (shouldUpdateCode && response.success) {
+        // Update code-related data
+        if (response.chatId) setChatId(response.chatId);
+        if (response.demoUrl) setDemoUrl(response.demoUrl);
+        if (response.screenshotUrl) setScreenshotUrl(response.screenshotUrl);
+        if (response.versionId) setVersionId(response.versionId);
+        if (response.files && response.files.length > 0)
+          setFiles(response.files);
+        if (response.code) setCurrentCode(response.code);
+
+        // AUTO-SAVE: Save to database after code changes
+        if (projectId && (response.demoUrl || response.code)) {
+          explicitSave().catch((err) => {
+            console.warn(
+              "[ChatPanel] Auto-save after refinement failed:",
+              err
+            );
+          });
+        }
+      }
+
+      // Update diamond balance regardless of intent
+      if (response.balance !== undefined) {
+        updateDiamonds(response.balance);
+      }
+
+      // Handle errors
+      if (!response.success && !response.message) {
         if (response.requireAuth) {
           setAuthModalReason("refine");
           setShowAuthModal(true);

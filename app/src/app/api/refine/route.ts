@@ -55,12 +55,17 @@ export async function POST(req: NextRequest) {
     };
     let quality = initialQuality;
 
-    console.log("[API/refine] Params:", {
-      chatId,
-      instruction: instruction?.substring(0, 50),
-      quality,
-      hasExistingCode: !!existingCode,
-    });
+    // ENHANCED LOGGING: Show full instruction for debugging
+    console.log("[API/refine] ═══════════════════════════════════════════════════");
+    console.log("[API/refine] REQUEST PARAMS:");
+    console.log("[API/refine]   ChatId:", chatId || "(new conversation)");
+    console.log("[API/refine]   Quality:", quality);
+    console.log("[API/refine]   HasExistingCode:", !!existingCode);
+    console.log("[API/refine]   Instruction length:", instruction?.length || 0);
+    console.log("[API/refine] ───────────────────────────────────────────────────");
+    console.log("[API/refine] FULL INSTRUCTION:");
+    console.log(instruction);
+    console.log("[API/refine] ═══════════════════════════════════════════════════");
 
     // Validate input
     if (!instruction || instruction.trim().length === 0) {
@@ -159,12 +164,25 @@ export async function POST(req: NextRequest) {
       mediaLibrary
     );
 
-    console.log(
-      "[API/refine] Response received, code length:",
-      result.code?.length || 0
-    );
-    console.log("[API/refine] Files count:", result.files?.length || 0);
-    console.log("[API/refine] Chat ID:", result.chatId);
+    // ENHANCED LOGGING: Show detailed response info
+    console.log("[API/refine] ═══════════════════════════════════════════════════");
+    console.log("[API/refine] RESPONSE RECEIVED:");
+    console.log("[API/refine]   Chat ID:", result.chatId);
+    console.log("[API/refine]   Demo URL:", result.demoUrl);
+    console.log("[API/refine]   Version ID:", result.versionId);
+    console.log("[API/refine]   Files count:", result.files?.length || 0);
+    console.log("[API/refine]   Main code length:", result.code?.length || 0);
+    if (result.files && result.files.length > 0) {
+      console.log("[API/refine] ───────────────────────────────────────────────────");
+      console.log("[API/refine] FILES RETURNED:");
+      result.files.slice(0, 10).forEach((file, i) => {
+        console.log(`[API/refine]   ${i + 1}. ${file.name} (${file.content?.length || 0} chars)`);
+      });
+      if (result.files.length > 10) {
+        console.log(`[API/refine]   ... and ${result.files.length - 10} more files`);
+      }
+    }
+    console.log("[API/refine] ═══════════════════════════════════════════════════");
 
     // Sanitize the code (remove v0/Vercel references)
     const cleanedCode = sanitizeCode(result.code);

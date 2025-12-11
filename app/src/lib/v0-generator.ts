@@ -696,6 +696,16 @@ IMPORTANT RULES FOR THIS REFINEMENT:
 
 The goal is to ENHANCE the current design, not start over.`;
 
+    // ENHANCED LOGGING: Log the full prompt being sent to v0
+    console.log("[v0-generator] ═══════════════════════════════════════════════════");
+    console.log("[v0-generator] FULL REFINEMENT PROMPT TO V0:");
+    console.log("[v0-generator] ───────────────────────────────────────────────────");
+    console.log(refinementInstruction);
+    console.log("[v0-generator] ───────────────────────────────────────────────────");
+    console.log("[v0-generator] Prompt length:", refinementInstruction.length, "chars");
+    console.log("[v0-generator] Model:", modelId);
+    console.log("[v0-generator] ═══════════════════════════════════════════════════");
+
     // Send the message
     // IMPORTANT: Must use responseMode: 'sync' to get full ChatDetail response
     let chat = (await v0.chats.sendMessage({
@@ -732,11 +742,26 @@ The goal is to ENHANCE the current design, not start over.`;
     const newDemoUrl = chat.latestVersion?.demoUrl;
     const newVersionId = chat.latestVersion?.id;
 
-    console.log("[v0-generator] Refinement complete:");
-    console.log("  → New demoUrl:", newDemoUrl);
-    console.log("  → New versionId:", newVersionId);
-    console.log("  → Status:", chat.latestVersion?.status);
-    console.log("  → Files count:", files.length);
+    // ENHANCED LOGGING: Show detailed result info
+    console.log("[v0-generator] ═══════════════════════════════════════════════════");
+    console.log("[v0-generator] REFINEMENT COMPLETE:");
+    console.log("[v0-generator]   → New demoUrl:", newDemoUrl);
+    console.log("[v0-generator]   → New versionId:", newVersionId);
+    console.log("[v0-generator]   → Status:", chat.latestVersion?.status);
+    console.log("[v0-generator]   → Total files:", files.length);
+    console.log("[v0-generator] ───────────────────────────────────────────────────");
+    console.log("[v0-generator] MAIN FILE SELECTED:", mainFile?.name || "(none)");
+    console.log("[v0-generator] Main file content length:", mainFile?.content?.length || 0, "chars");
+    console.log("[v0-generator] ───────────────────────────────────────────────────");
+    console.log("[v0-generator] ALL FILES RETURNED:");
+    files.slice(0, 15).forEach((file, i) => {
+      const isMain = file.name === mainFile?.name ? " ← MAIN" : "";
+      console.log(`[v0-generator]   ${i + 1}. ${file.name} (${file.content?.length || 0} chars)${isMain}`);
+    });
+    if (files.length > 15) {
+      console.log(`[v0-generator]   ... and ${files.length - 15} more files`);
+    }
+    console.log("[v0-generator] ═══════════════════════════════════════════════════");
 
     // Check if demoUrl changed (important for debugging cache issues)
     if (previousDemoUrl && newDemoUrl === previousDemoUrl) {
