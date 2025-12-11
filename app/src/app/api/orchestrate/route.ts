@@ -31,6 +31,11 @@ interface OrchestrateRequest {
   quality?: QualityLevel;
   existingChatId?: string;
   existingCode?: string;
+  // Project files for Code Crawler analysis
+  projectFiles?: Array<{
+    name: string;
+    content: string;
+  }>;
   mediaLibrary?: Array<{
     url: string;
     filename: string;
@@ -46,6 +51,7 @@ export async function POST(request: NextRequest) {
       quality = "standard",
       existingChatId,
       existingCode,
+      projectFiles,
       mediaLibrary,
     } = body;
 
@@ -87,6 +93,7 @@ export async function POST(request: NextRequest) {
       existingChatId: existingChatId || "(NEW CHAT)",
       hasExistingCode: !!existingCode,
       existingCodeLength: existingCode?.length || 0,
+      projectFilesCount: projectFiles?.length || 0,
       mediaLibraryCount: mediaLibrary?.length || 0,
     });
 
@@ -96,6 +103,7 @@ export async function POST(request: NextRequest) {
       quality,
       existingChatId,
       existingCode,
+      projectFiles,
       mediaLibrary,
     });
 

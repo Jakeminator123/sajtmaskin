@@ -254,6 +254,7 @@ export function ChatPanel({
     demoUrl,
     chatId,
     quality,
+    files, // For Code Crawler context
     addMessage,
     setLoading,
     setCurrentCode,
@@ -738,6 +739,8 @@ export function ChatPanel({
           quality,
           existingChatId: undefined,
           existingCode: undefined,
+          // Pass project files for Code Crawler analysis
+          projectFiles: files && files.length > 0 ? files : undefined,
           mediaLibrary:
             mediaLibraryForPrompt.length > 0
               ? mediaLibraryForPrompt
@@ -950,6 +953,9 @@ export function ChatPanel({
           description: item.description || item.prompt,
         }));
 
+      // Get latest files from store (same pattern as actualCurrentCode)
+      const actualFiles = latestState.files;
+
       const response = await fetch("/api/orchestrate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -958,6 +964,8 @@ export function ChatPanel({
           quality,
           existingChatId: actualChatId || undefined,
           existingCode: actualCurrentCode,
+          // Pass project files for Code Crawler analysis
+          projectFiles: actualFiles && actualFiles.length > 0 ? actualFiles : undefined,
           mediaLibrary:
             mediaLibraryForPrompt.length > 0
               ? mediaLibraryForPrompt
