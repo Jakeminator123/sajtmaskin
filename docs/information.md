@@ -75,13 +75,70 @@
 - Credits: `lib/database` deducts diamonds for authed users; guests limited to 1 generation/1 refine via `guest_usage`.
 - Results persisted to SQLite via project endpoints; demoUrl used for iframe preview; code/files stored for takeover/download.
 
-## Orchestrator Agent
+## Orchestrator Agent (Universal Gatekeeper - v2.0)
 
-- `lib/orchestrator-agent.ts` handles complex workflows (web search + code, image generation + code).
-- Intent classification: determines what user wants (image_only, code_only, image_and_code, web_search_only, etc.)
-- Only triggers v0 when code changes are needed.
-- Uses `gpt-4o-mini` for intent classification (fast, reliable).
-- `needsOrchestration()` checks if prompt needs special handling (keywords for images, web search, etc.)
+**Alla prompts** går nu genom orchestratorn som "gatekeeper" - både initial generation och refinement.
+
+### Flöde
+
+```
+Användarprompt
+     ↓
+┌─────────────────────────────────────────────────────────────────────┐
+│  STEG 1: SEMANTIC ROUTER (gpt-4o-mini, ~$0.15/1M tokens)           │
+│  Analyserar prompten semantiskt och klassificerar intent           │
+└─────────────────────────────────────────────────────────────────────┘
+     ↓
+┌─────────────────────────────────────────────────────────────────────┐
+│  STEG 2: CODE CRAWLER (endast vid needs_code_context)              │
+│  Söker igenom projektfiler efter relevanta kodsektioner            │
+│  Hittar t.ex. header-kod om användaren skrev "ändra headern"       │
+└─────────────────────────────────────────────────────────────────────┘
+     ↓
+┌─────────────────────────────────────────────────────────────────────┐
+│  STEG 3: PROMPT ENRICHER (om kodkontext hittades)                  │
+│  Kombinerar originalprompten med teknisk kontext för v0            │
+└─────────────────────────────────────────────────────────────────────┘
+     ↓
+┌─────────────────────────────────────────────────────────────────────┐
+│  STEG 4: ÅTGÄRD BASERAT PÅ INTENT                                  │
+│                                                                     │
+│  Intent              │ Åtgärd                                      │
+│  ────────────────────┼────────────────────────────────────────────│
+│  simple_code         │ Direkt till v0 → Kod ändras                 │
+│  needs_code_context  │ Berikad prompt till v0 → Kod ändras         │
+│  image_gen           │ Genererar bild → Mediabibliotek (INGEN v0)  │
+│  chat_response       │ Svarar direkt (INGEN v0)                    │
+│  clarify             │ Frågar användaren (INGEN v0)                │
+│  web_search          │ Söker, returnerar info (INGEN v0)           │
+│  image_and_code      │ Genererar bild + v0 → Kod ändras            │
+│  web_and_code        │ Söker + v0 → Kod ändras                     │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Filer
+
+- `lib/orchestrator-agent.ts` - Huvudorchestrator, koordinerar alla steg
+- `lib/semantic-router.ts` - GPT-4o-mini-baserad intent-klassificering
+- `lib/code-crawler.ts` - Söker igenom projektkod för kontext
+- `lib/prompt-enricher.ts` - Kombinerar prompt + kodkontext
+
+### Fördelar
+
+- **Billigare**: Undviker onödiga v0-anrop (kostar tokens + tar 15-30s)
+- **Smartare**: Semantisk analys istället för keyword-matching
+- **Snabbare**: image_only/chat_response/clarify returnerar direkt
+- **Precis**: Code Crawler ger v0 exakt kontext för vaga prompts
+
+### Planerad förbättring: Smart Clarify
+
+**Ej implementerad ännu** - Vid vaga prompts som "ändra länken" där flera alternativ finns:
+
+1. Code Crawler hittar alla matchande element
+2. Genererar konkret fråga: "Menar du [Products] i headern eller [Contact] i footern?"
+3. Användaren väljer → exakt instruktion till v0
+
+Kräver: Kodkontext till routern + ev. chatthistorik för konversationskontext.
 
 ## Media & Images
 

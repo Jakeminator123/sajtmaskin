@@ -6,27 +6,29 @@
  *
  * Hanterar all AI-interaktion och kodgenerering.
  *
- * TRE HUVUDFLÖDEN:
+ * UNIVERSAL GATEKEEPER (v2.0):
+ * ===========================
+ * ALLA prompts går genom orchestratorn som analyserar intent:
+ * - image_only: Genererar bild → Mediabibliotek (INGEN v0-anrop)
+ * - chat_response: Svarar direkt (INGEN v0-anrop)
+ * - clarify: Frågar användaren (INGEN v0-anrop)
+ * - code_only/image_and_code/web_and_code: Anropar v0 för kodändringar
+ *
+ * FLÖDEN:
  *
  * 1. EGEN PROMPT (initialPrompt):
- *    → generateWebsite(prompt) → v0 API → demoUrl + kod
+ *    → /api/orchestrate → semantic router → (ev. v0 API) → demoUrl + kod
  *
  * 2. V0 COMMUNITY TEMPLATE (templateId):
  *    → generateFromTemplate(templateId) → v0 API → demoUrl + kod
- *    → Används för externa v0-mallar (ej lokala)
  *
  * 3. LOKAL MALL (localTemplateId):
- *    a) Om mallen har v0TemplateId:
- *       → generateFromTemplate() → v0 API direkt (bästa kvalitet)
- *    b) Annars:
- *       → Läs lokal kod → Skicka till generateWebsite() → v0 återskapar
+ *    → Läser lokal kod → /api/orchestrate → v0 återskapar
  *
- * REFINEMENT (förfining av existerande kod):
- *    → refineWebsite(kod, instruktion, chatId) → v0 API → uppdaterad demoUrl
- *    → Använder samma chatId för konversationskontext
+ * REFINEMENT:
+ *    → /api/orchestrate med existingCode/chatId → smart intent-hantering
  *
- * VIKTIGT: Alla vägar leder till v0 API som ger oss demoUrl för iframe-preview.
- * Sandpack används ALDRIG för generering, endast som fallback för visning.
+ * VIKTIGT: v0:s demoUrl används för iframe-preview.
  */
 
 import { AttachmentChips } from "@/components/attachment-chips";
@@ -47,7 +49,7 @@ import { MediaDrawer } from "@/components/media-drawer";
 import { TextProcessorModal } from "@/components/text-processor-modal";
 import { Button } from "@/components/ui/button";
 import { useAvatar } from "@/contexts/AvatarContext";
-import { generateFromTemplate, generateWebsite } from "@/lib/api-client";
+import { generateFromTemplate } from "@/lib/api-client";
 import { useAuth } from "@/lib/auth-store";
 import type { MediaLibraryItem } from "@/lib/prompt-utils";
 import { useBuilderStore, type MessageAttachment } from "@/lib/store";
@@ -703,186 +705,131 @@ export function ChatPanel({
     setIsRefinementMode(false);
 
     try {
-      // Ensure loading is set even if generateWebsite throws synchronously
-      if (!isLoading) {
-        setLoading(true);
+      // ═══════════════════════════════════════════════════════════════════════
+      // UNIVERSAL GATEKEEPER: ALL prompts go through orchestrator
+      // The orchestrator uses gpt-4o-mini (cheap) as semantic router to decide:
+      // - image_only: Generate image, add to media bank, NO v0 call
+      // - chat_response: Just respond, NO v0 call
+      // - clarify: Ask for clarification, NO v0 call
+      // - web_search_only: Search and return, NO v0 call
+      // - code_only/image_and_code/web_and_code: Call v0 for actual code changes
+      // ═══════════════════════════════════════════════════════════════════════
+
+      console.log("[ChatPanel] Initial generation via universal gatekeeper:", {
+        promptPreview: enhancedPrompt.slice(0, 80) + "...",
+        type,
+        quality,
+      });
+
+      // Collect media library info
+      const mediaLibraryForPrompt: MediaLibraryItem[] = mediaBank.items
+        .filter((item) => item.url)
+        .map((item) => ({
+          url: item.url,
+          filename: item.filename || "unknown",
+          description: item.description || item.prompt,
+        }));
+
+      const response = await fetch("/api/orchestrate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt: enhancedPrompt,
+          quality,
+          existingChatId: undefined,
+          existingCode: undefined,
+          mediaLibrary:
+            mediaLibraryForPrompt.length > 0
+              ? mediaLibraryForPrompt
+              : undefined,
+        }),
+      }).then((res) => res.json());
+
+      // Build attachments from orchestrator results
+      const attachments: MessageAttachment[] = [];
+
+      // Add workflow steps
+      if (response.workflowSteps && response.workflowSteps.length > 0) {
+        attachments.push({
+          type: "workflow",
+          steps: response.workflowSteps,
+        });
       }
 
-      // Check if prompt needs orchestration (web search, image generation, etc.)
-      const useOrchestrator = needsOrchestration(enhancedPrompt);
-
-      let response;
-      if (useOrchestrator) {
-        // Use orchestrator for complex workflows
-        addMessage(
-          "assistant",
-          "🎯 Detekterar komplex workflow - använder orchestrator..."
-        );
-
-        response = await fetch("/api/orchestrate", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            prompt: enhancedPrompt,
-            quality,
-            existingChatId: undefined,
-            existingCode: undefined,
-          }),
-        }).then((res) => res.json());
-
-        // Build attachments from orchestrator results
-        const attachments: MessageAttachment[] = [];
-
-        // Add workflow steps
-        if (response.workflowSteps && response.workflowSteps.length > 0) {
-          attachments.push({
-            type: "workflow",
-            steps: response.workflowSteps,
-          });
-        }
-
-        // Add web search results
-        if (response.webSearchResults && response.webSearchResults.length > 0) {
-          attachments.push({
-            type: "web_search",
-            results: response.webSearchResults,
-          });
-        }
-
-        // Add generated images to attachments AND media bank
-        if (response.generatedImages && response.generatedImages.length > 0) {
-          for (const img of response.generatedImages) {
-            attachments.push({
-              type: "image",
-              base64: img.base64,
-              prompt: img.prompt,
-              url: img.url, // Include blob URL if available
-            });
-            // Also add to media bank for later use
-            mediaBank.addGeneratedImage({
-              base64: img.base64,
-              prompt: img.prompt,
-              url: img.url,
-            });
-          }
-        }
-
-        // Show orchestrator results with attachments
-        if (attachments.length > 0) {
-          addMessage(
-            "assistant",
-            response.message || "✨ Orchestrator slutförde arbetsflödet:",
-            attachments
-          );
-        } else if (response.message) {
-          // Show message without attachments (e.g., clarify, chat_response)
-          addMessage("assistant", response.message);
-        }
-
-        // ═══════════════════════════════════════════════════════════════════
-        // SMART: Only update code/preview if intent involves code changes
-        // Intents like "image_only", "web_search_only", "clarify", "chat_response"
-        // should NOT update the website code or preview!
-        // ═══════════════════════════════════════════════════════════════════
-        const codeChangingIntents = [
-          "code_only",
-          "image_and_code",
-          "web_search_and_code",
-        ];
-        const shouldUpdateCode =
-          !response.intent || codeChangingIntents.includes(response.intent);
-
-        console.log(
-          "[ChatPanel] Orchestrator intent:",
-          response.intent,
-          "shouldUpdateCode:",
-          shouldUpdateCode
-        );
-
-        if (shouldUpdateCode && response.success) {
-          // Only save code-related data if intent involves code changes
-          if (response.chatId) setChatId(response.chatId);
-          if (response.demoUrl) setDemoUrl(response.demoUrl);
-          if (response.versionId) setVersionId(response.versionId);
-          if (response.files && response.files.length > 0)
-            setFiles(response.files);
-          if (response.code) setCurrentCode(response.code);
-
-          // AUTO-SAVE: Save to database after code changes
-          if (projectId && (response.demoUrl || response.code)) {
-            explicitSave().catch((err) => {
-              console.warn(
-                "[ChatPanel] Auto-save after generation failed:",
-                err
-              );
-            });
-          }
-        }
-
-        // Update diamond balance regardless of intent
-        if (response.balance !== undefined) {
-          updateDiamonds(response.balance);
-        }
-
-        // All done for orchestrator path
-        setLoading(false);
-        return;
-      } else {
-        // Normal v0 generation
-        addMessage(
-          "assistant",
-          "🚀 Startar v0 för att skapa din webbplats... Detta kan ta 2-3 minuter."
-        );
-        response = await generateWebsite(enhancedPrompt, type, quality);
+      // Add web search results
+      if (response.webSearchResults && response.webSearchResults.length > 0) {
+        attachments.push({
+          type: "web_search",
+          results: response.webSearchResults,
+        });
       }
 
-      if (response.success && response.message) {
+      // Add generated images to attachments AND media bank
+      if (response.generatedImages && response.generatedImages.length > 0) {
+        for (const img of response.generatedImages) {
+          attachments.push({
+            type: "image",
+            base64: img.base64,
+            prompt: img.prompt,
+            url: img.url,
+          });
+          mediaBank.addGeneratedImage({
+            base64: img.base64,
+            prompt: img.prompt,
+            url: img.url,
+          });
+        }
+      }
+
+      // Show orchestrator results with attachments
+      if (attachments.length > 0) {
+        addMessage("assistant", response.message || "✨ Klar!", attachments);
+      } else if (response.message) {
         addMessage("assistant", response.message);
+      }
 
-        // Save chatId for future refinements
-        if (response.chatId) {
-          setChatId(response.chatId);
-        }
+      // ═══════════════════════════════════════════════════════════════════
+      // SMART: Only update code/preview if intent involves code changes
+      // ═══════════════════════════════════════════════════════════════════
+      const codeChangingIntents = [
+        "code_only",
+        "image_and_code",
+        "web_search_and_code",
+      ];
+      const shouldUpdateCode =
+        !response.intent || codeChangingIntents.includes(response.intent);
 
-        // Save demoUrl for iframe preview (v0's hosted preview)
-        if (response.demoUrl) {
-          setDemoUrl(response.demoUrl);
-        }
+      console.log(
+        "[ChatPanel] Gatekeeper result - intent:",
+        response.intent,
+        "shouldUpdateCode:",
+        shouldUpdateCode
+      );
 
-        // Save screenshotUrl for fallback preview
-        if (response.screenshotUrl) {
-          setScreenshotUrl(response.screenshotUrl);
-        }
-
-        // Save versionId for ZIP download
-        if (response.versionId) {
-          setVersionId(response.versionId);
-        }
-
-        // Save files if we got them
-        if (response.files && response.files.length > 0) {
+      if (shouldUpdateCode && response.success) {
+        if (response.chatId) setChatId(response.chatId);
+        if (response.demoUrl) setDemoUrl(response.demoUrl);
+        if (response.screenshotUrl) setScreenshotUrl(response.screenshotUrl);
+        if (response.versionId) setVersionId(response.versionId);
+        if (response.files && response.files.length > 0)
           setFiles(response.files);
-        }
+        if (response.code) setCurrentCode(response.code);
 
-        // Set the main code
-        if (response.code) {
-          setCurrentCode(response.code);
-        }
-
-        // Update diamond balance if returned
-        if (response.balance !== undefined) {
-          updateDiamonds(response.balance);
-        }
-
-        // AUTO-SAVE: Save to database after successful generation
-        // This ensures the user doesn't lose their work if they navigate away
+        // AUTO-SAVE
         if (projectId && (response.demoUrl || response.code)) {
           explicitSave().catch((err) => {
             console.warn("[ChatPanel] Auto-save after generation failed:", err);
           });
         }
-      } else {
-        // Check if error is due to credits/auth
+      }
+
+      // Update diamond balance regardless of intent
+      if (response.balance !== undefined) {
+        updateDiamonds(response.balance);
+      }
+
+      // Handle errors
+      if (!response.success && !response.message) {
         if (response.requireAuth) {
           setAuthModalReason("generation");
           setShowAuthModal(true);
@@ -1012,7 +959,9 @@ export function ChatPanel({
           existingChatId: actualChatId || undefined,
           existingCode: actualCurrentCode,
           mediaLibrary:
-            mediaLibraryForPrompt.length > 0 ? mediaLibraryForPrompt : undefined,
+            mediaLibraryForPrompt.length > 0
+              ? mediaLibraryForPrompt
+              : undefined,
         }),
       }).then((res) => res.json());
 
@@ -1055,11 +1004,7 @@ export function ChatPanel({
 
       // Show orchestrator results with attachments
       if (attachments.length > 0) {
-        addMessage(
-          "assistant",
-          response.message || "✨ Klar!",
-          attachments
-        );
+        addMessage("assistant", response.message || "✨ Klar!", attachments);
       } else if (response.message) {
         // Show message without attachments (e.g., clarify, chat_response)
         addMessage("assistant", response.message);
@@ -1096,10 +1041,7 @@ export function ChatPanel({
         // AUTO-SAVE: Save to database after code changes
         if (projectId && (response.demoUrl || response.code)) {
           explicitSave().catch((err) => {
-            console.warn(
-              "[ChatPanel] Auto-save after refinement failed:",
-              err
-            );
+            console.warn("[ChatPanel] Auto-save after refinement failed:", err);
           });
         }
       }
