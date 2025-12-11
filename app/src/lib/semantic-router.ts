@@ -207,13 +207,11 @@ REGLER:
       reasoning: parsed.reasoning || "Ingen förklaring",
     };
 
-    console.log("[SemanticRouter] Result:", {
-      intent: result.intent,
-      confidence: result.confidence,
-      needsCodeContext: result.needsCodeContext,
-      contextHints: result.contextHints,
-      reasoning: result.reasoning,
-    });
+    // Compact one-liner log (detailed log is in Orchestrator)
+    console.log(
+      `[SemanticRouter] → ${result.intent} (${Math.round(result.confidence * 100)}%)` +
+      (result.needsCodeContext ? ` [needs context: ${result.contextHints.join(", ")}]` : "")
+    );
 
     return result;
   } catch (error) {

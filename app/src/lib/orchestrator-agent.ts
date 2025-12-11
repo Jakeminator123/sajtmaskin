@@ -223,21 +223,15 @@ export async function orchestrateWorkflow(
     // Use the new semantic router for better intent detection
     // ═══════════════════════════════════════════════════════════════════════
 
-    console.log("[Orchestrator] === STEP 1: SEMANTIC ROUTING ===");
-    console.log("[Orchestrator] Full prompt:", userPrompt);
+    console.log("[Orchestrator] Step 1: Routing prompt...");
 
     let codeContext: CodeContext | undefined;
 
     // Use new semantic router
     const routerResult = await routePrompt(userPrompt, !!context.existingCode);
 
-    console.log("[Orchestrator] Router result:", {
-      intent: routerResult.intent,
-      confidence: routerResult.confidence,
-      needsCodeContext: routerResult.needsCodeContext,
-      contextHints: routerResult.contextHints,
-      reasoning: routerResult.reasoning,
-    });
+    // Log reasoning only (intent already logged by SemanticRouter)
+    console.log(`[Orchestrator] Reasoning: "${routerResult.reasoning}"`);
 
     workflowSteps.push(
       `Semantic Router: ${routerResult.intent} (${Math.round(
