@@ -30,17 +30,18 @@ import type { QualityLevel } from "@/lib/api-client";
 import { isBlobConfigured, uploadBlobFromBase64 } from "@/lib/blob-service";
 import { crawlCodeContext, type CodeContext } from "@/lib/code-crawler";
 import { debugLog } from "@/lib/debug";
-import {
-  enrichPrompt,
-  createEnrichmentSummary,
-} from "@/lib/prompt-enricher";
+import { enrichPrompt, createEnrichmentSummary } from "@/lib/prompt-enricher";
 import {
   routePrompt,
   shouldRoute,
   type RouterResult,
   type SemanticIntent,
 } from "@/lib/semantic-router";
-import { generateCode, refineCode, type GeneratedFile } from "@/lib/v0-generator";
+import {
+  generateCode,
+  refineCode,
+  type GeneratedFile,
+} from "@/lib/v0-generator";
 import OpenAI from "openai";
 export { enhancePromptForV0 } from "./prompt-utils";
 
@@ -140,6 +141,199 @@ function getOpenAIClient(): OpenAI {
     throw new Error("OPENAI_API_KEY environment variable is required");
   }
   return new OpenAI({ apiKey });
+}
+
+/**
+ * Extract context hints from a vague prompt for Smart Clarify.
+ * Tries to identify what the user might be referring to.
+ */
+function extractHintsFromPrompt(prompt: string): string[] {
+  const hints: string[] = [];
+  const lower = prompt.toLowerCase();
+
+  // Common UI elements
+  const uiElements = [
+    "länk",
+    "link",
+    "knapp",
+    "button",
+    "header",
+    "footer",
+    "navbar",
+    "nav",
+    "meny",
+    "menu",
+    "bild",
+    "image",
+    "text",
+    "rubrik",
+    "heading",
+    "sektion",
+    "section",
+    "formulär",
+    "form",
+    "input",
+    "fält",
+    "field",
+  ];
+
+  for (const element of uiElements) {
+    if (lower.includes(element)) {
+      hints.push(element);
+    }
+  }
+
+  // Extract specific words that might be component names or IDs
+  const words = prompt.split(/\s+/);
+  for (const word of words) {
+    // Capitalized words might be component names
+    if (word[0] && word[0] === word[0].toUpperCase() && word.length > 2) {
+      hints.push(word);
+    }
+  }
+
+  return hints.length > 0 ? hints : ["länk", "knapp", "element"]; // Default hints
+}
+
+/**
+ * Decide if we should run Code Crawler for clarify intent.
+ * We only run it when the prompt suggests a specific UI element or context.
+ */
+function shouldRunSmartClarify(
+  prompt: string,
+  routerResult: RouterResult
+): boolean {
+  // If router already says needs code context or has hints, run it
+  if (routerResult.needsCodeContext || routerResult.contextHints.length > 0) {
+    return true;
+  }
+
+  // Very short/vague prompt → skip
+  if (prompt.trim().length < 12) {
+    return false;
+  }
+
+  const lower = prompt.toLowerCase();
+  const uiKeywords = [
+    "header",
+    "footer",
+    "navbar",
+    "nav",
+    "menu",
+    "meny",
+    "hero",
+    "cta",
+    "button",
+    "knapp",
+    "link",
+    "länk",
+    "modal",
+    "dialog",
+    "popup",
+    "card",
+    "kort",
+    "form",
+    "fält",
+    "section",
+    "sektion",
+    "banner",
+    "sidebar",
+    "topbar",
+  ];
+
+  const hasUiKeyword = uiKeywords.some((kw) => lower.includes(kw));
+
+  // Only run Smart Clarify when the prompt references UI-ish terms
+  return hasUiKeyword;
+}
+
+/**
+ * Generate a smart clarify question based on code context.
+ * Finds all matching elements and asks user to specify which one.
+ */
+async function generateSmartClarifyQuestion(
+  userPrompt: string,
+  codeContext: CodeContext,
+  client: OpenAI
+): Promise<string> {
+  try {
+    // Build a summary of all found elements
+    const elementsSummary = codeContext.relevantFiles
+      .map((file, index) => {
+        // Try to extract element names/text from snippets
+        const snippet = file.snippet;
+
+        // Look for common patterns: links, buttons, headings
+        const linkMatches = snippet.match(/<a[^>]*>([^<]+)<\/a>/gi);
+        const buttonMatches = snippet.match(/<button[^>]*>([^<]+)<\/button>/gi);
+        const headingMatches = snippet.match(
+          /<h[1-6][^>]*>([^<]+)<\/h[1-6]>/gi
+        );
+
+        const elements: string[] = [];
+        if (linkMatches) {
+          linkMatches.forEach((match) => {
+            const text = match.replace(/<[^>]+>/g, "").trim();
+            if (text) elements.push(`länken "${text}"`);
+          });
+        }
+        if (buttonMatches) {
+          buttonMatches.forEach((match) => {
+            const text = match.replace(/<[^>]+>/g, "").trim();
+            if (text) elements.push(`knappen "${text}"`);
+          });
+        }
+        if (headingMatches) {
+          headingMatches.forEach((match) => {
+            const text = match.replace(/<[^>]+>/g, "").trim();
+            if (text) elements.push(`rubriken "${text}"`);
+          });
+        }
+
+        // If no specific elements found, describe the file location
+        if (elements.length === 0) {
+          const fileName = file.name.split("/").pop() || file.name;
+          elements.push(`element i ${fileName}`);
+        }
+
+        return `${index + 1}. ${elements.join(", ")} (${file.name})`;
+      })
+      .join("\n");
+
+    // Use AI to generate a natural question
+    const response = await client.responses.create({
+      model: "gpt-4o-mini",
+      instructions: `Du är en hjälpsam assistent. Användaren skrev en vag prompt och vi hittade flera matchande element i koden. 
+Generera en naturlig, vänlig fråga på svenska som hjälper användaren att välja vilket element de menar.
+
+ANVÄNDARENS PROMPT: "${userPrompt}"
+
+HITTADE ELEMENT:
+${elementsSummary}
+
+Generera en kort, tydlig fråga som listar alternativen. Exempel:
+"Jag hittade flera länkar. Menar du länken 'Products' i headern, länken 'Contact' i footern, eller länken 'About' i sidebar?"
+
+Svara ENDAST med frågan, inget annat.`,
+      input: "Generera clarify-fråga",
+      store: false,
+    });
+
+    const question = response.output_text?.trim() || "";
+
+    if (question) {
+      return question;
+    }
+
+    // Fallback: Generate question manually
+    const fileNames = codeContext.relevantFiles.map((f) => f.name).join(", ");
+    return `Jag hittade flera matchande element i filerna: ${fileNames}. Kan du vara mer specifik om vilket element du menar?`;
+  } catch (error) {
+    console.error("[Orchestrator] Smart Clarify generation failed:", error);
+    // Fallback to simple question
+    const fileCount = codeContext.relevantFiles.length;
+    return `Jag hittade ${fileCount} matchande element. Kan du vara mer specifik om vilket element du menar?`;
+  }
 }
 
 // Intent types - what does the user ACTUALLY want?
@@ -243,21 +437,38 @@ export async function orchestrateWorkflow(
     // ═══════════════════════════════════════════════════════════════════════
     // STEP 2: CODE CRAWLER (if needed)
     // Analyze project files to find relevant code context
+    // SMART CLARIFY: Only for clarify when UI hints are present
     // ═══════════════════════════════════════════════════════════════════════
 
-    if (routerResult.needsCodeContext && context.projectFiles?.length) {
+    const shouldRunCodeCrawler =
+      context.projectFiles?.length &&
+      (routerResult.needsCodeContext ||
+        (routerResult.intent === "clarify" &&
+          shouldRunSmartClarify(userPrompt, routerResult)));
+
+    if (shouldRunCodeCrawler) {
       console.log("[Orchestrator] === STEP 2: CODE CRAWLER ===");
       console.log(
         "[Orchestrator] Analyzing",
         context.projectFiles.length,
         "files with hints:",
-        routerResult.contextHints
+        routerResult.contextHints.length > 0
+          ? routerResult.contextHints
+          : "extracting from prompt"
       );
-      workflowSteps.push(`Code Crawler: Analyserar ${context.projectFiles.length} filer`);
+      workflowSteps.push(
+        `Code Crawler: Analyserar ${context.projectFiles.length} filer`
+      );
+
+      // For clarify intent, extract hints from prompt if not provided
+      const hints =
+        routerResult.contextHints.length > 0
+          ? routerResult.contextHints
+          : extractHintsFromPrompt(userPrompt);
 
       codeContext = await crawlCodeContext(
         context.projectFiles,
-        routerResult.contextHints,
+        hints,
         userPrompt
       );
 
@@ -274,12 +485,24 @@ export async function orchestrateWorkflow(
         workflowSteps.push(`Analys: ${codeContext.summary}`);
       } else {
         workflowSteps.push("Inga matchande kodsektioner hittades");
+        if (intent === "web_search_and_code") {
+          shouldApplyCodeChanges = false;
+          workflowSteps.push(
+            "Hoppar kodändring: ingen kodkontext hittad för färgändringen"
+          );
+        }
       }
     } else if (routerResult.needsCodeContext && !context.projectFiles?.length) {
       console.log(
         "[Orchestrator] Code context needed but no project files available"
       );
       workflowSteps.push("⚠️ Kodkontext behövs men inga filer tillgängliga");
+      if (intent === "web_search_and_code") {
+        shouldApplyCodeChanges = false;
+        workflowSteps.push(
+          "Hoppar kodändring: inga projektfiler att analysera"
+        );
+      }
     }
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -319,6 +542,12 @@ export async function orchestrateWorkflow(
       reasoning: classification.reasoning,
     });
 
+    // Track whether we should apply code changes (may be turned off later if no context)
+    let shouldApplyCodeChanges =
+      intent === "code_only" ||
+      intent === "image_and_code" ||
+      intent === "web_search_and_code";
+
     // ═══════════════════════════════════════════════════════════════════════
     // STEP 2: HANDLE EACH INTENT TYPE
     // ═══════════════════════════════════════════════════════════════════════
@@ -334,8 +563,39 @@ export async function orchestrateWorkflow(
       };
     }
 
-    // Handle clarify - ask user for more info
+    // Handle clarify - SMART CLARIFY: Use code context if available
     if (intent === "clarify") {
+      // SMART CLARIFY: If we have code context, generate specific questions
+      if (codeContext && codeContext.relevantFiles.length > 0) {
+        console.log("[Orchestrator] === SMART CLARIFY ===");
+        console.log(
+          "[Orchestrator] Found",
+          codeContext.relevantFiles.length,
+          "potential matches, generating specific question"
+        );
+
+        workflowSteps.push(
+          "Smart Clarify: Genererar specifik fråga baserat på kod"
+        );
+
+        // Generate smart clarify question using AI
+        const smartQuestion = await generateSmartClarifyQuestion(
+          userPrompt,
+          codeContext,
+          client
+        );
+
+        return {
+          success: true,
+          message: smartQuestion,
+          intent,
+          clarifyQuestion: smartQuestion,
+          workflowSteps,
+          codeContext, // Include for debugging
+        };
+      }
+
+      // Fallback to simple clarify if no code context
       return {
         success: true,
         message:
@@ -666,6 +926,23 @@ export async function orchestrateWorkflow(
       intent === "image_and_code" ||
       intent === "web_search_and_code"
     ) {
+      // If we decided to skip code changes (no context etc.), return with info instead of calling v0
+      if (!shouldApplyCodeChanges) {
+        const message =
+          webSearchContext && webSearchContext.length > 0
+            ? "Jag hittade färginfo men ingen tydlig plats i koden att uppdatera. Vill du ange sektion eller komponent?"
+            : "Jag hittade ingen kodkontext eller färginfo. Kan du ange sektion/komponent och vilka färger som ska sättas?";
+
+        return {
+          success: true,
+          message,
+          intent,
+          webSearchResults:
+            webSearchResults.length > 0 ? webSearchResults : undefined,
+          workflowSteps,
+        };
+      }
+
       // Build the code instruction using Prompt Enricher (NEW!)
       let codeInstruction = classification.codeInstruction || userPrompt;
 
@@ -677,7 +954,8 @@ export async function orchestrateWorkflow(
           originalPrompt: userPrompt,
           routerResult,
           codeContext,
-          webResults: webSearchResults.length > 0 ? webSearchResults : undefined,
+          webResults:
+            webSearchResults.length > 0 ? webSearchResults : undefined,
           generatedImages: generatedImages
             .filter((img) => img.url)
             .map((img) => ({
@@ -690,14 +968,18 @@ export async function orchestrateWorkflow(
           "[Orchestrator] Enriched prompt preview:",
           enrichedPrompt.substring(0, 500) + "..."
         );
-        console.log("[Orchestrator] Enriched prompt length:", enrichedPrompt.length);
+        console.log(
+          "[Orchestrator] Enriched prompt length:",
+          enrichedPrompt.length
+        );
 
         // Log enrichment summary for debugging
         const summary = createEnrichmentSummary({
           originalPrompt: userPrompt,
           routerResult,
           codeContext,
-          webResults: webSearchResults.length > 0 ? webSearchResults : undefined,
+          webResults:
+            webSearchResults.length > 0 ? webSearchResults : undefined,
         });
         console.log("[Orchestrator] Enrichment summary:", summary);
 
@@ -962,9 +1244,7 @@ export function needsOrchestration(prompt: string): boolean {
     lower.includes(kw)
   );
   const needsWebSearch = webSearchKeywords.some((kw) => lower.includes(kw));
-  const needsCodeContext = codeContextKeywords.some((kw) =>
-    lower.includes(kw)
-  );
+  const needsCodeContext = codeContextKeywords.some((kw) => lower.includes(kw));
 
   if (needsImageGen) {
     debugLog("[Orchestrator] TRIGGER - needs AI image generation");
@@ -985,4 +1265,3 @@ export function needsOrchestration(prompt: string): boolean {
   debugLog("[Orchestrator] SKIP - no complex workflow detected (send to v0)");
   return false;
 }
-

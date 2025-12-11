@@ -390,7 +390,8 @@ export async function refineWebsite(
  */
 export async function generateFromTemplate(
   templateId: string,
-  quality: QualityLevel = "standard"
+  quality: QualityLevel = "standard",
+  skipCache: boolean = true
 ): Promise<GenerateResponse> {
   try {
     const response = await fetch("/api/template", {
@@ -399,6 +400,7 @@ export async function generateFromTemplate(
       body: JSON.stringify({
         templateId,
         quality,
+        skipCache,
       }),
     });
 

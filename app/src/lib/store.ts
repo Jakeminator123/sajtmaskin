@@ -92,6 +92,14 @@ export interface GeneratedFile {
   content: string;
 }
 
+interface LastSavedSnapshot {
+  chatId?: string | null;
+  demoUrl?: string | null;
+  currentCode?: string | null;
+  files: GeneratedFile[];
+  messages: Message[];
+}
+
 interface BuilderState {
   // Project state
   projectId: string | null;
@@ -126,6 +134,7 @@ interface BuilderState {
   isSaving: boolean;
   lastSaved: Date | null;
   hasUserSaved: boolean; // User must explicitly save first before auto-save kicks in
+  lastSavedSnapshot?: LastSavedSnapshot; // One-step rollback target
 
   // Ownership state (for advanced features)
   isProjectOwned: boolean; // True when project är sparat för takeover
@@ -158,10 +167,11 @@ interface BuilderState {
     files?: Array<Record<string, unknown>> | GeneratedFile[];
     messages?: Array<Record<string, unknown>> | Message[];
   }) => void;
-  saveToDatabase: () => Promise<void>;
+  saveToDatabase: () => Promise<void>; // kept for compatibility; no longer auto-triggered
 
-  // Explicit save (user must save first)
-  explicitSave: () => Promise<void>; // Force save and enable auto-save
+  // Manual save / rollback
+  explicitSave: () => Promise<void>; // The only path to persist
+  revertToLastSaved: () => void; // One-step rollback (local)
   setHasUserSaved: (saved: boolean) => void;
 
   // Ownership actions (for advanced features)
@@ -244,6 +254,7 @@ export const useBuilderStore = create<BuilderState>()(
       isSaving: false,
       lastSaved: null,
       hasUserSaved: false, // Must be true for auto-save to work
+      lastSavedSnapshot: undefined,
       isProjectOwned: false, // Set to true after takeover
       ownershipMode: "none",
 
@@ -263,12 +274,7 @@ export const useBuilderStore = create<BuilderState>()(
             },
           ],
         }));
-        // Trigger auto-save after message (fire-and-forget, debounced internally)
-        get()
-          .saveToDatabase()
-          .catch((err) =>
-            console.error("[Store] Failed to save message:", err)
-          );
+        // Manual-only saving: no auto-save on message add
       },
 
       setLoading: (loading) => set({ isLoading: loading }),
@@ -290,62 +296,7 @@ export const useBuilderStore = create<BuilderState>()(
       setFiles: (files) => {
         set({ files });
 
-        // IMPORTANT: Auto-save files immediately when generated
-        // This ensures "Ta över" (takeover) works without requiring manual save
-        if (typeof window !== "undefined" && files.length > 0) {
-          // Use microtask to ensure state is updated before save
-          queueMicrotask(() => {
-            const state = get();
-
-            // Guard: only save if we have a project and files
-            if (!state.projectId || isTestMode()) {
-              return;
-            }
-
-            // DEDUP: Skip if save was done recently
-            const now = Date.now();
-            if (saveInProgress || now - lastSaveTime < MIN_SAVE_INTERVAL) {
-              debugLog("[Store] Skipping auto-save (recent save in progress)");
-              return;
-            }
-
-            debugLog("[Store] Auto-saving generated files", {
-              projectId: state.projectId,
-              filesCount: files.length,
-              hasDemoUrl: Boolean(state.demoUrl),
-              hasChatId: Boolean(state.chatId),
-            });
-
-            // Enable auto-save for this project (generation = implicit save)
-            set({ hasUserSaved: true });
-            saveInProgress = true;
-
-            // Save files directly - pass files as argument (not from state) to avoid stale data
-            apiSaveProjectData(state.projectId, {
-              chatId: state.chatId || undefined,
-              demoUrl: state.demoUrl || undefined,
-              currentCode: state.currentCode || undefined,
-              files: files, // Use the files argument, not state.files
-              messages: state.messages.map((msg) => ({
-                ...msg,
-                timestamp: msg.timestamp.toISOString(),
-              })),
-            })
-              .then(() => {
-                debugLog("[Store] Auto-save complete", {
-                  projectId: state.projectId,
-                });
-                set({ lastSaved: new Date() });
-                lastSaveTime = Date.now();
-              })
-              .catch((err) =>
-                console.error("[Store] Failed to auto-save files:", err)
-              )
-              .finally(() => {
-                saveInProgress = false;
-              });
-          });
-        }
+        // Manual-only saving: no auto-save on file changes
       },
 
       setCurrentCode: (code) => {
@@ -601,7 +552,17 @@ export const useBuilderStore = create<BuilderState>()(
               timestamp: msg.timestamp.toISOString(),
             })),
           });
-          set({ lastSaved: new Date(), isSaving: false });
+          set({
+            lastSaved: new Date(),
+            isSaving: false,
+            lastSavedSnapshot: {
+              chatId: state.chatId,
+              demoUrl: state.demoUrl,
+              currentCode: state.currentCode,
+              files: state.files,
+              messages: state.messages,
+            },
+          });
         } catch (error) {
           console.error("[Store] Failed to save to database:", error);
           // Reset hasUserSaved to previous state on error - don't falsely indicate saved
@@ -616,6 +577,23 @@ export const useBuilderStore = create<BuilderState>()(
           ownershipMode: owned ? mode : "none",
         });
         // Project ownership updated
+      },
+
+      // One-step rollback to last saved snapshot (local only)
+      revertToLastSaved: () => {
+        const snapshot = get().lastSavedSnapshot;
+        if (!snapshot) {
+          console.warn("[Store] No saved snapshot to revert to");
+          return;
+        }
+        set({
+          chatId: snapshot.chatId || null,
+          demoUrl: snapshot.demoUrl || null,
+          currentCode: snapshot.currentCode || null,
+          files: snapshot.files,
+          messages: snapshot.messages,
+          lastRefreshTimestamp: Date.now(), // force preview reload
+        });
       },
 
       // Check if project is owned (exists in takeover storage or GitHub)

@@ -132,8 +132,10 @@ TILLGÄNGLIGA INTENTS:
    Triggas av: Bildgenerering + placering i specifik sektion
 
 7. "clarify" - Otydligt vad användaren vill
-   Exempel: "ja", "ok", "hmm"
-   Triggas av: För kort/vagt meddelande
+   Exempel: "ja", "ok", "hmm", "ändra länken" (flera länkar finns)
+   Triggas av: För kort/vagt meddelande ELLER vaga referenser till element när flera alternativ finns
+   SMART CLARIFY: Om prompten verkar referera till kod-element (länk, knapp, etc.) men är vag → 
+   sätt needsCodeContext=true så att Code Crawler kan hitta alla alternativ
 
 8. "chat_response" - Användaren ställer en fråga, vill ha svar
    Exempel: "vad är Next.js?", "hur fungerar routing?"
@@ -158,9 +160,11 @@ SVARA MED EXAKT JSON (ingen markdown):
 
 REGLER:
 - needsCodeContext = true OM användaren refererar till specifika element
+- SMART CLARIFY: För clarify-intent, sätt needsCodeContext=true om prompten verkar referera till kod-element 
+  (t.ex. "ändra länken", "den knappen", "headern") - även om det är vagt. Detta aktiverar Smart Clarify.
 - contextHints = lista med nyckelord för att hitta rätt kod (t.ex. ["header", "nav", "Products"])
 - confidence ska vara lägre om meddelandet är vagt
-- Om intent är clarify, fyll i clarifyQuestion
+- Om intent är clarify, fyll i clarifyQuestion (kan vara tom om Smart Clarify ska generera frågan)
 - Om intent är chat_response, fyll i chatResponse`;
 
   try {

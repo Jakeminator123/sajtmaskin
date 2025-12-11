@@ -90,9 +90,10 @@ Användarprompt
 └─────────────────────────────────────────────────────────────────────┘
      ↓
 ┌─────────────────────────────────────────────────────────────────────┐
-│  STEG 2: CODE CRAWLER (endast vid needs_code_context)              │
+│  STEG 2: CODE CRAWLER (vid needs_code_context ELLER clarify)      │
 │  Söker igenom projektfiler efter relevanta kodsektioner            │
 │  Hittar t.ex. header-kod om användaren skrev "ändra headern"       │
+│  För clarify: hittar alla matchande element för Smart Clarify     │
 └─────────────────────────────────────────────────────────────────────┘
      ↓
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -109,7 +110,7 @@ Användarprompt
 │  needs_code_context  │ Berikad prompt till v0 → Kod ändras         │
 │  image_gen           │ Genererar bild → Mediabibliotek (INGEN v0)  │
 │  chat_response       │ Svarar direkt (INGEN v0)                    │
-│  clarify             │ Frågar användaren (INGEN v0)                │
+│  clarify             │ Smart Clarify: Frågar med alternativ (INGEN v0) │
 │  web_search          │ Söker, returnerar info (INGEN v0)           │
 │  image_and_code      │ Genererar bild + v0 → Kod ändras            │
 │  web_and_code        │ Söker + v0 → Kod ändras                     │
@@ -130,15 +131,25 @@ Användarprompt
 - **Snabbare**: image_only/chat_response/clarify returnerar direkt
 - **Precis**: Code Crawler ger v0 exakt kontext för vaga prompts
 
-### Planerad förbättring: Smart Clarify
+### Smart Clarify (IMPLEMENTERAD ✅)
 
-**Ej implementerad ännu** - Vid vaga prompts som "ändra länken" där flera alternativ finns:
+**Implementerad!** - Vid vaga prompts som "ändra länken" där flera alternativ finns:
 
-1. Code Crawler hittar alla matchande element
-2. Genererar konkret fråga: "Menar du [Products] i headern eller [Contact] i footern?"
-3. Användaren väljer → exakt instruktion till v0
+1. Semantic Router detekterar clarify-intent med needsCodeContext=true
+2. Code Crawler analyserar projektfiler och hittar alla matchande element
+3. AI genererar konkret fråga: "Menar du länken 'Products' i headern eller länken 'Contact' i footern?"
+4. Användaren väljer → exakt instruktion till v0
 
-Kräver: Kodkontext till routern + ev. chatthistorik för konversationskontext.
+**Hur det fungerar:**
+- När clarify-intent detekteras OCH projektfiler finns → Code Crawler körs automatiskt
+- Systemet extraherar länkar, knappar, rubriker etc. från kodkontexten
+- En naturlig fråga genereras med alla alternativ listade
+- Användaren kan sedan ge specifik instruktion
+
+**Teknisk implementation:**
+- `generateSmartClarifyQuestion()` i orchestrator-agent.ts
+- Körs när `intent === "clarify"` OCH `codeContext.relevantFiles.length > 0`
+- Använder gpt-4o-mini för att generera naturliga frågor baserat på kodkontext
 
 ## Media & Images
 
