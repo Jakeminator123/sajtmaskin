@@ -43,6 +43,7 @@ export async function POST(request: NextRequest) {
       const cached = getCachedTemplate(templateId);
       if (cached) {
         console.log("[API /template] Returning CACHED result for:", templateId);
+        console.log("[API /template] Note: chatId intentionally omitted to prevent cross-project pollution");
 
         // Parse cached files
         let files = null;
@@ -54,13 +55,16 @@ export async function POST(request: NextRequest) {
           }
         }
 
+        // NOTE: chatId is intentionally NOT returned from cache!
+        // Each project must create its own v0 conversation to avoid cross-project pollution.
+        // The first refinement will create a new chatId for this project.
         return NextResponse.json({
           success: true,
           message: "Laddad från cache!",
           code: cached.code || "",
           files: files,
-          chatId: cached.chat_id,
-          demoUrl: cached.demo_url,
+          // chatId: cached.chat_id,  ← REMOVED - each project gets its own conversation
+          demoUrl: cached.demo_url, // demoUrl is safe to cache (just for preview)
           model: cached.model,
           cached: true,
         });
