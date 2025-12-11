@@ -435,7 +435,30 @@ export async function orchestrateWorkflow(
     workflowSteps.push(`Reasoning: ${routerResult.reasoning}`);
 
     // ═══════════════════════════════════════════════════════════════════════
-    // STEP 2: CODE CRAWLER (if needed)
+    // STEP 2A: MAP SEMANTIC INTENT TO LEGACY INTENT (moved here for use below)
+    // ═══════════════════════════════════════════════════════════════════════
+
+    const intentMapping: Record<SemanticIntent, UserIntent> = {
+      simple_code: "code_only",
+      needs_code_context: "code_only",
+      web_search: "web_search_only",
+      image_gen: "image_only",
+      web_and_code: "web_search_and_code",
+      image_and_code: "image_and_code",
+      clarify: "clarify",
+      chat_response: "chat_response",
+    };
+
+    const intent: UserIntent = intentMapping[routerResult.intent];
+
+    // Track whether we should apply code changes (may be turned off if no context)
+    let shouldApplyCodeChanges =
+      intent === "code_only" ||
+      intent === "image_and_code" ||
+      intent === "web_search_and_code";
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // STEP 2B: CODE CRAWLER (if needed)
     // Analyze project files to find relevant code context
     // SMART CLARIFY: Only for clarify when UI hints are present
     // ═══════════════════════════════════════════════════════════════════════
@@ -506,25 +529,10 @@ export async function orchestrateWorkflow(
     }
 
     // ═══════════════════════════════════════════════════════════════════════
-    // STEP 3: MAP SEMANTIC INTENT TO LEGACY INTENT
+    // STEP 3: BUILD CLASSIFICATION OBJECT
     // For backward compatibility with existing code
     // ═══════════════════════════════════════════════════════════════════════
 
-    // Map new SemanticIntent to old UserIntent
-    const intentMapping: Record<SemanticIntent, UserIntent> = {
-      simple_code: "code_only",
-      needs_code_context: "code_only", // After enrichment, treated as code_only
-      web_search: "web_search_only",
-      image_gen: "image_only",
-      web_and_code: "web_search_and_code",
-      image_and_code: "image_and_code",
-      clarify: "clarify",
-      chat_response: "chat_response",
-    };
-
-    const intent: UserIntent = intentMapping[routerResult.intent];
-
-    // Build classification object for backward compatibility
     const classification = {
       intent,
       reasoning: routerResult.reasoning,
@@ -542,14 +550,8 @@ export async function orchestrateWorkflow(
       reasoning: classification.reasoning,
     });
 
-    // Track whether we should apply code changes (may be turned off later if no context)
-    let shouldApplyCodeChanges =
-      intent === "code_only" ||
-      intent === "image_and_code" ||
-      intent === "web_search_and_code";
-
     // ═══════════════════════════════════════════════════════════════════════
-    // STEP 2: HANDLE EACH INTENT TYPE
+    // STEP 4: HANDLE EACH INTENT TYPE
     // ═══════════════════════════════════════════════════════════════════════
 
     // Handle chat_response - just return the response

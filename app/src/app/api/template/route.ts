@@ -1,5 +1,6 @@
 import { cacheTemplateResult, getCachedTemplate } from "@/lib/database";
 import { findMainFile, generateFromTemplate } from "@/lib/v0-generator";
+import { getCurrentUser } from "@/lib/auth";
 import { NextRequest, NextResponse } from "next/server";
 
 // Allow 5 minutes for v0 API responses
@@ -29,21 +30,33 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Get user ID for user-specific caching
+    const user = await getCurrentUser(request);
+    const userId = user?.id || null;
+
     console.log(
       "[API /template] Initializing from template:",
       templateId,
       "quality:",
-      quality
+      quality,
+      userId ? `(user: ${userId})` : "(anonymous)"
     );
 
     // ═══════════════════════════════════════════════════════════════════════════
     // CACHE CHECK: Return cached result if available (avoids duplicate v0 chats)
+    // IMPORTANT: Cache is now per-user to prevent cross-user pollution
     // ═══════════════════════════════════════════════════════════════════════════
     if (!skipCache) {
-      const cached = getCachedTemplate(templateId);
+      const cached = getCachedTemplate(templateId, userId);
       if (cached) {
-        console.log("[API /template] Returning CACHED result for:", templateId);
-        console.log("[API /template] Note: chatId intentionally omitted to prevent cross-project pollution");
+        console.log(
+          "[API /template] Returning CACHED result for:",
+          templateId,
+          userId ? `(user: ${userId})` : "(anonymous)"
+        );
+        console.log(
+          "[API /template] Note: Using cached chatId from user-specific cache"
+        );
 
         // Parse cached files
         let files = null;
@@ -55,16 +68,15 @@ export async function POST(request: NextRequest) {
           }
         }
 
-        // NOTE: chatId is intentionally NOT returned from cache!
-        // Each project must create its own v0 conversation to avoid cross-project pollution.
-        // The first refinement will create a new chatId for this project.
+        // IMPORTANT: Return cached chatId for this user's template instance
+        // This allows users to continue their own template conversations without creating new chats
         return NextResponse.json({
           success: true,
           message: "Laddad från cache!",
           code: cached.code || "",
           files: files,
-          // chatId: cached.chat_id,  ← REMOVED - each project gets its own conversation
-          demoUrl: cached.demo_url, // demoUrl is safe to cache (just for preview)
+          chatId: cached.chat_id, // Return chatId for user's own template instance
+          demoUrl: cached.demo_url,
           model: cached.model,
           cached: true,
         });
@@ -103,19 +115,27 @@ export async function POST(request: NextRequest) {
     const mainCode = mainFile?.content || "";
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // CACHE RESULT: Save to database for future requests
+    // CACHE RESULT: Save to database for future requests (per-user cache)
     // ═══════════════════════════════════════════════════════════════════════════
     if (result.chatId) {
       try {
-        cacheTemplateResult(templateId, {
-          chatId: result.chatId,
-          demoUrl: result.demoUrl,
-          versionId: result.versionId,
-          files: result.files,
-          code: mainCode || result.code,
-          model: result.model,
-        });
-        console.log("[API /template] Cached result for:", templateId);
+        cacheTemplateResult(
+          templateId,
+          {
+            chatId: result.chatId,
+            demoUrl: result.demoUrl,
+            versionId: result.versionId,
+            files: result.files,
+            code: mainCode || result.code,
+            model: result.model,
+          },
+          userId
+        );
+        console.log(
+          "[API /template] Cached result for:",
+          templateId,
+          userId ? `(user: ${userId})` : "(anonymous)"
+        );
       } catch (cacheError) {
         console.warn("[API /template] Failed to cache result:", cacheError);
         // Continue anyway - caching is best-effort

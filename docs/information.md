@@ -200,6 +200,27 @@ Användarprompt
 - Category pages auto-create projects and redirect with params; wizard saves `company_profiles`.
 - Admin panel exposes destructive cleanup; MEGA CLEANUP wipes v0, Vercel, SQLite, Redis, uploads.
 
+## Storage & Cleanup Management
+
+### Template Cache (Per-User)
+- **User-specific caching**: Template cache is now separated per user (`user_id` in `template_cache` table)
+- **Prevents cross-user pollution**: Each user gets their own cached template instances
+- **ChatId reuse**: Users can continue their own template conversations using cached `chatId`
+- **Auto-expiry**: Template cache expires after 7 days
+- **Cleanup**: Orphaned template cache entries (deleted users) are cleaned up automatically
+
+### Project Cleanup
+- **Unused projects**: Projects that were never saved (no `chat_id` or `demo_url`) are deleted after 24 hours
+- **Anonymous projects**: Deleted after 7 days of inactivity
+- **User projects**: Soft-delete after 90 days, hard-delete after 120 days total
+- **Orphaned data**: Template cache, project files, and images are cleaned up when projects are deleted
+
+### Redis Usage
+- **Temporary cache only**: Redis is used for short-lived cache (1-24h TTL)
+- **Not for persistence**: All persistent data is stored in SQLite
+- **Active projects**: Redis cache is refreshed on read to keep active projects alive
+- **Auto-expiry**: Redis keys expire automatically based on TTL
+
 ## Open Questions / Risks
 
 - Production secrets/keys must be set; many features are no-ops without them (v0, Stripe, OAuth, Redis).

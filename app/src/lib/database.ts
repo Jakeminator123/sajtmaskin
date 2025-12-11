@@ -369,10 +369,12 @@ function initializeDatabase(
   // Template cache - stores full v0 API responses to avoid duplicate calls
   // When a user selects a template, we cache the result so subsequent selections
   // of the same template don't create new v0 chats
+  // IMPORTANT: Cache is per user to prevent cross-user pollution
   database.exec(`
     CREATE TABLE IF NOT EXISTS template_cache (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
-      template_id TEXT NOT NULL UNIQUE,
+      template_id TEXT NOT NULL,
+      user_id TEXT,
       chat_id TEXT NOT NULL,
       demo_url TEXT,
       version_id TEXT,
@@ -380,9 +382,26 @@ function initializeDatabase(
       code TEXT,
       model TEXT,
       created_at TEXT DEFAULT (datetime('now')),
-      expires_at TEXT DEFAULT (datetime('now', '+7 days'))
+      expires_at TEXT DEFAULT (datetime('now', '+7 days')),
+      UNIQUE(template_id, user_id)
     )
   `);
+
+  // Add user_id column if it doesn't exist (migration for existing databases)
+  try {
+    database.exec(`ALTER TABLE template_cache ADD COLUMN user_id TEXT`);
+  } catch {
+    // Column already exists
+  }
+
+  // Create index for faster lookups
+  try {
+    database.exec(
+      `CREATE INDEX IF NOT EXISTS idx_template_cache_user ON template_cache(template_id, user_id)`
+    );
+  } catch {
+    // Index already exists
+  }
 
   // Company profiles - stores wizard data and research for reuse
   database.exec(`
@@ -1119,6 +1138,7 @@ export function getAllTemplateScreenshots(): TemplateScreenshot[] {
 export interface CachedTemplateResult {
   id: number;
   template_id: string;
+  user_id: string | null;
   chat_id: string;
   demo_url: string | null;
   version_id: string | null;
@@ -1142,41 +1162,58 @@ export interface TemplateResultInput {
  * Get cached template result if it exists and hasn't expired
  */
 export function getCachedTemplate(
-  templateId: string
+  templateId: string,
+  userId?: string | null
 ): CachedTemplateResult | null {
   const db = getDb();
 
+  // Use user-specific cache if userId provided, otherwise fallback to global cache (for backward compatibility)
   const stmt = db.prepare(`
     SELECT * FROM template_cache 
     WHERE template_id = ? 
+    AND (user_id = ? OR (user_id IS NULL AND ? IS NULL))
     AND datetime(expires_at) > datetime('now')
+    ORDER BY user_id DESC
+    LIMIT 1
   `);
-  const result = stmt.get(templateId) as CachedTemplateResult | undefined;
+  const result = stmt.get(templateId, userId || null, userId || null) as
+    | CachedTemplateResult
+    | undefined;
 
   if (result) {
-    console.log("[DB] Template cache HIT for:", templateId);
+    console.log(
+      "[DB] Template cache HIT for:",
+      templateId,
+      userId ? `(user: ${userId})` : "(global)"
+    );
     return result;
   }
 
-  console.log("[DB] Template cache MISS for:", templateId);
+  console.log(
+    "[DB] Template cache MISS for:",
+    templateId,
+    userId ? `(user: ${userId})` : "(global)"
+  );
   return null;
 }
 
 /**
  * Cache a template result (upsert - updates if exists)
+ * IMPORTANT: Cache is per user to prevent cross-user pollution
  */
 export function cacheTemplateResult(
   templateId: string,
-  result: TemplateResultInput
+  result: TemplateResultInput,
+  userId?: string | null
 ): CachedTemplateResult {
   const db = getDb();
 
   const filesJson = result.files ? JSON.stringify(result.files) : null;
 
   const stmt = db.prepare(`
-    INSERT INTO template_cache (template_id, chat_id, demo_url, version_id, files_json, code, model, expires_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now', '+7 days'))
-    ON CONFLICT(template_id) DO UPDATE SET
+    INSERT INTO template_cache (template_id, user_id, chat_id, demo_url, version_id, files_json, code, model, expires_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, datetime('now', '+7 days'))
+    ON CONFLICT(template_id, user_id) DO UPDATE SET
       chat_id = excluded.chat_id,
       demo_url = excluded.demo_url,
       version_id = excluded.version_id,
@@ -1189,6 +1226,7 @@ export function cacheTemplateResult(
 
   stmt.run(
     templateId,
+    userId || null,
     result.chatId,
     result.demoUrl || null,
     result.versionId || null,
@@ -1197,8 +1235,12 @@ export function cacheTemplateResult(
     result.model || null
   );
 
-  console.log("[DB] Template cached:", templateId);
-  const cached = getCachedTemplate(templateId);
+  console.log(
+    "[DB] Template cached:",
+    templateId,
+    userId ? `(user: ${userId})` : "(global)"
+  );
+  const cached = getCachedTemplate(templateId, userId);
   if (!cached) {
     throw new Error(`Failed to retrieve cached template: ${templateId}`);
   }

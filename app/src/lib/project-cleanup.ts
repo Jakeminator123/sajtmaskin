@@ -23,6 +23,9 @@ const CLEANUP_CONFIG = {
   // Days before anonymous session projects are deleted
   ANONYMOUS_PROJECT_TTL_DAYS: 7,
 
+  // Hours before deleting projects that were never saved (draft projects)
+  UNSAVED_PROJECT_TTL_HOURS: 24,
+
   // Days before showing "inactive" warning to authenticated users
   USER_PROJECT_INACTIVE_WARNING_DAYS: 30,
 
@@ -44,6 +47,7 @@ const CLEANUP_CONFIG = {
 
 export interface CleanupResult {
   deletedAnonymousProjects: number;
+  deletedUnsaveProjects: number;
   softDeletedUserProjects: number;
   hardDeletedProjects: number;
   freedStorageBytes: number;
@@ -58,6 +62,7 @@ export async function runCleanup(): Promise<CleanupResult> {
   const db = getDb();
   const result: CleanupResult = {
     deletedAnonymousProjects: 0,
+    deletedUnsaveProjects: 0,
     softDeletedUserProjects: 0,
     hardDeletedProjects: 0,
     freedStorageBytes: 0,
@@ -88,6 +93,30 @@ export async function runCleanup(): Promise<CleanupResult> {
     result.deletedAnonymousProjects++;
   }
 
+  // 1b. Delete projects that were never saved (no chat_id or demo_url in project_data)
+  // These are projects created but never actually used
+  const unsavedCutoff = new Date();
+  unsavedCutoff.setHours(
+    unsavedCutoff.getHours() - CLEANUP_CONFIG.UNSAVED_PROJECT_TTL_HOURS
+  );
+
+  const unsavedProjects = db
+    .prepare(
+      `
+    SELECT p.id FROM projects p
+    LEFT JOIN project_data pd ON p.id = pd.project_id
+    WHERE (pd.chat_id IS NULL OR pd.chat_id = '')
+    AND (pd.demo_url IS NULL OR pd.demo_url = '')
+    AND datetime(p.created_at) < datetime(?)
+  `
+    )
+    .all(unsavedCutoff.toISOString()) as Array<{ id: string }>;
+
+  for (const project of unsavedProjects) {
+    deleteProjectAndData(project.id);
+    result.deletedUnsaveProjects++;
+  }
+
   // 2. Clean up expired template cache
   const expiredCaches = db
     .prepare(
@@ -95,6 +124,16 @@ export async function runCleanup(): Promise<CleanupResult> {
     )
     .run();
   result.expiredTemplateCaches = expiredCaches.changes;
+  
+  // 2b. Clean up template cache entries for deleted users
+  const orphanedTemplateCache = db
+    .prepare(
+      `DELETE FROM template_cache 
+       WHERE user_id IS NOT NULL 
+       AND user_id NOT IN (SELECT id FROM users)`
+    )
+    .run();
+  console.log("[Cleanup] Removed", orphanedTemplateCache.changes, "orphaned template cache entries");
 
   // 3. Clean up orphaned project files (no matching project)
   const orphanedFiles = db
@@ -118,6 +157,7 @@ export async function runCleanup(): Promise<CleanupResult> {
 
   console.log("[Cleanup] Completed:", {
     deletedAnonymous: result.deletedAnonymousProjects,
+    deletedUnsave: result.deletedUnsaveProjects,
     expiredCaches: result.expiredTemplateCaches,
     orphanedFiles: orphanedFiles.changes,
     orphanedImages: orphanedImages.changes,
