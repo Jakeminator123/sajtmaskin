@@ -9,12 +9,16 @@
  *
  * Video generation is asynchronous - it can take 30-120 seconds.
  * Jobs are stored in Redis for multi-instance deployments.
+ *
+ * IMPORTANT: OpenAI video URLs expire after 1 hour!
+ * When video is complete, we download and save to Blob storage for permanent URL.
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI from "openai";
 import { saveVideoJob, updateVideoJob, VideoJob } from "@/lib/redis";
 import { getCurrentUser } from "@/lib/auth";
+import { uploadBlob, generateUniqueFilename } from "@/lib/blob-service";
 
 // Allow up to 5 minutes for long-running video operations
 export const maxDuration = 300;
@@ -150,11 +154,17 @@ export async function POST(request: NextRequest) {
 
 /**
  * GET - Poll for video status or download completed video
+ *
+ * When video is completed:
+ * 1. Download the MP4 from OpenAI using downloadContent()
+ * 2. Save to Vercel Blob for permanent URL (OpenAI URLs expire after 1h)
+ * 3. Return the permanent Blob URL
  */
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const videoId = searchParams.get("id");
+    const userId = searchParams.get("userId"); // Required to save to user's blob storage
 
     if (!videoId) {
       return NextResponse.json({ error: "Video ID krävs" }, { status: 400 });
@@ -162,10 +172,10 @@ export async function GET(request: NextRequest) {
 
     console.log(`[Video API] Polling status for: ${videoId}`);
 
+    const client = getOpenAIClient();
+
     // Check video status from OpenAI
-    const video = (await getOpenAIClient().videos.retrieve(
-      videoId as string
-    )) as {
+    const video = (await client.videos.retrieve(videoId as string)) as {
       status: string;
       download_url?: string;
       url?: string;
@@ -187,27 +197,108 @@ export async function GET(request: NextRequest) {
     // Update job in Redis
     await updateVideoJob(videoId, { status });
 
-    // If completed, include download info
+    // If completed, download and save to blob storage
     if (status === "completed") {
-      // Get video download URL from the video object
-      // Note: Sora API may return download_url directly or require separate call
-      const downloadUrl = video.download_url || video.url || undefined;
+      console.log(`[Video API] Video completed, downloading content...`);
 
-      // Update Redis with completion info
-      await updateVideoJob(videoId, {
-        status: "completed",
-        completedAt: new Date().toISOString(),
-        downloadUrl,
-      });
+      try {
+        // Download the actual video content from OpenAI
+        // IMPORTANT: OpenAI video URLs expire after 1 hour, so we must save to blob
+        const videoContent = await client.videos.downloadContent(videoId);
+        const videoBuffer = Buffer.from(await videoContent.arrayBuffer());
 
-      return NextResponse.json({
-        success: true,
-        videoId,
-        status: "completed",
-        downloadUrl,
-        duration: video.duration || null,
-        message: "Din video är klar!",
-      });
+        console.log(
+          `[Video API] Downloaded ${videoBuffer.length} bytes, saving to blob...`
+        );
+
+        // Generate unique filename and save to blob
+        const filename = generateUniqueFilename("video.mp4", "sora");
+
+        // Get userId from Redis job if not provided in query
+        let effectiveUserId = userId;
+        if (!effectiveUserId) {
+          const { getVideoJob } = await import("@/lib/redis");
+          const job = await getVideoJob(videoId);
+          effectiveUserId = job?.userId;
+        }
+
+        if (!effectiveUserId) {
+          console.warn("[Video API] No userId for blob storage, using temp URL");
+          // Fallback: return OpenAI URL (will expire in 1h)
+          const tempUrl = video.download_url || video.url;
+          return NextResponse.json({
+            success: true,
+            videoId,
+            status: "completed",
+            downloadUrl: tempUrl,
+            duration: video.duration || null,
+            message: "Video klar! (temporär URL - ladda ner inom 1h)",
+            warning: "URL utgår om 1 timme. Ladda ner direkt.",
+          });
+        }
+
+        // Upload to Vercel Blob for permanent storage
+        const blobResult = await uploadBlob({
+          userId: effectiveUserId,
+          filename,
+          buffer: videoBuffer,
+          contentType: "video/mp4",
+          category: "media",
+        });
+
+        if (blobResult) {
+          console.log(`[Video API] ✅ Saved to blob: ${blobResult.url}`);
+
+          // Update Redis with permanent blob URL
+          await updateVideoJob(videoId, {
+            status: "completed",
+            completedAt: new Date().toISOString(),
+            downloadUrl: blobResult.url,
+          });
+
+          return NextResponse.json({
+            success: true,
+            videoId,
+            status: "completed",
+            downloadUrl: blobResult.url,
+            duration: video.duration || null,
+            message: "Din video är klar och sparad!",
+            storageType: "blob",
+          });
+        }
+
+        // Blob upload failed, return temporary URL
+        console.warn("[Video API] Blob upload failed, using temp URL");
+        const tempUrl = video.download_url || video.url;
+        await updateVideoJob(videoId, {
+          status: "completed",
+          completedAt: new Date().toISOString(),
+          downloadUrl: tempUrl,
+        });
+
+        return NextResponse.json({
+          success: true,
+          videoId,
+          status: "completed",
+          downloadUrl: tempUrl,
+          duration: video.duration || null,
+          message: "Video klar! (temporär URL)",
+          warning: "Kunde inte spara permanent. URL utgår om 1 timme.",
+        });
+      } catch (downloadError) {
+        console.error("[Video API] Failed to download video:", downloadError);
+        // Fallback to temp URL if download fails
+        const tempUrl = video.download_url || video.url;
+        return NextResponse.json({
+          success: true,
+          videoId,
+          status: "completed",
+          downloadUrl: tempUrl,
+          duration: video.duration || null,
+          message: "Video klar!",
+          warning: "Kunde inte ladda ner. Försök igen.",
+        });
+      }
     }
 
     // If failed

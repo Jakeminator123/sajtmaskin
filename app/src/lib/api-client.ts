@@ -387,11 +387,13 @@ export async function refineWebsite(
 /**
  * Generate website from a v0 community template.
  * Calls POST /api/template which initializes from a v0 template.
+ *
+ * @param skipCache - If false (default), uses per-user template cache to avoid redundant v0 calls
  */
 export async function generateFromTemplate(
   templateId: string,
   quality: QualityLevel = "standard",
-  skipCache: boolean = true
+  skipCache: boolean = false
 ): Promise<GenerateResponse> {
   try {
     const response = await fetch("/api/template", {

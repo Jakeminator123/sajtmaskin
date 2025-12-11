@@ -6,9 +6,11 @@
 import type { WebsiteContent } from "@/types/audit";
 
 // Crawl settings
-const MAX_PAGES = 3; // root + up to two strong internal pages
-const PRIMARY_MIN_WORDS = 120; // minimum words to accept a page as primary
-const SECONDARY_MIN_WORDS = 60; // minimum words to include a secondary page
+const MAX_PAGES = 4; // root + up to three strong internal pages
+const PRIMARY_MIN_WORDS = 160; // prefer pages with real copy, not just hero
+const SECONDARY_MIN_WORDS = 80; // minimum words to include a secondary page
+const MIN_AGGREGATION_WORDS = 40; // skip near-empty pages from aggregation
+const AGGREGATE_WORD_LIMIT = 2000; // cap aggregated text to reduce token usage
 const MAX_LINKS_TO_CONSIDER = 25; // cap to avoid crawling too broadly
 
 type CandidateLink = {
@@ -20,6 +22,11 @@ type CandidateLink = {
 type ParsedPage = WebsiteContent & {
   linksForFollow: CandidateLink[];
 };
+
+function pageRichnessScore(page: ParsedPage): number {
+  const topLinkScore = page.linksForFollow[0]?.score ?? 0;
+  return page.wordCount + topLinkScore * 15 + page.headings.length * 8;
+}
 
 // Use dynamic import for cheerio to avoid build issues
 async function getCheerio() {
@@ -317,64 +324,106 @@ export async function scrapeWebsite(url: string): Promise<WebsiteContent> {
   }
 
   const visited = new Set<string>();
+  const enqueued = new Set<string>();
   const pages: ParsedPage[] = [];
+  const candidateQueue: CandidateLink[] = [];
+
+  const enqueueCandidates = (parsed: ParsedPage) => {
+    for (const candidate of parsed.linksForFollow.slice(
+      0,
+      MAX_LINKS_TO_CONSIDER
+    )) {
+      if (visited.has(candidate.url) || enqueued.has(candidate.url)) continue;
+      enqueued.add(candidate.url);
+      candidateQueue.push(candidate);
+    }
+    candidateQueue.sort((a, b) => b.score - a.score);
+  };
 
   const firstPage = await fetchAndParse(normalizedUrl);
   pages.push(firstPage);
   visited.add(firstPage.url);
+  enqueueCandidates(firstPage);
 
-  let primaryPage = firstPage;
+  // Crawl top-scoring internal links until we reach the cap or run out of good candidates
+  while (candidateQueue.length > 0 && pages.length < MAX_PAGES) {
+    const candidate = candidateQueue.shift();
+    if (!candidate || visited.has(candidate.url)) continue;
 
-  // If the first page is thin, try to find a better primary candidate
-  if (primaryPage.wordCount < PRIMARY_MIN_WORDS) {
-    for (const candidate of primaryPage.linksForFollow.slice(
-      0,
-      MAX_LINKS_TO_CONSIDER
-    )) {
-      if (visited.has(candidate.url)) continue;
-      const parsed = await safeFetch(candidate.url);
-      if (!parsed) continue;
-      pages.push(parsed);
-      visited.add(parsed.url);
-      if (parsed.wordCount >= PRIMARY_MIN_WORDS) {
-        primaryPage = parsed;
-        break;
-      }
-    }
-  }
-
-  // Add a couple more rich pages for breadth
-  for (const candidate of primaryPage.linksForFollow.slice(
-    0,
-    MAX_LINKS_TO_CONSIDER
-  )) {
-    if (pages.length >= MAX_PAGES) break;
-    if (visited.has(candidate.url)) continue;
+    // Mark the candidate URL as visited immediately to avoid refetching the original
+    // URL even if it redirects to another location.
+    visited.add(candidate.url);
 
     const parsed = await safeFetch(candidate.url);
     if (!parsed) continue;
-    if (parsed.wordCount < SECONDARY_MIN_WORDS) continue;
 
-    pages.push(parsed);
+    // Also mark the final resolved URL to prevent duplicates after redirects.
     visited.add(parsed.url);
+
+    const isRichEnough = parsed.wordCount >= SECONDARY_MIN_WORDS;
+    const isUsableFallback = parsed.wordCount >= MIN_AGGREGATION_WORDS;
+    if (isRichEnough || isUsableFallback) {
+      pages.push(parsed);
+    }
+
+    // Even thin nav pages can point to richer content, so we still enqueue their links
+    enqueueCandidates(parsed);
   }
 
+  // Choose the richest page as primary (prefers real content over hero-only landers)
+  const rankedByRichness = [...pages].sort(
+    (a, b) => pageRichnessScore(b) - pageRichnessScore(a)
+  );
+  const primaryPage =
+    rankedByRichness.find((p) => p.wordCount >= PRIMARY_MIN_WORDS) ||
+    rankedByRichness[0];
+
   // Aggregate content across pages
+  const aggregationCandidates = pages.filter(
+    (p) => p.wordCount >= MIN_AGGREGATION_WORDS
+  );
+
+  const pagesForAggregation: ParsedPage[] = [];
+  const addForAggregation = (p: ParsedPage) => {
+    if (pagesForAggregation.length >= MAX_PAGES) return;
+    if (pagesForAggregation.some((x) => x.url === p.url)) return;
+    pagesForAggregation.push(p);
+  };
+
+  // Always include primary page for consistency between metadata and content
+  addForAggregation(primaryPage);
+
+  const aggregationSource =
+    aggregationCandidates.length > 0 ? aggregationCandidates : pages;
+  for (const page of aggregationSource) {
+    if (pagesForAggregation.length >= MAX_PAGES) break;
+    addForAggregation(page);
+  }
+
   const allHeadings = Array.from(
-    new Set(pages.flatMap((p) => p.headings).filter(Boolean))
+    new Set(pagesForAggregation.flatMap((p) => p.headings).filter(Boolean))
   ).slice(0, 20);
 
-  const combinedWords = pages.flatMap((p) => p.text.split(" "));
-  const aggregatedWordCount = combinedWords.length;
-  const limitedWords = combinedWords.slice(0, 1500);
+  const combinedWords = pagesForAggregation.flatMap((p) => p.text.split(" "));
+  const aggregatedWordCount = pagesForAggregation.reduce(
+    (sum, p) => sum + p.wordCount,
+    0
+  );
+  const limitedWords = combinedWords.slice(0, AGGREGATE_WORD_LIMIT);
   const aggregatedText = limitedWords.join(" ");
   const textPreview =
     aggregatedText.substring(0, 800) +
     (aggregatedText.length > 800 ? "..." : "");
 
-  const totalImages = pages.reduce((sum, p) => sum + p.images, 0);
-  const totalInternal = pages.reduce((sum, p) => sum + p.links.internal, 0);
-  const totalExternal = pages.reduce((sum, p) => sum + p.links.external, 0);
+  const totalImages = pagesForAggregation.reduce((sum, p) => sum + p.images, 0);
+  const totalInternal = pagesForAggregation.reduce(
+    (sum, p) => sum + p.links.internal,
+    0
+  );
+  const totalExternal = pagesForAggregation.reduce(
+    (sum, p) => sum + p.links.external,
+    0
+  );
 
   return {
     url: primaryPage.url,
@@ -392,7 +441,7 @@ export async function scrapeWebsite(url: string): Promise<WebsiteContent> {
     responseTime: primaryPage.responseTime,
     wordCount: aggregatedWordCount,
     textPreview,
-    sampledUrls: pages.map((p) => p.url),
+    sampledUrls: pagesForAggregation.map((p) => p.url),
   };
 }
 

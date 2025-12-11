@@ -56,6 +56,7 @@ export function AuditModal({
   const [activeTab, setActiveTab] = useState<TabId>("overview");
   const [showPdfModal, setShowPdfModal] = useState(false);
   const [showBuildConfirm, setShowBuildConfirm] = useState(false);
+  const [showBuildOverlay, setShowBuildOverlay] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isSaved, setIsSaved] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -69,6 +70,15 @@ export function AuditModal({
       setShowBuildConfirm(false);
     }
   }, [isOpen, result]);
+
+  // Auto-offer build overlay when audit opens
+  useEffect(() => {
+    if (isOpen && result && onBuildFromAudit) {
+      setShowBuildOverlay(true);
+    } else {
+      setShowBuildOverlay(false);
+    }
+  }, [isOpen, result, onBuildFromAudit]);
 
   // Save audit to user's storage
   const handleSaveAudit = useCallback(async () => {
@@ -102,136 +112,208 @@ export function AuditModal({
     }
   }, [result, isSaving, isSaved]);
 
-  // Generate prompt for building a site from this audit
-  const handleBuildFromAudit = useCallback(() => {
-    if (!result || !onBuildFromAudit) return;
+  // Build a super prompt from the audit to kick off generation
+  const buildSuperPrompt = useCallback(() => {
+    if (!result) return "";
 
-    // Build a comprehensive prompt from the audit data
     const lines: string[] = [];
+    lines.push("=== BYGG NY SAJT BASERAD PÅ AUDIT ===");
 
-    // Header with context
-    lines.push("=== BYGG NY SIDA BASERAD PÅ AUDIT ===");
-    lines.push("");
-
-    // Original URL reference
     if (auditedUrl) {
-      lines.push(`📍 REFERENSSIDA: ${auditedUrl}`);
+      lines.push(`Referenssida: ${auditedUrl}`);
       lines.push(
-        "Ta inspiration från strukturen och innehållet på denna befintliga sida, men skapa en helt ny, förbättrad version."
+        "Behåll varumärkeskänslan (färger, logoplacering, tonalitet) men åtgärda alla brister och förbättra UX, prestanda och tillgänglighet."
       );
-      lines.push("");
     }
 
-    // Company/domain
-    if (result.company) {
-      lines.push(`🏢 FÖRETAG: ${result.company}`);
-    }
-    if (result.domain) {
-      lines.push(`🌐 DOMÄN: ${result.domain}`);
-    }
+    if (result.company) lines.push(`Företag: ${result.company}`);
+    if (result.domain) lines.push(`Domän: ${result.domain}`);
 
-    // Audit scores summary
     if (result.audit_scores) {
       lines.push("");
-      lines.push("📊 AUDIT-POÄNG (att förbättra):");
-      if (result.audit_scores.overall)
-        lines.push(`   Övergripande: ${result.audit_scores.overall}/100`);
-      if (result.audit_scores.seo)
-        lines.push(`   SEO: ${result.audit_scores.seo}/100`);
-      if (result.audit_scores.design)
-        lines.push(`   Design: ${result.audit_scores.design}/100`);
-      if (result.audit_scores.usability)
-        lines.push(
-          `   Användarvänlighet: ${result.audit_scores.usability}/100`
-        );
+      lines.push("Audit-poäng att lyfta:");
+      const scores = result.audit_scores;
+      if (scores.overall) lines.push(`- Övergripande: ${scores.overall}/100`);
+      if (scores.seo) lines.push(`- SEO: ${scores.seo}/100`);
+      if (scores.performance)
+        lines.push(`- Prestanda: ${scores.performance}/100`);
+      if (scores.ux) lines.push(`- UX: ${scores.ux}/100`);
+      if (scores.accessibility)
+        lines.push(`- Tillgänglighet: ${scores.accessibility}/100`);
+      if (scores.security)
+        lines.push(`- Säkerhet: ${scores.security}/100`);
+      if (scores.mobile) lines.push(`- Mobil: ${scores.mobile}/100`);
+      if (scores.content) lines.push(`- Innehåll: ${scores.content}/100`);
+      if (scores.technical_seo)
+        lines.push(`- Teknisk SEO: ${scores.technical_seo}/100`);
     }
 
-    // Issues to fix
     if (result.issues && result.issues.length > 0) {
       lines.push("");
-      lines.push("❌ PROBLEM ATT ÅTGÄRDA:");
-      result.issues.slice(0, 5).forEach((issue) => {
-        lines.push(`   • ${issue}`);
+      lines.push("Problem att lösa omedelbart:");
+      result.issues.slice(0, 6).forEach((issue) => {
+        lines.push(`- ${issue}`);
       });
     }
 
-    // Improvements to implement
     if (result.improvements && result.improvements.length > 0) {
       lines.push("");
-      lines.push("✨ FÖRBÄTTRINGAR ATT IMPLEMENTERA:");
-      result.improvements.slice(0, 5).forEach((imp) => {
-        const desc = imp.why ? ` - ${imp.why}` : "";
-        lines.push(`   • ${imp.item}${desc}`);
+      lines.push("Förbättringar att implementera:");
+      result.improvements.slice(0, 6).forEach((imp) => {
+        const contextParts = [];
+        if (imp.impact) contextParts.push(`impact: ${imp.impact}`);
+        if (imp.effort) contextParts.push(`effort: ${imp.effort}`);
+        if (imp.why) contextParts.push(imp.why);
+        lines.push(`- ${imp.item}${contextParts.length ? ` (${contextParts.join("; ")})` : ""}`);
       });
     }
 
-    // Design direction
+    if (result.strengths && result.strengths.length > 0) {
+      lines.push("");
+      lines.push("Styrkor att behålla:");
+      result.strengths.slice(0, 5).forEach((strength) => {
+        lines.push(`- ${strength}`);
+      });
+    }
+
     if (result.design_direction) {
       lines.push("");
-      lines.push("🎨 DESIGNRIKTNING:");
+      lines.push("Design & identitet:");
       if (result.design_direction.style)
-        lines.push(`   Stil: ${result.design_direction.style}`);
+        lines.push(`- Stil: ${result.design_direction.style}`);
       if (result.design_direction.color_psychology)
         lines.push(
-          `   Färgpsykologi: ${result.design_direction.color_psychology}`
+          `- Färgpsykologi: ${result.design_direction.color_psychology}`
+        );
+      if (result.design_direction.ui_patterns)
+        lines.push(
+          `- UI-mönster: ${result.design_direction.ui_patterns.join(", ")}`
         );
       if (result.design_direction.accessibility_level)
         lines.push(
-          `   Tillgänglighet: ${result.design_direction.accessibility_level}`
+          `- Tillgänglighet: ${result.design_direction.accessibility_level}`
         );
     }
 
-    // Target audience
-    if (result.target_audience_analysis?.demographics) {
+    if (result.target_audience_analysis) {
       lines.push("");
-      lines.push(
-        `👥 MÅLGRUPP: ${result.target_audience_analysis.demographics}`
-      );
+      lines.push("Målgrupp & beteende:");
+      if (result.target_audience_analysis.demographics)
+        lines.push(
+          `- Demografi: ${result.target_audience_analysis.demographics}`
+        );
+      if (result.target_audience_analysis.pain_points)
+        lines.push(
+          `- Smärtpunkter: ${result.target_audience_analysis.pain_points}`
+        );
+      if (result.target_audience_analysis.expectations)
+        lines.push(
+          `- Förväntningar: ${result.target_audience_analysis.expectations}`
+        );
     }
 
-    // Key pages
     if (
       result.content_strategy?.key_pages &&
       result.content_strategy.key_pages.length > 0
     ) {
       lines.push("");
-      lines.push("📄 SIDOR ATT INKLUDERA:");
-      result.content_strategy.key_pages.slice(0, 6).forEach((page) => {
-        lines.push(`   • ${page}`);
+      lines.push("Nyckelsidor som ska ingå:");
+      result.content_strategy.key_pages.slice(0, 8).forEach((page) => {
+        lines.push(`- ${page}`);
       });
     }
 
-    // Strengths to keep
-    if (result.strengths && result.strengths.length > 0) {
+    if (result.expected_outcomes && result.expected_outcomes.length > 0) {
       lines.push("");
-      lines.push("✅ STYRKOR ATT BEHÅLLA:");
-      result.strengths.slice(0, 4).forEach((strength) => {
-        lines.push(`   • ${strength}`);
+      lines.push("Mål/effekter att nå:");
+      result.expected_outcomes.slice(0, 5).forEach((outcome) => {
+        lines.push(`- ${outcome}`);
       });
     }
 
-    // Quick wins
     if (
       result.priority_matrix?.quick_wins &&
       result.priority_matrix.quick_wins.length > 0
     ) {
       lines.push("");
-      lines.push("🚀 SNABBA VINSTER:");
+      lines.push("Snabba vinster som ska komma tidigt på sidan:");
       result.priority_matrix.quick_wins.slice(0, 4).forEach((win) => {
-        lines.push(`   • ${win}`);
+        lines.push(`- ${win}`);
+      });
+    }
+
+    if (result.security_analysis) {
+      lines.push("");
+      lines.push("Säkerhet (baka in i copy och implementation):");
+      lines.push(`- HTTPS: ${result.security_analysis.https_status}`);
+      lines.push(`- Headers: ${result.security_analysis.headers_analysis}`);
+      lines.push(`- Cookies/GDPR: ${result.security_analysis.cookie_policy}`);
+      if (
+        result.security_analysis.vulnerabilities &&
+        result.security_analysis.vulnerabilities.length > 0
+      ) {
+        lines.push(
+          `- Potentiella risker: ${result.security_analysis.vulnerabilities.join(
+            ", "
+          )}`
+        );
+      }
+    }
+
+    if (
+      result.technical_recommendations &&
+      result.technical_recommendations.length > 0
+    ) {
+      lines.push("");
+      lines.push("Tekniska rekommendationer att omsätta:");
+      result.technical_recommendations.slice(0, 4).forEach((rec) => {
+        lines.push(
+          `- ${rec.area}: ${rec.recommendation} (nuläge: ${rec.current_state})`
+        );
       });
     }
 
     lines.push("");
-    lines.push("=== INSTRUKTIONER ===");
+    lines.push("Struktur att bygga (anpassa efter innehåll):");
     lines.push(
-      "Skapa en modern, professionell hemsida som åtgärdar alla identifierade problem och implementerar förbättringarna ovan. Behåll styrkorna från originalsidan men gör allt annat bättre."
+      "- Navigering med logoplatshållare, sektion-ankare, CTA-knapp."
+    );
+    lines.push(
+      "- Hero med tydlig huvudtitel, underrad, primär CTA, sekundär CTA samt visuell bakgrund (bild/gradient) och kort trust-rad."
+    );
+    lines.push(
+      "- Sektioner för erbjudanden/tjänster, USP-lista, case/portfolio eller testimonials, ett CTA-block mitt på sidan."
+    );
+    lines.push(
+      "- Sektion för innehåll/nyheter eller resurser om relevant, samt FAQ och tydligt kontaktblock med formulär + kontaktuppgifter."
+    );
+    lines.push("- Footer med länkar, sociala ikoner och kontaktinformation.");
+
+    lines.push("");
+    lines.push("Design & kvalitet:");
+    lines.push("- Använd färger/typo inspirerat av referenssidan.");
+    lines.push("- Responsivt (mobil först), WCAG AA, hög läsbarhet.");
+    lines.push("- Optimera bilder (komprimerade) och undvik tunga effekter.");
+
+    lines.push("");
+    lines.push(
+      "Språk & ton: Svenska, konkret, säljdrivande men trovärdigt. Anpassa copy till målgruppen."
+    );
+    lines.push(
+      "Leverera en klar, konverterande layout som kan genereras i buildern utan ytterligare frågor."
     );
 
-    const prompt = lines.join("\n");
+    return lines.join("\n");
+  }, [result, auditedUrl]);
+
+  const launchBuildFromAudit = useCallback(() => {
+    if (!result || !onBuildFromAudit) return;
+    const prompt = buildSuperPrompt();
+    if (!prompt.trim()) return;
     onBuildFromAudit(prompt);
+    setShowBuildOverlay(false);
     onClose();
-  }, [result, auditedUrl, onBuildFromAudit, onClose]);
+  }, [buildSuperPrompt, onBuildFromAudit, onClose, result]);
 
   // Handle escape key
   useEffect(() => {
@@ -387,7 +469,10 @@ export function AuditModal({
                 {/* Build from Audit - Primary CTA */}
                 {onBuildFromAudit && (
                   <button
-                    onClick={() => setShowBuildConfirm(true)}
+                    onClick={() => {
+                      setShowBuildOverlay(false);
+                      setShowBuildConfirm(true);
+                    }}
                     className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 text-white text-sm font-semibold transition-all shadow-lg shadow-teal-500/25 hover:shadow-teal-500/40"
                     title="Skapa en ny sida baserad på denna analys"
                   >
@@ -693,6 +778,68 @@ export function AuditModal({
                 </div>
               )}
             </div>
+
+            {/* Build overlay CTA */}
+            <AnimatePresence>
+              {showBuildOverlay && onBuildFromAudit && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="absolute inset-0 z-40 flex items-center justify-center bg-black/70 backdrop-blur-sm px-4"
+                  onClick={() => setShowBuildOverlay(false)}
+                >
+                  <motion.div
+                    initial={{ scale: 0.95, opacity: 0, y: 10 }}
+                    animate={{ scale: 1, opacity: 1, y: 0 }}
+                    exit={{ scale: 0.95, opacity: 0, y: 10 }}
+                    transition={{ type: "spring", damping: 24, stiffness: 260 }}
+                    className="w-full max-w-xl bg-gray-900 border border-teal-700/40 shadow-2xl p-6 space-y-4"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="text-3xl">🚀</div>
+                      <div>
+                        <h3 className="text-xl font-bold text-white">
+                          Låt oss bygga din sajt
+                        </h3>
+                        <p className="text-sm text-gray-300">
+                          Vi använder auditen som superprompt för att skapa en
+                          förbättrad mall i buildern.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="text-sm text-gray-400 space-y-1">
+                      <p>
+                        • Åtgärdar auditens problem och implementerar
+                        förbättringarna.
+                      </p>
+                      <p>
+                        • Behåller styrkor och varumärkeskänsla men optimerar
+                        UX, prestanda och SEO.
+                      </p>
+                    </div>
+
+                    <div className="flex gap-3">
+                      <button
+                        onClick={() => setShowBuildOverlay(false)}
+                        className="flex-1 px-4 py-2 border border-gray-700 text-gray-300 hover:text-white hover:border-gray-500 transition-colors"
+                      >
+                        Nej, inte nu
+                      </button>
+                      <button
+                        onClick={launchBuildFromAudit}
+                        className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 text-white font-semibold transition-all"
+                      >
+                        <Hammer className="h-4 w-4" />
+                        Ja, kör igång
+                      </button>
+                    </div>
+                  </motion.div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </motion.div>
         </motion.div>
       )}
@@ -766,7 +913,7 @@ export function AuditModal({
                 <button
                   onClick={() => {
                     setShowBuildConfirm(false);
-                    handleBuildFromAudit();
+                    launchBuildFromAudit();
                   }}
                   className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 text-white font-semibold transition-all"
                 >

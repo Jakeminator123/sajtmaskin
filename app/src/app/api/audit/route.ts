@@ -179,6 +179,7 @@ export async function POST(request: NextRequest) {
         title: websiteContent.title?.substring(0, 50),
         wordCount: websiteContent.wordCount,
         headingsCount: websiteContent.headings.length,
+        pagesSampled: websiteContent.sampledUrls?.length || 1,
       });
     } catch (error) {
       console.error(`[${requestId}] Scraping failed:`, error);

@@ -148,12 +148,21 @@ export function buildAuditPrompt(
           type: "text",
           text: `Analysera denna webbplats grundligt: ${url}
 
+ANALYSERADE SIDOR (upp till 4):
+${(websiteContent.sampledUrls && websiteContent.sampledUrls.length > 0
+  ? websiteContent.sampledUrls
+  : [websiteContent.url]
+)
+  .slice(0, 4)
+  .map((u, i) => `${i + 1}. ${u}`)
+  .join("\n")}
+
 GRUNDLÄGGANDE INFO:
 - Titel: ${websiteContent.title}
 - Beskrivning: ${websiteContent.description || "Saknas"}
 - SSL/HTTPS: ${websiteContent.hasSSL ? "Ja ✓" : "NEJ - Kritisk säkerhetsbrist!"}
 - Svarstid: ${websiteContent.responseTime}ms
-- Antal ord: ${websiteContent.wordCount}
+- Antal ord (agg): ${websiteContent.wordCount}
 
 RUBRIKER PÅ SIDAN:
 ${websiteContent.headings

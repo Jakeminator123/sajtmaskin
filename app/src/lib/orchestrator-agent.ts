@@ -319,7 +319,33 @@ Svara ENDAST med frågan, inget annat.`,
       store: false,
     });
 
-    const question = response.output_text?.trim() || "";
+    // Extract text from response - try output_text helper first, then fallback to parsing output array
+    let question = "";
+
+    // Method 1: Use output_text helper if available (standard SDK approach)
+    if (
+      typeof response.output_text === "string" &&
+      response.output_text.trim()
+    ) {
+      question = response.output_text.trim();
+    }
+    // Method 2: Parse output array manually (fallback for different SDK versions)
+    else if (Array.isArray(response.output)) {
+      for (const item of response.output) {
+        if (item.type === "message" && Array.isArray(item.content)) {
+          for (const content of item.content) {
+            if (
+              content.type === "output_text" &&
+              typeof content.text === "string"
+            ) {
+              question = content.text.trim();
+              break;
+            }
+          }
+          if (question) break;
+        }
+      }
+    }
 
     if (question) {
       return question;
