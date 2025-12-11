@@ -218,6 +218,7 @@ export interface WebsiteContent {
   responseTime: number;
   wordCount: number;
   textPreview: string;
+  sampledUrls?: string[];
 }
 
 // API request body

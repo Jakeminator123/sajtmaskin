@@ -87,6 +87,31 @@ function BuilderContent() {
   const [isDownloading, setIsDownloading] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
   const isMobile = useIsMobile();
+  const hasLoggedMountRef = useRef(false);
+
+  // #region agent log
+  useEffect(() => {
+    if (hasLoggedMountRef.current) return;
+    hasLoggedMountRef.current = true;
+    fetch("http://127.0.0.1:7242/ingest/6b09075a-aee5-4a07-956c-0248b3430cfa", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        sessionId: "debug-session",
+        runId: "pre-fix",
+        hypothesisId: "H3",
+        location: "builder/page.tsx:mount",
+        message: "BuilderContent mount",
+        data: {
+          isMobileInitial: isMobile,
+          mobileTab,
+          demoUrl: !!demoUrl,
+        },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {});
+  }, [demoUrl, hasLoggedMountRef, isMobile, mobileTab]);
+  // #endregion
 
   // Avatar context for triggering reactions
   const { triggerReaction } = useAvatar();
@@ -113,6 +138,24 @@ function BuilderContent() {
       setHasAutoSwitched(true);
     }
   }, [demoUrl, isLoading, isMobile, hasAutoSwitched]);
+
+  // #region agent log
+  useEffect(() => {
+    fetch("http://127.0.0.1:7242/ingest/6b09075a-aee5-4a07-956c-0248b3430cfa", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        sessionId: "debug-session",
+        runId: "pre-fix",
+        hypothesisId: "H1",
+        location: "builder/page.tsx:mobile-tab",
+        message: "Mobile tab changed",
+        data: { mobileTab, isMobile, demoUrl: !!demoUrl },
+        timestamp: Date.now(),
+      }),
+    }).catch(() => {});
+  }, [mobileTab, isMobile, demoUrl]);
+  // #endregion
 
   // Fetch user on mount to get diamond balance
   // Use ref to prevent duplicate calls in StrictMode
