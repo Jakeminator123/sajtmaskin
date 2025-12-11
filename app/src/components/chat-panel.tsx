@@ -965,7 +965,8 @@ export function ChatPanel({
           existingChatId: actualChatId || undefined,
           existingCode: actualCurrentCode,
           // Pass project files for Code Crawler analysis
-          projectFiles: actualFiles && actualFiles.length > 0 ? actualFiles : undefined,
+          projectFiles:
+            actualFiles && actualFiles.length > 0 ? actualFiles : undefined,
           mediaLibrary:
             mediaLibraryForPrompt.length > 0
               ? mediaLibraryForPrompt
