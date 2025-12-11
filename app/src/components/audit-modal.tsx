@@ -140,8 +140,7 @@ export function AuditModal({
       if (scores.ux) lines.push(`- UX: ${scores.ux}/100`);
       if (scores.accessibility)
         lines.push(`- Tillgänglighet: ${scores.accessibility}/100`);
-      if (scores.security)
-        lines.push(`- Säkerhet: ${scores.security}/100`);
+      if (scores.security) lines.push(`- Säkerhet: ${scores.security}/100`);
       if (scores.mobile) lines.push(`- Mobil: ${scores.mobile}/100`);
       if (scores.content) lines.push(`- Innehåll: ${scores.content}/100`);
       if (scores.technical_seo)
@@ -164,7 +163,11 @@ export function AuditModal({
         if (imp.impact) contextParts.push(`impact: ${imp.impact}`);
         if (imp.effort) contextParts.push(`effort: ${imp.effort}`);
         if (imp.why) contextParts.push(imp.why);
-        lines.push(`- ${imp.item}${contextParts.length ? ` (${contextParts.join("; ")})` : ""}`);
+        lines.push(
+          `- ${imp.item}${
+            contextParts.length ? ` (${contextParts.join("; ")})` : ""
+          }`
+        );
       });
     }
 
@@ -275,9 +278,7 @@ export function AuditModal({
 
     lines.push("");
     lines.push("Struktur att bygga (anpassa efter innehåll):");
-    lines.push(
-      "- Navigering med logoplatshållare, sektion-ankare, CTA-knapp."
-    );
+    lines.push("- Navigering med logoplatshållare, sektion-ankare, CTA-knapp.");
     lines.push(
       "- Hero med tydlig huvudtitel, underrad, primär CTA, sekundär CTA samt visuell bakgrund (bild/gradient) och kort trust-rad."
     );
@@ -382,6 +383,7 @@ export function AuditModal({
     <AnimatePresence>
       {isOpen && (
         <motion.div
+          key="audit-modal-root"
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}

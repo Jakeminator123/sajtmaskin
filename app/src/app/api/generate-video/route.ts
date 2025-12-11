@@ -219,11 +219,13 @@ export async function GET(request: NextRequest) {
         if (!effectiveUserId) {
           const { getVideoJob } = await import("@/lib/redis");
           const job = await getVideoJob(videoId);
-          effectiveUserId = job?.userId;
+          effectiveUserId = job?.userId ?? null;
         }
 
         if (!effectiveUserId) {
-          console.warn("[Video API] No userId for blob storage, using temp URL");
+          console.warn(
+            "[Video API] No userId for blob storage, using temp URL"
+          );
           // Fallback: return OpenAI URL (will expire in 1h)
           const tempUrl = video.download_url || video.url;
           return NextResponse.json({

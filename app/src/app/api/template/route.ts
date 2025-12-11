@@ -1,5 +1,6 @@
 import { cacheTemplateResult, getCachedTemplate } from "@/lib/database";
 import { findMainFile, generateFromTemplate } from "@/lib/v0-generator";
+import { TEMPLATES } from "@/lib/template-data";
 import { getCurrentUser } from "@/lib/auth";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -27,6 +28,18 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { success: false, error: "Template ID is required" },
         { status: 400 }
+      );
+    }
+
+    // Validate templateId exists in our catalog (filters out placeholder "categories")
+    const templateMeta = TEMPLATES.find((t) => t.id === templateId);
+    if (!templateMeta) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Ogiltigt template-id. Välj en template från galleriet.",
+        },
+        { status: 404 }
       );
     }
 

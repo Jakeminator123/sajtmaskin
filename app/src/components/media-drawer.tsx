@@ -249,17 +249,9 @@ export function MediaDrawer({
           ...prev,
         ]);
 
-        if (onFileSelect) {
-          onFileSelect({
-            id: `media-${data.media.id}`,
-            type: data.media.fileType,
-            url: data.media.url,
-            filename: data.media.filename,
-            mimeType: data.media.mimeType,
-            createdAt: new Date(),
-            source: "uploaded",
-          });
-        }
+        // DON'T auto-select uploaded files anymore
+        // User should manually click on the file to use it
+        // This prevents auto-submission of prompts when uploading
       }
 
       setUploadProgress("Klar!");
@@ -428,20 +420,11 @@ export function MediaDrawer({
 
           {/* Stock Photos */}
           <StockPhotoSearch
-            onPhotoSelect={(photo) => {
+            onPhotoSelect={() => {
+              // Reload library to show the newly added stock photo
               loadMediaLibrary();
-              if (onFileSelect) {
-                onFileSelect({
-                  id: `stock-${Date.now()}`,
-                  type: "image",
-                  url: photo.url,
-                  filename: photo.filename,
-                  mimeType: "image/jpeg",
-                  createdAt: new Date(),
-                  source: "uploaded",
-                  description: `Foto av ${photo.photographer} (${photo.source})`,
-                });
-              }
+              // DON'T auto-select - user can click on it in the library to use it
+              // This prevents auto-submission of prompts when selecting stock photos
             }}
             disabled={isLoading || isUploading}
           />
@@ -637,4 +620,3 @@ function MediaItemCard({
     </div>
   );
 }
-

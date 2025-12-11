@@ -47,9 +47,9 @@ function isTestMode(): boolean {
 // Attachment types for rich messages (orchestrator results)
 export interface ImageAttachment {
   type: "image";
-  base64: string;
+  base64?: string; // Optional - only used if url is missing (fallback)
   prompt: string;
-  url?: string; // Public URL if saved to blob storage
+  url?: string; // Public URL from blob storage (preferred - always use this if available)
 }
 
 export interface WebSearchAttachment {

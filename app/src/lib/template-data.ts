@@ -29,7 +29,8 @@ export interface Template {
 }
 
 // Import and normalize templates from JSON
-const rawTemplates = templatesData as Array<{
+// Filter out category placeholder templates that are not real v0 templates
+const rawTemplates = (templatesData as Array<{
   id: string;
   title: string;
   slug: string;
@@ -38,7 +39,7 @@ const rawTemplates = templatesData as Array<{
   image_filename: string;
   preview_image_url: string;
   category: string;
-}>;
+}>).filter((t) => t.slug !== "categories" && t.id !== "categories");
 
 export const TEMPLATES: Template[] = rawTemplates.map((t) => ({
   id: t.id,

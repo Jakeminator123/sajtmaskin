@@ -66,6 +66,7 @@ import {
   Loader2,
   MessageSquare,
   Sparkles,
+  X,
 } from "lucide-react";
 import { KeyboardEvent, useCallback, useEffect, useRef, useState } from "react";
 
@@ -655,21 +656,36 @@ export function ChatPanel({
 
     // Include uploaded files in prompt if any
     const filePromptText = filesToPromptText(uploadedFiles);
-    const enhancedPrompt = prompt + filePromptText;
+    // Include pending media from drawer
+    const pendingMediaText = buildPendingMediaPrompt();
+    const enhancedPrompt = prompt + filePromptText + pendingMediaText;
 
     // Create attachments from uploaded files for the message
     const fileAttachments = filesToAttachments(uploadedFiles);
+
+    // Add pending media as attachments too
+    const mediaAttachments: MessageAttachment[] = pendingMedia.map((item) => ({
+      type: "image" as const,
+      url: item.url,
+      prompt: item.description || item.filename,
+    }));
+
+    // Combine all attachments
+    const allAttachments = [...fileAttachments, ...mediaAttachments];
 
     // Add user message with file attachments if any
     addMessage(
       "user",
       prompt,
-      fileAttachments.length > 0 ? fileAttachments : undefined
+      allAttachments.length > 0 ? allAttachments : undefined
     );
 
-    // Clear uploaded files after sending
+    // Clear uploaded files and pending media after sending
     if (uploadedFiles.length > 0) {
       setUploadedFiles([]);
+    }
+    if (pendingMedia.length > 0) {
+      setPendingMedia([]);
     }
 
     setLoading(true);
@@ -881,21 +897,36 @@ export function ChatPanel({
 
     // Include uploaded files in instruction if any
     const filePromptText = filesToPromptText(uploadedFiles);
-    const enhancedInstruction = instruction + filePromptText;
+    // Include pending media from drawer
+    const pendingMediaText = buildPendingMediaPrompt();
+    const enhancedInstruction = instruction + filePromptText + pendingMediaText;
 
     // Create attachments from uploaded files for the message
     const fileAttachments = filesToAttachments(uploadedFiles);
+
+    // Add pending media as attachments too
+    const mediaAttachments: MessageAttachment[] = pendingMedia.map((item) => ({
+      type: "image" as const,
+      url: item.url,
+      prompt: item.description || item.filename,
+    }));
+
+    // Combine all attachments
+    const allAttachments = [...fileAttachments, ...mediaAttachments];
 
     // Add user message with file attachments if any
     addMessage(
       "user",
       instruction,
-      fileAttachments.length > 0 ? fileAttachments : undefined
+      allAttachments.length > 0 ? allAttachments : undefined
     );
 
-    // Clear uploaded files after sending
+    // Clear uploaded files and pending media after sending
     if (uploadedFiles.length > 0) {
       setUploadedFiles([]);
+    }
+    if (pendingMedia.length > 0) {
+      setPendingMedia([]);
     }
 
     setLoading(true);
@@ -1214,56 +1245,72 @@ export function ChatPanel({
     }
   };
 
-  // Handle component selection from picker
+  // Handle component selection from picker - add to input, let user customize
   const handleComponentSelect = (prompt: string) => {
     setInput(prompt);
     setShowComponentPicker(false);
-    if (demoUrl || currentCode) {
-      setTimeout(() => {
-        handleRefinement(prompt);
-      }, 100);
-    }
+    inputRef.current?.focus();
+    // DON'T auto-submit - let user customize the prompt if they want
   };
 
-  // Handle media file selection from drawer - simplified to use orchestrator
+  // Pending media attachments - media selected from drawer waiting to be included in next message
+  const [pendingMedia, setPendingMedia] = useState<
+    import("./media-bank").MediaItem[]
+  >([]);
+
+  // Handle media file selection from drawer - NOW just adds to pending, no auto-submit
   const handleMediaFileSelect = (item: import("./media-bank").MediaItem) => {
     if (!item.url) return;
 
-    // Let orchestrator + Code Crawler decide best placement
-    const mediaType =
-      item.type === "logo" ? "logo" : item.type === "video" ? "video" : "bild";
-    const filename = item.filename || mediaType;
-    const prompt = `Lägg till denna ${mediaType} (${filename}) på lämplig plats i sajten: ${item.url}`;
+    // Add to pending media (don't auto-submit)
+    setPendingMedia((prev) => {
+      // Avoid duplicates
+      if (prev.some((m) => m.url === item.url)) return prev;
+      return [...prev, item];
+    });
 
-    setInput(prompt);
-    inputRef.current?.focus();
+    // Close drawer and focus input so user can write their own prompt
     setShowMediaDrawer(false);
-
-    // Auto-submit if we have an existing project
-    if (demoUrl || currentCode) {
-      setTimeout(() => handleRefinement(prompt), 100);
-    }
+    inputRef.current?.focus();
   };
 
-  // Handle text file content - send to orchestrator with simple instruction
+  // Remove pending media item
+  const handleRemovePendingMedia = (mediaId: string) => {
+    setPendingMedia((prev) => prev.filter((m) => m.id !== mediaId));
+  };
+
+  // Build prompt text from pending media
+  const buildPendingMediaPrompt = (): string => {
+    if (pendingMedia.length === 0) return "";
+
+    const mediaLines = pendingMedia.map((item) => {
+      const mediaType =
+        item.type === "logo"
+          ? "logo"
+          : item.type === "video"
+          ? "video"
+          : "bild";
+      const filename = item.filename || mediaType;
+      return `[${mediaType}: ${filename}] ${item.url}`;
+    });
+
+    return `\n\nBifogade media:\n${mediaLines.join("\n")}`;
+  };
+
+  // Handle text file content - add to input, let user edit and submit
   const handleTextContent = (content: string, filename: string) => {
     // Truncate if too long, orchestrator handles the rest
     const truncated =
       content.length > 6000 ? content.slice(0, 6000) + "..." : content;
 
     // Create a prompt that lets orchestrator + Code Crawler decide placement
+    // DON'T auto-submit - let user edit the prompt first
     const prompt = `Använd innehållet från filen "${filename}" på lämplig plats i sajten:\n\n${truncated}`;
 
     setInput(prompt);
     inputRef.current?.focus();
     setShowTextModal(false);
-
-    // Auto-submit if we have an existing project
-    if (demoUrl || currentCode) {
-      setTimeout(() => {
-        handleRefinement(prompt);
-      }, 100);
-    }
+    // User can now edit the prompt and submit when ready
   };
 
   // Remove file from attachments
@@ -1464,6 +1511,46 @@ export function ChatPanel({
             onRemove={handleRemoveFile}
             maxVisible={3}
           />
+        )}
+
+        {/* Pending media from drawer - show as compact chips */}
+        {pendingMedia.length > 0 && (
+          <div className="flex flex-wrap gap-2 pb-2">
+            {pendingMedia.map((item) => (
+              <div
+                key={item.id}
+                className="flex items-center gap-2 px-2 py-1.5 bg-teal-500/20 border border-teal-500/30 rounded-lg text-xs"
+              >
+                {/* Thumbnail */}
+                {(item.type === "image" || item.type === "logo") &&
+                  item.url && (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={item.url}
+                      alt={item.filename || "Media"}
+                      className="w-6 h-6 rounded object-cover"
+                    />
+                  )}
+                {item.type === "video" && (
+                  <div className="w-6 h-6 rounded bg-gray-700 flex items-center justify-center">
+                    <ImageIcon className="h-3 w-3 text-gray-400" />
+                  </div>
+                )}
+                <span className="text-teal-300 max-w-[100px] truncate">
+                  {item.filename || item.type}
+                </span>
+                <button
+                  onClick={() => handleRemovePendingMedia(item.id)}
+                  className="text-teal-400 hover:text-white transition-colors"
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+            ))}
+            <span className="text-[10px] text-gray-500 self-center">
+              Skriv hur du vill använda bilden/bilderna ↓
+            </span>
+          </div>
         )}
 
         {/* Toolbar buttons - only show when project has started */}

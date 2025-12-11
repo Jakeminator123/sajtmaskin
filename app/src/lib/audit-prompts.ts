@@ -14,7 +14,15 @@ export type PromptMessage = {
 };
 
 // System prompt for website audit - comprehensive analysis
-const AUDIT_SYSTEM_PROMPT = `Du är en senior webb- och teknikrevisor med expertis inom SEO, UX, säkerhet och prestanda. Gör alltid en grundlig teknisk analys av webbplatsen och leverera ENDAST giltig JSON utan Markdown.
+const AUDIT_SYSTEM_PROMPT = `Du är en senior webb- och teknikrevisor med expertis inom SEO, UX, säkerhet och prestanda.
+
+ABSOLUT KRITISKT - FÖLJ DESSA REGLER EXAKT:
+1. Du MÅSTE svara med ENDAST giltig JSON - ingen text före eller efter
+2. Börja ALLTID ditt svar med { och sluta med }
+3. INGEN markdown, INGA \`\`\`json block, INGEN förklarande text
+4. Om du använder web_search-verktyget, GÖR analysen och returnera sedan JSON-resultatet
+5. Fyll ALLTID i alla fält - om du saknar information, gör en kvalificerad bedömning
+6. EXTRAHERA ALLT TEXTINNEHÅLL från sidan - rubriker, beskrivningar, tjänster, etc.
 
 LEVERERA JSON MED FÖLJANDE FÄLT (FYLL ALLTID I, ÄVEN OM DU MÅSTE GÖRA EN KVALIFICERAD BEDÖMNING):
 {
@@ -108,10 +116,71 @@ LEVERERA JSON MED FÖLJANDE FÄLT (FYLL ALLTID I, ÄVEN OM DU MÅSTE GÖRA EN KV
     "kpis": ["Konkreta KPI:er att följa"],
     "tracking_setup": "Rekommenderat analytics-upplägg",
     "review_schedule": "Uppföljningsfrekvens"
+  },
+  
+  "site_content": {
+    "company_name": "Exakt företagsnamn från sidan",
+    "tagline": "Slogan/tagline om den finns",
+    "description": "Fullständig beskrivning av vad företaget gör (2-4 meningar)",
+    "industry": "Bransch (t.ex. 'Webbyrå', 'E-handel', 'Restaurang')",
+    "location": "Plats/stad om det framgår",
+    "services": ["Lista alla tjänster de erbjuder med beskrivning"],
+    "products": ["Lista produkter om de säljer sådana"],
+    "unique_selling_points": ["Vad som gör dem unika"],
+    "sections": [
+      {
+        "name": "Sektionsnamn (t.ex. 'Hero', 'Om oss', 'Tjänster')",
+        "content": "EXAKT textinnehåll från sektionen - kopiera rubriker, beskrivningar, etc.",
+        "type": "hero|services|about|contact|testimonials|portfolio|pricing|faq|team|cta|footer|other"
+      }
+    ],
+    "ctas": ["Alla call-to-action texter (knappar, länkar)"],
+    "contact": {
+      "email": "Om det finns",
+      "phone": "Om det finns",
+      "address": "Om det finns",
+      "social_links": ["Länkar till sociala medier"]
+    }
+  },
+  
+  "color_theme": {
+    "primary_color": "#hexkod för huvudfärg (om synlig)",
+    "secondary_color": "#hexkod för sekundär färg",
+    "accent_color": "#hexkod för accent/CTA-färg",
+    "background_color": "#hexkod för bakgrund",
+    "text_color": "#hexkod för textfärg",
+    "theme_type": "light|dark|mixed",
+    "style_description": "Beskrivning av designstilen (t.ex. 'Minimalistisk, modern, professionell')",
+    "design_style": "minimalist|bold|playful|corporate|creative|elegant|tech|organic",
+    "typography_style": "Typografisk stil (t.ex. 'Sans-serif, clean, modern')"
+  },
+  
+  "template_data": {
+    "generation_prompt": "En detaljerad prompt för att generera en LIKNANDE men BÄTTRE webbplats. Inkludera: företagsnamn, vad de gör, alla tjänster/produkter, färgschema, designstil, sektioner som ska finnas. Prompten ska kunna användas direkt för att skapa en komplett webbplats.",
+    "must_have_sections": ["Lista sektioner som MÅSTE finnas baserat på originalsidan"],
+    "style_notes": "Detaljerade stilanteckningar: färger, typografi, layout, spacing, etc.",
+    "improvements_to_apply": ["Konkreta förbättringar att implementera i den nya sajten"]
   }
 }
 
-VIKTIGT:
+VIKTIGT FÖR SITE_CONTENT:
+- Extrahera ALLT verkligt textinnehåll från sidan - inte generiska platshållare
+- Kopiera EXAKTA rubriker, beskrivningar, tjänstetexter som de står på sidan
+- Om du använder web_search, läs av det FAKTISKA innehållet på sidan
+- Sections-arrayen ska innehålla varje sektion med dess RIKTIGA innehåll
+- Detta är KRITISKT för att kunna bygga en ny sida som liknar originalet
+
+VIKTIGT FÖR COLOR_THEME:
+- Försök identifiera de faktiska färgerna som används på sidan
+- Om du inte kan se exakta hex-koder, gör en kvalificerad gissning baserat på vad du ser
+- Beskriv den övergripande designstilen detaljerat
+
+VIKTIGT FÖR TEMPLATE_DATA:
+- generation_prompt ska vara en KOMPLETT prompt som kan användas för att bygga en ny sajt
+- Inkludera ALL information om företaget, tjänster, stil, sektioner
+- Prompten ska producera en sajt som liknar originalet men är BÄTTRE
+
+ÖVRIGA REGLER:
 - SKRIV ALLTID PÅ SVENSKA - all text, alla förklaringar, alla förslag
 - Var specifik och detaljerad i varje punkt
 - Ge minst 8-10 förbättringsförslag sorterade efter prioritet
@@ -131,6 +200,27 @@ export function buildAuditPrompt(
   websiteContent: WebsiteContent,
   url: string
 ): PromptMessage[] {
+  // Detect if this is likely a JS-rendered page with minimal scraped content
+  const isJsRendered = websiteContent.wordCount < 50;
+  const webSearchNote = isJsRendered
+    ? `\n\n⚠️ VIKTIGT: Scrapern kunde bara hämta ${websiteContent.wordCount} ord från denna sida. Detta är troligen en JavaScript-renderad webbapp (React, Vue, etc.). ANVÄND WEBSEARCH-VERKTYGET för att besöka och analysera den faktiska renderade sidan på ${url} innan du ger din analys. Du MÅSTE använda web_search för att få korrekt innehåll från sidan.`
+    : "";
+
+  // Build headings section only if we have headings
+  const headingsSection =
+    websiteContent.headings.length > 0
+      ? `\nRUBRIKER PÅ SIDAN:\n${websiteContent.headings
+          .slice(0, 10)
+          .map((h, i) => `${i + 1}. ${h}`)
+          .join("\n")}`
+      : "\nRUBRIKER: Inga rubriker kunde hämtas (använd WebSearch för att se faktiskt innehåll)";
+
+  // Build text preview section
+  const textSection =
+    websiteContent.textPreview && websiteContent.textPreview.length > 10
+      ? `\nTEXTINNEHÅLL (första ~800 tecken):\n${websiteContent.textPreview}`
+      : "\nTEXTINNEHÅLL: Kunde inte hämtas (JavaScript-renderad sida - använd WebSearch)";
+
   return [
     {
       role: "system",
@@ -146,7 +236,7 @@ export function buildAuditPrompt(
       content: [
         {
           type: "text",
-          text: `Analysera denna webbplats grundligt: ${url}
+          text: `Analysera denna webbplats grundligt: ${url}${webSearchNote}
 
 ANALYSERADE SIDOR (upp till 4):
 ${(websiteContent.sampledUrls && websiteContent.sampledUrls.length > 0
@@ -162,13 +252,10 @@ GRUNDLÄGGANDE INFO:
 - Beskrivning: ${websiteContent.description || "Saknas"}
 - SSL/HTTPS: ${websiteContent.hasSSL ? "Ja ✓" : "NEJ - Kritisk säkerhetsbrist!"}
 - Svarstid: ${websiteContent.responseTime}ms
-- Antal ord (agg): ${websiteContent.wordCount}
-
-RUBRIKER PÅ SIDAN:
-${websiteContent.headings
-  .slice(0, 10)
-  .map((h, i) => `${i + 1}. ${h}`)
-  .join("\n")}
+- Antal ord (agg): ${websiteContent.wordCount}${
+            isJsRendered ? " (FÖR LÅGT - använd WebSearch!)" : ""
+          }
+${headingsSection}
 
 LÄNKSTRUKTUR:
 - Interna länkar: ${websiteContent.links.internal}
@@ -180,9 +267,7 @@ META-TAGGAR:
 - Author: ${websiteContent.meta.author || "Saknas"}
 - Viewport: ${websiteContent.meta.viewport || "Saknas (mobilproblem!)"}
 - Robots: ${websiteContent.meta.robots || "Standard"}
-
-TEXTINNEHÅLL (första ~800 tecken):
-${websiteContent.textPreview}
+${textSection}
 
 GÖR EN KOMPLETT ANALYS AV:
 1. SEO - Meta-taggar, rubriker, strukturerade data
@@ -194,9 +279,13 @@ GÖR EN KOMPLETT ANALYS AV:
 7. Säkerhet - HTTPS, headers, GDPR
 8. Mobilvänlighet - Responsive design
 
-Använd WebSearch för att jämföra med konkurrenter i samma bransch.
+${
+  isJsRendered
+    ? "DU MÅSTE ANVÄNDA WEBSEARCH för att analysera den faktiska renderade sidan innan du svarar.\n\n"
+    : ""
+}Använd WebSearch för att jämföra med konkurrenter i samma bransch.
 
-Svara ENDAST med välformaterad JSON enligt schemat.`,
+KRITISKT: Svara ENDAST med välformaterad JSON enligt schemat. Ingen markdown, ingen text före eller efter JSON-objektet. Börja direkt med { och sluta med }.`,
         },
       ],
     },
@@ -276,72 +365,99 @@ export function extractOutputText(response: Record<string, unknown>): string {
       "items"
     );
 
-    const combined = response.output
-      .map((item: Record<string, unknown>, idx: number) => {
-        console.log(
-          `[extractOutputText] Output item ${idx} type:`,
-          item?.type,
-          "keys:",
-          Object.keys(item || {})
-        );
+    // For Responses API with tools, we need to find the final message output
+    // Tool calls come first, then the final message with the actual response
+    const textParts: string[] = [];
 
-        // Handle message type with content array
-        if (item?.type === "message" && Array.isArray(item?.content)) {
-          return (item.content as Array<Record<string, unknown>>)
-            .map((c) => {
-              if (c?.type === "output_text" && typeof c?.text === "string") {
-                return c.text;
-              }
-              if (typeof c?.text === "string") {
-                return c.text;
-              }
-              return "";
-            })
-            .join("");
-        }
-
-        // Handle direct content array
-        if (Array.isArray(item?.content)) {
-          return (item.content as Array<Record<string, unknown>>)
-            .map((contentItem) => {
-              const textCandidate = contentItem?.text ?? contentItem?.value;
-
-              if (typeof textCandidate === "string") {
-                return textCandidate;
-              }
-
-              if (Array.isArray(textCandidate)) {
-                return textCandidate
-                  .map((entry: string | Record<string, unknown>) => {
-                    if (typeof entry === "string") return entry;
-                    if (typeof entry?.text === "string") return entry.text;
-                    if (typeof entry?.value === "string") return entry.value;
-                    return "";
-                  })
-                  .join("");
-              }
-
-              return "";
-            })
-            .join("");
-        }
-
-        // Handle direct text in item
-        if (typeof item?.text === "string") {
-          return item.text;
-        }
-
-        return "";
-      })
-      .join("\n")
-      .trim();
-
-    if (combined) {
+    for (let idx = 0; idx < response.output.length; idx++) {
+      const item = response.output[idx] as Record<string, unknown>;
       console.log(
-        "[extractOutputText] Extracted from output array, length:",
-        combined.length
+        `[extractOutputText] Output item ${idx} type:`,
+        item?.type,
+        "keys:",
+        Object.keys(item || {})
       );
-      return combined;
+
+      // Skip web_search_call items - we want the final message
+      if (item?.type === "web_search_call") {
+        console.log(`[extractOutputText] Skipping web_search_call item ${idx}`);
+        continue;
+      }
+
+      // Handle message type with content array (this is what we want)
+      if (item?.type === "message" && Array.isArray(item?.content)) {
+        const messageText = (item.content as Array<Record<string, unknown>>)
+          .map((c) => {
+            if (c?.type === "output_text" && typeof c?.text === "string") {
+              return c.text;
+            }
+            if (c?.type === "text" && typeof c?.text === "string") {
+              return c.text;
+            }
+            if (typeof c?.text === "string") {
+              return c.text;
+            }
+            return "";
+          })
+          .filter(Boolean)
+          .join("");
+
+        if (messageText) {
+          console.log(
+            `[extractOutputText] Found message content at item ${idx}, length:`,
+            messageText.length
+          );
+          textParts.push(messageText);
+        }
+        continue;
+      }
+
+      // Handle direct content array
+      if (Array.isArray(item?.content)) {
+        const contentText = (item.content as Array<Record<string, unknown>>)
+          .map((contentItem) => {
+            const textCandidate = contentItem?.text ?? contentItem?.value;
+
+            if (typeof textCandidate === "string") {
+              return textCandidate;
+            }
+
+            if (Array.isArray(textCandidate)) {
+              return textCandidate
+                .map((entry: string | Record<string, unknown>) => {
+                  if (typeof entry === "string") return entry;
+                  if (typeof entry?.text === "string") return entry.text;
+                  if (typeof entry?.value === "string") return entry.value;
+                  return "";
+                })
+                .join("");
+            }
+
+            return "";
+          })
+          .filter(Boolean)
+          .join("");
+
+        if (contentText) {
+          textParts.push(contentText);
+        }
+        continue;
+      }
+
+      // Handle direct text in item
+      if (typeof item?.text === "string" && item.text.trim()) {
+        textParts.push(item.text);
+      }
+    }
+
+    if (textParts.length > 0) {
+      // Return the last text part (usually the final response after tool calls)
+      const finalText = textParts[textParts.length - 1];
+      console.log(
+        "[extractOutputText] Using final text part, length:",
+        finalText.length
+      );
+      return finalText;
     }
   }
 
@@ -350,11 +466,63 @@ export function extractOutputText(response: Record<string, unknown>): string {
     "[extractOutputText] No standard field found, checking full response"
   );
   const responseStr = JSON.stringify(response);
-  if (responseStr.includes("{") && responseStr.includes("}")) {
-    console.log("[extractOutputText] Response contains JSON-like content");
+
+  // Try to find JSON object in the stringified response
+  if (
+    responseStr.includes('"company"') ||
+    responseStr.includes('"audit_scores"')
+  ) {
+    console.log(
+      "[extractOutputText] Response contains audit-like JSON content"
+    );
+    // Try to extract just the JSON part
+    const jsonMatch = responseStr.match(/"text"\s*:\s*"(\{[\s\S]*?\})"/);
+    if (jsonMatch) {
+      try {
+        // Unescape the JSON string
+        const unescaped = JSON.parse(`"${jsonMatch[1].replace(/\\"/g, '"')}"`);
+        console.log("[extractOutputText] Extracted nested JSON from response");
+        return unescaped;
+      } catch {
+        // Ignore parse errors
+      }
+    }
   }
 
   return "";
+}
+
+/**
+ * Attempt to repair common JSON syntax errors
+ * @param jsonString - Potentially malformed JSON string
+ * @returns Repaired JSON string
+ */
+function repairJson(jsonString: string): string {
+  let repaired = jsonString;
+
+  // Fix common issues:
+  // 1. Remove trailing commas before } or ]
+  repaired = repaired.replace(/,(\s*[}\]])/g, "$1");
+
+  // 2. Fix unclosed strings (add closing quote if missing before : or , or })
+  // This is a simple heuristic - may not catch all cases
+  repaired = repaired.replace(
+    /:(\s*)([^",{\[}\]]+?)(\s*)([,}])/g,
+    (match, space1, value, space2, end) => {
+      // If value doesn't start with a quote OR a valid literal (number/boolean/null), quote it
+      const trimmed = value.trim();
+      const looksLikeLiteral = /^(\"|-?\d|true|false|null)/i.test(trimmed);
+      if (!looksLikeLiteral && !trimmed.includes('"')) {
+        return `:${space1}"${trimmed}"${space2}${end}`;
+      }
+      return match;
+    }
+  );
+
+  // 3. Fix escaped quotes in strings (ensure proper escaping)
+  // This is complex, so we'll be conservative
+
+  return repaired;
 }
 
 /**
@@ -408,4 +576,55 @@ export function extractFirstJsonObject(text: string): string | null {
   }
 
   return null;
+}
+
+/**
+ * Parse JSON with automatic repair attempts
+ * @param jsonString - JSON string that may have syntax errors
+ * @returns Parsed object or null if parsing fails
+ */
+export function parseJsonWithRepair(jsonString: string): {
+  success: boolean;
+  data?: unknown;
+  error?: string;
+} {
+  // Try direct parse first
+  try {
+    return { success: true, data: JSON.parse(jsonString) };
+  } catch (error) {
+    const firstError = error instanceof Error ? error.message : String(error);
+
+    // Try repair and parse again
+    try {
+      const repaired = repairJson(jsonString);
+      return { success: true, data: JSON.parse(repaired) };
+    } catch (repairError) {
+      // Try to extract just the JSON object part if there's extra text
+      const extracted = extractFirstJsonObject(jsonString);
+      if (extracted && extracted !== jsonString) {
+        try {
+          return { success: true, data: JSON.parse(extracted) };
+        } catch {
+          try {
+            const repairedExtracted = repairJson(extracted);
+            return { success: true, data: JSON.parse(repairedExtracted) };
+          } catch {
+            return {
+              success: false,
+              error: `JSON parse failed: ${firstError}. Repair attempts also failed.`,
+            };
+          }
+        }
+      }
+
+      return {
+        success: false,
+        error: `JSON parse failed: ${firstError}. Repair attempt failed: ${
+          repairError instanceof Error
+            ? repairError.message
+            : String(repairError)
+        }`,
+      };
+    }
+  }
 }

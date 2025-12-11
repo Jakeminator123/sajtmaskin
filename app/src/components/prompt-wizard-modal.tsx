@@ -1122,7 +1122,7 @@ export function PromptWizardModal({
 
               <div className="space-y-3">
                 {inspirationSites.map((site, index) => (
-                  <div key={index} className="flex gap-2">
+                  <div key={`inspiration-${index}-${site || 'empty'}`} className="flex gap-2">
                     <input
                       id={`wizard-inspiration-${index}`}
                       name={`inspiration-site-${index}`}
@@ -1321,13 +1321,13 @@ export function PromptWizardModal({
                       Populära funktioner för {currentIndustry.label}:
                     </p>
                     <div className="flex flex-wrap gap-2">
-                      {currentIndustry.suggestedFeatures.map((feature) => {
+                      {currentIndustry.suggestedFeatures.map((feature, featureIndex) => {
                         const isIncluded = specialWishes
                           .toLowerCase()
                           .includes(feature.toLowerCase());
                         return (
                           <button
-                            key={feature}
+                            key={`feature-${currentIndustry.id}-${featureIndex}-${feature || 'empty'}`}
                             onClick={() => {
                               if (!isIncluded) {
                                 setSpecialWishes((prev) =>

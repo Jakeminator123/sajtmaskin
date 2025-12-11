@@ -495,7 +495,7 @@ export async function orchestrateWorkflow(
         (routerResult.intent === "clarify" &&
           shouldRunSmartClarify(userPrompt, routerResult)));
 
-    if (shouldRunCodeCrawler) {
+    if (shouldRunCodeCrawler && context.projectFiles) {
       console.log("[Orchestrator] === STEP 2: CODE CRAWLER ===");
       console.log(
         "[Orchestrator] Analyzing",
@@ -534,11 +534,13 @@ export async function orchestrateWorkflow(
         workflowSteps.push(`Analys: ${codeContext.summary}`);
       } else {
         workflowSteps.push("Inga matchande kodsektioner hittades");
-        if (intent === "web_search_and_code") {
+        if (
+          intent === "web_search_and_code" ||
+          intent === "code_only" ||
+          intent === "image_and_code"
+        ) {
           shouldApplyCodeChanges = false;
-          workflowSteps.push(
-            "Hoppar kodändring: ingen kodkontext hittad för färgändringen"
-          );
+          workflowSteps.push("Hoppar kodändring: ingen kodkontext hittad");
         }
       }
     } else if (routerResult.needsCodeContext && !context.projectFiles?.length) {
@@ -546,7 +548,11 @@ export async function orchestrateWorkflow(
         "[Orchestrator] Code context needed but no project files available"
       );
       workflowSteps.push("⚠️ Kodkontext behövs men inga filer tillgängliga");
-      if (intent === "web_search_and_code") {
+      if (
+        intent === "web_search_and_code" ||
+        intent === "code_only" ||
+        intent === "image_and_code"
+      ) {
         shouldApplyCodeChanges = false;
         workflowSteps.push(
           "Hoppar kodändring: inga projektfiler att analysera"
@@ -932,12 +938,30 @@ export async function orchestrateWorkflow(
           message = `${imagesWithUrls.length} av ${imageCount} bilder har sparats med publika URLs. ${imagesWithoutUrls.length} bild(er) kunde inte sparas och kommer inte fungera i v0-preview.`;
         }
 
+        // Clean up generatedImages: Remove base64 if we have blob URLs
+        const cleanedImages =
+          generatedImages.length > 0
+            ? generatedImages.map((img) => {
+                // If we have a blob URL, remove base64 (not needed for storage)
+                if (img.url) {
+                  return {
+                    prompt: img.prompt,
+                    url: img.url,
+                  };
+                }
+                // Keep base64 only if no URL (fallback for display)
+                return {
+                  prompt: img.prompt,
+                  base64: img.base64,
+                };
+              })
+            : undefined;
+
         return {
           success: imageCount > 0,
           message,
           intent,
-          generatedImages:
-            generatedImages.length > 0 ? generatedImages : undefined,
+          generatedImages: cleanedImages,
           workflowSteps,
         };
       }
@@ -1123,6 +1147,28 @@ Bilderna kommer INTE visas i preview. Lägg till placeholder-bilder tills vidare
 
       workflowSteps.push("Webbplatskod uppdaterad!");
 
+      // Clean up generatedImages: Remove base64 if we have blob URLs
+      // This reduces storage size and ensures we only use public URLs
+      const cleanedImages =
+        generatedImages.length > 0
+          ? generatedImages.map((img) => {
+              // If we have a blob URL, remove base64 (not needed for storage)
+              // Keep base64 only if no URL exists (fallback for display)
+              if (img.url) {
+                return {
+                  prompt: img.prompt,
+                  url: img.url,
+                  // Explicitly omit base64 when we have URL
+                };
+              }
+              // Keep base64 only if no URL (shouldn't happen but safety fallback)
+              return {
+                prompt: img.prompt,
+                base64: img.base64,
+              };
+            })
+          : undefined;
+
       return {
         success: true,
         message: "Klart! Jag har uppdaterat din webbplats.",
@@ -1134,8 +1180,7 @@ Bilderna kommer INTE visas i preview. Lägg till placeholder-bilder tills vidare
         versionId: v0Result.versionId,
         webSearchResults:
           webSearchResults.length > 0 ? webSearchResults : undefined,
-        generatedImages:
-          generatedImages.length > 0 ? generatedImages : undefined,
+        generatedImages: cleanedImages,
         workflowSteps,
         // NEW: Include enrichment info for debugging
         routerResult,

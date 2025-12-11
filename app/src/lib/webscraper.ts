@@ -147,22 +147,64 @@ async function fetchPage(url: string): Promise<{
   let response: Response;
 
   try {
+    const urlObj = new URL(url);
     response = await fetch(url, {
       signal: controller.signal,
       headers: {
         "User-Agent":
           "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
         Accept:
-          "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-        "Accept-Language": "sv-SE,sv;q=0.9,en;q=0.8",
+          "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+        "Accept-Language": "sv-SE,sv;q=0.9,en-US;q=0.8,en;q=0.7",
+        "Accept-Encoding": "gzip, deflate, br",
+        "Cache-Control": "no-cache",
+        Pragma: "no-cache",
+        Referer: `${urlObj.protocol}//${urlObj.host}/`,
+        "Sec-Fetch-Dest": "document",
+        "Sec-Fetch-Mode": "navigate",
+        "Sec-Fetch-Site": "none",
+        "Sec-Fetch-User": "?1",
+        "Upgrade-Insecure-Requests": "1",
       },
+      redirect: "follow",
     });
+  } catch (fetchError) {
+    clearTimeout(timeout);
+    if (fetchError instanceof Error && fetchError.name === "AbortError") {
+      throw new Error("Timeout: Hemsidan svarade inte inom 15 sekunder");
+    }
+    throw fetchError;
   } finally {
     clearTimeout(timeout);
   }
 
   if (!response.ok) {
-    throw new Error(`HTTP-fel: ${response.status} ${response.statusText}`);
+    const status = response.status;
+    if (status === 403) {
+      const domain = new URL(url).hostname;
+      throw new Error(
+        `403 Forbidden: ${domain} blockerar automatiska requests. ` +
+          `Många stora webbplatser (t.ex. IKEA, Amazon, etc.) använder Cloudflare eller liknande bot-skydd som förhindrar automatisk scraping. ` +
+          `Tyvärr kan vi inte kringgå dessa säkerhetsåtgärder. ` +
+          `Försök med en annan webbplats eller kontakta webbplatsens ägare om du behöver analysera deras sida.`
+      );
+    }
+    if (status === 401) {
+      throw new Error(
+        `401 Unauthorized: Webbplatsen kräver autentisering för att komma åt innehållet.`
+      );
+    }
+    if (status === 404) {
+      throw new Error(
+        `404 Not Found: Sidan kunde inte hittas på den angivna URL:en.`
+      );
+    }
+    if (status >= 500) {
+      throw new Error(
+        `Serverfel (${status}): Webbplatsens server svarar inte korrekt. Försök igen senare.`
+      );
+    }
+    throw new Error(`HTTP-fel: ${status} ${response.statusText}`);
   }
 
   const contentType = response.headers.get("content-type");
@@ -205,10 +247,41 @@ async function parsePage(
     if (text && headings.length < 25) headings.push(text);
   });
 
-  const bodyText = $("body").text().replace(/\s+/g, " ").trim();
-  const words = bodyText.split(" ");
+  // Extract text from body, removing script/style content
+  // Try to get text from main content areas first, fallback to body
+  let bodyText = "";
+
+  // Try main content areas (better for modern sites)
+  const mainContent = $(
+    "main, article, [role='main'], .content, .main-content"
+  ).first();
+  if (mainContent.length > 0) {
+    bodyText = mainContent.text();
+  }
+
+  // Fallback to body if main content is empty or very short
+  if (!bodyText || bodyText.trim().length < 50) {
+    bodyText = $("body").text();
+  }
+
+  // Clean up whitespace
+  bodyText = bodyText.replace(/\s+/g, " ").trim();
+
+  // Split into words and filter out empty strings
+  const words = bodyText.split(" ").filter((word) => word.trim().length > 0);
   const limitedText = words.slice(0, 1500).join(" ");
   const wordCount = words.length;
+
+  // Log warning if very little content found (might be JS-rendered)
+  if (wordCount < 10) {
+    console.warn(
+      `[WebScraper] Very little text found (${wordCount} words) for ${url}. ` +
+        `This might be a JavaScript-rendered page. Found ${
+          $("script").length
+        } script tags. ` +
+        `Body text length: ${bodyText.length} chars.`
+    );
+  }
 
   let internalLinks = 0;
   let externalLinks = 0;

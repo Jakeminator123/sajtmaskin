@@ -128,6 +128,71 @@ export interface PriorityMatrix {
   thankless_tasks?: string[];
 }
 
+// Extracted site content for template generation
+export interface SiteContentExtraction {
+  // Company/business info
+  company_name: string;
+  tagline?: string;
+  description: string;
+  industry: string;
+  location?: string;
+  
+  // What they offer
+  services?: string[];
+  products?: string[];
+  unique_selling_points?: string[];
+  
+  // Page sections found
+  sections: {
+    name: string;
+    content: string;
+    type: "hero" | "services" | "about" | "contact" | "testimonials" | "portfolio" | "pricing" | "faq" | "team" | "cta" | "footer" | "other";
+  }[];
+  
+  // Call to actions
+  ctas?: string[];
+  
+  // Contact info
+  contact?: {
+    email?: string;
+    phone?: string;
+    address?: string;
+    social_links?: string[];
+  };
+}
+
+// Color theme extraction
+export interface ColorThemeExtraction {
+  primary_color: string;        // Main brand color (hex)
+  secondary_color?: string;     // Secondary color (hex)
+  accent_color?: string;        // Accent/CTA color (hex)
+  background_color: string;     // Main background (hex)
+  text_color: string;           // Main text color (hex)
+  
+  // Overall style
+  theme_type: "light" | "dark" | "mixed";
+  style_description: string;    // e.g. "Minimalistisk, modern, professionell"
+  
+  // Design characteristics
+  design_style?: "minimalist" | "bold" | "playful" | "corporate" | "creative" | "elegant" | "tech" | "organic";
+  typography_style?: string;    // e.g. "Sans-serif, clean, modern"
+}
+
+// Ready-to-use prompt for template generation
+export interface TemplateGenerationData {
+  // Super prompt for v0/AI generation
+  generation_prompt: string;
+  
+  // Key features to include
+  must_have_sections: string[];
+  
+  // Style guidelines
+  style_notes: string;
+  
+  // Suggested improvements over original
+  improvements_to_apply: string[];
+}
+
 // Audit scores (0-100 for each category)
 export interface AuditScores {
   seo?: number;
@@ -191,6 +256,11 @@ export interface AuditResult {
   // Planning
   implementation_roadmap?: ImplementationRoadmap;
   success_metrics?: SuccessMetrics;
+
+  // NEW: Extracted site content for template generation
+  site_content?: SiteContentExtraction;
+  color_theme?: ColorThemeExtraction;
+  template_data?: TemplateGenerationData;
 
   // Cost tracking
   cost: AuditCost;

@@ -44,7 +44,14 @@ export function TextUploader({
 }: TextUploaderProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [infoMessage, setInfoMessage] = useState<string | null>(null);
+  const [pendingText, setPendingText] = useState<{
+    content: string;
+    filename: string;
+    file: File;
+  } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const modalRef = useRef<HTMLDivElement>(null);
 
@@ -95,6 +102,8 @@ export function TextUploader({
 
     setIsProcessing(true);
     setError(null);
+    setInfoMessage(null);
+    setPendingText(null);
 
     try {
       const content = await readFileContent(file);
@@ -104,9 +113,8 @@ export function TextUploader({
         return;
       }
 
-      // Send content to parent - orchestrator will handle placement
-      onContentReady(content, file.name);
-      onClose();
+      // Låt användaren välja vad som ska göras med texten
+      setPendingText({ content, filename: file.name, file });
     } catch (err) {
       console.error("[TextUploader] Error processing file:", err);
       setError(
@@ -114,6 +122,54 @@ export function TextUploader({
       );
     } finally {
       setIsProcessing(false);
+    }
+  };
+
+  const handleSaveToLibrary = async () => {
+    if (!pendingText) return;
+    setIsSaving(true);
+    setError(null);
+    setInfoMessage(null);
+
+    try {
+      const formData = new FormData();
+      formData.append("file", pendingText.file);
+
+      const res = await fetch("/api/media/upload", {
+        method: "POST",
+        body: formData,
+      });
+      const data = await res.json();
+
+      if (!res.ok || !data.success) {
+        throw new Error(data.error || "Kunde inte spara filen");
+      }
+
+      setInfoMessage(
+        "Texten sparades i ditt mediabibliotek. Du kan använda den senare i chatten."
+      );
+    } catch (err) {
+      console.error("[TextUploader] Failed to save to library:", err);
+      setError(
+        err instanceof Error ? err.message : "Kunde inte spara filen. Är du inloggad?"
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleSendToChat = () => {
+    if (!pendingText) return;
+    onContentReady(pendingText.content, pendingText.filename);
+    setPendingText(null);
+    onClose();
+  };
+
+  const handleSaveAndSend = async () => {
+    if (!pendingText) return;
+    await handleSaveToLibrary();
+    if (!error) {
+      handleSendToChat();
     }
   };
 
@@ -196,7 +252,7 @@ export function TextUploader({
           {/* Content */}
           <div className="p-4 space-y-4">
             {/* Drop zone */}
-            {!isProcessing && (
+            {!isProcessing && !pendingText && (
               <div
                 onDragOver={handleDragOver}
                 onDragLeave={handleDragLeave}
@@ -236,6 +292,53 @@ export function TextUploader({
               </div>
             )}
 
+            {/* Actions after content extracted */}
+            {pendingText && !isProcessing && (
+              <div className="space-y-3">
+                <div className="p-3 bg-gray-900 border border-gray-800 rounded-lg">
+                  <p className="text-sm text-gray-200 mb-1">
+                    Vad vill du göra med denna text?
+                  </p>
+                  <p className="text-xs text-gray-500 mb-2">
+                    Fil: {pendingText.filename}
+                  </p>
+                  <p className="text-xs text-gray-500 line-clamp-3">
+                    {pendingText.content.slice(0, 500)}
+                    {pendingText.content.length > 500 ? "..." : ""}
+                  </p>
+                </div>
+
+                <div className="flex flex-col gap-2">
+                  <button
+                    onClick={handleSendToChat}
+                    className="w-full px-4 py-2 bg-teal-600 hover:bg-teal-500 text-white rounded-lg transition-colors"
+                  >
+                    Skicka till chatten nu
+                  </button>
+                  <button
+                    onClick={handleSaveToLibrary}
+                    disabled={isSaving}
+                    className={cn(
+                      "w-full px-4 py-2 border border-gray-700 rounded-lg text-gray-200 hover:border-gray-500 transition-colors",
+                      isSaving && "opacity-50 cursor-not-allowed"
+                    )}
+                  >
+                    {isSaving ? "Sparar..." : "Spara i mediabiblioteket"}
+                  </button>
+                  <button
+                    onClick={handleSaveAndSend}
+                    disabled={isSaving}
+                    className={cn(
+                      "w-full px-4 py-2 border border-teal-700 text-teal-300 rounded-lg hover:border-teal-500 hover:text-white transition-colors",
+                      isSaving && "opacity-50 cursor-not-allowed"
+                    )}
+                  >
+                    {isSaving ? "Sparar..." : "Spara och skicka till chatten"}
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Error */}
             {error && (
               <div className="flex items-center gap-2 p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-sm text-red-400">
@@ -250,10 +353,19 @@ export function TextUploader({
               </div>
             )}
 
+            {/* Info */}
+            {infoMessage && (
+              <div className="p-3 bg-teal-500/10 border border-teal-500/30 rounded-lg text-xs text-teal-200">
+                {infoMessage}
+              </div>
+            )}
+
             {/* Help text */}
-            <p className="text-xs text-gray-500 text-center">
-              AI:n placerar innehållet automatiskt på rätt ställe
-            </p>
+            {!pendingText && (
+              <p className="text-xs text-gray-500 text-center">
+                AI:n placerar innehållet automatiskt på rätt ställe
+              </p>
+            )}
           </div>
         </div>
       </div>

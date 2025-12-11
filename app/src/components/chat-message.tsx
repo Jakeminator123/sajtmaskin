@@ -51,7 +51,7 @@ function WebSearchResults({
       <div className="divide-y divide-gray-700">
         {displayResults.map((result, index) => (
           <a
-            key={index}
+            key={`search-result-${index}-${result.url || ""}`}
             href={result.url}
             target="_blank"
             rel="noopener noreferrer"
@@ -101,7 +101,7 @@ function GeneratedImages({
   images,
   onUseImage,
 }: {
-  images: Array<{ base64: string; prompt: string; url?: string }>;
+  images: Array<{ base64?: string; prompt: string; url?: string }>;
   onUseImage?: (url: string, prompt: string) => void;
 }) {
   const [selectedImage, setSelectedImage] = useState<number | null>(null);
@@ -122,68 +122,82 @@ function GeneratedImages({
         </span>
       </div>
       <div className="grid grid-cols-2 gap-2">
-        {images.map((img, index) => (
-          <div key={index} className="relative group">
-            <button
-              onClick={() =>
-                setSelectedImage(selectedImage === index ? null : index)
-              }
-              className="w-full aspect-square rounded-lg overflow-hidden border border-gray-700 hover:border-teal-500 transition-colors"
-            >
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={img.url || `data:image/png;base64,${img.base64}`}
-                alt={img.prompt}
-                className="w-full h-full object-cover"
-              />
-            </button>
+        {images.map((img, index) => {
+          const imgSrc =
+            img.url ||
+            (img.base64 ? `data:image/png;base64,${img.base64}` : undefined);
 
-            {/* Hover overlay with actions */}
-            <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 rounded-lg">
-              {img.url && (
-                <>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleCopyUrl(img.url!, index);
-                    }}
-                    className="px-3 py-1 text-xs bg-teal-600 hover:bg-teal-500 text-white rounded transition-colors"
-                  >
-                    {copiedIndex === index ? "✓ Kopierad!" : "Kopiera URL"}
-                  </button>
-                  {onUseImage && (
+          // Skip rendering if neither URL nor base64 is available
+          if (!imgSrc) return null;
+
+          return (
+            <div
+              key={`generated-image-${index}-${
+                img.url || img.base64?.slice(0, 20) || "no-src"
+              }`}
+              className="relative group"
+            >
+              <button
+                onClick={() =>
+                  setSelectedImage(selectedImage === index ? null : index)
+                }
+                className="w-full aspect-square rounded-lg overflow-hidden border border-gray-700 hover:border-teal-500 transition-colors"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={imgSrc}
+                  alt={img.prompt}
+                  className="w-full h-full object-cover"
+                />
+              </button>
+
+              {/* Hover overlay with actions */}
+              <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center gap-2 rounded-lg">
+                {img.url && (
+                  <>
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
-                        onUseImage(img.url!, img.prompt);
+                        handleCopyUrl(img.url!, index);
                       }}
-                      className="px-3 py-1 text-xs bg-purple-600 hover:bg-purple-500 text-white rounded transition-colors"
+                      className="px-3 py-1 text-xs bg-teal-600 hover:bg-teal-500 text-white rounded transition-colors"
                     >
-                      Använd i sajten
+                      {copiedIndex === index ? "✓ Kopierad!" : "Kopiera URL"}
                     </button>
-                  )}
-                </>
-              )}
-              {!img.url && (
-                <span className="text-xs text-gray-400 text-center px-2">
-                  Ej sparad permanent
-                </span>
-              )}
-            </div>
-
-            {/* Prompt tooltip */}
-            {selectedImage === index && (
-              <div className="absolute left-0 right-0 top-full mt-1 p-2 bg-gray-800 border border-gray-700 rounded text-xs text-gray-400 z-10">
-                <p className="mb-1">{img.prompt}</p>
-                {img.url && (
-                  <p className="text-teal-400 text-[10px] truncate">
-                    {img.url}
-                  </p>
+                    {onUseImage && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onUseImage(img.url!, img.prompt);
+                        }}
+                        className="px-3 py-1 text-xs bg-purple-600 hover:bg-purple-500 text-white rounded transition-colors"
+                      >
+                        Använd i sajten
+                      </button>
+                    )}
+                  </>
+                )}
+                {!img.url && (
+                  <span className="text-xs text-gray-400 text-center px-2">
+                    Ej sparad permanent
+                  </span>
                 )}
               </div>
-            )}
-          </div>
-        ))}
+
+              {/* Prompt tooltip */}
+              {selectedImage === index && (
+                <div className="absolute left-0 right-0 top-full mt-1 p-2 bg-gray-800 border border-gray-700 rounded text-xs text-gray-400 z-10">
+                  <p className="mb-1">{img.prompt}</p>
+                  {img.url && (
+                    <p className="text-teal-400 text-[10px] truncate">
+                      {img.url}
+                    </p>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
     </div>
   );
@@ -199,7 +213,10 @@ function WorkflowSteps({ steps }: { steps: string[] }) {
       </div>
       <div className="px-3 py-2 space-y-1">
         {steps.map((step, index) => (
-          <div key={index} className="flex items-start gap-2">
+          <div
+            key={`workflow-step-${index}-${step.slice(0, 30)}`}
+            className="flex items-start gap-2"
+          >
             <span className="text-xs text-purple-400 font-mono">
               {index + 1}.
             </span>
@@ -232,7 +249,10 @@ function UserUploadedFiles({
       </div>
       <div className="flex flex-wrap gap-2">
         {files.map((file, index) => (
-          <div key={index} className="relative group">
+          <div
+            key={`user-file-${index}-${file.filename || file.url || ""}`}
+            className="relative group"
+          >
             {file.mimeType.startsWith("image/") ? (
               <a
                 href={file.url}
@@ -300,16 +320,34 @@ function MessageAttachments({
 
       {/* Render other attachments */}
       {otherAttachments.map((attachment, index) => {
+        // Create unique key combining type, index, and content hash
+        const keyBase = `${attachment.type}-${index}`;
+        let uniqueKey = keyBase;
+
+        // Add content-based identifier if available
+        if (attachment.type === "image" && attachment.url) {
+          uniqueKey = `${keyBase}-${attachment.url.slice(-20)}`;
+        } else if (
+          attachment.type === "web_search" &&
+          attachment.results?.length
+        ) {
+          uniqueKey = `${keyBase}-${
+            attachment.results[0]?.url?.slice(-20) || ""
+          }`;
+        } else if (attachment.type === "workflow" && attachment.steps?.length) {
+          uniqueKey = `${keyBase}-${attachment.steps[0]?.slice(0, 20) || ""}`;
+        }
+
         switch (attachment.type) {
           case "web_search":
             return (
-              <WebSearchResults key={index} results={attachment.results} />
+              <WebSearchResults key={uniqueKey} results={attachment.results} />
             );
           case "image":
             // Single image - wrap in array for component
             return (
               <GeneratedImages
-                key={index}
+                key={uniqueKey}
                 images={[
                   {
                     base64: attachment.base64,
@@ -320,7 +358,7 @@ function MessageAttachments({
               />
             );
           case "workflow":
-            return <WorkflowSteps key={index} steps={attachment.steps} />;
+            return <WorkflowSteps key={uniqueKey} steps={attachment.steps} />;
           default:
             return null;
         }

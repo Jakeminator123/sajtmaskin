@@ -17,6 +17,7 @@ import {
   combinePromptForResponsesApi,
   extractOutputText,
   extractFirstJsonObject,
+  parseJsonWithRepair,
 } from "@/lib/audit-prompts";
 import type { AuditResult, AuditRequest } from "@/types/audit";
 
@@ -48,6 +49,132 @@ function getOpenAIClient(): OpenAI {
   });
 }
 
+// Create a fallback result when AI response is invalid
+function createFallbackResult(
+  websiteContent: {
+    title: string;
+    description: string;
+    wordCount: number;
+    hasSSL: boolean;
+    headings: string[];
+    meta: { viewport?: string; keywords?: string };
+    links: { internal: number; external: number };
+    images: number;
+    responseTime: number;
+  },
+  url: string
+): Record<string, unknown> {
+  const domain = new URL(url).hostname;
+  const isJsRendered = websiteContent.wordCount < 50;
+  const companyName = websiteContent.title || domain;
+
+  return {
+    company: companyName,
+    audit_scores: {
+      seo: websiteContent.description ? 50 : 30,
+      technical_seo: websiteContent.hasSSL ? 60 : 30,
+      ux: 50,
+      content: isJsRendered ? 40 : websiteContent.wordCount > 200 ? 60 : 40,
+      performance: websiteContent.responseTime < 2000 ? 60 : 40,
+      accessibility: websiteContent.meta.viewport ? 50 : 30,
+      security: websiteContent.hasSSL ? 60 : 20,
+      mobile: websiteContent.meta.viewport ? 60 : 30,
+    },
+    strengths: [
+      websiteContent.hasSSL ? "Använder HTTPS/SSL" : null,
+      websiteContent.meta.viewport ? "Har viewport meta-tagg för mobil" : null,
+      websiteContent.headings.length > 0
+        ? `Har ${websiteContent.headings.length} rubriker för struktur`
+        : null,
+    ].filter(Boolean),
+    issues: [
+      !websiteContent.hasSSL
+        ? "Saknar HTTPS/SSL - kritiskt säkerhetsproblem"
+        : null,
+      !websiteContent.description ? "Saknar meta-beskrivning för SEO" : null,
+      !websiteContent.meta.viewport
+        ? "Saknar viewport meta-tagg - mobilproblem"
+        : null,
+      isJsRendered
+        ? "Sidan verkar vara JavaScript-renderad vilket kan påverka SEO negativt"
+        : null,
+      websiteContent.wordCount < 100
+        ? "Mycket lite textinnehåll på sidan"
+        : null,
+    ].filter(Boolean),
+    improvements: [
+      {
+        item: "Grundläggande SEO-optimering",
+        impact: "high",
+        effort: "low",
+        why: "Förbättrar synlighet i sökmotorer",
+        how: "Lägg till meta-beskrivning, optimera rubriker, strukturerade data",
+        estimated_time: "1-2 dagar",
+      },
+      {
+        item: "Teknisk granskning behövs",
+        impact: "high",
+        effort: "medium",
+        why: "AI-analysen kunde inte extrahera tillräckligt innehåll från sidan",
+        how: "Manuell granskning av källkod och rendering rekommenderas",
+        estimated_time: "2-4 timmar",
+      },
+    ],
+    // Minimal site_content based on scraped data
+    site_content: {
+      company_name: companyName,
+      tagline: websiteContent.description || null,
+      description:
+        websiteContent.description ||
+        "Beskrivning kunde inte extraheras automatiskt",
+      industry: "Okänd",
+      location: null,
+      services: [],
+      products: [],
+      unique_selling_points: [],
+      sections: websiteContent.headings.slice(0, 5).map((heading, i) => ({
+        name: heading,
+        content: heading,
+        type: i === 0 ? "hero" : "other",
+      })),
+      ctas: [],
+      contact: {},
+    },
+    // Default color theme (dark theme as placeholder)
+    color_theme: {
+      primary_color: "#3b82f6",
+      secondary_color: "#1e40af",
+      accent_color: "#22c55e",
+      background_color: "#0f172a",
+      text_color: "#f8fafc",
+      theme_type: "dark",
+      style_description:
+        "Färgtema kunde inte extraheras - standardvärden används",
+      design_style: "minimalist",
+      typography_style: "Sans-serif, modern",
+    },
+    // Basic template data
+    template_data: {
+      generation_prompt: `Skapa en modern webbplats för ${companyName}. ${
+        websiteContent.description
+          ? `Beskrivning: ${websiteContent.description}.`
+          : ""
+      } Använd en minimalistisk design med mörkt tema. Inkludera hero-sektion, om oss, tjänster och kontakt.`,
+      must_have_sections: ["hero", "about", "services", "contact"],
+      style_notes: "Minimalistisk design, mörkt tema, modern typografi",
+      improvements_to_apply: [
+        "Tydligare värdeerbjudande i hero-sektionen",
+        "Bättre call-to-actions",
+        "Optimerad mobilvy",
+      ],
+    },
+    _fallback: true,
+    _fallback_reason: isJsRendered
+      ? "Sidan är JavaScript-renderad och kunde inte analyseras fullt ut"
+      : "AI-analysen returnerade inte giltigt resultat",
+  };
+}
+
 // Validate audit result structure (lenient - accept partial results)
 function validateAuditResult(result: unknown): result is AuditResult {
   if (!result || typeof result !== "object") return false;
@@ -71,6 +198,15 @@ function validateAuditResult(result: unknown): result is AuditResult {
     r.security_analysis && typeof r.security_analysis === "object"
   );
   const hasTechRecs = Array.isArray(r.technical_recommendations);
+  const hasSiteContent = Boolean(
+    r.site_content && typeof r.site_content === "object"
+  );
+  const hasColorTheme = Boolean(
+    r.color_theme && typeof r.color_theme === "object"
+  );
+  const hasTemplateData = Boolean(
+    r.template_data && typeof r.template_data === "object"
+  );
 
   // Very lenient - just needs to be an object with at least one key
   const hasAnyContent = Object.keys(r).length > 0;
@@ -84,7 +220,10 @@ function validateAuditResult(result: unknown): result is AuditResult {
     hasIssues ||
     hasBudget ||
     hasSecurity ||
-    hasTechRecs;
+    hasTechRecs ||
+    hasSiteContent ||
+    hasColorTheme ||
+    hasTemplateData;
 
   return hasAnyContent && hasUsefulField;
 }
@@ -183,15 +322,40 @@ export async function POST(request: NextRequest) {
       });
     } catch (error) {
       console.error(`[${requestId}] Scraping failed:`, error);
+      const errorMessage =
+        error instanceof Error
+          ? error.message
+          : "Kunde inte hämta hemsidan. Kontrollera URL:en och försök igen.";
+
+      // Return appropriate status code based on error type
+      let statusCode = 400;
+      if (errorMessage.includes("403") || errorMessage.includes("Forbidden")) {
+        statusCode = 403;
+      } else if (
+        errorMessage.includes("401") ||
+        errorMessage.includes("Unauthorized")
+      ) {
+        statusCode = 401;
+      } else if (
+        errorMessage.includes("404") ||
+        errorMessage.includes("Not Found")
+      ) {
+        statusCode = 404;
+      } else if (errorMessage.includes("Timeout")) {
+        statusCode = 408;
+      } else if (
+        errorMessage.includes("Serverfel") ||
+        errorMessage.includes("50")
+      ) {
+        statusCode = 502;
+      }
+
       return NextResponse.json(
         {
           success: false,
-          error:
-            error instanceof Error
-              ? error.message
-              : "Kunde inte hämta hemsidan. Kontrollera URL:en och försök igen.",
+          error: errorMessage,
         },
-        { status: 400 }
+        { status: statusCode }
       );
     }
 
@@ -263,50 +427,112 @@ export async function POST(request: NextRequest) {
 
     if (!outputText || outputText.trim().length === 0) {
       console.error(`[${requestId}] Empty response from API`);
+      console.error(
+        `[${requestId}] Full response keys:`,
+        Object.keys(response || {})
+      );
+      console.error(
+        `[${requestId}] Response preview:`,
+        JSON.stringify(response).substring(0, 500)
+      );
       return NextResponse.json(
         { success: false, error: "Tom respons från AI. Försök igen." },
         { status: 500 }
       );
     }
 
-    // Processing audit output
+    // Log first part of output for debugging
+    console.log(
+      `[${requestId}] Output text preview (first 300 chars):`,
+      outputText.substring(0, 300)
+    );
 
-    // Parse JSON response
+    // Clean output text - remove markdown code blocks if present
+    let cleanedOutput = outputText.trim();
+
+    // Remove ```json ... ``` or ``` ... ``` wrapper if present
+    const jsonBlockMatch = cleanedOutput.match(
+      /```(?:json)?\s*([\s\S]*?)\s*```/
+    );
+    if (jsonBlockMatch) {
+      cleanedOutput = jsonBlockMatch[1].trim();
+      console.log(`[${requestId}] Removed markdown code block wrapper`);
+    }
+
+    // Remove any text before the first { and after the last }
+    const firstBrace = cleanedOutput.indexOf("{");
+    const lastBrace = cleanedOutput.lastIndexOf("}");
+    if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+      const beforeJson = cleanedOutput.substring(0, firstBrace).trim();
+      const afterJson = cleanedOutput.substring(lastBrace + 1).trim();
+      if (beforeJson || afterJson) {
+        cleanedOutput = cleanedOutput.substring(firstBrace, lastBrace + 1);
+        console.log(`[${requestId}] Trimmed text before/after JSON`);
+      }
+    }
+
+    // Parse JSON response with repair attempts
     let auditResult;
-    try {
-      auditResult = JSON.parse(outputText);
-      console.log(`[${requestId}] Direct JSON parse succeeded`);
-    } catch (parseError) {
+    const parseResult = parseJsonWithRepair(cleanedOutput);
+
+    if (parseResult.success && parseResult.data) {
+      auditResult = parseResult.data;
+      console.log(`[${requestId}] JSON parse succeeded`);
+      console.log(
+        `[${requestId}] Parsed result keys:`,
+        Object.keys(auditResult as object)
+      );
+    } else {
+      // Try to extract JSON from response if direct parse failed
       console.log(
         `[${requestId}] Direct parse failed, trying extraction:`,
-        parseError instanceof Error ? parseError.message : "unknown"
+        parseResult.error || "unknown"
       );
-      // Try to extract JSON from response
       const jsonString = extractFirstJsonObject(outputText);
       if (!jsonString) {
         console.error(
-          `[${requestId}] Could not find JSON in response. Full output:`,
+          `[${requestId}] Could not find JSON in response. Full output (first 2000 chars):`,
           outputText.substring(0, 2000)
         );
         return NextResponse.json(
-          { success: false, error: "Kunde inte tolka AI-svaret. Försök igen." },
+          {
+            success: false,
+            error:
+              "Kunde inte tolka AI-svaret. AI:n returnerade ogiltig JSON. Försök igen.",
+          },
           { status: 500 }
         );
       }
       console.log(
         `[${requestId}] Extracted JSON length: ${jsonString.length} chars`
       );
-      try {
-        auditResult = JSON.parse(jsonString);
-      } catch (extractParseError) {
+
+      // Try parsing extracted JSON with repair
+      const extractParseResult = parseJsonWithRepair(jsonString);
+      if (extractParseResult.success && extractParseResult.data) {
+        auditResult = extractParseResult.data;
+        console.log(`[${requestId}] Extracted JSON parse succeeded`);
+      } else {
+        // Log the problematic JSON for debugging (first 1000 chars around error position)
+        const errorPos = extractParseResult.error?.match(/position (\d+)/)?.[1];
+        const startPos = errorPos ? Math.max(0, parseInt(errorPos) - 500) : 0;
+        const endPos = errorPos
+          ? Math.min(jsonString.length, parseInt(errorPos) + 500)
+          : 1000;
         console.error(
           `[${requestId}] Failed to parse extracted JSON:`,
-          extractParseError instanceof Error
-            ? extractParseError.message
-            : "unknown"
+          extractParseResult.error
+        );
+        console.error(
+          `[${requestId}] Problematic JSON section (chars ${startPos}-${endPos}):`,
+          jsonString.substring(startPos, endPos)
         );
         return NextResponse.json(
-          { success: false, error: "Kunde inte tolka AI-svaret. Försök igen." },
+          {
+            success: false,
+            error:
+              "Kunde inte tolka AI-svaret. JSON-syntaxfel i AI-responsen. Försök igen.",
+          },
           { status: 500 }
         );
       }
@@ -314,31 +540,82 @@ export async function POST(request: NextRequest) {
 
     // Audit result parsed successfully
 
+    // Check if result is nested inside another object (e.g. { result: {...} } or { audit: {...} })
+    const possibleNestedKeys = [
+      "result",
+      "audit",
+      "data",
+      "response",
+      "audit_result",
+    ];
+    for (const key of possibleNestedKeys) {
+      const nested = (auditResult as Record<string, unknown>)?.[key];
+      if (nested && typeof nested === "object" && !Array.isArray(nested)) {
+        // Check if nested object has more audit-like fields
+        const nestedObj = nested as Record<string, unknown>;
+        if (
+          nestedObj.company ||
+          nestedObj.audit_scores ||
+          nestedObj.improvements ||
+          nestedObj.strengths
+        ) {
+          console.log(
+            `[${requestId}] Found nested audit result under key "${key}"`
+          );
+          auditResult = nested;
+          break;
+        }
+      }
+    }
+
     // Validate result (more lenient - just check it's an object with some data)
     if (!validateAuditResult(auditResult)) {
+      const ar = auditResult as Record<string, unknown>;
       console.error(
         `[${requestId}] Invalid audit result. Has fields:`,
         JSON.stringify({
-          hasCompany: typeof auditResult?.company === "string",
-          hasImprovements: Array.isArray(auditResult?.improvements),
-          hasScores: typeof auditResult?.audit_scores === "object",
-          hasStrengths: Array.isArray(auditResult?.strengths),
-          hasIssues: Array.isArray(auditResult?.issues),
+          hasCompany: typeof ar?.company === "string" && ar.company,
+          hasImprovements:
+            Array.isArray(ar?.improvements) && ar.improvements.length > 0,
+          hasScores: ar?.audit_scores && typeof ar.audit_scores === "object",
+          hasStrengths: Array.isArray(ar?.strengths) && ar.strengths.length > 0,
+          hasIssues: Array.isArray(ar?.issues) && ar.issues.length > 0,
         })
       );
+      console.error(
+        `[${requestId}] Actual keys present:`,
+        Object.keys(ar || {})
+      );
+      console.error(
+        `[${requestId}] Sample values:`,
+        JSON.stringify({
+          company: ar?.company,
+          strengths: Array.isArray(ar?.strengths)
+            ? ar.strengths.slice(0, 2)
+            : ar?.strengths,
+          issues: Array.isArray(ar?.issues)
+            ? ar.issues.slice(0, 2)
+            : ar?.issues,
+        })
+      );
+
       // Try to return partial result anyway if it has ANYTHING useful
-      if (auditResult && typeof auditResult === "object") {
+      if (
+        auditResult &&
+        typeof auditResult === "object" &&
+        Object.keys(ar).length > 0
+      ) {
         console.log(
-          `[${requestId}] Returning partial result despite validation failure`
+          `[${requestId}] Returning partial result despite validation failure (${
+            Object.keys(ar).length
+          } keys)`
         );
       } else {
-        return NextResponse.json(
-          {
-            success: false,
-            error: "AI-svaret saknar nödvändig information. Försök igen.",
-          },
-          { status: 500 }
+        // Create a minimal fallback result based on scraped data
+        console.log(
+          `[${requestId}] Creating fallback result from scraped data`
         );
+        auditResult = createFallbackResult(websiteContent, normalizedUrl);
       }
     }
 

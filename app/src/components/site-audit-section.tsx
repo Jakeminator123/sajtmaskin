@@ -228,9 +228,9 @@ export function SiteAuditSection({
           { icon: "🔒", text: "Säkerhetsanalys" },
           { icon: "💰", text: "Budgetuppskattning" },
           { icon: "✨", text: "Förbättringsförslag" },
-        ].map((feature) => (
+        ].map((feature, index) => (
           <div
-            key={feature.text}
+            key={`audit-feature-${index}-${feature.text || feature.icon}`}
             className="flex items-center gap-2 p-2 bg-black/30 border border-gray-800 text-gray-400"
           >
             <span>{feature.icon}</span>
