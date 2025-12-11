@@ -35,7 +35,6 @@ import { AttachmentChips } from "@/components/attachment-chips";
 import { RequireAuthModal } from "@/components/auth/require-auth-modal";
 import { ChatMessage } from "@/components/chat-message";
 import { ComponentPicker } from "@/components/component-picker";
-import { DomainSuggestions } from "@/components/domain-suggestions";
 import {
   filesToAttachments,
   filesToPromptText,
@@ -43,10 +42,9 @@ import {
 } from "@/components/file-upload-zone";
 import { GenerationProgress } from "@/components/generation-progress";
 import { HelpTooltip } from "@/components/help-tooltip";
-import { ImagePlacementModal } from "@/components/image-placement-modal";
 import { MediaBank, useMediaBank } from "@/components/media-bank";
 import { MediaDrawer } from "@/components/media-drawer";
-import { TextProcessorModal } from "@/components/text-processor-modal";
+import { TextUploader } from "@/components/text-uploader";
 import { Button } from "@/components/ui/button";
 import { useAvatar } from "@/contexts/AvatarContext";
 import { generateFromTemplate } from "@/lib/api-client";
@@ -64,7 +62,6 @@ import {
   ArrowUp,
   Blocks,
   FileText,
-  Globe,
   Image as ImageIcon,
   Loader2,
   MessageSquare,
@@ -200,14 +197,6 @@ export function ChatPanel({
   );
   const [currentPromptLength, setCurrentPromptLength] = useState(0);
   const [isRefinementMode, setIsRefinementMode] = useState(false);
-  const [showDomainModal, setShowDomainModal] = useState(false);
-  const [projectName, setProjectName] = useState("");
-  const [imagePlacementModal, setImagePlacementModal] = useState<{
-    isOpen: boolean;
-    imageUrl: string;
-    currentCode?: string | null;
-    onConfirm: (option: string, customPrompt?: string) => void;
-  } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -326,22 +315,6 @@ export function ChatPanel({
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
     }
   }, [messages]);
-
-  // Extract project name from first user message when domain modal opens
-  useEffect(() => {
-    if (showDomainModal && messages.length > 0 && !projectName) {
-      const firstUserMessage = messages.find((m) => m.role === "user");
-      if (firstUserMessage) {
-        // Try to extract company/project name from the prompt
-        const nameMatch = firstUserMessage.content.match(
-          /(?:för|for|called|named|om|about)\s+([A-Za-zÅÄÖåäö0-9\s]+?)(?:\.|,|med|with|som|that|$)/i
-        );
-        if (nameMatch?.[1]) {
-          setProjectName(nameMatch[1].trim());
-        }
-      }
-    }
-  }, [showDomainModal, messages, projectName]);
 
   // Avatar reacts to generation state changes
   const wasLoadingRef = useRef(false);
@@ -1252,37 +1225,45 @@ export function ChatPanel({
     }
   };
 
-  // Handle media file selection from drawer
+  // Handle media file selection from drawer - simplified to use orchestrator
   const handleMediaFileSelect = (item: import("./media-bank").MediaItem) => {
     if (!item.url) return;
 
-    if (item.type === "image" || item.type === "logo") {
-      setImagePlacementModal({
-        isOpen: true,
-        imageUrl: item.url,
-        currentCode: currentCode,
-        onConfirm: (option: string, customPrompt?: string) => {
-          const prompt = customPrompt || `Lägg till bild: ${item.url}`;
-          setInput(prompt);
-          inputRef.current?.focus();
-          if (currentCode && chatId) {
-            setTimeout(() => handleRefinement(prompt), 100);
-          }
-        },
-      });
-    } else if (item.type === "video") {
-      const prompt = `Lägg till denna video på ett passande ställe i designen: ${item.url}`;
-      setInput(prompt);
-      inputRef.current?.focus();
-    }
+    // Let orchestrator + Code Crawler decide best placement
+    const mediaType =
+      item.type === "logo" ? "logo" : item.type === "video" ? "video" : "bild";
+    const filename = item.filename || mediaType;
+    const prompt = `Lägg till denna ${mediaType} (${filename}) på lämplig plats i sajten: ${item.url}`;
+
+    setInput(prompt);
+    inputRef.current?.focus();
     setShowMediaDrawer(false);
+
+    // Auto-submit if we have an existing project
+    if (demoUrl || currentCode) {
+      setTimeout(() => handleRefinement(prompt), 100);
+    }
   };
 
-  // Handle text processor prompt generation
-  const handleTextPromptGenerated = (prompt: string) => {
+  // Handle text file content - send to orchestrator with simple instruction
+  const handleTextContent = (content: string, filename: string) => {
+    // Truncate if too long, orchestrator handles the rest
+    const truncated =
+      content.length > 6000 ? content.slice(0, 6000) + "..." : content;
+
+    // Create a prompt that lets orchestrator + Code Crawler decide placement
+    const prompt = `Använd innehållet från filen "${filename}" på lämplig plats i sajten:\n\n${truncated}`;
+
     setInput(prompt);
     inputRef.current?.focus();
     setShowTextModal(false);
+
+    // Auto-submit if we have an existing project
+    if (demoUrl || currentCode) {
+      setTimeout(() => {
+        handleRefinement(prompt);
+      }, 100);
+    }
   };
 
   // Remove file from attachments
@@ -1306,17 +1287,6 @@ export function ChatPanel({
         reason={authModalReason}
       />
 
-      {/* Image Placement Modal */}
-      {imagePlacementModal && (
-        <ImagePlacementModal
-          isOpen={imagePlacementModal.isOpen}
-          onClose={() => setImagePlacementModal(null)}
-          onConfirm={imagePlacementModal.onConfirm}
-          imageUrl={imagePlacementModal.imageUrl}
-          currentCode={imagePlacementModal.currentCode}
-        />
-      )}
-
       {/* Media Drawer */}
       <MediaDrawer
         isOpen={showMediaDrawer}
@@ -1325,11 +1295,11 @@ export function ChatPanel({
         onFileSelect={handleMediaFileSelect}
       />
 
-      {/* Text Processor Modal */}
-      <TextProcessorModal
+      {/* Text Uploader (Simplified) */}
+      <TextUploader
         isOpen={showTextModal}
         onClose={() => setShowTextModal(false)}
-        onPromptGenerated={handleTextPromptGenerated}
+        onContentReady={handleTextContent}
         disabled={isLoading}
       />
 
@@ -1439,29 +1409,12 @@ export function ChatPanel({
               setInput((prev) => prev + imageRef);
             }}
             onAddToSite={async (item) => {
-              if (item.url) {
-                setImagePlacementModal({
-                  isOpen: true,
-                  imageUrl: item.url,
-                  currentCode: currentCode,
-                  onConfirm: (option: string, customPrompt?: string) => {
-                    const prompt =
-                      customPrompt || `Lägg till bild: ${item.url}`;
-                    setInput(prompt);
-                    if (currentCode && chatId) {
-                      setTimeout(() => handleRefinement(prompt), 100);
-                    }
-                  },
-                });
-                return;
-              }
+              let imageUrl = item.url;
 
-              if (item.base64 && projectId) {
+              // Upload base64 images first
+              if (!imageUrl && item.base64 && projectId) {
                 try {
-                  addMessage(
-                    "assistant",
-                    "⏳ Laddar upp bild till projektet..."
-                  );
+                  addMessage("assistant", "⏳ Laddar upp bild...");
                   const response = await fetch(`/api/images/save`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
@@ -1477,28 +1430,27 @@ export function ChatPanel({
                   });
                   const result = await response.json();
                   if (result.success && result.images?.[0]?.url) {
-                    const url = result.images[0].url;
-                    item.url = url;
-                    addMessage("assistant", `✅ Bild uppladdad! URL: ${url}`);
-                    setImagePlacementModal({
-                      isOpen: true,
-                      imageUrl: url,
-                      currentCode: currentCode,
-                      onConfirm: (option: string, customPrompt?: string) => {
-                        const prompt = customPrompt || `Lägg till bild: ${url}`;
-                        setInput(prompt);
-                        if (currentCode && chatId) {
-                          setTimeout(() => handleRefinement(prompt), 100);
-                        }
-                      },
-                    });
+                    imageUrl = result.images[0].url;
+                    item.url = imageUrl;
+                    addMessage("assistant", `✅ Bild uppladdad!`);
                   } else {
                     addMessage("assistant", "❌ Kunde inte ladda upp bilden.");
+                    return;
                   }
                 } catch (error) {
                   console.error("[MediaBank] Upload failed:", error);
                   addMessage("assistant", "❌ Uppladdning misslyckades.");
+                  return;
                 }
+              }
+
+              if (!imageUrl) return;
+
+              // Let orchestrator + Code Crawler decide best placement
+              const prompt = `Lägg till denna bild på lämplig plats i sajten: ${imageUrl}`;
+              setInput(prompt);
+              if (currentCode && chatId) {
+                setTimeout(() => handleRefinement(prompt), 100);
               }
             }}
             disabled={isLoading}
@@ -1516,17 +1468,18 @@ export function ChatPanel({
 
         {/* Toolbar buttons - only show when project has started */}
         {showToolbar && (
-          <div className="flex items-center gap-1.5 pb-1">
+          <div className="flex items-center gap-1 pb-1">
             {/* Components button */}
             <Button
               size="sm"
               variant="ghost"
               onClick={() => setShowComponentPicker(true)}
               disabled={isLoading}
-              className="h-8 px-2.5 text-xs gap-1.5 text-gray-400 hover:text-white hover:bg-gray-800"
+              className="h-7 px-2 text-xs gap-1 text-gray-400 hover:text-white hover:bg-gray-800"
+              title="Lägg till UI-komponenter"
             >
               <Blocks className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Komponenter</span>
+              <span className="hidden sm:inline">+Sektion</span>
             </Button>
 
             {/* Media button */}
@@ -1535,11 +1488,11 @@ export function ChatPanel({
               variant="ghost"
               onClick={() => setShowMediaDrawer(true)}
               disabled={isLoading || !isAuthenticated}
-              className="h-8 px-2.5 text-xs gap-1.5 text-gray-400 hover:text-white hover:bg-gray-800"
+              className="h-7 px-2 text-xs gap-1 text-gray-400 hover:text-white hover:bg-gray-800"
               title={
                 !isAuthenticated
                   ? "Logga in för mediabibliotek"
-                  : "Öppna mediabibliotek"
+                  : "Ladda upp bilder & videos"
               }
             >
               <ImageIcon className="h-3.5 w-3.5" />
@@ -1552,22 +1505,11 @@ export function ChatPanel({
               variant="ghost"
               onClick={() => setShowTextModal(true)}
               disabled={isLoading}
-              className="h-8 px-2.5 text-xs gap-1.5 text-gray-400 hover:text-white hover:bg-gray-800"
+              className="h-7 px-2 text-xs gap-1 text-gray-400 hover:text-white hover:bg-gray-800"
+              title="Ladda upp text från fil"
             >
               <FileText className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Text/PDF</span>
-            </Button>
-
-            {/* Domain button */}
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => setShowDomainModal(true)}
-              disabled={isLoading}
-              className="h-8 px-2.5 text-xs gap-1.5 text-gray-400 hover:text-white hover:bg-gray-800"
-            >
-              <Globe className="h-3.5 w-3.5" />
-              <span className="hidden sm:inline">Domän</span>
+              <span className="hidden sm:inline">Text</span>
             </Button>
           </div>
         )}
@@ -1612,13 +1554,6 @@ export function ChatPanel({
             : "Tryck Enter eller klicka på knapparna ovan"}
         </p>
       </div>
-
-      {/* Domain Suggestions Modal */}
-      <DomainSuggestions
-        companyName={projectName}
-        isOpen={showDomainModal}
-        onClose={() => setShowDomainModal(false)}
-      />
     </div>
   );
 }

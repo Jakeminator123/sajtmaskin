@@ -403,6 +403,9 @@ function initializeDatabase(
     // Index already exists
   }
 
+  // Ensure existing databases migrate old UNIQUE(template_id) → UNIQUE(template_id, user_id)
+  ensureTemplateCacheUniqueConstraint(database);
+
   // Company profiles - stores wizard data and research for reuse
   database.exec(`
     CREATE TABLE IF NOT EXISTS company_profiles (
@@ -572,6 +575,84 @@ function initializeDatabase(
 
   if (logInit) {
     console.log("[Database] Initialized successfully at:", DB_PATH);
+  }
+}
+
+// Ensure legacy template_cache tables migrate from UNIQUE(template_id) → UNIQUE(template_id, user_id)
+function ensureTemplateCacheUniqueConstraint(database: Database.Database) {
+  // Check existing unique indexes
+  const indexes = database
+    .prepare("PRAGMA index_list('template_cache')")
+    .all() as Array<{ name: string; unique: 0 | 1 }>;
+
+  const hasUserUnique = indexes.some((idx) => {
+    if (idx.unique !== 1) return false;
+    const cols = database
+      .prepare(`PRAGMA index_info(${idx.name})`)
+      .all() as Array<{ name: string }>;
+    const colNames = cols.map((c) => c.name);
+    return (
+      colNames.length === 2 &&
+      colNames.includes("template_id") &&
+      colNames.includes("user_id")
+    );
+  });
+
+  if (hasUserUnique) {
+    return;
+  }
+
+  console.warn(
+    "[Database] Migrating template_cache to UNIQUE(template_id, user_id) to support per-user caching"
+  );
+
+  try {
+    database.exec("BEGIN");
+    database.exec(`
+      CREATE TABLE IF NOT EXISTS template_cache__new (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        template_id TEXT NOT NULL,
+        user_id TEXT,
+        chat_id TEXT NOT NULL,
+        demo_url TEXT,
+        version_id TEXT,
+        files_json TEXT,
+        code TEXT,
+        model TEXT,
+        created_at TEXT DEFAULT (datetime('now')),
+        expires_at TEXT DEFAULT (datetime('now', '+7 days')),
+        UNIQUE(template_id, user_id)
+      )
+    `);
+
+    database.exec(`
+      INSERT OR IGNORE INTO template_cache__new (
+        id, template_id, user_id, chat_id, demo_url, version_id, files_json, code, model, created_at, expires_at
+      )
+      SELECT
+        id, template_id, user_id, chat_id, demo_url, version_id, files_json, code, model, created_at, expires_at
+      FROM template_cache
+    `);
+
+    database.exec("DROP TABLE template_cache");
+    database.exec("ALTER TABLE template_cache__new RENAME TO template_cache");
+    database.exec(
+      `CREATE INDEX IF NOT EXISTS idx_template_cache_user ON template_cache(template_id, user_id)`
+    );
+    database.exec("COMMIT");
+    console.log(
+      "[Database] template_cache migrated to UNIQUE(template_id, user_id)"
+    );
+  } catch (error) {
+    console.error(
+      "[Database] Failed to migrate template_cache unique constraint:",
+      error
+    );
+    try {
+      database.exec("ROLLBACK");
+    } catch {
+      /* ignore rollback errors */
+    }
   }
 }
 

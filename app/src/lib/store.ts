@@ -587,9 +587,10 @@ export const useBuilderStore = create<BuilderState>()(
           return;
         }
         set({
-          chatId: snapshot.chatId || null,
-          demoUrl: snapshot.demoUrl || null,
-          currentCode: snapshot.currentCode || null,
+          // Preserve exact saved values; avoid falsy coercion turning "" into null
+          chatId: snapshot.chatId ?? null,
+          demoUrl: snapshot.demoUrl ?? null,
+          currentCode: snapshot.currentCode ?? null,
           files: snapshot.files,
           messages: snapshot.messages,
           lastRefreshTimestamp: Date.now(), // force preview reload
