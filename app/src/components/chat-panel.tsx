@@ -254,7 +254,6 @@ export function ChatPanel({
     demoUrl,
     chatId,
     quality,
-    files, // For Code Crawler context
     addMessage,
     setLoading,
     setCurrentCode,
@@ -716,10 +715,15 @@ export function ChatPanel({
       // - code_only/image_and_code/web_and_code: Call v0 for actual code changes
       // ═══════════════════════════════════════════════════════════════════════
 
+      // Get fresh state from store (avoid stale React hook values)
+      const latestState = useBuilderStore.getState();
+      const currentFiles = latestState.files;
+
       console.log("[ChatPanel] Initial generation via universal gatekeeper:", {
         promptPreview: enhancedPrompt.slice(0, 80) + "...",
         type,
         quality,
+        hasFiles: !!currentFiles?.length,
       });
 
       // Collect media library info
@@ -739,8 +743,9 @@ export function ChatPanel({
           quality,
           existingChatId: undefined,
           existingCode: undefined,
-          // Pass project files for Code Crawler analysis
-          projectFiles: files && files.length > 0 ? files : undefined,
+          // Pass project files for Code Crawler analysis (use fresh state)
+          projectFiles:
+            currentFiles && currentFiles.length > 0 ? currentFiles : undefined,
           mediaLibrary:
             mediaLibraryForPrompt.length > 0
               ? mediaLibraryForPrompt
