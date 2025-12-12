@@ -137,27 +137,39 @@ export function ShaderBackground({
 // Map opacity (0–1) to the closest Tailwind opacity utility to avoid inline styles.
 function getOpacityClass(value: number | undefined): string {
   const normalized = Math.max(0, Math.min(value ?? 0.4, 1));
-  const options: Array<{ limit: number; cls: string }> = [
-    { limit: 0, cls: "opacity-0" },
-    { limit: 0.05, cls: "opacity-5" },
-    { limit: 0.1, cls: "opacity-10" },
-    { limit: 0.2, cls: "opacity-20" },
-    { limit: 0.25, cls: "opacity-25" },
-    { limit: 0.3, cls: "opacity-30" },
-    { limit: 0.4, cls: "opacity-40" },
-    { limit: 0.5, cls: "opacity-50" },
-    { limit: 0.6, cls: "opacity-60" },
-    { limit: 0.7, cls: "opacity-70" },
-    { limit: 0.75, cls: "opacity-75" },
-    { limit: 0.8, cls: "opacity-80" },
-    { limit: 0.9, cls: "opacity-90" },
-    { limit: 0.95, cls: "opacity-95" },
-    { limit: 1, cls: "opacity-100" },
+  const options: Array<{ value: number; cls: string }> = [
+    { value: 0, cls: "opacity-0" },
+    { value: 0.05, cls: "opacity-5" },
+    { value: 0.1, cls: "opacity-10" },
+    { value: 0.2, cls: "opacity-20" },
+    { value: 0.25, cls: "opacity-25" },
+    { value: 0.3, cls: "opacity-30" },
+    { value: 0.4, cls: "opacity-40" },
+    { value: 0.5, cls: "opacity-50" },
+    { value: 0.6, cls: "opacity-60" },
+    { value: 0.7, cls: "opacity-70" },
+    { value: 0.75, cls: "opacity-75" },
+    { value: 0.8, cls: "opacity-80" },
+    { value: 0.9, cls: "opacity-90" },
+    { value: 0.95, cls: "opacity-95" },
+    { value: 1, cls: "opacity-100" },
   ];
 
-  // Find the first class where normalized <= limit
-  const match = options.find((opt) => normalized <= opt.limit);
-  return match ? match.cls : "opacity-100";
+  // Find the closest match by minimum absolute distance
+  // At equal distance, prefer the lower opacity (less intrusive)
+  let closest = options[0];
+  let minDistance = Math.abs(normalized - closest.value);
+
+  for (const opt of options) {
+    const distance = Math.abs(normalized - opt.value);
+    if (distance < minDistance) {
+      minDistance = distance;
+      closest = opt;
+    }
+    // Note: We don't update on equal distance, so we prefer lower values
+  }
+
+  return closest.cls;
 }
 
 // Map shimmer speed (seconds) to transition duration in milliseconds.
