@@ -1,0 +1,15 @@
+Agent/Orchestrator Review
+==========================
+
+Overview
+- All chat traffic is funneled through /api/orchestrate (semantic router + code crawler + prompt enricher) before hitting v0. ChatPanel always supplies projectFiles when present, so every message can trigger crawling. Templates load via /api/template → v0 generateFromTemplate and should supply chatId/demoUrl/files back to the store.
+
+Findings
+1) Code Crawler is invoked far too often. For intent "simple_code" the orchestrator calls extractHintsFromPrompt, which always returns a non-empty default array ("länk", "knapp", "element"), making shouldRunCodeCrawler true on nearly every prompt when projectFiles exist. This matches the observed overuse of the crawler and unnecessary latency/cost on simple edits.
+2) First user prompt after a template or saved project can start a brand-new chat and ignore existing code. In ChatPanel, if messages.length === 0 but currentCode/demoUrl already exist, handleSubmit still routes to handleGenerate with existingChatId/Code undefined. The orchestrator then thinks it is a fresh project, so the first attempted edit may replace rather than refine the selected template and you lose the template chatId context.
+3) The fast-path heuristic (needsOrchestration/shouldRoute) is never used. Every prompt goes through the full orchestrator stack even when obviously simple, duplicating routing logic and increasing OpenAI/v0 churn. There is dead code in needsOrchestration and no UI guard to skip orchestration for trivial prompts.
+
+Recommended remediation
+- Gate Code Crawler for "simple_code" on meaningful hints only: treat extractHintsFromPrompt defaults as empty and require routerResult.contextHints or strong UI keywords; otherwise skip crawling.
+- In handleSubmit, if there is existing code/demoUrl (loaded template or saved project), call handleRefinement so existingChatId/currentCode are sent to orchestrator; reserve handleGenerate for truly blank projects.
+- Introduce a pre-check in ChatPanel that uses needsOrchestration/shouldRoute to bypass /api/orchestrate for trivial prompts, reducing crawler invocations and v0 roundtrips.

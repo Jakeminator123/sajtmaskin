@@ -354,6 +354,8 @@ export function MediaDrawer({
           <button
             onClick={onClose}
             className="p-2 rounded-lg hover:bg-gray-800 text-gray-400 hover:text-white transition-colors"
+            aria-label="Stäng mediabiblioteket"
+            title="Stäng mediabiblioteket"
           >
             <X className="h-5 w-5" />
           </button>
@@ -387,6 +389,8 @@ export function MediaDrawer({
               accept="image/*,video/*"
               onChange={handleFileChange}
               className="hidden"
+              aria-label="Välj filer att ladda upp"
+              title="Välj filer att ladda upp"
             />
 
             {/* Limits */}
@@ -412,6 +416,8 @@ export function MediaDrawer({
               <button
                 onClick={() => setError(null)}
                 className="hover:text-red-300"
+                aria-label="Stäng felmeddelande"
+                title="Stäng felmeddelande"
               >
                 <X className="h-4 w-4" />
               </button>
@@ -444,6 +450,8 @@ export function MediaDrawer({
                 <button
                   onClick={() => setSearchQuery("")}
                   className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white"
+                  aria-label="Rensa sökningen"
+                  title="Rensa sökningen"
                 >
                   <X className="h-4 w-4" />
                 </button>

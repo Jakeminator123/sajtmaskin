@@ -243,6 +243,10 @@ export async function generateWebsite(
 /**
  * Refine existing code based on user instruction.
  * Calls POST /api/refine which forwards to v0 API.
+ *
+ * @deprecated Use /api/orchestrate instead. This function and endpoint
+ * are kept for backward compatibility but all new refinements should
+ * go through the orchestrator.
  */
 export async function refineWebsite(
   existingCode: string,

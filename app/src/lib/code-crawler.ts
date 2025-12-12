@@ -1,28 +1,28 @@
 /**
- * Code Crawler
- * =============
+ * Code Crawler 2.0
+ * ================
  *
  * Analyserar projektfiler för att hitta relevant kodkontext.
  * Används när Semantic Router detekterar "needs_code_context".
  *
- * FLÖDE:
- * 1. Tar emot hints från Semantic Router (t.ex. ["header", "nav", "Products"])
+ * FLÖDE (med FAST PATH):
+ * 1. Om hints <= 3 och prompt < 80 chars → FAST PATH (quickSearch, ingen AI)
+ * 2. Om fast path hittar matches → returnera direkt
+ * 3. Annars → SLOW PATH med full AI-analys
+ *
+ * FAST PATH (quickSearch):
+ * - Snabb strängmatchning utan OpenAI-anrop
+ * - Returnerar top 3 matchande filer
+ * - ~80% snabbare för enkla element-sökningar
+ *
+ * SLOW PATH (crawlCodeContext):
+ * 1. Tar emot hints från Semantic Router
  * 2. Söker igenom projektets filer efter matchande kod
  * 3. Extraherar relevanta kodstycken med radnummer
- * 4. Analyserar komponentstruktur
- * 5. Föreslår vilka ändringar som behövs
+ * 4. Använder AI för att analysera och föreslå ändringar
  *
- * EXEMPEL:
- * Input: hints = ["header", "Products", "link"]
- * Output: {
- *   relevantFiles: [{
- *     name: "components/header.tsx",
- *     snippet: '<a href="#products">Products</a>',
- *     lineNumbers: [23, 28]
- *   }],
- *   componentStructure: "Header -> Nav -> [Products, About, Contact]",
- *   suggestedChanges: "Ändra href='#products' till href='/products'"
- * }
+ * VIKTIGT: Crawler är för ENRICHMENT, inte validation
+ * Om crawler hittar inget ska v0 fortfarande anropas
  */
 
 import OpenAI from "openai";
@@ -213,6 +213,46 @@ export async function crawlCodeContext(
       summary: "No files available for analysis",
     };
   }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // FAST PATH: Use quickSearch for simple cases (no AI needed)
+  // This is much faster and cheaper for straightforward element lookups
+  // ═══════════════════════════════════════════════════════════════════════════
+  if (hints.length > 0 && hints.length <= 3 && userPrompt.length < 80) {
+    console.log("[CodeCrawler] Trying FAST PATH (quickSearch)...");
+    const quickResults = quickSearch(files, hints);
+
+    if (quickResults.length > 0) {
+      console.log(
+        `[CodeCrawler] FAST PATH success: found ${quickResults.length} matches`
+      );
+
+      // Get structure info (fast, no AI)
+      const componentStructure = analyzeStructure(files);
+      const hasAppRouter = files.some(
+        (f) => f.name.includes("app/") && f.name.includes("page.")
+      );
+      const hasPagesRouter = files.some((f) => f.name.startsWith("pages/"));
+      const routingInfo = hasAppRouter
+        ? "Next.js App Router"
+        : hasPagesRouter
+        ? "Next.js Pages Router"
+        : "Unknown routing";
+
+      return {
+        relevantFiles: quickResults,
+        componentStructure,
+        routingInfo,
+        suggestedChanges: `Quick search hittade ${quickResults.length} matchande filer.`,
+        summary: `Fast path: ${quickResults.map((f) => f.name).join(", ")}`,
+      };
+    }
+    console.log("[CodeCrawler] FAST PATH: no matches, falling back to full analysis");
+  }
+
+  // ═══════════════════════════════════════════════════════════════════════════
+  // SLOW PATH: Full analysis with AI (only when fast path fails)
+  // ═══════════════════════════════════════════════════════════════════════════
 
   // Step 1: Search files for hints
   const fileMatches: Array<{

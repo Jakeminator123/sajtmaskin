@@ -1,0 +1,504 @@
+╔═══════════════════════════════════════════════════════════════════════════════╗
+║          AGENT ORCHESTRATION & TEMPLATE LOADING ANALYSIS REPORT               ║
+║                          System Architecture Review                           ║
+╚═══════════════════════════════════════════════════════════════════════════════╝
+
+Date: 2024-12-19
+Scope: Template loading, Agent orchestration, Code Crawler usage, v0 API integration
+
+═══════════════════════════════════════════════════════════════════════════════
+EXECUTIVE SUMMARY
+═══════════════════════════════════════════════════════════════════════════════
+
+This report analyzes the agent orchestration system, template loading flow, and
+identifies bugs, logic faults, and areas for improvement. The system uses a
+multi-agent architecture with Semantic Router, Code Crawler, Prompt Enricher,
+and v0 API integration.
+
+CRITICAL ISSUES FOUND:
+1. Template loading may not preserve chatId, causing new conversations on first refinement
+2. Code Crawler is triggered too frequently, adding unnecessary latency
+3. Race conditions between Code Crawler completion and v0 API calls
+4. Duplicated refinement logic between orchestrator and direct refine endpoint
+5. Missing chatId validation and fallback handling
+
+═══════════════════════════════════════════════════════════════════════════════
+SYSTEM ARCHITECTURE OVERVIEW
+═══════════════════════════════════════════════════════════════════════════════
+
+FLOW DIAGRAM:
+
+User Action
+    │
+    ├─► Template Selection
+    │       │
+    │       ├─► /api/template → generateFromTemplate()
+    │       │       │
+    │       │       ├─► Check cache (per-user)
+    │       │       │       └─► Return cached chatId + code
+    │       │       │
+    │       │       └─► Call v0 API: chats.init({ type: "template" })
+    │       │               │
+    │       │               └─► Save chatId to cache + store
+    │       │
+    │       └─► ChatPanel.handleTemplateGeneration()
+    │               └─► setChatId(response.chatId)  ⚠️ MAY BE UNDEFINED
+    │
+    └─► User Prompt (Generation/Refinement)
+            │
+            ├─► handleGenerate() OR handleRefinement()
+            │       │
+            │       └─► /api/orchestrate
+            │               │
+            │               ├─► STEP 1: Semantic Router (gpt-4o-mini)
+            │               │       └─► Determines intent (simple_code, needs_code_context, etc.)
+            │               │
+            │               ├─► STEP 2: Code Crawler (if needed)
+            │               │       └─► Analyzes project files for context
+            │               │       └─► ⚠️ TRIGGERED TOO OFTEN
+            │               │
+            │               ├─► STEP 3: Prompt Enricher
+            │               │       └─► Combines context into rich prompt
+            │               │
+            │               └─► STEP 4: v0 API Call
+            │                       ├─► refineCode(chatId, code, instruction) OR
+            │                       └─► generateCode(instruction)
+            │                               │
+            │                               └─► ⚠️ MAY CREATE NEW CHAT IF chatId MISSING
+
+═══════════════════════════════════════════════════════════════════════════════
+CRITICAL BUGS IDENTIFIED
+═══════════════════════════════════════════════════════════════════════════════
+
+BUG #1: Template Loading Without chatId
+─────────────────────────────────────────
+Location: app/src/components/chat-panel.tsx:595-649
+Severity: HIGH
+Impact: First refinement after template load creates new conversation instead of continuing
+
+ROOT CAUSE:
+- handleTemplateGeneration() calls generateFromTemplate() which may return undefined chatId
+- Code checks `if (response.chatId)` but doesn't validate it's actually set
+- If v0 API fails to return chatId, subsequent refinements create new chats
+
+EVIDENCE:
+```typescript
+// chat-panel.tsx:604-606
+if (response.chatId) {
+  setChatId(response.chatId);
+}
+// ⚠️ If response.chatId is undefined/null, chatId is never set!
+```
+
+PROBLEM FLOW:
+1. User loads template → generateFromTemplate() called
+2. v0 API returns result but chatId is undefined (rare but possible)
+3. setChatId() never called → chatId remains undefined in store
+4. User tries to refine → handleRefinement() gets undefined chatId
+5. Orchestrator calls refineCode(null, code, instruction) → creates NEW chat
+6. Template conversation context is lost
+
+RECOMMENDATION:
+- Add validation: if (!response.chatId) throw error or retry
+- Log warning when chatId is missing
+- Add fallback: if template load fails to get chatId, retry once
+
+───────────────────────────────────────────────────────────────────────────────
+
+BUG #2: Code Crawler Triggered Too Frequently
+──────────────────────────────────────────────
+Location: app/src/lib/orchestrator-agent.ts:502-515
+Severity: MEDIUM
+Impact: Unnecessary latency and API costs for simple changes
+
+ROOT CAUSE:
+Code Crawler runs for:
+1. needs_code_context intent (correct)
+2. clarify intent with UI hints (correct)
+3. simple_code intent with extracted hints (⚠️ PROBLEMATIC)
+
+EVIDENCE:
+```typescript
+// orchestrator-agent.ts:513-514
+(routerResult.intent === "simple_code" &&
+  extractHintsFromPrompt(userPrompt).length > 0)
+```
+
+PROBLEM:
+- User says "gör bakgrunden blå" → Semantic Router: simple_code
+- extractHintsFromPrompt() finds "bakgrunden" → triggers Code Crawler
+- Code Crawler analyzes all files → adds 2-5 seconds latency
+- Result: Simple color change takes unnecessarily long
+
+EXAMPLES OF OVER-TRIGGERING:
+- "gör bakgrunden blå" → Crawler runs (unnecessary)
+- "ändra fontstorleken" → Crawler runs (unnecessary)
+- "lägg till padding" → Crawler runs (unnecessary)
+
+RECOMMENDATION:
+- Only run Code Crawler for simple_code if:
+  a) User explicitly references specific elements ("länken i headern")
+  b) Demonstrative pronouns present ("den knappen", "det elementet")
+- Skip Code Crawler for vague UI terms in simple_code ("bakgrunden", "fonten")
+
+───────────────────────────────────────────────────────────────────────────────
+
+BUG #3: Race Condition - Code Crawler vs v0 API
+──────────────────────────────────────────────────
+Location: app/src/lib/orchestrator-agent.ts:517-580
+Severity: MEDIUM
+Impact: v0 API may be called before Code Crawler completes, losing context
+
+ROOT CAUSE:
+- Code Crawler is async but orchestrator doesn't always wait properly
+- If Code Crawler fails silently, shouldApplyCodeChanges may be incorrectly set
+
+EVIDENCE:
+```typescript
+// orchestrator-agent.ts:517-580
+if (shouldRunCodeCrawler && context.projectFiles) {
+  codeContext = await crawlCodeContext(...); // ⚠️ AWAIT but...
+  
+  if (codeContext.relevantFiles.length === 0) {
+    shouldApplyCodeChanges = false; // ⚠️ May skip v0 call incorrectly
+  }
+}
+```
+
+PROBLEM:
+- Code Crawler runs → finds no matches → shouldApplyCodeChanges = false
+- But user's prompt is still valid (e.g., "lägg till en knapp")
+- v0 API call is skipped → user gets error message instead of code change
+
+RECOMMENDATION:
+- Don't skip code changes just because Code Crawler found nothing
+- Code Crawler is for ENRICHMENT, not validation
+- Always call v0 if intent requires code changes, even if no context found
+
+───────────────────────────────────────────────────────────────────────────────
+
+BUG #4: Duplicated Refinement Logic
+────────────────────────────────────
+Location: Multiple files
+Severity: LOW-MEDIUM
+Impact: Code duplication, maintenance burden, inconsistent behavior
+
+DUPLICATED PATHS:
+
+PATH 1: Via Orchestrator (NEW)
+- chat-panel.tsx → handleRefinement() → /api/orchestrate → orchestrator-agent.ts
+- Orchestrator → refineCode() → v0 API
+
+PATH 2: Direct Refine (LEGACY?)
+- chat-panel.tsx → handleRefinement() → /api/refine → v0-generator.ts
+- Direct → refineCode() → v0 API
+
+PROBLEM:
+- Both paths exist but orchestrator is "universal gatekeeper"
+- Legacy /api/refine endpoint may still be used somewhere
+- Inconsistent prompt enrichment between paths
+
+EVIDENCE:
+- orchestrator-agent.ts:1154-1161 calls refineCode()
+- /api/refine/route.ts:159 also calls refineCode()
+- Both handle refinement but with different context
+
+RECOMMENDATION:
+- Deprecate /api/refine endpoint
+- Route all refinements through orchestrator
+- Or: Keep /api/refine for simple refinements, orchestrator for complex
+
+───────────────────────────────────────────────────────────────────────────────
+
+BUG #5: Missing chatId Validation in Refinement
+────────────────────────────────────────────────
+Location: app/src/components/chat-panel.tsx:892-897
+Severity: MEDIUM
+Impact: Silent failures, new conversations created unintentionally
+
+ROOT CAUSE:
+- handleRefinement() warns but continues when chatId is missing
+- Orchestrator receives undefined chatId but still calls refineCode(null, ...)
+- v0 creates new chat instead of continuing template conversation
+
+EVIDENCE:
+```typescript
+// chat-panel.tsx:892-897
+if (!actualChatId) {
+  console.warn("[ChatPanel] Refining without chatId - will create new conversation");
+  // ⚠️ Warning but continues anyway!
+}
+```
+
+PROBLEM:
+- Template loaded → chatId not set (Bug #1)
+- User refines → chatId is undefined
+- Warning logged but refinement continues
+- New chat created → template context lost
+
+RECOMMENDATION:
+- If chatId missing but code exists, try to recover:
+  a) Check if code matches cached template
+  b) If match found, use cached chatId
+  c) If no match, ask user to reload template
+- Don't silently create new conversations
+
+═══════════════════════════════════════════════════════════════════════════════
+LOGIC FAULTS & DESIGN ISSUES
+═══════════════════════════════════════════════════════════════════════════════
+
+ISSUE #1: Template Cache Returns chatId But May Not Match Current State
+───────────────────────────────────────────────────────────────────────────────
+Location: app/src/app/api/template/route.ts:62-96
+Severity: MEDIUM
+
+PROBLEM:
+- Cache returns chatId from previous template load
+- But if user modified code, chatId may point to old version
+- Refinement uses old chatId → may overwrite user's changes
+
+EVIDENCE:
+```typescript
+// template/route.ts:91
+chatId: cached.chat_id, // ⚠️ Returns cached chatId
+```
+
+RECOMMENDATION:
+- Cache should be per-project, not just per-template
+- If project has modifications, don't use cached chatId
+- Or: Validate chatId matches current code version before using
+
+───────────────────────────────────────────────────────────────────────────────
+
+ISSUE #2: Code Crawler Always Uses AI Analysis (Expensive)
+───────────────────────────────────────────────────────────
+Location: app/src/lib/code-crawler.ts:197-355
+Severity: LOW
+
+PROBLEM:
+- Code Crawler always calls OpenAI for analysis (gpt-4o-mini)
+- Even for simple searches that could use quickSearch()
+- Adds cost and latency for every Code Crawler run
+
+EVIDENCE:
+```typescript
+// code-crawler.ts:288-318
+const analysisResponse = await client.responses.create({
+  model: CRAWLER_MODEL, // Always uses AI
+  ...
+});
+```
+
+RECOMMENDATION:
+- Use quickSearch() for simple hint matching
+- Only use AI analysis when:
+  a) Multiple ambiguous matches found
+  b) User prompt is vague
+  c) Complex structural changes needed
+
+───────────────────────────────────────────────────────────────────────────────
+
+ISSUE #3: Prompt Enricher May Create Overly Long Prompts
+─────────────────────────────────────────────────────────
+Location: app/src/lib/prompt-enricher.ts:73-223
+Severity: LOW
+
+PROBLEM:
+- Prompt Enricher combines ALL context into one prompt
+- Can create very long prompts (2000+ chars)
+- v0 API may truncate or misunderstand long prompts
+
+EVIDENCE:
+```typescript
+// prompt-enricher.ts:222
+return sections.join("\n"); // ⚠️ No length limit
+```
+
+RECOMMENDATION:
+- Limit total prompt length (e.g., 3000 chars)
+- Prioritize most relevant context
+- Summarize less important sections
+
+───────────────────────────────────────────────────────────────────────────────
+
+ISSUE #4: Semantic Router Confidence Not Used
+────────────────────────────────────────────────
+Location: app/src/lib/semantic-router.ts:95-234
+Severity: LOW
+
+PROBLEM:
+- Semantic Router returns confidence score (0-1)
+- But orchestrator doesn't use it to make decisions
+- Low confidence intents treated same as high confidence
+
+EVIDENCE:
+```typescript
+// semantic-router.ts:201-212
+const result: RouterResult = {
+  intent,
+  confidence: typeof parsed.confidence === "number" ? parsed.confidence : 0.5,
+  // ⚠️ Confidence calculated but...
+};
+
+// orchestrator-agent.ts:466-471
+workflowSteps.push(`Semantic Router: ${routerResult.intent} (${Math.round(
+  routerResult.confidence * 100
+)}% confidence)`);
+// ⚠️ Logged but not used for decision-making
+```
+
+RECOMMENDATION:
+- If confidence < 0.6, ask for clarification
+- If confidence < 0.4, try fallback intent
+- Use confidence to decide Code Crawler necessity
+
+═══════════════════════════════════════════════════════════════════════════════
+DUPLICATED LOGIC
+═══════════════════════════════════════════════════════════════════════════════
+
+DUPLICATION #1: Refinement Prompt Wrapping
+───────────────────────────────────────────
+Location: 
+- app/src/lib/v0-generator.ts:685-697 (refineCode)
+- app/src/lib/orchestrator-agent.ts:1017-1059 (orchestrateWorkflow)
+
+Both wrap instructions with "REFINEMENT INSTRUCTION - ADAPT, DON'T REPLACE"
+Similar logic duplicated in two places.
+
+RECOMMENDATION:
+- Extract to shared function: wrapRefinementInstruction()
+- Use in both places
+
+───────────────────────────────────────────────────────────────────────────────
+
+DUPLICATION #2: Media Library Enhancement
+───────────────────────────────────────────
+Location:
+- app/src/lib/v0-generator.ts:658-661 (refineCode)
+- app/src/lib/orchestrator-agent.ts:1069-1095 (orchestrateWorkflow)
+
+Both add media library items to prompts with similar formatting.
+
+RECOMMENDATION:
+- Already using enhancePromptForV0() in refineCode
+- Orchestrator should also use this function instead of manual formatting
+
+───────────────────────────────────────────────────────────────────────────────
+
+DUPLICATION #3: State Management Pattern
+─────────────────────────────────────────
+Location:
+- app/src/components/chat-panel.tsx:709, 864, 967
+
+Multiple places use `useBuilderStore.getState()` to get fresh state.
+Pattern repeated but could be extracted to helper.
+
+RECOMMENDATION:
+- Create helper: getFreshBuilderState()
+- Returns { code, chatId, files, demoUrl } from store
+- Use consistently across component
+
+═══════════════════════════════════════════════════════════════════════════════
+RECOMMENDED FIXES (Priority Order)
+═══════════════════════════════════════════════════════════════════════════════
+
+PRIORITY 1 (CRITICAL - Fix Immediately):
+─────────────────────────────────────────
+
+1. FIX Template Loading chatId Bug
+   - Add validation in handleTemplateGeneration()
+   - Retry if chatId missing
+   - Log error if retry fails
+   - File: app/src/components/chat-panel.tsx:595-649
+
+2. FIX Code Crawler Over-Triggering
+   - Remove simple_code + hints trigger
+   - Only trigger for explicit element references
+   - File: app/src/lib/orchestrator-agent.ts:502-515
+
+3. FIX Missing chatId Validation
+   - Don't silently create new conversations
+   - Try to recover chatId from cache/project
+   - File: app/src/components/chat-panel.tsx:892-897
+
+PRIORITY 2 (HIGH - Fix Soon):
+──────────────────────────────
+
+4. FIX Race Condition in Code Crawler
+   - Don't skip v0 calls when Code Crawler finds nothing
+   - Code Crawler is enrichment, not validation
+   - File: app/src/lib/orchestrator-agent.ts:556-563
+
+5. DEPRECATE Duplicated Refinement Endpoint
+   - Remove /api/refine or document when to use
+   - Route all through orchestrator
+   - Files: app/src/app/api/refine/route.ts
+
+PRIORITY 3 (MEDIUM - Improve Over Time):
+─────────────────────────────────────────
+
+6. OPTIMIZE Code Crawler AI Usage
+   - Use quickSearch() for simple cases
+   - Only use AI for complex analysis
+   - File: app/src/lib/code-crawler.ts:197-355
+
+7. USE Semantic Router Confidence
+   - Add clarification for low confidence
+   - Adjust Code Crawler necessity based on confidence
+   - Files: app/src/lib/orchestrator-agent.ts, semantic-router.ts
+
+8. EXTRACT Duplicated Logic
+   - wrapRefinementInstruction() helper
+   - getFreshBuilderState() helper
+   - Consistent media library handling
+
+═══════════════════════════════════════════════════════════════════════════════
+TESTING RECOMMENDATIONS
+═══════════════════════════════════════════════════════════════════════════════
+
+TEST SCENARIOS TO ADD:
+
+1. Template Loading Without chatId
+   - Mock v0 API to return undefined chatId
+   - Verify error handling and retry logic
+   - Verify subsequent refinement doesn't create new chat
+
+2. Code Crawler Triggering
+   - Test simple_code with UI hints → should NOT trigger Crawler
+   - Test needs_code_context → should trigger Crawler
+   - Verify latency impact
+
+3. Refinement Without chatId
+   - Load template → manually clear chatId → refine
+   - Verify recovery logic or proper error message
+
+4. Code Crawler Race Condition
+   - Mock Code Crawler to return empty results
+   - Verify v0 API still called for valid prompts
+
+5. Semantic Router Confidence
+   - Test low confidence (<0.4) → should clarify
+   - Test high confidence (>0.8) → should proceed directly
+
+═══════════════════════════════════════════════════════════════════════════════
+CONCLUSION
+═══════════════════════════════════════════════════════════════════════════════
+
+The agent orchestration system is well-architected but has several critical bugs
+that affect user experience, particularly around template loading and chatId
+management. The Code Crawler is a powerful feature but triggered too
+frequently, adding unnecessary latency.
+
+Key improvements needed:
+1. Robust chatId handling throughout the flow
+2. Smarter Code Crawler triggering logic
+3. Better error recovery and validation
+4. Code deduplication and consistency
+
+Most issues are fixable with targeted changes to the identified files. The
+system architecture is sound and the multi-agent approach is appropriate for
+the complexity of the use case.
+
+═══════════════════════════════════════════════════════════════════════════════
+END OF REPORT
+═══════════════════════════════════════════════════════════════════════════════

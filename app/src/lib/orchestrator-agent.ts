@@ -153,21 +153,31 @@ function extractHintsFromPrompt(prompt: string): string[] {
 
   // Common UI elements
   const uiElements = [
+    // Links and buttons
     "länk",
     "link",
     "knapp",
     "button",
+    "cta",
+    // Layout landmarks
     "header",
     "footer",
     "navbar",
     "nav",
     "meny",
     "menu",
+    "hero",
+    "banner",
+    "sidebar",
+    "topbar",
+    // Media and text
     "bild",
     "image",
     "text",
     "rubrik",
     "heading",
+    "placeholder",
+    // Structure and forms
     "sektion",
     "section",
     "formulär",
@@ -491,9 +501,18 @@ export async function orchestrateWorkflow(
 
     const shouldRunCodeCrawler =
       context.projectFiles?.length &&
-      (routerResult.needsCodeContext ||
+      (
+        // Always run when router says code context is needed
+        routerResult.needsCodeContext ||
+        // Run for clarify if the prompt references UI-like terms
         (routerResult.intent === "clarify" &&
-          shouldRunSmartClarify(userPrompt, routerResult)));
+          shouldRunSmartClarify(userPrompt, routerResult)) ||
+        // NEW: Also run for simple_code if we can extract useful UI hints.
+        // This greatly improves v0 placement by giving explicit context,
+        // avoiding vague refines like "lägg till en placeholder" with no target.
+        (routerResult.intent === "simple_code" &&
+          extractHintsFromPrompt(userPrompt).length > 0)
+      );
 
     if (shouldRunCodeCrawler && context.projectFiles) {
       console.log("[Orchestrator] === STEP 2: CODE CRAWLER ===");

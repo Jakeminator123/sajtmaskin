@@ -1,5 +1,17 @@
-// API Route: Refine existing code
-// POST /api/refine
+/**
+ * API Route: Refine existing code
+ * POST /api/refine
+ *
+ * ⚠️ DEPRECATED: Use /api/orchestrate instead
+ *
+ * This endpoint is kept for backward compatibility but all new refinements
+ * should go through /api/orchestrate which provides:
+ * - Semantic routing (intent detection)
+ * - Code Crawler (context enrichment)
+ * - Smart handling of different intent types
+ *
+ * @deprecated Use /api/orchestrate instead
+ */
 
 import { getCurrentUser } from "@/lib/auth";
 import {
@@ -36,6 +48,9 @@ function getRandomMessage(): string {
 }
 
 export async function POST(req: NextRequest) {
+  console.warn(
+    "[API/refine] ⚠️ DEPRECATED: This endpoint is deprecated. Use /api/orchestrate instead."
+  );
   console.log("[API/refine] Request received");
 
   try {

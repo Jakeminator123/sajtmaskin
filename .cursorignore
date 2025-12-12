@@ -4,3 +4,5 @@ node_modules
 templates
 skrapning
 tsconfig.tsbuildinfo
+.preprompt_history.json
+cleaner.py

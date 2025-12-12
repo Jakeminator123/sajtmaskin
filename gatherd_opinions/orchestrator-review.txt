@@ -1,0 +1,18 @@
+Orchestrator / agent logic review
+=================================
+
+Key issues
+- First post-template prompt may discard chat context. When no chat messages exist (e.g., template auto-loaded on page open), handleSubmit routes the first user message to handleGenerate(), which always posts existingChatId/existingCode as undefined to /api/orchestrate. That forces a brand-new v0 chat instead of refining the loaded template, dropping the original chatId and making the template feel non-editable on the first change. Source: app/src/components/chat-panel.tsx lines 1170-1230 (branching) and lines 728-736 (existingChatId/existingCode hard-coded undefined).
+
+- Over-eager Code Crawler triggering. Orchestrator runs crawlCodeContext for simple_code intent whenever extractHintsFromPrompt finds any hint, and the hint list is broad (link/button/text/etc.). With projectFiles present, even simple styling prompts get a full crawl before v0 runs, increasing latency and API usage and making users feel “the crawler runs too often.” Source: app/src/lib/orchestrator-agent.ts lines ~502-515 plus extractHintsFromPrompt earlier in the same file.
+
+- Duplicated routing cost without benefit. ChatPanel always sends every prompt through /api/orchestrate (universal gatekeeper), and the orchestrator itself calls the semantic router (gpt-4o-mini) on every request. There is no short-circuit for simple prompts, so even trivial tweaks incur router + (often) crawler before v0. This aligns with the user perception that the crawler/router fires while v0 is already updating. Source: app/src/components/chat-panel.tsx lines 697-744 and orchestrator-agent.ts lines 456-489.
+
+Impact
+- Losing chatId on the first edit after selecting a template causes a fresh generation instead of refining the chosen template; the preview updates unexpectedly and prior context is lost.
+- Excessive crawler/router calls slow down first responses, consume tokens, and can delay v0 updates or make them appear to “start late.”
+
+Recommended fixes
+- In handleGenerate(), pass the current chatId/currentCode from the store when they exist so the first user prompt after template load refines instead of regenerates. Also adjust the messages.length===0 branch to prefer refinement when demoUrl/currentCode already exist.
+- Tighten crawler eligibility: only run for needs_code_context or clarify with UI hints; drop the simple_code fallback that calls extractHintsFromPrompt.
+- Add a cheap local guard before calling /api/orchestrate for obviously simple prompts (or reuse needsOrchestration()) to skip router/crawler when not needed.

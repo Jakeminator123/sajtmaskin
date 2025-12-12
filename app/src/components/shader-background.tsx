@@ -2,6 +2,7 @@
 
 import { memo, useState, useEffect } from "react";
 import { Dithering } from "@paper-design/shaders-react";
+import { cn } from "@/lib/utils";
 
 const MemoizedDithering = memo(Dithering);
 
@@ -102,8 +103,11 @@ export function ShaderBackground({
 
   return (
     <div
-      className={`fixed inset-0 z-0 select-none shader-background bg-black ${className}`}
-      style={{ opacity }}
+      className={cn(
+        "fixed inset-0 z-0 select-none shader-background bg-black",
+        getOpacityClass(opacity),
+        className
+      )}
     >
       <MemoizedDithering
         colorBack="#00000000"
@@ -113,13 +117,50 @@ export function ShaderBackground({
         type="4x4"
         pxSize={3}
         scale={1.13}
-        style={{
-          backgroundColor: "#000000",
-          height: "100vh",
-          width: "100vw",
-          transition: shimmer ? `all ${shimmerSpeed / 2}s ease-in-out` : "none",
-        }}
+        className={cn(
+          "bg-black h-screen w-screen",
+          shimmer ? "transition-all" : "transition-none",
+          shimmer ? getTransitionDuration(shimmerSpeed) : "duration-0"
+        )}
       />
     </div>
   );
+}
+
+// Map opacity (0–1) to the closest Tailwind opacity utility to avoid inline styles.
+function getOpacityClass(value: number | undefined): string {
+  const normalized = Math.max(0, Math.min(value ?? 0.4, 1));
+  const options: Array<{ limit: number; cls: string }> = [
+    { limit: 0, cls: "opacity-0" },
+    { limit: 0.05, cls: "opacity-5" },
+    { limit: 0.1, cls: "opacity-10" },
+    { limit: 0.2, cls: "opacity-20" },
+    { limit: 0.25, cls: "opacity-25" },
+    { limit: 0.3, cls: "opacity-30" },
+    { limit: 0.4, cls: "opacity-40" },
+    { limit: 0.5, cls: "opacity-50" },
+    { limit: 0.6, cls: "opacity-60" },
+    { limit: 0.7, cls: "opacity-70" },
+    { limit: 0.75, cls: "opacity-75" },
+    { limit: 0.8, cls: "opacity-80" },
+    { limit: 0.9, cls: "opacity-90" },
+    { limit: 0.95, cls: "opacity-95" },
+    { limit: 1, cls: "opacity-100" },
+  ];
+
+  // Find the first class where normalized <= limit
+  const match = options.find((opt) => normalized <= opt.limit);
+  return match ? match.cls : "opacity-100";
+}
+
+// Map shimmer speed (seconds) to a Tailwind duration utility.
+function getTransitionDuration(speedSeconds: number | undefined): string {
+  const speed = speedSeconds ?? 8;
+  if (speed <= 2) return "duration-200";
+  if (speed <= 4) return "duration-500";
+  if (speed <= 6) return "duration-700";
+  if (speed <= 8) return "duration-1000";
+  if (speed <= 10) return "duration-[1200ms]";
+  if (speed <= 12) return "duration-[1400ms]";
+  return "duration-[1600ms]";
 }

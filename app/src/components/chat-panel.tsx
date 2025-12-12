@@ -1566,6 +1566,8 @@ export function ChatPanel({
                 <button
                   onClick={() => handleRemovePendingMedia(item.id)}
                   className="text-teal-400 hover:text-white transition-colors"
+                  aria-label={`Remove ${item.filename || item.type}`}
+                  title={`Remove ${item.filename || item.type}`}
                 >
                   <X className="h-3 w-3" />
                 </button>

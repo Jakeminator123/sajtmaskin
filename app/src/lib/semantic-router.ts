@@ -107,13 +107,17 @@ Din uppgift är att analysera användarens meddelande och bestämma VILKEN ÅTG�
 TILLGÄNGLIGA INTENTS:
 
 1. "simple_code" - ENKLA kodändringar som v0 kan förstå direkt
-   Exempel: "gör bakgrunden blå", "ändra fontstorleken", "lägg till en knapp"
-   Triggas av: Tydliga, specifika instruktioner utan referens till specifika element
+   Exempel: "gör bakgrunden blå", "ändra fontstorleken till 18px", "lägg till padding", "ändra färgen till röd"
+   Triggas av: Generella styling-ändringar utan referens till SPECIFIKA element
+   VIKTIGT: "gör bakgrunden blå" = simple_code (ingen specifik referens)
+   VIKTIGT: "lägg till en knapp" = simple_code (generell instruktion)
 
-2. "needs_code_context" - Ändringar som REFERERAR till specifika element i koden
-   Exempel: "ändra länken i headern", "den där knappen", "produktsektionen"
-   Triggas av: Demonstrativa pronomen (den, det, där), referenser till komponenter
-   KRITISKT: Om användaren pekar på något specifikt ("länken där", "headern") → needs_code_context
+2. "needs_code_context" - Ändringar som REFERERAR till SPECIFIKA EXISTERANDE element
+   Exempel: "ändra länken i headern", "den där knappen", "produktsektionen", "CTA-knappen i hero"
+   Triggas av: Demonstrativa pronomen (den, det, där) eller specifika komponentnamn
+   KRITISKT: Endast när användaren pekar på ETT SPECIFIKT existerande element
+   VIKTIGT: "ändra headern" = needs_code_context (specifik komponent)
+   VIKTIGT: "gör knappen i footern grön" = needs_code_context (specifik plats)
 
 3. "web_search" - Användaren vill ha information från webben
    Exempel: "kolla på apple.com", "sök efter inspiration", "hur ser spotify ut"

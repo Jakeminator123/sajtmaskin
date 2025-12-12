@@ -1,0 +1,21 @@
+Agent/Orchestrator Review (Dec 12 2025)
+
+Context
+- Focus: template load path, chat/orchestrator hand-off, semantic router + code crawler usage.
+
+Findings
+1) Initial prompts drop existing template/chat context.
+   - handleGenerate always posts to /api/orchestrate with existingChatId and existingCode set to undefined even when the store already has chatId/currentCode (see app/src/components/chat-panel.tsx around 708-744). That forces a brand new v0 chat instead of refining the loaded template.
+   - handleSubmit routes the first user prompt to handleGenerate whenever messages.length === 0, even if demoUrl/currentCode already exist (e.g., after reloading a saved project). This starts a fresh chat without the template’s state, matching the “template loads but no chat ID” symptom (app/src/components/chat-panel.tsx around 1170-1230).
+
+2) Code Crawler is triggered for almost every prompt.
+   - shouldRunCodeCrawler also fires on intent simple_code when extractHintsFromPrompt returns any hints (app/src/lib/orchestrator-agent.ts around 502-515).
+   - extractHintsFromPrompt always returns default hints ["länk", "knapp", "element"] when it finds nothing (app/src/lib/orchestrator-agent.ts around 190-205), so the simple_code branch is effectively always true when projectFiles are present. Result: unnecessary OpenAI calls, slower responses, and cases where orchestrator skips applying code because crawler finds no context.
+
+3) Refinement path depends on chatId being present but isn’t protected.
+   - If template generation/cache returns without chatId (network hiccup or cache hole), the first refinement still proceeds and creates a new chat disconnected from the loaded template. No guard or fallback message surfaces this, so the user sees a preview updating from a fresh chat instead of the selected template.
+
+Recommendations
+- Pass existing chat state to orchestrator when available: in handleGenerate, include current chatId/currentCode from the store and/or route first-message-with-existing-code through handleRefinement instead of starting a new chat.
+- Tame Code Crawler: drop the simple_code + extractHintsFromPrompt fallback or gate it behind non-default hints and a minimum prompt length/confidence. If no routerResult.needsCodeContext, skip the crawler to avoid wasted calls.
+- Add a guard before refinement: if chatId is missing after template load, prompt the user to reload the template instead of silently creating a new chat.

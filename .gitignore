@@ -37,3 +37,5 @@ old
 info
 INPUT _FOR_CURSOR
 skrapning
+.preprompt_history.json
+cleaner.py
