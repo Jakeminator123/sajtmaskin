@@ -79,6 +79,7 @@ export function ShaderBackground({
     color || SHADER_THEMES[theme].color
   );
   const [colorIndex, setColorIndex] = useState(0);
+  const transitionDurationMs = getTransitionDurationMs(shimmerSpeed);
 
   // Shimmer effect - smooth color cycling
   useEffect(() => {
@@ -119,9 +120,15 @@ export function ShaderBackground({
         scale={1.13}
         className={cn(
           "bg-black h-screen w-screen",
-          shimmer ? "transition-all" : "transition-none",
-          shimmer ? getTransitionDuration(shimmerSpeed) : "duration-0"
+          shimmer ? "transition-all ease-in-out" : "transition-none"
         )}
+        style={
+          shimmer
+            ? {
+                transitionDuration: `${transitionDurationMs}ms`,
+              }
+            : undefined
+        }
       />
     </div>
   );
@@ -153,14 +160,9 @@ function getOpacityClass(value: number | undefined): string {
   return match ? match.cls : "opacity-100";
 }
 
-// Map shimmer speed (seconds) to a Tailwind duration utility.
-function getTransitionDuration(speedSeconds: number | undefined): string {
-  const speed = speedSeconds ?? 8;
-  if (speed <= 2) return "duration-200";
-  if (speed <= 4) return "duration-500";
-  if (speed <= 6) return "duration-700";
-  if (speed <= 8) return "duration-1000";
-  if (speed <= 10) return "duration-[1200ms]";
-  if (speed <= 12) return "duration-[1400ms]";
-  return "duration-[1600ms]";
+// Map shimmer speed (seconds) to transition duration in milliseconds.
+// Matches the original behavior: shimmerSpeed / 2 seconds.
+function getTransitionDurationMs(speedSeconds: number | undefined): number {
+  const speed = Math.max(0, speedSeconds ?? 8);
+  return Math.round((speed / 2) * 1000);
 }
