@@ -301,9 +301,9 @@ function initializeDatabase(
     )
   `);
 
-  // Project files table - stores taken-over project files persistently
-  // NOTE: No FK constraint on project_id because takeover projects may use
-  // IDs like "v0_abc123" or GitHub-style IDs that don't exist in projects table
+  // Project files table - stores project files persistently
+  // Used for: download, code crawler context, file listing
+  // NOTE: No FK constraint on project_id for flexibility with various ID formats
   database.exec(`
     CREATE TABLE IF NOT EXISTS project_files (
       id INTEGER PRIMARY KEY AUTOINCREMENT,

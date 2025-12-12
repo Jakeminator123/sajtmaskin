@@ -251,7 +251,20 @@ export function shouldRoute(prompt: string): boolean {
   const lower = prompt.toLowerCase();
 
   // Very short prompts - always route (might need clarification)
-  if (prompt.trim().length < 10) {
+  // Increased threshold to catch more vague prompts
+  if (prompt.trim().length < 15) {
+    return true;
+  }
+
+  // Vague/unclear words that suggest user needs help clarifying
+  if (
+    lower.includes("lite") ||
+    lower.includes("något") ||
+    lower.includes("saker") ||
+    lower.includes("grejer") ||
+    lower.includes("snyggare") ||
+    lower.includes("bättre")
+  ) {
     return true;
   }
 

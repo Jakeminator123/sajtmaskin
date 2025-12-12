@@ -19,7 +19,7 @@
  * - versionId: Behövs för ZIP-download
  *
  * SPARNING (Database):
- * - FILES: Sparas automatiskt direkt vid generering (för takeover)
+ * - FILES: Sparas automatiskt vid generering
  * - hasUserSaved: Används för messages/chat auto-save
  * - testMode=true i URL: Skippar all sparning (för testning)
  *
@@ -136,10 +136,6 @@ interface BuilderState {
   hasUserSaved: boolean; // User must explicitly save first before auto-save kicks in
   lastSavedSnapshot?: LastSavedSnapshot; // One-step rollback target
 
-  // Ownership state (for advanced features)
-  isProjectOwned: boolean; // True when project är sparat för takeover
-  ownershipMode: "none" | "github" | "sqlite"; // Storage type (sqlite is default)
-
   // Actions
   setProjectId: (id: string | null) => void;
   addMessage: (
@@ -173,10 +169,6 @@ interface BuilderState {
   explicitSave: () => Promise<void>; // The only path to persist
   revertToLastSaved: () => void; // One-step rollback (local)
   setHasUserSaved: (saved: boolean) => void;
-
-  // Ownership actions (for advanced features)
-  setProjectOwned: (owned: boolean, mode?: "github" | "sqlite") => void;
-  checkProjectOwnership: (projectId: string) => Promise<boolean>;
 }
 
 // Debounce management for auto-save
@@ -255,8 +247,6 @@ export const useBuilderStore = create<BuilderState>()(
       lastSaved: null,
       hasUserSaved: false, // Must be true for auto-save to work
       lastSavedSnapshot: undefined,
-      isProjectOwned: false, // Set to true after takeover
-      ownershipMode: "none",
 
       // Actions
       setProjectId: (id) => set({ projectId: id }),
@@ -570,15 +560,6 @@ export const useBuilderStore = create<BuilderState>()(
         }
       },
 
-      // Set project ownership state (called after takeover)
-      setProjectOwned: (owned, mode = "sqlite") => {
-        set({
-          isProjectOwned: owned,
-          ownershipMode: owned ? mode : "none",
-        });
-        // Project ownership updated
-      },
-
       // One-step rollback to last saved snapshot (local only)
       revertToLastSaved: () => {
         const snapshot = get().lastSavedSnapshot;
@@ -597,30 +578,6 @@ export const useBuilderStore = create<BuilderState>()(
         });
       },
 
-      // Check if project is owned (exists in takeover storage or GitHub)
-      checkProjectOwnership: async (projectId) => {
-        try {
-          const response = await fetch(`/api/projects/${projectId}/status`);
-          if (response.ok) {
-            const data = await response.json();
-            if (data.isOwned) {
-              const storageMode =
-                data.storageType === "github" || data.storageType === "sqlite"
-                  ? data.storageType
-                  : "sqlite";
-              set({
-                isProjectOwned: true,
-                ownershipMode: storageMode,
-              });
-              return true;
-            }
-          }
-          return false;
-        } catch (error) {
-          console.error("[Store] Failed to check ownership:", error);
-          return false;
-        }
-      },
     }),
     {
       name: "sajtmaskin-builder-state",

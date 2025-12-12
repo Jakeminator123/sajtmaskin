@@ -67,7 +67,7 @@
  *
  * PROJECT FILES (TTL: 1 hour, cache only)
  *   project:files:{projectId} → ProjectFile[] JSON
- *   - Fast cache for takeover projects
+ *   - Fast cache for project files
  *   - SQLite is the source of truth
  *   - TTL refreshed on every read
  *
@@ -96,7 +96,7 @@
  * users           → User accounts (Google, email, anonymous)
  * projects        → Project metadata (name, category, owner)
  * project_data    → V0 chat state (chatId, demoUrl, code, files, messages)
- * project_files   → Takeover project files (persistent storage)
+ * project_files   → Project files (persistent storage for download/code crawler)
  * template_cache  → Cached v0 template results (avoids duplicate generations)
  * template_screenshots → Cached screenshots for template gallery
  * images          → Uploaded user images

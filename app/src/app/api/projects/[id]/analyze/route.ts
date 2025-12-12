@@ -1,13 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
-import { getProjectMeta } from "@/lib/redis";
-import { loadProjectFilesWithFallback } from "@/lib/project-files";
+import { getProjectData, getProjectById } from "@/lib/database";
 import OpenAI from "openai";
 
 /**
  * Project Analysis API
  * 
- * Automatically analyzes a taken-over project and provides:
+ * Analyzes a project and provides:
  * - Code quality assessment
  * - Structure recommendations
  * - Performance suggestions
@@ -79,30 +78,42 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     // 2. Get project metadata
-    const projectMeta = await getProjectMeta(projectId);
-    if (!projectMeta) {
+    const project = getProjectById(projectId);
+    if (!project) {
       return NextResponse.json(
-        { success: false, error: "Projektet har inte tagits över ännu" },
+        { success: false, error: "Projektet hittades inte" },
         { status: 404 }
       );
     }
 
     // 3. Verify ownership
-    if (projectMeta.userId !== user.id) {
+    if (project.user_id !== user.id) {
       return NextResponse.json(
         { success: false, error: "Du kan bara analysera dina egna projekt" },
         { status: 403 }
       );
     }
 
-    // 4. Get project files (uses centralized fallback chain: Redis → SQLite → Legacy)
-    const files = await loadProjectFilesWithFallback(projectId);
-    if (!files || files.length === 0) {
+    // 4. Get project files from project_data
+    const projectData = getProjectData(projectId);
+    const rawFiles = projectData?.files;
+    
+    if (!rawFiles || !Array.isArray(rawFiles) || rawFiles.length === 0) {
       return NextResponse.json(
         { success: false, error: "Inga filer hittades i projektet" },
         { status: 404 }
       );
     }
+
+    // Convert v0 file format to simple format
+    const files = rawFiles
+      .filter((f): f is { name: string; content: string } => 
+        f !== null && 
+        typeof f === "object" && 
+        "name" in f && 
+        "content" in f
+      )
+      .map(f => ({ path: f.name, content: f.content }));
 
     console.log("[Analyze] Found", files.length, "files");
 
@@ -155,7 +166,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     // 6. Create analysis prompt
     const analysisPrompt = `Analysera detta webbprojekt:
 
-Projektnamn: ${projectMeta.name || "Okänt"}
+Projektnamn: ${project.name || "Okänt"}
 Antal filer: ${files.length}
 Filtyper: ${[...new Set(files.map((f) => f.path.split(".").pop()))].join(", ")}
 

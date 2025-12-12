@@ -14,8 +14,12 @@ import {
   isVercelConfigured,
   getDeploymentStatus,
 } from "./vercel-client";
-import { loadProjectFilesWithFallback } from "./project-files";
-import { ProjectFile } from "./redis";
+import { getProjectData } from "./database";
+
+interface ProjectFile {
+  path: string;
+  content: string;
+}
 
 export interface DeployProjectOptions {
   projectId: string;
@@ -241,17 +245,26 @@ export async function deployProject(
   }
 
   try {
-    // Get project files using fallback chain (Redis -> SQLite -> Legacy)
-    const rawFiles = await loadProjectFilesWithFallback(options.projectId);
-    if (!rawFiles || rawFiles.length === 0) {
+    // Get project files from project_data
+    const projectData = getProjectData(options.projectId);
+    const rawFiles = projectData?.files;
+    
+    if (!rawFiles || !Array.isArray(rawFiles) || rawFiles.length === 0) {
       return { success: false, error: "No files found for project" };
     }
 
-    // Normalize file paths (v0 returns "page.tsx", we need "app/page.tsx")
-    const files: ProjectFile[] = rawFiles.map((file) => ({
-      ...file,
-      path: normalizeFilePath(file.path),
-    }));
+    // Convert v0 file format and normalize paths
+    const files: ProjectFile[] = rawFiles
+      .filter((f): f is { name: string; content: string } => 
+        f !== null && 
+        typeof f === "object" && 
+        "name" in f && 
+        "content" in f
+      )
+      .map(f => ({
+        path: normalizeFilePath(f.name),
+        content: f.content,
+      }));
 
     console.log(
       "[Vercel Deployment] Normalized paths:",

@@ -64,16 +64,16 @@
 
 ## Data & Storage
 
-- SQLite schema (`lib/database.ts`): users (with diamonds, provider), sessions, transactions, guest_usage, projects, project_data (chat/demoUrl/code/files/messages), project_files (takeover), images, media_library, company_profiles (wizard data), template_cache, template_screenshots, page_views, vercel_deployments, etc.
+- SQLite schema (`lib/database.ts`): users (with diamonds, provider), sessions, transactions, guest_usage, projects, project_data (chat/demoUrl/code/files/messages), project_files, images, media_library, company_profiles (wizard data), template_cache, template_screenshots, page_views, vercel_deployments, etc.
 - Redis (optional via REDIS_CONFIG) for caching projects and analytics; `lib/redis`.
 - Uploads stored under `PATHS.uploads`; served via `/uploads`. Admin actions can clear.
 
 ## AI Generation Pipeline
 
-- Client `ChatPanel` calls `/api/generate` or `/api/refine`.
-- Server uses `lib/v0-generator` (v0-sdk) with quality → model map (standard = v0-1.5-md, premium = v0-1.5-lg); sanitizes code to remove Vercel references.
+- Client `ChatPanel` calls `/api/orchestrate` (universal gatekeeper for all prompts).
+- Server uses `lib/v0-generator` (v0-sdk) with quality → model map (standard = v0-1.5-md, premium = v0-1.5-lg).
 - Credits: `lib/database` deducts diamonds for authed users; guests limited to 1 generation/1 refine via `guest_usage`.
-- Results persisted to SQLite via project endpoints; demoUrl used for iframe preview; code/files stored for takeover/download.
+- Results persisted to SQLite via project endpoints; demoUrl used for iframe preview; code/files stored for download.
 
 ## Orchestrator Agent (Universal Gatekeeper - v2.0)
 
@@ -159,16 +159,19 @@ Användarprompt
 - **AI Images**: Generated via gpt-image-1 or dall-e-3, saved to Vercel Blob for public URLs.
 - Attribution: Unsplash photos include "Photo by [Name] on Unsplash" with links.
 
-## OpenAI Models (Agent/Edit API)
+## OpenAI Models (Orchestrator)
 
-- **Code editing** (`code_edit`): `gpt-5.1-codex-mini` → `gpt-4o-mini` (1 diamond)
-- **Copywriting** (`copy`): `gpt-5-mini` → `gpt-4o-mini` (1 diamond)
-- **Image generation** (`image`): `gpt-5` + `image_generation` tool → `gpt-4o` (3 diamonds)
-- **Web search** (`web_search`): `gpt-4o-mini` + `web_search` tool (2 diamonds, note: web_search only works with gpt-4o/gpt-4o-mini)
-- **Code refactoring** (`code_refactor`): `gpt-5.1-codex` → `gpt-4o` (5 diamonds, 400k context)
-- **Analysis** (`analyze`): `gpt-5` + `code_interpreter` tool → `gpt-4o` (3 diamonds)
-- Models configured in `lib/openai-agent.ts` (MODEL_CONFIGS). Uses Responses API (`/v1/responses`) with fallback to Chat Completions API.
-- See `docs/gpt-api/OPENAI_API_LATEST_FEATURES.md` for detailed model information.
+Orchestratorn använder OpenAI för:
+- **Semantic Router**: `gpt-4o-mini` - Klassificerar intent (~$0.15/1M tokens)
+- **Code Crawler**: `gpt-4o-mini` - Analyserar kodfiler vid behov
+- **Image Generation**: `gpt-image-1` eller `dall-e-3` - AI-genererade bilder
+- **Web Search**: `gpt-4o-mini` + `web_search` tool
+
+v0 API hanterar all kodgenerering:
+- **Standard**: `v0-1.5-md` (128K context, snabb, billig)
+- **Premium**: `v0-1.5-lg` (512K context, bäst kvalitet)
+
+Se `docs/gpt-api/OPENAI_API_LATEST_FEATURES.md` för detaljer.
 
 ## Auth & Permissions
 

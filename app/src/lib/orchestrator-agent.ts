@@ -215,17 +215,20 @@ function extractHintsFromPrompt(prompt: string): string[] {
 /**
  * Decide if we should run Code Crawler for clarify intent.
  * We only run it when the prompt suggests a specific UI element or context.
+ *
+ * NOTE: needsCodeContext is already checked in main flow before this is called,
+ * so we only check contextHints here.
  */
 function shouldRunSmartClarify(
   prompt: string,
   routerResult: RouterResult
 ): boolean {
-  // If router already says needs code context or has hints, run it
-  if (routerResult.needsCodeContext || routerResult.contextHints.length > 0) {
+  // If router provided hints, use them to run crawler
+  if (routerResult.contextHints.length > 0) {
     return true;
   }
 
-  // Very short/vague prompt → skip
+  // Very short/vague prompt → skip (likely needs user clarification without code context)
   if (prompt.trim().length < 12) {
     return false;
   }
@@ -466,7 +469,11 @@ export async function orchestrateWorkflow(
 
     // OPTIMIZATION: Fast-path for simple code prompts (skip semantic router)
     // This reduces latency by ~2-5 seconds for straightforward requests
-    const isFastPathEligible = !shouldRoute(userPrompt) && context.existingCode;
+    // Requirements: shouldRoute says skip, has existing code, AND prompt is long enough to be clear
+    const isFastPathEligible =
+      !shouldRoute(userPrompt) &&
+      context.existingCode &&
+      userPrompt.trim().length >= 20; // Minimum length to avoid fast-pathing vague prompts
 
     let routerResult: RouterResult;
 
@@ -573,12 +580,6 @@ export async function orchestrateWorkflow(
     };
 
     const intent: UserIntent = intentMapping[routerResult.intent];
-
-    // Track whether we should apply code changes (may be turned off if no context)
-    const shouldApplyCodeChanges =
-      intent === "code_only" ||
-      intent === "image_and_code" ||
-      intent === "web_search_and_code";
 
     // ═══════════════════════════════════════════════════════════════════════
     // STEP 2B: CODE CRAWLER (if needed)
@@ -1073,24 +1074,7 @@ export async function orchestrateWorkflow(
       intent === "image_and_code" ||
       intent === "web_search_and_code"
     ) {
-      // If we decided to skip code changes (no context etc.), return with info instead of calling v0
-      if (!shouldApplyCodeChanges) {
-        const message =
-          webSearchContext && webSearchContext.length > 0
-            ? "Jag hittade färginfo men ingen tydlig plats i koden att uppdatera. Vill du ange sektion eller komponent?"
-            : "Jag hittade ingen kodkontext eller färginfo. Kan du ange sektion/komponent och vilka färger som ska sättas?";
-
-        return {
-          success: true,
-          message,
-          intent,
-          webSearchResults:
-            webSearchResults.length > 0 ? webSearchResults : undefined,
-          workflowSteps,
-        };
-      }
-
-      // Build the code instruction using Prompt Enricher (NEW!)
+      // Build the code instruction using Prompt Enricher
       let codeInstruction = classification.codeInstruction || userPrompt;
 
       // Use Prompt Enricher if we have code context

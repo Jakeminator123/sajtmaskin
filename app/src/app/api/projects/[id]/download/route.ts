@@ -1,15 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
-import { getProjectMeta } from "@/lib/redis";
-import { loadProjectFilesWithFallback } from "@/lib/project-files";
+import { getProjectById, getProjectData } from "@/lib/database";
 import { sanitizeProjectPath } from "@/lib/path-utils";
 import JSZip from "jszip";
 
 /**
  * GET /api/projects/[id]/download
  *
- * Downloads a taken-over project as a ZIP file.
- * Uses centralized file loading with fallback chain: Redis → SQLite → Legacy.
+ * Downloads a project as a ZIP file.
+ * Files are loaded from project_data.files (from v0 generation).
  */
 
 interface RouteParams {
@@ -29,9 +28,9 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Get project metadata
-    const meta = await getProjectMeta(projectId);
-    if (!meta) {
+    // Get project
+    const project = getProjectById(projectId);
+    if (!project) {
       return NextResponse.json(
         { success: false, error: "Projektet hittades inte" },
         { status: 404 }
@@ -39,24 +38,33 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     }
 
     // Verify user owns this project
-    if (meta.userId !== user.id) {
+    if (project.user_id !== user.id) {
       return NextResponse.json(
         { success: false, error: "Du kan bara ladda ner dina egna projekt" },
         { status: 403 }
       );
     }
 
-    // For GitHub projects, redirect to GitHub instead
-    if (meta.storageType === "github" && meta.githubOwner && meta.githubRepo) {
-      // Return redirect response instead of JSON (client expects download)
-      return NextResponse.redirect(
-        `https://github.com/${meta.githubOwner}/${meta.githubRepo}/archive/refs/heads/main.zip`,
-        302
+    // Get project files from project_data
+    const projectData = getProjectData(projectId);
+    const rawFiles = projectData?.files;
+    
+    if (!rawFiles || !Array.isArray(rawFiles) || rawFiles.length === 0) {
+      return NextResponse.json(
+        { success: false, error: "Inga filer hittades i projektet" },
+        { status: 404 }
       );
     }
 
-    // Get project files (uses centralized fallback chain)
-    const files = await loadProjectFilesWithFallback(projectId);
+    // Convert v0 file format
+    const files = rawFiles
+      .filter((f): f is { name: string; content: string } => 
+        f !== null && 
+        typeof f === "object" && 
+        "name" in f && 
+        "content" in f
+      )
+      .map(f => ({ path: f.name, content: f.content }));
 
     if (!files || files.length === 0) {
       return NextResponse.json(
@@ -106,7 +114,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     });
 
     // Create filename from project name
-    const safeProjectName = (meta.name || "project")
+    const safeProjectName = (project.name || "project")
       .toLowerCase()
       .replace(/[^a-z0-9]/g, "-")
       .replace(/-+/g, "-")

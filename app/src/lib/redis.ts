@@ -21,7 +21,7 @@
  *   audit:{auditId}             → Audit JSON (TTL: 24 hours)
  *   audit_list:{userId}         → Audit list JSON (TTL: 24 hours)
  *
- * Project Storage (Takeover):
+ * Project Storage (Cache):
  *   project:files:{projectId}   → ProjectFile[] JSON (TTL: 1 hour, cache only; SQLite är källan)
  *   project:meta:{projectId}    → ProjectMeta JSON (TTL: 1 hour, cache only)
  *
@@ -476,7 +476,7 @@ export async function flushRedisCache(): Promise<boolean> {
 
 const PROJECT_FILES_PREFIX = "project:files:";
 const PROJECT_META_PREFIX = "project:meta:";
-const PROJECT_FILES_TTL = 60 * 60; // 1 hour cache - SQLite är källan efter takeover
+const PROJECT_FILES_TTL = 60 * 60; // 1 hour cache - SQLite är källan
 
 export interface ProjectFile {
   path: string;
@@ -496,7 +496,7 @@ export interface ProjectMeta {
 }
 
 /**
- * Save project files to Redis (for takeover without GitHub)
+ * Save project files to Redis cache (SQLite is the source of truth)
  */
 export async function saveProjectFiles(
   projectId: string,
