@@ -1,19 +1,24 @@
 /**
- * Orchestrator Agent 2.0
+ * Orchestrator Agent 3.0
  * ======================
  *
  * Smart meta-agent som koordinerar arbetsflöden mellan olika verktyg.
  *
- * NYA FUNKTIONER (2.0):
- * - Semantic Router: Analyserar ALLA prompts semantiskt (inte keyword-baserat)
- * - Code Crawler: Söker igenom projektfiler för att hitta relevant kontext
- * - Prompt Enricher: Kombinerar all kontext till rik prompt för v0
- *
  * FLÖDE:
- * 1. Semantic Router analyserar prompten och bestämmer intent
- * 2. Om needs_code_context → Code Crawler analyserar filer
- * 3. Prompt Enricher kombinerar all kontext
- * 4. Berikad prompt skickas till v0 (eller annan action)
+ * 1. Semantic Router analyserar prompten och bestämmer intent + confidence
+ * 2. Om confidence < 0.4 → returnera clarify (be om förtydligande)
+ * 3. Om needs_code_context → Code Crawler analyserar filer
+ *    - Fast path: quickSearch för enkla fall (ingen AI)
+ *    - Slow path: Full AI-analys för komplexa fall
+ * 4. Prompt Enricher kombinerar all kontext
+ * 5. Berikad prompt skickas till v0
+ *
+ * FÖRBÄTTRINGAR I 3.0:
+ * - Använder Semantic Router confidence för beslut
+ * - Code Crawler endast för explicit needs_code_context (ej simple_code)
+ * - Fast path i Code Crawler (quickSearch utan AI)
+ * - Fortsätter till v0 även om crawler hittar inget (enrichment, inte validation)
+ * - Borttagit default hints som triggade crawler för ofta
  *
  * INTENT TYPES:
  * - simple_code: Enkla ändringar, direkt till v0
@@ -202,7 +207,9 @@ function extractHintsFromPrompt(prompt: string): string[] {
     }
   }
 
-  return hints.length > 0 ? hints : ["länk", "knapp", "element"]; // Default hints
+  // FIX: Return empty array if no hints found
+  // Default hints caused crawler to trigger on almost every prompt
+  return hints;
 }
 
 /**
@@ -470,6 +477,34 @@ export async function orchestrateWorkflow(
     );
     workflowSteps.push(`Reasoning: ${routerResult.reasoning}`);
 
+    // FIX: Use confidence for decision making
+    // Very low confidence → ask for clarification
+    if (routerResult.confidence < 0.4 && routerResult.intent !== "clarify") {
+      console.log(
+        `[Orchestrator] Low confidence (${routerResult.confidence}) - asking for clarification`
+      );
+      workflowSteps.push(
+        `⚠️ Låg confidence (${Math.round(routerResult.confidence * 100)}%) - ber om förtydligande`
+      );
+      return {
+        success: true,
+        message: `Jag är inte helt säker på vad du vill göra. Kan du förtydliga? (Jag tolkade det som "${routerResult.intent}")`,
+        intent: "clarify",
+        clarifyQuestion: `Kan du vara mer specifik om vad du vill ändra?`,
+        workflowSteps,
+      };
+    }
+
+    // Medium confidence → log warning but continue
+    if (routerResult.confidence < 0.6) {
+      console.warn(
+        `[Orchestrator] Medium confidence (${routerResult.confidence}) for intent ${routerResult.intent}`
+      );
+      workflowSteps.push(
+        `⚠️ Medium confidence (${Math.round(routerResult.confidence * 100)}%)`
+      );
+    }
+
     // ═══════════════════════════════════════════════════════════════════════
     // STEP 2A: MAP SEMANTIC INTENT TO LEGACY INTENT (moved here for use below)
     // ═══════════════════════════════════════════════════════════════════════
@@ -499,19 +534,17 @@ export async function orchestrateWorkflow(
     // SMART CLARIFY: Only for clarify when UI hints are present
     // ═══════════════════════════════════════════════════════════════════════
 
+    // FIX: Simplified crawler trigger - only run when explicitly needed
+    // Removed simple_code trigger which was causing crawler to run too often
     const shouldRunCodeCrawler =
       context.projectFiles?.length &&
       (
-        // Always run when router says code context is needed
+        // Only run when router EXPLICITLY says code context is needed
         routerResult.needsCodeContext ||
-        // Run for clarify if the prompt references UI-like terms
+        // Or for clarify when the prompt references specific UI elements
         (routerResult.intent === "clarify" &&
-          shouldRunSmartClarify(userPrompt, routerResult)) ||
-        // NEW: Also run for simple_code if we can extract useful UI hints.
-        // This greatly improves v0 placement by giving explicit context,
-        // avoiding vague refines like "lägg till en placeholder" with no target.
-        (routerResult.intent === "simple_code" &&
-          extractHintsFromPrompt(userPrompt).length > 0)
+          shouldRunSmartClarify(userPrompt, routerResult))
+        // REMOVED: simple_code + hints trigger (triggered too often)
       );
 
     if (shouldRunCodeCrawler && context.projectFiles) {
@@ -552,31 +585,22 @@ export async function orchestrateWorkflow(
         );
         workflowSteps.push(`Analys: ${codeContext.summary}`);
       } else {
+        // FIX: Code Crawler is for ENRICHMENT, not validation
+        // Don't skip v0 call just because crawler found nothing
         workflowSteps.push("Inga matchande kodsektioner hittades");
-        if (
-          intent === "web_search_and_code" ||
-          intent === "code_only" ||
-          intent === "image_and_code"
-        ) {
-          shouldApplyCodeChanges = false;
-          workflowSteps.push("Hoppar kodändring: ingen kodkontext hittad");
-        }
+        workflowSteps.push("Fortsätter ändå till v0 (crawler är enrichment, inte validation)");
+        console.log(
+          "[Orchestrator] Code Crawler found nothing but continuing to v0"
+        );
+        // shouldApplyCodeChanges remains true - don't skip v0
       }
     } else if (routerResult.needsCodeContext && !context.projectFiles?.length) {
       console.log(
         "[Orchestrator] Code context needed but no project files available"
       );
       workflowSteps.push("⚠️ Kodkontext behövs men inga filer tillgängliga");
-      if (
-        intent === "web_search_and_code" ||
-        intent === "code_only" ||
-        intent === "image_and_code"
-      ) {
-        shouldApplyCodeChanges = false;
-        workflowSteps.push(
-          "Hoppar kodändring: inga projektfiler att analysera"
-        );
-      }
+      // FIX: Still try v0 - it might work without context
+      workflowSteps.push("Försöker ändå med v0");
     }
 
     // ═══════════════════════════════════════════════════════════════════════

@@ -1,32 +1,34 @@
 "use client";
 
 /**
- * ChatPanel Component
- * ===================
+ * ChatPanel Component 3.0
+ * =======================
  *
  * Hanterar all AI-interaktion och kodgenerering.
  *
- * UNIVERSAL GATEKEEPER (v2.0):
- * ===========================
- * ALLA prompts går genom orchestratorn som analyserar intent:
+ * INGÅNGSVÄGAR:
+ * 1. Template (v0 community) → /api/template → chatId + kod
+ * 2. Lokal template → /api/local-template → chatId + kod
+ * 3. Kategori (landing page, etc.) → initialPrompt → ny generation
+ * 4. Sparad projekt → loadFromProject → befintlig chatId + kod
+ * 5. Fri prompt → initialPrompt → ny generation
+ *
+ * SMART ROUTING (v3.0):
+ * - Om chatId/kod finns → handleRefinement (även första prompten)
+ * - Om inget finns → handleGenerate
+ * - Alla prompts går genom /api/orchestrate (universal gatekeeper)
+ *
+ * ORCHESTRATOR INTENT-TYPER:
  * - image_only: Genererar bild → Mediabibliotek (INGEN v0-anrop)
  * - chat_response: Svarar direkt (INGEN v0-anrop)
  * - clarify: Frågar användaren (INGEN v0-anrop)
  * - code_only/image_and_code/web_and_code: Anropar v0 för kodändringar
  *
- * FLÖDEN:
- *
- * 1. EGEN PROMPT (initialPrompt):
- *    → /api/orchestrate → semantic router → (ev. v0 API) → demoUrl + kod
- *
- * 2. V0 COMMUNITY TEMPLATE (templateId):
- *    → generateFromTemplate(templateId) → v0 API → demoUrl + kod
- *
- * 3. LOKAL MALL (localTemplateId):
- *    → Läser lokal kod → /api/orchestrate → v0 återskapar
- *
- * REFINEMENT:
- *    → /api/orchestrate med existingCode/chatId → smart intent-hantering
+ * FÖRBÄTTRINGAR I 3.0:
+ * - Bevarar chatId från template/saved project vid första edit
+ * - handleGenerate skickar befintlig state om den finns
+ * - chatId validering efter template load
+ * - Smart routing i handleSubmit baserad på befintlig state
  *
  * VIKTIGT: v0:s demoUrl används för iframe-preview.
  */
@@ -526,6 +528,17 @@ export function ChatPanel({
       );
 
       if (v0Response?.success) {
+        // FIX: Validate chatId - critical for subsequent refinements
+        if (!v0Response.chatId) {
+          console.error(
+            "[ChatPanel] Local template loaded without chatId - CRITICAL BUG"
+          );
+          addMessage(
+            "assistant",
+            "Mallen laddades men saknar chat-ID. Detta kan orsaka problem vid redigering."
+          );
+        }
+
         if (v0Response.chatId) {
           setChatId(v0Response.chatId);
         }
@@ -600,6 +613,18 @@ export function ChatPanel({
       const response = await generateFromTemplate(templateId, quality);
 
       if (response.success) {
+        // FIX: Validate chatId - critical for subsequent refinements
+        if (!response.chatId) {
+          console.error(
+            "[ChatPanel] Template loaded without chatId - CRITICAL BUG"
+          );
+          addMessage(
+            "assistant",
+            "Template laddades men saknar chat-ID. Detta kan orsaka problem vid redigering. Prova ladda om sidan."
+          );
+          // Continue anyway - demoUrl might still work for preview
+        }
+
         // Save chatId for subsequent refinements
         if (response.chatId) {
           setChatId(response.chatId);
@@ -725,14 +750,27 @@ export function ChatPanel({
           description: item.description || item.prompt,
         }));
 
+      // FIX: Pass existing chatId/code if present (from template or saved project)
+      // This ensures refinement works correctly when user has loaded a template
+      const existingChatId = latestState.chatId;
+      const existingCode = latestState.currentCode;
+
+      if (existingChatId || existingCode) {
+        console.log("[ChatPanel] handleGenerate: Using existing state", {
+          chatId: existingChatId || "(none)",
+          hasCode: !!existingCode,
+        });
+      }
+
       const response = await fetch("/api/orchestrate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           prompt: enhancedPrompt,
           quality,
-          existingChatId: undefined,
-          existingCode: undefined,
+          // Pass existing state if available (template/saved project)
+          existingChatId: existingChatId || undefined,
+          existingCode: existingCode || undefined,
           // Pass project files for Code Crawler analysis (use fresh state)
           projectFiles:
             currentFiles && currentFiles.length > 0 ? currentFiles : undefined,
@@ -889,10 +927,17 @@ export function ChatPanel({
       return;
     }
 
-    // Warn if chatId is missing (refinement may create new conversation)
+    // FIX: Better handling when chatId is missing
+    // Instead of just warning, inform user but continue (v0 will create new conversation)
     if (!actualChatId) {
       console.warn(
         "[ChatPanel] Refining without chatId - will create new conversation"
+      );
+      // Don't block - v0 can handle this by creating a new conversation
+      // But log prominently so we can debug if template loading fails
+      console.log(
+        "[ChatPanel] ⚠️ No chatId available. If this follows a template load, " +
+          "there may be an issue with template caching or v0 API response."
       );
     }
 
@@ -1225,8 +1270,25 @@ export function ChatPanel({
             await handleGenerate(message);
           }
         } else if (messages.length === 0) {
-          // First message but we already have content - treat as generation
-          await handleGenerate(message);
+          // First message - check if we have existing content (template/saved project)
+          const state = useBuilderStore.getState();
+          const hasExistingContent = !!(
+            state.chatId ||
+            state.currentCode ||
+            state.demoUrl
+          );
+
+          if (hasExistingContent) {
+            // FIX: Use refinement when we have existing content
+            // This preserves chatId from template/saved project
+            console.log(
+              "[ChatPanel] First message with existing content - using refinement"
+            );
+            await handleRefinement(message);
+          } else {
+            // Truly new generation
+            await handleGenerate(message);
+          }
         } else {
           // Subsequent messages - refinement
           await handleRefinement(message);
