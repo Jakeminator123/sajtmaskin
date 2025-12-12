@@ -80,13 +80,6 @@ export const PATHS = {
   get uploads() {
     return path.join(getDataDir(), "uploads");
   },
-
-  // Public uploads URL path (for serving files)
-  get uploadsPublicPath() {
-    // In production with DATA_DIR, files are served from /var/data/uploads
-    // In local dev, they're in ./data/uploads
-    return "/uploads";
-  },
 } as const;
 
 /**

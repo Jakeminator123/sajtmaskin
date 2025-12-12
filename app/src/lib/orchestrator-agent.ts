@@ -587,7 +587,7 @@ export async function orchestrateWorkflow(
         // Or for clarify when the prompt references specific UI elements
         (routerResult.intent === "clarify" &&
           shouldRunSmartClarify(userPrompt, routerResult)));
-      // REMOVED: simple_code + hints trigger (triggered too often)
+    // REMOVED: simple_code + hints trigger (triggered too often)
 
     if (shouldRunCodeCrawler && context.projectFiles) {
       console.log("[Orchestrator] === STEP 2: CODE CRAWLER ===");
