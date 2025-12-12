@@ -464,8 +464,50 @@ export async function orchestrateWorkflow(
 
     let codeContext: CodeContext | undefined;
 
-    // Use new semantic router
-    const routerResult = await routePrompt(userPrompt, !!context.existingCode);
+    // OPTIMIZATION: Fast-path for simple code prompts (skip semantic router)
+    // This reduces latency by ~2-5 seconds for straightforward requests
+    const isFastPathEligible = !shouldRoute(userPrompt) && context.existingCode;
+
+    let routerResult: RouterResult;
+
+    if (isFastPathEligible) {
+      console.log(
+        "[Orchestrator] Fast-path: Simple code change, skipping semantic router"
+      );
+      workflowSteps.push("Fast-path: Direkt till v0 (enkel ändring)");
+      routerResult = {
+        intent: "simple_code",
+        confidence: 0.9,
+        needsCodeContext: false,
+        contextHints: [],
+        codeInstruction: userPrompt,
+        reasoning: "Fast-path för enkel kodändring",
+      };
+    } else {
+      // Use semantic router with timeout protection
+      try {
+        const routerPromise = routePrompt(userPrompt, !!context.existingCode);
+        const timeoutPromise = new Promise<RouterResult>((_, reject) =>
+          setTimeout(() => reject(new Error("Router timeout")), 15000)
+        );
+        routerResult = await Promise.race([routerPromise, timeoutPromise]);
+      } catch (error) {
+        // Timeout or error - fallback to simple_code
+        console.warn(
+          "[Orchestrator] Router timeout/error, using fallback:",
+          error
+        );
+        workflowSteps.push("⚠️ Router timeout - fallback till simple_code");
+        routerResult = {
+          intent: "simple_code",
+          confidence: 0.6,
+          needsCodeContext: false,
+          contextHints: [],
+          codeInstruction: userPrompt,
+          reasoning: "Fallback pga timeout",
+        };
+      }
+    }
 
     // Log reasoning only (intent already logged by SemanticRouter)
     console.log(`[Orchestrator] Reasoning: "${routerResult.reasoning}"`);
@@ -484,7 +526,9 @@ export async function orchestrateWorkflow(
         `[Orchestrator] Low confidence (${routerResult.confidence}) - asking for clarification`
       );
       workflowSteps.push(
-        `⚠️ Låg confidence (${Math.round(routerResult.confidence * 100)}%) - ber om förtydligande`
+        `⚠️ Låg confidence (${Math.round(
+          routerResult.confidence * 100
+        )}%) - ber om förtydligande`
       );
       return {
         success: true,
@@ -538,14 +582,12 @@ export async function orchestrateWorkflow(
     // Removed simple_code trigger which was causing crawler to run too often
     const shouldRunCodeCrawler =
       context.projectFiles?.length &&
-      (
-        // Only run when router EXPLICITLY says code context is needed
-        routerResult.needsCodeContext ||
+      // Only run when router EXPLICITLY says code context is needed
+      (routerResult.needsCodeContext ||
         // Or for clarify when the prompt references specific UI elements
         (routerResult.intent === "clarify" &&
-          shouldRunSmartClarify(userPrompt, routerResult))
-        // REMOVED: simple_code + hints trigger (triggered too often)
-      );
+          shouldRunSmartClarify(userPrompt, routerResult)));
+      // REMOVED: simple_code + hints trigger (triggered too often)
 
     if (shouldRunCodeCrawler && context.projectFiles) {
       console.log("[Orchestrator] === STEP 2: CODE CRAWLER ===");
@@ -588,7 +630,9 @@ export async function orchestrateWorkflow(
         // FIX: Code Crawler is for ENRICHMENT, not validation
         // Don't skip v0 call just because crawler found nothing
         workflowSteps.push("Inga matchande kodsektioner hittades");
-        workflowSteps.push("Fortsätter ändå till v0 (crawler är enrichment, inte validation)");
+        workflowSteps.push(
+          "Fortsätter ändå till v0 (crawler är enrichment, inte validation)"
+        );
         console.log(
           "[Orchestrator] Code Crawler found nothing but continuing to v0"
         );

@@ -52,7 +52,7 @@ import {
   Smartphone,
   Tablet,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 // Custom dark theme matching the app's design
 const customTheme = {
@@ -106,6 +106,23 @@ export function CodePreview() {
   const [copied, setCopied] = useState(false);
   const [sandpackError, setSandpackError] = useState<string | null>(null);
   const [iframeError, setIframeError] = useState(false);
+
+  // Track last logged URL to reduce console spam (only log when URL actually changes)
+  const lastLoggedUrlRef = useRef<string | null>(null);
+
+  // Log iframe URL changes only when demoUrl or timestamp actually changes
+  useEffect(() => {
+    if (!demoUrl) return;
+
+    const urlKey = `${demoUrl}-${lastRefreshTimestamp}`;
+    if (lastLoggedUrlRef.current === urlKey) return;
+
+    lastLoggedUrlRef.current = urlKey;
+    console.log("[CodePreview] Iframe URL changed:", {
+      demoUrl,
+      timestamp: lastRefreshTimestamp,
+    });
+  }, [demoUrl, lastRefreshTimestamp]);
 
   // Handle download
   const handleDownload = () => {
@@ -357,14 +374,6 @@ export function CodePreview() {
                         hashIndex >= 0 ? demoUrl.slice(hashIndex) : "";
                       const separator = base.includes("?") ? "&" : "?";
                       const cacheBustedUrl = `${base}${separator}v=${lastRefreshTimestamp}${hashPart}`;
-
-                      // Debug logging for preview URL construction
-                      console.log("[CodePreview] Iframe URL:", {
-                        original: demoUrl,
-                        cacheBusted: cacheBustedUrl,
-                        timestamp: lastRefreshTimestamp,
-                        hasHash: hashIndex >= 0,
-                      });
 
                       return (
                         <iframe

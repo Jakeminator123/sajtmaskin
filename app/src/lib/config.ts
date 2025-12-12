@@ -11,33 +11,55 @@ export const IS_RENDER = Boolean(process.env.RENDER);
 
 /**
  * Data directory configuration
- * - Production (Render): /var/data (persistent disk)
+ * - Production (Render): /var/data (persistent disk) - MUST be set via DATA_DIR env var
  * - Local development: ./data (relative to app root)
+ *
+ * RENDER SETUP:
+ * 1. Add persistent disk mounted at /var/data
+ * 2. Set DATA_DIR=/var/data in environment variables
+ * 3. Set root directory to "app" in Render settings
  */
 // Track if we've already warned about DATA_DIR (avoid spam during build)
 let hasWarnedAboutDataDir = false;
 
 function getDataDir(): string {
-  // Render persistent disk
+  // Render persistent disk (absolute path)
   if (process.env.DATA_DIR) {
-    return process.env.DATA_DIR;
+    // Ensure it's an absolute path on production
+    const dataDir = process.env.DATA_DIR;
+    if (IS_PRODUCTION && !path.isAbsolute(dataDir)) {
+      console.warn(
+        `[Config] WARNING: DATA_DIR should be absolute in production. Got: ${dataDir}`
+      );
+    }
+    return dataDir;
   }
 
   // Production without DATA_DIR set - warn once (skip during build/static generation)
-  // Only warn at runtime, not during build phase
   const isBuildPhase =
     process.env.NEXT_PHASE === "phase-production-build" ||
     process.env.NEXT_PHASE === "phase-export";
 
-  if (IS_PRODUCTION && !IS_RENDER && !hasWarnedAboutDataDir && !isBuildPhase) {
+  if (IS_PRODUCTION && !hasWarnedAboutDataDir && !isBuildPhase) {
     hasWarnedAboutDataDir = true;
-    console.warn(
-      "[Config] WARNING: DATA_DIR not set in production. Data may be lost on restart!"
+    console.error(
+      "[Config] ❌ CRITICAL: DATA_DIR not set in production!\n" +
+        "  → Database and uploads will be lost on restart\n" +
+        "  → Set DATA_DIR=/var/data and mount persistent disk"
     );
   }
 
   // Local development: use ./data folder in app directory
-  return path.join(process.cwd(), "data");
+  // process.cwd() should be the app/ folder where package.json is
+  const localDataDir = path.join(process.cwd(), "data");
+
+  // Debug: Log resolved path on first access (dev only)
+  if (!IS_PRODUCTION && !hasWarnedAboutDataDir) {
+    hasWarnedAboutDataDir = true;
+    console.log(`[Config] Using local data directory: ${localDataDir}`);
+  }
+
+  return localDataDir;
 }
 
 /**
@@ -244,8 +266,7 @@ export const FEATURES = {
   // NOTE: Pexels is disabled - set ENABLE_PEXELS=true to re-enable
   // Reason: Focusing on Unsplash only for now (simpler, works well with v0)
   usePexels:
-    Boolean(SECRETS.pexelsApiKey) &&
-    process.env.ENABLE_PEXELS === "true",
+    Boolean(SECRETS.pexelsApiKey) && process.env.ENABLE_PEXELS === "true",
   useUnsplash: Boolean(SECRETS.unsplashAccessKey),
 
   // Enable v0 API for code generation
@@ -267,6 +288,7 @@ export const FEATURES = {
 
 // Use globalThis to persist across hot reloads in dev mode
 declare global {
+  // eslint-disable-next-line no-var
   var __configLogged: boolean | undefined;
 }
 
