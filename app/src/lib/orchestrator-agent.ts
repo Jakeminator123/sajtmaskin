@@ -523,7 +523,7 @@ export async function orchestrateWorkflow(
     const intent: UserIntent = intentMapping[routerResult.intent];
 
     // Track whether we should apply code changes (may be turned off if no context)
-    let shouldApplyCodeChanges =
+    const shouldApplyCodeChanges =
       intent === "code_only" ||
       intent === "image_and_code" ||
       intent === "web_search_and_code";
