@@ -230,24 +230,6 @@ export function CodePreview() {
               variant="ghost"
               size="sm"
               onClick={() => {
-                // #region agent log
-                fetch(
-                  "http://127.0.0.1:7242/ingest/6b09075a-aee5-4a07-956c-0248b3430cfa",
-                  {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                      sessionId: "debug-session",
-                      runId: "pre-fix",
-                      hypothesisId: "H1",
-                      location: "code-preview.tsx:view-toggle",
-                      message: "View mode → preview",
-                      data: { deviceSize, demoUrl: !!demoUrl },
-                      timestamp: Date.now(),
-                    }),
-                  }
-                ).catch(() => {});
-                // #endregion
                 setViewMode("preview");
               }}
               className={`h-7 px-3 gap-1.5 ${
@@ -263,24 +245,6 @@ export function CodePreview() {
               variant="ghost"
               size="sm"
               onClick={() => {
-                // #region agent log
-                fetch(
-                  "http://127.0.0.1:7242/ingest/6b09075a-aee5-4a07-956c-0248b3430cfa",
-                  {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                      sessionId: "debug-session",
-                      runId: "pre-fix",
-                      hypothesisId: "H1",
-                      location: "code-preview.tsx:view-toggle",
-                      message: "View mode → code",
-                      data: { deviceSize, demoUrl: !!demoUrl },
-                      timestamp: Date.now(),
-                    }),
-                  }
-                ).catch(() => {});
-                // #endregion
                 setViewMode("code");
               }}
               className={`h-7 px-3 gap-1.5 ${

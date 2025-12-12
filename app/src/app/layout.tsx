@@ -19,6 +19,9 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: "Sajtmaskin",
   description: "Skapa professionella webbplatser på minuter med AI",
+  icons: {
+    icon: "/icon.svg",
+  },
 };
 
 export default function RootLayout({
