@@ -46,7 +46,9 @@ import {
   Code,
   Copy,
   Download,
+  ExternalLink,
   Eye,
+  Image as ImageIcon,
   Monitor,
   RefreshCw,
   Smartphone,
@@ -106,6 +108,7 @@ export function CodePreview() {
   const [copied, setCopied] = useState(false);
   const [sandpackError, setSandpackError] = useState<string | null>(null);
   const [iframeError, setIframeError] = useState(false);
+  const [preferScreenshot, setPreferScreenshot] = useState(false);
 
   // Track last logged URL to reduce console spam (only log when URL actually changes)
   const lastLoggedUrlRef = useRef<string | null>(null);
@@ -124,6 +127,12 @@ export function CodePreview() {
     });
   }, [demoUrl, lastRefreshTimestamp]);
 
+  // Reset preview fallbacks when demoUrl changes (new version = try live iframe again)
+  useEffect(() => {
+    setIframeError(false);
+    setPreferScreenshot(false);
+  }, [demoUrl]);
+
   // Handle download
   const handleDownload = () => {
     if (chatId && versionId) {
@@ -137,9 +146,16 @@ export function CodePreview() {
   // Handle manual reload of iframe
   const handleReloadPreview = () => {
     if (demoUrl) {
+      // Reset error state so iframe can be attempted again
+      setIframeError(false);
       // Force reload by updating timestamp
       setDemoUrl(demoUrl);
     }
+  };
+
+  const handleOpenPreviewInNewTab = () => {
+    if (!demoUrl) return;
+    window.open(demoUrl, "_blank", "noopener,noreferrer");
   };
 
   // Convert files to Sandpack format (BACKUP only - primary is v0's demoUrl iframe)
@@ -358,7 +374,22 @@ export function CodePreview() {
                * lastRefreshTimestamp updates automatically in store when setDemoUrl() is called.
                */
               <div className="flex-1 h-full overflow-hidden relative">
-                {!iframeError ? (
+                {screenshotUrl && (preferScreenshot || iframeError) ? (
+                  // Screenshot view (manual toggle OR automatic fallback if iframe fails)
+                  <div className="flex-1 h-full flex flex-col items-center justify-center p-4 bg-black">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={screenshotUrl}
+                      alt="Preview"
+                      className="max-w-full max-h-[70%] shadow-2xl border border-gray-700"
+                    />
+                    <p className="text-gray-400 text-sm mt-4">
+                      {iframeError
+                        ? "Live-förhandsgranskning kunde inte laddas, visar skärmdump"
+                        : "Visar skärmdump (klicka på bilden-ikonen för live preview)"}
+                    </p>
+                  </div>
+                ) : !iframeError ? (
                   <>
                     {/*
                       Build cache-busted URL without breaking fragment identifiers.
@@ -414,19 +445,6 @@ export function CodePreview() {
                       </div>
                     )}
                   </>
-                ) : screenshotUrl ? (
-                  // Fallback to screenshot if iframe fails
-                  <div className="flex-1 h-full flex flex-col items-center justify-center p-4 bg-black">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={screenshotUrl}
-                      alt="Preview"
-                      className="max-w-full max-h-[70%] shadow-2xl border border-gray-700"
-                    />
-                    <p className="text-gray-400 text-sm mt-4">
-                      Live-förhandsgranskning kunde inte laddas, visar skärmdump
-                    </p>
-                  </div>
                 ) : (
                   <div className="flex-1 h-full flex items-center justify-center">
                     <p className="text-gray-500">
@@ -447,6 +465,34 @@ export function CodePreview() {
                       title="Ladda om förhandsgranskning"
                     >
                       <RefreshCw className="h-4 w-4" />
+                    </Button>
+                  )}
+                  {demoUrl && (
+                    <Button
+                      onClick={handleOpenPreviewInNewTab}
+                      className="gap-2 bg-gray-700 hover:bg-gray-600 shadow-lg"
+                      size="sm"
+                      title="Öppna preview i ny flik"
+                    >
+                      <ExternalLink className="h-4 w-4" />
+                    </Button>
+                  )}
+                  {demoUrl && screenshotUrl && (
+                    <Button
+                      onClick={() => setPreferScreenshot((v) => !v)}
+                      className="gap-2 bg-gray-700 hover:bg-gray-600 shadow-lg"
+                      size="sm"
+                      title={
+                        preferScreenshot || iframeError
+                          ? "Visa live preview"
+                          : "Visa skärmdump"
+                      }
+                    >
+                      {preferScreenshot || iframeError ? (
+                        <Eye className="h-4 w-4" />
+                      ) : (
+                        <ImageIcon className="h-4 w-4" />
+                      )}
                     </Button>
                   )}
                   {demoUrl && <QrShare url={demoUrl} title="Dela preview" />}

@@ -188,6 +188,7 @@ export async function POST(request: NextRequest) {
       files: result.files,
       chatId: result.chatId,
       demoUrl: result.demoUrl,
+      screenshotUrl: result.screenshotUrl,
       versionId: result.versionId,
       webSearchResults: result.webSearchResults,
       generatedImages: result.generatedImages,

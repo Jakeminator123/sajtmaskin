@@ -418,6 +418,7 @@ export interface OrchestratorResult {
   files?: Array<{ name: string; content: string }>;
   chatId?: string;
   demoUrl?: string;
+  screenshotUrl?: string;
   versionId?: string;
   // Additional context
   webSearchResults?: Array<{ title: string; url: string; snippet: string }>;
@@ -446,6 +447,30 @@ export async function orchestrateWorkflow(
   context: OrchestratorContext
 ): Promise<OrchestratorResult> {
   const workflowSteps: string[] = [];
+
+  /**
+   * v0 preview sometimes breaks when the generated code imports from the invalid module
+   * specifier "three/examples" (note: without /jsm or /addons). In v0's ESM proxy this
+   * resolves to a non-existent path and returns text/plain (proxy 404), causing a black iframe.
+   *
+   * We can detect this pattern in returned files and run a single automatic "repair" refinement
+   * in the same chat to restore a working preview.
+   */
+  const hasBrokenThreeExamplesImport = (
+    files?: Array<{ name: string; content: string }>
+  ): boolean => {
+    if (!files || files.length === 0) return false;
+
+    // Match ONLY the invalid bare import "three/examples" (no subpath).
+    // Avoid flagging valid imports like "three/examples/jsm/..." or "three/addons/...".
+    const patterns: RegExp[] = [
+      /\bfrom\s+["']three\/examples["']/,
+      /\bimport\s+["']three\/examples["']/,
+      /\bimport\s*\(\s*["']three\/examples["']\s*\)/,
+    ];
+
+    return files.some((f) => patterns.some((p) => p.test(f.content)));
+  };
 
   try {
     debugLog("[Orchestrator] Starting workflow 2.0", {
@@ -1224,6 +1249,56 @@ Bilderna kommer INTE visas i preview. Lägg till placeholder-bilder tills vidare
         v0Result = await generateCode(codeInstruction, context.quality);
       }
 
+      // Auto-repair: Detect and fix a known v0 preview-breaker for Three.js
+      // (imports from "three/examples" are invalid and cause esm.v0.app to return text/plain).
+      if (hasBrokenThreeExamplesImport(v0Result.files) && v0Result.chatId) {
+        console.warn(
+          "[Orchestrator] Detected broken Three.js import 'three/examples' in v0 output. Running auto-repair refine..."
+        );
+        workflowSteps.push("Reparerar Three.js-importer (preview-fix)");
+
+        const repairInstruction = `FIX PREVIEW-BREAKING THREE.JS IMPORTS (CRITICAL):
+
+The generated code contains one or more imports from "three/examples" (without /jsm or /addons).
+This is NOT a valid module and breaks v0's preview (esm proxy returns text/plain / 404).
+
+Please repair the code so it works in an ESM environment:
+- DO NOT import from "three/examples"
+- Instead import the needed modules from:
+  - "three/examples/jsm/..." (preferred), OR
+  - "three/addons/..." (acceptable for newer Three.js)
+- Keep all existing functionality and visuals as-is, only fix the imports/paths.
+
+If OrbitControls is used, import it from:
+- "three/examples/jsm/controls/OrbitControls"
+
+If GLTFLoader is used, import it from:
+- "three/examples/jsm/loaders/GLTFLoader"
+
+If any other loader/control is used, import it from its correct "three/examples/jsm/..." path.
+
+After fixing, ensure there are no remaining "three/examples" bare imports anywhere.`;
+
+        const repaired = await refineCode(
+          v0Result.chatId,
+          v0Result.code || "",
+          repairInstruction,
+          context.quality
+        );
+
+        // If repair succeeded, replace result; otherwise return original and let user know via steps.
+        if (repaired?.files && repaired.files.length > 0) {
+          v0Result = repaired;
+        } else {
+          console.warn(
+            "[Orchestrator] Auto-repair refine did not return files; keeping original result."
+          );
+          workflowSteps.push(
+            "Kunde inte auto-reparera preview helt (prova att be om 'fixa three-importer')"
+          );
+        }
+      }
+
       workflowSteps.push("Webbplatskod uppdaterad!");
 
       // Clean up generatedImages: Remove base64 if we have blob URLs
@@ -1256,6 +1331,7 @@ Bilderna kommer INTE visas i preview. Lägg till placeholder-bilder tills vidare
         files: v0Result.files,
         chatId: v0Result.chatId,
         demoUrl: v0Result.demoUrl,
+        screenshotUrl: v0Result.screenshotUrl,
         versionId: v0Result.versionId,
         webSearchResults:
           webSearchResults.length > 0 ? webSearchResults : undefined,
