@@ -5,7 +5,19 @@ import { orchestrateWorkflow } from "@/lib/orchestrator-agent";
 import type { QualityLevel } from "@/lib/api-client";
 
 // Allow up to 5 minutes for complex workflows (Vercel Pro max is 300s)
-// Orchestrator may run: image generation + v0 generation = 2-4 min typically
+// Orchestrator may run multiple operations in sequence:
+// - Semantic Router (gpt-4o-mini): ~2-5s
+// - Code Crawler (optional): ~2-10s
+// - Web Search (optional): ~5-15s
+// - Image Generation (optional): ~10-30s
+// - v0 Code Generation: ~15-60s
+// Total for complex workflows: 30s - 2+ minutes
+//
+// WARNING: Render Free tier has a hard 30s timeout that CANNOT be changed!
+// Complex workflows WILL timeout on Render Free. Solutions:
+// 1. Upgrade to Render Starter ($7/mo) - no timeout limit
+// 2. Deploy on Vercel - uses maxDuration setting below
+// 3. Use simpler prompts that trigger fast-path
 export const maxDuration = 300;
 
 /**

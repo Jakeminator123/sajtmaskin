@@ -485,10 +485,18 @@ export async function orchestrateWorkflow(
       };
     } else {
       // Use semantic router with timeout protection
+      // NOTE: This timeout is for the router ONLY (gpt-4o-mini classification)
+      // Other operations (Code Crawler, Web Search, Image Gen, v0) have their own timeouts
+      // or are bounded by the API route's maxDuration (300s on Vercel)
+      // WARNING: Render Free tier has a 30s TOTAL timeout - upgrade to Starter for complex workflows
+      const ROUTER_TIMEOUT_MS = 30000; // 30s - generous for slow OpenAI days
       try {
         const routerPromise = routePrompt(userPrompt, !!context.existingCode);
         const timeoutPromise = new Promise<RouterResult>((_, reject) =>
-          setTimeout(() => reject(new Error("Router timeout")), 15000)
+          setTimeout(
+            () => reject(new Error("Router timeout")),
+            ROUTER_TIMEOUT_MS
+          )
         );
         routerResult = await Promise.race([routerPromise, timeoutPromise]);
       } catch (error) {
