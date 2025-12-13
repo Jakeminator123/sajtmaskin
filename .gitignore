@@ -12,6 +12,7 @@ next-env.d.ts
 # Env
 .env
 .env.*
+app/.env.local
 *.pem
 
 # Editor/OS
