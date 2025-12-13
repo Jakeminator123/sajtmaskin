@@ -34,13 +34,13 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    // Ownership check
+      // Ownership check
     if (project.user_id !== user.id) {
-      return NextResponse.json(
-        { success: false, error: "Du kan bara visa dina egna projekt" },
-        { status: 403 }
-      );
-    }
+        return NextResponse.json(
+          { success: false, error: "Du kan bara visa dina egna projekt" },
+          { status: 403 }
+        );
+      }
 
     // Get project data with files
     const projectData = getProjectData(projectId);

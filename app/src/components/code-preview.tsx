@@ -113,6 +113,45 @@ export function CodePreview() {
   // Track last logged URL to reduce console spam (only log when URL actually changes)
   const lastLoggedUrlRef = useRef<string | null>(null);
 
+  // Filter out WebGL errors from v0's generated code (harmless but noisy)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const originalError = console.error;
+    const originalWarn = console.warn;
+
+    // Filter function to suppress known harmless WebGL errors from v0's iframe
+    const shouldSuppress = (args: unknown[]): boolean => {
+      const message = String(args[0] || "");
+      return (
+        message.includes("GL_INVALID_FRAMEBUFFER_OPERATION") ||
+        message.includes("Framebuffer is incomplete") ||
+        message.includes("Attachment has zero size") ||
+        message.includes("WebGL: too many errors")
+      );
+    };
+
+    // Override console.error to filter WebGL errors
+    console.error = (...args: unknown[]) => {
+      if (!shouldSuppress(args)) {
+        originalError.apply(console, args);
+      }
+    };
+
+    // Override console.warn to filter WebGL warnings
+    console.warn = (...args: unknown[]) => {
+      if (!shouldSuppress(args)) {
+        originalWarn.apply(console, args);
+      }
+    };
+
+    // Cleanup: restore original console methods
+    return () => {
+      console.error = originalError;
+      console.warn = originalWarn;
+    };
+  }, []);
+
   // Log iframe URL changes only when demoUrl or timestamp actually changes
   useEffect(() => {
     if (!demoUrl) return;
@@ -372,6 +411,20 @@ export function CodePreview() {
                * 2. ?v={timestamp} in src - Bypasses browser HTTP cache
                *
                * lastRefreshTimestamp updates automatically in store when setDemoUrl() is called.
+               *
+               * WEBGL ERRORS (from v0's generated code):
+               * If you see "GL_INVALID_FRAMEBUFFER_OPERATION: Attachment has zero size" errors,
+               * this is caused by Three.js in v0's generated code initializing before the canvas
+               * has a proper size. This is a known issue with v0-generated Three.js projects.
+               * The errors are harmless and don't affect functionality - they're just console noise.
+               * We try to mitigate by ensuring iframe has proper size before load, but v0's code
+               * runs independently and may still initialize too early.
+               *
+               * THREE.JS MULTIPLE INSTANCES WARNING:
+               * You may see "THREE.WARNING: Multiple instances of Three.js being imported" in console.
+               * This is normal - sajtmaskin uses Three.js for the avatar component, and v0's generated
+               * code also uses Three.js. They run in separate contexts (main app vs iframe), so this
+               * warning is harmless and doesn't cause conflicts. Each context has its own Three.js instance.
                */
               <div className="flex-1 h-full overflow-hidden relative">
                 {screenshotUrl && (preferScreenshot || iframeError) ? (
@@ -411,12 +464,37 @@ export function CodePreview() {
                           key={`${demoUrl}-${lastRefreshTimestamp}`}
                           src={cacheBustedUrl}
                           className="w-full h-full border-0"
+                          style={{ minWidth: "100%", minHeight: "100%" }}
                           title="Website Preview"
                           sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals allow-downloads allow-presentation"
                           allow="accelerometer; camera; encrypted-media; geolocation; gyroscope; microphone; midi; payment; usb; xr-spatial-tracking"
                           referrerPolicy="no-referrer-when-downgrade"
                           loading="eager"
                           onError={() => setIframeError(true)}
+                          onLoad={(e) => {
+                            // Ensure iframe has proper size before WebGL initialization
+                            // This helps prevent "Framebuffer is incomplete: Attachment has zero size" errors
+                            const iframe = e.currentTarget;
+                            if (iframe.contentWindow) {
+                              // Multiple resize triggers to help Three.js detect canvas size
+                              // v0's generated code may have Three.js scenes in hidden sections (#timeline, etc.)
+                              // that initialize before they're visible, causing WebGL errors
+                              const triggerResize = () => {
+                                try {
+                                  iframe.contentWindow?.dispatchEvent(
+                                    new Event("resize")
+                                  );
+                                } catch {
+                                  // Cross-origin restrictions may prevent this, that's OK
+                                }
+                              };
+
+                              // Trigger resize at multiple intervals to catch late-initializing Three.js scenes
+                              setTimeout(triggerResize, 100);
+                              setTimeout(triggerResize, 500);
+                              setTimeout(triggerResize, 1000);
+                            }
+                          }}
                         />
                       );
                     })()}

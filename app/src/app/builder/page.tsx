@@ -661,88 +661,83 @@ function BuilderContent() {
       )}
 
       {/* Main content - Desktop: 2 panel layout */}
-      <div className="relative z-10 flex-1 hidden md:flex overflow-hidden">
-        {/* Chat Panel (30%) - Desktop (PRIMARY instance that triggers generation) */}
-        <div className="w-[30%] min-w-[300px] border-r border-gray-800 bg-black/70 backdrop-blur-sm">
+      {/* Main content - Unified layout (single ChatPanel + single CodePreview) */}
+      {/*
+        Why: We previously rendered TWO CodePreview components (desktop + mobile),
+        which creates two iframes and doubles resource usage. For WebGL-heavy templates,
+        a hidden iframe can end up with a 0×0 viewport and spam WebGL framebuffer errors.
+
+        This unified layout keeps ONE instance of each component mounted:
+        - Desktop (md+): side-by-side panels
+        - Mobile: panels overlap (absolute) and we toggle visibility via opacity + pointer-events
+          (keeps iframe sized, avoids 0×0 canvas issues, and prevents remounts)
+      */}
+      <div className="relative z-10 flex-1 overflow-hidden md:flex md:flex-row">
+        {/* Chat Panel */}
+        <div
+          className={`absolute inset-0 bg-black/70 backdrop-blur-sm transition-opacity duration-200
+            ${
+              mobileTab === "chat"
+                ? "opacity-100 pointer-events-auto"
+                : "opacity-0 pointer-events-none"
+            }
+            md:static md:inset-auto md:opacity-100 md:pointer-events-auto
+            md:w-[30%] md:min-w-[300px] md:border-r md:border-gray-800`}
+        >
           <ChatPanel
             categoryType={type || undefined}
             initialPrompt={prompt || undefined}
             templateId={templateId || undefined}
             localTemplateId={localTemplateId || undefined}
-            instanceId="desktop"
+            instanceId="builder"
             isPrimaryInstance={true}
             isProjectDataLoading={isProjectDataLoading}
             hasExistingData={hasExistingData}
           />
         </div>
 
-        {/* Preview Panel (70%) */}
-        <div className="flex-1 bg-black/50">
+        {/* Preview Panel */}
+        <div
+          className={`absolute inset-0 bg-black/50 transition-opacity duration-200
+            ${
+              mobileTab === "preview"
+                ? "opacity-100 pointer-events-auto"
+                : "opacity-0 pointer-events-none"
+            }
+            md:static md:inset-auto md:opacity-100 md:pointer-events-auto md:flex-1`}
+        >
           <CodePreview />
         </div>
       </div>
 
-      {/* Main content - Mobile: Tabbed layout */}
-      {/* IMPORTANT: Using CSS hidden instead of conditional rendering to prevent 
-          ChatPanel from unmounting/remounting when switching tabs (which causes re-generation) */}
-      <div className="relative z-10 flex-1 flex flex-col md:hidden overflow-hidden">
-        {/* Mobile Tab Content - Both panels stay mounted, visibility controlled by CSS */}
-        <div className="flex-1 overflow-hidden relative">
-          <div
-            className={`absolute inset-0 bg-black/70 ${
-              mobileTab !== "chat" ? "hidden" : ""
-            }`}
-          >
-            {/* Mobile instance - NOT primary, won't trigger duplicate generation */}
-            <ChatPanel
-              categoryType={type || undefined}
-              initialPrompt={prompt || undefined}
-              templateId={templateId || undefined}
-              localTemplateId={localTemplateId || undefined}
-              instanceId="mobile"
-              isPrimaryInstance={false}
-              isProjectDataLoading={isProjectDataLoading}
-              hasExistingData={hasExistingData}
-            />
-          </div>
-          <div
-            className={`absolute inset-0 bg-black/50 ${
-              mobileTab !== "preview" ? "hidden" : ""
-            }`}
-          >
-            <CodePreview />
-          </div>
-        </div>
-
-        {/* Mobile Tab Bar */}
-        <div className="h-14 border-t border-gray-800 flex bg-black/90 backdrop-blur-sm">
-          <button
-            onClick={() => setMobileTab("chat")}
-            className={`flex-1 flex flex-col items-center justify-center gap-1 transition-colors ${
-              mobileTab === "chat"
-                ? "text-teal-400 bg-teal-500/10"
-                : "text-gray-500"
-            }`}
-          >
-            <MessageSquare className="h-5 w-5" />
-            <span className="text-xs">Chat</span>
-          </button>
-          <button
-            onClick={() => setMobileTab("preview")}
-            className={`flex-1 flex flex-col items-center justify-center gap-1 transition-colors relative ${
-              mobileTab === "preview"
-                ? "text-teal-400 bg-teal-500/10"
-                : "text-gray-500"
-            }`}
-          >
-            <Eye className="h-5 w-5" />
-            <span className="text-xs">Preview</span>
-            {/* Notification dot when preview is ready */}
-            {demoUrl && mobileTab === "chat" && (
-              <span className="absolute top-2 right-1/4 w-2 h-2 bg-teal-500 rounded-full animate-pulse" />
-            )}
-          </button>
-        </div>
+      {/* Mobile Tab Bar */}
+      <div className="relative z-10 h-14 border-t border-gray-800 flex bg-black/90 backdrop-blur-sm md:hidden">
+        <button
+          onClick={() => setMobileTab("chat")}
+          className={`flex-1 flex flex-col items-center justify-center gap-1 transition-colors ${
+            mobileTab === "chat"
+              ? "text-teal-400 bg-teal-500/10"
+              : "text-gray-500"
+          }`}
+        >
+          <MessageSquare className="h-5 w-5" />
+          <span className="text-xs">Chat</span>
+        </button>
+        <button
+          onClick={() => setMobileTab("preview")}
+          className={`flex-1 flex flex-col items-center justify-center gap-1 transition-colors relative ${
+            mobileTab === "preview"
+              ? "text-teal-400 bg-teal-500/10"
+              : "text-gray-500"
+          }`}
+        >
+          <Eye className="h-5 w-5" />
+          <span className="text-xs">Preview</span>
+          {/* Notification dot when preview is ready */}
+          {demoUrl && mobileTab === "chat" && (
+            <span className="absolute top-2 right-1/4 w-2 h-2 bg-teal-500 rounded-full animate-pulse" />
+          )}
+        </button>
       </div>
 
       {/* Step indicator - Desktop only */}
