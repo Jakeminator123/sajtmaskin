@@ -1,0 +1,9 @@
+---
+description: "new uptades regarding gpt and its models and API settings"
+alwaysApply: false
+---
+
+# OpenAI model/API updates
+
+- Before ändringar som rör OpenAI-modeller eller API:er, öppna alltid `docs/openai_latest_features.md`.
+- Om dokumentet inte räcker, gör en webbsökning efter senaste integrationer/modeller/APIs och använd den informationen.

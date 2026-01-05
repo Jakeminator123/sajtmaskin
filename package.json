@@ -1,0 +1,15 @@
+{
+  "name": "sajtmaskin-workspace",
+  "private": true,
+  "scripts": {
+    "dev": "cd app && npm run dev",
+    "build": "cd app && npm run build",
+    "lint": "cd app && npm run lint",
+    "start": "cd app && npm run start",
+    "install:app": "cd app && npm install"
+  },
+  "volta": {
+    "node": "24.12.0",
+    "npm": "11.7.0"
+  }
+}

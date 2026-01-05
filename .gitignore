@@ -1,0 +1,41 @@
+# Node/Next
+node_modules/
+.cache/
+dist/
+build/
+.next/
+out/
+coverage/
+tsconfig.tsbuildinfo
+next-env.d.ts
+
+# Env
+.env
+.env.*
+app/.env.local
+*.pem
+
+# Editor/OS
+.idea/
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# App data
+app/data/*.db
+app/data/*.db-shm
+app/data/*.db-wal
+app/data/uploads/
+
+app/data/.env.local
+old
+info
+INPUT _FOR_CURSOR
+skrapning
+.preprompt_history.json
+cleaner.py

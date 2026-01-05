@@ -1,0 +1,11 @@
+---
+description: "Forst chat´message in new char, new context and/or lost track"
+alwaysApply: true
+---
+
+description: "Context onboarding for new/blank agents"
+
+# Onboarding & lost context
+
+- If agent saknar sammanhang eller är ny: läs `docs/information.md` först för projektöversikt och struktur.
+- Vid större förändringar som du gör eller upptäcker, uppdatera relevant info i `docs/information.md` så den speglar aktuellt läge.
