@@ -27,6 +27,7 @@ import { TemplateGallery } from "@/components/templates";
 import { PromptInput } from "@/components/forms";
 import { OnboardingModal, useOnboarding, AuditModal } from "@/components/modals";
 import { AuthModal } from "@/components/auth";
+import { UserSettingsModal } from "@/components/settings/user-settings-modal";
 import { HelpTooltip, Navbar, ShaderBackground, SiteAuditSection } from "./index";
 import { RotateCcw, Sparkles } from "lucide-react";
 import { useAuth } from "@/lib/auth-store";
@@ -38,6 +39,7 @@ import type { AuditResult } from "@/types/audit";
 
 export function HomePage() {
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [auditResult, setAuditResult] = useState<AuditResult | null>(null);
   const [auditedUrl, setAuditedUrl] = useState<string | null>(null);
@@ -147,6 +149,7 @@ export function HomePage() {
       <Navbar
         onLoginClick={handleLoginClick}
         onRegisterClick={handleRegisterClick}
+        onSettingsClick={() => setShowSettingsModal(true)}
       />
 
       {/* Auth Modal */}
@@ -154,6 +157,12 @@ export function HomePage() {
         isOpen={showAuthModal}
         onClose={() => setShowAuthModal(false)}
         defaultMode={authMode}
+      />
+
+      {/* Settings Modal */}
+      <UserSettingsModal
+        isOpen={showSettingsModal}
+        onClose={() => setShowSettingsModal(false)}
       />
 
       {/* Audit Result Modal */}

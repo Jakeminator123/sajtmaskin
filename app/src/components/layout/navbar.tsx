@@ -34,6 +34,7 @@ import {
   Menu,
   X,
   AlertCircle,
+  Settings,
 } from "lucide-react";
 
 // ═══════════════════════════════════════════════════════════════
@@ -50,13 +51,14 @@ const LOW_DIAMOND_THRESHOLD = 3;
 interface NavbarProps {
   onLoginClick?: () => void;
   onRegisterClick?: () => void;
+  onSettingsClick?: () => void;
 }
 
 // ═══════════════════════════════════════════════════════════════
 // COMPONENT
 // ═══════════════════════════════════════════════════════════════
 
-export function Navbar({ onLoginClick, onRegisterClick }: NavbarProps) {
+export function Navbar({ onLoginClick, onRegisterClick, onSettingsClick }: NavbarProps) {
   const pathname = usePathname();
   const { user, isAuthenticated, diamonds, logout, fetchUser, isInitialized } =
     useAuth();
@@ -268,6 +270,18 @@ export function Navbar({ onLoginClick, onRegisterClick }: NavbarProps) {
                     <Sparkles className="h-4 w-4 text-teal-400" />
                     Köp diamanter
                   </Link>
+
+                  {/* Settings */}
+                  <button
+                    onClick={() => {
+                      setShowUserMenu(false);
+                      onSettingsClick?.();
+                    }}
+                    className="flex items-center gap-2 w-full px-4 py-2.5 hover:bg-gray-800/50 transition-colors text-sm text-gray-300"
+                  >
+                    <Settings className="h-4 w-4 text-violet-400" />
+                    Inställningar
+                  </button>
 
                   {/* Divider */}
                   <div className="h-px bg-gray-800 my-1" />

@@ -55,6 +55,7 @@ import {
   refineCode,
   type GeneratedFile,
 } from "@/lib/v0-generator";
+import { getUserSettings } from "@/lib/database";
 import OpenAI from "openai";
 // Note: AI SDK 6 (streamText, generateText) is used in semantic-router.ts and semantic-enhancer.ts
 // OpenAI SDK is still needed here for image generation and web search native tools
@@ -153,7 +154,43 @@ async function saveImageToBlob(
 }
 
 // Initialize OpenAI client
-function getOpenAIClient(): OpenAI {
+// Supports user's own API key via AI Gateway or direct OpenAI
+function getOpenAIClient(userId?: string): OpenAI {
+  // Try to get user's API key if userId provided
+  if (userId) {
+    try {
+      const settings = getUserSettings(userId);
+      
+      // If user has AI Gateway enabled and has a key
+      if (settings?.use_ai_gateway && settings.ai_gateway_api_key) {
+        console.log("[Orchestrator] Using user's AI Gateway key");
+        return new OpenAI({
+          apiKey: settings.ai_gateway_api_key,
+          baseURL: "https://ai-gateway.vercel.sh/v1",
+        });
+      }
+      
+      // If user has their own OpenAI key
+      if (settings?.openai_api_key) {
+        console.log("[Orchestrator] Using user's OpenAI key");
+        return new OpenAI({ apiKey: settings.openai_api_key });
+      }
+    } catch (e) {
+      console.warn("[Orchestrator] Could not get user settings:", e);
+    }
+  }
+  
+  // Check for platform AI Gateway key
+  const gatewayKey = process.env.AI_GATEWAY_API_KEY;
+  if (gatewayKey) {
+    console.log("[Orchestrator] Using platform AI Gateway");
+    return new OpenAI({
+      apiKey: gatewayKey,
+      baseURL: "https://ai-gateway.vercel.sh/v1",
+    });
+  }
+
+  // Fallback to platform OpenAI key
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
     throw new Error("OPENAI_API_KEY environment variable is required");
@@ -551,7 +588,7 @@ export async function orchestrateWorkflow(
       }
     }
 
-    const client = getOpenAIClient();
+    const client = getOpenAIClient(context.userId);
 
     // ═══════════════════════════════════════════════════════════════════════
     // STEP 1: SEMANTIC ROUTING (NEW!)
@@ -1795,7 +1832,7 @@ export async function orchestrateWorkflowStreaming(
     if (intent === "clarify") {
       if (codeContext && codeContext.relevantFiles.length > 0) {
         onThinking?.("Genererar specifik fråga baserat på hittade element...");
-        const client = getOpenAIClient();
+        const client = getOpenAIClient(context.userId);
         const smartQuestion = await generateSmartClarifyQuestion(
           userPrompt,
           codeContext,
@@ -1907,7 +1944,7 @@ async function executeWorkflowWithContext(
     intent,
   } = preComputed;
   const workflowSteps: string[] = [];
-  const client = getOpenAIClient();
+  const client = getOpenAIClient(context.userId);
 
   // Initialize result containers
   let webSearchContext = "";

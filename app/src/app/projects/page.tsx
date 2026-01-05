@@ -6,6 +6,7 @@ import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Navbar, ShaderBackground } from "@/components/layout";
 import { AuthModal } from "@/components/auth";
+import { UserSettingsModal } from "@/components/settings/user-settings-modal";
 import { Plus, Trash2, ExternalLink, Clock, Folder } from "lucide-react";
 import { getProjects, deleteProject, Project } from "@/lib/project-client";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
@@ -15,6 +16,7 @@ export default function ProjectsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
   const [deleteDialog, setDeleteDialog] = useState<{
     isOpen: boolean;
@@ -106,11 +108,16 @@ export default function ProjectsPage() {
       <Navbar
         onLoginClick={() => setShowAuthModal(true)}
         onRegisterClick={() => setShowAuthModal(true)}
+        onSettingsClick={() => setShowSettingsModal(true)}
       />
       <AuthModal
         isOpen={showAuthModal}
         onClose={() => setShowAuthModal(false)}
         defaultMode="login"
+      />
+      <UserSettingsModal
+        isOpen={showSettingsModal}
+        onClose={() => setShowSettingsModal(false)}
       />
 
       <div className="relative z-10 max-w-6xl mx-auto px-6 pt-24 pb-12">

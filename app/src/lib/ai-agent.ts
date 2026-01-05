@@ -9,8 +9,8 @@
  */
 
 import { generateText } from "ai";
-import { openai } from "@ai-sdk/openai";
 import { isAIFeatureEnabled } from "./ai-sdk-features";
+import { getAIProvider } from "./ai-gateway";
 import { quickSearch, type CodeSnippet } from "./code-crawler";
 import { semanticEnhance } from "./semantic-enhancer";
 import type { RouterResult } from "./semantic-router";
@@ -69,8 +69,11 @@ export async function runAgentOrchestration(
     // Steg 1: Analysera prompten och bestäm åtgärder
     steps.push("Analyzing user intent...");
 
+    // Get AI provider (uses user's key if configured, else platform)
+    const provider = await getAIProvider(context.userId, "gpt-4o-mini");
+
     const result = await generateText({
-      model: openai("gpt-4o-mini"),
+      model: provider.model,
       system: `You are an intelligent orchestrator for an AI website builder.
 Your task is to analyze the user's request and decide what actions are needed.
 
