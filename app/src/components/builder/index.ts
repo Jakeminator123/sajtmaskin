@@ -14,3 +14,4 @@ export {
 export { ThinkingBubble, ThinkingIndicator } from "./thinking-bubble";
 export { DesignModeOverlay, DesignModeToggle } from "./design-mode-overlay";
 export { ServiceSuggestions, InlineSuggestion } from "./service-suggestions";
+export { AIFeaturesPanel, AIFeaturesButton } from "./ai-features-panel";

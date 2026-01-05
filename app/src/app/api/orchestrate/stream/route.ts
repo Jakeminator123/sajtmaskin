@@ -19,7 +19,7 @@ export const maxDuration = 300;
 /**
  * Streaming Orchestrator API Endpoint (SSE)
  * =========================================
- * 
+ *
  * Server-Sent Events endpoint for streaming orchestrator progress.
  * Returns events for:
  * - thinking: AI reasoning steps
@@ -115,7 +115,7 @@ export async function POST(request: NextRequest) {
           message: "Analyserar din förfrågan...",
         });
 
-        // Run orchestrator with streaming callbacks
+        // Run orchestrator with streaming callbacks (AI SDK 6)
         const result = await orchestrateWorkflowStreaming(
           prompt,
           {
@@ -130,8 +130,20 @@ export async function POST(request: NextRequest) {
             onThinking: (thought: string) => {
               sendEvent(controller, "thinking", { message: thought });
             },
-            onProgress: (step: string) => {
-              sendEvent(controller, "progress", { step });
+            onProgress: (
+              step: string,
+              stepNumber?: number,
+              totalSteps?: number
+            ) => {
+              sendEvent(controller, "progress", {
+                step,
+                message: step,
+                stepNumber,
+                totalSteps,
+              });
+            },
+            onEnhancement: (original: string, enhanced: string) => {
+              sendEvent(controller, "enhancement", { original, enhanced });
             },
           }
         );

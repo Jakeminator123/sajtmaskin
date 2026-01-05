@@ -1,24 +1,28 @@
 /**
- * Orchestrator Agent 3.0
- * ======================
+ * Orchestrator Agent 4.0 (AI SDK 6)
+ * =================================
  *
  * Smart meta-agent som koordinerar arbetsflöden mellan olika verktyg.
+ * Nu med AI SDK 6 för bättre streaming och strukturerad output.
  *
- * FLÖDE:
- * 1. Semantic Router analyserar prompten och bestämmer intent + confidence
- * 2. Om confidence < 0.4 → returnera clarify (be om förtydligande)
- * 3. Om needs_code_context → Code Crawler analyserar filer
- *    - Fast path: quickSearch för enkla fall (ingen AI)
- *    - Slow path: Full AI-analys för komplexa fall
- * 4. Prompt Enricher kombinerar all kontext
+ * NYTT FLÖDE (4.0):
+ * 1. Semantic Router analyserar prompten (AI SDK 6 streamText)
+ * 2. Om needs_code_context → Code Crawler hittar relevanta koddelar (ingen AI)
+ * 3. Semantic Enhancer förbättrar prompten semantiskt (AI SDK 6 generateText)
+ * 4. Prompt Enricher kombinerar allt till slutlig prompt
  * 5. Berikad prompt skickas till v0
  *
- * FÖRBÄTTRINGAR I 3.0:
- * - Använder Semantic Router confidence för beslut
- * - Code Crawler endast för explicit needs_code_context (ej simple_code)
- * - Fast path i Code Crawler (quickSearch utan AI)
- * - Fortsätter till v0 även om crawler hittar inget (enrichment, inte validation)
- * - Borttagit default hints som triggade crawler för ofta
+ * KOMPONENTER OCH ROLLER:
+ * - Semantic Router: Klassificerar intent (simple_code, needs_code_context, etc.)
+ * - Code Crawler: Hittar relevanta koddelar (INGEN AI, bara sökning)
+ * - Semantic Enhancer: Förbättrar prompten semantiskt (NY!)
+ * - Prompt Enricher: Kombinerar allt till slutlig prompt
+ *
+ * FÖRBÄTTRINGAR I 4.0:
+ * - AI SDK 6 med streamText/generateText för bättre streaming
+ * - Semantic Enhancer för bättre prompt-förbättring
+ * - Code Crawler utan AI (snabbare, billigare)
+ * - Tydligare separation av ansvar mellan komponenter
  *
  * INTENT TYPES:
  * - simple_code: Enkla ändringar, direkt till v0
@@ -37,6 +41,10 @@ import { crawlCodeContext, type CodeContext } from "@/lib/code-crawler";
 import { debugLog } from "@/lib/debug";
 import { enrichPrompt, createEnrichmentSummary } from "@/lib/prompt-enricher";
 import {
+  semanticEnhance,
+  type EnhancementResult,
+} from "@/lib/semantic-enhancer";
+import {
   routePrompt,
   shouldRoute,
   type RouterResult,
@@ -48,7 +56,12 @@ import {
   type GeneratedFile,
 } from "@/lib/v0-generator";
 import OpenAI from "openai";
+// Note: AI SDK 6 (streamText, generateText) is used in semantic-router.ts and semantic-enhancer.ts
+// OpenAI SDK is still needed here for image generation and web search native tools
 export { enhancePromptForV0 } from "./prompt-utils";
+
+// AI Agent Mode (optional - enabled via feature flags)
+import { shouldUseAgentMode, runAgentOrchestration } from "./ai-agent";
 
 // Helper to save AI-generated image using centralized blob-service
 // CRITICAL: This function MUST return a URL for v0 preview to work!
@@ -151,7 +164,7 @@ function getOpenAIClient(): OpenAI {
 /**
  * Extract context hints from a vague prompt for Smart Clarify.
  * Tries to identify what the user might be referring to.
- * 
+ *
  * IMPROVED: Better filtering to avoid false positives and reduce unnecessary crawler runs.
  */
 function extractHintsFromPrompt(prompt: string): string[] {
@@ -162,21 +175,21 @@ function extractHintsFromPrompt(prompt: string): string[] {
   // (e.g., "ändra headern" but not just "header" alone in longer text)
   const uiElements: Record<string, string[]> = {
     // Swedish terms with English equivalents
-    "länk": ["länken", "länkarna"],
-    "knapp": ["knappen", "knapparna", "cta"],
-    "header": ["headern", "header"],
-    "footer": ["footern", "footer"],
-    "nav": ["navbaren", "navbar", "nav", "menyn"],
-    "hero": ["hero", "hero-sektion"],
-    "sidebar": ["sidebaren", "sidebar"],
-    "bild": ["bilden", "bilderna", "image"],
-    "rubrik": ["rubriken", "rubrikerna", "heading"],
-    "sektion": ["sektionen", "section"],
-    "formulär": ["formuläret", "formen", "form"],
-    "kort": ["kortet", "korten", "card"],
-    "modal": ["modalen", "popup"],
-    "tabell": ["tabellen", "table"],
-    "lista": ["listan", "list"],
+    länk: ["länken", "länkarna"],
+    knapp: ["knappen", "knapparna", "cta"],
+    header: ["headern", "header"],
+    footer: ["footern", "footer"],
+    nav: ["navbaren", "navbar", "nav", "menyn"],
+    hero: ["hero", "hero-sektion"],
+    sidebar: ["sidebaren", "sidebar"],
+    bild: ["bilden", "bilderna", "image"],
+    rubrik: ["rubriken", "rubrikerna", "heading"],
+    sektion: ["sektionen", "section"],
+    formulär: ["formuläret", "formen", "form"],
+    kort: ["kortet", "korten", "card"],
+    modal: ["modalen", "popup"],
+    tabell: ["tabellen", "table"],
+    lista: ["listan", "list"],
   };
 
   for (const [category, terms] of Object.entries(uiElements)) {
@@ -193,7 +206,7 @@ function extractHintsFromPrompt(prompt: string): string[] {
   const quotedMatches = prompt.match(/["']([^"']+)["']/g);
   if (quotedMatches) {
     for (const match of quotedMatches) {
-      const content = match.replace(/["']/g, '').trim();
+      const content = match.replace(/["']/g, "").trim();
       if (content.length > 1 && content.length < 50) {
         hints.push(content);
       }
@@ -483,6 +496,61 @@ export async function orchestrateWorkflow(
       hasProjectFiles: !!context.projectFiles?.length,
     });
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // AGENT MODE (AI SDK 6) - Optional alternative flow
+    // When enabled, uses ToolLoopAgent for smarter orchestration
+    // ═══════════════════════════════════════════════════════════════════════
+    if (shouldUseAgentMode()) {
+      console.log("[Orchestrator] Agent Mode enabled - using AI Agent flow");
+      workflowSteps.push("🤖 Agent Mode aktiverat");
+
+      try {
+        const agentResult = await runAgentOrchestration(userPrompt, {
+          userId: context.userId || "anonymous",
+          projectFiles: context.projectFiles,
+          existingCode: context.existingCode,
+          quality: context.quality,
+        });
+
+        workflowSteps.push(...agentResult.steps);
+
+        // Agent has processed the prompt - now send to v0
+        const v0Result =
+          context.existingChatId && context.existingCode
+            ? await refineCode(
+                context.existingChatId,
+                context.existingCode,
+                agentResult.processedPrompt,
+                context.quality
+              )
+            : await generateCode(agentResult.processedPrompt, context.quality);
+
+        workflowSteps.push("Webbplatskod uppdaterad via Agent Mode!");
+
+        return {
+          success: true,
+          message: "Klart! (Agent Mode)",
+          intent: agentResult.intent as UserIntent,
+          code: v0Result.code,
+          files: v0Result.files,
+          chatId: v0Result.chatId,
+          demoUrl: v0Result.demoUrl,
+          screenshotUrl: v0Result.screenshotUrl,
+          versionId: v0Result.versionId,
+          workflowSteps,
+        };
+      } catch (agentError) {
+        console.warn(
+          "[Orchestrator] Agent Mode failed, falling back:",
+          agentError
+        );
+        workflowSteps.push(
+          "⚠️ Agent Mode misslyckades, använder standard-flöde"
+        );
+        // Fall through to standard flow
+      }
+    }
+
     const client = getOpenAIClient();
 
     // ═══════════════════════════════════════════════════════════════════════
@@ -500,10 +568,11 @@ export async function orchestrateWorkflow(
     const isFastPathEligible = (() => {
       // Must have existing code to refine
       if (!context.existingCode) return false;
-      
+
       // Semantic router says to skip AND prompt is clear enough
-      if (!shouldRoute(userPrompt) && userPrompt.trim().length >= 20) return true;
-      
+      if (!shouldRoute(userPrompt) && userPrompt.trim().length >= 20)
+        return true;
+
       // Additional fast-path patterns (common simple changes)
       const lower = userPrompt.toLowerCase();
       const simplePatterns = [
@@ -511,11 +580,11 @@ export async function orchestrateWorkflow(
         /^(lägg till|ta bort|dölj|visa).{0,15}(knapp|text|bild|länk)/i,
         /^(centrera|justera|flytta).{0,20}/i,
       ];
-      
-      if (simplePatterns.some(p => p.test(lower)) && userPrompt.length < 80) {
+
+      if (simplePatterns.some((p) => p.test(lower)) && userPrompt.length < 80) {
         return true;
       }
-      
+
       return false;
     })();
 
@@ -1514,80 +1583,548 @@ export function needsOrchestration(prompt: string): boolean {
 }
 
 // ============================================================================
-// STREAMING ORCHESTRATOR
+// STREAMING ORCHESTRATOR (AI SDK 6)
 // ============================================================================
 
 export interface StreamingCallbacks {
   onThinking?: (thought: string) => void;
-  onProgress?: (step: string) => void;
+  onProgress?: (step: string, stepNumber?: number, totalSteps?: number) => void;
+  onEnhancement?: (original: string, enhanced: string) => void;
 }
 
 /**
- * Streaming version of orchestrateWorkflow
- * 
- * Calls onThinking/onProgress callbacks during execution to provide
- * real-time feedback about what the AI is doing.
+ * Streaming version of orchestrateWorkflow with AI SDK 6
+ *
+ * Uses streamText for real-time feedback during semantic routing,
+ * and generateText for semantic enhancement.
  */
 export async function orchestrateWorkflowStreaming(
   userPrompt: string,
   context: OrchestratorContext,
   callbacks: StreamingCallbacks
 ): Promise<OrchestratorResult> {
-  const { onThinking, onProgress } = callbacks;
-
-  // Wrap orchestrateWorkflow with thinking callbacks
-  // Note: This is a simplified implementation - for full streaming from v0,
-  // we would need v0 SDK to support streaming responses
-  
-  onThinking?.("Analyserar prompt och bestämmer intent...");
-  
-  // Add progress tracking via console.log override (temporary)
-  const originalLog = console.log;
-  console.log = (...args: unknown[]) => {
-    const message = args.map(a => String(a)).join(" ");
-    
-    // Capture orchestrator progress messages
-    if (message.includes("[Orchestrator]")) {
-      if (message.includes("Semantic Router")) {
-        onThinking?.("Kör semantisk analys för att förstå din förfrågan...");
-      } else if (message.includes("Code Crawler") || message.includes("CODE CRAWLER")) {
-        onThinking?.("Analyserar projektfiler för att hitta relevant kontext...");
-      } else if (message.includes("Fast-path")) {
-        onThinking?.("Enkel ändring detekterad, går direkt till v0...");
-      } else if (message.includes("Calling v0")) {
-        onProgress?.("Genererar kod med v0 AI...");
-        onThinking?.("Skickar berikad prompt till v0 för kodgenerering...");
-      } else if (message.includes("Image generation")) {
-        onProgress?.("Genererar bild med AI...");
-        onThinking?.("Skapar AI-genererad bild baserat på din beskrivning...");
-      } else if (message.includes("Web search")) {
-        onProgress?.("Söker på webben...");
-        onThinking?.("Hämtar information från webben...");
-      }
-    }
-    
-    originalLog.apply(console, args);
-  };
+  const { onThinking, onProgress, onEnhancement } = callbacks;
+  const workflowSteps: string[] = [];
 
   try {
-    const result = await orchestrateWorkflow(userPrompt, context);
-    
-    // Send final thinking message based on result
+    // ═══════════════════════════════════════════════════════════════════════
+    // STEP 1: SEMANTIC ROUTER (with streaming thinking)
+    // ═══════════════════════════════════════════════════════════════════════
+    onProgress?.("Analyserar prompt...", 1, 5);
+    onThinking?.("Analyserar din förfrågan för att förstå vad du vill göra...");
+
+    // Check for fast-path eligibility
+    const isFastPathEligible = (() => {
+      if (!context.existingCode) return false;
+      if (!shouldRoute(userPrompt) && userPrompt.trim().length >= 20)
+        return true;
+      const lower = userPrompt.toLowerCase();
+      const simplePatterns = [
+        /^(gör|ändra|sätt|byt).{0,20}(färg|bakgrund|font|storlek|padding|margin)/i,
+        /^(lägg till|ta bort|dölj|visa).{0,15}(knapp|text|bild|länk)/i,
+        /^(centrera|justera|flytta).{0,20}/i,
+      ];
+      if (simplePatterns.some((p) => p.test(lower)) && userPrompt.length < 80) {
+        return true;
+      }
+      return false;
+    })();
+
+    let routerResult: RouterResult;
+
+    if (isFastPathEligible) {
+      onThinking?.("Enkel ändring detekterad, hoppar över semantisk analys...");
+      workflowSteps.push("Fast-path: Direkt till v0 (enkel ändring)");
+      routerResult = {
+        intent: "simple_code",
+        confidence: 0.9,
+        needsCodeContext: false,
+        contextHints: [],
+        codeInstruction: userPrompt,
+        reasoning: "Fast-path för enkel kodändring",
+      };
+    } else {
+      // Use semantic router with streaming feedback
+      try {
+        routerResult = await routePrompt(userPrompt, !!context.existingCode);
+        onThinking?.(
+          `Intent: ${routerResult.intent} (${Math.round(
+            routerResult.confidence * 100
+          )}% confidence)`
+        );
+      } catch (error) {
+        console.warn("[Orchestrator] Router error, using fallback:", error);
+        workflowSteps.push("⚠️ Router timeout - fallback till simple_code");
+        routerResult = {
+          intent: "simple_code",
+          confidence: 0.6,
+          needsCodeContext: false,
+          contextHints: [],
+          codeInstruction: userPrompt,
+          reasoning: "Fallback pga timeout",
+        };
+      }
+    }
+
+    workflowSteps.push(
+      `Semantic Router: ${routerResult.intent} (${Math.round(
+        routerResult.confidence * 100
+      )}%)`
+    );
+
+    // Handle low confidence
+    if (routerResult.confidence < 0.4 && routerResult.intent !== "clarify") {
+      onThinking?.("Osäker på vad du vill göra, ber om förtydligande...");
+      return {
+        success: true,
+        message: `Jag är inte helt säker på vad du vill göra. Kan du förtydliga?`,
+        intent: "clarify",
+        clarifyQuestion: `Kan du vara mer specifik om vad du vill ändra?`,
+        workflowSteps,
+      };
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // STEP 2: CODE CRAWLER (if needed)
+    // ═══════════════════════════════════════════════════════════════════════
+    let codeContext: CodeContext | undefined;
+
+    const shouldRunCodeCrawler =
+      context.projectFiles?.length &&
+      (routerResult.needsCodeContext ||
+        (routerResult.intent === "clarify" &&
+          shouldRunSmartClarify(userPrompt, routerResult)));
+
+    if (shouldRunCodeCrawler && context.projectFiles) {
+      onProgress?.("Söker i projektfiler...", 2, 5);
+      onThinking?.("Letar efter relevanta koddelar i ditt projekt...");
+
+      const hints =
+        routerResult.contextHints.length > 0
+          ? routerResult.contextHints
+          : extractHintsFromPrompt(userPrompt);
+
+      codeContext = await crawlCodeContext(
+        context.projectFiles,
+        hints,
+        userPrompt
+      );
+
+      if (codeContext.relevantFiles.length > 0) {
+        onThinking?.(
+          `Hittade ${codeContext.relevantFiles.length} relevanta filer`
+        );
+        workflowSteps.push(
+          `Hittade ${codeContext.relevantFiles.length} relevanta filer`
+        );
+      } else {
+        onThinking?.("Inga matchande filer hittades, fortsätter ändå...");
+        workflowSteps.push("Inga matchande kodsektioner hittades");
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // STEP 3: SEMANTIC ENHANCER (AI SDK 6)
+    // ═══════════════════════════════════════════════════════════════════════
+    let enhancementResult: EnhancementResult | undefined;
+
+    // Only enhance for code-related intents that might benefit
+    const shouldEnhance =
+      (routerResult.intent === "simple_code" ||
+        routerResult.intent === "needs_code_context" ||
+        routerResult.intent === "image_and_code" ||
+        routerResult.intent === "web_and_code") &&
+      userPrompt.length >= 10 &&
+      userPrompt.length < 200; // Don't enhance very long prompts
+
+    if (shouldEnhance) {
+      onProgress?.("Förbättrar prompten...", 3, 5);
+      onThinking?.("Gör din förfrågan mer specifik och teknisk...");
+
+      try {
+        enhancementResult = await semanticEnhance({
+          originalPrompt: userPrompt,
+          codeContext,
+          routerResult,
+        });
+
+        if (enhancementResult.wasEnhanced) {
+          onEnhancement?.(userPrompt, enhancementResult.enhancedPrompt);
+          onThinking?.(
+            `Prompt förbättrad: "${enhancementResult.enhancedPrompt.substring(
+              0,
+              80
+            )}..."`
+          );
+          workflowSteps.push("Semantic Enhancer: Förbättrade prompten");
+        }
+      } catch (error) {
+        console.warn("[Orchestrator] Enhancement failed:", error);
+        // Continue without enhancement
+      }
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // STEP 4: MAP INTENT AND HANDLE SPECIAL CASES
+    // ═══════════════════════════════════════════════════════════════════════
+    const intentMapping: Record<SemanticIntent, UserIntent> = {
+      simple_code: "code_only",
+      needs_code_context: "code_only",
+      web_search: "web_search_only",
+      image_gen: "image_only",
+      web_and_code: "web_search_and_code",
+      image_and_code: "image_and_code",
+      clarify: "clarify",
+      chat_response: "chat_response",
+    };
+
+    const intent: UserIntent = intentMapping[routerResult.intent];
+
+    // Handle chat_response
+    if (intent === "chat_response") {
+      return {
+        success: true,
+        message: routerResult.chatResponse || "Jag förstår!",
+        intent,
+        chatResponse: routerResult.chatResponse,
+        workflowSteps,
+      };
+    }
+
+    // Handle clarify with Smart Clarify
+    if (intent === "clarify") {
+      if (codeContext && codeContext.relevantFiles.length > 0) {
+        onThinking?.("Genererar specifik fråga baserat på hittade element...");
+        const client = getOpenAIClient();
+        const smartQuestion = await generateSmartClarifyQuestion(
+          userPrompt,
+          codeContext,
+          client
+        );
+        return {
+          success: true,
+          message: smartQuestion,
+          intent,
+          clarifyQuestion: smartQuestion,
+          workflowSteps,
+          codeContext,
+        };
+      }
+      return {
+        success: true,
+        message:
+          routerResult.clarifyQuestion || "Kan du förtydliga vad du menar?",
+        intent,
+        clarifyQuestion: routerResult.clarifyQuestion,
+        workflowSteps,
+      };
+    }
+
+    // ═══════════════════════════════════════════════════════════════════════
+    // STEP 5: EXECUTE WORKFLOW (delegera till huvudfunktionen)
+    // ═══════════════════════════════════════════════════════════════════════
+    onProgress?.("Genererar kod...", 4, 5);
+    onThinking?.("Skickar till v0 för kodgenerering...");
+
+    // Build enriched prompt using Prompt Enricher
+    const enrichedPrompt = enrichPrompt({
+      originalPrompt: userPrompt,
+      enhancedPrompt: enhancementResult?.enhancedPrompt,
+      routerResult,
+      codeContext,
+    });
+
+    // Call the main orchestrator with pre-computed context
+    // This avoids re-running router and crawler
+    const result = await executeWorkflowWithContext(
+      userPrompt,
+      context,
+      {
+        routerResult,
+        codeContext,
+        enhancementResult,
+        enrichedPrompt,
+        intent,
+      },
+      (step) => {
+        onThinking?.(step);
+      }
+    );
+
+    onProgress?.("Klar!", 5, 5);
+
     if (result.success) {
       if (result.code || result.demoUrl) {
         onThinking?.("Kodgenerering klar! Förbereder preview...");
       } else if (result.generatedImages?.length) {
         onThinking?.(`${result.generatedImages.length} bild(er) genererade!`);
-      } else if (result.clarifyQuestion) {
-        onThinking?.("Behöver mer information för att fortsätta...");
-      } else if (result.chatResponse) {
-        onThinking?.("Svarar på din fråga...");
       }
     }
-    
-    return result;
-  } finally {
-    // Restore console.log
-    console.log = originalLog;
+
+    return {
+      ...result,
+      workflowSteps: [...workflowSteps, ...(result.workflowSteps || [])],
+    };
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : "Okänt fel";
+    onThinking?.(`Fel: ${errorMessage}`);
+    return {
+      success: false,
+      message: "Något gick fel. Försök igen.",
+      error: errorMessage,
+      workflowSteps,
+    };
   }
+}
+
+// ============================================================================
+// EXECUTE WORKFLOW WITH PRE-COMPUTED CONTEXT
+// ============================================================================
+
+interface PreComputedContext {
+  routerResult: RouterResult;
+  codeContext?: CodeContext;
+  enhancementResult?: EnhancementResult;
+  enrichedPrompt: string;
+  intent: UserIntent;
+}
+
+/**
+ * Execute workflow with pre-computed context from streaming orchestrator.
+ * This avoids re-running router and crawler.
+ */
+async function executeWorkflowWithContext(
+  userPrompt: string,
+  context: OrchestratorContext,
+  preComputed: PreComputedContext,
+  onStep?: (step: string) => void
+): Promise<OrchestratorResult> {
+  const {
+    routerResult,
+    codeContext,
+    // enhancementResult is used indirectly via enrichedPrompt
+    enrichedPrompt,
+    intent,
+  } = preComputed;
+  const workflowSteps: string[] = [];
+  const client = getOpenAIClient();
+
+  // Initialize result containers
+  let webSearchContext = "";
+  const webSearchResults: Array<{
+    title: string;
+    url: string;
+    snippet: string;
+  }> = [];
+  const generatedImages: Array<{
+    base64?: string;
+    prompt: string;
+    url?: string;
+  }> = [];
+
+  // Handle web search if needed
+  if (
+    (intent === "web_search_only" || intent === "web_search_and_code") &&
+    routerResult.searchQuery
+  ) {
+    onStep?.("Söker på webben...");
+    workflowSteps.push(`Söker online: ${routerResult.searchQuery}`);
+
+    try {
+      const searchResponse = await client.responses.create({
+        model: "gpt-4o-mini",
+        instructions:
+          "Du är en webbdesign-expert. Baserat på web search-resultaten, ge en informativ sammanfattning på svenska.",
+        input: routerResult.searchQuery,
+        tools: [{ type: "web_search" }],
+        store: false,
+      });
+
+      webSearchContext = searchResponse.output_text || "";
+      workflowSteps.push("Sammanställde information från webbsökning");
+    } catch (error) {
+      console.error("[Orchestrator] Web search failed:", error);
+      workflowSteps.push("Webbsökning misslyckades");
+    }
+
+    if (intent === "web_search_only") {
+      return {
+        success: true,
+        message: webSearchContext || "Här är vad jag hittade:",
+        intent,
+        webSearchResults:
+          webSearchResults.length > 0 ? webSearchResults : undefined,
+        workflowSteps,
+      };
+    }
+  }
+
+  // Handle image generation if needed
+  if (
+    (intent === "image_only" || intent === "image_and_code") &&
+    routerResult.imagePrompt
+  ) {
+    onStep?.("Genererar bild med AI...");
+    workflowSteps.push("Genererar bild");
+
+    try {
+      const imagePrompt = routerResult.imagePrompt;
+
+      // Check if it's already a URL
+      if (
+        imagePrompt.startsWith("http://") ||
+        imagePrompt.startsWith("https://")
+      ) {
+        generatedImages.push({ prompt: "Befintlig bild", url: imagePrompt });
+      } else {
+        // Generate new image
+        let base64Data: string | undefined;
+        try {
+          const gptImageResponse = await client.images.generate({
+            model: "gpt-image-1",
+            prompt: imagePrompt,
+            size: "1024x1024",
+            quality: "low",
+            n: 1,
+          });
+          base64Data = gptImageResponse.data?.[0]?.b64_json;
+        } catch {
+          const dalleResponse = await client.images.generate({
+            model: "dall-e-3",
+            prompt: imagePrompt,
+            size: "1024x1024",
+            quality: "standard",
+            n: 1,
+            response_format: "b64_json",
+          });
+          base64Data = dalleResponse.data?.[0]?.b64_json;
+        }
+
+        if (base64Data) {
+          const blobUrl = await saveImageToBlob(
+            base64Data,
+            imagePrompt,
+            context.userId || "anonymous",
+            context.projectId
+          );
+          generatedImages.push({
+            base64: base64Data,
+            prompt: imagePrompt,
+            url: blobUrl || undefined,
+          });
+        }
+      }
+    } catch (error) {
+      console.error("[Orchestrator] Image generation failed:", error);
+      workflowSteps.push("Bildgenerering misslyckades");
+    }
+
+    if (intent === "image_only") {
+      return {
+        success: generatedImages.length > 0,
+        message:
+          generatedImages.length > 0
+            ? "Här är din bild!"
+            : "Kunde inte generera bild.",
+        intent,
+        generatedImages: generatedImages.map((img) => ({
+          prompt: img.prompt,
+          url: img.url,
+        })),
+        workflowSteps,
+      };
+    }
+  }
+
+  // Handle code generation
+  if (
+    intent === "code_only" ||
+    intent === "image_and_code" ||
+    intent === "web_search_and_code"
+  ) {
+    onStep?.("Genererar kod med v0...");
+    workflowSteps.push("Uppdaterar webbplatskod med v0");
+
+    let codeInstruction = enrichedPrompt;
+
+    // Add web search context if available
+    if (webSearchContext && intent === "web_search_and_code") {
+      codeInstruction += `\n\nKontext från webbsökning:\n${webSearchContext.substring(
+        0,
+        2000
+      )}`;
+    }
+
+    // Add media library if available
+    if (context.mediaLibrary && context.mediaLibrary.length > 0) {
+      const mediaCatalog = context.mediaLibrary
+        .map(
+          (item, i) =>
+            `[Bild ${i + 1}]: ${item.url} - "${
+              item.description || item.filename
+            }"`
+        )
+        .join("\n");
+      codeInstruction += `\n\nTILLGÄNGLIGA BILDER:\n${mediaCatalog}`;
+    }
+
+    // Add generated images if available
+    if (generatedImages.length > 0 && intent === "image_and_code") {
+      const imagesWithUrls = generatedImages.filter((img) => img.url);
+      if (imagesWithUrls.length > 0) {
+        codeInstruction += `\n\nGENERERADE BILDER:\n`;
+        imagesWithUrls.forEach((img, i) => {
+          codeInstruction += `${i + 1}. ${img.prompt.substring(
+            0,
+            60
+          )}\n   URL: ${img.url}\n`;
+        });
+      }
+    }
+
+    let v0Result;
+    if (context.existingChatId && context.existingCode) {
+      v0Result = await refineCode(
+        context.existingChatId,
+        context.existingCode,
+        codeInstruction,
+        context.quality
+      );
+    } else {
+      v0Result = await generateCode(codeInstruction, context.quality);
+    }
+
+    workflowSteps.push("Webbplatskod uppdaterad!");
+
+    return {
+      success: true,
+      message: "Klart! Jag har uppdaterat din webbplats.",
+      intent,
+      code: v0Result.code,
+      files: v0Result.files,
+      chatId: v0Result.chatId,
+      demoUrl: v0Result.demoUrl,
+      screenshotUrl: v0Result.screenshotUrl,
+      versionId: v0Result.versionId,
+      webSearchResults:
+        webSearchResults.length > 0 ? webSearchResults : undefined,
+      generatedImages:
+        generatedImages.length > 0
+          ? generatedImages.map((img) => ({ prompt: img.prompt, url: img.url }))
+          : undefined,
+      workflowSteps,
+      routerResult,
+      codeContext,
+      enrichedPrompt: codeInstruction,
+    };
+  }
+
+  // Fallback
+  return {
+    success: false,
+    message: "Kunde inte avgöra vad som skulle göras.",
+    intent,
+    error: "Unknown workflow path",
+    workflowSteps,
+  };
 }

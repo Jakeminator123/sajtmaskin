@@ -5,15 +5,22 @@
  * ===========================
  *
  * Provides visual overlay for clickable element selection in the preview.
- * Inspired by v0.app's Design Mode feature.
+ * Inspired by v0.app's Design Mode and browser DevTools "inspect element" feature.
  *
- * LIMITATIONS:
- * - v0's demoUrl is cross-origin, so we can't directly access its DOM
- * - This works only with Sandpack preview (same-origin iframe)
- * - For v0 demoUrl, we provide a manual selector input as fallback
+ * FÖRBÄTTRING (5.0):
+ * - Förbättrad UI med smart kategorisering av element
+ * - Kör Code Crawler vid element-klick för att hitta relevant kodkontext
+ * - Visar kodkontext direkt i chatten för enklare redigering
+ * - Bättre integration med Semantic Enhancer pipeline
+ *
+ * CROSS-ORIGIN STRATEGI:
+ * - v0's demoUrl är cross-origin (vusercontent.net), så vi kan INTE direkt läsa DOM
+ * - Istället erbjuder vi en smart "element picker" med vanliga element-typer
+ * - Code Crawler hittar relevant kod baserat på element-beskrivningen
+ * - Framtida: postMessage-integration med v0's iframe (om de stödjer det)
  */
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useMemo } from "react";
 import {
   MousePointer2,
   Crosshair,
@@ -25,8 +32,17 @@ import {
   Image as ImageIcon,
   Link2,
   AlignLeft,
+  Grid3X3,
+  Palette,
+  CircleDot,
+  FormInput,
+  Search,
+  Code2,
+  ChevronDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useBuilderStore } from "@/lib/store";
+import { quickSearch } from "@/lib/code-crawler";
 
 interface ElementInfo {
   tagName: string;
@@ -68,19 +84,234 @@ const ELEMENT_ICONS: Record<string, { icon: typeof Square; label: string }> = {
   li: { icon: Square, label: "Listobjekt" },
 };
 
-// Common element patterns for quick selection (cross-origin fallback)
-const QUICK_SELECTORS = [
-  { label: "Header", prompt: "headern / navigationsfältet" },
-  { label: "Hero", prompt: "hero-sektionen" },
-  { label: "CTA-knapp", prompt: "den primära CTA-knappen" },
-  { label: "Footer", prompt: "footern" },
-  { label: "Logo", prompt: "logotypen" },
-  { label: "Rubriken", prompt: "huvudrubriken (h1)" },
-  { label: "Underrubrik", prompt: "underrubriken" },
-  { label: "Kontaktformulär", prompt: "kontaktformuläret" },
-  { label: "Bildgalleri", prompt: "bildgalleriet" },
-  { label: "Prislista", prompt: "prissektionen" },
+// Kategoriserade element för smart val - organiserat som DevTools "Elements" panel
+interface ElementCategory {
+  id: string;
+  label: string;
+  icon: typeof Square;
+  elements: Array<{ label: string; prompt: string; codeHints: string[] }>;
+}
+
+const ELEMENT_CATEGORIES: ElementCategory[] = [
+  {
+    id: "layout",
+    label: "Layout & Sektioner",
+    icon: Layers,
+    elements: [
+      {
+        label: "Header/Nav",
+        prompt: "headern och navigationsfältet",
+        codeHints: ["header", "nav", "navbar", "navigation"],
+      },
+      {
+        label: "Hero-sektion",
+        prompt: "hero-sektionen med huvudrubrik och CTA",
+        codeHints: ["hero", "banner", "landing", "main"],
+      },
+      {
+        label: "Footer",
+        prompt: "footern",
+        codeHints: ["footer", "foot", "bottom"],
+      },
+      {
+        label: "Sidebar",
+        prompt: "sidofältet",
+        codeHints: ["sidebar", "aside", "drawer"],
+      },
+      {
+        label: "Container",
+        prompt: "innehållscontainern",
+        codeHints: ["container", "wrapper", "content"],
+      },
+    ],
+  },
+  {
+    id: "content",
+    label: "Innehåll & Text",
+    icon: Type,
+    elements: [
+      {
+        label: "Rubrik (H1)",
+        prompt: "huvudrubriken",
+        codeHints: ["h1", "heading", "title", "headline"],
+      },
+      {
+        label: "Underrubrik",
+        prompt: "underrubriken",
+        codeHints: ["h2", "subheading", "subtitle"],
+      },
+      {
+        label: "Brödtext",
+        prompt: "brödtexten/paragrafen",
+        codeHints: ["p", "text", "paragraph", "description"],
+      },
+      {
+        label: "Citat",
+        prompt: "citatet/blockquote",
+        codeHints: ["quote", "blockquote", "testimonial"],
+      },
+      {
+        label: "Lista",
+        prompt: "listan",
+        codeHints: ["ul", "ol", "list", "items"],
+      },
+    ],
+  },
+  {
+    id: "interactive",
+    label: "Knappar & Interaktion",
+    icon: Target,
+    elements: [
+      {
+        label: "Primär CTA",
+        prompt: "den primära CTA-knappen",
+        codeHints: ["button", "btn", "cta", "primary"],
+      },
+      {
+        label: "Sekundär knapp",
+        prompt: "den sekundära knappen",
+        codeHints: ["button", "btn", "secondary"],
+      },
+      { label: "Länk", prompt: "länken", codeHints: ["a", "link", "href"] },
+      {
+        label: "Meny-toggle",
+        prompt: "hamburgermenyn/meny-togglen",
+        codeHints: ["menu", "hamburger", "toggle", "mobile"],
+      },
+      {
+        label: "Dropdown",
+        prompt: "dropdown-menyn",
+        codeHints: ["dropdown", "select", "popover"],
+      },
+    ],
+  },
+  {
+    id: "forms",
+    label: "Formulär & Input",
+    icon: FormInput,
+    elements: [
+      {
+        label: "Kontaktformulär",
+        prompt: "kontaktformuläret",
+        codeHints: ["form", "contact", "input"],
+      },
+      {
+        label: "Sökfält",
+        prompt: "sökfältet",
+        codeHints: ["search", "input", "query"],
+      },
+      {
+        label: "Nyhetsbrev",
+        prompt: "nyhetsbrevs-formuläret",
+        codeHints: ["newsletter", "subscribe", "email"],
+      },
+      {
+        label: "Inloggning",
+        prompt: "inloggningsformuläret",
+        codeHints: ["login", "signin", "auth"],
+      },
+      {
+        label: "Textfält",
+        prompt: "textfältet",
+        codeHints: ["input", "field", "textarea"],
+      },
+    ],
+  },
+  {
+    id: "media",
+    label: "Bilder & Media",
+    icon: ImageIcon,
+    elements: [
+      {
+        label: "Logo",
+        prompt: "logotypen",
+        codeHints: ["logo", "brand", "img"],
+      },
+      {
+        label: "Huvudbild",
+        prompt: "huvudbilden/hero-bilden",
+        codeHints: ["hero", "image", "banner", "img"],
+      },
+      {
+        label: "Bildgalleri",
+        prompt: "bildgalleriet",
+        codeHints: ["gallery", "images", "carousel"],
+      },
+      { label: "Ikon", prompt: "ikonen", codeHints: ["icon", "svg", "lucide"] },
+      {
+        label: "Bakgrund",
+        prompt: "bakgrundsbilden",
+        codeHints: ["background", "bg", "backdrop"],
+      },
+    ],
+  },
+  {
+    id: "components",
+    label: "Komponenter",
+    icon: Grid3X3,
+    elements: [
+      {
+        label: "Kort/Card",
+        prompt: "kortet/card-komponenten",
+        codeHints: ["card", "box", "panel"],
+      },
+      {
+        label: "Prislista",
+        prompt: "prissektionen",
+        codeHints: ["pricing", "price", "plan"],
+      },
+      {
+        label: "Testimonials",
+        prompt: "omdömes-sektionen",
+        codeHints: ["testimonial", "review", "quote"],
+      },
+      {
+        label: "FAQ/Accordion",
+        prompt: "FAQ-sektionen",
+        codeHints: ["faq", "accordion", "collapse"],
+      },
+      {
+        label: "Feature-grid",
+        prompt: "feature-griden",
+        codeHints: ["feature", "grid", "benefits"],
+      },
+    ],
+  },
+  {
+    id: "styling",
+    label: "Styling & Färger",
+    icon: Palette,
+    elements: [
+      {
+        label: "Primärfärg",
+        prompt: "den primära accentfärgen",
+        codeHints: ["primary", "accent", "brand", "color"],
+      },
+      {
+        label: "Bakgrundsfärg",
+        prompt: "bakgrundsfärgen",
+        codeHints: ["background", "bg", "surface"],
+      },
+      {
+        label: "Typsnitt",
+        prompt: "typsnittet/fonten",
+        codeHints: ["font", "text", "typography"],
+      },
+      {
+        label: "Skuggor",
+        prompt: "skuggorna",
+        codeHints: ["shadow", "elevation", "drop"],
+      },
+      {
+        label: "Rundade hörn",
+        prompt: "avrundningen/border-radius",
+        codeHints: ["rounded", "radius", "corner"],
+      },
+    ],
+  },
 ];
+
+// NOTE: QUICK_SELECTORS borttagna - använder nu ELEMENT_CATEGORIES direkt
 
 export function DesignModeOverlay({
   isActive,
@@ -89,21 +320,44 @@ export function DesignModeOverlay({
   iframeSrc,
   onManualSelect,
 }: DesignModeOverlayProps) {
-  const [hoveredElement, setHoveredElement] = useState<ElementInfo | null>(null);
-  const [selectedElement, setSelectedElement] = useState<ElementInfo | null>(null);
-  const [showQuickPicker, setShowQuickPicker] = useState(false);
+  const [hoveredElement, setHoveredElement] = useState<ElementInfo | null>(
+    null
+  );
+  const [selectedElement, setSelectedElement] = useState<ElementInfo | null>(
+    null
+  );
+  const [expandedCategory, setExpandedCategory] = useState<string | null>(null);
   const [customSelector, setCustomSelector] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
   const overlayRef = useRef<HTMLDivElement>(null);
 
   // Determine if we can use direct DOM access (same-origin)
-  const isCrossOrigin = iframeSrc?.includes("v0.dev") || iframeSrc?.includes("vusercontent.net");
+  const isCrossOrigin =
+    iframeSrc?.includes("v0.dev") || iframeSrc?.includes("vusercontent.net");
+
+  // Filter categories based on search
+  const filteredCategories = useMemo(() => {
+    if (!searchQuery.trim()) return ELEMENT_CATEGORIES;
+
+    const query = searchQuery.toLowerCase();
+    return ELEMENT_CATEGORIES.map((cat) => ({
+      ...cat,
+      elements: cat.elements.filter(
+        (el) =>
+          el.label.toLowerCase().includes(query) ||
+          el.prompt.toLowerCase().includes(query) ||
+          el.codeHints.some((hint) => hint.toLowerCase().includes(query))
+      ),
+    })).filter((cat) => cat.elements.length > 0);
+  }, [searchQuery]);
 
   // Handle element hover (for same-origin iframes)
   const handleMouseMove = useCallback(
     (e: React.MouseEvent) => {
       if (!isActive || isCrossOrigin) return;
 
-      const iframe = document.querySelector<HTMLIFrameElement>("#preview-iframe");
+      const iframe =
+        document.querySelector<HTMLIFrameElement>("#preview-iframe");
       if (!iframe?.contentDocument) return;
 
       const rect = iframe.getBoundingClientRect();
@@ -140,10 +394,18 @@ export function DesignModeOverlay({
       setSelectedElement(hoveredElement);
 
       // Build description for the prompt
-      const elementType = ELEMENT_ICONS[hoveredElement.tagName]?.label || hoveredElement.tagName;
+      const elementType =
+        ELEMENT_ICONS[hoveredElement.tagName]?.label || hoveredElement.tagName;
       const description = hoveredElement.textContent
-        ? `${elementType} med texten "${hoveredElement.textContent.slice(0, 30)}..."`
-        : `${elementType}${hoveredElement.className ? ` (.${hoveredElement.className.split(" ")[0]})` : ""}`;
+        ? `${elementType} med texten "${hoveredElement.textContent.slice(
+            0,
+            30
+          )}..."`
+        : `${elementType}${
+            hoveredElement.className
+              ? ` (.${hoveredElement.className.split(" ")[0]})`
+              : ""
+          }`;
 
       onElementSelect(hoveredElement.selector, description);
     },
@@ -174,15 +436,103 @@ export function DesignModeOverlay({
     return `${tag}${classes}`;
   };
 
-  // Handle quick selector selection
-  const handleQuickSelect = (prompt: string) => {
-    onManualSelect?.(`Ändra ${prompt}`);
-    setShowQuickPicker(false);
+  // Get store actions and files
+  const { files, setDesignModeCodeContext } = useBuilderStore();
+
+  // Extract hints from element description for Code Crawler
+  const extractHintsFromDescription = (description: string): string[] => {
+    const hints: string[] = [];
+    const lower = description.toLowerCase();
+
+    // Common UI element mappings
+    const elementMappings: Record<string, string[]> = {
+      header: ["header", "nav", "navbar"],
+      footer: ["footer", "foot"],
+      hero: ["hero", "banner"],
+      navigation: ["nav", "navbar", "menu"],
+      knapp: ["button", "btn", "cta"],
+      länk: ["link", "a", "href"],
+      rubrik: ["heading", "h1", "h2", "h3", "title"],
+      bild: ["image", "img", "picture"],
+      formulär: ["form", "input", "field"],
+      sektion: ["section", "container"],
+      logo: ["logo", "brand"],
+      cta: ["cta", "button", "action"],
+      prislista: ["pricing", "price", "plan"],
+      kontakt: ["contact", "form"],
+    };
+
+    // Find matching hints
+    for (const [keyword, aliases] of Object.entries(elementMappings)) {
+      if (lower.includes(keyword)) {
+        hints.push(...aliases);
+      }
+    }
+
+    // Extract quoted text
+    const quotedMatches = description.match(/["']([^"']+)["']/g);
+    if (quotedMatches) {
+      for (const match of quotedMatches) {
+        hints.push(match.replace(/["']/g, "").trim());
+      }
+    }
+
+    return [...new Set(hints)].slice(0, 5);
   };
 
-  // Handle custom selector submission
+  // Handle element selection with Code Crawler - now with direct code hints
+  const handleElementSelect = useCallback(
+    (element: { label: string; prompt: string; codeHints?: string[] }) => {
+      // Run Code Crawler to find relevant code context
+      if (files && files.length > 0) {
+        // Use provided codeHints if available, otherwise extract from description
+        const hints =
+          element.codeHints || extractHintsFromDescription(element.prompt);
+        const codeContext = quickSearch(files, hints);
+
+        if (codeContext.length > 0) {
+          console.log(
+            "[DesignMode] Found code context for",
+            element.label,
+            ":",
+            codeContext.length,
+            "files",
+            codeContext.map((c) => c.name)
+          );
+          setDesignModeCodeContext(codeContext);
+        } else {
+          console.log("[DesignMode] No code context found for", element.label);
+          setDesignModeCodeContext(null);
+        }
+      }
+
+      onManualSelect?.(`Ändra ${element.prompt}`);
+      setExpandedCategory(null);
+      setSearchQuery("");
+    },
+    [files, setDesignModeCodeContext, onManualSelect]
+  );
+
+  // Handle custom selector submission with Code Crawler
   const handleCustomSubmit = () => {
     if (customSelector.trim()) {
+      // Run Code Crawler to find relevant code context
+      if (files && files.length > 0) {
+        const hints = extractHintsFromDescription(customSelector.trim());
+        const codeContext = quickSearch(files, hints);
+
+        if (codeContext.length > 0) {
+          console.log(
+            "[DesignMode] Found code context for custom selector:",
+            codeContext.length,
+            "files"
+          );
+          setDesignModeCodeContext(codeContext);
+        } else {
+          setDesignModeCodeContext(null);
+        }
+      }
+
       onManualSelect?.(`Ändra ${customSelector.trim()}`);
       setCustomSelector("");
     }
@@ -222,68 +572,133 @@ export function DesignModeOverlay({
         </Button>
       </div>
 
-      {/* Cross-origin fallback UI */}
+      {/* Cross-origin Element Picker UI - Inspired by DevTools */}
       {isCrossOrigin && (
-        <div className="absolute bottom-4 left-4 right-4 z-30">
-          <div className="bg-gray-900/95 border border-purple-500/30 rounded-xl p-4 backdrop-blur-sm">
-            <div className="flex items-center gap-2 mb-3">
-              <Target className="h-4 w-4 text-purple-400" />
-              <span className="text-sm font-medium text-purple-200">
-                Välj element att redigera
-              </span>
-            </div>
-
-            {/* Quick selectors */}
-            <div className="flex flex-wrap gap-2 mb-3">
-              {QUICK_SELECTORS.slice(0, 6).map((item) => (
-                <button
-                  key={item.label}
-                  onClick={() => handleQuickSelect(item.prompt)}
-                  className="px-3 py-1.5 text-xs bg-purple-600/20 border border-purple-500/30 rounded-lg text-purple-300 hover:bg-purple-600/30 hover:text-purple-200 transition-colors"
-                >
-                  {item.label}
-                </button>
-              ))}
+        <div className="absolute bottom-4 left-4 right-4 z-30 max-h-[70vh] overflow-hidden flex flex-col">
+          <div className="bg-gray-900/98 border border-purple-500/30 rounded-xl backdrop-blur-sm shadow-2xl flex flex-col max-h-full">
+            {/* Header */}
+            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800/80">
+              <div className="flex items-center gap-2">
+                <Code2 className="h-4 w-4 text-purple-400" />
+                <span className="text-sm font-medium text-purple-200">
+                  Inspect Element
+                </span>
+                <span className="text-[10px] text-gray-500 bg-gray-800 px-1.5 py-0.5 rounded">
+                  DevTools-läge
+                </span>
+              </div>
               <button
-                onClick={() => setShowQuickPicker(!showQuickPicker)}
-                className="px-3 py-1.5 text-xs bg-gray-800 border border-gray-700 rounded-lg text-gray-400 hover:bg-gray-700 hover:text-gray-300 transition-colors"
+                onClick={onToggle}
+                className="p-1 rounded hover:bg-gray-800 text-gray-500 hover:text-gray-300 transition-colors"
               >
-                Fler...
+                <X className="h-4 w-4" />
               </button>
             </div>
 
-            {/* More quick selectors dropdown */}
-            {showQuickPicker && (
-              <div className="flex flex-wrap gap-2 mb-3 p-2 bg-gray-800/50 rounded-lg">
-                {QUICK_SELECTORS.slice(6).map((item) => (
+            {/* Search */}
+            <div className="px-4 py-2 border-b border-gray-800/50">
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-500" />
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Sök element... (header, button, hero...)"
+                  className="w-full pl-9 pr-3 py-2 bg-gray-800/80 border border-gray-700/50 rounded-lg text-sm text-gray-200 placeholder:text-gray-500 focus:outline-none focus:border-purple-500/50"
+                />
+                {searchQuery && (
                   <button
-                    key={item.label}
-                    onClick={() => handleQuickSelect(item.prompt)}
-                    className="px-3 py-1.5 text-xs bg-purple-600/20 border border-purple-500/30 rounded-lg text-purple-300 hover:bg-purple-600/30 hover:text-purple-200 transition-colors"
+                    onClick={() => setSearchQuery("")}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1 rounded hover:bg-gray-700 text-gray-500"
                   >
-                    {item.label}
+                    <X className="h-3 w-3" />
                   </button>
-                ))}
+                )}
               </div>
-            )}
+            </div>
 
-            {/* Custom selector input */}
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={customSelector}
-                onChange={(e) => setCustomSelector(e.target.value)}
-                onKeyDown={(e) => e.key === "Enter" && handleCustomSubmit()}
-                placeholder="Beskriv elementet du vill ändra..."
-                className="flex-1 px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-sm text-gray-200 placeholder:text-gray-500 focus:outline-none focus:border-purple-500"
-              />
-              <Button
-                onClick={handleCustomSubmit}
-                disabled={!customSelector.trim()}
-                className="bg-purple-600 hover:bg-purple-500 text-white"
-              >
-                Välj
-              </Button>
+            {/* Categories accordion */}
+            <div className="flex-1 overflow-y-auto py-2 px-2">
+              {filteredCategories.map((category) => (
+                <div key={category.id} className="mb-1">
+                  {/* Category header */}
+                  <button
+                    onClick={() =>
+                      setExpandedCategory(
+                        expandedCategory === category.id ? null : category.id
+                      )
+                    }
+                    className="w-full flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-gray-800/60 transition-colors text-left"
+                  >
+                    <ChevronDown
+                      className={`h-3.5 w-3.5 text-gray-500 transition-transform ${
+                        expandedCategory === category.id
+                          ? "rotate-0"
+                          : "-rotate-90"
+                      }`}
+                    />
+                    <category.icon className="h-4 w-4 text-purple-400/70" />
+                    <span className="flex-1 text-sm text-gray-300">
+                      {category.label}
+                    </span>
+                    <span className="text-[10px] text-gray-600">
+                      {category.elements.length}
+                    </span>
+                  </button>
+
+                  {/* Category elements */}
+                  {(expandedCategory === category.id || searchQuery) && (
+                    <div className="ml-4 mt-1 space-y-0.5">
+                      {category.elements.map((element) => (
+                        <button
+                          key={element.label}
+                          onClick={() => handleElementSelect(element)}
+                          className="w-full flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-purple-600/20 transition-colors text-left group"
+                        >
+                          <CircleDot className="h-3 w-3 text-gray-600 group-hover:text-purple-400" />
+                          <span className="flex-1 text-sm text-gray-400 group-hover:text-gray-200">
+                            {element.label}
+                          </span>
+                          <span className="text-[10px] text-gray-600 group-hover:text-purple-400 opacity-0 group-hover:opacity-100 transition-opacity">
+                            Redigera →
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+
+              {filteredCategories.length === 0 && searchQuery && (
+                <div className="text-center py-6 text-gray-500 text-sm">
+                  Inga element matchar &quot;{searchQuery}&quot;
+                </div>
+              )}
+            </div>
+
+            {/* Custom input footer */}
+            <div className="px-4 py-3 border-t border-gray-800/80 bg-gray-900/50">
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={customSelector}
+                  onChange={(e) => setCustomSelector(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleCustomSubmit()}
+                  placeholder="Eller beskriv elementet fritt..."
+                  className="flex-1 px-3 py-2 bg-gray-800 border border-gray-700/50 rounded-lg text-sm text-gray-200 placeholder:text-gray-500 focus:outline-none focus:border-purple-500"
+                />
+                <Button
+                  onClick={handleCustomSubmit}
+                  disabled={!customSelector.trim()}
+                  size="sm"
+                  className="bg-purple-600 hover:bg-purple-500 text-white px-4"
+                >
+                  Ändra
+                </Button>
+              </div>
+              <p className="mt-2 text-[10px] text-gray-600 text-center">
+                Klicka på ett element eller beskriv vad du vill ändra
+              </p>
             </div>
           </div>
         </div>
@@ -311,8 +726,10 @@ export function DesignModeOverlay({
             >
               {/* Element info tooltip */}
               <div className="absolute -top-8 left-0 px-2 py-1 bg-purple-600 text-white text-xs rounded whitespace-nowrap">
-                {ELEMENT_ICONS[hoveredElement.tagName]?.label || hoveredElement.tagName}
-                {hoveredElement.className && ` .${hoveredElement.className.split(" ")[0]}`}
+                {ELEMENT_ICONS[hoveredElement.tagName]?.label ||
+                  hoveredElement.tagName}
+                {hoveredElement.className &&
+                  ` .${hoveredElement.className.split(" ")[0]}`}
               </div>
             </div>
           )}
@@ -361,9 +778,10 @@ export function DesignModeToggle({
           : "bg-gray-800/50 border border-gray-700/50 text-gray-400 hover:bg-gray-700/50 hover:text-gray-300"
       }`}
     >
-      <MousePointer2 className={`h-3.5 w-3.5 ${isActive ? "text-purple-400" : ""}`} />
+      <MousePointer2
+        className={`h-3.5 w-3.5 ${isActive ? "text-purple-400" : ""}`}
+      />
       Design
     </button>
   );
 }
-

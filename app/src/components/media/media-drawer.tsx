@@ -1,18 +1,22 @@
 "use client";
 
 /**
- * MediaDrawer Component
- * =====================
+ * MediaDrawer Component v2.0
+ * ==========================
  *
- * A slide-in drawer for media management.
- * Replaces the accordion-based MediaLibraryPanel in ChatPanel.
+ * Slide-in drawer for media management with consistent design.
  *
  * Features:
  * - Slide-in animation from right
- * - Upload images/videos
- * - Browse media library
- * - Stock photo search (Unsplash only - Pexels disabled)
- * - Drag & drop to chat
+ * - Upload images/videos with progress
+ * - Browse media library with filters
+ * - Click to add to chat (no confusing drag)
+ * - Consistent design with TextUploader
+ *
+ * UX Improvements in v2.0:
+ * - Cleaner header matching TextUploader style
+ * - Better visual feedback on selection
+ * - Simplified action: click = use in chat
  */
 
 import { useState, useCallback, useRef, useEffect } from "react";
@@ -341,14 +345,16 @@ export function MediaDrawer({
           "flex flex-col"
         )}
       >
-        {/* Header */}
+        {/* Header - consistent with TextUploader */}
         <div className="flex items-center justify-between p-4 border-b border-gray-800">
           <div className="flex items-center gap-2">
-            <ImageIcon className="h-5 w-5 text-teal-400" />
-            <h2 className="text-lg font-semibold text-white">Mediabibliotek</h2>
-            <span className="text-xs text-gray-500 bg-gray-800 px-2 py-0.5 rounded">
-              {items.length} filer
-            </span>
+            <div className="p-1.5 rounded-lg bg-teal-500/20">
+              <ImageIcon className="h-4 w-4 text-teal-400" />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold text-white">Mediabibliotek</h2>
+              <p className="text-xs text-gray-500">{items.length} filer uppladdade</p>
+            </div>
           </div>
           <button
             onClick={onClose}
@@ -510,11 +516,12 @@ export function MediaDrawer({
           )}
         </div>
 
-        {/* Footer */}
+        {/* Footer - helpful hint */}
         <div className="p-4 border-t border-gray-800 bg-gray-900/50">
-          <p className="text-xs text-gray-500 text-center">
-            Klicka på en bild för att använda den i din design
-          </p>
+          <div className="flex items-center justify-center gap-2 text-xs text-gray-500">
+            <ImageIcon className="h-3.5 w-3.5" />
+            <span>Klicka på en bild för att använda den i din design</span>
+          </div>
         </div>
       </div>
     </>

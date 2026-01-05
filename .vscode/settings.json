@@ -12,13 +12,17 @@
     "typescript",
     "typescriptreact"
   ],
-  "eslint.useFlatConfig": true,
-  "eslint.options": {
-    "overrideConfigFile": "app/eslint.config.mjs"
-  },
+  "eslint.useFlatConfig": false,
+
   // ===== TypeScript =====
   "typescript.tsdk": "app/node_modules/typescript/lib",
   "typescript.enablePromptUseWorkspaceTsdk": true,
+
+  // Force VS Code to use workspace TypeScript version automatically
+  // (requires reload after changing this setting)
+  "typescript.preferences.importModuleSpecifier": "relative",
+  "typescript.suggest.autoImports": true,
+
   // ===== Terminal =====
   "terminal.integrated.defaultProfile.windows": "PowerShell Core",
   "terminal.integrated.profiles.windows": {
@@ -38,12 +42,20 @@
   "terminal.integrated.shellIntegration.enabled": true,
   "terminal.integrated.copyOnSelection": false,
   "terminal.integrated.rightClickBehavior": "default",
+  "terminal.integrated.environmentChangesIndicator": "warnonly",
+  "terminal.integrated.environmentChangesRelaunch": true,
+
+  // ===== Git =====
   "git.terminalAuthentication": false,
   "git.useEditorAsCommitInput": false,
+
+  // ===== Editor =====
   "editor.formatOnSave": true,
   "editor.defaultFormatter": "esbenp.prettier-vscode",
   "editor.tabSize": 2,
   "editor.wordWrap": "on",
+
+  // ===== Files =====
   "files.autoSave": "off",
   "files.exclude": {
     "**/.git": true,
@@ -52,41 +64,47 @@
     "**/__pycache__": true,
     "**/*.pyc": true
   },
-  "typescript.preferences.importModuleSpecifier": "relative",
-  "typescript.suggest.autoImports": true,
+
+  // ===== Language-specific formatters =====
   "[typescript]": {
-    "editor.defaultFormatter": "vscode.typescript-language-features"
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
   },
   "[typescriptreact]": {
     "editor.defaultFormatter": "esbenp.prettier-vscode"
   },
+  "[javascript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[javascriptreact]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
   "[json]": {
-    "editor.defaultFormatter": "vscode.json-language-features"
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
   },
   "[jsonc]": {
     "editor.quickSuggestions": {
       "strings": true
     },
     "editor.suggest.insertMode": "replace",
-    "editor.defaultFormatter": "vscode.json-language-features"
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
   },
+
+  // ===== Tailwind CSS =====
   "tailwindCSS.experimental.classRegex": [
-    [
-      "cva\\(([^)]*)\\)",
-      "[\"'`]([^\"'`]*).*?[\"'`]"
-    ],
-    [
-      "cn\\(([^)]*)\\)",
-      "[\"'`]([^\"'`]*).*?[\"'`]"
-    ]
+    ["cva\\(([^)]*)\\)", "[\"'`]([^\"'`]*).*?[\"'`]"],
+    ["cn\\(([^)]*)\\)", "[\"'`]([^\"'`]*).*?[\"'`]"]
   ],
   "tailwindCSS.includeLanguages": {
     "typescript": "javascript",
     "typescriptreact": "javascript"
   },
+
+  // ===== Emmet =====
   "emmet.includeLanguages": {
     "typescript": "html",
     "typescriptreact": "html"
   },
+
+  // ===== JSON Schema =====
   "json.schemaDownload.enable": true
 }

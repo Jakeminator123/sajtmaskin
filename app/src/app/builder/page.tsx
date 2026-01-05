@@ -1,6 +1,10 @@
 "use client";
 
 import { ChatPanel, CodePreview, QualitySelector } from "@/components/builder";
+import {
+  AIFeaturesButton,
+  AIFeaturesPanel,
+} from "@/components/builder/ai-features-panel";
 import { ClientOnly, HelpTooltip, ShaderBackground } from "@/components/layout";
 import { FinalizeModal } from "@/components/modals";
 import { Button } from "@/components/ui/button";
@@ -28,28 +32,28 @@ function useIsMobile() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    
+
     // Also check for touch capability for better mobile detection
     const checkMobile = () => {
       const isNarrow = window.innerWidth < 768;
-      const hasTouch = 'ontouchstart' in window || navigator.maxTouchPoints > 0;
+      const hasTouch = "ontouchstart" in window || navigator.maxTouchPoints > 0;
       // Consider mobile if narrow OR touch device with narrow-ish screen
       setIsMobile(isNarrow || (hasTouch && window.innerWidth < 1024));
     };
-    
+
     checkMobile();
-    
+
     // Debounced resize handler to prevent excessive re-renders
     let timeoutId: NodeJS.Timeout;
     const handleResize = () => {
       clearTimeout(timeoutId);
       timeoutId = setTimeout(checkMobile, 100);
     };
-    
+
     window.addEventListener("resize", handleResize);
     // Also listen for orientation changes on mobile
     window.addEventListener("orientationchange", checkMobile);
-    
+
     return () => {
       window.removeEventListener("resize", handleResize);
       window.removeEventListener("orientationchange", checkMobile);
@@ -101,6 +105,7 @@ function BuilderContent() {
   const [mobileTab, setMobileTab] = useState<"chat" | "preview">("chat");
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [showFinalizeModal, setShowFinalizeModal] = useState(false);
+  const [showAIFeatures, setShowAIFeatures] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [isPublishing, setIsPublishing] = useState(false);
   const isMobile = useIsMobile();
@@ -527,6 +532,9 @@ function BuilderContent() {
             </>
           )}
           <QualitySelector value={quality} onChange={setQuality} />
+          <AIFeaturesButton
+            onClick={() => setShowAIFeatures(!showAIFeatures)}
+          />
           <div className="h-5 w-px bg-gray-800" />
           {/* Saving indicator and save button */}
           {projectId && (
@@ -679,10 +687,10 @@ function BuilderContent() {
             }
             md:static md:inset-auto md:opacity-100 md:pointer-events-auto md:translate-x-0
             md:w-[30%] md:min-w-[300px] md:border-r md:border-gray-800`}
-          style={{ 
+          style={{
             // Prevent iOS scroll bounce issues
-            WebkitOverflowScrolling: 'touch',
-            overscrollBehavior: 'contain'
+            WebkitOverflowScrolling: "touch",
+            overscrollBehavior: "contain",
           }}
         >
           <ChatPanel
@@ -712,9 +720,9 @@ function BuilderContent() {
       </div>
 
       {/* Mobile Tab Bar - touch optimized with safe area support */}
-      <div 
+      <div
         className="relative z-10 h-16 border-t border-gray-800 flex bg-black/90 backdrop-blur-sm md:hidden pb-safe"
-        style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+        style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
       >
         <button
           onClick={() => setMobileTab("chat")}
@@ -723,7 +731,7 @@ function BuilderContent() {
               ? "text-teal-400 bg-teal-500/10"
               : "text-gray-500 active:text-gray-400"
           }`}
-          style={{ WebkitTapHighlightColor: 'transparent' }}
+          style={{ WebkitTapHighlightColor: "transparent" }}
         >
           <MessageSquare className="h-6 w-6" />
           <span className="text-xs font-medium">Chat</span>
@@ -735,7 +743,7 @@ function BuilderContent() {
               ? "text-teal-400 bg-teal-500/10"
               : "text-gray-500 active:text-gray-400"
           }`}
-          style={{ WebkitTapHighlightColor: 'transparent' }}
+          style={{ WebkitTapHighlightColor: "transparent" }}
         >
           <Eye className="h-6 w-6" />
           <span className="text-xs font-medium">Preview</span>
@@ -766,6 +774,24 @@ function BuilderContent() {
         isDownloading={isDownloading}
         isPublishing={isPublishing}
       />
+
+      {/* AI Features Panel - Slide-in from right */}
+      {showAIFeatures && (
+        <div className="fixed inset-0 z-50 flex justify-end">
+          {/* Backdrop */}
+          <div
+            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            onClick={() => setShowAIFeatures(false)}
+          />
+          {/* Panel */}
+          <div className="relative w-full max-w-md m-4 animate-in slide-in-from-right duration-300">
+            <AIFeaturesPanel
+              isOpen={true}
+              onClose={() => setShowAIFeatures(false)}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

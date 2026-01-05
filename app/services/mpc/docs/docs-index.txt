@@ -1,0 +1,76 @@
+Sajtmaskin Documentation Index
+==============================
+
+This index helps AI agents find the right documentation quickly.
+
+PRIORITY READING ORDER
+----------------------
+1. docs/information.md - Project overview, architecture, tech stack
+2. This file (docs-index.txt) - Documentation map
+3. Relevant API docs based on task
+
+PROJECT DOCUMENTATION (workspace root: docs/)
+---------------------------------------------
+
+docs/information.md
+  Purpose: Complete project overview
+  Contains: Tech stack, directory structure, API routes, AI pipeline, database schema
+  When to read: First time, lost context, architecture questions
+
+docs/SUGGESTED_IMPROVEMENTS.md
+  Purpose: Roadmap and improvement ideas
+  Contains: Prioritized feature list, implementation status
+  When to read: Planning new features, understanding project direction
+
+docs/gpt-api/ (OpenAI API Reference)
+------------------------------------
+OPENAI_API_LATEST_FEATURES.md - MAIN DOC: Complete API overview, model list, pricing
+responses.txt     - Responses API with web_search tool
+image.txt         - Image generation (gpt-image-1, dall-e-3)
+agents.txt        - AI agents and tool calling
+reasoning.txt     - o1/o3 reasoning models
+video.txt         - Video generation capabilities
+web_search.txt    - Web search tool specifics
+migrate_to_responses_api.txt - Migration guide from chat completions
+dalle.txt         - DALL-E specific documentation
+gpt-5.txt         - GPT-5 model family details
+
+docs/v0_doc/sdk_elements/ (Vercel v0 API Reference)
+---------------------------------------------------
+intro.txt         - v0 SDK introduction and setup
+usage.txt         - API usage patterns and examples
+workflow.txt      - Generation workflow
+image.txt         - Image handling in v0
+chatbot.txt       - Chatbot component generation
+loader.txt        - Loading states
+troubleshooting.txt - Common issues and solutions
+MCP-server.txt    - MCP integration docs
+
+MPC SERVER DOCS (app/services/mpc/docs/)
+----------------------------------------
+overview.txt      - This server's overview and configuration
+error-playbook.txt - Error reporting guidelines
+docs-index.txt    - This file
+
+SCRAPED EXTERNAL DOCS
+---------------------
+docgrab__vercel.com__docs/llms/ - Full Vercel documentation
+docgrab__platform.openai.com__docs_overview/llms/ - Full OpenAI documentation
+
+QUICK REFERENCE: CURRENT MODELS USED
+------------------------------------
+- gpt-4o-mini: Semantic Router, Semantic Enhancer, Web Search
+- gpt-image-1 / dall-e-3: Image generation
+- v0-1.5-md (standard) / v0-1.5-lg (premium): Code generation via v0 API
+
+AI PIPELINE FLOW
+----------------
+User Prompt → Semantic Router (gpt-4o-mini)
+           → Code Crawler (no AI)
+           → Semantic Enhancer (gpt-4o-mini)
+           → Prompt Enricher (no AI)
+           → v0 API (v0-1.5-md/lg)
+           → demoUrl + files
+
+See docs/information.md for detailed pipeline documentation.
+

@@ -132,6 +132,12 @@ interface BuilderState {
 
   // Design Mode - click-to-edit in preview
   designModeInput: string | null; // Pre-filled text from element selection
+  designModeCodeContext: Array<{
+    name: string;
+    snippet: string;
+    lineNumbers: [number, number];
+    relevance: string;
+  }> | null; // Code context from Code Crawler for the selected element
 
   // Saving state
   isSaving: boolean;
@@ -160,6 +166,14 @@ interface BuilderState {
 
   // Design Mode actions
   setDesignModeInput: (text: string | null) => void;
+  setDesignModeCodeContext: (
+    context: Array<{
+      name: string;
+      snippet: string;
+      lineNumbers: [number, number];
+      relevance: string;
+    }> | null
+  ) => void;
 
   // Database operations
   loadFromProject: (data: {
@@ -250,6 +264,7 @@ export const useBuilderStore = create<BuilderState>()(
       deviceSize: "desktop",
       quality: "premium",
       designModeInput: null,
+      designModeCodeContext: null,
       isSaving: false,
       lastSaved: null,
       hasUserSaved: false, // Must be true for auto-save to work
@@ -338,6 +353,9 @@ export const useBuilderStore = create<BuilderState>()(
 
       setDesignModeInput: (text) => set({ designModeInput: text }),
 
+      setDesignModeCodeContext: (context) =>
+        set({ designModeCodeContext: context }),
+
       clearChat: () =>
         set({
           messages: [],
@@ -365,70 +383,70 @@ export const useBuilderStore = create<BuilderState>()(
         // Normalize files from database format
         const parsedFiles: GeneratedFile[] = Array.isArray(data.files)
           ? (data.files
-            .map((file) => {
-              const name =
-                file && typeof (file as { name?: unknown }).name === "string"
-                  ? (file as { name: string }).name
-                  : null;
-              const content =
-                file &&
+              .map((file) => {
+                const name =
+                  file && typeof (file as { name?: unknown }).name === "string"
+                    ? (file as { name: string }).name
+                    : null;
+                const content =
+                  file &&
                   typeof (file as { content?: unknown }).content === "string"
-                  ? (file as { content: string }).content
-                  : null;
+                    ? (file as { content: string }).content
+                    : null;
 
-              if (!name || !content) {
-                return null;
-              }
+                if (!name || !content) {
+                  return null;
+                }
 
-              return { name, content };
-            })
-            .filter(Boolean) as GeneratedFile[])
+                return { name, content };
+              })
+              .filter(Boolean) as GeneratedFile[])
           : [];
 
         // Parse messages from database format
         const parsedMessages: Message[] = Array.isArray(data.messages)
           ? ((data.messages as Array<Record<string, unknown>>)
-            .map((msg) => {
-              const content =
-                typeof (msg as { content?: unknown }).content === "string"
-                  ? (msg as { content: string }).content
-                  : "";
-              if (!content) {
-                return null;
-              }
+              .map((msg) => {
+                const content =
+                  typeof (msg as { content?: unknown }).content === "string"
+                    ? (msg as { content: string }).content
+                    : "";
+                if (!content) {
+                  return null;
+                }
 
-              const timestampValue = (msg as { timestamp?: unknown })
-                .timestamp;
-              const timestamp =
-                timestampValue instanceof Date
-                  ? timestampValue
-                  : timestampValue
+                const timestampValue = (msg as { timestamp?: unknown })
+                  .timestamp;
+                const timestamp =
+                  timestampValue instanceof Date
+                    ? timestampValue
+                    : timestampValue
                     ? new Date(timestampValue as string)
                     : new Date();
 
-              const id =
-                typeof (msg as { id?: unknown }).id === "string"
-                  ? (msg as { id: string }).id
-                  : `msg-${Date.now()}-${Math.random()
-                    .toString(36)
-                    .slice(2, 9)}`;
+                const id =
+                  typeof (msg as { id?: unknown }).id === "string"
+                    ? (msg as { id: string }).id
+                    : `msg-${Date.now()}-${Math.random()
+                        .toString(36)
+                        .slice(2, 9)}`;
 
-              const role =
-                (msg as { role?: unknown }).role === "assistant"
-                  ? "assistant"
-                  : "user";
+                const role =
+                  (msg as { role?: unknown }).role === "assistant"
+                    ? "assistant"
+                    : "user";
 
-              const attachments = Array.isArray(
-                (msg as { attachments?: unknown }).attachments
-              )
-                ? ((
-                  msg as { attachments?: MessageAttachment[] }
-                ).attachments?.filter(Boolean) as MessageAttachment[])
-                : undefined;
+                const attachments = Array.isArray(
+                  (msg as { attachments?: unknown }).attachments
+                )
+                  ? ((
+                      msg as { attachments?: MessageAttachment[] }
+                    ).attachments?.filter(Boolean) as MessageAttachment[])
+                  : undefined;
 
-              return { id, role, content, timestamp, attachments };
-            })
-            .filter(Boolean) as Message[])
+                return { id, role, content, timestamp, attachments };
+              })
+              .filter(Boolean) as Message[])
           : [];
 
         // Debug: Log what we're loading from database
@@ -436,7 +454,7 @@ export const useBuilderStore = create<BuilderState>()(
           chatId: data.chatId || "(none)",
           demoUrl:
             data.demoUrl?.slice(0, 60) +
-            (data.demoUrl && data.demoUrl.length > 60 ? "..." : "") ||
+              (data.demoUrl && data.demoUrl.length > 60 ? "..." : "") ||
             "(none)",
           hasCode: !!data.currentCode,
           filesCount: parsedFiles.length,
@@ -586,7 +604,6 @@ export const useBuilderStore = create<BuilderState>()(
           lastRefreshTimestamp: Date.now(), // force preview reload
         });
       },
-
     }),
     {
       name: "sajtmaskin-builder-state",

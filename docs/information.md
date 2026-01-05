@@ -25,7 +25,14 @@
   - `src/types`: Shared TS types/ambient decls.
   - `src/middleware.ts`: Next middleware.
 - `docs/`: Project docs; keep updated with major structural changes.
-- `docs/gpt-api/`: Reference notes for OpenAI API (legacy location, still useful).
+  - `information.md` - This file (project overview)
+  - `SUGGESTED_IMPROVEMENTS.md` - Roadmap and future features
+  - `gpt-api/` - OpenAI API reference (OPENAI_API_LATEST_FEATURES.md is main doc)
+  - `v0_doc/sdk_elements/` - v0 API reference
+- `app/services/mpc/docs/`: MCP server documentation + scraped external docs
+  - `docs-index.txt` - Complete documentation map for AI agents
+  - `overview.txt` - MCP server setup and configuration
+  - `docgrab__*/` - Scraped Vercel and OpenAI documentation
 - `sajtmaskin.code-workspace`: Workspace settings.
 
 ## Tech & Setup
@@ -47,9 +54,24 @@
 
 ## Key Components / State
 
-- Builder (`components/builder/`): `ChatPanel` (chat + generation), `CodePreview` (iframe preview), `GenerationProgress`, `QualitySelector`, `ComponentPicker`.
+- Builder (`components/builder/`): `ChatPanel` (chat + generation), `CodePreview` (iframe preview), `GenerationProgress` (med thinking/streaming), `QualitySelector`, `ComponentPicker`, `AIFeaturesPanel`, `DesignModeOverlay` (Inspect Element).
+
+### Design Mode / Inspect Element (v5.0)
+
+The builder includes a DevTools-inspired "Inspect Element" feature:
+
+- **Location**: `components/builder/design-mode-overlay.tsx`
+- **Activation**: Click "Inspect" button in preview header
+- **Features**:
+  - 7 element categories (Layout, Content, Interactive, Forms, Media, Components, Styling)
+  - Each element has `codeHints` for Code Crawler matching
+  - Search functionality to filter elements
+  - Code context shown in chat input when element selected
+
+**Why not real DOM inspection?**
+v0's iframe is cross-origin (vusercontent.net), so we can't directly access its DOM. Instead, we provide a smart element picker that uses Code Crawler to find relevant code.
 - Templates (`components/templates/`): `TemplateGallery`, `LocalTemplateCard`, `PreviewModal`; uses `lib/template-data`.
-- Media (`components/media/`): `FileUploadZone`, `MediaBank`, `MediaDrawer`, `TextUploader`, `AttachmentChips`.
+- Media (`components/media/`): `FileUploadZone`, `MediaBank`, `MediaDrawer` (v2.0), `TextUploader` (v2.0 med smart content detection), `AttachmentChips`.
 - Modals (`components/modals/`): `FinalizeModal`, `OnboardingModal`, `PromptWizardModal`, `AuditModal`.
 - Forms (`components/forms/`): `PromptInput`, `ColorPalettePicker`, `LocationPicker`, `VoiceRecorder`, `QrShare`.
 - Layout (`components/layout/`): `Navbar`, `HomePage`, `ShaderBackground`, `CookieBanner`, `ErrorBoundary`, `HelpTooltip`.
@@ -82,81 +104,81 @@
 - Credits: `lib/database` deducts diamonds for authed users; guests limited to 1 generation/1 refine via `guest_usage`.
 - Results persisted to SQLite via project endpoints; demoUrl used for iframe preview; code/files stored for download.
 
-## Orchestrator Agent (Universal Gatekeeper - v2.0)
+## Orchestrator Agent (Universal Gatekeeper - v4.0 med AI SDK 6)
 
 **Alla prompts** går nu genom orchestratorn som "gatekeeper" - både initial generation och refinement.
 
-### Flöde
+### Pipeline & Komponentroller
 
 ```
 Användarprompt
      ↓
 ┌─────────────────────────────────────────────────────────────────────┐
-│  STEG 1: SEMANTIC ROUTER (gpt-4o-mini, ~$0.15/1M tokens)           │
-│  Analyserar prompten semantiskt och klassificerar intent           │
+│  STEG 1: SEMANTIC ROUTER (AI SDK 6, gpt-4o-mini)                   │
+│  • Klassificerar intent (simple_code, needs_code_context, etc.)    │
+│  • Bestämmer om Code Crawler ska köras                             │
+│  • ROLL: Bara klassificering, förbättrar INTE prompten             │
 └─────────────────────────────────────────────────────────────────────┘
      ↓
 ┌─────────────────────────────────────────────────────────────────────┐
-│  STEG 2: CODE CRAWLER (vid needs_code_context ELLER clarify)      │
-│  Söker igenom projektfiler efter relevanta kodsektioner            │
-│  Hittar t.ex. header-kod om användaren skrev "ändra headern"       │
-│  För clarify: hittar alla matchande element för Smart Clarify     │
+│  STEG 2: CODE CRAWLER (INGEN AI - bara snabb strängmatchning)      │
+│  • Hittar relevanta koddelar baserat på hints                      │
+│  • Returnerar kodsnippets med radnummer                            │
+│  • ROLL: Bara hitta kod, föreslår INTE ändringar                   │
 └─────────────────────────────────────────────────────────────────────┘
      ↓
 ┌─────────────────────────────────────────────────────────────────────┐
-│  STEG 3: PROMPT ENRICHER (om kodkontext hittades)                  │
-│  Kombinerar originalprompten med teknisk kontext för v0            │
+│  STEG 3: SEMANTIC ENHANCER (NY! AI SDK 6, gpt-4o-mini)             │
+│  • Tar vag prompt ("gör headern snyggare") och förbättrar den      │
+│  • Lägger till konkreta tekniska instruktioner                     │
+│  • ROLL: Semantisk prompt-förbättring                              │
 └─────────────────────────────────────────────────────────────────────┘
      ↓
 ┌─────────────────────────────────────────────────────────────────────┐
-│  STEG 4: ÅTGÄRD BASERAT PÅ INTENT                                  │
-│                                                                     │
-│  Intent              │ Åtgärd                                      │
-│  ────────────────────┼────────────────────────────────────────────│
-│  simple_code         │ Direkt till v0 → Kod ändras                 │
-│  needs_code_context  │ Berikad prompt till v0 → Kod ändras         │
-│  image_gen           │ Genererar bild → Mediabibliotek (INGEN v0)  │
-│  chat_response       │ Svarar direkt (INGEN v0)                    │
-│  clarify             │ Smart Clarify: Frågar med alternativ (INGEN v0) │
-│  web_search          │ Söker, returnerar info (INGEN v0)           │
-│  image_and_code      │ Genererar bild + v0 → Kod ändras            │
-│  web_and_code        │ Söker + v0 → Kod ändras                     │
+│  STEG 4: PROMPT ENRICHER (INGEN AI - bara formatering)             │
+│  • Kombinerar: enhanced prompt + kodkontext + bilder + webbresultat│
+│  • Formaterar för v0:s förståelse                                   │
+│  • ROLL: Kombinera allt till slutlig prompt                        │
+└─────────────────────────────────────────────────────────────────────┘
+     ↓
+┌─────────────────────────────────────────────────────────────────────┐
+│  STEG 5: V0 API (Vercel)                                           │
+│  • Tar emot berikad prompt                                          │
+│  • Genererar/refaktorerar kod                                       │
+│  • Returnerar demoUrl för preview                                   │
+│  • ROLL: ENDA komponenten som BYGGER sajter!                       │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
-### Filer
+### Filer & Roller (Tydlig separation)
 
-- `lib/orchestrator-agent.ts` - Huvudorchestrator, koordinerar alla steg
-- `lib/semantic-router.ts` - GPT-4o-mini-baserad intent-klassificering
-- `lib/code-crawler.ts` - Söker igenom projektkod för kontext
-- `lib/prompt-enricher.ts` - Kombinerar prompt + kodkontext
+| Fil                         | Roll                            | Använder AI?              |
+| --------------------------- | ------------------------------- | ------------------------- |
+| `lib/semantic-router.ts`    | Klassificerar intent            | ✅ gpt-4o-mini (AI SDK 6) |
+| `lib/code-crawler.ts`       | Hittar relevant kod             | ❌ Bara strängmatchning   |
+| `lib/semantic-enhancer.ts`  | Förbättrar prompten semantiskt  | ✅ gpt-4o-mini (AI SDK 6) |
+| `lib/prompt-enricher.ts`    | Kombinerar allt till slutprompt | ❌ Bara formatering       |
+| `lib/orchestrator-agent.ts` | Koordinerar hela pipelinen      | ❌ (delegerar till andra) |
+| `lib/v0-generator.ts`       | Anropar v0 API för kodgen       | ✅ v0 API (Vercel)        |
 
-### Fördelar
+### Viktigt: Vad som bygger sajter
 
-- **Billigare**: Undviker onödiga v0-anrop (kostar tokens + tar 15-30s)
-- **Smartare**: Semantisk analys istället för keyword-matching
-- **Snabbare**: image_only/chat_response/clarify returnerar direkt
-- **Precis**: Code Crawler ger v0 exakt kontext för vaga prompts
+**ENDAST v0 API bygger sajter!** Alla andra komponenter berikar bara prompten:
 
-### Smart Clarify (IMPLEMENTERAD ✅)
+- Semantic Router → klassificerar
+- Code Crawler → hittar kod
+- Semantic Enhancer → förbättrar prompten
+- Prompt Enricher → kombinerar allt
 
-**Implementerad!** - Vid vaga prompts som "ändra länken" där flera alternativ finns:
+v0 API tar sedan emot den berikade prompten och genererar faktisk kod.
 
-1. Semantic Router detekterar clarify-intent med needsCodeContext=true
-2. Code Crawler analyserar projektfiler och hittar alla matchande element
-3. AI genererar konkret fråga: "Menar du länken 'Products' i headern eller länken 'Contact' i footern?"
-4. Användaren väljer → exakt instruktion till v0
+### Fördelar med v4.0
 
-**Hur det fungerar:**
-- När clarify-intent detekteras OCH projektfiler finns → Code Crawler körs automatiskt
-- Systemet extraherar länkar, knappar, rubriker etc. från kodkontexten
-- En naturlig fråga genereras med alla alternativ listade
-- Användaren kan sedan ge specifik instruktion
-
-**Teknisk implementation:**
-- `generateSmartClarifyQuestion()` i orchestrator-agent.ts
-- Körs när `intent === "clarify"` OCH `codeContext.relevantFiles.length > 0`
-- Använder gpt-4o-mini för att generera naturliga frågor baserat på kodkontext
+- **AI SDK 6**: Modern streaming och strukturerad output
+- **Tydliga roller**: Varje komponent har EN uppgift
+- **Snabbare Code Crawler**: Ingen AI = ~100ms istället för ~2s
+- **Bättre prompts**: Semantic Enhancer gör vaga prompts specifika
+- **Billigare**: Färre AI-anrop, smartare routing
 
 ## Media & Images
 
@@ -166,17 +188,57 @@ Användarprompt
 - **AI Images**: Generated via gpt-image-1 or dall-e-3, saved to Vercel Blob for public URLs.
 - Attribution: Unsplash photos include "Photo by [Name] on Unsplash" with links.
 
-## OpenAI Models (Orchestrator)
+## AI Models & SDK (v4.0 med AI SDK 6)
 
-Orchestratorn använder OpenAI för:
-- **Semantic Router**: `gpt-4o-mini` - Klassificerar intent (~$0.15/1M tokens)
-- **Code Crawler**: `gpt-4o-mini` - Analyserar kodfiler vid behov
-- **Image Generation**: `gpt-image-1` eller `dall-e-3` - AI-genererade bilder
-- **Web Search**: `gpt-4o-mini` + `web_search` tool
+### Orchestrator Pre-Scripts (använder AI SDK 6)
 
-v0 API hanterar all kodgenerering:
-- **Standard**: `v0-1.5-md` (128K context, snabb, billig)
-- **Premium**: `v0-1.5-lg` (512K context, bäst kvalitet)
+| Komponent             | Modell        | Kostnad   | Roll                 |
+| --------------------- | ------------- | --------- | -------------------- |
+| **Semantic Router**   | `gpt-4o-mini` | ~$0.15/1M | Klassificerar intent |
+| **Semantic Enhancer** | `gpt-4o-mini` | ~$0.15/1M | Förbättrar prompten  |
+| **Code Crawler**      | _Ingen AI_    | $0        | Söker kodfiler       |
+| **Prompt Enricher**   | _Ingen AI_    | $0        | Kombinerar context   |
+
+### Bildgenerering (special case)
+
+- **`gpt-image-1`** / **`dall-e-3`** - AI-genererade bilder via OpenAI
+- Sparas till Vercel Blob Storage
+- Triggas av `image_gen` eller `image_and_code` intent
+
+### Webbsökning (special case)
+
+- **`gpt-4o-mini`** + `web_search` tool via Responses API
+- Triggas av `web_search` eller `web_and_code` intent
+
+### v0 API (Vercel) - BYGGER SAJTER
+
+| Modell      | Context | Användning               |
+| ----------- | ------- | ------------------------ |
+| `v0-1.5-md` | 128K    | Standard - snabb, billig |
+| `v0-1.5-lg` | 512K    | Premium - bäst kvalitet  |
+
+**Viktigt**: Endast v0 API genererar faktisk kod. Alla andra anrop berikar bara prompten.
+
+### AI SDK 6 Feature Flags
+
+Användare kan aktivera/avaktivera avancerade AI-funktioner via UI-panelen "AI Funktioner" i builder-headern.
+
+| Feature                     | Status      | Beskrivning                                        |
+| --------------------------- | ----------- | -------------------------------------------------- |
+| **Smart Agent Mode**        | Stabil      | ToolLoopAgent för smartare prompt-hantering        |
+| **Structured Tool Output**  | Stabil      | Verktyg returnerar JSON Schema                     |
+| **Extended Usage Tracking** | Stabil      | Detaljerad tokenräkning                            |
+| **Tool Approval**           | Placeholder | Human-in-the-loop för verktyg (ej implementerat)   |
+| **AI DevTools**             | Placeholder | Visuell debugger (kräver `@ai-sdk/devtools`)       |
+| **MCP Tools**               | Placeholder | Externa MCP-servrar (ej implementerat)             |
+| **Reranking**               | Placeholder | Omranka sökresultat med AI (ej implementerat)      |
+| **Image Editing**           | Placeholder | Redigera bilder via AI (ej implementerat)          |
+
+**Filer:**
+
+- `lib/ai-sdk-features.ts` - Feature flags store (Zustand)
+- `lib/ai-agent.ts` - ToolLoopAgent implementation (nu integrerad i orchestrator)
+- `components/builder/ai-features-panel.tsx` - UI för feature toggles
 
 Se `docs/gpt-api/OPENAI_API_LATEST_FEATURES.md` för detaljer.
 
@@ -190,7 +252,50 @@ Se `docs/gpt-api/OPENAI_API_LATEST_FEATURES.md` för detaljer.
 
 ## Configuration / Environment
 
-- Required/important env vars (see `config.ts`): `V0_API_KEY`, `OPENAI_API_KEY`, `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `VERCEL_API_TOKEN`, `REDIS_HOST/PASSWORD` (optional), `GOOGLE_CLIENT_ID/SECRET`, `GITHUB_CLIENT_ID/SECRET`, `JWT_SECRET`, `DATA_DIR`, `BACKOFFICE_PASSWORD`, `TEST_USER_EMAIL/PASSWORD`, `UNSPLASH_ACCESS_KEY`, `BLOB_READ_WRITE_TOKEN`.
+See `app/ENV_CONFIG.md` for complete documentation.
+
+### Required API Keys
+
+- `V0_API_KEY` - Vercel v0 API for code generation
+- `OPENAI_API_KEY` - OpenAI for semantic router, enhancer, image generation
+
+### Optional Services
+
+- `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET` - Payments
+- `VERCEL_API_TOKEN` - Deployment
+- `REDIS_HOST/PASSWORD` - Caching (optional)
+- `GOOGLE_CLIENT_ID/SECRET`, `GITHUB_CLIENT_ID/SECRET` - OAuth
+- `UNSPLASH_ACCESS_KEY` - Stock images
+- `BLOB_READ_WRITE_TOKEN` - Media uploads
+
+### Development Tools (DEV_* variables)
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `DEV_AUTO_LINT` | false | Auto-run eslint --fix on changes |
+| `DEV_VERBOSE_AI_LOGS` | false | Detailed AI pipeline logs |
+| `DEV_DEBUG_V0_API` | false | Log v0 request/response bodies |
+| `DEV_SKIP_CREDIT_CHECK` | false | Skip credit validation |
+| `DEV_TEST_MODE` | false | Skip DB saves, force regeneration |
+| `MCP_ENABLED` | true | Enable MCP server features |
+| `MCP_DEBUG` | false | MCP server debug logging |
+
+### Business Logic Controls
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `NEW_USER_STARTING_CREDITS` | 5 | Credits given to new users |
+| `CREDIT_COST_GENERATION` | 1 | Cost per generation |
+| `FREE_TIER_MAX_PROJECTS` | 3 | Max projects for free users |
+
+### Feature Flags
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `FEATURE_AGENT_MODE` | true | Enable ToolLoopAgent |
+| `FEATURE_WEB_SEARCH` | true | Enable web search |
+| `FEATURE_IMAGE_GENERATION` | true | Enable AI image generation |
+
 - Pexels: **DISABLED** - set `ENABLE_PEXELS=true` to re-enable.
 - Base URL: `NEXT_PUBLIC_BASE_URL` (defaults to http://localhost:3000).
 - Image domains already whitelisted in `next.config.ts`.
@@ -200,8 +305,54 @@ Se `docs/gpt-api/OPENAI_API_LATEST_FEATURES.md` för detaljer.
 - Install deps: `npm install` (in `app/`).
 - Dev: `npm run dev` (Next.js).
 - Prod: `npm run build` → `npm run start`.
-- Lint: `npm run lint`.
+- Lint: `npm run lint` or `npm run lint:fix` (auto-fix).
+- MCP Server: `npm run mpc` (for Cursor agent integration).
 - Ensure `data/` (or DATA_DIR) writable for SQLite/uploads; Redis optional but recommended for caching.
+
+## MCP Server (Model Context Protocol)
+
+Sajtmaskin includes an MCP server for enhanced AI agent integration in Cursor.
+
+### Location & Setup
+
+- **Server**: `app/services/mpc/server.mjs`
+- **Docs folder**: `app/services/mpc/docs/`
+- **Config**: `.cursor/mcp.json` (create manually)
+
+### MCP Configuration
+
+Create `.cursor/mcp.json`:
+```json
+{
+  "mcpServers": {
+    "sajtmaskin-docs": {
+      "command": "node",
+      "args": ["./app/services/mpc/server.mjs"],
+      "env": {}
+    }
+  }
+}
+```
+
+### Available Resources (via MCP)
+
+| Resource | URI | Description |
+|----------|-----|-------------|
+| docs-index | `docs://local/docs-index` | Complete documentation map |
+| overview | `docs://local/overview` | MCP server overview |
+| error-playbook | `docs://local/error-playbook` | Error reporting guide |
+
+### Available Tools
+
+| Tool | Description |
+|------|-------------|
+| `report_error` | Log errors with level, stack, component, context |
+| `list_errors` | Retrieve recent error entries (max 50) |
+
+### External Docs (Scraped)
+
+- `docgrab__vercel.com__docs/llms/` - Vercel AI SDK documentation
+- `docgrab__platform.openai.com__docs_overview/llms/` - OpenAI API documentation
 
 ## Notable UX/behavior
 
@@ -213,6 +364,7 @@ Se `docs/gpt-api/OPENAI_API_LATEST_FEATURES.md` för detaljer.
 ## Storage & Cleanup Management
 
 ### Template Cache (Per-User)
+
 - **User-specific caching**: Template cache is now separated per user (`user_id` in `template_cache` table)
 - **Prevents cross-user pollution**: Each user gets their own cached template instances
 - **ChatId reuse**: Users can continue their own template conversations using cached `chatId`
@@ -220,12 +372,14 @@ Se `docs/gpt-api/OPENAI_API_LATEST_FEATURES.md` för detaljer.
 - **Cleanup**: Orphaned template cache entries (deleted users) are cleaned up automatically
 
 ### Project Cleanup
+
 - **Unused projects**: Projects that were never saved (no `chat_id` or `demo_url`) are deleted after 24 hours
 - **Anonymous projects**: Deleted after 7 days of inactivity
 - **User projects**: Soft-delete after 90 days, hard-delete after 120 days total
 - **Orphaned data**: Template cache, project files, and images are cleaned up when projects are deleted
 
 ### Redis Usage
+
 - **Temporary cache only**: Redis is used for short-lived cache (1-24h TTL)
 - **Not for persistence**: All persistent data is stored in SQLite
 - **Active projects**: Redis cache is refreshed on read to keep active projects alive

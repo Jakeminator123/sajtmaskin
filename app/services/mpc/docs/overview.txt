@@ -1,0 +1,68 @@
+Sajtmaskin MCP Server Documentation
+====================================
+
+This MCP server provides AI agents with access to project documentation and error reporting.
+
+QUICK START
+-----------
+- Entry point: app/services/mpc/server.mjs (Node, ESM, stdio transport)
+- Start: From app/, run `node ./services/mpc/server.mjs` or use Cursor's MCP integration
+- Cursor config: Add to .cursor/mcp.json (see below)
+
+CURSOR MCP CONFIGURATION
+------------------------
+Create .cursor/mcp.json with:
+{
+  "mcpServers": {
+    "sajtmaskin-docs": {
+      "command": "node",
+      "args": ["./app/services/mpc/server.mjs"],
+      "env": {}
+    }
+  }
+}
+Then restart Cursor.
+
+AVAILABLE RESOURCES (docs://local/{name})
+-----------------------------------------
+All .txt and .json files in this folder are exposed as MCP resources.
+
+Current documentation:
+- overview          : This file - MCP server overview
+- error-playbook    : How to report and track errors
+
+External docs (scraped):
+- docgrab__vercel.com__docs/llms/llms.txt       : Vercel AI SDK documentation
+- docgrab__platform.openai.com__docs/llms.txt  : OpenAI API documentation
+
+AVAILABLE TOOLS
+---------------
+1. report_error
+   - Log errors with level (error/warn/info), stack, component, context
+   - Stored in: app/services/mpc/logs/error-log.jsonl
+
+2. list_errors
+   - Retrieve recent error entries (default 10, max 50)
+
+PROJECT DOCUMENTATION STRUCTURE
+-------------------------------
+Main project docs are in the workspace root:
+
+docs/
+├── information.md          - PROJECT OVERVIEW (read first!)
+├── SUGGESTED_IMPROVEMENTS.md - Roadmap and future features
+├── gpt-api/               - OpenAI API reference
+│   ├── responses.txt      - Responses API (web search tool)
+│   ├── image.txt          - Image generation (gpt-image-1, dall-e-3)
+│   └── ...                - Other model docs
+└── v0_doc/sdk_elements/   - v0 API reference
+    ├── intro.txt          - v0 SDK introduction
+    ├── usage.txt          - API usage patterns
+    └── ...                - Component docs
+
+FOR AGENTS: Start by reading docs/information.md for project context.
+
+LOG ROTATION
+------------
+Error log auto-rotates at 500 entries to prevent bloat.
+Location: app/services/mpc/logs/error-log.jsonl

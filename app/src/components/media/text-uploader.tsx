@@ -1,24 +1,27 @@
 "use client";
 
 /**
- * TextUploader Component (Simplified)
- * ====================================
+ * TextUploader Component v2.0
+ * ===========================
  *
- * Simplified text file upload that integrates with the orchestrator pipeline.
- * Replaces the complex TextProcessorModal with a streamlined flow.
+ * Simplified text file upload with smart placement hints.
  *
  * Flow:
  * 1. User uploads text/PDF file
- * 2. Content is extracted
- * 3. Content is sent to orchestrator with a simple instruction
- * 4. Orchestrator + Code Crawler determines the best placement
- * 5. If unclear, Smart Clarify asks user which section
+ * 2. Content is extracted and previewed
+ * 3. User sees suggested placement based on content type
+ * 4. One-click send to chat (with optional save to library)
+ * 5. Orchestrator + Code Crawler determines best placement
  *
- * This approach uses the new agent pipeline instead of custom placement logic.
+ * UX Improvements in v2.0:
+ * - Single primary action button instead of 3 confusing options
+ * - Smart content detection (looks like About Us? Services? Contact?)
+ * - Checkbox for "save to library" instead of separate button
+ * - Better visual preview with word count
  */
 
-import { useState, useRef, useCallback } from "react";
-import { FileText, Upload, Loader2, X, AlertCircle } from "lucide-react";
+import { useState, useRef, useCallback, useMemo } from "react";
+import { FileText, Upload, Loader2, X, AlertCircle, Sparkles, Save } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // ============================================================================
@@ -36,6 +39,32 @@ interface TextUploaderProps {
 // MAIN COMPONENT
 // ============================================================================
 
+// Smart content type detection based on keywords
+function detectContentType(content: string): { type: string; hint: string } {
+  const lower = content.toLowerCase();
+  
+  if (lower.includes("om oss") || lower.includes("about us") || lower.includes("vår historia") || lower.includes("vi är")) {
+    return { type: "about", hint: "Ser ut som 'Om oss'-text → Föreslår About-sektionen" };
+  }
+  if (lower.includes("kontakt") || lower.includes("email") || lower.includes("telefon") || lower.includes("adress")) {
+    return { type: "contact", hint: "Ser ut som kontaktinfo → Föreslår Contact-sektionen" };
+  }
+  if (lower.includes("tjänst") || lower.includes("service") || lower.includes("vi erbjuder") || lower.includes("våra tjänster")) {
+    return { type: "services", hint: "Ser ut som tjänstebeskrivning → Föreslår Services-sektionen" };
+  }
+  if (lower.includes("pris") || lower.includes("kostnad") || lower.includes("paket") || lower.includes("pricing")) {
+    return { type: "pricing", hint: "Ser ut som prislista → Föreslår Pricing-sektionen" };
+  }
+  if (lower.includes("faq") || lower.includes("vanliga frågor") || lower.includes("?")) {
+    return { type: "faq", hint: "Ser ut som FAQ → Föreslår FAQ-sektionen" };
+  }
+  if (lower.includes("testimonial") || lower.includes("recensi") || lower.includes("kund säger") || lower.includes("omdöme")) {
+    return { type: "testimonials", hint: "Ser ut som kundrecensioner → Föreslår Testimonials" };
+  }
+  
+  return { type: "general", hint: "AI:n hittar bästa platsen automatiskt" };
+}
+
 export function TextUploader({
   isOpen,
   onClose,
@@ -45,8 +74,8 @@ export function TextUploader({
   const [isDragging, setIsDragging] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [saveToLibrary, setSaveToLibrary] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [infoMessage, setInfoMessage] = useState<string | null>(null);
   const [pendingText, setPendingText] = useState<{
     content: string;
     filename: string;
@@ -54,6 +83,18 @@ export function TextUploader({
   } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const modalRef = useRef<HTMLDivElement>(null);
+  
+  // Detect content type for smart hints
+  const contentHint = useMemo(() => {
+    if (!pendingText) return null;
+    return detectContentType(pendingText.content);
+  }, [pendingText]);
+  
+  // Calculate word count for preview
+  const wordCount = useMemo(() => {
+    if (!pendingText) return 0;
+    return pendingText.content.split(/\s+/).filter(w => w.length > 0).length;
+  }, [pendingText]);
 
   const readFileContent = async (file: File): Promise<string> => {
     if (file.type === "application/pdf") {
@@ -125,52 +166,40 @@ export function TextUploader({
     }
   };
 
-  const handleSaveToLibrary = async () => {
+  // Unified action: send to chat (with optional save)
+  const handleSendToChat = async () => {
     if (!pendingText) return;
-    setIsSaving(true);
-    setError(null);
-    setInfoMessage(null);
+    
+    // Save to library first if checkbox is checked
+    if (saveToLibrary) {
+      setIsSaving(true);
+      try {
+        const formData = new FormData();
+        formData.append("file", pendingText.file);
 
-    try {
-      const formData = new FormData();
-      formData.append("file", pendingText.file);
+        const res = await fetch("/api/media/upload", {
+          method: "POST",
+          body: formData,
+        });
+        const data = await res.json();
 
-      const res = await fetch("/api/media/upload", {
-        method: "POST",
-        body: formData,
-      });
-      const data = await res.json();
-
-      if (!res.ok || !data.success) {
-        throw new Error(data.error || "Kunde inte spara filen");
+        if (!res.ok || !data.success) {
+          console.warn("[TextUploader] Save to library failed:", data.error);
+          // Don't block - continue to send to chat
+        }
+      } catch (err) {
+        console.warn("[TextUploader] Save to library error:", err);
+        // Don't block - continue to send to chat
+      } finally {
+        setIsSaving(false);
       }
-
-      setInfoMessage(
-        "Texten sparades i ditt mediabibliotek. Du kan använda den senare i chatten."
-      );
-    } catch (err) {
-      console.error("[TextUploader] Failed to save to library:", err);
-      setError(
-        err instanceof Error ? err.message : "Kunde inte spara filen. Är du inloggad?"
-      );
-    } finally {
-      setIsSaving(false);
     }
-  };
-
-  const handleSendToChat = () => {
-    if (!pendingText) return;
+    
+    // Send to chat
     onContentReady(pendingText.content, pendingText.filename);
     setPendingText(null);
+    setSaveToLibrary(false);
     onClose();
-  };
-
-  const handleSaveAndSend = async () => {
-    if (!pendingText) return;
-    await handleSaveToLibrary();
-    if (!error) {
-      handleSendToChat();
-    }
   };
 
   const handleDragOver = useCallback(
@@ -295,47 +324,69 @@ export function TextUploader({
             {/* Actions after content extracted */}
             {pendingText && !isProcessing && (
               <div className="space-y-3">
-                <div className="p-3 bg-gray-900 border border-gray-800 rounded-lg">
-                  <p className="text-sm text-gray-200 mb-1">
-                    Vad vill du göra med denna text?
-                  </p>
-                  <p className="text-xs text-gray-500 mb-2">
-                    Fil: {pendingText.filename}
-                  </p>
+                {/* Content preview */}
+                <div className="p-3 bg-gray-900 border border-gray-800 rounded-lg space-y-2">
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm font-medium text-gray-200">
+                      {pendingText.filename}
+                    </p>
+                    <span className="text-xs text-gray-500">
+                      {wordCount} ord
+                    </span>
+                  </div>
                   <p className="text-xs text-gray-500 line-clamp-3">
-                    {pendingText.content.slice(0, 500)}
-                    {pendingText.content.length > 500 ? "..." : ""}
+                    {pendingText.content.slice(0, 400)}
+                    {pendingText.content.length > 400 ? "..." : ""}
                   </p>
                 </div>
+                
+                {/* Smart content hint */}
+                {contentHint && (
+                  <div className="flex items-center gap-2 px-3 py-2 bg-teal-500/10 border border-teal-500/30 rounded-lg">
+                    <Sparkles className="h-4 w-4 text-teal-400 flex-shrink-0" />
+                    <span className="text-xs text-teal-300">{contentHint.hint}</span>
+                  </div>
+                )}
 
-                <div className="flex flex-col gap-2">
-                  <button
-                    onClick={handleSendToChat}
-                    className="w-full px-4 py-2 bg-teal-600 hover:bg-teal-500 text-white rounded-lg transition-colors"
-                  >
-                    Skicka till chatten nu
-                  </button>
-                  <button
-                    onClick={handleSaveToLibrary}
-                    disabled={isSaving}
-                    className={cn(
-                      "w-full px-4 py-2 border border-gray-700 rounded-lg text-gray-200 hover:border-gray-500 transition-colors",
-                      isSaving && "opacity-50 cursor-not-allowed"
-                    )}
-                  >
-                    {isSaving ? "Sparar..." : "Spara i mediabiblioteket"}
-                  </button>
-                  <button
-                    onClick={handleSaveAndSend}
-                    disabled={isSaving}
-                    className={cn(
-                      "w-full px-4 py-2 border border-teal-700 text-teal-300 rounded-lg hover:border-teal-500 hover:text-white transition-colors",
-                      isSaving && "opacity-50 cursor-not-allowed"
-                    )}
-                  >
-                    {isSaving ? "Sparar..." : "Spara och skicka till chatten"}
-                  </button>
-                </div>
+                {/* Save to library checkbox */}
+                <label className="flex items-center gap-2 cursor-pointer group">
+                  <input
+                    type="checkbox"
+                    checked={saveToLibrary}
+                    onChange={(e) => setSaveToLibrary(e.target.checked)}
+                    className="w-4 h-4 rounded border-gray-600 bg-gray-800 text-teal-500 focus:ring-teal-500 focus:ring-offset-0"
+                  />
+                  <Save className="h-3.5 w-3.5 text-gray-500 group-hover:text-gray-400" />
+                  <span className="text-xs text-gray-400 group-hover:text-gray-300">
+                    Spara också i mediabiblioteket
+                  </span>
+                </label>
+
+                {/* Single primary action */}
+                <button
+                  onClick={handleSendToChat}
+                  disabled={isSaving}
+                  className={cn(
+                    "w-full px-4 py-3 bg-teal-600 hover:bg-teal-500 text-white rounded-lg transition-colors font-medium flex items-center justify-center gap-2",
+                    isSaving && "opacity-70 cursor-wait"
+                  )}
+                >
+                  {isSaving ? (
+                    <>
+                      <Loader2 className="h-4 w-4 animate-spin" />
+                      Sparar...
+                    </>
+                  ) : (
+                    <>
+                      <FileText className="h-4 w-4" />
+                      Använd i chatten
+                    </>
+                  )}
+                </button>
+                
+                <p className="text-[11px] text-gray-600 text-center">
+                  Du kan ange var texten ska placeras i nästa meddelande
+                </p>
               </div>
             )}
 
@@ -353,17 +404,10 @@ export function TextUploader({
               </div>
             )}
 
-            {/* Info */}
-            {infoMessage && (
-              <div className="p-3 bg-teal-500/10 border border-teal-500/30 rounded-lg text-xs text-teal-200">
-                {infoMessage}
-              </div>
-            )}
-
             {/* Help text */}
-            {!pendingText && (
+            {!pendingText && !isProcessing && (
               <p className="text-xs text-gray-500 text-center">
-                AI:n placerar innehållet automatiskt på rätt ställe
+                AI:n analyserar texten och föreslår bästa platsen
               </p>
             )}
           </div>

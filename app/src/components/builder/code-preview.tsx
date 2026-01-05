@@ -357,8 +357,8 @@ export function CodePreview() {
             </Button>
           </div>
 
-          {/* Design Mode toggle */}
-          {viewMode === "preview" && demoUrl && (
+          {/* Design Mode toggle - always visible in preview mode when we have content */}
+          {viewMode === "preview" && (demoUrl || currentCode) && (
             <Button
               variant="ghost"
               size="sm"
@@ -368,10 +368,10 @@ export function CodePreview() {
                   ? "bg-purple-600/30 border border-purple-500/50 text-purple-300"
                   : "bg-gray-800/50 text-gray-500 hover:text-gray-300"
               }`}
-              title="Design Mode - klicka för att välja element att redigera"
+              title="Inspect Element - välj element att redigera (som DevTools)"
             >
               <MousePointer2 className={`h-3.5 w-3.5 ${isDesignModeActive ? "text-purple-400" : ""}`} />
-              <span className="hidden sm:inline">Design</span>
+              <span className="hidden sm:inline">Inspect</span>
             </Button>
           )}
         </div>

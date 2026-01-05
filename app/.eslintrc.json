@@ -1,0 +1,17 @@
+{
+  "extends": ["next/core-web-vitals", "next/typescript"],
+  "ignorePatterns": [
+    "src/templates/**/*",
+    ".next/**/*",
+    "next-env.d.ts",
+    "**/*.tsbuildinfo"
+  ],
+  "overrides": [
+    {
+      "files": ["src/lib/config.ts"],
+      "rules": {
+        "no-var": "off"
+      }
+    }
+  ]
+}

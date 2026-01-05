@@ -5,8 +5,19 @@
  * Kombinerar all insamlad kontext till en rik, detaljerad prompt
  * som v0 kan förstå och agera på.
  *
+ * ROLL (förtydligad):
+ * - KOMBINERA alla delar till slutlig prompt
+ * - FORMATERA för v0:s förståelse
+ * - LÄGGA TILL instruktioner baserat på intent
+ *
+ * INTE Prompt Enrichers roll:
+ * - Förbättra prompten semantiskt (→ Semantic Enhancer)
+ * - Hitta koddelar (→ Code Crawler)
+ * - Klassificera intent (→ Semantic Router)
+ *
  * INPUTS:
  * - Användarens originalpromt
+ * - Förbättrad prompt från Semantic Enhancer (enhancedPrompt)
  * - Kodkontext från Code Crawler
  * - Webbsökresultat (om tillämpligt)
  * - Genererade bilder (om tillämpligt)
@@ -14,23 +25,6 @@
  *
  * OUTPUT:
  * En strukturerad prompt med tydliga sektioner som v0 lätt kan tolka.
- *
- * EXEMPEL OUTPUT:
- * ```
- * USER REQUEST: Products-länken ska gå till en kökssida
- *
- * CODE CONTEXT:
- * 📁 components/header.tsx (rad 23-28):
- * <a href="#products">Products</a>
- *
- * ANALYSIS:
- * - Nuvarande länk är en anchor (#products)
- * - Behöver skapas: /products route
- *
- * REQUIRED ACTIONS:
- * 1. CREATE app/products/page.tsx
- * 2. UPDATE header link to /products
- * ```
  */
 
 import type { CodeContext, CodeSnippet } from "./code-crawler";
@@ -54,6 +48,7 @@ export interface GeneratedImage {
 
 export interface EnrichmentContext {
   originalPrompt: string;
+  enhancedPrompt?: string; // From Semantic Enhancer
   routerResult?: RouterResult;
   codeContext?: CodeContext;
   webResults?: WebSearchResult[];
@@ -73,6 +68,7 @@ export interface EnrichmentContext {
 export function enrichPrompt(context: EnrichmentContext): string {
   const {
     originalPrompt,
+    enhancedPrompt,
     routerResult,
     codeContext,
     webResults,
@@ -82,29 +78,18 @@ export function enrichPrompt(context: EnrichmentContext): string {
   const sections: string[] = [];
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // SECTION 1: USER REQUEST
+  // SECTION 1: USER REQUEST (use enhanced prompt if available)
   // ═══════════════════════════════════════════════════════════════════════════
-  sections.push(`USER REQUEST: ${originalPrompt}`);
+  const mainPrompt = enhancedPrompt || originalPrompt;
+  sections.push(`USER REQUEST: ${mainPrompt}`);
 
-  // ═══════════════════════════════════════════════════════════════════════════
-  // SECTION 2: ROUTER ANALYSIS (if available)
-  // ═══════════════════════════════════════════════════════════════════════════
-  if (routerResult) {
-    const routerLines: string[] = ["", "INTENT ANALYSIS:"];
-    routerLines.push(`• Intent: ${routerResult.intent}`);
-    routerLines.push(`• Confidence: ${Math.round(routerResult.confidence * 100)}%`);
-    routerLines.push(`• Reasoning: ${routerResult.reasoning}`);
-
-    if (routerResult.contextHints.length > 0) {
-      routerLines.push(`• Key elements: ${routerResult.contextHints.join(", ")}`);
-    }
-
-    if (routerResult.codeInstruction) {
-      routerLines.push(`• Instruction: ${routerResult.codeInstruction}`);
-    }
-
-    sections.push(routerLines.join("\n"));
+  // If prompt was enhanced, show original for reference
+  if (enhancedPrompt && enhancedPrompt !== originalPrompt) {
+    sections.push(`(Original: ${originalPrompt})`);
   }
+
+  // NOTE: INTENT ANALYSIS section removed - v0 doesn't need our internal routing metadata
+  // The enhanced prompt already contains all necessary information
 
   // ═══════════════════════════════════════════════════════════════════════════
   // SECTION 3: CODE CONTEXT (if available)
@@ -134,12 +119,8 @@ export function enrichPrompt(context: EnrichmentContext): string {
       codeLines.push(`ROUTING: ${codeContext.routingInfo}`);
     }
 
-    // Add suggested changes
-    if (codeContext.suggestedChanges) {
-      codeLines.push("");
-      codeLines.push("SUGGESTED CHANGES:");
-      codeLines.push(codeContext.suggestedChanges);
-    }
+    // NOTE: suggestedChanges removed from CodeContext
+    // Suggestions are now part of the enhanced prompt from Semantic Enhancer
 
     sections.push(codeLines.join("\n"));
   }
@@ -178,7 +159,9 @@ export function enrichPrompt(context: EnrichmentContext): string {
       imageLines.push("");
     }
 
-    imageLines.push("USE THESE EXACT URLs in the code. Do NOT use placeholder images.");
+    imageLines.push(
+      "USE THESE EXACT URLs in the code. Do NOT use placeholder images."
+    );
 
     sections.push(imageLines.join("\n"));
   }
@@ -199,8 +182,12 @@ export function enrichPrompt(context: EnrichmentContext): string {
     actionLines.push("3. CREATE any new files/routes if needed");
     actionLines.push("4. ENSURE all links and navigation work correctly");
   } else if (routerResult?.intent === "web_and_code" && webResults) {
-    actionLines.push("1. ANALYZE the referenced website(s) for design inspiration");
-    actionLines.push("2. APPLY similar styling while keeping the existing structure");
+    actionLines.push(
+      "1. ANALYZE the referenced website(s) for design inspiration"
+    );
+    actionLines.push(
+      "2. APPLY similar styling while keeping the existing structure"
+    );
     actionLines.push("3. MAINTAIN brand consistency with the current design");
   } else if (
     routerResult?.intent === "image_and_code" ||
@@ -303,4 +290,3 @@ export function createEnrichmentSummary(context: EnrichmentContext): string {
 
   return parts.join(" | ");
 }
-

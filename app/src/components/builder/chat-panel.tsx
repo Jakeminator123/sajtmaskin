@@ -361,6 +361,8 @@ export function ChatPanel({
     explicitSave,
     designModeInput,
     setDesignModeInput,
+    designModeCodeContext,
+    setDesignModeCodeContext,
   } = useBuilderStore();
 
   // Handle user typing state
@@ -422,17 +424,27 @@ export function ChatPanel({
   }, [messages]);
 
   // Design Mode: fill input when element is selected in preview
+  // Also shows code context if Code Crawler found relevant snippets
   useEffect(() => {
     if (designModeInput) {
       setInput(designModeInput);
       setDesignModeInput(null); // Clear after consuming
+      
+      // If we have code context from Code Crawler, add it to the input as a helper note
+      if (designModeCodeContext && designModeCodeContext.length > 0) {
+        const contextNote = `\n\n[Hittad kod: ${designModeCodeContext.map(c => c.name).join(", ")}]`;
+        setInput(prev => prev + contextNote);
+        setDesignModeCodeContext(null); // Clear after consuming
+        console.log("[ChatPanel] Design Mode: Added code context to input");
+      }
+      
       // Focus the input field
       const inputField = document.querySelector<HTMLTextAreaElement>(
         'textarea[placeholder*="Skriv"]'
       );
       inputField?.focus();
     }
-  }, [designModeInput, setDesignModeInput]);
+  }, [designModeInput, setDesignModeInput, designModeCodeContext, setDesignModeCodeContext]);
 
   // Synchronous ref for submit protection (prevents race conditions from React batching)
   const isSubmittingRef = useRef(false);

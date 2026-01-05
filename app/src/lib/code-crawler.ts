@@ -5,27 +5,26 @@
  * Analyserar projektfiler för att hitta relevant kodkontext.
  * Används när Semantic Router detekterar "needs_code_context".
  *
- * FLÖDE (med FAST PATH):
- * 1. Om hints <= 3 och prompt < 80 chars → FAST PATH (quickSearch, ingen AI)
- * 2. Om fast path hittar matches → returnera direkt
- * 3. Annars → SLOW PATH med full AI-analys
+ * ROLL (förtydligad):
+ * - HITTA relevanta koddelar baserat på hints
+ * - EXTRAHERA kodsnippets med radnummer
+ * - ANALYSERA struktur (komponenter, routing)
+ * - RETURNERA kodkontext för Semantic Enhancer
  *
- * FAST PATH (quickSearch):
- * - Snabb strängmatchning utan OpenAI-anrop
- * - Returnerar top 3 matchande filer
- * - ~80% snabbare för enkla element-sökningar
+ * INTE Code Crawlers roll:
+ * - Föreslå ändringar (→ Semantic Enhancer)
+ * - Förbättra prompten (→ Semantic Enhancer)
+ * - Kombinera prompt + kontext (→ Prompt Enricher)
  *
- * SLOW PATH (crawlCodeContext):
- * 1. Tar emot hints från Semantic Router
- * 2. Söker igenom projektets filer efter matchande kod
- * 3. Extraherar relevanta kodstycken med radnummer
- * 4. Använder AI för att analysera och föreslå ändringar
+ * FLÖDE:
+ * 1. quickSearch: Snabb strängmatchning (ingen AI)
+ * 2. Om quickSearch hittar → returnera direkt
+ * 3. Om inte → utöka sökning med fler hints
  *
  * VIKTIGT: Crawler är för ENRICHMENT, inte validation
  * Om crawler hittar inget ska v0 fortfarande anropas
  */
 
-import OpenAI from "openai";
 import type { GeneratedFile } from "./v0-generator";
 
 // ============================================================================
@@ -43,31 +42,16 @@ export interface CodeContext {
   relevantFiles: CodeSnippet[];
   componentStructure: string; // Visual representation of component hierarchy
   routingInfo: string; // Information about routing (Next.js, etc.)
-  suggestedChanges: string; // AI-suggested changes based on analysis
   summary: string; // Short summary for logging
+  // NOTE: suggestedChanges removed - that's Semantic Enhancer's job
 }
 
 // ============================================================================
 // CONFIGURATION
 // ============================================================================
 
-// Model for code analysis - needs to understand code well
-const CRAWLER_MODEL = "gpt-4o-mini";
-
 // Maximum snippet length to include
 const MAX_SNIPPET_LENGTH = 500;
-
-// ============================================================================
-// OPENAI CLIENT
-// ============================================================================
-
-function getOpenAIClient(): OpenAI {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
-    throw new Error("OPENAI_API_KEY environment variable is required");
-  }
-  return new OpenAI({ apiKey });
-}
 
 // ============================================================================
 // HELPER FUNCTIONS
@@ -89,7 +73,8 @@ function searchFileForHints(
     if (lowerContent.includes(lowerHint)) {
       matches.push(hint);
       // Higher score for more specific matches
-      const count = (lowerContent.match(new RegExp(lowerHint, "g")) || []).length;
+      const count = (lowerContent.match(new RegExp(lowerHint, "g")) || [])
+        .length;
       score += count * hint.length; // Longer hints = more specific = higher score
     }
   }
@@ -163,17 +148,22 @@ function analyzeStructure(files: GeneratedFile[]): string {
 
     // Detect Next.js routes
     if (file.name.includes("app/") && file.name.includes("page.")) {
-      const routePath = file.name
-        .replace(/app\/?/, "/")
-        .replace(/page\.(tsx|jsx|ts|js)$/, "")
-        .replace(/\/$/, "") || "/";
+      const routePath =
+        file.name
+          .replace(/app\/?/, "/")
+          .replace(/page\.(tsx|jsx|ts|js)$/, "")
+          .replace(/\/$/, "") || "/";
       routes.push(routePath);
     }
   }
 
   const structure: string[] = [];
   if (components.length > 0) {
-    structure.push(`Components: ${components.slice(0, 10).join(", ")}${components.length > 10 ? "..." : ""}`);
+    structure.push(
+      `Components: ${components.slice(0, 10).join(", ")}${
+        components.length > 10 ? "..." : ""
+      }`
+    );
   }
   if (routes.length > 0) {
     structure.push(`Routes: ${routes.join(", ")}`);
@@ -189,15 +179,19 @@ function analyzeStructure(files: GeneratedFile[]): string {
 /**
  * Crawl project files to find relevant code context.
  *
+ * NOTE: This function NO LONGER uses AI. It only does fast string matching.
+ * AI-based analysis and suggestions are now handled by Semantic Enhancer.
+ *
  * @param files - Array of project files from v0
  * @param hints - Context hints from Semantic Router
- * @param userPrompt - Original user prompt for additional context
- * @returns CodeContext with relevant snippets and analysis
+ * @param _userPrompt - Original user prompt (kept for API compatibility)
+ * @returns CodeContext with relevant snippets
  */
 export async function crawlCodeContext(
   files: GeneratedFile[],
   hints: string[],
-  userPrompt: string
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  _userPrompt: string
 ): Promise<CodeContext> {
   console.log("[CodeCrawler] Starting analysis with hints:", hints);
   console.log("[CodeCrawler] Files to analyze:", files.length);
@@ -209,178 +203,62 @@ export async function crawlCodeContext(
       relevantFiles: [],
       componentStructure: "No files in project",
       routingInfo: "Unknown - no files",
-      suggestedChanges: "Cannot analyze without files",
       summary: "No files available for analysis",
     };
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // FAST PATH: Use quickSearch for simple cases (no AI needed)
-  // This is much faster and cheaper for straightforward element lookups
-  // ═══════════════════════════════════════════════════════════════════════════
-  if (hints.length > 0 && hints.length <= 3 && userPrompt.length < 80) {
-    console.log("[CodeCrawler] Trying FAST PATH (quickSearch)...");
-    const quickResults = quickSearch(files, hints);
-
-    if (quickResults.length > 0) {
-      console.log(
-        `[CodeCrawler] FAST PATH success: found ${quickResults.length} matches`
-      );
-
-      // Get structure info (fast, no AI)
-      const componentStructure = analyzeStructure(files);
-      const hasAppRouter = files.some(
-        (f) => f.name.includes("app/") && f.name.includes("page.")
-      );
-      const hasPagesRouter = files.some((f) => f.name.startsWith("pages/"));
-      const routingInfo = hasAppRouter
-        ? "Next.js App Router"
-        : hasPagesRouter
-        ? "Next.js Pages Router"
-        : "Unknown routing";
-
-      return {
-        relevantFiles: quickResults,
-        componentStructure,
-        routingInfo,
-        suggestedChanges: `Quick search hittade ${quickResults.length} matchande filer.`,
-        summary: `Fast path: ${quickResults.map((f) => f.name).join(", ")}`,
-      };
-    }
-    console.log("[CodeCrawler] FAST PATH: no matches, falling back to full analysis");
-  }
-
-  // ═══════════════════════════════════════════════════════════════════════════
-  // SLOW PATH: Full analysis with AI (only when fast path fails)
+  // PRIMARY PATH: Use quickSearch (no AI needed)
+  // This is fast and cheap - AI analysis moved to Semantic Enhancer
   // ═══════════════════════════════════════════════════════════════════════════
 
-  // Step 1: Search files for hints
-  const fileMatches: Array<{
-    file: GeneratedFile;
-    matches: string[];
-    score: number;
-  }> = [];
+  let relevantFiles: CodeSnippet[] = [];
 
-  for (const file of files) {
-    const result = searchFileForHints(file.content, hints);
-    if (result.found) {
-      fileMatches.push({
-        file,
-        matches: result.matches,
-        score: result.score,
-      });
+  if (hints.length > 0) {
+    console.log("[CodeCrawler] Running quickSearch...");
+    relevantFiles = quickSearch(files, hints);
+
+    if (relevantFiles.length > 0) {
+      console.log(`[CodeCrawler] Found ${relevantFiles.length} matches`);
+    } else {
+      console.log("[CodeCrawler] No direct matches, trying expanded search...");
+      // Try expanded search with more files
+      relevantFiles = expandedSearch(files, hints);
     }
   }
 
-  // Sort by relevance score
-  fileMatches.sort((a, b) => b.score - a.score);
-  console.log("[CodeCrawler] Files matching hints:", fileMatches.length);
-
-  // Step 2: Extract snippets from top matches
-  const relevantFiles: CodeSnippet[] = [];
-
-  for (const match of fileMatches.slice(0, 5)) {
-    // Top 5 files
-    // Find the best hint to extract snippet for
-    const bestHint = match.matches.reduce((a, b) =>
-      (match.file.content.toLowerCase().match(new RegExp(a.toLowerCase(), "g")) || [])
-        .length >
-      (match.file.content.toLowerCase().match(new RegExp(b.toLowerCase(), "g")) || [])
-        .length
-        ? a
-        : b
-    );
-
-    const { snippet, startLine, endLine } = extractSnippet(
-      match.file.content,
-      bestHint
-    );
-
-    if (snippet) {
-      relevantFiles.push({
-        name: match.file.name,
-        snippet,
-        lineNumbers: [startLine, endLine],
-        relevance: `Matches: ${match.matches.join(", ")}`,
-      });
-    }
+  // If still no matches, try searching all files for any hint
+  if (relevantFiles.length === 0 && hints.length > 0) {
+    console.log("[CodeCrawler] Trying broad search...");
+    relevantFiles = broadSearch(files, hints);
   }
 
-  // Step 3: Analyze structure
+  // Analyze structure (fast, no AI)
   const componentStructure = analyzeStructure(files);
 
-  // Step 4: Detect routing info
-  let routingInfo = "Unknown routing";
-  const hasAppRouter = files.some((f) => f.name.includes("app/") && f.name.includes("page."));
+  // Detect routing info
+  const hasAppRouter = files.some(
+    (f) => f.name.includes("app/") && f.name.includes("page.")
+  );
   const hasPagesRouter = files.some((f) => f.name.startsWith("pages/"));
+  const routingInfo = hasAppRouter
+    ? "Next.js App Router"
+    : hasPagesRouter
+    ? "Next.js Pages Router"
+    : "Unknown routing";
 
-  if (hasAppRouter) {
-    routingInfo = "Next.js App Router";
-  } else if (hasPagesRouter) {
-    routingInfo = "Next.js Pages Router";
-  }
-
-  // Step 5: Use AI to suggest changes
-  let suggestedChanges = "";
-  let summary = "";
-
-  if (relevantFiles.length > 0) {
-    const client = getOpenAIClient();
-
-    const snippetsText = relevantFiles
-      .map(
-        (f) =>
-          `📁 ${f.name} (rad ${f.lineNumbers[0]}-${f.lineNumbers[1]}):\n\`\`\`\n${f.snippet}\n\`\`\`\nRelevans: ${f.relevance}`
-      )
-      .join("\n\n");
-
-    try {
-      const analysisResponse = await client.responses.create({
-        model: CRAWLER_MODEL,
-        instructions: `Du är en kodanalysexpert. Analysera koden och föreslå ändringar baserat på användarens önskemål.
-
-ANVÄNDARENS ÖNSKEMÅL: "${userPrompt}"
-
-HITTAD KODKONTEXT:
-${snippetsText}
-
-PROJEKTSTRUKTUR:
-${componentStructure}
-Routing: ${routingInfo}
-
-Svara med JSON (ingen markdown):
-{
-  "suggestedChanges": "Detaljerad beskrivning av vilka ändringar som behövs och var",
-  "summary": "En mening som sammanfattar vad som hittades"
-}`,
-        input: "Analysera och föreslå ändringar",
-        store: false,
-      });
-
-      const responseText = analysisResponse.output_text || "{}";
-
-      // Extract JSON
-      const jsonMatch = responseText.match(/\{[\s\S]*\}/);
-      if (jsonMatch) {
-        const parsed = JSON.parse(jsonMatch[0]);
-        suggestedChanges = parsed.suggestedChanges || "";
-        summary = parsed.summary || "";
-      }
-    } catch (error) {
-      console.error("[CodeCrawler] AI analysis error:", error);
-      suggestedChanges = `Hittade ${relevantFiles.length} relevanta filer. Manuell analys krävs.`;
-      summary = `Matchar hints i ${relevantFiles.map((f) => f.name).join(", ")}`;
-    }
-  } else {
-    suggestedChanges = "Inga matchande filer hittades för de angivna hints.";
-    summary = "Inga träffar - kan behöva bredare sökning";
-  }
+  // Build summary
+  const summary =
+    relevantFiles.length > 0
+      ? `Hittade ${relevantFiles.length} filer: ${relevantFiles
+          .map((f) => f.name)
+          .join(", ")}`
+      : "Inga matchande filer hittades";
 
   const result: CodeContext = {
     relevantFiles,
     componentStructure,
     routingInfo,
-    suggestedChanges,
     summary,
   };
 
@@ -392,6 +270,109 @@ Svara med JSON (ingen markdown):
   });
 
   return result;
+}
+
+// ============================================================================
+// EXPANDED SEARCH (broader matching)
+// ============================================================================
+
+/**
+ * Expanded search - looks for partial matches and related terms
+ */
+function expandedSearch(
+  files: GeneratedFile[],
+  hints: string[]
+): CodeSnippet[] {
+  const results: CodeSnippet[] = [];
+
+  // Expand hints with related terms
+  const expandedHints = new Set<string>();
+  for (const hint of hints) {
+    expandedHints.add(hint);
+    expandedHints.add(hint.toLowerCase());
+
+    // Add common variations
+    if (hint.toLowerCase().includes("header")) {
+      expandedHints.add("nav");
+      expandedHints.add("navbar");
+      expandedHints.add("navigation");
+    }
+    if (hint.toLowerCase().includes("footer")) {
+      expandedHints.add("foot");
+      expandedHints.add("bottom");
+    }
+    if (hint.toLowerCase().includes("button")) {
+      expandedHints.add("btn");
+      expandedHints.add("cta");
+    }
+  }
+
+  for (const file of files) {
+    const { found, matches, score } = searchFileForHints(
+      file.content,
+      Array.from(expandedHints)
+    );
+
+    if (found && score > 0) {
+      const bestHint = matches[0];
+      const { snippet, startLine, endLine } = extractSnippet(
+        file.content,
+        bestHint
+      );
+
+      if (snippet) {
+        results.push({
+          name: file.name,
+          snippet,
+          lineNumbers: [startLine, endLine],
+          relevance: `Expanded match: ${matches.join(", ")}`,
+        });
+      }
+    }
+  }
+
+  return results.slice(0, 5); // Top 5
+}
+
+// ============================================================================
+// BROAD SEARCH (last resort)
+// ============================================================================
+
+/**
+ * Broad search - looks in all TSX/JSX files for any relevant content
+ */
+function broadSearch(files: GeneratedFile[], hints: string[]): CodeSnippet[] {
+  const results: CodeSnippet[] = [];
+
+  // Focus on component files
+  const componentFiles = files.filter(
+    (f) => f.name.endsWith(".tsx") || f.name.endsWith(".jsx")
+  );
+
+  for (const file of componentFiles) {
+    // Check if file name matches any hint
+    const fileName = file.name.toLowerCase();
+    for (const hint of hints) {
+      if (fileName.includes(hint.toLowerCase())) {
+        const { snippet, startLine, endLine } = extractSnippet(
+          file.content,
+          hint
+        );
+
+        if (snippet) {
+          results.push({
+            name: file.name,
+            snippet,
+            lineNumbers: [startLine, endLine],
+            relevance: `Filename match: ${hint}`,
+          });
+          break;
+        }
+      }
+    }
+  }
+
+  return results.slice(0, 3); // Top 3
 }
 
 // ============================================================================
@@ -411,7 +392,10 @@ export function quickSearch(
     const { found, matches, score } = searchFileForHints(file.content, hints);
     if (found && score > 0) {
       const bestHint = matches[0];
-      const { snippet, startLine, endLine } = extractSnippet(file.content, bestHint);
+      const { snippet, startLine, endLine } = extractSnippet(
+        file.content,
+        bestHint
+      );
 
       if (snippet) {
         results.push({
@@ -433,4 +417,3 @@ export function quickSearch(
     })
     .slice(0, 3);
 }
-

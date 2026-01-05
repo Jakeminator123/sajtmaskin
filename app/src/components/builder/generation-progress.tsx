@@ -13,8 +13,42 @@ import {
   Brain,
 } from "lucide-react";
 
-// Generation steps with realistic estimated times for v0 Platform API
-// Total: ~120-180 seconds for initial generation (v0 API is thorough but takes time)
+// Pipeline steps matching the new orchestrator flow (AI SDK 6)
+// These are the actual steps in the pipeline
+const PIPELINE_STEPS = [
+  {
+    id: "routing",
+    label: "Analyserar prompt",
+    icon: Sparkles,
+    description: "Semantic Router klassificerar din förfrågan",
+  },
+  {
+    id: "crawling",
+    label: "Söker i projektfiler",
+    icon: FileCode,
+    description: "Code Crawler hittar relevanta koddelar",
+  },
+  {
+    id: "enhancing",
+    label: "Förbättrar prompten",
+    icon: Brain,
+    description: "Semantic Enhancer gör prompten mer specifik",
+  },
+  {
+    id: "enriching",
+    label: "Kombinerar kontext",
+    icon: Layout,
+    description: "Prompt Enricher sätter ihop allt",
+  },
+  {
+    id: "generating",
+    label: "Genererar kod",
+    icon: Wand2,
+    description: "v0 skapar din webbplats",
+  },
+];
+
+// Legacy generation steps (fallback when no streaming info)
 const GENERATION_STEPS = [
   {
     id: "analyze",
@@ -82,6 +116,12 @@ interface GenerationProgressProps {
   thinking?: string[];
   /** Meddelande för aktuellt steg (från streaming) */
   streamingMessage?: string;
+  /** Aktuellt steg i pipelinen (1-5) */
+  currentPipelineStep?: number;
+  /** Totalt antal steg i pipelinen */
+  totalPipelineSteps?: number;
+  /** Förbättrad prompt från Semantic Enhancer */
+  enhancedPrompt?: string;
 }
 
 export function GenerationProgress({
@@ -91,10 +131,17 @@ export function GenerationProgress({
   startTime,
   thinking = [],
   streamingMessage,
+  currentPipelineStep,
+  totalPipelineSteps,
+  enhancedPrompt,
 }: GenerationProgressProps) {
   const [currentStep, setCurrentStep] = useState(0);
   const [elapsedTime, setElapsedTime] = useState(0);
   const [currentFact, setCurrentFact] = useState(0);
+
+  // Use pipeline steps if available, otherwise fall back to legacy steps
+  const usePipelineSteps =
+    currentPipelineStep !== undefined && totalPipelineSteps !== undefined;
 
   // Estimate total time based on prompt complexity
   const estimatedTime = useMemo(() => {
@@ -203,7 +250,9 @@ export function GenerationProgress({
         </div>
         <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-800/50 rounded-lg border border-gray-700/50">
           <Clock className="h-3.5 w-3.5 text-gray-500" />
-          <span className="text-sm font-mono text-gray-300">{formatTime(elapsedTime)}</span>
+          <span className="text-sm font-mono text-gray-300">
+            {formatTime(elapsedTime)}
+          </span>
         </div>
       </div>
 
@@ -227,68 +276,158 @@ export function GenerationProgress({
         </div>
       )}
 
-      {/* Steps */}
-      <div className="grid grid-cols-3 gap-2">
-        {GENERATION_STEPS.map((step, index) => {
-          const Icon = step.icon;
-          const isActive = index === currentStep;
-          const isComplete = index < currentStep;
+      {/* Pipeline Steps (new) or Legacy Steps */}
+      {usePipelineSteps ? (
+        <div className="space-y-2">
+          {PIPELINE_STEPS.map((step, index) => {
+            const Icon = step.icon;
+            const stepNum = index + 1;
+            const isActive = stepNum === currentPipelineStep;
+            const isComplete = stepNum < (currentPipelineStep || 0);
 
-          return (
-            <div
-              key={step.id}
-              className={`flex items-center gap-2 p-2 rounded transition-all duration-300 ${
-                isActive
-                  ? "bg-teal-600/20 border border-teal-500/30"
-                  : isComplete
-                  ? "bg-gray-800/50 opacity-60"
-                  : "opacity-30"
-              }`}
-            >
-              {isComplete ? (
-                <CheckCircle2 className="h-4 w-4 text-teal-500 flex-shrink-0" />
-              ) : (
-                <Icon
-                  className={`h-4 w-4 flex-shrink-0 ${
-                    isActive ? "text-teal-400 animate-pulse" : "text-gray-500"
-                  }`}
-                />
-              )}
-              <span
-                className={`text-xs truncate ${
+            return (
+              <div
+                key={step.id}
+                className={`flex items-center gap-3 p-2.5 rounded-lg transition-all duration-300 ${
                   isActive
-                    ? "text-gray-200"
+                    ? "bg-teal-600/20 border border-teal-500/30"
                     : isComplete
-                    ? "text-gray-400"
-                    : "text-gray-600"
+                    ? "bg-gray-800/30"
+                    : "opacity-40"
                 }`}
               >
-                {step.label}
-              </span>
-            </div>
-          );
-        })}
-      </div>
+                <div
+                  className={`flex items-center justify-center w-6 h-6 rounded-full ${
+                    isComplete
+                      ? "bg-teal-500/20"
+                      : isActive
+                      ? "bg-teal-600/30"
+                      : "bg-gray-800"
+                  }`}
+                >
+                  {isComplete ? (
+                    <CheckCircle2 className="h-4 w-4 text-teal-500" />
+                  ) : (
+                    <Icon
+                      className={`h-3.5 w-3.5 ${
+                        isActive
+                          ? "text-teal-400 animate-pulse"
+                          : "text-gray-500"
+                      }`}
+                    />
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p
+                    className={`text-sm font-medium ${
+                      isActive
+                        ? "text-gray-100"
+                        : isComplete
+                        ? "text-gray-400"
+                        : "text-gray-600"
+                    }`}
+                  >
+                    {step.label}
+                  </p>
+                  {isActive && (
+                    <p className="text-xs text-gray-500 truncate">
+                      {step.description}
+                    </p>
+                  )}
+                </div>
+                <span
+                  className={`text-xs font-mono ${
+                    isActive ? "text-teal-400" : "text-gray-600"
+                  }`}
+                >
+                  {stepNum}/{totalPipelineSteps}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        <div className="grid grid-cols-3 gap-2">
+          {GENERATION_STEPS.map((step, index) => {
+            const Icon = step.icon;
+            const isActive = index === currentStep;
+            const isComplete = index < currentStep;
+
+            return (
+              <div
+                key={step.id}
+                className={`flex items-center gap-2 p-2 rounded transition-all duration-300 ${
+                  isActive
+                    ? "bg-teal-600/20 border border-teal-500/30"
+                    : isComplete
+                    ? "bg-gray-800/50 opacity-60"
+                    : "opacity-30"
+                }`}
+              >
+                {isComplete ? (
+                  <CheckCircle2 className="h-4 w-4 text-teal-500 flex-shrink-0" />
+                ) : (
+                  <Icon
+                    className={`h-4 w-4 flex-shrink-0 ${
+                      isActive ? "text-teal-400 animate-pulse" : "text-gray-500"
+                    }`}
+                  />
+                )}
+                <span
+                  className={`text-xs truncate ${
+                    isActive
+                      ? "text-gray-200"
+                      : isComplete
+                      ? "text-gray-400"
+                      : "text-gray-600"
+                  }`}
+                >
+                  {step.label}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Enhanced Prompt Preview */}
+      {enhancedPrompt && (
+        <div className="border-t border-gray-800/50 pt-3 mt-2">
+          <div className="flex items-center gap-2 mb-2">
+            <Sparkles className="h-3.5 w-3.5 text-teal-400" />
+            <span className="text-xs font-medium text-teal-300">
+              Förbättrad prompt
+            </span>
+          </div>
+          <p className="text-xs text-gray-400 italic line-clamp-2">
+            &ldquo;{enhancedPrompt}&rdquo;
+          </p>
+        </div>
+      )}
 
       {/* AI Thinking - show when we have thinking data */}
       {thinking.length > 0 && (
         <div className="border-t border-gray-800/50 pt-3 mt-2">
           <div className="flex items-center gap-2 mb-2">
             <Brain className="h-3.5 w-3.5 text-purple-400 animate-pulse" />
-            <span className="text-xs font-medium text-purple-300">AI-resonemang</span>
+            <span className="text-xs font-medium text-purple-300">
+              AI-resonemang
+            </span>
           </div>
           <div className="max-h-32 overflow-y-auto space-y-1.5 pr-2 scrollbar-thin">
             {thinking.slice(-5).map((thought, i) => (
-              <div 
-                key={i} 
+              <div
+                key={i}
                 className={`text-xs leading-relaxed pl-3 border-l-2 ${
-                  i === thinking.length - 1 
-                    ? "text-purple-200 border-purple-500" 
+                  i === thinking.length - 1
+                    ? "text-purple-200 border-purple-500"
                     : "text-gray-500 border-gray-700"
                 }`}
               >
                 {thought.split("\n").map((line, j) => (
-                  <p key={j} className={j > 0 ? "mt-0.5" : ""}>{line}</p>
+                  <p key={j} className={j > 0 ? "mt-0.5" : ""}>
+                    {line}
+                  </p>
                 ))}
               </div>
             ))}
