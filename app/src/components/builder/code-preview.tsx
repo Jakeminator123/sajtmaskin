@@ -106,12 +106,13 @@ export function CodePreview() {
     setViewMode,
     setDeviceSize,
     setDemoUrl,
+    isDesignModeActive,
+    toggleDesignMode,
   } = useBuilderStore();
   const [copied, setCopied] = useState(false);
   const [sandpackError, setSandpackError] = useState<string | null>(null);
   const [iframeError, setIframeError] = useState(false);
   const [preferScreenshot, setPreferScreenshot] = useState(false);
-  const [isDesignModeActive, setIsDesignModeActive] = useState(false);
 
   // Track last logged URL to reduce console spam (only log when URL actually changes)
   const lastLoggedUrlRef = useRef<string | null>(null);
@@ -362,7 +363,7 @@ export function CodePreview() {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => setIsDesignModeActive(!isDesignModeActive)}
+              onClick={() => toggleDesignMode()}
               className={`h-7 px-2.5 gap-1.5 rounded-md transition-all ${
                 isDesignModeActive
                   ? "bg-purple-600/30 border border-purple-500/50 text-purple-300"
@@ -475,18 +476,18 @@ export function CodePreview() {
                 {/* Design Mode Overlay */}
                 <DesignModeOverlay
                   isActive={isDesignModeActive}
-                  onToggle={() => setIsDesignModeActive(!isDesignModeActive)}
+                  onToggle={() => toggleDesignMode()}
                   onElementSelect={(_selector, description) => {
                     // Send to chat panel via store
-                    const { setDesignModeInput } = useBuilderStore.getState();
+                    const { setDesignModeInput, toggleDesignMode: toggle } = useBuilderStore.getState();
                     setDesignModeInput(`Ändra ${description}: `);
-                    setIsDesignModeActive(false); // Close design mode after selection
+                    toggle(false); // Close design mode after selection
                   }}
                   onManualSelect={(prompt) => {
                     // Send to chat panel via store
-                    const { setDesignModeInput } = useBuilderStore.getState();
+                    const { setDesignModeInput, toggleDesignMode: toggle } = useBuilderStore.getState();
                     setDesignModeInput(`${prompt}: `);
-                    setIsDesignModeActive(false); // Close design mode after selection
+                    toggle(false); // Close design mode after selection
                   }}
                   iframeSrc={demoUrl || undefined}
                 />

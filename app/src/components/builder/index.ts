@@ -5,6 +5,7 @@ export { CodePreview } from "./code-preview";
 export { GenerationProgress } from "./generation-progress";
 export { QualitySelector } from "./quality-selector";
 export { ComponentPicker } from "./component-picker";
+export { UnifiedAssetModal } from "./unified-asset-modal";
 export {
   Suggestions,
   SuggestionPills,

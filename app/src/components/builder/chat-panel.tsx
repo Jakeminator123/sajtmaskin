@@ -36,12 +36,12 @@
 import { RequireAuthModal } from "@/components/auth";
 import {
   ChatMessage,
-  ComponentPicker,
   GenerationProgress,
   ServiceSuggestions,
   Suggestions,
   DEFAULT_SUGGESTIONS,
   CATEGORY_SUGGESTIONS,
+  UnifiedAssetModal,
 } from "./index";
 import { HelpTooltip } from "@/components/layout";
 import {
@@ -50,8 +50,6 @@ import {
   filesToPromptText,
   MediaBank,
   useMediaBank,
-  MediaDrawer,
-  TextUploader,
   type UploadedFile,
   type MediaItem,
 } from "@/components/media";
@@ -80,10 +78,10 @@ interface ApiOrchestratorResponse extends OrchestratorResult {
 import {
   ArrowUp,
   Blocks,
-  FileText,
   Image as ImageIcon,
   Loader2,
   MessageSquare,
+  MousePointer2,
   Sparkles,
   X,
 } from "lucide-react";
@@ -326,10 +324,8 @@ export function ChatPanel({
 
   const { updateDiamonds, fetchUser, isAuthenticated } = useAuth();
 
-  // Toolbar modals state
-  const [showMediaDrawer, setShowMediaDrawer] = useState(false);
-  const [showTextModal, setShowTextModal] = useState(false);
-  const [showComponentPicker, setShowComponentPicker] = useState(false);
+  // Unified asset modal state (replaces separate media/text/component modals)
+  const [showAssetModal, setShowAssetModal] = useState(false);
 
   // File upload state
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
@@ -363,6 +359,8 @@ export function ChatPanel({
     setDesignModeInput,
     designModeCodeContext,
     setDesignModeCodeContext,
+    isDesignModeActive,
+    toggleDesignMode,
   } = useBuilderStore();
 
   // Handle user typing state
@@ -1488,14 +1486,6 @@ export function ChatPanel({
     }
   };
 
-  // Handle component selection from picker - add to input, let user customize
-  const handleComponentSelect = (prompt: string) => {
-    setInput(prompt);
-    setShowComponentPicker(false);
-    inputRef.current?.focus();
-    // DON'T auto-submit - let user customize the prompt if they want
-  };
-
   // Pending media attachments - media selected from drawer waiting to be included in next message
   const [pendingMedia, setPendingMedia] = useState<MediaItem[]>([]);
 
@@ -1524,21 +1514,20 @@ export function ChatPanel({
     return "Media attachment";
   };
 
-  // Handle media file selection from drawer - NOW just adds to pending, no auto-submit
-  const handleMediaFileSelect = (item: MediaItem) => {
-    if (!item.url) return;
-
-    // Add to pending media (don't auto-submit)
-    setPendingMedia((prev) => {
-      // Avoid duplicates
-      if (prev.some((m) => m.url === item.url)) return prev;
-      return [...prev, item];
-    });
-
-    // Close drawer and focus input so user can write their own prompt
-    setShowMediaDrawer(false);
+  // Handle asset selection from UnifiedAssetModal
+  // This replaces the old handleMediaFileSelect and handleTextContent functions
+  const handleAssetSelect = useCallback((prompt: string) => {
+    // Set the sophisticated prompt from UnifiedAssetModal
+    setInput(prompt);
+    setShowAssetModal(false);
     inputRef.current?.focus();
-  };
+    
+    // If we have existing code, auto-submit the refinement
+    if (currentCode && chatId && prompt.trim()) {
+      setTimeout(() => handleRefinement(prompt), 100);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentCode, chatId]);
 
   // Remove pending media item
   const handleRemovePendingMedia = (mediaId: string) => {
@@ -1563,22 +1552,6 @@ export function ChatPanel({
     return `\n\nBifogade media:\n${mediaLines.join("\n")}`;
   };
 
-  // Handle text file content - add to input, let user edit and submit
-  const handleTextContent = (content: string, filename: string) => {
-    // Truncate if too long, orchestrator handles the rest
-    const truncated =
-      content.length > 6000 ? content.slice(0, 6000) + "..." : content;
-
-    // Create a prompt that lets orchestrator + Code Crawler decide placement
-    // DON'T auto-submit - let user edit the prompt first
-    const prompt = `Använd innehållet från filen "${filename}" på lämplig plats i sajten:\n\n${truncated}`;
-
-    setInput(prompt);
-    inputRef.current?.focus();
-    setShowTextModal(false);
-    // User can now edit the prompt and submit when ready
-  };
-
   // Remove file from attachments
   const handleRemoveFile = (fileId: string) => {
     setUploadedFiles((prev) => prev.filter((f) => f.id !== fileId));
@@ -1600,37 +1573,14 @@ export function ChatPanel({
         reason={authModalReason}
       />
 
-      {/* Media Drawer */}
-      <MediaDrawer
-        isOpen={showMediaDrawer}
-        onClose={() => setShowMediaDrawer(false)}
+      {/* Unified Asset Modal - fullscreen modal for sections/media/text/elements */}
+      <UnifiedAssetModal
+        isOpen={showAssetModal}
+        onClose={() => setShowAssetModal(false)}
         projectId={projectId || undefined}
-        onFileSelect={handleMediaFileSelect}
-      />
-
-      {/* Text Uploader (Simplified) */}
-      <TextUploader
-        isOpen={showTextModal}
-        onClose={() => setShowTextModal(false)}
-        onContentReady={handleTextContent}
+        onAssetSelect={handleAssetSelect}
         disabled={isLoading}
       />
-
-      {/* Component Picker Modal */}
-      {showComponentPicker && (
-        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center">
-          <div
-            className="fixed inset-0 bg-black/60"
-            onClick={() => setShowComponentPicker(false)}
-          />
-          <div className="relative z-10 w-full max-w-lg mx-4 mb-4 sm:mb-0">
-            <ComponentPicker
-              onSelect={handleComponentSelect}
-              disabled={isLoading}
-            />
-          </div>
-        </div>
-      )}
 
       {/* Header */}
       <div className="p-4 border-b border-gray-800 flex items-center gap-2">
@@ -1859,51 +1809,35 @@ export function ChatPanel({
           </div>
         )}
 
-        {/* Toolbar buttons - only show when project has started, touch-optimized */}
+        {/* Toolbar buttons - asset modal and inspect mode */}
         {showToolbar && (
-          <div className="flex items-center gap-2 sm:gap-1 pb-2 sm:pb-1 overflow-x-auto">
-            {/* Components button */}
+          <div className="flex items-center gap-2 sm:gap-1 pb-2 sm:pb-1">
             <Button
               size="sm"
               variant="ghost"
-              onClick={() => setShowComponentPicker(true)}
+              onClick={() => setShowAssetModal(true)}
               disabled={isLoading}
-              className="h-10 sm:h-7 px-3 sm:px-2 text-sm sm:text-xs gap-1.5 sm:gap-1 text-gray-400 hover:text-white hover:bg-gray-800 active:bg-gray-700 touch-manipulation flex-shrink-0"
-              title="Lägg till UI-komponenter"
+              className="h-10 sm:h-7 px-4 sm:px-3 text-sm sm:text-xs gap-2 sm:gap-1.5 text-gray-400 hover:text-white hover:bg-gray-800 active:bg-gray-700 touch-manipulation border border-gray-700/50 hover:border-teal-600/50 transition-all"
+              title="Lägg till sektioner, media eller text"
             >
-              <Blocks className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
-              <span className="sm:hidden">+</span>
-              <span className="hidden sm:inline">+Sektion</span>
+              <Blocks className="h-4 w-4 sm:h-3.5 sm:w-3.5 text-teal-500" />
+              <span>+ Lägg till</span>
             </Button>
-
-            {/* Media button */}
+            
             <Button
               size="sm"
               variant="ghost"
-              onClick={() => setShowMediaDrawer(true)}
-              disabled={isLoading || !isAuthenticated}
-              className="h-10 sm:h-7 px-3 sm:px-2 text-sm sm:text-xs gap-1.5 sm:gap-1 text-gray-400 hover:text-white hover:bg-gray-800 active:bg-gray-700 touch-manipulation flex-shrink-0"
-              title={
-                !isAuthenticated
-                  ? "Logga in för mediabibliotek"
-                  : "Ladda upp bilder & videos"
-              }
+              onClick={() => toggleDesignMode()}
+              disabled={isLoading || !demoUrl}
+              className={`h-10 sm:h-7 px-4 sm:px-3 text-sm sm:text-xs gap-2 sm:gap-1.5 touch-manipulation border transition-all ${
+                isDesignModeActive
+                  ? "bg-purple-600/30 border-purple-500/50 text-purple-300 hover:bg-purple-600/40"
+                  : "text-gray-400 hover:text-white hover:bg-gray-800 active:bg-gray-700 border-gray-700/50 hover:border-purple-500/50"
+              }`}
+              title="Inspect - välj element att ändra"
             >
-              <ImageIcon className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
-              <span className="hidden sm:inline">Media</span>
-            </Button>
-
-            {/* Text/PDF button */}
-            <Button
-              size="sm"
-              variant="ghost"
-              onClick={() => setShowTextModal(true)}
-              disabled={isLoading}
-              className="h-10 sm:h-7 px-3 sm:px-2 text-sm sm:text-xs gap-1.5 sm:gap-1 text-gray-400 hover:text-white hover:bg-gray-800 active:bg-gray-700 touch-manipulation flex-shrink-0"
-              title="Ladda upp text från fil"
-            >
-              <FileText className="h-4 w-4 sm:h-3.5 sm:w-3.5" />
-              <span className="hidden sm:inline">Text</span>
+              <MousePointer2 className={`h-4 w-4 sm:h-3.5 sm:w-3.5 ${isDesignModeActive ? "text-purple-400" : "text-purple-500"}`} />
+              <span>Inspect</span>
             </Button>
           </div>
         )}

@@ -131,6 +131,7 @@ interface BuilderState {
   quality: "standard" | "premium"; // 2 levels: standard (v0-1.5-md) or premium (v0-1.5-lg)
 
   // Design Mode - click-to-edit in preview
+  isDesignModeActive: boolean; // Global toggle for design mode
   designModeInput: string | null; // Pre-filled text from element selection
   designModeCodeContext: Array<{
     name: string;
@@ -165,6 +166,7 @@ interface BuilderState {
   clearChat: () => void;
 
   // Design Mode actions
+  toggleDesignMode: (active?: boolean) => void;
   setDesignModeInput: (text: string | null) => void;
   setDesignModeCodeContext: (
     context: Array<{
@@ -263,6 +265,7 @@ export const useBuilderStore = create<BuilderState>()(
       viewMode: "preview",
       deviceSize: "desktop",
       quality: "premium",
+      isDesignModeActive: false,
       designModeInput: null,
       designModeCodeContext: null,
       isSaving: false,
@@ -351,6 +354,11 @@ export const useBuilderStore = create<BuilderState>()(
 
       setQuality: (quality) => set({ quality: quality }),
 
+      toggleDesignMode: (active) => 
+        set((state) => ({ 
+          isDesignModeActive: active !== undefined ? active : !state.isDesignModeActive 
+        })),
+        
       setDesignModeInput: (text) => set({ designModeInput: text }),
 
       setDesignModeCodeContext: (context) =>

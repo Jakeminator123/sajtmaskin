@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "sajtmaskin-docs": {
+      "command": "npm",
+      "args": ["run", "mpc"],
+      "cwd": "C:\\Users\\Propietario\\Desktop\\sajtmaskin\\app",
+      "env": {}
+    }
+  }
+}
+

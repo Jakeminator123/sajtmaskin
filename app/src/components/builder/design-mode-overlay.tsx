@@ -538,18 +538,9 @@ export function DesignModeOverlay({
     }
   };
 
+  // When not active, render nothing - the toggle button is now in ChatPanel toolbar
   if (!isActive) {
-    return (
-      <Button
-        variant="ghost"
-        size="sm"
-        onClick={onToggle}
-        className="absolute top-2 right-2 z-20 gap-1.5 bg-purple-600/20 border border-purple-500/30 text-purple-300 hover:bg-purple-600/30 hover:text-purple-200"
-      >
-        <MousePointer2 className="h-4 w-4" />
-        Design Mode
-      </Button>
-    );
+    return null;
   }
 
   return (
@@ -559,7 +550,7 @@ export function DesignModeOverlay({
         <div className="flex items-center gap-2 px-3 py-1.5 bg-purple-600/30 border border-purple-500/50 rounded-lg backdrop-blur-sm">
           <Crosshair className="h-4 w-4 text-purple-400 animate-pulse" />
           <span className="text-sm font-medium text-purple-200">
-            Design Mode aktiv
+            Inspect aktiv
           </span>
         </div>
         <Button
