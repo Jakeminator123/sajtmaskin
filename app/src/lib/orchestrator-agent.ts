@@ -160,7 +160,7 @@ function getOpenAIClient(userId?: string): OpenAI {
   if (userId) {
     try {
       const settings = getUserSettings(userId);
-      
+
       // If user has AI Gateway enabled and has a key
       if (settings?.use_ai_gateway && settings.ai_gateway_api_key) {
         console.log("[Orchestrator] Using user's AI Gateway key");
@@ -169,7 +169,7 @@ function getOpenAIClient(userId?: string): OpenAI {
           baseURL: "https://ai-gateway.vercel.sh/v1",
         });
       }
-      
+
       // If user has their own OpenAI key
       if (settings?.openai_api_key) {
         console.log("[Orchestrator] Using user's OpenAI key");
@@ -179,7 +179,7 @@ function getOpenAIClient(userId?: string): OpenAI {
       console.warn("[Orchestrator] Could not get user settings:", e);
     }
   }
-  
+
   // Check for platform AI Gateway key
   const gatewayKey = process.env.AI_GATEWAY_API_KEY;
   if (gatewayKey) {
