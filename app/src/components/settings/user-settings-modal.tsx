@@ -27,7 +27,7 @@ const MODEL_TIERS = {
     border: "border-amber-500/30",
   },
   fast: {
-    name: "⚡ Snabb", 
+    name: "⚡ Snabb",
     desc: "Snabba svar, bra för iteration",
     color: "from-cyan-500/20 to-blue-500/20",
     border: "border-cyan-500/30",
@@ -37,52 +37,52 @@ const MODEL_TIERS = {
 // Curated models: 3 Premium + 3 Fast
 const AVAILABLE_MODELS = [
   // ═══ PREMIUM (Supermodeller - bäst kvalitet, kan ta tid) ═══
-  { 
-    id: "anthropic/claude-opus-4.5", 
-    name: "Claude Opus 4.5", 
-    provider: "Anthropic", 
+  {
+    id: "anthropic/claude-opus-4.5",
+    name: "Claude Opus 4.5",
+    provider: "Anthropic",
     tier: "premium" as const,
     desc: "Smartaste modellen - djup analys & kreativitet",
     badge: "👑 BÄST",
   },
-  { 
-    id: "openai/gpt-5.2-pro", 
-    name: "GPT-5.2 Pro", 
-    provider: "OpenAI", 
+  {
+    id: "openai/gpt-5.2-pro",
+    name: "GPT-5.2 Pro",
+    provider: "OpenAI",
     tier: "premium" as const,
     desc: "OpenAIs mest kapabla modell",
     badge: "🚀 SENASTE",
   },
-  { 
-    id: "xai/grok-code-fast-1", 
-    name: "Grok Code Fast 1", 
-    provider: "xAI", 
+  {
+    id: "xai/grok-code-fast-1",
+    name: "Grok Code Fast 1",
+    provider: "xAI",
     tier: "premium" as const,
     desc: "Optimerad för kod - snabb & precis",
     badge: "💻 KOD",
   },
-  
+
   // ═══ SNABB (För snabb iteration och prototyping) ═══
-  { 
-    id: "openai/gpt-4o-mini", 
-    name: "GPT-4o Mini", 
-    provider: "OpenAI", 
+  {
+    id: "openai/gpt-4o-mini",
+    name: "GPT-4o Mini",
+    provider: "OpenAI",
     tier: "fast" as const,
     desc: "Snabb & kostnadseffektiv - bra balans",
     badge: "⭐ DEFAULT",
   },
-  { 
-    id: "google/gemini-2.5-flash", 
-    name: "Gemini 2.5 Flash", 
-    provider: "Google", 
+  {
+    id: "google/gemini-2.5-flash",
+    name: "Gemini 2.5 Flash",
+    provider: "Google",
     tier: "fast" as const,
     desc: "1M tokens context - blixtsnabb",
     badge: "🔥 1M CTX",
   },
-  { 
-    id: "anthropic/claude-haiku-4.5", 
-    name: "Claude Haiku 4.5", 
-    provider: "Anthropic", 
+  {
+    id: "anthropic/claude-haiku-4.5",
+    name: "Claude Haiku 4.5",
+    provider: "Anthropic",
     tier: "fast" as const,
     desc: "Snabb Claude - billig & pålitlig",
     badge: "💨 SNABB",
@@ -122,26 +122,28 @@ export function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
   const [useAiGateway, setUseAiGateway] = useState(false);
   const [enableStreaming, setEnableStreaming] = useState(true);
   const [enableThinking, setEnableThinking] = useState(true);
-  
+
   // Model selection
   const [selectedModel, setSelectedModel] = useState("openai/gpt-4o-mini");
   const [showModelPicker, setShowModelPicker] = useState(false);
-  
+
   // Get current model info
   const currentModelInfo = useMemo(() => {
-    return AVAILABLE_MODELS.find(m => m.id === selectedModel) || {
-      id: selectedModel,
-      name: selectedModel.split("/").pop() || selectedModel,
-      provider: selectedModel.split("/")[0] || "Unknown",
-      tier: "fast" as const,
-      desc: "",
-      badge: "",
-    };
+    return (
+      AVAILABLE_MODELS.find((m) => m.id === selectedModel) || {
+        id: selectedModel,
+        name: selectedModel.split("/").pop() || selectedModel,
+        provider: selectedModel.split("/")[0] || "Unknown",
+        tier: "fast" as const,
+        desc: "",
+        badge: "",
+      }
+    );
   }, [selectedModel]);
-  
+
   // Group models by tier
-  const premiumModels = AVAILABLE_MODELS.filter(m => m.tier === "premium");
-  const fastModels = AVAILABLE_MODELS.filter(m => m.tier === "fast");
+  const premiumModels = AVAILABLE_MODELS.filter((m) => m.tier === "premium");
+  const fastModels = AVAILABLE_MODELS.filter((m) => m.tier === "fast");
 
   // Fetch settings on open
   useEffect(() => {
@@ -223,7 +225,9 @@ export function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
     }
   };
 
-  const handleClearKey = async (keyType: "ai_gateway" | "openai" | "anthropic") => {
+  const handleClearKey = async (
+    keyType: "ai_gateway" | "openai" | "anthropic"
+  ) => {
     setIsSaving(true);
     try {
       const updates: Record<string, string> = {};
@@ -301,7 +305,8 @@ export function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
                       Vercel AI Gateway
                     </h3>
                     <p className="text-xs text-gray-500">
-                      Använd Vercels AI Gateway för alla modeller ($5 gratis/mån)
+                      Använd Vercels AI Gateway för alla modeller ($5
+                      gratis/mån)
                     </p>
                   </div>
                 </div>
@@ -325,8 +330,9 @@ export function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
               {useAiGateway && (
                 <div className="ml-8 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
                   <p className="text-xs text-amber-300/80">
-                    AI Gateway ger tillgång till OpenAI, Anthropic, Groq m.fl. via ett enda API.
-                    Du behöver en AI_GATEWAY_API_KEY från Vercels dashboard.
+                    AI Gateway ger tillgång till OpenAI, Anthropic, Groq m.fl.
+                    via ett enda API. Du behöver en AI_GATEWAY_API_KEY från
+                    Vercels dashboard.
                   </p>
                 </div>
               )}
@@ -346,49 +352,69 @@ export function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
                     </p>
                   </div>
                 </div>
-                
+
                 {/* Model Selector Button */}
                 <button
                   onClick={() => setShowModelPicker(!showModelPicker)}
                   className={`w-full p-3 bg-gray-900 border rounded-lg flex items-center justify-between hover:border-gray-600 transition-colors ${
-                    currentModelInfo.tier === "premium" ? "border-amber-500/30" : "border-cyan-500/30"
+                    currentModelInfo.tier === "premium"
+                      ? "border-amber-500/30"
+                      : "border-cyan-500/30"
                   }`}
                 >
                   <div className="flex items-center gap-3">
-                    <div className={`w-9 h-9 rounded-lg flex items-center justify-center text-sm font-medium ${
-                      currentModelInfo.tier === "premium" 
-                        ? "bg-gradient-to-br from-amber-500/20 to-orange-500/20 text-amber-400"
-                        : "bg-gradient-to-br from-cyan-500/20 to-blue-500/20 text-cyan-400"
-                    }`}>
+                    <div
+                      className={`w-9 h-9 rounded-lg flex items-center justify-center text-sm font-medium ${
+                        currentModelInfo.tier === "premium"
+                          ? "bg-gradient-to-br from-amber-500/20 to-orange-500/20 text-amber-400"
+                          : "bg-gradient-to-br from-cyan-500/20 to-blue-500/20 text-cyan-400"
+                      }`}
+                    >
                       {currentModelInfo.provider.charAt(0)}
                     </div>
                     <div className="text-left">
                       <div className="flex items-center gap-2">
-                        <p className="text-sm font-medium text-white">{currentModelInfo.name}</p>
+                        <p className="text-sm font-medium text-white">
+                          {currentModelInfo.name}
+                        </p>
                         {currentModelInfo.badge && (
-                          <span className={`px-1.5 py-0.5 text-[10px] rounded ${
-                            currentModelInfo.tier === "premium" 
-                              ? "bg-amber-500/20 text-amber-300"
-                              : "bg-cyan-500/20 text-cyan-300"
-                          }`}>
+                          <span
+                            className={`px-1.5 py-0.5 text-[10px] rounded ${
+                              currentModelInfo.tier === "premium"
+                                ? "bg-amber-500/20 text-amber-300"
+                                : "bg-cyan-500/20 text-cyan-300"
+                            }`}
+                          >
                             {currentModelInfo.badge}
                           </span>
                         )}
                       </div>
-                      <p className="text-xs text-gray-500">{currentModelInfo.desc}</p>
+                      <p className="text-xs text-gray-500">
+                        {currentModelInfo.desc}
+                      </p>
                     </div>
                   </div>
-                  <ChevronDown className={`h-4 w-4 text-gray-500 transition-transform ${showModelPicker ? "rotate-180" : ""}`} />
+                  <ChevronDown
+                    className={`h-4 w-4 text-gray-500 transition-transform ${
+                      showModelPicker ? "rotate-180" : ""
+                    }`}
+                  />
                 </button>
-                
+
                 {/* Model Picker Dropdown */}
                 {showModelPicker && (
                   <div className="bg-gray-900 border border-gray-700 rounded-lg overflow-hidden">
                     {/* Premium Models */}
                     <div className="border-b border-gray-800">
-                      <div className={`px-3 py-2 bg-gradient-to-r ${MODEL_TIERS.premium.color}`}>
-                        <p className="text-xs font-medium text-amber-300">{MODEL_TIERS.premium.name}</p>
-                        <p className="text-[10px] text-amber-300/60">{MODEL_TIERS.premium.desc}</p>
+                      <div
+                        className={`px-3 py-2 bg-gradient-to-r ${MODEL_TIERS.premium.color}`}
+                      >
+                        <p className="text-xs font-medium text-amber-300">
+                          {MODEL_TIERS.premium.name}
+                        </p>
+                        <p className="text-[10px] text-amber-300/60">
+                          {MODEL_TIERS.premium.desc}
+                        </p>
                       </div>
                       {premiumModels.map((model) => (
                         <button
@@ -398,7 +424,9 @@ export function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
                             setShowModelPicker(false);
                           }}
                           className={`w-full p-3 flex items-center gap-3 hover:bg-amber-500/10 transition-colors ${
-                            selectedModel === model.id ? "bg-amber-500/20 border-l-2 border-amber-500" : ""
+                            selectedModel === model.id
+                              ? "bg-amber-500/20 border-l-2 border-amber-500"
+                              : ""
                           }`}
                         >
                           <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-amber-500/20 to-orange-500/20 flex items-center justify-center text-sm font-medium text-amber-400">
@@ -406,14 +434,18 @@ export function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
                           </div>
                           <div className="flex-1 text-left">
                             <div className="flex items-center gap-2">
-                              <p className="text-sm font-medium text-white">{model.name}</p>
+                              <p className="text-sm font-medium text-white">
+                                {model.name}
+                              </p>
                               {model.badge && (
                                 <span className="px-1.5 py-0.5 bg-amber-500/20 text-[10px] text-amber-300 rounded">
                                   {model.badge}
                                 </span>
                               )}
                             </div>
-                            <p className="text-xs text-gray-500">{model.desc}</p>
+                            <p className="text-xs text-gray-500">
+                              {model.desc}
+                            </p>
                           </div>
                           {selectedModel === model.id && (
                             <Check className="h-4 w-4 text-amber-400" />
@@ -421,12 +453,18 @@ export function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
                         </button>
                       ))}
                     </div>
-                    
+
                     {/* Fast Models */}
                     <div>
-                      <div className={`px-3 py-2 bg-gradient-to-r ${MODEL_TIERS.fast.color}`}>
-                        <p className="text-xs font-medium text-cyan-300">{MODEL_TIERS.fast.name}</p>
-                        <p className="text-[10px] text-cyan-300/60">{MODEL_TIERS.fast.desc}</p>
+                      <div
+                        className={`px-3 py-2 bg-gradient-to-r ${MODEL_TIERS.fast.color}`}
+                      >
+                        <p className="text-xs font-medium text-cyan-300">
+                          {MODEL_TIERS.fast.name}
+                        </p>
+                        <p className="text-[10px] text-cyan-300/60">
+                          {MODEL_TIERS.fast.desc}
+                        </p>
                       </div>
                       {fastModels.map((model) => (
                         <button
@@ -436,7 +474,9 @@ export function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
                             setShowModelPicker(false);
                           }}
                           className={`w-full p-3 flex items-center gap-3 hover:bg-cyan-500/10 transition-colors ${
-                            selectedModel === model.id ? "bg-cyan-500/20 border-l-2 border-cyan-500" : ""
+                            selectedModel === model.id
+                              ? "bg-cyan-500/20 border-l-2 border-cyan-500"
+                              : ""
                           }`}
                         >
                           <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-cyan-500/20 to-blue-500/20 flex items-center justify-center text-sm font-medium text-cyan-400">
@@ -444,14 +484,18 @@ export function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
                           </div>
                           <div className="flex-1 text-left">
                             <div className="flex items-center gap-2">
-                              <p className="text-sm font-medium text-white">{model.name}</p>
+                              <p className="text-sm font-medium text-white">
+                                {model.name}
+                              </p>
                               {model.badge && (
                                 <span className="px-1.5 py-0.5 bg-cyan-500/20 text-[10px] text-cyan-300 rounded">
                                   {model.badge}
                                 </span>
                               )}
                             </div>
-                            <p className="text-xs text-gray-500">{model.desc}</p>
+                            <p className="text-xs text-gray-500">
+                              {model.desc}
+                            </p>
                           </div>
                           {selectedModel === model.id && (
                             <Check className="h-4 w-4 text-cyan-400" />
@@ -508,13 +552,18 @@ export function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
                   onClick={() => setShowKeys(!showKeys)}
                   className="text-xs text-gray-500 hover:text-gray-300 flex items-center gap-1"
                 >
-                  {showKeys ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                  {showKeys ? (
+                    <EyeOff className="h-3 w-3" />
+                  ) : (
+                    <Eye className="h-3 w-3" />
+                  )}
                   {showKeys ? "Dölj" : "Visa"}
                 </button>
               </div>
 
               <p className="text-xs text-gray-500">
-                Lägg till egna API-nycklar för att använda dina egna kvoter istället för plattformens.
+                Lägg till egna API-nycklar för att använda dina egna kvoter
+                istället för plattformens.
               </p>
 
               {/* AI Gateway Key */}
@@ -523,13 +572,19 @@ export function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
                   <label className="text-xs font-medium text-gray-400">
                     AI Gateway API Key
                     {settings?.has_ai_gateway_key && (
-                      <span className="ml-2 text-green-400">✓ Konfigurerad</span>
+                      <span className="ml-2 text-green-400">
+                        ✓ Konfigurerad
+                      </span>
                     )}
                   </label>
                   <div className="flex gap-2">
                     <Input
                       type={showKeys ? "text" : "password"}
-                      placeholder={settings?.has_ai_gateway_key ? "••••••••" : "AI_GATEWAY_API_KEY"}
+                      placeholder={
+                        settings?.has_ai_gateway_key
+                          ? "••••••••"
+                          : "AI_GATEWAY_API_KEY"
+                      }
                       value={aiGatewayKey}
                       onChange={(e) => setAiGatewayKey(e.target.value)}
                       className="flex-1 h-9 bg-gray-900 border-gray-700 text-white text-sm"
@@ -559,7 +614,9 @@ export function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
                 <div className="flex gap-2">
                   <Input
                     type={showKeys ? "text" : "password"}
-                    placeholder={settings?.has_openai_key ? "••••••••" : "sk-..."}
+                    placeholder={
+                      settings?.has_openai_key ? "••••••••" : "sk-..."
+                    }
                     value={openaiKey}
                     onChange={(e) => setOpenaiKey(e.target.value)}
                     className="flex-1 h-9 bg-gray-900 border-gray-700 text-white text-sm"
@@ -588,7 +645,9 @@ export function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
                 <div className="flex gap-2">
                   <Input
                     type={showKeys ? "text" : "password"}
-                    placeholder={settings?.has_anthropic_key ? "••••••••" : "sk-ant-..."}
+                    placeholder={
+                      settings?.has_anthropic_key ? "••••••••" : "sk-ant-..."
+                    }
                     value={anthropicKey}
                     onChange={(e) => setAnthropicKey(e.target.value)}
                     className="flex-1 h-9 bg-gray-900 border-gray-700 text-white text-sm"
@@ -640,4 +699,3 @@ export function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
     </div>
   );
 }
-

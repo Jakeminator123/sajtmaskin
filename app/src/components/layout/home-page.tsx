@@ -50,7 +50,8 @@ export function HomePage() {
   const promptInputRef = useRef<HTMLDivElement>(null);
 
   // Get user state for personalized experience
-  const { user, isAuthenticated } = useAuth();
+  // IMPORTANT: Use isInitialized to prevent hydration mismatch
+  const { user, isAuthenticated, isInitialized } = useAuth();
 
   const {
     showOnboarding,
@@ -137,11 +138,12 @@ export function HomePage() {
   return (
     <main className="min-h-screen bg-black">
       {/* Shader Background - shimmer effect for logged in users */}
+      {/* Use default theme until auth is initialized to prevent hydration mismatch */}
       <ShaderBackground
-        theme={isAuthenticated ? "aurora" : "default"}
+        theme={isInitialized && isAuthenticated ? "aurora" : "default"}
         speed={0.2}
-        opacity={isAuthenticated ? 0.45 : 0.35}
-        shimmer={isAuthenticated}
+        opacity={isInitialized && isAuthenticated ? 0.45 : 0.35}
+        shimmer={isInitialized && isAuthenticated}
         shimmerSpeed={10}
       />
 
@@ -191,7 +193,8 @@ export function HomePage() {
 
       <div className="relative z-10 flex flex-col items-center justify-center min-h-screen px-4 pt-24 pb-16 space-y-12">
         {/* Personalized greeting for logged-in users */}
-        {isAuthenticated && firstName && firstName !== undefined && (
+        {/* Only render after auth is initialized to prevent hydration mismatch */}
+        {isInitialized && isAuthenticated && firstName && (
           <div className="text-center animate-fadeIn">
             <div className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-500/10 via-pink-500/10 to-amber-500/10 border border-purple-500/20 rounded-full mb-4">
               <Sparkles className="h-4 w-4 text-amber-400" />
@@ -205,14 +208,15 @@ export function HomePage() {
         )}
 
         {/* Header - Main heading with animated entrance */}
+        {/* Use default text until auth is initialized to prevent hydration mismatch */}
         <div className="text-center space-y-4 animate-fadeInUp">
           <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-white tracking-tight">
-            {isAuthenticated
+            {isInitialized && isAuthenticated
               ? "Vad vill du skapa idag?"
               : "Vad vill du bygga idag?"}
           </h1>
           <p className="text-gray-400 max-w-md mx-auto flex items-center justify-center gap-2 text-sm sm:text-base">
-            {isAuthenticated
+            {isInitialized && isAuthenticated
               ? "Dina projekt och analyser sparas automatiskt i ditt konto."
               : "Skapa professionella webbplatser på minuter med hjälp av AI."}
             <HelpTooltip text="Välj en kategori för att komma igång snabbt, eller beskriv din webbplats med egna ord i textfältet nedan." />

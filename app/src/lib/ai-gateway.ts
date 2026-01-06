@@ -133,15 +133,13 @@ export async function getAIProvider(
 /**
  * Stream text with the appropriate provider
  */
-export async function streamTextWithProvider(
-  options: {
-    userId?: string;
-    model?: string;
-    system?: string;
-    prompt: string;
-    maxTokens?: number;
-  }
-) {
+export async function streamTextWithProvider(options: {
+  userId?: string;
+  model?: string;
+  system?: string;
+  prompt: string;
+  maxTokens?: number;
+}) {
   const provider = await getAIProvider(options.userId, options.model);
 
   return streamText({
@@ -155,15 +153,13 @@ export async function streamTextWithProvider(
 /**
  * Generate text with the appropriate provider
  */
-export async function generateTextWithProvider(
-  options: {
-    userId?: string;
-    model?: string;
-    system?: string;
-    prompt: string;
-    maxTokens?: number;
-  }
-) {
+export async function generateTextWithProvider(options: {
+  userId?: string;
+  model?: string;
+  system?: string;
+  prompt: string;
+  maxTokens?: number;
+}) {
   const provider = await getAIProvider(options.userId, options.model);
 
   return generateText({
@@ -215,12 +211,12 @@ export interface ModelInfo {
 
 /**
  * Curated models for Vercel AI Gateway
- * 
+ *
  * PREMIUM TIER (3 models):
  * - anthropic/claude-opus-4.5 - Smartaste, bäst för komplex analys
  * - openai/gpt-5.2-pro - OpenAIs mest kapabla
  * - xai/grok-code-fast-1 - Bäst för kod
- * 
+ *
  * FAST TIER (3 models):
  * - openai/gpt-4o-mini - Default, snabb & billig
  * - google/gemini-2.5-flash - 1M context, blixtsnabb
@@ -228,27 +224,75 @@ export interface ModelInfo {
  */
 export const GATEWAY_MODELS: ModelInfo[] = [
   // ═══ PREMIUM TIER - Supermodeller ═══
-  { id: "anthropic/claude-opus-4.5", name: "Claude Opus 4.5", provider: "Anthropic", category: "reasoning", contextWindow: 200000, recommended: true },
-  { id: "openai/gpt-5.2-pro", name: "GPT-5.2 Pro", provider: "OpenAI", category: "reasoning", contextWindow: 400000, recommended: true },
-  { id: "xai/grok-code-fast-1", name: "Grok Code Fast 1", provider: "xAI", category: "code", contextWindow: 256000, recommended: true },
-  
+  {
+    id: "anthropic/claude-opus-4.5",
+    name: "Claude Opus 4.5",
+    provider: "Anthropic",
+    category: "reasoning",
+    contextWindow: 200000,
+    recommended: true,
+  },
+  {
+    id: "openai/gpt-5.2-pro",
+    name: "GPT-5.2 Pro",
+    provider: "OpenAI",
+    category: "reasoning",
+    contextWindow: 400000,
+    recommended: true,
+  },
+  {
+    id: "xai/grok-code-fast-1",
+    name: "Grok Code Fast 1",
+    provider: "xAI",
+    category: "code",
+    contextWindow: 256000,
+    recommended: true,
+  },
+
   // ═══ FAST TIER - Snabba modeller ═══
-  { id: "openai/gpt-4o-mini", name: "GPT-4o Mini", provider: "OpenAI", category: "fast", contextWindow: 128000, recommended: true },
-  { id: "google/gemini-2.5-flash", name: "Gemini 2.5 Flash", provider: "Google", category: "fast", contextWindow: 1000000, recommended: true },
-  { id: "anthropic/claude-haiku-4.5", name: "Claude Haiku 4.5", provider: "Anthropic", category: "fast", contextWindow: 200000, recommended: true },
+  {
+    id: "openai/gpt-4o-mini",
+    name: "GPT-4o Mini",
+    provider: "OpenAI",
+    category: "fast",
+    contextWindow: 128000,
+    recommended: true,
+  },
+  {
+    id: "google/gemini-2.5-flash",
+    name: "Gemini 2.5 Flash",
+    provider: "Google",
+    category: "fast",
+    contextWindow: 1000000,
+    recommended: true,
+  },
+  {
+    id: "anthropic/claude-haiku-4.5",
+    name: "Claude Haiku 4.5",
+    provider: "Anthropic",
+    category: "fast",
+    contextWindow: 200000,
+    recommended: true,
+  },
 ];
 
 /**
  * Get available models based on provider type
  */
-export function getAvailableModels(providerType: "gateway" | "openai" | "anthropic"): string[] {
+export function getAvailableModels(
+  providerType: "gateway" | "openai" | "anthropic"
+): string[] {
   switch (providerType) {
     case "gateway":
-      return GATEWAY_MODELS.map(m => m.id);
+      return GATEWAY_MODELS.map((m) => m.id);
     case "openai":
-      return GATEWAY_MODELS.filter(m => m.provider === "OpenAI").map(m => m.id);
+      return GATEWAY_MODELS.filter((m) => m.provider === "OpenAI").map(
+        (m) => m.id
+      );
     case "anthropic":
-      return GATEWAY_MODELS.filter(m => m.provider === "Anthropic").map(m => m.id);
+      return GATEWAY_MODELS.filter((m) => m.provider === "Anthropic").map(
+        (m) => m.id
+      );
     default:
       return ["openai/gpt-4o-mini"];
   }
@@ -257,30 +301,36 @@ export function getAvailableModels(providerType: "gateway" | "openai" | "anthrop
 /**
  * Get models filtered by category
  */
-export function getModelsByCategory(category: ModelInfo["category"]): ModelInfo[] {
-  return GATEWAY_MODELS.filter(m => m.category === category);
+export function getModelsByCategory(
+  category: ModelInfo["category"]
+): ModelInfo[] {
+  return GATEWAY_MODELS.filter((m) => m.category === category);
 }
 
 /**
  * Get recommended models for quick selection
  */
 export function getRecommendedModels(): ModelInfo[] {
-  return GATEWAY_MODELS.filter(m => m.recommended);
+  return GATEWAY_MODELS.filter((m) => m.recommended);
 }
 
 /**
  * Get model info by ID
  */
 export function getModelInfo(modelId: string): ModelInfo | undefined {
-  return GATEWAY_MODELS.find(m => m.id === modelId);
+  return GATEWAY_MODELS.find((m) => m.id === modelId);
 }
 
 /**
  * Log provider usage (for debugging/analytics)
  */
-export function logProviderUsage(config: AIProviderConfig, operation: string): void {
+export function logProviderUsage(
+  config: AIProviderConfig,
+  operation: string
+): void {
   console.log(
-    `[AIGateway] ${operation} | Provider: ${config.type} | UserKey: ${config.isUserKey} | User: ${config.userId || "platform"}`
+    `[AIGateway] ${operation} | Provider: ${config.type} | UserKey: ${
+      config.isUserKey
+    } | User: ${config.userId || "platform"}`
   );
 }
-

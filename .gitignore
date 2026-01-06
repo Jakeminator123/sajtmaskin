@@ -17,6 +17,7 @@ app/.env.local
 
 # Editor/OS
 .idea/
+.vscode/
 .DS_Store
 Thumbs.db
 
@@ -32,10 +33,19 @@ app/data/*.db-shm
 app/data/*.db-wal
 app/data/uploads/
 
-app/data/.env.local
-old
-info
-INPUT _FOR_CURSOR
-skrapning
+# MCP scraped docs (regenerate with doc.py --auto)
+app/services/mpc/docs/docgrab__*/
+app/services/mpc/logs/
+
+# Dev/temp files
+old/
+info/
+INPUT_FOR_CURSOR/
+skrapning/
 .preprompt_history.json
 cleaner.py
+compat-report.py
+
+# Package locks (optional - keep package-lock.json if preferred)
+# package-lock.json
+# pnpm-lock.yaml

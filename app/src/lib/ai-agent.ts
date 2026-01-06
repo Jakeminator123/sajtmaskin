@@ -15,6 +15,7 @@ import { quickSearch, type CodeSnippet } from "./code-crawler";
 import { semanticEnhance } from "./semantic-enhancer";
 import type { RouterResult } from "./semantic-router";
 import type { GeneratedFile } from "./v0-generator";
+import { isMCPEnabled, searchDocs } from "./mcp-tools";
 
 // ============================================================================
 // AGENT CONFIGURATION
@@ -134,6 +135,23 @@ Has existing code: ${!!context.existingCode}`,
       console.log(
         `[AIAgent] Found ${codeContext.length} relevant code sections`
       );
+    }
+
+    // Steg 2b: Kör MCP Documentation Search om aktiverat
+    if (isMCPEnabled()) {
+      steps.push("Searching documentation...");
+
+      const docResult = await searchDocs(userPrompt, "all", 3);
+      if (docResult.success && docResult.data?.length) {
+        console.log(`[AIAgent] Found ${docResult.data.length} relevant docs`);
+        // Add doc context to prompt enhancement
+        const docContext = docResult.data
+          .map((d) => `[${d.source}] ${d.title}: ${d.snippet}`)
+          .join("\n");
+        if (docContext) {
+          processedPrompt = `${userPrompt}\n\n[Documentation context]\n${docContext}`;
+        }
+      }
     }
 
     // Steg 3: Kör Prompt Enhancement om behövs

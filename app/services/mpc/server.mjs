@@ -1,7 +1,10 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
-import { McpServer, ResourceTemplate } from "@modelcontextprotocol/sdk/server/mcp.js";
+import {
+  McpServer,
+  ResourceTemplate,
+} from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 
@@ -16,7 +19,7 @@ const ERROR_LOG = path.join(LOGS_DIR, "error-log.jsonl");
 const MAX_LOG_LINES = 500;
 
 const server = new McpServer(
-  { name: "sajtmaskin-mpc", version: "0.1.0" },
+  { name: "sajtmaskin-mpc", version: "0.2.0" },
   {
     capabilities: {
       resources: { listChanged: true },
@@ -24,6 +27,10 @@ const server = new McpServer(
     },
   }
 );
+
+// ============================================
+// SCHEMAS
+// ============================================
 
 const reportErrorSchema = z.object({
   message: z.string().min(1),
@@ -38,10 +45,31 @@ const listErrorSchema = z.object({
   limit: z.number().int().min(1).max(50).default(10),
 });
 
+const searchDocsSchema = z.object({
+  query: z.string().min(1).describe("Search term to find in documentation"),
+  source: z
+    .enum(["all", "ai-sdk", "openai", "vercel", "v0", "local"])
+    .default("all")
+    .describe("Which documentation source to search"),
+  limit: z.number().int().min(1).max(20).default(5),
+});
+
+const getDocSchema = z.object({
+  docPath: z
+    .string()
+    .min(1)
+    .describe(
+      "Path to doc file relative to docs folder, e.g. 'docgrab__ai-sdk.dev__docs/llms/llms.txt'"
+    ),
+});
+
+// ============================================
+// HELPERS: Filesystem
+// ============================================
+
 async function ensureEnvironment() {
   await fs.mkdir(DOCS_DIR, { recursive: true });
   await fs.mkdir(LOGS_DIR, { recursive: true });
-  // Keep the log file around so appends never fail.
   await fs.appendFile(ERROR_LOG, "", { flag: "a" });
 }
 
@@ -51,10 +79,11 @@ async function rotateLogIfNeeded() {
     const lines = content.split(/\r?\n/).filter(Boolean);
 
     if (lines.length > MAX_LOG_LINES) {
-      // Behåll senaste MAX_LOG_LINES rader
       const trimmed = lines.slice(-MAX_LOG_LINES).join("\n") + "\n";
       await fs.writeFile(ERROR_LOG, trimmed, { encoding: "utf8" });
-      console.error(`[mpc] Rotated log: removed ${lines.length - MAX_LOG_LINES} old entries`);
+      console.error(
+        `[mpc] Rotated log: removed ${lines.length - MAX_LOG_LINES} old entries`
+      );
     }
   } catch {
     // File doesn't exist or is empty - that's fine
@@ -64,17 +93,13 @@ async function rotateLogIfNeeded() {
 async function appendError(entry) {
   const line = JSON.stringify(entry);
   await fs.appendFile(ERROR_LOG, `${line}\n`, { encoding: "utf8" });
-  // Rotera vid behov (kör inte varje gång för prestanda)
   await rotateLogIfNeeded();
 }
 
 async function readRecentErrors(limit) {
   try {
     const content = await fs.readFile(ERROR_LOG, "utf8");
-    const lines = content
-      .split(/\r?\n/)
-      .filter(Boolean)
-      .slice(-limit);
+    const lines = content.split(/\r?\n/).filter(Boolean).slice(-limit);
     return lines.map((line) => {
       try {
         return JSON.parse(line);
@@ -87,7 +112,106 @@ async function readRecentErrors(limit) {
   }
 }
 
+// ============================================
+// DOCS INDEXING (with subdirectories)
+// ============================================
+
+/**
+ * Recursively find all doc files (.txt, .md, .json) in DOCS_DIR
+ * Returns array of { relativePath, fullPath, name, ext, source }
+ */
+async function indexAllDocs() {
+  const results = [];
+
+  async function walk(dir, relPrefix = "") {
+    let entries;
+    try {
+      entries = await fs.readdir(dir, { withFileTypes: true });
+    } catch {
+      return;
+    }
+
+    for (const entry of entries) {
+      const relPath = relPrefix ? `${relPrefix}/${entry.name}` : entry.name;
+      const fullPath = path.join(dir, entry.name);
+
+      if (entry.isDirectory()) {
+        await walk(fullPath, relPath);
+      } else if (entry.isFile()) {
+        const ext = path.extname(entry.name).toLowerCase();
+        if ([".txt", ".md", ".json"].includes(ext)) {
+          // Determine source from path
+          let source = "local";
+          if (relPath.includes("ai-sdk")) source = "ai-sdk";
+          else if (relPath.includes("openai")) source = "openai";
+          else if (relPath.includes("vercel.com")) source = "vercel";
+          else if (relPath.includes("v0.app")) source = "v0";
+
+          results.push({
+            relativePath: relPath.replace(/\\/g, "/"),
+            fullPath,
+            name: entry.name,
+            ext,
+            source,
+          });
+        }
+      }
+    }
+  }
+
+  await walk(DOCS_DIR);
+  return results;
+}
+
+/**
+ * Search through indexed docs for a query string
+ */
+async function searchInDocs(query, source, limit) {
+  const allDocs = await indexAllDocs();
+  const queryLower = query.toLowerCase();
+  const matches = [];
+
+  // Filter by source if not "all"
+  const filteredDocs =
+    source === "all" ? allDocs : allDocs.filter((d) => d.source === source);
+
+  for (const doc of filteredDocs) {
+    try {
+      const content = await fs.readFile(doc.fullPath, "utf8");
+      const contentLower = content.toLowerCase();
+
+      if (contentLower.includes(queryLower)) {
+        // Find context around match
+        const idx = contentLower.indexOf(queryLower);
+        const start = Math.max(0, idx - 100);
+        const end = Math.min(content.length, idx + query.length + 200);
+        const snippet = content.slice(start, end).replace(/\s+/g, " ").trim();
+
+        matches.push({
+          path: doc.relativePath,
+          source: doc.source,
+          snippet:
+            (start > 0 ? "..." : "") +
+            snippet +
+            (end < content.length ? "..." : ""),
+        });
+
+        if (matches.length >= limit) break;
+      }
+    } catch {
+      // Skip files we can't read
+    }
+  }
+
+  return matches;
+}
+
+// ============================================
+// RESOURCE REGISTRATION
+// ============================================
+
 async function loadDocsIndex() {
+  // Only load top-level .txt and .json files for backward compatibility
   const entries = await fs.readdir(DOCS_DIR, { withFileTypes: true });
   return entries
     .filter(
@@ -153,7 +277,12 @@ async function registerDocResources() {
   return docsIndex.length;
 }
 
+// ============================================
+// TOOL REGISTRATION
+// ============================================
+
 function registerTools() {
+  // --- report_error ---
   server.registerTool(
     "report_error",
     {
@@ -184,6 +313,7 @@ function registerTools() {
     }
   );
 
+  // --- list_errors ---
   server.registerTool(
     "list_errors",
     {
@@ -217,19 +347,157 @@ function registerTools() {
       };
     }
   );
+
+  // --- search_docs ---
+  server.registerTool(
+    "search_docs",
+    {
+      title: "Search documentation",
+      description:
+        "Search through all scraped documentation (AI SDK, OpenAI, Vercel, v0) for a query string. Returns matching snippets with file paths.",
+      inputSchema: searchDocsSchema,
+    },
+    async ({ query, source, limit }) => {
+      const matches = await searchInDocs(query, source ?? "all", limit ?? 5);
+
+      if (!matches.length) {
+        return {
+          content: [
+            {
+              type: "text",
+              text: `No matches found for "${query}" in ${
+                source ?? "all"
+              } documentation.`,
+            },
+          ],
+        };
+      }
+
+      const summary = matches
+        .map((m, i) => `[${i + 1}] ${m.source} | ${m.path}\n    ${m.snippet}`)
+        .join("\n\n");
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: `Found ${matches.length} match(es) for "${query}":\n\n${summary}`,
+          },
+        ],
+        structuredContent: { query, source, matches },
+      };
+    }
+  );
+
+  // --- get_doc ---
+  server.registerTool(
+    "get_doc",
+    {
+      title: "Get documentation file",
+      description:
+        "Read a specific documentation file by its relative path. Use search_docs first to find relevant files.",
+      inputSchema: getDocSchema,
+    },
+    async ({ docPath }) => {
+      const fullPath = path.join(DOCS_DIR, docPath);
+
+      // Security: ensure path is within DOCS_DIR
+      const resolved = path.resolve(fullPath);
+      if (!resolved.startsWith(path.resolve(DOCS_DIR))) {
+        return {
+          content: [
+            { type: "text", text: "Error: Path is outside docs directory." },
+          ],
+        };
+      }
+
+      try {
+        const content = await fs.readFile(resolved, "utf8");
+
+        // Truncate if too long (>50k chars)
+        const maxLen = 50000;
+        const truncated = content.length > maxLen;
+        const text = truncated
+          ? content.slice(0, maxLen) + "\n\n[...truncated]"
+          : content;
+
+        return {
+          content: [{ type: "text", text }],
+          structuredContent: {
+            path: docPath,
+            size: content.length,
+            truncated,
+          },
+        };
+      } catch (error) {
+        return {
+          content: [
+            { type: "text", text: `Error reading file: ${error.message}` },
+          ],
+        };
+      }
+    }
+  );
+
+  // --- list_doc_sources ---
+  server.registerTool(
+    "list_doc_sources",
+    {
+      title: "List documentation sources",
+      description: "List all available documentation sources and file counts.",
+      inputSchema: z.object({}),
+    },
+    async () => {
+      const allDocs = await indexAllDocs();
+
+      // Group by source
+      const bySource = {};
+      for (const doc of allDocs) {
+        bySource[doc.source] = (bySource[doc.source] || 0) + 1;
+      }
+
+      // List docgrab folders
+      const entries = await fs.readdir(DOCS_DIR, { withFileTypes: true });
+      const folders = entries
+        .filter((e) => e.isDirectory() && e.name.startsWith("docgrab__"))
+        .map((e) => e.name);
+
+      const summary = [
+        `Documentation sources (${allDocs.length} files total):`,
+        "",
+        ...Object.entries(bySource).map(
+          ([src, count]) => `  ${src}: ${count} files`
+        ),
+        "",
+        "Scraped documentation folders:",
+        ...folders.map((f) => `  - ${f}`),
+      ].join("\n");
+
+      return {
+        content: [{ type: "text", text: summary }],
+        structuredContent: { totalFiles: allDocs.length, bySource, folders },
+      };
+    }
+  );
 }
+
+// ============================================
+// MAIN
+// ============================================
 
 async function start() {
   await ensureEnvironment();
   registerTools();
   const docsRegistered = await registerDocResources();
 
+  // Count all docs including subdirs
+  const allDocs = await indexAllDocs();
+
   const transport = new StdioServerTransport();
   await server.connect(transport);
 
-  // Surface readiness info to the host (Cursor shows stderr in the MCP output).
   console.error(
-    `[mpc] ready with ${docsRegistered} doc(s); log file at ${ERROR_LOG}`
+    `[mpc] ready with ${docsRegistered} top-level doc(s), ${allDocs.length} total indexed files; log at ${ERROR_LOG}`
   );
 }
 
@@ -237,4 +505,3 @@ start().catch((error) => {
   console.error("[mpc] failed to start", error);
   process.exit(1);
 });
-

@@ -41,14 +41,41 @@ interface StreamingOrchestrateRequest {
 export async function POST(request: NextRequest) {
   const encoder = new TextEncoder();
 
-  // Helper to send SSE event
+  // Track controller state to prevent "Controller is already closed" errors
+  let isControllerClosed = false;
+
+  // Helper to safely send SSE event (guards against closed controller)
   const sendEvent = (
     controller: ReadableStreamDefaultController,
     eventType: string,
     data: unknown
   ) => {
-    const event = `event: ${eventType}\ndata: ${JSON.stringify(data)}\n\n`;
-    controller.enqueue(encoder.encode(event));
+    if (isControllerClosed) {
+      console.warn(
+        `[Stream] Attempted to send "${eventType}" after controller closed`
+      );
+      return;
+    }
+    try {
+      const event = `event: ${eventType}\ndata: ${JSON.stringify(data)}\n\n`;
+      controller.enqueue(encoder.encode(event));
+    } catch (err) {
+      // Controller was closed between our check and the enqueue
+      console.warn(`[Stream] Failed to send "${eventType}":`, err);
+      isControllerClosed = true;
+    }
+  };
+
+  // Helper to safely close controller
+  const safeClose = (controller: ReadableStreamDefaultController) => {
+    if (isControllerClosed) return;
+    try {
+      controller.close();
+      isControllerClosed = true;
+    } catch {
+      // Already closed
+      isControllerClosed = true;
+    }
   };
 
   const stream = new ReadableStream({
@@ -66,7 +93,7 @@ export async function POST(request: NextRequest) {
 
         if (!prompt || prompt.trim().length === 0) {
           sendEvent(controller, "error", { error: "Prompt saknas" });
-          controller.close();
+          safeClose(controller);
           return;
         }
 
@@ -77,7 +104,7 @@ export async function POST(request: NextRequest) {
             error: "Du måste vara inloggad",
             requireAuth: true,
           });
-          controller.close();
+          safeClose(controller);
           return;
         }
 
@@ -85,7 +112,7 @@ export async function POST(request: NextRequest) {
         const fullUser = getUserById(user.id);
         if (!fullUser) {
           sendEvent(controller, "error", { error: "Användare hittades inte" });
-          controller.close();
+          safeClose(controller);
           return;
         }
 
@@ -105,7 +132,7 @@ export async function POST(request: NextRequest) {
             remaining: 0,
             limit,
           });
-          controller.close();
+          safeClose(controller);
           return;
         }
 
@@ -152,7 +179,7 @@ export async function POST(request: NextRequest) {
           sendEvent(controller, "error", {
             error: result.error || "Orchestrator misslyckades",
           });
-          controller.close();
+          safeClose(controller);
           return;
         }
 
@@ -179,7 +206,7 @@ export async function POST(request: NextRequest) {
             error: `Du behöver ${diamondCost} diamanter. Du har ${fullUser.diamonds}.`,
             requireCredits: true,
           });
-          controller.close();
+          safeClose(controller);
           return;
         }
 
@@ -229,13 +256,13 @@ export async function POST(request: NextRequest) {
           balance,
         });
 
-        controller.close();
+        safeClose(controller);
       } catch (error) {
         const errorMessage =
           error instanceof Error ? error.message : "Unknown error";
         console.error("[API:Orchestrate:Stream] Error:", error);
         sendEvent(controller, "error", { error: errorMessage });
-        controller.close();
+        safeClose(controller);
       }
     },
   });

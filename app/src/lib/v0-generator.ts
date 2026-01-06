@@ -126,7 +126,12 @@ const MODEL_MAP: Record<QualityLevel, "v0-1.5-md" | "v0-1.5-lg"> = {
 /**
  * Extended model type for future use
  */
-export type V0ModelId = "v0-1.5-sm" | "v0-1.5-md" | "v0-1.5-lg" | "v0-gpt-5" | "v0-opus-4.5";
+export type V0ModelId =
+  | "v0-1.5-sm"
+  | "v0-1.5-md"
+  | "v0-1.5-lg"
+  | "v0-gpt-5"
+  | "v0-opus-4.5";
 
 // Category-specific prompts for initial generation
 // These are detailed prompts that guide v0 to generate high-quality, production-ready code
@@ -504,7 +509,7 @@ export interface GenerateCodeOptions {
 /**
  * Generate code using v0 Platform API
  * This uses the same API that v0.dev website uses
- * 
+ *
  * @param prompt - User's description of what to build
  * @param options - Generation options including quality, category, and attachments
  */
@@ -514,10 +519,11 @@ export async function generateCode(
   categoryType?: string
 ): Promise<GenerationResult> {
   // Support both old signature and new options object
-  const options: GenerateCodeOptions = typeof qualityOrOptions === "string" 
-    ? { quality: qualityOrOptions, categoryType }
-    : qualityOrOptions;
-  
+  const options: GenerateCodeOptions =
+    typeof qualityOrOptions === "string"
+      ? { quality: qualityOrOptions, categoryType }
+      : qualityOrOptions;
+
   const quality = options.quality || "standard";
   const modelId = MODEL_MAP[quality];
 
@@ -569,13 +575,17 @@ export async function generateCode(
       },
       responseMode: "sync", // Force synchronous response with full ChatDetail
     };
-    
+
     // Add attachments if provided (screenshots, figma designs, etc.)
     if (options.attachments && options.attachments.length > 0) {
       createRequest.attachments = options.attachments;
-      console.log("[v0-generator] Including", options.attachments.length, "attachments");
+      console.log(
+        "[v0-generator] Including",
+        options.attachments.length,
+        "attachments"
+      );
     }
-    
+
     const rawResponse = await v0.chats.create(createRequest);
 
     // Debug: Log the raw response structure
@@ -741,14 +751,26 @@ IMPORTANT RULES FOR THIS REFINEMENT:
 The goal is to ENHANCE the current design, not start over.`;
 
     // ENHANCED LOGGING: Log the full prompt being sent to v0
-    console.log("[v0-generator] ═══════════════════════════════════════════════════");
+    console.log(
+      "[v0-generator] ═══════════════════════════════════════════════════"
+    );
     console.log("[v0-generator] FULL REFINEMENT PROMPT TO V0:");
-    console.log("[v0-generator] ───────────────────────────────────────────────────");
+    console.log(
+      "[v0-generator] ───────────────────────────────────────────────────"
+    );
     console.log(refinementInstruction);
-    console.log("[v0-generator] ───────────────────────────────────────────────────");
-    console.log("[v0-generator] Prompt length:", refinementInstruction.length, "chars");
+    console.log(
+      "[v0-generator] ───────────────────────────────────────────────────"
+    );
+    console.log(
+      "[v0-generator] Prompt length:",
+      refinementInstruction.length,
+      "chars"
+    );
     console.log("[v0-generator] Model:", modelId);
-    console.log("[v0-generator] ═══════════════════════════════════════════════════");
+    console.log(
+      "[v0-generator] ═══════════════════════════════════════════════════"
+    );
 
     // Send the message
     // IMPORTANT: Must use responseMode: 'sync' to get full ChatDetail response
@@ -787,25 +809,44 @@ The goal is to ENHANCE the current design, not start over.`;
     const newVersionId = chat.latestVersion?.id;
 
     // ENHANCED LOGGING: Show detailed result info
-    console.log("[v0-generator] ═══════════════════════════════════════════════════");
+    console.log(
+      "[v0-generator] ═══════════════════════════════════════════════════"
+    );
     console.log("[v0-generator] REFINEMENT COMPLETE:");
     console.log("[v0-generator]   → New demoUrl:", newDemoUrl);
     console.log("[v0-generator]   → New versionId:", newVersionId);
     console.log("[v0-generator]   → Status:", chat.latestVersion?.status);
     console.log("[v0-generator]   → Total files:", files.length);
-    console.log("[v0-generator] ───────────────────────────────────────────────────");
-    console.log("[v0-generator] MAIN FILE SELECTED:", mainFile?.name || "(none)");
-    console.log("[v0-generator] Main file content length:", mainFile?.content?.length || 0, "chars");
-    console.log("[v0-generator] ───────────────────────────────────────────────────");
+    console.log(
+      "[v0-generator] ───────────────────────────────────────────────────"
+    );
+    console.log(
+      "[v0-generator] MAIN FILE SELECTED:",
+      mainFile?.name || "(none)"
+    );
+    console.log(
+      "[v0-generator] Main file content length:",
+      mainFile?.content?.length || 0,
+      "chars"
+    );
+    console.log(
+      "[v0-generator] ───────────────────────────────────────────────────"
+    );
     console.log("[v0-generator] ALL FILES RETURNED:");
     files.slice(0, 15).forEach((file, i) => {
       const isMain = file.name === mainFile?.name ? " ← MAIN" : "";
-      console.log(`[v0-generator]   ${i + 1}. ${file.name} (${file.content?.length || 0} chars)${isMain}`);
+      console.log(
+        `[v0-generator]   ${i + 1}. ${file.name} (${
+          file.content?.length || 0
+        } chars)${isMain}`
+      );
     });
     if (files.length > 15) {
       console.log(`[v0-generator]   ... and ${files.length - 15} more files`);
     }
-    console.log("[v0-generator] ═══════════════════════════════════════════════════");
+    console.log(
+      "[v0-generator] ═══════════════════════════════════════════════════"
+    );
 
     // Check if demoUrl changed (important for debugging cache issues)
     if (previousDemoUrl && newDemoUrl === previousDemoUrl) {
@@ -1007,6 +1048,139 @@ export async function generateFromTemplate(
 
   // Should never reach here, but TypeScript needs this
   throw lastError || new Error("Unknown error in template generation");
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// REGISTRY INITIALIZATION (shadcn blocks, custom registries)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Initialize from a shadcn/v0 registry URL
+ * Uses v0.chats.init() with type: 'registry'
+ *
+ * Registry URLs can be:
+ * - https://ui.shadcn.com/r/{component}.json
+ * - Custom registry URLs following shadcn registry spec
+ * - Component registry items with dependencies
+ *
+ * @param registryUrl - Full URL to registry item JSON
+ * @param options - Optional configuration
+ */
+export async function initFromRegistry(
+  registryUrl: string,
+  options: {
+    quality?: QualityLevel;
+    name?: string;
+    maxRetries?: number;
+  } = {}
+): Promise<GenerationResult> {
+  const { quality = "standard", name, maxRetries = 2 } = options;
+  const model = MODEL_MAP[quality];
+
+  console.log(
+    "[v0-generator] Initializing from registry:",
+    registryUrl,
+    "quality:",
+    quality,
+    "→",
+    model
+  );
+
+  const v0 = getV0Client();
+  let lastError: Error | null = null;
+
+  for (let attempt = 1; attempt <= maxRetries + 1; attempt++) {
+    try {
+      if (attempt > 1) {
+        console.log(
+          `[v0-generator] Registry retry attempt ${attempt}/${
+            maxRetries + 1
+          }...`
+        );
+        await new Promise((resolve) => setTimeout(resolve, attempt * 2000));
+      }
+
+      // Initialize chat from registry URL
+      const chat = (await v0.chats.init({
+        type: "registry",
+        registry: { url: registryUrl },
+        chatPrivacy: "private",
+        name:
+          name || `Registry: ${new URL(registryUrl).pathname.split("/").pop()}`,
+      })) as ChatDetail;
+
+      console.log("[v0-generator] Registry initialized:", chat.id);
+      console.log("[v0-generator] Version status:", chat.latestVersion?.status);
+      console.log(
+        "[v0-generator] Files count:",
+        chat.latestVersion?.files?.length
+      );
+      console.log("[v0-generator] demoUrl:", chat.latestVersion?.demoUrl);
+
+      // Check if initialization failed
+      const status = chat.latestVersion?.status;
+      if (status === "failed") {
+        console.error(
+          "[v0-generator] Registry loading failed with status: failed"
+        );
+        throw new Error("Registry loading failed - status was 'failed'");
+      }
+
+      // Extract files from the response
+      const files: GeneratedFile[] =
+        chat.latestVersion?.files?.map((file) => ({
+          name: file.name,
+          content: file.content,
+        })) || [];
+
+      // Find main file using helper
+      const mainFile = findMainFile(files);
+
+      if (files.length === 0 && !chat.latestVersion?.demoUrl) {
+        console.warn(
+          "[v0-generator] Registry returned no files and no demoUrl"
+        );
+      }
+
+      return {
+        code: mainFile?.content || chat.text || "",
+        files,
+        chatId: chat.id,
+        demoUrl: chat.latestVersion?.demoUrl,
+        screenshotUrl: chat.latestVersion?.screenshotUrl,
+        versionId: chat.latestVersion?.id,
+        webUrl: chat.webUrl,
+        model,
+      };
+    } catch (error) {
+      console.error(
+        `[v0-generator] Registry init error (attempt ${attempt}):`,
+        error
+      );
+      lastError =
+        error instanceof Error ? error : new Error("Unknown registry error");
+
+      // Check for transient errors that should be retried
+      const msg = error instanceof Error ? error.message : String(error);
+      if (
+        msg.includes("500") ||
+        msg.includes("502") ||
+        msg.includes("503") ||
+        msg.includes("504") ||
+        msg.includes("timeout")
+      ) {
+        if (attempt <= maxRetries) {
+          console.log("[v0-generator] Will retry due to transient error...");
+          continue;
+        }
+      }
+
+      // Don't retry for other errors
+      throw lastError;
+    }
+  }
+
+  throw lastError || new Error("Unknown error in registry initialization");
 }
 
 // ═══════════════════════════════════════════════════════════════════════════

@@ -50,7 +50,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { useBuilderStore } from "@/lib/store";
-import { quickSearch, type CodeContext } from "@/lib/code-crawler";
+import { quickSearch, type CodeSnippet } from "@/lib/code-crawler";
 import { COMPONENT_CATEGORIES, type QuickPrompt } from "@/lib/template-data";
 import type { MediaItem, MediaFileType } from "@/components/media";
 
@@ -72,7 +72,7 @@ interface SelectedAsset {
   type: TabType;
   label: string;
   data?: unknown;
-  codeContext?: CodeContext[];
+  codeContext?: CodeSnippet[];
   suggestedPlacements?: PlacementSuggestion[];
 }
 
@@ -157,7 +157,7 @@ const POPULAR_COMPONENTS = [
 function generatePlacementSuggestions(
   assetType: TabType,
   assetLabel: string,
-  codeContext: CodeContext[]
+  codeContext: CodeSnippet[]
 ): PlacementSuggestion[] {
   const suggestions: PlacementSuggestion[] = [];
 
@@ -377,7 +377,7 @@ export function UnifiedAssetModal({
       setIsProcessing(true);
 
       // Run CodeCrawler to find relevant code
-      let codeContext: CodeContext[] = [];
+      let codeContext: CodeSnippet[] = [];
       if (files && files.length > 0) {
         // Extract hints based on asset type
         let hints: string[] = [];

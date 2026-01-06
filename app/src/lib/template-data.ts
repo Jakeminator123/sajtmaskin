@@ -2,6 +2,16 @@
 // V0 Templates integration
 
 import templatesData from "./templates.json";
+import templateCategoriesData from "./template-categories.json";
+
+// Build reverse lookup: templateId -> category
+const templateCategoryMapping: Record<string, string> = {};
+for (const [category, templateIds] of Object.entries(templateCategoriesData)) {
+  if (category.startsWith("_")) continue; // Skip metadata fields
+  for (const id of templateIds as string[]) {
+    templateCategoryMapping[id] = category;
+  }
+}
 
 export interface QuickPrompt {
   label: string;
@@ -30,16 +40,18 @@ export interface Template {
 
 // Import and normalize templates from JSON
 // Filter out category placeholder templates that are not real v0 templates
-const rawTemplates = (templatesData as Array<{
-  id: string;
-  title: string;
-  slug: string;
-  view_url: string;
-  edit_url: string;
-  image_filename: string;
-  preview_image_url: string;
-  category: string;
-}>).filter((t) => t.slug !== "categories" && t.id !== "categories");
+const rawTemplates = (
+  templatesData as Array<{
+    id: string;
+    title: string;
+    slug: string;
+    view_url: string;
+    edit_url: string;
+    image_filename: string;
+    preview_image_url: string;
+    category: string;
+  }>
+).filter((t) => t.slug !== "categories" && t.id !== "categories");
 
 export const TEMPLATES: Template[] = rawTemplates.map((t) => ({
   id: t.id,
@@ -74,6 +86,13 @@ function getTemplateCategoryId(template: Template): string {
     return "website-templates"; // Don't show category cards as templates
   }
 
+  // PRIORITY 1: Check manual category mapping (from template-categories.json)
+  // This overrides all other categorization methods
+  const mappedCategory = templateCategoryMapping[template.id];
+  if (mappedCategory) {
+    return mappedCategory;
+  }
+
   // Available V0 categories to distribute templates across
   const availableCategories = [
     "ai",
@@ -85,10 +104,10 @@ function getTemplateCategoryId(template: Template): string {
     "layouts",
     "website-templates",
     "apps-and-games",
+    "uncategorized", // New fallback category
   ];
 
-  // If template has a specific category that matches a V0 category, use it
-  // Otherwise, distribute templates evenly across categories using hash
+  // PRIORITY 2: If template has a specific category in its data, use it
   if (template.category && template.category !== "Templates") {
     const normalizedCategory = template.category
       .toLowerCase()
@@ -98,15 +117,9 @@ function getTemplateCategoryId(template: Template): string {
     }
   }
 
-  // Distribute templates evenly across categories using hash of template ID
-  // This ensures consistent category assignment for each template
-  let hash = 0;
-  for (let i = 0; i < template.id.length; i++) {
-    hash = (hash << 5) - hash + template.id.charCodeAt(i);
-    hash = hash & hash; // Convert to 32-bit integer
-  }
-  const categoryIndex = Math.abs(hash) % availableCategories.length;
-  return availableCategories[categoryIndex];
+  // PRIORITY 3: Return "uncategorized" instead of random hash distribution
+  // This prevents templates from appearing in wrong categories
+  return "uncategorized";
 }
 
 // V0.app category metadata
@@ -172,6 +185,13 @@ export const V0_CATEGORIES: Record<string, CategoryInfo> = {
     title: "Apps & Games",
     description: "Applikationer och spel",
     icon: "Gamepad2",
+    quickPrompts: [],
+  },
+  uncategorized: {
+    id: "uncategorized",
+    title: "Okategoriserade",
+    description: "Templates som ännu inte kategoriserats",
+    icon: "HelpCircle",
     quickPrompts: [],
   },
 };

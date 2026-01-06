@@ -5,9 +5,9 @@ This index helps AI agents find the right documentation quickly.
 
 PRIORITY READING ORDER
 ----------------------
-1. docs/information.md - Project overview, architecture, tech stack
-2. This file (docs-index.txt) - Documentation map
-3. Relevant API docs based on task
+1. quick-reference.txt - Common APIs and patterns (START HERE)
+2. docs/information.md - Project overview, architecture
+3. Use search_docs tool for specific questions
 
 PROJECT DOCUMENTATION (workspace root: docs/)
 ---------------------------------------------
@@ -16,11 +16,6 @@ docs/information.md
   Purpose: Complete project overview
   Contains: Tech stack, directory structure, API routes, AI pipeline, database schema
   When to read: First time, lost context, architecture questions
-
-docs/SUGGESTED_IMPROVEMENTS.md
-  Purpose: Roadmap and improvement ideas
-  Contains: Prioritized feature list, implementation status
-  When to read: Planning new features, understanding project direction
 
 docs/gpt-api/ (OpenAI API Reference)
 ------------------------------------
@@ -49,13 +44,28 @@ MCP-server.txt    - MCP integration docs
 MPC SERVER DOCS (app/services/mpc/docs/)
 ----------------------------------------
 overview.txt      - This server's overview and configuration
+quick-reference.txt - Common APIs and patterns (NEW!)
 error-playbook.txt - Error reporting guidelines
 docs-index.txt    - This file
 
-SCRAPED EXTERNAL DOCS
----------------------
-docgrab__vercel.com__docs/llms/ - Full Vercel documentation
-docgrab__platform.openai.com__docs_overview/llms/ - Full OpenAI documentation
+SCRAPED EXTERNAL DOCS (use search_docs tool)
+--------------------------------------------
+
+AI SDK 6 (docgrab__ai-sdk.dev__docs/):
+  - llms/llms.txt : Complete AI SDK documentation (~290k tokens)
+  - Topics: generateText, streamText, tools, embeddings, providers
+
+OpenAI API (docgrab__platform.openai.com__docs/):
+  - llms/llms-full.txt : Full OpenAI documentation
+  - llms/llms.txt      : Compact version
+  - Topics: Chat, Responses API, Images, Audio, Embeddings, Fine-tuning
+
+Vercel (docgrab__vercel.com__docs/):
+  - llms/llms.txt : Vercel platform documentation
+  - Topics: Deployments, Domains, Edge, Storage, Analytics
+
+v0 (docgrab__v0.app__docs_introduction/):
+  - md/docs_introduction.md : v0 introduction and examples
 
 QUICK REFERENCE: CURRENT MODELS USED
 ------------------------------------
@@ -72,5 +82,25 @@ User Prompt → Semantic Router (gpt-4o-mini)
            → v0 API (v0-1.5-md/lg)
            → demoUrl + files
 
-See docs/information.md for detailed pipeline documentation.
+MCP TOOLS AVAILABLE
+-------------------
 
+search_docs(query, source, limit)
+  - Search all documentation for a term
+  - source: "all" | "ai-sdk" | "openai" | "vercel" | "v0" | "local"
+  - Example: search_docs("streamText", "ai-sdk")
+
+get_doc(docPath)
+  - Read a specific documentation file
+  - Example: get_doc("docgrab__ai-sdk.dev__docs/llms/llms.txt")
+
+list_doc_sources()
+  - List all available sources and file counts
+
+report_error(message, level, stack, component, context)
+  - Log an error for later inspection
+
+list_errors(limit)
+  - Get recent error log entries
+
+See docs/information.md for detailed project documentation.

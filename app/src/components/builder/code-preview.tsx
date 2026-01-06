@@ -49,11 +49,13 @@ import {
   ExternalLink,
   Eye,
   Image as ImageIcon,
+  Info,
   Monitor,
   MousePointer2,
   RefreshCw,
   Smartphone,
   Tablet,
+  X,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { DesignModeOverlay } from "./design-mode-overlay";
@@ -113,9 +115,66 @@ export function CodePreview() {
   const [sandpackError, setSandpackError] = useState<string | null>(null);
   const [iframeError, setIframeError] = useState(false);
   const [preferScreenshot, setPreferScreenshot] = useState(false);
+  const [showPreviewInfo, setShowPreviewInfo] = useState(() => {
+    // Check localStorage for dismissed state
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("hidePreviewApiBanner") !== "true";
+    }
+    return true;
+  });
 
   // Track last logged URL to reduce console spam (only log when URL actually changes)
   const lastLoggedUrlRef = useRef<string | null>(null);
+
+  // Calculate the best route to show based on available files
+  // If no root page exists, navigate to first available route
+  const effectiveDemoUrl = useMemo(() => {
+    if (!demoUrl || !files || files.length === 0) return demoUrl;
+
+    // Check if root page exists
+    const hasRootPage = files.some(
+      (f) =>
+        f.name === "app/page.tsx" ||
+        f.name === "app/page.jsx" ||
+        f.name === "page.tsx" ||
+        f.name === "page.jsx" ||
+        f.name === "pages/index.tsx" ||
+        f.name === "pages/index.jsx"
+    );
+
+    if (hasRootPage) return demoUrl;
+
+    // No root page - find first available route
+    const pageFiles = files.filter(
+      (f) =>
+        (f.name.includes("/page.tsx") || f.name.includes("/page.jsx")) &&
+        f.name.startsWith("app/")
+    );
+
+    if (pageFiles.length === 0) return demoUrl;
+
+    // Extract route from first page file (e.g., "app/dashboard/page.tsx" -> "/dashboard")
+    const firstPage = pageFiles[0].name;
+    const routeMatch = firstPage.match(/^app\/(.+)\/page\.[jt]sx?$/);
+    
+    if (routeMatch) {
+      const route = "/" + routeMatch[1];
+      console.log("[CodePreview] No root page, auto-navigating to:", route);
+      
+      // Append route to demoUrl
+      const url = new URL(demoUrl);
+      url.pathname = route;
+      return url.toString();
+    }
+
+    return demoUrl;
+  }, [demoUrl, files]);
+
+  // Dismiss banner and remember choice
+  const dismissPreviewInfo = () => {
+    setShowPreviewInfo(false);
+    localStorage.setItem("hidePreviewApiBanner", "true");
+  };
 
   // Filter out WebGL errors from v0's generated code (harmless but noisy)
   useEffect(() => {
@@ -156,25 +215,26 @@ export function CodePreview() {
     };
   }, []);
 
-  // Log iframe URL changes only when demoUrl or timestamp actually changes
+  // Log iframe URL changes only when effectiveDemoUrl or timestamp actually changes
   useEffect(() => {
-    if (!demoUrl) return;
+    if (!effectiveDemoUrl) return;
 
-    const urlKey = `${demoUrl}-${lastRefreshTimestamp}`;
+    const urlKey = `${effectiveDemoUrl}-${lastRefreshTimestamp}`;
     if (lastLoggedUrlRef.current === urlKey) return;
 
     lastLoggedUrlRef.current = urlKey;
     console.log("[CodePreview] Iframe URL changed:", {
-      demoUrl,
+      effectiveDemoUrl,
+      originalDemoUrl: demoUrl,
       timestamp: lastRefreshTimestamp,
     });
-  }, [demoUrl, lastRefreshTimestamp]);
+  }, [effectiveDemoUrl, demoUrl, lastRefreshTimestamp]);
 
-  // Reset preview fallbacks when demoUrl changes (new version = try live iframe again)
+  // Reset preview fallbacks when effectiveDemoUrl changes (new version = try live iframe again)
   useEffect(() => {
     setIframeError(false);
     setPreferScreenshot(false);
-  }, [demoUrl]);
+  }, [effectiveDemoUrl]);
 
   // Handle download
   const handleDownload = () => {
@@ -197,8 +257,9 @@ export function CodePreview() {
   };
 
   const handleOpenPreviewInNewTab = () => {
-    if (!demoUrl) return;
-    window.open(demoUrl, "_blank", "noopener,noreferrer");
+    const urlToOpen = effectiveDemoUrl || demoUrl;
+    if (!urlToOpen) return;
+    window.open(urlToOpen, "_blank", "noopener,noreferrer");
   };
 
   // Convert files to Sandpack format (BACKUP only - primary is v0's demoUrl iframe)
@@ -256,7 +317,7 @@ export function CodePreview() {
             <div className="w-3 h-3 rounded-full bg-yellow-500/70" />
             <div className="w-3 h-3 rounded-full bg-green-500/70" />
           </div>
-          
+
           {/* URL bar */}
           <div className="flex-1 flex items-center gap-2 px-3 py-1.5 bg-gray-900/80 border border-gray-700/50 rounded-lg">
             <Eye className="h-3.5 w-3.5 text-gray-500 flex-shrink-0" />
@@ -279,7 +340,7 @@ export function CodePreview() {
               </Button>
             )}
           </div>
-          
+
           <HelpTooltip text="Live-förhandsgranskning av din webbplats. Uppdateras automatiskt efter varje ändring." />
         </div>
 
@@ -371,7 +432,11 @@ export function CodePreview() {
               }`}
               title="Inspect Element - välj element att redigera (som DevTools)"
             >
-              <MousePointer2 className={`h-3.5 w-3.5 ${isDesignModeActive ? "text-purple-400" : ""}`} />
+              <MousePointer2
+                className={`h-3.5 w-3.5 ${
+                  isDesignModeActive ? "text-purple-400" : ""
+                }`}
+              />
               <span className="hidden sm:inline">Inspect</span>
             </Button>
           )}
@@ -479,19 +544,41 @@ export function CodePreview() {
                   onToggle={() => toggleDesignMode()}
                   onElementSelect={(_selector, description) => {
                     // Send to chat panel via store
-                    const { setDesignModeInput, toggleDesignMode: toggle } = useBuilderStore.getState();
+                    const { setDesignModeInput, toggleDesignMode: toggle } =
+                      useBuilderStore.getState();
                     setDesignModeInput(`Ändra ${description}: `);
                     toggle(false); // Close design mode after selection
                   }}
                   onManualSelect={(prompt) => {
                     // Send to chat panel via store
-                    const { setDesignModeInput, toggleDesignMode: toggle } = useBuilderStore.getState();
+                    const { setDesignModeInput, toggleDesignMode: toggle } =
+                      useBuilderStore.getState();
                     setDesignModeInput(`${prompt}: `);
                     toggle(false); // Close design mode after selection
                   }}
-                  iframeSrc={demoUrl || undefined}
+                  iframeSrc={effectiveDemoUrl || demoUrl || undefined}
                 />
-                
+
+                {/* Info banner about preview limitations */}
+                {showPreviewInfo && (
+                  <div className="absolute top-0 left-0 right-0 z-20 bg-amber-900/95 border-b border-amber-700 px-3 py-2 flex items-start gap-2 text-xs">
+                    <Info className="h-4 w-4 text-amber-400 flex-shrink-0 mt-0.5" />
+                    <div className="flex-1 text-amber-100">
+                      <span className="font-medium">Preview-begränsning:</span>{" "}
+                      Templates med AI-funktioner (bildgenerering etc.) kan visa
+                      fel i preview. Din exporterade kod fungerar med dina
+                      API-nycklar.
+                    </div>
+                    <button
+                      onClick={dismissPreviewInfo}
+                      className="text-amber-400 hover:text-amber-200 flex-shrink-0"
+                      aria-label="Stäng"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                )}
+
                 {screenshotUrl && (preferScreenshot || iframeError) ? (
                   // Screenshot view (manual toggle OR automatic fallback if iframe fails)
                   <div className="flex-1 h-full flex flex-col items-center justify-center p-4 bg-black">
@@ -515,18 +602,20 @@ export function CodePreview() {
                       FIX: Use indexOf to preserve fragment exactly (including edge cases like trailing #)
                     */}
                     {(() => {
+                      // Use effectiveDemoUrl which auto-navigates to first route if no root page
+                      const urlToUse = effectiveDemoUrl || demoUrl;
                       // Safer hash handling: preserve exact fragment including empty hash
-                      const hashIndex = demoUrl.indexOf("#");
+                      const hashIndex = urlToUse.indexOf("#");
                       const base =
-                        hashIndex >= 0 ? demoUrl.slice(0, hashIndex) : demoUrl;
+                        hashIndex >= 0 ? urlToUse.slice(0, hashIndex) : urlToUse;
                       const hashPart =
-                        hashIndex >= 0 ? demoUrl.slice(hashIndex) : "";
+                        hashIndex >= 0 ? urlToUse.slice(hashIndex) : "";
                       const separator = base.includes("?") ? "&" : "?";
                       const cacheBustedUrl = `${base}${separator}v=${lastRefreshTimestamp}${hashPart}`;
 
                       return (
                         <iframe
-                          key={`${demoUrl}-${lastRefreshTimestamp}`}
+                          key={`${urlToUse}-${lastRefreshTimestamp}`}
                           src={cacheBustedUrl}
                           className="w-full h-full border-0"
                           style={{ minWidth: "100%", minHeight: "100%" }}

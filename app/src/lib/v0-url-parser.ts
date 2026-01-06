@@ -2,7 +2,7 @@
  * V0 URL Parser
  * =============
  *
- * Utility for parsing v0.dev URLs and extracting IDs.
+ * Utility for parsing v0.dev URLs, registry URLs, and extracting IDs.
  *
  * SUPPORTED URL FORMATS:
  *
@@ -22,10 +22,14 @@
  *    https://v0.dev/t/templateId
  *    → Returns: { type: "template", id: "templateId" }
  *
+ * 5. Registry URL (shadcn/custom registries):
+ *    https://ui.shadcn.com/r/styles/new-york/button.json
+ *    → Returns: { type: "registry", registryUrl: "...", componentName: "button" }
+ *
  * USAGE:
  *
  * ```typescript
- * import { parseV0Url, isV0Url } from './v0-url-parser';
+ * import { parseV0Url, isV0Url, isRegistryUrl, parseRegistryUrl } from './v0-url-parser';
  *
  * // Check if string is a v0 URL
  * if (isV0Url(userInput)) {
@@ -36,10 +40,16 @@
  *     // Continue existing chat
  *   }
  * }
+ *
+ * // Check if string is a registry URL
+ * if (isRegistryUrl(userInput)) {
+ *   const result = parseRegistryUrl(userInput);
+ *   await initFromRegistry(result.registryUrl);
+ * }
  * ```
  */
 
-export type V0UrlType = "template" | "chat" | "block" | "unknown";
+export type V0UrlType = "template" | "chat" | "block" | "registry" | "unknown";
 
 export interface V0ParseResult {
   type: V0UrlType;
@@ -226,6 +236,156 @@ export function extractUrlFromNpxCommand(command: string): string | null {
 }
 
 // ═══════════════════════════════════════════════════════════════════════════
+// REGISTRY URL PARSING (shadcn blocks, custom registries)
+// ═══════════════════════════════════════════════════════════════════════════
+
+/**
+ * Known registry domains that follow shadcn registry spec
+ */
+const REGISTRY_DOMAINS = ["ui.shadcn.com", "shadcn.com", "registry.shadcn.com"];
+
+export interface RegistryParseResult {
+  isRegistry: boolean;
+  registryUrl: string;
+  componentName: string | null;
+  style: string | null; // e.g. "new-york", "default"
+}
+
+/**
+ * Check if a URL is a registry URL (shadcn or custom registry)
+ *
+ * Registry URLs typically:
+ * - End with .json
+ * - Contain /r/ or /registry/ path
+ * - Are from known registry domains
+ */
+export function isRegistryUrl(input: string): boolean {
+  if (!input || typeof input !== "string") return false;
+
+  const trimmed = input.trim().toLowerCase();
+
+  // Check for known registry domains
+  for (const domain of REGISTRY_DOMAINS) {
+    if (trimmed.includes(domain)) {
+      return true;
+    }
+  }
+
+  // Check for registry path patterns
+  if (
+    (trimmed.includes("/r/") || trimmed.includes("/registry/")) &&
+    trimmed.endsWith(".json")
+  ) {
+    return true;
+  }
+
+  return false;
+}
+
+/**
+ * Parse a registry URL and extract component information
+ *
+ * Examples:
+ * - https://ui.shadcn.com/r/styles/new-york/button.json
+ *   → { componentName: "button", style: "new-york" }
+ * - https://custom-registry.com/r/my-component.json
+ *   → { componentName: "my-component", style: null }
+ */
+export function parseRegistryUrl(url: string): RegistryParseResult {
+  const result: RegistryParseResult = {
+    isRegistry: false,
+    registryUrl: url,
+    componentName: null,
+    style: null,
+  };
+
+  if (!url || typeof url !== "string") {
+    return result;
+  }
+
+  try {
+    // Normalize URL
+    let normalizedUrl = url.trim();
+    if (!normalizedUrl.startsWith("http")) {
+      normalizedUrl = "https://" + normalizedUrl;
+    }
+
+    const parsed = new URL(normalizedUrl);
+    const pathname = parsed.pathname;
+
+    // Check if this looks like a registry URL
+    if (!isRegistryUrl(normalizedUrl)) {
+      return result;
+    }
+
+    result.isRegistry = true;
+    result.registryUrl = normalizedUrl;
+
+    // Extract component name from pathname
+    // Pattern: /r/styles/{style}/{component}.json or /r/{component}.json
+    const jsonMatch = pathname.match(/\/([^/]+)\.json$/);
+    if (jsonMatch) {
+      result.componentName = jsonMatch[1];
+    }
+
+    // Extract style if present (e.g., /styles/new-york/)
+    const styleMatch = pathname.match(/\/styles\/([^/]+)\//);
+    if (styleMatch) {
+      result.style = styleMatch[1];
+    }
+
+    return result;
+  } catch {
+    // If parsing fails, return minimal result
+    result.isRegistry = isRegistryUrl(url);
+    return result;
+  }
+}
+
+/**
+ * Convert a component name to a registry URL
+ * Useful for quickly constructing registry URLs from component names
+ */
+export function buildRegistryUrl(
+  componentName: string,
+  options: {
+    baseUrl?: string;
+    style?: string;
+  } = {}
+): string {
+  const { baseUrl = "https://ui.shadcn.com", style = "new-york" } = options;
+  return `${baseUrl}/r/styles/${style}/${componentName}.json`;
+}
+
+/**
+ * Check if input is a registry import command
+ * Example: npx shadcn@latest add button
+ */
+export function isShadcnAddCommand(input: string): boolean {
+  if (!input) return false;
+  const lower = input.toLowerCase().trim();
+  return lower.includes("shadcn") && lower.includes("add");
+}
+
+/**
+ * Extract component name from shadcn add command
+ */
+export function extractComponentFromShadcnCommand(
+  command: string
+): string | null {
+  if (!command) return null;
+
+  // Match: npx shadcn@latest add <component>
+  // or: npx shadcn add <component>
+  const match = command.match(/shadcn(?:@[\w.]+)?\s+add\s+["']?(\w+)["']?/i);
+  if (match) {
+    return match[1];
+  }
+
+  return null;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
 // EXAMPLES FOR DOCUMENTATION
 // ═══════════════════════════════════════════════════════════════════════════
 //
@@ -241,6 +401,14 @@ export function extractUrlFromNpxCommand(command: string): string | null {
 //   parseV0Url("https://v0.app/chat/b/U7A9nVKHqlV?token=eyJhbGci...")
 //   → { type: "block", id: "U7A9nVKHqlV", token: "eyJhbGci..." }
 //
+// Registry URL:
+//   parseRegistryUrl("https://ui.shadcn.com/r/styles/new-york/button.json")
+//   → { isRegistry: true, componentName: "button", style: "new-york" }
+//
+// Build registry URL:
+//   buildRegistryUrl("card")
+//   → "https://ui.shadcn.com/r/styles/new-york/card.json"
+//
 // NPX command:
 //   const cmd = 'npx shadcn@latest add "https://v0.app/chat/b/U7A9nVKHqlV?token=..."'
 //   if (isNpxShadcnCommand(cmd)) {
@@ -248,4 +416,8 @@ export function extractUrlFromNpxCommand(command: string): string | null {
 //     const parsed = parseV0Url(url);
 //     // Use parsed.id to load template
 //   }
+//
+// Shadcn add command:
+//   extractComponentFromShadcnCommand("npx shadcn@latest add button")
+//   → "button"
 //

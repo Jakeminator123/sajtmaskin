@@ -198,6 +198,36 @@ function getOpenAIClient(userId?: string): OpenAI {
   return new OpenAI({ apiKey });
 }
 
+// Initialize OpenAI client specifically for IMAGE GENERATION
+// CRITICAL: AI Gateway does NOT support image endpoints (gpt-image-1, dall-e-3)
+// Image generation must ALWAYS use direct OpenAI API
+function getImageClient(userId?: string): OpenAI {
+  // Try to get user's own OpenAI key (NOT AI Gateway)
+  if (userId) {
+    try {
+      const settings = getUserSettings(userId);
+
+      // User's direct OpenAI key (preferred for images)
+      if (settings?.openai_api_key) {
+        console.log("[Orchestrator] Image gen: Using user's OpenAI key");
+        return new OpenAI({ apiKey: settings.openai_api_key });
+      }
+    } catch (e) {
+      console.warn("[Orchestrator] Could not get user settings for image:", e);
+    }
+  }
+
+  // Fallback to platform OpenAI key (NEVER use AI Gateway for images)
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    throw new Error(
+      "OPENAI_API_KEY required for image generation (AI Gateway not supported)"
+    );
+  }
+  console.log("[Orchestrator] Image gen: Using platform OpenAI key");
+  return new OpenAI({ apiKey });
+}
+
 /**
  * Extract context hints from a vague prompt for Smart Clarify.
  * Tries to identify what the user might be referring to.
@@ -1066,11 +1096,14 @@ export async function orchestrateWorkflow(
             imagePrompt.substring(0, 50) + "..."
           );
 
+          // CRITICAL: Use dedicated image client (NOT AI Gateway which doesn't support images)
+          const imageClient = getImageClient(context.userId);
+
           // Prefer gpt-image-1 for quality; fallback to dall-e-3 if unavailable
           let base64Data: string | undefined;
           try {
             // gpt-image-1 does NOT support response_format - it returns base64 by default
-            const gptImageResponse = await client.images.generate({
+            const gptImageResponse = await imageClient.images.generate({
               model: "gpt-image-1",
               prompt: imagePrompt,
               size: "1024x1024",
@@ -1088,7 +1121,7 @@ export async function orchestrateWorkflow(
                 : primaryError
             );
             // dall-e-3 supports response_format
-            const dalleResponse = await client.images.generate({
+            const dalleResponse = await imageClient.images.generate({
               model: "dall-e-3",
               prompt: imagePrompt,
               size: "1024x1024",
@@ -2014,10 +2047,11 @@ async function executeWorkflowWithContext(
       ) {
         generatedImages.push({ prompt: "Befintlig bild", url: imagePrompt });
       } else {
-        // Generate new image
+        // Generate new image - CRITICAL: Use direct OpenAI client (NOT AI Gateway)
+        const imageClient = getImageClient(context.userId);
         let base64Data: string | undefined;
         try {
-          const gptImageResponse = await client.images.generate({
+          const gptImageResponse = await imageClient.images.generate({
             model: "gpt-image-1",
             prompt: imagePrompt,
             size: "1024x1024",
@@ -2026,7 +2060,7 @@ async function executeWorkflowWithContext(
           });
           base64Data = gptImageResponse.data?.[0]?.b64_json;
         } catch {
-          const dalleResponse = await client.images.generate({
+          const dalleResponse = await imageClient.images.generate({
             model: "dall-e-3",
             prompt: imagePrompt,
             size: "1024x1024",

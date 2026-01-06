@@ -81,9 +81,9 @@ export const AI_SDK_FEATURES: Record<string, Omit<AIFeature, "enabled">> = {
     id: "mcpTools",
     name: "MCP Tools Integration",
     description:
-      "Anslut externa MCP-servrar för utökade verktyg (databaser, API:er, etc.).",
+      "Aktiverar dokumentationssökning och error logging via MCP-servern.",
     category: "tools",
-    status: "placeholder",
+    status: "beta",
     docsUrl: "https://sdk.vercel.ai/docs/ai-sdk-core/mcp",
   },
 

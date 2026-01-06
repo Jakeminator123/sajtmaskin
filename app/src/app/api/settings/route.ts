@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import {
-  getUserSettings,
   getOrCreateUserSettings,
   updateUserSettings,
   type UserSettings,
@@ -138,4 +137,3 @@ export async function POST(request: NextRequest) {
     );
   }
 }
-

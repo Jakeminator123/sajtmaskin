@@ -1,6 +1,7 @@
 // Builder components - Chat, code preview, and generation UI
 export { ChatPanel } from "./chat-panel";
 export { ChatMessage } from "./chat-message";
+export { AIChatMessage } from "./ai-chat-message";
 export { CodePreview } from "./code-preview";
 export { GenerationProgress } from "./generation-progress";
 export { QualitySelector } from "./quality-selector";

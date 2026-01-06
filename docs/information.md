@@ -230,7 +230,7 @@ Användare kan aktivera/avaktivera avancerade AI-funktioner via UI-panelen "AI F
 | **Extended Usage Tracking** | Stabil      | Detaljerad tokenräkning                            |
 | **Tool Approval**           | Placeholder | Human-in-the-loop för verktyg (ej implementerat)   |
 | **AI DevTools**             | Placeholder | Visuell debugger (kräver `@ai-sdk/devtools`)       |
-| **MCP Tools**               | Placeholder | Externa MCP-servrar (ej implementerat)             |
+| **MCP Tools**               | Beta        | Dokumentationssökning och error logging via MCP    |
 | **Reranking**               | Placeholder | Omranka sökresultat med AI (ej implementerat)      |
 | **Image Editing**           | Placeholder | Redigera bilder via AI (ej implementerat)          |
 
@@ -238,7 +238,9 @@ Användare kan aktivera/avaktivera avancerade AI-funktioner via UI-panelen "AI F
 
 - `lib/ai-sdk-features.ts` - Feature flags store (Zustand)
 - `lib/ai-agent.ts` - ToolLoopAgent implementation (nu integrerad i orchestrator)
+- `lib/mcp-tools.ts` - MCP Tools integration (dokumentationssökning)
 - `components/builder/ai-features-panel.tsx` - UI för feature toggles
+- `components/ai-elements/` - AI Elements UI-komponenter (Conversation, Message, PromptInput)
 
 Se `docs/gpt-api/OPENAI_API_LATEST_FEATURES.md` för detaljer.
 
@@ -311,13 +313,13 @@ See `app/ENV_CONFIG.md` for complete documentation.
 
 ## MCP Server (Model Context Protocol)
 
-Sajtmaskin includes an MCP server for enhanced AI agent integration in Cursor.
+Sajtmaskin includes an MCP server (v0.2.0) for enhanced AI agent integration in Cursor.
 
 ### Location & Setup
 
 - **Server**: `app/services/mpc/server.mjs`
 - **Docs folder**: `app/services/mpc/docs/`
-- **Config**: `.cursor/mcp.json` (create manually)
+- **Config**: `.cursor/mcp.json` (or copy from `app/services/mpc/cursor-mcp-config.json`)
 
 ### MCP Configuration
 
@@ -326,13 +328,24 @@ Create `.cursor/mcp.json`:
 {
   "mcpServers": {
     "sajtmaskin-docs": {
-      "command": "node",
-      "args": ["./app/services/mpc/server.mjs"],
+      "command": "npm",
+      "args": ["run", "mpc"],
+      "cwd": "C:\\path\\to\\sajtmaskin\\app",
       "env": {}
     }
   }
 }
 ```
+
+### Available Tools (v0.2.0)
+
+| Tool | Description |
+|------|-------------|
+| `search_docs` | Search all scraped documentation for a term |
+| `get_doc` | Read a specific documentation file by path |
+| `list_doc_sources` | List all available doc sources and file counts |
+| `report_error` | Log errors with level, stack, component, context |
+| `list_errors` | Retrieve recent error entries (max 50) |
 
 ### Available Resources (via MCP)
 
@@ -340,19 +353,27 @@ Create `.cursor/mcp.json`:
 |----------|-----|-------------|
 | docs-index | `docs://local/docs-index` | Complete documentation map |
 | overview | `docs://local/overview` | MCP server overview |
+| quick-reference | `docs://local/quick-reference` | Common APIs and patterns |
 | error-playbook | `docs://local/error-playbook` | Error reporting guide |
 
-### Available Tools
+### Scraped External Docs
 
-| Tool | Description |
-|------|-------------|
-| `report_error` | Log errors with level, stack, component, context |
-| `list_errors` | Retrieve recent error entries (max 50) |
+| Source | Path | Content |
+|--------|------|---------|
+| AI SDK 6 | `docgrab__ai-sdk.dev__docs/` | Full AI SDK documentation (79 pages) |
+| OpenAI | `docgrab__platform.openai.com__docs/` | OpenAI API docs incl. GPT-5.2, Responses API |
+| v0 | `docgrab__v0.dev__docs/` | v0 platform documentation (40 pages) |
+| Vercel | `docgrab__vercel.com__docs/` | Vercel platform documentation |
 
-### External Docs (Scraped)
+### Updating Documentation
 
-- `docgrab__vercel.com__docs/llms/` - Vercel AI SDK documentation
-- `docgrab__platform.openai.com__docs_overview/llms/` - OpenAI API documentation
+To refresh scraped docs, run:
+```bash
+cd app/services/mpc/docs
+python doc.py --auto "https://platform.openai.com/docs"
+python doc.py --auto "https://ai-sdk.dev/docs"
+python doc.py --auto "https://v0.dev/docs"
+```
 
 ## Notable UX/behavior
 

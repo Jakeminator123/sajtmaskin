@@ -877,16 +877,90 @@ def run_for_url(base_url: str):
     print(f"\nKlart: {combined.name} (+ {len(md_paths)} sidor i md/).")
 
 
+def run_for_url_auto(base_url: str, mode: str = "full"):
+    """
+    Non-interactive version of run_for_url.
+    mode: "full" = prioritize llms-full.txt, "all" = download all pages, "start" = just start page
+    """
+    base_url = normalize_url(base_url)
+    if not base_url:
+        return
+
+    site_dir = ensure_dir(Path.cwd() / f"docgrab__{slug_from_url(base_url)}")
+    print(f"\n==> Sparar till: {site_dir}")
+
+    method, pages, llms_files = discover_pages(base_url)
+
+    # Save llms files if found
+    write_llms_files(llms_files, site_dir)
+
+    print(f"Upptäckt: {method} ({len(pages)} sidor)")
+    print(f"  llms-full.txt: {'JA' if 'llms-full.txt' in llms_files else 'NEJ'}")
+    print(f"  llms.txt:      {'JA' if 'llms.txt' in llms_files else 'NEJ'}")
+
+    if mode == "full":
+        # Prefer llms-full.txt
+        if "llms-full.txt" in llms_files:
+            out = site_dir / "combined__llms-full.txt"
+            save_bytes(out, llms_files["llms-full.txt"].body)
+            print(f"Klart: sparade {out.name} (llms-full.txt).")
+            return
+        # Fallback to combined from pages
+        if pages:
+            md_paths = download_pages(pages, site_dir, max_pages=MAX_PAGES_DEFAULT)
+            combined = site_dir / "combined.md"
+            build_combined(md_paths, combined, title=base_url)
+            print(f"Klart: {combined.name}")
+            return
+        # Just download start page
+        md_paths = download_pages([base_url], site_dir, max_pages=1)
+        if md_paths:
+            print(f"Klart: laddade startsidan.")
+
+    elif mode == "all":
+        chosen = pages if pages else [base_url]
+        md_paths = download_pages(chosen, site_dir, max_pages=MAX_PAGES_DEFAULT)
+        combined = site_dir / "combined.md"
+        build_combined(md_paths, combined, title=base_url)
+        print(f"Klart: {combined.name} ({len(md_paths)} sidor).")
+
+    elif mode == "start":
+        md_paths = download_pages([base_url], site_dir, max_pages=1)
+        print(f"Klart: laddade startsidan.")
+
+
 def main() -> int:
-    args = [normalize_url(a) for a in sys.argv[1:] if normalize_url(a)]
+    # Check for --auto flag
+    auto_mode = "--auto" in sys.argv
+    mode = "full"
+    
+    if "--all" in sys.argv:
+        mode = "all"
+    elif "--start" in sys.argv:
+        mode = "start"
+
+    # Filter out flags
+    args = [normalize_url(a) for a in sys.argv[1:] 
+            if normalize_url(a) and not a.startswith("--")]
+    
     if args:
-        for u in args:
-            run_for_url(u)
+        if auto_mode:
+            for u in args:
+                run_for_url_auto(u, mode)
+        else:
+            for u in args:
+                run_for_url(u)
         return 0
 
     print("Klistra in en docs-URL (tom rad avslutar):")
+    print("Tips: Kör med --auto för icke-interaktivt läge")
+    print("      --auto --all  = ladda ner alla sidor")
+    print("      --auto        = prioritera llms-full.txt")
     while True:
-        u = normalize_url(input("> "))
+        try:
+            u = normalize_url(input("> "))
+        except EOFError:
+            break
         if not u:
             break
         run_for_url(u)

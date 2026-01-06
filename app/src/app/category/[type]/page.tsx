@@ -24,6 +24,7 @@ import {
   Gamepad2,
   Edit,
   Play,
+  HelpCircle,
 } from "lucide-react";
 import {
   getCategory,
@@ -53,6 +54,7 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   Palette,
   Layout,
   Gamepad2,
+  HelpCircle,
 };
 
 export default function CategoryPage() {
@@ -410,7 +412,6 @@ export default function CategoryPage() {
           )}
         </div>
       </div>
-
     </main>
   );
 }

@@ -1,8 +1,36 @@
+# Dev/temp folders
 old
-node_modules
-templates
 skrapning
-tsconfig.tsbuildinfo
-.preprompt_history.json
-cleaner.py
 INPUT_FOR_CURSOR
+info
+
+# Build/cache
+node_modules
+.next
+.cache
+dist
+build
+coverage
+
+# Generated files
+tsconfig.tsbuildinfo
+next-env.d.ts
+package-lock.json
+.preprompt_history.json
+
+# Scripts
+cleaner.py
+compat-report.py
+
+# MCP scraped docs - too large for indexing (60+ MB)
+# Use MCP server tools (search_docs, get_doc) instead
+app/services/mpc/docs/docgrab__*/raw/
+app/services/mpc/docs/docgrab__ai-sdk.dev__docs/llms/
+app/services/mpc/docs/docgrab__vercel.com__docs/llms/
+app/services/mpc/docs/docgrab__platform.openai.com__docs/llms/
+app/services/mpc/logs/
+
+# Keep these for quick reference:
+# - app/services/mpc/docs/*.txt (overview, quick-reference, docs-index)
+# - app/services/mpc/docs/docgrab__*/combined*.md
+# - docs/ folder (project documentation)
