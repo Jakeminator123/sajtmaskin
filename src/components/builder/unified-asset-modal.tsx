@@ -46,12 +46,16 @@ import {
   Video,
   Trash2,
 } from "lucide-react";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils/utils";
 import { useBuilderStore } from "@/lib/data/store";
 import { quickSearch, type CodeSnippet } from "@/lib/code-crawler";
-import { COMPONENT_CATEGORIES, type QuickPrompt } from "@/lib/templates/template-data";
+import {
+  COMPONENT_CATEGORIES,
+  type QuickPrompt,
+} from "@/lib/templates/template-data";
 import type { MediaItem, MediaFileType } from "@/components/media";
 
 // ============================================================================
@@ -912,9 +916,7 @@ function MediaTab({ projectId, onSelect, disabled }: MediaTabProps) {
           </button>
           <div>
             <h3 className="text-white font-medium">Sök stockbilder</h3>
-            <p className="text-xs text-gray-500">
-              Gratis bilder från Unsplash
-            </p>
+            <p className="text-xs text-gray-500">Gratis bilder från Unsplash</p>
           </div>
         </div>
 
@@ -975,10 +977,12 @@ function MediaTab({ projectId, onSelect, disabled }: MediaTabProps) {
                 key={img.id}
                 className="group relative aspect-square rounded-lg overflow-hidden border border-gray-800 hover:border-teal-500/50 transition-colors"
               >
-                <img
+                <Image
                   src={img.urlSmall}
                   alt={img.alt}
-                  className="w-full h-full object-cover"
+                  fill
+                  className="object-cover"
+                  unoptimized
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                 <div className="absolute bottom-0 left-0 right-0 p-2 opacity-0 group-hover:opacity-100 transition-opacity">
