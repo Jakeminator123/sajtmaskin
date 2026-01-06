@@ -16,49 +16,77 @@ import {
   Brain,
   Sparkles,
   ChevronDown,
-  Search,
 } from "lucide-react";
 
-// Model categories and their display info
-const MODEL_CATEGORIES = [
-  { id: "recommended", name: "⭐ Rekommenderade", color: "text-amber-400" },
-  { id: "chat", name: "💬 Chat", color: "text-blue-400" },
-  { id: "reasoning", name: "🧠 Resonemang", color: "text-purple-400" },
-  { id: "code", name: "💻 Kod", color: "text-green-400" },
-  { id: "fast", name: "⚡ Snabb", color: "text-cyan-400" },
-] as const;
+// Simple two-tier model selection: Premium (best quality) vs Fast (quick responses)
+const MODEL_TIERS = {
+  premium: {
+    name: "🏆 Premium",
+    desc: "Bäst kvalitet, kan ta längre tid",
+    color: "from-amber-500/20 to-orange-500/20",
+    border: "border-amber-500/30",
+  },
+  fast: {
+    name: "⚡ Snabb", 
+    desc: "Snabba svar, bra för iteration",
+    color: "from-cyan-500/20 to-blue-500/20",
+    border: "border-cyan-500/30",
+  },
+} as const;
 
-// Curated list of best models for the selector
+// Curated models: 3 Premium + 3 Fast
 const AVAILABLE_MODELS = [
-  // Recommended
-  { id: "openai/gpt-4o-mini", name: "GPT-4o Mini", provider: "OpenAI", category: "recommended", desc: "Snabb & billig" },
-  { id: "anthropic/claude-sonnet-4", name: "Claude Sonnet 4", provider: "Anthropic", category: "recommended", desc: "Bäst på kod" },
-  { id: "google/gemini-2.5-flash", name: "Gemini 2.5 Flash", provider: "Google", category: "recommended", desc: "1M context" },
+  // ═══ PREMIUM (Supermodeller - bäst kvalitet, kan ta tid) ═══
+  { 
+    id: "anthropic/claude-opus-4.5", 
+    name: "Claude Opus 4.5", 
+    provider: "Anthropic", 
+    tier: "premium" as const,
+    desc: "Smartaste modellen - djup analys & kreativitet",
+    badge: "👑 BÄST",
+  },
+  { 
+    id: "openai/gpt-5.2-pro", 
+    name: "GPT-5.2 Pro", 
+    provider: "OpenAI", 
+    tier: "premium" as const,
+    desc: "OpenAIs mest kapabla modell",
+    badge: "🚀 SENASTE",
+  },
+  { 
+    id: "xai/grok-code-fast-1", 
+    name: "Grok Code Fast 1", 
+    provider: "xAI", 
+    tier: "premium" as const,
+    desc: "Optimerad för kod - snabb & precis",
+    badge: "💻 KOD",
+  },
   
-  // Chat
-  { id: "openai/gpt-5", name: "GPT-5", provider: "OpenAI", category: "chat", desc: "Senaste" },
-  { id: "openai/gpt-4o", name: "GPT-4o", provider: "OpenAI", category: "chat", desc: "Stabil" },
-  { id: "anthropic/claude-opus-4", name: "Claude Opus 4", provider: "Anthropic", category: "chat", desc: "Smartast" },
-  { id: "xai/grok-4", name: "Grok 4", provider: "xAI", category: "chat", desc: "256K context" },
-  { id: "deepseek/deepseek-v3.2", name: "DeepSeek V3.2", provider: "DeepSeek", category: "chat", desc: "Billig" },
-  
-  // Reasoning
-  { id: "openai/o3", name: "O3", provider: "OpenAI", category: "reasoning", desc: "Bäst resonemang" },
-  { id: "openai/o3-mini", name: "O3 Mini", provider: "OpenAI", category: "reasoning", desc: "Snabbare" },
-  { id: "anthropic/claude-opus-4.5", name: "Claude Opus 4.5", provider: "Anthropic", category: "reasoning", desc: "Djup analys" },
-  { id: "deepseek/deepseek-r1", name: "DeepSeek R1", provider: "DeepSeek", category: "reasoning", desc: "Billig" },
-  
-  // Code
-  { id: "openai/gpt-5-codex", name: "GPT-5 Codex", provider: "OpenAI", category: "code", desc: "Kodoptimerad" },
-  { id: "mistral/codestral", name: "Codestral", provider: "Mistral", category: "code", desc: "256K" },
-  { id: "xai/grok-code-fast-1", name: "Grok Code Fast", provider: "xAI", category: "code", desc: "Snabb kod" },
-  { id: "alibaba/qwen3-coder", name: "Qwen3 Coder", provider: "Alibaba", category: "code", desc: "Gratis tier" },
-  
-  // Fast
-  { id: "openai/gpt-5-nano", name: "GPT-5 Nano", provider: "OpenAI", category: "fast", desc: "Snabbast" },
-  { id: "google/gemini-3-flash", name: "Gemini 3 Flash", provider: "Google", category: "fast", desc: "1M context" },
-  { id: "anthropic/claude-haiku-4.5", name: "Claude Haiku 4.5", provider: "Anthropic", category: "fast", desc: "Billig" },
-  { id: "meta/llama-4-scout", name: "Llama 4 Scout", provider: "Meta", category: "fast", desc: "Open source" },
+  // ═══ SNABB (För snabb iteration och prototyping) ═══
+  { 
+    id: "openai/gpt-4o-mini", 
+    name: "GPT-4o Mini", 
+    provider: "OpenAI", 
+    tier: "fast" as const,
+    desc: "Snabb & kostnadseffektiv - bra balans",
+    badge: "⭐ DEFAULT",
+  },
+  { 
+    id: "google/gemini-2.5-flash", 
+    name: "Gemini 2.5 Flash", 
+    provider: "Google", 
+    tier: "fast" as const,
+    desc: "1M tokens context - blixtsnabb",
+    badge: "🔥 1M CTX",
+  },
+  { 
+    id: "anthropic/claude-haiku-4.5", 
+    name: "Claude Haiku 4.5", 
+    provider: "Anthropic", 
+    tier: "fast" as const,
+    desc: "Snabb Claude - billig & pålitlig",
+    badge: "💨 SNABB",
+  },
 ];
 
 interface UserSettings {
@@ -98,26 +126,6 @@ export function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
   // Model selection
   const [selectedModel, setSelectedModel] = useState("openai/gpt-4o-mini");
   const [showModelPicker, setShowModelPicker] = useState(false);
-  const [modelSearch, setModelSearch] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState<string>("recommended");
-  
-  // Filter models based on search and category
-  const filteredModels = useMemo(() => {
-    let models = AVAILABLE_MODELS;
-    
-    if (modelSearch) {
-      const search = modelSearch.toLowerCase();
-      models = models.filter(m => 
-        m.name.toLowerCase().includes(search) || 
-        m.provider.toLowerCase().includes(search) ||
-        m.id.toLowerCase().includes(search)
-      );
-    } else if (selectedCategory !== "all") {
-      models = models.filter(m => m.category === selectedCategory);
-    }
-    
-    return models;
-  }, [modelSearch, selectedCategory]);
   
   // Get current model info
   const currentModelInfo = useMemo(() => {
@@ -125,10 +133,15 @@ export function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
       id: selectedModel,
       name: selectedModel.split("/").pop() || selectedModel,
       provider: selectedModel.split("/")[0] || "Unknown",
-      category: "chat",
+      tier: "fast" as const,
       desc: "",
+      badge: "",
     };
   }, [selectedModel]);
+  
+  // Group models by tier
+  const premiumModels = AVAILABLE_MODELS.filter(m => m.tier === "premium");
+  const fastModels = AVAILABLE_MODELS.filter(m => m.tier === "fast");
 
   // Fetch settings on open
   useEffect(() => {
@@ -337,15 +350,32 @@ export function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
                 {/* Model Selector Button */}
                 <button
                   onClick={() => setShowModelPicker(!showModelPicker)}
-                  className="w-full p-3 bg-gray-900 border border-gray-700 rounded-lg flex items-center justify-between hover:border-gray-600 transition-colors"
+                  className={`w-full p-3 bg-gray-900 border rounded-lg flex items-center justify-between hover:border-gray-600 transition-colors ${
+                    currentModelInfo.tier === "premium" ? "border-amber-500/30" : "border-cyan-500/30"
+                  }`}
                 >
                   <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded bg-gradient-to-br from-teal-500/20 to-purple-500/20 flex items-center justify-center text-sm">
+                    <div className={`w-9 h-9 rounded-lg flex items-center justify-center text-sm font-medium ${
+                      currentModelInfo.tier === "premium" 
+                        ? "bg-gradient-to-br from-amber-500/20 to-orange-500/20 text-amber-400"
+                        : "bg-gradient-to-br from-cyan-500/20 to-blue-500/20 text-cyan-400"
+                    }`}>
                       {currentModelInfo.provider.charAt(0)}
                     </div>
                     <div className="text-left">
-                      <p className="text-sm font-medium text-white">{currentModelInfo.name}</p>
-                      <p className="text-xs text-gray-500">{currentModelInfo.provider} · {currentModelInfo.desc}</p>
+                      <div className="flex items-center gap-2">
+                        <p className="text-sm font-medium text-white">{currentModelInfo.name}</p>
+                        {currentModelInfo.badge && (
+                          <span className={`px-1.5 py-0.5 text-[10px] rounded ${
+                            currentModelInfo.tier === "premium" 
+                              ? "bg-amber-500/20 text-amber-300"
+                              : "bg-cyan-500/20 text-cyan-300"
+                          }`}>
+                            {currentModelInfo.badge}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-gray-500">{currentModelInfo.desc}</p>
                     </div>
                   </div>
                   <ChevronDown className={`h-4 w-4 text-gray-500 transition-transform ${showModelPicker ? "rotate-180" : ""}`} />
@@ -354,69 +384,80 @@ export function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
                 {/* Model Picker Dropdown */}
                 {showModelPicker && (
                   <div className="bg-gray-900 border border-gray-700 rounded-lg overflow-hidden">
-                    {/* Search */}
-                    <div className="p-2 border-b border-gray-800">
-                      <div className="relative">
-                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
-                        <input
-                          type="text"
-                          placeholder="Sök modell..."
-                          value={modelSearch}
-                          onChange={(e) => setModelSearch(e.target.value)}
-                          className="w-full pl-9 pr-3 py-2 bg-gray-800 border border-gray-700 rounded text-sm text-white placeholder:text-gray-500 focus:outline-none focus:border-teal-500"
-                        />
+                    {/* Premium Models */}
+                    <div className="border-b border-gray-800">
+                      <div className={`px-3 py-2 bg-gradient-to-r ${MODEL_TIERS.premium.color}`}>
+                        <p className="text-xs font-medium text-amber-300">{MODEL_TIERS.premium.name}</p>
+                        <p className="text-[10px] text-amber-300/60">{MODEL_TIERS.premium.desc}</p>
                       </div>
+                      {premiumModels.map((model) => (
+                        <button
+                          key={model.id}
+                          onClick={() => {
+                            setSelectedModel(model.id);
+                            setShowModelPicker(false);
+                          }}
+                          className={`w-full p-3 flex items-center gap-3 hover:bg-amber-500/10 transition-colors ${
+                            selectedModel === model.id ? "bg-amber-500/20 border-l-2 border-amber-500" : ""
+                          }`}
+                        >
+                          <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-amber-500/20 to-orange-500/20 flex items-center justify-center text-sm font-medium text-amber-400">
+                            {model.provider.charAt(0)}
+                          </div>
+                          <div className="flex-1 text-left">
+                            <div className="flex items-center gap-2">
+                              <p className="text-sm font-medium text-white">{model.name}</p>
+                              {model.badge && (
+                                <span className="px-1.5 py-0.5 bg-amber-500/20 text-[10px] text-amber-300 rounded">
+                                  {model.badge}
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs text-gray-500">{model.desc}</p>
+                          </div>
+                          {selectedModel === model.id && (
+                            <Check className="h-4 w-4 text-amber-400" />
+                          )}
+                        </button>
+                      ))}
                     </div>
                     
-                    {/* Category Tabs */}
-                    {!modelSearch && (
-                      <div className="flex gap-1 p-2 border-b border-gray-800 overflow-x-auto">
-                        {MODEL_CATEGORIES.map((cat) => (
-                          <button
-                            key={cat.id}
-                            onClick={() => setSelectedCategory(cat.id)}
-                            className={`px-3 py-1.5 text-xs rounded-full whitespace-nowrap transition-colors ${
-                              selectedCategory === cat.id
-                                ? "bg-gray-700 text-white"
-                                : "text-gray-400 hover:text-white hover:bg-gray-800"
-                            }`}
-                          >
-                            {cat.name}
-                          </button>
-                        ))}
+                    {/* Fast Models */}
+                    <div>
+                      <div className={`px-3 py-2 bg-gradient-to-r ${MODEL_TIERS.fast.color}`}>
+                        <p className="text-xs font-medium text-cyan-300">{MODEL_TIERS.fast.name}</p>
+                        <p className="text-[10px] text-cyan-300/60">{MODEL_TIERS.fast.desc}</p>
                       </div>
-                    )}
-                    
-                    {/* Model List */}
-                    <div className="max-h-64 overflow-y-auto">
-                      {filteredModels.length === 0 ? (
-                        <p className="p-4 text-center text-sm text-gray-500">Inga modeller hittades</p>
-                      ) : (
-                        filteredModels.map((model) => (
-                          <button
-                            key={model.id}
-                            onClick={() => {
-                              setSelectedModel(model.id);
-                              setShowModelPicker(false);
-                              setModelSearch("");
-                            }}
-                            className={`w-full p-3 flex items-center gap-3 hover:bg-gray-800 transition-colors ${
-                              selectedModel === model.id ? "bg-teal-500/10" : ""
-                            }`}
-                          >
-                            <div className="w-8 h-8 rounded bg-gradient-to-br from-gray-700 to-gray-800 flex items-center justify-center text-xs text-gray-400">
-                              {model.provider.charAt(0)}
+                      {fastModels.map((model) => (
+                        <button
+                          key={model.id}
+                          onClick={() => {
+                            setSelectedModel(model.id);
+                            setShowModelPicker(false);
+                          }}
+                          className={`w-full p-3 flex items-center gap-3 hover:bg-cyan-500/10 transition-colors ${
+                            selectedModel === model.id ? "bg-cyan-500/20 border-l-2 border-cyan-500" : ""
+                          }`}
+                        >
+                          <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-cyan-500/20 to-blue-500/20 flex items-center justify-center text-sm font-medium text-cyan-400">
+                            {model.provider.charAt(0)}
+                          </div>
+                          <div className="flex-1 text-left">
+                            <div className="flex items-center gap-2">
+                              <p className="text-sm font-medium text-white">{model.name}</p>
+                              {model.badge && (
+                                <span className="px-1.5 py-0.5 bg-cyan-500/20 text-[10px] text-cyan-300 rounded">
+                                  {model.badge}
+                                </span>
+                              )}
                             </div>
-                            <div className="flex-1 text-left">
-                              <p className="text-sm text-white">{model.name}</p>
-                              <p className="text-xs text-gray-500">{model.provider} · {model.desc}</p>
-                            </div>
-                            {selectedModel === model.id && (
-                              <Check className="h-4 w-4 text-teal-400" />
-                            )}
-                          </button>
-                        ))
-                      )}
+                            <p className="text-xs text-gray-500">{model.desc}</p>
+                          </div>
+                          {selectedModel === model.id && (
+                            <Check className="h-4 w-4 text-cyan-400" />
+                          )}
+                        </button>
+                      ))}
                     </div>
                   </div>
                 )}
