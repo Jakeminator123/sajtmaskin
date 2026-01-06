@@ -6,7 +6,7 @@ import Link from "next/link";
 import { Navbar, ShaderBackground } from "@/components/layout";
 import { AuthModal } from "@/components/auth";
 import { UserSettingsModal } from "@/components/settings/user-settings-modal";
-import { useAuth } from "@/lib/auth-store";
+import { useAuth } from "@/lib/auth/auth-store";
 import { Button } from "@/components/ui/button";
 import {
   Diamond,

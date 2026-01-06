@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth/auth";
 import {
   getUserById,
   deductDiamonds,
@@ -9,8 +9,8 @@ import {
   incrementDailyGenerations,
   incrementDailyRefines,
   DAILY_RATE_LIMITS,
-} from "@/lib/database";
-import { orchestrateWorkflow } from "@/lib/orchestrator-agent";
+} from "@/lib/data/database";
+import { orchestrateWorkflow } from "@/lib/ai/orchestrator-agent";
 import type { QualityLevel } from "@/lib/api-client";
 
 // Allow up to 5 minutes for complex workflows (Vercel Pro max is 300s)

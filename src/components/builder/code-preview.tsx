@@ -29,8 +29,8 @@ import { Button } from "@/components/ui/button";
 import {
   convertV0FilesToSandpack,
   parseCodeToSandpackFiles,
-} from "@/lib/code-parser";
-import { useBuilderStore } from "@/lib/store";
+} from "@/lib/utils/code-parser";
+import { useBuilderStore } from "@/lib/data/store";
 
 // Sandpack - ENDAST FALLBACK, används sällan i praktiken
 // Behålls som backup om v0 API skulle misslyckas
@@ -51,7 +51,6 @@ import {
   Image as ImageIcon,
   Info,
   Monitor,
-  MousePointer2,
   RefreshCw,
   Smartphone,
   Tablet,
@@ -108,6 +107,7 @@ export function CodePreview() {
     setViewMode,
     setDeviceSize,
     setDemoUrl,
+    // Design Mode is controlled from ChatPanel toolbar
     isDesignModeActive,
     toggleDesignMode,
   } = useBuilderStore();
@@ -156,11 +156,11 @@ export function CodePreview() {
     // Extract route from first page file (e.g., "app/dashboard/page.tsx" -> "/dashboard")
     const firstPage = pageFiles[0].name;
     const routeMatch = firstPage.match(/^app\/(.+)\/page\.[jt]sx?$/);
-    
+
     if (routeMatch) {
       const route = "/" + routeMatch[1];
       console.log("[CodePreview] No root page, auto-navigating to:", route);
-      
+
       // Append route to demoUrl
       const url = new URL(demoUrl);
       url.pathname = route;
@@ -419,27 +419,7 @@ export function CodePreview() {
             </Button>
           </div>
 
-          {/* Design Mode toggle - always visible in preview mode when we have content */}
-          {viewMode === "preview" && (demoUrl || currentCode) && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => toggleDesignMode()}
-              className={`h-7 px-2.5 gap-1.5 rounded-md transition-all ${
-                isDesignModeActive
-                  ? "bg-purple-600/30 border border-purple-500/50 text-purple-300"
-                  : "bg-gray-800/50 text-gray-500 hover:text-gray-300"
-              }`}
-              title="Inspect Element - välj element att redigera (som DevTools)"
-            >
-              <MousePointer2
-                className={`h-3.5 w-3.5 ${
-                  isDesignModeActive ? "text-purple-400" : ""
-                }`}
-              />
-              <span className="hidden sm:inline">Inspect</span>
-            </Button>
-          )}
+          {/* Design Mode toggle moved to ChatPanel toolbar for cleaner UI */}
         </div>
       </div>
 
@@ -607,7 +587,9 @@ export function CodePreview() {
                       // Safer hash handling: preserve exact fragment including empty hash
                       const hashIndex = urlToUse.indexOf("#");
                       const base =
-                        hashIndex >= 0 ? urlToUse.slice(0, hashIndex) : urlToUse;
+                        hashIndex >= 0
+                          ? urlToUse.slice(0, hashIndex)
+                          : urlToUse;
                       const hashPart =
                         hashIndex >= 0 ? urlToUse.slice(hashIndex) : "";
                       const separator = base.includes("?") ? "&" : "?";

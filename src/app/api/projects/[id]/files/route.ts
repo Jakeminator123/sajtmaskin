@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/auth";
-import { getProjectById, getProjectData } from "@/lib/database";
+import { getCurrentUser } from "@/lib/auth/auth";
+import { getProjectById, getProjectData } from "@/lib/data/database";
 
 interface RouteParams {
   params: Promise<{ id: string }>;

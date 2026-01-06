@@ -21,7 +21,7 @@ import {
   CheckCircle,
   AlertCircle,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/utils/utils";
 import type { UploadedFile } from "./file-upload-zone";
 
 interface AttachmentChipsProps {

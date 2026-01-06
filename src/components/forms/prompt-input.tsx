@@ -21,7 +21,7 @@ import { useRouter } from "next/navigation";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { HelpTooltip } from "@/components/layout";
-import { PromptWizardModal, type WizardData } from "@/components/modals";
+import { PromptWizardModalV2, type WizardData } from "@/components/modals";
 import { ArrowUp, Loader2, Wand2, Lightbulb } from "lucide-react";
 
 // ═══════════════════════════════════════════════════════════════
@@ -116,8 +116,8 @@ export function PromptInput({
 
   return (
     <>
-      {/* Prompt Wizard Modal */}
-      <PromptWizardModal
+      {/* Prompt Wizard Modal V2 - Streamlined 5-step flow */}
+      <PromptWizardModalV2
         isOpen={showWizard}
         onClose={() => setShowWizard(false)}
         onComplete={handleWizardComplete}

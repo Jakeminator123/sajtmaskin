@@ -4,7 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { getGoogleAuthUrl } from "@/lib/auth";
+import { getGoogleAuthUrl } from "@/lib/auth/auth";
 
 export async function GET(req: NextRequest) {
   try {

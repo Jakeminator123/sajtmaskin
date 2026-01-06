@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/auth";
-import { getProjectById, getProjectData } from "@/lib/database";
-import { sanitizeProjectPath } from "@/lib/path-utils";
+import { getCurrentUser } from "@/lib/auth/auth";
+import { getProjectById, getProjectData } from "@/lib/data/database";
+import { sanitizeProjectPath } from "@/lib/utils/path-utils";
 import JSZip from "jszip";
 
 /**

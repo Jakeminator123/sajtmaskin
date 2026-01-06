@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/auth";
-import { getProjectData, getProjectById } from "@/lib/database";
+import { getCurrentUser } from "@/lib/auth/auth";
+import { getProjectData, getProjectById } from "@/lib/data/database";
 import OpenAI from "openai";
 
 /**

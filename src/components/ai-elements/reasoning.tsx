@@ -14,7 +14,7 @@ import {
   type HTMLAttributes,
   type ReactNode,
 } from "react";
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/utils/utils";
 
 // ============================================================================
 // REASONING CONTEXT

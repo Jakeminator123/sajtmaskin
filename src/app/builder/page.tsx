@@ -8,9 +8,9 @@ import {
 import { ClientOnly, HelpTooltip, ShaderBackground } from "@/components/layout";
 import { FinalizeModal } from "@/components/modals";
 import { Button } from "@/components/ui/button";
-import { useAuth } from "@/lib/auth-store";
+import { useAuth } from "@/lib/auth/auth-store";
 import { createProject, getProject } from "@/lib/project-client";
-import { useBuilderStore } from "@/lib/store";
+import { useBuilderStore } from "@/lib/data/store";
 import {
   ArrowLeft,
   Check,
@@ -79,7 +79,6 @@ function BuilderContent() {
   const urlPrompt = searchParams.get("prompt");
   const source = searchParams.get("source"); // "audit" if coming from audit flow
   const templateId = searchParams.get("templateId");
-  const localTemplateId = searchParams.get("localTemplateId");
 
   // Handle audit prompt from sessionStorage (avoids URL length limits)
   // This is set by handleBuildFromAudit in home-page.tsx
@@ -178,7 +177,7 @@ function BuilderContent() {
   // Auto-create project if user arrives with prompt/template but no projectId yet
   useEffect(() => {
     const shouldAutoCreate =
-      !projectId && (prompt || templateId || localTemplateId);
+      !projectId && (prompt || templateId);
 
     if (!shouldAutoCreate) {
       if (!projectId && !isCreatingProjectRef.current) {
@@ -211,16 +210,12 @@ function BuilderContent() {
           promptName ||
           (templateId
             ? `v0-template ${templateId}`
-            : localTemplateId
-            ? `Lokal mall ${localTemplateId}`
             : `Webbprojekt - ${dateLabel}`);
 
         const description = prompt
           ? prompt.substring(0, 100)
           : templateId
           ? `Baserat på v0 template: ${templateId}`
-          : localTemplateId
-          ? `Baserat på lokal mall: ${localTemplateId}`
           : undefined;
 
         console.log("[Builder] Auto-creating project:", projectName);
@@ -246,9 +241,6 @@ function BuilderContent() {
         if (templateId) {
           params.set("templateId", templateId);
         }
-        if (localTemplateId) {
-          params.set("localTemplateId", localTemplateId);
-        }
         router.replace(`/builder?${params.toString()}`);
 
         console.log("[Builder] Project auto-created:", project.id);
@@ -268,7 +260,6 @@ function BuilderContent() {
     prompt,
     projectId,
     templateId,
-    localTemplateId,
     type,
     router,
     setProjectId,
@@ -282,7 +273,6 @@ function BuilderContent() {
       if (
         !prompt &&
         !templateId &&
-        !localTemplateId &&
         !isCreatingProjectRef.current
       ) {
         setIsProjectDataLoading(false);
@@ -406,7 +396,6 @@ function BuilderContent() {
     clearChat,
     prompt,
     templateId,
-    localTemplateId,
   ]);
 
   // Handle starting a new design
@@ -496,8 +485,6 @@ function BuilderContent() {
 
   const title = projectName
     ? projectName
-    : localTemplateId
-    ? "Lokal mall"
     : templateId
     ? "Template"
     : type
@@ -716,7 +703,6 @@ function BuilderContent() {
             categoryType={type || undefined}
             initialPrompt={prompt || undefined}
             templateId={templateId || undefined}
-            localTemplateId={localTemplateId || undefined}
             instanceId="builder"
             isPrimaryInstance={true}
             isProjectDataLoading={isProjectDataLoading}

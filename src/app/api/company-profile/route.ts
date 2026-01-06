@@ -16,7 +16,7 @@ import {
   searchCompanyProfiles,
   linkCompanyProfileToProject,
   type CompanyProfile,
-} from "@/lib/database";
+} from "@/lib/data/database";
 
 // GET - Retrieve company profiles
 export async function GET(req: NextRequest) {

@@ -3,11 +3,11 @@ import {
   createProject,
   getAllProjects,
   type Project,
-} from "@/lib/database";
-import { getCache, setCache, deleteCache } from "@/lib/redis";
+} from "@/lib/data/database";
+import { getCache, setCache, deleteCache } from "@/lib/data/redis";
 import { canCreateProject } from "@/lib/project-cleanup";
-import { getCurrentUser } from "@/lib/auth";
-import { getSessionIdFromRequest } from "@/lib/session";
+import { getCurrentUser } from "@/lib/auth/auth";
+import { getSessionIdFromRequest } from "@/lib/auth/session";
 
 // GET /api/projects - List all projects
 export async function GET() {

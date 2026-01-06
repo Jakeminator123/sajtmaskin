@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getProjectById, saveImage } from "@/lib/database";
-import { getCurrentUser } from "@/lib/auth";
-import { uploadBlob, generateUniqueFilename } from "@/lib/blob-service";
+import { getProjectById, saveImage } from "@/lib/data/database";
+import { getCurrentUser } from "@/lib/auth/auth";
+import { uploadBlob, generateUniqueFilename } from "@/lib/vercel/blob-service";
 
 interface RouteParams {
   params: Promise<{ id: string }>;

@@ -5,9 +5,9 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/auth";
-import { getDb, TEST_USER_EMAIL, getUploadsDir } from "@/lib/database";
-import { getRedisInfo, flushRedisCache } from "@/lib/redis";
+import { getCurrentUser } from "@/lib/auth/auth";
+import { getDb, TEST_USER_EMAIL, getUploadsDir } from "@/lib/data/database";
+import { getRedisInfo, flushRedisCache } from "@/lib/data/redis";
 import { PATHS } from "@/lib/config";
 import fs from "fs";
 import path from "path";

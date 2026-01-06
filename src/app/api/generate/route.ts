@@ -10,14 +10,14 @@ import {
   generateCode,
   sanitizeCode,
   type QualityLevel,
-} from "@/lib/v0-generator";
-import { getCurrentUser } from "@/lib/auth";
-import { getSessionIdFromRequest } from "@/lib/session";
+} from "@/lib/v0/v0-generator";
+import { getCurrentUser } from "@/lib/auth/auth";
+import { getSessionIdFromRequest } from "@/lib/auth/session";
 import {
   getOrCreateGuestUsage,
   incrementGuestGenerations,
   deductGenerationDiamond,
-} from "@/lib/database";
+} from "@/lib/data/database";
 
 // Category names in Swedish for response messages
 const CATEGORY_MESSAGES: Record<string, string> = {

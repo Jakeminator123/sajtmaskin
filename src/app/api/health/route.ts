@@ -5,7 +5,7 @@
  */
 
 import { NextResponse } from "next/server";
-import { getRedis } from "@/lib/redis";
+import { getRedis } from "@/lib/data/redis";
 import { FEATURES, REDIS_CONFIG } from "@/lib/config";
 
 export async function GET() {

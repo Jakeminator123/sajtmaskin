@@ -7,8 +7,8 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { listProjects } from "@/lib/vercel-client";
-import { isVercelConfigured } from "@/lib/vercel-client";
+import { listProjects } from "@/lib/vercel/vercel-client";
+import { isVercelConfigured } from "@/lib/vercel/vercel-client";
 import { FEATURES } from "@/lib/config";
 
 export async function GET(request: NextRequest) {

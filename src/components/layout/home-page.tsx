@@ -8,14 +8,17 @@
  *
  * SECTIONS:
  * 1. Hero with personalized greeting (for logged-in users)
- * 2. Template Gallery - Quick start with preset categories
- * 3. Site Audit - Analyze existing websites
- * 4. Prompt Input - Custom website description
+ * 2. Build Method Selection - Choose how to start
+ *    - Template: Pick from pre-made designs
+ *    - Category: Browse by type (landing page, dashboard, etc.)
+ *    - Audit: Analyze existing site and improve
+ *    - Freeform: Describe what you want
  *
  * FEATURES:
  * - Shader background with theme variations
  * - Onboarding flow for new users
  * - Responsive design (mobile-first)
+ * - Clear separation between build methods
  *
  * STATE MANAGEMENT:
  * - Auth state via useAuth hook
@@ -23,19 +26,40 @@
  */
 
 import { useState } from "react";
-import { TemplateGallery } from "@/components/templates";
+import { TemplateGallery, TemplateBrowser } from "@/components/templates";
 import { PromptInput } from "@/components/forms";
-import { OnboardingModal, useOnboarding, AuditModal } from "@/components/modals";
+import {
+  OnboardingModal,
+  useOnboarding,
+  AuditModal,
+} from "@/components/modals";
 import { AuthModal } from "@/components/auth";
 import { UserSettingsModal } from "@/components/settings/user-settings-modal";
-import { HelpTooltip, Navbar, ShaderBackground, SiteAuditSection } from "./index";
-import { RotateCcw, Sparkles } from "lucide-react";
-import { useAuth } from "@/lib/auth-store";
+import {
+  HelpTooltip,
+  Navbar,
+  ShaderBackground,
+  SiteAuditSection,
+} from "./index";
+import {
+  RotateCcw,
+  Sparkles,
+  Layout,
+  FolderOpen,
+  Search,
+  Pencil,
+  ChevronDown,
+  ChevronUp,
+} from "lucide-react";
+import { useAuth } from "@/lib/auth/auth-store";
 import type { AuditResult } from "@/types/audit";
 
 // ═══════════════════════════════════════════════════════════════
 // COMPONENT
 // ═══════════════════════════════════════════════════════════════
+
+// Build method types for clear user selection
+type BuildMethod = "template" | "category" | "audit" | "freeform" | null;
 
 export function HomePage() {
   const [showAuthModal, setShowAuthModal] = useState(false);
@@ -44,6 +68,8 @@ export function HomePage() {
   const [auditResult, setAuditResult] = useState<AuditResult | null>(null);
   const [auditedUrl, setAuditedUrl] = useState<string | null>(null);
   const [showAuditModal, setShowAuditModal] = useState(false);
+  const [showTemplateBrowser, setShowTemplateBrowser] = useState(false);
+  const [activeBuildMethod, setActiveBuildMethod] = useState<BuildMethod>(null);
   // Note: auditGeneratedPrompt removed - audit now navigates directly to builder
   // with prompt stored in sessionStorage (avoids URL length limits)
 
@@ -60,7 +86,8 @@ export function HomePage() {
   } = useOnboarding();
 
   // Get user's first name for greeting
-  const firstName = user?.name?.split(" ")[0] || user?.email?.split("@")[0] || undefined;
+  const firstName =
+    user?.name?.split(" ")[0] || user?.email?.split("@")[0] || undefined;
 
   const handleLoginClick = () => {
     setAuthMode("login");
@@ -202,7 +229,9 @@ export function HomePage() {
                 Välkommen tillbaka,{" "}
                 <span className="text-white font-medium">{firstName}</span>!
               </span>
-              <span className="text-xs text-gray-500">{user?.diamonds ?? 0} 💎</span>
+              <span className="text-xs text-gray-500">
+                {user?.diamonds ?? 0} 💎
+              </span>
             </div>
           </div>
         )}
@@ -243,62 +272,199 @@ export function HomePage() {
           </div>
         )}
 
-        {/* Template Gallery */}
-        <TemplateGallery />
+        {/* ═══════════════════════════════════════════════════════════
+            BUILD METHOD SELECTION
+            Clear options for how to start building
+            ═══════════════════════════════════════════════════════════ */}
+        <div className="w-full max-w-4xl animate-fadeInUp stagger-2 opacity-0 [animation-fill-mode:forwards]">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+            {/* Template Option */}
+            <button
+              onClick={() => {
+                setActiveBuildMethod("template");
+                setShowTemplateBrowser(true);
+              }}
+              className={`group relative flex flex-col items-center p-5 rounded-xl border transition-all duration-300 ${
+                activeBuildMethod === "template"
+                  ? "bg-gradient-to-br from-violet-600/20 to-purple-600/20 border-violet-500/50 shadow-lg shadow-violet-500/10"
+                  : "bg-black/50 border-gray-800 hover:border-violet-500/40 hover:bg-violet-950/20"
+              }`}
+            >
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                <Layout className="h-6 w-6 text-white" />
+              </div>
+              <span className="font-medium text-white text-sm">Template</span>
+              <span className="text-xs text-gray-500 mt-1 text-center">
+                Välj en färdig design
+              </span>
+            </button>
+
+            {/* Category Option */}
+            <button
+              onClick={() =>
+                setActiveBuildMethod(
+                  activeBuildMethod === "category" ? null : "category"
+                )
+              }
+              className={`group relative flex flex-col items-center p-5 rounded-xl border transition-all duration-300 ${
+                activeBuildMethod === "category"
+                  ? "bg-gradient-to-br from-teal-600/20 to-cyan-600/20 border-teal-500/50 shadow-lg shadow-teal-500/10"
+                  : "bg-black/50 border-gray-800 hover:border-teal-500/40 hover:bg-teal-950/20"
+              }`}
+            >
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-teal-500 to-cyan-600 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                <FolderOpen className="h-6 w-6 text-white" />
+              </div>
+              <span className="font-medium text-white text-sm">Kategori</span>
+              <span className="text-xs text-gray-500 mt-1 text-center">
+                Välj typ av sida
+              </span>
+              {activeBuildMethod === "category" ? (
+                <ChevronUp className="absolute -bottom-1 h-4 w-4 text-teal-400" />
+              ) : (
+                <ChevronDown className="absolute -bottom-1 h-4 w-4 text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity" />
+              )}
+            </button>
+
+            {/* Audit Option */}
+            <button
+              onClick={() =>
+                setActiveBuildMethod(
+                  activeBuildMethod === "audit" ? null : "audit"
+                )
+              }
+              className={`group relative flex flex-col items-center p-5 rounded-xl border transition-all duration-300 ${
+                activeBuildMethod === "audit"
+                  ? "bg-gradient-to-br from-amber-600/20 to-orange-600/20 border-amber-500/50 shadow-lg shadow-amber-500/10"
+                  : "bg-black/50 border-gray-800 hover:border-amber-500/40 hover:bg-amber-950/20"
+              }`}
+            >
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                <Search className="h-6 w-6 text-white" />
+              </div>
+              <span className="font-medium text-white text-sm">Audit</span>
+              <span className="text-xs text-gray-500 mt-1 text-center">
+                Analysera befintlig sida
+              </span>
+              {activeBuildMethod === "audit" ? (
+                <ChevronUp className="absolute -bottom-1 h-4 w-4 text-amber-400" />
+              ) : (
+                <ChevronDown className="absolute -bottom-1 h-4 w-4 text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity" />
+              )}
+            </button>
+
+            {/* Freeform Option */}
+            <button
+              onClick={() =>
+                setActiveBuildMethod(
+                  activeBuildMethod === "freeform" ? null : "freeform"
+                )
+              }
+              className={`group relative flex flex-col items-center p-5 rounded-xl border transition-all duration-300 ${
+                activeBuildMethod === "freeform"
+                  ? "bg-gradient-to-br from-pink-600/20 to-rose-600/20 border-pink-500/50 shadow-lg shadow-pink-500/10"
+                  : "bg-black/50 border-gray-800 hover:border-pink-500/40 hover:bg-pink-950/20"
+              }`}
+            >
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-pink-500 to-rose-600 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                <Pencil className="h-6 w-6 text-white" />
+              </div>
+              <span className="font-medium text-white text-sm">Fritext</span>
+              <span className="text-xs text-gray-500 mt-1 text-center">
+                Beskriv din vision
+              </span>
+              {activeBuildMethod === "freeform" ? (
+                <ChevronUp className="absolute -bottom-1 h-4 w-4 text-pink-400" />
+              ) : (
+                <ChevronDown className="absolute -bottom-1 h-4 w-4 text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity" />
+              )}
+            </button>
+          </div>
+        </div>
 
         {/* ═══════════════════════════════════════════════════════════
-            SECTION: Site Audit
-            Allows users to analyze their existing websites
+            EXPANDABLE SECTIONS based on selected build method
             ═══════════════════════════════════════════════════════════ */}
-        
-        {/* Divider - Site Audit */}
-        <div className="flex items-center gap-4 w-full max-w-2xl animate-fadeIn stagger-4 opacity-0 [animation-fill-mode:forwards]">
-          <div className="flex-1 h-px bg-gradient-to-r from-transparent via-teal-700/50 to-transparent" />
-          <span className="text-sm font-medium text-teal-500/70 uppercase tracking-wider flex items-center gap-2">
-            <span className="w-1.5 h-1.5 bg-teal-500 rounded-full animate-pulse" />
-            Analysera
-          </span>
-          <div className="flex-1 h-px bg-gradient-to-r from-transparent via-teal-700/50 to-transparent" />
-        </div>
 
-        {/* Site Audit Section */}
-        <SiteAuditSection
-          onAuditComplete={handleAuditComplete}
-          onRequireAuth={handleRequireAuth}
-        />
+        {/* Category Selection (expanded) */}
+        {activeBuildMethod === "category" && (
+          <div className="w-full max-w-4xl animate-fadeInUp">
+            <div className="flex items-center gap-4 mb-6">
+              <div className="flex-1 h-px bg-gradient-to-r from-transparent via-teal-700/50 to-transparent" />
+              <span className="text-sm font-medium text-teal-500/70 uppercase tracking-wider flex items-center gap-2">
+                <span className="w-1.5 h-1.5 bg-teal-500 rounded-full animate-pulse" />
+                Välj kategori
+              </span>
+              <div className="flex-1 h-px bg-gradient-to-r from-transparent via-teal-700/50 to-transparent" />
+            </div>
+            <TemplateGallery />
+          </div>
+        )}
 
-        {/* ═══════════════════════════════════════════════════════════
-            SECTION: Custom Prompt
-            Free-form text input for custom website descriptions
-            ═══════════════════════════════════════════════════════════ */}
-        
-        {/* Divider - Custom Build */}
-        <div className="flex items-center gap-4 w-full max-w-md animate-fadeIn stagger-5 opacity-0 [animation-fill-mode:forwards]">
-          <div className="flex-1 h-px bg-gradient-to-r from-transparent via-gray-700 to-transparent" />
-          <span className="text-sm font-medium text-gray-500 uppercase tracking-wider">
-            Eller beskriv
-          </span>
-          <div className="flex-1 h-px bg-gradient-to-r from-transparent via-gray-700 to-transparent" />
-        </div>
+        {/* Site Audit Section (expanded) */}
+        {activeBuildMethod === "audit" && (
+          <div className="w-full max-w-2xl animate-fadeInUp">
+            <div className="flex items-center gap-4 mb-6">
+              <div className="flex-1 h-px bg-gradient-to-r from-transparent via-amber-700/50 to-transparent" />
+              <span className="text-sm font-medium text-amber-500/70 uppercase tracking-wider flex items-center gap-2">
+                <span className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-pulse" />
+                Analysera webbplats
+              </span>
+              <div className="flex-1 h-px bg-gradient-to-r from-transparent via-amber-700/50 to-transparent" />
+            </div>
+            <SiteAuditSection
+              onAuditComplete={handleAuditComplete}
+              onRequireAuth={handleRequireAuth}
+            />
+          </div>
+        )}
 
-        {/* Prompt Input */}
-        <div className="animate-fadeInUp stagger-6 opacity-0 [animation-fill-mode:forwards]">
-          <PromptInput
-            initialValue={initialContext || undefined}
-          />
-        </div>
+        {/* Freeform Prompt Section (expanded) */}
+        {activeBuildMethod === "freeform" && (
+          <div className="w-full max-w-2xl animate-fadeInUp">
+            <div className="flex items-center gap-4 mb-6">
+              <div className="flex-1 h-px bg-gradient-to-r from-transparent via-pink-700/50 to-transparent" />
+              <span className="text-sm font-medium text-pink-500/70 uppercase tracking-wider flex items-center gap-2">
+                <span className="w-1.5 h-1.5 bg-pink-500 rounded-full animate-pulse" />
+                Beskriv din vision
+              </span>
+              <div className="flex-1 h-px bg-gradient-to-r from-transparent via-pink-700/50 to-transparent" />
+            </div>
+            <PromptInput initialValue={initialContext || undefined} />
+            <p className="text-xs text-gray-600 text-center mt-4">
+              <kbd className="px-1.5 py-0.5 bg-gray-800 text-gray-400 text-[10px] rounded">
+                Enter
+              </kbd>{" "}
+              för att skicka •
+              <kbd className="px-1.5 py-0.5 bg-gray-800 text-gray-400 text-[10px] rounded ml-1">
+                Shift+Enter
+              </kbd>{" "}
+              för ny rad
+            </p>
+          </div>
+        )}
 
-        {/* Footer hint - keyboard shortcuts */}
-        <p className="text-xs text-gray-600 text-center max-w-sm animate-fadeIn" style={{ animationDelay: '0.4s' }}>
-          <kbd className="px-1.5 py-0.5 bg-gray-800 text-gray-400 text-[10px] rounded">Enter</kbd> för att skicka • 
-          <kbd className="px-1.5 py-0.5 bg-gray-800 text-gray-400 text-[10px] rounded ml-1">Shift+Enter</kbd> för ny rad
-          <br />
-          <span className="text-gray-500 mt-1 inline-block">
-            AI genererar kod som du kan ladda ner och använda.
-          </span>
-        </p>
+        {/* Quick tip when no method is selected */}
+        {!activeBuildMethod && (
+          <p className="text-sm text-gray-500 text-center animate-fadeIn">
+            Välj ett alternativ ovan för att börja bygga din webbplats
+          </p>
+        )}
       </div>
 
+      {/* Template Browser Modal */}
+      {showTemplateBrowser && (
+        <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-sm animate-fadeIn">
+          <div className="w-full h-full">
+            <TemplateBrowser
+              onClose={() => {
+                setShowTemplateBrowser(false);
+                setActiveBuildMethod(null);
+              }}
+            />
+          </div>
+        </div>
+      )}
     </main>
   );
 }

@@ -17,7 +17,7 @@
 import { useMemo } from "react";
 import Image from "next/image";
 import { Bot, Copy, ExternalLink } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/utils/utils";
 import {
   Message,
   MessageContent,
@@ -26,7 +26,7 @@ import {
   MessageAction,
   MessageAvatar,
 } from "@/components/ai-elements";
-import type { Message as StoreMessage, MessageAttachment } from "@/lib/store";
+import type { Message as StoreMessage, MessageAttachment } from "@/lib/data/store";
 
 // DiceBear avatar styles
 const AVATAR_STYLES = [

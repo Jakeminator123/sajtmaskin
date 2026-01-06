@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { readFile } from "fs/promises";
 import path from "path";
-import { getUploadsDir } from "@/lib/database";
+import { getUploadsDir } from "@/lib/data/database";
 import { existsSync } from "fs";
 
 interface RouteParams {

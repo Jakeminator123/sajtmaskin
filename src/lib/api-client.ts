@@ -20,10 +20,6 @@
  *   - Input: templateId, quality
  *   - Output: template code + files + demoUrl
  *
- * GET /api/local-template?id=xxx → (används av chat-panel direkt)
- *   - Läser lokal mall från disk
- *   - Returnerar kod + filer + metadata
- *
  * KVALITETSNIVÅER (2 st):
  * - standard: v0-1.5-md (128K context, snabb, billig)
  * - premium:  v0-1.5-lg (512K context, bäst, 10x kostnad)

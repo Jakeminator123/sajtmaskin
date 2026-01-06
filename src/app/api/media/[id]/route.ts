@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth/auth";
 import {
   deleteMediaLibraryItem,
   getMediaLibraryItemById,
-} from "@/lib/database";
+} from "@/lib/data/database";
 
 interface RouteParams {
   params: Promise<{ id: string }>;

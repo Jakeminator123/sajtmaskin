@@ -6,8 +6,8 @@ import {
   getProjectData,
   type Project,
   type ProjectData,
-} from "@/lib/database";
-import { getCache, setCache, deleteCache } from "@/lib/redis";
+} from "@/lib/data/database";
+import { getCache, setCache, deleteCache } from "@/lib/data/redis";
 
 interface RouteParams {
   params: Promise<{ id: string }>;

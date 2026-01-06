@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useMemo } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { COMPONENT_CATEGORIES, type QuickPrompt } from "@/lib/template-data";
+import { COMPONENT_CATEGORIES, type QuickPrompt } from "@/lib/templates/template-data";
 import {
   Plus,
   LayoutTemplate,

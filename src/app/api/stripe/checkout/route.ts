@@ -4,7 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth/auth";
 import { getPackageById } from "@/lib/stripe";
 import { URLS, SECRETS } from "@/lib/config";
 import Stripe from "stripe";

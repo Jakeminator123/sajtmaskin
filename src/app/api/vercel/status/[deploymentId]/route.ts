@@ -4,8 +4,8 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { getProjectDeploymentStatus } from "@/lib/vercel-deployment-service";
-import { isVercelConfigured } from "@/lib/vercel-client";
+import { getProjectDeploymentStatus } from "@/lib/vercel/vercel-deployment-service";
+import { isVercelConfigured } from "@/lib/vercel/vercel-client";
 import { FEATURES } from "@/lib/config";
 
 interface RouteParams {

@@ -7,8 +7,8 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { deployProject } from "@/lib/vercel-deployment-service";
-import { isVercelConfigured } from "@/lib/vercel-client";
+import { deployProject } from "@/lib/vercel/vercel-deployment-service";
+import { isVercelConfigured } from "@/lib/vercel/vercel-client";
 import { FEATURES } from "@/lib/config";
 
 export async function POST(request: NextRequest) {

@@ -16,7 +16,7 @@ import {
   type ChangeEvent,
   type KeyboardEvent,
 } from "react";
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/utils/utils";
 
 // ============================================================================
 // TYPES

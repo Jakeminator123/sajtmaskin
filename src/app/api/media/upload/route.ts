@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth/auth";
 import {
   saveMediaLibraryItem,
   canUserUploadFile,
   getMediaLibraryCounts,
   getMediaLibraryByUser,
-} from "@/lib/database";
-import { uploadBlob, generateUniqueFilename } from "@/lib/blob-service";
+} from "@/lib/data/database";
+import { uploadBlob, generateUniqueFilename } from "@/lib/vercel/blob-service";
 
 /**
  * Media Library Upload API

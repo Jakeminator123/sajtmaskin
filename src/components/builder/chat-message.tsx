@@ -1,6 +1,6 @@
 "use client";
 
-import { Message, MessageAttachment, UserFileAttachment } from "@/lib/store";
+import { Message, MessageAttachment, UserFileAttachment } from "@/lib/data/store";
 import {
   Bot,
   Search,
@@ -10,7 +10,7 @@ import {
   ChevronDown,
   ChevronUp,
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/utils/utils";
 import Image from "next/image";
 import { useMemo, useState } from "react";
 

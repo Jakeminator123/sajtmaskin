@@ -6,7 +6,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { deployProject } from "@/lib/vercel-deployment-service";
+import { deployProject } from "@/lib/vercel/vercel-deployment-service";
 import {
   isVercelConfigured,
   getDomainPrice,
@@ -15,9 +15,9 @@ import {
   addDomainToProject,
   getProject,
   DomainContactInfo,
-} from "@/lib/vercel-client";
-import { getProjectById } from "@/lib/database";
-import { saveDomainOrder, updateDomainOrderStatus } from "@/lib/database";
+} from "@/lib/vercel/vercel-client";
+import { getProjectById } from "@/lib/data/database";
+import { saveDomainOrder, updateDomainOrderStatus } from "@/lib/data/database";
 
 const USD_TO_SEK = 11; // Approximate conversion rate
 const MARKUP_MULTIPLIER = 3; // 300% markup

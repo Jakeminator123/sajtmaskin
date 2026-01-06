@@ -15,7 +15,7 @@
 import { Button } from "@/components/ui/button";
 import { HelpTooltip } from "@/components/layout";
 import { Star, Diamond } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/utils/utils";
 import type { QualityLevel } from "@/lib/api-client";
 
 // Re-export for convenience

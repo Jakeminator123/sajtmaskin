@@ -4,8 +4,8 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { registerUser, setAuthCookie } from "@/lib/auth";
-import { createTransaction } from "@/lib/database";
+import { registerUser, setAuthCookie } from "@/lib/auth/auth";
+import { createTransaction } from "@/lib/data/database";
 
 export async function POST(req: NextRequest) {
   try {

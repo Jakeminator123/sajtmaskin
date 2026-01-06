@@ -5,8 +5,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { HelpTooltip, ShaderBackground } from "@/components/layout";
-import { LocalTemplateCard } from "@/components/templates";
-import { PromptWizardModal, type WizardData } from "@/components/modals";
+import { PromptWizardModalV2, type WizardData } from "@/components/modals";
 import {
   ArrowLeft,
   Rocket,
@@ -33,11 +32,7 @@ import {
   getTemplatesByCategory,
   getTemplateImageUrl,
   type Template,
-} from "@/lib/template-data";
-import {
-  getLocalTemplatesForCategory,
-  type LocalTemplate,
-} from "@/lib/local-templates";
+} from "@/lib/templates/template-data";
 import { createProject } from "@/lib/project-client";
 import Image from "next/image";
 import { PreviewModal } from "@/components/templates";
@@ -66,7 +61,6 @@ export default function CategoryPage() {
   const [showWizard, setShowWizard] = useState(false);
 
   const category = getCategory(type);
-  const templates = getLocalTemplatesForCategory(type);
   const v0Category = V0_CATEGORIES[type];
   const v0Templates = v0Category ? getTemplatesByCategory(type) : [];
 
@@ -131,27 +125,6 @@ export default function CategoryPage() {
     } catch (error) {
       console.error("Failed to create project:", error);
       setIsCreating(false);
-    }
-  };
-
-  const handleTemplateSelect = async (template: LocalTemplate) => {
-    if (isCreating) return;
-    setIsCreating(true);
-    try {
-      // Create project in database
-      const project = await createProject(
-        `${template.name} - ${new Date().toLocaleDateString("sv-SE")}`,
-        type,
-        `Baserat på lokal mall: ${template.name}`
-      );
-      // Navigate to builder with localTemplateId
-      const url = `/builder?project=${project.id}&localTemplateId=${template.id}`;
-      router.push(url);
-    } catch (error) {
-      console.error("Failed to create project from template:", error);
-      setIsCreating(false);
-      // Re-throw so template-card can reset its loading state
-      throw error;
     }
   };
 
@@ -238,8 +211,8 @@ export default function CategoryPage() {
       {/* Shader Background */}
       <ShaderBackground color="#002020" speed={0.2} opacity={0.35} />
 
-      {/* Prompt Wizard Modal */}
-      <PromptWizardModal
+      {/* Prompt Wizard Modal - Optimized V2 with 5 steps instead of 11 */}
+      <PromptWizardModalV2
         isOpen={showWizard}
         onClose={() => setShowWizard(false)}
         onComplete={handleWizardComplete}
@@ -380,34 +353,6 @@ export default function CategoryPage() {
                   />
                 ))}
               </div>
-            </section>
-          )}
-
-          {/* Section 4: Local pre-made templates */}
-          {templates.length > 0 && (
-            <section>
-              <div className="flex items-center gap-2 mb-4">
-                <Layout className="h-5 w-5 text-teal-400" />
-                <h2 className="text-lg font-semibold text-white">
-                  Färdiga mallar
-                </h2>
-                <HelpTooltip text="Nedladdade mallar från v0-communityt. Klicka för att använda som startpunkt och anpassa efter dina behov." />
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                {templates.map((template) => (
-                  <LocalTemplateCard
-                    key={template.id}
-                    template={template}
-                    onSelect={handleTemplateSelect}
-                    disabled={isCreating}
-                  />
-                ))}
-              </div>
-
-              <p className="text-xs text-gray-600 text-center mt-4">
-                Klicka på en mall för att använda den som grund för ditt projekt
-              </p>
             </section>
           )}
         </div>

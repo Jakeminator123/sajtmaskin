@@ -20,7 +20,7 @@ import * as LucideIcons from "lucide-react";
 import {
   getAllV0Categories,
   getTemplatesByCategory,
-} from "@/lib/template-data";
+} from "@/lib/templates/template-data";
 
 // ═══════════════════════════════════════════════════════════════
 // ICON MAPPING

@@ -25,7 +25,7 @@
  * Om crawler hittar inget ska v0 fortfarande anropas
  */
 
-import type { GeneratedFile } from "./v0-generator";
+import type { GeneratedFile } from "@/lib/v0/v0-generator";
 
 // ============================================================================
 // TYPES

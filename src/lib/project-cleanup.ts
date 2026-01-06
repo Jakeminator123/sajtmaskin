@@ -16,7 +16,7 @@
  * - This ensures user edits don't affect the template or spam V0
  */
 
-import { getDb } from "./database";
+import { getDb } from "@/lib/data/database";
 
 // Cleanup configuration
 const CLEANUP_CONFIG = {
@@ -39,7 +39,8 @@ const CLEANUP_CONFIG = {
   MAX_ANONYMOUS_PROJECTS_PER_SESSION: 3,
 
   // Max projects per authenticated user (free tier)
-  MAX_USER_PROJECTS_FREE: 10,
+  // NOTE: User requested max 8 for "personal templates/started projects"
+  MAX_USER_PROJECTS_FREE: 8,
 
   // Max projects per authenticated user (paid)
   MAX_USER_PROJECTS_PAID: 100,
@@ -124,7 +125,7 @@ export async function runCleanup(): Promise<CleanupResult> {
     )
     .run();
   result.expiredTemplateCaches = expiredCaches.changes;
-  
+
   // 2b. Clean up template cache entries for deleted users
   const orphanedTemplateCache = db
     .prepare(
@@ -133,7 +134,11 @@ export async function runCleanup(): Promise<CleanupResult> {
        AND user_id NOT IN (SELECT id FROM users)`
     )
     .run();
-  console.log("[Cleanup] Removed", orphanedTemplateCache.changes, "orphaned template cache entries");
+  console.log(
+    "[Cleanup] Removed",
+    orphanedTemplateCache.changes,
+    "orphaned template cache entries"
+  );
 
   // 3. Clean up orphaned project files (no matching project)
   const orphanedFiles = db
@@ -322,9 +327,13 @@ export function getCleanupStats(): {
     )?.count || 0;
 
   const templateCacheCount =
-    (db.prepare("SELECT COUNT(*) as count FROM template_cache").get() as {
-      count: number;
-    } | undefined)?.count || 0;
+    (
+      db.prepare("SELECT COUNT(*) as count FROM template_cache").get() as
+        | {
+            count: number;
+          }
+        | undefined
+    )?.count || 0;
 
   const templateCacheExpired =
     (

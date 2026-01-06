@@ -5,9 +5,9 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/auth";
-import { getUserAuditById, deleteUserAudit } from "@/lib/database";
-import { getCachedAudit, invalidateUserAuditCache } from "@/lib/redis";
+import { getCurrentUser } from "@/lib/auth/auth";
+import { getUserAuditById, deleteUserAudit } from "@/lib/data/database";
+import { getCachedAudit, invalidateUserAuditCache } from "@/lib/data/redis";
 
 interface RouteContext {
   params: Promise<{ id: string }>;

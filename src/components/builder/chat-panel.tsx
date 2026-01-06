@@ -8,10 +8,9 @@
  *
  * INGÅNGSVÄGAR:
  * 1. Template (v0 community) → /api/template → chatId + kod
- * 2. Lokal template → /api/local-template → chatId + kod
- * 3. Kategori (landing page, etc.) → initialPrompt → ny generation
- * 4. Sparad projekt → loadFromProject → befintlig chatId + kod
- * 5. Fri prompt → initialPrompt → ny generation
+ * 2. Kategori (landing page, etc.) → initialPrompt → ny generation
+ * 3. Sparad projekt → loadFromProject → befintlig chatId + kod
+ * 4. Fri prompt → initialPrompt → ny generation
  *
  * SMART ROUTING (v3.0):
  * - Om chatId/kod finns → handleRefinement (även första prompten)
@@ -55,17 +54,17 @@ import {
 } from "@/components/media";
 import { Button } from "@/components/ui/button";
 import { generateFromTemplate } from "@/lib/api-client";
-import { useAuth } from "@/lib/auth-store";
-import type { MediaLibraryItem } from "@/lib/prompt-utils";
-import { useBuilderStore, type MessageAttachment } from "@/lib/store";
+import { useAuth } from "@/lib/auth/auth-store";
+import type { MediaLibraryItem } from "@/lib/utils/prompt-utils";
+import { useBuilderStore, type MessageAttachment } from "@/lib/data/store";
 import {
   extractTemplateId,
   extractUrlFromNpxCommand,
   isNpxShadcnCommand,
   isV0Url,
   parseV0Url,
-} from "@/lib/v0-url-parser";
-import type { OrchestratorResult } from "@/lib/orchestrator-agent";
+} from "@/lib/v0/v0-url-parser";
+import type { OrchestratorResult } from "@/lib/ai/orchestrator-agent";
 
 // Extended type for API response (includes extra fields added by route handlers)
 interface ApiOrchestratorResponse extends OrchestratorResult {
@@ -270,7 +269,6 @@ interface ChatPanelProps {
   categoryType?: string;
   initialPrompt?: string;
   templateId?: string;
-  localTemplateId?: string;
   instanceId?: string; // Unique ID to differentiate between desktop/mobile instances
   isPrimaryInstance?: boolean; // Only primary instance triggers generation (prevents duplicates)
   isProjectDataLoading?: boolean; // True while loading project data from database
@@ -281,7 +279,6 @@ export function ChatPanel({
   categoryType,
   initialPrompt,
   templateId,
-  localTemplateId,
   instanceId = "default",
   isPrimaryInstance = true, // Only primary instance triggers auto-generation
   isProjectDataLoading = false, // Wait for project data before generating
@@ -481,7 +478,7 @@ export function ChatPanel({
 
     const currentKey = `${categoryType || ""}-${initialPrompt || ""}-${
       templateId || ""
-    }-${localTemplateId || ""}`;
+    }`;
 
     // Skip if no key (no params set)
     if (!currentKey || currentKey === "---") return;
@@ -541,9 +538,7 @@ export function ChatPanel({
     // Handle different generation modes
     const startGeneration = async () => {
       try {
-        if (localTemplateId) {
-          await handleLocalTemplateLoad(localTemplateId);
-        } else if (templateId) {
+        if (templateId) {
           await handleTemplateGeneration(templateId);
         } else {
           // Use the prompt (either from URL or generate default based on category)
@@ -578,7 +573,6 @@ export function ChatPanel({
     categoryType,
     initialPrompt,
     templateId,
-    localTemplateId,
     isLoading,
     isProjectDataLoading, // Wait for project data before generating
     hasExistingData, // Skip if project has saved data
@@ -599,112 +593,6 @@ export function ChatPanel({
       animations: "animerad komponent",
     };
     return names[type] || type;
-  };
-
-  // Handle local template loading via v0 API metadata
-  const handleLocalTemplateLoad = async (templateId: string) => {
-    // Statusmeddelande visas som assistant för att inte rubba "första user prompt"-logik.
-    addMessage("assistant", `Laddar mall: ${templateId}`);
-    setLoading(true);
-
-    try {
-      const response = await fetch(`/api/local-template?id=${templateId}`);
-      const data = await response.json();
-
-      if (!data.success || !data.template?.v0TemplateId) {
-        addMessage(
-          "assistant",
-          data.error || "Kunde inte ladda mallens metadata. Försök igen."
-        );
-        return;
-      }
-
-      const templateName = data.template?.name || templateId;
-      addMessage(
-        "assistant",
-        `Mall "${templateName}" hittad! Laddar från v0...`
-      );
-
-      const v0Response = await generateFromTemplate(
-        data.template.v0TemplateId,
-        quality
-      );
-
-      if (v0Response?.success) {
-        // FIX: Validate chatId - critical for subsequent refinements
-        if (!v0Response.chatId) {
-          console.error(
-            "[ChatPanel] Local template loaded without chatId - CRITICAL BUG"
-          );
-          addMessage(
-            "assistant",
-            "Mallen laddades men saknar chat-ID. Detta kan orsaka problem vid redigering."
-          );
-        }
-
-        if (v0Response.chatId) {
-          setChatId(v0Response.chatId);
-        }
-        if (v0Response.demoUrl) {
-          setDemoUrl(v0Response.demoUrl);
-        }
-        if (
-          v0Response.files &&
-          Array.isArray(v0Response.files) &&
-          v0Response.files.length > 0
-        ) {
-          setFiles(v0Response.files);
-        }
-        if (v0Response.versionId) {
-          setVersionId(v0Response.versionId);
-        }
-
-        let codeToSet = v0Response.code;
-        if (!codeToSet && v0Response.files && v0Response.files.length > 0) {
-          const mainFile =
-            v0Response.files.find(
-              (f: { name: string; content: string }) =>
-                f.name.includes("page.tsx") ||
-                f.name.includes("Page.tsx") ||
-                f.name.endsWith(".tsx")
-            ) || v0Response.files[0];
-          codeToSet = mainFile?.content || "";
-        }
-        if (codeToSet) {
-          setCurrentCode(codeToSet);
-        }
-
-        addMessage(
-          "assistant",
-          "Mallen är redo! Du kan nu se preview och fortsätta anpassa den genom att skriva ändringar nedan."
-        );
-
-        if (projectId && (v0Response.demoUrl || codeToSet)) {
-          explicitSave().catch((err) => {
-            console.warn(
-              "[ChatPanel] Auto-save efter template load misslyckades:",
-              err
-            );
-          });
-        }
-      } else {
-        const errorMsg = v0Response?.error || "Okänt fel";
-        addMessage(
-          "assistant",
-          `Mallen kunde inte laddas: ${errorMsg}. Prova att ladda om sidan eller skriv en egen prompt.`
-        );
-      }
-    } catch (error) {
-      console.error("[ChatPanel] Local template load error:", error);
-      addMessage(
-        "assistant",
-        `Kunde inte ladda mallen: ${
-          error instanceof Error ? error.message : "Okänt fel"
-        }`
-      );
-    } finally {
-      setLoading(false);
-    }
   };
 
   // Handle template generation with retry logic for missing chatId
@@ -1416,29 +1304,6 @@ export function ChatPanel({
               } else {
                 console.warn(
                   "[ChatPanel] Template load didn't produce code, treating message as new generation"
-                );
-                await handleGenerate(message);
-              }
-            }
-          } else if (localTemplateId) {
-            // Load local template first
-            console.log(
-              "[ChatPanel] Loading local template before user prompt:",
-              localTemplateId
-            );
-            await handleLocalTemplateLoad(localTemplateId);
-
-            // Same verification for local templates
-            if (message && message.length > 0) {
-              const state = useBuilderStore.getState();
-              if (state.currentCode) {
-                console.log(
-                  "[ChatPanel] Local template loaded, applying refinement"
-                );
-                await handleRefinement(message);
-              } else {
-                console.warn(
-                  "[ChatPanel] Local template load didn't produce code, treating as new generation"
                 );
                 await handleGenerate(message);
               }

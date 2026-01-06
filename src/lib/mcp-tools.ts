@@ -10,8 +10,8 @@
  * @see services/mpc/server.mjs
  */
 
-import { isAIFeatureEnabled } from "./ai-sdk-features";
-import { debugLog } from "./debug";
+import { isAIFeatureEnabled } from "@/lib/ai/ai-sdk-features";
+import { debugLog } from "@/lib/utils/debug";
 
 // ============================================================================
 // TYPES

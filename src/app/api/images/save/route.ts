@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/auth";
-import { saveImage } from "@/lib/database";
-import { uploadBlobFromBase64 } from "@/lib/blob-service";
+import { getCurrentUser } from "@/lib/auth/auth";
+import { saveImage } from "@/lib/data/database";
+import { uploadBlobFromBase64 } from "@/lib/vercel/blob-service";
 
 /**
  * Save AI-generated images to storage

@@ -10,7 +10,7 @@ import {
   getDomainPrice,
   checkDomainAvailability,
   isVercelConfigured,
-} from "@/lib/vercel-client";
+} from "@/lib/vercel/vercel-client";
 
 export async function GET(request: NextRequest) {
   try {

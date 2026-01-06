@@ -8,8 +8,8 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { OpenAI } from "openai";
-import { getCurrentUser } from "@/lib/auth";
-import { getUserById, createTransaction, isTestUser } from "@/lib/database";
+import { getCurrentUser } from "@/lib/auth/auth";
+import { getUserById, createTransaction, isTestUser } from "@/lib/data/database";
 import { SECRETS } from "@/lib/config";
 import { scrapeWebsite, validateAndNormalizeUrl } from "@/lib/webscraper";
 import {

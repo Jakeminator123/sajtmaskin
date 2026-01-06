@@ -15,8 +15,8 @@
 import { FEATURES, SECRETS } from "@/lib/config";
 import { NextRequest, NextResponse } from "next/server";
 import { MarkedImage } from "../unsplash/route";
-import { routePrompt } from "@/lib/semantic-router";
-import { enrichPrompt, type WebSearchResult } from "@/lib/prompt-enricher";
+import { routePrompt } from "@/lib/ai/semantic-router";
+import { enrichPrompt, type WebSearchResult } from "@/lib/ai/prompt-enricher";
 
 // Allow 60 seconds for OpenAI response
 export const maxDuration = 60;

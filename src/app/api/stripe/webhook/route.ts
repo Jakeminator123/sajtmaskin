@@ -11,7 +11,7 @@ import {
   createTransaction,
   getTransactionByStripeSession,
   getUserById,
-} from "@/lib/database";
+} from "@/lib/data/database";
 import { SECRETS } from "@/lib/config";
 import Stripe from "stripe";
 

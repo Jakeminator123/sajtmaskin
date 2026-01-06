@@ -5,17 +5,17 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth/auth";
 import {
   getUserAudits,
   saveUserAudit,
   getUserAuditCount,
-} from "@/lib/database";
+} from "@/lib/data/database";
 import {
   getCachedUserAuditList,
   cacheUserAuditList,
   cacheAudit,
-} from "@/lib/redis";
+} from "@/lib/data/redis";
 
 // Maximum audits per user (to prevent abuse)
 const MAX_AUDITS_PER_USER = 50;

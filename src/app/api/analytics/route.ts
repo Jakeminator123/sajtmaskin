@@ -4,13 +4,13 @@
  * POST /api/analytics - Record a page view
  */
 
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth/auth";
 import {
   TEST_USER_EMAIL,
   getAnalyticsStats,
   recordPageView,
-} from "@/lib/database";
-import { getSessionIdFromRequest } from "@/lib/session";
+} from "@/lib/data/database";
+import { getSessionIdFromRequest } from "@/lib/auth/session";
 import { NextRequest, NextResponse } from "next/server";
 
 // Safely parse JSON without throwing on empty/invalid bodies

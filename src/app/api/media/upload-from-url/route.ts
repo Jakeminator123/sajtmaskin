@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/auth";
-import { uploadBlob, generateUniqueFilename } from "@/lib/blob-service";
+import { getCurrentUser } from "@/lib/auth/auth";
+import { uploadBlob, generateUniqueFilename } from "@/lib/vercel/blob-service";
 
 /**
  * Media Upload from URL API

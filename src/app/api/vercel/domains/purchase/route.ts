@@ -12,7 +12,7 @@ import {
   getDomainOrderStatus,
   isVercelConfigured,
   DomainContactInfo,
-} from "@/lib/vercel-client";
+} from "@/lib/vercel/vercel-client";
 
 // Allow up to 5 minutes for domain purchase and order processing
 export const maxDuration = 300;

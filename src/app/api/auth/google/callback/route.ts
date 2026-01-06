@@ -4,7 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { handleGoogleCallback, setAuthCookie } from "@/lib/auth";
+import { handleGoogleCallback, setAuthCookie } from "@/lib/auth/auth";
 
 export async function GET(req: NextRequest) {
   try {

@@ -1,4 +1,4 @@
-// Template components - Gallery and preview
+// Template components - Gallery, browser, and preview
 export { TemplateGallery } from "./template-gallery";
-export { LocalTemplateCard } from "./local-template-card";
+export { TemplateBrowser } from "./template-browser";
 export { PreviewModal } from "./preview-modal";

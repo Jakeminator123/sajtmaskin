@@ -20,7 +20,7 @@ import { useEffect, useState, useMemo } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { useAuth } from "@/lib/auth-store";
+import { useAuth } from "@/lib/auth/auth-store";
 import { Button } from "@/components/ui/button";
 import {
   Rocket,

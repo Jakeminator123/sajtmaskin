@@ -48,10 +48,10 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { cn } from "@/lib/utils";
-import { useBuilderStore } from "@/lib/store";
+import { cn } from "@/lib/utils/utils";
+import { useBuilderStore } from "@/lib/data/store";
 import { quickSearch, type CodeSnippet } from "@/lib/code-crawler";
-import { COMPONENT_CATEGORIES, type QuickPrompt } from "@/lib/template-data";
+import { COMPONENT_CATEGORIES, type QuickPrompt } from "@/lib/templates/template-data";
 import type { MediaItem, MediaFileType } from "@/components/media";
 
 // ============================================================================
@@ -709,6 +709,16 @@ interface MediaTabProps {
   disabled?: boolean;
 }
 
+// Stock image type for Unsplash results
+interface StockImageResult {
+  id: string;
+  url: string;
+  urlSmall: string;
+  alt: string;
+  photographer: string;
+  photographerUrl: string;
+}
+
 function MediaTab({ projectId, onSelect, disabled }: MediaTabProps) {
   const [items, setItems] = useState<UploadedMediaItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -717,6 +727,84 @@ function MediaTab({ projectId, onSelect, disabled }: MediaTabProps) {
   const [searchQuery, setSearchQuery] = useState("");
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Stock image search state
+  const [showStockSearch, setShowStockSearch] = useState(false);
+  const [stockSearchQuery, setStockSearchQuery] = useState("");
+  const [stockResults, setStockResults] = useState<StockImageResult[]>([]);
+  const [isSearchingStock, setIsSearchingStock] = useState(false);
+  const [isSavingStock, setIsSavingStock] = useState<string | null>(null);
+
+  // Search stock images from Unsplash
+  const handleStockSearch = async () => {
+    if (!stockSearchQuery.trim()) return;
+    setIsSearchingStock(true);
+    setError(null);
+
+    try {
+      const response = await fetch(
+        `/api/unsplash?query=${encodeURIComponent(stockSearchQuery)}&count=12`
+      );
+      const data = await response.json();
+
+      if (data.success && data.images) {
+        setStockResults(data.images);
+      } else {
+        setError("Kunde inte söka stockbilder");
+      }
+    } catch {
+      setError("Sökning misslyckades");
+    } finally {
+      setIsSearchingStock(false);
+    }
+  };
+
+  // Save stock image to media library
+  const handleSaveStockImage = async (img: StockImageResult) => {
+    setIsSavingStock(img.id);
+    setError(null);
+
+    try {
+      const response = await fetch("/api/media/upload-from-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          url: img.url,
+          filename: `${img.alt.slice(0, 30)}.jpg`,
+          source: "unsplash",
+          photographer: img.photographer,
+        }),
+      });
+
+      const data = await response.json();
+
+      if (data.success && data.media) {
+        // Add to local list
+        setItems((prev) => [
+          {
+            id: Date.now(),
+            url: data.media.url,
+            filename: data.media.filename,
+            mimeType: data.media.contentType,
+            fileType: "image",
+            size: data.media.size,
+            createdAt: new Date().toISOString(),
+          },
+          ...prev,
+        ]);
+        // Close stock search
+        setShowStockSearch(false);
+        setStockResults([]);
+        setStockSearchQuery("");
+      } else {
+        setError(data.error || "Kunde inte spara bilden");
+      }
+    } catch {
+      setError("Kunde inte spara bilden");
+    } finally {
+      setIsSavingStock(null);
+    }
+  };
 
   // Load media library
   useEffect(() => {
@@ -806,26 +894,152 @@ function MediaTab({ projectId, onSelect, disabled }: MediaTabProps) {
       item.filename.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  // Stock image search UI
+  if (showStockSearch) {
+    return (
+      <div className="p-4 space-y-4">
+        {/* Header with back button */}
+        <div className="flex items-center gap-3">
+          <button
+            onClick={() => {
+              setShowStockSearch(false);
+              setStockResults([]);
+              setStockSearchQuery("");
+            }}
+            className="p-2 rounded-lg hover:bg-gray-800 text-gray-400 hover:text-white transition-colors"
+          >
+            <ChevronRight className="h-5 w-5 rotate-180" />
+          </button>
+          <div>
+            <h3 className="text-white font-medium">Sök stockbilder</h3>
+            <p className="text-xs text-gray-500">
+              Gratis bilder från Unsplash
+            </p>
+          </div>
+        </div>
+
+        {/* Search input */}
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+            <Input
+              placeholder="Sök bilder... t.ex. 'designer studio'"
+              value={stockSearchQuery}
+              onChange={(e) => setStockSearchQuery(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleStockSearch()}
+              className="pl-9 bg-gray-900 border-gray-700"
+              autoFocus
+            />
+          </div>
+          <Button
+            onClick={handleStockSearch}
+            disabled={isSearchingStock || !stockSearchQuery.trim()}
+            className="bg-teal-600 hover:bg-teal-500"
+          >
+            {isSearchingStock ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Search className="h-4 w-4" />
+            )}
+          </Button>
+        </div>
+
+        {error && (
+          <div className="flex items-center gap-2 p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-sm text-red-400">
+            <AlertCircle className="h-4 w-4" />
+            <span>{error}</span>
+            <button onClick={() => setError(null)}>
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        )}
+
+        {/* Results grid */}
+        {isSearchingStock ? (
+          <div className="flex items-center justify-center py-12">
+            <Loader2 className="h-8 w-8 animate-spin text-teal-500" />
+          </div>
+        ) : stockResults.length === 0 ? (
+          <div className="text-center py-12 text-gray-500">
+            <ImageIcon className="h-12 w-12 mx-auto mb-3 opacity-50" />
+            <p className="text-sm">
+              {stockSearchQuery
+                ? "Inga bilder hittades"
+                : "Sök efter bilder ovan"}
+            </p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-3 gap-3">
+            {stockResults.map((img) => (
+              <div
+                key={img.id}
+                className="group relative aspect-square rounded-lg overflow-hidden border border-gray-800 hover:border-teal-500/50 transition-colors"
+              >
+                <img
+                  src={img.urlSmall}
+                  alt={img.alt}
+                  className="w-full h-full object-cover"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                <div className="absolute bottom-0 left-0 right-0 p-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <p className="text-xs text-gray-300 truncate mb-2">
+                    {img.photographer}
+                  </p>
+                  <Button
+                    size="sm"
+                    onClick={() => handleSaveStockImage(img)}
+                    disabled={isSavingStock === img.id}
+                    className="w-full bg-teal-600 hover:bg-teal-500 text-xs py-1"
+                  >
+                    {isSavingStock === img.id ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <>
+                        <Save className="h-3 w-3 mr-1" />
+                        Spara till bibliotek
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    );
+  }
+
   return (
     <div className="p-4 space-y-4">
-      {/* Upload */}
-      <Button
-        onClick={() => fileInputRef.current?.click()}
-        disabled={isUploading || disabled}
-        className="w-full bg-teal-600 hover:bg-teal-500"
-      >
-        {isUploading ? (
-          <>
-            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-            Laddar upp...
-          </>
-        ) : (
-          <>
-            <Upload className="h-4 w-4 mr-2" />
-            Ladda upp filer
-          </>
-        )}
-      </Button>
+      {/* Action buttons */}
+      <div className="flex gap-2">
+        <Button
+          onClick={() => fileInputRef.current?.click()}
+          disabled={isUploading || disabled}
+          className="flex-1 bg-teal-600 hover:bg-teal-500"
+        >
+          {isUploading ? (
+            <>
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              Laddar upp...
+            </>
+          ) : (
+            <>
+              <Upload className="h-4 w-4 mr-2" />
+              Ladda upp
+            </>
+          )}
+        </Button>
+        <Button
+          onClick={() => setShowStockSearch(true)}
+          disabled={disabled}
+          variant="outline"
+          className="flex-1 border-gray-700 text-gray-300 hover:bg-gray-800 hover:text-white"
+        >
+          <ImageIcon className="h-4 w-4 mr-2" />
+          Stockbilder
+        </Button>
+      </div>
       <input
         ref={fileInputRef}
         type="file"

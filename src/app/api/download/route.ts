@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { downloadVersionAsZip } from "@/lib/v0-generator";
+import { downloadVersionAsZip } from "@/lib/v0/v0-generator";
 import JSZip from "jszip";
 import { extractContent, generateBackofficeFiles } from "@/lib/backoffice";
 

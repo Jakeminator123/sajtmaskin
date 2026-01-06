@@ -1,7 +1,7 @@
-import { cacheTemplateResult, getCachedTemplate } from "@/lib/database";
-import { findMainFile, generateFromTemplate } from "@/lib/v0-generator";
-import { TEMPLATES } from "@/lib/template-data";
-import { getCurrentUser } from "@/lib/auth";
+import { cacheTemplateResult, getCachedTemplate } from "@/lib/data/database";
+import { findMainFile, generateFromTemplate } from "@/lib/v0/v0-generator";
+import { TEMPLATES } from "@/lib/templates/template-data";
+import { getCurrentUser } from "@/lib/auth/auth";
 import { NextRequest, NextResponse } from "next/server";
 
 // Allow 5 minutes for v0 API responses

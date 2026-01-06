@@ -4,9 +4,9 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/auth";
-import { getSessionIdFromRequest } from "@/lib/session";
-import { getOrCreateGuestUsage } from "@/lib/database";
+import { getCurrentUser } from "@/lib/auth/auth";
+import { getSessionIdFromRequest } from "@/lib/auth/session";
+import { getOrCreateGuestUsage } from "@/lib/data/database";
 
 export async function GET(req: NextRequest) {
   try {

@@ -28,7 +28,7 @@ import {
   AI_SDK_FEATURES,
   FEATURE_STATUS_CONFIG,
   type AIFeature,
-} from "@/lib/ai-sdk-features";
+} from "@/lib/ai/ai-sdk-features";
 
 // ============================================================================
 // CATEGORY ICONS

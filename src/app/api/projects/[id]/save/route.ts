@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getProjectById, saveProjectData } from "@/lib/database";
-import { deleteCache } from "@/lib/redis";
+import { getProjectById, saveProjectData } from "@/lib/data/database";
+import { deleteCache } from "@/lib/data/redis";
 
 interface RouteParams {
   params: Promise<{ id: string }>;

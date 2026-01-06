@@ -41,7 +41,7 @@ import {
   ChevronDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useBuilderStore } from "@/lib/store";
+import { useBuilderStore } from "@/lib/data/store";
 import { quickSearch } from "@/lib/code-crawler";
 
 interface ElementInfo {

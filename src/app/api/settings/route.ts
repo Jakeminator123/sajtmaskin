@@ -1,10 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth/auth";
 import {
   getOrCreateUserSettings,
   updateUserSettings,
   type UserSettings,
-} from "@/lib/database";
+} from "@/lib/data/database";
 
 /**
  * GET /api/settings

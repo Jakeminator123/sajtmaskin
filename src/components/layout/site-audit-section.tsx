@@ -2,7 +2,7 @@
 
 import { useState, FormEvent } from "react";
 import { Search, Diamond, Loader2, AlertCircle } from "lucide-react";
-import { useAuth } from "@/lib/auth-store";
+import { useAuth } from "@/lib/auth/auth-store";
 import type { AuditResult } from "@/types/audit";
 
 const AUDIT_COST = 3;

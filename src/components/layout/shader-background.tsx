@@ -2,7 +2,7 @@
 
 import { memo, useState, useEffect } from "react";
 import { Dithering } from "@paper-design/shaders-react";
-import { cn } from "@/lib/utils";
+import { cn } from "@/lib/utils/utils";
 
 const MemoizedDithering = memo(Dithering);
 
