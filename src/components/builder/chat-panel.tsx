@@ -483,6 +483,9 @@ export function ChatPanel({
   const hasInitialGeneratedRef = useRef(false);
   const lastGeneratedKeyRef = useRef<string | null>(null);
 
+  // Ref for handleRefinement to avoid stale closure in useCallback dependencies
+  const handleRefinementRef = useRef<(instruction: string) => Promise<void>>();
+
   // Check if we're in test mode (force regeneration, skip cache)
   const isTestMode =
     typeof window !== "undefined" &&
@@ -1332,6 +1335,9 @@ export function ChatPanel({
     }
   };
 
+  // Keep ref updated with latest handleRefinement (avoids stale closure in useCallback)
+  handleRefinementRef.current = handleRefinement;
+
   const handleSubmit = () => {
     // Use ref for synchronous check (prevents race condition from React batching)
     if (!input.trim() || isLoading || isSubmittingRef.current) return;
@@ -1525,10 +1531,11 @@ export function ChatPanel({
       // (avoids accidental big changes and avoids sending unrelated questions to v0).
       const isSection = asset?.type === "section";
       if (!isSection && currentCode && chatId && prompt.trim()) {
-        setTimeout(() => handleRefinement(prompt), 100);
+        // Use ref to get latest handleRefinement without causing re-renders
+        setTimeout(() => handleRefinementRef.current?.(prompt), 100);
       }
     },
-    [currentCode, chatId, handleRefinement]
+    [currentCode, chatId]
   );
 
   // Remove pending media item

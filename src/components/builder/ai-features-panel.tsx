@@ -33,7 +33,6 @@ import {
 } from "lucide-react";
 import {
   useAIFeatures,
-  AI_SDK_FEATURES,
   FEATURE_STATUS_CONFIG,
   isBaseFeature,
   type AIFeature,
@@ -67,7 +66,11 @@ interface FeatureToggleProps {
   disabled?: boolean; // When advanced mode is off
 }
 
-function FeatureToggle({ feature, onToggle, disabled = false }: FeatureToggleProps) {
+function FeatureToggle({
+  feature,
+  onToggle,
+  disabled = false,
+}: FeatureToggleProps) {
   const statusConfig = FEATURE_STATUS_CONFIG[feature.status];
   const isPlaceholder = feature.status === "placeholder";
   const isBase = isBaseFeature(feature.id);
@@ -87,18 +90,38 @@ function FeatureToggle({ feature, onToggle, disabled = false }: FeatureTogglePro
     <div
       className={`
         group relative p-3 rounded-lg border transition-all duration-200
-        ${toggleState === "enabled" ? "bg-violet-500/10 border-violet-500/30" : ""}
+        ${
+          toggleState === "enabled"
+            ? "bg-violet-500/10 border-violet-500/30"
+            : ""
+        }
         ${toggleState === "base" ? "bg-green-500/5 border-green-500/20" : ""}
-        ${toggleState === "placeholder" ? "bg-gray-800/30 border-gray-700/30 opacity-50" : ""}
-        ${toggleState === "disabled" ? "bg-gray-800/30 border-gray-700/30 opacity-60" : ""}
-        ${toggleState === "disabled-toggle" ? "bg-gray-800/50 border-gray-700/50 hover:border-gray-600" : ""}
+        ${
+          toggleState === "placeholder"
+            ? "bg-gray-800/30 border-gray-700/30 opacity-50"
+            : ""
+        }
+        ${
+          toggleState === "disabled"
+            ? "bg-gray-800/30 border-gray-700/30 opacity-60"
+            : ""
+        }
+        ${
+          toggleState === "disabled-toggle"
+            ? "bg-gray-800/50 border-gray-700/50 hover:border-gray-600"
+            : ""
+        }
       `}
     >
       {/* Header row */}
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1 flex-wrap">
-            <span className={`text-sm font-medium ${isDisabled && !isBase ? "text-gray-400" : "text-gray-200"}`}>
+            <span
+              className={`text-sm font-medium ${
+                isDisabled && !isBase ? "text-gray-400" : "text-gray-200"
+              }`}
+            >
               {feature.name}
             </span>
             <span
@@ -118,7 +141,11 @@ function FeatureToggle({ feature, onToggle, disabled = false }: FeatureTogglePro
               </span>
             )}
           </div>
-          <p className={`text-xs leading-relaxed ${isDisabled && !isBase ? "text-gray-500" : "text-gray-400"}`}>
+          <p
+            className={`text-xs leading-relaxed ${
+              isDisabled && !isBase ? "text-gray-500" : "text-gray-400"
+            }`}
+          >
             {feature.description}
           </p>
 
@@ -145,7 +172,9 @@ function FeatureToggle({ feature, onToggle, disabled = false }: FeatureTogglePro
               target="_blank"
               rel="noopener noreferrer"
               className={`inline-flex items-center gap-1 mt-2 text-xs transition-colors ${
-                isDisabled ? "text-gray-500 hover:text-gray-400" : "text-violet-400 hover:text-violet-300"
+                isDisabled
+                  ? "text-gray-500 hover:text-gray-400"
+                  : "text-violet-400 hover:text-violet-300"
               }`}
             >
               <ExternalLink className="h-3 w-3" />
@@ -182,14 +211,18 @@ function FeatureToggle({ feature, onToggle, disabled = false }: FeatureTogglePro
               relative w-12 h-6 rounded-full transition-all duration-200
               ${disabled ? "bg-gray-700/50 cursor-not-allowed" : ""}
               ${!disabled && feature.enabled ? "bg-violet-500" : ""}
-              ${!disabled && !feature.enabled ? "bg-gray-600 hover:bg-gray-500" : ""}
+              ${
+                !disabled && !feature.enabled
+                  ? "bg-gray-600 hover:bg-gray-500"
+                  : ""
+              }
             `}
             title={
               disabled
                 ? "Aktivera avancerat läge först"
                 : feature.enabled
-                  ? "Inaktivera"
-                  : "Aktivera"
+                ? "Inaktivera"
+                : "Aktivera"
             }
           >
             <span
@@ -226,11 +259,13 @@ function CategorySection({
   const [isExpanded, setIsExpanded] = useState(true);
   const Icon = CATEGORY_ICONS[category];
   const label = CATEGORY_LABELS[category];
-  
+
   // Count enabled features (excluding placeholders)
   const activeFeatures = features.filter((f) => f.status !== "placeholder");
   const enabledCount = activeFeatures.filter((f) => f.enabled).length;
-  const placeholderCount = features.filter((f) => f.status === "placeholder").length;
+  const placeholderCount = features.filter(
+    (f) => f.status === "placeholder"
+  ).length;
 
   return (
     <div className="border border-gray-800 rounded-lg overflow-hidden">
@@ -299,16 +334,13 @@ export function AIFeaturesPanel({
   const advancedFeatures = getAdvancedFeatures();
 
   // Group advanced features by category (excluding base features)
-  const advancedByCategory = advancedFeatures.reduce(
-    (acc, feature) => {
-      if (!acc[feature.category]) {
-        acc[feature.category] = [];
-      }
-      acc[feature.category].push(feature);
-      return acc;
-    },
-    {} as Record<AIFeature["category"], AIFeature[]>
-  );
+  const advancedByCategory = advancedFeatures.reduce((acc, feature) => {
+    if (!acc[feature.category]) {
+      acc[feature.category] = [];
+    }
+    acc[feature.category].push(feature);
+    return acc;
+  }, {} as Record<AIFeature["category"], AIFeature[]>);
 
   // Count active features
   const activeAdvanced = advancedFeatures.filter(
@@ -401,11 +433,17 @@ export function AIFeaturesPanel({
             onClick={toggleAdvancedMode}
             className={`
               relative w-14 h-7 rounded-full transition-all duration-300
-              ${advancedModeEnabled 
-                ? "bg-violet-500 shadow-lg shadow-violet-500/30" 
-                : "bg-gray-600 hover:bg-gray-500"}
+              ${
+                advancedModeEnabled
+                  ? "bg-violet-500 shadow-lg shadow-violet-500/30"
+                  : "bg-gray-600 hover:bg-gray-500"
+              }
             `}
-            title={advancedModeEnabled ? "Stäng av avancerat läge" : "Aktivera avancerat läge"}
+            title={
+              advancedModeEnabled
+                ? "Stäng av avancerat läge"
+                : "Aktivera avancerat läge"
+            }
           >
             <span
               className={`
@@ -433,20 +471,22 @@ export function AIFeaturesPanel({
       )}
 
       {/* Advanced features categories */}
-      <div className={`p-4 space-y-3 max-h-[50vh] overflow-y-auto transition-opacity duration-300 ${
-        !advancedModeEnabled ? "opacity-60" : ""
-      }`}>
-        {(
-          Object.keys(advancedByCategory) as Array<AIFeature["category"]>
-        ).map((category) => (
-          <CategorySection
-            key={category}
-            category={category}
-            features={advancedByCategory[category]}
-            onToggle={toggleFeature}
-            advancedModeEnabled={advancedModeEnabled}
-          />
-        ))}
+      <div
+        className={`p-4 space-y-3 max-h-[50vh] overflow-y-auto transition-opacity duration-300 ${
+          !advancedModeEnabled ? "opacity-60" : ""
+        }`}
+      >
+        {(Object.keys(advancedByCategory) as Array<AIFeature["category"]>).map(
+          (category) => (
+            <CategorySection
+              key={category}
+              category={category}
+              features={advancedByCategory[category]}
+              onToggle={toggleFeature}
+              advancedModeEnabled={advancedModeEnabled}
+            />
+          )
+        )}
       </div>
 
       {/* Footer with status summary */}
@@ -456,7 +496,8 @@ export function AIFeaturesPanel({
             <div className="flex items-center gap-1.5">
               <Check className="h-3 w-3 text-green-400" />
               <span className="text-gray-400">
-                {allFeatures.filter((f) => f.status === "stable").length} stabila
+                {allFeatures.filter((f) => f.status === "stable").length}{" "}
+                stabila
               </span>
             </div>
             <div className="flex items-center gap-1.5">
@@ -517,16 +558,26 @@ export function AIFeaturesButton({
         bg-gray-800/50 hover:bg-gray-800 border 
         text-sm text-gray-300 hover:text-gray-100
         transition-all duration-200
-        ${advancedModeEnabled 
-          ? "border-violet-500/50 shadow-sm shadow-violet-500/20" 
-          : "border-gray-700"}
+        ${
+          advancedModeEnabled
+            ? "border-violet-500/50 shadow-sm shadow-violet-500/20"
+            : "border-gray-700"
+        }
         ${className}
       `}
       title="AI SDK 6 Avancerade Funktioner"
     >
-      <Sparkles className={`h-4 w-4 ${advancedModeEnabled ? "text-violet-400" : "text-gray-400"}`} />
+      <Sparkles
+        className={`h-4 w-4 ${
+          advancedModeEnabled ? "text-violet-400" : "text-gray-400"
+        }`}
+      />
       <span className="hidden sm:inline">AI Funktioner</span>
-      <span className={`text-xs ${advancedModeEnabled ? "text-violet-400" : "text-gray-500"}`}>
+      <span
+        className={`text-xs ${
+          advancedModeEnabled ? "text-violet-400" : "text-gray-500"
+        }`}
+      >
         {enabledCount}/{implementedFeatures.length}
       </span>
       {advancedModeEnabled && (
@@ -537,4 +588,3 @@ export function AIFeaturesButton({
 }
 
 export default AIFeaturesPanel;
-
