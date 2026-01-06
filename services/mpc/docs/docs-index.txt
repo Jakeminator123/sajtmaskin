@@ -1,0 +1,32 @@
+Sajtmaskin Documentation Index
+==============================
+
+Single källa: all dokumentation bor i `services/mpc/docs` och läses via MCP.
+
+Så läser du
+-----------
+- I Cursor MCP: använd `search_docs` (för att hitta) och `get_doc` (för att läsa).
+- Top-level-filer i `docs/` exponeras som `docs://local/{name}`.
+- Alla filer i underkataloger kan läsas via relativa sökvägar med `get_doc`.
+
+Prioritet
+---------
+1. quick-reference.txt — snabböversikt och vanliga mönster
+2. overview.txt — server/struktur
+3. error-playbook.txt — felrapportering/loggning
+4. local/*.txt — projekt-/team-specifika anteckningar
+
+Lägga till eller flytta docs
+----------------------------
+- Lägg nya filer som .txt/.md/.json under `services/mpc/docs/local/`.
+- Starta om MPC-servern om den körs (`npm run mpc`) så indexet uppdateras.
+
+Källor via `search_docs` (source-param)
+---------------------------------------
+- local: allt under `docs/` (inkl. dina filer och scraped innehåll)
+- ai-sdk / openai / vercel / v0: scraped-mappar `docgrab__*` i `docs/`
+
+Tips
+----
+- Ingen README/MD i roten behövs; håll allt i `services/mpc/docs`.
+- Lägg inte hemligheter i docs/.

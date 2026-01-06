@@ -1,10 +1,11 @@
-# Dev/temp folders
-old
-skrapning
-INPUT_FOR_CURSOR
-info
+# =============================================================================
+# SAJTMASKIN .cursorignore
+# =============================================================================
+# Filer här indexeras INTE av Cursor - sparar minne och gör sökningar snabbare.
+# För dokumentation: använd MCP-servern istället (search_docs, get_doc).
+# =============================================================================
 
-# Build/cache
+# Build/cache (ändras konstant, ingen nytta att indexera)
 node_modules
 .next
 .cache
@@ -16,21 +17,35 @@ coverage
 tsconfig.tsbuildinfo
 next-env.d.ts
 package-lock.json
+
+# =============================================================================
+# MCP DOKUMENTATION - LÄSES VIA MCP-SERVER, INTE INDEXERING
+# =============================================================================
+# Dessa filer är 60+ MB totalt. Istället för att Cursor indexerar dem:
+# 1. MCP-servern (npm run mpc) exponerar search_docs och get_doc tools
+# 2. Agenter kan söka och läsa dokumentation on-demand
+# 3. Sparar RAM och gör Cursor snabbare
+#
+# Starta MCP: npm run mpc
+# Cursor MCP-config: .cursor/mcp.json
+# =============================================================================
+
+# Scraped docs - raw och llms-filer (stora)
+services/mpc/docs/docgrab__*/raw/
+services/mpc/docs/docgrab__*/llms/
+
+# BEHÅLL INDEXERADE (små, snabbreferens):
+# - services/mpc/docs/*.txt (overview, quick-reference, docs-index)
+# - services/mpc/docs/docgrab__*/md/ (enskilda markdown-filer)
+
+# MCP logs
+services/mpc/logs/
+
+# =============================================================================
+# TEMP/DEV (ignorera om de finns)
+# =============================================================================
+old
+skrapning
+INPUT_FOR_CURSOR
+info
 .preprompt_history.json
-
-# Scripts
-cleaner.py
-compat-report.py
-
-# MCP scraped docs - too large for indexing (60+ MB)
-# Use MCP server tools (search_docs, get_doc) instead
-app/services/mpc/docs/docgrab__*/raw/
-app/services/mpc/docs/docgrab__ai-sdk.dev__docs/llms/
-app/services/mpc/docs/docgrab__vercel.com__docs/llms/
-app/services/mpc/docs/docgrab__platform.openai.com__docs/llms/
-app/services/mpc/logs/
-
-# Keep these for quick reference:
-# - app/services/mpc/docs/*.txt (overview, quick-reference, docs-index)
-# - app/services/mpc/docs/docgrab__*/combined*.md
-# - docs/ folder (project documentation)

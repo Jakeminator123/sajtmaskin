@@ -2,7 +2,7 @@
   // ===== ESLint =====
   "eslint.workingDirectories": [
     {
-      "directory": "app",
+      "directory": ".",
       "changeProcessCWD": true
     }
   ],
@@ -15,7 +15,8 @@
   "eslint.useFlatConfig": false,
 
   // ===== TypeScript =====
-  "typescript.tsdk": "app/node_modules/typescript/lib",
+  // Use workspace TypeScript from root node_modules
+  "typescript.tsdk": "node_modules/typescript/lib",
   "typescript.enablePromptUseWorkspaceTsdk": true,
 
   // Force VS Code to use workspace TypeScript version automatically

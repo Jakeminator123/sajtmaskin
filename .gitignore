@@ -1,19 +1,35 @@
-# Node/Next
+# =============================================================================
+# SAJTMASKIN .gitignore
+# =============================================================================
+
+# Node/Next.js
 node_modules/
+.next/
+out/
 .cache/
 dist/
 build/
-.next/
-out/
 coverage/
+
+# Generated files (recreated on build)
 tsconfig.tsbuildinfo
 next-env.d.ts
 
-# Env
+# Environment files (NEVER commit secrets!)
 .env
 .env.*
-app/.env.local
+.env.local
 *.pem
+
+# Database files (local data, not for git)
+data/*.db
+data/*.db-shm
+data/*.db-wal
+data/uploads/
+
+# MCP scraped documentation (60+ MB, regenerate with doc.py)
+services/mpc/docs/docgrab__*/
+services/mpc/logs/
 
 # Editor/OS
 .idea/
@@ -27,25 +43,5 @@ npm-debug.log*
 yarn-debug.log*
 pnpm-debug.log*
 
-# App data
-app/data/*.db
-app/data/*.db-shm
-app/data/*.db-wal
-app/data/uploads/
-
-# MCP scraped docs (regenerate with doc.py --auto)
-app/services/mpc/docs/docgrab__*/
-app/services/mpc/logs/
-
-# Dev/temp files
-old/
-info/
-INPUT_FOR_CURSOR/
-skrapning/
+# Temp/dev files
 .preprompt_history.json
-cleaner.py
-compat-report.py
-
-# Package locks (optional - keep package-lock.json if preferred)
-# package-lock.json
-# pnpm-lock.yaml
