@@ -274,6 +274,16 @@ function buildSophisticatedPrompt(
   // Add asset-specific context
   if (asset.type === "section" && asset.label) {
     parts.push(`Komponenten som ska användas är: ${asset.label}`);
+
+    // Include the component's own prompt (this is crucial for v0 to know what to generate).
+    // Without this, prompts like "Header/Navigation" can be too vague and produce no-op refinements.
+    const compPrompt =
+      asset.data && typeof (asset.data as { prompt?: unknown }).prompt === "string"
+        ? ((asset.data as { prompt: string }).prompt || "").trim()
+        : "";
+    if (compPrompt) {
+      parts.push(`Komponentens prompt:\n${compPrompt}`);
+    }
   } else if (asset.type === "media" && asset.data) {
     const mediaData = asset.data as { url?: string; filename?: string };
     if (mediaData.url) {
@@ -299,10 +309,31 @@ function buildSophisticatedPrompt(
 
   // Add custom instructions
   if (customInstructions?.trim()) {
-    parts.push(`\nAnvändarens instruktioner: ${customInstructions}`);
+    const sanitized = sanitizeCustomInstructions(customInstructions);
+    if (sanitized) {
+      parts.push(`\nDesigninstruktioner för denna ändring: ${sanitized}`);
+    }
   }
 
   return parts.join("\n\n");
+}
+
+function sanitizeCustomInstructions(text: string): string {
+  // This field is meant for design instructions about the selected asset.
+  // Users sometimes paste unrelated product questions (models, security, etc.)
+  // which will confuse v0 and can lead to no-op refinements.
+  const blocked =
+    /(npc|mcp|openai|gpt|modell|models|x-frame|x frame|iframe|säkerhet|security|google|vercel|v0\b)/i;
+
+  const lines = text
+    .split("\n")
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .filter((l) => !blocked.test(l));
+
+  const out = lines.join(" ").trim();
+  // Keep it reasonably short so it doesn't drown the actual component prompt.
+  return out.length > 600 ? out.slice(0, 600) : out;
 }
 
 function detectTextContentType(content: string): {
@@ -1440,12 +1471,12 @@ function PlacementDialog({
       <div className="p-4 border-t border-gray-800 space-y-3">
         <div>
           <label className="text-xs text-gray-400 mb-1 block">
-            Egna instruktioner (valfritt)
+            Egna designinstruktioner för denna ändring (valfritt)
           </label>
           <textarea
             value={customInstructions}
             onChange={(e) => onCustomInstructionsChange(e.target.value)}
-            placeholder="T.ex. 'Använd blå färg', 'Gör den större'..."
+            placeholder="T.ex. 'Använd blå färg', 'Lägg till subtil animation', 'Gör headern sticky'... (frågor om Sajtmaskin: skriv i chatten)"
             className="w-full px-3 py-2 text-sm bg-gray-900 border border-gray-700 rounded-lg focus:outline-none focus:border-teal-500 text-white placeholder:text-gray-600 resize-none"
             rows={2}
           />

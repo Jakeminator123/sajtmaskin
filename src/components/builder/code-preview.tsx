@@ -58,6 +58,7 @@ import {
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { DesignModeOverlay } from "./design-mode-overlay";
+import { AdvancedInspectorOverlay } from "./advanced-inspector-overlay";
 
 // Custom dark theme matching the app's design
 const customTheme = {
@@ -110,6 +111,7 @@ export function CodePreview() {
     // Design Mode is controlled from ChatPanel toolbar
     isDesignModeActive,
     toggleDesignMode,
+    inspectorMode,
   } = useBuilderStore();
   const [copied, setCopied] = useState(false);
   const [sandpackError, setSandpackError] = useState<string | null>(null);
@@ -518,26 +520,44 @@ export function CodePreview() {
                * warning is harmless and doesn't cause conflicts. Each context has its own Three.js instance.
                */
               <div className="flex-1 h-full overflow-hidden relative">
-                {/* Design Mode Overlay */}
-                <DesignModeOverlay
-                  isActive={isDesignModeActive}
-                  onToggle={() => toggleDesignMode()}
-                  onElementSelect={(_selector, description) => {
-                    // Send to chat panel via store
-                    const { setDesignModeInput, toggleDesignMode: toggle } =
-                      useBuilderStore.getState();
-                    setDesignModeInput(`Ändra ${description}: `);
-                    toggle(false); // Close design mode after selection
-                  }}
-                  onManualSelect={(prompt) => {
-                    // Send to chat panel via store
-                    const { setDesignModeInput, toggleDesignMode: toggle } =
-                      useBuilderStore.getState();
-                    setDesignModeInput(`${prompt}: `);
-                    toggle(false); // Close design mode after selection
-                  }}
-                  iframeSrc={effectiveDemoUrl || demoUrl || undefined}
-                />
+                {/* Design Mode Overlay - Simple mode (category picker) */}
+                {inspectorMode === "simple" && (
+                  <DesignModeOverlay
+                    isActive={isDesignModeActive}
+                    onToggle={() => toggleDesignMode()}
+                    onElementSelect={(_selector, description) => {
+                      // Send to chat panel via store
+                      const { setDesignModeInput, toggleDesignMode: toggle } =
+                        useBuilderStore.getState();
+                      setDesignModeInput(`Ändra ${description}: `);
+                      toggle(false); // Close design mode after selection
+                    }}
+                    onManualSelect={(prompt) => {
+                      // Send to chat panel via store
+                      const { setDesignModeInput, toggleDesignMode: toggle } =
+                        useBuilderStore.getState();
+                      setDesignModeInput(`${prompt}: `);
+                      toggle(false); // Close design mode after selection
+                    }}
+                    iframeSrc={effectiveDemoUrl || demoUrl || undefined}
+                  />
+                )}
+
+                {/* Advanced Inspector Overlay - Element picking mode */}
+                {inspectorMode === "advanced" && (
+                  <AdvancedInspectorOverlay
+                    isActive={isDesignModeActive}
+                    onToggle={() => toggleDesignMode()}
+                    demoUrl={effectiveDemoUrl || demoUrl}
+                    onElementSelect={(description) => {
+                      // Input is already set by AdvancedInspectorOverlay
+                      console.log(
+                        "[CodePreview] Element selected:",
+                        description
+                      );
+                    }}
+                  />
+                )}
 
                 {/* Info banner about preview limitations */}
                 {showPreviewInfo && (

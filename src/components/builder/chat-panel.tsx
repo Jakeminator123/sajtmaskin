@@ -100,72 +100,99 @@ async function fetchWithStreaming(
   onThinking: (thought: string) => void,
   onProgress: (step: string) => void
 ): Promise<ApiOrchestratorResponse> {
-  const response = await fetch(url, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
+  // Create AbortController for timeout handling
+  const controller = new AbortController();
 
-  if (!response.ok) {
-    throw new Error(`HTTP ${response.status}`);
-  }
+  // 5 minute timeout for complex generations (v0 can take 2-3 minutes)
+  const STREAM_TIMEOUT_MS = 5 * 60 * 1000;
+  const timeoutId = setTimeout(() => controller.abort(), STREAM_TIMEOUT_MS);
 
-  const reader = response.body?.getReader();
-  if (!reader) {
-    throw new Error("No response body");
-  }
+  try {
+    const response = await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+      signal: controller.signal,
+    });
 
-  const decoder = new TextDecoder();
-  let buffer = "";
-  let result: ApiOrchestratorResponse | null = null;
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
 
-  while (true) {
-    const { done, value } = await reader.read();
-    if (done) break;
+    const reader = response.body?.getReader();
+    if (!reader) {
+      throw new Error("No response body");
+    }
 
-    buffer += decoder.decode(value, { stream: true });
-    const lines = buffer.split("\n");
-    buffer = lines.pop() || "";
+    const decoder = new TextDecoder();
+    let buffer = "";
+    let result: ApiOrchestratorResponse | null = null;
+    let lastActivityTime = Date.now();
 
-    let currentEvent = "";
+    // Timeout for individual reads (30 seconds of inactivity)
+    const READ_TIMEOUT_MS = 30 * 1000;
 
-    for (const line of lines) {
-      if (line.startsWith("event: ")) {
-        currentEvent = line.slice(7).trim();
-      } else if (line.startsWith("data: ")) {
-        const data = line.slice(6);
-        if (currentEvent && data) {
-          try {
-            const parsed = JSON.parse(data);
-            
-            switch (currentEvent) {
-              case "thinking":
-                if (parsed.message) onThinking(parsed.message);
-                break;
-              case "progress":
-                if (parsed.step) onProgress(parsed.step);
-                break;
-              case "complete":
-                result = parsed;
-                break;
-              case "error":
-                throw new Error(parsed.error || "Streaming error");
+    while (true) {
+      // Check for read inactivity timeout
+      if (Date.now() - lastActivityTime > READ_TIMEOUT_MS && !result) {
+        console.warn("[Streaming] Read timeout - no data for 30s");
+        reader.cancel();
+        break;
+      }
+
+      const { done, value } = await reader.read();
+      if (done) break;
+
+      lastActivityTime = Date.now();
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() || "";
+
+      let currentEvent = "";
+
+      for (const line of lines) {
+        if (line.startsWith("event: ")) {
+          currentEvent = line.slice(7).trim();
+        } else if (line.startsWith("data: ")) {
+          const data = line.slice(6);
+          if (currentEvent && data) {
+            try {
+              const parsed = JSON.parse(data);
+
+              switch (currentEvent) {
+                case "thinking":
+                  if (parsed.message) onThinking(parsed.message);
+                  break;
+                case "progress":
+                  if (parsed.step) onProgress(parsed.step);
+                  break;
+                case "complete":
+                  result = parsed;
+                  break;
+                case "error":
+                  throw new Error(parsed.error || "Streaming error");
+              }
+            } catch (e) {
+              if (currentEvent === "error") throw e;
+              console.warn("[Streaming] Parse error:", e);
             }
-          } catch (e) {
-            if (currentEvent === "error") throw e;
-            console.warn("[Streaming] Parse error:", e);
+            currentEvent = "";
           }
-          currentEvent = "";
         }
       }
+
+      // If we got complete, exit the loop
+      if (result) break;
     }
-  }
 
-  if (!result) {
-    throw new Error("No complete event received");
-  }
+    if (!result) {
+      throw new Error("No complete event received");
+    }
 
-  return result;
+    return result;
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }
 
 // ============================================================================
@@ -424,22 +451,29 @@ export function ChatPanel({
     if (designModeInput) {
       setInput(designModeInput);
       setDesignModeInput(null); // Clear after consuming
-      
+
       // If we have code context from Code Crawler, add it to the input as a helper note
       if (designModeCodeContext && designModeCodeContext.length > 0) {
-        const contextNote = `\n\n[Hittad kod: ${designModeCodeContext.map(c => c.name).join(", ")}]`;
-        setInput(prev => prev + contextNote);
+        const contextNote = `\n\n[Hittad kod: ${designModeCodeContext
+          .map((c) => c.name)
+          .join(", ")}]`;
+        setInput((prev) => prev + contextNote);
         setDesignModeCodeContext(null); // Clear after consuming
         console.log("[ChatPanel] Design Mode: Added code context to input");
       }
-      
+
       // Focus the input field
       const inputField = document.querySelector<HTMLTextAreaElement>(
         'textarea[placeholder*="Skriv"]'
       );
       inputField?.focus();
     }
-  }, [designModeInput, setDesignModeInput, designModeCodeContext, setDesignModeCodeContext]);
+  }, [
+    designModeInput,
+    setDesignModeInput,
+    designModeCodeContext,
+    setDesignModeCodeContext,
+  ]);
 
   // Synchronous ref for submit protection (prevents race conditions from React batching)
   const isSubmittingRef = useRef(false);
@@ -596,33 +630,45 @@ export function ChatPanel({
   };
 
   // Handle template generation with retry logic for missing chatId
-  const handleTemplateGeneration = async (templateId: string, retryCount = 0) => {
+  const handleTemplateGeneration = async (
+    templateId: string,
+    retryCount = 0
+  ) => {
     const MAX_RETRIES = 2;
-    
+
     if (retryCount === 0) {
       addMessage("assistant", `Laddar template: ${templateId}`);
     } else {
-      console.log(`[ChatPanel] Retrying template load (attempt ${retryCount + 1}/${MAX_RETRIES + 1})`);
+      console.log(
+        `[ChatPanel] Retrying template load (attempt ${retryCount + 1}/${
+          MAX_RETRIES + 1
+        })`
+      );
     }
     setLoading(true);
 
     try {
       // Skip cache on retry to force fresh v0 API call
-      const response = await generateFromTemplate(templateId, quality, retryCount > 0);
+      const response = await generateFromTemplate(
+        templateId,
+        quality,
+        retryCount > 0
+      );
 
       if (response.success) {
         // FIX: Validate chatId - critical for subsequent refinements
         if (!response.chatId) {
           console.error(
-            "[ChatPanel] Template loaded without chatId - attempt", retryCount + 1
+            "[ChatPanel] Template loaded without chatId - attempt",
+            retryCount + 1
           );
-          
+
           // Retry if we haven't exhausted retries
           if (retryCount < MAX_RETRIES) {
             setLoading(false);
             return handleTemplateGeneration(templateId, retryCount + 1);
           }
-          
+
           // Final attempt failed - warn user but continue with demoUrl
           addMessage(
             "assistant",
@@ -662,11 +708,14 @@ export function ChatPanel({
             response.message || "Template laddad! Du kan nu anpassa den."
           );
         }
-        
+
         // Auto-save after successful template load
         if (projectId && (response.demoUrl || response.code)) {
           explicitSave().catch((err) => {
-            console.warn("[ChatPanel] Auto-save after template load failed:", err);
+            console.warn(
+              "[ChatPanel] Auto-save after template load failed:",
+              err
+            );
           });
         }
       } else {
@@ -751,12 +800,15 @@ export function ChatPanel({
       const latestState = useBuilderStore.getState();
       const currentFiles = latestState.files;
 
-      console.log("[ChatPanel] Initial generation via streaming orchestrator:", {
-        promptPreview: enhancedPrompt.slice(0, 80) + "...",
-        type,
-        quality,
-        hasFiles: !!currentFiles?.length,
-      });
+      console.log(
+        "[ChatPanel] Initial generation via streaming orchestrator:",
+        {
+          promptPreview: enhancedPrompt.slice(0, 80) + "...",
+          type,
+          quality,
+          hasFiles: !!currentFiles?.length,
+        }
+      );
 
       // Collect media library info
       const mediaLibraryForPrompt: MediaLibraryItem[] = mediaBank.items
@@ -779,8 +831,8 @@ export function ChatPanel({
       }
 
       // Try streaming endpoint first, fall back to regular endpoint on error
-      let response: ApiOrchestratorResponse;
-      
+      let response: ApiOrchestratorResponse | null = null;
+
       try {
         response = await fetchWithStreaming(
           "/api/orchestrate/stream",
@@ -789,42 +841,104 @@ export function ChatPanel({
             quality,
             existingChatId: existingChatId || undefined,
             existingCode: existingCode || undefined,
+            projectId: latestState.projectId || undefined,
             projectFiles:
-              currentFiles && currentFiles.length > 0 ? currentFiles : undefined,
+              currentFiles && currentFiles.length > 0
+                ? currentFiles
+                : undefined,
             mediaLibrary:
               mediaLibraryForPrompt.length > 0
                 ? mediaLibraryForPrompt
                 : undefined,
           },
-          (thought) => setThinkingSteps(prev => [...prev, thought]),
+          (thought) => setThinkingSteps((prev) => [...prev, thought]),
           (step) => setStreamingMessage(step)
         );
       } catch (streamError) {
-        console.warn("[ChatPanel] Streaming failed, falling back to regular endpoint:", streamError);
-        // Fall back to regular endpoint
-        response = await fetch("/api/orchestrate", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            prompt: enhancedPrompt,
-            quality,
-            existingChatId: existingChatId || undefined,
-            existingCode: existingCode || undefined,
-            projectFiles:
-              currentFiles && currentFiles.length > 0 ? currentFiles : undefined,
-            mediaLibrary:
-              mediaLibraryForPrompt.length > 0
-                ? mediaLibraryForPrompt
-                : undefined,
-          }),
-        }).then((res) => res.json()) as ApiOrchestratorResponse;
+        const errorMsg =
+          streamError instanceof Error ? streamError.message : "Unknown error";
+        console.error("[ChatPanel] Streaming failed:", errorMsg);
+
+        // If it was a timeout or "no complete event", the generation might have succeeded
+        // on the server but we just didn't receive it. Don't start a new generation.
+        if (
+          errorMsg.includes("No complete event") ||
+          errorMsg.includes("timeout") ||
+          errorMsg.includes("aborted")
+        ) {
+          console.warn(
+            "[ChatPanel] Generation may have completed on server. Refreshing project..."
+          );
+
+          // Try to reload project data to see if it was updated
+          const projectId = useBuilderStore.getState().projectId;
+          if (projectId) {
+            try {
+              const projectRes = await fetch(`/api/projects/${projectId}`);
+              const projectJson = await projectRes.json();
+              const data = projectJson?.data;
+              if (data?.chat_id && data?.demo_url) {
+                console.log("[ChatPanel] Found updated project data, using it");
+                // Use the saved project data
+                response = {
+                  success: true,
+                  intent: "simple_code",
+                  code: data.current_code || "",
+                  files: Array.isArray(data.files) ? data.files : [],
+                  chatId: data.chat_id,
+                  demoUrl: data.demo_url,
+                  screenshotUrl: data.screenshot_url,
+                  versionId: data.version_id,
+                } as ApiOrchestratorResponse;
+              } else {
+                throw new Error("Project not updated, need to retry");
+              }
+            } catch {
+              // Project wasn't updated, fall through to regular endpoint
+              console.warn(
+                "[ChatPanel] Project not updated, falling back to regular endpoint"
+              );
+            }
+          }
+        }
+
+        // If we still don't have a response, fall back to regular endpoint
+        if (!response) {
+          console.warn("[ChatPanel] Falling back to regular endpoint");
+          response = (await fetch("/api/orchestrate", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              prompt: enhancedPrompt,
+              quality,
+              existingChatId: existingChatId || undefined,
+              existingCode: existingCode || undefined,
+              projectId: latestState.projectId || undefined,
+              projectFiles:
+                currentFiles && currentFiles.length > 0
+                  ? currentFiles
+                  : undefined,
+              mediaLibrary:
+                mediaLibraryForPrompt.length > 0
+                  ? mediaLibraryForPrompt
+                  : undefined,
+            }),
+          }).then((res) => res.json())) as ApiOrchestratorResponse;
+        }
+      }
+
+      if (!response) {
+        throw new Error("No orchestrator response received");
       }
 
       // Build attachments from orchestrator results
       const attachments: MessageAttachment[] = [];
 
       // Add workflow steps (use Array.isArray for type safety)
-      if (Array.isArray(response.workflowSteps) && response.workflowSteps.length > 0) {
+      if (
+        Array.isArray(response.workflowSteps) &&
+        response.workflowSteps.length > 0
+      ) {
         attachments.push({
           type: "workflow",
           steps: response.workflowSteps,
@@ -832,7 +946,10 @@ export function ChatPanel({
       }
 
       // Add web search results
-      if (Array.isArray(response.webSearchResults) && response.webSearchResults.length > 0) {
+      if (
+        Array.isArray(response.webSearchResults) &&
+        response.webSearchResults.length > 0
+      ) {
         attachments.push({
           type: "web_search",
           results: response.webSearchResults,
@@ -840,7 +957,10 @@ export function ChatPanel({
       }
 
       // Add generated images to attachments AND media bank
-      if (Array.isArray(response.generatedImages) && response.generatedImages.length > 0) {
+      if (
+        Array.isArray(response.generatedImages) &&
+        response.generatedImages.length > 0
+      ) {
         for (const img of response.generatedImages) {
           attachments.push({
             type: "image",
@@ -1062,29 +1182,35 @@ export function ChatPanel({
       // Get latest files from store (same pattern as actualCurrentCode)
       const actualFiles = latestState.files;
 
-      const response: ApiOrchestratorResponse = await fetch("/api/orchestrate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          prompt: enhancedInstruction,
-          quality,
-          existingChatId: actualChatId || undefined,
-          existingCode: actualCurrentCode,
-          // Pass project files for Code Crawler analysis
-          projectFiles:
-            actualFiles && actualFiles.length > 0 ? actualFiles : undefined,
-          mediaLibrary:
-            mediaLibraryForPrompt.length > 0
-              ? mediaLibraryForPrompt
-              : undefined,
-        }),
-      }).then((res) => res.json());
+      const response: ApiOrchestratorResponse = await fetch(
+        "/api/orchestrate",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            prompt: enhancedInstruction,
+            quality,
+            existingChatId: actualChatId || undefined,
+            existingCode: actualCurrentCode,
+            // Pass project files for Code Crawler analysis
+            projectFiles:
+              actualFiles && actualFiles.length > 0 ? actualFiles : undefined,
+            mediaLibrary:
+              mediaLibraryForPrompt.length > 0
+                ? mediaLibraryForPrompt
+                : undefined,
+          }),
+        }
+      ).then((res) => res.json());
 
       // Build attachments from orchestrator results
       const attachments: MessageAttachment[] = [];
 
       // Add workflow steps (use Array.isArray for type safety)
-      if (Array.isArray(response.workflowSteps) && response.workflowSteps.length > 0) {
+      if (
+        Array.isArray(response.workflowSteps) &&
+        response.workflowSteps.length > 0
+      ) {
         attachments.push({
           type: "workflow",
           steps: response.workflowSteps,
@@ -1092,7 +1218,10 @@ export function ChatPanel({
       }
 
       // Add web search results
-      if (Array.isArray(response.webSearchResults) && response.webSearchResults.length > 0) {
+      if (
+        Array.isArray(response.webSearchResults) &&
+        response.webSearchResults.length > 0
+      ) {
         attachments.push({
           type: "web_search",
           results: response.webSearchResults,
@@ -1100,7 +1229,10 @@ export function ChatPanel({
       }
 
       // Add generated images to attachments AND media bank
-      if (Array.isArray(response.generatedImages) && response.generatedImages.length > 0) {
+      if (
+        Array.isArray(response.generatedImages) &&
+        response.generatedImages.length > 0
+      ) {
         for (const img of response.generatedImages) {
           attachments.push({
             type: "image",
@@ -1381,18 +1513,23 @@ export function ChatPanel({
 
   // Handle asset selection from UnifiedAssetModal
   // This replaces the old handleMediaFileSelect and handleTextContent functions
-  const handleAssetSelect = useCallback((prompt: string) => {
-    // Set the sophisticated prompt from UnifiedAssetModal
-    setInput(prompt);
-    setShowAssetModal(false);
-    inputRef.current?.focus();
-    
-    // If we have existing code, auto-submit the refinement
-    if (currentCode && chatId && prompt.trim()) {
-      setTimeout(() => handleRefinement(prompt), 100);
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentCode, chatId]);
+  const handleAssetSelect = useCallback(
+    (prompt: string, asset?: { type?: string }) => {
+      // Set the sophisticated prompt from UnifiedAssetModal
+      setInput(prompt);
+      setShowAssetModal(false);
+      inputRef.current?.focus();
+
+      // Auto-apply only for low-risk assets.
+      // For sections/components, we prefer letting the user review the prompt first
+      // (avoids accidental big changes and avoids sending unrelated questions to v0).
+      const isSection = asset?.type === "section";
+      if (!isSection && currentCode && chatId && prompt.trim()) {
+        setTimeout(() => handleRefinement(prompt), 100);
+      }
+    },
+    [currentCode, chatId, handleRefinement]
+  );
 
   // Remove pending media item
   const handleRemovePendingMedia = (mediaId: string) => {
@@ -1455,12 +1592,12 @@ export function ChatPanel({
       </div>
 
       {/* Messages - improved mobile scrolling */}
-      <div 
-        ref={scrollRef} 
+      <div
+        ref={scrollRef}
         className="flex-1 overflow-y-auto scrollbar-thin overscroll-contain"
         style={{
-          WebkitOverflowScrolling: 'touch',
-          scrollBehavior: 'smooth',
+          WebkitOverflowScrolling: "touch",
+          scrollBehavior: "smooth",
         }}
       >
         <div className="p-4 space-y-4 pb-safe">
@@ -1688,7 +1825,7 @@ export function ChatPanel({
               <Blocks className="h-4 w-4 sm:h-3.5 sm:w-3.5 text-teal-500" />
               <span>+ Lägg till</span>
             </Button>
-            
+
             <Button
               size="sm"
               variant="ghost"
@@ -1701,7 +1838,11 @@ export function ChatPanel({
               }`}
               title="Inspect - välj element att ändra"
             >
-              <MousePointer2 className={`h-4 w-4 sm:h-3.5 sm:w-3.5 ${isDesignModeActive ? "text-purple-400" : "text-purple-500"}`} />
+              <MousePointer2
+                className={`h-4 w-4 sm:h-3.5 sm:w-3.5 ${
+                  isDesignModeActive ? "text-purple-400" : "text-purple-500"
+                }`}
+              />
               <span>Inspect</span>
             </Button>
           </div>
@@ -1727,7 +1868,10 @@ export function ChatPanel({
             onFocus={(e) => {
               // Ensure input is visible above keyboard on mobile
               setTimeout(() => {
-                e.target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                e.target.scrollIntoView({
+                  behavior: "smooth",
+                  block: "center",
+                });
               }, 300);
             }}
             placeholder={
@@ -1739,9 +1883,9 @@ export function ChatPanel({
             className="flex-1 bg-transparent text-base sm:text-sm text-white placeholder:text-gray-500 outline-none min-h-[44px]"
             style={{
               // Prevent iOS text zoom
-              fontSize: '16px',
+              fontSize: "16px",
               // Touch-friendly tap target
-              WebkitTapHighlightColor: 'transparent',
+              WebkitTapHighlightColor: "transparent",
             }}
           />
           <Button
@@ -1749,7 +1893,7 @@ export function ChatPanel({
             onClick={handleSubmit}
             disabled={!input.trim() || isLoading}
             className="h-11 w-11 sm:h-8 sm:w-8 p-0 bg-teal-600 hover:bg-teal-500 active:bg-teal-700 flex-shrink-0 touch-manipulation"
-            style={{ WebkitTapHighlightColor: 'transparent' }}
+            style={{ WebkitTapHighlightColor: "transparent" }}
           >
             {isLoading ? (
               <Loader2 className="h-5 w-5 sm:h-4 sm:w-4 animate-spin" />

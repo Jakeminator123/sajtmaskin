@@ -39,6 +39,8 @@ import {
   Search,
   Code2,
   ChevronDown,
+  Zap,
+  List,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useBuilderStore } from "@/lib/data/store";
@@ -331,6 +333,9 @@ export function DesignModeOverlay({
   const [searchQuery, setSearchQuery] = useState("");
   const overlayRef = useRef<HTMLDivElement>(null);
 
+  // Get inspector mode from store
+  const { inspectorMode, setInspectorMode } = useBuilderStore();
+
   // Determine if we can use direct DOM access (same-origin)
   const isCrossOrigin =
     iframeSrc?.includes("v0.dev") || iframeSrc?.includes("vusercontent.net");
@@ -566,28 +571,51 @@ export function DesignModeOverlay({
       {/* Cross-origin Element Picker UI - Inspired by DevTools */}
       {isCrossOrigin && (
         <div className="absolute bottom-4 left-4 right-4 z-30 max-h-[70vh] overflow-hidden flex flex-col">
-          <div className="bg-gray-900/98 border border-purple-500/30 rounded-xl backdrop-blur-sm shadow-2xl flex flex-col max-h-full">
+          <div className="bg-zinc-900 border border-purple-500/40 rounded-xl shadow-2xl flex flex-col max-h-full">
             {/* Header */}
-            <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800/80">
-              <div className="flex items-center gap-2">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-700 bg-zinc-800">
+              <div className="flex items-center gap-3">
                 <Code2 className="h-4 w-4 text-purple-400" />
                 <span className="text-sm font-medium text-purple-200">
                   Inspect Element
                 </span>
-                <span className="text-[10px] text-gray-500 bg-gray-800 px-1.5 py-0.5 rounded">
-                  DevTools-läge
-                </span>
+                
+                {/* Mode toggle */}
+                <div className="flex items-center gap-0.5 p-0.5 bg-zinc-900 rounded-lg border border-zinc-700">
+                  <button
+                    onClick={() => setInspectorMode("simple")}
+                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
+                      inspectorMode === "simple"
+                        ? "bg-purple-600 text-white"
+                        : "text-zinc-400 hover:text-zinc-200"
+                    }`}
+                  >
+                    <List className="h-3 w-3" />
+                    Enkelt
+                  </button>
+                  <button
+                    onClick={() => setInspectorMode("advanced")}
+                    className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-colors ${
+                      inspectorMode === "advanced"
+                        ? "bg-purple-600 text-white"
+                        : "text-zinc-400 hover:text-zinc-200"
+                    }`}
+                  >
+                    <Zap className="h-3 w-3" />
+                    Avancerat
+                  </button>
+                </div>
               </div>
               <button
                 onClick={onToggle}
-                className="p-1 rounded hover:bg-gray-800 text-gray-500 hover:text-gray-300 transition-colors"
+                className="p-1.5 rounded-lg hover:bg-zinc-700 text-zinc-400 hover:text-zinc-200 transition-colors"
               >
                 <X className="h-4 w-4" />
               </button>
             </div>
 
             {/* Search */}
-            <div className="px-4 py-2 border-b border-gray-800/50">
+            <div className="px-4 py-2 border-b border-zinc-700 bg-zinc-850">
               <div className="relative">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-500" />
                 <input
@@ -668,7 +696,7 @@ export function DesignModeOverlay({
             </div>
 
             {/* Custom input footer */}
-            <div className="px-4 py-3 border-t border-gray-800/80 bg-gray-900/50">
+            <div className="px-4 py-3 border-t border-zinc-700 bg-zinc-800">
               <div className="flex gap-2">
                 <input
                   type="text"

@@ -63,7 +63,15 @@ export function middleware(request: NextRequest) {
 
   // Add security headers
   response.headers.set("X-Content-Type-Options", "nosniff");
-  response.headers.set("X-Frame-Options", "DENY");
+  // NOTE:
+  // - We keep clickjacking protection by default (DENY).
+  // - BUT Advanced Inspector uses an iframe to embed our own proxy route (/api/proxy-preview),
+  //   which must be embeddable from the same origin.
+  if (pathname.startsWith("/api/proxy-preview")) {
+    response.headers.set("X-Frame-Options", "SAMEORIGIN");
+  } else {
+    response.headers.set("X-Frame-Options", "DENY");
+  }
   response.headers.set("X-XSS-Protection", "1; mode=block");
   response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
 

@@ -132,6 +132,7 @@ interface BuilderState {
 
   // Design Mode - click-to-edit in preview
   isDesignModeActive: boolean; // Global toggle for design mode
+  inspectorMode: "simple" | "advanced"; // Simple = category picker, Advanced = element picking in iframe
   designModeInput: string | null; // Pre-filled text from element selection
   designModeCodeContext: Array<{
     name: string;
@@ -167,6 +168,7 @@ interface BuilderState {
 
   // Design Mode actions
   toggleDesignMode: (active?: boolean) => void;
+  setInspectorMode: (mode: "simple" | "advanced") => void;
   setDesignModeInput: (text: string | null) => void;
   setDesignModeCodeContext: (
     context: Array<{
@@ -266,6 +268,7 @@ export const useBuilderStore = create<BuilderState>()(
       deviceSize: "desktop",
       quality: "premium",
       isDesignModeActive: false,
+      inspectorMode: "simple",
       designModeInput: null,
       designModeCodeContext: null,
       isSaving: false,
@@ -358,6 +361,8 @@ export const useBuilderStore = create<BuilderState>()(
         set((state) => ({ 
           isDesignModeActive: active !== undefined ? active : !state.isDesignModeActive 
         })),
+
+      setInspectorMode: (mode) => set({ inspectorMode: mode }),
         
       setDesignModeInput: (text) => set({ designModeInput: text }),
 

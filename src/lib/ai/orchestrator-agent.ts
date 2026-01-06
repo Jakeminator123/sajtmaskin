@@ -36,14 +36,24 @@
  */
 
 import type { QualityLevel } from "@/lib/api-client";
-import { isBlobConfigured, uploadBlobFromBase64 } from "@/lib/vercel/blob-service";
+import {
+  isBlobConfigured,
+  uploadBlobFromBase64,
+} from "@/lib/vercel/blob-service";
 import { crawlCodeContext, type CodeContext } from "@/lib/code-crawler";
 import { debugLog } from "@/lib/utils/debug";
-import { enrichPrompt, createEnrichmentSummary } from "@/lib/ai/prompt-enricher";
+import {
+  enrichPrompt,
+  createEnrichmentSummary,
+} from "@/lib/ai/prompt-enricher";
 import {
   semanticEnhance,
   type EnhancementResult,
 } from "@/lib/ai/semantic-enhancer";
+import {
+  creativeBriefEnhance,
+  type CreativeBriefResult,
+} from "@/lib/ai/creative-brief-enhancer";
 import {
   routePrompt,
   shouldRoute,
@@ -151,7 +161,9 @@ async function fetchStockImages(
   try {
     // Use internal API to fetch from Unsplash
     const response = await fetch(
-      `${process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"}/api/unsplash`,
+      `${
+        process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000"
+      }/api/unsplash`,
       {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -164,7 +176,10 @@ async function fetchStockImages(
     );
 
     if (!response.ok) {
-      console.warn("[Orchestrator:Stock] Unsplash API returned:", response.status);
+      console.warn(
+        "[Orchestrator:Stock] Unsplash API returned:",
+        response.status
+      );
       return [];
     }
 
@@ -1400,6 +1415,37 @@ export async function orchestrateWorkflow(
       // Build the code instruction using Prompt Enricher
       let codeInstruction = classification.codeInstruction || userPrompt;
 
+      // Creative brief boost for new-site prompts: turn vague prompt into a structured v0 brief
+      // This mirrors the quality jump users see when going through /api/expand-prompt.
+      if (!context.existingCode) {
+        try {
+          const brief = await creativeBriefEnhance({
+            userPrompt: classification.codeInstruction || userPrompt,
+            routerResult,
+            quality: context.quality,
+          });
+          if (brief?.mode === "clarify") {
+            const question = brief.questions.join(" ");
+            return {
+              success: true,
+              message: question,
+              intent: "clarify",
+              clarifyQuestion: question,
+              workflowSteps: [
+                ...(workflowSteps || []),
+                "Creative Brief Enhancer: Begärde förtydligande",
+              ],
+            };
+          }
+          if (brief?.mode === "expand") {
+            workflowSteps.push("Creative Brief Enhancer: Skapade design-brief");
+            codeInstruction = brief.expandedPrompt;
+          }
+        } catch (e) {
+          console.warn("[Orchestrator] Creative brief enhancer failed:", e);
+        }
+      }
+
       // Use Prompt Enricher if we have code context
       if (codeContext && codeContext.relevantFiles.length > 0) {
         console.log("[Orchestrator] === USING PROMPT ENRICHER ===");
@@ -1545,7 +1591,9 @@ Bilderna kommer INTE visas i preview. Lägg till placeholder-bilder tills vidare
             "[Orchestrator] New page generation - fetching stock images for:",
             industryKeywords
           );
-          workflowSteps.push(`Hämtar stockbilder: ${industryKeywords.join(", ")}`);
+          workflowSteps.push(
+            `Hämtar stockbilder: ${industryKeywords.join(", ")}`
+          );
 
           const stockImages = await fetchStockImages(industryKeywords, 4);
 
@@ -1565,7 +1613,9 @@ Du MÅSTE använda dessa EXAKTA URLs - de fungerar i v0 preview!
 
 `;
             stockImages.forEach((img, i) => {
-              codeInstruction += `${i + 1}. ${img.alt} (Foto: ${img.photographer})
+              codeInstruction += `${i + 1}. ${img.alt} (Foto: ${
+                img.photographer
+              })
    URL: ${img.url}
 
 `;
@@ -1991,9 +2041,10 @@ export async function orchestrateWorkflowStreaming(
     }
 
     // ═══════════════════════════════════════════════════════════════════════
-    // STEP 3: SEMANTIC ENHANCER (AI SDK 6)
+    // STEP 3: ENHANCERS (Semantic + Creative Brief)
     // ═══════════════════════════════════════════════════════════════════════
     let enhancementResult: EnhancementResult | undefined;
+    let creativeBrief: CreativeBriefResult | null = null;
 
     // Only enhance for code-related intents that might benefit
     const shouldEnhance =
@@ -2004,7 +2055,36 @@ export async function orchestrateWorkflowStreaming(
       userPrompt.length >= 10 &&
       userPrompt.length < 200; // Don't enhance very long prompts
 
-    if (shouldEnhance) {
+    // Creative brief boost only for new site generation (no existing code)
+    if (!context.existingCode && routerResult.intent === "simple_code") {
+      onProgress?.("Skapar design-brief...", 3, 5);
+      onThinking?.(
+        "Gör din beskrivning till en tydlig design-brief (målgrupp, struktur, stil)..."
+      );
+      try {
+        creativeBrief = await creativeBriefEnhance({
+          userPrompt,
+          routerResult,
+          quality: context.quality,
+        });
+        if (creativeBrief?.mode === "clarify") {
+          const question = creativeBrief.questions.join(" ");
+          return {
+            success: true,
+            message: question,
+            intent: "clarify",
+            clarifyQuestion: question,
+            workflowSteps: [...workflowSteps, "Creative Brief: Förtydligande"],
+          };
+        }
+        if (creativeBrief?.mode === "expand") {
+          workflowSteps.push("Creative Brief: Skapade design-brief");
+          onThinking?.("Design-brief klar. Skickar vidare till v0...");
+        }
+      } catch (e) {
+        console.warn("[Orchestrator] Creative brief enhancer failed:", e);
+      }
+    } else if (shouldEnhance) {
       onProgress?.("Förbättrar prompten...", 3, 5);
       onThinking?.("Gör din förfrågan mer specifik och teknisk...");
 
@@ -2096,7 +2176,10 @@ export async function orchestrateWorkflowStreaming(
     // Build enriched prompt using Prompt Enricher
     const enrichedPrompt = enrichPrompt({
       originalPrompt: userPrompt,
-      enhancedPrompt: enhancementResult?.enhancedPrompt,
+      enhancedPrompt:
+        creativeBrief?.mode === "expand"
+          ? creativeBrief.expandedPrompt
+          : enhancementResult?.enhancedPrompt,
       routerResult,
       codeContext,
     });

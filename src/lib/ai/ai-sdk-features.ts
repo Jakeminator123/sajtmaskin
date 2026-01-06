@@ -4,6 +4,11 @@
  * Centraliserad hantering av AI SDK 6:s avancerade funktioner.
  * Användare kan aktivera/avaktivera features via UI.
  *
+ * FEATURE KATEGORIER:
+ * - Base features: Alltid aktiva, kan ej stängas av (structuredToolOutput, extendedUsage)
+ * - Advanced features: Kan slås av/på med master-toggle + individuella toggles
+ * - Placeholder features: Visas men är disabled (ej implementerade ännu)
+ *
  * @see https://vercel.com/blog/ai-sdk-6
  * @see https://vercel.com/docs/ai-sdk
  */
@@ -24,6 +29,24 @@ export interface AIFeature {
   enabled: boolean;
   requiresInstall?: string; // NPM package if additional install needed
   docsUrl?: string;
+  isBase?: boolean; // Base features are always on and cannot be toggled
+}
+
+// Base features that are always enabled and cannot be turned off
+export const BASE_FEATURE_IDS = new Set<string>([
+  "structuredToolOutput",
+  "extendedUsage",
+]);
+
+// Check if a feature is a base feature (always on)
+export function isBaseFeature(featureId: string): boolean {
+  return BASE_FEATURE_IDS.has(featureId);
+}
+
+// Check if a feature is a placeholder (not implemented yet)
+export function isPlaceholderFeature(featureId: string): boolean {
+  const feature = AI_SDK_FEATURES[featureId];
+  return feature?.status === "placeholder";
 }
 
 /**
@@ -137,33 +160,54 @@ export const AI_SDK_FEATURES: Record<string, Omit<AIFeature, "enabled">> = {
 // ============================================================================
 
 interface AIFeaturesState {
-  // Aktiverade features (by ID)
+  // Master toggle for advanced features (base features are always on)
+  advancedModeEnabled: boolean;
+
+  // Aktiverade features (by ID) - only applies when advancedModeEnabled is true
   enabledFeatures: Set<string>;
 
   // Actions
+  toggleAdvancedMode: () => void;
+  setAdvancedMode: (enabled: boolean) => void;
   enableFeature: (featureId: string) => void;
   disableFeature: (featureId: string) => void;
   toggleFeature: (featureId: string) => void;
   isFeatureEnabled: (featureId: string) => boolean;
   getEnabledFeatures: () => AIFeature[];
   getAllFeatures: () => AIFeature[];
+  getBaseFeatures: () => AIFeature[];
+  getAdvancedFeatures: () => AIFeature[];
   resetToDefaults: () => void;
 }
 
-// Default enabled features (stable ones)
+// Default enabled features (stable ones that are toggled on by default)
 const DEFAULT_ENABLED_FEATURES = new Set<string>([
   "structuredToolOutput",
   "extendedUsage",
+  // Advanced features default to off (user must enable them)
 ]);
 
 export const useAIFeatures = create<AIFeaturesState>()(
   persist(
     (set, get) => ({
+      advancedModeEnabled: false, // Master toggle starts OFF
       enabledFeatures: new Set(DEFAULT_ENABLED_FEATURES),
+
+      toggleAdvancedMode: () => {
+        set((state) => ({ advancedModeEnabled: !state.advancedModeEnabled }));
+      },
+
+      setAdvancedMode: (enabled: boolean) => {
+        set({ advancedModeEnabled: enabled });
+      },
 
       enableFeature: (featureId: string) => {
         if (!(featureId in AI_SDK_FEATURES)) {
           console.warn(`[AIFeatures] Unknown feature: ${featureId}`);
+          return;
+        }
+        // Don't allow toggling base features or placeholders
+        if (isBaseFeature(featureId) || isPlaceholderFeature(featureId)) {
           return;
         }
         set((state) => ({
@@ -172,6 +216,10 @@ export const useAIFeatures = create<AIFeaturesState>()(
       },
 
       disableFeature: (featureId: string) => {
+        // Don't allow disabling base features
+        if (isBaseFeature(featureId)) {
+          return;
+        }
         set((state) => {
           const newSet = new Set(state.enabledFeatures);
           newSet.delete(featureId);
@@ -180,6 +228,10 @@ export const useAIFeatures = create<AIFeaturesState>()(
       },
 
       toggleFeature: (featureId: string) => {
+        // Don't allow toggling base features or placeholders
+        if (isBaseFeature(featureId) || isPlaceholderFeature(featureId)) {
+          return;
+        }
         const { enabledFeatures, enableFeature, disableFeature } = get();
         if (enabledFeatures.has(featureId)) {
           disableFeature(featureId);
@@ -189,26 +241,64 @@ export const useAIFeatures = create<AIFeaturesState>()(
       },
 
       isFeatureEnabled: (featureId: string) => {
-        return get().enabledFeatures.has(featureId);
+        const { advancedModeEnabled, enabledFeatures } = get();
+
+        // Base features are ALWAYS enabled
+        if (isBaseFeature(featureId)) {
+          return true;
+        }
+
+        // Placeholder features are NEVER enabled (not implemented)
+        if (isPlaceholderFeature(featureId)) {
+          return false;
+        }
+
+        // Advanced features require master toggle + individual toggle
+        if (!advancedModeEnabled) {
+          return false;
+        }
+
+        return enabledFeatures.has(featureId);
       },
 
       getEnabledFeatures: () => {
-        const { enabledFeatures } = get();
+        const state = get();
         return Object.values(AI_SDK_FEATURES)
-          .filter((f) => enabledFeatures.has(f.id))
-          .map((f) => ({ ...f, enabled: true }));
+          .filter((f) => state.isFeatureEnabled(f.id))
+          .map((f) => ({ ...f, enabled: true, isBase: isBaseFeature(f.id) }));
       },
 
       getAllFeatures: () => {
-        const { enabledFeatures } = get();
+        const state = get();
         return Object.values(AI_SDK_FEATURES).map((f) => ({
           ...f,
-          enabled: enabledFeatures.has(f.id),
+          enabled: state.isFeatureEnabled(f.id),
+          isBase: isBaseFeature(f.id),
         }));
       },
 
+      getBaseFeatures: () => {
+        return Object.values(AI_SDK_FEATURES)
+          .filter((f) => isBaseFeature(f.id))
+          .map((f) => ({ ...f, enabled: true, isBase: true }));
+      },
+
+      getAdvancedFeatures: () => {
+        const state = get();
+        return Object.values(AI_SDK_FEATURES)
+          .filter((f) => !isBaseFeature(f.id))
+          .map((f) => ({
+            ...f,
+            enabled: state.isFeatureEnabled(f.id),
+            isBase: false,
+          }));
+      },
+
       resetToDefaults: () => {
-        set({ enabledFeatures: new Set(DEFAULT_ENABLED_FEATURES) });
+        set({
+          advancedModeEnabled: false,
+          enabledFeatures: new Set(DEFAULT_ENABLED_FEATURES),
+        });
       },
     }),
     {
@@ -223,6 +313,7 @@ export const useAIFeatures = create<AIFeaturesState>()(
             ...parsed,
             state: {
               ...parsed.state,
+              advancedModeEnabled: parsed.state.advancedModeEnabled ?? false,
               enabledFeatures: new Set(parsed.state.enabledFeatures || []),
             },
           };
@@ -232,6 +323,7 @@ export const useAIFeatures = create<AIFeaturesState>()(
             ...value,
             state: {
               ...value.state,
+              advancedModeEnabled: value.state.advancedModeEnabled,
               enabledFeatures: [...value.state.enabledFeatures],
             },
           };
@@ -249,9 +341,18 @@ export const useAIFeatures = create<AIFeaturesState>()(
 
 /**
  * Kontrollera om en feature är aktiverad (för use i icke-React kontext)
+ * Takes into account: base features (always on), placeholders (always off),
+ * and advanced mode toggle.
  */
 export function isAIFeatureEnabled(featureId: string): boolean {
   return useAIFeatures.getState().isFeatureEnabled(featureId);
+}
+
+/**
+ * Kontrollera om advanced mode är aktiverat
+ */
+export function isAdvancedModeEnabled(): boolean {
+  return useAIFeatures.getState().advancedModeEnabled;
 }
 
 /**
@@ -263,6 +364,7 @@ export function getAIFeature(featureId: string): AIFeature | null {
   return {
     ...feature,
     enabled: isAIFeatureEnabled(featureId),
+    isBase: isBaseFeature(featureId),
   };
 }
 
@@ -272,7 +374,11 @@ export function getAIFeature(featureId: string): AIFeature | null {
 export function getFeaturesRequiringInstall(): AIFeature[] {
   return Object.values(AI_SDK_FEATURES)
     .filter((f) => f.requiresInstall)
-    .map((f) => ({ ...f, enabled: isAIFeatureEnabled(f.id) }));
+    .map((f) => ({
+      ...f,
+      enabled: isAIFeatureEnabled(f.id),
+      isBase: isBaseFeature(f.id),
+    }));
 }
 
 /**
@@ -281,10 +387,14 @@ export function getFeaturesRequiringInstall(): AIFeature[] {
 export function getFeaturesByCategory(
   category: AIFeature["category"]
 ): AIFeature[] {
-  const { enabledFeatures } = useAIFeatures.getState();
+  const state = useAIFeatures.getState();
   return Object.values(AI_SDK_FEATURES)
     .filter((f) => f.category === category)
-    .map((f) => ({ ...f, enabled: enabledFeatures.has(f.id) }));
+    .map((f) => ({
+      ...f,
+      enabled: state.isFeatureEnabled(f.id),
+      isBase: isBaseFeature(f.id),
+    }));
 }
 
 // ============================================================================

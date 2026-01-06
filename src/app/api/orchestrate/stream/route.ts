@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { getCurrentUser } from "@/lib/auth/auth";
 import {
   getUserById,
+  getProjectById,
   deductDiamonds,
   isTestUser,
   canUserGenerate,
@@ -9,7 +10,10 @@ import {
   incrementDailyGenerations,
   incrementDailyRefines,
   DAILY_RATE_LIMITS,
+  saveProjectData,
+  saveProjectFilesToDb,
 } from "@/lib/data/database";
+import { deleteCache } from "@/lib/data/redis";
 import { orchestrateWorkflowStreaming } from "@/lib/ai/orchestrator-agent";
 import type { QualityLevel } from "@/lib/api-client";
 
@@ -34,8 +38,63 @@ interface StreamingOrchestrateRequest {
   quality?: QualityLevel;
   existingChatId?: string;
   existingCode?: string;
+  projectId?: string;
   projectFiles?: Array<{ name: string; content: string }>;
   mediaLibrary?: Array<{ url: string; filename: string; description?: string }>;
+}
+
+async function persistResultToProject(opts: {
+  projectId: string;
+  userId: string;
+  result: {
+    chatId?: string | null;
+    demoUrl?: string | null;
+    code?: string | null;
+    files?: Array<{ name?: string; content?: string }> | null;
+  };
+}): Promise<void> {
+  const { projectId, userId, result } = opts;
+  const project = getProjectById(projectId);
+  if (!project) return;
+
+  // Only allow saving to user's own project (or unowned projects)
+  if (project.user_id && project.user_id !== userId) return;
+
+  const files = Array.isArray(result.files)
+    ? (result.files
+        .map((f) => {
+          const name = typeof f?.name === "string" ? f.name : null;
+          const content = typeof f?.content === "string" ? f.content : null;
+          if (!name || !content) return null;
+          return { name, content };
+        })
+        .filter(Boolean) as Array<{ name: string; content: string }>)
+    : [];
+
+  saveProjectData({
+    project_id: projectId,
+    chat_id: result.chatId || undefined,
+    demo_url: result.demoUrl || undefined,
+    current_code: result.code || undefined,
+    files,
+    messages: [],
+  });
+
+  if (files.length > 0) {
+    saveProjectFilesToDb(
+      projectId,
+      files.map((f) => ({
+        path: f.name,
+        content: f.content,
+        mime_type: "text/plain",
+      }))
+    );
+  }
+
+  await Promise.all([
+    deleteCache(`project:${projectId}`),
+    deleteCache("projects:list"),
+  ]);
 }
 
 export async function POST(request: NextRequest) {
@@ -44,24 +103,34 @@ export async function POST(request: NextRequest) {
   // Track controller state to prevent "Controller is already closed" errors
   let isControllerClosed = false;
 
+  // Helper to check if controller is still writable
+  const isControllerOpen = (
+    controller: ReadableStreamDefaultController
+  ): boolean => {
+    if (isControllerClosed) return false;
+    // desiredSize is null when the stream is closed or errored
+    try {
+      return controller.desiredSize !== null;
+    } catch {
+      return false;
+    }
+  };
+
   // Helper to safely send SSE event (guards against closed controller)
   const sendEvent = (
     controller: ReadableStreamDefaultController,
     eventType: string,
     data: unknown
   ) => {
-    if (isControllerClosed) {
-      console.warn(
-        `[Stream] Attempted to send "${eventType}" after controller closed`
-      );
+    if (!isControllerOpen(controller)) {
+      // Silent skip - client disconnected, this is normal behavior
       return;
     }
     try {
       const event = `event: ${eventType}\ndata: ${JSON.stringify(data)}\n\n`;
       controller.enqueue(encoder.encode(event));
-    } catch (err) {
-      // Controller was closed between our check and the enqueue
-      console.warn(`[Stream] Failed to send "${eventType}":`, err);
+    } catch {
+      // Controller was closed between our check and the enqueue - this is fine
       isControllerClosed = true;
     }
   };
@@ -71,14 +140,17 @@ export async function POST(request: NextRequest) {
     if (isControllerClosed) return;
     try {
       controller.close();
-      isControllerClosed = true;
     } catch {
-      // Already closed
-      isControllerClosed = true;
+      // Already closed - this is fine
     }
+    isControllerClosed = true;
   };
 
   const stream = new ReadableStream({
+    cancel() {
+      // Called when client disconnects - mark as closed so callbacks stop sending
+      isControllerClosed = true;
+    },
     async start(controller) {
       try {
         const body: StreamingOrchestrateRequest = await request.json();
@@ -87,6 +159,7 @@ export async function POST(request: NextRequest) {
           quality = "standard",
           existingChatId,
           existingCode,
+          projectId,
           projectFiles,
           mediaLibrary,
         } = body;
@@ -181,6 +254,29 @@ export async function POST(request: NextRequest) {
           });
           safeClose(controller);
           return;
+        }
+
+        // Persist result to project even if the streaming client disconnects.
+        // This prevents the UI from getting stuck when the SSE connection closes early.
+        if (projectId && result.chatId && result.demoUrl) {
+          try {
+            await persistResultToProject({
+              projectId,
+              userId: user.id,
+              result: {
+                chatId: result.chatId,
+                demoUrl: result.demoUrl,
+                code: result.code || null,
+                files:
+                  (result.files as Array<{
+                    name?: string;
+                    content?: string;
+                  }>) || null,
+              },
+            });
+          } catch (e) {
+            console.error("[Stream] Failed to persist project result:", e);
+          }
         }
 
         // Calculate diamond cost based on intent

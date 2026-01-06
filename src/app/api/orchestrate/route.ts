@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/auth";
 import {
   getUserById,
+  getProjectById,
   deductDiamonds,
   isTestUser,
   canUserGenerate,
@@ -9,7 +10,10 @@ import {
   incrementDailyGenerations,
   incrementDailyRefines,
   DAILY_RATE_LIMITS,
+  saveProjectData,
+  saveProjectFilesToDb,
 } from "@/lib/data/database";
+import { deleteCache } from "@/lib/data/redis";
 import { orchestrateWorkflow } from "@/lib/ai/orchestrator-agent";
 import type { QualityLevel } from "@/lib/api-client";
 
@@ -52,6 +56,7 @@ interface OrchestrateRequest {
   quality?: QualityLevel;
   existingChatId?: string;
   existingCode?: string;
+  projectId?: string;
   // Project files for Code Crawler analysis
   projectFiles?: Array<{
     name: string;
@@ -72,6 +77,7 @@ export async function POST(request: NextRequest) {
       quality = "standard",
       existingChatId,
       existingCode,
+      projectId,
       projectFiles,
       mediaLibrary,
     } = body;
@@ -124,9 +130,7 @@ export async function POST(request: NextRequest) {
           rateLimited: true,
           remaining: 0,
           limit,
-          resetsAt: new Date(
-            new Date().setHours(24, 0, 0, 0)
-          ).toISOString(),
+          resetsAt: new Date(new Date().setHours(24, 0, 0, 0)).toISOString(),
         },
         { status: 429 }
       );
@@ -230,6 +234,58 @@ export async function POST(request: NextRequest) {
         incrementDailyRefines(user.id);
       } else {
         incrementDailyGenerations(user.id);
+      }
+    }
+
+    // Persist to project if provided so the UI can always recover (even without streaming).
+    if (projectId && result.chatId && result.demoUrl) {
+      try {
+        const project = getProjectById(projectId);
+        if (project && (!project.user_id || project.user_id === user.id)) {
+          const files = Array.isArray(result.files)
+            ? (result.files
+                .map((f) => {
+                  const name =
+                    typeof (f as { name?: unknown }).name === "string"
+                      ? (f as { name: string }).name
+                      : null;
+                  const content =
+                    typeof (f as { content?: unknown }).content === "string"
+                      ? (f as { content: string }).content
+                      : null;
+                  if (!name || !content) return null;
+                  return { name, content };
+                })
+                .filter(Boolean) as Array<{ name: string; content: string }>)
+            : [];
+
+          saveProjectData({
+            project_id: projectId,
+            chat_id: result.chatId,
+            demo_url: result.demoUrl,
+            current_code: result.code || undefined,
+            files,
+            messages: [],
+          });
+
+          if (files.length > 0) {
+            saveProjectFilesToDb(
+              projectId,
+              files.map((f) => ({
+                path: f.name,
+                content: f.content,
+                mime_type: "text/plain",
+              }))
+            );
+          }
+
+          await Promise.all([
+            deleteCache(`project:${projectId}`),
+            deleteCache("projects:list"),
+          ]);
+        }
+      } catch (e) {
+        console.error("[API:Orchestrate] Failed to persist project result:", e);
       }
     }
 
