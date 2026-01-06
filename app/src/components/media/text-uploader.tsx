@@ -21,7 +21,15 @@
  */
 
 import { useState, useRef, useCallback, useMemo } from "react";
-import { FileText, Upload, Loader2, X, AlertCircle, Sparkles, Save } from "lucide-react";
+import {
+  FileText,
+  Upload,
+  Loader2,
+  X,
+  AlertCircle,
+  Sparkles,
+  Save,
+} from "lucide-react";
 import { cn } from "@/lib/utils";
 
 // ============================================================================
@@ -42,26 +50,70 @@ interface TextUploaderProps {
 // Smart content type detection based on keywords
 function detectContentType(content: string): { type: string; hint: string } {
   const lower = content.toLowerCase();
-  
-  if (lower.includes("om oss") || lower.includes("about us") || lower.includes("vår historia") || lower.includes("vi är")) {
-    return { type: "about", hint: "Ser ut som 'Om oss'-text → Föreslår About-sektionen" };
+
+  if (
+    lower.includes("om oss") ||
+    lower.includes("about us") ||
+    lower.includes("vår historia") ||
+    lower.includes("vi är")
+  ) {
+    return {
+      type: "about",
+      hint: "Ser ut som 'Om oss'-text → Föreslår About-sektionen",
+    };
   }
-  if (lower.includes("kontakt") || lower.includes("email") || lower.includes("telefon") || lower.includes("adress")) {
-    return { type: "contact", hint: "Ser ut som kontaktinfo → Föreslår Contact-sektionen" };
+  if (
+    lower.includes("kontakt") ||
+    lower.includes("email") ||
+    lower.includes("telefon") ||
+    lower.includes("adress")
+  ) {
+    return {
+      type: "contact",
+      hint: "Ser ut som kontaktinfo → Föreslår Contact-sektionen",
+    };
   }
-  if (lower.includes("tjänst") || lower.includes("service") || lower.includes("vi erbjuder") || lower.includes("våra tjänster")) {
-    return { type: "services", hint: "Ser ut som tjänstebeskrivning → Föreslår Services-sektionen" };
+  if (
+    lower.includes("tjänst") ||
+    lower.includes("service") ||
+    lower.includes("vi erbjuder") ||
+    lower.includes("våra tjänster")
+  ) {
+    return {
+      type: "services",
+      hint: "Ser ut som tjänstebeskrivning → Föreslår Services-sektionen",
+    };
   }
-  if (lower.includes("pris") || lower.includes("kostnad") || lower.includes("paket") || lower.includes("pricing")) {
-    return { type: "pricing", hint: "Ser ut som prislista → Föreslår Pricing-sektionen" };
+  if (
+    lower.includes("pris") ||
+    lower.includes("kostnad") ||
+    lower.includes("paket") ||
+    lower.includes("pricing")
+  ) {
+    return {
+      type: "pricing",
+      hint: "Ser ut som prislista → Föreslår Pricing-sektionen",
+    };
   }
-  if (lower.includes("faq") || lower.includes("vanliga frågor") || lower.includes("?")) {
+  if (
+    lower.includes("faq") ||
+    lower.includes("vanliga frågor") ||
+    lower.includes("?")
+  ) {
     return { type: "faq", hint: "Ser ut som FAQ → Föreslår FAQ-sektionen" };
   }
-  if (lower.includes("testimonial") || lower.includes("recensi") || lower.includes("kund säger") || lower.includes("omdöme")) {
-    return { type: "testimonials", hint: "Ser ut som kundrecensioner → Föreslår Testimonials" };
+  if (
+    lower.includes("testimonial") ||
+    lower.includes("recensi") ||
+    lower.includes("kund säger") ||
+    lower.includes("omdöme")
+  ) {
+    return {
+      type: "testimonials",
+      hint: "Ser ut som kundrecensioner → Föreslår Testimonials",
+    };
   }
-  
+
   return { type: "general", hint: "AI:n hittar bästa platsen automatiskt" };
 }
 
@@ -83,17 +135,17 @@ export function TextUploader({
   } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const modalRef = useRef<HTMLDivElement>(null);
-  
+
   // Detect content type for smart hints
   const contentHint = useMemo(() => {
     if (!pendingText) return null;
     return detectContentType(pendingText.content);
   }, [pendingText]);
-  
+
   // Calculate word count for preview
   const wordCount = useMemo(() => {
     if (!pendingText) return 0;
-    return pendingText.content.split(/\s+/).filter(w => w.length > 0).length;
+    return pendingText.content.split(/\s+/).filter((w) => w.length > 0).length;
   }, [pendingText]);
 
   const readFileContent = async (file: File): Promise<string> => {
@@ -143,7 +195,6 @@ export function TextUploader({
 
     setIsProcessing(true);
     setError(null);
-    setInfoMessage(null);
     setPendingText(null);
 
     try {
@@ -169,7 +220,7 @@ export function TextUploader({
   // Unified action: send to chat (with optional save)
   const handleSendToChat = async () => {
     if (!pendingText) return;
-    
+
     // Save to library first if checkbox is checked
     if (saveToLibrary) {
       setIsSaving(true);
@@ -194,7 +245,7 @@ export function TextUploader({
         setIsSaving(false);
       }
     }
-    
+
     // Send to chat
     onContentReady(pendingText.content, pendingText.filename);
     setPendingText(null);
@@ -339,12 +390,14 @@ export function TextUploader({
                     {pendingText.content.length > 400 ? "..." : ""}
                   </p>
                 </div>
-                
+
                 {/* Smart content hint */}
                 {contentHint && (
                   <div className="flex items-center gap-2 px-3 py-2 bg-teal-500/10 border border-teal-500/30 rounded-lg">
                     <Sparkles className="h-4 w-4 text-teal-400 flex-shrink-0" />
-                    <span className="text-xs text-teal-300">{contentHint.hint}</span>
+                    <span className="text-xs text-teal-300">
+                      {contentHint.hint}
+                    </span>
                   </div>
                 )}
 
@@ -383,7 +436,7 @@ export function TextUploader({
                     </>
                   )}
                 </button>
-                
+
                 <p className="text-[11px] text-gray-600 text-center">
                   Du kan ange var texten ska placeras i nästa meddelande
                 </p>
