@@ -484,7 +484,9 @@ export function ChatPanel({
   const lastGeneratedKeyRef = useRef<string | null>(null);
 
   // Ref for handleRefinement to avoid stale closure in useCallback dependencies
-  const handleRefinementRef = useRef<(instruction: string) => Promise<void>>();
+  const handleRefinementRef = useRef<
+    ((instruction: string) => Promise<void>) | null
+  >(null);
 
   // Check if we're in test mode (force regeneration, skip cache)
   const isTestMode =
