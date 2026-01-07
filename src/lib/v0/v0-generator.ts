@@ -597,9 +597,27 @@ export async function generateCode(
       "[v0-generator] Raw response keys:",
       Object.keys(rawResponse || {})
     );
+    const rawPreview = JSON.stringify(rawResponse, null, 2);
+    const sanitizedPreview = rawPreview
+      // Truncate JSON fields that contain raw base64
+      .replace(
+        /("base64"\s*:\s*")([A-Za-z0-9+/=]{20,})(")/g,
+        (_m, start, b64, end) =>
+          `${start}${String(b64).slice(0, 10)}...(base64 förkortad, längd=${
+            String(b64).length
+          })${end}`
+      )
+      // Truncate data URLs that contain base64
+      .replace(
+        /(data:image\/[a-zA-Z0-9.+-]+;base64,)([A-Za-z0-9+/=]{20,})/g,
+        (_m, prefix, b64) =>
+          `${prefix}${String(b64).slice(0, 10)}...(base64 förkortad, längd=${
+            String(b64).length
+          })`
+      );
     console.log(
       "[v0-generator] Raw response:",
-      JSON.stringify(rawResponse, null, 2).substring(0, 2000)
+      sanitizedPreview.substring(0, 2000)
     );
 
     chat = rawResponse as ChatDetail;

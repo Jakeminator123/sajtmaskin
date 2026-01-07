@@ -102,7 +102,8 @@ function getSuggestionsForIntent(
       ];
 
     case "clarify":
-      // Use provided options or fallback to generic ones
+      // When AI asks a clarifying question, only show options if explicitly provided
+      // Don't show generic design suggestions - let the user answer naturally
       if (clarifyOptions && clarifyOptions.length > 0) {
         return clarifyOptions.map((option, i) => ({
           text: option,
@@ -111,26 +112,8 @@ function getSuggestionsForIntent(
           variant: i === 0 ? "primary" as const : "secondary" as const,
         }));
       }
-      return [
-        {
-          text: "Gör det mer minimalistiskt",
-          prompt: "Gör designen mer minimalistisk och clean",
-          icon: Layout,
-          variant: "primary",
-        },
-        {
-          text: "Lägg till mer färg",
-          prompt: "Lägg till mer färg och visuellt intresse",
-          icon: Palette,
-          variant: "secondary",
-        },
-        {
-          text: "Gör det mer professionellt",
-          prompt: "Gör designen mer professionell och företagsmässig",
-          icon: FileCode,
-          variant: "secondary",
-        },
-      ];
+      // No generic fallback - the user should answer the question in their own words
+      return [];
 
     case "code_only":
     case "simple_code":
