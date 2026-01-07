@@ -139,12 +139,15 @@ interface TemplateBrowserProps {
   onSelect?: (templateId: string) => void;
   /** Show compact mode for embedding in home page */
   compact?: boolean;
+  /** Callback to close the browser (for modal usage) */
+  onClose?: () => void;
 }
 
 export function TemplateBrowser({
   initialLimit = 12,
   onSelect,
   compact = false,
+  onClose,
 }: TemplateBrowserProps) {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
@@ -217,7 +220,9 @@ export function TemplateBrowser({
     : TEMPLATES.length;
 
   return (
-    <div className={`w-full ${compact ? "max-w-6xl" : "max-w-7xl"} mx-auto`}>
+    <div
+      className={`w-full ${compact ? "max-w-6xl" : "max-w-7xl"} mx-auto p-4`}
+    >
       {/* Header with search */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 mb-6">
         {!compact && (
@@ -232,6 +237,17 @@ export function TemplateBrowser({
               </p>
             </div>
           </div>
+        )}
+
+        {/* Close button when used as modal */}
+        {onClose && (
+          <button
+            onClick={onClose}
+            className="absolute top-4 right-4 p-2 text-gray-400 hover:text-white hover:bg-gray-800/50 rounded-lg transition-colors z-10"
+            aria-label="Stäng"
+          >
+            <X className="h-6 w-6" />
+          </button>
         )}
 
         {/* Search */}
