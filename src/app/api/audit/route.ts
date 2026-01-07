@@ -9,7 +9,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { OpenAI } from "openai";
 import { getCurrentUser } from "@/lib/auth/auth";
-import { getUserById, createTransaction, isTestUser } from "@/lib/data/database";
+import {
+  getUserById,
+  createTransaction,
+  isTestUser,
+} from "@/lib/data/database";
 import { SECRETS } from "@/lib/config";
 import { scrapeWebsite, validateAndNormalizeUrl } from "@/lib/webscraper";
 import {
@@ -473,6 +477,7 @@ export async function POST(request: NextRequest) {
 
     // Parse JSON response with repair attempts
     let auditResult;
+    let usedFallback = false;
     const parseResult = parseJsonWithRepair(cleanedOutput);
 
     if (parseResult.success && parseResult.data) {
@@ -494,47 +499,43 @@ export async function POST(request: NextRequest) {
           `[${requestId}] Could not find JSON in response. Full output (first 2000 chars):`,
           outputText.substring(0, 2000)
         );
-        return NextResponse.json(
-          {
-            success: false,
-            error:
-              "Kunde inte tolka AI-svaret. AI:n returnerade ogiltig JSON. Försök igen.",
-          },
-          { status: 500 }
+        console.log(
+          `[${requestId}] Falling back to scraped-data audit (AI response invalid JSON)`
         );
-      }
-      console.log(
-        `[${requestId}] Extracted JSON length: ${jsonString.length} chars`
-      );
-
-      // Try parsing extracted JSON with repair
-      const extractParseResult = parseJsonWithRepair(jsonString);
-      if (extractParseResult.success && extractParseResult.data) {
-        auditResult = extractParseResult.data;
-        console.log(`[${requestId}] Extracted JSON parse succeeded`);
+        auditResult = createFallbackResult(websiteContent, normalizedUrl);
+        usedFallback = true;
       } else {
-        // Log the problematic JSON for debugging (first 1000 chars around error position)
-        const errorPos = extractParseResult.error?.match(/position (\d+)/)?.[1];
-        const startPos = errorPos ? Math.max(0, parseInt(errorPos) - 500) : 0;
-        const endPos = errorPos
-          ? Math.min(jsonString.length, parseInt(errorPos) + 500)
-          : 1000;
-        console.error(
-          `[${requestId}] Failed to parse extracted JSON:`,
-          extractParseResult.error
+        console.log(
+          `[${requestId}] Extracted JSON length: ${jsonString.length} chars`
         );
-        console.error(
-          `[${requestId}] Problematic JSON section (chars ${startPos}-${endPos}):`,
-          jsonString.substring(startPos, endPos)
-        );
-        return NextResponse.json(
-          {
-            success: false,
-            error:
-              "Kunde inte tolka AI-svaret. JSON-syntaxfel i AI-responsen. Försök igen.",
-          },
-          { status: 500 }
-        );
+
+        // Try parsing extracted JSON with repair
+        const extractParseResult = parseJsonWithRepair(jsonString);
+        if (extractParseResult.success && extractParseResult.data) {
+          auditResult = extractParseResult.data;
+          console.log(`[${requestId}] Extracted JSON parse succeeded`);
+        } else {
+          // Log the problematic JSON for debugging (first 1000 chars around error position)
+          const errorPos =
+            extractParseResult.error?.match(/position (\d+)/)?.[1];
+          const startPos = errorPos ? Math.max(0, parseInt(errorPos) - 500) : 0;
+          const endPos = errorPos
+            ? Math.min(jsonString.length, parseInt(errorPos) + 500)
+            : 1000;
+          console.error(
+            `[${requestId}] Failed to parse extracted JSON:`,
+            extractParseResult.error
+          );
+          console.error(
+            `[${requestId}] Problematic JSON section (chars ${startPos}-${endPos}):`,
+            jsonString.substring(startPos, endPos)
+          );
+          console.log(
+            `[${requestId}] Falling back to scraped-data audit (AI JSON parse failed)`
+          );
+          auditResult = createFallbackResult(websiteContent, normalizedUrl);
+          usedFallback = true;
+        }
       }
     }
 
@@ -680,6 +681,7 @@ export async function POST(request: NextRequest) {
         headers: {
           "X-Request-ID": requestId,
           "X-Response-Time": `${totalDuration}ms`,
+          ...(usedFallback ? { "X-Audit-Fallback": "true" } : {}),
         },
       }
     );

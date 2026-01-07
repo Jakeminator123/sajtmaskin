@@ -170,8 +170,57 @@ async function fetchPage(url: string): Promise<{
     });
   } catch (fetchError) {
     clearTimeout(timeout);
-    if (fetchError instanceof Error && fetchError.name === "AbortError") {
-      throw new Error("Timeout: Hemsidan svarade inte inom 15 sekunder");
+    if (fetchError instanceof Error) {
+      // Handle abort timeout
+      if (fetchError.name === "AbortError") {
+        throw new Error("Timeout: Hemsidan svarade inte inom 15 sekunder");
+      }
+      // Handle connection timeout (from undici/node)
+      const errorMessage = fetchError.message || "";
+      const cause = fetchError.cause as
+        | { code?: string; message?: string }
+        | undefined;
+      const causeMessage = cause?.message || "";
+      const causeCode = cause?.code || "";
+      if (
+        errorMessage.includes("ConnectTimeout") ||
+        errorMessage.includes("Connect Timeout") ||
+        errorMessage.includes("ETIMEDOUT") ||
+        causeMessage.includes("ConnectTimeout") ||
+        causeMessage.includes("Connect Timeout") ||
+        causeCode === "UND_ERR_CONNECT_TIMEOUT" ||
+        causeCode === "ETIMEDOUT"
+      ) {
+        const domain = new URL(url).hostname;
+        throw new Error(
+          `Timeout: Kunde inte ansluta till ${domain}. ` +
+            `Servern svarade inte på anslutningsförsöket. ` +
+            `Detta kan bero på att sidan är nere, har brandvägg som blockerar, eller har nätverksproblem. ` +
+            `Försök igen om en stund eller kontrollera att URL:en är korrekt.`
+        );
+      }
+      // Handle DNS errors
+      if (
+        errorMessage.includes("ENOTFOUND") ||
+        causeMessage.includes("ENOTFOUND")
+      ) {
+        const domain = new URL(url).hostname;
+        throw new Error(
+          `DNS-fel: Kunde inte hitta domänen ${domain}. ` +
+            `Kontrollera att URL:en är korrekt stavad.`
+        );
+      }
+      // Handle connection refused
+      if (
+        errorMessage.includes("ECONNREFUSED") ||
+        causeMessage.includes("ECONNREFUSED")
+      ) {
+        const domain = new URL(url).hostname;
+        throw new Error(
+          `Anslutning nekad: Servern ${domain} avvisade anslutningen. ` +
+            `Sidan kan vara nere eller ha problem.`
+        );
+      }
     }
     throw fetchError;
   } finally {

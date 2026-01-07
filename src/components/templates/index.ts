@@ -1,4 +1,3 @@
-// Template components - Gallery, browser, and preview
+// Template components - Gallery and preview
 export { TemplateGallery } from "./template-gallery";
-export { TemplateBrowser } from "./template-browser";
 export { PreviewModal } from "./preview-modal";

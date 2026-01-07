@@ -519,10 +519,78 @@ function repairJson(jsonString: string): string {
     }
   );
 
-  // 3. Fix escaped quotes in strings (ensure proper escaping)
-  // This is complex, so we'll be conservative
+  // 3. Fix mixed escaped/unescaped quotes in HTML attributes inside strings
+  // OpenAI sometimes returns: src=\"...\" loading="..." (mixed escaping)
+  // This regex finds strings and fixes unescaped quotes inside them
+  repaired = fixMixedQuotesInStrings(repaired);
+
+  // 4. Remove problematic HTML img tags that often cause parse errors
+  // Replace <img ...> tags with [image] placeholder
+  repaired = repaired.replace(/<img[^>]*>/gi, "[image]");
+
+  // 5. Remove markdown-style links that contain URLs with special chars
+  // [text](url) -> text
+  repaired = repaired.replace(/\[([^\]]+)\]\([^)]+\)/g, "$1");
 
   return repaired;
+}
+
+/**
+ * Fix mixed escaped/unescaped quotes inside JSON string values
+ * Handles cases like: "text with src=\"url\" loading=\"lazy\" more"
+ * where some quotes are escaped and some aren't
+ */
+function fixMixedQuotesInStrings(json: string): string {
+  const result: string[] = [];
+  let i = 0;
+  let inString = false;
+
+  while (i < json.length) {
+    const char = json[i];
+
+    if (!inString) {
+      result.push(char);
+      if (char === '"') {
+        inString = true;
+      }
+    } else {
+      // Inside a string
+      if (char === "\\" && i + 1 < json.length) {
+        // Escape sequence - keep as-is
+        result.push(char);
+        result.push(json[i + 1]);
+        i += 2;
+        continue;
+      }
+
+      if (char === '"') {
+        // Check if this quote ends the string or is an unescaped quote inside
+        // Look ahead to see if what follows looks like JSON structure
+        const afterQuote = json.substring(i + 1, i + 10).trim();
+        const looksLikeEndOfString =
+          afterQuote.startsWith(",") ||
+          afterQuote.startsWith("}") ||
+          afterQuote.startsWith("]") ||
+          afterQuote.startsWith(":") ||
+          afterQuote === "";
+
+        if (looksLikeEndOfString) {
+          // This is the real end of string
+          result.push(char);
+          inString = false;
+        } else {
+          // This is an unescaped quote inside the string - escape it
+          result.push("\\");
+          result.push(char);
+        }
+      } else {
+        result.push(char);
+      }
+    }
+    i++;
+  }
+
+  return result.join("");
 }
 
 /**

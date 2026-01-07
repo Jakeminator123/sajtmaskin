@@ -166,6 +166,10 @@ async function fetchWithStreaming(
                 case "progress":
                   if (parsed.step) onProgress(parsed.step);
                   break;
+                case "heartbeat":
+                  // Heartbeat keeps connection alive during long v0 generations
+                  // Just update activity time, no UI update needed
+                  break;
                 case "complete":
                   result = parsed;
                   break;

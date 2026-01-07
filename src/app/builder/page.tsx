@@ -83,6 +83,12 @@ function BuilderContent() {
   // Handle audit prompt from sessionStorage (avoids URL length limits)
   // This is set by handleBuildFromAudit in home-page.tsx
   const [auditPrompt, setAuditPrompt] = useState<string | null>(null);
+  // Track if audit prompt has been loaded (prevents race condition with ChatPanel)
+  // Only false if we're in audit flow and haven't loaded yet
+  const [auditPromptLoaded, setAuditPromptLoaded] = useState(
+    source !== "audit"
+  );
+
   useEffect(() => {
     if (source === "audit" && typeof window !== "undefined") {
       const storedPrompt = sessionStorage.getItem("sajtmaskin_audit_prompt");
@@ -90,10 +96,28 @@ function BuilderContent() {
         setAuditPrompt(storedPrompt);
         // Clear after reading to prevent re-use on refresh
         sessionStorage.removeItem("sajtmaskin_audit_prompt");
-        console.log("[Builder] Loaded audit prompt from sessionStorage:", storedPrompt.length, "chars");
+        console.log(
+          "[Builder] Loaded audit prompt from sessionStorage:",
+          storedPrompt.length,
+          "chars"
+        );
+      } else {
+        // In dev (StrictMode) this effect can run twice; the first run consumes sessionStorage.
+        // If we already have a prompt in the URL, that's fine and expected.
+        if (urlPrompt && urlPrompt.trim().length > 0) {
+          console.log(
+            "[Builder] Audit flow: sessionStorage prompt already consumed; using URL prompt"
+          );
+        } else {
+          console.warn(
+            "[Builder] Audit flow: missing prompt in both sessionStorage and URL"
+          );
+        }
       }
+      // Mark as loaded (even if no prompt found - prevents infinite loading)
+      setAuditPromptLoaded(true);
     }
-  }, [source]);
+  }, [source, urlPrompt]);
 
   // Use audit prompt if available, otherwise URL prompt
   const prompt = auditPrompt || urlPrompt;
@@ -176,8 +200,14 @@ function BuilderContent() {
 
   // Auto-create project if user arrives with prompt/template but no projectId yet
   useEffect(() => {
-    const shouldAutoCreate =
-      !projectId && (prompt || templateId);
+    // CRITICAL: For audit flow, wait until audit prompt is loaded from sessionStorage
+    // This prevents race condition where we decide "no prompt" before sessionStorage is read
+    if (!auditPromptLoaded) {
+      console.log("[Builder] Waiting for audit prompt to load...");
+      return;
+    }
+
+    const shouldAutoCreate = !projectId && (prompt || templateId);
 
     if (!shouldAutoCreate) {
       if (!projectId && !isCreatingProjectRef.current) {
@@ -263,6 +293,7 @@ function BuilderContent() {
     type,
     router,
     setProjectId,
+    auditPromptLoaded, // Wait for audit prompt before deciding
   ]);
 
   // Load project data on mount
@@ -270,15 +301,17 @@ function BuilderContent() {
     // If no projectId, check if we're creating one (don't set loading to false yet)
     if (!projectId) {
       // Only set to false if we're NOT creating a project (no prompt means manual entry)
+      // CRITICAL: Also check auditPromptLoaded - if audit flow, wait for prompt to load
       if (
         !prompt &&
         !templateId &&
-        !isCreatingProjectRef.current
+        !isCreatingProjectRef.current &&
+        auditPromptLoaded // Don't set loading=false if audit prompt is still loading
       ) {
         setIsProjectDataLoading(false);
         setHasExistingData(false);
       }
-      // If prompt exists, project creation is in progress - keep loading = true
+      // If prompt exists OR audit prompt still loading, project creation is in progress - keep loading = true
       return;
     }
 
@@ -396,6 +429,7 @@ function BuilderContent() {
     clearChat,
     prompt,
     templateId,
+    auditPromptLoaded,
   ]);
 
   // Handle starting a new design

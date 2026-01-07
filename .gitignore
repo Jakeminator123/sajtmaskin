@@ -45,4 +45,6 @@ pnpm-debug.log*
 
 # Temp/dev files
 .preprompt_history.json
-environment.produktion.txt
+env.procuction
+env.local
+övrigt

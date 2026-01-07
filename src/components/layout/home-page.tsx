@@ -9,7 +9,7 @@
  * SECTIONS:
  * 1. Hero with personalized greeting (for logged-in users)
  * 2. Build Method Selection - Choose how to start
- *    - Template: Pick from pre-made designs
+ *    - Analyserad: AI wizard asks questions (5 steps)
  *    - Category: Browse by type (landing page, dashboard, etc.)
  *    - Audit: Analyze existing site and improve
  *    - Freeform: Describe what you want
@@ -26,12 +26,15 @@
  */
 
 import { useState } from "react";
-import { TemplateGallery, TemplateBrowser } from "@/components/templates";
+import { useRouter } from "next/navigation";
+import { TemplateGallery } from "@/components/templates";
 import { PromptInput } from "@/components/forms";
 import {
   OnboardingModal,
   useOnboarding,
   AuditModal,
+  PromptWizardModalV2,
+  type WizardData,
 } from "@/components/modals";
 import { AuthModal } from "@/components/auth";
 import { UserSettingsModal } from "@/components/settings/user-settings-modal";
@@ -44,12 +47,12 @@ import {
 import {
   RotateCcw,
   Sparkles,
-  Layout,
   FolderOpen,
   Search,
   Pencil,
   ChevronDown,
   ChevronUp,
+  Wand2,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth/auth-store";
 import type { AuditResult } from "@/types/audit";
@@ -59,16 +62,17 @@ import type { AuditResult } from "@/types/audit";
 // ═══════════════════════════════════════════════════════════════
 
 // Build method types for clear user selection
-type BuildMethod = "template" | "category" | "audit" | "freeform" | null;
+type BuildMethod = "category" | "audit" | "freeform" | null;
 
 export function HomePage() {
+  const router = useRouter();
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [auditResult, setAuditResult] = useState<AuditResult | null>(null);
   const [auditedUrl, setAuditedUrl] = useState<string | null>(null);
   const [showAuditModal, setShowAuditModal] = useState(false);
-  const [showTemplateBrowser, setShowTemplateBrowser] = useState(false);
+  const [showWizard, setShowWizard] = useState(false);
   const [activeBuildMethod, setActiveBuildMethod] = useState<BuildMethod>(null);
   // Note: auditGeneratedPrompt removed - audit now navigates directly to builder
   // with prompt stored in sessionStorage (avoids URL length limits)
@@ -124,6 +128,15 @@ export function HomePage() {
     // Navigate directly to builder with a flag indicating audit source
     // The actual prompt is in sessionStorage to avoid URL length issues
     window.location.href = "/builder?source=audit";
+  };
+
+  // Handle wizard completion - navigate to builder with expanded prompt
+  const handleWizardComplete = (
+    _wizardData: WizardData,
+    expandedPrompt: string
+  ) => {
+    setShowWizard(false);
+    router.push(`/builder?prompt=${encodeURIComponent(expandedPrompt)}`);
   };
 
   // Build initial prompt from onboarding data
@@ -203,6 +216,15 @@ export function HomePage() {
         onBuildFromAudit={handleBuildFromAudit}
       />
 
+      {/* Wizard Modal - AI-guided prompt building (5 steps) */}
+      <PromptWizardModalV2
+        isOpen={showWizard}
+        onClose={() => setShowWizard(false)}
+        onComplete={handleWizardComplete}
+        initialPrompt=""
+        categoryType="website"
+      />
+
       {/* Onboarding Modal */}
       {showOnboarding && (
         <OnboardingModal onComplete={handleComplete} onSkip={handleSkip} />
@@ -278,24 +300,17 @@ export function HomePage() {
             ═══════════════════════════════════════════════════════════ */}
         <div className="w-full max-w-4xl animate-fadeInUp stagger-2 opacity-0 [animation-fill-mode:forwards]">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
-            {/* Template Option */}
+            {/* Analyzed Option - Opens AI wizard directly */}
             <button
-              onClick={() => {
-                setActiveBuildMethod("template");
-                setShowTemplateBrowser(true);
-              }}
-              className={`group relative flex flex-col items-center p-5 rounded-xl border transition-all duration-300 ${
-                activeBuildMethod === "template"
-                  ? "bg-gradient-to-br from-violet-600/20 to-purple-600/20 border-violet-500/50 shadow-lg shadow-violet-500/10"
-                  : "bg-black/50 border-gray-800 hover:border-violet-500/40 hover:bg-violet-950/20"
-              }`}
+              onClick={() => setShowWizard(true)}
+              className="group relative flex flex-col items-center p-5 rounded-xl border transition-all duration-300 bg-black/50 border-gray-800 hover:border-violet-500/40 hover:bg-violet-950/20"
             >
               <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
-                <Layout className="h-6 w-6 text-white" />
+                <Wand2 className="h-6 w-6 text-white" />
               </div>
-              <span className="font-medium text-white text-sm">Template</span>
+              <span className="font-medium text-white text-sm">Analyserad</span>
               <span className="text-xs text-gray-500 mt-1 text-center">
-                Välj en färdig design
+                AI ställer frågor
               </span>
             </button>
 
@@ -451,20 +466,6 @@ export function HomePage() {
           </p>
         )}
       </div>
-
-      {/* Template Browser Modal */}
-      {showTemplateBrowser && (
-        <div className="fixed inset-0 z-50 bg-black/90 backdrop-blur-sm animate-fadeIn">
-          <div className="w-full h-full">
-            <TemplateBrowser
-              onClose={() => {
-                setShowTemplateBrowser(false);
-                setActiveBuildMethod(null);
-              }}
-            />
-          </div>
-        </div>
-      )}
     </main>
   );
 }

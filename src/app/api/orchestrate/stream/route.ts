@@ -215,38 +215,51 @@ export async function POST(request: NextRequest) {
           message: "Analyserar din förfrågan...",
         });
 
+        // Start heartbeat interval to keep connection alive during long v0 generations
+        // Browsers and proxies often close connections after 30-60 seconds of inactivity
+        const HEARTBEAT_INTERVAL_MS = 15 * 1000; // 15 seconds
+        const heartbeatInterval = setInterval(() => {
+          sendEvent(controller, "heartbeat", { timestamp: Date.now() });
+        }, HEARTBEAT_INTERVAL_MS);
+
         // Run orchestrator with streaming callbacks (AI SDK 6)
-        const result = await orchestrateWorkflowStreaming(
-          prompt,
-          {
-            userId: user.id,
-            quality,
-            existingChatId,
-            existingCode,
-            projectFiles,
-            mediaLibrary,
-          },
-          {
-            onThinking: (thought: string) => {
-              sendEvent(controller, "thinking", { message: thought });
+        let result;
+        try {
+          result = await orchestrateWorkflowStreaming(
+            prompt,
+            {
+              userId: user.id,
+              quality,
+              existingChatId,
+              existingCode,
+              projectFiles,
+              mediaLibrary,
             },
-            onProgress: (
-              step: string,
-              stepNumber?: number,
-              totalSteps?: number
-            ) => {
-              sendEvent(controller, "progress", {
-                step,
-                message: step,
-                stepNumber,
-                totalSteps,
-              });
-            },
-            onEnhancement: (original: string, enhanced: string) => {
-              sendEvent(controller, "enhancement", { original, enhanced });
-            },
-          }
-        );
+            {
+              onThinking: (thought: string) => {
+                sendEvent(controller, "thinking", { message: thought });
+              },
+              onProgress: (
+                step: string,
+                stepNumber?: number,
+                totalSteps?: number
+              ) => {
+                sendEvent(controller, "progress", {
+                  step,
+                  message: step,
+                  stepNumber,
+                  totalSteps,
+                });
+              },
+              onEnhancement: (original: string, enhanced: string) => {
+                sendEvent(controller, "enhancement", { original, enhanced });
+              },
+            }
+          );
+        } finally {
+          // Always clear heartbeat interval when done
+          clearInterval(heartbeatInterval);
+        }
 
         if (!result.success) {
           sendEvent(controller, "error", {
