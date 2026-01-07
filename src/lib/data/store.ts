@@ -357,13 +357,14 @@ export const useBuilderStore = create<BuilderState>()(
 
       setQuality: (quality) => set({ quality: quality }),
 
-      toggleDesignMode: (active) => 
-        set((state) => ({ 
-          isDesignModeActive: active !== undefined ? active : !state.isDesignModeActive 
+      toggleDesignMode: (active) =>
+        set((state) => ({
+          isDesignModeActive:
+            active !== undefined ? active : !state.isDesignModeActive,
         })),
 
       setInspectorMode: (mode) => set({ inspectorMode: mode }),
-        
+
       setDesignModeInput: (text) => set({ designModeInput: text }),
 
       setDesignModeCodeContext: (context) =>
@@ -502,7 +503,7 @@ export const useBuilderStore = create<BuilderState>()(
         // DEDUP: Skip if save is in progress or was done very recently
         const now = Date.now();
         if (saveInProgress || now - lastSaveTime < MIN_SAVE_INTERVAL) {
-          debugLog("[Store] Skipping saveToDatabase (recent save)");
+          debugLog("DB", "[Store] Skipping saveToDatabase (recent save)");
           return Promise.resolve();
         }
 
@@ -563,7 +564,7 @@ export const useBuilderStore = create<BuilderState>()(
 
         // DEDUPLICATION: Skip if already saving
         if (state.isSaving) {
-          debugLog("[Store] Save already in progress, skipping");
+          debugLog("DB", "[Store] Save already in progress, skipping");
           return;
         }
 

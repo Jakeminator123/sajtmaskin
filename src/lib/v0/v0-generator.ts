@@ -42,7 +42,11 @@
  */
 
 import { createClient, type ChatDetail } from "v0-sdk";
-import { enhancePromptForV0, type MediaLibraryItem } from "@/lib/utils/prompt-utils";
+import {
+  enhancePromptForV0,
+  type MediaLibraryItem,
+} from "@/lib/utils/prompt-utils";
+import { debugLog } from "@/lib/utils/debug";
 
 // Lazy-initialized v0 client (created at request time, not import time)
 let _v0Client: ReturnType<typeof createClient> | null = null;
@@ -449,8 +453,8 @@ async function waitForVersionReady(
       }
       const status = chat.latestVersion?.status;
 
-      console.log("[v0-generator] Version status:", status);
-      console.log("[v0-generator] demoUrl:", chat.latestVersion?.demoUrl);
+      debugLog("v0", "[v0-generator] Version status:", status);
+      debugLog("v0", "[v0-generator] demoUrl:", chat.latestVersion?.demoUrl);
 
       // If status is undefined, track consecutive failures
       if (status === undefined) {
@@ -471,7 +475,7 @@ async function waitForVersionReady(
       }
 
       if (status === "completed") {
-        console.log("[v0-generator] Version is ready!");
+        debugLog("v0", "[v0-generator] Version is ready!");
         return chat;
       }
 
@@ -550,9 +554,9 @@ export async function generateCode(
     }
   }
 
-  console.log("[v0-generator] Creating chat with v0 Platform API...");
-  console.log("[v0-generator] Model:", modelId);
-  console.log("[v0-generator] Prompt length:", fullPrompt.length);
+  debugLog("v0", "[v0-generator] Creating chat with v0 Platform API...");
+  debugLog("v0", "[v0-generator] Model:", modelId);
+  debugLog("v0", "[v0-generator] Prompt length:", fullPrompt.length);
 
   const v0 = getV0Client();
 
@@ -623,10 +627,14 @@ export async function generateCode(
     throw error;
   }
 
-  console.log("[v0-generator] Chat created:", chat.id);
-  console.log("[v0-generator] Version status:", chat.latestVersion?.status);
-  console.log("[v0-generator] Files count:", chat.latestVersion?.files?.length);
-  console.log("[v0-generator] demoUrl:", chat.latestVersion?.demoUrl);
+  debugLog("v0", "[v0-generator] Chat created:", chat.id);
+  debugLog("v0", "[v0-generator] Version status:", chat.latestVersion?.status);
+  debugLog(
+    "v0",
+    "[v0-generator] Files count:",
+    chat.latestVersion?.files?.length
+  );
+  debugLog("v0", "[v0-generator] demoUrl:", chat.latestVersion?.demoUrl);
 
   // Check if we have complete content (both files AND demoUrl are required)
   const hasFiles = (chat.latestVersion?.files?.length ?? 0) > 0;
@@ -637,7 +645,7 @@ export async function generateCode(
   // Only poll if status is "pending" (not "completed" or "failed")
   const status = chat.latestVersion?.status;
   if (!hasCompleteContent && status !== "completed" && status !== "failed") {
-    console.log("[v0-generator] Waiting for version to be ready...");
+    debugLog("v0", "[v0-generator] Waiting for version to be ready...");
     const readyChat = await waitForVersionReady(chat.id);
     if (readyChat) {
       chat = readyChat;
@@ -666,8 +674,8 @@ export async function generateCode(
 
   if (mainFile) {
     combinedCode = mainFile.content || "";
-    console.log("[v0-generator] Main file:", mainFile.name);
-    console.log("[v0-generator] Code length:", combinedCode.length);
+    debugLog("v0", "[v0-generator] Main file:", mainFile.name);
+    debugLog("v0", "[v0-generator] Code length:", combinedCode.length);
   } else {
     // Fallback: use the text response if no files were generated
     combinedCode = chat.text || "";
@@ -728,8 +736,8 @@ export async function refineCode(
       const previousChat = await v0.chats.getById({ chatId: existingChatId });
       previousDemoUrl = (previousChat as ChatDetail)?.latestVersion?.demoUrl;
       previousVersionId = (previousChat as ChatDetail)?.latestVersion?.id;
-      console.log("[v0-generator] Previous demoUrl:", previousDemoUrl);
-      console.log("[v0-generator] Previous versionId:", previousVersionId);
+      debugLog("v0", "[v0-generator] Previous demoUrl:", previousDemoUrl);
+      debugLog("v0", "[v0-generator] Previous versionId:", previousVersionId);
     } catch (err) {
       console.warn("[v0-generator] Could not fetch previous chat state:", err);
     }
@@ -754,7 +762,7 @@ The goal is to ENHANCE the current design, not start over.`;
     console.log(
       "[v0-generator] ═══════════════════════════════════════════════════"
     );
-    console.log("[v0-generator] FULL REFINEMENT PROMPT TO V0:");
+    debugLog("v0", "[v0-generator] FULL REFINEMENT PROMPT TO V0:");
     console.log(
       "[v0-generator] ───────────────────────────────────────────────────"
     );
@@ -767,7 +775,7 @@ The goal is to ENHANCE the current design, not start over.`;
       refinementInstruction.length,
       "chars"
     );
-    console.log("[v0-generator] Model:", modelId);
+    debugLog("v0", "[v0-generator] Model:", modelId);
     console.log(
       "[v0-generator] ═══════════════════════════════════════════════════"
     );
@@ -784,7 +792,11 @@ The goal is to ENHANCE the current design, not start over.`;
     })) as ChatDetail;
 
     const refineStatus = chat.latestVersion?.status;
-    console.log("[v0-generator] Message sent, version status:", refineStatus);
+    debugLog(
+      "v0",
+      "[v0-generator] Message sent, version status:",
+      refineStatus
+    );
 
     // If version is not ready yet, poll for completion
     // Only poll if status is "pending" (not "completed" or "failed")
@@ -812,11 +824,11 @@ The goal is to ENHANCE the current design, not start over.`;
     console.log(
       "[v0-generator] ═══════════════════════════════════════════════════"
     );
-    console.log("[v0-generator] REFINEMENT COMPLETE:");
-    console.log("[v0-generator]   → New demoUrl:", newDemoUrl);
-    console.log("[v0-generator]   → New versionId:", newVersionId);
-    console.log("[v0-generator]   → Status:", chat.latestVersion?.status);
-    console.log("[v0-generator]   → Total files:", files.length);
+    debugLog("v0", "[v0-generator] REFINEMENT COMPLETE:");
+    debugLog("v0", "[v0-generator]   → New demoUrl:", newDemoUrl);
+    debugLog("v0", "[v0-generator]   → New versionId:", newVersionId);
+    debugLog("v0", "[v0-generator]   → Status:", chat.latestVersion?.status);
+    debugLog("v0", "[v0-generator]   → Total files:", files.length);
     console.log(
       "[v0-generator] ───────────────────────────────────────────────────"
     );
@@ -832,7 +844,7 @@ The goal is to ENHANCE the current design, not start over.`;
     console.log(
       "[v0-generator] ───────────────────────────────────────────────────"
     );
-    console.log("[v0-generator] ALL FILES RETURNED:");
+    debugLog("v0", "[v0-generator] ALL FILES RETURNED:");
     files.slice(0, 15).forEach((file, i) => {
       const isMain = file.name === mainFile?.name ? " ← MAIN" : "";
       console.log(
@@ -951,13 +963,17 @@ export async function generateFromTemplate(
         chatPrivacy: "private",
       })) as ChatDetail;
 
-      console.log("[v0-generator] Template initialized:", chat.id);
-      console.log("[v0-generator] Version status:", chat.latestVersion?.status);
+      debugLog("v0", "[v0-generator] Template initialized:", chat.id);
+      debugLog(
+        "v0",
+        "[v0-generator] Version status:",
+        chat.latestVersion?.status
+      );
       console.log(
         "[v0-generator] Files count:",
         chat.latestVersion?.files?.length
       );
-      console.log("[v0-generator] demoUrl:", chat.latestVersion?.demoUrl);
+      debugLog("v0", "[v0-generator] demoUrl:", chat.latestVersion?.demoUrl);
 
       // Check if template loading failed (status check)
       const status = chat.latestVersion?.status;
@@ -1042,7 +1058,7 @@ export async function generateFromTemplate(
       }
 
       // Continue to next retry attempt
-      console.log("[v0-generator] Will retry due to transient error...");
+      debugLog("v0", "[v0-generator] Will retry due to transient error...");
     }
   }
 
@@ -1109,13 +1125,17 @@ export async function initFromRegistry(
           name || `Registry: ${new URL(registryUrl).pathname.split("/").pop()}`,
       })) as ChatDetail;
 
-      console.log("[v0-generator] Registry initialized:", chat.id);
-      console.log("[v0-generator] Version status:", chat.latestVersion?.status);
+      debugLog("v0", "[v0-generator] Registry initialized:", chat.id);
+      debugLog(
+        "v0",
+        "[v0-generator] Version status:",
+        chat.latestVersion?.status
+      );
       console.log(
         "[v0-generator] Files count:",
         chat.latestVersion?.files?.length
       );
-      console.log("[v0-generator] demoUrl:", chat.latestVersion?.demoUrl);
+      debugLog("v0", "[v0-generator] demoUrl:", chat.latestVersion?.demoUrl);
 
       // Check if initialization failed
       const status = chat.latestVersion?.status;
@@ -1170,7 +1190,7 @@ export async function initFromRegistry(
         msg.includes("timeout")
       ) {
         if (attempt <= maxRetries) {
-          console.log("[v0-generator] Will retry due to transient error...");
+          debugLog("v0", "[v0-generator] Will retry due to transient error...");
           continue;
         }
       }
@@ -1215,7 +1235,7 @@ export async function initTemplatePreview(
       chatPrivacy: "private",
     })) as ChatDetail;
 
-    console.log("[v0-generator] Preview initialized:", {
+    debugLog("v0", "[v0-generator] Preview initialized:", {
       chatId: chat.id,
       hasDemoUrl: !!chat.latestVersion?.demoUrl,
       hasScreenshot: !!chat.latestVersion?.screenshotUrl,

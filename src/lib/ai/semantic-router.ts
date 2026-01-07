@@ -24,6 +24,7 @@
 
 import { generateText } from "ai";
 import { openai } from "@ai-sdk/openai";
+import { debugLog } from "@/lib/utils/debug";
 
 // ============================================================================
 // TYPES
@@ -86,7 +87,11 @@ export async function routePrompt(
   prompt: string,
   hasExistingCode: boolean = true
 ): Promise<RouterResult> {
-  console.log("[SemanticRouter] Routing prompt:", prompt.substring(0, 100));
+  debugLog(
+    "Router",
+    "[SemanticRouter] Routing prompt:",
+    prompt.substring(0, 100)
+  );
 
   // System prompt for intent classification
   const systemPrompt = `You are a semantic intent-router for an AI website builder.

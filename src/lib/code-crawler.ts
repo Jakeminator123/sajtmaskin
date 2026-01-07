@@ -26,6 +26,7 @@
  */
 
 import type { GeneratedFile } from "@/lib/v0/v0-generator";
+import { debugLog } from "@/lib/utils/debug";
 
 // ============================================================================
 // TYPES
@@ -193,12 +194,12 @@ export async function crawlCodeContext(
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
   _userPrompt: string
 ): Promise<CodeContext> {
-  console.log("[CodeCrawler] Starting analysis with hints:", hints);
-  console.log("[CodeCrawler] Files to analyze:", files.length);
+  debugLog("Crawler", "[CodeCrawler] Starting analysis with hints:", hints);
+  debugLog("Crawler", "[CodeCrawler] Files to analyze:", files.length);
 
   // Handle empty files
   if (!files || files.length === 0) {
-    console.log("[CodeCrawler] No files to analyze");
+    debugLog("Crawler", "[CodeCrawler] No files to analyze");
     return {
       relevantFiles: [],
       componentStructure: "No files in project",
@@ -215,13 +216,16 @@ export async function crawlCodeContext(
   let relevantFiles: CodeSnippet[] = [];
 
   if (hints.length > 0) {
-    console.log("[CodeCrawler] Running quickSearch...");
+    debugLog("Crawler", "[CodeCrawler] Running quickSearch...");
     relevantFiles = quickSearch(files, hints);
 
     if (relevantFiles.length > 0) {
       console.log(`[CodeCrawler] Found ${relevantFiles.length} matches`);
     } else {
-      console.log("[CodeCrawler] No direct matches, trying expanded search...");
+      debugLog(
+        "Crawler",
+        "[CodeCrawler] No direct matches, trying expanded search..."
+      );
       // Try expanded search with more files
       relevantFiles = expandedSearch(files, hints);
     }
@@ -229,7 +233,7 @@ export async function crawlCodeContext(
 
   // If still no matches, try searching all files for any hint
   if (relevantFiles.length === 0 && hints.length > 0) {
-    console.log("[CodeCrawler] Trying broad search...");
+    debugLog("Crawler", "[CodeCrawler] Trying broad search...");
     relevantFiles = broadSearch(files, hints);
   }
 
@@ -262,7 +266,7 @@ export async function crawlCodeContext(
     summary,
   };
 
-  console.log("[CodeCrawler] Analysis complete:", {
+  debugLog("Crawler", "[CodeCrawler] Analysis complete:", {
     filesFound: relevantFiles.length,
     structure: componentStructure.substring(0, 100),
     routing: routingInfo,

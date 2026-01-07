@@ -28,6 +28,7 @@ import { openai as openaiProvider } from "@ai-sdk/openai";
 import { createOpenAI } from "@ai-sdk/openai";
 import { streamText, generateText, type LanguageModel } from "ai";
 import { getUserSettings, type UserSettings } from "@/lib/data/database";
+import { debugLog } from "@/lib/utils/debug";
 
 // ============================================================================
 // TYPES
@@ -72,7 +73,7 @@ export async function getAIProvider(
 
   // Check if user has AI Gateway enabled and has a key
   if (userSettings?.use_ai_gateway && userSettings.ai_gateway_api_key) {
-    console.log("[AIGateway] Using user's AI Gateway key");
+    debugLog("AI", "[AIGateway] Using user's AI Gateway key");
     const gateway = createOpenAI({
       apiKey: userSettings.ai_gateway_api_key,
       baseURL: "https://ai-gateway.vercel.sh/v1",
@@ -88,7 +89,7 @@ export async function getAIProvider(
 
   // Check if user has their own OpenAI key
   if (userSettings?.openai_api_key) {
-    console.log("[AIGateway] Using user's OpenAI key");
+    debugLog("AI", "[AIGateway] Using user's OpenAI key");
     const userOpenAI = createOpenAI({
       apiKey: userSettings.openai_api_key,
     });
@@ -104,7 +105,7 @@ export async function getAIProvider(
   // Check environment for AI Gateway
   const gatewayKey = process.env.AI_GATEWAY_API_KEY;
   if (gatewayKey) {
-    console.log("[AIGateway] Using platform AI Gateway");
+    debugLog("AI", "[AIGateway] Using platform AI Gateway");
     const gateway = createOpenAI({
       apiKey: gatewayKey,
       baseURL: "https://ai-gateway.vercel.sh/v1",
@@ -118,7 +119,7 @@ export async function getAIProvider(
   }
 
   // Fallback to platform OpenAI
-  console.log("[AIGateway] Using platform OpenAI key");
+  debugLog("AI", "[AIGateway] Using platform OpenAI key");
   return {
     type: "openai",
     model: openaiProvider(modelId),

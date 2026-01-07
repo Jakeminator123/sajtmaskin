@@ -53,7 +53,7 @@ export function getRedis(): Redis | null {
 
   if (!redisClient) {
     try {
-      debugLog("[Redis] Creating client", {
+      debugLog("DB", "[Redis] Creating client", {
         host: REDIS_CONFIG.host,
         port: REDIS_CONFIG.port,
         username: REDIS_CONFIG.username,
@@ -74,11 +74,11 @@ export function getRedis(): Redis | null {
       });
 
       redisClient.on("connect", () => {
-        debugLog("[Redis] Connected");
+        debugLog("DB", "[Redis] Connected");
       });
 
       redisClient.on("ready", () => {
-        debugLog("[Redis] Ready");
+        debugLog("DB", "[Redis] Ready");
       });
     } catch (error) {
       console.error("[Redis] Failed to create client:", error);
@@ -509,7 +509,7 @@ export async function saveProjectFiles(
   }
 
   try {
-    debugLog("[Redis] Saving project files", {
+    debugLog("DB", "[Redis] Saving project files", {
       projectId,
       files: files.length,
     });
@@ -539,13 +539,13 @@ export async function getProjectFiles(
 
   try {
     const key = `${PROJECT_FILES_PREFIX}${projectId}`;
-    debugLog("[Redis] Fetching project files", { projectId });
+    debugLog("DB", "[Redis] Fetching project files", { projectId });
     const data = await redis.get(key);
     if (data) {
       // Touch TTL on read to keep active projects alive
       await redis.expire(key, PROJECT_FILES_TTL);
       const parsed = JSON.parse(data) as ProjectFile[];
-      debugLog("[Redis] Fetched project files", {
+      debugLog("DB", "[Redis] Fetched project files", {
         projectId,
         files: parsed.length,
       });
@@ -590,7 +590,7 @@ export async function updateProjectFile(
       PROJECT_FILES_TTL,
       JSON.stringify(files)
     );
-    debugLog("[Redis] Updated project file", { projectId, filePath });
+    debugLog("DB", "[Redis] Updated project file", { projectId, filePath });
     return true;
   } catch (error) {
     console.error("[Redis] Failed to update project file:", error);
@@ -618,7 +618,7 @@ export async function deleteProjectFile(
       PROJECT_FILES_TTL,
       JSON.stringify(filteredFiles)
     );
-    debugLog("[Redis] Deleted project file", { projectId, filePath });
+    debugLog("DB", "[Redis] Deleted project file", { projectId, filePath });
     return true;
   } catch (error) {
     console.error("[Redis] Failed to delete project file:", error);
@@ -634,7 +634,7 @@ export async function saveProjectMeta(meta: ProjectMeta): Promise<boolean> {
   if (!redis) return false;
 
   try {
-    debugLog("[Redis] Saving project meta", {
+    debugLog("DB", "[Redis] Saving project meta", {
       projectId: meta.projectId,
       storageType: meta.storageType,
       filesCount: meta.filesCount,
@@ -663,13 +663,13 @@ export async function getProjectMeta(
 
   try {
     const key = `${PROJECT_META_PREFIX}${projectId}`;
-    debugLog("[Redis] Fetching project meta", { projectId });
+    debugLog("DB", "[Redis] Fetching project meta", { projectId });
     const data = await redis.get(key);
     if (data) {
       // Touch TTL on read to keep active projects alive
       await redis.expire(key, PROJECT_FILES_TTL);
       const parsed = JSON.parse(data) as ProjectMeta;
-      debugLog("[Redis] Fetched project meta", {
+      debugLog("DB", "[Redis] Fetched project meta", {
         projectId,
         storageType: parsed.storageType,
         filesCount: parsed.filesCount,
@@ -739,7 +739,7 @@ export async function listUserTakenOverProjects(
       (a, b) =>
         new Date(b.takenOverAt).getTime() - new Date(a.takenOverAt).getTime()
     );
-    debugLog("[Redis] Listed taken-over projects", {
+    debugLog("DB", "[Redis] Listed taken-over projects", {
       userId,
       projects: sorted.length,
     });

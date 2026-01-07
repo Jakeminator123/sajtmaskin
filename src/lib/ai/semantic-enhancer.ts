@@ -18,6 +18,7 @@ import { generateText } from "ai";
 import { openai } from "@ai-sdk/openai";
 import type { CodeContext, CodeSnippet } from "@/lib/code-crawler";
 import type { RouterResult } from "@/lib/ai/semantic-router";
+import { debugLog } from "@/lib/utils/debug";
 
 // ============================================================================
 // TYPES
@@ -69,14 +70,16 @@ export async function semanticEnhance(
   const { originalPrompt, codeContext, routerResult, skipEnhancement } =
     options;
 
-  console.log(
+  debugLog(
+    "AI",
     "[SemanticEnhancer] Starting enhancement for:",
     originalPrompt.substring(0, 50)
   );
 
   // Skip enhancement for very short prompts or explicit skip
   if (skipEnhancement || originalPrompt.length < MIN_PROMPT_LENGTH) {
-    console.log(
+    debugLog(
+      "AI",
       "[SemanticEnhancer] Skipping - prompt too short or skip requested"
     );
     return {
@@ -89,7 +92,8 @@ export async function semanticEnhance(
 
   // Check if prompt already seems specific enough
   if (isPromptAlreadySpecific(originalPrompt)) {
-    console.log(
+    debugLog(
+      "AI",
       "[SemanticEnhancer] Prompt already specific, minimal enhancement"
     );
     return {
@@ -117,7 +121,8 @@ export async function semanticEnhance(
 
     const enhancedPrompt = cleanEnhancedPrompt(result.text, originalPrompt);
 
-    console.log(
+    debugLog(
+      "AI",
       "[SemanticEnhancer] Enhanced prompt:",
       enhancedPrompt.substring(0, 100)
     );

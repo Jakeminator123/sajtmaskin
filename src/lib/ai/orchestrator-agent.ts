@@ -154,7 +154,10 @@ async function fetchStockImages(
   count: number = 4
 ): Promise<StockImage[]> {
   if (!FEATURES.useUnsplash || keywords.length === 0) {
-    console.log("[Orchestrator:Stock] Unsplash not configured or no keywords");
+    debugLog(
+      "AI",
+      "[Orchestrator:Stock] Unsplash not configured or no keywords"
+    );
     return [];
   }
 
@@ -186,7 +189,7 @@ async function fetchStockImages(
     const data = await response.json();
 
     if (!data.success || !data.images?.length) {
-      console.log("[Orchestrator:Stock] No images found for:", keywords);
+      debugLog("AI", "[Orchestrator:Stock] No images found for:", keywords);
       return [];
     }
 
@@ -309,7 +312,7 @@ function getOpenAIClient(userId?: string): OpenAI {
 
       // If user has their own OpenAI key
       if (settings?.openai_api_key) {
-        console.log("[Orchestrator] Using user's OpenAI key");
+        debugLog("AI", "[Orchestrator] Using user's OpenAI key");
         return new OpenAI({ apiKey: settings.openai_api_key });
       }
 
@@ -319,7 +322,7 @@ function getOpenAIClient(userId?: string): OpenAI {
       // (responses.create with web_search, image generation, etc.)
       // ═══════════════════════════════════════════════════════════════════════
       // if (settings?.use_ai_gateway && settings.ai_gateway_api_key) {
-      //   console.log("[Orchestrator] Using user's AI Gateway key");
+      //   debugLog("AI", "[Orchestrator] Using user's AI Gateway key");
       //   return new OpenAI({
       //     apiKey: settings.ai_gateway_api_key,
       //     baseURL: "https://ai-gateway.vercel.sh/v1",
@@ -336,7 +339,7 @@ function getOpenAIClient(userId?: string): OpenAI {
   // ═══════════════════════════════════════════════════════════════════════
   // const gatewayKey = process.env.AI_GATEWAY_API_KEY;
   // if (gatewayKey) {
-  //   console.log("[Orchestrator] Using platform AI Gateway");
+  //   debugLog("AI", "[Orchestrator] Using platform AI Gateway");
   //   return new OpenAI({
   //     apiKey: gatewayKey,
   //     baseURL: "https://ai-gateway.vercel.sh/v1",
@@ -349,7 +352,7 @@ function getOpenAIClient(userId?: string): OpenAI {
   if (!apiKey) {
     throw new Error("OPENAI_API_KEY environment variable is required");
   }
-  console.log("[Orchestrator] Using platform OpenAI key");
+  debugLog("AI", "[Orchestrator] Using platform OpenAI key");
   return new OpenAI({ apiKey });
 }
 
@@ -364,7 +367,7 @@ function getImageClient(userId?: string): OpenAI {
 
       // User's direct OpenAI key (preferred for images)
       if (settings?.openai_api_key) {
-        console.log("[Orchestrator] Image gen: Using user's OpenAI key");
+        debugLog("AI", "[Orchestrator] Image gen: Using user's OpenAI key");
         return new OpenAI({ apiKey: settings.openai_api_key });
       }
     } catch (e) {
@@ -379,7 +382,7 @@ function getImageClient(userId?: string): OpenAI {
       "OPENAI_API_KEY required for image generation (AI Gateway not supported)"
     );
   }
-  console.log("[Orchestrator] Image gen: Using platform OpenAI key");
+  debugLog("AI", "[Orchestrator] Image gen: Using platform OpenAI key");
   return new OpenAI({ apiKey });
 }
 
@@ -710,7 +713,7 @@ export async function orchestrateWorkflow(
   };
 
   try {
-    debugLog("[Orchestrator] Starting workflow 2.0", {
+    debugLog("AI", "Starting workflow 2.0", {
       promptLength: userPrompt.length,
       quality: context.quality,
       hasExistingChat: !!context.existingChatId,
@@ -723,7 +726,7 @@ export async function orchestrateWorkflow(
     // When enabled, uses ToolLoopAgent for smarter orchestration
     // ═══════════════════════════════════════════════════════════════════════
     if (shouldUseAgentMode()) {
-      console.log("[Orchestrator] Agent Mode enabled - using AI Agent flow");
+      debugLog("AI", "[Orchestrator] Agent Mode enabled - using AI Agent flow");
       workflowSteps.push("🤖 Agent Mode aktiverat");
 
       try {
@@ -780,7 +783,7 @@ export async function orchestrateWorkflow(
     // Use the new semantic router for better intent detection
     // ═══════════════════════════════════════════════════════════════════════
 
-    console.log("[Orchestrator] Step 1: Routing prompt...");
+    debugLog("AI", "[Orchestrator] Step 1: Routing prompt...");
 
     let codeContext: CodeContext | undefined;
 
@@ -934,7 +937,7 @@ export async function orchestrateWorkflow(
     // REMOVED: simple_code + hints trigger (triggered too often)
 
     if (shouldRunCodeCrawler && context.projectFiles) {
-      console.log("[Orchestrator] === STEP 2: CODE CRAWLER ===");
+      debugLog("AI", "[Orchestrator] === STEP 2: CODE CRAWLER ===");
       console.log(
         "[Orchestrator] Analyzing",
         context.projectFiles.length,
@@ -959,7 +962,7 @@ export async function orchestrateWorkflow(
         userPrompt
       );
 
-      console.log("[Orchestrator] Code context found:", {
+      debugLog("AI", "[Orchestrator] Code context found:", {
         filesFound: codeContext.relevantFiles.length,
         routing: codeContext.routingInfo,
         summary: codeContext.summary,
@@ -1006,8 +1009,8 @@ export async function orchestrateWorkflow(
       chatResponse: routerResult.chatResponse || "",
     };
 
-    console.log("[Orchestrator] Mapped intent:", intent);
-    debugLog("[Orchestrator] Intent classified", {
+    debugLog("AI", "[Orchestrator] Mapped intent:", intent);
+    debugLog("AI", "[Orchestrator] Intent classified", {
       originalIntent: routerResult.intent,
       mappedIntent: intent,
       reasoning: classification.reasoning,
@@ -1032,7 +1035,7 @@ export async function orchestrateWorkflow(
     if (intent === "clarify") {
       // SMART CLARIFY: If we have code context, generate specific questions
       if (codeContext && codeContext.relevantFiles.length > 0) {
-        console.log("[Orchestrator] === SMART CLARIFY ===");
+        debugLog("AI", "[Orchestrator] === SMART CLARIFY ===");
         console.log(
           "[Orchestrator] Found",
           codeContext.relevantFiles.length,
@@ -1180,7 +1183,7 @@ export async function orchestrateWorkflow(
             });
             webSearchContext = searchResponse.output_text || "";
             workflowSteps.push("Sammanställde design-information (fallback)");
-            console.log("[Orchestrator] Web search fallback completed");
+            debugLog("AI", "[Orchestrator] Web search fallback completed");
           } catch (fallbackError) {
             console.error(
               "[Orchestrator] Both Responses API web search attempts failed:",
@@ -1217,7 +1220,7 @@ export async function orchestrateWorkflow(
       classification.imagePrompts &&
       classification.imagePrompts.length > 0
     ) {
-      debugLog("[Orchestrator] Generating images", {
+      debugLog("AI", "[Orchestrator] Generating images", {
         count: classification.imagePrompts.length,
       });
       workflowSteps.push(
@@ -1267,7 +1270,7 @@ export async function orchestrateWorkflow(
             });
             // gpt-image-1 returns b64_json in data[0].b64_json
             base64Data = gptImageResponse.data?.[0]?.b64_json;
-            console.log("[Orchestrator] ✓ gpt-image-1 generated image");
+            debugLog("AI", "[Orchestrator] ✓ gpt-image-1 generated image");
           } catch (primaryError) {
             console.warn(
               "[Orchestrator] gpt-image-1 unavailable, falling back to dall-e-3:",
@@ -1285,7 +1288,10 @@ export async function orchestrateWorkflow(
               response_format: "b64_json",
             });
             base64Data = dalleResponse.data?.[0]?.b64_json;
-            console.log("[Orchestrator] ✓ dall-e-3 fallback generated image");
+            debugLog(
+              "AI",
+              "[Orchestrator] ✓ dall-e-3 fallback generated image"
+            );
           }
 
           if (base64Data) {
@@ -1318,7 +1324,7 @@ export async function orchestrateWorkflow(
                   35
                 )}...`
               );
-              console.log("[Orchestrator] ✓ Image saved with URL:", blobUrl);
+              debugLog("AI", "[Orchestrator] ✓ Image saved with URL:", blobUrl);
             } else {
               workflowSteps.push(
                 `⚠️ Bild genererad men kunde inte sparas: ${imagePrompt.substring(
@@ -1334,7 +1340,7 @@ export async function orchestrateWorkflow(
             }
           }
         } catch (error) {
-          debugLog("[Orchestrator] Image generation failed", {
+          debugLog("AI", "[Orchestrator] Image generation failed", {
             error: String(error),
           });
           workflowSteps.push(
@@ -1448,7 +1454,7 @@ export async function orchestrateWorkflow(
 
       // Use Prompt Enricher if we have code context
       if (codeContext && codeContext.relevantFiles.length > 0) {
-        console.log("[Orchestrator] === USING PROMPT ENRICHER ===");
+        debugLog("AI", "[Orchestrator] === USING PROMPT ENRICHER ===");
 
         const enrichedPrompt = enrichPrompt({
           originalPrompt: userPrompt,
@@ -1481,7 +1487,7 @@ export async function orchestrateWorkflow(
           webResults:
             webSearchResults.length > 0 ? webSearchResults : undefined,
         });
-        console.log("[Orchestrator] Enrichment summary:", summary);
+        debugLog("AI", "[Orchestrator] Enrichment summary:", summary);
 
         workflowSteps.push("Prompt Enricher: Berikade prompten med kodkontext");
         codeInstruction = enrichedPrompt;
@@ -1634,7 +1640,7 @@ Du MÅSTE använda dessa EXAKTA URLs - de fungerar i v0 preview!
         }
       }
 
-      debugLog("[Orchestrator] Calling v0 for code", {
+      debugLog("AI", "[Orchestrator] Calling v0 for code", {
         instructionLength: codeInstruction.length,
         hasExistingChat: !!context.existingChatId,
       });
@@ -1759,7 +1765,7 @@ After fixing, ensure there are no remaining "three/examples" bare imports anywhe
     };
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : "Okänt fel";
-    debugLog("[Orchestrator] Workflow failed", { error: errorMessage });
+    debugLog("AI", "[Orchestrator] Workflow failed", { error: errorMessage });
 
     return {
       success: false,
@@ -1795,7 +1801,7 @@ export function needsOrchestration(prompt: string): boolean {
   const shouldUseRouter = shouldRoute(prompt);
 
   if (shouldUseRouter) {
-    debugLog("[Orchestrator] TRIGGER - semantic routing needed", {
+    debugLog("AI", "[Orchestrator] TRIGGER - semantic routing needed", {
       promptPreview: prompt.substring(0, 50),
     });
     return true;
@@ -1816,7 +1822,7 @@ export function needsOrchestration(prompt: string): boolean {
     prompt.includes("EXAKTA URLs") ||
     prompt.includes("publika URLs")
   ) {
-    debugLog("[Orchestrator] SKIP - prompt has public URLs (send to v0)");
+    debugLog("AI", "[Orchestrator] SKIP - prompt has public URLs (send to v0)");
     return false;
   }
 
@@ -1829,7 +1835,10 @@ export function needsOrchestration(prompt: string): boolean {
     !lower.includes("generera") &&
     !lower.includes("skapa ny")
   ) {
-    debugLog("[Orchestrator] SKIP - references existing media (send to v0)");
+    debugLog(
+      "AI",
+      "[Orchestrator] SKIP - references existing media (send to v0)"
+    );
     return false;
   }
 
@@ -1880,22 +1889,25 @@ export function needsOrchestration(prompt: string): boolean {
   const needsCodeContext = codeContextKeywords.some((kw) => lower.includes(kw));
 
   if (needsImageGen) {
-    debugLog("[Orchestrator] TRIGGER - needs AI image generation");
+    debugLog("AI", "[Orchestrator] TRIGGER - needs AI image generation");
     return true;
   }
 
   if (needsWebSearch) {
-    debugLog("[Orchestrator] TRIGGER - needs web search");
+    debugLog("AI", "[Orchestrator] TRIGGER - needs web search");
     return true;
   }
 
   if (needsCodeContext) {
-    debugLog("[Orchestrator] TRIGGER - needs code context analysis");
+    debugLog("AI", "[Orchestrator] TRIGGER - needs code context analysis");
     return true;
   }
 
   // Default: Send to v0 directly (no orchestration)
-  debugLog("[Orchestrator] SKIP - no complex workflow detected (send to v0)");
+  debugLog(
+    "AI",
+    "[Orchestrator] SKIP - no complex workflow detected (send to v0)"
+  );
   return false;
 }
 

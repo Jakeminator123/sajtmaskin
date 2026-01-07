@@ -11,6 +11,7 @@
 import { generateText } from "ai";
 import { openai } from "@ai-sdk/openai";
 import { isAIFeatureEnabled } from "@/lib/ai/ai-sdk-features";
+import { debugLog } from "@/lib/utils/debug";
 // ═══════════════════════════════════════════════════════════════════════
 // AI GATEWAY IMPORT (COMMENTED OUT FOR FUTURE USE)
 // import { getAIProvider } from "@/lib/ai/ai-gateway";
@@ -129,7 +130,7 @@ Has existing code: ${!!context.existingCode}`,
       };
     }
 
-    console.log("[AIAgent] Analysis:", analysis);
+    debugLog("AI", "[AIAgent] Analysis:", analysis);
 
     // Steg 2: Kör Code Analysis om behövs
     if (analysis.needsCodeAnalysis && context.projectFiles?.length) {

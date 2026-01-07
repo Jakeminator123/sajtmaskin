@@ -151,13 +151,13 @@ export function getDb(): Database.Database {
       console.log("[Database] Created data directory:", dataDir);
     }
 
-    debugLog("[Database] Opening SQLite database", { path: DB_PATH });
+    debugLog("DB", "[Database] Opening SQLite database", { path: DB_PATH });
     db = new Database(DB_PATH);
     db.pragma("journal_mode = WAL"); // Better performance for concurrent access
     db.pragma("foreign_keys = ON"); // Enforce cascades and referential integrity
     initializeDatabase(db, !dbInitLogged); // Only log init message once
     dbInitLogged = true;
-    debugLog("[Database] Database ready");
+    debugLog("DB", "[Database] Database ready");
   }
   return db;
 }
@@ -728,6 +728,7 @@ function ensureTestUserExists(database: Database.Database) {
 function ensureAdminExists(database: Database.Database) {
   if (!SUPERADMIN_EMAIL || !SUPERADMIN_PASSWORD) {
     debugLog(
+      "DB",
       "[Database] No admin configured (set SUPERADMIN_EMAIL and SUPERADMIN_PASSWORD in env)"
     );
     return;
@@ -755,7 +756,7 @@ function ensureAdminExists(database: Database.Database) {
         SUPERADMIN_DIAMONDS
       );
 
-    debugLog("[Database] Created admin:", { email: SUPERADMIN_EMAIL });
+    debugLog("DB", "[Database] Created admin:", { email: SUPERADMIN_EMAIL });
   } else if (existingUser.is_superadmin !== 1) {
     // Upgrade existing user to admin
     database
@@ -764,7 +765,7 @@ function ensureAdminExists(database: Database.Database) {
       )
       .run(SUPERADMIN_DIAMONDS, SUPERADMIN_EMAIL);
 
-    debugLog("[Database] Upgraded user to admin:", {
+    debugLog("DB", "[Database] Upgraded user to admin:", {
       email: SUPERADMIN_EMAIL,
     });
   }
@@ -829,7 +830,7 @@ export function createProject(
   `);
   dataStmt.run(id);
 
-  debugLog("[Database] Created project", {
+  debugLog("DB", "[Database] Created project", {
     id,
     name,
     category,
@@ -969,7 +970,7 @@ export function getProjectData(projectId: string): ProjectData | null {
     files,
     messages,
   };
-  debugLog("[Database] Loaded project data", {
+  debugLog("DB", "[Database] Loaded project data", {
     projectId,
     hasChat: Boolean(parsed.chat_id),
     hasDemoUrl: Boolean(parsed.demo_url),
@@ -1008,7 +1009,7 @@ export function saveProjectData(data: ProjectData): void {
     "UPDATE projects SET updated_at = datetime('now') WHERE id = ?"
   );
   updateStmt.run(data.project_id);
-  debugLog("[Database] Saved project data", {
+  debugLog("DB", "[Database] Saved project data", {
     projectId: data.project_id,
     hasChat: Boolean(data.chat_id),
     hasDemoUrl: Boolean(data.demo_url),
@@ -1077,7 +1078,7 @@ export function saveProjectFilesToDb(
   );
 
   const saved = run(files);
-  debugLog("[Database] Saved project files to SQLite", {
+  debugLog("DB", "[Database] Saved project files to SQLite", {
     projectId,
     files: saved,
   });
@@ -1137,7 +1138,7 @@ export function updateProjectFileInDb(
     mimeType || "text/plain",
     size
   );
-  debugLog("[Database] Upserted project file in SQLite", {
+  debugLog("DB", "[Database] Upserted project file in SQLite", {
     projectId,
     path,
     size,
@@ -1157,7 +1158,7 @@ export function deleteProjectFileFromDb(
     "DELETE FROM project_files WHERE project_id = ? AND path = ?"
   );
   const result = stmt.run(projectId, path);
-  debugLog("[Database] Deleted project file from SQLite", {
+  debugLog("DB", "[Database] Deleted project file from SQLite", {
     projectId,
     path,
     removed: result.changes,
