@@ -41,7 +41,7 @@ import {
   uploadBlobFromBase64,
 } from "@/lib/vercel/blob-service";
 import { crawlCodeContext, type CodeContext } from "@/lib/code-crawler";
-import { debugLog } from "@/lib/utils/debug";
+import { debugLog, truncateForLog } from "@/lib/utils/debug";
 import {
   enrichPrompt,
   createEnrichmentSummary,
@@ -210,6 +210,59 @@ async function fetchStockImages(
     console.error("[Orchestrator:Stock] Error fetching stock images:", error);
     return [];
   }
+}
+
+/**
+ * Extract image URLs from the original prompt.
+ * This is CRITICAL because SemanticRouter may summarize away the URLs!
+ * We need to preserve them and pass them to v0.
+ */
+function extractImageUrlsFromPrompt(prompt: string): Array<{
+  url: string;
+  description: string;
+}> {
+  const images: Array<{ url: string; description: string }> = [];
+
+  // Pattern 1: "Bilden som ska användas: URL"
+  const bildPattern = /Bilden som ska användas:\s*(https?:\/\/[^\s\n]+)/gi;
+  let match;
+  while ((match = bildPattern.exec(prompt)) !== null) {
+    images.push({
+      url: match[1],
+      description: "Utvald bild från mediabibliotek",
+    });
+  }
+
+  // Pattern 2: "[bild: filename] URL" or "[image: filename] URL"
+  const bracketPattern =
+    /\[(?:bild|image|logo|media):\s*([^\]]+)\]\s*(https?:\/\/[^\s\n]+)/gi;
+  while ((match = bracketPattern.exec(prompt)) !== null) {
+    images.push({
+      url: match[2],
+      description: match[1].trim(),
+    });
+  }
+
+  // Pattern 3: Vercel Blob URLs or Unsplash URLs directly in prompt
+  const urlPattern =
+    /(https?:\/\/[^\s\n]*(?:blob\.vercel-storage\.com|images\.unsplash\.com)[^\s\n]*)/gi;
+  while ((match = urlPattern.exec(prompt)) !== null) {
+    // Avoid duplicates
+    if (!images.some((img) => img.url === match[1])) {
+      images.push({
+        url: match[1],
+        description: "Bild från prompt",
+      });
+    }
+  }
+
+  if (images.length > 0) {
+    console.log(
+      `[Orchestrator] ✓ Extracted ${images.length} image URL(s) from prompt`
+    );
+  }
+
+  return images;
 }
 
 // Helper to save AI-generated image using centralized blob-service
@@ -1472,11 +1525,7 @@ export async function orchestrateWorkflow(
 
         console.log(
           "[Orchestrator] Enriched prompt preview:",
-          enrichedPrompt.substring(0, 500) + "..."
-        );
-        console.log(
-          "[Orchestrator] Enriched prompt length:",
-          enrichedPrompt.length
+          truncateForLog(enrichedPrompt, 500, "enrichedPrompt")
         );
 
         // Log enrichment summary for debugging
@@ -2410,6 +2459,39 @@ async function executeWorkflowWithContext(
 
     let codeInstruction = enrichedPrompt;
 
+    // CRITICAL: Extract image URLs from the ORIGINAL prompt
+    // SemanticRouter/Enhancer may have "summarized away" the URLs, so we extract them here
+    const extractedImages = extractImageUrlsFromPrompt(userPrompt);
+    if (extractedImages.length > 0) {
+      // Only add if not already covered by mediaLibrary
+      const mediaUrls = new Set(
+        (context.mediaLibrary || []).map((m) => m.url)
+      );
+      const newImages = extractedImages.filter(
+        (img) => !mediaUrls.has(img.url)
+      );
+
+      if (newImages.length > 0) {
+        codeInstruction += `
+
+═══════════════════════════════════════════════════════════════════════════════
+BILDER FRÅN ANVÄNDARENS PROMPT (extraherade - KRÄVER exakta URLs!)
+═══════════════════════════════════════════════════════════════════════════════
+
+`;
+        newImages.forEach((img, i) => {
+          codeInstruction += `${i + 1}. ${img.description}
+   URL: ${img.url}
+
+`;
+        });
+
+        codeInstruction += `VIKTIGT: Använd dessa EXAKTA URLs i <img src="..."> eller next/image!
+═══════════════════════════════════════════════════════════════════════════════
+`;
+      }
+    }
+
     // Add web search context if available
     if (webSearchContext && intent === "web_search_and_code") {
       codeInstruction += `\n\nKontext från webbsökning:\n${webSearchContext.substring(
@@ -2418,17 +2500,30 @@ async function executeWorkflowWithContext(
       )}`;
     }
 
-    // Add media library if available
+    // Add media library if available - with strong instructions for v0 to use exact URLs
     if (context.mediaLibrary && context.mediaLibrary.length > 0) {
-      const mediaCatalog = context.mediaLibrary
-        .map(
-          (item, i) =>
-            `[Bild ${i + 1}]: ${item.url} - "${
-              item.description || item.filename
-            }"`
-        )
-        .join("\n");
-      codeInstruction += `\n\nTILLGÄNGLIGA BILDER:\n${mediaCatalog}`;
+      codeInstruction += `
+
+═══════════════════════════════════════════════════════════════════════════════
+BILDER ATT ANVÄNDA (användarens valda bilder - KRÄVER exakta URLs!)
+═══════════════════════════════════════════════════════════════════════════════
+
+`;
+      context.mediaLibrary.forEach((item, i) => {
+        codeInstruction += `${i + 1}. ${item.description || item.filename}
+   URL: ${item.url}
+
+`;
+      });
+
+      codeInstruction += `VIKTIGT:
+- Använd dessa EXAKTA URLs i <img src="..."> eller next/image
+- ANVÄND INTE placeholder-bilder, /images/... eller tomma src
+- Dessa bilder fungerar garanterat i preview
+- Matcha bilderna med rätt sektion baserat på beskrivningen ovan
+
+═══════════════════════════════════════════════════════════════════════════════
+`;
     }
 
     // Add generated images if available

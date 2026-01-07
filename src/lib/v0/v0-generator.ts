@@ -46,7 +46,7 @@ import {
   enhancePromptForV0,
   type MediaLibraryItem,
 } from "@/lib/utils/prompt-utils";
-import { debugLog } from "@/lib/utils/debug";
+import { debugLog, logFinalPrompt } from "@/lib/utils/debug";
 
 // Lazy-initialized v0 client (created at request time, not import time)
 let _v0Client: ReturnType<typeof createClient> | null = null;
@@ -360,10 +360,19 @@ TECHNICAL REQUIREMENTS:
 IMAGE HANDLING (CRITICAL!):
 - If the user provides image URLs in the prompt, USE THOSE EXACT URLs
 - Copy the full URL exactly as provided (e.g. https://images.unsplash.com/... or https://xxx.blob.vercel-storage.com/...)
-- DO NOT use placeholder.com, placeholder.svg, or /images/xxx paths
-- DO NOT invent or modify the URLs - use them EXACTLY as given
+- DO NOT use placeholder.com, placeholder.svg, placehold.co, or /images/xxx paths
+- DO NOT invent or modify user-provided URLs - use them EXACTLY as given
 - Place images in appropriate sections (hero, about, services, etc.)
 - Use next/image or <img> tags with the provided URLs
+
+FALLBACK IMAGES (when user does NOT provide images):
+- Use REAL Unsplash images with direct URLs like: https://images.unsplash.com/photo-[ID]?w=800&q=80
+- Hero sections: Use landscape photos (w=1200 or w=1600)
+- Team/about: Use portrait photos (w=400)
+- Products/services: Use relevant category photos (w=600)
+- Example hero: https://images.unsplash.com/photo-1497366216548-37526070297c?w=1200&q=80 (office)
+- Example portrait: https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=400&q=80 (person)
+- ALWAYS use real Unsplash URLs - NEVER use gray placeholders or empty src
 
 CODE QUALITY:
 - Clean, readable code with proper formatting
@@ -557,6 +566,9 @@ export async function generateCode(
   debugLog("v0", "[v0-generator] Creating chat with v0 Platform API...");
   debugLog("v0", "[v0-generator] Model:", modelId);
   debugLog("v0", "[v0-generator] Prompt length:", fullPrompt.length);
+
+  // Log the complete final prompt in magenta for visibility
+  logFinalPrompt(fullPrompt, modelId);
 
   const v0 = getV0Client();
 
@@ -776,27 +788,8 @@ IMPORTANT RULES FOR THIS REFINEMENT:
 
 The goal is to ENHANCE the current design, not start over.`;
 
-    // ENHANCED LOGGING: Log the full prompt being sent to v0
-    console.log(
-      "[v0-generator] ═══════════════════════════════════════════════════"
-    );
-    debugLog("v0", "[v0-generator] FULL REFINEMENT PROMPT TO V0:");
-    console.log(
-      "[v0-generator] ───────────────────────────────────────────────────"
-    );
-    console.log(refinementInstruction);
-    console.log(
-      "[v0-generator] ───────────────────────────────────────────────────"
-    );
-    console.log(
-      "[v0-generator] Prompt length:",
-      refinementInstruction.length,
-      "chars"
-    );
-    debugLog("v0", "[v0-generator] Model:", modelId);
-    console.log(
-      "[v0-generator] ═══════════════════════════════════════════════════"
-    );
+    // Log the complete refinement prompt in magenta for visibility
+    logFinalPrompt(refinementInstruction, modelId);
 
     // Send the message
     // IMPORTANT: Must use responseMode: 'sync' to get full ChatDetail response

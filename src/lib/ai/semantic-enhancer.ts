@@ -18,7 +18,7 @@ import { generateText } from "ai";
 import { openai } from "@ai-sdk/openai";
 import type { CodeContext, CodeSnippet } from "@/lib/code-crawler";
 import type { RouterResult } from "@/lib/ai/semantic-router";
-import { debugLog } from "@/lib/utils/debug";
+import { debugLog, truncateForLog } from "@/lib/utils/debug";
 
 // ============================================================================
 // TYPES
@@ -73,7 +73,7 @@ export async function semanticEnhance(
   debugLog(
     "AI",
     "[SemanticEnhancer] Starting enhancement for:",
-    originalPrompt.substring(0, 50)
+    truncateForLog(originalPrompt, 100, "originalPrompt")
   );
 
   // Skip enhancement for very short prompts or explicit skip
@@ -124,7 +124,7 @@ export async function semanticEnhance(
     debugLog(
       "AI",
       "[SemanticEnhancer] Enhanced prompt:",
-      enhancedPrompt.substring(0, 100)
+      truncateForLog(enhancedPrompt, 200, "enhancedPrompt")
     );
 
     return {

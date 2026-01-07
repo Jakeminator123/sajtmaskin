@@ -24,7 +24,7 @@
 
 import { generateText } from "ai";
 import { openai } from "@ai-sdk/openai";
-import { debugLog } from "@/lib/utils/debug";
+import { debugLog, truncateForLog } from "@/lib/utils/debug";
 
 // ============================================================================
 // TYPES
@@ -90,7 +90,7 @@ export async function routePrompt(
   debugLog(
     "Router",
     "[SemanticRouter] Routing prompt:",
-    prompt.substring(0, 100)
+    truncateForLog(prompt, 200, "prompt")
   );
 
   // System prompt for intent classification
@@ -174,7 +174,7 @@ Respond with EXACT JSON (no markdown):
     let responseText = aiResult.text || "{}";
     console.log(
       "[SemanticRouter] Raw response:",
-      responseText.substring(0, 500)
+      truncateForLog(responseText, 500, "router-response")
     );
 
     // Extract JSON if wrapped in markdown

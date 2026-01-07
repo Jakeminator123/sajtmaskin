@@ -382,7 +382,7 @@ export function ChatPanel({
     setVersionId,
     clearChat,
     projectId,
-    explicitSave,
+    // explicitSave removed - auto-save disabled, user saves manually via header button
     designModeInput,
     setDesignModeInput,
     designModeCodeContext,
@@ -718,15 +718,7 @@ export function ChatPanel({
           );
         }
 
-        // Auto-save after successful template load
-        if (projectId && (response.demoUrl || response.code)) {
-          explicitSave().catch((err) => {
-            console.warn(
-              "[ChatPanel] Auto-save after template load failed:",
-              err
-            );
-          });
-        }
+        // NOTE: Auto-save disabled - user must manually save via header button
       } else {
         // Handle failed response
         console.error(
@@ -820,13 +812,26 @@ export function ChatPanel({
       );
 
       // Collect media library info
-      const mediaLibraryForPrompt: MediaLibraryItem[] = mediaBank.items
-        .filter((item) => item.url)
-        .map((item) => ({
-          url: item.url,
-          filename: item.filename || "unknown",
-          description: item.description || item.prompt,
-        }));
+      // IMPORTANT: Include pendingMedia so selected images are passed to v0 with proper URLs
+      const mediaLibraryForPrompt: MediaLibraryItem[] = [
+        // Existing media bank items
+        ...mediaBank.items
+          .filter((item) => item.url)
+          .map((item) => ({
+            url: item.url,
+            filename: item.filename || "unknown",
+            description: item.description || item.prompt,
+          })),
+        // Pending media selected for this message (crucial for image integration)
+        ...pendingMedia
+          .filter((item) => item.url)
+          .map((item) => ({
+            url: item.url,
+            filename: item.filename || item.type || "selected-image",
+            description:
+              item.prompt || `Vald ${item.type || "bild"} att integrera`,
+          })),
+      ];
 
       // FIX: Pass existing chatId/code if present (from template or saved project)
       const existingChatId = latestState.chatId;
@@ -1029,12 +1034,7 @@ export function ChatPanel({
           setFiles(response.files);
         if (response.code) setCurrentCode(response.code);
 
-        // AUTO-SAVE
-        if (projectId && (response.demoUrl || response.code)) {
-          explicitSave().catch((err) => {
-            console.warn("[ChatPanel] Auto-save after generation failed:", err);
-          });
-        }
+        // NOTE: Auto-save disabled - user must manually save via header button
       }
 
       // Update diamond balance regardless of intent
@@ -1180,13 +1180,26 @@ export function ChatPanel({
       });
 
       // Collect media library info so orchestrator can pass to v0 if needed
-      const mediaLibraryForPrompt: MediaLibraryItem[] = mediaBank.items
-        .filter((item) => item.url)
-        .map((item) => ({
-          url: item.url,
-          filename: item.filename || "unknown",
-          description: item.description || item.prompt,
-        }));
+      // IMPORTANT: Include pendingMedia so selected images are passed to v0 with proper URLs
+      const mediaLibraryForPrompt: MediaLibraryItem[] = [
+        // Existing media bank items
+        ...mediaBank.items
+          .filter((item) => item.url)
+          .map((item) => ({
+            url: item.url,
+            filename: item.filename || "unknown",
+            description: item.description || item.prompt,
+          })),
+        // Pending media selected for this message (crucial for image integration)
+        ...pendingMedia
+          .filter((item) => item.url)
+          .map((item) => ({
+            url: item.url,
+            filename: item.filename || item.type || "selected-image",
+            description:
+              item.prompt || `Vald ${item.type || "bild"} att integrera`,
+          })),
+      ];
 
       // Get latest files from store (same pattern as actualCurrentCode)
       const actualFiles = latestState.files;
@@ -1303,12 +1316,7 @@ export function ChatPanel({
           setFiles(response.files);
         if (response.code) setCurrentCode(response.code);
 
-        // AUTO-SAVE: Save to database after code changes
-        if (projectId && (response.demoUrl || response.code)) {
-          explicitSave().catch((err) => {
-            console.warn("[ChatPanel] Auto-save after refinement failed:", err);
-          });
-        }
+        // NOTE: Auto-save disabled - user must manually save via header button
       }
 
       // Update diamond balance regardless of intent
