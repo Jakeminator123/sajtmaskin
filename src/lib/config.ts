@@ -28,9 +28,15 @@ function getDataDir(): string {
     // Ensure it's an absolute path on production
     const dataDir = process.env.DATA_DIR;
     if (IS_PRODUCTION && !path.isAbsolute(dataDir)) {
-      console.warn(
-        `[Config] WARNING: DATA_DIR should be absolute in production. Got: ${dataDir}`
-      );
+      // Resolve to absolute and warn once to aid Render users with relative vars
+      const resolved = path.resolve(dataDir);
+      if (!hasWarnedAboutDataDir) {
+        hasWarnedAboutDataDir = true;
+        console.warn(
+          `[Config] WARNING: DATA_DIR was relative, resolved to absolute: ${resolved}`
+        );
+      }
+      return resolved;
     }
     return dataDir;
   }
