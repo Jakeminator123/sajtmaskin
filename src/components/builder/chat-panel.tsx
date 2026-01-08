@@ -205,6 +205,7 @@ async function fetchWithStreaming(
 // multiple ChatPanel instances to run simultaneously
 // ============================================================================
 const GENERATION_STATE_KEY = "sajtmaskin_generation_state";
+const PREVIOUS_CLARIFY_STORAGE_KEY = "sajtmaskin_previous_clarify";
 
 interface GenerationState {
   lastKey: string | null;
@@ -329,9 +330,8 @@ export function ChatPanel({
   const [streamingMessage, setStreamingMessage] = useState<string>("");
   const [lastIntent, setLastIntent] = useState<string | null>(null);
   const [clarifyOptions, setClarifyOptions] = useState<string[]>([]);
-  // Track clarify context for when user responds to clarify questions
-  // Note: _setPreviousClarify is kept for future use (setter not yet wired up)
-  const [previousClarify, _setPreviousClarify] = useState<{
+  // Track clarify context so user replies carry original question + prompt
+  const [previousClarify, setPreviousClarify] = useState<{
     originalPrompt: string;
     clarifyQuestion: string;
   } | null>(null);
@@ -396,6 +396,48 @@ export function ChatPanel({
     isDesignModeActive,
     toggleDesignMode,
   } = useBuilderStore();
+
+  // Persist/restore clarify context across Fast Refresh / remounts.
+  // Otherwise, user replies won't include the original prompt + clarify question,
+  // and the orchestrator will ask again.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!projectId) return;
+    if (previousClarify) return;
+
+    const key = `${PREVIOUS_CLARIFY_STORAGE_KEY}:${projectId}`;
+    const raw = sessionStorage.getItem(key);
+    if (!raw) return;
+    try {
+      const parsed = JSON.parse(raw) as {
+        originalPrompt?: unknown;
+        clarifyQuestion?: unknown;
+      };
+      if (
+        typeof parsed.originalPrompt === "string" &&
+        typeof parsed.clarifyQuestion === "string"
+      ) {
+        setPreviousClarify({
+          originalPrompt: parsed.originalPrompt,
+          clarifyQuestion: parsed.clarifyQuestion,
+        });
+      }
+    } catch {
+      // ignore invalid storage
+    }
+  }, [projectId, previousClarify]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!projectId) return;
+
+    const key = `${PREVIOUS_CLARIFY_STORAGE_KEY}:${projectId}`;
+    if (!previousClarify) {
+      sessionStorage.removeItem(key);
+      return;
+    }
+    sessionStorage.setItem(key, JSON.stringify(previousClarify));
+  }, [projectId, previousClarify]);
 
   // Handle user typing state
   const handleTypingStart = useCallback(() => {
@@ -888,15 +930,20 @@ export function ChatPanel({
       } catch (streamError) {
         const errorMsg =
           streamError instanceof Error ? streamError.message : "Unknown error";
-        console.error("[ChatPanel] Streaming failed:", errorMsg);
+        const isIncompleteStream = errorMsg.includes("No complete event");
+        const isTimeout =
+          errorMsg.includes("timeout") || errorMsg.includes("aborted");
+
+        // Downgrade known transient SSE issues to warnings to avoid noisy dev overlays
+        if (isIncompleteStream || isTimeout) {
+          console.warn("[ChatPanel] Streaming incomplete:", errorMsg);
+        } else {
+          console.error("[ChatPanel] Streaming failed:", errorMsg);
+        }
 
         // If it was a timeout or "no complete event", the generation might have succeeded
         // on the server but we just didn't receive it. Don't start a new generation.
-        if (
-          errorMsg.includes("No complete event") ||
-          errorMsg.includes("timeout") ||
-          errorMsg.includes("aborted")
-        ) {
+        if (isIncompleteStream || isTimeout) {
           console.warn(
             "[ChatPanel] Generation may have completed on server. Refreshing project..."
           );
@@ -1054,6 +1101,19 @@ export function ChatPanel({
         setClarifyOptions([]);
       }
 
+      // Remember clarify context so the next user reply includes history
+      if (response.intent === "clarify") {
+        setPreviousClarify({
+          originalPrompt: prompt,
+          clarifyQuestion:
+            response.clarifyQuestion ||
+            response.message ||
+            "Kan du förtydliga vad du menar?",
+        });
+      } else {
+        setPreviousClarify(null);
+      }
+
       if (shouldUpdateCode && response.success) {
         if (response.chatId) setChatId(response.chatId);
         if (response.demoUrl) setDemoUrl(response.demoUrl);
@@ -1126,10 +1186,6 @@ export function ChatPanel({
     if (!actualCurrentCode) {
       console.log(
         "[ChatPanel] No currentCode in store, falling back to generation"
-      );
-      addMessage(
-        "assistant",
-        "Ingen kod finns ännu att förfina. Genererar en ny design baserat på din beskrivning..."
       );
       // Treat as new generation instead (this will add the user message)
       handleGenerate(instruction);
@@ -1334,6 +1390,19 @@ export function ChatPanel({
         setLastIntent(response.intent as string);
         // Clear any previous clarify options
         setClarifyOptions([]);
+      }
+
+      // Remember clarify context so the next user reply includes history
+      if (response.intent === "clarify") {
+        setPreviousClarify({
+          originalPrompt: instruction,
+          clarifyQuestion:
+            response.clarifyQuestion ||
+            response.message ||
+            "Kan du förtydliga vad du menar?",
+        });
+      } else {
+        setPreviousClarify(null);
       }
 
       if (shouldUpdateCode && response.success) {

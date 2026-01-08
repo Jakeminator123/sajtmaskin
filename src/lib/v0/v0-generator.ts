@@ -47,6 +47,7 @@ import {
   type MediaLibraryItem,
 } from "@/lib/utils/prompt-utils";
 import { debugLog, logFinalPrompt } from "@/lib/utils/debug";
+import { logV0 } from "@/lib/utils/file-logger";
 import { isAIFeatureEnabled } from "@/lib/ai/ai-sdk-features";
 
 // Lazy-initialized v0 client (created at request time, not import time)
@@ -675,6 +676,16 @@ export async function generateCode(
   // Log the complete final prompt in magenta for visibility
   logFinalPrompt(fullPrompt, modelId);
 
+  // Log to file for debugging
+  logV0({
+    event: "generate",
+    model: modelId,
+    promptLength: fullPrompt.length,
+    promptSnippet: fullPrompt.substring(0, 200),
+    hasStreaming: useStreaming,
+    categoryType: options.categoryType,
+  });
+
   const v0 = getV0Client();
 
   let chat: ChatDetail;
@@ -891,6 +902,15 @@ export async function refineCode(
 
     // Log the complete refinement prompt in magenta for visibility
     logFinalPrompt(refinementInstruction, modelId);
+
+    // Log to file for debugging
+    logV0({
+      event: "refine",
+      model: modelId,
+      promptLength: refinementInstruction.length,
+      promptSnippet: refinementInstruction.substring(0, 200),
+      chatId: existingChatId,
+    });
 
     // Send the message
     // IMPORTANT: Must use responseMode: 'sync' to get full ChatDetail response

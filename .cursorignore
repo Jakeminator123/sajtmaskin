@@ -15,7 +15,7 @@ coverage
 
 # Generated files
 tsconfig.tsbuildinfo
-next-env.d.ts
+#next-env.d.ts
 package-lock.json
 
 # Stora mediefiler
@@ -26,8 +26,8 @@ public/video/
 # =============================================================================
 # MCP DOKUMENTATION - LÄSES VIA MCP-SERVER, INTE INDEXERING
 # =============================================================================
-services/mpc/docs/docgrab__*/raw/
-services/mpc/docs/docgrab__*/llms/
+# Scraped docs (60+ MB) - använd MCP search_docs/get_doc istället
+services/mpc/docs/docgrab__*/
 services/mpc/logs/
 
 # =============================================================================
@@ -45,3 +45,5 @@ INPUT_FOR_CURSOR
 info
 .preprompt_history.json
 data/
+
+övrigt

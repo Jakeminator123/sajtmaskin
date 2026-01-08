@@ -44,6 +44,27 @@ import { createOpenAI } from "@ai-sdk/openai";
 import { debugLog, truncateForLog } from "@/lib/utils/debug";
 import { SECRETS } from "@/lib/config";
 
+function parseRouterJsonOrThrow(text: string): Record<string, unknown> {
+  const trimmed = text.trim();
+  try {
+    return JSON.parse(trimmed) as Record<string, unknown>;
+  } catch (firstError) {
+    // Common model mistake: trailing commas before } or ]
+    const repaired = trimmed.replace(/,(\s*[}\]])/g, "$1");
+    try {
+      return JSON.parse(repaired) as Record<string, unknown>;
+    } catch {
+      // Last resort: extract the first JSON object-looking span and retry
+      const match = repaired.match(/\{[\s\S]*\}/);
+      if (match) {
+        const extracted = match[0].replace(/,(\s*[}\]])/g, "$1");
+        return JSON.parse(extracted) as Record<string, unknown>;
+      }
+      throw firstError;
+    }
+  }
+}
+
 // ============================================================================
 // TYPES
 // ============================================================================
@@ -231,7 +252,7 @@ Respond with EXACT JSON (no markdown):
     }
 
     // Parse and validate
-    const parsed = JSON.parse(responseText);
+    const parsed = parseRouterJsonOrThrow(responseText);
 
     // Validate intent
     const intent: SemanticIntent = VALID_INTENTS.includes(parsed.intent)

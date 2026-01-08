@@ -33,6 +33,7 @@ import { createOpenAI } from "@ai-sdk/openai";
 import { streamText, generateText, type LanguageModel } from "ai";
 import { getUserSettings, type UserSettings } from "@/lib/data/database";
 import { debugLog } from "@/lib/utils/debug";
+import { logAIProvider } from "@/lib/utils/file-logger";
 import { isAIFeatureEnabled } from "@/lib/ai/ai-sdk-features";
 
 // ============================================================================
@@ -105,6 +106,15 @@ export async function getAIProvider(
       baseURL: "https://ai-gateway.vercel.sh/v1",
     });
 
+    logAIProvider({
+      provider: "gateway",
+      model: modelId,
+      isUserKey: true,
+      userId,
+      gatewayKeyPresent: true,
+      gatewayFeatureEnabled: true,
+    });
+
     return {
       type: "gateway",
       model: gateway(modelId),
@@ -118,6 +128,15 @@ export async function getAIProvider(
     debugLog("AI", "[AIGateway] Using user's OpenAI key");
     const userOpenAI = createOpenAI({
       apiKey: userSettings.openai_api_key,
+    });
+
+    logAIProvider({
+      provider: "openai",
+      model: modelId,
+      isUserKey: true,
+      userId,
+      gatewayKeyPresent: !!process.env.AI_GATEWAY_API_KEY,
+      gatewayFeatureEnabled,
     });
 
     return {
@@ -137,6 +156,14 @@ export async function getAIProvider(
       baseURL: "https://ai-gateway.vercel.sh/v1",
     });
 
+    logAIProvider({
+      provider: "gateway",
+      model: modelId,
+      isUserKey: false,
+      gatewayKeyPresent: true,
+      gatewayFeatureEnabled: true,
+    });
+
     return {
       type: "gateway",
       model: gateway(modelId),
@@ -151,6 +178,15 @@ export async function getAIProvider(
       ? "[AIGateway] Using platform OpenAI (aiGateway feature disabled)"
       : "[AIGateway] Using platform OpenAI (no gateway key)"
   );
+
+  logAIProvider({
+    provider: "openai",
+    model: modelId,
+    isUserKey: false,
+    gatewayKeyPresent: !!gatewayKey,
+    gatewayFeatureEnabled,
+  });
+
   return {
     type: "openai",
     model: openaiProvider(modelId),

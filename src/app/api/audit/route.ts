@@ -541,6 +541,45 @@ export async function POST(request: NextRequest) {
 
     // Audit result parsed successfully
 
+    // Special case: sometimes the model only returns audit_scores as root object.
+    // If the parsed object ONLY contains score keys, wrap it in a fallback result
+    // so the UI still gets a full audit payload instead of failing validation.
+    const scoreKeys = [
+      "seo",
+      "technical_seo",
+      "ux",
+      "content",
+      "performance",
+      "accessibility",
+      "security",
+      "mobile",
+    ];
+    const auditObj = auditResult as Record<string, unknown>;
+    const auditObjKeys = Object.keys(auditObj || {});
+    const isScoreOnly =
+      auditObjKeys.length > 0 &&
+      auditObjKeys.every(
+        (k) => scoreKeys.includes(k) && typeof auditObj[k] === "number"
+      );
+
+    if (isScoreOnly) {
+      console.warn(
+        `[${requestId}] Parsed JSON is score-only. Wrapping into fallback audit result. Keys: ${auditObjKeys.join(
+          ", "
+        )}`
+      );
+      const fallback = createFallbackResult(websiteContent, normalizedUrl) as {
+        audit_scores: Record<string, number>;
+        [key: string]: unknown;
+      };
+      fallback.audit_scores = {
+        ...fallback.audit_scores,
+        ...(auditObj as Record<string, number>),
+      };
+      auditResult = fallback;
+      usedFallback = true;
+    }
+
     // Check if result is nested inside another object (e.g. { result: {...} } or { audit: {...} })
     const possibleNestedKeys = [
       "result",

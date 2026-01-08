@@ -78,6 +78,7 @@ function BuilderContent() {
   const type = searchParams.get("type");
   const urlPrompt = searchParams.get("prompt");
   const source = searchParams.get("source"); // "audit" if coming from audit flow
+  const auditId = searchParams.get("auditId");
   const templateId = searchParams.get("templateId");
 
   // Handle audit prompt from sessionStorage (avoids URL length limits)
@@ -91,11 +92,14 @@ function BuilderContent() {
 
   useEffect(() => {
     if (source === "audit" && typeof window !== "undefined") {
-      const storedPrompt = sessionStorage.getItem("sajtmaskin_audit_prompt");
+      const storageKey = auditId
+        ? `sajtmaskin_audit_prompt:${auditId}`
+        : "sajtmaskin_audit_prompt";
+
+      const storedPrompt =
+        sessionStorage.getItem(storageKey) || localStorage.getItem(storageKey);
       if (storedPrompt) {
         setAuditPrompt(storedPrompt);
-        // Clear after reading to prevent re-use on refresh
-        sessionStorage.removeItem("sajtmaskin_audit_prompt");
         console.log(
           "[Builder] Loaded audit prompt from sessionStorage:",
           storedPrompt.length,
@@ -117,7 +121,7 @@ function BuilderContent() {
       // Mark as loaded (even if no prompt found - prevents infinite loading)
       setAuditPromptLoaded(true);
     }
-  }, [source, urlPrompt]);
+  }, [source, urlPrompt, auditId]);
 
   // Use audit prompt if available, otherwise URL prompt
   const prompt = auditPrompt || urlPrompt;
@@ -171,6 +175,20 @@ function BuilderContent() {
       setHasAutoSwitched(true);
     }
   }, [demoUrl, isLoading, isMobile, hasAutoSwitched]);
+
+  // Cleanup: once generation has produced a demoUrl, the audit prompt is no longer needed.
+  // Remove it from storage so future sessions don't accidentally reuse it.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (source !== "audit") return;
+    if (!auditId) return;
+    if (!demoUrl) return;
+
+    const key = `sajtmaskin_audit_prompt:${auditId}`;
+    sessionStorage.removeItem(key);
+    localStorage.removeItem(key);
+    sessionStorage.removeItem("sajtmaskin_audit_prompt_id");
+  }, [source, auditId, demoUrl]);
 
   // Fetch user on mount to get diamond balance
   // Use ref to prevent duplicate calls in StrictMode
@@ -262,7 +280,12 @@ function BuilderContent() {
         // Update URL without full page reload (keeps incoming params intact)
         const params = new URLSearchParams();
         params.set("project", project.id);
-        if (prompt) {
+        // IMPORTANT: Never push full audit prompt into the URL (length limits).
+        // Keep auditId/source so hard reloads can still recover the prompt from storage.
+        if (source === "audit") {
+          params.set("source", "audit");
+          if (auditId) params.set("auditId", auditId);
+        } else if (prompt) {
           params.set("prompt", prompt);
         }
         if (type) {
@@ -294,6 +317,8 @@ function BuilderContent() {
     router,
     setProjectId,
     auditPromptLoaded, // Wait for audit prompt before deciding
+    source,
+    auditId,
   ]);
 
   // Load project data on mount

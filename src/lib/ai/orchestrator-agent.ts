@@ -81,6 +81,7 @@ import {
 } from "@/lib/vercel/blob-service";
 import { crawlCodeContext, type CodeContext } from "@/lib/code-crawler";
 import { debugLog, truncateForLog } from "@/lib/utils/debug";
+import { logOrchestrator } from "@/lib/utils/file-logger";
 import {
   enrichPrompt,
   createEnrichmentSummary,
@@ -824,6 +825,14 @@ UPDATED REQUEST: ${userPrompt}`;
       hasPreviousClarify: !!context.previousClarify,
     });
 
+    // Log to file for debugging
+    logOrchestrator({
+      event: "start",
+      promptLength: effectivePrompt.length,
+      hasExistingCode: !!context.existingCode,
+      hasMediaLibrary: !!context.mediaLibrary?.length,
+    });
+
     // UI feedback: Starting
     onProgress?.("Analyserar prompt...", 1, 5);
     onThinking?.("Analyserar din förfrågan för att förstå vad du vill göra...");
@@ -945,6 +954,12 @@ UPDATED REQUEST: ${userPrompt}`;
 
     // Log reasoning only (intent already logged by SemanticRouter)
     console.log(`[Orchestrator] Reasoning: "${routerResult.reasoning}"`);
+
+    // Log router result to file
+    logOrchestrator({
+      event: "router_result",
+      intent: routerResult.intent,
+    });
 
     workflowSteps.push(
       `Semantic Router: ${routerResult.intent} (${Math.round(
@@ -1408,45 +1423,61 @@ UPDATED REQUEST: ${userPrompt}`;
       intent === "image_and_code" ||
       intent === "web_and_code"
     ) {
-      // Build the code instruction using Prompt Enricher
-      let codeInstruction = classification.codeInstruction || effectivePrompt;
+      const isAuditBuildPrompt =
+        effectivePrompt.includes("=== BYGG NY SAJT BASERAD PÅ AUDIT ===") ||
+        effectivePrompt.toLowerCase().includes("audit-poäng");
+
+      // Build the code instruction using Prompt Enricher.
+      // For audit-driven builds, prefer the full structured brief over the router summary.
+      let codeInstruction = isAuditBuildPrompt
+        ? effectivePrompt
+        : classification.codeInstruction || effectivePrompt;
 
       // ═══════════════════════════════════════════════════════════════════════
       // ENHANCERS: Different paths for new sites vs existing sites
       // ═══════════════════════════════════════════════════════════════════════
 
       if (!context.existingCode) {
-        // NEW SITE: Use Creative Brief Enhancer for structured design brief
-        onProgress?.("Skapar design-brief...", 3, 5);
-        onThinking?.(
-          "Gör din beskrivning till en tydlig design-brief (målgrupp, struktur, stil)..."
-        );
-        try {
-          const brief = await creativeBriefEnhance({
-            userPrompt: classification.codeInstruction || effectivePrompt,
-            routerResult,
-            quality: context.quality,
-          });
-          if (brief?.mode === "clarify") {
-            const question = brief.questions.join(" ");
-            return {
-              success: true,
-              message: question,
-              intent: "clarify",
-              clarifyQuestion: question,
-              workflowSteps: [
-                ...(workflowSteps || []),
-                "Creative Brief Enhancer: Begärde förtydligande",
-              ],
-            };
+        // Audit-driven prompts are already highly structured; don't interrupt with questions.
+        if (isAuditBuildPrompt) {
+          workflowSteps.push(
+            "Audit prompt: Hoppar över design-brief-förtydligande"
+          );
+        } else {
+          // NEW SITE: Use Creative Brief Enhancer for structured design brief
+          onProgress?.("Skapar design-brief...", 3, 5);
+          onThinking?.(
+            "Gör din beskrivning till en tydlig design-brief (målgrupp, struktur, stil)..."
+          );
+          try {
+            const brief = await creativeBriefEnhance({
+              userPrompt: classification.codeInstruction || effectivePrompt,
+              routerResult,
+              quality: context.quality,
+            });
+            if (brief?.mode === "clarify") {
+              const question = brief.questions.join(" ");
+              return {
+                success: true,
+                message: question,
+                intent: "clarify",
+                clarifyQuestion: question,
+                workflowSteps: [
+                  ...(workflowSteps || []),
+                  "Creative Brief Enhancer: Begärde förtydligande",
+                ],
+              };
+            }
+            if (brief?.mode === "expand") {
+              workflowSteps.push(
+                "Creative Brief Enhancer: Skapade design-brief"
+              );
+              onThinking?.("Design-brief klar. Skickar vidare till v0...");
+              codeInstruction = brief.expandedPrompt;
+            }
+          } catch (e) {
+            console.warn("[Orchestrator] Creative brief enhancer failed:", e);
           }
-          if (brief?.mode === "expand") {
-            workflowSteps.push("Creative Brief Enhancer: Skapade design-brief");
-            onThinking?.("Design-brief klar. Skickar vidare till v0...");
-            codeInstruction = brief.expandedPrompt;
-          }
-        } catch (e) {
-          console.warn("[Orchestrator] Creative brief enhancer failed:", e);
         }
       } else if (effectivePrompt.length < 300) {
         // EXISTING SITE: Use Semantic Enhancer for technical improvements
@@ -1636,6 +1667,13 @@ UPDATED REQUEST: ${userPrompt}`;
       });
       workflowSteps.push("Uppdaterar webbplatskod med v0");
 
+      // Log v0 API call
+      logOrchestrator({
+        event: "api_call",
+        apisUsed: ["v0"],
+        intent: routerResult.intent,
+      });
+
       let v0Result;
       if (context.existingChatId && context.existingCode) {
         // Refinement mode
@@ -1753,6 +1791,20 @@ After fixing, ensure there are no remaining "three/examples" bare imports anywhe
             })
           : undefined;
 
+      // Log completion
+      const apisUsed: string[] = ["v0"];
+      if (webSearchResults.length > 0) apisUsed.push("web_search");
+      if (generatedImages.length > 0) apisUsed.push("image_gen");
+      if (codeContext && codeContext.relevantFiles.length > 0)
+        apisUsed.push("code_crawler");
+
+      logOrchestrator({
+        event: "complete",
+        intent,
+        apisUsed,
+        enhancers: codeContext ? ["prompt-enricher"] : undefined,
+      });
+
       return {
         success: true,
         message: "Klart! Jag har uppdaterat din webbplats.",
@@ -1785,6 +1837,12 @@ After fixing, ensure there are no remaining "three/examples" bare imports anywhe
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : "Okänt fel";
     debugLog("AI", "[Orchestrator] Workflow failed", { error: errorMessage });
+
+    // Log error
+    logOrchestrator({
+      event: "error",
+      errorMessage,
+    });
 
     return {
       success: false,

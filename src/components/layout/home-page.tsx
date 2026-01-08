@@ -119,15 +119,25 @@ export function HomePage() {
   const handleBuildFromAudit = (prompt: string) => {
     setShowAuditModal(false);
 
-    // Store the audit prompt in sessionStorage (URL-length safe)
-    // Builder will pick this up and clear it after use
+    // Store the audit prompt in storage (URL-length safe) with a unique id
+    // so hard reloads don't lose the prompt during the audit→builder handoff.
     if (typeof window !== "undefined") {
-      sessionStorage.setItem("sajtmaskin_audit_prompt", prompt);
+      const auditId =
+        typeof crypto !== "undefined" && "randomUUID" in crypto
+          ? crypto.randomUUID()
+          : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+
+      sessionStorage.setItem(`sajtmaskin_audit_prompt:${auditId}`, prompt);
+      localStorage.setItem(`sajtmaskin_audit_prompt:${auditId}`, prompt);
+      sessionStorage.setItem("sajtmaskin_audit_prompt_id", auditId);
     }
 
     // Navigate directly to builder with a flag indicating audit source
     // The actual prompt is in sessionStorage to avoid URL length issues
-    window.location.href = "/builder?source=audit";
+    const auditId = sessionStorage.getItem("sajtmaskin_audit_prompt_id");
+    window.location.href = auditId
+      ? `/builder?source=audit&auditId=${encodeURIComponent(auditId)}`
+      : "/builder?source=audit";
   };
 
   // Handle wizard completion - navigate to builder with expanded prompt

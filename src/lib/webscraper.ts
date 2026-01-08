@@ -135,6 +135,98 @@ function dedupeLinks(links: CandidateLink[]): CandidateLink[] {
   return result;
 }
 
+async function tryWordPressFallback(
+  html: string,
+  url: string
+): Promise<{ text: string; headings: string[]; source: string } | null> {
+  const cheerio = await getCheerio();
+  const $ = cheerio.load(html);
+  const baseUrl = new URL(url);
+
+  const candidates: string[] = [];
+
+  const addCandidate = (href: string | null | undefined) => {
+    if (!href) return;
+    const abs = absoluteUrl(href, baseUrl);
+    if (!abs) return;
+    if (!abs.includes("/wp-json/")) return;
+    candidates.push(abs);
+  };
+
+  // WordPress exposes JSON entry points we can reuse when HTML is JS-gated
+  addCandidate(
+    $('link[rel="alternate"][type="application/json"]').attr("href")
+  );
+  const shortlinkHref = $('link[rel="shortlink"]').attr("href");
+  if (shortlinkHref) {
+    try {
+      const shortUrl = new URL(
+        absoluteUrl(shortlinkHref, baseUrl) ?? shortlinkHref
+      );
+      const id = shortUrl.searchParams.get("p");
+      if (id) {
+        candidates.push(`${shortUrl.origin}/wp-json/wp/v2/posts/${id}`);
+      }
+    } catch {
+      // ignore invalid shortlink
+    }
+  }
+
+  const canonicalHref = $('link[rel="canonical"]').attr("href") || url;
+  try {
+    const canonicalUrl = new URL(
+      absoluteUrl(canonicalHref, baseUrl) ?? canonicalHref
+    );
+    const pathSegments = canonicalUrl.pathname.split("/").filter(Boolean);
+    const slug = pathSegments[pathSegments.length - 1];
+    const apiBase = `${canonicalUrl.protocol}//${canonicalUrl.host}`;
+    if (slug) {
+      candidates.push(`${apiBase}/wp-json/wp/v2/posts?slug=${slug}`);
+      candidates.push(`${apiBase}/wp-json/wp/v2/pages?slug=${slug}`);
+    }
+  } catch {
+    // ignore invalid canonical
+  }
+
+  const uniqueCandidates = Array.from(new Set(candidates));
+
+  for (const candidate of uniqueCandidates) {
+    try {
+      const response = await fetch(candidate, {
+        headers: { Accept: "application/json" },
+      });
+      if (!response.ok) continue;
+
+      const json = await response.json();
+      const node = Array.isArray(json) ? json[0] : json;
+      const contentHtml: string | undefined =
+        node?.content?.rendered || node?.excerpt?.rendered;
+      if (!contentHtml || typeof contentHtml !== "string") continue;
+
+      const wp$ = cheerio.load(contentHtml);
+      const text = wp$.text().replace(/\s+/g, " ").trim();
+      const words = text.split(" ").filter((word) => word.trim().length > 0);
+      if (words.length < 30) continue; // still too thin to be useful
+
+      const headings: string[] = [];
+      wp$("h1, h2, h3").each((_, el) => {
+        const text = wp$(el).text().trim();
+        if (text && headings.length < 25) headings.push(text);
+      });
+
+      return { text, headings, source: candidate };
+    } catch (error) {
+      console.warn(
+        `[WebScraper] WP fallback failed for ${candidate}: ${
+          error instanceof Error ? error.message : "unknown error"
+        }`
+      );
+    }
+  }
+
+  return null;
+}
+
 async function fetchPage(url: string): Promise<{
   html: string;
   finalUrl: string;
@@ -280,6 +372,8 @@ async function parsePage(
   const $ = cheerio.load(html);
   const baseUrl = new URL(url);
 
+  const scriptCountBeforeCleanup = $("script").length;
+
   // Remove noise
   $("script, style, noscript").remove();
 
@@ -290,7 +384,7 @@ async function parsePage(
     $('meta[property="og:description"]').attr("content") ||
     "";
 
-  const headings: string[] = [];
+  let headings: string[] = [];
   $("h1, h2, h3").each((_, el) => {
     const text = $(el).text().trim();
     if (text && headings.length < 25) headings.push(text);
@@ -317,19 +411,39 @@ async function parsePage(
   bodyText = bodyText.replace(/\s+/g, " ").trim();
 
   // Split into words and filter out empty strings
-  const words = bodyText.split(" ").filter((word) => word.trim().length > 0);
-  const limitedText = words.slice(0, 1500).join(" ");
-  const wordCount = words.length;
+  let words = bodyText.split(" ").filter((word) => word.trim().length > 0);
+  let limitedText = words.slice(0, 1500).join(" ");
+  let wordCount = words.length;
 
   // Log warning if very little content found (might be JS-rendered)
   if (wordCount < 10) {
     console.warn(
       `[WebScraper] Very little text found (${wordCount} words) for ${url}. ` +
-        `This might be a JavaScript-rendered page. Found ${
-          $("script").length
-        } script tags. ` +
+        `This might be a JavaScript-rendered page. Found ${scriptCountBeforeCleanup} script tags. ` +
         `Body text length: ${bodyText.length} chars.`
     );
+  }
+
+  // Fallback for JS/Cloudflare gated WordPress pages
+  if (wordCount < SECONDARY_MIN_WORDS) {
+    const wpFallback = await tryWordPressFallback(html, url);
+    if (wpFallback) {
+      const fallbackWords = wpFallback.text
+        .split(" ")
+        .filter((word) => word.trim().length > 0);
+      if (fallbackWords.length > wordCount) {
+        words = fallbackWords;
+        wordCount = fallbackWords.length;
+        limitedText = fallbackWords.slice(0, 1500).join(" ");
+        headings = Array.from(
+          new Set([...headings, ...wpFallback.headings].filter(Boolean))
+        ).slice(0, 25);
+        bodyText = wpFallback.text;
+        console.info(
+          `[WebScraper] Used WordPress JSON fallback for ${url} (${wordCount} words) from ${wpFallback.source}`
+        );
+      }
+    }
   }
 
   let internalLinks = 0;

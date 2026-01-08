@@ -15,6 +15,7 @@ import {
 } from "@/lib/data/database";
 import { deleteCache } from "@/lib/data/redis";
 import { orchestrateWorkflowStreaming } from "@/lib/ai/orchestrator-agent";
+import { logSSE } from "@/lib/utils/file-logger";
 import type { QualityLevel } from "@/lib/api-client";
 
 // Allow up to 5 minutes for complex workflows
@@ -158,6 +159,12 @@ export async function POST(request: NextRequest) {
       isControllerClosed = true;
     },
     async start(controller) {
+      const startTime = Date.now();
+      let eventCount = 0;
+
+      // Log SSE start
+      logSSE({ event: "start" });
+
       try {
         const body: StreamingOrchestrateRequest = await request.json();
         const {
@@ -304,7 +311,12 @@ export async function POST(request: NextRequest) {
 
         // Calculate diamond cost based on intent
         const freeIntents = ["chat_response", "clarify"];
-        const cheapIntents = ["image_gen", "web_search", "simple_code", "needs_code_context"];
+        const cheapIntents = [
+          "image_gen",
+          "web_search",
+          "simple_code",
+          "needs_code_context",
+        ];
 
         let diamondCost = 0;
         if (freeIntents.includes(result.intent || "")) {
@@ -356,6 +368,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Send complete event with full result
+        eventCount++;
         sendEvent(controller, "complete", {
           success: true,
           message: result.message,
@@ -374,12 +387,27 @@ export async function POST(request: NextRequest) {
           balance,
         });
 
+        // Log SSE completion
+        logSSE({
+          event: "complete",
+          durationMs: Date.now() - startTime,
+          eventCount,
+        });
+
         safeClose(controller);
       } catch (error) {
         const errorMessage =
           error instanceof Error ? error.message : "Unknown error";
         console.error("[API:Orchestrate:Stream] Error:", error);
         sendEvent(controller, "error", { error: errorMessage });
+
+        // Log SSE error
+        logSSE({
+          event: "error",
+          durationMs: Date.now() - startTime,
+          errorMessage,
+        });
+
         safeClose(controller);
       }
     },
