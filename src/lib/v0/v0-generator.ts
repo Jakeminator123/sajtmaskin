@@ -584,9 +584,13 @@ export async function generateCode(
     typeof qualityOrOptions === "string"
       ? { quality: qualityOrOptions, categoryType: categoryType || undefined }
       : qualityOrOptions;
-  
+
   // Ensure categoryType from options takes precedence
-  if (options.categoryType && categoryType && options.categoryType !== categoryType) {
+  if (
+    options.categoryType &&
+    categoryType &&
+    options.categoryType !== categoryType
+  ) {
     console.warn(
       "[v0-generator] categoryType mismatch - using options.categoryType:",
       options.categoryType
@@ -615,7 +619,9 @@ export async function generateCode(
     if (isAlreadyExpanded) {
       // Merge: Use category prompt as BASE, but preserve user's expanded details
       // This ensures we don't lose Creative Brief Enhancer's work
-      fullPrompt = `${CATEGORY_PROMPTS[options.categoryType]}\n\nUSER-SPECIFIC REQUIREMENTS:\n${prompt}`;
+      fullPrompt = `${
+        CATEGORY_PROMPTS[options.categoryType]
+      }\n\nUSER-SPECIFIC REQUIREMENTS:\n${prompt}`;
       debugLog(
         "v0",
         "[v0-generator] Merging category prompt with expanded user prompt"
@@ -627,7 +633,12 @@ export async function generateCode(
       // Only add if prompt doesn't already contain category-like content
       if (prompt && prompt.trim().length > 0) {
         const promptLower = prompt.toLowerCase();
-        const categoryKeywords = ["skapa en", "bygg en", "gör en", "designa en"];
+        const categoryKeywords = [
+          "skapa en",
+          "bygg en",
+          "gör en",
+          "designa en",
+        ];
         const isCategoryLikePrompt = categoryKeywords.some((keyword) =>
           promptLower.startsWith(keyword)
         );
@@ -874,21 +885,9 @@ export async function refineCode(
       console.warn("[v0-generator] Could not fetch previous chat state:", err);
     }
 
-    // Wrap instruction with refinement context to preserve template
-    // This ensures v0 ADAPTS the existing design rather than replacing it
-    const refinementInstruction = `REFINEMENT INSTRUCTION - ADAPT, DON'T REPLACE:
-
-${instructionWithMedia}
-
-IMPORTANT RULES FOR THIS REFINEMENT:
-1. PRESERVE the overall structure, layout, and components of the existing design
-2. ADAPT specific elements based on the instruction above
-3. DO NOT completely rewrite or replace the entire page
-4. If asked to "make it like [website]", incorporate STYLE elements (colors, typography, spacing) while keeping the current structure
-5. Keep existing images, text content, and sections unless specifically asked to change them
-6. Apply changes incrementally - this is a refinement, not a rebuild
-
-The goal is to ENHANCE the current design, not start over.`;
+    // Simple refinement instruction - V0 has chat history and understands context
+    // No need to repeat rules every time
+    const refinementInstruction = instructionWithMedia;
 
     // Log the complete refinement prompt in magenta for visibility
     logFinalPrompt(refinementInstruction, modelId);
@@ -1010,7 +1009,8 @@ The goal is to ENHANCE the current design, not start over.`;
     "[v0-generator] No chatId provided, creating new chat for refinement..."
   );
 
-  const refinementPrompt = `Here is my existing code that I want to REFINE (not replace):
+  // Simpler refinement prompt - include code context but skip verbose rules
+  const refinementPrompt = `Refine this existing code:
 
 \`\`\`tsx
 ${existingCode.substring(0, 50000)}${
@@ -1018,15 +1018,9 @@ ${existingCode.substring(0, 50000)}${
   }
 \`\`\`
 
-REFINEMENT REQUEST: ${instructionWithMedia}
+${instructionWithMedia}
 
-CRITICAL RULES:
-1. PRESERVE the overall structure, layout, and components
-2. ADAPT specific elements based on my request above
-3. DO NOT completely rewrite or replace the entire page
-4. If I asked to "make it like [website]", incorporate STYLE elements (colors, typography, spacing) while keeping my current structure
-5. Keep existing content and sections unless I specifically asked to change them
-6. This is a REFINEMENT, not a rebuild - enhance what's there`;
+Keep the overall structure, just apply the requested changes.`;
 
   return generateCode(refinementPrompt, quality);
 }

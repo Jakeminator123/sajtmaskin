@@ -37,26 +37,11 @@ export function enhancePromptForV0(
 
   if (hasMediaReference) {
     const mediaCatalog = mediaLibrary
-      .map(
-        (item, i) =>
-          `[Bild ${i + 1}]: ${item.url} - "${
-            item.description || item.filename
-          }"`
-      )
+      .map((item) => `- ${item.url} (${item.description || item.filename})`)
       .join("\n");
 
-    enhanced = `${prompt}
-
-═══════════════════════════════════════════════════════════════════════
-TILLGÄNGLIGA BILDER FRÅN MEDIABIBLIOTEKET:
-═══════════════════════════════════════════════════════════════════════
-${mediaCatalog}
-
-INSTRUKTION: Använd EXAKTA URLs från listan ovan i <img src="..."> taggar.
-Matcha användarens beskrivning med rätt bild baserat på filnamn/beskrivning.
-═══════════════════════════════════════════════════════════════════════`;
+    enhanced = `${prompt}\n\nMedia library:\n${mediaCatalog}\nUse these exact URLs.`;
   }
 
   return enhanced;
 }
-

@@ -823,14 +823,14 @@ CLARIFY QUESTION: ${context.previousClarify.clarifyQuestion}
 USER RESPONSE: ${context.previousClarify.userResponse}
 
 UPDATED REQUEST: ${userPrompt}`;
-      
+
       debugLog("AI", "[Orchestrator] Combining clarify context", {
         originalPrompt: context.previousClarify.originalPrompt,
         clarifyQuestion: context.previousClarify.clarifyQuestion,
         userResponse: context.previousClarify.userResponse,
         combinedLength: effectivePrompt.length,
       });
-      
+
       workflowSteps.push("Kombinerar clarify-svar med original prompt");
     }
 
@@ -896,7 +896,10 @@ UPDATED REQUEST: ${userPrompt}`;
         /^(centrera|justera|flytta).{0,20}/i,
       ];
 
-      if (simplePatterns.some((p) => p.test(lower)) && effectivePrompt.length < 80) {
+      if (
+        simplePatterns.some((p) => p.test(lower)) &&
+        effectivePrompt.length < 80
+      ) {
         return true;
       }
 
@@ -927,7 +930,10 @@ UPDATED REQUEST: ${userPrompt}`;
       // WARNING: Render Free tier has a 30s TOTAL timeout - upgrade to Starter for complex workflows
       const ROUTER_TIMEOUT_MS = 30000; // 30s - generous for slow OpenAI days
       try {
-        const routerPromise = routePrompt(effectivePrompt, !!context.existingCode);
+        const routerPromise = routePrompt(
+          effectivePrompt,
+          !!context.existingCode
+        );
         const timeoutPromise = new Promise<RouterResult>((_, reject) =>
           setTimeout(
             () => reject(new Error("Router timeout")),
@@ -1557,37 +1563,19 @@ UPDATED REQUEST: ${userPrompt}`;
         )}`;
       }
 
-      // Add info about media library items (existing uploaded images)
-      // These are images the user has uploaded or generated previously
+      // Add media library items (simpler format)
       if (context.mediaLibrary && context.mediaLibrary.length > 0) {
         const mediaCatalog = context.mediaLibrary
-          .map(
-            (item, i) =>
-              `[Bild ${i + 1}]: ${item.url} - "${
-                item.description || item.filename
-              }"`
-          )
+          .map((item) => `- ${item.url} (${item.description || item.filename})`)
           .join("\n");
 
-        codeInstruction += `
-
-═══════════════════════════════════════════════════════════════════════════════
-TILLGÄNGLIGA BILDER FRÅN MEDIABIBLIOTEKET:
-═══════════════════════════════════════════════════════════════════════════════
-${mediaCatalog}
-
-INSTRUKTION: Om användaren refererar till befintliga bilder, använd EXAKTA URLs 
-från listan ovan i <img src="..."> taggar.
-═══════════════════════════════════════════════════════════════════════════════
-`;
+        codeInstruction += `\n\nAvailable images:\n${mediaCatalog}\nUse these exact URLs in <img> tags.`;
         console.log(
           `[Orchestrator] Added ${context.mediaLibrary.length} media library items to prompt`
         );
       }
 
-      // Add info about generated images if available
-      // CRITICAL: If we have real URLs from blob storage, include them in the prompt!
-      // v0 will use these exact URLs in the generated code.
+      // Add generated images (simpler format)
       if (generatedImages.length > 0 && intent === "image_and_code") {
         const imagesWithUrls = generatedImages.filter((img) => img.url);
 
@@ -1596,42 +1584,15 @@ från listan ovan i <img src="..."> taggar.
             `[Orchestrator] Injecting ${imagesWithUrls.length} image URL(s) into v0 prompt`
           );
 
-          codeInstruction += `
+          const imageList = imagesWithUrls
+            .map((img) => `- ${img.url} ("${img.prompt.substring(0, 60)}")`)
+            .join("\n");
 
-═══════════════════════════════════════════════════════════════════════════════
-KRITISKT - GENERERADE BILDER MED PUBLIKA URLs
-═══════════════════════════════════════════════════════════════════════════════
-
-${imagesWithUrls.length} bild(er) har genererats och sparats med PUBLIKA URLs.
-Du MÅSTE använda dessa EXAKTA URLs i koden - annars visas inte bilderna!
-
-BILDER ATT ANVÄNDA:
-`;
-          imagesWithUrls.forEach((img, i) => {
-            const shortPrompt = img.prompt.substring(0, 60);
-            codeInstruction += `
-${i + 1}. Beskrivning: "${shortPrompt}${img.prompt.length > 60 ? "..." : ""}"
-   URL: ${img.url}
-`;
-          });
-
-          codeInstruction += `
-REGLER:
-- Använd dessa URLs EXAKT som de visas ovan i <img src="..."> eller Image-komponenter
-- Använd INTE placeholder-bilder (unsplash, placeholder.com, etc.)
-- Använd INTE lokala sökvägar (/images/, ./assets/, etc.)
-- Sätt lämplig alt-text baserat på bildbeskrivningen
-- Placera bilderna på logiska ställen i designen
-
-═══════════════════════════════════════════════════════════════════════════════
-`;
+          codeInstruction += `\n\nGenerated images to use:\n${imageList}\nUse these exact URLs in the code.`;
         } else {
-          // Fallback if no blob storage - warn clearly
           console.warn(
             "[Orchestrator] ⚠️ No images have public URLs - v0 preview won't show them"
           );
-          codeInstruction += `\n\n⚠️ OBS: ${generatedImages.length} bild(er) genererades men kunde INTE sparas med publika URLs. 
-Bilderna kommer INTE visas i preview. Lägg till placeholder-bilder tills vidare.`;
         }
       }
 
@@ -1664,33 +1625,11 @@ Bilderna kommer INTE visas i preview. Lägg till placeholder-bilder tills vidare
               `[Orchestrator] ✓ Adding ${stockImages.length} stock images to v0 prompt`
             );
 
-            codeInstruction += `
+            const stockList = stockImages
+              .map((img) => `- ${img.url} (${img.alt})`)
+              .join("\n");
 
-═══════════════════════════════════════════════════════════════════════════════
-STOCKBILDER ATT ANVÄNDA (från Unsplash - fungerar i preview!)
-═══════════════════════════════════════════════════════════════════════════════
-
-Följande bilder har hämtats och är redo att användas i designen.
-Du MÅSTE använda dessa EXAKTA URLs - de fungerar i v0 preview!
-
-`;
-            stockImages.forEach((img, i) => {
-              codeInstruction += `${i + 1}. ${img.alt} (Foto: ${
-                img.photographer
-              })
-   URL: ${img.url}
-
-`;
-            });
-
-            codeInstruction += `REGLER:
-- Använd dessa URLs EXAKT i <img src="..."> eller next/image
-- Placera bilderna på logiska ställen (hero, about, features, testimonials, etc.)
-- Använd INTE placeholder.com, placehold.co eller /images/... paths
-- Dessa bilder fungerar garanterat i preview
-
-═══════════════════════════════════════════════════════════════════════════════
-`;
+            codeInstruction += `\n\nStock images available:\n${stockList}\nUse these URLs for hero, about, and feature sections.`;
             workflowSteps.push(`✅ ${stockImages.length} stockbilder tillagda`);
           }
         }
@@ -1772,55 +1711,24 @@ After fixing, ensure there are no remaining "three/examples" bare imports anywhe
           needsRepair = true;
         }
 
-        // Check 2: Missing React imports
-        if (hasMissingReactImport(v0Result.files)) {
-          repairs.push(`ADD MISSING REACT IMPORT:
+        // Check 2: Missing React imports - DISABLED (Next.js 15+ doesn't need this)
+        // The hasMissingReactImport check is kept for debugging but no longer triggers repair
 
-The generated code uses JSX or React hooks (useState, useEffect, etc.) but is missing the React import.
-While Next.js 15+ doesn't require React import for JSX, v0's preview environment may need it.
-
-Please add the React import at the top of files that use JSX or hooks:
-- Add: import React from "react";
-- Place it at the very top of the file, before other imports
-- Only add to files that actually use JSX or React hooks`);
-          needsRepair = true;
-        }
-
-        // Check 3: Placeholder images
+        // Check 3: Placeholder images - just warn, don't repair
         if (hasPlaceholderImages(v0Result.files)) {
-          repairs.push(`REPLACE PLACEHOLDER IMAGES:
-
-The generated code contains placeholder image URLs (placeholder.com, placehold.co, etc.).
-These may break or look unprofessional in the preview.
-
-Please replace placeholder images with:
-- Unsplash URLs (https://images.unsplash.com/...) OR
-- Generic placeholder divs with background colors OR
-- Remove image src attributes and use CSS background colors instead
-
-Keep the same dimensions and layout, just replace the image sources.`);
-          needsRepair = true;
+          console.warn(
+            "[Orchestrator] Warning: Generated code contains placeholder images"
+          );
+          // Don't repair - V0 should handle this, or user can ask to fix
         }
 
-        // Run repair if any issues detected
+        // Run repair only for critical issues (Three.js imports)
+        // React imports and placeholder images are not worth an extra V0 call
         if (needsRepair && repairs.length > 0) {
-          const repairTypes: string[] = [];
-          if (hasBrokenThreeExamplesImport(v0Result.files)) {
-            repairTypes.push("Three.js-importer");
-          }
-          if (hasMissingReactImport(v0Result.files)) {
-            repairTypes.push("React-import");
-          }
-          if (hasPlaceholderImages(v0Result.files)) {
-            repairTypes.push("placeholder-bilder");
-          }
-
           console.warn(
             `[Orchestrator] Detected ${repairs.length} issue(s) in v0 output. Running auto-repair refine...`
           );
-          workflowSteps.push(
-            `Reparerar ${repairTypes.join(", ")} (preview-fix)`
-          );
+          workflowSteps.push("Reparerar Three.js-importer (preview-fix)");
 
           const repairInstruction = repairs.join("\n\n---\n\n");
 
@@ -1831,18 +1739,12 @@ Keep the same dimensions and layout, just replace the image sources.`);
             context.quality
           );
 
-          // If repair succeeded, replace result; otherwise return original and let user know via steps.
           if (repaired?.files && repaired.files.length > 0) {
             v0Result = repaired;
             workflowSteps.push("Auto-repair lyckades!");
           } else {
             console.warn(
               "[Orchestrator] Auto-repair refine did not return files; keeping original result."
-            );
-            workflowSteps.push(
-              `Kunde inte auto-reparera helt (prova att be om 'fixa ${repairTypes.join(
-                ", "
-              )}')`
             );
           }
         }

@@ -110,15 +110,33 @@ function isTooVague(prompt: string): boolean {
 }
 
 function sanitizeExpandedPrompt(text: string): string {
-  // Remove code fences and extra preamble if model adds it.
   let out = text.trim();
-  out = out.replace(/^```[\s\S]*?\n/, "").replace(/```$/g, "").trim();
-  // Ensure it starts correctly for v0.
+
+  // Remove code fences if model wraps response
+  out = out
+    .replace(/^```[\s\S]*?\n/, "")
+    .replace(/```$/g, "")
+    .trim();
+
+  // If the model returned JSON as a string, extract expandedPrompt
+  // This prevents JSON from leaking into the final prompt
+  if (out.startsWith("{") && out.includes('"expandedPrompt"')) {
+    try {
+      const parsed = JSON.parse(out);
+      if (parsed.expandedPrompt) {
+        out = String(parsed.expandedPrompt).trim();
+      }
+    } catch {
+      // Not valid JSON, continue with original text
+    }
+  }
+
+  // Ensure it starts correctly for v0
   if (!/^(\s*)(Create a|Build a)/i.test(out)) {
-    // If missing, prepend a neutral starter.
     out = `Create a modern, responsive website.\n\n${out}`.trim();
   }
-  // Hard trim to avoid runaway outputs.
+
+  // Hard trim to avoid runaway outputs
   if (out.length > 2600) out = out.slice(0, 2600);
   return out;
 }
@@ -176,7 +194,6 @@ ${routerResult?.codeInstruction || ""}
 
   let raw: string | null = null;
   try {
-
     const result = await generateText({
       model: openaiClient(chosenModel),
       system,
@@ -203,7 +220,10 @@ ${routerResult?.codeInstruction || ""}
     const parsed = JSON.parse(raw) as CreativeBriefResult;
     if (parsed.mode === "clarify") {
       const questions = Array.isArray(parsed.questions)
-        ? parsed.questions.map((q) => String(q)).filter(Boolean).slice(0, 3)
+        ? parsed.questions
+            .map((q) => String(q))
+            .filter(Boolean)
+            .slice(0, 3)
         : [];
       if (questions.length === 0) {
         return {
@@ -264,5 +284,3 @@ ${routerResult?.codeInstruction || ""}
     inferred: { industry: null, audience: null, vibe: [] },
   };
 }
-
-
