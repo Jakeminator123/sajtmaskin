@@ -177,8 +177,20 @@ async function fetchWithStreaming(
                   throw new Error(parsed.error || "Streaming error");
               }
             } catch (e) {
-              if (currentEvent === "error") throw e;
-              console.warn("[Streaming] Parse error:", e);
+              const parseMessage =
+                e instanceof Error ? e.message : "Unknown parse error";
+              const dataPreview =
+                typeof data === "string" ? data.slice(0, 200) : "";
+
+              if (currentEvent === "error") {
+                throw new Error(
+                  `[Streaming] Error event parse failed: ${parseMessage} (${dataPreview})`
+                );
+              }
+
+              throw new Error(
+                `[Streaming] Failed to parse event "${currentEvent}": ${parseMessage} (${dataPreview})`
+              );
             }
             currentEvent = "";
           }

@@ -524,19 +524,48 @@ function BuilderContent() {
 
   // Handle publish from finalize modal
   const handleFinalizePublish = async (
-    includeBackoffice: boolean,
-    password?: string
+    _includeBackoffice: boolean,
+    _password?: string
   ) => {
-    // Placeholder until publish flow is implemented
-    void includeBackoffice;
-    void password;
-
-    if (!chatId || !versionId) return;
+    // Defensive checks before trying to publish
+    const effectiveProjectId = projectId;
+    if (!effectiveProjectId) {
+      console.error("[Builder] Publish aborted: missing projectId");
+      return;
+    }
+    if (!chatId || !versionId) {
+      console.error("[Builder] Publish aborted: missing chatId/versionId", {
+        chatId,
+        versionId,
+      });
+      return;
+    }
 
     setIsPublishing(true);
     try {
-      // TODO: implement actual publish with backoffice
+      const response = await fetch("/api/vercel/deploy", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          projectId: effectiveProjectId,
+          projectName: projectName || "sajtmaskin-site",
+          framework: "nextjs",
+          target: "production",
+          // Backoffice/password not yet wired to deploy payload; download covers backoffice.
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({}));
+        throw new Error(
+          error.error ||
+            `Publish failed (HTTP ${response.status}${response.statusText ? ` ${response.statusText}` : ""})`
+        );
+      }
+
       setShowFinalizeModal(false);
+    } catch (error) {
+      console.error("[Builder] Publish failed:", error);
     } finally {
       setIsPublishing(false);
     }
