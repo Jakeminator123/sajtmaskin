@@ -3,16 +3,16 @@
 /**
  * AI Elements - Web Preview Component
  * ====================================
- * 
+ *
  * Komponent för att visa v0-genererade previews med:
  * - Navigation controls (back/forward)
  * - URL-bar
  * - Responsive preview
  * - Console logging
- * 
+ *
  * FUNGERAR MED v0 PREVIEW-SAJTER!
  * Används tillsammans med v0-sdk för att visa genererade UI:er.
- * 
+ *
  * @see https://ai-sdk.dev/elements/components/web-preview
  */
 
@@ -76,7 +76,6 @@ export const WebPreview = ({
     if (defaultUrl) {
       setUrl(defaultUrl);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [defaultUrl]);
 
   const contextValue: WebPreviewContextValue = {

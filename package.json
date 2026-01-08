@@ -2,6 +2,9 @@
   "name": "sajtmaskin-app",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=18.18.0"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
@@ -54,6 +57,9 @@
     "zustand": "^5.0.8"
   },
   "devDependencies": {
+    "@eslint/compat": "^2.0.0",
+    "@eslint/eslintrc": "^3.3.3",
+    "@eslint/js": "^9.39.2",
     "@modelcontextprotocol/sdk": "^1.25.1",
     "@types/better-sqlite3": "^7.6.13",
     "@types/google.maps": "^3.58.1",
@@ -63,8 +69,9 @@
     "@types/react-dom": "^19.0.1",
     "@types/three": "^0.181.0",
     "autoprefixer": "^10.4.20",
-    "eslint": "^8.57.0",
+    "eslint": "^9.39.0",
     "eslint-config-next": "^15.5.9",
+    "globals": "^17.0.0",
     "postcss": "8.4.31",
     "tailwindcss": "^3.4.16",
     "typescript": "5.9.3"

@@ -330,7 +330,8 @@ export function ChatPanel({
   const [lastIntent, setLastIntent] = useState<string | null>(null);
   const [clarifyOptions, setClarifyOptions] = useState<string[]>([]);
   // Track clarify context for when user responds to clarify questions
-  const [previousClarify, setPreviousClarify] = useState<{
+  // Note: _setPreviousClarify is kept for future use (setter not yet wired up)
+  const [previousClarify, _setPreviousClarify] = useState<{
     originalPrompt: string;
     clarifyQuestion: string;
   } | null>(null);

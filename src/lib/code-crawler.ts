@@ -191,7 +191,7 @@ function analyzeStructure(files: GeneratedFile[]): string {
 export async function crawlCodeContext(
   files: GeneratedFile[],
   hints: string[],
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+   
   _userPrompt: string
 ): Promise<CodeContext> {
   debugLog("Crawler", "[CodeCrawler] Starting analysis with hints:", hints);
