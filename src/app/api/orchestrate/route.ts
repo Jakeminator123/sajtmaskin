@@ -67,6 +67,14 @@ interface OrchestrateRequest {
     filename: string;
     description?: string;
   }>;
+  // Category type for pre-built prompts
+  categoryType?: string;
+  // Previous clarify context (when user responds to clarify question)
+  previousClarify?: {
+    originalPrompt: string;
+    clarifyQuestion: string;
+    userResponse: string;
+  };
   // Pre-validation: Only run semantic router, return intent without executing workflow
   validateOnly?: boolean;
 }
@@ -82,6 +90,8 @@ export async function POST(request: NextRequest) {
       projectId,
       projectFiles,
       mediaLibrary,
+      categoryType,
+      previousClarify,
       validateOnly = false,
     } = body;
 
@@ -181,6 +191,8 @@ export async function POST(request: NextRequest) {
       existingCode,
       projectFiles,
       mediaLibrary,
+      categoryType,
+      previousClarify,
     });
 
     if (!result.success) {

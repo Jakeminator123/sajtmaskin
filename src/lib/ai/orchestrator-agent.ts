@@ -612,6 +612,14 @@ export interface OrchestratorContext {
     filename: string;
     description?: string;
   }>;
+  // Category type for pre-built prompts (landing-page, website, etc.)
+  categoryType?: string;
+  // Previous clarify context (when user responds to clarify question)
+  previousClarify?: {
+    originalPrompt: string;
+    clarifyQuestion: string;
+    userResponse: string;
+  };
 }
 
 export interface OrchestratorResult {
@@ -804,13 +812,37 @@ export async function orchestrateWorkflow(
   };
 
   try {
+    // ═══════════════════════════════════════════════════════════════════════
+    // STEP 0: COMBINE CLARIFY CONTEXT (if user is responding to clarify question)
+    // ═══════════════════════════════════════════════════════════════════════
+    let effectivePrompt = userPrompt;
+    if (context.previousClarify) {
+      // User is responding to a clarify question - combine with original context
+      effectivePrompt = `ORIGINAL REQUEST: ${context.previousClarify.originalPrompt}
+CLARIFY QUESTION: ${context.previousClarify.clarifyQuestion}
+USER RESPONSE: ${context.previousClarify.userResponse}
+
+UPDATED REQUEST: ${userPrompt}`;
+      
+      debugLog("AI", "[Orchestrator] Combining clarify context", {
+        originalPrompt: context.previousClarify.originalPrompt,
+        clarifyQuestion: context.previousClarify.clarifyQuestion,
+        userResponse: context.previousClarify.userResponse,
+        combinedLength: effectivePrompt.length,
+      });
+      
+      workflowSteps.push("Kombinerar clarify-svar med original prompt");
+    }
+
     debugLog("AI", "Starting orchestrator workflow", {
       promptLength: userPrompt.length,
+      effectivePromptLength: effectivePrompt.length,
       quality: context.quality,
       hasExistingChat: !!context.existingChatId,
       hasExistingCode: !!context.existingCode,
       hasProjectFiles: !!context.projectFiles?.length,
       hasCallbacks: !!callbacks,
+      hasPreviousClarify: !!context.previousClarify,
     });
 
     // UI feedback: Starting
@@ -834,15 +866,15 @@ export async function orchestrateWorkflow(
       // Must have existing code to refine
       if (!context.existingCode) return false;
 
-      const lower = userPrompt.toLowerCase();
+      const lower = effectivePrompt.toLowerCase();
 
       // CRITICAL: Prompts without SPECIFIC VALUES should NOT fast-path!
       // "Ändra border-radius" → needs AI to ask "to what value?"
       // "Ändra border-radius till 10px" → can fast-path
       const hasSpecificValue =
-        /\d+\s*(px|rem|em|%|vh|vw)\b/.test(userPrompt) || // 10px, 2rem, 50%
-        /#[0-9a-f]{3,6}\b/i.test(userPrompt) || // #fff, #ff0000
-        /rgb\(|rgba\(|hsl\(/i.test(userPrompt); // rgb(255,...)
+        /\d+\s*(px|rem|em|%|vh|vw)\b/.test(effectivePrompt) || // 10px, 2rem, 50%
+        /#[0-9a-f]{3,6}\b/i.test(effectivePrompt) || // #fff, #ff0000
+        /rgb\(|rgba\(|hsl\(/i.test(effectivePrompt); // rgb(255,...)
 
       // If prompt mentions CSS properties but has NO values, don't fast-path!
       const mentionsCSSProperty =
@@ -854,7 +886,7 @@ export async function orchestrateWorkflow(
       }
 
       // Semantic router says to skip AND prompt is clear enough
-      if (!shouldRoute(userPrompt) && userPrompt.trim().length >= 20)
+      if (!shouldRoute(effectivePrompt) && effectivePrompt.trim().length >= 20)
         return true;
 
       // Additional fast-path patterns (common simple changes WITH specific targets)
@@ -864,7 +896,7 @@ export async function orchestrateWorkflow(
         /^(centrera|justera|flytta).{0,20}/i,
       ];
 
-      if (simplePatterns.some((p) => p.test(lower)) && userPrompt.length < 80) {
+      if (simplePatterns.some((p) => p.test(lower)) && effectivePrompt.length < 80) {
         return true;
       }
 
@@ -884,7 +916,7 @@ export async function orchestrateWorkflow(
         confidence: 0.9,
         needsCodeContext: false,
         contextHints: [],
-        codeInstruction: userPrompt,
+        codeInstruction: effectivePrompt,
         reasoning: "Fast-path för enkel kodändring",
       };
     } else {
@@ -895,7 +927,7 @@ export async function orchestrateWorkflow(
       // WARNING: Render Free tier has a 30s TOTAL timeout - upgrade to Starter for complex workflows
       const ROUTER_TIMEOUT_MS = 30000; // 30s - generous for slow OpenAI days
       try {
-        const routerPromise = routePrompt(userPrompt, !!context.existingCode);
+        const routerPromise = routePrompt(effectivePrompt, !!context.existingCode);
         const timeoutPromise = new Promise<RouterResult>((_, reject) =>
           setTimeout(
             () => reject(new Error("Router timeout")),
@@ -920,7 +952,7 @@ export async function orchestrateWorkflow(
           confidence: 0.6,
           needsCodeContext: false,
           contextHints: [],
-          codeInstruction: userPrompt,
+          codeInstruction: effectivePrompt,
           reasoning: "Fallback pga timeout",
         };
       }
@@ -984,7 +1016,7 @@ export async function orchestrateWorkflow(
       context.projectFiles?.length &&
       (routerResult.needsCodeContext ||
         (routerResult.intent === "clarify" &&
-          shouldRunSmartClarify(userPrompt, routerResult)));
+          shouldRunSmartClarify(effectivePrompt, routerResult)));
 
     if (shouldRunCodeCrawler && context.projectFiles) {
       onProgress?.("Söker i projektfiler...", 2, 5);
@@ -1007,12 +1039,12 @@ export async function orchestrateWorkflow(
       const hints =
         routerResult.contextHints.length > 0
           ? routerResult.contextHints
-          : extractHintsFromPrompt(userPrompt);
+          : extractHintsFromPrompt(effectivePrompt);
 
       codeContext = await crawlCodeContext(
         context.projectFiles,
         hints,
-        userPrompt
+        effectivePrompt
       );
 
       debugLog("AI", "[Orchestrator] Code context found:", {
@@ -1057,7 +1089,7 @@ export async function orchestrateWorkflow(
       reasoning: routerResult.reasoning,
       imagePrompts: routerResult.imagePrompt ? [routerResult.imagePrompt] : [],
       webSearchQuery: routerResult.searchQuery || "",
-      codeInstruction: routerResult.codeInstruction || userPrompt,
+      codeInstruction: routerResult.codeInstruction || effectivePrompt,
       clarifyQuestion: routerResult.clarifyQuestion || "",
       chatResponse: routerResult.chatResponse || "",
     };
@@ -1100,8 +1132,9 @@ export async function orchestrateWorkflow(
         );
 
         // Generate smart clarify question using AI
+        // Use effectivePrompt here to include clarify context if present
         const smartQuestion = await generateSmartClarifyQuestion(
-          userPrompt,
+          effectivePrompt,
           codeContext,
           client
         );
@@ -1391,7 +1424,7 @@ export async function orchestrateWorkflow(
       intent === "web_and_code"
     ) {
       // Build the code instruction using Prompt Enricher
-      let codeInstruction = classification.codeInstruction || userPrompt;
+      let codeInstruction = classification.codeInstruction || effectivePrompt;
 
       // ═══════════════════════════════════════════════════════════════════════
       // ENHANCERS: Different paths for new sites vs existing sites
@@ -1405,7 +1438,7 @@ export async function orchestrateWorkflow(
         );
         try {
           const brief = await creativeBriefEnhance({
-            userPrompt: classification.codeInstruction || userPrompt,
+            userPrompt: classification.codeInstruction || effectivePrompt,
             routerResult,
             quality: context.quality,
           });
@@ -1430,19 +1463,19 @@ export async function orchestrateWorkflow(
         } catch (e) {
           console.warn("[Orchestrator] Creative brief enhancer failed:", e);
         }
-      } else if (userPrompt.length < 300) {
+      } else if (effectivePrompt.length < 300) {
         // EXISTING SITE: Use Semantic Enhancer for technical improvements
         onProgress?.("Förbättrar prompten...", 3, 5);
         onThinking?.("Gör din förfrågan mer specifik och teknisk...");
         try {
           const enhanced = await semanticEnhance({
-            originalPrompt: userPrompt,
+            originalPrompt: effectivePrompt,
             codeContext,
             routerResult,
           });
           if (enhanced.wasEnhanced) {
             workflowSteps.push("Semantic Enhancer: Förbättrade prompten");
-            onEnhancement?.(userPrompt, enhanced.enhancedPrompt);
+            onEnhancement?.(effectivePrompt, enhanced.enhancedPrompt);
             codeInstruction = enhanced.enhancedPrompt;
           }
         } catch (e) {
@@ -1455,7 +1488,8 @@ export async function orchestrateWorkflow(
         debugLog("AI", "[Orchestrator] === USING PROMPT ENRICHER ===");
 
         const enrichedPrompt = enrichPrompt({
-          originalPrompt: userPrompt,
+          originalPrompt: effectivePrompt,
+          enhancedPrompt: codeInstruction, // Pass the already-enhanced prompt
           routerResult,
           codeContext,
           webResults:
@@ -1475,7 +1509,8 @@ export async function orchestrateWorkflow(
 
         // Log enrichment summary for debugging
         const summary = createEnrichmentSummary({
-          originalPrompt: userPrompt,
+          originalPrompt: effectivePrompt,
+          enhancedPrompt: codeInstruction,
           routerResult,
           codeContext,
           webResults:
@@ -1584,7 +1619,7 @@ Bilderna kommer INTE visas i preview. Lägg till placeholder-bilder tills vidare
 
       if (isNewGeneration && hasNoImages) {
         // Extract industry keywords from prompt
-        const industryKeywords = extractIndustryKeywords(userPrompt);
+        const industryKeywords = extractIndustryKeywords(effectivePrompt);
 
         if (industryKeywords.length > 0) {
           console.log(
@@ -1651,11 +1686,16 @@ Du MÅSTE använda dessa EXAKTA URLs - de fungerar i v0 preview!
           context.existingChatId,
           context.existingCode,
           codeInstruction,
-          context.quality
+          context.quality,
+          context.mediaLibrary
         );
       } else {
-        // New generation
-        v0Result = await generateCode(codeInstruction, context.quality);
+        // New generation - pass categoryType and mediaLibrary
+        v0Result = await generateCode(codeInstruction, {
+          quality: context.quality,
+          categoryType: context.categoryType,
+          mediaLibrary: context.mediaLibrary,
+        });
       }
 
       // ═══════════════════════════════════════════════════════════════════════

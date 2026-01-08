@@ -561,6 +561,8 @@ export interface GenerateCodeOptions {
   attachments?: Array<{ url: string }>;
   /** Enable image generation in the output */
   imageGenerations?: boolean;
+  /** Media library items (for image references in prompts) */
+  mediaLibrary?: MediaLibraryItem[];
   /** Callback for streaming updates (if v0Streaming feature is enabled) */
   onStream?: StreamingCallback;
 }
@@ -575,13 +577,21 @@ export interface GenerateCodeOptions {
 export async function generateCode(
   prompt: string,
   qualityOrOptions: QualityLevel | GenerateCodeOptions = "standard",
-  categoryType?: string
+  categoryType?: string // Legacy parameter - use options.categoryType instead
 ): Promise<GenerationResult> {
   // Support both old signature and new options object
   const options: GenerateCodeOptions =
     typeof qualityOrOptions === "string"
-      ? { quality: qualityOrOptions, categoryType }
+      ? { quality: qualityOrOptions, categoryType: categoryType || undefined }
       : qualityOrOptions;
+  
+  // Ensure categoryType from options takes precedence
+  if (options.categoryType && categoryType && options.categoryType !== categoryType) {
+    console.warn(
+      "[v0-generator] categoryType mismatch - using options.categoryType:",
+      options.categoryType
+    );
+  }
 
   const quality = options.quality || "standard";
   const modelId = MODEL_MAP[quality];
@@ -589,26 +599,56 @@ export async function generateCode(
   // Build the full prompt
   let fullPrompt = "";
 
-  // Use category prompt if available (replaces user prompt for consistency)
-  // NOTE: Category prompts are NOT enhanced by orchestrator - they're already optimized
-  if (categoryType && CATEGORY_PROMPTS[categoryType]) {
-    fullPrompt = CATEGORY_PROMPTS[categoryType];
+  // Check if prompt is already expanded (from Creative Brief Enhancer or orchestrator)
+  // Expanded prompts contain detailed structure like "hero section", "navigation", etc.
+  const isAlreadyExpanded =
+    prompt.includes("hero section") ||
+    prompt.includes("navigation") ||
+    prompt.startsWith("Create a") ||
+    prompt.startsWith("Build a") ||
+    prompt.includes("USER REQUEST:") ||
+    prompt.includes("ORIGINAL REQUEST:");
+
+  // Use category prompt if available
+  // IMPROVED: If prompt is already expanded, merge instead of replacing
+  if (options.categoryType && CATEGORY_PROMPTS[options.categoryType]) {
+    if (isAlreadyExpanded) {
+      // Merge: Use category prompt as BASE, but preserve user's expanded details
+      // This ensures we don't lose Creative Brief Enhancer's work
+      fullPrompt = `${CATEGORY_PROMPTS[options.categoryType]}\n\nUSER-SPECIFIC REQUIREMENTS:\n${prompt}`;
+      debugLog(
+        "v0",
+        "[v0-generator] Merging category prompt with expanded user prompt"
+      );
+    } else {
+      // Original behavior: Replace with category prompt
+      fullPrompt = CATEGORY_PROMPTS[options.categoryType];
+      // Add user's additional instructions if they provided both category and prompt
+      // Only add if prompt doesn't already contain category-like content
+      if (prompt && prompt.trim().length > 0) {
+        const promptLower = prompt.toLowerCase();
+        const categoryKeywords = ["skapa en", "bygg en", "gör en", "designa en"];
+        const isCategoryLikePrompt = categoryKeywords.some((keyword) =>
+          promptLower.startsWith(keyword)
+        );
+
+        if (!isCategoryLikePrompt) {
+          fullPrompt += `\n\nAdditional requirements: ${prompt}`;
+        }
+      }
+    }
   } else if (prompt) {
     fullPrompt = prompt;
   }
 
-  // Add user's additional instructions if they provided both category and prompt
-  // Only add if prompt doesn't already contain category-like content
-  if (categoryType && prompt && prompt.trim().length > 0) {
-    const promptLower = prompt.toLowerCase();
-    const categoryKeywords = ["skapa en", "bygg en", "gör en", "designa en"];
-    const isCategoryLikePrompt = categoryKeywords.some((keyword) =>
-      promptLower.startsWith(keyword)
+  // Apply media enhancement (add media library URLs if available)
+  // This ensures mediabibliotek images are included in the prompt
+  if (options.mediaLibrary && options.mediaLibrary.length > 0) {
+    fullPrompt = enhancePromptForV0(fullPrompt, options.mediaLibrary);
+    debugLog(
+      "v0",
+      `[v0-generator] Added ${options.mediaLibrary.length} media library items to prompt`
     );
-
-    if (!isCategoryLikePrompt) {
-      fullPrompt += `\n\nAdditional requirements: ${prompt}`;
-    }
   }
 
   debugLog("v0", "[v0-generator] Creating chat with v0 Platform API...");

@@ -80,12 +80,19 @@ export function enrichPrompt(context: EnrichmentContext): string {
   // ═══════════════════════════════════════════════════════════════════════════
   // SECTION 1: USER REQUEST (use enhanced prompt if available)
   // ═══════════════════════════════════════════════════════════════════════════
+  // IMPORTANT: If enhancedPrompt is provided, use it as the main prompt
+  // This ensures Creative Brief Enhancer's expanded prompts are preserved
   const mainPrompt = enhancedPrompt || originalPrompt;
   sections.push(`USER REQUEST: ${mainPrompt}`);
 
-  // If prompt was enhanced, show original for reference
-  if (enhancedPrompt && enhancedPrompt !== originalPrompt) {
-    sections.push(`(Original: ${originalPrompt})`);
+  // If prompt was enhanced, show original for reference (but don't duplicate)
+  // Only show original if it's significantly different and adds context
+  if (
+    enhancedPrompt &&
+    enhancedPrompt !== originalPrompt &&
+    originalPrompt.length < enhancedPrompt.length * 0.7
+  ) {
+    sections.push(`(Original request: ${originalPrompt})`);
   }
 
   // NOTE: INTENT ANALYSIS section removed - v0 doesn't need our internal routing metadata

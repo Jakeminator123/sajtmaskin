@@ -329,6 +329,11 @@ export function ChatPanel({
   const [streamingMessage, setStreamingMessage] = useState<string>("");
   const [lastIntent, setLastIntent] = useState<string | null>(null);
   const [clarifyOptions, setClarifyOptions] = useState<string[]>([]);
+  // Track clarify context for when user responds to clarify questions
+  const [previousClarify, setPreviousClarify] = useState<{
+    originalPrompt: string;
+    clarifyQuestion: string;
+  } | null>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -848,6 +853,15 @@ export function ChatPanel({
       let response: ApiOrchestratorResponse | null = null;
 
       try {
+        // Build previousClarify context if user is responding to a clarify question
+        const previousClarifyContext = previousClarify
+          ? {
+              originalPrompt: previousClarify.originalPrompt,
+              clarifyQuestion: previousClarify.clarifyQuestion,
+              userResponse: prompt, // Current prompt is the user's response
+            }
+          : undefined;
+
         response = await fetchWithStreaming(
           "/api/orchestrate/stream",
           {
@@ -864,6 +878,8 @@ export function ChatPanel({
               mediaLibraryForPrompt.length > 0
                 ? mediaLibraryForPrompt
                 : undefined,
+            categoryType: categoryType || undefined,
+            previousClarify: previousClarifyContext,
           },
           (thought) => setThinkingSteps((prev) => [...prev, thought]),
           (step) => setStreamingMessage(step)
@@ -919,6 +935,15 @@ export function ChatPanel({
         // If we still don't have a response, fall back to regular endpoint
         if (!response) {
           console.warn("[ChatPanel] Falling back to regular endpoint");
+          // Build previousClarify context if user is responding to a clarify question
+          const previousClarifyContext = previousClarify
+            ? {
+                originalPrompt: previousClarify.originalPrompt,
+                clarifyQuestion: previousClarify.clarifyQuestion,
+                userResponse: prompt, // Current prompt is the user's response
+              }
+            : undefined;
+
           response = (await fetch("/api/orchestrate", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -936,6 +961,8 @@ export function ChatPanel({
                 mediaLibraryForPrompt.length > 0
                   ? mediaLibraryForPrompt
                   : undefined,
+              categoryType: categoryType || undefined,
+              previousClarify: previousClarifyContext,
             }),
           }).then((res) => res.json())) as ApiOrchestratorResponse;
         }

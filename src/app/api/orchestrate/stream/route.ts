@@ -41,6 +41,12 @@ interface StreamingOrchestrateRequest {
   projectId?: string;
   projectFiles?: Array<{ name: string; content: string }>;
   mediaLibrary?: Array<{ url: string; filename: string; description?: string }>;
+  categoryType?: string;
+  previousClarify?: {
+    originalPrompt: string;
+    clarifyQuestion: string;
+    userResponse: string;
+  };
 }
 
 async function persistResultToProject(opts: {
@@ -162,6 +168,8 @@ export async function POST(request: NextRequest) {
           projectId,
           projectFiles,
           mediaLibrary,
+          categoryType,
+          previousClarify,
         } = body;
 
         if (!prompt || prompt.trim().length === 0) {
@@ -234,6 +242,8 @@ export async function POST(request: NextRequest) {
               existingCode,
               projectFiles,
               mediaLibrary,
+              categoryType,
+              previousClarify,
             },
             {
               onThinking: (thought: string) => {
