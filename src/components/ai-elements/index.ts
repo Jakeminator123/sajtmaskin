@@ -75,3 +75,18 @@ export {
 // Loader
 export { Loader, type LoaderProps } from "./loader";
 
+// Web Preview (for v0-generated sites)
+export {
+  WebPreview,
+  WebPreviewNavigation,
+  WebPreviewNavigationButton,
+  WebPreviewUrl,
+  WebPreviewBody,
+  WebPreviewConsole,
+  type WebPreviewProps,
+  type WebPreviewNavigationProps,
+  type WebPreviewNavigationButtonProps,
+  type WebPreviewUrlProps,
+  type WebPreviewBodyProps,
+  type WebPreviewConsoleProps,
+} from "./web-preview";

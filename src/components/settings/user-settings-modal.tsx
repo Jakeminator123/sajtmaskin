@@ -541,14 +541,15 @@ export function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
             {/* Divider */}
             <div className="border-t border-gray-800" />
 
-            {/* API Keys Section */}
-            <div className="space-y-4">
+            {/* API Keys Section - wrapped in form to avoid DOM warning */}
+            <form onSubmit={(e) => e.preventDefault()} className="space-y-4">
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-medium text-gray-200 flex items-center gap-2">
                   <Key className="h-4 w-4 text-gray-400" />
                   API-nycklar (valfritt)
                 </h3>
                 <button
+                  type="button"
                   onClick={() => setShowKeys(!showKeys)}
                   className="text-xs text-gray-500 hover:text-gray-300 flex items-center gap-1"
                 >
@@ -591,6 +592,7 @@ export function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
                     />
                     {settings?.has_ai_gateway_key && (
                       <Button
+                        type="button"
                         variant="outline"
                         size="sm"
                         onClick={() => handleClearKey("ai_gateway")}
@@ -623,6 +625,7 @@ export function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
                   />
                   {settings?.has_openai_key && (
                     <Button
+                      type="button"
                       variant="outline"
                       size="sm"
                       onClick={() => handleClearKey("openai")}
@@ -654,6 +657,7 @@ export function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
                   />
                   {settings?.has_anthropic_key && (
                     <Button
+                      type="button"
                       variant="outline"
                       size="sm"
                       onClick={() => handleClearKey("anthropic")}
@@ -664,7 +668,7 @@ export function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
                   )}
                 </div>
               </div>
-            </div>
+            </form>
 
             {/* Error/Success messages */}
             {error && (

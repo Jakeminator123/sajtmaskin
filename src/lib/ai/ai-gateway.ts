@@ -3,35 +3,26 @@
  * ===================
  *
  * ╔════════════════════════════════════════════════════════════════════════════╗
- * ║  STATUS: INTE AKTIVT ANVÄND (januari 2026)                                 ║
+ * ║  STATUS: KONTROLLERAS VIA FEATURE TOGGLE (aiGateway)                       ║
  * ║                                                                            ║
- * ║  Denna fil är FÖRBEREDD för framtida användning av Vercel AI Gateway,      ║
- * ║  men används INTE i det nuvarande orkestratorsystemet.                     ║
+ * ║  Denna fil kan nu aktiveras/avaktiveras via ai-sdk-features.ts:            ║
+ * ║  - Om "aiGateway" feature är AKTIVERAD → använder AI Gateway               ║
+ * ║  - Om "aiGateway" feature är AVAKTIVERAD → använder direkt OpenAI          ║
  * ║                                                                            ║
- * ║  NUVARANDE SYSTEM ANVÄNDER:                                                ║
- * ║  - semantic-router.ts      → AI SDK (generateText) + din OPENAI_API_KEY    ║
- * ║  - semantic-enhancer.ts    → AI SDK (generateText) + din OPENAI_API_KEY    ║
- * ║  - creative-brief-enhancer → AI SDK (generateText) + din OPENAI_API_KEY    ║
- * ║  - orchestrator-agent.ts   → OpenAI SDK direkt + din OPENAI_API_KEY        ║
- * ║  - v0-generator.ts         → v0 SDK + din V0_API_KEY                       ║
+ * ║  FÖR ATT AKTIVERA AI GATEWAY:                                              ║
+ * ║  1. Sätt AI_GATEWAY_API_KEY i .env.local                                   ║
+ * ║  2. Slå på "Advanced Mode" i settings                                      ║
+ * ║  3. Aktivera "AI Gateway" toggle                                           ║
  * ║                                                                            ║
- * ║  VIKTIGT ATT FÖRSTÅ:                                                       ║
- * ║  - "AI SDK" (paketet 'ai') är ett OPEN-SOURCE bibliotek                    ║
- * ║  - Det fungerar UTAN Vercel-konto, UTAN AI Gateway                         ║
- * ║  - Det är bara ett bekvämt sätt att anropa OpenAI/Anthropic/etc.           ║
- * ║                                                                            ║
- * ║  - "AI Gateway" är en SEPARAT Vercel-tjänst (kräver AI_GATEWAY_API_KEY)    ║
- * ║  - Den ger tillgång till flera AI-providers via ETT API                    ║
- * ║  - Du behöver den INTE för att använda AI SDK!                             ║
- * ║                                                                            ║
- * ║  FRAMTIDA ANVÄNDNING:                                                      ║
- * ║  Om du vill använda AI Gateway i produktion på Vercel, aktivera denna fil  ║
- * ║  och sätt AI_GATEWAY_API_KEY i dina miljövariabler.                        ║
+ * ║  FÖRDELAR MED AI GATEWAY:                                                  ║
+ * ║  - Tillgång till flera modeller (Claude, Gemini, Grok) via ett API         ║
+ * ║  - $5 gratis/månad för att testa                                           ║
+ * ║  - Automatisk failover mellan providers                                    ║
  * ╚════════════════════════════════════════════════════════════════════════════╝
  *
  * Provides a unified interface for AI model access that can use either:
- * 1. Vercel AI Gateway (with AI_GATEWAY_API_KEY) - INTE AKTIVT
- * 2. Direct OpenAI API (with OPENAI_API_KEY) - FALLBACK (men ej använd)
+ * 1. Vercel AI Gateway (with AI_GATEWAY_API_KEY + aiGateway feature enabled)
+ * 2. Direct OpenAI API (with OPENAI_API_KEY) - default fallback
  *
  * The gateway is OPTIONAL - if not configured, falls back to direct OpenAI.
  * Users can configure their own API keys via the settings modal.
@@ -42,6 +33,7 @@ import { createOpenAI } from "@ai-sdk/openai";
 import { streamText, generateText, type LanguageModel } from "ai";
 import { getUserSettings, type UserSettings } from "@/lib/data/database";
 import { debugLog } from "@/lib/utils/debug";
+import { isAIFeatureEnabled } from "@/lib/ai/ai-sdk-features";
 
 // ============================================================================
 // TYPES
@@ -64,16 +56,32 @@ export interface ProviderOptions {
 // ============================================================================
 
 /**
- * Get AI provider based on user settings and environment config.
+ * Check if AI Gateway feature is enabled via toggle
+ * Requires both the feature toggle AND a valid API key
+ */
+export function isAIGatewayEnabled(): boolean {
+  // Check feature toggle first
+  if (!isAIFeatureEnabled("aiGateway")) {
+    return false;
+  }
+  // Check if we have a gateway key
+  return !!process.env.AI_GATEWAY_API_KEY;
+}
+
+/**
+ * Get AI provider based on user settings, feature toggles, and environment config.
  * Priority:
  * 1. User's own API key (if configured)
- * 2. AI Gateway (if user enabled and key available)
+ * 2. AI Gateway (if aiGateway feature enabled AND key available)
  * 3. Platform's OpenAI key (fallback)
  */
 export async function getAIProvider(
   userId?: string,
   modelId: string = "gpt-4o-mini"
 ): Promise<AIProviderConfig> {
+  // Check if AI Gateway feature is enabled via toggle
+  const gatewayFeatureEnabled = isAIFeatureEnabled("aiGateway");
+
   // Get user settings if userId provided
   let userSettings: UserSettings | null = null;
   if (userId) {
@@ -85,8 +93,13 @@ export async function getAIProvider(
   }
 
   // Check if user has AI Gateway enabled and has a key
-  if (userSettings?.use_ai_gateway && userSettings.ai_gateway_api_key) {
-    debugLog("AI", "[AIGateway] Using user's AI Gateway key");
+  // Only use gateway if the feature toggle is also enabled
+  if (
+    gatewayFeatureEnabled &&
+    userSettings?.use_ai_gateway &&
+    userSettings.ai_gateway_api_key
+  ) {
+    debugLog("AI", "[AIGateway] Using user's AI Gateway key (feature enabled)");
     const gateway = createOpenAI({
       apiKey: userSettings.ai_gateway_api_key,
       baseURL: "https://ai-gateway.vercel.sh/v1",
@@ -115,10 +128,10 @@ export async function getAIProvider(
     };
   }
 
-  // Check environment for AI Gateway
+  // Check environment for AI Gateway (only if feature toggle is enabled)
   const gatewayKey = process.env.AI_GATEWAY_API_KEY;
-  if (gatewayKey) {
-    debugLog("AI", "[AIGateway] Using platform AI Gateway");
+  if (gatewayFeatureEnabled && gatewayKey) {
+    debugLog("AI", "[AIGateway] Using platform AI Gateway (feature enabled)");
     const gateway = createOpenAI({
       apiKey: gatewayKey,
       baseURL: "https://ai-gateway.vercel.sh/v1",
@@ -131,8 +144,13 @@ export async function getAIProvider(
     };
   }
 
-  // Fallback to platform OpenAI
-  debugLog("AI", "[AIGateway] Using platform OpenAI key");
+  // Fallback to platform OpenAI (default behavior)
+  debugLog(
+    "AI",
+    gatewayKey
+      ? "[AIGateway] Using platform OpenAI (aiGateway feature disabled)"
+      : "[AIGateway] Using platform OpenAI (no gateway key)"
+  );
   return {
     type: "openai",
     model: openaiProvider(modelId),

@@ -18,34 +18,30 @@ tsconfig.tsbuildinfo
 next-env.d.ts
 package-lock.json
 
+# Stora mediefiler
+public/video/
+*.mp4
+*.webm
+
 # =============================================================================
 # MCP DOKUMENTATION - LÄSES VIA MCP-SERVER, INTE INDEXERING
 # =============================================================================
-# Dessa filer är 60+ MB totalt. Istället för att Cursor indexerar dem:
-# 1. MCP-servern (npm run mpc) exponerar search_docs och get_doc tools
-# 2. Agenter kan söka och läsa dokumentation on-demand
-# 3. Sparar RAM och gör Cursor snabbare
-#
-# Starta MCP: npm run mpc
-# Cursor MCP-config: .cursor/mcp.json
-# =============================================================================
-
-# Scraped docs - raw och llms-filer (stora)
 services/mpc/docs/docgrab__*/raw/
 services/mpc/docs/docgrab__*/llms/
-
-# BEHÅLL INDEXERADE (små, snabbreferens):
-# - services/mpc/docs/*.txt (overview, quick-reference, docs-index)
-# - services/mpc/docs/docgrab__*/md/ (enskilda markdown-filer)
-
-# MCP logs
 services/mpc/logs/
 
 # =============================================================================
-# TEMP/DEV (ignorera om de finns)
+# CURSOR-SPECIFIKT
+# =============================================================================
+.cursor/plans/
+.cursor/rules/
+
+# =============================================================================
+# TEMP/DEV
 # =============================================================================
 old
 skrapning
 INPUT_FOR_CURSOR
 info
 .preprompt_history.json
+data/

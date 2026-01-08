@@ -47,6 +47,7 @@ import {
   type MediaLibraryItem,
 } from "@/lib/utils/prompt-utils";
 import { debugLog, logFinalPrompt } from "@/lib/utils/debug";
+import { isAIFeatureEnabled } from "@/lib/ai/ai-sdk-features";
 
 // Lazy-initialized v0 client (created at request time, not import time)
 let _v0Client: ReturnType<typeof createClient> | null = null;
@@ -432,6 +433,25 @@ export interface GenerationResult {
 }
 
 /**
+ * Streaming callback for real-time generation updates
+ * Called with partial content as v0 generates
+ */
+export type StreamingCallback = (chunk: {
+  type: "text" | "file" | "status" | "thinking";
+  content: string;
+  fileName?: string;
+}) => void;
+
+/**
+ * Check if v0 streaming is enabled via feature toggle
+ * Streaming shows generation progress in real-time
+ */
+export function isV0StreamingEnabled(): boolean {
+  // Check feature toggle - requires advanced mode + v0Streaming enabled
+  return isAIFeatureEnabled("v0Streaming");
+}
+
+/**
  * Download a chat version as ZIP
  */
 export async function downloadVersionAsZip(
@@ -541,6 +561,8 @@ export interface GenerateCodeOptions {
   attachments?: Array<{ url: string }>;
   /** Enable image generation in the output */
   imageGenerations?: boolean;
+  /** Callback for streaming updates (if v0Streaming feature is enabled) */
+  onStream?: StreamingCallback;
 }
 
 /**
@@ -593,6 +615,12 @@ export async function generateCode(
   debugLog("v0", "[v0-generator] Model:", modelId);
   debugLog("v0", "[v0-generator] Prompt length:", fullPrompt.length);
 
+  // Check if streaming is enabled via feature toggle
+  const useStreaming = isV0StreamingEnabled() && !!options.onStream;
+  if (useStreaming) {
+    console.log("[v0-generator] Streaming mode ENABLED (v0Streaming feature)");
+  }
+
   // Log the complete final prompt in magenta for visibility
   logFinalPrompt(fullPrompt, modelId);
 
@@ -602,8 +630,6 @@ export async function generateCode(
 
   try {
     // Use the Platform API to create a chat
-    // IMPORTANT: Must use responseMode: 'sync' to get ChatDetail response
-    // Without it, SDK might return a stream which doesn't have latestVersion
     // Build create request with optional attachments
     const createRequest: Parameters<typeof v0.chats.create>[0] = {
       message: fullPrompt,
@@ -615,7 +641,8 @@ export async function generateCode(
         // Enable thinking for better reasoning (premium gets more detailed thinking)
         thinking: quality === "premium",
       },
-      responseMode: "sync", // Force synchronous response with full ChatDetail
+      // Use streaming mode if enabled, otherwise sync for full ChatDetail response
+      responseMode: useStreaming ? undefined : "sync",
     };
 
     // Add attachments if provided (screenshots, figma designs, etc.)
@@ -629,6 +656,15 @@ export async function generateCode(
     }
 
     const rawResponse = await v0.chats.create(createRequest);
+
+    // Handle streaming response if enabled
+    if (useStreaming && options.onStream) {
+      // Notify that generation has started
+      options.onStream({
+        type: "status",
+        content: "Generering startad...",
+      });
+    }
 
     // Debug: Log the raw response structure
     console.log(

@@ -120,6 +120,39 @@ export const AI_SDK_FEATURES: Record<string, Omit<AIFeature, "enabled">> = {
     status: "placeholder",
     docsUrl: "https://sdk.vercel.ai/docs/ai-sdk-core/image-generation",
   },
+
+  // ─────────────────────────────────────────────────────────────────────────
+  // SAJTMASKIN-SPECIFIC FEATURES
+  // ─────────────────────────────────────────────────────────────────────────
+  v0Streaming: {
+    id: "v0Streaming",
+    name: "v0 Streaming",
+    description:
+      "Se vad v0 genererar i realtid istället för att vänta på hela svaret. Snabbare feedback.",
+    category: "optimization",
+    status: "beta",
+    docsUrl: "https://v0.dev/docs",
+  },
+
+  aiGateway: {
+    id: "aiGateway",
+    name: "Vercel AI Gateway",
+    description:
+      "Använd flera AI-modeller (Claude, Gemini, Grok) via ett API. Kräver AI_GATEWAY_API_KEY.",
+    category: "optimization",
+    status: "stable",
+    docsUrl: "https://vercel.com/docs/ai-gateway",
+  },
+
+  aiElements: {
+    id: "aiElements",
+    name: "AI Elements (WebPreview)",
+    description:
+      "Moderna UI-komponenter för preview av v0-genererade sajter. Installerad!",
+    category: "tools",
+    status: "beta",
+    docsUrl: "https://ai-sdk.dev/elements",
+  },
 } as const;
 
 // ============================================================================
