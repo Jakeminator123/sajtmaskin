@@ -1484,12 +1484,18 @@ UPDATED REQUEST: ${userPrompt}`;
       }
 
       // Use Prompt Enricher if we have code context
+      const useCompactEnrichment =
+        (intent === "simple_code" || intent === "image_and_code") &&
+        (!codeContext || codeContext.relevantFiles.length === 0) &&
+        webSearchResults.length === 0;
+
       if (codeContext && codeContext.relevantFiles.length > 0) {
         debugLog("AI", "[Orchestrator] === USING PROMPT ENRICHER ===");
 
         const enrichedPrompt = enrichPrompt({
           originalPrompt: effectivePrompt,
           enhancedPrompt: codeInstruction, // Pass the already-enhanced prompt
+          compact: useCompactEnrichment,
           routerResult,
           codeContext,
           webResults:
@@ -1519,6 +1525,27 @@ UPDATED REQUEST: ${userPrompt}`;
         debugLog("AI", "[Orchestrator] Enrichment summary:", summary);
 
         workflowSteps.push("Prompt Enricher: Berikade prompten med kodkontext");
+        codeInstruction = enrichedPrompt;
+      } else if (useCompactEnrichment) {
+        // Compact enrichment even without code context (keep prompts short)
+        const enrichedPrompt = enrichPrompt({
+          originalPrompt: effectivePrompt,
+          enhancedPrompt: codeInstruction,
+          compact: true,
+          routerResult,
+          generatedImages: generatedImages
+            .filter((img) => img.url)
+            .map((img) => ({
+              url: img.url!,
+              prompt: img.prompt,
+            })),
+        });
+
+        console.log(
+          "[Orchestrator] Compact enriched prompt preview:",
+          truncateForLog(enrichedPrompt, 500, "enrichedPrompt")
+        );
+        workflowSteps.push("Prompt Enricher: Compact prompt for v0");
         codeInstruction = enrichedPrompt;
       }
 
@@ -1672,6 +1699,18 @@ Du MÅSTE använda dessa EXAKTA URLs - de fungerar i v0 preview!
       // UI feedback: Code generation
       onProgress?.("Genererar kod...", 4, 5);
       onThinking?.("Skickar till v0 för kodgenerering...");
+
+      // Log a truncated preview for debugging (prompt itself is NOT truncated)
+      const promptPreview = truncateForLog(
+        codeInstruction,
+        800,
+        "prompt-preview (log only, prompt intact)"
+      );
+      debugLog(
+        "AI",
+        "[Orchestrator] Prompt preview (truncated for log only):",
+        promptPreview
+      );
 
       debugLog("AI", "[Orchestrator] Calling v0 for code", {
         instructionLength: codeInstruction.length,

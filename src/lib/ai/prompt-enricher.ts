@@ -49,6 +49,8 @@ export interface GeneratedImage {
 export interface EnrichmentContext {
   originalPrompt: string;
   enhancedPrompt?: string; // From Semantic Enhancer
+  // Compact mode: produce a shorter prompt (no heavy sections) when v0 already has context/history
+  compact?: boolean;
   routerResult?: RouterResult;
   codeContext?: CodeContext;
   webResults?: WebSearchResult[];
@@ -69,6 +71,7 @@ export function enrichPrompt(context: EnrichmentContext): string {
   const {
     originalPrompt,
     enhancedPrompt,
+    compact = false,
     routerResult,
     codeContext,
     webResults,
@@ -88,6 +91,7 @@ export function enrichPrompt(context: EnrichmentContext): string {
   // If prompt was enhanced, show original for reference (but don't duplicate)
   // Only show original if it's significantly different and adds context
   if (
+    !compact && // Skip extra context in compact mode
     enhancedPrompt &&
     enhancedPrompt !== originalPrompt &&
     originalPrompt.length < enhancedPrompt.length * 0.7
@@ -95,13 +99,14 @@ export function enrichPrompt(context: EnrichmentContext): string {
     sections.push(`(Original request: ${originalPrompt})`);
   }
 
-  // NOTE: INTENT ANALYSIS section removed - v0 doesn't need our internal routing metadata
-  // The enhanced prompt already contains all necessary information
+  // In compact mode, keep it minimal: skip code/web sections unless explicitly provided
+  const shouldIncludeCodeContext = !compact && codeContext && codeContext.relevantFiles.length > 0;
+  const shouldIncludeWebResults = !compact && webResults && webResults.length > 0;
 
   // ═══════════════════════════════════════════════════════════════════════════
   // SECTION 3: CODE CONTEXT (if available)
   // ═══════════════════════════════════════════════════════════════════════════
-  if (codeContext && codeContext.relevantFiles.length > 0) {
+  if (shouldIncludeCodeContext) {
     const codeLines: string[] = ["", "CODE CONTEXT FOUND:"];
     codeLines.push("━".repeat(50));
 
@@ -135,7 +140,7 @@ export function enrichPrompt(context: EnrichmentContext): string {
   // ═══════════════════════════════════════════════════════════════════════════
   // SECTION 4: WEB SEARCH RESULTS (if available)
   // ═══════════════════════════════════════════════════════════════════════════
-  if (webResults && webResults.length > 0) {
+  if (shouldIncludeWebResults) {
     const webLines: string[] = ["", "WEB SEARCH RESULTS:"];
     webLines.push("━".repeat(50));
 
@@ -178,36 +183,45 @@ export function enrichPrompt(context: EnrichmentContext): string {
   // ═══════════════════════════════════════════════════════════════════════════
   const actionLines: string[] = ["", "INSTRUCTIONS FOR IMPLEMENTATION:"];
 
-  // Add specific instructions based on intent
-  if (routerResult?.intent === "needs_code_context" && codeContext) {
-    actionLines.push(
-      "1. UPDATE the identified code sections based on the user request"
-    );
-    actionLines.push(
-      "2. PRESERVE the overall structure and style of the existing code"
-    );
-    actionLines.push("3. CREATE any new files/routes if needed");
-    actionLines.push("4. ENSURE all links and navigation work correctly");
-  } else if (routerResult?.intent === "web_and_code" && webResults) {
-    actionLines.push(
-      "1. ANALYZE the referenced website(s) for design inspiration"
-    );
-    actionLines.push(
-      "2. APPLY similar styling while keeping the existing structure"
-    );
-    actionLines.push("3. MAINTAIN brand consistency with the current design");
-  } else if (
-    routerResult?.intent === "image_and_code" ||
-    (generatedImages && generatedImages.length > 0)
-  ) {
-    actionLines.push("1. USE the provided image URL(s) exactly as given");
-    actionLines.push("2. PLACE the image(s) in the appropriate section");
-    actionLines.push("3. ADD proper alt text and responsive sizing");
-    actionLines.push("4. ENSURE images are accessible and load correctly");
+  // In compact mode, keep a minimal instruction set
+  if (compact) {
+    actionLines.push("1. Implement the request using the prompt above.");
+    if (generatedImages && generatedImages.length > 0) {
+      actionLines.push("2. Use provided image URLs exactly as given with alt text.");
+    }
+    actionLines.push("3. Preserve structure; ensure responsiveness and accessibility.");
   } else {
-    actionLines.push("1. IMPLEMENT the requested changes");
-    actionLines.push("2. PRESERVE the overall structure and design");
-    actionLines.push("3. TEST that all functionality still works");
+    // Add specific instructions based on intent
+    if (routerResult?.intent === "needs_code_context" && codeContext) {
+      actionLines.push(
+        "1. UPDATE the identified code sections based on the user request"
+      );
+      actionLines.push(
+        "2. PRESERVE the overall structure and style of the existing code"
+      );
+      actionLines.push("3. CREATE any new files/routes if needed");
+      actionLines.push("4. ENSURE all links and navigation work correctly");
+    } else if (routerResult?.intent === "web_and_code" && webResults) {
+      actionLines.push(
+        "1. ANALYZE the referenced website(s) for design inspiration"
+      );
+      actionLines.push(
+        "2. APPLY similar styling while keeping the existing structure"
+      );
+      actionLines.push("3. MAINTAIN brand consistency with the current design");
+    } else if (
+      routerResult?.intent === "image_and_code" ||
+      (generatedImages && generatedImages.length > 0)
+    ) {
+      actionLines.push("1. USE the provided image URL(s) exactly as given");
+      actionLines.push("2. PLACE the image(s) in the appropriate section");
+      actionLines.push("3. ADD proper alt text and responsive sizing");
+      actionLines.push("4. ENSURE images are accessible and load correctly");
+    } else {
+      actionLines.push("1. IMPLEMENT the requested changes");
+      actionLines.push("2. PRESERVE the overall structure and design");
+      actionLines.push("3. TEST that all functionality still works");
+    }
   }
 
   sections.push(actionLines.join("\n"));
