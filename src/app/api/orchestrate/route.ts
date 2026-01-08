@@ -67,6 +67,8 @@ interface OrchestrateRequest {
     filename: string;
     description?: string;
   }>;
+  // Pre-validation: Only run semantic router, return intent without executing workflow
+  validateOnly?: boolean;
 }
 
 export async function POST(request: NextRequest) {
@@ -80,6 +82,7 @@ export async function POST(request: NextRequest) {
       projectId,
       projectFiles,
       mediaLibrary,
+      validateOnly = false,
     } = body;
 
     if (!prompt || prompt.trim().length === 0) {
@@ -111,8 +114,29 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // PRE-VALIDATION: Only run semantic router, return intent without executing workflow
+    // NOTE: Pre-validation does NOT consume rate limits (no v0 API calls)
+    if (validateOnly) {
+      console.log("[API:Orchestrate] Pre-validation only:", {
+        userId: user.id,
+        promptPreview: prompt.slice(0, 50) + "...",
+      });
+      
+      const { routePrompt } = await import("@/lib/ai/semantic-router");
+      const routerResult = await routePrompt(prompt, !!existingCode);
+      
+      return NextResponse.json({
+        success: true,
+        intent: routerResult.intent,
+        clarifyQuestion: routerResult.intent === "clarify" ? routerResult.clarifyQuestion : undefined,
+        confidence: routerResult.confidence,
+        routerResult,
+      });
+    }
+
     // Check daily rate limits BEFORE running orchestrator
     // This prevents v0/Vercel spam from runaway users
+    // NOTE: Only checked for full workflow, NOT for validateOnly
     const isRefinement = !!(existingChatId && existingCode);
     const rateCheck = isRefinement
       ? canUserRefine(user.id)
@@ -168,10 +192,10 @@ export async function POST(request: NextRequest) {
 
     // Determine diamond cost based on intent
     // Some intents don't cost anything (chat_response, clarify)
-    // Some cost less (image_only, web_search_only = 1 diamond)
-    // Full workflows cost more (image_and_code, web_search_and_code = 2 diamonds)
+    // Some cost less (image_gen, web_search, simple_code, needs_code_context = 1 diamond)
+    // Full workflows cost more (image_and_code, web_and_code = 2 diamonds)
     const freeIntents = ["chat_response", "clarify"];
-    const cheapIntents = ["image_only", "web_search_only", "code_only"];
+    const cheapIntents = ["image_gen", "web_search", "simple_code", "needs_code_context"];
 
     let diamondCost = 0;
     if (freeIntents.includes(result.intent || "")) {
@@ -223,11 +247,10 @@ export async function POST(request: NextRequest) {
     // Increment daily usage counter (for rate limiting)
     // Only count intents that actually make v0 API calls
     const codeIntents = [
-      "code_only",
       "simple_code",
-      "image_and_code",
-      "web_search_and_code",
       "needs_code_context",
+      "image_and_code",
+      "web_and_code",
     ];
     if (codeIntents.includes(result.intent || "")) {
       if (isRefinement) {

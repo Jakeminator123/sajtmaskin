@@ -54,29 +54,6 @@ export function isPlaceholderFeature(featureId: string): boolean {
  */
 export const AI_SDK_FEATURES: Record<string, Omit<AIFeature, "enabled">> = {
   // ─────────────────────────────────────────────────────────────────────────
-  // AGENTS
-  // ─────────────────────────────────────────────────────────────────────────
-  toolLoopAgent: {
-    id: "toolLoopAgent",
-    name: "Smart Agent Mode",
-    description:
-      "Använder AI SDK 6:s ToolLoopAgent för smartare prompt-hantering. Agenten analyserar, söker i kod och förbättrar prompten automatiskt innan v0 anropas.",
-    category: "agents",
-    status: "stable",
-    docsUrl: "https://sdk.vercel.ai/docs/ai-sdk-core/agents",
-  },
-
-  agentCallOptions: {
-    id: "agentCallOptions",
-    name: "Agent Call Options",
-    description:
-      "Skicka dynamiska parametrar till agenten baserat på projektkontext (t.ex. användarens kontotyp, projekthistorik).",
-    category: "agents",
-    status: "placeholder",
-    docsUrl: "https://sdk.vercel.ai/docs/ai-sdk-core/agents#call-options",
-  },
-
-  // ─────────────────────────────────────────────────────────────────────────
   // TOOLS
   // ─────────────────────────────────────────────────────────────────────────
   toolApproval: {

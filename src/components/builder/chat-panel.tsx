@@ -1004,9 +1004,10 @@ export function ChatPanel({
       // SMART: Only update code/preview if intent involves code changes
       // ═══════════════════════════════════════════════════════════════════
       const codeChangingIntents = [
-        "code_only",
+        "simple_code",
+        "needs_code_context",
         "image_and_code",
-        "web_search_and_code",
+        "web_and_code",
       ];
       const shouldUpdateCode =
         !response.intent || codeChangingIntents.includes(response.intent);
@@ -1164,11 +1165,11 @@ export function ChatPanel({
       // ═══════════════════════════════════════════════════════════════════════
       // UNIVERSAL GATEKEEPER: ALL prompts go through orchestrator
       // The orchestrator uses gpt-4o-mini (cheap) as semantic router to decide:
-      // - image_only: Generate image, add to media bank, NO v0 call
+      // - image_gen: Generate image, add to media bank, NO v0 call
       // - chat_response: Just respond, NO v0 call
       // - clarify: Ask for clarification, NO v0 call
-      // - web_search_only: Search and return, NO v0 call
-      // - code_only/image_and_code/web_and_code: Call v0 for actual code changes
+      // - web_search: Search and return, NO v0 call
+      // - simple_code/needs_code_context/image_and_code/web_and_code: Call v0 for actual code changes
       // ═══════════════════════════════════════════════════════════════════════
 
       // Debug: Log what we're sending to orchestrate
@@ -1285,9 +1286,10 @@ export function ChatPanel({
       // SMART: Only update code/preview if intent involves code changes
       // ═══════════════════════════════════════════════════════════════════
       const codeChangingIntents = [
-        "code_only",
+        "simple_code",
+        "needs_code_context",
         "image_and_code",
-        "web_search_and_code",
+        "web_and_code",
       ];
       const shouldUpdateCode =
         !response.intent || codeChangingIntents.includes(response.intent);

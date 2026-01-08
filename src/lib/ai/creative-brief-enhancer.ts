@@ -2,6 +2,38 @@
  * Creative Brief Enhancer
  * =======================
  *
+ * ═══════════════════════════════════════════════════════════════
+ * WHEN TO USE THIS MODULE:
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * This module is used AUTOMATICALLY by the orchestrator when:
+ * - User provides FREE TEXT prompts (not from wizard)
+ * - Prompt is for a NEW website (no existingCode)
+ * - Prompt is vague/underspecified and needs enhancement
+ *
+ * ═══════════════════════════════════════════════════════════════
+ * ALTERNATIVE: /api/expand-prompt
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * For WIZARD-BASED prompts (user goes through PromptWizardModalV2),
+ * use /api/expand-prompt instead. That API provides:
+ * - More comprehensive expansion with industry trends
+ * - Unsplash image fetching
+ * - Web search integration
+ * - More detailed prompts
+ *
+ * ═══════════════════════════════════════════════════════════════
+ * FLOW:
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * Free Text Flow:
+ *   User → ChatPanel → Orchestrator → creative-brief-enhancer → Builder
+ *
+ * Wizard Flow:
+ *   User → PromptWizardModalV2 → /api/expand-prompt → Builder
+ *
+ * ═══════════════════════════════════════════════════════════════
+ *
  * Purpose:
  * Turn vague/new-website prompts into a v0-optimized design brief (like /api/expand-prompt),
  * even when the user starts from templates or free text.
@@ -16,9 +48,10 @@
  */
 
 import { generateText } from "ai";
-import { openai } from "@ai-sdk/openai";
+import { createOpenAI } from "@ai-sdk/openai";
 import type { RouterResult } from "@/lib/ai/semantic-router";
 import type { QualityLevel } from "@/lib/api-client";
+import { SECRETS } from "@/lib/config";
 
 const FAST_MODEL = "gpt-4o-mini";
 const BEST_MODEL = "gpt-4o";
@@ -120,10 +153,22 @@ ${routerResult?.codeInstruction || ""}
 
   const chosenModel = quality === "premium" ? BEST_MODEL : FAST_MODEL;
 
+  // CRITICAL: Validate API key BEFORE creating client (fail fast)
+  const apiKey = SECRETS.openaiApiKey || process.env.OPENAI_API_KEY;
+  if (!apiKey) {
+    throw new Error(
+      "OPENAI_API_KEY is required for Creative Brief Enhancer. Please set it in environment variables."
+    );
+  }
+
+  // Create OpenAI client with validated API key
+  const openaiClient = createOpenAI({ apiKey });
+
   let raw: string | null = null;
   try {
+
     const result = await generateText({
-      model: openai(chosenModel),
+      model: openaiClient(chosenModel),
       system,
       prompt: user,
       maxOutputTokens,
@@ -133,7 +178,7 @@ ${routerResult?.codeInstruction || ""}
     // Fallback to fast model if best model fails
     if (chosenModel !== FAST_MODEL) {
       const result = await generateText({
-        model: openai(FAST_MODEL),
+        model: openaiClient(FAST_MODEL),
         system,
         prompt: user,
         maxOutputTokens,

@@ -7,14 +7,10 @@
  *
  * ENDPOINTS:
  *
- * POST /api/generate    → generateWebsite()
- *   - Input: prompt, categoryType?, quality
- *   - Output: code, files, demoUrl, chatId, versionId
- *
  * POST /api/orchestrate → (används direkt i chat-panel)
  *   - Input: prompt, quality, existingChatId?, existingCode?, projectFiles?, mediaLibrary?
  *   - Output: code, files, demoUrl, chatId, versionId, webSearchResults?, generatedImages?
- *   - ERSÄTTER gamla /api/refine - all refinement går nu genom orchestrator
+ *   - UNIVERSAL GATEKEEPER - alla prompts går härigenom (både generation och refinement)
  *
  * POST /api/template    → generateFromTemplate()
  *   - Input: templateId, quality
@@ -62,159 +58,6 @@ export interface GenerateResponse {
   balance?: number;
   requireAuth?: boolean;
   requireCredits?: boolean;
-}
-
-// ============================================================================
-// CONFIGURATION
-// ============================================================================
-
-/** Timeout for generate API (5 minutes - v0 can take a while for complex sites) */
-const GENERATE_TIMEOUT_MS = 5 * 60 * 1000;
-
-// ============================================================================
-// GENERATE FUNCTIONS
-// ============================================================================
-
-/**
- * Generate a new website based on prompt or category.
- * Calls POST /api/generate which forwards to v0 API.
- */
-export async function generateWebsite(
-  prompt: string,
-  categoryType?: string,
-  quality: QualityLevel = "standard"
-): Promise<GenerateResponse> {
-  // Create AbortController for timeout
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), GENERATE_TIMEOUT_MS);
-
-  try {
-    console.log("[API-Client] generateWebsite starting...", {
-      promptLength: prompt.length,
-      categoryType,
-      quality,
-    });
-
-    const response = await fetch("/api/generate", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        prompt,
-        categoryType,
-        quality,
-      }),
-      signal: controller.signal,
-    });
-
-    clearTimeout(timeoutId);
-
-    // Try to parse JSON, handle malformed responses
-    let data: GenerateResponse;
-    try {
-      const text = await response.text();
-      if (!text || text.trim() === "") {
-        console.error("[API-Client] Empty response body from /api/generate");
-        return {
-          success: false,
-          error: "Servern returnerade ett tomt svar. Försök igen.",
-        };
-      }
-      data = JSON.parse(text);
-    } catch (parseError) {
-      console.error("[API-Client] Failed to parse JSON response:", parseError);
-      return {
-        success: false,
-        error: "Kunde inte tolka serverns svar. Försök igen.",
-      };
-    }
-
-    // Log response details for debugging
-    console.log("[API-Client] generateWebsite response:", {
-      status: response.status,
-      ok: response.ok,
-      success: data?.success,
-      hasDemoUrl: !!data?.demoUrl,
-      hasCode: !!data?.code,
-      filesCount: data?.files?.length || 0,
-      error: data?.error,
-    });
-
-    if (!response.ok) {
-      console.error("[API-Client] generateWebsite HTTP error:", {
-        status: response.status,
-        statusText: response.statusText,
-        error: data?.error || "(no error message)",
-      });
-      return {
-        success: false,
-        error:
-          data?.error ||
-          `Serverfel (${response.status}): ${
-            response.statusText || "Okänt fel"
-          }`,
-        requireAuth: data?.requireAuth,
-        requireCredits: data?.requireCredits,
-      };
-    }
-
-    // Validate that we got a successful response with expected data
-    if (!data.success) {
-      console.warn("[API-Client] Response OK but success=false:", data.error);
-      return {
-        success: false,
-        error: data.error || "Generering misslyckades utan felmeddelande.",
-        requireAuth: data.requireAuth,
-        requireCredits: data.requireCredits,
-      };
-    }
-
-    // Validate we have at least some useful data
-    if (
-      !data.demoUrl &&
-      !data.code &&
-      (!data.files || data.files.length === 0)
-    ) {
-      console.warn("[API-Client] Response success but no demoUrl/code/files");
-      // Still return the data - maybe there's a message
-    }
-
-    return data;
-  } catch (error) {
-    clearTimeout(timeoutId);
-    const errorMessage = error instanceof Error ? error.message : "Okänt fel";
-    const errorName = error instanceof Error ? error.name : "";
-
-    console.error("[API-Client] generateWebsite error:", {
-      name: errorName,
-      message: errorMessage,
-    });
-
-    // Handle timeout (AbortError from our AbortController)
-    if (errorName === "AbortError" || errorMessage.includes("aborted")) {
-      return {
-        success: false,
-        error:
-          "Begäran tog för lång tid (timeout efter 5 min). Försök igen med en enklare prompt.",
-      };
-    }
-
-    // Handle network errors
-    if (
-      errorMessage.includes("Failed to fetch") ||
-      errorMessage.includes("NetworkError")
-    ) {
-      return {
-        success: false,
-        error:
-          "Kunde inte ansluta till servern. Kontrollera din internetanslutning.",
-      };
-    }
-
-    return {
-      success: false,
-      error: `Nätverksfel: ${errorMessage}`,
-    };
-  }
 }
 
 // ============================================================================

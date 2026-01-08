@@ -2,6 +2,38 @@
  * API Route: Expand prompt using OpenAI
  * POST /api/expand-prompt
  *
+ * ═══════════════════════════════════════════════════════════════
+ * WHEN TO USE THIS API:
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * This API is used EXCLUSIVELY when the user goes through the
+ * PromptWizardModalV2 (5-step wizard). It provides:
+ * - Comprehensive prompt expansion with industry trends
+ * - Unsplash image fetching with markers (P1, P2, etc.)
+ * - Web search for industry insights
+ * - Detailed v0-optimized prompts
+ *
+ * ═══════════════════════════════════════════════════════════════
+ * ALTERNATIVE: creative-brief-enhancer.ts
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * For FREE TEXT prompts (user types directly without wizard),
+ * the orchestrator uses creative-brief-enhancer.ts instead.
+ * This is simpler and faster, designed for automatic enhancement
+ * of vague prompts during normal chat flow.
+ *
+ * ═══════════════════════════════════════════════════════════════
+ * FLOW:
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * Wizard Flow:
+ *   User → PromptWizardModalV2 → /api/expand-prompt → Builder
+ *
+ * Free Text Flow:
+ *   User → ChatPanel → Orchestrator → creative-brief-enhancer → Builder
+ *
+ * ═══════════════════════════════════════════════════════════════
+ *
  * Takes wizard data and generates a detailed prompt for v0 API.
  * Uses gpt-4o-mini for fast, reliable responses.
  *

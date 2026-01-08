@@ -51,6 +51,7 @@ export function PromptInput({
 }: PromptInputProps) {
   const [prompt, setPrompt] = useState(initialValue || "");
   const [showWizard, setShowWizard] = useState(false);
+  const [isValidating, setIsValidating] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const router = useRouter();
 
@@ -72,15 +73,121 @@ export function PromptInput({
     }
   }, [prompt]);
 
-  const handleSubmit = () => {
-    if (!prompt.trim() || isLoading) return;
+  const handleSubmit = async () => {
+    if (!prompt.trim() || isLoading || isValidating) return;
 
-    if (onSubmit) {
-      onSubmit(prompt);
+    // PRE-VALIDATION: Check intent FÖRE navigation
+    // This prevents broken previews when prompt needs clarification
+    setIsValidating(true);
+
+    let shouldProceed = true;
+    const MAX_RETRIES = 2;
+    const TIMEOUT_MS = 8000; // 8 seconds - Semantic Router kan ta 3-5s
+
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      try {
+        // Create AbortController for timeout
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
+
+        const response = await fetch("/api/orchestrate", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            prompt: prompt.trim(),
+            validateOnly: true,
+          }),
+          signal: controller.signal,
+        });
+
+        clearTimeout(timeoutId);
+
+        if (response.ok) {
+          const data = await response.json();
+
+          // If clarify intent, show wizard instead of navigating
+          if (data.intent === "clarify") {
+            setIsValidating(false);
+            setShowWizard(true);
+            return; // Exit early, don't navigate
+          }
+
+          // If OK, proceed with navigation
+          shouldProceed = true;
+          break; // Success, exit retry loop
+        } else {
+          // HTTP error - try again if retries left
+          if (attempt < MAX_RETRIES) {
+            console.warn(
+              `[PromptInput] Pre-validation failed (attempt ${attempt + 1}/${
+                MAX_RETRIES + 1
+              }), retrying...`
+            );
+            await new Promise((resolve) =>
+              setTimeout(resolve, 500 * (attempt + 1))
+            ); // Exponential backoff
+            continue;
+          } else {
+            console.error(
+              "[PromptInput] Pre-validation failed after retries, proceeding anyway"
+            );
+            shouldProceed = true; // Fail-open: proceed anyway
+            break;
+          }
+        }
+      } catch (error) {
+        const isTimeout =
+          error instanceof Error &&
+          (error.name === "AbortError" || error.message.includes("aborted"));
+        const isNetworkError =
+          error instanceof Error &&
+          (error.message.includes("Failed to fetch") ||
+            error.message.includes("NetworkError"));
+
+        if (isTimeout) {
+          console.warn(
+            `[PromptInput] Pre-validation timeout (attempt ${attempt + 1}/${
+              MAX_RETRIES + 1
+            })`
+          );
+        } else if (isNetworkError) {
+          console.warn(
+            `[PromptInput] Pre-validation network error (attempt ${
+              attempt + 1
+            }/${MAX_RETRIES + 1})`
+          );
+        } else {
+          console.error("[PromptInput] Pre-validation error:", error);
+        }
+
+        // Retry on timeout/network errors if retries left
+        if ((isTimeout || isNetworkError) && attempt < MAX_RETRIES) {
+          await new Promise((resolve) =>
+            setTimeout(resolve, 500 * (attempt + 1))
+          ); // Exponential backoff
+          continue;
+        } else {
+          // Fail-open: proceed anyway after all retries or non-retryable error
+          console.warn(
+            "[PromptInput] Pre-validation failed, proceeding anyway (fail-open)"
+          );
+          shouldProceed = true;
+          break;
+        }
+      }
     }
 
-    if (navigateOnSubmit) {
-      router.push(`/builder?prompt=${encodeURIComponent(prompt)}`);
+    setIsValidating(false);
+
+    // If OK or validation failed, proceed with normal flow
+    if (shouldProceed) {
+      if (onSubmit) {
+        onSubmit(prompt);
+      }
+
+      if (navigateOnSubmit) {
+        router.push(`/builder?prompt=${encodeURIComponent(prompt)}`);
+      }
     }
   };
 
@@ -149,12 +256,12 @@ export function PromptInput({
             </Button>
             <Button
               onClick={handleSubmit}
-              disabled={!prompt.trim() || isLoading}
+              disabled={!prompt.trim() || isLoading || isValidating}
               size="icon"
               title="Skapa webbplats"
               className="h-9 w-9 shrink-0 bg-teal-600 hover:bg-teal-500 disabled:opacity-50"
             >
-              {isLoading ? (
+              {isLoading || isValidating ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
                 <ArrowUp className="h-4 w-4" />

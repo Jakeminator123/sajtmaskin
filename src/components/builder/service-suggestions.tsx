@@ -3,11 +3,11 @@
 /**
  * ServiceSuggestions Component
  * ============================
- * 
+ *
  * Shows contextual suggestions based on orchestrator intent.
  * Inspired by v0.app's "Agentic Features" - helping users
  * understand what actions are available.
- * 
+ *
  * Intent-based suggestions:
  * - web_search → "Vill du att jag söker efter X?"
  * - image_gen → "Ska jag skapa en bild för Y?"
@@ -15,23 +15,22 @@
  * - code_only → Suggest refinements
  */
 
-import { 
-  Globe, 
-  ImageIcon, 
-  HelpCircle, 
-  Wand2, 
-  Palette, 
-  Layout, 
+import {
+  Globe,
+  ImageIcon,
+  HelpCircle,
+  Wand2,
+  Palette,
+  Layout,
   FileCode,
   Search,
   Sparkles,
 } from "lucide-react";
 
-export type SuggestionIntent = 
-  | "web_search" 
-  | "image_gen" 
-  | "clarify" 
-  | "code_only"
+export type SuggestionIntent =
+  | "web_search"
+  | "image_gen"
+  | "clarify"
   | "image_and_code"
   | "web_and_code"
   | "chat_response"
@@ -109,35 +108,17 @@ function getSuggestionsForIntent(
           text: option,
           prompt: option,
           icon: i === 0 ? Wand2 : Layout,
-          variant: i === 0 ? "primary" as const : "secondary" as const,
+          variant: i === 0 ? ("primary" as const) : ("secondary" as const),
         }));
       }
       // No generic fallback - the user should answer the question in their own words
       return [];
 
-    case "code_only":
     case "simple_code":
     case "needs_code_context":
-      return [
-        {
-          text: "Förbättra responsiviteten",
-          prompt: "Förbättra mobilanpassningen så sidan ser bra ut på alla skärmar",
-          icon: Layout,
-          variant: "primary",
-        },
-        {
-          text: "Optimera prestandan",
-          prompt: "Optimera koden för bättre prestanda",
-          icon: FileCode,
-          variant: "secondary",
-        },
-        {
-          text: "Lägg till animationer",
-          prompt: "Lägg till subtila animationer för bättre UX",
-          icon: Sparkles,
-          variant: "secondary",
-        },
-      ];
+      // Don't show generic suggestions for code changes - they're rarely relevant
+      // The user knows what they want to do, we don't need to suggest random improvements
+      return [];
 
     case "chat_response":
       return [
@@ -181,7 +162,7 @@ export function ServiceSuggestions({
         {suggestions.map((suggestion, index) => {
           const Icon = suggestion.icon;
           const isPrimary = suggestion.variant === "primary";
-          
+
           return (
             <button
               key={index}
@@ -192,14 +173,19 @@ export function ServiceSuggestions({
                 transition-all duration-200 ease-out
                 disabled:opacity-50 disabled:cursor-not-allowed
                 touch-manipulation active:scale-[0.98]
-                ${isPrimary 
-                  ? "bg-teal-600/20 border border-teal-500/40 text-teal-300 hover:bg-teal-600/30 hover:text-teal-200" 
-                  : "bg-gray-800/50 border border-gray-700/50 text-gray-400 hover:bg-gray-700/70 hover:text-gray-300"
+                ${
+                  isPrimary
+                    ? "bg-teal-600/20 border border-teal-500/40 text-teal-300 hover:bg-teal-600/30 hover:text-teal-200"
+                    : "bg-gray-800/50 border border-gray-700/50 text-gray-400 hover:bg-gray-700/70 hover:text-gray-300"
                 }
               `}
               style={{ WebkitTapHighlightColor: "transparent" }}
             >
-              <Icon className={`h-3.5 w-3.5 ${isPrimary ? "text-teal-400" : "text-gray-500"}`} />
+              <Icon
+                className={`h-3.5 w-3.5 ${
+                  isPrimary ? "text-teal-400" : "text-gray-500"
+                }`}
+              />
               <span>{suggestion.text}</span>
             </button>
           );
@@ -239,4 +225,3 @@ export function InlineSuggestion({
     </button>
   );
 }
-

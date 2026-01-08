@@ -137,8 +137,32 @@ export type V0ModelId =
   | "v0-gpt-5"
   | "v0-opus-4.5";
 
-// Category-specific prompts for initial generation
-// These are detailed prompts that guide v0 to generate high-quality, production-ready code
+/**
+ * Category-specific prompts for initial generation
+ * ═══════════════════════════════════════════════════════════════
+ *
+ * WHEN THESE ARE USED:
+ * - When categoryType is provided to generateCode()
+ * - ONLY for NEW generation (not refinement)
+ * - BEFORE orchestrator enhancement (if orchestrator is used)
+ *
+ * HOW IT WORKS:
+ * 1. If categoryType matches a key in CATEGORY_PROMPTS:
+ *    - The category prompt REPLACES the user prompt entirely
+ *    - This ensures consistent, high-quality templates for each category
+ *
+ * 2. If categoryType exists but no match:
+ *    - User prompt is used as-is
+ *    - categoryType is passed to v0 API as metadata
+ *
+ * 3. Interaction with Orchestrator:
+ *    - Orchestrator runs BEFORE v0 generation
+ *    - If orchestrator enhances the prompt, the enhanced prompt is used
+ *    - Category prompts are NOT enhanced by orchestrator (they're already optimized)
+ *
+ * NOTE: These prompts are detailed, production-ready templates that guide v0
+ * to generate high-quality, consistent code for specific website types.
+ */
 const CATEGORY_PROMPTS: Record<string, string> = {
   "landing-page": `Create a stunning, conversion-optimized landing page with:
 
@@ -543,6 +567,8 @@ export async function generateCode(
   // Build the full prompt
   let fullPrompt = "";
 
+  // Use category prompt if available (replaces user prompt for consistency)
+  // NOTE: Category prompts are NOT enhanced by orchestrator - they're already optimized
   if (categoryType && CATEGORY_PROMPTS[categoryType]) {
     fullPrompt = CATEGORY_PROMPTS[categoryType];
   } else if (prompt) {

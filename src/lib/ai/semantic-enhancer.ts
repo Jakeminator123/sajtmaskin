@@ -15,10 +15,11 @@
  */
 
 import { generateText } from "ai";
-import { openai } from "@ai-sdk/openai";
+import { createOpenAI } from "@ai-sdk/openai";
 import type { CodeContext, CodeSnippet } from "@/lib/code-crawler";
 import type { RouterResult } from "@/lib/ai/semantic-router";
 import { debugLog, truncateForLog } from "@/lib/utils/debug";
+import { SECRETS } from "@/lib/config";
 
 // ============================================================================
 // TYPES
@@ -44,8 +45,8 @@ export interface EnhancementOptions {
 
 const ENHANCER_MODEL = "gpt-4o-mini";
 
-// Minimum prompt length to consider enhancement
-const MIN_PROMPT_LENGTH = 10;
+// Short prompts (< this) get EXTRA enhancement (not skipped!)
+const SHORT_PROMPT_THRESHOLD = 20;
 
 // Maximum enhanced prompt length
 const MAX_ENHANCED_LENGTH = 500;
@@ -76,18 +77,24 @@ export async function semanticEnhance(
     truncateForLog(originalPrompt, 100, "originalPrompt")
   );
 
-  // Skip enhancement for very short prompts or explicit skip
-  if (skipEnhancement || originalPrompt.length < MIN_PROMPT_LENGTH) {
-    debugLog(
-      "AI",
-      "[SemanticEnhancer] Skipping - prompt too short or skip requested"
-    );
+  // Skip ONLY if explicitly requested
+  if (skipEnhancement) {
+    debugLog("AI", "[SemanticEnhancer] Skipping - explicitly requested");
     return {
       enhancedPrompt: originalPrompt,
       technicalContext: "",
       suggestedApproach: "",
       wasEnhanced: false,
     };
+  }
+
+  // Short prompts get EXTRA enhancement (they need more help!)
+  const isShortPrompt = originalPrompt.length < SHORT_PROMPT_THRESHOLD;
+  if (isShortPrompt) {
+    debugLog(
+      "AI",
+      "[SemanticEnhancer] Short prompt detected - will enhance MORE aggressively"
+    );
   }
 
   // Check if prompt already seems specific enough
@@ -112,8 +119,19 @@ export async function semanticEnhance(
       routerResult
     );
 
+    // CRITICAL: Validate API key BEFORE creating client (fail fast)
+    const apiKey = SECRETS.openaiApiKey || process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      throw new Error(
+        "OPENAI_API_KEY is required for Semantic Enhancer. Please set it in environment variables."
+      );
+    }
+
+    // Create OpenAI client with validated API key
+    const openaiClient = createOpenAI({ apiKey });
+
     const result = await generateText({
-      model: openai(ENHANCER_MODEL),
+      model: openaiClient(ENHANCER_MODEL),
       system: systemPrompt,
       prompt: userMessage,
       maxOutputTokens: 300,
@@ -152,54 +170,64 @@ export async function semanticEnhance(
 
 /**
  * Check if a prompt is already specific enough (doesn't need enhancement)
+ *
+ * IMPORTANT: A prompt is only "specific" if it contains ACTUAL VALUES,
+ * not just CSS property names. "Ändra border-radius" is NOT specific,
+ * but "Ändra border-radius till 10px" IS specific.
  */
 function isPromptAlreadySpecific(prompt: string): boolean {
   const lower = prompt.toLowerCase();
 
-  // Check for specific CSS properties
-  const cssPatterns = [
-    /\d+px/,
-    /\d+rem/,
-    /\d+em/,
-    /#[0-9a-f]{3,6}/i,
-    /rgb\(/,
-    /rgba\(/,
-    /hsl\(/,
-    /flex/,
-    /grid/,
-    /padding/,
-    /margin/,
-    /border/,
+  // Check for ACTUAL VALUES (not just property names!)
+  // These patterns require concrete numbers/colors that v0 can use directly
+  const specificValuePatterns = [
+    /\d+\s*px/, // 10px, 20 px
+    /\d+\s*rem/, // 1rem, 2 rem
+    /\d+\s*em/, // 1em, 2 em
+    /\d+\s*%/, // 50%, 100 %
+    /\d+\s*vh/, // 100vh
+    /\d+\s*vw/, // 100vw
+    /#[0-9a-f]{3,6}\b/i, // #fff, #ff0000
+    /rgb\(\s*\d/, // rgb(255, ...
+    /rgba\(\s*\d/, // rgba(255, ...
+    /hsl\(\s*\d/, // hsl(120, ...
   ];
 
-  for (const pattern of cssPatterns) {
+  // Only return true if we have ACTUAL VALUES
+  let hasSpecificValue = false;
+  for (const pattern of specificValuePatterns) {
     if (pattern.test(lower)) {
-      return true;
+      hasSpecificValue = true;
+      break;
     }
   }
 
-  // Check for specific component instructions
-  const specificKeywords = [
+  // If no specific values, always enhance (even if it mentions CSS properties)
+  if (!hasSpecificValue) {
+    return false;
+  }
+
+  // Check for specific action verbs that indicate clear intent
+  const specificActions = [
     "lägg till",
     "ta bort",
     "flytta",
     "ändra till",
-    "sätt",
+    "sätt till",
     "använd",
     "implementera",
-    "skapa en",
-    "bygg en",
   ];
 
-  let keywordCount = 0;
-  for (const keyword of specificKeywords) {
-    if (lower.includes(keyword)) {
-      keywordCount++;
+  let hasSpecificAction = false;
+  for (const action of specificActions) {
+    if (lower.includes(action)) {
+      hasSpecificAction = true;
+      break;
     }
   }
 
-  // If prompt has multiple specific keywords, it's probably specific enough
-  return keywordCount >= 2;
+  // Prompt is specific if it has BOTH a value AND a clear action
+  return hasSpecificValue && hasSpecificAction;
 }
 
 /**
@@ -212,10 +240,10 @@ Din uppgift är att ta en vag eller enkel prompt och göra den mer specifik och 
 samtidigt som du behåller användarens ursprungliga intention.
 
 EXEMPEL PÅ FÖRBÄTTRINGAR:
-- "gör headern snyggare" → "Förbättra headerns design: lägg till subtil box-shadow, öka padding till 16px 24px, använd gradient bakgrund (från #1a1a2e till #16213e), animera nav-länkar med smooth hover transition"
-- "fixa footern" → "Uppdatera footer-layouten: centrera innehållet med flexbox, lägg till sociala ikoner med hover-effekter, förbättra typografi-hierarkin med tydligare kontrast"
-- "gör knappen bättre" → "Förbättra knappens design: lägg till hover-effekt med scale(1.02), använd gradient bakgrund, avrunda hörnen med 8px border-radius, lägg till subtil skugga"
-- "mer modern stil" → "Applicera modern designstil: använd större whitespace, minimalistisk typografi, subtila animationer, mjuka skuggor och avrundade hörn"
+- "gör headern snyggare" → "Improve header design: add subtle box-shadow, increase padding to 16px 24px, use gradient background (from #1a1a2e to #16213e), animate nav links with smooth hover transition"
+- "fixa footern" → "Update footer layout: center content with flexbox, add social icons with hover effects, improve typography hierarchy with clearer contrast"
+- "gör knappen bättre" → "Enhance button design: add hover effect with scale(1.02), use gradient background, round corners with 8px border-radius, add subtle shadow"
+- "mer modern stil" → "Apply modern design style: use larger whitespace, minimalist typography, subtle animations, soft shadows and rounded corners"
 
 REGLER:
 1. Behåll ALLTID användarens ursprungliga intention
@@ -224,8 +252,13 @@ REGLER:
 4. Om kodkontext finns, referera till specifika element/komponenter
 5. Håll svaret KONCIST - max 2-3 meningar
 6. Svara ENDAST med den förbättrade prompten, ingen förklaring
+7. RÄTTA STAVFEL automatiskt (stavfel → korrekt stavning)
+8. SKRIV PÅ ENGELSKA för bästa v0-kompatibilitet
 
-VIKTIGT: Svara BARA med den förbättrade prompten. Ingen inledning, ingen förklaring.`;
+VIKTIGT: 
+- Svara BARA med den förbättrade prompten på ENGELSKA
+- Ingen inledning, ingen förklaring
+- Rätta alla stavfel automatiskt`;
 }
 
 /**
@@ -236,7 +269,17 @@ function buildUserMessage(
   codeContext?: CodeContext,
   routerResult?: RouterResult
 ): string {
+  const isShort = originalPrompt.length < SHORT_PROMPT_THRESHOLD;
+
   let message = `Original prompt: "${originalPrompt}"`;
+
+  // Short prompts need EXTRA context and enhancement
+  if (isShort) {
+    message += `\n\n⚠️ KORT PROMPT - behöver MER detaljer! Expandera med:
+- Specifika CSS-värden (färger, storlekar, spacing)
+- Konkreta designelement (gradient, skugga, animation)
+- Layoutförslag (flexbox, grid, positioning)`;
+  }
 
   // Add code context if available
   if (codeContext?.relevantFiles?.length) {

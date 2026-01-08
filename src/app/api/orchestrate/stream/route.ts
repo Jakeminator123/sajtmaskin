@@ -294,7 +294,7 @@ export async function POST(request: NextRequest) {
 
         // Calculate diamond cost based on intent
         const freeIntents = ["chat_response", "clarify"];
-        const cheapIntents = ["image_only", "web_search_only", "code_only"];
+        const cheapIntents = ["image_gen", "web_search", "simple_code", "needs_code_context"];
 
         let diamondCost = 0;
         if (freeIntents.includes(result.intent || "")) {
@@ -332,11 +332,10 @@ export async function POST(request: NextRequest) {
 
         // Increment daily usage
         const codeIntents = [
-          "code_only",
           "simple_code",
-          "image_and_code",
-          "web_search_and_code",
           "needs_code_context",
+          "image_and_code",
+          "web_and_code",
         ];
         if (codeIntents.includes(result.intent || "")) {
           if (isRefinement) {

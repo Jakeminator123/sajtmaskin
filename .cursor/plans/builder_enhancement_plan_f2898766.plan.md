@@ -79,7 +79,7 @@ sequenceDiagram
     participant ChatPanel
     participant Orchestrator
     participant v0API
-    
+
     User->>ChatPanel: Skickar prompt
     ChatPanel->>Orchestrator: POST /api/orchestrate
     Orchestrator-->>ChatPanel: Stream: thinking_start
@@ -170,7 +170,7 @@ Baserat på [`gatherd_opinions/agent_orchestration_analysis_report.txt`](gatherd
 Enligt [v0.app/docs](https://v0.app/docs/introduction) har v0 "Agentic Features":
 
 - Web search
-- Site inspection  
+- Site inspection
 - Error fixing
 - External tool integration
 

@@ -1,38 +1,39 @@
 /**
- * Orchestrator Agent 4.0 (AI SDK 6)
- * =================================
+ * Orchestrator Agent
+ * ==================
  *
- * Smart meta-agent som koordinerar arbetsflöden mellan olika verktyg.
- * Nu med AI SDK 6 för bättre streaming och strukturerad output.
+ * Koordinerar prompt-behandling innan v0 API anropas.
+ * Syfte: Förbättra användarens (ofta dåliga) prompts till något v0 kan förstå.
  *
- * NYTT FLÖDE (4.0):
- * 1. Semantic Router analyserar prompten (AI SDK 6 streamText)
- * 2. Om needs_code_context → Code Crawler hittar relevanta koddelar (ingen AI)
- * 3. Semantic Enhancer förbättrar prompten semantiskt (AI SDK 6 generateText)
- * 4. Prompt Enricher kombinerar allt till slutlig prompt
- * 5. Berikad prompt skickas till v0
+ * FLÖDE:
+ * ──────
+ * 1. Semantic Router   → Klassificerar intent (GPT-4o-mini)
+ * 2. Code Crawler      → Hittar relevant kod (INGEN AI)
+ * 3. Semantic Enhancer → Förbättrar prompten (GPT-4o-mini)
+ * 4. Prompt Enricher   → Formaterar för v0 (INGEN AI)
+ * 5. v0 API            → Genererar kod
  *
- * KOMPONENTER OCH ROLLER:
- * - Semantic Router: Klassificerar intent (simple_code, needs_code_context, etc.)
- * - Code Crawler: Hittar relevanta koddelar (INGEN AI, bara sökning)
- * - Semantic Enhancer: Förbättrar prompten semantiskt (NY!)
- * - Prompt Enricher: Kombinerar allt till slutlig prompt
+ * INTENTS:
+ * ────────
+ * - simple_code      : Enkla ändringar → direkt till v0
+ * - needs_code_context: Refererar element → Code Crawler först
+ * - image_gen        : Bildgenerering → OpenAI (INTE v0!)
+ * - image_and_code   : Bild + kod → OpenAI + v0
+ * - web_search       : Webbsökning → OpenAI Responses API
+ * - web_and_code     : Sök + kod → Web search + v0
+ * - clarify          : Otydligt → Ställ fråga (ALDRIG v0!)
+ * - chat_response    : Bara svara → ALDRIG v0
  *
- * FÖRBÄTTRINGAR I 4.0:
- * - AI SDK 6 med streamText/generateText för bättre streaming
- * - Semantic Enhancer för bättre prompt-förbättring
- * - Code Crawler utan AI (snabbare, billigare)
- * - Tydligare separation av ansvar mellan komponenter
+ * GUARDS:
+ * ───────
+ * - clarify intent når ALDRIG v0 API
+ * - Bildgenerering hanteras SEPARAT från v0
+ * - Pre-validering på frontend förhindrar onödig generation
  *
- * INTENT TYPES:
- * - simple_code: Enkla ändringar, direkt till v0
- * - needs_code_context: Kräver kodanalys först (Code Crawler)
- * - image_only: Bara generera bilder (INGEN kodändring)
- * - image_and_code: Generera bilder OCH uppdatera kod
- * - web_search: Bara söka/researcha
- * - web_and_code: Söka OCH uppdatera kod
- * - clarify: Behöver förtydligande
- * - chat_response: Bara svara, ingen action
+ * API-ANVÄNDNING:
+ * ───────────────
+ * - OpenAI API (OPENAI_API_KEY): Router, Enhancer, bilder, web search
+ * - v0 API (V0_API_KEY): Kodgenerering
  */
 
 import type { QualityLevel } from "@/lib/api-client";
@@ -46,14 +47,8 @@ import {
   enrichPrompt,
   createEnrichmentSummary,
 } from "@/lib/ai/prompt-enricher";
-import {
-  semanticEnhance,
-  type EnhancementResult,
-} from "@/lib/ai/semantic-enhancer";
-import {
-  creativeBriefEnhance,
-  type CreativeBriefResult,
-} from "@/lib/ai/creative-brief-enhancer";
+import { semanticEnhance } from "@/lib/ai/semantic-enhancer";
+import { creativeBriefEnhance } from "@/lib/ai/creative-brief-enhancer";
 import {
   routePrompt,
   shouldRoute,
@@ -67,13 +62,12 @@ import {
 } from "@/lib/v0/v0-generator";
 import { getUserSettings } from "@/lib/data/database";
 import OpenAI from "openai";
-// Note: AI SDK 6 (streamText, generateText) is used in semantic-router.ts and semantic-enhancer.ts
-// OpenAI SDK is still needed here for image generation and web search native tools
 export { enhancePromptForV0 } from "@/lib/utils/prompt-utils";
 
-// AI Agent Mode (optional - enabled via feature flags)
-import { shouldUseAgentMode, runAgentOrchestration } from "@/lib/ai/ai-agent";
 import { FEATURES } from "@/lib/config";
+
+// Bildgenerering - getImageClient för direkta OpenAI-anrop
+import { getImageClient } from "@/lib/ai/image-generator";
 
 // ============================================================================
 // STOCK IMAGE FETCHING (Unsplash)
@@ -212,59 +206,6 @@ async function fetchStockImages(
   }
 }
 
-/**
- * Extract image URLs from the original prompt.
- * This is CRITICAL because SemanticRouter may summarize away the URLs!
- * We need to preserve them and pass them to v0.
- */
-function extractImageUrlsFromPrompt(prompt: string): Array<{
-  url: string;
-  description: string;
-}> {
-  const images: Array<{ url: string; description: string }> = [];
-
-  // Pattern 1: "Bilden som ska användas: URL"
-  const bildPattern = /Bilden som ska användas:\s*(https?:\/\/[^\s\n]+)/gi;
-  let match;
-  while ((match = bildPattern.exec(prompt)) !== null) {
-    images.push({
-      url: match[1],
-      description: "Utvald bild från mediabibliotek",
-    });
-  }
-
-  // Pattern 2: "[bild: filename] URL" or "[image: filename] URL"
-  const bracketPattern =
-    /\[(?:bild|image|logo|media):\s*([^\]]+)\]\s*(https?:\/\/[^\s\n]+)/gi;
-  while ((match = bracketPattern.exec(prompt)) !== null) {
-    images.push({
-      url: match[2],
-      description: match[1].trim(),
-    });
-  }
-
-  // Pattern 3: Vercel Blob URLs or Unsplash URLs directly in prompt
-  const urlPattern =
-    /(https?:\/\/[^\s\n]*(?:blob\.vercel-storage\.com|images\.unsplash\.com)[^\s\n]*)/gi;
-  while ((match = urlPattern.exec(prompt)) !== null) {
-    // Avoid duplicates
-    if (!images.some((img) => img.url === match[1])) {
-      images.push({
-        url: match[1],
-        description: "Bild från prompt",
-      });
-    }
-  }
-
-  if (images.length > 0) {
-    console.log(
-      `[Orchestrator] ✓ Extracted ${images.length} image URL(s) from prompt`
-    );
-  }
-
-  return images;
-}
-
 // Helper to save AI-generated image using centralized blob-service
 // CRITICAL: This function MUST return a URL for v0 preview to work!
 // v0's demoUrl is hosted on v0's servers (vusercontent.net) and cannot access local files.
@@ -354,88 +295,30 @@ async function saveImageToBlob(
   }
 }
 
-// Initialize OpenAI client
-// Uses direct OpenAI API for all operations
-// NOTE: AI Gateway support commented out - can be re-enabled later
+/**
+ * Initialize OpenAI client.
+ * Prioriterar användarens egna API-nyckel om tillgänglig.
+ */
 function getOpenAIClient(userId?: string): OpenAI {
-  // Try to get user's own OpenAI key if userId provided
+  // Try user's own OpenAI key first
   if (userId) {
     try {
       const settings = getUserSettings(userId);
-
-      // If user has their own OpenAI key
       if (settings?.openai_api_key) {
         debugLog("AI", "[Orchestrator] Using user's OpenAI key");
         return new OpenAI({ apiKey: settings.openai_api_key });
       }
-
-      // ═══════════════════════════════════════════════════════════════════════
-      // AI GATEWAY SUPPORT (COMMENTED OUT FOR FUTURE USE)
-      // Re-enable when AI Gateway supports all required endpoints
-      // (responses.create with web_search, image generation, etc.)
-      // ═══════════════════════════════════════════════════════════════════════
-      // if (settings?.use_ai_gateway && settings.ai_gateway_api_key) {
-      //   debugLog("AI", "[Orchestrator] Using user's AI Gateway key");
-      //   return new OpenAI({
-      //     apiKey: settings.ai_gateway_api_key,
-      //     baseURL: "https://ai-gateway.vercel.sh/v1",
-      //   });
-      // }
-      // ═══════════════════════════════════════════════════════════════════════
     } catch (e) {
       console.warn("[Orchestrator] Could not get user settings:", e);
     }
   }
 
-  // ═══════════════════════════════════════════════════════════════════════
-  // PLATFORM AI GATEWAY (COMMENTED OUT FOR FUTURE USE)
-  // ═══════════════════════════════════════════════════════════════════════
-  // const gatewayKey = process.env.AI_GATEWAY_API_KEY;
-  // if (gatewayKey) {
-  //   debugLog("AI", "[Orchestrator] Using platform AI Gateway");
-  //   return new OpenAI({
-  //     apiKey: gatewayKey,
-  //     baseURL: "https://ai-gateway.vercel.sh/v1",
-  //   });
-  // }
-  // ═══════════════════════════════════════════════════════════════════════
-
-  // Use platform OpenAI key (direct API)
+  // Fallback to platform key
   const apiKey = process.env.OPENAI_API_KEY;
   if (!apiKey) {
     throw new Error("OPENAI_API_KEY environment variable is required");
   }
   debugLog("AI", "[Orchestrator] Using platform OpenAI key");
-  return new OpenAI({ apiKey });
-}
-
-// Initialize OpenAI client specifically for IMAGE GENERATION
-// CRITICAL: AI Gateway does NOT support image endpoints (gpt-image-1, dall-e-3)
-// Image generation must ALWAYS use direct OpenAI API
-function getImageClient(userId?: string): OpenAI {
-  // Try to get user's own OpenAI key (NOT AI Gateway)
-  if (userId) {
-    try {
-      const settings = getUserSettings(userId);
-
-      // User's direct OpenAI key (preferred for images)
-      if (settings?.openai_api_key) {
-        debugLog("AI", "[Orchestrator] Image gen: Using user's OpenAI key");
-        return new OpenAI({ apiKey: settings.openai_api_key });
-      }
-    } catch (e) {
-      console.warn("[Orchestrator] Could not get user settings for image:", e);
-    }
-  }
-
-  // Fallback to platform OpenAI key (NEVER use AI Gateway for images)
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
-    throw new Error(
-      "OPENAI_API_KEY required for image generation (AI Gateway not supported)"
-    );
-  }
-  debugLog("AI", "[Orchestrator] Image gen: Using platform OpenAI key");
   return new OpenAI({ apiKey });
 }
 
@@ -675,15 +558,7 @@ Svara ENDAST med frågan, inget annat.`,
   }
 }
 
-// Intent types - what does the user ACTUALLY want?
-type UserIntent =
-  | "image_only" // Just generate images, show in chat
-  | "code_only" // Just change code via v0
-  | "image_and_code" // Generate images AND update code
-  | "web_search_only" // Just search/research, return info
-  | "web_search_and_code" // Search AND update code
-  | "clarify" // Ask a follow-up question
-  | "chat_response"; // Just respond, no action needed
+// Uses SemanticIntent from semantic-router for all intent handling
 
 export interface OrchestratorContext {
   userId?: string;
@@ -691,7 +566,7 @@ export interface OrchestratorContext {
   quality: QualityLevel;
   existingChatId?: string;
   existingCode?: string;
-  // NEW: Project files for Code Crawler analysis
+  // Project files for Code Crawler analysis
   projectFiles?: GeneratedFile[];
   // Media library items (for image references in prompts)
   mediaLibrary?: Array<{
@@ -704,8 +579,8 @@ export interface OrchestratorContext {
 export interface OrchestratorResult {
   success: boolean;
   message: string;
-  // Intent that was detected (now using SemanticIntent from router)
-  intent?: UserIntent | SemanticIntent;
+  // Intent that was detected (using SemanticIntent from semantic-router)
+  intent?: SemanticIntent;
   // v0 generation result (only if code was changed)
   code?: string;
   files?: Array<{ name: string; content: string }>;
@@ -722,33 +597,117 @@ export interface OrchestratorResult {
   // For chat_response intent
   chatResponse?: string;
   error?: string;
-  // NEW: Enrichment info for debugging
+  // Enrichment info for debugging
   routerResult?: RouterResult;
   codeContext?: CodeContext;
   enrichedPrompt?: string;
 }
 
+// ============================================================================
+// SHARED HELPER FUNCTIONS (used by both streaming and non-streaming)
+// ============================================================================
+
+interface WebSearchHelperResult {
+  context: string;
+  results: Array<{ title: string; url: string; snippet: string }>;
+}
+
 /**
- * Orchestrate a workflow based on user prompt
+ * Utför webbsökning med OpenAI Responses API.
+ * Gemensam funktion för både streaming och non-streaming flöden.
+ */
+async function executeWebSearch(
+  client: OpenAI,
+  query: string
+): Promise<WebSearchHelperResult> {
+  const results: Array<{ title: string; url: string; snippet: string }> = [];
+  let context = "";
+
+  try {
+    const searchResponse = await client.responses.create({
+      model: "gpt-4o-mini",
+      instructions:
+        "Du är en webbdesign-expert. Baserat på web search-resultaten, ge en informativ sammanfattning på svenska om designtrender, färger, layouter etc.",
+      input: query,
+      tools: [{ type: "web_search" }],
+      store: false,
+    });
+
+    // Extract results from output
+    if (searchResponse.output) {
+      for (const item of searchResponse.output) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const itemAny = item as any;
+        if (
+          itemAny.type === "web_search_call_output" &&
+          itemAny.result &&
+          Array.isArray(itemAny.result)
+        ) {
+          for (const result of itemAny.result) {
+            if (result?.title && result?.url) {
+              results.push({
+                title: String(result.title),
+                url: String(result.url),
+                snippet: String(result.snippet || result.excerpt || ""),
+              });
+            }
+          }
+        }
+      }
+    }
+
+    context = searchResponse.output_text || "";
+  } catch (error) {
+    console.error("[Orchestrator] Web search failed:", error);
+  }
+
+  return { context, results };
+}
+
+// ============================================================================
+// STREAMING CALLBACKS (optional UI feedback)
+// ============================================================================
+
+export interface StreamingCallbacks {
+  onThinking?: (thought: string) => void;
+  onProgress?: (step: string, stepNumber?: number, totalSteps?: number) => void;
+  onEnhancement?: (original: string, enhanced: string) => void;
+}
+
+// ============================================================================
+// MAIN ORCHESTRATOR FUNCTION (unified - handles both streaming and non-streaming)
+// ============================================================================
+
+/**
+ * Huvudfunktion för prompt-behandling.
  *
- * SMART 2.0: Uses Semantic Router for better intent detection,
- * Code Crawler for context enrichment, and Prompt Enricher
- * for better v0 instructions.
+ * FLÖDE:
+ * 1. Semantic Router → klassificerar intent
+ * 2. Code Crawler → hittar relevant kod (om behövs)
+ * 3. Semantic Enhancer → förbättrar prompten
+ * 4. Prompt Enricher → formaterar för v0
+ * 5. v0 API → genererar kod
+ *
+ * GUARDS:
+ * - clarify → returnerar fråga, ALDRIG v0
+ * - image_gen → OpenAI bildgenerering, INTE v0
+ * - chat_response → returnerar svar, ALDRIG v0
+ *
+ * @param callbacks - Optional callbacks för UI-feedback (SSE streaming)
  */
 export async function orchestrateWorkflow(
   userPrompt: string,
-  context: OrchestratorContext
+  context: OrchestratorContext,
+  callbacks?: StreamingCallbacks
 ): Promise<OrchestratorResult> {
+  const { onThinking, onProgress, onEnhancement } = callbacks || {};
   const workflowSteps: string[] = [];
 
-  /**
-   * v0 preview sometimes breaks when the generated code imports from the invalid module
-   * specifier "three/examples" (note: without /jsm or /addons). In v0's ESM proxy this
-   * resolves to a non-existent path and returns text/plain (proxy 404), causing a black iframe.
-   *
-   * We can detect this pattern in returned files and run a single automatic "repair" refinement
-   * in the same chat to restore a working preview.
-   */
+  // AUTO-REPAIR: Detekterar kända problem i genererad kod
+  // - Three.js felaktiga imports → fixar till three/examples/jsm/...
+  // - Saknade React imports → lägger till import React
+  // - Placeholder-bilder → varnar (kan ersättas)
+
   const hasBrokenThreeExamplesImport = (
     files?: Array<{ name: string; content: string }>
   ): boolean => {
@@ -765,75 +724,65 @@ export async function orchestrateWorkflow(
     return files.some((f) => patterns.some((p) => p.test(f.content)));
   };
 
+  const hasMissingReactImport = (
+    files?: Array<{ name: string; content: string }>
+  ): boolean => {
+    if (!files || files.length === 0) return false;
+
+    return files.some((file) => {
+      const content = file.content;
+      const hasJSX = /<[A-Z]/.test(content) || /<[a-z]+[^>]*>/.test(content);
+      const hasHooks =
+        /\b(useState|useEffect|useCallback|useMemo|useRef|useContext)\s*\(/.test(
+          content
+        );
+      const hasReactImport =
+        /import\s+.*\s+from\s+["']react["']/.test(content) ||
+        /import\s+React\s+from\s+["']react["']/.test(content);
+
+      // If JSX or hooks are used but React is not imported
+      return (hasJSX || hasHooks) && !hasReactImport;
+    });
+  };
+
+  const hasPlaceholderImages = (
+    files?: Array<{ name: string; content: string }>
+  ): boolean => {
+    if (!files || files.length === 0) return false;
+
+    const placeholderPatterns = [
+      /placeholder\.com/,
+      /placehold\.co/,
+      /via\.placeholder/,
+      /dummyimage\.com/,
+      /picsum\.photos/,
+      /loremflickr\.com/,
+      /placeimg\.com/,
+    ];
+
+    return files.some((file) =>
+      placeholderPatterns.some((pattern) => pattern.test(file.content))
+    );
+  };
+
   try {
-    debugLog("AI", "Starting workflow 2.0", {
+    debugLog("AI", "Starting orchestrator workflow", {
       promptLength: userPrompt.length,
       quality: context.quality,
       hasExistingChat: !!context.existingChatId,
       hasExistingCode: !!context.existingCode,
       hasProjectFiles: !!context.projectFiles?.length,
+      hasCallbacks: !!callbacks,
     });
 
-    // ═══════════════════════════════════════════════════════════════════════
-    // AGENT MODE (AI SDK 6) - Optional alternative flow
-    // When enabled, uses ToolLoopAgent for smarter orchestration
-    // ═══════════════════════════════════════════════════════════════════════
-    if (shouldUseAgentMode()) {
-      debugLog("AI", "[Orchestrator] Agent Mode enabled - using AI Agent flow");
-      workflowSteps.push("🤖 Agent Mode aktiverat");
-
-      try {
-        const agentResult = await runAgentOrchestration(userPrompt, {
-          userId: context.userId || "anonymous",
-          projectFiles: context.projectFiles,
-          existingCode: context.existingCode,
-          quality: context.quality,
-        });
-
-        workflowSteps.push(...agentResult.steps);
-
-        // Agent has processed the prompt - now send to v0
-        const v0Result =
-          context.existingChatId && context.existingCode
-            ? await refineCode(
-                context.existingChatId,
-                context.existingCode,
-                agentResult.processedPrompt,
-                context.quality
-              )
-            : await generateCode(agentResult.processedPrompt, context.quality);
-
-        workflowSteps.push("Webbplatskod uppdaterad via Agent Mode!");
-
-        return {
-          success: true,
-          message: "Klart! (Agent Mode)",
-          intent: agentResult.intent as UserIntent,
-          code: v0Result.code,
-          files: v0Result.files,
-          chatId: v0Result.chatId,
-          demoUrl: v0Result.demoUrl,
-          screenshotUrl: v0Result.screenshotUrl,
-          versionId: v0Result.versionId,
-          workflowSteps,
-        };
-      } catch (agentError) {
-        console.warn(
-          "[Orchestrator] Agent Mode failed, falling back:",
-          agentError
-        );
-        workflowSteps.push(
-          "⚠️ Agent Mode misslyckades, använder standard-flöde"
-        );
-        // Fall through to standard flow
-      }
-    }
+    // UI feedback: Starting
+    onProgress?.("Analyserar prompt...", 1, 5);
+    onThinking?.("Analyserar din förfrågan för att förstå vad du vill göra...");
 
     const client = getOpenAIClient(context.userId);
 
     // ═══════════════════════════════════════════════════════════════════════
-    // STEP 1: SEMANTIC ROUTING (NEW!)
-    // Use the new semantic router for better intent detection
+    // STEP 1: SEMANTIC ROUTING
     // ═══════════════════════════════════════════════════════════════════════
 
     debugLog("AI", "[Orchestrator] Step 1: Routing prompt...");
@@ -847,14 +796,32 @@ export async function orchestrateWorkflow(
       // Must have existing code to refine
       if (!context.existingCode) return false;
 
+      const lower = userPrompt.toLowerCase();
+
+      // CRITICAL: Prompts without SPECIFIC VALUES should NOT fast-path!
+      // "Ändra border-radius" → needs AI to ask "to what value?"
+      // "Ändra border-radius till 10px" → can fast-path
+      const hasSpecificValue =
+        /\d+\s*(px|rem|em|%|vh|vw)\b/.test(userPrompt) || // 10px, 2rem, 50%
+        /#[0-9a-f]{3,6}\b/i.test(userPrompt) || // #fff, #ff0000
+        /rgb\(|rgba\(|hsl\(/i.test(userPrompt); // rgb(255,...)
+
+      // If prompt mentions CSS properties but has NO values, don't fast-path!
+      const mentionsCSSProperty =
+        /border|radius|padding|margin|font|color|färg|storlek|avrundning/i.test(
+          lower
+        );
+      if (mentionsCSSProperty && !hasSpecificValue) {
+        return false; // Force semantic router to enhance with values
+      }
+
       // Semantic router says to skip AND prompt is clear enough
       if (!shouldRoute(userPrompt) && userPrompt.trim().length >= 20)
         return true;
 
-      // Additional fast-path patterns (common simple changes)
-      const lower = userPrompt.toLowerCase();
+      // Additional fast-path patterns (common simple changes WITH specific targets)
       const simplePatterns = [
-        /^(gör|ändra|sätt|byt).{0,20}(färg|bakgrund|font|storlek|padding|margin)/i,
+        /^(gör|ändra|sätt|byt).{0,20}(färg|bakgrund|font|storlek|padding|margin).+\d+/i, // Must have value
         /^(lägg till|ta bort|dölj|visa).{0,15}(knapp|text|bild|länk)/i,
         /^(centrera|justera|flytta).{0,20}/i,
       ];
@@ -872,6 +839,7 @@ export async function orchestrateWorkflow(
       console.log(
         "[Orchestrator] Fast-path: Simple code change, skipping semantic router"
       );
+      onThinking?.("Enkel ändring detekterad, hoppar över semantisk analys...");
       workflowSteps.push("Fast-path: Direkt till v0 (enkel ändring)");
       routerResult = {
         intent: "simple_code",
@@ -897,6 +865,11 @@ export async function orchestrateWorkflow(
           )
         );
         routerResult = await Promise.race([routerPromise, timeoutPromise]);
+        onThinking?.(
+          `Intent: ${routerResult.intent} (${Math.round(
+            routerResult.confidence * 100
+          )}% confidence)`
+        );
       } catch (error) {
         // Timeout or error - fallback to simple_code
         console.warn(
@@ -959,18 +932,8 @@ export async function orchestrateWorkflow(
     // STEP 2A: MAP SEMANTIC INTENT TO LEGACY INTENT (moved here for use below)
     // ═══════════════════════════════════════════════════════════════════════
 
-    const intentMapping: Record<SemanticIntent, UserIntent> = {
-      simple_code: "code_only",
-      needs_code_context: "code_only",
-      web_search: "web_search_only",
-      image_gen: "image_only",
-      web_and_code: "web_search_and_code",
-      image_and_code: "image_and_code",
-      clarify: "clarify",
-      chat_response: "chat_response",
-    };
-
-    const intent: UserIntent = intentMapping[routerResult.intent];
+    // Use SemanticIntent directly - no mapping needed
+    const intent: SemanticIntent = routerResult.intent;
 
     // ═══════════════════════════════════════════════════════════════════════
     // STEP 2B: CODE CRAWLER (if needed)
@@ -978,18 +941,17 @@ export async function orchestrateWorkflow(
     // SMART CLARIFY: Only for clarify when UI hints are present
     // ═══════════════════════════════════════════════════════════════════════
 
-    // FIX: Simplified crawler trigger - only run when explicitly needed
-    // Removed simple_code trigger which was causing crawler to run too often
+    // Kör Code Crawler endast när det verkligen behövs
     const shouldRunCodeCrawler =
       context.projectFiles?.length &&
-      // Only run when router EXPLICITLY says code context is needed
       (routerResult.needsCodeContext ||
-        // Or for clarify when the prompt references specific UI elements
         (routerResult.intent === "clarify" &&
           shouldRunSmartClarify(userPrompt, routerResult)));
-    // REMOVED: simple_code + hints trigger (triggered too often)
 
     if (shouldRunCodeCrawler && context.projectFiles) {
+      onProgress?.("Söker i projektfiler...", 2, 5);
+      onThinking?.("Letar efter relevanta koddelar i ditt projekt...");
+
       debugLog("AI", "[Orchestrator] === STEP 2: CODE CRAWLER ===");
       console.log(
         "[Orchestrator] Analyzing",
@@ -1145,7 +1107,7 @@ export async function orchestrateWorkflow(
     // ═══════════════════════════════════════════════════════════════════════
 
     if (
-      (intent === "web_search_only" || intent === "web_search_and_code") &&
+      (intent === "web_search" || intent === "web_and_code") &&
       classification.webSearchQuery
     ) {
       console.log(
@@ -1154,105 +1116,23 @@ export async function orchestrateWorkflow(
       );
       workflowSteps.push(`Söker online: ${classification.webSearchQuery}`);
 
-      try {
-        // Use Responses API with native web_search tool for real web search
-        let searchResponse: Awaited<ReturnType<typeof client.responses.create>>;
-        try {
-          searchResponse = await client.responses.create({
-            model: "gpt-4o-mini",
-            instructions:
-              "Du är en webbdesign-expert. Baserat på web search-resultaten, ge en informativ sammanfattning på svenska om designtrender, färger, layouter etc. för den nämnda webbplatsen eller konceptet.",
-            input: classification.webSearchQuery,
-            tools: [{ type: "web_search" }],
-            store: false,
-          });
+      const searchResult = await executeWebSearch(
+        client,
+        classification.webSearchQuery
+      );
+      webSearchContext = searchResult.context;
+      webSearchResults.push(...searchResult.results);
 
-          // Extract web search results from output
-          if (searchResponse.output) {
-            for (const item of searchResponse.output) {
-              // Look for web_search_call_output items which contain search results
-              // Use type assertion via unknown since TypeScript SDK may not have complete types yet
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              const itemAny = item as any;
-
-              if (
-                itemAny.type === "web_search_call_output" &&
-                itemAny.result &&
-                Array.isArray(itemAny.result)
-              ) {
-                for (const result of itemAny.result) {
-                  const resultObj = result as {
-                    title?: unknown;
-                    url?: unknown;
-                    snippet?: unknown;
-                    excerpt?: unknown;
-                  };
-
-                  if (
-                    resultObj &&
-                    typeof resultObj === "object" &&
-                    resultObj.title &&
-                    resultObj.url
-                  ) {
-                    webSearchResults.push({
-                      title: String(resultObj.title),
-                      url: String(resultObj.url),
-                      snippet:
-                        (resultObj.snippet
-                          ? String(resultObj.snippet)
-                          : resultObj.excerpt
-                          ? String(resultObj.excerpt)
-                          : "") || "",
-                    });
-                  }
-                }
-              }
-            }
-          }
-
-          webSearchContext = searchResponse.output_text || "";
-          workflowSteps.push(
-            "Sammanställde design-information från webbsökning"
-          );
-          console.log(
-            "[Orchestrator] Web search completed with",
-            webSearchResults.length,
-            "results"
-          );
-        } catch (responsesError) {
-          // Fallback to simpler model if primary fails
-          console.warn(
-            "[Orchestrator] Primary Responses API web_search failed, trying fallback model:",
-            responsesError
-          );
-          try {
-            searchResponse = await client.responses.create({
-              model: "gpt-4o-mini",
-              instructions:
-                "Du är en webbdesign-expert. Baserat på användarens fråga, ge en informativ sammanfattning på svenska om designtrender, färger, layouter etc. för den nämnda webbplatsen eller konceptet.",
-              input: classification.webSearchQuery,
-              tools: [{ type: "web_search" }],
-              store: false,
-            });
-            webSearchContext = searchResponse.output_text || "";
-            workflowSteps.push("Sammanställde design-information (fallback)");
-            debugLog("AI", "[Orchestrator] Web search fallback completed");
-          } catch (fallbackError) {
-            console.error(
-              "[Orchestrator] Both Responses API web search attempts failed:",
-              fallbackError
-            );
-            webSearchContext = "";
-            workflowSteps.push("Webbsökning misslyckades");
-          }
-        }
-      } catch (error) {
-        console.error("[Orchestrator] Web search failed:", error);
-        workflowSteps.push("Webbsökning misslyckades");
+      if (searchResult.results.length > 0) {
+        workflowSteps.push(
+          `Hittade ${searchResult.results.length} sökresultat`
+        );
+      } else {
+        workflowSteps.push("Webbsökning slutförd (inga specifika resultat)");
       }
 
       // If web_search_only, return here WITHOUT calling v0
-      if (intent === "web_search_only") {
+      if (intent === "web_search") {
         return {
           success: true,
           message: webSearchContext || "Här är vad jag hittade:",
@@ -1269,7 +1149,7 @@ export async function orchestrateWorkflow(
     // ═══════════════════════════════════════════════════════════════════════
 
     if (
-      (intent === "image_only" || intent === "image_and_code") &&
+      (intent === "image_gen" || intent === "image_and_code") &&
       classification.imagePrompts &&
       classification.imagePrompts.length > 0
     ) {
@@ -1403,7 +1283,7 @@ export async function orchestrateWorkflow(
       }
 
       // If image_only, return here WITHOUT calling v0
-      if (intent === "image_only") {
+      if (intent === "image_gen") {
         const imageCount = generatedImages.length;
         const imagesWithUrls = generatedImages.filter((img) => img.url);
         const imagesWithoutUrls = generatedImages.filter((img) => !img.url);
@@ -1467,16 +1347,24 @@ export async function orchestrateWorkflow(
 
     // Only call v0 if intent involves code changes
     if (
-      intent === "code_only" ||
+      intent === "simple_code" ||
+      intent === "needs_code_context" ||
       intent === "image_and_code" ||
-      intent === "web_search_and_code"
+      intent === "web_and_code"
     ) {
       // Build the code instruction using Prompt Enricher
       let codeInstruction = classification.codeInstruction || userPrompt;
 
-      // Creative brief boost for new-site prompts: turn vague prompt into a structured v0 brief
-      // This mirrors the quality jump users see when going through /api/expand-prompt.
+      // ═══════════════════════════════════════════════════════════════════════
+      // ENHANCERS: Different paths for new sites vs existing sites
+      // ═══════════════════════════════════════════════════════════════════════
+
       if (!context.existingCode) {
+        // NEW SITE: Use Creative Brief Enhancer for structured design brief
+        onProgress?.("Skapar design-brief...", 3, 5);
+        onThinking?.(
+          "Gör din beskrivning till en tydlig design-brief (målgrupp, struktur, stil)..."
+        );
         try {
           const brief = await creativeBriefEnhance({
             userPrompt: classification.codeInstruction || userPrompt,
@@ -1498,10 +1386,29 @@ export async function orchestrateWorkflow(
           }
           if (brief?.mode === "expand") {
             workflowSteps.push("Creative Brief Enhancer: Skapade design-brief");
+            onThinking?.("Design-brief klar. Skickar vidare till v0...");
             codeInstruction = brief.expandedPrompt;
           }
         } catch (e) {
           console.warn("[Orchestrator] Creative brief enhancer failed:", e);
+        }
+      } else if (userPrompt.length < 300) {
+        // EXISTING SITE: Use Semantic Enhancer for technical improvements
+        onProgress?.("Förbättrar prompten...", 3, 5);
+        onThinking?.("Gör din förfrågan mer specifik och teknisk...");
+        try {
+          const enhanced = await semanticEnhance({
+            originalPrompt: userPrompt,
+            codeContext,
+            routerResult,
+          });
+          if (enhanced.wasEnhanced) {
+            workflowSteps.push("Semantic Enhancer: Förbättrade prompten");
+            onEnhancement?.(userPrompt, enhanced.enhancedPrompt);
+            codeInstruction = enhanced.enhancedPrompt;
+          }
+        } catch (e) {
+          console.warn("[Orchestrator] Semantic enhancer failed:", e);
         }
       }
 
@@ -1543,7 +1450,7 @@ export async function orchestrateWorkflow(
       }
 
       // Add context from web search if available
-      if (webSearchContext && intent === "web_search_and_code") {
+      if (webSearchContext && intent === "web_and_code") {
         codeInstruction += `\n\nKontext från webbsökning:\n${webSearchContext.substring(
           0,
           2000
@@ -1689,6 +1596,10 @@ Du MÅSTE använda dessa EXAKTA URLs - de fungerar i v0 preview!
         }
       }
 
+      // UI feedback: Code generation
+      onProgress?.("Genererar kod...", 4, 5);
+      onThinking?.("Skickar till v0 för kodgenerering...");
+
       debugLog("AI", "[Orchestrator] Calling v0 for code", {
         instructionLength: codeInstruction.length,
         hasExistingChat: !!context.existingChatId,
@@ -1709,15 +1620,18 @@ Du MÅSTE använda dessa EXAKTA URLs - de fungerar i v0 preview!
         v0Result = await generateCode(codeInstruction, context.quality);
       }
 
-      // Auto-repair: Detect and fix a known v0 preview-breaker for Three.js
-      // (imports from "three/examples" are invalid and cause esm.v0.app to return text/plain).
-      if (hasBrokenThreeExamplesImport(v0Result.files) && v0Result.chatId) {
-        console.warn(
-          "[Orchestrator] Detected broken Three.js import 'three/examples' in v0 output. Running auto-repair refine..."
-        );
-        workflowSteps.push("Reparerar Three.js-importer (preview-fix)");
+      // ═══════════════════════════════════════════════════════════════════════
+      // AUTO-REPAIR: Detect and fix known v0 preview-breakers
+      // Runs multiple repair checks and combines fixes if needed
+      // ═══════════════════════════════════════════════════════════════════════
 
-        const repairInstruction = `FIX PREVIEW-BREAKING THREE.JS IMPORTS (CRITICAL):
+      if (v0Result.chatId && v0Result.files) {
+        const repairs: string[] = [];
+        let needsRepair = false;
+
+        // Check 1: Broken Three.js imports
+        if (hasBrokenThreeExamplesImport(v0Result.files)) {
+          repairs.push(`FIX PREVIEW-BREAKING THREE.JS IMPORTS (CRITICAL):
 
 The generated code contains one or more imports from "three/examples" (without /jsm or /addons).
 This is NOT a valid module and breaks v0's preview (esm proxy returns text/plain / 404).
@@ -1737,25 +1651,83 @@ If GLTFLoader is used, import it from:
 
 If any other loader/control is used, import it from its correct "three/examples/jsm/..." path.
 
-After fixing, ensure there are no remaining "three/examples" bare imports anywhere.`;
+After fixing, ensure there are no remaining "three/examples" bare imports anywhere.`);
+          needsRepair = true;
+        }
 
-        const repaired = await refineCode(
-          v0Result.chatId,
-          v0Result.code || "",
-          repairInstruction,
-          context.quality
-        );
+        // Check 2: Missing React imports
+        if (hasMissingReactImport(v0Result.files)) {
+          repairs.push(`ADD MISSING REACT IMPORT:
 
-        // If repair succeeded, replace result; otherwise return original and let user know via steps.
-        if (repaired?.files && repaired.files.length > 0) {
-          v0Result = repaired;
-        } else {
+The generated code uses JSX or React hooks (useState, useEffect, etc.) but is missing the React import.
+While Next.js 15+ doesn't require React import for JSX, v0's preview environment may need it.
+
+Please add the React import at the top of files that use JSX or hooks:
+- Add: import React from "react";
+- Place it at the very top of the file, before other imports
+- Only add to files that actually use JSX or React hooks`);
+          needsRepair = true;
+        }
+
+        // Check 3: Placeholder images
+        if (hasPlaceholderImages(v0Result.files)) {
+          repairs.push(`REPLACE PLACEHOLDER IMAGES:
+
+The generated code contains placeholder image URLs (placeholder.com, placehold.co, etc.).
+These may break or look unprofessional in the preview.
+
+Please replace placeholder images with:
+- Unsplash URLs (https://images.unsplash.com/...) OR
+- Generic placeholder divs with background colors OR
+- Remove image src attributes and use CSS background colors instead
+
+Keep the same dimensions and layout, just replace the image sources.`);
+          needsRepair = true;
+        }
+
+        // Run repair if any issues detected
+        if (needsRepair && repairs.length > 0) {
+          const repairTypes: string[] = [];
+          if (hasBrokenThreeExamplesImport(v0Result.files)) {
+            repairTypes.push("Three.js-importer");
+          }
+          if (hasMissingReactImport(v0Result.files)) {
+            repairTypes.push("React-import");
+          }
+          if (hasPlaceholderImages(v0Result.files)) {
+            repairTypes.push("placeholder-bilder");
+          }
+
           console.warn(
-            "[Orchestrator] Auto-repair refine did not return files; keeping original result."
+            `[Orchestrator] Detected ${repairs.length} issue(s) in v0 output. Running auto-repair refine...`
           );
           workflowSteps.push(
-            "Kunde inte auto-reparera preview helt (prova att be om 'fixa three-importer')"
+            `Reparerar ${repairTypes.join(", ")} (preview-fix)`
           );
+
+          const repairInstruction = repairs.join("\n\n---\n\n");
+
+          const repaired = await refineCode(
+            v0Result.chatId,
+            v0Result.code || "",
+            repairInstruction,
+            context.quality
+          );
+
+          // If repair succeeded, replace result; otherwise return original and let user know via steps.
+          if (repaired?.files && repaired.files.length > 0) {
+            v0Result = repaired;
+            workflowSteps.push("Auto-repair lyckades!");
+          } else {
+            console.warn(
+              "[Orchestrator] Auto-repair refine did not return files; keeping original result."
+            );
+            workflowSteps.push(
+              `Kunde inte auto-reparera helt (prova att be om 'fixa ${repairTypes.join(
+                ", "
+              )}')`
+            );
+          }
         }
       }
 
@@ -1797,7 +1769,7 @@ After fixing, ensure there are no remaining "three/examples" bare imports anywhe
           webSearchResults.length > 0 ? webSearchResults : undefined,
         generatedImages: cleanedImages,
         workflowSteps,
-        // NEW: Include enrichment info for debugging
+        // Include enrichment info for debugging
         routerResult,
         codeContext,
         enrichedPrompt: codeContext ? codeInstruction : undefined,
@@ -1826,23 +1798,18 @@ After fixing, ensure there are no remaining "three/examples" bare imports anywhe
 }
 
 /**
- * Check if prompt needs orchestration
+ * Snabb kontroll om en prompt behöver orchestrering.
+ * Delegerar till Semantic Router för semantisk analys.
  *
- * VERSION 2.0: Uses semantic analysis instead of keyword matching!
+ * Returnerar TRUE när:
+ * - AI-bildgenerering behövs
+ * - Webbsökning krävs
+ * - Specifika UI-element refereras (behöver kodkontext)
+ * - Prompten är vag/komplex
  *
- * This function now delegates to the Semantic Router helper for
- * a quick check. The actual routing happens in orchestrateWorkflow.
- *
- * Returns true when:
- * 1. AI image GENERATION (not using existing images)
- * 2. Web search/research for external info
- * 3. References to specific UI elements that need code context
- * 4. Complex/vague prompts that need semantic understanding
- *
- * Returns false for:
- * - Simple code changes ("gör bakgrunden blå")
- * - Using existing images from mediabibliotek
- * - Direct layout/design changes
+ * Returnerar FALSE för:
+ * - Enkla kodändringar ("gör bakgrunden blå")
+ * - Användning av befintliga bilder
  */
 export function needsOrchestration(prompt: string): boolean {
   // Use the new shouldRoute helper from semantic-router
@@ -1856,7 +1823,7 @@ export function needsOrchestration(prompt: string): boolean {
     return true;
   }
 
-  // Additional legacy checks for backward compatibility
+  // Extra nyckelordskontroller
   const lower = prompt.toLowerCase();
 
   // ═══════════════════════════════════════════════════════════════════════
@@ -1961,628 +1928,17 @@ export function needsOrchestration(prompt: string): boolean {
 }
 
 // ============================================================================
-// STREAMING ORCHESTRATOR (AI SDK 6)
+// BACKWARD COMPATIBILITY ALIAS
 // ============================================================================
 
-export interface StreamingCallbacks {
-  onThinking?: (thought: string) => void;
-  onProgress?: (step: string, stepNumber?: number, totalSteps?: number) => void;
-  onEnhancement?: (original: string, enhanced: string) => void;
-}
-
 /**
- * Streaming version of orchestrateWorkflow with AI SDK 6
- *
- * Uses streamText for real-time feedback during semantic routing,
- * and generateText for semantic enhancement.
+ * @deprecated Use orchestrateWorkflow() with callbacks parameter instead.
+ * This is a backward-compatible alias.
  */
 export async function orchestrateWorkflowStreaming(
   userPrompt: string,
   context: OrchestratorContext,
   callbacks: StreamingCallbacks
 ): Promise<OrchestratorResult> {
-  const { onThinking, onProgress, onEnhancement } = callbacks;
-  const workflowSteps: string[] = [];
-
-  try {
-    // ═══════════════════════════════════════════════════════════════════════
-    // STEP 1: SEMANTIC ROUTER (with streaming thinking)
-    // ═══════════════════════════════════════════════════════════════════════
-    onProgress?.("Analyserar prompt...", 1, 5);
-    onThinking?.("Analyserar din förfrågan för att förstå vad du vill göra...");
-
-    // Check for fast-path eligibility
-    const isFastPathEligible = (() => {
-      if (!context.existingCode) return false;
-      if (!shouldRoute(userPrompt) && userPrompt.trim().length >= 20)
-        return true;
-      const lower = userPrompt.toLowerCase();
-      const simplePatterns = [
-        /^(gör|ändra|sätt|byt).{0,20}(färg|bakgrund|font|storlek|padding|margin)/i,
-        /^(lägg till|ta bort|dölj|visa).{0,15}(knapp|text|bild|länk)/i,
-        /^(centrera|justera|flytta).{0,20}/i,
-      ];
-      if (simplePatterns.some((p) => p.test(lower)) && userPrompt.length < 80) {
-        return true;
-      }
-      return false;
-    })();
-
-    let routerResult: RouterResult;
-
-    if (isFastPathEligible) {
-      onThinking?.("Enkel ändring detekterad, hoppar över semantisk analys...");
-      workflowSteps.push("Fast-path: Direkt till v0 (enkel ändring)");
-      routerResult = {
-        intent: "simple_code",
-        confidence: 0.9,
-        needsCodeContext: false,
-        contextHints: [],
-        codeInstruction: userPrompt,
-        reasoning: "Fast-path för enkel kodändring",
-      };
-    } else {
-      // Use semantic router with streaming feedback
-      try {
-        routerResult = await routePrompt(userPrompt, !!context.existingCode);
-        onThinking?.(
-          `Intent: ${routerResult.intent} (${Math.round(
-            routerResult.confidence * 100
-          )}% confidence)`
-        );
-      } catch (error) {
-        console.warn("[Orchestrator] Router error, using fallback:", error);
-        workflowSteps.push("⚠️ Router timeout - fallback till simple_code");
-        routerResult = {
-          intent: "simple_code",
-          confidence: 0.6,
-          needsCodeContext: false,
-          contextHints: [],
-          codeInstruction: userPrompt,
-          reasoning: "Fallback pga timeout",
-        };
-      }
-    }
-
-    workflowSteps.push(
-      `Semantic Router: ${routerResult.intent} (${Math.round(
-        routerResult.confidence * 100
-      )}%)`
-    );
-
-    // Handle low confidence
-    if (routerResult.confidence < 0.4 && routerResult.intent !== "clarify") {
-      onThinking?.("Osäker på vad du vill göra, ber om förtydligande...");
-      return {
-        success: true,
-        message: `Jag är inte helt säker på vad du vill göra. Kan du förtydliga?`,
-        intent: "clarify",
-        clarifyQuestion: `Kan du vara mer specifik om vad du vill ändra?`,
-        workflowSteps,
-      };
-    }
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // STEP 2: CODE CRAWLER (if needed)
-    // ═══════════════════════════════════════════════════════════════════════
-    let codeContext: CodeContext | undefined;
-
-    const shouldRunCodeCrawler =
-      context.projectFiles?.length &&
-      (routerResult.needsCodeContext ||
-        (routerResult.intent === "clarify" &&
-          shouldRunSmartClarify(userPrompt, routerResult)));
-
-    if (shouldRunCodeCrawler && context.projectFiles) {
-      onProgress?.("Söker i projektfiler...", 2, 5);
-      onThinking?.("Letar efter relevanta koddelar i ditt projekt...");
-
-      const hints =
-        routerResult.contextHints.length > 0
-          ? routerResult.contextHints
-          : extractHintsFromPrompt(userPrompt);
-
-      codeContext = await crawlCodeContext(
-        context.projectFiles,
-        hints,
-        userPrompt
-      );
-
-      if (codeContext.relevantFiles.length > 0) {
-        onThinking?.(
-          `Hittade ${codeContext.relevantFiles.length} relevanta filer`
-        );
-        workflowSteps.push(
-          `Hittade ${codeContext.relevantFiles.length} relevanta filer`
-        );
-      } else {
-        onThinking?.("Inga matchande filer hittades, fortsätter ändå...");
-        workflowSteps.push("Inga matchande kodsektioner hittades");
-      }
-    }
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // STEP 3: ENHANCERS (Semantic + Creative Brief)
-    // ═══════════════════════════════════════════════════════════════════════
-    let enhancementResult: EnhancementResult | undefined;
-    let creativeBrief: CreativeBriefResult | null = null;
-
-    // Only enhance for code-related intents that might benefit
-    const shouldEnhance =
-      (routerResult.intent === "simple_code" ||
-        routerResult.intent === "needs_code_context" ||
-        routerResult.intent === "image_and_code" ||
-        routerResult.intent === "web_and_code") &&
-      userPrompt.length >= 10 &&
-      userPrompt.length < 200; // Don't enhance very long prompts
-
-    // Creative brief boost only for new site generation (no existing code)
-    if (!context.existingCode && routerResult.intent === "simple_code") {
-      onProgress?.("Skapar design-brief...", 3, 5);
-      onThinking?.(
-        "Gör din beskrivning till en tydlig design-brief (målgrupp, struktur, stil)..."
-      );
-      try {
-        creativeBrief = await creativeBriefEnhance({
-          userPrompt,
-          routerResult,
-          quality: context.quality,
-        });
-        if (creativeBrief?.mode === "clarify") {
-          const question = creativeBrief.questions.join(" ");
-          return {
-            success: true,
-            message: question,
-            intent: "clarify",
-            clarifyQuestion: question,
-            workflowSteps: [...workflowSteps, "Creative Brief: Förtydligande"],
-          };
-        }
-        if (creativeBrief?.mode === "expand") {
-          workflowSteps.push("Creative Brief: Skapade design-brief");
-          onThinking?.("Design-brief klar. Skickar vidare till v0...");
-        }
-      } catch (e) {
-        console.warn("[Orchestrator] Creative brief enhancer failed:", e);
-      }
-    } else if (shouldEnhance) {
-      onProgress?.("Förbättrar prompten...", 3, 5);
-      onThinking?.("Gör din förfrågan mer specifik och teknisk...");
-
-      try {
-        enhancementResult = await semanticEnhance({
-          originalPrompt: userPrompt,
-          codeContext,
-          routerResult,
-        });
-
-        if (enhancementResult.wasEnhanced) {
-          onEnhancement?.(userPrompt, enhancementResult.enhancedPrompt);
-          onThinking?.(
-            `Prompt förbättrad: "${enhancementResult.enhancedPrompt.substring(
-              0,
-              80
-            )}..."`
-          );
-          workflowSteps.push("Semantic Enhancer: Förbättrade prompten");
-        }
-      } catch (error) {
-        console.warn("[Orchestrator] Enhancement failed:", error);
-        // Continue without enhancement
-      }
-    }
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // STEP 4: MAP INTENT AND HANDLE SPECIAL CASES
-    // ═══════════════════════════════════════════════════════════════════════
-    const intentMapping: Record<SemanticIntent, UserIntent> = {
-      simple_code: "code_only",
-      needs_code_context: "code_only",
-      web_search: "web_search_only",
-      image_gen: "image_only",
-      web_and_code: "web_search_and_code",
-      image_and_code: "image_and_code",
-      clarify: "clarify",
-      chat_response: "chat_response",
-    };
-
-    const intent: UserIntent = intentMapping[routerResult.intent];
-
-    // Handle chat_response
-    if (intent === "chat_response") {
-      return {
-        success: true,
-        message: routerResult.chatResponse || "Jag förstår!",
-        intent,
-        chatResponse: routerResult.chatResponse,
-        workflowSteps,
-      };
-    }
-
-    // Handle clarify with Smart Clarify
-    if (intent === "clarify") {
-      if (codeContext && codeContext.relevantFiles.length > 0) {
-        onThinking?.("Genererar specifik fråga baserat på hittade element...");
-        const client = getOpenAIClient(context.userId);
-        const smartQuestion = await generateSmartClarifyQuestion(
-          userPrompt,
-          codeContext,
-          client
-        );
-        return {
-          success: true,
-          message: smartQuestion,
-          intent,
-          clarifyQuestion: smartQuestion,
-          workflowSteps,
-          codeContext,
-        };
-      }
-      return {
-        success: true,
-        message:
-          routerResult.clarifyQuestion || "Kan du förtydliga vad du menar?",
-        intent,
-        clarifyQuestion: routerResult.clarifyQuestion,
-        workflowSteps,
-      };
-    }
-
-    // ═══════════════════════════════════════════════════════════════════════
-    // STEP 5: EXECUTE WORKFLOW (delegera till huvudfunktionen)
-    // ═══════════════════════════════════════════════════════════════════════
-    onProgress?.("Genererar kod...", 4, 5);
-    onThinking?.("Skickar till v0 för kodgenerering...");
-
-    // Build enriched prompt using Prompt Enricher
-    const enrichedPrompt = enrichPrompt({
-      originalPrompt: userPrompt,
-      enhancedPrompt:
-        creativeBrief?.mode === "expand"
-          ? creativeBrief.expandedPrompt
-          : enhancementResult?.enhancedPrompt,
-      routerResult,
-      codeContext,
-    });
-
-    // Call the main orchestrator with pre-computed context
-    // This avoids re-running router and crawler
-    const result = await executeWorkflowWithContext(
-      userPrompt,
-      context,
-      {
-        routerResult,
-        codeContext,
-        enhancementResult,
-        enrichedPrompt,
-        intent,
-      },
-      (step) => {
-        onThinking?.(step);
-      }
-    );
-
-    onProgress?.("Klar!", 5, 5);
-
-    if (result.success) {
-      if (result.code || result.demoUrl) {
-        onThinking?.("Kodgenerering klar! Förbereder preview...");
-      } else if (result.generatedImages?.length) {
-        onThinking?.(`${result.generatedImages.length} bild(er) genererade!`);
-      }
-    }
-
-    return {
-      ...result,
-      workflowSteps: [...workflowSteps, ...(result.workflowSteps || [])],
-    };
-  } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : "Okänt fel";
-    onThinking?.(`Fel: ${errorMessage}`);
-    return {
-      success: false,
-      message: "Något gick fel. Försök igen.",
-      error: errorMessage,
-      workflowSteps,
-    };
-  }
-}
-
-// ============================================================================
-// EXECUTE WORKFLOW WITH PRE-COMPUTED CONTEXT
-// ============================================================================
-
-interface PreComputedContext {
-  routerResult: RouterResult;
-  codeContext?: CodeContext;
-  enhancementResult?: EnhancementResult;
-  enrichedPrompt: string;
-  intent: UserIntent;
-}
-
-/**
- * Execute workflow with pre-computed context from streaming orchestrator.
- * This avoids re-running router and crawler.
- */
-async function executeWorkflowWithContext(
-  userPrompt: string,
-  context: OrchestratorContext,
-  preComputed: PreComputedContext,
-  onStep?: (step: string) => void
-): Promise<OrchestratorResult> {
-  const {
-    routerResult,
-    codeContext,
-    // enhancementResult is used indirectly via enrichedPrompt
-    enrichedPrompt,
-    intent,
-  } = preComputed;
-  const workflowSteps: string[] = [];
-  const client = getOpenAIClient(context.userId);
-
-  // Initialize result containers
-  let webSearchContext = "";
-  const webSearchResults: Array<{
-    title: string;
-    url: string;
-    snippet: string;
-  }> = [];
-  const generatedImages: Array<{
-    base64?: string;
-    prompt: string;
-    url?: string;
-  }> = [];
-
-  // Handle web search if needed
-  if (
-    (intent === "web_search_only" || intent === "web_search_and_code") &&
-    routerResult.searchQuery
-  ) {
-    onStep?.("Söker på webben...");
-    workflowSteps.push(`Söker online: ${routerResult.searchQuery}`);
-
-    try {
-      const searchResponse = await client.responses.create({
-        model: "gpt-4o-mini",
-        instructions:
-          "Du är en webbdesign-expert. Baserat på web search-resultaten, ge en informativ sammanfattning på svenska.",
-        input: routerResult.searchQuery,
-        tools: [{ type: "web_search" }],
-        store: false,
-      });
-
-      webSearchContext = searchResponse.output_text || "";
-      workflowSteps.push("Sammanställde information från webbsökning");
-    } catch (error) {
-      console.error("[Orchestrator] Web search failed:", error);
-      workflowSteps.push("Webbsökning misslyckades");
-    }
-
-    if (intent === "web_search_only") {
-      return {
-        success: true,
-        message: webSearchContext || "Här är vad jag hittade:",
-        intent,
-        webSearchResults:
-          webSearchResults.length > 0 ? webSearchResults : undefined,
-        workflowSteps,
-      };
-    }
-  }
-
-  // Handle image generation if needed
-  if (
-    (intent === "image_only" || intent === "image_and_code") &&
-    routerResult.imagePrompt
-  ) {
-    onStep?.("Genererar bild med AI...");
-    workflowSteps.push("Genererar bild");
-
-    try {
-      const imagePrompt = routerResult.imagePrompt;
-
-      // Check if it's already a URL
-      if (
-        imagePrompt.startsWith("http://") ||
-        imagePrompt.startsWith("https://")
-      ) {
-        generatedImages.push({ prompt: "Befintlig bild", url: imagePrompt });
-      } else {
-        // Generate new image - CRITICAL: Use direct OpenAI client (NOT AI Gateway)
-        const imageClient = getImageClient(context.userId);
-        let base64Data: string | undefined;
-        try {
-          const gptImageResponse = await imageClient.images.generate({
-            model: "gpt-image-1",
-            prompt: imagePrompt,
-            size: "1024x1024",
-            quality: "low",
-            n: 1,
-          });
-          base64Data = gptImageResponse.data?.[0]?.b64_json;
-        } catch {
-          const dalleResponse = await imageClient.images.generate({
-            model: "dall-e-3",
-            prompt: imagePrompt,
-            size: "1024x1024",
-            quality: "standard",
-            n: 1,
-            response_format: "b64_json",
-          });
-          base64Data = dalleResponse.data?.[0]?.b64_json;
-        }
-
-        if (base64Data) {
-          const blobUrl = await saveImageToBlob(
-            base64Data,
-            imagePrompt,
-            context.userId || "anonymous",
-            context.projectId
-          );
-          generatedImages.push({
-            base64: base64Data,
-            prompt: imagePrompt,
-            url: blobUrl || undefined,
-          });
-        }
-      }
-    } catch (error) {
-      console.error("[Orchestrator] Image generation failed:", error);
-      workflowSteps.push("Bildgenerering misslyckades");
-    }
-
-    if (intent === "image_only") {
-      return {
-        success: generatedImages.length > 0,
-        message:
-          generatedImages.length > 0
-            ? "Här är din bild!"
-            : "Kunde inte generera bild.",
-        intent,
-        generatedImages: generatedImages.map((img) => ({
-          prompt: img.prompt,
-          url: img.url,
-        })),
-        workflowSteps,
-      };
-    }
-  }
-
-  // Handle code generation
-  if (
-    intent === "code_only" ||
-    intent === "image_and_code" ||
-    intent === "web_search_and_code"
-  ) {
-    onStep?.("Genererar kod med v0...");
-    workflowSteps.push("Uppdaterar webbplatskod med v0");
-
-    let codeInstruction = enrichedPrompt;
-
-    // CRITICAL: Extract image URLs from the ORIGINAL prompt
-    // SemanticRouter/Enhancer may have "summarized away" the URLs, so we extract them here
-    const extractedImages = extractImageUrlsFromPrompt(userPrompt);
-    if (extractedImages.length > 0) {
-      // Only add if not already covered by mediaLibrary
-      const mediaUrls = new Set(
-        (context.mediaLibrary || []).map((m) => m.url)
-      );
-      const newImages = extractedImages.filter(
-        (img) => !mediaUrls.has(img.url)
-      );
-
-      if (newImages.length > 0) {
-        codeInstruction += `
-
-═══════════════════════════════════════════════════════════════════════════════
-BILDER FRÅN ANVÄNDARENS PROMPT (extraherade - KRÄVER exakta URLs!)
-═══════════════════════════════════════════════════════════════════════════════
-
-`;
-        newImages.forEach((img, i) => {
-          codeInstruction += `${i + 1}. ${img.description}
-   URL: ${img.url}
-
-`;
-        });
-
-        codeInstruction += `VIKTIGT: Använd dessa EXAKTA URLs i <img src="..."> eller next/image!
-═══════════════════════════════════════════════════════════════════════════════
-`;
-      }
-    }
-
-    // Add web search context if available
-    if (webSearchContext && intent === "web_search_and_code") {
-      codeInstruction += `\n\nKontext från webbsökning:\n${webSearchContext.substring(
-        0,
-        2000
-      )}`;
-    }
-
-    // Add media library if available - with strong instructions for v0 to use exact URLs
-    if (context.mediaLibrary && context.mediaLibrary.length > 0) {
-      codeInstruction += `
-
-═══════════════════════════════════════════════════════════════════════════════
-BILDER ATT ANVÄNDA (användarens valda bilder - KRÄVER exakta URLs!)
-═══════════════════════════════════════════════════════════════════════════════
-
-`;
-      context.mediaLibrary.forEach((item, i) => {
-        codeInstruction += `${i + 1}. ${item.description || item.filename}
-   URL: ${item.url}
-
-`;
-      });
-
-      codeInstruction += `VIKTIGT:
-- Använd dessa EXAKTA URLs i <img src="..."> eller next/image
-- ANVÄND INTE placeholder-bilder, /images/... eller tomma src
-- Dessa bilder fungerar garanterat i preview
-- Matcha bilderna med rätt sektion baserat på beskrivningen ovan
-
-═══════════════════════════════════════════════════════════════════════════════
-`;
-    }
-
-    // Add generated images if available
-    if (generatedImages.length > 0 && intent === "image_and_code") {
-      const imagesWithUrls = generatedImages.filter((img) => img.url);
-      if (imagesWithUrls.length > 0) {
-        codeInstruction += `\n\nGENERERADE BILDER:\n`;
-        imagesWithUrls.forEach((img, i) => {
-          codeInstruction += `${i + 1}. ${img.prompt.substring(
-            0,
-            60
-          )}\n   URL: ${img.url}\n`;
-        });
-      }
-    }
-
-    let v0Result;
-    if (context.existingChatId && context.existingCode) {
-      v0Result = await refineCode(
-        context.existingChatId,
-        context.existingCode,
-        codeInstruction,
-        context.quality
-      );
-    } else {
-      v0Result = await generateCode(codeInstruction, context.quality);
-    }
-
-    workflowSteps.push("Webbplatskod uppdaterad!");
-
-    return {
-      success: true,
-      message: "Klart! Jag har uppdaterat din webbplats.",
-      intent,
-      code: v0Result.code,
-      files: v0Result.files,
-      chatId: v0Result.chatId,
-      demoUrl: v0Result.demoUrl,
-      screenshotUrl: v0Result.screenshotUrl,
-      versionId: v0Result.versionId,
-      webSearchResults:
-        webSearchResults.length > 0 ? webSearchResults : undefined,
-      generatedImages:
-        generatedImages.length > 0
-          ? generatedImages.map((img) => ({ prompt: img.prompt, url: img.url }))
-          : undefined,
-      workflowSteps,
-      routerResult,
-      codeContext,
-      enrichedPrompt: codeInstruction,
-    };
-  }
-
-  // Fallback
-  return {
-    success: false,
-    message: "Kunde inte avgöra vad som skulle göras.",
-    intent,
-    error: "Unknown workflow path",
-    workflowSteps,
-  };
+  return orchestrateWorkflow(userPrompt, context, callbacks);
 }

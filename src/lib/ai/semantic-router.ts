@@ -23,8 +23,9 @@
  */
 
 import { generateText } from "ai";
-import { openai } from "@ai-sdk/openai";
+import { createOpenAI } from "@ai-sdk/openai";
 import { debugLog, truncateForLog } from "@/lib/utils/debug";
+import { SECRETS } from "@/lib/config";
 
 // ============================================================================
 // TYPES
@@ -107,6 +108,13 @@ CRITICAL - IMAGE GENERATION VS CODE:
 - "lägg till en bild i sajten" / "sätt in bilden" = image_and_code (generate AND insert)
 - "använd bilder från bildbiblioteket" / "ta bilder från mediabank" = simple_code (use EXISTING images, NO generation)
 
+CRITICAL - ANIMATIONS/EFFECTS = CODE, NOT IMAGE:
+- "animerade element" / "animation" / "rörelse" / "rörande" = simple_code (CSS/JS animation)
+- "overlay" / "överlägg" / "flytande element" = simple_code (CSS overlay)
+- "svartvit" / "färgfilter" / "grayscale" = simple_code (CSS filter)
+- "åker omkring" / "svävande" / "bounce" = simple_code (CSS keyframe animation)
+- ANY description of visual EFFECTS on existing elements = simple_code, NOT image_gen
+
 AVAILABLE INTENTS:
 
 1. "simple_code" - Simple code changes OR new website/page OR use existing media
@@ -122,18 +130,23 @@ AVAILABLE INTENTS:
    Examples: "check apple.com", "look for inspiration", "how does spotify look"
    NOT: "create a page about cars" (that's simple_code!)
 
-4. "image_gen" - User wants ONLY to generate an image (show in chat, save to media library)
-   Examples: "create an image of cheese", "generate a logo", "make a picture and save to media library"
+4. "image_gen" - User wants ONLY to generate a STATIC image (show in chat, save to media library)
+   Examples: "skapa en bild på ost", "generera en logotyp", "spara en bild i mediabiblioteket"
    CRITICAL: This does NOT change the website code! Just generates and displays the image.
-   Keywords: "generera bild", "skapa bild", "spara i mediabibliotek", "mediabank"
+   CRITICAL: ONLY use image_gen when user EXPLICITLY says "generera bild", "skapa en bild", etc.
+   DO NOT use image_gen for: animations, overlays, effects, filters, moving elements - those are CODE!
+   Keywords that TRIGGER image_gen: "generera bild", "skapa bild", "rita bild", "spara bild", "mediabibliotek"
+   Keywords that DO NOT trigger image_gen: "animerade", "rörande", "overlay", "svartvit", "filter", "effekt"
 
 5. "web_and_code" - Web search AND code changes
    Examples: "make it like apple.com", "copy style from spotify"
 
-6. "image_and_code" - Generate NEW image AND insert into website code
-   Examples: "add a hero image with sunset", "put a background image with mountains on the page"
-   CRITICAL: User explicitly wants the image IN the website, not just in media library.
-   Keywords: "lägg till", "sätt in", "på sidan", "i sajten", "som bakgrund"
+6. "image_and_code" - Generate NEW STATIC image AND insert into website code
+   Examples: "lägg till en herobild med solnedgång", "sätt in en bakgrundsbild med berg"
+   CRITICAL: User explicitly wants a GENERATED image IN the website, not just in media library.
+   CRITICAL: ONLY use when user wants a NEW generated image - NOT for animations/effects!
+   Keywords that TRIGGER: "lägg till bild", "sätt in bild", "bakgrundsbild", "herobild"
+   DO NOT use for: animations, overlays, visual effects - those are simple_code!
 
 7. "clarify" - Unclear what user wants
    Examples: "yes", "ok", "hmm", "change the link" (multiple links exist)
@@ -163,9 +176,20 @@ Respond with EXACT JSON (no markdown):
 }`;
 
   try {
-    // Use AI SDK 6 generateText
+    // CRITICAL: Validate API key BEFORE creating client (fail fast)
+    const apiKey = SECRETS.openaiApiKey || process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      throw new Error(
+        "OPENAI_API_KEY is required for Semantic Router. Please set it in environment variables."
+      );
+    }
+
+    // Create OpenAI client with validated API key
+    const openaiClient = createOpenAI({ apiKey });
+
+    // Use AI SDK 6 generateText with explicitly configured client
     const aiResult = await generateText({
-      model: openai(ROUTER_MODEL),
+      model: openaiClient(ROUTER_MODEL),
       system: systemPrompt,
       prompt: prompt,
       maxOutputTokens: 500,
@@ -258,14 +282,55 @@ export function shouldRoute(prompt: string): boolean {
     return true;
   }
 
+  // FAST-PATH: Very clear, simple prompts that don't need routing
+  // These patterns indicate straightforward code changes that can skip AI routing
+  const fastPathPatterns = [
+    // Simple deletions: "ta bort X", "ta bort Y", "radera Z"
+    /^ta\s+bort\s+\w+/i,
+    /^radera\s+\w+/i,
+    /^ta\s+bort\s+.*$/i,
+
+    // Simple color changes: "ändra färg på X till Y", "gör X blå"
+    /^(ändra|gör|sätt)\s+(färg|bakgrund)\s+(på\s+)?\w+\s+(till\s+)?\w+/i,
+    /^gör\s+\w+\s+(blå|röd|grön|gul|svart|vit|grå)/i,
+
+    // Simple size changes: "gör X större", "ändra storlek på Y"
+    /^(gör|ändra)\s+\w+\s+(större|mindre|storlek)/i,
+
+    // Simple visibility: "dölj X", "visa Y"
+    /^(dölj|visa|göm)\s+\w+/i,
+
+    // Simple additions: "lägg till X" (when X is specific)
+    /^lägg\s+till\s+\w+\s+(med|som|till)/i,
+  ];
+
+  // If prompt matches fast-path pattern and is short enough, skip routing
+  if (
+    fastPathPatterns.some((pattern) => pattern.test(prompt)) &&
+    prompt.length < 100
+  ) {
+    return false;
+  }
+
   // Vague/unclear words that suggest user needs help clarifying
+  // These prompts should ALWAYS go through semantic router to potentially ask clarifying questions
   if (
     lower.includes("lite") ||
     lower.includes("något") ||
     lower.includes("saker") ||
     lower.includes("grejer") ||
     lower.includes("snyggare") ||
-    lower.includes("bättre")
+    lower.includes("bättre") ||
+    lower.includes("typ") ||
+    lower.includes("liksom") ||
+    lower.includes("kanske") ||
+    lower.includes("ungefär") ||
+    lower.includes("liknande") ||
+    lower.includes("sånt") ||
+    lower.includes("nåt") ||
+    lower.includes("vet inte") ||
+    lower.includes("oklart") ||
+    lower.includes("osäker")
   ) {
     return true;
   }
