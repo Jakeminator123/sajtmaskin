@@ -72,7 +72,7 @@ export function enrichPrompt(context: EnrichmentContext): string {
     originalPrompt,
     enhancedPrompt,
     compact = false,
-    routerResult,
+    // routerResult removed - no longer used after ACTION INSTRUCTIONS removal
     codeContext,
     webResults,
     generatedImages,

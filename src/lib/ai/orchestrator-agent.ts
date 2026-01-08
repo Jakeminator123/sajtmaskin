@@ -770,27 +770,6 @@ export async function orchestrateWorkflow(
     return files.some((f) => patterns.some((p) => p.test(f.content)));
   };
 
-  const hasMissingReactImport = (
-    files?: Array<{ name: string; content: string }>
-  ): boolean => {
-    if (!files || files.length === 0) return false;
-
-    return files.some((file) => {
-      const content = file.content;
-      const hasJSX = /<[A-Z]/.test(content) || /<[a-z]+[^>]*>/.test(content);
-      const hasHooks =
-        /\b(useState|useEffect|useCallback|useMemo|useRef|useContext)\s*\(/.test(
-          content
-        );
-      const hasReactImport =
-        /import\s+.*\s+from\s+["']react["']/.test(content) ||
-        /import\s+React\s+from\s+["']react["']/.test(content);
-
-      // If JSX or hooks are used but React is not imported
-      return (hasJSX || hasHooks) && !hasReactImport;
-    });
-  };
-
   const hasPlaceholderImages = (
     files?: Array<{ name: string; content: string }>
   ): boolean => {
