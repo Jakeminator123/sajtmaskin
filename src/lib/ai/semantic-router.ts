@@ -254,9 +254,12 @@ Respond with EXACT JSON (no markdown):
     // Parse and validate
     const parsed = parseRouterJsonOrThrow(responseText);
 
-    // Validate intent
-    const intent: SemanticIntent = VALID_INTENTS.includes(parsed.intent)
-      ? parsed.intent
+    // Validate intent - cast to string first for type safety
+    const parsedIntent = String(parsed.intent || "");
+    const intent: SemanticIntent = VALID_INTENTS.includes(
+      parsedIntent as SemanticIntent
+    )
+      ? (parsedIntent as SemanticIntent)
       : "clarify";
 
     const routerResult: RouterResult = {

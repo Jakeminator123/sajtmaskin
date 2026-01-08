@@ -120,6 +120,12 @@ export const SUPERADMIN_EMAIL = process.env.SUPERADMIN_EMAIL || "";
 export const SUPERADMIN_PASSWORD = process.env.SUPERADMIN_PASSWORD || "";
 export const SUPERADMIN_DIAMONDS = 999999;
 
+// Default diamonds for new users (env: DEFAULT_USER_DIAMONDS, default: 5)
+export const DEFAULT_USER_DIAMONDS = parseInt(
+  process.env.DEFAULT_USER_DIAMONDS || "5",
+  10
+);
+
 // Legacy aliases - kept for backward compatibility with existing code
 // These now point to SUPERADMIN credentials
 export const TEST_USER_EMAIL = SUPERADMIN_EMAIL;
@@ -1667,9 +1673,15 @@ export function createUser(
 
   const stmt = db.prepare(`
     INSERT INTO users (id, email, name, password_hash, provider, diamonds)
-    VALUES (?, ?, ?, ?, 'email', 5)
+    VALUES (?, ?, ?, ?, 'email', ?)
   `);
-  stmt.run(id, email.toLowerCase(), name || null, passwordHash);
+  stmt.run(
+    id,
+    email.toLowerCase(),
+    name || null,
+    passwordHash,
+    DEFAULT_USER_DIAMONDS
+  );
 
   return getUserById(id)!;
 }
@@ -1745,9 +1757,9 @@ export function createGoogleUser(
   // No existing user - create new one
   const stmt = db.prepare(`
     INSERT INTO users (id, email, name, image, provider, email_verified, diamonds)
-    VALUES (?, ?, ?, ?, 'google', 1, 5)
+    VALUES (?, ?, ?, ?, 'google', 1, ?)
   `);
-  stmt.run(id, normalizedEmail, name, image || null);
+  stmt.run(id, normalizedEmail, name, image || null, DEFAULT_USER_DIAMONDS);
 
   return getUserById(id)!;
 }
@@ -1805,7 +1817,10 @@ function parseUserRow(row: UserRow): User {
     password_hash: row.password_hash,
     email_verified: row.email_verified === 1,
     provider,
-    diamonds: isTest || isSuperadmin ? SUPERADMIN_DIAMONDS : row.diamonds ?? 5,
+    diamonds:
+      isTest || isSuperadmin
+        ? SUPERADMIN_DIAMONDS
+        : row.diamonds ?? DEFAULT_USER_DIAMONDS,
     github_token: row.github_token || null,
     github_username: row.github_username || null,
     is_superadmin: isSuperadmin,
