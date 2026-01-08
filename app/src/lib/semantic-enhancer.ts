@@ -213,18 +213,24 @@ EXEMPEL PÅ FÖRBÄTTRINGAR:
 - "mer modern stil" → "Applicera modern designstil: använd större whitespace, minimalistisk typografi, subtila animationer, mjuka skuggor och avrundade hörn"
 
 REGLER:
-1. Behåll ALLTID användarens ursprungliga intention
-2. Lägg till KONKRETA tekniska detaljer (pixelvärden, färger, CSS-egenskaper)
+1. Behåll ALLTID användarens ursprungliga intention - ändra INTE vad användaren vill, bara HUR det ska göras
+2. Lägg till KONKRETA tekniska detaljer (pixelvärden, färger, CSS-egenskaper, komponentnamn)
 3. Föreslå SPECIFIKA förbättringar som kan implementeras direkt
-4. Om kodkontext finns, referera till specifika element/komponenter
-5. Håll svaret KONCIST - max 2-3 meningar
-6. Svara ENDAST med den förbättrade prompten, ingen förklaring
+4. Om kodkontext finns, referera till SPECIFIKA element/komponenter från koden (använd filnamn och radnummer)
+5. Om kodkontext finns, föreslå ändringar som passar den befintliga strukturen
+6. Generera MER SPECIFIKA tekniska instruktioner när kodkontext finns (t.ex. "ändra padding i Header-komponenten från 12px till 24px")
+7. Håll svaret KONCIST - max 2-3 meningar
+8. Svara ENDAST med den förbättrade prompten, ingen förklaring
 
-VIKTIGT: Svara BARA med den förbättrade prompten. Ingen inledning, ingen förklaring.`;
+VIKTIGT: 
+- Svara BARA med den förbättrade prompten. Ingen inledning, ingen förklaring.
+- Om kodkontext finns, använd den aktivt för att göra prompten mer specifik.
+- Behåll användarens ursprungliga intention - förbättra bara detaljerna.`;
 }
 
 /**
  * Build the user message with context
+ * IMPROVED: Uses code context more actively when available
  */
 function buildUserMessage(
   originalPrompt: string,
@@ -233,28 +239,61 @@ function buildUserMessage(
 ): string {
   let message = `Original prompt: "${originalPrompt}"`;
 
-  // Add code context if available
+  // IMPROVED: Add code context more actively when available
   if (codeContext?.relevantFiles?.length) {
-    const fileSnippets = codeContext.relevantFiles
-      .slice(0, 3) // Max 3 files
-      .map((f: CodeSnippet) => `- ${f.name}: ${f.snippet.substring(0, 150)}...`)
-      .join("\n");
+    message += `\n\nKODKONTEXT (använd detta aktivt när du förbättrar prompten):`;
+    message += `\n${"=".repeat(50)}`;
 
-    message += `\n\nKodkontext:\n${fileSnippets}`;
+    // Include more details from code context
+    codeContext.relevantFiles
+      .slice(0, 3) // Max 3 files
+      .forEach((f: CodeSnippet) => {
+        message += `\n\n📁 ${f.name} (rad ${f.lineNumbers[0]}-${f.lineNumbers[1]}):`;
+        message += `\n\`\`\`\n${f.snippet.substring(0, 200)}${
+          f.snippet.length > 200 ? "..." : ""
+        }\n\`\`\``;
+        if (f.relevance) {
+          message += `\nRelevans: ${f.relevance}`;
+        }
+      });
+
+    // Add structure info if available
+    if (codeContext.componentStructure) {
+      message += `\n\nStruktur: ${codeContext.componentStructure}`;
+    }
+
+    if (codeContext.routingInfo) {
+      message += `\nRouting: ${codeContext.routingInfo}`;
+    }
+
+    message += `\n${"=".repeat(50)}`;
+    message += `\n\nVIKTIGT: När du förbättrar prompten, referera till specifika element/komponenter från kodkontexten ovan.`;
   }
 
   // Add router hints if available
   if (routerResult?.contextHints?.length) {
-    message += `\n\nElement-hints: ${routerResult.contextHints.join(", ")}`;
+    message += `\n\nElement att fokusera på: ${routerResult.contextHints.join(
+      ", "
+    )}`;
   }
 
-  message += "\n\nFörbättra prompten med specifika tekniska instruktioner:";
+  // Add intent context
+  if (routerResult?.intent) {
+    message += `\nIntent: ${routerResult.intent}`;
+    if (routerResult.codeInstruction) {
+      message += `\nKodinstruktion: ${routerResult.codeInstruction}`;
+    }
+  }
+
+  message +=
+    "\n\nFörbättra prompten med specifika tekniska instruktioner baserat på kodkontexten:";
 
   return message;
 }
 
 /**
  * Clean and validate the enhanced prompt
+ * IMPROVED: Better preservation of original intention
  */
 function cleanEnhancedPrompt(
   rawResponse: string,
@@ -272,6 +311,8 @@ function cleanEnhancedPrompt(
     /^enhanced prompt:\s*/i,
     /^här är den förbättrade prompten:\s*/i,
     /^prompt:\s*/i,
+    /^den förbättrade prompten är:\s*/i,
+    /^här är:\s*/i,
   ];
 
   for (const pattern of prefixPatterns) {
@@ -281,6 +322,38 @@ function cleanEnhancedPrompt(
   // Remove quotes if the entire response is quoted
   if (cleaned.startsWith('"') && cleaned.endsWith('"')) {
     cleaned = cleaned.slice(1, -1);
+  }
+
+  // IMPROVED: Check if cleaned prompt still preserves original intention
+  // If the cleaned prompt doesn't mention key concepts from original, it might have lost the intention
+  const originalKeywords = extractKeyConcepts(originalPrompt);
+  const cleanedKeywords = extractKeyConcepts(cleaned);
+
+  // If cleaned prompt lost too many key concepts, it might have changed the intention
+  // In that case, try to merge original with cleaned
+  if (originalKeywords.length > 0) {
+    const preservedKeywords = originalKeywords.filter((kw) =>
+      cleanedKeywords.some(
+        (ckw) =>
+          ckw.toLowerCase().includes(kw.toLowerCase()) ||
+          kw.toLowerCase().includes(ckw.toLowerCase())
+      )
+    );
+
+    // If less than 50% of keywords preserved, the enhancement might have changed intention
+    if (
+      preservedKeywords.length < originalKeywords.length * 0.5 &&
+      originalKeywords.length > 2
+    ) {
+      console.warn(
+        "[SemanticEnhancer] Enhanced prompt might have lost original intention, merging..."
+      );
+      // Merge: start with original, add technical details from cleaned
+      const technicalDetails = extractTechnicalDetails(cleaned);
+      if (technicalDetails.length > 0) {
+        cleaned = `${originalPrompt} ${technicalDetails.join(", ")}`;
+      }
+    }
   }
 
   // Truncate if too long
@@ -294,6 +367,71 @@ function cleanEnhancedPrompt(
   }
 
   return cleaned;
+}
+
+/**
+ * Extract key concepts from a prompt (nouns, important words)
+ */
+function extractKeyConcepts(prompt: string): string[] {
+  const lower = prompt.toLowerCase();
+  const words = lower.split(/\s+/);
+
+  // Filter out common words and keep meaningful nouns/concepts
+  const stopWords = new Set([
+    "en",
+    "ett",
+    "den",
+    "det",
+    "de",
+    "som",
+    "och",
+    "eller",
+    "men",
+    "för",
+    "med",
+    "till",
+    "på",
+    "av",
+    "om",
+    "i",
+    "är",
+    "ska",
+    "kan",
+    "vill",
+    "gör",
+    "ändra",
+    "sätt",
+    "lägg",
+  ]);
+
+  return words.filter((w) => w.length > 3 && !stopWords.has(w)).slice(0, 5); // Max 5 key concepts
+}
+
+/**
+ * Extract technical details (CSS properties, measurements, etc.) from enhanced prompt
+ */
+function extractTechnicalDetails(prompt: string): string[] {
+  const details: string[] = [];
+  const lower = prompt.toLowerCase();
+
+  // Look for CSS properties, measurements, colors
+  const patterns = [
+    /\d+px/g,
+    /\d+rem/g,
+    /#[0-9a-f]{3,6}/gi,
+    /rgb\([^)]+\)/gi,
+    /rgba\([^)]+\)/gi,
+    /(?:padding|margin|border|width|height|font-size|color|background):\s*[^,;]+/gi,
+  ];
+
+  for (const pattern of patterns) {
+    const matches = prompt.match(pattern);
+    if (matches) {
+      details.push(...matches);
+    }
+  }
+
+  return details.slice(0, 5); // Max 5 technical details
 }
 
 // ============================================================================

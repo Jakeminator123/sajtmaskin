@@ -846,6 +846,45 @@ export function ChatPanel({
       setPendingMedia([]);
     }
 
+    // ═══════════════════════════════════════════════════════════════════════
+    // PRE-VALIDATION: Kör Semantic Router FÖRE generationen börjar visuellt
+    // ═══════════════════════════════════════════════════════════════════════
+    // Get fresh state from store (used for both validation and generation)
+    const latestState = useBuilderStore.getState();
+    const hasExistingCode = !!latestState.currentCode || !!latestState.files?.length;
+
+    try {
+      const validationResponse = await fetch("/api/validate-prompt", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt: enhancedPrompt,
+          hasExistingCode,
+        }),
+      });
+
+      if (!validationResponse.ok) {
+        throw new Error(`Validation failed: ${validationResponse.statusText}`);
+      }
+
+      const validationResult = await validationResponse.json();
+
+      if (validationResult.success && validationResult.needsClarification) {
+        // Prompten är vag → visa frågor direkt, INGEN generation
+        addMessage(
+          "assistant",
+          validationResult.clarifyQuestion || "Kan du förtydliga vad du menar?"
+        );
+        // TODO: Lägg till clarifyOptions om de finns i response
+        return; // STOPPA här, starta INTE generation
+      }
+
+      // Om OK → fortsätt med generation
+    } catch (error) {
+      console.warn("[ChatPanel] Pre-validation failed, continuing anyway:", error);
+      // Fallback: fortsätt med generation om validering misslyckas
+    }
+
     setLoading(true);
     setGenerationStartTime(Date.now());
     setCurrentPromptLength(enhancedPrompt.length);
@@ -858,9 +897,6 @@ export function ChatPanel({
       // UNIVERSAL GATEKEEPER with STREAMING: ALL prompts go through orchestrator
       // Uses SSE for real-time thinking/progress updates
       // ═══════════════════════════════════════════════════════════════════════
-
-      // Get fresh state from store (avoid stale React hook values)
-      const latestState = useBuilderStore.getState();
       const currentFiles = latestState.files;
 
       console.log("[ChatPanel] Initial generation via streaming orchestrator:", {

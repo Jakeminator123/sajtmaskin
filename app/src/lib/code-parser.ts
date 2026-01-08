@@ -1,5 +1,28 @@
-// Code parser for converting v0 API response to Sandpack file format
-// Extracts code from markdown code blocks and organizes into files
+/**
+ * Code Parser - Sandpack Fallback Converter
+ * ==========================================
+ *
+ * ⚠️ FALLBACK ONLY - PRIMARY METHOD IS v0's demoUrl iframe
+ *
+ * This module converts v0 API responses to Sandpack file format.
+ * Sandpack is ONLY used as a fallback when:
+ * 1. demoUrl is missing (rare - v0 API almost always returns demoUrl)
+ * 2. Code view needs to display files (SandpackCodeEditor)
+ *
+ * PRIMARY PREVIEW METHOD:
+ * - v0 API returns demoUrl → iframe preview (hosted on Vercel/v0 servers)
+ * - Works for complex projects (Three.js, d3, Radix UI, etc.)
+ * - Fast, reliable, handles all dependencies
+ *
+ * SANDPACK FALLBACK:
+ * - Only used if demoUrl is missing (shouldn't happen in practice)
+ * - In-browser bundler, slower (30-60s), often crashes on complex projects
+ * - Kept as backup for edge cases
+ *
+ * CODE VIEW:
+ * - SandpackCodeEditor is used for code viewing/editing
+ * - This is acceptable since it's just displaying code, not running it
+ */
 
 export interface SandpackFile {
   code: string;

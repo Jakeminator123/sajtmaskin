@@ -51,6 +51,7 @@ export function PromptInput({
 }: PromptInputProps) {
   const [prompt, setPrompt] = useState(initialValue || "");
   const [showWizard, setShowWizard] = useState(false);
+  const [isValidating, setIsValidating] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const router = useRouter();
 
@@ -72,15 +73,60 @@ export function PromptInput({
     }
   }, [prompt]);
 
-  const handleSubmit = () => {
-    if (!prompt.trim() || isLoading) return;
+  const handleSubmit = async () => {
+    if (!prompt.trim() || isLoading || isValidating) return;
 
-    if (onSubmit) {
-      onSubmit(prompt);
-    }
+    // Pre-validering: Kör Semantic Router FÖRE navigation
+    setIsValidating(true);
 
-    if (navigateOnSubmit) {
-      router.push(`/builder?prompt=${encodeURIComponent(prompt)}`);
+    try {
+      const response = await fetch("/api/validate-prompt", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt: prompt.trim(),
+          hasExistingCode: false, // Ny generation, inget befintligt kod
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`Validation failed: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+
+      // CRITICAL: Only show clarification if BOTH success is true AND needsClarification is true
+      // If server returns error status but body has success:true, we should fail-open to normal flow
+      if (result.success === true && result.needsClarification === true) {
+        // Prompten är vag → visa PromptWizardModal direkt, INGEN navigation
+        setIsValidating(false);
+        setShowWizard(true);
+        return;
+      }
+
+      // If validation failed or returned unexpected data, fail-open to normal flow
+      // (Don't show clarification wizard for error responses)
+
+      // Om OK → fortsätt med navigation
+      if (onSubmit) {
+        onSubmit(prompt);
+      }
+
+      if (navigateOnSubmit) {
+        router.push(`/builder?prompt=${encodeURIComponent(prompt)}`);
+      }
+    } catch (error) {
+      console.error("[PromptInput] Validation error:", error);
+      // Fallback: navigera ändå om validering misslyckas
+      if (onSubmit) {
+        onSubmit(prompt);
+      }
+
+      if (navigateOnSubmit) {
+        router.push(`/builder?prompt=${encodeURIComponent(prompt)}`);
+      }
+    } finally {
+      setIsValidating(false);
     }
   };
 
@@ -134,13 +180,13 @@ export function PromptInput({
               onChange={(e) => setPrompt(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder={placeholder}
-              disabled={isLoading}
+              disabled={isLoading || isValidating}
               className="flex-1 min-h-[44px] max-h-[200px] resize-none border-0 bg-transparent text-white placeholder:text-gray-500 focus-visible:ring-0 focus-visible:ring-offset-0 p-0"
               rows={1}
             />
             <Button
               onClick={() => setShowWizard(true)}
-              disabled={isLoading}
+              disabled={isLoading || isValidating}
               size="icon"
               title="Bygg ut med AI"
               className="h-9 w-9 shrink-0 bg-teal-600 hover:bg-teal-500 disabled:opacity-50"
@@ -149,12 +195,12 @@ export function PromptInput({
             </Button>
             <Button
               onClick={handleSubmit}
-              disabled={!prompt.trim() || isLoading}
+              disabled={!prompt.trim() || isLoading || isValidating}
               size="icon"
-              title="Skapa webbplats"
+              title={isValidating ? "Analyserar din förfrågan..." : "Skapa webbplats"}
               className="h-9 w-9 shrink-0 bg-teal-600 hover:bg-teal-500 disabled:opacity-50"
             >
-              {isLoading ? (
+              {isLoading || isValidating ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
                 <ArrowUp className="h-4 w-4" />

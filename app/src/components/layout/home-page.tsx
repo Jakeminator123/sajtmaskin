@@ -23,7 +23,7 @@
  */
 
 import { useState, useRef } from "react";
-import { TemplateGallery } from "@/components/templates";
+// TemplateGallery removed - categories are now accessed via /category/[type] pages
 import { PromptInput } from "@/components/forms";
 import { OnboardingModal, useOnboarding, AuditModal } from "@/components/modals";
 import { AuthModal } from "@/components/auth";
@@ -239,8 +239,7 @@ export function HomePage() {
           </div>
         )}
 
-        {/* Template Gallery */}
-        <TemplateGallery />
+        {/* Template Gallery - Removed: Users can navigate to /category/[type] pages directly */}
 
         {/* ═══════════════════════════════════════════════════════════
             SECTION: Site Audit

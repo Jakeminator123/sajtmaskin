@@ -1,36 +1,3 @@
----
-name: Builder Enhancement Plan
-overview: Omfattande uppgradering av sajtmaskin-buildern med OAuth-miljöväxling, superadmin-roll, full thinking-stream-implementation, klickbar elementredigering, och preview-hantering för att undvika spam på v0/Vercel-konton.
-todos:
-  - id: superadmin
-    content: Implementera superadmin-roll som fungerar i produktion
-    status: completed
-  - id: oauth-env
-    content: Skapa automatisk OAuth miljöväxling dev/prod
-    status: completed
-  - id: bugfix-chatid
-    content: Fixa chatId-validering efter template-laddning
-    status: completed
-  - id: bugfix-crawler
-    content: Minska Code Crawler-triggering för simple_code intent
-    status: completed
-  - id: bugfix-context
-    content: Fixa att första prompt bevarar befintlig chatId/code
-    status: completed
-  - id: rate-limit
-    content: Implementera rate limiting för preview-generationer
-    status: completed
-  - id: thinking-stream
-    content: Implementera full thinking/streaming med SSE
-    status: completed
-  - id: design-mode
-    content: Implementera klickbar elementredigering (Design Mode)
-    status: completed
-  - id: suggestions-ui
-    content: Visa service suggestions baserat på orchestrator-intent
-    status: completed
----
-
 # Builder Enhancement Plan
 
 ## Bakgrund
@@ -45,7 +12,7 @@ Projektet är en AI-driven webbplatsbyggare som använder v0 SDK för kodgenerer
 
 **Lösning**: Skapa automatisk detection i [`app/src/lib/config.ts`](app/src/lib/config.ts) och uppdatera auth-logiken.
 
-```mermaid
+````mermaid
 flowchart TD
     A[Request kommer in] --> B{IS_PRODUCTION?}
     B -->|Ja| C[Använd GOOGLE_CLIENT_ID_PROD]
@@ -162,14 +129,14 @@ Baserat på [`gatherd_opinions/agent_orchestration_analysis_report.txt`](gatherd
 
 ### Kritiska (Fixa först)
 1. **chatId saknas efter template-laddning** - Rad 78-105 i rapporten
-   - Fix i `handleTemplateGeneration()` - validera och retry
+    - Fix i `handleTemplateGeneration()` - validera och retry
    
 2. **Code Crawler triggas för ofta** - Rad 108-143
-   - Fix i [`app/src/lib/orchestrator-agent.ts`](app/src/lib/orchestrator-agent.ts) rad ~502-515
-   - Ta bort `simple_code + extractHintsFromPrompt` trigger
+    - Fix i [`app/src/lib/orchestrator-agent.ts`](app/src/lib/orchestrator-agent.ts) rad ~502-515
+    - Ta bort `simple_code + extractHintsFromPrompt` trigger
 
 3. **Första prompt tappar context** - Rad 5-9 i orchestrator-review.txt
-   - Fix i `handleGenerate()` - skicka befintlig chatId/code
+    - Fix i `handleGenerate()` - skicka befintlig chatId/code
 
 ### Medium
 4. **Race condition i Code Crawler** - Rad 146-177
@@ -212,4 +179,5 @@ Enligt [v0.app/docs](https://v0.app/docs/introduction) har v0 "Agentic Features"
 
 2. **Streaming**: Kräver omskrivning av `/api/orchestrate` till SSE/streaming response.
 
-3. **v0 cleanup**: Vercel/v0 kan ha egna cleanup-policys som vi inte kontrollerar - bör undersökas.
+
+````

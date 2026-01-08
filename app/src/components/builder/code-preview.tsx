@@ -32,8 +32,13 @@ import {
 } from "@/lib/code-parser";
 import { useBuilderStore } from "@/lib/store";
 
-// Sandpack - ENDAST FALLBACK, används sällan i praktiken
-// Behålls som backup om v0 API skulle misslyckas
+// ═══════════════════════════════════════════════════════════════════════
+// SANDPACK - FALLBACK ONLY
+// ═══════════════════════════════════════════════════════════════════════
+// Sandpack används ENDAST som fallback när demoUrl saknas (sällan).
+// PRIMARY: v0's demoUrl iframe (hosted på Vercel/v0 servers)
+// FALLBACK: Sandpack in-browser bundler (långsam, kraschar ofta på komplexa projekt)
+// CODE VIEW: SandpackCodeEditor används för kod-vyn (OK eftersom det bara visar kod)
 import { QrShare } from "@/components/forms";
 import {
   SandpackCodeEditor,
@@ -256,7 +261,7 @@ export function CodePreview() {
             <div className="w-3 h-3 rounded-full bg-yellow-500/70" />
             <div className="w-3 h-3 rounded-full bg-green-500/70" />
           </div>
-          
+
           {/* URL bar */}
           <div className="flex-1 flex items-center gap-2 px-3 py-1.5 bg-gray-900/80 border border-gray-700/50 rounded-lg">
             <Eye className="h-3.5 w-3.5 text-gray-500 flex-shrink-0" />
@@ -279,7 +284,7 @@ export function CodePreview() {
               </Button>
             )}
           </div>
-          
+
           <HelpTooltip text="Live-förhandsgranskning av din webbplats. Uppdateras automatiskt efter varje ändring." />
         </div>
 
@@ -371,7 +376,11 @@ export function CodePreview() {
               }`}
               title="Inspect Element - välj element att redigera (som DevTools)"
             >
-              <MousePointer2 className={`h-3.5 w-3.5 ${isDesignModeActive ? "text-purple-400" : ""}`} />
+              <MousePointer2
+                className={`h-3.5 w-3.5 ${
+                  isDesignModeActive ? "text-purple-400" : ""
+                }`}
+              />
               <span className="hidden sm:inline">Inspect</span>
             </Button>
           )}
@@ -479,19 +488,21 @@ export function CodePreview() {
                   onToggle={() => toggleDesignMode()}
                   onElementSelect={(_selector, description) => {
                     // Send to chat panel via store
-                    const { setDesignModeInput, toggleDesignMode: toggle } = useBuilderStore.getState();
+                    const { setDesignModeInput, toggleDesignMode: toggle } =
+                      useBuilderStore.getState();
                     setDesignModeInput(`Ändra ${description}: `);
                     toggle(false); // Close design mode after selection
                   }}
                   onManualSelect={(prompt) => {
                     // Send to chat panel via store
-                    const { setDesignModeInput, toggleDesignMode: toggle } = useBuilderStore.getState();
+                    const { setDesignModeInput, toggleDesignMode: toggle } =
+                      useBuilderStore.getState();
                     setDesignModeInput(`${prompt}: `);
                     toggle(false); // Close design mode after selection
                   }}
                   iframeSrc={demoUrl || undefined}
                 />
-                
+
                 {screenshotUrl && (preferScreenshot || iframeError) ? (
                   // Screenshot view (manual toggle OR automatic fallback if iframe fails)
                   <div className="flex-1 h-full flex flex-col items-center justify-center p-4 bg-black">

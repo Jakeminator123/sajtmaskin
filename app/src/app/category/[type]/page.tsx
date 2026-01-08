@@ -5,7 +5,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { HelpTooltip, ShaderBackground } from "@/components/layout";
-import { LocalTemplateCard } from "@/components/templates";
+// LocalTemplateCard removed - using inline implementation instead
 import { PromptWizardModal, type WizardData } from "@/components/modals";
 import {
   ArrowLeft,
@@ -24,6 +24,7 @@ import {
   Gamepad2,
   Edit,
   Play,
+  X,
 } from "lucide-react";
 import {
   getCategory,
@@ -39,7 +40,7 @@ import {
 } from "@/lib/local-templates";
 import { createProject } from "@/lib/project-client";
 import Image from "next/image";
-import { PreviewModal } from "@/components/templates";
+// PreviewModal removed - using inline implementation instead
 
 // Icon mapping - includes all icons used in V0_CATEGORIES and legacy CATEGORIES
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -394,7 +395,7 @@ export default function CategoryPage() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 {templates.map((template) => (
-                  <LocalTemplateCard
+                  <LocalTemplateCardInline
                     key={template.id}
                     template={template}
                     onSelect={handleTemplateSelect}
@@ -502,7 +503,7 @@ function V0TemplateCard({
       </div>
 
       {imageUrl && (
-        <PreviewModal
+        <PreviewModalInline
           isOpen={showModal}
           onClose={() => setShowModal(false)}
           imageUrl={imageUrl}
@@ -510,5 +511,134 @@ function V0TemplateCard({
         />
       )}
     </>
+  );
+}
+
+// Local Template Card Component (inline implementation)
+function LocalTemplateCardInline({
+  template,
+  onSelect,
+  disabled,
+}: {
+  template: LocalTemplate;
+  onSelect: (template: LocalTemplate) => Promise<void>;
+  disabled: boolean;
+}) {
+  const router = useRouter();
+  const [isCreating, setIsCreating] = useState(false);
+
+  const handleClick = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (disabled || isCreating) return;
+
+    setIsCreating(true);
+    try {
+      await onSelect(template);
+    } catch (error) {
+      console.error("Failed to select template:", error);
+      setIsCreating(false);
+    }
+  };
+
+  // Get preview image URL
+  const previewUrl =
+    template.previewUrl ||
+    (template.v0TemplateId
+      ? `https://v0.app/api/og?templateId=${template.v0TemplateId}`
+      : null);
+
+  return (
+    <button
+      onClick={handleClick}
+      disabled={disabled || isCreating}
+      className="group bg-black/50 border border-gray-800 rounded-lg overflow-hidden hover:border-teal-500/50 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed w-full"
+    >
+      <div className="relative aspect-video bg-gray-900 overflow-hidden">
+        {previewUrl ? (
+          <Image
+            src={previewUrl}
+            alt={template.name}
+            fill
+            className="object-cover group-hover:scale-105 transition-transform duration-300"
+            loading="lazy"
+            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+          />
+        ) : (
+          <div className="w-full h-full flex items-center justify-center text-gray-600">
+            <Layout className="h-12 w-12" />
+          </div>
+        )}
+        {isCreating && (
+          <div className="absolute inset-0 bg-black/70 flex items-center justify-center">
+            <Loader2 className="h-6 w-6 animate-spin text-teal-400" />
+          </div>
+        )}
+      </div>
+      <div className="p-4 space-y-2">
+        <h3 className="font-medium text-white text-sm line-clamp-1 text-left">
+          {template.name}
+        </h3>
+        {template.description && (
+          <p className="text-xs text-gray-500 line-clamp-2 text-left">
+            {template.description}
+          </p>
+        )}
+      </div>
+    </button>
+  );
+}
+
+// Preview Modal Component (inline implementation)
+function PreviewModalInline({
+  isOpen,
+  onClose,
+  imageUrl,
+  title,
+}: {
+  isOpen: boolean;
+  onClose: () => void;
+  imageUrl: string;
+  title?: string;
+}) {
+  if (!isOpen) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="relative max-w-5xl max-h-[90vh] w-full"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Close button */}
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 z-10 p-2 bg-black/70 hover:bg-black/90 border border-gray-700 rounded text-gray-300 hover:text-white transition-colors"
+        >
+          <X className="h-5 w-5" />
+        </button>
+
+        {/* Title */}
+        {title && (
+          <div className="absolute top-4 left-4 z-10 px-3 py-1.5 bg-black/70 border border-gray-700 rounded text-white text-sm font-medium">
+            {title}
+          </div>
+        )}
+
+        {/* Image */}
+        <div className="relative w-full aspect-video bg-gray-900 rounded-lg overflow-hidden">
+          <Image
+            src={imageUrl}
+            alt={title || "Template preview"}
+            fill
+            className="object-contain"
+            sizes="(max-width: 1280px) 100vw, 1280px"
+          />
+        </div>
+      </div>
+    </div>
   );
 }

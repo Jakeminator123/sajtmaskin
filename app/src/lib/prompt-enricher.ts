@@ -167,12 +167,35 @@ export function enrichPrompt(context: EnrichmentContext): string {
   }
 
   // ═══════════════════════════════════════════════════════════════════════════
-  // SECTION 6: ACTION INSTRUCTIONS
+  // SECTION 6: ACTION INSTRUCTIONS (only when needed)
   // ═══════════════════════════════════════════════════════════════════════════
+  // CRITICAL: Do NOT add instructions if intent is clarify (should never reach v0)
+  if (routerResult?.intent === "clarify") {
+    console.warn(
+      "[PromptEnricher] ⚠️ clarify intent should not reach prompt enricher!"
+    );
+    // Return prompt without instructions
+    return sections.join("\n");
+  }
+
+  // OPTIMIZATION: Only add instructions when they add value
+  // Skip instructions for simple_code without code context (v0 understands simple prompts)
+  const intent = routerResult?.intent;
+  const hasCodeContext = codeContext && codeContext.relevantFiles.length > 0;
+  const hasWebResults = webResults && webResults.length > 0;
+  const hasGeneratedImages = generatedImages && generatedImages.length > 0;
+
+  // Skip instructions for simple_code without context (v0 doesn't need them)
+  if (intent === "simple_code" && !hasCodeContext && !hasWebResults && !hasGeneratedImages) {
+    // Simple prompt, no context needed - v0 can handle it directly
+    return sections.join("\n");
+  }
+
+  // Add instructions when context exists or intent requires them
   const actionLines: string[] = ["", "INSTRUCTIONS FOR IMPLEMENTATION:"];
 
-  // Add specific instructions based on intent
-  if (routerResult?.intent === "needs_code_context" && codeContext) {
+  // Add specific instructions based on intent and available context
+  if (intent === "needs_code_context" && hasCodeContext) {
     actionLines.push(
       "1. UPDATE the identified code sections based on the user request"
     );
@@ -181,7 +204,7 @@ export function enrichPrompt(context: EnrichmentContext): string {
     );
     actionLines.push("3. CREATE any new files/routes if needed");
     actionLines.push("4. ENSURE all links and navigation work correctly");
-  } else if (routerResult?.intent === "web_and_code" && webResults) {
+  } else if (intent === "web_and_code" && hasWebResults) {
     actionLines.push(
       "1. ANALYZE the referenced website(s) for design inspiration"
     );
@@ -190,14 +213,20 @@ export function enrichPrompt(context: EnrichmentContext): string {
     );
     actionLines.push("3. MAINTAIN brand consistency with the current design");
   } else if (
-    routerResult?.intent === "image_and_code" ||
-    (generatedImages && generatedImages.length > 0)
+    intent === "image_and_code" ||
+    hasGeneratedImages
   ) {
     actionLines.push("1. USE the provided image URL(s) exactly as given");
     actionLines.push("2. PLACE the image(s) in the appropriate section");
     actionLines.push("3. ADD proper alt text and responsive sizing");
     actionLines.push("4. ENSURE images are accessible and load correctly");
+  } else if (intent === "simple_code" && hasCodeContext) {
+    // Simple code change but with code context - need to preserve structure
+    actionLines.push("1. UPDATE the identified code sections");
+    actionLines.push("2. PRESERVE the overall structure and style");
+    actionLines.push("3. ENSURE all functionality still works");
   } else {
+    // Fallback: Generic instructions for other cases
     actionLines.push("1. IMPLEMENT the requested changes");
     actionLines.push("2. PRESERVE the overall structure and design");
     actionLines.push("3. TEST that all functionality still works");

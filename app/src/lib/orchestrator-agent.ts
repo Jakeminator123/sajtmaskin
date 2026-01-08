@@ -1,38 +1,50 @@
 /**
- * Orchestrator Agent 4.0 (AI SDK 6)
- * =================================
+ * Orchestrator Agent 5.0 (Universal Gatekeeper)
+ * ==============================================
  *
- * Smart meta-agent som koordinerar arbetsflöden mellan olika verktyg.
- * Nu med AI SDK 6 för bättre streaming och strukturerad output.
+ * Smart meta-agent som koordinerar ALLA prompts innan de skickas till v0 API.
+ * Fungerar som "Universal Gatekeeper" - alla prompts går genom denna pipeline.
  *
- * NYTT FLÖDE (4.0):
- * 1. Semantic Router analyserar prompten (AI SDK 6 streamText)
- * 2. Om needs_code_context → Code Crawler hittar relevanta koddelar (ingen AI)
- * 3. Semantic Enhancer förbättrar prompten semantiskt (AI SDK 6 generateText)
- * 4. Prompt Enricher kombinerar allt till slutlig prompt
- * 5. Berikad prompt skickas till v0
+ * PIPELINE FLÖDE:
+ * 1. Pre-validering (valfritt): Semantic Router analyserar prompten FÖRE generation startar
+ * 2. Semantic Router: Klassificerar intent med confidence thresholds och fast-path för enkla prompts
+ * 3. Om needs_code_context → Code Crawler hittar relevanta koddelar (ingen AI, bara sökning)
+ * 4. Semantic Enhancer: Förbättrar prompten semantiskt baserat på kodkontext
+ * 5. Prompt Enricher: Kombinerar allt till slutlig prompt (med kontextuella instruktioner)
+ * 6. Auto-Repair: Detekterar och fixar kända problem efter v0-generering
+ * 7. Berikad prompt skickas till v0 API
  *
  * KOMPONENTER OCH ROLLER:
- * - Semantic Router: Klassificerar intent (simple_code, needs_code_context, etc.)
- * - Code Crawler: Hittar relevanta koddelar (INGEN AI, bara sökning)
- * - Semantic Enhancer: Förbättrar prompten semantiskt (NY!)
- * - Prompt Enricher: Kombinerar allt till slutlig prompt
+ * - Semantic Router: Klassificerar intent med fast-path, confidence thresholds, smart clarify
+ * - Code Crawler: Hittar relevanta koddelar (INGEN AI, bara string-matching)
+ * - Semantic Enhancer: Förbättrar prompten semantiskt med aktiv kodkontext-användning
+ * - Prompt Enricher: Kombinerar allt till slutlig prompt (tar bort onödiga instruktioner)
+ * - Smart Clarify: Genererar specifika frågor baserat på kodkontext
+ * - Auto-Repair: Fixar kända problem (Three.js imports, React imports, placeholder images)
  *
- * FÖRBÄTTRINGAR I 4.0:
- * - AI SDK 6 med streamText/generateText för bättre streaming
- * - Semantic Enhancer för bättre prompt-förbättring
- * - Code Crawler utan AI (snabbare, billigare)
- * - Tydligare separation av ansvar mellan komponenter
+ * FÖRBÄTTRINGAR I 5.0:
+ * - Pre-validering: Förhindrar att generation startar för vag prompts
+ * - Fast-path: Hoppar över AI-routing för tydliga prompts (sparar tid och kostnad)
+ * - Confidence thresholds: Förhindrar lågkonfidensfelklassificeringar
+ * - Förbättrad Smart Clarify: Extraherar fler elementtyper, bättre frågeformulering
+ * - Utökad Auto-Repair: Detekterar fler kända problem automatiskt
+ * - Kontextuella instruktioner: Prompt Enricher lägger bara till instruktioner när nödvändigt
+ * - Guards mot clarify → v0: Förhindrar att clarify intent någonsin når v0 API
  *
- * INTENT TYPES:
- * - simple_code: Enkla ändringar, direkt till v0
+ * INTENT TYPES (från Semantic Router):
+ * - simple_code: Enkla ändringar, direkt till v0 (kan hoppa över routing med fast-path)
  * - needs_code_context: Kräver kodanalys först (Code Crawler)
  * - image_only: Bara generera bilder (INGEN kodändring)
  * - image_and_code: Generera bilder OCH uppdatera kod
  * - web_search: Bara söka/researcha
  * - web_and_code: Söka OCH uppdatera kod
- * - clarify: Behöver förtydligande
+ * - clarify: Behöver förtydligande (ALDRIG skickas till v0!)
  * - chat_response: Bara svara, ingen action
+ *
+ * VIKTIGT:
+ * - Alla prompts går genom denna pipeline (Universal Gatekeeper)
+ * - clarify intent stoppas ALLTID innan v0 API
+ * - Pre-validering kan köras på frontend för att förhindra onödig generation
  */
 
 import type { QualityLevel } from "@/lib/api-client";
@@ -321,6 +333,14 @@ function shouldRunSmartClarify(
 
 /**
  * Generate a smart clarify question based on code context.
+ *
+ * IMPROVED (v5.0):
+ * - Extraherar fler elementtyper: länkar, knappar, rubriker, inputs, bilder, sektioner, divs
+ * - Inkluderar relevansscore när tillgängligt
+ * - Bättre filnamn-beskrivningar (komponentnamn från filnamn)
+ * - Mer specifika frågor baserat på faktisk kodkontext
+ * - Grupperar element logiskt (t.ex. "länkar i headern", "knappar i footern")
+ *
  * Finds all matching elements and asks user to specify which one.
  */
 async function generateSmartClarifyQuestion(
@@ -329,54 +349,133 @@ async function generateSmartClarifyQuestion(
   client: OpenAI
 ): Promise<string> {
   try {
-    // Build a summary of all found elements
+    // IMPROVED: Build a more detailed summary with better element extraction
     const elementsSummary = codeContext.relevantFiles
       .map((file, index) => {
         // Try to extract element names/text from snippets
         const snippet = file.snippet;
 
-        // Look for common patterns: links, buttons, headings
+        // IMPROVED: Look for more patterns: links, buttons, headings, inputs, images, sections
         const linkMatches = snippet.match(/<a[^>]*>([^<]+)<\/a>/gi);
         const buttonMatches = snippet.match(/<button[^>]*>([^<]+)<\/button>/gi);
         const headingMatches = snippet.match(
           /<h[1-6][^>]*>([^<]+)<\/h[1-6]>/gi
         );
+        const inputMatches = snippet.match(
+          /<input[^>]*placeholder=["']([^"']+)["']/gi
+        );
+        const imageMatches = snippet.match(/<img[^>]*alt=["']([^"']+)["']/gi);
+        const sectionMatches = snippet.match(
+          /<section[^>]*id=["']([^"']+)["']/gi
+        );
+        const divMatches = snippet.match(
+          /<div[^>]*className=["']([^"']+)["']/gi
+        );
 
         const elements: string[] = [];
+
+        // IMPROVED: Extract more element types
         if (linkMatches) {
           linkMatches.forEach((match) => {
             const text = match.replace(/<[^>]+>/g, "").trim();
-            if (text) elements.push(`länken "${text}"`);
+            if (text && text.length > 0 && text.length < 50) {
+              elements.push(`länken "${text}"`);
+            }
           });
         }
         if (buttonMatches) {
           buttonMatches.forEach((match) => {
             const text = match.replace(/<[^>]+>/g, "").trim();
-            if (text) elements.push(`knappen "${text}"`);
+            if (text && text.length > 0 && text.length < 50) {
+              elements.push(`knappen "${text}"`);
+            }
           });
         }
         if (headingMatches) {
           headingMatches.forEach((match) => {
             const text = match.replace(/<[^>]+>/g, "").trim();
-            if (text) elements.push(`rubriken "${text}"`);
+            if (text && text.length > 0 && text.length < 50) {
+              elements.push(`rubriken "${text}"`);
+            }
           });
         }
-
-        // If no specific elements found, describe the file location
-        if (elements.length === 0) {
-          const fileName = file.name.split("/").pop() || file.name;
-          elements.push(`element i ${fileName}`);
+        if (inputMatches) {
+          inputMatches.forEach((match) => {
+            const placeholder = match.match(
+              /placeholder=["']([^"']+)["']/
+            )?.[1];
+            if (placeholder) {
+              elements.push(`fältet "${placeholder}"`);
+            }
+          });
+        }
+        if (imageMatches) {
+          imageMatches.forEach((match) => {
+            const alt = match.match(/alt=["']([^"']+)["']/)?.[1];
+            if (alt) {
+              elements.push(`bilden "${alt}"`);
+            }
+          });
+        }
+        if (sectionMatches) {
+          sectionMatches.forEach((match) => {
+            const id = match.match(/id=["']([^"']+)["']/)?.[1];
+            if (id) {
+              elements.push(`sektionen "${id}"`);
+            }
+          });
+        }
+        if (divMatches && elements.length === 0) {
+          // Use className as fallback if no other elements found
+          const className = divMatches[0]?.match(
+            /className=["']([^"']+)["']/
+          )?.[1];
+          if (className) {
+            const classParts = className
+              .split(/\s+/)
+              .filter((c) => c.length > 3);
+            if (classParts.length > 0) {
+              elements.push(`element med klassen "${classParts[0]}"`);
+            }
+          }
         }
 
-        return `${index + 1}. ${elements.join(", ")} (${file.name})`;
+        // IMPROVED: Better file location description
+        if (elements.length === 0) {
+          const fileName = file.name.split("/").pop() || file.name;
+          // Try to infer component name from file name
+          const componentName = fileName
+            .replace(/\.(tsx|ts|jsx|js)$/, "")
+            .replace(/[^a-zA-Z0-9]/g, " ");
+          if (componentName && componentName.length > 2) {
+            elements.push(`element i ${componentName}`);
+          } else {
+            elements.push(`element i ${fileName}`);
+          }
+        }
+
+        // IMPROVED: Include relevance score if available
+        const relevanceNote = file.relevance
+          ? ` (relevans: ${file.relevance})`
+          : "";
+        return `${index + 1}. ${elements.join(", ")} (${
+          file.name
+        })${relevanceNote}`;
       })
       .join("\n");
 
-    // Use AI to generate a natural question
+    // IMPROVED: Use AI to generate a more natural, specific question
     const response = await client.responses.create({
       model: "gpt-4o-mini",
       instructions: `Du är en hjälpsam assistent. Användaren skrev en vag prompt och vi hittade flera matchande element i koden. 
 Generera en naturlig, vänlig fråga på svenska som hjälper användaren att välja vilket element de menar.
+
+VIKTIGT:
+- Var SPECIFIK - nämn filnamn och elementnamn när möjligt
+- Lista ALLA alternativ (max 5) om det finns flera matchningar
+- Använd användarens ursprungliga ord från prompten när möjligt
+- Var KORT och TYDLIG - max 2 meningar
+- Om det finns många alternativ, gruppera dem logiskt (t.ex. "länkar i headern", "knappar i footern")
 
 ANVÄNDARENS PROMPT: "${userPrompt}"
 
@@ -384,7 +483,7 @@ HITTADE ELEMENT:
 ${elementsSummary}
 
 Generera en kort, tydlig fråga som listar alternativen. Exempel:
-"Jag hittade flera länkar. Menar du länken 'Products' i headern, länken 'Contact' i footern, eller länken 'About' i sidebar?"
+"Jag hittade flera länkar. Menar du länken 'Products' i headern (Header.tsx), länken 'Contact' i footern (Footer.tsx), eller länken 'About' i sidebar (Sidebar.tsx)?"
 
 Svara ENDAST med frågan, inget annat.`,
       input: "Generera clarify-fråga",
@@ -490,9 +589,17 @@ export interface OrchestratorResult {
 /**
  * Orchestrate a workflow based on user prompt
  *
- * SMART 2.0: Uses Semantic Router for better intent detection,
- * Code Crawler for context enrichment, and Prompt Enricher
- * for better v0 instructions.
+ * UNIVERSAL GATEKEEPER (v5.0): All prompts go through this pipeline before reaching v0 API.
+ *
+ * Features:
+ * - Pre-validation support (can be called from frontend)
+ * - Semantic Router with fast-path and confidence thresholds
+ * - Code Crawler for context enrichment (non-AI)
+ * - Semantic Enhancer for prompt improvement
+ * - Prompt Enricher with contextual instructions
+ * - Smart Clarify for specific questions based on code context
+ * - Auto-Repair for known v0 issues
+ * - Guards to prevent clarify intent from reaching v0
  */
 export async function orchestrateWorkflow(
   userPrompt: string,
@@ -1218,6 +1325,24 @@ export async function orchestrateWorkflow(
     // Uses Prompt Enricher to build rich context for v0
     // ═══════════════════════════════════════════════════════════════════════
 
+    // CRITICAL GUARD: clarify intent should NEVER reach v0
+    //
+    // This is a defensive guard. Clarify should be handled earlier in the pipeline,
+    // but we check here as a safety measure to prevent any clarify intent from reaching v0 API.
+    // Pre-validering på frontend och Smart Clarify-logik bör ha hanterat detta redan.
+    if (routerResult.intent === "clarify") {
+      console.error(
+        "[Orchestrator] ⚠️ CRITICAL: clarify intent should never reach v0!"
+      );
+      return {
+        success: false,
+        message: "Internal error: clarify intent reached v0",
+        intent: "clarify" as UserIntent,
+        clarifyQuestion: routerResult.clarifyQuestion,
+        workflowSteps,
+      };
+    }
+
     // Only call v0 if intent involves code changes
     if (
       intent === "code_only" ||
@@ -1374,15 +1499,23 @@ Bilderna kommer INTE visas i preview. Lägg till placeholder-bilder tills vidare
         v0Result = await generateCode(codeInstruction, context.quality);
       }
 
-      // Auto-repair: Detect and fix a known v0 preview-breaker for Three.js
-      // (imports from "three/examples" are invalid and cause esm.v0.app to return text/plain).
-      if (hasBrokenThreeExamplesImport(v0Result.files) && v0Result.chatId) {
-        console.warn(
-          "[Orchestrator] Detected broken Three.js import 'three/examples' in v0 output. Running auto-repair refine..."
-        );
-        workflowSteps.push("Reparerar Three.js-importer (preview-fix)");
+      // ═══════════════════════════════════════════════════════════════════════
+      // AUTO-REPAIR: Detect and fix known v0 preview-breakers
+      // ═══════════════════════════════════════════════════════════════════════
+      //
+      // IMPROVED (v5.0): Extended list of known problems and better repair logic
+      // Detekterar och reparerar automatiskt:
+      // - Three.js imports (three/examples → three/examples/jsm/...)
+      // - Missing React imports (när hooks/JSX används utan import)
+      // - Placeholder images (ersätter med genererade URLs när tillgängligt)
+      if (v0Result.chatId && v0Result.files) {
+        const detectedIssues: string[] = [];
+        let repairInstruction = "";
 
-        const repairInstruction = `FIX PREVIEW-BREAKING THREE.JS IMPORTS (CRITICAL):
+        // Issue 1: Broken Three.js imports (most common)
+        if (hasBrokenThreeExamplesImport(v0Result.files)) {
+          detectedIssues.push("Three.js imports");
+          repairInstruction = `FIX PREVIEW-BREAKING THREE.JS IMPORTS (CRITICAL):
 
 The generated code contains one or more imports from "three/examples" (without /jsm or /addons).
 This is NOT a valid module and breaks v0's preview (esm proxy returns text/plain / 404).
@@ -1403,24 +1536,89 @@ If GLTFLoader is used, import it from:
 If any other loader/control is used, import it from its correct "three/examples/jsm/..." path.
 
 After fixing, ensure there are no remaining "three/examples" bare imports anywhere.`;
+        }
 
-        const repaired = await refineCode(
-          v0Result.chatId,
-          v0Result.code || "",
-          repairInstruction,
-          context.quality
+        // Issue 2: Missing React imports (common in v0-generated code)
+        const hasReactUsage = v0Result.files.some(
+          (file) =>
+            file.content.includes("useState") ||
+            file.content.includes("useEffect") ||
+            file.content.includes("React.FC") ||
+            file.content.includes("<div>")
+        );
+        const hasReactImport = v0Result.files.some(
+          (file) =>
+            file.content.includes("import React") ||
+            file.content.includes('from "react"') ||
+            file.content.includes("from 'react'")
         );
 
-        // If repair succeeded, replace result; otherwise return original and let user know via steps.
-        if (repaired?.files && repaired.files.length > 0) {
-          v0Result = repaired;
-        } else {
+        if (hasReactUsage && !hasReactImport) {
+          detectedIssues.push("Missing React imports");
+          if (repairInstruction) {
+            repairInstruction += "\n\n";
+          }
+          repairInstruction += `FIX MISSING REACT IMPORTS:
+
+The code uses React hooks (useState, useEffect) or JSX but is missing React imports.
+Please add the necessary imports at the top of each file that uses React:
+- If using hooks: import { useState, useEffect } from "react";
+- If using JSX: import React from "react"; (or ensure React is in scope)
+- Keep all existing functionality unchanged.`;
+        }
+
+        // Issue 3: Invalid image src (placeholder URLs that won't work)
+        const hasPlaceholderImages = v0Result.files.some(
+          (file) =>
+            file.content.includes("placeholder.com") ||
+            file.content.includes("via.placeholder.com") ||
+            file.content.includes("unsplash.com/random")
+        );
+
+        if (hasPlaceholderImages && generatedImages.length > 0) {
+          detectedIssues.push("Placeholder images instead of generated URLs");
+          if (repairInstruction) {
+            repairInstruction += "\n\n";
+          }
+          repairInstruction += `REPLACE PLACEHOLDER IMAGES WITH GENERATED URLs:
+
+The code uses placeholder image URLs (placeholder.com, unsplash.com/random) but we have generated images available.
+Please replace ALL placeholder image URLs with the actual generated image URLs provided in the prompt.
+Keep all other code unchanged.`;
+        }
+
+        // Run repair if any issues detected
+        if (detectedIssues.length > 0 && repairInstruction) {
           console.warn(
-            "[Orchestrator] Auto-repair refine did not return files; keeping original result."
+            `[Orchestrator] Detected ${
+              detectedIssues.length
+            } issue(s): ${detectedIssues.join(", ")}. Running auto-repair...`
           );
           workflowSteps.push(
-            "Kunde inte auto-reparera preview helt (prova att be om 'fixa three-importer')"
+            `Reparerar ${detectedIssues.join(", ")} (preview-fix)`
           );
+
+          const repaired = await refineCode(
+            v0Result.chatId,
+            v0Result.code || "",
+            repairInstruction,
+            context.quality
+          );
+
+          // If repair succeeded, replace result; otherwise return original and let user know via steps.
+          if (repaired?.files && repaired.files.length > 0) {
+            v0Result = repaired;
+            console.log("[Orchestrator] Auto-repair succeeded");
+          } else {
+            console.warn(
+              "[Orchestrator] Auto-repair refine did not return files; keeping original result."
+            );
+            workflowSteps.push(
+              `Kunde inte auto-reparera ${detectedIssues.join(
+                ", "
+              )} helt (prova att be om att fixa det manuellt)`
+            );
+          }
         }
       }
 
@@ -1860,6 +2058,25 @@ export async function orchestrateWorkflowStreaming(
     // ═══════════════════════════════════════════════════════════════════════
     // STEP 5: EXECUTE WORKFLOW (delegera till huvudfunktionen)
     // ═══════════════════════════════════════════════════════════════════════
+
+    // CRITICAL GUARD: clarify intent should NEVER reach v0
+    //
+    // This is a defensive guard. Clarify should be handled earlier in the pipeline,
+    // but we check here as a safety measure to prevent any clarify intent from reaching v0 API.
+    // Pre-validering på frontend och Smart Clarify-logik bör ha hanterat detta redan.
+    if (routerResult.intent === "clarify") {
+      console.error(
+        "[Orchestrator] ⚠️ CRITICAL: clarify intent should never reach v0!"
+      );
+      return {
+        success: false,
+        message: "Internal error: clarify intent reached v0",
+        intent: "clarify" as UserIntent,
+        clarifyQuestion: routerResult.clarifyQuestion,
+        workflowSteps,
+      };
+    }
+
     onProgress?.("Genererar kod...", 4, 5);
     onThinking?.("Skickar till v0 för kodgenerering...");
 

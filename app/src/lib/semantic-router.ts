@@ -71,6 +71,10 @@ const VALID_INTENTS: SemanticIntent[] = [
 // Model for routing - must be cheap and fast
 const ROUTER_MODEL = "gpt-4o-mini";
 
+// Confidence thresholds
+const MIN_CONFIDENCE_FOR_INTENT = 0.6; // Below this, fall back to clarify
+const HIGH_CONFIDENCE_THRESHOLD = 0.85; // Above this, very confident
+
 // ============================================================================
 // MAIN ROUTER FUNCTION
 // ============================================================================
@@ -87,6 +91,14 @@ export async function routePrompt(
   hasExistingCode: boolean = true
 ): Promise<RouterResult> {
   console.log("[SemanticRouter] Routing prompt:", prompt.substring(0, 100));
+
+  // FAST-PATH: Skip routing for very simple, clear prompts
+  // This saves ~2-5 seconds and API costs for obvious cases
+  const fastPathResult = checkFastPath(prompt, hasExistingCode);
+  if (fastPathResult) {
+    console.log("[SemanticRouter] Fast-path detected, skipping AI routing");
+    return fastPathResult;
+  }
 
   // System prompt for intent classification
   const systemPrompt = `You are a semantic intent-router for an AI website builder.
@@ -124,6 +136,12 @@ AVAILABLE INTENTS:
 7. "clarify" - Unclear what user wants
    Examples: "yes", "ok", "hmm", "change the link" (multiple links exist)
    If prompt references code elements but is vague, set needsCodeContext=true
+   IMPORTANT: Generate SPECIFIC questions based on the prompt context.
+   - If prompt mentions design → ask about colors, layout, style
+   - If prompt mentions content → ask about text, images, sections
+   - If prompt mentions functionality → ask about features, interactions
+   - If prompt is too short → ask what type of website/page they want
+   NEVER use generic questions like "Kan du förtydliga?" - be specific!
 
 8. "chat_response" - User asks a question, wants an answer
    Examples: "what is Next.js?", "how does routing work?"
@@ -179,14 +197,27 @@ Respond with EXACT JSON (no markdown):
     const parsed = JSON.parse(responseText);
 
     // Validate intent
-    const intent: SemanticIntent = VALID_INTENTS.includes(parsed.intent)
+    let intent: SemanticIntent = VALID_INTENTS.includes(parsed.intent)
       ? parsed.intent
       : "clarify";
 
+    const confidence =
+      typeof parsed.confidence === "number" ? parsed.confidence : 0.5;
+
+    // CONFIDENCE THRESHOLD: If confidence is too low, fall back to clarify
+    // This prevents low-confidence misclassifications
+    if (confidence < MIN_CONFIDENCE_FOR_INTENT && intent !== "clarify") {
+      console.warn(
+        `[SemanticRouter] Low confidence (${confidence.toFixed(
+          2
+        )}) for intent "${intent}", falling back to clarify`
+      );
+      intent = "clarify";
+    }
+
     const routerResult: RouterResult = {
       intent,
-      confidence:
-        typeof parsed.confidence === "number" ? parsed.confidence : 0.5,
+      confidence,
       needsCodeContext: Boolean(parsed.needsCodeContext),
       contextHints: Array.isArray(parsed.contextHints)
         ? parsed.contextHints
@@ -198,6 +229,15 @@ Respond with EXACT JSON (no markdown):
       chatResponse: parsed.chatResponse || undefined,
       reasoning: parsed.reasoning || "Ingen förklaring",
     };
+
+    // Improve clarify questions if confidence is low or question is generic
+    if (intent === "clarify" && routerResult.clarifyQuestion) {
+      routerResult.clarifyQuestion = improveClarifyQuestion(
+        prompt,
+        routerResult.clarifyQuestion,
+        hasExistingCode
+      );
+    }
 
     // Compact one-liner log
     console.log(
@@ -315,4 +355,127 @@ export function shouldRoute(prompt: string): boolean {
 
   // Default: Simple prompts can go directly to v0
   return false;
+}
+
+// ============================================================================
+// FAST-PATH: Skip AI routing for obvious cases
+// ============================================================================
+
+/**
+ * Check if prompt can skip AI routing (fast-path).
+ * Returns RouterResult if fast-path applies, null otherwise.
+ *
+ * Fast-path applies to:
+ * - Very clear, simple code changes ("gör X blå", "ändra Y till Z")
+ * - Obvious new page requests ("skapa sida om X")
+ */
+function checkFastPath(
+  prompt: string,
+  hasExistingCode: boolean
+): RouterResult | null {
+  const lower = prompt.toLowerCase().trim();
+
+  // Too short or vague - needs routing
+  if (prompt.length < 10) {
+    return null;
+  }
+
+  // Very clear, simple styling changes (fast-path)
+  const simpleStylePatterns = [
+    /^gör (.+) (blå|röd|grön|gul|svart|vit|grå|rosa|lila|orange)$/i,
+    /^ändra (.+) till (.+)$/i,
+    /^sätt (.+) till (.+)$/i,
+    /^gör (.+) större$/i,
+    /^gör (.+) mindre$/i,
+    /^lägg till (.+) i (.+)$/i,
+  ];
+
+  for (const pattern of simpleStylePatterns) {
+    if (pattern.test(prompt)) {
+      return {
+        intent: hasExistingCode ? "simple_code" : "simple_code",
+        confidence: 0.9,
+        needsCodeContext: false,
+        contextHints: [],
+        codeInstruction: prompt,
+        reasoning: "Fast-path: Tydlig stiländring",
+      };
+    }
+  }
+
+  // Very clear new page requests (fast-path)
+  const newPagePatterns = [
+    /^skapa (en )?sida (om|för) (.+)$/i,
+    /^bygg (en )?sida (om|för) (.+)$/i,
+    /^gör (en )?sida (om|för) (.+)$/i,
+  ];
+
+  for (const pattern of newPagePatterns) {
+    if (pattern.test(prompt)) {
+      return {
+        intent: "simple_code",
+        confidence: 0.9,
+        needsCodeContext: false,
+        contextHints: [],
+        codeInstruction: prompt,
+        reasoning: "Fast-path: Tydlig begäran om ny sida",
+      };
+    }
+  }
+
+  // No fast-path match
+  return null;
+}
+
+// ============================================================================
+// IMPROVE CLARIFY QUESTIONS
+// ============================================================================
+
+/**
+ * Improve generic clarify questions to be more specific based on prompt context.
+ */
+function improveClarifyQuestion(
+  prompt: string,
+  originalQuestion: string,
+  hasExistingCode: boolean
+): string {
+  const lower = prompt.toLowerCase();
+
+  // If question is too generic, make it more specific
+  if (
+    originalQuestion.includes("förtydliga") ||
+    originalQuestion.includes("mer information") ||
+    originalQuestion.length < 30
+  ) {
+    // Generate specific question based on prompt content
+    if (lower.includes("färg") || lower.includes("color")) {
+      return "Vilken färg vill du ha? (t.ex. blå, röd, eller en specifik hex-kod)";
+    }
+
+    if (lower.includes("layout") || lower.includes("design")) {
+      return "Hur vill du att layouten ska se ut? (t.ex. en kolumn, två kolumner, eller en specifik struktur)";
+    }
+
+    if (lower.includes("sida") || lower.includes("page")) {
+      return "Vad ska sidan innehålla? (t.ex. text, bilder, formulär, eller specifika sektioner)";
+    }
+
+    if (lower.includes("funktion") || lower.includes("feature")) {
+      return "Vilken funktionalitet vill du ha? (t.ex. knappar, formulär, interaktiva element)";
+    }
+
+    if (lower.includes("bild") || lower.includes("image")) {
+      return "Vad ska bilden visa? (t.ex. landskap, produkt, person, eller en specifik beskrivning)";
+    }
+
+    if (prompt.length < 20) {
+      return "Vad vill du skapa eller ändra? Ge mig lite mer detaljer så kan jag hjälpa dig bättre.";
+    }
+
+    // Default: More specific than generic
+    return "Kan du ge mig mer detaljer om vad du vill ha? (t.ex. färger, layout, innehåll, eller funktionalitet)";
+  }
+
+  // Question is already specific enough
+  return originalQuestion;
 }
