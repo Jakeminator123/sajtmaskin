@@ -11,10 +11,11 @@ Så läser du
 
 Prioritet
 ---------
-1. quick-reference.txt — snabböversikt och vanliga mönster
-2. overview.txt — server/struktur
-3. error-playbook.txt — felrapportering/loggning
-4. local/*.txt — projekt-/team-specifika anteckningar
+1. WHEN-TO-USE-MCP.md — När och hur du ska använda MCP-servern (LÄS FÖRST!)
+2. quick-reference.txt — snabböversikt och vanliga mönster
+3. overview.txt — server/struktur
+4. error-playbook.txt — felrapportering/loggning
+5. local/*.txt — projekt-/team-specifika anteckningar
 
 Lägga till eller flytta docs
 ----------------------------

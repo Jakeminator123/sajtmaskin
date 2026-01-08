@@ -61,10 +61,15 @@ AVAILABLE RESOURCES (docs://local/{name})
 All .txt and .json files in this folder are exposed as MCP resources.
 
 Current documentation:
-- overview          : This file - MCP server overview
-- docs-index        : Complete documentation map
-- quick-reference   : Common APIs and patterns
-- error-playbook    : How to report and track errors
+- START-HERE.md          : Quick start guide (READ THIS FIRST!)
+- WHEN-TO-USE-MCP.md     : When and how to use MCP server
+- HOW-TO-UPDATE-DOCS.md  : How to download and update documentation
+- QUICK-UPDATE-AI-SDK.md : Quick guide to update AI SDK docs
+- EXAMPLES.md            : Practical examples for different scenarios
+- overview               : This file - MCP server overview
+- docs-index             : Complete documentation map
+- quick-reference        : Common APIs and patterns
+- error-playbook         : How to report and track errors
 
 SCRAPED DOCUMENTATION
 ---------------------
@@ -86,17 +91,25 @@ The following folders contain scraped external documentation:
 
 UPDATING DOCUMENTATION
 ----------------------
-To update scraped documentation, run:
+See HOW-TO-UPDATE-DOCS.md for detailed instructions.
 
+Quick commands:
   cd services/mpc/docs
-  python doc.py --auto "https://platform.openai.com/docs"
-  python doc.py --auto "https://ai-sdk.dev/docs"
-  python doc.py --auto "https://v0.dev/docs"
+  python doc.py --auto "https://ai-sdk.dev/docs"      # Update AI SDK docs
+  python doc.py --auto "https://platform.openai.com/docs"  # Update OpenAI docs
+  python doc.py --auto "https://v0.dev/docs"          # Update v0 docs
 
 Flags:
   --auto  : Non-interactive mode (no prompts)
   --all   : Download all pages as separate files
   --start : Only download the start page
+
+SEARCHING SPECIFIC SOURCES
+---------------------------
+To search ONLY in ai-sdk documentation, use source parameter:
+  "Använd search_docs med source 'ai-sdk' för att söka efter 'streamText'"
+
+Available sources: "ai-sdk", "openai", "vercel", "v0", "local", "all"
 
 LOG ROTATION
 ------------
@@ -108,3 +121,18 @@ FOR AGENTS
 Start by reading quick-reference.txt for common patterns.
 Use search_docs to find specific API documentation.
 Use get_doc to read full files when needed.
+
+WHEN TO USE MCP SERVER
+----------------------
+Read WHEN-TO-USE-MCP.md for explicit guidance on when and how to use
+the MCP server. This file contains practical examples and clear instructions.
+
+Quick decision guide:
+- Need to search documentation? → Use search_docs
+- Know which file to read? → Use get_doc
+- Want to see available sources? → Use list_doc_sources
+- Need to log an error? → Use report_error
+- Want to see past errors? → Use list_errors
+
+Always be explicit: Say "Use MCP server's search_docs tool" instead of
+just asking for information. This ensures the agent knows to use MCP.

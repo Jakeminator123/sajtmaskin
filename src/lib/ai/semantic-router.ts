@@ -2,6 +2,23 @@
  * Semantic Router (AI SDK 6)
  * ==========================
  *
+ * ╔════════════════════════════════════════════════════════════════════════════╗
+ * ║  DEL AV DITT EGNA ORKESTRATORSYSTEM                                        ║
+ * ║                                                                            ║
+ * ║  Denna fil är en CENTRAL del av ditt hemmabyggda prompt-behandlingssystem. ║
+ * ║  Den använder AI SDK som VERKTYG för att anropa OpenAI, men ALL LOGIK      ║
+ * ║  (intent-typer, klassificering, hints) är DIN EGEN KOD.                    ║
+ * ║                                                                            ║
+ * ║  TEKNISK INFO:                                                             ║
+ * ║  - Använder: AI SDK (paketet 'ai') - open-source, fungerar utan Vercel     ║
+ * ║  - Anropar: OpenAI API direkt via din OPENAI_API_KEY                       ║
+ * ║  - Modell: gpt-4o-mini (~$0.15/1M tokens)                                  ║
+ * ║                                                                            ║
+ * ║  AI SDK är INTE samma sak som Vercel AI Gateway!                           ║
+ * ║  - AI SDK = bibliotek för att anropa AI-modeller (open-source)             ║
+ * ║  - AI Gateway = Vercel-tjänst för att aggregera providers (kräver konto)   ║
+ * ╚════════════════════════════════════════════════════════════════════════════╝
+ *
  * Smart intent-klassificering som analyserar ALLA prompts semantiskt.
  * Använder gpt-4o-mini (billig: ~$0.15/1M tokens) för att förstå
  * vad användaren VERKLIGEN vill göra.

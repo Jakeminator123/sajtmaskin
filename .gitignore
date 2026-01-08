@@ -37,6 +37,10 @@ services/mpc/logs/
 .DS_Store
 Thumbs.db
 
+# Cursor-specific (plans are session-specific, mcp.json is shared)
+.cursor/plans/
+.cursor/rules/
+
 # Logs
 *.log
 npm-debug.log*

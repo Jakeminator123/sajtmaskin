@@ -77,16 +77,6 @@ export const AI_SDK_FEATURES: Record<string, Omit<AIFeature, "enabled">> = {
       "https://sdk.vercel.ai/docs/ai-sdk-core/generating-structured-data",
   },
 
-  mcpTools: {
-    id: "mcpTools",
-    name: "MCP Tools Integration",
-    description:
-      "Aktiverar dokumentationssökning och error logging via MCP-servern.",
-    category: "tools",
-    status: "beta",
-    docsUrl: "https://sdk.vercel.ai/docs/ai-sdk-core/mcp",
-  },
-
   // ─────────────────────────────────────────────────────────────────────────
   // DEBUG & OPTIMIZATION
   // ─────────────────────────────────────────────────────────────────────────

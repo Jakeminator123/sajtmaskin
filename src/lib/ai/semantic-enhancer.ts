@@ -2,6 +2,16 @@
  * Semantic Enhancer
  * =================
  *
+ * ╔════════════════════════════════════════════════════════════════════════════╗
+ * ║  DEL AV DITT EGNA ORKESTRATORSYSTEM                                        ║
+ * ║                                                                            ║
+ * ║  Använder: AI SDK (paketet 'ai') - open-source, fungerar utan Vercel       ║
+ * ║  Anropar: OpenAI API direkt via din OPENAI_API_KEY                         ║
+ * ║  Modell: gpt-4o-mini                                                       ║
+ * ║                                                                            ║
+ * ║  AI SDK ≠ Vercel AI Gateway (helt olika saker!)                            ║
+ * ╚════════════════════════════════════════════════════════════════════════════╝
+ *
  * Förbättrar användarens prompt semantiskt baserat på:
  * - Kodkontext från Code Crawler
  * - Intent från Semantic Router

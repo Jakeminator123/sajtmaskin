@@ -2,26 +2,39 @@
  * AI Gateway Provider
  * ===================
  *
+ * ╔════════════════════════════════════════════════════════════════════════════╗
+ * ║  STATUS: INTE AKTIVT ANVÄND (januari 2026)                                 ║
+ * ║                                                                            ║
+ * ║  Denna fil är FÖRBEREDD för framtida användning av Vercel AI Gateway,      ║
+ * ║  men används INTE i det nuvarande orkestratorsystemet.                     ║
+ * ║                                                                            ║
+ * ║  NUVARANDE SYSTEM ANVÄNDER:                                                ║
+ * ║  - semantic-router.ts      → AI SDK (generateText) + din OPENAI_API_KEY    ║
+ * ║  - semantic-enhancer.ts    → AI SDK (generateText) + din OPENAI_API_KEY    ║
+ * ║  - creative-brief-enhancer → AI SDK (generateText) + din OPENAI_API_KEY    ║
+ * ║  - orchestrator-agent.ts   → OpenAI SDK direkt + din OPENAI_API_KEY        ║
+ * ║  - v0-generator.ts         → v0 SDK + din V0_API_KEY                       ║
+ * ║                                                                            ║
+ * ║  VIKTIGT ATT FÖRSTÅ:                                                       ║
+ * ║  - "AI SDK" (paketet 'ai') är ett OPEN-SOURCE bibliotek                    ║
+ * ║  - Det fungerar UTAN Vercel-konto, UTAN AI Gateway                         ║
+ * ║  - Det är bara ett bekvämt sätt att anropa OpenAI/Anthropic/etc.           ║
+ * ║                                                                            ║
+ * ║  - "AI Gateway" är en SEPARAT Vercel-tjänst (kräver AI_GATEWAY_API_KEY)    ║
+ * ║  - Den ger tillgång till flera AI-providers via ETT API                    ║
+ * ║  - Du behöver den INTE för att använda AI SDK!                             ║
+ * ║                                                                            ║
+ * ║  FRAMTIDA ANVÄNDNING:                                                      ║
+ * ║  Om du vill använda AI Gateway i produktion på Vercel, aktivera denna fil  ║
+ * ║  och sätt AI_GATEWAY_API_KEY i dina miljövariabler.                        ║
+ * ╚════════════════════════════════════════════════════════════════════════════╝
+ *
  * Provides a unified interface for AI model access that can use either:
- * 1. Vercel AI Gateway (with AI_GATEWAY_API_KEY)
- * 2. Direct OpenAI API (with OPENAI_API_KEY)
+ * 1. Vercel AI Gateway (with AI_GATEWAY_API_KEY) - INTE AKTIVT
+ * 2. Direct OpenAI API (with OPENAI_API_KEY) - FALLBACK (men ej använd)
  *
  * The gateway is OPTIONAL - if not configured, falls back to direct OpenAI.
  * Users can configure their own API keys via the settings modal.
- *
- * USAGE:
- * ```typescript
- * import { getAIProvider, streamTextWithProvider } from "@/lib/ai/ai-gateway";
- *
- * // Get the appropriate provider
- * const provider = await getAIProvider(userId);
- *
- * // Use with AI SDK
- * const result = await streamTextWithProvider(provider, {
- *   model: "gpt-4o-mini",
- *   prompt: "Hello!",
- * });
- * ```
  */
 
 import { openai as openaiProvider } from "@ai-sdk/openai";

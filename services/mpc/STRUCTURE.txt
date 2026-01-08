@@ -11,9 +11,14 @@ services/mpc/
 ├── STRUCTURE.txt      ← Denna fil
 │
 ├── docs/              ← LÄGG DOKUMENTATION HÄR
-│   ├── overview.txt       Översikt över servern
-│   ├── error-playbook.txt Hur man rapporterar fel
-│   └── [dina-filer.txt]   Lägg till fler .txt eller .json
+│   ├── START-HERE.md         ← BÖRJA HÄR! Snabbguide
+│   ├── WHEN-TO-USE-MCP.md    ← När och hur du ska använda MCP
+│   ├── EXAMPLES.md           ← Praktiska exempel
+│   ├── overview.txt          Översikt över servern
+│   ├── quick-reference.txt   Vanliga API:er och mönster
+│   ├── error-playbook.txt    Hur man rapporterar fel
+│   ├── docs-index.txt        Dokumentationskarta
+│   └── [dina-filer.txt]      Lägg till fler .txt eller .json
 │
 └── logs/              ← LOGGAR SPARAS HÄR (skapas automatiskt)
     └── error-log.jsonl    Alla felrapporter (max 500 rader, roteras)

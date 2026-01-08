@@ -2,23 +2,61 @@
  * Orchestrator Agent
  * ==================
  *
+ * ╔════════════════════════════════════════════════════════════════════════════╗
+ * ║  DITT EGNA ORKESTRATORSYSTEM - HJÄRTAT I SAJTMASKIN                        ║
+ * ║                                                                            ║
+ * ║  Detta är DITT HEMMABYGGDA SYSTEM för prompt-behandling.                   ║
+ * ║  Det är INTE en del av AI SDK, Vercel, eller v0.                           ║
+ * ║  ALL LOGIK här är kod DU har skapat/designat.                              ║
+ * ║                                                                            ║
+ * ║  ┌─────────────────────────────────────────────────────────────────────┐   ║
+ * ║  │                     ARKITEKTURÖVERSIKT                              │   ║
+ * ║  ├─────────────────────────────────────────────────────────────────────┤   ║
+ * ║  │  Användarprompt                                                     │   ║
+ * ║  │       ↓                                                             │   ║
+ * ║  │  [Semantic Router] ──── AI SDK + OpenAI (din nyckel)                │   ║
+ * ║  │       ↓                                                             │   ║
+ * ║  │  [Code Crawler] ─────── INGEN AI (lokal filsökning)                 │   ║
+ * ║  │       ↓                                                             │   ║
+ * ║  │  [Semantic Enhancer] ── AI SDK + OpenAI (din nyckel)                │   ║
+ * ║  │       ↓                                                             │   ║
+ * ║  │  [Prompt Enricher] ──── INGEN AI (textformatering)                  │   ║
+ * ║  │       ↓                                                             │   ║
+ * ║  │  [v0 API] ───────────── v0 SDK (din V0_API_KEY)                     │   ║
+ * ║  │       ↓                                                             │   ║
+ * ║  │  Genererad kod + demoUrl                                            │   ║
+ * ║  └─────────────────────────────────────────────────────────────────────┘   ║
+ * ║                                                                            ║
+ * ║  VERKTYG SOM ANVÄNDS (men som INTE är ditt system):                        ║
+ * ║  - AI SDK ('ai' paketet) - open-source, anropar OpenAI                     ║
+ * ║  - OpenAI SDK ('openai') - för web search, bildgenerering                  ║
+ * ║  - v0 SDK ('v0-sdk') - för kodgenerering                                   ║
+ * ║                                                                            ║
+ * ║  API-NYCKLAR SOM KRÄVS:                                                    ║
+ * ║  - OPENAI_API_KEY - din privata nyckel för prompt-behandling               ║
+ * ║  - V0_API_KEY - din privata nyckel för kodgenerering                       ║
+ * ║                                                                            ║
+ * ║  INGET AV DETTA GÅR VIA VERCEL AI GATEWAY!                                 ║
+ * ║  Allt går DIREKT till respektive API (api.openai.com, api.v0.dev)          ║
+ * ╚════════════════════════════════════════════════════════════════════════════╝
+ *
  * Koordinerar prompt-behandling innan v0 API anropas.
  * Syfte: Förbättra användarens (ofta dåliga) prompts till något v0 kan förstå.
  *
  * FLÖDE:
  * ──────
- * 1. Semantic Router   → Klassificerar intent (GPT-4o-mini)
+ * 1. Semantic Router   → Klassificerar intent (GPT-4o-mini via AI SDK)
  * 2. Code Crawler      → Hittar relevant kod (INGEN AI)
- * 3. Semantic Enhancer → Förbättrar prompten (GPT-4o-mini)
+ * 3. Semantic Enhancer → Förbättrar prompten (GPT-4o-mini via AI SDK)
  * 4. Prompt Enricher   → Formaterar för v0 (INGEN AI)
- * 5. v0 API            → Genererar kod
+ * 5. v0 API            → Genererar kod (v0 SDK)
  *
  * INTENTS:
  * ────────
  * - simple_code      : Enkla ändringar → direkt till v0
  * - needs_code_context: Refererar element → Code Crawler först
- * - image_gen        : Bildgenerering → OpenAI (INTE v0!)
- * - image_and_code   : Bild + kod → OpenAI + v0
+ * - image_gen        : Bildgenerering → OpenAI SDK (INTE v0!)
+ * - image_and_code   : Bild + kod → OpenAI SDK + v0
  * - web_search       : Webbsökning → OpenAI Responses API
  * - web_and_code     : Sök + kod → Web search + v0
  * - clarify          : Otydligt → Ställ fråga (ALDRIG v0!)

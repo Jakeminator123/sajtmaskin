@@ -2,6 +2,16 @@
  * Creative Brief Enhancer
  * =======================
  *
+ * ╔════════════════════════════════════════════════════════════════════════════╗
+ * ║  DEL AV DITT EGNA ORKESTRATORSYSTEM                                        ║
+ * ║                                                                            ║
+ * ║  Använder: AI SDK (paketet 'ai') - open-source, fungerar utan Vercel       ║
+ * ║  Anropar: OpenAI API direkt via din OPENAI_API_KEY                         ║
+ * ║  Modell: gpt-4o-mini (snabb) eller gpt-4o (bäst)                           ║
+ * ║                                                                            ║
+ * ║  AI SDK ≠ Vercel AI Gateway (helt olika saker!)                            ║
+ * ╚════════════════════════════════════════════════════════════════════════════╝
+ *
  * ═══════════════════════════════════════════════════════════════
  * WHEN TO USE THIS MODULE:
  * ═══════════════════════════════════════════════════════════════
