@@ -262,6 +262,10 @@ Respond with EXACT JSON (no markdown):
       ? (parsedIntent as SemanticIntent)
       : "clarify";
 
+    // Helper to safely extract string fields
+    const toStringOrUndefined = (val: unknown): string | undefined =>
+      typeof val === "string" && val.length > 0 ? val : undefined;
+
     const routerResult: RouterResult = {
       intent,
       confidence:
@@ -270,12 +274,12 @@ Respond with EXACT JSON (no markdown):
       contextHints: Array.isArray(parsed.contextHints)
         ? parsed.contextHints
         : [],
-      searchQuery: parsed.searchQuery || undefined,
-      imagePrompt: parsed.imagePrompt || undefined,
-      codeInstruction: parsed.codeInstruction || undefined,
-      clarifyQuestion: parsed.clarifyQuestion || undefined,
-      chatResponse: parsed.chatResponse || undefined,
-      reasoning: parsed.reasoning || "Ingen förklaring",
+      searchQuery: toStringOrUndefined(parsed.searchQuery),
+      imagePrompt: toStringOrUndefined(parsed.imagePrompt),
+      codeInstruction: toStringOrUndefined(parsed.codeInstruction),
+      clarifyQuestion: toStringOrUndefined(parsed.clarifyQuestion),
+      chatResponse: toStringOrUndefined(parsed.chatResponse),
+      reasoning: toStringOrUndefined(parsed.reasoning) || "Ingen förklaring",
     };
 
     // Compact one-liner log
