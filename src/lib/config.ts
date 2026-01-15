@@ -10,6 +10,22 @@ export const IS_PRODUCTION = process.env.NODE_ENV === "production";
 export const IS_RENDER = Boolean(process.env.RENDER);
 
 /**
+ * Render (and some CI systems) occasionally end up with quoted env values,
+ * e.g. `"sk-..."` or `'sk-...'`, or trailing whitespace. Normalize those.
+ */
+function sanitizeEnvValue(value: string | undefined): string {
+  if (!value) return "";
+  const trimmed = value.trim();
+  if (
+    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+    (trimmed.startsWith("'") && trimmed.endsWith("'"))
+  ) {
+    return trimmed.slice(1, -1).trim();
+  }
+  return trimmed;
+}
+
+/**
  * Data directory configuration
  * - Production (Render): /var/data (persistent disk) - MUST be set via DATA_DIR env var
  * - Local development: ./data (relative to app root)
@@ -113,15 +129,15 @@ export const SECRETS = {
   },
 
   get openaiApiKey() {
-    const key = process.env.OPENAI_API_KEY;
+    const key = sanitizeEnvValue(process.env.OPENAI_API_KEY);
     if (!key && IS_PRODUCTION) {
       console.error("[Config] OPENAI_API_KEY is required");
     }
-    return key || "";
+    return key;
   },
 
   get v0ApiKey() {
-    return process.env.V0_API_KEY || "";
+    return sanitizeEnvValue(process.env.V0_API_KEY);
   },
 
   get vercelApiToken() {

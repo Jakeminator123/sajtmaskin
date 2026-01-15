@@ -49,20 +49,22 @@ import {
 import { debugLog, logFinalPrompt } from "@/lib/utils/debug";
 import { logV0 } from "@/lib/utils/file-logger";
 import { isAIFeatureEnabled } from "@/lib/ai/ai-sdk-features";
+import { SECRETS } from "@/lib/config";
 
 // Lazy-initialized v0 client (created at request time, not import time)
 let _v0Client: ReturnType<typeof createClient> | null = null;
 
 function getV0Client() {
   if (!_v0Client) {
-    if (!process.env.V0_API_KEY) {
+    const apiKey = SECRETS.v0ApiKey;
+    if (!apiKey) {
       throw new Error("V0_API_KEY environment variable is not set");
     }
     // Note: v0-sdk doesn't support timeout config
     // Long-running operations (5+ min) may timeout at HTTP level
     // maxDuration in route.ts is set to 600s to help
     _v0Client = createClient({
-      apiKey: process.env.V0_API_KEY,
+      apiKey,
     });
   }
   return _v0Client;

@@ -20,6 +20,7 @@ next-env.d.ts
 .env.*
 .env.local
 *.pem
+.env.production
 
 # Database files (local data, not for git)
 data/*.db
@@ -53,3 +54,14 @@ env.procuction
 env.local
 övrigt
 skrapning
+
+# Avoid accidentally committing a nested clone/repo
+sajtmaskin/
+
+# Large local docs/specs (keep out of git unless intentionally added)
+SiteStudio_Projektspecifikation_ifillningsbar_v2.pdf
+
+# Local env dumps (often contain secrets)
+environments.production
+
+SiteStudio_Projektspecifikation_ifillningsbar_v2.pdf

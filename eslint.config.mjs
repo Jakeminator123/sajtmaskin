@@ -23,6 +23,10 @@ const eslintConfig = [
       "next-env.d.ts",
       "**/*.tsbuildinfo",
       "node_modules/**/*",
+      // Prevent linting a nested clone/repo (can explode error counts)
+      "sajtmaskin/**/*",
+      // Local docs/specs
+      "SiteStudio_Projektspecifikation_ifillningsbar_v2.pdf",
     ],
   },
 

@@ -737,7 +737,7 @@ export async function POST(request: NextRequest) {
     // Provide user-friendly error messages
     let errorMessage = "Ett fel uppstod vid analysen. Försök igen senare.";
 
-    if (err.status === 401) {
+    if (err.status === 401 || err.message?.includes("OPENAI_API_KEY")) {
       errorMessage = "API-nyckel saknas eller är ogiltig.";
     } else if (err.status === 429) {
       errorMessage = "För många förfrågningar. Vänta en stund och försök igen.";
@@ -747,9 +747,27 @@ export async function POST(request: NextRequest) {
       errorMessage = "Kunde inte nå webbplatsen. Kontrollera URL:en.";
     }
 
+    // Prefer returning the upstream status when it makes sense, but avoid
+    // clashing with our own auth semantics (401 is reserved for user auth).
+    let statusCode = 500;
+    if (
+      typeof err.status === "number" &&
+      err.status >= 400 &&
+      err.status < 600 &&
+      err.status !== 401
+    ) {
+      statusCode = err.status;
+    }
+
     return NextResponse.json(
       { success: false, error: errorMessage },
-      { status: 500 }
+      {
+        status: statusCode,
+        headers: {
+          "X-Request-ID": requestId,
+          "X-Response-Time": `${totalDuration}ms`,
+        },
+      }
     );
   }
 }

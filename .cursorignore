@@ -45,5 +45,12 @@ INPUT_FOR_CURSOR
 info
 .preprompt_history.json
 /data/
+.git
 
 övrigt
+
+# Nested clone/repo in this workspace (avoid double-indexing)
+sajtmaskin/
+
+# Large local docs/specs
+SiteStudio_Projektspecifikation_ifillningsbar_v2.pdf
