@@ -11,6 +11,8 @@
 import OpenAI from "openai";
 import { getUserSettings } from "@/lib/data/database";
 import { debugLog } from "@/lib/utils/debug";
+import { SECRETS } from "@/lib/config";
+import { OPENAI_MODELS } from "@/lib/ai/openai-models";
 
 // ════════════════════════════════════════════════════════════════════════════
 // OPENAI CLIENT
@@ -32,7 +34,7 @@ export function getSearchClient(userId?: string): OpenAI {
     }
   }
 
-  const apiKey = process.env.OPENAI_API_KEY;
+  const apiKey = SECRETS.openaiApiKey;
   if (!apiKey) {
     throw new Error("OPENAI_API_KEY required for web search");
   }
@@ -66,7 +68,7 @@ export async function searchWeb(
 
   try {
     const response = await client.responses.create({
-      model: "gpt-4o-mini",
+      model: OPENAI_MODELS.webSearch,
       instructions:
         "Du är en webbdesign-expert. Baserat på web search-resultaten, ge en informativ sammanfattning på svenska om designtrender, färger, layouter etc. för den nämnda webbplatsen eller konceptet.",
       input: query,

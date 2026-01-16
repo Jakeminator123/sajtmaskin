@@ -75,5 +75,10 @@
   },
   "devDependencies": {
     "@modelcontextprotocol/sdk": "^1.25.1"
+  },
+  "overrides": {
+    "@vercel/blob": {
+      "undici": "7.18.2"
+    }
   }
 }

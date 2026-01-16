@@ -104,6 +104,7 @@ import OpenAI from "openai";
 export { enhancePromptForV0 } from "@/lib/utils/prompt-utils";
 
 import { FEATURES } from "@/lib/config";
+import { OPENAI_MODELS } from "@/lib/ai/openai-models";
 
 // Bildgenerering - getImageClient för direkta OpenAI-anrop
 import { getImageClient } from "@/lib/ai/image-generator";
@@ -537,7 +538,7 @@ async function generateSmartClarifyQuestion(
 
     // Use AI to generate a natural question
     const response = await client.responses.create({
-      model: "gpt-4o-mini",
+      model: OPENAI_MODELS.router,
       instructions: `Du är en hjälpsam assistent. Användaren skrev en vag prompt och vi hittade flera matchande element i koden. 
 Generera en naturlig, vänlig fråga på svenska som hjälper användaren att välja vilket element de menar.
 
@@ -672,7 +673,7 @@ async function executeWebSearch(
 
   try {
     const searchResponse = await client.responses.create({
-      model: "gpt-4o-mini",
+      model: OPENAI_MODELS.webSearch,
       instructions:
         "Du är en webbdesign-expert. Baserat på web search-resultaten, ge en informativ sammanfattning på svenska om designtrender, färger, layouter etc.",
       input: query,

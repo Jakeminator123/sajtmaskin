@@ -274,7 +274,12 @@ export default function InspectorPage() {
       <div className="flex-1 flex flex-col border-r border-zinc-800">
         {/* URL bar */}
         <div className="p-3 flex gap-2 items-center bg-zinc-900 border-b border-zinc-800">
+          <label htmlFor="inspector-url" className="sr-only">
+            URL att ladda i inspektören
+          </label>
           <input
+            id="inspector-url"
+            name="inspectorUrl"
             value={url}
             onChange={(e) => setUrl(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && loadFromInternet()}

@@ -138,7 +138,12 @@ export function SiteAuditSection({
       {/* Form */}
       <form onSubmit={handleSubmit} className="space-y-4">
         <div className="relative">
+          <label htmlFor="audit-url" className="sr-only">
+            URL att analysera
+          </label>
           <input
+            id="audit-url"
+            name="auditUrl"
             type="text"
             value={url}
             onChange={(e) => setUrl(e.target.value)}

@@ -12,6 +12,8 @@ const SECONDARY_MIN_WORDS = 80; // minimum words to include a secondary page
 const MIN_AGGREGATION_WORDS = 40; // skip near-empty pages from aggregation
 const AGGREGATE_WORD_LIMIT = 2000; // cap aggregated text to reduce token usage
 const MAX_LINKS_TO_CONSIDER = 25; // cap to avoid crawling too broadly
+const SITEMAP_URL_LIMIT = 40; // cap sitemap URLs to consider
+const SITEMAP_INDEX_LIMIT = 3; // cap sitemap index fan-out
 
 type CandidateLink = {
   url: string;
@@ -133,6 +135,77 @@ function dedupeLinks(links: CandidateLink[]): CandidateLink[] {
   }
 
   return result;
+}
+
+async function fetchWithTimeout(
+  url: string,
+  timeoutMs: number,
+  headers?: Record<string, string>
+): Promise<Response> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, {
+      signal: controller.signal,
+      redirect: "follow",
+      headers: headers || undefined,
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function extractSitemapLocs(xml: string): string[] {
+  const locs: string[] = [];
+  const regex = /<loc>\s*([^<\s]+)\s*<\/loc>/gi;
+  let match: RegExpExecArray | null;
+  while ((match = regex.exec(xml))) {
+    const value = match[1]?.trim();
+    if (value) locs.push(value);
+  }
+  return locs;
+}
+
+async function fetchSitemapUrls(origin: string): Promise<string[]> {
+  const sitemapUrl = `${origin.replace(/\/$/, "")}/sitemap.xml`;
+  try {
+    const res = await fetchWithTimeout(sitemapUrl, 8000, {
+      Accept: "application/xml,text/xml,*/*;q=0.8",
+      "User-Agent":
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36",
+    });
+    if (!res.ok) return [];
+    const xml = await res.text();
+    if (!xml || xml.length < 20) return [];
+
+    const locs = extractSitemapLocs(xml);
+    if (locs.length === 0) return [];
+
+    // If this is a sitemap index, fetch a few child sitemaps and merge URLs.
+    const isIndex = /<sitemapindex\b/i.test(xml);
+    if (isIndex) {
+      const childSitemaps = locs.slice(0, SITEMAP_INDEX_LIMIT);
+      const childUrls: string[] = [];
+      for (const child of childSitemaps) {
+        try {
+          const childRes = await fetchWithTimeout(child, 8000, {
+            Accept: "application/xml,text/xml,*/*;q=0.8",
+          });
+          if (!childRes.ok) continue;
+          const childXml = await childRes.text();
+          childUrls.push(...extractSitemapLocs(childXml));
+        } catch {
+          // ignore individual sitemap failures
+        }
+      }
+      return childUrls;
+    }
+
+    // Regular sitemap: locs are the URLs.
+    return locs;
+  } catch {
+    return [];
+  }
 }
 
 async function tryWordPressFallback(
@@ -581,6 +654,53 @@ export async function scrapeWebsite(url: string): Promise<WebsiteContent> {
   visited.add(firstPage.url);
   enqueueCandidates(firstPage);
 
+  // Smart fallback: if the entry page is JS-rendered / thin, try sitemap.xml to find richer pages.
+  if (firstPage.wordCount < SECONDARY_MIN_WORDS) {
+    try {
+      const origin = new URL(firstPage.url).origin;
+      const sitemapUrls = await fetchSitemapUrls(origin);
+      if (sitemapUrls.length > 0) {
+        const baseHost = new URL(firstPage.url).hostname;
+        const scored = sitemapUrls
+          .map((u) => {
+            try {
+              const parsed = new URL(u);
+              if (parsed.hostname !== baseHost) return null;
+              return {
+                url: parsed.toString(),
+                score: scoreLink(parsed.pathname),
+              } as CandidateLink;
+            } catch {
+              return null;
+            }
+          })
+          .filter(Boolean) as CandidateLink[];
+
+        // Sort and enqueue top candidates
+        scored
+          .sort((a, b) => b.score - a.score)
+          .slice(0, SITEMAP_URL_LIMIT)
+          .forEach((candidate) => {
+            if (visited.has(candidate.url) || enqueued.has(candidate.url)) return;
+            enqueued.add(candidate.url);
+            candidateQueue.push(candidate);
+          });
+
+        if (scored.length > 0) {
+          candidateQueue.sort((a, b) => b.score - a.score);
+          console.log(
+            `[WebScraper] Sitemap fallback: queued ${Math.min(
+              scored.length,
+              SITEMAP_URL_LIMIT
+            )} URL(s) from sitemap.xml`
+          );
+        }
+      }
+    } catch {
+      // ignore sitemap failures
+    }
+  }
+
   // Crawl top-scoring internal links until we reach the cap or run out of good candidates
   while (candidateQueue.length > 0 && pages.length < MAX_PAGES) {
     const candidate = candidateQueue.shift();
@@ -682,7 +802,15 @@ export async function scrapeWebsite(url: string): Promise<WebsiteContent> {
 }
 
 /**
- * Validate URL format
+ * Validate and normalize URL format for consistent audit caching and comparison.
+ *
+ * Normalizes:
+ * - Protocol: adds https:// if missing
+ * - Hostname: lowercases
+ * - Trailing slash: removes from path (except root)
+ * - Query params: removes common tracking params (utm_*, fbclid, gclid, etc.)
+ * - Fragment: removes hash fragment
+ *
  * @param url - URL string to validate
  * @returns Normalized URL or throws error
  */
@@ -708,7 +836,47 @@ export function validateAndNormalizeUrl(url: string): string {
     if (!urlObj.hostname || urlObj.hostname.length === 0) {
       throw new Error("Ogiltig URL - saknar domännamn");
     }
-    return normalized;
+
+    // Normalize hostname to lowercase
+    urlObj.hostname = urlObj.hostname.toLowerCase();
+
+    // Remove trailing slash from path (keep root "/" intact)
+    if (urlObj.pathname.length > 1 && urlObj.pathname.endsWith("/")) {
+      urlObj.pathname = urlObj.pathname.slice(0, -1);
+    }
+
+    // Remove fragment (hash)
+    urlObj.hash = "";
+
+    // Remove common tracking/session query params for cleaner URLs
+    const trackingParams = [
+      "utm_source",
+      "utm_medium",
+      "utm_campaign",
+      "utm_term",
+      "utm_content",
+      "fbclid",
+      "gclid",
+      "gclsrc",
+      "dclid",
+      "msclkid",
+      "twclid",
+      "li_fat_id",
+      "mc_cid",
+      "mc_eid",
+      "_ga",
+      "_gl",
+      "ref",
+      "referrer",
+    ];
+    for (const param of trackingParams) {
+      urlObj.searchParams.delete(param);
+    }
+
+    // Sort remaining query params for consistent comparison
+    urlObj.searchParams.sort();
+
+    return urlObj.toString();
   } catch (error) {
     if (error instanceof TypeError) {
       throw new Error(
@@ -716,5 +884,24 @@ export function validateAndNormalizeUrl(url: string): string {
       );
     }
     throw error;
+  }
+}
+
+/**
+ * Create a canonical key from a URL for caching/deduplication.
+ * Strips www. prefix for consistency (www.example.com == example.com).
+ */
+export function getCanonicalUrlKey(url: string): string {
+  try {
+    const normalized = validateAndNormalizeUrl(url);
+    const urlObj = new URL(normalized);
+
+    // Remove www. prefix for canonical comparison
+    urlObj.hostname = urlObj.hostname.replace(/^www\./, "");
+
+    return urlObj.toString();
+  } catch {
+    // If normalization fails, return original trimmed URL
+    return url.trim().toLowerCase();
   }
 }

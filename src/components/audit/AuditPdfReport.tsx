@@ -28,13 +28,23 @@ export function AuditPdfReport({ result, onClose }: AuditPdfReportProps) {
 
     const scores = result.audit_scores || {};
     const avgScore = calculateAvgScore(scores);
+    const safeDomain = escapeHtml(result.domain || "Rapport");
+    const safeCompanyOrDomain = escapeHtml(
+      result.company || result.domain || "Analyserad webbplats"
+    );
+    const faviconUrl = result.domain
+      ? `https://www.google.com/s2/favicons?domain=${encodeURIComponent(
+          result.domain
+        )}&sz=64`
+      : "";
+    const scrape = result.scrape_summary;
 
     printWindow.document.write(`
       <!DOCTYPE html>
       <html lang="sv">
       <head>
         <meta charset="UTF-8">
-        <title>Webbplatsanalys - ${result.domain || "Rapport"}</title>
+        <title>Webbplatsanalys - ${safeDomain}</title>
         <style>
           * { margin: 0; padding: 0; box-sizing: border-box; }
           
@@ -60,6 +70,18 @@ export function AuditPdfReport({ result, onClose }: AuditPdfReportProps) {
             margin-bottom: 30px;
           }
           
+          .brand {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+          }
+
+          .favicon {
+            width: 22px;
+            height: 22px;
+            border-radius: 4px;
+          }
+
           .logo {
             font-size: 24pt;
             font-weight: 800;
@@ -240,6 +262,17 @@ export function AuditPdfReport({ result, onClose }: AuditPdfReportProps) {
             color: #0d9488;
           }
           
+          .note {
+            font-size: 9pt;
+            color: #4b5563;
+            background: #f8fafc;
+            border: 1px solid #e5e7eb;
+            border-left: 4px solid #0d9488;
+            border-radius: 8px;
+            padding: 10px 12px;
+            margin: 16px 0 24px 0;
+          }
+
           @media print {
             body { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
             .main-score { background: #0d9488 !important; }
@@ -248,17 +281,51 @@ export function AuditPdfReport({ result, onClose }: AuditPdfReportProps) {
       </head>
       <body>
         <div class="header">
-          <div class="logo">sajt<span>maskin</span></div>
+          <div class="brand">
+            ${faviconUrl ? `<img class="favicon" src="${faviconUrl}" alt="">` : ""}
+            <div class="logo">sajt<span>maskin</span></div>
+          </div>
           <div class="report-meta">
             Genererad: ${new Date().toLocaleDateString("sv-SE")}<br>
-            ${result.domain || ""}
+            ${safeDomain}
           </div>
         </div>
         
         <h1 class="report-title">Webbplatsanalys</h1>
-        <p class="report-subtitle">${
-          result.company || result.domain || "Analyserad webbplats"
-        }</p>
+        <p class="report-subtitle">${safeCompanyOrDomain}</p>
+
+        ${
+          scrape
+            ? `
+          <div class="note">
+            <strong>Datakälla:</strong>
+            ${escapeHtml(
+              `${scrape.pages_sampled} sida(or), ${scrape.aggregated_word_count} ord (agg), ${scrape.headings_count} rubriker, ${scrape.images_count} bilder.`
+            )}
+            ${
+              scrape.is_js_rendered
+                ? "<br><strong>Obs:</strong> Indikation på JavaScript-rendering – HTML-scraping kan missa innehåll."
+                : ""
+            }
+            ${
+              typeof scrape.web_search_calls === "number"
+                ? `<br><strong>Web search:</strong> ${escapeHtml(
+                    String(scrape.web_search_calls)
+                  )} call(s).`
+                : ""
+            }
+            ${
+              Array.isArray(scrape.notes) && scrape.notes.length > 0
+                ? `<br><strong>Noteringar:</strong> ${scrape.notes
+                    .slice(0, 3)
+                    .map((n) => escapeHtml(n))
+                    .join(" • ")}`
+                : ""
+            }
+          </div>
+        `
+            : ""
+        }
         
         <div class="score-summary">
           <div class="main-score">
@@ -287,7 +354,7 @@ export function AuditPdfReport({ result, onClose }: AuditPdfReportProps) {
           <div class="section">
             <h2>✅ Styrkor</h2>
             <ul>
-              ${result.strengths.map((s) => `<li>${s}</li>`).join("")}
+              ${result.strengths.map((s) => `<li>${escapeHtml(s)}</li>`).join("")}
             </ul>
           </div>
         `
@@ -300,7 +367,7 @@ export function AuditPdfReport({ result, onClose }: AuditPdfReportProps) {
           <div class="section">
             <h2>⚠️ Problem att åtgärda</h2>
             <ul>
-              ${result.issues.map((s) => `<li>${s}</li>`).join("")}
+              ${result.issues.map((s) => `<li>${escapeHtml(s)}</li>`).join("")}
             </ul>
           </div>
         `
@@ -317,21 +384,82 @@ export function AuditPdfReport({ result, onClose }: AuditPdfReportProps) {
               .map(
                 (imp) => `
               <div class="improvement-item impact-${imp.impact || "medium"}">
-                <div class="improvement-title">${imp.item}</div>
+                <div class="improvement-title">${escapeHtml(imp.item)}</div>
                 ${
                   imp.why
-                    ? `<p style="font-size: 10pt; color: #555; margin-top: 4px;">${imp.why}</p>`
+                    ? `<p style="font-size: 10pt; color: #555; margin-top: 4px;">${escapeHtml(
+                        imp.why
+                      )}</p>`
                     : ""
                 }
                 <div class="improvement-meta">
                   Påverkan: ${formatImpact(imp.impact)} • 
                   Arbetsinsats: ${formatEffort(imp.effort)}
-                  ${imp.estimated_time ? ` • Tid: ${imp.estimated_time}` : ""}
+                  ${
+                    imp.estimated_time
+                      ? ` • Tid: ${escapeHtml(imp.estimated_time)}`
+                      : ""
+                  }
                 </div>
               </div>
             `
               )
               .join("")}
+          </div>
+        `
+            : ""
+        }
+
+        ${
+          result.technical_recommendations &&
+          result.technical_recommendations.length > 0
+            ? `
+          <div class="section">
+            <h2>⚙️ Tekniska rekommendationer</h2>
+            ${result.technical_recommendations
+              .slice(0, 8)
+              .map(
+                (rec) => `
+              <div class="improvement-item impact-medium">
+                <div class="improvement-title">${escapeHtml(rec.area)}</div>
+                <p style="font-size: 10pt; color: #555; margin-top: 4px;">
+                  <strong>Nuläge:</strong> ${escapeHtml(rec.current_state)}
+                </p>
+                <p style="font-size: 10pt; color: #555; margin-top: 4px;">
+                  <strong>Rekommendation:</strong> ${escapeHtml(rec.recommendation)}
+                </p>
+                ${
+                  rec.implementation
+                    ? `<p style="font-size: 10pt; color: #555; margin-top: 4px;"><strong>Implementation:</strong> ${escapeHtml(
+                        rec.implementation
+                      )}</p>`
+                    : ""
+                }
+              </div>
+            `
+              )
+              .join("")}
+          </div>
+        `
+            : ""
+        }
+
+        ${
+          result.competitor_insights
+            ? `
+          <div class="section">
+            <h2>🏆 Konkurrent- & branschinsikter</h2>
+            <ul>
+              <li><strong>Branschstandard:</strong> ${escapeHtml(
+                result.competitor_insights.industry_standards
+              )}</li>
+              <li><strong>Saknade funktioner:</strong> ${escapeHtml(
+                result.competitor_insights.missing_features
+              )}</li>
+              <li><strong>Unika styrkor:</strong> ${escapeHtml(
+                result.competitor_insights.unique_strengths
+              )}</li>
+            </ul>
           </div>
         `
             : ""
@@ -343,9 +471,15 @@ export function AuditPdfReport({ result, onClose }: AuditPdfReportProps) {
           <div class="section">
             <h2>🔒 Säkerhetsanalys</h2>
             <ul>
-              <li><strong>HTTPS:</strong> ${result.security_analysis.https_status}</li>
-              <li><strong>Säkerhetshuvuden:</strong> ${result.security_analysis.headers_analysis}</li>
-              <li><strong>Cookie-policy:</strong> ${result.security_analysis.cookie_policy}</li>
+              <li><strong>HTTPS:</strong> ${escapeHtml(
+                result.security_analysis.https_status
+              )}</li>
+              <li><strong>Säkerhetshuvuden:</strong> ${escapeHtml(
+                result.security_analysis.headers_analysis
+              )}</li>
+              <li><strong>Cookie-policy:</strong> ${escapeHtml(
+                result.security_analysis.cookie_policy
+              )}</li>
             </ul>
           </div>
         `
@@ -413,12 +547,37 @@ export function AuditPdfReport({ result, onClose }: AuditPdfReportProps) {
 
     printWindow.document.close();
 
-    // Wait for content to load, then print
-    printWindow.onload = () => {
-      setTimeout(() => {
+    // Trigger print. Prefer a synchronous call to keep it as a user gesture.
+    try {
+      printWindow.focus();
+      // Auto-close after print to avoid leaving blank tabs around
+      printWindow.onafterprint = () => {
+        try {
+          printWindow.close();
+        } catch {
+          // ignore
+        }
+      };
+    } catch {
+      // ignore
+    }
+
+    // Try immediately (best chance to not get blocked by the browser)
+    try {
+      printWindow.print();
+    } catch {
+      // ignore
+    }
+
+    // Retry shortly after in case the first print was too early
+    setTimeout(() => {
+      try {
+        printWindow.focus();
         printWindow.print();
-      }, 250);
-    };
+      } catch {
+        // ignore
+      }
+    }, 350);
   };
 
   return (
@@ -499,4 +658,13 @@ function formatCurrency(amount?: number): string {
     currency: "SEK",
     maximumFractionDigits: 0,
   }).format(amount);
+}
+
+function escapeHtml(input: string): string {
+  return input
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
 }

@@ -21,6 +21,7 @@ import {
   Save,
   X,
 } from "lucide-react";
+import Image from "next/image";
 import { useCallback, useEffect, useState } from "react";
 
 interface AuditModalProps {
@@ -373,6 +374,19 @@ export function AuditModal({
 
   if (!result) return null;
 
+  const scrape = result.scrape_summary;
+  const faviconUrl = result.domain
+    ? `https://www.google.com/s2/favicons?domain=${encodeURIComponent(
+        result.domain
+      )}&sz=64`
+    : null;
+
+  const scrapeLine = scrape
+    ? `Scrape: ${scrape.pages_sampled} sida(or), ${scrape.aggregated_word_count} ord${
+        scrape.is_js_rendered ? " • JS-renderad" : ""
+      }${typeof scrape.web_search_calls === "number" ? ` • Web search: ${scrape.web_search_calls}` : ""}`
+    : null;
+
   const hasScores =
     result.audit_scores && Object.keys(result.audit_scores).length > 0;
   const hasImprovements = result.improvements && result.improvements.length > 0;
@@ -412,9 +426,24 @@ export function AuditModal({
                       rel="noopener noreferrer"
                       className="text-sm text-teal-400 hover:text-teal-300 flex items-center gap-1"
                     >
+                      {faviconUrl && (
+                        <Image
+                          src={faviconUrl}
+                          alt=""
+                          width={16}
+                          height={16}
+                          className="inline-block"
+                          unoptimized
+                        />
+                      )}
                       {result.domain}
                       <ExternalLink className="h-3 w-3" />
                     </a>
+                  )}
+                  {scrapeLine && (
+                    <div className="text-[11px] text-gray-500 mt-1">
+                      {scrapeLine}
+                    </div>
                   )}
                 </div>
                 {result.company && (

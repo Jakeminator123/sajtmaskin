@@ -20,9 +20,10 @@ ABSOLUT KRITISKT - FÖLJ DESSA REGLER EXAKT:
 1. Du MÅSTE svara med ENDAST giltig JSON - ingen text före eller efter
 2. Börja ALLTID ditt svar med { och sluta med }
 3. INGEN markdown, INGA \`\`\`json block, INGEN förklarande text
-4. Om du använder web_search-verktyget, GÖR analysen och returnera sedan JSON-resultatet
-5. Fyll ALLTID i alla fält - om du saknar information, gör en kvalificerad bedömning
-6. EXTRAHERA ALLT TEXTINNEHÅLL från sidan - rubriker, beskrivningar, tjänster, etc.
+4. Du får ALDRIG returnera ett tomt JSON-objekt {}. Om du saknar data: gör en kvalificerad bedömning och fyll fälten ändå.
+5. Om du använder web_search-verktyget, GÖR analysen och returnera sedan JSON-resultatet
+6. Fyll ALLTID i alla fält - om du saknar information, gör en kvalificerad bedömning
+7. EXTRAHERA ALLT TEXTINNEHÅLL från sidan - rubriker, beskrivningar, tjänster, etc.
 
 LEVERERA JSON MED FÖLJANDE FÄLT (FYLL ALLTID I, ÄVEN OM DU MÅSTE GÖRA EN KVALIFICERAD BEDÖMNING):
 {

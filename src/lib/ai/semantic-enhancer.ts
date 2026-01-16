@@ -30,6 +30,7 @@ import type { CodeContext, CodeSnippet } from "@/lib/code-crawler";
 import type { RouterResult } from "@/lib/ai/semantic-router";
 import { debugLog, truncateForLog } from "@/lib/utils/debug";
 import { SECRETS } from "@/lib/config";
+import { OPENAI_MODELS } from "@/lib/ai/openai-models";
 
 // ============================================================================
 // TYPES
@@ -53,7 +54,7 @@ export interface EnhancementOptions {
 // CONFIGURATION
 // ============================================================================
 
-const ENHANCER_MODEL = "gpt-4o-mini";
+const ENHANCER_MODEL = OPENAI_MODELS.enhancer;
 
 // Short prompts (< this) get EXTRA enhancement (not skipped!)
 const SHORT_PROMPT_THRESHOLD = 20;

@@ -129,7 +129,11 @@ export const SECRETS = {
   },
 
   get openaiApiKey() {
-    const key = sanitizeEnvValue(process.env.OPENAI_API_KEY);
+    // Support legacy/alternative naming used in parts of the codebase.
+    // Prefer OPENAI_API_KEY, fallback to OPEN_AI_API.
+    const key = sanitizeEnvValue(
+      process.env.OPENAI_API_KEY || process.env.OPEN_AI_API
+    );
     if (!key && IS_PRODUCTION) {
       console.error("[Config] OPENAI_API_KEY is required");
     }

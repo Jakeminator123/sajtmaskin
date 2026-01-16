@@ -15,15 +15,16 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { OPENAI_MODELS } from "@/lib/ai/openai-models";
 
 // Allow 90 seconds for web search + analysis
 export const maxDuration = 90;
 
 // OpenAI Responses API with Web Search
 const OPENAI_RESPONSES_URL = "https://api.openai.com/v1/responses";
-// gpt-4o-mini is stable and supports web_search
-const WEB_SEARCH_MODEL = "gpt-4o-mini";
-const FALLBACK_MODEL = "gpt-4o-mini";
+// Model that supports the web_search tool (Responses API)
+const WEB_SEARCH_MODEL = OPENAI_MODELS.webSearch;
+const FALLBACK_MODEL = OPENAI_MODELS.webSearch;
 
 // System prompt for website analysis with web search
 const ANALYSIS_PROMPT_WITH_SEARCH = `Du är en expert på webbdesign, UX och digital marknadsföring. 

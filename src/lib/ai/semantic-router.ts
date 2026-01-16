@@ -43,6 +43,7 @@ import { generateText } from "ai";
 import { createOpenAI } from "@ai-sdk/openai";
 import { debugLog, truncateForLog } from "@/lib/utils/debug";
 import { SECRETS } from "@/lib/config";
+import { OPENAI_MODELS } from "@/lib/ai/openai-models";
 
 function parseRouterJsonOrThrow(text: string): Record<string, unknown> {
   const trimmed = text.trim();
@@ -109,7 +110,7 @@ const VALID_INTENTS: SemanticIntent[] = [
 // ============================================================================
 
 // Model for routing - must be cheap and fast
-const ROUTER_MODEL = "gpt-4o-mini";
+const ROUTER_MODEL = OPENAI_MODELS.router;
 
 // ============================================================================
 // MAIN ROUTER FUNCTION

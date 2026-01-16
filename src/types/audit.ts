@@ -213,6 +213,19 @@ export interface AuditCost {
   usd: number;
 }
 
+// Scrape/debug metadata (helps explain data quality in the report)
+export interface ScrapeSummary {
+  sampled_urls: string[];
+  pages_sampled: number;
+  aggregated_word_count: number;
+  headings_count: number;
+  images_count: number;
+  response_time_ms: number;
+  is_js_rendered: boolean;
+  web_search_calls?: number;
+  notes?: string[];
+}
+
 // Main audit result type
 export interface AuditResult {
   // Type of audit
@@ -264,6 +277,9 @@ export interface AuditResult {
 
   // Cost tracking
   cost: AuditCost;
+
+  // Data quality / scrape info (server-generated, not from the model)
+  scrape_summary?: ScrapeSummary;
 }
 
 // Website content scraped from URL

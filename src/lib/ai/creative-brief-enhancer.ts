@@ -62,9 +62,10 @@ import { createOpenAI } from "@ai-sdk/openai";
 import type { RouterResult } from "@/lib/ai/semantic-router";
 import type { QualityLevel } from "@/lib/api-client";
 import { SECRETS } from "@/lib/config";
+import { OPENAI_MODELS } from "@/lib/ai/openai-models";
 
-const FAST_MODEL = "gpt-4o-mini";
-const BEST_MODEL = "gpt-4o";
+const FAST_MODEL = OPENAI_MODELS.creativeBrief.fast;
+const BEST_MODEL = OPENAI_MODELS.creativeBrief.best;
 
 export type CreativeBriefResult =
   | {

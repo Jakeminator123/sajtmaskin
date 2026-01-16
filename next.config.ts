@@ -40,6 +40,12 @@ const nextConfig: NextConfig = {
         hostname: "lh3.googleusercontent.com",
         pathname: "/**",
       },
+      // Google favicon service (used in audit report header)
+      {
+        protocol: "https",
+        hostname: "www.google.com",
+        pathname: "/s2/favicons",
+      },
       // Vercel Blob Storage (v0 template screenshots)
       {
         protocol: "https",
