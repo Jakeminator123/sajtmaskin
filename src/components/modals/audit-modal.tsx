@@ -381,10 +381,19 @@ export function AuditModal({
       )}&sz=64`
     : null;
 
+  const wordCountLabel = scrape
+    ? scrape.word_count_source === "ai_estimate"
+      ? `${scrape.aggregated_word_count} ord (AI-estimerat)`
+      : `${scrape.aggregated_word_count} ord`
+    : "";
   const scrapeLine = scrape
-    ? `Scrape: ${scrape.pages_sampled} sida(or), ${scrape.aggregated_word_count} ord${
+    ? `Scrape: ${scrape.pages_sampled} sida(or), ${wordCountLabel}${
         scrape.is_js_rendered ? " • JS-renderad" : ""
-      }${typeof scrape.web_search_calls === "number" ? ` • Web search: ${scrape.web_search_calls}` : ""}`
+      }${
+        typeof scrape.web_search_calls === "number"
+          ? ` • Web search: ${scrape.web_search_calls}`
+          : ""
+      }`
     : null;
 
   const hasScores =

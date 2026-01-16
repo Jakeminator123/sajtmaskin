@@ -218,6 +218,7 @@ export interface ScrapeSummary {
   sampled_urls: string[];
   pages_sampled: number;
   aggregated_word_count: number;
+  word_count_source?: "scraper" | "ai_estimate";
   headings_count: number;
   images_count: number;
   response_time_ms: number;

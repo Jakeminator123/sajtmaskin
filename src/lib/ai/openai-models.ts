@@ -7,20 +7,20 @@
 
 export const OPENAI_MODELS = {
   // Cheap + fast for routing/enhancement/tool-orchestration
-  router: "gpt-4.1-mini",
-  enhancer: "gpt-4.1-mini",
-  webSearch: "gpt-4.1-mini",
+  router: "gpt-4o-mini",
+  enhancer: "gpt-4o-mini",
+  webSearch: "gpt-4o",
 
   // Higher quality for "analyze/audit" style outputs
   audit: {
-    primary: "gpt-4.1",
-    fallbacks: ["gpt-4o", "gpt-4.1-mini", "gpt-4o-mini"] as const,
+    primary: "gpt-4o",
+    fallbacks: ["gpt-4o-mini"] as const,
   },
 
   // Creative brief expansion for new sites (premium can use a stronger model)
   creativeBrief: {
-    fast: "gpt-4.1-mini",
-    best: "gpt-4.1",
+    fast: "gpt-4o-mini",
+    best: "gpt-4o",
   },
 } as const;
 
@@ -42,4 +42,3 @@ export const OPENAI_PRICING_USD_PER_MTOK: Record<
   "gpt-4o": { input: 2.5, output: 10.0 },
   "gpt-4o-mini": { input: 0.15, output: 0.6 },
 };
-

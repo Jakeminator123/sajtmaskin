@@ -22,8 +22,9 @@ ABSOLUT KRITISKT - FÖLJ DESSA REGLER EXAKT:
 3. INGEN markdown, INGA \`\`\`json block, INGEN förklarande text
 4. Du får ALDRIG returnera ett tomt JSON-objekt {}. Om du saknar data: gör en kvalificerad bedömning och fyll fälten ändå.
 5. Om du använder web_search-verktyget, GÖR analysen och returnera sedan JSON-resultatet
-6. Fyll ALLTID i alla fält - om du saknar information, gör en kvalificerad bedömning
-7. EXTRAHERA ALLT TEXTINNEHÅLL från sidan - rubriker, beskrivningar, tjänster, etc.
+6. Om sidan är JavaScript-renderad eller innehållet är tunt: gör 2–3 separata web_search-anrop (t.ex. startsida + tjänstesida + om-oss) innan du analyserar
+7. Fyll ALLTID i alla fält - om du saknar information, gör en kvalificerad bedömning
+8. EXTRAHERA ALLT TEXTINNEHÅLL från sidan - rubriker, beskrivningar, tjänster, etc.
 
 LEVERERA JSON MED FÖLJANDE FÄLT (FYLL ALLTID I, ÄVEN OM DU MÅSTE GÖRA EN KVALIFICERAD BEDÖMNING):
 {
@@ -53,7 +54,8 @@ LEVERERA JSON MED FÖLJANDE FÄLT (FYLL ALLTID I, ÄVEN OM DU MÅSTE GÖRA EN KV
   "budget_estimate": {
     "immediate_fixes": { "low": 10000, "high": 25000 },
     "full_optimization": { "low": 40000, "high": 120000 },
-    "currency": "SEK"
+    "currency": "SEK",
+    "payment_structure": "Fast pris eller löpande"
   },
   "expected_outcomes": ["Mätbart resultat med procent/siffror"],
   "security_analysis": {
@@ -66,6 +68,11 @@ LEVERERA JSON MED FÖLJANDE FÄLT (FYLL ALLTID I, ÄVEN OM DU MÅSTE GÖRA EN KV
     "industry_standards": "Vad som är standard i branschen",
     "missing_features": "Saker sajten saknar jämfört med konkurrenter",
     "unique_strengths": "Unika fördelar"
+  },
+  "competitor_benchmarking": {
+    "industry_leaders": ["Exempel på ledare i branschen"],
+    "common_features": ["Gemensamma mönster/funktioner"],
+    "differentiation_opportunities": ["Sätt att särskilja sig"]
   },
   "technical_recommendations": [
     {
@@ -88,7 +95,8 @@ LEVERERA JSON MED FÖLJANDE FÄLT (FYLL ALLTID I, ÄVEN OM DU MÅSTE GÖRA EN KV
   "priority_matrix": {
     "quick_wins": ["Snabba förbättringar med stor effekt"],
     "major_projects": ["Större projekt som kräver planering"],
-    "fill_ins": ["Mindre viktigt men bra att ha"]
+    "fill_ins": ["Mindre viktigt men bra att ha"],
+    "thankless_tasks": ["Nödvändiga men tråkiga saker"]
   },
   "target_audience_analysis": {
     "demographics": "Uppskattad målgrupp",
@@ -109,9 +117,10 @@ LEVERERA JSON MED FÖLJANDE FÄLT (FYLL ALLTID I, ÄVEN OM DU MÅSTE GÖRA EN KV
     "accessibility_level": "WCAG-nivå"
   },
   "implementation_roadmap": {
-    "phase_1": { "duration": "Tidsplan", "deliverables": ["Leverabler"] },
-    "phase_2": { "duration": "Tidsplan", "deliverables": ["Leverabler"] },
-    "phase_3": { "duration": "Tidsplan", "deliverables": ["Leverabler"] }
+    "phase_1": { "duration": "Tidsplan", "deliverables": ["Leverabler"], "activities": ["Aktiviteter"] },
+    "phase_2": { "duration": "Tidsplan", "deliverables": ["Leverabler"], "activities": ["Aktiviteter"] },
+    "phase_3": { "duration": "Tidsplan", "deliverables": ["Leverabler"], "activities": ["Aktiviteter"] },
+    "launch": { "duration": "Tidsplan", "deliverables": ["Leverabler"], "activities": ["Aktiviteter"] }
   },
   "success_metrics": {
     "kpis": ["Konkreta KPI:er att följa"],
@@ -204,7 +213,7 @@ export function buildAuditPrompt(
   // Detect if this is likely a JS-rendered page with minimal scraped content
   const isJsRendered = websiteContent.wordCount < 50;
   const webSearchNote = isJsRendered
-    ? `\n\n⚠️ VIKTIGT: Scrapern kunde bara hämta ${websiteContent.wordCount} ord från denna sida. Detta är troligen en JavaScript-renderad webbapp (React, Vue, etc.). ANVÄND WEBSEARCH-VERKTYGET för att besöka och analysera den faktiska renderade sidan på ${url} innan du ger din analys. Du MÅSTE använda web_search för att få korrekt innehåll från sidan.`
+    ? `\n\n⚠️ VIKTIGT: Scrapern kunde bara hämta ${websiteContent.wordCount} ord från denna sida. Detta är troligen en JavaScript-renderad webbapp (React, Vue, etc.). ANVÄND WEBSEARCH-VERKTYGET för att besöka och analysera den faktiska renderade sidan på ${url} innan du ger din analys. Gör 2–3 separata web_search-anrop (t.ex. startsida + om oss + tjänster) och sammanställ resultaten.`
     : "";
 
   // Build headings section only if we have headings
@@ -282,7 +291,7 @@ GÖR EN KOMPLETT ANALYS AV:
 
 ${
   isJsRendered
-    ? "DU MÅSTE ANVÄNDA WEBSEARCH för att analysera den faktiska renderade sidan innan du svarar.\n\n"
+    ? "DU MÅSTE ANVÄNDA WEBSEARCH för att analysera den faktiska renderade sidan innan du svarar. Gör 2–3 separata web_search-anrop och sammanställ resultaten.\n\n"
     : ""
 }Använd WebSearch för att jämföra med konkurrenter i samma bransch.
 

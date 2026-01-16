@@ -27,7 +27,10 @@ import {
   extractFirstJsonObject,
   parseJsonWithRepair,
 } from "@/lib/audit-prompts";
-import { OPENAI_MODELS, OPENAI_PRICING_USD_PER_MTOK } from "@/lib/ai/openai-models";
+import {
+  OPENAI_MODELS,
+  OPENAI_PRICING_USD_PER_MTOK,
+} from "@/lib/ai/openai-models";
 import type { AuditResult, AuditRequest } from "@/types/audit";
 
 // Extend timeout for long-running AI calls
@@ -156,7 +159,12 @@ const AUDIT_AI_SCHEMA = {
         currency: { type: "string" },
         payment_structure: { type: "string" },
       },
-      required: ["immediate_fixes", "full_optimization", "currency", "payment_structure"],
+      required: [
+        "immediate_fixes",
+        "full_optimization",
+        "currency",
+        "payment_structure",
+      ],
     },
     expected_outcomes: { type: "array", items: { type: "string" } },
     security_analysis: {
@@ -168,7 +176,12 @@ const AUDIT_AI_SCHEMA = {
         cookie_policy: { type: "string" },
         vulnerabilities: { type: "array", items: { type: "string" } },
       },
-      required: ["https_status", "headers_analysis", "cookie_policy", "vulnerabilities"],
+      required: [
+        "https_status",
+        "headers_analysis",
+        "cookie_policy",
+        "vulnerabilities",
+      ],
     },
     competitor_insights: {
       type: "object",
@@ -206,7 +219,11 @@ const AUDIT_AI_SCHEMA = {
           items: { type: "string" },
         },
       },
-      required: ["industry_leaders", "common_features", "differentiation_opportunities"],
+      required: [
+        "industry_leaders",
+        "common_features",
+        "differentiation_opportunities",
+      ],
     },
     target_audience_analysis: {
       type: "object",
@@ -228,7 +245,12 @@ const AUDIT_AI_SCHEMA = {
         seo_foundation: { type: "string" },
         conversion_paths: { type: "array", items: { type: "string" } },
       },
-      required: ["key_pages", "content_types", "seo_foundation", "conversion_paths"],
+      required: [
+        "key_pages",
+        "content_types",
+        "seo_foundation",
+        "conversion_paths",
+      ],
     },
     design_direction: {
       type: "object",
@@ -239,7 +261,12 @@ const AUDIT_AI_SCHEMA = {
         ui_patterns: { type: "array", items: { type: "string" } },
         accessibility_level: { type: "string" },
       },
-      required: ["style", "color_psychology", "ui_patterns", "accessibility_level"],
+      required: [
+        "style",
+        "color_psychology",
+        "ui_patterns",
+        "accessibility_level",
+      ],
     },
     technical_architecture: {
       type: "object",
@@ -459,9 +486,21 @@ const AUDIT_AI_SCHEMA = {
     "issues",
     "improvements",
     "budget_estimate",
+    "expected_outcomes",
     "security_analysis",
     "competitor_insights",
     "technical_recommendations",
+    "competitor_benchmarking",
+    "target_audience_analysis",
+    "content_strategy",
+    "design_direction",
+    "technical_architecture",
+    "priority_matrix",
+    "implementation_roadmap",
+    "success_metrics",
+    "site_content",
+    "color_theme",
+    "template_data",
   ],
 } as const;
 
@@ -499,15 +538,26 @@ function validateStrictSchema(
     const propKeys = Object.keys(schema.properties);
     const requiredKeys = schema.required ? [...schema.required] : [];
 
-    // Note: OpenAI strict mode requires ALL properties in required when additionalProperties is false,
-    // but we intentionally allow optional fields in our schema (not all props need to be required).
-    // We only validate that required keys actually exist in properties.
+    // OpenAI strict mode requires ALL properties to be listed in required
+    // when additionalProperties is false.
+    if (schema.additionalProperties === false) {
+      const missingRequired = propKeys.filter((k) => !requiredKeys.includes(k));
+      if (missingRequired.length > 0) {
+        errors.push(
+          `${path}: required must include all properties. Missing: [${missingRequired.join(
+            ", "
+          )}]`
+        );
+      }
+    }
 
     // Check for required keys that don't exist in properties
     const extraRequired = requiredKeys.filter((k) => !propKeys.includes(k));
     if (extraRequired.length > 0) {
       errors.push(
-        `${path}: required contains keys not in properties: [${extraRequired.join(", ")}]`
+        `${path}: required contains keys not in properties: [${extraRequired.join(
+          ", "
+        )}]`
       );
     }
 
@@ -530,7 +580,9 @@ function validateStrictSchema(
 // Run schema validation at module load (fails fast in dev)
 const schemaErrors = validateStrictSchema(AUDIT_AI_SCHEMA);
 if (schemaErrors.length > 0) {
-  const errorMsg = `[AUDIT SCHEMA ERROR] Invalid JSON schema configuration:\n${schemaErrors.join("\n")}`;
+  const errorMsg = `[AUDIT SCHEMA ERROR] Invalid JSON schema configuration:\n${schemaErrors.join(
+    "\n"
+  )}`;
   console.error(errorMsg);
   // In development, throw to fail fast. In production, log but continue.
   if (process.env.NODE_ENV === "development") {
@@ -712,7 +764,9 @@ function createFallbackResult(
       "Ökad trust genom social proof, tydligare erbjudande och förbättrad säkerhetsbaslinje.",
     ],
     security_analysis: {
-      https_status: websiteContent.hasSSL ? "OK (HTTPS)" : "Problem (saknar HTTPS)",
+      https_status: websiteContent.hasSSL
+        ? "OK (HTTPS)"
+        : "Problem (saknar HTTPS)",
       headers_analysis:
         "Okänt i fallback-läge. Rekommenderar att verifiera HSTS, CSP, X-Content-Type-Options och Referrer-Policy.",
       cookie_policy:
@@ -766,13 +820,29 @@ function createFallbackResult(
       },
       {
         area: "Security",
-        current_state: websiteContent.hasSSL ? "HTTPS används." : "HTTPS saknas.",
+        current_state: websiteContent.hasSSL
+          ? "HTTPS används."
+          : "HTTPS saknas.",
         recommendation:
           "Inför säkerhetshuvuden och säkra cookies. Minimera tredjepartsberoenden.",
         implementation:
           "Sätt HSTS, CSP och SameSite/HttpOnly/Secure på cookies där det är relevant.",
       },
     ],
+    competitor_benchmarking: {
+      industry_leaders: [
+        "Branschledare med stark SEO och tydlig positionering",
+      ],
+      common_features: [
+        "Tydligt värdeerbjudande",
+        "Snabba laddtider",
+        "Social proof (case/logos)",
+      ],
+      differentiation_opportunities: [
+        "Tydligare nischpositionering",
+        "Mer konkret affärsnytta i copy",
+      ],
+    },
     target_audience_analysis: {
       demographics:
         "Okänt i fallback-läge. Utgå från att besökare är beslutsfattare och stakeholders som vill förstå värde snabbt.",
@@ -783,8 +853,16 @@ function createFallbackResult(
       expectations:
         "Snabb, modern, mobilförst, tydliga CTA:er, konkreta resultat och enkel navigering.",
     },
+    content_strategy: {
+      key_pages: ["Startsida", "Tjänster", "Case/Portfolio", "Kontakt"],
+      content_types: ["Kort copy", "Case studies", "FAQ", "CTA-sektioner"],
+      seo_foundation:
+        "Fokusera på tjänstesidor med tydliga sökordscluster och intern länkning.",
+      conversion_paths: ["Hero CTA → Kontaktformulär", "Case → Kontakt"],
+    },
     design_direction: {
-      style: "Modern, professionell och tydligt strukturerad (product/tech-känsla).",
+      style:
+        "Modern, professionell och tydligt strukturerad (product/tech-känsla).",
       color_psychology:
         "Använd en tydlig primär accent för CTA och behåll neutral bas för läsbarhet.",
       ui_patterns: [
@@ -796,15 +874,58 @@ function createFallbackResult(
       ],
       accessibility_level: "WCAG 2.1 AA",
     },
+    technical_architecture: {
+      recommended_stack: {
+        frontend: "Next.js",
+        backend: "Node.js",
+        cms: "Headless CMS",
+        hosting: "Vercel",
+      },
+      integrations: ["Analytics", "CRM", "Email"],
+      security_measures: ["HTTPS", "CSP", "HSTS"],
+    },
+    priority_matrix: {
+      quick_wins: ["Tydlig CTA", "Meta-beskrivningar", "Fokusstilar"],
+      major_projects: ["Omstrukturera tjänstesidor", "Casebibliotek"],
+      fill_ins: ["FAQ", "Team/om oss"],
+      thankless_tasks: ["Cookie-policy och compliance"],
+    },
+    implementation_roadmap: {
+      phase_1: {
+        duration: "1-2 veckor",
+        deliverables: ["Copy-uppdatering", "CTA-struktur"],
+        activities: ["Inventera copy", "Uppdatera hero + tjänstesidor"],
+      },
+      phase_2: {
+        duration: "2-4 veckor",
+        deliverables: ["Nya sektioner", "SEO-grund"],
+        activities: ["Bygga case/FAQ", "Metadata och sitemap"],
+      },
+      phase_3: {
+        duration: "4-6 veckor",
+        deliverables: ["Prestandaoptimering", "A11y"],
+        activities: ["Core Web Vitals", "Tillgänglighetsfixar"],
+      },
+      launch: {
+        duration: "1 vecka",
+        deliverables: ["Lansering", "Tracking"],
+        activities: ["QA", "GA4 events", "Sitemap submit"],
+      },
+    },
+    success_metrics: {
+      kpis: ["Organisk trafik", "Konvertering", "CTA-klick"],
+      tracking_setup: "GA4 + events + enkel dashboard",
+      review_schedule: "Månadsvis uppföljning",
+    },
     // Minimal site_content based on scraped data
     site_content: {
       company_name: companyName,
-      tagline: websiteContent.description || null,
+      tagline: websiteContent.description || "",
       description:
         websiteContent.description ||
         "Beskrivning kunde inte extraheras automatiskt",
       industry: "Okänd",
-      location: null,
+      location: "",
       services: [],
       products: [],
       unique_selling_points: [],
@@ -814,7 +935,12 @@ function createFallbackResult(
         type: i === 0 ? "hero" : "other",
       })),
       ctas: [],
-      contact: {},
+      contact: {
+        email: "",
+        phone: "",
+        address: "",
+        social_links: [],
+      },
     },
     // Default color theme (dark theme as placeholder)
     color_theme: {
@@ -904,11 +1030,63 @@ function validateAuditResult(result: unknown): result is AuditResult {
   return hasAnyContent && hasUsefulField;
 }
 
+function countWordsFromText(value: string): number {
+  const normalized = value.replace(/\s+/g, " ").trim();
+  if (!normalized) return 0;
+  return normalized.split(" ").length;
+}
+
+function countWordsFromList(values?: Array<string | null | undefined>): number {
+  if (!values || values.length === 0) return 0;
+  return values.reduce((sum, item) => {
+    if (!item) return sum;
+    return sum + countWordsFromText(item);
+  }, 0);
+}
+
+function estimateWordCountFromSiteContent(
+  siteContent?: AuditResult["site_content"]
+): number {
+  if (!siteContent) return 0;
+
+  let count = 0;
+  count += countWordsFromText(siteContent.company_name || "");
+  count += countWordsFromText(siteContent.tagline || "");
+  count += countWordsFromText(siteContent.description || "");
+  count += countWordsFromText(siteContent.industry || "");
+  count += countWordsFromText(siteContent.location || "");
+  count += countWordsFromList(siteContent.services);
+  count += countWordsFromList(siteContent.products);
+  count += countWordsFromList(siteContent.unique_selling_points);
+  count += countWordsFromList(siteContent.ctas);
+
+  if (Array.isArray(siteContent.sections)) {
+    for (const section of siteContent.sections) {
+      count += countWordsFromText(section.name || "");
+      count += countWordsFromText(section.content || "");
+    }
+  }
+
+  if (siteContent.contact) {
+    count += countWordsFromList([
+      siteContent.contact.email,
+      siteContent.contact.phone,
+      siteContent.contact.address,
+    ]);
+    count += countWordsFromList(siteContent.contact.social_links);
+  }
+
+  return count;
+}
+
 function getPricingForModel(model: string): { input: number; output: number } {
   // Default to the primary audit model pricing if unknown.
   return (
     OPENAI_PRICING_USD_PER_MTOK[model] ||
-    OPENAI_PRICING_USD_PER_MTOK[OPENAI_MODELS.audit.primary] || { input: 0, output: 0 }
+    OPENAI_PRICING_USD_PER_MTOK[OPENAI_MODELS.audit.primary] || {
+      input: 0,
+      output: 0,
+    }
   );
 }
 
@@ -924,7 +1102,10 @@ function shouldFallbackToNextModel(err: unknown): boolean {
   // Model availability / selection issues.
   if (code === "model_not_found") return true;
   if (status === 404 && message.toLowerCase().includes("model")) return true;
-  if (message.toLowerCase().includes("model") && message.toLowerCase().includes("not found"))
+  if (
+    message.toLowerCase().includes("model") &&
+    message.toLowerCase().includes("not found")
+  )
     return true;
 
   // Tool support mismatches (web_search not supported for a given model/variant).
@@ -1033,13 +1214,17 @@ export async function POST(request: NextRequest) {
     if (existingAudit) {
       const ageMs = Date.now() - existingAudit.startTime;
       console.log(
-        `[${requestId}] Duplicate audit request detected (in-flight for ${Math.round(ageMs / 1000)}s)`
+        `[${requestId}] Duplicate audit request detected (in-flight for ${Math.round(
+          ageMs / 1000
+        )}s)`
       );
       // Return 409 Conflict to indicate a duplicate request
       return NextResponse.json(
         {
           success: false,
-          error: `En audit för denna URL pågår redan. Vänta tills den är klar (startat för ${Math.round(ageMs / 1000)} sekunder sedan).`,
+          error: `En audit för denna URL pågår redan. Vänta tills den är klar (startat för ${Math.round(
+            ageMs / 1000
+          )} sekunder sedan).`,
           duplicate: true,
         },
         { status: 409 }
@@ -1146,7 +1331,11 @@ export async function POST(request: NextRequest) {
         break;
       } catch (apiError: unknown) {
         lastError = apiError;
-        const err = apiError as { status?: number; code?: string; message?: string };
+        const err = apiError as {
+          status?: number;
+          code?: string;
+          message?: string;
+        };
         console.warn(`[${requestId}] Model ${model} failed`, {
           status: err?.status,
           code: err?.code,
@@ -1434,16 +1623,34 @@ export async function POST(request: NextRequest) {
     const outputTokens = usage.output_tokens || usage.completion_tokens || 0;
     const pricing = getPricingForModel(usedModel);
     const costUSD =
-      (inputTokens * pricing.input + outputTokens * pricing.output) /
-      1_000_000;
+      (inputTokens * pricing.input + outputTokens * pricing.output) / 1_000_000;
     const costSEK = costUSD * USD_TO_SEK;
 
     // Add metadata to result
     const domain = new URL(normalizedUrl).hostname;
+    const estimatedWordCount = estimateWordCountFromSiteContent(
+      auditResult.site_content
+    );
+    const useEstimatedWordCount =
+      estimatedWordCount > 0 &&
+      (isJsRendered || websiteContent.wordCount < 50 || webSearchCallCount > 0);
+    const aggregatedWordCount = useEstimatedWordCount
+      ? Math.max(websiteContent.wordCount, estimatedWordCount)
+      : websiteContent.wordCount;
+    const wordCountSource = useEstimatedWordCount ? "ai_estimate" : "scraper";
+
     const scrapeSummaryNotes: string[] = [
-      `Scraper: ${websiteContent.sampledUrls?.length || 1} sida(or), ${
-        websiteContent.wordCount
-      } ord (agg), ${websiteContent.headings.length} rubriker.`,
+      useEstimatedWordCount
+        ? `Scraper: ${websiteContent.sampledUrls?.length || 1} sida(or), ${
+            websiteContent.wordCount
+          } ord. AI-estimerat innehåll: ${aggregatedWordCount} ord. ${
+            websiteContent.headings.length
+          } rubriker.`
+        : `Scraper: ${
+            websiteContent.sampledUrls?.length || 1
+          } sida(or), ${aggregatedWordCount} ord (agg), ${
+            websiteContent.headings.length
+          } rubriker.`,
       isJsRendered
         ? "Indikation: sidan verkar JavaScript-renderad (scraper kan missa text)."
         : "Indikation: sidan verkar server-renderad (scraper fångar normalt text bra).",
@@ -1471,7 +1678,8 @@ export async function POST(request: NextRequest) {
           ? websiteContent.sampledUrls
           : [websiteContent.url],
         pages_sampled: websiteContent.sampledUrls?.length || 1,
-        aggregated_word_count: websiteContent.wordCount,
+        aggregated_word_count: aggregatedWordCount,
+        word_count_source: wordCountSource,
         headings_count: websiteContent.headings.length,
         images_count: websiteContent.images,
         response_time_ms: websiteContent.responseTime,

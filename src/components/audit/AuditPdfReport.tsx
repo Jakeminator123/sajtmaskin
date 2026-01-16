@@ -1,6 +1,5 @@
 "use client";
 
-import { useRef } from "react";
 import type { AuditResult } from "@/types/audit";
 
 interface AuditPdfReportProps {
@@ -13,12 +12,7 @@ interface AuditPdfReportProps {
  * Opens in a new window for PDF generation via browser print
  */
 export function AuditPdfReport({ result, onClose }: AuditPdfReportProps) {
-  const printRef = useRef<HTMLDivElement>(null);
-
   const handlePrint = () => {
-    const printContent = printRef.current;
-    if (!printContent) return;
-
     // Open new window with print content
     const printWindow = window.open("", "_blank");
     if (!printWindow) {
@@ -38,6 +32,11 @@ export function AuditPdfReport({ result, onClose }: AuditPdfReportProps) {
         )}&sz=64`
       : "";
     const scrape = result.scrape_summary;
+    const wordCountLabel = scrape
+      ? scrape.word_count_source === "ai_estimate"
+        ? `${scrape.aggregated_word_count} ord (AI-estimerat)`
+        : `${scrape.aggregated_word_count} ord (agg)`
+      : "";
 
     printWindow.document.write(`
       <!DOCTYPE html>
@@ -282,7 +281,11 @@ export function AuditPdfReport({ result, onClose }: AuditPdfReportProps) {
       <body>
         <div class="header">
           <div class="brand">
-            ${faviconUrl ? `<img class="favicon" src="${faviconUrl}" alt="">` : ""}
+            ${
+              faviconUrl
+                ? `<img class="favicon" src="${faviconUrl}" alt="">`
+                : ""
+            }
             <div class="logo">sajt<span>maskin</span></div>
           </div>
           <div class="report-meta">
@@ -300,7 +303,7 @@ export function AuditPdfReport({ result, onClose }: AuditPdfReportProps) {
           <div class="note">
             <strong>Datakälla:</strong>
             ${escapeHtml(
-              `${scrape.pages_sampled} sida(or), ${scrape.aggregated_word_count} ord (agg), ${scrape.headings_count} rubriker, ${scrape.images_count} bilder.`
+              `${scrape.pages_sampled} sida(or), ${wordCountLabel}, ${scrape.headings_count} rubriker, ${scrape.images_count} bilder.`
             )}
             ${
               scrape.is_js_rendered
@@ -354,7 +357,9 @@ export function AuditPdfReport({ result, onClose }: AuditPdfReportProps) {
           <div class="section">
             <h2>✅ Styrkor</h2>
             <ul>
-              ${result.strengths.map((s) => `<li>${escapeHtml(s)}</li>`).join("")}
+              ${result.strengths
+                .map((s) => `<li>${escapeHtml(s)}</li>`)
+                .join("")}
             </ul>
           </div>
         `
@@ -426,7 +431,9 @@ export function AuditPdfReport({ result, onClose }: AuditPdfReportProps) {
                   <strong>Nuläge:</strong> ${escapeHtml(rec.current_state)}
                 </p>
                 <p style="font-size: 10pt; color: #555; margin-top: 4px;">
-                  <strong>Rekommendation:</strong> ${escapeHtml(rec.recommendation)}
+                  <strong>Rekommendation:</strong> ${escapeHtml(
+                    rec.recommendation
+                  )}
                 </p>
                 ${
                   rec.implementation

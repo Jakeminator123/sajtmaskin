@@ -208,10 +208,22 @@ async function fetchSitemapUrls(origin: string): Promise<string[]> {
   }
 }
 
+function isLikelyWordPressHtml(html: string): boolean {
+  return (
+    /wp-content|wp-includes|\/wp-json\//i.test(html) ||
+    /<meta[^>]+name=["']generator["'][^>]+wordpress/i.test(html)
+  );
+}
+
 async function tryWordPressFallback(
   html: string,
   url: string
 ): Promise<{ text: string; headings: string[]; source: string } | null> {
+  // Avoid WP fallback if the page doesn't look like WordPress.
+  if (!isLikelyWordPressHtml(html)) {
+    return null;
+  }
+
   const cheerio = await getCheerio();
   const $ = cheerio.load(html);
   const baseUrl = new URL(url);
@@ -269,6 +281,12 @@ async function tryWordPressFallback(
         headers: { Accept: "application/json" },
       });
       if (!response.ok) continue;
+
+      const contentType = response.headers.get("content-type") || "";
+      if (!contentType.includes("application/json")) {
+        // Not a JSON API response (likely not WP) - skip silently
+        continue;
+      }
 
       const json = await response.json();
       const node = Array.isArray(json) ? json[0] : json;
