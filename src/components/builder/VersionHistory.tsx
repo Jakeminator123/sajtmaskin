@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Clock, Download, ExternalLink, Loader2, UploadCloud } from 'lucide-react';
+import { Clock, Download, ExternalLink, Github, Loader2, UploadCloud } from 'lucide-react';
 import { useVersions } from '@/lib/hooks/useVersions';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -18,6 +18,7 @@ export function VersionHistory({ chatId, selectedVersionId, onVersionSelect }: V
   const { versions, isLoading } = useVersions(chatId);
   const [downloadingVersionId, setDownloadingVersionId] = useState<string | null>(null);
   const [exportingVersionId, setExportingVersionId] = useState<string | null>(null);
+  const [exportingGitHubVersionId, setExportingGitHubVersionId] = useState<string | null>(null);
 
   const handleDownload = async (e: React.MouseEvent, version: any) => {
     e.stopPropagation();
@@ -69,6 +70,54 @@ export function VersionHistory({ chatId, selectedVersionId, onVersionSelect }: V
     }
   };
 
+  const handleExportToGitHub = async (e: React.MouseEvent, version: any) => {
+    e.stopPropagation();
+    if (!chatId) return;
+
+    const versionId = version.id || version.versionId;
+    const suggestedRepo = `sajtmaskin-${chatId.slice(0, 8)}`;
+    const repoInput = window.prompt(
+      "GitHub repo (owner/name eller bara namn)",
+      suggestedRepo
+    );
+    if (!repoInput) return;
+
+    const makePrivate = window.confirm("Skapa som privat repo? (OK = privat, Avbryt = public)");
+
+    setExportingGitHubVersionId(versionId);
+    try {
+      const res = await fetch('/api/github/export', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chatId,
+          versionId,
+          repo: repoInput,
+          private: makePrivate,
+        }),
+      });
+
+      const data = await res.json().catch(() => null);
+      if (!res.ok) {
+        const message =
+          (data && typeof data === 'object' && (data as any).error) ||
+          `GitHub export failed (HTTP ${res.status})`;
+        throw new Error(String(message));
+      }
+
+      const url = (data as any)?.repoUrl as string | undefined;
+      if (url) {
+        window.open(url, '_blank');
+      }
+      toast.success('Exported to GitHub');
+    } catch (error) {
+      console.error('GitHub export error:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to export to GitHub');
+    } finally {
+      setExportingGitHubVersionId(null);
+    }
+  };
+
   if (!chatId) {
     return (
       <div className="flex h-full items-center justify-center text-muted-foreground p-4">
@@ -108,6 +157,7 @@ export function VersionHistory({ chatId, selectedVersionId, onVersionSelect }: V
             const internalVersionId = version.id || version.versionId;
             const isDownloading = downloadingVersionId === internalVersionId;
             const isExporting = exportingVersionId === internalVersionId;
+            const isExportingGitHub = exportingGitHubVersionId === internalVersionId;
             const isSelected = selectedVersionId === selectableVersionId;
 
             return (
@@ -178,6 +228,20 @@ export function VersionHistory({ chatId, selectedVersionId, onVersionSelect }: V
                         <Loader2 className="h-3 w-3 animate-spin" />
                       ) : (
                         <UploadCloud className="h-3 w-3" />
+                      )}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon-sm"
+                      onClick={(e) => handleExportToGitHub(e, version)}
+                      disabled={isExportingGitHub}
+                      title="Export to GitHub"
+                      className="h-7 w-7"
+                    >
+                      {isExportingGitHub ? (
+                        <Loader2 className="h-3 w-3 animate-spin" />
+                      ) : (
+                        <Github className="h-3 w-3" />
                       )}
                     </Button>
                   </div>
