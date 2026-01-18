@@ -82,7 +82,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
           async start(controller) {
             const encoder = new TextEncoder();
             let buffer = '';
-            let currentEvent = '';
+            let _currentEvent = '';
             let didSendDone = false;
             let controllerClosed = false;
             let lastMessageId: string | null = null;
@@ -121,7 +121,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
                   if (controllerClosed) break;
 
                   if (line.startsWith('event:')) {
-                    currentEvent = line.slice(6).trim();
+                    _currentEvent = line.slice(6).trim();
                     continue;
                   }
                   if (!line.startsWith('data: ')) continue;

@@ -1,6 +1,6 @@
 import { createSSEHeaders, formatSSEEvent } from '@/lib/streaming';
 import { db } from '@/lib/db/client';
-import { chats, projects, versions } from '@/lib/db/schema';
+import { chats, versions } from '@/lib/db/schema';
 import { assertV0Key, v0 } from '@/lib/v0';
 import { createChatSchema } from '@/lib/validations/chatSchemas';
 import {

@@ -32,7 +32,7 @@ function isSafeRelativePath(path: string): boolean {
   if (!path || path.includes('\0')) return false;
   if (path.startsWith('/') || path.startsWith('\\')) return false;
   if (path.includes('..')) return false;
-  return /^[A-Za-z0-9._/\-]+$/.test(path);
+  return /^[A-Za-z0-9._/-]+$/.test(path);
 }
 
 function makeSafeHeredoc(content: string): { delimiter: string; body: string } {

@@ -9,8 +9,6 @@ import { withRateLimit } from '@/lib/rateLimit';
 export const runtime = 'nodejs';
 export const maxDuration = 60;
 
-type AssistProvider = 'gateway' | 'openai' | 'anthropic';
-
 const briefRequestSchema = z.object({
   prompt: z.string().min(1, 'prompt is required'),
   provider: z.enum(['gateway', 'openai', 'anthropic']).optional().default('gateway'),

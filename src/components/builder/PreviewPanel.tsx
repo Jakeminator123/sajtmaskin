@@ -28,7 +28,9 @@ export function PreviewPanel({ demoUrl, isLoading: externalLoading }: PreviewPan
     setIframeError(false);
     const iframe = document.getElementById("preview-iframe") as HTMLIFrameElement | null;
     if (iframe) {
-      iframe.src = iframe.src;
+      const base = demoUrl || iframe.src;
+      const separator = base.includes("?") ? "&" : "?";
+      iframe.src = `${base}${separator}t=${Date.now()}`;
     }
   };
 

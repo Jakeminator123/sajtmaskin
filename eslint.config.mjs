@@ -59,4 +59,16 @@ export default defineConfig([
       "no-var": "off",
     },
   },
+
+  // Allow explicit any in API and builder modules (legacy typing)
+  {
+    files: [
+      "src/app/api/**/*.ts",
+      "src/lib/**/*.ts",
+      "src/components/builder/**/*.tsx",
+    ],
+    rules: {
+      "@typescript-eslint/no-explicit-any": "warn",
+    },
+  },
 ]);
