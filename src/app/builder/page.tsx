@@ -1,917 +1,575 @@
-"use client";
+'use client';
 
-import { ChatPanel, CodePreview, QualitySelector } from "@/components/builder";
-import {
-  AIFeaturesButton,
-  AIFeaturesPanel,
-} from "@/components/builder/ai-features-panel";
-import { ClientOnly, HelpTooltip, ShaderBackground } from "@/components/layout";
-import { FinalizeModal } from "@/components/modals";
-import { Button } from "@/components/ui/button";
-import { useAuth } from "@/lib/auth/auth-store";
-import { createProject, getProject } from "@/lib/project-client";
-import { useBuilderStore } from "@/lib/data/store";
-import {
-  ArrowLeft,
-  Check,
-  Diamond,
-  Eye,
-  Menu,
-  MessageSquare,
-  RefreshCw,
-  Rocket,
-  Save,
-} from "lucide-react";
-import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useEffect, useRef, useState } from "react";
-
-// Hook to detect mobile with improved debouncing and touch detection
-function useIsMobile() {
-  const [isMobile, setIsMobile] = useState(false);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-
-    // Also check for touch capability for better mobile detection
-    const checkMobile = () => {
-      const isNarrow = window.innerWidth < 768;
-      const hasTouch = "ontouchstart" in window || navigator.maxTouchPoints > 0;
-      // Consider mobile if narrow OR touch device with narrow-ish screen
-      setIsMobile(isNarrow || (hasTouch && window.innerWidth < 1024));
-    };
-
-    checkMobile();
-
-    // Debounced resize handler to prevent excessive re-renders
-    let timeoutId: NodeJS.Timeout;
-    const handleResize = () => {
-      clearTimeout(timeoutId);
-      timeoutId = setTimeout(checkMobile, 100);
-    };
-
-    window.addEventListener("resize", handleResize);
-    // Also listen for orientation changes on mobile
-    window.addEventListener("orientationchange", checkMobile);
-
-    return () => {
-      window.removeEventListener("resize", handleResize);
-      window.removeEventListener("orientationchange", checkMobile);
-      clearTimeout(timeoutId);
-    };
-  }, []);
-
-  return isMobile;
-}
-
-// Category titles in Swedish
-const categoryTitles: Record<string, string> = {
-  "landing-page": "Landing Page",
-  website: "Hemsida",
-  dashboard: "Dashboard",
-};
+import { ChatInterface } from '@/components/builder/ChatInterface';
+import { ErrorBoundary } from '@/components/builder/ErrorBoundary';
+import { FileExplorer } from '@/components/builder/FileExplorer';
+import { FileViewer } from '@/components/builder/FileViewer';
+import { InitFromRepoModal } from '@/components/builder/InitFromRepoModal';
+import { DeploymentHistory } from '@/components/builder/DeploymentHistory';
+import { MessageList } from '@/components/builder/MessageList';
+import { PreviewPanel } from '@/components/builder/PreviewPanel';
+import { SandboxModal } from '@/components/builder/SandboxModal';
+import { VersionHistory } from '@/components/builder/VersionHistory';
+import { BuilderHeader } from '@/components/builder/BuilderHeader';
+import { Button } from '@/components/ui/button';
+import { buildFileTree } from '@/lib/builder/fileTree';
+import { clearPersistedMessages } from '@/lib/builder/messagesStorage';
+import type { ChatMessage, FileNode, RightPanelTab } from '@/lib/builder/types';
+import { useChat } from '@/lib/hooks/useChat';
+import { usePersistedChatMessages } from '@/lib/hooks/usePersistedChatMessages';
+import { usePromptAssist } from '@/lib/hooks/usePromptAssist';
+import { useV0ChatMessaging } from '@/lib/hooks/useV0ChatMessaging';
+import { useVersions } from '@/lib/hooks/useVersions';
+import type { PromptAssistProvider } from '@/lib/builder/promptAssist';
+import type { ModelTier } from '@/lib/validations/chatSchemas';
+import { cn } from '@/lib/utils';
+import { FolderTree, History, Loader2, Monitor, Rocket } from 'lucide-react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import toast, { Toaster } from 'react-hot-toast';
 
 function BuilderContent() {
-  const searchParams = useSearchParams();
   const router = useRouter();
-  const urlProjectId = searchParams.get("project");
-  const type = searchParams.get("type");
-  const urlPrompt = searchParams.get("prompt");
-  const source = searchParams.get("source"); // "audit" if coming from audit flow
-  const auditId = searchParams.get("auditId");
-  const templateId = searchParams.get("templateId");
+  const searchParams = useSearchParams();
 
-  // Handle audit prompt from sessionStorage (avoids URL length limits)
-  // This is set by handleBuildFromAudit in home-page.tsx
-  const [auditPrompt, setAuditPrompt] = useState<string | null>(null);
-  // Track if audit prompt has been loaded (prevents race condition with ChatPanel)
-  // Only false if we're in audit flow and haven't loaded yet
-  const [auditPromptLoaded, setAuditPromptLoaded] = useState(
-    source !== "audit"
-  );
+  const chatIdParam = searchParams.get('chatId');
+  const promptParam = searchParams.get('prompt');
+  const templateId = searchParams.get('templateId');
+  const source = searchParams.get('source');
+  const auditId = searchParams.get('auditId');
+  const hasEntryParams = Boolean(promptParam || templateId || source === 'audit');
+
+  const [chatId, setChatId] = useState<string | null>(chatIdParam);
+  const [selectedVersionId, setSelectedVersionId] = useState<string | null>(null);
+  const [currentDemoUrl, setCurrentDemoUrl] = useState<string | null>(null);
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [rightPanelTab, setRightPanelTab] = useState<RightPanelTab>('versions');
+  const [files, setFiles] = useState<FileNode[]>([]);
+  const [selectedFile, setSelectedFile] = useState<FileNode | null>(null);
+  const [isFilesLoading, setIsFilesLoading] = useState(false);
+  const [filesError, setFilesError] = useState<string | null>(null);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [selectedModelTier, setSelectedModelTier] = useState<ModelTier>('v0-pro');
+  const [promptAssistProvider, setPromptAssistProvider] =
+    useState<PromptAssistProvider>('off');
+  const [promptAssistModel, setPromptAssistModel] = useState('openai/gpt-5');
+  const [promptAssistDeep, setPromptAssistDeep] = useState(false);
+  const [isSandboxModalOpen, setIsSandboxModalOpen] = useState(false);
+  const [isDeploying, setIsDeploying] = useState(false);
+  const [enableImageGenerations, setEnableImageGenerations] = useState(true);
+  const [deployImageStrategy, setDeployImageStrategy] = useState<'external' | 'blob'>('external');
+  const [isIntentionalReset, setIsIntentionalReset] = useState(false);
+
+  const [auditPromptLoaded, setAuditPromptLoaded] = useState(source !== 'audit');
+  const [resolvedPrompt, setResolvedPrompt] = useState<string | null>(promptParam);
+  const [isTemplateLoading, setIsTemplateLoading] = useState(false);
 
   useEffect(() => {
-    if (source === "audit" && typeof window !== "undefined") {
-      const storageKey = auditId
-        ? `sajtmaskin_audit_prompt:${auditId}`
-        : "sajtmaskin_audit_prompt";
+    if (source !== 'audit' || typeof window === 'undefined') return;
 
-      const storedPrompt =
-        sessionStorage.getItem(storageKey) || localStorage.getItem(storageKey);
-      if (storedPrompt) {
-        setAuditPrompt(storedPrompt);
-        console.log(
-          "[Builder] Loaded audit prompt from sessionStorage:",
-          storedPrompt.length,
-          "chars"
-        );
-      } else {
-        // In dev (StrictMode) this effect can run twice; the first run consumes sessionStorage.
-        // If we already have a prompt in the URL, that's fine and expected.
-        if (urlPrompt && urlPrompt.trim().length > 0) {
-          console.log(
-            "[Builder] Audit flow: sessionStorage prompt already consumed; using URL prompt"
-          );
-        } else {
-          console.warn(
-            "[Builder] Audit flow: missing prompt in both sessionStorage and URL"
-          );
-        }
-      }
-      // Mark as loaded (even if no prompt found - prevents infinite loading)
-      setAuditPromptLoaded(true);
+    const storageKey = auditId
+      ? `sajtmaskin_audit_prompt:${auditId}`
+      : 'sajtmaskin_audit_prompt';
+    const storedPrompt =
+      sessionStorage.getItem(storageKey) || localStorage.getItem(storageKey);
+
+    if (storedPrompt) {
+      setResolvedPrompt(storedPrompt);
     }
-  }, [source, urlPrompt, auditId]);
 
-  // Use audit prompt if available, otherwise URL prompt
-  const prompt = auditPrompt || urlPrompt;
-  // Reuse chatId from preview (if template was previewed before selection)
+    setAuditPromptLoaded(true);
+  }, [source, auditId]);
 
-  // Track the active projectId (from URL or auto-created)
-  const [projectId, setLocalProjectId] = useState<string | null>(urlProjectId);
-
-  const {
-    quality,
-    setQuality,
-    clearChat,
-    demoUrl,
-    chatId,
-    versionId,
-    files,
-    setProjectId,
-    loadFromProject,
-    isSaving,
-    hasUserSaved,
-    explicitSave,
-    isLoading,
-  } = useBuilderStore();
-
-  const { isAuthenticated, diamonds, fetchUser } = useAuth();
-  const [projectName, setProjectName] = useState<string | null>(null);
-  const [mobileTab, setMobileTab] = useState<"chat" | "preview">("chat");
-  const [showMobileMenu, setShowMobileMenu] = useState(false);
-  const [showFinalizeModal, setShowFinalizeModal] = useState(false);
-  const [showAIFeatures, setShowAIFeatures] = useState(false);
-  const [isDownloading, setIsDownloading] = useState(false);
-  const [isPublishing, setIsPublishing] = useState(false);
-  const isMobile = useIsMobile();
-
-  // Track if we've already auto-switched to preview (prevents repeated switches)
-  const [hasAutoSwitched, setHasAutoSwitched] = useState(false);
-
-  // Reset auto-switch flag when a new generation starts (isLoading becomes true and demoUrl is cleared)
-  // This allows auto-switch to happen again for subsequent generations
   useEffect(() => {
-    if (isLoading && !demoUrl) {
-      setHasAutoSwitched(false);
-    }
-  }, [isLoading, demoUrl]);
-
-  // Auto-switch to preview ONCE when generation completes on mobile
-  // Using a flag to prevent re-switching when user manually goes back to chat
-  useEffect(() => {
-    if (isMobile && demoUrl && !isLoading && !hasAutoSwitched) {
-      setMobileTab("preview");
-      setHasAutoSwitched(true);
-    }
-  }, [demoUrl, isLoading, isMobile, hasAutoSwitched]);
-
-  // Cleanup: once generation has produced a demoUrl, the audit prompt is no longer needed.
-  // Remove it from storage so future sessions don't accidentally reuse it.
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    if (source !== "audit") return;
-    if (!auditId) return;
-    if (!demoUrl) return;
+    if (typeof window === 'undefined') return;
+    if (source !== 'audit') return;
+    if (!auditId || !currentDemoUrl) return;
 
     const key = `sajtmaskin_audit_prompt:${auditId}`;
     sessionStorage.removeItem(key);
     localStorage.removeItem(key);
-    sessionStorage.removeItem("sajtmaskin_audit_prompt_id");
-  }, [source, auditId, demoUrl]);
+    sessionStorage.removeItem('sajtmaskin_audit_prompt_id');
+  }, [source, auditId, currentDemoUrl]);
 
-  // Fetch user on mount to get diamond balance
-  // Use ref to prevent duplicate calls in StrictMode
-  const hasFetchedUserRef = useRef(false);
+  const { chat } = useChat(chatId);
+  const { versions, mutate: mutateVersions } = useVersions(chatId);
+
   useEffect(() => {
-    if (hasFetchedUserRef.current) {
-      return;
-    }
-    hasFetchedUserRef.current = true;
-    fetchUser();
-  }, [fetchUser]);
-
-  // Track if we've already loaded this project (prevents double-load from StrictMode)
-  // Use ref instead of state to prevent race conditions in StrictMode
-  const hasLoadedProjectRef = useRef<string | null>(null);
-  // Track which project is currently being loaded (null = not loading, string = projectId being loaded)
-  const isLoadingProjectRef = useRef<string | null>(null);
-
-  // Track if we're still loading project data (prevents race condition with ChatPanel)
-  const [isProjectDataLoading, setIsProjectDataLoading] = useState(true);
-
-  // Track if project has existing saved data (prevents re-generation if data exists)
-  const [hasExistingData, setHasExistingData] = useState(false);
-
-  // Ref to prevent double project creation from React StrictMode
-  const isCreatingProjectRef = useRef(false);
-
-  // Auto-create project if user arrives with prompt/template but no projectId yet
-  useEffect(() => {
-    // CRITICAL: For audit flow, wait until audit prompt is loaded from sessionStorage
-    // This prevents race condition where we decide "no prompt" before sessionStorage is read
-    if (!auditPromptLoaded) {
-      console.log("[Builder] Waiting for audit prompt to load...");
-      return;
-    }
-
-    const shouldAutoCreate = !projectId && (prompt || templateId);
-
-    if (!shouldAutoCreate) {
-      if (!projectId && !isCreatingProjectRef.current) {
-        setIsProjectDataLoading(false);
-        setHasExistingData(false);
+    if (isIntentionalReset) {
+      if (!chatIdParam) {
+        setIsIntentionalReset(false);
       }
       return;
     }
 
-    // Prevent double creation from React StrictMode
-    if (isCreatingProjectRef.current) {
-      console.log("[Builder] Project creation already in progress, skipping");
+    if (chatIdParam && chatIdParam !== chatId) {
+      setChatId(chatIdParam);
       return;
     }
 
-    // CRITICAL: Keep isProjectDataLoading = true while creating project
-    // This prevents ChatPanel from starting generation before project exists
-    setIsProjectDataLoading(true);
-
-    const autoCreateProject = async () => {
-      isCreatingProjectRef.current = true;
+    if (!chatIdParam && !chatId && !hasEntryParams) {
       try {
-        // Extract company name from prompt if possible, otherwise use generic name
-        const dateLabel = new Date().toLocaleDateString("sv-SE");
-        const nameMatch = prompt?.match(/for\s+([^,.]+)/i);
-        const promptName = nameMatch
-          ? nameMatch[1].trim()
-          : prompt?.split("\n")[0]?.slice(0, 60)?.trim();
-        const projectName =
-          promptName ||
-          (templateId
-            ? `v0-template ${templateId}`
-            : `Webbprojekt - ${dateLabel}`);
-
-        const description = prompt
-          ? prompt.substring(0, 100)
-          : templateId
-          ? `Baserat på v0 template: ${templateId}`
-          : undefined;
-
-        console.log("[Builder] Auto-creating project:", projectName);
-        const project = await createProject(
-          projectName,
-          type || "website",
-          description
-        );
-
-        // Update local state with the new projectId
-        setLocalProjectId(project.id);
-        setProjectId(project.id);
-
-        // Update URL without full page reload (keeps incoming params intact)
-        const params = new URLSearchParams();
-        params.set("project", project.id);
-        // IMPORTANT: Never push full audit prompt into the URL (length limits).
-        // Keep auditId/source so hard reloads can still recover the prompt from storage.
-        if (source === "audit") {
-          params.set("source", "audit");
-          if (auditId) params.set("auditId", auditId);
-        } else if (prompt) {
-          params.set("prompt", prompt);
+        const last = localStorage.getItem('sajtmaskin:lastChatId');
+        if (last) {
+          setChatId(last);
+          router.replace(`/builder?chatId=${encodeURIComponent(last)}`);
         }
-        if (type) {
-          params.set("type", type);
-        }
-        if (templateId) {
-          params.set("templateId", templateId);
-        }
-        router.replace(`/builder?${params.toString()}`);
-
-        console.log("[Builder] Project auto-created:", project.id);
-        // Reset ref so project can be loaded normally
-        isCreatingProjectRef.current = false;
-        // isProjectDataLoading will be set to false by the project data loading effect below
-      } catch (error) {
-        console.error("[Builder] Failed to auto-create project:", error);
-        // Continue without projectId - user can still use the builder
-        setIsProjectDataLoading(false);
-        isCreatingProjectRef.current = false;
+      } catch {
+        // ignore storage errors
       }
-    };
+    }
+  }, [chatIdParam, chatId, router, isIntentionalReset, hasEntryParams]);
 
-    autoCreateProject();
-  }, [
-    prompt,
-    projectId,
-    templateId,
-    type,
-    router,
-    setProjectId,
-    auditPromptLoaded, // Wait for audit prompt before deciding
-    source,
-    auditId,
-  ]);
-
-  // Load project data on mount
   useEffect(() => {
-    // If no projectId, check if we're creating one (don't set loading to false yet)
-    if (!projectId) {
-      // Only set to false if we're NOT creating a project (no prompt means manual entry)
-      // CRITICAL: Also check auditPromptLoaded - if audit flow, wait for prompt to load
-      if (
-        !prompt &&
-        !templateId &&
-        !isCreatingProjectRef.current &&
-        auditPromptLoaded // Don't set loading=false if audit prompt is still loading
-      ) {
-        setIsProjectDataLoading(false);
-        setHasExistingData(false);
+    if (!chatId) return;
+    try {
+      localStorage.setItem('sajtmaskin:lastChatId', chatId);
+    } catch {
+      // ignore storage errors
+    }
+  }, [chatId]);
+
+  useEffect(() => {
+    if (chat?.demoUrl && !currentDemoUrl) {
+      setCurrentDemoUrl(chat.demoUrl);
+    }
+  }, [chat, currentDemoUrl]);
+
+  const activeVersionId = useMemo(() => {
+    const latestFromVersions = versions?.[0]?.versionId || versions?.[0]?.id || null;
+    const latestFromChat = (() => {
+      if (!chat || typeof chat !== 'object') return null;
+      const latest = (chat as { latestVersion?: { versionId?: string | null; id?: string | null } })
+        .latestVersion;
+      return latest?.versionId || latest?.id || null;
+    })();
+    return selectedVersionId || latestFromVersions || latestFromChat;
+  }, [selectedVersionId, versions, chat]);
+
+  const isAnyStreaming = useMemo(() => messages.some((m) => Boolean(m.isStreaming)), [messages]);
+
+  const deployActiveVersionToVercel = useCallback(
+    async (target: 'production' | 'preview' = 'production') => {
+      if (!chatId) {
+        toast.error('No chat selected');
+        return;
       }
-      // If prompt exists OR audit prompt still loading, project creation is in progress - keep loading = true
-      return;
-    }
+      if (!activeVersionId) {
+        toast.error('No version selected');
+        return;
+      }
+      if (isDeploying) return;
 
-    // Skip if already SUCCESSFULLY loaded this project (React StrictMode protection)
-    // IMPORTANT: Only skip if we actually loaded the data, not just started loading
-    if (hasLoadedProjectRef.current === projectId) {
-      console.log(
-        "[Builder] Project already loaded successfully, skipping:",
-        projectId
-      );
-      // Make sure loading state is correct
-      setIsProjectDataLoading(false);
-      return;
-    }
-
-    // Skip if currently loading this same project (prevents duplicate requests)
-    if (isLoadingProjectRef.current === projectId) {
-      console.log("[Builder] Project already loading, skipping:", projectId);
-      return;
-    }
-
-    // Mark as loading immediately (synchronous ref update)
-    // Note: Don't set hasLoadedProjectRef yet - only set it AFTER successful load
-    isLoadingProjectRef.current = projectId;
-    setProjectId(projectId);
-    setIsProjectDataLoading(true);
-
-    // Clear any stale state BEFORE fetching new project data
-    // This prevents old project data from being visible briefly
-    clearChat();
-
-    // Track if this effect is still mounted (for cleanup)
-    let isMounted = true;
-
-    console.log("[Builder] Loading project data:", projectId);
-
-    // Load existing project data if any
-    getProject(projectId)
-      .then(({ project, data }) => {
-        // Guard against unmounted component - BUT allow retry if unmounted
-        if (!isMounted) {
-          console.log(
-            "[Builder] Component unmounted during fetch, will retry on remount"
-          );
-          // Reset loading ref so next mount will retry
-          if (isLoadingProjectRef.current === projectId) {
-            isLoadingProjectRef.current = null;
-          }
-          return;
-        }
-
-        setProjectName(project.name);
-
-        // Check if project has ANY existing data (not just chat_id)
-        // IMPORTANT: Only consider it "has data" if there's actual content (code/files/demoUrl)
-        // Having just chat_id without content means generation didn't complete
-        const hasData =
-          data &&
-          ((data.demo_url && data.demo_url.length > 0) ||
-            (data.current_code && data.current_code.length > 0) ||
-            (data.files && data.files.length > 0));
-
-        console.log("[Builder] Project data loaded:", {
-          projectId,
-          hasData,
-          hasChatId: !!data?.chat_id,
-          hasDemoUrl: !!data?.demo_url,
-          hasCode: !!data?.current_code,
-          filesCount: data?.files?.length || 0,
+      setIsDeploying(true);
+      try {
+        const response = await fetch('/api/v0/deployments', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            chatId,
+            versionId: activeVersionId,
+            target,
+            imageStrategy: deployImageStrategy,
+          }),
         });
 
-        if (hasData) {
-          loadFromProject({
-            chatId: data.chat_id,
-            demoUrl: data.demo_url,
-            currentCode: data.current_code,
-            files: data.files,
-            messages: data.messages,
-          });
-          setHasExistingData(true);
-        } else {
-          setHasExistingData(false);
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(data?.error || data?.message || `Deploy failed (HTTP ${response.status})`);
         }
 
-        // Mark as successfully loaded ONLY after data is applied
-        hasLoadedProjectRef.current = projectId;
-      })
-      .catch((err) => {
-        if (!isMounted) return;
-        console.error("[Builder] Failed to load project:", err);
-        setHasExistingData(false);
-        // Reset refs on error so we can retry
-        isLoadingProjectRef.current = null;
-        hasLoadedProjectRef.current = null;
-      })
-      .finally(() => {
-        if (!isMounted) return;
-        // Mark loading as complete so ChatPanel knows it can proceed
-        isLoadingProjectRef.current = null;
-        setIsProjectDataLoading(false);
-      });
+        const rawUrl = typeof data?.url === 'string' ? data.url : null;
+        const url = rawUrl ? (rawUrl.startsWith('http') ? rawUrl : `https://${rawUrl}`) : null;
 
-    // Cleanup: mark as unmounted if effect re-runs or component unmounts
-    return () => {
-      isMounted = false;
-      // Reset loading ref if we were loading this project - allows retry on remount
-      if (isLoadingProjectRef.current === projectId) {
-        isLoadingProjectRef.current = null;
+        toast.success(url ? 'Deployment started (Vercel building...)' : 'Deployment started');
+        if (url) {
+          toast(
+            <span className="text-sm">
+              Vercel URL:{' '}
+              <a href={url} target="_blank" rel="noopener noreferrer" className="underline">
+                {url}
+              </a>
+            </span>,
+            { duration: 15000 }
+          );
+        }
+      } catch (error) {
+        console.error('Deploy error:', error);
+        toast.error(error instanceof Error ? error.message : 'Failed to deploy');
+      } finally {
+        setIsDeploying(false);
+      }
+    },
+    [chatId, activeVersionId, isDeploying, deployImageStrategy]
+  );
+
+  const { maybeEnhanceInitialPrompt } = usePromptAssist({
+    provider: promptAssistProvider,
+    model: promptAssistModel,
+    deep: promptAssistDeep,
+    imageGenerations: enableImageGenerations,
+  });
+
+  const resetBeforeCreateChat = useCallback(() => {
+    setSelectedFile(null);
+    setFiles([]);
+    setFilesError(null);
+    setSelectedVersionId(null);
+    setCurrentDemoUrl(null);
+  }, []);
+
+  const { isCreatingChat, createNewChat, sendMessage } = useV0ChatMessaging({
+    chatId,
+    setChatId,
+    chatIdParam,
+    router,
+    selectedModelTier,
+    enableImageGenerations,
+    maybeEnhanceInitialPrompt,
+    mutateVersions,
+    setCurrentDemoUrl,
+    setMessages,
+    resetBeforeCreateChat,
+  });
+
+  usePersistedChatMessages({
+    chatId,
+    isCreatingChat,
+    isAnyStreaming,
+    messages,
+    setMessages,
+  });
+
+  const loadFiles = useCallback(
+    async (versionId: string | null) => {
+      if (!chatId) return;
+
+      setIsFilesLoading(true);
+      setFilesError(null);
+      try {
+        const url = versionId
+          ? `/api/v0/chats/${chatId}/files?versionId=${encodeURIComponent(versionId)}`
+          : `/api/v0/chats/${chatId}/files`;
+
+        const response = await fetch(url);
+        if (!response.ok) {
+          const err = await response.json().catch(() => ({}));
+          throw new Error(err.error || `Failed to fetch files (HTTP ${response.status})`);
+        }
+
+        const data = await response.json();
+        const flatFiles = Array.isArray(data.files) ? data.files : [];
+        setFiles(buildFileTree(flatFiles));
+      } catch (error) {
+        console.error('Error fetching files:', error);
+        setFiles([]);
+        setFilesError(error instanceof Error ? error.message : 'Failed to fetch files');
+      } finally {
+        setIsFilesLoading(false);
+      }
+    },
+    [chatId]
+  );
+
+  useEffect(() => {
+    if (!chatId) {
+      setFiles([]);
+      setFilesError(null);
+      return;
+    }
+    if (rightPanelTab !== 'files') return;
+    loadFiles(activeVersionId);
+  }, [chatId, rightPanelTab, activeVersionId, loadFiles]);
+
+  const resetToNewChat = useCallback(() => {
+    setIsIntentionalReset(true);
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem('sajtmaskin:lastChatId');
+    }
+    if (chatId) {
+      clearPersistedMessages(chatId);
+    }
+    router.replace('/builder');
+    setChatId(null);
+    setSelectedFile(null);
+    setFiles([]);
+    setFilesError(null);
+    setSelectedVersionId(null);
+    setCurrentDemoUrl(null);
+    setMessages([]);
+    setIsImportModalOpen(false);
+    setIsSandboxModalOpen(false);
+  }, [router, chatId]);
+
+  const handleVersionSelect = async (versionId: string) => {
+    setSelectedVersionId(versionId);
+
+    if (!chatId) {
+      console.warn('handleVersionSelect called without valid chatId');
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/v0/chats/${chatId}/versions`);
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      const versionsList = Array.isArray(data.versions)
+        ? (data.versions as Array<{ versionId?: string; id?: string; demoUrl?: string | null }>)
+        : [];
+      const version = versionsList.find((v) => v.versionId === versionId || v.id === versionId);
+      if (version?.demoUrl) {
+        setCurrentDemoUrl(version.demoUrl);
+      }
+    } catch (error) {
+      console.error('Error fetching version:', error);
+    }
+  };
+
+  const handleFileSelect = (file: FileNode) => {
+    setSelectedFile(file);
+  };
+
+  const tabs = [
+    { id: 'versions' as const, label: 'Versions', icon: History },
+    { id: 'files' as const, label: 'Files', icon: FolderTree },
+    { id: 'deployments' as const, label: 'Deployments', icon: Rocket },
+  ];
+
+  const initialPrompt = templateId ? null : resolvedPrompt?.trim() || null;
+  const autoCreateRef = useRef(false);
+  useEffect(() => {
+    if (!auditPromptLoaded) return;
+    if (!initialPrompt || chatId || autoCreateRef.current) return;
+
+    autoCreateRef.current = true;
+    void createNewChat(initialPrompt);
+  }, [auditPromptLoaded, initialPrompt, chatId, createNewChat]);
+
+  useEffect(() => {
+    if (!auditPromptLoaded) return;
+    if (!templateId || chatId || isTemplateLoading) return;
+
+    const initTemplate = async () => {
+      setIsTemplateLoading(true);
+      try {
+        const response = await fetch('/api/template', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ templateId, quality: 'standard' }),
+        });
+        const data = await response.json();
+        if (!response.ok || !data?.success) {
+          throw new Error(data?.error || 'Template init failed');
+        }
+
+        if (data?.chatId) {
+          setChatId(data.chatId);
+          router.replace(`/builder?chatId=${encodeURIComponent(data.chatId)}`);
+        }
+        if (data?.demoUrl) {
+          setCurrentDemoUrl(data.demoUrl);
+        }
+      } catch (error) {
+        console.error('[Builder] Template init failed:', error);
+      } finally {
+        setIsTemplateLoading(false);
       }
     };
-  }, [
-    projectId,
-    setProjectId,
-    loadFromProject,
-    clearChat,
-    prompt,
-    templateId,
-    auditPromptLoaded,
-  ]);
 
-  // Handle starting a new design
-  const handleNewDesign = () => {
-    clearChat();
-    setHasAutoSwitched(false); // Reset so auto-switch works for new generation
-    setHasExistingData(false); // Allow new generation
-    hasLoadedProjectRef.current = null; // Reset project tracking
-    isLoadingProjectRef.current = null; // Reset loading flag
-    if (isMobile) {
-      setMobileTab("chat"); // Switch back to chat on mobile when starting new design
-    }
-  };
-
-  // Handle "Klar" button click - show finalize modal
-  const handleKlarClick = () => {
-    setShowFinalizeModal(true);
-  };
-
-  // Handle download from finalize modal
-  // Uses POST with body for security (password not exposed in URL/browser history)
-  const handleFinalizeDownload = async (
-    includeBackoffice: boolean,
-    password?: string
-  ) => {
-    if (!chatId || !versionId) return;
-
-    setIsDownloading(true);
-    try {
-      // Use POST to keep password secure (not in URL/browser history)
-      const response = await fetch("/api/download", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          chatId,
-          versionId,
-          includeBackoffice,
-          password: includeBackoffice ? password : undefined,
-        }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json().catch(() => ({}));
-        throw new Error(error.error || "Nedladdning misslyckades");
-      }
-
-      // Create blob and trigger download
-      const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = includeBackoffice
-        ? `sajtmaskin-${chatId}-with-backoffice.zip`
-        : `sajtmaskin-${chatId}.zip`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-
-      setShowFinalizeModal(false);
-    } catch (error) {
-      console.error("[Builder] Download failed:", error);
-    } finally {
-      setIsDownloading(false);
-    }
-  };
-
-  // Handle publish from finalize modal
-  const handleFinalizePublish = async (
-    _includeBackoffice: boolean,
-    _password?: string
-  ) => {
-    // Defensive checks before trying to publish
-    const effectiveProjectId = projectId;
-    if (!effectiveProjectId) {
-      console.error("[Builder] Publish aborted: missing projectId");
-      return;
-    }
-    if (!chatId || !versionId) {
-      console.error("[Builder] Publish aborted: missing chatId/versionId", {
-        chatId,
-        versionId,
-      });
-      return;
-    }
-
-    setIsPublishing(true);
-    try {
-      const response = await fetch("/api/vercel/deploy", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          projectId: effectiveProjectId,
-          projectName: projectName || "sajtmaskin-site",
-          framework: "nextjs",
-          target: "production",
-          // Backoffice/password not yet wired to deploy payload; download covers backoffice.
-        }),
-      });
-
-      if (!response.ok) {
-        const error = await response.json().catch(() => ({}));
-        throw new Error(
-          error.error ||
-            `Publish failed (HTTP ${response.status}${response.statusText ? ` ${response.statusText}` : ""})`
-        );
-      }
-
-      setShowFinalizeModal(false);
-    } catch (error) {
-      console.error("[Builder] Publish failed:", error);
-    } finally {
-      setIsPublishing(false);
-    }
-  };
-
-  const title = projectName
-    ? projectName
-    : templateId
-    ? "Template"
-    : type
-    ? categoryTitles[type] || type
-    : prompt
-    ? "Egen beskrivning"
-    : "Ny webbplats";
+    void initTemplate();
+  }, [auditPromptLoaded, templateId, chatId, isTemplateLoading, router]);
 
   return (
-    <div
-      className="min-h-screen bg-black flex flex-col"
-      suppressHydrationWarning
-    >
-      {/* Shader Background - very subtle for builder */}
-      <ShaderBackground color="#002020" speed={0.15} opacity={0.25} />
+    <ErrorBoundary>
+      <div className="flex h-screen w-screen flex-col overflow-hidden bg-muted/30">
+        <Toaster position="top-right" />
 
-      {/* Header - Desktop */}
-      <header className="relative z-20 h-14 border-b border-gray-800 hidden md:flex items-center justify-between px-4 bg-black/80 backdrop-blur-sm">
-        <div className="flex items-center gap-4">
-          <Link href="/">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="gap-2 text-gray-400 hover:text-white hover:bg-gray-800"
-            >
-              <ArrowLeft className="h-4 w-4" />
-              Tillbaka
-            </Button>
-          </Link>
-          <div className="h-5 w-px bg-gray-800" />
-          <div className="flex items-center gap-2">
-            <Rocket className="h-5 w-5 text-teal-500" />
-            <span className="font-semibold text-white">SajtMaskin</span>
-            <span className="text-gray-600">|</span>
-            <span className="text-gray-400">{title}</span>
-          </div>
-        </div>
-        <div className="flex items-center gap-3">
-          {/* Diamond counter */}
-          {isAuthenticated && (
-            <>
-              <Link href="/buy-credits">
-                <div className="flex items-center gap-1.5 px-3 py-1.5 bg-black/50 border border-amber-500/30 hover:border-amber-500/60 transition-colors cursor-pointer group">
-                  <Diamond className="h-4 w-4 text-amber-400 group-hover:text-amber-300" />
-                  <span className="text-sm font-semibold text-amber-400 group-hover:text-amber-300">
-                    {diamonds ?? 0}
-                  </span>
-                </div>
-              </Link>
-              <div className="h-5 w-px bg-gray-800" />
-            </>
-          )}
-          <QualitySelector value={quality} onChange={setQuality} />
-          <AIFeaturesButton
-            onClick={() => setShowAIFeatures(!showAIFeatures)}
-          />
-          <div className="h-5 w-px bg-gray-800" />
-          {/* Saving indicator and save button */}
-          {projectId && (
-            <div className="flex items-center gap-2">
-              {isSaving ? (
-                <span className="flex items-center gap-1 text-xs text-gray-500">
-                  <Save className="h-3 w-3 animate-pulse" />
-                  Sparar...
-                </span>
-              ) : hasUserSaved ? (
-                <span className="flex items-center gap-1 text-xs text-teal-500">
-                  <Save className="h-3 w-3" />
-                  Sparad
-                </span>
-              ) : (
-                <>
-                  <span className="text-xs text-amber-500">Ej sparad</span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => explicitSave()}
-                    className="gap-1 h-7 px-2 border-amber-600 text-amber-500 hover:bg-amber-900/20 hover:text-amber-400"
-                  >
-                    <Save className="h-3 w-3" />
-                    Spara
-                  </Button>
-                </>
-              )}
-            </div>
-          )}
-          {demoUrl && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleNewDesign}
-              className="gap-2 text-gray-400 hover:text-white hover:bg-gray-800"
-            >
-              <RefreshCw className="h-4 w-4" />
-              Ny design
-            </Button>
-          )}
-          <Button
-            size="sm"
-            className="gap-2 bg-teal-600 hover:bg-teal-500 text-white"
-            disabled={!chatId || !versionId}
-            onClick={handleKlarClick}
-          >
-            <Check className="h-4 w-4" />
-            Klar
-            <HelpTooltip text="Kolla domäntillgänglighet, ladda ner eller publicera din webbplats." />
-          </Button>
-        </div>
-      </header>
-
-      {/* Header - Mobile */}
-      <header className="relative z-20 h-12 border-b border-gray-800 flex md:hidden items-center justify-between px-3 bg-black/80 backdrop-blur-sm">
-        <div className="flex items-center gap-2">
-          <Link href="/">
-            <Button
-              variant="ghost"
-              size="sm"
-              className="h-8 w-8 p-0 text-gray-400"
-            >
-              <ArrowLeft className="h-4 w-4" />
-            </Button>
-          </Link>
-          <Rocket className="h-4 w-4 text-teal-500" />
-          <span className="font-medium text-white text-sm truncate max-w-[120px]">
-            {title}
-          </span>
-        </div>
-        <div className="flex items-center gap-2">
-          {isAuthenticated && (
-            <Link href="/buy-credits">
-              <div className="flex items-center gap-1 px-2 py-1 bg-black/50 border border-amber-500/30 rounded">
-                <Diamond className="h-3 w-3 text-amber-400" />
-                <span className="text-xs font-semibold text-amber-400">
-                  {diamonds ?? 0}
-                </span>
-              </div>
-            </Link>
-          )}
-          <Button
-            variant="ghost"
-            size="sm"
-            className="h-8 w-8 p-0 text-gray-400"
-            onClick={() => setShowMobileMenu(!showMobileMenu)}
-          >
-            <Menu className="h-4 w-4" />
-          </Button>
-        </div>
-      </header>
-
-      {/* Mobile Menu Dropdown */}
-      {showMobileMenu && (
-        <div className="absolute z-30 top-12 right-0 left-0 bg-gray-900/95 backdrop-blur-sm border-b border-gray-800 p-3 flex flex-col gap-2 md:hidden">
-          <QualitySelector value={quality} onChange={setQuality} />
-          <Button
-            size="sm"
-            className="gap-2 bg-teal-600 hover:bg-teal-500"
-            disabled={!chatId || !versionId}
-            onClick={() => {
-              setShowMobileMenu(false);
-              handleKlarClick();
-            }}
-          >
-            <Check className="h-4 w-4" />
-            Klar
-          </Button>
-          {demoUrl && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => {
-                handleNewDesign();
-                setShowMobileMenu(false);
-              }}
-              className="gap-2 text-gray-400"
-            >
-              <RefreshCw className="h-4 w-4" />
-              Ny design
-            </Button>
-          )}
-        </div>
-      )}
-
-      {/* Main content - Desktop: 2 panel layout */}
-      {/* Main content - Unified layout (single ChatPanel + single CodePreview) */}
-      {/*
-        Why: We previously rendered TWO CodePreview components (desktop + mobile),
-        which creates two iframes and doubles resource usage. For WebGL-heavy templates,
-        a hidden iframe can end up with a 0×0 viewport and spam WebGL framebuffer errors.
-
-        This unified layout keeps ONE instance of each component mounted:
-        - Desktop (md+): side-by-side panels
-        - Mobile: panels overlap (absolute) and we toggle visibility via opacity + pointer-events
-          (keeps iframe sized, avoids 0×0 canvas issues, and prevents remounts)
-
-        MOBILE FIX: Using transform instead of opacity for better mobile performance.
-        Transform triggers GPU acceleration and is smoother on mobile devices.
-      */}
-      <div className="relative z-10 flex-1 overflow-hidden md:flex md:flex-row">
-        {/* Chat Panel */}
-        <div
-          className={`absolute inset-0 bg-black/70 backdrop-blur-sm transition-all duration-200 ease-out
-            ${
-              mobileTab === "chat"
-                ? "opacity-100 pointer-events-auto translate-x-0"
-                : "opacity-0 pointer-events-none -translate-x-full"
-            }
-            md:static md:inset-auto md:opacity-100 md:pointer-events-auto md:translate-x-0
-            md:w-[30%] md:min-w-[300px] md:border-r md:border-gray-800`}
-          style={{
-            // Prevent iOS scroll bounce issues
-            WebkitOverflowScrolling: "touch",
-            overscrollBehavior: "contain",
+        <BuilderHeader
+          isMobileMenuOpen={isMobileMenuOpen}
+          onToggleMobileMenu={() => setIsMobileMenuOpen((v) => !v)}
+          selectedModelTier={selectedModelTier}
+          onSelectedModelTierChange={setSelectedModelTier}
+          promptAssistProvider={promptAssistProvider}
+          onPromptAssistProviderChange={setPromptAssistProvider}
+          promptAssistModel={promptAssistModel}
+          onPromptAssistModelChange={setPromptAssistModel}
+          promptAssistDeep={promptAssistDeep}
+          onPromptAssistDeepChange={setPromptAssistDeep}
+          enableImageGenerations={enableImageGenerations}
+          onEnableImageGenerationsChange={setEnableImageGenerations}
+          deployImageStrategy={deployImageStrategy}
+          onDeployImageStrategyChange={setDeployImageStrategy}
+          onOpenImport={() => {
+            setIsSandboxModalOpen(false);
+            setIsImportModalOpen(true);
           }}
-        >
-          <ChatPanel
-            categoryType={type || undefined}
-            initialPrompt={prompt || undefined}
-            templateId={templateId || undefined}
-            instanceId="builder"
-            isPrimaryInstance={true}
-            isProjectDataLoading={isProjectDataLoading}
-            hasExistingData={hasExistingData}
-          />
-        </div>
-
-        {/* Preview Panel */}
-        <div
-          className={`absolute inset-0 bg-black/50 transition-all duration-200 ease-out
-            ${
-              mobileTab === "preview"
-                ? "opacity-100 pointer-events-auto translate-x-0"
-                : "opacity-0 pointer-events-none translate-x-full"
-            }
-            md:static md:inset-auto md:opacity-100 md:pointer-events-auto md:translate-x-0 md:flex-1`}
-        >
-          <CodePreview />
-        </div>
-      </div>
-
-      {/* Mobile Tab Bar - touch optimized with safe area support */}
-      <div
-        className="relative z-10 h-16 border-t border-gray-800 flex bg-black/90 backdrop-blur-sm md:hidden pb-safe"
-        style={{ paddingBottom: "env(safe-area-inset-bottom, 0px)" }}
-      >
-        <button
-          onClick={() => setMobileTab("chat")}
-          className={`flex-1 flex flex-col items-center justify-center gap-1 transition-all duration-150 touch-manipulation active:scale-95 ${
-            mobileTab === "chat"
-              ? "text-teal-400 bg-teal-500/10"
-              : "text-gray-500 active:text-gray-400"
-          }`}
-          style={{ WebkitTapHighlightColor: "transparent" }}
-        >
-          <MessageSquare className="h-6 w-6" />
-          <span className="text-xs font-medium">Chat</span>
-        </button>
-        <button
-          onClick={() => setMobileTab("preview")}
-          className={`flex-1 flex flex-col items-center justify-center gap-1 transition-all duration-150 relative touch-manipulation active:scale-95 ${
-            mobileTab === "preview"
-              ? "text-teal-400 bg-teal-500/10"
-              : "text-gray-500 active:text-gray-400"
-          }`}
-          style={{ WebkitTapHighlightColor: "transparent" }}
-        >
-          <Eye className="h-6 w-6" />
-          <span className="text-xs font-medium">Preview</span>
-          {/* Notification dot when preview is ready */}
-          {demoUrl && mobileTab === "chat" && (
-            <span className="absolute top-2 right-1/4 w-3 h-3 bg-teal-500 rounded-full animate-pulse shadow-lg shadow-teal-500/50" />
+          onOpenSandbox={() => {
+            setIsImportModalOpen(false);
+            setIsSandboxModalOpen(true);
+          }}
+          onDeployProduction={() => deployActiveVersionToVercel('production')}
+          onNewChat={resetToNewChat}
+          isDeploying={isDeploying}
+          isCreatingChat={isCreatingChat || isTemplateLoading}
+          isAnyStreaming={isAnyStreaming}
+          canDeploy={Boolean(
+            chatId && activeVersionId && !isCreatingChat && !isAnyStreaming && !isDeploying
           )}
-        </button>
-      </div>
+        />
 
-      {/* Step indicator - Desktop only */}
-      <div className="relative z-10 h-10 border-t border-gray-800 hidden md:flex items-center justify-center bg-black/80">
-        <p className="text-xs text-gray-500">
-          Granska och förfina din design
-          <HelpTooltip text="Du kan fortsätta förfina din design genom att skicka fler instruktioner i chatten. När du är nöjd, ladda ner eller publicera!" />
-        </p>
-      </div>
-
-      {/* Finalize Modal */}
-      <FinalizeModal
-        isOpen={showFinalizeModal}
-        onClose={() => setShowFinalizeModal(false)}
-        onDownload={handleFinalizeDownload}
-        onPublish={handleFinalizePublish}
-        projectTitle={title}
-        projectId={projectId || undefined}
-        fileCount={files?.length || 0}
-        isDownloading={isDownloading}
-        isPublishing={isPublishing}
-      />
-
-      {/* AI Features Panel - Slide-in from right */}
-      {showAIFeatures && (
-        <div className="fixed inset-0 z-50 flex justify-end">
-          {/* Backdrop */}
+        <div className="flex flex-1 overflow-hidden">
           <div
-            className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-            onClick={() => setShowAIFeatures(false)}
-          />
-          {/* Panel */}
-          <div className="relative w-full max-w-md m-4 animate-in slide-in-from-right duration-300">
-            <AIFeaturesPanel
-              isOpen={true}
-              onClose={() => setShowAIFeatures(false)}
+            className={cn(
+              'flex w-full flex-col border-r border-border bg-background lg:w-96',
+              isMobileMenuOpen ? 'hidden' : '',
+              'lg:flex'
+            )}
+          >
+            <div className="flex-1 overflow-hidden">
+              <MessageList chatId={chatId} messages={messages} />
+            </div>
+            <ChatInterface
+              chatId={chatId}
+              onCreateChat={createNewChat}
+              onSendMessage={sendMessage}
+              isBusy={isCreatingChat || isAnyStreaming || isTemplateLoading}
             />
           </div>
-        </div>
-      )}
-    </div>
-  );
-}
 
-// Loading fallback component
-function LoadingFallback() {
-  return (
-    <div className="min-h-screen bg-black flex items-center justify-center">
-      <div className="flex gap-2">
-        {[1, 2, 3].map((i) => (
+          <div className="hidden flex-1 flex-col overflow-hidden lg:flex">
+            <PreviewPanel demoUrl={currentDemoUrl} isLoading={isAnyStreaming || isCreatingChat} />
+          </div>
+
           <div
-            key={i}
-            className="w-3 h-3 bg-teal-500 animate-pulse"
-            style={{ animationDelay: `${i * 150}ms` }}
-          />
-        ))}
+            className={cn(
+              'flex w-full flex-col border-l border-border bg-background lg:w-80',
+              isMobileMenuOpen ? '' : 'hidden',
+              'lg:flex'
+            )}
+          >
+            <div className="flex border-b border-border">
+              {tabs.map((tab) => (
+                <Button
+                  key={tab.id}
+                  variant="ghost"
+                  onClick={() => setRightPanelTab(tab.id)}
+                  className={cn(
+                    'flex-1 rounded-none border-b-2 border-transparent h-12',
+                    rightPanelTab === tab.id
+                      ? 'border-b-primary text-primary'
+                      : 'text-muted-foreground hover:text-foreground'
+                  )}
+                >
+                  <tab.icon className="h-4 w-4 mr-2" />
+                  {tab.label}
+                </Button>
+              ))}
+              <Button
+                variant="ghost"
+                onClick={() => setRightPanelTab('preview')}
+                className={cn(
+                  'flex-1 rounded-none border-b-2 border-transparent h-12 lg:hidden',
+                  rightPanelTab === 'preview'
+                    ? 'border-b-primary text-primary'
+                    : 'text-muted-foreground hover:text-foreground'
+                )}
+              >
+                <Monitor className="h-4 w-4 mr-2" />
+                Preview
+              </Button>
+            </div>
+
+            <div className="flex-1 overflow-hidden">
+              {rightPanelTab === 'versions' ? (
+                <VersionHistory
+                  chatId={chatId}
+                  selectedVersionId={selectedVersionId}
+                  onVersionSelect={handleVersionSelect}
+                />
+              ) : rightPanelTab === 'files' ? (
+                <FileExplorer
+                  files={files}
+                  onFileSelect={handleFileSelect}
+                  selectedPath={selectedFile?.path || null}
+                  isLoading={isFilesLoading}
+                  error={filesError}
+                />
+              ) : rightPanelTab === 'deployments' ? (
+                <DeploymentHistory chatId={chatId} />
+              ) : (
+                <PreviewPanel demoUrl={currentDemoUrl} isLoading={isAnyStreaming || isCreatingChat} />
+              )}
+            </div>
+          </div>
+        </div>
+
+        {selectedFile && selectedFile.type === 'file' && selectedFile.content != null && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+            <div className="h-[80vh] w-[80vw] max-w-4xl overflow-hidden rounded-lg shadow-xl">
+              <FileViewer
+                fileName={selectedFile.name}
+                content={selectedFile.content}
+                onClose={() => setSelectedFile(null)}
+                chatId={chatId || undefined}
+                versionId={activeVersionId || undefined}
+                locked={selectedFile.locked}
+                onFileSaved={(newContent, newDemoUrl) => {
+                  setSelectedFile({ ...selectedFile, content: newContent });
+                  if (newDemoUrl) {
+                    setCurrentDemoUrl(newDemoUrl);
+                  }
+                  mutateVersions();
+                  if (rightPanelTab === 'files') {
+                    loadFiles(activeVersionId);
+                  }
+                }}
+              />
+            </div>
+          </div>
+        )}
+
+        <SandboxModal
+          isOpen={isSandboxModalOpen}
+          onClose={() => setIsSandboxModalOpen(false)}
+          chatId={chatId}
+          versionId={activeVersionId}
+          onUseInPreview={(url) => setCurrentDemoUrl(url)}
+        />
+
+        <InitFromRepoModal
+          isOpen={isImportModalOpen}
+          onClose={() => setIsImportModalOpen(false)}
+          onSuccess={(newChatId) => {
+            setChatId(newChatId);
+            router.replace(`/builder?chatId=${newChatId}`);
+            setMessages([]);
+            setCurrentDemoUrl(null);
+            setSelectedVersionId(null);
+          }}
+        />
       </div>
-    </div>
+    </ErrorBoundary>
   );
 }
 
 export default function BuilderPage() {
   return (
-    <ClientOnly fallback={<LoadingFallback />}>
-      <Suspense fallback={<LoadingFallback />}>
-        <BuilderContent />
-      </Suspense>
-    </ClientOnly>
+    <Suspense
+      fallback={
+        <div className="flex h-screen items-center justify-center bg-muted/30">
+          <div className="text-center">
+            <Loader2 className="mx-auto h-8 w-8 animate-spin text-primary" />
+            <p className="mt-4 text-sm text-muted-foreground">Loading builder...</p>
+          </div>
+        </div>
+      }
+    >
+      <BuilderContent />
+    </Suspense>
   );
 }

@@ -34,9 +34,10 @@
  * - "completed": Klart → returnera resultat
  * - "failed": Fel → sluta polla, logga error
  *
- * MODELLER (2 st):
- * - v0-1.5-md: Standard (128K context, snabb, $1.5/$7.5 per 1M tokens)
- * - v0-1.5-lg: Premium (512K context, bäst, $15/$75 per 1M tokens)
+ * MODELLER (3 tiers):
+ * - v0-mini: Light (snabbast, billigast)
+ * - v0-pro: Balanced (bra kvalitet till rimlig kostnad)
+ * - v0-max: Best (högsta kvalitet, långsammare/dyrare)
  *
  * All operations include error handling and structured logging.
  */
@@ -48,7 +49,6 @@ import {
 } from "@/lib/utils/prompt-utils";
 import { debugLog, logFinalPrompt } from "@/lib/utils/debug";
 import { logV0 } from "@/lib/utils/file-logger";
-import { isAIFeatureEnabled } from "@/lib/ai/ai-sdk-features";
 import { SECRETS } from "@/lib/config";
 
 // Lazy-initialized v0 client (created at request time, not import time)
@@ -70,9 +70,8 @@ function getV0Client() {
   return _v0Client;
 }
 
-// Import shared type from api-client to avoid duplication
-import type { QualityLevel } from "@/lib/api-client";
-export type { QualityLevel };
+// Local type to avoid dependency on removed api-client
+export type QualityLevel = "light" | "standard" | "pro" | "premium" | "max";
 
 /**
  * Generated file structure from v0 API
@@ -113,34 +112,29 @@ export function findMainFile(
  * v0 Model Configuration
  * ======================
  *
- * Available v0 models:
- * - v0-1.5-sm: Small, fast, limited context
- * - v0-1.5-md: Medium, 128K context, good balance
- * - v0-1.5-lg: Large, 512K context, best quality
- * - v0-gpt-5: GPT-5 based (newest, experimental)
- * - v0-opus-4.5: Claude Opus based (highest quality)
+ * Available v0 models (Platform API):
+ * - v0-mini
+ * - v0-pro
+ * - v0-max
  *
- * Quality levels:
- * - standard: v0-1.5-md (128K context, fast, cheap)
- * - premium:  v0-1.5-lg (512K context, best quality)
- *
- * NOTE: v0-gpt-5 and v0-opus-4.5 are available but may have different pricing
+ * Quality levels (aliases):
+ * - light: v0-mini
+ * - standard / pro: v0-pro
+ * - premium / max: v0-max
  */
-const MODEL_MAP: Record<QualityLevel, "v0-1.5-md" | "v0-1.5-lg"> = {
-  standard: "v0-1.5-md", // Fast, 128K context
-  premium: "v0-1.5-lg", // Best quality, 512K context
+export type V0ModelId = "v0-mini" | "v0-pro" | "v0-max";
+
+const MODEL_MAP: Record<QualityLevel, V0ModelId> = {
+  light: "v0-mini",
+  standard: "v0-pro",
+  pro: "v0-pro",
+  premium: "v0-max",
+  max: "v0-max",
 };
 
 /**
  * Extended model type for future use
  */
-export type V0ModelId =
-  | "v0-1.5-sm"
-  | "v0-1.5-md"
-  | "v0-1.5-lg"
-  | "v0-gpt-5"
-  | "v0-opus-4.5";
-
 /**
  * Category-specific prompts for initial generation
  * ═══════════════════════════════════════════════════════════════
@@ -450,8 +444,7 @@ export type StreamingCallback = (chunk: {
  * Streaming shows generation progress in real-time
  */
 export function isV0StreamingEnabled(): boolean {
-  // Check feature toggle - requires advanced mode + v0Streaming enabled
-  return isAIFeatureEnabled("v0Streaming");
+  return true;
 }
 
 /**
@@ -556,7 +549,7 @@ async function waitForVersionReady(
  * Options for code generation
  */
 export interface GenerateCodeOptions {
-  /** Quality level (standard or premium) */
+  /** Quality level (light/standard/pro/premium/max) */
   quality?: QualityLevel;
   /** Category type for pre-built prompts */
   categoryType?: string;
@@ -700,10 +693,10 @@ export async function generateCode(
       system: SYSTEM_PROMPT,
       chatPrivacy: "private",
       modelConfiguration: {
-        modelId: modelId as "v0-1.5-md" | "v0-1.5-lg",
+        modelId,
         imageGenerations: options.imageGenerations ?? false,
         // Enable thinking for better reasoning (premium gets more detailed thinking)
-        thinking: quality === "premium",
+        thinking: modelId === "v0-max",
       },
       // Use streaming mode if enabled, otherwise sync for full ChatDetail response
       responseMode: useStreaming ? undefined : "sync",
@@ -920,7 +913,7 @@ export async function refineCode(
       chatId: existingChatId,
       message: refinementInstruction,
       modelConfiguration: {
-        modelId: modelId as "v0-1.5-md" | "v0-1.5-lg",
+        modelId,
       },
       responseMode: "sync", // Force synchronous response
     })) as ChatDetail;

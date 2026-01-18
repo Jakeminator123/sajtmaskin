@@ -35,7 +35,6 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils/utils";
-import type { UserFileAttachment } from "@/lib/data/store";
 
 // Accepted file types
 const ACCEPTED_IMAGE_TYPES = [
@@ -61,6 +60,15 @@ export interface UploadedFile {
   error?: string;
   isPublicUrl?: boolean; // True if URL is publicly accessible (Vercel Blob)
 }
+
+export type V0UserFileAttachment = {
+  type: "user_file";
+  url: string;
+  filename: string;
+  mimeType?: string;
+  size?: number;
+  purpose?: string;
+};
 
 interface FileUploadZoneProps {
   projectId: string | null;
@@ -311,7 +319,7 @@ export function FileUploadZone({
                 ) : (
                   <AlertCircle className="h-3 w-3" />
                 )}
-                <span className="truncate max-w-[100px]">{file.filename}</span>
+            <span className="truncate max-w-[100px]">{file.filename}</span>
                 <button
                   onClick={() => removeFile(file.id)}
                   className="hover:text-white"
@@ -334,7 +342,7 @@ export function FileUploadZone({
             className="h-7 text-xs gap-1 border-gray-700 text-gray-400 hover:text-white hover:bg-gray-800"
           >
             <Upload className="h-3 w-3" />
-            Lägg till bild
+            Lägg till media
           </Button>
         )}
 
@@ -387,7 +395,7 @@ export function FileUploadZone({
             <p className="text-sm text-gray-300">
               {isDragging
                 ? "Släpp filer här"
-                : "Dra bilder hit eller klicka för att välja"}
+                : "Dra filer hit eller klicka för att välja"}
             </p>
             <p className="text-xs text-gray-500 mt-1">
               JPG, PNG, GIF, WebP, SVG eller PDF • Max 10MB • Max {MAX_FILES}{" "}
@@ -425,7 +433,7 @@ export function FileUploadZone({
                 )}
               >
                 {/* Preview or icon */}
-                <div className="w-10 h-10 rounded bg-gray-700 flex items-center justify-center overflow-hidden flex-shrink-0">
+                <div className="w-10 h-10 rounded bg-gray-700 flex items-center justify-center overflow-hidden shrink-0">
                   {file.status === "success" &&
                   file.mimeType.startsWith("image/") ? (
                     // eslint-disable-next-line @next/next/no-img-element
@@ -533,13 +541,18 @@ export function filesToPromptText(files: UploadedFile[]): string {
       (f) => f.status === "success" && f.isPublicUrl === false
     );
     if (hasNonPublicFiles) {
-      return "\n\n⚠️ De uppladdade bilderna har inte publika URLs och kan inte användas i v0-preview.";
+      return "\n\n⚠️ De uppladdade filerna har inte publika URLs och kan inte användas i v0-preview.";
     }
     return "";
   }
 
   const lines = successFiles.map((file, index) => {
     const purpose = file.purpose ? ` (${file.purpose})` : "";
+    const label = file.mimeType.startsWith("image/")
+      ? "Bild"
+      : file.mimeType === "application/pdf"
+        ? "PDF"
+        : "Fil";
     // URL should already be a full public URL from Vercel Blob
     // Only add base URL as fallback for legacy local URLs
     const fullUrl = file.url.startsWith("http")
@@ -547,20 +560,25 @@ export function filesToPromptText(files: UploadedFile[]): string {
       : `${typeof window !== "undefined" ? window.location.origin : ""}${
           file.url
         }`;
-    return `- Bild ${index + 1}${purpose}: ${fullUrl}`;
+    return `- ${label} ${index + 1}${purpose}: ${fullUrl}`;
   });
 
-  return `\n\nVIKTIGT: Använd följande uppladdade bilder i designen (publika URLs som fungerar i preview):\n${lines.join(
+  const hasNonImages = successFiles.some((file) => !file.mimeType.startsWith("image/"));
+  const usageHint = hasNonImages
+    ? "Använd bild-URLs i <img src=\"...\">. PDF: använd som referens för innehåll."
+    : "Använd dessa EXAKTA URLs i <img src=\"...\"> taggar.";
+
+  return `\n\nVIKTIGT: Använd följande uppladdade filer i designen (publika URLs som fungerar i preview):\n${lines.join(
     "\n"
-  )}\n\nAnvänd dessa EXAKTA URLs i <img src="..."> taggar.`;
+  )}\n\n${usageHint}`;
 }
 
 /**
- * Convert uploaded files to UserFileAttachment array for message attachments
+ * Convert uploaded files to V0UserFileAttachment array for message attachments
  */
 export function filesToAttachments(
   files: UploadedFile[]
-): UserFileAttachment[] {
+): V0UserFileAttachment[] {
   return files
     .filter((f) => f.status === "success")
     .map((f) => ({

@@ -10,18 +10,22 @@ interface DialogProps {
 interface DialogContentProps {
   children: ReactNode;
   className?: string;
+  showCloseButton?: boolean;
 }
 
 interface DialogHeaderProps {
   children: ReactNode;
+  className?: string;
 }
 
 interface DialogTitleProps {
   children: ReactNode;
+  className?: string;
 }
 
 interface DialogDescriptionProps {
   children: ReactNode;
+  className?: string;
 }
 
 export function Dialog({ open, children }: DialogProps) {
@@ -32,6 +36,7 @@ export function Dialog({ open, children }: DialogProps) {
 export function DialogContent({
   children,
   className = "",
+  showCloseButton,
 }: DialogContentProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
 
@@ -84,19 +89,39 @@ export function DialogContent({
         aria-modal="true"
       >
         {children}
+        {showCloseButton ? (
+          <button
+            type="button"
+            onClick={() => {
+              const event = new CustomEvent("dialog-close");
+              window.dispatchEvent(event);
+            }}
+            className="absolute right-3 top-3 text-gray-400 hover:text-gray-200"
+            aria-label="Close"
+          >
+            ×
+          </button>
+        ) : null}
       </div>
     </div>
   );
 }
 
-export function DialogHeader({ children }: DialogHeaderProps) {
-  return <div className="p-6 pb-4">{children}</div>;
+export function DialogHeader({ children, className = "" }: DialogHeaderProps) {
+  return <div className={`p-6 pb-4 ${className}`}>{children}</div>;
 }
 
-export function DialogTitle({ children }: DialogTitleProps) {
-  return <h2 className="text-lg font-semibold text-white">{children}</h2>;
+export function DialogTitle({ children, className = "" }: DialogTitleProps) {
+  return (
+    <h2 className={`text-lg font-semibold text-white ${className}`}>
+      {children}
+    </h2>
+  );
 }
 
-export function DialogDescription({ children }: DialogDescriptionProps) {
-  return <p className="mt-1 text-sm text-gray-400">{children}</p>;
+export function DialogDescription({
+  children,
+  className = "",
+}: DialogDescriptionProps) {
+  return <p className={`mt-1 text-sm text-gray-400 ${className}`}>{children}</p>;
 }

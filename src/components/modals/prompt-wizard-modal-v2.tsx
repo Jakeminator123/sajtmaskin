@@ -341,8 +341,8 @@ export function PromptWizardModalV2({
     }
   }, [step]);
 
-  // Generate the superprompt
-  const handleGenerate = useCallback(async () => {
+  // Generate a deterministic prompt (no preprompting/orchestrator)
+  const handleGenerate = useCallback(() => {
     setIsExpanding(true);
     setError(null);
 
@@ -370,39 +370,41 @@ export function PromptWizardModalV2({
       customColors,
       voiceTranscript: voiceTranscript || undefined,
       componentChoices,
+      websiteAnalysis: websiteAnalysis || undefined,
     };
 
-    try {
-      const response = await fetch("/api/expand-prompt", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...wizardData,
-          categoryType,
-          initialPrompt,
-          websiteAnalysis,
-        }),
-      });
+    const palette = customColors || selectedPalette;
+    const paletteText = palette
+      ? `Primary ${palette.primary}, Secondary ${palette.secondary}, Accent ${palette.accent}`
+      : null;
+    const industryLabel = currentIndustry?.label || industry || "general";
 
-      const data = await response.json();
+    const promptParts = [
+      `Create a ${categoryType} website for ${companyName || "a business"}.`,
+      `Industry: ${industryLabel}.`,
+      location ? `Location: ${location}.` : null,
+      purposes.length ? `Goals: ${purposes.join(", ")}.` : null,
+      targetAudience ? `Target audience: ${targetAudience}.` : null,
+      selectedVibe ? `Visual style: ${selectedVibe}.` : null,
+      paletteText ? `Color palette: ${paletteText}.` : null,
+      existingWebsite ? `Existing website: ${existingWebsite}.` : null,
+      inspirationSites.filter((s) => s.trim()).length
+        ? `Inspiration: ${inspirationSites.filter((s) => s.trim()).join(", ")}.`
+        : null,
+      siteFeedback ? `Feedback: ${siteFeedback}.` : null,
+      specialWishes ? `Special wishes: ${specialWishes}.` : null,
+      voiceTranscript ? `Voice notes: ${voiceTranscript}.` : null,
+      initialPrompt ? `Initial context: ${initialPrompt}.` : null,
+      websiteAnalysis ? `Website analysis: ${websiteAnalysis}.` : null,
+    ].filter(Boolean);
 
-      if (!response.ok || !data.success) {
-        throw new Error(data.error || "Failed to expand prompt");
-      }
+    const expandedPrompt = promptParts.join("\n");
+    setGeneratedPrompt(expandedPrompt);
+    setEditedPrompt(expandedPrompt);
+    setShowEditMode(true);
+    setIsExpanding(false);
 
-      setGeneratedPrompt(data.expandedPrompt);
-      setEditedPrompt(data.expandedPrompt);
-      setShowEditMode(true);
-    } catch (err) {
-      console.error("Failed to expand prompt:", err);
-      setError(
-        err instanceof Error
-          ? err.message
-          : "Kunde inte bygga ut prompten. Försök igen."
-      );
-    } finally {
-      setIsExpanding(false);
-    }
+    return wizardData;
   }, [
     companyName,
     industry,
@@ -420,6 +422,7 @@ export function PromptWizardModalV2({
     categoryType,
     initialPrompt,
     websiteAnalysis,
+    currentIndustry,
   ]);
 
   // Final completion
@@ -482,7 +485,7 @@ export function PromptWizardModalV2({
       />
 
       {/* Modal */}
-      <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-gradient-to-b from-gray-950 to-black border border-gray-800 shadow-2xl mx-4 rounded-2xl">
+      <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-linear-to-b from-gray-950 to-black border border-gray-800 shadow-2xl mx-4 rounded-2xl">
         {/* Decorative background */}
         <div className="absolute inset-0 overflow-hidden pointer-events-none rounded-2xl">
           <div className="absolute -top-32 -right-32 w-64 h-64 bg-teal-500/10 blur-3xl" />
@@ -1030,7 +1033,7 @@ export function PromptWizardModalV2({
           {showEditMode ? (
             <Button
               onClick={handleComplete}
-              className="gap-2 bg-gradient-to-r from-teal-600 to-teal-500 hover:from-teal-500 hover:to-teal-400 px-6"
+              className="gap-2 bg-linear-to-r from-teal-600 to-teal-500 hover:from-teal-500 hover:to-teal-400 px-6"
             >
               <Rocket className="h-4 w-4" />
               Skapa webbplats
@@ -1048,7 +1051,7 @@ export function PromptWizardModalV2({
             <Button
               onClick={handleGenerate}
               disabled={isExpanding}
-              className="gap-2 bg-gradient-to-r from-teal-600 to-violet-600 hover:from-teal-500 hover:to-violet-500 px-6"
+              className="gap-2 bg-linear-to-r from-teal-600 to-violet-600 hover:from-teal-500 hover:to-violet-500 px-6"
             >
               {isExpanding ? (
                 <>
