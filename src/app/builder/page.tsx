@@ -58,6 +58,7 @@ function BuilderContent() {
   const [isSandboxModalOpen, setIsSandboxModalOpen] = useState(false);
   const [isDeploying, setIsDeploying] = useState(false);
   const [enableImageGenerations, setEnableImageGenerations] = useState(true);
+  const [designSystemMode, setDesignSystemMode] = useState(false);
   const [deployImageStrategy, setDeployImageStrategy] = useState<'external' | 'blob'>('external');
   const [isIntentionalReset, setIsIntentionalReset] = useState(false);
 
@@ -402,6 +403,8 @@ function BuilderContent() {
           onPromptAssistDeepChange={setPromptAssistDeep}
           enableImageGenerations={enableImageGenerations}
           onEnableImageGenerationsChange={setEnableImageGenerations}
+          designSystemMode={designSystemMode}
+          onDesignSystemModeChange={setDesignSystemMode}
           deployImageStrategy={deployImageStrategy}
           onDeployImageStrategyChange={setDeployImageStrategy}
           onOpenImport={() => {
@@ -438,6 +441,7 @@ function BuilderContent() {
               onCreateChat={createNewChat}
               onSendMessage={sendMessage}
               isBusy={isCreatingChat || isAnyStreaming || isTemplateLoading}
+              designSystemMode={designSystemMode}
             />
           </div>
 

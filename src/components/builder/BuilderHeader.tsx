@@ -79,6 +79,9 @@ export function BuilderHeader(props: {
   enableImageGenerations: boolean;
   onEnableImageGenerationsChange: (v: boolean) => void;
 
+  designSystemMode: boolean;
+  onDesignSystemModeChange: (v: boolean) => void;
+
   deployImageStrategy: 'external' | 'blob';
   onDeployImageStrategyChange: (s: 'external' | 'blob') => void;
 
@@ -105,6 +108,8 @@ export function BuilderHeader(props: {
     onPromptAssistDeepChange,
     enableImageGenerations,
     onEnableImageGenerationsChange,
+    designSystemMode,
+    onDesignSystemModeChange,
     deployImageStrategy,
     onDeployImageStrategyChange,
     onOpenImport,
@@ -219,6 +224,15 @@ export function BuilderHeader(props: {
             >
               <ImageIcon className="h-4 w-4 mr-2" />
               Enable AI Images
+            </DropdownMenuCheckboxItem>
+
+            <DropdownMenuCheckboxItem
+              checked={designSystemMode}
+              onCheckedChange={onDesignSystemModeChange}
+              disabled={isBusy}
+            >
+              <Sparkles className="h-4 w-4 mr-2" />
+              Design System Mode
             </DropdownMenuCheckboxItem>
 
             <DropdownMenuSeparator />
