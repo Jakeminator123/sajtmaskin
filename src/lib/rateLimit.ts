@@ -20,6 +20,7 @@ export const RATE_LIMITS: Record<string, RateLimitConfig> = {
   'blob:export': { maxRequests: 5, windowMs: 60 * 1000 },
   'ai:chat': { maxRequests: 20, windowMs: 60 * 1000 },
   'ai:brief': { maxRequests: 20, windowMs: 60 * 1000 },
+  'figma:preview': { maxRequests: 15, windowMs: 60 * 1000 },
   read: { maxRequests: 100, windowMs: 60 * 1000 },
   default: { maxRequests: 60, windowMs: 60 * 1000 },
   'webhook:v0': { maxRequests: 120, windowMs: 60 * 1000 },

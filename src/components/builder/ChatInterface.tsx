@@ -73,6 +73,14 @@ function getImageAttachmentFromUrl(url: string): V0UserFileAttachment | null {
   };
 }
 
+function isFigmaUrl(url: string): boolean {
+  try {
+    return new URL(url).hostname.includes("figma.com");
+  } catch {
+    return false;
+  }
+}
+
 export function ChatInterface({
   chatId,
   onCreateChat,
@@ -93,7 +101,49 @@ export function ChatInterface({
   const inputDisabled = isSending || isBusy;
   const submitDisabled = inputDisabled || hasUploading;
 
-  const buildMessagePayload = (baseMessage: string) => {
+  const resolveFigmaAttachment = async (
+    figmaLink: string
+  ): Promise<V0UserFileAttachment | null> => {
+    if (!figmaLink) return null;
+    const directImage = getImageAttachmentFromUrl(figmaLink);
+    if (directImage) return directImage;
+    if (!isFigmaUrl(figmaLink)) return null;
+
+    const controller = new AbortController();
+    const timeout = window.setTimeout(() => controller.abort(), 6000);
+    try {
+      const response = await fetch("/api/figma/preview", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: figmaLink }),
+        signal: controller.signal,
+      });
+      if (!response.ok) return null;
+      const data = await response.json().catch(() => null);
+      const imageUrl = typeof data?.imageUrl === "string" ? data.imageUrl : "";
+      if (!imageUrl) return null;
+
+      const fileNameRaw = typeof data?.fileName === "string" ? data.fileName : "";
+      const safeFileName =
+        fileNameRaw
+          .replace(/[^a-z0-9-_]+/gi, "-")
+          .replace(/^-+|-+$/g, "")
+          .slice(0, 40) || "figma-preview";
+
+      return {
+        type: "user_file",
+        url: imageUrl,
+        filename: `${safeFileName}.png`,
+        mimeType: "image/png",
+      };
+    } catch {
+      return null;
+    } finally {
+      window.clearTimeout(timeout);
+    }
+  };
+
+  const buildMessagePayload = async (baseMessage: string) => {
     const figmaLink = normalizeDesignUrl(figmaUrl);
     const contextBlocks = [
       designSystemMode ? DESIGN_SYSTEM_HINT : "",
@@ -103,7 +153,7 @@ export function ChatInterface({
       ? `${baseMessage}\n\n${contextBlocks.join("\n\n")}`
       : baseMessage;
     const fileAttachments = hasSuccessFiles ? filesToAttachments(files) : [];
-    const figmaAttachment = getImageAttachmentFromUrl(figmaLink);
+    const figmaAttachment = await resolveFigmaAttachment(figmaLink);
     const attachments =
       figmaAttachment &&
       !fileAttachments.some((attachment) => attachment.url === figmaAttachment.url)
@@ -115,15 +165,11 @@ export function ChatInterface({
     return { finalMessage, finalAttachments, attachmentPrompt };
   };
 
-  const sendMessagePayload = async (payload: {
-    finalMessage: string;
-    finalAttachments?: V0UserFileAttachment[];
-    attachmentPrompt: string;
-  }) => {
-    if (!payload.finalMessage.trim()) return;
-
+  const sendMessagePayload = async (baseMessage: string) => {
     setIsSending(true);
     try {
+      const payload = await buildMessagePayload(baseMessage);
+      if (!payload.finalMessage.trim()) return;
       if (!chatId) {
         if (!onCreateChat) return;
         await onCreateChat(payload.finalMessage, {
@@ -154,9 +200,7 @@ export function ChatInterface({
 
     const baseMessage =
       trimmed || "Use the attached files as visual references for the design.";
-    const payload = buildMessagePayload(baseMessage);
-
-    await sendMessagePayload(payload);
+    await sendMessagePayload(baseMessage);
   };
 
   const handleTextContentReady = async (content: string, filename: string) => {
@@ -164,8 +208,7 @@ export function ChatInterface({
     if (!trimmedContent) return;
 
     const baseMessage = `Use the following content from "${filename}" as source text:\n\n${trimmedContent}`;
-    const payload = buildMessagePayload(baseMessage);
-    await sendMessagePayload(payload);
+    await sendMessagePayload(baseMessage);
   };
 
   const handleMediaSelect = (item: {
