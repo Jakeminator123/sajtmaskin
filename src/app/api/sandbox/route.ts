@@ -233,7 +233,8 @@ export async function DELETE(req: Request) {
   }
 
   try {
-    await Sandbox.delete({ sandboxId });
+    const sandbox = await Sandbox.get({ sandboxId });
+    await sandbox.stop();
     return NextResponse.json({ success: true, sandboxId });
   } catch (err) {
     console.error('Error deleting sandbox:', err);
