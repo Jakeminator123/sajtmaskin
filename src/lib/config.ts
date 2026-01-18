@@ -39,6 +39,11 @@ function sanitizeEnvValue(value: string | undefined): string {
 let hasWarnedAboutDataDir = false;
 
 function getDataDir(): string {
+  // Skip warnings during build phase (each worker resets module state)
+  const isBuildPhase =
+    process.env.NEXT_PHASE === "phase-production-build" ||
+    process.env.NEXT_PHASE === "phase-export";
+
   // Render persistent disk (absolute path)
   if (process.env.DATA_DIR) {
     // Ensure it's an absolute path on production
@@ -46,7 +51,7 @@ function getDataDir(): string {
     if (IS_PRODUCTION && !path.isAbsolute(dataDir)) {
       // Resolve to absolute and warn once to aid Render users with relative vars
       const resolved = path.resolve(dataDir);
-      if (!hasWarnedAboutDataDir) {
+      if (!hasWarnedAboutDataDir && !isBuildPhase) {
         hasWarnedAboutDataDir = true;
         console.warn(
           `[Config] WARNING: DATA_DIR was relative, resolved to absolute: ${resolved}`
@@ -58,10 +63,6 @@ function getDataDir(): string {
   }
 
   // Production without DATA_DIR set - warn once (skip during build/static generation)
-  const isBuildPhase =
-    process.env.NEXT_PHASE === "phase-production-build" ||
-    process.env.NEXT_PHASE === "phase-export";
-
   if (IS_PRODUCTION && !hasWarnedAboutDataDir && !isBuildPhase) {
     hasWarnedAboutDataDir = true;
     console.error(
