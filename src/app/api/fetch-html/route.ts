@@ -44,7 +44,7 @@ function rewriteRootRelativeUrls(html: string, origin: string): string {
   // Rewrite href/src that start with a single leading slash to absolute URLs.
   // Keeps protocol-relative (//) and absolute URLs untouched.
   return html.replace(
-    /\b(href|src)=("|\')\/(?!\/)([^"\']*)\2/gi,
+    /\b(href|src)=("|')\/(?!\/)([^"']*)\2/gi,
     (_match, attr, quote, path) => `${attr}=${quote}${origin}/${path}${quote}`
   );
 }
@@ -53,7 +53,7 @@ function rewriteRelativeUrls(html: string, baseHref: string): string {
   // Rewrite href/src that are relative (no scheme, no //, no leading /, no #, no data:, blob:, mailto:, tel:)
   // Example: href="styles.css" -> href="https://host/path/styles.css"
   return html.replace(
-    /\b(href|src)=("|\')(?![a-z]+:|\/\/|\/|#)([^"\']+)\2/gi,
+    /\b(href|src)=("|')(?![a-z]+:|\/\/|\/|#)([^"']+)\2/gi,
     (_match, attr, quote, path) => `${attr}=${quote}${baseHref}${path}${quote}`
   );
 }

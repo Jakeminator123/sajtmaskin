@@ -308,7 +308,7 @@ export function HomePage() {
             BUILD METHOD SELECTION
             Clear options for how to start building
             ═══════════════════════════════════════════════════════════ */}
-        <div className="w-full max-w-4xl animate-fadeInUp stagger-2 opacity-0 [animation-fill-mode:forwards]">
+        <div className="w-full max-w-4xl animate-fadeInUp stagger-2 [animation-fill-mode:forwards]">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
             {/* Analyzed Option - Opens AI wizard directly */}
             <button

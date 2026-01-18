@@ -1,0 +1,24 @@
+# Build output
+.next/
+out/
+build/
+dist/
+coverage/
+
+# Dependencies
+node_modules/
+
+# Generated files
+next-env.d.ts
+*.tsbuildinfo
+package-lock.json
+
+# Templates (external code)
+src/templates/
+
+# MCP docs
+services/mpc/docs/docgrab__*/
+
+# Other
+base/
+sajtmaskin/

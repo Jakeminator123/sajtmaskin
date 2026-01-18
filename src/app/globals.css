@@ -1,6 +1,5 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
+@config "../../tailwind.config.ts";
 
 @layer base {
   :root {
@@ -204,7 +203,7 @@
   }
 
   .animate-fadeInUp {
-    animation: fadeInUp 0.5s ease-out;
+    animation: fadeInUp 0.5s ease-out forwards;
   }
 
   .animate-fadeInDown {

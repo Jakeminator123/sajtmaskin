@@ -1,11 +1,21 @@
 "use client";
 
-import { useState, FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Search, Diamond, Loader2, AlertCircle } from "lucide-react";
 import { useAuth } from "@/lib/auth/auth-store";
-import type { AuditResult } from "@/types/audit";
+import type { AuditMode, AuditResult } from "@/types/audit";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
-const AUDIT_COST = 3;
+const AUDIT_COSTS: Record<AuditMode, number> = {
+  basic: 3,
+  advanced: 5,
+};
 
 interface SiteAuditSectionProps {
   onAuditComplete: (result: AuditResult, auditedUrl: string) => void;
@@ -21,11 +31,32 @@ export function SiteAuditSection({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
+  const [showModeDialog, setShowModeDialog] = useState(false);
 
-  const canAfford = user && user.diamonds >= AUDIT_COST;
+  const canAffordBasic = user && user.diamonds >= AUDIT_COSTS.basic;
+  const canAffordAdvanced = user && user.diamonds >= AUDIT_COSTS.advanced;
 
-  const handleSubmit = async (e: FormEvent) => {
+  useEffect(() => {
+    const handleDialogClose = () => setShowModeDialog(false);
+    window.addEventListener("dialog-close", handleDialogClose);
+    return () => window.removeEventListener("dialog-close", handleDialogClose);
+  }, []);
+
+  const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
+    if (isLoading) return;
+
+    setError(null);
+    if (!url.trim()) {
+      setError("Ange en URL för att analysera.");
+      return;
+    }
+
+    setShowModeDialog(true);
+  };
+
+  const startAudit = async (mode: AuditMode) => {
+    setShowModeDialog(false);
     setError(null);
 
     // Check authentication
@@ -34,10 +65,10 @@ export function SiteAuditSection({
       return;
     }
 
-    // Check credits
-    if (!canAfford) {
+    const auditCost = AUDIT_COSTS[mode];
+    if (user.diamonds < auditCost) {
       setError(
-        `Du behöver minst ${AUDIT_COST} diamanter. Du har ${user.diamonds}.`
+        `Du behöver minst ${auditCost} diamanter. Du har ${user.diamonds}.`
       );
       return;
     }
@@ -68,7 +99,7 @@ export function SiteAuditSection({
       const response = await fetch("/api/audit", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: normalizedUrl }),
+        body: JSON.stringify({ url: normalizedUrl, auditMode: mode }),
       });
 
       setProgress(80);
@@ -84,7 +115,7 @@ export function SiteAuditSection({
           return;
         }
         if (response.status === 402) {
-          setError(data.error || `Du behöver minst ${AUDIT_COST} diamanter.`);
+          setError(data.error || `Du behöver minst ${auditCost} diamanter.`);
           clearInterval(progressInterval);
           setIsLoading(false);
           setProgress(0);
@@ -101,7 +132,7 @@ export function SiteAuditSection({
 
       // Update local diamonds (server already deducted)
       if (user) {
-        updateDiamonds(user.diamonds - AUDIT_COST);
+        updateDiamonds(user.diamonds - auditCost);
       }
 
       // Pass result and URL to parent
@@ -157,7 +188,7 @@ export function SiteAuditSection({
         {/* Error Message */}
         {error && (
           <div className="flex items-start gap-2 p-3 bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
-            <AlertCircle className="h-4 w-4 mt-0.5 flex-shrink-0" />
+            <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
             <span>{error}</span>
           </div>
         )}
@@ -186,10 +217,12 @@ export function SiteAuditSection({
           ) : (
             <>
               <Search className="h-5 w-5 group-hover:scale-110 transition-transform" />
-              <span>Analysera webbplats</span>
+              <span>Välj analysnivå</span>
               <span className="flex items-center gap-1 px-2 py-0.5 bg-black/30 text-sm">
                 <Diamond className="h-3.5 w-3.5 text-teal-300" />
-                <span>{AUDIT_COST}</span>
+                <span>
+                  {AUDIT_COSTS.basic}/{AUDIT_COSTS.advanced}
+                </span>
               </span>
             </>
           )}
@@ -197,19 +230,34 @@ export function SiteAuditSection({
 
         {/* Credits Info */}
         {isAuthenticated && user && (
-          <p className="text-center text-xs text-gray-500">
-            Du har{" "}
-            <span
-              className={
-                user.diamonds >= AUDIT_COST ? "text-teal-400" : "text-red-400"
-              }
-            >
-              {user.diamonds} diamanter
-            </span>
-            {user.diamonds < AUDIT_COST && (
-              <span className="text-gray-400"> (behöver {AUDIT_COST})</span>
-            )}
-          </p>
+          <div className="text-center text-xs text-gray-500 space-y-1">
+            <p>
+              Du har{" "}
+              <span
+                className={
+                  user.diamonds >= AUDIT_COSTS.basic
+                    ? "text-teal-400"
+                    : "text-red-400"
+                }
+              >
+                {user.diamonds} diamanter
+              </span>
+            </p>
+            <p>
+              Vanlig:{" "}
+              <span
+                className={canAffordBasic ? "text-teal-400" : "text-red-400"}
+              >
+                {AUDIT_COSTS.basic}
+              </span>{" "}
+              | Avancerad:{" "}
+              <span
+                className={canAffordAdvanced ? "text-teal-400" : "text-red-400"}
+              >
+                {AUDIT_COSTS.advanced}
+              </span>
+            </p>
+          </div>
         )}
 
         {!isAuthenticated && (
@@ -232,7 +280,7 @@ export function SiteAuditSection({
           { icon: "📊", text: "SEO & Prestanda" },
           { icon: "🔒", text: "Säkerhetsanalys" },
           { icon: "💰", text: "Budgetuppskattning" },
-          { icon: "✨", text: "Förbättringsförslag" },
+          { icon: "✨", text: "Affärs- & marknadsinsikter" },
         ].map((feature, index) => (
           <div
             key={`audit-feature-${index}-${feature.text || feature.icon}`}
@@ -243,6 +291,57 @@ export function SiteAuditSection({
           </div>
         ))}
       </div>
+
+      <Dialog open={showModeDialog}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Välj analysnivå</DialogTitle>
+            <DialogDescription>
+              Vanlig ger en snabb kvalitetskontroll. Avancerad gör djupare
+              marknads- och affärsanalys med fler dimensioner.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="px-6 pb-6 grid gap-4 md:grid-cols-2">
+            <button
+              type="button"
+              onClick={() => startAudit("basic")}
+              className="text-left p-4 bg-black/40 border border-gray-800 hover:border-teal-500/50 transition-colors"
+            >
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-semibold text-white">
+                  Vanlig analys
+                </span>
+                <span className="flex items-center gap-1 text-xs text-teal-300">
+                  <Diamond className="h-3.5 w-3.5" />
+                  {AUDIT_COSTS.basic}
+                </span>
+              </div>
+              <p className="text-xs text-gray-400">
+                Fokuserar på SEO, UX, prestanda och tydliga förbättringsförslag.
+              </p>
+            </button>
+            <button
+              type="button"
+              onClick={() => startAudit("advanced")}
+              className="text-left p-4 bg-black/40 border border-gray-800 hover:border-purple-500/50 transition-colors"
+            >
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-semibold text-white">
+                  Avancerad analys
+                </span>
+                <span className="flex items-center gap-1 text-xs text-purple-300">
+                  <Diamond className="h-3.5 w-3.5" />
+                  {AUDIT_COSTS.advanced}
+                </span>
+              </div>
+              <p className="text-xs text-gray-400">
+                Inkluderar bransch, företagsstorlek, kundsegment, geo, konkurrens
+                och affärslogik.
+              </p>
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

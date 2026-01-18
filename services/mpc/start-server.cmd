@@ -16,4 +16,3 @@ node ./services/mpc/server.mjs
 echo.
 echo Server stopped.
 pause
-

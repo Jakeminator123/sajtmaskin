@@ -1,5 +1,7 @@
+import { defineConfig, globalIgnores } from "eslint/config";
 import { FlatCompat } from "@eslint/eslintrc";
 import js from "@eslint/js";
+import prettier from "eslint-config-prettier";
 import { dirname } from "path";
 import { fileURLToPath } from "url";
 
@@ -11,29 +13,35 @@ const compat = new FlatCompat({
   recommendedConfig: js.configs.recommended,
 });
 
-const eslintConfig = [
-  // Extend Next.js recommended configs
+export default defineConfig([
+  // Base JS recommended rules
+  js.configs.recommended,
+
+  // Next.js recommended configs (via FlatCompat for legacy format)
   ...compat.extends("next/core-web-vitals", "next/typescript"),
 
+  // Disable rules that conflict with Prettier
+  prettier,
+
   // Global ignores
-  {
-    ignores: [
-      "src/templates/**/*",
-      ".next/**/*",
-      "next-env.d.ts",
-      "**/*.tsbuildinfo",
-      "node_modules/**/*",
-      // Prevent linting a nested clone/repo (can explode error counts)
-      "sajtmaskin/**/*",
-      // Local docs/specs
-      "SiteStudio_Projektspecifikation_ifillningsbar_v2.pdf",
-    ],
-  },
+  globalIgnores([
+    "src/templates/**/*",
+    ".next/**/*",
+    "out/**/*",
+    "build/**/*",
+    "dist/**/*",
+    "coverage/**/*",
+    "next-env.d.ts",
+    "**/*.tsbuildinfo",
+    "node_modules/**/*",
+    "sajtmaskin/**/*",
+    "base/**/*",
+  ]),
 
   // Global rules
   {
     rules: {
-      // Allow unused vars prefixed with underscore (common pattern for "intentionally unused")
+      // Allow unused vars prefixed with underscore
       "@typescript-eslint/no-unused-vars": [
         "warn",
         {
@@ -51,6 +59,4 @@ const eslintConfig = [
       "no-var": "off",
     },
   },
-];
-
-export default eslintConfig;
+]);

@@ -7,6 +7,15 @@ interface BudgetEstimateProps {
   budget: BudgetEstimateType;
 }
 
+function sanitizePaymentStructure(value?: string): string {
+  if (!value) return "";
+  let cleaned = value.replace(/\[([^\]]+)\]\(([^)]+)\)/g, "$1 ($2)");
+  cleaned = cleaned.replace(/\r\n/g, "\n");
+  cleaned = cleaned.replace(/[ \t]+\n/g, "\n");
+  cleaned = cleaned.replace(/\n{3,}/g, "\n\n");
+  return cleaned.trim();
+}
+
 export default function BudgetEstimate({ budget }: BudgetEstimateProps) {
   const formatCurrency = (amount: number) => {
     return new Intl.NumberFormat("sv-SE", {
@@ -46,6 +55,8 @@ export default function BudgetEstimate({ budget }: BudgetEstimateProps) {
       color: "teal",
     });
   }
+
+  const paymentStructure = sanitizePaymentStructure(budget.payment_structure);
 
   return (
     <motion.div
@@ -101,12 +112,12 @@ export default function BudgetEstimate({ budget }: BudgetEstimateProps) {
         ))}
       </div>
 
-      {budget.payment_structure && (
+      {paymentStructure && (
         <div className="mt-4 p-3 bg-teal-500/10 border border-teal-500/30 text-sm">
-          <p className="text-teal-400">
+          <p className="text-teal-400 whitespace-pre-wrap wrap-break-word">
             💡{" "}
             <span className="font-medium">Rekommenderad betalningsplan:</span>{" "}
-            <span className="text-teal-300">{budget.payment_structure}</span>
+            <span className="text-teal-300">{paymentStructure}</span>
           </p>
         </div>
       )}

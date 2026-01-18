@@ -68,9 +68,9 @@ const PACKAGE_JSON = `{
     "@types/node": "^22.10.1",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
-    "autoprefixer": "^10.4.20",
-    "postcss": "^8.4.49",
-    "tailwindcss": "^3.4.16",
+    "@tailwindcss/postcss": "^4.1.18",
+    "postcss": "^8.5.1",
+    "tailwindcss": "^4.1.18",
     "typescript": "^5.7.2"
   }
 }`;
@@ -89,10 +89,6 @@ module.exports = nextConfig;
 
 const TAILWIND_CONFIG = `/** @type {import('tailwindcss').Config} */
 module.exports = {
-  content: [
-    "./app/**/*.{js,ts,jsx,tsx,mdx}",
-    "./components/**/*.{js,ts,jsx,tsx,mdx}",
-  ],
   theme: {
     extend: {},
   },
@@ -102,8 +98,7 @@ module.exports = {
 
 const POSTCSS_CONFIG = `module.exports = {
   plugins: {
-    tailwindcss: {},
-    autoprefixer: {},
+    "@tailwindcss/postcss": {},
   },
 };
 `;
@@ -130,9 +125,8 @@ const TSCONFIG = `{
   "exclude": ["node_modules"]
 }`;
 
-const GLOBALS_CSS = `@tailwind base;
-@tailwind components;
-@tailwind utilities;
+const GLOBALS_CSS = `@import "tailwindcss";
+@config "../tailwind.config.js";
 
 :root {
   --background: #ffffff;

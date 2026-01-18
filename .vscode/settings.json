@@ -1,111 +1,42 @@
 {
-  // ===== ESLint =====
-  "eslint.workingDirectories": [
-    {
-      "directory": ".",
-      "changeProcessCWD": true
-    }
-  ],
-  "eslint.validate": [
-    "javascript",
-    "javascriptreact",
-    "typescript",
-    "typescriptreact"
-  ],
-  "eslint.useFlatConfig": false,
-
-  // ===== TypeScript =====
-  // Use workspace TypeScript from root node_modules
-  "typescript.tsdk": "node_modules/typescript/lib",
-  "typescript.enablePromptUseWorkspaceTsdk": true,
-
-  // Force VS Code to use workspace TypeScript version automatically
-  // (requires reload after changing this setting)
-  "typescript.preferences.importModuleSpecifier": "relative",
-  "typescript.suggest.autoImports": true,
-
-  // ===== Terminal =====
-  "terminal.integrated.defaultProfile.windows": "PowerShell Core",
-  "terminal.integrated.profiles.windows": {
-    "PowerShell Core": {
-      "path": "C:\\Program Files\\PowerShell\\7\\pwsh.exe",
-      "icon": "terminal-powershell"
-    },
-    "PowerShell": {
-      "source": "PowerShell",
-      "icon": "terminal-powershell"
-    },
-    "Command Prompt": {
-      "path": "C:\\Windows\\System32\\cmd.exe",
-      "icon": "terminal-cmd"
-    }
-  },
-  "terminal.integrated.shellIntegration.enabled": true,
-  "terminal.integrated.copyOnSelection": false,
-  "terminal.integrated.rightClickBehavior": "default",
-  "terminal.integrated.environmentChangesIndicator": "warnonly",
-  "terminal.integrated.environmentChangesRelaunch": true,
-
-  // ===== Git =====
-  "git.terminalAuthentication": false,
-  "git.useEditorAsCommitInput": false,
-
-  // ===== Editor =====
+  // Editor
   "editor.formatOnSave": true,
   "editor.defaultFormatter": "esbenp.prettier-vscode",
   "editor.tabSize": 2,
-  "editor.wordWrap": "on",
-
-  // ===== Files =====
-  "files.autoSave": "off",
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit"
+  },
+  // ESLint (Flat Config)
+  "eslint.useFlatConfig": true,
+  // TypeScript
+  "typescript.tsdk": "node_modules/typescript/lib",
+  "typescript.enablePromptUseWorkspaceTsdk": true,
+  // Files
+  "files.eol": "\n",
   "files.exclude": {
     "**/.git": true,
     "**/.next": true,
+    "**/node_modules": true
+  },
+  "search.exclude": {
+    "**/.next": true,
     "**/node_modules": true,
-    "**/__pycache__": true,
-    "**/*.pyc": true
+    "**/out": true,
+    "**/build": true
   },
-
-  // ===== Language-specific formatters =====
-  "[typescript]": {
-    "editor.defaultFormatter": "esbenp.prettier-vscode"
-  },
-  "[typescriptreact]": {
-    "editor.defaultFormatter": "esbenp.prettier-vscode"
-  },
-  "[javascript]": {
-    "editor.defaultFormatter": "esbenp.prettier-vscode"
-  },
-  "[javascriptreact]": {
-    "editor.defaultFormatter": "esbenp.prettier-vscode"
-  },
-  "[json]": {
-    "editor.defaultFormatter": "esbenp.prettier-vscode"
-  },
+  // JSONC (settings files need special formatter)
   "[jsonc]": {
-    "editor.quickSuggestions": {
-      "strings": true
-    },
-    "editor.suggest.insertMode": "replace",
-    "editor.defaultFormatter": "esbenp.prettier-vscode"
+    "editor.defaultFormatter": "vscode.json-language-features"
   },
-
-  // ===== Tailwind CSS =====
+  // Tailwind (cva/cn class detection)
   "tailwindCSS.experimental.classRegex": [
-    ["cva\\(([^)]*)\\)", "[\"'`]([^\"'`]*).*?[\"'`]"],
-    ["cn\\(([^)]*)\\)", "[\"'`]([^\"'`]*).*?[\"'`]"]
-  ],
-  "tailwindCSS.includeLanguages": {
-    "typescript": "javascript",
-    "typescriptreact": "javascript"
-  },
-
-  // ===== Emmet =====
-  "emmet.includeLanguages": {
-    "typescript": "html",
-    "typescriptreact": "html"
-  },
-
-  // ===== JSON Schema =====
-  "json.schemaDownload.enable": true
+    [
+      "cva\\(([^)]*)\\)",
+      "[\"'`]([^\"'`]*).*?[\"'`]"
+    ],
+    [
+      "cn\\(([^)]*)\\)",
+      "[\"'`]([^\"'`]*).*?[\"'`]"
+    ]
+  ]
 }

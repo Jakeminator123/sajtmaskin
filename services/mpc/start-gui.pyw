@@ -212,4 +212,3 @@ class MCPServerGUI:
 if __name__ == "__main__":
     gui = MCPServerGUI()
     gui.run()
-

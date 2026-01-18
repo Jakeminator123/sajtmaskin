@@ -96,13 +96,13 @@ export function TemplateGallery({ onSelect }: TemplateGalleryProps) {
               focus:outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20
               transition-all duration-300
               hover:scale-[1.02] hover:shadow-lg hover:shadow-teal-500/10
-              animate-fadeInUp opacity-0 ${staggerClass}
+              animate-fadeInUp ${staggerClass}
               [animation-fill-mode:forwards]
             `}
           >
             <CardContent className="p-8 flex flex-col items-center text-center space-y-4 relative overflow-hidden">
               {/* Subtle glow effect on hover */}
-              <div className="absolute inset-0 bg-gradient-to-b from-teal-500/0 via-teal-500/0 to-teal-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+              <div className="absolute inset-0 bg-linear-to-b from-teal-500/0 via-teal-500/0 to-teal-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
 
               {/* Large icon with enhanced hover */}
               <div className="relative p-5 bg-gray-900/50 group-hover:bg-teal-600/20 transition-all duration-300 border border-gray-800 group-hover:border-teal-500/30 group-hover:shadow-lg group-hover:shadow-teal-500/20">

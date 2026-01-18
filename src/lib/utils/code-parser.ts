@@ -20,9 +20,7 @@ export interface GeneratedFile {
  * Convert v0 Platform API files directly to Sandpack format
  * This is the preferred method when using v0-sdk
  */
-export function convertV0FilesToSandpack(
-  files: GeneratedFile[]
-): SandpackFiles {
+export function convertV0FilesToSandpack(files: GeneratedFile[]): SandpackFiles {
   if (!files || files.length === 0) {
     return getDefaultFiles();
   }
@@ -63,9 +61,7 @@ export function convertV0FilesToSandpack(
     // Look for a page.tsx or similar entry point
     const pageFile = files.find(
       (f) =>
-        f.name.includes("page.tsx") ||
-        f.name.includes("Page.tsx") ||
-        f.name.includes("index.tsx")
+        f.name.includes("page.tsx") || f.name.includes("Page.tsx") || f.name.includes("index.tsx"),
     );
 
     if (pageFile) {
@@ -95,9 +91,7 @@ root.render(
     },
     // Global styles
     "/styles.css": {
-      code: `@tailwind base;
-@tailwind components;
-@tailwind utilities;
+      code: `@import "tailwindcss";
 
 * {
   box-sizing: border-box;
@@ -163,22 +157,16 @@ function convertPathAliases(content: string, currentFilePath: string): string {
 
   // Replace @/ imports with relative paths
   // Match: from "@/something" or from '@/something'
-  const result = content.replace(
-    /from\s+["']@\/([^"']+)["']/g,
-    (match, importPath) => {
-      const relativePrefix = getRelativePrefix();
-      return `from "${relativePrefix}${importPath}"`;
-    }
-  );
+  const result = content.replace(/from\s+["']@\/([^"']+)["']/g, (match, importPath) => {
+    const relativePrefix = getRelativePrefix();
+    return `from "${relativePrefix}${importPath}"`;
+  });
 
   // Also handle import() dynamic imports
-  const result2 = result.replace(
-    /import\(["']@\/([^"']+)["']\)/g,
-    (match, importPath) => {
-      const relativePrefix = getRelativePrefix();
-      return `import("${relativePrefix}${importPath}")`;
-    }
-  );
+  const result2 = result.replace(/import\(["']@\/([^"']+)["']\)/g, (match, importPath) => {
+    const relativePrefix = getRelativePrefix();
+    return `import("${relativePrefix}${importPath}")`;
+  });
 
   return result2;
 }
@@ -201,17 +189,14 @@ export function parseCodeToSandpackFiles(code: string): SandpackFiles {
   if (codeBlocks.length > 0) {
     console.log(
       "[code-parser] Using code blocks, first block content starts:",
-      codeBlocks[0].content.substring(0, 50)
+      codeBlocks[0].content.substring(0, 50),
     );
     return createFilesFromCodeBlocks(codeBlocks);
   }
 
   // If no code blocks found but code contains markdown backticks, try to extract manually
   const cleanedCode = stripMarkdownWrapper(code);
-  console.log(
-    "[code-parser] No blocks found, stripped code starts:",
-    cleanedCode.substring(0, 50)
-  );
+  console.log("[code-parser] No blocks found, stripped code starts:", cleanedCode.substring(0, 50));
 
   // If no code blocks found, treat the entire content as a single component
   return createFilesFromRawCode(cleanedCode);
@@ -225,10 +210,7 @@ function stripMarkdownWrapper(code: string): string {
   let result = code.trim();
 
   // Remove opening ```tsx or ```jsx etc.
-  result = result.replace(
-    /^```(?:tsx?|jsx?|typescript|javascript|css|html)?\s*\n?/i,
-    ""
-  );
+  result = result.replace(/^```(?:tsx?|jsx?|typescript|javascript|css|html)?\s*\n?/i, "");
 
   // Remove closing ```
   result = result.replace(/\n?```\s*$/i, "");
@@ -271,8 +253,7 @@ function extractCodeBlocks(text: string): CodeBlock[] {
   // If no blocks found, try alternative patterns
   if (blocks.length === 0) {
     // Try matching without strict newline requirement
-    const altRegex =
-      /```(tsx?|jsx?|typescript|javascript|css|html)\s*([\s\S]*?)```/g;
+    const altRegex = /```(tsx?|jsx?|typescript|javascript|css|html)\s*([\s\S]*?)```/g;
     while ((match = altRegex.exec(text)) !== null) {
       const [, language, content] = match;
       // Skip if content starts with another backtick (nested)
@@ -315,8 +296,7 @@ function createFilesFromCodeBlocks(blocks: CodeBlock[]): SandpackFiles {
 
   blocks.forEach((block, index) => {
     const ext = getExtension(block.language);
-    const filename =
-      block.filename || getDefaultFilename(block.language, index);
+    const filename = block.filename || getDefaultFilename(block.language, index);
 
     // Check if this looks like the main component
     if (
@@ -400,10 +380,7 @@ function wrapAsAppComponent(code: string): string {
     /export\s+default\s+function\s+\w+/.test(code);
 
   // If it already has export default App, use as is
-  if (
-    code.includes("export default function App") ||
-    code.includes("export default App")
-  ) {
+  if (code.includes("export default function App") || code.includes("export default App")) {
     return ensureImports(code);
   }
 
@@ -414,7 +391,7 @@ function wrapAsAppComponent(code: string): string {
     // Replace the export and any references
     const modified = code.replace(
       `export default function ${componentName}`,
-      "export default function App"
+      "export default function App",
     );
     return ensureImports(modified);
   }
@@ -426,9 +403,7 @@ function wrapAsAppComponent(code: string): string {
     // Replace the default export with App and rename the component
     let modified = code.replace(separateDefaultMatch[0], "export default App;");
     // Also rename the component declaration if it exists
-    const componentDeclRegex = new RegExp(
-      `(export\\s+)?(function|const)\\s+${componentName}\\b`
-    );
+    const componentDeclRegex = new RegExp(`(export\\s+)?(function|const)\\s+${componentName}\\b`);
     modified = modified.replace(componentDeclRegex, "$1$2 App");
     return ensureImports(modified);
   }
@@ -436,7 +411,7 @@ function wrapAsAppComponent(code: string): string {
   // Handle arrow function components: const ComponentName: React.FC = ...
   // or const ComponentName = () => ...
   const arrowFunctionMatch = code.match(
-    /const\s+(\w+)(?:\s*:\s*React\.FC[^=]*)?\s*=\s*(?:\([^)]*\)|[^=])\s*=>/
+    /const\s+(\w+)(?:\s*:\s*React\.FC[^=]*)?\s*=\s*(?:\([^)]*\)|[^=])\s*=>/,
   );
   if (arrowFunctionMatch && !hasDefaultExport) {
     const componentName = arrowFunctionMatch[1];
@@ -460,11 +435,7 @@ function wrapAsAppComponent(code: string): string {
   }
 
   // If it's just JSX without function wrapper, wrap it
-  if (
-    !code.includes("function") &&
-    !code.includes("const") &&
-    code.includes("<")
-  ) {
+  if (!code.includes("function") && !code.includes("const") && code.includes("<")) {
     return `import React from "react";
 
 export default function App() {
@@ -565,9 +536,7 @@ root.render(
       hidden: true,
     },
     "/styles.css": {
-      code: `@tailwind base;
-@tailwind components;
-@tailwind utilities;
+      code: `@import "tailwindcss";
 
 /* Custom styles */
 * {

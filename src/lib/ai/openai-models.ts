@@ -12,9 +12,17 @@ export const OPENAI_MODELS = {
   webSearch: "gpt-4o",
 
   // Higher quality for "analyze/audit" style outputs
+  // Uses Responses API with web_search tool for real-time data
   audit: {
     primary: "gpt-4o",
     fallbacks: ["gpt-4o-mini"] as const,
+  },
+
+  // Alternative: Chat Completions API with native search (for future use)
+  // These models have built-in web search, 90% accuracy on SimpleQA
+  auditSearch: {
+    primary: "gpt-4o-search-preview",
+    fallbacks: ["gpt-4o-mini-search-preview"] as const,
   },
 
   // Creative brief expansion for new sites (premium can use a stronger model)
@@ -41,4 +49,8 @@ export const OPENAI_PRICING_USD_PER_MTOK: Record<
   // GPT-4o family (official docs)
   "gpt-4o": { input: 2.5, output: 10.0 },
   "gpt-4o-mini": { input: 0.15, output: 0.6 },
+
+  // GPT-4o search preview (native web search)
+  "gpt-4o-search-preview": { input: 2.5, output: 10.0 },
+  "gpt-4o-mini-search-preview": { input: 0.15, output: 0.6 },
 };

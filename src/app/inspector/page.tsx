@@ -20,7 +20,7 @@ type PickInfo = {
 // -----------------------------------------------------------------------------
 
 function cssEscape(value: string): string {
-  return value.replace(/([ !"#$%&'()*+,.\/:;<=>?@\[\\\]^`{|}~])/g, "\\$1");
+  return value.replace(/([ !"#$%&'()*+,./:;<=>?@[\\\]^`{|}~])/g, "\\$1");
 }
 
 function buildSelector(el: Element): string {

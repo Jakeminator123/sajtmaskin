@@ -47,6 +47,28 @@ const tabs: Tab[] = [
   { id: "business", label: "Budget", icon: "💰" },
 ];
 
+function sanitizeDisplayText(value?: string): string {
+  if (!value) return "";
+  let cleaned = value.replace(/\[([^\]]+)\]\(([^)]+)\)/g, "$1 ($2)");
+  cleaned = cleaned.replace(/\r\n/g, "\n");
+  cleaned = cleaned.replace(/[ \t]+\n/g, "\n");
+  cleaned = cleaned.replace(/\n{3,}/g, "\n\n");
+  return cleaned.trim();
+}
+
+function renderTextList(items?: string[]) {
+  if (!items || items.length === 0) {
+    return <p className="text-xs text-gray-500">–</p>;
+  }
+  return (
+    <ul className="text-xs text-gray-300 list-disc list-inside space-y-1">
+      {items.map((item, index) => (
+        <li key={`${item}-${index}`}>{sanitizeDisplayText(item)}</li>
+      ))}
+    </ul>
+  );
+}
+
 export function AuditModal({
   result,
   auditedUrl,
@@ -401,6 +423,18 @@ export function AuditModal({
   const hasImprovements = result.improvements && result.improvements.length > 0;
   const hasSecurity = result.security_analysis;
   const hasBudget = result.budget_estimate;
+  const hasBusinessProfile = result.business_profile;
+  const hasMarketContext = result.market_context;
+  const hasCustomerSegments = result.customer_segments;
+  const hasCompetitiveLandscape = result.competitive_landscape;
+  const isAdvancedMode = result.audit_mode === "advanced";
+  const hasAdvancedBusiness =
+    isAdvancedMode &&
+    (hasBusinessProfile ||
+      hasMarketContext ||
+      hasCustomerSegments ||
+      hasCompetitiveLandscape);
+  const modeLabel = isAdvancedMode ? "Avancerad" : "Vanlig";
 
   return (
     <AnimatePresence>
@@ -422,12 +456,17 @@ export function AuditModal({
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="flex items-center justify-between p-4 border-b border-gray-800 flex-shrink-0">
+            <div className="flex items-center justify-between p-4 border-b border-gray-800 shrink-0">
               <div className="flex items-center gap-4">
                 <div>
                   <h2 className="text-xl font-bold text-white">
                     Analysresultat
                   </h2>
+                  <div className="mt-1 inline-flex items-center gap-2 text-xs text-gray-400">
+                    <span className="px-2 py-0.5 bg-black/60 border border-gray-800 text-gray-300">
+                      {modeLabel} analys
+                    </span>
+                  </div>
                   {result.domain && (
                     <a
                       href={`https://${result.domain}`}
@@ -513,7 +552,7 @@ export function AuditModal({
                       setShowBuildOverlay(false);
                       setShowBuildConfirm(true);
                     }}
-                    className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 text-white text-sm font-semibold transition-all shadow-lg shadow-teal-500/25 hover:shadow-teal-500/40"
+                    className="flex items-center gap-2 px-4 py-2 bg-linear-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 text-white text-sm font-semibold transition-all shadow-lg shadow-teal-500/25 hover:shadow-teal-500/40"
                     title="Skapa en ny sida baserad på denna analys"
                   >
                     <Hammer className="h-4 w-4" />
@@ -532,7 +571,7 @@ export function AuditModal({
             </div>
 
             {/* Tabs */}
-            <div className="flex items-center border-b border-gray-800 flex-shrink-0">
+            <div className="flex items-center border-b border-gray-800 shrink-0">
               <button
                 onClick={() => navigateTab("prev")}
                 disabled={activeTab === tabs[0].id}
@@ -763,31 +802,291 @@ export function AuditModal({
                             <h4 className="text-sm font-medium text-gray-400 mb-2">
                               Branschstandard
                             </h4>
-                            <p className="text-sm text-gray-300">
-                              {result.competitor_insights.industry_standards}
+                            <p className="text-sm text-gray-300 whitespace-pre-wrap wrap-break-word">
+                              {sanitizeDisplayText(
+                                result.competitor_insights.industry_standards
+                              )}
                             </p>
                           </div>
                           <div className="p-3 bg-black/30 border border-gray-800">
                             <h4 className="text-sm font-medium text-gray-400 mb-2">
                               Saknade funktioner
                             </h4>
-                            <p className="text-sm text-gray-300">
-                              {result.competitor_insights.missing_features}
+                            <p className="text-sm text-gray-300 whitespace-pre-wrap wrap-break-word">
+                              {sanitizeDisplayText(
+                                result.competitor_insights.missing_features
+                              )}
                             </p>
                           </div>
                           <div className="p-3 bg-black/30 border border-gray-800">
                             <h4 className="text-sm font-medium text-gray-400 mb-2">
                               Unika styrkor
                             </h4>
-                            <p className="text-sm text-gray-300">
-                              {result.competitor_insights.unique_strengths}
+                            <p className="text-sm text-gray-300 whitespace-pre-wrap wrap-break-word">
+                              {sanitizeDisplayText(
+                                result.competitor_insights.unique_strengths
+                              )}
                             </p>
                           </div>
                         </div>
                       </div>
                     )}
 
-                    {!hasBudget && !result.competitor_insights && (
+                    {hasAdvancedBusiness && (
+                      <div className="bg-black/50 border border-gray-800 p-6 space-y-5">
+                        <h3 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
+                          <span className="text-purple-400">🧭</span> Affärs- &
+                          marknadsprofil
+                        </h3>
+
+                        {hasBusinessProfile && result.business_profile && (
+                          <div className="space-y-3">
+                            <h4 className="text-sm font-semibold text-gray-300">
+                              Företagsprofil
+                            </h4>
+                            <div className="grid md:grid-cols-2 gap-4">
+                              <div className="p-3 bg-black/30 border border-gray-800">
+                                <p className="text-xs text-gray-400 mb-1">
+                                  Bransch
+                                </p>
+                                <p className="text-sm text-gray-300 whitespace-pre-wrap wrap-break-word">
+                                  {sanitizeDisplayText(
+                                    result.business_profile.industry
+                                  )}
+                                </p>
+                              </div>
+                              <div className="p-3 bg-black/30 border border-gray-800">
+                                <p className="text-xs text-gray-400 mb-1">
+                                  Företagsstorlek
+                                </p>
+                                <p className="text-sm text-gray-300 whitespace-pre-wrap wrap-break-word">
+                                  {sanitizeDisplayText(
+                                    result.business_profile.company_size
+                                  )}
+                                </p>
+                              </div>
+                              <div className="p-3 bg-black/30 border border-gray-800">
+                                <p className="text-xs text-gray-400 mb-1">
+                                  Affärsmodell
+                                </p>
+                                <p className="text-sm text-gray-300 whitespace-pre-wrap wrap-break-word">
+                                  {sanitizeDisplayText(
+                                    result.business_profile.business_model
+                                  )}
+                                </p>
+                              </div>
+                              <div className="p-3 bg-black/30 border border-gray-800">
+                                <p className="text-xs text-gray-400 mb-1">
+                                  Mognadsgrad
+                                </p>
+                                <p className="text-sm text-gray-300 whitespace-pre-wrap wrap-break-word">
+                                  {sanitizeDisplayText(
+                                    result.business_profile.maturity
+                                  )}
+                                </p>
+                              </div>
+                              <div className="p-3 bg-black/30 border border-gray-800">
+                                <p className="text-xs text-gray-400 mb-1">
+                                  Kärnerbjudanden
+                                </p>
+                                {renderTextList(
+                                  result.business_profile.core_offers
+                                )}
+                              </div>
+                              <div className="p-3 bg-black/30 border border-gray-800">
+                                <p className="text-xs text-gray-400 mb-1">
+                                  Intäktsströmmar
+                                </p>
+                                {renderTextList(
+                                  result.business_profile.revenue_streams
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {hasMarketContext && result.market_context && (
+                          <div className="space-y-3">
+                            <h4 className="text-sm font-semibold text-gray-300">
+                              Marknad & geografi
+                            </h4>
+                            <div className="grid md:grid-cols-2 gap-4">
+                              <div className="p-3 bg-black/30 border border-gray-800">
+                                <p className="text-xs text-gray-400 mb-1">
+                                  Primär geografi
+                                </p>
+                                <p className="text-sm text-gray-300 whitespace-pre-wrap wrap-break-word">
+                                  {sanitizeDisplayText(
+                                    result.market_context.primary_geography
+                                  )}
+                                </p>
+                              </div>
+                              <div className="p-3 bg-black/30 border border-gray-800">
+                                <p className="text-xs text-gray-400 mb-1">
+                                  Serviceområde
+                                </p>
+                                <p className="text-sm text-gray-300 whitespace-pre-wrap wrap-break-word">
+                                  {sanitizeDisplayText(
+                                    result.market_context.service_area
+                                  )}
+                                </p>
+                              </div>
+                              <div className="p-3 bg-black/30 border border-gray-800">
+                                <p className="text-xs text-gray-400 mb-1">
+                                  Konkurrensnivå
+                                </p>
+                                <p className="text-sm text-gray-300 whitespace-pre-wrap wrap-break-word">
+                                  {sanitizeDisplayText(
+                                    result.market_context.competition_level
+                                  )}
+                                </p>
+                              </div>
+                              <div className="p-3 bg-black/30 border border-gray-800">
+                                <p className="text-xs text-gray-400 mb-1">
+                                  Nyckelkonkurrenter
+                                </p>
+                                {renderTextList(
+                                  result.market_context.key_competitors
+                                )}
+                              </div>
+                              <div className="p-3 bg-black/30 border border-gray-800">
+                                <p className="text-xs text-gray-400 mb-1">
+                                  Säsongsmönster
+                                </p>
+                                <p className="text-sm text-gray-300 whitespace-pre-wrap wrap-break-word">
+                                  {sanitizeDisplayText(
+                                    result.market_context.seasonal_patterns
+                                  )}
+                                </p>
+                              </div>
+                              <div className="p-3 bg-black/30 border border-gray-800">
+                                <p className="text-xs text-gray-400 mb-1">
+                                  Lokala marknadsdynamiker
+                                </p>
+                                <p className="text-sm text-gray-300 whitespace-pre-wrap wrap-break-word">
+                                  {sanitizeDisplayText(
+                                    result.market_context.local_market_dynamics
+                                  )}
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {hasCustomerSegments && result.customer_segments && (
+                          <div className="space-y-3">
+                            <h4 className="text-sm font-semibold text-gray-300">
+                              Kundsegment
+                            </h4>
+                            <div className="grid md:grid-cols-2 gap-4">
+                              <div className="p-3 bg-black/30 border border-gray-800">
+                                <p className="text-xs text-gray-400 mb-1">
+                                  Primär kundgrupp
+                                </p>
+                                <p className="text-sm text-gray-300 whitespace-pre-wrap wrap-break-word">
+                                  {sanitizeDisplayText(
+                                    result.customer_segments.primary_segment
+                                  )}
+                                </p>
+                              </div>
+                              <div className="p-3 bg-black/30 border border-gray-800">
+                                <p className="text-xs text-gray-400 mb-1">
+                                  Sekundära kundgrupper
+                                </p>
+                                {renderTextList(
+                                  result.customer_segments.secondary_segments
+                                )}
+                              </div>
+                              <div className="p-3 bg-black/30 border border-gray-800">
+                                <p className="text-xs text-gray-400 mb-1">
+                                  Kundbehov
+                                </p>
+                                {renderTextList(
+                                  result.customer_segments.customer_needs
+                                )}
+                              </div>
+                              <div className="p-3 bg-black/30 border border-gray-800">
+                                <p className="text-xs text-gray-400 mb-1">
+                                  Beslutstriggers
+                                </p>
+                                {renderTextList(
+                                  result.customer_segments.decision_triggers
+                                )}
+                              </div>
+                              <div className="p-3 bg-black/30 border border-gray-800 md:col-span-2">
+                                <p className="text-xs text-gray-400 mb-1">
+                                  Förtroendesignaler
+                                </p>
+                                {renderTextList(
+                                  result.customer_segments.trust_signals
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {hasCompetitiveLandscape &&
+                          result.competitive_landscape && (
+                            <div className="space-y-3">
+                              <h4 className="text-sm font-semibold text-gray-300">
+                                Konkurrenslandskap
+                              </h4>
+                              <div className="grid md:grid-cols-2 gap-4">
+                                <div className="p-3 bg-black/30 border border-gray-800">
+                                  <p className="text-xs text-gray-400 mb-1">
+                                    Positionering
+                                  </p>
+                                  <p className="text-sm text-gray-300 whitespace-pre-wrap wrap-break-word">
+                                    {sanitizeDisplayText(
+                                      result.competitive_landscape.positioning
+                                    )}
+                                  </p>
+                                </div>
+                                <div className="p-3 bg-black/30 border border-gray-800">
+                                  <p className="text-xs text-gray-400 mb-1">
+                                    Differentiering
+                                  </p>
+                                  <p className="text-sm text-gray-300 whitespace-pre-wrap wrap-break-word">
+                                    {sanitizeDisplayText(
+                                      result.competitive_landscape.differentiation
+                                    )}
+                                  </p>
+                                </div>
+                                <div className="p-3 bg-black/30 border border-gray-800">
+                                  <p className="text-xs text-gray-400 mb-1">
+                                    Prisposition
+                                  </p>
+                                  <p className="text-sm text-gray-300 whitespace-pre-wrap wrap-break-word">
+                                    {sanitizeDisplayText(
+                                      result.competitive_landscape.price_positioning
+                                    )}
+                                  </p>
+                                </div>
+                                <div className="p-3 bg-black/30 border border-gray-800">
+                                  <p className="text-xs text-gray-400 mb-1">
+                                    Inträdesbarriärer
+                                  </p>
+                                  <p className="text-sm text-gray-300 whitespace-pre-wrap wrap-break-word">
+                                    {sanitizeDisplayText(
+                                      result.competitive_landscape.barriers_to_entry
+                                    )}
+                                  </p>
+                                </div>
+                                <div className="p-3 bg-black/30 border border-gray-800 md:col-span-2">
+                                  <p className="text-xs text-gray-400 mb-1">
+                                    Möjligheter
+                                  </p>
+                                  {renderTextList(
+                                    result.competitive_landscape.opportunities
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          )}
+                      </div>
+                    )}
+
+                    {!hasBudget && !result.competitor_insights && !hasAdvancedBusiness && (
                       <EmptyState
                         icon="💰"
                         title="Ingen affärsdata"
@@ -800,7 +1099,7 @@ export function AuditModal({
             </div>
 
             {/* Footer */}
-            <div className="flex items-center justify-between p-4 border-t border-gray-800 flex-shrink-0 bg-black/50">
+            <div className="flex items-center justify-between p-4 border-t border-gray-800 shrink-0 bg-black/50">
               <div className="text-xs text-gray-500">
                 {result.timestamp && (
                   <span>
@@ -870,7 +1169,7 @@ export function AuditModal({
                       </button>
                       <button
                         onClick={launchBuildFromAudit}
-                        className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 text-white font-semibold transition-all"
+                        className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-linear-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 text-white font-semibold transition-all"
                       >
                         <Hammer className="h-4 w-4" />
                         Ja, kör igång
@@ -898,7 +1197,7 @@ export function AuditModal({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+          className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
           onClick={() => setShowBuildConfirm(false)}
         >
           <motion.div
@@ -955,7 +1254,7 @@ export function AuditModal({
                     setShowBuildConfirm(false);
                     launchBuildFromAudit();
                   }}
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 text-white font-semibold transition-all"
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-linear-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 text-white font-semibold transition-all"
                 >
                   <Hammer className="h-4 w-4" />
                   Kör igång!

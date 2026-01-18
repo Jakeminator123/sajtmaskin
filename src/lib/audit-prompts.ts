@@ -3,7 +3,7 @@
  * Uses Responses API with expert model and WebSearch
  */
 
-import type { WebsiteContent } from "@/types/audit";
+import type { AuditMode, WebsiteContent } from "@/types/audit";
 
 export type PromptMessage = {
   role: "system" | "user";
@@ -28,6 +28,7 @@ ABSOLUT KRITISKT - FÖLJ DESSA REGLER EXAKT:
 
 LEVERERA JSON MED FÖLJANDE FÄLT (FYLL ALLTID I, ÄVEN OM DU MÅSTE GÖRA EN KVALIFICERAD BEDÖMNING):
 {
+  "audit_mode": "basic|advanced (måste matcha angivet läge)",
   "company": "Företagsnamn extraherat från sajten",
   "audit_scores": {
     "seo": 0-100,
@@ -55,7 +56,7 @@ LEVERERA JSON MED FÖLJANDE FÄLT (FYLL ALLTID I, ÄVEN OM DU MÅSTE GÖRA EN KV
     "immediate_fixes": { "low": 10000, "high": 25000 },
     "full_optimization": { "low": 40000, "high": 120000 },
     "currency": "SEK",
-    "payment_structure": "Fast pris eller löpande"
+    "payment_structure": "SPECIFIK betalningsmodell anpassad efter företagstyp och omfattning. Exempel: 'Engångsbelopp 15 000 kr för grundläggande SEO-fix + 2 500 kr/mån för löpande underhåll' eller '50% vid projektstart, 50% vid leverans' eller 'Timarvode 950 kr/h, uppskattad omfattning 20-30h'. ALDRIG generiska fraser som 'Fast pris eller löpande'."
   },
   "expected_outcomes": ["Mätbart resultat med procent/siffror"],
   "security_analysis": {
@@ -74,6 +75,36 @@ LEVERERA JSON MED FÖLJANDE FÄLT (FYLL ALLTID I, ÄVEN OM DU MÅSTE GÖRA EN KV
     "common_features": ["Gemensamma mönster/funktioner"],
     "differentiation_opportunities": ["Sätt att särskilja sig"]
   },
+  "business_profile": {
+    "industry": "Bransch/vertikal",
+    "company_size": "Uppskattad storlek (t.ex. 1-5 pers, 6-20, 20+)",
+    "business_model": "B2C/B2B, online/offline, franchise etc.",
+    "maturity": "Startup, etablerad, scale-up eller moget bolag",
+    "core_offers": ["Kärnerbjudanden (produkter/tjänster)"],
+    "revenue_streams": ["Primära intäktsströmmar"]
+  },
+  "market_context": {
+    "primary_geography": "Primär marknad/region",
+    "service_area": "Serviceområde/leveransområde",
+    "competition_level": "Låg/medel/hög konkurrens (motivera)",
+    "key_competitors": ["Namn på relevanta konkurrenter"],
+    "seasonal_patterns": "Säsongsvariationer och efterfrågetoppar",
+    "local_market_dynamics": "Lokala trender, köpbeteenden, efterfrågan"
+  },
+  "customer_segments": {
+    "primary_segment": "Primär kundgrupp",
+    "secondary_segments": ["Sekundära kundgrupper"],
+    "customer_needs": ["Kundbehov/smärtpunkter"],
+    "decision_triggers": ["Vad får kunden att agera/köpa"],
+    "trust_signals": ["Vad skapar förtroende i branschen"]
+  },
+  "competitive_landscape": {
+    "positioning": "Positionering i förhållande till konkurrenter",
+    "differentiation": "Vad som särskiljer företaget",
+    "price_positioning": "Prisposition (budget, mid, premium)",
+    "barriers_to_entry": "Inträdesbarriärer i marknaden",
+    "opportunities": ["Möjliga nischer/positioner att äga"]
+  },
   "technical_recommendations": [
     {
       "area": "Teknisk domän (t.ex. Performance, SEO, Säkerhet)",
@@ -85,7 +116,7 @@ LEVERERA JSON MED FÖLJANDE FÄLT (FYLL ALLTID I, ÄVEN OM DU MÅSTE GÖRA EN KV
   "technical_architecture": {
     "recommended_stack": {
       "frontend": "Förslag",
-      "backend": "Förslag", 
+      "backend": "Förslag",
       "cms": "Förslag",
       "hosting": "Förslag"
     },
@@ -127,7 +158,7 @@ LEVERERA JSON MED FÖLJANDE FÄLT (FYLL ALLTID I, ÄVEN OM DU MÅSTE GÖRA EN KV
     "tracking_setup": "Rekommenderat analytics-upplägg",
     "review_schedule": "Uppföljningsfrekvens"
   },
-  
+
   "site_content": {
     "company_name": "Exakt företagsnamn från sidan",
     "tagline": "Slogan/tagline om den finns",
@@ -152,7 +183,7 @@ LEVERERA JSON MED FÖLJANDE FÄLT (FYLL ALLTID I, ÄVEN OM DU MÅSTE GÖRA EN KV
       "social_links": ["Länkar till sociala medier"]
     }
   },
-  
+
   "color_theme": {
     "primary_color": "#hexkod för huvudfärg (om synlig)",
     "secondary_color": "#hexkod för sekundär färg",
@@ -164,7 +195,7 @@ LEVERERA JSON MED FÖLJANDE FÄLT (FYLL ALLTID I, ÄVEN OM DU MÅSTE GÖRA EN KV
     "design_style": "minimalist|bold|playful|corporate|creative|elegant|tech|organic",
     "typography_style": "Typografisk stil (t.ex. 'Sans-serif, clean, modern')"
   },
-  
+
   "template_data": {
     "generation_prompt": "En detaljerad prompt för att generera en LIKNANDE men BÄTTRE webbplats. Inkludera: företagsnamn, vad de gör, alla tjänster/produkter, färgschema, designstil, sektioner som ska finnas. Prompten ska kunna användas direkt för att skapa en komplett webbplats.",
     "must_have_sections": ["Lista sektioner som MÅSTE finnas baserat på originalsidan"],
@@ -197,6 +228,7 @@ VIKTIGT FÖR TEMPLATE_DATA:
 - Inkludera konkreta kodexempel där relevant
 - Budgetuppskattningar ska vara realistiska för svenska marknaden (SEK)
 - Använd WebSearch för att jämföra med branschstandarder om möjligt
+- Använd INGA markdown-länkar. Skriv rena domäner/URL:er som vanlig text.
 - Svara ENDAST med JSON, ingen Markdown eller annan text
 - Alla strängar i JSON ska vara på svenska`;
 
@@ -208,13 +240,20 @@ VIKTIGT FÖR TEMPLATE_DATA:
  */
 export function buildAuditPrompt(
   websiteContent: WebsiteContent,
-  url: string
+  url: string,
+  auditMode: AuditMode = "basic"
 ): PromptMessage[] {
   // Detect if this is likely a JS-rendered page with minimal scraped content
   const isJsRendered = websiteContent.wordCount < 50;
+  const requiresWebSearch = isJsRendered || auditMode === "advanced";
   const webSearchNote = isJsRendered
     ? `\n\n⚠️ VIKTIGT: Scrapern kunde bara hämta ${websiteContent.wordCount} ord från denna sida. Detta är troligen en JavaScript-renderad webbapp (React, Vue, etc.). ANVÄND WEBSEARCH-VERKTYGET för att besöka och analysera den faktiska renderade sidan på ${url} innan du ger din analys. Gör 2–3 separata web_search-anrop (t.ex. startsida + om oss + tjänster) och sammanställ resultaten.`
     : "";
+  const modeLabel = auditMode === "advanced" ? "AVANCERAD" : "VANLIG";
+  const modeInstructions =
+    auditMode === "advanced"
+      ? `\n\nLÄGE: AVANCERAD\n- Gör en bredare marknads- och affärsanalys.\n- Ställ dig själv följdfrågor om bransch, storlek, kundgrupper, geografi och konkurrens innan du svarar.\n- Utför minst 3–5 web_search-anrop (t.ex. varumärkesnamn + stad, konkurrenter, branschstandarder).\n- Fyll business_profile, market_context, customer_segments och competitive_landscape med djup och konkreta antaganden.\n- Ge fler förbättringsförslag (minst 12) och mer detaljerade varför/hur.\n`
+      : `\n\nLÄGE: VANLIG\n- Håll affärssektionerna korta men konkreta.\n- Om data saknas: ge en rimlig, kort bedömning baserat på sajten.\n`;
 
   // Build headings section only if we have headings
   const headingsSection =
@@ -246,7 +285,9 @@ export function buildAuditPrompt(
       content: [
         {
           type: "text",
-          text: `Analysera denna webbplats grundligt: ${url}${webSearchNote}
+          text: `Analysera denna webbplats grundligt: ${url}${webSearchNote}${modeInstructions}
+
+AUDIT-LÄGE: ${modeLabel} (du MÅSTE sätta "audit_mode" till detta värde)
 
 ANALYSERADE SIDOR (upp till 4):
 ${(websiteContent.sampledUrls && websiteContent.sampledUrls.length > 0
@@ -290,8 +331,8 @@ GÖR EN KOMPLETT ANALYS AV:
 8. Mobilvänlighet - Responsive design
 
 ${
-  isJsRendered
-    ? "DU MÅSTE ANVÄNDA WEBSEARCH för att analysera den faktiska renderade sidan innan du svarar. Gör 2–3 separata web_search-anrop och sammanställ resultaten.\n\n"
+  requiresWebSearch
+    ? "DU MÅSTE ANVÄNDA WEBSEARCH för att analysera sidan innan du svarar. Gör flera web_search-anrop och sammanställ resultaten.\n\n"
     : ""
 }Använd WebSearch för att jämföra med konkurrenter i samma bransch.
 
@@ -517,11 +558,11 @@ function repairJson(jsonString: string): string {
   // 2. Fix unclosed strings (add closing quote if missing before : or , or })
   // This is a simple heuristic - may not catch all cases
   repaired = repaired.replace(
-    /:(\s*)([^",{\[}\]]+?)(\s*)([,}])/g,
+    /:(\s*)([^",{[\]]+?)(\s*)([,}])/g,
     (match, space1, value, space2, end) => {
       // If value doesn't start with a quote OR a valid literal (number/boolean/null), quote it
       const trimmed = value.trim();
-      const looksLikeLiteral = /^(\"|-?\d|true|false|null)/i.test(trimmed);
+      const looksLikeLiteral = /^("|-?\d|true|false|null)/i.test(trimmed);
       if (!looksLikeLiteral && !trimmed.includes('"')) {
         return `:${space1}"${trimmed}"${space2}${end}`;
       }

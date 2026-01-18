@@ -250,7 +250,7 @@ function BuilderContent() {
       try {
         // Extract company name from prompt if possible, otherwise use generic name
         const dateLabel = new Date().toLocaleDateString("sv-SE");
-        const nameMatch = prompt?.match(/for\s+([^,\.]+)/i);
+        const nameMatch = prompt?.match(/for\s+([^,.]+)/i);
         const promptName = nameMatch
           ? nameMatch[1].trim()
           : prompt?.split("\n")[0]?.slice(0, 60)?.trim();
@@ -766,7 +766,7 @@ function BuilderContent() {
         - Desktop (md+): side-by-side panels
         - Mobile: panels overlap (absolute) and we toggle visibility via opacity + pointer-events
           (keeps iframe sized, avoids 0×0 canvas issues, and prevents remounts)
-        
+
         MOBILE FIX: Using transform instead of opacity for better mobile performance.
         Transform triggers GPU acceleration and is smoother on mobile devices.
       */}

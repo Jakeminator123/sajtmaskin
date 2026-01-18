@@ -31,13 +31,16 @@ import {
   OPENAI_MODELS,
   OPENAI_PRICING_USD_PER_MTOK,
 } from "@/lib/ai/openai-models";
-import type { AuditResult, AuditRequest } from "@/types/audit";
+import type { AuditMode, AuditResult, AuditRequest } from "@/types/audit";
 
 // Extend timeout for long-running AI calls
 export const maxDuration = 300; // 5 minutes
 
 // Audit cost in diamonds
-const AUDIT_COST = 3;
+const AUDIT_COSTS: Record<AuditMode, number> = {
+  basic: 3,
+  advanced: 5,
+};
 
 // ═══════════════════════════════════════════════════════════════════════════
 // IN-FLIGHT AUDIT TRACKING - prevents duplicate concurrent requests
@@ -81,6 +84,7 @@ const AUDIT_AI_SCHEMA = {
   type: "object",
   additionalProperties: false,
   properties: {
+    audit_mode: { type: "string", enum: ["basic", "advanced"] },
     company: { type: "string" },
     audit_scores: {
       type: "object",
@@ -223,6 +227,82 @@ const AUDIT_AI_SCHEMA = {
         "industry_leaders",
         "common_features",
         "differentiation_opportunities",
+      ],
+    },
+    business_profile: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        industry: { type: "string" },
+        company_size: { type: "string" },
+        business_model: { type: "string" },
+        maturity: { type: "string" },
+        core_offers: { type: "array", items: { type: "string" } },
+        revenue_streams: { type: "array", items: { type: "string" } },
+      },
+      required: [
+        "industry",
+        "company_size",
+        "business_model",
+        "maturity",
+        "core_offers",
+        "revenue_streams",
+      ],
+    },
+    market_context: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        primary_geography: { type: "string" },
+        service_area: { type: "string" },
+        competition_level: { type: "string" },
+        key_competitors: { type: "array", items: { type: "string" } },
+        seasonal_patterns: { type: "string" },
+        local_market_dynamics: { type: "string" },
+      },
+      required: [
+        "primary_geography",
+        "service_area",
+        "competition_level",
+        "key_competitors",
+        "seasonal_patterns",
+        "local_market_dynamics",
+      ],
+    },
+    customer_segments: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        primary_segment: { type: "string" },
+        secondary_segments: { type: "array", items: { type: "string" } },
+        customer_needs: { type: "array", items: { type: "string" } },
+        decision_triggers: { type: "array", items: { type: "string" } },
+        trust_signals: { type: "array", items: { type: "string" } },
+      },
+      required: [
+        "primary_segment",
+        "secondary_segments",
+        "customer_needs",
+        "decision_triggers",
+        "trust_signals",
+      ],
+    },
+    competitive_landscape: {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        positioning: { type: "string" },
+        differentiation: { type: "string" },
+        price_positioning: { type: "string" },
+        barriers_to_entry: { type: "string" },
+        opportunities: { type: "array", items: { type: "string" } },
+      },
+      required: [
+        "positioning",
+        "differentiation",
+        "price_positioning",
+        "barriers_to_entry",
+        "opportunities",
       ],
     },
     target_audience_analysis: {
@@ -480,6 +560,7 @@ const AUDIT_AI_SCHEMA = {
     },
   },
   required: [
+    "audit_mode",
     "company",
     "audit_scores",
     "strengths",
@@ -492,6 +573,10 @@ const AUDIT_AI_SCHEMA = {
     "technical_recommendations",
     "competitor_benchmarking",
     "target_audience_analysis",
+    "business_profile",
+    "market_context",
+    "customer_segments",
+    "competitive_landscape",
     "content_strategy",
     "design_direction",
     "technical_architecture",
@@ -506,7 +591,7 @@ const AUDIT_AI_SCHEMA = {
 
 const AUDIT_TEXT_FORMAT = {
   type: "json_schema",
-  name: "website_audit_v1",
+  name: "website_audit_v2",
   strict: true,
   schema: AUDIT_AI_SCHEMA,
 } as const;
@@ -621,13 +706,15 @@ function createFallbackResult(
     images: number;
     responseTime: number;
   },
-  url: string
+  url: string,
+  auditMode: AuditMode
 ): Record<string, unknown> {
   const domain = new URL(url).hostname;
   const isJsRendered = websiteContent.wordCount < 50;
   const companyName = websiteContent.title || domain;
 
   return {
+    audit_mode: auditMode,
     company: companyName,
     audit_scores: {
       seo: websiteContent.description ? 50 : 30,
@@ -661,6 +748,38 @@ function createFallbackResult(
         ? "Mycket lite textinnehåll på sidan"
         : null,
     ].filter(Boolean),
+    business_profile: {
+      industry: "Oklar bransch (kräver manuell kontroll)",
+      company_size: "Oklar storlek (uppskattas som småskalig)",
+      business_model: "Oklar affärsmodell (troligen B2C)",
+      maturity: "Oklar mognadsgrad",
+      core_offers: websiteContent.description
+        ? [websiteContent.description]
+        : ["Kärnerbjudande ej tydligt från scraper"],
+      revenue_streams: ["Försäljning av kärnerbjudanden"],
+    },
+    market_context: {
+      primary_geography: "Oklar geografi",
+      service_area: "Oklar servicearea",
+      competition_level: "Oklar konkurrensnivå",
+      key_competitors: [],
+      seasonal_patterns: "Oklar säsongsvariation",
+      local_market_dynamics: "Oklar lokal marknadsdynamik",
+    },
+    customer_segments: {
+      primary_segment: "Oklar primär kundgrupp",
+      secondary_segments: [],
+      customer_needs: [],
+      decision_triggers: [],
+      trust_signals: [],
+    },
+    competitive_landscape: {
+      positioning: "Oklar positionering",
+      differentiation: "Oklar differentiering",
+      price_positioning: "Oklar prisposition",
+      barriers_to_entry: "Oklar inträdesbarriär",
+      opportunities: [],
+    },
     improvements: [
       {
         item: "Grundläggande SEO-optimering",
@@ -1142,7 +1261,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { url } = body;
+    const { url, auditMode } = body;
+    const resolvedAuditMode: AuditMode =
+      auditMode === "advanced" ? "advanced" : "basic";
+    const auditCost = AUDIT_COSTS[resolvedAuditMode];
 
     // Validate URL
     let normalizedUrl: string;
@@ -1191,13 +1313,13 @@ export async function POST(request: NextRequest) {
 
     // Check if user has enough diamonds (test users have unlimited)
     const isTest = isTestUser(dbUser);
-    if (!isTest && dbUser.diamonds < AUDIT_COST) {
+    if (!isTest && dbUser.diamonds < auditCost) {
       return NextResponse.json(
         {
           success: false,
-          error: `Du behöver minst ${AUDIT_COST} diamanter för att köra en audit. Du har ${dbUser.diamonds} diamanter.`,
+          error: `Du behöver minst ${auditCost} diamanter för att köra en audit. Du har ${dbUser.diamonds} diamanter.`,
           insufficientCredits: true,
-          required: AUDIT_COST,
+          required: auditCost,
           current: dbUser.diamonds,
         },
         { status: 402 }
@@ -1290,9 +1412,15 @@ export async function POST(request: NextRequest) {
     }
 
     const isJsRendered = websiteContent.wordCount < 50;
+    const requiresWebSearch =
+      isJsRendered || resolvedAuditMode === "advanced";
 
     // Build prompt
-    const prompt = buildAuditPrompt(websiteContent, normalizedUrl);
+    const prompt = buildAuditPrompt(
+      websiteContent,
+      normalizedUrl,
+      resolvedAuditMode
+    );
     const { input, instructions } = combinePromptForResponsesApi(prompt);
 
     // Call OpenAI Responses API with WebSearch
@@ -1308,8 +1436,8 @@ export async function POST(request: NextRequest) {
       instructions: instructions || undefined,
       max_output_tokens: 16000,
       tools: [{ type: "web_search" }] as Array<{ type: "web_search" }>,
-      // For JS-rendered pages, require at least one web_search tool call.
-      ...(isJsRendered ? { tool_choice: "required" as const } : {}),
+      // For JS-rendered pages or advanced audits, require web_search tool usage.
+      ...(requiresWebSearch ? { tool_choice: "required" as const } : {}),
       text: { format: AUDIT_TEXT_FORMAT },
       // Don't store user content on OpenAI side
       store: false,
@@ -1428,7 +1556,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Parse JSON response with repair attempts
-    let auditResult;
+    let auditResult: Partial<AuditResult> = {};
     let usedFallback = false;
     const parseResult = parseJsonWithRepair(cleanedOutput);
 
@@ -1454,7 +1582,11 @@ export async function POST(request: NextRequest) {
         console.log(
           `[${requestId}] Falling back to scraped-data audit (AI response invalid JSON)`
         );
-        auditResult = createFallbackResult(websiteContent, normalizedUrl);
+        auditResult = createFallbackResult(
+          websiteContent,
+          normalizedUrl,
+          resolvedAuditMode
+        );
         usedFallback = true;
       } else {
         console.log(
@@ -1485,7 +1617,11 @@ export async function POST(request: NextRequest) {
           console.log(
             `[${requestId}] Falling back to scraped-data audit (AI JSON parse failed)`
           );
-          auditResult = createFallbackResult(websiteContent, normalizedUrl);
+          auditResult = createFallbackResult(
+            websiteContent,
+            normalizedUrl,
+            resolvedAuditMode
+          );
           usedFallback = true;
         }
       }
@@ -1520,7 +1656,11 @@ export async function POST(request: NextRequest) {
           ", "
         )}`
       );
-      const fallback = createFallbackResult(websiteContent, normalizedUrl) as {
+      const fallback = createFallbackResult(
+        websiteContent,
+        normalizedUrl,
+        resolvedAuditMode
+      ) as {
         audit_scores: Record<string, number>;
         [key: string]: unknown;
       };
@@ -1607,7 +1747,11 @@ export async function POST(request: NextRequest) {
         console.log(
           `[${requestId}] Creating fallback result from scraped data`
         );
-        auditResult = createFallbackResult(websiteContent, normalizedUrl);
+        auditResult = createFallbackResult(
+          websiteContent,
+          normalizedUrl,
+          resolvedAuditMode
+        );
       }
     }
 
@@ -1625,6 +1769,13 @@ export async function POST(request: NextRequest) {
     const costUSD =
       (inputTokens * pricing.input + outputTokens * pricing.output) / 1_000_000;
     const costSEK = costUSD * USD_TO_SEK;
+    console.log(
+      `[${requestId}] Audit cost summary: mode=${resolvedAuditMode}, diamonds=${auditCost}, tokens=${
+        inputTokens + outputTokens
+      }, usd=${costUSD.toFixed(4)}, sek=${costSEK.toFixed(2)}, model=${
+        usedModel || "unknown"
+      }`
+    );
 
     // Add metadata to result
     const domain = new URL(normalizedUrl).hostname;
@@ -1665,6 +1816,7 @@ export async function POST(request: NextRequest) {
 
     const result: AuditResult = {
       ...auditResult,
+      audit_mode: resolvedAuditMode,
       audit_type: "website_audit",
       domain,
       timestamp: new Date().toISOString(),
@@ -1695,11 +1847,11 @@ export async function POST(request: NextRequest) {
         createTransaction(
           user.id,
           "audit",
-          -AUDIT_COST,
-          `Site Audit: ${domain}`
+          -auditCost,
+          `Site Audit (${resolvedAuditMode}): ${domain}`
         );
         console.log(
-          `[${requestId}] Deducted ${AUDIT_COST} diamonds from user ${user.id}`
+          `[${requestId}] Deducted ${auditCost} diamonds from user ${user.id}`
         );
       } catch (txError) {
         console.error(`[${requestId}] Failed to deduct diamonds:`, txError);

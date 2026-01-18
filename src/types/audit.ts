@@ -3,6 +3,8 @@
  * Based on sajtstudio's audit implementation
  */
 
+export type AuditMode = "basic" | "advanced";
+
 // Improvement suggestion with impact and effort assessment
 export interface Improvement {
   item: string;
@@ -58,6 +60,44 @@ export interface CompetitorBenchmarking {
   industry_leaders?: string[];
   common_features?: string[];
   differentiation_opportunities?: string[];
+}
+
+// Business profile (advanced)
+export interface BusinessProfile {
+  industry: string;
+  company_size: string;
+  business_model: string;
+  maturity: string;
+  core_offers: string[];
+  revenue_streams: string[];
+}
+
+// Market context (advanced)
+export interface MarketContext {
+  primary_geography: string;
+  service_area: string;
+  competition_level: string;
+  key_competitors: string[];
+  seasonal_patterns: string;
+  local_market_dynamics: string;
+}
+
+// Customer segmentation (advanced)
+export interface CustomerSegments {
+  primary_segment: string;
+  secondary_segments: string[];
+  customer_needs: string[];
+  decision_triggers: string[];
+  trust_signals: string[];
+}
+
+// Competitive landscape (advanced)
+export interface CompetitiveLandscape {
+  positioning: string;
+  differentiation: string;
+  price_positioning: string;
+  barriers_to_entry: string;
+  opportunities: string[];
 }
 
 // Target audience analysis
@@ -136,22 +176,22 @@ export interface SiteContentExtraction {
   description: string;
   industry: string;
   location?: string;
-  
+
   // What they offer
   services?: string[];
   products?: string[];
   unique_selling_points?: string[];
-  
+
   // Page sections found
   sections: {
     name: string;
     content: string;
     type: "hero" | "services" | "about" | "contact" | "testimonials" | "portfolio" | "pricing" | "faq" | "team" | "cta" | "footer" | "other";
   }[];
-  
+
   // Call to actions
   ctas?: string[];
-  
+
   // Contact info
   contact?: {
     email?: string;
@@ -168,11 +208,11 @@ export interface ColorThemeExtraction {
   accent_color?: string;        // Accent/CTA color (hex)
   background_color: string;     // Main background (hex)
   text_color: string;           // Main text color (hex)
-  
+
   // Overall style
   theme_type: "light" | "dark" | "mixed";
   style_description: string;    // e.g. "Minimalistisk, modern, professionell"
-  
+
   // Design characteristics
   design_style?: "minimalist" | "bold" | "playful" | "corporate" | "creative" | "elegant" | "tech" | "organic";
   typography_style?: string;    // e.g. "Sans-serif, clean, modern"
@@ -182,13 +222,13 @@ export interface ColorThemeExtraction {
 export interface TemplateGenerationData {
   // Super prompt for v0/AI generation
   generation_prompt: string;
-  
+
   // Key features to include
   must_have_sections: string[];
-  
+
   // Style guidelines
   style_notes: string;
-  
+
   // Suggested improvements over original
   improvements_to_apply: string[];
 }
@@ -231,6 +271,7 @@ export interface ScrapeSummary {
 export interface AuditResult {
   // Type of audit
   audit_type: "website_audit" | "recommendation";
+  audit_mode?: AuditMode;
 
   // Basic info
   company?: string;
@@ -261,6 +302,10 @@ export interface AuditResult {
   competitor_insights?: CompetitorInsights;
   competitor_benchmarking?: CompetitorBenchmarking;
   target_audience_analysis?: TargetAudienceAnalysis;
+  business_profile?: BusinessProfile;
+  market_context?: MarketContext;
+  customer_segments?: CustomerSegments;
+  competitive_landscape?: CompetitiveLandscape;
 
   // Strategy
   content_strategy?: ContentStrategy;
@@ -311,6 +356,7 @@ export interface WebsiteContent {
 // API request body
 export interface AuditRequest {
   url: string;
+  auditMode?: AuditMode;
 }
 
 // API response
