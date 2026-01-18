@@ -46,7 +46,7 @@ function applyPreDeployFixes(files: Array<{ name: string; content: string }>): {
               .map((p) => p.trim())
               .filter(Boolean);
 
-            const filtered = parts.filter((p) => !/^(['\"])600\1$/.test(p));
+            const filtered = parts.filter((p) => !/^(['"])600\1$/.test(p));
             if (filtered.length === parts.length) return match;
             const nextArr = `[${filtered.join(', ')}]`;
             return `${prefix}${nextArr}`;

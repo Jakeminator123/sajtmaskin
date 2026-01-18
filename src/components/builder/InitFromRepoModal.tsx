@@ -56,7 +56,7 @@ export function InitFromRepoModal({ isOpen, onClose, onSuccess }: InitFromRepoMo
       setZipContent(base64);
       setZipFileName(file.name);
       toast.success(`Selected: ${file.name}`);
-    } catch (_error) {
+    } catch {
       toast.error('Failed to read file');
     }
   };
