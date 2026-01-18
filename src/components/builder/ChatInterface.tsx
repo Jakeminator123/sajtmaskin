@@ -39,12 +39,37 @@ const DESIGN_SYSTEM_HINT = `DESIGN SYSTEM MODE:
 - Keep spacing scale consistent (4/8/12/16/24/32/48).
 - Ensure good accessibility and dark-mode compatibility.`;
 
+const IMAGE_EXTENSION_MIME: Record<string, string> = {
+  png: "image/png",
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  webp: "image/webp",
+  gif: "image/gif",
+  svg: "image/svg+xml",
+};
+
 function normalizeDesignUrl(value: string): string {
   const trimmed = value.trim();
   if (!trimmed) return "";
   if (/^https?:\/\//i.test(trimmed)) return trimmed;
   if (trimmed.includes(".")) return `https://${trimmed}`;
   return trimmed;
+}
+
+function getImageAttachmentFromUrl(url: string): V0UserFileAttachment | null {
+  if (!url) return null;
+  const match = url.toLowerCase().match(/\.(png|jpe?g|webp|gif|svg)(?:\?|#|$)/);
+  if (!match) return null;
+  const ext = match[1];
+  const mimeType = IMAGE_EXTENSION_MIME[ext];
+  const normalizedExt = ext === "jpg" ? "jpeg" : ext;
+
+  return {
+    type: "user_file",
+    url,
+    filename: `reference.${normalizedExt}`,
+    mimeType,
+  };
 }
 
 export function ChatInterface({
@@ -82,17 +107,30 @@ export function ChatInterface({
     const finalMessage = contextBlocks.length
       ? `${baseMessage}\n\n${contextBlocks.join("\n\n")}`
       : baseMessage;
-    const attachments = hasSuccessFiles ? filesToAttachments(files) : undefined;
+    const fileAttachments = hasSuccessFiles ? filesToAttachments(files) : [];
+    const figmaAttachment = getImageAttachmentFromUrl(figmaLink);
+    const attachments =
+      figmaAttachment &&
+      !fileAttachments.some((attachment) => attachment.url === figmaAttachment.url)
+        ? [...fileAttachments, figmaAttachment]
+        : fileAttachments;
+    const finalAttachments = attachments.length ? attachments : undefined;
     const attachmentPrompt = hasSuccessFiles ? filesToPromptText(files) : "";
 
     setIsSending(true);
     try {
       if (!chatId) {
         if (!onCreateChat) return;
-        await onCreateChat(finalMessage, { attachments, attachmentPrompt });
+        await onCreateChat(finalMessage, {
+          attachments: finalAttachments,
+          attachmentPrompt,
+        });
       } else {
         if (!onSendMessage) return;
-        await onSendMessage(finalMessage, { attachments, attachmentPrompt });
+        await onSendMessage(finalMessage, {
+          attachments: finalAttachments,
+          attachmentPrompt,
+        });
       }
       setInput("");
       setFiles([]);
