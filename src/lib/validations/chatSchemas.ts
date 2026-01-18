@@ -9,7 +9,7 @@ export const createChatSchema = z.object({
   system: z.string().optional(),
   projectId: z.string().optional(),
   modelId: z.enum(modelTiers).optional().default('v0-pro'),
-  thinking: z.boolean().optional().default(true),
+  thinking: z.boolean().optional(),
   imageGenerations: z.boolean().optional(),
   chatPrivacy: z.enum(['public', 'private']).optional(),
 });

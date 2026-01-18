@@ -10,6 +10,48 @@ export function safeJsonParse(value: string): unknown {
   }
 }
 
+const THINKING_KEYS = new Set(["thinking", "reasoning", "thought"]);
+
+function collectStrings(
+  value: unknown,
+  acc: string[],
+  options?: { skipKeys?: Set<string> }
+): void {
+  if (typeof value === "string") {
+    acc.push(value);
+    return;
+  }
+  if (Array.isArray(value)) {
+    value.forEach((item) => collectStrings(item, acc, options));
+    return;
+  }
+  if (!value || typeof value !== "object") return;
+
+  for (const [key, next] of Object.entries(value as Record<string, unknown>)) {
+    if (options?.skipKeys?.has(key)) continue;
+    collectStrings(next, acc, options);
+  }
+}
+
+function collectKeyedStrings(
+  value: unknown,
+  keys: Set<string>,
+  acc: string[]
+): void {
+  if (!value || typeof value !== "object") return;
+  if (Array.isArray(value)) {
+    value.forEach((item) => collectKeyedStrings(item, keys, acc));
+    return;
+  }
+  for (const [key, next] of Object.entries(value as Record<string, unknown>)) {
+    if (keys.has(key)) {
+      collectStrings(next, acc);
+    } else {
+      collectKeyedStrings(next, keys, acc);
+    }
+  }
+}
+
 export function extractChatId(parsed: unknown, currentEvent?: string): string | null {
   if (!parsed || typeof parsed !== 'object') return null;
 
@@ -47,21 +89,29 @@ export function extractChatId(parsed: unknown, currentEvent?: string): string | 
 export function extractDemoUrl(parsed: unknown): string | null {
   if (!parsed || typeof parsed !== 'object') return null;
   const obj = parsed as any;
-  return (
+  const direct =
     obj.demoUrl ||
     obj.demo_url ||
     obj.latestVersion?.demoUrl ||
     obj.latestVersion?.demo_url ||
-    null
-  );
+    null;
+  if (typeof direct === "string" && direct.trim()) return direct;
+  const nested: string[] = [];
+  collectKeyedStrings(obj, new Set(["demoUrl", "demo_url"]), nested);
+  const found = nested.join("");
+  return found ? found : null;
 }
 
 export function extractVersionId(parsed: unknown): string | null {
   if (!parsed || typeof parsed !== 'object') return null;
   const obj = parsed as any;
-  return (
-    obj.versionId || obj.version_id || obj.latestVersion?.id || obj.latestVersion?.versionId || null
-  );
+  const direct =
+    obj.versionId || obj.version_id || obj.latestVersion?.id || obj.latestVersion?.versionId || null;
+  if (typeof direct === "string" && direct.trim()) return direct;
+  const nested: string[] = [];
+  collectKeyedStrings(obj, new Set(["versionId", "version_id"]), nested);
+  const found = nested.join("");
+  return found ? found : null;
 }
 
 export function extractMessageId(parsed: unknown): string | null {
@@ -83,7 +133,10 @@ export function extractThinkingText(parsed: unknown): string | null {
   const obj = parsed as any;
   if (typeof obj.thinking === 'string') return obj.thinking;
   if (typeof obj.reasoning === 'string') return obj.reasoning;
-  return null;
+  const nested: string[] = [];
+  collectKeyedStrings(obj, THINKING_KEYS, nested);
+  const found = nested.join("");
+  return found ? found : null;
 }
 
 export function extractContentText(parsed: unknown, _raw: string): string | null {
@@ -93,6 +146,12 @@ export function extractContentText(parsed: unknown, _raw: string): string | null
   if (typeof obj.content === 'string') return obj.content;
   if (typeof obj.text === 'string') return obj.text;
   if (typeof obj.delta === 'string') return obj.delta;
+  if (typeof obj.delta !== 'undefined') {
+    const deltaStrings: string[] = [];
+    collectStrings(obj.delta, deltaStrings, { skipKeys: THINKING_KEYS });
+    const joined = deltaStrings.join('');
+    if (joined) return joined;
+  }
   return null;
 }
 

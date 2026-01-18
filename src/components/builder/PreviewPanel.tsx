@@ -7,9 +7,14 @@ import { Button } from "@/components/ui/button";
 interface PreviewPanelProps {
   demoUrl: string | null;
   isLoading?: boolean;
+  onClear?: () => void;
 }
 
-export function PreviewPanel({ demoUrl, isLoading: externalLoading }: PreviewPanelProps) {
+export function PreviewPanel({
+  demoUrl,
+  isLoading: externalLoading,
+  onClear,
+}: PreviewPanelProps) {
   const [iframeLoading, setIframeLoading] = useState(true);
   const [iframeError, setIframeError] = useState(false);
 
@@ -40,6 +45,13 @@ export function PreviewPanel({ demoUrl, isLoading: externalLoading }: PreviewPan
     }
   };
 
+  const handleClear = () => {
+    if (!onClear) return;
+    setIframeLoading(true);
+    setIframeError(false);
+    onClear();
+  };
+
   if (!demoUrl) {
     return (
       <div className="flex h-full flex-col items-center justify-center bg-black/20 text-gray-500">
@@ -56,9 +68,21 @@ export function PreviewPanel({ demoUrl, isLoading: externalLoading }: PreviewPan
 
   return (
     <div className="flex h-full flex-col bg-black/40">
-      <div className="flex items-center justify-between border-b border-gray-800 px-4 py-2">
+        <div className="flex items-center justify-between border-b border-gray-800 px-4 py-2">
         <h3 className="font-semibold text-white">Preview</h3>
-        <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1">
+            {demoUrl && onClear && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleClear}
+                disabled={isLoading}
+                title="Rensa preview"
+                className="text-gray-400 hover:text-white"
+              >
+                Rensa
+              </Button>
+            )}
           <Button
             variant="ghost"
             size="icon"

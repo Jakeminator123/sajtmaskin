@@ -13,6 +13,7 @@ import {
   isDoneLikeEvent,
   safeJsonParse,
 } from '@/lib/v0Stream';
+import { SYSTEM_PROMPT } from '@/lib/v0/systemPrompt';
 import { eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { NextResponse } from 'next/server';
@@ -54,12 +55,18 @@ export async function POST(req: Request) {
         imageGenerations,
         chatPrivacy,
       } = validationResult.data;
+      const resolvedSystem = system?.trim() ? system : SYSTEM_PROMPT;
+      const resolvedThinking =
+        typeof thinking === 'boolean' ? thinking : modelId === 'v0-max';
+      const resolvedImageGenerations =
+        typeof imageGenerations === 'boolean' ? imageGenerations : false;
+      const resolvedChatPrivacy = chatPrivacy ?? 'private';
 
       devLogStartNewSite({
         message,
         modelId,
-        thinking,
-        imageGenerations,
+        thinking: resolvedThinking,
+        imageGenerations: resolvedImageGenerations,
         projectId,
       });
       if (process.env.NODE_ENV === 'development') {
@@ -73,12 +80,13 @@ export async function POST(req: Request) {
 
       const result = await v0.chats.create({
         message,
-        system,
+        system: resolvedSystem,
         projectId,
-        chatPrivacy,
+        chatPrivacy: resolvedChatPrivacy,
         modelConfiguration: {
-          thinking,
-          imageGenerations,
+          modelId,
+          thinking: resolvedThinking,
+          imageGenerations: resolvedImageGenerations,
         },
         responseMode: 'experimental_stream',
         ...(modelId && { modelId }),
@@ -101,6 +109,9 @@ export async function POST(req: Request) {
             let didSendChatId = false;
             let didSendDone = false;
             let controllerClosed = false;
+            let lastMessageId: string | null = null;
+            let lastDemoUrl: string | null = null;
+            let lastVersionId: string | null = null;
 
             const safeEnqueue = (data: Uint8Array) => {
               if (controllerClosed) return;
@@ -202,6 +213,11 @@ export async function POST(req: Request) {
                     }
                   }
 
+                  const messageId = extractMessageId(parsed);
+                  if (messageId) {
+                    lastMessageId = messageId;
+                  }
+
                   const thinkingText = extractThinkingText(parsed);
                   if (thinkingText && !didSendDone) {
                     safeEnqueue(encoder.encode(formatSSEEvent('thinking', thinkingText)));
@@ -214,10 +230,15 @@ export async function POST(req: Request) {
 
                   const demoUrl = extractDemoUrl(parsed);
                   const versionId = extractVersionId(parsed);
-                  const messageId = extractMessageId(parsed);
+                  if (demoUrl) {
+                    lastDemoUrl = demoUrl;
+                  }
+                  if (versionId) {
+                    lastVersionId = versionId;
+                  }
                   const isDoneEvent = isDoneLikeEvent(currentEvent, parsed);
 
-                  if (!didSendDone && (demoUrl || versionId || messageId || isDoneEvent)) {
+                  if (!didSendDone && (isDoneEvent || demoUrl || versionId)) {
                     didSendDone = true;
                     safeEnqueue(
                       encoder.encode(
@@ -279,6 +300,66 @@ export async function POST(req: Request) {
                 )
               );
             } finally {
+              if (!didSendDone && v0ChatId) {
+                try {
+                  const latestChat = await v0.chats.getById({ chatId: v0ChatId });
+                  const latestVersion = (latestChat as any)?.latestVersion || null;
+                  const finalVersionId: string | null =
+                    (latestVersion && (latestVersion.id || latestVersion.versionId)) ||
+                    lastVersionId;
+                  const finalDemoUrl: string | null =
+                    (latestVersion && (latestVersion.demoUrl || latestVersion.demo_url)) ||
+                    (latestChat as any)?.demoUrl ||
+                    lastDemoUrl;
+
+                  if (internalChatId && finalVersionId) {
+                    const existingVersion = await db
+                      .select()
+                      .from(versions)
+                      .where(eq(versions.v0VersionId, finalVersionId))
+                      .limit(1);
+
+                    if (existingVersion.length === 0) {
+                      await db.insert(versions).values({
+                        id: nanoid(),
+                        chatId: internalChatId,
+                        v0VersionId: finalVersionId,
+                        v0MessageId: lastMessageId,
+                        demoUrl: finalDemoUrl,
+                        metadata: latestChat,
+                      });
+                    } else if (finalDemoUrl) {
+                      await db
+                        .update(versions)
+                        .set({ demoUrl: finalDemoUrl, metadata: latestChat })
+                        .where(eq(versions.id, existingVersion[0].id));
+                    }
+                  }
+
+                  didSendDone = true;
+                  safeEnqueue(
+                    encoder.encode(
+                      formatSSEEvent('done', {
+                        chatId: v0ChatId,
+                        demoUrl: finalDemoUrl,
+                        versionId: finalVersionId,
+                        messageId: lastMessageId,
+                      })
+                    )
+                  );
+
+                  devLogAppend('in-progress', {
+                    type: 'site.done',
+                    chatId: v0ChatId,
+                    versionId: finalVersionId,
+                    demoUrl: finalDemoUrl,
+                    durationMs: Date.now() - generationStartedAt,
+                  });
+                  devLogFinalizeSite();
+                } catch (finalizeErr) {
+                  console.error('Failed to finalize streaming chat:', finalizeErr);
+                }
+              }
               safeClose();
             }
           },

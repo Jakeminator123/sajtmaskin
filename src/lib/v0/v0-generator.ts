@@ -50,6 +50,7 @@ import {
 import { debugLog, logFinalPrompt } from "@/lib/utils/debug";
 import { logV0 } from "@/lib/utils/file-logger";
 import { SECRETS } from "@/lib/config";
+import { SYSTEM_PROMPT } from "@/lib/v0/systemPrompt";
 
 // Lazy-initialized v0 client (created at request time, not import time)
 let _v0Client: ReturnType<typeof createClient> | null = null;
@@ -131,6 +132,19 @@ const MODEL_MAP: Record<QualityLevel, V0ModelId> = {
   premium: "v0-max",
   max: "v0-max",
 };
+
+type V0SdkCreateRequest = Parameters<
+  ReturnType<typeof createClient>["chats"]["create"]
+>[0];
+
+type V0SdkModelId = NonNullable<
+  V0SdkCreateRequest["modelConfiguration"]
+>["modelId"];
+
+function toSdkModelId(modelId: V0ModelId): V0SdkModelId {
+  // v0-sdk types can lag behind model ids; cast keeps runtime values intact.
+  return modelId as unknown as V0SdkModelId;
+}
 
 /**
  * Extended model type for future use
@@ -368,53 +382,6 @@ DESIGN:
 - Typography-focused design
 - Dark/light theme toggle (optional)`,
 };
-
-// System prompt for v0 to generate better code
-const SYSTEM_PROMPT = `You are an expert React and Next.js developer creating production-ready websites.
-
-TECHNICAL REQUIREMENTS:
-- React 18+ functional components with TypeScript
-- Tailwind CSS for ALL styling (no external CSS files)
-- Lucide React for icons (import from 'lucide-react')
-- Next.js App Router conventions
-- Responsive design (mobile-first approach)
-
-IMAGE HANDLING (CRITICAL!):
-- If the user provides image URLs in the prompt, USE THOSE EXACT URLs
-- Copy the full URL exactly as provided (e.g. https://images.unsplash.com/... or https://xxx.blob.vercel-storage.com/...)
-- DO NOT use placeholder.com, placeholder.svg, placehold.co, or /images/xxx paths
-- DO NOT invent or modify user-provided URLs - use them EXACTLY as given
-- Place images in appropriate sections (hero, about, services, etc.)
-- Use next/image or <img> tags with the provided URLs
-
-FALLBACK IMAGES (when user does NOT provide images):
-- Use REAL Unsplash images with direct URLs like: https://images.unsplash.com/photo-[ID]?w=800&q=80
-- Hero sections: Use landscape photos (w=1200 or w=1600)
-- Team/about: Use portrait photos (w=400)
-- Products/services: Use relevant category photos (w=600)
-- Example hero: https://images.unsplash.com/photo-1497366216548-37526070297c?w=1200&q=80 (office)
-- Example portrait: https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=400&q=80 (person)
-- ALWAYS use real Unsplash URLs - NEVER use gray placeholders or empty src
-
-CODE QUALITY:
-- Clean, readable code with proper formatting
-- Semantic HTML elements (nav, main, section, article)
-- Proper TypeScript types (no 'any')
-- Accessible (ARIA labels, keyboard navigation, focus states)
-- SEO-friendly structure (proper heading hierarchy)
-
-STYLING GUIDELINES:
-- Use Tailwind utility classes exclusively
-- Consistent spacing scale (4, 8, 12, 16, 24, 32, 48)
-- CSS variables for theme colors when appropriate
-- Smooth transitions: transition-all duration-300
-- Proper hover/focus/active states
-
-COMPONENT STRUCTURE:
-- Single file when possible
-- Extract repeated patterns into sub-components
-- Props interfaces for reusable components
-- Default export for main component`;
 
 // GeneratedFile interface is defined at the top of this file
 
@@ -688,12 +655,12 @@ export async function generateCode(
   try {
     // Use the Platform API to create a chat
     // Build create request with optional attachments
-    const createRequest: Parameters<typeof v0.chats.create>[0] = {
+    const createRequest: V0SdkCreateRequest = {
       message: fullPrompt,
       system: SYSTEM_PROMPT,
       chatPrivacy: "private",
       modelConfiguration: {
-        modelId,
+        modelId: toSdkModelId(modelId),
         imageGenerations: options.imageGenerations ?? false,
         // Enable thinking for better reasoning (premium gets more detailed thinking)
         thinking: modelId === "v0-max",
@@ -913,7 +880,7 @@ export async function refineCode(
       chatId: existingChatId,
       message: refinementInstruction,
       modelConfiguration: {
-        modelId,
+        modelId: toSdkModelId(modelId),
       },
       responseMode: "sync", // Force synchronous response
     })) as ChatDetail;

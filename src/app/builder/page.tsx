@@ -43,7 +43,7 @@ function BuilderContent() {
   const [selectedVersionId, setSelectedVersionId] = useState<string | null>(null);
   const [currentDemoUrl, setCurrentDemoUrl] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [rightPanelTab, setRightPanelTab] = useState<RightPanelTab>('versions');
+  const [rightPanelTab, setRightPanelTab] = useState<RightPanelTab>('preview');
   const [files, setFiles] = useState<FileNode[]>([]);
   const [selectedFile, setSelectedFile] = useState<FileNode | null>(null);
   const [isFilesLoading, setIsFilesLoading] = useState(false);
@@ -218,6 +218,7 @@ function BuilderContent() {
     setFilesError(null);
     setSelectedVersionId(null);
     setCurrentDemoUrl(null);
+    setRightPanelTab('preview');
   }, []);
 
   const { isCreatingChat, createNewChat, sendMessage } = useV0ChatMessaging({
@@ -336,10 +337,16 @@ function BuilderContent() {
   };
 
   const tabs = [
+    { id: 'preview' as const, label: 'Preview', icon: Monitor },
     { id: 'versions' as const, label: 'Versions', icon: History },
     { id: 'files' as const, label: 'Files', icon: FolderTree },
     { id: 'deployments' as const, label: 'Deployments', icon: Rocket },
   ];
+
+  const handleClearPreview = useCallback(() => {
+    setCurrentDemoUrl(null);
+    setSelectedVersionId(null);
+  }, []);
 
   const initialPrompt = templateId ? null : resolvedPrompt?.trim() || null;
   const autoCreateRef = useRef(false);
@@ -446,7 +453,11 @@ function BuilderContent() {
           </div>
 
           <div className="hidden flex-1 flex-col overflow-hidden lg:flex">
-            <PreviewPanel demoUrl={currentDemoUrl} isLoading={isAnyStreaming || isCreatingChat} />
+            <PreviewPanel
+              demoUrl={currentDemoUrl}
+              isLoading={isAnyStreaming || isCreatingChat}
+              onClear={handleClearPreview}
+            />
           </div>
 
           <div
@@ -473,19 +484,6 @@ function BuilderContent() {
                   {tab.label}
                 </Button>
               ))}
-              <Button
-                variant="ghost"
-                onClick={() => setRightPanelTab('preview')}
-                className={cn(
-                  'flex-1 rounded-none border-b-2 border-transparent h-12 lg:hidden',
-                  rightPanelTab === 'preview'
-                    ? 'border-b-primary text-primary'
-                    : 'text-muted-foreground hover:text-foreground'
-                )}
-              >
-                <Monitor className="h-4 w-4 mr-2" />
-                Preview
-              </Button>
             </div>
 
             <div className="flex-1 overflow-hidden">
@@ -506,7 +504,11 @@ function BuilderContent() {
               ) : rightPanelTab === 'deployments' ? (
                 <DeploymentHistory chatId={chatId} />
               ) : (
-                <PreviewPanel demoUrl={currentDemoUrl} isLoading={isAnyStreaming || isCreatingChat} />
+                <PreviewPanel
+                  demoUrl={currentDemoUrl}
+                  isLoading={isAnyStreaming || isCreatingChat}
+                  onClear={handleClearPreview}
+                />
               )}
             </div>
           </div>

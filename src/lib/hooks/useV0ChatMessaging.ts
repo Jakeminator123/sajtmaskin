@@ -77,7 +77,7 @@ export function useV0ChatMessaging(params: {
       try {
         const messageForV0 = await maybeEnhanceInitialPrompt(initialMessage);
         const finalMessage = appendAttachmentPrompt(messageForV0, options.attachmentPrompt);
-        const thinkingForTier = selectedModelTier !== 'v0-mini';
+        const thinkingForTier = selectedModelTier === 'v0-max';
         const requestBody: Record<string, unknown> = {
           message: finalMessage,
           modelId: selectedModelTier,
