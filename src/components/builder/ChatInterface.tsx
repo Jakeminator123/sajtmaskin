@@ -13,10 +13,11 @@ import {
   filesToAttachments,
   filesToPromptText,
   MediaDrawer,
+  TextUploader,
   type UploadedFile,
   type V0UserFileAttachment,
 } from "@/components/media";
-import { ImageIcon, Loader2 } from "lucide-react";
+import { FileText, ImageIcon, Loader2 } from "lucide-react";
 import { useState } from "react";
 
 type MessageOptions = {
@@ -85,20 +86,14 @@ export function ChatInterface({
   const [isMediaDrawerOpen, setIsMediaDrawerOpen] = useState(false);
   const [figmaUrl, setFigmaUrl] = useState("");
   const [isFigmaInputOpen, setIsFigmaInputOpen] = useState(false);
+  const [isTextUploaderOpen, setIsTextUploaderOpen] = useState(false);
 
   const hasUploading = files.some((file) => file.status === "uploading");
   const hasSuccessFiles = files.some((file) => file.status === "success");
   const inputDisabled = isSending || isBusy;
   const submitDisabled = inputDisabled || hasUploading;
 
-  const handleSubmit = async ({ text }: { text: string }) => {
-    if (submitDisabled) return;
-
-    const trimmed = text.trim();
-    if (!trimmed && !hasSuccessFiles) return;
-
-    const baseMessage =
-      trimmed || "Use the attached files as visual references for the design.";
+  const buildMessagePayload = (baseMessage: string) => {
     const figmaLink = normalizeDesignUrl(figmaUrl);
     const contextBlocks = [
       designSystemMode ? DESIGN_SYSTEM_HINT : "",
@@ -117,19 +112,29 @@ export function ChatInterface({
     const finalAttachments = attachments.length ? attachments : undefined;
     const attachmentPrompt = hasSuccessFiles ? filesToPromptText(files) : "";
 
+    return { finalMessage, finalAttachments, attachmentPrompt };
+  };
+
+  const sendMessagePayload = async (payload: {
+    finalMessage: string;
+    finalAttachments?: V0UserFileAttachment[];
+    attachmentPrompt: string;
+  }) => {
+    if (!payload.finalMessage.trim()) return;
+
     setIsSending(true);
     try {
       if (!chatId) {
         if (!onCreateChat) return;
-        await onCreateChat(finalMessage, {
-          attachments: finalAttachments,
-          attachmentPrompt,
+        await onCreateChat(payload.finalMessage, {
+          attachments: payload.finalAttachments,
+          attachmentPrompt: payload.attachmentPrompt,
         });
       } else {
         if (!onSendMessage) return;
-        await onSendMessage(finalMessage, {
-          attachments: finalAttachments,
-          attachmentPrompt,
+        await onSendMessage(payload.finalMessage, {
+          attachments: payload.finalAttachments,
+          attachmentPrompt: payload.attachmentPrompt,
         });
       }
       setInput("");
@@ -139,6 +144,28 @@ export function ChatInterface({
     } finally {
       setIsSending(false);
     }
+  };
+
+  const handleSubmit = async ({ text }: { text: string }) => {
+    if (submitDisabled) return;
+
+    const trimmed = text.trim();
+    if (!trimmed && !hasSuccessFiles) return;
+
+    const baseMessage =
+      trimmed || "Use the attached files as visual references for the design.";
+    const payload = buildMessagePayload(baseMessage);
+
+    await sendMessagePayload(payload);
+  };
+
+  const handleTextContentReady = async (content: string, filename: string) => {
+    const trimmedContent = content.trim();
+    if (!trimmedContent) return;
+
+    const baseMessage = `Use the following content from "${filename}" as source text:\n\n${trimmedContent}`;
+    const payload = buildMessagePayload(baseMessage);
+    await sendMessagePayload(payload);
   };
 
   const handleMediaSelect = (item: {
@@ -208,6 +235,16 @@ export function ChatInterface({
             </button>
             <button
               type="button"
+              onClick={() => setIsTextUploaderOpen(true)}
+              disabled={inputDisabled}
+              className="inline-flex h-7 items-center gap-1 rounded-md border border-border px-2 text-xs text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-50"
+              title="Lägg till text eller PDF"
+            >
+              <FileText className="h-3.5 w-3.5" />
+              Text/PDF
+            </button>
+            <button
+              type="button"
               onClick={() => setIsFigmaInputOpen((v) => !v)}
               disabled={inputDisabled}
               className="inline-flex h-7 items-center gap-1 rounded-md border border-border px-2 text-xs text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-50"
@@ -253,6 +290,13 @@ export function ChatInterface({
         isOpen={isMediaDrawerOpen}
         onClose={() => setIsMediaDrawerOpen(false)}
         onFileSelect={handleMediaSelect}
+      />
+
+      <TextUploader
+        isOpen={isTextUploaderOpen}
+        onClose={() => setIsTextUploaderOpen(false)}
+        onContentReady={handleTextContentReady}
+        disabled={inputDisabled}
       />
     </div>
   );

@@ -394,7 +394,7 @@ export function TextUploader({
                 {/* Smart content hint */}
                 {contentHint && (
                   <div className="flex items-center gap-2 px-3 py-2 bg-teal-500/10 border border-teal-500/30 rounded-lg">
-                    <Sparkles className="h-4 w-4 text-teal-400 flex-shrink-0" />
+                    <Sparkles className="h-4 w-4 text-teal-400 shrink-0" />
                     <span className="text-xs text-teal-300">
                       {contentHint.hint}
                     </span>
@@ -418,10 +418,10 @@ export function TextUploader({
                 {/* Single primary action */}
                 <button
                   onClick={handleSendToChat}
-                  disabled={isSaving}
+                  disabled={isSaving || disabled}
                   className={cn(
                     "w-full px-4 py-3 bg-teal-600 hover:bg-teal-500 text-white rounded-lg transition-colors font-medium flex items-center justify-center gap-2",
-                    isSaving && "opacity-70 cursor-wait"
+                    (isSaving || disabled) && "opacity-70 cursor-not-allowed"
                   )}
                 >
                   {isSaving ? (
@@ -446,7 +446,7 @@ export function TextUploader({
             {/* Error */}
             {error && (
               <div className="flex items-center gap-2 p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-sm text-red-400">
-                <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                <AlertCircle className="h-4 w-4 shrink-0" />
                 <span className="flex-1">{error}</span>
                 <button
                   onClick={() => setError(null)}
