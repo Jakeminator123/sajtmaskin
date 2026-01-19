@@ -1,0 +1,183 @@
+.swatch {
+  width: 1.5rem;
+  height: 1.5rem;
+  border: 1px solid #4b5563;
+}
+
+.primary {
+  background-color: var(--palette-primary, transparent);
+}
+
+.secondary {
+  background-color: var(--palette-secondary, transparent);
+}
+
+.accent {
+  background-color: var(--palette-accent, transparent);
+}
+
+.colorInput {
+  width: 100%;
+  height: 2.5rem;
+  border: 1px solid #4b5563;
+  background-color: transparent;
+  padding: 0;
+  cursor: pointer;
+  border-radius: 0;
+}
+
+.colorInput::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+
+.colorInput::-webkit-color-swatch {
+  border: 0;
+}
+
+.colorInput::-moz-color-swatch {
+  border: 0;
+}
+
+.palette-professional-blue {
+  --palette-primary: #1e40af;
+  --palette-secondary: #3b82f6;
+  --palette-accent: #60a5fa;
+}
+
+.palette-modern-dark {
+  --palette-primary: #18181b;
+  --palette-secondary: #27272a;
+  --palette-accent: #a855f7;
+}
+
+.palette-warm-orange {
+  --palette-primary: #ea580c;
+  --palette-secondary: #f97316;
+  --palette-accent: #fdba74;
+}
+
+.palette-nature-green {
+  --palette-primary: #166534;
+  --palette-secondary: #22c55e;
+  --palette-accent: #86efac;
+}
+
+.palette-elegant-purple {
+  --palette-primary: #6b21a8;
+  --palette-secondary: #9333ea;
+  --palette-accent: #c084fc;
+}
+
+.palette-coral-pink {
+  --palette-primary: #be185d;
+  --palette-secondary: #ec4899;
+  --palette-accent: #f9a8d4;
+}
+
+.palette-ocean-teal {
+  --palette-primary: #0f766e;
+  --palette-secondary: #14b8a6;
+  --palette-accent: #5eead4;
+}
+
+.palette-sunset-gradient {
+  --palette-primary: #dc2626;
+  --palette-secondary: #f59e0b;
+  --palette-accent: #fcd34d;
+}
+
+.palette-cafe-warm-brown {
+  --palette-primary: #78350f;
+  --palette-secondary: #a16207;
+  --palette-accent: #fde68a;
+}
+
+.palette-cafe-cream {
+  --palette-primary: #292524;
+  --palette-secondary: #78716c;
+  --palette-accent: #fef3c7;
+}
+
+.palette-cafe-terracotta {
+  --palette-primary: #9a3412;
+  --palette-secondary: #c2410c;
+  --palette-accent: #fed7aa;
+}
+
+.palette-restaurant-elegant {
+  --palette-primary: #1c1917;
+  --palette-secondary: #44403c;
+  --palette-accent: #d97706;
+}
+
+.palette-restaurant-wine {
+  --palette-primary: #7f1d1d;
+  --palette-secondary: #991b1b;
+  --palette-accent: #fca5a5;
+}
+
+.palette-restaurant-gold {
+  --palette-primary: #171717;
+  --palette-secondary: #262626;
+  --palette-accent: #eab308;
+}
+
+.palette-tech-neon {
+  --palette-primary: #0f172a;
+  --palette-secondary: #1e293b;
+  --palette-accent: #22d3ee;
+}
+
+.palette-tech-gradient {
+  --palette-primary: #312e81;
+  --palette-secondary: #4f46e5;
+  --palette-accent: #818cf8;
+}
+
+.palette-health-calm {
+  --palette-primary: #134e4a;
+  --palette-secondary: #0d9488;
+  --palette-accent: #99f6e4;
+}
+
+.palette-health-natural {
+  --palette-primary: #365314;
+  --palette-secondary: #65a30d;
+  --palette-accent: #d9f99d;
+}
+
+.palette-realestate-luxury {
+  --palette-primary: #1e3a8a;
+  --palette-secondary: #1d4ed8;
+  --palette-accent: #dbeafe;
+}
+
+.palette-realestate-trust {
+  --palette-primary: #0c4a6e;
+  --palette-secondary: #0284c7;
+  --palette-accent: #bae6fd;
+}
+
+.palette-ecommerce-vibrant {
+  --palette-primary: #9d174d;
+  --palette-secondary: #db2777;
+  --palette-accent: #fbcfe8;
+}
+
+.palette-ecommerce-clean {
+  --palette-primary: #1f2937;
+  --palette-secondary: #4b5563;
+  --palette-accent: #10b981;
+}
+
+.palette-creative-bold {
+  --palette-primary: #7c2d12;
+  --palette-secondary: #ea580c;
+  --palette-accent: #fed7aa;
+}
+
+.palette-nonprofit-trust {
+  --palette-primary: #1e40af;
+  --palette-secondary: #2563eb;
+  --palette-accent: #fcd34d;
+}

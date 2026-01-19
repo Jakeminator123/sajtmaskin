@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { Check, Palette, Sparkles } from "lucide-react";
+import { cn } from "@/lib/utils";
+import styles from "./color-palette-picker.module.css";
 
 /**
  * Color palette definitions
@@ -318,22 +320,15 @@ export function ColorPalettePicker({
                     <Check className="h-3 w-3 text-white" />
                   </div>
                 )}
-                <div className="flex gap-1 mb-2">
-                  <div
-                    className="w-6 h-6 border border-gray-600"
-                    style={{ backgroundColor: palette.primary }}
-                    title="Primär"
-                  />
-                  <div
-                    className="w-6 h-6 border border-gray-600"
-                    style={{ backgroundColor: palette.secondary }}
-                    title="Sekundär"
-                  />
-                  <div
-                    className="w-6 h-6 border border-gray-600"
-                    style={{ backgroundColor: palette.accent }}
-                    title="Accent"
-                  />
+                <div
+                  className={cn(
+                    "flex gap-1 mb-2",
+                    styles[`palette-${palette.id}`]
+                  )}
+                >
+                  <div className={cn(styles.swatch, styles.primary)} title="Primär" />
+                  <div className={cn(styles.swatch, styles.secondary)} title="Sekundär" />
+                  <div className={cn(styles.swatch, styles.accent)} title="Accent" />
                 </div>
                 <span className="text-xs text-gray-300 block truncate">
                   {palette.name}
@@ -368,22 +363,15 @@ export function ColorPalettePicker({
                   <Check className="h-3 w-3 text-white" />
                 </div>
               )}
-              <div className="flex gap-1 mb-2">
-                <div
-                  className="w-6 h-6 border border-gray-600"
-                  style={{ backgroundColor: palette.primary }}
-                  title="Primär"
-                />
-                <div
-                  className="w-6 h-6 border border-gray-600"
-                  style={{ backgroundColor: palette.secondary }}
-                  title="Sekundär"
-                />
-                <div
-                  className="w-6 h-6 border border-gray-600"
-                  style={{ backgroundColor: palette.accent }}
-                  title="Accent"
-                />
+              <div
+                className={cn(
+                  "flex gap-1 mb-2",
+                  styles[`palette-${palette.id}`]
+                )}
+              >
+                <div className={cn(styles.swatch, styles.primary)} title="Primär" />
+                <div className={cn(styles.swatch, styles.secondary)} title="Sekundär" />
+                <div className={cn(styles.swatch, styles.accent)} title="Accent" />
               </div>
               <span className="text-xs text-gray-300 block truncate">
                 {palette.name}
@@ -424,29 +412,16 @@ export function ColorPalettePicker({
               >
                 Primär
               </label>
-              <div className="relative">
-                <input
-                  id="color-primary"
-                  name="color-primary"
-                  type="color"
-                  value={
-                    customColors?.primary ||
-                    selectedPalette?.primary ||
-                    "#1E40AF"
-                  }
-                  onChange={(e) => handleColorChange("primary", e.target.value)}
-                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                />
-                <div
-                  className="w-full h-10 border border-gray-600 cursor-pointer"
-                  style={{
-                    backgroundColor:
-                      customColors?.primary ||
-                      selectedPalette?.primary ||
-                      "#1E40AF",
-                  }}
-                />
-              </div>
+              <input
+                id="color-primary"
+                name="color-primary"
+                type="color"
+                value={
+                  customColors?.primary || selectedPalette?.primary || "#1E40AF"
+                }
+                onChange={(e) => handleColorChange("primary", e.target.value)}
+                className={styles.colorInput}
+              />
               <span className="text-xs text-gray-500 font-mono">
                 {customColors?.primary || selectedPalette?.primary || "#1E40AF"}
               </span>
@@ -460,31 +435,18 @@ export function ColorPalettePicker({
               >
                 Sekundär
               </label>
-              <div className="relative">
-                <input
-                  id="color-secondary"
-                  name="color-secondary"
-                  type="color"
-                  value={
-                    customColors?.secondary ||
-                    selectedPalette?.secondary ||
-                    "#3B82F6"
-                  }
-                  onChange={(e) =>
-                    handleColorChange("secondary", e.target.value)
-                  }
-                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                />
-                <div
-                  className="w-full h-10 border border-gray-600 cursor-pointer"
-                  style={{
-                    backgroundColor:
-                      customColors?.secondary ||
-                      selectedPalette?.secondary ||
-                      "#3B82F6",
-                  }}
-                />
-              </div>
+              <input
+                id="color-secondary"
+                name="color-secondary"
+                type="color"
+                value={
+                  customColors?.secondary ||
+                  selectedPalette?.secondary ||
+                  "#3B82F6"
+                }
+                onChange={(e) => handleColorChange("secondary", e.target.value)}
+                className={styles.colorInput}
+              />
               <span className="text-xs text-gray-500 font-mono">
                 {customColors?.secondary ||
                   selectedPalette?.secondary ||
@@ -500,27 +462,16 @@ export function ColorPalettePicker({
               >
                 Accent
               </label>
-              <div className="relative">
-                <input
-                  id="color-accent"
-                  name="color-accent"
-                  type="color"
-                  value={
-                    customColors?.accent || selectedPalette?.accent || "#60A5FA"
-                  }
-                  onChange={(e) => handleColorChange("accent", e.target.value)}
-                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                />
-                <div
-                  className="w-full h-10 border border-gray-600 cursor-pointer"
-                  style={{
-                    backgroundColor:
-                      customColors?.accent ||
-                      selectedPalette?.accent ||
-                      "#60A5FA",
-                  }}
-                />
-              </div>
+              <input
+                id="color-accent"
+                name="color-accent"
+                type="color"
+                value={
+                  customColors?.accent || selectedPalette?.accent || "#60A5FA"
+                }
+                onChange={(e) => handleColorChange("accent", e.target.value)}
+                className={styles.colorInput}
+              />
               <span className="text-xs text-gray-500 font-mono">
                 {customColors?.accent || selectedPalette?.accent || "#60A5FA"}
               </span>

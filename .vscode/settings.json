@@ -8,9 +8,6 @@
   },
   // ESLint (Flat Config)
   "eslint.useFlatConfig": true,
-  // TypeScript
-  "typescript.tsdk": "node_modules/typescript/lib",
-  "typescript.enablePromptUseWorkspaceTsdk": true,
   // Files
   "files.eol": "\n",
   "files.exclude": {

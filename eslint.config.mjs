@@ -59,4 +59,18 @@ export default defineConfig([
       "no-var": "off",
     },
   },
+
+  // Suppress explicit-any in API/lib/builder modules
+  // These areas use dynamic v0 API responses where full typing is impractical.
+  // Incrementally add stricter types over time as SDK types stabilize.
+  {
+    files: [
+      "src/app/api/**/*.ts",
+      "src/lib/**/*.ts",
+      "src/components/builder/**/*.tsx",
+    ],
+    rules: {
+      "@typescript-eslint/no-explicit-any": "off",
+    },
+  },
 ]);

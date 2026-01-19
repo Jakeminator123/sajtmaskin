@@ -85,8 +85,12 @@ function getFileTypeIcon(type: MediaFileType) {
       return Video;
     case "logo":
       return Shapes;
+    case "pdf":
+    case "text":
+    case "other":
+      return FileText;
     default:
-      return ImageIcon;
+      return FileText;
   }
 }
 
@@ -327,6 +331,8 @@ export function MediaDrawer({
     { value: "image", label: "Bilder", icon: ImageIcon },
     { value: "video", label: "Videos", icon: Video },
     { value: "logo", label: "Logos", icon: Shapes },
+    { value: "pdf", label: "PDF", icon: FileText },
+    { value: "text", label: "Text", icon: FileText },
   ];
 
   if (!isOpen) return null;
@@ -391,7 +397,7 @@ export function MediaDrawer({
               ref={fileInputRef}
               type="file"
               multiple
-              accept="image/*,video/*"
+              accept="image/*,video/*,.pdf,.txt,.md,.json"
               onChange={handleFileChange}
               className="hidden"
               aria-label="Välj filer att ladda upp"
@@ -416,7 +422,7 @@ export function MediaDrawer({
           {/* Error */}
           {error && (
             <div className="flex items-center gap-2 p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-sm text-red-400">
-              <AlertCircle className="h-4 w-4 flex-shrink-0" />
+              <AlertCircle className="h-4 w-4 shrink-0" />
               <span className="flex-1">{error}</span>
               <button
                 onClick={() => setError(null)}
@@ -520,7 +526,7 @@ export function MediaDrawer({
         <div className="p-4 border-t border-gray-800 bg-gray-900/50">
           <div className="flex items-center justify-center gap-2 text-xs text-gray-500">
             <ImageIcon className="h-3.5 w-3.5" />
-            <span>Klicka på en bild för att använda den i din design</span>
+            <span>Klicka på en fil för att använda den i din design</span>
           </div>
         </div>
       </div>

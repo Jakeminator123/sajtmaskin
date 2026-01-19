@@ -61,7 +61,10 @@ export function QrShare({ url, title = "Dela via QR-kod" }: QrShareProps) {
           <h3 className="text-lg font-semibold text-gray-200">{title}</h3>
           <button
             onClick={() => setIsOpen(false)}
+            aria-label="Stäng"
+            title="Stäng"
             className="p-1 rounded hover:bg-gray-800 text-gray-400 hover:text-gray-200 transition-colors"
+            type="button"
           >
             <X className="h-5 w-5" />
           </button>

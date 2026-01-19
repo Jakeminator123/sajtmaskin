@@ -34,9 +34,10 @@
  * - "completed": Klart → returnera resultat
  * - "failed": Fel → sluta polla, logga error
  *
- * MODELLER (2 st):
- * - v0-1.5-md: Standard (128K context, snabb, $1.5/$7.5 per 1M tokens)
- * - v0-1.5-lg: Premium (512K context, bäst, $15/$75 per 1M tokens)
+ * MODELLER (3 tiers):
+ * - v0-mini: Light (snabbast, billigast)
+ * - v0-pro: Balanced (bra kvalitet till rimlig kostnad)
+ * - v0-max: Best (högsta kvalitet, långsammare/dyrare)
  *
  * All operations include error handling and structured logging.
  */
@@ -48,8 +49,8 @@ import {
 } from "@/lib/utils/prompt-utils";
 import { debugLog, logFinalPrompt } from "@/lib/utils/debug";
 import { logV0 } from "@/lib/utils/file-logger";
-import { isAIFeatureEnabled } from "@/lib/ai/ai-sdk-features";
 import { SECRETS } from "@/lib/config";
+import { SYSTEM_PROMPT } from "@/lib/v0/systemPrompt";
 
 // Lazy-initialized v0 client (created at request time, not import time)
 let _v0Client: ReturnType<typeof createClient> | null = null;
@@ -70,9 +71,8 @@ function getV0Client() {
   return _v0Client;
 }
 
-// Import shared type from api-client to avoid duplication
-import type { QualityLevel } from "@/lib/api-client";
-export type { QualityLevel };
+// Local type to avoid dependency on removed api-client
+export type QualityLevel = "light" | "standard" | "pro" | "premium" | "max";
 
 /**
  * Generated file structure from v0 API
@@ -113,34 +113,42 @@ export function findMainFile(
  * v0 Model Configuration
  * ======================
  *
- * Available v0 models:
- * - v0-1.5-sm: Small, fast, limited context
- * - v0-1.5-md: Medium, 128K context, good balance
- * - v0-1.5-lg: Large, 512K context, best quality
- * - v0-gpt-5: GPT-5 based (newest, experimental)
- * - v0-opus-4.5: Claude Opus based (highest quality)
+ * Available v0 models (Platform API):
+ * - v0-mini
+ * - v0-pro
+ * - v0-max
  *
- * Quality levels:
- * - standard: v0-1.5-md (128K context, fast, cheap)
- * - premium:  v0-1.5-lg (512K context, best quality)
- *
- * NOTE: v0-gpt-5 and v0-opus-4.5 are available but may have different pricing
+ * Quality levels (aliases):
+ * - light: v0-mini
+ * - standard / pro: v0-pro
+ * - premium / max: v0-max
  */
-const MODEL_MAP: Record<QualityLevel, "v0-1.5-md" | "v0-1.5-lg"> = {
-  standard: "v0-1.5-md", // Fast, 128K context
-  premium: "v0-1.5-lg", // Best quality, 512K context
+export type V0ModelId = "v0-mini" | "v0-pro" | "v0-max";
+
+const MODEL_MAP: Record<QualityLevel, V0ModelId> = {
+  light: "v0-mini",
+  standard: "v0-pro",
+  pro: "v0-pro",
+  premium: "v0-max",
+  max: "v0-max",
 };
+
+type V0SdkCreateRequest = Parameters<
+  ReturnType<typeof createClient>["chats"]["create"]
+>[0];
+
+type V0SdkModelId = NonNullable<
+  V0SdkCreateRequest["modelConfiguration"]
+>["modelId"];
+
+function toSdkModelId(modelId: V0ModelId): V0SdkModelId {
+  // v0-sdk types can lag behind model ids; cast keeps runtime values intact.
+  return modelId as unknown as V0SdkModelId;
+}
 
 /**
  * Extended model type for future use
  */
-export type V0ModelId =
-  | "v0-1.5-sm"
-  | "v0-1.5-md"
-  | "v0-1.5-lg"
-  | "v0-gpt-5"
-  | "v0-opus-4.5";
-
 /**
  * Category-specific prompts for initial generation
  * ═══════════════════════════════════════════════════════════════
@@ -375,53 +383,6 @@ DESIGN:
 - Dark/light theme toggle (optional)`,
 };
 
-// System prompt for v0 to generate better code
-const SYSTEM_PROMPT = `You are an expert React and Next.js developer creating production-ready websites.
-
-TECHNICAL REQUIREMENTS:
-- React 18+ functional components with TypeScript
-- Tailwind CSS for ALL styling (no external CSS files)
-- Lucide React for icons (import from 'lucide-react')
-- Next.js App Router conventions
-- Responsive design (mobile-first approach)
-
-IMAGE HANDLING (CRITICAL!):
-- If the user provides image URLs in the prompt, USE THOSE EXACT URLs
-- Copy the full URL exactly as provided (e.g. https://images.unsplash.com/... or https://xxx.blob.vercel-storage.com/...)
-- DO NOT use placeholder.com, placeholder.svg, placehold.co, or /images/xxx paths
-- DO NOT invent or modify user-provided URLs - use them EXACTLY as given
-- Place images in appropriate sections (hero, about, services, etc.)
-- Use next/image or <img> tags with the provided URLs
-
-FALLBACK IMAGES (when user does NOT provide images):
-- Use REAL Unsplash images with direct URLs like: https://images.unsplash.com/photo-[ID]?w=800&q=80
-- Hero sections: Use landscape photos (w=1200 or w=1600)
-- Team/about: Use portrait photos (w=400)
-- Products/services: Use relevant category photos (w=600)
-- Example hero: https://images.unsplash.com/photo-1497366216548-37526070297c?w=1200&q=80 (office)
-- Example portrait: https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=400&q=80 (person)
-- ALWAYS use real Unsplash URLs - NEVER use gray placeholders or empty src
-
-CODE QUALITY:
-- Clean, readable code with proper formatting
-- Semantic HTML elements (nav, main, section, article)
-- Proper TypeScript types (no 'any')
-- Accessible (ARIA labels, keyboard navigation, focus states)
-- SEO-friendly structure (proper heading hierarchy)
-
-STYLING GUIDELINES:
-- Use Tailwind utility classes exclusively
-- Consistent spacing scale (4, 8, 12, 16, 24, 32, 48)
-- CSS variables for theme colors when appropriate
-- Smooth transitions: transition-all duration-300
-- Proper hover/focus/active states
-
-COMPONENT STRUCTURE:
-- Single file when possible
-- Extract repeated patterns into sub-components
-- Props interfaces for reusable components
-- Default export for main component`;
-
 // GeneratedFile interface is defined at the top of this file
 
 export interface GenerationResult {
@@ -450,8 +411,7 @@ export type StreamingCallback = (chunk: {
  * Streaming shows generation progress in real-time
  */
 export function isV0StreamingEnabled(): boolean {
-  // Check feature toggle - requires advanced mode + v0Streaming enabled
-  return isAIFeatureEnabled("v0Streaming");
+  return true;
 }
 
 /**
@@ -556,7 +516,7 @@ async function waitForVersionReady(
  * Options for code generation
  */
 export interface GenerateCodeOptions {
-  /** Quality level (standard or premium) */
+  /** Quality level (light/standard/pro/premium/max) */
   quality?: QualityLevel;
   /** Category type for pre-built prompts */
   categoryType?: string;
@@ -695,15 +655,15 @@ export async function generateCode(
   try {
     // Use the Platform API to create a chat
     // Build create request with optional attachments
-    const createRequest: Parameters<typeof v0.chats.create>[0] = {
+    const createRequest: V0SdkCreateRequest = {
       message: fullPrompt,
       system: SYSTEM_PROMPT,
       chatPrivacy: "private",
       modelConfiguration: {
-        modelId: modelId as "v0-1.5-md" | "v0-1.5-lg",
+        modelId: toSdkModelId(modelId),
         imageGenerations: options.imageGenerations ?? false,
         // Enable thinking for better reasoning (premium gets more detailed thinking)
-        thinking: quality === "premium",
+        thinking: modelId === "v0-max",
       },
       // Use streaming mode if enabled, otherwise sync for full ChatDetail response
       responseMode: useStreaming ? undefined : "sync",
@@ -920,7 +880,7 @@ export async function refineCode(
       chatId: existingChatId,
       message: refinementInstruction,
       modelConfiguration: {
-        modelId: modelId as "v0-1.5-md" | "v0-1.5-lg",
+        modelId: toSdkModelId(modelId),
       },
       responseMode: "sync", // Force synchronous response
     })) as ChatDetail;

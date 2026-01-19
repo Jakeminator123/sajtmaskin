@@ -11,6 +11,7 @@ import {
   createContext,
   useContext,
   type HTMLAttributes,
+  type ButtonHTMLAttributes,
   type ReactNode,
   type TextareaHTMLAttributes,
   type ChangeEvent,
@@ -213,7 +214,7 @@ export function PromptInputTextarea({
 // ============================================================================
 
 export interface PromptInputSubmitProps
-  extends HTMLAttributes<HTMLButtonElement> {
+  extends ButtonHTMLAttributes<HTMLButtonElement> {
   children?: ReactNode;
 }
 

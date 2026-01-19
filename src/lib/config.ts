@@ -165,6 +165,12 @@ export const SECRETS = {
     return process.env.PEXELS_API_KEY || "";
   },
 
+  get figmaAccessToken() {
+    return sanitizeEnvValue(
+      process.env.FIGMA_ACCESS_TOKEN || process.env.FIGMA_TOKEN
+    );
+  },
+
   // Google OAuth - automatically selects dev/prod credentials
   // Set GOOGLE_CLIENT_ID_DEV + GOOGLE_CLIENT_SECRET_DEV for localhost
   // Set GOOGLE_CLIENT_ID + GOOGLE_CLIENT_SECRET for production
@@ -318,6 +324,7 @@ export const FEATURES = {
   usePexels:
     Boolean(SECRETS.pexelsApiKey) && process.env.ENABLE_PEXELS === "true",
   useUnsplash: Boolean(SECRETS.unsplashAccessKey),
+  useFigmaApi: Boolean(SECRETS.figmaAccessToken),
 
   // Enable v0 API for code generation
   useV0Api: Boolean(SECRETS.v0ApiKey),

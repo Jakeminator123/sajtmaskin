@@ -4,7 +4,7 @@ export {
   filesToAttachments,
   filesToPromptText,
 } from "./file-upload-zone";
-export type { UploadedFile } from "./file-upload-zone";
+export type { UploadedFile, V0UserFileAttachment } from "./file-upload-zone";
 export { MediaBank, useMediaBank } from "./media-bank";
 export type { MediaItem, MediaFileType } from "./media-bank";
 export { MediaDrawer } from "./media-drawer";
