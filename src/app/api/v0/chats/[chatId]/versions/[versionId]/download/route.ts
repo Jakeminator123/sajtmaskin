@@ -22,11 +22,19 @@ export async function GET(
       return NextResponse.json({ error: 'Chat not found' }, { status: 404 });
     }
 
-    const version = await db
+    let version = await db
       .select()
       .from(versions)
       .where(and(eq(versions.chatId, chat.id), eq(versions.id, versionId)))
       .limit(1);
+
+    if (version.length === 0) {
+      version = await db
+        .select()
+        .from(versions)
+        .where(and(eq(versions.chatId, chat.id), eq(versions.v0VersionId, versionId)))
+        .limit(1);
+    }
 
     if (version.length === 0) {
       return NextResponse.json({ error: 'Version not found' }, { status: 404 });

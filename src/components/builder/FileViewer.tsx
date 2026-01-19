@@ -1,6 +1,6 @@
 'use client';
 
-import { Check, Copy, Edit3, Lock, RotateCcw, Save, Unlock } from 'lucide-react';
+import { Check, Copy, Edit3, Lock, Pin, RotateCcw, Save, Unlock } from 'lucide-react';
 import { useCallback, useState } from 'react';
 import toast from 'react-hot-toast';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
@@ -13,6 +13,7 @@ interface FileViewerProps {
   chatId?: string;
   versionId?: string;
   locked?: boolean;
+  isPinnedVersion?: boolean;
   onFileSaved?: (newContent: string, newDemoUrl?: string) => void;
 }
 
@@ -23,6 +24,7 @@ export function FileViewer({
   chatId,
   versionId,
   locked = false,
+  isPinnedVersion = false,
   onFileSaved,
 }: FileViewerProps) {
   const [copied, setCopied] = useState(false);
@@ -31,7 +33,8 @@ export function FileViewer({
   const [isSaving, setIsSaving] = useState(false);
   const [isLocked, setIsLocked] = useState(locked);
 
-  const canEdit = chatId && versionId && !isLocked;
+  const canEdit = chatId && versionId && !isLocked && !isPinnedVersion;
+  const canToggleLock = chatId && versionId && !isPinnedVersion;
 
   const getLanguage = (name: string) => {
     const ext = name.split('.').pop()?.toLowerCase();
@@ -71,6 +74,10 @@ export function FileViewer({
 
   const handleEdit = () => {
     if (!canEdit) {
+      if (isPinnedVersion) {
+        toast.error('Pinned version is read-only');
+        return;
+      }
       if (isLocked) {
         toast.error('This file is locked and cannot be edited');
       } else {
@@ -88,6 +95,10 @@ export function FileViewer({
   };
 
   const handleSave = useCallback(async () => {
+    if (isPinnedVersion) {
+      toast.error('Pinned version is read-only');
+      return;
+    }
     if (!chatId || !versionId) {
       toast.error('Cannot save: missing chat or version ID');
       return;
@@ -124,9 +135,13 @@ export function FileViewer({
     } finally {
       setIsSaving(false);
     }
-  }, [chatId, versionId, fileName, editedContent, isLocked, onFileSaved]);
+  }, [chatId, versionId, fileName, editedContent, isLocked, isPinnedVersion, onFileSaved]);
 
   const toggleLock = async () => {
+    if (isPinnedVersion) {
+      toast.error('Pinned version is read-only');
+      return;
+    }
     if (!chatId || !versionId) {
       toast.error('Cannot toggle lock: missing chat or version ID');
       return;
@@ -175,6 +190,15 @@ export function FileViewer({
               Locked
             </span>
           )}
+          {isPinnedVersion && (
+            <span
+              className="flex items-center gap-1 rounded bg-blue-900/50 px-1.5 py-0.5 text-xs text-blue-300"
+              title="Pinned version is read-only"
+            >
+              <Pin className="h-3 w-3" />
+              Pinned
+            </span>
+          )}
           {isEditing && hasChanges && (
             <span className="rounded bg-blue-900/50 px-1.5 py-0.5 text-xs text-blue-400">
               Modified
@@ -185,9 +209,15 @@ export function FileViewer({
           {chatId && versionId && (
             <button
               onClick={toggleLock}
-              disabled={isSaving}
+              disabled={isSaving || !canToggleLock}
               className="flex items-center gap-1 rounded px-2 py-1 text-xs text-gray-400 hover:bg-gray-800 hover:text-gray-200 disabled:opacity-50"
-              title={isLocked ? 'Unlock file' : 'Lock file'}
+              title={
+                isPinnedVersion
+                  ? 'Pinned version is read-only'
+                  : isLocked
+                    ? 'Unlock file'
+                    : 'Lock file'
+              }
             >
               {isLocked ? <Unlock className="h-3 w-3" /> : <Lock className="h-3 w-3" />}
             </button>
@@ -225,10 +255,17 @@ export function FileViewer({
             <button
               onClick={handleEdit}
               disabled={!canEdit}
-              className={`flex items-center gap-1 rounded px-2 py-1 text-xs ${
-                canEdit ? 'text-gray-400 hover:bg-gray-800 hover:text-gray-200' : 'cursor-not-allowed text-gray-600'
-              }`}
-              title={!canEdit ? (isLocked ? 'File is locked' : 'Cannot edit') : 'Edit file'}
+              className={`flex items-center gap-1 rounded px-2 py-1 text-xs ${canEdit ? 'text-gray-400 hover:bg-gray-800 hover:text-gray-200' : 'cursor-not-allowed text-gray-600'
+                }`}
+              title={
+                !canEdit
+                  ? isPinnedVersion
+                    ? 'Pinned version is read-only'
+                    : isLocked
+                      ? 'File is locked'
+                      : 'Cannot edit'
+                  : 'Edit file'
+              }
             >
               <Edit3 className="h-3 w-3" />
               Edit
@@ -267,6 +304,7 @@ export function FileViewer({
             onChange={(e) => setEditedContent(e.target.value)}
             className="w-full h-full min-h-[500px] resize-none bg-gray-900 text-gray-100 font-mono text-sm p-4 outline-none"
             spellCheck={false}
+            aria-label={`Edit ${fileName}`}
           />
         ) : (
           <SyntaxHighlighter

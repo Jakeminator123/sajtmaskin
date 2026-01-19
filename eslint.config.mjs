@@ -60,7 +60,9 @@ export default defineConfig([
     },
   },
 
-  // Allow explicit any in API and builder modules (legacy typing)
+  // Suppress explicit-any in API/lib/builder modules
+  // These areas use dynamic v0 API responses where full typing is impractical.
+  // Incrementally add stricter types over time as SDK types stabilize.
   {
     files: [
       "src/app/api/**/*.ts",
@@ -68,7 +70,7 @@ export default defineConfig([
       "src/components/builder/**/*.tsx",
     ],
     rules: {
-      "@typescript-eslint/no-explicit-any": "warn",
+      "@typescript-eslint/no-explicit-any": "off",
     },
   },
 ]);

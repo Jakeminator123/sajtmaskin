@@ -50,6 +50,8 @@ const queries = [
     v0_message_id TEXT,
     demo_url TEXT,
     metadata JSONB,
+    pinned BOOLEAN DEFAULT FALSE,
+    pinned_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
   )`,
   `CREATE TABLE IF NOT EXISTS deployments (
@@ -67,6 +69,8 @@ const queries = [
     updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
   )`,
   `CREATE INDEX IF NOT EXISTS idx_versions_chat_id ON versions(chat_id)`,
+  `ALTER TABLE versions ADD COLUMN IF NOT EXISTS pinned BOOLEAN DEFAULT FALSE`,
+  `ALTER TABLE versions ADD COLUMN IF NOT EXISTS pinned_at TIMESTAMPTZ`,
   `CREATE INDEX IF NOT EXISTS idx_deployments_chat_id ON deployments(chat_id)`,
   `CREATE INDEX IF NOT EXISTS idx_deployments_vercel_deployment_id ON deployments(vercel_deployment_id)`,
 ];

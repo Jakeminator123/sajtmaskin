@@ -9,6 +9,7 @@ import {
   extractDemoUrl,
   extractMessageId,
   extractThinkingText,
+  extractUiParts,
   extractVersionId,
   isDoneLikeEvent,
   safeJsonParse,
@@ -84,12 +85,11 @@ export async function POST(req: Request) {
         projectId,
         chatPrivacy: resolvedChatPrivacy,
         modelConfiguration: {
-          modelId,
+          modelId: modelId as unknown as Parameters<typeof v0.chats.create>[0]['modelConfiguration'] extends { modelId?: infer M } ? M : string,
           thinking: resolvedThinking,
           imageGenerations: resolvedImageGenerations,
         },
         responseMode: 'experimental_stream',
-        ...(modelId && { modelId }),
         ...(attachments ? { attachments } : {}),
       } as Parameters<typeof v0.chats.create>[0] & { responseMode?: string });
 
@@ -226,6 +226,11 @@ export async function POST(req: Request) {
                   const contentText = extractContentText(parsed, rawData);
                   if (contentText && !didSendDone) {
                     safeEnqueue(encoder.encode(formatSSEEvent('content', contentText)));
+                  }
+
+                  const uiParts = extractUiParts(parsed);
+                  if (uiParts && uiParts.length > 0 && !didSendDone) {
+                    safeEnqueue(encoder.encode(formatSSEEvent('parts', uiParts)));
                   }
 
                   const demoUrl = extractDemoUrl(parsed);

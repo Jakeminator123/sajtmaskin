@@ -10,6 +10,7 @@ import {
   extractDemoUrl,
   extractMessageId,
   extractThinkingText,
+  extractUiParts,
   extractVersionId,
   safeJsonParse,
 } from '@/lib/v0Stream';
@@ -142,6 +143,11 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
                   const contentText = extractContentText(parsed, rawData);
                   if (contentText && !didSendDone) {
                     safeEnqueue(encoder.encode(formatSSEEvent('content', contentText)));
+                  }
+
+                  const uiParts = extractUiParts(parsed);
+                  if (uiParts && uiParts.length > 0 && !didSendDone) {
+                    safeEnqueue(encoder.encode(formatSSEEvent('parts', uiParts)));
                   }
 
                   const demoUrl = extractDemoUrl(parsed);

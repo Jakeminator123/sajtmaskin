@@ -2,6 +2,9 @@ import { assertV0Key, v0 } from '@/lib/v0';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { getChatByV0ChatIdForRequest } from '@/lib/tenant';
+import { db } from '@/lib/db/client';
+import { versions } from '@/lib/db/schema';
+import { and, eq, or } from 'drizzle-orm';
 
 const updateFilesSchema = z.object({
   versionId: z.string().min(1, 'Version ID is required'),
@@ -15,6 +18,20 @@ const updateFilesSchema = z.object({
     )
     .min(1, 'At least one file is required'),
 });
+
+async function isPinnedVersion(chatId: string, versionId: string) {
+  const rows = await db
+    .select({ pinned: versions.pinned })
+    .from(versions)
+    .where(
+      and(
+        eq(versions.chatId, chatId),
+        or(eq(versions.id, versionId), eq(versions.v0VersionId, versionId))
+      )
+    )
+    .limit(1);
+  return rows[0]?.pinned ?? false;
+}
 
 export async function GET(req: Request, { params }: { params: Promise<{ chatId: string }> }) {
   try {
@@ -69,6 +86,12 @@ export async function PUT(req: Request, { params }: { params: Promise<{ chatId: 
     }
 
     const { versionId, files } = validationResult.data;
+    if (await isPinnedVersion(dbChat.id, versionId)) {
+      return NextResponse.json(
+        { error: 'Version is pinned and read-only' },
+        { status: 409 }
+      );
+    }
 
     const updatedVersion = await v0.chats.updateVersion({
       chatId,
@@ -115,6 +138,12 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ chatId
     }
 
     const { versionId, fileName, content, locked } = validationResult.data;
+    if (await isPinnedVersion(dbChat.id, versionId)) {
+      return NextResponse.json(
+        { error: 'Version is pinned and read-only' },
+        { status: 409 }
+      );
+    }
 
     const currentVersion = await v0.chats.getVersion({
       chatId,
@@ -170,6 +199,8 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ chatI
   try {
     assertV0Key();
     const { chatId } = await params;
+    const dbChat = await getChatByV0ChatIdForRequest(req, chatId);
+    if (!dbChat) return NextResponse.json({ error: 'Chat not found' }, { status: 404 });
     const { searchParams } = new URL(req.url);
     const versionId = searchParams.get('versionId');
     const fileName = searchParams.get('fileName');
@@ -178,6 +209,13 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ chatI
       return NextResponse.json(
         { error: 'versionId and fileName are required query parameters' },
         { status: 400 }
+      );
+    }
+
+    if (await isPinnedVersion(dbChat.id, versionId)) {
+      return NextResponse.json(
+        { error: 'Version is pinned and read-only' },
+        { status: 409 }
       );
     }
 

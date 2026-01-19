@@ -11,12 +11,14 @@
     "recommendations": [
       "dbaeumer.vscode-eslint",
       "esbenp.prettier-vscode",
+      "EditorConfig.EditorConfig",
       "bradlc.vscode-tailwindcss",
       "ms-vscode.vscode-typescript-next"
     ]
   },
   "settings": {
-    "typescript.tsdk": "node_modules\\typescript\\lib",
-    "powershell.cwd": "sajtmaskin"
+    "typescript.tsdk": "sajtgen/node_modules/typescript/lib",
+    "typescript.enablePromptUseWorkspaceTsdk": true,
+    "editor.formatOnSave": true
   }
 }

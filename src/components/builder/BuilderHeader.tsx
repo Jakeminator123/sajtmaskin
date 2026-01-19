@@ -34,32 +34,32 @@ const MODEL_OPTIONS: {
   label: string;
   description: string;
 }[] = [
-  {
-    value: 'v0-mini',
-    label: 'Light',
-    description: 'Fast & cost-efficient',
-  },
-  {
-    value: 'v0-pro',
-    label: 'Pro',
-    description: 'Balanced',
-  },
-  {
-    value: 'v0-max',
-    label: 'Max',
-    description: 'Best quality',
-  },
-];
+    {
+      value: 'v0-mini',
+      label: 'Light',
+      description: 'Fast & cost-efficient',
+    },
+    {
+      value: 'v0-pro',
+      label: 'Pro',
+      description: 'Balanced',
+    },
+    {
+      value: 'v0-max',
+      label: 'Max',
+      description: 'Best quality',
+    },
+  ];
 
 const PROMPT_ASSIST_OPTIONS: {
   value: PromptAssistProvider;
   label: string;
 }[] = [
-  { value: 'off', label: 'Off' },
-  { value: 'gateway', label: 'AI Gateway' },
-  { value: 'openai', label: 'OpenAI' },
-  { value: 'anthropic', label: 'Claude' },
-];
+    { value: 'off', label: 'Off' },
+    { value: 'gateway', label: 'AI Gateway' },
+    { value: 'openai', label: 'OpenAI' },
+    { value: 'anthropic', label: 'Claude' },
+  ];
 
 export function BuilderHeader(props: {
   isMobileMenuOpen: boolean;
@@ -135,7 +135,7 @@ export function BuilderHeader(props: {
         >
           {isMobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
         </Button>
-        <h1 className="text-xl font-bold">Sajtgen</h1>
+        <h1 className="text-xl font-bold">Sajtmaskin</h1>
       </div>
 
       <div className="flex items-center gap-2">

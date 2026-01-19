@@ -66,6 +66,17 @@ function BuilderContent() {
   const [resolvedPrompt, setResolvedPrompt] = useState<string | null>(promptParam);
   const [isTemplateLoading, setIsTemplateLoading] = useState(false);
 
+  type VersionSummary = {
+    id?: string | null;
+    versionId?: string | null;
+    messageId?: string | null;
+    demoUrl?: string | null;
+    metadata?: unknown;
+    createdAt?: string | Date | null;
+    pinned?: boolean;
+    pinnedAt?: string | Date | null;
+  };
+
   useEffect(() => {
     if (source !== 'audit' || typeof window === 'undefined') return;
 
@@ -148,6 +159,16 @@ function BuilderContent() {
     return selectedVersionId || latestFromVersions || latestFromChat;
   }, [selectedVersionId, versions, chat]);
 
+  const activeVersionMeta = useMemo<VersionSummary | null>(() => {
+    if (!activeVersionId) return null;
+    const versionsList = versions as VersionSummary[];
+    return (
+      versionsList.find((version) => version.versionId === activeVersionId) ||
+      versionsList.find((version) => version.id === activeVersionId) ||
+      null
+    );
+  }, [versions, activeVersionId]);
+
   const isAnyStreaming = useMemo(() => messages.some((m) => Boolean(m.isStreaming)), [messages]);
 
   const deployActiveVersionToVercel = useCallback(
@@ -211,6 +232,17 @@ function BuilderContent() {
     deep: promptAssistDeep,
     imageGenerations: enableImageGenerations,
   });
+
+  const promptAssistStatus = useMemo(() => {
+    if (promptAssistProvider === 'off') return null;
+    const providerLabel =
+      promptAssistProvider === 'gateway'
+        ? 'AI Gateway'
+        : promptAssistProvider === 'openai'
+          ? 'OpenAI'
+          : 'Claude';
+    return `${providerLabel}${promptAssistDeep ? ' • Djup' : ''}`;
+  }, [promptAssistProvider, promptAssistDeep]);
 
   const resetBeforeCreateChat = useCallback(() => {
     setSelectedFile(null);
@@ -447,6 +479,8 @@ function BuilderContent() {
               chatId={chatId}
               onCreateChat={createNewChat}
               onSendMessage={sendMessage}
+              onEnhancePrompt={maybeEnhanceInitialPrompt}
+              promptAssistStatus={promptAssistStatus}
               isBusy={isCreatingChat || isAnyStreaming || isTemplateLoading}
               designSystemMode={designSystemMode}
             />
@@ -523,6 +557,7 @@ function BuilderContent() {
                 onClose={() => setSelectedFile(null)}
                 chatId={chatId || undefined}
                 versionId={activeVersionId || undefined}
+                isPinnedVersion={Boolean(activeVersionMeta?.pinned)}
                 locked={selectedFile.locked}
                 onFileSaved={(newContent, newDemoUrl) => {
                   setSelectedFile({ ...selectedFile, content: newContent });

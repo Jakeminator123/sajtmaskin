@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, varchar, jsonb } from 'drizzle-orm/pg-core';
+import { pgTable, text, timestamp, varchar, jsonb, boolean } from 'drizzle-orm/pg-core';
 
 export const projects = pgTable('projects', {
   id: text('id').primaryKey(),
@@ -26,6 +26,8 @@ export const versions = pgTable('versions', {
   v0MessageId: text('v0_message_id'),
   demoUrl: text('demo_url'),
   metadata: jsonb('metadata'),
+  pinned: boolean('pinned').default(false).notNull(),
+  pinnedAt: timestamp('pinned_at'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 

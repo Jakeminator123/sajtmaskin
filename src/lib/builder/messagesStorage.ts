@@ -25,6 +25,9 @@ export function loadPersistedMessages(chatId: string): ChatMessage[] {
         role: m.role,
         content: m.content,
         thinking: typeof m.thinking === 'string' ? m.thinking : null,
+        uiParts: Array.isArray(m.uiParts)
+          ? m.uiParts.filter((part: unknown) => part && typeof part === 'object')
+          : undefined,
         isStreaming: false,
       })) as ChatMessage[];
   } catch {
@@ -40,6 +43,7 @@ export function persistMessages(chatId: string, messages: ChatMessage[]): void {
       role: m.role,
       content: m.content,
       thinking: m.thinking ?? null,
+      uiParts: m.uiParts ?? undefined,
     }));
     localStorage.setItem(getMessagesStorageKey(chatId), JSON.stringify(pruned));
   } catch {

@@ -80,6 +80,30 @@ export async function POST(req: Request) {
 
       const timeoutMs = ms(timeout as StringValue);
 
+      const fileEntries = source.type === 'files' ? Object.entries(source.files) : null;
+      if (fileEntries) {
+        if (fileEntries.length > MAX_FILES) {
+          return NextResponse.json(
+            { error: `Too many files for sandbox (${fileEntries.length} > ${MAX_FILES})` },
+            { status: 413 }
+          );
+        }
+
+        let totalBytes = 0;
+        for (const [filePath, content] of fileEntries) {
+          if (!isSafeRelativePath(filePath)) {
+            return NextResponse.json({ error: `Unsafe file path: ${filePath}` }, { status: 400 });
+          }
+          totalBytes += Buffer.byteLength(content ?? '', 'utf8');
+          if (totalBytes > MAX_TOTAL_BYTES) {
+            return NextResponse.json(
+              { error: `Sandbox files too large (${totalBytes} bytes > ${MAX_TOTAL_BYTES})` },
+              { status: 413 }
+            );
+          }
+        }
+      }
+
       let sourceConfig: { type: 'git'; url: string; revision?: string } | undefined;
 
       if (source.type === 'git') {
@@ -105,76 +129,63 @@ export async function POST(req: Request) {
 
       const sandboxId = sandbox.sandboxId;
 
-      if (source.type === 'files') {
-        const entries = Object.entries(source.files);
-        if (entries.length > MAX_FILES) {
-          return NextResponse.json(
-            { error: `Too many files for sandbox (${entries.length} > ${MAX_FILES})` },
-            { status: 413 }
-          );
-        }
-
-        let totalBytes = 0;
-        for (const [filePath, content] of entries) {
-          if (!isSafeRelativePath(filePath)) {
-            return NextResponse.json({ error: `Unsafe file path: ${filePath}` }, { status: 400 });
-          }
-          totalBytes += Buffer.byteLength(content ?? '', 'utf8');
-          if (totalBytes > MAX_TOTAL_BYTES) {
-            return NextResponse.json(
-              { error: `Sandbox files too large (${totalBytes} bytes > ${MAX_TOTAL_BYTES})` },
-              { status: 413 }
-            );
+      try {
+        if (fileEntries) {
+          for (const [filePath, content] of fileEntries) {
+            const { delimiter, body: fileBody } = makeSafeHeredoc(String(content ?? ''));
+            await sandbox.runCommand({
+              cmd: 'bash',
+              args: [
+                '-c',
+                [
+                  `set -e`,
+                  `mkdir -p "$(dirname "${filePath}")"`,
+                  `cat > "${filePath}" <<'${delimiter}'`,
+                  fileBody,
+                  `${delimiter}`,
+                ].join('\n'),
+              ],
+            });
           }
         }
 
-        for (const [filePath, content] of entries) {
-          const { delimiter, body: fileBody } = makeSafeHeredoc(String(content ?? ''));
-          await sandbox.runCommand({
-            cmd: 'bash',
-            args: [
-              '-c',
-              [
-                `set -e`,
-                `mkdir -p "$(dirname "${filePath}")"`,
-                `cat > "${filePath}" <<'${delimiter}'`,
-                fileBody,
-                `${delimiter}`,
-              ].join('\n'),
-            ],
-          });
+        const installResult = await sandbox.runCommand({
+          cmd: 'bash',
+          args: ['-c', installCommand],
+        });
+
+        if (installResult.exitCode !== 0) {
+          console.error('Install failed with exit code:', installResult.exitCode);
         }
+
+        await sandbox.runCommand({
+          cmd: 'bash',
+          args: ['-c', startCommand],
+          detached: true,
+        });
+
+        const urls: Record<number, string> = {};
+        for (const port of ports) {
+          urls[port] = sandbox.domain(port);
+        }
+
+        return NextResponse.json({
+          success: true,
+          sandboxId,
+          urls,
+          primaryUrl: urls[ports[0]] || null,
+          timeout,
+          runtime,
+          ports,
+        });
+      } catch (err) {
+        try {
+          await sandbox.stop();
+        } catch (stopError) {
+          console.error('Failed to stop sandbox after error:', stopError);
+        }
+        throw err;
       }
-
-      const installResult = await sandbox.runCommand({
-        cmd: 'bash',
-        args: ['-c', installCommand],
-      });
-
-      if (installResult.exitCode !== 0) {
-        console.error('Install failed with exit code:', installResult.exitCode);
-      }
-
-      await sandbox.runCommand({
-        cmd: 'bash',
-        args: ['-c', startCommand],
-        detached: true,
-      });
-
-      const urls: Record<number, string> = {};
-      for (const port of ports) {
-        urls[port] = sandbox.domain(port);
-      }
-
-      return NextResponse.json({
-        success: true,
-        sandboxId,
-        urls,
-        primaryUrl: urls[ports[0]] || null,
-        timeout,
-        runtime,
-        ports,
-      });
     } catch (err) {
       console.error('Error creating sandbox:', err);
       return NextResponse.json(

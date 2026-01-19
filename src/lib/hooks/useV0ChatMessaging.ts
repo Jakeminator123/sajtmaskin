@@ -1,5 +1,5 @@
 import { consumeSseResponse } from '@/lib/builder/sse';
-import type { ChatMessage } from '@/lib/builder/types';
+import type { ChatMessage, UiMessagePart } from '@/lib/builder/types';
 import type { ModelTier } from '@/lib/validations/chatSchemas';
 import { useCallback, useState } from 'react';
 import toast from 'react-hot-toast';
@@ -18,11 +18,81 @@ type V0Attachment = {
 type MessageOptions = {
   attachments?: V0Attachment[];
   attachmentPrompt?: string;
+  skipPromptAssist?: boolean;
 };
 
 function appendAttachmentPrompt(message: string, attachmentPrompt?: string): string {
   if (!attachmentPrompt) return message;
   return `${message}${attachmentPrompt}`.trim();
+}
+
+function coerceUiParts(data: unknown): UiMessagePart[] {
+  if (Array.isArray(data)) {
+    return data.filter((part): part is UiMessagePart => Boolean(part) && typeof part === 'object');
+  }
+  if (data && typeof data === 'object') {
+    const obj = data as Record<string, unknown>;
+    if (typeof obj.type === 'string') {
+      return [obj as UiMessagePart];
+    }
+    if (Array.isArray(obj.parts)) {
+      return obj.parts.filter((part): part is UiMessagePart => Boolean(part) && typeof part === 'object');
+    }
+  }
+  return [];
+}
+
+function mergeUiParts(prev: UiMessagePart[] | undefined, next: UiMessagePart[]): UiMessagePart[] {
+  if (next.length === 0) return prev ?? [];
+  const merged = [...(prev ?? [])];
+  next.forEach((part) => {
+    const key = getUiPartKey(part);
+    if (!key) {
+      merged.push(part);
+      return;
+    }
+    const index = merged.findIndex((existing) => getUiPartKey(existing) === key);
+    if (index === -1) {
+      merged.push(part);
+      return;
+    }
+    merged[index] = mergeUiPart(merged[index], part);
+  });
+  return merged;
+}
+
+function mergeUiPart(current: UiMessagePart, next: UiMessagePart): UiMessagePart {
+  const merged = { ...current };
+  Object.entries(next).forEach(([key, value]) => {
+    if (value !== undefined) {
+      merged[key] = value;
+    }
+  });
+  return merged;
+}
+
+function getUiPartKey(part: UiMessagePart): string | null {
+  const type = typeof part.type === 'string' ? part.type : '';
+  if (type.startsWith('tool')) {
+    const candidate =
+      (typeof part.toolCallId === 'string' && part.toolCallId) ||
+      (typeof part.id === 'string' && part.id) ||
+      (typeof part.name === 'string' && part.name) ||
+      (typeof part.toolName === 'string' && part.toolName) ||
+      type;
+    return candidate || null;
+  }
+  if (type === 'plan') return 'plan';
+  if (type === 'sources') return 'sources';
+  if (type === 'source') {
+    const candidate =
+      (typeof part.url === 'string' && part.url) ||
+      (typeof (part.source as { url?: unknown })?.url === 'string' &&
+        (part.source as { url?: string }).url) ||
+      null;
+    return candidate;
+  }
+  return null;
 }
 
 export function useV0ChatMessaging(params: {
@@ -70,12 +140,21 @@ export function useV0ChatMessaging(params: {
 
       setMessages([
         { id: userMessageId, role: 'user', content: initialMessage },
-        { id: assistantMessageId, role: 'assistant', content: '', thinking: '', isStreaming: true },
+        {
+          id: assistantMessageId,
+          role: 'assistant',
+          content: '',
+          thinking: '',
+          isStreaming: true,
+          uiParts: [],
+        },
       ]);
       setIsCreatingChat(true);
 
       try {
-        const messageForV0 = await maybeEnhanceInitialPrompt(initialMessage);
+        const messageForV0 = options.skipPromptAssist
+          ? initialMessage
+          : await maybeEnhanceInitialPrompt(initialMessage);
         const finalMessage = appendAttachmentPrompt(messageForV0, options.attachmentPrompt);
         const thinkingForTier = selectedModelTier === 'v0-max';
         const requestBody: Record<string, unknown> = {
@@ -140,6 +219,23 @@ export function useV0ChatMessaging(params: {
                     prev.map((m) =>
                       m.id === assistantMessageId
                         ? { ...m, content: accumulatedContent, isStreaming: true }
+                        : m
+                    )
+                  );
+                }
+                break;
+              }
+              case 'parts': {
+                const nextParts = coerceUiParts(data);
+                if (nextParts.length > 0) {
+                  setMessages((prev) =>
+                    prev.map((m) =>
+                      m.id === assistantMessageId
+                        ? {
+                            ...m,
+                            uiParts: mergeUiParts(m.uiParts, nextParts),
+                            isStreaming: true,
+                          }
                         : m
                     )
                   );
@@ -251,7 +347,14 @@ export function useV0ChatMessaging(params: {
       setMessages((prev) => [
         ...prev,
         { id: userMessageId, role: 'user', content: messageText },
-        { id: assistantMessageId, role: 'assistant', content: '', thinking: '', isStreaming: true },
+        {
+          id: assistantMessageId,
+          role: 'assistant',
+          content: '',
+          thinking: '',
+          isStreaming: true,
+          uiParts: [],
+        },
       ]);
 
       try {
@@ -310,6 +413,23 @@ export function useV0ChatMessaging(params: {
                   prev.map((m) =>
                     m.id === assistantMessageId
                       ? { ...m, content: accumulatedContent, isStreaming: true }
+                      : m
+                  )
+                );
+              }
+              break;
+            }
+            case 'parts': {
+              const nextParts = coerceUiParts(data);
+              if (nextParts.length > 0) {
+                setMessages((prev) =>
+                  prev.map((m) =>
+                    m.id === assistantMessageId
+                      ? {
+                          ...m,
+                          uiParts: mergeUiParts(m.uiParts, nextParts),
+                          isStreaming: true,
+                        }
                       : m
                   )
                 );

@@ -1,5 +1,5 @@
 export interface StreamEvent {
-  type: "thinking" | "content" | "file" | "done" | "error";
+  type: "thinking" | "content" | "parts" | "file" | "done" | "error" | "chatId";
   data: unknown;
 }
 

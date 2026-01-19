@@ -72,6 +72,65 @@ export {
   type ReasoningContentProps,
 } from "./reasoning";
 
+// Suggestions
+export { Suggestions, Suggestion, type SuggestionsProps, type SuggestionProps } from "./suggestion";
+
+// Sources
+export {
+  Sources,
+  SourcesTrigger,
+  SourcesContent,
+  Source,
+  type SourcesProps,
+  type SourcesTriggerProps,
+  type SourcesContentProps,
+  type SourceProps,
+} from "./sources";
+
+// Code block
+export {
+  CodeBlock,
+  CodeBlockCopyButton,
+  type CodeBlockCopyButtonProps,
+} from "./code-block";
+
+// Tool UI
+export {
+  Tool,
+  ToolHeader,
+  ToolContent,
+  ToolInput,
+  ToolOutput,
+  type ToolProps,
+  type ToolHeaderProps,
+  type ToolContentProps,
+  type ToolInputProps,
+  type ToolOutputProps,
+} from "./tool";
+
+// Plan UI
+export {
+  Plan,
+  PlanHeader,
+  PlanTitle,
+  PlanDescription,
+  PlanAction,
+  PlanContent,
+  PlanFooter,
+  PlanTrigger,
+  type PlanProps,
+  type PlanHeaderProps,
+  type PlanTitleProps,
+  type PlanDescriptionProps,
+  type PlanActionProps,
+  type PlanContentProps,
+  type PlanFooterProps,
+  type PlanTriggerProps,
+} from "./plan";
+
+// Shimmer
+export { Shimmer, type ShimmerProps } from "./shimmer";
+
 // Loader
 export { Loader, type LoaderProps } from "./loader";
 
