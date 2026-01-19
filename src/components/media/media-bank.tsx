@@ -180,7 +180,7 @@ export function MediaBank({
         className="w-full flex items-center justify-between p-3 hover:bg-gray-800/50 transition-colors"
       >
         <div className="flex items-center gap-2">
-          <Sparkles className="h-4 w-4 text-purple-400" />
+          <Sparkles className="h-4 w-4 text-brand-blue" />
           <span className="text-sm font-medium text-white">
             Mediabank ({items.length})
           </span>
@@ -303,7 +303,7 @@ function MediaItemCard({
       className={cn(
         "relative aspect-square rounded-lg overflow-hidden border transition-all cursor-grab",
         isDragging
-          ? "border-purple-500 opacity-50"
+          ? "border-brand-blue opacity-50"
           : "border-gray-700 hover:border-gray-600",
         disabled && "opacity-50 cursor-not-allowed"
       )}
@@ -341,8 +341,8 @@ function MediaItemCard({
         className={cn(
           "absolute top-1 right-1 px-1.5 py-0.5 rounded text-[10px] font-medium",
           item.source === "generated"
-            ? "bg-purple-500/80 text-white"
-            : "bg-teal-500/80 text-white"
+            ? "bg-brand-blue/80 text-white"
+            : "bg-brand-teal/80 text-white"
         )}
       >
         {item.source === "generated" ? "AI" : "↑"}
@@ -350,7 +350,7 @@ function MediaItemCard({
 
       {/* Warning badge if image has no persistent URL */}
       {!hasUrl && (
-        <div className="absolute bottom-1 left-1 px-1.5 py-0.5 bg-amber-500/80 rounded text-[10px] text-white">
+        <div className="absolute bottom-1 left-1 px-1.5 py-0.5 bg-brand-amber/80 rounded text-[10px] text-white">
           Ej sparad
         </div>
       )}
@@ -365,7 +365,7 @@ function MediaItemCard({
               e.stopPropagation();
               onAddToSite();
             }}
-            className="h-6 text-[10px] text-white hover:bg-purple-600 w-full"
+            className="h-6 text-[10px] text-white hover:bg-brand-blue/90 w-full"
           >
             <Plus className="h-3 w-3 mr-1" />
             Lägg till i sajten

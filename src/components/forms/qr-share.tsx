@@ -95,7 +95,7 @@ export function QrShare({ url, title = "Dela via QR-kod" }: QrShareProps) {
               title="Kopiera URL"
             >
               {copied ? (
-                <Check className="h-4 w-4 text-teal-500" />
+                <Check className="h-4 w-4 text-brand-teal" />
               ) : (
                 <Copy className="h-4 w-4" />
               )}
@@ -117,7 +117,7 @@ export function QrShare({ url, title = "Dela via QR-kod" }: QrShareProps) {
           <Button
             size="sm"
             onClick={() => setIsOpen(false)}
-            className="flex-1 bg-teal-600 hover:bg-teal-500"
+            className="flex-1 bg-brand-teal hover:bg-brand-teal/90"
           >
             Stäng
           </Button>

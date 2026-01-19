@@ -131,6 +131,26 @@ export {
 // Shimmer
 export { Shimmer, type ShimmerProps } from "./shimmer";
 
+// Advanced AI elements
+export * from "./artifact";
+export * from "./canvas";
+export * from "./chain-of-thought";
+export * from "./checkpoint";
+export * from "./confirmation";
+export * from "./connection";
+export * from "./context";
+export * from "./controls";
+export * from "./edge";
+export * from "./image";
+export * from "./inline-citation";
+export * from "./model-selector";
+export * from "./node";
+export * from "./open-in-chat";
+export * from "./panel";
+export * from "./queue";
+export * from "./task";
+export * from "./toolbar";
+
 // Loader
 export { Loader, type LoaderProps } from "./loader";
 

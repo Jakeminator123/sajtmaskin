@@ -104,7 +104,7 @@ export function Navbar({ onLoginClick, onRegisterClick, onSettingsClick }: Navba
       <div className="max-w-7xl mx-auto h-full px-4 flex items-center justify-between">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2.5 group">
-          <div className="p-1.5 bg-teal-600 group-hover:bg-teal-500 transition-colors">
+          <div className="p-1.5 bg-brand-teal group-hover:bg-brand-teal/90 transition-colors">
             <Rocket className="h-5 w-5 text-white" />
           </div>
           <span className="text-lg font-bold text-white tracking-tight">
@@ -118,11 +118,10 @@ export function Navbar({ onLoginClick, onRegisterClick, onSettingsClick }: Navba
             <Button
               variant="ghost"
               size="sm"
-              className={`text-sm ${
-                isActive("/")
+              className={`text-sm ${isActive("/")
                   ? "text-white bg-gray-800/50"
                   : "text-gray-400 hover:text-white hover:bg-gray-800/50"
-              }`}
+                }`}
             >
               <Sparkles className="h-4 w-4 mr-1.5" />
               Skapa
@@ -132,11 +131,10 @@ export function Navbar({ onLoginClick, onRegisterClick, onSettingsClick }: Navba
             <Button
               variant="ghost"
               size="sm"
-              className={`text-sm ${
-                isActive("/projects")
+              className={`text-sm ${isActive("/projects")
                   ? "text-white bg-gray-800/50"
                   : "text-gray-400 hover:text-white hover:bg-gray-800/50"
-              }`}
+                }`}
             >
               <FolderOpen className="h-4 w-4 mr-1.5" />
               Projekt
@@ -149,14 +147,14 @@ export function Navbar({ onLoginClick, onRegisterClick, onSettingsClick }: Navba
           {/* Diamond counter - only show for authenticated users */}
           {isAuthenticated && (
             <Link href="/buy-credits" aria-label={`Du har ${diamonds} diamanter. Klicka för att köpa fler.`}>
-              <div 
+              <div
                 className={`
-                  flex items-center gap-1.5 px-3 py-1.5 
+                  flex items-center gap-1.5 px-3 py-1.5
                   bg-black/50 border cursor-pointer group
                   transition-all duration-300
-                  ${isLowBalance 
-                    ? 'border-red-500/50 hover:border-red-400 hover:bg-red-500/10' 
-                    : 'border-amber-500/30 hover:border-amber-500/60'
+                  ${isLowBalance
+                    ? 'border-red-500/50 hover:border-red-400 hover:bg-red-500/10'
+                    : 'border-brand-amber/30 hover:border-brand-amber/60'
                   }
                 `}
               >
@@ -164,31 +162,31 @@ export function Navbar({ onLoginClick, onRegisterClick, onSettingsClick }: Navba
                 {isLowBalance && (
                   <AlertCircle className="h-3.5 w-3.5 text-red-400 animate-pulse" />
                 )}
-                
+
                 {/* Diamond icon with pulse animation when low */}
-                <Diamond 
+                <Diamond
                   className={`
                     h-4 w-4 transition-all
-                    ${isLowBalance 
-                      ? 'text-red-400 animate-diamondPulse' 
-                      : 'text-amber-400 group-hover:text-amber-300'
+                    ${isLowBalance
+                      ? 'text-red-400 animate-diamondPulse'
+                      : 'text-brand-amber group-hover:text-brand-amber/80'
                     }
-                  `} 
+                  `}
                 />
-                
+
                 {/* Diamond count */}
-                <span 
+                <span
                   className={`
                     text-sm font-semibold transition-colors
-                    ${isLowBalance 
-                      ? 'text-red-400' 
-                      : 'text-amber-400 group-hover:text-amber-300'
+                    ${isLowBalance
+                      ? 'text-red-400'
+                      : 'text-brand-amber group-hover:text-brand-amber/80'
                     }
                   `}
                 >
                   {diamonds ?? 0}
                 </span>
-                
+
                 {/* "Buy more" hint on hover when low */}
                 {isLowBalance && (
                   <span className="text-[10px] text-red-400/70 hidden group-hover:inline ml-0.5">
@@ -219,7 +217,7 @@ export function Navbar({ onLoginClick, onRegisterClick, onSettingsClick }: Navba
                     className="rounded-none"
                   />
                 ) : (
-                  <div className="w-6 h-6 bg-gradient-to-br from-teal-500 to-teal-600 flex items-center justify-center">
+                  <div className="w-6 h-6 bg-gradient-to-br from-brand-teal to-brand-blue flex items-center justify-center">
                     <User className="h-3.5 w-3.5 text-white" />
                   </div>
                 )}
@@ -227,9 +225,8 @@ export function Navbar({ onLoginClick, onRegisterClick, onSettingsClick }: Navba
                   {user?.name || user?.email?.split("@")[0] || "Användare"}
                 </span>
                 <ChevronDown
-                  className={`h-4 w-4 text-gray-500 transition-transform ${
-                    showUserMenu ? "rotate-180" : ""
-                  }`}
+                  className={`h-4 w-4 text-gray-500 transition-transform ${showUserMenu ? "rotate-180" : ""
+                    }`}
                 />
               </button>
 
@@ -254,8 +251,8 @@ export function Navbar({ onLoginClick, onRegisterClick, onSettingsClick }: Navba
                   >
                     <span className="text-sm text-gray-400">Diamanter</span>
                     <div className="flex items-center gap-1.5">
-                      <Diamond className="h-4 w-4 text-amber-400" />
-                      <span className="text-sm font-semibold text-amber-400">
+                      <Diamond className="h-4 w-4 text-brand-amber" />
+                      <span className="text-sm font-semibold text-brand-amber">
                         {diamonds ?? 0}
                       </span>
                     </div>
@@ -267,7 +264,7 @@ export function Navbar({ onLoginClick, onRegisterClick, onSettingsClick }: Navba
                     className="flex items-center gap-2 px-4 py-2.5 hover:bg-gray-800/50 transition-colors text-sm text-gray-300"
                     onClick={() => setShowUserMenu(false)}
                   >
-                    <Sparkles className="h-4 w-4 text-teal-400" />
+                    <Sparkles className="h-4 w-4 text-brand-teal" />
                     Köp diamanter
                   </Link>
 
@@ -279,7 +276,7 @@ export function Navbar({ onLoginClick, onRegisterClick, onSettingsClick }: Navba
                     }}
                     className="flex items-center gap-2 w-full px-4 py-2.5 hover:bg-gray-800/50 transition-colors text-sm text-gray-300"
                   >
-                    <Settings className="h-4 w-4 text-violet-400" />
+                    <Settings className="h-4 w-4 text-brand-blue" />
                     Inställningar
                   </button>
 
@@ -315,7 +312,7 @@ export function Navbar({ onLoginClick, onRegisterClick, onSettingsClick }: Navba
               <Button
                 size="sm"
                 onClick={onRegisterClick}
-                className="bg-teal-600 hover:bg-teal-500 text-white"
+                className="bg-brand-teal hover:bg-brand-teal/90 text-white"
               >
                 Skapa konto
               </Button>
@@ -347,9 +344,8 @@ export function Navbar({ onLoginClick, onRegisterClick, onSettingsClick }: Navba
             <Link
               href="/"
               onClick={() => setShowMobileMenu(false)}
-              className={`flex items-center gap-2 px-4 py-3 ${
-                isActive("/") ? "bg-gray-800/50 text-white" : "text-gray-400"
-              }`}
+              className={`flex items-center gap-2 px-4 py-3 ${isActive("/") ? "bg-gray-800/50 text-white" : "text-gray-400"
+                }`}
             >
               <Sparkles className="h-5 w-5" />
               Skapa
@@ -357,11 +353,10 @@ export function Navbar({ onLoginClick, onRegisterClick, onSettingsClick }: Navba
             <Link
               href="/projects"
               onClick={() => setShowMobileMenu(false)}
-              className={`flex items-center gap-2 px-4 py-3 ${
-                isActive("/projects")
+              className={`flex items-center gap-2 px-4 py-3 ${isActive("/projects")
                   ? "bg-gray-800/50 text-white"
                   : "text-gray-400"
-              }`}
+                }`}
             >
               <FolderOpen className="h-5 w-5" />
               Projekt
@@ -372,7 +367,7 @@ export function Navbar({ onLoginClick, onRegisterClick, onSettingsClick }: Navba
                 onClick={() => setShowMobileMenu(false)}
                 className="flex items-center gap-2 px-4 py-3 text-gray-400"
               >
-                <Diamond className="h-5 w-5 text-amber-400" />
+                <Diamond className="h-5 w-5 text-brand-amber" />
                 Köp diamanter
               </Link>
             )}

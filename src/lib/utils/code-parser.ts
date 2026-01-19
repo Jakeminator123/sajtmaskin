@@ -585,9 +585,9 @@ export default function App() {
     <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
       <div className="text-center space-y-4">
         <div className="flex justify-center gap-2">
-          <div className="w-3 h-3 rounded-full bg-blue-500 animate-pulse" style={{ animationDelay: "0ms" }} />
-          <div className="w-3 h-3 rounded-full bg-blue-500 animate-pulse" style={{ animationDelay: "150ms" }} />
-          <div className="w-3 h-3 rounded-full bg-blue-500 animate-pulse" style={{ animationDelay: "300ms" }} />
+          <div className="w-3 h-3 rounded-full bg-brand-blue animate-pulse" style={{ animationDelay: "0ms" }} />
+          <div className="w-3 h-3 rounded-full bg-brand-blue animate-pulse" style={{ animationDelay: "150ms" }} />
+          <div className="w-3 h-3 rounded-full bg-brand-blue animate-pulse" style={{ animationDelay: "300ms" }} />
         </div>
         <p className="text-zinc-500 text-sm">Väntar på generering...</p>
       </div>

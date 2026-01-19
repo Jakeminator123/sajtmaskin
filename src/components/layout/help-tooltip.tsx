@@ -32,9 +32,8 @@ export function HelpTooltip({
       <Tooltip delayDuration={200}>
         <TooltipTrigger asChild>
           <HelpCircle
-            className={`h-4 w-4 text-muted-foreground cursor-help inline-block ml-1 hover:text-foreground transition-colors ${
-              className || ""
-            }`}
+            className={`h-4 w-4 text-muted-foreground cursor-help inline-block ml-1 hover:text-foreground transition-colors ${className || ""
+              }`}
           />
         </TooltipTrigger>
         <TooltipContent
@@ -47,7 +46,7 @@ export function HelpTooltip({
               Värde: {value}/10 {renderStars(value)}
             </p>
           )}
-          {tips && <p className="text-xs mt-1 text-teal-400 italic">{tips}</p>}
+          {tips && <p className="text-xs mt-1 text-brand-teal italic">{tips}</p>}
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>

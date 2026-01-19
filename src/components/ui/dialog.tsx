@@ -1,10 +1,19 @@
 "use client";
 
+import { Slot } from "@radix-ui/react-slot";
 import { useEffect, useRef, type ReactNode } from "react";
 
 interface DialogProps {
   open: boolean;
   children: ReactNode;
+}
+
+interface DialogTriggerProps {
+  children: ReactNode;
+  asChild?: boolean;
+  onClick?: () => void;
+  className?: string;
+  type?: "button" | "submit" | "reset";
 }
 
 interface DialogContentProps {
@@ -31,6 +40,21 @@ interface DialogDescriptionProps {
 export function Dialog({ open, children }: DialogProps) {
   if (!open) return null;
   return <>{children}</>;
+}
+
+export function DialogTrigger({
+  children,
+  asChild = false,
+  className,
+  type = "button",
+  ...props
+}: DialogTriggerProps) {
+  const Comp = asChild ? Slot : "button";
+  const mergedProps = {
+    className,
+    ...(asChild ? props : { type, ...props }),
+  };
+  return <Comp {...mergedProps}>{children}</Comp>;
 }
 
 export function DialogContent({

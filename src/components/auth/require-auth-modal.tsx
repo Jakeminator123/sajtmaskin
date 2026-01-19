@@ -75,13 +75,13 @@ export function RequireAuthModal({
           </button>
 
           {/* Decorative gradient */}
-          <div className="absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-teal-500/10 to-transparent" />
+          <div className="absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-brand-teal/10 to-transparent" />
 
           {/* Content */}
           <div className="relative p-8 text-center">
             {/* Icon */}
-            <div className="mx-auto w-16 h-16 bg-teal-500/10 border border-teal-500/30 flex items-center justify-center mb-6">
-              <Icon className="h-8 w-8 text-teal-400" />
+            <div className="mx-auto w-16 h-16 bg-brand-teal/10 border border-brand-teal/30 flex items-center justify-center mb-6">
+              <Icon className="h-8 w-8 text-brand-teal" />
             </div>
 
             {/* Title */}
@@ -94,9 +94,9 @@ export function RequireAuthModal({
 
             {/* Bonus badge */}
             {reason !== "credits" && (
-              <div className="inline-flex items-center gap-2 px-4 py-2 bg-amber-500/10 border border-amber-500/30 mb-6">
-                <Diamond className="h-4 w-4 text-amber-400" />
-                <span className="text-sm font-medium text-amber-400">
+              <div className="inline-flex items-center gap-2 px-4 py-2 bg-brand-amber/10 border border-brand-amber/30 mb-6">
+                <Diamond className="h-4 w-4 text-brand-amber" />
+                <span className="text-sm font-medium text-brand-amber">
                   +5 diamanter gratis vid registrering
                 </span>
               </div>
@@ -109,7 +109,7 @@ export function RequireAuthModal({
                 <>
                   <Button
                     onClick={() => (window.location.href = "/buy-credits")}
-                    className="w-full h-11 bg-teal-600 hover:bg-teal-500 text-white font-medium"
+                    className="w-full h-11 bg-brand-teal hover:bg-brand-teal/90 text-white font-medium"
                   >
                     <Diamond className="h-4 w-4 mr-2" />
                     Köp diamanter
@@ -127,7 +127,7 @@ export function RequireAuthModal({
                 <>
                   <Button
                     onClick={() => handleAuthClick("register")}
-                    className="w-full h-11 bg-teal-600 hover:bg-teal-500 text-white font-medium"
+                    className="w-full h-11 bg-brand-teal hover:bg-brand-teal/90 text-white font-medium"
                   >
                     Skapa gratis konto
                   </Button>

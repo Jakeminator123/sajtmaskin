@@ -307,7 +307,7 @@ export function FileUploadZone({
                 key={file.id}
                 className={cn(
                   "flex items-center gap-2 px-2 py-1 rounded text-xs",
-                  file.status === "success" && "bg-teal-500/20 text-teal-400",
+                  file.status === "success" && "bg-brand-teal/20 text-brand-teal",
                   file.status === "uploading" && "bg-gray-700 text-gray-400",
                   file.status === "error" && "bg-red-500/20 text-red-400"
                 )}
@@ -319,7 +319,7 @@ export function FileUploadZone({
                 ) : (
                   <AlertCircle className="h-3 w-3" />
                 )}
-            <span className="truncate max-w-[100px]">{file.filename}</span>
+                <span className="truncate max-w-[100px]">{file.filename}</span>
                 <button
                   onClick={() => removeFile(file.id)}
                   className="hover:text-white"
@@ -369,25 +369,25 @@ export function FileUploadZone({
         onClick={handleClick}
         className={cn(
           "relative border-2 border-dashed rounded-lg p-4 transition-colors cursor-pointer",
-          isDragging && "border-teal-500 bg-teal-500/10",
+          isDragging && "border-brand-teal bg-brand-teal/10",
           !isDragging &&
-            canAddMore &&
-            "border-gray-700 hover:border-gray-600 hover:bg-gray-800/50",
+          canAddMore &&
+          "border-gray-700 hover:border-gray-600 hover:bg-gray-800/50",
           !canAddMore &&
-            "border-gray-800 bg-gray-900/50 cursor-not-allowed opacity-50"
+          "border-gray-800 bg-gray-900/50 cursor-not-allowed opacity-50"
         )}
       >
         <div className="flex flex-col items-center gap-2 text-center">
           <div
             className={cn(
               "w-10 h-10 rounded-full flex items-center justify-center",
-              isDragging ? "bg-teal-500/20" : "bg-gray-800"
+              isDragging ? "bg-brand-teal/20" : "bg-gray-800"
             )}
           >
             <Upload
               className={cn(
                 "h-5 w-5",
-                isDragging ? "text-teal-400" : "text-gray-500"
+                isDragging ? "text-brand-teal" : "text-gray-500"
               )}
             />
           </div>
@@ -428,14 +428,14 @@ export function FileUploadZone({
                   "flex items-center gap-3 p-2 rounded border",
                   file.status === "success" && "border-gray-700 bg-gray-800/50",
                   file.status === "uploading" &&
-                    "border-gray-700 bg-gray-800/30",
+                  "border-gray-700 bg-gray-800/30",
                   file.status === "error" && "border-red-500/30 bg-red-500/10"
                 )}
               >
                 {/* Preview or icon */}
                 <div className="w-10 h-10 rounded bg-gray-700 flex items-center justify-center overflow-hidden shrink-0">
                   {file.status === "success" &&
-                  file.mimeType.startsWith("image/") ? (
+                    file.mimeType.startsWith("image/") ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={file.url}
@@ -482,7 +482,7 @@ export function FileUploadZone({
                     <>
                       {/* Public URL indicator */}
                       {file.isPublicUrl === false && (
-                        <span className="text-[10px] text-amber-400 block mt-0.5">
+                        <span className="text-[10px] text-brand-amber block mt-0.5">
                           ⚠️ Ej publik URL - fungerar inte i v0 preview
                         </span>
                       )}
@@ -491,7 +491,7 @@ export function FileUploadZone({
                         placeholder="Syfte: t.ex. 'hero-bild', 'logotyp'..."
                         value={file.purpose || ""}
                         onChange={(e) => updatePurpose(file.id, e.target.value)}
-                        className="mt-1 w-full text-xs bg-transparent border-b border-gray-700 focus:border-teal-500 outline-none text-gray-400 placeholder:text-gray-600 py-0.5"
+                        className="mt-1 w-full text-xs bg-transparent border-b border-gray-700 focus:border-brand-teal outline-none text-gray-400 placeholder:text-gray-600 py-0.5"
                       />
                     </>
                   )}
@@ -557,9 +557,8 @@ export function filesToPromptText(files: UploadedFile[]): string {
     // Only add base URL as fallback for legacy local URLs
     const fullUrl = file.url.startsWith("http")
       ? file.url
-      : `${typeof window !== "undefined" ? window.location.origin : ""}${
-          file.url
-        }`;
+      : `${typeof window !== "undefined" ? window.location.origin : ""}${file.url
+      }`;
     return `- ${label} ${index + 1}${purpose}: ${fullUrl}`;
   });
 

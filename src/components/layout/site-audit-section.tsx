@@ -151,9 +151,9 @@ export function SiteAuditSection({
     <div className="w-full max-w-2xl">
       {/* Section Header */}
       <div className="text-center mb-6">
-        <div className="inline-flex items-center gap-2 px-4 py-2 bg-teal-500/10 border border-teal-500/30 mb-4">
-          <Search className="h-4 w-4 text-teal-400" />
-          <span className="text-sm font-medium text-teal-400">
+        <div className="inline-flex items-center gap-2 px-4 py-2 bg-brand-teal/10 border border-brand-teal/30 mb-4">
+          <Search className="h-4 w-4 text-brand-teal" />
+          <span className="text-sm font-medium text-brand-teal">
             Webbplatsanalys
           </span>
         </div>
@@ -180,7 +180,7 @@ export function SiteAuditSection({
             onChange={(e) => setUrl(e.target.value)}
             placeholder="exempel.se eller https://exempel.se"
             disabled={isLoading}
-            className="w-full px-4 py-4 pl-12 bg-black/50 border border-gray-700 text-white placeholder-gray-500 focus:border-teal-500/50 focus:outline-none focus:ring-1 focus:ring-teal-500/50 transition-all disabled:opacity-50"
+            className="w-full px-4 py-4 pl-12 bg-black/50 border border-gray-700 text-white placeholder-gray-500 focus:border-brand-teal/50 focus:outline-none focus:ring-1 focus:ring-brand-teal/50 transition-all disabled:opacity-50"
           />
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-500" />
         </div>
@@ -197,7 +197,7 @@ export function SiteAuditSection({
         {isLoading && (
           <div className="w-full h-1 bg-gray-800 overflow-hidden">
             <div
-              className="h-full bg-teal-500 transition-all duration-500"
+              className="h-full bg-brand-teal transition-all duration-500"
               style={{ width: `${progress}%` }}
             />
           </div>
@@ -207,7 +207,7 @@ export function SiteAuditSection({
         <button
           type="submit"
           disabled={isLoading || !url.trim()}
-          className="w-full flex items-center justify-center gap-3 px-6 py-4 bg-teal-600 hover:bg-teal-500 disabled:bg-gray-700 disabled:cursor-not-allowed text-white font-medium transition-all group"
+          className="w-full flex items-center justify-center gap-3 px-6 py-4 bg-brand-teal hover:bg-brand-teal/90 disabled:bg-gray-700 disabled:cursor-not-allowed text-white font-medium transition-all group"
         >
           {isLoading ? (
             <>
@@ -219,7 +219,7 @@ export function SiteAuditSection({
               <Search className="h-5 w-5 group-hover:scale-110 transition-transform" />
               <span>Välj analysnivå</span>
               <span className="flex items-center gap-1 px-2 py-0.5 bg-black/30 text-sm">
-                <Diamond className="h-3.5 w-3.5 text-teal-300" />
+                <Diamond className="h-3.5 w-3.5 text-brand-teal/80" />
                 <span>
                   {AUDIT_COSTS.basic}/{AUDIT_COSTS.advanced}
                 </span>
@@ -236,7 +236,7 @@ export function SiteAuditSection({
               <span
                 className={
                   user.diamonds >= AUDIT_COSTS.basic
-                    ? "text-teal-400"
+                    ? "text-brand-teal"
                     : "text-red-400"
                 }
               >
@@ -246,13 +246,13 @@ export function SiteAuditSection({
             <p>
               Vanlig:{" "}
               <span
-                className={canAffordBasic ? "text-teal-400" : "text-red-400"}
+                className={canAffordBasic ? "text-brand-teal" : "text-red-400"}
               >
                 {AUDIT_COSTS.basic}
               </span>{" "}
               | Avancerad:{" "}
               <span
-                className={canAffordAdvanced ? "text-teal-400" : "text-red-400"}
+                className={canAffordAdvanced ? "text-brand-teal" : "text-red-400"}
               >
                 {AUDIT_COSTS.advanced}
               </span>
@@ -265,7 +265,7 @@ export function SiteAuditSection({
             <button
               type="button"
               onClick={onRequireAuth}
-              className="text-teal-400 hover:text-teal-300 underline"
+              className="text-brand-teal hover:text-brand-teal/80 underline"
             >
               Logga in
             </button>{" "}
@@ -305,13 +305,13 @@ export function SiteAuditSection({
             <button
               type="button"
               onClick={() => startAudit("basic")}
-              className="text-left p-4 bg-black/40 border border-gray-800 hover:border-teal-500/50 transition-colors"
+              className="text-left p-4 bg-black/40 border border-gray-800 hover:border-brand-teal/50 transition-colors"
             >
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm font-semibold text-white">
                   Vanlig analys
                 </span>
-                <span className="flex items-center gap-1 text-xs text-teal-300">
+                <span className="flex items-center gap-1 text-xs text-brand-teal/80">
                   <Diamond className="h-3.5 w-3.5" />
                   {AUDIT_COSTS.basic}
                 </span>
@@ -323,13 +323,13 @@ export function SiteAuditSection({
             <button
               type="button"
               onClick={() => startAudit("advanced")}
-              className="text-left p-4 bg-black/40 border border-gray-800 hover:border-purple-500/50 transition-colors"
+              className="text-left p-4 bg-black/40 border border-gray-800 hover:border-brand-blue/50 transition-colors"
             >
               <div className="flex items-center justify-between mb-2">
                 <span className="text-sm font-semibold text-white">
                   Avancerad analys
                 </span>
-                <span className="flex items-center gap-1 text-xs text-purple-300">
+                <span className="flex items-center gap-1 text-xs text-brand-blue/80">
                   <Diamond className="h-3.5 w-3.5" />
                   {AUDIT_COSTS.advanced}
                 </span>

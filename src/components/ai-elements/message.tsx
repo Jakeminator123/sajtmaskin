@@ -108,7 +108,7 @@ export function MessageResponse({
     <div
       className={cn(
         "rounded-2xl px-4 py-3 text-sm leading-relaxed",
-        "group-data-[role=user]:bg-purple-600 group-data-[role=user]:text-white",
+        "group-data-[role=user]:bg-brand-blue group-data-[role=user]:text-white",
         "group-data-[role=assistant]:bg-zinc-800 group-data-[role=assistant]:text-zinc-100",
         "group-data-[role=system]:bg-zinc-900 group-data-[role=system]:text-zinc-400 group-data-[role=system]:text-xs",
         className

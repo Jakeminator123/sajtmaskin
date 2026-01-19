@@ -92,21 +92,21 @@ export function TemplateGallery({ onSelect }: TemplateGalleryProps) {
             className={`
               group cursor-pointer
               bg-black/50 border-gray-800
-              hover:border-teal-500/50 hover:bg-black/70
-              focus:outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20
+              hover:border-brand-teal/50 hover:bg-black/70
+              focus:outline-none focus:border-brand-teal focus:ring-2 focus:ring-brand-teal/20
               transition-all duration-300
-              hover:scale-[1.02] hover:shadow-lg hover:shadow-teal-500/10
+              hover:scale-[1.02] hover:shadow-lg hover:shadow-brand-teal/10
               animate-fadeInUp ${staggerClass}
               [animation-fill-mode:forwards]
             `}
           >
             <CardContent className="p-8 flex flex-col items-center text-center space-y-4 relative overflow-hidden">
               {/* Subtle glow effect on hover */}
-              <div className="absolute inset-0 bg-linear-to-b from-teal-500/0 via-teal-500/0 to-teal-500/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+              <div className="absolute inset-0 bg-linear-to-b from-brand-teal/0 via-brand-teal/0 to-brand-teal/5 opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
 
               {/* Large icon with enhanced hover */}
-              <div className="relative p-5 bg-gray-900/50 group-hover:bg-teal-600/20 transition-all duration-300 border border-gray-800 group-hover:border-teal-500/30 group-hover:shadow-lg group-hover:shadow-teal-500/20">
-                <Icon className="h-10 w-10 text-gray-300 group-hover:text-teal-400 transition-all duration-300 group-hover:scale-110" />
+              <div className="relative p-5 bg-gray-900/50 group-hover:bg-brand-teal/20 transition-all duration-300 border border-gray-800 group-hover:border-brand-teal/30 group-hover:shadow-lg group-hover:shadow-brand-teal/20">
+                <Icon className="h-10 w-10 text-gray-300 group-hover:text-brand-teal transition-all duration-300 group-hover:scale-110" />
               </div>
 
               {/* Title and description */}
@@ -127,7 +127,7 @@ export function TemplateGallery({ onSelect }: TemplateGalleryProps) {
               </div>
 
               {/* "Get started" indicator on hover */}
-              <div className="flex items-center gap-1 text-teal-400 opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-2 group-hover:translate-y-0 mt-2">
+              <div className="flex items-center gap-1 text-brand-teal opacity-0 group-hover:opacity-100 transition-all duration-300 translate-y-2 group-hover:translate-y-0 mt-2">
                 <span className="text-xs font-medium">Välj</span>
                 <ArrowRight className="h-3 w-3" />
               </div>

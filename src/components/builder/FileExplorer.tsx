@@ -40,11 +40,11 @@ function FileTreeItem({
   const getFileIcon = (name: string) => {
     const ext = name.split('.').pop()?.toLowerCase();
     const iconColors: Record<string, string> = {
-      tsx: 'text-blue-500',
-      ts: 'text-blue-400',
-      jsx: 'text-yellow-500',
-      js: 'text-yellow-400',
-      css: 'text-pink-500',
+      tsx: 'text-brand-blue',
+      ts: 'text-brand-blue',
+      jsx: 'text-brand-amber',
+      js: 'text-brand-amber',
+      css: 'text-brand-warm',
       json: 'text-green-500',
       md: 'text-muted-foreground',
     };
@@ -70,9 +70,9 @@ function FileTreeItem({
               <ChevronRight className="h-3 w-3 text-muted-foreground shrink-0" />
             )}
             {isExpanded ? (
-              <FolderOpen className="h-4 w-4 text-yellow-500 shrink-0" />
+              <FolderOpen className="h-4 w-4 text-brand-amber shrink-0" />
             ) : (
-              <Folder className="h-4 w-4 text-yellow-500 shrink-0" />
+              <Folder className="h-4 w-4 text-brand-amber shrink-0" />
             )}
           </>
         ) : (

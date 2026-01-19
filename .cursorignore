@@ -22,6 +22,7 @@ package-lock.json
 public/video/
 *.mp4
 *.webm
+.cursor/plans
 
 # =============================================================================
 # MCP DOKUMENTATION - LÄSES VIA MCP-SERVER, INTE INDEXERING

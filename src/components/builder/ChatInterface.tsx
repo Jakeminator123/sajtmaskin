@@ -21,13 +21,6 @@ import {
 } from "@/components/media";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { FileText, ImageIcon, Loader2, Sparkles } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 
@@ -79,14 +72,14 @@ type PromptPreset = {
 const PROMPT_PRESETS: PromptPreset[] = [
   {
     id: "landing",
-    label: "Landing Page",
+    label: "Landningssida",
     description: "SaaS/produkt-sida med CTA och social proof",
     template:
       "Build a modern landing page for [brand]. Include hero, features, social proof, pricing, FAQ, and a strong CTA.",
   },
   {
     id: "app",
-    label: "Web App",
+    label: "Webbapp",
     description: "App-layout med navigation, tomtillstånd och settings",
     template:
       "Build a web app UI for [use case]. Include navigation, dashboard overview, tables or cards, and a settings page.",
@@ -107,7 +100,7 @@ const PROMPT_PRESETS: PromptPreset[] = [
   },
   {
     id: "copy",
-    label: "Copy/SEO",
+    label: "Copy & SEO",
     description: "Förbättra texter och SEO-struktur",
     template:
       "Improve the copywriting and SEO. Rewrite headings, add a clear CTA, and ensure semantic structure and meta content.",
@@ -164,7 +157,6 @@ export function ChatInterface({
   const [figmaUrl, setFigmaUrl] = useState("");
   const [isFigmaInputOpen, setIsFigmaInputOpen] = useState(false);
   const [isTextUploaderOpen, setIsTextUploaderOpen] = useState(false);
-  const [promptPresetId, setPromptPresetId] = useState<string>("");
   const [figmaPreviewUrl, setFigmaPreviewUrl] = useState<string | null>(null);
   const [figmaPreviewName, setFigmaPreviewName] = useState<string | null>(null);
   const [figmaPreviewError, setFigmaPreviewError] = useState<string | null>(null);
@@ -179,11 +171,6 @@ export function ChatInterface({
     setInput(value);
     setHasEnhancedDraft(false);
   };
-
-  const selectedPreset = useMemo(
-    () => PROMPT_PRESETS.find((preset) => preset.id === promptPresetId) || null,
-    [promptPresetId]
-  );
 
   const normalizedFigmaUrl = useMemo(() => normalizeDesignUrl(figmaUrl), [figmaUrl]);
 
@@ -250,11 +237,6 @@ export function ChatInterface({
       return base ? `${base}\n\n${template}` : template;
     });
     setHasEnhancedDraft(false);
-  };
-
-  const applyPromptPreset = () => {
-    if (!selectedPreset) return;
-    applyPromptTemplate(selectedPreset.template);
   };
 
   const handleEnhancePrompt = async () => {
@@ -420,32 +402,12 @@ export function ChatInterface({
         disabled={inputDisabled}
         className="rounded-lg border border-input bg-background shadow-sm"
       >
-        <PromptInputHeader className="flex flex-wrap items-center gap-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <Select value={promptPresetId} onValueChange={setPromptPresetId}>
-              <SelectTrigger className="h-8 w-[180px]" size="sm">
-                <SelectValue placeholder="Prompttyp" />
-              </SelectTrigger>
-              <SelectContent align="start">
-                {PROMPT_PRESETS.map((preset) => (
-                  <SelectItem key={preset.id} value={preset.id}>
-                    {preset.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-8"
-              onClick={applyPromptPreset}
-              disabled={!selectedPreset || inputDisabled}
-              title={selectedPreset?.description || "Välj en prompttyp"}
-            >
-              Infoga mall
-            </Button>
-          </div>
+      <PromptInputHeader className="flex flex-wrap items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs text-muted-foreground">
+            Snabbmallar: klicka för att lägga till i prompten
+          </span>
+        </div>
           <div className="ml-auto flex flex-wrap items-center gap-2">
             {promptAssistStatus && (
               <span className="text-[11px] text-muted-foreground">
@@ -475,14 +437,9 @@ export function ChatInterface({
               disabled={inputDisabled}
               title="Lägg till Figma-länk"
             >
-              Figma{figmaUrl.trim() ? " ✓" : ""}
+            Figma-länk{figmaUrl.trim() ? " ✓" : ""}
             </Button>
           </div>
-          {selectedPreset && (
-            <span className="w-full text-[11px] text-muted-foreground">
-              {selectedPreset.description}
-            </span>
-          )}
         </PromptInputHeader>
         {(isFigmaInputOpen || figmaUrl.trim()) && (
           <div className="px-3 pb-2 space-y-2">
@@ -513,6 +470,11 @@ export function ChatInterface({
             )}
             {figmaPreviewError && (
               <div className="text-xs text-red-500">{figmaPreviewError}</div>
+            )}
+            {!figmaPreviewUrl && !figmaPreviewLoading && (
+              <div className="text-[11px] text-muted-foreground">
+                Kräver FIGMA_ACCESS_TOKEN eller FIGMA_TOKEN för preview.
+              </div>
             )}
             {figmaPreviewUrl && (
               <div className="flex items-center gap-3 rounded-md border border-border bg-muted/30 p-2">

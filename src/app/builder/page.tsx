@@ -8,6 +8,7 @@ import { InitFromRepoModal } from '@/components/builder/InitFromRepoModal';
 import { DeploymentHistory } from '@/components/builder/DeploymentHistory';
 import { MessageList } from '@/components/builder/MessageList';
 import { PreviewPanel } from '@/components/builder/PreviewPanel';
+import { RecommendationsPanel } from '@/components/builder/RecommendationsPanel';
 import { SandboxModal } from '@/components/builder/SandboxModal';
 import { VersionHistory } from '@/components/builder/VersionHistory';
 import { BuilderHeader } from '@/components/builder/BuilderHeader';
@@ -23,7 +24,16 @@ import { useVersions } from '@/lib/hooks/useVersions';
 import type { PromptAssistProvider } from '@/lib/builder/promptAssist';
 import type { ModelTier } from '@/lib/validations/chatSchemas';
 import { cn } from '@/lib/utils';
-import { FolderTree, History, Loader2, Monitor, Rocket } from 'lucide-react';
+import {
+  ChevronLeft,
+  ChevronRight,
+  FolderTree,
+  History,
+  Loader2,
+  Monitor,
+  Rocket,
+  Sparkles,
+} from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import toast, { Toaster } from 'react-hot-toast';
@@ -44,6 +54,7 @@ function BuilderContent() {
   const [currentDemoUrl, setCurrentDemoUrl] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [rightPanelTab, setRightPanelTab] = useState<RightPanelTab>('preview');
+  const [isRightPanelCollapsed, setIsRightPanelCollapsed] = useState(true);
   const [files, setFiles] = useState<FileNode[]>([]);
   const [selectedFile, setSelectedFile] = useState<FileNode | null>(null);
   const [isFilesLoading, setIsFilesLoading] = useState(false);
@@ -147,6 +158,11 @@ function BuilderContent() {
       setCurrentDemoUrl(chat.demoUrl);
     }
   }, [chat, currentDemoUrl]);
+
+  const chatWebUrl = useMemo(() => {
+    if (!chat || typeof chat !== 'object') return null;
+    return (chat as { webUrl?: string | null }).webUrl ?? null;
+  }, [chat]);
 
   const activeVersionId = useMemo(() => {
     const latestFromVersions = versions?.[0]?.versionId || versions?.[0]?.id || null;
@@ -372,6 +388,7 @@ function BuilderContent() {
     { id: 'preview' as const, label: 'Preview', icon: Monitor },
     { id: 'versions' as const, label: 'Versions', icon: History },
     { id: 'files' as const, label: 'Files', icon: FolderTree },
+    { id: 'recommendations' as const, label: 'Tips', icon: Sparkles },
     { id: 'deployments' as const, label: 'Deployments', icon: Rocket },
   ];
 
@@ -379,6 +396,16 @@ function BuilderContent() {
     setCurrentDemoUrl(null);
     setSelectedVersionId(null);
   }, []);
+
+  const handleRightPanelTabChange = useCallback(
+    (tabId: RightPanelTab) => {
+      setRightPanelTab(tabId);
+      if (isRightPanelCollapsed) {
+        setIsRightPanelCollapsed(false);
+      }
+    },
+    [isRightPanelCollapsed]
+  );
 
   const initialPrompt = templateId ? null : resolvedPrompt?.trim() || null;
   const autoCreateRef = useRef(false);
@@ -496,55 +523,104 @@ function BuilderContent() {
 
           <div
             className={cn(
-              'flex w-full flex-col border-l border-border bg-background lg:w-80',
+              'flex w-full flex-col border-l border-border bg-background transition-[width] duration-200',
               isMobileMenuOpen ? '' : 'hidden',
+              isRightPanelCollapsed ? 'lg:w-12' : 'lg:w-72',
               'lg:flex'
             )}
           >
-            <div className="flex border-b border-border">
-              {tabs.map((tab) => (
+            {isRightPanelCollapsed ? (
+              <div className="flex h-full flex-col items-center gap-2 py-2">
                 <Button
-                  key={tab.id}
                   variant="ghost"
-                  onClick={() => setRightPanelTab(tab.id)}
-                  className={cn(
-                    'flex-1 rounded-none border-b-2 border-transparent h-12',
-                    rightPanelTab === tab.id
-                      ? 'border-b-primary text-primary'
-                      : 'text-muted-foreground hover:text-foreground'
-                  )}
+                  size="icon-sm"
+                  onClick={() => setIsRightPanelCollapsed(false)}
+                  title="Öppna sidopanel"
                 >
-                  <tab.icon className="h-4 w-4 mr-2" />
-                  {tab.label}
+                  <ChevronLeft className="h-4 w-4" />
                 </Button>
-              ))}
-            </div>
+                {tabs.map((tab) => (
+                  <Button
+                    key={tab.id}
+                    variant="ghost"
+                    size="icon-sm"
+                    onClick={() => handleRightPanelTabChange(tab.id)}
+                    title={tab.label}
+                    className={cn(
+                      rightPanelTab === tab.id
+                        ? 'bg-accent text-foreground'
+                        : 'text-muted-foreground hover:text-foreground'
+                    )}
+                  >
+                    <tab.icon className="h-4 w-4" />
+                    <span className="sr-only">{tab.label}</span>
+                  </Button>
+                ))}
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center border-b border-border">
+                  <div className="flex flex-1">
+                    {tabs.map((tab) => (
+                      <Button
+                        key={tab.id}
+                        variant="ghost"
+                        onClick={() => handleRightPanelTabChange(tab.id)}
+                        className={cn(
+                          'flex-1 rounded-none border-b-2 border-transparent h-12',
+                          rightPanelTab === tab.id
+                            ? 'border-b-primary text-primary'
+                            : 'text-muted-foreground hover:text-foreground'
+                        )}
+                      >
+                        <tab.icon className="h-4 w-4 mr-2" />
+                        {tab.label}
+                      </Button>
+                    ))}
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    onClick={() => setIsRightPanelCollapsed(true)}
+                    title="Dölj sidopanel"
+                    className="mr-1"
+                  >
+                    <ChevronRight className="h-4 w-4" />
+                  </Button>
+                </div>
 
-            <div className="flex-1 overflow-hidden">
-              {rightPanelTab === 'versions' ? (
-                <VersionHistory
-                  chatId={chatId}
-                  selectedVersionId={selectedVersionId}
-                  onVersionSelect={handleVersionSelect}
-                />
-              ) : rightPanelTab === 'files' ? (
-                <FileExplorer
-                  files={files}
-                  onFileSelect={handleFileSelect}
-                  selectedPath={selectedFile?.path || null}
-                  isLoading={isFilesLoading}
-                  error={filesError}
-                />
-              ) : rightPanelTab === 'deployments' ? (
-                <DeploymentHistory chatId={chatId} />
-              ) : (
-                <PreviewPanel
-                  demoUrl={currentDemoUrl}
-                  isLoading={isAnyStreaming || isCreatingChat}
-                  onClear={handleClearPreview}
-                />
-              )}
-            </div>
+                <div className="flex-1 overflow-hidden">
+                  {rightPanelTab === 'versions' ? (
+                    <VersionHistory
+                      chatId={chatId}
+                      selectedVersionId={selectedVersionId}
+                      onVersionSelect={handleVersionSelect}
+                    />
+                  ) : rightPanelTab === 'files' ? (
+                    <FileExplorer
+                      files={files}
+                      onFileSelect={handleFileSelect}
+                      selectedPath={selectedFile?.path || null}
+                      isLoading={isFilesLoading}
+                      error={filesError}
+                    />
+                  ) : rightPanelTab === 'deployments' ? (
+                    <DeploymentHistory chatId={chatId} />
+                  ) : rightPanelTab === 'recommendations' ? (
+                    <RecommendationsPanel
+                      url={currentDemoUrl}
+                      fallbackUrl={chatWebUrl}
+                    />
+                  ) : (
+                    <PreviewPanel
+                      demoUrl={currentDemoUrl}
+                      isLoading={isAnyStreaming || isCreatingChat}
+                      onClear={handleClearPreview}
+                    />
+                  )}
+                </div>
+              </>
+            )}
           </div>
         </div>
 

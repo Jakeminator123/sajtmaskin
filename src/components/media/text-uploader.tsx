@@ -316,7 +316,7 @@ export function TextUploader({
           {/* Header */}
           <div className="flex items-center justify-between p-4 border-b border-gray-800">
             <div className="flex items-center gap-2">
-              <FileText className="h-5 w-5 text-amber-400" />
+              <FileText className="h-5 w-5 text-brand-amber" />
               <h2 className="text-lg font-semibold text-white">
                 Lägg till text
               </h2>
@@ -341,7 +341,7 @@ export function TextUploader({
                 className={cn(
                   "border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors",
                   isDragging
-                    ? "border-amber-500 bg-amber-500/10"
+                    ? "border-brand-amber bg-brand-amber/10"
                     : "border-gray-700 hover:border-gray-600 hover:bg-gray-900/50",
                   disabled && "opacity-50 cursor-not-allowed"
                 )}
@@ -367,7 +367,7 @@ export function TextUploader({
             {/* Processing */}
             {isProcessing && (
               <div className="flex flex-col items-center py-8">
-                <Loader2 className="h-8 w-8 animate-spin text-amber-400 mb-3" />
+                <Loader2 className="h-8 w-8 animate-spin text-brand-amber mb-3" />
                 <p className="text-sm text-gray-300">Läser filen...</p>
               </div>
             )}
@@ -393,9 +393,9 @@ export function TextUploader({
 
                 {/* Smart content hint */}
                 {contentHint && (
-                  <div className="flex items-center gap-2 px-3 py-2 bg-teal-500/10 border border-teal-500/30 rounded-lg">
-                    <Sparkles className="h-4 w-4 text-teal-400 shrink-0" />
-                    <span className="text-xs text-teal-300">
+                  <div className="flex items-center gap-2 px-3 py-2 bg-brand-teal/10 border border-brand-teal/30 rounded-lg">
+                    <Sparkles className="h-4 w-4 text-brand-teal shrink-0" />
+                    <span className="text-xs text-brand-teal/80">
                       {contentHint.hint}
                     </span>
                   </div>
@@ -407,7 +407,7 @@ export function TextUploader({
                     type="checkbox"
                     checked={saveToLibrary}
                     onChange={(e) => setSaveToLibrary(e.target.checked)}
-                    className="w-4 h-4 rounded border-gray-600 bg-gray-800 text-teal-500 focus:ring-teal-500 focus:ring-offset-0"
+                    className="w-4 h-4 rounded border-gray-600 bg-gray-800 text-brand-teal focus:ring-brand-teal focus:ring-offset-0"
                   />
                   <Save className="h-3.5 w-3.5 text-gray-500 group-hover:text-gray-400" />
                   <span className="text-xs text-gray-400 group-hover:text-gray-300">
@@ -420,7 +420,7 @@ export function TextUploader({
                   onClick={handleSendToChat}
                   disabled={isSaving || disabled}
                   className={cn(
-                    "w-full px-4 py-3 bg-teal-600 hover:bg-teal-500 text-white rounded-lg transition-colors font-medium flex items-center justify-center gap-2",
+                    "w-full px-4 py-3 bg-brand-teal hover:bg-brand-teal/90 text-white rounded-lg transition-colors font-medium flex items-center justify-center gap-2",
                     (isSaving || disabled) && "opacity-70 cursor-not-allowed"
                   )}
                 >

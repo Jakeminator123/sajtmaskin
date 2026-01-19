@@ -101,9 +101,9 @@ export default function ProjectsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-black">
+    <div className="min-h-screen bg-background">
       {/* Shader Background - subtle for projects page */}
-      <ShaderBackground color="#101828" speed={0.2} opacity={0.3} />
+      <ShaderBackground theme="default" speed={0.2} opacity={0.3} />
 
       <Navbar
         onLoginClick={() => setShowAuthModal(true)}
@@ -130,7 +130,7 @@ export default function ProjectsPage() {
             </p>
           </div>
           <Link href="/">
-            <Button className="gap-2 bg-teal-600 hover:bg-teal-500">
+            <Button className="gap-2 bg-brand-teal hover:bg-brand-teal/90">
               <Plus className="h-4 w-4" />
               Nytt projekt
             </Button>
@@ -140,7 +140,7 @@ export default function ProjectsPage() {
         {/* Loading state */}
         {loading && (
           <div className="flex items-center justify-center py-20">
-            <div className="animate-spin h-8 w-8 border-b-2 border-teal-500" />
+            <div className="animate-spin h-8 w-8 border-b-2 border-brand-teal" />
           </div>
         )}
 
@@ -162,7 +162,7 @@ export default function ProjectsPage() {
               Skapa ditt första projekt för att komma igång!
             </p>
             <Link href="/">
-              <Button className="gap-2 bg-teal-600 hover:bg-teal-500">
+              <Button className="gap-2 bg-brand-teal hover:bg-brand-teal/90">
                 <Plus className="h-4 w-4" />
                 Skapa projekt
               </Button>
@@ -210,7 +210,7 @@ export default function ProjectsPage() {
                       <Link href={`/builder?project=${project.id}`}>
                         <Button
                           size="sm"
-                          className="gap-2 bg-teal-600 hover:bg-teal-500"
+                          className="gap-2 bg-brand-teal hover:bg-brand-teal/90"
                         >
                           <ExternalLink className="h-4 w-4" />
                           Öppna

@@ -284,12 +284,12 @@ export default function InspectorPage() {
             onChange={(e) => setUrl(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && loadFromInternet()}
             placeholder="https://..."
-            className="flex-1 px-4 py-2.5 rounded-xl bg-zinc-800 border border-zinc-700 text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-violet-500/50"
+            className="flex-1 px-4 py-2.5 rounded-xl bg-zinc-800 border border-zinc-700 text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-brand-blue/50"
           />
           <button
             onClick={loadFromInternet}
             disabled={loading}
-            className="px-4 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-500 text-white font-medium transition-colors disabled:opacity-50"
+            className="px-4 py-2.5 rounded-xl bg-brand-blue hover:bg-brand-blue/90 text-white font-medium transition-colors disabled:opacity-50"
           >
             {loading ? "Loading..." : "Load URL"}
           </button>
@@ -328,7 +328,7 @@ export default function InspectorPage() {
             onClick={() => setFreeze((v) => !v)}
             className={`flex-1 px-4 py-2.5 rounded-xl font-medium transition-colors ${
               freeze
-                ? "bg-amber-500/20 text-amber-400 border border-amber-500/30"
+                ? "bg-brand-amber/20 text-brand-amber border border-brand-amber/30"
                 : "bg-zinc-800 text-zinc-300 border border-zinc-700 hover:bg-zinc-700"
             }`}
           >
@@ -348,7 +348,7 @@ export default function InspectorPage() {
         {/* Hovered element info */}
         <div className="mb-5">
           <div className="text-sm font-medium text-zinc-400 mb-2 flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-violet-500"></span>
+            <span className="w-2 h-2 rounded-full bg-brand-blue"></span>
             Hovered Element
           </div>
           <pre className="p-3 rounded-xl bg-zinc-800/50 border border-zinc-700/50 text-xs text-zinc-300 overflow-x-auto whitespace-pre-wrap">
@@ -377,7 +377,7 @@ export default function InspectorPage() {
           <ul className="text-xs text-zinc-500 space-y-1.5">
             <li>
               • Hover to highlight elements in{" "}
-              <span className="text-violet-400">purple</span>
+              <span className="text-brand-blue">blue</span>
             </li>
             <li>
               • Click to select (locks in{" "}

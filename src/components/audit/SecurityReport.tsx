@@ -21,7 +21,7 @@ export default function SecurityReport({
       return "text-green-400";
     }
     if (lower.includes("varning") || lower.includes("delvis")) {
-      return "text-yellow-400";
+      return "text-brand-amber";
     }
     return "text-red-400";
   };
@@ -49,7 +49,7 @@ export default function SecurityReport({
       className="bg-black/50 border border-gray-800 p-6"
     >
       <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
-        <span className="text-teal-400">🔒</span> Säkerhetsanalys
+        <span className="text-brand-teal">🔒</span> Säkerhetsanalys
       </h2>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

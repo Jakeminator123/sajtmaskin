@@ -724,7 +724,7 @@ export function AuditPdfReport({ result, onClose }: AuditPdfReportProps) {
           </button>
           <button
             onClick={handlePrint}
-            className="flex-1 py-3 px-4 bg-teal-600 hover:bg-teal-500 text-white font-medium transition-colors"
+            className="flex-1 py-3 px-4 bg-brand-teal hover:bg-brand-teal/90 text-white font-medium transition-colors"
           >
             Öppna rapport
           </button>

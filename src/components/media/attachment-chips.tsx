@@ -60,7 +60,7 @@ export function AttachmentChips({
       case "uploading":
         return <Loader2 className="h-3 w-3 animate-spin text-gray-400" />;
       case "success":
-        return <CheckCircle className="h-3 w-3 text-teal-400" />;
+        return <CheckCircle className="h-3 w-3 text-brand-teal" />;
       case "error":
         return <AlertCircle className="h-3 w-3 text-red-400" />;
     }
@@ -78,10 +78,10 @@ export function AttachmentChips({
             className={cn(
               "group relative flex items-center gap-1.5 px-2 py-1 rounded-md text-xs transition-colors",
               file.status === "success" &&
-                "bg-gray-800/80 text-gray-300 hover:bg-gray-700",
+              "bg-gray-800/80 text-gray-300 hover:bg-gray-700",
               file.status === "uploading" && "bg-gray-800/60 text-gray-400",
               file.status === "error" &&
-                "bg-red-500/10 text-red-400 border border-red-500/30"
+              "bg-red-500/10 text-red-400 border border-red-500/30"
             )}
           >
             {/* Thumbnail or icon */}

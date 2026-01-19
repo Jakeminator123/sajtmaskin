@@ -3,27 +3,31 @@
 
 @layer base {
   :root {
-    /* All-black Nano Banana theme */
-    --background: 0 0% 0%;
-    --foreground: 0 0% 100%;
-    --card: 0 0% 0%;
-    --card-foreground: 0 0% 100%;
-    --popover: 0 0% 0%;
-    --popover-foreground: 0 0% 100%;
-    --primary: 0 0% 100%;
-    --primary-foreground: 0 0% 0%;
-    --secondary: 0 0% 7%;
-    --secondary-foreground: 0 0% 100%;
-    --muted: 0 0% 4%;
-    --muted-foreground: 0 0% 60%;
-    --accent: 0 0% 10%;
-    --accent-foreground: 0 0% 100%;
-    --destructive: 0 0% 100%;
-    --destructive-foreground: 0 0% 0%;
-    --border: 0 0% 20%;
-    --input: 0 0% 0%;
-    --ring: 0 0% 100%;
+    /* Sajtstudio noir + neon theme */
+    --background: 212.7 84.6% 2.5%;
+    --foreground: 216 16.1% 93.9%;
+    --card: 206.7 20.9% 8.4%;
+    --card-foreground: 216 16.1% 93.9%;
+    --popover: 208.2 28.8% 11.6%;
+    --popover-foreground: 216 16.1% 93.9%;
+    --primary: 12 84.2% 62.7%;
+    --primary-foreground: 212.7 84.6% 2.5%;
+    --secondary: 204.4 88.9% 7.1%;
+    --secondary-foreground: 216 16.1% 93.9%;
+    --muted: 205.7 91.3% 4.5%;
+    --muted-foreground: 210 8.9% 69%;
+    --accent: 168 38.8% 59.6%;
+    --accent-foreground: 212.7 84.6% 2.5%;
+    --destructive: 13.3 82.8% 65.9%;
+    --destructive-foreground: 212.7 84.6% 2.5%;
+    --border: 216 6.2% 15.9%;
+    --input: 216 6.2% 15.9%;
+    --ring: 168 38.8% 59.6%;
     --radius: 0rem;
+    --brand-blue: 219.5 100% 65.5%;
+    --brand-amber: 22.5 81% 69%;
+    --brand-warm: 12 84.2% 62.7%;
+    --brand-teal: 168 38.8% 59.6%;
 
     /* Font variables are set by next/font in layout.tsx via className.
        Tailwind's fontFamily.mono and fontFamily.sans reference these in tailwind.config.ts */
@@ -37,12 +41,12 @@
 
   html {
     color-scheme: dark;
-    background-color: #000000 !important;
+    background-color: hsl(var(--background)) !important;
   }
 
   body {
     @apply bg-background text-foreground antialiased font-mono;
-    background-color: #000000 !important;
+    background-color: hsl(var(--background)) !important;
   }
 
   /* Sharp corners via --radius: 0rem variable above.
@@ -81,7 +85,7 @@
 @layer utilities {
   .scrollbar-thin {
     scrollbar-width: thin;
-    scrollbar-color: hsl(0 0% 25%) transparent;
+    scrollbar-color: hsl(var(--border)) transparent;
   }
 
   .scrollbar-thin::-webkit-scrollbar {
@@ -94,12 +98,12 @@
   }
 
   .scrollbar-thin::-webkit-scrollbar-thumb {
-    background-color: hsl(0 0% 25%);
+    background-color: hsl(var(--border));
     border-radius: 0;
   }
 
   .scrollbar-thin::-webkit-scrollbar-thumb:hover {
-    background-color: hsl(0 0% 35%);
+    background-color: hsl(var(--accent));
   }
 
   /* Gradient animation for text */
@@ -225,10 +229,10 @@
   /* --- Glow Effects --- */
   @keyframes glow {
     0%, 100% {
-      box-shadow: 0 0 5px rgba(20, 184, 166, 0.3);
+      box-shadow: 0 0 5px rgba(112, 192, 176, 0.3);
     }
     50% {
-      box-shadow: 0 0 20px rgba(20, 184, 166, 0.6), 0 0 30px rgba(20, 184, 166, 0.3);
+      box-shadow: 0 0 20px rgba(112, 192, 176, 0.6), 0 0 30px rgba(112, 192, 176, 0.3);
     }
   }
 
@@ -307,19 +311,19 @@
 
   .hover-lift:hover {
     transform: translateY(-4px);
-    box-shadow: 0 10px 40px -10px rgba(20, 184, 166, 0.3);
+    box-shadow: 0 10px 40px -10px rgba(112, 192, 176, 0.3);
   }
 
   /* --- Focus Ring Animation --- */
   @keyframes focusRing {
     0% {
-      box-shadow: 0 0 0 0 rgba(20, 184, 166, 0.4);
+      box-shadow: 0 0 0 0 rgba(112, 192, 176, 0.4);
     }
     70% {
-      box-shadow: 0 0 0 6px rgba(20, 184, 166, 0);
+      box-shadow: 0 0 0 6px rgba(112, 192, 176, 0);
     }
     100% {
-      box-shadow: 0 0 0 0 rgba(20, 184, 166, 0);
+      box-shadow: 0 0 0 0 rgba(112, 192, 176, 0);
     }
   }
 

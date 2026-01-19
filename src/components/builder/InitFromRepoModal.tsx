@@ -170,7 +170,7 @@ export function InitFromRepoModal({ isOpen, onClose, onSuccess }: InitFromRepoMo
                 placeholder="https://github.com/username/repo"
                 value={githubUrl}
                 onChange={(e) => setGithubUrl(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-blue focus:outline-none focus:ring-1 focus:ring-brand-blue/50"
               />
               <p className="mt-2 text-xs text-gray-500">
                 Public repos work best. For private repos, download a ZIP and use the ZIP tab.
@@ -187,7 +187,7 @@ export function InitFromRepoModal({ isOpen, onClose, onSuccess }: InitFromRepoMo
                 placeholder="main"
                 value={branch}
                 onChange={(e) => setBranch(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-blue focus:outline-none focus:ring-1 focus:ring-brand-blue/50"
               />
             </div>
           </div>
@@ -230,12 +230,12 @@ export function InitFromRepoModal({ isOpen, onClose, onSuccess }: InitFromRepoMo
             value={message}
             onChange={(e) => setMessage(e.target.value)}
             rows={2}
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 resize-none"
+            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-blue focus:outline-none focus:ring-1 focus:ring-brand-blue/50 resize-none"
           />
         </div>
 
-        <div className="flex items-center gap-3 mb-6 p-3 rounded-lg bg-amber-50 border border-amber-200">
-          <Lock className="h-5 w-5 text-amber-600 shrink-0" />
+        <div className="flex items-center gap-3 mb-6 p-3 rounded-lg bg-brand-amber/10 border border-brand-amber/30">
+          <Lock className="h-5 w-5 text-brand-amber shrink-0" />
           <div className="flex-1">
             <label className="flex items-center gap-2 cursor-pointer">
               <input
@@ -244,11 +244,11 @@ export function InitFromRepoModal({ isOpen, onClose, onSuccess }: InitFromRepoMo
                 type="checkbox"
                 checked={lockConfigFiles}
                 onChange={(e) => setLockConfigFiles(e.target.checked)}
-                className="rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                className="rounded border-gray-300 text-brand-blue focus:ring-brand-blue/50"
               />
-              <span className="text-sm font-medium text-amber-800">Lock config files</span>
+              <span className="text-sm font-medium text-brand-amber">Lock config files</span>
             </label>
-            <p className="text-xs text-amber-700 mt-1">
+            <p className="text-xs text-brand-amber/80 mt-1">
               Prevent AI from modifying package.json, config files, and dependencies
             </p>
           </div>

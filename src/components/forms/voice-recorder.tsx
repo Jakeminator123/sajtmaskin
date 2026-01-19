@@ -3,6 +3,7 @@
 import { useState, useRef, useCallback } from "react";
 import { Mic, MicOff, Loader2, Square, Volume2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import styles from "./voice-recorder.module.css";
 
 interface VoiceRecorderProps {
   onTranscript: (transcript: string) => void;
@@ -24,6 +25,28 @@ export function VoiceRecorder({
   const [recordingTime, setRecordingTime] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [audioLevel, setAudioLevel] = useState(0);
+  const audioLevelStep = Math.max(0, Math.min(10, Math.round(audioLevel * 10)));
+  const levelClasses = [
+    styles.level0,
+    styles.level1,
+    styles.level2,
+    styles.level3,
+    styles.level4,
+    styles.level5,
+    styles.level6,
+    styles.level7,
+    styles.level8,
+    styles.level9,
+    styles.level10,
+  ];
+  const barIndexClasses = [
+    styles.barIndex1,
+    styles.barIndex2,
+    styles.barIndex3,
+    styles.barIndex4,
+    styles.barIndex5,
+  ];
+  const levelClass = levelClasses[audioLevelStep];
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
@@ -195,7 +218,7 @@ export function VoiceRecorder({
           className={`relative gap-2 min-w-[180px] transition-all ${
             isRecording
               ? "bg-red-600 hover:bg-red-700 border-red-600"
-              : "border-teal-500/50 text-teal-400 hover:bg-teal-500/10 hover:text-teal-300"
+              : "border-brand-teal/50 text-brand-teal hover:bg-brand-teal/10 hover:text-brand-teal/80"
           }`}
         >
           {isTranscribing ? (
@@ -218,8 +241,7 @@ export function VoiceRecorder({
           {/* Audio level indicator */}
           {isRecording && (
             <div
-              className="absolute inset-0 rounded-md bg-red-400/20 transition-transform origin-left"
-              style={{ transform: `scaleX(${audioLevel})` }}
+              className={`absolute inset-0 rounded-md bg-red-400/20 transition-transform origin-left ${styles.audioLevelIndicator} ${levelClass}`}
             />
           )}
         </Button>
@@ -230,13 +252,9 @@ export function VoiceRecorder({
             {[...Array(5)].map((_, i) => (
               <div
                 key={i}
-                className="w-1 bg-red-500 rounded-full transition-all"
-                style={{
-                  height: `${
-                    8 + Math.min(audioLevel * 100, 100) * ((i + 1) / 5) * 0.2
-                  }px`,
-                  opacity: audioLevel > i * 0.2 ? 1 : 0.3,
-                }}
+                className={`w-1 bg-red-500 rounded-full transition-all ${styles.audioBar} ${barIndexClasses[i]} ${levelClass} ${
+                  audioLevel > i * 0.2 ? styles.barActive : styles.barInactive
+                }`}
               />
             ))}
           </div>

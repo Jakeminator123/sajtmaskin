@@ -25,6 +25,23 @@ export default function BudgetEstimate({ budget }: BudgetEstimateProps) {
     }).format(amount);
   };
 
+  const rangeColorClasses: Record<
+    string,
+    { text: string; gradient: string }
+  > = {
+    teal: { text: "text-brand-teal", gradient: "from-brand-teal/50 to-brand-teal" },
+    amber: {
+      text: "text-brand-amber",
+      gradient: "from-brand-amber/50 to-brand-amber",
+    },
+    blue: { text: "text-brand-blue", gradient: "from-brand-blue/50 to-brand-blue" },
+    purple: {
+      text: "text-brand-blue",
+      gradient: "from-brand-blue/50 to-brand-blue",
+    },
+    warm: { text: "text-brand-warm", gradient: "from-brand-warm/50 to-brand-warm" },
+  };
+
   const ranges = [
     {
       label: "Snabba åtgärder",
@@ -65,7 +82,7 @@ export default function BudgetEstimate({ budget }: BudgetEstimateProps) {
       className="bg-black/50 border border-gray-800 p-6"
     >
       <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
-        <span className="text-teal-400">💰</span> Budgetuppskattning
+        <span className="text-brand-teal">💰</span> Budgetuppskattning
       </h2>
 
       <div className="space-y-4">
@@ -83,7 +100,12 @@ export default function BudgetEstimate({ budget }: BudgetEstimateProps) {
                 <p className="text-xs text-gray-500">{range.description}</p>
               </div>
               <div className="text-right">
-                <p className={`text-lg font-bold text-${range.color}-400`}>
+                <p
+                  className={`text-lg font-bold ${
+                    rangeColorClasses[range.color]?.text ||
+                    rangeColorClasses.teal.text
+                  }`}
+                >
                   {range.data?.low ? formatCurrency(range.data.low) : "–"}
                   {range.data?.high && range.data.low !== range.data.high && (
                     <span className="text-gray-400">
@@ -103,7 +125,10 @@ export default function BudgetEstimate({ budget }: BudgetEstimateProps) {
                     initial={{ width: 0 }}
                     animate={{ width: "100%" }}
                     transition={{ duration: 1, delay: 0.5 + index * 0.1 }}
-                    className={`h-full bg-gradient-to-r from-${range.color}-500/50 to-${range.color}-400`}
+                    className={`h-full bg-gradient-to-r ${
+                      rangeColorClasses[range.color]?.gradient ||
+                      rangeColorClasses.teal.gradient
+                    }`}
                   />
                 </div>
               </div>
@@ -113,11 +138,11 @@ export default function BudgetEstimate({ budget }: BudgetEstimateProps) {
       </div>
 
       {paymentStructure && (
-        <div className="mt-4 p-3 bg-teal-500/10 border border-teal-500/30 text-sm">
-          <p className="text-teal-400 whitespace-pre-wrap wrap-break-word">
+        <div className="mt-4 p-3 bg-brand-teal/10 border border-brand-teal/30 text-sm">
+          <p className="text-brand-teal whitespace-pre-wrap wrap-break-word">
             💡{" "}
             <span className="font-medium">Rekommenderad betalningsplan:</span>{" "}
-            <span className="text-teal-300">{paymentStructure}</span>
+            <span className="text-brand-teal/80">{paymentStructure}</span>
           </p>
         </div>
       )}

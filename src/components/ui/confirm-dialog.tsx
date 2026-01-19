@@ -77,12 +77,12 @@ export function ConfirmDialog({
       button: "bg-red-600 hover:bg-red-500",
     },
     warning: {
-      icon: "text-amber-400",
-      button: "bg-amber-600 hover:bg-amber-500",
+      icon: "text-brand-amber",
+      button: "bg-brand-amber hover:bg-brand-amber/90",
     },
     default: {
-      icon: "text-teal-400",
-      button: "bg-teal-600 hover:bg-teal-500",
+      icon: "text-brand-teal",
+      button: "bg-brand-teal hover:bg-brand-teal/90",
     },
   };
 

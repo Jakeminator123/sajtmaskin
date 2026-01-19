@@ -23,14 +23,14 @@ const MODEL_TIERS = {
   premium: {
     name: "🏆 Premium",
     desc: "Bäst kvalitet, kan ta längre tid",
-    color: "from-amber-500/20 to-orange-500/20",
-    border: "border-amber-500/30",
+    color: "from-brand-amber/20 to-brand-warm/20",
+    border: "border-brand-amber/30",
   },
   fast: {
     name: "⚡ Snabb",
     desc: "Snabba svar, bra för iteration",
-    color: "from-cyan-500/20 to-blue-500/20",
-    border: "border-cyan-500/30",
+    color: "from-brand-blue/20 to-brand-teal/20",
+    border: "border-brand-blue/30",
   },
 } as const;
 
@@ -277,8 +277,8 @@ export function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
         {/* Header */}
         <div className="p-6 pb-4 border-b border-gray-800">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-violet-500/20">
-              <Settings className="h-5 w-5 text-violet-400" />
+            <div className="p-2 rounded-lg bg-brand-blue/20">
+              <Settings className="h-5 w-5 text-brand-blue" />
             </div>
             <div>
               <h2 className="text-xl font-bold text-white">Inställningar</h2>
@@ -299,7 +299,7 @@ export function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
-                  <Zap className="h-5 w-5 text-amber-400" />
+                  <Zap className="h-5 w-5 text-brand-amber" />
                   <div>
                     <h3 className="text-sm font-medium text-gray-200">
                       Vercel AI Gateway
@@ -314,7 +314,7 @@ export function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
                   onClick={() => setUseAiGateway(!useAiGateway)}
                   className={`
                     relative w-12 h-6 rounded-full transition-all duration-200
-                    ${useAiGateway ? "bg-amber-500" : "bg-gray-700"}
+                    ${useAiGateway ? "bg-brand-amber" : "bg-gray-700"}
                   `}
                 >
                   <span
@@ -328,8 +328,8 @@ export function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
               </div>
 
               {useAiGateway && (
-                <div className="ml-8 p-3 bg-amber-500/10 border border-amber-500/20 rounded-lg">
-                  <p className="text-xs text-amber-300/80">
+                <div className="ml-8 p-3 bg-brand-amber/10 border border-brand-amber/20 rounded-lg">
+                  <p className="text-xs text-brand-amber/80">
                     AI Gateway ger tillgång till OpenAI, Anthropic, Groq m.fl.
                     via ett enda API. Du behöver en AI_GATEWAY_API_KEY från
                     Vercels dashboard.
@@ -342,7 +342,7 @@ export function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
             {useAiGateway && (
               <div className="space-y-3">
                 <div className="flex items-center gap-3">
-                  <Sparkles className="h-5 w-5 text-teal-400" />
+                  <Sparkles className="h-5 w-5 text-brand-teal" />
                   <div>
                     <h3 className="text-sm font-medium text-gray-200">
                       Föredragen AI-modell
@@ -356,19 +356,17 @@ export function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
                 {/* Model Selector Button */}
                 <button
                   onClick={() => setShowModelPicker(!showModelPicker)}
-                  className={`w-full p-3 bg-gray-900 border rounded-lg flex items-center justify-between hover:border-gray-600 transition-colors ${
-                    currentModelInfo.tier === "premium"
-                      ? "border-amber-500/30"
-                      : "border-cyan-500/30"
-                  }`}
+                  className={`w-full p-3 bg-gray-900 border rounded-lg flex items-center justify-between hover:border-gray-600 transition-colors ${currentModelInfo.tier === "premium"
+                      ? "border-brand-amber/30"
+                      : "border-brand-blue/30"
+                    }`}
                 >
                   <div className="flex items-center gap-3">
                     <div
-                      className={`w-9 h-9 rounded-lg flex items-center justify-center text-sm font-medium ${
-                        currentModelInfo.tier === "premium"
-                          ? "bg-gradient-to-br from-amber-500/20 to-orange-500/20 text-amber-400"
-                          : "bg-gradient-to-br from-cyan-500/20 to-blue-500/20 text-cyan-400"
-                      }`}
+                      className={`w-9 h-9 rounded-lg flex items-center justify-center text-sm font-medium ${currentModelInfo.tier === "premium"
+                          ? "bg-gradient-to-br from-brand-amber/20 to-brand-warm/20 text-brand-amber"
+                          : "bg-gradient-to-br from-brand-blue/20 to-brand-teal/20 text-brand-blue"
+                        }`}
                     >
                       {currentModelInfo.provider.charAt(0)}
                     </div>
@@ -379,11 +377,10 @@ export function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
                         </p>
                         {currentModelInfo.badge && (
                           <span
-                            className={`px-1.5 py-0.5 text-[10px] rounded ${
-                              currentModelInfo.tier === "premium"
-                                ? "bg-amber-500/20 text-amber-300"
-                                : "bg-cyan-500/20 text-cyan-300"
-                            }`}
+                            className={`px-1.5 py-0.5 text-[10px] rounded ${currentModelInfo.tier === "premium"
+                                ? "bg-brand-amber/20 text-brand-amber/80"
+                                : "bg-brand-blue/20 text-brand-blue/80"
+                              }`}
                           >
                             {currentModelInfo.badge}
                           </span>
@@ -395,9 +392,8 @@ export function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
                     </div>
                   </div>
                   <ChevronDown
-                    className={`h-4 w-4 text-gray-500 transition-transform ${
-                      showModelPicker ? "rotate-180" : ""
-                    }`}
+                    className={`h-4 w-4 text-gray-500 transition-transform ${showModelPicker ? "rotate-180" : ""
+                      }`}
                   />
                 </button>
 
@@ -409,10 +405,10 @@ export function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
                       <div
                         className={`px-3 py-2 bg-gradient-to-r ${MODEL_TIERS.premium.color}`}
                       >
-                        <p className="text-xs font-medium text-amber-300">
+                        <p className="text-xs font-medium text-brand-amber/80">
                           {MODEL_TIERS.premium.name}
                         </p>
-                        <p className="text-[10px] text-amber-300/60">
+                        <p className="text-[10px] text-brand-amber/60">
                           {MODEL_TIERS.premium.desc}
                         </p>
                       </div>
@@ -423,13 +419,12 @@ export function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
                             setSelectedModel(model.id);
                             setShowModelPicker(false);
                           }}
-                          className={`w-full p-3 flex items-center gap-3 hover:bg-amber-500/10 transition-colors ${
-                            selectedModel === model.id
-                              ? "bg-amber-500/20 border-l-2 border-amber-500"
+                          className={`w-full p-3 flex items-center gap-3 hover:bg-brand-amber/10 transition-colors ${selectedModel === model.id
+                              ? "bg-brand-amber/20 border-l-2 border-brand-amber"
                               : ""
-                          }`}
+                            }`}
                         >
-                          <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-amber-500/20 to-orange-500/20 flex items-center justify-center text-sm font-medium text-amber-400">
+                          <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-brand-amber/20 to-brand-warm/20 flex items-center justify-center text-sm font-medium text-brand-amber">
                             {model.provider.charAt(0)}
                           </div>
                           <div className="flex-1 text-left">
@@ -438,7 +433,7 @@ export function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
                                 {model.name}
                               </p>
                               {model.badge && (
-                                <span className="px-1.5 py-0.5 bg-amber-500/20 text-[10px] text-amber-300 rounded">
+                                <span className="px-1.5 py-0.5 bg-brand-amber/20 text-[10px] text-brand-amber/80 rounded">
                                   {model.badge}
                                 </span>
                               )}
@@ -448,7 +443,7 @@ export function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
                             </p>
                           </div>
                           {selectedModel === model.id && (
-                            <Check className="h-4 w-4 text-amber-400" />
+                            <Check className="h-4 w-4 text-brand-amber" />
                           )}
                         </button>
                       ))}
@@ -459,10 +454,10 @@ export function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
                       <div
                         className={`px-3 py-2 bg-gradient-to-r ${MODEL_TIERS.fast.color}`}
                       >
-                        <p className="text-xs font-medium text-cyan-300">
+                        <p className="text-xs font-medium text-brand-blue/80">
                           {MODEL_TIERS.fast.name}
                         </p>
-                        <p className="text-[10px] text-cyan-300/60">
+                        <p className="text-[10px] text-brand-blue/60">
                           {MODEL_TIERS.fast.desc}
                         </p>
                       </div>
@@ -473,13 +468,12 @@ export function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
                             setSelectedModel(model.id);
                             setShowModelPicker(false);
                           }}
-                          className={`w-full p-3 flex items-center gap-3 hover:bg-cyan-500/10 transition-colors ${
-                            selectedModel === model.id
-                              ? "bg-cyan-500/20 border-l-2 border-cyan-500"
+                          className={`w-full p-3 flex items-center gap-3 hover:bg-brand-blue/10 transition-colors ${selectedModel === model.id
+                              ? "bg-brand-blue/20 border-l-2 border-brand-blue"
                               : ""
-                          }`}
+                            }`}
                         >
-                          <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-cyan-500/20 to-blue-500/20 flex items-center justify-center text-sm font-medium text-cyan-400">
+                          <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-brand-blue/20 to-brand-teal/20 flex items-center justify-center text-sm font-medium text-brand-blue">
                             {model.provider.charAt(0)}
                           </div>
                           <div className="flex-1 text-left">
@@ -488,7 +482,7 @@ export function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
                                 {model.name}
                               </p>
                               {model.badge && (
-                                <span className="px-1.5 py-0.5 bg-cyan-500/20 text-[10px] text-cyan-300 rounded">
+                                <span className="px-1.5 py-0.5 bg-brand-blue/20 text-[10px] text-brand-blue/80 rounded">
                                   {model.badge}
                                 </span>
                               )}
@@ -498,7 +492,7 @@ export function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
                             </p>
                           </div>
                           {selectedModel === model.id && (
-                            <Check className="h-4 w-4 text-cyan-400" />
+                            <Check className="h-4 w-4 text-brand-blue" />
                           )}
                         </button>
                       ))}
@@ -511,7 +505,7 @@ export function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
             {/* Thinking Display Toggle */}
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <Brain className="h-5 w-5 text-purple-400" />
+                <Brain className="h-5 w-5 text-brand-blue" />
                 <div>
                   <h3 className="text-sm font-medium text-gray-200">
                     Visa AI-resonemang
@@ -525,7 +519,7 @@ export function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
                 onClick={() => setEnableThinking(!enableThinking)}
                 className={`
                   relative w-12 h-6 rounded-full transition-all duration-200
-                  ${enableThinking ? "bg-purple-500" : "bg-gray-700"}
+                  ${enableThinking ? "bg-brand-blue" : "bg-gray-700"}
                 `}
               >
                 <span
@@ -689,7 +683,7 @@ export function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
             <Button
               onClick={handleSave}
               disabled={isSaving}
-              className="w-full h-10 bg-violet-600 hover:bg-violet-500 text-white font-medium"
+              className="w-full h-10 bg-brand-blue hover:bg-brand-blue/90 text-white font-medium"
             >
               {isSaving ? (
                 <Loader2 className="h-4 w-4 animate-spin" />

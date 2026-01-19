@@ -185,14 +185,14 @@ export function FileViewer({
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium text-gray-200">{fileName}</span>
           {isLocked && (
-            <span className="flex items-center gap-1 rounded bg-yellow-900/50 px-1.5 py-0.5 text-xs text-yellow-400">
+            <span className="flex items-center gap-1 rounded bg-brand-amber/20 px-1.5 py-0.5 text-xs text-brand-amber">
               <Lock className="h-3 w-3" />
               Locked
             </span>
           )}
           {isPinnedVersion && (
             <span
-              className="flex items-center gap-1 rounded bg-blue-900/50 px-1.5 py-0.5 text-xs text-blue-300"
+              className="flex items-center gap-1 rounded bg-brand-blue/20 px-1.5 py-0.5 text-xs text-brand-blue"
               title="Pinned version is read-only"
             >
               <Pin className="h-3 w-3" />
@@ -200,7 +200,7 @@ export function FileViewer({
             </span>
           )}
           {isEditing && hasChanges && (
-            <span className="rounded bg-blue-900/50 px-1.5 py-0.5 text-xs text-blue-400">
+            <span className="rounded bg-brand-blue/20 px-1.5 py-0.5 text-xs text-brand-blue">
               Modified
             </span>
           )}
@@ -236,7 +236,7 @@ export function FileViewer({
               <button
                 onClick={handleSave}
                 disabled={isSaving || !hasChanges}
-                className="flex items-center gap-1 rounded bg-blue-600 px-2 py-1 text-xs text-white hover:bg-blue-700 disabled:opacity-50"
+                className="flex items-center gap-1 rounded bg-brand-blue px-2 py-1 text-xs text-white hover:bg-brand-blue/90 disabled:opacity-50"
               >
                 {isSaving ? (
                   <>

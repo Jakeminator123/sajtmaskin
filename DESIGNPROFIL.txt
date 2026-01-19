@@ -1,0 +1,56 @@
+Designprofil – sajtstudio.se
+Sammanfattning av färgprofil, typografi och UI-stil (baserat på publicerat innehåll och sidans bildspråk).
+
+Källor och metod
+Källor: https://www.sajtstudio.se/ (startsida), https://www.sajtstudio.se/portfolio (portfolio), samt hero-bakgrundsbilden som används på startsidan.
+Metod: text/struktur från sidorna + färgpalett approximerad genom att provta dominerande färger i hero-bilden (brand-/bildspråk). Exakta UI-färger kan skilja sig från CSS-variabler om sådana finns.
+Färgprofil
+•	Övergripande känsla: noir / cinematic, med en mycket mörk bas (blåsvart/kol) och neon-accenter (röd/orange samt cyan/teal).
+•	Kontrast: hög (ljus text på mörk bakgrund).
+•	Accenter används sparsamt för fokus (CTA, highlights, bildljus).
+Palett (approximation från hero-bild)
+Roll	Hex	RGB	Kommentar
+Bakgrund 1 (blåsvart)	#01060C	1, 6, 12	Primär mörk bas
+Bakgrund 2 (navy)	#021522	2, 21, 34	Mörk navy/teal-tint
+Bakgrund 3	#010D16	1, 13, 22	Djup blågrön
+Yta/kort	#11161A	17, 22, 26	Graphite
+Yta/kort 2	#151E26	21, 30, 38	Mörk slate
+Border/linje	#26282B	38, 40, 43	Diskret grå
+Skugga/mörker	#020A11	2, 10, 17	För gradienter
+Text (primär)	#EDEFF2	237, 239, 242	Off-white (rekommenderad)
+Text (sekundär)	#A9B0B7	169, 176, 183	Muted text (rekommenderad)
+Accent 1 (neon röd/orange)	#F07050	240, 112, 80	CTA / highlight
+Accent 2 (varm röd/orange)	#F08060	240, 128, 96	Glow/hover
+Accent 3 (amber)	#F0A070	240, 160, 112	Varmt ljus
+Accent 4 (teal/cyan)	#70C0B0	112, 192, 176	Kall neon
+Accent 5 (teal mörk)	#50A090	80, 160, 144	Sekundär accent
+Accent 6 (teal mörkare)	#409080	64, 144, 128	För subtila highlights
+Obs: Off-white/muted text i tabellen är rekommenderade värden för att matcha den upplevda kontrasten; de provtas inte från hero-bilden.
+Typografi
+•	Typkänsla: modern sans-serif (ren, teknisk), med tydlig hierarki mellan displayrubriker och brödtext.
+•	Rubriker: stora, ofta med ökad bokstavsspärning (ex: 'h e m s i d o r' på startsidan).
+•	Brödtext: normal/lätt vikt, bra radavstånd, läsbar på mörk bakgrund.
+•	Sifferetiketter/kapitel (ex: '01 01', '02 02') fungerar som navigationsmarkörer – gärna tabular numbers eller monospace för stabil bredd.
+Not: exakta fontnamn (font-family) kunde inte verifieras från den text-extraherade vyn; om du vill ha exakta fontfiler/stack kan du läsa av CSS via DevTools (se sista avsnittet).
+UI-stil och komponenter
+•	Mörk UI-bas med ljus typografi och subtila borders.
+•	CTA: tydligt avvikande (accentfärg + ev. glow/hover), ofta kort och handlingsdrivet språk ('Starta projekt', 'Utvärdera din sajt').
+•	Sektioner med numrering (01/02/03/04) ger 'design-system' / editorial känsla.
+•	Kort/grid i portfolio med kategori-tag + titel + kort beskrivning.
+•	Bildspråk: noir-helskärm + neonljus (nattstad, glödande skyltar).
+Förslag på design-tokens (för din undersida)
+Token	Värde	Användning
+--bg	#01060C	Bakgrund
+--surface	#11161A	Kort/yta
+--surface-2	#151E26	Alternativ yta
+--border	#26282B	Linjer/borders
+--text	#EDEFF2	Primär text
+--muted	#A9B0B7	Sekundär text
+--accent	#70C0B0	Kall neon (rekommenderad huvudaccent)
+--accent-warm	#F07050	Varm neon (sekundär)
+Så tar du fram exakta fontnamn och färger (Win 11)
+1.	Öppna https://www.sajtstudio.se/ i Chrome/Edge.
+2.	Tryck F12 (DevTools) -> fliken Elements.
+3.	Klicka på <body> och läs av 'Computed' för color/background-color/font-family.
+4.	Inspektera CTA-knappar och rubriker för att hitta eventuella CSS-variabler (:root) och exakta färgkoder.
+5.	I fliken Network: filtrera på 'Font' och 'CSS' för att se vilka fontfiler (woff2) och stylesheet-filer som laddas.

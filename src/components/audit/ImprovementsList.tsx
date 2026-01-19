@@ -20,9 +20,9 @@ export default function ImprovementsList({
   const getImpactColor = (impact: string) => {
     switch (impact) {
       case "high":
-        return "bg-green-500/20 text-green-400 border-green-500/30";
+        return "bg-brand-amber/20 text-brand-amber border-brand-amber/30";
       case "medium":
-        return "bg-teal-500/20 text-teal-400 border-teal-500/30";
+        return "bg-brand-teal/20 text-brand-teal border-brand-teal/30";
       case "low":
         return "bg-gray-500/20 text-gray-400 border-gray-500/30";
       default:
@@ -33,9 +33,9 @@ export default function ImprovementsList({
   const getEffortColor = (effort: string) => {
     switch (effort) {
       case "low":
-        return "bg-green-500/20 text-green-400";
+        return "bg-brand-teal/20 text-brand-teal";
       case "medium":
-        return "bg-yellow-500/20 text-yellow-400";
+        return "bg-brand-amber/20 text-brand-amber";
       case "high":
         return "bg-red-500/20 text-red-400";
       default:
@@ -63,7 +63,7 @@ export default function ImprovementsList({
       >
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-xl font-bold text-white flex items-center gap-2">
-            <span className="text-teal-400">✨</span> Förbättringsförslag
+            <span className="text-brand-teal">✨</span> Förbättringsförslag
           </h2>
 
           {/* Filter */}
@@ -74,7 +74,7 @@ export default function ImprovementsList({
                 onClick={() => setFilter(f)}
                 className={`px-3 py-1 text-xs transition-colors ${
                   filter === f
-                    ? "bg-teal-500/20 text-teal-400 border border-teal-500/30"
+                    ? "bg-brand-teal/20 text-brand-teal border border-brand-teal/30"
                     : "bg-black/30 text-gray-400 border border-gray-700 hover:border-gray-600"
                 }`}
               >
@@ -98,11 +98,11 @@ export default function ImprovementsList({
               animate={{ opacity: 1, x: 0 }}
               transition={{ delay: index * 0.05 }}
               onClick={() => setSelectedImprovement(improvement)}
-              className="p-4 bg-black/30 border border-gray-800 hover:border-teal-500/30 cursor-pointer transition-all group"
+              className="p-4 bg-black/30 border border-gray-800 hover:border-brand-teal/30 cursor-pointer transition-all group"
             >
               <div className="flex items-start justify-between gap-4">
                 <div className="flex-1">
-                  <h4 className="font-medium text-white group-hover:text-teal-400 transition-colors">
+                  <h4 className="font-medium text-white group-hover:text-brand-teal transition-colors">
                     {improvement.item}
                   </h4>
                   {improvement.why && (
@@ -214,7 +214,7 @@ export default function ImprovementsList({
                     Insats: {selectedImprovement.effort}
                   </span>
                   {selectedImprovement.estimated_time && (
-                    <span className="px-3 py-1.5 text-sm bg-blue-500/20 text-blue-400">
+                    <span className="px-3 py-1.5 text-sm bg-brand-blue/20 text-brand-blue">
                       ⏱️ {selectedImprovement.estimated_time}
                     </span>
                   )}
@@ -222,7 +222,7 @@ export default function ImprovementsList({
 
                 {selectedImprovement.why && (
                   <div>
-                    <h4 className="text-sm font-semibold text-teal-400 mb-2">
+                    <h4 className="text-sm font-semibold text-brand-teal mb-2">
                       Varför?
                     </h4>
                     <p className="text-gray-300 text-sm">
@@ -233,7 +233,7 @@ export default function ImprovementsList({
 
                 {selectedImprovement.how && (
                   <div>
-                    <h4 className="text-sm font-semibold text-teal-400 mb-2">
+                    <h4 className="text-sm font-semibold text-brand-teal mb-2">
                       Hur?
                     </h4>
                     <p className="text-gray-300 text-sm">
@@ -245,7 +245,7 @@ export default function ImprovementsList({
                 {selectedImprovement.technologies &&
                   selectedImprovement.technologies.length > 0 && (
                     <div>
-                      <h4 className="text-sm font-semibold text-teal-400 mb-2">
+                      <h4 className="text-sm font-semibold text-brand-teal mb-2">
                         Tekniker
                       </h4>
                       <div className="flex gap-2 flex-wrap">

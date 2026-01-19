@@ -3,7 +3,7 @@
 /**
  * Toast Notification Component
  * ============================
- * 
+ *
  * Enkel toast för feedback till användaren.
  * Används för success, error, warning och info meddelanden.
  */
@@ -30,36 +30,36 @@ const ICONS = {
 const COLORS = {
   success: "bg-green-900/90 border-green-500/50 text-green-100",
   error: "bg-red-900/90 border-red-500/50 text-red-100",
-  warning: "bg-amber-900/90 border-amber-500/50 text-amber-100",
-  info: "bg-blue-900/90 border-blue-500/50 text-blue-100",
+  warning: "bg-brand-amber/10 border-brand-amber/50 text-brand-amber",
+  info: "bg-brand-blue/10 border-brand-blue/50 text-brand-blue",
 };
 
 const ICON_COLORS = {
   success: "text-green-400",
   error: "text-red-400",
-  warning: "text-amber-400",
-  info: "text-blue-400",
+  warning: "text-brand-amber",
+  info: "text-brand-blue",
 };
 
 export function Toast({ message, type = "info", duration = 4000, onClose }: ToastProps) {
   const [isExiting, setIsExiting] = useState(false);
   const Icon = ICONS[type];
-  
+
   useEffect(() => {
     const exitTimer = setTimeout(() => {
       setIsExiting(true);
     }, duration - 300); // Start exit animation 300ms before close
-    
+
     const closeTimer = setTimeout(() => {
       onClose();
     }, duration);
-    
+
     return () => {
       clearTimeout(exitTimer);
       clearTimeout(closeTimer);
     };
   }, [duration, onClose]);
-  
+
   return (
     <div
       className={`
@@ -70,7 +70,7 @@ export function Toast({ message, type = "info", duration = 4000, onClose }: Toas
       `}
       role="alert"
     >
-      <Icon className={`h-5 w-5 flex-shrink-0 ${ICON_COLORS[type]}`} />
+      <Icon className={`h-5 w-5 shrink-0 ${ICON_COLORS[type]}`} />
       <p className="text-sm flex-1">{message}</p>
       <button
         onClick={() => {
@@ -118,23 +118,23 @@ export function useToast() {
     message: string;
     type: ToastType;
   }>>([]);
-  
+
   const addToast = (message: string, type: ToastType = "info") => {
     const id = Math.random().toString(36).slice(2, 9);
     setToasts((prev) => [...prev, { id, message, type }]);
     return id;
   };
-  
+
   const removeToast = (id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
   };
-  
+
   const toast = {
     success: (message: string) => addToast(message, "success"),
     error: (message: string) => addToast(message, "error"),
     warning: (message: string) => addToast(message, "warning"),
     info: (message: string) => addToast(message, "info"),
   };
-  
+
   return { toasts, toast, removeToast, ToastContainer };
 }

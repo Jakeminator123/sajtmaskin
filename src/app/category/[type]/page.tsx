@@ -207,9 +207,9 @@ export default function CategoryPage() {
   };
 
   return (
-    <main className="min-h-screen bg-black">
+    <main className="min-h-screen bg-background">
       {/* Shader Background */}
-      <ShaderBackground color="#002020" speed={0.2} opacity={0.35} />
+      <ShaderBackground theme="blue" speed={0.2} opacity={0.35} />
 
       {/* Prompt Wizard Modal - Optimized V2 with 5 steps instead of 11 */}
       <PromptWizardModalV2
@@ -235,8 +235,8 @@ export default function CategoryPage() {
           </Link>
 
           <div className="flex items-center gap-4 mb-4">
-            <div className="p-3 bg-teal-500/20 border border-teal-500/30">
-              <Icon className="h-6 w-6 text-teal-400" />
+            <div className="p-3 bg-brand-teal/20 border border-brand-teal/30">
+              <Icon className="h-6 w-6 text-brand-teal" />
             </div>
             <div>
               <h1 className="text-2xl font-bold text-white">
@@ -251,7 +251,7 @@ export default function CategoryPage() {
           {/* Section 1: Custom prompt */}
           <section>
             <div className="flex items-center gap-2 mb-4">
-              <Sparkles className="h-5 w-5 text-teal-400" />
+              <Sparkles className="h-5 w-5 text-brand-teal" />
               <h2 className="text-lg font-semibold text-white">
                 Beskriv med egna ord
               </h2>
@@ -266,7 +266,7 @@ export default function CategoryPage() {
                     onChange={(e) => setPrompt(e.target.value)}
                     onKeyDown={handleKeyDown}
                     placeholder={`Beskriv din ${displayCategory.title.toLowerCase()}...`}
-                    className="flex-1 h-24 bg-black/50 border border-gray-800 p-3 text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-teal-500/50 resize-none"
+                    className="flex-1 h-24 bg-black/50 border border-gray-800 p-3 text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-brand-teal/50 resize-none"
                   />
                   <div className="flex justify-between items-center mt-2">
                     <span className="text-xs text-gray-500">
@@ -277,7 +277,7 @@ export default function CategoryPage() {
                       size="sm"
                       onClick={() => setShowWizard(true)}
                       disabled={isCreating}
-                      className="gap-1.5 text-teal-400 hover:text-teal-300 hover:bg-teal-500/10 h-7 px-2"
+                      className="gap-1.5 text-brand-teal hover:text-brand-teal/80 hover:bg-brand-teal/10 h-7 px-2"
                     >
                       <Wand2 className="h-3.5 w-3.5" />
                       <span className="text-xs">Bygg ut med AI</span>
@@ -287,7 +287,7 @@ export default function CategoryPage() {
                 <Button
                   onClick={handlePromptSubmit}
                   disabled={!prompt.trim() || isCreating}
-                  className="h-24 px-6 gap-2 bg-teal-600 hover:bg-teal-500"
+                  className="h-24 px-6 gap-2 bg-brand-teal hover:bg-brand-teal/90"
                 >
                   {isCreating ? (
                     <Loader2 className="h-5 w-5 animate-spin" />
@@ -307,7 +307,7 @@ export default function CategoryPage() {
             displayCategory.quickPrompts.length > 0 && (
               <section>
                 <div className="flex items-center gap-2 mb-4">
-                  <Zap className="h-5 w-5 text-amber-400" />
+                  <Zap className="h-5 w-5 text-brand-amber" />
                   <h2 className="text-lg font-semibold text-white">Snabbval</h2>
                   <HelpTooltip text="Klicka på ett snabbval för att snabbt komma igång med en fördefinierad design." />
                 </div>
@@ -319,9 +319,9 @@ export default function CategoryPage() {
                       onClick={() => handleQuickPrompt(quickPrompt)}
                       disabled={isCreating}
                       variant="outline"
-                      className="h-auto py-4 px-4 flex flex-col items-start text-left gap-1 bg-black/50 border-gray-800 hover:border-amber-500/50 hover:bg-amber-500/5 transition-all group disabled:opacity-50"
+                      className="h-auto py-4 px-4 flex flex-col items-start text-left gap-1 bg-black/50 border-gray-800 hover:border-brand-amber/50 hover:bg-brand-amber/5 transition-all group disabled:opacity-50"
                     >
-                      <span className="font-medium text-gray-200 group-hover:text-amber-300">
+                      <span className="font-medium text-gray-200 group-hover:text-brand-amber/80">
                         {quickPrompt.label}
                       </span>
                       <span className="text-xs text-gray-500 line-clamp-2">
@@ -337,7 +337,7 @@ export default function CategoryPage() {
           {v0Templates.length > 0 && (
             <section>
               <div className="flex items-center gap-2 mb-4">
-                <Layout className="h-5 w-5 text-teal-400" />
+                <Layout className="h-5 w-5 text-brand-teal" />
                 <h2 className="text-lg font-semibold text-white">
                   V0 Templates
                 </h2>
@@ -407,7 +407,7 @@ function V0TemplateCard({
 
   return (
     <>
-      <div className="group bg-black/50 border border-gray-800 rounded-lg overflow-hidden hover:border-teal-500/50 transition-all cursor-pointer">
+      <div className="group bg-black/50 border border-gray-800 rounded-lg overflow-hidden hover:border-brand-teal/50 transition-all cursor-pointer">
         <div className="relative aspect-video bg-gray-900 overflow-hidden">
           <Image
             src={imageUrl}
@@ -426,7 +426,7 @@ function V0TemplateCard({
             <button
               onClick={handlePreviewClick}
               disabled={disabled || !imageUrl}
-              className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-teal-600/20 hover:bg-teal-600/30 border border-teal-500/30 rounded text-teal-400 text-xs font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-brand-teal/20 hover:bg-brand-teal/30 border border-brand-teal/30 rounded text-brand-teal text-xs font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Play className="h-3.5 w-3.5" />
               Preview

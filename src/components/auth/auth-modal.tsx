@@ -140,9 +140,9 @@ export function AuthModal({
 
           {/* Signup bonus indicator */}
           {mode === "register" && (
-            <div className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-amber-500/10 border border-amber-500/30">
-              <Diamond className="h-4 w-4 text-amber-400" />
-              <span className="text-sm font-medium text-amber-400">
+            <div className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-brand-amber/10 border border-brand-amber/30">
+              <Diamond className="h-4 w-4 text-brand-amber" />
+              <span className="text-sm font-medium text-brand-amber">
                 +5 diamanter gratis
               </span>
             </div>
@@ -204,7 +204,7 @@ export function AuthModal({
                   placeholder="Ditt namn"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="pl-10 h-11 bg-black/50 border-gray-700 text-white placeholder:text-gray-500 focus:border-teal-500"
+                  className="pl-10 h-11 bg-black/50 border-gray-700 text-white placeholder:text-gray-500 focus:border-brand-teal"
                 />
               </div>
             </div>
@@ -221,7 +221,7 @@ export function AuthModal({
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="pl-10 h-11 bg-black/50 border-gray-700 text-white placeholder:text-gray-500 focus:border-teal-500"
+                className="pl-10 h-11 bg-black/50 border-gray-700 text-white placeholder:text-gray-500 focus:border-brand-teal"
               />
             </div>
           </div>
@@ -242,7 +242,7 @@ export function AuthModal({
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 minLength={mode === "register" ? 6 : undefined}
-                className="pl-10 pr-10 h-11 bg-black/50 border-gray-700 text-white placeholder:text-gray-500 focus:border-teal-500"
+                className="pl-10 pr-10 h-11 bg-black/50 border-gray-700 text-white placeholder:text-gray-500 focus:border-brand-teal"
               />
               <button
                 type="button"
@@ -268,7 +268,7 @@ export function AuthModal({
           {/* Submit button */}
           <Button
             type="submit"
-            className="w-full h-11 bg-teal-600 hover:bg-teal-500 text-white font-medium"
+            className="w-full h-11 bg-brand-teal hover:bg-brand-teal/90 text-white font-medium"
             disabled={isLoading}
           >
             {isLoading ? (
@@ -291,7 +291,7 @@ export function AuthModal({
                   setMode("register");
                   setError(null);
                 }}
-                className="text-teal-400 hover:text-teal-300 font-medium"
+                className="text-brand-teal hover:text-brand-teal/80 font-medium"
               >
                 Skapa konto
               </button>
@@ -304,7 +304,7 @@ export function AuthModal({
                   setMode("login");
                   setError(null);
                 }}
-                className="text-teal-400 hover:text-teal-300 font-medium"
+                className="text-brand-teal hover:text-brand-teal/80 font-medium"
               >
                 Logga in
               </button>

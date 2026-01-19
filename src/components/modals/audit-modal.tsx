@@ -187,8 +187,7 @@ export function AuditModal({
         if (imp.effort) contextParts.push(`effort: ${imp.effort}`);
         if (imp.why) contextParts.push(imp.why);
         lines.push(
-          `- ${imp.item}${
-            contextParts.length ? ` (${contextParts.join("; ")})` : ""
+          `- ${imp.item}${contextParts.length ? ` (${contextParts.join("; ")})` : ""
           }`
         );
       });
@@ -376,9 +375,8 @@ export function AuditModal({
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `audit-${result.domain || "result"}-${
-      new Date().toISOString().split("T")[0]
-    }.json`;
+    a.download = `audit-${result.domain || "result"}-${new Date().toISOString().split("T")[0]
+      }.json`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -399,8 +397,8 @@ export function AuditModal({
   const scrape = result.scrape_summary;
   const faviconUrl = result.domain
     ? `https://www.google.com/s2/favicons?domain=${encodeURIComponent(
-        result.domain
-      )}&sz=64`
+      result.domain
+    )}&sz=64`
     : null;
 
   const wordCountLabel = scrape
@@ -409,13 +407,11 @@ export function AuditModal({
       : `${scrape.aggregated_word_count} ord`
     : "";
   const scrapeLine = scrape
-    ? `Scrape: ${scrape.pages_sampled} sida(or), ${wordCountLabel}${
-        scrape.is_js_rendered ? " • JS-renderad" : ""
-      }${
-        typeof scrape.web_search_calls === "number"
-          ? ` • Web search: ${scrape.web_search_calls}`
-          : ""
-      }`
+    ? `Scrape: ${scrape.pages_sampled} sida(or), ${wordCountLabel}${scrape.is_js_rendered ? " • JS-renderad" : ""
+    }${typeof scrape.web_search_calls === "number"
+      ? ` • Web search: ${scrape.web_search_calls}`
+      : ""
+    }`
     : null;
 
   const hasScores =
@@ -472,7 +468,7 @@ export function AuditModal({
                       href={`https://${result.domain}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-sm text-teal-400 hover:text-teal-300 flex items-center gap-1"
+                      className="text-sm text-brand-teal hover:text-brand-teal/80 flex items-center gap-1"
                     >
                       {faviconUrl && (
                         <Image
@@ -506,11 +502,10 @@ export function AuditModal({
                 <button
                   onClick={handleSaveAudit}
                   disabled={isSaving || isSaved}
-                  className={`flex items-center gap-2 px-3 py-1.5 text-sm transition-colors ${
-                    isSaved
-                      ? "bg-green-600/20 text-green-400 cursor-default"
-                      : "bg-gray-800 hover:bg-gray-700 text-gray-300"
-                  }`}
+                  className={`flex items-center gap-2 px-3 py-1.5 text-sm transition-colors ${isSaved
+                    ? "bg-green-600/20 text-green-400 cursor-default"
+                    : "bg-gray-800 hover:bg-gray-700 text-gray-300"
+                    }`}
                   title={
                     isSaved ? "Sparad i ditt konto" : "Spara till ditt konto"
                   }
@@ -552,7 +547,7 @@ export function AuditModal({
                       setShowBuildOverlay(false);
                       setShowBuildConfirm(true);
                     }}
-                    className="flex items-center gap-2 px-4 py-2 bg-linear-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 text-white text-sm font-semibold transition-all shadow-lg shadow-teal-500/25 hover:shadow-teal-500/40"
+                    className="flex items-center gap-2 px-4 py-2 bg-linear-to-r from-brand-blue to-brand-warm hover:from-brand-blue/90 hover:to-brand-warm/90 text-white text-sm font-semibold transition-all shadow-lg shadow-brand-warm/25 hover:shadow-brand-warm/40"
                     title="Skapa en ny sida baserad på denna analys"
                   >
                     <Hammer className="h-4 w-4" />
@@ -586,11 +581,10 @@ export function AuditModal({
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
-                    className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium transition-colors whitespace-nowrap ${
-                      activeTab === tab.id
-                        ? "text-teal-400 border-b-2 border-teal-400 bg-teal-500/5"
-                        : "text-gray-400 hover:text-white hover:bg-gray-800/50"
-                    }`}
+                    className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium transition-colors whitespace-nowrap ${activeTab === tab.id
+                      ? "text-brand-teal border-b-2 border-brand-teal bg-brand-teal/10"
+                      : "text-gray-400 hover:text-white hover:bg-gray-800/50"
+                      }`}
                   >
                     <span>{tab.icon}</span>
                     <span className="hidden sm:inline">{tab.label}</span>
@@ -682,7 +676,7 @@ export function AuditModal({
                                 key={i}
                                 className="text-sm text-gray-300 flex items-start gap-2 p-2 bg-black/30"
                               >
-                                <span className="text-teal-400">📈</span>
+                                <span className="text-brand-teal">📈</span>
                                 <span>{outcome}</span>
                               </li>
                             ))}
@@ -732,7 +726,7 @@ export function AuditModal({
                       result.technical_recommendations.length > 0 && (
                         <div className="bg-black/50 border border-gray-800 p-6">
                           <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-                            <span className="text-teal-400">⚙️</span> Tekniska
+                            <span className="text-brand-teal">⚙️</span> Tekniska
                             rekommendationer
                           </h3>
                           <div className="space-y-4">
@@ -741,7 +735,7 @@ export function AuditModal({
                                 key={i}
                                 className="p-4 bg-black/30 border border-gray-800"
                               >
-                                <h4 className="font-medium text-teal-400 mb-2">
+                                <h4 className="font-medium text-brand-teal mb-2">
                                   {rec.area}
                                 </h4>
                                 <p className="text-sm text-gray-400 mb-2">
@@ -794,7 +788,7 @@ export function AuditModal({
                     {result.competitor_insights && (
                       <div className="bg-black/50 border border-gray-800 p-6">
                         <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-                          <span className="text-teal-400">🏆</span>{" "}
+                          <span className="text-brand-teal">🏆</span>{" "}
                           Konkurrentanalys
                         </h3>
                         <div className="grid md:grid-cols-3 gap-4">
@@ -835,7 +829,7 @@ export function AuditModal({
                     {hasAdvancedBusiness && (
                       <div className="bg-black/50 border border-gray-800 p-6 space-y-5">
                         <h3 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
-                          <span className="text-purple-400">🧭</span> Affärs- &
+                          <span className="text-brand-blue">🧭</span> Affärs- &
                           marknadsprofil
                         </h3>
 
@@ -1133,7 +1127,7 @@ export function AuditModal({
                     animate={{ scale: 1, opacity: 1, y: 0 }}
                     exit={{ scale: 0.95, opacity: 0, y: 10 }}
                     transition={{ type: "spring", damping: 24, stiffness: 260 }}
-                    className="w-full max-w-xl bg-gray-900 border border-teal-700/40 shadow-2xl p-6 space-y-4"
+                    className="w-full max-w-xl bg-gray-900 border border-brand-teal/40 shadow-2xl p-6 space-y-4"
                     onClick={(e) => e.stopPropagation()}
                   >
                     <div className="flex items-start gap-3">
@@ -1169,7 +1163,7 @@ export function AuditModal({
                       </button>
                       <button
                         onClick={launchBuildFromAudit}
-                        className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-linear-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 text-white font-semibold transition-all"
+                        className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-linear-to-r from-brand-blue to-brand-warm hover:from-brand-blue/90 hover:to-brand-warm/90 text-white font-semibold transition-all"
                       >
                         <Hammer className="h-4 w-4" />
                         Ja, kör igång
@@ -1214,7 +1208,7 @@ export function AuditModal({
               </h3>
               <p className="text-gray-400 text-sm mb-4">
                 Vi skapar en helt ny sida baserad på analysen av{" "}
-                <span className="text-teal-400 font-medium">
+                <span className="text-brand-teal font-medium">
                   {auditedUrl || result.domain || "din sida"}
                 </span>
                 .
@@ -1225,19 +1219,19 @@ export function AuditModal({
                 </p>
                 <ul className="text-sm text-gray-300 space-y-1">
                   <li className="flex items-start gap-2">
-                    <Check className="h-4 w-4 text-teal-400 mt-0.5 shrink-0" />
+                    <Check className="h-4 w-4 text-brand-teal mt-0.5 shrink-0" />
                     <span>Åtgärda identifierade problem</span>
                   </li>
                   <li className="flex items-start gap-2">
-                    <Check className="h-4 w-4 text-teal-400 mt-0.5 shrink-0" />
+                    <Check className="h-4 w-4 text-brand-teal mt-0.5 shrink-0" />
                     <span>Implementera förbättringsförslag</span>
                   </li>
                   <li className="flex items-start gap-2">
-                    <Check className="h-4 w-4 text-teal-400 mt-0.5 shrink-0" />
+                    <Check className="h-4 w-4 text-brand-teal mt-0.5 shrink-0" />
                     <span>Behålla dina styrkor och varumärke</span>
                   </li>
                   <li className="flex items-start gap-2">
-                    <Check className="h-4 w-4 text-teal-400 mt-0.5 shrink-0" />
+                    <Check className="h-4 w-4 text-brand-teal mt-0.5 shrink-0" />
                     <span>Skapa modern, professionell design</span>
                   </li>
                 </ul>
@@ -1254,7 +1248,7 @@ export function AuditModal({
                     setShowBuildConfirm(false);
                     launchBuildFromAudit();
                   }}
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-linear-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 text-white font-semibold transition-all"
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-linear-to-r from-brand-blue to-brand-warm hover:from-brand-blue/90 hover:to-brand-warm/90 text-white font-semibold transition-all"
                 >
                   <Hammer className="h-4 w-4" />
                   Kör igång!

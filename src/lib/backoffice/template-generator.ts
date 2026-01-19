@@ -70,8 +70,8 @@ export default function BackofficePage() {
         <div className="bg-gray-900 border border-gray-800 rounded-xl p-8">
           {/* Header */}
           <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-teal-500/10 rounded-full mb-4">
-              <Lock className="h-8 w-8 text-teal-500" />
+            <div className="inline-flex items-center justify-center w-16 h-16 bg-brand-teal/10 rounded-full mb-4">
+              <Lock className="h-8 w-8 text-brand-teal" />
             </div>
             <h1 className="text-2xl font-bold text-white">Backoffice</h1>
             <p className="text-gray-400 mt-2">Logga in för att redigera din sajt</p>
@@ -89,7 +89,7 @@ export default function BackofficePage() {
                   type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-teal-500 transition-colors"
+                  className="w-full px-4 py-3 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-brand-teal transition-colors"
                   placeholder="Ange lösenord"
                   required
                 />
@@ -112,7 +112,7 @@ export default function BackofficePage() {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full py-3 bg-teal-600 hover:bg-teal-500 disabled:bg-teal-600/50 text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
+              className="w-full py-3 bg-brand-teal hover:bg-brand-teal/90 disabled:bg-brand-teal/50 text-white font-medium rounded-lg transition-colors flex items-center justify-center gap-2"
             >
               {isLoading ? (
                 <>
@@ -147,36 +147,36 @@ function generateDashboardPage(manifest: ContentManifest): string {
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { 
-  Type, 
-  Image, 
-  Palette, 
-  Package, 
-  Settings, 
+import {
+  Type,
+  Image,
+  Palette,
+  Package,
+  Settings,
   LogOut,
   ChevronRight,
   RefreshCw
 } from "lucide-react";
 
 const MENU_ITEMS = [
-  { 
-    href: "/backoffice/content", 
-    icon: Type, 
-    label: "Texter", 
+  {
+    href: "/backoffice/content",
+    icon: Type,
+    label: "Texter",
     description: "Redigera rubriker och text",
     count: ${textCount}
   },
-  { 
-    href: "/backoffice/images", 
-    icon: Image, 
-    label: "Bilder", 
+  {
+    href: "/backoffice/images",
+    icon: Image,
+    label: "Bilder",
     description: "Byt ut bilder på sajten",
     count: ${imageCount}
   },
-  { 
-    href: "/backoffice/colors", 
-    icon: Palette, 
-    label: "Färger", 
+  {
+    href: "/backoffice/colors",
+    icon: Palette,
+    label: "Färger",
     description: "Anpassa färgtema",
     count: null
   },
@@ -191,10 +191,10 @@ const MENU_ITEMS = [
   },`
       : ""
   }
-  { 
-    href: "/backoffice/settings", 
-    icon: Settings, 
-    label: "Inställningar", 
+  {
+    href: "/backoffice/settings",
+    icon: Settings,
+    label: "Inställningar",
     description: "Byt lösenord och mer",
     count: null
   },
@@ -222,7 +222,7 @@ export default function DashboardPage() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-950 flex items-center justify-center">
-        <RefreshCw className="h-8 w-8 text-teal-500 animate-spin" />
+        <RefreshCw className="h-8 w-8 text-brand-teal animate-spin" />
       </div>
     );
   }
@@ -240,7 +240,7 @@ export default function DashboardPage() {
             <Link
               href="/"
               target="_blank"
-              className="text-sm text-teal-400 hover:text-teal-300"
+              className="text-sm text-brand-teal hover:text-brand-teal/80"
             >
               Visa sajt →
             </Link>
@@ -262,15 +262,15 @@ export default function DashboardPage() {
             <Link
               key={item.href}
               href={item.href}
-              className="group bg-gray-900 border border-gray-800 hover:border-teal-500/50 rounded-xl p-6 transition-all"
+              className="group bg-gray-900 border border-gray-800 hover:border-brand-teal/50 rounded-xl p-6 transition-all"
             >
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-4">
-                  <div className="p-3 bg-teal-500/10 rounded-lg group-hover:bg-teal-500/20 transition-colors">
-                    <item.icon className="h-6 w-6 text-teal-500" />
+                  <div className="p-3 bg-brand-teal/10 rounded-lg group-hover:bg-brand-teal/20 transition-colors">
+                    <item.icon className="h-6 w-6 text-brand-teal" />
                   </div>
                   <div>
-                    <h2 className="font-semibold text-white group-hover:text-teal-400 transition-colors">
+                    <h2 className="font-semibold text-white group-hover:text-brand-teal transition-colors">
                       {item.label}
                     </h2>
                     <p className="text-sm text-gray-400">{item.description}</p>
@@ -280,7 +280,7 @@ export default function DashboardPage() {
                   {item.count !== null && (
                     <span className="text-sm text-gray-500">{item.count}</span>
                   )}
-                  <ChevronRight className="h-5 w-5 text-gray-600 group-hover:text-teal-500 transition-colors" />
+                  <ChevronRight className="h-5 w-5 text-gray-600 group-hover:text-brand-teal transition-colors" />
                 </div>
               </div>
             </Link>
@@ -425,7 +425,7 @@ export default function ContentPage() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-950 flex items-center justify-center">
-        <Loader2 className="h-8 w-8 text-teal-500 animate-spin" />
+        <Loader2 className="h-8 w-8 text-brand-teal animate-spin" />
       </div>
     );
   }
@@ -450,7 +450,7 @@ export default function ContentPage() {
           <button
             onClick={handleSave}
             disabled={isSaving}
-            className="flex items-center gap-2 px-4 py-2 bg-teal-600 hover:bg-teal-500 disabled:bg-teal-600/50 text-white rounded-lg transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-brand-teal hover:bg-brand-teal/90 disabled:bg-brand-teal/50 text-white rounded-lg transition-colors"
           >
             {isSaving ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -473,7 +473,7 @@ export default function ContentPage() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Sök texter..."
-            className="w-full pl-10 pr-4 py-3 bg-gray-900 border border-gray-800 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-teal-500"
+            className="w-full pl-10 pr-4 py-3 bg-gray-900 border border-gray-800 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-brand-teal"
           />
         </div>
       </div>
@@ -503,7 +503,7 @@ export default function ContentPage() {
                         }))
                       }
                       rows={Math.min(4, Math.ceil(item.value.length / 60))}
-                      className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-teal-500 resize-none"
+                      className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-brand-teal resize-none"
                     />
                   </div>
                 ))}
@@ -559,7 +559,7 @@ export default function ImagesPage() {
 
   const handleUpload = async (id: string, file: File) => {
     setUploadingId(id);
-    
+
     const formData = new FormData();
     formData.append("file", file);
     formData.append("contentId", id);
@@ -571,7 +571,7 @@ export default function ImagesPage() {
         headers: { Authorization: \`Bearer \${token}\` },
         body: formData,
       });
-      
+
       const data = await res.json();
       if (data.success) {
         setImages((prev) =>
@@ -590,7 +590,7 @@ export default function ImagesPage() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-950 flex items-center justify-center">
-        <Loader2 className="h-8 w-8 text-teal-500 animate-spin" />
+        <Loader2 className="h-8 w-8 text-brand-teal animate-spin" />
       </div>
     );
   }
@@ -759,7 +759,7 @@ export default function ColorsPage() {
   if (isLoading) {
     return (
       <div className="min-h-screen bg-gray-950 flex items-center justify-center">
-        <Loader2 className="h-8 w-8 text-teal-500 animate-spin" />
+        <Loader2 className="h-8 w-8 text-brand-teal animate-spin" />
       </div>
     );
   }
@@ -792,7 +792,7 @@ export default function ColorsPage() {
             <button
               onClick={handleSave}
               disabled={isSaving}
-              className="flex items-center gap-2 px-4 py-2 bg-teal-600 hover:bg-teal-500 disabled:bg-teal-600/50 text-white rounded-lg transition-colors"
+              className="flex items-center gap-2 px-4 py-2 bg-brand-teal hover:bg-brand-teal/90 disabled:bg-brand-teal/50 text-white rounded-lg transition-colors"
             >
               {isSaving ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -925,13 +925,13 @@ export async function POST(req: NextRequest) {
 // Verify token helper (export for use in other routes)
 export function verifyToken(authHeader: string | null): boolean {
   if (!authHeader?.startsWith("Bearer ")) return false;
-  
+
   const token = authHeader.slice(7);
   const parts = token.split(".");
   if (parts.length !== 3) return false;
 
   const [tokenPart, expiry, signature] = parts;
-  
+
   // Check expiry
   if (Date.now() > parseInt(expiry)) return false;
 
@@ -968,7 +968,7 @@ function ensureDataDir() {
 export async function GET() {
   try {
     ensureDataDir();
-    
+
     if (!fs.existsSync(CONTENT_FILE)) {
       // Return manifest from build time
       const manifestPath = path.join(process.cwd(), "data", "manifest.json");
@@ -1052,7 +1052,7 @@ function ensureDataDir() {
 export async function GET() {
   try {
     ensureDataDir();
-    
+
     if (!fs.existsSync(COLORS_FILE)) {
       const manifestPath = path.join(process.cwd(), "data", "manifest.json");
       if (fs.existsSync(manifestPath)) {

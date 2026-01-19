@@ -94,7 +94,7 @@ function ProjectSummary({
   return (
     <div className="p-4 rounded-xl bg-gray-800/50 border border-gray-700">
       <div className="flex items-center gap-3">
-        <FileCode className="h-5 w-5 text-teal-500" />
+        <FileCode className="h-5 w-5 text-brand-teal" />
         <div className="flex-1 min-w-0">
           <p className="text-white font-medium truncate">{title}</p>
           <p className="text-xs text-gray-500">{fileCount} filer</p>
@@ -121,33 +121,31 @@ function BackofficeSection({
       {/* Toggle */}
       <div
         onClick={onToggle}
-        className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${
-          enabled
-            ? "border-teal-500 bg-teal-500/10"
-            : "border-gray-700 hover:border-gray-600"
-        }`}
+        className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${enabled
+          ? "border-brand-teal bg-brand-teal/10"
+          : "border-gray-700 hover:border-gray-600"
+          }`}
       >
         <div className="flex items-start gap-3">
           <div
-            className={`flex-shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center mt-0.5 transition-colors ${
-              enabled ? "border-teal-500 bg-teal-500" : "border-gray-600"
-            }`}
+            className={`flex-shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center mt-0.5 transition-colors ${enabled ? "border-brand-teal bg-brand-teal" : "border-gray-600"
+              }`}
           >
             {enabled && <Check className="h-3 w-3 text-white" />}
           </div>
           <div className="flex-1">
             <div className="flex items-center gap-2 flex-wrap">
-              <Settings className="h-4 w-4 text-teal-500" />
+              <Settings className="h-4 w-4 text-brand-teal" />
               <span className="font-medium text-white text-sm">
                 Inkludera Admin-panel
               </span>
-              <span className="px-1.5 py-0.5 text-[10px] bg-teal-500/20 text-teal-400 rounded">
+              <span className="px-1.5 py-0.5 text-[10px] bg-brand-teal/20 text-brand-teal rounded">
                 Rekommenderas
               </span>
             </div>
             <p className="mt-1.5 text-xs text-gray-400">
               Redigera texter, bilder och färger på{" "}
-              <code className="text-teal-400">/backoffice</code>
+              <code className="text-brand-teal">/backoffice</code>
             </p>
           </div>
         </div>
@@ -167,12 +165,12 @@ function BackofficeSection({
                 value={password}
                 onChange={(e) => onPasswordChange(e.target.value)}
                 placeholder="Minst 6 tecken"
-                className="w-full pl-9 pr-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-teal-500 text-sm"
+                className="w-full pl-9 pr-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-brand-teal text-sm"
               />
             </div>
           </label>
           {password.length > 0 && password.length < MIN_PASSWORD_LENGTH && (
-            <p className="text-xs text-amber-400 mt-2">
+            <p className="text-xs text-brand-amber mt-2">
               Lösenordet måste vara minst {MIN_PASSWORD_LENGTH} tecken
             </p>
           )}
@@ -195,7 +193,7 @@ function DownloadAction({
   includeBackoffice: boolean;
 }) {
   return (
-    <div className="p-4 rounded-xl bg-gradient-to-r from-teal-600/20 to-emerald-600/20 border border-teal-500/30">
+    <div className="p-4 rounded-xl bg-gradient-to-r from-brand-teal/20 to-brand-warm/20 border border-brand-teal/30">
       <div className="flex items-center justify-between gap-4">
         <div className="min-w-0">
           <h3 className="text-sm font-semibold text-white">Ladda ner sajt</h3>
@@ -206,7 +204,7 @@ function DownloadAction({
         <Button
           onClick={onDownload}
           disabled={isDownloading || disabled}
-          className="bg-teal-600 hover:bg-teal-500 text-white gap-2 shrink-0"
+          className="bg-brand-teal hover:bg-brand-teal/90 text-white gap-2 shrink-0"
         >
           {isDownloading ? (
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -416,13 +414,12 @@ function DomainResultItem({
     <div className="flex items-center justify-between p-3 rounded-lg bg-gray-800/50 border border-gray-800">
       <div className="flex items-center gap-2">
         <div
-          className={`w-6 h-6 rounded-full flex items-center justify-center ${
-            isAvailable
-              ? "bg-green-500/20"
-              : isTaken
+          className={`w-6 h-6 rounded-full flex items-center justify-center ${isAvailable
+            ? "bg-green-500/20"
+            : isTaken
               ? "bg-red-500/20"
               : "bg-gray-700"
-          }`}
+            }`}
         >
           {isAvailable ? (
             <Check className="h-3 w-3 text-green-400" />
@@ -435,13 +432,12 @@ function DomainResultItem({
         <div>
           <p className="text-sm font-medium text-gray-200">{result.domain}</p>
           <p
-            className={`text-[10px] ${
-              isAvailable
-                ? "text-green-400"
-                : isTaken
+            className={`text-[10px] ${isAvailable
+              ? "text-green-400"
+              : isTaken
                 ? "text-red-400"
                 : "text-gray-500"
-            }`}
+              }`}
           >
             {isAvailable ? "Ledig" : isTaken ? "Upptagen" : "Okänd status"}
           </p>
@@ -450,7 +446,7 @@ function DomainResultItem({
 
       <div className="flex items-center gap-2">
         {isAvailable && price && (
-          <span className="text-xs text-teal-400 flex items-center gap-1">
+          <span className="text-xs text-brand-teal flex items-center gap-1">
             <Tag className="h-3 w-3" />
             {price.loading ? (
               <Loader2 className="h-3 w-3 animate-spin" />
@@ -466,7 +462,7 @@ function DomainResultItem({
             size="sm"
             onClick={onSelect}
             disabled={!canPurchase}
-            className="h-7 text-xs px-2 bg-teal-600 hover:bg-teal-500"
+            className="h-7 text-xs px-2 bg-brand-teal hover:bg-brand-teal/90"
           >
             Välj
           </Button>
@@ -634,7 +630,7 @@ function DomainPurchaseForm({
         <Button
           onClick={handleSubmit}
           disabled={isPurchasing}
-          className="flex-1 bg-teal-600 hover:bg-teal-500 text-white gap-2"
+          className="flex-1 bg-brand-teal hover:bg-brand-teal/90 text-white gap-2"
         >
           {isPurchasing ? (
             <>
@@ -694,7 +690,7 @@ function SuccessMessage({ domain, url }: { domain: string; url: string }) {
             href={url}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-sm text-teal-400 hover:text-teal-300 underline break-all"
+            className="text-sm text-brand-teal hover:text-brand-teal/80 underline break-all"
           >
             {url}
           </a>
@@ -757,8 +753,8 @@ export function FinalizeModal({
         {/* Header */}
         <div className="flex items-center justify-between p-5 border-b border-gray-800">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-teal-600/20 flex items-center justify-center">
-              <Check className="h-5 w-5 text-teal-400" />
+            <div className="w-10 h-10 rounded-lg bg-brand-teal/20 flex items-center justify-center">
+              <Check className="h-5 w-5 text-brand-teal" />
             </div>
             <div>
               <h2 className="text-lg font-semibold text-white">Klar!</h2>

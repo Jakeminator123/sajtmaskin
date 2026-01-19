@@ -320,7 +320,7 @@ export function CookieBanner() {
         style={{ fontFamily: "'Press Start 2P', monospace" }}
       >
         {/* CRT glow effect */}
-        <div className="absolute inset-0 bg-gradient-to-b from-blue-500/5 to-transparent pointer-events-none" />
+        <div className="absolute inset-0 bg-linear-to-b from-brand-blue/5 to-transparent pointer-events-none" />
 
         {/* Layout: Side by side on desktop, stacked on mobile */}
         <div className="flex flex-col lg:flex-row">
@@ -350,7 +350,7 @@ export function CookieBanner() {
                 Du kan läsa mer i vår{" "}
                 <a
                   href="/privacy"
-                  className="text-blue-400 hover:text-blue-300 underline"
+                  className="text-brand-blue hover:text-brand-blue/80 underline"
                 >
                   integritetspolicy
                 </a>
@@ -362,7 +362,7 @@ export function CookieBanner() {
             <div className="space-y-3">
               <button
                 onClick={handleAccept}
-                className="w-full py-3 px-6 bg-gradient-to-r from-green-600 to-green-500 hover:from-green-500 hover:to-green-400 text-white font-bold text-sm transition-all transform hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-green-500/30"
+                className="w-full py-3 px-6 bg-linear-to-r from-green-600 to-green-500 hover:from-green-500 hover:to-green-400 text-white font-bold text-sm transition-all transform hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-green-500/30"
               >
                 ✓ Acceptera cookies
               </button>
@@ -384,8 +384,8 @@ export function CookieBanner() {
           </div>
 
           {/* Divider */}
-          <div className="hidden lg:block w-px bg-gradient-to-b from-transparent via-blue-500/50 to-transparent" />
-          <div className="lg:hidden h-px bg-gradient-to-r from-transparent via-blue-500/50 to-transparent mx-6" />
+          <div className="hidden lg:block w-px bg-linear-to-b from-transparent via-brand-blue/50 to-transparent" />
+          <div className="lg:hidden h-px bg-linear-to-r from-transparent via-brand-blue/50 to-transparent mx-6" />
 
           {/* Right side: Pac-Man game */}
           <div className="p-6">
@@ -403,24 +403,24 @@ export function CookieBanner() {
                 {hasWon
                   ? "🎉 GRATTIS!"
                   : gameOver
-                  ? "💀 SPÖKENA TOG DIG!"
-                  : "🎮 COOKIE QUEST"}
+                    ? "💀 SPÖKENA TOG DIG!"
+                    : "🎮 COOKIE QUEST"}
               </h3>
-              <p className="text-[9px] text-blue-300/80">
+              <p className="text-[9px] text-brand-blue/80">
                 {hasWon
                   ? "Du accepterade cookies!"
                   : gameOver
-                  ? "Försöker igen..."
-                  : gameStarted
-                  ? "Led Pac-Man till kakan! 🍪"
-                  : "Piltangenter / WASD / swipa"}
+                    ? "Försöker igen..."
+                    : gameStarted
+                      ? "Led Pac-Man till kakan! 🍪"
+                      : "Piltangenter / WASD / swipa"}
               </p>
             </div>
 
             {/* Score */}
             <div className="flex justify-between items-center mb-2 text-[9px]">
               <span className="text-white">
-                POÄNG: <span className="text-yellow-400">{score}</span>
+                POÄNG: <span className="text-brand-amber">{score}</span>
               </span>
               <span className="text-gray-600">HIGH: 420</span>
             </div>
@@ -428,7 +428,7 @@ export function CookieBanner() {
             {/* Game Board */}
             <div
               ref={gameRef}
-              className="relative mx-auto bg-black border border-blue-900/50 overflow-hidden"
+              className="relative mx-auto bg-black border border-brand-blue/30 overflow-hidden"
               style={{
                 width: MAZE[0].length * CELL_SIZE,
                 height: MAZE.length * CELL_SIZE,
@@ -461,7 +461,7 @@ export function CookieBanner() {
                     >
                       {hasDot && !isWall && (
                         <div
-                          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-1.5 h-1.5 bg-yellow-200 rounded-full"
+                          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-1.5 h-1.5 bg-brand-amber rounded-full"
                           style={{ boxShadow: "0 0 4px rgba(255,255,200,0.8)" }}
                         />
                       )}
@@ -511,9 +511,8 @@ export function CookieBanner() {
 
               {/* Pac-Man */}
               <div
-                className={`absolute transition-all duration-100 ease-linear ${
-                  gameOver ? "animate-pulse opacity-50" : ""
-                }`}
+                className={`absolute transition-all duration-100 ease-linear ${gameOver ? "animate-pulse opacity-50" : ""
+                  }`}
                 style={{
                   left: pacmanPos.x * CELL_SIZE,
                   top: pacmanPos.y * CELL_SIZE,
@@ -547,10 +546,10 @@ export function CookieBanner() {
               {!gameStarted && (
                 <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
                   <div className="text-center animate-pulse">
-                    <p className="text-yellow-400 text-[9px] mb-1">
+                    <p className="text-brand-amber text-[9px] mb-1">
                       PILTANGENTER
                     </p>
-                    <p className="text-blue-300 text-[7px]">ELLER SWIPA</p>
+                    <p className="text-brand-blue text-[7px]">ELLER SWIPA</p>
                   </div>
                 </div>
               )}
@@ -560,7 +559,7 @@ export function CookieBanner() {
                 <div className="absolute inset-0 bg-black/70 flex items-center justify-center">
                   <div className="text-center">
                     <p className="text-xl mb-1">🎮🍪🎉</p>
-                    <p className="text-yellow-400 text-[9px] animate-pulse">
+                    <p className="text-brand-amber text-[9px] animate-pulse">
                       WAKA WAKA!
                     </p>
                     <p className="text-green-400 text-[7px] mt-1">

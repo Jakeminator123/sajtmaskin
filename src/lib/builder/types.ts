@@ -1,4 +1,9 @@
-export type RightPanelTab = "versions" | "files" | "deployments" | "preview";
+export type RightPanelTab =
+  | "versions"
+  | "files"
+  | "deployments"
+  | "preview"
+  | "recommendations";
 
 export type UiMessagePart = {
   type?: string;

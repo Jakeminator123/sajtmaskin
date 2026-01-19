@@ -358,7 +358,7 @@ export function LocationPicker({
             onChange={handleInputChange}
             onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
             placeholder={placeholder}
-            className="w-full pl-12 pr-12 py-4 bg-gray-800 border-2 border-gray-700 text-base text-white placeholder-gray-400 focus:border-teal-500/50 focus:outline-none focus:ring-2 focus:ring-teal-500/20 transition-all hover:border-gray-600"
+            className="w-full pl-12 pr-12 py-4 bg-gray-800 border-2 border-gray-700 text-base text-white placeholder-gray-400 focus:border-brand-teal/50 focus:outline-none focus:ring-2 focus:ring-brand-teal/20 transition-all hover:border-gray-600"
           />
           {isLoading ? (
             <Loader2 className="absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 animate-spin" />

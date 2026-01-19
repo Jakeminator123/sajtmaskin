@@ -162,10 +162,9 @@ export function HomePage() {
         inspiration: "Jag vill ta inspiration från denna sida",
       };
       parts.push(
-        `Min befintliga webbplats: ${onboardingData.existingUrl} (${
-          onboardingData.urlPurpose
-            ? purposeText[onboardingData.urlPurpose]
-            : ""
+        `Min befintliga webbplats: ${onboardingData.existingUrl} (${onboardingData.urlPurpose
+          ? purposeText[onboardingData.urlPurpose]
+          : ""
         })`
       );
     }
@@ -186,11 +185,11 @@ export function HomePage() {
   const initialContext = getInitialContext();
 
   return (
-    <main className="min-h-screen bg-black">
+    <main className="min-h-screen bg-background">
       {/* Shader Background - shimmer effect for logged in users */}
       {/* Use default theme until auth is initialized to prevent hydration mismatch */}
       <ShaderBackground
-        theme={isInitialized && isAuthenticated ? "aurora" : "default"}
+        theme={isInitialized && isAuthenticated ? "blue" : "default"}
         speed={0.2}
         opacity={isInitialized && isAuthenticated ? 0.45 : 0.35}
         shimmer={isInitialized && isAuthenticated}
@@ -255,8 +254,8 @@ export function HomePage() {
         {/* Only render after auth is initialized to prevent hydration mismatch */}
         {isInitialized && isAuthenticated && firstName && (
           <div className="text-center animate-fadeIn">
-            <div className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-purple-500/10 via-pink-500/10 to-amber-500/10 border border-purple-500/20 rounded-full mb-4">
-              <Sparkles className="h-4 w-4 text-amber-400" />
+            <div className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-brand-blue/10 via-brand-amber/10 to-brand-warm/10 border border-brand-blue/30 rounded-full mb-4">
+              <Sparkles className="h-4 w-4 text-brand-amber" />
               <span className="text-sm text-gray-300">
                 Välkommen tillbaka,{" "}
                 <span className="text-white font-medium">{firstName}</span>!
@@ -288,7 +287,7 @@ export function HomePage() {
         {initialContext && (
           <div className="w-full max-w-2xl bg-black/70 border border-gray-700 p-4">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-medium text-teal-400">
+              <span className="text-xs font-medium text-brand-teal">
                 ✓ Din information sparad
               </span>
               <button
@@ -313,9 +312,9 @@ export function HomePage() {
             {/* Analyzed Option - Opens AI wizard directly */}
             <button
               onClick={() => setShowWizard(true)}
-              className="group relative flex flex-col items-center p-5 rounded-xl border transition-all duration-300 bg-black/50 border-gray-800 hover:border-violet-500/40 hover:bg-violet-950/20"
+              className="group relative flex flex-col items-center p-5 rounded-xl border transition-all duration-300 bg-black/50 border-gray-800 hover:border-brand-blue/40 hover:bg-brand-blue/10"
             >
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-brand-blue to-brand-teal flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
                 <Wand2 className="h-6 w-6 text-white" />
               </div>
               <span className="font-medium text-white text-sm">Analyserad</span>
@@ -331,13 +330,12 @@ export function HomePage() {
                   activeBuildMethod === "category" ? null : "category"
                 )
               }
-              className={`group relative flex flex-col items-center p-5 rounded-xl border transition-all duration-300 ${
-                activeBuildMethod === "category"
-                  ? "bg-gradient-to-br from-teal-600/20 to-cyan-600/20 border-teal-500/50 shadow-lg shadow-teal-500/10"
-                  : "bg-black/50 border-gray-800 hover:border-teal-500/40 hover:bg-teal-950/20"
-              }`}
+              className={`group relative flex flex-col items-center p-5 rounded-xl border transition-all duration-300 ${activeBuildMethod === "category"
+                  ? "bg-gradient-to-br from-brand-teal/20 to-brand-blue/10 border-brand-teal/50 shadow-lg shadow-brand-teal/10"
+                  : "bg-black/50 border-gray-800 hover:border-brand-teal/40 hover:bg-brand-teal/10"
+                }`}
             >
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-teal-500 to-cyan-600 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-brand-teal to-brand-blue flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
                 <FolderOpen className="h-6 w-6 text-white" />
               </div>
               <span className="font-medium text-white text-sm">Kategori</span>
@@ -345,7 +343,7 @@ export function HomePage() {
                 Välj typ av sida
               </span>
               {activeBuildMethod === "category" ? (
-                <ChevronUp className="absolute -bottom-1 h-4 w-4 text-teal-400" />
+                <ChevronUp className="absolute -bottom-1 h-4 w-4 text-brand-teal" />
               ) : (
                 <ChevronDown className="absolute -bottom-1 h-4 w-4 text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity" />
               )}
@@ -358,13 +356,12 @@ export function HomePage() {
                   activeBuildMethod === "audit" ? null : "audit"
                 )
               }
-              className={`group relative flex flex-col items-center p-5 rounded-xl border transition-all duration-300 ${
-                activeBuildMethod === "audit"
-                  ? "bg-gradient-to-br from-amber-600/20 to-orange-600/20 border-amber-500/50 shadow-lg shadow-amber-500/10"
-                  : "bg-black/50 border-gray-800 hover:border-amber-500/40 hover:bg-amber-950/20"
-              }`}
+              className={`group relative flex flex-col items-center p-5 rounded-xl border transition-all duration-300 ${activeBuildMethod === "audit"
+                  ? "bg-gradient-to-br from-brand-amber/20 to-brand-warm/20 border-brand-amber/50 shadow-lg shadow-brand-amber/10"
+                  : "bg-black/50 border-gray-800 hover:border-brand-amber/40 hover:bg-brand-amber/10"
+                }`}
             >
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-amber-500 to-orange-600 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-brand-amber to-brand-warm flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
                 <Search className="h-6 w-6 text-white" />
               </div>
               <span className="font-medium text-white text-sm">Audit</span>
@@ -372,7 +369,7 @@ export function HomePage() {
                 Analysera befintlig sida
               </span>
               {activeBuildMethod === "audit" ? (
-                <ChevronUp className="absolute -bottom-1 h-4 w-4 text-amber-400" />
+                <ChevronUp className="absolute -bottom-1 h-4 w-4 text-brand-amber" />
               ) : (
                 <ChevronDown className="absolute -bottom-1 h-4 w-4 text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity" />
               )}
@@ -385,13 +382,12 @@ export function HomePage() {
                   activeBuildMethod === "freeform" ? null : "freeform"
                 )
               }
-              className={`group relative flex flex-col items-center p-5 rounded-xl border transition-all duration-300 ${
-                activeBuildMethod === "freeform"
-                  ? "bg-gradient-to-br from-pink-600/20 to-rose-600/20 border-pink-500/50 shadow-lg shadow-pink-500/10"
-                  : "bg-black/50 border-gray-800 hover:border-pink-500/40 hover:bg-pink-950/20"
-              }`}
+              className={`group relative flex flex-col items-center p-5 rounded-xl border transition-all duration-300 ${activeBuildMethod === "freeform"
+                  ? "bg-gradient-to-br from-brand-warm/20 to-brand-amber/20 border-brand-warm/50 shadow-lg shadow-brand-warm/10"
+                  : "bg-black/50 border-gray-800 hover:border-brand-warm/40 hover:bg-brand-warm/10"
+                }`}
             >
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-pink-500 to-rose-600 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-brand-warm to-brand-amber flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
                 <Pencil className="h-6 w-6 text-white" />
               </div>
               <span className="font-medium text-white text-sm">Fritext</span>
@@ -399,7 +395,7 @@ export function HomePage() {
                 Beskriv din vision
               </span>
               {activeBuildMethod === "freeform" ? (
-                <ChevronUp className="absolute -bottom-1 h-4 w-4 text-pink-400" />
+                <ChevronUp className="absolute -bottom-1 h-4 w-4 text-brand-warm" />
               ) : (
                 <ChevronDown className="absolute -bottom-1 h-4 w-4 text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity" />
               )}
@@ -415,12 +411,12 @@ export function HomePage() {
         {activeBuildMethod === "category" && (
           <div className="w-full max-w-4xl animate-fadeInUp">
             <div className="flex items-center gap-4 mb-6">
-              <div className="flex-1 h-px bg-gradient-to-r from-transparent via-teal-700/50 to-transparent" />
-              <span className="text-sm font-medium text-teal-500/70 uppercase tracking-wider flex items-center gap-2">
-                <span className="w-1.5 h-1.5 bg-teal-500 rounded-full animate-pulse" />
+              <div className="flex-1 h-px bg-gradient-to-r from-transparent via-brand-teal/50 to-transparent" />
+              <span className="text-sm font-medium text-brand-teal/70 uppercase tracking-wider flex items-center gap-2">
+                <span className="w-1.5 h-1.5 bg-brand-teal rounded-full animate-pulse" />
                 Välj kategori
               </span>
-              <div className="flex-1 h-px bg-gradient-to-r from-transparent via-teal-700/50 to-transparent" />
+              <div className="flex-1 h-px bg-gradient-to-r from-transparent via-brand-teal/50 to-transparent" />
             </div>
             <TemplateGallery />
           </div>
@@ -430,12 +426,12 @@ export function HomePage() {
         {activeBuildMethod === "audit" && (
           <div className="w-full max-w-2xl animate-fadeInUp">
             <div className="flex items-center gap-4 mb-6">
-              <div className="flex-1 h-px bg-gradient-to-r from-transparent via-amber-700/50 to-transparent" />
-              <span className="text-sm font-medium text-amber-500/70 uppercase tracking-wider flex items-center gap-2">
-                <span className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-pulse" />
+              <div className="flex-1 h-px bg-gradient-to-r from-transparent via-brand-amber/50 to-transparent" />
+              <span className="text-sm font-medium text-brand-amber/70 uppercase tracking-wider flex items-center gap-2">
+                <span className="w-1.5 h-1.5 bg-brand-amber rounded-full animate-pulse" />
                 Analysera webbplats
               </span>
-              <div className="flex-1 h-px bg-gradient-to-r from-transparent via-amber-700/50 to-transparent" />
+              <div className="flex-1 h-px bg-gradient-to-r from-transparent via-brand-amber/50 to-transparent" />
             </div>
             <SiteAuditSection
               onAuditComplete={handleAuditComplete}
@@ -448,12 +444,12 @@ export function HomePage() {
         {activeBuildMethod === "freeform" && (
           <div className="w-full max-w-2xl animate-fadeInUp">
             <div className="flex items-center gap-4 mb-6">
-              <div className="flex-1 h-px bg-gradient-to-r from-transparent via-pink-700/50 to-transparent" />
-              <span className="text-sm font-medium text-pink-500/70 uppercase tracking-wider flex items-center gap-2">
-                <span className="w-1.5 h-1.5 bg-pink-500 rounded-full animate-pulse" />
+              <div className="flex-1 h-px bg-gradient-to-r from-transparent via-brand-warm/50 to-transparent" />
+              <span className="text-sm font-medium text-brand-warm/70 uppercase tracking-wider flex items-center gap-2">
+                <span className="w-1.5 h-1.5 bg-brand-warm rounded-full animate-pulse" />
                 Beskriv din vision
               </span>
-              <div className="flex-1 h-px bg-gradient-to-r from-transparent via-pink-700/50 to-transparent" />
+              <div className="flex-1 h-px bg-gradient-to-r from-transparent via-brand-warm/50 to-transparent" />
             </div>
             <PromptInput initialValue={initialContext || undefined} />
             <p className="text-xs text-gray-600 text-center mt-4">

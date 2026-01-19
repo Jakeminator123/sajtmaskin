@@ -6,42 +6,32 @@ import { cn } from "@/lib/utils/utils";
 
 const MemoizedDithering = memo(Dithering);
 
-// Color themes for different moods/states
+// Sajtstudio palette themes (noir base + neon accents)
 export const SHADER_THEMES = {
-  // Default - subtle teal (anonymous users)
+  // Noir base
   default: {
-    color: "#002828",
-    name: "Teal",
+    color: "#01060C",
+    name: "Noir",
   },
-  // Warm welcome - for logged in users
+  // Deep navy base
+  deep: {
+    color: "#021522",
+    name: "Deep Navy",
+  },
+  // Neon blue accent
+  blue: {
+    color: "#4F8BFF",
+    name: "Blue",
+  },
+  // Warm neon accent
   warm: {
-    color: "#2d1f3d", // Purple-ish
+    color: "#F07050",
     name: "Warm",
   },
-  // Sunset vibes
-  sunset: {
-    color: "#3d1f1f", // Reddish
-    name: "Sunset",
-  },
-  // Ocean calm
-  ocean: {
-    color: "#1f2d3d", // Blue
-    name: "Ocean",
-  },
-  // Golden hour
-  golden: {
-    color: "#3d2d1f", // Gold/amber
-    name: "Golden",
-  },
-  // Aurora - pink/magenta
-  aurora: {
-    color: "#3d1f2d", // Pink/magenta
-    name: "Aurora",
-  },
-  // Cyber - electric blue
-  cyber: {
-    color: "#1f1f3d", // Deep blue/purple
-    name: "Cyber",
+  // Amber glow
+  amber: {
+    color: "#F0A070",
+    name: "Amber",
   },
 } as const;
 
@@ -49,11 +39,13 @@ export type ShaderTheme = keyof typeof SHADER_THEMES;
 
 // Color cycle for shimmer effect
 const SHIMMER_COLORS = [
-  "#2d1f3d", // Purple
-  "#3d1f2d", // Pink
-  "#3d2d1f", // Gold
-  "#1f2d3d", // Blue
-  "#2d1f3d", // Back to purple
+  "#01060C", // Noir base
+  "#021522", // Deep navy
+  "#4F8BFF", // Neon blue
+  "#F0A070", // Amber glow
+  "#F07050", // Warm accent
+  "#F08060", // Warm glow
+  "#021522", // Back to deep navy
 ];
 
 interface ShaderBackgroundProps {
@@ -105,7 +97,7 @@ export function ShaderBackground({
   return (
     <div
       className={cn(
-        "fixed inset-0 z-0 select-none shader-background bg-black",
+        "fixed inset-0 z-0 select-none shader-background bg-background",
         getOpacityClass(opacity),
         className
       )}
@@ -119,14 +111,14 @@ export function ShaderBackground({
         pxSize={3}
         scale={1.13}
         className={cn(
-          "bg-black h-screen w-screen",
+          "bg-background h-screen w-screen",
           shimmer ? "transition-all ease-in-out" : "transition-none"
         )}
         style={
           shimmer
             ? {
-                transitionDuration: `${transitionDurationMs}ms`,
-              }
+              transitionDuration: `${transitionDurationMs}ms`,
+            }
             : undefined
         }
       />

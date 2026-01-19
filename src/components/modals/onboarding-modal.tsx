@@ -109,7 +109,7 @@ export function OnboardingModal({ onComplete, onSkip }: OnboardingModalProps) {
         {step === "video" && (
           <div className="p-6">
             <div className="text-center mb-6">
-              <div className="inline-flex items-center gap-2 px-4 py-2 bg-teal-500/10 border border-teal-500/30 text-teal-400 text-sm mb-4">
+              <div className="inline-flex items-center gap-2 px-4 py-2 bg-brand-teal/10 border border-brand-teal/30 text-brand-teal text-sm mb-4">
                 <Sparkles className="h-4 w-4" />
                 Välkommen till SajtMaskin
               </div>
@@ -172,7 +172,7 @@ export function OnboardingModal({ onComplete, onSkip }: OnboardingModalProps) {
                   htmlFor="existing-url"
                   className="flex items-center gap-2 text-sm font-medium text-gray-300"
                 >
-                  <Globe className="h-4 w-4 text-teal-500" />
+                  <Globe className="h-4 w-4 text-brand-teal" />
                   Har du en befintlig webbplats?
                 </label>
 
@@ -183,7 +183,7 @@ export function OnboardingModal({ onComplete, onSkip }: OnboardingModalProps) {
                     value={existingUrl}
                     onChange={(e) => setExistingUrl(e.target.value)}
                     placeholder="https://ditt-foretag.se"
-                    className="flex-1 px-4 py-3 bg-black border border-gray-800 text-white placeholder-gray-500 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500"
+                    className="flex-1 px-4 py-3 bg-black border border-gray-800 text-white placeholder-gray-500 focus:border-brand-teal focus:outline-none focus:ring-1 focus:ring-brand-teal"
                   />
                 </div>
 
@@ -205,9 +205,8 @@ export function OnboardingModal({ onComplete, onSkip }: OnboardingModalProps) {
                           : "Vad vill du göra med denna URL?"}
                       </span>
                       <ChevronDown
-                        className={`h-4 w-4 text-gray-400 transition-transform ${
-                          showPurposeDropdown ? "rotate-180" : ""
-                        }`}
+                        className={`h-4 w-4 text-gray-400 transition-transform ${showPurposeDropdown ? "rotate-180" : ""
+                          }`}
                       />
                     </button>
 
@@ -222,11 +221,10 @@ export function OnboardingModal({ onComplete, onSkip }: OnboardingModalProps) {
                                 setUrlPurpose(purpose);
                                 setShowPurposeDropdown(false);
                               }}
-                              className={`w-full px-4 py-3 text-left hover:bg-gray-900 transition-colors ${
-                                urlPurpose === purpose
-                                  ? "bg-teal-500/10 text-teal-400"
-                                  : "text-gray-300"
-                              }`}
+                              className={`w-full px-4 py-3 text-left hover:bg-gray-900 transition-colors ${urlPurpose === purpose
+                                ? "bg-brand-teal/10 text-brand-teal"
+                                : "text-gray-300"
+                                }`}
                             >
                               {purposeLabels[purpose]}
                             </button>
@@ -245,11 +243,11 @@ export function OnboardingModal({ onComplete, onSkip }: OnboardingModalProps) {
                     type="checkbox"
                     checked={analyzeFromWeb}
                     onChange={(e) => setAnalyzeFromWeb(e.target.checked)}
-                    className="mt-1 h-5 w-5 border-gray-700 bg-black text-teal-500 focus:ring-teal-500 focus:ring-offset-0"
+                    className="mt-1 h-5 w-5 border-gray-700 bg-black text-brand-teal focus:ring-brand-teal focus:ring-offset-0"
                   />
                   <div>
                     <div className="flex items-center gap-2 text-white font-medium">
-                      <Search className="h-4 w-4 text-teal-400" />
+                      <Search className="h-4 w-4 text-brand-teal" />
                       Analysera mitt företag från internet
                     </div>
                     <p className="text-sm text-gray-400 mt-1">
@@ -276,7 +274,7 @@ export function OnboardingModal({ onComplete, onSkip }: OnboardingModalProps) {
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="Beskriv vilken typ av sajt du vill skapa, ditt företag, din målgrupp, etc..."
                   rows={4}
-                  className="w-full px-4 py-3 bg-black border border-gray-800 text-white placeholder-gray-500 focus:border-teal-500 focus:outline-none focus:ring-1 focus:ring-teal-500 resize-none"
+                  className="w-full px-4 py-3 bg-black border border-gray-800 text-white placeholder-gray-500 focus:border-brand-teal focus:outline-none focus:ring-1 focus:ring-brand-teal resize-none"
                 />
               </div>
 
@@ -292,7 +290,7 @@ export function OnboardingModal({ onComplete, onSkip }: OnboardingModalProps) {
                 <button
                   type="button"
                   onClick={handleSubmit}
-                  className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-teal-600 hover:bg-teal-500 text-white font-medium transition-colors"
+                  className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-brand-teal hover:bg-brand-teal/90 text-white font-medium transition-colors"
                 >
                   <Building2 className="h-4 w-4" />
                   Kom igång

@@ -208,7 +208,7 @@ export function SandboxModal({
                 placeholder="https://github.com/username/repo"
                 value={gitUrl}
                 onChange={(e) => setGitUrl(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-blue focus:outline-none focus:ring-1 focus:ring-brand-blue/50"
               />
             </div>
             <div>
@@ -222,7 +222,7 @@ export function SandboxModal({
                 placeholder="main"
                 value={gitBranch}
                 onChange={(e) => setGitBranch(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-blue focus:outline-none focus:ring-1 focus:ring-brand-blue/50"
               />
             </div>
           </div>
@@ -250,7 +250,7 @@ export function SandboxModal({
             <select
               value={runtime}
               onChange={(e) => setRuntime(e.target.value as SandboxRuntime)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-blue focus:outline-none focus:ring-1 focus:ring-brand-blue/50"
             >
               <option value="node24">Node 24</option>
               <option value="node22">Node 22</option>
@@ -263,7 +263,7 @@ export function SandboxModal({
               type="text"
               value={ports}
               onChange={(e) => setPorts(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-blue focus:outline-none focus:ring-1 focus:ring-brand-blue/50"
               placeholder="3000, 5173"
             />
           </div>
@@ -273,7 +273,7 @@ export function SandboxModal({
               type="text"
               value={timeout}
               onChange={(e) => setTimeout(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-blue focus:outline-none focus:ring-1 focus:ring-brand-blue/50"
               placeholder="5m"
             />
           </div>
@@ -285,7 +285,7 @@ export function SandboxModal({
               max={8}
               value={vcpus}
               onChange={(e) => setVcpus(Number(e.target.value))}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-blue focus:outline-none focus:ring-1 focus:ring-brand-blue/50"
             />
           </div>
           <div>
@@ -294,7 +294,7 @@ export function SandboxModal({
               type="text"
               value={installCommand}
               onChange={(e) => setInstallCommand(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-blue focus:outline-none focus:ring-1 focus:ring-brand-blue/50"
             />
           </div>
           <div>
@@ -303,13 +303,13 @@ export function SandboxModal({
               type="text"
               value={startCommand}
               onChange={(e) => setStartCommand(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-blue focus:outline-none focus:ring-1 focus:ring-brand-blue/50"
             />
           </div>
         </div>
 
         {setupHint && (
-          <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+          <div className="mb-6 rounded-lg border border-brand-amber/30 bg-brand-amber/10 p-3 text-xs text-brand-amber">
             {setupHint}
           </div>
         )}

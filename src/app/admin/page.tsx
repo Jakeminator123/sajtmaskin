@@ -326,13 +326,13 @@ export default function AdminPage() {
   // Login form
   if (!isAuthenticated) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center p-4">
-        <ShaderBackground color="#330033" speed={0.2} />
+      <div className="min-h-screen bg-background flex items-center justify-center p-4">
+        <ShaderBackground theme="blue" speed={0.2} />
         <div className="relative z-10 w-full max-w-md">
           <div className="bg-black/70 border border-gray-800 p-8">
             <div className="text-center mb-6">
-              <div className="w-12 h-12 bg-teal-500/10 flex items-center justify-center mx-auto mb-4">
-                <Lock className="h-6 w-6 text-teal-400" />
+              <div className="w-12 h-12 bg-brand-teal/10 flex items-center justify-center mx-auto mb-4">
+                <Lock className="h-6 w-6 text-brand-teal" />
               </div>
               <h1 className="text-2xl font-bold text-white">Admin Panel</h1>
               <p className="text-gray-500 mt-2">Logga in med admin-kontot</p>
@@ -368,7 +368,7 @@ export default function AdminPage() {
 
               <Button
                 type="submit"
-                className="w-full h-11 bg-teal-600 hover:bg-teal-500"
+                className="w-full h-11 bg-brand-teal hover:bg-brand-teal/90"
                 disabled={isLoading}
               >
                 {isLoading ? (
@@ -395,8 +395,8 @@ export default function AdminPage() {
 
   // Admin dashboard
   return (
-    <div className="min-h-screen bg-black">
-      <ShaderBackground color="#1a0033" speed={0.15} />
+    <div className="min-h-screen bg-background">
+      <ShaderBackground theme="deep" speed={0.15} />
       <div className="relative z-10 max-w-7xl mx-auto px-4 py-8">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
@@ -428,8 +428,8 @@ export default function AdminPage() {
 
         {/* Message display */}
         {message && (
-          <div className="mb-4 p-4 bg-teal-500/10 border border-teal-500/30 rounded">
-            <p className="text-sm text-teal-400">{message}</p>
+          <div className="mb-4 p-4 bg-brand-teal/10 border border-brand-teal/30 rounded">
+            <p className="text-sm text-brand-teal">{message}</p>
           </div>
         )}
 
@@ -441,7 +441,7 @@ export default function AdminPage() {
             onClick={() => setActiveTab("analytics")}
             className={`gap-2 ${
               activeTab === "analytics"
-                ? "bg-teal-600 hover:bg-teal-500"
+                ? "bg-brand-teal hover:bg-brand-teal/90"
                 : "border-gray-700 text-gray-400 hover:text-white hover:bg-gray-800"
             }`}
           >
@@ -454,7 +454,7 @@ export default function AdminPage() {
             onClick={() => setActiveTab("database")}
             className={`gap-2 ${
               activeTab === "database"
-                ? "bg-teal-600 hover:bg-teal-500"
+                ? "bg-brand-teal hover:bg-brand-teal/90"
                 : "border-gray-700 text-gray-400 hover:text-white hover:bg-gray-800"
             }`}
           >
@@ -539,7 +539,7 @@ export default function AdminPage() {
                   {/* Daily views chart */}
                   <div className="bg-black/50 border border-gray-800 p-6">
                     <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
-                      <TrendingUp className="h-5 w-5 text-teal-400" />
+                      <TrendingUp className="h-5 w-5 text-brand-teal" />
                       Dagliga besök
                     </h2>
                     <div className="h-64 flex items-end gap-1">
@@ -556,14 +556,14 @@ export default function AdminPage() {
                               className="flex-1 flex flex-col items-center gap-1"
                             >
                               <div
-                                className="w-full bg-teal-500/20 relative group"
+                                className="w-full bg-brand-teal/20 relative group"
                                 style={{
                                   height: `${height}%`,
                                   minHeight: "4px",
                                 }}
                               >
                                 <div
-                                  className="absolute bottom-0 w-full bg-teal-500"
+                                  className="absolute bottom-0 w-full bg-brand-teal"
                                   style={{
                                     height: `${
                                       maxViews > 0
@@ -628,8 +628,8 @@ export default function AdminPage() {
             <div className="bg-black/50 border border-gray-800 p-6">
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-teal-500/10 flex items-center justify-center">
-                    <HardDrive className="h-5 w-5 text-teal-400" />
+                  <div className="w-10 h-10 bg-brand-teal/10 flex items-center justify-center">
+                    <HardDrive className="h-5 w-5 text-brand-teal" />
                   </div>
                   <div>
                     <h2 className="text-lg font-semibold text-white">
@@ -733,14 +733,14 @@ export default function AdminPage() {
                   <div
                     className={`w-10 h-10 flex items-center justify-center ${
                       dbStats?.redis?.connected
-                        ? "bg-teal-500/10"
+                        ? "bg-brand-teal/10"
                         : "bg-red-500/10"
                     }`}
                   >
                     <Server
                       className={`h-5 w-5 ${
                         dbStats?.redis?.connected
-                          ? "text-teal-400"
+                          ? "text-brand-teal"
                           : "text-red-400"
                       }`}
                     />
@@ -786,7 +786,7 @@ export default function AdminPage() {
               </div>
 
               {!dbStats?.redis?.connected && (
-                <div className="p-4 bg-amber-500/10 border border-amber-500/30 text-amber-400 text-sm">
+                <div className="p-4 bg-brand-amber/10 border border-brand-amber/30 text-brand-amber text-sm">
                   Redis är inte konfigurerat. Lägg till REDIS_PASSWORD i
                   .env.local för att aktivera caching.
                 </div>
@@ -797,8 +797,8 @@ export default function AdminPage() {
             <div className="bg-black/50 border border-gray-800 p-6">
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-cyan-500/10 flex items-center justify-center">
-                    <Sparkles className="h-5 w-5 text-cyan-400" />
+                  <div className="w-10 h-10 bg-brand-teal/10 flex items-center justify-center">
+                    <Sparkles className="h-5 w-5 text-brand-teal" />
                   </div>
                   <div>
                     <h2 className="text-lg font-semibold text-white">
@@ -807,7 +807,7 @@ export default function AdminPage() {
                     <p className="text-sm text-gray-500">
                       {dbStats?.sqlite?.templateCache || 0} templates cachade
                       {dbStats?.sqlite?.templateCacheExpired ? (
-                        <span className="text-amber-400">
+                        <span className="text-brand-amber">
                           {" "}
                           • {dbStats.sqlite.templateCacheExpired} utgångna
                         </span>
@@ -931,7 +931,7 @@ export default function AdminPage() {
                       setActionLoading(null);
                     }}
                     disabled={actionLoading === "extend-cache"}
-                    className="gap-2 border-cyan-700 text-cyan-400 hover:text-white hover:bg-cyan-800"
+                    className="gap-2 border-brand-teal/50 text-brand-teal hover:text-white hover:bg-brand-teal/20"
                   >
                     {actionLoading === "extend-cache" ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
@@ -998,8 +998,8 @@ export default function AdminPage() {
             <div className="bg-black/50 border border-gray-800 p-6">
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-purple-500/10 flex items-center justify-center">
-                    <HardDrive className="h-5 w-5 text-purple-400" />
+                  <div className="w-10 h-10 bg-brand-blue/10 flex items-center justify-center">
+                    <HardDrive className="h-5 w-5 text-brand-blue" />
                   </div>
                   <div>
                     <h2 className="text-lg font-semibold text-white">
@@ -1064,7 +1064,7 @@ export default function AdminPage() {
               )}
 
               {dbStats?.dataDir && !dbStats.dataDir.includes("/var/data") && (
-                <div className="p-4 bg-amber-500/10 border border-amber-500/30 text-amber-400 text-sm mt-4">
+                <div className="p-4 bg-brand-amber/10 border border-brand-amber/30 text-brand-amber text-sm mt-4">
                   ⚠️ Persistent disk är inte konfigurerad. Lägg till
                   DATA_DIR=/var/data i miljövariabler på Render för att bevara
                   data mellan deploys.
@@ -1118,7 +1118,7 @@ export default function AdminPage() {
                     disabled={actionLoading === "v0-cleanup"}
                     className={`gap-2 ${
                       confirmAction === "v0-cleanup"
-                        ? "border-orange-500 text-orange-400"
+                        ? "border-brand-warm text-brand-warm"
                         : "border-gray-700 text-gray-400 hover:text-white hover:bg-gray-800"
                     }`}
                   >
@@ -1167,7 +1167,7 @@ export default function AdminPage() {
                     disabled={actionLoading === "vercel-cleanup"}
                     className={`gap-2 ${
                       confirmAction === "vercel-cleanup"
-                        ? "border-blue-500 text-blue-400"
+                        ? "border-brand-blue text-brand-blue"
                         : "border-gray-700 text-gray-400 hover:text-white hover:bg-gray-800"
                     }`}
                   >
@@ -1190,7 +1190,7 @@ export default function AdminPage() {
                     disabled={actionLoading === "reset-all"}
                     className={`gap-2 ${
                       confirmAction === "reset-all"
-                        ? "border-purple-500 text-purple-400"
+                        ? "border-brand-blue text-brand-blue"
                         : "border-gray-700 text-gray-400 hover:text-white hover:bg-gray-800"
                     }`}
                   >
@@ -1284,12 +1284,12 @@ function StatCard({
   color: string;
 }) {
   const colors: Record<string, string> = {
-    blue: "bg-blue-500/10 text-blue-400",
-    green: "bg-teal-500/10 text-teal-400",
-    purple: "bg-purple-500/10 text-purple-400",
-    amber: "bg-amber-500/10 text-amber-400",
-    pink: "bg-pink-500/10 text-pink-400",
-    cyan: "bg-cyan-500/10 text-cyan-400",
+    blue: "bg-brand-blue/10 text-brand-blue",
+    green: "bg-brand-teal/10 text-brand-teal",
+    purple: "bg-brand-blue/10 text-brand-blue",
+    amber: "bg-brand-amber/10 text-brand-amber",
+    pink: "bg-brand-warm/10 text-brand-warm",
+    cyan: "bg-brand-teal/10 text-brand-teal",
   };
 
   return (

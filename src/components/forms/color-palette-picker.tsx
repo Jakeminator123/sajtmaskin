@@ -296,8 +296,8 @@ export function ColorPalettePicker({
       {recommendedPalettes.length > 0 && (
         <div className="space-y-2">
           <div className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-amber-400" />
-            <span className="text-sm font-medium text-amber-400">
+            <Sparkles className="h-4 w-4 text-brand-amber" />
+            <span className="text-sm font-medium text-brand-amber">
               Rekommenderade för din bransch
             </span>
           </div>
@@ -311,12 +311,12 @@ export function ColorPalettePicker({
                 }}
               className={`relative p-3 border transition-all ${
                 selectedPalette?.id === palette.id && !showCustom
-                  ? "border-amber-500 ring-2 ring-amber-500/20"
+                  ? "border-brand-amber ring-2 ring-brand-amber/20"
                   : "border-gray-700 hover:border-gray-600"
               }`}
               >
                 {selectedPalette?.id === palette.id && !showCustom && (
-                  <div className="absolute -top-2 -right-2 bg-amber-500 rounded-full p-0.5">
+                  <div className="absolute -top-2 -right-2 bg-brand-amber rounded-full p-0.5">
                     <Check className="h-3 w-3 text-white" />
                   </div>
                 )}
@@ -354,12 +354,12 @@ export function ColorPalettePicker({
               }}
               className={`relative p-3 border transition-all ${
                 selectedPalette?.id === palette.id && !showCustom
-                  ? "border-teal-500 ring-2 ring-teal-500/20"
+                  ? "border-brand-teal ring-2 ring-brand-teal/20"
                   : "border-gray-700 hover:border-gray-600"
               }`}
             >
               {selectedPalette?.id === palette.id && !showCustom && (
-                <div className="absolute -top-2 -right-2 bg-teal-500 p-0.5">
+                <div className="absolute -top-2 -right-2 bg-brand-teal p-0.5">
                   <Check className="h-3 w-3 text-white" />
                 </div>
               )}
@@ -386,7 +386,7 @@ export function ColorPalettePicker({
         onClick={() => setShowCustom(!showCustom)}
         className={`w-full flex items-center justify-center gap-2 py-2 px-4 border transition-all ${
           showCustom
-            ? "border-teal-500 bg-teal-500/10 text-teal-400"
+            ? "border-brand-teal bg-brand-teal/10 text-brand-teal"
             : "border-gray-700 hover:border-gray-600 text-gray-400"
         }`}
       >

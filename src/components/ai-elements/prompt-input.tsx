@@ -85,7 +85,7 @@ export function PromptInput({
       <div
         className={cn(
           "relative flex flex-col rounded-2xl border border-zinc-700 bg-zinc-900",
-          "focus-within:border-purple-500 focus-within:ring-1 focus-within:ring-purple-500/50",
+          "focus-within:border-brand-blue focus-within:ring-1 focus-within:ring-brand-blue/50",
           "transition-colors",
           className
         )}
@@ -238,9 +238,9 @@ export function PromptInputSubmit({
       disabled={!value.trim() || isLoading || disabled}
       className={cn(
         "flex-shrink-0 p-2 rounded-xl",
-        "bg-purple-600 text-white",
-        "hover:bg-purple-500 active:bg-purple-700",
-        "disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-purple-600",
+        "bg-brand-blue text-white",
+        "hover:bg-brand-blue/90 active:bg-brand-blue",
+        "disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-brand-blue",
         "transition-colors",
         className
       )}
