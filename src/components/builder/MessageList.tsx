@@ -121,8 +121,14 @@ export function MessageList({ chatId, messages: externalMessages = [] }: Message
                     const toolState = (typeof tool.state === "string"
                       ? tool.state
                       : "input-available") as ToolUIPart["state"];
-                    const toolType =
-                      typeof tool.type === "string" ? tool.type : "tool";
+                    const rawToolType = typeof tool.type === "string" ? `${tool.type}` : "";
+                    const toolType = (() => {
+                      if (!rawToolType || rawToolType === "tool") return "tool-unknown";
+                      if (rawToolType.startsWith("tool-")) return rawToolType;
+                      if (rawToolType.startsWith("tool:")) return `tool-${rawToolType.slice(5)}`;
+                      if (rawToolType.startsWith("tool_")) return `tool-${rawToolType.slice(5)}`;
+                      return `tool-${rawToolType}`;
+                    })() as ToolUIPart["type"];
                     const toolTitle =
                       typeof (tool as { name?: string }).name === "string"
                         ? (tool as { name?: string }).name
