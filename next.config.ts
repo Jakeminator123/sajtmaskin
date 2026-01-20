@@ -2,6 +2,10 @@ import type { NextConfig } from "next";
 import path from "path";
 
 const nextConfig: NextConfig = {
+  // Skip ESLint during production builds (eslint is devDependency, not installed on Render)
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
   // Fix workspace root detection (prevents lockfile warning)
   outputFileTracingRoot: path.join(__dirname, "./"),
   images: {
