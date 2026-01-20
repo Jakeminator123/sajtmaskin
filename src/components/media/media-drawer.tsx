@@ -590,7 +590,7 @@ function MediaItemCard({
       ) : (
         <div className="w-full h-full bg-gray-800 flex flex-col items-center justify-center p-2">
           <Icon className="h-8 w-8 text-gray-500 mb-1" />
-          <span className="text-[10px] text-gray-500 text-center truncate w-full">
+          <span className="text-[10px] text-gray-500 truncate w-full px-2 text-left">
             {item.filename}
           </span>
         </div>
@@ -609,7 +609,7 @@ function MediaItemCard({
       {/* Hover overlay */}
       {showActions && (
         <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center gap-2 p-2">
-          <span className="text-[11px] text-white text-center truncate w-full px-1">
+          <span className="text-[11px] text-white truncate w-full px-2 text-left">
             {item.filename}
           </span>
           <Button

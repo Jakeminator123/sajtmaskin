@@ -105,6 +105,7 @@ export function useV0ChatMessaging(params: {
   maybeEnhanceInitialPrompt: (original: string) => Promise<string>;
   mutateVersions: () => void;
   setCurrentDemoUrl: (url: string | null) => void;
+  onPreviewRefresh?: () => void;
   setMessages: (next: ChatMessage[] | ((prev: ChatMessage[]) => ChatMessage[])) => void;
   resetBeforeCreateChat: () => void;
 }) {
@@ -118,6 +119,7 @@ export function useV0ChatMessaging(params: {
     maybeEnhanceInitialPrompt,
     mutateVersions,
     setCurrentDemoUrl,
+    onPreviewRefresh,
     setMessages,
     resetBeforeCreateChat,
   } = params;
@@ -156,7 +158,7 @@ export function useV0ChatMessaging(params: {
           ? initialMessage
           : await maybeEnhanceInitialPrompt(initialMessage);
         const finalMessage = appendAttachmentPrompt(messageForV0, options.attachmentPrompt);
-        const thinkingForTier = selectedModelTier === 'v0-max';
+        const thinkingForTier = selectedModelTier !== 'v0-mini';
         const requestBody: Record<string, unknown> = {
           message: finalMessage,
           modelId: selectedModelTier,
@@ -262,6 +264,7 @@ export function useV0ChatMessaging(params: {
                 if (doneData.demoUrl) {
                   setCurrentDemoUrl(doneData.demoUrl);
                 }
+                onPreviewRefresh?.();
                 if (doneData.id && !chatIdFromStream) {
                   setChatId(doneData.id);
                   if (chatIdParam !== doneData.id) {
@@ -300,6 +303,7 @@ export function useV0ChatMessaging(params: {
 
           if (data.latestVersion?.demoUrl) {
             setCurrentDemoUrl(data.latestVersion.demoUrl);
+            onPreviewRefresh?.();
           }
 
           setMessages((prev) =>
@@ -327,6 +331,7 @@ export function useV0ChatMessaging(params: {
       chatIdParam,
       router,
       setCurrentDemoUrl,
+      onPreviewRefresh,
       mutateVersions,
     ]
   );
@@ -439,6 +444,7 @@ export function useV0ChatMessaging(params: {
             case 'done': {
               const doneData = typeof data === 'object' && data ? (data as any) : {};
               if (doneData?.demoUrl) setCurrentDemoUrl(doneData.demoUrl);
+              onPreviewRefresh?.();
               setMessages((prev) =>
                 prev.map((m) => (m.id === assistantMessageId ? { ...m, isStreaming: false } : m))
               );
@@ -461,7 +467,7 @@ export function useV0ChatMessaging(params: {
         );
       }
     },
-    [chatId, createNewChat, setMessages, setCurrentDemoUrl, mutateVersions]
+    [chatId, createNewChat, setMessages, setCurrentDemoUrl, onPreviewRefresh, mutateVersions]
   );
 
   return { isCreatingChat, createNewChat, sendMessage };

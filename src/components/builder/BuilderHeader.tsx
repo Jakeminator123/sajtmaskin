@@ -20,13 +20,11 @@ import {
   FolderGit2,
   ImageIcon,
   Loader2,
-  Menu,
   Plus,
   Rocket,
   Settings2,
   Sparkles,
   TerminalSquare,
-  X,
 } from 'lucide-react';
 
 const MODEL_OPTIONS: {
@@ -62,9 +60,6 @@ const PROMPT_ASSIST_OPTIONS: {
   ];
 
 export function BuilderHeader(props: {
-  isMobileMenuOpen: boolean;
-  onToggleMobileMenu: () => void;
-
   selectedModelTier: ModelTier;
   onSelectedModelTierChange: (tier: ModelTier) => void;
 
@@ -95,8 +90,6 @@ export function BuilderHeader(props: {
   canDeploy: boolean;
 }) {
   const {
-    isMobileMenuOpen,
-    onToggleMobileMenu,
     selectedModelTier,
     onSelectedModelTierChange,
     promptAssistProvider,
@@ -127,14 +120,6 @@ export function BuilderHeader(props: {
   return (
     <header className="flex h-14 items-center justify-between border-b border-border bg-background px-4">
       <div className="flex items-center gap-3">
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          onClick={onToggleMobileMenu}
-          className="lg:hidden"
-        >
-          {isMobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-        </Button>
         <h1 className="text-xl font-bold">Sajtmaskin</h1>
       </div>
 

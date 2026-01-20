@@ -38,7 +38,7 @@ type FigmaPreviewResponse = {
 
 interface ChatInterfaceProps {
   chatId: string | null;
-  onCreateChat?: (message: string, options?: MessageOptions) => Promise<void>;
+  onCreateChat?: (message: string, options?: MessageOptions) => Promise<boolean | void>;
   onSendMessage?: (message: string, options?: MessageOptions) => Promise<void>;
   onEnhancePrompt?: (message: string) => Promise<string>;
   promptAssistStatus?: string | null;
@@ -327,11 +327,12 @@ export function ChatInterface({
       if (!payload.finalMessage.trim()) return;
       if (!chatId) {
         if (!onCreateChat) return;
-        await onCreateChat(payload.finalMessage, {
+        const created = await onCreateChat(payload.finalMessage, {
           attachments: payload.finalAttachments,
           attachmentPrompt: payload.attachmentPrompt,
           skipPromptAssist: hasEnhancedDraft,
         });
+        if (created === false) return;
       } else {
         if (!onSendMessage) return;
         await onSendMessage(payload.finalMessage, {

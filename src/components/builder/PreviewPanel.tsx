@@ -1,22 +1,36 @@
 "use client";
 
 import { AlertCircle, ExternalLink, Loader2, RefreshCw } from "lucide-react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 
 interface PreviewPanelProps {
   demoUrl: string | null;
   isLoading?: boolean;
   onClear?: () => void;
+  refreshToken?: number;
 }
 
 export function PreviewPanel({
   demoUrl,
   isLoading: externalLoading,
   onClear,
+  refreshToken,
 }: PreviewPanelProps) {
   const [iframeLoading, setIframeLoading] = useState(true);
   const [iframeError, setIframeError] = useState(false);
+
+  const buildPreviewSrc = (url: string, token?: number) => {
+    if (!token) return url;
+    const separator = url.includes("?") ? "&" : "?";
+    return `${url}${separator}t=${token}`;
+  };
+
+  useEffect(() => {
+    if (!demoUrl) return;
+    setIframeLoading(true);
+    setIframeError(false);
+  }, [demoUrl, refreshToken]);
 
   const handleIframeLoad = () => {
     setIframeLoading(false);
@@ -34,8 +48,8 @@ export function PreviewPanel({
     const iframe = document.getElementById("preview-iframe") as HTMLIFrameElement | null;
     if (iframe) {
       const base = demoUrl || iframe.src;
-      const separator = base.includes("?") ? "&" : "?";
-      iframe.src = `${base}${separator}t=${Date.now()}`;
+      if (!base) return;
+      iframe.src = buildPreviewSrc(base, Date.now());
     }
   };
 
@@ -65,6 +79,7 @@ export function PreviewPanel({
   }
 
   const isLoading = externalLoading || iframeLoading;
+  const previewSrc = buildPreviewSrc(demoUrl, refreshToken);
 
   return (
     <div className="flex h-full flex-col bg-black/40">
@@ -131,7 +146,7 @@ export function PreviewPanel({
 
         <iframe
           id="preview-iframe"
-          src={demoUrl}
+          src={previewSrc}
           className="h-full w-full border-0"
           onLoad={handleIframeLoad}
           onError={handleIframeError}

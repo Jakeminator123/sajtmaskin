@@ -85,10 +85,10 @@ export async function POST(req: Request) {
         projectId,
         chatPrivacy: resolvedChatPrivacy,
         modelConfiguration: {
-          modelId: modelId as unknown as Parameters<typeof v0.chats.create>[0]['modelConfiguration'] extends { modelId?: infer M } ? M : string,
           thinking: resolvedThinking,
           imageGenerations: resolvedImageGenerations,
         },
+        ...(modelId && { modelId }),
         responseMode: 'experimental_stream',
         ...(attachments ? { attachments } : {}),
       } as Parameters<typeof v0.chats.create>[0] & { responseMode?: string });

@@ -2,20 +2,14 @@
 
 import { ChatInterface } from '@/components/builder/ChatInterface';
 import { ErrorBoundary } from '@/components/builder/ErrorBoundary';
-import { FileExplorer } from '@/components/builder/FileExplorer';
-import { FileViewer } from '@/components/builder/FileViewer';
 import { InitFromRepoModal } from '@/components/builder/InitFromRepoModal';
-import { DeploymentHistory } from '@/components/builder/DeploymentHistory';
 import { MessageList } from '@/components/builder/MessageList';
 import { PreviewPanel } from '@/components/builder/PreviewPanel';
-import { RecommendationsPanel } from '@/components/builder/RecommendationsPanel';
 import { SandboxModal } from '@/components/builder/SandboxModal';
-import { VersionHistory } from '@/components/builder/VersionHistory';
 import { BuilderHeader } from '@/components/builder/BuilderHeader';
 import { Button } from '@/components/ui/button';
-import { buildFileTree } from '@/lib/builder/fileTree';
 import { clearPersistedMessages } from '@/lib/builder/messagesStorage';
-import type { ChatMessage, FileNode, RightPanelTab } from '@/lib/builder/types';
+import type { ChatMessage } from '@/lib/builder/types';
 import { useChat } from '@/lib/hooks/useChat';
 import { usePersistedChatMessages } from '@/lib/hooks/usePersistedChatMessages';
 import { usePromptAssist } from '@/lib/hooks/usePromptAssist';
@@ -26,18 +20,44 @@ import type { PromptAssistProvider } from '@/lib/builder/promptAssist';
 import type { ModelTier } from '@/lib/validations/chatSchemas';
 import { cn } from '@/lib/utils';
 import {
-  ChevronLeft,
-  ChevronRight,
-  FolderTree,
-  History,
+  Check,
   Loader2,
-  Monitor,
-  Rocket,
-  Sparkles,
 } from 'lucide-react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import toast, { Toaster } from 'react-hot-toast';
+
+type CreateChatOptions = {
+  attachments?: unknown[];
+  attachmentPrompt?: string;
+  skipPromptAssist?: boolean;
+};
+
+type ModelOption = {
+  value: ModelTier;
+  label: string;
+  description: string;
+  hint?: string;
+};
+
+const MODEL_TIER_OPTIONS: ModelOption[] = [
+  {
+    value: 'v0-mini',
+    label: 'Mini',
+    description: 'Snabbast och billigast. Bra för snabb prototyp.',
+  },
+  {
+    value: 'v0-pro',
+    label: 'Pro',
+    description: 'Balanserad kvalitet och hastighet.',
+    hint: 'Rekommenderad',
+  },
+  {
+    value: 'v0-max',
+    label: 'Max',
+    description: 'Bäst kvalitet, långsammare. Djupare resonemang.',
+  },
+];
 
 function BuilderContent() {
   const router = useRouter();
@@ -52,16 +72,9 @@ function BuilderContent() {
   const hasEntryParams = Boolean(promptParam || templateId || source === 'audit');
 
   const [chatId, setChatId] = useState<string | null>(chatIdParam);
-  const [selectedVersionId, setSelectedVersionId] = useState<string | null>(null);
   const [currentDemoUrl, setCurrentDemoUrl] = useState<string | null>(null);
+  const [previewRefreshToken, setPreviewRefreshToken] = useState(0);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [rightPanelTab, setRightPanelTab] = useState<RightPanelTab>('preview');
-  const [isRightPanelCollapsed, setIsRightPanelCollapsed] = useState(true);
-  const [files, setFiles] = useState<FileNode[]>([]);
-  const [selectedFile, setSelectedFile] = useState<FileNode | null>(null);
-  const [isFilesLoading, setIsFilesLoading] = useState(false);
-  const [filesError, setFilesError] = useState<string | null>(null);
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [selectedModelTier, setSelectedModelTier] = useState<ModelTier>('v0-pro');
   const [promptAssistProvider, setPromptAssistProvider] =
@@ -78,17 +91,12 @@ function BuilderContent() {
   const [auditPromptLoaded, setAuditPromptLoaded] = useState(source !== 'audit');
   const [resolvedPrompt, setResolvedPrompt] = useState<string | null>(promptParam);
   const [isTemplateLoading, setIsTemplateLoading] = useState(false);
-
-  type VersionSummary = {
-    id?: string | null;
-    versionId?: string | null;
-    messageId?: string | null;
-    demoUrl?: string | null;
-    metadata?: unknown;
-    createdAt?: string | Date | null;
-    pinned?: boolean;
-    pinnedAt?: string | Date | null;
-  };
+  const [isModelSelectOpen, setIsModelSelectOpen] = useState(false);
+  const [pendingCreate, setPendingCreate] = useState<{
+    message: string;
+    options?: CreateChatOptions;
+  } | null>(null);
+  const [hasSelectedModelTier, setHasSelectedModelTier] = useState(false);
 
   useEffect(() => {
     if (source !== 'audit' || typeof window === 'undefined') return;
@@ -205,11 +213,6 @@ function BuilderContent() {
     }
   }, [chat, currentDemoUrl]);
 
-  const chatWebUrl = useMemo(() => {
-    if (!chat || typeof chat !== 'object') return null;
-    return (chat as { webUrl?: string | null }).webUrl ?? null;
-  }, [chat]);
-
   const activeVersionId = useMemo(() => {
     const latestFromVersions = versions?.[0]?.versionId || versions?.[0]?.id || null;
     const latestFromChat = (() => {
@@ -218,18 +221,8 @@ function BuilderContent() {
         .latestVersion;
       return latest?.versionId || latest?.id || null;
     })();
-    return selectedVersionId || latestFromVersions || latestFromChat;
-  }, [selectedVersionId, versions, chat]);
-
-  const activeVersionMeta = useMemo<VersionSummary | null>(() => {
-    if (!activeVersionId) return null;
-    const versionsList = versions as VersionSummary[];
-    return (
-      versionsList.find((version) => version.versionId === activeVersionId) ||
-      versionsList.find((version) => version.id === activeVersionId) ||
-      null
-    );
-  }, [versions, activeVersionId]);
+    return latestFromVersions || latestFromChat;
+  }, [versions, chat]);
 
   const isAnyStreaming = useMemo(() => messages.some((m) => Boolean(m.isStreaming)), [messages]);
 
@@ -307,12 +300,8 @@ function BuilderContent() {
   }, [promptAssistProvider, promptAssistDeep]);
 
   const resetBeforeCreateChat = useCallback(() => {
-    setSelectedFile(null);
-    setFiles([]);
-    setFilesError(null);
-    setSelectedVersionId(null);
     setCurrentDemoUrl(null);
-    setRightPanelTab('preview');
+    setPreviewRefreshToken(0);
   }, []);
 
   const { isCreatingChat, createNewChat, sendMessage } = useV0ChatMessaging({
@@ -325,9 +314,32 @@ function BuilderContent() {
     maybeEnhanceInitialPrompt,
     mutateVersions,
     setCurrentDemoUrl,
+    onPreviewRefresh: bumpPreviewRefreshToken,
     setMessages,
     resetBeforeCreateChat,
   });
+
+  const confirmModelSelection = useCallback(async () => {
+    const pending = pendingCreate;
+    setIsModelSelectOpen(false);
+    setPendingCreate(null);
+    setHasSelectedModelTier(true);
+    if (!pending) return;
+    await createNewChat(pending.message, pending.options as any);
+  }, [pendingCreate, createNewChat]);
+
+  const requestCreateChat = useCallback(
+    async (message: string, options?: CreateChatOptions) => {
+      if (!chatId && !hasSelectedModelTier) {
+        setPendingCreate({ message, options });
+        setIsModelSelectOpen(true);
+        return false;
+      }
+      await createNewChat(message, options as any);
+      return true;
+    },
+    [chatId, hasSelectedModelTier, createNewChat]
+  );
 
   usePersistedChatMessages({
     chatId,
@@ -336,47 +348,6 @@ function BuilderContent() {
     messages,
     setMessages,
   });
-
-  const loadFiles = useCallback(
-    async (versionId: string | null) => {
-      if (!chatId) return;
-
-      setIsFilesLoading(true);
-      setFilesError(null);
-      try {
-        const url = versionId
-          ? `/api/v0/chats/${chatId}/files?versionId=${encodeURIComponent(versionId)}`
-          : `/api/v0/chats/${chatId}/files`;
-
-        const response = await fetch(url);
-        if (!response.ok) {
-          const err = await response.json().catch(() => ({}));
-          throw new Error(err.error || `Failed to fetch files (HTTP ${response.status})`);
-        }
-
-        const data = await response.json();
-        const flatFiles = Array.isArray(data.files) ? data.files : [];
-        setFiles(buildFileTree(flatFiles));
-      } catch (error) {
-        console.error('Error fetching files:', error);
-        setFiles([]);
-        setFilesError(error instanceof Error ? error.message : 'Failed to fetch files');
-      } finally {
-        setIsFilesLoading(false);
-      }
-    },
-    [chatId]
-  );
-
-  useEffect(() => {
-    if (!chatId) {
-      setFiles([]);
-      setFilesError(null);
-      return;
-    }
-    if (rightPanelTab !== 'files') return;
-    loadFiles(activeVersionId);
-  }, [chatId, rightPanelTab, activeVersionId, loadFiles]);
 
   const resetToNewChat = useCallback(() => {
     setIsIntentionalReset(true);
@@ -388,70 +359,23 @@ function BuilderContent() {
     }
     router.replace('/builder');
     setChatId(null);
-    setSelectedFile(null);
-    setFiles([]);
-    setFilesError(null);
-    setSelectedVersionId(null);
     setCurrentDemoUrl(null);
+    setPreviewRefreshToken(0);
     setMessages([]);
     setIsImportModalOpen(false);
     setIsSandboxModalOpen(false);
+    setIsModelSelectOpen(false);
+    setPendingCreate(null);
+    setHasSelectedModelTier(false);
   }, [router, chatId]);
-
-  const handleVersionSelect = async (versionId: string) => {
-    setSelectedVersionId(versionId);
-
-    if (!chatId) {
-      console.warn('handleVersionSelect called without valid chatId');
-      return;
-    }
-
-    try {
-      const response = await fetch(`/api/v0/chats/${chatId}/versions`);
-
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      const versionsList = Array.isArray(data.versions)
-        ? (data.versions as Array<{ versionId?: string; id?: string; demoUrl?: string | null }>)
-        : [];
-      const version = versionsList.find((v) => v.versionId === versionId || v.id === versionId);
-      if (version?.demoUrl) {
-        setCurrentDemoUrl(version.demoUrl);
-      }
-    } catch (error) {
-      console.error('Error fetching version:', error);
-    }
-  };
-
-  const handleFileSelect = (file: FileNode) => {
-    setSelectedFile(file);
-  };
-
-  const tabs = [
-    { id: 'preview' as const, label: 'Preview', icon: Monitor },
-    { id: 'versions' as const, label: 'Versions', icon: History },
-    { id: 'files' as const, label: 'Files', icon: FolderTree },
-    { id: 'recommendations' as const, label: 'Tips', icon: Sparkles },
-    { id: 'deployments' as const, label: 'Deployments', icon: Rocket },
-  ];
 
   const handleClearPreview = useCallback(() => {
     setCurrentDemoUrl(null);
-    setSelectedVersionId(null);
   }, []);
 
-  const handleRightPanelTabChange = useCallback(
-    (tabId: RightPanelTab) => {
-      setRightPanelTab(tabId);
-      if (isRightPanelCollapsed) {
-        setIsRightPanelCollapsed(false);
-      }
-    },
-    [isRightPanelCollapsed]
-  );
+  const bumpPreviewRefreshToken = useCallback(() => {
+    setPreviewRefreshToken(Date.now());
+  }, []);
 
   const initialPrompt = templateId ? null : resolvedPrompt?.trim() || null;
   const autoCreateRef = useRef(false);
@@ -460,8 +384,8 @@ function BuilderContent() {
     if (!initialPrompt || chatId || autoCreateRef.current) return;
 
     autoCreateRef.current = true;
-    void createNewChat(initialPrompt);
-  }, [auditPromptLoaded, initialPrompt, chatId, createNewChat]);
+    void requestCreateChat(initialPrompt);
+  }, [auditPromptLoaded, initialPrompt, chatId, requestCreateChat]);
 
   useEffect(() => {
     if (!auditPromptLoaded) return;
@@ -503,8 +427,6 @@ function BuilderContent() {
         <Toaster position="top-right" />
 
         <BuilderHeader
-          isMobileMenuOpen={isMobileMenuOpen}
-          onToggleMobileMenu={() => setIsMobileMenuOpen((v) => !v)}
           selectedModelTier={selectedModelTier}
           onSelectedModelTierChange={setSelectedModelTier}
           promptAssistProvider={promptAssistProvider}
@@ -538,19 +460,13 @@ function BuilderContent() {
         />
 
         <div className="flex flex-1 overflow-hidden">
-          <div
-            className={cn(
-              'flex w-full flex-col border-r border-border bg-background lg:w-96',
-              isMobileMenuOpen ? 'hidden' : '',
-              'lg:flex'
-            )}
-          >
+          <div className="flex w-full flex-col border-r border-border bg-background lg:w-96">
             <div className="flex-1 overflow-hidden">
               <MessageList chatId={chatId} messages={messages} />
             </div>
             <ChatInterface
               chatId={chatId}
-              onCreateChat={createNewChat}
+              onCreateChat={requestCreateChat}
               onSendMessage={sendMessage}
               onEnhancePrompt={maybeEnhanceInitialPrompt}
               promptAssistStatus={promptAssistStatus}
@@ -564,137 +480,10 @@ function BuilderContent() {
               demoUrl={currentDemoUrl}
               isLoading={isAnyStreaming || isCreatingChat}
               onClear={handleClearPreview}
+              refreshToken={previewRefreshToken}
             />
           </div>
-
-          <div
-            className={cn(
-              'flex w-full flex-col border-l border-border bg-background transition-[width] duration-200',
-              isMobileMenuOpen ? '' : 'hidden',
-              isRightPanelCollapsed ? 'lg:w-12' : 'lg:w-72',
-              'lg:flex'
-            )}
-          >
-            {isRightPanelCollapsed ? (
-              <div className="flex h-full flex-col items-center gap-2 py-2">
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  onClick={() => setIsRightPanelCollapsed(false)}
-                  title="Öppna sidopanel"
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                {tabs.map((tab) => (
-                  <Button
-                    key={tab.id}
-                    variant="ghost"
-                    size="icon-sm"
-                    onClick={() => handleRightPanelTabChange(tab.id)}
-                    title={tab.label}
-                    className={cn(
-                      rightPanelTab === tab.id
-                        ? 'bg-accent text-foreground'
-                        : 'text-muted-foreground hover:text-foreground'
-                    )}
-                  >
-                    <tab.icon className="h-4 w-4" />
-                    <span className="sr-only">{tab.label}</span>
-                  </Button>
-                ))}
-              </div>
-            ) : (
-              <>
-                <div className="flex items-center border-b border-border">
-                  <div className="flex flex-1">
-                    {tabs.map((tab) => (
-                      <Button
-                        key={tab.id}
-                        variant="ghost"
-                        onClick={() => handleRightPanelTabChange(tab.id)}
-                        className={cn(
-                          'flex-1 rounded-none border-b-2 border-transparent h-12',
-                          rightPanelTab === tab.id
-                            ? 'border-b-primary text-primary'
-                            : 'text-muted-foreground hover:text-foreground'
-                        )}
-                      >
-                        <tab.icon className="h-4 w-4 mr-2" />
-                        {tab.label}
-                      </Button>
-                    ))}
-                  </div>
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    onClick={() => setIsRightPanelCollapsed(true)}
-                    title="Dölj sidopanel"
-                    className="mr-1"
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
-                </div>
-
-                <div className="flex-1 overflow-hidden">
-                  {rightPanelTab === 'versions' ? (
-                    <VersionHistory
-                      chatId={chatId}
-                      selectedVersionId={selectedVersionId}
-                      onVersionSelect={handleVersionSelect}
-                    />
-                  ) : rightPanelTab === 'files' ? (
-                    <FileExplorer
-                      files={files}
-                      onFileSelect={handleFileSelect}
-                      selectedPath={selectedFile?.path || null}
-                      isLoading={isFilesLoading}
-                      error={filesError}
-                    />
-                  ) : rightPanelTab === 'deployments' ? (
-                    <DeploymentHistory chatId={chatId} />
-                  ) : rightPanelTab === 'recommendations' ? (
-                    <RecommendationsPanel
-                      url={currentDemoUrl}
-                      fallbackUrl={chatWebUrl}
-                    />
-                  ) : (
-                    <PreviewPanel
-                      demoUrl={currentDemoUrl}
-                      isLoading={isAnyStreaming || isCreatingChat}
-                      onClear={handleClearPreview}
-                    />
-                  )}
-                </div>
-              </>
-            )}
-          </div>
         </div>
-
-        {selectedFile && selectedFile.type === 'file' && selectedFile.content != null && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-            <div className="h-[80vh] w-[80vw] max-w-4xl overflow-hidden rounded-lg shadow-xl">
-              <FileViewer
-                fileName={selectedFile.name}
-                content={selectedFile.content}
-                onClose={() => setSelectedFile(null)}
-                chatId={chatId || undefined}
-                versionId={activeVersionId || undefined}
-                isPinnedVersion={Boolean(activeVersionMeta?.pinned)}
-                locked={selectedFile.locked}
-                onFileSaved={(newContent, newDemoUrl) => {
-                  setSelectedFile({ ...selectedFile, content: newContent });
-                  if (newDemoUrl) {
-                    setCurrentDemoUrl(newDemoUrl);
-                  }
-                  mutateVersions();
-                  if (rightPanelTab === 'files') {
-                    loadFiles(activeVersionId);
-                  }
-                }}
-              />
-            </div>
-          </div>
-        )}
 
         <SandboxModal
           isOpen={isSandboxModalOpen}
@@ -713,8 +502,76 @@ function BuilderContent() {
             setMessages([]);
             setCurrentDemoUrl(null);
             setSelectedVersionId(null);
+            setHasSelectedModelTier(true);
           }}
         />
+
+        {isModelSelectOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center">
+            <div
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+              onClick={() => {
+                setIsModelSelectOpen(false);
+                setPendingCreate(null);
+              }}
+            />
+            <div className="relative z-10 w-full max-w-lg rounded-xl border border-border bg-background p-6 shadow-2xl">
+              <div className="mb-4">
+                <h2 className="text-lg font-semibold text-foreground">
+                  Välj modell för första prompten
+                </h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Du kan ändra senare i toppmenyn. Detta påverkar bara första körningen.
+                </p>
+              </div>
+              <div className="space-y-2">
+                {MODEL_TIER_OPTIONS.map((option) => {
+                  const isSelected = selectedModelTier === option.value;
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => setSelectedModelTier(option.value)}
+                      className={cn(
+                        'w-full rounded-lg border px-4 py-3 text-left transition-colors',
+                        isSelected
+                          ? 'border-brand-blue/60 bg-brand-blue/10'
+                          : 'border-border hover:border-brand-blue/40'
+                      )}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="text-sm font-medium text-foreground">
+                            {option.label}
+                          </span>
+                          {option.hint ? (
+                            <span className="rounded-full bg-brand-amber/20 px-2 py-0.5 text-[10px] text-brand-amber">
+                              {option.hint}
+                            </span>
+                          ) : null}
+                        </div>
+                        {isSelected ? <Check className="h-4 w-4 text-brand-blue" /> : null}
+                      </div>
+                      <p className="mt-1 text-xs text-muted-foreground">{option.description}</p>
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="mt-6 flex items-center justify-end gap-2">
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    setIsModelSelectOpen(false);
+                    setPendingCreate(null);
+                  }}
+                >
+                  Avbryt
+                </Button>
+                <Button onClick={confirmModelSelection}>Fortsätt</Button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </ErrorBoundary>
   );

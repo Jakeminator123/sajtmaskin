@@ -249,7 +249,7 @@ export function MediaBank({
           )}
 
           {/* Help text */}
-          <p className="text-[10px] text-gray-600 text-center">
+          <p className="text-[10px] text-gray-600 px-1 text-left">
             Dra filer till prompten eller klicka för att använda
           </p>
         </div>
@@ -325,7 +325,7 @@ function MediaItemCard({
         // PDF, text, and other files show icon + filename
         <div className="w-full h-full bg-gray-800 flex flex-col items-center justify-center p-2">
           <Icon className="h-8 w-8 text-gray-500 mb-1" />
-          <span className="text-[10px] text-gray-500 text-center truncate w-full">
+          <span className="text-[10px] text-gray-500 truncate w-full px-2 text-left">
             {item.filename || "File"}
           </span>
         </div>
