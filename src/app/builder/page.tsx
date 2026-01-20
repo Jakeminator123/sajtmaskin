@@ -501,7 +501,6 @@ function BuilderContent() {
             router.replace(`/builder?chatId=${newChatId}`);
             setMessages([]);
             setCurrentDemoUrl(null);
-            setSelectedVersionId(null);
             setHasSelectedModelTier(true);
           }}
         />
