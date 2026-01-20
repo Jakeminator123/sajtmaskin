@@ -16,7 +16,9 @@ import {
   Brain,
   Sparkles,
   ChevronDown,
+  Github,
 } from "lucide-react";
+import { useAuth } from "@/lib/auth/auth-store";
 
 // Simple two-tier model selection: Premium (best quality) vs Fast (quick responses)
 const MODEL_TIERS = {
@@ -106,11 +108,14 @@ interface UserSettingsModalProps {
 }
 
 export function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
+  const { user, isAuthenticated, hasGitHub, fetchUser } = useAuth();
   const [settings, setSettings] = useState<UserSettings | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [isGitHubUpdating, setIsGitHubUpdating] = useState(false);
+  const [returnTo, setReturnTo] = useState("/projects");
 
   // Form state for API keys (only sent when explicitly saved)
   const [aiGatewayKey, setAiGatewayKey] = useState("");
@@ -150,6 +155,12 @@ export function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
     if (isOpen) {
       fetchSettings();
     }
+  }, [isOpen]);
+
+  useEffect(() => {
+    if (!isOpen || typeof window === "undefined") return;
+    const path = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+    setReturnTo(path || "/projects");
   }, [isOpen]);
 
   const fetchSettings = async () => {
@@ -254,10 +265,32 @@ export function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
     }
   };
 
+  const handleGitHubDisconnect = async () => {
+    setIsGitHubUpdating(true);
+    setError(null);
+    setSuccess(null);
+    try {
+      const response = await fetch("/api/auth/github/disconnect", {
+        method: "POST",
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data?.error || "Kunde inte koppla bort GitHub");
+      }
+      await fetchUser();
+      setSuccess("GitHub frånkopplat");
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Kunde inte koppla bort GitHub");
+    } finally {
+      setIsGitHubUpdating(false);
+    }
+  };
+
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center">
+    <div className="fixed inset-0 z-100 flex items-center justify-center">
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/80 backdrop-blur-sm"
@@ -364,8 +397,8 @@ export function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
                   <div className="flex items-center gap-3">
                     <div
                       className={`w-9 h-9 rounded-lg flex items-center justify-center text-sm font-medium ${currentModelInfo.tier === "premium"
-                          ? "bg-gradient-to-br from-brand-amber/20 to-brand-warm/20 text-brand-amber"
-                          : "bg-gradient-to-br from-brand-blue/20 to-brand-teal/20 text-brand-blue"
+                          ? "bg-linear-to-br from-brand-amber/20 to-brand-warm/20 text-brand-amber"
+                          : "bg-linear-to-br from-brand-blue/20 to-brand-teal/20 text-brand-blue"
                         }`}
                     >
                       {currentModelInfo.provider.charAt(0)}
@@ -403,7 +436,7 @@ export function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
                     {/* Premium Models */}
                     <div className="border-b border-gray-800">
                       <div
-                        className={`px-3 py-2 bg-gradient-to-r ${MODEL_TIERS.premium.color}`}
+                        className={`px-3 py-2 bg-linear-to-r ${MODEL_TIERS.premium.color}`}
                       >
                         <p className="text-xs font-medium text-brand-amber/80">
                           {MODEL_TIERS.premium.name}
@@ -424,7 +457,7 @@ export function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
                               : ""
                             }`}
                         >
-                          <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-brand-amber/20 to-brand-warm/20 flex items-center justify-center text-sm font-medium text-brand-amber">
+                          <div className="w-9 h-9 rounded-lg bg-linear-to-br from-brand-amber/20 to-brand-warm/20 flex items-center justify-center text-sm font-medium text-brand-amber">
                             {model.provider.charAt(0)}
                           </div>
                           <div className="flex-1 text-left">
@@ -452,7 +485,7 @@ export function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
                     {/* Fast Models */}
                     <div>
                       <div
-                        className={`px-3 py-2 bg-gradient-to-r ${MODEL_TIERS.fast.color}`}
+                        className={`px-3 py-2 bg-linear-to-r ${MODEL_TIERS.fast.color}`}
                       >
                         <p className="text-xs font-medium text-brand-blue/80">
                           {MODEL_TIERS.fast.name}
@@ -473,7 +506,7 @@ export function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
                               : ""
                             }`}
                         >
-                          <div className="w-9 h-9 rounded-lg bg-gradient-to-br from-brand-blue/20 to-brand-teal/20 flex items-center justify-center text-sm font-medium text-brand-blue">
+                          <div className="w-9 h-9 rounded-lg bg-linear-to-br from-brand-blue/20 to-brand-teal/20 flex items-center justify-center text-sm font-medium text-brand-blue">
                             {model.provider.charAt(0)}
                           </div>
                           <div className="flex-1 text-left">
@@ -664,17 +697,75 @@ export function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
               </div>
             </form>
 
+            {/* Divider */}
+            <div className="border-t border-gray-800" />
+
+            {/* GitHub Integration */}
+            <div className="space-y-3">
+              <div className="flex items-center gap-3">
+                <Github className="h-5 w-5 text-brand-blue" />
+                <div>
+                  <h3 className="text-sm font-medium text-gray-200">GitHub</h3>
+                  <p className="text-xs text-gray-500">
+                    Koppla GitHub för privata repos och export
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between gap-3">
+                {isAuthenticated ? (
+                  hasGitHub ? (
+                    <>
+                      <span className="text-xs text-gray-400">
+                        Kopplat som{" "}
+                        <span className="text-gray-200">@{user?.github_username}</span>
+                      </span>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={handleGitHubDisconnect}
+                        disabled={isGitHubUpdating}
+                        className="h-8 px-3 border-red-800 text-red-400 hover:bg-red-900/20"
+                      >
+                        {isGitHubUpdating ? "Jobbar..." : "Koppla bort"}
+                      </Button>
+                    </>
+                  ) : (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      disabled={isGitHubUpdating}
+                      onClick={() =>
+                        window.location.assign(
+                          `/api/auth/github?returnTo=${encodeURIComponent(returnTo)}`
+                        )
+                      }
+                      className="h-8 px-3"
+                    >
+                      Koppla GitHub
+                    </Button>
+                  )
+                ) : (
+                  <span className="text-xs text-gray-500">
+                    Logga in för att koppla GitHub
+                  </span>
+                )}
+              </div>
+            </div>
+
             {/* Error/Success messages */}
             {error && (
               <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg flex items-center gap-2 text-sm text-red-400">
-                <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                <AlertCircle className="h-4 w-4 shrink-0" />
                 {error}
               </div>
             )}
 
             {success && (
               <div className="p-3 bg-green-500/10 border border-green-500/30 rounded-lg flex items-center gap-2 text-sm text-green-400">
-                <Check className="h-4 w-4 flex-shrink-0" />
+                <Check className="h-4 w-4 shrink-0" />
                 {success}
               </div>
             )}

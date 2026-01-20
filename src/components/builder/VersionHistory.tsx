@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Clock, Download, ExternalLink, Github, Loader2, Pin, UploadCloud } from 'lucide-react';
 import { useVersions } from '@/lib/hooks/useVersions';
 import { Button } from '@/components/ui/button';
@@ -8,6 +8,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import toast from 'react-hot-toast';
+import { useAuth } from '@/lib/auth/auth-store';
 
 interface VersionHistoryProps {
   chatId: string | null;
@@ -16,6 +17,7 @@ interface VersionHistoryProps {
 }
 
 export function VersionHistory({ chatId, selectedVersionId, onVersionSelect }: VersionHistoryProps) {
+  const { user, isAuthenticated, hasGitHub, isInitialized, fetchUser } = useAuth();
   const { versions, isLoading, mutate } = useVersions(chatId);
   type VersionSummary = {
     id?: string | null;
@@ -30,6 +32,18 @@ export function VersionHistory({ chatId, selectedVersionId, onVersionSelect }: V
   const [exportingVersionId, setExportingVersionId] = useState<string | null>(null);
   const [exportingGitHubVersionId, setExportingGitHubVersionId] = useState<string | null>(null);
   const [pinningVersionId, setPinningVersionId] = useState<string | null>(null);
+  const [returnTo, setReturnTo] = useState('/projects');
+
+  useEffect(() => {
+    if (isInitialized) return;
+    fetchUser().catch(() => {});
+  }, [isInitialized, fetchUser]);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    const path = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+    setReturnTo(path || '/projects');
+  }, []);
 
   const handleDownload = async (e: React.MouseEvent, version: any) => {
     e.stopPropagation();
@@ -84,6 +98,14 @@ export function VersionHistory({ chatId, selectedVersionId, onVersionSelect }: V
   const handleExportToGitHub = async (e: React.MouseEvent, version: any) => {
     e.stopPropagation();
     if (!chatId) return;
+    if (!isAuthenticated) {
+      toast.error('Logga in för att exportera till GitHub');
+      return;
+    }
+    if (!hasGitHub) {
+      toast.error('Koppla GitHub för att exportera');
+      return;
+    }
 
     const versionId = version.id || version.versionId;
     const suggestedRepo = `sajtmaskin-${chatId.slice(0, 8)}`;
@@ -191,6 +213,33 @@ export function VersionHistory({ chatId, selectedVersionId, onVersionSelect }: V
         <p className="text-xs text-muted-foreground">
           Pinned versions är skrivskyddade snapshots. Avpinna för att kunna redigera.
         </p>
+        <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+          {isAuthenticated ? (
+            hasGitHub ? (
+              <Badge variant="secondary" className="gap-1">
+                <Github className="h-3 w-3" />
+                GitHub kopplat{user?.github_username ? ` • @${user.github_username}` : ''}
+              </Badge>
+            ) : (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() =>
+                  window.open(
+                    `/api/auth/github?returnTo=${encodeURIComponent(returnTo)}`,
+                    '_blank'
+                  )
+                }
+                className="h-7 px-2 text-xs"
+              >
+                <Github className="h-3 w-3" />
+                Koppla GitHub
+              </Button>
+            )
+          ) : (
+            <span className="text-muted-foreground">Logga in för att koppla GitHub</span>
+          )}
+        </div>
       </div>
       <div className="flex-1 overflow-y-auto p-2">
         <div className="space-y-2">

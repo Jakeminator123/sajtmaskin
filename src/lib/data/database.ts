@@ -442,45 +442,45 @@ function initializeDatabase(
     CREATE TABLE IF NOT EXISTS company_profiles (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       project_id TEXT UNIQUE,
-      
+
       -- Basic info
       company_name TEXT NOT NULL,
       industry TEXT,
       location TEXT,
-      
+
       -- Website info
       existing_website TEXT,
       website_analysis TEXT,
       site_likes TEXT,
       site_dislikes TEXT,
       site_feedback TEXT,
-      
+
       -- Business info
       target_audience TEXT,
       purposes TEXT,
       special_wishes TEXT,
-      
+
       -- Design preferences
       color_palette_name TEXT,
       color_primary TEXT,
       color_secondary TEXT,
       color_accent TEXT,
-      
+
       -- Research data (from Web Search)
       competitor_insights TEXT,
       industry_trends TEXT,
       research_sources TEXT,
-      
+
       -- Inspiration
       inspiration_sites TEXT,
-      
+
       -- Voice input transcript (if used)
       voice_transcript TEXT,
-      
+
       -- Metadata
       created_at TEXT DEFAULT (datetime('now')),
       updated_at TEXT DEFAULT (datetime('now')),
-      
+
       FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE SET NULL
     )
   `);
@@ -492,25 +492,25 @@ function initializeDatabase(
     CREATE TABLE IF NOT EXISTS user_audits (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id TEXT NOT NULL,
-      
+
       -- Audit metadata
       url TEXT NOT NULL,
       domain TEXT NOT NULL,
       company_name TEXT,
-      
+
       -- Audit data (JSON)
       audit_result TEXT NOT NULL,
-      
+
       -- Scores (denormalized for easy querying)
       score_seo INTEGER,
       score_ux INTEGER,
       score_performance INTEGER,
       score_security INTEGER,
       score_overall INTEGER,
-      
+
       -- Timestamps
       created_at TEXT DEFAULT (datetime('now')),
-      
+
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     )
   `);
@@ -576,25 +576,25 @@ function initializeDatabase(
     CREATE TABLE IF NOT EXISTS user_settings (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       user_id TEXT NOT NULL UNIQUE,
-      
+
       -- AI Provider settings
       use_ai_gateway INTEGER DEFAULT 0,
       ai_gateway_api_key TEXT,
       openai_api_key TEXT,
       anthropic_api_key TEXT,
-      
+
       -- Preferred models
       preferred_model TEXT DEFAULT 'gpt-4o-mini',
       preferred_quality TEXT DEFAULT 'standard',
-      
+
       -- Feature toggles
       enable_streaming INTEGER DEFAULT 1,
       enable_thinking_display INTEGER DEFAULT 1,
-      
+
       -- Timestamps
       created_at TEXT DEFAULT (datetime('now')),
       updated_at TEXT DEFAULT (datetime('now')),
-      
+
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     )
   `);
@@ -1335,8 +1335,8 @@ export function getCachedTemplate(
 
   // Use user-specific cache if userId provided, otherwise fallback to global cache (for backward compatibility)
   const stmt = db.prepare(`
-    SELECT * FROM template_cache 
-    WHERE template_id = ? 
+    SELECT * FROM template_cache
+    WHERE template_id = ?
     AND (user_id = ? OR (user_id IS NULL AND ? IS NULL))
     AND datetime(expires_at) > datetime('now')
     ORDER BY user_id DESC
@@ -1582,7 +1582,7 @@ export function getAllCompanyProfiles(): CompanyProfile[] {
 export function searchCompanyProfiles(query: string): CompanyProfile[] {
   const db = getDb();
   const stmt = db.prepare(`
-    SELECT * FROM company_profiles 
+    SELECT * FROM company_profiles
     WHERE company_name LIKE ? OR industry LIKE ? OR location LIKE ?
     ORDER BY updated_at DESC
     LIMIT 20
@@ -1844,6 +1844,14 @@ export function updateUserGitHub(
   stmt.run(githubToken, githubUsername, userId);
 }
 
+export function clearUserGitHub(userId: string): void {
+  const db = getDb();
+  const stmt = db.prepare(
+    "UPDATE users SET github_token = NULL, github_username = NULL WHERE id = ?"
+  );
+  stmt.run(userId);
+}
+
 // ============ Guest Usage Operations ============
 
 export interface GuestUsage {
@@ -1886,7 +1894,7 @@ export function incrementGuestGenerations(sessionId: string): GuestUsage {
   getOrCreateGuestUsage(sessionId);
 
   const stmt = db.prepare(`
-    UPDATE guest_usage 
+    UPDATE guest_usage
     SET generations_used = generations_used + 1, updated_at = datetime('now')
     WHERE session_id = ?
   `);
@@ -1901,7 +1909,7 @@ export function incrementGuestRefines(sessionId: string): GuestUsage {
   getOrCreateGuestUsage(sessionId);
 
   const stmt = db.prepare(`
-    UPDATE guest_usage 
+    UPDATE guest_usage
     SET refines_used = refines_used + 1, updated_at = datetime('now')
     WHERE session_id = ?
   `);
@@ -2020,7 +2028,7 @@ export function incrementDailyGenerations(userId: string): DailyUsage {
   const today = getTodayDateString();
 
   const stmt = db.prepare(`
-    UPDATE daily_usage 
+    UPDATE daily_usage
     SET generations_count = generations_count + 1, updated_at = datetime('now')
     WHERE user_id = ? AND date = ?
   `);
@@ -2036,7 +2044,7 @@ export function incrementDailyRefines(userId: string): DailyUsage {
   const today = getTodayDateString();
 
   const stmt = db.prepare(`
-    UPDATE daily_usage 
+    UPDATE daily_usage
     SET refines_count = refines_count + 1, updated_at = datetime('now')
     WHERE user_id = ? AND date = ?
   `);
@@ -2126,9 +2134,9 @@ export function getTransactionById(id: number): Transaction | null {
 export function getUserTransactions(userId: string, limit = 50): Transaction[] {
   const db = getDb();
   const stmt = db.prepare(`
-    SELECT * FROM transactions 
-    WHERE user_id = ? 
-    ORDER BY created_at DESC 
+    SELECT * FROM transactions
+    WHERE user_id = ?
+    ORDER BY created_at DESC
     LIMIT ?
   `);
   return stmt.all(userId, limit) as Transaction[];
@@ -2310,7 +2318,7 @@ export function getAnalyticsStats(days: number = 30): AnalyticsStats {
     (
       db
         .prepare(
-          `SELECT COUNT(DISTINCT COALESCE(session_id, ip_address)) as count 
+          `SELECT COUNT(DISTINCT COALESCE(session_id, ip_address)) as count
            FROM page_views WHERE created_at >= ?`
         )
         .get(cutoffStr) as CountResult | undefined
@@ -2369,11 +2377,11 @@ export function getAnalyticsStats(days: number = 30): AnalyticsStats {
   // Most viewed pages
   const recentPageViews = db
     .prepare(
-      `SELECT path, COUNT(*) as count 
-       FROM page_views 
+      `SELECT path, COUNT(*) as count
+       FROM page_views
        WHERE created_at >= ?
-       GROUP BY path 
-       ORDER BY count DESC 
+       GROUP BY path
+       ORDER BY count DESC
        LIMIT 10`
     )
     .all(cutoffStr) as { path: string; count: number }[];
@@ -2381,13 +2389,13 @@ export function getAnalyticsStats(days: number = 30): AnalyticsStats {
   // Daily views for chart
   const dailyViews = db
     .prepare(
-      `SELECT 
-         date(created_at) as date, 
+      `SELECT
+         date(created_at) as date,
          COUNT(*) as views,
          COUNT(DISTINCT COALESCE(session_id, ip_address)) as unique
-       FROM page_views 
+       FROM page_views
        WHERE created_at >= ?
-       GROUP BY date(created_at) 
+       GROUP BY date(created_at)
        ORDER BY date ASC`
     )
     .all(cutoffStr) as { date: string; views: number; unique: number }[];
@@ -2395,11 +2403,11 @@ export function getAnalyticsStats(days: number = 30): AnalyticsStats {
   // Top referrers
   const topReferrers = db
     .prepare(
-      `SELECT referrer, COUNT(*) as count 
-       FROM page_views 
+      `SELECT referrer, COUNT(*) as count
+       FROM page_views
        WHERE created_at >= ? AND referrer IS NOT NULL AND referrer != ''
-       GROUP BY referrer 
-       ORDER BY count DESC 
+       GROUP BY referrer
+       ORDER BY count DESC
        LIMIT 10`
     )
     .all(cutoffStr) as { referrer: string; count: number }[];
@@ -2751,7 +2759,7 @@ export function getMediaLibraryCounts(userId: string): MediaLibraryCounts {
     (
       db
         .prepare(
-          `SELECT COUNT(*) as count FROM media_library 
+          `SELECT COUNT(*) as count FROM media_library
            WHERE user_id = ? AND file_type IN ('image', 'logo')`
         )
         .get(userId) as CountResult | undefined
@@ -2762,7 +2770,7 @@ export function getMediaLibraryCounts(userId: string): MediaLibraryCounts {
     (
       db
         .prepare(
-          `SELECT COUNT(*) as count FROM media_library 
+          `SELECT COUNT(*) as count FROM media_library
            WHERE user_id = ? AND file_type = 'video'`
         )
         .get(userId) as CountResult | undefined
@@ -2773,7 +2781,7 @@ export function getMediaLibraryCounts(userId: string): MediaLibraryCounts {
     (
       db
         .prepare(
-          `SELECT COUNT(*) as count FROM media_library 
+          `SELECT COUNT(*) as count FROM media_library
            WHERE user_id = ? AND file_type NOT IN ('image', 'logo', 'video')`
         )
         .get(userId) as CountResult | undefined
@@ -2986,26 +2994,26 @@ export function updateDomainOrderStatus(
 
   if (orderId !== undefined && domainAddedToProject !== undefined) {
     db.prepare(
-      `UPDATE domain_orders 
-       SET status = ?, order_id = ?, domain_added_to_project = ?, updated_at = ? 
+      `UPDATE domain_orders
+       SET status = ?, order_id = ?, domain_added_to_project = ?, updated_at = ?
        WHERE id = ?`
     ).run(status, orderId || null, domainAddedToProject ? 1 : 0, now, id);
   } else if (orderId !== undefined) {
     db.prepare(
-      `UPDATE domain_orders 
-       SET status = ?, order_id = ?, updated_at = ? 
+      `UPDATE domain_orders
+       SET status = ?, order_id = ?, updated_at = ?
        WHERE id = ?`
     ).run(status, orderId || null, now, id);
   } else if (domainAddedToProject !== undefined) {
     db.prepare(
-      `UPDATE domain_orders 
-       SET status = ?, domain_added_to_project = ?, updated_at = ? 
+      `UPDATE domain_orders
+       SET status = ?, domain_added_to_project = ?, updated_at = ?
        WHERE id = ?`
     ).run(status, domainAddedToProject ? 1 : 0, now, id);
   } else {
     db.prepare(
-      `UPDATE domain_orders 
-       SET status = ?, updated_at = ? 
+      `UPDATE domain_orders
+       SET status = ?, updated_at = ?
        WHERE id = ?`
     ).run(status, now, id);
   }

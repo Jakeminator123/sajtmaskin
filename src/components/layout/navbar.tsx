@@ -22,8 +22,8 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/lib/auth/auth-store";
 import { Button } from "@/components/ui/button";
+import rocketLogo from "../../../rocket_style_40.png";
 import {
-  Rocket,
   Diamond,
   FolderOpen,
   LogIn,
@@ -104,12 +104,24 @@ export function Navbar({ onLoginClick, onRegisterClick, onSettingsClick }: Navba
       <div className="max-w-7xl mx-auto h-full px-4 flex items-center justify-between">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2.5 group">
-          <div className="p-1.5 bg-brand-teal group-hover:bg-brand-teal/90 transition-colors">
-            <Rocket className="h-5 w-5 text-white" />
+          <div className="p-1.5">
+            <Image
+              src={rocketLogo}
+              alt="SajtMaskin logotyp"
+              width={24}
+              height={24}
+              className="h-6 w-6"
+              priority
+            />
           </div>
-          <span className="text-lg font-bold text-white tracking-tight">
-            SajtMaskin
-          </span>
+          <div className="flex flex-col leading-none">
+            <span className="text-lg font-bold text-white tracking-tight">
+              SajtMaskin
+            </span>
+            <span className="text-[10px] sm:text-xs text-gray-400">
+              En sajt av SajtStudio.se
+            </span>
+          </div>
         </Link>
 
         {/* Desktop Navigation */}
@@ -217,7 +229,7 @@ export function Navbar({ onLoginClick, onRegisterClick, onSettingsClick }: Navba
                     className="rounded-none"
                   />
                 ) : (
-                  <div className="w-6 h-6 bg-gradient-to-br from-brand-teal to-brand-blue flex items-center justify-center">
+                  <div className="w-6 h-6 bg-linear-to-br from-brand-teal to-brand-blue flex items-center justify-center">
                     <User className="h-3.5 w-3.5 text-white" />
                   </div>
                 )}

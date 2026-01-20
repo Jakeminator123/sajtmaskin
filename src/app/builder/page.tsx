@@ -21,6 +21,7 @@ import { usePersistedChatMessages } from '@/lib/hooks/usePersistedChatMessages';
 import { usePromptAssist } from '@/lib/hooks/usePromptAssist';
 import { useV0ChatMessaging } from '@/lib/hooks/useV0ChatMessaging';
 import { useVersions } from '@/lib/hooks/useVersions';
+import { useAuth } from '@/lib/auth/auth-store';
 import type { PromptAssistProvider } from '@/lib/builder/promptAssist';
 import type { ModelTier } from '@/lib/validations/chatSchemas';
 import { cn } from '@/lib/utils';
@@ -41,6 +42,7 @@ import toast, { Toaster } from 'react-hot-toast';
 function BuilderContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { fetchUser } = useAuth();
 
   const chatIdParam = searchParams.get('chatId');
   const promptParam = searchParams.get('prompt');
@@ -103,6 +105,50 @@ function BuilderContent() {
 
     setAuditPromptLoaded(true);
   }, [source, auditId]);
+
+  useEffect(() => {
+    fetchUser().catch(() => {});
+    // fetchUser is stable via zustand
+  }, [fetchUser]);
+
+  useEffect(() => {
+    if (!searchParams) return;
+    const connected = searchParams.get('github_connected');
+    const username = searchParams.get('github_username');
+    const error = searchParams.get('github_error');
+    const errorReason = searchParams.get('github_error_reason');
+
+    if (!connected && !error) return;
+
+    if (connected) {
+      toast.success(
+        username ? `GitHub kopplat: @${username}` : 'GitHub kopplat'
+      );
+    } else if (error) {
+      const message =
+        error === 'not_authenticated'
+          ? 'Logga in för att koppla GitHub'
+          : error === 'not_configured'
+            ? 'GitHub OAuth är inte konfigurerat'
+            : error === 'user_fetch_failed'
+              ? 'Kunde inte hämta GitHub-användare'
+              : error === 'no_code'
+                ? 'GitHub gav ingen kod'
+                : 'GitHub-anslutning misslyckades';
+      toast.error(message);
+      if (errorReason === 'unsafe_return') {
+        console.warn('[GitHub OAuth] Unsafe return URL sanitized');
+      }
+    }
+
+    const nextParams = new URLSearchParams(searchParams.toString());
+    nextParams.delete('github_connected');
+    nextParams.delete('github_username');
+    nextParams.delete('github_error');
+    nextParams.delete('github_error_reason');
+    const query = nextParams.toString();
+    router.replace(query ? `/builder?${query}` : '/builder');
+  }, [searchParams, router]);
 
   useEffect(() => {
     if (typeof window === 'undefined') return;

@@ -1,8 +1,9 @@
 'use client';
 
 import { FolderArchive, Github, Loader2, Lock, Upload, X } from 'lucide-react';
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import toast from 'react-hot-toast';
+import { useAuth } from '@/lib/auth/auth-store';
 
 interface InitFromRepoModalProps {
   isOpen: boolean;
@@ -13,6 +14,7 @@ interface InitFromRepoModalProps {
 type SourceType = 'github' | 'zip';
 
 export function InitFromRepoModal({ isOpen, onClose, onSuccess }: InitFromRepoModalProps) {
+  const { user, isAuthenticated, hasGitHub, isInitialized, fetchUser } = useAuth();
   const [sourceType, setSourceType] = useState<SourceType>('github');
   const [githubUrl, setGithubUrl] = useState('');
   const [branch, setBranch] = useState('');
@@ -21,7 +23,21 @@ export function InitFromRepoModal({ isOpen, onClose, onSuccess }: InitFromRepoMo
   const [isLoading, setIsLoading] = useState(false);
   const [zipFileName, setZipFileName] = useState<string | null>(null);
   const [zipContent, setZipContent] = useState<string | null>(null);
+  const [zipUrl, setZipUrl] = useState('');
+  const [preferZip, setPreferZip] = useState(false);
+  const [returnTo, setReturnTo] = useState('/projects');
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!isOpen || isInitialized) return;
+    fetchUser().catch(() => {});
+  }, [isOpen, isInitialized, fetchUser]);
+
+  useEffect(() => {
+    if (!isOpen || typeof window === 'undefined') return;
+    const path = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+    setReturnTo(path || '/projects');
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
@@ -55,6 +71,7 @@ export function InitFromRepoModal({ isOpen, onClose, onSuccess }: InitFromRepoMo
 
       setZipContent(base64);
       setZipFileName(file.name);
+      setZipUrl('');
       toast.success(`Selected: ${file.name}`);
     } catch {
       toast.error('Failed to read file');
@@ -66,8 +83,8 @@ export function InitFromRepoModal({ isOpen, onClose, onSuccess }: InitFromRepoMo
       toast.error('Please enter a GitHub URL');
       return;
     }
-    if (sourceType === 'zip' && !zipContent) {
-      toast.error('Please select a ZIP file');
+    if (sourceType === 'zip' && !zipContent && !zipUrl.trim()) {
+      toast.error('Please select a ZIP file or paste a ZIP URL');
       return;
     }
 
@@ -76,8 +93,15 @@ export function InitFromRepoModal({ isOpen, onClose, onSuccess }: InitFromRepoMo
       const body: any = {
         source:
           sourceType === 'github'
-            ? { type: 'github', url: githubUrl.trim(), branch: branch.trim() || undefined }
-            : { type: 'zip', content: zipContent },
+            ? {
+                type: 'github',
+                url: githubUrl.trim(),
+                branch: branch.trim() || undefined,
+                ...(preferZip ? { preferZip: true } : {}),
+              }
+            : zipUrl.trim()
+              ? { type: 'zip', url: zipUrl.trim() }
+              : { type: 'zip', content: zipContent },
         lockConfigFiles,
       };
 
@@ -173,8 +197,24 @@ export function InitFromRepoModal({ isOpen, onClose, onSuccess }: InitFromRepoMo
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-blue focus:outline-none focus:ring-1 focus:ring-brand-blue/50"
               />
               <p className="mt-2 text-xs text-gray-500">
-                Public repos work best. For private repos, download a ZIP and use the ZIP tab.
+                Public repos work without login. Private repos require a GitHub connection.
               </p>
+              {isAuthenticated ? (
+                hasGitHub ? (
+                  <p className="mt-2 text-xs text-gray-500">
+                    Connected as <span className="font-medium text-gray-700">@{user?.github_username}</span>
+                  </p>
+                ) : (
+                  <a
+                    href={`/api/auth/github?returnTo=${encodeURIComponent(returnTo)}`}
+                    className="mt-2 inline-flex text-xs text-brand-blue hover:underline"
+                  >
+                    Connect GitHub to import private repos
+                  </a>
+                )
+              ) : (
+                <p className="mt-2 text-xs text-gray-500">Log in to connect GitHub for private repos.</p>
+              )}
             </div>
             <div>
               <label htmlFor="init-branch" className="block text-sm font-medium text-gray-700 mb-1">
@@ -189,6 +229,18 @@ export function InitFromRepoModal({ isOpen, onClose, onSuccess }: InitFromRepoMo
                 onChange={(e) => setBranch(e.target.value)}
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-blue focus:outline-none focus:ring-1 focus:ring-brand-blue/50"
               />
+            </div>
+            <div className="flex items-start gap-3 rounded-lg border border-gray-200 p-3">
+              <input
+                id="init-prefer-zip"
+                type="checkbox"
+                checked={preferZip}
+                onChange={(e) => setPreferZip(e.target.checked)}
+                className="mt-1 rounded border-gray-300 text-brand-blue focus:ring-brand-blue/50"
+              />
+              <label htmlFor="init-prefer-zip" className="text-sm text-gray-600">
+                Use ZIP import (helps when GitHub access is limited). Provide a branch if you enable this.
+              </label>
             </div>
           </div>
         ) : (
@@ -216,6 +268,33 @@ export function InitFromRepoModal({ isOpen, onClose, onSuccess }: InitFromRepoMo
                 <span className="text-sm">Click to select ZIP file (max 50MB)</span>
               )}
             </button>
+            <div className="mt-4">
+              <label htmlFor="init-zip-url" className="block text-sm font-medium text-gray-700 mb-1">
+                Or paste a ZIP URL
+              </label>
+              <input
+                id="init-zip-url"
+                name="zipUrl"
+                type="url"
+                placeholder="https://example.com/project.zip"
+                value={zipUrl}
+                onChange={(e) => {
+                  const value = e.target.value;
+                  setZipUrl(value);
+                  if (value.trim()) {
+                    setZipContent(null);
+                    setZipFileName(null);
+                    if (fileInputRef.current) {
+                      fileInputRef.current.value = '';
+                    }
+                  }
+                }}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-blue focus:outline-none focus:ring-1 focus:ring-brand-blue/50"
+              />
+              <p className="mt-2 text-xs text-gray-500">
+                Use a public ZIP URL for larger projects to avoid upload limits.
+              </p>
+            </div>
           </div>
         )}
 

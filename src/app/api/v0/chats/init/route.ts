@@ -6,8 +6,14 @@ import { nanoid } from 'nanoid';
 import { withRateLimit } from '@/lib/rateLimit';
 import { z } from 'zod/v4';
 import { ensureProjectForRequest } from '@/lib/tenant';
+import { getCurrentUser } from '@/lib/auth/auth';
 
 export const runtime = 'nodejs';
+
+type GitHubRepoRef = {
+  owner: string;
+  repo: string;
+};
 
 function normalizeGithubRepoUrl(
   inputUrl: string,
@@ -45,16 +51,104 @@ function normalizeGithubRepoUrl(
   }
 }
 
+function parseGithubRepo(repoUrl: string): GitHubRepoRef | null {
+  try {
+    const url = new URL(repoUrl);
+    const host = url.hostname.replace(/^www\./, '');
+    if (host !== 'github.com') return null;
+    const [owner, repoRaw] = url.pathname.split('/').filter(Boolean);
+    if (!owner || !repoRaw) return null;
+    return { owner, repo: repoRaw.replace(/\.git$/i, '') };
+  } catch {
+    return null;
+  }
+}
+
+async function fetchGithubRepoMeta(
+  repo: GitHubRepoRef,
+  token?: string | null
+): Promise<{ private: boolean; defaultBranch: string } | null> {
+  const headers: Record<string, string> = {
+    Accept: 'application/vnd.github+json',
+    'X-GitHub-Api-Version': '2022-11-28',
+  };
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+
+  const response = await fetch(`https://api.github.com/repos/${repo.owner}/${repo.repo}`, {
+    headers,
+  }).catch(() => null);
+
+  if (!response || !response.ok) {
+    return null;
+  }
+
+  const data = (await response.json()) as { private?: boolean; default_branch?: string };
+  return {
+    private: Boolean(data.private),
+    defaultBranch: data.default_branch || '',
+  };
+}
+
+function buildGithubZipUrl(repo: GitHubRepoRef, branch: string): string {
+  const safeBranch = branch.trim();
+  return `https://github.com/${repo.owner}/${repo.repo}/archive/refs/heads/${encodeURIComponent(
+    safeBranch
+  )}.zip`;
+}
+
+async function downloadGithubZipBase64(params: {
+  repo: GitHubRepoRef;
+  branch: string;
+  token: string;
+  maxBytes: number;
+}): Promise<{ base64: string; byteLength: number }> {
+  const response = await fetch(
+    `https://api.github.com/repos/${params.repo.owner}/${params.repo.repo}/zipball/${encodeURIComponent(
+      params.branch
+    )}`,
+    {
+      headers: {
+        Accept: 'application/vnd.github+json',
+        Authorization: `Bearer ${params.token}`,
+        'X-GitHub-Api-Version': '2022-11-28',
+      },
+    }
+  );
+
+  if (!response.ok) {
+    throw new Error('Failed to download GitHub archive');
+  }
+
+  const contentLength = response.headers.get('content-length');
+  if (contentLength && Number(contentLength) > params.maxBytes) {
+    throw new Error('Repository ZIP is too large for import');
+  }
+
+  const buffer = Buffer.from(await response.arrayBuffer());
+  if (buffer.byteLength > params.maxBytes) {
+    throw new Error('Repository ZIP is too large for import');
+  }
+
+  return { base64: buffer.toString('base64'), byteLength: buffer.byteLength };
+}
+
 const initChatSchema = z.object({
   source: z.union([
     z.object({
       type: z.literal('github'),
       url: z.string().url('Invalid GitHub URL'),
       branch: z.string().optional(),
+      preferZip: z.boolean().optional(),
     }),
     z.object({
       type: z.literal('zip'),
       content: z.string().min(1, 'ZIP content is required'),
+    }),
+    z.object({
+      type: z.literal('zip'),
+      url: z.string().url('Invalid ZIP URL'),
     }),
   ]),
   message: z.string().optional(),
@@ -104,16 +198,53 @@ export async function POST(req: Request) {
 
       if (source.type === 'github') {
         const normalized = normalizeGithubRepoUrl(source.url, source.branch);
-        initParams.type = 'repo';
-        initParams.repo = {
-          url: normalized.repoUrl,
-          ...(normalized.branch ? { branch: normalized.branch } : {}),
-        };
+        const repoRef = parseGithubRepo(normalized.repoUrl);
+        const preferZip = Boolean(source.preferZip);
+        const user = await getCurrentUser(req);
+        const githubToken = user?.github_token || null;
+        const repoMeta = repoRef ? await fetchGithubRepoMeta(repoRef, githubToken) : null;
+        const resolvedBranch = normalized.branch || repoMeta?.defaultBranch || '';
+        const isPrivate = repoMeta?.private ?? false;
+
+        if (preferZip || (isPrivate && githubToken)) {
+          if (!repoRef) {
+            return NextResponse.json({ error: 'Invalid GitHub repository URL' }, { status: 400 });
+          }
+          if (!resolvedBranch) {
+            return NextResponse.json(
+              { error: 'Branch is required for ZIP import. Please specify a branch.' },
+              { status: 400 }
+            );
+          }
+          if (isPrivate) {
+            if (!githubToken) {
+              return NextResponse.json(
+                { error: 'Connect GitHub to import private repositories.' },
+                { status: 401 }
+              );
+            }
+            const zip = await downloadGithubZipBase64({
+              repo: repoRef,
+              branch: resolvedBranch,
+              token: githubToken,
+              maxBytes: 50 * 1024 * 1024,
+            });
+            initParams.type = 'zip';
+            initParams.zip = { content: zip.base64 };
+          } else {
+            initParams.type = 'zip';
+            initParams.zip = { url: buildGithubZipUrl(repoRef, resolvedBranch) };
+          }
+        } else {
+          initParams.type = 'repo';
+          initParams.repo = {
+            url: normalized.repoUrl,
+            ...(normalized.branch ? { branch: normalized.branch } : {}),
+          };
+        }
       } else {
         initParams.type = 'zip';
-        initParams.zip = {
-          content: source.content,
-        };
+        initParams.zip = 'content' in source ? { content: source.content } : { url: source.url };
       }
 
       const result = await (v0.chats as any).init(initParams);
