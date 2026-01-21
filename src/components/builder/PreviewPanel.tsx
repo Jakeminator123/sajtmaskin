@@ -1,10 +1,17 @@
 "use client";
 
-import { AlertCircle, ExternalLink, Loader2, RefreshCw } from "lucide-react";
-import { useEffect, useState } from "react";
+import { AlertCircle, ExternalLink, FileText, Loader2, RefreshCw } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { CodeBlock, CodeBlockCopyButton } from "@/components/ai-elements/code-block";
+import { buildFileTree } from "@/lib/builder/fileTree";
+import type { FileNode } from "@/lib/builder/types";
+import { FileExplorer } from "@/components/builder/FileExplorer";
+import { cn } from "@/lib/utils";
 
 interface PreviewPanelProps {
+  chatId: string | null;
+  versionId: string | null;
   demoUrl: string | null;
   isLoading?: boolean;
   onClear?: () => void;
@@ -12,6 +19,8 @@ interface PreviewPanelProps {
 }
 
 export function PreviewPanel({
+  chatId,
+  versionId,
   demoUrl,
   isLoading: externalLoading,
   onClear,
@@ -19,6 +28,11 @@ export function PreviewPanel({
 }: PreviewPanelProps) {
   const [iframeLoading, setIframeLoading] = useState(true);
   const [iframeError, setIframeError] = useState(false);
+  const [showCode, setShowCode] = useState(false);
+  const [files, setFiles] = useState<FileNode[]>([]);
+  const [selectedPath, setSelectedPath] = useState<string | null>(null);
+  const [filesLoading, setFilesLoading] = useState(false);
+  const [filesError, setFilesError] = useState<string | null>(null);
 
   const buildPreviewSrc = (url: string, token?: number) => {
     if (!token) return url;
@@ -31,6 +45,120 @@ export function PreviewPanel({
     setIframeLoading(true);
     setIframeError(false);
   }, [demoUrl, refreshToken]);
+
+  const canShowCode = Boolean(chatId && versionId);
+
+  const selectedFile = useMemo(() => {
+    if (!selectedPath) return null;
+    const walk = (nodes: FileNode[]): FileNode | null => {
+      for (const node of nodes) {
+        if (node.path === selectedPath) return node;
+        if (node.type === "folder" && node.children) {
+          const hit = walk(node.children);
+          if (hit) return hit;
+        }
+      }
+      return null;
+    };
+    return walk(files);
+  }, [files, selectedPath]);
+
+  const getPreferredFilePath = useCallback((flatFiles: Array<{ name: string }>) => {
+    const candidates = [
+      "app/page.tsx",
+      "src/app/page.tsx",
+      "pages/index.tsx",
+      "page.tsx",
+      "Page.tsx",
+    ];
+    for (const candidate of candidates) {
+      const match = flatFiles.find((file) => file.name.endsWith(candidate));
+      if (match) return match.name;
+    }
+    return flatFiles[0]?.name || null;
+  }, []);
+
+  const findFirstFile = useCallback((nodes: FileNode[]): FileNode | null => {
+    for (const node of nodes) {
+      if (node.type === "file") return node;
+      if (node.children?.length) {
+        const hit = findFirstFile(node.children);
+        if (hit) return hit;
+      }
+    }
+    return null;
+  }, []);
+
+  const getLanguageFromName = (name: string) => {
+    const ext = name.split(".").pop()?.toLowerCase() || "";
+    if (ext === "ts") return "typescript";
+    if (ext === "tsx") return "tsx";
+    if (ext === "js") return "javascript";
+    if (ext === "jsx") return "jsx";
+    if (ext === "json") return "json";
+    if (ext === "css") return "css";
+    if (ext === "md") return "markdown";
+    if (ext === "html") return "html";
+    return "text";
+  };
+
+  useEffect(() => {
+    if (!showCode || !chatId || !versionId) return;
+    let isActive = true;
+    const controller = new AbortController();
+
+    const loadFiles = async () => {
+      setFilesLoading(true);
+      setFilesError(null);
+      try {
+        const response = await fetch(
+          `/api/v0/chats/${encodeURIComponent(chatId)}/files?versionId=${encodeURIComponent(
+            versionId
+          )}`,
+          { signal: controller.signal }
+        );
+        if (!response.ok) {
+          const data = await response.json().catch(() => ({}));
+          throw new Error(data?.error || `Failed to fetch files (HTTP ${response.status})`);
+        }
+        const data = await response.json().catch(() => ({}));
+        const flatFiles: Array<{ name: string; content: string; locked?: boolean }> =
+          Array.isArray(data?.files) ? data.files : [];
+        const tree = buildFileTree(flatFiles);
+        const preferredPath = getPreferredFilePath(flatFiles);
+        const preferredNode =
+          (preferredPath &&
+            (function findByPath(nodes: FileNode[], target: string): FileNode | null {
+              for (const node of nodes) {
+                if (node.path === target) return node;
+                if (node.children?.length) {
+                  const hit = findByPath(node.children, target);
+                  if (hit) return hit;
+                }
+              }
+              return null;
+            })(tree, preferredPath)) ||
+          findFirstFile(tree);
+
+        if (!isActive) return;
+        setFiles(tree);
+        setSelectedPath(preferredNode?.path || null);
+      } catch (error) {
+        if (!isActive) return;
+        if (error instanceof Error && error.name === "AbortError") return;
+        setFilesError(error instanceof Error ? error.message : "Kunde inte hämta filer");
+      } finally {
+        if (isActive) setFilesLoading(false);
+      }
+    };
+
+    loadFiles();
+
+    return () => {
+      isActive = false;
+      controller.abort();
+    };
+  }, [showCode, chatId, versionId, findFirstFile, getPreferredFilePath]);
 
   const handleIframeLoad = () => {
     setIframeLoading(false);
@@ -66,7 +194,7 @@ export function PreviewPanel({
     onClear();
   };
 
-  if (!demoUrl) {
+  if (!demoUrl && !showCode) {
     return (
       <div className="flex h-full flex-col items-center justify-center bg-black/20 text-gray-500">
         <AlertCircle className="h-12 w-12 mb-4" />
@@ -79,13 +207,27 @@ export function PreviewPanel({
   }
 
   const isLoading = externalLoading || iframeLoading;
-  const previewSrc = buildPreviewSrc(demoUrl, refreshToken);
+  const previewSrc = demoUrl ? buildPreviewSrc(demoUrl, refreshToken) : "";
 
   return (
     <div className="flex h-full flex-col bg-black/40">
-        <div className="flex items-center justify-between border-b border-gray-800 px-4 py-2">
+      <div className="flex items-center justify-between border-b border-gray-800 px-4 py-2">
         <h3 className="font-semibold text-white">Preview</h3>
-          <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setShowCode((prev) => !prev)}
+            disabled={!canShowCode}
+            title={canShowCode ? "Visa kod" : "Ingen kod tillgänglig än"}
+            className={cn(
+              "text-gray-400 hover:text-white",
+              showCode && "bg-gray-800 text-white hover:text-white"
+            )}
+          >
+            <FileText className="h-4 w-4 mr-1" />
+            Kod
+          </Button>
             {demoUrl && onClear && (
               <Button
                 variant="ghost"
@@ -121,39 +263,71 @@ export function PreviewPanel({
         </div>
       </div>
 
-      <div className="relative flex-1 overflow-hidden">
-        {isLoading && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/60 z-10">
-            <div className="text-center">
-              <Loader2 className="h-8 w-8 animate-spin text-gray-400 mx-auto mb-2" />
-              <p className="text-sm text-gray-400">Laddar preview...</p>
+      {showCode ? (
+        <div className="flex flex-1 overflow-hidden">
+          <div className="w-64 border-r border-gray-800 bg-black/50">
+            <FileExplorer
+              files={files}
+              selectedPath={selectedPath}
+              onFileSelect={(file) => setSelectedPath(file.path)}
+              isLoading={filesLoading}
+              error={filesError}
+            />
+          </div>
+          <div className="flex-1 overflow-auto p-4">
+            {!selectedFile ? (
+              <div className="flex h-full items-center justify-center text-sm text-gray-400">
+                Ingen fil vald
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="text-sm text-gray-300">{selectedFile.path}</div>
+                <CodeBlock
+                  code={selectedFile.content || ""}
+                  language={getLanguageFromName(selectedFile.name)}
+                  showLineNumbers
+                >
+                  <CodeBlockCopyButton className="text-gray-300 hover:text-white" />
+                </CodeBlock>
+              </div>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div className="relative flex-1 overflow-hidden">
+          {isLoading && (
+            <div className="absolute inset-0 flex items-center justify-center bg-black/60 z-10">
+              <div className="text-center">
+                <Loader2 className="h-8 w-8 animate-spin text-gray-400 mx-auto mb-2" />
+                <p className="text-sm text-gray-400">Laddar preview...</p>
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {iframeError && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 z-10 p-4">
-            <AlertCircle className="h-12 w-12 text-red-400 mb-4" />
-            <p className="text-sm text-gray-400 mb-4 text-center">
-              Preview kunde inte laddas i iframe. Öppna i ny flik istället.
-            </p>
-            <Button onClick={handleOpenInNewTab}>
-              <ExternalLink className="h-4 w-4 mr-2" />
-              Öppna i ny flik
-            </Button>
-          </div>
-        )}
+          {iframeError && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 z-10 p-4">
+              <AlertCircle className="h-12 w-12 text-red-400 mb-4" />
+              <p className="text-sm text-gray-400 mb-4 text-center">
+                Preview kunde inte laddas i iframe. Öppna i ny flik istället.
+              </p>
+              <Button onClick={handleOpenInNewTab}>
+                <ExternalLink className="h-4 w-4 mr-2" />
+                Öppna i ny flik
+              </Button>
+            </div>
+          )}
 
-        <iframe
-          id="preview-iframe"
-          src={previewSrc}
-          className="h-full w-full border-0"
-          onLoad={handleIframeLoad}
-          onError={handleIframeError}
-          sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
-          title="Preview"
-        />
-      </div>
+          <iframe
+            id="preview-iframe"
+            src={previewSrc}
+            className="h-full w-full border-0"
+            onLoad={handleIframeLoad}
+            onError={handleIframeError}
+            sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+            title="Preview"
+          />
+        </div>
+      )}
     </div>
   );
 }

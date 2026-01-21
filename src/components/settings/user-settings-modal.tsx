@@ -12,7 +12,6 @@ import {
   Eye,
   EyeOff,
   Settings,
-  Zap,
   Brain,
   Sparkles,
   ChevronDown,
@@ -92,8 +91,6 @@ const AVAILABLE_MODELS = [
 ];
 
 interface UserSettings {
-  use_ai_gateway: boolean;
-  has_ai_gateway_key: boolean;
   has_openai_key: boolean;
   has_anthropic_key: boolean;
   preferred_model: string;
@@ -118,13 +115,11 @@ export function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
   const [returnTo, setReturnTo] = useState("/projects");
 
   // Form state for API keys (only sent when explicitly saved)
-  const [aiGatewayKey, setAiGatewayKey] = useState("");
   const [openaiKey, setOpenaiKey] = useState("");
   const [anthropicKey, setAnthropicKey] = useState("");
   const [showKeys, setShowKeys] = useState(false);
 
   // Toggle states
-  const [useAiGateway, setUseAiGateway] = useState(false);
   const [enableStreaming, setEnableStreaming] = useState(true);
   const [enableThinking, setEnableThinking] = useState(true);
 
@@ -171,7 +166,6 @@ export function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
       const data = await response.json();
       if (data.success) {
         setSettings(data.settings);
-        setUseAiGateway(data.settings.use_ai_gateway);
         setEnableStreaming(data.settings.enable_streaming);
         setEnableThinking(data.settings.enable_thinking_display);
         if (data.settings.preferred_model) {
@@ -194,16 +188,12 @@ export function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
 
     try {
       const updates: Record<string, unknown> = {
-        use_ai_gateway: useAiGateway,
         enable_streaming: enableStreaming,
         enable_thinking_display: enableThinking,
         preferred_model: selectedModel,
       };
 
       // Only include API keys if they were entered (not empty placeholder)
-      if (aiGatewayKey) {
-        updates.ai_gateway_api_key = aiGatewayKey;
-      }
       if (openaiKey) {
         updates.openai_api_key = openaiKey;
       }
@@ -222,7 +212,6 @@ export function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
         setSettings(data.settings);
         setSuccess("Inställningar sparade!");
         // Clear key inputs after save
-        setAiGatewayKey("");
         setOpenaiKey("");
         setAnthropicKey("");
         setTimeout(() => setSuccess(null), 3000);
@@ -236,13 +225,10 @@ export function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
     }
   };
 
-  const handleClearKey = async (
-    keyType: "ai_gateway" | "openai" | "anthropic"
-  ) => {
+  const handleClearKey = async (keyType: "openai" | "anthropic") => {
     setIsSaving(true);
     try {
       const updates: Record<string, string> = {};
-      if (keyType === "ai_gateway") updates.ai_gateway_api_key = "";
       if (keyType === "openai") updates.openai_api_key = "";
       if (keyType === "anthropic") updates.anthropic_api_key = "";
 
@@ -328,63 +314,19 @@ export function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
           </div>
         ) : (
           <div className="p-6 space-y-6">
-            {/* AI Gateway Toggle */}
+            {/* Model Selection */}
             <div className="space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <Zap className="h-5 w-5 text-brand-amber" />
-                  <div>
-                    <h3 className="text-sm font-medium text-gray-200">
-                      Vercel AI Gateway
-                    </h3>
-                    <p className="text-xs text-gray-500">
-                      Använd Vercels AI Gateway för alla modeller ($5
-                      gratis/mån)
-                    </p>
-                  </div>
-                </div>
-                <button
-                  onClick={() => setUseAiGateway(!useAiGateway)}
-                  className={`
-                    relative w-12 h-6 rounded-full transition-all duration-200
-                    ${useAiGateway ? "bg-brand-amber" : "bg-gray-700"}
-                  `}
-                >
-                  <span
-                    className={`
-                      absolute top-1 w-4 h-4 rounded-full bg-white shadow-sm
-                      transition-transform duration-200
-                      ${useAiGateway ? "left-7" : "left-1"}
-                    `}
-                  />
-                </button>
-              </div>
-
-              {useAiGateway && (
-                <div className="ml-8 p-3 bg-brand-amber/10 border border-brand-amber/20 rounded-lg">
-                  <p className="text-xs text-brand-amber/80">
-                    AI Gateway ger tillgång till OpenAI, Anthropic, Groq m.fl.
-                    via ett enda API. Du behöver en AI_GATEWAY_API_KEY från
-                    Vercels dashboard.
+              <div className="flex items-center gap-3">
+                <Sparkles className="h-5 w-5 text-brand-teal" />
+                <div>
+                  <h3 className="text-sm font-medium text-gray-200">
+                    Föredragen AI-modell
+                  </h3>
+                  <p className="text-xs text-gray-500">
+                    Välj standardmodell för generering
                   </p>
                 </div>
-              )}
-            </div>
-
-            {/* Model Selection */}
-            {useAiGateway && (
-              <div className="space-y-3">
-                <div className="flex items-center gap-3">
-                  <Sparkles className="h-5 w-5 text-brand-teal" />
-                  <div>
-                    <h3 className="text-sm font-medium text-gray-200">
-                      Föredragen AI-modell
-                    </h3>
-                    <p className="text-xs text-gray-500">
-                      Välj standardmodell för generering
-                    </p>
-                  </div>
-                </div>
+              </div>
 
                 {/* Model Selector Button */}
                 <button
@@ -533,7 +475,6 @@ export function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
                   </div>
                 )}
               </div>
-            )}
 
             {/* Thinking Display Toggle */}
             <div className="flex items-center justify-between">
@@ -593,44 +534,6 @@ export function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
                 Lägg till egna API-nycklar för att använda dina egna kvoter
                 istället för plattformens.
               </p>
-
-              {/* AI Gateway Key */}
-              {useAiGateway && (
-                <div className="space-y-1.5">
-                  <label className="text-xs font-medium text-gray-400">
-                    AI Gateway API Key
-                    {settings?.has_ai_gateway_key && (
-                      <span className="ml-2 text-green-400">
-                        ✓ Konfigurerad
-                      </span>
-                    )}
-                  </label>
-                  <div className="flex gap-2">
-                    <Input
-                      type={showKeys ? "text" : "password"}
-                      placeholder={
-                        settings?.has_ai_gateway_key
-                          ? "••••••••"
-                          : "AI_GATEWAY_API_KEY"
-                      }
-                      value={aiGatewayKey}
-                      onChange={(e) => setAiGatewayKey(e.target.value)}
-                      className="flex-1 h-9 bg-gray-900 border-gray-700 text-white text-sm"
-                    />
-                    {settings?.has_ai_gateway_key && (
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => handleClearKey("ai_gateway")}
-                        className="h-9 px-3 border-red-800 text-red-400 hover:bg-red-900/20"
-                      >
-                        Ta bort
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              )}
 
               {/* OpenAI Key */}
               <div className="space-y-1.5">

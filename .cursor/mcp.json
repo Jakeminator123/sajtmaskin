@@ -1,12 +1,12 @@
 {
   "mcpServers": {
-    "sajtmaskin-docs": {
+    "sajtmaskin-docs-v2": {
       "command": "npm",
       "args": [
         "run",
         "mpc"
       ],
-      "cwd": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\.cursor",
+      "cwd": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\",
       "env": {}
     }
   }

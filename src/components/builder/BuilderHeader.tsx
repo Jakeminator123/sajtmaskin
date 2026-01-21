@@ -69,6 +69,8 @@ export function BuilderHeader(props: {
   onPromptAssistModelChange: (model: string) => void;
   promptAssistDeep: boolean;
   onPromptAssistDeepChange: (deep: boolean) => void;
+  systemPrompt: string;
+  onSystemPromptChange: (value: string) => void;
 
   enableImageGenerations: boolean;
   onEnableImageGenerationsChange: (v: boolean) => void;
@@ -98,6 +100,8 @@ export function BuilderHeader(props: {
     onPromptAssistModelChange,
     promptAssistDeep,
     onPromptAssistDeepChange,
+    systemPrompt,
+    onSystemPromptChange,
     enableImageGenerations,
     onEnableImageGenerationsChange,
     designSystemMode,
@@ -188,6 +192,20 @@ export function BuilderHeader(props: {
                 </DropdownMenuCheckboxItem>
               </>
             )}
+
+            <DropdownMenuSeparator />
+            <div className="px-2 py-2">
+              <label className="text-xs text-muted-foreground mb-1 block">
+                Preprompt (system)
+              </label>
+              <Input
+                value={systemPrompt}
+                onChange={(e) => onSystemPromptChange(e.target.value)}
+                placeholder="Valfri systemprompt för v0-generering"
+                className="h-8 text-sm"
+                disabled={isBusy}
+              />
+            </div>
           </DropdownMenuContent>
         </DropdownMenu>
 

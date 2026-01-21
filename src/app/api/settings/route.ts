@@ -24,8 +24,6 @@ export async function GET(request: NextRequest) {
 
     // Don't expose full API keys - just indicate if they're set
     const safeSettings = {
-      use_ai_gateway: settings.use_ai_gateway,
-      has_ai_gateway_key: !!settings.ai_gateway_api_key,
       has_openai_key: !!settings.openai_api_key,
       has_anthropic_key: !!settings.anthropic_api_key,
       preferred_model: settings.preferred_model,
@@ -63,8 +61,6 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const {
-      use_ai_gateway,
-      ai_gateway_api_key,
       openai_api_key,
       anthropic_api_key,
       preferred_model,
@@ -76,16 +72,8 @@ export async function POST(request: NextRequest) {
     // Build update object with only provided fields
     const updates: Partial<UserSettings> = {};
 
-    if (use_ai_gateway !== undefined) {
-      updates.use_ai_gateway = Boolean(use_ai_gateway);
-    }
-
     // Only update API keys if explicitly provided (not undefined)
     // Empty string means "clear the key"
-    if (ai_gateway_api_key !== undefined) {
-      updates.ai_gateway_api_key = ai_gateway_api_key || null;
-    }
-
     if (openai_api_key !== undefined) {
       updates.openai_api_key = openai_api_key || null;
     }
@@ -114,8 +102,6 @@ export async function POST(request: NextRequest) {
 
     // Return safe version
     const safeSettings = {
-      use_ai_gateway: settings.use_ai_gateway,
-      has_ai_gateway_key: !!settings.ai_gateway_api_key,
       has_openai_key: !!settings.openai_api_key,
       has_anthropic_key: !!settings.anthropic_api_key,
       preferred_model: settings.preferred_model,

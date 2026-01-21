@@ -578,8 +578,6 @@ function initializeDatabase(
       user_id TEXT NOT NULL UNIQUE,
 
       -- AI Provider settings
-      use_ai_gateway INTEGER DEFAULT 0,
-      ai_gateway_api_key TEXT,
       openai_api_key TEXT,
       anthropic_api_key TEXT,
 
@@ -3027,8 +3025,6 @@ export function updateDomainOrderStatus(
 interface UserSettingsRow {
   id: number;
   user_id: string;
-  use_ai_gateway: number;
-  ai_gateway_api_key: string | null;
   openai_api_key: string | null;
   anthropic_api_key: string | null;
   preferred_model: string;
@@ -3042,8 +3038,6 @@ interface UserSettingsRow {
 export interface UserSettings {
   id?: number;
   user_id: string;
-  use_ai_gateway: boolean;
-  ai_gateway_api_key: string | null;
   openai_api_key: string | null;
   anthropic_api_key: string | null;
   preferred_model: string;
@@ -3089,10 +3083,6 @@ export function getUserSettings(userId: string): UserSettings | null {
   return {
     id: row.id,
     user_id: row.user_id,
-    use_ai_gateway: row.use_ai_gateway === 1,
-    ai_gateway_api_key: row.ai_gateway_api_key
-      ? deobfuscateKey(row.ai_gateway_api_key)
-      : null,
     openai_api_key: row.openai_api_key
       ? deobfuscateKey(row.openai_api_key)
       : null,
@@ -3139,20 +3129,6 @@ export function updateUserSettings(
   // Build update query dynamically based on provided fields
   const updates: string[] = [];
   const values: (string | number | null)[] = [];
-
-  if (settings.use_ai_gateway !== undefined) {
-    updates.push("use_ai_gateway = ?");
-    values.push(settings.use_ai_gateway ? 1 : 0);
-  }
-
-  if (settings.ai_gateway_api_key !== undefined) {
-    updates.push("ai_gateway_api_key = ?");
-    values.push(
-      settings.ai_gateway_api_key
-        ? obfuscateKey(settings.ai_gateway_api_key)
-        : null
-    );
-  }
 
   if (settings.openai_api_key !== undefined) {
     updates.push("openai_api_key = ?");
@@ -3220,9 +3196,5 @@ export function hasCustomApiKeys(userId: string): boolean {
   const settings = getUserSettings(userId);
   if (!settings) return false;
 
-  return !!(
-    settings.openai_api_key ||
-    settings.anthropic_api_key ||
-    settings.ai_gateway_api_key
-  );
+  return !!(settings.openai_api_key || settings.anthropic_api_key);
 }

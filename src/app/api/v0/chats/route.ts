@@ -7,7 +7,6 @@ import { nanoid } from 'nanoid';
 import { withRateLimit } from '@/lib/rateLimit';
 import { ensureProjectForRequest } from '@/lib/tenant';
 import { requireNotBot } from '@/lib/botProtection';
-import { SYSTEM_PROMPT } from '@/lib/v0/systemPrompt';
 
 export async function POST(req: Request) {
   return withRateLimit(req, 'chat:create', async () => {
@@ -37,7 +36,7 @@ export async function POST(req: Request) {
         chatPrivacy,
       } = validationResult.data;
 
-      const resolvedSystem = system?.trim() ? system : SYSTEM_PROMPT;
+      const resolvedSystem = system?.trim() ? system : undefined;
       const resolvedThinking = typeof thinking === 'boolean' ? thinking : modelId === 'v0-max';
       const resolvedImageGenerations =
         typeof imageGenerations === 'boolean' ? imageGenerations : false;
@@ -45,7 +44,7 @@ export async function POST(req: Request) {
 
       const result = await v0.chats.create({
         message,
-        system: resolvedSystem,
+        ...(resolvedSystem ? { system: resolvedSystem } : {}),
         projectId,
         chatPrivacy: resolvedChatPrivacy,
         modelConfiguration: {
