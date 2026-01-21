@@ -86,7 +86,7 @@ export function AttachmentChips({
           >
             {/* Thumbnail or icon */}
             {isImage && file.status === "success" ? (
-              <div className="w-5 h-5 rounded overflow-hidden flex-shrink-0">
+              <div className="w-5 h-5 rounded overflow-hidden shrink-0">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={file.url}
@@ -95,7 +95,7 @@ export function AttachmentChips({
                 />
               </div>
             ) : (
-              <Icon className="h-3.5 w-3.5 flex-shrink-0 text-gray-500" />
+              <Icon className="h-3.5 w-3.5 shrink-0 text-gray-500" />
             )}
 
             {/* Filename */}
