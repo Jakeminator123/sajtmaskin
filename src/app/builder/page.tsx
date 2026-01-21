@@ -7,6 +7,7 @@ import { MessageList } from '@/components/builder/MessageList';
 import { PreviewPanel } from '@/components/builder/PreviewPanel';
 import { SandboxModal } from '@/components/builder/SandboxModal';
 import { BuilderHeader } from '@/components/builder/BuilderHeader';
+import type { V0UserFileAttachment } from '@/components/media';
 import { Button } from '@/components/ui/button';
 import { clearPersistedMessages } from '@/lib/builder/messagesStorage';
 import type { ChatMessage } from '@/lib/builder/types';
@@ -28,7 +29,7 @@ import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'rea
 import toast, { Toaster } from 'react-hot-toast';
 
 type CreateChatOptions = {
-  attachments?: unknown[];
+  attachments?: V0UserFileAttachment[];
   attachmentPrompt?: string;
   skipPromptAssist?: boolean;
 };
@@ -304,6 +305,10 @@ function BuilderContent() {
     setPreviewRefreshToken(0);
   }, []);
 
+  const bumpPreviewRefreshToken = useCallback(() => {
+    setPreviewRefreshToken(Date.now());
+  }, []);
+
   const { isCreatingChat, createNewChat, sendMessage } = useV0ChatMessaging({
     chatId,
     setChatId,
@@ -325,7 +330,7 @@ function BuilderContent() {
     setPendingCreate(null);
     setHasSelectedModelTier(true);
     if (!pending) return;
-    await createNewChat(pending.message, pending.options as any);
+    await createNewChat(pending.message, pending.options);
   }, [pendingCreate, createNewChat]);
 
   const requestCreateChat = useCallback(
@@ -335,7 +340,7 @@ function BuilderContent() {
         setIsModelSelectOpen(true);
         return false;
       }
-      await createNewChat(message, options as any);
+      await createNewChat(message, options);
       return true;
     },
     [chatId, hasSelectedModelTier, createNewChat]
@@ -371,10 +376,6 @@ function BuilderContent() {
 
   const handleClearPreview = useCallback(() => {
     setCurrentDemoUrl(null);
-  }, []);
-
-  const bumpPreviewRefreshToken = useCallback(() => {
-    setPreviewRefreshToken(Date.now());
   }, []);
 
   const initialPrompt = templateId ? null : resolvedPrompt?.trim() || null;
