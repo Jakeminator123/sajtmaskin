@@ -14,7 +14,6 @@ import {
   isDoneLikeEvent,
   safeJsonParse,
 } from '@/lib/v0Stream';
-import { SYSTEM_PROMPT } from '@/lib/v0/systemPrompt';
 import { eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { NextResponse } from 'next/server';
@@ -56,7 +55,7 @@ export async function POST(req: Request) {
         imageGenerations,
         chatPrivacy,
       } = validationResult.data;
-      const resolvedSystem = system?.trim() ? system : SYSTEM_PROMPT;
+      const resolvedSystem = system?.trim() ? system : undefined;
       const resolvedThinking =
         typeof thinking === 'boolean' ? thinking : modelId === 'v0-max';
       const resolvedImageGenerations =
@@ -81,7 +80,7 @@ export async function POST(req: Request) {
 
       const result = await v0.chats.create({
         message,
-        system: resolvedSystem,
+        ...(resolvedSystem ? { system: resolvedSystem } : {}),
         projectId,
         chatPrivacy: resolvedChatPrivacy,
         modelConfiguration: {

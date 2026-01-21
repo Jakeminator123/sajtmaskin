@@ -9,7 +9,6 @@ import {
   PromptInputTextarea,
   PromptInputTools,
 } from "@/components/ai-elements/prompt-input";
-import { Suggestion, Suggestions } from "@/components/ai-elements/suggestion";
 import {
   FileUploadZone,
   filesToAttachments,
@@ -62,50 +61,6 @@ const IMAGE_EXTENSION_MIME: Record<string, string> = {
   svg: "image/svg+xml",
 };
 
-type PromptPreset = {
-  id: string;
-  label: string;
-  description: string;
-  template: string;
-};
-
-const PROMPT_PRESETS: PromptPreset[] = [
-  {
-    id: "landing",
-    label: "Landningssida",
-    description: "SaaS/produkt-sida med CTA och social proof",
-    template:
-      "Build a modern landing page for [brand]. Include hero, features, social proof, pricing, FAQ, and a strong CTA.",
-  },
-  {
-    id: "app",
-    label: "Webbapp",
-    description: "App-layout med navigation, tomtillstånd och settings",
-    template:
-      "Build a web app UI for [use case]. Include navigation, dashboard overview, tables or cards, and a settings page.",
-  },
-  {
-    id: "ecommerce",
-    label: "E-handel",
-    description: "Produktlistor, produkt-sida och checkout-flöde",
-    template:
-      "Build an ecommerce storefront for [brand]. Include product listing, product detail, cart, and checkout.",
-  },
-  {
-    id: "redesign",
-    label: "Redesign",
-    description: "Modernisera UI och förbättra UX",
-    template:
-      "Redesign the existing UI to feel modern and premium. Improve spacing, typography, and accessibility without changing core content.",
-  },
-  {
-    id: "copy",
-    label: "Copy & SEO",
-    description: "Förbättra texter och SEO-struktur",
-    template:
-      "Improve the copywriting and SEO. Rewrite headings, add a clear CTA, and ensure semantic structure and meta content.",
-  },
-];
 
 function normalizeDesignUrl(value: string): string {
   const trimmed = value.trim();
@@ -230,14 +185,6 @@ export function ChatInterface({
       controller.abort();
     };
   }, [normalizedFigmaUrl]);
-
-  const applyPromptTemplate = (template: string) => {
-    setInput((prev) => {
-      const base = prev.trim();
-      return base ? `${base}\n\n${template}` : template;
-    });
-    setHasEnhancedDraft(false);
-  };
 
   const handleEnhancePrompt = async () => {
     if (!onEnhancePrompt) return;
@@ -404,11 +351,6 @@ export function ChatInterface({
         className="rounded-lg border border-input bg-background shadow-sm"
       >
       <PromptInputHeader className="flex flex-wrap items-center gap-2">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="text-xs text-muted-foreground">
-            Snabbmallar: klicka för att lägga till i prompten
-          </span>
-        </div>
           <div className="ml-auto flex flex-wrap items-center gap-2">
             {promptAssistStatus && (
               <span className="text-[11px] text-muted-foreground">
@@ -503,20 +445,6 @@ export function ChatInterface({
             )}
           </div>
         )}
-        <div className="px-3 pb-2">
-          <Suggestions>
-            {PROMPT_PRESETS.map((preset) => (
-              <Suggestion
-                key={preset.id}
-                suggestion={preset.template}
-                onClick={(template) => applyPromptTemplate(template)}
-                title={preset.description}
-              >
-                {preset.label}
-              </Suggestion>
-            ))}
-          </Suggestions>
-        </div>
         <PromptInputBody>
           <PromptInputTextarea
             placeholder={

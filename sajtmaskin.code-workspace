@@ -17,6 +17,7 @@
     "typescript.tsdk": "sajtgen/node_modules/typescript/lib",
     "typescript.enablePromptUseWorkspaceTsdk": true,
     "editor.formatOnSave": true,
-    "files.autoSave": "afterDelay"
+    "files.autoSave": "afterDelay",
+    "git.autofetch": true
   }
 }

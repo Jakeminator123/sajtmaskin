@@ -60,6 +60,11 @@ const MODEL_TIER_OPTIONS: ModelOption[] = [
   },
 ];
 
+const DEFAULT_SYSTEM_PROMPT =
+  'You are a senior product designer and front-end engineer. ' +
+  'Build a modern, production-ready UI with clear hierarchy, accessible components, and responsive layout. ' +
+  'Use semantic HTML and Tailwind CSS classes only.';
+
 function BuilderContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -82,6 +87,7 @@ function BuilderContent() {
     useState<PromptAssistProvider>('off');
   const [promptAssistModel, setPromptAssistModel] = useState('openai/gpt-5');
   const [promptAssistDeep, setPromptAssistDeep] = useState(false);
+  const [systemPrompt, setSystemPrompt] = useState(DEFAULT_SYSTEM_PROMPT);
   const [isSandboxModalOpen, setIsSandboxModalOpen] = useState(false);
   const [isDeploying, setIsDeploying] = useState(false);
   const [enableImageGenerations, setEnableImageGenerations] = useState(true);
@@ -316,6 +322,7 @@ function BuilderContent() {
     router,
     selectedModelTier,
     enableImageGenerations,
+    systemPrompt,
     maybeEnhanceInitialPrompt,
     mutateVersions,
     setCurrentDemoUrl,
@@ -436,6 +443,8 @@ function BuilderContent() {
           onPromptAssistModelChange={setPromptAssistModel}
           promptAssistDeep={promptAssistDeep}
           onPromptAssistDeepChange={setPromptAssistDeep}
+          systemPrompt={systemPrompt}
+          onSystemPromptChange={setSystemPrompt}
           enableImageGenerations={enableImageGenerations}
           onEnableImageGenerationsChange={setEnableImageGenerations}
           designSystemMode={designSystemMode}
@@ -478,6 +487,8 @@ function BuilderContent() {
 
           <div className="hidden flex-1 flex-col overflow-hidden lg:flex">
             <PreviewPanel
+              chatId={chatId}
+              versionId={activeVersionId}
               demoUrl={currentDemoUrl}
               isLoading={isAnyStreaming || isCreatingChat}
               onClear={handleClearPreview}
