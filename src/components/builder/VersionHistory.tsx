@@ -1,7 +1,17 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Clock, Download, ExternalLink, Github, Loader2, Pin, UploadCloud } from 'lucide-react';
+import {
+  ChevronLeft,
+  ChevronRight,
+  Clock,
+  Download,
+  ExternalLink,
+  Github,
+  Loader2,
+  Pin,
+  UploadCloud,
+} from 'lucide-react';
 import { useVersions } from '@/lib/hooks/useVersions';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -14,9 +24,17 @@ interface VersionHistoryProps {
   chatId: string | null;
   selectedVersionId: string | null;
   onVersionSelect: (versionId: string) => void;
+  isCollapsed?: boolean;
+  onToggleCollapse?: () => void;
 }
 
-export function VersionHistory({ chatId, selectedVersionId, onVersionSelect }: VersionHistoryProps) {
+export function VersionHistory({
+  chatId,
+  selectedVersionId,
+  onVersionSelect,
+  isCollapsed = false,
+  onToggleCollapse,
+}: VersionHistoryProps) {
   const { user, isAuthenticated, hasGitHub, isInitialized, fetchUser } = useAuth();
   const { versions, isLoading, mutate } = useVersions(chatId);
   type VersionSummary = {
@@ -178,6 +196,29 @@ export function VersionHistory({ chatId, selectedVersionId, onVersionSelect }: V
     }
   };
 
+  const canToggleCollapse = typeof onToggleCollapse === 'function';
+
+  if (isCollapsed) {
+    return (
+      <div className="flex h-full flex-col items-center gap-2 py-2">
+        {canToggleCollapse && (
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={onToggleCollapse}
+            title="Expandera versioner"
+            className="h-7 w-7"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+        )}
+        <span className="text-[10px] uppercase tracking-wide text-muted-foreground rotate-90">
+          Versions
+        </span>
+      </div>
+    );
+  }
+
   if (!chatId) {
     return (
       <div className="flex h-full items-center justify-center text-muted-foreground p-4">
@@ -205,14 +246,29 @@ export function VersionHistory({ chatId, selectedVersionId, onVersionSelect }: V
   return (
     <div className="flex h-full flex-col">
       <div className="border-b border-border px-4 py-3">
-        <h3 className="font-semibold">Version History</h3>
-        <p className="text-xs text-muted-foreground mt-1">
-          {versions.length} version{versions.length !== 1 ? 's' : ''}
-          {pinnedCount > 0 ? ` • ${pinnedCount} pinned` : ''}
-        </p>
-        <p className="text-xs text-muted-foreground">
-          Pinned versions är skrivskyddade snapshots. Avpinna för att kunna redigera.
-        </p>
+        <div className="flex items-start justify-between gap-2">
+          <div>
+            <h3 className="font-semibold">Version History</h3>
+            <p className="text-xs text-muted-foreground mt-1">
+              {versions.length} version{versions.length !== 1 ? 's' : ''}
+              {pinnedCount > 0 ? ` • ${pinnedCount} pinned` : ''}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Pinned versions är skrivskyddade snapshots. Avpinna för att kunna redigera.
+            </p>
+          </div>
+          {canToggleCollapse && (
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={onToggleCollapse}
+              title="Fäll in versioner"
+              className="h-7 w-7"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          )}
+        </div>
         <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
           {isAuthenticated ? (
             hasGitHub ? (

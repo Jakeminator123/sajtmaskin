@@ -4,6 +4,14 @@ import type { PromptAssistProvider } from '@/lib/builder/promptAssist';
 import type { ModelTier } from '@/lib/validations/chatSchemas';
 import { Button } from '@/components/ui/button';
 import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from '@/components/ui/command';
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuCheckboxItem,
@@ -49,11 +57,29 @@ const MODEL_OPTIONS: {
     },
   ];
 
+const V0_MODEL_OPTIONS: Array<{
+  value: string;
+  label: string;
+  description: string;
+}> = [
+  {
+    value: 'v0-1.5-md',
+    label: 'v0-1.5-md',
+    description: 'Balanced',
+  },
+  {
+    value: 'v0-1.5-lg',
+    label: 'v0-1.5-lg',
+    description: 'Best quality',
+  },
+];
+
 const PROMPT_ASSIST_OPTIONS: {
   value: PromptAssistProvider;
   label: string;
 }[] = [
     { value: 'off', label: 'Off' },
+  { value: 'vercel', label: 'v0 Model API' },
     { value: 'gateway', label: 'AI Gateway' },
     { value: 'openai', label: 'OpenAI' },
     { value: 'anthropic', label: 'Claude' },
@@ -69,6 +95,9 @@ export function BuilderHeader(props: {
   onPromptAssistModelChange: (model: string) => void;
   promptAssistDeep: boolean;
   onPromptAssistDeepChange: (deep: boolean) => void;
+  gatewayModels: string[];
+  gatewayModelsStatus: 'idle' | 'loading' | 'ready' | 'error';
+  gatewayModelsError: string | null;
   systemPrompt: string;
   onSystemPromptChange: (value: string) => void;
 
@@ -100,6 +129,9 @@ export function BuilderHeader(props: {
     onPromptAssistModelChange,
     promptAssistDeep,
     onPromptAssistDeepChange,
+    gatewayModels,
+    gatewayModelsStatus,
+    gatewayModelsError,
     systemPrompt,
     onSystemPromptChange,
     enableImageGenerations,
@@ -167,20 +199,107 @@ export function BuilderHeader(props: {
               <>
                 <DropdownMenuSeparator />
                 <div className="px-2 py-2">
-                  <label className="text-xs text-muted-foreground mb-1 block">Assist Model</label>
-                  <Input
-                    value={promptAssistModel}
-                    onChange={(e) => onPromptAssistModelChange(e.target.value)}
-                    placeholder={
-                      promptAssistProvider === 'gateway'
-                        ? 'openai/gpt-5'
-                        : promptAssistProvider === 'openai'
+                  <label className="text-xs text-muted-foreground mb-1 block">
+                    Assist Model
+                  </label>
+                  {promptAssistProvider === 'gateway' ? (
+                    <div className="rounded-md border border-border bg-background">
+                      <Command>
+                        <CommandInput
+                          value={promptAssistModel}
+                          onValueChange={onPromptAssistModelChange}
+                          placeholder="Sök eller skriv (t.ex. openai/gpt-5)"
+                          className="h-8 text-sm"
+                          disabled={isBusy}
+                        />
+                        <CommandList className="max-h-40">
+                          {gatewayModelsStatus === 'loading' && (
+                            <div className="px-3 py-2 text-xs text-muted-foreground">
+                              Hämtar modeller...
+                            </div>
+                          )}
+                          {gatewayModelsStatus === 'error' && (
+                            <div className="px-3 py-2 text-xs text-destructive">
+                              {gatewayModelsError || 'Kunde inte hämta modeller'}
+                            </div>
+                          )}
+                          {gatewayModelsStatus !== 'loading' &&
+                            gatewayModelsStatus !== 'error' && (
+                              <>
+                                {gatewayModels.length === 0 ? (
+                                  <CommandEmpty>Inga modeller hittades.</CommandEmpty>
+                                ) : (
+                                  <CommandGroup heading="Modeller">
+                                    {gatewayModels.map((modelId) => (
+                                      <CommandItem
+                                        key={modelId}
+                                        value={modelId}
+                                        onSelect={() => onPromptAssistModelChange(modelId)}
+                                      >
+                                        <span className="font-mono text-xs">{modelId}</span>
+                                      </CommandItem>
+                                    ))}
+                                  </CommandGroup>
+                                )}
+                              </>
+                            )}
+                        </CommandList>
+                      </Command>
+                    </div>
+                  ) : promptAssistProvider === 'vercel' ? (
+                    <div className="rounded-md border border-border bg-background">
+                      <Command>
+                        <CommandInput
+                          value={promptAssistModel}
+                          onValueChange={onPromptAssistModelChange}
+                          placeholder="Sök eller skriv (t.ex. v0-1.5-lg)"
+                          className="h-8 text-sm"
+                          disabled={isBusy}
+                        />
+                        <CommandList className="max-h-40">
+                          <CommandGroup heading="v0 Model API">
+                            {V0_MODEL_OPTIONS.map((option) => (
+                              <CommandItem
+                                key={option.value}
+                                value={option.value}
+                                onSelect={() => onPromptAssistModelChange(option.value)}
+                              >
+                                <span className="font-mono text-xs">{option.label}</span>
+                                <span className="ml-2 text-xs text-muted-foreground">
+                                  {option.description}
+                                </span>
+                              </CommandItem>
+                            ))}
+                          </CommandGroup>
+                          <CommandEmpty>Inga standardmodeller.</CommandEmpty>
+                        </CommandList>
+                      </Command>
+                    </div>
+                  ) : (
+                    <Input
+                      value={promptAssistModel}
+                      onChange={(e) => onPromptAssistModelChange(e.target.value)}
+                      placeholder={
+                        promptAssistProvider === 'openai'
                           ? 'gpt-5'
-                          : 'claude-...'
-                    }
-                    className="h-8 text-sm"
-                    disabled={isBusy}
-                  />
+                          : promptAssistProvider === 'anthropic'
+                            ? 'claude-...'
+                            : 'openai/gpt-5'
+                      }
+                      className="h-8 text-sm"
+                      disabled={isBusy}
+                    />
+                  )}
+                  {promptAssistProvider === 'gateway' && (
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      Du kan skriva fritt för egna modeller.
+                    </p>
+                  )}
+                  {promptAssistProvider === 'vercel' && (
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      v0-1.5-lg = högsta kvalitet (ofta långsammare/dyrare).
+                    </p>
+                  )}
                 </div>
                 <DropdownMenuCheckboxItem
                   checked={promptAssistDeep}

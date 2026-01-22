@@ -27,6 +27,61 @@ function applyPreDeployFixes(files: Array<{ name: string; content: string }>): {
   const fixesApplied: string[] = [];
   const nextFiles = files.map((f) => ({ ...f }));
 
+  const removeBrokenUtilityBlocks = (content: string) => {
+    if (!content.includes('@utility')) {
+      return { content, removed: 0 };
+    }
+
+    const marker = '@utility';
+    let updated = content;
+    let removed = 0;
+    let index = 0;
+
+    while (index < updated.length) {
+      const start = updated.indexOf(marker, index);
+      if (start === -1) break;
+
+      const lineEnd = updated.indexOf('\n', start);
+      const head = updated.slice(start, lineEnd === -1 ? updated.length : lineEnd);
+      if (!head.includes('slide-in-from-top-')) {
+        index = start + marker.length;
+        continue;
+      }
+
+      const braceIndex = updated.indexOf('{', start);
+      if (braceIndex === -1) {
+        index = start + marker.length;
+        continue;
+      }
+
+      let depth = 1;
+      let cursor = braceIndex + 1;
+      while (cursor < updated.length) {
+        const ch = updated[cursor];
+        if (ch === '{') depth += 1;
+        if (ch === '}') {
+          depth -= 1;
+          if (depth === 0) break;
+        }
+        cursor += 1;
+      }
+
+      if (depth === 0) {
+        index = cursor + 1;
+        continue;
+      }
+
+      // Missing closing brace: remove the broken utility block (best-effort).
+      const nextUtility = updated.indexOf(marker, start + marker.length);
+      const cutEnd = nextUtility === -1 ? updated.length : nextUtility;
+      updated = `${updated.slice(0, start)}${updated.slice(cutEnd)}`;
+      removed += 1;
+      index = start;
+    }
+
+    return { content: updated, removed };
+  };
+
   for (const f of nextFiles) {
     if (typeof f.content !== 'string') continue;
 
@@ -59,6 +114,16 @@ function applyPreDeployFixes(files: Array<{ name: string; content: string }>): {
         fixesApplied.push(`Fixed Instrument_Serif invalid weight in ${f.name}`);
       }
     }
+
+    if (f.name.endsWith('.css') && f.content.includes('@utility')) {
+      const result = removeBrokenUtilityBlocks(f.content);
+      if (result.removed > 0 && result.content !== f.content) {
+        f.content = result.content;
+        fixesApplied.push(
+          `Removed ${result.removed} broken @utility block${result.removed > 1 ? 's' : ''} in ${f.name}`
+        );
+      }
+    }
   }
 
   return { files: nextFiles, fixesApplied };
@@ -69,7 +134,7 @@ const createDeploymentSchema = z.object({
   versionId: z.string().min(1, 'versionId is required'),
   projectName: z.string().optional(),
   target: z.enum(['production', 'preview']).optional(),
-  imageStrategy: z.enum(['external', 'blob']).optional().default('external'),
+  imageStrategy: z.enum(['external', 'blob']).optional(),
   projectId: z.string().optional(),
 });
 
@@ -91,6 +156,8 @@ export async function POST(req: Request) {
       }
 
       const { chatId, versionId, projectName, target, imageStrategy } = validationResult.data;
+      const resolvedImageStrategy: ImageAssetStrategy =
+        imageStrategy ?? (process.env.BLOB_READ_WRITE_TOKEN ? 'blob' : 'external');
 
       let chat = await getChatByV0ChatIdForRequest(req, chatId);
       if (!chat) chat = await getChatByIdForRequest(req, chatId);
@@ -132,7 +199,7 @@ export async function POST(req: Request) {
         internalVersionId,
         v0VersionId,
         target: target || 'production',
-        imageStrategy,
+        imageStrategy: resolvedImageStrategy,
       });
       if (process.env.NODE_ENV === 'development') {
         console.log('[dev-log] deploy started', {
@@ -177,7 +244,7 @@ export async function POST(req: Request) {
         const blobToken = process.env.BLOB_READ_WRITE_TOKEN;
         const imageAssets = await materializeImagesInTextFiles({
           files: fixedFiles,
-          strategy: imageStrategy as ImageAssetStrategy,
+          strategy: resolvedImageStrategy,
           blobToken,
           namespace: { chatId: v0ChatId, versionId: v0VersionId },
         });
@@ -233,7 +300,7 @@ export async function POST(req: Request) {
           inspectorUrl: created.inspectorUrl,
           readyState: created.readyState,
           fixesApplied,
-          imageStrategyRequested: imageStrategy,
+          imageStrategyRequested: imageStrategy ?? null,
           imageStrategyUsed: imageAssets.strategyUsed,
           imageAssetsSummary: imageAssets.summary,
           imageAssetsWarnings: imageAssets.warnings,

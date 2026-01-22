@@ -20,7 +20,10 @@ function normalizeEnvUrl(value: string | undefined, varName?: string): string | 
   return trimmed;
 }
 
-function resolveDbConnectionString(): string {
+const MISSING_DB_MESSAGE =
+  'Missing database connection string. Set POSTGRES_URL (preferred), POSTGRES_URL_NON_POOLING, or DATABASE_URL.';
+
+function resolveDbConnectionString(): string | null {
   const postgresUrl = normalizeEnvUrl(process.env.POSTGRES_URL, 'POSTGRES_URL');
   const nonPoolingUrl = normalizeEnvUrl(
     process.env.POSTGRES_URL_NON_POOLING,
@@ -30,22 +33,42 @@ function resolveDbConnectionString(): string {
 
   const connectionString = postgresUrl || nonPoolingUrl || databaseUrl;
   if (!connectionString) {
-    throw new Error(
-      'Missing database connection string. Set POSTGRES_URL (preferred), POSTGRES_URL_NON_POOLING, or DATABASE_URL.'
-    );
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error(MISSING_DB_MESSAGE);
+    }
+
+    if (process.env.NODE_ENV === 'development') {
+      console.warn(`[db/client] ${MISSING_DB_MESSAGE} Database features are disabled.`);
+    }
+
+    return null;
   }
 
   return connectionString;
 }
 
-const pool = new Pool({
-  connectionString: resolveDbConnectionString(),
-  ssl: {
-    rejectUnauthorized: false,
-  },
-});
+const connectionString = resolveDbConnectionString();
+export const dbConfigured = Boolean(connectionString);
 
-export const db = drizzle(pool, { schema });
+const pool = connectionString
+  ? new Pool({
+      connectionString,
+      ssl: {
+        rejectUnauthorized: false,
+      },
+    })
+  : null;
+
+export const db = connectionString
+  ? drizzle(pool as Pool, { schema })
+  : (new Proxy(
+      {},
+      {
+        get() {
+          throw new Error(MISSING_DB_MESSAGE);
+        },
+      }
+    ) as ReturnType<typeof drizzle>);
 
 export { schema };
 export { pool };

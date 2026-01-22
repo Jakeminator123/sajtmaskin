@@ -56,7 +56,7 @@ env.local
 skrapning
 
 # Avoid accidentally committing a nested clone/repo
-sajtmaskin/
+sajtgen
 
 # Large local docs/specs (keep out of git unless intentionally added)
 SiteStudio_Projektspecifikation_ifillningsbar_v2.pdf

@@ -1,5 +1,6 @@
 import { createAnthropic } from '@ai-sdk/anthropic';
 import { createOpenAI } from '@ai-sdk/openai';
+import { createVercel } from '@ai-sdk/vercel';
 import { generateObject, gateway } from 'ai';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
@@ -11,7 +12,10 @@ export const maxDuration = 60;
 
 const briefRequestSchema = z.object({
   prompt: z.string().min(1, 'prompt is required'),
-  provider: z.enum(['gateway', 'openai', 'anthropic']).optional().default('gateway'),
+  provider: z
+    .enum(['gateway', 'openai', 'anthropic', 'vercel'])
+    .optional()
+    .default('gateway'),
   model: z.string().min(1).optional().default('openai/gpt-5'),
   temperature: z.number().min(0).max(2).optional(),
   imageGenerations: z.boolean().optional().default(true),
@@ -117,6 +121,23 @@ function getAnthropicApiKey(): string | null {
   return apiKey && apiKey.trim() ? apiKey : null;
 }
 
+function getV0ModelApiKey(): string | null {
+  const vercelApiKey = process.env.VERCEL_API_KEY;
+  const v0ApiKey = process.env.V0_API_KEY;
+  const vercelToken = process.env.VERCEL_TOKEN;
+
+  if (vercelApiKey && vercelApiKey.trim() && (!vercelToken || vercelApiKey !== vercelToken)) {
+    return vercelApiKey.trim();
+  }
+  if (v0ApiKey && v0ApiKey.trim()) {
+    return v0ApiKey.trim();
+  }
+  if (vercelApiKey && vercelApiKey.trim()) {
+    return vercelApiKey.trim();
+  }
+  return null;
+}
+
 function getGatewayPreferredProvider(model: string): string | null {
   const slashIdx = model.indexOf('/');
   if (slashIdx <= 0) return null;
@@ -150,6 +171,12 @@ export async function POST(req: Request) {
       }
 
       const { prompt, provider, model, temperature, imageGenerations } = parsed.data;
+      const resolvedModel =
+        provider === 'vercel'
+          ? typeof model === 'string' && model.trim().startsWith('v0-')
+            ? model
+            : 'v0-1.5-md'
+          : model;
 
       const systemPrompt =
         'You are a senior product designer + information architect. ' +
@@ -164,7 +191,7 @@ export async function POST(req: Request) {
           : '\n\nImage generation is disabled; prefer layout and iconography, keep imagery optional.');
 
       if (provider === 'gateway') {
-        if (!model.includes('/')) {
+        if (!resolvedModel.includes('/')) {
           return NextResponse.json(
             {
               error: 'Invalid model for gateway provider',
@@ -186,9 +213,9 @@ export async function POST(req: Request) {
           );
         }
 
-        const preferred = getGatewayPreferredProvider(model);
+        const preferred = getGatewayPreferredProvider(resolvedModel);
         const result = await generateObject({
-          model: gateway(model),
+          model: gateway(resolvedModel),
           schema: siteBriefSchema,
           messages: [
             { role: 'system', content: systemPrompt },
@@ -197,10 +224,41 @@ export async function POST(req: Request) {
           providerOptions: {
             gateway: {
               ...(preferred ? { order: [preferred] } : {}),
-              models: defaultGatewayFallbackModels(model),
+              models: defaultGatewayFallbackModels(resolvedModel),
             } as any,
           },
-          ...getTemperatureConfig(model, temperature),
+          ...getTemperatureConfig(resolvedModel, temperature),
+        });
+
+        return NextResponse.json(result.object, {
+          headers: {
+            'Cache-Control': 'no-store',
+            'X-Provider': provider,
+          },
+        });
+      }
+
+      if (provider === 'vercel') {
+        const apiKey = getV0ModelApiKey();
+        if (!apiKey) {
+          return NextResponse.json(
+            {
+              error: 'Missing V0 API key',
+              setup: 'Set VERCEL_API_KEY or V0_API_KEY for the v0 Model API.',
+            },
+            { status: 401 }
+          );
+        }
+
+        const vercel = createVercel({ apiKey });
+        const result = await generateObject({
+          model: vercel(resolvedModel),
+          schema: siteBriefSchema,
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: userPrompt },
+          ],
+          ...getTemperatureConfig(resolvedModel, temperature),
         });
 
         return NextResponse.json(result.object, {
@@ -221,13 +279,13 @@ export async function POST(req: Request) {
         }
         const openai = createOpenAI({ apiKey });
         const result = await generateObject({
-          model: openai(model),
+          model: openai(resolvedModel),
           schema: siteBriefSchema,
           messages: [
             { role: 'system', content: systemPrompt },
             { role: 'user', content: userPrompt },
           ],
-          ...getTemperatureConfig(model, temperature),
+          ...getTemperatureConfig(resolvedModel, temperature),
         });
         return NextResponse.json(result.object, {
           headers: {
@@ -251,13 +309,13 @@ export async function POST(req: Request) {
         }
         const anthropic = createAnthropic({ apiKey });
         const result = await generateObject({
-          model: anthropic(model),
+          model: anthropic(resolvedModel),
           schema: siteBriefSchema,
           messages: [
             { role: 'system', content: systemPrompt },
             { role: 'user', content: userPrompt },
           ],
-          ...getTemperatureConfig(model, temperature),
+          ...getTemperatureConfig(resolvedModel, temperature),
         });
         return NextResponse.json(result.object, {
           headers: {

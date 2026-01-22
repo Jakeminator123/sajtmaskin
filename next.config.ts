@@ -50,15 +50,15 @@ const nextConfig: NextConfig = {
         hostname: "www.google.com",
         pathname: "/s2/favicons",
       },
-      // Vercel Blob Storage (v0 template screenshots)
+      // Vercel Blob Storage
       {
         protocol: "https",
-        hostname: "gvsmhepiuiax2e6y.public.blob.vercel-storage.com",
+        hostname: "**.public.blob.vercel-storage.com",
         pathname: "/**",
       },
       {
         protocol: "https",
-        hostname: "hebbkx1anhila5yf.public.blob.vercel-storage.com",
+        hostname: "**.blob.vercel-storage.com",
         pathname: "/**",
       },
       // v0.app template images

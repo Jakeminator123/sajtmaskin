@@ -6,6 +6,7 @@ import { InitFromRepoModal } from '@/components/builder/InitFromRepoModal';
 import { MessageList } from '@/components/builder/MessageList';
 import { PreviewPanel } from '@/components/builder/PreviewPanel';
 import { SandboxModal } from '@/components/builder/SandboxModal';
+import { VersionHistory } from '@/components/builder/VersionHistory';
 import { BuilderHeader } from '@/components/builder/BuilderHeader';
 import type { V0UserFileAttachment } from '@/components/media';
 import { Button } from '@/components/ui/button';
@@ -82,10 +83,16 @@ function BuilderContent() {
   const [previewRefreshToken, setPreviewRefreshToken] = useState(0);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [selectedVersionId, setSelectedVersionId] = useState<string | null>(null);
+  const [isVersionPanelCollapsed, setIsVersionPanelCollapsed] = useState(false);
   const [selectedModelTier, setSelectedModelTier] = useState<ModelTier>('v0-pro');
   const [promptAssistProvider, setPromptAssistProvider] =
     useState<PromptAssistProvider>('off');
   const [promptAssistModel, setPromptAssistModel] = useState('openai/gpt-5');
+  const [gatewayModels, setGatewayModels] = useState<string[]>([]);
+  const [gatewayModelsStatus, setGatewayModelsStatus] =
+    useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
+  const [gatewayModelsError, setGatewayModelsError] = useState<string | null>(null);
   const [promptAssistDeep, setPromptAssistDeep] = useState(false);
   const [systemPrompt, setSystemPrompt] = useState(DEFAULT_SYSTEM_PROMPT);
   const [isSandboxModalOpen, setIsSandboxModalOpen] = useState(false);
@@ -94,6 +101,7 @@ function BuilderContent() {
   const [designSystemMode, setDesignSystemMode] = useState(false);
   const [deployImageStrategy, setDeployImageStrategy] = useState<'external' | 'blob'>('external');
   const [isIntentionalReset, setIsIntentionalReset] = useState(false);
+  const hasUserSelectedImageStrategy = useRef(false);
 
   const [auditPromptLoaded, setAuditPromptLoaded] = useState(source !== 'audit');
   const [resolvedPrompt, setResolvedPrompt] = useState<string | null>(promptParam);
@@ -125,6 +133,35 @@ function BuilderContent() {
     fetchUser().catch(() => {});
     // fetchUser is stable via zustand
   }, [fetchUser]);
+
+  useEffect(() => {
+    let isActive = true;
+    const controller = new AbortController();
+
+    const loadImageStrategyDefault = async () => {
+      try {
+        const res = await fetch('/api/health', { signal: controller.signal });
+        if (!res.ok) return;
+        const data = (await res.json().catch(() => null)) as
+          | { features?: { vercelBlob?: boolean } }
+          | null;
+        const blobEnabled = Boolean(data?.features?.vercelBlob);
+        if (!isActive || hasUserSelectedImageStrategy.current) return;
+        if (blobEnabled) {
+          setDeployImageStrategy('blob');
+        }
+      } catch (error) {
+        if (error instanceof Error && error.name === 'AbortError') return;
+      }
+    };
+
+    loadImageStrategyDefault();
+
+    return () => {
+      isActive = false;
+      controller.abort();
+    };
+  }, []);
 
   useEffect(() => {
     if (!searchParams) return;
@@ -166,6 +203,58 @@ function BuilderContent() {
   }, [searchParams, router]);
 
   useEffect(() => {
+    if (promptAssistProvider !== 'gateway') return;
+
+    let isActive = true;
+    const controller = new AbortController();
+
+    const loadModels = async () => {
+      try {
+        setGatewayModelsStatus('loading');
+        setGatewayModelsError(null);
+        const res = await fetch('/api/ai/gateway/models', { signal: controller.signal });
+        if (!res.ok) {
+          const data = await res.json().catch(() => null);
+          const errorValue =
+            typeof data === 'object' && data !== null && 'error' in data
+              ? (data as { error?: unknown }).error
+              : null;
+          const msg =
+            typeof errorValue === 'string' && errorValue
+              ? errorValue
+              : `AI Gateway models failed (HTTP ${res.status})`;
+          throw new Error(msg);
+        }
+
+        const data = (await res.json().catch(() => null)) as { models?: unknown };
+        const models = Array.isArray(data?.models) ? (data?.models as string[]) : [];
+        if (!isActive) return;
+        setGatewayModels(models);
+        setGatewayModelsStatus('ready');
+      } catch (error) {
+        if (!isActive) return;
+        if (error instanceof Error && error.name === 'AbortError') return;
+        setGatewayModelsStatus('error');
+        setGatewayModelsError(error instanceof Error ? error.message : 'Kunde inte hämta modeller');
+      }
+    };
+
+    loadModels();
+
+    return () => {
+      isActive = false;
+      controller.abort();
+    };
+  }, [promptAssistProvider]);
+
+  useEffect(() => {
+    if (promptAssistProvider !== 'vercel') return;
+    if (!promptAssistModel || !promptAssistModel.trim().startsWith('v0-')) {
+      setPromptAssistModel('v0-1.5-md');
+    }
+  }, [promptAssistProvider, promptAssistModel]);
+
+  useEffect(() => {
     if (typeof window === 'undefined') return;
     if (source !== 'audit') return;
     if (!auditId || !currentDemoUrl) return;
@@ -178,6 +267,33 @@ function BuilderContent() {
 
   const { chat } = useChat(chatId);
   const { versions, mutate: mutateVersions } = useVersions(chatId);
+  type VersionSummary = {
+    id?: string | null;
+    versionId?: string | null;
+    demoUrl?: string | null;
+  };
+  const versionsList = useMemo(
+    () => (Array.isArray(versions) ? (versions as VersionSummary[]) : []),
+    [versions]
+  );
+  const versionIdSet = useMemo(() => {
+    return new Set(
+      versionsList
+        .map((version) => version.versionId || version.id || null)
+        .filter((versionId): versionId is string => Boolean(versionId))
+    );
+  }, [versionsList]);
+
+  useEffect(() => {
+    setSelectedVersionId(null);
+  }, [chatId]);
+
+  useEffect(() => {
+    if (!selectedVersionId) return;
+    if (!versionIdSet.has(selectedVersionId)) {
+      setSelectedVersionId(null);
+    }
+  }, [selectedVersionId, versionIdSet]);
 
   useEffect(() => {
     if (isIntentionalReset) {
@@ -220,8 +336,8 @@ function BuilderContent() {
     }
   }, [chat, currentDemoUrl]);
 
-  const activeVersionId = useMemo(() => {
-    const latestFromVersions = versions?.[0]?.versionId || versions?.[0]?.id || null;
+  const latestVersionId = useMemo(() => {
+    const latestFromVersions = versionsList[0]?.versionId || versionsList[0]?.id || null;
     const latestFromChat = (() => {
       if (!chat || typeof chat !== 'object') return null;
       const latest = (chat as { latestVersion?: { versionId?: string | null; id?: string | null } })
@@ -229,7 +345,9 @@ function BuilderContent() {
       return latest?.versionId || latest?.id || null;
     })();
     return latestFromVersions || latestFromChat;
-  }, [versions, chat]);
+  }, [versionsList, chat]);
+
+  const activeVersionId = selectedVersionId || latestVersionId;
 
   const isAnyStreaming = useMemo(() => messages.some((m) => Boolean(m.isStreaming)), [messages]);
 
@@ -287,6 +405,11 @@ function BuilderContent() {
     },
     [chatId, activeVersionId, isDeploying, deployImageStrategy]
   );
+
+  const handleDeployImageStrategyChange = useCallback((strategy: 'external' | 'blob') => {
+    hasUserSelectedImageStrategy.current = true;
+    setDeployImageStrategy(strategy);
+  }, []);
 
   const { maybeEnhanceInitialPrompt } = usePromptAssist({
     provider: promptAssistProvider,
@@ -385,6 +508,23 @@ function BuilderContent() {
     setCurrentDemoUrl(null);
   }, []);
 
+  const handleVersionSelect = useCallback(
+    (versionId: string) => {
+      setSelectedVersionId(versionId);
+      const match = versionsList.find(
+        (version) => version.versionId === versionId || version.id === versionId
+      );
+      if (match?.demoUrl) {
+        setCurrentDemoUrl(match.demoUrl);
+      }
+    },
+    [versionsList]
+  );
+
+  const handleToggleVersionPanel = useCallback(() => {
+    setIsVersionPanelCollapsed((prev) => !prev);
+  }, []);
+
   const initialPrompt = templateId ? null : resolvedPrompt?.trim() || null;
   const autoCreateRef = useRef(false);
   useEffect(() => {
@@ -443,6 +583,9 @@ function BuilderContent() {
           onPromptAssistModelChange={setPromptAssistModel}
           promptAssistDeep={promptAssistDeep}
           onPromptAssistDeepChange={setPromptAssistDeep}
+          gatewayModels={gatewayModels}
+          gatewayModelsStatus={gatewayModelsStatus}
+          gatewayModelsError={gatewayModelsError}
           systemPrompt={systemPrompt}
           onSystemPromptChange={setSystemPrompt}
           enableImageGenerations={enableImageGenerations}
@@ -450,7 +593,7 @@ function BuilderContent() {
           designSystemMode={designSystemMode}
           onDesignSystemModeChange={setDesignSystemMode}
           deployImageStrategy={deployImageStrategy}
-          onDeployImageStrategyChange={setDeployImageStrategy}
+          onDeployImageStrategyChange={handleDeployImageStrategyChange}
           onOpenImport={() => {
             setIsSandboxModalOpen(false);
             setIsImportModalOpen(true);
@@ -485,15 +628,31 @@ function BuilderContent() {
             />
           </div>
 
-          <div className="hidden flex-1 flex-col overflow-hidden lg:flex">
-            <PreviewPanel
-              chatId={chatId}
-              versionId={activeVersionId}
-              demoUrl={currentDemoUrl}
-              isLoading={isAnyStreaming || isCreatingChat}
-              onClear={handleClearPreview}
-              refreshToken={previewRefreshToken}
-            />
+          <div className="hidden flex-1 overflow-hidden lg:flex">
+            <div className="flex flex-1 flex-col overflow-hidden">
+              <PreviewPanel
+                chatId={chatId}
+                versionId={activeVersionId}
+                demoUrl={currentDemoUrl}
+                isLoading={isAnyStreaming || isCreatingChat}
+                onClear={handleClearPreview}
+                refreshToken={previewRefreshToken}
+              />
+            </div>
+            <div
+              className={cn(
+                'flex h-full flex-col border-l border-border bg-background transition-[width] duration-200',
+                isVersionPanelCollapsed ? 'w-10' : 'w-80'
+              )}
+            >
+              <VersionHistory
+                chatId={chatId}
+                selectedVersionId={activeVersionId}
+                onVersionSelect={handleVersionSelect}
+                isCollapsed={isVersionPanelCollapsed}
+                onToggleCollapse={handleToggleVersionPanel}
+              />
+            </div>
           </div>
         </div>
 
