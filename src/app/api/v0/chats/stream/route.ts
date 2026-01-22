@@ -14,7 +14,7 @@ import {
   isDoneLikeEvent,
   safeJsonParse,
 } from '@/lib/v0Stream';
-import { eq } from 'drizzle-orm';
+import { and, eq } from 'drizzle-orm';
 import { nanoid } from 'nanoid';
 import { NextResponse } from 'next/server';
 import { withRateLimit } from '@/lib/rateLimit';
@@ -241,41 +241,48 @@ export async function POST(req: Request) {
                     lastVersionId = versionId;
                   }
                   const isDoneEvent = isDoneLikeEvent(currentEvent, parsed);
+                  const finalDemoUrl = demoUrl || lastDemoUrl;
+                  const finalVersionId = versionId || lastVersionId;
 
-                  if (!didSendDone && (isDoneEvent || demoUrl || versionId)) {
+                  if (!didSendDone && (isDoneEvent || finalDemoUrl)) {
                     didSendDone = true;
                     safeEnqueue(
                       encoder.encode(
                         formatSSEEvent('done', {
                           chatId: v0ChatId,
-                          demoUrl: demoUrl || null,
-                          versionId: versionId || null,
+                          demoUrl: finalDemoUrl || null,
+                          versionId: finalVersionId || null,
                           messageId: messageId || null,
                         })
                       )
                     );
 
-                    if (internalChatId && versionId) {
+                    if (internalChatId && finalVersionId) {
                       try {
                         const existingVersion = await db
                           .select()
                           .from(versions)
-                          .where(eq(versions.v0VersionId, versionId))
+                          .where(
+                            and(
+                              eq(versions.chatId, internalChatId),
+                              eq(versions.v0VersionId, finalVersionId)
+                            )
+                          )
                           .limit(1);
 
                         if (existingVersion.length === 0) {
                           await db.insert(versions).values({
                             id: nanoid(),
                             chatId: internalChatId,
-                            v0VersionId: versionId,
+                            v0VersionId: finalVersionId,
                             v0MessageId: messageId || null,
-                            demoUrl: demoUrl || null,
+                            demoUrl: finalDemoUrl || null,
                             metadata: parsed,
                           });
-                        } else if (demoUrl) {
+                        } else if (finalDemoUrl) {
                           await db
                             .update(versions)
-                            .set({ demoUrl, metadata: parsed })
+                            .set({ demoUrl: finalDemoUrl, metadata: parsed })
                             .where(eq(versions.id, existingVersion[0].id));
                         }
                       } catch (dbError) {
@@ -286,8 +293,8 @@ export async function POST(req: Request) {
                     devLogAppend('in-progress', {
                       type: 'site.done',
                       chatId: v0ChatId,
-                      versionId,
-                      demoUrl,
+                      versionId: finalVersionId,
+                      demoUrl: finalDemoUrl,
                       durationMs: Date.now() - generationStartedAt,
                     });
                     devLogFinalizeSite();
@@ -320,7 +327,12 @@ export async function POST(req: Request) {
                     const existingVersion = await db
                       .select()
                       .from(versions)
-                      .where(eq(versions.v0VersionId, finalVersionId))
+                      .where(
+                        and(
+                          eq(versions.chatId, internalChatId),
+                          eq(versions.v0VersionId, finalVersionId)
+                        )
+                      )
                       .limit(1);
 
                     if (existingVersion.length === 0) {

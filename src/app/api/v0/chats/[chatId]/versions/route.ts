@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { assertV0Key } from '@/lib/v0';
-import { db } from '@/lib/db/client';
+import { db, dbConfigured } from '@/lib/db/client';
 import { versions } from '@/lib/db/schema';
 import { eq, desc, and, or } from 'drizzle-orm';
 import { getChatByV0ChatIdForRequest } from '@/lib/tenant';
@@ -12,6 +12,10 @@ export async function GET(
   try {
     assertV0Key();
 
+    if (!dbConfigured) {
+      return NextResponse.json({ versions: [], warning: 'Database not configured.' });
+    }
+
     const { chatId } = await ctx.params;
 
     const dbChat = await getChatByV0ChatIdForRequest(req, chatId);
@@ -20,7 +24,15 @@ export async function GET(
     }
 
     const dbVersions = await db
-      .select()
+      .select({
+        id: versions.id,
+        v0VersionId: versions.v0VersionId,
+        v0MessageId: versions.v0MessageId,
+        demoUrl: versions.demoUrl,
+        pinned: versions.pinned,
+        pinnedAt: versions.pinnedAt,
+        createdAt: versions.createdAt,
+      })
       .from(versions)
       .where(eq(versions.chatId, dbChat.id))
       .orderBy(desc(versions.pinned), desc(versions.pinnedAt), desc(versions.createdAt));
@@ -30,7 +42,6 @@ export async function GET(
       id: v.id,
       messageId: v.v0MessageId,
       demoUrl: v.demoUrl,
-      metadata: v.metadata,
       pinned: v.pinned,
       pinnedAt: v.pinnedAt,
       createdAt: v.createdAt,
@@ -51,6 +62,13 @@ export async function PATCH(
 ) {
   try {
     assertV0Key();
+
+    if (!dbConfigured) {
+      return NextResponse.json(
+        { error: 'Database not configured.' },
+        { status: 503 }
+      );
+    }
 
     const { chatId } = await ctx.params;
     const body = await req.json().catch(() => ({}));

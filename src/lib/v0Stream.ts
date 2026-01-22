@@ -10,8 +10,6 @@ export function safeJsonParse(value: string): unknown {
   }
 }
 
-const THINKING_KEYS = new Set(["thinking", "reasoning", "thought"]);
-
 function extractTextFromDelta(value: unknown): string | null {
   if (!value) return null;
   if (typeof value === "string") return value;
@@ -269,10 +267,7 @@ export function extractThinkingText(parsed: unknown): string | null {
   const obj = parsed as any;
   if (typeof obj.thinking === 'string') return obj.thinking;
   if (typeof obj.reasoning === 'string') return obj.reasoning;
-  const nested: string[] = [];
-  collectKeyedStrings(obj, THINKING_KEYS, nested);
-  const found = nested.join("");
-  return found ? found : null;
+  return null;
 }
 
 export function extractContentText(parsed: unknown, _raw: string): string | null {

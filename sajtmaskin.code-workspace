@@ -1,23 +1,11 @@
 {
-  "folders": [
-    {
-      "path": "."
-    }
-  ],
-  "extensions": {
-    "recommendations": [
-      "dbaeumer.vscode-eslint",
-      "esbenp.prettier-vscode",
-      "EditorConfig.EditorConfig",
-      "bradlc.vscode-tailwindcss",
-      "ms-vscode.vscode-typescript-next"
-    ]
-  },
-  "settings": {
-    "typescript.tsdk": "sajtgen/node_modules/typescript/lib",
-    "typescript.enablePromptUseWorkspaceTsdk": true,
-    "editor.formatOnSave": true,
-    "files.autoSave": "afterDelay",
-    "git.autofetch": true
-  }
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "../sajtgen"
+		}
+	],
+	"settings": {}
 }

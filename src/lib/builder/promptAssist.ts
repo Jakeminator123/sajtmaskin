@@ -1,4 +1,4 @@
-export type PromptAssistProvider = 'off' | 'gateway' | 'openai' | 'anthropic';
+export type PromptAssistProvider = 'off' | 'gateway' | 'openai' | 'anthropic' | 'vercel';
 
 export function normalizeAssistModel(provider: PromptAssistProvider, rawModel: string): string {
   const raw = String(rawModel || '').trim();

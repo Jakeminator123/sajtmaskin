@@ -16,6 +16,7 @@ export async function GET() {
       openai: FEATURES.useOpenAI,
       v0: FEATURES.useV0Api,
       vercel: FEATURES.useVercelApi,
+      vercelBlob: FEATURES.useVercelBlob,
     },
   };
 
@@ -26,16 +27,16 @@ export async function GET() {
       if (redis) {
         const testKey = "health:test";
         const testValue = `test-${Date.now()}`;
-        
+
         // Write test
         await redis.setex(testKey, 10, testValue);
-        
+
         // Read test
         const readValue = await redis.get(testKey);
-        
+
         // Delete test
         await redis.del(testKey);
-        
+
         checks.redis = {
           status: "connected",
           host: REDIS_CONFIG.host,
