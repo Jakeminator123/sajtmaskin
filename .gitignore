@@ -63,6 +63,7 @@ SiteStudio_Projektspecifikation_ifillningsbar_v2.pdf
 
 # Local env dumps (often contain secrets)
 environments.production
+vercel-env-deploy.txt
 
 SiteStudio_Projektspecifikation_ifillningsbar_v2.pdf
 
