@@ -21,7 +21,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { FileText, ImageIcon, Loader2, Sparkles } from "lucide-react";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 type MessageOptions = {
   attachments?: V0UserFileAttachment[];
@@ -37,6 +37,7 @@ type FigmaPreviewResponse = {
 
 interface ChatInterfaceProps {
   chatId: string | null;
+  initialPrompt?: string | null;
   onCreateChat?: (message: string, options?: MessageOptions) => Promise<boolean | void>;
   onSendMessage?: (message: string, options?: MessageOptions) => Promise<void>;
   onEnhancePrompt?: (message: string) => Promise<string>;
@@ -60,7 +61,6 @@ const IMAGE_EXTENSION_MIME: Record<string, string> = {
   gif: "image/gif",
   svg: "image/svg+xml",
 };
-
 
 function normalizeDesignUrl(value: string): string {
   const trimmed = value.trim();
@@ -96,6 +96,7 @@ function isFigmaUrl(url: string): boolean {
 
 export function ChatInterface({
   chatId,
+  initialPrompt,
   onCreateChat,
   onSendMessage,
   onEnhancePrompt,
@@ -126,6 +127,17 @@ export function ChatInterface({
     setInput(value);
     setHasEnhancedDraft(false);
   };
+
+  const prefilledPromptRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (chatId) return;
+    if (!initialPrompt) return;
+    if (prefilledPromptRef.current === initialPrompt) return;
+    if (input.trim()) return;
+    setInput(initialPrompt);
+    setHasEnhancedDraft(false);
+    prefilledPromptRef.current = initialPrompt;
+  }, [chatId, initialPrompt, input]);
 
   const normalizedFigmaUrl = useMemo(() => normalizeDesignUrl(figmaUrl), [figmaUrl]);
 
@@ -204,7 +216,7 @@ export function ChatInterface({
   };
 
   const resolveFigmaAttachment = async (
-    figmaLink: string
+    figmaLink: string,
   ): Promise<V0UserFileAttachment | null> => {
     if (!figmaLink) return null;
     const directImage = getImageAttachmentFromUrl(figmaLink);
@@ -258,7 +270,7 @@ export function ChatInterface({
     const figmaAttachment = await resolveFigmaAttachment(figmaLink);
     const attachments =
       figmaAttachment &&
-        !fileAttachments.some((attachment) => attachment.url === figmaAttachment.url)
+      !fileAttachments.some((attachment) => attachment.url === figmaAttachment.url)
         ? [...fileAttachments, figmaAttachment]
         : fileAttachments;
     const finalAttachments = attachments.length ? attachments : undefined;
@@ -303,8 +315,7 @@ export function ChatInterface({
     const trimmed = text.trim();
     if (!trimmed && !hasSuccessFiles) return;
 
-    const baseMessage =
-      trimmed || "Use the attached files as visual references for the design.";
+    const baseMessage = trimmed || "Use the attached files as visual references for the design.";
     await sendMessagePayload(baseMessage);
   };
 
@@ -342,18 +353,18 @@ export function ChatInterface({
   };
 
   return (
-    <div className="border-t border-border bg-background p-4">
+    <div className="border-border bg-background border-t p-4">
       <PromptInput
         value={input}
         onChange={handleInputChange}
         onSubmit={handleSubmit}
         disabled={inputDisabled}
-        className="rounded-lg border border-input bg-background shadow-sm"
+        className="border-input bg-background rounded-lg border shadow-sm"
       >
-      <PromptInputHeader className="flex flex-wrap items-center gap-2">
+        <PromptInputHeader className="flex flex-wrap items-center gap-2">
           <div className="ml-auto flex flex-wrap items-center gap-2">
             {promptAssistStatus && (
-              <span className="text-[11px] text-muted-foreground">
+              <span className="text-muted-foreground text-[11px]">
                 AI-assist: {promptAssistStatus}
               </span>
             )}
@@ -367,7 +378,11 @@ export function ChatInterface({
                 disabled={inputDisabled || isEnhancing || !input.trim()}
                 title="Förbättra nuvarande prompt"
               >
-                {isEnhancing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+                {isEnhancing ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Sparkles className="h-3.5 w-3.5" />
+                )}
                 Förbättra
               </Button>
             )}
@@ -380,12 +395,12 @@ export function ChatInterface({
               disabled={inputDisabled}
               title="Lägg till Figma-länk"
             >
-            Figma-länk{figmaUrl.trim() ? " ✓" : ""}
+              Figma-länk{figmaUrl.trim() ? " ✓" : ""}
             </Button>
           </div>
         </PromptInputHeader>
         {(isFigmaInputOpen || figmaUrl.trim()) && (
-          <div className="px-3 pb-2 space-y-2">
+          <div className="space-y-2 px-3 pb-2">
             <div className="flex items-center gap-2">
               <Input
                 value={figmaUrl}
@@ -409,18 +424,16 @@ export function ChatInterface({
               </Button>
             </div>
             {figmaPreviewLoading && (
-              <div className="text-xs text-muted-foreground">Hämtar Figma-preview...</div>
+              <div className="text-muted-foreground text-xs">Hämtar Figma-preview...</div>
             )}
-            {figmaPreviewError && (
-              <div className="text-xs text-red-500">{figmaPreviewError}</div>
-            )}
+            {figmaPreviewError && <div className="text-xs text-red-500">{figmaPreviewError}</div>}
             {!figmaPreviewUrl && !figmaPreviewLoading && (
-              <div className="text-[11px] text-muted-foreground">
+              <div className="text-muted-foreground text-[11px]">
                 Kräver FIGMA_ACCESS_TOKEN eller FIGMA_TOKEN för preview.
               </div>
             )}
             {figmaPreviewUrl && (
-              <div className="flex items-center gap-3 rounded-md border border-border bg-muted/30 p-2">
+              <div className="border-border bg-muted/30 flex items-center gap-3 rounded-md border p-2">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={figmaPreviewUrl}
@@ -428,9 +441,9 @@ export function ChatInterface({
                   className="h-14 w-20 rounded-sm object-cover"
                 />
                 <div className="flex-1">
-                  <p className="text-xs text-muted-foreground">Figma preview</p>
+                  <p className="text-muted-foreground text-xs">Figma preview</p>
                   {figmaPreviewName && (
-                    <p className="text-xs text-foreground">{figmaPreviewName}</p>
+                    <p className="text-foreground text-xs">{figmaPreviewName}</p>
                   )}
                 </div>
                 <Button
@@ -470,7 +483,7 @@ export function ChatInterface({
                 type="button"
                 onClick={() => setIsMediaDrawerOpen(true)}
                 disabled={inputDisabled}
-                className="inline-flex h-7 items-center gap-1 rounded-md border border-border px-2 text-xs text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-50"
+                className="border-border text-muted-foreground hover:bg-accent hover:text-foreground inline-flex h-7 items-center gap-1 rounded-md border px-2 text-xs disabled:opacity-50"
                 title="Öppna mediabibliotek"
               >
                 <ImageIcon className="h-3.5 w-3.5" />
@@ -480,15 +493,13 @@ export function ChatInterface({
                 type="button"
                 onClick={() => setIsTextUploaderOpen(true)}
                 disabled={inputDisabled}
-                className="inline-flex h-7 items-center gap-1 rounded-md border border-border px-2 text-xs text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-50"
+                className="border-border text-muted-foreground hover:bg-accent hover:text-foreground inline-flex h-7 items-center gap-1 rounded-md border px-2 text-xs disabled:opacity-50"
                 title="Lägg till text eller PDF"
               >
                 <FileText className="h-3.5 w-3.5" />
                 Text/PDF
               </button>
-              <span className="text-xs text-muted-foreground">
-                Shift+Enter för ny rad
-              </span>
+              <span className="text-muted-foreground text-xs">Shift+Enter för ny rad</span>
             </PromptInputTools>
             <PromptInputSubmit disabled={submitDisabled}>
               {isSending ? <Loader2 className="h-4 w-4 animate-spin" /> : undefined}

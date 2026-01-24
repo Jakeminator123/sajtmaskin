@@ -7,13 +7,7 @@
  * Based on Vercel AI Elements specification.
  */
 
-import {
-  createContext,
-  useContext,
-  useState,
-  type HTMLAttributes,
-  type ReactNode,
-} from "react";
+import { createContext, useContext, useState, type HTMLAttributes, type ReactNode } from "react";
 import { cn } from "@/lib/utils/utils";
 
 // ============================================================================
@@ -30,9 +24,7 @@ const ReasoningContext = createContext<ReasoningContextValue | null>(null);
 function useReasoningContext() {
   const context = useContext(ReasoningContext);
   if (!context) {
-    throw new Error(
-      "Reasoning components must be used within a <Reasoning> provider"
-    );
+    throw new Error("Reasoning components must be used within a <Reasoning> provider");
   }
   return context;
 }
@@ -46,23 +38,16 @@ export interface ReasoningProps extends HTMLAttributes<HTMLDivElement> {
   children: ReactNode;
 }
 
-export function Reasoning({
-  defaultOpen = false,
-  children,
-  className,
-  ...props
-}: ReasoningProps) {
+export function Reasoning({ defaultOpen = false, children, className, ...props }: ReasoningProps) {
   const [isOpen, setIsOpen] = useState(defaultOpen);
 
   return (
-    <ReasoningContext.Provider
-      value={{ isOpen, toggle: () => setIsOpen(!isOpen) }}
-    >
+    <ReasoningContext.Provider value={{ isOpen, toggle: () => setIsOpen(!isOpen) }}>
       <div
         data-state={isOpen ? "open" : "closed"}
         className={cn(
-          "rounded-lg border border-zinc-700/50 bg-zinc-900/50 overflow-hidden",
-          className
+          "overflow-hidden rounded-lg border border-zinc-700/50 bg-zinc-900/50",
+          className,
         )}
         {...props}
       >
@@ -76,8 +61,7 @@ export function Reasoning({
 // REASONING TRIGGER (Collapsible header)
 // ============================================================================
 
-export interface ReasoningTriggerProps
-  extends HTMLAttributes<HTMLButtonElement> {
+export interface ReasoningTriggerProps extends HTMLAttributes<HTMLButtonElement> {
   children?: ReactNode;
   isStreaming?: boolean;
 }
@@ -102,10 +86,10 @@ export function ReasoningTrigger({
       onClick={handleClick}
       aria-expanded={isOpen}
       className={cn(
-        "w-full flex items-center gap-2 px-3 py-2 text-left",
+        "flex w-full items-center gap-2 px-3 py-2 text-left",
         "text-sm text-zinc-400 hover:text-zinc-200",
         "transition-colors",
-        className
+        className,
       )}
       {...props}
     >
@@ -143,11 +127,7 @@ export interface ReasoningContentProps extends HTMLAttributes<HTMLDivElement> {
   children: ReactNode;
 }
 
-export function ReasoningContent({
-  children,
-  className,
-  ...props
-}: ReasoningContentProps) {
+export function ReasoningContent({ children, className, ...props }: ReasoningContentProps) {
   const { isOpen } = useReasoningContext();
 
   if (!isOpen) {
@@ -157,9 +137,9 @@ export function ReasoningContent({
   return (
     <div
       className={cn(
-        "px-3 pb-3 text-sm text-zinc-400 leading-relaxed",
+        "px-3 pb-3 text-sm leading-relaxed text-zinc-400",
         "border-t border-zinc-800",
-        className
+        className,
       )}
       {...props}
     >

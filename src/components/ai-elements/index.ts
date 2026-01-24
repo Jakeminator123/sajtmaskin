@@ -88,11 +88,7 @@ export {
 } from "./sources";
 
 // Code block
-export {
-  CodeBlock,
-  CodeBlockCopyButton,
-  type CodeBlockCopyButtonProps,
-} from "./code-block";
+export { CodeBlock, CodeBlockCopyButton, type CodeBlockCopyButtonProps } from "./code-block";
 
 // Tool UI
 export {

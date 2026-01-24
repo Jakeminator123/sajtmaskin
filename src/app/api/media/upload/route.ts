@@ -80,7 +80,7 @@ export async function POST(request: NextRequest) {
           success: false,
           error: "Du måste vara inloggad för att ladda upp filer",
         },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
@@ -91,10 +91,7 @@ export async function POST(request: NextRequest) {
     const tagsStr = formData.get("tags") as string | null;
 
     if (!file) {
-      return NextResponse.json(
-        { success: false, error: "Ingen fil bifogad" },
-        { status: 400 }
-      );
+      return NextResponse.json({ success: false, error: "Ingen fil bifogad" }, { status: 400 });
     }
 
     // Validate file type
@@ -104,7 +101,7 @@ export async function POST(request: NextRequest) {
           success: false,
           error: `Filtypen ${file.type} är inte tillåten. Tillåtna: bilder, videos, PDF, textfiler.`,
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -114,25 +111,17 @@ export async function POST(request: NextRequest) {
         {
           success: false,
           error: `Filen är för stor (${(file.size / 1024 / 1024).toFixed(
-            2
+            2,
           )}MB). Max storlek: 50MB.`,
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     // SERVER-SIDE LIMIT CHECK - Can't be bypassed by client
-    const limitCheck = canUserUploadFile(
-      user.id,
-      file.type,
-      MAX_IMAGES,
-      MAX_VIDEOS
-    );
+    const limitCheck = canUserUploadFile(user.id, file.type, MAX_IMAGES, MAX_VIDEOS);
     if (!limitCheck.allowed) {
-      return NextResponse.json(
-        { success: false, error: limitCheck.reason },
-        { status: 400 }
-      );
+      return NextResponse.json({ success: false, error: limitCheck.reason }, { status: 400 });
     }
 
     // Parse tags if provided
@@ -166,14 +155,11 @@ export async function POST(request: NextRequest) {
     if (!uploadResult) {
       return NextResponse.json(
         { success: false, error: "Kunde inte spara filen" },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
-    console.log(
-      `[Media/Upload] ✅ Saved (${uploadResult.storageType}):`,
-      uploadResult.url
-    );
+    console.log(`[Media/Upload] ✅ Saved (${uploadResult.storageType}):`, uploadResult.url);
 
     // Save metadata to database
     const mediaItem = saveMediaLibraryItem(
@@ -186,7 +172,7 @@ export async function POST(request: NextRequest) {
       uploadResult.url,
       projectId || undefined,
       description || undefined,
-      tags
+      tags,
     );
 
     return NextResponse.json({
@@ -208,10 +194,7 @@ export async function POST(request: NextRequest) {
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Okänt fel";
     console.error("[API/Media/Upload] Error:", error);
-    return NextResponse.json(
-      { success: false, error: message },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, error: message }, { status: 500 });
   }
 }
 
@@ -226,7 +209,7 @@ export async function GET(request: NextRequest) {
     if (!user) {
       return NextResponse.json(
         { success: false, error: "Du måste vara inloggad" },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
@@ -269,9 +252,6 @@ export async function GET(request: NextRequest) {
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Okänt fel";
     console.error("[API/Media/Upload] Error:", error);
-    return NextResponse.json(
-      { success: false, error: message },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, error: message }, { status: 500 });
   }
 }

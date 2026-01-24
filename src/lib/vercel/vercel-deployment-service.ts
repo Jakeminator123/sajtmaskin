@@ -148,9 +148,7 @@ body {
 `;
 
 function generateRootLayout(hasGlobals: boolean): string {
-  return `${
-    hasGlobals ? 'import "./globals.css";\n' : ""
-  }import type { Metadata } from "next";
+  return `${hasGlobals ? 'import "./globals.css";\n' : ""}import type { Metadata } from "next";
 import type { ReactNode } from "react";
 
 export const metadata: Metadata = {
@@ -185,6 +183,7 @@ function normalizeFilePath(originalPath: string): string {
     path === "package.json" ||
     path === "next.config.js" ||
     path === "next.config.ts" ||
+    path === "tailwind.config.cjs" ||
     path === "tailwind.config.js" ||
     path === "tailwind.config.ts" ||
     path === "postcss.config.js" ||
@@ -228,13 +227,11 @@ function normalizeFilePath(originalPath: string): string {
 /**
  * Deploy a project to Vercel
  */
-export async function deployProject(
-  options: DeployProjectOptions
-): Promise<DeploymentResult> {
+export async function deployProject(options: DeployProjectOptions): Promise<DeploymentResult> {
   if (!isVercelConfigured()) {
     return {
       success: false,
-      error: "Vercel API token not configured. Set VERCEL_API_TOKEN.",
+      error: "Vercel API token not configured. Set VERCEL_TOKEN.",
     };
   }
 
@@ -242,27 +239,25 @@ export async function deployProject(
     // Get project files from project_data
     const projectData = getProjectData(options.projectId);
     const rawFiles = projectData?.files;
-    
+
     if (!rawFiles || !Array.isArray(rawFiles) || rawFiles.length === 0) {
       return { success: false, error: "No files found for project" };
     }
 
     // Convert v0 file format and normalize paths
     const files: ProjectFile[] = rawFiles
-      .filter((f): f is { name: string; content: string } => 
-        f !== null && 
-        typeof f === "object" && 
-        "name" in f && 
-        "content" in f
+      .filter(
+        (f): f is { name: string; content: string } =>
+          f !== null && typeof f === "object" && "name" in f && "content" in f,
       )
-      .map(f => ({
+      .map((f) => ({
         path: normalizeFilePath(f.name),
         content: f.content,
       }));
 
     console.log(
       "[Vercel Deployment] Normalized paths:",
-      files.map((f) => f.path)
+      files.map((f) => f.path),
     );
 
     // Build the final file map
@@ -277,29 +272,26 @@ export async function deployProject(
     const hasPackageJson = files.some((f) => f.path === "package.json");
     const hasNextConfig = files.some(
       (f) =>
-        f.path === "next.config.js" ||
-        f.path === "next.config.ts" ||
-        f.path === "next.config.mjs"
+        f.path === "next.config.js" || f.path === "next.config.ts" || f.path === "next.config.mjs",
     );
     const hasTailwindConfig = files.some(
       (f) =>
+        f.path === "tailwind.config.cjs" ||
         f.path === "tailwind.config.js" ||
         f.path === "tailwind.config.ts" ||
-        f.path === "tailwind.config.mjs"
+        f.path === "tailwind.config.mjs",
     );
     const hasPostcssConfig = files.some(
       (f) =>
         f.path === "postcss.config.js" ||
         f.path === "postcss.config.mjs" ||
-        f.path === "postcss.config.cjs"
+        f.path === "postcss.config.cjs",
     );
     const hasTsconfig = files.some((f) => f.path === "tsconfig.json");
     const hasGlobalsCss = files.some(
-      (f) => f.path === "app/globals.css" || f.path === "app/global.css"
+      (f) => f.path === "app/globals.css" || f.path === "app/global.css",
     );
-    const hasLayout = files.some(
-      (f) => f.path === "app/layout.tsx" || f.path === "app/layout.jsx"
-    );
+    const hasLayout = files.some((f) => f.path === "app/layout.tsx" || f.path === "app/layout.jsx");
 
     // Add missing scaffolding files
     if (!hasPackageJson) {
@@ -331,14 +323,8 @@ export async function deployProject(
       console.log("[Vercel Deployment] Added app/layout.tsx");
     }
 
-    console.log(
-      "[Vercel Deployment] Final file count:",
-      Object.keys(vercelFiles).length
-    );
-    console.log(
-      "[Vercel Deployment] Files:",
-      Object.keys(vercelFiles).join(", ")
-    );
+    console.log("[Vercel Deployment] Final file count:", Object.keys(vercelFiles).length);
+    console.log("[Vercel Deployment] Files:", Object.keys(vercelFiles).join(", "));
 
     // Ensure project exists in Vercel
     await createOrUpdateProject(options.projectName, {
@@ -376,9 +362,7 @@ export async function deployProject(
 /**
  * Get deployment status
  */
-export async function getProjectDeploymentStatus(
-  deploymentId: string
-): Promise<{
+export async function getProjectDeploymentStatus(deploymentId: string): Promise<{
   id: string;
   url: string;
   readyState: string;

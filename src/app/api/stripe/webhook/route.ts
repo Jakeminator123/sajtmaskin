@@ -7,28 +7,19 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import {
-  createTransaction,
-  getTransactionByStripeSession,
-  getUserById,
-} from "@/lib/data/database";
+import { createTransaction, getTransactionByStripeSession, getUserById } from "@/lib/data/database";
 import { SECRETS } from "@/lib/config";
 import Stripe from "stripe";
 
 // Initialize Stripe
-const stripe = SECRETS.stripeSecretKey
-  ? new Stripe(SECRETS.stripeSecretKey)
-  : null;
+const stripe = SECRETS.stripeSecretKey ? new Stripe(SECRETS.stripeSecretKey) : null;
 
 const webhookSecret = SECRETS.stripeWebhookSecret;
 
 export async function POST(req: NextRequest) {
   if (!stripe || !webhookSecret) {
     console.error("[Stripe/webhook] Stripe not configured");
-    return NextResponse.json(
-      { error: "Webhook not configured" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Webhook not configured" }, { status: 500 });
   }
 
   // Get raw body for signature verification
@@ -69,10 +60,7 @@ export async function POST(req: NextRequest) {
 
       if (!userId || !diamonds) {
         console.error("[Stripe/webhook] Missing metadata:", session.metadata);
-        return NextResponse.json(
-          { error: "Missing metadata" },
-          { status: 400 }
-        );
+        return NextResponse.json({ error: "Missing metadata" }, { status: 400 });
       }
 
       // Verify user exists
@@ -90,7 +78,7 @@ export async function POST(req: NextRequest) {
           diamonds,
           `Köp: ${packageId}`,
           session.payment_intent as string,
-          session.id
+          session.id,
         );
 
         console.log(
@@ -99,14 +87,11 @@ export async function POST(req: NextRequest) {
           "diamonds to user",
           userId,
           "- new balance:",
-          transaction.balance_after
+          transaction.balance_after,
         );
       } catch (error) {
         console.error("[Stripe/webhook] Failed to add diamonds:", error);
-        return NextResponse.json(
-          { error: "Failed to add diamonds" },
-          { status: 500 }
-        );
+        return NextResponse.json({ error: "Failed to add diamonds" }, { status: 500 });
       }
 
       break;
@@ -117,7 +102,7 @@ export async function POST(req: NextRequest) {
       console.log(
         "[Stripe/webhook] Payment failed:",
         paymentIntent.id,
-        paymentIntent.last_payment_error?.message
+        paymentIntent.last_payment_error?.message,
       );
       break;
     }

@@ -84,19 +84,13 @@ const INITIAL_CONTACT_INFO: ContactInfo = {
 // ============================================================================
 
 /** Project summary card */
-function ProjectSummary({
-  title,
-  fileCount,
-}: {
-  title: string;
-  fileCount: number;
-}) {
+function ProjectSummary({ title, fileCount }: { title: string; fileCount: number }) {
   return (
-    <div className="p-4 rounded-xl bg-gray-800/50 border border-gray-700">
+    <div className="rounded-xl border border-gray-700 bg-gray-800/50 p-4">
       <div className="flex items-center gap-3">
-        <FileCode className="h-5 w-5 text-brand-teal" />
-        <div className="flex-1 min-w-0">
-          <p className="text-white font-medium truncate">{title}</p>
+        <FileCode className="text-brand-teal h-5 w-5" />
+        <div className="min-w-0 flex-1">
+          <p className="truncate font-medium text-white">{title}</p>
           <p className="text-xs text-gray-500">{fileCount} filer</p>
         </div>
       </div>
@@ -121,25 +115,23 @@ function BackofficeSection({
       {/* Toggle */}
       <div
         onClick={onToggle}
-        className={`p-4 rounded-xl border-2 cursor-pointer transition-all ${enabled
-          ? "border-brand-teal bg-brand-teal/10"
-          : "border-gray-700 hover:border-gray-600"
-          }`}
+        className={`cursor-pointer rounded-xl border-2 p-4 transition-all ${
+          enabled ? "border-brand-teal bg-brand-teal/10" : "border-gray-700 hover:border-gray-600"
+        }`}
       >
         <div className="flex items-start gap-3">
           <div
-            className={`flex-shrink-0 w-5 h-5 rounded-full border-2 flex items-center justify-center mt-0.5 transition-colors ${enabled ? "border-brand-teal bg-brand-teal" : "border-gray-600"
-              }`}
+            className={`mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full border-2 transition-colors ${
+              enabled ? "border-brand-teal bg-brand-teal" : "border-gray-600"
+            }`}
           >
             {enabled && <Check className="h-3 w-3 text-white" />}
           </div>
           <div className="flex-1">
-            <div className="flex items-center gap-2 flex-wrap">
-              <Settings className="h-4 w-4 text-brand-teal" />
-              <span className="font-medium text-white text-sm">
-                Inkludera Admin-panel
-              </span>
-              <span className="px-1.5 py-0.5 text-[10px] bg-brand-teal/20 text-brand-teal rounded">
+            <div className="flex flex-wrap items-center gap-2">
+              <Settings className="text-brand-teal h-4 w-4" />
+              <span className="text-sm font-medium text-white">Inkludera Admin-panel</span>
+              <span className="bg-brand-teal/20 text-brand-teal rounded px-1.5 py-0.5 text-[10px]">
                 Rekommenderas
               </span>
             </div>
@@ -153,24 +145,22 @@ function BackofficeSection({
 
       {/* Password input */}
       {enabled && (
-        <div className="p-4 rounded-xl bg-gray-800/30 border border-gray-700">
+        <div className="rounded-xl border border-gray-700 bg-gray-800/30 p-4">
           <label className="block">
-            <span className="text-sm text-gray-300 font-medium">
-              Välj lösenord
-            </span>
+            <span className="text-sm font-medium text-gray-300">Välj lösenord</span>
             <div className="relative mt-2">
-              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+              <Lock className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-gray-500" />
               <input
                 type="password"
                 value={password}
                 onChange={(e) => onPasswordChange(e.target.value)}
                 placeholder="Minst 6 tecken"
-                className="w-full pl-9 pr-4 py-2.5 bg-gray-800 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-brand-teal text-sm"
+                className="focus:border-brand-teal w-full rounded-lg border border-gray-700 bg-gray-800 py-2.5 pr-4 pl-9 text-sm text-white placeholder-gray-500 focus:outline-none"
               />
             </div>
           </label>
           {password.length > 0 && password.length < MIN_PASSWORD_LENGTH && (
-            <p className="text-xs text-brand-amber mt-2">
+            <p className="text-brand-amber mt-2 text-xs">
               Lösenordet måste vara minst {MIN_PASSWORD_LENGTH} tecken
             </p>
           )}
@@ -193,18 +183,18 @@ function DownloadAction({
   includeBackoffice: boolean;
 }) {
   return (
-    <div className="p-4 rounded-xl bg-gradient-to-r from-brand-teal/20 to-brand-warm/20 border border-brand-teal/30">
+    <div className="from-brand-teal/20 to-brand-warm/20 border-brand-teal/30 rounded-xl border bg-gradient-to-r p-4">
       <div className="flex items-center justify-between gap-4">
         <div className="min-w-0">
           <h3 className="text-sm font-semibold text-white">Ladda ner sajt</h3>
-          <p className="text-xs text-gray-400 mt-0.5">
+          <p className="mt-0.5 text-xs text-gray-400">
             {includeBackoffice ? "Med admin-panel" : "Utan admin-panel"}
           </p>
         </div>
         <Button
           onClick={onDownload}
           disabled={isDownloading || disabled}
-          className="bg-brand-teal hover:bg-brand-teal/90 text-white gap-2 shrink-0"
+          className="bg-brand-teal hover:bg-brand-teal/90 shrink-0 gap-2 text-white"
         >
           {isDownloading ? (
             <Loader2 className="h-4 w-4 animate-spin" />
@@ -230,9 +220,7 @@ function DomainSection({
   const [domainInput, setDomainInput] = useState("");
   const [domainResults, setDomainResults] = useState<DomainResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
-  const [domainPrices, setDomainPrices] = useState<Record<string, DomainPrice>>(
-    {}
-  );
+  const [domainPrices, setDomainPrices] = useState<Record<string, DomainPrice>>({});
   const [selectedDomain, setSelectedDomain] = useState<string | null>(null);
   const [showPurchaseForm, setShowPurchaseForm] = useState(false);
 
@@ -279,9 +267,7 @@ function DomainSection({
 
       try {
         const res = await fetch(
-          `/api/vercel/domains/price?domain=${encodeURIComponent(
-            result.domain
-          )}`
+          `/api/vercel/domains/price?domain=${encodeURIComponent(result.domain)}`,
         );
         const data = await res.json();
         if (data.success) {
@@ -315,17 +301,15 @@ function DomainSection({
   };
 
   return (
-    <div className="border border-gray-800 rounded-xl overflow-hidden">
+    <div className="overflow-hidden rounded-xl border border-gray-800">
       {/* Header - clickable to expand */}
       <button
         onClick={() => setIsExpanded(!isExpanded)}
-        className="w-full p-4 flex items-center justify-between text-left hover:bg-gray-800/30 transition-colors"
+        className="flex w-full items-center justify-between p-4 text-left transition-colors hover:bg-gray-800/30"
       >
         <div className="flex items-center gap-2">
           <Globe className="h-4 w-4 text-gray-500" />
-          <span className="text-sm text-gray-400">
-            Valfritt: Köp egen domän
-          </span>
+          <span className="text-sm text-gray-400">Valfritt: Köp egen domän</span>
         </div>
         {isExpanded ? (
           <ChevronUp className="h-4 w-4 text-gray-500" />
@@ -336,7 +320,7 @@ function DomainSection({
 
       {/* Expanded content */}
       {isExpanded && (
-        <div className="p-4 pt-0 space-y-4">
+        <div className="space-y-4 p-4 pt-0">
           {/* Search form */}
           <form
             onSubmit={(e) => {
@@ -350,12 +334,12 @@ function DomainSection({
               placeholder="t.ex. minsite.se"
               value={domainInput}
               onChange={(e) => setDomainInput(e.target.value)}
-              className="flex-1 bg-gray-800 border-gray-700 text-gray-200 placeholder:text-gray-500"
+              className="flex-1 border-gray-700 bg-gray-800 text-gray-200 placeholder:text-gray-500"
             />
             <Button
               type="submit"
               disabled={isSearching || !domainInput.trim()}
-              className="bg-gray-700 hover:bg-gray-600 px-3"
+              className="bg-gray-700 px-3 hover:bg-gray-600"
             >
               {isSearching ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -411,33 +395,27 @@ function DomainResultItem({
   const isTaken = result.available === false;
 
   return (
-    <div className="flex items-center justify-between p-3 rounded-lg bg-gray-800/50 border border-gray-800">
+    <div className="flex items-center justify-between rounded-lg border border-gray-800 bg-gray-800/50 p-3">
       <div className="flex items-center gap-2">
         <div
-          className={`w-6 h-6 rounded-full flex items-center justify-center ${isAvailable
-            ? "bg-green-500/20"
-            : isTaken
-              ? "bg-red-500/20"
-              : "bg-gray-700"
-            }`}
+          className={`flex h-6 w-6 items-center justify-center rounded-full ${
+            isAvailable ? "bg-green-500/20" : isTaken ? "bg-red-500/20" : "bg-gray-700"
+          }`}
         >
           {isAvailable ? (
             <Check className="h-3 w-3 text-green-400" />
           ) : isTaken ? (
             <X className="h-3 w-3 text-red-400" />
           ) : (
-            <span className="text-gray-500 text-[10px]">?</span>
+            <span className="text-[10px] text-gray-500">?</span>
           )}
         </div>
         <div>
           <p className="text-sm font-medium text-gray-200">{result.domain}</p>
           <p
-            className={`text-[10px] ${isAvailable
-              ? "text-green-400"
-              : isTaken
-                ? "text-red-400"
-                : "text-gray-500"
-              }`}
+            className={`text-[10px] ${
+              isAvailable ? "text-green-400" : isTaken ? "text-red-400" : "text-gray-500"
+            }`}
           >
             {isAvailable ? "Ledig" : isTaken ? "Upptagen" : "Okänd status"}
           </p>
@@ -446,7 +424,7 @@ function DomainResultItem({
 
       <div className="flex items-center gap-2">
         {isAvailable && price && (
-          <span className="text-xs text-brand-teal flex items-center gap-1">
+          <span className="text-brand-teal flex items-center gap-1 text-xs">
             <Tag className="h-3 w-3" />
             {price.loading ? (
               <Loader2 className="h-3 w-3 animate-spin" />
@@ -462,7 +440,7 @@ function DomainResultItem({
             size="sm"
             onClick={onSelect}
             disabled={!canPurchase}
-            className="h-7 text-xs px-2 bg-brand-teal hover:bg-brand-teal/90"
+            className="bg-brand-teal hover:bg-brand-teal/90 h-7 px-2 text-xs"
           >
             Välj
           </Button>
@@ -472,12 +450,9 @@ function DomainResultItem({
             size="sm"
             variant="outline"
             onClick={() =>
-              window.open(
-                `https://vercel.com/domains?search=${result.domain}`,
-                "_blank"
-              )
+              window.open(`https://vercel.com/domains?search=${result.domain}`, "_blank")
             }
-            className="h-7 text-xs px-2 border-gray-700 text-gray-400"
+            className="h-7 border-gray-700 px-2 text-xs text-gray-400"
           >
             <ExternalLink className="h-3 w-3" />
           </Button>
@@ -522,15 +497,7 @@ function DomainPurchaseForm({
       state: contact.state.trim() || contact.city.trim() || "-",
     };
 
-    const required = [
-      "firstName",
-      "lastName",
-      "email",
-      "phone",
-      "address1",
-      "city",
-      "zip",
-    ];
+    const required = ["firstName", "lastName", "email", "phone", "address1", "city", "zip"];
     for (const field of required) {
       if (!normalized[field as keyof ContactInfo]) {
         setError(`Fyll i ${field}`);
@@ -558,14 +525,18 @@ function DomainPurchaseForm({
 
       onSuccess(data.customDomainUrl || data.deploymentUrl);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Publicering misslyckades. Kontrollera din anslutning och försök igen.");
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Publicering misslyckades. Kontrollera din anslutning och försök igen.",
+      );
     } finally {
       setIsPurchasing(false);
     }
   };
 
   return (
-    <div className="space-y-4 p-4 rounded-xl bg-gray-800/50 border border-gray-700">
+    <div className="space-y-4 rounded-xl border border-gray-700 bg-gray-800/50 p-4">
       <div className="flex items-center justify-between">
         <h4 className="text-sm font-medium text-white">Köp {domain}</h4>
         <button onClick={onCancel} className="text-gray-400 hover:text-white">
@@ -604,16 +575,8 @@ function DomainPurchaseForm({
           onChange={(v) => updateField("address1", v)}
           className="col-span-2"
         />
-        <InputField
-          label="Stad"
-          value={contact.city}
-          onChange={(v) => updateField("city", v)}
-        />
-        <InputField
-          label="Postnr"
-          value={contact.zip}
-          onChange={(v) => updateField("zip", v)}
-        />
+        <InputField label="Stad" value={contact.city} onChange={(v) => updateField("city", v)} />
+        <InputField label="Postnr" value={contact.zip} onChange={(v) => updateField("zip", v)} />
       </div>
 
       {error && <p className="text-sm text-red-400">{error}</p>}
@@ -630,7 +593,7 @@ function DomainPurchaseForm({
         <Button
           onClick={handleSubmit}
           disabled={isPurchasing}
-          className="flex-1 bg-brand-teal hover:bg-brand-teal/90 text-white gap-2"
+          className="bg-brand-teal hover:bg-brand-teal/90 flex-1 gap-2 text-white"
         >
           {isPurchasing ? (
             <>
@@ -665,12 +628,12 @@ function InputField({
 }) {
   return (
     <div className={className}>
-      <label className="block text-xs text-gray-400 mb-1">{label}</label>
+      <label className="mb-1 block text-xs text-gray-400">{label}</label>
       <Input
         type={type}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="bg-gray-800 border-gray-700 text-gray-200 text-sm"
+        className="border-gray-700 bg-gray-800 text-sm text-gray-200"
       />
     </div>
   );
@@ -679,24 +642,20 @@ function InputField({
 /** Success message */
 function SuccessMessage({ domain, url }: { domain: string; url: string }) {
   return (
-    <div className="p-4 rounded-xl bg-green-500/10 border border-green-500/20">
+    <div className="rounded-xl border border-green-500/20 bg-green-500/10 p-4">
       <div className="flex items-start gap-3">
-        <Check className="h-5 w-5 text-green-400 mt-0.5 shrink-0" />
+        <Check className="mt-0.5 h-5 w-5 shrink-0 text-green-400" />
         <div>
-          <h4 className="text-sm font-medium text-green-400">
-            {domain} är nu live!
-          </h4>
+          <h4 className="text-sm font-medium text-green-400">{domain} är nu live!</h4>
           <a
             href={url}
             target="_blank"
             rel="noopener noreferrer"
-            className="text-sm text-brand-teal hover:text-brand-teal/80 underline break-all"
+            className="text-brand-teal hover:text-brand-teal/80 text-sm break-all underline"
           >
             {url}
           </a>
-          <p className="text-xs text-gray-500 mt-1">
-            DNS kan ta upp till 48h att spridas.
-          </p>
+          <p className="mt-1 text-xs text-gray-500">DNS kan ta upp till 48h att spridas.</p>
         </div>
       </div>
     </div>
@@ -725,8 +684,7 @@ export function FinalizeModal({
   } | null>(null);
 
   // Derived state
-  const canDownload =
-    !includeBackoffice || password.length >= MIN_PASSWORD_LENGTH;
+  const canDownload = !includeBackoffice || password.length >= MIN_PASSWORD_LENGTH;
 
   // Handlers
   const handleDownload = () => {
@@ -743,18 +701,15 @@ export function FinalizeModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/80 backdrop-blur-sm"
-        onClick={onClose}
-      />
+      <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={onClose} />
 
       {/* Modal */}
-      <div className="relative w-full max-w-md bg-gray-900 border border-gray-800 rounded-2xl shadow-2xl max-h-[90vh] overflow-hidden flex flex-col">
+      <div className="relative flex max-h-[90vh] w-full max-w-md flex-col overflow-hidden rounded-2xl border border-gray-800 bg-gray-900 shadow-2xl">
         {/* Header */}
-        <div className="flex items-center justify-between p-5 border-b border-gray-800">
+        <div className="flex items-center justify-between border-b border-gray-800 p-5">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-lg bg-brand-teal/20 flex items-center justify-center">
-              <Check className="h-5 w-5 text-brand-teal" />
+            <div className="bg-brand-teal/20 flex h-10 w-10 items-center justify-center rounded-lg">
+              <Check className="text-brand-teal h-5 w-5" />
             </div>
             <div>
               <h2 className="text-lg font-semibold text-white">Klar!</h2>
@@ -763,14 +718,14 @@ export function FinalizeModal({
           </div>
           <button
             onClick={onClose}
-            className="p-2 text-gray-400 hover:text-white transition-colors rounded-lg hover:bg-gray-800"
+            className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-gray-800 hover:text-white"
           >
             <X className="h-5 w-5" />
           </button>
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-5 space-y-4">
+        <div className="flex-1 space-y-4 overflow-y-auto p-5">
           {/* 1. Project summary */}
           <ProjectSummary title={projectTitle} fileCount={fileCount} />
 
@@ -795,27 +750,21 @@ export function FinalizeModal({
 
           {/* 4. Optional domain purchase */}
           {!purchaseSuccess && (
-            <DomainSection
-              projectId={projectId}
-              onPurchaseSuccess={handlePurchaseSuccess}
-            />
+            <DomainSection projectId={projectId} onPurchaseSuccess={handlePurchaseSuccess} />
           )}
 
           {/* 5. Success message */}
           {purchaseSuccess && (
-            <SuccessMessage
-              domain={purchaseSuccess.domain}
-              url={purchaseSuccess.url}
-            />
+            <SuccessMessage domain={purchaseSuccess.domain} url={purchaseSuccess.url} />
           )}
         </div>
 
         {/* Footer */}
-        <div className="p-4 border-t border-gray-800">
+        <div className="border-t border-gray-800 p-4">
           <Button
             variant="ghost"
             onClick={onClose}
-            className="w-full text-gray-400 hover:text-white hover:bg-gray-800"
+            className="w-full text-gray-400 hover:bg-gray-800 hover:text-white"
           >
             Stäng
           </Button>

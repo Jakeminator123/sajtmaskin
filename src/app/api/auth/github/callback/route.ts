@@ -97,21 +97,18 @@ export async function GET(request: NextRequest) {
     // Exchange code for access token
     console.log("[GitHub OAuth] Exchanging code for access token...");
 
-    const tokenResponse = await fetch(
-      "https://github.com/login/oauth/access_token",
-      {
-        method: "POST",
-        headers: {
-          Accept: "application/json",
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          client_id: GITHUB_CLIENT_ID,
-          client_secret: GITHUB_CLIENT_SECRET,
-          code,
-        }),
-      }
-    );
+    const tokenResponse = await fetch("https://github.com/login/oauth/access_token", {
+      method: "POST",
+      headers: {
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        client_id: GITHUB_CLIENT_ID,
+        client_secret: GITHUB_CLIENT_SECRET,
+        code,
+      }),
+    });
 
     const tokenData: GitHubTokenResponse = await tokenResponse.json();
 
@@ -149,7 +146,7 @@ export async function GET(request: NextRequest) {
       "[GitHub OAuth] Saving GitHub connection for user:",
       user.id,
       "GitHub:",
-      githubUser.login
+      githubUser.login,
     );
 
     updateUserGitHub(user.id, accessToken, githubUser.login);

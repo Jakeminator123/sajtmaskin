@@ -61,7 +61,7 @@ function renderTextList(items?: string[]) {
     return <p className="text-xs text-gray-500">–</p>;
   }
   return (
-    <ul className="text-xs text-gray-300 list-disc list-inside space-y-1">
+    <ul className="list-inside list-disc space-y-1 text-xs text-gray-300">
       {items.map((item, index) => (
         <li key={`${item}-${index}`}>{sanitizeDisplayText(item)}</li>
       ))}
@@ -145,7 +145,7 @@ export function AuditModal({
     if (auditedUrl) {
       lines.push(`Referenssida: ${auditedUrl}`);
       lines.push(
-        "Behåll varumärkeskänslan (färger, logoplacering, tonalitet) men åtgärda alla brister och förbättra UX, prestanda och tillgänglighet."
+        "Behåll varumärkeskänslan (färger, logoplacering, tonalitet) men åtgärda alla brister och förbättra UX, prestanda och tillgänglighet.",
       );
     }
 
@@ -158,16 +158,13 @@ export function AuditModal({
       const scores = result.audit_scores;
       if (scores.overall) lines.push(`- Övergripande: ${scores.overall}/100`);
       if (scores.seo) lines.push(`- SEO: ${scores.seo}/100`);
-      if (scores.performance)
-        lines.push(`- Prestanda: ${scores.performance}/100`);
+      if (scores.performance) lines.push(`- Prestanda: ${scores.performance}/100`);
       if (scores.ux) lines.push(`- UX: ${scores.ux}/100`);
-      if (scores.accessibility)
-        lines.push(`- Tillgänglighet: ${scores.accessibility}/100`);
+      if (scores.accessibility) lines.push(`- Tillgänglighet: ${scores.accessibility}/100`);
       if (scores.security) lines.push(`- Säkerhet: ${scores.security}/100`);
       if (scores.mobile) lines.push(`- Mobil: ${scores.mobile}/100`);
       if (scores.content) lines.push(`- Innehåll: ${scores.content}/100`);
-      if (scores.technical_seo)
-        lines.push(`- Teknisk SEO: ${scores.technical_seo}/100`);
+      if (scores.technical_seo) lines.push(`- Teknisk SEO: ${scores.technical_seo}/100`);
     }
 
     if (result.issues && result.issues.length > 0) {
@@ -186,10 +183,7 @@ export function AuditModal({
         if (imp.impact) contextParts.push(`impact: ${imp.impact}`);
         if (imp.effort) contextParts.push(`effort: ${imp.effort}`);
         if (imp.why) contextParts.push(imp.why);
-        lines.push(
-          `- ${imp.item}${contextParts.length ? ` (${contextParts.join("; ")})` : ""
-          }`
-        );
+        lines.push(`- ${imp.item}${contextParts.length ? ` (${contextParts.join("; ")})` : ""}`);
       });
     }
 
@@ -204,43 +198,27 @@ export function AuditModal({
     if (result.design_direction) {
       lines.push("");
       lines.push("Design & identitet:");
-      if (result.design_direction.style)
-        lines.push(`- Stil: ${result.design_direction.style}`);
+      if (result.design_direction.style) lines.push(`- Stil: ${result.design_direction.style}`);
       if (result.design_direction.color_psychology)
-        lines.push(
-          `- Färgpsykologi: ${result.design_direction.color_psychology}`
-        );
+        lines.push(`- Färgpsykologi: ${result.design_direction.color_psychology}`);
       if (result.design_direction.ui_patterns)
-        lines.push(
-          `- UI-mönster: ${result.design_direction.ui_patterns.join(", ")}`
-        );
+        lines.push(`- UI-mönster: ${result.design_direction.ui_patterns.join(", ")}`);
       if (result.design_direction.accessibility_level)
-        lines.push(
-          `- Tillgänglighet: ${result.design_direction.accessibility_level}`
-        );
+        lines.push(`- Tillgänglighet: ${result.design_direction.accessibility_level}`);
     }
 
     if (result.target_audience_analysis) {
       lines.push("");
       lines.push("Målgrupp & beteende:");
       if (result.target_audience_analysis.demographics)
-        lines.push(
-          `- Demografi: ${result.target_audience_analysis.demographics}`
-        );
+        lines.push(`- Demografi: ${result.target_audience_analysis.demographics}`);
       if (result.target_audience_analysis.pain_points)
-        lines.push(
-          `- Smärtpunkter: ${result.target_audience_analysis.pain_points}`
-        );
+        lines.push(`- Smärtpunkter: ${result.target_audience_analysis.pain_points}`);
       if (result.target_audience_analysis.expectations)
-        lines.push(
-          `- Förväntningar: ${result.target_audience_analysis.expectations}`
-        );
+        lines.push(`- Förväntningar: ${result.target_audience_analysis.expectations}`);
     }
 
-    if (
-      result.content_strategy?.key_pages &&
-      result.content_strategy.key_pages.length > 0
-    ) {
+    if (result.content_strategy?.key_pages && result.content_strategy.key_pages.length > 0) {
       lines.push("");
       lines.push("Nyckelsidor som ska ingå:");
       result.content_strategy.key_pages.slice(0, 8).forEach((page) => {
@@ -256,10 +234,7 @@ export function AuditModal({
       });
     }
 
-    if (
-      result.priority_matrix?.quick_wins &&
-      result.priority_matrix.quick_wins.length > 0
-    ) {
+    if (result.priority_matrix?.quick_wins && result.priority_matrix.quick_wins.length > 0) {
       lines.push("");
       lines.push("Snabba vinster som ska komma tidigt på sidan:");
       result.priority_matrix.quick_wins.slice(0, 4).forEach((win) => {
@@ -277,24 +252,15 @@ export function AuditModal({
         result.security_analysis.vulnerabilities &&
         result.security_analysis.vulnerabilities.length > 0
       ) {
-        lines.push(
-          `- Potentiella risker: ${result.security_analysis.vulnerabilities.join(
-            ", "
-          )}`
-        );
+        lines.push(`- Potentiella risker: ${result.security_analysis.vulnerabilities.join(", ")}`);
       }
     }
 
-    if (
-      result.technical_recommendations &&
-      result.technical_recommendations.length > 0
-    ) {
+    if (result.technical_recommendations && result.technical_recommendations.length > 0) {
       lines.push("");
       lines.push("Tekniska rekommendationer att omsätta:");
       result.technical_recommendations.slice(0, 4).forEach((rec) => {
-        lines.push(
-          `- ${rec.area}: ${rec.recommendation} (nuläge: ${rec.current_state})`
-        );
+        lines.push(`- ${rec.area}: ${rec.recommendation} (nuläge: ${rec.current_state})`);
       });
     }
 
@@ -302,13 +268,13 @@ export function AuditModal({
     lines.push("Struktur att bygga (anpassa efter innehåll):");
     lines.push("- Navigering med logoplatshållare, sektion-ankare, CTA-knapp.");
     lines.push(
-      "- Hero med tydlig huvudtitel, underrad, primär CTA, sekundär CTA samt visuell bakgrund (bild/gradient) och kort trust-rad."
+      "- Hero med tydlig huvudtitel, underrad, primär CTA, sekundär CTA samt visuell bakgrund (bild/gradient) och kort trust-rad.",
     );
     lines.push(
-      "- Sektioner för erbjudanden/tjänster, USP-lista, case/portfolio eller testimonials, ett CTA-block mitt på sidan."
+      "- Sektioner för erbjudanden/tjänster, USP-lista, case/portfolio eller testimonials, ett CTA-block mitt på sidan.",
     );
     lines.push(
-      "- Sektion för innehåll/nyheter eller resurser om relevant, samt FAQ och tydligt kontaktblock med formulär + kontaktuppgifter."
+      "- Sektion för innehåll/nyheter eller resurser om relevant, samt FAQ och tydligt kontaktblock med formulär + kontaktuppgifter.",
     );
     lines.push("- Footer med länkar, sociala ikoner och kontaktinformation.");
 
@@ -320,10 +286,10 @@ export function AuditModal({
 
     lines.push("");
     lines.push(
-      "Språk & ton: Svenska, konkret, säljdrivande men trovärdigt. Anpassa copy till målgruppen."
+      "Språk & ton: Svenska, konkret, säljdrivande men trovärdigt. Anpassa copy till målgruppen.",
     );
     lines.push(
-      "Leverera en klar, konverterande layout som kan genereras i buildern utan ytterligare frågor."
+      "Leverera en klar, konverterande layout som kan genereras i buildern utan ytterligare frågor.",
     );
 
     return lines.join("\n");
@@ -344,8 +310,7 @@ export function AuditModal({
       if (e.key === "Escape") {
         // Don't close if user is typing in an input field
         const target = e.target as HTMLElement;
-        const isInput =
-          target.tagName === "INPUT" || target.tagName === "TEXTAREA";
+        const isInput = target.tagName === "INPUT" || target.tagName === "TEXTAREA";
         const isContentEditable = target.isContentEditable;
 
         if (isInput || isContentEditable) {
@@ -375,8 +340,9 @@ export function AuditModal({
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `audit-${result.domain || "result"}-${new Date().toISOString().split("T")[0]
-      }.json`;
+    a.download = `audit-${result.domain || "result"}-${
+      new Date().toISOString().split("T")[0]
+    }.json`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -396,9 +362,7 @@ export function AuditModal({
 
   const scrape = result.scrape_summary;
   const faviconUrl = result.domain
-    ? `https://www.google.com/s2/favicons?domain=${encodeURIComponent(
-      result.domain
-    )}&sz=64`
+    ? `https://www.google.com/s2/favicons?domain=${encodeURIComponent(result.domain)}&sz=64`
     : null;
 
   const wordCountLabel = scrape
@@ -407,15 +371,16 @@ export function AuditModal({
       : `${scrape.aggregated_word_count} ord`
     : "";
   const scrapeLine = scrape
-    ? `Scrape: ${scrape.pages_sampled} sida(or), ${wordCountLabel}${scrape.is_js_rendered ? " • JS-renderad" : ""
-    }${typeof scrape.web_search_calls === "number"
-      ? ` • Web search: ${scrape.web_search_calls}`
-      : ""
-    }`
+    ? `Scrape: ${scrape.pages_sampled} sida(or), ${wordCountLabel}${
+        scrape.is_js_rendered ? " • JS-renderad" : ""
+      }${
+        typeof scrape.web_search_calls === "number"
+          ? ` • Web search: ${scrape.web_search_calls}`
+          : ""
+      }`
     : null;
 
-  const hasScores =
-    result.audit_scores && Object.keys(result.audit_scores).length > 0;
+  const hasScores = result.audit_scores && Object.keys(result.audit_scores).length > 0;
   const hasImprovements = result.improvements && result.improvements.length > 0;
   const hasSecurity = result.security_analysis;
   const hasBudget = result.budget_estimate;
@@ -426,10 +391,7 @@ export function AuditModal({
   const isAdvancedMode = result.audit_mode === "advanced";
   const hasAdvancedBusiness =
     isAdvancedMode &&
-    (hasBusinessProfile ||
-      hasMarketContext ||
-      hasCustomerSegments ||
-      hasCompetitiveLandscape);
+    (hasBusinessProfile || hasMarketContext || hasCustomerSegments || hasCompetitiveLandscape);
   const modeLabel = isAdvancedMode ? "Avancerad" : "Vanlig";
 
   return (
@@ -440,7 +402,7 @@ export function AuditModal({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/90 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4 backdrop-blur-sm"
           onClick={onClose}
         >
           <motion.div
@@ -448,18 +410,16 @@ export function AuditModal({
             animate={{ scale: 1, opacity: 1, y: 0 }}
             exit={{ scale: 0.95, opacity: 0, y: 20 }}
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
-            className="relative w-full max-w-5xl max-h-[90vh] bg-black border border-gray-800 overflow-hidden flex flex-col"
+            className="relative flex max-h-[90vh] w-full max-w-5xl flex-col overflow-hidden border border-gray-800 bg-black"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Header */}
-            <div className="flex items-center justify-between p-4 border-b border-gray-800 shrink-0">
+            <div className="flex shrink-0 items-center justify-between border-b border-gray-800 p-4">
               <div className="flex items-center gap-4">
                 <div>
-                  <h2 className="text-xl font-bold text-white">
-                    Analysresultat
-                  </h2>
+                  <h2 className="text-xl font-bold text-white">Analysresultat</h2>
                   <div className="mt-1 inline-flex items-center gap-2 text-xs text-gray-400">
-                    <span className="px-2 py-0.5 bg-black/60 border border-gray-800 text-gray-300">
+                    <span className="border border-gray-800 bg-black/60 px-2 py-0.5 text-gray-300">
                       {modeLabel} analys
                     </span>
                   </div>
@@ -468,7 +428,7 @@ export function AuditModal({
                       href={`https://${result.domain}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-sm text-brand-teal hover:text-brand-teal/80 flex items-center gap-1"
+                      className="text-brand-teal hover:text-brand-teal/80 flex items-center gap-1 text-sm"
                     >
                       {faviconUrl && (
                         <Image
@@ -484,14 +444,10 @@ export function AuditModal({
                       <ExternalLink className="h-3 w-3" />
                     </a>
                   )}
-                  {scrapeLine && (
-                    <div className="text-[11px] text-gray-500 mt-1">
-                      {scrapeLine}
-                    </div>
-                  )}
+                  {scrapeLine && <div className="mt-1 text-[11px] text-gray-500">{scrapeLine}</div>}
                 </div>
                 {result.company && (
-                  <span className="px-3 py-1 bg-gray-800 text-gray-300 text-sm">
+                  <span className="bg-gray-800 px-3 py-1 text-sm text-gray-300">
                     {result.company}
                   </span>
                 )}
@@ -502,13 +458,12 @@ export function AuditModal({
                 <button
                   onClick={handleSaveAudit}
                   disabled={isSaving || isSaved}
-                  className={`flex items-center gap-2 px-3 py-1.5 text-sm transition-colors ${isSaved
-                    ? "bg-green-600/20 text-green-400 cursor-default"
-                    : "bg-gray-800 hover:bg-gray-700 text-gray-300"
-                    }`}
-                  title={
-                    isSaved ? "Sparad i ditt konto" : "Spara till ditt konto"
-                  }
+                  className={`flex items-center gap-2 px-3 py-1.5 text-sm transition-colors ${
+                    isSaved
+                      ? "cursor-default bg-green-600/20 text-green-400"
+                      : "bg-gray-800 text-gray-300 hover:bg-gray-700"
+                  }`}
+                  title={isSaved ? "Sparad i ditt konto" : "Spara till ditt konto"}
                 >
                   {isSaving ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -523,7 +478,7 @@ export function AuditModal({
                 {/* PDF Report */}
                 <button
                   onClick={() => setShowPdfModal(true)}
-                  className="flex items-center gap-2 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-300 text-sm transition-colors"
+                  className="flex items-center gap-2 bg-gray-800 px-3 py-1.5 text-sm text-gray-300 transition-colors hover:bg-gray-700"
                   title="Ladda ner som PDF"
                 >
                   <FileText className="h-4 w-4" />
@@ -533,7 +488,7 @@ export function AuditModal({
                 {/* JSON Download */}
                 <button
                   onClick={downloadJSON}
-                  className="flex items-center gap-2 px-3 py-1.5 bg-gray-800 hover:bg-gray-700 text-gray-300 text-sm transition-colors"
+                  className="flex items-center gap-2 bg-gray-800 px-3 py-1.5 text-sm text-gray-300 transition-colors hover:bg-gray-700"
                   title="Ladda ner rådata som JSON"
                 >
                   <Download className="h-4 w-4" />
@@ -547,7 +502,7 @@ export function AuditModal({
                       setShowBuildOverlay(false);
                       setShowBuildConfirm(true);
                     }}
-                    className="flex items-center gap-2 px-4 py-2 bg-linear-to-r from-brand-blue to-brand-warm hover:from-brand-blue/90 hover:to-brand-warm/90 text-white text-sm font-semibold transition-all shadow-lg shadow-brand-warm/25 hover:shadow-brand-warm/40"
+                    className="from-brand-blue to-brand-warm hover:from-brand-blue/90 hover:to-brand-warm/90 shadow-brand-warm/25 hover:shadow-brand-warm/40 flex items-center gap-2 bg-linear-to-r px-4 py-2 text-sm font-semibold text-white shadow-lg transition-all"
                     title="Skapa en ny sida baserad på denna analys"
                   >
                     <Hammer className="h-4 w-4" />
@@ -558,7 +513,7 @@ export function AuditModal({
                 <button
                   onClick={onClose}
                   aria-label="Stäng"
-                  className="p-2 hover:bg-gray-800 text-gray-400 hover:text-white transition-colors"
+                  className="p-2 text-gray-400 transition-colors hover:bg-gray-800 hover:text-white"
                 >
                   <X className="h-5 w-5" />
                 </button>
@@ -566,25 +521,26 @@ export function AuditModal({
             </div>
 
             {/* Tabs */}
-            <div className="flex items-center border-b border-gray-800 shrink-0">
+            <div className="flex shrink-0 items-center border-b border-gray-800">
               <button
                 onClick={() => navigateTab("prev")}
                 disabled={activeTab === tabs[0].id}
                 aria-label="Föregående flik"
-                className="p-3 text-gray-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed"
+                className="p-3 text-gray-400 hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
               >
                 <ChevronLeft className="h-5 w-5" />
               </button>
 
-              <div className="flex-1 flex overflow-x-auto">
+              <div className="flex flex-1 overflow-x-auto">
                 {tabs.map((tab) => (
                   <button
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}
-                    className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 text-sm font-medium transition-colors whitespace-nowrap ${activeTab === tab.id
-                      ? "text-brand-teal border-b-2 border-brand-teal bg-brand-teal/10"
-                      : "text-gray-400 hover:text-white hover:bg-gray-800/50"
-                      }`}
+                    className={`flex flex-1 items-center justify-center gap-2 px-4 py-3 text-sm font-medium whitespace-nowrap transition-colors ${
+                      activeTab === tab.id
+                        ? "text-brand-teal border-brand-teal bg-brand-teal/10 border-b-2"
+                        : "text-gray-400 hover:bg-gray-800/50 hover:text-white"
+                    }`}
                   >
                     <span>{tab.icon}</span>
                     <span className="hidden sm:inline">{tab.label}</span>
@@ -596,7 +552,7 @@ export function AuditModal({
                 onClick={() => navigateTab("next")}
                 disabled={activeTab === tabs[tabs.length - 1].id}
                 aria-label="Nästa flik"
-                className="p-3 text-gray-400 hover:text-white disabled:opacity-30 disabled:cursor-not-allowed"
+                className="p-3 text-gray-400 hover:text-white disabled:cursor-not-allowed disabled:opacity-30"
               >
                 <ChevronRight className="h-5 w-5" />
               </button>
@@ -615,27 +571,20 @@ export function AuditModal({
                     className="space-y-6"
                   >
                     {hasScores && result.audit_scores && (
-                      <MetricsChart
-                        scores={
-                          result.audit_scores as { [key: string]: number }
-                        }
-                      />
+                      <MetricsChart scores={result.audit_scores as { [key: string]: number }} />
                     )}
 
                     {/* Strengths & Issues Grid */}
-                    <div className="grid md:grid-cols-2 gap-4">
+                    <div className="grid gap-4 md:grid-cols-2">
                       {result.strengths && result.strengths.length > 0 && (
-                        <div className="p-4 bg-green-500/10 border border-green-500/30">
-                          <h3 className="text-lg font-bold text-green-400 mb-3 flex items-center gap-2">
+                        <div className="border border-green-500/30 bg-green-500/10 p-4">
+                          <h3 className="mb-3 flex items-center gap-2 text-lg font-bold text-green-400">
                             <span>✅</span> Styrkor
                           </h3>
                           <ul className="space-y-2">
                             {result.strengths.slice(0, 5).map((strength, i) => (
-                              <li
-                                key={i}
-                                className="text-sm text-gray-300 flex items-start gap-2"
-                              >
-                                <span className="text-green-400 mt-0.5">•</span>
+                              <li key={i} className="flex items-start gap-2 text-sm text-gray-300">
+                                <span className="mt-0.5 text-green-400">•</span>
                                 <span>{strength}</span>
                               </li>
                             ))}
@@ -644,17 +593,14 @@ export function AuditModal({
                       )}
 
                       {result.issues && result.issues.length > 0 && (
-                        <div className="p-4 bg-red-500/10 border border-red-500/30">
-                          <h3 className="text-lg font-bold text-red-400 mb-3 flex items-center gap-2">
+                        <div className="border border-red-500/30 bg-red-500/10 p-4">
+                          <h3 className="mb-3 flex items-center gap-2 text-lg font-bold text-red-400">
                             <span>⚠️</span> Problem
                           </h3>
                           <ul className="space-y-2">
                             {result.issues.slice(0, 5).map((issue, i) => (
-                              <li
-                                key={i}
-                                className="text-sm text-gray-300 flex items-start gap-2"
-                              >
-                                <span className="text-red-400 mt-0.5">•</span>
+                              <li key={i} className="flex items-start gap-2 text-sm text-gray-300">
+                                <span className="mt-0.5 text-red-400">•</span>
                                 <span>{issue}</span>
                               </li>
                             ))}
@@ -664,25 +610,24 @@ export function AuditModal({
                     </div>
 
                     {/* Expected Outcomes */}
-                    {result.expected_outcomes &&
-                      result.expected_outcomes.length > 0 && (
-                        <div className="p-4 bg-black/30 border border-gray-800">
-                          <h3 className="text-lg font-bold text-white mb-3 flex items-center gap-2">
-                            <span>🎯</span> Förväntade resultat
-                          </h3>
-                          <ul className="grid md:grid-cols-2 gap-2">
-                            {result.expected_outcomes.map((outcome, i) => (
-                              <li
-                                key={i}
-                                className="text-sm text-gray-300 flex items-start gap-2 p-2 bg-black/30"
-                              >
-                                <span className="text-brand-teal">📈</span>
-                                <span>{outcome}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
+                    {result.expected_outcomes && result.expected_outcomes.length > 0 && (
+                      <div className="border border-gray-800 bg-black/30 p-4">
+                        <h3 className="mb-3 flex items-center gap-2 text-lg font-bold text-white">
+                          <span>🎯</span> Förväntade resultat
+                        </h3>
+                        <ul className="grid gap-2 md:grid-cols-2">
+                          {result.expected_outcomes.map((outcome, i) => (
+                            <li
+                              key={i}
+                              className="flex items-start gap-2 bg-black/30 p-2 text-sm text-gray-300"
+                            >
+                              <span className="text-brand-teal">📈</span>
+                              <span>{outcome}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
                   </motion.div>
                 )}
 
@@ -716,40 +661,29 @@ export function AuditModal({
                     className="space-y-6"
                   >
                     {hasSecurity && result.security_analysis && (
-                      <SecurityReport
-                        securityAnalysis={result.security_analysis}
-                      />
+                      <SecurityReport securityAnalysis={result.security_analysis} />
                     )}
 
                     {/* Technical Recommendations */}
                     {result.technical_recommendations &&
                       result.technical_recommendations.length > 0 && (
-                        <div className="bg-black/50 border border-gray-800 p-6">
-                          <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-                            <span className="text-brand-teal">⚙️</span> Tekniska
-                            rekommendationer
+                        <div className="border border-gray-800 bg-black/50 p-6">
+                          <h3 className="mb-4 flex items-center gap-2 text-xl font-bold text-white">
+                            <span className="text-brand-teal">⚙️</span> Tekniska rekommendationer
                           </h3>
                           <div className="space-y-4">
                             {result.technical_recommendations.map((rec, i) => (
-                              <div
-                                key={i}
-                                className="p-4 bg-black/30 border border-gray-800"
-                              >
-                                <h4 className="font-medium text-brand-teal mb-2">
-                                  {rec.area}
-                                </h4>
-                                <p className="text-sm text-gray-400 mb-2">
-                                  <span className="text-gray-500">Nuläge:</span>{" "}
-                                  {rec.current_state}
+                              <div key={i} className="border border-gray-800 bg-black/30 p-4">
+                                <h4 className="text-brand-teal mb-2 font-medium">{rec.area}</h4>
+                                <p className="mb-2 text-sm text-gray-400">
+                                  <span className="text-gray-500">Nuläge:</span> {rec.current_state}
                                 </p>
                                 <p className="text-sm text-gray-300">
-                                  <span className="text-gray-500">
-                                    Rekommendation:
-                                  </span>{" "}
+                                  <span className="text-gray-500">Rekommendation:</span>{" "}
                                   {rec.recommendation}
                                 </p>
                                 {rec.implementation && (
-                                  <pre className="mt-2 p-2 bg-black text-xs text-gray-400 overflow-x-auto">
+                                  <pre className="mt-2 overflow-x-auto bg-black p-2 text-xs text-gray-400">
                                     {rec.implementation}
                                   </pre>
                                 )}
@@ -786,40 +720,33 @@ export function AuditModal({
 
                     {/* Competitor Insights */}
                     {result.competitor_insights && (
-                      <div className="bg-black/50 border border-gray-800 p-6">
-                        <h3 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-                          <span className="text-brand-teal">🏆</span>{" "}
-                          Konkurrentanalys
+                      <div className="border border-gray-800 bg-black/50 p-6">
+                        <h3 className="mb-4 flex items-center gap-2 text-xl font-bold text-white">
+                          <span className="text-brand-teal">🏆</span> Konkurrentanalys
                         </h3>
-                        <div className="grid md:grid-cols-3 gap-4">
-                          <div className="p-3 bg-black/30 border border-gray-800">
-                            <h4 className="text-sm font-medium text-gray-400 mb-2">
+                        <div className="grid gap-4 md:grid-cols-3">
+                          <div className="border border-gray-800 bg-black/30 p-3">
+                            <h4 className="mb-2 text-sm font-medium text-gray-400">
                               Branschstandard
                             </h4>
-                            <p className="text-sm text-gray-300 whitespace-pre-wrap wrap-break-word">
-                              {sanitizeDisplayText(
-                                result.competitor_insights.industry_standards
-                              )}
+                            <p className="text-sm wrap-break-word whitespace-pre-wrap text-gray-300">
+                              {sanitizeDisplayText(result.competitor_insights.industry_standards)}
                             </p>
                           </div>
-                          <div className="p-3 bg-black/30 border border-gray-800">
-                            <h4 className="text-sm font-medium text-gray-400 mb-2">
+                          <div className="border border-gray-800 bg-black/30 p-3">
+                            <h4 className="mb-2 text-sm font-medium text-gray-400">
                               Saknade funktioner
                             </h4>
-                            <p className="text-sm text-gray-300 whitespace-pre-wrap wrap-break-word">
-                              {sanitizeDisplayText(
-                                result.competitor_insights.missing_features
-                              )}
+                            <p className="text-sm wrap-break-word whitespace-pre-wrap text-gray-300">
+                              {sanitizeDisplayText(result.competitor_insights.missing_features)}
                             </p>
                           </div>
-                          <div className="p-3 bg-black/30 border border-gray-800">
-                            <h4 className="text-sm font-medium text-gray-400 mb-2">
+                          <div className="border border-gray-800 bg-black/30 p-3">
+                            <h4 className="mb-2 text-sm font-medium text-gray-400">
                               Unika styrkor
                             </h4>
-                            <p className="text-sm text-gray-300 whitespace-pre-wrap wrap-break-word">
-                              {sanitizeDisplayText(
-                                result.competitor_insights.unique_strengths
-                              )}
+                            <p className="text-sm wrap-break-word whitespace-pre-wrap text-gray-300">
+                              {sanitizeDisplayText(result.competitor_insights.unique_strengths)}
                             </p>
                           </div>
                         </div>
@@ -827,73 +754,46 @@ export function AuditModal({
                     )}
 
                     {hasAdvancedBusiness && (
-                      <div className="bg-black/50 border border-gray-800 p-6 space-y-5">
-                        <h3 className="text-xl font-bold text-white mb-2 flex items-center gap-2">
-                          <span className="text-brand-blue">🧭</span> Affärs- &
-                          marknadsprofil
+                      <div className="space-y-5 border border-gray-800 bg-black/50 p-6">
+                        <h3 className="mb-2 flex items-center gap-2 text-xl font-bold text-white">
+                          <span className="text-brand-blue">🧭</span> Affärs- & marknadsprofil
                         </h3>
 
                         {hasBusinessProfile && result.business_profile && (
                           <div className="space-y-3">
-                            <h4 className="text-sm font-semibold text-gray-300">
-                              Företagsprofil
-                            </h4>
-                            <div className="grid md:grid-cols-2 gap-4">
-                              <div className="p-3 bg-black/30 border border-gray-800">
-                                <p className="text-xs text-gray-400 mb-1">
-                                  Bransch
-                                </p>
-                                <p className="text-sm text-gray-300 whitespace-pre-wrap wrap-break-word">
-                                  {sanitizeDisplayText(
-                                    result.business_profile.industry
-                                  )}
+                            <h4 className="text-sm font-semibold text-gray-300">Företagsprofil</h4>
+                            <div className="grid gap-4 md:grid-cols-2">
+                              <div className="border border-gray-800 bg-black/30 p-3">
+                                <p className="mb-1 text-xs text-gray-400">Bransch</p>
+                                <p className="text-sm wrap-break-word whitespace-pre-wrap text-gray-300">
+                                  {sanitizeDisplayText(result.business_profile.industry)}
                                 </p>
                               </div>
-                              <div className="p-3 bg-black/30 border border-gray-800">
-                                <p className="text-xs text-gray-400 mb-1">
-                                  Företagsstorlek
-                                </p>
-                                <p className="text-sm text-gray-300 whitespace-pre-wrap wrap-break-word">
-                                  {sanitizeDisplayText(
-                                    result.business_profile.company_size
-                                  )}
+                              <div className="border border-gray-800 bg-black/30 p-3">
+                                <p className="mb-1 text-xs text-gray-400">Företagsstorlek</p>
+                                <p className="text-sm wrap-break-word whitespace-pre-wrap text-gray-300">
+                                  {sanitizeDisplayText(result.business_profile.company_size)}
                                 </p>
                               </div>
-                              <div className="p-3 bg-black/30 border border-gray-800">
-                                <p className="text-xs text-gray-400 mb-1">
-                                  Affärsmodell
-                                </p>
-                                <p className="text-sm text-gray-300 whitespace-pre-wrap wrap-break-word">
-                                  {sanitizeDisplayText(
-                                    result.business_profile.business_model
-                                  )}
+                              <div className="border border-gray-800 bg-black/30 p-3">
+                                <p className="mb-1 text-xs text-gray-400">Affärsmodell</p>
+                                <p className="text-sm wrap-break-word whitespace-pre-wrap text-gray-300">
+                                  {sanitizeDisplayText(result.business_profile.business_model)}
                                 </p>
                               </div>
-                              <div className="p-3 bg-black/30 border border-gray-800">
-                                <p className="text-xs text-gray-400 mb-1">
-                                  Mognadsgrad
-                                </p>
-                                <p className="text-sm text-gray-300 whitespace-pre-wrap wrap-break-word">
-                                  {sanitizeDisplayText(
-                                    result.business_profile.maturity
-                                  )}
+                              <div className="border border-gray-800 bg-black/30 p-3">
+                                <p className="mb-1 text-xs text-gray-400">Mognadsgrad</p>
+                                <p className="text-sm wrap-break-word whitespace-pre-wrap text-gray-300">
+                                  {sanitizeDisplayText(result.business_profile.maturity)}
                                 </p>
                               </div>
-                              <div className="p-3 bg-black/30 border border-gray-800">
-                                <p className="text-xs text-gray-400 mb-1">
-                                  Kärnerbjudanden
-                                </p>
-                                {renderTextList(
-                                  result.business_profile.core_offers
-                                )}
+                              <div className="border border-gray-800 bg-black/30 p-3">
+                                <p className="mb-1 text-xs text-gray-400">Kärnerbjudanden</p>
+                                {renderTextList(result.business_profile.core_offers)}
                               </div>
-                              <div className="p-3 bg-black/30 border border-gray-800">
-                                <p className="text-xs text-gray-400 mb-1">
-                                  Intäktsströmmar
-                                </p>
-                                {renderTextList(
-                                  result.business_profile.revenue_streams
-                                )}
+                              <div className="border border-gray-800 bg-black/30 p-3">
+                                <p className="mb-1 text-xs text-gray-400">Intäktsströmmar</p>
+                                {renderTextList(result.business_profile.revenue_streams)}
                               </div>
                             </div>
                           </div>
@@ -904,63 +804,41 @@ export function AuditModal({
                             <h4 className="text-sm font-semibold text-gray-300">
                               Marknad & geografi
                             </h4>
-                            <div className="grid md:grid-cols-2 gap-4">
-                              <div className="p-3 bg-black/30 border border-gray-800">
-                                <p className="text-xs text-gray-400 mb-1">
-                                  Primär geografi
-                                </p>
-                                <p className="text-sm text-gray-300 whitespace-pre-wrap wrap-break-word">
-                                  {sanitizeDisplayText(
-                                    result.market_context.primary_geography
-                                  )}
+                            <div className="grid gap-4 md:grid-cols-2">
+                              <div className="border border-gray-800 bg-black/30 p-3">
+                                <p className="mb-1 text-xs text-gray-400">Primär geografi</p>
+                                <p className="text-sm wrap-break-word whitespace-pre-wrap text-gray-300">
+                                  {sanitizeDisplayText(result.market_context.primary_geography)}
                                 </p>
                               </div>
-                              <div className="p-3 bg-black/30 border border-gray-800">
-                                <p className="text-xs text-gray-400 mb-1">
-                                  Serviceområde
-                                </p>
-                                <p className="text-sm text-gray-300 whitespace-pre-wrap wrap-break-word">
-                                  {sanitizeDisplayText(
-                                    result.market_context.service_area
-                                  )}
+                              <div className="border border-gray-800 bg-black/30 p-3">
+                                <p className="mb-1 text-xs text-gray-400">Serviceområde</p>
+                                <p className="text-sm wrap-break-word whitespace-pre-wrap text-gray-300">
+                                  {sanitizeDisplayText(result.market_context.service_area)}
                                 </p>
                               </div>
-                              <div className="p-3 bg-black/30 border border-gray-800">
-                                <p className="text-xs text-gray-400 mb-1">
-                                  Konkurrensnivå
-                                </p>
-                                <p className="text-sm text-gray-300 whitespace-pre-wrap wrap-break-word">
-                                  {sanitizeDisplayText(
-                                    result.market_context.competition_level
-                                  )}
+                              <div className="border border-gray-800 bg-black/30 p-3">
+                                <p className="mb-1 text-xs text-gray-400">Konkurrensnivå</p>
+                                <p className="text-sm wrap-break-word whitespace-pre-wrap text-gray-300">
+                                  {sanitizeDisplayText(result.market_context.competition_level)}
                                 </p>
                               </div>
-                              <div className="p-3 bg-black/30 border border-gray-800">
-                                <p className="text-xs text-gray-400 mb-1">
-                                  Nyckelkonkurrenter
-                                </p>
-                                {renderTextList(
-                                  result.market_context.key_competitors
-                                )}
+                              <div className="border border-gray-800 bg-black/30 p-3">
+                                <p className="mb-1 text-xs text-gray-400">Nyckelkonkurrenter</p>
+                                {renderTextList(result.market_context.key_competitors)}
                               </div>
-                              <div className="p-3 bg-black/30 border border-gray-800">
-                                <p className="text-xs text-gray-400 mb-1">
-                                  Säsongsmönster
-                                </p>
-                                <p className="text-sm text-gray-300 whitespace-pre-wrap wrap-break-word">
-                                  {sanitizeDisplayText(
-                                    result.market_context.seasonal_patterns
-                                  )}
+                              <div className="border border-gray-800 bg-black/30 p-3">
+                                <p className="mb-1 text-xs text-gray-400">Säsongsmönster</p>
+                                <p className="text-sm wrap-break-word whitespace-pre-wrap text-gray-300">
+                                  {sanitizeDisplayText(result.market_context.seasonal_patterns)}
                                 </p>
                               </div>
-                              <div className="p-3 bg-black/30 border border-gray-800">
-                                <p className="text-xs text-gray-400 mb-1">
+                              <div className="border border-gray-800 bg-black/30 p-3">
+                                <p className="mb-1 text-xs text-gray-400">
                                   Lokala marknadsdynamiker
                                 </p>
-                                <p className="text-sm text-gray-300 whitespace-pre-wrap wrap-break-word">
-                                  {sanitizeDisplayText(
-                                    result.market_context.local_market_dynamics
-                                  )}
+                                <p className="text-sm wrap-break-word whitespace-pre-wrap text-gray-300">
+                                  {sanitizeDisplayText(result.market_context.local_market_dynamics)}
                                 </p>
                               </div>
                             </div>
@@ -969,114 +847,77 @@ export function AuditModal({
 
                         {hasCustomerSegments && result.customer_segments && (
                           <div className="space-y-3">
-                            <h4 className="text-sm font-semibold text-gray-300">
-                              Kundsegment
-                            </h4>
-                            <div className="grid md:grid-cols-2 gap-4">
-                              <div className="p-3 bg-black/30 border border-gray-800">
-                                <p className="text-xs text-gray-400 mb-1">
-                                  Primär kundgrupp
-                                </p>
-                                <p className="text-sm text-gray-300 whitespace-pre-wrap wrap-break-word">
-                                  {sanitizeDisplayText(
-                                    result.customer_segments.primary_segment
-                                  )}
+                            <h4 className="text-sm font-semibold text-gray-300">Kundsegment</h4>
+                            <div className="grid gap-4 md:grid-cols-2">
+                              <div className="border border-gray-800 bg-black/30 p-3">
+                                <p className="mb-1 text-xs text-gray-400">Primär kundgrupp</p>
+                                <p className="text-sm wrap-break-word whitespace-pre-wrap text-gray-300">
+                                  {sanitizeDisplayText(result.customer_segments.primary_segment)}
                                 </p>
                               </div>
-                              <div className="p-3 bg-black/30 border border-gray-800">
-                                <p className="text-xs text-gray-400 mb-1">
-                                  Sekundära kundgrupper
-                                </p>
-                                {renderTextList(
-                                  result.customer_segments.secondary_segments
-                                )}
+                              <div className="border border-gray-800 bg-black/30 p-3">
+                                <p className="mb-1 text-xs text-gray-400">Sekundära kundgrupper</p>
+                                {renderTextList(result.customer_segments.secondary_segments)}
                               </div>
-                              <div className="p-3 bg-black/30 border border-gray-800">
-                                <p className="text-xs text-gray-400 mb-1">
-                                  Kundbehov
-                                </p>
-                                {renderTextList(
-                                  result.customer_segments.customer_needs
-                                )}
+                              <div className="border border-gray-800 bg-black/30 p-3">
+                                <p className="mb-1 text-xs text-gray-400">Kundbehov</p>
+                                {renderTextList(result.customer_segments.customer_needs)}
                               </div>
-                              <div className="p-3 bg-black/30 border border-gray-800">
-                                <p className="text-xs text-gray-400 mb-1">
-                                  Beslutstriggers
-                                </p>
-                                {renderTextList(
-                                  result.customer_segments.decision_triggers
-                                )}
+                              <div className="border border-gray-800 bg-black/30 p-3">
+                                <p className="mb-1 text-xs text-gray-400">Beslutstriggers</p>
+                                {renderTextList(result.customer_segments.decision_triggers)}
                               </div>
-                              <div className="p-3 bg-black/30 border border-gray-800 md:col-span-2">
-                                <p className="text-xs text-gray-400 mb-1">
-                                  Förtroendesignaler
-                                </p>
-                                {renderTextList(
-                                  result.customer_segments.trust_signals
-                                )}
+                              <div className="border border-gray-800 bg-black/30 p-3 md:col-span-2">
+                                <p className="mb-1 text-xs text-gray-400">Förtroendesignaler</p>
+                                {renderTextList(result.customer_segments.trust_signals)}
                               </div>
                             </div>
                           </div>
                         )}
 
-                        {hasCompetitiveLandscape &&
-                          result.competitive_landscape && (
-                            <div className="space-y-3">
-                              <h4 className="text-sm font-semibold text-gray-300">
-                                Konkurrenslandskap
-                              </h4>
-                              <div className="grid md:grid-cols-2 gap-4">
-                                <div className="p-3 bg-black/30 border border-gray-800">
-                                  <p className="text-xs text-gray-400 mb-1">
-                                    Positionering
-                                  </p>
-                                  <p className="text-sm text-gray-300 whitespace-pre-wrap wrap-break-word">
-                                    {sanitizeDisplayText(
-                                      result.competitive_landscape.positioning
-                                    )}
-                                  </p>
-                                </div>
-                                <div className="p-3 bg-black/30 border border-gray-800">
-                                  <p className="text-xs text-gray-400 mb-1">
-                                    Differentiering
-                                  </p>
-                                  <p className="text-sm text-gray-300 whitespace-pre-wrap wrap-break-word">
-                                    {sanitizeDisplayText(
-                                      result.competitive_landscape.differentiation
-                                    )}
-                                  </p>
-                                </div>
-                                <div className="p-3 bg-black/30 border border-gray-800">
-                                  <p className="text-xs text-gray-400 mb-1">
-                                    Prisposition
-                                  </p>
-                                  <p className="text-sm text-gray-300 whitespace-pre-wrap wrap-break-word">
-                                    {sanitizeDisplayText(
-                                      result.competitive_landscape.price_positioning
-                                    )}
-                                  </p>
-                                </div>
-                                <div className="p-3 bg-black/30 border border-gray-800">
-                                  <p className="text-xs text-gray-400 mb-1">
-                                    Inträdesbarriärer
-                                  </p>
-                                  <p className="text-sm text-gray-300 whitespace-pre-wrap wrap-break-word">
-                                    {sanitizeDisplayText(
-                                      result.competitive_landscape.barriers_to_entry
-                                    )}
-                                  </p>
-                                </div>
-                                <div className="p-3 bg-black/30 border border-gray-800 md:col-span-2">
-                                  <p className="text-xs text-gray-400 mb-1">
-                                    Möjligheter
-                                  </p>
-                                  {renderTextList(
-                                    result.competitive_landscape.opportunities
+                        {hasCompetitiveLandscape && result.competitive_landscape && (
+                          <div className="space-y-3">
+                            <h4 className="text-sm font-semibold text-gray-300">
+                              Konkurrenslandskap
+                            </h4>
+                            <div className="grid gap-4 md:grid-cols-2">
+                              <div className="border border-gray-800 bg-black/30 p-3">
+                                <p className="mb-1 text-xs text-gray-400">Positionering</p>
+                                <p className="text-sm wrap-break-word whitespace-pre-wrap text-gray-300">
+                                  {sanitizeDisplayText(result.competitive_landscape.positioning)}
+                                </p>
+                              </div>
+                              <div className="border border-gray-800 bg-black/30 p-3">
+                                <p className="mb-1 text-xs text-gray-400">Differentiering</p>
+                                <p className="text-sm wrap-break-word whitespace-pre-wrap text-gray-300">
+                                  {sanitizeDisplayText(
+                                    result.competitive_landscape.differentiation,
                                   )}
-                                </div>
+                                </p>
+                              </div>
+                              <div className="border border-gray-800 bg-black/30 p-3">
+                                <p className="mb-1 text-xs text-gray-400">Prisposition</p>
+                                <p className="text-sm wrap-break-word whitespace-pre-wrap text-gray-300">
+                                  {sanitizeDisplayText(
+                                    result.competitive_landscape.price_positioning,
+                                  )}
+                                </p>
+                              </div>
+                              <div className="border border-gray-800 bg-black/30 p-3">
+                                <p className="mb-1 text-xs text-gray-400">Inträdesbarriärer</p>
+                                <p className="text-sm wrap-break-word whitespace-pre-wrap text-gray-300">
+                                  {sanitizeDisplayText(
+                                    result.competitive_landscape.barriers_to_entry,
+                                  )}
+                                </p>
+                              </div>
+                              <div className="border border-gray-800 bg-black/30 p-3 md:col-span-2">
+                                <p className="mb-1 text-xs text-gray-400">Möjligheter</p>
+                                {renderTextList(result.competitive_landscape.opportunities)}
                               </div>
                             </div>
-                          )}
+                          </div>
+                        )}
                       </div>
                     )}
 
@@ -1093,20 +934,17 @@ export function AuditModal({
             </div>
 
             {/* Footer */}
-            <div className="flex items-center justify-between p-4 border-t border-gray-800 shrink-0 bg-black/50">
+            <div className="flex shrink-0 items-center justify-between border-t border-gray-800 bg-black/50 p-4">
               <div className="text-xs text-gray-500">
                 {result.timestamp && (
-                  <span>
-                    Analyserad:{" "}
-                    {new Date(result.timestamp).toLocaleString("sv-SE")}
-                  </span>
+                  <span>Analyserad: {new Date(result.timestamp).toLocaleString("sv-SE")}</span>
                 )}
               </div>
               {/* Cost hidden from user - only logged server-side */}
 
               {/* Save error message */}
               {saveError && (
-                <div className="mt-2 p-2 bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
+                <div className="mt-2 border border-red-500/30 bg-red-500/10 p-2 text-sm text-red-400">
                   {saveError}
                 </div>
               )}
@@ -1119,7 +957,7 @@ export function AuditModal({
                   initial={{ opacity: 0 }}
                   animate={{ opacity: 1 }}
                   exit={{ opacity: 0 }}
-                  className="absolute inset-0 z-40 flex items-center justify-center bg-black/70 backdrop-blur-sm px-4"
+                  className="absolute inset-0 z-40 flex items-center justify-center bg-black/70 px-4 backdrop-blur-sm"
                   onClick={() => setShowBuildOverlay(false)}
                 >
                   <motion.div
@@ -1127,43 +965,37 @@ export function AuditModal({
                     animate={{ scale: 1, opacity: 1, y: 0 }}
                     exit={{ scale: 0.95, opacity: 0, y: 10 }}
                     transition={{ type: "spring", damping: 24, stiffness: 260 }}
-                    className="w-full max-w-xl bg-gray-900 border border-brand-teal/40 shadow-2xl p-6 space-y-4"
+                    className="border-brand-teal/40 w-full max-w-xl space-y-4 border bg-gray-900 p-6 shadow-2xl"
                     onClick={(e) => e.stopPropagation()}
                   >
                     <div className="flex items-start gap-3">
                       <div className="text-3xl">🚀</div>
                       <div>
-                        <h3 className="text-xl font-bold text-white">
-                          Låt oss bygga din sajt
-                        </h3>
+                        <h3 className="text-xl font-bold text-white">Låt oss bygga din sajt</h3>
                         <p className="text-sm text-gray-300">
-                          Vi använder auditen som superprompt för att skapa en
-                          förbättrad mall i buildern.
+                          Vi använder auditen som superprompt för att skapa en förbättrad mall i
+                          buildern.
                         </p>
                       </div>
                     </div>
 
-                    <div className="text-sm text-gray-400 space-y-1">
+                    <div className="space-y-1 text-sm text-gray-400">
+                      <p>• Åtgärdar auditens problem och implementerar förbättringarna.</p>
                       <p>
-                        • Åtgärdar auditens problem och implementerar
-                        förbättringarna.
-                      </p>
-                      <p>
-                        • Behåller styrkor och varumärkeskänsla men optimerar
-                        UX, prestanda och SEO.
+                        • Behåller styrkor och varumärkeskänsla men optimerar UX, prestanda och SEO.
                       </p>
                     </div>
 
                     <div className="flex gap-3">
                       <button
                         onClick={() => setShowBuildOverlay(false)}
-                        className="flex-1 px-4 py-2 border border-gray-700 text-gray-300 hover:text-white hover:border-gray-500 transition-colors"
+                        className="flex-1 border border-gray-700 px-4 py-2 text-gray-300 transition-colors hover:border-gray-500 hover:text-white"
                       >
                         Nej, inte nu
                       </button>
                       <button
                         onClick={launchBuildFromAudit}
-                        className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-linear-to-r from-brand-blue to-brand-warm hover:from-brand-blue/90 hover:to-brand-warm/90 text-white font-semibold transition-all"
+                        className="from-brand-blue to-brand-warm hover:from-brand-blue/90 hover:to-brand-warm/90 flex flex-1 items-center justify-center gap-2 bg-linear-to-r px-4 py-2 font-semibold text-white transition-all"
                       >
                         <Hammer className="h-4 w-4" />
                         Ja, kör igång
@@ -1179,10 +1011,7 @@ export function AuditModal({
 
       {/* PDF Report Modal */}
       {showPdfModal && result && (
-        <AuditPdfReport
-          result={result}
-          onClose={() => setShowPdfModal(false)}
-        />
+        <AuditPdfReport result={result} onClose={() => setShowPdfModal(false)} />
       )}
 
       {/* Build Confirmation Dialog */}
@@ -1191,47 +1020,43 @@ export function AuditModal({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 z-60 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+          className="fixed inset-0 z-60 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm"
           onClick={() => setShowBuildConfirm(false)}
         >
           <motion.div
             initial={{ scale: 0.9, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.9, opacity: 0 }}
-            className="bg-gray-900 border border-gray-700 max-w-md w-full p-6 shadow-2xl"
+            className="w-full max-w-md border border-gray-700 bg-gray-900 p-6 shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="text-center">
-              <div className="text-4xl mb-4">🚀</div>
-              <h3 className="text-xl font-bold text-white mb-2">
-                Bygg ny sida från auditen?
-              </h3>
-              <p className="text-gray-400 text-sm mb-4">
+              <div className="mb-4 text-4xl">🚀</div>
+              <h3 className="mb-2 text-xl font-bold text-white">Bygg ny sida från auditen?</h3>
+              <p className="mb-4 text-sm text-gray-400">
                 Vi skapar en helt ny sida baserad på analysen av{" "}
                 <span className="text-brand-teal font-medium">
                   {auditedUrl || result.domain || "din sida"}
                 </span>
                 .
               </p>
-              <div className="bg-black/50 border border-gray-800 p-4 text-left mb-6">
-                <p className="text-xs text-gray-500 uppercase mb-2">
-                  Detta kommer att:
-                </p>
-                <ul className="text-sm text-gray-300 space-y-1">
+              <div className="mb-6 border border-gray-800 bg-black/50 p-4 text-left">
+                <p className="mb-2 text-xs text-gray-500 uppercase">Detta kommer att:</p>
+                <ul className="space-y-1 text-sm text-gray-300">
                   <li className="flex items-start gap-2">
-                    <Check className="h-4 w-4 text-brand-teal mt-0.5 shrink-0" />
+                    <Check className="text-brand-teal mt-0.5 h-4 w-4 shrink-0" />
                     <span>Åtgärda identifierade problem</span>
                   </li>
                   <li className="flex items-start gap-2">
-                    <Check className="h-4 w-4 text-brand-teal mt-0.5 shrink-0" />
+                    <Check className="text-brand-teal mt-0.5 h-4 w-4 shrink-0" />
                     <span>Implementera förbättringsförslag</span>
                   </li>
                   <li className="flex items-start gap-2">
-                    <Check className="h-4 w-4 text-brand-teal mt-0.5 shrink-0" />
+                    <Check className="text-brand-teal mt-0.5 h-4 w-4 shrink-0" />
                     <span>Behålla dina styrkor och varumärke</span>
                   </li>
                   <li className="flex items-start gap-2">
-                    <Check className="h-4 w-4 text-brand-teal mt-0.5 shrink-0" />
+                    <Check className="text-brand-teal mt-0.5 h-4 w-4 shrink-0" />
                     <span>Skapa modern, professionell design</span>
                   </li>
                 </ul>
@@ -1239,7 +1064,7 @@ export function AuditModal({
               <div className="flex gap-3">
                 <button
                   onClick={() => setShowBuildConfirm(false)}
-                  className="flex-1 px-4 py-2 border border-gray-700 text-gray-400 hover:text-white hover:border-gray-500 transition-colors"
+                  className="flex-1 border border-gray-700 px-4 py-2 text-gray-400 transition-colors hover:border-gray-500 hover:text-white"
                 >
                   Avbryt
                 </button>
@@ -1248,7 +1073,7 @@ export function AuditModal({
                     setShowBuildConfirm(false);
                     launchBuildFromAudit();
                   }}
-                  className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-linear-to-r from-brand-blue to-brand-warm hover:from-brand-blue/90 hover:to-brand-warm/90 text-white font-semibold transition-all"
+                  className="from-brand-blue to-brand-warm hover:from-brand-blue/90 hover:to-brand-warm/90 flex flex-1 items-center justify-center gap-2 bg-linear-to-r px-4 py-2 font-semibold text-white transition-all"
                 >
                   <Hammer className="h-4 w-4" />
                   Kör igång!
@@ -1272,9 +1097,9 @@ function EmptyState({
   description: string;
 }) {
   return (
-    <div className="text-center py-12">
-      <span className="text-4xl mb-4 block">{icon}</span>
-      <h3 className="text-lg font-medium text-white mb-2">{title}</h3>
+    <div className="py-12 text-center">
+      <span className="mb-4 block text-4xl">{icon}</span>
+      <h3 className="mb-2 text-lg font-medium text-white">{title}</h3>
       <p className="text-sm text-gray-500">{description}</p>
     </div>
   );

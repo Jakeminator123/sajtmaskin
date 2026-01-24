@@ -1,37 +1,37 @@
-import { NextResponse } from 'next/server';
-import { Sandbox } from '@vercel/sandbox';
-import ms, { StringValue } from 'ms';
-import { z } from 'zod';
-import { withRateLimit } from '@/lib/rateLimit';
-import { requireNotBot } from '@/lib/botProtection';
+import { NextResponse } from "next/server";
+import { Sandbox } from "@vercel/sandbox";
+import ms, { StringValue } from "ms";
+import { z } from "zod";
+import { withRateLimit } from "@/lib/rateLimit";
+import { requireNotBot } from "@/lib/botProtection";
 
 const createSandboxSchema = z.object({
-  source: z.discriminatedUnion('type', [
+  source: z.discriminatedUnion("type", [
     z.object({
-      type: z.literal('git'),
-      url: z.string().url('Invalid Git URL'),
+      type: z.literal("git"),
+      url: z.string().url("Invalid Git URL"),
       branch: z.string().optional(),
     }),
     z.object({
-      type: z.literal('files'),
+      type: z.literal("files"),
       files: z.record(z.string(), z.string()),
     }),
   ]),
-  timeout: z.string().optional().default('5m'),
+  timeout: z.string().optional().default("5m"),
   ports: z.array(z.number()).optional().default([3000]),
-  runtime: z.enum(['node24', 'node22', 'python3.13']).optional().default('node24'),
+  runtime: z.enum(["node24", "node22", "python3.13"]).optional().default("node24"),
   vcpus: z.number().min(1).max(8).optional().default(2),
-  installCommand: z.string().optional().default('npm install'),
-  startCommand: z.string().optional().default('npm run dev'),
+  installCommand: z.string().optional().default("npm install"),
+  startCommand: z.string().optional().default("npm run dev"),
 });
 
 const MAX_FILES = 250;
 const MAX_TOTAL_BYTES = 2_500_000;
 
 function isSafeRelativePath(path: string): boolean {
-  if (!path || path.includes('\0')) return false;
-  if (path.startsWith('/') || path.startsWith('\\')) return false;
-  if (path.includes('..')) return false;
+  if (!path || path.includes("\0")) return false;
+  if (path.startsWith("/") || path.startsWith("\\")) return false;
+  if (path.includes("..")) return false;
   return /^[A-Za-z0-9._/-]+$/.test(path);
 }
 
@@ -44,7 +44,7 @@ function makeSafeHeredoc(content: string): { delimiter: string; body: string } {
 }
 
 export async function POST(req: Request) {
-  return withRateLimit(req, 'sandbox:create', async () => {
+  return withRateLimit(req, "sandbox:create", async () => {
     try {
       const botError = requireNotBot(req);
       if (botError) return botError;
@@ -57,11 +57,11 @@ export async function POST(req: Request) {
       if (!oidcToken && (!token || !teamId || !projectId)) {
         return NextResponse.json(
           {
-            error: 'Sandbox requires authentication',
+            error: "Sandbox requires authentication",
             setup:
-              'Run `vercel link` then `vercel env pull` to get OIDC token, or set VERCEL_TOKEN + VERCEL_TEAM_ID + VERCEL_PROJECT_ID',
+              "Run `vercel link` then `vercel env pull` to get OIDC token, or set VERCEL_TOKEN + VERCEL_TEAM_ID + VERCEL_PROJECT_ID",
           },
-          { status: 401 }
+          { status: 401 },
         );
       }
 
@@ -70,8 +70,8 @@ export async function POST(req: Request) {
 
       if (!validationResult.success) {
         return NextResponse.json(
-          { error: 'Validation failed', details: validationResult.error.issues },
-          { status: 400 }
+          { error: "Validation failed", details: validationResult.error.issues },
+          { status: 400 },
         );
       }
 
@@ -80,12 +80,12 @@ export async function POST(req: Request) {
 
       const timeoutMs = ms(timeout as StringValue);
 
-      const fileEntries = source.type === 'files' ? Object.entries(source.files) : null;
+      const fileEntries = source.type === "files" ? Object.entries(source.files) : null;
       if (fileEntries) {
         if (fileEntries.length > MAX_FILES) {
           return NextResponse.json(
             { error: `Too many files for sandbox (${fileEntries.length} > ${MAX_FILES})` },
-            { status: 413 }
+            { status: 413 },
           );
         }
 
@@ -94,28 +94,28 @@ export async function POST(req: Request) {
           if (!isSafeRelativePath(filePath)) {
             return NextResponse.json({ error: `Unsafe file path: ${filePath}` }, { status: 400 });
           }
-          totalBytes += Buffer.byteLength(content ?? '', 'utf8');
+          totalBytes += Buffer.byteLength(content ?? "", "utf8");
           if (totalBytes > MAX_TOTAL_BYTES) {
             return NextResponse.json(
               { error: `Sandbox files too large (${totalBytes} bytes > ${MAX_TOTAL_BYTES})` },
-              { status: 413 }
+              { status: 413 },
             );
           }
         }
       }
 
-      let sourceConfig: { type: 'git'; url: string; revision?: string } | undefined;
+      let sourceConfig: { type: "git"; url: string; revision?: string } | undefined;
 
-      if (source.type === 'git') {
+      if (source.type === "git") {
         sourceConfig = {
-          type: 'git',
+          type: "git",
           url: source.url,
           ...(source.branch && { revision: source.branch }),
         };
       } else {
         sourceConfig = {
-          type: 'git',
-          url: 'https://github.com/vercel/sandbox-example-next.git',
+          type: "git",
+          url: "https://github.com/vercel/sandbox-example-next.git",
         };
       }
 
@@ -132,35 +132,35 @@ export async function POST(req: Request) {
       try {
         if (fileEntries) {
           for (const [filePath, content] of fileEntries) {
-            const { delimiter, body: fileBody } = makeSafeHeredoc(String(content ?? ''));
+            const { delimiter, body: fileBody } = makeSafeHeredoc(String(content ?? ""));
             await sandbox.runCommand({
-              cmd: 'bash',
+              cmd: "bash",
               args: [
-                '-c',
+                "-c",
                 [
                   `set -e`,
                   `mkdir -p "$(dirname "${filePath}")"`,
                   `cat > "${filePath}" <<'${delimiter}'`,
                   fileBody,
                   `${delimiter}`,
-                ].join('\n'),
+                ].join("\n"),
               ],
             });
           }
         }
 
         const installResult = await sandbox.runCommand({
-          cmd: 'bash',
-          args: ['-c', installCommand],
+          cmd: "bash",
+          args: ["-c", installCommand],
         });
 
         if (installResult.exitCode !== 0) {
-          console.error('Install failed with exit code:', installResult.exitCode);
+          console.error("Install failed with exit code:", installResult.exitCode);
         }
 
         await sandbox.runCommand({
-          cmd: 'bash',
-          args: ['-c', startCommand],
+          cmd: "bash",
+          args: ["-c", startCommand],
           detached: true,
         });
 
@@ -182,15 +182,15 @@ export async function POST(req: Request) {
         try {
           await sandbox.stop();
         } catch (stopError) {
-          console.error('Failed to stop sandbox after error:', stopError);
+          console.error("Failed to stop sandbox after error:", stopError);
         }
         throw err;
       }
     } catch (err) {
-      console.error('Error creating sandbox:', err);
+      console.error("Error creating sandbox:", err);
       return NextResponse.json(
-        { error: err instanceof Error ? err.message : 'Failed to create sandbox' },
-        { status: 500 }
+        { error: err instanceof Error ? err.message : "Failed to create sandbox" },
+        { status: 500 },
       );
     }
   });
@@ -198,13 +198,10 @@ export async function POST(req: Request) {
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
-  const sandboxId = searchParams.get('sandboxId');
+  const sandboxId = searchParams.get("sandboxId");
 
   if (!sandboxId) {
-    return NextResponse.json(
-      { error: 'sandboxId query parameter is required' },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: "sandboxId query parameter is required" }, { status: 400 });
   }
 
   try {
@@ -224,23 +221,20 @@ export async function GET(req: Request) {
       createdAt: sandbox.createdAt,
     });
   } catch (err) {
-    console.error('Error getting sandbox:', err);
+    console.error("Error getting sandbox:", err);
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : 'Failed to get sandbox' },
-      { status: 500 }
+      { error: err instanceof Error ? err.message : "Failed to get sandbox" },
+      { status: 500 },
     );
   }
 }
 
 export async function DELETE(req: Request) {
   const { searchParams } = new URL(req.url);
-  const sandboxId = searchParams.get('sandboxId');
+  const sandboxId = searchParams.get("sandboxId");
 
   if (!sandboxId) {
-    return NextResponse.json(
-      { error: 'sandboxId query parameter is required' },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: "sandboxId query parameter is required" }, { status: 400 });
   }
 
   try {
@@ -248,10 +242,10 @@ export async function DELETE(req: Request) {
     await sandbox.stop();
     return NextResponse.json({ success: true, sandboxId });
   } catch (err) {
-    console.error('Error deleting sandbox:', err);
+    console.error("Error deleting sandbox:", err);
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : 'Failed to delete sandbox' },
-      { status: 500 }
+      { error: err instanceof Error ? err.message : "Failed to delete sandbox" },
+      { status: 500 },
     );
   }
 }

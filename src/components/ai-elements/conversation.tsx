@@ -28,9 +28,7 @@ interface ConversationContextValue {
   scrollToBottom: () => void;
 }
 
-const ConversationContext = createContext<ConversationContextValue | null>(
-  null
-);
+const ConversationContext = createContext<ConversationContextValue | null>(null);
 
 export function useConversation() {
   const context = useContext(ConversationContext);
@@ -48,11 +46,7 @@ export interface ConversationProps extends HTMLAttributes<HTMLDivElement> {
   children: ReactNode;
 }
 
-export function Conversation({
-  children,
-  className,
-  ...props
-}: ConversationProps) {
+export function Conversation({ children, className, ...props }: ConversationProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
   const [isAtBottom, setIsAtBottom] = useState(true);
 
@@ -71,9 +65,7 @@ export function Conversation({
   };
 
   return (
-    <ConversationContext.Provider
-      value={{ scrollRef, isAtBottom, scrollToBottom }}
-    >
+    <ConversationContext.Provider value={{ scrollRef, isAtBottom, scrollToBottom }}>
       <div
         ref={scrollRef}
         onScroll={handleScroll}
@@ -90,16 +82,11 @@ export function Conversation({
 // CONVERSATION CONTENT
 // ============================================================================
 
-export interface ConversationContentProps
-  extends HTMLAttributes<HTMLDivElement> {
+export interface ConversationContentProps extends HTMLAttributes<HTMLDivElement> {
   children: ReactNode;
 }
 
-export function ConversationContent({
-  children,
-  className,
-  ...props
-}: ConversationContentProps) {
+export function ConversationContent({ children, className, ...props }: ConversationContentProps) {
   const { scrollRef, isAtBottom } = useConversation();
 
   // Auto-scroll when new messages arrive (if at bottom)
@@ -110,10 +97,7 @@ export function ConversationContent({
   }, [children, isAtBottom, scrollRef]);
 
   return (
-    <div
-      className={cn("flex-1 overflow-y-auto space-y-4 p-4", className)}
-      {...props}
-    >
+    <div className={cn("flex-1 space-y-4 overflow-y-auto p-4", className)} {...props}>
       {children}
     </div>
   );
@@ -123,8 +107,7 @@ export function ConversationContent({
 // SCROLL BUTTON
 // ============================================================================
 
-export interface ConversationScrollButtonProps
-  extends HTMLAttributes<HTMLButtonElement> {
+export interface ConversationScrollButtonProps extends HTMLAttributes<HTMLButtonElement> {
   children?: ReactNode;
 }
 
@@ -142,11 +125,11 @@ export function ConversationScrollButton({
       type="button"
       onClick={scrollToBottom}
       className={cn(
-        "fixed bottom-24 left-1/2 -translate-x-1/2 z-10",
+        "fixed bottom-24 left-1/2 z-10 -translate-x-1/2",
         "rounded-full bg-zinc-800 px-4 py-2 text-sm text-white shadow-lg",
-        "hover:bg-zinc-700 transition-colors",
+        "transition-colors hover:bg-zinc-700",
         "flex items-center gap-2",
-        className
+        className,
       )}
       {...props}
     >
@@ -171,4 +154,3 @@ export function ConversationScrollButton({
     </button>
   );
 }
-

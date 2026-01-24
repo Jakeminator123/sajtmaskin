@@ -1,24 +1,24 @@
-import { NextResponse } from 'next/server';
-import { db } from '@/lib/db/client';
-import { deployments, versions } from '@/lib/db/schema';
-import { and, eq, desc } from 'drizzle-orm';
-import { z } from 'zod/v4';
-import { withRateLimit } from '@/lib/rateLimit';
-import { assertV0Key, v0 } from '@/lib/v0';
-import { createDeploymentRecord, updateDeploymentStatus } from '@/lib/deployment';
-import { materializeImagesInTextFiles, type ImageAssetStrategy } from '@/lib/imageAssets';
+import { NextResponse } from "next/server";
+import { db } from "@/lib/db/client";
+import { deployments, versions } from "@/lib/db/schema";
+import { and, eq, desc } from "drizzle-orm";
+import { z } from "zod/v4";
+import { withRateLimit } from "@/lib/rateLimit";
+import { assertV0Key, v0 } from "@/lib/v0";
+import { createDeploymentRecord, updateDeploymentStatus } from "@/lib/deployment";
+import { materializeImagesInTextFiles, type ImageAssetStrategy } from "@/lib/imageAssets";
 import {
   createVercelDeployment,
   getVercelDeployment,
   mapVercelReadyStateToStatus,
   sanitizeVercelProjectName,
   toVercelFilesFromTextFiles,
-} from '@/lib/vercelDeploy';
-import { getChatByIdForRequest, getChatByV0ChatIdForRequest } from '@/lib/tenant';
-import { requireNotBot } from '@/lib/botProtection';
-import { devLogAppend } from '@/lib/devLog';
+} from "@/lib/vercelDeploy";
+import { getChatByIdForRequest, getChatByV0ChatIdForRequest } from "@/lib/tenant";
+import { requireNotBot } from "@/lib/botProtection";
+import { devLogAppend } from "@/lib/devLog";
 
-export const runtime = 'nodejs';
+export const runtime = "nodejs";
 
 function applyPreDeployFixes(files: Array<{ name: string; content: string }>): {
   files: Array<{ name: string; content: string }>;
@@ -28,11 +28,11 @@ function applyPreDeployFixes(files: Array<{ name: string; content: string }>): {
   const nextFiles = files.map((f) => ({ ...f }));
 
   const removeBrokenUtilityBlocks = (content: string) => {
-    if (!content.includes('@utility')) {
+    if (!content.includes("@utility")) {
       return { content, removed: 0 };
     }
 
-    const marker = '@utility';
+    const marker = "@utility";
     let updated = content;
     let removed = 0;
     let index = 0;
@@ -41,14 +41,14 @@ function applyPreDeployFixes(files: Array<{ name: string; content: string }>): {
       const start = updated.indexOf(marker, index);
       if (start === -1) break;
 
-      const lineEnd = updated.indexOf('\n', start);
+      const lineEnd = updated.indexOf("\n", start);
       const head = updated.slice(start, lineEnd === -1 ? updated.length : lineEnd);
-      if (!head.includes('slide-in-from-top-')) {
+      if (!head.includes("slide-in-from-top-")) {
         index = start + marker.length;
         continue;
       }
 
-      const braceIndex = updated.indexOf('{', start);
+      const braceIndex = updated.indexOf("{", start);
       if (braceIndex === -1) {
         index = start + marker.length;
         continue;
@@ -58,8 +58,8 @@ function applyPreDeployFixes(files: Array<{ name: string; content: string }>): {
       let cursor = braceIndex + 1;
       while (cursor < updated.length) {
         const ch = updated[cursor];
-        if (ch === '{') depth += 1;
-        if (ch === '}') {
+        if (ch === "{") depth += 1;
+        if (ch === "}") {
           depth -= 1;
           if (depth === 0) break;
         }
@@ -83,9 +83,9 @@ function applyPreDeployFixes(files: Array<{ name: string; content: string }>): {
   };
 
   for (const f of nextFiles) {
-    if (typeof f.content !== 'string') continue;
+    if (typeof f.content !== "string") continue;
 
-    if (f.content.includes('Instrument_Serif') && f.content.includes('weight')) {
+    if (f.content.includes("Instrument_Serif") && f.content.includes("weight")) {
       const before = f.content;
 
       let updated = before
@@ -97,15 +97,15 @@ function applyPreDeployFixes(files: Array<{ name: string; content: string }>): {
           /(Instrument_Serif\(\{[\s\S]*?weight:\s*)\[([^\]]*)\]/g,
           (match, prefix, arr) => {
             const parts = String(arr)
-              .split(',')
+              .split(",")
               .map((p) => p.trim())
               .filter(Boolean);
 
             const filtered = parts.filter((p) => !/^(['"])600\1$/.test(p));
             if (filtered.length === parts.length) return match;
-            const nextArr = `[${filtered.join(', ')}]`;
+            const nextArr = `[${filtered.join(", ")}]`;
             return `${prefix}${nextArr}`;
-          }
+          },
         );
       }
 
@@ -115,12 +115,12 @@ function applyPreDeployFixes(files: Array<{ name: string; content: string }>): {
       }
     }
 
-    if (f.name.endsWith('.css') && f.content.includes('@utility')) {
+    if (f.name.endsWith(".css") && f.content.includes("@utility")) {
       const result = removeBrokenUtilityBlocks(f.content);
       if (result.removed > 0 && result.content !== f.content) {
         f.content = result.content;
         fixesApplied.push(
-          `Removed ${result.removed} broken @utility block${result.removed > 1 ? 's' : ''} in ${f.name}`
+          `Removed ${result.removed} broken @utility block${result.removed > 1 ? "s" : ""} in ${f.name}`,
         );
       }
     }
@@ -130,16 +130,16 @@ function applyPreDeployFixes(files: Array<{ name: string; content: string }>): {
 }
 
 const createDeploymentSchema = z.object({
-  chatId: z.string().min(1, 'chatId is required'),
-  versionId: z.string().min(1, 'versionId is required'),
+  chatId: z.string().min(1, "chatId is required"),
+  versionId: z.string().min(1, "versionId is required"),
   projectName: z.string().optional(),
-  target: z.enum(['production', 'preview']).optional(),
-  imageStrategy: z.enum(['external', 'blob']).optional(),
+  target: z.enum(["production", "preview"]).optional(),
+  imageStrategy: z.enum(["external", "blob"]).optional(),
   projectId: z.string().optional(),
 });
 
 export async function POST(req: Request) {
-  return withRateLimit(req, 'deployment:create', async () => {
+  return withRateLimit(req, "deployment:create", async () => {
     try {
       const botError = requireNotBot(req);
       if (botError) return botError;
@@ -150,20 +150,20 @@ export async function POST(req: Request) {
       const validationResult = createDeploymentSchema.safeParse(body);
       if (!validationResult.success) {
         return NextResponse.json(
-          { error: 'Validation failed', details: validationResult.error.issues },
-          { status: 400 }
+          { error: "Validation failed", details: validationResult.error.issues },
+          { status: 400 },
         );
       }
 
       const { chatId, versionId, projectName, target, imageStrategy } = validationResult.data;
       const resolvedImageStrategy: ImageAssetStrategy =
-        imageStrategy ?? (process.env.BLOB_READ_WRITE_TOKEN ? 'blob' : 'external');
+        imageStrategy ?? (process.env.BLOB_READ_WRITE_TOKEN ? "blob" : "external");
 
       let chat = await getChatByV0ChatIdForRequest(req, chatId);
       if (!chat) chat = await getChatByIdForRequest(req, chatId);
 
       if (!chat) {
-        return NextResponse.json({ error: 'Chat not found' }, { status: 404 });
+        return NextResponse.json({ error: "Chat not found" }, { status: 404 });
       }
 
       const internalChatId = chat.id;
@@ -184,28 +184,28 @@ export async function POST(req: Request) {
       }
 
       if (version.length === 0) {
-        return NextResponse.json({ error: 'Version not found' }, { status: 404 });
+        return NextResponse.json({ error: "Version not found" }, { status: 404 });
       }
 
       const internalVersionId = version[0].id;
       const v0VersionId = version[0].v0VersionId;
 
-      devLogAppend('latest', {
-        type: 'site.deploy.start',
+      devLogAppend("latest", {
+        type: "site.deploy.start",
         requestedChatId: chatId,
         internalChatId,
         v0ChatId,
         requestedVersionId: versionId,
         internalVersionId,
         v0VersionId,
-        target: target || 'production',
+        target: target || "production",
         imageStrategy: resolvedImageStrategy,
       });
-      if (process.env.NODE_ENV === 'development') {
-        console.log('[dev-log] deploy started', {
+      if (process.env.NODE_ENV === "development") {
+        console.log("[dev-log] deploy started", {
           v0ChatId,
           v0VersionId,
-          target: target || 'production',
+          target: target || "production",
         });
       }
 
@@ -223,22 +223,24 @@ export async function POST(req: Request) {
 
         const rawFiles = Array.isArray((v0Version as any)?.files) ? (v0Version as any).files : [];
         const textFiles = rawFiles
-          .filter((f: any) => f && typeof f.name === 'string' && typeof f.content === 'string')
+          .filter((f: any) => f && typeof f.name === "string" && typeof f.content === "string")
           .map((f: any) => ({ name: f.name, content: f.content }));
 
         if (textFiles.length === 0) {
-          await updateDeploymentStatus(deploymentId, 'error');
+          await updateDeploymentStatus(deploymentId, "error");
           return NextResponse.json(
-            { error: 'No files returned from v0 for this version' },
-            { status: 500 }
+            { error: "No files returned from v0 for this version" },
+            { status: 500 },
           );
         }
 
-        const vercelProjectName = sanitizeVercelProjectName(projectName || `sajtmaskin-${v0ChatId}`);
+        const vercelProjectName = sanitizeVercelProjectName(
+          projectName || `sajtmaskin-${v0ChatId}`,
+        );
 
         const { files: fixedFiles, fixesApplied } = applyPreDeployFixes(textFiles);
         if (fixesApplied.length > 0) {
-          console.log('[deploy] applied fixes:', fixesApplied);
+          console.log("[deploy] applied fixes:", fixesApplied);
         }
 
         const blobToken = process.env.BLOB_READ_WRITE_TOKEN;
@@ -250,14 +252,14 @@ export async function POST(req: Request) {
         });
 
         if (imageAssets.warnings.length > 0) {
-          console.log('[deploy] image assets warnings:', imageAssets.warnings.slice(0, 5));
+          console.log("[deploy] image assets warnings:", imageAssets.warnings.slice(0, 5));
         }
 
         const vercelFiles = toVercelFilesFromTextFiles(imageAssets.files);
 
         const created = await createVercelDeployment({
           projectName: vercelProjectName,
-          target: target || 'production',
+          target: target || "production",
           files: vercelFiles,
         });
 
@@ -269,8 +271,8 @@ export async function POST(req: Request) {
           inspectorUrl: created.inspectorUrl ?? undefined,
         });
 
-        devLogAppend('latest', {
-          type: 'site.deploy.done',
+        devLogAppend("latest", {
+          type: "site.deploy.done",
           internalChatId,
           v0ChatId,
           internalVersionId,
@@ -281,8 +283,8 @@ export async function POST(req: Request) {
           url: created.url ?? null,
           inspectorUrl: created.inspectorUrl ?? null,
         });
-        if (process.env.NODE_ENV === 'development') {
-          console.log('[dev-log] deploy finished', {
+        if (process.env.NODE_ENV === "development") {
+          console.log("[dev-log] deploy finished", {
             v0ChatId,
             v0VersionId,
             url: created.url ?? null,
@@ -306,18 +308,18 @@ export async function POST(req: Request) {
           imageAssetsWarnings: imageAssets.warnings,
         });
       } catch (deployErr) {
-        await updateDeploymentStatus(deploymentId, 'error');
+        await updateDeploymentStatus(deploymentId, "error");
         throw deployErr;
       }
     } catch (err) {
-      console.error('Deployment error:', err);
-      devLogAppend('latest', {
-        type: 'site.deploy.error',
-        message: err instanceof Error ? err.message : 'Unknown error',
+      console.error("Deployment error:", err);
+      devLogAppend("latest", {
+        type: "site.deploy.error",
+        message: err instanceof Error ? err.message : "Unknown error",
       });
       return NextResponse.json(
-        { error: err instanceof Error ? err.message : 'Unknown error' },
-        { status: 500 }
+        { error: err instanceof Error ? err.message : "Unknown error" },
+        { status: 500 },
       );
     }
   });
@@ -326,13 +328,10 @@ export async function POST(req: Request) {
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
-    const chatId = searchParams.get('chatId');
+    const chatId = searchParams.get("chatId");
 
     if (!chatId) {
-      return NextResponse.json(
-        { error: 'chatId query parameter is required' },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "chatId query parameter is required" }, { status: 400 });
     }
 
     let chat = await getChatByV0ChatIdForRequest(req, chatId);
@@ -351,8 +350,8 @@ export async function GET(req: Request) {
       .orderBy(desc(deployments.createdAt));
 
     const latestRefreshCandidate = result.find((d) => {
-      const status = String(d.status || 'pending');
-      const isTerminal = status === 'ready' || status === 'error' || status === 'cancelled';
+      const status = String(d.status || "pending");
+      const isTerminal = status === "ready" || status === "error" || status === "cancelled";
       return Boolean(d.vercelDeploymentId) && !isTerminal;
     });
 
@@ -370,9 +369,10 @@ export async function GET(req: Request) {
         latestRefreshCandidate.status = mapped.status as any;
         if (vercel.url) latestRefreshCandidate.url = vercel.url as any;
         if (vercel.inspectorUrl) latestRefreshCandidate.inspectorUrl = vercel.inspectorUrl as any;
-        if (vercel.vercelProjectId) latestRefreshCandidate.vercelProjectId = vercel.vercelProjectId as any;
+        if (vercel.vercelProjectId)
+          latestRefreshCandidate.vercelProjectId = vercel.vercelProjectId as any;
       } catch (err) {
-        console.error('Failed to refresh latest deployment in list:', err);
+        console.error("Failed to refresh latest deployment in list:", err);
       }
     }
 
@@ -391,10 +391,10 @@ export async function GET(req: Request) {
       })),
     });
   } catch (err) {
-    console.error('Get deployments error:', err);
+    console.error("Get deployments error:", err);
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : 'Unknown error' },
-      { status: 500 }
+      { error: err instanceof Error ? err.message : "Unknown error" },
+      { status: 500 },
     );
   }
 }

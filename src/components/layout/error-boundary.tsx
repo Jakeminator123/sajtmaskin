@@ -46,11 +46,11 @@ export class ErrorBoundary extends Component<Props, State> {
 
       // Default fallback UI
       return (
-        <div className="min-h-screen bg-black flex items-center justify-center p-4">
-          <div className="bg-gray-900 border border-gray-800 rounded-lg p-8 max-w-md w-full text-center">
-            <div className="text-red-500 mb-4">
+        <div className="flex min-h-screen items-center justify-center bg-black p-4">
+          <div className="w-full max-w-md rounded-lg border border-gray-800 bg-gray-900 p-8 text-center">
+            <div className="mb-4 text-red-500">
               <svg
-                className="w-16 h-16 mx-auto"
+                className="mx-auto h-16 w-16"
                 fill="none"
                 stroke="currentColor"
                 viewBox="0 0 24 24"
@@ -63,32 +63,30 @@ export class ErrorBoundary extends Component<Props, State> {
                 />
               </svg>
             </div>
-            <h2 className="text-xl font-bold text-white mb-2">
-              Något gick fel
-            </h2>
-            <p className="text-gray-400 mb-6">
+            <h2 className="mb-2 text-xl font-bold text-white">Något gick fel</h2>
+            <p className="mb-6 text-gray-400">
               Ett oväntat fel inträffade. Försök att ladda om sidan.
             </p>
             <div className="space-y-3">
               <button
                 onClick={this.handleRetry}
-                className="w-full bg-brand-blue hover:bg-brand-blue/90 text-white font-medium py-2 px-4 rounded-lg transition-colors"
+                className="bg-brand-blue hover:bg-brand-blue/90 w-full rounded-lg px-4 py-2 font-medium text-white transition-colors"
               >
                 Försök igen
               </button>
               <button
                 onClick={() => window.location.reload()}
-                className="w-full bg-gray-800 hover:bg-gray-700 text-white font-medium py-2 px-4 rounded-lg transition-colors"
+                className="w-full rounded-lg bg-gray-800 px-4 py-2 font-medium text-white transition-colors hover:bg-gray-700"
               >
                 Ladda om sidan
               </button>
             </div>
             {process.env.NODE_ENV === "development" && this.state.error && (
               <details className="mt-6 text-left">
-                <summary className="text-gray-500 cursor-pointer hover:text-gray-400">
+                <summary className="cursor-pointer text-gray-500 hover:text-gray-400">
                   Teknisk information
                 </summary>
-                <pre className="mt-2 p-3 bg-gray-950 rounded text-xs text-red-400 overflow-auto max-h-40">
+                <pre className="mt-2 max-h-40 overflow-auto rounded bg-gray-950 p-3 text-xs text-red-400">
                   {this.state.error.message}
                   {"\n\n"}
                   {this.state.error.stack}

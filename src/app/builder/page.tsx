@@ -1,33 +1,42 @@
-'use client';
+"use client";
 
-import { ChatInterface } from '@/components/builder/ChatInterface';
-import { ErrorBoundary } from '@/components/builder/ErrorBoundary';
-import { InitFromRepoModal } from '@/components/builder/InitFromRepoModal';
-import { MessageList } from '@/components/builder/MessageList';
-import { PreviewPanel } from '@/components/builder/PreviewPanel';
-import { SandboxModal } from '@/components/builder/SandboxModal';
-import { VersionHistory } from '@/components/builder/VersionHistory';
-import { BuilderHeader } from '@/components/builder/BuilderHeader';
-import type { V0UserFileAttachment } from '@/components/media';
-import { Button } from '@/components/ui/button';
-import { clearPersistedMessages } from '@/lib/builder/messagesStorage';
-import type { ChatMessage } from '@/lib/builder/types';
-import { useChat } from '@/lib/hooks/useChat';
-import { usePersistedChatMessages } from '@/lib/hooks/usePersistedChatMessages';
-import { usePromptAssist } from '@/lib/hooks/usePromptAssist';
-import { useV0ChatMessaging } from '@/lib/hooks/useV0ChatMessaging';
-import { useVersions } from '@/lib/hooks/useVersions';
-import { useAuth } from '@/lib/auth/auth-store';
-import type { PromptAssistProvider } from '@/lib/builder/promptAssist';
-import type { ModelTier } from '@/lib/validations/chatSchemas';
-import { cn } from '@/lib/utils';
+import { ChatInterface } from "@/components/builder/ChatInterface";
+import { ErrorBoundary } from "@/components/builder/ErrorBoundary";
+import { InitFromRepoModal } from "@/components/builder/InitFromRepoModal";
+import { MessageList } from "@/components/builder/MessageList";
+import { PreviewPanel } from "@/components/builder/PreviewPanel";
+import { SandboxModal } from "@/components/builder/SandboxModal";
+import { VersionHistory } from "@/components/builder/VersionHistory";
+import { BuilderHeader } from "@/components/builder/BuilderHeader";
+import type { V0UserFileAttachment } from "@/components/media";
+import { Button } from "@/components/ui/button";
+import { clearPersistedMessages } from "@/lib/builder/messagesStorage";
+import type { ChatMessage } from "@/lib/builder/types";
 import {
-  Check,
-  Loader2,
-} from 'lucide-react';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import toast, { Toaster } from 'react-hot-toast';
+  DEFAULT_MODEL_TIER,
+  DEFAULT_PROMPT_ASSIST,
+  DEFAULT_SYSTEM_PROMPT,
+  MODEL_TIER_OPTIONS,
+  PROMPT_ASSIST_PROVIDER_OPTIONS,
+  SETTINGS_URL_PARAMS,
+  loadSettingsFromStorage,
+  clearSettingsFromStorage,
+} from "@/lib/builder/defaults";
+import { useChat } from "@/lib/hooks/useChat";
+import { useCssValidation } from "@/lib/hooks/useCssValidation";
+import { usePersistedChatMessages } from "@/lib/hooks/usePersistedChatMessages";
+import { usePromptAssist } from "@/lib/hooks/usePromptAssist";
+import { useV0ChatMessaging } from "@/lib/hooks/useV0ChatMessaging";
+import { useVersions } from "@/lib/hooks/useVersions";
+import { useAuth } from "@/lib/auth/auth-store";
+import type { PromptAssistProvider } from "@/lib/builder/promptAssist";
+import type { ModelTier } from "@/lib/validations/chatSchemas";
+import { modelTiers } from "@/lib/validations/chatSchemas";
+import { cn } from "@/lib/utils";
+import { Check, Loader2 } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import toast, { Toaster } from "react-hot-toast";
 
 type CreateChatOptions = {
   attachments?: V0UserFileAttachment[];
@@ -35,48 +44,38 @@ type CreateChatOptions = {
   skipPromptAssist?: boolean;
 };
 
-type ModelOption = {
-  value: ModelTier;
-  label: string;
-  description: string;
-  hint?: string;
-};
+const LEGACY_ASSIST_PROVIDERS: PromptAssistProvider[] = ["vercel"];
+const ASSIST_PROVIDER_SET = new Set([
+  ...PROMPT_ASSIST_PROVIDER_OPTIONS.map((option) => option.value),
+  ...LEGACY_ASSIST_PROVIDERS,
+]);
 
-const MODEL_TIER_OPTIONS: ModelOption[] = [
-  {
-    value: 'v0-mini',
-    label: 'Mini',
-    description: 'Snabbast och billigast. Bra för snabb prototyp.',
-  },
-  {
-    value: 'v0-pro',
-    label: 'Pro',
-    description: 'Balanserad kvalitet och hastighet.',
-    hint: 'Rekommenderad',
-  },
-  {
-    value: 'v0-max',
-    label: 'Max',
-    description: 'Bäst kvalitet, långsammare. Djupare resonemang.',
-  },
-];
-
-const DEFAULT_SYSTEM_PROMPT =
-  'You are a senior product designer and front-end engineer. ' +
-  'Build a modern, production-ready UI with clear hierarchy, accessible components, and responsive layout. ' +
-  'Use semantic HTML and Tailwind CSS classes only.';
+function normalizeAssistProvider(value: string | null | undefined): PromptAssistProvider | null {
+  if (!value) return null;
+  return ASSIST_PROVIDER_SET.has(value as PromptAssistProvider)
+    ? (value as PromptAssistProvider)
+    : null;
+}
 
 function BuilderContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { fetchUser } = useAuth();
 
-  const chatIdParam = searchParams.get('chatId');
-  const promptParam = searchParams.get('prompt');
-  const templateId = searchParams.get('templateId');
-  const source = searchParams.get('source');
-  const auditId = searchParams.get('auditId');
-  const hasEntryParams = Boolean(promptParam || templateId || source === 'audit');
+  const chatIdParam = searchParams.get("chatId");
+  const promptParam = searchParams.get("prompt");
+  const templateId = searchParams.get("templateId");
+  const source = searchParams.get("source");
+  const auditId = searchParams.get("auditId");
+  const hasEntryParams = Boolean(promptParam || templateId || source === "audit");
+
+  // Read initial settings from URL params
+  const urlModelTier = searchParams.get(SETTINGS_URL_PARAMS.modelTier) as ModelTier | null;
+  const urlAssistProvider = searchParams.get(
+    SETTINGS_URL_PARAMS.assistProvider,
+  ) as PromptAssistProvider | null;
+  const urlAssistModel = searchParams.get(SETTINGS_URL_PARAMS.assistModel);
+  const urlAssistDeep = searchParams.get(SETTINGS_URL_PARAMS.assistDeep);
 
   const [chatId, setChatId] = useState<string | null>(chatIdParam);
   const [currentDemoUrl, setCurrentDemoUrl] = useState<string | null>(null);
@@ -85,25 +84,55 @@ function BuilderContent() {
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [selectedVersionId, setSelectedVersionId] = useState<string | null>(null);
   const [isVersionPanelCollapsed, setIsVersionPanelCollapsed] = useState(false);
-  const [selectedModelTier, setSelectedModelTier] = useState<ModelTier>('v0-pro');
-  const [promptAssistProvider, setPromptAssistProvider] =
-    useState<PromptAssistProvider>('off');
-  const [promptAssistModel, setPromptAssistModel] = useState('openai/gpt-5');
-  const [gatewayModels, setGatewayModels] = useState<string[]>([]);
-  const [gatewayModelsStatus, setGatewayModelsStatus] =
-    useState<'idle' | 'loading' | 'ready' | 'error'>('idle');
-  const [gatewayModelsError, setGatewayModelsError] = useState<string | null>(null);
-  const [promptAssistDeep, setPromptAssistDeep] = useState(false);
-  const [systemPrompt, setSystemPrompt] = useState(DEFAULT_SYSTEM_PROMPT);
+  const [selectedModelTier, setSelectedModelTier] = useState<ModelTier>(() => {
+    // 1. URL param takes priority
+    if (urlModelTier && modelTiers.includes(urlModelTier)) return urlModelTier;
+    // 2. Storage fallback (for audit flow)
+    if (typeof window !== "undefined") {
+      const stored = loadSettingsFromStorage(auditId ?? undefined);
+      if (stored?.modelTier && modelTiers.includes(stored.modelTier)) return stored.modelTier;
+    }
+    // 3. Default
+    return DEFAULT_MODEL_TIER;
+  });
+  const [promptAssistProvider, setPromptAssistProvider] = useState<PromptAssistProvider>(() => {
+    const normalizedUrlProvider = normalizeAssistProvider(urlAssistProvider);
+    if (normalizedUrlProvider) return normalizedUrlProvider;
+    if (typeof window !== "undefined") {
+      const stored = loadSettingsFromStorage(auditId ?? undefined);
+      const normalizedStored = normalizeAssistProvider(stored?.assistProvider ?? null);
+      if (normalizedStored) return normalizedStored;
+    }
+    return DEFAULT_PROMPT_ASSIST.provider;
+  });
+  const [promptAssistModel, setPromptAssistModel] = useState(() => {
+    if (urlAssistModel) return urlAssistModel;
+    if (typeof window !== "undefined") {
+      const stored = loadSettingsFromStorage(auditId ?? undefined);
+      if (stored?.assistModel) return stored.assistModel;
+    }
+    return DEFAULT_PROMPT_ASSIST.model;
+  });
+  const [promptAssistDeep, setPromptAssistDeep] = useState(() => {
+    if (urlAssistDeep === "true") return true;
+    if (urlAssistDeep === "false") return false;
+    if (typeof window !== "undefined") {
+      const stored = loadSettingsFromStorage(auditId ?? undefined);
+      if (typeof stored?.assistDeep === "boolean") return stored.assistDeep;
+    }
+    return DEFAULT_PROMPT_ASSIST.deep;
+  });
+  const systemPrompt = DEFAULT_SYSTEM_PROMPT;
   const [isSandboxModalOpen, setIsSandboxModalOpen] = useState(false);
   const [isDeploying, setIsDeploying] = useState(false);
   const [enableImageGenerations, setEnableImageGenerations] = useState(true);
   const [designSystemMode, setDesignSystemMode] = useState(false);
-  const [deployImageStrategy, setDeployImageStrategy] = useState<'external' | 'blob'>('external');
+  const [showStructuredChat, setShowStructuredChat] = useState(false);
+  const [deployImageStrategy, setDeployImageStrategy] = useState<"external" | "blob">("external");
   const [isIntentionalReset, setIsIntentionalReset] = useState(false);
   const hasUserSelectedImageStrategy = useRef(false);
 
-  const [auditPromptLoaded, setAuditPromptLoaded] = useState(source !== 'audit');
+  const [auditPromptLoaded, setAuditPromptLoaded] = useState(source !== "audit");
   const [resolvedPrompt, setResolvedPrompt] = useState<string | null>(promptParam);
   const [isTemplateLoading, setIsTemplateLoading] = useState(false);
   const [isModelSelectOpen, setIsModelSelectOpen] = useState(false);
@@ -114,13 +143,10 @@ function BuilderContent() {
   const [hasSelectedModelTier, setHasSelectedModelTier] = useState(false);
 
   useEffect(() => {
-    if (source !== 'audit' || typeof window === 'undefined') return;
+    if (source !== "audit" || typeof window === "undefined") return;
 
-    const storageKey = auditId
-      ? `sajtmaskin_audit_prompt:${auditId}`
-      : 'sajtmaskin_audit_prompt';
-    const storedPrompt =
-      sessionStorage.getItem(storageKey) || localStorage.getItem(storageKey);
+    const storageKey = auditId ? `sajtmaskin_audit_prompt:${auditId}` : "sajtmaskin_audit_prompt";
+    const storedPrompt = sessionStorage.getItem(storageKey) || localStorage.getItem(storageKey);
 
     if (storedPrompt) {
       setResolvedPrompt(storedPrompt);
@@ -129,10 +155,44 @@ function BuilderContent() {
     setAuditPromptLoaded(true);
   }, [source, auditId]);
 
+  // Clear settings from storage after they've been read (prevents stale settings on refresh)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    // Only clear if we had pre-builder settings
+    const hasPreBuilderSettings =
+      urlModelTier || urlAssistProvider || urlAssistModel || urlAssistDeep;
+    if (hasPreBuilderSettings || auditId) {
+      clearSettingsFromStorage(auditId ?? undefined);
+    }
+    // Run only once on mount
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   useEffect(() => {
     fetchUser().catch(() => {});
     // fetchUser is stable via zustand
   }, [fetchUser]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const stored = localStorage.getItem("sajtmaskin:structuredChat");
+      if (stored !== null) {
+        setShowStructuredChat(stored === "true");
+      }
+    } catch {
+      // ignore storage errors
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      localStorage.setItem("sajtmaskin:structuredChat", String(showStructuredChat));
+    } catch {
+      // ignore storage errors
+    }
+  }, [showStructuredChat]);
 
   useEffect(() => {
     let isActive = true;
@@ -140,18 +200,18 @@ function BuilderContent() {
 
     const loadImageStrategyDefault = async () => {
       try {
-        const res = await fetch('/api/health', { signal: controller.signal });
+        const res = await fetch("/api/health", { signal: controller.signal });
         if (!res.ok) return;
-        const data = (await res.json().catch(() => null)) as
-          | { features?: { vercelBlob?: boolean } }
-          | null;
+        const data = (await res.json().catch(() => null)) as {
+          features?: { vercelBlob?: boolean };
+        } | null;
         const blobEnabled = Boolean(data?.features?.vercelBlob);
         if (!isActive || hasUserSelectedImageStrategy.current) return;
         if (blobEnabled) {
-          setDeployImageStrategy('blob');
+          setDeployImageStrategy("blob");
         }
       } catch (error) {
-        if (error instanceof Error && error.name === 'AbortError') return;
+        if (error instanceof Error && error.name === "AbortError") return;
       }
     };
 
@@ -165,104 +225,50 @@ function BuilderContent() {
 
   useEffect(() => {
     if (!searchParams) return;
-    const connected = searchParams.get('github_connected');
-    const username = searchParams.get('github_username');
-    const error = searchParams.get('github_error');
-    const errorReason = searchParams.get('github_error_reason');
+    const connected = searchParams.get("github_connected");
+    const username = searchParams.get("github_username");
+    const error = searchParams.get("github_error");
+    const errorReason = searchParams.get("github_error_reason");
 
     if (!connected && !error) return;
 
     if (connected) {
-      toast.success(
-        username ? `GitHub kopplat: @${username}` : 'GitHub kopplat'
-      );
+      toast.success(username ? `GitHub kopplat: @${username}` : "GitHub kopplat");
     } else if (error) {
       const message =
-        error === 'not_authenticated'
-          ? 'Logga in för att koppla GitHub'
-          : error === 'not_configured'
-            ? 'GitHub OAuth är inte konfigurerat'
-            : error === 'user_fetch_failed'
-              ? 'Kunde inte hämta GitHub-användare'
-              : error === 'no_code'
-                ? 'GitHub gav ingen kod'
-                : 'GitHub-anslutning misslyckades';
+        error === "not_authenticated"
+          ? "Logga in för att koppla GitHub"
+          : error === "not_configured"
+            ? "GitHub OAuth är inte konfigurerat"
+            : error === "user_fetch_failed"
+              ? "Kunde inte hämta GitHub-användare"
+              : error === "no_code"
+                ? "GitHub gav ingen kod"
+                : "GitHub-anslutning misslyckades";
       toast.error(message);
-      if (errorReason === 'unsafe_return') {
-        console.warn('[GitHub OAuth] Unsafe return URL sanitized');
+      if (errorReason === "unsafe_return") {
+        console.warn("[GitHub OAuth] Unsafe return URL sanitized");
       }
     }
 
     const nextParams = new URLSearchParams(searchParams.toString());
-    nextParams.delete('github_connected');
-    nextParams.delete('github_username');
-    nextParams.delete('github_error');
-    nextParams.delete('github_error_reason');
+    nextParams.delete("github_connected");
+    nextParams.delete("github_username");
+    nextParams.delete("github_error");
+    nextParams.delete("github_error_reason");
     const query = nextParams.toString();
-    router.replace(query ? `/builder?${query}` : '/builder');
+    router.replace(query ? `/builder?${query}` : "/builder");
   }, [searchParams, router]);
 
   useEffect(() => {
-    if (promptAssistProvider !== 'gateway') return;
-
-    let isActive = true;
-    const controller = new AbortController();
-
-    const loadModels = async () => {
-      try {
-        setGatewayModelsStatus('loading');
-        setGatewayModelsError(null);
-        const res = await fetch('/api/ai/gateway/models', { signal: controller.signal });
-        if (!res.ok) {
-          const data = await res.json().catch(() => null);
-          const errorValue =
-            typeof data === 'object' && data !== null && 'error' in data
-              ? (data as { error?: unknown }).error
-              : null;
-          const msg =
-            typeof errorValue === 'string' && errorValue
-              ? errorValue
-              : `AI Gateway models failed (HTTP ${res.status})`;
-          throw new Error(msg);
-        }
-
-        const data = (await res.json().catch(() => null)) as { models?: unknown };
-        const models = Array.isArray(data?.models) ? (data?.models as string[]) : [];
-        if (!isActive) return;
-        setGatewayModels(models);
-        setGatewayModelsStatus('ready');
-      } catch (error) {
-        if (!isActive) return;
-        if (error instanceof Error && error.name === 'AbortError') return;
-        setGatewayModelsStatus('error');
-        setGatewayModelsError(error instanceof Error ? error.message : 'Kunde inte hämta modeller');
-      }
-    };
-
-    loadModels();
-
-    return () => {
-      isActive = false;
-      controller.abort();
-    };
-  }, [promptAssistProvider]);
-
-  useEffect(() => {
-    if (promptAssistProvider !== 'vercel') return;
-    if (!promptAssistModel || !promptAssistModel.trim().startsWith('v0-')) {
-      setPromptAssistModel('v0-1.5-md');
-    }
-  }, [promptAssistProvider, promptAssistModel]);
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    if (source !== 'audit') return;
+    if (typeof window === "undefined") return;
+    if (source !== "audit") return;
     if (!auditId || !currentDemoUrl) return;
 
     const key = `sajtmaskin_audit_prompt:${auditId}`;
     sessionStorage.removeItem(key);
     localStorage.removeItem(key);
-    sessionStorage.removeItem('sajtmaskin_audit_prompt_id');
+    sessionStorage.removeItem("sajtmaskin_audit_prompt_id");
   }, [source, auditId, currentDemoUrl]);
 
   const { chat } = useChat(chatId);
@@ -274,13 +280,13 @@ function BuilderContent() {
   };
   const versionsList = useMemo(
     () => (Array.isArray(versions) ? (versions as VersionSummary[]) : []),
-    [versions]
+    [versions],
   );
   const versionIdSet = useMemo(() => {
     return new Set(
       versionsList
         .map((version) => version.versionId || version.id || null)
-        .filter((versionId): versionId is string => Boolean(versionId))
+        .filter((versionId): versionId is string => Boolean(versionId)),
     );
   }, [versionsList]);
 
@@ -310,7 +316,7 @@ function BuilderContent() {
 
     if (!chatIdParam && !chatId && !hasEntryParams) {
       try {
-        const last = localStorage.getItem('sajtmaskin:lastChatId');
+        const last = localStorage.getItem("sajtmaskin:lastChatId");
         if (last) {
           setChatId(last);
           router.replace(`/builder?chatId=${encodeURIComponent(last)}`);
@@ -324,7 +330,7 @@ function BuilderContent() {
   useEffect(() => {
     if (!chatId) return;
     try {
-      localStorage.setItem('sajtmaskin:lastChatId', chatId);
+      localStorage.setItem("sajtmaskin:lastChatId", chatId);
     } catch {
       // ignore storage errors
     }
@@ -339,7 +345,7 @@ function BuilderContent() {
   const latestVersionId = useMemo(() => {
     const latestFromVersions = versionsList[0]?.versionId || versionsList[0]?.id || null;
     const latestFromChat = (() => {
-      if (!chat || typeof chat !== 'object') return null;
+      if (!chat || typeof chat !== "object") return null;
       const latest = (chat as { latestVersion?: { versionId?: string | null; id?: string | null } })
         .latestVersion;
       return latest?.versionId || latest?.id || null;
@@ -352,22 +358,22 @@ function BuilderContent() {
   const isAnyStreaming = useMemo(() => messages.some((m) => Boolean(m.isStreaming)), [messages]);
 
   const deployActiveVersionToVercel = useCallback(
-    async (target: 'production' | 'preview' = 'production') => {
+    async (target: "production" | "preview" = "production") => {
       if (!chatId) {
-        toast.error('No chat selected');
+        toast.error("No chat selected");
         return;
       }
       if (!activeVersionId) {
-        toast.error('No version selected');
+        toast.error("No version selected");
         return;
       }
       if (isDeploying) return;
 
       setIsDeploying(true);
       try {
-        const response = await fetch('/api/v0/deployments', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+        const response = await fetch("/api/v0/deployments", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             chatId,
             versionId: activeVersionId,
@@ -378,35 +384,37 @@ function BuilderContent() {
 
         const data = await response.json().catch(() => ({}));
         if (!response.ok) {
-          throw new Error(data?.error || data?.message || `Deploy failed (HTTP ${response.status})`);
+          throw new Error(
+            data?.error || data?.message || `Deploy failed (HTTP ${response.status})`,
+          );
         }
 
-        const rawUrl = typeof data?.url === 'string' ? data.url : null;
-        const url = rawUrl ? (rawUrl.startsWith('http') ? rawUrl : `https://${rawUrl}`) : null;
+        const rawUrl = typeof data?.url === "string" ? data.url : null;
+        const url = rawUrl ? (rawUrl.startsWith("http") ? rawUrl : `https://${rawUrl}`) : null;
 
-        toast.success(url ? 'Deployment started (Vercel building...)' : 'Deployment started');
+        toast.success(url ? "Deployment started (Vercel building...)" : "Deployment started");
         if (url) {
           toast(
             <span className="text-sm">
-              Vercel URL:{' '}
+              Vercel URL:{" "}
               <a href={url} target="_blank" rel="noopener noreferrer" className="underline">
                 {url}
               </a>
             </span>,
-            { duration: 15000 }
+            { duration: 15000 },
           );
         }
       } catch (error) {
-        console.error('Deploy error:', error);
-        toast.error(error instanceof Error ? error.message : 'Failed to deploy');
+        console.error("Deploy error:", error);
+        toast.error(error instanceof Error ? error.message : "Failed to deploy");
       } finally {
         setIsDeploying(false);
       }
     },
-    [chatId, activeVersionId, isDeploying, deployImageStrategy]
+    [chatId, activeVersionId, isDeploying, deployImageStrategy],
   );
 
-  const handleDeployImageStrategyChange = useCallback((strategy: 'external' | 'blob') => {
+  const handleDeployImageStrategyChange = useCallback((strategy: "external" | "blob") => {
     hasUserSelectedImageStrategy.current = true;
     setDeployImageStrategy(strategy);
   }, []);
@@ -419,14 +427,16 @@ function BuilderContent() {
   });
 
   const promptAssistStatus = useMemo(() => {
-    if (promptAssistProvider === 'off') return null;
+    if (promptAssistProvider === "off") return null;
     const providerLabel =
-      promptAssistProvider === 'gateway'
-        ? 'AI Gateway'
-        : promptAssistProvider === 'openai'
-          ? 'OpenAI'
-          : 'Claude';
-    return `${providerLabel}${promptAssistDeep ? ' • Djup' : ''}`;
+      promptAssistProvider === "gateway"
+        ? "AI Gateway"
+        : promptAssistProvider === "openai"
+          ? "OpenAI"
+          : promptAssistProvider === "anthropic"
+            ? "Claude"
+            : "v0 Model API";
+    return `${providerLabel}${promptAssistDeep ? " • Djup" : ""}`;
   }, [promptAssistProvider, promptAssistDeep]);
 
   const resetBeforeCreateChat = useCallback(() => {
@@ -437,6 +447,22 @@ function BuilderContent() {
   const bumpPreviewRefreshToken = useCallback(() => {
     setPreviewRefreshToken(Date.now());
   }, []);
+
+  // CSS validation hook - auto-fixes Tailwind v4 issues after generation
+  const { validateAndFix: validateCss } = useCssValidation({ autoFix: true, showToasts: true });
+
+  // Handle generation completion - validate CSS to prevent runtime errors
+  const handleGenerationComplete = useCallback(
+    async (data: { chatId: string; versionId?: string; demoUrl?: string }) => {
+      if (data.chatId && data.versionId) {
+        // Run CSS validation in background (don't block UI)
+        validateCss(data.chatId, data.versionId).catch((err) => {
+          console.warn("[CSS Validation] Failed:", err);
+        });
+      }
+    },
+    [validateCss],
+  );
 
   const { isCreatingChat, createNewChat, sendMessage } = useV0ChatMessaging({
     chatId,
@@ -450,6 +476,7 @@ function BuilderContent() {
     mutateVersions,
     setCurrentDemoUrl,
     onPreviewRefresh: bumpPreviewRefreshToken,
+    onGenerationComplete: handleGenerationComplete,
     setMessages,
     resetBeforeCreateChat,
   });
@@ -473,7 +500,7 @@ function BuilderContent() {
       await createNewChat(message, options);
       return true;
     },
-    [chatId, hasSelectedModelTier, createNewChat]
+    [chatId, hasSelectedModelTier, createNewChat],
   );
 
   usePersistedChatMessages({
@@ -486,13 +513,13 @@ function BuilderContent() {
 
   const resetToNewChat = useCallback(() => {
     setIsIntentionalReset(true);
-    if (typeof window !== 'undefined') {
-      localStorage.removeItem('sajtmaskin:lastChatId');
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("sajtmaskin:lastChatId");
     }
     if (chatId) {
       clearPersistedMessages(chatId);
     }
-    router.replace('/builder');
+    router.replace("/builder");
     setChatId(null);
     setCurrentDemoUrl(null);
     setPreviewRefreshToken(0);
@@ -512,13 +539,13 @@ function BuilderContent() {
     (versionId: string) => {
       setSelectedVersionId(versionId);
       const match = versionsList.find(
-        (version) => version.versionId === versionId || version.id === versionId
+        (version) => version.versionId === versionId || version.id === versionId,
       );
       if (match?.demoUrl) {
         setCurrentDemoUrl(match.demoUrl);
       }
     },
-    [versionsList]
+    [versionsList],
   );
 
   const handleToggleVersionPanel = useCallback(() => {
@@ -526,14 +553,6 @@ function BuilderContent() {
   }, []);
 
   const initialPrompt = templateId ? null : resolvedPrompt?.trim() || null;
-  const autoCreateRef = useRef(false);
-  useEffect(() => {
-    if (!auditPromptLoaded) return;
-    if (!initialPrompt || chatId || autoCreateRef.current) return;
-
-    autoCreateRef.current = true;
-    void requestCreateChat(initialPrompt);
-  }, [auditPromptLoaded, initialPrompt, chatId, requestCreateChat]);
 
   useEffect(() => {
     if (!auditPromptLoaded) return;
@@ -542,14 +561,14 @@ function BuilderContent() {
     const initTemplate = async () => {
       setIsTemplateLoading(true);
       try {
-        const response = await fetch('/api/template', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ templateId, quality: 'standard' }),
+        const response = await fetch("/api/template", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ templateId, quality: "standard" }),
         });
         const data = await response.json();
         if (!response.ok || !data?.success) {
-          throw new Error(data?.error || 'Template init failed');
+          throw new Error(data?.error || "Template init failed");
         }
 
         if (data?.chatId) {
@@ -560,7 +579,7 @@ function BuilderContent() {
           setCurrentDemoUrl(data.demoUrl);
         }
       } catch (error) {
-        console.error('[Builder] Template init failed:', error);
+        console.error("[Builder] Template init failed:", error);
       } finally {
         setIsTemplateLoading(false);
       }
@@ -571,7 +590,7 @@ function BuilderContent() {
 
   return (
     <ErrorBoundary>
-      <div className="flex h-screen w-screen flex-col overflow-hidden bg-muted/30">
+      <div className="bg-muted/30 flex h-screen w-screen flex-col overflow-hidden">
         <Toaster position="top-right" />
 
         <BuilderHeader
@@ -583,15 +602,12 @@ function BuilderContent() {
           onPromptAssistModelChange={setPromptAssistModel}
           promptAssistDeep={promptAssistDeep}
           onPromptAssistDeepChange={setPromptAssistDeep}
-          gatewayModels={gatewayModels}
-          gatewayModelsStatus={gatewayModelsStatus}
-          gatewayModelsError={gatewayModelsError}
-          systemPrompt={systemPrompt}
-          onSystemPromptChange={setSystemPrompt}
           enableImageGenerations={enableImageGenerations}
           onEnableImageGenerationsChange={setEnableImageGenerations}
           designSystemMode={designSystemMode}
           onDesignSystemModeChange={setDesignSystemMode}
+          showStructuredChat={showStructuredChat}
+          onShowStructuredChatChange={setShowStructuredChat}
           deployImageStrategy={deployImageStrategy}
           onDeployImageStrategyChange={handleDeployImageStrategyChange}
           onOpenImport={() => {
@@ -602,23 +618,28 @@ function BuilderContent() {
             setIsImportModalOpen(false);
             setIsSandboxModalOpen(true);
           }}
-          onDeployProduction={() => deployActiveVersionToVercel('production')}
+          onDeployProduction={() => deployActiveVersionToVercel("production")}
           onNewChat={resetToNewChat}
           isDeploying={isDeploying}
           isCreatingChat={isCreatingChat || isTemplateLoading}
           isAnyStreaming={isAnyStreaming}
           canDeploy={Boolean(
-            chatId && activeVersionId && !isCreatingChat && !isAnyStreaming && !isDeploying
+            chatId && activeVersionId && !isCreatingChat && !isAnyStreaming && !isDeploying,
           )}
         />
 
         <div className="flex flex-1 overflow-hidden">
-          <div className="flex w-full flex-col border-r border-border bg-background lg:w-96">
+          <div className="border-border bg-background flex w-full flex-col border-r lg:w-96">
             <div className="flex-1 overflow-hidden">
-              <MessageList chatId={chatId} messages={messages} />
+              <MessageList
+                chatId={chatId}
+                messages={messages}
+                showStructuredParts={showStructuredChat}
+              />
             </div>
             <ChatInterface
               chatId={chatId}
+              initialPrompt={auditPromptLoaded ? initialPrompt : null}
               onCreateChat={requestCreateChat}
               onSendMessage={sendMessage}
               onEnhancePrompt={maybeEnhanceInitialPrompt}
@@ -641,8 +662,8 @@ function BuilderContent() {
             </div>
             <div
               className={cn(
-                'flex h-full flex-col border-l border-border bg-background transition-[width] duration-200',
-                isVersionPanelCollapsed ? 'w-10' : 'w-80'
+                "border-border bg-background flex h-full flex-col border-l transition-[width] duration-200",
+                isVersionPanelCollapsed ? "w-10" : "w-80",
               )}
             >
               <VersionHistory
@@ -685,12 +706,12 @@ function BuilderContent() {
                 setPendingCreate(null);
               }}
             />
-            <div className="relative z-10 w-full max-w-lg rounded-xl border border-border bg-background p-6 shadow-2xl">
+            <div className="border-border bg-background relative z-10 w-full max-w-lg rounded-xl border p-6 shadow-2xl">
               <div className="mb-4">
-                <h2 className="text-lg font-semibold text-foreground">
+                <h2 className="text-foreground text-lg font-semibold">
                   Välj modell för första prompten
                 </h2>
-                <p className="mt-1 text-sm text-muted-foreground">
+                <p className="text-muted-foreground mt-1 text-sm">
                   Du kan ändra senare i toppmenyn. Detta påverkar bara första körningen.
                 </p>
               </div>
@@ -703,26 +724,26 @@ function BuilderContent() {
                       type="button"
                       onClick={() => setSelectedModelTier(option.value)}
                       className={cn(
-                        'w-full rounded-lg border px-4 py-3 text-left transition-colors',
+                        "w-full rounded-lg border px-4 py-3 text-left transition-colors",
                         isSelected
-                          ? 'border-brand-blue/60 bg-brand-blue/10'
-                          : 'border-border hover:border-brand-blue/40'
+                          ? "border-brand-blue/60 bg-brand-blue/10"
+                          : "border-border hover:border-brand-blue/40",
                       )}
                     >
                       <div className="flex items-center justify-between">
                         <div className="flex items-center gap-2">
-                          <span className="text-sm font-medium text-foreground">
+                          <span className="text-foreground text-sm font-medium">
                             {option.label}
                           </span>
                           {option.hint ? (
-                            <span className="rounded-full bg-brand-amber/20 px-2 py-0.5 text-[10px] text-brand-amber">
+                            <span className="bg-brand-amber/20 text-brand-amber rounded-full px-2 py-0.5 text-[10px]">
                               {option.hint}
                             </span>
                           ) : null}
                         </div>
-                        {isSelected ? <Check className="h-4 w-4 text-brand-blue" /> : null}
+                        {isSelected ? <Check className="text-brand-blue h-4 w-4" /> : null}
                       </div>
-                      <p className="mt-1 text-xs text-muted-foreground">{option.description}</p>
+                      <p className="text-muted-foreground mt-1 text-xs">{option.description}</p>
                     </button>
                   );
                 })}
@@ -751,10 +772,10 @@ export default function BuilderPage() {
   return (
     <Suspense
       fallback={
-        <div className="flex h-screen items-center justify-center bg-muted/30">
+        <div className="bg-muted/30 flex h-screen items-center justify-center">
           <div className="text-center">
-            <Loader2 className="mx-auto h-8 w-8 animate-spin text-primary" />
-            <p className="mt-4 text-sm text-muted-foreground">Loading builder...</p>
+            <Loader2 className="text-primary mx-auto h-8 w-8 animate-spin" />
+            <p className="text-muted-foreground mt-4 text-sm">Loading builder...</p>
           </div>
         </div>
       }

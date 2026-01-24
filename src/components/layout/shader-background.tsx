@@ -67,9 +67,7 @@ export function ShaderBackground({
   shimmer = false,
   shimmerSpeed = 8,
 }: ShaderBackgroundProps) {
-  const [currentColor, setCurrentColor] = useState(
-    color || SHADER_THEMES[theme].color
-  );
+  const [currentColor, setCurrentColor] = useState(color || SHADER_THEMES[theme].color);
   const [colorIndex, setColorIndex] = useState(0);
   const transitionDurationMs = getTransitionDurationMs(shimmerSpeed);
 
@@ -97,9 +95,9 @@ export function ShaderBackground({
   return (
     <div
       className={cn(
-        "fixed inset-0 z-0 select-none shader-background bg-background",
+        "shader-background bg-background fixed inset-0 z-0 select-none",
         getOpacityClass(opacity),
-        className
+        className,
       )}
     >
       <MemoizedDithering
@@ -112,13 +110,13 @@ export function ShaderBackground({
         scale={1.13}
         className={cn(
           "bg-background h-screen w-screen",
-          shimmer ? "transition-all ease-in-out" : "transition-none"
+          shimmer ? "transition-all ease-in-out" : "transition-none",
         )}
         style={
           shimmer
             ? {
-              transitionDuration: `${transitionDurationMs}ms`,
-            }
+                transitionDuration: `${transitionDurationMs}ms`,
+              }
             : undefined
         }
       />

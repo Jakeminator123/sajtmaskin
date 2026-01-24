@@ -1,16 +1,9 @@
-'use client';
+"use client";
 
-import type { PromptAssistProvider } from '@/lib/builder/promptAssist';
-import type { ModelTier } from '@/lib/validations/chatSchemas';
-import { Button } from '@/components/ui/button';
-import {
-  Command,
-  CommandEmpty,
-  CommandGroup,
-  CommandInput,
-  CommandItem,
-  CommandList,
-} from '@/components/ui/command';
+import type { PromptAssistProvider } from "@/lib/builder/promptAssist";
+import type { ModelTier } from "@/lib/validations/chatSchemas";
+import { MODEL_TIER_OPTIONS, PROMPT_ASSIST_PROVIDER_OPTIONS } from "@/lib/builder/defaults";
+import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -20,70 +13,23 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { Input } from '@/components/ui/input';
+} from "@/components/ui/dropdown-menu";
+import { Input } from "@/components/ui/input";
 import {
   Bot,
   ChevronDown,
   FolderGit2,
+  HelpCircle,
   ImageIcon,
   Loader2,
+  MessageSquare,
   Plus,
   Rocket,
   Settings2,
   Sparkles,
   TerminalSquare,
-} from 'lucide-react';
-
-const MODEL_OPTIONS: {
-  value: ModelTier;
-  label: string;
-  description: string;
-}[] = [
-    {
-      value: 'v0-mini',
-      label: 'Light',
-      description: 'Fast & cost-efficient',
-    },
-    {
-      value: 'v0-pro',
-      label: 'Pro',
-      description: 'Balanced',
-    },
-    {
-      value: 'v0-max',
-      label: 'Max',
-      description: 'Best quality',
-    },
-  ];
-
-const V0_MODEL_OPTIONS: Array<{
-  value: string;
-  label: string;
-  description: string;
-}> = [
-  {
-    value: 'v0-1.5-md',
-    label: 'v0-1.5-md',
-    description: 'Balanced',
-  },
-  {
-    value: 'v0-1.5-lg',
-    label: 'v0-1.5-lg',
-    description: 'Best quality',
-  },
-];
-
-const PROMPT_ASSIST_OPTIONS: {
-  value: PromptAssistProvider;
-  label: string;
-}[] = [
-    { value: 'off', label: 'Off' },
-  { value: 'vercel', label: 'v0 Model API' },
-    { value: 'gateway', label: 'AI Gateway' },
-    { value: 'openai', label: 'OpenAI' },
-    { value: 'anthropic', label: 'Claude' },
-  ];
+} from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 export function BuilderHeader(props: {
   selectedModelTier: ModelTier;
@@ -95,11 +41,6 @@ export function BuilderHeader(props: {
   onPromptAssistModelChange: (model: string) => void;
   promptAssistDeep: boolean;
   onPromptAssistDeepChange: (deep: boolean) => void;
-  gatewayModels: string[];
-  gatewayModelsStatus: 'idle' | 'loading' | 'ready' | 'error';
-  gatewayModelsError: string | null;
-  systemPrompt: string;
-  onSystemPromptChange: (value: string) => void;
 
   enableImageGenerations: boolean;
   onEnableImageGenerationsChange: (v: boolean) => void;
@@ -107,8 +48,11 @@ export function BuilderHeader(props: {
   designSystemMode: boolean;
   onDesignSystemModeChange: (v: boolean) => void;
 
-  deployImageStrategy: 'external' | 'blob';
-  onDeployImageStrategyChange: (s: 'external' | 'blob') => void;
+  showStructuredChat: boolean;
+  onShowStructuredChatChange: (v: boolean) => void;
+
+  deployImageStrategy: "external" | "blob";
+  onDeployImageStrategyChange: (s: "external" | "blob") => void;
 
   onOpenImport: () => void;
   onOpenSandbox: () => void;
@@ -129,15 +73,12 @@ export function BuilderHeader(props: {
     onPromptAssistModelChange,
     promptAssistDeep,
     onPromptAssistDeepChange,
-    gatewayModels,
-    gatewayModelsStatus,
-    gatewayModelsError,
-    systemPrompt,
-    onSystemPromptChange,
     enableImageGenerations,
     onEnableImageGenerationsChange,
     designSystemMode,
     onDesignSystemModeChange,
+    showStructuredChat,
+    onShowStructuredChatChange,
     deployImageStrategy,
     onDeployImageStrategyChange,
     onOpenImport,
@@ -151,10 +92,13 @@ export function BuilderHeader(props: {
   } = props;
 
   const isBusy = isAnyStreaming || isCreatingChat;
-  const currentModel = MODEL_OPTIONS.find((m) => m.value === selectedModelTier);
+  const currentModel = MODEL_TIER_OPTIONS.find((m) => m.value === selectedModelTier);
+  const showLegacyVercel =
+    promptAssistProvider === "vercel" &&
+    !PROMPT_ASSIST_PROVIDER_OPTIONS.some((option) => option.value === "vercel");
 
   return (
-    <header className="flex h-14 items-center justify-between border-b border-border bg-background px-4">
+    <header className="border-border bg-background flex h-14 items-center justify-between border-b px-4">
       <div className="flex items-center gap-3">
         <h1 className="text-xl font-bold">Sajtmaskin</h1>
       </div>
@@ -164,7 +108,7 @@ export function BuilderHeader(props: {
           <DropdownMenuTrigger asChild>
             <Button variant="outline" size="sm" disabled={isBusy}>
               <Bot className="h-4 w-4" />
-              <span className="hidden sm:inline">{currentModel?.label || 'AI'}</span>
+              <span className="hidden sm:inline">{currentModel?.label || "AI"}</span>
               <ChevronDown className="h-3 w-3 opacity-50" />
             </Button>
           </DropdownMenuTrigger>
@@ -174,10 +118,13 @@ export function BuilderHeader(props: {
               value={selectedModelTier}
               onValueChange={(v) => onSelectedModelTierChange(v as ModelTier)}
             >
-              {MODEL_OPTIONS.map((option) => (
+              {MODEL_TIER_OPTIONS.map((option) => (
                 <DropdownMenuRadioItem key={option.value} value={option.value}>
                   <span className="font-medium">{option.label}</span>
-                  <span className="ml-2 text-muted-foreground text-xs">{option.description}</span>
+                  <span className="text-muted-foreground ml-2 text-xs">{option.description}</span>
+                  {option.hint && (
+                    <span className="text-primary ml-1 text-xs">({option.hint})</span>
+                  )}
                 </DropdownMenuRadioItem>
               ))}
             </DropdownMenuRadioGroup>
@@ -188,143 +135,70 @@ export function BuilderHeader(props: {
               value={promptAssistProvider}
               onValueChange={(v) => onPromptAssistProviderChange(v as PromptAssistProvider)}
             >
-              {PROMPT_ASSIST_OPTIONS.map((option) => (
+              {showLegacyVercel && (
+                <DropdownMenuRadioItem value="vercel">
+                  v0 Model API
+                  <span className="text-muted-foreground ml-2 text-xs">Legacy</span>
+                </DropdownMenuRadioItem>
+              )}
+              {PROMPT_ASSIST_PROVIDER_OPTIONS.map((option) => (
                 <DropdownMenuRadioItem key={option.value} value={option.value}>
                   {option.label}
+                  {option.description && (
+                    <span className="text-muted-foreground ml-2 text-xs">{option.description}</span>
+                  )}
                 </DropdownMenuRadioItem>
               ))}
             </DropdownMenuRadioGroup>
 
-            {promptAssistProvider !== 'off' && (
+            {promptAssistProvider !== "off" && (
               <>
                 <DropdownMenuSeparator />
                 <div className="px-2 py-2">
-                  <label className="text-xs text-muted-foreground mb-1 block">
-                    Assist Model
-                  </label>
-                  {promptAssistProvider === 'gateway' ? (
-                    <div className="rounded-md border border-border bg-background">
-                      <Command>
-                        <CommandInput
-                          value={promptAssistModel}
-                          onValueChange={onPromptAssistModelChange}
-                          placeholder="Sök eller skriv (t.ex. openai/gpt-5)"
-                          className="h-8 text-sm"
-                          disabled={isBusy}
-                        />
-                        <CommandList className="max-h-40">
-                          {gatewayModelsStatus === 'loading' && (
-                            <div className="px-3 py-2 text-xs text-muted-foreground">
-                              Hämtar modeller...
-                            </div>
-                          )}
-                          {gatewayModelsStatus === 'error' && (
-                            <div className="px-3 py-2 text-xs text-destructive">
-                              {gatewayModelsError || 'Kunde inte hämta modeller'}
-                            </div>
-                          )}
-                          {gatewayModelsStatus !== 'loading' &&
-                            gatewayModelsStatus !== 'error' && (
-                              <>
-                                {gatewayModels.length === 0 ? (
-                                  <CommandEmpty>Inga modeller hittades.</CommandEmpty>
-                                ) : (
-                                  <CommandGroup heading="Modeller">
-                                    {gatewayModels.map((modelId) => (
-                                      <CommandItem
-                                        key={modelId}
-                                        value={modelId}
-                                        onSelect={() => onPromptAssistModelChange(modelId)}
-                                      >
-                                        <span className="font-mono text-xs">{modelId}</span>
-                                      </CommandItem>
-                                    ))}
-                                  </CommandGroup>
-                                )}
-                              </>
-                            )}
-                        </CommandList>
-                      </Command>
-                    </div>
-                  ) : promptAssistProvider === 'vercel' ? (
-                    <div className="rounded-md border border-border bg-background">
-                      <Command>
-                        <CommandInput
-                          value={promptAssistModel}
-                          onValueChange={onPromptAssistModelChange}
-                          placeholder="Sök eller skriv (t.ex. v0-1.5-lg)"
-                          className="h-8 text-sm"
-                          disabled={isBusy}
-                        />
-                        <CommandList className="max-h-40">
-                          <CommandGroup heading="v0 Model API">
-                            {V0_MODEL_OPTIONS.map((option) => (
-                              <CommandItem
-                                key={option.value}
-                                value={option.value}
-                                onSelect={() => onPromptAssistModelChange(option.value)}
-                              >
-                                <span className="font-mono text-xs">{option.label}</span>
-                                <span className="ml-2 text-xs text-muted-foreground">
-                                  {option.description}
-                                </span>
-                              </CommandItem>
-                            ))}
-                          </CommandGroup>
-                          <CommandEmpty>Inga standardmodeller.</CommandEmpty>
-                        </CommandList>
-                      </Command>
-                    </div>
-                  ) : (
-                    <Input
-                      value={promptAssistModel}
-                      onChange={(e) => onPromptAssistModelChange(e.target.value)}
-                      placeholder={
-                        promptAssistProvider === 'openai'
-                          ? 'gpt-5'
-                          : promptAssistProvider === 'anthropic'
-                            ? 'claude-...'
-                            : 'openai/gpt-5'
-                      }
-                      className="h-8 text-sm"
-                      disabled={isBusy}
-                    />
-                  )}
-                  {promptAssistProvider === 'gateway' && (
-                    <p className="mt-1 text-[11px] text-muted-foreground">
-                      Du kan skriva fritt för egna modeller.
-                    </p>
-                  )}
-                  {promptAssistProvider === 'vercel' && (
-                    <p className="mt-1 text-[11px] text-muted-foreground">
-                      v0-1.5-lg = högsta kvalitet (ofta långsammare/dyrare).
-                    </p>
-                  )}
+                  <label className="text-muted-foreground mb-1 block text-xs">Assist Model</label>
+                  <Input
+                    value={promptAssistModel}
+                    onChange={(e) => onPromptAssistModelChange(e.target.value)}
+                    placeholder={
+                      promptAssistProvider === "gateway"
+                        ? "openai/gpt-5"
+                        : promptAssistProvider === "openai"
+                          ? "gpt-5"
+                          : promptAssistProvider === "anthropic"
+                            ? "claude-..."
+                            : promptAssistProvider === "vercel"
+                              ? "v0-1.5-md"
+                              : "openai/gpt-5"
+                    }
+                    className="h-8 text-sm"
+                    disabled={isBusy}
+                  />
                 </div>
-                <DropdownMenuCheckboxItem
-                  checked={promptAssistDeep}
-                  onCheckedChange={onPromptAssistDeepChange}
-                  disabled={isBusy}
-                >
-                  <Sparkles className="h-4 w-4 mr-2" />
-                  Deep Brief Mode
-                </DropdownMenuCheckboxItem>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div>
+                        <DropdownMenuCheckboxItem
+                          checked={promptAssistDeep}
+                          onCheckedChange={onPromptAssistDeepChange}
+                          disabled={isBusy}
+                        >
+                          <Sparkles className="mr-2 h-4 w-4" />
+                          Deep Brief Mode
+                          <HelpCircle className="text-muted-foreground ml-1 h-3 w-3" />
+                        </DropdownMenuCheckboxItem>
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="left" className="max-w-xs">
+                      <p className="text-xs">
+                        AI skapar först en detaljerad brief (specifikation) som sedan används för
+                        att bygga en bättre prompt. Tar längre tid men ger mer genomtänkta resultat.
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               </>
             )}
-
-            <DropdownMenuSeparator />
-            <div className="px-2 py-2">
-              <label className="text-xs text-muted-foreground mb-1 block">
-                Preprompt (system)
-              </label>
-              <Input
-                value={systemPrompt}
-                onChange={(e) => onSystemPromptChange(e.target.value)}
-                placeholder="Valfri systemprompt för v0-generering"
-                className="h-8 text-sm"
-                disabled={isBusy}
-              />
-            </div>
           </DropdownMenuContent>
         </DropdownMenu>
 
@@ -343,7 +217,7 @@ export function BuilderHeader(props: {
               onCheckedChange={onEnableImageGenerationsChange}
               disabled={isBusy}
             >
-              <ImageIcon className="h-4 w-4 mr-2" />
+              <ImageIcon className="mr-2 h-4 w-4" />
               Enable AI Images
             </DropdownMenuCheckboxItem>
 
@@ -352,22 +226,29 @@ export function BuilderHeader(props: {
               onCheckedChange={onDesignSystemModeChange}
               disabled={isBusy}
             >
-              <Sparkles className="h-4 w-4 mr-2" />
+              <Sparkles className="mr-2 h-4 w-4" />
               Design System Mode
+            </DropdownMenuCheckboxItem>
+
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel>Chat View</DropdownMenuLabel>
+            <DropdownMenuCheckboxItem
+              checked={showStructuredChat}
+              onCheckedChange={onShowStructuredChatChange}
+              disabled={isBusy}
+            >
+              <MessageSquare className="mr-2 h-4 w-4" />
+              Debug-läge (verktygsblock)
             </DropdownMenuCheckboxItem>
 
             <DropdownMenuSeparator />
             <DropdownMenuLabel>Deploy Image Strategy</DropdownMenuLabel>
             <DropdownMenuRadioGroup
               value={deployImageStrategy}
-              onValueChange={(v) => onDeployImageStrategyChange(v as 'external' | 'blob')}
+              onValueChange={(v) => onDeployImageStrategyChange(v as "external" | "blob")}
             >
-              <DropdownMenuRadioItem value="external">
-                External URLs
-              </DropdownMenuRadioItem>
-              <DropdownMenuRadioItem value="blob">
-                Vercel Blob
-              </DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="external">External URLs</DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="blob">Vercel Blob</DropdownMenuRadioItem>
             </DropdownMenuRadioGroup>
           </DropdownMenuContent>
         </DropdownMenu>
@@ -414,7 +295,11 @@ export function BuilderHeader(props: {
           onClick={onDeployProduction}
           disabled={!canDeploy || isBusy || isDeploying}
         >
-          {isDeploying ? <Loader2 className="h-4 w-4 animate-spin" /> : <Rocket className="h-4 w-4" />}
+          {isDeploying ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Rocket className="h-4 w-4" />
+          )}
           <span className="hidden sm:inline">Deploy</span>
         </Button>
       </div>

@@ -79,9 +79,7 @@ export function VoiceRecorder({
       // Animate audio level
       const updateAudioLevel = () => {
         if (analyserRef.current) {
-          const dataArray = new Uint8Array(
-            analyserRef.current.frequencyBinCount
-          );
+          const dataArray = new Uint8Array(analyserRef.current.frequencyBinCount);
           analyserRef.current.getByteFrequencyData(dataArray);
           const average = dataArray.reduce((a, b) => a + b) / dataArray.length;
           setAudioLevel(average / 255);
@@ -172,16 +170,12 @@ export function VoiceRecorder({
         }
       } catch (err) {
         console.error("Transcription error:", err);
-        setError(
-          err instanceof Error
-            ? err.message
-            : "Kunde inte transkribera. Försök igen."
-        );
+        setError(err instanceof Error ? err.message : "Kunde inte transkribera. Försök igen.");
       } finally {
         setIsTranscribing(false);
       }
     },
-    [language, onTranscript]
+    [language, onTranscript],
   );
 
   // Stop recording
@@ -215,9 +209,9 @@ export function VoiceRecorder({
           disabled={isTranscribing}
           variant={isRecording ? "destructive" : "outline"}
           size="lg"
-          className={`relative gap-2 min-w-[180px] transition-all ${
+          className={`relative min-w-[180px] gap-2 transition-all ${
             isRecording
-              ? "bg-red-600 hover:bg-red-700 border-red-600"
+              ? "border-red-600 bg-red-600 hover:bg-red-700"
               : "border-brand-teal/50 text-brand-teal hover:bg-brand-teal/10 hover:text-brand-teal/80"
           }`}
         >
@@ -241,7 +235,7 @@ export function VoiceRecorder({
           {/* Audio level indicator */}
           {isRecording && (
             <div
-              className={`absolute inset-0 rounded-md bg-red-400/20 transition-transform origin-left ${styles.audioLevelIndicator} ${levelClass}`}
+              className={`absolute inset-0 origin-left rounded-md bg-red-400/20 transition-transform ${styles.audioLevelIndicator} ${levelClass}`}
             />
           )}
         </Button>
@@ -252,7 +246,7 @@ export function VoiceRecorder({
             {[...Array(5)].map((_, i) => (
               <div
                 key={i}
-                className={`w-1 bg-red-500 rounded-full transition-all ${styles.audioBar} ${barIndexClasses[i]} ${levelClass} ${
+                className={`w-1 rounded-full bg-red-500 transition-all ${styles.audioBar} ${barIndexClasses[i]} ${levelClass} ${
                   audioLevel > i * 0.2 ? styles.barActive : styles.barInactive
                 }`}
               />
@@ -272,7 +266,7 @@ export function VoiceRecorder({
       {/* Recording hint */}
       {!isRecording && !isTranscribing && !error && (
         <p className="text-xs text-gray-500">
-          <Volume2 className="inline h-3 w-3 mr-1" />
+          <Volume2 className="mr-1 inline h-3 w-3" />
           Beskriv din webbplats med rösten – vi transkriberar automatiskt
         </p>
       )}

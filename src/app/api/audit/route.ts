@@ -9,17 +9,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { OpenAI } from "openai";
 import { getCurrentUser } from "@/lib/auth/auth";
-import {
-  getUserById,
-  createTransaction,
-  isTestUser,
-} from "@/lib/data/database";
+import { getUserById, createTransaction, isTestUser } from "@/lib/data/database";
 import { SECRETS } from "@/lib/config";
-import {
-  scrapeWebsite,
-  validateAndNormalizeUrl,
-  getCanonicalUrlKey,
-} from "@/lib/webscraper";
+import { scrapeWebsite, validateAndNormalizeUrl, getCanonicalUrlKey } from "@/lib/webscraper";
 import {
   buildAuditPrompt,
   combinePromptForResponsesApi,
@@ -27,10 +19,7 @@ import {
   extractFirstJsonObject,
   parseJsonWithRepair,
 } from "@/lib/audit-prompts";
-import {
-  OPENAI_MODELS,
-  OPENAI_PRICING_USD_PER_MTOK,
-} from "@/lib/ai/openai-models";
+import { OPENAI_MODELS, OPENAI_PRICING_USD_PER_MTOK } from "@/lib/ai/openai-models";
 import type { AuditMode, AuditResult, AuditRequest } from "@/types/audit";
 
 // Extend timeout for long-running AI calls
@@ -163,12 +152,7 @@ const AUDIT_AI_SCHEMA = {
         currency: { type: "string" },
         payment_structure: { type: "string" },
       },
-      required: [
-        "immediate_fixes",
-        "full_optimization",
-        "currency",
-        "payment_structure",
-      ],
+      required: ["immediate_fixes", "full_optimization", "currency", "payment_structure"],
     },
     expected_outcomes: { type: "array", items: { type: "string" } },
     security_analysis: {
@@ -180,12 +164,7 @@ const AUDIT_AI_SCHEMA = {
         cookie_policy: { type: "string" },
         vulnerabilities: { type: "array", items: { type: "string" } },
       },
-      required: [
-        "https_status",
-        "headers_analysis",
-        "cookie_policy",
-        "vulnerabilities",
-      ],
+      required: ["https_status", "headers_analysis", "cookie_policy", "vulnerabilities"],
     },
     competitor_insights: {
       type: "object",
@@ -223,11 +202,7 @@ const AUDIT_AI_SCHEMA = {
           items: { type: "string" },
         },
       },
-      required: [
-        "industry_leaders",
-        "common_features",
-        "differentiation_opportunities",
-      ],
+      required: ["industry_leaders", "common_features", "differentiation_opportunities"],
     },
     business_profile: {
       type: "object",
@@ -325,12 +300,7 @@ const AUDIT_AI_SCHEMA = {
         seo_foundation: { type: "string" },
         conversion_paths: { type: "array", items: { type: "string" } },
       },
-      required: [
-        "key_pages",
-        "content_types",
-        "seo_foundation",
-        "conversion_paths",
-      ],
+      required: ["key_pages", "content_types", "seo_foundation", "conversion_paths"],
     },
     design_direction: {
       type: "object",
@@ -341,12 +311,7 @@ const AUDIT_AI_SCHEMA = {
         ui_patterns: { type: "array", items: { type: "string" } },
         accessibility_level: { type: "string" },
       },
-      required: [
-        "style",
-        "color_psychology",
-        "ui_patterns",
-        "accessibility_level",
-      ],
+      required: ["style", "color_psychology", "ui_patterns", "accessibility_level"],
     },
     technical_architecture: {
       type: "object",
@@ -551,12 +516,7 @@ const AUDIT_AI_SCHEMA = {
         style_notes: { type: "string" },
         improvements_to_apply: { type: "array", items: { type: "string" } },
       },
-      required: [
-        "generation_prompt",
-        "must_have_sections",
-        "style_notes",
-        "improvements_to_apply",
-      ],
+      required: ["generation_prompt", "must_have_sections", "style_notes", "improvements_to_apply"],
     },
   },
   required: [
@@ -613,10 +573,7 @@ type JsonSchemaObject = {
  * Validates that a JSON Schema with strict:true has all properties listed in required.
  * OpenAI's strict mode requires ALL properties to be in required array.
  */
-function validateStrictSchema(
-  schema: JsonSchemaObject,
-  path: string = "root"
-): string[] {
+function validateStrictSchema(schema: JsonSchemaObject, path: string = "root"): string[] {
   const errors: string[] = [];
 
   if (schema.type === "object" && schema.properties) {
@@ -629,9 +586,7 @@ function validateStrictSchema(
       const missingRequired = propKeys.filter((k) => !requiredKeys.includes(k));
       if (missingRequired.length > 0) {
         errors.push(
-          `${path}: required must include all properties. Missing: [${missingRequired.join(
-            ", "
-          )}]`
+          `${path}: required must include all properties. Missing: [${missingRequired.join(", ")}]`,
         );
       }
     }
@@ -640,9 +595,7 @@ function validateStrictSchema(
     const extraRequired = requiredKeys.filter((k) => !propKeys.includes(k));
     if (extraRequired.length > 0) {
       errors.push(
-        `${path}: required contains keys not in properties: [${extraRequired.join(
-          ", "
-        )}]`
+        `${path}: required contains keys not in properties: [${extraRequired.join(", ")}]`,
       );
     }
 
@@ -666,7 +619,7 @@ function validateStrictSchema(
 const schemaErrors = validateStrictSchema(AUDIT_AI_SCHEMA);
 if (schemaErrors.length > 0) {
   const errorMsg = `[AUDIT SCHEMA ERROR] Invalid JSON schema configuration:\n${schemaErrors.join(
-    "\n"
+    "\n",
   )}`;
   console.error(errorMsg);
   // In development, throw to fail fast. In production, log but continue.
@@ -707,7 +660,7 @@ function createFallbackResult(
     responseTime: number;
   },
   url: string,
-  auditMode: AuditMode
+  auditMode: AuditMode,
 ): Record<string, unknown> {
   const domain = new URL(url).hostname;
   const isJsRendered = websiteContent.wordCount < 50;
@@ -734,19 +687,11 @@ function createFallbackResult(
         : null,
     ].filter(Boolean),
     issues: [
-      !websiteContent.hasSSL
-        ? "Saknar HTTPS/SSL - kritiskt säkerhetsproblem"
-        : null,
+      !websiteContent.hasSSL ? "Saknar HTTPS/SSL - kritiskt säkerhetsproblem" : null,
       !websiteContent.description ? "Saknar meta-beskrivning för SEO" : null,
-      !websiteContent.meta.viewport
-        ? "Saknar viewport meta-tagg - mobilproblem"
-        : null,
-      isJsRendered
-        ? "Sidan verkar vara JavaScript-renderad vilket kan påverka SEO negativt"
-        : null,
-      websiteContent.wordCount < 100
-        ? "Mycket lite textinnehåll på sidan"
-        : null,
+      !websiteContent.meta.viewport ? "Saknar viewport meta-tagg - mobilproblem" : null,
+      isJsRendered ? "Sidan verkar vara JavaScript-renderad vilket kan påverka SEO negativt" : null,
+      websiteContent.wordCount < 100 ? "Mycket lite textinnehåll på sidan" : null,
     ].filter(Boolean),
     business_profile: {
       industry: "Oklar bransch (kräver manuell kontroll)",
@@ -883,9 +828,7 @@ function createFallbackResult(
       "Ökad trust genom social proof, tydligare erbjudande och förbättrad säkerhetsbaslinje.",
     ],
     security_analysis: {
-      https_status: websiteContent.hasSSL
-        ? "OK (HTTPS)"
-        : "Problem (saknar HTTPS)",
+      https_status: websiteContent.hasSSL ? "OK (HTTPS)" : "Problem (saknar HTTPS)",
       headers_analysis:
         "Okänt i fallback-läge. Rekommenderar att verifiera HSTS, CSP, X-Content-Type-Options och Referrer-Policy.",
       cookie_policy:
@@ -912,8 +855,7 @@ function createFallbackResult(
           websiteContent.responseTime < 2000
             ? "Serverns svarstid verkar OK."
             : "Serverns svarstid verkar hög.",
-        recommendation:
-          "Optimera bundling, minska scripts, komprimera bilder och inför caching.",
+        recommendation: "Optimera bundling, minska scripts, komprimera bilder och inför caching.",
         implementation:
           "Next.js: använd Image-optimering, dynamiska imports, och cache headers för statiska resurser.",
       },
@@ -922,8 +864,7 @@ function createFallbackResult(
         current_state: websiteContent.description
           ? "Meta-beskrivning finns (kontrollera kvalitet/unikhet)."
           : "Meta-beskrivning saknas eller kunde inte hittas.",
-        recommendation:
-          "Säkerställ metadata per sida, korrekt rubrikhierarki och sitemap.xml.",
+        recommendation: "Säkerställ metadata per sida, korrekt rubrikhierarki och sitemap.xml.",
         implementation:
           "Next.js metadata API + generera sitemap/robots + JSON-LD för organisation/tjänster.",
       },
@@ -932,31 +873,21 @@ function createFallbackResult(
         current_state: websiteContent.meta.viewport
           ? "Viewport finns (bra för mobil)."
           : "Viewport saknas (mobilrisk).",
-        recommendation:
-          "Säkerställ kontraster, fokus, semantik och label/alt-texter.",
+        recommendation: "Säkerställ kontraster, fokus, semantik och label/alt-texter.",
         implementation:
           "Inför WCAG-check i CI, använd semantiska komponenter och testa med skärmläsare.",
       },
       {
         area: "Security",
-        current_state: websiteContent.hasSSL
-          ? "HTTPS används."
-          : "HTTPS saknas.",
-        recommendation:
-          "Inför säkerhetshuvuden och säkra cookies. Minimera tredjepartsberoenden.",
+        current_state: websiteContent.hasSSL ? "HTTPS används." : "HTTPS saknas.",
+        recommendation: "Inför säkerhetshuvuden och säkra cookies. Minimera tredjepartsberoenden.",
         implementation:
           "Sätt HSTS, CSP och SameSite/HttpOnly/Secure på cookies där det är relevant.",
       },
     ],
     competitor_benchmarking: {
-      industry_leaders: [
-        "Branschledare med stark SEO och tydlig positionering",
-      ],
-      common_features: [
-        "Tydligt värdeerbjudande",
-        "Snabba laddtider",
-        "Social proof (case/logos)",
-      ],
+      industry_leaders: ["Branschledare med stark SEO och tydlig positionering"],
+      common_features: ["Tydligt värdeerbjudande", "Snabba laddtider", "Social proof (case/logos)"],
       differentiation_opportunities: [
         "Tydligare nischpositionering",
         "Mer konkret affärsnytta i copy",
@@ -975,13 +906,11 @@ function createFallbackResult(
     content_strategy: {
       key_pages: ["Startsida", "Tjänster", "Case/Portfolio", "Kontakt"],
       content_types: ["Kort copy", "Case studies", "FAQ", "CTA-sektioner"],
-      seo_foundation:
-        "Fokusera på tjänstesidor med tydliga sökordscluster och intern länkning.",
+      seo_foundation: "Fokusera på tjänstesidor med tydliga sökordscluster och intern länkning.",
       conversion_paths: ["Hero CTA → Kontaktformulär", "Case → Kontakt"],
     },
     design_direction: {
-      style:
-        "Modern, professionell och tydligt strukturerad (product/tech-känsla).",
+      style: "Modern, professionell och tydligt strukturerad (product/tech-känsla).",
       color_psychology:
         "Använd en tydlig primär accent för CTA och behåll neutral bas för läsbarhet.",
       ui_patterns: [
@@ -1040,9 +969,7 @@ function createFallbackResult(
     site_content: {
       company_name: companyName,
       tagline: websiteContent.description || "",
-      description:
-        websiteContent.description ||
-        "Beskrivning kunde inte extraheras automatiskt",
+      description: websiteContent.description || "Beskrivning kunde inte extraheras automatiskt",
       industry: "Okänd",
       location: "",
       services: [],
@@ -1069,17 +996,14 @@ function createFallbackResult(
       background_color: "#0f172a",
       text_color: "#f8fafc",
       theme_type: "dark",
-      style_description:
-        "Färgtema kunde inte extraheras - standardvärden används",
+      style_description: "Färgtema kunde inte extraheras - standardvärden används",
       design_style: "minimalist",
       typography_style: "Sans-serif, modern",
     },
     // Basic template data
     template_data: {
       generation_prompt: `Skapa en modern webbplats för ${companyName}. ${
-        websiteContent.description
-          ? `Beskrivning: ${websiteContent.description}.`
-          : ""
+        websiteContent.description ? `Beskrivning: ${websiteContent.description}.` : ""
       } Använd en minimalistisk design med mörkt tema. Inkludera hero-sektion, om oss, tjänster och kontakt.`,
       must_have_sections: ["hero", "about", "services", "contact"],
       style_notes: "Minimalistisk design, mörkt tema, modern typografi",
@@ -1103,31 +1027,17 @@ function validateAuditResult(result: unknown): result is AuditResult {
   const r = result as Record<string, unknown>;
 
   // Accept if we have ANY of these fields with meaningful content
-  const hasCompany =
-    typeof r.company === "string" && r.company.trim().length > 0;
-  const hasImprovements =
-    Array.isArray(r.improvements) && r.improvements.length > 0;
-  const hasScores = Boolean(
-    r.audit_scores && typeof r.audit_scores === "object"
-  );
+  const hasCompany = typeof r.company === "string" && r.company.trim().length > 0;
+  const hasImprovements = Array.isArray(r.improvements) && r.improvements.length > 0;
+  const hasScores = Boolean(r.audit_scores && typeof r.audit_scores === "object");
   const hasStrengths = Array.isArray(r.strengths) && r.strengths.length > 0;
   const hasIssues = Array.isArray(r.issues) && r.issues.length > 0;
-  const hasBudget = Boolean(
-    r.budget_estimate && typeof r.budget_estimate === "object"
-  );
-  const hasSecurity = Boolean(
-    r.security_analysis && typeof r.security_analysis === "object"
-  );
+  const hasBudget = Boolean(r.budget_estimate && typeof r.budget_estimate === "object");
+  const hasSecurity = Boolean(r.security_analysis && typeof r.security_analysis === "object");
   const hasTechRecs = Array.isArray(r.technical_recommendations);
-  const hasSiteContent = Boolean(
-    r.site_content && typeof r.site_content === "object"
-  );
-  const hasColorTheme = Boolean(
-    r.color_theme && typeof r.color_theme === "object"
-  );
-  const hasTemplateData = Boolean(
-    r.template_data && typeof r.template_data === "object"
-  );
+  const hasSiteContent = Boolean(r.site_content && typeof r.site_content === "object");
+  const hasColorTheme = Boolean(r.color_theme && typeof r.color_theme === "object");
+  const hasTemplateData = Boolean(r.template_data && typeof r.template_data === "object");
 
   // Very lenient - just needs to be an object with at least one key
   const hasAnyContent = Object.keys(r).length > 0;
@@ -1163,9 +1073,7 @@ function countWordsFromList(values?: Array<string | null | undefined>): number {
   }, 0);
 }
 
-function estimateWordCountFromSiteContent(
-  siteContent?: AuditResult["site_content"]
-): number {
+function estimateWordCountFromSiteContent(siteContent?: AuditResult["site_content"]): number {
   if (!siteContent) return 0;
 
   let count = 0;
@@ -1221,10 +1129,7 @@ function shouldFallbackToNextModel(err: unknown): boolean {
   // Model availability / selection issues.
   if (code === "model_not_found") return true;
   if (status === 404 && message.toLowerCase().includes("model")) return true;
-  if (
-    message.toLowerCase().includes("model") &&
-    message.toLowerCase().includes("not found")
-  )
+  if (message.toLowerCase().includes("model") && message.toLowerCase().includes("not found"))
     return true;
 
   // Tool support mismatches (web_search not supported for a given model/variant).
@@ -1241,9 +1146,7 @@ function shouldFallbackToNextModel(err: unknown): boolean {
 }
 
 export async function POST(request: NextRequest) {
-  const requestId = `audit_${Date.now()}_${Math.random()
-    .toString(36)
-    .substring(7)}`;
+  const requestId = `audit_${Date.now()}_${Math.random().toString(36).substring(7)}`;
   const requestStartTime = Date.now();
 
   // Track in-flight key for cleanup (set after user auth succeeds)
@@ -1257,13 +1160,12 @@ export async function POST(request: NextRequest) {
     } catch {
       return NextResponse.json(
         { success: false, error: "Ogiltig JSON i förfrågan" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     const { url, auditMode } = body;
-    const resolvedAuditMode: AuditMode =
-      auditMode === "advanced" ? "advanced" : "basic";
+    const resolvedAuditMode: AuditMode = auditMode === "advanced" ? "advanced" : "basic";
     const auditCost = AUDIT_COSTS[resolvedAuditMode];
 
     // Validate URL
@@ -1274,12 +1176,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          error:
-            error instanceof Error
-              ? error.message
-              : "Ogiltig URL. Ange en giltig webbadress.",
+          error: error instanceof Error ? error.message : "Ogiltig URL. Ange en giltig webbadress.",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -1298,7 +1197,7 @@ export async function POST(request: NextRequest) {
           error: "Du måste vara inloggad för att använda audit-funktionen.",
           requiresAuth: true,
         },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
@@ -1307,7 +1206,7 @@ export async function POST(request: NextRequest) {
     if (!dbUser) {
       return NextResponse.json(
         { success: false, error: "Användare hittades inte." },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -1322,13 +1221,11 @@ export async function POST(request: NextRequest) {
           required: auditCost,
           current: dbUser.diamonds,
         },
-        { status: 402 }
+        { status: 402 },
       );
     }
 
-    console.log(
-      `[${requestId}] User ${user.id} has ${dbUser.diamonds} diamonds (test: ${isTest})`
-    );
+    console.log(`[${requestId}] User ${user.id} has ${dbUser.diamonds} diamonds (test: ${isTest})`);
 
     // Check for duplicate in-flight audit (same user + URL)
     inFlightKey = `${user.id}:${canonicalKey}`;
@@ -1337,19 +1234,19 @@ export async function POST(request: NextRequest) {
       const ageMs = Date.now() - existingAudit.startTime;
       console.log(
         `[${requestId}] Duplicate audit request detected (in-flight for ${Math.round(
-          ageMs / 1000
-        )}s)`
+          ageMs / 1000,
+        )}s)`,
       );
       // Return 409 Conflict to indicate a duplicate request
       return NextResponse.json(
         {
           success: false,
           error: `En audit för denna URL pågår redan. Vänta tills den är klar (startat för ${Math.round(
-            ageMs / 1000
+            ageMs / 1000,
           )} sekunder sedan).`,
           duplicate: true,
         },
-        { status: 409 }
+        { status: 409 },
       );
     }
 
@@ -1383,22 +1280,13 @@ export async function POST(request: NextRequest) {
       let statusCode = 400;
       if (errorMessage.includes("403") || errorMessage.includes("Forbidden")) {
         statusCode = 403;
-      } else if (
-        errorMessage.includes("401") ||
-        errorMessage.includes("Unauthorized")
-      ) {
+      } else if (errorMessage.includes("401") || errorMessage.includes("Unauthorized")) {
         statusCode = 401;
-      } else if (
-        errorMessage.includes("404") ||
-        errorMessage.includes("Not Found")
-      ) {
+      } else if (errorMessage.includes("404") || errorMessage.includes("Not Found")) {
         statusCode = 404;
       } else if (errorMessage.includes("Timeout")) {
         statusCode = 408;
-      } else if (
-        errorMessage.includes("Serverfel") ||
-        errorMessage.includes("50")
-      ) {
+      } else if (errorMessage.includes("Serverfel") || errorMessage.includes("50")) {
         statusCode = 502;
       }
 
@@ -1407,20 +1295,15 @@ export async function POST(request: NextRequest) {
           success: false,
           error: errorMessage,
         },
-        { status: statusCode }
+        { status: statusCode },
       );
     }
 
     const isJsRendered = websiteContent.wordCount < 50;
-    const requiresWebSearch =
-      isJsRendered || resolvedAuditMode === "advanced";
+    const requiresWebSearch = isJsRendered || resolvedAuditMode === "advanced";
 
     // Build prompt
-    const prompt = buildAuditPrompt(
-      websiteContent,
-      normalizedUrl,
-      resolvedAuditMode
-    );
+    const prompt = buildAuditPrompt(websiteContent, normalizedUrl, resolvedAuditMode);
     const { input, instructions } = combinePromptForResponsesApi(prompt);
 
     // Call OpenAI Responses API with WebSearch
@@ -1453,7 +1336,7 @@ export async function POST(request: NextRequest) {
           },
           {
             timeout: 300000,
-          }
+          },
         );
         usedModel = model;
         break;
@@ -1481,9 +1364,7 @@ export async function POST(request: NextRequest) {
     }
 
     const apiDuration = Date.now() - requestStartTime;
-    console.log(
-      `[${requestId}] API call completed in ${apiDuration}ms using ${usedModel}`
-    );
+    console.log(`[${requestId}] API call completed in ${apiDuration}ms using ${usedModel}`);
 
     // Debug: how the Responses API structured the output (tool calls vs message)
     try {
@@ -1493,11 +1374,11 @@ export async function POST(request: NextRequest) {
           .map((i) => (i as { type?: unknown })?.type)
           .filter((t): t is string => typeof t === "string");
         const webSearchCalls = types.filter(
-          (t) => t === "web_search_call" || t === "web_search_call_output"
+          (t) => t === "web_search_call" || t === "web_search_call_output",
         ).length;
         webSearchCallCount = webSearchCalls;
         console.log(
-          `[${requestId}] Response output items: ${types.length} (web_search_call: ${webSearchCalls})`
+          `[${requestId}] Response output items: ${types.length} (web_search_call: ${webSearchCalls})`,
         );
       }
     } catch {
@@ -1505,39 +1386,29 @@ export async function POST(request: NextRequest) {
     }
 
     // Extract and parse response
-    const outputText = extractOutputText(
-      response as unknown as Record<string, unknown>
-    );
+    const outputText = extractOutputText(response as unknown as Record<string, unknown>);
 
     if (!outputText || outputText.trim().length === 0) {
       console.error(`[${requestId}] Empty response from API`);
-      console.error(
-        `[${requestId}] Full response keys:`,
-        Object.keys(response || {})
-      );
-      console.error(
-        `[${requestId}] Response preview:`,
-        JSON.stringify(response).substring(0, 500)
-      );
+      console.error(`[${requestId}] Full response keys:`, Object.keys(response || {}));
+      console.error(`[${requestId}] Response preview:`, JSON.stringify(response).substring(0, 500));
       return NextResponse.json(
         { success: false, error: "Tom respons från AI. Försök igen." },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
     // Log first part of output for debugging
     console.log(
       `[${requestId}] Output text preview (first 300 chars):`,
-      outputText.substring(0, 300)
+      outputText.substring(0, 300),
     );
 
     // Clean output text - remove markdown code blocks if present
     let cleanedOutput = outputText.trim();
 
     // Remove ```json ... ``` or ``` ... ``` wrapper if present
-    const jsonBlockMatch = cleanedOutput.match(
-      /```(?:json)?\s*([\s\S]*?)\s*```/
-    );
+    const jsonBlockMatch = cleanedOutput.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
     if (jsonBlockMatch) {
       cleanedOutput = jsonBlockMatch[1].trim();
       console.log(`[${requestId}] Removed markdown code block wrapper`);
@@ -1563,35 +1434,24 @@ export async function POST(request: NextRequest) {
     if (parseResult.success && parseResult.data) {
       auditResult = parseResult.data;
       console.log(`[${requestId}] JSON parse succeeded`);
-      console.log(
-        `[${requestId}] Parsed result keys:`,
-        Object.keys(auditResult as object)
-      );
+      console.log(`[${requestId}] Parsed result keys:`, Object.keys(auditResult as object));
     } else {
       // Try to extract JSON from response if direct parse failed
       console.log(
         `[${requestId}] Direct parse failed, trying extraction:`,
-        parseResult.error || "unknown"
+        parseResult.error || "unknown",
       );
       const jsonString = extractFirstJsonObject(outputText);
       if (!jsonString) {
         console.error(
           `[${requestId}] Could not find JSON in response. Full output (first 2000 chars):`,
-          outputText.substring(0, 2000)
+          outputText.substring(0, 2000),
         );
-        console.log(
-          `[${requestId}] Falling back to scraped-data audit (AI response invalid JSON)`
-        );
-        auditResult = createFallbackResult(
-          websiteContent,
-          normalizedUrl,
-          resolvedAuditMode
-        );
+        console.log(`[${requestId}] Falling back to scraped-data audit (AI response invalid JSON)`);
+        auditResult = createFallbackResult(websiteContent, normalizedUrl, resolvedAuditMode);
         usedFallback = true;
       } else {
-        console.log(
-          `[${requestId}] Extracted JSON length: ${jsonString.length} chars`
-        );
+        console.log(`[${requestId}] Extracted JSON length: ${jsonString.length} chars`);
 
         // Try parsing extracted JSON with repair
         const extractParseResult = parseJsonWithRepair(jsonString);
@@ -1600,28 +1460,16 @@ export async function POST(request: NextRequest) {
           console.log(`[${requestId}] Extracted JSON parse succeeded`);
         } else {
           // Log the problematic JSON for debugging (first 1000 chars around error position)
-          const errorPos =
-            extractParseResult.error?.match(/position (\d+)/)?.[1];
+          const errorPos = extractParseResult.error?.match(/position (\d+)/)?.[1];
           const startPos = errorPos ? Math.max(0, parseInt(errorPos) - 500) : 0;
-          const endPos = errorPos
-            ? Math.min(jsonString.length, parseInt(errorPos) + 500)
-            : 1000;
-          console.error(
-            `[${requestId}] Failed to parse extracted JSON:`,
-            extractParseResult.error
-          );
+          const endPos = errorPos ? Math.min(jsonString.length, parseInt(errorPos) + 500) : 1000;
+          console.error(`[${requestId}] Failed to parse extracted JSON:`, extractParseResult.error);
           console.error(
             `[${requestId}] Problematic JSON section (chars ${startPos}-${endPos}):`,
-            jsonString.substring(startPos, endPos)
+            jsonString.substring(startPos, endPos),
           );
-          console.log(
-            `[${requestId}] Falling back to scraped-data audit (AI JSON parse failed)`
-          );
-          auditResult = createFallbackResult(
-            websiteContent,
-            normalizedUrl,
-            resolvedAuditMode
-          );
+          console.log(`[${requestId}] Falling back to scraped-data audit (AI JSON parse failed)`);
+          auditResult = createFallbackResult(websiteContent, normalizedUrl, resolvedAuditMode);
           usedFallback = true;
         }
       }
@@ -1646,21 +1494,15 @@ export async function POST(request: NextRequest) {
     const auditObjKeys = Object.keys(auditObj || {});
     const isScoreOnly =
       auditObjKeys.length > 0 &&
-      auditObjKeys.every(
-        (k) => scoreKeys.includes(k) && typeof auditObj[k] === "number"
-      );
+      auditObjKeys.every((k) => scoreKeys.includes(k) && typeof auditObj[k] === "number");
 
     if (isScoreOnly) {
       console.warn(
         `[${requestId}] Parsed JSON is score-only. Wrapping into fallback audit result. Keys: ${auditObjKeys.join(
-          ", "
-        )}`
+          ", ",
+        )}`,
       );
-      const fallback = createFallbackResult(
-        websiteContent,
-        normalizedUrl,
-        resolvedAuditMode
-      ) as {
+      const fallback = createFallbackResult(websiteContent, normalizedUrl, resolvedAuditMode) as {
         audit_scores: Record<string, number>;
         [key: string]: unknown;
       };
@@ -1673,13 +1515,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if result is nested inside another object (e.g. { result: {...} } or { audit: {...} })
-    const possibleNestedKeys = [
-      "result",
-      "audit",
-      "data",
-      "response",
-      "audit_result",
-    ];
+    const possibleNestedKeys = ["result", "audit", "data", "response", "audit_result"];
     for (const key of possibleNestedKeys) {
       const nested = (auditResult as Record<string, unknown>)?.[key];
       if (nested && typeof nested === "object" && !Array.isArray(nested)) {
@@ -1691,9 +1527,7 @@ export async function POST(request: NextRequest) {
           nestedObj.improvements ||
           nestedObj.strengths
         ) {
-          console.log(
-            `[${requestId}] Found nested audit result under key "${key}"`
-          );
+          console.log(`[${requestId}] Found nested audit result under key "${key}"`);
           auditResult = nested;
           break;
         }
@@ -1707,51 +1541,33 @@ export async function POST(request: NextRequest) {
         `[${requestId}] Invalid audit result. Has fields:`,
         JSON.stringify({
           hasCompany: typeof ar?.company === "string" && ar.company,
-          hasImprovements:
-            Array.isArray(ar?.improvements) && ar.improvements.length > 0,
+          hasImprovements: Array.isArray(ar?.improvements) && ar.improvements.length > 0,
           hasScores: ar?.audit_scores && typeof ar.audit_scores === "object",
           hasStrengths: Array.isArray(ar?.strengths) && ar.strengths.length > 0,
           hasIssues: Array.isArray(ar?.issues) && ar.issues.length > 0,
-        })
+        }),
       );
-      console.error(
-        `[${requestId}] Actual keys present:`,
-        Object.keys(ar || {})
-      );
+      console.error(`[${requestId}] Actual keys present:`, Object.keys(ar || {}));
       console.error(
         `[${requestId}] Sample values:`,
         JSON.stringify({
           company: ar?.company,
-          strengths: Array.isArray(ar?.strengths)
-            ? ar.strengths.slice(0, 2)
-            : ar?.strengths,
-          issues: Array.isArray(ar?.issues)
-            ? ar.issues.slice(0, 2)
-            : ar?.issues,
-        })
+          strengths: Array.isArray(ar?.strengths) ? ar.strengths.slice(0, 2) : ar?.strengths,
+          issues: Array.isArray(ar?.issues) ? ar.issues.slice(0, 2) : ar?.issues,
+        }),
       );
 
       // Try to return partial result anyway if it has ANYTHING useful
-      if (
-        auditResult &&
-        typeof auditResult === "object" &&
-        Object.keys(ar).length > 0
-      ) {
+      if (auditResult && typeof auditResult === "object" && Object.keys(ar).length > 0) {
         console.log(
           `[${requestId}] Returning partial result despite validation failure (${
             Object.keys(ar).length
-          } keys)`
+          } keys)`,
         );
       } else {
         // Create a minimal fallback result based on scraped data
-        console.log(
-          `[${requestId}] Creating fallback result from scraped data`
-        );
-        auditResult = createFallbackResult(
-          websiteContent,
-          normalizedUrl,
-          resolvedAuditMode
-        );
+        console.log(`[${requestId}] Creating fallback result from scraped data`);
+        auditResult = createFallbackResult(websiteContent, normalizedUrl, resolvedAuditMode);
       }
     }
 
@@ -1766,22 +1582,17 @@ export async function POST(request: NextRequest) {
     const inputTokens = usage.input_tokens || usage.prompt_tokens || 0;
     const outputTokens = usage.output_tokens || usage.completion_tokens || 0;
     const pricing = getPricingForModel(usedModel);
-    const costUSD =
-      (inputTokens * pricing.input + outputTokens * pricing.output) / 1_000_000;
+    const costUSD = (inputTokens * pricing.input + outputTokens * pricing.output) / 1_000_000;
     const costSEK = costUSD * USD_TO_SEK;
     console.log(
       `[${requestId}] Audit cost summary: mode=${resolvedAuditMode}, diamonds=${auditCost}, tokens=${
         inputTokens + outputTokens
-      }, usd=${costUSD.toFixed(4)}, sek=${costSEK.toFixed(2)}, model=${
-        usedModel || "unknown"
-      }`
+      }, usd=${costUSD.toFixed(4)}, sek=${costSEK.toFixed(2)}, model=${usedModel || "unknown"}`,
     );
 
     // Add metadata to result
     const domain = new URL(normalizedUrl).hostname;
-    const estimatedWordCount = estimateWordCountFromSiteContent(
-      auditResult.site_content
-    );
+    const estimatedWordCount = estimateWordCountFromSiteContent(auditResult.site_content);
     const useEstimatedWordCount =
       estimatedWordCount > 0 &&
       (isJsRendered || websiteContent.wordCount < 50 || webSearchCallCount > 0);
@@ -1810,7 +1621,7 @@ export async function POST(request: NextRequest) {
     ];
     if (usedFallback) {
       scrapeSummaryNotes.push(
-        "Obs: AI-resultatet kunde inte valideras fullt ut och rapporten innehåller fallback-bedömningar."
+        "Obs: AI-resultatet kunde inte valideras fullt ut och rapporten innehåller fallback-bedömningar.",
       );
     }
 
@@ -1848,11 +1659,9 @@ export async function POST(request: NextRequest) {
           user.id,
           "audit",
           -auditCost,
-          `Site Audit (${resolvedAuditMode}): ${domain}`
+          `Site Audit (${resolvedAuditMode}): ${domain}`,
         );
-        console.log(
-          `[${requestId}] Deducted ${auditCost} diamonds from user ${user.id}`
-        );
+        console.log(`[${requestId}] Deducted ${auditCost} diamonds from user ${user.id}`);
       } catch (txError) {
         console.error(`[${requestId}] Failed to deduct diamonds:`, txError);
         // Still return result even if transaction fails
@@ -1878,7 +1687,7 @@ export async function POST(request: NextRequest) {
           "X-Response-Time": `${totalDuration}ms`,
           ...(usedFallback ? { "X-Audit-Fallback": "true" } : {}),
         },
-      }
+      },
     );
   } catch (error: unknown) {
     // Clean up in-flight tracking on error
@@ -1928,7 +1737,7 @@ export async function POST(request: NextRequest) {
           "X-Request-ID": requestId,
           "X-Response-Time": `${totalDuration}ms`,
         },
-      }
+      },
     );
   }
 }

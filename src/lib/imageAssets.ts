@@ -1,7 +1,7 @@
-import { put } from '@vercel/blob';
-import crypto from 'crypto';
+import { put } from "@vercel/blob";
+import crypto from "crypto";
 
-export type ImageAssetStrategy = 'external' | 'blob';
+export type ImageAssetStrategy = "external" | "blob";
 
 export type TextFile = { name: string; content: string };
 
@@ -40,12 +40,12 @@ const DEFAULT_LIMITS: MaterializeImagesLimits = {
 };
 
 function toSafeSegment(input: string): string {
-  return String(input || '')
+  return String(input || "")
     .trim()
-    .replace(/[^a-zA-Z0-9._-]+/g, '-')
-    .replace(/-+/g, '-')
-    .replace(/^-+/, '')
-    .replace(/-+$/, '')
+    .replace(/[^a-zA-Z0-9._-]+/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-+/, "")
+    .replace(/-+$/, "")
     .slice(0, 80);
 }
 
@@ -56,7 +56,7 @@ function extractHttpUrls(text: string): string[] {
 
 function looksLikeImageUrl(rawUrl: string): boolean {
   if (!rawUrl) return false;
-  if (rawUrl.startsWith('data:')) return false;
+  if (rawUrl.startsWith("data:")) return false;
 
   let u: URL;
   try {
@@ -65,66 +65,66 @@ function looksLikeImageUrl(rawUrl: string): boolean {
     return false;
   }
 
-  if (u.protocol !== 'http:' && u.protocol !== 'https:') return false;
+  if (u.protocol !== "http:" && u.protocol !== "https:") return false;
   const host = u.hostname.toLowerCase();
-  if (host === 'localhost' || host === '127.0.0.1') return false;
+  if (host === "localhost" || host === "127.0.0.1") return false;
 
   const path = u.pathname.toLowerCase();
 
   const nonImageExts = [
-    '.js',
-    '.mjs',
-    '.cjs',
-    '.css',
-    '.map',
-    '.json',
-    '.txt',
-    '.woff',
-    '.woff2',
-    '.ttf',
-    '.otf',
-    '.eot',
-    '.mp4',
-    '.webm',
-    '.mp3',
-    '.wav',
-    '.zip',
-    '.tar',
-    '.gz',
+    ".js",
+    ".mjs",
+    ".cjs",
+    ".css",
+    ".map",
+    ".json",
+    ".txt",
+    ".woff",
+    ".woff2",
+    ".ttf",
+    ".otf",
+    ".eot",
+    ".mp4",
+    ".webm",
+    ".mp3",
+    ".wav",
+    ".zip",
+    ".tar",
+    ".gz",
   ];
   if (nonImageExts.some((ext) => path.endsWith(ext))) return false;
 
-  const imageExts = ['.png', '.jpg', '.jpeg', '.webp', '.gif', '.svg', '.avif', '.bmp', '.ico'];
+  const imageExts = [".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg", ".avif", ".bmp", ".ico"];
   if (imageExts.some((ext) => path.endsWith(ext))) return true;
 
-  if (path.includes('/_next/image')) return true;
+  if (path.includes("/_next/image")) return true;
 
-  const fmt = (u.searchParams.get('fm') || u.searchParams.get('format') || '').toLowerCase();
-  if (['png', 'jpg', 'jpeg', 'webp', 'gif', 'avif', 'svg'].includes(fmt)) return true;
+  const fmt = (u.searchParams.get("fm") || u.searchParams.get("format") || "").toLowerCase();
+  if (["png", "jpg", "jpeg", "webp", "gif", "avif", "svg"].includes(fmt)) return true;
 
   return false;
 }
 
 function guessExtension(contentType: string | null, fallbackUrl: string): string {
-  const ct = (contentType || '').toLowerCase().split(';')[0].trim();
+  const ct = (contentType || "").toLowerCase().split(";")[0].trim();
   const map: Record<string, string> = {
-    'image/png': '.png',
-    'image/jpeg': '.jpg',
-    'image/jpg': '.jpg',
-    'image/webp': '.webp',
-    'image/gif': '.gif',
-    'image/svg+xml': '.svg',
-    'image/avif': '.avif',
-    'image/x-icon': '.ico',
-    'image/vnd.microsoft.icon': '.ico',
-    'image/bmp': '.bmp',
+    "image/png": ".png",
+    "image/jpeg": ".jpg",
+    "image/jpg": ".jpg",
+    "image/webp": ".webp",
+    "image/gif": ".gif",
+    "image/svg+xml": ".svg",
+    "image/avif": ".avif",
+    "image/x-icon": ".ico",
+    "image/vnd.microsoft.icon": ".ico",
+    "image/bmp": ".bmp",
   };
   if (ct && map[ct]) return map[ct];
 
   try {
     const u = new URL(fallbackUrl);
     const p = u.pathname.toLowerCase();
-    const idx = p.lastIndexOf('.');
+    const idx = p.lastIndexOf(".");
     if (idx >= 0 && idx < p.length - 1) {
       const ext = p.slice(idx);
       if (ext.length <= 6) return ext;
@@ -133,12 +133,12 @@ function guessExtension(contentType: string | null, fallbackUrl: string): string
     // ignore
   }
 
-  return '.img';
+  return ".img";
 }
 
 async function fetchWithLimits(
   url: string,
-  limits: MaterializeImagesLimits
+  limits: MaterializeImagesLimits,
 ): Promise<{ buffer: Buffer; contentType: string | null }> {
   const controller = new AbortController();
   const t = setTimeout(() => controller.abort(), limits.timeoutMs);
@@ -147,7 +147,7 @@ async function fetchWithLimits(
     const res = await fetch(url, {
       signal: controller.signal,
       headers: {
-        'User-Agent': 'sajtmaskin/1.0 (+https://localhost)',
+        "User-Agent": "sajtmaskin/1.0 (+https://localhost)",
       },
     });
 
@@ -155,18 +155,23 @@ async function fetchWithLimits(
       throw new Error(`HTTP ${res.status}`);
     }
 
-    const contentType = res.headers.get('content-type');
-    const contentLengthHeader = res.headers.get('content-length');
+    const contentType = res.headers.get("content-type");
+    const contentLengthHeader = res.headers.get("content-length");
     const contentLength = contentLengthHeader ? Number(contentLengthHeader) : null;
-    if (contentLength != null && Number.isFinite(contentLength) && contentLength > limits.maxBytesPerImage) {
+    if (
+      contentLength != null &&
+      Number.isFinite(contentLength) &&
+      contentLength > limits.maxBytesPerImage
+    ) {
       throw new Error(`Image too large (${contentLength} bytes)`);
     }
 
     const body = res.body;
-    if (!body || typeof (body as any).getReader !== 'function') {
+    if (!body || typeof (body as any).getReader !== "function") {
       const arrayBuffer = await res.arrayBuffer();
       const buf = Buffer.from(arrayBuffer);
-      if (buf.byteLength > limits.maxBytesPerImage) throw new Error(`Image too large (${buf.byteLength} bytes)`);
+      if (buf.byteLength > limits.maxBytesPerImage)
+        throw new Error(`Image too large (${buf.byteLength} bytes)`);
       return { buffer: buf, contentType };
     }
 
@@ -207,7 +212,7 @@ export async function materializeImagesInTextFiles(params: {
   const limits: MaterializeImagesLimits = { ...DEFAULT_LIMITS, ...(params.limits || {}) };
   const warnings: string[] = [];
 
-  if (params.strategy !== 'blob') {
+  if (params.strategy !== "blob") {
     return {
       files: params.files,
       strategyUsed: params.strategy,
@@ -226,10 +231,10 @@ export async function materializeImagesInTextFiles(params: {
 
   const blobToken = params.blobToken;
   if (!blobToken) {
-    warnings.push('Missing BLOB_READ_WRITE_TOKEN; falling back to external image URLs.');
+    warnings.push("Missing BLOB_READ_WRITE_TOKEN; falling back to external image URLs.");
     return {
       files: params.files,
-      strategyUsed: 'external',
+      strategyUsed: "external",
       warnings,
       summary: {
         scannedFiles: params.files.length,
@@ -253,13 +258,16 @@ export async function materializeImagesInTextFiles(params: {
 
   const candidates = Array.from(urlSet).filter(looksLikeImageUrl);
 
-  const assets: MaterializeImagesResult['assets'] = [];
+  const assets: MaterializeImagesResult["assets"] = [];
   let uploaded = 0;
   let replaced = 0;
   let skipped = 0;
   let totalBytesUploaded = 0;
 
-  const urlToBlob = new Map<string, { blobUrl: string; contentType: string | null; size: number }>();
+  const urlToBlob = new Map<
+    string,
+    { blobUrl: string; contentType: string | null; size: number }
+  >();
 
   for (const url of candidates.slice(0, limits.maxImages)) {
     try {
@@ -267,19 +275,19 @@ export async function materializeImagesInTextFiles(params: {
       const size = buffer.byteLength;
       totalBytesUploaded += size;
       if (totalBytesUploaded > limits.maxTotalBytes) {
-        warnings.push('Reached max total image upload size. Remaining images are skipped.');
+        warnings.push("Reached max total image upload size. Remaining images are skipped.");
         skipped += 1;
         break;
       }
 
       const ext = guessExtension(contentType, url);
-      const hash = crypto.createHash('sha256').update(url).digest('hex').slice(0, 12);
+      const hash = crypto.createHash("sha256").update(url).digest("hex").slice(0, 12);
       const safeChat = toSafeSegment(params.namespace.chatId);
       const safeVersion = toSafeSegment(params.namespace.versionId);
       const pathname = `images/${safeChat}/${safeVersion}/${hash}${ext}`;
 
       const blob = await put(pathname, buffer, {
-        access: 'public',
+        access: "public",
         contentType: contentType || undefined,
         token: blobToken,
       });
@@ -289,7 +297,9 @@ export async function materializeImagesInTextFiles(params: {
       uploaded += 1;
     } catch (err) {
       skipped += 1;
-      warnings.push(`Failed to upload image ${url}: ${err instanceof Error ? err.message : 'Unknown error'}`);
+      warnings.push(
+        `Failed to upload image ${url}: ${err instanceof Error ? err.message : "Unknown error"}`,
+      );
     }
   }
 
@@ -306,7 +316,7 @@ export async function materializeImagesInTextFiles(params: {
 
   return {
     files,
-    strategyUsed: 'blob',
+    strategyUsed: "blob",
     warnings,
     summary: {
       scannedFiles: params.files.length,

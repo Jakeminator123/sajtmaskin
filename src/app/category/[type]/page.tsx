@@ -7,6 +7,11 @@ import { Button } from "@/components/ui/button";
 import { HelpTooltip, ShaderBackground } from "@/components/layout";
 import { PromptWizardModalV2, type WizardData } from "@/components/modals";
 import {
+  PreBuilderSettings,
+  getDefaultPreBuilderSettings,
+  buildSettingsUrlParams,
+} from "@/components/forms/pre-builder-settings";
+import {
   ArrowLeft,
   Rocket,
   Sparkles,
@@ -59,6 +64,7 @@ export default function CategoryPage() {
   const [prompt, setPrompt] = useState("");
   const [isCreating, setIsCreating] = useState(false);
   const [showWizard, setShowWizard] = useState(false);
+  const [preBuilderSettings, setPreBuilderSettings] = useState(getDefaultPreBuilderSettings);
 
   const category = getCategory(type);
   const v0Category = V0_CATEGORIES[type];
@@ -69,8 +75,8 @@ export default function CategoryPage() {
 
   if (!displayCategory) {
     return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="text-center space-y-4">
+      <div className="flex min-h-screen items-center justify-center bg-black">
+        <div className="space-y-4 text-center">
           <p className="text-gray-400">Kategorin hittades inte</p>
           <Link href="/">
             <Button variant="outline">Tillbaka till start</Button>
@@ -89,16 +95,15 @@ export default function CategoryPage() {
       try {
         // Create project in database first
         const project = await createProject(
-          `${displayCategory.title} - ${new Date().toLocaleDateString(
-            "sv-SE"
-          )}`,
+          `${displayCategory.title} - ${new Date().toLocaleDateString("sv-SE")}`,
           type,
-          prompt.trim().substring(0, 100)
+          prompt.trim().substring(0, 100),
         );
+        const settingsParams = buildSettingsUrlParams(preBuilderSettings);
         router.push(
           `/builder?project=${
             project.id
-          }&type=${type}&prompt=${encodeURIComponent(prompt.trim())}`
+          }&type=${type}&prompt=${encodeURIComponent(prompt.trim())}&${settingsParams}`,
         );
       } catch (error) {
         console.error("Failed to create project:", error);
@@ -115,12 +120,13 @@ export default function CategoryPage() {
       const project = await createProject(
         `${quickPrompt.label} - ${new Date().toLocaleDateString("sv-SE")}`,
         type,
-        quickPrompt.prompt.substring(0, 100)
+        quickPrompt.prompt.substring(0, 100),
       );
+      const settingsParams = buildSettingsUrlParams(preBuilderSettings);
       router.push(
         `/builder?project=${
           project.id
-        }&type=${type}&prompt=${encodeURIComponent(quickPrompt.prompt)}`
+        }&type=${type}&prompt=${encodeURIComponent(quickPrompt.prompt)}&${settingsParams}`,
       );
     } catch (error) {
       console.error("Failed to create project:", error);
@@ -136,10 +142,7 @@ export default function CategoryPage() {
   };
 
   // Handle wizard completion - create project and navigate to builder immediately
-  const handleWizardComplete = async (
-    wizardData: WizardData,
-    expandedPrompt: string
-  ) => {
+  const handleWizardComplete = async (wizardData: WizardData, expandedPrompt: string) => {
     // Close wizard and start creating
     setShowWizard(false);
     setPrompt(expandedPrompt);
@@ -149,15 +152,9 @@ export default function CategoryPage() {
       // Create project in database with company name if available
       const projectName = wizardData.companyName
         ? `${wizardData.companyName} - ${displayCategory.title}`
-        : `${displayCategory.title} - ${new Date().toLocaleDateString(
-            "sv-SE"
-          )}`;
+        : `${displayCategory.title} - ${new Date().toLocaleDateString("sv-SE")}`;
 
-      const project = await createProject(
-        projectName,
-        type,
-        expandedPrompt.substring(0, 100)
-      );
+      const project = await createProject(projectName, type, expandedPrompt.substring(0, 100));
 
       // Save company profile linked to project (fire and forget)
       if (wizardData.companyName) {
@@ -178,27 +175,22 @@ export default function CategoryPage() {
             purposes: wizardData.purposes,
             special_wishes: wizardData.specialWishes,
             color_palette_name: wizardData.palette?.name,
-            color_primary:
-              wizardData.customColors?.primary || wizardData.palette?.primary,
-            color_secondary:
-              wizardData.customColors?.secondary ||
-              wizardData.palette?.secondary,
-            color_accent:
-              wizardData.customColors?.accent || wizardData.palette?.accent,
+            color_primary: wizardData.customColors?.primary || wizardData.palette?.primary,
+            color_secondary: wizardData.customColors?.secondary || wizardData.palette?.secondary,
+            color_accent: wizardData.customColors?.accent || wizardData.palette?.accent,
             industry_trends: wizardData.industryTrends,
             inspiration_sites: wizardData.inspirationSites,
             voice_transcript: wizardData.voiceTranscript,
           }),
-        }).catch((err) =>
-          console.error("Failed to save company profile:", err)
-        );
+        }).catch((err) => console.error("Failed to save company profile:", err));
       }
 
       // Navigate directly to builder with the expanded prompt
+      const settingsParams = buildSettingsUrlParams(preBuilderSettings);
       router.push(
         `/builder?project=${
           project.id
-        }&type=${type}&prompt=${encodeURIComponent(expandedPrompt)}`
+        }&type=${type}&prompt=${encodeURIComponent(expandedPrompt)}&${settingsParams}`,
       );
     } catch (error) {
       console.error("Failed to create project:", error);
@@ -207,7 +199,7 @@ export default function CategoryPage() {
   };
 
   return (
-    <main className="min-h-screen bg-background">
+    <main className="bg-background min-h-screen">
       {/* Shader Background */}
       <ShaderBackground theme="blue" speed={0.2} opacity={0.35} />
 
@@ -222,62 +214,64 @@ export default function CategoryPage() {
 
       <div className="relative z-10 min-h-screen px-4 py-8">
         {/* Header */}
-        <div className="max-w-5xl mx-auto mb-8">
+        <div className="mx-auto mb-8 max-w-5xl">
           <Link href="/">
             <Button
               variant="ghost"
               size="sm"
-              className="gap-2 text-gray-400 hover:text-white hover:bg-gray-800 mb-6"
+              className="mb-6 gap-2 text-gray-400 hover:bg-gray-800 hover:text-white"
             >
               <ArrowLeft className="h-4 w-4" />
               Tillbaka
             </Button>
           </Link>
 
-          <div className="flex items-center gap-4 mb-4">
-            <div className="p-3 bg-brand-teal/20 border border-brand-teal/30">
-              <Icon className="h-6 w-6 text-brand-teal" />
+          <div className="mb-4 flex items-center gap-4">
+            <div className="bg-brand-teal/20 border-brand-teal/30 border p-3">
+              <Icon className="text-brand-teal h-6 w-6" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-white">
-                {displayCategory.title}
-              </h1>
+              <h1 className="text-2xl font-bold text-white">{displayCategory.title}</h1>
               <p className="text-gray-400">{displayCategory.description}</p>
             </div>
           </div>
         </div>
 
-        <div className="max-w-5xl mx-auto space-y-10">
+        <div className="mx-auto max-w-5xl space-y-10">
           {/* Section 1: Custom prompt */}
           <section>
-            <div className="flex items-center gap-2 mb-4">
-              <Sparkles className="h-5 w-5 text-brand-teal" />
-              <h2 className="text-lg font-semibold text-white">
-                Beskriv med egna ord
-              </h2>
+            <div className="mb-4 flex items-center gap-2">
+              <Sparkles className="text-brand-teal h-5 w-5" />
+              <h2 className="text-lg font-semibold text-white">Beskriv med egna ord</h2>
               <HelpTooltip text="Skriv en beskrivning av vad du vill skapa så genererar AI:n det åt dig." />
             </div>
 
-            <div className="bg-black/50 border border-gray-800 p-4">
+            <div className="border border-gray-800 bg-black/50 p-4">
               <div className="flex gap-4">
-                <div className="flex-1 flex flex-col">
+                <div className="flex flex-1 flex-col">
                   <textarea
                     value={prompt}
                     onChange={(e) => setPrompt(e.target.value)}
                     onKeyDown={handleKeyDown}
                     placeholder={`Beskriv din ${displayCategory.title.toLowerCase()}...`}
-                    className="flex-1 h-24 bg-black/50 border border-gray-800 p-3 text-white placeholder:text-gray-500 focus:outline-none focus:ring-2 focus:ring-brand-teal/50 resize-none"
+                    className="focus:ring-brand-teal/50 h-24 flex-1 resize-none border border-gray-800 bg-black/50 p-3 text-white placeholder:text-gray-500 focus:ring-2 focus:outline-none"
                   />
-                  <div className="flex justify-between items-center mt-2">
-                    <span className="text-xs text-gray-500">
-                      {prompt.length} tecken
-                    </span>
+                  <div className="mt-2 flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs text-gray-500">{prompt.length} tecken</span>
+                      <PreBuilderSettings
+                        value={preBuilderSettings}
+                        onChange={setPreBuilderSettings}
+                        disabled={isCreating}
+                        compact
+                      />
+                    </div>
                     <Button
                       variant="ghost"
                       size="sm"
                       onClick={() => setShowWizard(true)}
                       disabled={isCreating}
-                      className="gap-1.5 text-brand-teal hover:text-brand-teal/80 hover:bg-brand-teal/10 h-7 px-2"
+                      className="text-brand-teal hover:text-brand-teal/80 hover:bg-brand-teal/10 h-7 gap-1.5 px-2"
                     >
                       <Wand2 className="h-3.5 w-3.5" />
                       <span className="text-xs">Bygg ut med AI</span>
@@ -287,70 +281,61 @@ export default function CategoryPage() {
                 <Button
                   onClick={handlePromptSubmit}
                   disabled={!prompt.trim() || isCreating}
-                  className="h-24 px-6 gap-2 bg-brand-teal hover:bg-brand-teal/90"
+                  className="bg-brand-teal hover:bg-brand-teal/90 h-24 gap-2 px-6"
                 >
                   {isCreating ? (
                     <Loader2 className="h-5 w-5 animate-spin" />
                   ) : (
                     <Rocket className="h-5 w-5" />
                   )}
-                  <span className="hidden sm:inline">
-                    {isCreating ? "Skapar..." : "Skapa"}
-                  </span>
+                  <span className="hidden sm:inline">{isCreating ? "Skapar..." : "Skapa"}</span>
                 </Button>
               </div>
             </div>
           </section>
 
           {/* Section 2: Quick prompts */}
-          {displayCategory.quickPrompts &&
-            displayCategory.quickPrompts.length > 0 && (
-              <section>
-                <div className="flex items-center gap-2 mb-4">
-                  <Zap className="h-5 w-5 text-brand-amber" />
-                  <h2 className="text-lg font-semibold text-white">Snabbval</h2>
-                  <HelpTooltip text="Klicka på ett snabbval för att snabbt komma igång med en fördefinierad design." />
-                </div>
+          {displayCategory.quickPrompts && displayCategory.quickPrompts.length > 0 && (
+            <section>
+              <div className="mb-4 flex items-center gap-2">
+                <Zap className="text-brand-amber h-5 w-5" />
+                <h2 className="text-lg font-semibold text-white">Snabbval</h2>
+                <HelpTooltip text="Klicka på ett snabbval för att snabbt komma igång med en fördefinierad design." />
+              </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {displayCategory.quickPrompts.map((quickPrompt) => (
-                    <Button
-                      key={quickPrompt.label}
-                      onClick={() => handleQuickPrompt(quickPrompt)}
-                      disabled={isCreating}
-                      variant="outline"
-                      className="h-auto py-4 px-4 flex flex-col items-start text-left gap-1 bg-black/50 border-gray-800 hover:border-brand-amber/50 hover:bg-brand-amber/5 transition-all group disabled:opacity-50"
-                    >
-                      <span className="font-medium text-gray-200 group-hover:text-brand-amber/80">
-                        {quickPrompt.label}
-                      </span>
-                      <span className="text-xs text-gray-500 line-clamp-2">
-                        AI genererar baserat på fördefinierad beskrivning
-                      </span>
-                    </Button>
-                  ))}
-                </div>
-              </section>
-            )}
+              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                {displayCategory.quickPrompts.map((quickPrompt) => (
+                  <Button
+                    key={quickPrompt.label}
+                    onClick={() => handleQuickPrompt(quickPrompt)}
+                    disabled={isCreating}
+                    variant="outline"
+                    className="hover:border-brand-amber/50 hover:bg-brand-amber/5 group flex h-auto flex-col items-start gap-1 border-gray-800 bg-black/50 px-4 py-4 text-left transition-all disabled:opacity-50"
+                  >
+                    <span className="group-hover:text-brand-amber/80 font-medium text-gray-200">
+                      {quickPrompt.label}
+                    </span>
+                    <span className="line-clamp-2 text-xs text-gray-500">
+                      AI genererar baserat på fördefinierad beskrivning
+                    </span>
+                  </Button>
+                ))}
+              </div>
+            </section>
+          )}
 
           {/* Section 3: V0 Templates */}
           {v0Templates.length > 0 && (
             <section>
-              <div className="flex items-center gap-2 mb-4">
-                <Layout className="h-5 w-5 text-brand-teal" />
-                <h2 className="text-lg font-semibold text-white">
-                  V0 Templates
-                </h2>
+              <div className="mb-4 flex items-center gap-2">
+                <Layout className="text-brand-teal h-5 w-5" />
+                <h2 className="text-lg font-semibold text-white">V0 Templates</h2>
                 <HelpTooltip text="Templates från v0.app. Klicka för att öppna i v0.app." />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {v0Templates.map((template) => (
-                  <V0TemplateCard
-                    key={template.id}
-                    template={template}
-                    disabled={isCreating}
-                  />
+                  <V0TemplateCard key={template.id} template={template} disabled={isCreating} />
                 ))}
               </div>
             </section>
@@ -362,13 +347,7 @@ export default function CategoryPage() {
 }
 
 // V0 Template Card Component
-function V0TemplateCard({
-  template,
-  disabled,
-}: {
-  template: Template;
-  disabled: boolean;
-}) {
+function V0TemplateCard({ template, disabled }: { template: Template; disabled: boolean }) {
   const router = useRouter();
   const [isCreating, setIsCreating] = useState(false);
   const [showModal, setShowModal] = useState(false);
@@ -391,11 +370,9 @@ function V0TemplateCard({
     try {
       // Create project in database
       const project = await createProject(
-        `${template.title || template.id} - ${new Date().toLocaleDateString(
-          "sv-SE"
-        )}`,
+        `${template.title || template.id} - ${new Date().toLocaleDateString("sv-SE")}`,
         type,
-        `Baserat på v0 template: ${template.id}`
+        `Baserat på v0 template: ${template.id}`,
       );
       // Navigate to builder with templateId parameter
       router.push(`/builder?project=${project.id}&templateId=${template.id}`);
@@ -407,26 +384,26 @@ function V0TemplateCard({
 
   return (
     <>
-      <div className="group bg-black/50 border border-gray-800 rounded-lg overflow-hidden hover:border-brand-teal/50 transition-all cursor-pointer">
-        <div className="relative aspect-video bg-gray-900 overflow-hidden">
+      <div className="group hover:border-brand-teal/50 cursor-pointer overflow-hidden rounded-lg border border-gray-800 bg-black/50 transition-all">
+        <div className="relative aspect-video overflow-hidden bg-gray-900">
           <Image
             src={imageUrl}
             alt={template.title || template.id}
             fill
-            className="object-cover group-hover:scale-105 transition-transform duration-300"
+            className="object-cover transition-transform duration-300 group-hover:scale-105"
             loading="lazy"
             sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
           />
         </div>
-        <div className="p-4 space-y-3">
-          <h3 className="font-medium text-white text-sm line-clamp-1">
+        <div className="space-y-3 p-4">
+          <h3 className="line-clamp-1 text-sm font-medium text-white">
             {template.title || template.id}
           </h3>
           <div className="flex gap-2">
             <button
               onClick={handlePreviewClick}
               disabled={disabled || !imageUrl}
-              className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-brand-teal/20 hover:bg-brand-teal/30 border border-brand-teal/30 rounded text-brand-teal text-xs font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="bg-brand-teal/20 hover:bg-brand-teal/30 border-brand-teal/30 text-brand-teal flex flex-1 items-center justify-center gap-2 rounded border px-3 py-2 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Play className="h-3.5 w-3.5" />
               Preview
@@ -434,7 +411,7 @@ function V0TemplateCard({
             <button
               onClick={handleEdit}
               disabled={disabled || isCreating}
-              className="flex-1 flex items-center justify-center gap-2 px-3 py-2 bg-gray-800 hover:bg-gray-700 border border-gray-700 rounded text-gray-300 text-xs font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex flex-1 items-center justify-center gap-2 rounded border border-gray-700 bg-gray-800 px-3 py-2 text-xs font-medium text-gray-300 transition-colors hover:bg-gray-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {isCreating ? (
                 <Loader2 className="h-3.5 w-3.5 animate-spin" />

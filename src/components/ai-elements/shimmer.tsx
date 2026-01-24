@@ -8,7 +8,7 @@ export type ShimmerProps = ComponentProps<"span"> & {
 };
 
 export const Shimmer = ({ children, className, ...props }: ShimmerProps) => (
-  <span className={cn("animate-pulse text-muted-foreground", className)} {...props}>
+  <span className={cn("text-muted-foreground animate-pulse", className)} {...props}>
     {children}
   </span>
 );

@@ -21,15 +21,7 @@
  */
 
 import { useState, useRef, useCallback, useMemo } from "react";
-import {
-  FileText,
-  Upload,
-  Loader2,
-  X,
-  AlertCircle,
-  Sparkles,
-  Save,
-} from "lucide-react";
+import { FileText, Upload, Loader2, X, AlertCircle, Sparkles, Save } from "lucide-react";
 import { cn } from "@/lib/utils/utils";
 
 // ============================================================================
@@ -95,11 +87,7 @@ function detectContentType(content: string): { type: string; hint: string } {
       hint: "Ser ut som prislista → Föreslår Pricing-sektionen",
     };
   }
-  if (
-    lower.includes("faq") ||
-    lower.includes("vanliga frågor") ||
-    lower.includes("?")
-  ) {
+  if (lower.includes("faq") || lower.includes("vanliga frågor") || lower.includes("?")) {
     return { type: "faq", hint: "Ser ut som FAQ → Föreslår FAQ-sektionen" };
   }
   if (
@@ -175,18 +163,11 @@ export function TextUploader({
   };
 
   const handleFile = async (file: File) => {
-    const validTypes = [
-      "text/plain",
-      "text/markdown",
-      "application/json",
-      "application/pdf",
-    ];
+    const validTypes = ["text/plain", "text/markdown", "application/json", "application/pdf"];
     const validExtensions = [".txt", ".md", ".json", ".pdf"];
 
     const isValidType = validTypes.includes(file.type);
-    const isValidExt = validExtensions.some((ext) =>
-      file.name.toLowerCase().endsWith(ext)
-    );
+    const isValidExt = validExtensions.some((ext) => file.name.toLowerCase().endsWith(ext));
 
     if (!isValidType && !isValidExt) {
       setError("Endast textfiler (.txt, .md, .json) och PDF stöds");
@@ -209,9 +190,7 @@ export function TextUploader({
       setPendingText({ content, filename: file.name, file });
     } catch (err) {
       console.error("[TextUploader] Error processing file:", err);
-      setError(
-        err instanceof Error ? err.message : "Kunde inte bearbeta filen"
-      );
+      setError(err instanceof Error ? err.message : "Kunde inte bearbeta filen");
     } finally {
       setIsProcessing(false);
     }
@@ -259,7 +238,7 @@ export function TextUploader({
       e.stopPropagation();
       if (!disabled) setIsDragging(true);
     },
-    [disabled]
+    [disabled],
   );
 
   const handleDragLeave = useCallback((e: React.DragEvent) => {
@@ -282,12 +261,10 @@ export function TextUploader({
       }
     },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [disabled]
+    [disabled],
   );
 
-  const handleFileInputChange = async (
-    e: React.ChangeEvent<HTMLInputElement>
-  ) => {
+  const handleFileInputChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files && files.length > 0) {
       await handleFile(files[0]);
@@ -302,35 +279,33 @@ export function TextUploader({
   return (
     <>
       {/* Backdrop */}
-      <div className="fixed inset-0 bg-black/60 z-40" onClick={onClose} />
+      <div className="fixed inset-0 z-40 bg-black/60" onClick={onClose} />
 
       {/* Modal */}
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
         <div
           ref={modalRef}
           className={cn(
-            "w-full max-w-sm bg-gray-950 border border-gray-800 rounded-xl shadow-2xl",
-            "animate-in zoom-in-95 duration-200"
+            "w-full max-w-sm rounded-xl border border-gray-800 bg-gray-950 shadow-2xl",
+            "animate-in zoom-in-95 duration-200",
           )}
         >
           {/* Header */}
-          <div className="flex items-center justify-between p-4 border-b border-gray-800">
+          <div className="flex items-center justify-between border-b border-gray-800 p-4">
             <div className="flex items-center gap-2">
-              <FileText className="h-5 w-5 text-brand-amber" />
-              <h2 className="text-lg font-semibold text-white">
-                Lägg till text
-              </h2>
+              <FileText className="text-brand-amber h-5 w-5" />
+              <h2 className="text-lg font-semibold text-white">Lägg till text</h2>
             </div>
             <button
               onClick={onClose}
-              className="p-2 rounded-lg hover:bg-gray-800 text-gray-400 hover:text-white transition-colors"
+              className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-gray-800 hover:text-white"
             >
               <X className="h-5 w-5" />
             </button>
           </div>
 
           {/* Content */}
-          <div className="p-4 space-y-4">
+          <div className="space-y-4 p-4">
             {/* Drop zone */}
             {!isProcessing && !pendingText && (
               <div
@@ -339,20 +314,16 @@ export function TextUploader({
                 onDrop={handleDrop}
                 onClick={() => !disabled && fileInputRef.current?.click()}
                 className={cn(
-                  "border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-colors",
+                  "cursor-pointer rounded-xl border-2 border-dashed p-8 text-center transition-colors",
                   isDragging
                     ? "border-brand-amber bg-brand-amber/10"
                     : "border-gray-700 hover:border-gray-600 hover:bg-gray-900/50",
-                  disabled && "opacity-50 cursor-not-allowed"
+                  disabled && "cursor-not-allowed opacity-50",
                 )}
               >
-                <Upload className="h-10 w-10 text-gray-500 mx-auto mb-3" />
-                <p className="text-sm text-gray-300 mb-1">
-                  Dra in en textfil eller PDF här
-                </p>
-                <p className="text-xs text-gray-500">
-                  .txt, .md, .json, .pdf stöds
-                </p>
+                <Upload className="mx-auto mb-3 h-10 w-10 text-gray-500" />
+                <p className="mb-1 text-sm text-gray-300">Dra in en textfil eller PDF här</p>
+                <p className="text-xs text-gray-500">.txt, .md, .json, .pdf stöds</p>
               </div>
             )}
 
@@ -367,7 +338,7 @@ export function TextUploader({
             {/* Processing */}
             {isProcessing && (
               <div className="flex flex-col items-center py-8">
-                <Loader2 className="h-8 w-8 animate-spin text-brand-amber mb-3" />
+                <Loader2 className="text-brand-amber mb-3 h-8 w-8 animate-spin" />
                 <p className="text-sm text-gray-300">Läser filen...</p>
               </div>
             )}
@@ -376,16 +347,12 @@ export function TextUploader({
             {pendingText && !isProcessing && (
               <div className="space-y-3">
                 {/* Content preview */}
-                <div className="p-3 bg-gray-900 border border-gray-800 rounded-lg space-y-2">
+                <div className="space-y-2 rounded-lg border border-gray-800 bg-gray-900 p-3">
                   <div className="flex items-center justify-between">
-                    <p className="text-sm font-medium text-gray-200">
-                      {pendingText.filename}
-                    </p>
-                    <span className="text-xs text-gray-500">
-                      {wordCount} ord
-                    </span>
+                    <p className="text-sm font-medium text-gray-200">{pendingText.filename}</p>
+                    <span className="text-xs text-gray-500">{wordCount} ord</span>
                   </div>
-                  <p className="text-xs text-gray-500 line-clamp-3">
+                  <p className="line-clamp-3 text-xs text-gray-500">
                     {pendingText.content.slice(0, 400)}
                     {pendingText.content.length > 400 ? "..." : ""}
                   </p>
@@ -393,21 +360,19 @@ export function TextUploader({
 
                 {/* Smart content hint */}
                 {contentHint && (
-                  <div className="flex items-center gap-2 px-3 py-2 bg-brand-teal/10 border border-brand-teal/30 rounded-lg">
-                    <Sparkles className="h-4 w-4 text-brand-teal shrink-0" />
-                    <span className="text-xs text-brand-teal/80">
-                      {contentHint.hint}
-                    </span>
+                  <div className="bg-brand-teal/10 border-brand-teal/30 flex items-center gap-2 rounded-lg border px-3 py-2">
+                    <Sparkles className="text-brand-teal h-4 w-4 shrink-0" />
+                    <span className="text-brand-teal/80 text-xs">{contentHint.hint}</span>
                   </div>
                 )}
 
                 {/* Save to library checkbox */}
-                <label className="flex items-center gap-2 cursor-pointer group">
+                <label className="group flex cursor-pointer items-center gap-2">
                   <input
                     type="checkbox"
                     checked={saveToLibrary}
                     onChange={(e) => setSaveToLibrary(e.target.checked)}
-                    className="w-4 h-4 rounded border-gray-600 bg-gray-800 text-brand-teal focus:ring-brand-teal focus:ring-offset-0"
+                    className="text-brand-teal focus:ring-brand-teal h-4 w-4 rounded border-gray-600 bg-gray-800 focus:ring-offset-0"
                   />
                   <Save className="h-3.5 w-3.5 text-gray-500 group-hover:text-gray-400" />
                   <span className="text-xs text-gray-400 group-hover:text-gray-300">
@@ -420,8 +385,8 @@ export function TextUploader({
                   onClick={handleSendToChat}
                   disabled={isSaving || disabled}
                   className={cn(
-                    "w-full px-4 py-3 bg-brand-teal hover:bg-brand-teal/90 text-white rounded-lg transition-colors font-medium flex items-center justify-center gap-2",
-                    (isSaving || disabled) && "opacity-70 cursor-not-allowed"
+                    "bg-brand-teal hover:bg-brand-teal/90 flex w-full items-center justify-center gap-2 rounded-lg px-4 py-3 font-medium text-white transition-colors",
+                    (isSaving || disabled) && "cursor-not-allowed opacity-70",
                   )}
                 >
                   {isSaving ? (
@@ -437,7 +402,7 @@ export function TextUploader({
                   )}
                 </button>
 
-                <p className="text-[11px] text-gray-600 text-center">
+                <p className="text-center text-[11px] text-gray-600">
                   Du kan ange var texten ska placeras i nästa meddelande
                 </p>
               </div>
@@ -445,13 +410,10 @@ export function TextUploader({
 
             {/* Error */}
             {error && (
-              <div className="flex items-center gap-2 p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-sm text-red-400">
+              <div className="flex items-center gap-2 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-400">
                 <AlertCircle className="h-4 w-4 shrink-0" />
                 <span className="flex-1">{error}</span>
-                <button
-                  onClick={() => setError(null)}
-                  className="hover:text-red-300"
-                >
+                <button onClick={() => setError(null)} className="hover:text-red-300">
                   <X className="h-4 w-4" />
                 </button>
               </div>
@@ -459,7 +421,7 @@ export function TextUploader({
 
             {/* Help text */}
             {!pendingText && !isProcessing && (
-              <p className="text-xs text-gray-500 text-center">
+              <p className="text-center text-xs text-gray-500">
                 AI:n analyserar texten och föreslår bästa platsen
               </p>
             )}

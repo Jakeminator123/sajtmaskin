@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
     if (!email || !password) {
       return NextResponse.json(
         { success: false, error: "E-post och lösenord krävs" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -26,10 +26,7 @@ export async function POST(req: NextRequest) {
     const result = await loginUser(email, password);
 
     if ("error" in result) {
-      return NextResponse.json(
-        { success: false, error: result.error },
-        { status: 401 }
-      );
+      return NextResponse.json({ success: false, error: result.error }, { status: 401 });
     }
 
     // Set auth cookie
@@ -51,7 +48,7 @@ export async function POST(req: NextRequest) {
     console.error("[API/auth/login] Error:", error);
     return NextResponse.json(
       { success: false, error: "Något gick fel vid inloggning" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

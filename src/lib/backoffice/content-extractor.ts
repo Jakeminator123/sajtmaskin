@@ -91,11 +91,7 @@ function detectContext(code: string, position: number): string {
 /**
  * Generate a unique, readable content ID
  */
-function generateContentId(
-  type: string,
-  context: string,
-  index: number
-): string {
+function generateContentId(type: string, context: string, index: number): string {
   return `${context}-${type}-${index}`.toLowerCase().replace(/\s+/g, "-");
 }
 
@@ -109,8 +105,7 @@ function extractTextContent(code: string): ContentItem[] {
 
   // Extract JSX text content
   let match;
-  const jsxPattern =
-    /<(h[1-6]|p|span|button|a|label|li|td|th|dt|dd)[^>]*>([^<]{3,})<\//g;
+  const jsxPattern = /<(h[1-6]|p|span|button|a|label|li|td|th|dt|dd)[^>]*>([^<]{3,})<\//g;
 
   while ((match = jsxPattern.exec(code)) !== null) {
     const text = match[2].trim();
@@ -173,8 +168,7 @@ function extractImages(code: string): ContentItem[] {
       const src = match[1].trim();
 
       // Skip data URIs, already seen, or internal Next.js paths
-      if (src.startsWith("data:") || seen.has(src) || src.includes("/_next/"))
-        continue;
+      if (src.startsWith("data:") || seen.has(src) || src.includes("/_next/")) continue;
 
       seen.add(src);
       const context = detectContext(code, match.index);
@@ -235,12 +229,7 @@ function extractColors(code: string): ColorTheme {
 
   for (const match of bgMatches) {
     const [, color, shade] = match;
-    if (
-      color !== "white" &&
-      color !== "black" &&
-      color !== "gray" &&
-      color !== "slate"
-    ) {
+    if (color !== "white" && color !== "black" && color !== "gray" && color !== "slate") {
       const key = `${color}-${shade}`;
       colorCounts[key] = (colorCounts[key] || 0) + 1;
     }
@@ -276,7 +265,7 @@ function extractProducts(code: string): ProductItem[] {
 
   // Look for arrays of objects with product-like properties
   const productArrayMatch = code.match(
-    /(?:products|items|menu|cards|menuItems)\s*[:=]\s*\[([\s\S]*?)\]/i
+    /(?:products|items|menu|cards|menuItems)\s*[:=]\s*\[([\s\S]*?)\]/i,
   );
 
   if (!productArrayMatch) return products;
@@ -303,9 +292,7 @@ function extractProducts(code: string): ProductItem[] {
     if (priceMatch) product.price = priceMatch[1].trim();
 
     // Extract image
-    const imageMatch = fullMatch.match(
-      /(?:image|img|photo)\s*:\s*["']([^"']+)["']/
-    );
+    const imageMatch = fullMatch.match(/(?:image|img|photo)\s*:\s*["']([^"']+)["']/);
     if (imageMatch) product.image = imageMatch[1];
 
     // Extract category
@@ -327,18 +314,14 @@ function detectSiteType(code: string): ContentManifest["siteType"] {
   // Dashboard indicators
   if (
     lower.includes("sidebar") &&
-    (lower.includes("chart") ||
-      lower.includes("stats") ||
-      lower.includes("analytics"))
+    (lower.includes("chart") || lower.includes("stats") || lower.includes("analytics"))
   ) {
     return "dashboard";
   }
 
   // Multi-page website indicators
   if (
-    (lower.includes("/about") ||
-      lower.includes("/contact") ||
-      lower.includes("/services")) &&
+    (lower.includes("/about") || lower.includes("/contact") || lower.includes("/services")) &&
     (lower.includes("navigation") || lower.includes("navbar"))
   ) {
     return "website";
@@ -347,9 +330,7 @@ function detectSiteType(code: string): ContentManifest["siteType"] {
   // Landing page (default for single-page sites)
   if (
     lower.includes("hero") &&
-    (lower.includes("cta") ||
-      lower.includes("call to action") ||
-      lower.includes("signup"))
+    (lower.includes("cta") || lower.includes("call to action") || lower.includes("signup"))
   ) {
     return "landing-page";
   }
@@ -362,7 +343,7 @@ function detectSiteType(code: string): ContentManifest["siteType"] {
  */
 export function extractContent(
   code: string,
-  files?: { name: string; content: string }[]
+  files?: { name: string; content: string }[],
 ): ContentManifest {
   // Combine all file contents if multiple files provided
   const fullCode = files ? files.map((f) => f.content).join("\n\n") : code;
@@ -374,19 +355,12 @@ export function extractContent(
   const siteType = detectSiteType(fullCode);
 
   // Detect metadata
-  const hasContactForm = /contact.*form|form.*contact|kontakt.*formulär/i.test(
-    fullCode
-  );
-  const hasNewsletter = /newsletter|nyhetsbrev|subscribe|prenumerera/i.test(
-    fullCode
-  );
-  const hasProducts =
-    products.length > 0 || /product|produkt|shop|butik|pris/i.test(fullCode);
+  const hasContactForm = /contact.*form|form.*contact|kontakt.*formulär/i.test(fullCode);
+  const hasNewsletter = /newsletter|nyhetsbrev|subscribe|prenumerera/i.test(fullCode);
+  const hasProducts = products.length > 0 || /product|produkt|shop|butik|pris/i.test(fullCode);
 
   // Try to extract title
-  const titleMatch = fullCode.match(
-    /(?:<title>|title\s*[:=]\s*["'])([^<"']+)/i
-  );
+  const titleMatch = fullCode.match(/(?:<title>|title\s*[:=]\s*["'])([^<"']+)/i);
   const descMatch = fullCode.match(/(?:description\s*[:=]\s*["'])([^"']+)/i);
 
   return {

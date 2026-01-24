@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
     if (!user) {
       return NextResponse.json(
         { success: false, error: "Authentication required" },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
@@ -39,10 +39,7 @@ export async function POST(request: NextRequest) {
     const { images, projectId } = body;
 
     if (!images || images.length === 0) {
-      return NextResponse.json(
-        { success: false, error: "No images provided" },
-        { status: 400 }
-      );
+      return NextResponse.json({ success: false, error: "No images provided" }, { status: 400 });
     }
 
     const savedImages: Array<{
@@ -62,10 +59,7 @@ export async function POST(request: NextRequest) {
         });
 
         if (uploadResult) {
-          console.log(
-            `[Images/Save] ✅ Saved (${uploadResult.storageType}):`,
-            uploadResult.url
-          );
+          console.log(`[Images/Save] ✅ Saved (${uploadResult.storageType}):`, uploadResult.url);
 
           savedImages.push({
             url: uploadResult.url,
@@ -75,8 +69,7 @@ export async function POST(request: NextRequest) {
 
           // Save metadata to database
           if (projectId) {
-            const filename =
-              uploadResult.path.split("/").pop() || "unknown.png";
+            const filename = uploadResult.path.split("/").pop() || "unknown.png";
             const buffer = Buffer.from(img.base64, "base64");
             saveImage(
               projectId,
@@ -84,7 +77,7 @@ export async function POST(request: NextRequest) {
               uploadResult.path,
               `AI Generated: ${img.prompt.substring(0, 50)}`,
               "image/png",
-              buffer.length
+              buffer.length,
             );
           }
           continue;
@@ -112,9 +105,6 @@ export async function POST(request: NextRequest) {
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Unknown error";
     console.error("[API/Images/Save] Error:", error);
-    return NextResponse.json(
-      { success: false, error: message },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, error: message }, { status: 500 });
   }
 }

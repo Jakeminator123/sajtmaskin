@@ -5,18 +5,12 @@
  */
 
 import { getCurrentUser } from "@/lib/auth/auth";
-import {
-  TEST_USER_EMAIL,
-  getAnalyticsStats,
-  recordPageView,
-} from "@/lib/data/database";
+import { TEST_USER_EMAIL, getAnalyticsStats, recordPageView } from "@/lib/data/database";
 import { getSessionIdFromRequest } from "@/lib/auth/session";
 import { NextRequest, NextResponse } from "next/server";
 
 // Safely parse JSON without throwing on empty/invalid bodies
-async function parseJsonBody<T>(
-  req: NextRequest
-): Promise<T | Record<string, never>> {
+async function parseJsonBody<T>(req: NextRequest): Promise<T | Record<string, never>> {
   try {
     const text = await req.text();
     if (!text) return {} as Record<string, never>;
@@ -34,35 +28,23 @@ export async function POST(req: NextRequest) {
     const { path, referrer } = body as { path?: string; referrer?: string };
 
     if (!path) {
-      return NextResponse.json(
-        { success: false, error: "Path required" },
-        { status: 400 }
-      );
+      return NextResponse.json({ success: false, error: "Path required" }, { status: 400 });
     }
 
     const sessionId = getSessionIdFromRequest(req);
     const user = await getCurrentUser(req);
     const ipAddress =
-      req.headers.get("x-forwarded-for") ||
-      req.headers.get("x-real-ip") ||
-      "unknown";
+      req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
     const userAgent = req.headers.get("user-agent") || undefined;
 
-    recordPageView(
-      path,
-      sessionId || undefined,
-      user?.id,
-      ipAddress,
-      userAgent,
-      referrer
-    );
+    recordPageView(path, sessionId || undefined, user?.id, ipAddress, userAgent, referrer);
 
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("[API/analytics] Error recording page view:", error);
     return NextResponse.json(
       { success: false, error: "Failed to record page view" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -76,7 +58,7 @@ export async function GET(req: NextRequest) {
     if (!user || user.email !== TEST_USER_EMAIL) {
       return NextResponse.json(
         { success: false, error: "Unauthorized - admin access required" },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
@@ -89,9 +71,6 @@ export async function GET(req: NextRequest) {
     });
   } catch (error) {
     console.error("[API/analytics] Error getting stats:", error);
-    return NextResponse.json(
-      { success: false, error: "Failed to get stats" },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, error: "Failed to get stats" }, { status: 500 });
   }
 }

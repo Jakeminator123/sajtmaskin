@@ -57,11 +57,7 @@ export function DialogTrigger({
   return <Comp {...mergedProps}>{children}</Comp>;
 }
 
-export function DialogContent({
-  children,
-  className = "",
-  showCloseButton,
-}: DialogContentProps) {
+export function DialogContent({ children, className = "", showCloseButton }: DialogContentProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
 
   // Close on escape key
@@ -70,8 +66,7 @@ export function DialogContent({
       if (e.key === "Escape") {
         // Don't close if user is typing in an input field
         const target = e.target as HTMLElement;
-        const isInput =
-          target.tagName === "INPUT" || target.tagName === "TEXTAREA";
+        const isInput = target.tagName === "INPUT" || target.tagName === "TEXTAREA";
         const isContentEditable = target.isContentEditable;
 
         if (isInput || isContentEditable) {
@@ -108,7 +103,7 @@ export function DialogContent({
       />
       <div
         ref={dialogRef}
-        className={`relative z-10 w-full max-w-lg mx-4 bg-gray-900 border border-gray-800 shadow-xl rounded-lg ${className}`}
+        className={`relative z-10 mx-4 w-full max-w-lg rounded-lg border border-gray-800 bg-gray-900 shadow-xl ${className}`}
         role="dialog"
         aria-modal="true"
       >
@@ -120,7 +115,7 @@ export function DialogContent({
               const event = new CustomEvent("dialog-close");
               window.dispatchEvent(event);
             }}
-            className="absolute right-3 top-3 text-gray-400 hover:text-gray-200"
+            className="absolute top-3 right-3 text-gray-400 hover:text-gray-200"
             aria-label="Close"
           >
             ×
@@ -136,16 +131,9 @@ export function DialogHeader({ children, className = "" }: DialogHeaderProps) {
 }
 
 export function DialogTitle({ children, className = "" }: DialogTitleProps) {
-  return (
-    <h2 className={`text-lg font-semibold text-white ${className}`}>
-      {children}
-    </h2>
-  );
+  return <h2 className={`text-lg font-semibold text-white ${className}`}>{children}</h2>;
 }
 
-export function DialogDescription({
-  children,
-  className = "",
-}: DialogDescriptionProps) {
+export function DialogDescription({ children, className = "" }: DialogDescriptionProps) {
   return <p className={`mt-1 text-sm text-gray-400 ${className}`}>{children}</p>;
 }

@@ -25,11 +25,7 @@ export function Message({ from, children, className, ...props }: MessageProps) {
   return (
     <div
       data-role={from}
-      className={cn(
-        "group flex gap-3",
-        from === "user" && "flex-row-reverse",
-        className
-      )}
+      className={cn("group flex gap-3", from === "user" && "flex-row-reverse", className)}
       {...props}
     >
       {children}
@@ -45,17 +41,13 @@ export interface MessageAvatarProps extends HTMLAttributes<HTMLDivElement> {
   children?: ReactNode;
 }
 
-export function MessageAvatar({
-  children,
-  className,
-  ...props
-}: MessageAvatarProps) {
+export function MessageAvatar({ children, className, ...props }: MessageAvatarProps) {
   return (
     <div
       className={cn(
-        "flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center",
-        "bg-zinc-800 text-zinc-300 text-sm font-medium",
-        className
+        "flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full",
+        "bg-zinc-800 text-sm font-medium text-zinc-300",
+        className,
       )}
       {...props}
     >
@@ -72,17 +64,13 @@ export interface MessageContentProps extends HTMLAttributes<HTMLDivElement> {
   children: ReactNode;
 }
 
-export function MessageContent({
-  children,
-  className,
-  ...props
-}: MessageContentProps) {
+export function MessageContent({ children, className, ...props }: MessageContentProps) {
   return (
     <div
       className={cn(
-        "flex flex-col gap-2 max-w-[80%]",
+        "flex max-w-[80%] flex-col gap-2",
         "group-data-[role=user]:items-end",
-        className
+        className,
       )}
       {...props}
     >
@@ -99,19 +87,15 @@ export interface MessageResponseProps extends HTMLAttributes<HTMLDivElement> {
   children: ReactNode;
 }
 
-export function MessageResponse({
-  children,
-  className,
-  ...props
-}: MessageResponseProps) {
+export function MessageResponse({ children, className, ...props }: MessageResponseProps) {
   return (
     <div
       className={cn(
         "rounded-2xl px-4 py-3 text-sm leading-relaxed",
         "group-data-[role=user]:bg-brand-blue group-data-[role=user]:text-white",
         "group-data-[role=assistant]:bg-zinc-800 group-data-[role=assistant]:text-zinc-100",
-        "group-data-[role=system]:bg-zinc-900 group-data-[role=system]:text-zinc-400 group-data-[role=system]:text-xs",
-        className
+        "group-data-[role=system]:bg-zinc-900 group-data-[role=system]:text-xs group-data-[role=system]:text-zinc-400",
+        className,
       )}
       {...props}
     >
@@ -128,16 +112,12 @@ export interface MessageActionsProps extends HTMLAttributes<HTMLDivElement> {
   children: ReactNode;
 }
 
-export function MessageActions({
-  children,
-  className,
-  ...props
-}: MessageActionsProps) {
+export function MessageActions({ children, className, ...props }: MessageActionsProps) {
   return (
     <div
       className={cn(
-        "flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity",
-        className
+        "flex items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100",
+        className,
       )}
       {...props}
     >
@@ -150,27 +130,20 @@ export function MessageActions({
 // MESSAGE ACTION (Individual action button)
 // ============================================================================
 
-export interface MessageActionProps
-  extends HTMLAttributes<HTMLButtonElement> {
+export interface MessageActionProps extends HTMLAttributes<HTMLButtonElement> {
   icon?: ReactNode;
   label?: string;
 }
 
-export function MessageAction({
-  icon,
-  label,
-  className,
-  children,
-  ...props
-}: MessageActionProps) {
+export function MessageAction({ icon, label, className, children, ...props }: MessageActionProps) {
   return (
     <button
       type="button"
       title={label}
       className={cn(
-        "p-1.5 rounded-md text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800",
+        "rounded-md p-1.5 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200",
         "transition-colors",
-        className
+        className,
       )}
       {...props}
     >
@@ -216,12 +189,8 @@ export function MessageTimestamp({
   };
 
   return (
-    <span
-      className={cn("text-xs text-zinc-500", className)}
-      {...props}
-    >
+    <span className={cn("text-xs text-zinc-500", className)} {...props}>
       {formatDate()}
     </span>
   );
 }
-

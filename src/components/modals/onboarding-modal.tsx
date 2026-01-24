@@ -90,17 +90,14 @@ export function OnboardingModal({ onComplete, onSkip }: OnboardingModalProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/80 backdrop-blur-sm"
-        onClick={handleSkip}
-      />
+      <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={handleSkip} />
 
       {/* Modal */}
-      <div className="relative w-full max-w-3xl max-h-[90vh] overflow-y-auto bg-black border border-gray-800 shadow-2xl mx-4">
+      <div className="relative mx-4 max-h-[90vh] w-full max-w-3xl overflow-y-auto border border-gray-800 bg-black shadow-2xl">
         {/* Close button */}
         <button
           onClick={handleSkip}
-          className="absolute top-4 right-4 p-2 text-gray-400 hover:text-white transition-colors z-10"
+          className="absolute top-4 right-4 z-10 p-2 text-gray-400 transition-colors hover:text-white"
         >
           <X className="h-5 w-5" />
         </button>
@@ -108,24 +105,20 @@ export function OnboardingModal({ onComplete, onSkip }: OnboardingModalProps) {
         {/* VIDEO STEP */}
         {step === "video" && (
           <div className="p-6">
-            <div className="text-center mb-6">
-              <div className="inline-flex items-center gap-2 px-4 py-2 bg-brand-teal/10 border border-brand-teal/30 text-brand-teal text-sm mb-4">
+            <div className="mb-6 text-center">
+              <div className="bg-brand-teal/10 border-brand-teal/30 text-brand-teal mb-4 inline-flex items-center gap-2 border px-4 py-2 text-sm">
                 <Sparkles className="h-4 w-4" />
                 Välkommen till SajtMaskin
               </div>
-              <h2 className="text-2xl font-bold text-white">
-                Din AI-partner för hemsidor
-              </h2>
-              <p className="text-gray-400 mt-2">
-                Se denna korta introduktion (ca 2 min)
-              </p>
+              <h2 className="text-2xl font-bold text-white">Din AI-partner för hemsidor</h2>
+              <p className="mt-2 text-gray-400">Se denna korta introduktion (ca 2 min)</p>
             </div>
 
             {/* Video player */}
-            <div className="relative aspect-video bg-black border border-gray-800 overflow-hidden mb-4">
+            <div className="relative mb-4 aspect-video overflow-hidden border border-gray-800 bg-black">
               <video
                 ref={videoRef}
-                className="w-full h-full"
+                className="h-full w-full"
                 controls
                 autoPlay
                 onEnded={handleVideoEnd}
@@ -146,7 +139,7 @@ export function OnboardingModal({ onComplete, onSkip }: OnboardingModalProps) {
             <div className="flex justify-center">
               <button
                 onClick={handleSkipVideo}
-                className="flex items-center gap-2 px-6 py-3 bg-gray-900 hover:bg-gray-800 text-gray-300 transition-colors border border-gray-800"
+                className="flex items-center gap-2 border border-gray-800 bg-gray-900 px-6 py-3 text-gray-300 transition-colors hover:bg-gray-800"
               >
                 Hoppa över videon
                 <ArrowRight className="h-4 w-4" />
@@ -158,11 +151,9 @@ export function OnboardingModal({ onComplete, onSkip }: OnboardingModalProps) {
         {/* FORM STEP */}
         {step === "form" && (
           <div className="p-6">
-            <div className="text-center mb-8">
-              <h2 className="text-2xl font-bold text-white">
-                Berätta om ditt projekt
-              </h2>
-              <p className="text-gray-400 mt-2">Så kan vi hjälpa dig bättre</p>
+            <div className="mb-8 text-center">
+              <h2 className="text-2xl font-bold text-white">Berätta om ditt projekt</h2>
+              <p className="mt-2 text-gray-400">Så kan vi hjälpa dig bättre</p>
             </div>
 
             <div className="space-y-6">
@@ -172,7 +163,7 @@ export function OnboardingModal({ onComplete, onSkip }: OnboardingModalProps) {
                   htmlFor="existing-url"
                   className="flex items-center gap-2 text-sm font-medium text-gray-300"
                 >
-                  <Globe className="h-4 w-4 text-brand-teal" />
+                  <Globe className="text-brand-teal h-4 w-4" />
                   Har du en befintlig webbplats?
                 </label>
 
@@ -183,7 +174,7 @@ export function OnboardingModal({ onComplete, onSkip }: OnboardingModalProps) {
                     value={existingUrl}
                     onChange={(e) => setExistingUrl(e.target.value)}
                     placeholder="https://ditt-foretag.se"
-                    className="flex-1 px-4 py-3 bg-black border border-gray-800 text-white placeholder-gray-500 focus:border-brand-teal focus:outline-none focus:ring-1 focus:ring-brand-teal"
+                    className="focus:border-brand-teal focus:ring-brand-teal flex-1 border border-gray-800 bg-black px-4 py-3 text-white placeholder-gray-500 focus:ring-1 focus:outline-none"
                   />
                 </div>
 
@@ -192,44 +183,38 @@ export function OnboardingModal({ onComplete, onSkip }: OnboardingModalProps) {
                   <div className="relative">
                     <button
                       type="button"
-                      onClick={() =>
-                        setShowPurposeDropdown(!showPurposeDropdown)
-                      }
-                      className="w-full flex items-center justify-between px-4 py-3 bg-black border border-gray-800 text-left hover:border-gray-700 transition-colors"
+                      onClick={() => setShowPurposeDropdown(!showPurposeDropdown)}
+                      className="flex w-full items-center justify-between border border-gray-800 bg-black px-4 py-3 text-left transition-colors hover:border-gray-700"
                     >
-                      <span
-                        className={urlPurpose ? "text-white" : "text-gray-500"}
-                      >
-                        {urlPurpose
-                          ? purposeLabels[urlPurpose]
-                          : "Vad vill du göra med denna URL?"}
+                      <span className={urlPurpose ? "text-white" : "text-gray-500"}>
+                        {urlPurpose ? purposeLabels[urlPurpose] : "Vad vill du göra med denna URL?"}
                       </span>
                       <ChevronDown
-                        className={`h-4 w-4 text-gray-400 transition-transform ${showPurposeDropdown ? "rotate-180" : ""
-                          }`}
+                        className={`h-4 w-4 text-gray-400 transition-transform ${
+                          showPurposeDropdown ? "rotate-180" : ""
+                        }`}
                       />
                     </button>
 
                     {showPurposeDropdown && (
-                      <div className="absolute top-full left-0 right-0 mt-1 bg-black border border-gray-800 shadow-xl z-10 overflow-hidden">
-                        {(Object.keys(purposeLabels) as UrlPurpose[]).map(
-                          (purpose) => (
-                            <button
-                              key={purpose}
-                              type="button"
-                              onClick={() => {
-                                setUrlPurpose(purpose);
-                                setShowPurposeDropdown(false);
-                              }}
-                              className={`w-full px-4 py-3 text-left hover:bg-gray-900 transition-colors ${urlPurpose === purpose
+                      <div className="absolute top-full right-0 left-0 z-10 mt-1 overflow-hidden border border-gray-800 bg-black shadow-xl">
+                        {(Object.keys(purposeLabels) as UrlPurpose[]).map((purpose) => (
+                          <button
+                            key={purpose}
+                            type="button"
+                            onClick={() => {
+                              setUrlPurpose(purpose);
+                              setShowPurposeDropdown(false);
+                            }}
+                            className={`w-full px-4 py-3 text-left transition-colors hover:bg-gray-900 ${
+                              urlPurpose === purpose
                                 ? "bg-brand-teal/10 text-brand-teal"
                                 : "text-gray-300"
-                                }`}
-                            >
-                              {purposeLabels[purpose]}
-                            </button>
-                          )
-                        )}
+                            }`}
+                          >
+                            {purposeLabels[purpose]}
+                          </button>
+                        ))}
                       </div>
                     )}
                   </div>
@@ -238,22 +223,21 @@ export function OnboardingModal({ onComplete, onSkip }: OnboardingModalProps) {
 
               {/* FIELD 2: Analyze from web checkbox */}
               <div className="space-y-3">
-                <label className="flex items-start gap-3 p-4 bg-gray-900/50 border border-gray-800 cursor-pointer hover:border-gray-700 transition-colors">
+                <label className="flex cursor-pointer items-start gap-3 border border-gray-800 bg-gray-900/50 p-4 transition-colors hover:border-gray-700">
                   <input
                     type="checkbox"
                     checked={analyzeFromWeb}
                     onChange={(e) => setAnalyzeFromWeb(e.target.checked)}
-                    className="mt-1 h-5 w-5 border-gray-700 bg-black text-brand-teal focus:ring-brand-teal focus:ring-offset-0"
+                    className="text-brand-teal focus:ring-brand-teal mt-1 h-5 w-5 border-gray-700 bg-black focus:ring-offset-0"
                   />
                   <div>
-                    <div className="flex items-center gap-2 text-white font-medium">
-                      <Search className="h-4 w-4 text-brand-teal" />
+                    <div className="flex items-center gap-2 font-medium text-white">
+                      <Search className="text-brand-teal h-4 w-4" />
                       Analysera mitt företag från internet
                     </div>
-                    <p className="text-sm text-gray-400 mt-1">
-                      Jag vill att min företagsprofil, kundsegment och annan
-                      offentlig information hämtas och analyseras för att skapa
-                      en bättre sajt.
+                    <p className="mt-1 text-sm text-gray-400">
+                      Jag vill att min företagsprofil, kundsegment och annan offentlig information
+                      hämtas och analyseras för att skapa en bättre sajt.
                     </p>
                   </div>
                 </label>
@@ -274,7 +258,7 @@ export function OnboardingModal({ onComplete, onSkip }: OnboardingModalProps) {
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder="Beskriv vilken typ av sajt du vill skapa, ditt företag, din målgrupp, etc..."
                   rows={4}
-                  className="w-full px-4 py-3 bg-black border border-gray-800 text-white placeholder-gray-500 focus:border-brand-teal focus:outline-none focus:ring-1 focus:ring-brand-teal resize-none"
+                  className="focus:border-brand-teal focus:ring-brand-teal w-full resize-none border border-gray-800 bg-black px-4 py-3 text-white placeholder-gray-500 focus:ring-1 focus:outline-none"
                 />
               </div>
 
@@ -283,14 +267,14 @@ export function OnboardingModal({ onComplete, onSkip }: OnboardingModalProps) {
                 <button
                   type="button"
                   onClick={handleSkip}
-                  className="flex-1 px-6 py-3 bg-gray-900 hover:bg-gray-800 text-gray-300 transition-colors border border-gray-800"
+                  className="flex-1 border border-gray-800 bg-gray-900 px-6 py-3 text-gray-300 transition-colors hover:bg-gray-800"
                 >
                   Hoppa över
                 </button>
                 <button
                   type="button"
                   onClick={handleSubmit}
-                  className="flex-1 flex items-center justify-center gap-2 px-6 py-3 bg-brand-teal hover:bg-brand-teal/90 text-white font-medium transition-colors"
+                  className="bg-brand-teal hover:bg-brand-teal/90 flex flex-1 items-center justify-center gap-2 px-6 py-3 font-medium text-white transition-colors"
                 >
                   <Building2 className="h-4 w-4" />
                   Kom igång
@@ -309,15 +293,11 @@ export function OnboardingModal({ onComplete, onSkip }: OnboardingModalProps) {
  */
 export function useOnboarding() {
   const [showOnboarding, setShowOnboarding] = useState(false);
-  const [onboardingData, setOnboardingData] = useState<OnboardingData | null>(
-    null
-  );
+  const [onboardingData, setOnboardingData] = useState<OnboardingData | null>(null);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const hasSeenOnboarding = localStorage.getItem(
-      "sajtmaskin_onboarding_seen"
-    );
+    const hasSeenOnboarding = localStorage.getItem("sajtmaskin_onboarding_seen");
     if (!hasSeenOnboarding) {
       setShowOnboarding(true);
     }

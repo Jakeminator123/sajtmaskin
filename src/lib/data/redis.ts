@@ -104,28 +104,19 @@ export interface CachedUser {
 }
 
 // Cache user session
-export async function cacheUserSession(
-  userId: string,
-  user: CachedUser
-): Promise<void> {
+export async function cacheUserSession(userId: string, user: CachedUser): Promise<void> {
   const redis = getRedis();
   if (!redis) return;
 
   try {
-    await redis.setex(
-      `${USER_SESSION_PREFIX}${userId}`,
-      USER_SESSION_TTL,
-      JSON.stringify(user)
-    );
+    await redis.setex(`${USER_SESSION_PREFIX}${userId}`, USER_SESSION_TTL, JSON.stringify(user));
   } catch (error) {
     console.error("[Redis] Failed to cache user session:", error);
   }
 }
 
 // Get cached user session
-export async function getCachedUserSession(
-  userId: string
-): Promise<CachedUser | null> {
+export async function getCachedUserSession(userId: string): Promise<CachedUser | null> {
   const redis = getRedis();
   if (!redis) return null;
 
@@ -135,10 +126,7 @@ export async function getCachedUserSession(
       try {
         return JSON.parse(data) as CachedUser;
       } catch (parseError) {
-        console.error(
-          "[Redis] Failed to parse cached user session JSON:",
-          parseError
-        );
+        console.error("[Redis] Failed to parse cached user session JSON:", parseError);
         // Invalid JSON, delete corrupted cache
         await redis.del(`${USER_SESSION_PREFIX}${userId}`);
         return null;
@@ -163,10 +151,7 @@ export async function invalidateUserSession(userId: string): Promise<void> {
 }
 
 // Update cached user diamonds
-export async function updateCachedUserDiamonds(
-  userId: string,
-  diamonds: number
-): Promise<void> {
+export async function updateCachedUserDiamonds(userId: string, diamonds: number): Promise<void> {
   const redis = getRedis();
   if (!redis) return;
 
@@ -179,13 +164,10 @@ export async function updateCachedUserDiamonds(
         await redis.setex(
           `${USER_SESSION_PREFIX}${userId}`,
           USER_SESSION_TTL,
-          JSON.stringify(user)
+          JSON.stringify(user),
         );
       } catch (parseError) {
-        console.error(
-          "[Redis] Failed to parse cached user JSON for diamond update:",
-          parseError
-        );
+        console.error("[Redis] Failed to parse cached user JSON for diamond update:", parseError);
         // Invalid JSON, delete corrupted cache
         await redis.del(`${USER_SESSION_PREFIX}${userId}`);
       }
@@ -202,7 +184,7 @@ const RATE_LIMIT_PREFIX = "ratelimit:";
 export async function checkRateLimit(
   key: string,
   maxRequests: number,
-  windowSeconds: number
+  windowSeconds: number,
 ): Promise<{ allowed: boolean; remaining: number; resetIn: number }> {
   const redis = getRedis();
 
@@ -218,10 +200,7 @@ export async function checkRateLimit(
     try {
       current = await redis.incr(redisKey);
     } catch (incrError) {
-      console.error(
-        "[Redis] Failed to increment rate limit counter:",
-        incrError
-      );
+      console.error("[Redis] Failed to increment rate limit counter:", incrError);
       // On error, allow request but log warning
       return { allowed: true, remaining: maxRequests, resetIn: 0 };
     }
@@ -231,10 +210,7 @@ export async function checkRateLimit(
       try {
         await redis.expire(redisKey, windowSeconds);
       } catch (expireError) {
-        console.error(
-          "[Redis] Failed to set expiry on rate limit key:",
-          expireError
-        );
+        console.error("[Redis] Failed to set expiry on rate limit key:", expireError);
         // Continue anyway - expiry will be set on next request
       }
     }
@@ -259,7 +235,7 @@ export async function checkRateLimit(
 export async function setCache(
   key: string,
   value: unknown,
-  ttlSeconds: number = 3600
+  ttlSeconds: number = 3600,
 ): Promise<void> {
   const redis = getRedis();
   if (!redis) {
@@ -321,7 +297,7 @@ const AUDIT_CACHE_TTL = 86400; // 24 hours
 export async function cacheAudit(
   auditId: number,
   userId: string,
-  auditData: Record<string, unknown>
+  auditData: Record<string, unknown>,
 ): Promise<void> {
   const redis = getRedis();
   if (!redis) return;
@@ -330,7 +306,7 @@ export async function cacheAudit(
     await redis.setex(
       `${AUDIT_CACHE_PREFIX}${auditId}`,
       AUDIT_CACHE_TTL,
-      JSON.stringify(auditData)
+      JSON.stringify(auditData),
     );
     // Invalidate user's audit list cache
     await redis.del(`${AUDIT_LIST_PREFIX}${userId}`);
@@ -342,9 +318,7 @@ export async function cacheAudit(
 /**
  * Get cached audit by ID
  */
-export async function getCachedAudit(
-  auditId: number
-): Promise<Record<string, unknown> | null> {
+export async function getCachedAudit(auditId: number): Promise<Record<string, unknown> | null> {
   const redis = getRedis();
   if (!redis) return null;
 
@@ -370,17 +344,13 @@ export async function cacheUserAuditList(
     company_name: string | null;
     score_overall: number | null;
     created_at: string;
-  }>
+  }>,
 ): Promise<void> {
   const redis = getRedis();
   if (!redis) return;
 
   try {
-    await redis.setex(
-      `${AUDIT_LIST_PREFIX}${userId}`,
-      AUDIT_CACHE_TTL,
-      JSON.stringify(audits)
-    );
+    await redis.setex(`${AUDIT_LIST_PREFIX}${userId}`, AUDIT_CACHE_TTL, JSON.stringify(audits));
   } catch (error) {
     console.error("[Redis] Failed to cache audit list:", error);
   }
@@ -498,10 +468,7 @@ export interface ProjectMeta {
 /**
  * Save project files to Redis cache (SQLite is the source of truth)
  */
-export async function saveProjectFiles(
-  projectId: string,
-  files: ProjectFile[]
-): Promise<boolean> {
+export async function saveProjectFiles(projectId: string, files: ProjectFile[]): Promise<boolean> {
   const redis = getRedis();
   if (!redis) {
     console.error("[Redis] Cannot save project files - Redis not available");
@@ -517,7 +484,7 @@ export async function saveProjectFiles(
     await redis.setex(
       `${PROJECT_FILES_PREFIX}${projectId}`,
       PROJECT_FILES_TTL,
-      JSON.stringify(files)
+      JSON.stringify(files),
     );
     // Files saved to Redis
     return true;
@@ -531,9 +498,7 @@ export async function saveProjectFiles(
  * Get project files from Redis
  * Also refreshes TTL on each read to prevent data expiration for active projects
  */
-export async function getProjectFiles(
-  projectId: string
-): Promise<ProjectFile[] | null> {
+export async function getProjectFiles(projectId: string): Promise<ProjectFile[] | null> {
   const redis = getRedis();
   if (!redis) return null;
 
@@ -563,7 +528,7 @@ export async function getProjectFiles(
 export async function updateProjectFile(
   projectId: string,
   filePath: string,
-  content: string
+  content: string,
 ): Promise<boolean> {
   const redis = getRedis();
   if (!redis) return false;
@@ -588,7 +553,7 @@ export async function updateProjectFile(
     await redis.setex(
       `${PROJECT_FILES_PREFIX}${projectId}`,
       PROJECT_FILES_TTL,
-      JSON.stringify(files)
+      JSON.stringify(files),
     );
     debugLog("DB", "[Redis] Updated project file", { projectId, filePath });
     return true;
@@ -601,10 +566,7 @@ export async function updateProjectFile(
 /**
  * Delete a file from the project
  */
-export async function deleteProjectFile(
-  projectId: string,
-  filePath: string
-): Promise<boolean> {
+export async function deleteProjectFile(projectId: string, filePath: string): Promise<boolean> {
   const redis = getRedis();
   if (!redis) return false;
 
@@ -616,7 +578,7 @@ export async function deleteProjectFile(
     await redis.setex(
       `${PROJECT_FILES_PREFIX}${projectId}`,
       PROJECT_FILES_TTL,
-      JSON.stringify(filteredFiles)
+      JSON.stringify(filteredFiles),
     );
     debugLog("DB", "[Redis] Deleted project file", { projectId, filePath });
     return true;
@@ -642,7 +604,7 @@ export async function saveProjectMeta(meta: ProjectMeta): Promise<boolean> {
     await redis.setex(
       `${PROJECT_META_PREFIX}${meta.projectId}`,
       PROJECT_FILES_TTL,
-      JSON.stringify(meta)
+      JSON.stringify(meta),
     );
     return true;
   } catch (error) {
@@ -655,9 +617,7 @@ export async function saveProjectMeta(meta: ProjectMeta): Promise<boolean> {
  * Get project metadata
  * Also refreshes TTL on each read to prevent data expiration for active projects
  */
-export async function getProjectMeta(
-  projectId: string
-): Promise<ProjectMeta | null> {
+export async function getProjectMeta(projectId: string): Promise<ProjectMeta | null> {
   const redis = getRedis();
   if (!redis) return null;
 
@@ -686,9 +646,7 @@ export async function getProjectMeta(
  * List all taken-over projects for a user
  * Uses SCAN instead of KEYS to avoid blocking Redis with large datasets
  */
-export async function listUserTakenOverProjects(
-  userId: string
-): Promise<ProjectMeta[]> {
+export async function listUserTakenOverProjects(userId: string): Promise<ProjectMeta[]> {
   const redis = getRedis();
   if (!redis) return [];
 
@@ -699,13 +657,7 @@ export async function listUserTakenOverProjects(
 
     // Use SCAN to iterate through keys without blocking Redis
     do {
-      const [nextCursor, keys] = await redis.scan(
-        cursor,
-        "MATCH",
-        pattern,
-        "COUNT",
-        100
-      );
+      const [nextCursor, keys] = await redis.scan(cursor, "MATCH", pattern, "COUNT", 100);
       cursor = nextCursor;
 
       // Fetch project metadata for each key
@@ -736,8 +688,7 @@ export async function listUserTakenOverProjects(
 
     // Sort by takenOverAt descending (newest first)
     const sorted = projects.sort(
-      (a, b) =>
-        new Date(b.takenOverAt).getTime() - new Date(a.takenOverAt).getTime()
+      (a, b) => new Date(b.takenOverAt).getTime() - new Date(a.takenOverAt).getTime(),
     );
     debugLog("DB", "[Redis] Listed taken-over projects", {
       userId,
@@ -779,11 +730,7 @@ export async function saveVideoJob(job: VideoJob): Promise<boolean> {
   }
 
   try {
-    await redis.setex(
-      `${VIDEO_JOB_PREFIX}${job.videoId}`,
-      VIDEO_JOB_TTL,
-      JSON.stringify(job)
-    );
+    await redis.setex(`${VIDEO_JOB_PREFIX}${job.videoId}`, VIDEO_JOB_TTL, JSON.stringify(job));
     // Video job saved to Redis
     return true;
   } catch (error) {
@@ -815,7 +762,7 @@ export async function getVideoJob(videoId: string): Promise<VideoJob | null> {
  */
 export async function updateVideoJob(
   videoId: string,
-  updates: Partial<VideoJob>
+  updates: Partial<VideoJob>,
 ): Promise<boolean> {
   const redis = getRedis();
   if (!redis) return false;
@@ -825,11 +772,7 @@ export async function updateVideoJob(
     if (!job) return false;
 
     const updatedJob = { ...job, ...updates };
-    await redis.setex(
-      `${VIDEO_JOB_PREFIX}${videoId}`,
-      VIDEO_JOB_TTL,
-      JSON.stringify(updatedJob)
-    );
+    await redis.setex(`${VIDEO_JOB_PREFIX}${videoId}`, VIDEO_JOB_TTL, JSON.stringify(updatedJob));
     return true;
   } catch (error) {
     console.error("[Redis] Failed to update video job:", error);
@@ -863,7 +806,7 @@ export async function cachePreview(preview: CachedPreview): Promise<boolean> {
     await redis.setex(
       `${PREVIEW_CACHE_PREFIX}${preview.templateId}`,
       PREVIEW_CACHE_TTL,
-      JSON.stringify(preview)
+      JSON.stringify(preview),
     );
     // Preview cached successfully
     return true;
@@ -876,9 +819,7 @@ export async function cachePreview(preview: CachedPreview): Promise<boolean> {
 /**
  * Get cached preview for a template
  */
-export async function getCachedPreview(
-  templateId: string
-): Promise<CachedPreview | null> {
+export async function getCachedPreview(templateId: string): Promise<CachedPreview | null> {
   const redis = getRedis();
   if (!redis) return null;
 

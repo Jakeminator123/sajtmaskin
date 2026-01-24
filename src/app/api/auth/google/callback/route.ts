@@ -17,9 +17,7 @@ export async function GET(req: NextRequest) {
     let redirectUrl = "/";
     if (state) {
       try {
-        const stateData = JSON.parse(
-          Buffer.from(state, "base64url").toString()
-        );
+        const stateData = JSON.parse(Buffer.from(state, "base64url").toString());
         redirectUrl = stateData.redirect || "/";
       } catch {
         // Invalid state, use default redirect
@@ -30,22 +28,14 @@ export async function GET(req: NextRequest) {
     if (error) {
       console.error("[API/auth/google/callback] Google error:", error);
       return NextResponse.redirect(
-        new URL(
-          `${redirectUrl}?error=${encodeURIComponent(
-            "Google-inloggning avbröts"
-          )}`,
-          req.url
-        )
+        new URL(`${redirectUrl}?error=${encodeURIComponent("Google-inloggning avbröts")}`, req.url),
       );
     }
 
     // Verify code is present
     if (!code) {
       return NextResponse.redirect(
-        new URL(
-          `${redirectUrl}?error=${encodeURIComponent("Ogiltig inloggning")}`,
-          req.url
-        )
+        new URL(`${redirectUrl}?error=${encodeURIComponent("Ogiltig inloggning")}`, req.url),
       );
     }
 
@@ -54,10 +44,7 @@ export async function GET(req: NextRequest) {
 
     if ("error" in result) {
       return NextResponse.redirect(
-        new URL(
-          `${redirectUrl}?error=${encodeURIComponent(result.error)}`,
-          req.url
-        )
+        new URL(`${redirectUrl}?error=${encodeURIComponent(result.error)}`, req.url),
       );
     }
 
@@ -65,16 +52,11 @@ export async function GET(req: NextRequest) {
     await setAuthCookie(result.token);
 
     // Redirect to original page with success
-    return NextResponse.redirect(
-      new URL(`${redirectUrl}?login=success`, req.url)
-    );
+    return NextResponse.redirect(new URL(`${redirectUrl}?login=success`, req.url));
   } catch (error) {
     console.error("[API/auth/google/callback] Error:", error);
     return NextResponse.redirect(
-      new URL(
-        `/?error=${encodeURIComponent("Något gick fel vid Google-inloggning")}`,
-        req.url
-      )
+      new URL(`/?error=${encodeURIComponent("Något gick fel vid Google-inloggning")}`, req.url),
     );
   }
 }

@@ -36,11 +36,7 @@ const DEBUG_ALL = ["1", "true", "yes", "y", "on"].includes(DEBUG_VALUE);
 const DEBUG_CATEGORIES = new Set(
   DEBUG_VALUE.split(",")
     .map((s) => s.trim().toLowerCase())
-    .filter(
-      (s) =>
-        s &&
-        !["1", "true", "yes", "y", "on", "false", "no", "0", "off"].includes(s)
-    )
+    .filter((s) => s && !["1", "true", "yes", "y", "on", "false", "no", "0", "off"].includes(s)),
 );
 
 /**
@@ -71,11 +67,7 @@ export function isDebugEnabled(category?: string): boolean {
  * @param message - Log message
  * @param meta - Optional metadata object
  */
-export function debugLog(
-  category: string,
-  message: string,
-  meta?: unknown
-): void {
+export function debugLog(category: string, message: string, meta?: unknown): void {
   if (!isDebugEnabled(category)) return;
 
   const prefix = `[${category}]`;
@@ -92,11 +84,7 @@ export function debugLog(
  * Log an error (always logged, even in production)
  * Use this for actual errors that need attention
  */
-export function errorLog(
-  category: string,
-  message: string,
-  error?: unknown
-): void {
+export function errorLog(category: string, message: string, error?: unknown): void {
   const prefix = `[${category}]`;
 
   if (error instanceof Error) {
@@ -114,11 +102,7 @@ export function errorLog(
 /**
  * Log a warning (always logged, but less severe than error)
  */
-export function warnLog(
-  category: string,
-  message: string,
-  meta?: unknown
-): void {
+export function warnLog(category: string, message: string, meta?: unknown): void {
   const prefix = `[${category}]`;
 
   if (meta !== undefined) {
@@ -147,11 +131,7 @@ const COLORS = {
  * @param label - Optional label for what the text is (e.g., "prompt", "response")
  * @returns The text with truncation marker if truncated
  */
-export function truncateForLog(
-  text: string,
-  maxLength: number = 500,
-  label?: string
-): string {
+export function truncateForLog(text: string, maxLength: number = 500, label?: string): string {
   if (!text) return "(empty)";
 
   if (text.length <= maxLength) {
@@ -176,17 +156,13 @@ export function logFinalPrompt(prompt: string, model: string): void {
   const divider = "═".repeat(80);
   const timestamp = new Date().toISOString().slice(11, 23);
 
+  console.log(`\n${COLORS.brightMagenta}${COLORS.bold}${divider}${COLORS.reset}`);
   console.log(
-    `\n${COLORS.brightMagenta}${COLORS.bold}${divider}${COLORS.reset}`
-  );
-  console.log(
-    `${COLORS.brightMagenta}${COLORS.bold}[v0 FINAL PROMPT] ${timestamp} | Model: ${model} | Length: ${prompt.length} chars${COLORS.reset}`
+    `${COLORS.brightMagenta}${COLORS.bold}[v0 FINAL PROMPT] ${timestamp} | Model: ${model} | Length: ${prompt.length} chars${COLORS.reset}`,
   );
   console.log(`${COLORS.brightMagenta}${COLORS.bold}${divider}${COLORS.reset}`);
   console.log(`${COLORS.magenta}${prompt}${COLORS.reset}`);
-  console.log(
-    `${COLORS.brightMagenta}${COLORS.bold}${divider}${COLORS.reset}\n`
-  );
+  console.log(`${COLORS.brightMagenta}${COLORS.bold}${divider}${COLORS.reset}\n`);
 }
 
 // Legacy export for backward compatibility

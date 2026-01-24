@@ -71,52 +71,16 @@ export interface MarkedImage {
 // Industry-specific search terms
 const INDUSTRY_SEARCH_TERMS: Record<string, string[]> = {
   cafe: ["coffee shop", "barista", "latte art", "cafe interior", "pastries"],
-  restaurant: [
-    "restaurant interior",
-    "fine dining",
-    "chef cooking",
-    "food plating",
-    "wine glass",
-  ],
+  restaurant: ["restaurant interior", "fine dining", "chef cooking", "food plating", "wine glass"],
   retail: ["shopping", "retail store", "fashion", "boutique", "products"],
-  tech: [
-    "technology",
-    "coding",
-    "startup office",
-    "modern workspace",
-    "laptop work",
-  ],
-  consulting: [
-    "business meeting",
-    "handshake",
-    "office team",
-    "strategy",
-    "corporate",
-  ],
+  tech: ["technology", "coding", "startup office", "modern workspace", "laptop work"],
+  consulting: ["business meeting", "handshake", "office team", "strategy", "corporate"],
   health: ["wellness", "medical", "yoga", "healthy lifestyle", "spa"],
   creative: ["design studio", "creative", "art", "portfolio", "designer"],
   education: ["classroom", "students", "library", "online learning", "teacher"],
-  ecommerce: [
-    "online shopping",
-    "package",
-    "product photography",
-    "ecommerce",
-    "delivery",
-  ],
-  nonprofit: [
-    "volunteers",
-    "community",
-    "charity",
-    "helping hands",
-    "social impact",
-  ],
-  realestate: [
-    "modern house",
-    "apartment interior",
-    "real estate",
-    "home",
-    "architecture",
-  ],
+  ecommerce: ["online shopping", "package", "product photography", "ecommerce", "delivery"],
+  nonprofit: ["volunteers", "community", "charity", "helping hands", "social impact"],
+  realestate: ["modern house", "apartment interior", "real estate", "home", "architecture"],
 };
 
 // Get search terms based on industry
@@ -138,9 +102,7 @@ export async function POST(req: NextRequest) {
 
     // Use centralized config
     if (!FEATURES.useUnsplash) {
-      console.log(
-        "[API/unsplash] No UNSPLASH_ACCESS_KEY found, using fallback"
-      );
+      console.log("[API/unsplash] No UNSPLASH_ACCESS_KEY found, using fallback");
       return NextResponse.json({
         success: true,
         images: generateFallbackImages(industry, count),
@@ -160,21 +122,18 @@ export async function POST(req: NextRequest) {
       try {
         const response = await fetch(
           `https://api.unsplash.com/search/photos?query=${encodeURIComponent(
-            term
+            term,
           )}&per_page=2&orientation=landscape`,
           {
             headers: {
               Authorization: `Client-ID ${accessKey}`,
               "Accept-Version": "v1",
             },
-          }
+          },
         );
 
         if (!response.ok) {
-          console.error(
-            `[API/unsplash] Unsplash API error for "${term}":`,
-            response.status
-          );
+          console.error(`[API/unsplash] Unsplash API error for "${term}":`, response.status);
           continue;
         }
 
@@ -207,9 +166,7 @@ export async function POST(req: NextRequest) {
       if (allImages.length >= count) break;
     }
 
-    console.log(
-      `[API/unsplash] Found ${allImages.length} images for industry: ${industry}`
-    );
+    console.log(`[API/unsplash] Found ${allImages.length} images for industry: ${industry}`);
 
     return NextResponse.json({
       success: true,
@@ -218,10 +175,7 @@ export async function POST(req: NextRequest) {
     });
   } catch (error) {
     console.error("[API/unsplash] Error:", error);
-    return NextResponse.json(
-      { success: false, error: "Failed to fetch images" },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, error: "Failed to fetch images" }, { status: 500 });
   }
 }
 
@@ -245,14 +199,14 @@ export async function GET(req: NextRequest) {
   try {
     const response = await fetch(
       `https://api.unsplash.com/search/photos?query=${encodeURIComponent(
-        query
+        query,
       )}&per_page=${count}&orientation=landscape`,
       {
         headers: {
           Authorization: `Client-ID ${accessKey}`,
           "Accept-Version": "v1",
         },
-      }
+      },
     );
 
     if (!response.ok) {
@@ -284,18 +238,12 @@ export async function GET(req: NextRequest) {
     });
   } catch (error) {
     console.error("[API/unsplash] Error:", error);
-    return NextResponse.json(
-      { success: false, error: "Failed to fetch images" },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, error: "Failed to fetch images" }, { status: 500 });
   }
 }
 
 // Generate fallback placeholder images when no API key
-function generateFallbackImages(
-  industry: string,
-  count: number
-): MarkedImage[] {
+function generateFallbackImages(industry: string, count: number): MarkedImage[] {
   const colors: Record<string, string> = {
     cafe: "8B4513",
     restaurant: "DC143C",

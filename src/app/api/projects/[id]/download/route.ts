@@ -24,7 +24,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     if (!user) {
       return NextResponse.json(
         { success: false, error: "Du måste vara inloggad" },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
@@ -33,7 +33,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     if (!project) {
       return NextResponse.json(
         { success: false, error: "Projektet hittades inte" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -41,35 +41,33 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     if (project.user_id !== user.id) {
       return NextResponse.json(
         { success: false, error: "Du kan bara ladda ner dina egna projekt" },
-        { status: 403 }
+        { status: 403 },
       );
     }
 
     // Get project files from project_data
     const projectData = getProjectData(projectId);
     const rawFiles = projectData?.files;
-    
+
     if (!rawFiles || !Array.isArray(rawFiles) || rawFiles.length === 0) {
       return NextResponse.json(
         { success: false, error: "Inga filer hittades i projektet" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
     // Convert v0 file format
     const files = rawFiles
-      .filter((f): f is { name: string; content: string } => 
-        f !== null && 
-        typeof f === "object" && 
-        "name" in f && 
-        "content" in f
+      .filter(
+        (f): f is { name: string; content: string } =>
+          f !== null && typeof f === "object" && "name" in f && "content" in f,
       )
-      .map(f => ({ path: f.name, content: f.content }));
+      .map((f) => ({ path: f.name, content: f.content }));
 
     if (!files || files.length === 0) {
       return NextResponse.json(
         { success: false, error: "Inga filer hittades i projektet" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -83,7 +81,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
             success: false,
             error: `Ogiltig filväg upptäcktes: ${file.path}`,
           },
-          { status: 400 }
+          { status: 400 },
         );
       }
       normalizedFiles.push({ ...file, path: safePath });
@@ -133,7 +131,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     console.error("[API] Error downloading project:", error);
     return NextResponse.json(
       { success: false, error: "Kunde inte ladda ner projektet" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

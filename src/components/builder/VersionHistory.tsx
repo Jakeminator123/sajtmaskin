@@ -1,6 +1,6 @@
-'use client';
+"use client";
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState } from "react";
 import {
   ChevronLeft,
   ChevronRight,
@@ -11,14 +11,14 @@ import {
   Loader2,
   Pin,
   UploadCloud,
-} from 'lucide-react';
-import { useVersions } from '@/lib/hooks/useVersions';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { cn } from '@/lib/utils';
-import toast from 'react-hot-toast';
-import { useAuth } from '@/lib/auth/auth-store';
+} from "lucide-react";
+import { useVersions } from "@/lib/hooks/useVersions";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
+import toast from "react-hot-toast";
+import { useAuth } from "@/lib/auth/auth-store";
 
 interface VersionHistoryProps {
   chatId: string | null;
@@ -50,7 +50,7 @@ export function VersionHistory({
   const [exportingVersionId, setExportingVersionId] = useState<string | null>(null);
   const [exportingGitHubVersionId, setExportingGitHubVersionId] = useState<string | null>(null);
   const [pinningVersionId, setPinningVersionId] = useState<string | null>(null);
-  const [returnTo, setReturnTo] = useState('/projects');
+  const [returnTo, setReturnTo] = useState("/projects");
 
   useEffect(() => {
     if (isInitialized) return;
@@ -58,9 +58,9 @@ export function VersionHistory({
   }, [isInitialized, fetchUser]);
 
   useEffect(() => {
-    if (typeof window === 'undefined') return;
+    if (typeof window === "undefined") return;
     const path = `${window.location.pathname}${window.location.search}${window.location.hash}`;
-    setReturnTo(path || '/projects');
+    setReturnTo(path || "/projects");
   }, []);
 
   const handleDownload = async (e: React.MouseEvent, version: any) => {
@@ -71,11 +71,11 @@ export function VersionHistory({
     setDownloadingVersionId(versionId);
 
     try {
-      window.open(`/api/v0/chats/${chatId}/versions/${versionId}/download?format=zip`, '_blank');
-      toast.success('Download started');
+      window.open(`/api/v0/chats/${chatId}/versions/${versionId}/download?format=zip`, "_blank");
+      toast.success("Download started");
     } catch (error) {
-      console.error('Download error:', error);
-      toast.error('Failed to download');
+      console.error("Download error:", error);
+      toast.error("Failed to download");
     } finally {
       setDownloadingVersionId(null);
     }
@@ -90,24 +90,24 @@ export function VersionHistory({
 
     try {
       const res = await fetch(`/api/v0/chats/${chatId}/versions/${versionId}/export?format=zip`, {
-        method: 'POST',
+        method: "POST",
       });
       const data = await res.json().catch(() => null);
       if (!res.ok) {
         const message =
-          (data && typeof data === 'object' && (data as any).error) ||
+          (data && typeof data === "object" && (data as any).error) ||
           `Export failed (HTTP ${res.status})`;
         throw new Error(String(message));
       }
 
       const url = (data as any)?.blob?.url as string | undefined;
       if (url) {
-        window.open(url, '_blank');
+        window.open(url, "_blank");
       }
-      toast.success('Exported to Blob');
+      toast.success("Exported to Blob");
     } catch (error) {
-      console.error('Blob export error:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to export');
+      console.error("Blob export error:", error);
+      toast.error(error instanceof Error ? error.message : "Failed to export");
     } finally {
       setExportingVersionId(null);
     }
@@ -117,29 +117,26 @@ export function VersionHistory({
     e.stopPropagation();
     if (!chatId) return;
     if (!isAuthenticated) {
-      toast.error('Logga in för att exportera till GitHub');
+      toast.error("Logga in för att exportera till GitHub");
       return;
     }
     if (!hasGitHub) {
-      toast.error('Koppla GitHub för att exportera');
+      toast.error("Koppla GitHub för att exportera");
       return;
     }
 
     const versionId = version.id || version.versionId;
     const suggestedRepo = `sajtmaskin-${chatId.slice(0, 8)}`;
-    const repoInput = window.prompt(
-      "GitHub repo (owner/name eller bara namn)",
-      suggestedRepo
-    );
+    const repoInput = window.prompt("GitHub repo (owner/name eller bara namn)", suggestedRepo);
     if (!repoInput) return;
 
     const makePrivate = window.confirm("Skapa som privat repo? (OK = privat, Avbryt = public)");
 
     setExportingGitHubVersionId(versionId);
     try {
-      const res = await fetch('/api/github/export', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const res = await fetch("/api/github/export", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           chatId,
           versionId,
@@ -151,19 +148,19 @@ export function VersionHistory({
       const data = await res.json().catch(() => null);
       if (!res.ok) {
         const message =
-          (data && typeof data === 'object' && (data as any).error) ||
+          (data && typeof data === "object" && (data as any).error) ||
           `GitHub export failed (HTTP ${res.status})`;
         throw new Error(String(message));
       }
 
       const url = (data as any)?.repoUrl as string | undefined;
       if (url) {
-        window.open(url, '_blank');
+        window.open(url, "_blank");
       }
-      toast.success('Exported to GitHub');
+      toast.success("Exported to GitHub");
     } catch (error) {
-      console.error('GitHub export error:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to export to GitHub');
+      console.error("GitHub export error:", error);
+      toast.error(error instanceof Error ? error.message : "Failed to export to GitHub");
     } finally {
       setExportingGitHubVersionId(null);
     }
@@ -178,25 +175,25 @@ export function VersionHistory({
     setPinningVersionId(versionId);
     try {
       const res = await fetch(`/api/v0/chats/${chatId}/versions`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ versionId, pinned: nextPinned }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         throw new Error(data?.error || `Pin failed (HTTP ${res.status})`);
       }
-      toast.success(nextPinned ? 'Version pinned' : 'Version unpinned');
+      toast.success(nextPinned ? "Version pinned" : "Version unpinned");
       mutate();
     } catch (error) {
-      console.error('Pin error:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to update pin');
+      console.error("Pin error:", error);
+      toast.error(error instanceof Error ? error.message : "Failed to update pin");
     } finally {
       setPinningVersionId(null);
     }
   };
 
-  const canToggleCollapse = typeof onToggleCollapse === 'function';
+  const canToggleCollapse = typeof onToggleCollapse === "function";
 
   if (isCollapsed) {
     return (
@@ -212,7 +209,7 @@ export function VersionHistory({
             <ChevronLeft className="h-4 w-4" />
           </Button>
         )}
-        <span className="text-[10px] uppercase tracking-wide text-muted-foreground rotate-90">
+        <span className="text-muted-foreground rotate-90 text-[10px] tracking-wide uppercase">
           Versions
         </span>
       </div>
@@ -221,8 +218,8 @@ export function VersionHistory({
 
   if (!chatId) {
     return (
-      <div className="flex h-full items-center justify-center text-muted-foreground p-4">
-        <p className="text-sm text-center">Send a message to start a project</p>
+      <div className="text-muted-foreground flex h-full items-center justify-center p-4">
+        <p className="text-center text-sm">Send a message to start a project</p>
       </div>
     );
   }
@@ -230,30 +227,32 @@ export function VersionHistory({
   if (isLoading) {
     return (
       <div className="flex h-full items-center justify-center">
-        <div className="text-sm text-muted-foreground">Loading versions...</div>
+        <div className="text-muted-foreground text-sm">Loading versions...</div>
       </div>
     );
   }
 
   if (versions.length === 0) {
     return (
-      <div className="flex h-full items-center justify-center text-muted-foreground p-4">
-        <p className="text-sm text-center">No versions yet. Generate a component to create versions.</p>
+      <div className="text-muted-foreground flex h-full items-center justify-center p-4">
+        <p className="text-center text-sm">
+          No versions yet. Generate a component to create versions.
+        </p>
       </div>
     );
   }
 
   return (
     <div className="flex h-full flex-col">
-      <div className="border-b border-border px-4 py-3">
+      <div className="border-border border-b px-4 py-3">
         <div className="flex items-start justify-between gap-2">
           <div>
             <h3 className="font-semibold">Version History</h3>
-            <p className="text-xs text-muted-foreground mt-1">
-              {versions.length} version{versions.length !== 1 ? 's' : ''}
-              {pinnedCount > 0 ? ` • ${pinnedCount} pinned` : ''}
+            <p className="text-muted-foreground mt-1 text-xs">
+              {versions.length} version{versions.length !== 1 ? "s" : ""}
+              {pinnedCount > 0 ? ` • ${pinnedCount} pinned` : ""}
             </p>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-muted-foreground text-xs">
               Pinned versions är skrivskyddade snapshots. Avpinna för att kunna redigera.
             </p>
           </div>
@@ -274,17 +273,14 @@ export function VersionHistory({
             hasGitHub ? (
               <Badge variant="secondary" className="gap-1">
                 <Github className="h-3 w-3" />
-                GitHub kopplat{user?.github_username ? ` • @${user.github_username}` : ''}
+                GitHub kopplat{user?.github_username ? ` • @${user.github_username}` : ""}
               </Badge>
             ) : (
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() =>
-                  window.open(
-                    `/api/auth/github?returnTo=${encodeURIComponent(returnTo)}`,
-                    '_blank'
-                  )
+                  window.open(`/api/auth/github?returnTo=${encodeURIComponent(returnTo)}`, "_blank")
                 }
                 className="h-7 px-2 text-xs"
               >
@@ -300,11 +296,11 @@ export function VersionHistory({
       <div className="flex-1 overflow-y-auto p-2">
         <div className="space-y-2">
           {versionList.map((version, index) => {
-            const selectableVersionId = version.versionId || version.id || '';
+            const selectableVersionId = version.versionId || version.id || "";
             const internalVersionId =
-              typeof version.id === 'string' && version.id.trim()
+              typeof version.id === "string" && version.id.trim()
                 ? version.id
-                : typeof version.versionId === 'string' && version.versionId.trim()
+                : typeof version.versionId === "string" && version.versionId.trim()
                   ? version.versionId
                   : undefined;
             const isDownloading = downloadingVersionId === internalVersionId;
@@ -316,37 +312,42 @@ export function VersionHistory({
 
             return (
               <Card
-                key={internalVersionId ?? `version-${version.createdAt ?? 'unknown'}-${index}`}
+                key={internalVersionId ?? `version-${version.createdAt ?? "unknown"}-${index}`}
                 onClick={() => selectableVersionId && onVersionSelect(selectableVersionId)}
                 className={cn(
-                  'cursor-pointer transition-colors',
-                  isSelected ? 'border-primary bg-primary/5' : 'hover:border-border hover:bg-accent/50'
+                  "cursor-pointer transition-colors",
+                  isSelected
+                    ? "border-primary bg-primary/5"
+                    : "hover:border-border hover:bg-accent/50",
                 )}
               >
                 <CardContent className="p-3">
                   <div className="flex items-start justify-between">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1">
-                        <Clock className="h-3 w-3 text-muted-foreground" />
-                        <span className="text-xs text-muted-foreground">
+                    <div className="min-w-0 flex-1">
+                      <div className="mb-1 flex items-center gap-2">
+                        <Clock className="text-muted-foreground h-3 w-3" />
+                        <span className="text-muted-foreground text-xs">
                           {version.createdAt
                             ? new Date(version.createdAt).toLocaleTimeString()
-                            : 'Just now'}
+                            : "Just now"}
                         </span>
                         {isPinned && (
-                          <Badge variant="secondary" className="text-[10px] px-1.5 py-0">
+                          <Badge variant="secondary" className="px-1.5 py-0 text-[10px]">
                             Pinned
                           </Badge>
                         )}
                       </div>
                       {version.demoUrl && (
-                        <p className="text-xs text-muted-foreground truncate" title={version.demoUrl}>
+                        <p
+                          className="text-muted-foreground truncate text-xs"
+                          title={version.demoUrl}
+                        >
                           {version.demoUrl}
                         </p>
                       )}
                     </div>
                   </div>
-                  <div className="flex items-center gap-1 mt-2">
+                  <div className="mt-2 flex items-center gap-1">
                     {version.demoUrl && (
                       <Button
                         variant="ghost"
@@ -356,7 +357,7 @@ export function VersionHistory({
                         className="h-7 px-2 text-xs"
                       >
                         <a href={version.demoUrl} target="_blank" rel="noopener noreferrer">
-                          <ExternalLink className="h-3 w-3 mr-1" />
+                          <ExternalLink className="mr-1 h-3 w-3" />
                           View
                         </a>
                       </Button>
@@ -408,13 +409,13 @@ export function VersionHistory({
                       size="icon-sm"
                       onClick={(e) => handleTogglePin(e, version)}
                       disabled={isPinning}
-                      title={isPinned ? 'Unpin version' : 'Pin version'}
+                      title={isPinned ? "Unpin version" : "Pin version"}
                       className="h-7 w-7"
                     >
                       {isPinning ? (
                         <Loader2 className="h-3 w-3 animate-spin" />
                       ) : (
-                        <Pin className={cn('h-3 w-3', isPinned ? 'text-primary' : '')} />
+                        <Pin className={cn("h-3 w-3", isPinned ? "text-primary" : "")} />
                       )}
                     </Button>
                   </div>

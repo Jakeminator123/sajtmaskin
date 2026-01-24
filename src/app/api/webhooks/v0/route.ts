@@ -1,38 +1,38 @@
-import { NextResponse } from 'next/server';
-import { validateWebhookSecret, getWebhookSecret, parseWebhookEvent } from '@/lib/webhooks';
-import { db } from '@/lib/db/client';
-import { chats, versions, deployments } from '@/lib/db/schema';
-import { eq } from 'drizzle-orm';
-import { nanoid } from 'nanoid';
-import { withRateLimit } from '@/lib/rateLimit';
+import { NextResponse } from "next/server";
+import { validateWebhookSecret, getWebhookSecret, parseWebhookEvent } from "@/lib/webhooks";
+import { db } from "@/lib/db/client";
+import { chats, versions, deployments } from "@/lib/db/schema";
+import { eq } from "drizzle-orm";
+import { nanoid } from "nanoid";
+import { withRateLimit } from "@/lib/rateLimit";
 
 export async function POST(req: Request) {
-  return withRateLimit(req, 'webhook:v0', async () => {
+  return withRateLimit(req, "webhook:v0", async () => {
     try {
       const secret = getWebhookSecret();
       if (!validateWebhookSecret(req, secret)) {
-        console.warn('Webhook validation failed');
-        return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+        console.warn("Webhook validation failed");
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
       }
 
       const body = await req.json();
       const event = parseWebhookEvent(body);
 
       if (!event) {
-        return NextResponse.json({ error: 'Invalid webhook payload' }, { status: 400 });
+        return NextResponse.json({ error: "Invalid webhook payload" }, { status: 400 });
       }
 
       switch (event.type) {
-        case 'chat.created':
+        case "chat.created":
           await handleChatCreated(event.data);
           break;
-        case 'message.finished':
+        case "message.finished":
           await handleMessageCompleted(event.data);
           break;
-        case 'deployment.ready':
+        case "deployment.ready":
           await handleDeploymentReady(event.data);
           break;
-        case 'deployment.error':
+        case "deployment.error":
           await handleDeploymentError(event.data);
           break;
         default:
@@ -41,10 +41,10 @@ export async function POST(req: Request) {
 
       return NextResponse.json({ received: true });
     } catch (err) {
-      console.error('Webhook error:', err);
+      console.error("Webhook error:", err);
       return NextResponse.json(
-        { error: err instanceof Error ? err.message : 'Unknown error' },
-        { status: 500 }
+        { error: err instanceof Error ? err.message : "Unknown error" },
+        { status: 500 },
       );
     }
   });
@@ -60,7 +60,7 @@ async function handleChatCreated(data: any) {
     await db.insert(chats).values({
       id: nanoid(),
       v0ChatId: chatId,
-      v0ProjectId: projectId || '',
+      v0ProjectId: projectId || "",
     });
   }
 }
@@ -109,7 +109,7 @@ async function handleDeploymentReady(data: any) {
     await db
       .update(deployments)
       .set({
-        status: 'ready',
+        status: "ready",
         url: url || deployment[0].url,
         inspectorUrl: inspectorUrl || deployment[0].inspectorUrl,
         updatedAt: new Date(),
@@ -132,7 +132,7 @@ async function handleDeploymentError(data: any) {
     await db
       .update(deployments)
       .set({
-        status: 'error',
+        status: "error",
         updatedAt: new Date(),
       })
       .where(eq(deployments.id, deployment[0].id));
@@ -141,7 +141,7 @@ async function handleDeploymentError(data: any) {
 
 export async function GET() {
   return NextResponse.json({
-    status: 'ok',
-    message: 'v0 webhook endpoint is ready',
+    status: "ok",
+    message: "v0 webhook endpoint is ready",
   });
 }

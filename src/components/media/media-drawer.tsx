@@ -98,33 +98,24 @@ function getFileTypeIcon(type: MediaFileType) {
 // MAIN COMPONENT
 // ============================================================================
 
-export function MediaDrawer({
-  isOpen,
-  onClose,
-  projectId,
-  onFileSelect,
-}: MediaDrawerProps) {
+export function MediaDrawer({ isOpen, onClose, projectId, onFileSelect }: MediaDrawerProps) {
   const [items, setItems] = useState<UploadedMediaItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<string>("");
   const [searchQuery, setSearchQuery] = useState("");
   const [filterType, setFilterType] = useState<MediaFileType | "all">("all");
-  const [draggedItem, setDraggedItem] = useState<UploadedMediaItem | null>(
-    null
-  );
+  const [draggedItem, setDraggedItem] = useState<UploadedMediaItem | null>(null);
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const drawerRef = useRef<HTMLDivElement>(null);
 
   // Calculate counts for limits
   const counts: MediaCounts = {
-    images: items.filter((i) => i.fileType === "image" || i.fileType === "logo")
-      .length,
+    images: items.filter((i) => i.fileType === "image" || i.fileType === "logo").length,
     videos: items.filter((i) => i.fileType === "video").length,
     other: items.filter(
-      (i) =>
-        i.fileType === "pdf" || i.fileType === "text" || i.fileType === "other"
+      (i) => i.fileType === "pdf" || i.fileType === "text" || i.fileType === "other",
     ).length,
   };
 
@@ -173,11 +164,7 @@ export function MediaDrawer({
   // Close on click outside
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (
-        drawerRef.current &&
-        !drawerRef.current.contains(e.target as Node) &&
-        isOpen
-      ) {
+      if (drawerRef.current && !drawerRef.current.contains(e.target as Node) && isOpen) {
         onClose();
       }
     };
@@ -185,9 +172,7 @@ export function MediaDrawer({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, [isOpen, onClose]);
 
-  const canUploadFileType = (
-    mimeType: string
-  ): { ok: boolean; reason?: string } => {
+  const canUploadFileType = (mimeType: string): { ok: boolean; reason?: string } => {
     if (mimeType.startsWith("image/")) {
       if (counts.images >= MAX_IMAGES) {
         return {
@@ -303,7 +288,7 @@ export function MediaDrawer({
         filename: item.filename,
         type: item.fileType,
         mimeType: item.mimeType,
-      })
+      }),
     );
     e.dataTransfer.effectAllowed = "copy";
   };
@@ -313,10 +298,7 @@ export function MediaDrawer({
   };
 
   const filteredItems = items.filter((item) => {
-    if (
-      searchQuery &&
-      !item.filename.toLowerCase().includes(searchQuery.toLowerCase())
-    ) {
+    if (searchQuery && !item.filename.toLowerCase().includes(searchQuery.toLowerCase())) {
       return false;
     }
     return true;
@@ -327,35 +309,35 @@ export function MediaDrawer({
     label: string;
     icon: typeof FileText;
   }[] = [
-      { value: "all", label: "Alla", icon: FileText },
-      { value: "image", label: "Bilder", icon: ImageIcon },
-      { value: "video", label: "Videos", icon: Video },
-      { value: "logo", label: "Logos", icon: Shapes },
-      { value: "pdf", label: "PDF", icon: FileText },
-      { value: "text", label: "Text", icon: FileText },
-    ];
+    { value: "all", label: "Alla", icon: FileText },
+    { value: "image", label: "Bilder", icon: ImageIcon },
+    { value: "video", label: "Videos", icon: Video },
+    { value: "logo", label: "Logos", icon: Shapes },
+    { value: "pdf", label: "PDF", icon: FileText },
+    { value: "text", label: "Text", icon: FileText },
+  ];
 
   if (!isOpen) return null;
 
   return (
     <>
       {/* Backdrop */}
-      <div className="fixed inset-0 bg-black/50 z-40 animate-in fade-in duration-200" />
+      <div className="animate-in fade-in fixed inset-0 z-40 bg-black/50 duration-200" />
 
       {/* Drawer */}
       <div
         ref={drawerRef}
         className={cn(
-          "fixed right-0 top-0 bottom-0 w-full max-w-md bg-gray-950 border-l border-gray-800 z-50",
+          "fixed top-0 right-0 bottom-0 z-50 w-full max-w-md border-l border-gray-800 bg-gray-950",
           "animate-in slide-in-from-right duration-300 ease-out",
-          "flex flex-col"
+          "flex flex-col",
         )}
       >
         {/* Header - consistent with TextUploader */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-800">
+        <div className="flex items-center justify-between border-b border-gray-800 p-4">
           <div className="flex items-center gap-2">
-            <div className="p-1.5 rounded-lg bg-brand-teal/20">
-              <ImageIcon className="h-4 w-4 text-brand-teal" />
+            <div className="bg-brand-teal/20 rounded-lg p-1.5">
+              <ImageIcon className="text-brand-teal h-4 w-4" />
             </div>
             <div>
               <h2 className="text-lg font-semibold text-white">Mediabibliotek</h2>
@@ -364,7 +346,7 @@ export function MediaDrawer({
           </div>
           <button
             onClick={onClose}
-            className="p-2 rounded-lg hover:bg-gray-800 text-gray-400 hover:text-white transition-colors"
+            className="rounded-lg p-2 text-gray-400 transition-colors hover:bg-gray-800 hover:text-white"
             aria-label="Stäng mediabiblioteket"
             title="Stäng mediabiblioteket"
           >
@@ -373,22 +355,22 @@ export function MediaDrawer({
         </div>
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        <div className="flex-1 space-y-4 overflow-y-auto p-4">
           {/* Upload section */}
           <div className="space-y-2">
             <Button
               onClick={() => fileInputRef.current?.click()}
               disabled={isUploading}
-              className="w-full bg-brand-teal hover:bg-brand-teal/90 text-white"
+              className="bg-brand-teal hover:bg-brand-teal/90 w-full text-white"
             >
               {isUploading ? (
                 <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   {uploadProgress}
                 </>
               ) : (
                 <>
-                  <UploadIcon className="h-4 w-4 mr-2" />
+                  <UploadIcon className="mr-2 h-4 w-4" />
                   Ladda upp filer
                 </>
               )}
@@ -406,14 +388,10 @@ export function MediaDrawer({
 
             {/* Limits */}
             <div className="flex justify-between text-xs text-gray-500">
-              <span
-                className={cn(counts.images >= MAX_IMAGES && "text-brand-amber")}
-              >
+              <span className={cn(counts.images >= MAX_IMAGES && "text-brand-amber")}>
                 Bilder: {counts.images}/{MAX_IMAGES}
               </span>
-              <span
-                className={cn(counts.videos >= MAX_VIDEOS && "text-brand-amber")}
-              >
+              <span className={cn(counts.videos >= MAX_VIDEOS && "text-brand-amber")}>
                 Videos: {counts.videos}/{MAX_VIDEOS}
               </span>
             </div>
@@ -421,7 +399,7 @@ export function MediaDrawer({
 
           {/* Error */}
           {error && (
-            <div className="flex items-center gap-2 p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-sm text-red-400">
+            <div className="flex items-center gap-2 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-400">
               <AlertCircle className="h-4 w-4 shrink-0" />
               <span className="flex-1">{error}</span>
               <button
@@ -438,18 +416,18 @@ export function MediaDrawer({
           {/* Search & Filter */}
           <div className="space-y-3">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+              <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-gray-500" />
               <input
                 type="text"
                 placeholder="Sök filer..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-10 pr-10 py-2 text-sm bg-gray-900 border border-gray-700 rounded-lg focus:outline-none focus:border-brand-teal text-white"
+                className="focus:border-brand-teal w-full rounded-lg border border-gray-700 bg-gray-900 py-2 pr-10 pl-10 text-sm text-white focus:outline-none"
               />
               {searchQuery && (
                 <button
                   onClick={() => setSearchQuery("")}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white"
+                  className="absolute top-1/2 right-3 -translate-y-1/2 text-gray-500 hover:text-white"
                   aria-label="Rensa sökningen"
                   title="Rensa sökningen"
                 >
@@ -459,16 +437,16 @@ export function MediaDrawer({
             </div>
 
             {/* Filter tabs */}
-            <div className="flex gap-2 flex-wrap">
+            <div className="flex flex-wrap gap-2">
               {fileTypes.map((type) => (
                 <button
                   key={type.value}
                   onClick={() => setFilterType(type.value)}
                   className={cn(
-                    "px-3 py-1.5 text-xs rounded-lg flex items-center gap-1.5 transition-colors",
+                    "flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs transition-colors",
                     filterType === type.value
                       ? "bg-brand-teal text-white"
-                      : "bg-gray-800 text-gray-400 hover:bg-gray-700"
+                      : "bg-gray-800 text-gray-400 hover:bg-gray-700",
                   )}
                 >
                   <type.icon className="h-3.5 w-3.5" />
@@ -481,15 +459,13 @@ export function MediaDrawer({
           {/* Media Grid */}
           {isLoading ? (
             <div className="flex items-center justify-center py-12">
-              <Loader2 className="h-8 w-8 animate-spin text-brand-teal" />
+              <Loader2 className="text-brand-teal h-8 w-8 animate-spin" />
             </div>
           ) : filteredItems.length === 0 ? (
-            <div className="text-center py-12 text-gray-500">
-              <ImageIcon className="h-12 w-12 mx-auto mb-3 opacity-50" />
+            <div className="py-12 text-center text-gray-500">
+              <ImageIcon className="mx-auto mb-3 h-12 w-12 opacity-50" />
               <p className="text-sm">
-                {searchQuery
-                  ? "Inga filer matchade sökningen"
-                  : "Inga filer än. Ladda upp!"}
+                {searchQuery ? "Inga filer matchade sökningen" : "Inga filer än. Ladda upp!"}
               </p>
             </div>
           ) : (
@@ -502,15 +478,15 @@ export function MediaDrawer({
                   onSelect={
                     onFileSelect
                       ? () =>
-                        onFileSelect({
-                          id: `media-${item.id}`,
-                          type: item.fileType,
-                          url: item.url,
-                          filename: item.filename,
-                          mimeType: item.mimeType,
-                          createdAt: new Date(item.createdAt),
-                          source: "uploaded",
-                        })
+                          onFileSelect({
+                            id: `media-${item.id}`,
+                            type: item.fileType,
+                            url: item.url,
+                            filename: item.filename,
+                            mimeType: item.mimeType,
+                            createdAt: new Date(item.createdAt),
+                            source: "uploaded",
+                          })
                       : undefined
                   }
                   isDragging={draggedItem?.id === item.id}
@@ -523,7 +499,7 @@ export function MediaDrawer({
         </div>
 
         {/* Footer - helpful hint */}
-        <div className="p-4 border-t border-gray-800 bg-gray-900/50">
+        <div className="border-t border-gray-800 bg-gray-900/50 p-4">
           <div className="flex items-center justify-center gap-2 text-xs text-gray-500">
             <ImageIcon className="h-3.5 w-3.5" />
             <span>Klicka på en fil för att använda den i din design</span>
@@ -567,11 +543,9 @@ function MediaItemCard({
       onMouseLeave={() => setShowActions(false)}
       onClick={onSelect}
       className={cn(
-        "relative aspect-square rounded-lg overflow-hidden border transition-all cursor-grab",
-        isDragging
-          ? "border-brand-teal opacity-50"
-          : "border-gray-700 hover:border-gray-600",
-        onSelect && "cursor-pointer"
+        "relative aspect-square cursor-grab overflow-hidden rounded-lg border transition-all",
+        isDragging ? "border-brand-teal opacity-50" : "border-gray-700 hover:border-gray-600",
+        onSelect && "cursor-pointer",
       )}
     >
       {/* Preview */}
@@ -580,36 +554,36 @@ function MediaItemCard({
         <img
           src={item.url}
           alt={item.filename}
-          className="w-full h-full object-cover"
+          className="h-full w-full object-cover"
           draggable={false}
         />
       ) : item.fileType === "video" ? (
-        <div className="w-full h-full bg-gray-800 flex items-center justify-center">
+        <div className="flex h-full w-full items-center justify-center bg-gray-800">
           <Video className="h-8 w-8 text-gray-500" />
         </div>
       ) : (
-        <div className="w-full h-full bg-gray-800 flex flex-col items-center justify-center p-2">
-          <Icon className="h-8 w-8 text-gray-500 mb-1" />
-          <span className="text-[10px] text-gray-500 truncate w-full px-2 text-left">
+        <div className="flex h-full w-full flex-col items-center justify-center bg-gray-800 p-2">
+          <Icon className="mb-1 h-8 w-8 text-gray-500" />
+          <span className="w-full truncate px-2 text-left text-[10px] text-gray-500">
             {item.filename}
           </span>
         </div>
       )}
 
       {/* Drag handle */}
-      <div className="absolute top-1.5 left-1.5 p-1 bg-black/60 rounded">
+      <div className="absolute top-1.5 left-1.5 rounded bg-black/60 p-1">
         <GripVertical className="h-3 w-3 text-white/70" />
       </div>
 
       {/* Type badge */}
-      <div className="absolute top-1.5 right-1.5 px-1.5 py-0.5 rounded text-[10px] font-medium bg-brand-teal/90 text-white">
+      <div className="bg-brand-teal/90 absolute top-1.5 right-1.5 rounded px-1.5 py-0.5 text-[10px] font-medium text-white">
         {item.fileType}
       </div>
 
       {/* Hover overlay */}
       {showActions && (
-        <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center gap-2 p-2">
-          <span className="text-[11px] text-white truncate w-full px-2 text-left">
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/80 p-2">
+          <span className="w-full truncate px-2 text-left text-[11px] text-white">
             {item.filename}
           </span>
           <Button
@@ -619,9 +593,9 @@ function MediaItemCard({
               e.stopPropagation();
               onDelete();
             }}
-            className="h-7 text-xs text-red-400 hover:bg-red-500/20 w-full"
+            className="h-7 w-full text-xs text-red-400 hover:bg-red-500/20"
           >
-            <Trash2 className="h-3.5 w-3.5 mr-1" />
+            <Trash2 className="mr-1 h-3.5 w-3.5" />
             Ta bort
           </Button>
         </div>

@@ -1,8 +1,8 @@
-import { createSSEHeaders, formatSSEEvent } from '@/lib/streaming';
-import { db } from '@/lib/db/client';
-import { chats, versions } from '@/lib/db/schema';
-import { assertV0Key, v0 } from '@/lib/v0';
-import { createChatSchema } from '@/lib/validations/chatSchemas';
+import { createSSEHeaders, formatSSEEvent } from "@/lib/streaming";
+import { db } from "@/lib/db/client";
+import { chats, versions } from "@/lib/db/schema";
+import { assertV0Key, v0 } from "@/lib/v0";
+import { createChatSchema } from "@/lib/validations/chatSchemas";
 import {
   extractChatId,
   extractContentText,
@@ -13,20 +13,21 @@ import {
   extractVersionId,
   isDoneLikeEvent,
   safeJsonParse,
-} from '@/lib/v0Stream';
-import { and, eq } from 'drizzle-orm';
-import { nanoid } from 'nanoid';
-import { NextResponse } from 'next/server';
-import { withRateLimit } from '@/lib/rateLimit';
-import { ensureProjectForRequest } from '@/lib/tenant';
-import { requireNotBot } from '@/lib/botProtection';
-import { devLogAppend, devLogFinalizeSite, devLogStartNewSite } from '@/lib/devLog';
+} from "@/lib/v0Stream";
+import { resolveLatestVersion } from "@/lib/v0/resolve-latest-version";
+import { and, eq } from "drizzle-orm";
+import { nanoid } from "nanoid";
+import { NextResponse } from "next/server";
+import { withRateLimit } from "@/lib/rateLimit";
+import { ensureProjectForRequest } from "@/lib/tenant";
+import { requireNotBot } from "@/lib/botProtection";
+import { devLogAppend, devLogFinalizeSite, devLogStartNewSite } from "@/lib/devLog";
 
-export const runtime = 'nodejs';
+export const runtime = "nodejs";
 export const maxDuration = 300;
 
 export async function POST(req: Request) {
-  return withRateLimit(req, 'chat:create', async () => {
+  return withRateLimit(req, "chat:create", async () => {
     try {
       const botError = requireNotBot(req);
       if (botError) return botError;
@@ -35,13 +36,13 @@ export async function POST(req: Request) {
 
       const body = await req.json().catch(() => ({}));
       const debugStream =
-        process.env.NODE_ENV !== 'production' && process.env.V0_STREAM_DEBUG === '1';
+        process.env.NODE_ENV !== "production" && process.env.V0_STREAM_DEBUG === "1";
 
       const validationResult = createChatSchema.safeParse(body);
       if (!validationResult.success) {
         return NextResponse.json(
-          { error: 'Validation failed', details: validationResult.error.issues },
-          { status: 400 }
+          { error: "Validation failed", details: validationResult.error.issues },
+          { status: 400 },
         );
       }
 
@@ -50,17 +51,16 @@ export async function POST(req: Request) {
         attachments,
         system,
         projectId,
-        modelId = 'v0-pro',
+        modelId = "v0-max",
         thinking = true,
         imageGenerations,
         chatPrivacy,
       } = validationResult.data;
       const resolvedSystem = system?.trim() ? system : undefined;
-      const resolvedThinking =
-        typeof thinking === 'boolean' ? thinking : modelId === 'v0-max';
+      const resolvedThinking = typeof thinking === "boolean" ? thinking : modelId === "v0-max";
       const resolvedImageGenerations =
-        typeof imageGenerations === 'boolean' ? imageGenerations : false;
-      const resolvedChatPrivacy = chatPrivacy ?? 'private';
+        typeof imageGenerations === "boolean" ? imageGenerations : true;
+      const resolvedChatPrivacy = chatPrivacy ?? "private";
 
       devLogStartNewSite({
         message,
@@ -69,8 +69,8 @@ export async function POST(req: Request) {
         imageGenerations: resolvedImageGenerations,
         projectId,
       });
-      if (process.env.NODE_ENV === 'development') {
-        console.log('[dev-log] site generation started', {
+      if (process.env.NODE_ENV === "development") {
+        console.log("[dev-log] site generation started", {
           modelId,
           projectId: projectId ?? null,
         });
@@ -88,11 +88,11 @@ export async function POST(req: Request) {
           imageGenerations: resolvedImageGenerations,
         },
         ...(modelId && { modelId }),
-        responseMode: 'experimental_stream',
+        responseMode: "experimental_stream",
         ...(attachments ? { attachments } : {}),
       } as Parameters<typeof v0.chats.create>[0] & { responseMode?: string });
 
-      if (result && typeof (result as any).getReader === 'function') {
+      if (result && typeof (result as any).getReader === "function") {
         const v0Stream = result as unknown as ReadableStream<Uint8Array>;
         const reader = v0Stream.getReader();
         const decoder = new TextDecoder();
@@ -100,8 +100,8 @@ export async function POST(req: Request) {
         const stream = new ReadableStream({
           async start(controller) {
             const encoder = new TextEncoder();
-            let buffer = '';
-            let currentEvent = '';
+            let buffer = "";
+            let currentEvent = "";
             let v0ChatId: string | null = null;
             let internalChatId: string | null = null;
             let internalProjectId: string | null = null;
@@ -138,37 +138,37 @@ export async function POST(req: Request) {
 
                 buffer += decoder.decode(value, { stream: true });
 
-                const lines = buffer.split('\n');
-                buffer = lines.pop() || '';
+                const lines = buffer.split("\n");
+                buffer = lines.pop() || "";
 
                 for (const line of lines) {
                   if (controllerClosed) break;
 
-                  if (line.startsWith('event:')) {
+                  if (line.startsWith("event:")) {
                     currentEvent = line.slice(6).trim();
-                    if (debugStream) console.log('[v0-stream] event:', currentEvent);
+                    if (debugStream) console.log("[v0-stream] event:", currentEvent);
                     continue;
                   }
 
-                  if (!line.startsWith('data: ')) continue;
+                  if (!line.startsWith("data: ")) continue;
 
                   const rawData = line.slice(6);
                   const parsed = safeJsonParse(rawData);
                   if (debugStream) {
                     console.log(
-                      '[v0-stream] data for',
+                      "[v0-stream] data for",
                       currentEvent,
-                      ':',
-                      typeof parsed === 'string'
+                      ":",
+                      typeof parsed === "string"
                         ? parsed.slice(0, 100)
-                        : JSON.stringify(parsed).slice(0, 200)
+                        : JSON.stringify(parsed).slice(0, 200),
                     );
                   }
 
                   if (!v0ChatId) {
                     const maybeChatId = extractChatId(parsed, currentEvent);
                     if (debugStream) {
-                      console.log('[v0-stream-debug] chatId candidate:', maybeChatId);
+                      console.log("[v0-stream-debug] chatId candidate:", maybeChatId);
                     }
                     if (maybeChatId) {
                       v0ChatId = maybeChatId;
@@ -177,8 +177,8 @@ export async function POST(req: Request) {
 
                   if (v0ChatId && !didSendChatId) {
                     didSendChatId = true;
-                    devLogAppend('in-progress', { type: 'site.chatId', chatId: v0ChatId });
-                    safeEnqueue(encoder.encode(formatSSEEvent('chatId', { id: v0ChatId })));
+                    devLogAppend("in-progress", { type: "site.chatId", chatId: v0ChatId });
+                    safeEnqueue(encoder.encode(formatSSEEvent("chatId", { id: v0ChatId })));
 
                     try {
                       const v0ProjectIdEffective = projectId || `chat:${v0ChatId}`;
@@ -208,7 +208,7 @@ export async function POST(req: Request) {
                         internalChatId = existingChat[0].id;
                       }
                     } catch (dbError) {
-                      console.error('Failed to save streaming chat to database:', dbError);
+                      console.error("Failed to save streaming chat to database:", dbError);
                     }
                   }
 
@@ -219,17 +219,17 @@ export async function POST(req: Request) {
 
                   const thinkingText = extractThinkingText(parsed);
                   if (thinkingText && !didSendDone) {
-                    safeEnqueue(encoder.encode(formatSSEEvent('thinking', thinkingText)));
+                    safeEnqueue(encoder.encode(formatSSEEvent("thinking", thinkingText)));
                   }
 
                   const contentText = extractContentText(parsed, rawData);
                   if (contentText && !didSendDone) {
-                    safeEnqueue(encoder.encode(formatSSEEvent('content', contentText)));
+                    safeEnqueue(encoder.encode(formatSSEEvent("content", contentText)));
                   }
 
                   const uiParts = extractUiParts(parsed);
                   if (uiParts && uiParts.length > 0 && !didSendDone) {
-                    safeEnqueue(encoder.encode(formatSSEEvent('parts', uiParts)));
+                    safeEnqueue(encoder.encode(formatSSEEvent("parts", uiParts)));
                   }
 
                   const demoUrl = extractDemoUrl(parsed);
@@ -248,13 +248,13 @@ export async function POST(req: Request) {
                     didSendDone = true;
                     safeEnqueue(
                       encoder.encode(
-                        formatSSEEvent('done', {
+                        formatSSEEvent("done", {
                           chatId: v0ChatId,
                           demoUrl: finalDemoUrl || null,
                           versionId: finalVersionId || null,
                           messageId: messageId || null,
-                        })
-                      )
+                        }),
+                      ),
                     );
 
                     if (internalChatId && finalVersionId) {
@@ -265,8 +265,8 @@ export async function POST(req: Request) {
                           .where(
                             and(
                               eq(versions.chatId, internalChatId),
-                              eq(versions.v0VersionId, finalVersionId)
-                            )
+                              eq(versions.v0VersionId, finalVersionId),
+                            ),
                           )
                           .limit(1);
 
@@ -286,12 +286,12 @@ export async function POST(req: Request) {
                             .where(eq(versions.id, existingVersion[0].id));
                         }
                       } catch (dbError) {
-                        console.error('Failed to save version to database:', dbError);
+                        console.error("Failed to save version to database:", dbError);
                       }
                     }
 
-                    devLogAppend('in-progress', {
-                      type: 'site.done',
+                    devLogAppend("in-progress", {
+                      type: "site.done",
                       chatId: v0ChatId,
                       versionId: finalVersionId,
                       demoUrl: finalDemoUrl,
@@ -302,26 +302,25 @@ export async function POST(req: Request) {
                 }
               }
             } catch (error) {
-              console.error('Streaming error:', error);
+              console.error("Streaming error:", error);
               safeEnqueue(
                 encoder.encode(
-                  formatSSEEvent('error', {
-                    message: error instanceof Error ? error.message : 'Unknown error',
-                  })
-                )
+                  formatSSEEvent("error", {
+                    message: error instanceof Error ? error.message : "Unknown error",
+                  }),
+                ),
               );
             } finally {
               if (!didSendDone && v0ChatId) {
                 try {
-                  const latestChat = await v0.chats.getById({ chatId: v0ChatId });
-                  const latestVersion = (latestChat as any)?.latestVersion || null;
-                  const finalVersionId: string | null =
-                    (latestVersion && (latestVersion.id || latestVersion.versionId)) ||
-                    lastVersionId;
-                  const finalDemoUrl: string | null =
-                    (latestVersion && (latestVersion.demoUrl || latestVersion.demo_url)) ||
-                    (latestChat as any)?.demoUrl ||
-                    lastDemoUrl;
+                  const resolved = await resolveLatestVersion(v0ChatId, {
+                    preferVersionId: lastVersionId,
+                    preferDemoUrl: lastDemoUrl,
+                    maxAttempts: 15,
+                    delayMs: 2000,
+                  });
+                  const finalVersionId = resolved.versionId || lastVersionId || null;
+                  const finalDemoUrl = resolved.demoUrl || lastDemoUrl || null;
 
                   if (internalChatId && finalVersionId) {
                     const existingVersion = await db
@@ -330,8 +329,8 @@ export async function POST(req: Request) {
                       .where(
                         and(
                           eq(versions.chatId, internalChatId),
-                          eq(versions.v0VersionId, finalVersionId)
-                        )
+                          eq(versions.v0VersionId, finalVersionId),
+                        ),
                       )
                       .limit(1);
 
@@ -342,38 +341,50 @@ export async function POST(req: Request) {
                         v0VersionId: finalVersionId,
                         v0MessageId: lastMessageId,
                         demoUrl: finalDemoUrl,
-                        metadata: latestChat,
+                        metadata: resolved.latestChat ?? null,
                       });
                     } else if (finalDemoUrl) {
                       await db
                         .update(versions)
-                        .set({ demoUrl: finalDemoUrl, metadata: latestChat })
+                        .set({ demoUrl: finalDemoUrl, metadata: resolved.latestChat ?? null })
                         .where(eq(versions.id, existingVersion[0].id));
                     }
                   }
 
                   didSendDone = true;
-                  safeEnqueue(
-                    encoder.encode(
-                      formatSSEEvent('done', {
-                        chatId: v0ChatId,
-                        demoUrl: finalDemoUrl,
-                        versionId: finalVersionId,
-                        messageId: lastMessageId,
-                      })
-                    )
-                  );
+                  if (!finalVersionId && !finalDemoUrl) {
+                    safeEnqueue(
+                      encoder.encode(
+                        formatSSEEvent("error", {
+                          message:
+                            resolved.errorMessage ||
+                            "No preview version was generated. Please try again.",
+                        }),
+                      ),
+                    );
+                  } else {
+                    safeEnqueue(
+                      encoder.encode(
+                        formatSSEEvent("done", {
+                          chatId: v0ChatId,
+                          demoUrl: finalDemoUrl,
+                          versionId: finalVersionId,
+                          messageId: lastMessageId,
+                        }),
+                      ),
+                    );
 
-                  devLogAppend('in-progress', {
-                    type: 'site.done',
-                    chatId: v0ChatId,
-                    versionId: finalVersionId,
-                    demoUrl: finalDemoUrl,
-                    durationMs: Date.now() - generationStartedAt,
-                  });
-                  devLogFinalizeSite();
+                    devLogAppend("in-progress", {
+                      type: "site.done",
+                      chatId: v0ChatId,
+                      versionId: finalVersionId,
+                      demoUrl: finalDemoUrl,
+                      durationMs: Date.now() - generationStartedAt,
+                    });
+                    devLogFinalizeSite();
+                  }
                 } catch (finalizeErr) {
-                  console.error('Failed to finalize streaming chat:', finalizeErr);
+                  console.error("Failed to finalize streaming chat:", finalizeErr);
                 }
               }
               safeClose();
@@ -422,15 +433,15 @@ export async function POST(req: Request) {
           });
         }
       } catch (dbError) {
-        console.error('Failed to save chat to database:', dbError);
+        console.error("Failed to save chat to database:", dbError);
       }
 
       return NextResponse.json(chatData);
     } catch (err) {
-      console.error('Create chat error:', err);
+      console.error("Create chat error:", err);
       return NextResponse.json(
-        { error: err instanceof Error ? err.message : 'Unknown error' },
-        { status: 500 }
+        { error: err instanceof Error ? err.message : "Unknown error" },
+        { status: 500 },
       );
     }
   });

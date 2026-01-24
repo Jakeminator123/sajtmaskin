@@ -2,12 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import {
-  Sources,
-  SourcesContent,
-  SourcesTrigger,
-  Source,
-} from "@/components/ai-elements/sources";
+import { Sources, SourcesContent, SourcesTrigger, Source } from "@/components/ai-elements/sources";
 import { AlertCircle, ExternalLink, Loader2, RefreshCw } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
@@ -43,9 +38,7 @@ export function RecommendationsPanel({
 }: RecommendationsPanelProps) {
   const resolvedUrl = useMemo(() => url || fallbackUrl || null, [url, fallbackUrl]);
   const [analysis, setAnalysis] = useState<string | null>(null);
-  const [sources, setSources] = useState<Array<{ url: string; title: string }>>(
-    []
-  );
+  const [sources, setSources] = useState<Array<{ url: string; title: string }>>([]);
   const [model, setModel] = useState<string | null>(null);
   const [usedWebSearch, setUsedWebSearch] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
@@ -86,7 +79,7 @@ export function RecommendationsPanel({
         setIsLoading(false);
       }
     },
-    [analysis, isLoading, lastAnalyzedUrl, resolvedUrl]
+    [analysis, isLoading, lastAnalyzedUrl, resolvedUrl],
   );
 
   useEffect(() => {
@@ -98,7 +91,7 @@ export function RecommendationsPanel({
 
   if (!resolvedUrl) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-3 text-muted-foreground">
+      <div className="text-muted-foreground flex h-full flex-col items-center justify-center gap-3">
         <AlertCircle className="h-10 w-10" />
         <div className="text-center text-sm">
           <p className="font-medium">Ingen URL att analysera</p>
@@ -113,7 +106,7 @@ export function RecommendationsPanel({
       <div className="flex items-center justify-between">
         <div>
           <h3 className="text-sm font-semibold">Rekommendationer</h3>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-muted-foreground text-xs">
             Senast uppdaterad: {formatTimestamp(lastUpdated)}
           </p>
         </div>
@@ -133,11 +126,11 @@ export function RecommendationsPanel({
 
       <Card>
         <CardContent className="space-y-3 p-4 text-sm">
-          <div className="flex items-center justify-between text-xs text-muted-foreground">
+          <div className="text-muted-foreground flex items-center justify-between text-xs">
             <span>Analyserad URL</span>
             {resolvedUrl && (
               <a
-                className="inline-flex items-center gap-1 text-primary hover:underline"
+                className="text-primary inline-flex items-center gap-1 hover:underline"
                 href={resolvedUrl}
                 rel="noreferrer"
                 target="_blank"
@@ -146,13 +139,13 @@ export function RecommendationsPanel({
               </a>
             )}
           </div>
-          <p className="break-all text-xs text-muted-foreground">{resolvedUrl}</p>
+          <p className="text-muted-foreground text-xs break-all">{resolvedUrl}</p>
         </CardContent>
       </Card>
 
       {isLoading && (
         <Card>
-          <CardContent className="flex items-center gap-3 p-4 text-sm text-muted-foreground">
+          <CardContent className="text-muted-foreground flex items-center gap-3 p-4 text-sm">
             <Loader2 className="h-4 w-4 animate-spin" />
             <span>Analyserar webbplatsen...</span>
           </CardContent>
@@ -163,7 +156,7 @@ export function RecommendationsPanel({
         <Card>
           <CardContent className="space-y-2 p-4 text-sm text-red-500">
             <p className="font-medium">Något gick fel</p>
-            <p className="text-xs text-muted-foreground">{error}</p>
+            <p className="text-muted-foreground text-xs">{error}</p>
           </CardContent>
         </Card>
       )}
@@ -171,14 +164,12 @@ export function RecommendationsPanel({
       {analysis && (
         <Card>
           <CardContent className="space-y-3 p-4 text-sm">
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <div className="text-muted-foreground flex items-center gap-2 text-xs">
               <span>Model: {model || "okänd"}</span>
               <span>•</span>
               <span>{usedWebSearch ? "Web Search: på" : "Web Search: av"}</span>
             </div>
-            <p className="whitespace-pre-wrap leading-relaxed text-foreground">
-              {analysis}
-            </p>
+            <p className="text-foreground leading-relaxed whitespace-pre-wrap">{analysis}</p>
           </CardContent>
         </Card>
       )}
@@ -190,11 +181,7 @@ export function RecommendationsPanel({
               <SourcesTrigger count={sources.length} />
               <SourcesContent>
                 {sources.map((source) => (
-                  <Source
-                    key={source.url}
-                    href={source.url}
-                    title={source.title || source.url}
-                  />
+                  <Source key={source.url} href={source.url} title={source.title || source.url} />
                 ))}
               </SourcesContent>
             </Sources>

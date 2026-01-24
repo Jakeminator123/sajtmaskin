@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
       console.error("[API/transcribe] OpenAI API key not configured");
       return NextResponse.json(
         { success: false, error: "Speech service is not configured" },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
     if (!audioFile) {
       return NextResponse.json(
         { success: false, error: "No audio file provided" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
           success: false,
           error: `Unsupported audio format: ${audioFile.type}. Supported: webm, mp3, wav, m4a, ogg, flac`,
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -70,7 +70,7 @@ export async function POST(req: NextRequest) {
     if (audioFile.size > maxSize) {
       return NextResponse.json(
         { success: false, error: "Audio file too large (max 25MB)" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -91,21 +91,18 @@ export async function POST(req: NextRequest) {
     if (language === "sv") {
       whisperFormData.append(
         "prompt",
-        "Detta är en beskrivning av ett företag och hur deras webbplats ska se ut. Företagsnamn, bransch, färger, design."
+        "Detta är en beskrivning av ett företag och hur deras webbplats ska se ut. Företagsnamn, bransch, färger, design.",
       );
     }
 
     // Call Whisper API
-    const response = await fetch(
-      "https://api.openai.com/v1/audio/transcriptions",
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${openaiApiKey}`,
-        },
-        body: whisperFormData,
-      }
-    );
+    const response = await fetch("https://api.openai.com/v1/audio/transcriptions", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${openaiApiKey}`,
+      },
+      body: whisperFormData,
+    });
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -114,13 +111,13 @@ export async function POST(req: NextRequest) {
       if (response.status === 429) {
         return NextResponse.json(
           { success: false, error: "Rate limit exceeded. Try again later." },
-          { status: 429 }
+          { status: 429 },
         );
       }
 
       return NextResponse.json(
         { success: false, error: "Failed to transcribe audio" },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
@@ -131,14 +128,11 @@ export async function POST(req: NextRequest) {
       console.log("[API/transcribe] Empty transcript");
       return NextResponse.json(
         { success: false, error: "No speech detected in audio" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
-    console.log(
-      "[API/transcribe] Success, transcript length:",
-      transcript.length
-    );
+    console.log("[API/transcribe] Success, transcript length:", transcript.length);
 
     return NextResponse.json({
       success: true,
@@ -154,7 +148,7 @@ export async function POST(req: NextRequest) {
         success: false,
         error: "Failed to process audio. Please try again.",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

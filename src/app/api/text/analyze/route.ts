@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
     if (!content || typeof content !== "string") {
       return NextResponse.json(
         { success: false, error: "Inget innehåll att analysera" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -121,7 +121,7 @@ Svara ENDAST med giltig JSON i detta format:
       const validSuggestions = parsed.suggestions
         .filter(
           (
-            s: unknown
+            s: unknown,
           ): s is {
             id: string;
             label: string;
@@ -137,7 +137,7 @@ Svara ENDAST med giltig JSON i detta format:
             typeof (s as { id: unknown }).id === "string" &&
             typeof (s as { label: unknown }).label === "string" &&
             typeof (s as { description: unknown }).description === "string" &&
-            typeof (s as { prompt: unknown }).prompt === "string"
+            typeof (s as { prompt: unknown }).prompt === "string",
         )
         .map(
           (
@@ -147,13 +147,13 @@ Svara ENDAST med giltig JSON i detta format:
               description: string;
               prompt: string;
             },
-            index: number
+            index: number,
           ) => ({
             id: s.id || `suggestion-${index}`,
             label: s.label,
             description: s.description,
             prompt: s.prompt,
-          })
+          }),
         );
 
       if (validSuggestions.length === 0) {
@@ -161,7 +161,7 @@ Svara ENDAST med giltig JSON i detta format:
       }
 
       console.log(
-        `[Text/Analyze] Generated ${validSuggestions.length} suggestions for ${filename}`
+        `[Text/Analyze] Generated ${validSuggestions.length} suggestions for ${filename}`,
       );
 
       return NextResponse.json({
@@ -193,10 +193,7 @@ Svara ENDAST med giltig JSON i detta format:
 /**
  * Default suggestions when AI analysis fails
  */
-function getDefaultSuggestions(
-  content: string,
-  contentType: string
-): TextSuggestion[] {
+function getDefaultSuggestions(content: string, contentType: string): TextSuggestion[] {
   const textSnippet = content.substring(0, 2000);
 
   if (contentType === "json") {

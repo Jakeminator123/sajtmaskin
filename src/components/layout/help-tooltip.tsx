@@ -1,11 +1,6 @@
 "use client";
 
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { HelpCircle } from "lucide-react";
 
 interface HelpTooltipProps {
@@ -15,12 +10,7 @@ interface HelpTooltipProps {
   className?: string;
 }
 
-export function HelpTooltip({
-  text,
-  value,
-  tips,
-  className,
-}: HelpTooltipProps) {
+export function HelpTooltip({ text, value, tips, className }: HelpTooltipProps) {
   // Generate stars based on value (1-10 becomes 1-5 stars)
   const renderStars = (rating: number) => {
     const starCount = Math.ceil(rating / 2);
@@ -32,21 +22,19 @@ export function HelpTooltip({
       <Tooltip delayDuration={200}>
         <TooltipTrigger asChild>
           <HelpCircle
-            className={`h-4 w-4 text-muted-foreground cursor-help inline-block ml-1 hover:text-foreground transition-colors ${className || ""
-              }`}
+            className={`text-muted-foreground hover:text-foreground ml-1 inline-block h-4 w-4 cursor-help transition-colors ${
+              className || ""
+            }`}
           />
         </TooltipTrigger>
-        <TooltipContent
-          className="max-w-xs bg-black/95 border-gray-800 p-3"
-          sideOffset={5}
-        >
+        <TooltipContent className="max-w-xs border-gray-800 bg-black/95 p-3" sideOffset={5}>
           <p className="text-sm text-white">{text}</p>
           {value && (
-            <p className="text-xs mt-2 text-gray-400">
+            <p className="mt-2 text-xs text-gray-400">
               Värde: {value}/10 {renderStars(value)}
             </p>
           )}
-          {tips && <p className="text-xs mt-1 text-brand-teal italic">{tips}</p>}
+          {tips && <p className="text-brand-teal mt-1 text-xs italic">{tips}</p>}
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>

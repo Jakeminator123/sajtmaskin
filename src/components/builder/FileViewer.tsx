@@ -1,10 +1,10 @@
-'use client';
+"use client";
 
-import { Check, Copy, Edit3, Lock, Pin, RotateCcw, Save, Unlock } from 'lucide-react';
-import { useCallback, useState } from 'react';
-import toast from 'react-hot-toast';
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import { Check, Copy, Edit3, Lock, Pin, RotateCcw, Save, Unlock } from "lucide-react";
+import { useCallback, useState } from "react";
+import toast from "react-hot-toast";
+import { Prism as SyntaxHighlighter } from "react-syntax-highlighter";
+import { oneDark } from "react-syntax-highlighter/dist/esm/styles/prism";
 
 interface FileViewerProps {
   fileName: string;
@@ -37,33 +37,33 @@ export function FileViewer({
   const canToggleLock = chatId && versionId && !isPinnedVersion;
 
   const getLanguage = (name: string) => {
-    const ext = name.split('.').pop()?.toLowerCase();
+    const ext = name.split(".").pop()?.toLowerCase();
     const languages: Record<string, string> = {
-      tsx: 'tsx',
-      ts: 'typescript',
-      jsx: 'jsx',
-      js: 'javascript',
-      css: 'css',
-      json: 'json',
-      md: 'markdown',
-      html: 'html',
-      py: 'python',
-      rs: 'rust',
-      go: 'go',
-      java: 'java',
-      c: 'c',
-      cpp: 'cpp',
-      h: 'c',
-      hpp: 'cpp',
-      yaml: 'yaml',
-      yml: 'yaml',
-      xml: 'xml',
-      sql: 'sql',
-      sh: 'bash',
-      bash: 'bash',
-      zsh: 'bash',
+      tsx: "tsx",
+      ts: "typescript",
+      jsx: "jsx",
+      js: "javascript",
+      css: "css",
+      json: "json",
+      md: "markdown",
+      html: "html",
+      py: "python",
+      rs: "rust",
+      go: "go",
+      java: "java",
+      c: "c",
+      cpp: "cpp",
+      h: "c",
+      hpp: "cpp",
+      yaml: "yaml",
+      yml: "yaml",
+      xml: "xml",
+      sql: "sql",
+      sh: "bash",
+      bash: "bash",
+      zsh: "bash",
     };
-    return languages[ext || ''] || 'text';
+    return languages[ext || ""] || "text";
   };
 
   const handleCopy = async () => {
@@ -75,13 +75,13 @@ export function FileViewer({
   const handleEdit = () => {
     if (!canEdit) {
       if (isPinnedVersion) {
-        toast.error('Pinned version is read-only');
+        toast.error("Pinned version is read-only");
         return;
       }
       if (isLocked) {
-        toast.error('This file is locked and cannot be edited');
+        toast.error("This file is locked and cannot be edited");
       } else {
-        toast.error('Cannot edit: missing chat or version ID');
+        toast.error("Cannot edit: missing chat or version ID");
       }
       return;
     }
@@ -96,19 +96,19 @@ export function FileViewer({
 
   const handleSave = useCallback(async () => {
     if (isPinnedVersion) {
-      toast.error('Pinned version is read-only');
+      toast.error("Pinned version is read-only");
       return;
     }
     if (!chatId || !versionId) {
-      toast.error('Cannot save: missing chat or version ID');
+      toast.error("Cannot save: missing chat or version ID");
       return;
     }
 
     setIsSaving(true);
     try {
       const response = await fetch(`/api/v0/chats/${chatId}/files`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           versionId,
           fileName,
@@ -117,21 +117,25 @@ export function FileViewer({
         }),
       });
 
+      const data = (await response.json().catch(() => null)) as {
+        demoUrl?: string;
+        error?: string;
+      } | null;
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `HTTP ${response.status}`);
+        throw new Error(data?.error || `HTTP ${response.status}`);
       }
-
-      const data = await response.json();
-      toast.success('File saved successfully!');
+      if (!data) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      toast.success("File saved successfully!");
       setIsEditing(false);
 
       if (onFileSaved) {
         onFileSaved(editedContent, data.demoUrl);
       }
     } catch (error) {
-      console.error('Error saving file:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to save file');
+      console.error("Error saving file:", error);
+      toast.error(error instanceof Error ? error.message : "Failed to save file");
     } finally {
       setIsSaving(false);
     }
@@ -139,11 +143,11 @@ export function FileViewer({
 
   const toggleLock = async () => {
     if (isPinnedVersion) {
-      toast.error('Pinned version is read-only');
+      toast.error("Pinned version is read-only");
       return;
     }
     if (!chatId || !versionId) {
-      toast.error('Cannot toggle lock: missing chat or version ID');
+      toast.error("Cannot toggle lock: missing chat or version ID");
       return;
     }
 
@@ -152,8 +156,8 @@ export function FileViewer({
 
     try {
       const response = await fetch(`/api/v0/chats/${chatId}/files`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           versionId,
           fileName,
@@ -168,10 +172,10 @@ export function FileViewer({
       }
 
       setIsLocked(newLockState);
-      toast.success(newLockState ? 'File locked' : 'File unlocked');
+      toast.success(newLockState ? "File locked" : "File unlocked");
     } catch (error) {
-      console.error('Error toggling lock:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to toggle lock');
+      console.error("Error toggling lock:", error);
+      toast.error(error instanceof Error ? error.message : "Failed to toggle lock");
     } finally {
       setIsSaving(false);
     }
@@ -185,14 +189,14 @@ export function FileViewer({
         <div className="flex items-center gap-2">
           <span className="text-sm font-medium text-gray-200">{fileName}</span>
           {isLocked && (
-            <span className="flex items-center gap-1 rounded bg-brand-amber/20 px-1.5 py-0.5 text-xs text-brand-amber">
+            <span className="bg-brand-amber/20 text-brand-amber flex items-center gap-1 rounded px-1.5 py-0.5 text-xs">
               <Lock className="h-3 w-3" />
               Locked
             </span>
           )}
           {isPinnedVersion && (
             <span
-              className="flex items-center gap-1 rounded bg-brand-blue/20 px-1.5 py-0.5 text-xs text-brand-blue"
+              className="bg-brand-blue/20 text-brand-blue flex items-center gap-1 rounded px-1.5 py-0.5 text-xs"
               title="Pinned version is read-only"
             >
               <Pin className="h-3 w-3" />
@@ -200,7 +204,7 @@ export function FileViewer({
             </span>
           )}
           {isEditing && hasChanges && (
-            <span className="rounded bg-brand-blue/20 px-1.5 py-0.5 text-xs text-brand-blue">
+            <span className="bg-brand-blue/20 text-brand-blue rounded px-1.5 py-0.5 text-xs">
               Modified
             </span>
           )}
@@ -213,10 +217,10 @@ export function FileViewer({
               className="flex items-center gap-1 rounded px-2 py-1 text-xs text-gray-400 hover:bg-gray-800 hover:text-gray-200 disabled:opacity-50"
               title={
                 isPinnedVersion
-                  ? 'Pinned version is read-only'
+                  ? "Pinned version is read-only"
                   : isLocked
-                    ? 'Unlock file'
-                    : 'Lock file'
+                    ? "Unlock file"
+                    : "Lock file"
               }
             >
               {isLocked ? <Unlock className="h-3 w-3" /> : <Lock className="h-3 w-3" />}
@@ -236,7 +240,7 @@ export function FileViewer({
               <button
                 onClick={handleSave}
                 disabled={isSaving || !hasChanges}
-                className="flex items-center gap-1 rounded bg-brand-blue px-2 py-1 text-xs text-white hover:bg-brand-blue/90 disabled:opacity-50"
+                className="bg-brand-blue hover:bg-brand-blue/90 flex items-center gap-1 rounded px-2 py-1 text-xs text-white disabled:opacity-50"
               >
                 {isSaving ? (
                   <>
@@ -255,16 +259,19 @@ export function FileViewer({
             <button
               onClick={handleEdit}
               disabled={!canEdit}
-              className={`flex items-center gap-1 rounded px-2 py-1 text-xs ${canEdit ? 'text-gray-400 hover:bg-gray-800 hover:text-gray-200' : 'cursor-not-allowed text-gray-600'
-                }`}
+              className={`flex items-center gap-1 rounded px-2 py-1 text-xs ${
+                canEdit
+                  ? "text-gray-400 hover:bg-gray-800 hover:text-gray-200"
+                  : "cursor-not-allowed text-gray-600"
+              }`}
               title={
                 !canEdit
                   ? isPinnedVersion
-                    ? 'Pinned version is read-only'
+                    ? "Pinned version is read-only"
                     : isLocked
-                      ? 'File is locked'
-                      : 'Cannot edit'
-                  : 'Edit file'
+                      ? "File is locked"
+                      : "Cannot edit"
+                  : "Edit file"
               }
             >
               <Edit3 className="h-3 w-3" />
@@ -302,7 +309,7 @@ export function FileViewer({
           <textarea
             value={editedContent}
             onChange={(e) => setEditedContent(e.target.value)}
-            className="w-full h-full min-h-[500px] resize-none bg-gray-900 text-gray-100 font-mono text-sm p-4 outline-none"
+            className="h-full min-h-[500px] w-full resize-none bg-gray-900 p-4 font-mono text-sm text-gray-100 outline-none"
             spellCheck={false}
             aria-label={`Edit ${fileName}`}
           />
@@ -312,8 +319,8 @@ export function FileViewer({
             style={oneDark}
             customStyle={{
               margin: 0,
-              background: 'transparent',
-              fontSize: '14px',
+              background: "transparent",
+              fontSize: "14px",
             }}
           >
             {content}

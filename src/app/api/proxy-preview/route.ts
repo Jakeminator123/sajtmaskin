@@ -167,26 +167,20 @@ function rewriteUrls(html: string, baseOrigin: string, basePath: string): string
   let out = html;
 
   // Rewrite root-relative URLs (href="/..." or src="/...")
-  out = out.replace(
-    /((?:href|src|action)=["'])\/(?!\/)/gi,
-    `$1${baseOrigin}/`
-  );
+  out = out.replace(/((?:href|src|action)=["'])\/(?!\/)/gi, `$1${baseOrigin}/`);
 
   // Rewrite bare-relative URLs (href="something.css" not starting with http/data/#)
   // Only match actual relative paths, not absolute URLs or data URIs
   out = out.replace(
     /((?:href|src)=["'])(?!https?:\/\/|data:|#|\/|mailto:|tel:)([^"']+["'])/gi,
-    `$1${basePath}$2`
+    `$1${basePath}$2`,
   );
 
   return out;
 }
 
 function removeCsp(html: string): string {
-  return html.replace(
-    /<meta[^>]+http-equiv=["']Content-Security-Policy["'][^>]*>/gi,
-    ""
-  );
+  return html.replace(/<meta[^>]+http-equiv=["']Content-Security-Policy["'][^>]*>/gi, "");
 }
 
 function injectScript(html: string): string {
@@ -202,27 +196,27 @@ export async function GET(req: Request) {
   const url = searchParams.get("url");
 
   if (!url) {
-    return new NextResponse(
-      "<html><body><h1>Missing ?url= parameter</h1></body></html>",
-      { status: 400, headers: { "content-type": "text/html" } }
-    );
+    return new NextResponse("<html><body><h1>Missing ?url= parameter</h1></body></html>", {
+      status: 400,
+      headers: { "content-type": "text/html" },
+    });
   }
 
   let target: URL;
   try {
     target = new URL(url);
   } catch {
-    return new NextResponse(
-      "<html><body><h1>Invalid URL format</h1></body></html>",
-      { status: 400, headers: { "content-type": "text/html" } }
-    );
+    return new NextResponse("<html><body><h1>Invalid URL format</h1></body></html>", {
+      status: 400,
+      headers: { "content-type": "text/html" },
+    });
   }
 
   if (!["http:", "https:"].includes(target.protocol)) {
-    return new NextResponse(
-      "<html><body><h1>Only http/https URLs allowed</h1></body></html>",
-      { status: 400, headers: { "content-type": "text/html" } }
-    );
+    return new NextResponse("<html><body><h1>Only http/https URLs allowed</h1></body></html>", {
+      status: 400,
+      headers: { "content-type": "text/html" },
+    });
   }
 
   try {
@@ -231,15 +225,14 @@ export async function GET(req: Request) {
       headers: {
         "User-Agent":
           "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36",
-        Accept:
-          "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
       },
     });
 
     if (!res.ok) {
       return new NextResponse(
         `<html><body><h1>Failed to fetch: HTTP ${res.status}</h1></body></html>`,
-        { status: 502, headers: { "content-type": "text/html" } }
+        { status: 502, headers: { "content-type": "text/html" } },
       );
     }
 
@@ -264,10 +257,9 @@ export async function GET(req: Request) {
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Unknown fetch error";
-    return new NextResponse(
-      `<html><body><h1>Error: ${message}</h1></body></html>`,
-      { status: 502, headers: { "content-type": "text/html" } }
-    );
+    return new NextResponse(`<html><body><h1>Error: ${message}</h1></body></html>`, {
+      status: 502,
+      headers: { "content-type": "text/html" },
+    });
   }
 }
-

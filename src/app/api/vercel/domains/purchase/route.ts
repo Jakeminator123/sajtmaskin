@@ -27,7 +27,7 @@ async function waitForOrderCompletion(
   orderId: string,
   teamId?: string,
   maxWaitTime = 300000, // 5 minutes (increased from 2)
-  pollInterval = 3000 // 3 seconds (increased from 2)
+  pollInterval = 3000, // 3 seconds (increased from 2)
 ): Promise<{ success: boolean; status: string; error?: string }> {
   const startTime = Date.now();
 
@@ -35,10 +35,7 @@ async function waitForOrderCompletion(
     try {
       const orderStatus = await getDomainOrderStatus(orderId, teamId);
 
-      if (
-        orderStatus.status === "completed" ||
-        orderStatus.status === "success"
-      ) {
+      if (orderStatus.status === "completed" || orderStatus.status === "success") {
         return { success: true, status: orderStatus.status };
       }
 
@@ -53,10 +50,7 @@ async function waitForOrderCompletion(
       // Wait before next poll
       await new Promise((resolve) => setTimeout(resolve, pollInterval));
     } catch (error) {
-      console.error(
-        "[API/vercel/domains/purchase] Error polling order:",
-        error
-      );
+      console.error("[API/vercel/domains/purchase] Error polling order:", error);
       // Continue polling on error
       await new Promise((resolve) => setTimeout(resolve, pollInterval));
     }
@@ -76,9 +70,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          error: "Vercel integration not configured. Set VERCEL_API_TOKEN.",
+          error: "Vercel integration not configured. Set VERCEL_TOKEN.",
         },
-        { status: 503 }
+        { status: 503 },
       );
     }
 
@@ -97,16 +91,13 @@ export async function POST(request: NextRequest) {
 
     // Validate required fields
     if (!domain || typeof domain !== "string") {
-      return NextResponse.json(
-        { success: false, error: "Domain is required" },
-        { status: 400 }
-      );
+      return NextResponse.json({ success: false, error: "Domain is required" }, { status: 400 });
     }
 
     if (!contactInfo || typeof contactInfo !== "object") {
       return NextResponse.json(
         { success: false, error: "Contact information is required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -125,7 +116,7 @@ export async function POST(request: NextRequest) {
       if (!contactInfo[field as keyof DomainContactInfo]) {
         return NextResponse.json(
           { success: false, error: `Missing required field: ${field}` },
-          { status: 400 }
+          { status: 400 },
         );
       }
     }
@@ -135,10 +126,7 @@ export async function POST(request: NextRequest) {
     if (!contactInfo.state || contactInfo.state.trim() === "") {
       // Use city as state fallback (common workaround for countries without states)
       contactInfo.state = contactInfo.city || "-";
-      console.log(
-        "[API/vercel/domains/purchase] Using city as state fallback:",
-        contactInfo.state
-      );
+      console.log("[API/vercel/domains/purchase] Using city as state fallback:", contactInfo.state);
     }
 
     console.log("[API/vercel/domains/purchase] Purchasing domain:", domain);
@@ -148,17 +136,13 @@ export async function POST(request: NextRequest) {
     try {
       vercelPriceData = await getDomainPrice(domain, teamId);
     } catch (error) {
-      console.error(
-        "[API/vercel/domains/purchase] Failed to get price:",
-        error
-      );
+      console.error("[API/vercel/domains/purchase] Failed to get price:", error);
       return NextResponse.json(
         {
           success: false,
-          error:
-            "Failed to get domain price. Domain may not be available for purchase.",
+          error: "Failed to get domain price. Domain may not be available for purchase.",
         },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
@@ -168,7 +152,7 @@ export async function POST(request: NextRequest) {
     const customerPriceSek = Math.round(vercelCostSek * MARKUP_MULTIPLIER);
 
     console.log(
-      `[API/vercel/domains/purchase] Pricing: Vercel cost: ${vercelCostUsd} USD (${vercelCostSek} SEK), Customer price: ${customerPriceSek} SEK`
+      `[API/vercel/domains/purchase] Pricing: Vercel cost: ${vercelCostUsd} USD (${vercelCostSek} SEK), Customer price: ${customerPriceSek} SEK`,
     );
 
     // Purchase domain via Vercel API
@@ -192,32 +176,27 @@ export async function POST(request: NextRequest) {
           success: false,
           error: errorMessage,
         },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
     console.log(
       "[API/vercel/domains/purchase] Purchase initiated, order ID:",
-      purchaseResult.orderId
+      purchaseResult.orderId,
     );
 
     // Wait for order completion
-    const orderResult = await waitForOrderCompletion(
-      purchaseResult.orderId,
-      teamId
-    );
+    const orderResult = await waitForOrderCompletion(purchaseResult.orderId, teamId);
 
     if (!orderResult.success) {
       return NextResponse.json(
         {
           success: false,
-          error:
-            orderResult.error ||
-            "Domain purchase did not complete successfully",
+          error: orderResult.error || "Domain purchase did not complete successfully",
           orderId: purchaseResult.orderId,
           status: orderResult.status,
         },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
@@ -240,7 +219,7 @@ export async function POST(request: NextRequest) {
         success: false,
         error: error instanceof Error ? error.message : "Unknown error",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

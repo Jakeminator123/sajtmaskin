@@ -58,8 +58,10 @@ function usePromptInput() {
 // PROMPT INPUT ROOT
 // ============================================================================
 
-export interface PromptInputProps
-  extends Omit<HTMLAttributes<HTMLDivElement>, "onChange" | "onSubmit"> {
+export interface PromptInputProps extends Omit<
+  HTMLAttributes<HTMLDivElement>,
+  "onChange" | "onSubmit"
+> {
   value: string;
   onChange: (value: string) => void;
   onSubmit: (message: PromptInputMessage) => void;
@@ -79,15 +81,13 @@ export function PromptInput({
   ...props
 }: PromptInputProps) {
   return (
-    <PromptInputContext.Provider
-      value={{ value, onChange, onSubmit, isLoading, disabled }}
-    >
+    <PromptInputContext.Provider value={{ value, onChange, onSubmit, isLoading, disabled }}>
       <div
         className={cn(
           "relative flex flex-col rounded-2xl border border-zinc-700 bg-zinc-900",
-          "focus-within:border-brand-blue focus-within:ring-1 focus-within:ring-brand-blue/50",
+          "focus-within:border-brand-blue focus-within:ring-brand-blue/50 focus-within:ring-1",
           "transition-colors",
-          className
+          className,
         )}
         {...props}
       >
@@ -105,17 +105,10 @@ export interface PromptInputHeaderProps extends HTMLAttributes<HTMLDivElement> {
   children: ReactNode;
 }
 
-export function PromptInputHeader({
-  children,
-  className,
-  ...props
-}: PromptInputHeaderProps) {
+export function PromptInputHeader({ children, className, ...props }: PromptInputHeaderProps) {
   return (
     <div
-      className={cn(
-        "flex items-center gap-2 px-3 pt-2 pb-1 border-b border-zinc-800",
-        className
-      )}
+      className={cn("flex items-center gap-2 border-b border-zinc-800 px-3 pt-2 pb-1", className)}
       {...props}
     >
       {children}
@@ -131,16 +124,9 @@ export interface PromptInputBodyProps extends HTMLAttributes<HTMLDivElement> {
   children: ReactNode;
 }
 
-export function PromptInputBody({
-  children,
-  className,
-  ...props
-}: PromptInputBodyProps) {
+export function PromptInputBody({ children, className, ...props }: PromptInputBodyProps) {
   return (
-    <div
-      className={cn("flex-1 flex items-end gap-2 p-3", className)}
-      {...props}
-    >
+    <div className={cn("flex flex-1 items-end gap-2 p-3", className)} {...props}>
       {children}
     </div>
   );
@@ -150,11 +136,10 @@ export function PromptInputBody({
 // PROMPT INPUT TEXTAREA
 // ============================================================================
 
-export interface PromptInputTextareaProps
-  extends Omit<
-    TextareaHTMLAttributes<HTMLTextAreaElement>,
-    "value" | "onChange"
-  > {
+export interface PromptInputTextareaProps extends Omit<
+  TextareaHTMLAttributes<HTMLTextAreaElement>,
+  "value" | "onChange"
+> {
   minRows?: number;
   maxRows?: number;
 }
@@ -175,10 +160,7 @@ export function PromptInputTextarea({
     const lineHeight = 24;
     const minHeight = minRows * lineHeight;
     const maxHeight = maxRows * lineHeight;
-    e.target.style.height = `${Math.min(
-      Math.max(e.target.scrollHeight, minHeight),
-      maxHeight
-    )}px`;
+    e.target.style.height = `${Math.min(Math.max(e.target.scrollHeight, minHeight), maxHeight)}px`;
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -201,8 +183,8 @@ export function PromptInputTextarea({
       className={cn(
         "flex-1 resize-none bg-transparent text-sm text-white",
         "placeholder:text-zinc-500 focus:outline-none",
-        "disabled:opacity-50 disabled:cursor-not-allowed",
-        className
+        "disabled:cursor-not-allowed disabled:opacity-50",
+        className,
       )}
       {...props}
     />
@@ -213,16 +195,11 @@ export function PromptInputTextarea({
 // PROMPT INPUT SUBMIT
 // ============================================================================
 
-export interface PromptInputSubmitProps
-  extends ButtonHTMLAttributes<HTMLButtonElement> {
+export interface PromptInputSubmitProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   children?: ReactNode;
 }
 
-export function PromptInputSubmit({
-  children,
-  className,
-  ...props
-}: PromptInputSubmitProps) {
+export function PromptInputSubmit({ children, className, ...props }: PromptInputSubmitProps) {
   const { value, onSubmit, isLoading, disabled } = usePromptInput();
 
   const handleClick = () => {
@@ -237,12 +214,12 @@ export function PromptInputSubmit({
       onClick={handleClick}
       disabled={!value.trim() || isLoading || disabled}
       className={cn(
-        "flex-shrink-0 p-2 rounded-xl",
+        "flex-shrink-0 rounded-xl p-2",
         "bg-brand-blue text-white",
         "hover:bg-brand-blue/90 active:bg-brand-blue",
-        "disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-brand-blue",
+        "disabled:hover:bg-brand-blue disabled:cursor-not-allowed disabled:opacity-50",
         "transition-colors",
-        className
+        className,
       )}
       {...props}
     >
@@ -273,17 +250,13 @@ export interface PromptInputFooterProps extends HTMLAttributes<HTMLDivElement> {
   children: ReactNode;
 }
 
-export function PromptInputFooter({
-  children,
-  className,
-  ...props
-}: PromptInputFooterProps) {
+export function PromptInputFooter({ children, className, ...props }: PromptInputFooterProps) {
   return (
     <div
       className={cn(
-        "flex items-center justify-between gap-2 px-3 pb-2 pt-1",
+        "flex items-center justify-between gap-2 px-3 pt-1 pb-2",
         "border-t border-zinc-800 text-xs text-zinc-500",
-        className
+        className,
       )}
       {...props}
     >
@@ -300,11 +273,7 @@ export interface PromptInputToolsProps extends HTMLAttributes<HTMLDivElement> {
   children: ReactNode;
 }
 
-export function PromptInputTools({
-  children,
-  className,
-  ...props
-}: PromptInputToolsProps) {
+export function PromptInputTools({ children, className, ...props }: PromptInputToolsProps) {
   return (
     <div className={cn("flex items-center gap-1", className)} {...props}>
       {children}
@@ -316,8 +285,7 @@ export function PromptInputTools({
 // PROMPT INPUT ATTACHMENTS CONTAINER
 // ============================================================================
 
-export interface PromptInputAttachmentsProps
-  extends HTMLAttributes<HTMLDivElement> {
+export interface PromptInputAttachmentsProps extends HTMLAttributes<HTMLDivElement> {
   children: ReactNode;
 }
 
@@ -328,10 +296,7 @@ export function PromptInputAttachments({
 }: PromptInputAttachmentsProps) {
   return (
     <div
-      className={cn(
-        "flex flex-wrap gap-2 px-3 py-2 border-b border-zinc-800",
-        className
-      )}
+      className={cn("flex flex-wrap gap-2 border-b border-zinc-800 px-3 py-2", className)}
       {...props}
     >
       {children}
@@ -343,8 +308,7 @@ export function PromptInputAttachments({
 // PROMPT INPUT ATTACHMENT (Single attachment chip)
 // ============================================================================
 
-export interface PromptInputAttachmentProps
-  extends HTMLAttributes<HTMLDivElement> {
+export interface PromptInputAttachmentProps extends HTMLAttributes<HTMLDivElement> {
   name: string;
   type?: "file" | "image";
   onRemove?: () => void;
@@ -360,9 +324,9 @@ export function PromptInputAttachment({
   return (
     <div
       className={cn(
-        "inline-flex items-center gap-2 px-3 py-1.5 rounded-lg",
+        "inline-flex items-center gap-2 rounded-lg px-3 py-1.5",
         "bg-zinc-800 text-sm text-zinc-300",
-        className
+        className,
       )}
       {...props}
     >
@@ -394,13 +358,9 @@ export function PromptInputAttachment({
           <path d="M14 2v6h6M16 13H8M16 17H8M10 9H8" />
         </svg>
       )}
-      <span className="truncate max-w-[150px]">{name}</span>
+      <span className="max-w-[150px] truncate">{name}</span>
       {onRemove && (
-        <button
-          type="button"
-          onClick={onRemove}
-          className="ml-1 text-zinc-500 hover:text-zinc-300"
-        >
+        <button type="button" onClick={onRemove} className="ml-1 text-zinc-500 hover:text-zinc-300">
           <svg
             xmlns="http://www.w3.org/2000/svg"
             width="14"
@@ -422,8 +382,10 @@ export function PromptInputAttachment({
 // PROMPT INPUT ACTION (Add attachments button)
 // ============================================================================
 
-export interface PromptInputActionAddAttachmentsProps
-  extends Omit<HTMLAttributes<HTMLButtonElement>, "onSelect"> {
+export interface PromptInputActionAddAttachmentsProps extends Omit<
+  HTMLAttributes<HTMLButtonElement>,
+  "onSelect"
+> {
   onSelect?: (files: FileList) => void;
   accept?: string;
 }
@@ -454,9 +416,9 @@ export function PromptInputActionAddAttachments({
       type="button"
       onClick={handleClick}
       className={cn(
-        "p-2 rounded-lg text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800",
+        "rounded-lg p-2 text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200",
         "transition-colors",
-        className
+        className,
       )}
       {...props}
     >

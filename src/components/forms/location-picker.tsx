@@ -6,10 +6,7 @@ import { Button } from "@/components/ui/button";
 
 interface LocationPickerProps {
   value: string;
-  onChange: (
-    location: string,
-    coordinates?: { lat: number; lng: number }
-  ) => void;
+  onChange: (location: string, coordinates?: { lat: number; lng: number }) => void;
   placeholder?: string;
   className?: string;
 }
@@ -51,11 +48,8 @@ export function LocationPicker({
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
   const markerRef = useRef<google.maps.Marker | null>(null);
-  const autocompleteServiceRef =
-    useRef<google.maps.places.AutocompleteService | null>(null);
-  const placesServiceRef = useRef<google.maps.places.PlacesService | null>(
-    null
-  );
+  const autocompleteServiceRef = useRef<google.maps.places.AutocompleteService | null>(null);
+  const placesServiceRef = useRef<google.maps.places.PlacesService | null>(null);
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
 
   // Load Google Maps script (with deduplication to prevent multiple loads)
@@ -67,9 +61,7 @@ export function LocationPicker({
     }
 
     // Check if script is already in DOM (prevents duplicate loading)
-    const existingScript = document.querySelector(
-      'script[src*="maps.googleapis.com/maps/api/js"]'
-    );
+    const existingScript = document.querySelector('script[src*="maps.googleapis.com/maps/api/js"]');
     if (existingScript) {
       // Script exists but not loaded yet - wait for it
       existingScript.addEventListener("load", () => setIsScriptLoaded(true));
@@ -101,8 +93,7 @@ export function LocationPicker({
   // Initialize services when script loads
   useEffect(() => {
     if (isScriptLoaded && window.google?.maps) {
-      autocompleteServiceRef.current =
-        new google.maps.places.AutocompleteService();
+      autocompleteServiceRef.current = new google.maps.places.AutocompleteService();
 
       // Create a dummy div for PlacesService (required by API)
       const dummyDiv = document.createElement("div");
@@ -112,12 +103,7 @@ export function LocationPicker({
 
   // Initialize map when shown
   useEffect(() => {
-    if (
-      showMap &&
-      mapRef.current &&
-      isScriptLoaded &&
-      !mapInstanceRef.current
-    ) {
+    if (showMap && mapRef.current && isScriptLoaded && !mapInstanceRef.current) {
       // Default to Stockholm if no coords
       const center = selectedCoords || { lat: 59.3293, lng: 18.0686 };
 
@@ -153,19 +139,16 @@ export function LocationPicker({
       });
 
       // Add click handler to map
-      mapInstanceRef.current.addListener(
-        "click",
-        (e: google.maps.MapMouseEvent) => {
-          if (e.latLng) {
-            const coords = { lat: e.latLng.lat(), lng: e.latLng.lng() };
-            setSelectedCoords(coords);
-            updateMarker(coords);
+      mapInstanceRef.current.addListener("click", (e: google.maps.MapMouseEvent) => {
+        if (e.latLng) {
+          const coords = { lat: e.latLng.lat(), lng: e.latLng.lng() };
+          setSelectedCoords(coords);
+          updateMarker(coords);
 
-            // Reverse geocode to get address
-            reverseGeocode(coords);
-          }
+          // Reverse geocode to get address
+          reverseGeocode(coords);
         }
-      );
+      });
 
       // Add marker if we have coords
       if (selectedCoords) {
@@ -214,7 +197,7 @@ export function LocationPicker({
         }
       });
     },
-    [isScriptLoaded, onChange]
+    [isScriptLoaded, onChange],
   );
 
   // Search for places
@@ -235,16 +218,13 @@ export function LocationPicker({
       (predictions, status) => {
         setIsLoading(false);
 
-        if (
-          status === google.maps.places.PlacesServiceStatus.OK &&
-          predictions
-        ) {
+        if (status === google.maps.places.PlacesServiceStatus.OK && predictions) {
           setSuggestions(predictions as PlacePrediction[]);
           setShowSuggestions(true);
         } else {
           setSuggestions([]);
         }
-      }
+      },
     );
   }, []);
 
@@ -264,7 +244,7 @@ export function LocationPicker({
         searchPlaces(newValue);
       }, 300);
     },
-    [onChange, searchPlaces]
+    [onChange, searchPlaces],
   );
 
   // Handle suggestion selection
@@ -279,10 +259,7 @@ export function LocationPicker({
       placesServiceRef.current.getDetails(
         { placeId: suggestion.place_id, fields: ["geometry"] },
         (place, status) => {
-          if (
-            status === google.maps.places.PlacesServiceStatus.OK &&
-            place?.geometry?.location
-          ) {
+          if (status === google.maps.places.PlacesServiceStatus.OK && place?.geometry?.location) {
             const coords = {
               lat: place.geometry.location.lat(),
               lng: place.geometry.location.lng(),
@@ -299,10 +276,10 @@ export function LocationPicker({
           } else {
             onChange(suggestion.description);
           }
-        }
+        },
       );
     },
-    [onChange, updateMarker]
+    [onChange, updateMarker],
   );
 
   // Get user's current location
@@ -333,7 +310,7 @@ export function LocationPicker({
         console.error("Geolocation error:", error);
         setIsLoading(false);
       },
-      { enableHighAccuracy: true }
+      { enableHighAccuracy: true },
     );
   }, [reverseGeocode, updateMarker]);
 
@@ -350,7 +327,7 @@ export function LocationPicker({
       {/* Search input */}
       <div className="relative">
         <div className="relative">
-          <MapPin className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400" />
+          <MapPin className="absolute top-1/2 left-4 h-5 w-5 -translate-y-1/2 text-gray-400" />
           <input
             ref={inputRef}
             type="text"
@@ -358,10 +335,10 @@ export function LocationPicker({
             onChange={handleInputChange}
             onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
             placeholder={placeholder}
-            className="w-full pl-12 pr-12 py-4 bg-gray-800 border-2 border-gray-700 text-base text-white placeholder-gray-400 focus:border-brand-teal/50 focus:outline-none focus:ring-2 focus:ring-brand-teal/20 transition-all hover:border-gray-600"
+            className="focus:border-brand-teal/50 focus:ring-brand-teal/20 w-full border-2 border-gray-700 bg-gray-800 py-4 pr-12 pl-12 text-base text-white placeholder-gray-400 transition-all hover:border-gray-600 focus:ring-2 focus:outline-none"
           />
           {isLoading ? (
-            <Loader2 className="absolute right-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-400 animate-spin" />
+            <Loader2 className="absolute top-1/2 right-4 h-5 w-5 -translate-y-1/2 animate-spin text-gray-400" />
           ) : inputValue ? (
             <button
               onClick={() => {
@@ -370,7 +347,7 @@ export function LocationPicker({
                 setSelectedCoords(null);
                 setSuggestions([]);
               }}
-              className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-200"
+              className="absolute top-1/2 right-4 -translate-y-1/2 text-gray-400 hover:text-gray-200"
             >
               <X className="h-5 w-5" />
             </button>
@@ -379,12 +356,12 @@ export function LocationPicker({
 
         {/* Suggestions dropdown */}
         {showSuggestions && suggestions.length > 0 && (
-          <div className="absolute z-50 w-full mt-2 bg-black border border-gray-700 shadow-xl overflow-hidden">
+          <div className="absolute z-50 mt-2 w-full overflow-hidden border border-gray-700 bg-black shadow-xl">
             {suggestions.map((suggestion) => (
               <button
                 key={suggestion.place_id}
                 onClick={() => handleSelectSuggestion(suggestion)}
-                className="w-full px-4 py-3 text-left hover:bg-gray-800 transition-colors border-b border-gray-700/50 last:border-0"
+                className="w-full border-b border-gray-700/50 px-4 py-3 text-left transition-colors last:border-0 hover:bg-gray-800"
               >
                 <div className="font-medium text-white">
                   {suggestion.structured_formatting.main_text}
@@ -429,8 +406,8 @@ export function LocationPicker({
       {/* Map */}
       {showMap && isScriptLoaded && (
         <div className="relative overflow-hidden border border-gray-700">
-          <div ref={mapRef} className="w-full h-[300px]" />
-          <div className="absolute bottom-3 left-3 right-3 bg-black/90 backdrop-blur-sm px-3 py-2 text-xs text-gray-400">
+          <div ref={mapRef} className="h-[300px] w-full" />
+          <div className="absolute right-3 bottom-3 left-3 bg-black/90 px-3 py-2 text-xs text-gray-400 backdrop-blur-sm">
             Klicka på kartan för att välja plats
           </div>
         </div>
@@ -439,15 +416,14 @@ export function LocationPicker({
       {/* Selected coordinates display */}
       {selectedCoords && (
         <p className="text-xs text-gray-500">
-          📍 Koordinater: {selectedCoords.lat.toFixed(6)},{" "}
-          {selectedCoords.lng.toFixed(6)}
+          📍 Koordinater: {selectedCoords.lat.toFixed(6)}, {selectedCoords.lng.toFixed(6)}
         </p>
       )}
 
       {/* Fallback if Google Maps not available */}
       {!isScriptLoaded && (
         <p className="text-xs text-gray-500">
-          <Search className="inline h-3 w-3 mr-1" />
+          <Search className="mr-1 inline h-3 w-3" />
           Skriv in din adress manuellt (Google Maps laddas...)
         </p>
       )}

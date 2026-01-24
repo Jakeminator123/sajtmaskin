@@ -95,10 +95,7 @@ export function FileUploadZone({
     async (selectedFiles: FileList | null) => {
       if (!selectedFiles || disabled) return;
 
-      const filesToUpload = Array.from(selectedFiles).slice(
-        0,
-        MAX_FILES - files.length
-      );
+      const filesToUpload = Array.from(selectedFiles).slice(0, MAX_FILES - files.length);
 
       for (const file of filesToUpload) {
         // Validate file type
@@ -110,8 +107,7 @@ export function FileUploadZone({
             mimeType: file.type,
             size: file.size,
             status: "error",
-            error:
-              "Filtyp stöds inte. Använd JPG, PNG, GIF, WebP, SVG eller PDF.",
+            error: "Filtyp stöds inte. Använd JPG, PNG, GIF, WebP, SVG eller PDF.",
           };
           onFilesChange([...files, errorFile]);
           continue;
@@ -184,20 +180,13 @@ export function FileUploadZone({
                 "[FileUploadZone] ⚠️ File uploaded but URL is NOT public!",
                 "This file will NOT appear in v0 preview.",
                 "URL:",
-                result.media.url
+                result.media.url,
               );
             } else {
-              console.log(
-                "[FileUploadZone] ✓ File uploaded with public URL:",
-                result.media.url
-              );
+              console.log("[FileUploadZone] ✓ File uploaded with public URL:", result.media.url);
             }
 
-            onFilesChange(
-              updatedFiles.map((f) =>
-                f.id === uploadingFile.id ? successFile : f
-              )
-            );
+            onFilesChange(updatedFiles.map((f) => (f.id === uploadingFile.id ? successFile : f)));
           } else {
             // Update with error
             const errorFile: UploadedFile = {
@@ -205,11 +194,7 @@ export function FileUploadZone({
               status: "error",
               error: result.error || "Uppladdning misslyckades",
             };
-            onFilesChange(
-              updatedFiles.map((f) =>
-                f.id === uploadingFile.id ? errorFile : f
-              )
-            );
+            onFilesChange(updatedFiles.map((f) => (f.id === uploadingFile.id ? errorFile : f)));
           }
         } catch (error) {
           console.error("[FileUploadZone] Upload error:", error);
@@ -219,13 +204,11 @@ export function FileUploadZone({
             status: "error",
             error: "Nätverksfel vid uppladdning",
           };
-          onFilesChange(
-            files.map((f) => (f.id === uploadingFile.id ? errorFile : f))
-          );
+          onFilesChange(files.map((f) => (f.id === uploadingFile.id ? errorFile : f)));
         }
       }
     },
-    [projectId, files, onFilesChange, disabled]
+    [projectId, files, onFilesChange, disabled],
   );
 
   // Remove file
@@ -233,17 +216,15 @@ export function FileUploadZone({
     (fileId: string) => {
       onFilesChange(files.filter((f) => f.id !== fileId));
     },
-    [files, onFilesChange]
+    [files, onFilesChange],
   );
 
   // Update file purpose
   const updatePurpose = useCallback(
     (fileId: string, purpose: string) => {
-      onFilesChange(
-        files.map((f) => (f.id === fileId ? { ...f, purpose } : f))
-      );
+      onFilesChange(files.map((f) => (f.id === fileId ? { ...f, purpose } : f)));
     },
-    [files, onFilesChange]
+    [files, onFilesChange],
   );
 
   // Drag handlers
@@ -253,7 +234,7 @@ export function FileUploadZone({
       e.stopPropagation();
       if (!disabled) setIsDragging(true);
     },
-    [disabled]
+    [disabled],
   );
 
   const handleDragLeave = useCallback((e: React.DragEvent) => {
@@ -269,7 +250,7 @@ export function FileUploadZone({
       setIsDragging(false);
       handleFiles(e.dataTransfer.files);
     },
-    [handleFiles]
+    [handleFiles],
   );
 
   // Click to select
@@ -306,10 +287,10 @@ export function FileUploadZone({
               <div
                 key={file.id}
                 className={cn(
-                  "flex items-center gap-2 px-2 py-1 rounded text-xs",
+                  "flex items-center gap-2 rounded px-2 py-1 text-xs",
                   file.status === "success" && "bg-brand-teal/20 text-brand-teal",
                   file.status === "uploading" && "bg-gray-700 text-gray-400",
-                  file.status === "error" && "bg-red-500/20 text-red-400"
+                  file.status === "error" && "bg-red-500/20 text-red-400",
                 )}
               >
                 {file.status === "uploading" ? (
@@ -319,11 +300,8 @@ export function FileUploadZone({
                 ) : (
                   <AlertCircle className="h-3 w-3" />
                 )}
-                <span className="truncate max-w-[100px]">{file.filename}</span>
-                <button
-                  onClick={() => removeFile(file.id)}
-                  className="hover:text-white"
-                >
+                <span className="max-w-[100px] truncate">{file.filename}</span>
+                <button onClick={() => removeFile(file.id)} className="hover:text-white">
                   <X className="h-3 w-3" />
                 </button>
               </div>
@@ -339,7 +317,7 @@ export function FileUploadZone({
             size="sm"
             onClick={handleClick}
             disabled={disabled}
-            className="h-7 text-xs gap-1 border-gray-700 text-gray-400 hover:text-white hover:bg-gray-800"
+            className="h-7 gap-1 border-gray-700 text-xs text-gray-400 hover:bg-gray-800 hover:text-white"
           >
             <Upload className="h-3 w-3" />
             Lägg till media
@@ -368,38 +346,27 @@ export function FileUploadZone({
         onDrop={handleDrop}
         onClick={handleClick}
         className={cn(
-          "relative border-2 border-dashed rounded-lg p-4 transition-colors cursor-pointer",
+          "relative cursor-pointer rounded-lg border-2 border-dashed p-4 transition-colors",
           isDragging && "border-brand-teal bg-brand-teal/10",
-          !isDragging &&
-          canAddMore &&
-          "border-gray-700 hover:border-gray-600 hover:bg-gray-800/50",
-          !canAddMore &&
-          "border-gray-800 bg-gray-900/50 cursor-not-allowed opacity-50"
+          !isDragging && canAddMore && "border-gray-700 hover:border-gray-600 hover:bg-gray-800/50",
+          !canAddMore && "cursor-not-allowed border-gray-800 bg-gray-900/50 opacity-50",
         )}
       >
         <div className="flex flex-col items-center gap-2 text-center">
           <div
             className={cn(
-              "w-10 h-10 rounded-full flex items-center justify-center",
-              isDragging ? "bg-brand-teal/20" : "bg-gray-800"
+              "flex h-10 w-10 items-center justify-center rounded-full",
+              isDragging ? "bg-brand-teal/20" : "bg-gray-800",
             )}
           >
-            <Upload
-              className={cn(
-                "h-5 w-5",
-                isDragging ? "text-brand-teal" : "text-gray-500"
-              )}
-            />
+            <Upload className={cn("h-5 w-5", isDragging ? "text-brand-teal" : "text-gray-500")} />
           </div>
           <div>
             <p className="text-sm text-gray-300">
-              {isDragging
-                ? "Släpp filer här"
-                : "Dra filer hit eller klicka för att välja"}
+              {isDragging ? "Släpp filer här" : "Dra filer hit eller klicka för att välja"}
             </p>
-            <p className="text-xs text-gray-500 mt-1">
-              JPG, PNG, GIF, WebP, SVG eller PDF • Max 10MB • Max {MAX_FILES}{" "}
-              filer
+            <p className="mt-1 text-xs text-gray-500">
+              JPG, PNG, GIF, WebP, SVG eller PDF • Max 10MB • Max {MAX_FILES} filer
             </p>
           </div>
         </div>
@@ -425,56 +392,42 @@ export function FileUploadZone({
               <div
                 key={file.id}
                 className={cn(
-                  "flex items-center gap-3 p-2 rounded border",
+                  "flex items-center gap-3 rounded border p-2",
                   file.status === "success" && "border-gray-700 bg-gray-800/50",
-                  file.status === "uploading" &&
-                  "border-gray-700 bg-gray-800/30",
-                  file.status === "error" && "border-red-500/30 bg-red-500/10"
+                  file.status === "uploading" && "border-gray-700 bg-gray-800/30",
+                  file.status === "error" && "border-red-500/30 bg-red-500/10",
                 )}
               >
                 {/* Preview or icon */}
-                <div className="w-10 h-10 rounded bg-gray-700 flex items-center justify-center overflow-hidden shrink-0">
-                  {file.status === "success" &&
-                    file.mimeType.startsWith("image/") ? (
+                <div className="flex h-10 w-10 shrink-0 items-center justify-center overflow-hidden rounded bg-gray-700">
+                  {file.status === "success" && file.mimeType.startsWith("image/") ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
                       src={file.url}
                       alt={file.filename}
-                      className="w-full h-full object-cover"
+                      className="h-full w-full object-cover"
                     />
                   ) : (
-                    <div
-                      className={cn(
-                        file.status === "error"
-                          ? "text-red-400"
-                          : "text-gray-400"
-                      )}
-                    >
+                    <div className={cn(file.status === "error" ? "text-red-400" : "text-gray-400")}>
                       {getFileIcon(file.mimeType)}
                     </div>
                   )}
                 </div>
 
                 {/* File info */}
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm text-gray-300 truncate">
-                    {file.filename}
-                  </p>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm text-gray-300">{file.filename}</p>
                   <div className="flex items-center gap-2 text-xs">
                     {file.status === "uploading" && (
-                      <span className="text-gray-500 flex items-center gap-1">
+                      <span className="flex items-center gap-1 text-gray-500">
                         <Loader2 className="h-3 w-3 animate-spin" />
                         Laddar upp...
                       </span>
                     )}
                     {file.status === "success" && (
-                      <span className="text-gray-500">
-                        {formatSize(file.size)}
-                      </span>
+                      <span className="text-gray-500">{formatSize(file.size)}</span>
                     )}
-                    {file.status === "error" && (
-                      <span className="text-red-400">{file.error}</span>
-                    )}
+                    {file.status === "error" && <span className="text-red-400">{file.error}</span>}
                   </div>
 
                   {/* Purpose input for successful uploads */}
@@ -482,7 +435,7 @@ export function FileUploadZone({
                     <>
                       {/* Public URL indicator */}
                       {file.isPublicUrl === false && (
-                        <span className="text-[10px] text-brand-amber block mt-0.5">
+                        <span className="text-brand-amber mt-0.5 block text-[10px]">
                           ⚠️ Ej publik URL - fungerar inte i v0 preview
                         </span>
                       )}
@@ -491,7 +444,7 @@ export function FileUploadZone({
                         placeholder="Syfte: t.ex. 'hero-bild', 'logotyp'..."
                         value={file.purpose || ""}
                         onChange={(e) => updatePurpose(file.id, e.target.value)}
-                        className="mt-1 w-full text-xs bg-transparent border-b border-gray-700 focus:border-brand-teal outline-none text-gray-400 placeholder:text-gray-600 py-0.5"
+                        className="focus:border-brand-teal mt-1 w-full border-b border-gray-700 bg-transparent py-0.5 text-xs text-gray-400 outline-none placeholder:text-gray-600"
                       />
                     </>
                   )}
@@ -503,7 +456,7 @@ export function FileUploadZone({
                     e.stopPropagation();
                     removeFile(file.id);
                   }}
-                  className="p-1 text-gray-500 hover:text-red-400 transition-colors"
+                  className="p-1 text-gray-500 transition-colors hover:text-red-400"
                 >
                   <Trash2 className="h-4 w-4" />
                 </button>
@@ -515,8 +468,7 @@ export function FileUploadZone({
 
       {/* Help text */}
       <p className="text-xs text-gray-500">
-        💡 Bilder laddas upp till Vercel Blob för publika URLs som fungerar i
-        v0-preview.
+        💡 Bilder laddas upp till Vercel Blob för publika URLs som fungerar i v0-preview.
       </p>
     </div>
   );
@@ -531,15 +483,11 @@ export function FileUploadZone({
  */
 export function filesToPromptText(files: UploadedFile[]): string {
   // Filter for successful uploads with public URLs only
-  const successFiles = files.filter(
-    (f) => f.status === "success" && f.isPublicUrl !== false
-  );
+  const successFiles = files.filter((f) => f.status === "success" && f.isPublicUrl !== false);
 
   if (successFiles.length === 0) {
     // Check if there were files but none with public URLs
-    const hasNonPublicFiles = files.some(
-      (f) => f.status === "success" && f.isPublicUrl === false
-    );
+    const hasNonPublicFiles = files.some((f) => f.status === "success" && f.isPublicUrl === false);
     if (hasNonPublicFiles) {
       return "\n\n⚠️ De uppladdade filerna har inte publika URLs och kan inte användas i v0-preview.";
     }
@@ -557,27 +505,24 @@ export function filesToPromptText(files: UploadedFile[]): string {
     // Only add base URL as fallback for legacy local URLs
     const fullUrl = file.url.startsWith("http")
       ? file.url
-      : `${typeof window !== "undefined" ? window.location.origin : ""}${file.url
-      }`;
+      : `${typeof window !== "undefined" ? window.location.origin : ""}${file.url}`;
     return `- ${label} ${index + 1}${purpose}: ${fullUrl}`;
   });
 
   const hasNonImages = successFiles.some((file) => !file.mimeType.startsWith("image/"));
   const usageHint = hasNonImages
-    ? "Använd bild-URLs i <img src=\"...\">. PDF: använd som referens för innehåll."
-    : "Använd dessa EXAKTA URLs i <img src=\"...\"> taggar.";
+    ? 'Använd bild-URLs i <img src="...">. PDF: använd som referens för innehåll.'
+    : 'Använd dessa EXAKTA URLs i <img src="..."> taggar.';
 
   return `\n\nVIKTIGT: Använd följande uppladdade filer i designen (publika URLs som fungerar i preview):\n${lines.join(
-    "\n"
+    "\n",
   )}\n\n${usageHint}`;
 }
 
 /**
  * Convert uploaded files to V0UserFileAttachment array for message attachments
  */
-export function filesToAttachments(
-  files: UploadedFile[]
-): V0UserFileAttachment[] {
+export function filesToAttachments(files: UploadedFile[]): V0UserFileAttachment[] {
   return files
     .filter((f) => f.status === "success")
     .map((f) => ({

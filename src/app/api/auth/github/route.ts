@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
     console.error("[GitHub OAuth] GitHub OAuth is not configured");
     return NextResponse.json(
       { success: false, error: "GitHub OAuth is not configured" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 
@@ -26,9 +26,7 @@ export async function GET(request: NextRequest) {
   const returnTo = searchParams.get("returnTo") || "/projects";
 
   // Sanitize return path to avoid unsafe/remote redirects
-  const sanitizeReturnTo = (
-    value: string | null
-  ): { path: string; sanitized: boolean } => {
+  const sanitizeReturnTo = (value: string | null): { path: string; sanitized: boolean } => {
     const fallback = "/projects";
     if (!value) return { path: fallback, sanitized: false };
 
@@ -54,7 +52,7 @@ export async function GET(request: NextRequest) {
     JSON.stringify({
       returnTo: safeReturnTo,
       timestamp: Date.now(),
-    })
+    }),
   ).toString("base64");
 
   // Build GitHub OAuth URL

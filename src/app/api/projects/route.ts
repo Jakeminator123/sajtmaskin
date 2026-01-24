@@ -1,9 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import {
-  createProject,
-  getAllProjects,
-  type Project,
-} from "@/lib/data/database";
+import { createProject, getAllProjects, type Project } from "@/lib/data/database";
 import { getCache, setCache, deleteCache } from "@/lib/data/redis";
 import { canCreateProject } from "@/lib/project-cleanup";
 import { getCurrentUser } from "@/lib/auth/auth";
@@ -33,10 +29,7 @@ export async function GET() {
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Unknown error";
     console.error("[API] Failed to get projects:", error);
-    return NextResponse.json(
-      { success: false, error: message },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, error: message }, { status: 500 });
   }
 }
 
@@ -49,7 +42,7 @@ export async function POST(request: NextRequest) {
     if (!name) {
       return NextResponse.json(
         { success: false, error: "Project name is required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -58,11 +51,7 @@ export async function POST(request: NextRequest) {
     const sessionId = getSessionIdFromRequest(request);
     const isPaidUser = user ? user.diamonds > 100 : false; // Simple check - could be more sophisticated
 
-    const limitCheck = canCreateProject(
-      user?.id || null,
-      sessionId || null,
-      isPaidUser
-    );
+    const limitCheck = canCreateProject(user?.id || null, sessionId || null, isPaidUser);
 
     if (!limitCheck.allowed) {
       console.log("[API/projects] Project limit reached:", {
@@ -79,7 +68,7 @@ export async function POST(request: NextRequest) {
           current: limitCheck.current,
           limit: limitCheck.limit,
         },
-        { status: 403 }
+        { status: 403 },
       );
     }
 
@@ -88,7 +77,7 @@ export async function POST(request: NextRequest) {
       category,
       description,
       user ? undefined : sessionId || undefined, // sessionId only for anonymous
-      user?.id // userId for authenticated
+      user?.id, // userId for authenticated
     );
 
     // Invalidate projects list cache
@@ -102,9 +91,6 @@ export async function POST(request: NextRequest) {
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Unknown error";
     console.error("[API] Failed to create project:", error);
-    return NextResponse.json(
-      { success: false, error: message },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, error: message }, { status: 500 });
   }
 }

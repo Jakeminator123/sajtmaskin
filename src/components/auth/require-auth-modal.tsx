@@ -14,14 +14,12 @@ interface RequireAuthModalProps {
 const REASONS = {
   generation: {
     title: "Du har använt din gratis generation",
-    description:
-      "Skapa ett konto för att fortsätta bygga webbplatser. Du får 5 gratis diamanter!",
+    description: "Skapa ett konto för att fortsätta bygga webbplatser. Du får 5 gratis diamanter!",
     icon: Sparkles,
   },
   refine: {
     title: "Du har använt din gratis förfining",
-    description:
-      "Skapa ett konto för att fortsätta förfina din design. Du får 5 gratis diamanter!",
+    description: "Skapa ett konto för att fortsätta förfina din design. Du får 5 gratis diamanter!",
     icon: Sparkles,
   },
   credits: {
@@ -31,17 +29,12 @@ const REASONS = {
   },
   download: {
     title: "Skapa konto för att ladda ner",
-    description:
-      "Logga in eller skapa ett konto för att ladda ner din webbplats.",
+    description: "Logga in eller skapa ett konto för att ladda ner din webbplats.",
     icon: Lock,
   },
 };
 
-export function RequireAuthModal({
-  isOpen,
-  onClose,
-  reason,
-}: RequireAuthModalProps) {
+export function RequireAuthModal({ isOpen, onClose, reason }: RequireAuthModalProps) {
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authMode, setAuthMode] = useState<"login" | "register">("register");
 
@@ -59,44 +52,39 @@ export function RequireAuthModal({
     <>
       <div className="fixed inset-0 z-[100] flex items-center justify-center">
         {/* Backdrop */}
-        <div
-          className="absolute inset-0 bg-black/80 backdrop-blur-sm"
-          onClick={onClose}
-        />
+        <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={onClose} />
 
         {/* Modal */}
-        <div className="relative w-full max-w-md mx-4 bg-black border border-gray-800 shadow-2xl animate-in fade-in zoom-in-95 duration-200 overflow-hidden">
+        <div className="animate-in fade-in zoom-in-95 relative mx-4 w-full max-w-md overflow-hidden border border-gray-800 bg-black shadow-2xl duration-200">
           {/* Close button */}
           <button
             onClick={onClose}
-            className="absolute right-4 top-4 p-1.5 hover:bg-gray-800 text-gray-500 hover:text-gray-300 transition-colors z-10"
+            className="absolute top-4 right-4 z-10 p-1.5 text-gray-500 transition-colors hover:bg-gray-800 hover:text-gray-300"
           >
             <X className="h-5 w-5" />
           </button>
 
           {/* Decorative gradient */}
-          <div className="absolute inset-x-0 top-0 h-32 bg-gradient-to-b from-brand-teal/10 to-transparent" />
+          <div className="from-brand-teal/10 absolute inset-x-0 top-0 h-32 bg-gradient-to-b to-transparent" />
 
           {/* Content */}
           <div className="relative p-8 text-center">
             {/* Icon */}
-            <div className="mx-auto w-16 h-16 bg-brand-teal/10 border border-brand-teal/30 flex items-center justify-center mb-6">
-              <Icon className="h-8 w-8 text-brand-teal" />
+            <div className="bg-brand-teal/10 border-brand-teal/30 mx-auto mb-6 flex h-16 w-16 items-center justify-center border">
+              <Icon className="text-brand-teal h-8 w-8" />
             </div>
 
             {/* Title */}
-            <h2 className="text-2xl font-bold text-white mb-3">
-              {reasonData.title}
-            </h2>
+            <h2 className="mb-3 text-2xl font-bold text-white">{reasonData.title}</h2>
 
             {/* Description */}
-            <p className="text-gray-400 mb-6">{reasonData.description}</p>
+            <p className="mb-6 text-gray-400">{reasonData.description}</p>
 
             {/* Bonus badge */}
             {reason !== "credits" && (
-              <div className="inline-flex items-center gap-2 px-4 py-2 bg-brand-amber/10 border border-brand-amber/30 mb-6">
-                <Diamond className="h-4 w-4 text-brand-amber" />
-                <span className="text-sm font-medium text-brand-amber">
+              <div className="bg-brand-amber/10 border-brand-amber/30 mb-6 inline-flex items-center gap-2 border px-4 py-2">
+                <Diamond className="text-brand-amber h-4 w-4" />
+                <span className="text-brand-amber text-sm font-medium">
                   +5 diamanter gratis vid registrering
                 </span>
               </div>
@@ -109,15 +97,15 @@ export function RequireAuthModal({
                 <>
                   <Button
                     onClick={() => (window.location.href = "/buy-credits")}
-                    className="w-full h-11 bg-brand-teal hover:bg-brand-teal/90 text-white font-medium"
+                    className="bg-brand-teal hover:bg-brand-teal/90 h-11 w-full font-medium text-white"
                   >
-                    <Diamond className="h-4 w-4 mr-2" />
+                    <Diamond className="mr-2 h-4 w-4" />
                     Köp diamanter
                   </Button>
                   <Button
                     variant="ghost"
                     onClick={onClose}
-                    className="w-full h-11 text-gray-400 hover:text-white"
+                    className="h-11 w-full text-gray-400 hover:text-white"
                   >
                     Avbryt
                   </Button>
@@ -127,14 +115,14 @@ export function RequireAuthModal({
                 <>
                   <Button
                     onClick={() => handleAuthClick("register")}
-                    className="w-full h-11 bg-brand-teal hover:bg-brand-teal/90 text-white font-medium"
+                    className="bg-brand-teal hover:bg-brand-teal/90 h-11 w-full font-medium text-white"
                   >
                     Skapa gratis konto
                   </Button>
                   <Button
                     variant="ghost"
                     onClick={() => handleAuthClick("login")}
-                    className="w-full h-11 text-gray-400 hover:text-white"
+                    className="h-11 w-full text-gray-400 hover:text-white"
                   >
                     Har redan konto? Logga in
                   </Button>

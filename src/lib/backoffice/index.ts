@@ -34,7 +34,4 @@ export {
 } from "./types";
 
 // Template generator
-export {
-  generateBackofficeFiles,
-  type BackofficeFileSet,
-} from "./template-generator";
+export { generateBackofficeFiles, type BackofficeFileSet } from "./template-generator";

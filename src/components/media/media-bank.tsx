@@ -41,13 +41,7 @@ import { cn } from "@/lib/utils/utils";
 // TYPES
 // ============================================================================
 
-export type MediaFileType =
-  | "image"
-  | "video"
-  | "pdf"
-  | "text"
-  | "logo"
-  | "other";
+export type MediaFileType = "image" | "video" | "pdf" | "text" | "logo" | "other";
 
 export interface MediaItem {
   id: string;
@@ -149,7 +143,7 @@ export function MediaBank({
         type: item.type,
         filename: item.filename,
         mimeType: item.mimeType,
-      })
+      }),
     );
     e.dataTransfer.effectAllowed = "copy";
   }, []);
@@ -169,21 +163,16 @@ export function MediaBank({
 
   return (
     <div
-      className={cn(
-        "border border-gray-800 rounded-lg bg-gray-900/50 overflow-hidden",
-        className
-      )}
+      className={cn("overflow-hidden rounded-lg border border-gray-800 bg-gray-900/50", className)}
     >
       {/* Collapsible Header */}
       <button
         onClick={() => setIsExpanded(!isExpanded)}
-        className="w-full flex items-center justify-between p-3 hover:bg-gray-800/50 transition-colors"
+        className="flex w-full items-center justify-between p-3 transition-colors hover:bg-gray-800/50"
       >
         <div className="flex items-center gap-2">
-          <Sparkles className="h-4 w-4 text-brand-blue" />
-          <span className="text-sm font-medium text-white">
-            Mediabank ({items.length})
-          </span>
+          <Sparkles className="text-brand-blue h-4 w-4" />
+          <span className="text-sm font-medium text-white">Mediabank ({items.length})</span>
         </div>
         {isExpanded ? (
           <ChevronUp className="h-4 w-4 text-gray-400" />
@@ -193,11 +182,11 @@ export function MediaBank({
       </button>
 
       {isExpanded && (
-        <div className="p-3 pt-0 space-y-3">
+        <div className="space-y-3 p-3 pt-0">
           {/* Generated images section */}
           {generatedItems.length > 0 && (
             <div>
-              <p className="text-xs text-gray-500 mb-2 flex items-center gap-1">
+              <p className="mb-2 flex items-center gap-1 text-xs text-gray-500">
                 <Sparkles className="h-3 w-3" />
                 Genererade ({generatedItems.length})
               </p>
@@ -224,7 +213,7 @@ export function MediaBank({
           {/* Uploaded files section */}
           {uploadedItems.length > 0 && (
             <div>
-              <p className="text-xs text-gray-500 mb-2 flex items-center gap-1">
+              <p className="mb-2 flex items-center gap-1 text-xs text-gray-500">
                 <Upload className="h-3 w-3" />
                 Uppladdade ({uploadedItems.length})
               </p>
@@ -249,7 +238,7 @@ export function MediaBank({
           )}
 
           {/* Help text */}
-          <p className="text-[10px] text-gray-600 px-1 text-left">
+          <p className="px-1 text-left text-[10px] text-gray-600">
             Dra filer till prompten eller klicka för att använda
           </p>
         </div>
@@ -301,11 +290,9 @@ function MediaItemCard({
       onMouseEnter={() => setShowActions(true)}
       onMouseLeave={() => setShowActions(false)}
       className={cn(
-        "relative aspect-square rounded-lg overflow-hidden border transition-all cursor-grab",
-        isDragging
-          ? "border-brand-blue opacity-50"
-          : "border-gray-700 hover:border-gray-600",
-        disabled && "opacity-50 cursor-not-allowed"
+        "relative aspect-square cursor-grab overflow-hidden rounded-lg border transition-all",
+        isDragging ? "border-brand-blue opacity-50" : "border-gray-700 hover:border-gray-600",
+        disabled && "cursor-not-allowed opacity-50",
       )}
     >
       {/* Preview based on file type */}
@@ -314,35 +301,35 @@ function MediaItemCard({
         <img
           src={imageSrc}
           alt={item.prompt || item.filename || "Media"}
-          className="w-full h-full object-cover"
+          className="h-full w-full object-cover"
           draggable={false}
         />
       ) : item.type === "video" ? (
-        <div className="w-full h-full bg-gray-800 flex items-center justify-center">
+        <div className="flex h-full w-full items-center justify-center bg-gray-800">
           <Video className="h-8 w-8 text-gray-500" />
         </div>
       ) : (
         // PDF, text, and other files show icon + filename
-        <div className="w-full h-full bg-gray-800 flex flex-col items-center justify-center p-2">
-          <Icon className="h-8 w-8 text-gray-500 mb-1" />
-          <span className="text-[10px] text-gray-500 truncate w-full px-2 text-left">
+        <div className="flex h-full w-full flex-col items-center justify-center bg-gray-800 p-2">
+          <Icon className="mb-1 h-8 w-8 text-gray-500" />
+          <span className="w-full truncate px-2 text-left text-[10px] text-gray-500">
             {item.filename || "File"}
           </span>
         </div>
       )}
 
       {/* Drag handle indicator (top-left) */}
-      <div className="absolute top-1 left-1 p-1 bg-black/50 rounded">
+      <div className="absolute top-1 left-1 rounded bg-black/50 p-1">
         <GripVertical className="h-3 w-3 text-white/70" />
       </div>
 
       {/* Source badge (top-right) - AI generated or user uploaded */}
       <div
         className={cn(
-          "absolute top-1 right-1 px-1.5 py-0.5 rounded text-[10px] font-medium",
+          "absolute top-1 right-1 rounded px-1.5 py-0.5 text-[10px] font-medium",
           item.source === "generated"
             ? "bg-brand-blue/80 text-white"
-            : "bg-brand-teal/80 text-white"
+            : "bg-brand-teal/80 text-white",
         )}
       >
         {item.source === "generated" ? "AI" : "↑"}
@@ -350,14 +337,14 @@ function MediaItemCard({
 
       {/* Warning badge if image has no persistent URL */}
       {!hasUrl && (
-        <div className="absolute bottom-1 left-1 px-1.5 py-0.5 bg-brand-amber/80 rounded text-[10px] text-white">
+        <div className="bg-brand-amber/80 absolute bottom-1 left-1 rounded px-1.5 py-0.5 text-[10px] text-white">
           Ej sparad
         </div>
       )}
 
       {/* Actions overlay on hover */}
       {showActions && !disabled && (
-        <div className="absolute inset-0 bg-black/70 flex flex-col items-center justify-center gap-1 p-1">
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-black/70 p-1">
           <Button
             size="sm"
             variant="ghost"
@@ -365,13 +352,13 @@ function MediaItemCard({
               e.stopPropagation();
               onAddToSite();
             }}
-            className="h-6 text-[10px] text-white hover:bg-brand-blue/90 w-full"
+            className="hover:bg-brand-blue/90 h-6 w-full text-[10px] text-white"
           >
-            <Plus className="h-3 w-3 mr-1" />
+            <Plus className="mr-1 h-3 w-3" />
             Lägg till i sajten
           </Button>
 
-          <div className="flex gap-1 w-full">
+          <div className="flex w-full gap-1">
             <Button
               size="sm"
               variant="ghost"
@@ -379,13 +366,9 @@ function MediaItemCard({
                 e.stopPropagation();
                 onCopy();
               }}
-              className="h-6 text-[10px] text-white hover:bg-gray-700 flex-1"
+              className="h-6 flex-1 text-[10px] text-white hover:bg-gray-700"
             >
-              {isCopied ? (
-                <Check className="h-3 w-3" />
-              ) : (
-                <Copy className="h-3 w-3" />
-              )}
+              {isCopied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
             </Button>
 
             <Button
@@ -395,7 +378,7 @@ function MediaItemCard({
                 e.stopPropagation();
                 onRemove();
               }}
-              className="h-6 text-[10px] text-red-400 hover:bg-red-500/20 flex-1"
+              className="h-6 flex-1 text-[10px] text-red-400 hover:bg-red-500/20"
             >
               <Trash2 className="h-3 w-3" />
             </Button>
@@ -435,7 +418,7 @@ export function useMediaBank() {
       setItems((prev) => [...prev, newItem]);
       return newItem;
     },
-    []
+    [],
   );
 
   /**
@@ -450,8 +433,7 @@ export function useMediaBank() {
       description?: string;
     }) => {
       // Determine file type from MIME or use provided type
-      const type: MediaFileType =
-        file.fileType || getFileTypeFromMime(file.mimeType);
+      const type: MediaFileType = file.fileType || getFileTypeFromMime(file.mimeType);
 
       const newItem: MediaItem = {
         id: `upload-${Date.now()}-${Math.random().toString(36).slice(2)}`,
@@ -466,7 +448,7 @@ export function useMediaBank() {
       setItems((prev) => [...prev, newItem]);
       return newItem;
     },
-    []
+    [],
   );
 
   /**

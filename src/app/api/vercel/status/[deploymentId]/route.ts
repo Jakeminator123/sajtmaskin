@@ -17,7 +17,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     if (!FEATURES.useVercelApi || !isVercelConfigured()) {
       return NextResponse.json(
         { success: false, error: "Vercel integration not configured." },
-        { status: 503 }
+        { status: 503 },
       );
     }
 
@@ -26,17 +26,14 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     if (!deploymentId) {
       return NextResponse.json(
         { success: false, error: "deploymentId is required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     const status = await getProjectDeploymentStatus(deploymentId);
 
     if (!status) {
-      return NextResponse.json(
-        { success: false, error: "Deployment not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ success: false, error: "Deployment not found" }, { status: 404 });
     }
 
     return NextResponse.json({ success: true, deployment: status });
@@ -47,7 +44,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         success: false,
         error: error instanceof Error ? error.message : "Unknown error",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

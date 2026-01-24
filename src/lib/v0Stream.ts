@@ -1,5 +1,5 @@
 export function looksLikeV0ChatId(id: unknown): id is string {
-  return typeof id === 'string' && /^[A-Za-z0-9_-]{8,}$/.test(id);
+  return typeof id === "string" && /^[A-Za-z0-9_-]{8,}$/.test(id);
 }
 
 export function safeJsonParse(value: string): unknown {
@@ -8,27 +8,6 @@ export function safeJsonParse(value: string): unknown {
   } catch {
     return value;
   }
-}
-
-function extractTextFromDelta(value: unknown): string | null {
-  if (!value) return null;
-  if (typeof value === "string") return value;
-  if (Array.isArray(value)) {
-    const parts = value
-      .map((item) => extractTextFromDelta(item))
-      .filter((part): part is string => Boolean(part));
-    return parts.length > 0 ? parts.join("") : null;
-  }
-  if (typeof value !== "object") return null;
-
-  const obj = value as Record<string, unknown>;
-  if (typeof obj.text === "string") return obj.text;
-  if (typeof obj.content === "string") return obj.content;
-  if (Array.isArray(obj.content)) return extractTextFromDelta(obj.content);
-  if (Array.isArray(obj.parts)) return extractTextFromDelta(obj.parts);
-  if (obj.type === "text" && typeof obj.text === "string") return obj.text;
-
-  return null;
 }
 
 const UI_PART_TYPES = new Set(["plan", "sources", "source"]);
@@ -41,7 +20,7 @@ function extractPartsArray(value: unknown): Array<Record<string, unknown>> | nul
   if (!Array.isArray(value)) return null;
   const parts = value.filter(
     (item): item is Record<string, unknown> =>
-      Boolean(item) && typeof item === "object" && isUiPartType((item as { type?: unknown }).type)
+      Boolean(item) && typeof item === "object" && isUiPartType((item as { type?: unknown }).type),
   );
   return parts.length > 0 ? parts : null;
 }
@@ -143,14 +122,9 @@ export function extractUiParts(parsed: unknown): Array<Record<string, unknown>> 
   const collected: Array<Record<string, unknown>> = [];
   collectUiParts(obj, collected);
   return collected.length > 0 ? collected : null;
-
 }
 
-function collectStrings(
-  value: unknown,
-  acc: string[],
-  options?: { skipKeys?: Set<string> }
-): void {
+function collectStrings(value: unknown, acc: string[], options?: { skipKeys?: Set<string> }): void {
   if (typeof value === "string") {
     acc.push(value);
     return;
@@ -167,11 +141,7 @@ function collectStrings(
   }
 }
 
-function collectKeyedStrings(
-  value: unknown,
-  keys: Set<string>,
-  acc: string[]
-): void {
+function collectKeyedStrings(value: unknown, keys: Set<string>, acc: string[]): void {
   if (!value || typeof value !== "object") return;
   if (Array.isArray(value)) {
     value.forEach((item) => collectKeyedStrings(item, keys, acc));
@@ -187,7 +157,7 @@ function collectKeyedStrings(
 }
 
 export function extractChatId(parsed: unknown, currentEvent?: string): string | null {
-  if (!parsed || typeof parsed !== 'object') return null;
+  if (!parsed || typeof parsed !== "object") return null;
 
   const obj = parsed as any;
   const explicitCandidates = [obj.chatId, obj.chat_id, obj.chat?.id];
@@ -196,23 +166,23 @@ export function extractChatId(parsed: unknown, currentEvent?: string): string | 
   }
 
   if (looksLikeV0ChatId(obj.id)) {
-    const eventHint = (currentEvent || '').toLowerCase();
+    const eventHint = (currentEvent || "").toLowerCase();
     const hasChatHints =
-      eventHint.includes('chat') ||
-      typeof obj.webUrl === 'string' ||
-      typeof obj.url === 'string' ||
-      typeof obj.projectId === 'string' ||
-      typeof obj.project_id === 'string' ||
-      typeof obj.chatPrivacy === 'string' ||
-      typeof obj.chat_privacy === 'string' ||
-      typeof obj.privacy === 'string' ||
-      typeof obj.shareable === 'boolean' ||
-      typeof obj.title === 'string' ||
-      typeof obj.modelId === 'string' ||
-      typeof obj.model_id === 'string' ||
-      typeof obj.modelConfiguration === 'object' ||
-      typeof obj.latestVersion === 'object' ||
-      obj.object === 'chat';
+      eventHint.includes("chat") ||
+      typeof obj.webUrl === "string" ||
+      typeof obj.url === "string" ||
+      typeof obj.projectId === "string" ||
+      typeof obj.project_id === "string" ||
+      typeof obj.chatPrivacy === "string" ||
+      typeof obj.chat_privacy === "string" ||
+      typeof obj.privacy === "string" ||
+      typeof obj.shareable === "boolean" ||
+      typeof obj.title === "string" ||
+      typeof obj.modelId === "string" ||
+      typeof obj.model_id === "string" ||
+      typeof obj.modelConfiguration === "object" ||
+      typeof obj.latestVersion === "object" ||
+      obj.object === "chat";
 
     if (hasChatHints) return obj.id;
   }
@@ -221,7 +191,7 @@ export function extractChatId(parsed: unknown, currentEvent?: string): string | 
 }
 
 export function extractDemoUrl(parsed: unknown): string | null {
-  if (!parsed || typeof parsed !== 'object') return null;
+  if (!parsed || typeof parsed !== "object") return null;
   const obj = parsed as any;
   const direct =
     obj.demoUrl ||
@@ -237,10 +207,14 @@ export function extractDemoUrl(parsed: unknown): string | null {
 }
 
 export function extractVersionId(parsed: unknown): string | null {
-  if (!parsed || typeof parsed !== 'object') return null;
+  if (!parsed || typeof parsed !== "object") return null;
   const obj = parsed as any;
   const direct =
-    obj.versionId || obj.version_id || obj.latestVersion?.id || obj.latestVersion?.versionId || null;
+    obj.versionId ||
+    obj.version_id ||
+    obj.latestVersion?.id ||
+    obj.latestVersion?.versionId ||
+    null;
   if (typeof direct === "string" && direct.trim()) return direct;
   const nested: string[] = [];
   collectKeyedStrings(obj, new Set(["versionId", "version_id"]), nested);
@@ -249,46 +223,42 @@ export function extractVersionId(parsed: unknown): string | null {
 }
 
 export function extractMessageId(parsed: unknown): string | null {
-  if (!parsed || typeof parsed !== 'object') return null;
+  if (!parsed || typeof parsed !== "object") return null;
   const obj = parsed as any;
   const explicit =
     obj.messageId || obj.message_id || obj.latestVersion?.messageId || obj.message?.id || null;
-  if (typeof explicit === 'string' && explicit.trim()) return explicit;
+  if (typeof explicit === "string" && explicit.trim()) return explicit;
 
-  if (typeof obj.object === 'string' && obj.object.startsWith('message')) {
-    if (typeof obj.id === 'string' && obj.id.trim()) return obj.id;
+  if (typeof obj.object === "string" && obj.object.startsWith("message")) {
+    if (typeof obj.id === "string" && obj.id.trim()) return obj.id;
   }
 
   return null;
 }
 
 export function extractThinkingText(parsed: unknown): string | null {
-  if (!parsed || typeof parsed !== 'object') return null;
+  if (!parsed || typeof parsed !== "object") return null;
   const obj = parsed as any;
-  if (typeof obj.thinking === 'string') return obj.thinking;
-  if (typeof obj.reasoning === 'string') return obj.reasoning;
+  if (typeof obj.thinking === "string") return obj.thinking;
+  if (typeof obj.reasoning === "string") return obj.reasoning;
   return null;
 }
 
 export function extractContentText(parsed: unknown, _raw: string): string | null {
-  if (typeof parsed === 'string') return parsed;
-  if (!parsed || typeof parsed !== 'object') return null;
+  if (typeof parsed === "string") return parsed;
+  if (!parsed || typeof parsed !== "object") return null;
   const obj = parsed as any;
-  if (typeof obj.content === 'string') return obj.content;
-  if (typeof obj.text === 'string') return obj.text;
-  if (typeof obj.delta === 'string') return obj.delta;
-  if (typeof obj.delta !== 'undefined') {
-    const deltaText = extractTextFromDelta(obj.delta);
-    if (deltaText) return deltaText;
-  }
+  if (typeof obj.content === "string") return obj.content;
+  if (typeof obj.text === "string") return obj.text;
+  if (typeof obj.delta === "string") return obj.delta;
   return null;
 }
 
 export function isDoneLikeEvent(currentEvent: string, parsed: unknown): boolean {
-  const evt = (currentEvent || '').toLowerCase();
-  if (evt.includes('done') || evt.includes('complete')) return true;
+  const evt = (currentEvent || "").toLowerCase();
+  if (evt.includes("done") || evt.includes("complete")) return true;
 
-  if (parsed && typeof parsed === 'object') {
+  if (parsed && typeof parsed === "object") {
     const obj = parsed as any;
     return Boolean(obj.done || obj.completed);
   }

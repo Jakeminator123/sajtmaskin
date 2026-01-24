@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
     if (!domain) {
       return NextResponse.json(
         { success: false, error: "Domain parameter is required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -80,10 +80,7 @@ export async function GET(request: NextRequest) {
         estimated: false,
       });
     } catch (vercelError) {
-      console.error(
-        "[API/vercel/domains/price] Vercel API error:",
-        vercelError
-      );
+      console.error("[API/vercel/domains/price] Vercel API error:", vercelError);
 
       // Fallback to estimates with 300% markup
       const tld = domain.split(".").pop()?.toLowerCase();
@@ -115,7 +112,7 @@ export async function GET(request: NextRequest) {
         success: false,
         error: error instanceof Error ? error.message : "Unknown error",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

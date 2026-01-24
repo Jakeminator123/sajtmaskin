@@ -6,12 +6,7 @@
  */
 
 // Re-export content types
-export type {
-  ContentItem,
-  ProductItem,
-  ColorTheme,
-  ContentManifest,
-} from "./content-extractor";
+export type { ContentItem, ProductItem, ColorTheme, ContentManifest } from "./content-extractor";
 
 /**
  * Backoffice configuration stored with the site

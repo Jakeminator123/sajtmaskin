@@ -1,11 +1,11 @@
-'use client';
+"use client";
 
-import { ExternalLink, FileCode, Github, Loader2, TerminalSquare, X } from 'lucide-react';
-import { useMemo, useState } from 'react';
-import toast from 'react-hot-toast';
+import { ExternalLink, FileCode, Github, Loader2, TerminalSquare, X } from "lucide-react";
+import { useMemo, useState } from "react";
+import toast from "react-hot-toast";
 
-type SandboxRuntime = 'node24' | 'node22' | 'python3.13';
-type SourceType = 'version' | 'git';
+type SandboxRuntime = "node24" | "node22" | "python3.13";
+type SourceType = "version" | "git";
 
 interface SandboxModalProps {
   isOpen: boolean;
@@ -27,7 +27,7 @@ type SandboxCreateResponse = {
 
 function parsePorts(input: string): number[] {
   const ports = input
-    .split(',')
+    .split(",")
     .map((p) => Number.parseInt(p.trim(), 10))
     .filter((n) => Number.isFinite(n) && n > 0);
   return ports.length > 0 ? ports : [3000];
@@ -40,16 +40,16 @@ export function SandboxModal({
   versionId,
   onUseInPreview,
 }: SandboxModalProps) {
-  const [sourceType, setSourceType] = useState<SourceType>('version');
-  const [gitUrl, setGitUrl] = useState('');
-  const [gitBranch, setGitBranch] = useState('');
+  const [sourceType, setSourceType] = useState<SourceType>("version");
+  const [gitUrl, setGitUrl] = useState("");
+  const [gitBranch, setGitBranch] = useState("");
 
-  const [timeout, setTimeout] = useState('5m');
-  const [ports, setPorts] = useState('3000');
-  const [runtime, setRuntime] = useState<SandboxRuntime>('node24');
+  const [timeout, setTimeout] = useState("5m");
+  const [ports, setPorts] = useState("3000");
+  const [runtime, setRuntime] = useState<SandboxRuntime>("node24");
   const [vcpus, setVcpus] = useState(2);
-  const [installCommand, setInstallCommand] = useState('npm install');
-  const [startCommand, setStartCommand] = useState('npm run dev');
+  const [installCommand, setInstallCommand] = useState("npm install");
+  const [startCommand, setStartCommand] = useState("npm run dev");
 
   const [isCreating, setIsCreating] = useState(false);
   const [result, setResult] = useState<SandboxCreateResponse | null>(null);
@@ -64,13 +64,13 @@ export function SandboxModal({
     setSetupHint(null);
     setResult(null);
 
-    if (sourceType === 'git' && !gitUrl.trim()) {
-      toast.error('Please enter a Git URL');
+    if (sourceType === "git" && !gitUrl.trim()) {
+      toast.error("Please enter a Git URL");
       return;
     }
 
-    if (sourceType === 'version' && !canUseVersion) {
-      toast.error('Select a chat + version first');
+    if (sourceType === "version" && !canUseVersion) {
+      toast.error("Select a chat + version first");
       return;
     }
 
@@ -78,39 +78,43 @@ export function SandboxModal({
     try {
       let source: any;
 
-      if (sourceType === 'git') {
+      if (sourceType === "git") {
         source = {
-          type: 'git',
+          type: "git",
           url: gitUrl.trim(),
           ...(gitBranch.trim() ? { branch: gitBranch.trim() } : {}),
         };
       } else {
         const filesRes = await fetch(
           `/api/v0/chats/${chatId}/files?versionId=${encodeURIComponent(versionId!)}`,
-          { method: 'GET' }
+          { method: "GET" },
         );
+        const filesData = (await filesRes.json().catch(() => null)) as {
+          files?: Array<{ name: string; content: string }>;
+          error?: string;
+        } | null;
         if (!filesRes.ok) {
-          const err = await filesRes.json().catch(() => ({}));
-          throw new Error(err.error || `Failed to fetch files (HTTP ${filesRes.status})`);
+          throw new Error(filesData?.error || `Failed to fetch files (HTTP ${filesRes.status})`);
         }
 
-        const filesData = await filesRes.json();
-        const filesArr: Array<{ name: string; content: string }> = filesData.files || [];
+        const filesArr: Array<{ name: string; content: string }> = Array.isArray(filesData?.files)
+          ? filesData.files
+          : [];
         if (!Array.isArray(filesArr) || filesArr.length === 0) {
-          throw new Error('No files found for this version');
+          throw new Error("No files found for this version");
         }
 
         const filesMap: Record<string, string> = {};
         for (const file of filesArr) {
-          if (file?.name) filesMap[file.name] = file.content ?? '';
+          if (file?.name) filesMap[file.name] = file.content ?? "";
         }
 
-        source = { type: 'files', files: filesMap };
+        source = { type: "files", files: filesMap };
       }
 
-      const response = await fetch('/api/sandbox', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const response = await fetch("/api/sandbox", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           source,
           timeout,
@@ -122,18 +126,21 @@ export function SandboxModal({
         }),
       });
 
+      const data = (await response.json().catch(() => null)) as
+        | (SandboxCreateResponse & { error?: string; setup?: unknown })
+        | null;
       if (!response.ok) {
-        const err = await response.json().catch(() => ({}));
-        if (err.setup) setSetupHint(String(err.setup));
-        throw new Error(err.error || `Failed to create sandbox (HTTP ${response.status})`);
+        if (data?.setup) setSetupHint(String(data.setup));
+        throw new Error(data?.error || `Failed to create sandbox (HTTP ${response.status})`);
       }
-
-      const data = (await response.json()) as SandboxCreateResponse;
+      if (!data) {
+        throw new Error("Failed to create sandbox");
+      }
       setResult(data);
-      toast.success('Sandbox created!');
+      toast.success("Sandbox created!");
     } catch (error) {
-      console.error('Sandbox create error:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to create sandbox');
+      console.error("Sandbox create error:", error);
+      toast.error(error instanceof Error ? error.message : "Failed to create sandbox");
     } finally {
       setIsCreating(false);
     }
@@ -141,7 +148,7 @@ export function SandboxModal({
 
   const openPrimary = () => {
     if (result?.primaryUrl) {
-      window.open(result.primaryUrl, '_blank', 'noopener,noreferrer');
+      window.open(result.primaryUrl, "_blank", "noopener,noreferrer");
     }
   };
 
@@ -172,22 +179,22 @@ export function SandboxModal({
 
         <div className="mb-6 flex gap-2">
           <button
-            onClick={() => setSourceType('version')}
-            className={`flex-1 flex items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-medium transition-colors ${
-              sourceType === 'version'
-                ? 'bg-gray-900 text-white'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            onClick={() => setSourceType("version")}
+            className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-medium transition-colors ${
+              sourceType === "version"
+                ? "bg-gray-900 text-white"
+                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
             }`}
           >
             <FileCode className="h-4 w-4" />
             Current Version
           </button>
           <button
-            onClick={() => setSourceType('git')}
-            className={`flex-1 flex items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-medium transition-colors ${
-              sourceType === 'git'
-                ? 'bg-gray-900 text-white'
-                : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+            onClick={() => setSourceType("git")}
+            className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-medium transition-colors ${
+              sourceType === "git"
+                ? "bg-gray-900 text-white"
+                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
             }`}
           >
             <Github className="h-4 w-4" />
@@ -195,10 +202,13 @@ export function SandboxModal({
           </button>
         </div>
 
-        {sourceType === 'git' ? (
+        {sourceType === "git" ? (
           <div className="mb-6 space-y-4">
             <div>
-              <label htmlFor="sandbox-git-url" className="mb-1 block text-sm font-medium text-gray-700">
+              <label
+                htmlFor="sandbox-git-url"
+                className="mb-1 block text-sm font-medium text-gray-700"
+              >
                 Repository URL
               </label>
               <input
@@ -208,11 +218,14 @@ export function SandboxModal({
                 placeholder="https://github.com/username/repo"
                 value={gitUrl}
                 onChange={(e) => setGitUrl(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-blue focus:outline-none focus:ring-1 focus:ring-brand-blue/50"
+                className="focus:border-brand-blue focus:ring-brand-blue/50 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-1 focus:outline-none"
               />
             </div>
             <div>
-              <label htmlFor="sandbox-git-branch" className="mb-1 block text-sm font-medium text-gray-700">
+              <label
+                htmlFor="sandbox-git-branch"
+                className="mb-1 block text-sm font-medium text-gray-700"
+              >
                 Branch (optional)
               </label>
               <input
@@ -222,7 +235,7 @@ export function SandboxModal({
                 placeholder="main"
                 value={gitBranch}
                 onChange={(e) => setGitBranch(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-blue focus:outline-none focus:ring-1 focus:ring-brand-blue/50"
+                className="focus:border-brand-blue focus:ring-brand-blue/50 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-1 focus:outline-none"
               />
             </div>
           </div>
@@ -230,10 +243,10 @@ export function SandboxModal({
           <div className="mb-6 rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm text-gray-700">
             <div className="flex items-center justify-between">
               <span>
-                <span className="font-medium">Chat:</span> {chatId ? 'selected' : 'none'}
+                <span className="font-medium">Chat:</span> {chatId ? "selected" : "none"}
               </span>
               <span>
-                <span className="font-medium">Version:</span> {versionId || 'none'}
+                <span className="font-medium">Version:</span> {versionId || "none"}
               </span>
             </div>
             {!canUseVersion && (
@@ -250,7 +263,7 @@ export function SandboxModal({
             <select
               value={runtime}
               onChange={(e) => setRuntime(e.target.value as SandboxRuntime)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-blue focus:outline-none focus:ring-1 focus:ring-brand-blue/50"
+              className="focus:border-brand-blue focus:ring-brand-blue/50 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-1 focus:outline-none"
             >
               <option value="node24">Node 24</option>
               <option value="node22">Node 22</option>
@@ -263,7 +276,7 @@ export function SandboxModal({
               type="text"
               value={ports}
               onChange={(e) => setPorts(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-blue focus:outline-none focus:ring-1 focus:ring-brand-blue/50"
+              className="focus:border-brand-blue focus:ring-brand-blue/50 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-1 focus:outline-none"
               placeholder="3000, 5173"
             />
           </div>
@@ -273,7 +286,7 @@ export function SandboxModal({
               type="text"
               value={timeout}
               onChange={(e) => setTimeout(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-blue focus:outline-none focus:ring-1 focus:ring-brand-blue/50"
+              className="focus:border-brand-blue focus:ring-brand-blue/50 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-1 focus:outline-none"
               placeholder="5m"
             />
           </div>
@@ -285,7 +298,7 @@ export function SandboxModal({
               max={8}
               value={vcpus}
               onChange={(e) => setVcpus(Number(e.target.value))}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-blue focus:outline-none focus:ring-1 focus:ring-brand-blue/50"
+              className="focus:border-brand-blue focus:ring-brand-blue/50 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-1 focus:outline-none"
             />
           </div>
           <div>
@@ -294,7 +307,7 @@ export function SandboxModal({
               type="text"
               value={installCommand}
               onChange={(e) => setInstallCommand(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-blue focus:outline-none focus:ring-1 focus:ring-brand-blue/50"
+              className="focus:border-brand-blue focus:ring-brand-blue/50 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-1 focus:outline-none"
             />
           </div>
           <div>
@@ -303,13 +316,13 @@ export function SandboxModal({
               type="text"
               value={startCommand}
               onChange={(e) => setStartCommand(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-brand-blue focus:outline-none focus:ring-1 focus:ring-brand-blue/50"
+              className="focus:border-brand-blue focus:ring-brand-blue/50 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-1 focus:outline-none"
             />
           </div>
         </div>
 
         {setupHint && (
-          <div className="mb-6 rounded-lg border border-brand-amber/30 bg-brand-amber/10 p-3 text-xs text-brand-amber">
+          <div className="border-brand-amber/30 bg-brand-amber/10 text-brand-amber mb-6 rounded-lg border p-3 text-xs">
             {setupHint}
           </div>
         )}
@@ -317,15 +330,19 @@ export function SandboxModal({
         <button
           onClick={handleCreate}
           disabled={isCreating}
-          className="w-full flex items-center justify-center gap-2 rounded-lg bg-gray-900 px-4 py-3 text-white font-medium hover:bg-gray-800 transition-colors disabled:opacity-50"
+          className="flex w-full items-center justify-center gap-2 rounded-lg bg-gray-900 px-4 py-3 font-medium text-white transition-colors hover:bg-gray-800 disabled:opacity-50"
         >
-          {isCreating ? <Loader2 className="h-5 w-5 animate-spin" /> : <TerminalSquare className="h-5 w-5" />}
-          {isCreating ? 'Creating sandbox...' : 'Create sandbox'}
+          {isCreating ? (
+            <Loader2 className="h-5 w-5 animate-spin" />
+          ) : (
+            <TerminalSquare className="h-5 w-5" />
+          )}
+          {isCreating ? "Creating sandbox..." : "Create sandbox"}
         </button>
 
         {result && (
           <div className="mt-6 rounded-lg border border-green-200 bg-green-50 p-4 text-sm text-green-800">
-            <div className="font-medium mb-2">Sandbox ready!</div>
+            <div className="mb-2 font-medium">Sandbox ready!</div>
             <div className="space-y-2">
               {result.primaryUrl && (
                 <button

@@ -18,10 +18,10 @@ services/mpc/
 │   ├── quick-reference.txt   Vanliga API:er och mönster
 │   ├── error-playbook.txt    Hur man rapporterar fel
 │   ├── docs-index.txt        Dokumentationskarta
-│   └── [dina-filer.txt]      Lägg till fler .txt eller .json
+│   └── [dina-filer]          Lägg till fler .txt, .md eller .json
 │
 └── logs/              ← LOGGAR SPARAS HÄR (skapas automatiskt)
-    └── error-log.jsonl    Alla felrapporter (max 500 rader, roteras)
+    └── access-log.jsonl   Alla list/läs-anrop (max 500 rader, roteras)
 
 
 ================================================================================
@@ -62,7 +62,8 @@ SÅ HÄR LÄGGER DU TILL DOKUMENTATION
 ================================================================================
 
 1. Skapa en fil i mappen: services/mpc/docs/
-   - Filformaten .txt och .json stöds
+   - Filformaten .txt, .md och .json stöds
+   - Undermappar stöds
    - Exempel: min-guide.txt eller api-spec.json
 
 2. Starta om servern (om den redan körs)
@@ -70,39 +71,17 @@ SÅ HÄR LÄGGER DU TILL DOKUMENTATION
    - Terminal: Ctrl+C och kör igen
 
 3. Nu kan Cursor-agenter läsa filen via:
-   - URI: docs://local/min-guide (utan filändelse)
+   - URI: docs://local/<sökväg-utan-filändelse>
+     Ex: docs://local/shad/Shad_llms_full
 
 
 ================================================================================
-VERKTYG SOM AGENTER KAN ANVÄNDA
+SERVERNS UPPGIFT
 ================================================================================
 
-REPORT_ERROR - Logga ett fel
-----------------------------
-  Fält:
-    message    (obligatorisk) Kort beskrivning
-    level      error/warn/info (default: error)
-    stack      Stacktrace om tillgänglig
-    component  T.ex. "builder/chat-panel"
-    user       Användar-ID (undvik hemligheter)
-    context    Extra data som JSON-objekt
-
-  Exempel-anrop:
-    report_error({
-      message: "PDF rendering failed",
-      level: "error",
-      component: "audit/pdf-report",
-      context: { projectId: "abc123" }
-    })
-
-
-LIST_ERRORS - Se senaste felen
-------------------------------
-  Fält:
-    limit    Antal poster att hämta (1-50, default: 10)
-
-  Exempel-anrop:
-    list_errors({ limit: 20 })
+• Exponerar dokumentation som resurser (docs://local/...)
+• Inga verktyg är registrerade (endast resurser)
+• Listning och läsning loggas till logs/access-log.jsonl och stderr
 
 
 ================================================================================
@@ -112,7 +91,7 @@ PRAKTISKA TIPS
 • Loggfilen roterar automatiskt vid 500 rader - inga jättefiler
 • Dokumentation ska vara kort och fokuserad
 • Lägg INTE hemliga nycklar i docs/
-• Om något går fel, titta i logs/error-log.jsonl
+• Om något går fel, titta i logs/access-log.jsonl
 • GUI-fönstret är "always on top" - dra det ur vägen vid behov
 
 
@@ -131,7 +110,7 @@ GUI startar inte
   → Kör: python start-gui.pyw för att se felmeddelande
 
 Server kraschar direkt
-  → Kolla logs/error-log.jsonl
+  → Kolla logs/access-log.jsonl
   → Kör manuellt: node server.mjs och läs output
 
 

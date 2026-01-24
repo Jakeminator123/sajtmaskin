@@ -30,10 +30,7 @@ export async function GET(req: NextRequest) {
     if (projectId) {
       const profile = getCompanyProfileByProjectId(projectId);
       if (!profile) {
-        return NextResponse.json(
-          { success: false, error: "Profile not found" },
-          { status: 404 }
-        );
+        return NextResponse.json({ success: false, error: "Profile not found" }, { status: 404 });
       }
       return NextResponse.json({ success: true, profile });
     }
@@ -42,10 +39,7 @@ export async function GET(req: NextRequest) {
     if (companyName) {
       const profile = getCompanyProfileByName(companyName);
       if (!profile) {
-        return NextResponse.json(
-          { success: false, error: "Profile not found" },
-          { status: 404 }
-        );
+        return NextResponse.json({ success: false, error: "Profile not found" }, { status: 404 });
       }
       return NextResponse.json({ success: true, profile });
     }
@@ -63,7 +57,7 @@ export async function GET(req: NextRequest) {
     console.error("[API/company-profile] GET error:", error);
     return NextResponse.json(
       { success: false, error: "Failed to retrieve profiles" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -102,15 +96,12 @@ export async function POST(req: NextRequest) {
     if (!company_name) {
       return NextResponse.json(
         { success: false, error: "Company name is required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     // Build profile object
-    const profileData: Omit<
-      CompanyProfile,
-      "id" | "created_at" | "updated_at"
-    > = {
+    const profileData: Omit<CompanyProfile, "id" | "created_at" | "updated_at"> = {
       project_id,
       company_name,
       industry,
@@ -144,10 +135,7 @@ export async function POST(req: NextRequest) {
     });
   } catch (error) {
     console.error("[API/company-profile] POST error:", error);
-    return NextResponse.json(
-      { success: false, error: "Failed to save profile" },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, error: "Failed to save profile" }, { status: 500 });
   }
 }
 
@@ -159,7 +147,7 @@ export async function PATCH(req: NextRequest) {
     if (!profileId || !projectId) {
       return NextResponse.json(
         { success: false, error: "profileId and projectId are required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -168,9 +156,6 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("[API/company-profile] PATCH error:", error);
-    return NextResponse.json(
-      { success: false, error: "Failed to link profile" },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, error: "Failed to link profile" }, { status: 500 });
   }
 }

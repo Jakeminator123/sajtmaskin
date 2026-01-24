@@ -1,4 +1,4 @@
-import useSWR from 'swr';
+import useSWR from "swr";
 
 const fetcher = async (url: string) => {
   const res = await fetch(url);
@@ -15,9 +15,9 @@ export function useChat(chatId: string | null) {
     chatId ? `/api/v0/chats/${chatId}` : null,
     fetcher,
     {
-    revalidateOnFocus: false,
-    revalidateOnReconnect: true,
-    }
+      revalidateOnFocus: false,
+      revalidateOnReconnect: true,
+    },
   );
 
   return {

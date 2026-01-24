@@ -68,9 +68,7 @@ export function createToken(userId: string, email: string): string {
     exp: Math.floor(Date.now() / 1000) + JWT_EXPIRY,
   };
 
-  const header = Buffer.from(
-    JSON.stringify({ alg: "HS256", typ: "JWT" })
-  ).toString("base64url");
+  const header = Buffer.from(JSON.stringify({ alg: "HS256", typ: "JWT" })).toString("base64url");
   const body = Buffer.from(JSON.stringify(payload)).toString("base64url");
   const signature = crypto
     .createHmac("sha256", JWT_SECRET)
@@ -99,9 +97,7 @@ export function verifyToken(token: string): JWTPayload | null {
     }
 
     // Decode payload
-    const payload = JSON.parse(
-      Buffer.from(body, "base64url").toString()
-    ) as JWTPayload;
+    const payload = JSON.parse(Buffer.from(body, "base64url").toString()) as JWTPayload;
 
     // Check expiry
     if (payload.exp < Math.floor(Date.now() / 1000)) {
@@ -196,7 +192,7 @@ export async function getCurrentUser(request: Request): Promise<User | null> {
 export async function registerUser(
   email: string,
   password: string,
-  name?: string
+  name?: string,
 ): Promise<{ user: User; token: string } | { error: string }> {
   // Validate email format
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -230,7 +226,7 @@ export async function registerUser(
  */
 export async function loginUser(
   email: string,
-  password: string
+  password: string,
 ): Promise<{ user: User; token: string } | { error: string }> {
   const user = getUserByEmail(email);
   if (!user) {
@@ -266,8 +262,7 @@ export function getGoogleAuthUrl(state?: string): string {
 
   const params = new URLSearchParams({
     client_id: GOOGLE_CLIENT_ID,
-    redirect_uri:
-      GOOGLE_REDIRECT_URI || "http://localhost:3000/api/auth/google/callback",
+    redirect_uri: GOOGLE_REDIRECT_URI || "http://localhost:3000/api/auth/google/callback",
     response_type: "code",
     scope: "openid email profile",
     access_type: "offline",
@@ -282,7 +277,7 @@ export function getGoogleAuthUrl(state?: string): string {
  * Exchange authorization code for tokens
  */
 export async function exchangeGoogleCode(
-  code: string
+  code: string,
 ): Promise<{ accessToken: string; idToken: string } | null> {
   if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
     console.error("[Auth] Google OAuth not configured");
@@ -299,18 +294,13 @@ export async function exchangeGoogleCode(
         code,
         client_id: GOOGLE_CLIENT_ID,
         client_secret: GOOGLE_CLIENT_SECRET,
-        redirect_uri:
-          GOOGLE_REDIRECT_URI ||
-          "http://localhost:3000/api/auth/google/callback",
+        redirect_uri: GOOGLE_REDIRECT_URI || "http://localhost:3000/api/auth/google/callback",
         grant_type: "authorization_code",
       }),
     });
 
     if (!response.ok) {
-      console.error(
-        "[Auth] Google token exchange failed:",
-        await response.text()
-      );
+      console.error("[Auth] Google token exchange failed:", await response.text());
       return null;
     }
 
@@ -335,14 +325,11 @@ export async function getGoogleUserInfo(accessToken: string): Promise<{
   picture?: string;
 } | null> {
   try {
-    const response = await fetch(
-      "https://www.googleapis.com/oauth2/v2/userinfo",
-      {
-        headers: {
-          Authorization: `Bearer ${accessToken}`,
-        },
-      }
-    );
+    const response = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+      },
+    });
 
     if (!response.ok) {
       console.error("[Auth] Failed to get Google user info");
@@ -366,7 +353,7 @@ export async function getGoogleUserInfo(accessToken: string): Promise<{
  * Handle Google OAuth callback - create or update user
  */
 export async function handleGoogleCallback(
-  code: string
+  code: string,
 ): Promise<{ user: User; token: string } | { error: string }> {
   // Exchange code for tokens
   const tokens = await exchangeGoogleCode(code);
@@ -385,7 +372,7 @@ export async function handleGoogleCallback(
     googleUser.id,
     googleUser.email,
     googleUser.name,
-    googleUser.picture
+    googleUser.picture,
   );
 
   // Update last login

@@ -1,24 +1,12 @@
 import { defineConfig, globalIgnores } from "eslint/config";
-import { FlatCompat } from "@eslint/eslintrc";
-import js from "@eslint/js";
-import prettier from "eslint-config-prettier";
-import { dirname } from "path";
-import { fileURLToPath } from "url";
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-
-const compat = new FlatCompat({
-  baseDirectory: __dirname,
-  recommendedConfig: js.configs.recommended,
-});
+import nextCoreWebVitals from "eslint-config-next/core-web-vitals";
+import nextTypescript from "eslint-config-next/typescript";
+import prettier from "eslint-config-prettier/flat";
 
 export default defineConfig([
-  // Base JS recommended rules
-  js.configs.recommended,
-
-  // Next.js recommended configs (via FlatCompat for legacy format)
-  ...compat.extends("next/core-web-vitals", "next/typescript"),
+  // Next.js recommended configs (flat config)
+  ...nextCoreWebVitals,
+  ...nextTypescript,
 
   // Disable rules that conflict with Prettier
   prettier,
@@ -49,6 +37,11 @@ export default defineConfig([
           varsIgnorePattern: "^_",
         },
       ],
+      // Disable React Hooks rules introduced in eslint-config-next@16
+      // These are noisy in existing code; revisit later if needed.
+      "react-hooks/set-state-in-effect": "off",
+      "react-hooks/static-components": "off",
+      "react-hooks/immutability": "off",
     },
   },
 
@@ -64,11 +57,7 @@ export default defineConfig([
   // These areas use dynamic v0 API responses where full typing is impractical.
   // Incrementally add stricter types over time as SDK types stabilize.
   {
-    files: [
-      "src/app/api/**/*.ts",
-      "src/lib/**/*.ts",
-      "src/components/builder/**/*.tsx",
-    ],
+    files: ["src/app/api/**/*.ts", "src/lib/**/*.ts", "src/components/builder/**/*.tsx"],
     rules: {
       "@typescript-eslint/no-explicit-any": "off",
     },

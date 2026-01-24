@@ -121,10 +121,7 @@ export const SUPERADMIN_PASSWORD = process.env.SUPERADMIN_PASSWORD || "";
 export const SUPERADMIN_DIAMONDS = 999999;
 
 // Default diamonds for new users (env: DEFAULT_USER_DIAMONDS, default: 5)
-export const DEFAULT_USER_DIAMONDS = parseInt(
-  process.env.DEFAULT_USER_DIAMONDS || "5",
-  10
-);
+export const DEFAULT_USER_DIAMONDS = parseInt(process.env.DEFAULT_USER_DIAMONDS || "5", 10);
 
 // Legacy aliases - kept for backward compatibility with existing code
 // These now point to SUPERADMIN credentials
@@ -169,10 +166,7 @@ export function getDb(): Database.Database {
 }
 
 // Initialize database schema
-function initializeDatabase(
-  database: Database.Database,
-  logInit: boolean = true
-) {
+function initializeDatabase(database: Database.Database, logInit: boolean = true) {
   // Users table - with authentication and credits
   database.exec(`
     CREATE TABLE IF NOT EXISTS users (
@@ -196,9 +190,7 @@ function initializeDatabase(
     // Column already exists
   }
   try {
-    database.exec(
-      `ALTER TABLE users ADD COLUMN email_verified INTEGER DEFAULT 0`
-    );
+    database.exec(`ALTER TABLE users ADD COLUMN email_verified INTEGER DEFAULT 0`);
   } catch {
     // Column already exists
   }
@@ -218,9 +210,7 @@ function initializeDatabase(
     // Column already exists
   }
   try {
-    database.exec(
-      `ALTER TABLE users ADD COLUMN is_superadmin INTEGER DEFAULT 0`
-    );
+    database.exec(`ALTER TABLE users ADD COLUMN is_superadmin INTEGER DEFAULT 0`);
   } catch {
     // Column already exists
   }
@@ -428,7 +418,7 @@ function initializeDatabase(
   // Create index for faster lookups
   try {
     database.exec(
-      `CREATE INDEX IF NOT EXISTS idx_template_cache_user ON template_cache(template_id, user_id)`
+      `CREATE INDEX IF NOT EXISTS idx_template_cache_user ON template_cache(template_id, user_id)`,
     );
   } catch {
     // Index already exists
@@ -645,20 +635,19 @@ function initializeDatabase(
 // Ensure legacy template_cache tables migrate from UNIQUE(template_id) → UNIQUE(template_id, user_id)
 function ensureTemplateCacheUniqueConstraint(database: Database.Database) {
   // Check existing unique indexes
-  const indexes = database
-    .prepare("PRAGMA index_list('template_cache')")
-    .all() as Array<{ name: string; unique: 0 | 1 }>;
+  const indexes = database.prepare("PRAGMA index_list('template_cache')").all() as Array<{
+    name: string;
+    unique: 0 | 1;
+  }>;
 
   const hasUserUnique = indexes.some((idx) => {
     if (idx.unique !== 1) return false;
-    const cols = database
-      .prepare(`PRAGMA index_info(${idx.name})`)
-      .all() as Array<{ name: string }>;
+    const cols = database.prepare(`PRAGMA index_info(${idx.name})`).all() as Array<{
+      name: string;
+    }>;
     const colNames = cols.map((c) => c.name);
     return (
-      colNames.length === 2 &&
-      colNames.includes("template_id") &&
-      colNames.includes("user_id")
+      colNames.length === 2 && colNames.includes("template_id") && colNames.includes("user_id")
     );
   });
 
@@ -667,7 +656,7 @@ function ensureTemplateCacheUniqueConstraint(database: Database.Database) {
   }
 
   console.warn(
-    "[Database] Migrating template_cache to UNIQUE(template_id, user_id) to support per-user caching"
+    "[Database] Migrating template_cache to UNIQUE(template_id, user_id) to support per-user caching",
   );
 
   try {
@@ -701,17 +690,12 @@ function ensureTemplateCacheUniqueConstraint(database: Database.Database) {
     database.exec("DROP TABLE template_cache");
     database.exec("ALTER TABLE template_cache__new RENAME TO template_cache");
     database.exec(
-      `CREATE INDEX IF NOT EXISTS idx_template_cache_user ON template_cache(template_id, user_id)`
+      `CREATE INDEX IF NOT EXISTS idx_template_cache_user ON template_cache(template_id, user_id)`,
     );
     database.exec("COMMIT");
-    console.log(
-      "[Database] template_cache migrated to UNIQUE(template_id, user_id)"
-    );
+    console.log("[Database] template_cache migrated to UNIQUE(template_id, user_id)");
   } catch (error) {
-    console.error(
-      "[Database] Failed to migrate template_cache unique constraint:",
-      error
-    );
+    console.error("[Database] Failed to migrate template_cache unique constraint:", error);
     try {
       database.exec("ROLLBACK");
     } catch {
@@ -733,7 +717,7 @@ function ensureAdminExists(database: Database.Database) {
   if (!SUPERADMIN_EMAIL || !SUPERADMIN_PASSWORD) {
     debugLog(
       "DB",
-      "[Database] No admin configured (set SUPERADMIN_EMAIL and SUPERADMIN_PASSWORD in env)"
+      "[Database] No admin configured (set SUPERADMIN_EMAIL and SUPERADMIN_PASSWORD in env)",
     );
     return;
   }
@@ -750,23 +734,15 @@ function ensureAdminExists(database: Database.Database) {
     database
       .prepare(
         `INSERT INTO users (id, email, name, password_hash, provider, email_verified, diamonds, is_superadmin)
-         VALUES (?, ?, ?, ?, 'email', 1, ?, 1)`
+         VALUES (?, ?, ?, ?, 'email', 1, ?, 1)`,
       )
-      .run(
-        userId,
-        SUPERADMIN_EMAIL,
-        "Admin",
-        passwordHash,
-        SUPERADMIN_DIAMONDS
-      );
+      .run(userId, SUPERADMIN_EMAIL, "Admin", passwordHash, SUPERADMIN_DIAMONDS);
 
     debugLog("DB", "[Database] Created admin:", { email: SUPERADMIN_EMAIL });
   } else if (existingUser.is_superadmin !== 1) {
     // Upgrade existing user to admin
     database
-      .prepare(
-        `UPDATE users SET is_superadmin = 1, diamonds = ? WHERE email = ?`
-      )
+      .prepare(`UPDATE users SET is_superadmin = 1, diamonds = ? WHERE email = ?`)
       .run(SUPERADMIN_DIAMONDS, SUPERADMIN_EMAIL);
 
     debugLog("DB", "[Database] Upgraded user to admin:", {
@@ -809,7 +785,7 @@ export function createProject(
   category?: string,
   description?: string,
   sessionId?: string,
-  userId?: string
+  userId?: string,
 ): Project {
   const db = getDb();
   const id = generateId();
@@ -818,14 +794,7 @@ export function createProject(
     INSERT INTO projects (id, name, category, description, session_id, user_id)
     VALUES (?, ?, ?, ?, ?, ?)
   `);
-  stmt.run(
-    id,
-    name,
-    category || null,
-    description || null,
-    sessionId || null,
-    userId || null
-  );
+  stmt.run(id, name, category || null, description || null, sessionId || null, userId || null);
 
   // Also create empty project_data entry
   const dataStmt = db.prepare(`
@@ -863,13 +832,10 @@ export function getAllProjects(): Project[] {
 }
 
 // Transfer projects from session to user (after login)
-export function transferProjectsToUser(
-  sessionId: string,
-  userId: string
-): number {
+export function transferProjectsToUser(sessionId: string, userId: string): number {
   const db = getDb();
   const stmt = db.prepare(
-    "UPDATE projects SET user_id = ?, session_id = NULL WHERE session_id = ?"
+    "UPDATE projects SET user_id = ?, session_id = NULL WHERE session_id = ?",
   );
   const result = stmt.run(userId, sessionId);
   return result.changes;
@@ -878,7 +844,7 @@ export function transferProjectsToUser(
 // Update project
 export function updateProject(
   id: string,
-  updates: Partial<Omit<Project, "id" | "created_at">>
+  updates: Partial<Omit<Project, "id" | "created_at">>,
 ): Project | null {
   const db = getDb();
 
@@ -951,19 +917,13 @@ export function getProjectData(projectId: string): ProjectData | null {
   try {
     files = row.files_json ? JSON.parse(row.files_json) : [];
   } catch {
-    console.error(
-      "[Database] Failed to parse files_json for project:",
-      projectId
-    );
+    console.error("[Database] Failed to parse files_json for project:", projectId);
   }
 
   try {
     messages = row.messages_json ? JSON.parse(row.messages_json) : [];
   } catch {
-    console.error(
-      "[Database] Failed to parse messages_json for project:",
-      projectId
-    );
+    console.error("[Database] Failed to parse messages_json for project:", projectId);
   }
 
   const parsed: ProjectData = {
@@ -1005,13 +965,11 @@ export function saveProjectData(data: ProjectData): void {
     data.demo_url || null,
     data.current_code || null,
     JSON.stringify(data.files),
-    JSON.stringify(data.messages)
+    JSON.stringify(data.messages),
   );
 
   // Update project's updated_at
-  const updateStmt = db.prepare(
-    "UPDATE projects SET updated_at = datetime('now') WHERE id = ?"
-  );
+  const updateStmt = db.prepare("UPDATE projects SET updated_at = datetime('now') WHERE id = ?");
   updateStmt.run(data.project_id);
   debugLog("DB", "[Database] Saved project data", {
     projectId: data.project_id,
@@ -1040,9 +998,7 @@ export interface ProjectFileRecord {
  */
 export function saveProjectFilesToDb(
   projectId: string,
-  files: Array<
-    Pick<ProjectFileRecord, "path" | "content" | "mime_type" | "size">
-  >
+  files: Array<Pick<ProjectFileRecord, "path" | "content" | "mime_type" | "size">>,
 ): number {
   const db = getDb();
 
@@ -1057,28 +1013,16 @@ export function saveProjectFilesToDb(
   `);
 
   const run = db.transaction(
-    (
-      fileList: Array<
-        Pick<ProjectFileRecord, "path" | "content" | "mime_type" | "size">
-      >
-    ) => {
+    (fileList: Array<Pick<ProjectFileRecord, "path" | "content" | "mime_type" | "size">>) => {
       let count = 0;
       for (const file of fileList) {
         const size =
-          typeof file.size === "number"
-            ? file.size
-            : Buffer.byteLength(file.content || "", "utf8");
-        upsert.run(
-          projectId,
-          file.path,
-          file.content,
-          file.mime_type || "text/plain",
-          size
-        );
+          typeof file.size === "number" ? file.size : Buffer.byteLength(file.content || "", "utf8");
+        upsert.run(projectId, file.path, file.content, file.mime_type || "text/plain", size);
         count += 1;
       }
       return count;
-    }
+    },
   );
 
   const saved = run(files);
@@ -1120,7 +1064,7 @@ export function updateProjectFileInDb(
   projectId: string,
   path: string,
   content: string,
-  mimeType?: string
+  mimeType?: string,
 ): boolean {
   const db = getDb();
   const size = Buffer.byteLength(content || "", "utf8");
@@ -1135,13 +1079,7 @@ export function updateProjectFileInDb(
       updated_at = datetime('now')
   `);
 
-  const result = stmt.run(
-    projectId,
-    path,
-    content,
-    mimeType || "text/plain",
-    size
-  );
+  const result = stmt.run(projectId, path, content, mimeType || "text/plain", size);
   debugLog("DB", "[Database] Upserted project file in SQLite", {
     projectId,
     path,
@@ -1153,14 +1091,9 @@ export function updateProjectFileInDb(
 /**
  * Delete a single project file from SQLite.
  */
-export function deleteProjectFileFromDb(
-  projectId: string,
-  path: string
-): boolean {
+export function deleteProjectFileFromDb(projectId: string, path: string): boolean {
   const db = getDb();
-  const stmt = db.prepare(
-    "DELETE FROM project_files WHERE project_id = ? AND path = ?"
-  );
+  const stmt = db.prepare("DELETE FROM project_files WHERE project_id = ? AND path = ?");
   const result = stmt.run(projectId, path);
   debugLog("DB", "[Database] Deleted project file from SQLite", {
     projectId,
@@ -1190,7 +1123,7 @@ export function saveImage(
   filePath: string,
   originalName?: string,
   mimeType?: string,
-  sizeBytes?: number
+  sizeBytes?: number,
 ): ImageRecord {
   const db = getDb();
 
@@ -1204,7 +1137,7 @@ export function saveImage(
     filePath,
     originalName || null,
     mimeType || null,
-    sizeBytes || null
+    sizeBytes || null,
   );
 
   return {
@@ -1222,9 +1155,7 @@ export function saveImage(
 // Get project images
 export function getProjectImages(projectId: string): ImageRecord[] {
   const db = getDb();
-  const stmt = db.prepare(
-    "SELECT * FROM images WHERE project_id = ? ORDER BY created_at DESC"
-  );
+  const stmt = db.prepare("SELECT * FROM images WHERE project_id = ? ORDER BY created_at DESC");
   return stmt.all(projectId) as ImageRecord[];
 }
 
@@ -1256,20 +1187,16 @@ export interface TemplateScreenshot {
 }
 
 // Get cached screenshot for a template
-export function getTemplateScreenshot(
-  templateId: string
-): TemplateScreenshot | null {
+export function getTemplateScreenshot(templateId: string): TemplateScreenshot | null {
   const db = getDb();
-  const stmt = db.prepare(
-    "SELECT * FROM template_screenshots WHERE template_id = ?"
-  );
+  const stmt = db.prepare("SELECT * FROM template_screenshots WHERE template_id = ?");
   return stmt.get(templateId) as TemplateScreenshot | null;
 }
 
 // Save screenshot URL for a template (upsert)
 export function saveTemplateScreenshot(
   templateId: string,
-  screenshotUrl: string
+  screenshotUrl: string,
 ): TemplateScreenshot {
   const db = getDb();
 
@@ -1327,7 +1254,7 @@ export interface TemplateResultInput {
  */
 export function getCachedTemplate(
   templateId: string,
-  userId?: string | null
+  userId?: string | null,
 ): CachedTemplateResult | null {
   const db = getDb();
 
@@ -1348,7 +1275,7 @@ export function getCachedTemplate(
     console.log(
       "[DB] Template cache HIT for:",
       templateId,
-      userId ? `(user: ${userId})` : "(global)"
+      userId ? `(user: ${userId})` : "(global)",
     );
     return result;
   }
@@ -1356,7 +1283,7 @@ export function getCachedTemplate(
   console.log(
     "[DB] Template cache MISS for:",
     templateId,
-    userId ? `(user: ${userId})` : "(global)"
+    userId ? `(user: ${userId})` : "(global)",
   );
   return null;
 }
@@ -1368,7 +1295,7 @@ export function getCachedTemplate(
 export function cacheTemplateResult(
   templateId: string,
   result: TemplateResultInput,
-  userId?: string | null
+  userId?: string | null,
 ): CachedTemplateResult {
   const db = getDb();
 
@@ -1396,14 +1323,10 @@ export function cacheTemplateResult(
     result.versionId || null,
     filesJson,
     result.code || null,
-    result.model || null
+    result.model || null,
   );
 
-  console.log(
-    "[DB] Template cached:",
-    templateId,
-    userId ? `(user: ${userId})` : "(global)"
-  );
+  console.log("[DB] Template cached:", templateId, userId ? `(user: ${userId})` : "(global)");
   const cached = getCachedTemplate(templateId, userId);
   if (!cached) {
     throw new Error(`Failed to retrieve cached template: ${templateId}`);
@@ -1458,7 +1381,7 @@ export interface CompanyProfile {
 
 // Create or update company profile
 export function saveCompanyProfile(
-  profile: Omit<CompanyProfile, "id" | "created_at" | "updated_at">
+  profile: Omit<CompanyProfile, "id" | "created_at" | "updated_at">,
 ): CompanyProfile {
   const db = getDb();
 
@@ -1515,10 +1438,8 @@ export function saveCompanyProfile(
     profile.competitor_insights || null,
     profile.industry_trends || null,
     profile.research_sources ? JSON.stringify(profile.research_sources) : null,
-    profile.inspiration_sites
-      ? JSON.stringify(profile.inspiration_sites)
-      : null,
-    profile.voice_transcript || null
+    profile.inspiration_sites ? JSON.stringify(profile.inspiration_sites) : null,
+    profile.voice_transcript || null,
   );
 
   return getCompanyProfileById(result.lastInsertRowid as number)!;
@@ -1536,13 +1457,9 @@ export function getCompanyProfileById(id: number): CompanyProfile | null {
 }
 
 // Get company profile by project ID
-export function getCompanyProfileByProjectId(
-  projectId: string
-): CompanyProfile | null {
+export function getCompanyProfileByProjectId(projectId: string): CompanyProfile | null {
   const db = getDb();
-  const stmt = db.prepare(
-    "SELECT * FROM company_profiles WHERE project_id = ?"
-  );
+  const stmt = db.prepare("SELECT * FROM company_profiles WHERE project_id = ?");
   const row = stmt.get(projectId) as CompanyProfileRow | undefined;
 
   if (!row) return null;
@@ -1551,12 +1468,10 @@ export function getCompanyProfileByProjectId(
 }
 
 // Get company profile by company name (for reuse)
-export function getCompanyProfileByName(
-  companyName: string
-): CompanyProfile | null {
+export function getCompanyProfileByName(companyName: string): CompanyProfile | null {
   const db = getDb();
   const stmt = db.prepare(
-    "SELECT * FROM company_profiles WHERE company_name = ? ORDER BY updated_at DESC LIMIT 1"
+    "SELECT * FROM company_profiles WHERE company_name = ? ORDER BY updated_at DESC LIMIT 1",
   );
   const row = stmt.get(companyName) as CompanyProfileRow | undefined;
 
@@ -1568,9 +1483,7 @@ export function getCompanyProfileByName(
 // Get all company profiles
 export function getAllCompanyProfiles(): CompanyProfile[] {
   const db = getDb();
-  const stmt = db.prepare(
-    "SELECT * FROM company_profiles ORDER BY updated_at DESC"
-  );
+  const stmt = db.prepare("SELECT * FROM company_profiles ORDER BY updated_at DESC");
   const rows = stmt.all() as CompanyProfileRow[];
 
   return rows.map(parseCompanyProfileRow);
@@ -1586,23 +1499,16 @@ export function searchCompanyProfiles(query: string): CompanyProfile[] {
     LIMIT 20
   `);
   const searchTerm = `%${query}%`;
-  const rows = stmt.all(
-    searchTerm,
-    searchTerm,
-    searchTerm
-  ) as CompanyProfileRow[];
+  const rows = stmt.all(searchTerm, searchTerm, searchTerm) as CompanyProfileRow[];
 
   return rows.map(parseCompanyProfileRow);
 }
 
 // Link company profile to a project
-export function linkCompanyProfileToProject(
-  profileId: number,
-  projectId: string
-): void {
+export function linkCompanyProfileToProject(profileId: number, projectId: string): void {
   const db = getDb();
   const stmt = db.prepare(
-    "UPDATE company_profiles SET project_id = ?, updated_at = datetime('now') WHERE id = ?"
+    "UPDATE company_profiles SET project_id = ?, updated_at = datetime('now') WHERE id = ?",
   );
   stmt.run(projectId, profileId);
 }
@@ -1661,11 +1567,7 @@ function generateUserId(): string {
 }
 
 // Create user (for registration)
-export function createUser(
-  email: string,
-  passwordHash: string,
-  name?: string
-): User {
+export function createUser(email: string, passwordHash: string, name?: string): User {
   const db = getDb();
   const id = generateUserId();
 
@@ -1673,13 +1575,7 @@ export function createUser(
     INSERT INTO users (id, email, name, password_hash, provider, diamonds)
     VALUES (?, ?, ?, ?, 'email', ?)
   `);
-  stmt.run(
-    id,
-    email.toLowerCase(),
-    name || null,
-    passwordHash,
-    DEFAULT_USER_DIAMONDS
-  );
+  stmt.run(id, email.toLowerCase(), name || null, passwordHash, DEFAULT_USER_DIAMONDS);
 
   return getUserById(id)!;
 }
@@ -1689,7 +1585,7 @@ export function createGoogleUser(
   googleId: string,
   email: string,
   name: string,
-  image?: string
+  image?: string,
 ): User {
   const db = getDb();
   const id = `google_${googleId}`;
@@ -1704,10 +1600,7 @@ export function createGoogleUser(
     if (existingUser.id !== id) {
       // If the existing account was created with email/password,
       // link it to Google by updating the provider (user is upgrading to Google login)
-      if (
-        existingUser.provider === "email" ||
-        existingUser.provider === "anonymous"
-      ) {
+      if (existingUser.provider === "email" || existingUser.provider === "anonymous") {
         const updateStmt = db.prepare(`
           UPDATE users SET
             id = ?,
@@ -1728,13 +1621,11 @@ export function createGoogleUser(
       console.warn(
         `[Database] Google OAuth: Different Google ID (${googleId}) attempting to use ` +
           `email (${normalizedEmail}) already registered with ID (${existingUser.id}). ` +
-          `Returning existing account to prevent account takeover.`
+          `Returning existing account to prevent account takeover.`,
       );
 
       // Update last login for existing user
-      const loginStmt = db.prepare(
-        "UPDATE users SET last_login = datetime('now') WHERE id = ?"
-      );
+      const loginStmt = db.prepare("UPDATE users SET last_login = datetime('now') WHERE id = ?");
       loginStmt.run(existingUser.id);
 
       return existingUser;
@@ -1790,9 +1681,7 @@ export function updateUserDiamonds(userId: string, newBalance: number): void {
 // Update last login
 export function updateUserLastLogin(userId: string): void {
   const db = getDb();
-  const stmt = db.prepare(
-    "UPDATE users SET last_login = datetime('now') WHERE id = ?"
-  );
+  const stmt = db.prepare("UPDATE users SET last_login = datetime('now') WHERE id = ?");
   stmt.run(userId);
 }
 
@@ -1800,12 +1689,9 @@ export function updateUserLastLogin(userId: string): void {
 function parseUserRow(row: UserRow): User {
   // Test user or superadmin always has unlimited diamonds
   const isTest = row.email === TEST_USER_EMAIL;
-  const isSuperadmin =
-    row.is_superadmin === 1 || row.email === SUPERADMIN_EMAIL;
+  const isSuperadmin = row.is_superadmin === 1 || row.email === SUPERADMIN_EMAIL;
   const provider: User["provider"] =
-    row.provider === "google" || row.provider === "email"
-      ? row.provider
-      : "anonymous";
+    row.provider === "google" || row.provider === "email" ? row.provider : "anonymous";
 
   return {
     id: row.id,
@@ -1816,9 +1702,7 @@ function parseUserRow(row: UserRow): User {
     email_verified: row.email_verified === 1,
     provider,
     diamonds:
-      isTest || isSuperadmin
-        ? SUPERADMIN_DIAMONDS
-        : row.diamonds ?? DEFAULT_USER_DIAMONDS,
+      isTest || isSuperadmin ? SUPERADMIN_DIAMONDS : (row.diamonds ?? DEFAULT_USER_DIAMONDS),
     github_token: row.github_token || null,
     github_username: row.github_username || null,
     is_superadmin: isSuperadmin,
@@ -1833,19 +1717,17 @@ function parseUserRow(row: UserRow): User {
 export function updateUserGitHub(
   userId: string,
   githubToken: string,
-  githubUsername: string
+  githubUsername: string,
 ): void {
   const db = getDb();
-  const stmt = db.prepare(
-    "UPDATE users SET github_token = ?, github_username = ? WHERE id = ?"
-  );
+  const stmt = db.prepare("UPDATE users SET github_token = ?, github_username = ? WHERE id = ?");
   stmt.run(githubToken, githubUsername, userId);
 }
 
 export function clearUserGitHub(userId: string): void {
   const db = getDb();
   const stmt = db.prepare(
-    "UPDATE users SET github_token = NULL, github_username = NULL WHERE id = ?"
+    "UPDATE users SET github_token = NULL, github_username = NULL WHERE id = ?",
   );
   stmt.run(userId);
 }
@@ -1943,9 +1825,7 @@ function getTodayDateString(): string {
 export function getDailyUsage(userId: string): DailyUsage | null {
   const db = getDb();
   const today = getTodayDateString();
-  const stmt = db.prepare(
-    "SELECT * FROM daily_usage WHERE user_id = ? AND date = ?"
-  );
+  const stmt = db.prepare("SELECT * FROM daily_usage WHERE user_id = ? AND date = ?");
   return stmt.get(userId, today) as DailyUsage | null;
 }
 
@@ -2088,7 +1968,7 @@ export function createTransaction(
   amount: number,
   description?: string,
   stripePaymentId?: string,
-  stripeSessionId?: string
+  stripeSessionId?: string,
 ): Transaction {
   const db = getDb();
 
@@ -2115,7 +1995,7 @@ export function createTransaction(
     newBalance,
     description || null,
     stripePaymentId || null,
-    stripeSessionId || null
+    stripeSessionId || null,
   );
 
   return getTransactionById(result.lastInsertRowid as number)!;
@@ -2141,13 +2021,9 @@ export function getUserTransactions(userId: string, limit = 50): Transaction[] {
 }
 
 // Get transaction by Stripe session ID (for webhook verification)
-export function getTransactionByStripeSession(
-  stripeSessionId: string
-): Transaction | null {
+export function getTransactionByStripeSession(stripeSessionId: string): Transaction | null {
   const db = getDb();
-  const stmt = db.prepare(
-    "SELECT * FROM transactions WHERE stripe_session_id = ?"
-  );
+  const stmt = db.prepare("SELECT * FROM transactions WHERE stripe_session_id = ?");
   return stmt.get(stripeSessionId) as Transaction | null;
 }
 
@@ -2219,7 +2095,7 @@ export function deductDiamonds(
   userId: string,
   amount: number,
   description: string = "AI-operation",
-  transactionType: TransactionType = "generation"
+  transactionType: TransactionType = "generation",
 ): Transaction | null {
   const user = getUserById(userId);
   if (!user || user.diamonds < amount) {
@@ -2277,7 +2153,7 @@ export function recordPageView(
   userId?: string,
   ipAddress?: string,
   userAgent?: string,
-  referrer?: string
+  referrer?: string,
 ): void {
   const db = getDb();
   const stmt = db.prepare(`
@@ -2290,7 +2166,7 @@ export function recordPageView(
     userId || null,
     ipAddress || null,
     userAgent || null,
-    referrer || null
+    referrer || null,
   );
 }
 
@@ -2305,9 +2181,7 @@ export function getAnalyticsStats(days: number = 30): AnalyticsStats {
   const totalPageViews =
     (
       db
-        .prepare(
-          "SELECT COUNT(*) as count FROM page_views WHERE created_at >= ?"
-        )
+        .prepare("SELECT COUNT(*) as count FROM page_views WHERE created_at >= ?")
         .get(cutoffStr) as CountResult | undefined
     )?.count || 0;
 
@@ -2317,58 +2191,45 @@ export function getAnalyticsStats(days: number = 30): AnalyticsStats {
       db
         .prepare(
           `SELECT COUNT(DISTINCT COALESCE(session_id, ip_address)) as count
-           FROM page_views WHERE created_at >= ?`
+           FROM page_views WHERE created_at >= ?`,
         )
         .get(cutoffStr) as CountResult | undefined
     )?.count || 0;
 
   // Total users
   const totalUsers =
-    (
-      db.prepare("SELECT COUNT(*) as count FROM users").get() as
-        | CountResult
-        | undefined
-    )?.count || 0;
+    (db.prepare("SELECT COUNT(*) as count FROM users").get() as CountResult | undefined)?.count ||
+    0;
 
   // Total projects
   const totalProjects =
-    (
-      db.prepare("SELECT COUNT(*) as count FROM projects").get() as
-        | CountResult
-        | undefined
-    )?.count || 0;
+    (db.prepare("SELECT COUNT(*) as count FROM projects").get() as CountResult | undefined)
+      ?.count || 0;
 
   // Total generations (from guest_usage + transactions)
   const guestGenerations =
     (
-      db
-        .prepare("SELECT SUM(generations_used) as sum FROM guest_usage")
-        .get() as SumResult | undefined
+      db.prepare("SELECT SUM(generations_used) as sum FROM guest_usage").get() as
+        | SumResult
+        | undefined
     )?.sum || 0;
   const userGenerations =
     (
-      db
-        .prepare(
-          "SELECT COUNT(*) as count FROM transactions WHERE type = 'generation'"
-        )
-        .get() as CountResult | undefined
+      db.prepare("SELECT COUNT(*) as count FROM transactions WHERE type = 'generation'").get() as
+        | CountResult
+        | undefined
     )?.count || 0;
   const totalGenerations = guestGenerations + userGenerations;
 
   // Total refines
   const guestRefines =
-    (
-      db.prepare("SELECT SUM(refines_used) as sum FROM guest_usage").get() as
-        | SumResult
-        | undefined
-    )?.sum || 0;
+    (db.prepare("SELECT SUM(refines_used) as sum FROM guest_usage").get() as SumResult | undefined)
+      ?.sum || 0;
   const userRefines =
     (
-      db
-        .prepare(
-          "SELECT COUNT(*) as count FROM transactions WHERE type = 'refine'"
-        )
-        .get() as CountResult | undefined
+      db.prepare("SELECT COUNT(*) as count FROM transactions WHERE type = 'refine'").get() as
+        | CountResult
+        | undefined
     )?.count || 0;
   const totalRefines = guestRefines + userRefines;
 
@@ -2380,7 +2241,7 @@ export function getAnalyticsStats(days: number = 30): AnalyticsStats {
        WHERE created_at >= ?
        GROUP BY path
        ORDER BY count DESC
-       LIMIT 10`
+       LIMIT 10`,
     )
     .all(cutoffStr) as { path: string; count: number }[];
 
@@ -2394,7 +2255,7 @@ export function getAnalyticsStats(days: number = 30): AnalyticsStats {
        FROM page_views
        WHERE created_at >= ?
        GROUP BY date(created_at)
-       ORDER BY date ASC`
+       ORDER BY date ASC`,
     )
     .all(cutoffStr) as { date: string; views: number; unique: number }[];
 
@@ -2406,7 +2267,7 @@ export function getAnalyticsStats(days: number = 30): AnalyticsStats {
        WHERE created_at >= ? AND referrer IS NOT NULL AND referrer != ''
        GROUP BY referrer
        ORDER BY count DESC
-       LIMIT 10`
+       LIMIT 10`,
     )
     .all(cutoffStr) as { referrer: string; count: number }[];
 
@@ -2449,7 +2310,7 @@ export function saveUserAudit(
   userId: string,
   url: string,
   domain: string,
-  auditResult: Record<string, unknown>
+  auditResult: Record<string, unknown>,
 ): SavedAudit {
   const db = getDb();
 
@@ -2461,17 +2322,12 @@ export function saveUserAudit(
   const scoreSecurity = scores?.security ?? null;
 
   // Calculate overall score (average of available scores)
-  const availableScores = [
-    scoreSeo,
-    scoreUx,
-    scorePerformance,
-    scoreSecurity,
-  ].filter((s) => s !== null) as number[];
+  const availableScores = [scoreSeo, scoreUx, scorePerformance, scoreSecurity].filter(
+    (s) => s !== null,
+  ) as number[];
   const scoreOverall =
     availableScores.length > 0
-      ? Math.round(
-          availableScores.reduce((a, b) => a + b, 0) / availableScores.length
-        )
+      ? Math.round(availableScores.reduce((a, b) => a + b, 0) / availableScores.length)
       : null;
 
   const companyName = (auditResult.company as string) || null;
@@ -2493,7 +2349,7 @@ export function saveUserAudit(
     scoreUx,
     scorePerformance,
     scoreSecurity,
-    scoreOverall
+    scoreOverall,
   );
 
   return {
@@ -2518,19 +2374,14 @@ export function saveUserAudit(
 export function getUserAudits(userId: string): SavedAudit[] {
   const db = getDb();
   return db
-    .prepare(
-      `SELECT * FROM user_audits WHERE user_id = ? ORDER BY created_at DESC`
-    )
+    .prepare(`SELECT * FROM user_audits WHERE user_id = ? ORDER BY created_at DESC`)
     .all(userId) as SavedAudit[];
 }
 
 /**
  * Get a specific audit by ID (with user ownership check)
  */
-export function getUserAuditById(
-  auditId: number,
-  userId: string
-): SavedAudit | null {
+export function getUserAuditById(auditId: number, userId: string): SavedAudit | null {
   const db = getDb();
   const audit = db
     .prepare(`SELECT * FROM user_audits WHERE id = ? AND user_id = ?`)
@@ -2566,13 +2417,7 @@ export function getUserAuditCount(userId: string): number {
 // Manages user's persistent media library (images, videos, PDFs, text files, logos)
 // ============================================================================
 
-export type MediaFileType =
-  | "image"
-  | "video"
-  | "pdf"
-  | "text"
-  | "logo"
-  | "other";
+export type MediaFileType = "image" | "video" | "pdf" | "text" | "logo" | "other";
 
 export interface MediaLibraryItem {
   id: number;
@@ -2638,7 +2483,7 @@ export function saveMediaLibraryItem(
   blobUrl?: string,
   projectId?: string,
   description?: string,
-  tags?: string[]
+  tags?: string[],
 ): MediaLibraryItem {
   const db = getDb();
 
@@ -2662,7 +2507,7 @@ export function saveMediaLibraryItem(
     fileType,
     sizeBytes,
     description || null,
-    tags ? JSON.stringify(tags) : null
+    tags ? JSON.stringify(tags) : null,
   );
 
   return getMediaLibraryItemById(result.lastInsertRowid as number)!;
@@ -2685,7 +2530,7 @@ export function getMediaLibraryItemById(id: number): MediaLibraryItem | null {
  */
 export function getMediaLibraryByUser(
   userId: string,
-  fileType?: MediaFileType
+  fileType?: MediaFileType,
 ): MediaLibraryItem[] {
   const db = getDb();
 
@@ -2727,9 +2572,7 @@ export function deleteMediaLibraryItem(id: number, userId: string): boolean {
   }
 
   // Delete database record
-  const stmt = db.prepare(
-    "DELETE FROM media_library WHERE id = ? AND user_id = ?"
-  );
+  const stmt = db.prepare("DELETE FROM media_library WHERE id = ? AND user_id = ?");
   const result = stmt.run(id, userId);
   return result.changes > 0;
 }
@@ -2758,7 +2601,7 @@ export function getMediaLibraryCounts(userId: string): MediaLibraryCounts {
       db
         .prepare(
           `SELECT COUNT(*) as count FROM media_library
-           WHERE user_id = ? AND file_type IN ('image', 'logo')`
+           WHERE user_id = ? AND file_type IN ('image', 'logo')`,
         )
         .get(userId) as CountResult | undefined
     )?.count || 0;
@@ -2769,7 +2612,7 @@ export function getMediaLibraryCounts(userId: string): MediaLibraryCounts {
       db
         .prepare(
           `SELECT COUNT(*) as count FROM media_library
-           WHERE user_id = ? AND file_type = 'video'`
+           WHERE user_id = ? AND file_type = 'video'`,
         )
         .get(userId) as CountResult | undefined
     )?.count || 0;
@@ -2780,7 +2623,7 @@ export function getMediaLibraryCounts(userId: string): MediaLibraryCounts {
       db
         .prepare(
           `SELECT COUNT(*) as count FROM media_library
-           WHERE user_id = ? AND file_type NOT IN ('image', 'logo', 'video')`
+           WHERE user_id = ? AND file_type NOT IN ('image', 'logo', 'video')`,
         )
         .get(userId) as CountResult | undefined
     )?.count || 0;
@@ -2801,7 +2644,7 @@ export function canUserUploadFile(
   userId: string,
   mimeType: string,
   maxImages: number = 10,
-  maxVideos: number = 3
+  maxVideos: number = 3,
 ): { allowed: boolean; reason?: string } {
   const counts = getMediaLibraryCounts(userId);
 
@@ -2907,7 +2750,7 @@ export function saveDomainOrder(order: {
     `INSERT OR REPLACE INTO domain_orders (
       id, project_id, domain, order_id, customer_price, vercel_cost,
       currency, status, years, domain_added_to_project, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
   ).run(
     order.id,
     order.project_id,
@@ -2920,7 +2763,7 @@ export function saveDomainOrder(order: {
     order.years || 1,
     order.domain_added_to_project ? 1 : 0,
     now,
-    now
+    now,
   );
 }
 
@@ -2957,9 +2800,7 @@ export function getDomainOrderById(id: string): DomainOrder | null {
 export function getDomainOrdersByProjectId(projectId: string): DomainOrder[] {
   const db = getDb();
   const rows = db
-    .prepare(
-      "SELECT * FROM domain_orders WHERE project_id = ? ORDER BY created_at DESC"
-    )
+    .prepare("SELECT * FROM domain_orders WHERE project_id = ? ORDER BY created_at DESC")
     .all(projectId) as DomainOrderRow[];
 
   return rows.map((row) => ({
@@ -2985,7 +2826,7 @@ export function updateDomainOrderStatus(
   id: string,
   status: string,
   orderId?: string,
-  domainAddedToProject?: boolean
+  domainAddedToProject?: boolean,
 ): void {
   const db = getDb();
   const now = Date.now();
@@ -2994,25 +2835,25 @@ export function updateDomainOrderStatus(
     db.prepare(
       `UPDATE domain_orders
        SET status = ?, order_id = ?, domain_added_to_project = ?, updated_at = ?
-       WHERE id = ?`
+       WHERE id = ?`,
     ).run(status, orderId || null, domainAddedToProject ? 1 : 0, now, id);
   } else if (orderId !== undefined) {
     db.prepare(
       `UPDATE domain_orders
        SET status = ?, order_id = ?, updated_at = ?
-       WHERE id = ?`
+       WHERE id = ?`,
     ).run(status, orderId || null, now, id);
   } else if (domainAddedToProject !== undefined) {
     db.prepare(
       `UPDATE domain_orders
        SET status = ?, domain_added_to_project = ?, updated_at = ?
-       WHERE id = ?`
+       WHERE id = ?`,
     ).run(status, domainAddedToProject ? 1 : 0, now, id);
   } else {
     db.prepare(
       `UPDATE domain_orders
        SET status = ?, updated_at = ?
-       WHERE id = ?`
+       WHERE id = ?`,
     ).run(status, now, id);
   }
 }
@@ -3074,21 +2915,17 @@ function deobfuscateKey(obfuscated: string): string {
  */
 export function getUserSettings(userId: string): UserSettings | null {
   const db = getDb();
-  const row = db
-    .prepare("SELECT * FROM user_settings WHERE user_id = ?")
-    .get(userId) as UserSettingsRow | undefined;
+  const row = db.prepare("SELECT * FROM user_settings WHERE user_id = ?").get(userId) as
+    | UserSettingsRow
+    | undefined;
 
   if (!row) return null;
 
   return {
     id: row.id,
     user_id: row.user_id,
-    openai_api_key: row.openai_api_key
-      ? deobfuscateKey(row.openai_api_key)
-      : null,
-    anthropic_api_key: row.anthropic_api_key
-      ? deobfuscateKey(row.anthropic_api_key)
-      : null,
+    openai_api_key: row.openai_api_key ? deobfuscateKey(row.openai_api_key) : null,
+    anthropic_api_key: row.anthropic_api_key ? deobfuscateKey(row.anthropic_api_key) : null,
     preferred_model: row.preferred_model,
     preferred_quality: row.preferred_quality,
     enable_streaming: row.enable_streaming === 1,
@@ -3117,9 +2954,7 @@ export function getOrCreateUserSettings(userId: string): UserSettings {
  */
 export function updateUserSettings(
   userId: string,
-  settings: Partial<
-    Omit<UserSettings, "id" | "user_id" | "created_at" | "updated_at">
-  >
+  settings: Partial<Omit<UserSettings, "id" | "user_id" | "created_at" | "updated_at">>,
 ): UserSettings {
   const db = getDb();
 
@@ -3132,18 +2967,12 @@ export function updateUserSettings(
 
   if (settings.openai_api_key !== undefined) {
     updates.push("openai_api_key = ?");
-    values.push(
-      settings.openai_api_key ? obfuscateKey(settings.openai_api_key) : null
-    );
+    values.push(settings.openai_api_key ? obfuscateKey(settings.openai_api_key) : null);
   }
 
   if (settings.anthropic_api_key !== undefined) {
     updates.push("anthropic_api_key = ?");
-    values.push(
-      settings.anthropic_api_key
-        ? obfuscateKey(settings.anthropic_api_key)
-        : null
-    );
+    values.push(settings.anthropic_api_key ? obfuscateKey(settings.anthropic_api_key) : null);
   }
 
   if (settings.preferred_model !== undefined) {
@@ -3170,9 +2999,7 @@ export function updateUserSettings(
     updates.push("updated_at = datetime('now')");
     values.push(userId);
 
-    db.prepare(
-      `UPDATE user_settings SET ${updates.join(", ")} WHERE user_id = ?`
-    ).run(...values);
+    db.prepare(`UPDATE user_settings SET ${updates.join(", ")} WHERE user_id = ?`).run(...values);
   }
 
   return getUserSettings(userId)!;
@@ -3183,9 +3010,7 @@ export function updateUserSettings(
  */
 export function deleteUserSettings(userId: string): boolean {
   const db = getDb();
-  const result = db
-    .prepare("DELETE FROM user_settings WHERE user_id = ?")
-    .run(userId);
+  const result = db.prepare("DELETE FROM user_settings WHERE user_id = ?").run(userId);
   return result.changes > 0;
 }
 

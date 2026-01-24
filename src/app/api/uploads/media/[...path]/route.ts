@@ -63,12 +63,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const filename = filenameParts.join("/");
 
     // Validate userId and filename (basic sanitation)
-    if (
-      !userId ||
-      !filename ||
-      userId.includes("..") ||
-      filename.includes("..")
-    ) {
+    if (!userId || !filename || userId.includes("..") || filename.includes("..")) {
       return NextResponse.json({ error: "Ogiltig sökväg" }, { status: 400 });
     }
 
@@ -93,17 +88,14 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     // - "D:\other\path" = outside on Windows (absolute path from different drive)
     if (relativePath.startsWith("..") || path.isAbsolute(relativePath)) {
       console.warn(
-        `[Media/Serve] Path traversal attempt blocked: ${resolvedPath} (relative: ${relativePath})`
+        `[Media/Serve] Path traversal attempt blocked: ${resolvedPath} (relative: ${relativePath})`,
       );
       return NextResponse.json({ error: "Åtkomst nekad" }, { status: 403 });
     }
 
     // Check if file exists
     if (!existsSync(filePath)) {
-      return NextResponse.json(
-        { error: "Filen hittades inte" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: "Filen hittades inte" }, { status: 404 });
     }
 
     // Read file
@@ -125,9 +117,6 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     });
   } catch (error) {
     console.error("[API/Uploads/Media] Error:", error);
-    return NextResponse.json(
-      { error: "Kunde inte hämta filen" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Kunde inte hämta filen" }, { status: 500 });
   }
 }

@@ -22,10 +22,7 @@ interface SiteAuditSectionProps {
   onRequireAuth: () => void;
 }
 
-export function SiteAuditSection({
-  onAuditComplete,
-  onRequireAuth,
-}: SiteAuditSectionProps) {
+export function SiteAuditSection({ onAuditComplete, onRequireAuth }: SiteAuditSectionProps) {
   const { user, isAuthenticated, updateDiamonds } = useAuth();
   const [url, setUrl] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -67,9 +64,7 @@ export function SiteAuditSection({
 
     const auditCost = AUDIT_COSTS[mode];
     if (user.diamonds < auditCost) {
-      setError(
-        `Du behöver minst ${auditCost} diamanter. Du har ${user.diamonds}.`
-      );
+      setError(`Du behöver minst ${auditCost} diamanter. Du har ${user.diamonds}.`);
       return;
     }
 
@@ -150,19 +145,14 @@ export function SiteAuditSection({
   return (
     <div className="w-full max-w-2xl">
       {/* Section Header */}
-      <div className="text-center mb-6">
-        <div className="inline-flex items-center gap-2 px-4 py-2 bg-brand-teal/10 border border-brand-teal/30 mb-4">
-          <Search className="h-4 w-4 text-brand-teal" />
-          <span className="text-sm font-medium text-brand-teal">
-            Webbplatsanalys
-          </span>
+      <div className="mb-6 text-center">
+        <div className="bg-brand-teal/10 border-brand-teal/30 mb-4 inline-flex items-center gap-2 border px-4 py-2">
+          <Search className="text-brand-teal h-4 w-4" />
+          <span className="text-brand-teal text-sm font-medium">Webbplatsanalys</span>
         </div>
-        <h2 className="text-2xl font-bold text-white mb-2">
-          Analysera en webbplats
-        </h2>
-        <p className="text-gray-400 text-sm">
-          Få en AI-driven analys av valfri webbplats med förbättringsförslag och
-          budgetuppskattning.
+        <h2 className="mb-2 text-2xl font-bold text-white">Analysera en webbplats</h2>
+        <p className="text-sm text-gray-400">
+          Få en AI-driven analys av valfri webbplats med förbättringsförslag och budgetuppskattning.
         </p>
       </div>
 
@@ -180,24 +170,24 @@ export function SiteAuditSection({
             onChange={(e) => setUrl(e.target.value)}
             placeholder="exempel.se eller https://exempel.se"
             disabled={isLoading}
-            className="w-full px-4 py-4 pl-12 bg-black/50 border border-gray-700 text-white placeholder-gray-500 focus:border-brand-teal/50 focus:outline-none focus:ring-1 focus:ring-brand-teal/50 transition-all disabled:opacity-50"
+            className="focus:border-brand-teal/50 focus:ring-brand-teal/50 w-full border border-gray-700 bg-black/50 px-4 py-4 pl-12 text-white placeholder-gray-500 transition-all focus:ring-1 focus:outline-none disabled:opacity-50"
           />
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 h-5 w-5 text-gray-500" />
+          <Search className="absolute top-1/2 left-4 h-5 w-5 -translate-y-1/2 text-gray-500" />
         </div>
 
         {/* Error Message */}
         {error && (
-          <div className="flex items-start gap-2 p-3 bg-red-500/10 border border-red-500/30 text-red-400 text-sm">
-            <AlertCircle className="h-4 w-4 mt-0.5 shrink-0" />
+          <div className="flex items-start gap-2 border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-400">
+            <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
             <span>{error}</span>
           </div>
         )}
 
         {/* Progress Bar */}
         {isLoading && (
-          <div className="w-full h-1 bg-gray-800 overflow-hidden">
+          <div className="h-1 w-full overflow-hidden bg-gray-800">
             <div
-              className="h-full bg-brand-teal transition-all duration-500"
+              className="bg-brand-teal h-full transition-all duration-500"
               style={{ width: `${progress}%` }}
             />
           </div>
@@ -207,7 +197,7 @@ export function SiteAuditSection({
         <button
           type="submit"
           disabled={isLoading || !url.trim()}
-          className="w-full flex items-center justify-center gap-3 px-6 py-4 bg-brand-teal hover:bg-brand-teal/90 disabled:bg-gray-700 disabled:cursor-not-allowed text-white font-medium transition-all group"
+          className="bg-brand-teal hover:bg-brand-teal/90 group flex w-full items-center justify-center gap-3 px-6 py-4 font-medium text-white transition-all disabled:cursor-not-allowed disabled:bg-gray-700"
         >
           {isLoading ? (
             <>
@@ -216,10 +206,10 @@ export function SiteAuditSection({
             </>
           ) : (
             <>
-              <Search className="h-5 w-5 group-hover:scale-110 transition-transform" />
+              <Search className="h-5 w-5 transition-transform group-hover:scale-110" />
               <span>Välj analysnivå</span>
-              <span className="flex items-center gap-1 px-2 py-0.5 bg-black/30 text-sm">
-                <Diamond className="h-3.5 w-3.5 text-brand-teal/80" />
+              <span className="flex items-center gap-1 bg-black/30 px-2 py-0.5 text-sm">
+                <Diamond className="text-brand-teal/80 h-3.5 w-3.5" />
                 <span>
                   {AUDIT_COSTS.basic}/{AUDIT_COSTS.advanced}
                 </span>
@@ -230,30 +220,22 @@ export function SiteAuditSection({
 
         {/* Credits Info */}
         {isAuthenticated && user && (
-          <div className="text-center text-xs text-gray-500 space-y-1">
+          <div className="space-y-1 text-center text-xs text-gray-500">
             <p>
               Du har{" "}
               <span
-                className={
-                  user.diamonds >= AUDIT_COSTS.basic
-                    ? "text-brand-teal"
-                    : "text-red-400"
-                }
+                className={user.diamonds >= AUDIT_COSTS.basic ? "text-brand-teal" : "text-red-400"}
               >
                 {user.diamonds} diamanter
               </span>
             </p>
             <p>
               Vanlig:{" "}
-              <span
-                className={canAffordBasic ? "text-brand-teal" : "text-red-400"}
-              >
+              <span className={canAffordBasic ? "text-brand-teal" : "text-red-400"}>
                 {AUDIT_COSTS.basic}
               </span>{" "}
               | Avancerad:{" "}
-              <span
-                className={canAffordAdvanced ? "text-brand-teal" : "text-red-400"}
-              >
+              <span className={canAffordAdvanced ? "text-brand-teal" : "text-red-400"}>
                 {AUDIT_COSTS.advanced}
               </span>
             </p>
@@ -284,7 +266,7 @@ export function SiteAuditSection({
         ].map((feature, index) => (
           <div
             key={`audit-feature-${index}-${feature.text || feature.icon}`}
-            className="flex items-center gap-2 p-2 bg-black/30 border border-gray-800 text-gray-400"
+            className="flex items-center gap-2 border border-gray-800 bg-black/30 p-2 text-gray-400"
           >
             <span>{feature.icon}</span>
             <span>{feature.text}</span>
@@ -297,21 +279,19 @@ export function SiteAuditSection({
           <DialogHeader>
             <DialogTitle>Välj analysnivå</DialogTitle>
             <DialogDescription>
-              Vanlig ger en snabb kvalitetskontroll. Avancerad gör djupare
-              marknads- och affärsanalys med fler dimensioner.
+              Vanlig ger en snabb kvalitetskontroll. Avancerad gör djupare marknads- och
+              affärsanalys med fler dimensioner.
             </DialogDescription>
           </DialogHeader>
-          <div className="px-6 pb-6 grid gap-4 md:grid-cols-2">
+          <div className="grid gap-4 px-6 pb-6 md:grid-cols-2">
             <button
               type="button"
               onClick={() => startAudit("basic")}
-              className="text-left p-4 bg-black/40 border border-gray-800 hover:border-brand-teal/50 transition-colors"
+              className="hover:border-brand-teal/50 border border-gray-800 bg-black/40 p-4 text-left transition-colors"
             >
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-semibold text-white">
-                  Vanlig analys
-                </span>
-                <span className="flex items-center gap-1 text-xs text-brand-teal/80">
+              <div className="mb-2 flex items-center justify-between">
+                <span className="text-sm font-semibold text-white">Vanlig analys</span>
+                <span className="text-brand-teal/80 flex items-center gap-1 text-xs">
                   <Diamond className="h-3.5 w-3.5" />
                   {AUDIT_COSTS.basic}
                 </span>
@@ -323,20 +303,17 @@ export function SiteAuditSection({
             <button
               type="button"
               onClick={() => startAudit("advanced")}
-              className="text-left p-4 bg-black/40 border border-gray-800 hover:border-brand-blue/50 transition-colors"
+              className="hover:border-brand-blue/50 border border-gray-800 bg-black/40 p-4 text-left transition-colors"
             >
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-sm font-semibold text-white">
-                  Avancerad analys
-                </span>
-                <span className="flex items-center gap-1 text-xs text-brand-blue/80">
+              <div className="mb-2 flex items-center justify-between">
+                <span className="text-sm font-semibold text-white">Avancerad analys</span>
+                <span className="text-brand-blue/80 flex items-center gap-1 text-xs">
                   <Diamond className="h-3.5 w-3.5" />
                   {AUDIT_COSTS.advanced}
                 </span>
               </div>
               <p className="text-xs text-gray-400">
-                Inkluderar bransch, företagsstorlek, kundsegment, geo, konkurrens
-                och affärslogik.
+                Inkluderar bransch, företagsstorlek, kundsegment, geo, konkurrens och affärslogik.
               </p>
             </button>
           </div>

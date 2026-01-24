@@ -1,22 +1,22 @@
-import { assertV0Key, v0 } from '@/lib/v0';
-import { NextResponse } from 'next/server';
-import { z } from 'zod';
-import { getChatByV0ChatIdForRequest } from '@/lib/tenant';
-import { db } from '@/lib/db/client';
-import { versions } from '@/lib/db/schema';
-import { and, eq, or } from 'drizzle-orm';
+import { assertV0Key, v0 } from "@/lib/v0";
+import { NextResponse } from "next/server";
+import { z } from "zod";
+import { getChatByV0ChatIdForRequest } from "@/lib/tenant";
+import { db } from "@/lib/db/client";
+import { versions } from "@/lib/db/schema";
+import { and, eq, or } from "drizzle-orm";
 
 const updateFilesSchema = z.object({
-  versionId: z.string().min(1, 'Version ID is required'),
+  versionId: z.string().min(1, "Version ID is required"),
   files: z
     .array(
       z.object({
-        name: z.string().min(1, 'File name is required'),
+        name: z.string().min(1, "File name is required"),
         content: z.string(),
         locked: z.boolean().optional(),
-      })
+      }),
     )
-    .min(1, 'At least one file is required'),
+    .min(1, "At least one file is required"),
 });
 
 async function isPinnedVersion(chatId: string, versionId: string) {
@@ -26,8 +26,8 @@ async function isPinnedVersion(chatId: string, versionId: string) {
     .where(
       and(
         eq(versions.chatId, chatId),
-        or(eq(versions.id, versionId), eq(versions.v0VersionId, versionId))
-      )
+        or(eq(versions.id, versionId), eq(versions.v0VersionId, versionId)),
+      ),
     )
     .limit(1);
   return rows[0]?.pinned ?? false;
@@ -38,16 +38,16 @@ export async function GET(req: Request, { params }: { params: Promise<{ chatId: 
     assertV0Key();
     const { chatId } = await params;
     const dbChat = await getChatByV0ChatIdForRequest(req, chatId);
-    if (!dbChat) return NextResponse.json({ error: 'Chat not found' }, { status: 404 });
+    if (!dbChat) return NextResponse.json({ error: "Chat not found" }, { status: 404 });
     const { searchParams } = new URL(req.url);
-    const requestedVersionId = searchParams.get('versionId');
+    const requestedVersionId = searchParams.get("versionId");
 
     const chat = await v0.chats.getById({ chatId });
 
     const versionIdToFetch = requestedVersionId || (chat as any).latestVersion?.id || null;
 
     if (!versionIdToFetch) {
-      return NextResponse.json({ error: 'No version found for this chat' }, { status: 404 });
+      return NextResponse.json({ error: "No version found for this chat" }, { status: 404 });
     }
 
     const version = await v0.chats.getVersion({
@@ -61,10 +61,10 @@ export async function GET(req: Request, { params }: { params: Promise<{ chatId: 
       files: (version as any).files || [],
     });
   } catch (err) {
-    console.error('Error fetching files:', err);
+    console.error("Error fetching files:", err);
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : 'Failed to fetch files' },
-      { status: 500 }
+      { error: err instanceof Error ? err.message : "Failed to fetch files" },
+      { status: 500 },
     );
   }
 }
@@ -74,23 +74,20 @@ export async function PUT(req: Request, { params }: { params: Promise<{ chatId: 
     assertV0Key();
     const { chatId } = await params;
     const dbChat = await getChatByV0ChatIdForRequest(req, chatId);
-    if (!dbChat) return NextResponse.json({ error: 'Chat not found' }, { status: 404 });
+    if (!dbChat) return NextResponse.json({ error: "Chat not found" }, { status: 404 });
     const body = await req.json();
 
     const validationResult = updateFilesSchema.safeParse(body);
     if (!validationResult.success) {
       return NextResponse.json(
-        { error: 'Validation failed', details: validationResult.error.issues },
-        { status: 400 }
+        { error: "Validation failed", details: validationResult.error.issues },
+        { status: 400 },
       );
     }
 
     const { versionId, files } = validationResult.data;
     if (await isPinnedVersion(dbChat.id, versionId)) {
-      return NextResponse.json(
-        { error: 'Version is pinned and read-only' },
-        { status: 409 }
-      );
+      return NextResponse.json({ error: "Version is pinned and read-only" }, { status: 409 });
     }
 
     const updatedVersion = await v0.chats.updateVersion({
@@ -106,10 +103,10 @@ export async function PUT(req: Request, { params }: { params: Promise<{ chatId: 
       demoUrl: (updatedVersion as any).demoUrl,
     });
   } catch (err) {
-    console.error('Error updating files:', err);
+    console.error("Error updating files:", err);
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : 'Failed to update files' },
-      { status: 500 }
+      { error: err instanceof Error ? err.message : "Failed to update files" },
+      { status: 500 },
     );
   }
 }
@@ -119,7 +116,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ chatId
     assertV0Key();
     const { chatId } = await params;
     const dbChat = await getChatByV0ChatIdForRequest(req, chatId);
-    if (!dbChat) return NextResponse.json({ error: 'Chat not found' }, { status: 404 });
+    if (!dbChat) return NextResponse.json({ error: "Chat not found" }, { status: 404 });
     const body = await req.json();
 
     const singleFileSchema = z.object({
@@ -132,17 +129,14 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ chatId
     const validationResult = singleFileSchema.safeParse(body);
     if (!validationResult.success) {
       return NextResponse.json(
-        { error: 'Validation failed', details: validationResult.error.issues },
-        { status: 400 }
+        { error: "Validation failed", details: validationResult.error.issues },
+        { status: 400 },
       );
     }
 
     const { versionId, fileName, content, locked } = validationResult.data;
     if (await isPinnedVersion(dbChat.id, versionId)) {
-      return NextResponse.json(
-        { error: 'Version is pinned and read-only' },
-        { status: 409 }
-      );
+      return NextResponse.json({ error: "Version is pinned and read-only" }, { status: 409 });
     }
 
     const currentVersion = await v0.chats.getVersion({
@@ -187,10 +181,10 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ chatId
       demoUrl: (updatedVersion as any).demoUrl,
     });
   } catch (err) {
-    console.error('Error updating file:', err);
+    console.error("Error updating file:", err);
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : 'Failed to update file' },
-      { status: 500 }
+      { error: err instanceof Error ? err.message : "Failed to update file" },
+      { status: 500 },
     );
   }
 }
@@ -200,23 +194,20 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ chatI
     assertV0Key();
     const { chatId } = await params;
     const dbChat = await getChatByV0ChatIdForRequest(req, chatId);
-    if (!dbChat) return NextResponse.json({ error: 'Chat not found' }, { status: 404 });
+    if (!dbChat) return NextResponse.json({ error: "Chat not found" }, { status: 404 });
     const { searchParams } = new URL(req.url);
-    const versionId = searchParams.get('versionId');
-    const fileName = searchParams.get('fileName');
+    const versionId = searchParams.get("versionId");
+    const fileName = searchParams.get("fileName");
 
     if (!versionId || !fileName) {
       return NextResponse.json(
-        { error: 'versionId and fileName are required query parameters' },
-        { status: 400 }
+        { error: "versionId and fileName are required query parameters" },
+        { status: 400 },
       );
     }
 
     if (await isPinnedVersion(dbChat.id, versionId)) {
-      return NextResponse.json(
-        { error: 'Version is pinned and read-only' },
-        { status: 409 }
-      );
+      return NextResponse.json({ error: "Version is pinned and read-only" }, { status: 409 });
     }
 
     const currentVersion = await v0.chats.getVersion({
@@ -246,10 +237,10 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ chatI
       remainingFiles: (updatedVersion as any).files?.length ?? 0,
     });
   } catch (err) {
-    console.error('Error deleting file:', err);
+    console.error("Error deleting file:", err);
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : 'Failed to delete file' },
-      { status: 500 }
+      { error: err instanceof Error ? err.message : "Failed to delete file" },
+      { status: 500 },
     );
   }
 }

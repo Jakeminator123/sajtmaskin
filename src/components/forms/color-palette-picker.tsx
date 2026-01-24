@@ -230,22 +230,16 @@ export function getIndustryPalettes(industry: string): ColorPalette[] {
   if (!industry) return PREDEFINED_PALETTES;
 
   // Get industry-specific palettes first
-  const industrySpecific = INDUSTRY_PALETTES.filter((p) =>
-    p.industries?.includes(industry)
-  );
+  const industrySpecific = INDUSTRY_PALETTES.filter((p) => p.industries?.includes(industry));
 
   // Then get general palettes that also suit this industry
-  const generalMatching = PREDEFINED_PALETTES.filter((p) =>
-    p.industries?.includes(industry)
-  );
+  const generalMatching = PREDEFINED_PALETTES.filter((p) => p.industries?.includes(industry));
 
   // Combine: industry-specific first, then general, then rest
   const combined = [...industrySpecific, ...generalMatching];
 
   // Add remaining general palettes that aren't already included
-  const remaining = PREDEFINED_PALETTES.filter(
-    (p) => !combined.some((c) => c.id === p.id)
-  );
+  const remaining = PREDEFINED_PALETTES.filter((p) => !combined.some((c) => c.id === p.id));
 
   return [...combined, ...remaining];
 }
@@ -254,10 +248,7 @@ interface ColorPalettePickerProps {
   selectedPalette: ColorPalette | null;
   onSelect: (palette: ColorPalette) => void;
   customColors?: { primary: string; secondary: string; accent: string };
-  onCustomColorChange?: (
-    type: "primary" | "secondary" | "accent",
-    color: string
-  ) => void;
+  onCustomColorChange?: (type: "primary" | "secondary" | "accent", color: string) => void;
   industry?: string; // Optional industry to filter/recommend palettes
 }
 
@@ -270,10 +261,7 @@ export function ColorPalettePicker({
 }: ColorPalettePickerProps) {
   const [showCustom, setShowCustom] = useState(false);
 
-  const handleColorChange = (
-    type: "primary" | "secondary" | "accent",
-    color: string
-  ) => {
+  const handleColorChange = (type: "primary" | "secondary" | "accent", color: string) => {
     if (onCustomColorChange) {
       onCustomColorChange(type, color);
     }
@@ -296,12 +284,12 @@ export function ColorPalettePicker({
       {recommendedPalettes.length > 0 && (
         <div className="space-y-2">
           <div className="flex items-center gap-2">
-            <Sparkles className="h-4 w-4 text-brand-amber" />
-            <span className="text-sm font-medium text-brand-amber">
+            <Sparkles className="text-brand-amber h-4 w-4" />
+            <span className="text-brand-amber text-sm font-medium">
               Rekommenderade för din bransch
             </span>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             {recommendedPalettes.map((palette) => (
               <button
                 key={palette.id}
@@ -309,30 +297,23 @@ export function ColorPalettePicker({
                   onSelect(palette);
                   setShowCustom(false);
                 }}
-              className={`relative p-3 border transition-all ${
-                selectedPalette?.id === palette.id && !showCustom
-                  ? "border-brand-amber ring-2 ring-brand-amber/20"
-                  : "border-gray-700 hover:border-gray-600"
-              }`}
+                className={`relative border p-3 transition-all ${
+                  selectedPalette?.id === palette.id && !showCustom
+                    ? "border-brand-amber ring-brand-amber/20 ring-2"
+                    : "border-gray-700 hover:border-gray-600"
+                }`}
               >
                 {selectedPalette?.id === palette.id && !showCustom && (
-                  <div className="absolute -top-2 -right-2 bg-brand-amber rounded-full p-0.5">
+                  <div className="bg-brand-amber absolute -top-2 -right-2 rounded-full p-0.5">
                     <Check className="h-3 w-3 text-white" />
                   </div>
                 )}
-                <div
-                  className={cn(
-                    "flex gap-1 mb-2",
-                    styles[`palette-${palette.id}`]
-                  )}
-                >
+                <div className={cn("mb-2 flex gap-1", styles[`palette-${palette.id}`])}>
                   <div className={cn(styles.swatch, styles.primary)} title="Primär" />
                   <div className={cn(styles.swatch, styles.secondary)} title="Sekundär" />
                   <div className={cn(styles.swatch, styles.accent)} title="Accent" />
                 </div>
-                <span className="text-xs text-gray-300 block truncate">
-                  {palette.name}
-                </span>
+                <span className="block truncate text-xs text-gray-300">{palette.name}</span>
               </button>
             ))}
           </div>
@@ -344,7 +325,7 @@ export function ColorPalettePicker({
         {recommendedPalettes.length > 0 && (
           <span className="text-sm text-gray-500">Övriga paletter</span>
         )}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {otherPalettes.map((palette) => (
             <button
               key={palette.id}
@@ -352,30 +333,23 @@ export function ColorPalettePicker({
                 onSelect(palette);
                 setShowCustom(false);
               }}
-              className={`relative p-3 border transition-all ${
+              className={`relative border p-3 transition-all ${
                 selectedPalette?.id === palette.id && !showCustom
-                  ? "border-brand-teal ring-2 ring-brand-teal/20"
+                  ? "border-brand-teal ring-brand-teal/20 ring-2"
                   : "border-gray-700 hover:border-gray-600"
               }`}
             >
               {selectedPalette?.id === palette.id && !showCustom && (
-                <div className="absolute -top-2 -right-2 bg-brand-teal p-0.5">
+                <div className="bg-brand-teal absolute -top-2 -right-2 p-0.5">
                   <Check className="h-3 w-3 text-white" />
                 </div>
               )}
-              <div
-                className={cn(
-                  "flex gap-1 mb-2",
-                  styles[`palette-${palette.id}`]
-                )}
-              >
+              <div className={cn("mb-2 flex gap-1", styles[`palette-${palette.id}`])}>
                 <div className={cn(styles.swatch, styles.primary)} title="Primär" />
                 <div className={cn(styles.swatch, styles.secondary)} title="Sekundär" />
                 <div className={cn(styles.swatch, styles.accent)} title="Accent" />
               </div>
-              <span className="text-xs text-gray-300 block truncate">
-                {palette.name}
-              </span>
+              <span className="block truncate text-xs text-gray-300">{palette.name}</span>
             </button>
           ))}
         </div>
@@ -384,95 +358,72 @@ export function ColorPalettePicker({
       {/* Custom color toggle */}
       <button
         onClick={() => setShowCustom(!showCustom)}
-        className={`w-full flex items-center justify-center gap-2 py-2 px-4 border transition-all ${
+        className={`flex w-full items-center justify-center gap-2 border px-4 py-2 transition-all ${
           showCustom
             ? "border-brand-teal bg-brand-teal/10 text-brand-teal"
-            : "border-gray-700 hover:border-gray-600 text-gray-400"
+            : "border-gray-700 text-gray-400 hover:border-gray-600"
         }`}
       >
         <Palette className="h-4 w-4" />
-        <span className="text-sm">
-          {showCustom ? "Anpassa färger" : "Anpassa egna färger"}
-        </span>
+        <span className="text-sm">{showCustom ? "Anpassa färger" : "Anpassa egna färger"}</span>
       </button>
 
       {/* Custom color pickers */}
       {showCustom && (
-        <div className="bg-gray-800/50 border border-gray-700 p-4 space-y-4">
-          <p className="text-xs text-gray-500">
-            Klicka på färgcirkeln för att välja egen färg
-          </p>
+        <div className="space-y-4 border border-gray-700 bg-gray-800/50 p-4">
+          <p className="text-xs text-gray-500">Klicka på färgcirkeln för att välja egen färg</p>
 
           <div className="grid grid-cols-3 gap-4">
             {/* Primary color */}
             <div className="space-y-2">
-              <label
-                htmlFor="color-primary"
-                className="text-xs text-gray-400 block"
-              >
+              <label htmlFor="color-primary" className="block text-xs text-gray-400">
                 Primär
               </label>
               <input
                 id="color-primary"
                 name="color-primary"
                 type="color"
-                value={
-                  customColors?.primary || selectedPalette?.primary || "#1E40AF"
-                }
+                value={customColors?.primary || selectedPalette?.primary || "#1E40AF"}
                 onChange={(e) => handleColorChange("primary", e.target.value)}
                 className={styles.colorInput}
               />
-              <span className="text-xs text-gray-500 font-mono">
+              <span className="font-mono text-xs text-gray-500">
                 {customColors?.primary || selectedPalette?.primary || "#1E40AF"}
               </span>
             </div>
 
             {/* Secondary color */}
             <div className="space-y-2">
-              <label
-                htmlFor="color-secondary"
-                className="text-xs text-gray-400 block"
-              >
+              <label htmlFor="color-secondary" className="block text-xs text-gray-400">
                 Sekundär
               </label>
               <input
                 id="color-secondary"
                 name="color-secondary"
                 type="color"
-                value={
-                  customColors?.secondary ||
-                  selectedPalette?.secondary ||
-                  "#3B82F6"
-                }
+                value={customColors?.secondary || selectedPalette?.secondary || "#3B82F6"}
                 onChange={(e) => handleColorChange("secondary", e.target.value)}
                 className={styles.colorInput}
               />
-              <span className="text-xs text-gray-500 font-mono">
-                {customColors?.secondary ||
-                  selectedPalette?.secondary ||
-                  "#3B82F6"}
+              <span className="font-mono text-xs text-gray-500">
+                {customColors?.secondary || selectedPalette?.secondary || "#3B82F6"}
               </span>
             </div>
 
             {/* Accent color */}
             <div className="space-y-2">
-              <label
-                htmlFor="color-accent"
-                className="text-xs text-gray-400 block"
-              >
+              <label htmlFor="color-accent" className="block text-xs text-gray-400">
                 Accent
               </label>
               <input
                 id="color-accent"
                 name="color-accent"
                 type="color"
-                value={
-                  customColors?.accent || selectedPalette?.accent || "#60A5FA"
-                }
+                value={customColors?.accent || selectedPalette?.accent || "#60A5FA"}
                 onChange={(e) => handleColorChange("accent", e.target.value)}
                 className={styles.colorInput}
               />
-              <span className="text-xs text-gray-500 font-mono">
+              <span className="font-mono text-xs text-gray-500">
                 {customColors?.accent || selectedPalette?.accent || "#60A5FA"}
               </span>
             </div>
