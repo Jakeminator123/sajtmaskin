@@ -630,7 +630,7 @@ export async function generateCode(
       chatPrivacy: "private",
       modelConfiguration: {
         modelId: toSdkModelId(modelId),
-        imageGenerations: options.imageGenerations ?? false,
+        imageGenerations: options.imageGenerations ?? true,
         // Enable thinking for better reasoning (premium gets more detailed thinking)
         thinking: modelId === "v0-max",
       },

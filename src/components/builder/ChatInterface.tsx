@@ -38,6 +38,8 @@ type FigmaPreviewResponse = {
 interface ChatInterfaceProps {
   chatId: string | null;
   initialPrompt?: string | null;
+  /** Auto-send initialPrompt immediately (e.g. when coming from homepage) */
+  autoSend?: boolean;
   onCreateChat?: (message: string, options?: MessageOptions) => Promise<boolean | void>;
   onSendMessage?: (message: string, options?: MessageOptions) => Promise<void>;
   onEnhancePrompt?: (message: string) => Promise<string>;
@@ -97,6 +99,7 @@ function isFigmaUrl(url: string): boolean {
 export function ChatInterface({
   chatId,
   initialPrompt,
+  autoSend,
   onCreateChat,
   onSendMessage,
   onEnhancePrompt,
@@ -129,6 +132,8 @@ export function ChatInterface({
   };
 
   const prefilledPromptRef = useRef<string | null>(null);
+  const autoSendTriggeredRef = useRef(false);
+
   useEffect(() => {
     if (chatId) return;
     if (!initialPrompt) return;
@@ -138,6 +143,27 @@ export function ChatInterface({
     setHasEnhancedDraft(false);
     prefilledPromptRef.current = initialPrompt;
   }, [chatId, initialPrompt, input]);
+
+  // Auto-send when autoSend is true and we have an initialPrompt
+  useEffect(() => {
+    if (!autoSend) return;
+    if (chatId) return;
+    if (!initialPrompt?.trim()) return;
+    if (autoSendTriggeredRef.current) return;
+    if (isBusy || isSending) return;
+
+    // Mark as triggered to prevent duplicate sends
+    autoSendTriggeredRef.current = true;
+
+    // Small delay to ensure UI is ready
+    const timeoutId = setTimeout(() => {
+      if (onCreateChat) {
+        onCreateChat(initialPrompt.trim()).catch(console.error);
+      }
+    }, 100);
+
+    return () => clearTimeout(timeoutId);
+  }, [autoSend, chatId, initialPrompt, isBusy, isSending, onCreateChat]);
 
   const normalizedFigmaUrl = useMemo(() => normalizeDesignUrl(figmaUrl), [figmaUrl]);
 

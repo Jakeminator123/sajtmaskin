@@ -640,6 +640,7 @@ function BuilderContent() {
             <ChatInterface
               chatId={chatId}
               initialPrompt={auditPromptLoaded ? initialPrompt : null}
+              autoSend={Boolean(promptParam && !chatId && source !== "audit")}
               onCreateChat={requestCreateChat}
               onSendMessage={sendMessage}
               onEnhancePrompt={maybeEnhanceInitialPrompt}

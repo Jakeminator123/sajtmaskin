@@ -39,7 +39,7 @@ export async function POST(req: Request) {
       const resolvedSystem = system?.trim() ? system : undefined;
       const resolvedThinking = typeof thinking === "boolean" ? thinking : modelId === "v0-max";
       const resolvedImageGenerations =
-        typeof imageGenerations === "boolean" ? imageGenerations : false;
+        typeof imageGenerations === "boolean" ? imageGenerations : true;
       const resolvedChatPrivacy = chatPrivacy ?? "private";
 
       const result = await v0.chats.create({
