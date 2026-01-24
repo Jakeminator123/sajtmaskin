@@ -441,12 +441,8 @@ function isActionableToolPart(tool: Partial<ToolUIPart> & { type?: string }) {
   const state = typeof tool.state === "string" ? tool.state : "";
   if (state === "approval-requested") return true;
   const type = typeof tool.type === "string" ? tool.type.toLowerCase() : "";
-  const name =
-    typeof (tool as { name?: string }).name === "string"
-      ? (tool as { name?: string }).name.toLowerCase()
-      : typeof (tool as { toolName?: string }).toolName === "string"
-        ? (tool as { toolName?: string }).toolName.toLowerCase()
-        : "";
+  const toolWithName = tool as { name?: string; toolName?: string };
+  const name = (toolWithName.name ?? toolWithName.toolName ?? "").toLowerCase();
   return type.includes("install") || name.includes("install") || type.includes("integration");
 }
 
