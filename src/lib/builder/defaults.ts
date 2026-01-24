@@ -87,12 +87,12 @@ export interface PromptAssistDefaults {
 /**
  * Default prompt assist configuration.
  * - Default provider is OFF to match sajtgen's behavior.
- * - If enabled, gateway + gpt-5 gives highest quality prompt rewrites.
+ * - If enabled, gateway + gpt-5.2 gives highest quality prompt rewrites.
  * - Deep Brief OFF by default for snappy UX; user can enable for complex projects.
  */
 export const DEFAULT_PROMPT_ASSIST: PromptAssistDefaults = {
   provider: "off",
-  model: "openai/gpt-5",
+  model: "openai/gpt-5.2",
   deep: false,
 };
 

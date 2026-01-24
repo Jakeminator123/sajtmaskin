@@ -106,16 +106,23 @@ function getGatewayPreferredProvider(model: string): string | null {
 function defaultGatewayFallbackModels(primaryModel: string): string[] {
   const m = primaryModel.toLowerCase();
   const fallbacks = m.startsWith("openai/gpt-5")
-    ? ["openai/gpt-4o", "openai/gpt-4o-mini"]
+    ? ["anthropic/claude-sonnet-4.5", "google/gemini-2.5-flash", "openai/gpt-4o"]
     : m.startsWith("anthropic/")
-      ? ["anthropic/claude-sonnet-4.5", "openai/gpt-4o-mini"]
-      : ["openai/gpt-4o-mini", "anthropic/claude-sonnet-4.5"];
+      ? ["openai/gpt-5.2", "google/gemini-2.5-flash"]
+      : m.startsWith("google/")
+        ? ["openai/gpt-5.2", "anthropic/claude-sonnet-4.5"]
+        : ["openai/gpt-5.2", "anthropic/claude-sonnet-4.5", "google/gemini-2.5-flash"];
   return fallbacks.filter((x) => x !== primaryModel);
 }
 
 function isReasoningModel(model: string): boolean {
-  const reasoningPatterns = [/^o[1-9]/i, /^gpt-5/i, /reasoning/i];
-  return reasoningPatterns.some((pattern) => pattern.test(model));
+  const normalized = model.trim().toLowerCase();
+  return (
+    /(^|\/)o[1-9]/.test(normalized) ||
+    /(^|\/)gpt-5/.test(normalized) ||
+    normalized.includes("thinking") ||
+    normalized.includes("reasoning")
+  );
 }
 
 function getTemperatureConfig(model: string, temperature?: number): { temperature?: number } {
@@ -149,7 +156,7 @@ export async function POST(req: Request) {
             {
               error: "Invalid model for gateway provider",
               setup:
-                'When provider="gateway", set model to "provider/model" (e.g. "openai/gpt-5").',
+                'When provider="gateway", set model to "provider/model" (e.g. "openai/gpt-5.2").',
             },
             { status: 400 },
           );

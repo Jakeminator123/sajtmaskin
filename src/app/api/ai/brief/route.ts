@@ -13,8 +13,8 @@ export const maxDuration = 300; // 5 minutes for deep brief with slow models
 const briefRequestSchema = z.object({
   prompt: z.string().min(1, "prompt is required"),
   provider: z.enum(["gateway", "openai", "anthropic", "vercel"]).optional().default("gateway"),
-  // gpt-5 provides best quality briefs; used as default for prompt assist
-  model: z.string().min(1).optional().default("openai/gpt-5"),
+  // gpt-5.2 provides best quality briefs; used as default for prompt assist
+  model: z.string().min(1).optional().default("openai/gpt-5.2"),
   temperature: z.number().min(0).max(2).optional(),
   imageGenerations: z.boolean().optional().default(true),
 });
@@ -99,8 +99,13 @@ function isProbablyOnVercel(): boolean {
 }
 
 function isReasoningModel(model: string): boolean {
-  const reasoningPatterns = [/^o[1-9]/i, /^gpt-5/i, /reasoning/i];
-  return reasoningPatterns.some((pattern) => pattern.test(model));
+  const normalized = model.trim().toLowerCase();
+  return (
+    /(^|\/)o[1-9]/.test(normalized) ||
+    /(^|\/)gpt-5/.test(normalized) ||
+    normalized.includes("thinking") ||
+    normalized.includes("reasoning")
+  );
 }
 
 function getTemperatureConfig(model: string, temperature?: number): { temperature?: number } {
@@ -144,15 +149,14 @@ function getGatewayPreferredProvider(model: string): string | null {
 
 function defaultGatewayFallbackModels(primaryModel: string): string[] {
   const m = primaryModel.toLowerCase();
-  // Fallback chain: try cheaper/faster models if primary fails
-  const fallbacks =
-    m.startsWith("openai/gpt-4o") && !m.includes("mini")
-      ? ["openai/gpt-4o-mini", "anthropic/claude-sonnet-4.5"]
-      : m.startsWith("openai/gpt-5")
-        ? ["openai/gpt-4o", "openai/gpt-4o-mini"]
-        : m.startsWith("anthropic/")
-          ? ["anthropic/claude-sonnet-4.5", "openai/gpt-4o-mini"]
-          : ["openai/gpt-4o-mini", "anthropic/claude-sonnet-4.5"];
+  // Fallback chain: try alternative models if primary fails
+  const fallbacks = m.startsWith("openai/gpt-5")
+    ? ["anthropic/claude-sonnet-4.5", "google/gemini-2.5-flash", "openai/gpt-4o"]
+    : m.startsWith("anthropic/")
+      ? ["openai/gpt-5.2", "google/gemini-2.5-flash"]
+      : m.startsWith("google/")
+        ? ["openai/gpt-5.2", "anthropic/claude-sonnet-4.5"]
+        : ["openai/gpt-5.2", "anthropic/claude-sonnet-4.5", "google/gemini-2.5-flash"];
   return fallbacks.filter((x) => x !== primaryModel);
 }
 
@@ -198,7 +202,7 @@ export async function POST(req: Request) {
             {
               error: "Invalid model for gateway provider",
               setup:
-                'When provider="gateway", set model to "provider/model" (e.g. "openai/gpt-5").',
+                'When provider="gateway", set model to "provider/model" (e.g. "openai/gpt-5.2").',
             },
             { status: 400 },
           );
