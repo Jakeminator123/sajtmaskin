@@ -1,0 +1,51 @@
+Sammanfattning: OAuth & Webhooks – Sajtmaskin (Vercel Deploy)
+===========================================================
+
+STATUS (2026-01-23)
+-------------------
+
+[x] KLART: GitHub OAuth
+    - DEV: Ov23liAgb9tEjcfB3DYU (för localhost:3000)
+    - PROD: Ov23liAgb9tEjcfB3DYU (för sajtmaskin.vercel.app)
+    - Callback: https://sajtmaskin.vercel.app/api/auth/github/callback
+
+[ ] TODO: Google OAuth
+    - Gå till: https://console.cloud.google.com → APIs & Services → Credentials
+    - Skapa ny OAuth 2.0 Client eller uppdatera befintlig för Vercel:
+      - Authorized JavaScript origins: https://sajtmaskin.vercel.app
+      - Authorized redirect URIs: https://sajtmaskin.vercel.app/api/auth/google/callback
+    - Kopiera Client ID och Client Secret till Vercel env
+
+[ ] TODO: Stripe Webhook
+    - Gå till: https://dashboard.stripe.com/webhooks
+    - Skapa ny endpoint: https://sajtmaskin.vercel.app/api/stripe/webhook
+    - Events att lyssna på:
+      - checkout.session.completed
+      - payment_intent.succeeded
+      - customer.subscription.created/updated/deleted
+    - Kopiera Signing secret (whsec_...) → uppdatera STRIPE_WEBHOOK_SECRET i Vercel
+
+---
+
+MILJÖER
+-------
+
+DEV (localhost:3000):
+  - .env.local och .env.development.local
+  - GitHub: Ov23liAgb9tEjcfB3DYU / 84217345cd8d924125b3451265cae0332620ac2a
+  - Google: Sajtmaksin Dev-klienten i Google Cloud Console
+
+PROD (sajtmaskin.vercel.app):
+  - .env.production och vercel-env-deploy.txt
+  - GitHub: Ov23liAgb9tEjcfB3DYU / 32e60a5bcdddddd25e0f6266496d02aa461cbdba
+  - Google: Behöver uppdateras för Vercel-URL
+  - Stripe: Behöver ny webhook för Vercel-URL
+
+---
+
+CALLBACK-URLs FÖR VERCEL PROD
+-----------------------------
+
+GitHub:  https://sajtmaskin.vercel.app/api/auth/github/callback
+Google:  https://sajtmaskin.vercel.app/api/auth/google/callback
+Stripe:  https://sajtmaskin.vercel.app/api/stripe/webhook

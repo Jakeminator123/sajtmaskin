@@ -236,12 +236,51 @@ export function extractMessageId(parsed: unknown): string | null {
   return null;
 }
 
+/**
+ * Recursively search for "thought" arrays in v0's deeply nested delta structure.
+ * V0 sends thought like: delta.0.1.0.1.part.parts.0.thought = ["partial", "full text"]
+ * The last element in the array is the most complete version.
+ */
+function findThoughtInObject(obj: unknown, depth = 0): string | null {
+  if (depth > 20 || !obj || typeof obj !== "object") return null;
+
+  const record = obj as Record<string, unknown>;
+
+  // Direct thought array - v0 format
+  if (Array.isArray(record.thought) && record.thought.length > 0) {
+    const lastThought = record.thought[record.thought.length - 1];
+    if (typeof lastThought === "string" && lastThought.trim()) {
+      return lastThought;
+    }
+  }
+
+  // Direct thinking/reasoning strings
+  if (typeof record.thinking === "string" && record.thinking.trim()) {
+    return record.thinking;
+  }
+  if (typeof record.reasoning === "string" && record.reasoning.trim()) {
+    return record.reasoning;
+  }
+
+  // Recurse into nested objects and arrays
+  for (const value of Object.values(record)) {
+    if (Array.isArray(value)) {
+      for (const item of value) {
+        const found = findThoughtInObject(item, depth + 1);
+        if (found) return found;
+      }
+    } else if (value && typeof value === "object") {
+      const found = findThoughtInObject(value, depth + 1);
+      if (found) return found;
+    }
+  }
+
+  return null;
+}
+
 export function extractThinkingText(parsed: unknown): string | null {
   if (!parsed || typeof parsed !== "object") return null;
-  const obj = parsed as any;
-  if (typeof obj.thinking === "string") return obj.thinking;
-  if (typeof obj.reasoning === "string") return obj.reasoning;
-  return null;
+  return findThoughtInObject(parsed);
 }
 
 export function extractContentText(parsed: unknown, _raw: string): string | null {

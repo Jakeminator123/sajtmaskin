@@ -225,7 +225,12 @@ export function useV0ChatMessaging(params: {
                     ? data
                     : (data as any)?.thinking || (data as any)?.reasoning || null;
                 if (thinkingText) {
-                  accumulatedThinking += String(thinkingText);
+                  // V0 sends the full thought text in each chunk (not incremental deltas)
+                  // So we replace rather than accumulate
+                  const newThought = String(thinkingText);
+                  if (newThought.length > accumulatedThinking.length) {
+                    accumulatedThinking = newThought;
+                  }
                   setMessages((prev) =>
                     prev.map((m) =>
                       m.id === assistantMessageId
@@ -433,7 +438,12 @@ export function useV0ChatMessaging(params: {
                   ? data
                   : (data as any)?.thinking || (data as any)?.reasoning || null;
               if (thinkingText) {
-                accumulatedThinking += String(thinkingText);
+                // V0 sends the full thought text in each chunk (not incremental deltas)
+                // So we replace rather than accumulate
+                const newThought = String(thinkingText);
+                if (newThought.length > accumulatedThinking.length) {
+                  accumulatedThinking = newThought;
+                }
                 setMessages((prev) =>
                   prev.map((m) =>
                     m.id === assistantMessageId

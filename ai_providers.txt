@@ -1,0 +1,1372 @@
+Browse Models
+A catalog of models to help you build AI features for your Vercel project.
+
+Search model...
+Model
+xai logo
+xai/grok-code-fast-1
+kwaipilot logo
+kwaipilot/kat-coder-pro-v1
+anthropic logo
+anthropic/claude-sonnet-4.5
+google logo
+google/gemini-3-flash
+google logo
+google/gemini-2.5-flash-lite
+anthropic logo
+anthropic/claude-haiku-4.5
+deepseek logo
+deepseek/deepseek-v3.2
+anthropic logo
+anthropic/claude-opus-4.5
+anthropic logo
+anthropic/claude-3.7-sonnet
+openai logo
+openai/gpt-5.2
+xai logo
+xai/grok-4.1-fast-non-reasoning
+google logo
+google/gemini-3-pro-preview
+google logo
+google/gemini-2.5-flash
+zai logo
+zai/glm-4.7
+anthropic logo
+anthropic/claude-sonnet-4
+openai logo
+openai/gpt-5-chat
+openai logo
+openai/gpt-5.2-codex
+openai logo
+openai/gpt-5.1-instant
+google logo
+google/gemini-2.5-pro
+openai logo
+openai/gpt-4.1-mini
+xai logo
+xai/grok-4.1-fast-reasoning
+openai logo
+openai/gpt-5-mini
+openai logo
+openai/gpt-5
+openai logo
+openai/gpt-oss-120b
+openai logo
+openai/gpt-5.1-thinking
+openai logo
+openai/gpt-5-nano
+mistral logo
+mistral/devstral-small-2
+minimax logo
+minimax/minimax-m2.1
+openai logo
+openai/gpt-4o-mini
+xai logo
+xai/grok-4-fast-non-reasoning
+zai logo
+zai/glm-4.6
+google logo
+google/gemini-2.0-flash
+google logo
+google/gemini-3-pro-image
+mistral logo
+mistral/devstral-2
+openai logo
+openai/gpt-4o
+openai logo
+openai/text-embedding-3-small
+google logo
+google/gemini-2.5-flash-image
+openai logo
+openai/gpt-oss-safeguard-20b
+mistral logo
+mistral/mistral-large-3
+xai logo
+xai/grok-4-fast-reasoning
+mistral logo
+mistral/ministral-3b
+openai logo
+openai/gpt-5-codex
+minimax logo
+minimax/minimax-m2
+openai logo
+openai/gpt-4.1
+minimax logo
+minimax/minimax-m2.1-lightning
+amazon logo
+amazon/nova-lite
+mistral logo
+mistral/mistral-embed
+mistral logo
+mistral/mistral-small
+openai logo
+openai/gpt-oss-20b
+openai logo
+openai/gpt-4.1-nano
+deepseek logo
+deepseek/deepseek-v3.2-thinking
+openai logo
+openai/gpt-5.1-codex
+deepseek logo
+deepseek/deepseek-v3
+openai logo
+openai/text-embedding-3-large
+google logo
+google/gemini-embedding-001
+meta logo
+meta/llama-3.1-8b
+openai logo
+openai/o3-mini
+perplexity logo
+perplexity/sonar-pro
+openai logo
+openai/o4-mini
+openai logo
+openai/gpt-5.1-codex-mini
+google logo
+google/gemini-2.5-flash-lite-preview-09-2025
+moonshotai logo
+moonshotai/kimi-k2-0905
+perplexity logo
+perplexity/sonar
+xai logo
+xai/grok-4
+openai logo
+openai/o3
+google logo
+google/text-multilingual-embedding-002
+deepseek logo
+deepseek/deepseek-v3.2-exp
+alibaba logo
+alibaba/qwen-3-235b
+alibaba logo
+alibaba/qwen-3-32b
+deepseek logo
+deepseek/deepseek-r1
+alibaba logo
+alibaba/qwen3-max
+google logo
+google/gemini-2.5-flash-preview-09-2025
+morph logo
+morph/morph-v3-fast
+google logo
+google/text-embedding-005
+anthropic logo
+anthropic/claude-3.5-haiku
+alibaba logo
+alibaba/qwen3-embedding-4b
+moonshotai logo
+moonshotai/kimi-k2
+deepseek logo
+deepseek/deepseek-v3.1
+xiaomi logo
+xiaomi/mimo-v2-flash
+openai logo
+openai/gpt-5.2-chat
+amazon logo
+amazon/nova-micro
+moonshotai logo
+moonshotai/kimi-k2-thinking-turbo
+openai logo
+openai/gpt-3.5-turbo
+meta logo
+meta/llama-4-scout
+google logo
+google/gemini-2.0-flash-lite
+moonshotai logo
+moonshotai/kimi-k2-thinking
+google logo
+google/gemini-2.5-flash-image-preview
+openai logo
+openai/gpt-5.1-codex-max
+mistral logo
+mistral/ministral-8b
+anthropic logo
+anthropic/claude-opus-4
+deepseek logo
+deepseek/deepseek-v3.1-terminus
+zai logo
+zai/glm-4.6v-flash
+mistral logo
+mistral/ministral-14b
+alibaba logo
+alibaba/qwen-3-14b
+meta logo
+meta/llama-3.3-70b
+mistral logo
+mistral/pixtral-12b
+anthropic logo
+anthropic/claude-opus-4.1
+zai logo
+zai/glm-4.7-flash
+anthropic logo
+anthropic/claude-3-haiku
+alibaba logo
+alibaba/qwen3-coder-30b-a3b
+xai logo
+xai/grok-3-fast
+openai logo
+openai/gpt-5.2-pro
+anthropic logo
+anthropic/claude-3.5-sonnet
+xai logo
+xai/grok-2-vision
+openai logo
+openai/text-embedding-ada-002
+xai logo
+xai/grok-3-mini
+nvidia logo
+nvidia/nemotron-nano-12b-v2-vl
+alibaba logo
+alibaba/qwen3-coder
+alibaba logo
+alibaba/qwen3-embedding-8b
+arcee-ai logo
+arcee-ai/trinity-mini
+mistral logo
+mistral/codestral
+amazon logo
+amazon/nova-2-lite
+alibaba logo
+alibaba/qwen3-next-80b-a3b-thinking
+perplexity logo
+perplexity/sonar-reasoning-pro
+anthropic logo
+anthropic/claude-3.5-sonnet-20240620
+alibaba logo
+alibaba/qwen3-235b-a22b-thinking
+zai logo
+zai/glm-4.5-air
+mistral logo
+mistral/codestral-embed
+mistral logo
+mistral/mistral-nemo
+meituan logo
+meituan/longcat-flash-chat
+alibaba logo
+alibaba/qwen3-next-80b-a3b-instruct
+voyage logo
+voyage/voyage-3-large
+meta logo
+meta/llama-4-maverick
+xai logo
+xai/grok-3
+zai logo
+zai/glm-4.7-flashx
+zai logo
+zai/glm-4.6v
+cohere logo
+cohere/command-a
+zai logo
+zai/glm-4.5
+openai logo
+openai/gpt-4-turbo
+meta logo
+meta/llama-3.2-3b
+alibaba logo
+alibaba/qwen3-embedding-0.6b
+meta logo
+meta/llama-3.1-70b
+alibaba logo
+alibaba/qwen3-vl-instruct
+moonshotai logo
+moonshotai/kimi-k2-turbo
+alibaba logo
+alibaba/qwen3-vl-thinking
+vercel logo
+vercel/v0-1.5-md
+voyage logo
+voyage/voyage-3.5
+vercel logo
+vercel/v0-1.0-md
+alibaba logo
+alibaba/qwen3-coder-plus
+bytedance logo
+bytedance/seed-1.6
+zai logo
+zai/glm-4.5v
+alibaba logo
+alibaba/qwen-3-30b
+mistral logo
+mistral/mistral-medium
+nvidia logo
+nvidia/nemotron-3-nano-30b-a3b
+nvidia logo
+nvidia/nemotron-nano-9b-v2
+bytedance logo
+bytedance/seed-1.8
+openai logo
+openai/o1
+xai logo
+xai/grok-3-mini-fast
+openai logo
+openai/gpt-5-pro
+prime-intellect logo
+prime-intellect/intellect-3
+openai logo
+openai/codex-mini
+stealth logo
+stealth/sonoma-sky-alpha
+meituan logo
+meituan/longcat-flash-thinking-2601
+stealth logo
+stealth/sonoma-dusk-alpha
+openai logo
+openai/o3-pro
+meta logo
+meta/llama-3.2-90b
+mistral logo
+mistral/magistral-small
+mistral logo
+mistral/pixtral-large
+meta logo
+meta/llama-3.2-11b
+alibaba logo
+alibaba/qwen3-max-preview
+mistral logo
+mistral/magistral-medium
+meta logo
+meta/llama-3.2-1b
+amazon logo
+amazon/nova-pro
+anthropic logo
+anthropic/claude-3-opus
+amazon logo
+amazon/titan-embed-text-v2
+morph logo
+morph/morph-v3-large
+mistral logo
+mistral/devstral-small
+mistral logo
+mistral/mixtral-8x22b-instruct
+cohere logo
+cohere/embed-v4.0
+voyage logo
+voyage/voyage-3.5-lite
+bfl logo
+bfl/flux-kontext-max
+bfl logo
+bfl/flux-2-klein-4b
+bfl logo
+bfl/flux-2-klein-9b
+bfl logo
+bfl/flux-2-max
+bfl logo
+bfl/flux-pro-1.1-ultra
+google logo
+google/imagen-4.0-ultra-generate-001
+bfl logo
+bfl/flux-pro-1.1
+perplexity logo
+perplexity/sonar-reasoning
+openai logo
+openai/gpt-3.5-turbo-instruct
+google logo
+google/imagen-4.0-generate-001
+recraft logo
+recraft/recraft-v2
+bfl logo
+bfl/flux-2-flex
+bfl logo
+bfl/flux-2-pro
+inception logo
+inception/mercury-coder-small
+bfl logo
+bfl/flux-kontext-pro
+google logo
+google/imagen-4.0-fast-generate-001
+openai logo
+openai/o3-deep-research
+meituan logo
+meituan/longcat-flash-thinking
+recraft logo
+recraft/recraft-v3
+bfl logo
+bfl/flux-pro-1.0-fill
+openai logo
+openai/gpt-4o-mini-search-preview
+voyage logo
+voyage/voyage-code-2
+voyage logo
+voyage/voyage-code-3
+voyage logo
+voyage/voyage-finance-2
+voyage logo
+voyage/voyage-law-2
+256K	256K	$0.20/M	$1.50/M
+Read:
+$0.02/M
+Write:
+—
+—	—
+xai logo
+256K	32K	$0.03/M	$0.83/M
+Read:
+$0.04/M
+Write:
+—
+—	—
+novita logo
+streamlake logo
+1000K	64K	$3.00/M	$15.00/M
+Read:
+$0.30/M
+Write:
+$3.75/M
+—
+$10.00/K
++ input costs
+anthropic logo
+bedrock logo
+vertexAnthropic logo
+1000K	65K	$0.50/M	$3.00/M
+Read:
+$0.05/M
+Write:
+—
+—
+$14.00/K
++ input costs
+google logo
+vertex logo
+1049K	66K	$0.10/M	$0.40/M
+Read:
+$0.01/M
+Write:
+—
+—
+$35.00/K
++ input costs
+google logo
+vertex logo
+200K	64K	$1.00/M	$5.00/M
+Read:
+$0.10/M
+Write:
+$1.25/M
+—
+$10.00/K
++ input costs
+anthropic logo
+bedrock logo
+vertexAnthropic logo
+164K	66K	$0.27/M	$0.40/M
+Read:
+$0.03/M
+Write:
+—
+—	—
+deepinfra logo
+deepseek logo
+novita logo
+200K	64K	$5.00/M	$25.00/M
+Read:
+$0.50/M
+Write:
+$6.25/M
+—	—
+anthropic logo
+bedrock logo
+vertexAnthropic logo
+200K	64K	$3.00/M	$15.00/M
+Read:
+$0.30/M
+Write:
+$3.75/M
+—	—
+anthropic logo
+bedrock logo
+vertexAnthropic logo
+400K	128K	$1.75/M	$14.00/M
+Read:
+$0.17/M
+Write:
+—
+—
+$10.00/K
++ input costs
+openai logo
+2000K	30K	$0.20/M	$0.50/M
+Read:
+$0.05/M
+Write:
+—
+—	—
+xai logo
+1000K	64K	$2.00/M	$12.00/M
+Read:
+$0.20/M
+Write:
+—
+—
+$14.00/K
++ input costs
+google logo
+vertex logo
+1000K	66K	$0.30/M	$2.50/M
+Read:
+$0.03/M
+Write:
+—
+—
+$35.00/K
++ input costs
+deepinfra logo
+google logo
+vertex logo
+205K	131K	$0.43/M	$1.75/M
+Read:
+$0.08/M
+Write:
+—
+—	—
+cerebras logo
+deepinfra logo
+novita logo
++1
+1000K	64K	$3.00/M	$15.00/M
+Read:
+$0.30/M
+Write:
+$3.75/M
+—
+$10.00/K
++ input costs
+anthropic logo
+bedrock logo
+vertexAnthropic logo
+128K	16K	$1.25/M	$10.00/M
+Read:
+$0.13/M
+Write:
+—
+$10.00/M
+$10.00/K
++ input costs
++1
+openai logo
+400K	128K	$1.75/M	$14.00/M
+Read:
+$0.17/M
+Write:
+—
+—
+$10/K
++ input costs
+openai logo
+128K	16K	$1.25/M	$10.00/M
+Read:
+$0.13/M
+Write:
+—
+—
+$10.00/K
++ input costs
+azure logo
+openai logo
+1049K	66K	$1.25/M	$10.00/M
+Read:
+$0.13/M
+Write:
+—
+—
+$35.00/K
++ input costs
+deepinfra logo
+google logo
+vertex logo
+1048K	33K	$0.40/M	$1.60/M
+Read:
+$0.10/M
+Write:
+—
+—
+$10.00/K
++ input costs
+azure logo
+openai logo
+2000K	30K	$0.20/M	$0.50/M
+Read:
+$0.05/M
+Write:
+—
+—	—
+xai logo
+400K	128K	$0.25/M	$2.00/M
+Read:
+$0.03/M
+Write:
+—
+—
+$10.00/K
++ input costs
+azure logo
+openai logo
+400K	128K	$1.25/M	$10.00/M
+Read:
+$0.13/M
+Write:
+—
+$10.00/M
+$10.00/K
++ input costs
+azure logo
+openai logo
+131K	131K	$0.10/M	$0.50/M
+Read:
+$0.08/M
+Write:
+—
+—	—
+baseten logo
+bedrock logo
+cerebras logo
++5
+400K	128K	$1.25/M	$10.00/M
+Read:
+$0.13/M
+Write:
+—
+$10.00/M
+$10.00/K
++ input costs
++1
+azure logo
+openai logo
+400K	128K	$0.05/M	$0.40/M
+Read:
+$0.01/M
+Write:
+—
+$0.40/M
+$10.00/K
++ input costs
+azure logo
+openai logo
+256K	256K	—	—	—	—	—
+mistral logo
+205K	200K	$0.28/M	$1.20/M
+Read:
+$0.03/M
+Write:
+$0.38/M
+—	—
+deepinfra logo
+fireworks logo
+minimax logo
++1
+128K	16K	$0.15/M	$0.60/M
+Read:
+$0.07/M
+Write:
+—
+—
+$10.00/K
++ input costs
+azure logo
+openai logo
+2000K	256K	$0.20/M	$0.50/M
+Read:
+$0.05/M
+Write:
+—
+—	—
+xai logo
+205K	203K	$0.45/M	$1.80/M
+Read:
+$0.11/M
+Write:
+—
+—	—
+baseten logo
+deepinfra logo
+fireworks logo
++2
+1049K	8K	$0.10/M	$0.40/M
+Read:
+$0.03/M
+Write:
+—
+—
+$35.00/K
++ input costs
+google logo
+vertex logo
+66K	33K	$2.00/M	$120.00/M	—	$120.00/M
+$14.00/K
++ input costs
+google logo
+vertex logo
+256K	256K	—	—	—	—	—
+mistral logo
+128K	16K	$2.50/M	$10.00/M
+Read:
+$1.25/M
+Write:
+—
+—
+$10.00/K
++ input costs
+azure logo
+openai logo
+—	—	$0.02/M	—	—	—	—
+azure logo
+openai logo
+33K	66K	$0.30/M	$2.50/M	—	$0.04/img	—
+google logo
+vertex logo
+131K	66K	$0.07/M	$0.30/M
+Read:
+$0.04/M
+Write:
+—
+—	—
+groq logo
+256K	256K	$0.50/M	$1.50/M	—	—	—
+mistral logo
+2000K	256K	$0.20/M	$0.50/M
+Read:
+$0.05/M
+Write:
+—
+—	—
+xai logo
+128K	4K	$0.04/M	$0.04/M	—	—	—
+mistral logo
+400K	128K	$1.25/M	$10.00/M
+Read:
+$0.13/M
+Write:
+—
+—
+$10.00/K
++ input costs
+azure logo
+openai logo
+262K	262K	$0.27/M	$1.15/M
+Read:
+$0.03/M
+Write:
+$0.38/M
+—	—
+deepinfra logo
+minimax logo
+novita logo
+1048K	33K	$2.00/M	$8.00/M
+Read:
+$0.50/M
+Write:
+—
+—
+$10.00/K
++ input costs
+azure logo
+openai logo
+205K	131K	$0.30/M	$2.40/M
+Read:
+$0.03/M
+Write:
+$0.38/M
+—	—
+minimax logo
+300K	8K	$0.06/M	$0.24/M	—	—	—
+bedrock logo
+—	—	$0.10/M	—	—	—	—
+mistral logo
+32K	4K	$0.10/M	$0.30/M	—	—	—
+mistral logo
+131K	128K	$0.07/M	$0.30/M	—	—	—
+bedrock logo
+fireworks logo
+groq logo
+1048K	33K	$0.10/M	$0.40/M
+Read:
+$0.03/M
+Write:
+—
+—
+$10.00/K
++ input costs
+azure logo
+openai logo
+128K	64K	$0.28/M	$0.42/M
+Read:
+$0.03/M
+Write:
+—
+—	—
+deepseek logo
+400K	128K	$1.25/M	$10.00/M
+Read:
+$0.13/M
+Write:
+—
+—
+$10.00/K
++ input costs
+azure logo
+openai logo
+164K	164K	$0.28/M	$0.77/M	—	—	—
+baseten logo
+novita logo
+—	—	$0.13/M	—	—	—	—
+azure logo
+openai logo
+—	—	$0.15/M	—	—	—	—
+google logo
+vertex logo
+131K	131K	$0.02/M	$0.05/M	—	—	—
+bedrock logo
+cerebras logo
+deepinfra logo
++2
+200K	100K	$1.10/M	$4.40/M
+Read:
+$0.55/M
+Write:
+—
+—	—
+azure logo
+openai logo
+200K	8K	$3.00/M	$15.00/M	—	—	—
+perplexity logo
+200K	100K	$1.10/M	$4.40/M
+Read:
+$0.28/M
+Write:
+—
+—	—
+azure logo
+openai logo
+400K	128K	$0.25/M	$2.00/M
+Read:
+$0.03/M
+Write:
+—
+—
+$10.00/K
++ input costs
+openai logo
+1049K	66K	$0.10/M	$0.40/M
+Read:
+$0.01/M
+Write:
+—
+—
+$35.00/K
++ input costs
+google logo
+vertex logo
+262K	128K	$0.60/M	$2.50/M	—	—	—
+baseten logo
+fireworks logo
+groq logo
++1
+127K	8K	$1.00/M	$1.00/M	—	—	—
+perplexity logo
+256K	256K	$3.00/M	$15.00/M	—	—	—
+xai logo
+200K	100K	$2.00/M	$8.00/M
+Read:
+$0.50/M
+Write:
+—
+—	—
+openai logo
+—	—	$0.03/M	—	—	—	—
+vertex logo
+164K	164K	$0.27/M	$0.40/M	—	—	—
+deepinfra logo
+novita logo
+131K	40K	$0.07/M	$0.46/M
+Read:
+$0.11/M
+Write:
+—
+—	—
+cerebras logo
+deepinfra logo
+fireworks logo
++1
+131K	41K	$0.10/M	$0.30/M	—	—	—
+bedrock logo
+cerebras logo
+deepinfra logo
++1
+164K	16K	$0.50/M	$2.15/M
+Read:
+$0.40/M
+Write:
+—
+—	—
+bedrock logo
+deepinfra logo
+parasail logo
+262K	33K	$1.20/M	$6.00/M
+Read:
+$0.24/M
+Write:
+—
+—	—
+alibaba logo
+1000K	66K	$0.30/M	$2.50/M
+Read:
+$0.03/M
+Write:
+—
+—
+$35.00/K
++ input costs
+google logo
+vertex logo
+82K	16K	$0.80/M	$1.20/M	—	—	—
+morph logo
+—	—	$0.03/M	—	—	—	—
+vertex logo
+200K	8K	$0.80/M	$4.00/M
+Read:
+$0.08/M
+Write:
+$1.00/M
+—	—
+anthropic logo
+bedrock logo
+vertexAnthropic logo
+33K	33K	$0.02/M	—	—	—	—
+deepinfra logo
+131K	131K	$0.50/M	$2.00/M	—	—	—
+deepinfra logo
+fireworks logo
+moonshotai logo
++2
+164K	164K	$0.30/M	$1.00/M	—	—	—
+baseten logo
+deepinfra logo
+fireworks logo
++3
+262K	32K	$0.09/M	$0.29/M
+Read:
+$0.02/M
+Write:
+—
+—	—
+chutes logo
+novita logo
+128K	16K	$1.75/M	$14.00/M
+Read:
+$0.17/M
+Write:
+—
+—
+$10.00/K
++ input costs
+openai logo
+128K	8K	$0.04/M	$0.14/M	—	—	—
+bedrock logo
+262K	262K	$1.15/M	$8.00/M
+Read:
+$0.15/M
+Write:
+—
+—	—
+moonshotai logo
+16K	4K	$0.50/M	$1.50/M	—	—	—
+openai logo
+131K	8K	$0.08/M	$0.30/M	—	—	—
+bedrock logo
+deepinfra logo
+groq logo
+1049K	8K	$0.07/M	$0.30/M	—	—
+$35.00/K
++ input costs
+google logo
+vertex logo
+262K	262K	$0.47/M	$2.00/M
+Read:
+$0.14/M
+Write:
+—
+—	—
+baseten logo
+deepinfra logo
+fireworks logo
++2
+33K	33K	$0.30/M	$2.50/M	—	$0.04/img	—
+google logo
+400K	128K	$1.25/M	$10.00/M
+Read:
+$0.13/M
+Write:
+—
+—
+$10.00/K
++ input costs
+openai logo
+128K	4K	$0.10/M	$0.10/M	—	—	—
+mistral logo
+200K	32K	$15.00/M	$75.00/M
+Read:
+$1.50/M
+Write:
+$18.75/M
+—
+$10.00/K
++ input costs
+anthropic logo
+bedrock logo
+vertexAnthropic logo
+131K	66K	$0.27/M	$1.00/M	—	—	—
+novita logo
+128K	24K	—	—	—	—	—
+zai logo
+256K	256K	$0.20/M	$0.20/M	—	—	—
+mistral logo
+41K	16K	$0.06/M	$0.24/M	—	—	—
+deepinfra logo
+128K	33K	$0.59/M	$0.72/M
+Read:
+$0.85/M
+Write:
+—
+—	—
+bedrock logo
+cerebras logo
+groq logo
+128K	4K	$0.15/M	$0.15/M	—	—	—
+mistral logo
+200K	32K	$15.00/M	$75.00/M
+Read:
+$1.50/M
+Write:
+$18.75/M
+—
+$10.00/K
++ input costs
+anthropic logo
+bedrock logo
+vertexAnthropic logo
+200K	131K	—	—	—	—	—
+zai logo
+200K	4K	$0.25/M	$1.25/M
+Read:
+$0.03/M
+Write:
+$0.30/M
+—	—
+anthropic logo
+bedrock logo
+vertexAnthropic logo
+262K	33K	$0.07/M	$0.27/M	—	—	—
+bedrock logo
+novita logo
+131K	131K	$5.00/M	$25.00/M	—	—	—
+xai logo
+400K	128K	$21.00/M	$168.00/M	—	—
+$10.00/K
++ input costs
+openai logo
+200K	8K	$3.00/M	$15.00/M
+Read:
+$0.30/M
+Write:
+$3.75/M
+—	—
+bedrock logo
+vertexAnthropic logo
+33K	33K	$2.00/M	$10.00/M	—	—	—
+xai logo
+—	—	$0.10/M	—	—	—	—
+azure logo
+openai logo
+131K	131K	$0.30/M	$0.50/M	—	—	—
+xai logo
+131K	131K	$0.20/M	$0.60/M	—	—	—
+bedrock logo
+deepinfra logo
+262K	67K	$0.38/M	$1.53/M
+Read:
+$0.30/M
+Write:
+—
+—	—
+alibaba logo
+baseten logo
+deepinfra logo
++2
+33K	33K	$0.05/M	—	—	—	—
+deepinfra logo
+131K	131K	$0.04/M	$0.15/M	—	—	—
+arcee-ai logo
+128K	4K	$0.30/M	$0.90/M	—	—	—
+mistral logo
+1000K	1000K	$0.30/M	$2.50/M	—	—	—
+bedrock logo
+131K	66K	$0.15/M	$1.50/M	—	—	—
+alibaba logo
+novita logo
+127K	8K	$2.00/M	$8.00/M	—	—	—
+perplexity logo
+200K	8K	$3.00/M	$15.00/M
+Read:
+$0.30/M
+Write:
+$3.75/M
+—	—
+bedrock logo
+vertexAnthropic logo
+262K	262K	$0.30/M	$2.90/M	—	—	—
+deepinfra logo
+novita logo
+128K	96K	$0.20/M	$1.10/M
+Read:
+$0.03/M
+Write:
+—
+—	—
+zai logo
+—	—	$0.15/M	—	—	—	—
+mistral logo
+131K	131K	$0.02/M	$0.04/M	—	—	—
+deepinfra logo
+mistral logo
+novita logo
+128K	100K	—	—	—	—	—
+chutes logo
+meituan logo
+262K	66K	$0.09/M	$1.10/M	—	—	—
+alibaba logo
+deepinfra logo
+novita logo
+—	—	$0.18/M	—	—	—	—
+voyage logo
+524K	8K	$0.15/M	$0.60/M	—	—	—
+bedrock logo
+deepinfra logo
+vertex logo
+131K	131K	$3.00/M	$15.00/M	—	—	—
+xai logo
+200K	128K	$0.06/M	$0.40/M
+Read:
+$0.01/M
+Write:
+—
+—	—
+zai logo
+128K	24K	$0.30/M	$0.90/M
+Read:
+$0.05/M
+Write:
+—
+—	—
+zai logo
+256K	8K	$2.50/M	$10.00/M	—	—	—
+cohere logo
+131K	131K	$0.60/M	$2.20/M
+Read:
+$0.11/M
+Write:
+—
+—	—
+novita logo
+zai logo
+128K	4K	$10.00/M	$30.00/M	—	—	—
+openai logo
+128K	8K	$0.15/M	$0.15/M	—	—	—
+bedrock logo
+33K	33K	$0.01/M	—	—	—	—
+deepinfra logo
+131K	16K	$0.40/M	$0.40/M	—	—	—
+bedrock logo
+deepinfra logo
+131K	129K	$0.70/M	$2.80/M	—	—	—
+alibaba logo
+256K	16K	$2.40/M	$10.00/M	—	—	—
+moonshotai logo
+131K	33K	$0.70/M	$8.40/M	—	—	—
+alibaba logo
+128K	33K	$3.00/M	$15.00/M	—	—	—
+vercel logo
+—	—	$0.06/M	—	—	—	—
+voyage logo
+128K	32K	$3.00/M	$15.00/M	—	—	—
+vercel logo
+1000K	66K	$1.00/M	$5.00/M
+Read:
+$0.20/M
+Write:
+—
+—	—
+alibaba logo
+256K	32K	$0.25/M	$2.00/M
+Read:
+$0.05/M
+Write:
+—
+—	—
+bytedance logo
+66K	66K	$0.60/M	$1.80/M
+Read:
+$0.11/M
+Write:
+—
+—	—
+novita logo
+zai logo
+41K	16K	$0.08/M	$0.29/M	—	—	—
+deepinfra logo
+128K	64K	$0.40/M	$2.00/M	—	—	—
+mistral logo
+262K	262K	$0.06/M	$0.24/M	—	—	—
+deepinfra logo
+131K	131K	$0.04/M	$0.16/M	—	—	—
+bedrock logo
+deepinfra logo
+256K	64K	$0.25/M	$2.00/M
+Read:
+$0.05/M
+Write:
+—
+—	—
+bytedance logo
+200K	100K	$15.00/M	$60.00/M
+Read:
+$7.50/M
+Write:
+—
+—	—
+azure logo
+openai logo
+131K	131K	$0.60/M	$4.00/M	—	—	—
+xai logo
+400K	272K	$15.00/M	$120.00/M	—	$120.00/M
+$10.00/K
++ input costs
++1
+openai logo
+131K	131K	$0.20/M	$1.10/M	—	—	—
+parasail logo
+200K	100K	$1.50/M	$6.00/M
+Read:
+$0.38/M
+Write:
+—
+—	—
+openai logo
+2000K	131K	$0.20/M	$0.50/M
+Read:
+$0.05/M
+Write:
+—
+—	—
+stealth logo
+33K	33K	—	—	—	—	—
+meituan logo
+2000K	131K	$0.20/M	$0.50/M
+Read:
+$0.05/M
+Write:
+—
+—	—
+stealth logo
+200K	100K	$20.00/M	$80.00/M	—	—	—
+openai logo
+128K	8K	$0.72/M	$0.72/M	—	—	—
+bedrock logo
+128K	64K	$0.50/M	$1.50/M	—	—	—
+mistral logo
+128K	4K	$2.00/M	$6.00/M	—	—	—
+mistral logo
+128K	8K	$0.16/M	$0.16/M	—	—	—
+bedrock logo
+262K	33K	$1.20/M	$6.00/M
+Read:
+$0.24/M
+Write:
+—
+—	—
+alibaba logo
+128K	64K	$2.00/M	$5.00/M	—	—	—
+mistral logo
+128K	8K	$0.10/M	$0.10/M	—	—	—
+bedrock logo
+300K	8K	$0.80/M	$3.20/M	—	—	—
+bedrock logo
+200K	8K	$15.00/M	$75.00/M
+Read:
+$1.50/M
+Write:
+$18.75/M
+—	—
+bedrock logo
+vertexAnthropic logo
+—	—	$0.02/M	—	—	—	—
+bedrock logo
+82K	16K	$0.90/M	$1.90/M	—	—	—
+morph logo
+128K	64K	$0.10/M	$0.30/M	—	—	—
+mistral logo
+66K	2K	$1.20/M	$1.20/M	—	—	—
+fireworks logo
+—	—	$0.12/M	—	—	—	—
+cohere logo
+—	—	$0.02/M	—	—	—	—
+voyage logo
+512	—	—	—	—	$0.08/img	—
+bfl logo
+—	—	—	—	—	$0.014/MP	—
+bfl logo
+—	—	—	—	—	$0.015/MP	—
+bfl logo
+67K	67K	—	—	—	$0.07/MP	—
+bfl logo
+—	—	—	—	—	$0.06/img	—
+bfl logo
+480	—	—	—	—	$0.06/img	—
+vertex logo
+—	—	—	—	—	$0.04/img	—
+bfl logo
+127K	8K	$1.00/M	$5.00/M	—	—	—
+perplexity logo
+8K	4K	$1.50/M	$2.00/M	—	—	—
+openai logo
+480	—	—	—	—	$0.04/img	—
+vertex logo
+—	—	—	—	—	$0.02/img	—
+recraft logo
+—	—	—	—	—	$0.06/MP	—
+bfl logo
+67K	67K	—	—	—	$0.03/MP	—
+bfl logo
+32K	16K	$0.25/M	$1.00/M	—	—	—
+inception logo
+512	—	—	—	—	$0.04/img	—
+bfl logo
+prodia logo
+480	—	—	—	—	$0.02/img	—
+vertex logo
+200K	100K	$10.00/M	$40.00/M
+Read:
+$2.50/M
+Write:
+—
+—
+$10.00/K
++ input costs
+openai logo
+128K	8K	$0.15/M	$1.50/M	—	—	—
+chutes logo
+—	—	—	—	—	$0.04/img	—
+recraft logo
+—	—	—	—	—	$0.05/img	—
+bfl logo
+128K	16K	$0.15/M	$0.60/M	—	—
+$10.00/K
++ input costs
+openai logo
+—	—	$0.12/M	—	—	—	—
+voyage logo
+—	—	$0.18/M	—	—	—	—
+voyage logo
+—	—	$0.12/M	—	—	—	—
+voyage logo
+—	—	$0.12/M	—	—	—	—
