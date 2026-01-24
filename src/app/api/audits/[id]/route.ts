@@ -23,7 +23,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     if (!user) {
       return NextResponse.json(
         { success: false, error: "Du måste vara inloggad." },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
@@ -31,10 +31,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     const auditId = parseInt(id, 10);
 
     if (isNaN(auditId)) {
-      return NextResponse.json(
-        { success: false, error: "Ogiltigt audit-ID." },
-        { status: 400 }
-      );
+      return NextResponse.json({ success: false, error: "Ogiltigt audit-ID." }, { status: 400 });
     }
 
     // Try cache first for the audit result
@@ -44,10 +41,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     const audit = getUserAuditById(auditId, user.id);
 
     if (!audit) {
-      return NextResponse.json(
-        { success: false, error: "Audit hittades inte." },
-        { status: 404 }
-      );
+      return NextResponse.json({ success: false, error: "Audit hittades inte." }, { status: 404 });
     }
 
     // Parse audit result - use cache if available, otherwise from DB
@@ -81,10 +75,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     });
   } catch (error) {
     console.error("[API/audits/[id]] GET error:", error);
-    return NextResponse.json(
-      { success: false, error: "Kunde inte hämta audit." },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, error: "Kunde inte hämta audit." }, { status: 500 });
   }
 }
 
@@ -98,7 +89,7 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
     if (!user) {
       return NextResponse.json(
         { success: false, error: "Du måste vara inloggad." },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
@@ -106,10 +97,7 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
     const auditId = parseInt(id, 10);
 
     if (isNaN(auditId)) {
-      return NextResponse.json(
-        { success: false, error: "Ogiltigt audit-ID." },
-        { status: 400 }
-      );
+      return NextResponse.json({ success: false, error: "Ogiltigt audit-ID." }, { status: 400 });
     }
 
     const deleted = deleteUserAudit(auditId, user.id);
@@ -120,16 +108,14 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
           success: false,
           error: "Audit hittades inte eller kunde inte tas bort.",
         },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
     // Invalidate cache
     await invalidateUserAuditCache(user.id);
 
-    console.log(
-      `[API/audits/[id]] Deleted audit ${auditId} for user ${user.id}`
-    );
+    console.log(`[API/audits/[id]] Deleted audit ${auditId} for user ${user.id}`);
 
     return NextResponse.json({
       success: true,
@@ -139,7 +125,7 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
     console.error("[API/audits/[id]] DELETE error:", error);
     return NextResponse.json(
       { success: false, error: "Kunde inte ta bort audit." },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

@@ -1115,7 +1115,7 @@ export default function BackofficeLayout({
  */
 export function generateBackofficeFiles(
   manifest: ContentManifest,
-  password?: string
+  password?: string,
 ): BackofficeFileSet {
   const files: BackofficeFile[] = [
     // Pages
@@ -1200,11 +1200,7 @@ ${passwordSetupStep}
 - **Texter**: Rubriker, beskrivningar, knappar
 - **Bilder**: Byt ut bilder direkt
 - **Färger**: Ändra färgtema (primär, sekundär, accent)
-${
-  manifest.products.length > 0
-    ? "- **Produkter**: Hantera produkter och priser"
-    : ""
-}
+${manifest.products.length > 0 ? "- **Produkter**: Hantera produkter och priser" : ""}
 
 ## Deployment
 

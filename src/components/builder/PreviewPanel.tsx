@@ -113,17 +113,22 @@ export function PreviewPanel({
       try {
         const response = await fetch(
           `/api/v0/chats/${encodeURIComponent(chatId)}/files?versionId=${encodeURIComponent(
-            versionId
+            versionId,
           )}`,
-          { signal: controller.signal }
+          { signal: controller.signal },
         );
+        const data = (await response.json().catch(() => null)) as {
+          files?: Array<{ name: string; content: string; locked?: boolean }>;
+          error?: string;
+        } | null;
         if (!response.ok) {
-          const data = await response.json().catch(() => ({}));
           throw new Error(data?.error || `Failed to fetch files (HTTP ${response.status})`);
         }
-        const data = await response.json().catch(() => ({}));
-        const flatFiles: Array<{ name: string; content: string; locked?: boolean }> =
-          Array.isArray(data?.files) ? data.files : [];
+        const flatFiles: Array<{ name: string; content: string; locked?: boolean }> = Array.isArray(
+          data?.files,
+        )
+          ? data.files
+          : [];
         const tree = buildFileTree(flatFiles);
         const preferredPath = getPreferredFilePath(flatFiles);
         const preferredNode =
@@ -197,8 +202,8 @@ export function PreviewPanel({
   if (!demoUrl && !showCode) {
     return (
       <div className="flex h-full flex-col items-center justify-center bg-black/20 text-gray-500">
-        <AlertCircle className="h-12 w-12 mb-4" />
-        <p className="text-lg font-medium mb-2">Ingen förhandsvisning ännu</p>
+        <AlertCircle className="mb-4 h-12 w-12" />
+        <p className="mb-2 text-lg font-medium">Ingen förhandsvisning ännu</p>
         <p className="text-sm">
           {externalLoading ? "AI tänker... preview kommer strax" : "Skapa något för att se preview"}
         </p>
@@ -222,24 +227,24 @@ export function PreviewPanel({
             title={canShowCode ? "Visa kod" : "Ingen kod tillgänglig än"}
             className={cn(
               "text-gray-400 hover:text-white",
-              showCode && "bg-gray-800 text-white hover:text-white"
+              showCode && "bg-gray-800 text-white hover:text-white",
             )}
           >
-            <FileText className="h-4 w-4 mr-1" />
+            <FileText className="mr-1 h-4 w-4" />
             Kod
           </Button>
-            {demoUrl && onClear && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={handleClear}
-                disabled={isLoading}
-                title="Rensa preview"
-                className="text-gray-400 hover:text-white"
-              >
-                Rensa
-              </Button>
-            )}
+          {demoUrl && onClear && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleClear}
+              disabled={isLoading}
+              title="Rensa preview"
+              className="text-gray-400 hover:text-white"
+            >
+              Rensa
+            </Button>
+          )}
           <Button
             variant="ghost"
             size="icon"
@@ -257,7 +262,7 @@ export function PreviewPanel({
             title="Öppna i ny flik"
             className="text-gray-400 hover:text-white"
           >
-            <ExternalLink className="h-4 w-4 mr-1" />
+            <ExternalLink className="mr-1 h-4 w-4" />
             Öppna
           </Button>
         </div>
@@ -296,22 +301,22 @@ export function PreviewPanel({
       ) : (
         <div className="relative flex-1 overflow-hidden">
           {isLoading && (
-            <div className="absolute inset-0 flex items-center justify-center bg-black/60 z-10">
+            <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/60">
               <div className="text-center">
-                <Loader2 className="h-8 w-8 animate-spin text-gray-400 mx-auto mb-2" />
+                <Loader2 className="mx-auto mb-2 h-8 w-8 animate-spin text-gray-400" />
                 <p className="text-sm text-gray-400">Laddar preview...</p>
               </div>
             </div>
           )}
 
           {iframeError && (
-            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/60 z-10 p-4">
-              <AlertCircle className="h-12 w-12 text-red-400 mb-4" />
-              <p className="text-sm text-gray-400 mb-4 text-center">
+            <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-black/60 p-4">
+              <AlertCircle className="mb-4 h-12 w-12 text-red-400" />
+              <p className="mb-4 text-center text-sm text-gray-400">
                 Preview kunde inte laddas i iframe. Öppna i ny flik istället.
               </p>
               <Button onClick={handleOpenInNewTab}>
-                <ExternalLink className="h-4 w-4 mr-2" />
+                <ExternalLink className="mr-2 h-4 w-4" />
                 Öppna i ny flik
               </Button>
             </div>

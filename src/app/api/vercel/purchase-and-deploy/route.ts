@@ -29,7 +29,7 @@ async function waitForOrderCompletion(
   orderId: string,
   teamId?: string,
   maxWaitTime = 300000, // 5 minutes (increased from 2)
-  pollInterval = 3000 // 3 seconds (increased from 2)
+  pollInterval = 3000, // 3 seconds (increased from 2)
 ): Promise<{ success: boolean; status: string; error?: string }> {
   const startTime = Date.now();
 
@@ -37,10 +37,7 @@ async function waitForOrderCompletion(
     try {
       const orderStatus = await getDomainOrderStatus(orderId, teamId);
 
-      if (
-        orderStatus.status === "completed" ||
-        orderStatus.status === "success"
-      ) {
+      if (orderStatus.status === "completed" || orderStatus.status === "success") {
         return { success: true, status: orderStatus.status };
       }
 
@@ -55,10 +52,7 @@ async function waitForOrderCompletion(
       // Wait before next poll
       await new Promise((resolve) => setTimeout(resolve, pollInterval));
     } catch (error) {
-      console.error(
-        "[API/vercel/purchase-and-deploy] Error polling order:",
-        error
-      );
+      console.error("[API/vercel/purchase-and-deploy] Error polling order:", error);
       // Continue polling on error
       await new Promise((resolve) => setTimeout(resolve, pollInterval));
     }
@@ -78,7 +72,7 @@ async function purchaseDomainInternal(
   domain: string,
   contactInfo: DomainContactInfo,
   years: number,
-  teamId?: string
+  teamId?: string,
 ): Promise<{
   success: boolean;
   orderId?: string;
@@ -99,7 +93,7 @@ async function purchaseDomainInternal(
     const customerPriceSek = Math.round(vercelCostSek * MARKUP_MULTIPLIER);
 
     console.log(
-      `[API/vercel/purchase-and-deploy] Pricing: Vercel cost: ${vercelCostUsd} USD (${vercelCostSek} SEK), Customer price: ${customerPriceSek} SEK`
+      `[API/vercel/purchase-and-deploy] Pricing: Vercel cost: ${vercelCostUsd} USD (${vercelCostSek} SEK), Customer price: ${customerPriceSek} SEK`,
     );
 
     // Purchase domain via Vercel API
@@ -113,20 +107,16 @@ async function purchaseDomainInternal(
 
     console.log(
       "[API/vercel/purchase-and-deploy] Purchase initiated, order ID:",
-      purchaseResult.orderId
+      purchaseResult.orderId,
     );
 
     // Wait for order completion
-    const orderResult = await waitForOrderCompletion(
-      purchaseResult.orderId,
-      teamId
-    );
+    const orderResult = await waitForOrderCompletion(purchaseResult.orderId, teamId);
 
     if (!orderResult.success) {
       return {
         success: false,
-        error:
-          orderResult.error || "Domain purchase did not complete successfully",
+        error: orderResult.error || "Domain purchase did not complete successfully",
         orderId: purchaseResult.orderId,
         status: orderResult.status,
       };
@@ -142,10 +132,7 @@ async function purchaseDomainInternal(
       status: orderResult.status,
     };
   } catch (error) {
-    console.error(
-      "[API/vercel/purchase-and-deploy] Domain purchase failed:",
-      error
-    );
+    console.error("[API/vercel/purchase-and-deploy] Domain purchase failed:", error);
     const errorMessage =
       error instanceof Error
         ? error.message
@@ -187,42 +174,28 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          error: "Vercel integration not configured. Set VERCEL_API_TOKEN.",
+          error: "Vercel integration not configured. Set VERCEL_TOKEN.",
         },
-        { status: 503 }
+        { status: 503 },
       );
     }
 
     const body: PurchaseAndDeployRequest = await request.json();
-    const {
-      projectId,
-      domain,
-      years = 1,
-      contactInfo,
-      projectName,
-      framework,
-      teamId,
-    } = body;
+    const { projectId, domain, years = 1, contactInfo, projectName, framework, teamId } = body;
 
     // Validate required fields
     if (!projectId || typeof projectId !== "string") {
-      return NextResponse.json(
-        { success: false, error: "projectId is required" },
-        { status: 400 }
-      );
+      return NextResponse.json({ success: false, error: "projectId is required" }, { status: 400 });
     }
 
     if (!domain || typeof domain !== "string") {
-      return NextResponse.json(
-        { success: false, error: "domain is required" },
-        { status: 400 }
-      );
+      return NextResponse.json({ success: false, error: "domain is required" }, { status: 400 });
     }
 
     if (!contactInfo || typeof contactInfo !== "object") {
       return NextResponse.json(
         { success: false, error: "contactInfo is required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -238,19 +211,13 @@ export async function POST(request: NextRequest) {
       zip: contactInfo.zip?.trim() || "",
       country: contactInfo.country?.trim() || "SE",
       // Vercel requires a non-empty state even for TLDs like .se
-      state:
-        contactInfo.state?.trim() ||
-        contactInfo.city?.trim() ||
-        "-",
+      state: contactInfo.state?.trim() || contactInfo.city?.trim() || "-",
     };
 
     // Verify project exists
     const project = getProjectById(projectId);
     if (!project) {
-      return NextResponse.json(
-        { success: false, error: "Project not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ success: false, error: "Project not found" }, { status: 404 });
     }
 
     // Validate required contact fields (including normalized fallback state)
@@ -270,7 +237,7 @@ export async function POST(request: NextRequest) {
       if (!normalizedContactInfo[field]) {
         return NextResponse.json(
           { success: false, error: `contactInfo.${field} is required` },
-          { status: 400 }
+          { status: 400 },
         );
       }
     }
@@ -284,7 +251,7 @@ export async function POST(request: NextRequest) {
         .substring(0, 53);
 
     console.log(
-      `[API/vercel/purchase-and-deploy] Starting purchase and deploy for project ${projectId}, domain ${domain}`
+      `[API/vercel/purchase-and-deploy] Starting purchase and deploy for project ${projectId}, domain ${domain}`,
     );
 
     // Step 1: Purchase domain (using internal function, not HTTP)
@@ -292,7 +259,7 @@ export async function POST(request: NextRequest) {
       domain,
       normalizedContactInfo,
       years,
-      teamId
+      teamId,
     );
 
     if (!purchaseResult.success) {
@@ -302,12 +269,12 @@ export async function POST(request: NextRequest) {
           error: purchaseResult.error || "Domain purchase failed",
           step: "purchase",
         },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
     console.log(
-      `[API/vercel/purchase-and-deploy] Domain purchased: ${domain}, order: ${purchaseResult.orderId}`
+      `[API/vercel/purchase-and-deploy] Domain purchased: ${domain}, order: ${purchaseResult.orderId}`,
     );
 
     // Save domain order to database
@@ -326,19 +293,14 @@ export async function POST(request: NextRequest) {
         domain_added_to_project: false, // Will be set to true after deployment
       });
     } catch (dbError) {
-      console.error(
-        "[API/vercel/purchase-and-deploy] Failed to save order to database:",
-        dbError
-      );
+      console.error("[API/vercel/purchase-and-deploy] Failed to save order to database:", dbError);
       // Continue anyway - order is saved in Vercel
     }
 
     // Step 2: Deploy project (without domain first - we'll add it after)
     let deploymentResult;
     try {
-      console.log(
-        `[API/vercel/purchase-and-deploy] Deploying project ${projectId}`
-      );
+      console.log(`[API/vercel/purchase-and-deploy] Deploying project ${projectId}`);
 
       // Deploy without domain first to ensure project exists
       deploymentResult = await deployProject({
@@ -355,13 +317,10 @@ export async function POST(request: NextRequest) {
       }
 
       console.log(
-        `[API/vercel/purchase-and-deploy] Deployment successful: ${deploymentResult.deploymentId}`
+        `[API/vercel/purchase-and-deploy] Deployment successful: ${deploymentResult.deploymentId}`,
       );
     } catch (error) {
-      console.error(
-        "[API/vercel/purchase-and-deploy] Deployment failed:",
-        error
-      );
+      console.error("[API/vercel/purchase-and-deploy] Deployment failed:", error);
 
       // Update order status - domain purchased but deployment failed
       try {
@@ -370,8 +329,7 @@ export async function POST(request: NextRequest) {
         // Ignore DB errors
       }
 
-      const errorMessage =
-        error instanceof Error ? error.message : "Deployment failed";
+      const errorMessage = error instanceof Error ? error.message : "Deployment failed";
       return NextResponse.json(
         {
           success: false,
@@ -382,7 +340,7 @@ export async function POST(request: NextRequest) {
           // Domain is purchased but deployment failed
           // User can deploy manually later and add domain
         },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
@@ -399,27 +357,19 @@ export async function POST(request: NextRequest) {
       customDomainUrl = `https://${domain}`;
 
       console.log(
-        `[API/vercel/purchase-and-deploy] Domain ${domain} added to project ${vercelProject.id}`
+        `[API/vercel/purchase-and-deploy] Domain ${domain} added to project ${vercelProject.id}`,
       );
 
       // Update order status
       try {
-        updateDomainOrderStatus(
-          orderId,
-          "completed",
-          purchaseResult.orderId,
-          true
-        );
+        updateDomainOrderStatus(orderId, "completed", purchaseResult.orderId, true);
       } catch (dbError) {
-        console.error(
-          "[API/vercel/purchase-and-deploy] Failed to update order status:",
-          dbError
-        );
+        console.error("[API/vercel/purchase-and-deploy] Failed to update order status:", dbError);
       }
     } catch (domainError) {
       console.error(
         "[API/vercel/purchase-and-deploy] Failed to add domain to project:",
-        domainError
+        domainError,
       );
       // Don't fail the entire flow - domain is purchased and deployment succeeded
       // Domain can be added manually later
@@ -451,7 +401,7 @@ export async function POST(request: NextRequest) {
         success: false,
         error: error instanceof Error ? error.message : "Unknown error",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

@@ -8,15 +8,7 @@ import { AuthModal } from "@/components/auth";
 import { UserSettingsModal } from "@/components/settings/user-settings-modal";
 import { useAuth } from "@/lib/auth/auth-store";
 import { Button } from "@/components/ui/button";
-import {
-  Diamond,
-  ArrowLeft,
-  CheckCircle,
-  Sparkles,
-  Loader2,
-  Star,
-  Zap,
-} from "lucide-react";
+import { Diamond, ArrowLeft, CheckCircle, Sparkles, Loader2, Star, Zap } from "lucide-react";
 
 // Diamond packages
 const PACKAGES = [
@@ -62,9 +54,7 @@ function BuyCreditsContent() {
     const sessionId = searchParams.get("session_id");
 
     if (success === "true" && sessionId) {
-      setSuccessMessage(
-        "Tack för ditt köp! Diamanterna har lagts till på ditt konto."
-      );
+      setSuccessMessage("Tack för ditt köp! Diamanterna har lagts till på ditt konto.");
       // Refresh user data to get updated balance
       fetchUser();
     }
@@ -97,7 +87,10 @@ function BuyCreditsContent() {
         // Redirect to Stripe Checkout
         window.location.href = data.url;
       } else {
-        alert(data.error || "Kunde inte starta betalning. Kontrollera att du är inloggad och försök igen.");
+        alert(
+          data.error ||
+            "Kunde inte starta betalning. Kontrollera att du är inloggad och försök igen.",
+        );
       }
     } catch (error) {
       console.error("Checkout error:", error);
@@ -109,7 +102,7 @@ function BuyCreditsContent() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="bg-background min-h-screen">
       {/* Shader Background - warm accent for credits page */}
       <ShaderBackground theme="warm" speed={0.2} opacity={0.3} />
 
@@ -118,45 +111,37 @@ function BuyCreditsContent() {
         onRegisterClick={() => setShowAuthModal(true)}
         onSettingsClick={() => setShowSettingsModal(true)}
       />
-      <UserSettingsModal
-        isOpen={showSettingsModal}
-        onClose={() => setShowSettingsModal(false)}
-      />
+      <UserSettingsModal isOpen={showSettingsModal} onClose={() => setShowSettingsModal(false)} />
 
       {/* Main content with padding for navbar */}
-      <main className="relative z-10 pt-24 pb-16 px-4">
-        <div className="max-w-4xl mx-auto">
+      <main className="relative z-10 px-4 pt-24 pb-16">
+        <div className="mx-auto max-w-4xl">
           {/* Back link */}
           <Link
             href="/"
-            className="inline-flex items-center gap-2 text-sm text-gray-500 hover:text-gray-300 mb-8"
+            className="mb-8 inline-flex items-center gap-2 text-sm text-gray-500 hover:text-gray-300"
           >
             <ArrowLeft className="h-4 w-4" />
             Tillbaka till start
           </Link>
 
           {/* Header */}
-          <div className="text-center mb-12">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-brand-amber/10 border border-brand-amber/30 mb-6">
-              <Diamond className="h-8 w-8 text-brand-amber" />
+          <div className="mb-12 text-center">
+            <div className="bg-brand-amber/10 border-brand-amber/30 mb-6 inline-flex h-16 w-16 items-center justify-center border">
+              <Diamond className="text-brand-amber h-8 w-8" />
             </div>
-            <h1 className="text-3xl sm:text-4xl font-bold text-white mb-4">
-              Köp Diamanter
-            </h1>
-            <p className="text-gray-400 max-w-md mx-auto">
-              Varje diamant ger dig en AI-generering eller förfining. Större
-              paket = mer värde!
+            <h1 className="mb-4 text-3xl font-bold text-white sm:text-4xl">Köp Diamanter</h1>
+            <p className="mx-auto max-w-md text-gray-400">
+              Varje diamant ger dig en AI-generering eller förfining. Större paket = mer värde!
             </p>
 
             {/* Current balance */}
             {isAuthenticated && (
-              <div className="mt-6 inline-flex items-center gap-2 px-4 py-2 bg-black/50 border border-gray-700">
-                <Diamond className="h-4 w-4 text-brand-amber" />
+              <div className="mt-6 inline-flex items-center gap-2 border border-gray-700 bg-black/50 px-4 py-2">
+                <Diamond className="text-brand-amber h-4 w-4" />
                 <span className="text-sm text-gray-300">
                   Ditt saldo:{" "}
-                  <span className="font-semibold text-brand-amber">
-                    {diamonds} diamanter
-                  </span>
+                  <span className="text-brand-amber font-semibold">{diamonds} diamanter</span>
                 </span>
               </div>
             )}
@@ -164,14 +149,14 @@ function BuyCreditsContent() {
 
           {/* Success message */}
           {successMessage && (
-            <div className="mb-8 p-4 bg-brand-teal/10 border border-brand-teal/30 flex items-center gap-3">
-              <CheckCircle className="h-5 w-5 text-brand-teal shrink-0" />
+            <div className="bg-brand-teal/10 border-brand-teal/30 mb-8 flex items-center gap-3 border p-4">
+              <CheckCircle className="text-brand-teal h-5 w-5 shrink-0" />
               <p className="text-brand-teal">{successMessage}</p>
             </div>
           )}
 
           {/* Packages grid */}
-          <div className="grid md:grid-cols-3 gap-6">
+          <div className="grid gap-6 md:grid-cols-3">
             {PACKAGES.map((pkg) => (
               <div
                 key={pkg.id}
@@ -179,12 +164,12 @@ function BuyCreditsContent() {
                   pkg.popular
                     ? "border-brand-teal/50 bg-brand-teal/5"
                     : "border-gray-800 bg-black/50"
-                } p-6 flex flex-col`}
+                } flex flex-col p-6`}
               >
                 {/* Popular badge */}
                 {pkg.popular && (
                   <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                    <div className="flex items-center gap-1 px-3 py-1 bg-brand-teal text-white text-xs font-medium">
+                    <div className="bg-brand-teal flex items-center gap-1 px-3 py-1 text-xs font-medium text-white">
                       <Star className="h-3 w-3 fill-current" />
                       Populär
                     </div>
@@ -192,44 +177,36 @@ function BuyCreditsContent() {
                 )}
 
                 {/* Package name */}
-                <h3 className="text-lg font-semibold text-white mb-2">
-                  {pkg.name}
-                </h3>
+                <h3 className="mb-2 text-lg font-semibold text-white">{pkg.name}</h3>
 
                 {/* Diamond count */}
-                <div className="flex items-center gap-2 mb-4">
-                  <Diamond className="h-6 w-6 text-brand-amber" />
-                  <span className="text-3xl font-bold text-white">
-                    {pkg.diamonds}
-                  </span>
+                <div className="mb-4 flex items-center gap-2">
+                  <Diamond className="text-brand-amber h-6 w-6" />
+                  <span className="text-3xl font-bold text-white">{pkg.diamonds}</span>
                   <span className="text-gray-500">diamanter</span>
                 </div>
 
                 {/* Price */}
                 <div className="mb-4">
-                  <span className="text-2xl font-bold text-white">
-                    {pkg.price} kr
-                  </span>
+                  <span className="text-2xl font-bold text-white">{pkg.price} kr</span>
                   {pkg.savings > 0 && (
-                    <span className="ml-2 text-sm text-brand-teal">
-                      Spara {pkg.savings}%
-                    </span>
+                    <span className="text-brand-teal ml-2 text-sm">Spara {pkg.savings}%</span>
                   )}
                 </div>
 
                 {/* Price per diamond */}
-                <p className="text-sm text-gray-500 mb-6">
+                <p className="mb-6 text-sm text-gray-500">
                   {(pkg.price / pkg.diamonds).toFixed(1)} kr per diamant
                 </p>
 
                 {/* Features */}
-                <ul className="space-y-2 mb-6 flex-grow">
+                <ul className="mb-6 flex-grow space-y-2">
                   <li className="flex items-center gap-2 text-sm text-gray-400">
-                    <Sparkles className="h-4 w-4 text-brand-teal" />
+                    <Sparkles className="text-brand-teal h-4 w-4" />
                     {pkg.diamonds} AI-generationer
                   </li>
                   <li className="flex items-center gap-2 text-sm text-gray-400">
-                    <Zap className="h-4 w-4 text-brand-amber" />
+                    <Zap className="text-brand-amber h-4 w-4" />
                     Aldrig utgångsdatum
                   </li>
                 </ul>
@@ -238,11 +215,11 @@ function BuyCreditsContent() {
                 <Button
                   onClick={() => handlePurchase(pkg.id)}
                   disabled={isLoading}
-                  className={`w-full h-11 ${
+                  className={`h-11 w-full ${
                     pkg.popular
                       ? "bg-brand-teal hover:bg-brand-teal/90"
                       : "bg-gray-800 hover:bg-gray-700"
-                  } text-white font-medium`}
+                  } font-medium text-white`}
                 >
                   {isLoading && selectedPackage === pkg.id ? (
                     <Loader2 className="h-4 w-4 animate-spin" />
@@ -256,38 +233,30 @@ function BuyCreditsContent() {
 
           {/* Features section */}
           <div className="mt-16 text-center">
-            <h2 className="text-xl font-semibold text-white mb-8">
-              Vad ingår?
-            </h2>
-            <div className="grid sm:grid-cols-3 gap-8">
+            <h2 className="mb-8 text-xl font-semibold text-white">Vad ingår?</h2>
+            <div className="grid gap-8 sm:grid-cols-3">
               <div>
-                <div className="w-12 h-12 bg-brand-teal/10 flex items-center justify-center mx-auto mb-4">
-                  <Sparkles className="h-6 w-6 text-brand-teal" />
+                <div className="bg-brand-teal/10 mx-auto mb-4 flex h-12 w-12 items-center justify-center">
+                  <Sparkles className="text-brand-teal h-6 w-6" />
                 </div>
-                <h3 className="font-medium text-white mb-2">AI-generering</h3>
+                <h3 className="mb-2 font-medium text-white">AI-generering</h3>
                 <p className="text-sm text-gray-500">
                   Varje diamant = en komplett webbplats-generering
                 </p>
               </div>
               <div>
-                <div className="w-12 h-12 bg-brand-amber/10 flex items-center justify-center mx-auto mb-4">
-                  <Zap className="h-6 w-6 text-brand-amber" />
+                <div className="bg-brand-amber/10 mx-auto mb-4 flex h-12 w-12 items-center justify-center">
+                  <Zap className="text-brand-amber h-6 w-6" />
                 </div>
-                <h3 className="font-medium text-white mb-2">Förfining</h3>
-                <p className="text-sm text-gray-500">
-                  Varje diamant = en förfining av din design
-                </p>
+                <h3 className="mb-2 font-medium text-white">Förfining</h3>
+                <p className="text-sm text-gray-500">Varje diamant = en förfining av din design</p>
               </div>
               <div>
-                <div className="w-12 h-12 bg-brand-teal/10 flex items-center justify-center mx-auto mb-4">
-                  <CheckCircle className="h-6 w-6 text-brand-teal" />
+                <div className="bg-brand-teal/10 mx-auto mb-4 flex h-12 w-12 items-center justify-center">
+                  <CheckCircle className="text-brand-teal h-6 w-6" />
                 </div>
-                <h3 className="font-medium text-white mb-2">
-                  Ingen prenumeration
-                </h3>
-                <p className="text-sm text-gray-500">
-                  Engångsköp, diamanterna gäller för alltid
-                </p>
+                <h3 className="mb-2 font-medium text-white">Ingen prenumeration</h3>
+                <p className="text-sm text-gray-500">Engångsköp, diamanterna gäller för alltid</p>
               </div>
             </div>
           </div>
@@ -321,7 +290,7 @@ function BuyCreditsContent() {
 // Loading fallback
 function BuyCreditsLoading() {
   return (
-    <div className="min-h-screen bg-black flex items-center justify-center">
+    <div className="flex min-h-screen items-center justify-center bg-black">
       <Loader2 className="h-8 w-8 animate-spin text-gray-500" />
     </div>
   );

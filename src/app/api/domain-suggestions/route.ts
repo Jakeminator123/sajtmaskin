@@ -24,7 +24,7 @@ interface DomainSuggestion {
 async function generateDomainNames(
   companyName: string,
   industry?: string,
-  keywords?: string[]
+  keywords?: string[],
 ): Promise<string[]> {
   const openaiApiKey = process.env.OPENAI_API_KEY;
 
@@ -65,8 +65,7 @@ Return ONLY a JSON array of 5 domain names (without TLD), like:
         messages: [
           {
             role: "system",
-            content:
-              "You are a domain name expert. Return only valid JSON arrays.",
+            content: "You are a domain name expert. Return only valid JSON arrays.",
           },
           { role: "user", content: prompt },
         ],
@@ -87,9 +86,7 @@ Return ONLY a JSON array of 5 domain names (without TLD), like:
     const jsonMatch = content.match(/\[[\s\S]*\]/);
     if (jsonMatch) {
       const names = JSON.parse(jsonMatch[0]);
-      return names.map((n: string) =>
-        n.toLowerCase().replace(/[^a-z0-9-]/g, "")
-      );
+      return names.map((n: string) => n.toLowerCase().replace(/[^a-z0-9-]/g, ""));
     }
 
     throw new Error("Could not parse domain names");
@@ -106,9 +103,7 @@ Return ONLY a JSON array of 5 domain names (without TLD), like:
 
 // Check domain availability using RDAP (Registration Data Access Protocol)
 // This is the modern replacement for WHOIS, free and no API key needed
-async function checkDomainAvailability(
-  domain: string
-): Promise<boolean | null> {
+async function checkDomainAvailability(domain: string): Promise<boolean | null> {
   try {
     // Use RDAP for .com, .net, .org domains
     const tld = domain.split(".").pop();
@@ -152,10 +147,7 @@ async function checkDomainAvailability(
 
     return null; // Could not determine
   } catch (error) {
-    console.error(
-      `[domain-suggestions] RDAP check failed for ${domain}:`,
-      error
-    );
+    console.error(`[domain-suggestions] RDAP check failed for ${domain}:`, error);
     // Try DNS fallback
     return await checkDomainViaDns(domain);
   }
@@ -165,12 +157,9 @@ async function checkDomainAvailability(
 async function checkDomainViaDns(domain: string): Promise<boolean | null> {
   try {
     // Use Google's DNS-over-HTTPS to check if domain has any records
-    const response = await fetch(
-      `https://dns.google/resolve?name=${domain}&type=A`,
-      {
-        signal: AbortSignal.timeout(3000),
-      }
-    );
+    const response = await fetch(`https://dns.google/resolve?name=${domain}&type=A`, {
+      signal: AbortSignal.timeout(3000),
+    });
 
     if (!response.ok) {
       return null;
@@ -198,23 +187,13 @@ export async function POST(req: NextRequest) {
     const { companyName, industry, keywords } = body;
 
     if (!companyName || typeof companyName !== "string") {
-      return NextResponse.json(
-        { error: "companyName is required" },
-        { status: 400 }
-      );
+      return NextResponse.json({ error: "companyName is required" }, { status: 400 });
     }
 
-    console.log(
-      "[domain-suggestions] Generating suggestions for:",
-      companyName
-    );
+    console.log("[domain-suggestions] Generating suggestions for:", companyName);
 
     // Generate domain name bases
-    const baseNames = await generateDomainNames(
-      companyName,
-      industry,
-      keywords
-    );
+    const baseNames = await generateDomainNames(companyName, industry, keywords);
 
     // Create full domain suggestions with different TLDs
     const suggestions: DomainSuggestion[] = [];
@@ -242,11 +221,7 @@ export async function POST(req: NextRequest) {
 
     const checkedSuggestions = await Promise.all(checkPromises);
 
-    console.log(
-      "[domain-suggestions] Checked",
-      checkedSuggestions.length,
-      "domains"
-    );
+    console.log("[domain-suggestions] Checked", checkedSuggestions.length, "domains");
 
     return NextResponse.json({
       success: true,
@@ -254,9 +229,6 @@ export async function POST(req: NextRequest) {
     });
   } catch (error) {
     console.error("[domain-suggestions] Error:", error);
-    return NextResponse.json(
-      { error: "Failed to generate domain suggestions" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Failed to generate domain suggestions" }, { status: 500 });
   }
 }

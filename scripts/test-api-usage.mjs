@@ -28,9 +28,7 @@ function log(category, status, message) {
 console.log("\n" + "=".repeat(70));
 console.log("🔍 SAJTMASKIN - API Usage Test");
 console.log("=".repeat(70));
-console.log(
-  "\nDetta skript visar vilket API som faktiskt används när du bygger sajter.\n"
-);
+console.log("\nDetta skript visar vilket API som faktiskt används när du bygger sajter.\n");
 
 // ============================================================================
 // 1. KONTROLLERA INSTALLATIONER
@@ -52,11 +50,7 @@ try {
 
   // Kolla @ai-sdk/openai
   if (deps["@ai-sdk/openai"]) {
-    log(
-      "Installation",
-      "ok",
-      `@ai-sdk/openai installerad: ${deps["@ai-sdk/openai"]}`
-    );
+    log("Installation", "ok", `@ai-sdk/openai installerad: ${deps["@ai-sdk/openai"]}`);
   } else {
     log("Installation", "fail", "@ai-sdk/openai INTE installerad!");
   }
@@ -75,7 +69,7 @@ try {
     log(
       "Installation",
       "warn",
-      "OpenAI SDK (openai) INTE installerad (används för bildgenerering)"
+      "OpenAI SDK (openai) INTE installerad (används för bildgenerering)",
     );
   }
 } catch (error) {
@@ -97,18 +91,12 @@ const aiGatewayKey = process.env.AI_GATEWAY_API_KEY;
 
 if (v0ApiKey) {
   const keyPreview =
-    v0ApiKey.length > 12
-      ? `${v0ApiKey.slice(0, 8)}...${v0ApiKey.slice(-4)}`
-      : v0ApiKey;
+    v0ApiKey.length > 12 ? `${v0ApiKey.slice(0, 8)}...${v0ApiKey.slice(-4)}` : v0ApiKey;
   log("API Keys", "ok", `V0_API_KEY: Konfigurerad (${keyPreview})`);
   log("API Keys", "info", "  → Detta är DIN PRIVATA nyckel från .env.local");
   log("API Keys", "info", "  → Används för KODGENERERING (v0 API)");
 } else {
-  log(
-    "API Keys",
-    "fail",
-    "V0_API_KEY: INTE konfigurerad (krävs för kodgenerering!)"
-  );
+  log("API Keys", "fail", "V0_API_KEY: INTE konfigurerad (krävs för kodgenerering!)");
 }
 
 if (openaiApiKey) {
@@ -118,30 +106,18 @@ if (openaiApiKey) {
       : openaiApiKey;
   log("API Keys", "ok", `OPENAI_API_KEY: Konfigurerad (${keyPreview})`);
   log("API Keys", "info", "  → Detta är DIN PRIVATA nyckel från .env.local");
-  log(
-    "API Keys",
-    "info",
-    "  → Används för PROMPT-BEHANDLING (router, enhancer)"
-  );
+  log("API Keys", "info", "  → Används för PROMPT-BEHANDLING (router, enhancer)");
 } else {
-  log(
-    "API Keys",
-    "fail",
-    "OPENAI_API_KEY: INTE konfigurerad (krävs för prompt-behandling!)"
-  );
+  log("API Keys", "fail", "OPENAI_API_KEY: INTE konfigurerad (krävs för prompt-behandling!)");
 }
 
 if (aiGatewayKey) {
-  log(
-    "API Keys",
-    "ok",
-    `AI_GATEWAY_API_KEY: Konfigurerad (valfritt, för Vercel AI Gateway)`
-  );
+  log("API Keys", "ok", `AI_GATEWAY_API_KEY: Konfigurerad (valfritt, för Vercel AI Gateway)`);
 } else {
   log(
     "API Keys",
     "warn",
-    "AI_GATEWAY_API_KEY: INTE konfigurerad (valfritt, används INTE om saknas)"
+    "AI_GATEWAY_API_KEY: INTE konfigurerad (valfritt, används INTE om saknas)",
   );
 }
 
@@ -205,11 +181,7 @@ console.log("-".repeat(70));
 // Test OpenAI API direkt
 if (openaiApiKey) {
   try {
-    log(
-      "OpenAI Test",
-      "info",
-      "Testar direktanslutning till api.openai.com..."
-    );
+    log("OpenAI Test", "info", "Testar direktanslutning till api.openai.com...");
 
     const res = await fetch("https://api.openai.com/v1/models", {
       headers: { Authorization: `Bearer ${openaiApiKey}` },
@@ -220,36 +192,18 @@ if (openaiApiKey) {
       log(
         "OpenAI Test",
         "ok",
-        `✅ OpenAI API fungerar! (${
-          data.data?.length || 0
-        } modeller tillgängliga)`
+        `✅ OpenAI API fungerar! (${data.data?.length || 0} modeller tillgängliga)`,
       );
-      log(
-        "OpenAI Test",
-        "info",
-        "  → Använder DIN PRIVATA nyckel från .env.local"
-      );
-      log(
-        "OpenAI Test",
-        "info",
-        "  → Går DIREKT till api.openai.com (INTE via Vercel)"
-      );
-      log(
-        "OpenAI Test",
-        "info",
-        "  → Används för: Semantic Router, Semantic Enhancer"
-      );
+      log("OpenAI Test", "info", "  → Använder DIN PRIVATA nyckel från .env.local");
+      log("OpenAI Test", "info", "  → Går DIREKT till api.openai.com (INTE via Vercel)");
+      log("OpenAI Test", "info", "  → Används för: Semantic Router, Semantic Enhancer");
     } else {
-      log(
-        "OpenAI Test",
-        "fail",
-        `OpenAI API: HTTP ${res.status} - ${res.statusText}`
-      );
+      log("OpenAI Test", "fail", `OpenAI API: HTTP ${res.status} - ${res.statusText}`);
       if (res.status === 401) {
         log(
           "OpenAI Test",
           "fail",
-          "  → Ogiltig API-nyckel. Kontrollera din OPENAI_API_KEY i .env.local"
+          "  → Ogiltig API-nyckel. Kontrollera din OPENAI_API_KEY i .env.local",
         );
       }
     }
@@ -257,11 +211,7 @@ if (openaiApiKey) {
     log("OpenAI Test", "fail", `OpenAI API: ${error.message}`);
   }
 } else {
-  log(
-    "OpenAI Test",
-    "fail",
-    "Kan inte testa OpenAI API - OPENAI_API_KEY saknas i .env.local"
-  );
+  log("OpenAI Test", "fail", "Kan inte testa OpenAI API - OPENAI_API_KEY saknas i .env.local");
 }
 
 console.log("");
@@ -288,59 +238,27 @@ if (v0ApiKey) {
     });
 
     if (testResult && testResult.id) {
-      log(
-        "v0 API Test",
-        "ok",
-        `✅ v0 API fungerar! (chat: ${testResult.id.slice(0, 8)}...)`
-      );
-      log(
-        "v0 API Test",
-        "info",
-        "  → Använder DIN PRIVATA nyckel från .env.local"
-      );
-      log(
-        "v0 API Test",
-        "info",
-        "  → Går DIREKT till api.v0.dev (INTE via Vercel)"
-      );
-      log(
-        "v0 API Test",
-        "info",
-        "  → Används för: Kodgenerering (generateCode, refineCode)"
-      );
+      log("v0 API Test", "ok", `✅ v0 API fungerar! (chat: ${testResult.id.slice(0, 8)}...)`);
+      log("v0 API Test", "info", "  → Använder DIN PRIVATA nyckel från .env.local");
+      log("v0 API Test", "info", "  → Går DIREKT till api.v0.dev (INTE via Vercel)");
+      log("v0 API Test", "info", "  → Används för: Kodgenerering (generateCode, refineCode)");
     }
   } catch (error) {
     const msg = error.message || String(error);
     if (msg.includes("401") || msg.includes("Unauthorized")) {
       log("v0 API Test", "fail", "v0 API: Ogiltig nyckel");
       log("v0 API Test", "fail", "  → Kontrollera din V0_API_KEY i .env.local");
-      log(
-        "v0 API Test",
-        "info",
-        "  → Hämta ny nyckel på: https://v0.dev/settings"
-      );
+      log("v0 API Test", "info", "  → Hämta ny nyckel på: https://v0.dev/settings");
     } else if (msg.includes("422")) {
       log("v0 API Test", "ok", "v0 API: Nyckel är giltig (API svarar)");
-      log(
-        "v0 API Test",
-        "info",
-        "  → Använder DIN PRIVATA nyckel från .env.local"
-      );
-      log(
-        "v0 API Test",
-        "info",
-        "  → Går DIREKT till api.v0.dev (INTE via Vercel)"
-      );
+      log("v0 API Test", "info", "  → Använder DIN PRIVATA nyckel från .env.local");
+      log("v0 API Test", "info", "  → Går DIREKT till api.v0.dev (INTE via Vercel)");
     } else {
       log("v0 API Test", "warn", `v0 API: ${msg.slice(0, 60)}`);
     }
   }
 } else {
-  log(
-    "v0 API Test",
-    "fail",
-    "Kan inte testa v0 API - V0_API_KEY saknas i .env.local"
-  );
+  log("v0 API Test", "fail", "Kan inte testa v0 API - V0_API_KEY saknas i .env.local");
 }
 
 console.log("");
@@ -362,46 +280,22 @@ if (openaiApiKey) {
     });
 
     if (result && result.text) {
-      log(
-        "AI SDK Test",
-        "ok",
-        `✅ AI SDK fungerar! (svar: "${result.text.trim()}")`
-      );
-      log(
-        "AI SDK Test",
-        "info",
-        "  → Använder DIN PRIVATA OpenAI-nyckel från .env.local"
-      );
-      log(
-        "AI SDK Test",
-        "info",
-        "  → Går DIREKT till api.openai.com via AI SDK (INTE via Vercel)"
-      );
-      log(
-        "AI SDK Test",
-        "info",
-        "  → Används för: Semantic Router, Semantic Enhancer"
-      );
+      log("AI SDK Test", "ok", `✅ AI SDK fungerar! (svar: "${result.text.trim()}")`);
+      log("AI SDK Test", "info", "  → Använder DIN PRIVATA OpenAI-nyckel från .env.local");
+      log("AI SDK Test", "info", "  → Går DIREKT till api.openai.com via AI SDK (INTE via Vercel)");
+      log("AI SDK Test", "info", "  → Används för: Semantic Router, Semantic Enhancer");
     }
   } catch (error) {
     const msg = error.message || String(error);
     if (msg.includes("401") || msg.includes("Unauthorized")) {
       log("AI SDK Test", "fail", "AI SDK: Ogiltig OpenAI-nyckel");
-      log(
-        "AI SDK Test",
-        "fail",
-        "  → Kontrollera din OPENAI_API_KEY i .env.local"
-      );
+      log("AI SDK Test", "fail", "  → Kontrollera din OPENAI_API_KEY i .env.local");
     } else {
       log("AI SDK Test", "warn", `AI SDK: ${msg.slice(0, 60)}`);
     }
   }
 } else {
-  log(
-    "AI SDK Test",
-    "fail",
-    "Kan inte testa AI SDK - OPENAI_API_KEY saknas i .env.local"
-  );
+  log("AI SDK Test", "fail", "Kan inte testa AI SDK - OPENAI_API_KEY saknas i .env.local");
 }
 
 console.log("");
@@ -440,15 +334,11 @@ const warn = results.filter((r) => r.status === "warn").length;
 const fail = results.filter((r) => r.status === "fail").length;
 const info = results.filter((r) => r.status === "info").length;
 
-console.log(
-  `\n✅ OK: ${ok}  ⚠️  Varningar: ${warn}  ❌ Fel: ${fail}  ℹ️  Info: ${info}\n`
-);
+console.log(`\n✅ OK: ${ok}  ⚠️  Varningar: ${warn}  ❌ Fel: ${fail}  ℹ️  Info: ${info}\n`);
 
 console.log("VIKTIGT - DINA PRIVATA API-NYCKLAR:");
 console.log("-".repeat(70));
-console.log(
-  "• OpenAI API: Använder DIN PRIVATA OPENAI_API_KEY från .env.local"
-);
+console.log("• OpenAI API: Använder DIN PRIVATA OPENAI_API_KEY från .env.local");
 console.log("• v0 API: Använder DIN PRIVATA V0_API_KEY från .env.local");
 console.log("• Båda går DIREKT till respektive API (INTE via Vercel)");
 console.log("• Ingen annan part har tillgång till dina nycklar\n");

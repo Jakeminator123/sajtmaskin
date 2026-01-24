@@ -38,24 +38,23 @@ export default function MetricsChart({ scores }: MetricsChartProps) {
   };
 
   const averageScore =
-    Object.values(scores).reduce((a, b) => a + b, 0) /
-    Object.values(scores).length;
+    Object.values(scores).reduce((a, b) => a + b, 0) / Object.values(scores).length;
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-black/50 border border-gray-800 p-6"
+      className="border border-gray-800 bg-black/50 p-6"
     >
-      <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
+      <h2 className="mb-6 flex items-center gap-2 text-xl font-bold text-white">
         <span className="text-brand-teal">📊</span> Poängöversikt
       </h2>
 
-      <div className="flex flex-col lg:flex-row gap-8">
+      <div className="flex flex-col gap-8 lg:flex-row">
         {/* Average Score Circle */}
         <div className="flex flex-col items-center justify-center">
-          <div className="relative w-40 h-40">
-            <svg className="w-full h-full transform -rotate-90">
+          <div className="relative h-40 w-40">
+            <svg className="h-full w-full -rotate-90 transform">
               <circle
                 cx="80"
                 cy="80"
@@ -87,10 +86,8 @@ export default function MetricsChart({ scores }: MetricsChartProps) {
                 transition={{ delay: 0.5, type: "spring" }}
                 className="text-center"
               >
-                <span className="text-4xl font-bold text-white">
-                  {Math.round(averageScore)}
-                </span>
-                <span className="text-sm text-gray-400 block">Snittpoäng</span>
+                <span className="text-4xl font-bold text-white">{Math.round(averageScore)}</span>
+                <span className="block text-sm text-gray-400">Snittpoäng</span>
                 <span
                   className="text-2xl font-bold"
                   style={{ color: getColorForScore(averageScore) }}
@@ -101,17 +98,15 @@ export default function MetricsChart({ scores }: MetricsChartProps) {
             </div>
           </div>
 
-          <p className="text-gray-400 text-center mt-4 text-sm max-w-xs">
+          <p className="mt-4 max-w-xs text-center text-sm text-gray-400">
             {averageScore >= 80 && "Utmärkt! Sajten presterar bra."}
-            {averageScore >= 60 &&
-              averageScore < 80 &&
-              "Bra grund med förbättringsmöjligheter."}
+            {averageScore >= 60 && averageScore < 80 && "Bra grund med förbättringsmöjligheter."}
             {averageScore < 60 && "Betydande förbättringsmöjligheter."}
           </p>
         </div>
 
         {/* Individual Metrics */}
-        <div className="flex-1 grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid flex-1 grid-cols-1 gap-4 md:grid-cols-2">
           {Object.entries(scores).map(([key, score], index) => (
             <motion.div
               key={key}
@@ -123,21 +118,14 @@ export default function MetricsChart({ scores }: MetricsChartProps) {
               className="relative"
             >
               <div
-                className={`p-4 bg-black/30 border transition-all ${
-                  hoveredMetric === key
-                    ? "border-brand-teal/50 bg-black/50"
-                    : "border-gray-800"
+                className={`border bg-black/30 p-4 transition-all ${
+                  hoveredMetric === key ? "border-brand-teal/50 bg-black/50" : "border-gray-800"
                 }`}
               >
-                <div className="flex items-center justify-between mb-2">
-                  <h4 className="font-medium text-white text-sm">
-                    {metricLabels[key] || key}
-                  </h4>
+                <div className="mb-2 flex items-center justify-between">
+                  <h4 className="text-sm font-medium text-white">{metricLabels[key] || key}</h4>
                   <div className="flex items-center gap-2">
-                    <span
-                      className="text-xl font-bold"
-                      style={{ color: getColorForScore(score) }}
-                    >
+                    <span className="text-xl font-bold" style={{ color: getColorForScore(score) }}>
                       {score}
                     </span>
                     <span className="text-xs text-gray-500">/100</span>
@@ -145,7 +133,7 @@ export default function MetricsChart({ scores }: MetricsChartProps) {
                 </div>
 
                 {/* Progress Bar */}
-                <div className="w-full h-1.5 bg-gray-800 overflow-hidden">
+                <div className="h-1.5 w-full overflow-hidden bg-gray-800">
                   <motion.div
                     initial={{ width: 0 }}
                     animate={{ width: `${score}%` }}
@@ -161,7 +149,7 @@ export default function MetricsChart({ scores }: MetricsChartProps) {
                     initial={{ scale: 0 }}
                     animate={{ scale: 1 }}
                     transition={{ delay: 0.8 + index * 0.1, type: "spring" }}
-                    className="w-8 h-8 flex items-center justify-center font-bold text-white text-sm"
+                    className="flex h-8 w-8 items-center justify-center text-sm font-bold text-white"
                     style={{ backgroundColor: getColorForScore(score) }}
                   >
                     {getGradeForScore(score)}
@@ -174,7 +162,7 @@ export default function MetricsChart({ scores }: MetricsChartProps) {
       </div>
 
       {/* Summary Stats */}
-      <div className="mt-6 pt-6 border-t border-gray-800 grid grid-cols-3 gap-4 text-center">
+      <div className="mt-6 grid grid-cols-3 gap-4 border-t border-gray-800 pt-6 text-center">
         <div>
           <p className="text-xl font-bold text-green-400">
             {Object.values(scores).filter((s) => s >= 80).length}
@@ -182,7 +170,7 @@ export default function MetricsChart({ scores }: MetricsChartProps) {
           <p className="text-xs text-gray-400">Utmärkta</p>
         </div>
         <div>
-          <p className="text-xl font-bold text-brand-teal">
+          <p className="text-brand-teal text-xl font-bold">
             {Object.values(scores).filter((s) => s >= 60 && s < 80).length}
           </p>
           <p className="text-xs text-gray-400">Godkända</p>

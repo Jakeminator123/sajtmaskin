@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
     if (!user) {
       return NextResponse.json(
         { success: false, error: "Du måste vara inloggad" },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
@@ -29,28 +29,17 @@ export async function POST(request: NextRequest) {
     const { url, filename, source, photographer } = body;
 
     if (!url) {
-      return NextResponse.json(
-        { success: false, error: "URL krävs" },
-        { status: 400 }
-      );
+      return NextResponse.json({ success: false, error: "URL krävs" }, { status: 400 });
     }
 
     // Validate URL
     try {
       new URL(url);
     } catch {
-      return NextResponse.json(
-        { success: false, error: "Ogiltig URL" },
-        { status: 400 }
-      );
+      return NextResponse.json({ success: false, error: "Ogiltig URL" }, { status: 400 });
     }
 
-    console.log(
-      `[Media/UploadFromUrl] Downloading image from: ${url.substring(
-        0,
-        100
-      )}...`
-    );
+    console.log(`[Media/UploadFromUrl] Downloading image from: ${url.substring(0, 100)}...`);
 
     // Download the image
     const response = await fetch(url, {
@@ -66,7 +55,7 @@ export async function POST(request: NextRequest) {
           success: false,
           error: `Kunde inte ladda ner bilden: ${response.status}`,
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -77,7 +66,7 @@ export async function POST(request: NextRequest) {
     if (!contentType.startsWith("image/")) {
       return NextResponse.json(
         { success: false, error: "URL:en pekar inte på en bild" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -90,17 +79,14 @@ export async function POST(request: NextRequest) {
     if (buffer.length > maxSize) {
       return NextResponse.json(
         { success: false, error: "Bilden är för stor (max 20MB)" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     // Generate filename
     const extension = contentType.split("/")[1] || "jpg";
     const safeFilename = filename || `stock-${Date.now()}.${extension}`;
-    const uniqueFilename = generateUniqueFilename(
-      safeFilename,
-      source || "stock"
-    );
+    const uniqueFilename = generateUniqueFilename(safeFilename, source || "stock");
 
     // Upload to Vercel Blob
     const uploadResult = await uploadBlob({
@@ -114,7 +100,7 @@ export async function POST(request: NextRequest) {
     if (!uploadResult) {
       return NextResponse.json(
         { success: false, error: "Kunde inte spara bilden till Blob storage" },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
@@ -139,7 +125,7 @@ export async function POST(request: NextRequest) {
         success: false,
         error: error instanceof Error ? error.message : "Okänt fel",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

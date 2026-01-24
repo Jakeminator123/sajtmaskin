@@ -14,7 +14,7 @@ function parseSseData(raw: string): SseData {
 
 export async function consumeSseResponse(
   response: Response,
-  onEvent: (event: string, data: SseData, raw: string) => void
+  onEvent: (event: string, data: SseData, raw: string) => void,
 ): Promise<void> {
   const reader = response.body?.getReader();
   if (!reader) throw new Error("No response body");

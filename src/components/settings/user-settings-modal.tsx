@@ -278,230 +278,196 @@ export function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
   return (
     <div className="fixed inset-0 z-100 flex items-center justify-center">
       {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/80 backdrop-blur-sm"
-        onClick={onClose}
-      />
+      <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={onClose} />
 
       {/* Modal */}
-      <div className="relative w-full max-w-lg mx-4 bg-gray-950 border border-gray-800 shadow-2xl animate-in fade-in zoom-in-95 duration-200 max-h-[90vh] overflow-y-auto">
+      <div className="animate-in fade-in zoom-in-95 relative mx-4 max-h-[90vh] w-full max-w-lg overflow-y-auto border border-gray-800 bg-gray-950 shadow-2xl duration-200">
         {/* Close button */}
         <button
           onClick={onClose}
-          className="absolute right-4 top-4 p-1.5 hover:bg-gray-800 text-gray-500 hover:text-gray-300 transition-colors z-10"
+          className="absolute top-4 right-4 z-10 p-1.5 text-gray-500 transition-colors hover:bg-gray-800 hover:text-gray-300"
         >
           <X className="h-5 w-5" />
         </button>
 
         {/* Header */}
-        <div className="p-6 pb-4 border-b border-gray-800">
+        <div className="border-b border-gray-800 p-6 pb-4">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-brand-blue/20">
-              <Settings className="h-5 w-5 text-brand-blue" />
+            <div className="bg-brand-blue/20 rounded-lg p-2">
+              <Settings className="text-brand-blue h-5 w-5" />
             </div>
             <div>
               <h2 className="text-xl font-bold text-white">Inställningar</h2>
-              <p className="text-sm text-gray-400">
-                Anpassa AI-modeller och API-nycklar
-              </p>
+              <p className="text-sm text-gray-400">Anpassa AI-modeller och API-nycklar</p>
             </div>
           </div>
         </div>
 
         {isLoading ? (
-          <div className="p-8 flex items-center justify-center">
+          <div className="flex items-center justify-center p-8">
             <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
           </div>
         ) : (
-          <div className="p-6 space-y-6">
+          <div className="space-y-6 p-6">
             {/* Model Selection */}
             <div className="space-y-3">
               <div className="flex items-center gap-3">
-                <Sparkles className="h-5 w-5 text-brand-teal" />
+                <Sparkles className="text-brand-teal h-5 w-5" />
                 <div>
-                  <h3 className="text-sm font-medium text-gray-200">
-                    Föredragen AI-modell
-                  </h3>
-                  <p className="text-xs text-gray-500">
-                    Välj standardmodell för generering
-                  </p>
+                  <h3 className="text-sm font-medium text-gray-200">Föredragen AI-modell</h3>
+                  <p className="text-xs text-gray-500">Välj standardmodell för generering</p>
                 </div>
               </div>
 
-                {/* Model Selector Button */}
-                <button
-                  onClick={() => setShowModelPicker(!showModelPicker)}
-                  className={`w-full p-3 bg-gray-900 border rounded-lg flex items-center justify-between hover:border-gray-600 transition-colors ${currentModelInfo.tier === "premium"
-                      ? "border-brand-amber/30"
-                      : "border-brand-blue/30"
+              {/* Model Selector Button */}
+              <button
+                onClick={() => setShowModelPicker(!showModelPicker)}
+                className={`flex w-full items-center justify-between rounded-lg border bg-gray-900 p-3 transition-colors hover:border-gray-600 ${
+                  currentModelInfo.tier === "premium"
+                    ? "border-brand-amber/30"
+                    : "border-brand-blue/30"
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <div
+                    className={`flex h-9 w-9 items-center justify-center rounded-lg text-sm font-medium ${
+                      currentModelInfo.tier === "premium"
+                        ? "from-brand-amber/20 to-brand-warm/20 text-brand-amber bg-linear-to-br"
+                        : "from-brand-blue/20 to-brand-teal/20 text-brand-blue bg-linear-to-br"
                     }`}
-                >
-                  <div className="flex items-center gap-3">
-                    <div
-                      className={`w-9 h-9 rounded-lg flex items-center justify-center text-sm font-medium ${currentModelInfo.tier === "premium"
-                          ? "bg-linear-to-br from-brand-amber/20 to-brand-warm/20 text-brand-amber"
-                          : "bg-linear-to-br from-brand-blue/20 to-brand-teal/20 text-brand-blue"
-                        }`}
-                    >
-                      {currentModelInfo.provider.charAt(0)}
+                  >
+                    {currentModelInfo.provider.charAt(0)}
+                  </div>
+                  <div className="text-left">
+                    <div className="flex items-center gap-2">
+                      <p className="text-sm font-medium text-white">{currentModelInfo.name}</p>
+                      {currentModelInfo.badge && (
+                        <span
+                          className={`rounded px-1.5 py-0.5 text-[10px] ${
+                            currentModelInfo.tier === "premium"
+                              ? "bg-brand-amber/20 text-brand-amber/80"
+                              : "bg-brand-blue/20 text-brand-blue/80"
+                          }`}
+                        >
+                          {currentModelInfo.badge}
+                        </span>
+                      )}
                     </div>
-                    <div className="text-left">
-                      <div className="flex items-center gap-2">
-                        <p className="text-sm font-medium text-white">
-                          {currentModelInfo.name}
-                        </p>
-                        {currentModelInfo.badge && (
-                          <span
-                            className={`px-1.5 py-0.5 text-[10px] rounded ${currentModelInfo.tier === "premium"
-                                ? "bg-brand-amber/20 text-brand-amber/80"
-                                : "bg-brand-blue/20 text-brand-blue/80"
-                              }`}
-                          >
-                            {currentModelInfo.badge}
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-xs text-gray-500">
-                        {currentModelInfo.desc}
+                    <p className="text-xs text-gray-500">{currentModelInfo.desc}</p>
+                  </div>
+                </div>
+                <ChevronDown
+                  className={`h-4 w-4 text-gray-500 transition-transform ${
+                    showModelPicker ? "rotate-180" : ""
+                  }`}
+                />
+              </button>
+
+              {/* Model Picker Dropdown */}
+              {showModelPicker && (
+                <div className="overflow-hidden rounded-lg border border-gray-700 bg-gray-900">
+                  {/* Premium Models */}
+                  <div className="border-b border-gray-800">
+                    <div className={`bg-linear-to-r px-3 py-2 ${MODEL_TIERS.premium.color}`}>
+                      <p className="text-brand-amber/80 text-xs font-medium">
+                        {MODEL_TIERS.premium.name}
                       </p>
+                      <p className="text-brand-amber/60 text-[10px]">{MODEL_TIERS.premium.desc}</p>
                     </div>
-                  </div>
-                  <ChevronDown
-                    className={`h-4 w-4 text-gray-500 transition-transform ${showModelPicker ? "rotate-180" : ""
-                      }`}
-                  />
-                </button>
-
-                {/* Model Picker Dropdown */}
-                {showModelPicker && (
-                  <div className="bg-gray-900 border border-gray-700 rounded-lg overflow-hidden">
-                    {/* Premium Models */}
-                    <div className="border-b border-gray-800">
-                      <div
-                        className={`px-3 py-2 bg-linear-to-r ${MODEL_TIERS.premium.color}`}
+                    {premiumModels.map((model) => (
+                      <button
+                        key={model.id}
+                        onClick={() => {
+                          setSelectedModel(model.id);
+                          setShowModelPicker(false);
+                        }}
+                        className={`hover:bg-brand-amber/10 flex w-full items-center gap-3 p-3 transition-colors ${
+                          selectedModel === model.id
+                            ? "bg-brand-amber/20 border-brand-amber border-l-2"
+                            : ""
+                        }`}
                       >
-                        <p className="text-xs font-medium text-brand-amber/80">
-                          {MODEL_TIERS.premium.name}
-                        </p>
-                        <p className="text-[10px] text-brand-amber/60">
-                          {MODEL_TIERS.premium.desc}
-                        </p>
-                      </div>
-                      {premiumModels.map((model) => (
-                        <button
-                          key={model.id}
-                          onClick={() => {
-                            setSelectedModel(model.id);
-                            setShowModelPicker(false);
-                          }}
-                          className={`w-full p-3 flex items-center gap-3 hover:bg-brand-amber/10 transition-colors ${selectedModel === model.id
-                              ? "bg-brand-amber/20 border-l-2 border-brand-amber"
-                              : ""
-                            }`}
-                        >
-                          <div className="w-9 h-9 rounded-lg bg-linear-to-br from-brand-amber/20 to-brand-warm/20 flex items-center justify-center text-sm font-medium text-brand-amber">
-                            {model.provider.charAt(0)}
+                        <div className="from-brand-amber/20 to-brand-warm/20 text-brand-amber flex h-9 w-9 items-center justify-center rounded-lg bg-linear-to-br text-sm font-medium">
+                          {model.provider.charAt(0)}
+                        </div>
+                        <div className="flex-1 text-left">
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-medium text-white">{model.name}</p>
+                            {model.badge && (
+                              <span className="bg-brand-amber/20 text-brand-amber/80 rounded px-1.5 py-0.5 text-[10px]">
+                                {model.badge}
+                              </span>
+                            )}
                           </div>
-                          <div className="flex-1 text-left">
-                            <div className="flex items-center gap-2">
-                              <p className="text-sm font-medium text-white">
-                                {model.name}
-                              </p>
-                              {model.badge && (
-                                <span className="px-1.5 py-0.5 bg-brand-amber/20 text-[10px] text-brand-amber/80 rounded">
-                                  {model.badge}
-                                </span>
-                              )}
-                            </div>
-                            <p className="text-xs text-gray-500">
-                              {model.desc}
-                            </p>
-                          </div>
-                          {selectedModel === model.id && (
-                            <Check className="h-4 w-4 text-brand-amber" />
-                          )}
-                        </button>
-                      ))}
-                    </div>
-
-                    {/* Fast Models */}
-                    <div>
-                      <div
-                        className={`px-3 py-2 bg-linear-to-r ${MODEL_TIERS.fast.color}`}
-                      >
-                        <p className="text-xs font-medium text-brand-blue/80">
-                          {MODEL_TIERS.fast.name}
-                        </p>
-                        <p className="text-[10px] text-brand-blue/60">
-                          {MODEL_TIERS.fast.desc}
-                        </p>
-                      </div>
-                      {fastModels.map((model) => (
-                        <button
-                          key={model.id}
-                          onClick={() => {
-                            setSelectedModel(model.id);
-                            setShowModelPicker(false);
-                          }}
-                          className={`w-full p-3 flex items-center gap-3 hover:bg-brand-blue/10 transition-colors ${selectedModel === model.id
-                              ? "bg-brand-blue/20 border-l-2 border-brand-blue"
-                              : ""
-                            }`}
-                        >
-                          <div className="w-9 h-9 rounded-lg bg-linear-to-br from-brand-blue/20 to-brand-teal/20 flex items-center justify-center text-sm font-medium text-brand-blue">
-                            {model.provider.charAt(0)}
-                          </div>
-                          <div className="flex-1 text-left">
-                            <div className="flex items-center gap-2">
-                              <p className="text-sm font-medium text-white">
-                                {model.name}
-                              </p>
-                              {model.badge && (
-                                <span className="px-1.5 py-0.5 bg-brand-blue/20 text-[10px] text-brand-blue/80 rounded">
-                                  {model.badge}
-                                </span>
-                              )}
-                            </div>
-                            <p className="text-xs text-gray-500">
-                              {model.desc}
-                            </p>
-                          </div>
-                          {selectedModel === model.id && (
-                            <Check className="h-4 w-4 text-brand-blue" />
-                          )}
-                        </button>
-                      ))}
-                    </div>
+                          <p className="text-xs text-gray-500">{model.desc}</p>
+                        </div>
+                        {selectedModel === model.id && (
+                          <Check className="text-brand-amber h-4 w-4" />
+                        )}
+                      </button>
+                    ))}
                   </div>
-                )}
-              </div>
+
+                  {/* Fast Models */}
+                  <div>
+                    <div className={`bg-linear-to-r px-3 py-2 ${MODEL_TIERS.fast.color}`}>
+                      <p className="text-brand-blue/80 text-xs font-medium">
+                        {MODEL_TIERS.fast.name}
+                      </p>
+                      <p className="text-brand-blue/60 text-[10px]">{MODEL_TIERS.fast.desc}</p>
+                    </div>
+                    {fastModels.map((model) => (
+                      <button
+                        key={model.id}
+                        onClick={() => {
+                          setSelectedModel(model.id);
+                          setShowModelPicker(false);
+                        }}
+                        className={`hover:bg-brand-blue/10 flex w-full items-center gap-3 p-3 transition-colors ${
+                          selectedModel === model.id
+                            ? "bg-brand-blue/20 border-brand-blue border-l-2"
+                            : ""
+                        }`}
+                      >
+                        <div className="from-brand-blue/20 to-brand-teal/20 text-brand-blue flex h-9 w-9 items-center justify-center rounded-lg bg-linear-to-br text-sm font-medium">
+                          {model.provider.charAt(0)}
+                        </div>
+                        <div className="flex-1 text-left">
+                          <div className="flex items-center gap-2">
+                            <p className="text-sm font-medium text-white">{model.name}</p>
+                            {model.badge && (
+                              <span className="bg-brand-blue/20 text-brand-blue/80 rounded px-1.5 py-0.5 text-[10px]">
+                                {model.badge}
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-xs text-gray-500">{model.desc}</p>
+                        </div>
+                        {selectedModel === model.id && (
+                          <Check className="text-brand-blue h-4 w-4" />
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
 
             {/* Thinking Display Toggle */}
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <Brain className="h-5 w-5 text-brand-blue" />
+                <Brain className="text-brand-blue h-5 w-5" />
                 <div>
-                  <h3 className="text-sm font-medium text-gray-200">
-                    Visa AI-resonemang
-                  </h3>
-                  <p className="text-xs text-gray-500">
-                    Visa vad AI:n tänker under generering
-                  </p>
+                  <h3 className="text-sm font-medium text-gray-200">Visa AI-resonemang</h3>
+                  <p className="text-xs text-gray-500">Visa vad AI:n tänker under generering</p>
                 </div>
               </div>
               <button
                 onClick={() => setEnableThinking(!enableThinking)}
-                className={`
-                  relative w-12 h-6 rounded-full transition-all duration-200
-                  ${enableThinking ? "bg-brand-blue" : "bg-gray-700"}
-                `}
+                className={`relative h-6 w-12 rounded-full transition-all duration-200 ${enableThinking ? "bg-brand-blue" : "bg-gray-700"} `}
               >
                 <span
-                  className={`
-                    absolute top-1 w-4 h-4 rounded-full bg-white shadow-sm
-                    transition-transform duration-200
-                    ${enableThinking ? "left-7" : "left-1"}
-                  `}
+                  className={`absolute top-1 h-4 w-4 rounded-full bg-white shadow-sm transition-transform duration-200 ${enableThinking ? "left-7" : "left-1"} `}
                 />
               </button>
             </div>
@@ -512,27 +478,23 @@ export function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
             {/* API Keys Section - wrapped in form to avoid DOM warning */}
             <form onSubmit={(e) => e.preventDefault()} className="space-y-4">
               <div className="flex items-center justify-between">
-                <h3 className="text-sm font-medium text-gray-200 flex items-center gap-2">
+                <h3 className="flex items-center gap-2 text-sm font-medium text-gray-200">
                   <Key className="h-4 w-4 text-gray-400" />
                   API-nycklar (valfritt)
                 </h3>
                 <button
                   type="button"
                   onClick={() => setShowKeys(!showKeys)}
-                  className="text-xs text-gray-500 hover:text-gray-300 flex items-center gap-1"
+                  className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-300"
                 >
-                  {showKeys ? (
-                    <EyeOff className="h-3 w-3" />
-                  ) : (
-                    <Eye className="h-3 w-3" />
-                  )}
+                  {showKeys ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
                   {showKeys ? "Dölj" : "Visa"}
                 </button>
               </div>
 
               <p className="text-xs text-gray-500">
-                Lägg till egna API-nycklar för att använda dina egna kvoter
-                istället för plattformens.
+                Lägg till egna API-nycklar för att använda dina egna kvoter istället för
+                plattformens.
               </p>
 
               {/* OpenAI Key */}
@@ -546,12 +508,10 @@ export function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
                 <div className="flex gap-2">
                   <Input
                     type={showKeys ? "text" : "password"}
-                    placeholder={
-                      settings?.has_openai_key ? "••••••••" : "sk-..."
-                    }
+                    placeholder={settings?.has_openai_key ? "••••••••" : "sk-..."}
                     value={openaiKey}
                     onChange={(e) => setOpenaiKey(e.target.value)}
-                    className="flex-1 h-9 bg-gray-900 border-gray-700 text-white text-sm"
+                    className="h-9 flex-1 border-gray-700 bg-gray-900 text-sm text-white"
                   />
                   {settings?.has_openai_key && (
                     <Button
@@ -559,7 +519,7 @@ export function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
                       variant="outline"
                       size="sm"
                       onClick={() => handleClearKey("openai")}
-                      className="h-9 px-3 border-red-800 text-red-400 hover:bg-red-900/20"
+                      className="h-9 border-red-800 px-3 text-red-400 hover:bg-red-900/20"
                     >
                       Ta bort
                     </Button>
@@ -578,12 +538,10 @@ export function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
                 <div className="flex gap-2">
                   <Input
                     type={showKeys ? "text" : "password"}
-                    placeholder={
-                      settings?.has_anthropic_key ? "••••••••" : "sk-ant-..."
-                    }
+                    placeholder={settings?.has_anthropic_key ? "••••••••" : "sk-ant-..."}
                     value={anthropicKey}
                     onChange={(e) => setAnthropicKey(e.target.value)}
-                    className="flex-1 h-9 bg-gray-900 border-gray-700 text-white text-sm"
+                    className="h-9 flex-1 border-gray-700 bg-gray-900 text-sm text-white"
                   />
                   {settings?.has_anthropic_key && (
                     <Button
@@ -591,7 +549,7 @@ export function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
                       variant="outline"
                       size="sm"
                       onClick={() => handleClearKey("anthropic")}
-                      className="h-9 px-3 border-red-800 text-red-400 hover:bg-red-900/20"
+                      className="h-9 border-red-800 px-3 text-red-400 hover:bg-red-900/20"
                     >
                       Ta bort
                     </Button>
@@ -606,7 +564,7 @@ export function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
             {/* GitHub Integration */}
             <div className="space-y-3">
               <div className="flex items-center gap-3">
-                <Github className="h-5 w-5 text-brand-blue" />
+                <Github className="text-brand-blue h-5 w-5" />
                 <div>
                   <h3 className="text-sm font-medium text-gray-200">GitHub</h3>
                   <p className="text-xs text-gray-500">
@@ -620,8 +578,7 @@ export function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
                   hasGitHub ? (
                     <>
                       <span className="text-xs text-gray-400">
-                        Kopplat som{" "}
-                        <span className="text-gray-200">@{user?.github_username}</span>
+                        Kopplat som <span className="text-gray-200">@{user?.github_username}</span>
                       </span>
                       <Button
                         type="button"
@@ -629,7 +586,7 @@ export function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
                         size="sm"
                         onClick={handleGitHubDisconnect}
                         disabled={isGitHubUpdating}
-                        className="h-8 px-3 border-red-800 text-red-400 hover:bg-red-900/20"
+                        className="h-8 border-red-800 px-3 text-red-400 hover:bg-red-900/20"
                       >
                         {isGitHubUpdating ? "Jobbar..." : "Koppla bort"}
                       </Button>
@@ -642,7 +599,7 @@ export function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
                       disabled={isGitHubUpdating}
                       onClick={() =>
                         window.location.assign(
-                          `/api/auth/github?returnTo=${encodeURIComponent(returnTo)}`
+                          `/api/auth/github?returnTo=${encodeURIComponent(returnTo)}`,
                         )
                       }
                       className="h-8 px-3"
@@ -651,23 +608,21 @@ export function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
                     </Button>
                   )
                 ) : (
-                  <span className="text-xs text-gray-500">
-                    Logga in för att koppla GitHub
-                  </span>
+                  <span className="text-xs text-gray-500">Logga in för att koppla GitHub</span>
                 )}
               </div>
             </div>
 
             {/* Error/Success messages */}
             {error && (
-              <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg flex items-center gap-2 text-sm text-red-400">
+              <div className="flex items-center gap-2 rounded-lg border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-400">
                 <AlertCircle className="h-4 w-4 shrink-0" />
                 {error}
               </div>
             )}
 
             {success && (
-              <div className="p-3 bg-green-500/10 border border-green-500/30 rounded-lg flex items-center gap-2 text-sm text-green-400">
+              <div className="flex items-center gap-2 rounded-lg border border-green-500/30 bg-green-500/10 p-3 text-sm text-green-400">
                 <Check className="h-4 w-4 shrink-0" />
                 {success}
               </div>
@@ -677,13 +632,9 @@ export function UserSettingsModal({ isOpen, onClose }: UserSettingsModalProps) {
             <Button
               onClick={handleSave}
               disabled={isSaving}
-              className="w-full h-10 bg-brand-blue hover:bg-brand-blue/90 text-white font-medium"
+              className="bg-brand-blue hover:bg-brand-blue/90 h-10 w-full font-medium text-white"
             >
-              {isSaving ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                "Spara inställningar"
-              )}
+              {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : "Spara inställningar"}
             </Button>
           </div>
         )}

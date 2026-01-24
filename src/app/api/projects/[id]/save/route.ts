@@ -22,10 +22,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
 
     const project = getProjectById(id);
     if (!project) {
-      return NextResponse.json(
-        { success: false, error: "Project not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ success: false, error: "Project not found" }, { status: 404 });
     }
 
     const { chatId, demoUrl, currentCode, files, messages } = body;
@@ -41,10 +38,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     });
 
     // Invalidate caches (project detail + list)
-    await Promise.all([
-      deleteCache(`project:${id}`),
-      deleteCache("projects:list"),
-    ]);
+    await Promise.all([deleteCache(`project:${id}`), deleteCache("projects:list")]);
 
     // ═══════════════════════════════════════════════════════════════════════════
     // NO AUTOMATIC VERCEL DEPLOYMENT!
@@ -65,7 +59,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
         success: false,
         error: error instanceof Error ? error.message : "Unknown error",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

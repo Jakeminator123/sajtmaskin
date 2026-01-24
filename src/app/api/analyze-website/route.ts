@@ -92,10 +92,7 @@ export async function POST(req: NextRequest) {
     };
 
     if (!url) {
-      return NextResponse.json(
-        { success: false, error: "URL is required" },
-        { status: 400 }
-      );
+      return NextResponse.json({ success: false, error: "URL is required" }, { status: 400 });
     }
 
     // Validate URL
@@ -103,10 +100,7 @@ export async function POST(req: NextRequest) {
     try {
       parsedUrl = new URL(url);
     } catch {
-      return NextResponse.json(
-        { success: false, error: "Invalid URL format" },
-        { status: 400 }
-      );
+      return NextResponse.json({ success: false, error: "Invalid URL format" }, { status: 400 });
     }
 
     // Get OpenAI API key
@@ -116,7 +110,7 @@ export async function POST(req: NextRequest) {
       console.error("[API/analyze-website] OpenAI API key not configured");
       return NextResponse.json(
         { success: false, error: "OpenAI API is not configured" },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
@@ -125,9 +119,7 @@ export async function POST(req: NextRequest) {
     const userPrompt = `Analysera denna webbplats grundligt: ${url}
     
 Domän: ${parsedUrl.hostname}
-Sökord att undersöka: "${
-      parsedUrl.hostname.replace("www.", "").split(".")[0]
-    }" företag`;
+Sökord att undersöka: "${parsedUrl.hostname.replace("www.", "").split(".")[0]}" företag`;
 
     let analysis: string | undefined;
     const sources: Array<{ url: string; title: string }> = [];
@@ -136,9 +128,7 @@ Sökord att undersöka: "${
 
     // Try with Web Search first (if deepAnalysis is enabled)
     if (deepAnalysis) {
-      console.log(
-        `[API/analyze-website] Trying ${WEB_SEARCH_MODEL} with Web Search...`
-      );
+      console.log(`[API/analyze-website] Trying ${WEB_SEARCH_MODEL} with Web Search...`);
 
       try {
         // Responses API format: instructions (system) + input (user string) + tools
@@ -165,16 +155,9 @@ Sökord att undersöka: "${
           // If output_text not available, parse the output array
           if (!analysis && data.output && Array.isArray(data.output)) {
             for (const item of data.output) {
-              if (
-                item.type === "message" &&
-                item.content &&
-                Array.isArray(item.content)
-              ) {
+              if (item.type === "message" && item.content && Array.isArray(item.content)) {
                 for (const content of item.content) {
-                  if (
-                    content.type === "output_text" ||
-                    content.type === "text"
-                  ) {
+                  if (content.type === "output_text" || content.type === "text") {
                     analysis = content.text?.trim();
                     if (analysis) break;
                   }
@@ -189,15 +172,9 @@ Sökord att undersöka: "${
             for (const item of data.output) {
               if (item.content && Array.isArray(item.content)) {
                 for (const content of item.content) {
-                  if (
-                    content.annotations &&
-                    Array.isArray(content.annotations)
-                  ) {
+                  if (content.annotations && Array.isArray(content.annotations)) {
                     for (const annotation of content.annotations as WebSearchAnnotation[]) {
-                      if (
-                        annotation.type === "url_citation" &&
-                        annotation.url
-                      ) {
+                      if (annotation.type === "url_citation" && annotation.url) {
                         sources.push({
                           url: annotation.url,
                           title: annotation.title || annotation.url,
@@ -213,56 +190,48 @@ Sökord att undersöka: "${
           if (analysis) {
             usedWebSearch = true;
             console.log(
-              `[API/analyze-website] Web Search success, found ${sources.length} sources, length: ${analysis.length}`
+              `[API/analyze-website] Web Search success, found ${sources.length} sources, length: ${analysis.length}`,
             );
           } else {
             console.log(
-              "[API/analyze-website] Web Search returned empty analysis, falling back..."
+              "[API/analyze-website] Web Search returned empty analysis, falling back...",
             );
           }
         } else {
           const errorData = await webSearchResponse.json().catch(() => ({}));
           console.log(
             `[API/analyze-website] Web Search failed (${webSearchResponse.status}):`,
-            errorData.error?.message || "unknown error"
+            errorData.error?.message || "unknown error",
           );
         }
       } catch (webSearchError) {
-        console.error(
-          "[API/analyze-website] Web Search error:",
-          webSearchError
-        );
+        console.error("[API/analyze-website] Web Search error:", webSearchError);
       }
     }
 
     // Fallback to simple analysis without web search
     if (!analysis) {
-      console.log(
-        `[API/analyze-website] Falling back to ${FALLBACK_MODEL} without Web Search...`
-      );
+      console.log(`[API/analyze-website] Falling back to ${FALLBACK_MODEL} without Web Search...`);
       usedModel = FALLBACK_MODEL;
 
       const simplePrompt = `Analysera och ge förbättringsförslag för denna webbplats: ${url}`;
 
-      const fallbackResponse = await fetch(
-        "https://api.openai.com/v1/chat/completions",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${openaiApiKey}`,
-          },
-          body: JSON.stringify({
-            model: FALLBACK_MODEL,
-            messages: [
-              { role: "system", content: ANALYSIS_PROMPT_SIMPLE },
-              { role: "user", content: simplePrompt },
-            ],
-            temperature: 0.7,
-            max_tokens: 500,
-          }),
-        }
-      );
+      const fallbackResponse = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${openaiApiKey}`,
+        },
+        body: JSON.stringify({
+          model: FALLBACK_MODEL,
+          messages: [
+            { role: "system", content: ANALYSIS_PROMPT_SIMPLE },
+            { role: "user", content: simplePrompt },
+          ],
+          temperature: 0.7,
+          max_tokens: 500,
+        }),
+      });
 
       if (!fallbackResponse.ok) {
         const errorData = await fallbackResponse.json().catch(() => ({}));
@@ -271,13 +240,13 @@ Sökord att undersöka: "${
         if (fallbackResponse.status === 429) {
           return NextResponse.json(
             { success: false, error: "Rate limit exceeded. Try again later." },
-            { status: 429 }
+            { status: 429 },
           );
         }
 
         return NextResponse.json(
           { success: false, error: "Failed to analyze website" },
-          { status: 500 }
+          { status: 500 },
         );
       }
 
@@ -287,15 +256,12 @@ Sökord att undersöka: "${
 
     if (!analysis) {
       console.error("[API/analyze-website] No content in response");
-      return NextResponse.json(
-        { success: false, error: "No analysis generated" },
-        { status: 500 }
-      );
+      return NextResponse.json({ success: false, error: "No analysis generated" }, { status: 500 });
     }
 
     console.log(
       `[API/analyze-website] Success with ${usedModel}, web search: ${usedWebSearch}, length:`,
-      analysis.length
+      analysis.length,
     );
 
     const result: AnalysisResponse = {
@@ -319,7 +285,7 @@ Sökord att undersöka: "${
         success: false,
         error: "Failed to analyze website. Please try again.",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

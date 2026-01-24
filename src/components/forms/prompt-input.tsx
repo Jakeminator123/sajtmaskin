@@ -9,6 +9,7 @@
  * - Keyboard shortcuts (Enter to submit, Shift+Enter for newline)
  * - AI Wizard integration for guided prompt building
  * - Example prompts for inspiration
+ * - Pre-builder settings (model tier + prompt assist)
  *
  * ACCESSIBILITY:
  * - Proper focus management
@@ -22,6 +23,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { HelpTooltip } from "@/components/layout";
 import { PromptWizardModalV2, type WizardData } from "@/components/modals";
+import {
+  PreBuilderSettings,
+  getDefaultPreBuilderSettings,
+  buildSettingsUrlParams,
+} from "@/components/forms/pre-builder-settings";
 import { ArrowUp, Loader2, Wand2, Lightbulb } from "lucide-react";
 
 // ═══════════════════════════════════════════════════════════════
@@ -51,6 +57,7 @@ export function PromptInput({
 }: PromptInputProps) {
   const [prompt, setPrompt] = useState(initialValue || "");
   const [showWizard, setShowWizard] = useState(false);
+  const [settings, setSettings] = useState(getDefaultPreBuilderSettings);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const router = useRouter();
 
@@ -65,10 +72,7 @@ export function PromptInput({
   useEffect(() => {
     if (textareaRef.current) {
       textareaRef.current.style.height = "auto";
-      textareaRef.current.style.height = `${Math.min(
-        textareaRef.current.scrollHeight,
-        200
-      )}px`;
+      textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 200)}px`;
     }
   }, [prompt]);
 
@@ -80,7 +84,8 @@ export function PromptInput({
     }
 
     if (navigateOnSubmit) {
-      router.push(`/builder?prompt=${encodeURIComponent(prompt)}`);
+      const settingsParams = buildSettingsUrlParams(settings);
+      router.push(`/builder?prompt=${encodeURIComponent(prompt)}&${settingsParams}`);
     }
   };
 
@@ -98,10 +103,7 @@ export function PromptInput({
   };
 
   // Handle wizard completion - auto-submit the expanded prompt
-  const handleWizardComplete = (
-    _wizardData: WizardData,
-    expandedPrompt: string
-  ) => {
+  const handleWizardComplete = (_wizardData: WizardData, expandedPrompt: string) => {
     setShowWizard(false);
 
     // Auto-submit with the expanded prompt
@@ -110,7 +112,8 @@ export function PromptInput({
     }
 
     if (navigateOnSubmit) {
-      router.push(`/builder?prompt=${encodeURIComponent(expandedPrompt)}`);
+      const settingsParams = buildSettingsUrlParams(settings);
+      router.push(`/builder?prompt=${encodeURIComponent(expandedPrompt)}&${settingsParams}`);
     }
   };
 
@@ -127,7 +130,7 @@ export function PromptInput({
 
       <div className="w-full max-w-2xl space-y-4">
         <div className="relative">
-          <div className="flex items-start gap-2 p-3 bg-black/50 border border-gray-800 focus-within:border-gray-700 focus-within:ring-1 focus-within:ring-gray-700 transition-all">
+          <div className="flex items-start gap-2 border border-gray-800 bg-black/50 p-3 transition-all focus-within:border-gray-700 focus-within:ring-1 focus-within:ring-gray-700">
             <Textarea
               ref={textareaRef}
               value={prompt}
@@ -135,15 +138,21 @@ export function PromptInput({
               onKeyDown={handleKeyDown}
               placeholder={placeholder}
               disabled={isLoading}
-              className="flex-1 min-h-[44px] max-h-[200px] resize-none border-0 bg-transparent text-white placeholder:text-gray-500 focus-visible:ring-0 focus-visible:ring-offset-0 p-0"
+              className="max-h-[200px] min-h-[44px] flex-1 resize-none border-0 bg-transparent p-0 text-white placeholder:text-gray-500 focus-visible:ring-0 focus-visible:ring-offset-0"
               rows={1}
+            />
+            <PreBuilderSettings
+              value={settings}
+              onChange={setSettings}
+              disabled={isLoading}
+              compact
             />
             <Button
               onClick={() => setShowWizard(true)}
               disabled={isLoading}
               size="icon"
               title="Bygg ut med AI"
-              className="h-9 w-9 shrink-0 bg-brand-teal hover:bg-brand-teal/90 disabled:opacity-50"
+              className="bg-brand-teal hover:bg-brand-teal/90 h-9 w-9 shrink-0 disabled:opacity-50"
             >
               <Wand2 className="h-4 w-4" />
             </Button>
@@ -152,7 +161,7 @@ export function PromptInput({
               disabled={!prompt.trim() || isLoading}
               size="icon"
               title="Skapa webbplats"
-              className="h-9 w-9 shrink-0 bg-brand-teal hover:bg-brand-teal/90 disabled:opacity-50"
+              className="bg-brand-teal hover:bg-brand-teal/90 h-9 w-9 shrink-0 disabled:opacity-50"
             >
               {isLoading ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -171,8 +180,8 @@ export function PromptInput({
 
         {/* Example prompts - inspiration för användare */}
         <div className="space-y-3">
-          <p className="text-xs text-gray-500 text-center flex items-center justify-center gap-1.5">
-            <Lightbulb className="h-3 w-3 text-brand-amber/70" />
+          <p className="flex items-center justify-center gap-1.5 text-center text-xs text-gray-500">
+            <Lightbulb className="text-brand-amber/70 h-3 w-3" />
             Prova ett exempel:
           </p>
           <div className="flex flex-wrap justify-center gap-2">
@@ -181,15 +190,7 @@ export function PromptInput({
                 key={index}
                 onClick={() => handleExampleClick(example)}
                 aria-label={`Använd exempel: ${example}`}
-                className="
-                  text-xs px-3 py-1.5
-                  bg-gray-800/50 text-gray-400
-                  hover:bg-brand-teal/10 hover:text-brand-teal/80 hover:border-brand-teal/30
-                  border border-transparent
-                  transition-all duration-200
-                  truncate max-w-[280px]
-                  focus:outline-none focus:ring-2 focus:ring-brand-teal/30
-                "
+                className="hover:bg-brand-teal/10 hover:text-brand-teal/80 hover:border-brand-teal/30 focus:ring-brand-teal/30 max-w-[280px] truncate border border-transparent bg-gray-800/50 px-3 py-1.5 text-xs text-gray-400 transition-all duration-200 focus:ring-2 focus:outline-none"
               >
                 &quot;{example.slice(0, 40)}...&quot;
               </button>
@@ -197,7 +198,7 @@ export function PromptInput({
           </div>
 
           {/* Character count and hint */}
-          <div className="flex justify-between items-center px-1">
+          <div className="flex items-center justify-between px-1">
             <span
               className={`text-xs transition-colors ${
                 prompt.length > 500 ? "text-brand-amber" : "text-gray-500"
@@ -205,11 +206,11 @@ export function PromptInput({
             >
               {prompt.length} tecken
               {prompt.length > 500 && (
-                <span className="ml-1 text-brand-amber/70">(detaljerat ✓)</span>
+                <span className="text-brand-amber/70 ml-1">(detaljerat ✓)</span>
               )}
             </span>
-            <span className="text-xs text-gray-600 hidden sm:inline">
-              <Wand2 className="h-3 w-3 inline mr-1 text-brand-teal/70" />
+            <span className="hidden text-xs text-gray-600 sm:inline">
+              <Wand2 className="text-brand-teal/70 mr-1 inline h-3 w-3" />
               Teal-knappen bygger ut med AI
             </span>
           </div>

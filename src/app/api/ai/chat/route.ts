@@ -1,42 +1,42 @@
-import { createOpenAI } from '@ai-sdk/openai';
-import { createAnthropic } from '@ai-sdk/anthropic';
-import { createVercel } from '@ai-sdk/vercel';
-import { gateway, generateText } from 'ai';
-import { NextResponse } from 'next/server';
-import { z } from 'zod';
-import { withRateLimit } from '@/lib/rateLimit';
-import { requireNotBot } from '@/lib/botProtection';
+import { createOpenAI } from "@ai-sdk/openai";
+import { createAnthropic } from "@ai-sdk/anthropic";
+import { createVercel } from "@ai-sdk/vercel";
+import { gateway, generateText } from "ai";
+import { NextResponse } from "next/server";
+import { z } from "zod";
+import { withRateLimit } from "@/lib/rateLimit";
+import { requireNotBot } from "@/lib/botProtection";
 
-export const runtime = 'nodejs';
-export const maxDuration = 60;
+export const runtime = "nodejs";
+export const maxDuration = 300; // 5 minutes for prompt assist with slow models
 
-const BASE_URL = 'https://api.v0.dev/v1';
+const BASE_URL = "https://api.v0.dev/v1";
 
-type ProviderType = 'openai-compat' | 'vercel' | 'gateway' | 'openai' | 'anthropic';
+type ProviderType = "openai-compat" | "vercel" | "gateway" | "openai" | "anthropic";
 
-const messageSchema = z.discriminatedUnion('role', [
+const messageSchema = z.discriminatedUnion("role", [
   z.object({
-    role: z.literal('system'),
+    role: z.literal("system"),
     content: z.string(),
   }),
   z.object({
-    role: z.literal('user'),
+    role: z.literal("user"),
     content: z.string(),
   }),
   z.object({
-    role: z.literal('assistant'),
+    role: z.literal("assistant"),
     content: z.string(),
   }),
 ]);
 
 const chatRequestSchema = z.object({
-  messages: z.array(messageSchema).min(1, 'messages is required'),
-  model: z.string().optional().default('v0-1.5-md'),
+  messages: z.array(messageSchema).min(1, "messages is required"),
+  model: z.string().optional().default("v0-1.5-md"),
   temperature: z.number().min(0).max(2).optional(),
   provider: z
-    .enum(['openai-compat', 'vercel', 'gateway', 'openai', 'anthropic'])
+    .enum(["openai-compat", "vercel", "gateway", "openai", "anthropic"])
     .optional()
-    .default('openai-compat'),
+    .default("openai-compat"),
 });
 
 function getV0ModelApiKey(): { apiKey: string | null; source: string } {
@@ -45,44 +45,46 @@ function getV0ModelApiKey(): { apiKey: string | null; source: string } {
   const vercelToken = process.env.VERCEL_TOKEN;
 
   if (vercelApiKey && vercelApiKey.trim() && (!vercelToken || vercelApiKey !== vercelToken)) {
-    return { apiKey: vercelApiKey, source: 'VERCEL_API_KEY' };
+    return { apiKey: vercelApiKey, source: "VERCEL_API_KEY" };
   }
 
   if (v0ApiKey && v0ApiKey.trim()) {
-    return { apiKey: v0ApiKey, source: 'V0_API_KEY' };
+    return { apiKey: v0ApiKey, source: "V0_API_KEY" };
   }
 
   if (vercelApiKey && vercelApiKey.trim()) {
-    return { apiKey: vercelApiKey, source: 'VERCEL_API_KEY (matches VERCEL_TOKEN?)' };
+    return { apiKey: vercelApiKey, source: "VERCEL_API_KEY (matches VERCEL_TOKEN?)" };
   }
 
-  return { apiKey: null, source: 'none' };
+  return { apiKey: null, source: "none" };
 }
 
 function getOpenAIApiKey(): { apiKey: string | null; source: string } {
   const apiKey = process.env.OPENAI_API_KEY;
-  return apiKey && apiKey.trim() ? { apiKey, source: 'OPENAI_API_KEY' } : { apiKey: null, source: 'none' };
+  return apiKey && apiKey.trim()
+    ? { apiKey, source: "OPENAI_API_KEY" }
+    : { apiKey: null, source: "none" };
 }
 
 function getAnthropicApiKey(): { apiKey: string | null; source: string } {
   const apiKey = process.env.ANTHROPIC_API_KEY || process.env.CLAUDE_ANTROPIC_API_KEY;
   const source = process.env.ANTHROPIC_API_KEY
-    ? 'ANTHROPIC_API_KEY'
+    ? "ANTHROPIC_API_KEY"
     : process.env.CLAUDE_ANTROPIC_API_KEY
-      ? 'CLAUDE_ANTROPIC_API_KEY'
-      : 'none';
-  return apiKey && apiKey.trim() ? { apiKey, source } : { apiKey: null, source: 'none' };
+      ? "CLAUDE_ANTROPIC_API_KEY"
+      : "none";
+  return apiKey && apiKey.trim() ? { apiKey, source } : { apiKey: null, source: "none" };
 }
 
-function getProvider(providerType: Exclude<ProviderType, 'gateway'>, apiKey: string) {
+function getProvider(providerType: Exclude<ProviderType, "gateway">, apiKey: string) {
   switch (providerType) {
-    case 'vercel':
+    case "vercel":
       return createVercel({ apiKey });
-    case 'openai':
+    case "openai":
       return createOpenAI({ apiKey });
-    case 'anthropic':
+    case "anthropic":
       return createAnthropic({ apiKey });
-    case 'openai-compat':
+    case "openai-compat":
     default:
       return createOpenAI({
         apiKey,
@@ -92,23 +94,22 @@ function getProvider(providerType: Exclude<ProviderType, 'gateway'>, apiKey: str
 }
 
 function isProbablyOnVercel(): boolean {
-  return process.env.VERCEL === '1' || Boolean(process.env.VERCEL_ENV);
+  return process.env.VERCEL === "1" || Boolean(process.env.VERCEL_ENV);
 }
 
 function getGatewayPreferredProvider(model: string): string | null {
-  const slashIdx = model.indexOf('/');
+  const slashIdx = model.indexOf("/");
   if (slashIdx <= 0) return null;
   return model.slice(0, slashIdx) || null;
 }
 
 function defaultGatewayFallbackModels(primaryModel: string): string[] {
   const m = primaryModel.toLowerCase();
-  const fallbacks =
-    m.startsWith('openai/gpt-5')
-      ? ['openai/gpt-4o', 'openai/gpt-4o-mini']
-      : m.startsWith('anthropic/')
-        ? ['anthropic/claude-sonnet-4.5', 'openai/gpt-4o-mini']
-        : ['openai/gpt-4o-mini', 'anthropic/claude-sonnet-4.5'];
+  const fallbacks = m.startsWith("openai/gpt-5")
+    ? ["openai/gpt-4o", "openai/gpt-4o-mini"]
+    : m.startsWith("anthropic/")
+      ? ["anthropic/claude-sonnet-4.5", "openai/gpt-4o-mini"]
+      : ["openai/gpt-4o-mini", "anthropic/claude-sonnet-4.5"];
   return fallbacks.filter((x) => x !== primaryModel);
 }
 
@@ -118,7 +119,7 @@ function isReasoningModel(model: string): boolean {
 }
 
 function getTemperatureConfig(model: string, temperature?: number): { temperature?: number } {
-  if (typeof temperature !== 'number') return {};
+  if (typeof temperature !== "number") return {};
   if (isReasoningModel(model)) {
     return {};
   }
@@ -126,7 +127,7 @@ function getTemperatureConfig(model: string, temperature?: number): { temperatur
 }
 
 export async function POST(req: Request) {
-  return withRateLimit(req, 'ai:chat', async () => {
+  return withRateLimit(req, "ai:chat", async () => {
     try {
       const botError = requireNotBot(req);
       if (botError) return botError;
@@ -135,32 +136,33 @@ export async function POST(req: Request) {
       const parsed = chatRequestSchema.safeParse(body);
       if (!parsed.success) {
         return NextResponse.json(
-          { error: 'Validation failed', details: parsed.error.issues },
-          { status: 400 }
+          { error: "Validation failed", details: parsed.error.issues },
+          { status: 400 },
         );
       }
 
       const { messages, model, temperature, provider } = parsed.data;
 
-      if (provider === 'gateway') {
-        if (!model.includes('/')) {
+      if (provider === "gateway") {
+        if (!model.includes("/")) {
           return NextResponse.json(
             {
-              error: 'Invalid model for gateway provider',
-              setup: 'When provider="gateway", set model to "provider/model" (e.g. "openai/gpt-5").',
+              error: "Invalid model for gateway provider",
+              setup:
+                'When provider="gateway", set model to "provider/model" (e.g. "openai/gpt-5").',
             },
-            { status: 400 }
+            { status: 400 },
           );
         }
 
         if (!process.env.AI_GATEWAY_API_KEY && !isProbablyOnVercel()) {
           return NextResponse.json(
             {
-              error: 'Missing AI_GATEWAY_API_KEY for gateway provider',
+              error: "Missing AI_GATEWAY_API_KEY for gateway provider",
               setup:
-                'Set AI_GATEWAY_API_KEY for local dev, or deploy on Vercel to use OIDC authentication.',
+                "Set AI_GATEWAY_API_KEY for local dev, or deploy on Vercel to use OIDC authentication.",
             },
-            { status: 401 }
+            { status: 401 },
           );
         }
 
@@ -180,25 +182,25 @@ export async function POST(req: Request) {
 
         return new Response(result.text, {
           headers: {
-            'Content-Type': 'text/plain; charset=utf-8',
-            'Cache-Control': 'no-store',
-            'X-Provider': provider,
+            "Content-Type": "text/plain; charset=utf-8",
+            "Cache-Control": "no-store",
+            "X-Provider": provider,
           },
         });
       }
 
-      if (provider === 'openai') {
+      if (provider === "openai") {
         const { apiKey, source } = getOpenAIApiKey();
         if (!apiKey) {
           return NextResponse.json(
             {
-              error: 'Missing OPENAI_API_KEY',
+              error: "Missing OPENAI_API_KEY",
               setup: 'Set OPENAI_API_KEY for provider="openai".',
             },
-            { status: 401 }
+            { status: 401 },
           );
         }
-        const modelProvider = getProvider('openai', apiKey);
+        const modelProvider = getProvider("openai", apiKey);
         const result = await generateText({
           model: modelProvider(model),
           messages,
@@ -206,26 +208,26 @@ export async function POST(req: Request) {
         });
         return new Response(result.text, {
           headers: {
-            'Content-Type': 'text/plain; charset=utf-8',
-            'Cache-Control': 'no-store',
-            'X-Provider': provider,
-            'X-Key-Source': source,
+            "Content-Type": "text/plain; charset=utf-8",
+            "Cache-Control": "no-store",
+            "X-Provider": provider,
+            "X-Key-Source": source,
           },
         });
       }
 
-      if (provider === 'anthropic') {
+      if (provider === "anthropic") {
         const { apiKey, source } = getAnthropicApiKey();
         if (!apiKey) {
           return NextResponse.json(
             {
-              error: 'Missing ANTHROPIC_API_KEY',
+              error: "Missing ANTHROPIC_API_KEY",
               setup: 'Set ANTHROPIC_API_KEY for provider="anthropic".',
             },
-            { status: 401 }
+            { status: 401 },
           );
         }
-        const modelProvider = getProvider('anthropic', apiKey);
+        const modelProvider = getProvider("anthropic", apiKey);
         const result = await generateText({
           model: modelProvider(model),
           messages,
@@ -233,10 +235,10 @@ export async function POST(req: Request) {
         });
         return new Response(result.text, {
           headers: {
-            'Content-Type': 'text/plain; charset=utf-8',
-            'Cache-Control': 'no-store',
-            'X-Provider': provider,
-            'X-Key-Source': source,
+            "Content-Type": "text/plain; charset=utf-8",
+            "Cache-Control": "no-store",
+            "X-Provider": provider,
+            "X-Key-Source": source,
           },
         });
       }
@@ -245,10 +247,10 @@ export async function POST(req: Request) {
       if (!apiKey) {
         return NextResponse.json(
           {
-            error: 'Missing V0 API key',
-            setup: 'Set VERCEL_API_KEY or V0_API_KEY for the v0 Model API.',
+            error: "Missing V0 API key",
+            setup: "Set VERCEL_API_KEY or V0_API_KEY for the v0 Model API.",
           },
-          { status: 401 }
+          { status: 401 },
         );
       }
 
@@ -261,17 +263,17 @@ export async function POST(req: Request) {
 
       return new Response(result.text, {
         headers: {
-          'Content-Type': 'text/plain; charset=utf-8',
-          'Cache-Control': 'no-store',
-          'X-Provider': provider,
-          'X-Key-Source': source,
+          "Content-Type": "text/plain; charset=utf-8",
+          "Cache-Control": "no-store",
+          "X-Provider": provider,
+          "X-Key-Source": source,
         },
       });
     } catch (err) {
-      console.error('AI chat error:', err);
+      console.error("AI chat error:", err);
       return NextResponse.json(
-        { error: err instanceof Error ? err.message : 'Unknown error' },
-        { status: 500 }
+        { error: err instanceof Error ? err.message : "Unknown error" },
+        { status: 500 },
       );
     }
   });

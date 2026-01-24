@@ -39,8 +39,7 @@ export function ConfirmDialog({
       if (e.key === "Escape" && isOpen) {
         // Don't close if user is typing in an input field
         const target = e.target as HTMLElement;
-        const isInput =
-          target.tagName === "INPUT" || target.tagName === "TEXTAREA";
+        const isInput = target.tagName === "INPUT" || target.tagName === "TEXTAREA";
         const isContentEditable = target.isContentEditable;
 
         if (isInput || isContentEditable) {
@@ -91,15 +90,12 @@ export function ConfirmDialog({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/70 backdrop-blur-sm"
-        onClick={onClose}
-      />
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
 
       {/* Dialog */}
       <div
         ref={dialogRef}
-        className="relative z-10 w-full max-w-md mx-4 bg-gray-900 border border-gray-800 shadow-xl animate-in fade-in-0 zoom-in-95 duration-200"
+        className="animate-in fade-in-0 zoom-in-95 relative z-10 mx-4 w-full max-w-md border border-gray-800 bg-gray-900 shadow-xl duration-200"
         role="alertdialog"
         aria-modal="true"
         aria-labelledby="dialog-title"
@@ -108,7 +104,7 @@ export function ConfirmDialog({
         {/* Close button */}
         <button
           onClick={onClose}
-          className="absolute right-3 top-3 p-1 text-gray-500 hover:text-gray-300 transition-colors"
+          className="absolute top-3 right-3 p-1 text-gray-500 transition-colors hover:text-gray-300"
           aria-label="Stäng"
         >
           <X className="h-4 w-4" />
@@ -117,21 +113,15 @@ export function ConfirmDialog({
         {/* Content */}
         <div className="p-6">
           <div className="flex items-start gap-4">
-            <div className={`p-2 bg-gray-800 ${styles.icon}`}>
+            <div className={`bg-gray-800 p-2 ${styles.icon}`}>
               <AlertTriangle className="h-5 w-5" />
             </div>
             <div className="flex-1">
-              <h2
-                id="dialog-title"
-                className="text-lg font-semibold text-white"
-              >
+              <h2 id="dialog-title" className="text-lg font-semibold text-white">
                 {title}
               </h2>
               {description && (
-                <p
-                  id="dialog-description"
-                  className="mt-2 text-sm text-gray-400"
-                >
+                <p id="dialog-description" className="mt-2 text-sm text-gray-400">
                   {description}
                 </p>
               )}
@@ -144,7 +134,7 @@ export function ConfirmDialog({
               variant="ghost"
               onClick={onClose}
               disabled={isLoading}
-              className="text-gray-400 hover:text-white hover:bg-gray-800"
+              className="text-gray-400 hover:bg-gray-800 hover:text-white"
             >
               {cancelText}
             </Button>

@@ -64,12 +64,7 @@ function maskKey(key) {
 async function testOpenAI() {
   const key = process.env.OPENAI_API_KEY;
   if (!key) {
-    log(
-      "OPENAI_API_KEY",
-      "fail",
-      "Missing (REQUIRED)",
-      "Set this in your env file"
-    );
+    log("OPENAI_API_KEY", "fail", "Missing (REQUIRED)", "Set this in your env file");
     return false;
   }
 
@@ -81,12 +76,7 @@ async function testOpenAI() {
     if (response.ok) {
       const data = await response.json();
       const modelCount = data.data?.length || 0;
-      log(
-        "OPENAI_API_KEY",
-        "ok",
-        `Valid (${modelCount} models available)`,
-        maskKey(key)
-      );
+      log("OPENAI_API_KEY", "ok", `Valid (${modelCount} models available)`, maskKey(key));
       return true;
     } else {
       const error = await response.json().catch(() => ({}));
@@ -94,7 +84,7 @@ async function testOpenAI() {
         "OPENAI_API_KEY",
         "fail",
         `Invalid: ${error.error?.message || response.status}`,
-        maskKey(key)
+        maskKey(key),
       );
       return false;
     }
@@ -107,12 +97,7 @@ async function testOpenAI() {
 async function testV0() {
   const key = process.env.V0_API_KEY;
   if (!key) {
-    log(
-      "V0_API_KEY",
-      "fail",
-      "Missing (REQUIRED)",
-      "Get it from v0.dev/settings"
-    );
+    log("V0_API_KEY", "fail", "Missing (REQUIRED)", "Get it from v0.dev/settings");
     return false;
   }
 
@@ -139,7 +124,7 @@ async function testV0() {
         "V0_API_KEY",
         "ok",
         `Valid (chat created: ${testResult.id.slice(0, 8)}...)`,
-        maskKey(key)
+        maskKey(key),
       );
       return true;
     } else {
@@ -170,7 +155,7 @@ async function testAIGateway() {
       "AI_GATEWAY_API_KEY",
       "skip",
       "Not configured (optional)",
-      "Get it from vercel.com/ai-gateway"
+      "Get it from vercel.com/ai-gateway",
     );
     return true;
   }
@@ -183,12 +168,7 @@ async function testAIGateway() {
     if (response.ok) {
       const data = await response.json();
       const modelCount = data.data?.length || 0;
-      log(
-        "AI_GATEWAY_API_KEY",
-        "ok",
-        `Valid (${modelCount} models)`,
-        maskKey(key)
-      );
+      log("AI_GATEWAY_API_KEY", "ok", `Valid (${modelCount} models)`, maskKey(key));
       return true;
     } else {
       const error = await response.json().catch(() => ({}));
@@ -196,7 +176,7 @@ async function testAIGateway() {
         "AI_GATEWAY_API_KEY",
         "fail",
         `Invalid: ${error.error?.message || response.status}`,
-        maskKey(key)
+        maskKey(key),
       );
       return false;
     }
@@ -213,7 +193,7 @@ async function testBlob() {
       "BLOB_READ_WRITE_TOKEN",
       "skip",
       "Not configured (optional)",
-      "Needed for AI-generated images"
+      "Needed for AI-generated images",
     );
     return true;
   }
@@ -221,23 +201,13 @@ async function testBlob() {
   try {
     // Just check format - actual test would require Vercel SDK
     if (key.length > 20) {
-      log(
-        "BLOB_READ_WRITE_TOKEN",
-        "ok",
-        "Format valid (length check)",
-        maskKey(key)
-      );
+      log("BLOB_READ_WRITE_TOKEN", "ok", "Format valid (length check)", maskKey(key));
       return true;
     }
     log("BLOB_READ_WRITE_TOKEN", "warn", "Unusually short token", maskKey(key));
     return true;
   } catch (error) {
-    log(
-      "BLOB_READ_WRITE_TOKEN",
-      "fail",
-      `Error: ${error.message}`,
-      maskKey(key)
-    );
+    log("BLOB_READ_WRITE_TOKEN", "fail", `Error: ${error.message}`, maskKey(key));
     return false;
   }
 }
@@ -245,22 +215,14 @@ async function testBlob() {
 async function testUnsplash() {
   const key = process.env.UNSPLASH_ACCESS_KEY;
   if (!key) {
-    log(
-      "UNSPLASH_ACCESS_KEY",
-      "skip",
-      "Not configured (optional)",
-      "Needed for stock images"
-    );
+    log("UNSPLASH_ACCESS_KEY", "skip", "Not configured (optional)", "Needed for stock images");
     return true;
   }
 
   try {
-    const response = await fetch(
-      "https://api.unsplash.com/photos/random?count=1",
-      {
-        headers: { Authorization: `Client-ID ${key}` },
-      }
-    );
+    const response = await fetch("https://api.unsplash.com/photos/random?count=1", {
+      headers: { Authorization: `Client-ID ${key}` },
+    });
 
     if (response.ok) {
       log("UNSPLASH_ACCESS_KEY", "ok", "Valid", maskKey(key));
@@ -269,20 +231,10 @@ async function testUnsplash() {
       log("UNSPLASH_ACCESS_KEY", "fail", "Invalid key", maskKey(key));
       return false;
     } else if (response.status === 403) {
-      log(
-        "UNSPLASH_ACCESS_KEY",
-        "warn",
-        "Rate limited or restricted",
-        maskKey(key)
-      );
+      log("UNSPLASH_ACCESS_KEY", "warn", "Rate limited or restricted", maskKey(key));
       return true;
     } else {
-      log(
-        "UNSPLASH_ACCESS_KEY",
-        "fail",
-        `Status: ${response.status}`,
-        maskKey(key)
-      );
+      log("UNSPLASH_ACCESS_KEY", "fail", `Status: ${response.status}`, maskKey(key));
       return false;
     }
   } catch (error) {
@@ -294,12 +246,7 @@ async function testUnsplash() {
 async function testStripe() {
   const key = process.env.STRIPE_SECRET_KEY;
   if (!key) {
-    log(
-      "STRIPE_SECRET_KEY",
-      "skip",
-      "Not configured (optional)",
-      "Needed for payments"
-    );
+    log("STRIPE_SECRET_KEY", "skip", "Not configured (optional)", "Needed for payments");
     return true;
   }
 
@@ -320,7 +267,7 @@ async function testStripe() {
         "STRIPE_SECRET_KEY",
         "fail",
         error.error?.message || `Status: ${response.status}`,
-        maskKey(key)
+        maskKey(key),
       );
       return false;
     }
@@ -333,22 +280,12 @@ async function testStripe() {
 async function testJWT() {
   const key = process.env.JWT_SECRET;
   if (!key) {
-    log(
-      "JWT_SECRET",
-      "warn",
-      "Not set (needed for production)",
-      "Generate a random string"
-    );
+    log("JWT_SECRET", "warn", "Not set (needed for production)", "Generate a random string");
     return true;
   }
 
   if (key.length < 32) {
-    log(
-      "JWT_SECRET",
-      "warn",
-      "Too short (recommend 32+ chars)",
-      `Length: ${key.length}`
-    );
+    log("JWT_SECRET", "warn", "Too short (recommend 32+ chars)", `Length: ${key.length}`);
     return true;
   }
 
@@ -390,9 +327,7 @@ async function main() {
 
   // Required keys check
   const requiredMissing = results.filter(
-    (r) =>
-      r.status === "fail" &&
-      (r.key === "OPENAI_API_KEY" || r.key === "V0_API_KEY")
+    (r) => r.status === "fail" && (r.key === "OPENAI_API_KEY" || r.key === "V0_API_KEY"),
   );
 
   if (requiredMissing.length > 0) {
@@ -429,11 +364,7 @@ async function main() {
     const result = results.find((r) => r.key === f.key);
     const available = result?.status === "ok" || result?.status === "warn";
     const icon = available ? "✅" : f.required ? "❌" : "⏹️";
-    const status = available
-      ? "Available"
-      : f.required
-      ? "MISSING"
-      : "Not configured";
+    const status = available ? "Available" : f.required ? "MISSING" : "Not configured";
     console.log(`${icon} ${f.name.padEnd(25)} ${status}`);
   });
 

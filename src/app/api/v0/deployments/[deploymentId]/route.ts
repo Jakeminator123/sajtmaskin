@@ -1,17 +1,14 @@
-import { NextResponse } from 'next/server';
-import { db } from '@/lib/db/client';
-import { deployments } from '@/lib/db/schema';
-import { eq } from 'drizzle-orm';
-import { getVercelDeployment, mapVercelReadyStateToStatus } from '@/lib/vercelDeploy';
-import { updateDeploymentStatus } from '@/lib/deployment';
-import { getChatByIdForRequest } from '@/lib/tenant';
+import { NextResponse } from "next/server";
+import { db } from "@/lib/db/client";
+import { deployments } from "@/lib/db/schema";
+import { eq } from "drizzle-orm";
+import { getVercelDeployment, mapVercelReadyStateToStatus } from "@/lib/vercelDeploy";
+import { updateDeploymentStatus } from "@/lib/deployment";
+import { getChatByIdForRequest } from "@/lib/tenant";
 
-export const runtime = 'nodejs';
+export const runtime = "nodejs";
 
-export async function GET(
-  req: Request,
-  ctx: { params: Promise<{ deploymentId: string }> }
-) {
+export async function GET(req: Request, ctx: { params: Promise<{ deploymentId: string }> }) {
   try {
     const { deploymentId } = await ctx.params;
 
@@ -22,19 +19,19 @@ export async function GET(
       .limit(1);
 
     if (result.length === 0) {
-      return NextResponse.json({ error: 'Deployment not found' }, { status: 404 });
+      return NextResponse.json({ error: "Deployment not found" }, { status: 404 });
     }
 
     const deployment = result[0];
 
     const chat = await getChatByIdForRequest(req, deployment.chatId);
     if (!chat) {
-      return NextResponse.json({ error: 'Deployment not found' }, { status: 404 });
+      return NextResponse.json({ error: "Deployment not found" }, { status: 404 });
     }
 
-    const currentStatus = (deployment.status as any) || 'pending';
+    const currentStatus = (deployment.status as any) || "pending";
     const isTerminal =
-      currentStatus === 'ready' || currentStatus === 'error' || currentStatus === 'cancelled';
+      currentStatus === "ready" || currentStatus === "error" || currentStatus === "cancelled";
 
     if (deployment.vercelDeploymentId && !isTerminal) {
       try {
@@ -48,7 +45,7 @@ export async function GET(
             vercelProjectId: vercel.vercelProjectId ?? undefined,
           });
         } catch (dbErr) {
-          console.error('Failed to persist deployment status:', dbErr);
+          console.error("Failed to persist deployment status:", dbErr);
         }
 
         return NextResponse.json({
@@ -65,7 +62,7 @@ export async function GET(
           updatedAt: new Date(),
         });
       } catch (vercelErr) {
-        console.error('Failed to refresh deployment status from Vercel:', vercelErr);
+        console.error("Failed to refresh deployment status from Vercel:", vercelErr);
       }
     }
 
@@ -82,10 +79,10 @@ export async function GET(
       updatedAt: deployment.updatedAt,
     });
   } catch (err) {
-    console.error('Get deployment error:', err);
+    console.error("Get deployment error:", err);
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : 'Unknown error' },
-      { status: 500 }
+      { error: err instanceof Error ? err.message : "Unknown error" },
+      { status: 500 },
     );
   }
 }

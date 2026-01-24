@@ -14,17 +14,13 @@ import { PATHS } from "@/lib/config";
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: Promise<{ filename: string }> }
+  { params }: { params: Promise<{ filename: string }> },
 ) {
   try {
     const { filename } = await params;
 
     // Security: Prevent directory traversal
-    if (
-      filename.includes("..") ||
-      filename.includes("/") ||
-      filename.includes("\\")
-    ) {
+    if (filename.includes("..") || filename.includes("/") || filename.includes("\\")) {
       return NextResponse.json({ error: "Invalid filename" }, { status: 400 });
     }
 
@@ -65,9 +61,6 @@ export async function GET(
     });
   } catch (error) {
     console.error("[API/uploads] Error serving file:", error);
-    return NextResponse.json(
-      { error: "Failed to serve file" },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: "Failed to serve file" }, { status: 500 });
   }
 }

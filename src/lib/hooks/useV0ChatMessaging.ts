@@ -1,13 +1,13 @@
-import { consumeSseResponse } from '@/lib/builder/sse';
-import type { ChatMessage, UiMessagePart } from '@/lib/builder/types';
-import type { ModelTier } from '@/lib/validations/chatSchemas';
-import { useCallback, useState } from 'react';
-import toast from 'react-hot-toast';
+import { consumeSseResponse } from "@/lib/builder/sse";
+import type { ChatMessage, UiMessagePart } from "@/lib/builder/types";
+import type { ModelTier } from "@/lib/validations/chatSchemas";
+import { useCallback, useState } from "react";
+import toast from "react-hot-toast";
 
 type RouterLike = { replace: (href: string) => void };
 
 type V0Attachment = {
-  type: 'user_file';
+  type: "user_file";
   url: string;
   filename: string;
   mimeType?: string;
@@ -21,6 +21,22 @@ type MessageOptions = {
   skipPromptAssist?: boolean;
 };
 
+function mergeStreamingText(previous: string, incoming: string): string {
+  if (!previous) return incoming;
+  if (!incoming) return previous;
+  if (incoming.startsWith(previous)) return incoming;
+  if (previous.startsWith(incoming)) return previous;
+
+  const maxOverlap = Math.min(previous.length, incoming.length);
+  for (let size = maxOverlap; size > 0; size -= 1) {
+    if (previous.slice(-size) === incoming.slice(0, size)) {
+      return previous + incoming.slice(size);
+    }
+  }
+
+  return previous + incoming;
+}
+
 function appendAttachmentPrompt(message: string, attachmentPrompt?: string): string {
   if (!attachmentPrompt) return message;
   return `${message}${attachmentPrompt}`.trim();
@@ -28,15 +44,17 @@ function appendAttachmentPrompt(message: string, attachmentPrompt?: string): str
 
 function coerceUiParts(data: unknown): UiMessagePart[] {
   if (Array.isArray(data)) {
-    return data.filter((part): part is UiMessagePart => Boolean(part) && typeof part === 'object');
+    return data.filter((part): part is UiMessagePart => Boolean(part) && typeof part === "object");
   }
-  if (data && typeof data === 'object') {
+  if (data && typeof data === "object") {
     const obj = data as Record<string, unknown>;
-    if (typeof obj.type === 'string') {
+    if (typeof obj.type === "string") {
       return [obj as UiMessagePart];
     }
     if (Array.isArray(obj.parts)) {
-      return obj.parts.filter((part): part is UiMessagePart => Boolean(part) && typeof part === 'object');
+      return obj.parts.filter(
+        (part): part is UiMessagePart => Boolean(part) && typeof part === "object",
+      );
     }
   }
   return [];
@@ -72,22 +90,22 @@ function mergeUiPart(current: UiMessagePart, next: UiMessagePart): UiMessagePart
 }
 
 function getUiPartKey(part: UiMessagePart): string | null {
-  const type = typeof part.type === 'string' ? part.type : '';
-  if (type.startsWith('tool')) {
+  const type = typeof part.type === "string" ? part.type : "";
+  if (type.startsWith("tool")) {
     const candidate =
-      (typeof part.toolCallId === 'string' && part.toolCallId) ||
-      (typeof part.id === 'string' && part.id) ||
-      (typeof part.name === 'string' && part.name) ||
-      (typeof part.toolName === 'string' && part.toolName) ||
+      (typeof part.toolCallId === "string" && part.toolCallId) ||
+      (typeof part.id === "string" && part.id) ||
+      (typeof part.name === "string" && part.name) ||
+      (typeof part.toolName === "string" && part.toolName) ||
       type;
     return candidate || null;
   }
-  if (type === 'plan') return 'plan';
-  if (type === 'sources') return 'sources';
-  if (type === 'source') {
+  if (type === "plan") return "plan";
+  if (type === "sources") return "sources";
+  if (type === "source") {
     const candidate =
-      (typeof part.url === 'string' && part.url) ||
-      (typeof (part.source as { url?: unknown })?.url === 'string' &&
+      (typeof part.url === "string" && part.url) ||
+      (typeof (part.source as { url?: unknown })?.url === "string" &&
         (part.source as { url?: string }).url) ||
       null;
     return candidate;
@@ -107,6 +125,7 @@ export function useV0ChatMessaging(params: {
   mutateVersions: () => void;
   setCurrentDemoUrl: (url: string | null) => void;
   onPreviewRefresh?: () => void;
+  onGenerationComplete?: (data: { chatId: string; versionId?: string; demoUrl?: string }) => void;
   setMessages: (next: ChatMessage[] | ((prev: ChatMessage[]) => ChatMessage[])) => void;
   resetBeforeCreateChat: () => void;
 }) {
@@ -122,6 +141,7 @@ export function useV0ChatMessaging(params: {
     mutateVersions,
     setCurrentDemoUrl,
     onPreviewRefresh,
+    onGenerationComplete,
     setMessages,
     resetBeforeCreateChat,
   } = params;
@@ -132,7 +152,7 @@ export function useV0ChatMessaging(params: {
     async (initialMessage: string, options: MessageOptions = {}) => {
       if (isCreatingChat) return;
       if (!initialMessage?.trim()) {
-        toast.error('Please enter a message to start a new chat');
+        toast.error("Please enter a message to start a new chat");
         return;
       }
 
@@ -143,12 +163,12 @@ export function useV0ChatMessaging(params: {
       const assistantMessageId = `assistant-${now}`;
 
       setMessages([
-        { id: userMessageId, role: 'user', content: initialMessage },
+        { id: userMessageId, role: "user", content: initialMessage },
         {
           id: assistantMessageId,
-          role: 'assistant',
-          content: '',
-          thinking: '',
+          role: "assistant",
+          content: "",
+          thinking: "",
           isStreaming: true,
           uiParts: [],
         },
@@ -160,28 +180,28 @@ export function useV0ChatMessaging(params: {
           ? initialMessage
           : await maybeEnhanceInitialPrompt(initialMessage);
         const finalMessage = appendAttachmentPrompt(messageForV0, options.attachmentPrompt);
-        const thinkingForTier = selectedModelTier !== 'v0-mini';
+        const thinkingForTier = selectedModelTier !== "v0-mini";
         const requestBody: Record<string, unknown> = {
           message: finalMessage,
           modelId: selectedModelTier,
           thinking: thinkingForTier,
           imageGenerations: enableImageGenerations,
         };
-        const trimmedSystem = typeof systemPrompt === 'string' ? systemPrompt.trim() : '';
+        const trimmedSystem = typeof systemPrompt === "string" ? systemPrompt.trim() : "";
         if (trimmedSystem) {
           requestBody.system = trimmedSystem;
         }
         if (options.attachments && options.attachments.length > 0) {
           requestBody.attachments = options.attachments;
         }
-        const response = await fetch('/api/v0/chats/stream', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+        const response = await fetch("/api/v0/chats/stream", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify(requestBody),
         });
 
         if (!response.ok) {
-          let errorMessage = 'Failed to create chat';
+          let errorMessage = "Failed to create chat";
           try {
             const errorData = await response.json();
             errorMessage = errorData.error || errorData.message || errorMessage;
@@ -191,17 +211,17 @@ export function useV0ChatMessaging(params: {
           throw new Error(errorMessage);
         }
 
-        const contentType = response.headers.get('content-type') || '';
-        if (contentType.includes('text/event-stream')) {
+        const contentType = response.headers.get("content-type") || "";
+        if (contentType.includes("text/event-stream")) {
           let chatIdFromStream: string | null = null;
-          let accumulatedThinking = '';
-          let accumulatedContent = '';
+          let accumulatedThinking = "";
+          let accumulatedContent = "";
 
           await consumeSseResponse(response, (event, data) => {
             switch (event) {
-              case 'thinking': {
+              case "thinking": {
                 const thinkingText =
-                  typeof data === 'string'
+                  typeof data === "string"
                     ? data
                     : (data as any)?.thinking || (data as any)?.reasoning || null;
                 if (thinkingText) {
@@ -210,30 +230,33 @@ export function useV0ChatMessaging(params: {
                     prev.map((m) =>
                       m.id === assistantMessageId
                         ? { ...m, thinking: accumulatedThinking, isStreaming: true }
-                        : m
-                    )
+                        : m,
+                    ),
                   );
                 }
                 break;
               }
-              case 'content': {
+              case "content": {
                 const contentText =
-                  typeof data === 'string'
+                  typeof data === "string"
                     ? data
                     : (data as any)?.content || (data as any)?.text || (data as any)?.delta || null;
                 if (contentText) {
-                  accumulatedContent += String(contentText);
+                  accumulatedContent = mergeStreamingText(
+                    accumulatedContent,
+                    String(contentText),
+                  );
                   setMessages((prev) =>
                     prev.map((m) =>
                       m.id === assistantMessageId
                         ? { ...m, content: accumulatedContent, isStreaming: true }
-                        : m
-                    )
+                        : m,
+                    ),
                   );
                 }
                 break;
               }
-              case 'parts': {
+              case "parts": {
                 const nextParts = coerceUiParts(data);
                 if (nextParts.length > 0) {
                   setMessages((prev) =>
@@ -244,15 +267,15 @@ export function useV0ChatMessaging(params: {
                             uiParts: mergeUiParts(m.uiParts, nextParts),
                             isStreaming: true,
                           }
-                        : m
-                    )
+                        : m,
+                    ),
                   );
                 }
                 break;
               }
-              case 'chatId': {
+              case "chatId": {
                 const nextChatId =
-                  typeof data === 'string'
+                  typeof data === "string"
                     ? data
                     : (data as any)?.id || (data as any)?.chatId || null;
                 if (nextChatId && !chatIdFromStream) {
@@ -265,8 +288,8 @@ export function useV0ChatMessaging(params: {
                 }
                 break;
               }
-              case 'done': {
-                const doneData = typeof data === 'object' && data ? (data as any) : {};
+              case "done": {
+                const doneData = typeof data === "object" && data ? (data as any) : {};
                 if (doneData.demoUrl) {
                   setCurrentDemoUrl(doneData.demoUrl);
                 }
@@ -278,34 +301,40 @@ export function useV0ChatMessaging(params: {
                   }
                 }
                 setMessages((prev) =>
-                  prev.map((m) => (m.id === assistantMessageId ? { ...m, isStreaming: false } : m))
+                  prev.map((m) => (m.id === assistantMessageId ? { ...m, isStreaming: false } : m)),
                 );
-                toast.success('Chat created!');
+                toast.success("Chat created!");
                 mutateVersions();
+                // Call generation complete callback with available data
+                onGenerationComplete?.({
+                  chatId: doneData.chatId || doneData.id || chatIdFromStream || "",
+                  versionId: doneData.versionId,
+                  demoUrl: doneData.demoUrl,
+                });
                 break;
               }
-              case 'error': {
+              case "error": {
                 const errorData =
-                  typeof data === 'object' && data ? (data as any) : { message: data };
-                throw new Error(errorData.message || errorData.error || 'Stream error');
+                  typeof data === "object" && data ? (data as any) : { message: data };
+                throw new Error(errorData.message || errorData.error || "Stream error");
               }
             }
           });
 
           setMessages((prev) =>
-            prev.map((m) => (m.id === assistantMessageId ? { ...m, isStreaming: false } : m))
+            prev.map((m) => (m.id === assistantMessageId ? { ...m, isStreaming: false } : m)),
           );
         } else {
           const data = await response.json();
           const newChatId = data.id || data.chatId || data.v0ChatId || data.chat?.id;
 
           if (!newChatId) {
-            throw new Error('No chat ID returned from API');
+            throw new Error("No chat ID returned from API");
           }
 
           setChatId(newChatId);
           router.replace(`/builder?chatId=${encodeURIComponent(newChatId)}`);
-          toast.success('Chat created!');
+          toast.success("Chat created!");
 
           if (data.latestVersion?.demoUrl) {
             setCurrentDemoUrl(data.latestVersion.demoUrl);
@@ -313,16 +342,16 @@ export function useV0ChatMessaging(params: {
           }
 
           setMessages((prev) =>
-            prev.map((m) => (m.id === assistantMessageId ? { ...m, isStreaming: false } : m))
+            prev.map((m) => (m.id === assistantMessageId ? { ...m, isStreaming: false } : m)),
           );
         }
       } catch (error) {
-        console.error('Error creating chat:', error);
-        toast.error(error instanceof Error ? error.message : 'Failed to create chat');
+        console.error("Error creating chat:", error);
+        toast.error(error instanceof Error ? error.message : "Failed to create chat");
       } finally {
         setIsCreatingChat(false);
         setMessages((prev) =>
-          prev.map((m) => (m.id === assistantMessageId ? { ...m, isStreaming: false } : m))
+          prev.map((m) => (m.id === assistantMessageId ? { ...m, isStreaming: false } : m)),
         );
       }
     },
@@ -339,8 +368,9 @@ export function useV0ChatMessaging(params: {
       router,
       setCurrentDemoUrl,
       onPreviewRefresh,
+      onGenerationComplete,
       mutateVersions,
-    ]
+    ],
   );
 
   const sendMessage = useCallback(
@@ -358,12 +388,12 @@ export function useV0ChatMessaging(params: {
 
       setMessages((prev) => [
         ...prev,
-        { id: userMessageId, role: 'user', content: messageText },
+        { id: userMessageId, role: "user", content: messageText },
         {
           id: assistantMessageId,
-          role: 'assistant',
-          content: '',
-          thinking: '',
+          role: "assistant",
+          content: "",
+          thinking: "",
           isStreaming: true,
           uiParts: [],
         },
@@ -376,13 +406,13 @@ export function useV0ChatMessaging(params: {
           requestBody.attachments = options.attachments;
         }
         const response = await fetch(`/api/v0/chats/${chatId}/stream`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify(requestBody),
         });
 
         if (!response.ok) {
-          let errorMessage = 'Failed to send message';
+          let errorMessage = "Failed to send message";
           try {
             const errorData = await response.json();
             errorMessage = errorData.error || errorData.message || errorMessage;
@@ -392,14 +422,14 @@ export function useV0ChatMessaging(params: {
           throw new Error(errorMessage);
         }
 
-        let accumulatedThinking = '';
-        let accumulatedContent = '';
+        let accumulatedThinking = "";
+        let accumulatedContent = "";
 
         await consumeSseResponse(response, (event, data) => {
           switch (event) {
-            case 'thinking': {
+            case "thinking": {
               const thinkingText =
-                typeof data === 'string'
+                typeof data === "string"
                   ? data
                   : (data as any)?.thinking || (data as any)?.reasoning || null;
               if (thinkingText) {
@@ -408,30 +438,30 @@ export function useV0ChatMessaging(params: {
                   prev.map((m) =>
                     m.id === assistantMessageId
                       ? { ...m, thinking: accumulatedThinking, isStreaming: true }
-                      : m
-                  )
+                      : m,
+                  ),
                 );
               }
               break;
             }
-            case 'content': {
+            case "content": {
               const contentText =
-                typeof data === 'string'
+                typeof data === "string"
                   ? data
                   : (data as any)?.content || (data as any)?.text || (data as any)?.delta || null;
               if (contentText) {
-                accumulatedContent += String(contentText);
+                accumulatedContent = mergeStreamingText(accumulatedContent, String(contentText));
                 setMessages((prev) =>
                   prev.map((m) =>
                     m.id === assistantMessageId
                       ? { ...m, content: accumulatedContent, isStreaming: true }
-                      : m
-                  )
+                      : m,
+                  ),
                 );
               }
               break;
             }
-            case 'parts': {
+            case "parts": {
               const nextParts = coerceUiParts(data);
               if (nextParts.length > 0) {
                 setMessages((prev) =>
@@ -442,39 +472,53 @@ export function useV0ChatMessaging(params: {
                           uiParts: mergeUiParts(m.uiParts, nextParts),
                           isStreaming: true,
                         }
-                      : m
-                  )
+                      : m,
+                  ),
                 );
               }
               break;
             }
-            case 'done': {
-              const doneData = typeof data === 'object' && data ? (data as any) : {};
+            case "done": {
+              const doneData = typeof data === "object" && data ? (data as any) : {};
               if (doneData?.demoUrl) setCurrentDemoUrl(doneData.demoUrl);
               onPreviewRefresh?.();
               setMessages((prev) =>
-                prev.map((m) => (m.id === assistantMessageId ? { ...m, isStreaming: false } : m))
+                prev.map((m) => (m.id === assistantMessageId ? { ...m, isStreaming: false } : m)),
               );
               mutateVersions();
+              // Call generation complete callback with available data
+              onGenerationComplete?.({
+                chatId: chatId || "",
+                versionId: doneData.versionId,
+                demoUrl: doneData.demoUrl,
+              });
               break;
             }
-            case 'error': {
+            case "error": {
               const errorData =
-                typeof data === 'object' && data ? (data as any) : { message: data };
-              throw new Error(errorData.message || errorData.error || 'Stream error');
+                typeof data === "object" && data ? (data as any) : { message: data };
+              throw new Error(errorData.message || errorData.error || "Stream error");
             }
           }
         });
       } catch (error) {
-        console.error('Error sending streaming message:', error);
-        toast.error(error instanceof Error ? error.message : 'Failed to send message');
+        console.error("Error sending streaming message:", error);
+        toast.error(error instanceof Error ? error.message : "Failed to send message");
       } finally {
         setMessages((prev) =>
-          prev.map((m) => (m.id === assistantMessageId ? { ...m, isStreaming: false } : m))
+          prev.map((m) => (m.id === assistantMessageId ? { ...m, isStreaming: false } : m)),
         );
       }
     },
-    [chatId, createNewChat, setMessages, setCurrentDemoUrl, onPreviewRefresh, mutateVersions]
+    [
+      chatId,
+      createNewChat,
+      setMessages,
+      setCurrentDemoUrl,
+      onPreviewRefresh,
+      onGenerationComplete,
+      mutateVersions,
+    ],
   );
 
   return { isCreatingChat, createNewChat, sendMessage };

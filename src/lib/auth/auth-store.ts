@@ -119,21 +119,14 @@ export const useAuthStore = create<AuthState>()(
         // Only persist user data, not loading states
         user: state.user,
       }),
-    }
-  )
+    },
+  ),
 );
 
 // Hook to get auth status
 export function useAuth() {
-  const {
-    user,
-    guest,
-    isLoading,
-    isInitialized,
-    logout,
-    fetchUser,
-    updateDiamonds,
-  } = useAuthStore();
+  const { user, guest, isLoading, isInitialized, logout, fetchUser, updateDiamonds } =
+    useAuthStore();
 
   // Function to refresh user data from server
   const refreshUser = async () => {

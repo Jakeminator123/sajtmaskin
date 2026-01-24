@@ -62,22 +62,17 @@ export function Toast({ message, type = "info", duration = 4000, onClose }: Toas
 
   return (
     <div
-      className={`
-        flex items-center gap-3 px-4 py-3 rounded-lg border shadow-lg
-        ${COLORS[type]}
-        ${isExiting ? "animate-slide-out" : "animate-slide-in"}
-        transition-all duration-300
-      `}
+      className={`flex items-center gap-3 rounded-lg border px-4 py-3 shadow-lg ${COLORS[type]} ${isExiting ? "animate-slide-out" : "animate-slide-in"} transition-all duration-300`}
       role="alert"
     >
       <Icon className={`h-5 w-5 shrink-0 ${ICON_COLORS[type]}`} />
-      <p className="text-sm flex-1">{message}</p>
+      <p className="flex-1 text-sm">{message}</p>
       <button
         onClick={() => {
           setIsExiting(true);
           setTimeout(onClose, 300);
         }}
-        className="p-1 hover:bg-white/10 rounded transition-colors"
+        className="rounded p-1 transition-colors hover:bg-white/10"
         aria-label="Stäng"
       >
         <X className="h-4 w-4" />
@@ -98,7 +93,7 @@ interface ToastContainerProps {
 
 export function ToastContainer({ toasts, onRemove }: ToastContainerProps) {
   return (
-    <div className="fixed bottom-4 right-4 z-50 flex flex-col gap-2 max-w-sm">
+    <div className="fixed right-4 bottom-4 z-50 flex max-w-sm flex-col gap-2">
       {toasts.map((toast) => (
         <Toast
           key={toast.id}
@@ -113,11 +108,13 @@ export function ToastContainer({ toasts, onRemove }: ToastContainerProps) {
 
 // Hook for managing toasts
 export function useToast() {
-  const [toasts, setToasts] = useState<Array<{
-    id: string;
-    message: string;
-    type: ToastType;
-  }>>([]);
+  const [toasts, setToasts] = useState<
+    Array<{
+      id: string;
+      message: string;
+      type: ToastType;
+    }>
+  >([]);
 
   const addToast = (message: string, type: ToastType = "info") => {
     const id = Math.random().toString(36).slice(2, 9);

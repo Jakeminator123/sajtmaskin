@@ -16,7 +16,7 @@ export function QrShare({ url, title = "Dela via QR-kod" }: QrShareProps) {
 
   // Generate QR code URL using QuickChart
   const qrCodeUrl = `https://quickchart.io/qr?text=${encodeURIComponent(
-    url
+    url,
   )}&size=200&dark=14b8a6&light=0a0a0a&ecLevel=M&format=png`;
 
   const handleCopy = async () => {
@@ -55,15 +55,15 @@ export function QrShare({ url, title = "Dela via QR-kod" }: QrShareProps) {
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
-      <div className="bg-gray-900 border border-gray-700 rounded-lg p-6 max-w-sm w-full mx-4 shadow-2xl">
+      <div className="mx-4 w-full max-w-sm rounded-lg border border-gray-700 bg-gray-900 p-6 shadow-2xl">
         {/* Header */}
-        <div className="flex items-center justify-between mb-4">
+        <div className="mb-4 flex items-center justify-between">
           <h3 className="text-lg font-semibold text-gray-200">{title}</h3>
           <button
             onClick={() => setIsOpen(false)}
             aria-label="Stäng"
             title="Stäng"
-            className="p-1 rounded hover:bg-gray-800 text-gray-400 hover:text-gray-200 transition-colors"
+            className="rounded p-1 text-gray-400 transition-colors hover:bg-gray-800 hover:text-gray-200"
             type="button"
           >
             <X className="h-5 w-5" />
@@ -71,8 +71,8 @@ export function QrShare({ url, title = "Dela via QR-kod" }: QrShareProps) {
         </div>
 
         {/* QR Code */}
-        <div className="flex justify-center mb-4">
-          <div className="bg-[#0a0a0a] p-4 rounded-lg border border-gray-800">
+        <div className="mb-4 flex justify-center">
+          <div className="rounded-lg border border-gray-800 bg-[#0a0a0a] p-4">
             <Image
               src={qrCodeUrl}
               alt="QR-kod för att dela preview"
@@ -86,16 +86,16 @@ export function QrShare({ url, title = "Dela via QR-kod" }: QrShareProps) {
 
         {/* URL display */}
         <div className="mb-4">
-          <p className="text-xs text-gray-500 mb-1">Preview URL:</p>
-          <div className="flex items-center gap-2 p-2 bg-gray-800 rounded border border-gray-700">
-            <span className="text-xs text-gray-400 truncate flex-1">{url}</span>
+          <p className="mb-1 text-xs text-gray-500">Preview URL:</p>
+          <div className="flex items-center gap-2 rounded border border-gray-700 bg-gray-800 p-2">
+            <span className="flex-1 truncate text-xs text-gray-400">{url}</span>
             <button
               onClick={handleCopy}
-              className="p-1 rounded hover:bg-gray-700 text-gray-400 hover:text-gray-200 transition-colors"
+              className="rounded p-1 text-gray-400 transition-colors hover:bg-gray-700 hover:text-gray-200"
               title="Kopiera URL"
             >
               {copied ? (
-                <Check className="h-4 w-4 text-brand-teal" />
+                <Check className="text-brand-teal h-4 w-4" />
               ) : (
                 <Copy className="h-4 w-4" />
               )}
@@ -117,14 +117,14 @@ export function QrShare({ url, title = "Dela via QR-kod" }: QrShareProps) {
           <Button
             size="sm"
             onClick={() => setIsOpen(false)}
-            className="flex-1 bg-brand-teal hover:bg-brand-teal/90"
+            className="bg-brand-teal hover:bg-brand-teal/90 flex-1"
           >
             Stäng
           </Button>
         </div>
 
         {/* Tip */}
-        <p className="text-xs text-gray-500 text-center mt-4">
+        <p className="mt-4 text-center text-xs text-gray-500">
           💡 Skanna QR-koden med din mobil för att se preview
         </p>
       </div>

@@ -60,7 +60,7 @@ export function AttachmentChips({
       case "uploading":
         return <Loader2 className="h-3 w-3 animate-spin text-gray-400" />;
       case "success":
-        return <CheckCircle className="h-3 w-3 text-brand-teal" />;
+        return <CheckCircle className="text-brand-teal h-3 w-3" />;
       case "error":
         return <AlertCircle className="h-3 w-3 text-red-400" />;
     }
@@ -76,30 +76,24 @@ export function AttachmentChips({
           <div
             key={file.id}
             className={cn(
-              "group relative flex items-center gap-1.5 px-2 py-1 rounded-md text-xs transition-colors",
-              file.status === "success" &&
-              "bg-gray-800/80 text-gray-300 hover:bg-gray-700",
+              "group relative flex items-center gap-1.5 rounded-md px-2 py-1 text-xs transition-colors",
+              file.status === "success" && "bg-gray-800/80 text-gray-300 hover:bg-gray-700",
               file.status === "uploading" && "bg-gray-800/60 text-gray-400",
-              file.status === "error" &&
-              "bg-red-500/10 text-red-400 border border-red-500/30"
+              file.status === "error" && "border border-red-500/30 bg-red-500/10 text-red-400",
             )}
           >
             {/* Thumbnail or icon */}
             {isImage && file.status === "success" ? (
-              <div className="w-5 h-5 rounded overflow-hidden shrink-0">
+              <div className="h-5 w-5 shrink-0 overflow-hidden rounded">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={file.url}
-                  alt={file.filename}
-                  className="w-full h-full object-cover"
-                />
+                <img src={file.url} alt={file.filename} className="h-full w-full object-cover" />
               </div>
             ) : (
               <Icon className="h-3.5 w-3.5 shrink-0 text-gray-500" />
             )}
 
             {/* Filename */}
-            <span className="truncate max-w-[80px]">{file.filename}</span>
+            <span className="max-w-[80px] truncate">{file.filename}</span>
 
             {/* Status */}
             {getStatusIcon(file.status)}
@@ -110,7 +104,7 @@ export function AttachmentChips({
                 e.stopPropagation();
                 onRemove(file.id);
               }}
-              className="ml-0.5 p-0.5 rounded hover:bg-gray-600 opacity-0 group-hover:opacity-100 transition-opacity"
+              className="ml-0.5 rounded p-0.5 opacity-0 transition-opacity group-hover:opacity-100 hover:bg-gray-600"
               title="Ta bort"
             >
               <X className="h-3 w-3" />
@@ -123,7 +117,7 @@ export function AttachmentChips({
       {files.length > maxVisible && (
         <button
           onClick={() => setIsExpanded(!isExpanded)}
-          className="flex items-center gap-1 px-2 py-1 rounded-md text-xs bg-gray-800/60 text-gray-400 hover:bg-gray-700 hover:text-gray-300 transition-colors"
+          className="flex items-center gap-1 rounded-md bg-gray-800/60 px-2 py-1 text-xs text-gray-400 transition-colors hover:bg-gray-700 hover:text-gray-300"
         >
           {hasHidden ? (
             <>
@@ -143,7 +137,7 @@ export function AttachmentChips({
       {files.length > 1 && (
         <button
           onClick={() => files.forEach((f) => onRemove(f.id))}
-          className="px-2 py-1 rounded-md text-xs text-gray-500 hover:text-red-400 hover:bg-red-500/10 transition-colors"
+          className="rounded-md px-2 py-1 text-xs text-gray-500 transition-colors hover:bg-red-500/10 hover:text-red-400"
         >
           Rensa alla
         </button>
@@ -151,4 +145,3 @@ export function AttachmentChips({
     </div>
   );
 }
-

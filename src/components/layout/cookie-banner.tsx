@@ -45,9 +45,7 @@ export function CookieBanner() {
   const [dots, setDots] = useState<Set<string>>(new Set());
   const [hasWon, setHasWon] = useState(false);
   const [mouthOpen, setMouthOpen] = useState(true);
-  const [ghosts, setGhosts] = useState(
-    GHOSTS.map((g) => ({ ...g, pos: g.start }))
-  );
+  const [ghosts, setGhosts] = useState(GHOSTS.map((g) => ({ ...g, pos: g.start })));
   const [gameOver, setGameOver] = useState(false);
   const gameRef = useRef<HTMLDivElement>(null);
   const touchStart = useRef<Position | null>(null);
@@ -105,12 +103,8 @@ export function CookieBanner() {
           const bestMove = validMoves.reduce((best, move) => {
             const newPos = getNewPosition(ghost.pos, move);
             const bestPos = getNewPosition(ghost.pos, best);
-            const newDist =
-              Math.abs(newPos.x - pacmanPos.x) +
-              Math.abs(newPos.y - pacmanPos.y);
-            const bestDist =
-              Math.abs(bestPos.x - pacmanPos.x) +
-              Math.abs(bestPos.y - pacmanPos.y);
+            const newDist = Math.abs(newPos.x - pacmanPos.x) + Math.abs(newPos.y - pacmanPos.y);
+            const bestDist = Math.abs(bestPos.x - pacmanPos.x) + Math.abs(bestPos.y - pacmanPos.y);
             return newDist < bestDist ? move : best;
           }, validMoves[0]);
 
@@ -121,7 +115,7 @@ export function CookieBanner() {
               : validMoves[Math.floor(Math.random() * validMoves.length)];
 
           return { ...ghost, pos: getNewPosition(ghost.pos, move) };
-        })
+        }),
       );
     }, 400);
 
@@ -133,7 +127,7 @@ export function CookieBanner() {
     if (!gameStarted || hasWon || gameOver) return;
 
     const collision = ghosts.some(
-      (ghost) => ghost.pos.x === pacmanPos.x && ghost.pos.y === pacmanPos.y
+      (ghost) => ghost.pos.x === pacmanPos.x && ghost.pos.y === pacmanPos.y,
     );
 
     if (collision) {
@@ -207,17 +201,14 @@ export function CookieBanner() {
           setTimeout(() => {
             if (typeof window !== "undefined") {
               localStorage.setItem("cookie-consent", "accepted");
-              localStorage.setItem(
-                "cookie-consent-date",
-                new Date().toISOString()
-              );
+              localStorage.setItem("cookie-consent-date", new Date().toISOString());
             }
           }, 500);
           setTimeout(() => setIsVisible(false), 2500);
         }
       }
     },
-    [pacmanPos, dots, gameStarted, hasWon, gameOver]
+    [pacmanPos, dots, gameStarted, hasWon, gameOver],
   );
 
   // Keyboard controls
@@ -305,10 +296,10 @@ export function CookieBanner() {
   if (!isVisible) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm">
       {/* Scanlines overlay */}
       <div
-        className="absolute inset-0 pointer-events-none opacity-10"
+        className="pointer-events-none absolute inset-0 opacity-10"
         style={{
           backgroundImage:
             "repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.3) 2px, rgba(0,0,0,0.3) 4px)",
@@ -316,23 +307,22 @@ export function CookieBanner() {
       />
 
       <div
-        className="relative bg-[#0a0a0a] border-2 border-[#1a1aff] shadow-[0_0_60px_rgba(26,26,255,0.3)] max-w-4xl w-full"
+        className="relative w-full max-w-4xl border-2 border-[#1a1aff] bg-[#0a0a0a] shadow-[0_0_60px_rgba(26,26,255,0.3)]"
         style={{ fontFamily: "'Press Start 2P', monospace" }}
       >
         {/* CRT glow effect */}
-        <div className="absolute inset-0 bg-linear-to-b from-brand-blue/5 to-transparent pointer-events-none" />
+        <div className="from-brand-blue/5 pointer-events-none absolute inset-0 bg-linear-to-b to-transparent" />
 
         {/* Layout: Side by side on desktop, stacked on mobile */}
         <div className="flex flex-col lg:flex-row">
           {/* Left side: Cookie consent info and buttons */}
-          <div className="flex-1 p-6 flex flex-col justify-between min-h-[300px]">
+          <div className="flex min-h-[300px] flex-1 flex-col justify-between p-6">
             {/* Header */}
             <div>
               <h2
-                className="text-xl md:text-2xl font-bold mb-4"
+                className="mb-4 text-xl font-bold md:text-2xl"
                 style={{
-                  background:
-                    "linear-gradient(180deg, #FFE135 0%, #FF9500 100%)",
+                  background: "linear-gradient(180deg, #FFE135 0%, #FF9500 100%)",
                   WebkitBackgroundClip: "text",
                   WebkitTextFillColor: "transparent",
                   textShadow: "0 0 20px rgba(255,225,53,0.5)",
@@ -341,17 +331,14 @@ export function CookieBanner() {
                 🍪 Cookies
               </h2>
 
-              <p className="text-sm text-gray-300 mb-4 leading-relaxed">
-                Vi använder cookies för att förbättra din upplevelse på sajten,
-                analysera trafik och visa relevant innehåll.
+              <p className="mb-4 text-sm leading-relaxed text-gray-300">
+                Vi använder cookies för att förbättra din upplevelse på sajten, analysera trafik och
+                visa relevant innehåll.
               </p>
 
-              <p className="text-xs text-gray-500 mb-6">
+              <p className="mb-6 text-xs text-gray-500">
                 Du kan läsa mer i vår{" "}
-                <a
-                  href="/privacy"
-                  className="text-brand-blue hover:text-brand-blue/80 underline"
-                >
+                <a href="/privacy" className="text-brand-blue hover:text-brand-blue/80 underline">
                   integritetspolicy
                 </a>
                 .
@@ -362,51 +349,46 @@ export function CookieBanner() {
             <div className="space-y-3">
               <button
                 onClick={handleAccept}
-                className="w-full py-3 px-6 bg-linear-to-r from-green-600 to-green-500 hover:from-green-500 hover:to-green-400 text-white font-bold text-sm transition-all transform hover:scale-[1.02] active:scale-[0.98] shadow-lg shadow-green-500/30"
+                className="w-full transform bg-linear-to-r from-green-600 to-green-500 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-green-500/30 transition-all hover:scale-[1.02] hover:from-green-500 hover:to-green-400 active:scale-[0.98]"
               >
                 ✓ Acceptera cookies
               </button>
 
               <button
                 onClick={handleDecline}
-                className="w-full py-3 px-6 bg-gray-800 hover:bg-gray-700 text-gray-300 hover:text-white font-bold text-sm transition-all border border-gray-700 hover:border-gray-600"
+                className="w-full border border-gray-700 bg-gray-800 px-6 py-3 text-sm font-bold text-gray-300 transition-all hover:border-gray-600 hover:bg-gray-700 hover:text-white"
               >
                 ✗ Endast nödvändiga
               </button>
             </div>
 
             {/* Or play text */}
-            <div className="mt-6 pt-4 border-t border-gray-800">
-              <p className="text-[10px] text-gray-500 text-center">
+            <div className="mt-6 border-t border-gray-800 pt-4">
+              <p className="text-center text-[10px] text-gray-500">
                 💡 Eller spela Pac-Man för att acceptera! →
               </p>
             </div>
           </div>
 
           {/* Divider */}
-          <div className="hidden lg:block w-px bg-linear-to-b from-transparent via-brand-blue/50 to-transparent" />
-          <div className="lg:hidden h-px bg-linear-to-r from-transparent via-brand-blue/50 to-transparent mx-6" />
+          <div className="via-brand-blue/50 hidden w-px bg-linear-to-b from-transparent to-transparent lg:block" />
+          <div className="via-brand-blue/50 mx-6 h-px bg-linear-to-r from-transparent to-transparent lg:hidden" />
 
           {/* Right side: Pac-Man game */}
           <div className="p-6">
             {/* Game header */}
-            <div className="text-center mb-3">
+            <div className="mb-3 text-center">
               <h3
-                className="text-sm font-bold mb-1"
+                className="mb-1 text-sm font-bold"
                 style={{
-                  background:
-                    "linear-gradient(180deg, #FFE135 0%, #FF9500 100%)",
+                  background: "linear-gradient(180deg, #FFE135 0%, #FF9500 100%)",
                   WebkitBackgroundClip: "text",
                   WebkitTextFillColor: "transparent",
                 }}
               >
-                {hasWon
-                  ? "🎉 GRATTIS!"
-                  : gameOver
-                    ? "💀 SPÖKENA TOG DIG!"
-                    : "🎮 COOKIE QUEST"}
+                {hasWon ? "🎉 GRATTIS!" : gameOver ? "💀 SPÖKENA TOG DIG!" : "🎮 COOKIE QUEST"}
               </h3>
-              <p className="text-[9px] text-brand-blue/80">
+              <p className="text-brand-blue/80 text-[9px]">
                 {hasWon
                   ? "Du accepterade cookies!"
                   : gameOver
@@ -418,7 +400,7 @@ export function CookieBanner() {
             </div>
 
             {/* Score */}
-            <div className="flex justify-between items-center mb-2 text-[9px]">
+            <div className="mb-2 flex items-center justify-between text-[9px]">
               <span className="text-white">
                 POÄNG: <span className="text-brand-amber">{score}</span>
               </span>
@@ -428,7 +410,7 @@ export function CookieBanner() {
             {/* Game Board */}
             <div
               ref={gameRef}
-              className="relative mx-auto bg-black border border-brand-blue/30 overflow-hidden"
+              className="border-brand-blue/30 relative mx-auto overflow-hidden border bg-black"
               style={{
                 width: MAZE[0].length * CELL_SIZE,
                 height: MAZE.length * CELL_SIZE,
@@ -454,23 +436,20 @@ export function CookieBanner() {
                         width: CELL_SIZE,
                         height: CELL_SIZE,
                         borderRadius: isWall ? "2px" : 0,
-                        boxShadow: isWall
-                          ? "inset 0 0 4px rgba(26,26,255,0.8)"
-                          : "none",
+                        boxShadow: isWall ? "inset 0 0 4px rgba(26,26,255,0.8)" : "none",
                       }}
                     >
                       {hasDot && !isWall && (
                         <div
-                          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-1.5 h-1.5 bg-brand-amber rounded-full"
+                          className="bg-brand-amber absolute top-1/2 left-1/2 h-1.5 w-1.5 -translate-x-1/2 -translate-y-1/2 rounded-full"
                           style={{ boxShadow: "0 0 4px rgba(255,255,200,0.8)" }}
                         />
                       )}
                       {isCookie && (
                         <div
-                          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-sm animate-pulse"
+                          className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-pulse text-sm"
                           style={{
-                            filter:
-                              "drop-shadow(0 0 8px rgba(255,200,100,0.8))",
+                            filter: "drop-shadow(0 0 8px rgba(255,200,100,0.8))",
                           }}
                         >
                           🍪
@@ -478,7 +457,7 @@ export function CookieBanner() {
                       )}
                     </div>
                   );
-                })
+                }),
               )}
 
               {/* Ghosts */}
@@ -493,7 +472,7 @@ export function CookieBanner() {
                     height: CELL_SIZE,
                   }}
                 >
-                  <svg viewBox="0 0 100 100" className="w-full h-full">
+                  <svg viewBox="0 0 100 100" className="h-full w-full">
                     {/* Ghost body */}
                     <path
                       d="M50 5 C20 5, 5 30, 5 55 L5 95 L20 80 L35 95 L50 80 L65 95 L80 80 L95 95 L95 55 C95 30, 80 5, 50 5"
@@ -511,8 +490,9 @@ export function CookieBanner() {
 
               {/* Pac-Man */}
               <div
-                className={`absolute transition-all duration-100 ease-linear ${gameOver ? "animate-pulse opacity-50" : ""
-                  }`}
+                className={`absolute transition-all duration-100 ease-linear ${
+                  gameOver ? "animate-pulse opacity-50" : ""
+                }`}
                 style={{
                   left: pacmanPos.x * CELL_SIZE,
                   top: pacmanPos.y * CELL_SIZE,
@@ -521,7 +501,7 @@ export function CookieBanner() {
                   transform: `rotate(${getRotation()}deg)`,
                 }}
               >
-                <svg viewBox="0 0 100 100" className="w-full h-full">
+                <svg viewBox="0 0 100 100" className="h-full w-full">
                   <circle
                     cx="50"
                     cy="50"
@@ -544,11 +524,9 @@ export function CookieBanner() {
 
               {/* Start overlay */}
               {!gameStarted && (
-                <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
-                  <div className="text-center animate-pulse">
-                    <p className="text-brand-amber text-[9px] mb-1">
-                      PILTANGENTER
-                    </p>
+                <div className="absolute inset-0 flex items-center justify-center bg-black/60">
+                  <div className="animate-pulse text-center">
+                    <p className="text-brand-amber mb-1 text-[9px]">PILTANGENTER</p>
                     <p className="text-brand-blue text-[7px]">ELLER SWIPA</p>
                   </div>
                 </div>
@@ -556,26 +534,22 @@ export function CookieBanner() {
 
               {/* Win overlay */}
               {hasWon && (
-                <div className="absolute inset-0 bg-black/70 flex items-center justify-center">
+                <div className="absolute inset-0 flex items-center justify-center bg-black/70">
                   <div className="text-center">
-                    <p className="text-xl mb-1">🎮🍪🎉</p>
-                    <p className="text-brand-amber text-[9px] animate-pulse">
-                      WAKA WAKA!
-                    </p>
-                    <p className="text-green-400 text-[7px] mt-1">
-                      Cookies accepterade!
-                    </p>
+                    <p className="mb-1 text-xl">🎮🍪🎉</p>
+                    <p className="text-brand-amber animate-pulse text-[9px]">WAKA WAKA!</p>
+                    <p className="mt-1 text-[7px] text-green-400">Cookies accepterade!</p>
                   </div>
                 </div>
               )}
             </div>
 
             {/* Mobile controls */}
-            <div className="flex justify-center gap-1 mt-3 lg:hidden">
+            <div className="mt-3 flex justify-center gap-1 lg:hidden">
               {["⬆️", "⬇️", "⬅️", "➡️"].map((arrow, i) => (
                 <button
                   key={i}
-                  className="w-9 h-9 bg-gray-900 border border-gray-700 text-base active:bg-gray-800"
+                  className="h-9 w-9 border border-gray-700 bg-gray-900 text-base active:bg-gray-800"
                   onClick={() => {
                     if (!gameStarted) setGameStarted(true);
                     const dirs: Direction[] = ["up", "down", "left", "right"];

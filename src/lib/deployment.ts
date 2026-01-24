@@ -1,14 +1,9 @@
-import { db } from '@/lib/db/client';
-import { deployments, versions, chats } from '@/lib/db/schema';
-import { eq, desc } from 'drizzle-orm';
-import { nanoid } from 'nanoid';
+import { db } from "@/lib/db/client";
+import { deployments, versions, chats } from "@/lib/db/schema";
+import { eq, desc } from "drizzle-orm";
+import { nanoid } from "nanoid";
 
-export type DeploymentStatus =
-  | 'pending'
-  | 'building'
-  | 'ready'
-  | 'error'
-  | 'cancelled';
+export type DeploymentStatus = "pending" | "building" | "ready" | "error" | "cancelled";
 
 export interface DeploymentInfo {
   id: string;
@@ -38,7 +33,7 @@ export async function createDeploymentRecord(params: {
     versionId: params.versionId,
     vercelProjectId: params.vercelProjectId || null,
     vercelDeploymentId: params.vercelDeploymentId || null,
-    status: 'pending',
+    status: "pending",
     url: params.url || null,
     inspectorUrl: params.inspectorUrl || null,
   });
@@ -54,7 +49,7 @@ export async function updateDeploymentStatus(
     inspectorUrl?: string;
     vercelDeploymentId?: string;
     vercelProjectId?: string;
-  }
+  },
 ): Promise<void> {
   await db
     .update(deployments)
@@ -135,21 +130,13 @@ export async function getLatestDeployment(chatId: string): Promise<DeploymentInf
 }
 
 export async function getVersionForDeployment(versionId: string) {
-  const result = await db
-    .select()
-    .from(versions)
-    .where(eq(versions.id, versionId))
-    .limit(1);
+  const result = await db.select().from(versions).where(eq(versions.id, versionId)).limit(1);
 
   return result[0] || null;
 }
 
 export async function getChatById(chatId: string) {
-  const result = await db
-    .select()
-    .from(chats)
-    .where(eq(chats.id, chatId))
-    .limit(1);
+  const result = await db.select().from(chats).where(eq(chats.id, chatId)).limit(1);
 
   return result[0] || null;
 }

@@ -1,14 +1,14 @@
-import { NextResponse } from 'next/server';
-import { assertV0Key, v0 } from '@/lib/v0';
-import { sendMessageSchema } from '@/lib/validations/chatSchemas';
-import { db } from '@/lib/db/client';
-import { versions } from '@/lib/db/schema';
-import { nanoid } from 'nanoid';
-import { withRateLimit } from '@/lib/rateLimit';
-import { getChatByV0ChatIdForRequest } from '@/lib/tenant';
+import { NextResponse } from "next/server";
+import { assertV0Key, v0 } from "@/lib/v0";
+import { sendMessageSchema } from "@/lib/validations/chatSchemas";
+import { db } from "@/lib/db/client";
+import { versions } from "@/lib/db/schema";
+import { nanoid } from "nanoid";
+import { withRateLimit } from "@/lib/rateLimit";
+import { getChatByV0ChatIdForRequest } from "@/lib/tenant";
 
 export async function POST(req: Request, ctx: { params: Promise<{ chatId: string }> }) {
-  return withRateLimit(req, 'message:send', async () => {
+  return withRateLimit(req, "message:send", async () => {
     try {
       assertV0Key();
 
@@ -18,8 +18,8 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
       const validationResult = sendMessageSchema.safeParse(body);
       if (!validationResult.success) {
         return NextResponse.json(
-          { error: 'Validation failed', details: validationResult.error.issues },
-          { status: 400 }
+          { error: "Validation failed", details: validationResult.error.issues },
+          { status: 400 },
         );
       }
 
@@ -27,7 +27,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
 
       const dbChat = await getChatByV0ChatIdForRequest(req, chatId);
       if (!dbChat) {
-        return NextResponse.json({ error: 'Chat not found' }, { status: 404 });
+        return NextResponse.json({ error: "Chat not found" }, { status: 404 });
       }
 
       const result = await v0.chats.sendMessage({
@@ -63,7 +63,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
           });
         }
       } catch (dbError) {
-        console.error('Failed to save version to database:', dbError);
+        console.error("Failed to save version to database:", dbError);
       }
 
       return NextResponse.json({
@@ -73,8 +73,8 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
       });
     } catch (err) {
       return NextResponse.json(
-        { error: err instanceof Error ? err.message : 'Unknown error' },
-        { status: 500 }
+        { error: err instanceof Error ? err.message : "Unknown error" },
+        { status: 500 },
       );
     }
   });

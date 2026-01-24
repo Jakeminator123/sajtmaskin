@@ -22,7 +22,7 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/lib/auth/auth-store";
 import { Button } from "@/components/ui/button";
-import rocketLogo from "../../../rocket_style_40.png";
+const rocketLogo = "/rocket_style_40.png";
 import {
   Diamond,
   FolderOpen,
@@ -60,8 +60,7 @@ interface NavbarProps {
 
 export function Navbar({ onLoginClick, onRegisterClick, onSettingsClick }: NavbarProps) {
   const pathname = usePathname();
-  const { user, isAuthenticated, diamonds, logout, fetchUser, isInitialized } =
-    useAuth();
+  const { user, isAuthenticated, diamonds, logout, fetchUser, isInitialized } = useAuth();
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
 
@@ -100,10 +99,10 @@ export function Navbar({ onLoginClick, onRegisterClick, onSettingsClick }: Navba
   const isActive = (path: string) => pathname === path;
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 h-16 bg-black/80 backdrop-blur-xl border-b border-gray-800">
-      <div className="max-w-7xl mx-auto h-full px-4 flex items-center justify-between">
+    <nav className="fixed top-0 right-0 left-0 z-50 h-16 border-b border-gray-800 bg-black/80 backdrop-blur-xl">
+      <div className="mx-auto flex h-full max-w-7xl items-center justify-between px-4">
         {/* Logo */}
-        <Link href="/" className="flex items-center gap-2.5 group">
+        <Link href="/" className="group flex items-center gap-2.5">
           <div className="p-1.5">
             <Image
               src={rocketLogo}
@@ -115,27 +114,24 @@ export function Navbar({ onLoginClick, onRegisterClick, onSettingsClick }: Navba
             />
           </div>
           <div className="flex flex-col leading-none">
-            <span className="text-lg font-bold text-white tracking-tight">
-              SajtMaskin
-            </span>
-            <span className="text-[10px] sm:text-xs text-gray-400">
-              En sajt av SajtStudio.se
-            </span>
+            <span className="text-lg font-bold tracking-tight text-white">SajtMaskin</span>
+            <span className="text-[10px] text-gray-400 sm:text-xs">En sajt av SajtStudio.se</span>
           </div>
         </Link>
 
         {/* Desktop Navigation */}
-        <div className="hidden md:flex items-center gap-1">
+        <div className="hidden items-center gap-1 md:flex">
           <Link href="/">
             <Button
               variant="ghost"
               size="sm"
-              className={`text-sm ${isActive("/")
-                  ? "text-white bg-gray-800/50"
-                  : "text-gray-400 hover:text-white hover:bg-gray-800/50"
-                }`}
+              className={`text-sm ${
+                isActive("/")
+                  ? "bg-gray-800/50 text-white"
+                  : "text-gray-400 hover:bg-gray-800/50 hover:text-white"
+              }`}
             >
-              <Sparkles className="h-4 w-4 mr-1.5" />
+              <Sparkles className="mr-1.5 h-4 w-4" />
               Skapa
             </Button>
           </Link>
@@ -143,12 +139,13 @@ export function Navbar({ onLoginClick, onRegisterClick, onSettingsClick }: Navba
             <Button
               variant="ghost"
               size="sm"
-              className={`text-sm ${isActive("/projects")
-                  ? "text-white bg-gray-800/50"
-                  : "text-gray-400 hover:text-white hover:bg-gray-800/50"
-                }`}
+              className={`text-sm ${
+                isActive("/projects")
+                  ? "bg-gray-800/50 text-white"
+                  : "text-gray-400 hover:bg-gray-800/50 hover:text-white"
+              }`}
             >
-              <FolderOpen className="h-4 w-4 mr-1.5" />
+              <FolderOpen className="mr-1.5 h-4 w-4" />
               Projekt
             </Button>
           </Link>
@@ -158,50 +155,43 @@ export function Navbar({ onLoginClick, onRegisterClick, onSettingsClick }: Navba
         <div className="flex items-center gap-3">
           {/* Diamond counter - only show for authenticated users */}
           {isAuthenticated && (
-            <Link href="/buy-credits" aria-label={`Du har ${diamonds} diamanter. Klicka för att köpa fler.`}>
+            <Link
+              href="/buy-credits"
+              aria-label={`Du har ${diamonds} diamanter. Klicka för att köpa fler.`}
+            >
               <div
-                className={`
-                  flex items-center gap-1.5 px-3 py-1.5
-                  bg-black/50 border cursor-pointer group
-                  transition-all duration-300
-                  ${isLowBalance
-                    ? 'border-red-500/50 hover:border-red-400 hover:bg-red-500/10'
-                    : 'border-brand-amber/30 hover:border-brand-amber/60'
-                  }
-                `}
+                className={`group flex cursor-pointer items-center gap-1.5 border bg-black/50 px-3 py-1.5 transition-all duration-300 ${
+                  isLowBalance
+                    ? "border-red-500/50 hover:border-red-400 hover:bg-red-500/10"
+                    : "border-brand-amber/30 hover:border-brand-amber/60"
+                } `}
               >
                 {/* Low balance warning icon */}
-                {isLowBalance && (
-                  <AlertCircle className="h-3.5 w-3.5 text-red-400 animate-pulse" />
-                )}
+                {isLowBalance && <AlertCircle className="h-3.5 w-3.5 animate-pulse text-red-400" />}
 
                 {/* Diamond icon with pulse animation when low */}
                 <Diamond
-                  className={`
-                    h-4 w-4 transition-all
-                    ${isLowBalance
-                      ? 'text-red-400 animate-diamondPulse'
-                      : 'text-brand-amber group-hover:text-brand-amber/80'
-                    }
-                  `}
+                  className={`h-4 w-4 transition-all ${
+                    isLowBalance
+                      ? "animate-diamondPulse text-red-400"
+                      : "text-brand-amber group-hover:text-brand-amber/80"
+                  } `}
                 />
 
                 {/* Diamond count */}
                 <span
-                  className={`
-                    text-sm font-semibold transition-colors
-                    ${isLowBalance
-                      ? 'text-red-400'
-                      : 'text-brand-amber group-hover:text-brand-amber/80'
-                    }
-                  `}
+                  className={`text-sm font-semibold transition-colors ${
+                    isLowBalance
+                      ? "text-red-400"
+                      : "text-brand-amber group-hover:text-brand-amber/80"
+                  } `}
                 >
                   {diamonds ?? 0}
                 </span>
 
                 {/* "Buy more" hint on hover when low */}
                 {isLowBalance && (
-                  <span className="text-[10px] text-red-400/70 hidden group-hover:inline ml-0.5">
+                  <span className="ml-0.5 hidden text-[10px] text-red-400/70 group-hover:inline">
                     Köp
                   </span>
                 )}
@@ -212,13 +202,13 @@ export function Navbar({ onLoginClick, onRegisterClick, onSettingsClick }: Navba
           {/* Auth section */}
           {!isInitialized ? (
             // Loading skeleton
-            <div className="w-20 h-8 bg-gray-800/50 animate-pulse" />
+            <div className="h-8 w-20 animate-pulse bg-gray-800/50" />
           ) : isAuthenticated ? (
             // User menu
             <div className="relative" data-user-menu>
               <button
                 onClick={() => setShowUserMenu(!showUserMenu)}
-                className="flex items-center gap-2 px-3 py-1.5 bg-gray-800/50 hover:bg-gray-800 border border-gray-700 transition-colors"
+                className="flex items-center gap-2 border border-gray-700 bg-gray-800/50 px-3 py-1.5 transition-colors hover:bg-gray-800"
               >
                 {user?.image ? (
                   <Image
@@ -229,42 +219,41 @@ export function Navbar({ onLoginClick, onRegisterClick, onSettingsClick }: Navba
                     className="rounded-none"
                   />
                 ) : (
-                  <div className="w-6 h-6 bg-linear-to-br from-brand-teal to-brand-blue flex items-center justify-center">
+                  <div className="from-brand-teal to-brand-blue flex h-6 w-6 items-center justify-center bg-linear-to-br">
                     <User className="h-3.5 w-3.5 text-white" />
                   </div>
                 )}
-                <span className="text-sm text-gray-300 max-w-[100px] truncate hidden sm:block">
+                <span className="hidden max-w-[100px] truncate text-sm text-gray-300 sm:block">
                   {user?.name || user?.email?.split("@")[0] || "Användare"}
                 </span>
                 <ChevronDown
-                  className={`h-4 w-4 text-gray-500 transition-transform ${showUserMenu ? "rotate-180" : ""
-                    }`}
+                  className={`h-4 w-4 text-gray-500 transition-transform ${
+                    showUserMenu ? "rotate-180" : ""
+                  }`}
                 />
               </button>
 
               {/* Dropdown menu */}
               {showUserMenu && (
-                <div className="absolute right-0 mt-2 w-56 bg-black border border-gray-800 shadow-xl shadow-black/50 py-1 animate-in fade-in slide-in-from-top-2 duration-200">
+                <div className="animate-in fade-in slide-in-from-top-2 absolute right-0 mt-2 w-56 border border-gray-800 bg-black py-1 shadow-xl shadow-black/50 duration-200">
                   {/* User info */}
-                  <div className="px-4 py-3 border-b border-gray-800">
-                    <p className="text-sm font-medium text-white truncate">
+                  <div className="border-b border-gray-800 px-4 py-3">
+                    <p className="truncate text-sm font-medium text-white">
                       {user?.name || "Användare"}
                     </p>
-                    <p className="text-xs text-gray-500 truncate">
-                      {user?.email}
-                    </p>
+                    <p className="truncate text-xs text-gray-500">{user?.email}</p>
                   </div>
 
                   {/* Balance */}
                   <Link
                     href="/buy-credits"
-                    className="flex items-center justify-between px-4 py-2.5 hover:bg-gray-800/50 transition-colors"
+                    className="flex items-center justify-between px-4 py-2.5 transition-colors hover:bg-gray-800/50"
                     onClick={() => setShowUserMenu(false)}
                   >
                     <span className="text-sm text-gray-400">Diamanter</span>
                     <div className="flex items-center gap-1.5">
-                      <Diamond className="h-4 w-4 text-brand-amber" />
-                      <span className="text-sm font-semibold text-brand-amber">
+                      <Diamond className="text-brand-amber h-4 w-4" />
+                      <span className="text-brand-amber text-sm font-semibold">
                         {diamonds ?? 0}
                       </span>
                     </div>
@@ -273,10 +262,10 @@ export function Navbar({ onLoginClick, onRegisterClick, onSettingsClick }: Navba
                   {/* Buy credits */}
                   <Link
                     href="/buy-credits"
-                    className="flex items-center gap-2 px-4 py-2.5 hover:bg-gray-800/50 transition-colors text-sm text-gray-300"
+                    className="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-300 transition-colors hover:bg-gray-800/50"
                     onClick={() => setShowUserMenu(false)}
                   >
-                    <Sparkles className="h-4 w-4 text-brand-teal" />
+                    <Sparkles className="text-brand-teal h-4 w-4" />
                     Köp diamanter
                   </Link>
 
@@ -286,14 +275,14 @@ export function Navbar({ onLoginClick, onRegisterClick, onSettingsClick }: Navba
                       setShowUserMenu(false);
                       onSettingsClick?.();
                     }}
-                    className="flex items-center gap-2 w-full px-4 py-2.5 hover:bg-gray-800/50 transition-colors text-sm text-gray-300"
+                    className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-gray-300 transition-colors hover:bg-gray-800/50"
                   >
-                    <Settings className="h-4 w-4 text-brand-blue" />
+                    <Settings className="text-brand-blue h-4 w-4" />
                     Inställningar
                   </button>
 
                   {/* Divider */}
-                  <div className="h-px bg-gray-800 my-1" />
+                  <div className="my-1 h-px bg-gray-800" />
 
                   {/* Logout */}
                   <button
@@ -301,7 +290,7 @@ export function Navbar({ onLoginClick, onRegisterClick, onSettingsClick }: Navba
                       logout();
                       setShowUserMenu(false);
                     }}
-                    className="flex items-center gap-2 w-full px-4 py-2.5 hover:bg-gray-800/50 transition-colors text-sm text-gray-400"
+                    className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-gray-400 transition-colors hover:bg-gray-800/50"
                   >
                     <LogOut className="h-4 w-4" />
                     Logga ut
@@ -316,9 +305,9 @@ export function Navbar({ onLoginClick, onRegisterClick, onSettingsClick }: Navba
                 variant="ghost"
                 size="sm"
                 onClick={onLoginClick}
-                className="text-gray-400 hover:text-white hover:bg-gray-800"
+                className="text-gray-400 hover:bg-gray-800 hover:text-white"
               >
-                <LogIn className="h-4 w-4 mr-1.5" />
+                <LogIn className="mr-1.5 h-4 w-4" />
                 Logga in
               </Button>
               <Button
@@ -333,15 +322,11 @@ export function Navbar({ onLoginClick, onRegisterClick, onSettingsClick }: Navba
 
           {/* Mobile menu button */}
           <button
-            className="md:hidden p-2 hover:bg-gray-800/50 text-gray-400"
+            className="p-2 text-gray-400 hover:bg-gray-800/50 md:hidden"
             onClick={() => setShowMobileMenu(!showMobileMenu)}
             data-mobile-menu
           >
-            {showMobileMenu ? (
-              <X className="h-5 w-5" />
-            ) : (
-              <Menu className="h-5 w-5" />
-            )}
+            {showMobileMenu ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
         </div>
       </div>
@@ -349,15 +334,16 @@ export function Navbar({ onLoginClick, onRegisterClick, onSettingsClick }: Navba
       {/* Mobile menu */}
       {showMobileMenu && (
         <div
-          className="md:hidden absolute top-16 left-0 right-0 bg-black/95 backdrop-blur-xl border-b border-gray-800 py-4 animate-in slide-in-from-top-2"
+          className="animate-in slide-in-from-top-2 absolute top-16 right-0 left-0 border-b border-gray-800 bg-black/95 py-4 backdrop-blur-xl md:hidden"
           data-mobile-menu
         >
-          <div className="max-w-7xl mx-auto px-4 space-y-2">
+          <div className="mx-auto max-w-7xl space-y-2 px-4">
             <Link
               href="/"
               onClick={() => setShowMobileMenu(false)}
-              className={`flex items-center gap-2 px-4 py-3 ${isActive("/") ? "bg-gray-800/50 text-white" : "text-gray-400"
-                }`}
+              className={`flex items-center gap-2 px-4 py-3 ${
+                isActive("/") ? "bg-gray-800/50 text-white" : "text-gray-400"
+              }`}
             >
               <Sparkles className="h-5 w-5" />
               Skapa
@@ -365,10 +351,9 @@ export function Navbar({ onLoginClick, onRegisterClick, onSettingsClick }: Navba
             <Link
               href="/projects"
               onClick={() => setShowMobileMenu(false)}
-              className={`flex items-center gap-2 px-4 py-3 ${isActive("/projects")
-                  ? "bg-gray-800/50 text-white"
-                  : "text-gray-400"
-                }`}
+              className={`flex items-center gap-2 px-4 py-3 ${
+                isActive("/projects") ? "bg-gray-800/50 text-white" : "text-gray-400"
+              }`}
             >
               <FolderOpen className="h-5 w-5" />
               Projekt
@@ -379,7 +364,7 @@ export function Navbar({ onLoginClick, onRegisterClick, onSettingsClick }: Navba
                 onClick={() => setShowMobileMenu(false)}
                 className="flex items-center gap-2 px-4 py-3 text-gray-400"
               >
-                <Diamond className="h-5 w-5 text-brand-amber" />
+                <Diamond className="text-brand-amber h-5 w-5" />
                 Köp diamanter
               </Link>
             )}

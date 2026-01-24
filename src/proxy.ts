@@ -1,5 +1,5 @@
 /**
- * Next.js Middleware
+ * Next.js Proxy
  *
  * Runs before every request to:
  * 1. Create/validate session cookie
@@ -25,7 +25,7 @@ function generateSessionId(): string {
   return `sess_${timestamp}_${randomPart}${randomPart2}`;
 }
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Skip public paths
@@ -78,7 +78,7 @@ export function middleware(request: NextRequest) {
   return response;
 }
 
-// Configure which routes use this middleware
+// Configure which routes use this proxy
 export const config = {
   matcher: [
     /*
@@ -91,4 +91,3 @@ export const config = {
     "/((?!_next/static|_next/image|favicon.ico|public/).*)",
   ],
 };
-

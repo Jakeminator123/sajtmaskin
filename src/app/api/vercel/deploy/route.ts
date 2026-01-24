@@ -18,10 +18,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          error:
-            "Vercel integration not configured. Set VERCEL_API_TOKEN environment variable.",
+          error: "Vercel integration not configured. Set VERCEL_TOKEN environment variable.",
         },
-        { status: 503 }
+        { status: 503 },
       );
     }
 
@@ -34,7 +33,7 @@ export async function POST(request: NextRequest) {
           success: false,
           error: "projectId and projectName are required",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -58,7 +57,7 @@ export async function POST(request: NextRequest) {
         success: false,
         error: error instanceof Error ? error.message : "Unknown error",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

@@ -5,14 +5,14 @@ import OpenAI from "openai";
 
 /**
  * Project Analysis API
- * 
+ *
  * Analyzes a project and provides:
  * - Code quality assessment
  * - Structure recommendations
  * - Performance suggestions
  * - SEO opportunities
  * - Prioritized improvement list
- * 
+ *
  * Uses OpenAI Responses API with gpt-4o-mini for cost-efficiency.
  * This is a FREE analysis (no diamond cost) to help users understand their project.
  */
@@ -73,7 +73,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     if (!user) {
       return NextResponse.json(
         { success: false, error: "Du måste vara inloggad" },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
@@ -82,7 +82,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     if (!project) {
       return NextResponse.json(
         { success: false, error: "Projektet hittades inte" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -90,30 +90,28 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     if (project.user_id !== user.id) {
       return NextResponse.json(
         { success: false, error: "Du kan bara analysera dina egna projekt" },
-        { status: 403 }
+        { status: 403 },
       );
     }
 
     // 4. Get project files from project_data
     const projectData = getProjectData(projectId);
     const rawFiles = projectData?.files;
-    
+
     if (!rawFiles || !Array.isArray(rawFiles) || rawFiles.length === 0) {
       return NextResponse.json(
         { success: false, error: "Inga filer hittades i projektet" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
     // Convert v0 file format to simple format
     const files = rawFiles
-      .filter((f): f is { name: string; content: string } => 
-        f !== null && 
-        typeof f === "object" && 
-        "name" in f && 
-        "content" in f
+      .filter(
+        (f): f is { name: string; content: string } =>
+          f !== null && typeof f === "object" && "name" in f && "content" in f,
       )
-      .map(f => ({ path: f.name, content: f.content }));
+      .map((f) => ({ path: f.name, content: f.content }));
 
     console.log("[Analyze] Found", files.length, "files");
 
@@ -136,11 +134,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     // First, add priority files
     for (const file of files) {
       if (totalChars >= MAX_CHARS) break;
-      
-      const isPriority = priorityFiles.some(
-        (p) => file.path.includes(p) || file.path.endsWith(p)
-      );
-      
+
+      const isPriority = priorityFiles.some((p) => file.path.includes(p) || file.path.endsWith(p));
+
       if (isPriority) {
         const content = file.content.substring(0, 3000); // Max 3000 chars per file
         fileContext += `\n### ${file.path}\n\`\`\`\n${content}\n\`\`\`\n`;
@@ -151,11 +147,9 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     // Then add remaining files if space allows
     for (const file of files) {
       if (totalChars >= MAX_CHARS) break;
-      
-      const isPriority = priorityFiles.some(
-        (p) => file.path.includes(p) || file.path.endsWith(p)
-      );
-      
+
+      const isPriority = priorityFiles.some((p) => file.path.includes(p) || file.path.endsWith(p));
+
       if (!isPriority && (file.path.endsWith(".tsx") || file.path.endsWith(".ts"))) {
         const content = file.content.substring(0, 2000);
         fileContext += `\n### ${file.path}\n\`\`\`\n${content}\n\`\`\`\n`;
@@ -187,16 +181,12 @@ Ge en strukturerad analys enligt formatet.`;
 
     // Extract text from response
     const messageItem = response.output.find(
-      (item): item is OpenAI.Responses.ResponseOutputMessage =>
-        item.type === "message"
+      (item): item is OpenAI.Responses.ResponseOutputMessage => item.type === "message",
     );
 
     const analysis =
       messageItem?.content
-        .filter(
-          (c): c is OpenAI.Responses.ResponseOutputText =>
-            c.type === "output_text"
-        )
+        .filter((c): c is OpenAI.Responses.ResponseOutputText => c.type === "output_text")
         .map((c) => c.text)
         .join("\n") || "Kunde inte generera analys.";
 
@@ -209,13 +199,8 @@ Ge en strukturerad analys enligt formatet.`;
       tokensUsed: response.usage?.total_tokens,
     });
   } catch (error: unknown) {
-    const errorMessage =
-      error instanceof Error ? error.message : "Unknown error";
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
     console.error("[Analyze] Error:", error);
-    return NextResponse.json(
-      { success: false, error: errorMessage },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, error: errorMessage }, { status: 500 });
   }
 }
-

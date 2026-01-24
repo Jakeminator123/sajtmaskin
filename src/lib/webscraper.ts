@@ -47,10 +47,7 @@ function normalizeInputUrl(url: string): string {
 
 function isLikelyHtml(contentType: string | null): boolean {
   if (!contentType) return false;
-  return (
-    contentType.includes("text/html") ||
-    contentType.includes("application/xhtml+xml")
-  );
+  return contentType.includes("text/html") || contentType.includes("application/xhtml+xml");
 }
 
 function absoluteUrl(href: string, base: URL): string | null {
@@ -84,19 +81,9 @@ function scoreLink(url: string, anchor?: string): number {
   if (value.includes("om oss") || value.includes("about")) score += 6;
   if (value.includes("tjänster") || value.includes("services")) score += 5;
   if (value.includes("produkter") || value.includes("product")) score += 4;
-  if (
-    value.includes("portfolio") ||
-    value.includes("case") ||
-    value.includes("work")
-  )
-    score += 3;
+  if (value.includes("portfolio") || value.includes("case") || value.includes("work")) score += 3;
   if (value.includes("blog") || value.includes("nyheter")) score += 2;
-  if (
-    value.includes("home") ||
-    value.includes("hem") ||
-    value.includes("start")
-  )
-    score += 2;
+  if (value.includes("home") || value.includes("hem") || value.includes("start")) score += 2;
   if (value.includes("kontakt") || value.includes("contact")) score += 1;
 
   // Penalize low-value/legal-only links
@@ -109,11 +96,7 @@ function scoreLink(url: string, anchor?: string): number {
   ) {
     score -= 4;
   }
-  if (
-    value.includes("login") ||
-    value.includes("logga in") ||
-    value.includes("signup")
-  ) {
+  if (value.includes("login") || value.includes("logga in") || value.includes("signup")) {
     score -= 3;
   }
 
@@ -140,7 +123,7 @@ function dedupeLinks(links: CandidateLink[]): CandidateLink[] {
 async function fetchWithTimeout(
   url: string,
   timeoutMs: number,
-  headers?: Record<string, string>
+  headers?: Record<string, string>,
 ): Promise<Response> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), timeoutMs);
@@ -217,7 +200,7 @@ function isLikelyWordPressHtml(html: string): boolean {
 
 async function tryWordPressFallback(
   html: string,
-  url: string
+  url: string,
 ): Promise<{ text: string; headings: string[]; source: string } | null> {
   // Avoid WP fallback if the page doesn't look like WordPress.
   if (!isLikelyWordPressHtml(html)) {
@@ -239,15 +222,11 @@ async function tryWordPressFallback(
   };
 
   // WordPress exposes JSON entry points we can reuse when HTML is JS-gated
-  addCandidate(
-    $('link[rel="alternate"][type="application/json"]').attr("href")
-  );
+  addCandidate($('link[rel="alternate"][type="application/json"]').attr("href"));
   const shortlinkHref = $('link[rel="shortlink"]').attr("href");
   if (shortlinkHref) {
     try {
-      const shortUrl = new URL(
-        absoluteUrl(shortlinkHref, baseUrl) ?? shortlinkHref
-      );
+      const shortUrl = new URL(absoluteUrl(shortlinkHref, baseUrl) ?? shortlinkHref);
       const id = shortUrl.searchParams.get("p");
       if (id) {
         candidates.push(`${shortUrl.origin}/wp-json/wp/v2/posts/${id}`);
@@ -259,9 +238,7 @@ async function tryWordPressFallback(
 
   const canonicalHref = $('link[rel="canonical"]').attr("href") || url;
   try {
-    const canonicalUrl = new URL(
-      absoluteUrl(canonicalHref, baseUrl) ?? canonicalHref
-    );
+    const canonicalUrl = new URL(absoluteUrl(canonicalHref, baseUrl) ?? canonicalHref);
     const pathSegments = canonicalUrl.pathname.split("/").filter(Boolean);
     const slug = pathSegments[pathSegments.length - 1];
     const apiBase = `${canonicalUrl.protocol}//${canonicalUrl.host}`;
@@ -290,8 +267,7 @@ async function tryWordPressFallback(
 
       const json = await response.json();
       const node = Array.isArray(json) ? json[0] : json;
-      const contentHtml: string | undefined =
-        node?.content?.rendered || node?.excerpt?.rendered;
+      const contentHtml: string | undefined = node?.content?.rendered || node?.excerpt?.rendered;
       if (!contentHtml || typeof contentHtml !== "string") continue;
 
       const wp$ = cheerio.load(contentHtml);
@@ -310,7 +286,7 @@ async function tryWordPressFallback(
       console.warn(
         `[WebScraper] WP fallback failed for ${candidate}: ${
           error instanceof Error ? error.message : "unknown error"
-        }`
+        }`,
       );
     }
   }
@@ -360,9 +336,7 @@ async function fetchPage(url: string): Promise<{
       }
       // Handle connection timeout (from undici/node)
       const errorMessage = fetchError.message || "";
-      const cause = fetchError.cause as
-        | { code?: string; message?: string }
-        | undefined;
+      const cause = fetchError.cause as { code?: string; message?: string } | undefined;
       const causeMessage = cause?.message || "";
       const causeCode = cause?.code || "";
       if (
@@ -379,29 +353,23 @@ async function fetchPage(url: string): Promise<{
           `Timeout: Kunde inte ansluta till ${domain}. ` +
             `Servern svarade inte på anslutningsförsöket. ` +
             `Detta kan bero på att sidan är nere, har brandvägg som blockerar, eller har nätverksproblem. ` +
-            `Försök igen om en stund eller kontrollera att URL:en är korrekt.`
+            `Försök igen om en stund eller kontrollera att URL:en är korrekt.`,
         );
       }
       // Handle DNS errors
-      if (
-        errorMessage.includes("ENOTFOUND") ||
-        causeMessage.includes("ENOTFOUND")
-      ) {
+      if (errorMessage.includes("ENOTFOUND") || causeMessage.includes("ENOTFOUND")) {
         const domain = new URL(url).hostname;
         throw new Error(
           `DNS-fel: Kunde inte hitta domänen ${domain}. ` +
-            `Kontrollera att URL:en är korrekt stavad.`
+            `Kontrollera att URL:en är korrekt stavad.`,
         );
       }
       // Handle connection refused
-      if (
-        errorMessage.includes("ECONNREFUSED") ||
-        causeMessage.includes("ECONNREFUSED")
-      ) {
+      if (errorMessage.includes("ECONNREFUSED") || causeMessage.includes("ECONNREFUSED")) {
         const domain = new URL(url).hostname;
         throw new Error(
           `Anslutning nekad: Servern ${domain} avvisade anslutningen. ` +
-            `Sidan kan vara nere eller ha problem.`
+            `Sidan kan vara nere eller ha problem.`,
         );
       }
     }
@@ -418,22 +386,20 @@ async function fetchPage(url: string): Promise<{
         `403 Forbidden: ${domain} blockerar automatiska requests. ` +
           `Många stora webbplatser (t.ex. IKEA, Amazon, etc.) använder Cloudflare eller liknande bot-skydd som förhindrar automatisk scraping. ` +
           `Tyvärr kan vi inte kringgå dessa säkerhetsåtgärder. ` +
-          `Försök med en annan webbplats eller kontakta webbplatsens ägare om du behöver analysera deras sida.`
+          `Försök med en annan webbplats eller kontakta webbplatsens ägare om du behöver analysera deras sida.`,
       );
     }
     if (status === 401) {
       throw new Error(
-        `401 Unauthorized: Webbplatsen kräver autentisering för att komma åt innehållet.`
+        `401 Unauthorized: Webbplatsen kräver autentisering för att komma åt innehållet.`,
       );
     }
     if (status === 404) {
-      throw new Error(
-        `404 Not Found: Sidan kunde inte hittas på den angivna URL:en.`
-      );
+      throw new Error(`404 Not Found: Sidan kunde inte hittas på den angivna URL:en.`);
     }
     if (status >= 500) {
       throw new Error(
-        `Serverfel (${status}): Webbplatsens server svarar inte korrekt. Försök igen senare.`
+        `Serverfel (${status}): Webbplatsens server svarar inte korrekt. Försök igen senare.`,
       );
     }
     throw new Error(`HTTP-fel: ${status} ${response.statusText}`);
@@ -454,11 +420,7 @@ async function fetchPage(url: string): Promise<{
   };
 }
 
-async function parsePage(
-  html: string,
-  url: string,
-  responseTime: number
-): Promise<ParsedPage> {
+async function parsePage(html: string, url: string, responseTime: number): Promise<ParsedPage> {
   const cheerio = await getCheerio();
   const $ = cheerio.load(html);
   const baseUrl = new URL(url);
@@ -486,9 +448,7 @@ async function parsePage(
   let bodyText = "";
 
   // Try main content areas (better for modern sites)
-  const mainContent = $(
-    "main, article, [role='main'], .content, .main-content"
-  ).first();
+  const mainContent = $("main, article, [role='main'], .content, .main-content").first();
   if (mainContent.length > 0) {
     bodyText = mainContent.text();
   }
@@ -511,7 +471,7 @@ async function parsePage(
     console.warn(
       `[WebScraper] Very little text found (${wordCount} words) for ${url}. ` +
         `This might be a JavaScript-rendered page. Found ${scriptCountBeforeCleanup} script tags. ` +
-        `Body text length: ${bodyText.length} chars.`
+        `Body text length: ${bodyText.length} chars.`,
     );
   }
 
@@ -519,19 +479,18 @@ async function parsePage(
   if (wordCount < SECONDARY_MIN_WORDS) {
     const wpFallback = await tryWordPressFallback(html, url);
     if (wpFallback) {
-      const fallbackWords = wpFallback.text
-        .split(" ")
-        .filter((word) => word.trim().length > 0);
+      const fallbackWords = wpFallback.text.split(" ").filter((word) => word.trim().length > 0);
       if (fallbackWords.length > wordCount) {
         words = fallbackWords;
         wordCount = fallbackWords.length;
         limitedText = fallbackWords.slice(0, 1500).join(" ");
-        headings = Array.from(
-          new Set([...headings, ...wpFallback.headings].filter(Boolean))
-        ).slice(0, 25);
+        headings = Array.from(new Set([...headings, ...wpFallback.headings].filter(Boolean))).slice(
+          0,
+          25,
+        );
         bodyText = wpFallback.text;
         console.info(
-          `[WebScraper] Used WordPress JSON fallback for ${url} (${wordCount} words) from ${wpFallback.source}`
+          `[WebScraper] Used WordPress JSON fallback for ${url} (${wordCount} words) from ${wpFallback.source}`,
         );
       }
     }
@@ -597,8 +556,7 @@ async function parsePage(
     robots: $('meta[name="robots"]').attr("content"),
   };
 
-  const textPreview =
-    limitedText.substring(0, 800) + (limitedText.length > 800 ? "..." : "");
+  const textPreview = limitedText.substring(0, 800) + (limitedText.length > 800 ? "..." : "");
 
   return {
     url,
@@ -616,9 +574,7 @@ async function parsePage(
     responseTime,
     wordCount,
     textPreview,
-    linksForFollow: dedupeLinks(linksForFollow).sort(
-      (a, b) => b.score - a.score
-    ),
+    linksForFollow: dedupeLinks(linksForFollow).sort((a, b) => b.score - a.score),
   };
 }
 
@@ -632,9 +588,7 @@ async function safeFetch(targetUrl: string): Promise<ParsedPage | null> {
     return await fetchAndParse(targetUrl);
   } catch (error) {
     console.warn(
-      `[webscraper] Skipping ${targetUrl}: ${
-        error instanceof Error ? error.message : "okänt fel"
-      }`
+      `[webscraper] Skipping ${targetUrl}: ${error instanceof Error ? error.message : "okänt fel"}`,
     );
     return null;
   }
@@ -656,10 +610,7 @@ export async function scrapeWebsite(url: string): Promise<WebsiteContent> {
   const candidateQueue: CandidateLink[] = [];
 
   const enqueueCandidates = (parsed: ParsedPage) => {
-    for (const candidate of parsed.linksForFollow.slice(
-      0,
-      MAX_LINKS_TO_CONSIDER
-    )) {
+    for (const candidate of parsed.linksForFollow.slice(0, MAX_LINKS_TO_CONSIDER)) {
       if (visited.has(candidate.url) || enqueued.has(candidate.url)) continue;
       enqueued.add(candidate.url);
       candidateQueue.push(candidate);
@@ -709,8 +660,8 @@ export async function scrapeWebsite(url: string): Promise<WebsiteContent> {
           console.log(
             `[WebScraper] Sitemap fallback: queued ${Math.min(
               scored.length,
-              SITEMAP_URL_LIMIT
-            )} URL(s) from sitemap.xml`
+              SITEMAP_URL_LIMIT,
+            )} URL(s) from sitemap.xml`,
           );
         }
       }
@@ -745,17 +696,12 @@ export async function scrapeWebsite(url: string): Promise<WebsiteContent> {
   }
 
   // Choose the richest page as primary (prefers real content over hero-only landers)
-  const rankedByRichness = [...pages].sort(
-    (a, b) => pageRichnessScore(b) - pageRichnessScore(a)
-  );
+  const rankedByRichness = [...pages].sort((a, b) => pageRichnessScore(b) - pageRichnessScore(a));
   const primaryPage =
-    rankedByRichness.find((p) => p.wordCount >= PRIMARY_MIN_WORDS) ||
-    rankedByRichness[0];
+    rankedByRichness.find((p) => p.wordCount >= PRIMARY_MIN_WORDS) || rankedByRichness[0];
 
   // Aggregate content across pages
-  const aggregationCandidates = pages.filter(
-    (p) => p.wordCount >= MIN_AGGREGATION_WORDS
-  );
+  const aggregationCandidates = pages.filter((p) => p.wordCount >= MIN_AGGREGATION_WORDS);
 
   const pagesForAggregation: ParsedPage[] = [];
   const addForAggregation = (p: ParsedPage) => {
@@ -767,37 +713,25 @@ export async function scrapeWebsite(url: string): Promise<WebsiteContent> {
   // Always include primary page for consistency between metadata and content
   addForAggregation(primaryPage);
 
-  const aggregationSource =
-    aggregationCandidates.length > 0 ? aggregationCandidates : pages;
+  const aggregationSource = aggregationCandidates.length > 0 ? aggregationCandidates : pages;
   for (const page of aggregationSource) {
     if (pagesForAggregation.length >= MAX_PAGES) break;
     addForAggregation(page);
   }
 
   const allHeadings = Array.from(
-    new Set(pagesForAggregation.flatMap((p) => p.headings).filter(Boolean))
+    new Set(pagesForAggregation.flatMap((p) => p.headings).filter(Boolean)),
   ).slice(0, 20);
 
   const combinedWords = pagesForAggregation.flatMap((p) => p.text.split(" "));
-  const aggregatedWordCount = pagesForAggregation.reduce(
-    (sum, p) => sum + p.wordCount,
-    0
-  );
+  const aggregatedWordCount = pagesForAggregation.reduce((sum, p) => sum + p.wordCount, 0);
   const limitedWords = combinedWords.slice(0, AGGREGATE_WORD_LIMIT);
   const aggregatedText = limitedWords.join(" ");
-  const textPreview =
-    aggregatedText.substring(0, 800) +
-    (aggregatedText.length > 800 ? "..." : "");
+  const textPreview = aggregatedText.substring(0, 800) + (aggregatedText.length > 800 ? "..." : "");
 
   const totalImages = pagesForAggregation.reduce((sum, p) => sum + p.images, 0);
-  const totalInternal = pagesForAggregation.reduce(
-    (sum, p) => sum + p.links.internal,
-    0
-  );
-  const totalExternal = pagesForAggregation.reduce(
-    (sum, p) => sum + p.links.external,
-    0
-  );
+  const totalInternal = pagesForAggregation.reduce((sum, p) => sum + p.links.internal, 0);
+  const totalExternal = pagesForAggregation.reduce((sum, p) => sum + p.links.external, 0);
 
   return {
     url: primaryPage.url,
@@ -897,9 +831,7 @@ export function validateAndNormalizeUrl(url: string): string {
     return urlObj.toString();
   } catch (error) {
     if (error instanceof TypeError) {
-      throw new Error(
-        "Ogiltig URL-format. Ange t.ex. 'exempel.se' eller 'https://exempel.se'"
-      );
+      throw new Error("Ogiltig URL-format. Ange t.ex. 'exempel.se' eller 'https://exempel.se'");
     }
     throw error;
   }

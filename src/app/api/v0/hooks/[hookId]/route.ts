@@ -1,16 +1,16 @@
-import { NextResponse } from 'next/server';
-import { z } from 'zod';
-import { assertV0Key, v0 } from '@/lib/v0';
-import { withRateLimit } from '@/lib/rateLimit';
+import { NextResponse } from "next/server";
+import { z } from "zod";
+import { assertV0Key, v0 } from "@/lib/v0";
+import { withRateLimit } from "@/lib/rateLimit";
 
 const hookEventSchema = z.enum([
-  'chat.created',
-  'chat.updated',
-  'chat.deleted',
-  'message.created',
-  'message.updated',
-  'message.deleted',
-  'message.finished',
+  "chat.created",
+  "chat.updated",
+  "chat.deleted",
+  "message.created",
+  "message.updated",
+  "message.deleted",
+  "message.finished",
 ]);
 
 const updateHookSchema = z
@@ -20,11 +20,11 @@ const updateHookSchema = z
     events: z.array(hookEventSchema).min(1).optional(),
   })
   .refine((data) => Object.keys(data).length > 0, {
-    message: 'At least one field (name, url, events) must be provided',
+    message: "At least one field (name, url, events) must be provided",
   });
 
 export async function GET(req: Request, ctx: { params: Promise<{ hookId: string }> }) {
-  return withRateLimit(req, 'hooks:get', async () => {
+  return withRateLimit(req, "hooks:get", async () => {
     try {
       assertV0Key();
       const { hookId } = await ctx.params;
@@ -33,15 +33,15 @@ export async function GET(req: Request, ctx: { params: Promise<{ hookId: string 
       return NextResponse.json(result);
     } catch (err) {
       return NextResponse.json(
-        { error: err instanceof Error ? err.message : 'Unknown error' },
-        { status: 500 }
+        { error: err instanceof Error ? err.message : "Unknown error" },
+        { status: 500 },
       );
     }
   });
 }
 
 export async function PATCH(req: Request, ctx: { params: Promise<{ hookId: string }> }) {
-  return withRateLimit(req, 'hooks:update', async () => {
+  return withRateLimit(req, "hooks:update", async () => {
     try {
       assertV0Key();
       const { hookId } = await ctx.params;
@@ -50,8 +50,8 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ hookId: strin
       const validationResult = updateHookSchema.safeParse(body);
       if (!validationResult.success) {
         return NextResponse.json(
-          { error: 'Validation failed', details: validationResult.error.issues },
-          { status: 400 }
+          { error: "Validation failed", details: validationResult.error.issues },
+          { status: 400 },
         );
       }
 
@@ -59,15 +59,15 @@ export async function PATCH(req: Request, ctx: { params: Promise<{ hookId: strin
       return NextResponse.json(result);
     } catch (err) {
       return NextResponse.json(
-        { error: err instanceof Error ? err.message : 'Unknown error' },
-        { status: 500 }
+        { error: err instanceof Error ? err.message : "Unknown error" },
+        { status: 500 },
       );
     }
   });
 }
 
 export async function DELETE(req: Request, ctx: { params: Promise<{ hookId: string }> }) {
-  return withRateLimit(req, 'hooks:delete', async () => {
+  return withRateLimit(req, "hooks:delete", async () => {
     try {
       assertV0Key();
       const { hookId } = await ctx.params;
@@ -76,8 +76,8 @@ export async function DELETE(req: Request, ctx: { params: Promise<{ hookId: stri
       return NextResponse.json(result);
     } catch (err) {
       return NextResponse.json(
-        { error: err instanceof Error ? err.message : 'Unknown error' },
-        { status: 500 }
+        { error: err instanceof Error ? err.message : "Unknown error" },
+        { status: 500 },
       );
     }
   });

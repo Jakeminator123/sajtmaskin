@@ -74,9 +74,7 @@ export async function runCleanup(): Promise<CleanupResult> {
 
   // 1. Delete old anonymous session projects
   const anonymousCutoff = new Date();
-  anonymousCutoff.setDate(
-    anonymousCutoff.getDate() - CLEANUP_CONFIG.ANONYMOUS_PROJECT_TTL_DAYS
-  );
+  anonymousCutoff.setDate(anonymousCutoff.getDate() - CLEANUP_CONFIG.ANONYMOUS_PROJECT_TTL_DAYS);
 
   const anonymousProjects = db
     .prepare(
@@ -85,7 +83,7 @@ export async function runCleanup(): Promise<CleanupResult> {
     WHERE user_id IS NULL 
     AND session_id IS NOT NULL 
     AND datetime(updated_at) < datetime(?)
-  `
+  `,
     )
     .all(anonymousCutoff.toISOString()) as Array<{ id: string }>;
 
@@ -97,9 +95,7 @@ export async function runCleanup(): Promise<CleanupResult> {
   // 1b. Delete projects that were never saved (no chat_id or demo_url in project_data)
   // These are projects created but never actually used
   const unsavedCutoff = new Date();
-  unsavedCutoff.setHours(
-    unsavedCutoff.getHours() - CLEANUP_CONFIG.UNSAVED_PROJECT_TTL_HOURS
-  );
+  unsavedCutoff.setHours(unsavedCutoff.getHours() - CLEANUP_CONFIG.UNSAVED_PROJECT_TTL_HOURS);
 
   const unsavedProjects = db
     .prepare(
@@ -109,7 +105,7 @@ export async function runCleanup(): Promise<CleanupResult> {
     WHERE (pd.chat_id IS NULL OR pd.chat_id = '')
     AND (pd.demo_url IS NULL OR pd.demo_url = '')
     AND datetime(p.created_at) < datetime(?)
-  `
+  `,
     )
     .all(unsavedCutoff.toISOString()) as Array<{ id: string }>;
 
@@ -120,9 +116,7 @@ export async function runCleanup(): Promise<CleanupResult> {
 
   // 2. Clean up expired template cache
   const expiredCaches = db
-    .prepare(
-      "DELETE FROM template_cache WHERE datetime(expires_at) <= datetime('now')"
-    )
+    .prepare("DELETE FROM template_cache WHERE datetime(expires_at) <= datetime('now')")
     .run();
   result.expiredTemplateCaches = expiredCaches.changes;
 
@@ -131,13 +125,13 @@ export async function runCleanup(): Promise<CleanupResult> {
     .prepare(
       `DELETE FROM template_cache 
        WHERE user_id IS NOT NULL 
-       AND user_id NOT IN (SELECT id FROM users)`
+       AND user_id NOT IN (SELECT id FROM users)`,
     )
     .run();
   console.log(
     "[Cleanup] Removed",
     orphanedTemplateCache.changes,
-    "orphaned template cache entries"
+    "orphaned template cache entries",
   );
 
   // 3. Clean up orphaned project files (no matching project)
@@ -146,7 +140,7 @@ export async function runCleanup(): Promise<CleanupResult> {
       `
     DELETE FROM project_files 
     WHERE project_id NOT IN (SELECT id FROM projects)
-  `
+  `,
     )
     .run();
 
@@ -156,7 +150,7 @@ export async function runCleanup(): Promise<CleanupResult> {
       `
     DELETE FROM images 
     WHERE project_id NOT IN (SELECT id FROM projects)
-  `
+  `,
     )
     .run();
 
@@ -181,9 +175,7 @@ function deleteProjectAndData(projectId: string): void {
   db.prepare("DELETE FROM project_data WHERE project_id = ?").run(projectId);
   db.prepare("DELETE FROM project_files WHERE project_id = ?").run(projectId);
   db.prepare("DELETE FROM images WHERE project_id = ?").run(projectId);
-  db.prepare("DELETE FROM company_profiles WHERE project_id = ?").run(
-    projectId
-  );
+  db.prepare("DELETE FROM company_profiles WHERE project_id = ?").run(projectId);
 
   // Delete the project itself
   db.prepare("DELETE FROM projects WHERE id = ?").run(projectId);
@@ -196,7 +188,7 @@ function deleteProjectAndData(projectId: string): void {
 export function canCreateProject(
   userId: string | null,
   sessionId: string | null,
-  isPaidUser: boolean = false
+  isPaidUser: boolean = false,
 ): { allowed: boolean; reason?: string; limit: number; current: number } {
   const db = getDb();
 
@@ -208,9 +200,9 @@ export function canCreateProject(
 
     const count =
       (
-        db
-          .prepare("SELECT COUNT(*) as count FROM projects WHERE user_id = ?")
-          .get(userId) as { count: number } | undefined
+        db.prepare("SELECT COUNT(*) as count FROM projects WHERE user_id = ?").get(userId) as
+          | { count: number }
+          | undefined
       )?.count || 0;
 
     if (count >= limit) {
@@ -230,18 +222,15 @@ export function canCreateProject(
     const limit = CLEANUP_CONFIG.MAX_ANONYMOUS_PROJECTS_PER_SESSION;
     const count =
       (
-        db
-          .prepare(
-            "SELECT COUNT(*) as count FROM projects WHERE session_id = ?"
-          )
-          .get(sessionId) as { count: number } | undefined
+        db.prepare("SELECT COUNT(*) as count FROM projects WHERE session_id = ?").get(sessionId) as
+          | { count: number }
+          | undefined
       )?.count || 0;
 
     if (count >= limit) {
       return {
         allowed: false,
-        reason:
-          "Gästkonton kan skapa max 3 projekt. Logga in för att spara fler!",
+        reason: "Gästkonton kan skapa max 3 projekt. Logga in för att spara fler!",
         limit,
         current: count,
       };
@@ -273,15 +262,13 @@ export function getCleanupStats(): {
   const db = getDb();
 
   const anonymousCutoff = new Date();
-  anonymousCutoff.setDate(
-    anonymousCutoff.getDate() - CLEANUP_CONFIG.ANONYMOUS_PROJECT_TTL_DAYS
-  );
+  anonymousCutoff.setDate(anonymousCutoff.getDate() - CLEANUP_CONFIG.ANONYMOUS_PROJECT_TTL_DAYS);
 
   const anonymousProjects =
     (
       db
         .prepare(
-          "SELECT COUNT(*) as count FROM projects WHERE user_id IS NULL AND session_id IS NOT NULL"
+          "SELECT COUNT(*) as count FROM projects WHERE user_id IS NULL AND session_id IS NOT NULL",
         )
         .get() as { count: number } | undefined
     )?.count || 0;
@@ -292,18 +279,16 @@ export function getCleanupStats(): {
         .prepare(
           `SELECT COUNT(*) as count FROM projects 
            WHERE user_id IS NULL AND session_id IS NOT NULL 
-           AND datetime(updated_at) < datetime(?)`
+           AND datetime(updated_at) < datetime(?)`,
         )
         .get(anonymousCutoff.toISOString()) as { count: number } | undefined
     )?.count || 0;
 
   const userProjects =
     (
-      db
-        .prepare(
-          "SELECT COUNT(*) as count FROM projects WHERE user_id IS NOT NULL"
-        )
-        .get() as { count: number } | undefined
+      db.prepare("SELECT COUNT(*) as count FROM projects WHERE user_id IS NOT NULL").get() as
+        | { count: number }
+        | undefined
     )?.count || 0;
 
   const orphanedFiles =
@@ -311,7 +296,7 @@ export function getCleanupStats(): {
       db
         .prepare(
           `SELECT COUNT(*) as count FROM project_files 
-           WHERE project_id NOT IN (SELECT id FROM projects)`
+           WHERE project_id NOT IN (SELECT id FROM projects)`,
         )
         .get() as { count: number } | undefined
     )?.count || 0;
@@ -321,7 +306,7 @@ export function getCleanupStats(): {
       db
         .prepare(
           `SELECT COUNT(*) as count FROM images 
-           WHERE project_id NOT IN (SELECT id FROM projects)`
+           WHERE project_id NOT IN (SELECT id FROM projects)`,
         )
         .get() as { count: number } | undefined
     )?.count || 0;
@@ -339,7 +324,7 @@ export function getCleanupStats(): {
     (
       db
         .prepare(
-          "SELECT COUNT(*) as count FROM template_cache WHERE datetime(expires_at) <= datetime('now')"
+          "SELECT COUNT(*) as count FROM template_cache WHERE datetime(expires_at) <= datetime('now')",
         )
         .get() as { count: number } | undefined
     )?.count || 0;

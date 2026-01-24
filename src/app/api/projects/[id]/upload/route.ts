@@ -17,26 +17,20 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     if (!user) {
       return NextResponse.json(
         { success: false, error: "Authentication required" },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
     const project = getProjectById(id);
     if (!project) {
-      return NextResponse.json(
-        { success: false, error: "Project not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ success: false, error: "Project not found" }, { status: 404 });
     }
 
     const formData = await request.formData();
     const file = formData.get("file") as File;
 
     if (!file) {
-      return NextResponse.json(
-        { success: false, error: "No file provided" },
-        { status: 400 }
-      );
+      return NextResponse.json({ success: false, error: "No file provided" }, { status: 400 });
     }
 
     // Generate unique filename
@@ -58,26 +52,13 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     });
 
     if (!uploadResult) {
-      return NextResponse.json(
-        { success: false, error: "Failed to upload file" },
-        { status: 500 }
-      );
+      return NextResponse.json({ success: false, error: "Failed to upload file" }, { status: 500 });
     }
 
-    console.log(
-      `[Upload] Image uploaded (${uploadResult.storageType}):`,
-      uploadResult.url
-    );
+    console.log(`[Upload] Image uploaded (${uploadResult.storageType}):`, uploadResult.url);
 
     // Save metadata to database
-    const imageRecord = saveImage(
-      id,
-      filename,
-      uploadResult.path,
-      file.name,
-      file.type,
-      file.size
-    );
+    const imageRecord = saveImage(id, filename, uploadResult.path, file.name, file.type, file.size);
 
     return NextResponse.json({
       success: true,
@@ -90,9 +71,6 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Unknown error";
     console.error("[API] Failed to upload image:", error);
-    return NextResponse.json(
-      { success: false, error: message },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, error: message }, { status: 500 });
   }
 }

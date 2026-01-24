@@ -24,10 +24,7 @@ async function isAdmin(req: NextRequest): Promise<boolean> {
 // Get database stats
 export async function GET(req: NextRequest) {
   if (!(await isAdmin(req))) {
-    return NextResponse.json(
-      { success: false, error: "Unauthorized" },
-      { status: 401 }
-    );
+    return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
   }
 
   const action = req.nextUrl.searchParams.get("action");
@@ -40,7 +37,7 @@ export async function GET(req: NextRequest) {
       if (!fs.existsSync(DB_PATH)) {
         return NextResponse.json(
           { success: false, error: "Database file not found" },
-          { status: 404 }
+          { status: 404 },
         );
       }
 
@@ -69,7 +66,7 @@ export async function GET(req: NextRequest) {
       (
         db
           .prepare(
-            "SELECT COUNT(*) as count FROM template_cache WHERE datetime(expires_at) < datetime('now')"
+            "SELECT COUNT(*) as count FROM template_cache WHERE datetime(expires_at) < datetime('now')",
           )
           .get() as CountResult | undefined
       )?.count || 0;
@@ -87,18 +84,18 @@ export async function GET(req: NextRequest) {
             ?.count || 0,
         transactions:
           (
-            db
-              .prepare("SELECT COUNT(*) as count FROM transactions")
-              .get() as CountResult | undefined
+            db.prepare("SELECT COUNT(*) as count FROM transactions").get() as
+              | CountResult
+              | undefined
           )?.count || 0,
         guestUsage:
           (db.prepare("SELECT COUNT(*) as count FROM guest_usage").get() as CountResult | undefined)
             ?.count || 0,
         companyProfiles:
           (
-            db
-              .prepare("SELECT COUNT(*) as count FROM company_profiles")
-              .get() as CountResult | undefined
+            db.prepare("SELECT COUNT(*) as count FROM company_profiles").get() as
+              | CountResult
+              | undefined
           )?.count || 0,
         templateCache: templateCacheCount,
         templateCacheExpired: templateCacheExpired,
@@ -114,7 +111,7 @@ export async function GET(req: NextRequest) {
     console.error("[API/admin/database] Error:", error);
     return NextResponse.json(
       { success: false, error: "Failed to get database stats" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -122,10 +119,7 @@ export async function GET(req: NextRequest) {
 // Clear database tables
 export async function POST(req: NextRequest) {
   if (!(await isAdmin(req))) {
-    return NextResponse.json(
-      { success: false, error: "Unauthorized" },
-      { status: 401 }
-    );
+    return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
   }
 
   try {
@@ -146,10 +140,7 @@ export async function POST(req: NextRequest) {
       ];
 
       if (!table || !allowedTables.includes(table)) {
-        return NextResponse.json(
-          { success: false, error: "Invalid table name" },
-          { status: 400 }
-        );
+        return NextResponse.json({ success: false, error: "Invalid table name" }, { status: 400 });
       }
 
       // Special handling for users - don't delete test user
@@ -212,7 +203,7 @@ export async function POST(req: NextRequest) {
       const templates = db
         .prepare(
           `SELECT template_id, chat_id, demo_url, version_id, code, files_json, model, created_at
-           FROM template_cache ORDER BY created_at DESC`
+           FROM template_cache ORDER BY created_at DESC`,
         )
         .all() as Array<{
         template_id: string;
@@ -262,7 +253,7 @@ export async function POST(req: NextRequest) {
       if (!templates || !Array.isArray(templates)) {
         return NextResponse.json(
           { success: false, error: "Invalid templates array" },
-          { status: 400 }
+          { status: 400 },
         );
       }
 
@@ -288,15 +279,11 @@ export async function POST(req: NextRequest) {
             t.files ? JSON.stringify(t.files) : null,
             t.model || null,
             new Date().toISOString(),
-            expiresAt.toISOString()
+            expiresAt.toISOString(),
           );
           imported++;
         } catch (err) {
-          console.error(
-            "[Admin] Failed to import template:",
-            t.templateId,
-            err
-          );
+          console.error("[Admin] Failed to import template:", t.templateId, err);
         }
       }
 
@@ -343,9 +330,7 @@ export async function POST(req: NextRequest) {
     // ═══════════════════════════════════════════════════════════════════════════
 
     if (action === "run-cleanup") {
-      const { runCleanup, getCleanupStats } = await import(
-        "@/lib/project-cleanup"
-      );
+      const { runCleanup, getCleanupStats } = await import("@/lib/project-cleanup");
 
       // Get stats before cleanup
       const statsBefore = getCleanupStats();
@@ -367,9 +352,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === "get-cleanup-stats") {
-      const { getCleanupStats, CLEANUP_CONFIG } = await import(
-        "@/lib/project-cleanup"
-      );
+      const { getCleanupStats, CLEANUP_CONFIG } = await import("@/lib/project-cleanup");
       const stats = getCleanupStats();
       return NextResponse.json({
         success: true,
@@ -410,45 +393,35 @@ export async function POST(req: NextRequest) {
 
             for (const proj of v0Projects) {
               try {
-                const delRes = await fetch(
-                  `https://api.v0.dev/v1/projects/${proj.id}`,
-                  {
-                    method: "DELETE",
-                    headers: { Authorization: `Bearer ${v0ApiKey}` },
-                  }
-                );
+                const delRes = await fetch(`https://api.v0.dev/v1/projects/${proj.id}`, {
+                  method: "DELETE",
+                  headers: { Authorization: `Bearer ${v0ApiKey}` },
+                });
                 if (delRes.ok) {
                   results.v0.deleted++;
                 }
               } catch (err) {
                 results.v0.errors.push(
-                  `Failed to delete ${proj.id}: ${
-                    err instanceof Error ? err.message : "Unknown"
-                  }`
+                  `Failed to delete ${proj.id}: ${err instanceof Error ? err.message : "Unknown"}`,
                 );
               }
             }
           }
         } catch (err) {
           results.v0.errors.push(
-            `Failed to fetch v0 projects: ${
-              err instanceof Error ? err.message : "Unknown"
-            }`
+            `Failed to fetch v0 projects: ${err instanceof Error ? err.message : "Unknown"}`,
           );
         }
       }
 
       // 2. Delete Vercel projects
-      const vercelToken = process.env.VERCEL_API_TOKEN;
+      const vercelToken = process.env.VERCEL_TOKEN || process.env.VERCEL_API_TOKEN;
       if (vercelToken) {
         try {
           // Fetch all Vercel projects
-          const projectsRes = await fetch(
-            "https://api.vercel.com/v9/projects",
-            {
-              headers: { Authorization: `Bearer ${vercelToken}` },
-            }
-          );
+          const projectsRes = await fetch("https://api.vercel.com/v9/projects", {
+            headers: { Authorization: `Bearer ${vercelToken}` },
+          });
 
           if (projectsRes.ok) {
             const projectsData = await projectsRes.json();
@@ -456,30 +429,23 @@ export async function POST(req: NextRequest) {
 
             for (const proj of vercelProjects) {
               try {
-                const delRes = await fetch(
-                  `https://api.vercel.com/v9/projects/${proj.id}`,
-                  {
-                    method: "DELETE",
-                    headers: { Authorization: `Bearer ${vercelToken}` },
-                  }
-                );
+                const delRes = await fetch(`https://api.vercel.com/v9/projects/${proj.id}`, {
+                  method: "DELETE",
+                  headers: { Authorization: `Bearer ${vercelToken}` },
+                });
                 if (delRes.ok || delRes.status === 204) {
                   results.vercel.deleted++;
                 }
               } catch (err) {
                 results.vercel.errors.push(
-                  `Failed to delete ${proj.id}: ${
-                    err instanceof Error ? err.message : "Unknown"
-                  }`
+                  `Failed to delete ${proj.id}: ${err instanceof Error ? err.message : "Unknown"}`,
                 );
               }
             }
           }
         } catch (err) {
           results.vercel.errors.push(
-            `Failed to fetch Vercel projects: ${
-              err instanceof Error ? err.message : "Unknown"
-            }`
+            `Failed to fetch Vercel projects: ${err instanceof Error ? err.message : "Unknown"}`,
           );
         }
       }
@@ -554,22 +520,17 @@ export async function POST(req: NextRequest) {
 
         for (const proj of v0Projects) {
           try {
-            const delRes = await fetch(
-              `https://api.v0.dev/v1/projects/${proj.id}`,
-              {
-                method: "DELETE",
-                headers: { Authorization: `Bearer ${v0ApiKey}` },
-              }
-            );
+            const delRes = await fetch(`https://api.v0.dev/v1/projects/${proj.id}`, {
+              method: "DELETE",
+              headers: { Authorization: `Bearer ${v0ApiKey}` },
+            });
             if (delRes.ok) {
               deleted.push(proj.id);
             } else {
               errors.push(`${proj.id}: ${delRes.status}`);
             }
           } catch (err) {
-            errors.push(
-              `${proj.id}: ${err instanceof Error ? err.message : "Unknown"}`
-            );
+            errors.push(`${proj.id}: ${err instanceof Error ? err.message : "Unknown"}`);
           }
         }
 
@@ -589,11 +550,11 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === "cleanup-vercel-projects") {
-      const vercelToken = process.env.VERCEL_API_TOKEN;
+      const vercelToken = process.env.VERCEL_TOKEN || process.env.VERCEL_API_TOKEN;
       if (!vercelToken) {
         return NextResponse.json({
           success: false,
-          error: "VERCEL_API_TOKEN not configured",
+          error: "VERCEL_TOKEN not configured",
         });
       }
 
@@ -617,22 +578,17 @@ export async function POST(req: NextRequest) {
 
         for (const proj of vercelProjects) {
           try {
-            const delRes = await fetch(
-              `https://api.vercel.com/v9/projects/${proj.id}`,
-              {
-                method: "DELETE",
-                headers: { Authorization: `Bearer ${vercelToken}` },
-              }
-            );
+            const delRes = await fetch(`https://api.vercel.com/v9/projects/${proj.id}`, {
+              method: "DELETE",
+              headers: { Authorization: `Bearer ${vercelToken}` },
+            });
             if (delRes.ok || delRes.status === 204) {
               deleted.push(proj.id);
             } else {
               errors.push(`${proj.id}: ${delRes.status}`);
             }
           } catch (err) {
-            errors.push(
-              `${proj.id}: ${err instanceof Error ? err.message : "Unknown"}`
-            );
+            errors.push(`${proj.id}: ${err instanceof Error ? err.message : "Unknown"}`);
           }
         }
 
@@ -664,13 +620,11 @@ export async function POST(req: NextRequest) {
         WHERE user_id IS NULL 
         AND session_id IS NOT NULL 
         AND datetime(updated_at) < datetime(?)
-      `
+      `,
         )
         .run(cutoff.toISOString());
 
-      console.log(
-        `[Admin] Deleted ${result.changes} anonymous projects older than ${days} days`
-      );
+      console.log(`[Admin] Deleted ${result.changes} anonymous projects older than ${days} days`);
       return NextResponse.json({
         success: true,
         deleted: result.changes,
@@ -678,15 +632,12 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    return NextResponse.json(
-      { success: false, error: "Invalid action" },
-      { status: 400 }
-    );
+    return NextResponse.json({ success: false, error: "Invalid action" }, { status: 400 });
   } catch (error) {
     console.error("[API/admin/database] Error:", error);
     return NextResponse.json(
       { success: false, error: "Failed to perform action" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -704,8 +655,7 @@ function getDbFileSize(): string {
 function formatBytes(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  if (bytes < 1024 * 1024 * 1024)
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  if (bytes < 1024 * 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
 }
 
@@ -782,11 +732,7 @@ function clearUploadsFolder(): {
       }
     }
 
-    console.log(
-      `[Admin] Cleared uploads: ${deletedCount} files, ${formatBytes(
-        freedBytes
-      )} freed`
-    );
+    console.log(`[Admin] Cleared uploads: ${deletedCount} files, ${formatBytes(freedBytes)} freed`);
     return {
       success: true,
       deletedCount,

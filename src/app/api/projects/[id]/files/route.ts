@@ -21,7 +21,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     if (!user) {
       return NextResponse.json(
         { success: false, error: "Du måste vara inloggad" },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
@@ -30,17 +30,17 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     if (!project) {
       return NextResponse.json(
         { success: false, error: "Projektet hittades inte" },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
-      // Ownership check
+    // Ownership check
     if (project.user_id !== user.id) {
-        return NextResponse.json(
-          { success: false, error: "Du kan bara visa dina egna projekt" },
-          { status: 403 }
-        );
-      }
+      return NextResponse.json(
+        { success: false, error: "Du kan bara visa dina egna projekt" },
+        { status: 403 },
+      );
+    }
 
     // Get project data with files
     const projectData = getProjectData(projectId);
@@ -53,19 +53,17 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
           error: "Inga filer hittades i projektet.",
           hint: "Generera en sajt först.",
         },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
     // Convert v0 file format
     const files = rawFiles
-      .filter((f): f is { name: string; content: string } => 
-        f !== null && 
-        typeof f === "object" && 
-        "name" in f && 
-        "content" in f
+      .filter(
+        (f): f is { name: string; content: string } =>
+          f !== null && typeof f === "object" && "name" in f && "content" in f,
       )
-      .map(f => ({ path: f.name, content: f.content }));
+      .map((f) => ({ path: f.name, content: f.content }));
 
     return NextResponse.json({
       success: true,
@@ -75,9 +73,6 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Okänt fel";
     console.error("[Projects/files] Error:", message);
-    return NextResponse.json(
-      { success: false, error: message },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, error: message }, { status: 500 });
   }
 }

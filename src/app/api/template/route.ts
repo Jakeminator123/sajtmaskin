@@ -27,7 +27,7 @@ export async function POST(request: NextRequest) {
     if (!templateId) {
       return NextResponse.json(
         { success: false, error: "Template ID is required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
           success: false,
           error: "Ogiltigt template-id. Välj en template från galleriet.",
         },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
       templateId,
       "quality:",
       quality,
-      userId ? `(user: ${userId})` : "(anonymous)"
+      userId ? `(user: ${userId})` : "(anonymous)",
     );
 
     // ═══════════════════════════════════════════════════════════════════════════
@@ -65,11 +65,9 @@ export async function POST(request: NextRequest) {
         console.log(
           "[API /template] Returning CACHED result for:",
           templateId,
-          userId ? `(user: ${userId})` : "(anonymous)"
+          userId ? `(user: ${userId})` : "(anonymous)",
         );
-        console.log(
-          "[API /template] Note: Using cached chatId from user-specific cache"
-        );
+        console.log("[API /template] Note: Using cached chatId from user-specific cache");
 
         // Parse cached files
         let files = null;
@@ -119,7 +117,7 @@ export async function POST(request: NextRequest) {
           success: false,
           error: "Mallen kunde inte laddas. v0 API returnerade inget innehåll.",
         },
-        { status: 502 }
+        { status: 502 },
       );
     }
 
@@ -142,12 +140,12 @@ export async function POST(request: NextRequest) {
             code: mainCode || result.code,
             model: result.model,
           },
-          userId
+          userId,
         );
         console.log(
           "[API /template] Cached result for:",
           templateId,
-          userId ? `(user: ${userId})` : "(anonymous)"
+          userId ? `(user: ${userId})` : "(anonymous)",
         );
       } catch (cacheError) {
         console.warn("[API /template] Failed to cache result:", cacheError);
@@ -168,8 +166,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error("[API /template] Error:", error);
 
-    const errorMessage =
-      error instanceof Error ? error.message : "Unknown error";
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
 
     // Handle specific error types with appropriate status codes
     if (errorMessage.includes("not found") || errorMessage.includes("404")) {
@@ -178,7 +175,7 @@ export async function POST(request: NextRequest) {
           success: false,
           error: "Template hittades inte. Välj en annan template.",
         },
-        { status: 404 }
+        { status: 404 },
       );
     }
 
@@ -188,7 +185,7 @@ export async function POST(request: NextRequest) {
           success: false,
           error: "För många förfrågningar. Vänta en stund och försök igen.",
         },
-        { status: 429 }
+        { status: 429 },
       );
     }
 
@@ -198,21 +195,18 @@ export async function POST(request: NextRequest) {
           success: false,
           error: "API-konfigurationsfel. Kontakta support.",
         },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
     // For v0 API errors (500, 502, etc.), pass through the user-friendly message
-    if (
-      errorMessage.includes("v0 API") ||
-      errorMessage.includes("tillfällig")
-    ) {
+    if (errorMessage.includes("v0 API") || errorMessage.includes("tillfällig")) {
       return NextResponse.json(
         {
           success: false,
           error: errorMessage,
         },
-        { status: 502 }
+        { status: 502 },
       );
     }
 
@@ -221,7 +215,7 @@ export async function POST(request: NextRequest) {
         success: false,
         error: `Kunde inte ladda template: ${errorMessage}`,
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

@@ -1,16 +1,16 @@
-import { NextResponse } from 'next/server';
-import { z } from 'zod';
-import { assertV0Key, v0 } from '@/lib/v0';
-import { withRateLimit } from '@/lib/rateLimit';
+import { NextResponse } from "next/server";
+import { z } from "zod";
+import { assertV0Key, v0 } from "@/lib/v0";
+import { withRateLimit } from "@/lib/rateLimit";
 
 const hookEventSchema = z.enum([
-  'chat.created',
-  'chat.updated',
-  'chat.deleted',
-  'message.created',
-  'message.updated',
-  'message.deleted',
-  'message.finished',
+  "chat.created",
+  "chat.updated",
+  "chat.deleted",
+  "message.created",
+  "message.updated",
+  "message.deleted",
+  "message.finished",
 ]);
 
 const createHookSchema = z.object({
@@ -21,22 +21,22 @@ const createHookSchema = z.object({
 });
 
 export async function GET(req: Request) {
-  return withRateLimit(req, 'hooks:find', async () => {
+  return withRateLimit(req, "hooks:find", async () => {
     try {
       assertV0Key();
       const result = await v0.hooks.find();
       return NextResponse.json(result);
     } catch (err) {
       return NextResponse.json(
-        { error: err instanceof Error ? err.message : 'Unknown error' },
-        { status: 500 }
+        { error: err instanceof Error ? err.message : "Unknown error" },
+        { status: 500 },
       );
     }
   });
 }
 
 export async function POST(req: Request) {
-  return withRateLimit(req, 'hooks:create', async () => {
+  return withRateLimit(req, "hooks:create", async () => {
     try {
       assertV0Key();
 
@@ -44,8 +44,8 @@ export async function POST(req: Request) {
       const validationResult = createHookSchema.safeParse(body);
       if (!validationResult.success) {
         return NextResponse.json(
-          { error: 'Validation failed', details: validationResult.error.issues },
-          { status: 400 }
+          { error: "Validation failed", details: validationResult.error.issues },
+          { status: 400 },
         );
       }
 
@@ -53,8 +53,8 @@ export async function POST(req: Request) {
       return NextResponse.json(result);
     } catch (err) {
       return NextResponse.json(
-        { error: err instanceof Error ? err.message : 'Unknown error' },
-        { status: 500 }
+        { error: err instanceof Error ? err.message : "Unknown error" },
+        { status: 500 },
       );
     }
   });

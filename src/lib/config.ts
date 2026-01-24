@@ -53,9 +53,7 @@ function getDataDir(): string {
       const resolved = path.resolve(dataDir);
       if (!hasWarnedAboutDataDir && !isBuildPhase) {
         hasWarnedAboutDataDir = true;
-        console.warn(
-          `[Config] WARNING: DATA_DIR was relative, resolved to absolute: ${resolved}`
-        );
+        console.warn(`[Config] WARNING: DATA_DIR was relative, resolved to absolute: ${resolved}`);
       }
       return resolved;
     }
@@ -68,7 +66,7 @@ function getDataDir(): string {
     console.error(
       "[Config] ❌ CRITICAL: DATA_DIR not set in production!\n" +
         "  → Database and uploads will be lost on restart\n" +
-        "  → Set DATA_DIR=/var/data and mount persistent disk"
+        "  → Set DATA_DIR=/var/data and mount persistent disk",
     );
   }
 
@@ -118,12 +116,7 @@ export const SECRETS = {
     const isBuildPhase =
       process.env.NEXT_PHASE === "phase-production-build" ||
       process.env.NEXT_PHASE === "phase-export";
-    if (
-      !secret &&
-      IS_PRODUCTION &&
-      typeof window === "undefined" &&
-      !isBuildPhase
-    ) {
+    if (!secret && IS_PRODUCTION && typeof window === "undefined" && !isBuildPhase) {
       throw new Error("JWT_SECRET is required in production");
     }
     return secret || "dev-secret-change-in-production";
@@ -132,9 +125,7 @@ export const SECRETS = {
   get openaiApiKey() {
     // Support legacy/alternative naming used in parts of the codebase.
     // Prefer OPENAI_API_KEY, fallback to OPEN_AI_API.
-    const key = sanitizeEnvValue(
-      process.env.OPENAI_API_KEY || process.env.OPEN_AI_API
-    );
+    const key = sanitizeEnvValue(process.env.OPENAI_API_KEY || process.env.OPEN_AI_API);
     if (!key && IS_PRODUCTION) {
       console.error("[Config] OPENAI_API_KEY is required");
     }
@@ -146,7 +137,8 @@ export const SECRETS = {
   },
 
   get vercelApiToken() {
-    return process.env.VERCEL_API_TOKEN || "";
+    // VERCEL_TOKEN is preferred, VERCEL_API_TOKEN is legacy fallback
+    return process.env.VERCEL_TOKEN || process.env.VERCEL_API_TOKEN || "";
   },
 
   get stripeSecretKey() {
@@ -166,9 +158,7 @@ export const SECRETS = {
   },
 
   get figmaAccessToken() {
-    return sanitizeEnvValue(
-      process.env.FIGMA_ACCESS_TOKEN || process.env.FIGMA_TOKEN
-    );
+    return sanitizeEnvValue(process.env.FIGMA_ACCESS_TOKEN || process.env.FIGMA_TOKEN);
   },
 
   // Google OAuth - automatically selects dev/prod credentials
@@ -258,9 +248,7 @@ export function isSecretConfigured(secretName: SecretName): boolean {
  * Validate required secrets at startup
  * Returns list of missing secret names
  */
-export function validateRequiredSecrets(
-  requiredSecrets: SecretName[]
-): string[] {
+export function validateRequiredSecrets(requiredSecrets: SecretName[]): string[] {
   const missing: string[] = [];
   for (const secret of requiredSecrets) {
     if (!isSecretConfigured(secret)) {
@@ -295,10 +283,7 @@ export const URLS = {
   },
 
   get githubCallbackUrl() {
-    return (
-      process.env.GITHUB_REDIRECT_URI ||
-      `${this.baseUrl}/api/auth/github/callback`
-    );
+    return process.env.GITHUB_REDIRECT_URI || `${this.baseUrl}/api/auth/github/callback`;
   },
 } as const;
 
@@ -321,8 +306,7 @@ export const FEATURES = {
   // Enable image APIs
   // NOTE: Pexels is disabled - set ENABLE_PEXELS=true to re-enable
   // Reason: Focusing on Unsplash only for now (simpler, works well with v0)
-  usePexels:
-    Boolean(SECRETS.pexelsApiKey) && process.env.ENABLE_PEXELS === "true",
+  usePexels: Boolean(SECRETS.pexelsApiKey) && process.env.ENABLE_PEXELS === "true",
   useUnsplash: Boolean(SECRETS.unsplashAccessKey),
   useFigmaApi: Boolean(SECRETS.figmaAccessToken),
 
@@ -367,14 +351,14 @@ export function logConfig(): void {
       k
         .replace("use", "")
         .replace(/([A-Z])/g, " $1")
-        .trim()
+        .trim(),
     )
     .join(", ");
 
   console.log(
     `[Config] ${IS_PRODUCTION ? "PROD" : "DEV"} | DB: ${
       PATHS.database
-    } | Features: ${features || "none"}`
+    } | Features: ${features || "none"}`,
   );
 }
 
@@ -384,17 +368,12 @@ export function logConfig(): void {
  */
 export function validateEnv(): { valid: boolean; missing: string[] } {
   // Core required secrets for production
-  const coreSecrets: SecretName[] = IS_PRODUCTION
-    ? ["jwtSecret", "openaiApiKey", "v0ApiKey"]
-    : [];
+  const coreSecrets: SecretName[] = IS_PRODUCTION ? ["jwtSecret", "openaiApiKey", "v0ApiKey"] : [];
 
   const missing = validateRequiredSecrets(coreSecrets);
 
   if (missing.length > 0 && IS_PRODUCTION) {
-    console.error(
-      "[Config] CRITICAL: Missing required environment variables:",
-      missing
-    );
+    console.error("[Config] CRITICAL: Missing required environment variables:", missing);
   }
 
   return { valid: missing.length === 0, missing };

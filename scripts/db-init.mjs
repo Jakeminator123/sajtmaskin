@@ -1,4 +1,4 @@
-import { Pool } from 'pg';
+import { Pool } from "pg";
 
 function normalizeEnvUrl(value) {
   if (!value) return undefined;
@@ -15,8 +15,8 @@ const connectionString =
   normalizeEnvUrl(process.env.DATABASE_URL);
 
 if (!connectionString) {
-  console.error('Missing database connection URL.');
-  console.error('Set POSTGRES_URL (preferred), POSTGRES_URL_NON_POOLING, or DATABASE_URL.');
+  console.error("Missing database connection URL.");
+  console.error("Set POSTGRES_URL (preferred), POSTGRES_URL_NON_POOLING, or DATABASE_URL.");
   process.exit(1);
 }
 
@@ -123,22 +123,22 @@ async function run() {
        FROM versions
        GROUP BY chat_id, v0_version_id
        HAVING COUNT(*) > 1
-       LIMIT 1`
+       LIMIT 1`,
     );
     if (dupes.rowCount === 0) {
       await pool.query(
         `CREATE UNIQUE INDEX IF NOT EXISTS idx_versions_chat_v0_version_unique
-         ON versions(chat_id, v0_version_id)`
+         ON versions(chat_id, v0_version_id)`,
       );
     } else {
       console.warn(
-        'Skipping unique index on versions(chat_id, v0_version_id); duplicates detected:',
-        dupes.rows[0]
+        "Skipping unique index on versions(chat_id, v0_version_id); duplicates detected:",
+        dupes.rows[0],
       );
     }
-    console.log('Database tables are ready.');
+    console.log("Database tables are ready.");
   } catch (err) {
-    console.error('Failed to initialize database tables:', err?.message || err);
+    console.error("Failed to initialize database tables:", err?.message || err);
     process.exitCode = 1;
   } finally {
     await pool.end();

@@ -1,6 +1,6 @@
-'use client';
+"use client";
 
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback } from "react";
 
 interface KeyboardShortcut {
   key: string;
@@ -19,7 +19,7 @@ interface UseKeyboardShortcutsOptions {
 
 export function useKeyboardShortcuts(
   shortcuts: KeyboardShortcut[],
-  options: UseKeyboardShortcutsOptions = {}
+  options: UseKeyboardShortcutsOptions = {},
 ) {
   const { enabled = true, preventDefault = true } = options;
 
@@ -28,12 +28,8 @@ export function useKeyboardShortcuts(
       if (!enabled) return;
 
       const target = event.target as HTMLElement;
-      if (
-        target.tagName === 'INPUT' ||
-        target.tagName === 'TEXTAREA' ||
-        target.isContentEditable
-      ) {
-        if (event.key !== 'Escape') {
+      if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable) {
+        if (event.key !== "Escape") {
           return;
         }
       }
@@ -53,12 +49,12 @@ export function useKeyboardShortcuts(
         }
       }
     },
-    [shortcuts, enabled, preventDefault]
+    [shortcuts, enabled, preventDefault],
   );
 
   useEffect(() => {
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
   }, [handleKeyDown]);
 }
 
@@ -74,59 +70,59 @@ export function useBuilderShortcuts(handlers: {
     ...(handlers.onNewChat
       ? [
           {
-            key: 'n',
+            key: "n",
             ctrl: true,
             action: handlers.onNewChat,
-            description: 'Create new chat',
+            description: "Create new chat",
           },
         ]
       : []),
     ...(handlers.onSend
       ? [
           {
-            key: 'Enter',
+            key: "Enter",
             ctrl: true,
             action: handlers.onSend,
-            description: 'Send message',
+            description: "Send message",
           },
         ]
       : []),
     ...(handlers.onDeploy
       ? [
           {
-            key: 'd',
+            key: "d",
             ctrl: true,
             action: handlers.onDeploy,
-            description: 'Deploy current version',
+            description: "Deploy current version",
           },
         ]
       : []),
     ...(handlers.onToggleSidebar
       ? [
           {
-            key: 'b',
+            key: "b",
             ctrl: true,
             action: handlers.onToggleSidebar,
-            description: 'Toggle sidebar',
+            description: "Toggle sidebar",
           },
         ]
       : []),
     ...(handlers.onRefreshPreview
       ? [
           {
-            key: 'r',
+            key: "r",
             ctrl: true,
             action: handlers.onRefreshPreview,
-            description: 'Refresh preview',
+            description: "Refresh preview",
           },
         ]
       : []),
     ...(handlers.onEscape
       ? [
           {
-            key: 'Escape',
+            key: "Escape",
             action: handlers.onEscape,
-            description: 'Close/Cancel',
+            description: "Close/Cancel",
           },
         ]
       : []),
@@ -141,12 +137,14 @@ export function getShortcutDisplay(shortcut: KeyboardShortcut): string {
   const parts: string[] = [];
 
   if (shortcut.ctrl) {
-    parts.push(typeof navigator !== 'undefined' && navigator.platform.includes('Mac') ? '⌘' : 'Ctrl');
+    parts.push(
+      typeof navigator !== "undefined" && navigator.platform.includes("Mac") ? "⌘" : "Ctrl",
+    );
   }
-  if (shortcut.shift) parts.push('Shift');
-  if (shortcut.alt) parts.push('Alt');
+  if (shortcut.shift) parts.push("Shift");
+  if (shortcut.alt) parts.push("Alt");
 
   parts.push(shortcut.key.toUpperCase());
 
-  return parts.join('+');
+  return parts.join("+");
 }

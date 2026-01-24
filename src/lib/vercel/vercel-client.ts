@@ -11,11 +11,10 @@
 const VERCEL_API_BASE = "https://api.vercel.com";
 
 function requireToken(): string {
-  const token = process.env.VERCEL_API_TOKEN;
+  // VERCEL_TOKEN is preferred, VERCEL_API_TOKEN is legacy fallback
+  const token = process.env.VERCEL_TOKEN || process.env.VERCEL_API_TOKEN;
   if (!token) {
-    throw new Error(
-      "VERCEL_API_TOKEN is required. Get it from: https://vercel.com/account/tokens"
-    );
+    throw new Error("VERCEL_TOKEN is required. Get it from: https://vercel.com/account/tokens");
   }
   return token;
 }
@@ -33,9 +32,7 @@ async function vercelFetch<T>(path: string, init?: RequestInit): Promise<T> {
 
   if (!res.ok) {
     const text = await res.text();
-    throw new Error(
-      `[Vercel] ${res.status} ${res.statusText} for ${path}: ${text}`
-    );
+    throw new Error(`[Vercel] ${res.status} ${res.statusText} for ${path}: ${text}`);
   }
 
   return (await res.json()) as T;
@@ -45,7 +42,7 @@ async function vercelFetch<T>(path: string, init?: RequestInit): Promise<T> {
  * Check if Vercel integration is configured
  */
 export function isVercelConfigured(): boolean {
-  return Boolean(process.env.VERCEL_API_TOKEN);
+  return Boolean(process.env.VERCEL_TOKEN || process.env.VERCEL_API_TOKEN);
 }
 
 /**
@@ -76,16 +73,14 @@ export async function createDeployment(options: DeploymentOptions): Promise<{
 }> {
   try {
     // Convert files to Vercel API format (base64-encoded content)
-    const filesArray = Object.entries(options.files || {}).map(
-      ([filePath, content]) => ({
-        file: filePath,
-        data:
-          typeof content === "string"
-            ? Buffer.from(content).toString("base64")
-            : Buffer.from(content).toString("base64"),
-        encoding: "base64",
-      })
-    );
+    const filesArray = Object.entries(options.files || {}).map(([filePath, content]) => ({
+      file: filePath,
+      data:
+        typeof content === "string"
+          ? Buffer.from(content).toString("base64")
+          : Buffer.from(content).toString("base64"),
+      encoding: "base64",
+    }));
 
     const body = {
       name: options.name,
@@ -158,7 +153,7 @@ export async function getDeploymentStatus(deploymentId: string): Promise<{
  */
 export async function listDeployments(
   projectId: string,
-  limit = 20
+  limit = 20,
 ): Promise<
   Array<{
     id: string;
@@ -204,7 +199,7 @@ export async function createOrUpdateProject(
     rootDirectory?: string;
     publicSource?: boolean;
     teamId?: string;
-  }
+  },
 ): Promise<{
   id: string;
   name: string;
@@ -257,7 +252,7 @@ export async function createOrUpdateProject(
  */
 export async function getProject(
   projectIdOrName: string,
-  teamId?: string
+  teamId?: string,
 ): Promise<{
   id: string;
   name: string;
@@ -332,7 +327,7 @@ export async function setEnvironmentVariable(
   options?: {
     target?: ("production" | "preview" | "development")[];
     teamId?: string;
-  }
+  },
 ): Promise<{
   key: string;
   value: string;
@@ -369,7 +364,7 @@ export async function setEnvironmentVariable(
  */
 export async function listEnvironmentVariables(
   projectId: string,
-  teamId?: string
+  teamId?: string,
 ): Promise<
   Array<{
     key: string;
@@ -401,10 +396,7 @@ export async function listEnvironmentVariables(
 /**
  * Delete a deployment
  */
-export async function deleteDeployment(
-  deploymentId: string,
-  teamId?: string
-): Promise<void> {
+export async function deleteDeployment(deploymentId: string, teamId?: string): Promise<void> {
   try {
     const query = teamId ? `?teamId=${encodeURIComponent(teamId)}` : "";
     await vercelFetch(`/v13/deployments/${deploymentId}${query}`, {
@@ -424,7 +416,7 @@ export async function deleteDeployment(
  */
 export async function getDomainPrice(
   domain: string,
-  teamId?: string
+  teamId?: string,
 ): Promise<{
   name: string;
   price: number;
@@ -450,7 +442,7 @@ export async function getDomainPrice(
  */
 export async function checkDomainAvailability(
   domain: string,
-  teamId?: string
+  teamId?: string,
 ): Promise<{
   name: string;
   available: boolean;
@@ -475,7 +467,7 @@ export async function checkDomainAvailability(
 export async function addDomainToProject(
   projectId: string,
   domain: string,
-  teamId?: string
+  teamId?: string,
 ): Promise<{
   name: string;
   apexName: string;
@@ -503,7 +495,7 @@ export async function addDomainToProject(
  */
 export async function listProjectDomains(
   projectId: string,
-  teamId?: string
+  teamId?: string,
 ): Promise<
   Array<{
     name: string;
@@ -553,7 +545,7 @@ export interface DomainContactInfo {
  */
 export async function searchDomains(
   query: string,
-  teamId?: string
+  teamId?: string,
 ): Promise<{
   domains: Array<{
     name: string;
@@ -589,16 +581,14 @@ export async function purchaseDomain(
     expectedPrice: number;
     contactInformation: DomainContactInfo;
     teamId?: string;
-  }
+  },
 ): Promise<{
   orderId: string;
   domain: string;
   status: string;
 }> {
   try {
-    const query = options.teamId
-      ? `?teamId=${encodeURIComponent(options.teamId)}`
-      : "";
+    const query = options.teamId ? `?teamId=${encodeURIComponent(options.teamId)}` : "";
 
     const result = await vercelFetch<{
       orderId: string;
@@ -626,7 +616,7 @@ export async function purchaseDomain(
  */
 export async function getDomainOrderStatus(
   orderId: string,
-  teamId?: string
+  teamId?: string,
 ): Promise<{
   orderId: string;
   status: string;

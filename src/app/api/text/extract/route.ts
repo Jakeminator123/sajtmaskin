@@ -21,17 +21,14 @@ export async function POST(request: NextRequest) {
     const file = formData.get("file") as File;
 
     if (!file) {
-      return NextResponse.json(
-        { success: false, error: "Ingen fil bifogad" },
-        { status: 400 }
-      );
+      return NextResponse.json({ success: false, error: "Ingen fil bifogad" }, { status: 400 });
     }
 
     // Check file type
     if (file.type !== "application/pdf" && !file.name.endsWith(".pdf")) {
       return NextResponse.json(
         { success: false, error: "Endast PDF-filer stöds" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -40,7 +37,7 @@ export async function POST(request: NextRequest) {
     if (file.size > maxSize) {
       return NextResponse.json(
         { success: false, error: "Filen är för stor (max 10MB)" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -55,17 +52,15 @@ export async function POST(request: NextRequest) {
       const pdfParseModule = await import("pdf-parse");
       // pdf-parse can be exported as default or as the module itself
       // Use type assertion to handle different export formats
-      const pdfParse = ((pdfParseModule as { default?: unknown }).default ||
-        pdfParseModule) as (buffer: Buffer) => Promise<{ text: string }>;
+      const pdfParse = ((pdfParseModule as { default?: unknown }).default || pdfParseModule) as (
+        buffer: Buffer,
+      ) => Promise<{ text: string }>;
       const pdfData = await pdfParse(buffer);
       extractedText = pdfData.text || "";
     } catch (parseError) {
       // pdf-parse not installed or failed, try basic extraction
-      const errorMsg =
-        parseError instanceof Error ? parseError.message : "Unknown error";
-      console.warn(
-        `[Text/Extract] pdf-parse failed (${errorMsg}), using basic extraction`
-      );
+      const errorMsg = parseError instanceof Error ? parseError.message : "Unknown error";
+      console.warn(`[Text/Extract] pdf-parse failed (${errorMsg}), using basic extraction`);
 
       // Basic text extraction from PDF (very limited fallback)
       // This looks for text streams in the PDF
@@ -73,18 +68,14 @@ export async function POST(request: NextRequest) {
       const pdfString = buffer.toString("latin1");
 
       // Extract text between stream markers (basic approach)
-      const streamMatches = pdfString.matchAll(
-        /stream\s*([\s\S]*?)\s*endstream/g
-      );
+      const streamMatches = pdfString.matchAll(/stream\s*([\s\S]*?)\s*endstream/g);
 
       for (const match of streamMatches) {
         const streamContent = match[1];
         // Try to extract readable text (filter out binary/encoded content)
         const textMatch = streamContent.match(/\(([^)]+)\)/g);
         if (textMatch) {
-          const texts = textMatch.map((t) =>
-            t.slice(1, -1).replace(/\\(.)/g, "$1")
-          );
+          const texts = textMatch.map((t) => t.slice(1, -1).replace(/\\(.)/g, "$1"));
           extractedText += texts.join(" ") + "\n";
         }
       }
@@ -119,16 +110,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          error:
-            "Kunde inte extrahera text från PDF:en. Filen kan vara skannad eller skyddad.",
+          error: "Kunde inte extrahera text från PDF:en. Filen kan vara skannad eller skyddad.",
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
-    console.log(
-      `[Text/Extract] Extracted ${extractedText.length} chars from ${file.name}`
-    );
+    console.log(`[Text/Extract] Extracted ${extractedText.length} chars from ${file.name}`);
 
     return NextResponse.json({
       success: true,
@@ -139,9 +127,6 @@ export async function POST(request: NextRequest) {
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Okänt fel";
     console.error("[API/Text/Extract] Error:", error);
-    return NextResponse.json(
-      { success: false, error: message },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, error: message }, { status: 500 });
   }
 }

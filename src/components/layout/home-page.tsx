@@ -30,6 +30,12 @@ import { useRouter } from "next/navigation";
 import { TemplateGallery } from "@/components/templates";
 import { PromptInput } from "@/components/forms";
 import {
+  getDefaultPreBuilderSettings,
+  buildSettingsUrlParams,
+  type PreBuilderSettingsValue,
+} from "@/components/forms/pre-builder-settings";
+import { saveSettingsToStorage } from "@/lib/builder/defaults";
+import {
   OnboardingModal,
   useOnboarding,
   AuditModal,
@@ -38,12 +44,7 @@ import {
 } from "@/components/modals";
 import { AuthModal } from "@/components/auth";
 import { UserSettingsModal } from "@/components/settings/user-settings-modal";
-import {
-  HelpTooltip,
-  Navbar,
-  ShaderBackground,
-  SiteAuditSection,
-} from "./index";
+import { HelpTooltip, Navbar, ShaderBackground, SiteAuditSection } from "./index";
 import {
   RotateCcw,
   Sparkles,
@@ -74,6 +75,8 @@ export function HomePage() {
   const [showAuditModal, setShowAuditModal] = useState(false);
   const [showWizard, setShowWizard] = useState(false);
   const [activeBuildMethod, setActiveBuildMethod] = useState<BuildMethod>(null);
+  // Pre-builder settings (model tier + prompt assist) - shared across flows
+  const [preBuilderSettings] = useState<PreBuilderSettingsValue>(getDefaultPreBuilderSettings);
   // Note: auditGeneratedPrompt removed - audit now navigates directly to builder
   // with prompt stored in sessionStorage (avoids URL length limits)
 
@@ -81,17 +84,11 @@ export function HomePage() {
   // IMPORTANT: Use isInitialized to prevent hydration mismatch
   const { user, isAuthenticated, isInitialized } = useAuth();
 
-  const {
-    showOnboarding,
-    onboardingData,
-    handleComplete,
-    handleSkip,
-    resetOnboarding,
-  } = useOnboarding();
+  const { showOnboarding, onboardingData, handleComplete, handleSkip, resetOnboarding } =
+    useOnboarding();
 
   // Get user's first name for greeting
-  const firstName =
-    user?.name?.split(" ")[0] || user?.email?.split("@")[0] || undefined;
+  const firstName = user?.name?.split(" ")[0] || user?.email?.split("@")[0] || undefined;
 
   const handleLoginClick = () => {
     setAuthMode("login");
@@ -130,6 +127,17 @@ export function HomePage() {
       sessionStorage.setItem(`sajtmaskin_audit_prompt:${auditId}`, prompt);
       localStorage.setItem(`sajtmaskin_audit_prompt:${auditId}`, prompt);
       sessionStorage.setItem("sajtmaskin_audit_prompt_id", auditId);
+
+      // Also save pre-builder settings for builder to read
+      saveSettingsToStorage(
+        {
+          modelTier: preBuilderSettings.modelTier,
+          assistProvider: preBuilderSettings.assistProvider,
+          assistModel: preBuilderSettings.assistModel,
+          assistDeep: preBuilderSettings.assistDeep,
+        },
+        auditId,
+      );
     }
 
     // Navigate directly to builder with a flag indicating audit source
@@ -141,12 +149,10 @@ export function HomePage() {
   };
 
   // Handle wizard completion - navigate to builder with expanded prompt
-  const handleWizardComplete = (
-    _wizardData: WizardData,
-    expandedPrompt: string
-  ) => {
+  const handleWizardComplete = (_wizardData: WizardData, expandedPrompt: string) => {
     setShowWizard(false);
-    router.push(`/builder?prompt=${encodeURIComponent(expandedPrompt)}`);
+    const settingsParams = buildSettingsUrlParams(preBuilderSettings);
+    router.push(`/builder?prompt=${encodeURIComponent(expandedPrompt)}&${settingsParams}`);
   };
 
   // Build initial prompt from onboarding data
@@ -162,17 +168,14 @@ export function HomePage() {
         inspiration: "Jag vill ta inspiration från denna sida",
       };
       parts.push(
-        `Min befintliga webbplats: ${onboardingData.existingUrl} (${onboardingData.urlPurpose
-          ? purposeText[onboardingData.urlPurpose]
-          : ""
-        })`
+        `Min befintliga webbplats: ${onboardingData.existingUrl} (${
+          onboardingData.urlPurpose ? purposeText[onboardingData.urlPurpose] : ""
+        })`,
       );
     }
 
     if (onboardingData.analyzeFromWeb) {
-      parts.push(
-        "Analysera gärna mitt företag från internet för att förstå min verksamhet."
-      );
+      parts.push("Analysera gärna mitt företag från internet för att förstå min verksamhet.");
     }
 
     if (onboardingData.description) {
@@ -185,7 +188,7 @@ export function HomePage() {
   const initialContext = getInitialContext();
 
   return (
-    <main className="min-h-screen bg-background">
+    <main className="bg-background min-h-screen">
       {/* Shader Background - shimmer effect for logged in users */}
       {/* Use default theme until auth is initialized to prevent hydration mismatch */}
       <ShaderBackground
@@ -211,10 +214,7 @@ export function HomePage() {
       />
 
       {/* Settings Modal */}
-      <UserSettingsModal
-        isOpen={showSettingsModal}
-        onClose={() => setShowSettingsModal(false)}
-      />
+      <UserSettingsModal isOpen={showSettingsModal} onClose={() => setShowSettingsModal(false)} />
 
       {/* Audit Result Modal */}
       <AuditModal
@@ -235,47 +235,42 @@ export function HomePage() {
       />
 
       {/* Onboarding Modal */}
-      {showOnboarding && (
-        <OnboardingModal onComplete={handleComplete} onSkip={handleSkip} />
-      )}
+      {showOnboarding && <OnboardingModal onComplete={handleComplete} onSkip={handleSkip} />}
 
       {/* Reset onboarding button (dev/testing only) */}
       <button
         onClick={resetOnboarding}
-        className="fixed bottom-4 left-4 z-50 inline-flex items-center gap-2 px-3 py-1.5 bg-black/70 hover:bg-black/90 text-gray-500 hover:text-gray-300 text-xs transition-colors border border-gray-700"
+        className="fixed bottom-4 left-4 z-50 inline-flex items-center gap-2 border border-gray-700 bg-black/70 px-3 py-1.5 text-xs text-gray-500 transition-colors hover:bg-black/90 hover:text-gray-300"
         title="Visa introduktion igen"
       >
         <RotateCcw className="h-3 w-3" />
         Intro
       </button>
 
-      <div className="relative z-10 flex flex-col items-center justify-center min-h-screen px-4 pt-24 pb-16 space-y-12">
+      <div className="relative z-10 flex min-h-screen flex-col items-center justify-center space-y-12 px-4 pt-24 pb-16">
         {/* Personalized greeting for logged-in users */}
         {/* Only render after auth is initialized to prevent hydration mismatch */}
         {isInitialized && isAuthenticated && firstName && (
-          <div className="text-center animate-fadeIn">
-            <div className="inline-flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-brand-blue/10 via-brand-amber/10 to-brand-warm/10 border border-brand-blue/30 rounded-full mb-4">
-              <Sparkles className="h-4 w-4 text-brand-amber" />
+          <div className="animate-fadeIn text-center">
+            <div className="from-brand-blue/10 via-brand-amber/10 to-brand-warm/10 border-brand-blue/30 mb-4 inline-flex items-center gap-2 rounded-full border bg-linear-to-r px-4 py-2">
+              <Sparkles className="text-brand-amber h-4 w-4" />
               <span className="text-sm text-gray-300">
-                Välkommen tillbaka,{" "}
-                <span className="text-white font-medium">{firstName}</span>!
+                Välkommen tillbaka, <span className="font-medium text-white">{firstName}</span>!
               </span>
-              <span className="text-xs text-gray-500">
-                {user?.diamonds ?? 0} 💎
-              </span>
+              <span className="text-xs text-gray-500">{user?.diamonds ?? 0} 💎</span>
             </div>
           </div>
         )}
 
         {/* Header - Main heading with animated entrance */}
         {/* Use default text until auth is initialized to prevent hydration mismatch */}
-        <div className="text-center space-y-4 animate-fadeInUp">
-          <h1 className="text-3xl sm:text-4xl md:text-5xl font-bold text-white tracking-tight">
+        <div className="animate-fadeInUp space-y-4 text-center">
+          <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl md:text-5xl">
             {isInitialized && isAuthenticated
               ? "Vad vill du skapa idag?"
               : "Vad vill du bygga idag?"}
           </h1>
-          <p className="text-gray-400 max-w-md mx-auto flex items-center justify-center gap-2 text-sm sm:text-base">
+          <p className="mx-auto flex max-w-md items-center justify-center gap-2 text-sm text-gray-400 sm:text-base">
             {isInitialized && isAuthenticated
               ? "Dina projekt och analyser sparas automatiskt i ditt konto."
               : "Skapa professionella webbplatser på minuter med hjälp av AI."}
@@ -285,11 +280,9 @@ export function HomePage() {
 
         {/* Show context from onboarding if available */}
         {initialContext && (
-          <div className="w-full max-w-2xl bg-black/70 border border-gray-700 p-4">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-xs font-medium text-brand-teal">
-                ✓ Din information sparad
-              </span>
+          <div className="w-full max-w-2xl border border-gray-700 bg-black/70 p-4">
+            <div className="mb-2 flex items-center justify-between">
+              <span className="text-brand-teal text-xs font-medium">✓ Din information sparad</span>
               <button
                 onClick={resetOnboarding}
                 className="text-xs text-gray-500 hover:text-gray-300"
@@ -297,7 +290,7 @@ export function HomePage() {
                 Ändra
               </button>
             </div>
-            <p className="text-sm text-gray-400 whitespace-pre-line line-clamp-3">
+            <p className="line-clamp-3 text-sm whitespace-pre-line text-gray-400">
               {initialContext}
             </p>
           </div>
@@ -307,97 +300,86 @@ export function HomePage() {
             BUILD METHOD SELECTION
             Clear options for how to start building
             ═══════════════════════════════════════════════════════════ */}
-        <div className="w-full max-w-4xl animate-fadeInUp stagger-2 [animation-fill-mode:forwards]">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+        <div className="animate-fadeInUp stagger-2 w-full max-w-4xl [animation-fill-mode:forwards]">
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
             {/* Analyzed Option - Opens AI wizard directly */}
             <button
               onClick={() => setShowWizard(true)}
-              className="group relative flex flex-col items-center p-5 rounded-xl border transition-all duration-300 bg-black/50 border-gray-800 hover:border-brand-blue/40 hover:bg-brand-blue/10"
+              className="group hover:border-brand-blue/40 hover:bg-brand-blue/10 relative flex flex-col items-center rounded-xl border border-gray-800 bg-black/50 p-5 transition-all duration-300"
             >
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-brand-blue to-brand-teal flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+              <div className="from-brand-blue to-brand-teal mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-linear-to-br transition-transform group-hover:scale-110">
                 <Wand2 className="h-6 w-6 text-white" />
               </div>
-              <span className="font-medium text-white text-sm">Analyserad</span>
-              <span className="text-xs text-gray-500 mt-1 text-center">
-                AI ställer frågor
-              </span>
+              <span className="text-sm font-medium text-white">Analyserad</span>
+              <span className="mt-1 text-center text-xs text-gray-500">AI ställer frågor</span>
             </button>
 
             {/* Category Option */}
             <button
               onClick={() =>
-                setActiveBuildMethod(
-                  activeBuildMethod === "category" ? null : "category"
-                )
+                setActiveBuildMethod(activeBuildMethod === "category" ? null : "category")
               }
-              className={`group relative flex flex-col items-center p-5 rounded-xl border transition-all duration-300 ${activeBuildMethod === "category"
-                  ? "bg-gradient-to-br from-brand-teal/20 to-brand-blue/10 border-brand-teal/50 shadow-lg shadow-brand-teal/10"
-                  : "bg-black/50 border-gray-800 hover:border-brand-teal/40 hover:bg-brand-teal/10"
-                }`}
+              className={`group relative flex flex-col items-center rounded-xl border p-5 transition-all duration-300 ${
+                activeBuildMethod === "category"
+                  ? "from-brand-teal/20 to-brand-blue/10 border-brand-teal/50 shadow-brand-teal/10 bg-linear-to-br shadow-lg"
+                  : "hover:border-brand-teal/40 hover:bg-brand-teal/10 border-gray-800 bg-black/50"
+              }`}
             >
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-brand-teal to-brand-blue flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+              <div className="from-brand-teal to-brand-blue mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-linear-to-br transition-transform group-hover:scale-110">
                 <FolderOpen className="h-6 w-6 text-white" />
               </div>
-              <span className="font-medium text-white text-sm">Kategori</span>
-              <span className="text-xs text-gray-500 mt-1 text-center">
-                Välj typ av sida
-              </span>
+              <span className="text-sm font-medium text-white">Kategori</span>
+              <span className="mt-1 text-center text-xs text-gray-500">Välj typ av sida</span>
               {activeBuildMethod === "category" ? (
-                <ChevronUp className="absolute -bottom-1 h-4 w-4 text-brand-teal" />
+                <ChevronUp className="text-brand-teal absolute -bottom-1 h-4 w-4" />
               ) : (
-                <ChevronDown className="absolute -bottom-1 h-4 w-4 text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity" />
+                <ChevronDown className="absolute -bottom-1 h-4 w-4 text-gray-600 opacity-0 transition-opacity group-hover:opacity-100" />
               )}
             </button>
 
             {/* Audit Option */}
             <button
-              onClick={() =>
-                setActiveBuildMethod(
-                  activeBuildMethod === "audit" ? null : "audit"
-                )
-              }
-              className={`group relative flex flex-col items-center p-5 rounded-xl border transition-all duration-300 ${activeBuildMethod === "audit"
-                  ? "bg-gradient-to-br from-brand-amber/20 to-brand-warm/20 border-brand-amber/50 shadow-lg shadow-brand-amber/10"
-                  : "bg-black/50 border-gray-800 hover:border-brand-amber/40 hover:bg-brand-amber/10"
-                }`}
+              onClick={() => setActiveBuildMethod(activeBuildMethod === "audit" ? null : "audit")}
+              className={`group relative flex flex-col items-center rounded-xl border p-5 transition-all duration-300 ${
+                activeBuildMethod === "audit"
+                  ? "from-brand-amber/20 to-brand-warm/20 border-brand-amber/50 shadow-brand-amber/10 bg-linear-to-br shadow-lg"
+                  : "hover:border-brand-amber/40 hover:bg-brand-amber/10 border-gray-800 bg-black/50"
+              }`}
             >
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-brand-amber to-brand-warm flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+              <div className="from-brand-amber to-brand-warm mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-linear-to-br transition-transform group-hover:scale-110">
                 <Search className="h-6 w-6 text-white" />
               </div>
-              <span className="font-medium text-white text-sm">Audit</span>
-              <span className="text-xs text-gray-500 mt-1 text-center">
+              <span className="text-sm font-medium text-white">Audit</span>
+              <span className="mt-1 text-center text-xs text-gray-500">
                 Analysera befintlig sida
               </span>
               {activeBuildMethod === "audit" ? (
-                <ChevronUp className="absolute -bottom-1 h-4 w-4 text-brand-amber" />
+                <ChevronUp className="text-brand-amber absolute -bottom-1 h-4 w-4" />
               ) : (
-                <ChevronDown className="absolute -bottom-1 h-4 w-4 text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity" />
+                <ChevronDown className="absolute -bottom-1 h-4 w-4 text-gray-600 opacity-0 transition-opacity group-hover:opacity-100" />
               )}
             </button>
 
             {/* Freeform Option */}
             <button
               onClick={() =>
-                setActiveBuildMethod(
-                  activeBuildMethod === "freeform" ? null : "freeform"
-                )
+                setActiveBuildMethod(activeBuildMethod === "freeform" ? null : "freeform")
               }
-              className={`group relative flex flex-col items-center p-5 rounded-xl border transition-all duration-300 ${activeBuildMethod === "freeform"
-                  ? "bg-gradient-to-br from-brand-warm/20 to-brand-amber/20 border-brand-warm/50 shadow-lg shadow-brand-warm/10"
-                  : "bg-black/50 border-gray-800 hover:border-brand-warm/40 hover:bg-brand-warm/10"
-                }`}
+              className={`group relative flex flex-col items-center rounded-xl border p-5 transition-all duration-300 ${
+                activeBuildMethod === "freeform"
+                  ? "from-brand-warm/20 to-brand-amber/20 border-brand-warm/50 shadow-brand-warm/10 bg-linear-to-br shadow-lg"
+                  : "hover:border-brand-warm/40 hover:bg-brand-warm/10 border-gray-800 bg-black/50"
+              }`}
             >
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-brand-warm to-brand-amber flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+              <div className="from-brand-warm to-brand-amber mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-linear-to-br transition-transform group-hover:scale-110">
                 <Pencil className="h-6 w-6 text-white" />
               </div>
-              <span className="font-medium text-white text-sm">Fritext</span>
-              <span className="text-xs text-gray-500 mt-1 text-center">
-                Beskriv din vision
-              </span>
+              <span className="text-sm font-medium text-white">Fritext</span>
+              <span className="mt-1 text-center text-xs text-gray-500">Beskriv din vision</span>
               {activeBuildMethod === "freeform" ? (
-                <ChevronUp className="absolute -bottom-1 h-4 w-4 text-brand-warm" />
+                <ChevronUp className="text-brand-warm absolute -bottom-1 h-4 w-4" />
               ) : (
-                <ChevronDown className="absolute -bottom-1 h-4 w-4 text-gray-600 opacity-0 group-hover:opacity-100 transition-opacity" />
+                <ChevronDown className="absolute -bottom-1 h-4 w-4 text-gray-600 opacity-0 transition-opacity group-hover:opacity-100" />
               )}
             </button>
           </div>
@@ -409,14 +391,14 @@ export function HomePage() {
 
         {/* Category Selection (expanded) */}
         {activeBuildMethod === "category" && (
-          <div className="w-full max-w-4xl animate-fadeInUp">
-            <div className="flex items-center gap-4 mb-6">
-              <div className="flex-1 h-px bg-gradient-to-r from-transparent via-brand-teal/50 to-transparent" />
-              <span className="text-sm font-medium text-brand-teal/70 uppercase tracking-wider flex items-center gap-2">
-                <span className="w-1.5 h-1.5 bg-brand-teal rounded-full animate-pulse" />
+          <div className="animate-fadeInUp w-full max-w-4xl">
+            <div className="mb-6 flex items-center gap-4">
+              <div className="via-brand-teal/50 h-px flex-1 bg-linear-to-r from-transparent to-transparent" />
+              <span className="text-brand-teal/70 flex items-center gap-2 text-sm font-medium tracking-wider uppercase">
+                <span className="bg-brand-teal h-1.5 w-1.5 animate-pulse rounded-full" />
                 Välj kategori
               </span>
-              <div className="flex-1 h-px bg-gradient-to-r from-transparent via-brand-teal/50 to-transparent" />
+              <div className="via-brand-teal/50 h-px flex-1 bg-linear-to-r from-transparent to-transparent" />
             </div>
             <TemplateGallery />
           </div>
@@ -424,14 +406,14 @@ export function HomePage() {
 
         {/* Site Audit Section (expanded) */}
         {activeBuildMethod === "audit" && (
-          <div className="w-full max-w-2xl animate-fadeInUp">
-            <div className="flex items-center gap-4 mb-6">
-              <div className="flex-1 h-px bg-gradient-to-r from-transparent via-brand-amber/50 to-transparent" />
-              <span className="text-sm font-medium text-brand-amber/70 uppercase tracking-wider flex items-center gap-2">
-                <span className="w-1.5 h-1.5 bg-brand-amber rounded-full animate-pulse" />
+          <div className="animate-fadeInUp w-full max-w-2xl">
+            <div className="mb-6 flex items-center gap-4">
+              <div className="via-brand-amber/50 h-px flex-1 bg-linear-to-r from-transparent to-transparent" />
+              <span className="text-brand-amber/70 flex items-center gap-2 text-sm font-medium tracking-wider uppercase">
+                <span className="bg-brand-amber h-1.5 w-1.5 animate-pulse rounded-full" />
                 Analysera webbplats
               </span>
-              <div className="flex-1 h-px bg-gradient-to-r from-transparent via-brand-amber/50 to-transparent" />
+              <div className="via-brand-amber/50 h-px flex-1 bg-linear-to-r from-transparent to-transparent" />
             </div>
             <SiteAuditSection
               onAuditComplete={handleAuditComplete}
@@ -442,22 +424,22 @@ export function HomePage() {
 
         {/* Freeform Prompt Section (expanded) */}
         {activeBuildMethod === "freeform" && (
-          <div className="w-full max-w-2xl animate-fadeInUp">
-            <div className="flex items-center gap-4 mb-6">
-              <div className="flex-1 h-px bg-gradient-to-r from-transparent via-brand-warm/50 to-transparent" />
-              <span className="text-sm font-medium text-brand-warm/70 uppercase tracking-wider flex items-center gap-2">
-                <span className="w-1.5 h-1.5 bg-brand-warm rounded-full animate-pulse" />
+          <div className="animate-fadeInUp w-full max-w-2xl">
+            <div className="mb-6 flex items-center gap-4">
+              <div className="via-brand-warm/50 h-px flex-1 bg-linear-to-r from-transparent to-transparent" />
+              <span className="text-brand-warm/70 flex items-center gap-2 text-sm font-medium tracking-wider uppercase">
+                <span className="bg-brand-warm h-1.5 w-1.5 animate-pulse rounded-full" />
                 Beskriv din vision
               </span>
-              <div className="flex-1 h-px bg-gradient-to-r from-transparent via-brand-warm/50 to-transparent" />
+              <div className="via-brand-warm/50 h-px flex-1 bg-linear-to-r from-transparent to-transparent" />
             </div>
             <PromptInput initialValue={initialContext || undefined} />
-            <p className="text-xs text-gray-600 text-center mt-4">
-              <kbd className="px-1.5 py-0.5 bg-gray-800 text-gray-400 text-[10px] rounded">
+            <p className="mt-4 text-center text-xs text-gray-600">
+              <kbd className="rounded bg-gray-800 px-1.5 py-0.5 text-[10px] text-gray-400">
                 Enter
               </kbd>{" "}
               för att skicka •
-              <kbd className="px-1.5 py-0.5 bg-gray-800 text-gray-400 text-[10px] rounded ml-1">
+              <kbd className="ml-1 rounded bg-gray-800 px-1.5 py-0.5 text-[10px] text-gray-400">
                 Shift+Enter
               </kbd>{" "}
               för ny rad
@@ -467,7 +449,7 @@ export function HomePage() {
 
         {/* Quick tip when no method is selected */}
         {!activeBuildMethod && (
-          <p className="text-sm text-gray-500 text-center animate-fadeIn">
+          <p className="animate-fadeIn text-center text-sm text-gray-500">
             Välj ett alternativ ovan för att börja bygga din webbplats
           </p>
         )}

@@ -28,8 +28,8 @@ public/video/
 # MCP DOKUMENTATION - LÄSES VIA MCP-SERVER, INTE INDEXERING
 # =============================================================================
 # Scraped docs (60+ MB) - använd MCP search_docs/get_doc istället
-services/mpc/docs/docgrab__*/
-services/mpc/logs/
+#services/mpc/docs/docgrab__*/
+#services/mpc/logs/
 
 # =============================================================================
 # CURSOR-SPECIFIKT
@@ -45,13 +45,9 @@ skrapning
 INPUT_FOR_CURSOR
 info
 .preprompt_history.json
-/data/
 .git
 
 övrigt
-
-# Nested clone/repo in this workspace (avoid double-indexing)
-sajtmaskin/
 
 # Large local docs/specs
 SiteStudio_Projektspecifikation_ifillningsbar_v2.pdf

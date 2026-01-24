@@ -1,14 +1,14 @@
-import { NextResponse } from 'next/server';
-import { assertV0Key, v0 } from '@/lib/v0';
-import { db } from '@/lib/db/client';
-import { chats, versions } from '@/lib/db/schema';
-import { nanoid } from 'nanoid';
-import { withRateLimit } from '@/lib/rateLimit';
-import { z } from 'zod/v4';
-import { ensureProjectForRequest } from '@/lib/tenant';
-import { getCurrentUser } from '@/lib/auth/auth';
+import { NextResponse } from "next/server";
+import { assertV0Key, v0 } from "@/lib/v0";
+import { db } from "@/lib/db/client";
+import { chats, versions } from "@/lib/db/schema";
+import { nanoid } from "nanoid";
+import { withRateLimit } from "@/lib/rateLimit";
+import { z } from "zod/v4";
+import { ensureProjectForRequest } from "@/lib/tenant";
+import { getCurrentUser } from "@/lib/auth/auth";
 
-export const runtime = 'nodejs';
+export const runtime = "nodejs";
 
 type GitHubRepoRef = {
   owner: string;
@@ -17,14 +17,14 @@ type GitHubRepoRef = {
 
 function normalizeGithubRepoUrl(
   inputUrl: string,
-  inputBranch?: string
+  inputBranch?: string,
 ): { repoUrl: string; branch?: string } {
   try {
     const url = new URL(inputUrl);
-    const host = url.hostname.replace(/^www\./, '');
-    const parts = url.pathname.split('/').filter(Boolean);
+    const host = url.hostname.replace(/^www\./, "");
+    const parts = url.pathname.split("/").filter(Boolean);
 
-    if (host !== 'github.com') {
+    if (host !== "github.com") {
       return { repoUrl: inputUrl, ...(inputBranch ? { branch: inputBranch } : {}) };
     }
 
@@ -34,12 +34,12 @@ function normalizeGithubRepoUrl(
       return { repoUrl: inputUrl, ...(inputBranch ? { branch: inputBranch } : {}) };
     }
 
-    const repo = repoRaw.replace(/\.git$/i, '');
+    const repo = repoRaw.replace(/\.git$/i, "");
 
-    let branch = inputBranch?.trim() || '';
+    let branch = inputBranch?.trim() || "";
     if (!branch) {
-      const treeIdx = parts.indexOf('tree');
-      if (treeIdx >= 0 && typeof parts[treeIdx + 1] === 'string') {
+      const treeIdx = parts.indexOf("tree");
+      if (treeIdx >= 0 && typeof parts[treeIdx + 1] === "string") {
         branch = parts[treeIdx + 1];
       }
     }
@@ -54,11 +54,11 @@ function normalizeGithubRepoUrl(
 function parseGithubRepo(repoUrl: string): GitHubRepoRef | null {
   try {
     const url = new URL(repoUrl);
-    const host = url.hostname.replace(/^www\./, '');
-    if (host !== 'github.com') return null;
-    const [owner, repoRaw] = url.pathname.split('/').filter(Boolean);
+    const host = url.hostname.replace(/^www\./, "");
+    if (host !== "github.com") return null;
+    const [owner, repoRaw] = url.pathname.split("/").filter(Boolean);
     if (!owner || !repoRaw) return null;
-    return { owner, repo: repoRaw.replace(/\.git$/i, '') };
+    return { owner, repo: repoRaw.replace(/\.git$/i, "") };
   } catch {
     return null;
   }
@@ -66,11 +66,11 @@ function parseGithubRepo(repoUrl: string): GitHubRepoRef | null {
 
 async function fetchGithubRepoMeta(
   repo: GitHubRepoRef,
-  token?: string | null
+  token?: string | null,
 ): Promise<{ private: boolean; defaultBranch: string } | null> {
   const headers: Record<string, string> = {
-    Accept: 'application/vnd.github+json',
-    'X-GitHub-Api-Version': '2022-11-28',
+    Accept: "application/vnd.github+json",
+    "X-GitHub-Api-Version": "2022-11-28",
   };
   if (token) {
     headers.Authorization = `Bearer ${token}`;
@@ -87,14 +87,14 @@ async function fetchGithubRepoMeta(
   const data = (await response.json()) as { private?: boolean; default_branch?: string };
   return {
     private: Boolean(data.private),
-    defaultBranch: data.default_branch || '',
+    defaultBranch: data.default_branch || "",
   };
 }
 
 function buildGithubZipUrl(repo: GitHubRepoRef, branch: string): string {
   const safeBranch = branch.trim();
   return `https://github.com/${repo.owner}/${repo.repo}/archive/refs/heads/${encodeURIComponent(
-    safeBranch
+    safeBranch,
   )}.zip`;
 }
 
@@ -106,49 +106,49 @@ async function downloadGithubZipBase64(params: {
 }): Promise<{ base64: string; byteLength: number }> {
   const response = await fetch(
     `https://api.github.com/repos/${params.repo.owner}/${params.repo.repo}/zipball/${encodeURIComponent(
-      params.branch
+      params.branch,
     )}`,
     {
       headers: {
-        Accept: 'application/vnd.github+json',
+        Accept: "application/vnd.github+json",
         Authorization: `Bearer ${params.token}`,
-        'X-GitHub-Api-Version': '2022-11-28',
+        "X-GitHub-Api-Version": "2022-11-28",
       },
-    }
+    },
   );
 
   if (!response.ok) {
-    throw new Error('Failed to download GitHub archive');
+    throw new Error("Failed to download GitHub archive");
   }
 
-  const contentLength = response.headers.get('content-length');
+  const contentLength = response.headers.get("content-length");
   if (contentLength && Number(contentLength) > params.maxBytes) {
-    throw new Error('Repository ZIP is too large for import');
+    throw new Error("Repository ZIP is too large for import");
   }
 
   const buffer = Buffer.from(await response.arrayBuffer());
   if (buffer.byteLength > params.maxBytes) {
-    throw new Error('Repository ZIP is too large for import');
+    throw new Error("Repository ZIP is too large for import");
   }
 
-  return { base64: buffer.toString('base64'), byteLength: buffer.byteLength };
+  return { base64: buffer.toString("base64"), byteLength: buffer.byteLength };
 }
 
 const initChatSchema = z.object({
   source: z.union([
     z.object({
-      type: z.literal('github'),
-      url: z.string().url('Invalid GitHub URL'),
+      type: z.literal("github"),
+      url: z.string().url("Invalid GitHub URL"),
       branch: z.string().optional(),
       preferZip: z.boolean().optional(),
     }),
     z.object({
-      type: z.literal('zip'),
-      content: z.string().min(1, 'ZIP content is required'),
+      type: z.literal("zip"),
+      content: z.string().min(1, "ZIP content is required"),
     }),
     z.object({
-      type: z.literal('zip'),
-      url: z.string().url('Invalid ZIP URL'),
+      type: z.literal("zip"),
+      url: z.string().url("Invalid ZIP URL"),
     }),
   ]),
   message: z.string().optional(),
@@ -158,7 +158,7 @@ const initChatSchema = z.object({
 });
 
 export async function POST(req: Request) {
-  return withRateLimit(req, 'chat:create', async () => {
+  return withRateLimit(req, "chat:create", async () => {
     try {
       assertV0Key();
 
@@ -167,8 +167,8 @@ export async function POST(req: Request) {
       const validationResult = initChatSchema.safeParse(body);
       if (!validationResult.success) {
         return NextResponse.json(
-          { error: 'Validation failed', details: validationResult.error.issues },
-          { status: 400 }
+          { error: "Validation failed", details: validationResult.error.issues },
+          { status: 400 },
         );
       }
 
@@ -178,49 +178,49 @@ export async function POST(req: Request) {
         lockedFiles ||
         (lockConfigFiles
           ? [
-              'package.json',
-              'tsconfig.json',
-              'next.config.js',
-              'next.config.mjs',
-              'tailwind.config.js',
-              'tailwind.config.ts',
-              '.env',
-              '.env.local',
-              '.gitignore',
+              "package.json",
+              "tsconfig.json",
+              "next.config.js",
+              "next.config.mjs",
+              "tailwind.config.cjs",
+              "tailwind.config.js",
+              ".env",
+              ".env.local",
+              ".gitignore",
             ]
           : []);
-      const lockedSet = new Set(configLockedFiles.map((p) => p.replace(/^\.?\//, '')));
+      const lockedSet = new Set(configLockedFiles.map((p) => p.replace(/^\.?\//, "")));
 
       const initParams: any = {
         ...(projectId ? { projectId } : {}),
         ...(message ? { message } : {}),
       };
 
-      if (source.type === 'github') {
+      if (source.type === "github") {
         const normalized = normalizeGithubRepoUrl(source.url, source.branch);
         const repoRef = parseGithubRepo(normalized.repoUrl);
         const preferZip = Boolean(source.preferZip);
         const user = await getCurrentUser(req);
         const githubToken = user?.github_token || null;
         const repoMeta = repoRef ? await fetchGithubRepoMeta(repoRef, githubToken) : null;
-        const resolvedBranch = normalized.branch || repoMeta?.defaultBranch || '';
+        const resolvedBranch = normalized.branch || repoMeta?.defaultBranch || "";
         const isPrivate = repoMeta?.private ?? false;
 
         if (preferZip || (isPrivate && githubToken)) {
           if (!repoRef) {
-            return NextResponse.json({ error: 'Invalid GitHub repository URL' }, { status: 400 });
+            return NextResponse.json({ error: "Invalid GitHub repository URL" }, { status: 400 });
           }
           if (!resolvedBranch) {
             return NextResponse.json(
-              { error: 'Branch is required for ZIP import. Please specify a branch.' },
-              { status: 400 }
+              { error: "Branch is required for ZIP import. Please specify a branch." },
+              { status: 400 },
             );
           }
           if (isPrivate) {
             if (!githubToken) {
               return NextResponse.json(
-                { error: 'Connect GitHub to import private repositories.' },
-                { status: 401 }
+                { error: "Connect GitHub to import private repositories." },
+                { status: 401 },
               );
             }
             const zip = await downloadGithubZipBase64({
@@ -229,22 +229,22 @@ export async function POST(req: Request) {
               token: githubToken,
               maxBytes: 50 * 1024 * 1024,
             });
-            initParams.type = 'zip';
+            initParams.type = "zip";
             initParams.zip = { content: zip.base64 };
           } else {
-            initParams.type = 'zip';
+            initParams.type = "zip";
             initParams.zip = { url: buildGithubZipUrl(repoRef, resolvedBranch) };
           }
         } else {
-          initParams.type = 'repo';
+          initParams.type = "repo";
           initParams.repo = {
             url: normalized.repoUrl,
             ...(normalized.branch ? { branch: normalized.branch } : {}),
           };
         }
       } else {
-        initParams.type = 'zip';
-        initParams.zip = 'content' in source ? { content: source.content } : { url: source.url };
+        initParams.type = "zip";
+        initParams.zip = "content" in source ? { content: source.content } : { url: source.url };
       }
 
       const result = await (v0.chats as any).init(initParams);
@@ -252,11 +252,11 @@ export async function POST(req: Request) {
       try {
         if (lockConfigFiles) {
           const v0ChatIdCandidate =
-            (result && typeof result === 'object' && (result as any).id) ||
-            (result && typeof result === 'object' && (result as any).chat?.id) ||
+            (result && typeof result === "object" && (result as any).id) ||
+            (result && typeof result === "object" && (result as any).chat?.id) ||
             null;
 
-          if (typeof v0ChatIdCandidate === 'string' && v0ChatIdCandidate.length > 0) {
+          if (typeof v0ChatIdCandidate === "string" && v0ChatIdCandidate.length > 0) {
             const v0Chat = await v0.chats.getById({ chatId: v0ChatIdCandidate });
             const latestVersionId =
               (v0Chat as any)?.latestVersion?.id ||
@@ -273,12 +273,12 @@ export async function POST(req: Request) {
               const files = Array.isArray((version as any)?.files) ? (version as any).files : [];
               if (files.length > 0) {
                 const updatedFiles = files.map((f: any) => {
-                  const rawName = typeof f?.name === 'string' ? f.name : '';
-                  const normalized = rawName.replace(/^\.?\//, '');
+                  const rawName = typeof f?.name === "string" ? f.name : "";
+                  const normalized = rawName.replace(/^\.?\//, "");
                   const shouldLock = lockedSet.has(normalized);
                   return {
                     name: rawName,
-                    content: typeof f?.content === 'string' ? f.content : '',
+                    content: typeof f?.content === "string" ? f.content : "",
                     locked: shouldLock,
                   };
                 });
@@ -293,28 +293,28 @@ export async function POST(req: Request) {
           }
         }
       } catch (lockErr) {
-        console.error('Failed to lock config files after init:', lockErr);
+        console.error("Failed to lock config files after init:", lockErr);
       }
 
       let internalChatId: string | null = null;
       try {
         internalChatId = nanoid();
-        const chatResult = 'id' in result ? result : null;
+        const chatResult = "id" in result ? result : null;
         const v0ProjectId =
-          (chatResult && 'projectId' in chatResult ? chatResult.projectId : null) ||
+          (chatResult && "projectId" in chatResult ? chatResult.projectId : null) ||
           projectId ||
-          '';
+          "";
 
         let internalProjectId: string | null = null;
 
         if (v0ProjectId) {
           const importName =
-            source.type === 'github'
+            source.type === "github"
               ? (() => {
                   const normalized = normalizeGithubRepoUrl(source.url, source.branch);
                   try {
                     const u = new URL(normalized.repoUrl);
-                    return `Import: ${u.pathname.replace(/^\//, '')}`;
+                    return `Import: ${u.pathname.replace(/^\//, "")}`;
                   } catch {
                     return `Import: ${source.url}`;
                   }
@@ -329,13 +329,13 @@ export async function POST(req: Request) {
           internalProjectId = project.id;
         }
 
-        if (chatResult && 'id' in chatResult) {
+        if (chatResult && "id" in chatResult) {
           await db.insert(chats).values({
             id: internalChatId,
             v0ChatId: chatResult.id,
             v0ProjectId,
             projectId: internalProjectId,
-            webUrl: ('webUrl' in chatResult ? chatResult.webUrl : null) || null,
+            webUrl: ("webUrl" in chatResult ? chatResult.webUrl : null) || null,
           });
 
           const latestVersion = (chatResult as any).latestVersion;
@@ -356,7 +356,7 @@ export async function POST(req: Request) {
           }
         }
       } catch (dbError) {
-        console.error('Failed to save init chat to database:', dbError);
+        console.error("Failed to save init chat to database:", dbError);
       }
 
       return NextResponse.json({
@@ -366,10 +366,10 @@ export async function POST(req: Request) {
         lockedFiles: configLockedFiles,
       });
     } catch (err) {
-      console.error('Init chat error:', err);
+      console.error("Init chat error:", err);
       return NextResponse.json(
-        { error: err instanceof Error ? err.message : 'Unknown error' },
-        { status: 500 }
+        { error: err instanceof Error ? err.message : "Unknown error" },
+        { status: 500 },
       );
     }
   });

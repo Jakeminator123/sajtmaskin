@@ -241,7 +241,7 @@ VIKTIGT FÖR TEMPLATE_DATA:
 export function buildAuditPrompt(
   websiteContent: WebsiteContent,
   url: string,
-  auditMode: AuditMode = "basic"
+  auditMode: AuditMode = "basic",
 ): PromptMessage[] {
   // Detect if this is likely a JS-rendered page with minimal scraped content
   const isJsRendered = websiteContent.wordCount < 50;
@@ -378,10 +378,7 @@ export function extractOutputText(response: Record<string, unknown>): string {
   // Extract text from OpenAI response structure
 
   // Try output_text first (Responses API standard)
-  if (
-    typeof response?.output_text === "string" &&
-    response.output_text.trim()
-  ) {
+  if (typeof response?.output_text === "string" && response.output_text.trim()) {
     console.log("[extractOutputText] Found output_text");
     return response.output_text;
   }
@@ -413,7 +410,7 @@ export function extractOutputText(response: Record<string, unknown>): string {
     console.log(
       "[extractOutputText] Processing output array with",
       response.output.length,
-      "items"
+      "items",
     );
 
     // For Responses API with tools, we need to find the final message output
@@ -426,7 +423,7 @@ export function extractOutputText(response: Record<string, unknown>): string {
         `[extractOutputText] Output item ${idx} type:`,
         item?.type,
         "keys:",
-        Object.keys(item || {})
+        Object.keys(item || {}),
       );
 
       // Skip web_search_call items - we want the final message
@@ -456,7 +453,7 @@ export function extractOutputText(response: Record<string, unknown>): string {
         if (messageText) {
           console.log(
             `[extractOutputText] Found message content at item ${idx}, length:`,
-            messageText.length
+            messageText.length,
           );
           textParts.push(messageText);
         }
@@ -504,28 +501,18 @@ export function extractOutputText(response: Record<string, unknown>): string {
     if (textParts.length > 0) {
       // Return the last text part (usually the final response after tool calls)
       const finalText = textParts[textParts.length - 1];
-      console.log(
-        "[extractOutputText] Using final text part, length:",
-        finalText.length
-      );
+      console.log("[extractOutputText] Using final text part, length:", finalText.length);
       return finalText;
     }
   }
 
   // Last resort: stringify and look for JSON
-  console.log(
-    "[extractOutputText] No standard field found, checking full response"
-  );
+  console.log("[extractOutputText] No standard field found, checking full response");
   const responseStr = JSON.stringify(response);
 
   // Try to find JSON object in the stringified response
-  if (
-    responseStr.includes('"company"') ||
-    responseStr.includes('"audit_scores"')
-  ) {
-    console.log(
-      "[extractOutputText] Response contains audit-like JSON content"
-    );
+  if (responseStr.includes('"company"') || responseStr.includes('"audit_scores"')) {
+    console.log("[extractOutputText] Response contains audit-like JSON content");
     // Try to extract just the JSON part
     const jsonMatch = responseStr.match(/"text"\s*:\s*"(\{[\s\S]*?\})"/);
     if (jsonMatch) {
@@ -567,7 +554,7 @@ function repairJson(jsonString: string): string {
         return `:${space1}"${trimmed}"${space2}${end}`;
       }
       return match;
-    }
+    },
   );
 
   // 3. Fix mixed escaped/unescaped quotes in HTML attributes inside strings
@@ -739,9 +726,7 @@ export function parseJsonWithRepair(jsonString: string): {
       return {
         success: false,
         error: `JSON parse failed: ${firstError}. Repair attempt failed: ${
-          repairError instanceof Error
-            ? repairError.message
-            : String(repairError)
+          repairError instanceof Error ? repairError.message : String(repairError)
         }`,
       };
     }

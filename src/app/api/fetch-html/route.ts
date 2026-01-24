@@ -7,10 +7,7 @@ import { NextResponse } from "next/server";
  */
 
 function stripDangerous(html: string): string {
-  let out = html.replace(
-    /<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi,
-    ""
-  );
+  let out = html.replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "");
 
   // Remove inline event handlers (onclick, onload, etc.)
   out = out.replace(/\son\w+="[^"\n\r]*"/gi, "");
@@ -23,10 +20,7 @@ function stripDangerous(html: string): string {
 }
 
 function removeCspMeta(html: string): string {
-  return html.replace(
-    /<meta[^>]+http-equiv=["']Content-Security-Policy["'][^>]*>/gi,
-    ""
-  );
+  return html.replace(/<meta[^>]+http-equiv=["']Content-Security-Policy["'][^>]*>/gi, "");
 }
 
 function injectBaseHref(html: string, baseHref: string): string {
@@ -45,7 +39,7 @@ function rewriteRootRelativeUrls(html: string, origin: string): string {
   // Keeps protocol-relative (//) and absolute URLs untouched.
   return html.replace(
     /\b(href|src)=("|')\/(?!\/)([^"']*)\2/gi,
-    (_match, attr, quote, path) => `${attr}=${quote}${origin}/${path}${quote}`
+    (_match, attr, quote, path) => `${attr}=${quote}${origin}/${path}${quote}`,
   );
 }
 
@@ -54,7 +48,7 @@ function rewriteRelativeUrls(html: string, baseHref: string): string {
   // Example: href="styles.css" -> href="https://host/path/styles.css"
   return html.replace(
     /\b(href|src)=("|')(?![a-z]+:|\/\/|\/|#)([^"']+)\2/gi,
-    (_match, attr, quote, path) => `${attr}=${quote}${baseHref}${path}${quote}`
+    (_match, attr, quote, path) => `${attr}=${quote}${baseHref}${path}${quote}`,
   );
 }
 
@@ -62,14 +56,10 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const url = searchParams.get("url");
   const allowScriptsParam = searchParams.get("allowScripts");
-  const allowScripts =
-    allowScriptsParam === "1" || allowScriptsParam === "true";
+  const allowScripts = allowScriptsParam === "1" || allowScriptsParam === "true";
 
   if (!url) {
-    return NextResponse.json(
-      { error: "Missing ?url= parameter" },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: "Missing ?url= parameter" }, { status: 400 });
   }
 
   let target: URL;
@@ -81,10 +71,7 @@ export async function GET(req: Request) {
 
   // Only allow http/https protocols
   if (!["http:", "https:"].includes(target.protocol)) {
-    return NextResponse.json(
-      { error: "Only http/https URLs allowed" },
-      { status: 400 }
-    );
+    return NextResponse.json({ error: "Only http/https URLs allowed" }, { status: 400 });
   }
 
   try {
@@ -93,26 +80,19 @@ export async function GET(req: Request) {
       headers: {
         "User-Agent":
           "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36",
-        Accept:
-          "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        Accept: "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
       },
     });
 
     if (!res.ok) {
-      return NextResponse.json(
-        { error: `Failed to fetch: HTTP ${res.status}` },
-        { status: 502 }
-      );
+      return NextResponse.json({ error: `Failed to fetch: HTTP ${res.status}` }, { status: 502 });
     }
 
     const contentType = res.headers.get("content-type") || "";
-    if (
-      !contentType.includes("text/html") &&
-      !contentType.includes("application/xhtml")
-    ) {
+    if (!contentType.includes("text/html") && !contentType.includes("application/xhtml")) {
       return NextResponse.json(
         { error: `Not an HTML page (content-type: ${contentType})` },
-        { status: 400 }
+        { status: 400 },
       );
     }
 

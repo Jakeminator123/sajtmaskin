@@ -19,9 +19,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const { id } = await params;
 
     const cacheKey = `project:${id}`;
-    const cached = await getCache<{ project: Project; data: ProjectData }>(
-      cacheKey
-    );
+    const cached = await getCache<{ project: Project; data: ProjectData }>(cacheKey);
     if (cached) {
       console.log("[API/projects/:id] Redis cache hit for", id);
       return NextResponse.json({
@@ -35,10 +33,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const project = getProjectById(id);
 
     if (!project) {
-      return NextResponse.json(
-        { success: false, error: "Project not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ success: false, error: "Project not found" }, { status: 404 });
     }
 
     const projectData = getProjectData(id);
@@ -58,7 +53,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         success: false,
         error: error instanceof Error ? error.message : "Unknown error",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -71,10 +66,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 
     const existing = getProjectById(id);
     if (!existing) {
-      return NextResponse.json(
-        { success: false, error: "Project not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ success: false, error: "Project not found" }, { status: 404 });
     }
 
     const updated = updateProject(id, body);
@@ -91,7 +83,7 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
         success: false,
         error: error instanceof Error ? error.message : "Unknown error",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -104,17 +96,11 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     const deleted = deleteProject(id);
 
     if (!deleted) {
-      return NextResponse.json(
-        { success: false, error: "Project not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ success: false, error: "Project not found" }, { status: 404 });
     }
 
     // Invalidate caches so deleted project disappears immediately
-    await Promise.all([
-      deleteCache(`project:${id}`),
-      deleteCache("projects:list"),
-    ]);
+    await Promise.all([deleteCache(`project:${id}`), deleteCache("projects:list")]);
 
     return NextResponse.json({ success: true });
   } catch (error: unknown) {
@@ -124,7 +110,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
         success: false,
         error: error instanceof Error ? error.message : "Unknown error",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

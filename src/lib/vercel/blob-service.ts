@@ -66,7 +66,7 @@ export function isBlobConfigured(): boolean {
       "[BlobService] ⚠️ BLOB_READ_WRITE_TOKEN not configured!\n" +
         "  → AI-generated images will NOT appear in v0 preview\n" +
         "  → Set BLOB_READ_WRITE_TOKEN in .env.local to enable\n" +
-        "  → Get token from: https://vercel.com/dashboard/stores"
+        "  → Get token from: https://vercel.com/dashboard/stores",
     );
   }
 
@@ -96,7 +96,7 @@ export function buildBlobPath(
   options?: {
     projectId?: string;
     category?: "media" | "ai-images" | "project-files";
-  }
+  },
 ): string {
   const category = options?.category || "media";
 
@@ -113,10 +113,7 @@ export function buildBlobPath(
 /**
  * Generate a unique filename with timestamp
  */
-export function generateUniqueFilename(
-  originalName: string,
-  prefix?: string
-): string {
+export function generateUniqueFilename(originalName: string, prefix?: string): string {
   const ext = getExtension(originalName);
   const timestamp = Date.now();
   const random = Math.random().toString(36).substring(2, 8);
@@ -135,7 +132,7 @@ export function generateUniqueFilename(
 async function uploadToVercelBlob(
   blobPath: string,
   buffer: Buffer,
-  contentType: string
+  contentType: string,
 ): Promise<{ url: string } | null> {
   if (!process.env.BLOB_READ_WRITE_TOKEN) {
     console.log("[BlobService] ⚠️ BLOB_READ_WRITE_TOKEN not configured");
@@ -172,11 +169,8 @@ async function uploadToVercelBlob(
  *   category: "media"
  * });
  */
-export async function uploadBlob(
-  options: BlobUploadOptions
-): Promise<BlobUploadResult | null> {
-  const { userId, filename, buffer, contentType, projectId, category } =
-    options;
+export async function uploadBlob(options: BlobUploadOptions): Promise<BlobUploadResult | null> {
+  const { userId, filename, buffer, contentType, projectId, category } = options;
 
   // Build isolated path
   const blobPath = buildBlobPath(userId, filename, { projectId, category });
@@ -207,13 +201,10 @@ export async function uploadBlobFromBase64(
     projectId?: string;
     filenamePrefix?: string;
     contentType?: string;
-  }
+  },
 ): Promise<BlobUploadResult | null> {
   const buffer = Buffer.from(base64, "base64");
-  const filename = generateUniqueFilename(
-    ".png",
-    options?.filenamePrefix || "ai"
-  );
+  const filename = generateUniqueFilename(".png", options?.filenamePrefix || "ai");
 
   return uploadBlob({
     userId,
@@ -234,9 +225,7 @@ export async function uploadBlobFromBase64(
  */
 export async function deleteBlob(url: string): Promise<boolean> {
   if (!process.env.BLOB_READ_WRITE_TOKEN) {
-    console.log(
-      "[BlobService] ⚠️ Cannot delete - BLOB_READ_WRITE_TOKEN not configured"
-    );
+    console.log("[BlobService] ⚠️ Cannot delete - BLOB_READ_WRITE_TOKEN not configured");
     return false;
   }
 
@@ -260,7 +249,7 @@ export async function deleteBlob(url: string): Promise<boolean> {
  */
 export async function listUserBlobs(
   userId: string,
-  options?: { prefix?: string; limit?: number }
+  options?: { prefix?: string; limit?: number },
 ): Promise<string[]> {
   if (!process.env.BLOB_READ_WRITE_TOKEN) {
     return [];
@@ -268,9 +257,7 @@ export async function listUserBlobs(
 
   try {
     const { list } = await import("@vercel/blob");
-    const prefix = options?.prefix
-      ? `${userId}/${options.prefix}`
-      : `${userId}/`;
+    const prefix = options?.prefix ? `${userId}/${options.prefix}` : `${userId}/`;
 
     const result = await list({
       prefix,

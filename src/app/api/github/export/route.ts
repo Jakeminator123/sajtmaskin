@@ -40,7 +40,10 @@ const GITHUB_API = "https://api.github.com";
 const BLOCKED_PATHS = ["node_modules/", ".git/"];
 const BLOCKED_FILES = [".env", ".env.local", ".env.production", ".env.development", ".env.test"];
 
-function normalizeRepoInput(input: string, fallbackOwner: string): {
+function normalizeRepoInput(
+  input: string,
+  fallbackOwner: string,
+): {
   owner: string;
   repo: string;
 } {
@@ -78,7 +81,7 @@ function normalizeFilePath(raw: string): string | null {
 async function githubRequest<T>(
   token: string,
   path: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
 ): Promise<{ ok: boolean; status: number; data: T | null }> {
   const response = await fetch(`${GITHUB_API}${path}`, {
     ...options,
@@ -141,13 +144,13 @@ async function getBaseCommit(params: {
   const { token, owner, repo, branch } = params;
   const ref = await githubRequest<GitHubRefResponse>(
     token,
-    `/repos/${owner}/${repo}/git/refs/heads/${branch}`
+    `/repos/${owner}/${repo}/git/refs/heads/${branch}`,
   );
   if (!ref.ok || !ref.data) return null;
 
   const commit = await githubRequest<GitHubCommitResponse>(
     token,
-    `/repos/${owner}/${repo}/git/commits/${ref.data.object.sha}`
+    `/repos/${owner}/${repo}/git/commits/${ref.data.object.sha}`,
   );
   if (!commit.ok || !commit.data) return null;
 
@@ -165,7 +168,7 @@ export async function POST(request: NextRequest) {
             error: "GitHub is not connected",
             setup: "Connect GitHub via /api/auth/github",
           },
-          { status: 401 }
+          { status: 401 },
         );
       }
 
@@ -174,7 +177,7 @@ export async function POST(request: NextRequest) {
       if (!parsed.success) {
         return NextResponse.json(
           { success: false, error: "Validation failed", details: parsed.error.issues },
-          { status: 400 }
+          { status: 400 },
         );
       }
 
@@ -183,10 +186,7 @@ export async function POST(request: NextRequest) {
       const owner = sanitizeRepoName(repoParsed.owner);
       const repoName = sanitizeRepoName(repoParsed.repo);
       if (!owner || !repoName) {
-        return NextResponse.json(
-          { success: false, error: "Invalid repo name" },
-          { status: 400 }
-        );
+        return NextResponse.json({ success: false, error: "Invalid repo name" }, { status: 400 });
       }
 
       assertV0Key();
@@ -242,7 +242,7 @@ export async function POST(request: NextRequest) {
       if (files.length === 0) {
         return NextResponse.json(
           { success: false, error: "No files available to export" },
-          { status: 400 }
+          { status: 400 },
         );
       }
 
@@ -274,7 +274,7 @@ export async function POST(request: NextRequest) {
               content: Buffer.from(file.content, "utf8").toString("base64"),
               encoding: "base64",
             }),
-          }
+          },
         );
 
         if (!response.ok || !response.data) {
@@ -299,7 +299,7 @@ export async function POST(request: NextRequest) {
             tree: treeEntries,
             ...(base?.treeSha ? { base_tree: base.treeSha } : {}),
           }),
-        }
+        },
       );
 
       if (!treeResponse.ok || !treeResponse.data) {
@@ -317,7 +317,7 @@ export async function POST(request: NextRequest) {
             tree: treeResponse.data.sha,
             ...(base?.commitSha ? { parents: [base.commitSha] } : {}),
           }),
-        }
+        },
       );
 
       if (!commitResponse.ok || !commitResponse.data) {
@@ -332,24 +332,20 @@ export async function POST(request: NextRequest) {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ sha: commitResponse.data.sha }),
-          }
+          },
         );
         if (!updateRef.ok) {
           throw new Error("Failed to update GitHub branch");
         }
       } else {
-        const createRef = await githubRequest(
-          token,
-          `/repos/${owner}/${repoName}/git/refs`,
-          {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              ref: `refs/heads/${repoResult.repo.default_branch || "main"}`,
-              sha: commitResponse.data.sha,
-            }),
-          }
-        );
+        const createRef = await githubRequest(token, `/repos/${owner}/${repoName}/git/refs`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            ref: `refs/heads/${repoResult.repo.default_branch || "main"}`,
+            sha: commitResponse.data.sha,
+          }),
+        });
         if (!createRef.ok) {
           throw new Error("Failed to create GitHub branch");
         }
@@ -369,7 +365,7 @@ export async function POST(request: NextRequest) {
           success: false,
           error: error instanceof Error ? error.message : "Unknown error",
         },
-        { status: 500 }
+        { status: 500 },
       );
     }
   });

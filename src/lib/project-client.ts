@@ -10,9 +10,7 @@ export interface Project {
   updated_at: string;
 }
 
-export type PersistedFile =
-  | { name: string; content: string }
-  | Record<string, unknown>;
+export type PersistedFile = { name: string; content: string } | Record<string, unknown>;
 
 export type PersistedMessage =
   | {
@@ -66,7 +64,7 @@ export async function getProject(id: string): Promise<ProjectWithData> {
 export async function createProject(
   name: string,
   category?: string,
-  description?: string
+  description?: string,
 ): Promise<Project> {
   const response = await fetch("/api/projects", {
     method: "POST",
@@ -83,10 +81,7 @@ export async function createProject(
 }
 
 // Update project
-export async function updateProject(
-  id: string,
-  updates: Partial<Project>
-): Promise<Project> {
+export async function updateProject(id: string, updates: Partial<Project>): Promise<Project> {
   const response = await fetch(`/api/projects/${id}`, {
     method: "PUT",
     headers: { "Content-Type": "application/json" },
@@ -122,7 +117,7 @@ export async function saveProjectData(
     currentCode?: string;
     files?: PersistedFile[];
     messages?: PersistedMessage[];
-  }
+  },
 ): Promise<void> {
   const response = await fetch(`/api/projects/${projectId}/save`, {
     method: "POST",
@@ -139,7 +134,7 @@ export async function saveProjectData(
 // Upload image
 export async function uploadImage(
   projectId: string,
-  file: File
+  file: File,
 ): Promise<{ url: string; filename: string }> {
   const formData = new FormData();
   formData.append("file", file);

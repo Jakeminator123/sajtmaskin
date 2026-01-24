@@ -25,10 +25,7 @@ export default function BudgetEstimate({ budget }: BudgetEstimateProps) {
     }).format(amount);
   };
 
-  const rangeColorClasses: Record<
-    string,
-    { text: string; gradient: string }
-  > = {
+  const rangeColorClasses: Record<string, { text: string; gradient: string }> = {
     teal: { text: "text-brand-teal", gradient: "from-brand-teal/50 to-brand-teal" },
     amber: {
       text: "text-brand-amber",
@@ -79,9 +76,9 @@ export default function BudgetEstimate({ budget }: BudgetEstimateProps) {
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="bg-black/50 border border-gray-800 p-6"
+      className="border border-gray-800 bg-black/50 p-6"
     >
-      <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-2">
+      <h2 className="mb-6 flex items-center gap-2 text-xl font-bold text-white">
         <span className="text-brand-teal">💰</span> Budgetuppskattning
       </h2>
 
@@ -92,9 +89,9 @@ export default function BudgetEstimate({ budget }: BudgetEstimateProps) {
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: index * 0.1 }}
-            className="p-4 bg-black/30 border border-gray-800"
+            className="border border-gray-800 bg-black/30 p-4"
           >
-            <div className="flex items-center justify-between mb-2">
+            <div className="mb-2 flex items-center justify-between">
               <div>
                 <h4 className="font-medium text-white">{range.label}</h4>
                 <p className="text-xs text-gray-500">{range.description}</p>
@@ -102,16 +99,12 @@ export default function BudgetEstimate({ budget }: BudgetEstimateProps) {
               <div className="text-right">
                 <p
                   className={`text-lg font-bold ${
-                    rangeColorClasses[range.color]?.text ||
-                    rangeColorClasses.teal.text
+                    rangeColorClasses[range.color]?.text || rangeColorClasses.teal.text
                   }`}
                 >
                   {range.data?.low ? formatCurrency(range.data.low) : "–"}
                   {range.data?.high && range.data.low !== range.data.high && (
-                    <span className="text-gray-400">
-                      {" "}
-                      – {formatCurrency(range.data.high)}
-                    </span>
+                    <span className="text-gray-400"> – {formatCurrency(range.data.high)}</span>
                   )}
                 </p>
               </div>
@@ -120,14 +113,13 @@ export default function BudgetEstimate({ budget }: BudgetEstimateProps) {
             {/* Visual bar */}
             {range.data?.high && (
               <div className="mt-3">
-                <div className="w-full h-2 bg-gray-800 overflow-hidden">
+                <div className="h-2 w-full overflow-hidden bg-gray-800">
                   <motion.div
                     initial={{ width: 0 }}
                     animate={{ width: "100%" }}
                     transition={{ duration: 1, delay: 0.5 + index * 0.1 }}
                     className={`h-full bg-gradient-to-r ${
-                      rangeColorClasses[range.color]?.gradient ||
-                      rangeColorClasses.teal.gradient
+                      rangeColorClasses[range.color]?.gradient || rangeColorClasses.teal.gradient
                     }`}
                   />
                 </div>
@@ -138,18 +130,16 @@ export default function BudgetEstimate({ budget }: BudgetEstimateProps) {
       </div>
 
       {paymentStructure && (
-        <div className="mt-4 p-3 bg-brand-teal/10 border border-brand-teal/30 text-sm">
-          <p className="text-brand-teal whitespace-pre-wrap wrap-break-word">
-            💡{" "}
-            <span className="font-medium">Rekommenderad betalningsplan:</span>{" "}
+        <div className="bg-brand-teal/10 border-brand-teal/30 mt-4 border p-3 text-sm">
+          <p className="text-brand-teal wrap-break-word whitespace-pre-wrap">
+            💡 <span className="font-medium">Rekommenderad betalningsplan:</span>{" "}
             <span className="text-brand-teal/80">{paymentStructure}</span>
           </p>
         </div>
       )}
 
-      <p className="text-xs text-gray-500 mt-4">
-        * Uppskattningar baserade på svenska marknadssnitt. Faktiska kostnader
-        kan variera.
+      <p className="mt-4 text-xs text-gray-500">
+        * Uppskattningar baserade på svenska marknadssnitt. Faktiska kostnader kan variera.
       </p>
     </motion.div>
   );

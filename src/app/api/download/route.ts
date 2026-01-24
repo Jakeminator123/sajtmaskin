@@ -17,19 +17,18 @@ async function processDownload(
   chatId: string,
   versionId: string,
   includeBackoffice: boolean,
-  password?: string
+  password?: string,
 ): Promise<NextResponse> {
   try {
     let zipBuffer: ArrayBuffer;
     try {
       zipBuffer = await downloadVersionAsZip(chatId, versionId);
     } catch (downloadError) {
-      const errorMessage =
-        downloadError instanceof Error ? downloadError.message : "Okänt fel";
+      const errorMessage = downloadError instanceof Error ? downloadError.message : "Okänt fel";
       console.error("[API/download] Failed to download ZIP:", errorMessage);
       return NextResponse.json(
         { success: false, error: `Kunde inte ladda ner ZIP: ${errorMessage}` },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
@@ -48,12 +47,11 @@ async function processDownload(
     try {
       zip = await JSZip.loadAsync(zipBuffer);
     } catch (zipError) {
-      const errorMessage =
-        zipError instanceof Error ? zipError.message : "Okänt fel";
+      const errorMessage = zipError instanceof Error ? zipError.message : "Okänt fel";
       console.error("[API/download] Failed to load ZIP:", errorMessage);
       return NextResponse.json(
         { success: false, error: `Ogiltig ZIP-fil: ${errorMessage}` },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -76,11 +74,8 @@ async function processDownload(
               codeFiles.push({ name: relativePath, content });
             })
             .catch((error) => {
-              console.warn(
-                `[API/download] Failed to read file ${relativePath}:`,
-                error
-              );
-            })
+              console.warn(`[API/download] Failed to read file ${relativePath}:`, error);
+            }),
         );
       }
     });
@@ -96,8 +91,7 @@ async function processDownload(
     const manifest = extractContent(combinedCode, codeFiles);
 
     // Generate backoffice files with user's password
-    const backofficePassword =
-      password && password.trim().length > 0 ? password.trim() : undefined;
+    const backofficePassword = password && password.trim().length > 0 ? password.trim() : undefined;
     const backoffice = generateBackofficeFiles(manifest, backofficePassword);
 
     // Add backoffice files to ZIP
@@ -122,12 +116,11 @@ async function processDownload(
       },
     });
   } catch (error: unknown) {
-    const errorMessage =
-      error instanceof Error ? error.message : "Unknown error";
+    const errorMessage = error instanceof Error ? error.message : "Unknown error";
     console.error("[API/download] Unexpected error:", errorMessage);
     return NextResponse.json(
       { success: false, error: `Nedladdning misslyckades: ${errorMessage}` },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -141,17 +134,14 @@ export async function POST(request: NextRequest) {
     if (!chatId || !versionId) {
       return NextResponse.json(
         { success: false, error: "chatId and versionId are required" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     return processDownload(chatId, versionId, !!includeBackoffice, password);
   } catch (error) {
     console.error("[API/download] POST error:", error);
-    return NextResponse.json(
-      { success: false, error: "Invalid request body" },
-      { status: 400 }
-    );
+    return NextResponse.json({ success: false, error: "Invalid request body" }, { status: 400 });
   }
 }
 
@@ -167,14 +157,9 @@ export async function GET(request: NextRequest) {
   if (!chatId || !versionId) {
     return NextResponse.json(
       { success: false, error: "chatId and versionId are required" },
-      { status: 400 }
+      { status: 400 },
     );
   }
 
-  return processDownload(
-    chatId,
-    versionId,
-    includeBackoffice,
-    password || undefined
-  );
+  return processDownload(chatId, versionId, includeBackoffice, password || undefined);
 }

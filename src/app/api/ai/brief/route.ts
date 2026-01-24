@@ -1,77 +1,75 @@
-import { createAnthropic } from '@ai-sdk/anthropic';
-import { createOpenAI } from '@ai-sdk/openai';
-import { createVercel } from '@ai-sdk/vercel';
-import { generateObject, gateway } from 'ai';
-import { NextResponse } from 'next/server';
-import { z } from 'zod';
-import { requireNotBot } from '@/lib/botProtection';
-import { withRateLimit } from '@/lib/rateLimit';
+import { createAnthropic } from "@ai-sdk/anthropic";
+import { createOpenAI } from "@ai-sdk/openai";
+import { createVercel } from "@ai-sdk/vercel";
+import { generateObject, gateway } from "ai";
+import { NextResponse } from "next/server";
+import { z } from "zod";
+import { requireNotBot } from "@/lib/botProtection";
+import { withRateLimit } from "@/lib/rateLimit";
 
-export const runtime = 'nodejs';
-export const maxDuration = 60;
+export const runtime = "nodejs";
+export const maxDuration = 300; // 5 minutes for deep brief with slow models
 
 const briefRequestSchema = z.object({
-  prompt: z.string().min(1, 'prompt is required'),
-  provider: z
-    .enum(['gateway', 'openai', 'anthropic', 'vercel'])
-    .optional()
-    .default('gateway'),
-  model: z.string().min(1).optional().default('openai/gpt-5'),
+  prompt: z.string().min(1, "prompt is required"),
+  provider: z.enum(["gateway", "openai", "anthropic", "vercel"]).optional().default("gateway"),
+  // gpt-5 provides best quality briefs; used as default for prompt assist
+  model: z.string().min(1).optional().default("openai/gpt-5"),
   temperature: z.number().min(0).max(2).optional(),
   imageGenerations: z.boolean().optional().default(true),
 });
 
 const sectionTypeSchema = z.enum([
-  'hero',
-  'features',
-  'benefits',
-  'social-proof',
-  'testimonials',
-  'pricing',
-  'faq',
-  'gallery',
-  'about',
-  'contact',
-  'cta',
-  'footer',
-  'custom',
+  "hero",
+  "features",
+  "benefits",
+  "social-proof",
+  "testimonials",
+  "pricing",
+  "faq",
+  "gallery",
+  "about",
+  "contact",
+  "cta",
+  "footer",
+  "custom",
 ]);
 
 const siteBriefSchema = z.object({
-  projectTitle: z.string().describe('Short internal project title'),
-  brandName: z.string().optional().describe('Brand/company name if present'),
-  oneSentencePitch: z.string().describe('A single sentence describing what the site is about'),
-  targetAudience: z.string().describe('Primary audience / persona'),
+  projectTitle: z.string().describe("Short internal project title"),
+  brandName: z.string().describe("Brand/company name if present, else empty string"),
+  oneSentencePitch: z.string().describe("A single sentence describing what the site is about"),
+  targetAudience: z.string().describe("Primary audience / persona"),
   primaryCallToAction: z.string().describe('Main CTA label, e.g. "Book a demo"'),
-  toneAndVoice: z.array(z.string()).min(2).max(8).describe('Tone keywords'),
+  toneAndVoice: z.array(z.string()).min(2).max(8).describe("Tone keywords"),
   pages: z
     .array(
       z.object({
-        name: z.string().describe('Navigation label'),
+        name: z.string().describe("Navigation label"),
         path: z.string().describe('Route path, e.g. "/" or "/pricing"'),
-        purpose: z.string().describe('Why this page exists'),
+        purpose: z.string().describe("Why this page exists"),
         sections: z
           .array(
             z.object({
               type: sectionTypeSchema,
               heading: z.string(),
               bullets: z.array(z.string()).min(1).max(8),
-            })
+            }),
           )
           .min(3)
           .max(14),
-      })
+      }),
     )
     .min(1)
     .max(10),
   visualDirection: z.object({
     styleKeywords: z.array(z.string()).min(3).max(12),
     colorPalette: z.object({
-      primary: z.string().describe('Hex or CSS color'),
-      secondary: z.string().optional(),
-      accent: z.string().optional(),
-      background: z.string().optional(),
-      text: z.string().optional(),
+      primary: z.string().describe("Hex or CSS color"),
+      secondary: z.string().describe("Hex or CSS color"),
+      accent: z.string().describe("Hex or CSS color"),
+      background: z.string().describe("Hex or CSS color"),
+      text: z.string().describe("Hex or CSS color"),
     }),
     typography: z.object({
       headings: z.string().describe('Font suggestion for headings (e.g. "Inter", "Sora")'),
@@ -91,13 +89,13 @@ const siteBriefSchema = z.object({
   }),
   seo: z.object({
     titleTemplate: z.string().describe('e.g. "{page} | Brand"'),
-    metaDescription: z.string().describe('One concise meta description'),
+    metaDescription: z.string().describe("One concise meta description"),
     keywords: z.array(z.string()).min(3).max(30),
   }),
 });
 
 function isProbablyOnVercel(): boolean {
-  return process.env.VERCEL === '1' || Boolean(process.env.VERCEL_ENV);
+  return process.env.VERCEL === "1" || Boolean(process.env.VERCEL_ENV);
 }
 
 function isReasoningModel(model: string): boolean {
@@ -106,7 +104,7 @@ function isReasoningModel(model: string): boolean {
 }
 
 function getTemperatureConfig(model: string, temperature?: number): { temperature?: number } {
-  if (typeof temperature !== 'number') return {};
+  if (typeof temperature !== "number") return {};
   if (isReasoningModel(model)) return {};
   return { temperature };
 }
@@ -139,24 +137,27 @@ function getV0ModelApiKey(): string | null {
 }
 
 function getGatewayPreferredProvider(model: string): string | null {
-  const slashIdx = model.indexOf('/');
+  const slashIdx = model.indexOf("/");
   if (slashIdx <= 0) return null;
   return model.slice(0, slashIdx) || null;
 }
 
 function defaultGatewayFallbackModels(primaryModel: string): string[] {
   const m = primaryModel.toLowerCase();
+  // Fallback chain: try cheaper/faster models if primary fails
   const fallbacks =
-    m.startsWith('openai/gpt-5')
-      ? ['openai/gpt-4o', 'openai/gpt-4o-mini']
-      : m.startsWith('anthropic/')
-        ? ['anthropic/claude-sonnet-4.5', 'openai/gpt-4o-mini']
-        : ['openai/gpt-4o-mini', 'anthropic/claude-sonnet-4.5'];
+    m.startsWith("openai/gpt-4o") && !m.includes("mini")
+      ? ["openai/gpt-4o-mini", "anthropic/claude-sonnet-4.5"]
+      : m.startsWith("openai/gpt-5")
+        ? ["openai/gpt-4o", "openai/gpt-4o-mini"]
+        : m.startsWith("anthropic/")
+          ? ["anthropic/claude-sonnet-4.5", "openai/gpt-4o-mini"]
+          : ["openai/gpt-4o-mini", "anthropic/claude-sonnet-4.5"];
   return fallbacks.filter((x) => x !== primaryModel);
 }
 
 export async function POST(req: Request) {
-  return withRateLimit(req, 'ai:brief', async () => {
+  return withRateLimit(req, "ai:brief", async () => {
     try {
       const botError = requireNotBot(req);
       if (botError) return botError;
@@ -165,51 +166,52 @@ export async function POST(req: Request) {
       const parsed = briefRequestSchema.safeParse(body);
       if (!parsed.success) {
         return NextResponse.json(
-          { error: 'Validation failed', details: parsed.error.issues },
-          { status: 400 }
+          { error: "Validation failed", details: parsed.error.issues },
+          { status: 400 },
         );
       }
 
       const { prompt, provider, model, temperature, imageGenerations } = parsed.data;
       const resolvedModel =
-        provider === 'vercel'
-          ? typeof model === 'string' && model.trim().startsWith('v0-')
+        provider === "vercel"
+          ? typeof model === "string" && model.trim().startsWith("v0-")
             ? model
-            : 'v0-1.5-md'
+            : "v0-1.5-md"
           : model;
 
       const systemPrompt =
-        'You are a senior product designer + information architect. ' +
-        'Convert the user request into a concise website brief that is immediately usable for implementation. ' +
-        'Be specific about pages/sections, visual direction, and copy direction. ' +
-        'Do NOT include any extra keys beyond the schema. Keep strings short.';
+        "You are a senior product designer + information architect. " +
+        "Convert the user request into a concise website brief that is immediately usable for implementation. " +
+        "Be specific about pages/sections, visual direction, and copy direction. " +
+        "Include every field in the schema. If a value is unknown, use an empty string. " +
+        "Do NOT include any extra keys beyond the schema. Keep strings short.";
 
       const userPrompt =
         prompt +
         (imageGenerations
-          ? '\n\nInclude imagery guidance because image generation is enabled.'
-          : '\n\nImage generation is disabled; prefer layout and iconography, keep imagery optional.');
+          ? "\n\nInclude imagery guidance because image generation is enabled."
+          : "\n\nImage generation is disabled; prefer layout and iconography, keep imagery optional.");
 
-      if (provider === 'gateway') {
-        if (!resolvedModel.includes('/')) {
+      if (provider === "gateway") {
+        if (!resolvedModel.includes("/")) {
           return NextResponse.json(
             {
-              error: 'Invalid model for gateway provider',
+              error: "Invalid model for gateway provider",
               setup:
                 'When provider="gateway", set model to "provider/model" (e.g. "openai/gpt-5").',
             },
-            { status: 400 }
+            { status: 400 },
           );
         }
 
         if (!process.env.AI_GATEWAY_API_KEY && !isProbablyOnVercel()) {
           return NextResponse.json(
             {
-              error: 'Missing AI_GATEWAY_API_KEY for gateway provider',
+              error: "Missing AI_GATEWAY_API_KEY for gateway provider",
               setup:
-                'Set AI_GATEWAY_API_KEY for local dev, or deploy on Vercel to use OIDC authentication.',
+                "Set AI_GATEWAY_API_KEY for local dev, or deploy on Vercel to use OIDC authentication.",
             },
-            { status: 401 }
+            { status: 401 },
           );
         }
 
@@ -218,8 +220,8 @@ export async function POST(req: Request) {
           model: gateway(resolvedModel),
           schema: siteBriefSchema,
           messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: userPrompt },
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt },
           ],
           providerOptions: {
             gateway: {
@@ -232,21 +234,21 @@ export async function POST(req: Request) {
 
         return NextResponse.json(result.object, {
           headers: {
-            'Cache-Control': 'no-store',
-            'X-Provider': provider,
+            "Cache-Control": "no-store",
+            "X-Provider": provider,
           },
         });
       }
 
-      if (provider === 'vercel') {
+      if (provider === "vercel") {
         const apiKey = getV0ModelApiKey();
         if (!apiKey) {
           return NextResponse.json(
             {
-              error: 'Missing V0 API key',
-              setup: 'Set VERCEL_API_KEY or V0_API_KEY for the v0 Model API.',
+              error: "Missing V0 API key",
+              setup: "Set VERCEL_API_KEY or V0_API_KEY for the v0 Model API.",
             },
-            { status: 401 }
+            { status: 401 },
           );
         }
 
@@ -255,26 +257,26 @@ export async function POST(req: Request) {
           model: vercel(resolvedModel),
           schema: siteBriefSchema,
           messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: userPrompt },
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt },
           ],
           ...getTemperatureConfig(resolvedModel, temperature),
         });
 
         return NextResponse.json(result.object, {
           headers: {
-            'Cache-Control': 'no-store',
-            'X-Provider': provider,
+            "Cache-Control": "no-store",
+            "X-Provider": provider,
           },
         });
       }
 
-      if (provider === 'openai') {
+      if (provider === "openai") {
         const apiKey = getOpenAIApiKey();
         if (!apiKey) {
           return NextResponse.json(
-            { error: 'Missing OPENAI_API_KEY', setup: 'Set OPENAI_API_KEY for provider="openai".' },
-            { status: 401 }
+            { error: "Missing OPENAI_API_KEY", setup: 'Set OPENAI_API_KEY for provider="openai".' },
+            { status: 401 },
           );
         }
         const openai = createOpenAI({ apiKey });
@@ -282,29 +284,29 @@ export async function POST(req: Request) {
           model: openai(resolvedModel),
           schema: siteBriefSchema,
           messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: userPrompt },
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt },
           ],
           ...getTemperatureConfig(resolvedModel, temperature),
         });
         return NextResponse.json(result.object, {
           headers: {
-            'Cache-Control': 'no-store',
-            'X-Provider': provider,
+            "Cache-Control": "no-store",
+            "X-Provider": provider,
           },
         });
       }
 
-      if (provider === 'anthropic') {
+      if (provider === "anthropic") {
         const apiKey = getAnthropicApiKey();
         if (!apiKey) {
           return NextResponse.json(
             {
-              error: 'Missing Anthropic API key',
+              error: "Missing Anthropic API key",
               setup:
                 'Set ANTHROPIC_API_KEY (preferred) or CLAUDE_ANTHROPIC_API_KEY for provider="anthropic".',
             },
-            { status: 401 }
+            { status: 401 },
           );
         }
         const anthropic = createAnthropic({ apiKey });
@@ -312,25 +314,25 @@ export async function POST(req: Request) {
           model: anthropic(resolvedModel),
           schema: siteBriefSchema,
           messages: [
-            { role: 'system', content: systemPrompt },
-            { role: 'user', content: userPrompt },
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt },
           ],
           ...getTemperatureConfig(resolvedModel, temperature),
         });
         return NextResponse.json(result.object, {
           headers: {
-            'Cache-Control': 'no-store',
-            'X-Provider': provider,
+            "Cache-Control": "no-store",
+            "X-Provider": provider,
           },
         });
       }
 
-      return NextResponse.json({ error: 'Unsupported provider' }, { status: 400 });
+      return NextResponse.json({ error: "Unsupported provider" }, { status: 400 });
     } catch (err) {
-      console.error('AI brief error:', err);
+      console.error("AI brief error:", err);
       return NextResponse.json(
-        { error: err instanceof Error ? err.message : 'Unknown error' },
-        { status: 500 }
+        { error: err instanceof Error ? err.message : "Unknown error" },
+        { status: 500 },
       );
     }
   });

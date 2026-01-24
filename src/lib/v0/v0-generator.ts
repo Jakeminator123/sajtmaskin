@@ -35,18 +35,15 @@
  * - "failed": Fel → sluta polla, logga error
  *
  * MODELLER (3 tiers):
- * - v0-mini: Light (snabbast, billigast)
- * - v0-pro: Balanced (bra kvalitet till rimlig kostnad)
- * - v0-max: Best (högsta kvalitet, långsammare/dyrare)
+ * - v0-mini: Mini (snabbast, billigast)
+ * - v0-pro: Pro (bra kvalitet till rimlig kostnad)
+ * - v0-max: Max (högsta kvalitet, långsammare/dyrare, rekommenderad)
  *
  * All operations include error handling and structured logging.
  */
 
 import { createClient, type ChatDetail } from "v0-sdk";
-import {
-  enhancePromptForV0,
-  type MediaLibraryItem,
-} from "@/lib/utils/prompt-utils";
+import { enhancePromptForV0, type MediaLibraryItem } from "@/lib/utils/prompt-utils";
 import { debugLog, logFinalPrompt } from "@/lib/utils/debug";
 import { logV0 } from "@/lib/utils/file-logger";
 import { SECRETS } from "@/lib/config";
@@ -94,17 +91,12 @@ export interface GeneratedFile {
  * @param files - Array of generated files from v0
  * @returns The main file, or undefined if no files
  */
-export function findMainFile(
-  files: GeneratedFile[]
-): GeneratedFile | undefined {
+export function findMainFile(files: GeneratedFile[]): GeneratedFile | undefined {
   if (!files || files.length === 0) return undefined;
 
   return (
     files.find(
-      (f) =>
-        f.name.includes("page.tsx") ||
-        f.name.includes("Page.tsx") ||
-        f.name.endsWith(".tsx")
+      (f) => f.name.includes("page.tsx") || f.name.includes("Page.tsx") || f.name.endsWith(".tsx"),
     ) || files[0]
   );
 }
@@ -133,13 +125,9 @@ const MODEL_MAP: Record<QualityLevel, V0ModelId> = {
   max: "v0-max",
 };
 
-type V0SdkCreateRequest = Parameters<
-  ReturnType<typeof createClient>["chats"]["create"]
->[0];
+type V0SdkCreateRequest = Parameters<ReturnType<typeof createClient>["chats"]["create"]>[0];
 
-type V0SdkModelId = NonNullable<
-  V0SdkCreateRequest["modelConfiguration"]
->["modelId"];
+type V0SdkModelId = NonNullable<V0SdkCreateRequest["modelConfiguration"]>["modelId"];
 
 function toSdkModelId(modelId: V0ModelId): V0SdkModelId {
   // v0-sdk types can lag behind model ids; cast keeps runtime values intact.
@@ -419,7 +407,7 @@ export function isV0StreamingEnabled(): boolean {
  */
 export async function downloadVersionAsZip(
   chatId: string,
-  versionId: string
+  versionId: string,
 ): Promise<ArrayBuffer> {
   const v0 = getV0Client();
   return v0.chats.downloadVersion({
@@ -436,29 +424,24 @@ export async function downloadVersionAsZip(
 async function waitForVersionReady(
   chatId: string,
   maxAttempts = 45, // 45 × 4s = 3 minutes (increased for complex refines)
-  delayMs = 4000 // 4 seconds between polls
+  delayMs = 4000, // 4 seconds between polls
 ): Promise<ChatDetail | null> {
   const v0 = getV0Client();
   let consecutiveUndefined = 0;
   const maxConsecutiveUndefined = 5; // Give up after 5 consecutive undefined responses
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    console.log(
-      `[v0-generator] Polling version status (attempt ${attempt}/${maxAttempts})...`
-    );
+    console.log(`[v0-generator] Polling version status (attempt ${attempt}/${maxAttempts})...`);
 
     try {
       const rawChat = await v0.chats.getById({ chatId });
 
       // Debug: Log the raw response from getById on first attempt
       if (attempt === 1) {
-        console.log(
-          "[v0-generator] getById raw keys:",
-          Object.keys(rawChat || {})
-        );
+        console.log("[v0-generator] getById raw keys:", Object.keys(rawChat || {}));
         console.log(
           "[v0-generator] getById raw:",
-          JSON.stringify(rawChat, null, 2).substring(0, 2000)
+          JSON.stringify(rawChat, null, 2).substring(0, 2000),
         );
       }
 
@@ -476,14 +459,12 @@ async function waitForVersionReady(
       if (status === undefined) {
         consecutiveUndefined++;
         console.warn(
-          `[v0-generator] Status undefined (${consecutiveUndefined}/${maxConsecutiveUndefined})`
+          `[v0-generator] Status undefined (${consecutiveUndefined}/${maxConsecutiveUndefined})`,
         );
 
         // Give up if too many undefined responses - likely a problem with the chat
         if (consecutiveUndefined >= maxConsecutiveUndefined) {
-          console.error(
-            "[v0-generator] Too many undefined responses, giving up"
-          );
+          console.error("[v0-generator] Too many undefined responses, giving up");
           return null;
         }
       } else {
@@ -540,7 +521,7 @@ export interface GenerateCodeOptions {
 export async function generateCode(
   prompt: string,
   qualityOrOptions: QualityLevel | GenerateCodeOptions = "standard",
-  categoryType?: string // Legacy parameter - use options.categoryType instead
+  categoryType?: string, // Legacy parameter - use options.categoryType instead
 ): Promise<GenerationResult> {
   // Support both old signature and new options object
   const options: GenerateCodeOptions =
@@ -549,14 +530,10 @@ export async function generateCode(
       : qualityOrOptions;
 
   // Ensure categoryType from options takes precedence
-  if (
-    options.categoryType &&
-    categoryType &&
-    options.categoryType !== categoryType
-  ) {
+  if (options.categoryType && categoryType && options.categoryType !== categoryType) {
     console.warn(
       "[v0-generator] categoryType mismatch - using options.categoryType:",
-      options.categoryType
+      options.categoryType,
     );
   }
 
@@ -585,10 +562,7 @@ export async function generateCode(
       fullPrompt = `${
         CATEGORY_PROMPTS[options.categoryType]
       }\n\nUSER-SPECIFIC REQUIREMENTS:\n${prompt}`;
-      debugLog(
-        "v0",
-        "[v0-generator] Merging category prompt with expanded user prompt"
-      );
+      debugLog("v0", "[v0-generator] Merging category prompt with expanded user prompt");
     } else {
       // Original behavior: Replace with category prompt
       fullPrompt = CATEGORY_PROMPTS[options.categoryType];
@@ -596,14 +570,9 @@ export async function generateCode(
       // Only add if prompt doesn't already contain category-like content
       if (prompt && prompt.trim().length > 0) {
         const promptLower = prompt.toLowerCase();
-        const categoryKeywords = [
-          "skapa en",
-          "bygg en",
-          "gör en",
-          "designa en",
-        ];
+        const categoryKeywords = ["skapa en", "bygg en", "gör en", "designa en"];
         const isCategoryLikePrompt = categoryKeywords.some((keyword) =>
-          promptLower.startsWith(keyword)
+          promptLower.startsWith(keyword),
         );
 
         if (!isCategoryLikePrompt) {
@@ -621,7 +590,7 @@ export async function generateCode(
     fullPrompt = enhancePromptForV0(fullPrompt, options.mediaLibrary);
     debugLog(
       "v0",
-      `[v0-generator] Added ${options.mediaLibrary.length} media library items to prompt`
+      `[v0-generator] Added ${options.mediaLibrary.length} media library items to prompt`,
     );
   }
 
@@ -672,11 +641,7 @@ export async function generateCode(
     // Add attachments if provided (screenshots, figma designs, etc.)
     if (options.attachments && options.attachments.length > 0) {
       createRequest.attachments = options.attachments;
-      console.log(
-        "[v0-generator] Including",
-        options.attachments.length,
-        "attachments"
-      );
+      console.log("[v0-generator] Including", options.attachments.length, "attachments");
     }
 
     const rawResponse = await v0.chats.create(createRequest);
@@ -691,10 +656,7 @@ export async function generateCode(
     }
 
     // Debug: Log the raw response structure
-    console.log(
-      "[v0-generator] Raw response keys:",
-      Object.keys(rawResponse || {})
-    );
+    console.log("[v0-generator] Raw response keys:", Object.keys(rawResponse || {}));
     const rawPreview = JSON.stringify(rawResponse, null, 2);
     const sanitizedPreview = rawPreview
       // Truncate JSON fields that contain raw base64
@@ -703,20 +665,15 @@ export async function generateCode(
         (_m, start, b64, end) =>
           `${start}${String(b64).slice(0, 10)}...(base64 förkortad, längd=${
             String(b64).length
-          })${end}`
+          })${end}`,
       )
       // Truncate data URLs that contain base64
       .replace(
         /(data:image\/[a-zA-Z0-9.+-]+;base64,)([A-Za-z0-9+/=]{20,})/g,
         (_m, prefix, b64) =>
-          `${prefix}${String(b64).slice(0, 10)}...(base64 förkortad, längd=${
-            String(b64).length
-          })`
+          `${prefix}${String(b64).slice(0, 10)}...(base64 förkortad, längd=${String(b64).length})`,
       );
-    console.log(
-      "[v0-generator] Raw response:",
-      sanitizedPreview.substring(0, 2000)
-    );
+    console.log("[v0-generator] Raw response:", sanitizedPreview.substring(0, 2000));
 
     chat = rawResponse as ChatDetail;
   } catch (error) {
@@ -724,16 +681,10 @@ export async function generateCode(
 
     // Check for specific error types
     if (error instanceof Error) {
-      if (
-        error.message.includes("rate limit") ||
-        error.message.includes("429")
-      ) {
+      if (error.message.includes("rate limit") || error.message.includes("429")) {
         throw new Error("rate limit exceeded");
       }
-      if (
-        error.message.includes("unauthorized") ||
-        error.message.includes("401")
-      ) {
+      if (error.message.includes("unauthorized") || error.message.includes("401")) {
         throw new Error("API key invalid or expired");
       }
       if (error.message.includes("timeout")) {
@@ -745,11 +696,7 @@ export async function generateCode(
 
   debugLog("v0", "[v0-generator] Chat created:", chat.id);
   debugLog("v0", "[v0-generator] Version status:", chat.latestVersion?.status);
-  debugLog(
-    "v0",
-    "[v0-generator] Files count:",
-    chat.latestVersion?.files?.length
-  );
+  debugLog("v0", "[v0-generator] Files count:", chat.latestVersion?.files?.length);
   debugLog("v0", "[v0-generator] demoUrl:", chat.latestVersion?.demoUrl);
 
   // Check if we have complete content (both files AND demoUrl are required)
@@ -771,9 +718,7 @@ export async function generateCode(
   } else if (status === "failed") {
     console.error("[v0-generator] Generation failed");
   } else if (hasCompleteContent) {
-    console.log(
-      "[v0-generator] Already have complete content, skipping polling"
-    );
+    console.log("[v0-generator] Already have complete content, skipping polling");
   }
 
   // Extract files from the response
@@ -795,16 +740,10 @@ export async function generateCode(
   } else {
     // Fallback: use the text response if no files were generated
     combinedCode = chat.text || "";
-    console.log(
-      "[v0-generator] Using text fallback, length:",
-      combinedCode.length
-    );
+    console.log("[v0-generator] Using text fallback, length:", combinedCode.length);
   }
 
-  console.log(
-    "[v0-generator] Generation complete, demoUrl:",
-    chat.latestVersion?.demoUrl
-  );
+  console.log("[v0-generator] Generation complete, demoUrl:", chat.latestVersion?.demoUrl);
 
   return {
     code: combinedCode,
@@ -827,7 +766,7 @@ export async function refineCode(
   existingCode: string,
   instruction: string,
   quality: QualityLevel = "standard",
-  mediaLibrary?: MediaLibraryItem[]
+  mediaLibrary?: MediaLibraryItem[],
 ): Promise<GenerationResult> {
   const modelId = MODEL_MAP[quality];
   const v0 = getV0Client();
@@ -835,15 +774,12 @@ export async function refineCode(
   // Apply media enhancement once to avoid double-wrapping further up the stack
   const instructionWithMedia = enhancePromptForV0(
     instruction,
-    mediaLibrary && mediaLibrary.length > 0 ? mediaLibrary : undefined
+    mediaLibrary && mediaLibrary.length > 0 ? mediaLibrary : undefined,
   );
 
   // If we have an existing chat ID, send a message to that chat
   if (existingChatId) {
-    console.log(
-      "[v0-generator] Sending refinement to existing chat:",
-      existingChatId
-    );
+    console.log("[v0-generator] Sending refinement to existing chat:", existingChatId);
 
     // Get current chat state to compare before/after
     let previousDemoUrl: string | undefined;
@@ -886,11 +822,7 @@ export async function refineCode(
     })) as ChatDetail;
 
     const refineStatus = chat.latestVersion?.status;
-    debugLog(
-      "v0",
-      "[v0-generator] Message sent, version status:",
-      refineStatus
-    );
+    debugLog("v0", "[v0-generator] Message sent, version status:", refineStatus);
 
     // If version is not ready yet, poll for completion
     // Only poll if status is "pending" (not "completed" or "failed")
@@ -915,63 +847,42 @@ export async function refineCode(
     const newVersionId = chat.latestVersion?.id;
 
     // ENHANCED LOGGING: Show detailed result info
-    console.log(
-      "[v0-generator] ═══════════════════════════════════════════════════"
-    );
+    console.log("[v0-generator] ═══════════════════════════════════════════════════");
     debugLog("v0", "[v0-generator] REFINEMENT COMPLETE:");
     debugLog("v0", "[v0-generator]   → New demoUrl:", newDemoUrl);
     debugLog("v0", "[v0-generator]   → New versionId:", newVersionId);
     debugLog("v0", "[v0-generator]   → Status:", chat.latestVersion?.status);
     debugLog("v0", "[v0-generator]   → Total files:", files.length);
-    console.log(
-      "[v0-generator] ───────────────────────────────────────────────────"
-    );
-    console.log(
-      "[v0-generator] MAIN FILE SELECTED:",
-      mainFile?.name || "(none)"
-    );
+    console.log("[v0-generator] ───────────────────────────────────────────────────");
+    console.log("[v0-generator] MAIN FILE SELECTED:", mainFile?.name || "(none)");
     console.log(
       "[v0-generator] Main file content length:",
       mainFile?.content?.length || 0,
-      "chars"
+      "chars",
     );
-    console.log(
-      "[v0-generator] ───────────────────────────────────────────────────"
-    );
+    console.log("[v0-generator] ───────────────────────────────────────────────────");
     debugLog("v0", "[v0-generator] ALL FILES RETURNED:");
     files.slice(0, 15).forEach((file, i) => {
       const isMain = file.name === mainFile?.name ? " ← MAIN" : "";
       console.log(
-        `[v0-generator]   ${i + 1}. ${file.name} (${
-          file.content?.length || 0
-        } chars)${isMain}`
+        `[v0-generator]   ${i + 1}. ${file.name} (${file.content?.length || 0} chars)${isMain}`,
       );
     });
     if (files.length > 15) {
       console.log(`[v0-generator]   ... and ${files.length - 15} more files`);
     }
-    console.log(
-      "[v0-generator] ═══════════════════════════════════════════════════"
-    );
+    console.log("[v0-generator] ═══════════════════════════════════════════════════");
 
     // Check if demoUrl changed (important for debugging cache issues)
     if (previousDemoUrl && newDemoUrl === previousDemoUrl) {
-      console.warn(
-        "[v0-generator] ⚠️  WARNING: demoUrl did not change after refine!"
-      );
-      console.warn(
-        "  This might indicate v0 returned cached version or refine failed"
-      );
+      console.warn("[v0-generator] ⚠️  WARNING: demoUrl did not change after refine!");
+      console.warn("  This might indicate v0 returned cached version or refine failed");
     } else if (previousDemoUrl && newDemoUrl) {
-      console.log(
-        "[v0-generator] ✓ demoUrl changed successfully (version updated)"
-      );
+      console.log("[v0-generator] ✓ demoUrl changed successfully (version updated)");
     }
 
     if (previousVersionId && newVersionId === previousVersionId) {
-      console.warn(
-        "[v0-generator] ⚠️  WARNING: versionId did not change after refine!"
-      );
+      console.warn("[v0-generator] ⚠️  WARNING: versionId did not change after refine!");
     }
 
     return {
@@ -987,17 +898,13 @@ export async function refineCode(
   }
 
   // If no chat ID, create a new chat with the refinement context
-  console.log(
-    "[v0-generator] No chatId provided, creating new chat for refinement..."
-  );
+  console.log("[v0-generator] No chatId provided, creating new chat for refinement...");
 
   // Simpler refinement prompt - include code context but skip verbose rules
   const refinementPrompt = `Refine this existing code:
 
 \`\`\`tsx
-${existingCode.substring(0, 50000)}${
-    existingCode.length > 50000 ? "\n... [truncated]" : ""
-  }
+${existingCode.substring(0, 50000)}${existingCode.length > 50000 ? "\n... [truncated]" : ""}
 \`\`\`
 
 ${instructionWithMedia}
@@ -1020,7 +927,7 @@ Keep the overall structure, just apply the requested changes.`;
 export async function generateFromTemplate(
   templateId: string,
   quality: QualityLevel = "standard",
-  maxRetries: number = 2
+  maxRetries: number = 2,
 ): Promise<GenerationResult> {
   const model = MODEL_MAP[quality];
   console.log(
@@ -1029,7 +936,7 @@ export async function generateFromTemplate(
     "quality:",
     quality,
     "→",
-    model
+    model,
   );
 
   const v0 = getV0Client();
@@ -1038,9 +945,7 @@ export async function generateFromTemplate(
   for (let attempt = 1; attempt <= maxRetries + 1; attempt++) {
     try {
       if (attempt > 1) {
-        console.log(
-          `[v0-generator] Retry attempt ${attempt}/${maxRetries + 1}...`
-        );
+        console.log(`[v0-generator] Retry attempt ${attempt}/${maxRetries + 1}...`);
         // Wait before retry (exponential backoff: 2s, 4s)
         await new Promise((resolve) => setTimeout(resolve, attempt * 2000));
       }
@@ -1053,23 +958,14 @@ export async function generateFromTemplate(
       })) as ChatDetail;
 
       debugLog("v0", "[v0-generator] Template initialized:", chat.id);
-      debugLog(
-        "v0",
-        "[v0-generator] Version status:",
-        chat.latestVersion?.status
-      );
-      console.log(
-        "[v0-generator] Files count:",
-        chat.latestVersion?.files?.length
-      );
+      debugLog("v0", "[v0-generator] Version status:", chat.latestVersion?.status);
+      console.log("[v0-generator] Files count:", chat.latestVersion?.files?.length);
       debugLog("v0", "[v0-generator] demoUrl:", chat.latestVersion?.demoUrl);
 
       // Check if template loading failed (status check)
       const status = chat.latestVersion?.status;
       if (status === "failed") {
-        console.error(
-          "[v0-generator] Template loading failed with status: failed"
-        );
+        console.error("[v0-generator] Template loading failed with status: failed");
         throw new Error("Template loading failed - status was 'failed'");
       }
 
@@ -1085,9 +981,7 @@ export async function generateFromTemplate(
 
       // Warn if no content was returned (but don't throw - demoUrl might still work)
       if (files.length === 0 && !chat.latestVersion?.demoUrl) {
-        console.warn(
-          "[v0-generator] Template returned no files and no demoUrl"
-        );
+        console.warn("[v0-generator] Template returned no files and no demoUrl");
       }
 
       return {
@@ -1101,10 +995,7 @@ export async function generateFromTemplate(
         model: model, // Return actual model used (even if SDK ignored it for template)
       };
     } catch (error) {
-      console.error(
-        `[v0-generator] Template init error (attempt ${attempt}):`,
-        error
-      );
+      console.error(`[v0-generator] Template init error (attempt ${attempt}):`, error);
       lastError = error instanceof Error ? error : new Error(String(error));
 
       // Check if error is retryable (transient server errors)
@@ -1136,9 +1027,7 @@ export async function generateFromTemplate(
       if (attempt === maxRetries + 1) {
         console.error("[v0-generator] All retry attempts failed");
         if (msg.includes("500") || msg.includes("internal_server_error")) {
-          throw new Error(
-            "v0 API har tillfälliga problem. Prova igen om en stund."
-          );
+          throw new Error("v0 API har tillfälliga problem. Prova igen om en stund.");
         }
         if (msg.includes("502") || msg.includes("503") || msg.includes("504")) {
           throw new Error("v0 API är tillfälligt otillgänglig. Prova igen.");
@@ -1177,7 +1066,7 @@ export async function initFromRegistry(
     quality?: QualityLevel;
     name?: string;
     maxRetries?: number;
-  } = {}
+  } = {},
 ): Promise<GenerationResult> {
   const { quality = "standard", name, maxRetries = 2 } = options;
   const model = MODEL_MAP[quality];
@@ -1188,7 +1077,7 @@ export async function initFromRegistry(
     "quality:",
     quality,
     "→",
-    model
+    model,
   );
 
   const v0 = getV0Client();
@@ -1197,11 +1086,7 @@ export async function initFromRegistry(
   for (let attempt = 1; attempt <= maxRetries + 1; attempt++) {
     try {
       if (attempt > 1) {
-        console.log(
-          `[v0-generator] Registry retry attempt ${attempt}/${
-            maxRetries + 1
-          }...`
-        );
+        console.log(`[v0-generator] Registry retry attempt ${attempt}/${maxRetries + 1}...`);
         await new Promise((resolve) => setTimeout(resolve, attempt * 2000));
       }
 
@@ -1210,28 +1095,18 @@ export async function initFromRegistry(
         type: "registry",
         registry: { url: registryUrl },
         chatPrivacy: "private",
-        name:
-          name || `Registry: ${new URL(registryUrl).pathname.split("/").pop()}`,
+        name: name || `Registry: ${new URL(registryUrl).pathname.split("/").pop()}`,
       })) as ChatDetail;
 
       debugLog("v0", "[v0-generator] Registry initialized:", chat.id);
-      debugLog(
-        "v0",
-        "[v0-generator] Version status:",
-        chat.latestVersion?.status
-      );
-      console.log(
-        "[v0-generator] Files count:",
-        chat.latestVersion?.files?.length
-      );
+      debugLog("v0", "[v0-generator] Version status:", chat.latestVersion?.status);
+      console.log("[v0-generator] Files count:", chat.latestVersion?.files?.length);
       debugLog("v0", "[v0-generator] demoUrl:", chat.latestVersion?.demoUrl);
 
       // Check if initialization failed
       const status = chat.latestVersion?.status;
       if (status === "failed") {
-        console.error(
-          "[v0-generator] Registry loading failed with status: failed"
-        );
+        console.error("[v0-generator] Registry loading failed with status: failed");
         throw new Error("Registry loading failed - status was 'failed'");
       }
 
@@ -1246,9 +1121,7 @@ export async function initFromRegistry(
       const mainFile = findMainFile(files);
 
       if (files.length === 0 && !chat.latestVersion?.demoUrl) {
-        console.warn(
-          "[v0-generator] Registry returned no files and no demoUrl"
-        );
+        console.warn("[v0-generator] Registry returned no files and no demoUrl");
       }
 
       return {
@@ -1262,12 +1135,8 @@ export async function initFromRegistry(
         model,
       };
     } catch (error) {
-      console.error(
-        `[v0-generator] Registry init error (attempt ${attempt}):`,
-        error
-      );
-      lastError =
-        error instanceof Error ? error : new Error("Unknown registry error");
+      console.error(`[v0-generator] Registry init error (attempt ${attempt}):`, error);
+      lastError = error instanceof Error ? error : new Error("Unknown registry error");
 
       // Check for transient errors that should be retried
       const msg = error instanceof Error ? error.message : String(error);
@@ -1307,13 +1176,8 @@ export interface TemplatePreviewResult {
  * Returns chatId, demoUrl, and screenshotUrl WITHOUT downloading all files
  * Used for gallery preview before user selects the template
  */
-export async function initTemplatePreview(
-  v0TemplateId: string
-): Promise<TemplatePreviewResult> {
-  console.log(
-    "[v0-generator] Initializing preview for template:",
-    v0TemplateId
-  );
+export async function initTemplatePreview(v0TemplateId: string): Promise<TemplatePreviewResult> {
+  console.log("[v0-generator] Initializing preview for template:", v0TemplateId);
 
   const v0 = getV0Client();
 
@@ -1339,16 +1203,10 @@ export async function initTemplatePreview(
     console.error("[v0-generator] Preview init error:", error);
 
     if (error instanceof Error) {
-      if (
-        error.message.includes("not found") ||
-        error.message.includes("404")
-      ) {
+      if (error.message.includes("not found") || error.message.includes("404")) {
         throw new Error("Template not found");
       }
-      if (
-        error.message.includes("rate limit") ||
-        error.message.includes("429")
-      ) {
+      if (error.message.includes("rate limit") || error.message.includes("429")) {
         throw new Error("Rate limit exceeded");
       }
     }

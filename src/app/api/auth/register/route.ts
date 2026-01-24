@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
     if (!email || !password) {
       return NextResponse.json(
         { success: false, error: "E-post och lösenord krävs" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -28,10 +28,7 @@ export async function POST(req: NextRequest) {
     const result = await registerUser(email, password, name);
 
     if ("error" in result) {
-      return NextResponse.json(
-        { success: false, error: result.error },
-        { status: 400 }
-      );
+      return NextResponse.json({ success: false, error: result.error }, { status: 400 });
     }
 
     // Record signup bonus transaction
@@ -39,7 +36,7 @@ export async function POST(req: NextRequest) {
       result.user.id,
       "signup_bonus",
       0, // Already have 5 diamonds from creation
-      "Välkomstbonus vid registrering"
+      "Välkomstbonus vid registrering",
     );
 
     // Set auth cookie
@@ -61,7 +58,7 @@ export async function POST(req: NextRequest) {
     console.error("[API/auth/register] Error:", error);
     return NextResponse.json(
       { success: false, error: "Något gick fel vid registrering" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

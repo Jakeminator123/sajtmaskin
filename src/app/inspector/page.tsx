@@ -34,16 +34,12 @@ function buildSelector(el: Element): string {
     const tag = cur.tagName.toLowerCase();
 
     const classList = Array.from((cur as HTMLElement).classList || []);
-    const classPart = classList.length
-      ? "." + classList.slice(0, 2).map(cssEscape).join(".")
-      : "";
+    const classPart = classList.length ? "." + classList.slice(0, 2).map(cssEscape).join(".") : "";
 
     let nth = 1;
     const parent = cur.parentElement;
     if (parent) {
-      const siblings = Array.from(parent.children).filter(
-        (c) => c.tagName === cur!.tagName
-      );
+      const siblings = Array.from(parent.children).filter((c) => c.tagName === cur!.tagName);
       nth = siblings.indexOf(cur) + 1;
     }
 
@@ -195,8 +191,7 @@ export default function InspectorPage() {
       const onMouseMove = (e: MouseEvent) => {
         if (freeze) return;
         const target = e.target as Element | null;
-        if (!target || target === doc.documentElement || target === doc.body)
-          return;
+        if (!target || target === doc.documentElement || target === doc.body) return;
 
         applyHover(target);
         setHovered(pickInfoFrom(target));
@@ -204,8 +199,7 @@ export default function InspectorPage() {
 
       const onClick = (e: MouseEvent) => {
         const target = e.target as Element | null;
-        if (!target || target === doc.documentElement || target === doc.body)
-          return;
+        if (!target || target === doc.documentElement || target === doc.body) return;
 
         // Prevent navigation
         e.preventDefault();
@@ -269,11 +263,11 @@ export default function InspectorPage() {
   }
 
   return (
-    <div className="h-screen flex bg-zinc-950 text-zinc-100">
+    <div className="flex h-screen bg-zinc-950 text-zinc-100">
       {/* Left: iframe preview */}
-      <div className="flex-1 flex flex-col border-r border-zinc-800">
+      <div className="flex flex-1 flex-col border-r border-zinc-800">
         {/* URL bar */}
-        <div className="p-3 flex gap-2 items-center bg-zinc-900 border-b border-zinc-800">
+        <div className="flex items-center gap-2 border-b border-zinc-800 bg-zinc-900 p-3">
           <label htmlFor="inspector-url" className="sr-only">
             URL att ladda i inspektören
           </label>
@@ -284,18 +278,18 @@ export default function InspectorPage() {
             onChange={(e) => setUrl(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && loadFromInternet()}
             placeholder="https://..."
-            className="flex-1 px-4 py-2.5 rounded-xl bg-zinc-800 border border-zinc-700 text-zinc-100 placeholder:text-zinc-500 focus:outline-none focus:ring-2 focus:ring-brand-blue/50"
+            className="focus:ring-brand-blue/50 flex-1 rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-2.5 text-zinc-100 placeholder:text-zinc-500 focus:ring-2 focus:outline-none"
           />
           <button
             onClick={loadFromInternet}
             disabled={loading}
-            className="px-4 py-2.5 rounded-xl bg-brand-blue hover:bg-brand-blue/90 text-white font-medium transition-colors disabled:opacity-50"
+            className="bg-brand-blue hover:bg-brand-blue/90 rounded-xl px-4 py-2.5 font-medium text-white transition-colors disabled:opacity-50"
           >
             {loading ? "Loading..." : "Load URL"}
           </button>
           <button
             onClick={resetToFallback}
-            className="px-4 py-2.5 rounded-xl bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-300 font-medium transition-colors"
+            className="rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-2.5 font-medium text-zinc-300 transition-colors hover:bg-zinc-700"
           >
             Reset
           </button>
@@ -303,33 +297,29 @@ export default function InspectorPage() {
 
         {/* Error message */}
         {error && (
-          <div className="px-4 py-3 bg-red-500/10 border-b border-red-500/20 text-red-400 text-sm">
+          <div className="border-b border-red-500/20 bg-red-500/10 px-4 py-3 text-sm text-red-400">
             ⚠️ {error}
           </div>
         )}
 
         {/* The iframe */}
-        <iframe
-          ref={iframeRef}
-          srcDoc={html}
-          className="flex-1 w-full border-0 bg-white"
-        />
+        <iframe ref={iframeRef} srcDoc={html} className="w-full flex-1 border-0 bg-white" />
       </div>
 
       {/* Right: Inspector panel */}
-      <div className="w-96 p-4 overflow-y-auto bg-zinc-900">
-        <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+      <div className="w-96 overflow-y-auto bg-zinc-900 p-4">
+        <h2 className="mb-4 flex items-center gap-2 text-xl font-semibold">
           <span className="text-2xl">🔍</span> Element Inspector
         </h2>
 
         {/* Controls */}
-        <div className="flex gap-2 mb-5">
+        <div className="mb-5 flex gap-2">
           <button
             onClick={() => setFreeze((v) => !v)}
-            className={`flex-1 px-4 py-2.5 rounded-xl font-medium transition-colors ${
+            className={`flex-1 rounded-xl px-4 py-2.5 font-medium transition-colors ${
               freeze
-                ? "bg-brand-amber/20 text-brand-amber border border-brand-amber/30"
-                : "bg-zinc-800 text-zinc-300 border border-zinc-700 hover:bg-zinc-700"
+                ? "bg-brand-amber/20 text-brand-amber border-brand-amber/30 border"
+                : "border border-zinc-700 bg-zinc-800 text-zinc-300 hover:bg-zinc-700"
             }`}
           >
             {freeze ? "🔒 Frozen" : "🔓 Live"}
@@ -339,7 +329,7 @@ export default function InspectorPage() {
               setSelected(null);
               setFreeze(false);
             }}
-            className="flex-1 px-4 py-2.5 rounded-xl bg-zinc-800 text-zinc-300 border border-zinc-700 hover:bg-zinc-700 font-medium transition-colors"
+            className="flex-1 rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-2.5 font-medium text-zinc-300 transition-colors hover:bg-zinc-700"
           >
             Clear Selection
           </button>
@@ -347,41 +337,35 @@ export default function InspectorPage() {
 
         {/* Hovered element info */}
         <div className="mb-5">
-          <div className="text-sm font-medium text-zinc-400 mb-2 flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-brand-blue"></span>
+          <div className="mb-2 flex items-center gap-2 text-sm font-medium text-zinc-400">
+            <span className="bg-brand-blue h-2 w-2 rounded-full"></span>
             Hovered Element
           </div>
-          <pre className="p-3 rounded-xl bg-zinc-800/50 border border-zinc-700/50 text-xs text-zinc-300 overflow-x-auto whitespace-pre-wrap">
-            {hovered
-              ? JSON.stringify(hovered, null, 2)
-              : "— hover over an element —"}
+          <pre className="overflow-x-auto rounded-xl border border-zinc-700/50 bg-zinc-800/50 p-3 text-xs whitespace-pre-wrap text-zinc-300">
+            {hovered ? JSON.stringify(hovered, null, 2) : "— hover over an element —"}
           </pre>
         </div>
 
         {/* Selected element info */}
         <div className="mb-5">
-          <div className="text-sm font-medium text-zinc-400 mb-2 flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-green-500"></span>
+          <div className="mb-2 flex items-center gap-2 text-sm font-medium text-zinc-400">
+            <span className="h-2 w-2 rounded-full bg-green-500"></span>
             Selected Element (click)
           </div>
-          <pre className="p-3 rounded-xl bg-zinc-800/50 border border-zinc-700/50 text-xs text-zinc-300 overflow-x-auto whitespace-pre-wrap">
-            {selected
-              ? JSON.stringify(selected, null, 2)
-              : "— click to select —"}
+          <pre className="overflow-x-auto rounded-xl border border-zinc-700/50 bg-zinc-800/50 p-3 text-xs whitespace-pre-wrap text-zinc-300">
+            {selected ? JSON.stringify(selected, null, 2) : "— click to select —"}
           </pre>
         </div>
 
         {/* Tips */}
-        <div className="p-4 rounded-xl bg-zinc-800/30 border border-zinc-700/30">
-          <div className="text-sm font-medium text-zinc-400 mb-2">💡 Tips</div>
-          <ul className="text-xs text-zinc-500 space-y-1.5">
+        <div className="rounded-xl border border-zinc-700/30 bg-zinc-800/30 p-4">
+          <div className="mb-2 text-sm font-medium text-zinc-400">💡 Tips</div>
+          <ul className="space-y-1.5 text-xs text-zinc-500">
             <li>
-              • Hover to highlight elements in{" "}
-              <span className="text-brand-blue">blue</span>
+              • Hover to highlight elements in <span className="text-brand-blue">blue</span>
             </li>
             <li>
-              • Click to select (locks in{" "}
-              <span className="text-green-400">green</span>)
+              • Click to select (locks in <span className="text-green-400">green</span>)
             </li>
             <li>• Use &ldquo;Frozen&rdquo; to pause hover updates</li>
             <li>• CSS selector is auto-generated for each element</li>
@@ -389,11 +373,8 @@ export default function InspectorPage() {
         </div>
 
         {/* Back link */}
-        <div className="mt-6 pt-4 border-t border-zinc-800">
-          <Link
-            href="/"
-            className="text-sm text-zinc-500 hover:text-zinc-300 transition-colors"
-          >
+        <div className="mt-6 border-t border-zinc-800 pt-4">
+          <Link href="/" className="text-sm text-zinc-500 transition-colors hover:text-zinc-300">
             ← Back to Sajtmaskin
           </Link>
         </div>

@@ -1,7 +1,7 @@
-'use client';
+"use client";
 
-import { Component, ReactNode } from 'react';
-import { AlertCircle } from 'lucide-react';
+import { Component, ReactNode } from "react";
+import { AlertCircle } from "lucide-react";
 
 interface Props {
   children: ReactNode;
@@ -24,7 +24,7 @@ export class ErrorBoundary extends Component<Props, State> {
   }
 
   componentDidCatch(error: Error, errorInfo: any) {
-    console.error('ErrorBoundary caught an error:', error, errorInfo);
+    console.error("ErrorBoundary caught an error:", error, errorInfo);
   }
 
   render() {
@@ -35,17 +35,17 @@ export class ErrorBoundary extends Component<Props, State> {
 
       return (
         <div className="flex flex-col items-center justify-center p-8 text-center">
-          <AlertCircle className="h-12 w-12 text-red-500 mb-4" />
-          <h2 className="text-xl font-semibold mb-2">Something went wrong</h2>
-          <p className="text-gray-600 mb-4">
-            {this.state.error?.message || 'An unexpected error occurred'}
+          <AlertCircle className="mb-4 h-12 w-12 text-red-500" />
+          <h2 className="mb-2 text-xl font-semibold">Something went wrong</h2>
+          <p className="mb-4 text-gray-600">
+            {this.state.error?.message || "An unexpected error occurred"}
           </p>
           <button
             onClick={() => {
               this.setState({ hasError: false, error: null });
               window.location.reload();
             }}
-            className="px-4 py-2 bg-brand-blue text-white rounded hover:bg-brand-blue/90"
+            className="bg-brand-blue hover:bg-brand-blue/90 rounded px-4 py-2 text-white"
           >
             Reload Page
           </button>

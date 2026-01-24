@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
     if (!trackUrl) {
       return NextResponse.json(
         { success: false, error: "Missing downloadLocation or photoId" },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
       console.error(
         `[API/unsplash/download] Failed to track download:`,
         response.status,
-        await response.text()
+        await response.text(),
       );
       // Don't fail the request - tracking is best-effort
       return NextResponse.json({ success: true, tracked: false });

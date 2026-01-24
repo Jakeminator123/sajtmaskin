@@ -1,14 +1,11 @@
-import { NextResponse } from 'next/server';
-import { assertV0Key } from '@/lib/v0';
-import { db } from '@/lib/db/client';
-import { versions } from '@/lib/db/schema';
-import { eq, desc } from 'drizzle-orm';
-import { getChatByV0ChatIdForRequest } from '@/lib/tenant';
+import { NextResponse } from "next/server";
+import { assertV0Key } from "@/lib/v0";
+import { db } from "@/lib/db/client";
+import { versions } from "@/lib/db/schema";
+import { eq, desc } from "drizzle-orm";
+import { getChatByV0ChatIdForRequest } from "@/lib/tenant";
 
-export async function GET(
-  req: Request,
-  ctx: { params: Promise<{ chatId: string }> }
-) {
+export async function GET(req: Request, ctx: { params: Promise<{ chatId: string }> }) {
   try {
     assertV0Key();
 
@@ -49,12 +46,12 @@ export async function GET(
 
     return NextResponse.json({
       chatId,
-      message: 'Chat not found in database. It may need to be created first.',
+      message: "Chat not found in database. It may need to be created first.",
     });
   } catch (err) {
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : 'Unknown error' },
-      { status: 500 }
+      { error: err instanceof Error ? err.message : "Unknown error" },
+      { status: 500 },
     );
   }
 }

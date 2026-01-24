@@ -10,9 +10,7 @@ import { URLS, SECRETS } from "@/lib/config";
 import Stripe from "stripe";
 
 // Initialize Stripe
-const stripe = SECRETS.stripeSecretKey
-  ? new Stripe(SECRETS.stripeSecretKey)
-  : null;
+const stripe = SECRETS.stripeSecretKey ? new Stripe(SECRETS.stripeSecretKey) : null;
 
 export async function POST(req: NextRequest) {
   try {
@@ -21,7 +19,7 @@ export async function POST(req: NextRequest) {
       console.error("[Stripe/checkout] Stripe not configured");
       return NextResponse.json(
         { success: false, error: "Betalningssystemet är inte konfigurerat" },
-        { status: 500 }
+        { status: 500 },
       );
     }
 
@@ -33,7 +31,7 @@ export async function POST(req: NextRequest) {
           success: false,
           error: "Du måste vara inloggad för att köpa diamanter",
         },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
@@ -42,19 +40,13 @@ export async function POST(req: NextRequest) {
     const { packageId } = body as { packageId?: string };
 
     if (!packageId) {
-      return NextResponse.json(
-        { success: false, error: "Paket-ID saknas" },
-        { status: 400 }
-      );
+      return NextResponse.json({ success: false, error: "Paket-ID saknas" }, { status: 400 });
     }
 
     // Get package details
     const packageData = getPackageById(packageId);
     if (!packageData) {
-      return NextResponse.json(
-        { success: false, error: "Ogiltigt paket" },
-        { status: 400 }
-      );
+      return NextResponse.json({ success: false, error: "Ogiltigt paket" }, { status: 400 });
     }
 
     // Get base URL for redirects
@@ -102,13 +94,16 @@ export async function POST(req: NextRequest) {
     if (error instanceof Stripe.errors.StripeError) {
       return NextResponse.json(
         { success: false, error: "Betalningsfel: " + error.message },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
     return NextResponse.json(
-      { success: false, error: "Kunde inte starta betalning. Kontrollera att du är inloggad och försök igen." },
-      { status: 500 }
+      {
+        success: false,
+        error: "Kunde inte starta betalning. Kontrollera att du är inloggad och försök igen.",
+      },
+      { status: 500 },
     );
   }
 }

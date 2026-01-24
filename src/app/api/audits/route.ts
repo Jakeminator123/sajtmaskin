@@ -6,16 +6,8 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/auth";
-import {
-  getUserAudits,
-  saveUserAudit,
-  getUserAuditCount,
-} from "@/lib/data/database";
-import {
-  getCachedUserAuditList,
-  cacheUserAuditList,
-  cacheAudit,
-} from "@/lib/data/redis";
+import { getUserAudits, saveUserAudit, getUserAuditCount } from "@/lib/data/database";
+import { getCachedUserAuditList, cacheUserAuditList, cacheAudit } from "@/lib/data/redis";
 
 // Maximum audits per user (to prevent abuse)
 const MAX_AUDITS_PER_USER = 50;
@@ -30,7 +22,7 @@ export async function GET(request: NextRequest) {
     if (!user) {
       return NextResponse.json(
         { success: false, error: "Du måste vara inloggad." },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
@@ -73,7 +65,7 @@ export async function GET(request: NextRequest) {
     console.error("[API/audits] GET error:", error);
     return NextResponse.json(
       { success: false, error: "Kunde inte hämta audits." },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }
@@ -88,7 +80,7 @@ export async function POST(request: NextRequest) {
     if (!user) {
       return NextResponse.json(
         { success: false, error: "Du måste vara inloggad." },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
@@ -98,7 +90,7 @@ export async function POST(request: NextRequest) {
     if (!url || !domain || !auditResult) {
       return NextResponse.json(
         { success: false, error: "Saknar nödvändig data." },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -110,7 +102,7 @@ export async function POST(request: NextRequest) {
           success: false,
           error: `Du har nått maxgränsen på ${MAX_AUDITS_PER_USER} sparade audits. Ta bort gamla för att spara nya.`,
         },
-        { status: 400 }
+        { status: 400 },
       );
     }
 
@@ -120,9 +112,7 @@ export async function POST(request: NextRequest) {
     // Cache the audit
     await cacheAudit(savedAudit.id, user.id, auditResult);
 
-    console.log(
-      `[API/audits] Saved audit ${savedAudit.id} for user ${user.id}: ${domain}`
-    );
+    console.log(`[API/audits] Saved audit ${savedAudit.id} for user ${user.id}: ${domain}`);
 
     return NextResponse.json({
       success: true,
@@ -136,9 +126,6 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error("[API/audits] POST error:", error);
-    return NextResponse.json(
-      { success: false, error: "Kunde inte spara audit." },
-      { status: 500 }
-    );
+    return NextResponse.json({ success: false, error: "Kunde inte spara audit." }, { status: 500 });
   }
 }

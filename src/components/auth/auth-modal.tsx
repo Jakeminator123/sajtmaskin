@@ -4,16 +4,7 @@ import { useEffect, useState } from "react";
 import { useAuthStore } from "@/lib/auth/auth-store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import {
-  X,
-  Mail,
-  Lock,
-  User,
-  Eye,
-  EyeOff,
-  Loader2,
-  Diamond,
-} from "lucide-react";
+import { X, Mail, Lock, User, Eye, EyeOff, Loader2, Diamond } from "lucide-react";
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -21,11 +12,7 @@ interface AuthModalProps {
   defaultMode?: "login" | "register";
 }
 
-export function AuthModal({
-  isOpen,
-  onClose,
-  defaultMode = "login",
-}: AuthModalProps) {
+export function AuthModal({ isOpen, onClose, defaultMode = "login" }: AuthModalProps) {
   const [mode, setMode] = useState<"login" | "register">(defaultMode);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -61,12 +48,9 @@ export function AuthModal({
     setIsLoading(true);
 
     try {
-      const endpoint =
-        mode === "login" ? "/api/auth/login" : "/api/auth/register";
+      const endpoint = mode === "login" ? "/api/auth/login" : "/api/auth/register";
       const body =
-        mode === "login"
-          ? { email, password }
-          : { email, password, name: name || undefined };
+        mode === "login" ? { email, password } : { email, password, name: name || undefined };
 
       const response = await fetch(endpoint, {
         method: "POST",
@@ -77,7 +61,9 @@ export function AuthModal({
       const data = await response.json();
 
       if (!data.success) {
-        setError(data.error || "Inloggning misslyckades. Kontrollera dina uppgifter och försök igen.");
+        setError(
+          data.error || "Inloggning misslyckades. Kontrollera dina uppgifter och försök igen.",
+        );
         return;
       }
 
@@ -104,25 +90,20 @@ export function AuthModal({
       typeof window !== "undefined"
         ? `${window.location.pathname}${window.location.search}${window.location.hash}`
         : "/";
-    window.location.href = `/api/auth/google?redirect=${encodeURIComponent(
-      redirectTarget
-    )}`;
+    window.location.href = `/api/auth/google?redirect=${encodeURIComponent(redirectTarget)}`;
   };
 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center">
       {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/80 backdrop-blur-sm"
-        onClick={onClose}
-      />
+      <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={onClose} />
 
       {/* Modal */}
-      <div className="relative w-full max-w-md mx-4 bg-black border border-gray-800 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
+      <div className="animate-in fade-in zoom-in-95 relative mx-4 w-full max-w-md border border-gray-800 bg-black shadow-2xl duration-200">
         {/* Close button */}
         <button
           onClick={onClose}
-          className="absolute right-4 top-4 p-1.5 hover:bg-gray-800 text-gray-500 hover:text-gray-300 transition-colors"
+          className="absolute top-4 right-4 p-1.5 text-gray-500 transition-colors hover:bg-gray-800 hover:text-gray-300"
         >
           <X className="h-5 w-5" />
         </button>
@@ -140,25 +121,23 @@ export function AuthModal({
 
           {/* Signup bonus indicator */}
           {mode === "register" && (
-            <div className="mt-4 inline-flex items-center gap-2 px-4 py-2 bg-brand-amber/10 border border-brand-amber/30">
-              <Diamond className="h-4 w-4 text-brand-amber" />
-              <span className="text-sm font-medium text-brand-amber">
-                +5 diamanter gratis
-              </span>
+            <div className="bg-brand-amber/10 border-brand-amber/30 mt-4 inline-flex items-center gap-2 border px-4 py-2">
+              <Diamond className="text-brand-amber h-4 w-4" />
+              <span className="text-brand-amber text-sm font-medium">+5 diamanter gratis</span>
             </div>
           )}
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="p-6 pt-0 space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-4 p-6 pt-0">
           {/* Google login */}
           <Button
             type="button"
             variant="outline"
-            className="w-full h-11 border-gray-700 bg-gray-900/50 hover:bg-gray-800 text-white"
+            className="h-11 w-full border-gray-700 bg-gray-900/50 text-white hover:bg-gray-800"
             onClick={handleGoogleLogin}
           >
-            <svg className="h-5 w-5 mr-2" viewBox="0 0 24 24">
+            <svg className="mr-2 h-5 w-5" viewBox="0 0 24 24">
               <path
                 fill="currentColor"
                 d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
@@ -185,26 +164,22 @@ export function AuthModal({
               <div className="w-full border-t border-gray-800" />
             </div>
             <div className="relative flex justify-center text-xs">
-              <span className="px-2 bg-black text-gray-500">
-                eller med e-post
-              </span>
+              <span className="bg-black px-2 text-gray-500">eller med e-post</span>
             </div>
           </div>
 
           {/* Name field (register only) */}
           {mode === "register" && (
             <div className="space-y-1.5">
-              <label className="text-sm font-medium text-gray-300">
-                Namn (valfritt)
-              </label>
+              <label className="text-sm font-medium text-gray-300">Namn (valfritt)</label>
               <div className="relative">
-                <User className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+                <User className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-gray-500" />
                 <Input
                   type="text"
                   placeholder="Ditt namn"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
-                  className="pl-10 h-11 bg-black/50 border-gray-700 text-white placeholder:text-gray-500 focus:border-brand-teal"
+                  className="focus:border-brand-teal h-11 border-gray-700 bg-black/50 pl-10 text-white placeholder:text-gray-500"
                 />
               </div>
             </div>
@@ -214,53 +189,45 @@ export function AuthModal({
           <div className="space-y-1.5">
             <label className="text-sm font-medium text-gray-300">E-post</label>
             <div className="relative">
-              <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+              <Mail className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-gray-500" />
               <Input
                 type="email"
                 placeholder="din@email.se"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="pl-10 h-11 bg-black/50 border-gray-700 text-white placeholder:text-gray-500 focus:border-brand-teal"
+                className="focus:border-brand-teal h-11 border-gray-700 bg-black/50 pl-10 text-white placeholder:text-gray-500"
               />
             </div>
           </div>
 
           {/* Password field */}
           <div className="space-y-1.5">
-            <label className="text-sm font-medium text-gray-300">
-              Lösenord
-            </label>
+            <label className="text-sm font-medium text-gray-300">Lösenord</label>
             <div className="relative">
-              <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+              <Lock className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-gray-500" />
               <Input
                 type={showPassword ? "text" : "password"}
-                placeholder={
-                  mode === "register" ? "Minst 6 tecken" : "••••••••"
-                }
+                placeholder={mode === "register" ? "Minst 6 tecken" : "••••••••"}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
                 minLength={mode === "register" ? 6 : undefined}
-                className="pl-10 pr-10 h-11 bg-black/50 border-gray-700 text-white placeholder:text-gray-500 focus:border-brand-teal"
+                className="focus:border-brand-teal h-11 border-gray-700 bg-black/50 pr-10 pl-10 text-white placeholder:text-gray-500"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-300"
+                className="absolute top-1/2 right-3 -translate-y-1/2 text-gray-500 hover:text-gray-300"
               >
-                {showPassword ? (
-                  <EyeOff className="h-4 w-4" />
-                ) : (
-                  <Eye className="h-4 w-4" />
-                )}
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
             </div>
           </div>
 
           {/* Error message */}
           {error && (
-            <div className="p-3 bg-red-500/10 border border-red-500/30 text-sm text-red-400">
+            <div className="border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-400">
               {error}
             </div>
           )}
@@ -268,7 +235,7 @@ export function AuthModal({
           {/* Submit button */}
           <Button
             type="submit"
-            className="w-full h-11 bg-brand-teal hover:bg-brand-teal/90 text-white font-medium"
+            className="bg-brand-teal hover:bg-brand-teal/90 h-11 w-full font-medium text-white"
             disabled={isLoading}
           >
             {isLoading ? (

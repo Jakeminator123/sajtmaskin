@@ -1,4 +1,4 @@
-import useSWR from 'swr';
+import useSWR from "swr";
 
 const fetcher = async (url: string) => {
   const res = await fetch(url);
@@ -18,7 +18,7 @@ export function useDeployments(chatId: string | null) {
       revalidateOnFocus: false,
       revalidateOnReconnect: true,
       refreshInterval: 5000,
-    }
+    },
   );
 
   return {
