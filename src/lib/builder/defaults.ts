@@ -67,12 +67,53 @@ export interface PromptAssistProviderOption {
   description?: string;
 }
 
+export interface PromptAssistModelOption {
+  value: string;
+  label: string;
+}
+
 export const PROMPT_ASSIST_PROVIDER_OPTIONS: PromptAssistProviderOption[] = [
   { value: "off", label: "Av", description: "Skicka prompt direkt" },
   { value: "gateway", label: "AI Gateway", description: "Rekommenderad (fallback)" },
   { value: "openai", label: "OpenAI", description: "GPT-modeller" },
   { value: "anthropic", label: "Claude", description: "Anthropic-modeller" },
 ];
+
+export const PROMPT_ASSIST_MODEL_OPTIONS: Record<PromptAssistProvider, PromptAssistModelOption[]> = {
+  off: [],
+  gateway: [
+    { value: "openai/gpt-5.2", label: "GPT‑5.2 (OpenAI)" },
+    { value: "anthropic/claude-sonnet-4.5", label: "Claude Sonnet 4.5" },
+    { value: "google/gemini-2.5-flash", label: "Gemini 2.5 Flash" },
+  ],
+  openai: [
+    { value: "gpt-5.2", label: "GPT‑5.2" },
+    { value: "gpt-4o", label: "GPT‑4o" },
+    { value: "gpt-4o-mini", label: "GPT‑4o mini" },
+  ],
+  anthropic: [
+    { value: "claude-sonnet-4.5", label: "Claude Sonnet 4.5" },
+    { value: "claude-3.7-sonnet", label: "Claude 3.7 Sonnet" },
+    { value: "claude-haiku-4.5", label: "Claude Haiku 4.5" },
+  ],
+  vercel: [
+    { value: "v0-1.5-md", label: "v0 1.5 MD" },
+    { value: "v0-1.5-lg", label: "v0 1.5 LG" },
+    { value: "v0-1.0-md", label: "v0 1.0 MD" },
+  ],
+};
+
+export function getPromptAssistModelOptions(
+  provider: PromptAssistProvider,
+): PromptAssistModelOption[] {
+  return PROMPT_ASSIST_MODEL_OPTIONS[provider] || [];
+}
+
+export function getDefaultPromptAssistModel(provider: PromptAssistProvider): string {
+  const options = getPromptAssistModelOptions(provider);
+  if (options.length > 0) return options[0].value;
+  return DEFAULT_PROMPT_ASSIST.model;
+}
 
 // ============================================
 // DEFAULT PROMPT ASSIST PROFILE

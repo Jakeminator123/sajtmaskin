@@ -120,7 +120,6 @@ export function useV0ChatMessaging(params: {
   router: RouterLike;
   selectedModelTier: ModelTier;
   enableImageGenerations: boolean;
-  systemPrompt?: string;
   maybeEnhanceInitialPrompt: (original: string) => Promise<string>;
   mutateVersions: () => void;
   setCurrentDemoUrl: (url: string | null) => void;
@@ -136,7 +135,6 @@ export function useV0ChatMessaging(params: {
     router,
     selectedModelTier,
     enableImageGenerations,
-    systemPrompt,
     maybeEnhanceInitialPrompt,
     mutateVersions,
     setCurrentDemoUrl,
@@ -187,10 +185,6 @@ export function useV0ChatMessaging(params: {
           thinking: thinkingForTier,
           imageGenerations: enableImageGenerations,
         };
-        const trimmedSystem = typeof systemPrompt === "string" ? systemPrompt.trim() : "";
-        if (trimmedSystem) {
-          requestBody.system = trimmedSystem;
-        }
         if (options.attachments && options.attachments.length > 0) {
           requestBody.attachments = options.attachments;
         }
@@ -366,7 +360,6 @@ export function useV0ChatMessaging(params: {
       maybeEnhanceInitialPrompt,
       selectedModelTier,
       enableImageGenerations,
-      systemPrompt,
       setMessages,
       setChatId,
       chatIdParam,

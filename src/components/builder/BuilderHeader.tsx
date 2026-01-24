@@ -2,7 +2,11 @@
 
 import type { PromptAssistProvider } from "@/lib/builder/promptAssist";
 import type { ModelTier } from "@/lib/validations/chatSchemas";
-import { MODEL_TIER_OPTIONS, PROMPT_ASSIST_PROVIDER_OPTIONS } from "@/lib/builder/defaults";
+import {
+  MODEL_TIER_OPTIONS,
+  PROMPT_ASSIST_PROVIDER_OPTIONS,
+  getPromptAssistModelOptions,
+} from "@/lib/builder/defaults";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -14,7 +18,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Input } from "@/components/ui/input";
 import {
   Bot,
   ChevronDown,
@@ -44,6 +47,7 @@ export function BuilderHeader(props: {
 
   enableImageGenerations: boolean;
   onEnableImageGenerationsChange: (v: boolean) => void;
+  imageGenerationsSupported?: boolean;
 
   designSystemMode: boolean;
   onDesignSystemModeChange: (v: boolean) => void;
@@ -75,6 +79,7 @@ export function BuilderHeader(props: {
     onPromptAssistDeepChange,
     enableImageGenerations,
     onEnableImageGenerationsChange,
+  imageGenerationsSupported = true,
     designSystemMode,
     onDesignSystemModeChange,
     showStructuredChat,
@@ -96,6 +101,11 @@ export function BuilderHeader(props: {
   const showLegacyVercel =
     promptAssistProvider === "vercel" &&
     !PROMPT_ASSIST_PROVIDER_OPTIONS.some((option) => option.value === "vercel");
+  const assistModelOptions = getPromptAssistModelOptions(promptAssistProvider);
+  const hasCustomAssistModel =
+    promptAssistProvider !== "off" &&
+    promptAssistModel &&
+    !assistModelOptions.some((option) => option.value === promptAssistModel);
 
   return (
     <header className="border-border bg-background flex h-14 items-center justify-between border-b px-4">
@@ -154,26 +164,22 @@ export function BuilderHeader(props: {
             {promptAssistProvider !== "off" && (
               <>
                 <DropdownMenuSeparator />
-                <div className="px-2 py-2">
-                  <label className="text-muted-foreground mb-1 block text-xs">Assist Model</label>
-                  <Input
-                    value={promptAssistModel}
-                    onChange={(e) => onPromptAssistModelChange(e.target.value)}
-                    placeholder={
-                      promptAssistProvider === "gateway"
-                        ? "openai/gpt-5"
-                        : promptAssistProvider === "openai"
-                          ? "gpt-5"
-                          : promptAssistProvider === "anthropic"
-                            ? "claude-..."
-                            : promptAssistProvider === "vercel"
-                              ? "v0-1.5-md"
-                              : "openai/gpt-5"
-                    }
-                    className="h-8 text-sm"
-                    disabled={isBusy}
-                  />
-                </div>
+                <DropdownMenuLabel>Assist Model</DropdownMenuLabel>
+                <DropdownMenuRadioGroup
+                  value={promptAssistModel}
+                  onValueChange={(v) => onPromptAssistModelChange(v)}
+                >
+                  {assistModelOptions.map((option) => (
+                    <DropdownMenuRadioItem key={option.value} value={option.value}>
+                      {option.label}
+                    </DropdownMenuRadioItem>
+                  ))}
+                  {hasCustomAssistModel && (
+                    <DropdownMenuRadioItem value={promptAssistModel}>
+                      Custom: {promptAssistModel}
+                    </DropdownMenuRadioItem>
+                  )}
+                </DropdownMenuRadioGroup>
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
@@ -215,7 +221,7 @@ export function BuilderHeader(props: {
             <DropdownMenuCheckboxItem
               checked={enableImageGenerations}
               onCheckedChange={onEnableImageGenerationsChange}
-              disabled={isBusy}
+              disabled={isBusy || !imageGenerationsSupported}
             >
               <ImageIcon className="mr-2 h-4 w-4" />
               Enable AI Images
@@ -248,7 +254,9 @@ export function BuilderHeader(props: {
               onValueChange={(v) => onDeployImageStrategyChange(v as "external" | "blob")}
             >
               <DropdownMenuRadioItem value="external">External URLs</DropdownMenuRadioItem>
-              <DropdownMenuRadioItem value="blob">Vercel Blob</DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="blob" disabled={!imageGenerationsSupported}>
+                Vercel Blob
+              </DropdownMenuRadioItem>
             </DropdownMenuRadioGroup>
           </DropdownMenuContent>
         </DropdownMenu>

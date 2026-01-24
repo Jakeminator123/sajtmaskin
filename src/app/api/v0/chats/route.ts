@@ -5,7 +5,7 @@ import { db } from "@/lib/db/client";
 import { chats, versions } from "@/lib/db/schema";
 import { nanoid } from "nanoid";
 import { withRateLimit } from "@/lib/rateLimit";
-import { ensureProjectForRequest } from "@/lib/tenant";
+import { ensureProjectForRequest, resolveV0ProjectId, generateProjectName } from "@/lib/tenant";
 import { requireNotBot } from "@/lib/botProtection";
 
 export async function POST(req: Request) {
@@ -66,14 +66,23 @@ export async function POST(req: Request) {
         }
 
         internalChatId = nanoid();
-        const v0ProjectId = chatResult?.projectId || projectId || `chat:${v0ChatId}`;
+        // Use standardized v0ProjectId resolution
+        const v0ProjectId = resolveV0ProjectId({
+          v0ChatId,
+          chatDataProjectId: chatResult?.projectId,
+          clientProjectId: projectId,
+        });
+        const projectName = generateProjectName({
+          v0ChatId,
+          clientProjectId: projectId,
+        });
 
         let internalProjectId: string | null = null;
         try {
           const project = await ensureProjectForRequest({
             req,
             v0ProjectId,
-            name: projectId ? `Project ${projectId}` : `Chat ${v0ChatId}`,
+            name: projectName,
           });
           internalProjectId = project.id;
         } catch {

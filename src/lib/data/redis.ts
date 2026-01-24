@@ -45,7 +45,7 @@ export function getRedis(): Redis | null {
   // Skip if Redis not configured
   if (!FEATURES.useRedisCache) {
     if (!redisDisabledLogged) {
-      console.warn("[Redis] Disabled: REDIS_URL/REDIS config missing");
+      console.warn("[Redis] Disabled: REDIS_URL or REDIS_HOST/REDIS_PASSWORD missing");
       redisDisabledLogged = true;
     }
     return null;
@@ -53,21 +53,28 @@ export function getRedis(): Redis | null {
 
   if (!redisClient) {
     try {
-      debugLog("DB", "[Redis] Creating client", {
-        host: REDIS_CONFIG.host,
-        port: REDIS_CONFIG.port,
-        username: REDIS_CONFIG.username,
-      });
-      redisClient = new Redis({
-        host: REDIS_CONFIG.host,
-        port: REDIS_CONFIG.port,
-        username: REDIS_CONFIG.username,
-        password: REDIS_CONFIG.password,
+      const redisOptions = {
         maxRetriesPerRequest: 3,
         lazyConnect: true,
         connectTimeout: 10000,
         keepAlive: 30000,
+      };
+      const source = REDIS_CONFIG.url ? "url" : "host";
+      debugLog("DB", "[Redis] Creating client", {
+        host: REDIS_CONFIG.host,
+        port: REDIS_CONFIG.port,
+        username: REDIS_CONFIG.username,
+        source,
       });
+      redisClient = REDIS_CONFIG.url
+        ? new Redis(REDIS_CONFIG.url, redisOptions)
+        : new Redis({
+            host: REDIS_CONFIG.host,
+            port: REDIS_CONFIG.port,
+            username: REDIS_CONFIG.username,
+            password: REDIS_CONFIG.password,
+            ...redisOptions,
+          });
 
       redisClient.on("error", (err) => {
         console.error("[Redis] Connection error:", err.message);

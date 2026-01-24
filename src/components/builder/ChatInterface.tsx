@@ -18,10 +18,12 @@ import {
   type UploadedFile,
   type V0UserFileAttachment,
 } from "@/components/media";
+import { ShadcnBlockPicker, type ShadcnBlockSelection } from "@/components/builder/ShadcnBlockPicker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { FileText, ImageIcon, Loader2, Sparkles } from "lucide-react";
+import { Blocks, FileText, ImageIcon, Loader2, Sparkles } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { buildShadcnBlockPrompt } from "@/lib/shadcn-registry-utils";
 
 type MessageOptions = {
   attachments?: V0UserFileAttachment[];
@@ -38,14 +40,13 @@ type FigmaPreviewResponse = {
 interface ChatInterfaceProps {
   chatId: string | null;
   initialPrompt?: string | null;
-  /** Auto-send initialPrompt immediately (e.g. when coming from homepage) */
-  autoSend?: boolean;
   onCreateChat?: (message: string, options?: MessageOptions) => Promise<boolean | void>;
   onSendMessage?: (message: string, options?: MessageOptions) => Promise<void>;
   onEnhancePrompt?: (message: string) => Promise<string>;
   promptAssistStatus?: string | null;
   isBusy?: boolean;
   designSystemMode?: boolean;
+  mediaEnabled?: boolean;
 }
 
 const DESIGN_SYSTEM_HINT = `DESIGN SYSTEM MODE:
@@ -99,13 +100,13 @@ function isFigmaUrl(url: string): boolean {
 export function ChatInterface({
   chatId,
   initialPrompt,
-  autoSend,
   onCreateChat,
   onSendMessage,
   onEnhancePrompt,
   promptAssistStatus,
   isBusy,
   designSystemMode = false,
+  mediaEnabled = false,
 }: ChatInterfaceProps) {
   const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
@@ -116,6 +117,8 @@ export function ChatInterface({
   const [figmaUrl, setFigmaUrl] = useState("");
   const [isFigmaInputOpen, setIsFigmaInputOpen] = useState(false);
   const [isTextUploaderOpen, setIsTextUploaderOpen] = useState(false);
+  const [isShadcnPickerOpen, setIsShadcnPickerOpen] = useState(false);
+  const [isAddingBlock, setIsAddingBlock] = useState(false);
   const [figmaPreviewUrl, setFigmaPreviewUrl] = useState<string | null>(null);
   const [figmaPreviewName, setFigmaPreviewName] = useState<string | null>(null);
   const [figmaPreviewError, setFigmaPreviewError] = useState<string | null>(null);
@@ -132,8 +135,6 @@ export function ChatInterface({
   };
 
   const prefilledPromptRef = useRef<string | null>(null);
-  const autoSendTriggeredRef = useRef(false);
-
   useEffect(() => {
     if (chatId) return;
     if (!initialPrompt) return;
@@ -143,27 +144,6 @@ export function ChatInterface({
     setHasEnhancedDraft(false);
     prefilledPromptRef.current = initialPrompt;
   }, [chatId, initialPrompt, input]);
-
-  // Auto-send when autoSend is true and we have an initialPrompt
-  useEffect(() => {
-    if (!autoSend) return;
-    if (chatId) return;
-    if (!initialPrompt?.trim()) return;
-    if (autoSendTriggeredRef.current) return;
-    if (isBusy || isSending) return;
-
-    // Mark as triggered to prevent duplicate sends
-    autoSendTriggeredRef.current = true;
-
-    // Small delay to ensure UI is ready
-    const timeoutId = setTimeout(() => {
-      if (onCreateChat) {
-        onCreateChat(initialPrompt.trim()).catch(console.error);
-      }
-    }, 100);
-
-    return () => clearTimeout(timeoutId);
-  }, [autoSend, chatId, initialPrompt, isBusy, isSending, onCreateChat]);
 
   const normalizedFigmaUrl = useMemo(() => normalizeDesignUrl(figmaUrl), [figmaUrl]);
 
@@ -305,7 +285,10 @@ export function ChatInterface({
     return { finalMessage, finalAttachments, attachmentPrompt };
   };
 
-  const sendMessagePayload = async (baseMessage: string) => {
+  const sendMessagePayload = async (
+    baseMessage: string,
+    options: { skipPromptAssist?: boolean; clearDraft?: boolean } = {},
+  ) => {
     setIsSending(true);
     try {
       const payload = await buildMessagePayload(baseMessage);
@@ -315,7 +298,7 @@ export function ChatInterface({
         const created = await onCreateChat(payload.finalMessage, {
           attachments: payload.finalAttachments,
           attachmentPrompt: payload.attachmentPrompt,
-          skipPromptAssist: hasEnhancedDraft,
+          skipPromptAssist: options.skipPromptAssist ?? hasEnhancedDraft,
         });
         if (created === false) return;
       } else {
@@ -325,11 +308,13 @@ export function ChatInterface({
           attachmentPrompt: payload.attachmentPrompt,
         });
       }
-      setInput("");
-      setFiles([]);
-      setHasEnhancedDraft(false);
-      setFigmaUrl("");
-      setIsFigmaInputOpen(false);
+      if (options.clearDraft !== false) {
+        setInput("");
+        setFiles([]);
+        setHasEnhancedDraft(false);
+        setFigmaUrl("");
+        setIsFigmaInputOpen(false);
+      }
     } finally {
       setIsSending(false);
     }
@@ -351,6 +336,24 @@ export function ChatInterface({
 
     const baseMessage = `Use the following content from "${filename}" as source text:\n\n${trimmedContent}`;
     await sendMessagePayload(baseMessage);
+  };
+
+  const handleAddShadcnBlock = async (selection: ShadcnBlockSelection) => {
+    if (!selection.registryItem) return;
+    if (!onCreateChat && !onSendMessage) return;
+
+    setIsAddingBlock(true);
+    try {
+      const prompt = buildShadcnBlockPrompt(selection.registryItem, {
+        style: selection.style,
+        displayName: selection.block.title,
+        description: selection.block.description,
+      });
+      await sendMessagePayload(prompt, { skipPromptAssist: true, clearDraft: false });
+      setIsShadcnPickerOpen(false);
+    } finally {
+      setIsAddingBlock(false);
+    }
   };
 
   const handleMediaSelect = (item: {
@@ -422,6 +425,18 @@ export function ChatInterface({
               title="Lägg till Figma-länk"
             >
               Figma-länk{figmaUrl.trim() ? " ✓" : ""}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8"
+              onClick={() => setIsShadcnPickerOpen(true)}
+              disabled={inputDisabled}
+              title="Add a shadcn/ui block"
+            >
+              <Blocks className="h-3.5 w-3.5" />
+              Shadcn
             </Button>
           </div>
         </PromptInputHeader>
@@ -498,33 +513,37 @@ export function ChatInterface({
         <PromptInputFooter className="flex-col items-stretch gap-2">
           <div className="flex items-center justify-between gap-2">
             <PromptInputTools className="flex flex-wrap items-center gap-2">
-              <FileUploadZone
-                projectId={null}
-                files={files}
-                onFilesChange={setFiles}
-                disabled={inputDisabled}
-                compact
-              />
-              <button
-                type="button"
-                onClick={() => setIsMediaDrawerOpen(true)}
-                disabled={inputDisabled}
-                className="border-border text-muted-foreground hover:bg-accent hover:text-foreground inline-flex h-7 items-center gap-1 rounded-md border px-2 text-xs disabled:opacity-50"
-                title="Öppna mediabibliotek"
-              >
-                <ImageIcon className="h-3.5 w-3.5" />
-                Mediabibliotek
-              </button>
-              <button
-                type="button"
-                onClick={() => setIsTextUploaderOpen(true)}
-                disabled={inputDisabled}
-                className="border-border text-muted-foreground hover:bg-accent hover:text-foreground inline-flex h-7 items-center gap-1 rounded-md border px-2 text-xs disabled:opacity-50"
-                title="Lägg till text eller PDF"
-              >
-                <FileText className="h-3.5 w-3.5" />
-                Text/PDF
-              </button>
+              {mediaEnabled && (
+                <>
+                  <FileUploadZone
+                    projectId={null}
+                    files={files}
+                    onFilesChange={setFiles}
+                    disabled={inputDisabled}
+                    compact
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setIsMediaDrawerOpen(true)}
+                    disabled={inputDisabled}
+                    className="border-border text-muted-foreground hover:bg-accent hover:text-foreground inline-flex h-7 items-center gap-1 rounded-md border px-2 text-xs disabled:opacity-50"
+                    title="Öppna mediabibliotek"
+                  >
+                    <ImageIcon className="h-3.5 w-3.5" />
+                    Mediabibliotek
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setIsTextUploaderOpen(true)}
+                    disabled={inputDisabled}
+                    className="border-border text-muted-foreground hover:bg-accent hover:text-foreground inline-flex h-7 items-center gap-1 rounded-md border px-2 text-xs disabled:opacity-50"
+                    title="Lägg till text eller PDF"
+                  >
+                    <FileText className="h-3.5 w-3.5" />
+                    Text/PDF
+                  </button>
+                </>
+              )}
               <span className="text-muted-foreground text-xs">Shift+Enter för ny rad</span>
             </PromptInputTools>
             <PromptInputSubmit disabled={submitDisabled}>
@@ -534,17 +553,30 @@ export function ChatInterface({
         </PromptInputFooter>
       </PromptInput>
 
-      <MediaDrawer
-        isOpen={isMediaDrawerOpen}
-        onClose={() => setIsMediaDrawerOpen(false)}
-        onFileSelect={handleMediaSelect}
-      />
+      {mediaEnabled && (
+        <MediaDrawer
+          isOpen={isMediaDrawerOpen}
+          onClose={() => setIsMediaDrawerOpen(false)}
+          onFileSelect={handleMediaSelect}
+        />
+      )}
 
-      <TextUploader
-        isOpen={isTextUploaderOpen}
-        onClose={() => setIsTextUploaderOpen(false)}
-        onContentReady={handleTextContentReady}
-        disabled={inputDisabled}
+      {mediaEnabled && (
+        <TextUploader
+          isOpen={isTextUploaderOpen}
+          onClose={() => setIsTextUploaderOpen(false)}
+          onContentReady={handleTextContentReady}
+          disabled={inputDisabled}
+        />
+      )}
+
+      <ShadcnBlockPicker
+        open={isShadcnPickerOpen}
+        onClose={() => setIsShadcnPickerOpen(false)}
+        onConfirm={handleAddShadcnBlock}
+        isBusy={inputDisabled}
+        isSubmitting={isAddingBlock}
+        hasChat={Boolean(chatId)}
       />
     </div>
   );

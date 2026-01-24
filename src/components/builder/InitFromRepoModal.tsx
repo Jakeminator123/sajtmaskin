@@ -4,6 +4,8 @@ import { FolderArchive, Github, Loader2, Lock, Upload, X, Blocks, Check } from "
 import { useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import { useAuth } from "@/lib/auth/auth-store";
+import { SHADCN_BLOCKS } from "@/lib/shadcn-registry-blocks";
+import { buildShadcnRegistryUrl } from "@/lib/v0/v0-url-parser";
 
 interface InitFromRepoModalProps {
   isOpen: boolean;
@@ -12,94 +14,6 @@ interface InitFromRepoModalProps {
 }
 
 type SourceType = "github" | "zip" | "blocks";
-
-// Shadcn blocks organized by category
-// Registry URL format: https://ui.shadcn.com/r/styles/new-york/{name}.json
-const SHADCN_BLOCKS = [
-  {
-    category: "Authentication",
-    items: [
-      {
-        name: "login-01",
-        title: "Simple Login",
-        description: "Clean login form with email/password",
-      },
-      {
-        name: "login-02",
-        title: "Login with Image",
-        description: "Split screen login with hero image",
-      },
-      { name: "login-03", title: "Login Centered", description: "Centered card login form" },
-      {
-        name: "login-04",
-        title: "Login with Social",
-        description: "Login with Google/GitHub buttons",
-      },
-      { name: "login-05", title: "Login Minimal", description: "Minimalist login form" },
-    ],
-  },
-  {
-    category: "Dashboard",
-    items: [
-      {
-        name: "dashboard-01",
-        title: "Analytics Dashboard",
-        description: "Charts and stats overview",
-      },
-      { name: "dashboard-02", title: "E-commerce Dashboard", description: "Sales and orders view" },
-      { name: "dashboard-03", title: "Project Dashboard", description: "Tasks and team overview" },
-      { name: "dashboard-04", title: "Finance Dashboard", description: "Financial metrics view" },
-    ],
-  },
-  {
-    category: "Sidebar",
-    items: [
-      { name: "sidebar-01", title: "Simple Sidebar", description: "Basic navigation sidebar" },
-      {
-        name: "sidebar-02",
-        title: "Collapsible Sidebar",
-        description: "Sidebar with collapse toggle",
-      },
-      {
-        name: "sidebar-03",
-        title: "Sidebar with Header",
-        description: "Sidebar with branding header",
-      },
-      { name: "sidebar-04", title: "Floating Sidebar", description: "Floating panel sidebar" },
-      {
-        name: "sidebar-05",
-        title: "Sidebar with Footer",
-        description: "Sidebar with user profile footer",
-      },
-    ],
-  },
-  {
-    category: "Cards",
-    items: [
-      { name: "cards-01", title: "Feature Cards", description: "Grid of feature highlight cards" },
-      { name: "cards-02", title: "Pricing Cards", description: "Pricing tier comparison cards" },
-      { name: "cards-03", title: "Team Cards", description: "Team member profile cards" },
-      { name: "cards-04", title: "Stats Cards", description: "Metric display cards" },
-    ],
-  },
-  {
-    category: "Charts",
-    items: [
-      {
-        name: "chart-area-interactive",
-        title: "Area Chart",
-        description: "Interactive area chart",
-      },
-      { name: "chart-bar-interactive", title: "Bar Chart", description: "Interactive bar chart" },
-      {
-        name: "chart-line-interactive",
-        title: "Line Chart",
-        description: "Interactive line chart",
-      },
-      { name: "chart-pie-interactive", title: "Pie Chart", description: "Interactive pie chart" },
-    ],
-  },
-];
 
 export function InitFromRepoModal({ isOpen, onClose, onSuccess }: InitFromRepoModalProps) {
   const { user, isAuthenticated, hasGitHub, isInitialized, fetchUser } = useAuth();
@@ -185,7 +99,7 @@ export function InitFromRepoModal({ isOpen, onClose, onSuccess }: InitFromRepoMo
     try {
       // Handle blocks differently - use init-registry API
       if (sourceType === "blocks" && selectedBlock) {
-        const registryUrl = `https://ui.shadcn.com/r/styles/new-york/${selectedBlock}.json`;
+        const registryUrl = buildShadcnRegistryUrl(selectedBlock);
 
         const response = await fetch("/api/v0/chats/init-registry", {
           method: "POST",
@@ -194,24 +108,25 @@ export function InitFromRepoModal({ isOpen, onClose, onSuccess }: InitFromRepoMo
         });
 
         const data = (await response.json().catch(() => null)) as {
+          chatId?: string;
           internalChatId?: string;
           error?: string;
           details?: string;
         } | null;
         if (!response.ok) {
-          throw new Error(data?.error || data?.details || "Failed to import block");
+          throw new Error(data?.error || data?.details || "Failed to start from block");
         }
         if (!data) {
           throw new Error("Failed to parse response");
         }
-        const chatId = data.internalChatId;
+        const v0ChatId = data.chatId;
 
-        if (!chatId) {
-          throw new Error("No chat ID returned");
+        if (!v0ChatId) {
+          throw new Error("No v0 chat ID returned");
         }
 
-        toast.success("Component imported successfully!");
-        onSuccess(chatId);
+        toast.success("Block project created successfully!");
+        onSuccess(v0ChatId);
         onClose();
         return;
       }
@@ -253,14 +168,14 @@ export function InitFromRepoModal({ isOpen, onClose, onSuccess }: InitFromRepoMo
       if (!data) {
         throw new Error("Failed to parse response");
       }
-      const chatId = data.id;
+      const v0ChatId = data.id;
 
-      if (!chatId) {
-        throw new Error("No chat ID returned");
+      if (!v0ChatId) {
+        throw new Error("No v0 chat ID returned");
       }
 
       toast.success("Project imported successfully!");
-      onSuccess(chatId);
+      onSuccess(v0ChatId);
       onClose();
     } catch (error) {
       console.error("Init error:", error);
@@ -277,7 +192,7 @@ export function InitFromRepoModal({ isOpen, onClose, onSuccess }: InitFromRepoMo
       <div className="relative z-10 flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-xl bg-white p-6 shadow-2xl">
         <div className="mb-6 flex items-center justify-between">
           <h2 className="text-xl font-semibold text-gray-900">
-            {sourceType === "blocks" ? "Add Component Block" : "Import Existing Project"}
+            {sourceType === "blocks" ? "Start from Component Block" : "Import Existing Project"}
           </h2>
           <button
             onClick={onClose}
@@ -541,8 +456,8 @@ export function InitFromRepoModal({ isOpen, onClose, onSuccess }: InitFromRepoMo
           {sourceType === "blocks" && (
             <div className="mb-6 space-y-4">
               <p className="text-sm text-gray-600">
-                Select a pre-built shadcn/ui component to start with. You can customize it after
-                import.
+                Start a new project from a shadcn/ui block. Use the Blocks button near the prompt
+                to add blocks to an existing site.
               </p>
 
               {SHADCN_BLOCKS.map((category) => (
@@ -601,7 +516,7 @@ export function InitFromRepoModal({ isOpen, onClose, onSuccess }: InitFromRepoMo
             ) : sourceType === "blocks" ? (
               <>
                 <Blocks className="h-4 w-4" />
-                Import Block
+                Start Project
               </>
             ) : (
               <>

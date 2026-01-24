@@ -21,6 +21,13 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import type { ModelTier } from "@/lib/validations/chatSchemas";
 import type { PromptAssistProvider } from "@/lib/builder/promptAssist";
 import {
@@ -28,6 +35,8 @@ import {
   PROMPT_ASSIST_PROVIDER_OPTIONS,
   DEFAULT_MODEL_TIER,
   DEFAULT_PROMPT_ASSIST,
+  getPromptAssistModelOptions,
+  getDefaultPromptAssistModel,
   SETTINGS_URL_PARAMS,
 } from "@/lib/builder/defaults";
 
@@ -72,17 +81,29 @@ export function PreBuilderSettings({
   const [isOpen, setIsOpen] = useState(false);
 
   const currentTier = MODEL_TIER_OPTIONS.find((t) => t.value === value.modelTier);
+  const assistModelOptions = getPromptAssistModelOptions(value.assistProvider);
+  const hasCustomAssistModel =
+    value.assistProvider !== "off" &&
+    value.assistModel &&
+    !assistModelOptions.some((option) => option.value === value.assistModel);
 
   const handleTierChange = (tier: string) => {
     onChange({ ...value, modelTier: tier as ModelTier });
   };
 
   const handleProviderChange = (provider: string) => {
-    onChange({ ...value, assistProvider: provider as PromptAssistProvider });
+    const nextProvider = provider as PromptAssistProvider;
+    const nextModel =
+      nextProvider === "off" ? value.assistModel : getDefaultPromptAssistModel(nextProvider);
+    onChange({ ...value, assistProvider: nextProvider, assistModel: nextModel });
   };
 
   const handleDeepChange = (deep: boolean) => {
     onChange({ ...value, assistDeep: deep });
+  };
+
+  const handleModelChange = (model: string) => {
+    onChange({ ...value, assistModel: model });
   };
 
   // Compact mode: just show a small settings button with dropdown
@@ -138,6 +159,23 @@ export function PreBuilderSettings({
 
           {value.assistProvider !== "off" && (
             <>
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel>Assist Model</DropdownMenuLabel>
+              <DropdownMenuRadioGroup
+                value={value.assistModel}
+                onValueChange={(v) => handleModelChange(v)}
+              >
+                {assistModelOptions.map((option) => (
+                  <DropdownMenuRadioItem key={option.value} value={option.value}>
+                    {option.label}
+                  </DropdownMenuRadioItem>
+                ))}
+                {hasCustomAssistModel && (
+                  <DropdownMenuRadioItem value={value.assistModel}>
+                    Custom: {value.assistModel}
+                  </DropdownMenuRadioItem>
+                )}
+              </DropdownMenuRadioGroup>
               <DropdownMenuSeparator />
               <TooltipProvider>
                 <Tooltip>
@@ -218,6 +256,27 @@ export function PreBuilderSettings({
             </button>
           ))}
         </div>
+
+        {value.assistProvider !== "off" && (
+          <div className="mt-3 space-y-2">
+            <label className="text-sm font-medium text-gray-300">Assist Model</label>
+            <Select value={value.assistModel} onValueChange={handleModelChange}>
+              <SelectTrigger className="h-9">
+                <SelectValue placeholder="Välj modell" />
+              </SelectTrigger>
+              <SelectContent>
+                {assistModelOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+                {hasCustomAssistModel && (
+                  <SelectItem value={value.assistModel}>Custom: {value.assistModel}</SelectItem>
+                )}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
 
         {value.assistProvider !== "off" && (
           <label className="mt-3 flex cursor-pointer items-center gap-2">

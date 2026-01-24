@@ -19,7 +19,7 @@ import { and, eq } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { NextResponse } from "next/server";
 import { withRateLimit } from "@/lib/rateLimit";
-import { ensureProjectForRequest } from "@/lib/tenant";
+import { ensureProjectForRequest, resolveV0ProjectId, generateProjectName } from "@/lib/tenant";
 import { requireNotBot } from "@/lib/botProtection";
 import { devLogAppend, devLogFinalizeSite, devLogStartNewSite } from "@/lib/devLog";
 
@@ -181,11 +181,19 @@ export async function POST(req: Request) {
                     safeEnqueue(encoder.encode(formatSSEEvent("chatId", { id: v0ChatId })));
 
                     try {
-                      const v0ProjectIdEffective = projectId || `chat:${v0ChatId}`;
+                      // Use standardized v0ProjectId resolution
+                      const v0ProjectIdEffective = resolveV0ProjectId({
+                        v0ChatId,
+                        clientProjectId: projectId,
+                      });
+                      const projectName = generateProjectName({
+                        v0ChatId,
+                        clientProjectId: projectId,
+                      });
                       const ensured = await ensureProjectForRequest({
                         req,
                         v0ProjectId: v0ProjectIdEffective,
-                        name: projectId ? `Project ${projectId}` : `Chat ${v0ChatId}`,
+                        name: projectName,
                       });
                       internalProjectId = ensured.id;
 
@@ -200,7 +208,7 @@ export async function POST(req: Request) {
                         await db.insert(chats).values({
                           id: internalChatId,
                           v0ChatId: v0ChatId,
-                          v0ProjectId: projectId || `chat:${v0ChatId}`,
+                          v0ProjectId: v0ProjectIdEffective,
                           projectId: internalProjectId,
                           webUrl: (parsed as any)?.webUrl || null,
                         });
@@ -400,14 +408,23 @@ export async function POST(req: Request) {
       try {
         const internalChatId = nanoid();
         const v0ChatId = chatData.id;
-        const v0ProjectId = chatData.projectId || projectId || `chat:${v0ChatId}`;
+        // Use standardized v0ProjectId resolution
+        const v0ProjectId = resolveV0ProjectId({
+          v0ChatId,
+          chatDataProjectId: chatData.projectId,
+          clientProjectId: projectId,
+        });
+        const projectName = generateProjectName({
+          v0ChatId,
+          clientProjectId: projectId,
+        });
 
         let internalProjectId: string | null = null;
         try {
           const project = await ensureProjectForRequest({
             req,
             v0ProjectId,
-            name: projectId ? `Project ${projectId}` : `Chat ${v0ChatId}`,
+            name: projectName,
           });
           internalProjectId = project.id;
         } catch {
