@@ -6,9 +6,10 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireNotBot } from "@/lib/botProtection";
 import { withRateLimit } from "@/lib/rateLimit";
+import { debugLog } from "@/lib/utils/debug";
 
 export const runtime = "nodejs";
-export const maxDuration = 300; // 5 minutes for deep brief with slow models
+export const maxDuration = 420; // 7 minutes for deep brief with slow models
 
 const briefRequestSchema = z.object({
   prompt: z.string().min(1, "prompt is required"),
@@ -208,16 +209,26 @@ export async function POST(req: Request) {
           );
         }
 
-        if (!process.env.AI_GATEWAY_API_KEY && !isProbablyOnVercel()) {
+        const hasGatewayApiKey = Boolean(process.env.AI_GATEWAY_API_KEY?.trim());
+        const hasOidcToken = Boolean(process.env.VERCEL_OIDC_TOKEN?.trim());
+        if (!hasGatewayApiKey && !hasOidcToken && !isProbablyOnVercel()) {
           return NextResponse.json(
             {
-              error: "Missing AI_GATEWAY_API_KEY for gateway provider",
+              error: "Missing AI Gateway auth for gateway provider",
               setup:
-                "Set AI_GATEWAY_API_KEY for local dev, or deploy on Vercel to use OIDC authentication.",
+                "Set AI_GATEWAY_API_KEY or VERCEL_OIDC_TOKEN for local dev, or deploy on Vercel to use OIDC authentication.",
             },
             { status: 401 },
           );
         }
+
+        const gatewayAuth = hasGatewayApiKey ? "api-key" : hasOidcToken ? "oidc" : "none";
+        debugLog("AI", "AI Gateway auth resolved (brief)", {
+          auth: gatewayAuth,
+          provider: "gateway",
+          model: resolvedModel,
+          onVercel: isProbablyOnVercel(),
+        });
 
         const preferred = getGatewayPreferredProvider(resolvedModel);
         const result = await generateObject({

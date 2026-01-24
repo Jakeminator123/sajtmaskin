@@ -25,6 +25,55 @@ function sanitizeEnvValue(value: string | undefined): string {
   return trimmed;
 }
 
+type RedisUrlParts = {
+  host: string;
+  port: number;
+  username: string;
+  password: string;
+};
+
+function normalizeRedisUrl(value: string | undefined, varName?: string): string | null {
+  const sanitized = sanitizeEnvValue(value);
+  if (!sanitized) return null;
+  if (/^\$\{[A-Z0-9_]+\}$/.test(sanitized) || /^\$[A-Z0-9_]+$/.test(sanitized)) {
+    return null;
+  }
+  if (!/^rediss?:\/\//i.test(sanitized)) {
+    if (process.env.NODE_ENV === "development" && varName) {
+      console.warn(`[Config] ${varName} must be redis:// or rediss://. Ignoring value.`);
+    }
+    return null;
+  }
+  return sanitized;
+}
+
+function resolveRedisUrl(): string | null {
+  const candidates = [
+    normalizeRedisUrl(process.env.REDIS_URL, "REDIS_URL"),
+    normalizeRedisUrl(process.env.UPSTASH_REDIS_URL, "UPSTASH_REDIS_URL"),
+    normalizeRedisUrl(process.env.STORAGE_REDIS_URL, "STORAGE_REDIS_URL"),
+    normalizeRedisUrl(process.env.STORAGE_KV_URL, "STORAGE_KV_URL"),
+  ];
+  return candidates.find((value) => value) || null;
+}
+
+function parseRedisUrl(redisUrl: string): RedisUrlParts | null {
+  try {
+    const parsed = new URL(redisUrl);
+    return {
+      host: parsed.hostname,
+      port: parsed.port ? Number(parsed.port) : 6379,
+      username: parsed.username || "default",
+      password: parsed.password || "",
+    };
+  } catch {
+    return null;
+  }
+}
+
+const RESOLVED_REDIS_URL = resolveRedisUrl();
+const PARSED_REDIS_URL = RESOLVED_REDIS_URL ? parseRedisUrl(RESOLVED_REDIS_URL) : null;
+
 /**
  * Data directory configuration
  * - Production (Render): /var/data (persistent disk) - MUST be set via DATA_DIR env var
@@ -262,12 +311,13 @@ export function validateRequiredSecrets(requiredSecrets: SecretName[]): string[]
  * Redis configuration
  */
 export const REDIS_CONFIG = {
-  host: process.env.REDIS_HOST || "",
-  port: parseInt(process.env.REDIS_PORT || "6379"),
-  password: process.env.REDIS_PASSWORD || "",
-  username: process.env.REDIS_USERNAME || "default",
+  url: RESOLVED_REDIS_URL && PARSED_REDIS_URL ? RESOLVED_REDIS_URL : "",
+  host: PARSED_REDIS_URL?.host || process.env.REDIS_HOST || "",
+  port: PARSED_REDIS_URL?.port || parseInt(process.env.REDIS_PORT || "6379"),
+  password: PARSED_REDIS_URL?.password || process.env.REDIS_PASSWORD || "",
+  username: PARSED_REDIS_URL?.username || process.env.REDIS_USERNAME || "default",
   // Redis is only enabled if both host and password are configured
-  enabled: Boolean(process.env.REDIS_HOST && process.env.REDIS_PASSWORD),
+  enabled: Boolean(PARSED_REDIS_URL?.host) || Boolean(process.env.REDIS_HOST && process.env.REDIS_PASSWORD),
 } as const;
 
 /**

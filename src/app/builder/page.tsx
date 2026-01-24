@@ -15,7 +15,7 @@ import type { ChatMessage } from "@/lib/builder/types";
 import {
   DEFAULT_MODEL_TIER,
   DEFAULT_PROMPT_ASSIST,
-  DEFAULT_SYSTEM_PROMPT,
+  getDefaultPromptAssistModel,
   MODEL_TIER_OPTIONS,
   PROMPT_ASSIST_PROVIDER_OPTIONS,
   SETTINGS_URL_PARAMS,
@@ -122,15 +122,16 @@ function BuilderContent() {
     }
     return DEFAULT_PROMPT_ASSIST.deep;
   });
-  const systemPrompt = DEFAULT_SYSTEM_PROMPT;
   const [isSandboxModalOpen, setIsSandboxModalOpen] = useState(false);
   const [isDeploying, setIsDeploying] = useState(false);
   const [enableImageGenerations, setEnableImageGenerations] = useState(true);
+  const [isMediaEnabled, setIsMediaEnabled] = useState(false);
   const [designSystemMode, setDesignSystemMode] = useState(false);
   const [showStructuredChat, setShowStructuredChat] = useState(false);
   const [deployImageStrategy, setDeployImageStrategy] = useState<"external" | "blob">("external");
   const [isIntentionalReset, setIsIntentionalReset] = useState(false);
   const hasUserSelectedImageStrategy = useRef(false);
+  const hasUserSelectedImageGenerations = useRef(false);
 
   const [auditPromptLoaded, setAuditPromptLoaded] = useState(source !== "audit");
   const [resolvedPrompt, setResolvedPrompt] = useState<string | null>(promptParam);
@@ -206,8 +207,14 @@ function BuilderContent() {
           features?: { vercelBlob?: boolean };
         } | null;
         const blobEnabled = Boolean(data?.features?.vercelBlob);
-        if (!isActive || hasUserSelectedImageStrategy.current) return;
-        if (blobEnabled) {
+        if (!isActive) return;
+        setIsMediaEnabled(blobEnabled);
+        if (!blobEnabled) {
+          setEnableImageGenerations(false);
+        } else if (!hasUserSelectedImageGenerations.current) {
+          setEnableImageGenerations(true);
+        }
+        if (!hasUserSelectedImageStrategy.current && blobEnabled) {
           setDeployImageStrategy("blob");
         }
       } catch (error) {
@@ -419,12 +426,26 @@ function BuilderContent() {
     setDeployImageStrategy(strategy);
   }, []);
 
+  const handleEnableImageGenerationsChange = useCallback((value: boolean) => {
+    hasUserSelectedImageGenerations.current = true;
+    setEnableImageGenerations(value);
+  }, []);
+
   const { maybeEnhanceInitialPrompt } = usePromptAssist({
     provider: promptAssistProvider,
     model: promptAssistModel,
     deep: promptAssistDeep,
     imageGenerations: enableImageGenerations,
   });
+
+  const handlePromptAssistProviderChange = useCallback(
+    (provider: PromptAssistProvider) => {
+      setPromptAssistProvider(provider);
+      if (provider === "off") return;
+      setPromptAssistModel(getDefaultPromptAssistModel(provider));
+    },
+    [],
+  );
 
   const promptAssistStatus = useMemo(() => {
     if (promptAssistProvider === "off") return null;
@@ -471,7 +492,6 @@ function BuilderContent() {
     router,
     selectedModelTier,
     enableImageGenerations,
-    systemPrompt,
     maybeEnhanceInitialPrompt,
     mutateVersions,
     setCurrentDemoUrl,
@@ -597,13 +617,14 @@ function BuilderContent() {
           selectedModelTier={selectedModelTier}
           onSelectedModelTierChange={setSelectedModelTier}
           promptAssistProvider={promptAssistProvider}
-          onPromptAssistProviderChange={setPromptAssistProvider}
+          onPromptAssistProviderChange={handlePromptAssistProviderChange}
           promptAssistModel={promptAssistModel}
           onPromptAssistModelChange={setPromptAssistModel}
           promptAssistDeep={promptAssistDeep}
           onPromptAssistDeepChange={setPromptAssistDeep}
           enableImageGenerations={enableImageGenerations}
-          onEnableImageGenerationsChange={setEnableImageGenerations}
+          onEnableImageGenerationsChange={handleEnableImageGenerationsChange}
+          imageGenerationsSupported={isMediaEnabled}
           designSystemMode={designSystemMode}
           onDesignSystemModeChange={setDesignSystemMode}
           showStructuredChat={showStructuredChat}
@@ -640,13 +661,13 @@ function BuilderContent() {
             <ChatInterface
               chatId={chatId}
               initialPrompt={auditPromptLoaded ? initialPrompt : null}
-              autoSend={Boolean(promptParam && !chatId && source !== "audit")}
               onCreateChat={requestCreateChat}
               onSendMessage={sendMessage}
               onEnhancePrompt={maybeEnhanceInitialPrompt}
               promptAssistStatus={promptAssistStatus}
               isBusy={isCreatingChat || isAnyStreaming || isTemplateLoading}
               designSystemMode={designSystemMode}
+              mediaEnabled={isMediaEnabled}
             />
           </div>
 

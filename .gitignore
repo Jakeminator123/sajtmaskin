@@ -71,3 +71,4 @@ old
 old/
 
 .vercel
+.env*.local

@@ -3,6 +3,33 @@ import { db } from '@/lib/db/client';
 import { chats, projects } from '@/lib/db/schema';
 import { nanoid } from 'nanoid';
 
+/**
+ * Standardized v0ProjectId resolution.
+ * Priority order:
+ * 1. v0 API response projectId (chatData.projectId)
+ * 2. Request body projectId (clientProjectId)
+ * 3. Fallback to chat-based ID (chat:{v0ChatId})
+ */
+export function resolveV0ProjectId(params: {
+  v0ChatId: string;
+  chatDataProjectId?: string | null;
+  clientProjectId?: string | null;
+}): string {
+  const { v0ChatId, chatDataProjectId, clientProjectId } = params;
+  return chatDataProjectId || clientProjectId || `chat:${v0ChatId}`;
+}
+
+/**
+ * Generate a project name based on available IDs
+ */
+export function generateProjectName(params: {
+  v0ChatId: string;
+  clientProjectId?: string | null;
+}): string {
+  const { v0ChatId, clientProjectId } = params;
+  return clientProjectId ? `Project ${clientProjectId}` : `Chat ${v0ChatId}`;
+}
+
 export function getRequestUserId(req: Request): string | null {
   const userId = req.headers.get('x-user-id');
   const trimmed = userId ? userId.trim() : '';

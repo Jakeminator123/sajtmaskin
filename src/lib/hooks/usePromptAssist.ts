@@ -46,8 +46,8 @@ export function usePromptAssist(params: UsePromptAssistParams) {
 
         if (deep) {
           const controller = new AbortController();
-          // Deep brief kan ta lång tid med GPT-5, 5 minuter timeout
-          const timeoutId = setTimeout(() => controller.abort(), 300_000);
+          // Deep brief kan ta lång tid med GPT-5, 7 minuter timeout
+          const timeoutId = setTimeout(() => controller.abort(), 420_000);
           let briefRes: Response;
           try {
             briefRes = await fetch("/api/ai/brief", {
@@ -90,8 +90,8 @@ export function usePromptAssist(params: UsePromptAssistParams) {
         }
 
         const controller = new AbortController();
-        // Normal prompt assist: 5 minuter timeout för att hantera långsamma modeller
-        const timeoutId = setTimeout(() => controller.abort(), 300_000);
+        // Normal prompt assist: 7 minuter timeout för att hantera långsamma modeller
+        const timeoutId = setTimeout(() => controller.abort(), 420_000);
 
         let res: Response;
         try {
@@ -125,19 +125,29 @@ export function usePromptAssist(params: UsePromptAssistParams) {
         toast.success("Prompt förbättrad", { id: "sajtmaskin:prompt-assist" });
         return enhanced.length > 0 ? enhanced : originalPrompt;
       } catch (err) {
-        console.error("Prompt assist error:", err);
-
         const rawMessage = err instanceof Error ? err.message : "AI Assist misslyckades";
         const isAbort = err instanceof Error && (err as any).name === "AbortError";
         const isFailedFetch = /Failed to fetch/i.test(rawMessage);
+        const isGatewayTimeout = /headers timeout|gateway request failed|gatewayresponseerror/i.test(
+          rawMessage.toLowerCase(),
+        );
+
+        if (isAbort) {
+          console.warn("Prompt assist timeout:", err);
+        } else {
+          console.error("Prompt assist error:", err);
+        }
 
         const betterMessage = (() => {
           if (isAbort) return "AI Assist tog för lång tid (timeout).";
+          if (isGatewayTimeout) {
+            return "AI Gateway tog för lång tid. Prova igen eller välj en snabbare modell.";
+          }
           if (!isFailedFetch) return rawMessage;
 
           if (provider === "gateway") {
             return (
-              "Kunde inte nå AI Gateway. Sätt AI_GATEWAY_API_KEY i .env.local (lokalt), " +
+              "Kunde inte nå AI Gateway. Sätt AI_GATEWAY_API_KEY eller VERCEL_OIDC_TOKEN i .env.local (lokalt), " +
               "eller kör på Vercel för OIDC-autentisering."
             );
           }
