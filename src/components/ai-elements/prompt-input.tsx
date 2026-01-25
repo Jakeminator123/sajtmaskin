@@ -10,6 +10,7 @@
 import {
   createContext,
   useContext,
+  useId,
   type HTMLAttributes,
   type ButtonHTMLAttributes,
   type ReactNode,
@@ -149,9 +150,17 @@ export function PromptInputTextarea({
   minRows = 1,
   maxRows = 6,
   placeholder = "Skriv ett meddelande...",
+  id,
+  name,
+  "aria-label": ariaLabelProp,
+  "aria-labelledby": ariaLabelledByProp,
   ...props
 }: PromptInputTextareaProps) {
   const { value, onChange, onSubmit, isLoading, disabled } = usePromptInput();
+  const autoId = useId();
+  const resolvedId = id ?? `prompt-input-${autoId}`;
+  const resolvedName = name ?? `prompt-${autoId}`;
+  const ariaLabel = ariaLabelledByProp ? undefined : ariaLabelProp ?? placeholder ?? "Prompt";
 
   const handleChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
     onChange(e.target.value);
@@ -180,6 +189,10 @@ export function PromptInputTextarea({
       disabled={isLoading || disabled}
       placeholder={placeholder}
       rows={minRows}
+      id={resolvedId}
+      name={resolvedName}
+      aria-label={ariaLabel}
+      aria-labelledby={ariaLabelledByProp}
       className={cn(
         "flex-1 resize-none bg-transparent text-sm text-white",
         "placeholder:text-zinc-500 focus:outline-none",
@@ -214,7 +227,7 @@ export function PromptInputSubmit({ children, className, ...props }: PromptInput
       onClick={handleClick}
       disabled={!value.trim() || isLoading || disabled}
       className={cn(
-        "flex-shrink-0 rounded-xl p-2",
+        "shrink-0 rounded-xl p-2",
         "bg-brand-blue text-white",
         "hover:bg-brand-blue/90 active:bg-brand-blue",
         "disabled:hover:bg-brand-blue disabled:cursor-not-allowed disabled:opacity-50",

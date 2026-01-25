@@ -31,13 +31,13 @@ export type ToolHeaderProps = {
 
 const getStatusBadge = (status: ToolUIPart["state"]) => {
   const labels: Record<ToolUIPart["state"], string> = {
-    "input-streaming": "Pending",
-    "input-available": "Running",
-    "approval-requested": "Awaiting Approval",
-    "approval-responded": "Responded",
-    "output-available": "Completed",
-    "output-error": "Error",
-    "output-denied": "Denied",
+    "input-streaming": "Forbereder",
+    "input-available": "Kor",
+    "approval-requested": "Behover godkannande",
+    "approval-responded": "Besvarad",
+    "output-available": "Klar",
+    "output-error": "Fel",
+    "output-denied": "Nekad",
   };
 
   const icons: Record<ToolUIPart["state"], ReactNode> = {

@@ -22,7 +22,7 @@
  * 4. URLs can be included in prompts - v0 can access them!
  */
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useId } from "react";
 import {
   Upload,
   X,
@@ -87,6 +87,8 @@ export function FileUploadZone({
 }: FileUploadZoneProps) {
   const [isDragging, setIsDragging] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const uploadInputId = useId();
+  const resolvedUploadInputId = `file-upload-${uploadInputId}`;
 
   // Handle file selection
   // CRITICAL: Files are uploaded to Vercel Blob to get PUBLIC URLs
@@ -331,6 +333,9 @@ export function FileUploadZone({
           multiple
           onChange={(e) => handleFiles(e.target.files)}
           className="hidden"
+          id={resolvedUploadInputId}
+          name={resolvedUploadInputId}
+          aria-label="Ladda upp filer"
         />
       </div>
     );
@@ -378,6 +383,9 @@ export function FileUploadZone({
           multiple
           onChange={(e) => handleFiles(e.target.files)}
           className="hidden"
+          id={resolvedUploadInputId}
+          name={resolvedUploadInputId}
+          aria-label="Ladda upp filer"
         />
       </div>
 
@@ -441,6 +449,9 @@ export function FileUploadZone({
                       )}
                       <input
                         type="text"
+                        id={`file-purpose-${file.id}`}
+                        name={`file-purpose-${file.id}`}
+                        aria-label={`Syfte för ${file.filename}`}
                         placeholder="Syfte: t.ex. 'hero-bild', 'logotyp'..."
                         value={file.purpose || ""}
                         onChange={(e) => updatePurpose(file.id, e.target.value)}

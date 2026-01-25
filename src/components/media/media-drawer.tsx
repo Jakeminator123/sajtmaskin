@@ -19,7 +19,7 @@
  * - Simplified action: click = use in chat
  */
 
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef, useEffect, useId } from "react";
 import {
   Upload as UploadIcon,
   Image as ImageIcon,
@@ -109,6 +109,10 @@ export function MediaDrawer({ isOpen, onClose, projectId, onFileSelect }: MediaD
   const [error, setError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const drawerRef = useRef<HTMLDivElement>(null);
+  const searchInputId = useId();
+  const uploadInputId = useId();
+  const resolvedSearchInputId = `media-search-${searchInputId}`;
+  const resolvedUploadInputId = `media-upload-${uploadInputId}`;
 
   // Calculate counts for limits
   const counts: MediaCounts = {
@@ -384,6 +388,8 @@ export function MediaDrawer({ isOpen, onClose, projectId, onFileSelect }: MediaD
               className="hidden"
               aria-label="Välj filer att ladda upp"
               title="Välj filer att ladda upp"
+              id={resolvedUploadInputId}
+              name={resolvedUploadInputId}
             />
 
             {/* Limits */}
@@ -418,6 +424,9 @@ export function MediaDrawer({ isOpen, onClose, projectId, onFileSelect }: MediaD
             <div className="relative">
               <Search className="absolute top-1/2 left-3 h-4 w-4 -translate-y-1/2 text-gray-500" />
               <input
+                id={resolvedSearchInputId}
+                name={resolvedSearchInputId}
+                aria-label="Sök filer"
                 type="text"
                 placeholder="Sök filer..."
                 value={searchQuery}

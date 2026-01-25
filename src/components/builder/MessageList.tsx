@@ -126,18 +126,47 @@ export function MessageList({
                       typeof tool.state === "string" ? tool.state : "input-available"
                     ) as ToolUIPart["state"];
                     const { toolType, toolTitle } = resolveToolLabels(tool);
+                    const hasInput = tool.input !== undefined && tool.input !== null;
+                    const hasOutput = tool.output !== undefined && tool.output !== null;
+                    const hasErrorText =
+                      typeof tool.errorText === "string" && tool.errorText.trim().length > 0;
+                    const toolCallId =
+                      (typeof tool.toolCallId === "string" && tool.toolCallId) ||
+                      (typeof tool.id === "string" && tool.id) ||
+                      null;
+                    const toolDebug = {
+                      type: toolType,
+                      name: toolTitle,
+                      state: toolState,
+                      toolCallId,
+                      hasInput,
+                      hasOutput,
+                    };
 
                     return (
                       <Tool key={`${message.id}-tool-${toolType}-${index}`} defaultOpen>
                         <ToolHeader title={toolTitle} type={toolType} state={toolState} />
                         <ToolContent>
-                          {tool.input !== undefined && <ToolInput input={tool.input} />}
+                          {hasInput && <ToolInput input={tool.input} />}
                           <ToolOutput
                             output={tool.output}
                             errorText={
                               typeof tool.errorText === "string" ? tool.errorText : undefined
                             }
                           />
+                          {!hasInput && !hasOutput && !hasErrorText && (
+                            <div className="text-muted-foreground p-4 text-xs">
+                              Ingen tool-data har mottagits annu. Detta kan betyda att verktyget
+                              fortfarande körs, eller att modellen skickade en tool-call utan input
+                              eller output.
+                            </div>
+                          )}
+                          <div className="border-border border-t p-4">
+                            <div className="text-muted-foreground mb-2 text-xs font-medium uppercase">
+                              Tool debug
+                            </div>
+                            <CodeBlock code={JSON.stringify(toolDebug, null, 2)} language="json" />
+                          </div>
                         </ToolContent>
                       </Tool>
                     );
@@ -249,6 +278,9 @@ export function MessageList({
                       </PlanContent>
                       {part.plan.actions && part.plan.actions.length > 0 && (
                         <PlanFooter>
+                          <div className="text-muted-foreground mb-2 text-xs font-medium uppercase">
+                            Plan actions
+                          </div>
                           <div className="flex flex-wrap gap-2">
                             {part.plan.actions.map((action) => (
                               <span

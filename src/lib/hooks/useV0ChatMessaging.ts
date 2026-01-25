@@ -34,7 +34,20 @@ function mergeStreamingText(previous: string, incoming: string): string {
     }
   }
 
-  return previous + incoming;
+  const last = previous.slice(-1);
+  const first = incoming[0];
+  const needsSpace =
+    last &&
+    first &&
+    !/\s/.test(last) &&
+    !/\s/.test(first) &&
+    /[A-Za-z0-9]/.test(last) &&
+    /[A-Za-z0-9]/.test(first) &&
+    !/[\/._:-]$/.test(last) &&
+    !/^[\/._:-]/.test(first) &&
+    !previous.slice(-12).toLowerCase().includes("http");
+
+  return needsSpace ? `${previous} ${incoming}` : previous + incoming;
 }
 
 function appendAttachmentPrompt(message: string, attachmentPrompt?: string): string {
