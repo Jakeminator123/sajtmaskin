@@ -17,7 +17,7 @@
  * - ARIA labels for buttons
  */
 
-import { useState, useRef, useEffect, KeyboardEvent } from "react";
+import { useState, useRef, useEffect, useId, KeyboardEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -60,6 +60,7 @@ export function PromptInput({
   const [settings, setSettings] = useState(getDefaultPreBuilderSettings);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const router = useRouter();
+  const promptInputId = useId();
 
   // Update prompt when initialValue changes
   useEffect(() => {
@@ -138,6 +139,9 @@ export function PromptInput({
               onKeyDown={handleKeyDown}
               placeholder={placeholder}
               disabled={isLoading}
+              id={`home-prompt-${promptInputId}`}
+              name="homePrompt"
+              aria-label="Beskriv din webbplats"
               className="max-h-[200px] min-h-[44px] flex-1 resize-none border-0 bg-transparent p-0 text-white placeholder:text-gray-500 focus-visible:ring-0 focus-visible:ring-offset-0"
               rows={1}
             />
