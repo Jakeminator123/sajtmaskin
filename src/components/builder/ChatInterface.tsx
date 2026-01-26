@@ -18,7 +18,11 @@ import {
   type UploadedFile,
   type V0UserFileAttachment,
 } from "@/components/media";
-import { ShadcnBlockPicker, type ShadcnBlockSelection } from "@/components/builder/ShadcnBlockPicker";
+import {
+  ShadcnBlockPicker,
+  type ShadcnBlockAction,
+  type ShadcnBlockSelection,
+} from "@/components/builder/ShadcnBlockPicker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Blocks, FileText, ImageIcon, Loader2, Sparkles } from "lucide-react";
@@ -43,6 +47,7 @@ interface ChatInterfaceProps {
   initialPrompt?: string | null;
   onCreateChat?: (message: string, options?: MessageOptions) => Promise<boolean | void>;
   onSendMessage?: (message: string, options?: MessageOptions) => Promise<void>;
+  onStartFromRegistry?: (selection: ShadcnBlockSelection) => Promise<void>;
   onEnhancePrompt?: (message: string) => Promise<string>;
   promptAssistStatus?: string | null;
   isBusy?: boolean;
@@ -103,6 +108,7 @@ export function ChatInterface({
   initialPrompt,
   onCreateChat,
   onSendMessage,
+  onStartFromRegistry,
   onEnhancePrompt,
   promptAssistStatus,
   isBusy,
@@ -119,7 +125,7 @@ export function ChatInterface({
   const [isFigmaInputOpen, setIsFigmaInputOpen] = useState(false);
   const [isTextUploaderOpen, setIsTextUploaderOpen] = useState(false);
   const [isShadcnPickerOpen, setIsShadcnPickerOpen] = useState(false);
-  const [isAddingBlock, setIsAddingBlock] = useState(false);
+  const [isDesignSystemAction, setIsDesignSystemAction] = useState(false);
   const [figmaPreviewUrl, setFigmaPreviewUrl] = useState<string | null>(null);
   const [figmaPreviewName, setFigmaPreviewName] = useState<string | null>(null);
   const [figmaPreviewError, setFigmaPreviewError] = useState<string | null>(null);
@@ -343,12 +349,22 @@ export function ChatInterface({
     await sendMessagePayload(baseMessage);
   };
 
-  const handleAddShadcnBlock = async (selection: ShadcnBlockSelection) => {
+  const handleDesignSystemAction = async (
+    selection: ShadcnBlockSelection,
+    action: ShadcnBlockAction,
+  ) => {
     if (!selection.registryItem) return;
-    if (!onCreateChat && !onSendMessage) return;
 
-    setIsAddingBlock(true);
+    setIsDesignSystemAction(true);
     try {
+      if (action === "start") {
+        if (!onStartFromRegistry) return;
+        await onStartFromRegistry(selection);
+        setIsShadcnPickerOpen(false);
+        return;
+      }
+
+      if (!onCreateChat && !onSendMessage) return;
       const prompt = buildShadcnBlockPrompt(selection.registryItem, {
         style: selection.style,
         displayName: selection.block.title,
@@ -358,7 +374,7 @@ export function ChatInterface({
       await sendMessagePayload(prompt, { skipPromptAssist: true, clearDraft: false });
       setIsShadcnPickerOpen(false);
     } finally {
-      setIsAddingBlock(false);
+      setIsDesignSystemAction(false);
     }
   };
 
@@ -439,10 +455,10 @@ export function ChatInterface({
               className="h-8"
               onClick={() => setIsShadcnPickerOpen(true)}
               disabled={inputDisabled}
-              title="Add a shadcn/ui block"
+              title="Design System-block"
             >
               <Blocks className="h-3.5 w-3.5" />
-              Shadcn
+              Design System
             </Button>
           </div>
         </PromptInputHeader>
@@ -579,9 +595,9 @@ export function ChatInterface({
       <ShadcnBlockPicker
         open={isShadcnPickerOpen}
         onClose={() => setIsShadcnPickerOpen(false)}
-        onConfirm={handleAddShadcnBlock}
+        onConfirm={handleDesignSystemAction}
         isBusy={inputDisabled}
-        isSubmitting={isAddingBlock}
+        isSubmitting={isDesignSystemAction}
         hasChat={Boolean(chatId)}
       />
     </div>

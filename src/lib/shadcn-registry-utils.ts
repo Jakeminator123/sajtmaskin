@@ -1,7 +1,8 @@
 import type { ShadcnRegistryItem } from "@/lib/shadcn-registry-types";
+import { getRegistryBaseUrl, getRegistryStyle } from "@/lib/v0/v0-url-parser";
 
-const DEFAULT_STYLE = "new-york-v4";
-const SHADCN_BASE_URL = "https://ui.shadcn.com";
+const DEFAULT_STYLE = getRegistryStyle();
+const REGISTRY_BASE_URL = getRegistryBaseUrl();
 
 function toPascalCase(value: string): string {
   return value
@@ -71,7 +72,7 @@ export function resolveShadcnPreviewStyle(style?: string): string {
 
 export function buildShadcnPreviewUrl(blockName: string, style?: string): string {
   const previewStyle = resolveShadcnPreviewStyle(style);
-  return `${SHADCN_BASE_URL}/view/${previewStyle}/${blockName}`;
+  return `${REGISTRY_BASE_URL}/view/${previewStyle}/${blockName}`;
 }
 
 export function buildShadcnPreviewImageUrl(
@@ -80,7 +81,7 @@ export function buildShadcnPreviewImageUrl(
   style?: string,
 ): string {
   const previewStyle = resolveShadcnPreviewStyle(style);
-  return `${SHADCN_BASE_URL}/r/styles/${previewStyle}/${blockName}-${theme}.png`;
+  return `${REGISTRY_BASE_URL}/r/styles/${previewStyle}/${blockName}-${theme}.png`;
 }
 
 export function buildRegistryMarkdownPreview(

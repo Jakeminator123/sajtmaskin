@@ -1,11 +1,9 @@
 "use client";
 
-import { FolderArchive, Github, Loader2, Lock, Upload, X, Blocks, Check } from "lucide-react";
+import { FolderArchive, Github, Loader2, Lock, Upload, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import { useAuth } from "@/lib/auth/auth-store";
-import { SHADCN_BLOCKS } from "@/lib/shadcn-registry-blocks";
-import { buildShadcnRegistryUrl } from "@/lib/v0/v0-url-parser";
 
 interface InitFromRepoModalProps {
   isOpen: boolean;
@@ -13,7 +11,7 @@ interface InitFromRepoModalProps {
   onSuccess: (chatId: string) => void;
 }
 
-type SourceType = "github" | "zip" | "blocks";
+type SourceType = "github" | "zip";
 
 export function InitFromRepoModal({ isOpen, onClose, onSuccess }: InitFromRepoModalProps) {
   const { user, isAuthenticated, hasGitHub, isInitialized, fetchUser } = useAuth();
@@ -28,7 +26,6 @@ export function InitFromRepoModal({ isOpen, onClose, onSuccess }: InitFromRepoMo
   const [zipUrl, setZipUrl] = useState("");
   const [preferZip, setPreferZip] = useState(false);
   const [returnTo, setReturnTo] = useState("/projects");
-  const [selectedBlock, setSelectedBlock] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -90,47 +87,8 @@ export function InitFromRepoModal({ isOpen, onClose, onSuccess }: InitFromRepoMo
       toast.error("Please select a ZIP file or paste a ZIP URL");
       return;
     }
-    if (sourceType === "blocks" && !selectedBlock) {
-      toast.error("Please select a component block");
-      return;
-    }
-
     setIsLoading(true);
     try {
-      // Handle blocks differently - use init-registry API
-      if (sourceType === "blocks" && selectedBlock) {
-        const registryUrl = buildShadcnRegistryUrl(selectedBlock);
-
-        const response = await fetch("/api/v0/chats/init-registry", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ registryUrl }),
-        });
-
-        const data = (await response.json().catch(() => null)) as {
-          chatId?: string;
-          internalChatId?: string;
-          error?: string;
-          details?: string;
-        } | null;
-        if (!response.ok) {
-          throw new Error(data?.error || data?.details || "Failed to start from block");
-        }
-        if (!data) {
-          throw new Error("Failed to parse response");
-        }
-        const v0ChatId = data.chatId;
-
-        if (!v0ChatId) {
-          throw new Error("No v0 chat ID returned");
-        }
-
-        toast.success("Block project created successfully!");
-        onSuccess(v0ChatId);
-        onClose();
-        return;
-      }
-
       // Handle github/zip as before
       const body: Record<string, unknown> = {
         source:
@@ -191,9 +149,7 @@ export function InitFromRepoModal({ isOpen, onClose, onSuccess }: InitFromRepoMo
 
       <div className="relative z-10 flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-xl bg-white p-6 shadow-2xl">
         <div className="mb-6 flex items-center justify-between">
-          <h2 className="text-xl font-semibold text-gray-900">
-            {sourceType === "blocks" ? "Start from Component Block" : "Import Existing Project"}
-          </h2>
+          <h2 className="text-xl font-semibold text-gray-900">Import Existing Project</h2>
           <button
             onClick={onClose}
             className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
@@ -225,17 +181,11 @@ export function InitFromRepoModal({ isOpen, onClose, onSuccess }: InitFromRepoMo
             <FolderArchive className="h-4 w-4" />
             ZIP
           </button>
-          <button
-            onClick={() => setSourceType("blocks")}
-            className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-medium transition-colors ${
-              sourceType === "blocks"
-                ? "bg-gray-900 text-white"
-                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-            }`}
-          >
-            <Blocks className="h-4 w-4" />
-            Blocks
-          </button>
+        </div>
+
+        <div className="mb-4 rounded-lg border border-gray-200 bg-gray-50 p-3 text-xs text-gray-600">
+          Vill du starta från Design System-block? Använd knappen “Design System” vid prompten i
+          buildern.
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto">
@@ -453,41 +403,6 @@ export function InitFromRepoModal({ isOpen, onClose, onSuccess }: InitFromRepoMo
             </div>
           )}
 
-          {sourceType === "blocks" && (
-            <div className="mb-6 space-y-4">
-              <p className="text-sm text-gray-600">
-                Start a new project from a shadcn/ui block. Use the Blocks button near the prompt
-                to add blocks to an existing site.
-              </p>
-
-              {SHADCN_BLOCKS.map((category) => (
-                <div key={category.category}>
-                  <h3 className="mb-2 text-sm font-semibold text-gray-900">{category.category}</h3>
-                  <div className="grid grid-cols-1 gap-2">
-                    {category.items.map((block) => (
-                      <button
-                        key={block.name}
-                        onClick={() => setSelectedBlock(block.name)}
-                        className={`flex items-center gap-3 rounded-lg border p-3 text-left transition-colors ${
-                          selectedBlock === block.name
-                            ? "border-brand-blue bg-brand-blue/5 ring-brand-blue ring-1"
-                            : "border-gray-200 hover:border-gray-300 hover:bg-gray-50"
-                        }`}
-                      >
-                        <div className="min-w-0 flex-1">
-                          <div className="text-sm font-medium text-gray-900">{block.title}</div>
-                          <div className="truncate text-xs text-gray-500">{block.description}</div>
-                        </div>
-                        {selectedBlock === block.name && (
-                          <Check className="text-brand-blue h-4 w-4 shrink-0" />
-                        )}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
         </div>
 
         <div className="mt-4 flex gap-3 border-t border-gray-100 pt-4">
@@ -503,8 +418,7 @@ export function InitFromRepoModal({ isOpen, onClose, onSuccess }: InitFromRepoMo
             disabled={
               isLoading ||
               (sourceType === "github" && !githubUrl.trim()) ||
-              (sourceType === "zip" && !zipContent && !zipUrl.trim()) ||
-              (sourceType === "blocks" && !selectedBlock)
+              (sourceType === "zip" && !zipContent && !zipUrl.trim())
             }
             className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-gray-900 px-4 py-2 text-sm font-medium text-white hover:bg-gray-800 disabled:cursor-not-allowed disabled:opacity-50"
           >
@@ -512,11 +426,6 @@ export function InitFromRepoModal({ isOpen, onClose, onSuccess }: InitFromRepoMo
               <>
                 <Loader2 className="h-4 w-4 animate-spin" />
                 Importing...
-              </>
-            ) : sourceType === "blocks" ? (
-              <>
-                <Blocks className="h-4 w-4" />
-                Start Project
               </>
             ) : (
               <>
