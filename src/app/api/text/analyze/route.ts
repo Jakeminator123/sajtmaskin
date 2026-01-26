@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/auth";
 import OpenAI from "openai";
-import { SECRETS } from "@/lib/config";
 
 /**
  * Text Analysis API
@@ -28,6 +27,16 @@ interface TextSuggestion {
 // Use the cheapest/fastest model
 const ANALYSIS_MODEL = "gpt-4o-mini";
 
+function getGatewayApiKey(): string | null {
+  const apiKey = process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_OIDC_TOKEN;
+  return apiKey && apiKey.trim() ? apiKey : null;
+}
+
+function toGatewayModelId(model: string): string {
+  if (model.includes("/")) return model;
+  return `openai/${model}`;
+}
+
 export async function POST(request: NextRequest) {
   try {
     // Optional auth - allow guests to use this
@@ -43,9 +52,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if OpenAI is configured
-    if (!SECRETS.openaiApiKey) {
-      console.log("[Text/Analyze] OpenAI not configured, using defaults");
+    // Check if AI Gateway is configured
+    if (!getGatewayApiKey()) {
+      console.log("[Text/Analyze] AI Gateway not configured, using defaults");
       return NextResponse.json({
         success: true,
         summary: `${filename || "Textfil"} (${content.length} tecken)`,
@@ -54,7 +63,8 @@ export async function POST(request: NextRequest) {
     }
 
     const openai = new OpenAI({
-      apiKey: SECRETS.openaiApiKey,
+      apiKey: getGatewayApiKey() ?? "",
+      baseURL: "https://ai-gateway.vercel.sh/v1",
     });
 
     // Truncate content for analysis (save tokens)
@@ -62,7 +72,7 @@ export async function POST(request: NextRequest) {
 
     // Use Responses API with structured outputs (text.format)
     const response = await openai.responses.create({
-      model: ANALYSIS_MODEL,
+      model: toGatewayModelId(ANALYSIS_MODEL),
       instructions: `Du är en webbutvecklare som hjälper användare lägga till textinnehåll på webbplatser.
 
 Analysera texten och föreslå 3-4 sätt att använda den i en modern webbdesign.

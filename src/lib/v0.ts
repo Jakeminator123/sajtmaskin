@@ -1,4 +1,4 @@
-import { v0 } from "v0-sdk";
+import { createClient } from "v0-sdk";
 
 export function assertV0Key(): void {
   if (!process.env.V0_API_KEY) {
@@ -6,4 +6,7 @@ export function assertV0Key(): void {
   }
 }
 
-export { v0 };
+// Initialize v0 SDK with API key
+export const v0 = createClient({
+  apiKey: process.env.V0_API_KEY || "",
+});

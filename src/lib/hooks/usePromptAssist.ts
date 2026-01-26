@@ -180,12 +180,6 @@ export function usePromptAssist(params: UsePromptAssistParams) {
               "eller kör på Vercel för OIDC-autentisering."
             );
           }
-          if (provider === "openai") {
-            return "Kunde inte nå OpenAI. Kontrollera att OPENAI_API_KEY är satt och giltig.";
-          }
-          if (provider === "anthropic") {
-            return "Kunde inte nå Anthropic. Kontrollera att ANTHROPIC_API_KEY är satt och giltig.";
-          }
           return "Kunde inte nå AI Assist-endpointen. Kontrollera att servern kör.";
         })();
 

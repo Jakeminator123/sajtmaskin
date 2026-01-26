@@ -1,54 +1,52 @@
-export type PromptAssistProvider = "off" | "gateway" | "openai" | "anthropic";
+export type PromptAssistProvider = "off" | "gateway";
 
 export function normalizeAssistModel(provider: PromptAssistProvider, rawModel: string): string {
   const raw = String(rawModel || "").trim();
   if (!raw) return raw;
 
-  if (provider === "gateway") {
-    if (raw.includes("/")) return raw;
+  if (provider !== "gateway") return raw;
+  if (raw.includes("/")) return raw;
 
-    const rawLower = raw.toLowerCase();
-    let providerHint: "openai" | "anthropic" | "xai" | "google" | null = null;
-    if (/\bopenai\b/.test(rawLower)) providerHint = "openai";
-    else if (/\banthropic\b|\bclaude\b/.test(rawLower)) providerHint = "anthropic";
-    else if (/\bxai\b|\bgrok\b/.test(rawLower)) providerHint = "xai";
-    else if (/\bgoogle\b|\bgemini\b/.test(rawLower)) providerHint = "google";
+  const rawLower = raw.toLowerCase();
+  let providerHint: "openai" | "anthropic" | "xai" | "google" | null = null;
+  if (/\bopenai\b/.test(rawLower)) providerHint = "openai";
+  else if (/\banthropic\b|\bclaude\b/.test(rawLower)) providerHint = "anthropic";
+  else if (/\bxai\b|\bgrok\b/.test(rawLower)) providerHint = "xai";
+  else if (/\bgoogle\b|\bgemini\b/.test(rawLower)) providerHint = "google";
 
-    let modelPart = raw
-      .replace(/openai|anthropic|xai|google/gi, "")
-      .trim()
-      .replace(/^\W+|\W+$/g, "")
-      .replace(/gbt/gi, "gpt")
-      .replace(/\s+/g, "-");
+  let modelPart = raw
+    .replace(/openai|anthropic|xai|google/gi, "")
+    .trim()
+    .replace(/^\W+|\W+$/g, "")
+    .replace(/gbt/gi, "gpt")
+    .replace(/\s+/g, "-");
 
-    if (!modelPart && /\bclaude\b/.test(rawLower)) modelPart = raw.trim().replace(/\s+/g, "-");
+  if (!modelPart && /\bclaude\b/.test(rawLower)) modelPart = raw.trim().replace(/\s+/g, "-");
 
-    modelPart = modelPart.replace(/^gpt[- ]?(\d)(?:[._-]?(\d))?$/i, (_m, major, minor) =>
-      minor ? `gpt-${major}.${minor}` : `gpt-${major}`,
-    );
+  modelPart = modelPart.replace(/^gpt[- ]?(\d)(?:[._-]?(\d))?$/i, (_m, major, minor) =>
+    minor ? `gpt-${major}.${minor}` : `gpt-${major}`,
+  );
 
-    if (!modelPart) modelPart = "gpt-4o-mini";
+  if (!modelPart) modelPart = "gpt-4o-mini";
 
-    if (!providerHint) {
-      const m = modelPart.toLowerCase();
-      if (m.startsWith("claude")) providerHint = "anthropic";
-      else if (m.startsWith("grok")) providerHint = "xai";
-      else if (m.startsWith("gemini")) providerHint = "google";
-      else providerHint = "openai";
-    }
-
-    return `${providerHint}/${modelPart}`;
+  if (!providerHint) {
+    const m = modelPart.toLowerCase();
+    if (m.startsWith("claude")) providerHint = "anthropic";
+    else if (m.startsWith("grok")) providerHint = "xai";
+    else if (m.startsWith("gemini")) providerHint = "google";
+    else providerHint = "openai";
   }
 
-  const slashIdx = raw.indexOf("/");
-  if (slashIdx > 0) return raw.slice(slashIdx + 1);
-  return raw;
+  return `${providerHint}/${modelPart}`;
 }
 
 export function buildV0RewriteSystemPrompt(): string {
   return (
     "You are a prompt engineer for v0 (a website/app builder). " +
     "Rewrite the user request into a single, concrete, high-quality build prompt for v0. " +
+    "Always assume Next.js App Router + Tailwind CSS + shadcn/ui, and ensure a responsive, " +
+    "accessible, polished React UI with high visual quality. " +
+    "If images are requested or allowed, insist on high-quality visuals and proper alt text. " +
     "Keep it concise, include key requirements and UI details, and avoid extra commentary. " +
     "Output ONLY the rewritten prompt."
   );
@@ -116,7 +114,8 @@ export function buildV0PromptFromBrief(params: {
   const seoKeywords = asStringList(seo?.keywords);
 
   return [
-    "Build a beautiful, modern, production-ready website using Next.js (App Router) + Tailwind CSS.",
+    "Build a beautiful, modern, production-ready website using Next.js (App Router) + Tailwind CSS + shadcn/ui.",
+    "Use shadcn/ui components where appropriate (buttons, inputs, cards, dialogs).",
     "",
     `Project: ${projectTitle}${brandName ? ` (${brandName})` : ""}`,
     pitch ? `One-sentence pitch: ${pitch}` : null,
@@ -135,7 +134,7 @@ export function buildV0PromptFromBrief(params: {
       : null,
     "",
     imageGenerations
-      ? "Imagery: include tasteful images where they add value. Use next/image when appropriate and include descriptive alt text."
+      ? "Imagery: include high-quality images where they add value. Use next/image when appropriate and include descriptive alt text."
       : "Imagery: do not rely on generated images; prioritize layout, typography, and iconography. Images are optional.",
     imageryStyle.length ? `- Image style keywords: ${imageryStyle.join(", ")}` : null,
     imagerySubjects.length ? `- Suggested image subjects: ${imagerySubjects.join(", ")}` : null,

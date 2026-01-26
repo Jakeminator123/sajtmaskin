@@ -24,16 +24,26 @@ interface RouteParams {
   params: Promise<{ id: string }>;
 }
 
+function getGatewayApiKey(): string | null {
+  const apiKey = process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_OIDC_TOKEN;
+  return apiKey && apiKey.trim() ? apiKey : null;
+}
+
+function toGatewayModelId(model: string): string {
+  if (model.includes("/")) return model;
+  return `openai/${model}`;
+}
+
 function getOpenAIClient(): OpenAI {
-  const apiKey = process.env.OPENAI_API_KEY;
+  const apiKey = getGatewayApiKey();
   if (!apiKey) {
-    throw new Error("OPENAI_API_KEY environment variable is required");
+    throw new Error("AI_GATEWAY_API_KEY (or VERCEL_OIDC_TOKEN) is required");
   }
-  return new OpenAI({ apiKey });
+  return new OpenAI({ apiKey, baseURL: "https://ai-gateway.vercel.sh/v1" });
 }
 
 // Analysis system prompt
-const ANALYSIS_SYSTEM_PROMPT = `You are an expert web developer and code analyst. 
+const ANALYSIS_SYSTEM_PROMPT = `You are an expert web developer and code analyst.
 Analyze the provided project files and give a structured analysis.
 
 RESPOND IN SWEDISH.
@@ -173,7 +183,7 @@ Ge en strukturerad analys enligt formatet.`;
 
     // 7. Call OpenAI Responses API
     const response = await getOpenAIClient().responses.create({
-      model: "gpt-4o-mini",
+      model: toGatewayModelId("gpt-4o-mini"),
       instructions: ANALYSIS_SYSTEM_PROMPT,
       input: analysisPrompt,
       store: false, // Don't store analysis for privacy

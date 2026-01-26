@@ -10,7 +10,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { OpenAI } from "openai";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { getUserById, createTransaction, isTestUser } from "@/lib/data/database";
-import { SECRETS } from "@/lib/config";
 import { scrapeWebsite, validateAndNormalizeUrl, getCanonicalUrlKey } from "@/lib/webscraper";
 import {
   buildAuditPrompt,
@@ -634,13 +633,24 @@ if (schemaErrors.length > 0) {
 const USD_TO_SEK = 11.0;
 
 // Initialize OpenAI client lazily
+function getGatewayApiKey(): string | null {
+  const apiKey = process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_OIDC_TOKEN;
+  return apiKey && apiKey.trim() ? apiKey : null;
+}
+
+function toGatewayModelId(model: string): string {
+  if (model.includes("/")) return model;
+  return `openai/${model}`;
+}
+
 function getOpenAIClient(): OpenAI {
-  const apiKey = SECRETS.openaiApiKey;
+  const apiKey = getGatewayApiKey();
   if (!apiKey) {
-    throw new Error("OPENAI_API_KEY is not configured");
+    throw new Error("AI_GATEWAY_API_KEY (or VERCEL_OIDC_TOKEN) is not configured");
   }
   return new OpenAI({
     apiKey,
+    baseURL: "https://ai-gateway.vercel.sh/v1",
     timeout: 300000, // 5 minute timeout
     maxRetries: 2,
   });
@@ -1331,7 +1341,7 @@ export async function POST(request: NextRequest) {
         console.log(`[${requestId}] Trying model: ${model}`);
         response = await getOpenAIClient().responses.create(
           {
-            model,
+            model: toGatewayModelId(model),
             ...baseRequest,
           },
           {
