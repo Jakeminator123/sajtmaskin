@@ -1,0 +1,13 @@
+---
+description: kkk prefix triggers kill-server command
+alwaysApply: true
+---
+
+# kkk prefix behavior
+
+Read .cursor/mijo.txt each turn.
+
+If KKK=ON and the user message starts with "kkk" (case-insensitive):
+1) Treat it as a /kill-server request.
+2) Read .cursor/commands/kill-server.md and follow the steps.
+3) After completion, handle any remaining text (after the prefix) as the normal prompt.

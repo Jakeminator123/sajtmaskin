@@ -1,6 +1,5 @@
 import { createOpenAI } from "@ai-sdk/openai";
 import { createAnthropic } from "@ai-sdk/anthropic";
-import { createVercel } from "@ai-sdk/vercel";
 import { gateway, generateText } from "ai";
 import { NextResponse } from "next/server";
 import { z } from "zod";
@@ -13,7 +12,7 @@ export const maxDuration = 420; // 7 minutes for prompt assist with slow models
 
 const BASE_URL = "https://api.v0.dev/v1";
 
-type ProviderType = "openai-compat" | "vercel" | "gateway" | "openai" | "anthropic";
+type ProviderType = "openai-compat" | "gateway" | "openai" | "anthropic";
 
 const messageSchema = z.discriminatedUnion("role", [
   z.object({
@@ -35,7 +34,7 @@ const chatRequestSchema = z.object({
   model: z.string().optional().default("v0-1.5-md"),
   temperature: z.number().min(0).max(2).optional(),
   provider: z
-    .enum(["openai-compat", "vercel", "gateway", "openai", "anthropic"])
+    .enum(["openai-compat", "gateway", "openai", "anthropic"])
     .optional()
     .default("openai-compat"),
 });
@@ -79,8 +78,6 @@ function getAnthropicApiKey(): { apiKey: string | null; source: string } {
 
 function getProvider(providerType: Exclude<ProviderType, "gateway">, apiKey: string) {
   switch (providerType) {
-    case "vercel":
-      return createVercel({ apiKey });
     case "openai":
       return createOpenAI({ apiKey });
     case "anthropic":

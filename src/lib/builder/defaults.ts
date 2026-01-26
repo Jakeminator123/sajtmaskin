@@ -1,6 +1,6 @@
 /**
  * Shared defaults and options for model tiers and prompt assist.
- * Used by Builder and pre-builder UI (landing, wizard, audit, category pages).
+ * Used by Builder UI for model tier and prompt assist defaults.
  *
  * CONCEPTS:
  *
@@ -96,11 +96,6 @@ export const PROMPT_ASSIST_MODEL_OPTIONS: Record<PromptAssistProvider, PromptAss
     { value: "claude-3.7-sonnet", label: "Claude 3.7 Sonnet" },
     { value: "claude-haiku-4.5", label: "Claude Haiku 4.5" },
   ],
-  vercel: [
-    { value: "v0-1.5-md", label: "v0 1.5 MD" },
-    { value: "v0-1.5-lg", label: "v0 1.5 LG" },
-    { value: "v0-1.0-md", label: "v0 1.0 MD" },
-  ],
 };
 
 export function getPromptAssistModelOptions(
@@ -153,64 +148,3 @@ export const DEFAULT_SYSTEM_PROMPT =
   "Build a modern, production-ready UI with clear hierarchy, accessible components, and responsive layout. " +
   "Use semantic HTML and Tailwind CSS classes only.";
 
-// ============================================
-// URL PARAM KEYS (for passing settings pre-builder → builder)
-// ============================================
-
-export const SETTINGS_URL_PARAMS = {
-  modelTier: "modelTier",
-  assistProvider: "assistProvider",
-  assistModel: "assistModel",
-  assistDeep: "assistDeep",
-} as const;
-
-// ============================================
-// STORAGE KEYS (for audit flow)
-// ============================================
-
-export const SETTINGS_STORAGE_PREFIX = "sajtmaskin_settings:";
-
-export function getSettingsStorageKey(auditId?: string): string {
-  return auditId ? `${SETTINGS_STORAGE_PREFIX}${auditId}` : `${SETTINGS_STORAGE_PREFIX}default`;
-}
-
-export interface StoredSettings {
-  modelTier?: ModelTier;
-  assistProvider?: PromptAssistProvider;
-  assistModel?: string;
-  assistDeep?: boolean;
-}
-
-export function saveSettingsToStorage(settings: StoredSettings, auditId?: string): void {
-  if (typeof window === "undefined") return;
-  const key = getSettingsStorageKey(auditId);
-  try {
-    sessionStorage.setItem(key, JSON.stringify(settings));
-  } catch {
-    // Ignore storage errors
-  }
-}
-
-export function loadSettingsFromStorage(auditId?: string): StoredSettings | null {
-  if (typeof window === "undefined") return null;
-  const key = getSettingsStorageKey(auditId);
-  try {
-    const stored = sessionStorage.getItem(key);
-    if (stored) {
-      return JSON.parse(stored) as StoredSettings;
-    }
-  } catch {
-    // Ignore parse errors
-  }
-  return null;
-}
-
-export function clearSettingsFromStorage(auditId?: string): void {
-  if (typeof window === "undefined") return;
-  const key = getSettingsStorageKey(auditId);
-  try {
-    sessionStorage.removeItem(key);
-  } catch {
-    // Ignore storage errors
-  }
-}

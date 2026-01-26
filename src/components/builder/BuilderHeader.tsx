@@ -98,9 +98,6 @@ export function BuilderHeader(props: {
 
   const isBusy = isAnyStreaming || isCreatingChat;
   const currentModel = MODEL_TIER_OPTIONS.find((m) => m.value === selectedModelTier);
-  const showLegacyVercel =
-    promptAssistProvider === "vercel" &&
-    !PROMPT_ASSIST_PROVIDER_OPTIONS.some((option) => option.value === "vercel");
   const assistModelOptions = getPromptAssistModelOptions(promptAssistProvider);
   const hasCustomAssistModel =
     promptAssistProvider !== "off" &&
@@ -145,12 +142,6 @@ export function BuilderHeader(props: {
               value={promptAssistProvider}
               onValueChange={(v) => onPromptAssistProviderChange(v as PromptAssistProvider)}
             >
-              {showLegacyVercel && (
-                <DropdownMenuRadioItem value="vercel">
-                  v0 Model API
-                  <span className="text-muted-foreground ml-2 text-xs">Legacy</span>
-                </DropdownMenuRadioItem>
-              )}
               {PROMPT_ASSIST_PROVIDER_OPTIONS.map((option) => (
                 <DropdownMenuRadioItem key={option.value} value={option.value}>
                   {option.label}

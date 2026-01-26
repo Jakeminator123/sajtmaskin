@@ -9,7 +9,7 @@
  * - Keyboard shortcuts (Enter to submit, Shift+Enter for newline)
  * - AI Wizard integration for guided prompt building
  * - Example prompts for inspiration
- * - Pre-builder settings (model tier + prompt assist)
+ * - Wizard integration for prompt expansion
  *
  * ACCESSIBILITY:
  * - Proper focus management
@@ -23,11 +23,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { HelpTooltip } from "@/components/layout";
 import { PromptWizardModalV2, type WizardData } from "@/components/modals";
-import {
-  PreBuilderSettings,
-  getDefaultPreBuilderSettings,
-  buildSettingsUrlParams,
-} from "@/components/forms/pre-builder-settings";
 import { ArrowUp, Loader2, Wand2, Lightbulb } from "lucide-react";
 
 // ═══════════════════════════════════════════════════════════════
@@ -57,7 +52,6 @@ export function PromptInput({
 }: PromptInputProps) {
   const [prompt, setPrompt] = useState(initialValue || "");
   const [showWizard, setShowWizard] = useState(false);
-  const [settings, setSettings] = useState(getDefaultPreBuilderSettings);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const router = useRouter();
   const promptInputId = useId();
@@ -85,8 +79,7 @@ export function PromptInput({
     }
 
     if (navigateOnSubmit) {
-      const settingsParams = buildSettingsUrlParams(settings);
-      router.push(`/builder?prompt=${encodeURIComponent(prompt)}&${settingsParams}`);
+      router.push(`/builder?prompt=${encodeURIComponent(prompt)}`);
     }
   };
 
@@ -113,8 +106,7 @@ export function PromptInput({
     }
 
     if (navigateOnSubmit) {
-      const settingsParams = buildSettingsUrlParams(settings);
-      router.push(`/builder?prompt=${encodeURIComponent(expandedPrompt)}&${settingsParams}`);
+      router.push(`/builder?prompt=${encodeURIComponent(expandedPrompt)}`);
     }
   };
 
@@ -144,12 +136,6 @@ export function PromptInput({
               aria-label="Beskriv din webbplats"
               className="max-h-[200px] min-h-[44px] flex-1 resize-none border-0 bg-transparent p-0 text-white placeholder:text-gray-500 focus-visible:ring-0 focus-visible:ring-offset-0"
               rows={1}
-            />
-            <PreBuilderSettings
-              value={settings}
-              onChange={setSettings}
-              disabled={isLoading}
-              compact
             />
             <Button
               onClick={() => setShowWizard(true)}

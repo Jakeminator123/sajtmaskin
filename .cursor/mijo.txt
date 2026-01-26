@@ -1,0 +1,5 @@
+LLM=ON
+LLM_PREFIX=Promptning under projekt
+LLM_SCOPE=LLM
+
+KKK=ON

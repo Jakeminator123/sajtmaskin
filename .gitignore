@@ -40,7 +40,6 @@ Thumbs.db
 
 # Cursor-specific (plans are session-specific, mcp.json is shared)
 .cursor/plans/
-.cursor/rules/
 
 # Logs
 *.log

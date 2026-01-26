@@ -7,11 +7,6 @@ import { Button } from "@/components/ui/button";
 import { HelpTooltip, ShaderBackground } from "@/components/layout";
 import { PromptWizardModalV2, type WizardData } from "@/components/modals";
 import {
-  PreBuilderSettings,
-  getDefaultPreBuilderSettings,
-  buildSettingsUrlParams,
-} from "@/components/forms/pre-builder-settings";
-import {
   ArrowLeft,
   Rocket,
   Sparkles,
@@ -64,7 +59,6 @@ export default function CategoryPage() {
   const [prompt, setPrompt] = useState("");
   const [isCreating, setIsCreating] = useState(false);
   const [showWizard, setShowWizard] = useState(false);
-  const [preBuilderSettings, setPreBuilderSettings] = useState(getDefaultPreBuilderSettings);
 
   const category = getCategory(type);
   const v0Category = V0_CATEGORIES[type];
@@ -99,11 +93,8 @@ export default function CategoryPage() {
           type,
           prompt.trim().substring(0, 100),
         );
-        const settingsParams = buildSettingsUrlParams(preBuilderSettings);
         router.push(
-          `/builder?project=${
-            project.id
-          }&type=${type}&prompt=${encodeURIComponent(prompt.trim())}&${settingsParams}`,
+          `/builder?project=${project.id}&type=${type}&prompt=${encodeURIComponent(prompt.trim())}`,
         );
       } catch (error) {
         console.error("Failed to create project:", error);
@@ -122,11 +113,8 @@ export default function CategoryPage() {
         type,
         quickPrompt.prompt.substring(0, 100),
       );
-      const settingsParams = buildSettingsUrlParams(preBuilderSettings);
       router.push(
-        `/builder?project=${
-          project.id
-        }&type=${type}&prompt=${encodeURIComponent(quickPrompt.prompt)}&${settingsParams}`,
+        `/builder?project=${project.id}&type=${type}&prompt=${encodeURIComponent(quickPrompt.prompt)}`,
       );
     } catch (error) {
       console.error("Failed to create project:", error);
@@ -186,11 +174,8 @@ export default function CategoryPage() {
       }
 
       // Navigate directly to builder with the expanded prompt
-      const settingsParams = buildSettingsUrlParams(preBuilderSettings);
       router.push(
-        `/builder?project=${
-          project.id
-        }&type=${type}&prompt=${encodeURIComponent(expandedPrompt)}&${settingsParams}`,
+        `/builder?project=${project.id}&type=${type}&prompt=${encodeURIComponent(expandedPrompt)}`,
       );
     } catch (error) {
       console.error("Failed to create project:", error);
@@ -259,12 +244,6 @@ export default function CategoryPage() {
                   <div className="mt-2 flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       <span className="text-xs text-gray-500">{prompt.length} tecken</span>
-                      <PreBuilderSettings
-                        value={preBuilderSettings}
-                        onChange={setPreBuilderSettings}
-                        disabled={isCreating}
-                        compact
-                      />
                     </div>
                     <Button
                       variant="ghost"

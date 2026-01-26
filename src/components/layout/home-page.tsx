@@ -30,12 +30,6 @@ import { useRouter } from "next/navigation";
 import { TemplateGallery } from "@/components/templates";
 import { PromptInput } from "@/components/forms";
 import {
-  getDefaultPreBuilderSettings,
-  buildSettingsUrlParams,
-  type PreBuilderSettingsValue,
-} from "@/components/forms/pre-builder-settings";
-import { saveSettingsToStorage } from "@/lib/builder/defaults";
-import {
   OnboardingModal,
   useOnboarding,
   AuditModal,
@@ -43,7 +37,6 @@ import {
   type WizardData,
 } from "@/components/modals";
 import { AuthModal } from "@/components/auth";
-import { UserSettingsModal } from "@/components/settings/user-settings-modal";
 import { HelpTooltip, Navbar, ShaderBackground, SiteAuditSection } from "./index";
 import {
   RotateCcw,
@@ -68,15 +61,12 @@ type BuildMethod = "category" | "audit" | "freeform" | null;
 export function HomePage() {
   const router = useRouter();
   const [showAuthModal, setShowAuthModal] = useState(false);
-  const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [auditResult, setAuditResult] = useState<AuditResult | null>(null);
   const [auditedUrl, setAuditedUrl] = useState<string | null>(null);
   const [showAuditModal, setShowAuditModal] = useState(false);
   const [showWizard, setShowWizard] = useState(false);
   const [activeBuildMethod, setActiveBuildMethod] = useState<BuildMethod>(null);
-  // Pre-builder settings (model tier + prompt assist) - shared across flows
-  const [preBuilderSettings] = useState<PreBuilderSettingsValue>(getDefaultPreBuilderSettings);
   // Note: auditGeneratedPrompt removed - audit now navigates directly to builder
   // with prompt stored in sessionStorage (avoids URL length limits)
 
@@ -128,16 +118,6 @@ export function HomePage() {
       localStorage.setItem(`sajtmaskin_audit_prompt:${auditId}`, prompt);
       sessionStorage.setItem("sajtmaskin_audit_prompt_id", auditId);
 
-      // Also save pre-builder settings for builder to read
-      saveSettingsToStorage(
-        {
-          modelTier: preBuilderSettings.modelTier,
-          assistProvider: preBuilderSettings.assistProvider,
-          assistModel: preBuilderSettings.assistModel,
-          assistDeep: preBuilderSettings.assistDeep,
-        },
-        auditId,
-      );
     }
 
     // Navigate directly to builder with a flag indicating audit source
@@ -151,8 +131,7 @@ export function HomePage() {
   // Handle wizard completion - navigate to builder with expanded prompt
   const handleWizardComplete = (_wizardData: WizardData, expandedPrompt: string) => {
     setShowWizard(false);
-    const settingsParams = buildSettingsUrlParams(preBuilderSettings);
-    router.push(`/builder?prompt=${encodeURIComponent(expandedPrompt)}&${settingsParams}`);
+    router.push(`/builder?prompt=${encodeURIComponent(expandedPrompt)}`);
   };
 
   // Build initial prompt from onboarding data
@@ -200,11 +179,7 @@ export function HomePage() {
       />
 
       {/* Navbar */}
-      <Navbar
-        onLoginClick={handleLoginClick}
-        onRegisterClick={handleRegisterClick}
-        onSettingsClick={() => setShowSettingsModal(true)}
-      />
+      <Navbar onLoginClick={handleLoginClick} onRegisterClick={handleRegisterClick} />
 
       {/* Auth Modal */}
       <AuthModal
@@ -213,8 +188,6 @@ export function HomePage() {
         defaultMode={authMode}
       />
 
-      {/* Settings Modal */}
-      <UserSettingsModal isOpen={showSettingsModal} onClose={() => setShowSettingsModal(false)} />
 
       {/* Audit Result Modal */}
       <AuditModal

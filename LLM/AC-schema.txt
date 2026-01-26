@@ -1,0 +1,27 @@
+AC-SCHEMA - ENHETLIG AI/GATEWAY-LOGIK
+Syfte: definiera slutligt beteende nar vi rensar och forenklar.
+
+Malbild:
+- Alla model- och assist-val sker endast i buildern.
+- Inga personliga API-nycklar i UI eller DB.
+- Samma beteende oavsett entry (home/wizard/category/audit).
+
+AC - Flode
+- [ ] Start/kategori skickar endast prompt till /builder (inga model-parametrar).
+- [ ] Builder header ar enda stallet for model tier + prompt assist.
+- [ ] "Forbattra" anvander /api/ai/chat eller /api/ai/brief.
+- [ ] "Skicka" anvander /api/v0/chats/stream.
+- [ ] Provider=off gor inga /api/ai/*-anrop.
+
+AC - Konfig
+- [ ] Endast server-env anvands for API-nycklar.
+- [ ] Tydlig feltext om AI Gateway nyckel saknas.
+- [ ] Tydlig feltext om OpenAI/Anthropic nyckel saknas.
+
+AC - UX/Debug
+- [ ] UI visar aktiv provider + modell + deep.
+- [ ] Debug visar faktisk provider/model som anropas.
+- [ ] Ingen dold fallback utan info.
+
+Noter:
+- Hojrisk-andringar uppdateras i LLM/atgardsmatris.txt.
