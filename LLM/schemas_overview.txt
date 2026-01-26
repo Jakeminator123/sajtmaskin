@@ -1,0 +1,21 @@
+SAJTMASKIN SCHEMAS - OVERVIEW
+Purpose: Samla en standard for hur anrop och floden fungerar.
+Scope: Endast beskrivande dokument (ingen runtime).
+
+Files in this folder:
+- calls.txt
+  Standard for viktigaste API-anrop, skillnad gateway/inte gateway,
+  och vilka filer som ansvarar for vad.
+
+Relation to other docs:
+- atgardsmatris.txt (rot): listar buggar per flow.
+- src/...: kodkalla for sanning, schemas maste uppdateras nar kod andras.
+
+How to update:
+1) Nar ett endpoint, request eller response andras -> uppdatera calls.txt.
+2) Nar nya floden tillkommer -> lagg till under "Flows" i calls.txt.
+3) Nar naming eller konfiguration andras -> uppdatera "Env/Config" i calls.txt.
+
+Designprincip:
+- Kort och exakt. Peka till kod, duplicera inte logik.
+- Inga hemligheter eller nyckelvarden i texten.

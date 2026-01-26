@@ -151,9 +151,6 @@ export function usePromptAssist(params: UsePromptAssistParams) {
               "eller kör på Vercel för OIDC-autentisering."
             );
           }
-          if (provider === "vercel") {
-            return "Kunde inte nå v0 Model API. Kontrollera att V0_API_KEY eller VERCEL_API_KEY är satt.";
-          }
           if (provider === "openai") {
             return "Kunde inte nå OpenAI. Kontrollera att OPENAI_API_KEY är satt och giltig.";
           }

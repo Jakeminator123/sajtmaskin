@@ -5,7 +5,6 @@ import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Navbar, ShaderBackground } from "@/components/layout";
 import { AuthModal } from "@/components/auth";
-import { UserSettingsModal } from "@/components/settings/user-settings-modal";
 import { useAuth } from "@/lib/auth/auth-store";
 import { Button } from "@/components/ui/button";
 import { Diamond, ArrowLeft, CheckCircle, Sparkles, Loader2, Star, Zap } from "lucide-react";
@@ -43,7 +42,6 @@ function BuyCreditsContent() {
   const searchParams = useSearchParams();
   const { isAuthenticated, diamonds, fetchUser } = useAuth();
   const [showAuthModal, setShowAuthModal] = useState(false);
-  const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [selectedPackage, setSelectedPackage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -109,9 +107,7 @@ function BuyCreditsContent() {
       <Navbar
         onLoginClick={() => setShowAuthModal(true)}
         onRegisterClick={() => setShowAuthModal(true)}
-        onSettingsClick={() => setShowSettingsModal(true)}
       />
-      <UserSettingsModal isOpen={showSettingsModal} onClose={() => setShowSettingsModal(false)} />
 
       {/* Main content with padding for navbar */}
       <main className="relative z-10 px-4 pt-24 pb-16">

@@ -34,7 +34,6 @@ import {
   Menu,
   X,
   AlertCircle,
-  Settings,
 } from "lucide-react";
 
 // ═══════════════════════════════════════════════════════════════
@@ -51,14 +50,13 @@ const LOW_DIAMOND_THRESHOLD = 3;
 interface NavbarProps {
   onLoginClick?: () => void;
   onRegisterClick?: () => void;
-  onSettingsClick?: () => void;
 }
 
 // ═══════════════════════════════════════════════════════════════
 // COMPONENT
 // ═══════════════════════════════════════════════════════════════
 
-export function Navbar({ onLoginClick, onRegisterClick, onSettingsClick }: NavbarProps) {
+export function Navbar({ onLoginClick, onRegisterClick }: NavbarProps) {
   const pathname = usePathname();
   const { user, isAuthenticated, diamonds, logout, fetchUser, isInitialized } = useAuth();
   const [showUserMenu, setShowUserMenu] = useState(false);
@@ -268,21 +266,6 @@ export function Navbar({ onLoginClick, onRegisterClick, onSettingsClick }: Navba
                     <Sparkles className="text-brand-teal h-4 w-4" />
                     Köp diamanter
                   </Link>
-
-                  {/* Settings */}
-                  <button
-                    onClick={() => {
-                      setShowUserMenu(false);
-                      onSettingsClick?.();
-                    }}
-                    className="flex w-full items-center gap-2 px-4 py-2.5 text-sm text-gray-300 transition-colors hover:bg-gray-800/50"
-                  >
-                    <Settings className="text-brand-blue h-4 w-4" />
-                    Inställningar
-                  </button>
-
-                  {/* Divider */}
-                  <div className="my-1 h-px bg-gray-800" />
 
                   {/* Logout */}
                   <button

@@ -18,9 +18,6 @@ import {
   getDefaultPromptAssistModel,
   MODEL_TIER_OPTIONS,
   PROMPT_ASSIST_PROVIDER_OPTIONS,
-  SETTINGS_URL_PARAMS,
-  loadSettingsFromStorage,
-  clearSettingsFromStorage,
 } from "@/lib/builder/defaults";
 import { useChat } from "@/lib/hooks/useChat";
 import { useCssValidation } from "@/lib/hooks/useCssValidation";
@@ -31,7 +28,6 @@ import { useVersions } from "@/lib/hooks/useVersions";
 import { useAuth } from "@/lib/auth/auth-store";
 import type { PromptAssistProvider } from "@/lib/builder/promptAssist";
 import type { ModelTier } from "@/lib/validations/chatSchemas";
-import { modelTiers } from "@/lib/validations/chatSchemas";
 import { cn } from "@/lib/utils";
 import { Check, Loader2 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -44,18 +40,6 @@ type CreateChatOptions = {
   skipPromptAssist?: boolean;
 };
 
-const LEGACY_ASSIST_PROVIDERS: PromptAssistProvider[] = ["vercel"];
-const ASSIST_PROVIDER_SET = new Set([
-  ...PROMPT_ASSIST_PROVIDER_OPTIONS.map((option) => option.value),
-  ...LEGACY_ASSIST_PROVIDERS,
-]);
-
-function normalizeAssistProvider(value: string | null | undefined): PromptAssistProvider | null {
-  if (!value) return null;
-  return ASSIST_PROVIDER_SET.has(value as PromptAssistProvider)
-    ? (value as PromptAssistProvider)
-    : null;
-}
 
 function BuilderContent() {
   const router = useRouter();
@@ -69,14 +53,6 @@ function BuilderContent() {
   const auditId = searchParams.get("auditId");
   const hasEntryParams = Boolean(promptParam || templateId || source === "audit");
 
-  // Read initial settings from URL params
-  const urlModelTier = searchParams.get(SETTINGS_URL_PARAMS.modelTier) as ModelTier | null;
-  const urlAssistProvider = searchParams.get(
-    SETTINGS_URL_PARAMS.assistProvider,
-  ) as PromptAssistProvider | null;
-  const urlAssistModel = searchParams.get(SETTINGS_URL_PARAMS.assistModel);
-  const urlAssistDeep = searchParams.get(SETTINGS_URL_PARAMS.assistDeep);
-
   const [chatId, setChatId] = useState<string | null>(chatIdParam);
   const [currentDemoUrl, setCurrentDemoUrl] = useState<string | null>(null);
   const [previewRefreshToken, setPreviewRefreshToken] = useState(0);
@@ -84,44 +60,12 @@ function BuilderContent() {
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [selectedVersionId, setSelectedVersionId] = useState<string | null>(null);
   const [isVersionPanelCollapsed, setIsVersionPanelCollapsed] = useState(false);
-  const [selectedModelTier, setSelectedModelTier] = useState<ModelTier>(() => {
-    // 1. URL param takes priority
-    if (urlModelTier && modelTiers.includes(urlModelTier)) return urlModelTier;
-    // 2. Storage fallback (for audit flow)
-    if (typeof window !== "undefined") {
-      const stored = loadSettingsFromStorage(auditId ?? undefined);
-      if (stored?.modelTier && modelTiers.includes(stored.modelTier)) return stored.modelTier;
-    }
-    // 3. Default
-    return DEFAULT_MODEL_TIER;
-  });
-  const [promptAssistProvider, setPromptAssistProvider] = useState<PromptAssistProvider>(() => {
-    const normalizedUrlProvider = normalizeAssistProvider(urlAssistProvider);
-    if (normalizedUrlProvider) return normalizedUrlProvider;
-    if (typeof window !== "undefined") {
-      const stored = loadSettingsFromStorage(auditId ?? undefined);
-      const normalizedStored = normalizeAssistProvider(stored?.assistProvider ?? null);
-      if (normalizedStored) return normalizedStored;
-    }
-    return DEFAULT_PROMPT_ASSIST.provider;
-  });
-  const [promptAssistModel, setPromptAssistModel] = useState(() => {
-    if (urlAssistModel) return urlAssistModel;
-    if (typeof window !== "undefined") {
-      const stored = loadSettingsFromStorage(auditId ?? undefined);
-      if (stored?.assistModel) return stored.assistModel;
-    }
-    return DEFAULT_PROMPT_ASSIST.model;
-  });
-  const [promptAssistDeep, setPromptAssistDeep] = useState(() => {
-    if (urlAssistDeep === "true") return true;
-    if (urlAssistDeep === "false") return false;
-    if (typeof window !== "undefined") {
-      const stored = loadSettingsFromStorage(auditId ?? undefined);
-      if (typeof stored?.assistDeep === "boolean") return stored.assistDeep;
-    }
-    return DEFAULT_PROMPT_ASSIST.deep;
-  });
+  const [selectedModelTier, setSelectedModelTier] = useState<ModelTier>(DEFAULT_MODEL_TIER);
+  const [promptAssistProvider, setPromptAssistProvider] = useState<PromptAssistProvider>(
+    DEFAULT_PROMPT_ASSIST.provider,
+  );
+  const [promptAssistModel, setPromptAssistModel] = useState(DEFAULT_PROMPT_ASSIST.model);
+  const [promptAssistDeep, setPromptAssistDeep] = useState(DEFAULT_PROMPT_ASSIST.deep);
   const [isSandboxModalOpen, setIsSandboxModalOpen] = useState(false);
   const [isDeploying, setIsDeploying] = useState(false);
   const [enableImageGenerations, setEnableImageGenerations] = useState(true);
@@ -155,19 +99,6 @@ function BuilderContent() {
 
     setAuditPromptLoaded(true);
   }, [source, auditId]);
-
-  // Clear settings from storage after they've been read (prevents stale settings on refresh)
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    // Only clear if we had pre-builder settings
-    const hasPreBuilderSettings =
-      urlModelTier || urlAssistProvider || urlAssistModel || urlAssistDeep;
-    if (hasPreBuilderSettings || auditId) {
-      clearSettingsFromStorage(auditId ?? undefined);
-    }
-    // Run only once on mount
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
 
   useEffect(() => {
     fetchUser().catch(() => {});
@@ -456,7 +387,7 @@ function BuilderContent() {
           ? "OpenAI"
           : promptAssistProvider === "anthropic"
             ? "Claude"
-            : "v0 Model API";
+            : "AI Assist";
     return `${providerLabel}${promptAssistDeep ? " • Djup" : ""}`;
   }, [promptAssistProvider, promptAssistDeep]);
 

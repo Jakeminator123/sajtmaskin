@@ -1,6 +1,5 @@
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createOpenAI } from "@ai-sdk/openai";
-import { createVercel } from "@ai-sdk/vercel";
 import { generateObject, gateway } from "ai";
 import { NextResponse } from "next/server";
 import { z } from "zod";
@@ -13,7 +12,7 @@ export const maxDuration = 420; // 7 minutes for deep brief with slow models
 
 const briefRequestSchema = z.object({
   prompt: z.string().min(1, "prompt is required"),
-  provider: z.enum(["gateway", "openai", "anthropic", "vercel"]).optional().default("gateway"),
+  provider: z.enum(["gateway", "openai", "anthropic"]).optional().default("gateway"),
   // gpt-5.2 provides best quality briefs; used as default for prompt assist
   model: z.string().min(1).optional().default("openai/gpt-5.2"),
   temperature: z.number().min(0).max(2).optional(),
@@ -125,23 +124,6 @@ function getAnthropicApiKey(): string | null {
   return apiKey && apiKey.trim() ? apiKey : null;
 }
 
-function getV0ModelApiKey(): string | null {
-  const vercelApiKey = process.env.VERCEL_API_KEY;
-  const v0ApiKey = process.env.V0_API_KEY;
-  const vercelToken = process.env.VERCEL_TOKEN;
-
-  if (vercelApiKey && vercelApiKey.trim() && (!vercelToken || vercelApiKey !== vercelToken)) {
-    return vercelApiKey.trim();
-  }
-  if (v0ApiKey && v0ApiKey.trim()) {
-    return v0ApiKey.trim();
-  }
-  if (vercelApiKey && vercelApiKey.trim()) {
-    return vercelApiKey.trim();
-  }
-  return null;
-}
-
 function getGatewayPreferredProvider(model: string): string | null {
   const slashIdx = model.indexOf("/");
   if (slashIdx <= 0) return null;
@@ -177,12 +159,7 @@ export async function POST(req: Request) {
       }
 
       const { prompt, provider, model, temperature, imageGenerations } = parsed.data;
-      const resolvedModel =
-        provider === "vercel"
-          ? typeof model === "string" && model.trim().startsWith("v0-")
-            ? model
-            : "v0-1.5-md"
-          : model;
+      const resolvedModel = model;
 
       const systemPrompt =
         "You are a senior product designer + information architect. " +
@@ -244,37 +221,6 @@ export async function POST(req: Request) {
               models: defaultGatewayFallbackModels(resolvedModel),
             } as any,
           },
-          ...getTemperatureConfig(resolvedModel, temperature),
-        });
-
-        return NextResponse.json(result.object, {
-          headers: {
-            "Cache-Control": "no-store",
-            "X-Provider": provider,
-          },
-        });
-      }
-
-      if (provider === "vercel") {
-        const apiKey = getV0ModelApiKey();
-        if (!apiKey) {
-          return NextResponse.json(
-            {
-              error: "Missing V0 API key",
-              setup: "Set VERCEL_API_KEY or V0_API_KEY for the v0 Model API.",
-            },
-            { status: 401 },
-          );
-        }
-
-        const vercel = createVercel({ apiKey });
-        const result = await generateObject({
-          model: vercel(resolvedModel),
-          schema: siteBriefSchema,
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: userPrompt },
-          ],
           ...getTemperatureConfig(resolvedModel, temperature),
         });
 
