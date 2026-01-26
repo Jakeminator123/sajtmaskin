@@ -73,29 +73,21 @@ export interface PromptAssistModelOption {
 }
 
 export const PROMPT_ASSIST_PROVIDER_OPTIONS: PromptAssistProviderOption[] = [
-  { value: "off", label: "Av", description: "Skicka prompt direkt" },
   { value: "gateway", label: "AI Gateway", description: "Rekommenderad (fallback)" },
-  { value: "openai", label: "OpenAI", description: "GPT-modeller" },
-  { value: "anthropic", label: "Claude", description: "Anthropic-modeller" },
+  { value: "off", label: "Av", description: "Skicka prompt direkt" },
 ];
 
 export const PROMPT_ASSIST_MODEL_OPTIONS: Record<PromptAssistProvider, PromptAssistModelOption[]> = {
-  off: [],
   gateway: [
     { value: "openai/gpt-5.2", label: "GPT‑5.2 (OpenAI)" },
+    { value: "openai/gpt-4o", label: "GPT‑4o (OpenAI)" },
+    { value: "openai/gpt-4o-mini", label: "GPT‑4o mini (OpenAI)" },
+    { value: "anthropic/claude-opus-4.5", label: "Claude Opus 4.5" },
     { value: "anthropic/claude-sonnet-4.5", label: "Claude Sonnet 4.5" },
+    { value: "anthropic/claude-haiku-4.5", label: "Claude Haiku 4.5" },
     { value: "google/gemini-2.5-flash", label: "Gemini 2.5 Flash" },
   ],
-  openai: [
-    { value: "gpt-5.2", label: "GPT‑5.2" },
-    { value: "gpt-4o", label: "GPT‑4o" },
-    { value: "gpt-4o-mini", label: "GPT‑4o mini" },
-  ],
-  anthropic: [
-    { value: "claude-sonnet-4.5", label: "Claude Sonnet 4.5" },
-    { value: "claude-3.7-sonnet", label: "Claude 3.7 Sonnet" },
-    { value: "claude-haiku-4.5", label: "Claude Haiku 4.5" },
-  ],
+  off: [],
 };
 
 export function getPromptAssistModelOptions(
@@ -122,18 +114,18 @@ export interface PromptAssistDefaults {
 
 /**
  * Default prompt assist configuration.
- * - Default provider is OFF to match sajtgen's behavior.
+ * - Default provider is AI Gateway to keep all external models on the gateway.
  * - If enabled, gateway + gpt-5.2 gives highest quality prompt rewrites.
  * - Deep Brief OFF by default for snappy UX; user can enable for complex projects.
  */
 export const DEFAULT_PROMPT_ASSIST: PromptAssistDefaults = {
-  provider: "off",
+  provider: "gateway",
   model: "openai/gpt-5.2",
   deep: false,
 };
 
 /** Whether prompt assist is enabled by default (kept in sync with provider) */
-export const DEFAULT_PROMPT_ASSIST_ENABLED = false;
+export const DEFAULT_PROMPT_ASSIST_ENABLED = true;
 
 // ============================================
 // OTHER DEFAULTS

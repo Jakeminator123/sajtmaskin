@@ -1,5 +1,3 @@
-import { createAnthropic } from "@ai-sdk/anthropic";
-import { createOpenAI } from "@ai-sdk/openai";
 import { generateObject, gateway } from "ai";
 import { NextResponse } from "next/server";
 import { z } from "zod";
@@ -12,7 +10,7 @@ export const maxDuration = 420; // 7 minutes for deep brief with slow models
 
 const briefRequestSchema = z.object({
   prompt: z.string().min(1, "prompt is required"),
-  provider: z.enum(["gateway", "openai", "anthropic"]).optional().default("gateway"),
+  provider: z.literal("gateway").optional().default("gateway"),
   // gpt-5.2 provides best quality briefs; used as default for prompt assist
   model: z.string().min(1).optional().default("openai/gpt-5.2"),
   temperature: z.number().min(0).max(2).optional(),
@@ -112,16 +110,6 @@ function getTemperatureConfig(model: string, temperature?: number): { temperatur
   if (typeof temperature !== "number") return {};
   if (isReasoningModel(model)) return {};
   return { temperature };
-}
-
-function getOpenAIApiKey(): string | null {
-  const apiKey = process.env.OPENAI_API_KEY;
-  return apiKey && apiKey.trim() ? apiKey : null;
-}
-
-function getAnthropicApiKey(): string | null {
-  const apiKey = process.env.ANTHROPIC_API_KEY || process.env.CLAUDE_ANTHROPIC_API_KEY;
-  return apiKey && apiKey.trim() ? apiKey : null;
 }
 
 function getGatewayPreferredProvider(model: string): string | null {
@@ -232,62 +220,6 @@ export async function POST(req: Request) {
           ...getTemperatureConfig(resolvedModel, temperature),
         });
 
-        return NextResponse.json(result.object, {
-          headers: {
-            "Cache-Control": "no-store",
-            "X-Provider": provider,
-          },
-        });
-      }
-
-      if (provider === "openai") {
-        const apiKey = getOpenAIApiKey();
-        if (!apiKey) {
-          return NextResponse.json(
-            { error: "Missing OPENAI_API_KEY", setup: 'Set OPENAI_API_KEY for provider="openai".' },
-            { status: 401 },
-          );
-        }
-        const openai = createOpenAI({ apiKey });
-        const result = await generateObject({
-          model: openai(resolvedModel),
-          schema: siteBriefSchema,
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: userPrompt },
-          ],
-          ...getTemperatureConfig(resolvedModel, temperature),
-        });
-        return NextResponse.json(result.object, {
-          headers: {
-            "Cache-Control": "no-store",
-            "X-Provider": provider,
-          },
-        });
-      }
-
-      if (provider === "anthropic") {
-        const apiKey = getAnthropicApiKey();
-        if (!apiKey) {
-          return NextResponse.json(
-            {
-              error: "Missing Anthropic API key",
-              setup:
-                'Set ANTHROPIC_API_KEY (preferred) or CLAUDE_ANTHROPIC_API_KEY for provider="anthropic".',
-            },
-            { status: 401 },
-          );
-        }
-        const anthropic = createAnthropic({ apiKey });
-        const result = await generateObject({
-          model: anthropic(resolvedModel),
-          schema: siteBriefSchema,
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: userPrompt },
-          ],
-          ...getTemperatureConfig(resolvedModel, temperature),
-        });
         return NextResponse.json(result.object, {
           headers: {
             "Cache-Control": "no-store",

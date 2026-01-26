@@ -416,15 +416,7 @@ function BuilderContent() {
 
   const promptAssistStatus = useMemo(() => {
     if (promptAssistProvider === "off") return null;
-    const providerLabel =
-      promptAssistProvider === "gateway"
-        ? "AI Gateway"
-        : promptAssistProvider === "openai"
-          ? "OpenAI"
-          : promptAssistProvider === "anthropic"
-            ? "Claude"
-            : "AI Assist";
-    return `${providerLabel}${promptAssistDeep ? " • Djup" : ""}`;
+    return `AI Gateway${promptAssistDeep ? " • Djup" : ""}`;
   }, [promptAssistProvider, promptAssistDeep]);
 
   const resetBeforeCreateChat = useCallback(() => {

@@ -1,5 +1,4 @@
 import { createOpenAI } from "@ai-sdk/openai";
-import { createAnthropic } from "@ai-sdk/anthropic";
 import { gateway, generateText } from "ai";
 import { NextResponse } from "next/server";
 import { z } from "zod";
@@ -11,8 +10,6 @@ export const runtime = "nodejs";
 export const maxDuration = 420; // 7 minutes for prompt assist with slow models
 
 const BASE_URL = "https://api.v0.dev/v1";
-
-type ProviderType = "openai-compat" | "gateway" | "openai" | "anthropic";
 
 const messageSchema = z.discriminatedUnion("role", [
   z.object({
@@ -31,12 +28,9 @@ const messageSchema = z.discriminatedUnion("role", [
 
 const chatRequestSchema = z.object({
   messages: z.array(messageSchema).min(1, "messages is required"),
-  model: z.string().optional().default("v0-1.5-md"),
+  model: z.string().optional().default("openai/gpt-5.2"),
   temperature: z.number().min(0).max(2).optional(),
-  provider: z
-    .enum(["openai-compat", "gateway", "openai", "anthropic"])
-    .optional()
-    .default("openai-compat"),
+  provider: z.enum(["openai-compat", "gateway"]).optional().default("gateway"),
 });
 
 function getV0ModelApiKey(): { apiKey: string | null; source: string } {
@@ -59,36 +53,11 @@ function getV0ModelApiKey(): { apiKey: string | null; source: string } {
   return { apiKey: null, source: "none" };
 }
 
-function getOpenAIApiKey(): { apiKey: string | null; source: string } {
-  const apiKey = process.env.OPENAI_API_KEY;
-  return apiKey && apiKey.trim()
-    ? { apiKey, source: "OPENAI_API_KEY" }
-    : { apiKey: null, source: "none" };
-}
-
-function getAnthropicApiKey(): { apiKey: string | null; source: string } {
-  const apiKey = process.env.ANTHROPIC_API_KEY || process.env.CLAUDE_ANTROPIC_API_KEY;
-  const source = process.env.ANTHROPIC_API_KEY
-    ? "ANTHROPIC_API_KEY"
-    : process.env.CLAUDE_ANTROPIC_API_KEY
-      ? "CLAUDE_ANTROPIC_API_KEY"
-      : "none";
-  return apiKey && apiKey.trim() ? { apiKey, source } : { apiKey: null, source: "none" };
-}
-
-function getProvider(providerType: Exclude<ProviderType, "gateway">, apiKey: string) {
-  switch (providerType) {
-    case "openai":
-      return createOpenAI({ apiKey });
-    case "anthropic":
-      return createAnthropic({ apiKey });
-    case "openai-compat":
-    default:
-      return createOpenAI({
-        apiKey,
-        baseURL: BASE_URL,
-      });
-  }
+function getOpenAICompatProvider(apiKey: string) {
+  return createOpenAI({
+    apiKey,
+    baseURL: BASE_URL,
+  });
 }
 
 function isProbablyOnVercel(): boolean {
@@ -211,62 +180,6 @@ export async function POST(req: Request) {
         });
       }
 
-      if (provider === "openai") {
-        const { apiKey, source } = getOpenAIApiKey();
-        if (!apiKey) {
-          return NextResponse.json(
-            {
-              error: "Missing OPENAI_API_KEY",
-              setup: 'Set OPENAI_API_KEY for provider="openai".',
-            },
-            { status: 401 },
-          );
-        }
-        debugLog("AI", "AI chat using OpenAI direct", { model, keySource: source });
-        const modelProvider = getProvider("openai", apiKey);
-        const result = await generateText({
-          model: modelProvider(model),
-          messages,
-          ...getTemperatureConfig(model, temperature),
-        });
-        return new Response(result.text, {
-          headers: {
-            "Content-Type": "text/plain; charset=utf-8",
-            "Cache-Control": "no-store",
-            "X-Provider": provider,
-            "X-Key-Source": source,
-          },
-        });
-      }
-
-      if (provider === "anthropic") {
-        const { apiKey, source } = getAnthropicApiKey();
-        if (!apiKey) {
-          return NextResponse.json(
-            {
-              error: "Missing ANTHROPIC_API_KEY",
-              setup: 'Set ANTHROPIC_API_KEY for provider="anthropic".',
-            },
-            { status: 401 },
-          );
-        }
-        debugLog("AI", "AI chat using Anthropic direct", { model, keySource: source });
-        const modelProvider = getProvider("anthropic", apiKey);
-        const result = await generateText({
-          model: modelProvider(model),
-          messages,
-          ...getTemperatureConfig(model, temperature),
-        });
-        return new Response(result.text, {
-          headers: {
-            "Content-Type": "text/plain; charset=utf-8",
-            "Cache-Control": "no-store",
-            "X-Provider": provider,
-            "X-Key-Source": source,
-          },
-        });
-      }
-
       const { apiKey, source } = getV0ModelApiKey();
       if (!apiKey) {
         return NextResponse.json(
@@ -279,7 +192,7 @@ export async function POST(req: Request) {
       }
       debugLog("AI", "AI chat using v0 Model API (openai-compat)", { model, keySource: source });
 
-      const modelProvider = getProvider(provider, apiKey);
+      const modelProvider = getOpenAICompatProvider(apiKey);
       const result = await generateText({
         model: modelProvider(model),
         messages,
