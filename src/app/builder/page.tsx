@@ -1,6 +1,7 @@
 "use client";
 
 import { ChatInterface } from "@/components/builder/ChatInterface";
+import type { ShadcnBlockSelection } from "@/components/builder/ShadcnBlockPicker";
 import { ErrorBoundary } from "@/components/builder/ErrorBoundary";
 import { InitFromRepoModal } from "@/components/builder/InitFromRepoModal";
 import { MessageList } from "@/components/builder/MessageList";
@@ -27,6 +28,7 @@ import { useVersions } from "@/lib/hooks/useVersions";
 import { useAuth } from "@/lib/auth/auth-store";
 import type { PromptAssistProvider } from "@/lib/builder/promptAssist";
 import type { ModelTier } from "@/lib/validations/chatSchemas";
+import type { QualityLevel } from "@/lib/v0/v0-generator";
 import { cn } from "@/lib/utils";
 import { debugLog } from "@/lib/utils/debug";
 import { Check, Loader2 } from "lucide-react";
@@ -38,6 +40,12 @@ type CreateChatOptions = {
   attachments?: V0UserFileAttachment[];
   attachmentPrompt?: string;
   skipPromptAssist?: boolean;
+};
+
+const MODEL_TIER_TO_QUALITY: Record<ModelTier, QualityLevel> = {
+  "v0-mini": "light",
+  "v0-pro": "standard",
+  "v0-max": "max",
 };
 
 
@@ -127,19 +135,27 @@ function BuilderContent() {
     }
   }, [showStructuredChat]);
 
+  const fetchHealthFeatures = useCallback(async (signal?: AbortSignal) => {
+    const res = await fetch("/api/health", { signal });
+    if (!res.ok) return null;
+    const data = (await res.json().catch(() => null)) as {
+      features?: { vercelBlob?: boolean; v0?: boolean };
+    } | null;
+    return {
+      blobEnabled: Boolean(data?.features?.vercelBlob),
+      v0Enabled: Boolean(data?.features?.v0),
+    };
+  }, []);
+
   useEffect(() => {
     let isActive = true;
     const controller = new AbortController();
 
     const loadImageStrategyDefault = async () => {
       try {
-        const res = await fetch("/api/health", { signal: controller.signal });
-        if (!res.ok) return;
-        const data = (await res.json().catch(() => null)) as {
-          features?: { vercelBlob?: boolean; v0?: boolean };
-        } | null;
-        const blobEnabled = Boolean(data?.features?.vercelBlob);
-        const v0Enabled = Boolean(data?.features?.v0);
+        const flags = await fetchHealthFeatures(controller.signal);
+        if (!flags) return;
+        const { blobEnabled, v0Enabled } = flags;
         if (!isActive) return;
         setIsMediaEnabled(blobEnabled);
         setIsImageGenerationsSupported(v0Enabled);
@@ -148,7 +164,7 @@ function BuilderContent() {
         } else if (!hasUserSelectedImageGenerations.current) {
           setEnableImageGenerations(true);
         }
-        if (!hasUserSelectedImageStrategy.current && !blobEnabled) {
+        if (!blobEnabled) {
           setDeployImageStrategy("external");
         }
         debugLog("AI", "Builder feature flags resolved", {
@@ -168,7 +184,7 @@ function BuilderContent() {
       isActive = false;
       controller.abort();
     };
-  }, []);
+  }, [fetchHealthFeatures]);
 
   useEffect(() => {
     if (!searchParams) return;
@@ -318,6 +334,17 @@ function BuilderContent() {
 
       setIsDeploying(true);
       try {
+        let resolvedStrategy = deployImageStrategy;
+        if (deployImageStrategy === "blob") {
+          const flags = await fetchHealthFeatures();
+          if (flags && !flags.blobEnabled) {
+            setIsMediaEnabled(false);
+            setDeployImageStrategy("external");
+            resolvedStrategy = "external";
+            toast.error("Vercel Blob är avstängt. Byter till External URLs.");
+          }
+        }
+
         const response = await fetch("/api/v0/deployments", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -325,7 +352,7 @@ function BuilderContent() {
             chatId,
             versionId: activeVersionId,
             target,
-            imageStrategy: deployImageStrategy,
+            imageStrategy: resolvedStrategy,
           }),
         });
 
@@ -358,7 +385,7 @@ function BuilderContent() {
         setIsDeploying(false);
       }
     },
-    [chatId, activeVersionId, isDeploying, deployImageStrategy],
+    [chatId, activeVersionId, isDeploying, deployImageStrategy, fetchHealthFeatures],
   );
 
   const handleDeployImageStrategyChange = useCallback((strategy: "external" | "blob") => {
@@ -461,6 +488,63 @@ function BuilderContent() {
       return true;
     },
     [chatId, hasSelectedModelTier, createNewChat],
+  );
+
+  const handleStartFromRegistry = useCallback(
+    async (selection: ShadcnBlockSelection) => {
+      if (!selection.registryUrl) {
+        toast.error("Registry-URL saknas");
+        return;
+      }
+
+      try {
+        resetBeforeCreateChat();
+        const quality = MODEL_TIER_TO_QUALITY[selectedModelTier] || "standard";
+        const name = selection.block?.title
+          ? `Design System: ${selection.block.title}`
+          : undefined;
+        const response = await fetch("/api/v0/chats/init-registry", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            registryUrl: selection.registryUrl,
+            quality,
+            name,
+          }),
+        });
+
+        const data = (await response.json().catch(() => null)) as
+          | {
+              chatId?: string;
+              demoUrl?: string | null;
+              error?: string;
+              details?: string;
+            }
+          | null;
+
+        if (!response.ok || !data?.chatId) {
+          throw new Error(data?.error || data?.details || "Kunde inte starta från Design System");
+        }
+
+        setChatId(data.chatId);
+        router.replace(`/builder?chatId=${encodeURIComponent(data.chatId)}`);
+        setMessages([]);
+        setCurrentDemoUrl(data.demoUrl || null);
+        setHasSelectedModelTier(true);
+        toast.success("Design System-projekt skapat!");
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Kunde inte starta från Design System");
+      }
+    },
+    [
+      resetBeforeCreateChat,
+      selectedModelTier,
+      router,
+      setChatId,
+      setMessages,
+      setCurrentDemoUrl,
+      setHasSelectedModelTier,
+    ],
   );
 
   usePersistedChatMessages({
@@ -604,6 +688,7 @@ function BuilderContent() {
               initialPrompt={auditPromptLoaded ? initialPrompt : null}
               onCreateChat={requestCreateChat}
               onSendMessage={sendMessage}
+              onStartFromRegistry={handleStartFromRegistry}
               onEnhancePrompt={maybeEnhanceInitialPrompt}
               promptAssistStatus={promptAssistStatus}
               isBusy={isCreatingChat || isAnyStreaming || isTemplateLoading}

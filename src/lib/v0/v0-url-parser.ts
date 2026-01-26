@@ -21,6 +21,30 @@ export interface ParsedRegistryUrl {
   originalUrl: string;
 }
 
+const DEFAULT_REGISTRY_BASE_URL = "https://ui.shadcn.com";
+const DEFAULT_REGISTRY_STYLE = "new-york-v4";
+
+function normalizeRegistryBaseUrl(value: string): string | null {
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  try {
+    const parsed = new URL(trimmed);
+    return `${parsed.protocol}//${parsed.host}`;
+  } catch {
+    return null;
+  }
+}
+
+export function getRegistryBaseUrl(): string {
+  const envValue = process.env.NEXT_PUBLIC_REGISTRY_BASE_URL || "";
+  return normalizeRegistryBaseUrl(envValue) || DEFAULT_REGISTRY_BASE_URL;
+}
+
+export function getRegistryStyle(fallback: string = DEFAULT_REGISTRY_STYLE): string {
+  const envValue = process.env.NEXT_PUBLIC_REGISTRY_STYLE?.trim();
+  return envValue || fallback;
+}
+
 /**
  * Check if a URL looks like a registry URL
  * Registry URLs typically:
@@ -84,7 +108,9 @@ export function parseRegistryUrl(url: string): ParsedRegistryUrl {
  */
 export function buildShadcnRegistryUrl(
   componentName: string,
-  style: string = "new-york-v4",
+  style?: string,
 ): string {
-  return `https://ui.shadcn.com/r/styles/${style}/${componentName}.json`;
+  const resolvedStyle = style?.trim() || getRegistryStyle();
+  const baseUrl = getRegistryBaseUrl();
+  return `${baseUrl}/r/styles/${resolvedStyle}/${componentName}.json`;
 }

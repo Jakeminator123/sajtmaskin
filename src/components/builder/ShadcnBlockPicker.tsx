@@ -19,9 +19,15 @@ import {
   buildShadcnPreviewImageUrl,
   buildShadcnPreviewUrl,
 } from "@/lib/shadcn-registry-utils";
-import { buildShadcnRegistryUrl } from "@/lib/v0/v0-url-parser";
+import {
+  buildShadcnRegistryUrl,
+  getRegistryBaseUrl,
+  getRegistryStyle,
+} from "@/lib/v0/v0-url-parser";
 
-const DEFAULT_STYLE = "new-york-v4";
+const DEFAULT_STYLE = getRegistryStyle();
+
+export type ShadcnBlockAction = "add" | "start";
 
 export type ShadcnBlockSelection = {
   block: ShadcnBlockItem;
@@ -40,7 +46,7 @@ type RegistryCacheEntry = {
 interface ShadcnBlockPickerProps {
   open: boolean;
   onClose: () => void;
-  onConfirm: (selection: ShadcnBlockSelection) => void | Promise<void>;
+  onConfirm: (selection: ShadcnBlockSelection, action: ShadcnBlockAction) => void | Promise<void>;
   isBusy?: boolean;
   isSubmitting?: boolean;
   hasChat?: boolean;
@@ -56,6 +62,7 @@ export function ShadcnBlockPicker({
   hasChat = false,
   style = DEFAULT_STYLE,
 }: ShadcnBlockPickerProps) {
+  const registryBaseUrl = getRegistryBaseUrl();
   const [query, setQuery] = useState("");
   const [selectedBlock, setSelectedBlock] = useState<ShadcnBlockItem | null>(null);
   const [registryItem, setRegistryItem] = useState<ShadcnRegistryItem | null>(null);
@@ -64,7 +71,10 @@ export function ShadcnBlockPicker({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [previewMode, setPreviewMode] = useState<"preview" | "files">("preview");
+  const [activeStyle, setActiveStyle] = useState(style);
+  const [pendingAction, setPendingAction] = useState<ShadcnBlockAction | null>(null);
   const cacheRef = useRef<Map<string, RegistryCacheEntry>>(new Map());
+  const resolvedStyle = useMemo(() => activeStyle.trim() || DEFAULT_STYLE, [activeStyle]);
 
   useEffect(() => {
     if (!open) return;
@@ -73,6 +83,17 @@ export function ShadcnBlockPicker({
       setSelectedBlock(first);
     }
   }, [open, selectedBlock]);
+
+  useEffect(() => {
+    if (!open) return;
+    setActiveStyle(style);
+  }, [open, style]);
+
+  useEffect(() => {
+    if (!isSubmitting) {
+      setPendingAction(null);
+    }
+  }, [isSubmitting]);
 
   useEffect(() => {
     if (!open) return;
@@ -86,7 +107,7 @@ export function ShadcnBlockPicker({
     let isActive = true;
     const controller = new AbortController();
 
-    const cacheKey = `${style}:${selectedBlock.name}`;
+    const cacheKey = `${resolvedStyle}:${selectedBlock.name}`;
     const cached = cacheRef.current.get(cacheKey);
     if (cached) {
       setRegistryItem(cached.item);
@@ -104,7 +125,7 @@ export function ShadcnBlockPicker({
 
     const loadRegistry = async () => {
       try {
-        const url = buildShadcnRegistryUrl(selectedBlock.name, style);
+        const url = buildShadcnRegistryUrl(selectedBlock.name, resolvedStyle);
         const response = await fetch(url, { signal: controller.signal });
         const data = (await response.json().catch(() => null)) as ShadcnRegistryItem | null;
         if (!response.ok) {
@@ -116,7 +137,7 @@ export function ShadcnBlockPicker({
         const dependencyNames = Array.from(new Set(data.registryDependencies ?? []));
         const dependencies = await Promise.all(
           dependencyNames.map(async (dependency) => {
-            const dependencyUrl = buildShadcnRegistryUrl(dependency, style);
+            const dependencyUrl = buildShadcnRegistryUrl(dependency, resolvedStyle);
             const dependencyResponse = await fetch(dependencyUrl, { signal: controller.signal });
             const dependencyData = (await dependencyResponse.json().catch(() => null)) as
               | ShadcnRegistryItem
@@ -152,7 +173,7 @@ export function ShadcnBlockPicker({
       isActive = false;
       controller.abort();
     };
-  }, [open, selectedBlock, style]);
+  }, [open, selectedBlock, resolvedStyle]);
 
   const filteredCategories = useMemo(() => {
     const trimmed = query.trim().toLowerCase();
@@ -169,37 +190,39 @@ export function ShadcnBlockPicker({
 
   const previewMarkdown = useMemo(() => {
     if (!registryItem) return "";
-    return buildRegistryMarkdownPreview(registryItem, { style, maxLines: 90 });
-  }, [registryItem, style]);
+    return buildRegistryMarkdownPreview(registryItem, { style: resolvedStyle, maxLines: 90 });
+  }, [registryItem, resolvedStyle]);
 
   const previewLinks = useMemo(() => {
     if (!selectedBlock) return null;
     return {
-      viewUrl: buildShadcnPreviewUrl(selectedBlock.name, style),
-      lightUrl: buildShadcnPreviewImageUrl(selectedBlock.name, "light", style),
-      darkUrl: buildShadcnPreviewImageUrl(selectedBlock.name, "dark", style),
+      viewUrl: buildShadcnPreviewUrl(selectedBlock.name, resolvedStyle),
+      lightUrl: buildShadcnPreviewImageUrl(selectedBlock.name, "light", resolvedStyle),
+      darkUrl: buildShadcnPreviewImageUrl(selectedBlock.name, "dark", resolvedStyle),
     };
-  }, [selectedBlock, style]);
+  }, [selectedBlock, resolvedStyle]);
 
-  const canConfirm =
+  const canAct =
     Boolean(selectedBlock && registryItem && registryUrl) &&
     !isBusy &&
     !isLoading &&
     !isSubmitting &&
     !error;
 
-  const handleConfirm = async () => {
+  const handleConfirm = async (action: ShadcnBlockAction) => {
     if (!selectedBlock || !registryItem || !registryUrl) return;
-    await onConfirm({
-      block: selectedBlock,
-      registryItem,
-      dependencyItems,
-      registryUrl,
-      style,
-    });
+    setPendingAction(action);
+    await onConfirm(
+      {
+        block: selectedBlock,
+        registryItem,
+        dependencyItems,
+        registryUrl,
+        style: resolvedStyle,
+      },
+      action,
+    );
   };
-
-  const actionLabel = hasChat ? "Add Block" : "Start From Block";
 
   return (
     <Dialog open={open}>
@@ -207,11 +230,11 @@ export function ShadcnBlockPicker({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Blocks className="h-4 w-4 text-gray-200" />
-            Shadcn Blocks
+            Design System
           </DialogTitle>
           <DialogDescription>
-            Browse shadcn/ui blocks and insert them into your current site without replacing
-            existing content.
+            Välj block, style och läge. Du kan starta ett nytt projekt eller lägga till i
+            nuvarande chat.
           </DialogDescription>
         </DialogHeader>
 
@@ -222,9 +245,18 @@ export function ShadcnBlockPicker({
               <Input
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
-                placeholder="Search blocks"
+                placeholder="Sök block"
                 className="pl-9"
               />
+            </div>
+            <div className="space-y-1">
+              <div className="text-xs font-semibold uppercase text-gray-400">Style</div>
+              <Input
+                value={activeStyle}
+                onChange={(event) => setActiveStyle(event.target.value)}
+                placeholder="new-york-v4"
+              />
+              <div className="text-[11px] text-gray-500">Registry: {registryBaseUrl}</div>
             </div>
             <div className="flex-1 overflow-y-auto rounded-md border border-gray-800 p-2">
               {filteredCategories.map((category) => (
@@ -256,7 +288,7 @@ export function ShadcnBlockPicker({
               ))}
               {filteredCategories.length === 0 && (
                 <div className="px-3 py-6 text-center text-sm text-gray-500">
-                  No blocks match your search.
+                  Inga block matchar din sökning.
                 </div>
               )}
             </div>
@@ -265,7 +297,7 @@ export function ShadcnBlockPicker({
           <div className="flex min-h-0 flex-1 flex-col gap-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div className="flex items-center gap-2">
-                <div className="text-sm font-medium text-gray-200">Preview</div>
+                <div className="text-sm font-medium text-gray-200">Förhandsvisning</div>
                 <div className="flex items-center rounded-md border border-gray-800 p-0.5">
                   <Button
                     type="button"
@@ -274,7 +306,7 @@ export function ShadcnBlockPicker({
                     className="h-7 px-2 text-xs"
                     onClick={() => setPreviewMode("preview")}
                   >
-                    Preview
+                    Förhandsvisning
                   </Button>
                   <Button
                     type="button"
@@ -283,7 +315,7 @@ export function ShadcnBlockPicker({
                     className="h-7 px-2 text-xs"
                     onClick={() => setPreviewMode("files")}
                   >
-                    Files
+                    Filer
                   </Button>
                 </div>
               </div>
@@ -294,7 +326,7 @@ export function ShadcnBlockPicker({
                   rel="noreferrer"
                   className="text-xs text-brand-blue hover:underline"
                 >
-                  Open registry JSON
+                  Öppna registry JSON
                 </a>
               )}
               {previewMode === "preview" && previewLinks?.viewUrl && (
@@ -304,7 +336,7 @@ export function ShadcnBlockPicker({
                   rel="noreferrer"
                   className="text-xs text-brand-blue hover:underline"
                 >
-                  Open preview
+                  Öppna förhandsvisning
                 </a>
               )}
             </div>
@@ -312,7 +344,7 @@ export function ShadcnBlockPicker({
               {previewMode === "files" && isLoading && (
                 <div className="flex h-full items-center justify-center text-sm text-gray-400">
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Loading block preview...
+                  Laddar block...
                 </div>
               )}
               {!isLoading && error && previewMode === "files" && (
@@ -324,10 +356,10 @@ export function ShadcnBlockPicker({
                 </div>
               )}
               {previewMode === "files" && !isLoading && !error && !registryItem && (
-                <div className="text-sm text-gray-500">Select a block to preview it.</div>
+                <div className="text-sm text-gray-500">Välj ett block för att förhandsvisa.</div>
               )}
               {previewMode === "preview" && !selectedBlock && (
-                <div className="text-sm text-gray-500">Select a block to preview it.</div>
+                <div className="text-sm text-gray-500">Välj ett block för att förhandsvisa.</div>
               )}
               {previewMode === "preview" && selectedBlock && previewLinks && (
                 <div className="space-y-3">
@@ -354,7 +386,7 @@ export function ShadcnBlockPicker({
                       />
                     </div>
                   </div>
-                  <div className="text-xs text-gray-500">Preview from shadcn/ui</div>
+                  <div className="text-xs text-gray-500">Förhandsvisning från registry</div>
                 </div>
               )}
             </div>
@@ -363,11 +395,25 @@ export function ShadcnBlockPicker({
 
         <div className="flex items-center justify-end gap-2 border-t border-gray-800 px-6 py-4">
           <Button variant="outline" onClick={onClose} disabled={isSubmitting}>
-            Cancel
+            Stäng
           </Button>
-          <Button onClick={handleConfirm} disabled={!canConfirm}>
-            {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            {actionLabel}
+          {hasChat && (
+            <Button
+              variant="secondary"
+              onClick={() => handleConfirm("add")}
+              disabled={!canAct}
+            >
+              {isSubmitting && pendingAction === "add" ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : null}
+              Lägg till i chatten
+            </Button>
+          )}
+          <Button onClick={() => handleConfirm("start")} disabled={!canAct}>
+            {isSubmitting && pendingAction === "start" ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : null}
+            Starta nytt projekt
           </Button>
         </div>
       </DialogContent>
