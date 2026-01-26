@@ -4,6 +4,7 @@ import {
   normalizeAssistModel,
   type PromptAssistProvider,
 } from "@/lib/builder/promptAssist";
+import { debugLog } from "@/lib/utils/debug";
 import { useCallback } from "react";
 import toast from "react-hot-toast";
 
@@ -33,10 +34,22 @@ export function usePromptAssist(params: UsePromptAssistParams) {
 
   const maybeEnhanceInitialPrompt = useCallback(
     async (originalPrompt: string): Promise<string> => {
-      if (provider === "off") return originalPrompt;
+      if (provider === "off") {
+        debugLog("AI", "Prompt assist disabled", { reason: "provider=off" });
+        return originalPrompt;
+      }
 
       const normalizedModel = normalizeAssistModel(provider, model);
       const systemPrompt = buildV0RewriteSystemPrompt();
+      const startedAt = Date.now();
+
+      debugLog("AI", "Prompt assist started", {
+        provider,
+        model: normalizedModel,
+        deep,
+        imageGenerations,
+        promptLength: originalPrompt.length,
+      });
 
       try {
         const loadingMsg = deep
@@ -85,6 +98,10 @@ export function usePromptAssist(params: UsePromptAssistParams) {
             imageGenerations,
           });
 
+          debugLog("AI", "Prompt assist completed (brief)", {
+            durationMs: Date.now() - startedAt,
+            outputLength: finalPrompt.length,
+          });
           toast.success("Prompt förbättrad (brief)", { id: "sajtmaskin:prompt-assist" });
           return finalPrompt;
         }
@@ -122,6 +139,10 @@ export function usePromptAssist(params: UsePromptAssistParams) {
         }
 
         const enhanced = (await readTextResponse(res)).trim();
+        debugLog("AI", "Prompt assist completed", {
+          durationMs: Date.now() - startedAt,
+          outputLength: enhanced.length,
+        });
         toast.success("Prompt förbättrad", { id: "sajtmaskin:prompt-assist" });
         return enhanced.length > 0 ? enhanced : originalPrompt;
       } catch (err) {
@@ -131,6 +152,14 @@ export function usePromptAssist(params: UsePromptAssistParams) {
         const isGatewayTimeout = /headers timeout|gateway request failed|gatewayresponseerror/i.test(
           rawMessage.toLowerCase(),
         );
+
+        debugLog("AI", "Prompt assist failed", {
+          durationMs: Date.now() - startedAt,
+          provider,
+          model: normalizedModel,
+          deep,
+          error: rawMessage,
+        });
 
         if (isAbort) {
           console.warn("Prompt assist timeout:", err);

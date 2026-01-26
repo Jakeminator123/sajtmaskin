@@ -142,9 +142,3 @@ export const DEFAULT_PROMPT_ASSIST_ENABLED = false;
 /** Default for AI image generation toggle */
 export const DEFAULT_IMAGE_GENERATIONS = true;
 
-/** Default system prompt for v0 generation */
-export const DEFAULT_SYSTEM_PROMPT =
-  "You are a senior product designer and front-end engineer. " +
-  "Build a modern, production-ready UI with clear hierarchy, accessible components, and responsive layout. " +
-  "Use semantic HTML and Tailwind CSS classes only.";
-

@@ -18,6 +18,7 @@ import { resolveLatestVersion } from "@/lib/v0/resolve-latest-version";
 import { withRateLimit } from "@/lib/rateLimit";
 import { getChatByV0ChatIdForRequest } from "@/lib/tenant";
 import { devLogAppend } from "@/lib/devLog";
+import { debugLog } from "@/lib/utils/debug";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -41,6 +42,12 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
       }
       const internalChatId: string = existingChat.id;
       const requestStartedAt = Date.now();
+
+      debugLog("v0", "v0 follow-up message request", {
+        chatId,
+        messageLength: typeof message === "string" ? message.length : null,
+        attachments: Array.isArray(attachments) ? attachments.length : 0,
+      });
 
       devLogAppend("latest", {
         type: "site.message.start",

@@ -24,6 +24,7 @@ import { Input } from "@/components/ui/input";
 import { Blocks, FileText, ImageIcon, Loader2, Sparkles } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { buildShadcnBlockPrompt } from "@/lib/shadcn-registry-utils";
+import { debugLog } from "@/lib/utils/debug";
 
 type MessageOptions = {
   attachments?: V0UserFileAttachment[];
@@ -111,7 +112,7 @@ export function ChatInterface({
   const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [isEnhancing, setIsEnhancing] = useState(false);
-  const [hasEnhancedDraft, setHasEnhancedDraft] = useState(false);
+  const [manualEnhanceUsed, setManualEnhanceUsed] = useState(false);
   const [files, setFiles] = useState<UploadedFile[]>([]);
   const [isMediaDrawerOpen, setIsMediaDrawerOpen] = useState(false);
   const [figmaUrl, setFigmaUrl] = useState("");
@@ -131,7 +132,9 @@ export function ChatInterface({
 
   const handleInputChange = (value: string) => {
     setInput(value);
-    setHasEnhancedDraft(false);
+    if (!value.trim()) {
+      setManualEnhanceUsed(false);
+    }
   };
 
   const prefilledPromptRef = useRef<string | null>(null);
@@ -141,7 +144,7 @@ export function ChatInterface({
     if (prefilledPromptRef.current === initialPrompt) return;
     if (input.trim()) return;
     setInput(initialPrompt);
-    setHasEnhancedDraft(false);
+    setManualEnhanceUsed(false);
     prefilledPromptRef.current = initialPrompt;
   }, [chatId, initialPrompt, input]);
 
@@ -212,9 +215,11 @@ export function ChatInterface({
     setIsEnhancing(true);
     try {
       const enhanced = await onEnhancePrompt(current);
-      if (enhanced.trim()) {
-        setInput(enhanced.trim());
-        setHasEnhancedDraft(true);
+      const trimmedEnhanced = enhanced.trim();
+      if (trimmedEnhanced) {
+        setInput(trimmedEnhanced);
+        setManualEnhanceUsed(true);
+        debugLog("AI", "Prompt manually enhanced", { length: trimmedEnhanced.length });
       }
     } finally {
       setIsEnhancing(false);
@@ -298,7 +303,7 @@ export function ChatInterface({
         const created = await onCreateChat(payload.finalMessage, {
           attachments: payload.finalAttachments,
           attachmentPrompt: payload.attachmentPrompt,
-          skipPromptAssist: options.skipPromptAssist ?? hasEnhancedDraft,
+          skipPromptAssist: options.skipPromptAssist ?? manualEnhanceUsed,
         });
         if (created === false) return;
       } else {
@@ -311,7 +316,7 @@ export function ChatInterface({
       if (options.clearDraft !== false) {
         setInput("");
         setFiles([]);
-        setHasEnhancedDraft(false);
+        setManualEnhanceUsed(false);
         setFigmaUrl("");
         setIsFigmaInputOpen(false);
       }
@@ -348,6 +353,7 @@ export function ChatInterface({
         style: selection.style,
         displayName: selection.block.title,
         description: selection.block.description,
+        dependencyItems: selection.dependencyItems,
       });
       await sendMessagePayload(prompt, { skipPromptAssist: true, clearDraft: false });
       setIsShadcnPickerOpen(false);

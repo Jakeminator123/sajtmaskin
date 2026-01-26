@@ -8,6 +8,11 @@ AKTUELLA OBSERVATIONER (START)
 ==============================================================================
 - [ ] Prompt Assist logg visar /api/ai/chat (gateway + system prompt rewrite).
       Forvantat beteende nar AI-assist ar pa.
+- [x] v0-systemprompt avstangd: system ignoreras i /api/v0/chats(/stream).
+- [x] Manuell "Forbattra" skippar auto-assist (ingen dubbel omskrivning).
+- [x] imageGenerations styrs av v0-tillganglighet, inte Blob.
+- [x] /builder?prompt=... visar raa input (forifyllning),
+      slutlig prompt skickas efter assist i /api/v0/chats/stream.
 - [x] A11y (forstasidan): prompt textarea saknar id/name.
       Fil: src/components/forms/prompt-input.tsx
 - [x] A11y (builder): form field saknar label/aria-label (flera kandidater).

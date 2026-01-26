@@ -47,7 +47,6 @@ import { enhancePromptForV0, type MediaLibraryItem } from "@/lib/utils/prompt-ut
 import { debugLog, logFinalPrompt } from "@/lib/utils/debug";
 import { logV0 } from "@/lib/utils/file-logger";
 import { SECRETS } from "@/lib/config";
-import { SYSTEM_PROMPT } from "@/lib/v0/systemPrompt";
 
 // Lazy-initialized v0 client (created at request time, not import time)
 let _v0Client: ReturnType<typeof createClient> | null = null;
@@ -597,6 +596,7 @@ export async function generateCode(
   debugLog("v0", "[v0-generator] Creating chat with v0 Platform API...");
   debugLog("v0", "[v0-generator] Model:", modelId);
   debugLog("v0", "[v0-generator] Prompt length:", fullPrompt.length);
+  debugLog("v0", "[v0-generator] System prompt: disabled");
 
   // Check if streaming is enabled via feature toggle
   const useStreaming = isV0StreamingEnabled() && !!options.onStream;
@@ -626,7 +626,6 @@ export async function generateCode(
     // Build create request with optional attachments
     const createRequest: V0SdkCreateRequest = {
       message: fullPrompt,
-      system: SYSTEM_PROMPT,
       chatPrivacy: "private",
       modelConfiguration: {
         modelId: toSdkModelId(modelId),

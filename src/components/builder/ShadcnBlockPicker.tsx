@@ -14,14 +14,19 @@ import {
 import { Input } from "@/components/ui/input";
 import { SHADCN_BLOCKS, type ShadcnBlockItem } from "@/lib/shadcn-registry-blocks";
 import type { ShadcnRegistryItem } from "@/lib/shadcn-registry-types";
-import { buildRegistryMarkdownPreview } from "@/lib/shadcn-registry-utils";
+import {
+  buildRegistryMarkdownPreview,
+  buildShadcnPreviewImageUrl,
+  buildShadcnPreviewUrl,
+} from "@/lib/shadcn-registry-utils";
 import { buildShadcnRegistryUrl } from "@/lib/v0/v0-url-parser";
 
-const DEFAULT_STYLE = "new-york";
+const DEFAULT_STYLE = "new-york-v4";
 
 export type ShadcnBlockSelection = {
   block: ShadcnBlockItem;
   registryItem: ShadcnRegistryItem;
+  dependencyItems?: ShadcnRegistryItem[];
   registryUrl: string;
   style: string;
 };
@@ -29,6 +34,7 @@ export type ShadcnBlockSelection = {
 type RegistryCacheEntry = {
   registryUrl: string;
   item: ShadcnRegistryItem;
+  dependencies: ShadcnRegistryItem[];
 };
 
 interface ShadcnBlockPickerProps {
@@ -53,9 +59,11 @@ export function ShadcnBlockPicker({
   const [query, setQuery] = useState("");
   const [selectedBlock, setSelectedBlock] = useState<ShadcnBlockItem | null>(null);
   const [registryItem, setRegistryItem] = useState<ShadcnRegistryItem | null>(null);
+  const [dependencyItems, setDependencyItems] = useState<ShadcnRegistryItem[]>([]);
   const [registryUrl, setRegistryUrl] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [previewMode, setPreviewMode] = useState<"preview" | "files">("preview");
   const cacheRef = useRef<Map<string, RegistryCacheEntry>>(new Map());
 
   useEffect(() => {
@@ -82,12 +90,14 @@ export function ShadcnBlockPicker({
     const cached = cacheRef.current.get(cacheKey);
     if (cached) {
       setRegistryItem(cached.item);
+      setDependencyItems(cached.dependencies);
       setRegistryUrl(cached.registryUrl);
       setError(null);
       return () => controller.abort();
     }
 
     setRegistryItem(null);
+    setDependencyItems([]);
     setRegistryUrl(null);
     setError(null);
     setIsLoading(true);
@@ -103,9 +113,29 @@ export function ShadcnBlockPicker({
         if (!data || typeof data !== "object") {
           throw new Error("Registry response was empty");
         }
+        const dependencyNames = Array.from(new Set(data.registryDependencies ?? []));
+        const dependencies = await Promise.all(
+          dependencyNames.map(async (dependency) => {
+            const dependencyUrl = buildShadcnRegistryUrl(dependency, style);
+            const dependencyResponse = await fetch(dependencyUrl, { signal: controller.signal });
+            const dependencyData = (await dependencyResponse.json().catch(() => null)) as
+              | ShadcnRegistryItem
+              | null;
+            if (!dependencyResponse.ok) {
+              throw new Error(
+                `Registry dependency "${dependency}" failed (HTTP ${dependencyResponse.status})`,
+              );
+            }
+            if (!dependencyData || typeof dependencyData !== "object") {
+              throw new Error(`Registry dependency "${dependency}" response was empty`);
+            }
+            return dependencyData;
+          }),
+        );
         if (!isActive) return;
-        cacheRef.current.set(cacheKey, { registryUrl: url, item: data });
+        cacheRef.current.set(cacheKey, { registryUrl: url, item: data, dependencies });
         setRegistryItem(data);
+        setDependencyItems(dependencies);
         setRegistryUrl(url);
       } catch (err) {
         if (!isActive) return;
@@ -142,14 +172,28 @@ export function ShadcnBlockPicker({
     return buildRegistryMarkdownPreview(registryItem, { style, maxLines: 90 });
   }, [registryItem, style]);
 
+  const previewLinks = useMemo(() => {
+    if (!selectedBlock) return null;
+    return {
+      viewUrl: buildShadcnPreviewUrl(selectedBlock.name, style),
+      lightUrl: buildShadcnPreviewImageUrl(selectedBlock.name, "light", style),
+      darkUrl: buildShadcnPreviewImageUrl(selectedBlock.name, "dark", style),
+    };
+  }, [selectedBlock, style]);
+
   const canConfirm =
-    Boolean(selectedBlock && registryItem && registryUrl) && !isBusy && !isLoading && !isSubmitting;
+    Boolean(selectedBlock && registryItem && registryUrl) &&
+    !isBusy &&
+    !isLoading &&
+    !isSubmitting &&
+    !error;
 
   const handleConfirm = async () => {
     if (!selectedBlock || !registryItem || !registryUrl) return;
     await onConfirm({
       block: selectedBlock,
       registryItem,
+      dependencyItems,
       registryUrl,
       style,
     });
@@ -219,9 +263,31 @@ export function ShadcnBlockPicker({
           </div>
 
           <div className="flex min-h-0 flex-1 flex-col gap-3">
-            <div className="flex items-center justify-between">
-              <div className="text-sm font-medium text-gray-200">Preview</div>
-              {registryUrl && (
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <div className="text-sm font-medium text-gray-200">Preview</div>
+                <div className="flex items-center rounded-md border border-gray-800 p-0.5">
+                  <Button
+                    type="button"
+                    variant={previewMode === "preview" ? "secondary" : "ghost"}
+                    size="sm"
+                    className="h-7 px-2 text-xs"
+                    onClick={() => setPreviewMode("preview")}
+                  >
+                    Preview
+                  </Button>
+                  <Button
+                    type="button"
+                    variant={previewMode === "files" ? "secondary" : "ghost"}
+                    size="sm"
+                    className="h-7 px-2 text-xs"
+                    onClick={() => setPreviewMode("files")}
+                  >
+                    Files
+                  </Button>
+                </div>
+              </div>
+              {previewMode === "files" && registryUrl && (
                 <a
                   href={registryUrl}
                   target="_blank"
@@ -231,24 +297,65 @@ export function ShadcnBlockPicker({
                   Open registry JSON
                 </a>
               )}
+              {previewMode === "preview" && previewLinks?.viewUrl && (
+                <a
+                  href={previewLinks.viewUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-xs text-brand-blue hover:underline"
+                >
+                  Open preview
+                </a>
+              )}
             </div>
             <div className="min-h-[200px] flex-1 overflow-y-auto rounded-md border border-gray-800 bg-gray-950/40 p-4">
-              {isLoading && (
+              {previewMode === "files" && isLoading && (
                 <div className="flex h-full items-center justify-center text-sm text-gray-400">
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                   Loading block preview...
                 </div>
               )}
-              {!isLoading && error && (
+              {!isLoading && error && previewMode === "files" && (
                 <div className="text-sm text-red-400">{error}</div>
               )}
-              {!isLoading && !error && registryItem && (
+              {previewMode === "files" && !isLoading && !error && registryItem && (
                 <div className="prose prose-invert max-w-none text-sm">
                   <Streamdown>{previewMarkdown}</Streamdown>
                 </div>
               )}
-              {!isLoading && !error && !registryItem && (
+              {previewMode === "files" && !isLoading && !error && !registryItem && (
                 <div className="text-sm text-gray-500">Select a block to preview it.</div>
+              )}
+              {previewMode === "preview" && !selectedBlock && (
+                <div className="text-sm text-gray-500">Select a block to preview it.</div>
+              )}
+              {previewMode === "preview" && selectedBlock && previewLinks && (
+                <div className="space-y-3">
+                  {error && <div className="text-sm text-red-400">{error}</div>}
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <div className="space-y-2">
+                      <div className="text-xs uppercase text-gray-500">Light</div>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={previewLinks.lightUrl}
+                        alt={`${selectedBlock.title} preview (light)`}
+                        className="w-full rounded-md border border-gray-800 object-cover"
+                        loading="lazy"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <div className="text-xs uppercase text-gray-500">Dark</div>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={previewLinks.darkUrl}
+                        alt={`${selectedBlock.title} preview (dark)`}
+                        className="w-full rounded-md border border-gray-800 object-cover"
+                        loading="lazy"
+                      />
+                    </div>
+                  </div>
+                  <div className="text-xs text-gray-500">Preview from shadcn/ui</div>
+                </div>
               )}
             </div>
           </div>

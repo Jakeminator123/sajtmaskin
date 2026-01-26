@@ -7,6 +7,7 @@ import { nanoid } from "nanoid";
 import { withRateLimit } from "@/lib/rateLimit";
 import { ensureProjectForRequest, resolveV0ProjectId, generateProjectName } from "@/lib/tenant";
 import { requireNotBot } from "@/lib/botProtection";
+import { debugLog } from "@/lib/utils/debug";
 
 export async function POST(req: Request) {
   return withRateLimit(req, "chat:create", async () => {
@@ -28,23 +29,34 @@ export async function POST(req: Request) {
       const {
         message,
         attachments,
-        system,
         projectId,
-        modelId = "v0-pro",
+        modelId = "v0-max",
         thinking,
         imageGenerations,
         chatPrivacy,
       } = validationResult.data;
 
-      const resolvedSystem = system?.trim() ? system : undefined;
+      const hasSystemPrompt =
+        typeof validationResult.data.system === "string" &&
+        validationResult.data.system.trim().length > 0;
       const resolvedThinking = typeof thinking === "boolean" ? thinking : modelId === "v0-max";
       const resolvedImageGenerations =
         typeof imageGenerations === "boolean" ? imageGenerations : true;
       const resolvedChatPrivacy = chatPrivacy ?? "private";
 
+      debugLog("v0", "v0 chat request (sync)", {
+        modelId,
+        promptLength: typeof message === "string" ? message.length : null,
+        attachments: Array.isArray(attachments) ? attachments.length : 0,
+        systemProvided: hasSystemPrompt,
+        systemIgnored: hasSystemPrompt,
+        thinking: resolvedThinking,
+        imageGenerations: resolvedImageGenerations,
+        chatPrivacy: resolvedChatPrivacy,
+      });
+
       const result = await v0.chats.create({
         message,
-        ...(resolvedSystem ? { system: resolvedSystem } : {}),
         projectId,
         chatPrivacy: resolvedChatPrivacy,
         modelConfiguration: {

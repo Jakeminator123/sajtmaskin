@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
-import { AnalyticsTracker, CookieBanner, ErrorBoundary } from "@/components/layout";
+import { AnalyticsTracker, CookieBanner } from "@/components/layout";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -36,11 +36,9 @@ export default function RootLayout({
         className="font-mono antialiased"
         style={{ backgroundColor: "#000000" }}
       >
-        <ErrorBoundary>
-          <AnalyticsTracker />
-          {children}
-          <CookieBanner />
-        </ErrorBoundary>
+        <AnalyticsTracker />
+        {children}
+        <CookieBanner />
       </body>
     </html>
   );

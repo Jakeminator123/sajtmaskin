@@ -20,12 +20,32 @@ import { devLogAppend } from "@/lib/devLog";
 
 export const runtime = "nodejs";
 
-function applyPreDeployFixes(files: Array<{ name: string; content: string }>): {
+type PreDeployDiagnostics = {
   files: Array<{ name: string; content: string }>;
   fixesApplied: string[];
-} {
+  warnings: string[];
+};
+
+function applyPreDeployFixes(files: Array<{ name: string; content: string }>): PreDeployDiagnostics {
   const fixesApplied: string[] = [];
-  const nextFiles = files.map((f) => ({ ...f }));
+  const warnings: string[] = [];
+  const lockfileNames = new Set(["pnpm-lock.yaml", "pnpm-lock.yml", "yarn.lock"]);
+  const removedLockfiles = new Set<string>();
+  const nextFiles = files
+    .filter((file) => {
+      const baseName = file.name.split("/").pop()?.toLowerCase() || "";
+      if (lockfileNames.has(baseName)) {
+        removedLockfiles.add(baseName);
+        return false;
+      }
+      return true;
+    })
+    .map((f) => ({ ...f }));
+  if (removedLockfiles.size > 0) {
+    fixesApplied.push(
+      `Removed lockfiles to prefer npm: ${Array.from(removedLockfiles).join(", ")}`,
+    );
+  }
 
   const removeBrokenUtilityBlocks = (content: string) => {
     if (!content.includes("@utility")) {
@@ -82,8 +102,46 @@ function applyPreDeployFixes(files: Array<{ name: string; content: string }>): {
     return { content: updated, removed };
   };
 
+  const needsClientDirective = (content: string): boolean => {
+    if (!content) return false;
+    const usesHooks =
+      /from\s+["']react["']/.test(content) &&
+      /\buse(State|Effect|Memo|Callback|Ref|LayoutEffect|Reducer)\b/.test(content);
+    return usesHooks;
+  };
+
+  const hasUseClient = (content: string): boolean =>
+    /^\s*["']use client["'];/m.test(content);
+
+  const hasMetadataExport = (content: string): boolean =>
+    /\bexport\s+const\s+metadata\b/.test(content) || /\bgenerateMetadata\b/.test(content);
+
+  const ensureUseClient = (file: { name: string; content: string }, reason: string) => {
+    if (hasUseClient(file.content)) return;
+    if (hasMetadataExport(file.content)) {
+      warnings.push(
+        `Cannot mark ${file.name} as client (${reason}) because it exports metadata.`,
+      );
+      return;
+    }
+    file.content = `"use client";\n\n${file.content}`;
+    fixesApplied.push(`Marked ${file.name} as client (${reason})`);
+  };
+
   for (const f of nextFiles) {
     if (typeof f.content !== "string") continue;
+
+    const isAppFile = f.name === "app/page.tsx" || f.name.startsWith("app/");
+
+    if (isAppFile) {
+      const hasLucideImport = /from\s+["']lucide-react["']/.test(f.content);
+      const hasIconComponentProp = /\bicon\s*:\s*[A-Z][A-Za-z0-9_]*/.test(f.content);
+      if (hasLucideImport && hasIconComponentProp) {
+        ensureUseClient(f, "icon component props in app file");
+      } else if (needsClientDirective(f.content)) {
+        ensureUseClient(f, "react hooks in app file");
+      }
+    }
 
     if (f.content.includes("Instrument_Serif") && f.content.includes("weight")) {
       const before = f.content;
@@ -126,7 +184,36 @@ function applyPreDeployFixes(files: Array<{ name: string; content: string }>): {
     }
   }
 
-  return { files: nextFiles, fixesApplied };
+  return { files: nextFiles, fixesApplied, warnings };
+}
+
+type DeployErrorSource = "internal" | "upstream" | "unknown";
+
+function classifyDeployError(err: unknown): { source: DeployErrorSource; message: string } {
+  const message = err instanceof Error ? err.message : String(err);
+  const normalized = message.toLowerCase();
+
+  if (
+    normalized.includes("chat not found") ||
+    normalized.includes("version not found") ||
+    normalized.includes("validation failed") ||
+    normalized.includes("no files returned from v0")
+  ) {
+    return { source: "internal", message };
+  }
+
+  if (
+    normalized.includes("vercel") ||
+    normalized.includes("v0") ||
+    normalized.includes("rate limit") ||
+    normalized.includes("timeout") ||
+    normalized.includes("unauthorized") ||
+    normalized.includes("forbidden")
+  ) {
+    return { source: "upstream", message };
+  }
+
+  return { source: "unknown", message };
 }
 
 const createDeploymentSchema = z.object({
@@ -238,10 +325,21 @@ export async function POST(req: Request) {
           projectName || `sajtmaskin-${v0ChatId}`,
         );
 
-        const { files: fixedFiles, fixesApplied } = applyPreDeployFixes(textFiles);
+        const { files: fixedFiles, fixesApplied, warnings } = applyPreDeployFixes(textFiles);
         if (fixesApplied.length > 0) {
           console.log("[deploy] applied fixes:", fixesApplied);
         }
+        if (warnings.length > 0) {
+          console.warn("[deploy] pre-deploy warnings:", warnings.slice(0, 5));
+        }
+        devLogAppend("latest", {
+          type: "site.deploy.precheck",
+          v0ChatId,
+          v0VersionId,
+          fixesApplied,
+          warnings,
+          fileCount: fixedFiles.length,
+        });
 
         const blobToken = process.env.BLOB_READ_WRITE_TOKEN;
         const imageAssets = await materializeImagesInTextFiles({
@@ -302,6 +400,7 @@ export async function POST(req: Request) {
           inspectorUrl: created.inspectorUrl,
           readyState: created.readyState,
           fixesApplied,
+          preDeployWarnings: warnings,
           imageStrategyRequested: imageStrategy ?? null,
           imageStrategyUsed: imageAssets.strategyUsed,
           imageAssetsSummary: imageAssets.summary,
@@ -313,12 +412,14 @@ export async function POST(req: Request) {
       }
     } catch (err) {
       console.error("Deployment error:", err);
+      const classified = classifyDeployError(err);
       devLogAppend("latest", {
         type: "site.deploy.error",
-        message: err instanceof Error ? err.message : "Unknown error",
+        message: classified.message,
+        source: classified.source,
       });
       return NextResponse.json(
-        { error: err instanceof Error ? err.message : "Unknown error" },
+        { error: classified.message, source: classified.source },
         { status: 500 },
       );
     }

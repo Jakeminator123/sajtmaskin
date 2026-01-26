@@ -13,7 +13,7 @@ export const maxDuration = 120; // Registry init can take time
 
 // Validation schema for init from registry
 const initRegistrySchema = z.object({
-  // Registry URL (e.g., https://ui.shadcn.com/r/styles/new-york/login-01.json)
+  // Registry URL (e.g., https://ui.shadcn.com/r/styles/new-york-v4/login-01.json)
   registryUrl: z.string().url("Invalid registry URL"),
   // Quality level for generation
   quality: z
@@ -36,7 +36,7 @@ const initRegistrySchema = z.object({
  * 3. Iterate on the component with natural language
  *
  * Registry URLs follow the shadcn registry spec:
- * - https://ui.shadcn.com/r/styles/new-york/{component}.json
+ * - https://ui.shadcn.com/r/styles/new-york-v4/{component}.json
  * - https://custom-registry.com/r/{component}.json
  */
 export async function POST(req: Request) {
