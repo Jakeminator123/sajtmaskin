@@ -12,6 +12,9 @@ AC - Flode
 - [ ] "Forbattra" anvander /api/ai/chat eller /api/ai/brief.
 - [ ] "Skicka" anvander /api/v0/chats/stream.
 - [ ] Provider=off gor inga /api/ai/*-anrop.
+- [x] v0-systemprompt skickas inte (system ignoreras i v0-routes).
+- [x] Manuell "Forbattra" skippar auto-assist vid forsta skick.
+- [x] imageGenerations styrs av v0-tillganglighet, Blob endast for deploy.
 
 AC - Konfig
 - [ ] Endast server-env anvands for API-nycklar.

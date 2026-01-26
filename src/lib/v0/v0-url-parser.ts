@@ -5,7 +5,7 @@
  * Validates and parses registry URLs for component imports.
  *
  * Registry URL formats:
- * - https://ui.shadcn.com/r/styles/new-york/{component}.json
+ * - https://ui.shadcn.com/r/styles/new-york-v4/{component}.json
  * - https://ui.shadcn.com/r/{component}.json
  * - Custom registries following same spec
  */
@@ -13,7 +13,7 @@
 export interface ParsedRegistryUrl {
   /** The base registry URL (e.g., https://ui.shadcn.com) */
   baseUrl: string;
-  /** Style variant (e.g., 'new-york', 'default') */
+  /** Style variant (e.g., 'new-york-v4', 'default') */
   style?: string;
   /** Component name extracted from URL */
   componentName?: string;
@@ -54,7 +54,7 @@ export function parseRegistryUrl(url: string): ParsedRegistryUrl {
     result.baseUrl = `${parsed.protocol}//${parsed.host}`;
 
     // Extract path segments
-    // Example: /r/styles/new-york/login-01.json
+    // Example: /r/styles/new-york-v4/login-01.json
     const pathSegments = parsed.pathname.split("/").filter(Boolean);
 
     // Find the .json file (component name)
@@ -63,7 +63,7 @@ export function parseRegistryUrl(url: string): ParsedRegistryUrl {
       result.componentName = jsonFile.replace(".json", "");
     }
 
-    // Check for style in path (e.g., /r/styles/new-york/)
+    // Check for style in path (e.g., /r/styles/new-york-v4/)
     const stylesIndex = pathSegments.indexOf("styles");
     if (stylesIndex !== -1 && pathSegments[stylesIndex + 1]) {
       result.style = pathSegments[stylesIndex + 1];
@@ -79,9 +79,12 @@ export function parseRegistryUrl(url: string): ParsedRegistryUrl {
  * Build a shadcn registry URL from component name
  *
  * @param componentName - The component name (e.g., 'login-01')
- * @param style - Style variant (default: 'new-york')
+ * @param style - Style variant (default: 'new-york-v4')
  * @returns Full registry URL
  */
-export function buildShadcnRegistryUrl(componentName: string, style: string = "new-york"): string {
+export function buildShadcnRegistryUrl(
+  componentName: string,
+  style: string = "new-york-v4",
+): string {
   return `https://ui.shadcn.com/r/styles/${style}/${componentName}.json`;
 }

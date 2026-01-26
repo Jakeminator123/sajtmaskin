@@ -148,6 +148,13 @@ export async function POST(req: Request) {
 
       const { messages, model, temperature, provider } = parsed.data;
 
+      debugLog("AI", "AI chat request received", {
+        provider,
+        model,
+        messages: messages.length,
+        temperature: typeof temperature === "number" ? temperature : null,
+      });
+
       if (provider === "gateway") {
         if (!model.includes("/")) {
           return NextResponse.json(
@@ -215,6 +222,7 @@ export async function POST(req: Request) {
             { status: 401 },
           );
         }
+        debugLog("AI", "AI chat using OpenAI direct", { model, keySource: source });
         const modelProvider = getProvider("openai", apiKey);
         const result = await generateText({
           model: modelProvider(model),
@@ -242,6 +250,7 @@ export async function POST(req: Request) {
             { status: 401 },
           );
         }
+        debugLog("AI", "AI chat using Anthropic direct", { model, keySource: source });
         const modelProvider = getProvider("anthropic", apiKey);
         const result = await generateText({
           model: modelProvider(model),
@@ -268,6 +277,7 @@ export async function POST(req: Request) {
           { status: 401 },
         );
       }
+      debugLog("AI", "AI chat using v0 Model API (openai-compat)", { model, keySource: source });
 
       const modelProvider = getProvider(provider, apiKey);
       const result = await generateText({

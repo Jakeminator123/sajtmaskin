@@ -1,4 +1,4 @@
-LLM=ON
+LLM=OFF
 LLM_PREFIX=Promptning under projekt
 LLM_SCOPE=LLM
 

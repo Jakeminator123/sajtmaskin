@@ -161,6 +161,14 @@ export async function POST(req: Request) {
       const { prompt, provider, model, temperature, imageGenerations } = parsed.data;
       const resolvedModel = model;
 
+      debugLog("AI", "AI brief request received", {
+        provider,
+        model: resolvedModel,
+        promptLength: prompt.length,
+        temperature: typeof temperature === "number" ? temperature : null,
+        imageGenerations,
+      });
+
       const systemPrompt =
         "You are a senior product designer + information architect. " +
         "Convert the user request into a concise website brief that is immediately usable for implementation. " +

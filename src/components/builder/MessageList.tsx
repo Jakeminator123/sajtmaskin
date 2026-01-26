@@ -130,9 +130,10 @@ export function MessageList({
                     const hasOutput = tool.output !== undefined && tool.output !== null;
                     const hasErrorText =
                       typeof tool.errorText === "string" && tool.errorText.trim().length > 0;
+                    const toolRecord = tool as Record<string, unknown>;
                     const toolCallId =
                       (typeof tool.toolCallId === "string" && tool.toolCallId) ||
-                      (typeof tool.id === "string" && tool.id) ||
+                      (typeof toolRecord.id === "string" && toolRecord.id) ||
                       null;
                     const toolDebug = {
                       type: toolType,

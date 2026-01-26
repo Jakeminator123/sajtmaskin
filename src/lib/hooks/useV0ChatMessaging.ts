@@ -1,6 +1,7 @@
 import { consumeSseResponse } from "@/lib/builder/sse";
 import type { ChatMessage, UiMessagePart } from "@/lib/builder/types";
 import type { ModelTier } from "@/lib/validations/chatSchemas";
+import { debugLog } from "@/lib/utils/debug";
 import { useCallback, useState } from "react";
 import toast from "react-hot-toast";
 
@@ -173,6 +174,14 @@ export function useV0ChatMessaging(params: {
       const userMessageId = `user-${now}`;
       const assistantMessageId = `assistant-${now}`;
 
+      debugLog("AI", "Create chat requested", {
+        messageLength: initialMessage.length,
+        skipPromptAssist: options.skipPromptAssist ?? false,
+        attachments: options.attachments?.length ?? 0,
+        imageGenerations: enableImageGenerations,
+        modelTier: selectedModelTier,
+      });
+
       setMessages([
         { id: userMessageId, role: "user", content: initialMessage },
         {
@@ -187,9 +196,19 @@ export function useV0ChatMessaging(params: {
       setIsCreatingChat(true);
 
       try {
-        const messageForV0 = options.skipPromptAssist
+        const shouldSkipAssist = options.skipPromptAssist ?? false;
+        if (shouldSkipAssist) {
+          debugLog("AI", "Prompt assist skipped", { reason: "manual-or-explicit" });
+        }
+        const messageForV0 = shouldSkipAssist
           ? initialMessage
           : await maybeEnhanceInitialPrompt(initialMessage);
+        debugLog("AI", "Prompt assist result", {
+          skipped: shouldSkipAssist,
+          originalLength: initialMessage.length,
+          finalLength: messageForV0.length,
+          changed: messageForV0.trim() !== initialMessage.trim(),
+        });
         const finalMessage = appendAttachmentPrompt(messageForV0, options.attachmentPrompt);
         const thinkingForTier = selectedModelTier !== "v0-mini";
         const requestBody: Record<string, unknown> = {
@@ -397,6 +416,12 @@ export function useV0ChatMessaging(params: {
       const userMessageId = `user-${now}`;
       const assistantMessageId = `assistant-${now}`;
 
+      debugLog("AI", "Send message requested", {
+        messageLength: messageText.length,
+        attachments: options.attachments?.length ?? 0,
+        modelTier: selectedModelTier,
+      });
+
       setMessages((prev) => [
         ...prev,
         { id: userMessageId, role: "user", content: messageText },
@@ -533,6 +558,7 @@ export function useV0ChatMessaging(params: {
       setCurrentDemoUrl,
       onPreviewRefresh,
       onGenerationComplete,
+      selectedModelTier,
       mutateVersions,
     ],
   );

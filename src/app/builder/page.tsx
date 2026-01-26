@@ -17,7 +17,6 @@ import {
   DEFAULT_PROMPT_ASSIST,
   getDefaultPromptAssistModel,
   MODEL_TIER_OPTIONS,
-  PROMPT_ASSIST_PROVIDER_OPTIONS,
 } from "@/lib/builder/defaults";
 import { useChat } from "@/lib/hooks/useChat";
 import { useCssValidation } from "@/lib/hooks/useCssValidation";
@@ -29,6 +28,7 @@ import { useAuth } from "@/lib/auth/auth-store";
 import type { PromptAssistProvider } from "@/lib/builder/promptAssist";
 import type { ModelTier } from "@/lib/validations/chatSchemas";
 import { cn } from "@/lib/utils";
+import { debugLog } from "@/lib/utils/debug";
 import { Check, Loader2 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -69,6 +69,7 @@ function BuilderContent() {
   const [isSandboxModalOpen, setIsSandboxModalOpen] = useState(false);
   const [isDeploying, setIsDeploying] = useState(false);
   const [enableImageGenerations, setEnableImageGenerations] = useState(true);
+  const [isImageGenerationsSupported, setIsImageGenerationsSupported] = useState(true);
   const [isMediaEnabled, setIsMediaEnabled] = useState(false);
   const [designSystemMode, setDesignSystemMode] = useState(false);
   const [showStructuredChat, setShowStructuredChat] = useState(false);
@@ -135,19 +136,27 @@ function BuilderContent() {
         const res = await fetch("/api/health", { signal: controller.signal });
         if (!res.ok) return;
         const data = (await res.json().catch(() => null)) as {
-          features?: { vercelBlob?: boolean };
+          features?: { vercelBlob?: boolean; v0?: boolean };
         } | null;
         const blobEnabled = Boolean(data?.features?.vercelBlob);
+        const v0Enabled = Boolean(data?.features?.v0);
         if (!isActive) return;
         setIsMediaEnabled(blobEnabled);
-        if (!blobEnabled) {
+        setIsImageGenerationsSupported(v0Enabled);
+        if (!v0Enabled) {
           setEnableImageGenerations(false);
         } else if (!hasUserSelectedImageGenerations.current) {
           setEnableImageGenerations(true);
         }
-        if (!hasUserSelectedImageStrategy.current && blobEnabled) {
-          setDeployImageStrategy("blob");
+        if (!hasUserSelectedImageStrategy.current && !blobEnabled) {
+          setDeployImageStrategy("external");
         }
+        debugLog("AI", "Builder feature flags resolved", {
+          v0Enabled,
+          blobEnabled,
+          userSelectedImageGenerations: hasUserSelectedImageGenerations.current,
+          userSelectedImageStrategy: hasUserSelectedImageStrategy.current,
+        });
       } catch (error) {
         if (error instanceof Error && error.name === "AbortError") return;
       }
@@ -555,7 +564,8 @@ function BuilderContent() {
           onPromptAssistDeepChange={setPromptAssistDeep}
           enableImageGenerations={enableImageGenerations}
           onEnableImageGenerationsChange={handleEnableImageGenerationsChange}
-          imageGenerationsSupported={isMediaEnabled}
+          imageGenerationsSupported={isImageGenerationsSupported}
+          blobSupported={isMediaEnabled}
           designSystemMode={designSystemMode}
           onDesignSystemModeChange={setDesignSystemMode}
           showStructuredChat={showStructuredChat}

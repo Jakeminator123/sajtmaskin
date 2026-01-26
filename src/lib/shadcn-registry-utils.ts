@@ -1,6 +1,7 @@
 import type { ShadcnRegistryItem } from "@/lib/shadcn-registry-types";
 
-const DEFAULT_STYLE = "new-york";
+const DEFAULT_STYLE = "new-york-v4";
+const SHADCN_BASE_URL = "https://ui.shadcn.com";
 
 function toPascalCase(value: string): string {
   return value
@@ -42,8 +43,44 @@ export function rewriteRegistryImports(content: string, style: string = DEFAULT_
 
 export function mapRegistryFilePath(filePath: string): string {
   const normalized = filePath.replace(/^\/+/, "");
-  const trimmed = normalized.startsWith("blocks/") ? normalized.slice("blocks/".length) : normalized;
-  return `src/components/blocks/${trimmed}`;
+  const registryMatch = normalized.match(/^registry\/[^/]+\/(.+)$/);
+  const withoutRegistry = registryMatch ? registryMatch[1] : normalized;
+  if (withoutRegistry.startsWith("ui/")) {
+    return `src/components/ui/${withoutRegistry.slice("ui/".length)}`;
+  }
+  if (withoutRegistry.startsWith("lib/")) {
+    return `src/lib/${withoutRegistry.slice("lib/".length)}`;
+  }
+  if (withoutRegistry.startsWith("hooks/")) {
+    return `src/hooks/${withoutRegistry.slice("hooks/".length)}`;
+  }
+  if (withoutRegistry.startsWith("components/")) {
+    return `src/components/${withoutRegistry.slice("components/".length)}`;
+  }
+  if (withoutRegistry.startsWith("blocks/")) {
+    return `src/components/blocks/${withoutRegistry.slice("blocks/".length)}`;
+  }
+  return `src/components/blocks/${withoutRegistry}`;
+}
+
+export function resolveShadcnPreviewStyle(style?: string): string {
+  if (!style) return DEFAULT_STYLE;
+  if (style.endsWith("-v4")) return style;
+  return `${style}-v4`;
+}
+
+export function buildShadcnPreviewUrl(blockName: string, style?: string): string {
+  const previewStyle = resolveShadcnPreviewStyle(style);
+  return `${SHADCN_BASE_URL}/view/${previewStyle}/${blockName}`;
+}
+
+export function buildShadcnPreviewImageUrl(
+  blockName: string,
+  theme: "light" | "dark",
+  style?: string,
+): string {
+  const previewStyle = resolveShadcnPreviewStyle(style);
+  return `${SHADCN_BASE_URL}/r/styles/${previewStyle}/${blockName}-${theme}.png`;
 }
 
 export function buildRegistryMarkdownPreview(
@@ -87,13 +124,19 @@ export function buildRegistryMarkdownPreview(
 
 export function buildShadcnBlockPrompt(
   item: ShadcnRegistryItem,
-  options: { style?: string; displayName?: string; description?: string } = {},
+  options: {
+    style?: string;
+    displayName?: string;
+    description?: string;
+    dependencyItems?: ShadcnRegistryItem[];
+  } = {},
 ): string {
   const style = options.style ?? DEFAULT_STYLE;
   const blockName = item.name || "block";
   const displayName = options.displayName || blockName;
   const description = options.description || item.description;
   const componentName = `${toPascalCase(blockName)}Block`;
+  const dependencyItems = options.dependencyItems ?? [];
 
   const lines: string[] = [];
   lines.push(`Add the shadcn/ui block "${displayName}" to the existing site.`);
@@ -109,14 +152,21 @@ export function buildShadcnBlockPrompt(
   lines.push(`- \`@/registry/${style}/ui/*\` -> \`@/components/ui/*\``);
   lines.push(`- \`@/registry/${style}/lib/utils\` -> \`@/lib/utils\``);
   lines.push(`- \`@/registry/${style}/blocks/*\` -> \`@/components/blocks/*\``);
+  lines.push(
+    "Only create dependency files that are missing; do not overwrite existing UI components.",
+  );
   if (item.registryDependencies?.length) {
     lines.push(`Registry dependencies: ${item.registryDependencies.join(", ")}.`);
   }
 
   lines.push("Registry files (adapt paths/imports as noted):");
-  const files = item.files ?? [];
+  const allItems = [item, ...dependencyItems];
+  const files = allItems.flatMap((entry) => entry.files ?? []);
+  const seenTargets = new Set<string>();
   files.forEach((file) => {
     const targetPath = mapRegistryFilePath(file.path);
+    if (seenTargets.has(targetPath)) return;
+    seenTargets.add(targetPath);
     const language = getLanguageFromPath(file.path);
     const rewritten = rewriteRegistryImports(file.content ?? "", style);
     lines.push(`### ${targetPath}`);
