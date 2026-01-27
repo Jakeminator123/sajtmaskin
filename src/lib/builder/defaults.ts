@@ -134,3 +134,9 @@ export const DEFAULT_PROMPT_ASSIST_ENABLED = true;
 /** Default for AI image generation toggle */
 export const DEFAULT_IMAGE_GENERATIONS = true;
 
+/** Default system instructions for new chats (editable in UI) */
+export const DEFAULT_CUSTOM_INSTRUCTIONS =
+  "Use Next.js App Router, Tailwind CSS, and shadcn/ui.\n" +
+  "Build a responsive, accessible, polished React UI with high visual quality.\n" +
+  "If imagery is used, ensure high-quality visuals and descriptive alt text.";
+

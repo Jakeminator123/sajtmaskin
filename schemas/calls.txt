@@ -15,7 +15,7 @@ FLOWS (builder)
 FLOW: BUILDER_CREATE_CHAT
 ENDPOINT: /api/v0/chats/stream (POST, SSE)
 TRIGGER (UI): forsta skick i buildern (ingen chatId)
-REQUEST BODY: message, modelId, thinking, imageGenerations, attachments?
+REQUEST BODY: message, modelId, thinking, imageGenerations, system?, attachments?
 RESPONSE: SSE events (chatId, thinking, content, parts, done)
 RELATED FILES:
 - src/lib/hooks/useV0ChatMessaging.ts
@@ -277,15 +277,14 @@ MODEL TIERS:
 
 PROVIDERS (prompt assist):
 - gateway (AI Gateway)
-- openai
-- anthropic
+- openai-compat (v0 Model API)
 - off (ingen omskrivning)
 
 ENV FLAGS:
 - AI_GATEWAY_API_KEY or VERCEL_OIDC_TOKEN (for provider=gateway)
-- OPENAI_API_KEY (for provider=openai)
-- ANTHROPIC_API_KEY (for provider=anthropic)
+- V0_API_KEY or VERCEL_API_KEY (for provider=openai-compat)
 - V0_API_KEY (v0 generation)
+- OPENAI_API_KEY (audit only - web_search not supported by Gateway)
 - DEBUG=AI or DEBUG=true (server debug logs)
 - V0_STREAM_DEBUG=1 (logga SSE events i /api/v0/chats/stream)
 

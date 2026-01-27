@@ -506,6 +506,8 @@ export interface GenerateCodeOptions {
   imageGenerations?: boolean;
   /** Media library items (for image references in prompts) */
   mediaLibrary?: MediaLibraryItem[];
+  /** Optional system prompt to guide v0 behavior */
+  systemPrompt?: string;
   /** Callback for streaming updates (if v0Streaming feature is enabled) */
   onStream?: StreamingCallback;
 }
@@ -593,10 +595,11 @@ export async function generateCode(
     );
   }
 
+  const systemPrompt = options.systemPrompt?.trim();
   debugLog("v0", "[v0-generator] Creating chat with v0 Platform API...");
   debugLog("v0", "[v0-generator] Model:", modelId);
   debugLog("v0", "[v0-generator] Prompt length:", fullPrompt.length);
-  debugLog("v0", "[v0-generator] System prompt: disabled");
+  debugLog("v0", "[v0-generator] System prompt:", systemPrompt ? "enabled" : "none");
 
   // Check if streaming is enabled via feature toggle
   const useStreaming = isV0StreamingEnabled() && !!options.onStream;
@@ -636,6 +639,10 @@ export async function generateCode(
       // Use streaming mode if enabled, otherwise sync for full ChatDetail response
       responseMode: useStreaming ? undefined : "sync",
     };
+
+    if (systemPrompt) {
+      createRequest.system = systemPrompt;
+    }
 
     // Add attachments if provided (screenshots, figma designs, etc.)
     if (options.attachments && options.attachments.length > 0) {

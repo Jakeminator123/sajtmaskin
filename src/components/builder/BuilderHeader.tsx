@@ -3,6 +3,7 @@
 import type { PromptAssistProvider } from "@/lib/builder/promptAssist";
 import type { ModelTier } from "@/lib/validations/chatSchemas";
 import {
+  DEFAULT_CUSTOM_INSTRUCTIONS,
   MODEL_TIER_OPTIONS,
   PROMPT_ASSIST_PROVIDER_OPTIONS,
   getPromptAssistModelOptions,
@@ -12,12 +13,20 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuCheckboxItem,
+  DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import {
   Bot,
   ChevronDown,
@@ -33,6 +42,8 @@ import {
   TerminalSquare,
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Textarea } from "@/components/ui/textarea";
+import { useEffect, useState } from "react";
 
 export function BuilderHeader(props: {
   selectedModelTier: ModelTier;
@@ -44,6 +55,9 @@ export function BuilderHeader(props: {
   onPromptAssistModelChange: (model: string) => void;
   promptAssistDeep: boolean;
   onPromptAssistDeepChange: (deep: boolean) => void;
+
+  customInstructions: string;
+  onCustomInstructionsChange: (value: string) => void;
 
   enableImageGenerations: boolean;
   onEnableImageGenerationsChange: (v: boolean) => void;
@@ -78,6 +92,8 @@ export function BuilderHeader(props: {
     onPromptAssistModelChange,
     promptAssistDeep,
     onPromptAssistDeepChange,
+    customInstructions,
+    onCustomInstructionsChange,
     enableImageGenerations,
     onEnableImageGenerationsChange,
     imageGenerationsSupported = true,
@@ -105,6 +121,16 @@ export function BuilderHeader(props: {
     promptAssistProvider !== "off" &&
     promptAssistModel &&
     !assistModelOptions.some((option) => option.value === promptAssistModel);
+  const [isInstructionsOpen, setIsInstructionsOpen] = useState(false);
+  const hasCustomInstructions = Boolean(customInstructions.trim());
+  const isDefaultInstructions =
+    customInstructions.trim() === DEFAULT_CUSTOM_INSTRUCTIONS.trim();
+
+  useEffect(() => {
+    const handleDialogClose = () => setIsInstructionsOpen(false);
+    window.addEventListener("dialog-close", handleDialogClose);
+    return () => window.removeEventListener("dialog-close", handleDialogClose);
+  }, []);
 
   return (
     <header className="border-border bg-background flex h-14 items-center justify-between border-b px-4">
@@ -122,7 +148,25 @@ export function BuilderHeader(props: {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-64">
-            <DropdownMenuLabel>Model Tier</DropdownMenuLabel>
+            <DropdownMenuLabel className="flex items-center gap-2">
+              <span>Model Tier</span>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="text-muted-foreground ml-auto flex cursor-help items-center">
+                      <HelpCircle className="h-3 w-3" />
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent side="left" className="max-w-xs">
+                    <p className="text-xs">
+                      Model Tier styr v0 Platform API (v0-mini/pro/max) som bygger sajten och
+                      preview. Prompt Assist Model är en separat AI-modell som bara förbättrar
+                      prompten innan v0 kör.
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </DropdownMenuLabel>
             <DropdownMenuRadioGroup
               value={selectedModelTier}
               onValueChange={(v) => onSelectedModelTierChange(v as ModelTier)}
@@ -139,7 +183,24 @@ export function BuilderHeader(props: {
             </DropdownMenuRadioGroup>
 
             <DropdownMenuSeparator />
-            <DropdownMenuLabel>Prompt Assist</DropdownMenuLabel>
+            <DropdownMenuLabel className="flex items-center gap-2">
+              <span>Prompt Assist</span>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="text-muted-foreground ml-auto flex cursor-help items-center">
+                      <HelpCircle className="h-3 w-3" />
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent side="left" className="max-w-xs">
+                    <p className="text-xs">
+                      Prompt Assist skriver om din prompt via AI Gateway innan v0 kör.
+                      Av skickar prompten direkt utan omskrivning.
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </DropdownMenuLabel>
             <DropdownMenuRadioGroup
               value={promptAssistProvider}
               onValueChange={(v) => onPromptAssistProviderChange(v as PromptAssistProvider)}
@@ -157,7 +218,24 @@ export function BuilderHeader(props: {
             {promptAssistProvider !== "off" && (
               <>
                 <DropdownMenuSeparator />
-                <DropdownMenuLabel>Assist Model</DropdownMenuLabel>
+                <DropdownMenuLabel className="flex items-center gap-2">
+                  <span>Assist Model</span>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <span className="text-muted-foreground ml-auto flex cursor-help items-center">
+                          <HelpCircle className="h-3 w-3" />
+                        </span>
+                      </TooltipTrigger>
+                      <TooltipContent side="left" className="max-w-xs">
+                        <p className="text-xs">
+                          Modellen här används bara för att förbättra prompten.
+                          Själva bygget styrs av Model Tier (v0-mini/pro/max).
+                        </p>
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+                </DropdownMenuLabel>
                 <DropdownMenuRadioGroup
                   value={promptAssistModel}
                   onValueChange={(v) => onPromptAssistModelChange(v)}
@@ -228,6 +306,22 @@ export function BuilderHeader(props: {
               <Sparkles className="mr-2 h-4 w-4" />
               Design System Mode
             </DropdownMenuCheckboxItem>
+
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel>Instructions</DropdownMenuLabel>
+            <DropdownMenuItem
+              disabled={isBusy}
+              onSelect={(event) => {
+                event.preventDefault();
+                setIsInstructionsOpen(true);
+              }}
+            >
+              <MessageSquare className="mr-2 h-4 w-4" />
+              Custom Instructions
+              {hasCustomInstructions && (
+                <span className="text-muted-foreground ml-2 text-xs">Aktiv</span>
+              )}
+            </DropdownMenuItem>
 
             <DropdownMenuSeparator />
             <DropdownMenuLabel>Chat View</DropdownMenuLabel>
@@ -304,6 +398,46 @@ export function BuilderHeader(props: {
           <span className="hidden sm:inline">Deploy</span>
         </Button>
       </div>
+
+      <Dialog open={isInstructionsOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Custom Instructions</DialogTitle>
+            <DialogDescription>
+              Gäller för denna chatten. Ändringar efter start kräver ny chat.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3">
+            <Textarea
+              value={customInstructions}
+              onChange={(event) => onCustomInstructionsChange(event.target.value)}
+              placeholder="Skriv regler, ramverk eller preferenser för denna chat."
+              rows={5}
+            />
+            <div className="text-muted-foreground text-xs">
+              Exempel: “Använd Next.js App Router, Tailwind CSS, shadcn/ui och prioritera
+              tillgänglighet.”
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                onClick={() => onCustomInstructionsChange(DEFAULT_CUSTOM_INSTRUCTIONS)}
+                disabled={isBusy || isDefaultInstructions}
+              >
+                Använd standard
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => onCustomInstructionsChange("")}
+                disabled={isBusy || !customInstructions.trim()}
+              >
+                Rensa
+              </Button>
+              <Button onClick={() => setIsInstructionsOpen(false)}>Done</Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </header>
   );
 }

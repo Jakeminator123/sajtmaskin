@@ -30,15 +30,15 @@ export async function POST(req: Request) {
         message,
         attachments,
         projectId,
+        system,
         modelId = "v0-max",
         thinking,
         imageGenerations,
         chatPrivacy,
       } = validationResult.data;
 
-      const hasSystemPrompt =
-        typeof validationResult.data.system === "string" &&
-        validationResult.data.system.trim().length > 0;
+      const trimmedSystemPrompt = typeof system === "string" ? system.trim() : "";
+      const hasSystemPrompt = Boolean(trimmedSystemPrompt);
       const resolvedThinking = typeof thinking === "boolean" ? thinking : modelId === "v0-max";
       const resolvedImageGenerations =
         typeof imageGenerations === "boolean" ? imageGenerations : true;
@@ -49,7 +49,8 @@ export async function POST(req: Request) {
         promptLength: typeof message === "string" ? message.length : null,
         attachments: Array.isArray(attachments) ? attachments.length : 0,
         systemProvided: hasSystemPrompt,
-        systemIgnored: hasSystemPrompt,
+        systemApplied: hasSystemPrompt,
+        systemIgnored: false,
         thinking: resolvedThinking,
         imageGenerations: resolvedImageGenerations,
         chatPrivacy: resolvedChatPrivacy,
@@ -57,6 +58,7 @@ export async function POST(req: Request) {
 
       const result = await v0.chats.create({
         message,
+        ...(hasSystemPrompt ? { system: trimmedSystemPrompt } : {}),
         projectId,
         chatPrivacy: resolvedChatPrivacy,
         modelConfiguration: {

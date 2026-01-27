@@ -16,6 +16,7 @@ How to update:
 2) Nar nya floden tillkommer -> lagg till under "Flows" i calls.txt.
 3) Nar naming eller konfiguration andras -> uppdatera "Env/Config" i calls.txt.
 4) Nar v0-systemprompt eller prompt-assist beteende andras -> uppdatera calls.txt.
+5) Nar Custom Instructions-flode andras -> uppdatera calls.txt + builder-noter.
 
 Designprincip:
 - Kort och exakt. Peka till kod, duplicera inte logik.

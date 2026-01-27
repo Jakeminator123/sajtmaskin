@@ -12,19 +12,21 @@ AC - Flode
 - [ ] "Forbattra" anvander /api/ai/chat eller /api/ai/brief.
 - [ ] "Skicka" anvander /api/v0/chats/stream.
 - [ ] Provider=off gor inga /api/ai/*-anrop.
-- [x] v0-systemprompt skickas inte (system ignoreras i v0-routes).
+- [x] v0-systemprompt skickas i v0-routes (system vidarebefordras).
+- [x] Custom Instructions ar per chat (lagras lokalt per chatId).
 - [x] Manuell "Forbattra" skippar auto-assist vid forsta skick.
 - [x] imageGenerations styrs av v0-tillganglighet, Blob endast for deploy.
 
 AC - Konfig
 - [ ] Endast server-env anvands for API-nycklar.
 - [ ] Tydlig feltext om AI Gateway nyckel saknas.
-- [ ] Tydlig feltext om OpenAI/Anthropic nyckel saknas.
+- [ ] Tydlig feltext om v0 Model API nyckel saknas (openai-compat).
 
 AC - UX/Debug
 - [ ] UI visar aktiv provider + modell + deep.
 - [ ] Debug visar faktisk provider/model som anropas.
 - [ ] Ingen dold fallback utan info.
+- [x] Tooltip forklarar skillnaden mellan Model Tier och Prompt Assist.
 
 Noter:
 - Hojrisk-andringar uppdateras i LLM/atgardsmatris.txt.

@@ -1,0 +1,15 @@
+
+
+#URI, Primary Database
+Session pooler: postgresql://postgres.qrbhuokhrfwujmcrvhkn:[YOUR-PASSWORD]@aws-1-eu-west-1.pooler.supabase.com:5432/postgres
+
+Project URL: https://qrbhuokhrfwujmcrvhkn.supabase.co
+Publishable Key: sb_publishable_PzRWEsigThjLaV5jBxOTvg_0sqogjEi
+Anon Key (Legacy): eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFyYmh1b2tocmZ3dWptY3J2aGtuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjkwODU1OTksImV4cCI6MjA4NDY2MTU5OX0.XNcAiPpU_XIbxOGL1acmcG3Mykv11YdQXx1h_g4_j9E
+
+---
+#Next.js, App Router, supabase-js (.env.local)
+NEXT_PUBLIC_SUPABASE_URL=https://qrbhuokhrfwujmcrvhkn.supabase.co
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY=sb_publishable_PzRWEsigThjLaV5jBxOTvg_0sqogjEi
+---
+

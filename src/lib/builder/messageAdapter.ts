@@ -133,6 +133,25 @@ function normalizeToolPart(part: UiMessagePart): ToolUIPart {
   } as ToolUIPart;
 }
 
+/**
+ * Check if a tool part has meaningful data to display.
+ * Empty tool calls (no input, no output, no error) are considered "pending"
+ * and may not be worth rendering until v0 sends more data.
+ */
+export function hasToolData(tool: ToolUIPart): boolean {
+  const hasInput = tool.input !== undefined && tool.input !== null;
+  const hasOutput = tool.output !== undefined && tool.output !== null;
+  const hasError = typeof tool.errorText === "string" && tool.errorText.trim().length > 0;
+  const isTerminalState =
+    tool.state === "output-available" ||
+    tool.state === "output-error" ||
+    tool.state === "output-denied" ||
+    tool.state === "approval-requested" ||
+    tool.state === "approval-responded";
+
+  return hasInput || hasOutput || hasError || isTerminalState;
+}
+
 function parseJsonIfPossible(value: unknown): unknown {
   if (typeof value !== "string") return value;
   const trimmed = value.trim();

@@ -633,24 +633,22 @@ if (schemaErrors.length > 0) {
 const USD_TO_SEK = 11.0;
 
 // Initialize OpenAI client lazily
-function getGatewayApiKey(): string | null {
-  const apiKey = process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_OIDC_TOKEN;
+// NOTE: Audit uses OpenAI Responses API with web_search tool which is NOT supported
+// by AI Gateway. Therefore, audit must use direct OpenAI API with OPENAI_API_KEY.
+function getOpenAIApiKey(): string | null {
+  const apiKey = process.env.OPENAI_API_KEY;
   return apiKey && apiKey.trim() ? apiKey : null;
 }
 
-function toGatewayModelId(model: string): string {
-  if (model.includes("/")) return model;
-  return `openai/${model}`;
-}
-
 function getOpenAIClient(): OpenAI {
-  const apiKey = getGatewayApiKey();
+  const apiKey = getOpenAIApiKey();
   if (!apiKey) {
-    throw new Error("AI_GATEWAY_API_KEY (or VERCEL_OIDC_TOKEN) is not configured");
+    throw new Error(
+      "OPENAI_API_KEY is required for audit (web_search tool not supported by AI Gateway)"
+    );
   }
   return new OpenAI({
     apiKey,
-    baseURL: "https://ai-gateway.vercel.sh/v1",
     timeout: 300000, // 5 minute timeout
     maxRetries: 2,
   });
@@ -1341,7 +1339,7 @@ export async function POST(request: NextRequest) {
         console.log(`[${requestId}] Trying model: ${model}`);
         response = await getOpenAIClient().responses.create(
           {
-            model: toGatewayModelId(model),
+            model,
             ...baseRequest,
           },
           {

@@ -8,7 +8,8 @@ AKTUELLA OBSERVATIONER (START)
 ==============================================================================
 - [ ] Prompt Assist logg visar /api/ai/chat (gateway + system prompt rewrite).
       Forvantat beteende nar AI-assist ar pa.
-- [x] v0-systemprompt avstangd: system ignoreras i /api/v0/chats(/stream).
+- [x] v0-systemprompt aktiv: system skickas i /api/v0/chats(/stream).
+- [x] Custom Instructions per chat (lagras lokalt per chatId).
 - [x] Manuell "Forbattra" skippar auto-assist (ingen dubbel omskrivning).
 - [x] imageGenerations styrs av v0-tillganglighet, inte Blob.
 - [x] /builder?prompt=... visar raa input (forifyllning),

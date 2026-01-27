@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import {
   Conversation,
@@ -27,7 +27,7 @@ import {
   PlanTrigger,
 } from "@/components/ai-elements/plan";
 import { CodeBlock } from "@/components/ai-elements/code-block";
-import { toAIElementsFormat } from "@/lib/builder/messageAdapter";
+import { toAIElementsFormat, hasToolData } from "@/lib/builder/messageAdapter";
 import type { MessagePart } from "@/lib/builder/messageAdapter";
 import type { ChatMessage } from "@/lib/builder/types";
 import { MessageSquare } from "lucide-react";
@@ -144,8 +144,11 @@ export function MessageList({
                       hasOutput,
                     };
 
+                    // Collapse empty tool calls by default - they'll expand when data arrives
+                    const toolHasData = hasToolData(tool as ToolUIPart);
+
                     return (
-                      <Tool key={`${message.id}-tool-${toolType}-${index}`} defaultOpen>
+                      <Tool key={`${message.id}-tool-${toolType}-${index}`} defaultOpen={toolHasData}>
                         <ToolHeader title={toolTitle} type={toolType} state={toolState} />
                         <ToolContent>
                           {hasInput && <ToolInput input={tool.input} />}
@@ -157,9 +160,7 @@ export function MessageList({
                           />
                           {!hasInput && !hasOutput && !hasErrorText && (
                             <div className="text-muted-foreground p-4 text-xs">
-                              Ingen tool-data har mottagits annu. Detta kan betyda att verktyget
-                              fortfarande körs, eller att modellen skickade en tool-call utan input
-                              eller output.
+                              v0 skickade en tool-call, men data har inte anlänt än. Detta är normalt under streaming. Data läggs till när v0 är redo.
                             </div>
                           )}
                           <div className="border-border border-t p-4">
