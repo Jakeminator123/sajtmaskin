@@ -83,12 +83,11 @@ if (Test-Path $gitignorePath) {
     exit 1
 }
 
-# Kontrollera staged filer för potentiella hemligheter
-$stagedFiles = git diff --cached --name-only 2>$null
+# Kontrollera ändrade filer för potentiella hemligheter
 $dangerousFiles = @(".env", ".env.local", ".env.production", "credentials.json", "*.pem", "*.key")
 $foundDangerous = @()
 
-# Kolla även unstaged ändringar
+# Kolla alla ändrade filer (staged + unstaged)
 $allChangedFiles = git status --porcelain | ForEach-Object { $_.Substring(3) }
 
 foreach ($file in $allChangedFiles) {
