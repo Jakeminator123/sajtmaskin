@@ -1,0 +1,23 @@
+---
+description: Use MCP docs (Sitemaskin Docs V2) for site features, APIs, SDKs, and integrations
+alwaysApply: true
+---
+
+## Documentation lookup rule
+
+- I have many docs connected via an MCP server.
+- The MCP server is named: **Sitemaskin Docs V2**.
+
+## Where to find the docs
+
+- In the root folder, there is a folder: `Services`
+- Inside `Services`, there is a folder: `MPC` *(typo — should be `MCP`)*
+- Inside `Services/MPC`, there are documents alongside the server **MGS**.
+
+## When to use these docs
+
+- If you are unsure about anything related to this part of my website, consult these docs first, especially for:
+  - User-facing page building / site generation
+  - API integrations
+  - SDK usage
+  - General integrations and implementation details

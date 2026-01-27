@@ -134,6 +134,7 @@ export function useV0ChatMessaging(params: {
   router: RouterLike;
   selectedModelTier: ModelTier;
   enableImageGenerations: boolean;
+  systemPrompt?: string;
   maybeEnhanceInitialPrompt: (original: string) => Promise<string>;
   mutateVersions: () => void;
   setCurrentDemoUrl: (url: string | null) => void;
@@ -149,6 +150,7 @@ export function useV0ChatMessaging(params: {
     router,
     selectedModelTier,
     enableImageGenerations,
+    systemPrompt,
     maybeEnhanceInitialPrompt,
     mutateVersions,
     setCurrentDemoUrl,
@@ -180,6 +182,7 @@ export function useV0ChatMessaging(params: {
         attachments: options.attachments?.length ?? 0,
         imageGenerations: enableImageGenerations,
         modelTier: selectedModelTier,
+        systemPromptProvided: Boolean(systemPrompt?.trim()),
       });
 
       setMessages([
@@ -211,12 +214,16 @@ export function useV0ChatMessaging(params: {
         });
         const finalMessage = appendAttachmentPrompt(messageForV0, options.attachmentPrompt);
         const thinkingForTier = selectedModelTier !== "v0-mini";
+        const trimmedSystemPrompt = systemPrompt?.trim();
         const requestBody: Record<string, unknown> = {
           message: finalMessage,
           modelId: selectedModelTier,
           thinking: thinkingForTier,
           imageGenerations: enableImageGenerations,
         };
+        if (trimmedSystemPrompt) {
+          requestBody.system = trimmedSystemPrompt;
+        }
         if (options.attachments && options.attachments.length > 0) {
           requestBody.attachments = options.attachments;
         }
@@ -392,6 +399,7 @@ export function useV0ChatMessaging(params: {
       maybeEnhanceInitialPrompt,
       selectedModelTier,
       enableImageGenerations,
+      systemPrompt,
       setMessages,
       setChatId,
       chatIdParam,

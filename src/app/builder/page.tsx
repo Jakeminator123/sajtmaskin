@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { clearPersistedMessages } from "@/lib/builder/messagesStorage";
 import type { ChatMessage } from "@/lib/builder/types";
 import {
+  DEFAULT_CUSTOM_INSTRUCTIONS,
   DEFAULT_MODEL_TIER,
   DEFAULT_PROMPT_ASSIST,
   getDefaultPromptAssistModel,
@@ -83,8 +84,11 @@ function BuilderContent() {
   const [showStructuredChat, setShowStructuredChat] = useState(false);
   const [deployImageStrategy, setDeployImageStrategy] = useState<"external" | "blob">("external");
   const [isIntentionalReset, setIsIntentionalReset] = useState(false);
+  const [customInstructions, setCustomInstructions] = useState(DEFAULT_CUSTOM_INSTRUCTIONS);
   const hasUserSelectedImageStrategy = useRef(false);
   const hasUserSelectedImageGenerations = useRef(false);
+  const hasLoadedInstructions = useRef(false);
+  const pendingInstructionsRef = useRef<string | null>(null);
 
   const [auditPromptLoaded, setAuditPromptLoaded] = useState(source !== "audit");
   const [resolvedPrompt, setResolvedPrompt] = useState<string | null>(promptParam);
@@ -134,6 +138,53 @@ function BuilderContent() {
       // ignore storage errors
     }
   }, [showStructuredChat]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!chatId) {
+      hasLoadedInstructions.current = false;
+      return;
+    }
+    const storageKey = `sajtmaskin:chatInstructions:${chatId}`;
+    let stored: string | null = null;
+    try {
+      stored = localStorage.getItem(storageKey);
+    } catch {
+      stored = null;
+    }
+    const pending = pendingInstructionsRef.current;
+    if (stored !== null) {
+      setCustomInstructions(stored);
+    } else if (pending) {
+      const normalized = pending.trim();
+      setCustomInstructions(normalized);
+      try {
+        localStorage.setItem(storageKey, normalized);
+      } catch {
+        // ignore storage errors
+      }
+    } else {
+      setCustomInstructions("");
+    }
+    pendingInstructionsRef.current = null;
+    hasLoadedInstructions.current = true;
+  }, [chatId]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!chatId || !hasLoadedInstructions.current) return;
+    const storageKey = `sajtmaskin:chatInstructions:${chatId}`;
+    const normalized = customInstructions.trim();
+    try {
+      if (normalized) {
+        localStorage.setItem(storageKey, normalized);
+      } else {
+        localStorage.removeItem(storageKey);
+      }
+    } catch {
+      // ignore storage errors
+    }
+  }, [chatId, customInstructions]);
 
   const fetchHealthFeatures = useCallback(async (signal?: AbortSignal) => {
     const res = await fetch("/api/health", { signal });
@@ -434,6 +485,18 @@ function BuilderContent() {
   // Handle generation completion - validate CSS to prevent runtime errors
   const handleGenerationComplete = useCallback(
     async (data: { chatId: string; versionId?: string; demoUrl?: string }) => {
+      if (data.chatId) {
+        const normalized = pendingInstructionsRef.current?.trim() || "";
+        if (normalized) {
+          try {
+            localStorage.setItem(`sajtmaskin:chatInstructions:${data.chatId}`, normalized);
+          } catch {
+            // ignore storage errors
+          }
+          setCustomInstructions(normalized);
+        }
+        pendingInstructionsRef.current = null;
+      }
       if (data.chatId && data.versionId) {
         // Run CSS validation in background (don't block UI)
         validateCss(data.chatId, data.versionId).catch((err) => {
@@ -451,6 +514,7 @@ function BuilderContent() {
     router,
     selectedModelTier,
     enableImageGenerations,
+    systemPrompt: customInstructions,
     maybeEnhanceInitialPrompt,
     mutateVersions,
     setCurrentDemoUrl,
@@ -471,6 +535,7 @@ function BuilderContent() {
 
   const requestCreateChat = useCallback(
     async (message: string, options?: CreateChatOptions) => {
+      pendingInstructionsRef.current = customInstructions.trim() || null;
       if (!chatId && !hasSelectedModelTier) {
         setPendingCreate({ message, options });
         setIsModelSelectOpen(true);
@@ -479,7 +544,7 @@ function BuilderContent() {
       await createNewChat(message, options);
       return true;
     },
-    [chatId, hasSelectedModelTier, createNewChat],
+    [chatId, hasSelectedModelTier, createNewChat, customInstructions],
   );
 
   const handleStartFromRegistry = useCallback(
@@ -565,6 +630,9 @@ function BuilderContent() {
     setIsModelSelectOpen(false);
     setPendingCreate(null);
     setHasSelectedModelTier(false);
+    setCustomInstructions(DEFAULT_CUSTOM_INSTRUCTIONS);
+    pendingInstructionsRef.current = null;
+    hasLoadedInstructions.current = false;
   }, [router, chatId]);
 
   const handleClearPreview = useCallback(() => {
@@ -638,6 +706,8 @@ function BuilderContent() {
           onPromptAssistModelChange={setPromptAssistModel}
           promptAssistDeep={promptAssistDeep}
           onPromptAssistDeepChange={setPromptAssistDeep}
+          customInstructions={customInstructions}
+          onCustomInstructionsChange={setCustomInstructions}
           enableImageGenerations={enableImageGenerations}
           onEnableImageGenerationsChange={handleEnableImageGenerationsChange}
           imageGenerationsSupported={isImageGenerationsSupported}
