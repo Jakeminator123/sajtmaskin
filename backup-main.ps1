@@ -1,50 +1,55 @@
 # =============================================================================
-# SAJTMASKIN - Git Backup & Sync Script
+# SAJTMASKIN - Git Backup & Force Push Script
 # =============================================================================
 # Detta skript:
-# 1. Dödar alla npm run dev/node.exe processer
-# 2. Committar alla ändringar
-# 3. Skapar en timestampad backup av main/mainorigin på GitHub
-# 4. Hanterar max 4 main-backups (raderar äldsta om 5:e kommer)
-# 5. Uppdaterar lokal main till att matcha remote main/origin/main
+# 1. Dödar alla npm/node/next processer (förhindrar fillåsning)
+# 2. Kontrollerar att inga hemligheter läcker (.env, API-nycklar)
+# 3. Committar alla ändringar (respekterar .gitignore)
+# 4. Skapar timestampad backup av ORIGIN/main på GitHub
+# 5. Force pushar lokal main till GitHub
+# 6. Hanterar max 4 backups (raderar äldsta om 5:e kommer)
 # =============================================================================
 
 $ErrorActionPreference = "Stop"
 
-Write-Host "`n=== SAJTMASKIN Git Backup & Sync ===" -ForegroundColor Cyan
+Write-Host "`n=== SAJTMASKIN Git Backup & Force Push ===" -ForegroundColor Cyan
+Write-Host "Datum: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')" -ForegroundColor Gray
 Write-Host ""
 
 # =============================================================================
-# 1. Döda npm run dev/node.exe processer
+# 1. Döda npm/node/next processer (förhindrar fillåsning)
 # =============================================================================
-Write-Host "[1/5] Stoppar npm/node processer..." -ForegroundColor Yellow
+Write-Host "[1/6] Stoppar npm/node/next processer..." -ForegroundColor Yellow
 
-$nodeProcesses = Get-Process -Name "node" -ErrorAction SilentlyContinue | Where-Object {
-    $_.CommandLine -like "*npm*run*dev*" -or 
-    $_.CommandLine -like "*next*dev*" -or
-    $_.Path -like "*node.exe*"
-}
+$processNames = @("node", "npm", "next")
+$killedCount = 0
 
-if ($nodeProcesses) {
-    $count = $nodeProcesses.Count
-    Write-Host "  Hittade $count node-process(er) att stoppa..." -ForegroundColor Gray
-    foreach ($proc in $nodeProcesses) {
-        try {
-            Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
-            Write-Host "  ✓ Stoppade process $($proc.Id)" -ForegroundColor Green
-        } catch {
-            Write-Host "  ⚠ Kunde inte stoppa process $($proc.Id): $_" -ForegroundColor Yellow
+foreach ($procName in $processNames) {
+    $procs = Get-Process -Name $procName -ErrorAction SilentlyContinue
+    if ($procs) {
+        foreach ($proc in $procs) {
+            try {
+                Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+                $killedCount++
+                Write-Host "  ✓ Stoppade $procName (PID: $($proc.Id))" -ForegroundColor Green
+            } catch {
+                Write-Host "  ⚠ Kunde inte stoppa $procName (PID: $($proc.Id))" -ForegroundColor Yellow
+            }
         }
     }
-    Start-Sleep -Seconds 1
+}
+
+if ($killedCount -eq 0) {
+    Write-Host "  ✓ Inga processer att stoppa" -ForegroundColor Green
 } else {
-    Write-Host "  ✓ Inga node-processer att stoppa" -ForegroundColor Green
+    Write-Host "  Väntar 2 sekunder på att processer avslutas..." -ForegroundColor Gray
+    Start-Sleep -Seconds 2
 }
 
 # =============================================================================
-# 2. Committa alla ändringar
+# 2. Kontrollera att inga hemligheter läcker
 # =============================================================================
-Write-Host "`n[2/5] Kontrollerar Git-status..." -ForegroundColor Yellow
+Write-Host "`n[2/6] Kontrollerar säkerhet..." -ForegroundColor Yellow
 
 # Kontrollera att vi är i ett Git-repo
 if (-not (Test-Path ".git")) {
@@ -52,13 +57,69 @@ if (-not (Test-Path ".git")) {
     exit 1
 }
 
-# Hämta status
-$status = git status --porcelain
+# Kolla att .gitignore finns och innehåller viktiga mönster
+$gitignorePath = ".gitignore"
+if (Test-Path $gitignorePath) {
+    $gitignoreContent = Get-Content $gitignorePath -Raw
+    $requiredPatterns = @(".env", ".env.local", ".env*.local", "*.pem", "*.key")
+    $missingPatterns = @()
+    
+    foreach ($pattern in $requiredPatterns) {
+        if ($gitignoreContent -notmatch [regex]::Escape($pattern)) {
+            $missingPatterns += $pattern
+        }
+    }
+    
+    if ($missingPatterns.Count -gt 0) {
+        Write-Host "  ⚠ Varning: Följande mönster saknas i .gitignore:" -ForegroundColor Yellow
+        foreach ($p in $missingPatterns) {
+            Write-Host "    - $p" -ForegroundColor Yellow
+        }
+    } else {
+        Write-Host "  ✓ .gitignore innehåller säkerhetsmönster" -ForegroundColor Green
+    }
+} else {
+    Write-Host "  ✗ Fel: .gitignore saknas!" -ForegroundColor Red
+    exit 1
+}
 
+# Kontrollera staged filer för potentiella hemligheter
+$stagedFiles = git diff --cached --name-only 2>$null
+$dangerousFiles = @(".env", ".env.local", ".env.production", "credentials.json", "*.pem", "*.key")
+$foundDangerous = @()
+
+# Kolla även unstaged ändringar
+$allChangedFiles = git status --porcelain | ForEach-Object { $_.Substring(3) }
+
+foreach ($file in $allChangedFiles) {
+    foreach ($dangerous in $dangerousFiles) {
+        if ($file -like $dangerous) {
+            $foundDangerous += $file
+        }
+    }
+}
+
+if ($foundDangerous.Count -gt 0) {
+    Write-Host "  ✗ STOPP! Potentiellt känsliga filer upptäckta:" -ForegroundColor Red
+    foreach ($f in $foundDangerous) {
+        Write-Host "    - $f" -ForegroundColor Red
+    }
+    Write-Host "  Avbryter för säkerhets skull. Ta bort filerna från staging eller lägg till i .gitignore." -ForegroundColor Red
+    exit 1
+}
+
+Write-Host "  ✓ Inga känsliga filer upptäckta" -ForegroundColor Green
+
+# =============================================================================
+# 3. Committa alla ändringar
+# =============================================================================
+Write-Host "`n[3/6] Committar ändringar..." -ForegroundColor Yellow
+
+$status = git status --porcelain
 if ($status) {
     Write-Host "  Hittade ändringar att committa..." -ForegroundColor Gray
     
-    # Lägg till alla ändringar
+    # Lägg till alla ändringar (respekterar .gitignore)
     git add -A
     if ($LASTEXITCODE -ne 0) {
         Write-Host "  ✗ Fel vid git add!" -ForegroundColor Red
@@ -67,7 +128,7 @@ if ($status) {
     
     # Skapa commit-meddelande med timestamp
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    $commitMessage = "Backup: $timestamp - Auto-commit before main backup"
+    $commitMessage = "Backup: $timestamp - Auto-commit before force push"
     
     git commit -m $commitMessage
     if ($LASTEXITCODE -ne 0) {
@@ -77,13 +138,13 @@ if ($status) {
     
     Write-Host "  ✓ Ändringar committade" -ForegroundColor Green
 } else {
-    Write-Host "  ✓ Inga ändringar att committa" -ForegroundColor Green
+    Write-Host "  ✓ Inga ändringar att committa (working tree clean)" -ForegroundColor Green
 }
 
 # =============================================================================
-# 3. Skapa timestampad backup av main
+# 4. Skapa timestampad backup av ORIGIN/main
 # =============================================================================
-Write-Host "`n[3/5] Skapar backup av main..." -ForegroundColor Yellow
+Write-Host "`n[4/6] Skapar backup av GitHub main..." -ForegroundColor Yellow
 
 # Hämta senaste från origin
 Write-Host "  Hämtar senaste från origin..." -ForegroundColor Gray
@@ -92,114 +153,118 @@ if ($LASTEXITCODE -ne 0) {
     Write-Host "  ⚠ Varning: Kunde inte hämta från origin" -ForegroundColor Yellow
 }
 
-# Kontrollera att main finns
-$mainExists = git show-ref --verify --quiet refs/heads/main 2>$null
-$originMainExists = git show-ref --verify --quiet refs/remotes/origin/main 2>$null
-
-if (-not $mainExists -and -not $originMainExists) {
-    Write-Host "  ✗ Fel: Ingen main-gren hittades!" -ForegroundColor Red
-    exit 1
+# Kontrollera att origin/main finns
+$originMainExists = git show-ref --verify refs/remotes/origin/main 2>$null
+if (-not $originMainExists) {
+    Write-Host "  ⚠ origin/main finns inte ännu - hoppar över backup" -ForegroundColor Yellow
+} else {
+    # Skapa timestamp för backup-gren
+    $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
+    $backupBranch = "backup/main-$timestamp"
+    
+    # Skapa backup-gren från ORIGIN/main (inte lokal!)
+    Write-Host "  Skapar backup-gren från origin/main: $backupBranch" -ForegroundColor Gray
+    git branch $backupBranch origin/main 2>$null
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "  ⚠ Kunde inte skapa lokal backup-gren" -ForegroundColor Yellow
+    } else {
+        # Pusha backup till origin
+        Write-Host "  Pushar backup till GitHub..." -ForegroundColor Gray
+        git push origin $backupBranch 2>$null
+        if ($LASTEXITCODE -eq 0) {
+            Write-Host "  ✓ Backup skapad: $backupBranch" -ForegroundColor Green
+        } else {
+            Write-Host "  ⚠ Kunde inte pusha backup-gren" -ForegroundColor Yellow
+        }
+        
+        # Ta bort lokal backup-gren (behövs bara på origin)
+        git branch -D $backupBranch 2>$null | Out-Null
+    }
 }
 
-# Skapa timestamp för backup-gren
-$timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
-$backupBranch = "backup/main-$timestamp"
+# =============================================================================
+# 5. Force push lokal main till GitHub
+# =============================================================================
+Write-Host "`n[5/6] Force pushar lokal main till GitHub..." -ForegroundColor Yellow
 
-# Växla till main lokalt eller skapa från origin/main
-if ($mainExists) {
+# Säkerställ att vi är på main
+$currentBranch = git rev-parse --abbrev-ref HEAD
+if ($currentBranch -ne "main") {
+    Write-Host "  Byter till main-grenen..." -ForegroundColor Gray
     git checkout main
-} elseif ($originMainExists) {
-    git checkout -b main origin/main
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "  ✗ Fel vid checkout av main!" -ForegroundColor Red
+        exit 1
+    }
 }
 
+# Force push
+Write-Host "  Kör: git push origin main --force" -ForegroundColor Gray
+git push origin main --force
 if ($LASTEXITCODE -ne 0) {
-    Write-Host "  ✗ Fel vid checkout av main!" -ForegroundColor Red
+    Write-Host "  ✗ Fel vid force push!" -ForegroundColor Red
     exit 1
 }
 
-# Skapa backup-gren
-Write-Host "  Skapar backup-gren: $backupBranch" -ForegroundColor Gray
-git checkout -b $backupBranch
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "  ✗ Fel vid skapande av backup-gren!" -ForegroundColor Red
-    exit 1
-}
-
-# Pusha backup till origin
-Write-Host "  Pushar backup till origin..." -ForegroundColor Gray
-git push origin $backupBranch
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "  ✗ Fel vid push av backup-gren!" -ForegroundColor Red
-    exit 1
-}
-
-Write-Host "  ✓ Backup skapad: $backupBranch" -ForegroundColor Green
+Write-Host "  ✓ Force push lyckades!" -ForegroundColor Green
 
 # =============================================================================
-# 4. Hantera max 4 backups (raderar äldsta om 5:e kommer)
+# 6. Hantera max 4 backups (radera äldsta om 5:e kommer)
 # =============================================================================
-Write-Host "`n[4/5] Hanterar backup-grenar (max 4)..." -ForegroundColor Yellow
+Write-Host "`n[6/6] Hanterar backup-grenar (max 4)..." -ForegroundColor Yellow
 
 # Hämta alla backup-grenar från origin
-git fetch origin --prune
-$allBranches = git branch -r --list "origin/backup/main-*"
-$backupBranches = $allBranches | ForEach-Object { $_.Trim() -replace '^origin/', '' } | Sort-Object
+git fetch origin --prune 2>$null
+$allBranches = git branch -r --list "origin/backup/main-*" 2>$null
+$backupBranches = @()
 
-if ($backupBranches.Count -gt 4) {
-    $toDelete = $backupBranches[0..($backupBranches.Count - 5)]
-    Write-Host "  Hittade $($backupBranches.Count) backup-grenar. Raderar $($toDelete.Count) äldsta..." -ForegroundColor Gray
+if ($allBranches) {
+    $backupBranches = $allBranches | ForEach-Object { $_.Trim() -replace '^origin/', '' } | Sort-Object
+}
+
+$backupCount = $backupBranches.Count
+Write-Host "  Antal backup-grenar: $backupCount" -ForegroundColor Gray
+
+if ($backupCount -gt 4) {
+    $toDelete = $backupBranches[0..($backupCount - 5)]
+    Write-Host "  Raderar $($toDelete.Count) äldsta backup(s)..." -ForegroundColor Gray
     
     foreach ($branchToDelete in $toDelete) {
-        Write-Host "  Raderar: $branchToDelete" -ForegroundColor Gray
+        Write-Host "    Raderar: $branchToDelete" -ForegroundColor Gray
         git push origin --delete $branchToDelete 2>&1 | Out-Null
         if ($LASTEXITCODE -eq 0) {
-            Write-Host "    ✓ Raderad: $branchToDelete" -ForegroundColor Green
+            Write-Host "    ✓ Raderad" -ForegroundColor Green
         } else {
-            Write-Host "    ⚠ Kunde inte radera: $branchToDelete" -ForegroundColor Yellow
+            Write-Host "    ⚠ Kunde inte radera" -ForegroundColor Yellow
         }
     }
 } else {
-    Write-Host "  ✓ $($backupBranches.Count) backup-grenar (max 4)" -ForegroundColor Green
-}
-
-# =============================================================================
-# 5. Uppdatera lokal main till att matcha remote
-# =============================================================================
-Write-Host "`n[5/5] Uppdaterar lokal main..." -ForegroundColor Yellow
-
-# Växla tillbaka till main
-git checkout main
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "  ✗ Fel vid checkout av main!" -ForegroundColor Red
-    exit 1
-}
-
-# Hämta och merga/pull från origin/main
-Write-Host "  Hämtar senaste från origin/main..." -ForegroundColor Gray
-git fetch origin main
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "  ⚠ Varning: Kunde inte hämta från origin/main" -ForegroundColor Yellow
-}
-
-# Reset till origin/main för att säkerställa matchning
-$originMainSha = git rev-parse origin/main 2>$null
-if ($originMainSha) {
-    Write-Host "  Uppdaterar lokal main till origin/main..." -ForegroundColor Gray
-    git reset --hard origin/main
-    if ($LASTEXITCODE -eq 0) {
-        Write-Host "  ✓ Lokal main matchar nu origin/main" -ForegroundColor Green
-    } else {
-        Write-Host "  ⚠ Kunde inte reset:a main" -ForegroundColor Yellow
-    }
-} else {
-    Write-Host "  ⚠ Ingen origin/main hittades, behåller lokal main" -ForegroundColor Yellow
+    Write-Host "  ✓ $backupCount backup-grenar (max 4 tillåtna)" -ForegroundColor Green
 }
 
 # =============================================================================
 # Sammanfattning
 # =============================================================================
-Write-Host "`n=== Klart! ===" -ForegroundColor Cyan
-Write-Host "  Backup skapad: $backupBranch" -ForegroundColor Green
-Write-Host "  Aktuell gren: $(git rev-parse --abbrev-ref HEAD)" -ForegroundColor Gray
-Write-Host "  Commit: $(git rev-parse --short HEAD)" -ForegroundColor Gray
+Write-Host "`n" -NoNewline
+Write-Host "═══════════════════════════════════════════════════════════════" -ForegroundColor Cyan
+Write-Host "                         KLART!                                 " -ForegroundColor Green
+Write-Host "═══════════════════════════════════════════════════════════════" -ForegroundColor Cyan
+Write-Host ""
+Write-Host "  Aktuell gren:  $(git rev-parse --abbrev-ref HEAD)" -ForegroundColor White
+Write-Host "  Senaste commit: $(git log -1 --format='%h - %s')" -ForegroundColor White
+Write-Host "  GitHub main:   Uppdaterad med lokal version" -ForegroundColor Green
+Write-Host ""
+
+# Visa backup-grenar
+$finalBackups = git branch -r --list "origin/backup/main-*" 2>$null
+if ($finalBackups) {
+    Write-Host "  Backup-grenar på GitHub:" -ForegroundColor Gray
+    $finalBackups | ForEach-Object { 
+        $name = $_.Trim() -replace '^origin/', ''
+        Write-Host "    - $name" -ForegroundColor Gray
+    }
+}
+
+Write-Host ""
+Write-Host "═══════════════════════════════════════════════════════════════" -ForegroundColor Cyan
 Write-Host ""
