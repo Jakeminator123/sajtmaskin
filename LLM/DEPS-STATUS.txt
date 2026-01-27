@@ -16,6 +16,22 @@ PAKETHANTERARE
 - Risk: Dependency drift mellan installationer
 - Rekommendation: Kör `npm install` och checka in package-lock.json
 
+DATABASE (Supabase PostgreSQL)
+------------------------------
+- Provider: Supabase (aws-1-eu-west-1.pooler.supabase.com)
+- Project ID: qrbhuokhrfwujmcrvhkn
+- Anslutning: Via POSTGRES_URL (direkt PostgreSQL, ej Supabase JS-klient)
+- ORM: Drizzle ORM (src/lib/db/client.ts + src/lib/db/schema.ts)
+- Lokal backup: better-sqlite3 (src/lib/data/database.ts)
+
+Tabeller (4 st, alla med RLS aktiverat):
+- projects: id, user_id, v0_project_id, name, created_at, updated_at
+- chats: id, project_id, v0_chat_id, v0_project_id, web_url, created_at, updated_at
+- versions: id, chat_id, v0_version_id, v0_message_id, demo_url, metadata, pinned, pinned_at, created_at
+- deployments: id, project_id, chat_id, version_id, v0_deployment_id, vercel_deployment_id, vercel_project_id, inspector_url, url, status, created_at, updated_at
+
+RLS Status: ✅ Aktiverat med "Allow all" policies (2026-01-27)
+
 NYCKEL-DEPENDENCIES (2026-01-27)
 --------------------------------
 AI/LLM:
@@ -37,8 +53,8 @@ Styling:
 - @tailwindcss/postcss: ^4.1.18
 
 Database:
-- pg: ^8.17.2 (PostgreSQL)
-- drizzle-orm: ^0.45.1
+- pg: ^8.17.2 (PostgreSQL driver)
+- drizzle-orm: ^0.45.1 (ORM för Supabase)
 - better-sqlite3: ^12.6.2 (lokal backup)
 - ioredis: ^5.9.2 (caching)
 
@@ -56,15 +72,32 @@ KÄNDA ISSUES
 1. Ingen lockfile -> dependency drift risk
 2. zustand deprecation warning från extern dependency
 3. Audit-routen kräver OPENAI_API_KEY direkt (web_search stöds inte av AI Gateway)
+4. versions.pinned: Drizzle schema har NOT NULL men Supabase tillåter NULL (minor)
 
 REKOMMENDERADE ÅTGÄRDER
 -----------------------
 1. [LÅGT] Lägg till lockfile: `npm install && git add package-lock.json`
 2. [LÅGT] Kör `npm outdated` för att se uppdaterbara paket
 3. [INFO] zustand varningen kommer från tredjepartspaket, inte från egen kod
+4. [LÅGT] Fixa pinned-kolumn: ALTER TABLE public.versions ALTER COLUMN pinned SET NOT NULL;
 
 AUTOMATISKA INSTALLATIONSKOMMANDON
 ----------------------------------
 Projektet har inga speciella install-scripts utöver standard:
 - npm install (eller pnpm install, yarn)
 - Vercel-deploy kör install automatiskt
+
+ENV-VARIABLER (KRÄVS)
+---------------------
+Databas:
+- POSTGRES_URL eller DATABASE_URL (Supabase connection string)
+
+AI/v0:
+- V0_API_KEY (v0 Platform API för site generation)
+- AI_GATEWAY_API_KEY eller VERCEL_OIDC_TOKEN (prompt assist via gateway)
+- OPENAI_API_KEY (endast för audit - web_search)
+
+Övrigt:
+- BLOB_READ_WRITE_TOKEN (Vercel Blob för bilder)
+- REDIS_URL (caching)
+- Se .env.local för fullständig lista
