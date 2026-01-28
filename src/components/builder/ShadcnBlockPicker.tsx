@@ -83,6 +83,7 @@ export function ShadcnBlockPicker({
   const [activeStyle, setActiveStyle] = useState(style);
   const [pendingAction, setPendingAction] = useState<ShadcnBlockAction | null>(null);
   const [availableBlocks, setAvailableBlocks] = useState<Set<string> | null>(null);
+  const [registryIndexError, setRegistryIndexError] = useState<string | null>(null);
   const cacheRef = useRef<Map<string, RegistryCacheEntry>>(new Map());
   const registryIndexCacheRef = useRef<Map<string, Set<string>>>(new Map());
   const resolvedStyle = useMemo(() => activeStyle.trim() || DEFAULT_STYLE, [activeStyle]);
@@ -131,6 +132,7 @@ export function ShadcnBlockPicker({
     const cached = registryIndexCacheRef.current.get(cacheKey);
     if (cached) {
       setAvailableBlocks(cached);
+      setRegistryIndexError(null);
       return () => controller.abort();
     }
 
@@ -138,9 +140,17 @@ export function ShadcnBlockPicker({
       try {
         const url = `${registryBaseUrl}/r/styles/${resolvedStyle}/registry.json`;
         const response = await fetch(url, { signal: controller.signal });
-        const data = (await response.json().catch(() => null)) as RegistryIndexResponse | null;
         if (!response.ok) {
           throw new Error(`Registry index fetch failed (HTTP ${response.status})`);
+        }
+        let data: RegistryIndexResponse | null = null;
+        try {
+          data = (await response.json()) as RegistryIndexResponse;
+        } catch {
+          throw new Error("Registry index JSON was invalid");
+        }
+        if (!data || typeof data !== "object") {
+          throw new Error("Registry index response was empty");
         }
         const items = Array.isArray(data?.items) ? data?.items : [];
         const names = new Set(
@@ -151,10 +161,14 @@ export function ShadcnBlockPicker({
         if (!isActive) return;
         registryIndexCacheRef.current.set(cacheKey, names);
         setAvailableBlocks(names);
+        setRegistryIndexError(null);
       } catch (err) {
         if (!isActive) return;
         if (err instanceof Error && err.name === "AbortError") return;
         setAvailableBlocks(null);
+        setRegistryIndexError(
+          err instanceof Error ? err.message : "Failed to load registry index",
+        );
       }
     };
 
@@ -294,10 +308,10 @@ export function ShadcnBlockPicker({
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Blocks className="h-4 w-4 text-gray-200" />
-            Design System
+            shadcn/ui
           </DialogTitle>
           <DialogDescription>
-            Välj block, style och läge. Du kan starta ett nytt projekt eller lägga till i
+            Välj shadcn/ui-block, style och läge. Du kan starta ett nytt projekt eller lägga till i
             nuvarande chat.
           </DialogDescription>
         </DialogHeader>
@@ -321,6 +335,9 @@ export function ShadcnBlockPicker({
                 placeholder="new-york-v4"
               />
               <div className="text-[11px] text-gray-500">Registry: {registryBaseUrl}</div>
+              {registryIndexError && (
+                <div className="text-xs text-red-400">{registryIndexError}</div>
+              )}
             </div>
             <div className="flex-1 overflow-y-auto rounded-md border border-gray-800 p-2">
               {filteredCategories.map((category) => (

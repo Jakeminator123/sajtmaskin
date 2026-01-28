@@ -2,7 +2,7 @@
 # SAJTMASKIN - Git Backup & Force Push Script
 # =============================================================================
 # Detta skript:
-# 1. Dödar alla npm/node/next processer (förhindrar fillåsning)
+# 1. Dödar npm/node/next processer kopplade till repo (förhindrar fillåsning)
 # 2. Kontrollerar att inga hemligheter läcker (.env, API-nycklar)
 # 3. Committar alla ändringar (respekterar .gitignore)
 # 4. Skapar timestampad backup av ORIGIN/main på GitHub
@@ -12,35 +12,52 @@
 
 $ErrorActionPreference = "Stop"
 
+$scriptRoot = $PSScriptRoot
+if (-not $scriptRoot) {
+    $scriptRoot = (Get-Location).Path
+}
+Set-Location -Path $scriptRoot
+$repoRoot = (Resolve-Path ".").Path
+
 Write-Host "`n=== SAJTMASKIN Git Backup & Force Push ===" -ForegroundColor Cyan
 Write-Host "Datum: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')" -ForegroundColor Gray
+Write-Host "Repo: $repoRoot" -ForegroundColor Gray
 Write-Host ""
 
 # =============================================================================
 # 1. Döda npm/node/next processer (förhindrar fillåsning)
 # =============================================================================
-Write-Host "[1/6] Stoppar npm/node/next processer..." -ForegroundColor Yellow
+Write-Host "[1/6] Stoppar npm/node/next processer (repo-scope)..." -ForegroundColor Yellow
 
 $processNames = @("node", "npm", "next")
 $killedCount = 0
+$targetProcesses = @()
 
-foreach ($procName in $processNames) {
-    $procs = Get-Process -Name $procName -ErrorAction SilentlyContinue
-    if ($procs) {
-        foreach ($proc in $procs) {
-            try {
-                Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
-                $killedCount++
-                Write-Host "  ✓ Stoppade $procName (PID: $($proc.Id))" -ForegroundColor Green
-            } catch {
-                Write-Host "  ⚠ Kunde inte stoppa $procName (PID: $($proc.Id))" -ForegroundColor Yellow
-            }
-        }
+try {
+    $escapedRepoRoot = [regex]::Escape($repoRoot)
+    $targetProcesses = Get-CimInstance Win32_Process | Where-Object {
+        $name = $_.Name
+        $base = $name -replace '\.exe$', ''
+        $cmd = $_.CommandLine
+        $cmd -and ($processNames -contains $base) -and ($cmd -match $escapedRepoRoot)
+    }
+} catch {
+    Write-Host "  ⚠ Kunde inte läsa CommandLine (CIM). Hoppar över process-stop." -ForegroundColor Yellow
+    $targetProcesses = @()
+}
+
+foreach ($proc in $targetProcesses) {
+    try {
+        Stop-Process -Id $proc.ProcessId -Force -ErrorAction SilentlyContinue
+        $killedCount++
+        Write-Host "  ✓ Stoppade $($proc.Name) (PID: $($proc.ProcessId))" -ForegroundColor Green
+    } catch {
+        Write-Host "  ⚠ Kunde inte stoppa $($proc.Name) (PID: $($proc.ProcessId))" -ForegroundColor Yellow
     }
 }
 
 if ($killedCount -eq 0) {
-    Write-Host "  ✓ Inga processer att stoppa" -ForegroundColor Green
+    Write-Host "  ✓ Inga repo-processer att stoppa" -ForegroundColor Green
 } else {
     Write-Host "  Väntar 2 sekunder på att processer avslutas..." -ForegroundColor Gray
     Start-Sleep -Seconds 2
@@ -109,6 +126,19 @@ if ($foundDangerous.Count -gt 0) {
 
 Write-Host "  ✓ Inga känsliga filer upptäckta" -ForegroundColor Green
 
+$mergeConflicts = git diff --name-only --diff-filter=U
+if ($mergeConflicts) {
+    Write-Host "  ✗ STOPP! Merge-konflikter hittades:" -ForegroundColor Red
+    $mergeConflicts | ForEach-Object { Write-Host "    - $_" -ForegroundColor Red }
+    exit 1
+}
+
+$originalBranch = git rev-parse --abbrev-ref HEAD
+if (-not $originalBranch -or $originalBranch -eq "HEAD") {
+    Write-Host "  ✗ Fel: Kunde inte avgöra aktuell gren." -ForegroundColor Red
+    exit 1
+}
+
 # =============================================================================
 # 3. Committa alla ändringar
 # =============================================================================
@@ -140,10 +170,46 @@ if ($status) {
     Write-Host "  ✓ Inga ändringar att committa (working tree clean)" -ForegroundColor Green
 }
 
+if ($originalBranch -ne "main") {
+    Write-Host "  Synkar main från $originalBranch (fast-forward only)..." -ForegroundColor Gray
+    $mainExists = git show-ref --verify refs/heads/main 2>$null
+    if (-not $mainExists) {
+        $originMainExists = git show-ref --verify refs/remotes/origin/main 2>$null
+        if (-not $originMainExists) {
+            Write-Host "  ✗ Fel: origin/main saknas, kan inte skapa main." -ForegroundColor Red
+            exit 1
+        }
+        git checkout -b main origin/main
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "  ✗ Fel vid skapande av main från origin/main!" -ForegroundColor Red
+            exit 1
+        }
+    } else {
+        git checkout main
+        if ($LASTEXITCODE -ne 0) {
+            Write-Host "  ✗ Fel vid checkout av main!" -ForegroundColor Red
+            exit 1
+        }
+    }
+
+    git merge --ff-only $originalBranch
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "  ✗ Fel: main kunde inte fast-forwardas från $originalBranch." -ForegroundColor Red
+        exit 1
+    }
+}
+
 # =============================================================================
 # 4. Skapa timestampad backup av ORIGIN/main
 # =============================================================================
 Write-Host "`n[4/6] Skapar backup av GitHub main..." -ForegroundColor Yellow
+
+# Kontrollera att origin finns
+$originUrl = git remote get-url origin 2>$null
+if (-not $originUrl) {
+    Write-Host "  ✗ Fel: origin remote saknas!" -ForegroundColor Red
+    exit 1
+}
 
 # Hämta senaste från origin
 Write-Host "  Hämtar senaste från origin..." -ForegroundColor Gray
@@ -189,17 +255,13 @@ Write-Host "`n[5/6] Force pushar lokal main till GitHub..." -ForegroundColor Yel
 # Säkerställ att vi är på main
 $currentBranch = git rev-parse --abbrev-ref HEAD
 if ($currentBranch -ne "main") {
-    Write-Host "  Byter till main-grenen..." -ForegroundColor Gray
-    git checkout main
-    if ($LASTEXITCODE -ne 0) {
-        Write-Host "  ✗ Fel vid checkout av main!" -ForegroundColor Red
-        exit 1
-    }
+    Write-Host "  ✗ Fel: main är inte aktiv. Avbryter för säkerhets skull." -ForegroundColor Red
+    exit 1
 }
 
-# Force push
-Write-Host "  Kör: git push origin main --force" -ForegroundColor Gray
-git push origin main --force
+# Force push (with lease)
+Write-Host "  Kör: git push origin main --force-with-lease" -ForegroundColor Gray
+git push origin main --force-with-lease
 if ($LASTEXITCODE -ne 0) {
     Write-Host "  ✗ Fel vid force push!" -ForegroundColor Red
     exit 1

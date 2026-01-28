@@ -121,6 +121,7 @@ function buildCreateChatKey(
       return url || filename || "";
     })
     .filter((value) => value.length > 0)
+    .map((value) => encodeURIComponent(value))
     .join("|");
   const attachmentPrompt = normalizePrompt(options.attachmentPrompt ?? "");
   const fingerprint = [
@@ -237,6 +238,317 @@ function getUiPartKey(part: UiMessagePart): string | null {
     return candidate;
   }
   return null;
+}
+
+type VersionEntry = {
+  versionId?: string | null;
+  id?: string | null;
+  demoUrl?: string | null;
+  createdAt?: string | null;
+};
+
+type FileEntry = { name: string; content: string };
+
+const POST_CHECK_MARKER = "[Post-check]";
+
+function appendToolPartToMessage(
+  setMessages: (next: ChatMessage[] | ((prev: ChatMessage[]) => ChatMessage[])) => void,
+  messageId: string,
+  part: UiMessagePart,
+) {
+  setMessages((prev) =>
+    prev.map((message) =>
+      message.id === messageId
+        ? { ...message, uiParts: mergeUiParts(message.uiParts, [part]) }
+        : message,
+    ),
+  );
+}
+
+async function fetchChatVersions(chatId: string, signal?: AbortSignal): Promise<VersionEntry[]> {
+  const response = await fetch(`/api/v0/chats/${encodeURIComponent(chatId)}/versions`, { signal });
+  const data = (await response.json().catch(() => null)) as { versions?: VersionEntry[] } | null;
+  if (!response.ok) {
+    throw new Error(
+      (data as { error?: string } | null)?.error || `Failed to fetch versions (HTTP ${response.status})`,
+    );
+  }
+  return Array.isArray(data?.versions) ? data?.versions : [];
+}
+
+async function fetchChatFiles(
+  chatId: string,
+  versionId: string,
+  signal?: AbortSignal,
+): Promise<FileEntry[]> {
+  const response = await fetch(
+    `/api/v0/chats/${encodeURIComponent(chatId)}/files?versionId=${encodeURIComponent(versionId)}`,
+    { signal },
+  );
+  const data = (await response.json().catch(() => null)) as { files?: FileEntry[]; error?: string } | null;
+  if (!response.ok) {
+    throw new Error(data?.error || `Failed to fetch files (HTTP ${response.status})`);
+  }
+  return Array.isArray(data?.files) ? data.files : [];
+}
+
+function resolvePreviousVersionId(currentVersionId: string, versions: VersionEntry[]): string | null {
+  const byDate = [...versions].sort((a, b) => {
+    const aTime = a.createdAt ? Date.parse(a.createdAt) : 0;
+    const bTime = b.createdAt ? Date.parse(b.createdAt) : 0;
+    return bTime - aTime;
+  });
+  const index = byDate.findIndex(
+    (entry) => entry.versionId === currentVersionId || entry.id === currentVersionId,
+  );
+  if (index === -1) {
+    return byDate[0]?.versionId || byDate[0]?.id || null;
+  }
+  return byDate[index + 1]?.versionId || byDate[index + 1]?.id || null;
+}
+
+function buildFileHashMap(files: FileEntry[]): Map<string, string> {
+  const map = new Map<string, string>();
+  files.forEach((file) => {
+    map.set(file.name, hashString(file.content ?? ""));
+  });
+  return map;
+}
+
+function diffFiles(previous: FileEntry[], current: FileEntry[]) {
+  const prevMap = buildFileHashMap(previous);
+  const nextMap = buildFileHashMap(current);
+  const added: string[] = [];
+  const removed: string[] = [];
+  const modified: string[] = [];
+
+  nextMap.forEach((hash, name) => {
+    if (!prevMap.has(name)) {
+      added.push(name);
+      return;
+    }
+    if (prevMap.get(name) !== hash) {
+      modified.push(name);
+    }
+  });
+
+  prevMap.forEach((_hash, name) => {
+    if (!nextMap.has(name)) removed.push(name);
+  });
+
+  return { added, removed, modified };
+}
+
+function findSuspiciousUseCalls(files: FileEntry[]) {
+  const results: Array<{ file: string; line: number; snippet: string }> = [];
+  const pattern = /\b(?:React\.)?use\s*\(/g;
+  files.forEach((file) => {
+    const lines = file.content.split(/\r?\n/);
+    lines.forEach((line, index) => {
+      let match: RegExpExecArray | null;
+      pattern.lastIndex = 0;
+      while ((match = pattern.exec(line))) {
+        const after = line.slice(match.index + match[0].length);
+        const nextChar = after.trim()[0];
+        if (nextChar && ("{[\"'`".includes(nextChar) || /[0-9]/.test(nextChar))) {
+          results.push({ file: file.name, line: index + 1, snippet: line.trim() });
+          break;
+        }
+      }
+    });
+  });
+  return results;
+}
+
+function formatChangeSteps(label: string, items: string[], prefix: string, limit = 8) {
+  if (items.length === 0) return [];
+  const head = items.slice(0, limit).map((item) => `${prefix} ${item}`);
+  const suffix =
+    items.length > limit ? [`${label}: +${items.length - limit} till...`] : [];
+  return [...head, ...suffix];
+}
+
+function isLikelyQuestionOrPrompt(content: string) {
+  const lower = content.toLowerCase();
+  if (content.includes("?")) return true;
+  return [
+    "vill du",
+    "vill ni",
+    "ska vi",
+    "ska jag",
+    "kan du",
+    "kan ni",
+    "kan jag",
+    "behöver du",
+    "behöver ni",
+    "vill jag",
+    "installera",
+    "integrera",
+    "supabase",
+    "redis",
+    "environment variable",
+    "miljövariabel",
+    "api-nyckel",
+    "nyckel",
+  ].some((token) => lower.includes(token));
+}
+
+function shouldAppendPostCheckSummary(content: string) {
+  const trimmed = content.trim();
+  if (!trimmed) return true;
+  if (isLikelyQuestionOrPrompt(trimmed)) return false;
+  if (trimmed.endsWith(":")) return true;
+  const tail = trimmed.slice(-160).toLowerCase();
+  if (["summera", "sammanfatta", "ändring", "changes", "summary"].some((token) =>
+    tail.includes(token),
+  )) {
+    return true;
+  }
+  return trimmed.length >= 24;
+}
+
+function buildPostCheckSummary(params: {
+  changes: { added: string[]; modified: string[]; removed: string[] } | null;
+  warnings: string[];
+  demoUrl: string | null;
+}) {
+  const { changes, warnings, demoUrl } = params;
+  const lines: string[] = [];
+
+  if (changes) {
+    lines.push(
+      `${POST_CHECK_MARKER} Ändringar: +${changes.added.length} ~${changes.modified.length} -${changes.removed.length}`,
+    );
+    lines.push(...formatChangeSteps("Tillagda", changes.added, "+", 4));
+    lines.push(...formatChangeSteps("Ändrade", changes.modified, "~", 4));
+    lines.push(...formatChangeSteps("Borttagna", changes.removed, "-", 4));
+  } else {
+    lines.push(`${POST_CHECK_MARKER} Ingen tidigare version att jämföra.`);
+  }
+
+  if (!demoUrl) {
+    lines.push("Varning: Ingen preview-länk hittades för versionen.");
+  }
+
+  warnings.forEach((warning) => {
+    lines.push(`Varning: ${warning}`);
+  });
+
+  return lines.length > 0 ? lines.join("\n") : "";
+}
+
+function appendPostCheckSummaryToMessage(
+  setMessages: (next: ChatMessage[] | ((prev: ChatMessage[]) => ChatMessage[])) => void,
+  messageId: string,
+  summary: string,
+) {
+  if (!summary) return;
+  setMessages((prev) =>
+    prev.map((message) => {
+      if (message.id !== messageId) return message;
+      const content = message.content || "";
+      if (content.includes(POST_CHECK_MARKER)) return message;
+      if (!shouldAppendPostCheckSummary(content)) return message;
+      const separator = content.trim() ? "\n" : "";
+      return { ...message, content: `${content}${separator}${summary}`.trimEnd() };
+    }),
+  );
+}
+
+async function runPostGenerationChecks(params: {
+  chatId: string;
+  versionId: string;
+  demoUrl?: string | null;
+  assistantMessageId: string;
+  setMessages: (next: ChatMessage[] | ((prev: ChatMessage[]) => ChatMessage[])) => void;
+}) {
+  const { chatId, versionId, demoUrl, assistantMessageId, setMessages } = params;
+  const toolCallId = `post-check:${versionId}`;
+  const controller = new AbortController();
+
+  try {
+    const [currentFiles, versions] = await Promise.all([
+      fetchChatFiles(chatId, versionId, controller.signal),
+      fetchChatVersions(chatId, controller.signal),
+    ]);
+    const previousVersionId = resolvePreviousVersionId(versionId, versions);
+    const previousFiles = previousVersionId
+      ? await fetchChatFiles(chatId, previousVersionId, controller.signal)
+      : [];
+    const changes = previousVersionId ? diffFiles(previousFiles, currentFiles) : null;
+    const suspiciousUseCalls = findSuspiciousUseCalls(currentFiles);
+    const warnings: string[] = [];
+    if (suspiciousUseCalls.length > 0) {
+      warnings.push(
+        `Möjlig React use()-missbruk i ${new Set(
+          suspiciousUseCalls.map((entry) => entry.file),
+        ).size} fil(er).`,
+      );
+    }
+    const versionEntry = versions.find(
+      (entry) => entry.versionId === versionId || entry.id === versionId,
+    );
+    const resolvedDemoUrl = demoUrl ?? versionEntry?.demoUrl ?? null;
+
+    const steps: string[] = [];
+    if (changes) {
+      steps.push(
+        `Ändringar: +${changes.added.length} ~${changes.modified.length} -${changes.removed.length}`,
+      );
+      steps.push(...formatChangeSteps("Tillagda", changes.added, "+"));
+      steps.push(...formatChangeSteps("Ändrade", changes.modified, "~"));
+      steps.push(...formatChangeSteps("Borttagna", changes.removed, "-"));
+    } else {
+      steps.push("Ingen tidigare version att jämföra.");
+    }
+    if (warnings.length > 0) {
+      steps.push(...warnings);
+    }
+    if (!resolvedDemoUrl) {
+      steps.push("Preview-länk saknas för versionen.");
+    }
+
+    const output = {
+      steps,
+      summary: {
+        files: currentFiles.length,
+        added: changes?.added.length ?? 0,
+        modified: changes?.modified.length ?? 0,
+        removed: changes?.removed.length ?? 0,
+        warnings: warnings.length,
+      },
+      warnings,
+      suspiciousUseCalls,
+      previousVersionId,
+      demoUrl: resolvedDemoUrl,
+    };
+
+    appendToolPartToMessage(setMessages, assistantMessageId, {
+      type: "tool:post-check",
+      toolName: "Post-check",
+      toolCallId,
+      state: "output-available",
+      input: { chatId, versionId, previousVersionId },
+      output,
+    });
+
+    appendPostCheckSummaryToMessage(
+      setMessages,
+      assistantMessageId,
+      buildPostCheckSummary({ changes, warnings, demoUrl: resolvedDemoUrl }),
+    );
+  } catch (error) {
+    appendToolPartToMessage(setMessages, assistantMessageId, {
+      type: "tool:post-check",
+      toolName: "Post-check",
+      toolCallId,
+      state: "output-error",
+      input: { chatId, versionId },
+      errorText: error instanceof Error ? error.message : "Post-check failed",
+    });
+  } finally {
+    controller.abort();
+  }
 }
 
 export function useV0ChatMessaging(params: {
@@ -473,11 +785,23 @@ export function useV0ChatMessaging(params: {
                   setCurrentDemoUrl(doneData.demoUrl);
                 }
                 onPreviewRefresh?.();
-                if (doneData.id && !chatIdFromStream) {
-                  setChatId(doneData.id);
-                  if (chatIdParam !== doneData.id) {
-                    router.replace(`/builder?chatId=${encodeURIComponent(doneData.id)}`);
+                const resolvedChatId =
+                  doneData.chatId || doneData.id || chatIdFromStream || null;
+                const resolvedVersionId =
+                  doneData.versionId ||
+                  doneData.version_id ||
+                  doneData.latestVersion?.id ||
+                  doneData.latestVersion?.versionId ||
+                  null;
+                if (resolvedChatId && !chatIdFromStream) {
+                  const nextId = String(resolvedChatId);
+                  setChatId(nextId);
+                  if (chatIdParam !== nextId) {
+                    router.replace(`/builder?chatId=${encodeURIComponent(nextId)}`);
                   }
+                }
+                if (resolvedChatId && pendingCreateKeyRef.current) {
+                  updateCreateChatLockChatId(pendingCreateKeyRef.current, String(resolvedChatId));
                 }
                 setMessages((prev) =>
                   prev.map((m) => (m.id === assistantMessageId ? { ...m, isStreaming: false } : m)),
@@ -490,6 +814,15 @@ export function useV0ChatMessaging(params: {
                   versionId: doneData.versionId,
                   demoUrl: doneData.demoUrl,
                 });
+                if (resolvedChatId && resolvedVersionId) {
+                  void runPostGenerationChecks({
+                    chatId: String(resolvedChatId),
+                    versionId: String(resolvedVersionId),
+                    demoUrl: doneData.demoUrl ?? null,
+                    assistantMessageId,
+                    setMessages,
+                  });
+                }
                 break;
               }
               case "error": {
@@ -506,6 +839,8 @@ export function useV0ChatMessaging(params: {
         } else {
           const data = await response.json();
           const newChatId = data.id || data.chatId || data.v0ChatId || data.chat?.id;
+          const resolvedVersionId =
+            data.versionId || data.latestVersion?.id || data.latestVersion?.versionId || null;
 
           if (!newChatId) {
             throw new Error("No chat ID returned from API");
@@ -521,6 +856,20 @@ export function useV0ChatMessaging(params: {
           if (data.latestVersion?.demoUrl) {
             setCurrentDemoUrl(data.latestVersion.demoUrl);
             onPreviewRefresh?.();
+          }
+          onGenerationComplete?.({
+            chatId: newChatId,
+            versionId: resolvedVersionId ?? undefined,
+            demoUrl: data.latestVersion?.demoUrl,
+          });
+          if (resolvedVersionId) {
+            void runPostGenerationChecks({
+              chatId: String(newChatId),
+              versionId: String(resolvedVersionId),
+              demoUrl: data.latestVersion?.demoUrl ?? null,
+              assistantMessageId,
+              setMessages,
+            });
           }
 
           setMessages((prev) =>
@@ -678,6 +1027,12 @@ export function useV0ChatMessaging(params: {
               const doneData = typeof data === "object" && data ? (data as any) : {};
               if (doneData?.demoUrl) setCurrentDemoUrl(doneData.demoUrl);
               onPreviewRefresh?.();
+              const resolvedVersionId =
+                doneData.versionId ||
+                doneData.version_id ||
+                doneData.latestVersion?.id ||
+                doneData.latestVersion?.versionId ||
+                null;
               setMessages((prev) =>
                 prev.map((m) => (m.id === assistantMessageId ? { ...m, isStreaming: false } : m)),
               );
@@ -685,9 +1040,18 @@ export function useV0ChatMessaging(params: {
               // Call generation complete callback with available data
               onGenerationComplete?.({
                 chatId: chatId || "",
-                versionId: doneData.versionId,
+                versionId: resolvedVersionId ?? undefined,
                 demoUrl: doneData.demoUrl,
               });
+              if (chatId && resolvedVersionId) {
+                void runPostGenerationChecks({
+                  chatId: String(chatId),
+                  versionId: String(resolvedVersionId),
+                  demoUrl: doneData.demoUrl ?? null,
+                  assistantMessageId,
+                  setMessages,
+                });
+              }
               break;
             }
             case "error": {

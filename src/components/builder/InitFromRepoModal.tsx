@@ -184,8 +184,7 @@ export function InitFromRepoModal({ isOpen, onClose, onSuccess }: InitFromRepoMo
         </div>
 
         <div className="mb-4 rounded-lg border border-gray-200 bg-gray-50 p-3 text-xs text-gray-600">
-          Vill du starta från Design System-block? Använd knappen “Design System” vid prompten i
-          buildern.
+          Vill du starta från shadcn/ui-block? Använd knappen “shadcn/ui” vid prompten i buildern.
         </div>
 
         <div className="min-h-0 flex-1 overflow-y-auto">
