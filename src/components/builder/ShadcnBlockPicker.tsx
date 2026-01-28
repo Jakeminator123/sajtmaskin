@@ -43,6 +43,15 @@ type RegistryCacheEntry = {
   dependencies: ShadcnRegistryItem[];
 };
 
+type RegistryIndexItem = {
+  name?: string;
+  type?: string;
+};
+
+type RegistryIndexResponse = {
+  items?: RegistryIndexItem[];
+};
+
 interface ShadcnBlockPickerProps {
   open: boolean;
   onClose: () => void;
@@ -73,16 +82,28 @@ export function ShadcnBlockPicker({
   const [previewMode, setPreviewMode] = useState<"preview" | "files">("preview");
   const [activeStyle, setActiveStyle] = useState(style);
   const [pendingAction, setPendingAction] = useState<ShadcnBlockAction | null>(null);
+  const [availableBlocks, setAvailableBlocks] = useState<Set<string> | null>(null);
   const cacheRef = useRef<Map<string, RegistryCacheEntry>>(new Map());
+  const registryIndexCacheRef = useRef<Map<string, Set<string>>>(new Map());
   const resolvedStyle = useMemo(() => activeStyle.trim() || DEFAULT_STYLE, [activeStyle]);
+
+  const baseCategories = useMemo(() => {
+    const allowed = availableBlocks;
+    return SHADCN_BLOCKS.map((category) => ({
+      ...category,
+      items: category.items.filter((block) => !allowed || allowed.has(block.name)),
+    })).filter((category) => category.items.length > 0);
+  }, [availableBlocks]);
 
   useEffect(() => {
     if (!open) return;
-    if (!selectedBlock) {
-      const first = SHADCN_BLOCKS[0]?.items[0] ?? null;
-      setSelectedBlock(first);
-    }
-  }, [open, selectedBlock]);
+    const hasSelected =
+      selectedBlock &&
+      baseCategories.some((category) => category.items.some((item) => item.name === selectedBlock.name));
+    if (hasSelected) return;
+    const first = baseCategories[0]?.items[0] ?? null;
+    setSelectedBlock(first);
+  }, [open, selectedBlock, baseCategories]);
 
   useEffect(() => {
     if (!open) return;
@@ -101,6 +122,49 @@ export function ShadcnBlockPicker({
     window.addEventListener("dialog-close", handleDialogClose);
     return () => window.removeEventListener("dialog-close", handleDialogClose);
   }, [open, onClose]);
+
+  useEffect(() => {
+    if (!open) return;
+    let isActive = true;
+    const controller = new AbortController();
+    const cacheKey = `${registryBaseUrl}::${resolvedStyle}`;
+    const cached = registryIndexCacheRef.current.get(cacheKey);
+    if (cached) {
+      setAvailableBlocks(cached);
+      return () => controller.abort();
+    }
+
+    const loadRegistryIndex = async () => {
+      try {
+        const url = `${registryBaseUrl}/r/styles/${resolvedStyle}/registry.json`;
+        const response = await fetch(url, { signal: controller.signal });
+        const data = (await response.json().catch(() => null)) as RegistryIndexResponse | null;
+        if (!response.ok) {
+          throw new Error(`Registry index fetch failed (HTTP ${response.status})`);
+        }
+        const items = Array.isArray(data?.items) ? data?.items : [];
+        const names = new Set(
+          items
+            .filter((item) => item?.type === "registry:block" && typeof item?.name === "string")
+            .map((item) => item.name as string),
+        );
+        if (!isActive) return;
+        registryIndexCacheRef.current.set(cacheKey, names);
+        setAvailableBlocks(names);
+      } catch (err) {
+        if (!isActive) return;
+        if (err instanceof Error && err.name === "AbortError") return;
+        setAvailableBlocks(null);
+      }
+    };
+
+    loadRegistryIndex();
+
+    return () => {
+      isActive = false;
+      controller.abort();
+    };
+  }, [open, registryBaseUrl, resolvedStyle]);
 
   useEffect(() => {
     if (!open || !selectedBlock) return;
@@ -177,16 +241,16 @@ export function ShadcnBlockPicker({
 
   const filteredCategories = useMemo(() => {
     const trimmed = query.trim().toLowerCase();
-    if (!trimmed) return SHADCN_BLOCKS;
+    if (!trimmed) return baseCategories;
 
-    return SHADCN_BLOCKS.map((category) => ({
+    return baseCategories.map((category) => ({
       ...category,
       items: category.items.filter((block) => {
         const haystack = `${block.title} ${block.name} ${block.description}`.toLowerCase();
         return haystack.includes(trimmed);
       }),
     })).filter((category) => category.items.length > 0);
-  }, [query]);
+  }, [query, baseCategories]);
 
   const previewMarkdown = useMemo(() => {
     if (!registryItem) return "";

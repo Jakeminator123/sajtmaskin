@@ -63,13 +63,13 @@ if (Test-Path $gitignorePath) {
     $gitignoreContent = Get-Content $gitignorePath -Raw
     $requiredPatterns = @(".env", ".env.local", ".env*.local", "*.pem", "*.key")
     $missingPatterns = @()
-    
+
     foreach ($pattern in $requiredPatterns) {
         if ($gitignoreContent -notmatch [regex]::Escape($pattern)) {
             $missingPatterns += $pattern
         }
     }
-    
+
     if ($missingPatterns.Count -gt 0) {
         Write-Host "  ⚠ Varning: Följande mönster saknas i .gitignore:" -ForegroundColor Yellow
         foreach ($p in $missingPatterns) {
@@ -117,24 +117,24 @@ Write-Host "`n[3/6] Committar ändringar..." -ForegroundColor Yellow
 $status = git status --porcelain
 if ($status) {
     Write-Host "  Hittade ändringar att committa..." -ForegroundColor Gray
-    
+
     # Lägg till alla ändringar (respekterar .gitignore)
     git add -A
     if ($LASTEXITCODE -ne 0) {
         Write-Host "  ✗ Fel vid git add!" -ForegroundColor Red
         exit 1
     }
-    
+
     # Skapa commit-meddelande med timestamp
     $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
     $commitMessage = "Backup: $timestamp - Auto-commit before force push"
-    
+
     git commit -m $commitMessage
     if ($LASTEXITCODE -ne 0) {
         Write-Host "  ✗ Fel vid git commit!" -ForegroundColor Red
         exit 1
     }
-    
+
     Write-Host "  ✓ Ändringar committade" -ForegroundColor Green
 } else {
     Write-Host "  ✓ Inga ändringar att committa (working tree clean)" -ForegroundColor Green
@@ -160,7 +160,7 @@ if (-not $originMainExists) {
     # Skapa timestamp för backup-gren
     $timestamp = Get-Date -Format "yyyyMMdd-HHmmss"
     $backupBranch = "backup/main-$timestamp"
-    
+
     # Skapa backup-gren från ORIGIN/main (inte lokal!)
     Write-Host "  Skapar backup-gren från origin/main: $backupBranch" -ForegroundColor Gray
     git branch $backupBranch origin/main 2>$null
@@ -175,7 +175,7 @@ if (-not $originMainExists) {
         } else {
             Write-Host "  ⚠ Kunde inte pusha backup-gren" -ForegroundColor Yellow
         }
-        
+
         # Ta bort lokal backup-gren (behövs bara på origin)
         git branch -D $backupBranch 2>$null | Out-Null
     }
@@ -227,7 +227,7 @@ Write-Host "  Antal backup-grenar: $backupCount" -ForegroundColor Gray
 if ($backupCount -gt 4) {
     $toDelete = $backupBranches[0..($backupCount - 5)]
     Write-Host "  Raderar $($toDelete.Count) äldsta backup(s)..." -ForegroundColor Gray
-    
+
     foreach ($branchToDelete in $toDelete) {
         Write-Host "    Raderar: $branchToDelete" -ForegroundColor Gray
         git push origin --delete $branchToDelete 2>&1 | Out-Null
@@ -258,7 +258,7 @@ Write-Host ""
 $finalBackups = git branch -r --list "origin/backup/main-*" 2>$null
 if ($finalBackups) {
     Write-Host "  Backup-grenar på GitHub:" -ForegroundColor Gray
-    $finalBackups | ForEach-Object { 
+    $finalBackups | ForEach-Object {
         $name = $_.Trim() -replace '^origin/', ''
         Write-Host "    - $name" -ForegroundColor Gray
     }
