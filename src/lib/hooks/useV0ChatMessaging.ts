@@ -2,7 +2,7 @@ import { consumeSseResponse } from "@/lib/builder/sse";
 import type { ChatMessage, UiMessagePart } from "@/lib/builder/types";
 import type { ModelTier } from "@/lib/validations/chatSchemas";
 import { debugLog } from "@/lib/utils/debug";
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import toast from "react-hot-toast";
 
 type RouterLike = { replace: (href: string) => void };
@@ -21,6 +21,118 @@ type MessageOptions = {
   attachmentPrompt?: string;
   skipPromptAssist?: boolean;
 };
+
+type CreateChatLock = {
+  key: string;
+  createdAt: number;
+  chatId?: string | null;
+};
+
+const CREATE_CHAT_LOCK_KEY = "sajtmaskin:createChatLock";
+const CREATE_CHAT_LOCK_TTL_MS = 2 * 60 * 1000;
+
+function getSessionStorage(): Storage | null {
+  if (typeof window === "undefined") return null;
+  try {
+    return window.sessionStorage;
+  } catch {
+    return null;
+  }
+}
+
+function readCreateChatLock(): CreateChatLock | null {
+  const storage = getSessionStorage();
+  if (!storage) return null;
+  try {
+    const raw = storage.getItem(CREATE_CHAT_LOCK_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as CreateChatLock;
+    if (!parsed || typeof parsed.key !== "string" || typeof parsed.createdAt !== "number") {
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function writeCreateChatLock(lock: CreateChatLock) {
+  const storage = getSessionStorage();
+  if (!storage) return;
+  try {
+    storage.setItem(CREATE_CHAT_LOCK_KEY, JSON.stringify(lock));
+  } catch {
+    // ignore storage errors
+  }
+}
+
+function clearCreateChatLock() {
+  const storage = getSessionStorage();
+  if (!storage) return;
+  try {
+    storage.removeItem(CREATE_CHAT_LOCK_KEY);
+  } catch {
+    // ignore storage errors
+  }
+}
+
+function getActiveCreateChatLock(key: string): CreateChatLock | null {
+  const lock = readCreateChatLock();
+  if (!lock) return null;
+  if (Date.now() - lock.createdAt > CREATE_CHAT_LOCK_TTL_MS) {
+    clearCreateChatLock();
+    return null;
+  }
+  return lock.key === key ? lock : null;
+}
+
+function updateCreateChatLockChatId(key: string, chatId: string) {
+  const lock = readCreateChatLock();
+  if (!lock || lock.key !== key) return;
+  if (lock.chatId === chatId) return;
+  writeCreateChatLock({ ...lock, chatId });
+}
+
+function normalizePrompt(value: string): string {
+  return value.trim().replace(/\s+/g, " ");
+}
+
+function hashString(value: string): string {
+  let hash = 5381;
+  for (let i = 0; i < value.length; i += 1) {
+    hash = ((hash << 5) + hash) ^ value.charCodeAt(i);
+  }
+  return (hash >>> 0).toString(36);
+}
+
+function buildCreateChatKey(
+  message: string,
+  options: MessageOptions,
+  modelTier: ModelTier,
+  imageGenerations: boolean,
+  systemPrompt?: string,
+): string {
+  const normalizedMessage = normalizePrompt(message);
+  const normalizedSystem = normalizePrompt(systemPrompt ?? "");
+  const attachmentSignature = (options.attachments ?? [])
+    .map((attachment) => {
+      const url = typeof attachment.url === "string" ? attachment.url.trim() : "";
+      const filename = typeof attachment.filename === "string" ? attachment.filename.trim() : "";
+      return url || filename || "";
+    })
+    .filter((value) => value.length > 0)
+    .join("|");
+  const attachmentPrompt = normalizePrompt(options.attachmentPrompt ?? "");
+  const fingerprint = [
+    normalizedMessage,
+    `model:${modelTier}`,
+    `images:${imageGenerations ? "1" : "0"}`,
+    `system:${normalizedSystem}`,
+    `attachments:${attachmentSignature}`,
+    `attachmentPrompt:${attachmentPrompt}`,
+  ].join("::");
+  return hashString(fingerprint);
+}
 
 function mergeStreamingText(previous: string, incoming: string): string {
   if (!previous) return incoming;
@@ -161,15 +273,41 @@ export function useV0ChatMessaging(params: {
   } = params;
 
   const [isCreatingChat, setIsCreatingChat] = useState(false);
+  const createChatInFlightRef = useRef(false);
+  const pendingCreateKeyRef = useRef<string | null>(null);
 
   const createNewChat = useCallback(
     async (initialMessage: string, options: MessageOptions = {}) => {
-      if (isCreatingChat) return;
+      if (isCreatingChat || createChatInFlightRef.current) return;
       if (!initialMessage?.trim()) {
         toast.error("Please enter a message to start a new chat");
         return;
       }
 
+      const createKey = buildCreateChatKey(
+        initialMessage,
+        options,
+        selectedModelTier,
+        enableImageGenerations,
+        systemPrompt,
+      );
+      const existingLock = getActiveCreateChatLock(createKey);
+      if (existingLock) {
+        if (existingLock.chatId) {
+          setChatId(existingLock.chatId);
+          if (chatIdParam !== existingLock.chatId) {
+            router.replace(`/builder?chatId=${encodeURIComponent(existingLock.chatId)}`);
+          }
+          toast.success("Återansluter till pågående skapning");
+        } else {
+          toast("En skapning med samma prompt pågår redan. Vänta en stund och försök igen.");
+        }
+        return;
+      }
+
+      pendingCreateKeyRef.current = createKey;
+      writeCreateChatLock({ key: createKey, createdAt: Date.now() });
+      createChatInFlightRef.current = true;
       resetBeforeCreateChat();
 
       const now = Date.now();
@@ -323,6 +461,9 @@ export function useV0ChatMessaging(params: {
                   if (chatIdParam !== id) {
                     router.replace(`/builder?chatId=${encodeURIComponent(id)}`);
                   }
+                  if (pendingCreateKeyRef.current) {
+                    updateCreateChatLockChatId(pendingCreateKeyRef.current, id);
+                  }
                 }
                 break;
               }
@@ -372,6 +513,9 @@ export function useV0ChatMessaging(params: {
 
           setChatId(newChatId);
           router.replace(`/builder?chatId=${encodeURIComponent(newChatId)}`);
+          if (pendingCreateKeyRef.current) {
+            updateCreateChatLockChatId(pendingCreateKeyRef.current, newChatId);
+          }
           toast.success("Chat created!");
 
           if (data.latestVersion?.demoUrl) {
@@ -387,6 +531,9 @@ export function useV0ChatMessaging(params: {
         console.error("Error creating chat:", error);
         toast.error(error instanceof Error ? error.message : "Failed to create chat");
       } finally {
+        pendingCreateKeyRef.current = null;
+        clearCreateChatLock();
+        createChatInFlightRef.current = false;
         setIsCreatingChat(false);
         setMessages((prev) =>
           prev.map((m) => (m.id === assistantMessageId ? { ...m, isStreaming: false } : m)),

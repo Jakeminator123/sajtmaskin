@@ -46,6 +46,7 @@ Thumbs.db
 npm-debug.log*
 yarn-debug.log*
 pnpm-debug.log*
+mcp-monitoring-report.txt
 
 # Temp/dev files
 .preprompt_history.json
