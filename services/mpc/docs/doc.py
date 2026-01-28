@@ -623,19 +623,25 @@ def save_bytes(path: Path, data: bytes):
     path.write_bytes(data)
 
 
-def download_pages(urls: list[str], out_dir: Path, delay: float = DELAY_SEC, max_pages: int = MAX_PAGES_DEFAULT) -> list[Path]:
+def download_pages(
+    urls: list[str],
+    out_dir: Path,
+    delay: float = DELAY_SEC,
+    max_pages: int = MAX_PAGES_DEFAULT,
+    output_format: str = "md",
+) -> list[Path]:
     """
     Laddar ner varje URL, sparar:
       - raw (html/txt) i raw/
-      - markdown-ish i md/
-    Returnerar lista med md-filer (Path).
+      - markdown-ish i md/ (eller txt/ om output_format="txt")
+    Returnerar lista med exporterade filer (Path).
     """
     urls = urls[:max_pages]
 
     raw_dir = ensure_dir(out_dir / "raw")
-    md_dir = ensure_dir(out_dir / "md")
+    content_dir = ensure_dir(out_dir / ("txt" if output_format == "txt" else "md"))
 
-    md_paths: list[Path] = []
+    out_paths: list[Path] = []
 
     for i, u in enumerate(urls, start=1):
         print(f"  [{i}/{len(urls)}] {u}")
@@ -651,7 +657,7 @@ def download_pages(urls: list[str], out_dir: Path, delay: float = DELAY_SEC, max
         # råfiländelse
         ext = ".html"
         if "text/markdown" in ctype:
-            ext = ".md"
+            ext = ".md" if output_format == "md" else ".txt"
         elif "text/plain" in ctype:
             ext = ".txt"
         elif "application/json" in ctype:
@@ -674,13 +680,14 @@ def download_pages(urls: list[str], out_dir: Path, delay: float = DELAY_SEC, max
         md.append(f"> Källa: {u}\n\n")
         md.append(md_body)
 
-        md_path = md_dir / f"{slug}.md"
-        save_text(md_path, "".join(md))
-        md_paths.append(md_path)
+        out_ext = ".md" if output_format == "md" else ".txt"
+        out_path = content_dir / f"{slug}{out_ext}"
+        save_text(out_path, "".join(md))
+        out_paths.append(out_path)
 
         time.sleep(delay)
 
-    return md_paths
+    return out_paths
 
 
 def build_combined(md_paths: list[Path], out_path: Path, title: str):
@@ -827,7 +834,7 @@ def write_llms_files(llms_files: dict[str, FetchResult], out_dir: Path):
         save_bytes(p, fr.body)
 
 
-def run_for_url(base_url: str):
+def run_for_url(base_url: str, output_format: str = "md"):
     base_url = normalize_url(base_url)
     if not base_url:
         return
@@ -853,15 +860,25 @@ def run_for_url(base_url: str):
             print(f"\nKlart: sparade {out.name} (llms-full.txt).")
             return
         # annars bygg combined från valda sidor
-        md_paths = download_pages(chosen_urls, site_dir, max_pages=MAX_PAGES_DEFAULT)
-        combined = site_dir / "combined.md"
+        md_paths = download_pages(
+            chosen_urls,
+            site_dir,
+            max_pages=MAX_PAGES_DEFAULT,
+            output_format=output_format,
+        )
+        combined = site_dir / ("combined.md" if output_format == "md" else "combined.txt")
         build_combined(md_paths, combined, title=base_url)
         print(f"\nKlart: {combined.name}")
         return
 
     # annars laddar vi sidor (start / all / select)
-    md_paths = download_pages(chosen_urls, site_dir, max_pages=MAX_PAGES_DEFAULT)
-    combined = site_dir / "combined.md"
+    md_paths = download_pages(
+        chosen_urls,
+        site_dir,
+        max_pages=MAX_PAGES_DEFAULT,
+        output_format=output_format,
+    )
+    combined = site_dir / ("combined.md" if output_format == "md" else "combined.txt")
     build_combined(md_paths, combined, title=base_url)
 
     # liten metadatafil
@@ -877,7 +894,7 @@ def run_for_url(base_url: str):
     print(f"\nKlart: {combined.name} (+ {len(md_paths)} sidor i md/).")
 
 
-def run_for_url_auto(base_url: str, mode: str = "full"):
+def run_for_url_auto(base_url: str, mode: str = "full", output_format: str = "md"):
     """
     Non-interactive version of run_for_url.
     mode: "full" = prioritize llms-full.txt, "all" = download all pages, "start" = just start page
@@ -907,25 +924,35 @@ def run_for_url_auto(base_url: str, mode: str = "full"):
             return
         # Fallback to combined from pages
         if pages:
-            md_paths = download_pages(pages, site_dir, max_pages=MAX_PAGES_DEFAULT)
-            combined = site_dir / "combined.md"
+            md_paths = download_pages(
+                pages,
+                site_dir,
+                max_pages=MAX_PAGES_DEFAULT,
+                output_format=output_format,
+            )
+            combined = site_dir / ("combined.md" if output_format == "md" else "combined.txt")
             build_combined(md_paths, combined, title=base_url)
             print(f"Klart: {combined.name}")
             return
         # Just download start page
-        md_paths = download_pages([base_url], site_dir, max_pages=1)
+        md_paths = download_pages([base_url], site_dir, max_pages=1, output_format=output_format)
         if md_paths:
             print(f"Klart: laddade startsidan.")
 
     elif mode == "all":
         chosen = pages if pages else [base_url]
-        md_paths = download_pages(chosen, site_dir, max_pages=MAX_PAGES_DEFAULT)
-        combined = site_dir / "combined.md"
+        md_paths = download_pages(
+            chosen,
+            site_dir,
+            max_pages=MAX_PAGES_DEFAULT,
+            output_format=output_format,
+        )
+        combined = site_dir / ("combined.md" if output_format == "md" else "combined.txt")
         build_combined(md_paths, combined, title=base_url)
         print(f"Klart: {combined.name} ({len(md_paths)} sidor).")
 
     elif mode == "start":
-        md_paths = download_pages([base_url], site_dir, max_pages=1)
+        md_paths = download_pages([base_url], site_dir, max_pages=1, output_format=output_format)
         print(f"Klart: laddade startsidan.")
 
 
@@ -933,6 +960,9 @@ def main() -> int:
     # Check for --auto flag
     auto_mode = "--auto" in sys.argv
     mode = "full"
+    output_format = "md"
+    if "--txt" in sys.argv:
+        output_format = "txt"
     
     if "--all" in sys.argv:
         mode = "all"
@@ -946,16 +976,17 @@ def main() -> int:
     if args:
         if auto_mode:
             for u in args:
-                run_for_url_auto(u, mode)
+                run_for_url_auto(u, mode, output_format)
         else:
             for u in args:
-                run_for_url(u)
+                run_for_url(u, output_format)
         return 0
 
     print("Klistra in en docs-URL (tom rad avslutar):")
     print("Tips: Kör med --auto för icke-interaktivt läge")
     print("      --auto --all  = ladda ner alla sidor")
     print("      --auto        = prioritera llms-full.txt")
+    print("      --txt         = spara markdown-ish som .txt")
     while True:
         try:
             u = normalize_url(input("> "))
@@ -963,7 +994,7 @@ def main() -> int:
             break
         if not u:
             break
-        run_for_url(u)
+        run_for_url(u, output_format)
 
     print("Hejdå.")
     return 0

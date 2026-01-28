@@ -558,7 +558,7 @@ function BuilderContent() {
         resetBeforeCreateChat();
         const quality = MODEL_TIER_TO_QUALITY[selectedModelTier] || "standard";
         const name = selection.block?.title
-          ? `Design System: ${selection.block.title}`
+          ? `shadcn/ui: ${selection.block.title}`
           : undefined;
         const response = await fetch("/api/v0/chats/init-registry", {
           method: "POST",
@@ -580,7 +580,7 @@ function BuilderContent() {
           | null;
 
         if (!response.ok || !data?.chatId) {
-          throw new Error(data?.error || data?.details || "Kunde inte starta från Design System");
+          throw new Error(data?.error || data?.details || "Kunde inte starta från shadcn/ui");
         }
 
         setChatId(data.chatId);
@@ -588,9 +588,9 @@ function BuilderContent() {
         setMessages([]);
         setCurrentDemoUrl(data.demoUrl || null);
         setHasSelectedModelTier(true);
-        toast.success("Design System-projekt skapat!");
+        toast.success("shadcn/ui-projekt skapat!");
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Kunde inte starta från Design System");
+        toast.error(error instanceof Error ? error.message : "Kunde inte starta från shadcn/ui");
       }
     },
     [

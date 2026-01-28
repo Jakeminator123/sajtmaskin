@@ -455,10 +455,10 @@ export function ChatInterface({
               className="h-8"
               onClick={() => setIsShadcnPickerOpen(true)}
               disabled={inputDisabled}
-              title="Design System-block"
+              title="shadcn/ui-block"
             >
               <Blocks className="h-3.5 w-3.5" />
-              Design System
+              shadcn/ui
             </Button>
           </div>
         </PromptInputHeader>
