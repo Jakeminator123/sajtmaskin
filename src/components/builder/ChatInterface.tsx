@@ -56,8 +56,9 @@ interface ChatInterfaceProps {
 }
 
 const DESIGN_SYSTEM_HINT = `DESIGN SYSTEM MODE:
-- Use a consistent design token system (colors, spacing, typography).
-- Define CSS variables for core tokens and reuse them across components.
+- Use semantic CSS variables for theme tokens (bg/fg, primary, accent).
+- Keep token definitions in globals.css or theme config, not hardcoded in components.
+- Use cva + cn for variants; keep variants limited and composable.
 - Create reusable UI primitives (buttons, inputs, cards).
 - Keep spacing scale consistent (4/8/12/16/24/32/48).
 - Ensure good accessibility and dark-mode compatibility.`;

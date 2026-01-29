@@ -250,6 +250,12 @@ type VersionEntry = {
 type FileEntry = { name: string; content: string };
 
 const POST_CHECK_MARKER = "[Post-check]";
+const DESIGN_TOKEN_FILES = [
+  "src/app/globals.css",
+  "app/globals.css",
+  "styles/globals.css",
+  "globals.css",
+];
 
 function appendToolPartToMessage(
   setMessages: (next: ChatMessage[] | ((prev: ChatMessage[]) => ChatMessage[])) => void,
@@ -270,7 +276,8 @@ async function fetchChatVersions(chatId: string, signal?: AbortSignal): Promise<
   const data = (await response.json().catch(() => null)) as { versions?: VersionEntry[] } | null;
   if (!response.ok) {
     throw new Error(
-      (data as { error?: string } | null)?.error || `Failed to fetch versions (HTTP ${response.status})`,
+      (data as { error?: string } | null)?.error ||
+        `Failed to fetch versions (HTTP ${response.status})`,
     );
   }
   return Array.isArray(data?.versions) ? data?.versions : [];
@@ -285,14 +292,20 @@ async function fetchChatFiles(
     `/api/v0/chats/${encodeURIComponent(chatId)}/files?versionId=${encodeURIComponent(versionId)}`,
     { signal },
   );
-  const data = (await response.json().catch(() => null)) as { files?: FileEntry[]; error?: string } | null;
+  const data = (await response.json().catch(() => null)) as {
+    files?: FileEntry[];
+    error?: string;
+  } | null;
   if (!response.ok) {
     throw new Error(data?.error || `Failed to fetch files (HTTP ${response.status})`);
   }
   return Array.isArray(data?.files) ? data.files : [];
 }
 
-function resolvePreviousVersionId(currentVersionId: string, versions: VersionEntry[]): string | null {
+function resolvePreviousVersionId(
+  currentVersionId: string,
+  versions: VersionEntry[],
+): string | null {
   const byDate = [...versions].sort((a, b) => {
     const aTime = a.createdAt ? Date.parse(a.createdAt) : 0;
     const bTime = b.createdAt ? Date.parse(b.createdAt) : 0;
@@ -339,6 +352,28 @@ function diffFiles(previous: FileEntry[], current: FileEntry[]) {
   return { added, removed, modified };
 }
 
+type DesignTokenSummary = {
+  source: string;
+  tokens: Array<{ name: string; value: string }>;
+};
+
+function extractDesignTokens(files: FileEntry[]): DesignTokenSummary | null {
+  const candidate = files.find((file) =>
+    DESIGN_TOKEN_FILES.some((path) => file.name.endsWith(path)),
+  );
+  if (!candidate?.content) return null;
+
+  const tokens: Array<{ name: string; value: string }> = [];
+  const regex = /--([a-zA-Z0-9-_]+)\s*:\s*([^;\n]+);/g;
+  let match: RegExpExecArray | null = null;
+  while ((match = regex.exec(candidate.content)) && tokens.length < 24) {
+    tokens.push({ name: `--${match[1]}`, value: match[2].trim() });
+  }
+  if (tokens.length === 0) return null;
+
+  return { source: candidate.name, tokens };
+}
+
 function findSuspiciousUseCalls(files: FileEntry[]) {
   const results: Array<{ file: string; line: number; snippet: string }> = [];
   const pattern = /\b(?:React\.)?use\s*\(/g;
@@ -363,8 +398,7 @@ function findSuspiciousUseCalls(files: FileEntry[]) {
 function formatChangeSteps(label: string, items: string[], prefix: string, limit = 8) {
   if (items.length === 0) return [];
   const head = items.slice(0, limit).map((item) => `${prefix} ${item}`);
-  const suffix =
-    items.length > limit ? [`${label}: +${items.length - limit} till...`] : [];
+  const suffix = items.length > limit ? [`${label}: +${items.length - limit} till...`] : [];
   return [...head, ...suffix];
 }
 
@@ -399,9 +433,11 @@ function shouldAppendPostCheckSummary(content: string) {
   if (isLikelyQuestionOrPrompt(trimmed)) return false;
   if (trimmed.endsWith(":")) return true;
   const tail = trimmed.slice(-160).toLowerCase();
-  if (["summera", "sammanfatta", "ändring", "changes", "summary"].some((token) =>
-    tail.includes(token),
-  )) {
+  if (
+    ["summera", "sammanfatta", "ändring", "changes", "summary"].some((token) =>
+      tail.includes(token),
+    )
+  ) {
     return true;
   }
   return trimmed.length >= 24;
@@ -480,15 +516,16 @@ async function runPostGenerationChecks(params: {
     const warnings: string[] = [];
     if (suspiciousUseCalls.length > 0) {
       warnings.push(
-        `Möjlig React use()-missbruk i ${new Set(
-          suspiciousUseCalls.map((entry) => entry.file),
-        ).size} fil(er).`,
+        `Möjlig React use()-missbruk i ${
+          new Set(suspiciousUseCalls.map((entry) => entry.file)).size
+        } fil(er).`,
       );
     }
     const versionEntry = versions.find(
       (entry) => entry.versionId === versionId || entry.id === versionId,
     );
     const resolvedDemoUrl = demoUrl ?? versionEntry?.demoUrl ?? null;
+    const designTokens = extractDesignTokens(currentFiles);
 
     const steps: string[] = [];
     if (changes) {
@@ -503,6 +540,12 @@ async function runPostGenerationChecks(params: {
     }
     if (warnings.length > 0) {
       steps.push(...warnings);
+    }
+    if (designTokens) {
+      const names = designTokens.tokens.map((token) => token.name);
+      const preview = names.slice(0, 8).join(", ");
+      const suffix = names.length > 8 ? " …" : "";
+      steps.push(`Design tokens (${designTokens.source}): ${preview}${suffix}`);
     }
     if (!resolvedDemoUrl) {
       steps.push("Preview-länk saknas för versionen.");
@@ -519,6 +562,7 @@ async function runPostGenerationChecks(params: {
       },
       warnings,
       suspiciousUseCalls,
+      designTokens,
       previousVersionId,
       demoUrl: resolvedDemoUrl,
     };
@@ -730,10 +774,7 @@ export function useV0ChatMessaging(params: {
                     ? data
                     : (data as any)?.content || (data as any)?.text || (data as any)?.delta || null;
                 if (contentText) {
-                  accumulatedContent = mergeStreamingText(
-                    accumulatedContent,
-                    String(contentText),
-                  );
+                  accumulatedContent = mergeStreamingText(accumulatedContent, String(contentText));
                   setMessages((prev) =>
                     prev.map((m) =>
                       m.id === assistantMessageId
@@ -785,8 +826,7 @@ export function useV0ChatMessaging(params: {
                   setCurrentDemoUrl(doneData.demoUrl);
                 }
                 onPreviewRefresh?.();
-                const resolvedChatId =
-                  doneData.chatId || doneData.id || chatIdFromStream || null;
+                const resolvedChatId = doneData.chatId || doneData.id || chatIdFromStream || null;
                 const resolvedVersionId =
                   doneData.versionId ||
                   doneData.version_id ||
