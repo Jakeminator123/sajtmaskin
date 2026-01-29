@@ -22,7 +22,7 @@ import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useAuth } from "@/lib/auth/auth-store";
 import { Button } from "@/components/ui/button";
-const rocketLogo = "/rocket_style_40.png";
+const rocketLogo = "/branding/rocket_style_40.png";
 import {
   Diamond,
   FolderOpen,

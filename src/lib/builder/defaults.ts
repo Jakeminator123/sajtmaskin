@@ -10,10 +10,9 @@
  *   - v0-max:  Best quality, slower. Deep reasoning. RECOMMENDED.
  *
  * Prompt Assist (preprocessing user prompts before v0 generation):
- *   - off:       No preprocessing, send prompt directly to v0.
- *   - gateway:   AI Gateway (Vercel's multi-provider routing with fallbacks).
- *   - openai:    Direct OpenAI API call.
- *   - anthropic: Direct Anthropic/Claude API call.
+ *   - off:            No preprocessing, send prompt directly to v0.
+ *   - gateway:        AI Gateway (Vercel's multi-provider routing with fallbacks).
+ *   - openai-compat:  v0 Model API (v0-1.5-md/lg).
  *
  * Deep Brief Mode:
  *   When enabled, AI first generates a structured "brief" (specification)
@@ -74,21 +73,27 @@ export interface PromptAssistModelOption {
 
 export const PROMPT_ASSIST_PROVIDER_OPTIONS: PromptAssistProviderOption[] = [
   { value: "gateway", label: "AI Gateway", description: "Rekommenderad (fallback)" },
+  { value: "openai-compat", label: "v0 Model API", description: "v0-1.5-md/lg (prompt assist)" },
   { value: "off", label: "Av", description: "Skicka prompt direkt" },
 ];
 
-export const PROMPT_ASSIST_MODEL_OPTIONS: Record<PromptAssistProvider, PromptAssistModelOption[]> = {
-  gateway: [
-    { value: "openai/gpt-5.2", label: "GPT‑5.2 (OpenAI)" },
-    { value: "openai/gpt-4o", label: "GPT‑4o (OpenAI)" },
-    { value: "openai/gpt-4o-mini", label: "GPT‑4o mini (OpenAI)" },
-    { value: "anthropic/claude-opus-4.5", label: "Claude Opus 4.5" },
-    { value: "anthropic/claude-sonnet-4.5", label: "Claude Sonnet 4.5" },
-    { value: "anthropic/claude-haiku-4.5", label: "Claude Haiku 4.5" },
-    { value: "google/gemini-2.5-flash", label: "Gemini 2.5 Flash" },
-  ],
-  off: [],
-};
+export const PROMPT_ASSIST_MODEL_OPTIONS: Record<PromptAssistProvider, PromptAssistModelOption[]> =
+  {
+    gateway: [
+      { value: "openai/gpt-5.2", label: "GPT‑5.2 (OpenAI)" },
+      { value: "openai/gpt-4o", label: "GPT‑4o (OpenAI)" },
+      { value: "openai/gpt-4o-mini", label: "GPT‑4o mini (OpenAI)" },
+      { value: "anthropic/claude-opus-4.5", label: "Claude Opus 4.5" },
+      { value: "anthropic/claude-sonnet-4.5", label: "Claude Sonnet 4.5" },
+      { value: "anthropic/claude-haiku-4.5", label: "Claude Haiku 4.5" },
+      { value: "google/gemini-2.5-flash", label: "Gemini 2.5 Flash" },
+    ],
+    "openai-compat": [
+      { value: "v0-1.5-md", label: "v0‑1.5‑md (128K)" },
+      { value: "v0-1.5-lg", label: "v0‑1.5‑lg (512K)" },
+    ],
+    off: [],
+  };
 
 export function getPromptAssistModelOptions(
   provider: PromptAssistProvider,
@@ -139,4 +144,3 @@ export const DEFAULT_CUSTOM_INSTRUCTIONS =
   "Use Next.js App Router, Tailwind CSS, and shadcn/ui.\n" +
   "Build a responsive, accessible, polished React UI with high visual quality.\n" +
   "If imagery is used, ensure high-quality visuals and descriptive alt text.";
-

@@ -23,6 +23,7 @@ RELATED FILES:
 NOTES:
 - responseMode: experimental_stream
 - chatId skickas via SSE event "chatId"
+- system = Custom Instructions (gäller initial chat creation)
 
 FLOW: BUILDER_SEND_MESSAGE
 ENDPOINT: /api/v0/chats/{chatId}/stream (POST, SSE)
@@ -66,6 +67,14 @@ RELATED FILES:
 - src/components/builder/InitFromRepoModal.tsx
 - src/app/api/v0/chats/init-registry/route.ts
 - src/lib/v0/v0-generator.ts
+
+FLOW: INTEGRATIONS_STATUS
+ENDPOINT: /api/integrations/status (GET)
+TRIGGER (UI): Builder IntegrationStatusPanel
+RESPONSE: items[] (enabled, required, affects, requiredEnv)
+RELATED FILES:
+- src/components/builder/IntegrationStatusPanel.tsx
+- src/app/api/integrations/status/route.ts
 
 ==============================================================================
 PROMPT ASSIST (gateway / direct)
@@ -274,6 +283,11 @@ ENV / CONFIG (relevant to calls)
 ==============================================================================
 MODEL TIERS:
 - v0-mini, v0-pro, v0-max (builder)
+
+MODEL API (openai-compat):
+- v0-1.5-md (128K context)
+- v0-1.5-lg (512K context)
+- Used for Prompt Assist when provider=openai-compat
 
 PROVIDERS (prompt assist):
 - gateway (AI Gateway)

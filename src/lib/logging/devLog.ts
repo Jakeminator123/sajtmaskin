@@ -1,28 +1,28 @@
-import fs from 'node:fs';
-import path from 'node:path';
+import fs from "node:fs";
+import path from "node:path";
 
-type DevLogTarget = 'in-progress' | 'latest';
+type DevLogTarget = "in-progress" | "latest";
 type DevLogEntry = Record<string, unknown>;
 
 function isDevLoggingEnabled(): boolean {
-  return process.env.NODE_ENV === 'development';
+  return process.env.NODE_ENV === "development";
 }
 
 function truncate(value: unknown, max = 500): string {
-  const s = typeof value === 'string' ? value : JSON.stringify(value);
+  const s = typeof value === "string" ? value : JSON.stringify(value);
   if (s.length <= max) return s;
   return `${s.slice(0, max)}…`;
 }
 
 function getLogDir(): string {
-  const override = (process.env.SAJTMASKIN_LOG_DIR || '').trim();
-  return override ? path.resolve(override) : path.join(process.cwd(), 'manual_log');
+  const override = (process.env.SAJTMASKIN_LOG_DIR || "").trim();
+  return override ? path.resolve(override) : path.join(process.cwd(), "logs", "manual_log");
 }
 
 function getLogPath(target: DevLogTarget): string {
   const dir = getLogDir();
   const file =
-    target === 'in-progress' ? 'latest_generation.in_progress.log' : 'latest_generation.log';
+    target === "in-progress" ? "latest_generation.in_progress.log" : "latest_generation.log";
   return path.join(dir, file);
 }
 
@@ -33,7 +33,7 @@ function ensureLogDir(): void {
 function safeWriteFile(filePath: string, content: string): void {
   try {
     ensureLogDir();
-    fs.writeFileSync(filePath, content, 'utf8');
+    fs.writeFileSync(filePath, content, "utf8");
   } catch {
     // Best-effort. Never break API routes due to dev logging.
   }
@@ -42,7 +42,7 @@ function safeWriteFile(filePath: string, content: string): void {
 function safeAppendFile(filePath: string, content: string): void {
   try {
     ensureLogDir();
-    fs.appendFileSync(filePath, content, 'utf8');
+    fs.appendFileSync(filePath, content, "utf8");
   } catch {
     // Best-effort. Never break API routes due to dev logging.
   }
@@ -58,17 +58,16 @@ export function devLogStartNewSite(params: {
   if (!isDevLoggingEnabled()) return;
 
   const entry = {
-    type: 'site.start',
+    type: "site.start",
     message: truncate(params.message),
     modelId: params.modelId ?? null,
-    thinking: typeof params.thinking === 'boolean' ? params.thinking : null,
-    imageGenerations:
-      typeof params.imageGenerations === 'boolean' ? params.imageGenerations : null,
+    thinking: typeof params.thinking === "boolean" ? params.thinking : null,
+    imageGenerations: typeof params.imageGenerations === "boolean" ? params.imageGenerations : null,
     projectId: params.projectId ?? null,
   } satisfies DevLogEntry;
 
   const line = JSON.stringify({ ts: new Date().toISOString(), ...entry });
-  safeWriteFile(getLogPath('in-progress'), `${line}\n`);
+  safeWriteFile(getLogPath("in-progress"), `${line}\n`);
 }
 
 export function devLogAppend(target: DevLogTarget, entry: DevLogEntry): void {
@@ -82,8 +81,8 @@ export function devLogFinalizeSite(): void {
 
   try {
     ensureLogDir();
-    const src = getLogPath('in-progress');
-    const dst = getLogPath('latest');
+    const src = getLogPath("in-progress");
+    const dst = getLogPath("latest");
     if (!fs.existsSync(src)) return;
 
     fs.copyFileSync(src, dst);

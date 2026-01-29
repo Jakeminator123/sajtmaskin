@@ -61,6 +61,7 @@ export interface DeploymentOptions {
   target?: "production" | "staging";
   regions?: string[];
   env?: Record<string, string>;
+  teamId?: string;
 }
 
 /**
@@ -100,7 +101,7 @@ export async function createDeployment(options: DeploymentOptions): Promise<{
       readyState?: string;
       state?: string;
       createdAt?: number;
-    }>("/v13/deployments", {
+    }>(`/v13/deployments${options.teamId ? `?teamId=${encodeURIComponent(options.teamId)}` : ""}`, {
       method: "POST",
       body: JSON.stringify(body),
     });

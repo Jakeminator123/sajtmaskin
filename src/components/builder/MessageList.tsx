@@ -150,7 +150,10 @@ export function MessageList({
                     const toolHasData = hasToolData(tool as ToolUIPart);
 
                     return (
-                      <Tool key={`${message.id}-tool-${toolType}-${index}`} defaultOpen={toolHasData}>
+                      <Tool
+                        key={`${message.id}-tool-${toolType}-${index}`}
+                        defaultOpen={toolHasData}
+                      >
                         <ToolHeader title={toolTitle} type={toolType} state={toolState} />
                         <ToolContent>
                           {hasInput && <ToolInput input={tool.input} />}
@@ -181,7 +184,9 @@ export function MessageList({
                                   <div>Varningar: {postCheckSummary.warnings}</div>
                                 )}
                                 {postCheckSummary.previousVersionId && (
-                                  <div>Föregående version: {postCheckSummary.previousVersionId}</div>
+                                  <div>
+                                    Föregående version: {postCheckSummary.previousVersionId}
+                                  </div>
                                 )}
                                 {postCheckSummary.demoUrl && (
                                   <a
@@ -198,7 +203,8 @@ export function MessageList({
                           )}
                           {!hasInput && !hasOutput && !hasErrorText && (
                             <div className="text-muted-foreground p-4 text-xs">
-                              v0 skickade en tool-call, men data har inte anlänt än. Detta är normalt under streaming. Data läggs till när v0 är redo.
+                              v0 skickade en tool-call, men data har inte anlänt än. Detta är
+                              normalt under streaming. Data läggs till när v0 är redo.
                             </div>
                           )}
                           <div className="border-border border-t p-4">
@@ -234,13 +240,11 @@ export function MessageList({
                   message.role === "assistant" &&
                   agentLogItems.length > 0 && (
                     <div className="border-border bg-muted/30 mb-3 rounded-md border p-3">
-                      <div className="text-muted-foreground text-xs font-medium">
-                        Agentlogg
-                      </div>
-                      <ul className="mt-2 space-y-1 text-xs text-muted-foreground">
+                      <div className="text-muted-foreground text-xs font-medium">Agentlogg</div>
+                      <ul className="text-muted-foreground mt-2 space-y-1 text-xs">
                         {agentLogItems.map((item, index) => (
                           <li key={`${message.id}-agent-${index}`} className="flex gap-2">
-                            <span className="mt-1 h-1.5 w-1.5 rounded-full bg-muted-foreground/70" />
+                            <span className="bg-muted-foreground/70 mt-1 h-1.5 w-1.5 rounded-full" />
                             <span>{item.label}</span>
                           </li>
                         ))}
@@ -277,6 +281,9 @@ export function MessageList({
                         )}
                         <p className="text-muted-foreground mt-2 text-xs">
                           Den här åtgärden hanteras av v0. Öppna chatten i v0 om du vill installera.
+                        </p>
+                        <p className="text-muted-foreground mt-1 text-xs">
+                          Om integration krävs: kontrollera Integrationspanelen för saknade nycklar.
                         </p>
                         <div className="mt-2 flex flex-wrap gap-2">
                           <Button
@@ -599,7 +606,9 @@ function getPostCheckSummary(output: unknown): PostCheckSummary | null {
   const toString = (value: unknown): string | null =>
     typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
   const warningsValue = summary?.warnings ?? obj.warnings;
-  const warningsCount = Array.isArray(warningsValue) ? warningsValue.length : toNumber(warningsValue);
+  const warningsCount = Array.isArray(warningsValue)
+    ? warningsValue.length
+    : toNumber(warningsValue);
 
   const summaryData: PostCheckSummary = {
     files: toNumber(summary?.files ?? obj.files),

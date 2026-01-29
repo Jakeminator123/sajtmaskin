@@ -1,14 +1,11 @@
 {
-  // Editor
   "editor.formatOnSave": true,
   "editor.defaultFormatter": "esbenp.prettier-vscode",
   "editor.tabSize": 2,
   "editor.codeActionsOnSave": {
     "source.fixAll.eslint": "explicit"
   },
-  // ESLint (Flat Config)
   "eslint.useFlatConfig": true,
-  // Files
   "files.eol": "\n",
   "files.exclude": {
     "**/.git": true,
@@ -21,11 +18,9 @@
     "**/out": true,
     "**/build": true
   },
-  // JSONC (settings files need special formatter)
   "[jsonc]": {
     "editor.defaultFormatter": "vscode.json-language-features"
   },
-  // Tailwind (cva/cn class detection)
   "tailwindCSS.experimental.classRegex": [
     [
       "cva\\(([^)]*)\\)",
@@ -37,8 +32,9 @@
     ]
   ],
   "[typescriptreact]": {
-    "editor.defaultFormatter": "vscode.typescript-language-features"
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
   },
   "files.autoSave": "afterDelay",
-  "git.autofetch": true
+  "git.autofetch": false,
+  "git.autofetchPeriod": 0
 }

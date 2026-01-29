@@ -6,6 +6,7 @@ import { versions } from "@/lib/db/schema";
 import { nanoid } from "nanoid";
 import { withRateLimit } from "@/lib/rateLimit";
 import { getChatByV0ChatIdForRequest } from "@/lib/tenant";
+import { sanitizeV0Metadata } from "@/lib/v0/sanitize-metadata";
 
 export async function POST(req: Request, ctx: { params: Promise<{ chatId: string }> }) {
   return withRateLimit(req, "message:send", async () => {
@@ -59,7 +60,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
             v0VersionId: versionId,
             v0MessageId: actualMessageId,
             demoUrl,
-            metadata: messageResult,
+            metadata: sanitizeV0Metadata(messageResult),
           });
         }
       } catch (dbError) {

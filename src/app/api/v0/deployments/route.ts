@@ -16,7 +16,7 @@ import {
 } from "@/lib/vercelDeploy";
 import { getChatByIdForRequest, getChatByV0ChatIdForRequest } from "@/lib/tenant";
 import { requireNotBot } from "@/lib/botProtection";
-import { devLogAppend } from "@/lib/devLog";
+import { devLogAppend } from "@/lib/logging/devLog";
 
 export const runtime = "nodejs";
 
@@ -26,7 +26,9 @@ type PreDeployDiagnostics = {
   warnings: string[];
 };
 
-function applyPreDeployFixes(files: Array<{ name: string; content: string }>): PreDeployDiagnostics {
+function applyPreDeployFixes(
+  files: Array<{ name: string; content: string }>,
+): PreDeployDiagnostics {
   const fixesApplied: string[] = [];
   const warnings: string[] = [];
   const lockfileNames = new Set(["pnpm-lock.yaml", "pnpm-lock.yml", "yarn.lock"]);
@@ -110,8 +112,7 @@ function applyPreDeployFixes(files: Array<{ name: string; content: string }>): P
     return usesHooks;
   };
 
-  const hasUseClient = (content: string): boolean =>
-    /^\s*["']use client["'];/m.test(content);
+  const hasUseClient = (content: string): boolean => /^\s*["']use client["'];/m.test(content);
 
   const hasMetadataExport = (content: string): boolean =>
     /\bexport\s+const\s+metadata\b/.test(content) || /\bgenerateMetadata\b/.test(content);
@@ -119,9 +120,7 @@ function applyPreDeployFixes(files: Array<{ name: string; content: string }>): P
   const ensureUseClient = (file: { name: string; content: string }, reason: string) => {
     if (hasUseClient(file.content)) return;
     if (hasMetadataExport(file.content)) {
-      warnings.push(
-        `Cannot mark ${file.name} as client (${reason}) because it exports metadata.`,
-      );
+      warnings.push(`Cannot mark ${file.name} as client (${reason}) because it exports metadata.`);
       return;
     }
     file.content = `"use client";\n\n${file.content}`;

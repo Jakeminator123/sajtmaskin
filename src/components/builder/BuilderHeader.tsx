@@ -58,6 +58,8 @@ export function BuilderHeader(props: {
 
   customInstructions: string;
   onCustomInstructionsChange: (value: string) => void;
+  applyInstructionsOnce: boolean;
+  onApplyInstructionsOnceChange: (value: boolean) => void;
 
   enableImageGenerations: boolean;
   onEnableImageGenerationsChange: (v: boolean) => void;
@@ -94,6 +96,8 @@ export function BuilderHeader(props: {
     onPromptAssistDeepChange,
     customInstructions,
     onCustomInstructionsChange,
+    applyInstructionsOnce,
+    onApplyInstructionsOnceChange,
     enableImageGenerations,
     onEnableImageGenerationsChange,
     imageGenerationsSupported = true,
@@ -123,8 +127,8 @@ export function BuilderHeader(props: {
     !assistModelOptions.some((option) => option.value === promptAssistModel);
   const [isInstructionsOpen, setIsInstructionsOpen] = useState(false);
   const hasCustomInstructions = Boolean(customInstructions.trim());
-  const isDefaultInstructions =
-    customInstructions.trim() === DEFAULT_CUSTOM_INSTRUCTIONS.trim();
+  const isDefaultInstructions = customInstructions.trim() === DEFAULT_CUSTOM_INSTRUCTIONS.trim();
+  const isGatewayProvider = promptAssistProvider === "gateway";
 
   useEffect(() => {
     const handleDialogClose = () => setIsInstructionsOpen(false);
@@ -194,8 +198,8 @@ export function BuilderHeader(props: {
                   </TooltipTrigger>
                   <TooltipContent side="left" className="max-w-xs">
                     <p className="text-xs">
-                      Prompt Assist skriver om din prompt via AI Gateway innan v0 kör.
-                      Av skickar prompten direkt utan omskrivning.
+                      Prompt Assist skriver om din prompt via AI Gateway eller v0 Model API innan v0
+                      kör. Av skickar prompten direkt utan omskrivning.
                     </p>
                   </TooltipContent>
                 </Tooltip>
@@ -229,8 +233,8 @@ export function BuilderHeader(props: {
                       </TooltipTrigger>
                       <TooltipContent side="left" className="max-w-xs">
                         <p className="text-xs">
-                          Modellen här används bara för att förbättra prompten.
-                          Själva bygget styrs av Model Tier (v0-mini/pro/max).
+                          Modellen här används bara för att förbättra prompten. Själva bygget styrs
+                          av Model Tier (v0-mini/pro/max).
                         </p>
                       </TooltipContent>
                     </Tooltip>
@@ -258,7 +262,7 @@ export function BuilderHeader(props: {
                         <DropdownMenuCheckboxItem
                           checked={promptAssistDeep}
                           onCheckedChange={onPromptAssistDeepChange}
-                          disabled={isBusy}
+                          disabled={isBusy || !isGatewayProvider}
                         >
                           <Sparkles className="mr-2 h-4 w-4" />
                           Deep Brief Mode
@@ -270,6 +274,7 @@ export function BuilderHeader(props: {
                       <p className="text-xs">
                         AI skapar först en detaljerad brief (specifikation) som sedan används för
                         att bygga en bättre prompt. Tar längre tid men ger mer genomtänkta resultat.
+                        (Endast AI Gateway stödjer Deep Brief.)
                       </p>
                     </TooltipContent>
                   </Tooltip>
@@ -404,7 +409,8 @@ export function BuilderHeader(props: {
           <DialogHeader>
             <DialogTitle>Custom Instructions</DialogTitle>
             <DialogDescription>
-              Gäller för denna chatten. Ändringar efter start kräver ny chat.
+              Instruktioner används när en ny chat startas. Du kan välja att rensa dem efter nästa
+              generation.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
@@ -418,6 +424,21 @@ export function BuilderHeader(props: {
               Exempel: “Använd Next.js App Router, Tailwind CSS, shadcn/ui och prioritera
               tillgänglighet.”
             </div>
+            <label className="border-border bg-muted/40 flex items-start gap-3 rounded-lg border p-3 text-sm">
+              <input
+                type="checkbox"
+                checked={applyInstructionsOnce}
+                onChange={(event) => onApplyInstructionsOnceChange(event.target.checked)}
+                className="text-brand-blue mt-1 rounded border-gray-300"
+                disabled={isBusy}
+              />
+              <span>
+                <span className="font-medium">Gäller endast nästa generation</span>
+                <span className="text-muted-foreground block text-xs">
+                  Efter att versionen skapats rensas instruktionerna automatiskt.
+                </span>
+              </span>
+            </label>
             <div className="flex justify-end gap-2">
               <Button
                 variant="outline"

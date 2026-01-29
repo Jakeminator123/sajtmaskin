@@ -42,22 +42,23 @@ export function usePromptAssist(params: UsePromptAssistParams) {
       const normalizedModel = normalizeAssistModel(provider, model);
       const systemPrompt = buildV0RewriteSystemPrompt();
       const startedAt = Date.now();
+      const resolvedDeep = provider === "gateway" ? deep : false;
 
       debugLog("AI", "Prompt assist started", {
         provider,
         model: normalizedModel,
-        deep,
+        deep: resolvedDeep,
         imageGenerations,
         promptLength: originalPrompt.length,
       });
 
       try {
-        const loadingMsg = deep
+        const loadingMsg = resolvedDeep
           ? "Skapar detaljerad brief (kan ta 30-60s)..."
           : "Förbättrar prompt (AI Assist)...";
         toast.loading(loadingMsg, { id: "sajtmaskin:prompt-assist" });
 
-        if (deep) {
+        if (resolvedDeep) {
           const controller = new AbortController();
           // Deep brief kan ta lång tid med GPT-5, 7 minuter timeout
           const timeoutId = setTimeout(() => controller.abort(), 420_000);
@@ -149,15 +150,16 @@ export function usePromptAssist(params: UsePromptAssistParams) {
         const rawMessage = err instanceof Error ? err.message : "AI Assist misslyckades";
         const isAbort = err instanceof Error && (err as any).name === "AbortError";
         const isFailedFetch = /Failed to fetch/i.test(rawMessage);
-        const isGatewayTimeout = /headers timeout|gateway request failed|gatewayresponseerror/i.test(
-          rawMessage.toLowerCase(),
-        );
+        const isGatewayTimeout =
+          /headers timeout|gateway request failed|gatewayresponseerror/i.test(
+            rawMessage.toLowerCase(),
+          );
 
         debugLog("AI", "Prompt assist failed", {
           durationMs: Date.now() - startedAt,
           provider,
           model: normalizedModel,
-          deep,
+          deep: resolvedDeep,
           error: rawMessage,
         });
 
@@ -179,6 +181,9 @@ export function usePromptAssist(params: UsePromptAssistParams) {
               "Kunde inte nå AI Gateway. Sätt AI_GATEWAY_API_KEY eller VERCEL_OIDC_TOKEN i .env.local (lokalt), " +
               "eller kör på Vercel för OIDC-autentisering."
             );
+          }
+          if (provider === "openai-compat") {
+            return "Kunde inte nå v0 Model API. Sätt V0_API_KEY eller VERCEL_API_KEY i .env.local.";
           }
           return "Kunde inte nå AI Assist-endpointen. Kontrollera att servern kör.";
         })();

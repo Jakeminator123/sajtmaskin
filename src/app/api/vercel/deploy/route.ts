@@ -25,7 +25,8 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const { projectId, projectName, framework, env, target } = body;
+    const { projectId, projectName, framework, env, target, teamId } = body;
+    const resolvedTeamId = teamId || process.env.VERCEL_TEAM_ID?.trim() || undefined;
 
     if (!projectId || !projectName) {
       return NextResponse.json(
@@ -43,6 +44,7 @@ export async function POST(request: NextRequest) {
       framework,
       env,
       target,
+      teamId: resolvedTeamId,
     });
 
     if (!result.success) {

@@ -236,6 +236,8 @@ export async function deployProject(options: DeployProjectOptions): Promise<Depl
   }
 
   try {
+    const resolvedTeamId = options.teamId || process.env.VERCEL_TEAM_ID?.trim() || undefined;
+
     // Get project files from project_data
     const projectData = getProjectData(options.projectId);
     const rawFiles = projectData?.files;
@@ -329,6 +331,7 @@ export async function deployProject(options: DeployProjectOptions): Promise<Depl
     // Ensure project exists in Vercel
     await createOrUpdateProject(options.projectName, {
       framework: options.framework || "nextjs",
+      teamId: resolvedTeamId,
     });
 
     // Create deployment
@@ -338,6 +341,7 @@ export async function deployProject(options: DeployProjectOptions): Promise<Depl
       projectSettings: { framework: options.framework || "nextjs" },
       target: options.target || "production",
       env: options.env,
+      teamId: resolvedTeamId,
     });
 
     // Note: Domain assignment is handled separately by the caller

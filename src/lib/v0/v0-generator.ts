@@ -45,7 +45,7 @@
 import { createClient, type ChatDetail } from "v0-sdk";
 import { enhancePromptForV0, type MediaLibraryItem } from "@/lib/utils/prompt-utils";
 import { debugLog, logFinalPrompt } from "@/lib/utils/debug";
-import { logV0 } from "@/lib/utils/file-logger";
+import { logV0 } from "@/lib/logging/file-logger";
 import { SECRETS } from "@/lib/config";
 
 // Lazy-initialized v0 client (created at request time, not import time)

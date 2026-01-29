@@ -7,6 +7,7 @@ import { withRateLimit } from "@/lib/rateLimit";
 import { z } from "zod/v4";
 import { ensureProjectForRequest } from "@/lib/tenant";
 import { getCurrentUser } from "@/lib/auth/auth";
+import { sanitizeV0Metadata } from "@/lib/v0/sanitize-metadata";
 
 export const runtime = "nodejs";
 
@@ -350,7 +351,7 @@ export async function POST(req: Request) {
                 v0VersionId: versionId,
                 v0MessageId: latestVersion.messageId || null,
                 demoUrl: demoUrl,
-                metadata: latestVersion,
+                metadata: sanitizeV0Metadata(latestVersion),
               });
             }
           }

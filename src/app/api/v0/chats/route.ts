@@ -8,6 +8,7 @@ import { withRateLimit } from "@/lib/rateLimit";
 import { ensureProjectForRequest, resolveV0ProjectId, generateProjectName } from "@/lib/tenant";
 import { requireNotBot } from "@/lib/botProtection";
 import { debugLog } from "@/lib/utils/debug";
+import { sanitizeV0Metadata } from "@/lib/v0/sanitize-metadata";
 
 export async function POST(req: Request) {
   return withRateLimit(req, "chat:create", async () => {
@@ -122,7 +123,7 @@ export async function POST(req: Request) {
               v0VersionId: versionId,
               v0MessageId: latestVersion.messageId || null,
               demoUrl,
-              metadata: latestVersion,
+              metadata: sanitizeV0Metadata(latestVersion),
             });
           }
         }
