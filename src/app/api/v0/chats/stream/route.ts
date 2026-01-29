@@ -21,8 +21,9 @@ import { NextResponse } from "next/server";
 import { withRateLimit } from "@/lib/rateLimit";
 import { ensureProjectForRequest, resolveV0ProjectId, generateProjectName } from "@/lib/tenant";
 import { requireNotBot } from "@/lib/botProtection";
-import { devLogAppend, devLogFinalizeSite, devLogStartNewSite } from "@/lib/devLog";
+import { devLogAppend, devLogFinalizeSite, devLogStartNewSite } from "@/lib/logging/devLog";
 import { debugLog } from "@/lib/utils/debug";
+import { sanitizeV0Metadata } from "@/lib/v0/sanitize-metadata";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -299,12 +300,12 @@ export async function POST(req: Request) {
                             v0VersionId: finalVersionId,
                             v0MessageId: messageId || null,
                             demoUrl: finalDemoUrl || null,
-                            metadata: parsed,
+                            metadata: sanitizeV0Metadata(parsed),
                           });
                         } else if (finalDemoUrl) {
                           await db
                             .update(versions)
-                            .set({ demoUrl: finalDemoUrl, metadata: parsed })
+                            .set({ demoUrl: finalDemoUrl, metadata: sanitizeV0Metadata(parsed) })
                             .where(eq(versions.id, existingVersion[0].id));
                         }
                       } catch (dbError) {
@@ -363,12 +364,15 @@ export async function POST(req: Request) {
                         v0VersionId: finalVersionId,
                         v0MessageId: lastMessageId,
                         demoUrl: finalDemoUrl,
-                        metadata: resolved.latestChat ?? null,
+                        metadata: sanitizeV0Metadata(resolved.latestChat ?? null),
                       });
                     } else if (finalDemoUrl) {
                       await db
                         .update(versions)
-                        .set({ demoUrl: finalDemoUrl, metadata: resolved.latestChat ?? null })
+                        .set({
+                          demoUrl: finalDemoUrl,
+                          metadata: sanitizeV0Metadata(resolved.latestChat ?? null),
+                        })
                         .where(eq(versions.id, existingVersion[0].id));
                     }
                   }
@@ -460,7 +464,7 @@ export async function POST(req: Request) {
             v0VersionId: chatData.latestVersion.id || chatData.latestVersion.versionId,
             v0MessageId: chatData.latestVersion.messageId || null,
             demoUrl: chatData.latestVersion.demoUrl || null,
-            metadata: chatData.latestVersion,
+            metadata: sanitizeV0Metadata(chatData.latestVersion),
           });
         }
       } catch (dbError) {

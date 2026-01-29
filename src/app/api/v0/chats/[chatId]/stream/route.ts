@@ -17,8 +17,9 @@ import {
 import { resolveLatestVersion } from "@/lib/v0/resolve-latest-version";
 import { withRateLimit } from "@/lib/rateLimit";
 import { getChatByV0ChatIdForRequest } from "@/lib/tenant";
-import { devLogAppend } from "@/lib/devLog";
+import { devLogAppend } from "@/lib/logging/devLog";
 import { debugLog } from "@/lib/utils/debug";
+import { sanitizeV0Metadata } from "@/lib/v0/sanitize-metadata";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -210,7 +211,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
                         v0VersionId: finalVersionId,
                         v0MessageId: lastMessageId,
                         demoUrl: finalDemoUrl,
-                        metadata: resolved.latestChat ?? null,
+                        metadata: sanitizeV0Metadata(resolved.latestChat ?? null),
                       });
                     }
                   }
@@ -295,7 +296,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
             v0VersionId: versionId,
             v0MessageId: messageResult.messageId || null,
             demoUrl,
-            metadata: messageResult,
+            metadata: sanitizeV0Metadata(messageResult),
           });
         }
       }

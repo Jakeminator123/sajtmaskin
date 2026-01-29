@@ -1,4 +1,4 @@
-export type PromptAssistProvider = "off" | "gateway";
+export type PromptAssistProvider = "off" | "gateway" | "openai-compat";
 
 export function normalizeAssistModel(provider: PromptAssistProvider, rawModel: string): string {
   const raw = String(rawModel || "").trim();

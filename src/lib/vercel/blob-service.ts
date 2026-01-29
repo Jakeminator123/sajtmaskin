@@ -48,6 +48,7 @@ export interface BlobUploadOptions {
 
 // Track if blob warning has been logged (module-level to avoid spam)
 let _blobWarningLogged = false;
+const MAX_SERVER_UPLOAD_BYTES = 4.5 * 1024 * 1024;
 
 /**
  * Check if Vercel Blob is configured
@@ -134,6 +135,13 @@ async function uploadToVercelBlob(
   buffer: Buffer,
   contentType: string,
 ): Promise<{ url: string } | null> {
+  if (buffer.length > MAX_SERVER_UPLOAD_BYTES) {
+    console.warn(
+      `[BlobService] Upload too large for server route (${buffer.length} bytes). ` +
+        "Use client uploads for files > 4.5MB.",
+    );
+    return null;
+  }
   if (!process.env.BLOB_READ_WRITE_TOKEN) {
     console.log("[BlobService] ⚠️ BLOB_READ_WRITE_TOKEN not configured");
     return null;

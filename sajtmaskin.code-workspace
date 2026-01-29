@@ -6,5 +6,7 @@
   ],
   "settings": {
     "terminal.integrated.defaultProfile.windows": "PowerShell 7",
-  },
+    "git.autofetch": false,
+    "git.autofetchPeriod": 0
+  }
 }

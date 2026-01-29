@@ -12,6 +12,14 @@ Primara dokument:
 - LLM/AC-schema.txt
 - LLM/schemas_overview.txt
 - LLM/mijo-logik.txt
+- LLM/v0-prompt-guide.txt (v0 prompt best practices + templates)
+
+MCP-docs (karnlista via docs://local/*):
+- docs://local/WHEN-TO-USE-MCP
+- docs://local/quick-reference
+- docs://local/overview
+- docs://local/docs-index
+- docs://local/error-playbook
 
 Referens:
 - schemas/calls.txt (rot)

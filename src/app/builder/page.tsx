@@ -9,6 +9,7 @@ import { PreviewPanel } from "@/components/builder/PreviewPanel";
 import { SandboxModal } from "@/components/builder/SandboxModal";
 import { VersionHistory } from "@/components/builder/VersionHistory";
 import { BuilderHeader } from "@/components/builder/BuilderHeader";
+import { IntegrationStatusPanel } from "@/components/builder/IntegrationStatusPanel";
 import type { V0UserFileAttachment } from "@/components/media";
 import { Button } from "@/components/ui/button";
 import { clearPersistedMessages } from "@/lib/builder/messagesStorage";
@@ -49,7 +50,6 @@ const MODEL_TIER_TO_QUALITY: Record<ModelTier, QualityLevel> = {
   "v0-max": "max",
 };
 
-
 function BuilderContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -85,10 +85,13 @@ function BuilderContent() {
   const [deployImageStrategy, setDeployImageStrategy] = useState<"external" | "blob">("external");
   const [isIntentionalReset, setIsIntentionalReset] = useState(false);
   const [customInstructions, setCustomInstructions] = useState(DEFAULT_CUSTOM_INSTRUCTIONS);
+  const [applyInstructionsOnce, setApplyInstructionsOnce] = useState(false);
   const hasUserSelectedImageStrategy = useRef(false);
   const hasUserSelectedImageGenerations = useRef(false);
   const hasLoadedInstructions = useRef(false);
   const pendingInstructionsRef = useRef<string | null>(null);
+  const hasLoadedInstructionsOnce = useRef(false);
+  const pendingInstructionsOnceRef = useRef<boolean | null>(null);
 
   const [auditPromptLoaded, setAuditPromptLoaded] = useState(source !== "audit");
   const [resolvedPrompt, setResolvedPrompt] = useState<string | null>(promptParam);
@@ -185,6 +188,52 @@ function BuilderContent() {
       // ignore storage errors
     }
   }, [chatId, customInstructions]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!chatId) {
+      hasLoadedInstructionsOnce.current = false;
+      setApplyInstructionsOnce(false);
+      return;
+    }
+    const storageKey = `sajtmaskin:chatInstructionsOnce:${chatId}`;
+    let stored: string | null = null;
+    try {
+      stored = localStorage.getItem(storageKey);
+    } catch {
+      stored = null;
+    }
+    const pending = pendingInstructionsOnceRef.current;
+    if (stored !== null) {
+      setApplyInstructionsOnce(stored === "true");
+    } else if (pending !== null) {
+      setApplyInstructionsOnce(pending);
+      try {
+        localStorage.setItem(storageKey, String(pending));
+      } catch {
+        // ignore storage errors
+      }
+    } else {
+      setApplyInstructionsOnce(false);
+    }
+    pendingInstructionsOnceRef.current = null;
+    hasLoadedInstructionsOnce.current = true;
+  }, [chatId]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!chatId || !hasLoadedInstructionsOnce.current) return;
+    const storageKey = `sajtmaskin:chatInstructionsOnce:${chatId}`;
+    try {
+      if (applyInstructionsOnce) {
+        localStorage.setItem(storageKey, "true");
+      } else {
+        localStorage.removeItem(storageKey);
+      }
+    } catch {
+      // ignore storage errors
+    }
+  }, [chatId, applyInstructionsOnce]);
 
   const fetchHealthFeatures = useCallback(async (signal?: AbortSignal) => {
     const res = await fetch("/api/health", { signal });
@@ -456,17 +505,18 @@ function BuilderContent() {
     imageGenerations: enableImageGenerations,
   });
 
-  const handlePromptAssistProviderChange = useCallback(
-    (provider: PromptAssistProvider) => {
-      setPromptAssistProvider(provider);
-      if (provider === "off") return;
-      setPromptAssistModel(getDefaultPromptAssistModel(provider));
-    },
-    [],
-  );
+  const handlePromptAssistProviderChange = useCallback((provider: PromptAssistProvider) => {
+    setPromptAssistProvider(provider);
+    if (provider !== "gateway") {
+      setPromptAssistDeep(false);
+    }
+    if (provider === "off") return;
+    setPromptAssistModel(getDefaultPromptAssistModel(provider));
+  }, []);
 
   const promptAssistStatus = useMemo(() => {
     if (promptAssistProvider === "off") return null;
+    if (promptAssistProvider === "openai-compat") return "v0 Model API";
     return `AI Gateway${promptAssistDeep ? " • Djup" : ""}`;
   }, [promptAssistProvider, promptAssistDeep]);
 
@@ -485,9 +535,10 @@ function BuilderContent() {
   // Handle generation completion - validate CSS to prevent runtime errors
   const handleGenerationComplete = useCallback(
     async (data: { chatId: string; versionId?: string; demoUrl?: string }) => {
+      const normalized = pendingInstructionsRef.current?.trim() || "";
+      const shouldApplyOnce = pendingInstructionsOnceRef.current ?? applyInstructionsOnce;
       if (data.chatId) {
-        const normalized = pendingInstructionsRef.current?.trim() || "";
-        if (normalized) {
+        if (normalized && !shouldApplyOnce) {
           try {
             localStorage.setItem(`sajtmaskin:chatInstructions:${data.chatId}`, normalized);
           } catch {
@@ -496,6 +547,31 @@ function BuilderContent() {
           setCustomInstructions(normalized);
         }
         pendingInstructionsRef.current = null;
+        pendingInstructionsOnceRef.current = null;
+        try {
+          const onceKey = `sajtmaskin:chatInstructionsOnce:${data.chatId}`;
+          if (shouldApplyOnce) {
+            localStorage.removeItem(onceKey);
+          } else if (applyInstructionsOnce) {
+            localStorage.setItem(onceKey, "true");
+          } else {
+            localStorage.removeItem(onceKey);
+          }
+        } catch {
+          // ignore storage errors
+        }
+      }
+      if (shouldApplyOnce && normalized) {
+        setCustomInstructions("");
+        setApplyInstructionsOnce(false);
+        if (data.chatId) {
+          try {
+            localStorage.removeItem(`sajtmaskin:chatInstructions:${data.chatId}`);
+          } catch {
+            // ignore storage errors
+          }
+        }
+        toast.success("Instruktioner användes för versionen och rensades.");
       }
       if (data.chatId && data.versionId) {
         // Run CSS validation in background (don't block UI)
@@ -504,7 +580,7 @@ function BuilderContent() {
         });
       }
     },
-    [validateCss],
+    [applyInstructionsOnce, validateCss],
   );
 
   const { isCreatingChat, createNewChat, sendMessage } = useV0ChatMessaging({
@@ -524,27 +600,33 @@ function BuilderContent() {
     resetBeforeCreateChat,
   });
 
+  const captureInstructionSnapshot = useCallback(() => {
+    pendingInstructionsRef.current = customInstructions.trim() || null;
+    pendingInstructionsOnceRef.current = applyInstructionsOnce;
+  }, [customInstructions, applyInstructionsOnce]);
+
   const confirmModelSelection = useCallback(async () => {
     const pending = pendingCreate;
     setIsModelSelectOpen(false);
     setPendingCreate(null);
     setHasSelectedModelTier(true);
     if (!pending) return;
+    captureInstructionSnapshot();
     await createNewChat(pending.message, pending.options);
-  }, [pendingCreate, createNewChat]);
+  }, [pendingCreate, createNewChat, captureInstructionSnapshot]);
 
   const requestCreateChat = useCallback(
     async (message: string, options?: CreateChatOptions) => {
-      pendingInstructionsRef.current = customInstructions.trim() || null;
       if (!chatId && !hasSelectedModelTier) {
         setPendingCreate({ message, options });
         setIsModelSelectOpen(true);
         return false;
       }
+      captureInstructionSnapshot();
       await createNewChat(message, options);
       return true;
     },
-    [chatId, hasSelectedModelTier, createNewChat, customInstructions],
+    [chatId, hasSelectedModelTier, createNewChat, captureInstructionSnapshot],
   );
 
   const handleStartFromRegistry = useCallback(
@@ -557,9 +639,7 @@ function BuilderContent() {
       try {
         resetBeforeCreateChat();
         const quality = MODEL_TIER_TO_QUALITY[selectedModelTier] || "standard";
-        const name = selection.block?.title
-          ? `shadcn/ui: ${selection.block.title}`
-          : undefined;
+        const name = selection.block?.title ? `shadcn/ui: ${selection.block.title}` : undefined;
         const response = await fetch("/api/v0/chats/init-registry", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -570,14 +650,12 @@ function BuilderContent() {
           }),
         });
 
-        const data = (await response.json().catch(() => null)) as
-          | {
-              chatId?: string;
-              demoUrl?: string | null;
-              error?: string;
-              details?: string;
-            }
-          | null;
+        const data = (await response.json().catch(() => null)) as {
+          chatId?: string;
+          demoUrl?: string | null;
+          error?: string;
+          details?: string;
+        } | null;
 
         if (!response.ok || !data?.chatId) {
           throw new Error(data?.error || data?.details || "Kunde inte starta från shadcn/ui");
@@ -631,13 +709,27 @@ function BuilderContent() {
     setPendingCreate(null);
     setHasSelectedModelTier(false);
     setCustomInstructions(DEFAULT_CUSTOM_INSTRUCTIONS);
+    setApplyInstructionsOnce(false);
     pendingInstructionsRef.current = null;
+    pendingInstructionsOnceRef.current = null;
     hasLoadedInstructions.current = false;
+    hasLoadedInstructionsOnce.current = false;
   }, [router, chatId]);
 
   const handleClearPreview = useCallback(() => {
     setCurrentDemoUrl(null);
   }, []);
+
+  const handleFixPreview = useCallback(async () => {
+    if (!chatId) {
+      toast.error("Ingen chat att reparera ännu.");
+      return;
+    }
+    const prompt = currentDemoUrl
+      ? "Preview verkar vara fel eller laddar inte. Fixa versionen och returnera en fungerande demoUrl. Behåll layouten om möjligt."
+      : "Preview-länk saknas. Regenerera senaste versionen så att en demoUrl returneras.";
+    await sendMessage(prompt);
+  }, [chatId, currentDemoUrl, sendMessage]);
 
   const handleVersionSelect = useCallback(
     (versionId: string) => {
@@ -708,6 +800,8 @@ function BuilderContent() {
           onPromptAssistDeepChange={setPromptAssistDeep}
           customInstructions={customInstructions}
           onCustomInstructionsChange={setCustomInstructions}
+          applyInstructionsOnce={applyInstructionsOnce}
+          onApplyInstructionsOnceChange={setApplyInstructionsOnce}
           enableImageGenerations={enableImageGenerations}
           onEnableImageGenerationsChange={handleEnableImageGenerationsChange}
           imageGenerationsSupported={isImageGenerationsSupported}
@@ -738,6 +832,7 @@ function BuilderContent() {
 
         <div className="flex flex-1 overflow-hidden">
           <div className="border-border bg-background flex w-full flex-col border-r lg:w-96">
+            <IntegrationStatusPanel />
             <div className="flex-1 overflow-hidden">
               <MessageList
                 chatId={chatId}
@@ -767,6 +862,7 @@ function BuilderContent() {
                 demoUrl={currentDemoUrl}
                 isLoading={isAnyStreaming || isCreatingChat}
                 onClear={handleClearPreview}
+                onFixPreview={handleFixPreview}
                 refreshToken={previewRefreshToken}
               />
             </div>

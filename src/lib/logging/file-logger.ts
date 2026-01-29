@@ -3,11 +3,11 @@
  * ==================================
  *
  * Logs detailed information about API usage, orchestrator flow,
- * and preview rendering to a file in the project root.
+ * and preview rendering to a file under logs/.
  *
  * ENABLE: Set SAJTMASKIN_LOG=true in .env.local
  *
- * Logs to: sajtmaskin.log (automatically ignored by .gitignore)
+ * Logs to: logs/sajtmaskin.log (automatically ignored by .gitignore)
  *
  * IMPORTANT: Never log actual secret values (API keys, passwords)!
  * Only log metadata like "gatewayKeyPresent: true/false"
@@ -18,7 +18,7 @@ import path from "path";
 
 // Check if logging is enabled via environment
 const LOG_ENABLED = process.env.SAJTMASKIN_LOG === "true";
-const LOG_PATH = path.join(process.cwd(), "sajtmaskin.log");
+const LOG_PATH = path.join(process.cwd(), "logs", "sajtmaskin.log");
 
 // Max log file size (5MB) - will be cleared when exceeded
 const MAX_LOG_SIZE = 5 * 1024 * 1024;
@@ -27,6 +27,26 @@ export interface LogRecord {
   source: string;
   event: string;
   details?: Record<string, unknown>;
+}
+
+const SENSITIVE_KEY_PATTERN = /(token|secret|password|authorization|cookie|key)/i;
+
+function sanitizeDetails(value: unknown, depth = 0): unknown {
+  if (depth > 5) return "[truncated]";
+  if (!value || typeof value !== "object") return value;
+  if (Array.isArray(value)) {
+    return value.map((entry) => sanitizeDetails(entry, depth + 1));
+  }
+  const obj = value as Record<string, unknown>;
+  const sanitized: Record<string, unknown> = {};
+  for (const [key, entry] of Object.entries(obj)) {
+    if (SENSITIVE_KEY_PATTERN.test(key)) {
+      sanitized[key] = "[redacted]";
+      continue;
+    }
+    sanitized[key] = sanitizeDetails(entry, depth + 1);
+  }
+  return sanitized;
 }
 
 /**
@@ -40,13 +60,27 @@ export function isFileLoggingEnabled(): boolean {
  * Format a log entry as a single line of JSON
  */
 function formatLogEntry(record: LogRecord): string {
+  const details = record.details
+    ? (sanitizeDetails(record.details) as Record<string, unknown>)
+    : {};
   const entry = {
     ts: new Date().toISOString(),
     source: record.source,
     event: record.event,
-    ...record.details,
+    ...details,
   };
   return JSON.stringify(entry) + "\n";
+}
+
+/**
+ * Check log file size and clear if too large
+ */
+function ensureLogDir(): void {
+  try {
+    fs.mkdirSync(path.dirname(LOG_PATH), { recursive: true });
+  } catch {
+    // Ignore directory creation errors
+  }
 }
 
 /**
@@ -76,6 +110,7 @@ export async function logEvent(record: LogRecord): Promise<void> {
   if (!LOG_ENABLED) return;
 
   try {
+    ensureLogDir();
     checkAndRotateLog();
     const entry = formatLogEntry(record);
     await fs.promises.appendFile(LOG_PATH, entry, "utf8");
@@ -92,6 +127,7 @@ export function logEventSync(record: LogRecord): void {
   if (!LOG_ENABLED) return;
 
   try {
+    ensureLogDir();
     checkAndRotateLog();
     const entry = formatLogEntry(record);
     fs.appendFileSync(LOG_PATH, entry, "utf8");
@@ -126,13 +162,7 @@ export function logAIProvider(details: {
  * Log orchestrator flow
  */
 export function logOrchestrator(details: {
-  event:
-    | "start"
-    | "router_result"
-    | "enhancement"
-    | "api_call"
-    | "complete"
-    | "error";
+  event: "start" | "router_result" | "enhancement" | "api_call" | "complete" | "error";
   intent?: string;
   apisUsed?: string[];
   enhancers?: string[];

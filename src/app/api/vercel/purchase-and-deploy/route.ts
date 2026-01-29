@@ -182,6 +182,7 @@ export async function POST(request: NextRequest) {
 
     const body: PurchaseAndDeployRequest = await request.json();
     const { projectId, domain, years = 1, contactInfo, projectName, framework, teamId } = body;
+    const resolvedTeamId = teamId || process.env.VERCEL_TEAM_ID?.trim() || undefined;
 
     // Validate required fields
     if (!projectId || typeof projectId !== "string") {
@@ -259,7 +260,7 @@ export async function POST(request: NextRequest) {
       domain,
       normalizedContactInfo,
       years,
-      teamId,
+      resolvedTeamId,
     );
 
     if (!purchaseResult.success) {
@@ -309,7 +310,7 @@ export async function POST(request: NextRequest) {
         framework: framework || "nextjs",
         target: "production",
         // Don't pass domain here - we'll add it after deployment is ready
-        teamId,
+        teamId: resolvedTeamId,
       });
 
       if (!deploymentResult.success) {
@@ -349,10 +350,10 @@ export async function POST(request: NextRequest) {
     let customDomainUrl: string | undefined;
     try {
       // Get Vercel project
-      const vercelProject = await getProject(finalProjectName, teamId);
+      const vercelProject = await getProject(finalProjectName, resolvedTeamId);
 
       // Add domain to project
-      await addDomainToProject(vercelProject.id, domain, teamId);
+      await addDomainToProject(vercelProject.id, domain, resolvedTeamId);
       domainAdded = true;
       customDomainUrl = `https://${domain}`;
 

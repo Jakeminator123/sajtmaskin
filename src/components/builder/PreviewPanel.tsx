@@ -15,6 +15,7 @@ interface PreviewPanelProps {
   demoUrl: string | null;
   isLoading?: boolean;
   onClear?: () => void;
+  onFixPreview?: () => void;
   refreshToken?: number;
 }
 
@@ -24,6 +25,7 @@ export function PreviewPanel({
   demoUrl,
   isLoading: externalLoading,
   onClear,
+  onFixPreview,
   refreshToken,
 }: PreviewPanelProps) {
   const [iframeLoading, setIframeLoading] = useState(true);
@@ -207,6 +209,11 @@ export function PreviewPanel({
         <p className="text-sm">
           {externalLoading ? "AI tänker... preview kommer strax" : "Skapa något för att se preview"}
         </p>
+        {onFixPreview && !externalLoading && (
+          <Button className="mt-4" onClick={onFixPreview} disabled={externalLoading}>
+            Försök reparera preview
+          </Button>
+        )}
       </div>
     );
   }
@@ -315,10 +322,17 @@ export function PreviewPanel({
               <p className="mb-4 text-center text-sm text-gray-400">
                 Preview kunde inte laddas i iframe. Öppna i ny flik istället.
               </p>
-              <Button onClick={handleOpenInNewTab}>
-                <ExternalLink className="mr-2 h-4 w-4" />
-                Öppna i ny flik
-              </Button>
+              <div className="flex flex-wrap items-center justify-center gap-2">
+                <Button onClick={handleOpenInNewTab}>
+                  <ExternalLink className="mr-2 h-4 w-4" />
+                  Öppna i ny flik
+                </Button>
+                {onFixPreview && (
+                  <Button variant="outline" onClick={onFixPreview} disabled={isLoading}>
+                    Försök reparera preview
+                  </Button>
+                )}
+              </div>
             </div>
           )}
 
