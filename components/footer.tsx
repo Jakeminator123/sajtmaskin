@@ -194,7 +194,7 @@ export function Footer() {
         {/* Bottom */}
         <div className="py-8 border-t border-border/30 flex flex-col md:flex-row items-center justify-between gap-4">
           <div className="text-center md:text-left">
-            <p className="text-sm text-muted-foreground">© 2024 Training Ground AB. Org.nr: 559548-5441</p>
+            <p className="text-sm text-muted-foreground">© {new Date().getFullYear()} Training Ground AB. Org.nr: 559548-5441</p>
           </div>
           <div className="flex gap-6 text-xs text-muted-foreground">
             <Link href="#" className="hover:text-accent transition-colors">Integritet</Link>
