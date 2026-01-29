@@ -1,27 +1,77 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+# =============================================================================
+# SAJTMASKIN .gitignore
+# =============================================================================
 
-# dependencies
-/node_modules
+# Node/Next.js
+node_modules/
+.next/
+out/
+.cache/
+dist/
+build/
+coverage/
 
-# next.js
-/.next/
-/out/
+# Generated files (recreated on build)
+tsconfig.tsbuildinfo
+next-env.d.ts
 
-# production
-/build
+# Environment files (NEVER commit secrets!)
+.env
+.env.*
+.env.local
+*.pem
+.env.production
 
-# debug
+# Database files (local data, not for git)
+data/*.db
+data/*.db-shm
+data/*.db-wal
+data/uploads/
+
+# MCP scraped documentation (60+ MB, regenerate with doc.py)
+services/mpc/docs/docgrab__*/
+services/mpc/logs/
+
+# Editor/OS
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Cursor-specific (plans are session-specific, mcp.json is shared)
+.cursor/plans/
+
+# Logs
+*.log
 npm-debug.log*
 yarn-debug.log*
-yarn-error.log*
-.pnpm-debug.log*
+pnpm-debug.log*
+mcp-monitoring-report.txt
 
-# env files
-.env*
+# Temp/dev files
+.preprompt_history.json
+env.procuction
+env.local
+övrigt
+skrapning
 
-# vercel
+# Avoid accidentally committing a nested clone/repo
+sajtgen
+
+# Large local docs/specs (keep out of git unless intentionally added)
+SiteStudio_Projektspecifikation_ifillningsbar_v2.pdf
+
+# Local env dumps (often contain secrets)
+environments.production
+vercel-env-deploy.txt
+
+SiteStudio_Projektspecifikation_ifillningsbar_v2.pdf
+
+old
+old/
+
 .vercel
+.env*.local
 
-# typescript
-*.tsbuildinfo
-next-env.d.ts
+.vercel
+.env*.local

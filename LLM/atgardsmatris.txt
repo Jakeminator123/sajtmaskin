@@ -1,0 +1,129 @@
+SAJTMASKIN - ATGARDSMATRIS
+Syfte: Samla buggar/forbattringar efter var de uppstar i flodet.
+Instruktion: Laggtill punkter under respektive FLOW.
+Datum: 2026-01-24
+
+==============================================================================
+AKTUELLA OBSERVATIONER (START)
+==============================================================================
+- [ ] Prompt Assist logg visar /api/ai/chat (gateway + system prompt rewrite).
+      Forvantat beteende nar AI-assist ar pa.
+- [x] v0-systemprompt aktiv: system skickas i /api/v0/chats(/stream).
+- [x] Custom Instructions per chat (lagras lokalt per chatId).
+- [x] Manuell "Forbattra" skippar auto-assist (ingen dubbel omskrivning).
+- [x] imageGenerations styrs av v0-tillganglighet, inte Blob.
+- [x] /builder?prompt=... visar raa input (forifyllning),
+      slutlig prompt skickas efter assist i /api/v0/chats/stream.
+- [x] A11y (forstasidan): prompt textarea saknar id/name.
+      Fil: src/components/forms/prompt-input.tsx
+- [x] A11y (builder): form field saknar label/aria-label (flera kandidater).
+      Fil: src/components/ai-elements/prompt-input.tsx
+      Fil: src/components/media/file-upload-zone.tsx
+      Fil: src/components/media/media-drawer.tsx
+- [ ] Svar stannar efter "Lat mig bryta ned det:" (textContent saknas).
+      Trolig orsak: svar hamnar i plan/tool UI-delar utan vanlig text.
+- [x] "Calls Running" visar nu debug-info och forklart om output saknas.
+- [x] "Infosajt for kontorshotell" pill har nu label ("Plan actions").
+- [ ] Text saknar ibland mellanrum vid streaming.
+      Mojlig orsak: streaming-delar utan whitespace.
+      Mitigation: lagg till forsiktig mellanslagshantering vid merge.
+- [ ] CORB-varning for extern bild (images.unsplash.com/photo-...).
+      Trolig orsak: klient-forsok att lasa korsdomansvar med fetch/XHR.
+      Mojlig losning: anvand <img>/next/image eller proxy via backend.
+- [ ] Preload-varning for .woff2 (preload men ej anvand snabbt).
+      Trolig orsak: next/font preloader fonter som inte anvands tidigt.
+      Mojlig losning: anvand fonten direkt i initial render,
+      eller satt preload: false for font som ej behovs direkt.
+
+==============================================================================
+STRUKTUR: INGANGAR TILL BUILDERN
+==============================================================================
+1) FORSTASIDAN (/)
+   FLOW: HOME_FREEFORM
+   - Entry: Fritext -> /builder?prompt=...
+   - Backend: /api/v0/chats/stream (skapas vid forsta skick)
+   - Buggar/Obs:
+     - [x] A11y: prompt textarea saknar id/name.
+
+   FLOW: HOME_WIZARD
+   - Entry: Wizard -> /builder?prompt=...
+   - Backend: /api/v0/chats/stream (skapas vid forsta skick)
+   - Buggar/Obs:
+     - [ ]
+
+   FLOW: HOME_AUDIT
+   - Entry: Audit -> /builder?source=audit&auditId=...
+   - Backend: /api/v0/chats/stream (skapas vid forsta skick)
+   - Buggar/Obs:
+     - [ ]
+
+   FLOW: HOME_CATEGORY
+   - Entry: Valt kategori -> /category/[type]
+   - Backend: Ingen direkt (endast navigation)
+   - Buggar/Obs:
+     - [ ]
+
+2) CATEGORY PAGE (/category/[type])
+   FLOW: CATEGORY_PROMPT
+   - Entry: Egen prompt -> /builder?project=...&type=...&prompt=...
+   - Backend: /api/v0/chats/stream (skapas vid forsta skick)
+   - Buggar/Obs:
+     - [ ]
+
+   FLOW: CATEGORY_QUICK_PROMPT
+   - Entry: Snabbval -> /builder?project=...&type=...&prompt=...
+   - Backend: /api/v0/chats/stream (skapas vid forsta skick)
+   - Buggar/Obs:
+     - [ ]
+
+   FLOW: CATEGORY_TEMPLATE
+   - Entry: V0 template -> /builder?project=...&templateId=...
+   - Backend: /api/template (init direkt)
+   - Buggar/Obs:
+     - [ ]
+
+3) PROJECTS PAGE (/projects)
+   FLOW: PROJECT_OPEN
+   - Entry: Oppen -> /builder?project=...
+   - Backend: Ingen direkt (existerande projekt)
+   - Buggar/Obs:
+     - [ ]
+
+4) BUILDER DIREKT (/builder)
+   FLOW: BUILDER_CHATID
+   - Entry: /builder?chatId=...
+   - Backend: Ingen direkt (existerande chat)
+   - Buggar/Obs:
+     - [x] A11y: prompt input har id/name/aria-label
+     - [x] Tool debug-info visas i strukturerat lage
+     - [x] Plan-actions har label
+
+   FLOW: BUILDER_IMPORT
+   - Entry: Import (GitHub/ZIP)
+   - Backend: /api/v0/chats/init
+   - Buggar/Obs:
+     - [ ]
+
+   FLOW: BUILDER_BLOCKS
+   - Entry: Blocks (shadcn registry)
+   - Backend: /api/v0/chats/init-registry
+   - Buggar/Obs:
+     - [ ]
+
+   FLOW: BUILDER_TEMPLATE
+   - Entry: /builder?templateId=... (auto init)
+   - Backend: /api/template
+   - Buggar/Obs:
+     - [ ]
+
+==============================================================================
+KONFIG & DEPLOY
+==============================================================================
+- [x] .vercel projectId matchar VERCEL_PROJECT_ID i .env.local
+- [x] .vercel orgId matchar VERCEL_TEAM_ID i .env.local
+- [x] .vercel projectId matchar VERCEL_PROJECT_ID i .env.production
+- [x] .vercel orgId matchar VERCEL_TEAM_ID i .env.production
+- [x] .env.production hade dubblerad VERCEL_PROJECT_ID (samma varde).
+- [ ] VERCEL_OIDC_TOKEN verkar vara dev-scope och ligger i .env.production.
+      Rek: lagg inte OIDC-token i prod-file om den inte behovs dar.
+

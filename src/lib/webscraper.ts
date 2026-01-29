@@ -1,0 +1,857 @@
+/**
+ * Website scraper for audit feature
+ * Extracts multi-page content so the audit is not limited to a weak landing page.
+ */
+
+import type { WebsiteContent } from "@/types/audit";
+
+// Crawl settings
+const MAX_PAGES = 4; // root + up to three strong internal pages
+const PRIMARY_MIN_WORDS = 160; // prefer pages with real copy, not just hero
+const SECONDARY_MIN_WORDS = 80; // minimum words to include a secondary page
+const MIN_AGGREGATION_WORDS = 40; // skip near-empty pages from aggregation
+const AGGREGATE_WORD_LIMIT = 2000; // cap aggregated text to reduce token usage
+const MAX_LINKS_TO_CONSIDER = 25; // cap to avoid crawling too broadly
+const SITEMAP_URL_LIMIT = 40; // cap sitemap URLs to consider
+const SITEMAP_INDEX_LIMIT = 3; // cap sitemap index fan-out
+
+type CandidateLink = {
+  url: string;
+  anchor?: string;
+  score: number;
+};
+
+type ParsedPage = WebsiteContent & {
+  linksForFollow: CandidateLink[];
+};
+
+function pageRichnessScore(page: ParsedPage): number {
+  const topLinkScore = page.linksForFollow[0]?.score ?? 0;
+  return page.wordCount + topLinkScore * 15 + page.headings.length * 8;
+}
+
+// Use dynamic import for cheerio to avoid build issues
+async function getCheerio() {
+  const cheerio = await import("cheerio");
+  return cheerio;
+}
+
+function normalizeInputUrl(url: string): string {
+  const trimmed = url.trim();
+  if (!trimmed) return trimmed;
+  if (!trimmed.startsWith("http://") && !trimmed.startsWith("https://")) {
+    return `https://${trimmed}`;
+  }
+  return trimmed;
+}
+
+function isLikelyHtml(contentType: string | null): boolean {
+  if (!contentType) return false;
+  return contentType.includes("text/html") || contentType.includes("application/xhtml+xml");
+}
+
+function absoluteUrl(href: string, base: URL): string | null {
+  if (!href) return null;
+  const trimmed = href.trim();
+
+  if (!trimmed || trimmed.startsWith("javascript:")) return null;
+  if (trimmed.startsWith("mailto:") || trimmed.startsWith("tel:")) return null;
+
+  try {
+    if (trimmed.startsWith("//")) {
+      return `${base.protocol}${trimmed}`;
+    }
+    if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+      return trimmed;
+    }
+    if (trimmed.startsWith("#")) {
+      return null; // fragment only
+    }
+    return new URL(trimmed, base).toString();
+  } catch {
+    return null;
+  }
+}
+
+function scoreLink(url: string, anchor?: string): number {
+  const value = `${url} ${anchor || ""}`.toLowerCase();
+  let score = 0;
+
+  // Prefer core navigation/overview pages
+  if (value.includes("om oss") || value.includes("about")) score += 6;
+  if (value.includes("tjänster") || value.includes("services")) score += 5;
+  if (value.includes("produkter") || value.includes("product")) score += 4;
+  if (value.includes("portfolio") || value.includes("case") || value.includes("work")) score += 3;
+  if (value.includes("blog") || value.includes("nyheter")) score += 2;
+  if (value.includes("home") || value.includes("hem") || value.includes("start")) score += 2;
+  if (value.includes("kontakt") || value.includes("contact")) score += 1;
+
+  // Penalize low-value/legal-only links
+  if (
+    value.includes("policy") ||
+    value.includes("cookie") ||
+    value.includes("privacy") ||
+    value.includes("integritet") ||
+    value.includes("terms")
+  ) {
+    score -= 4;
+  }
+  if (value.includes("login") || value.includes("logga in") || value.includes("signup")) {
+    score -= 3;
+  }
+
+  // Slight boost for short, clean paths
+  const pathSegments = url.split("/").filter(Boolean);
+  if (pathSegments.length <= 2) score += 1;
+
+  return score;
+}
+
+function dedupeLinks(links: CandidateLink[]): CandidateLink[] {
+  const seen = new Set<string>();
+  const result: CandidateLink[] = [];
+
+  for (const link of links) {
+    if (seen.has(link.url)) continue;
+    seen.add(link.url);
+    result.push(link);
+  }
+
+  return result;
+}
+
+async function fetchWithTimeout(
+  url: string,
+  timeoutMs: number,
+  headers?: Record<string, string>,
+): Promise<Response> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
+  try {
+    return await fetch(url, {
+      signal: controller.signal,
+      redirect: "follow",
+      headers: headers || undefined,
+    });
+  } finally {
+    clearTimeout(timeout);
+  }
+}
+
+function extractSitemapLocs(xml: string): string[] {
+  const locs: string[] = [];
+  const regex = /<loc>\s*([^<\s]+)\s*<\/loc>/gi;
+  let match: RegExpExecArray | null;
+  while ((match = regex.exec(xml))) {
+    const value = match[1]?.trim();
+    if (value) locs.push(value);
+  }
+  return locs;
+}
+
+async function fetchSitemapUrls(origin: string): Promise<string[]> {
+  const sitemapUrl = `${origin.replace(/\/$/, "")}/sitemap.xml`;
+  try {
+    const res = await fetchWithTimeout(sitemapUrl, 8000, {
+      Accept: "application/xml,text/xml,*/*;q=0.8",
+      "User-Agent":
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36",
+    });
+    if (!res.ok) return [];
+    const xml = await res.text();
+    if (!xml || xml.length < 20) return [];
+
+    const locs = extractSitemapLocs(xml);
+    if (locs.length === 0) return [];
+
+    // If this is a sitemap index, fetch a few child sitemaps and merge URLs.
+    const isIndex = /<sitemapindex\b/i.test(xml);
+    if (isIndex) {
+      const childSitemaps = locs.slice(0, SITEMAP_INDEX_LIMIT);
+      const childUrls: string[] = [];
+      for (const child of childSitemaps) {
+        try {
+          const childRes = await fetchWithTimeout(child, 8000, {
+            Accept: "application/xml,text/xml,*/*;q=0.8",
+          });
+          if (!childRes.ok) continue;
+          const childXml = await childRes.text();
+          childUrls.push(...extractSitemapLocs(childXml));
+        } catch {
+          // ignore individual sitemap failures
+        }
+      }
+      return childUrls;
+    }
+
+    // Regular sitemap: locs are the URLs.
+    return locs;
+  } catch {
+    return [];
+  }
+}
+
+function isLikelyWordPressHtml(html: string): boolean {
+  return (
+    /wp-content|wp-includes|\/wp-json\//i.test(html) ||
+    /<meta[^>]+name=["']generator["'][^>]+wordpress/i.test(html)
+  );
+}
+
+async function tryWordPressFallback(
+  html: string,
+  url: string,
+): Promise<{ text: string; headings: string[]; source: string } | null> {
+  // Avoid WP fallback if the page doesn't look like WordPress.
+  if (!isLikelyWordPressHtml(html)) {
+    return null;
+  }
+
+  const cheerio = await getCheerio();
+  const $ = cheerio.load(html);
+  const baseUrl = new URL(url);
+
+  const candidates: string[] = [];
+
+  const addCandidate = (href: string | null | undefined) => {
+    if (!href) return;
+    const abs = absoluteUrl(href, baseUrl);
+    if (!abs) return;
+    if (!abs.includes("/wp-json/")) return;
+    candidates.push(abs);
+  };
+
+  // WordPress exposes JSON entry points we can reuse when HTML is JS-gated
+  addCandidate($('link[rel="alternate"][type="application/json"]').attr("href"));
+  const shortlinkHref = $('link[rel="shortlink"]').attr("href");
+  if (shortlinkHref) {
+    try {
+      const shortUrl = new URL(absoluteUrl(shortlinkHref, baseUrl) ?? shortlinkHref);
+      const id = shortUrl.searchParams.get("p");
+      if (id) {
+        candidates.push(`${shortUrl.origin}/wp-json/wp/v2/posts/${id}`);
+      }
+    } catch {
+      // ignore invalid shortlink
+    }
+  }
+
+  const canonicalHref = $('link[rel="canonical"]').attr("href") || url;
+  try {
+    const canonicalUrl = new URL(absoluteUrl(canonicalHref, baseUrl) ?? canonicalHref);
+    const pathSegments = canonicalUrl.pathname.split("/").filter(Boolean);
+    const slug = pathSegments[pathSegments.length - 1];
+    const apiBase = `${canonicalUrl.protocol}//${canonicalUrl.host}`;
+    if (slug) {
+      candidates.push(`${apiBase}/wp-json/wp/v2/posts?slug=${slug}`);
+      candidates.push(`${apiBase}/wp-json/wp/v2/pages?slug=${slug}`);
+    }
+  } catch {
+    // ignore invalid canonical
+  }
+
+  const uniqueCandidates = Array.from(new Set(candidates));
+
+  for (const candidate of uniqueCandidates) {
+    try {
+      const response = await fetch(candidate, {
+        headers: { Accept: "application/json" },
+      });
+      if (!response.ok) continue;
+
+      const contentType = response.headers.get("content-type") || "";
+      if (!contentType.includes("application/json")) {
+        // Not a JSON API response (likely not WP) - skip silently
+        continue;
+      }
+
+      const json = await response.json();
+      const node = Array.isArray(json) ? json[0] : json;
+      const contentHtml: string | undefined = node?.content?.rendered || node?.excerpt?.rendered;
+      if (!contentHtml || typeof contentHtml !== "string") continue;
+
+      const wp$ = cheerio.load(contentHtml);
+      const text = wp$.text().replace(/\s+/g, " ").trim();
+      const words = text.split(" ").filter((word) => word.trim().length > 0);
+      if (words.length < 30) continue; // still too thin to be useful
+
+      const headings: string[] = [];
+      wp$("h1, h2, h3").each((_, el) => {
+        const text = wp$(el).text().trim();
+        if (text && headings.length < 25) headings.push(text);
+      });
+
+      return { text, headings, source: candidate };
+    } catch (error) {
+      console.warn(
+        `[WebScraper] WP fallback failed for ${candidate}: ${
+          error instanceof Error ? error.message : "unknown error"
+        }`,
+      );
+    }
+  }
+
+  return null;
+}
+
+async function fetchPage(url: string): Promise<{
+  html: string;
+  finalUrl: string;
+  responseTime: number;
+}> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 15000); // 15s timeout
+
+  const start = Date.now();
+  let response: Response;
+
+  try {
+    const urlObj = new URL(url);
+    response = await fetch(url, {
+      signal: controller.signal,
+      headers: {
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        Accept:
+          "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+        "Accept-Language": "sv-SE,sv;q=0.9,en-US;q=0.8,en;q=0.7",
+        "Accept-Encoding": "gzip, deflate, br",
+        "Cache-Control": "no-cache",
+        Pragma: "no-cache",
+        Referer: `${urlObj.protocol}//${urlObj.host}/`,
+        "Sec-Fetch-Dest": "document",
+        "Sec-Fetch-Mode": "navigate",
+        "Sec-Fetch-Site": "none",
+        "Sec-Fetch-User": "?1",
+        "Upgrade-Insecure-Requests": "1",
+      },
+      redirect: "follow",
+    });
+  } catch (fetchError) {
+    clearTimeout(timeout);
+    if (fetchError instanceof Error) {
+      // Handle abort timeout
+      if (fetchError.name === "AbortError") {
+        throw new Error("Timeout: Hemsidan svarade inte inom 15 sekunder");
+      }
+      // Handle connection timeout (from undici/node)
+      const errorMessage = fetchError.message || "";
+      const cause = fetchError.cause as { code?: string; message?: string } | undefined;
+      const causeMessage = cause?.message || "";
+      const causeCode = cause?.code || "";
+      if (
+        errorMessage.includes("ConnectTimeout") ||
+        errorMessage.includes("Connect Timeout") ||
+        errorMessage.includes("ETIMEDOUT") ||
+        causeMessage.includes("ConnectTimeout") ||
+        causeMessage.includes("Connect Timeout") ||
+        causeCode === "UND_ERR_CONNECT_TIMEOUT" ||
+        causeCode === "ETIMEDOUT"
+      ) {
+        const domain = new URL(url).hostname;
+        throw new Error(
+          `Timeout: Kunde inte ansluta till ${domain}. ` +
+            `Servern svarade inte på anslutningsförsöket. ` +
+            `Detta kan bero på att sidan är nere, har brandvägg som blockerar, eller har nätverksproblem. ` +
+            `Försök igen om en stund eller kontrollera att URL:en är korrekt.`,
+        );
+      }
+      // Handle DNS errors
+      if (errorMessage.includes("ENOTFOUND") || causeMessage.includes("ENOTFOUND")) {
+        const domain = new URL(url).hostname;
+        throw new Error(
+          `DNS-fel: Kunde inte hitta domänen ${domain}. ` +
+            `Kontrollera att URL:en är korrekt stavad.`,
+        );
+      }
+      // Handle connection refused
+      if (errorMessage.includes("ECONNREFUSED") || causeMessage.includes("ECONNREFUSED")) {
+        const domain = new URL(url).hostname;
+        throw new Error(
+          `Anslutning nekad: Servern ${domain} avvisade anslutningen. ` +
+            `Sidan kan vara nere eller ha problem.`,
+        );
+      }
+    }
+    throw fetchError;
+  } finally {
+    clearTimeout(timeout);
+  }
+
+  if (!response.ok) {
+    const status = response.status;
+    if (status === 403) {
+      const domain = new URL(url).hostname;
+      throw new Error(
+        `403 Forbidden: ${domain} blockerar automatiska requests. ` +
+          `Många stora webbplatser (t.ex. IKEA, Amazon, etc.) använder Cloudflare eller liknande bot-skydd som förhindrar automatisk scraping. ` +
+          `Tyvärr kan vi inte kringgå dessa säkerhetsåtgärder. ` +
+          `Försök med en annan webbplats eller kontakta webbplatsens ägare om du behöver analysera deras sida.`,
+      );
+    }
+    if (status === 401) {
+      throw new Error(
+        `401 Unauthorized: Webbplatsen kräver autentisering för att komma åt innehållet.`,
+      );
+    }
+    if (status === 404) {
+      throw new Error(`404 Not Found: Sidan kunde inte hittas på den angivna URL:en.`);
+    }
+    if (status >= 500) {
+      throw new Error(
+        `Serverfel (${status}): Webbplatsens server svarar inte korrekt. Försök igen senare.`,
+      );
+    }
+    throw new Error(`HTTP-fel: ${status} ${response.statusText}`);
+  }
+
+  const contentType = response.headers.get("content-type");
+  if (!isLikelyHtml(contentType)) {
+    throw new Error("Hittade inget HTML-innehåll att analysera");
+  }
+
+  const html = await response.text();
+  const responseTime = Date.now() - start;
+
+  return {
+    html,
+    finalUrl: response.url || url,
+    responseTime,
+  };
+}
+
+async function parsePage(html: string, url: string, responseTime: number): Promise<ParsedPage> {
+  const cheerio = await getCheerio();
+  const $ = cheerio.load(html);
+  const baseUrl = new URL(url);
+
+  const scriptCountBeforeCleanup = $("script").length;
+
+  // Remove noise
+  $("script, style, noscript").remove();
+
+  // Extract core fields
+  const title = $("title").text().trim() || "Ingen titel";
+  const description =
+    $('meta[name="description"]').attr("content") ||
+    $('meta[property="og:description"]').attr("content") ||
+    "";
+
+  let headings: string[] = [];
+  $("h1, h2, h3").each((_, el) => {
+    const text = $(el).text().trim();
+    if (text && headings.length < 25) headings.push(text);
+  });
+
+  // Extract text from body, removing script/style content
+  // Try to get text from main content areas first, fallback to body
+  let bodyText = "";
+
+  // Try main content areas (better for modern sites)
+  const mainContent = $("main, article, [role='main'], .content, .main-content").first();
+  if (mainContent.length > 0) {
+    bodyText = mainContent.text();
+  }
+
+  // Fallback to body if main content is empty or very short
+  if (!bodyText || bodyText.trim().length < 50) {
+    bodyText = $("body").text();
+  }
+
+  // Clean up whitespace
+  bodyText = bodyText.replace(/\s+/g, " ").trim();
+
+  // Split into words and filter out empty strings
+  let words = bodyText.split(" ").filter((word) => word.trim().length > 0);
+  let limitedText = words.slice(0, 1500).join(" ");
+  let wordCount = words.length;
+
+  // Log warning if very little content found (might be JS-rendered)
+  if (wordCount < 10) {
+    console.warn(
+      `[WebScraper] Very little text found (${wordCount} words) for ${url}. ` +
+        `This might be a JavaScript-rendered page. Found ${scriptCountBeforeCleanup} script tags. ` +
+        `Body text length: ${bodyText.length} chars.`,
+    );
+  }
+
+  // Fallback for JS/Cloudflare gated WordPress pages
+  if (wordCount < SECONDARY_MIN_WORDS) {
+    const wpFallback = await tryWordPressFallback(html, url);
+    if (wpFallback) {
+      const fallbackWords = wpFallback.text.split(" ").filter((word) => word.trim().length > 0);
+      if (fallbackWords.length > wordCount) {
+        words = fallbackWords;
+        wordCount = fallbackWords.length;
+        limitedText = fallbackWords.slice(0, 1500).join(" ");
+        headings = Array.from(new Set([...headings, ...wpFallback.headings].filter(Boolean))).slice(
+          0,
+          25,
+        );
+        bodyText = wpFallback.text;
+        console.info(
+          `[WebScraper] Used WordPress JSON fallback for ${url} (${wordCount} words) from ${wpFallback.source}`,
+        );
+      }
+    }
+  }
+
+  let internalLinks = 0;
+  let externalLinks = 0;
+  const images = $("img").length;
+
+  const linksForFollow: CandidateLink[] = [];
+
+  // Canonical/OG URLs are strong candidates
+  const canonicalHref = $('link[rel="canonical"]').attr("href");
+  const ogHref = $('meta[property="og:url"]').attr("content");
+
+  [canonicalHref, ogHref].forEach((href) => {
+    if (!href) return;
+    const abs = absoluteUrl(href, baseUrl);
+    if (!abs) return;
+    try {
+      const u = new URL(abs);
+      if (u.hostname !== baseUrl.hostname) return;
+      linksForFollow.push({
+        url: u.toString(),
+        anchor: "canonical",
+        score: 10,
+      });
+    } catch {
+      // Ignore invalid canonical
+    }
+  });
+
+  $("a[href]").each((_, el) => {
+    const href = $(el).attr("href");
+    const anchor = $(el).text().trim();
+    if (!href) return;
+
+    const abs = absoluteUrl(href, baseUrl);
+    if (!abs) return;
+
+    try {
+      const linkUrl = new URL(abs);
+      if (linkUrl.hostname === baseUrl.hostname) {
+        internalLinks++;
+        const scored: CandidateLink = {
+          url: linkUrl.toString(),
+          anchor,
+          score: scoreLink(linkUrl.pathname, anchor),
+        };
+        linksForFollow.push(scored);
+      } else {
+        externalLinks++;
+      }
+    } catch {
+      // Skip invalid URLs
+    }
+  });
+
+  const meta = {
+    keywords: $('meta[name="keywords"]').attr("content"),
+    author: $('meta[name="author"]').attr("content"),
+    viewport: $('meta[name="viewport"]').attr("content"),
+    robots: $('meta[name="robots"]').attr("content"),
+  };
+
+  const textPreview = limitedText.substring(0, 800) + (limitedText.length > 800 ? "..." : "");
+
+  return {
+    url,
+    title,
+    description,
+    headings: headings.slice(0, 20),
+    text: limitedText,
+    images,
+    links: {
+      internal: internalLinks,
+      external: externalLinks,
+    },
+    meta,
+    hasSSL: url.startsWith("https://"),
+    responseTime,
+    wordCount,
+    textPreview,
+    linksForFollow: dedupeLinks(linksForFollow).sort((a, b) => b.score - a.score),
+  };
+}
+
+async function fetchAndParse(targetUrl: string): Promise<ParsedPage> {
+  const page = await fetchPage(targetUrl);
+  return parsePage(page.html, page.finalUrl, page.responseTime);
+}
+
+async function safeFetch(targetUrl: string): Promise<ParsedPage | null> {
+  try {
+    return await fetchAndParse(targetUrl);
+  } catch (error) {
+    console.warn(
+      `[webscraper] Skipping ${targetUrl}: ${error instanceof Error ? error.message : "okänt fel"}`,
+    );
+    return null;
+  }
+}
+
+/**
+ * Scrape website content for audit analysis.
+ * Tries to pick a meaningful entry page and pulls a few internal pages for context.
+ */
+export async function scrapeWebsite(url: string): Promise<WebsiteContent> {
+  const normalizedUrl = normalizeInputUrl(url);
+  if (!normalizedUrl) {
+    throw new Error("URL måste anges");
+  }
+
+  const visited = new Set<string>();
+  const enqueued = new Set<string>();
+  const pages: ParsedPage[] = [];
+  const candidateQueue: CandidateLink[] = [];
+
+  const enqueueCandidates = (parsed: ParsedPage) => {
+    for (const candidate of parsed.linksForFollow.slice(0, MAX_LINKS_TO_CONSIDER)) {
+      if (visited.has(candidate.url) || enqueued.has(candidate.url)) continue;
+      enqueued.add(candidate.url);
+      candidateQueue.push(candidate);
+    }
+    candidateQueue.sort((a, b) => b.score - a.score);
+  };
+
+  const firstPage = await fetchAndParse(normalizedUrl);
+  pages.push(firstPage);
+  visited.add(firstPage.url);
+  enqueueCandidates(firstPage);
+
+  // Smart fallback: if the entry page is JS-rendered / thin, try sitemap.xml to find richer pages.
+  if (firstPage.wordCount < SECONDARY_MIN_WORDS) {
+    try {
+      const origin = new URL(firstPage.url).origin;
+      const sitemapUrls = await fetchSitemapUrls(origin);
+      if (sitemapUrls.length > 0) {
+        const baseHost = new URL(firstPage.url).hostname;
+        const scored = sitemapUrls
+          .map((u) => {
+            try {
+              const parsed = new URL(u);
+              if (parsed.hostname !== baseHost) return null;
+              return {
+                url: parsed.toString(),
+                score: scoreLink(parsed.pathname),
+              } as CandidateLink;
+            } catch {
+              return null;
+            }
+          })
+          .filter(Boolean) as CandidateLink[];
+
+        // Sort and enqueue top candidates
+        scored
+          .sort((a, b) => b.score - a.score)
+          .slice(0, SITEMAP_URL_LIMIT)
+          .forEach((candidate) => {
+            if (visited.has(candidate.url) || enqueued.has(candidate.url)) return;
+            enqueued.add(candidate.url);
+            candidateQueue.push(candidate);
+          });
+
+        if (scored.length > 0) {
+          candidateQueue.sort((a, b) => b.score - a.score);
+          console.log(
+            `[WebScraper] Sitemap fallback: queued ${Math.min(
+              scored.length,
+              SITEMAP_URL_LIMIT,
+            )} URL(s) from sitemap.xml`,
+          );
+        }
+      }
+    } catch {
+      // ignore sitemap failures
+    }
+  }
+
+  // Crawl top-scoring internal links until we reach the cap or run out of good candidates
+  while (candidateQueue.length > 0 && pages.length < MAX_PAGES) {
+    const candidate = candidateQueue.shift();
+    if (!candidate || visited.has(candidate.url)) continue;
+
+    // Mark the candidate URL as visited immediately to avoid refetching the original
+    // URL even if it redirects to another location.
+    visited.add(candidate.url);
+
+    const parsed = await safeFetch(candidate.url);
+    if (!parsed) continue;
+
+    // Also mark the final resolved URL to prevent duplicates after redirects.
+    visited.add(parsed.url);
+
+    const isRichEnough = parsed.wordCount >= SECONDARY_MIN_WORDS;
+    const isUsableFallback = parsed.wordCount >= MIN_AGGREGATION_WORDS;
+    if (isRichEnough || isUsableFallback) {
+      pages.push(parsed);
+    }
+
+    // Even thin nav pages can point to richer content, so we still enqueue their links
+    enqueueCandidates(parsed);
+  }
+
+  // Choose the richest page as primary (prefers real content over hero-only landers)
+  const rankedByRichness = [...pages].sort((a, b) => pageRichnessScore(b) - pageRichnessScore(a));
+  const primaryPage =
+    rankedByRichness.find((p) => p.wordCount >= PRIMARY_MIN_WORDS) || rankedByRichness[0];
+
+  // Aggregate content across pages
+  const aggregationCandidates = pages.filter((p) => p.wordCount >= MIN_AGGREGATION_WORDS);
+
+  const pagesForAggregation: ParsedPage[] = [];
+  const addForAggregation = (p: ParsedPage) => {
+    if (pagesForAggregation.length >= MAX_PAGES) return;
+    if (pagesForAggregation.some((x) => x.url === p.url)) return;
+    pagesForAggregation.push(p);
+  };
+
+  // Always include primary page for consistency between metadata and content
+  addForAggregation(primaryPage);
+
+  const aggregationSource = aggregationCandidates.length > 0 ? aggregationCandidates : pages;
+  for (const page of aggregationSource) {
+    if (pagesForAggregation.length >= MAX_PAGES) break;
+    addForAggregation(page);
+  }
+
+  const allHeadings = Array.from(
+    new Set(pagesForAggregation.flatMap((p) => p.headings).filter(Boolean)),
+  ).slice(0, 20);
+
+  const combinedWords = pagesForAggregation.flatMap((p) => p.text.split(" "));
+  const aggregatedWordCount = pagesForAggregation.reduce((sum, p) => sum + p.wordCount, 0);
+  const limitedWords = combinedWords.slice(0, AGGREGATE_WORD_LIMIT);
+  const aggregatedText = limitedWords.join(" ");
+  const textPreview = aggregatedText.substring(0, 800) + (aggregatedText.length > 800 ? "..." : "");
+
+  const totalImages = pagesForAggregation.reduce((sum, p) => sum + p.images, 0);
+  const totalInternal = pagesForAggregation.reduce((sum, p) => sum + p.links.internal, 0);
+  const totalExternal = pagesForAggregation.reduce((sum, p) => sum + p.links.external, 0);
+
+  return {
+    url: primaryPage.url,
+    title: primaryPage.title,
+    description: primaryPage.description,
+    headings: allHeadings,
+    text: aggregatedText,
+    images: totalImages,
+    links: {
+      internal: totalInternal,
+      external: totalExternal,
+    },
+    meta: primaryPage.meta,
+    hasSSL: primaryPage.hasSSL,
+    responseTime: primaryPage.responseTime,
+    wordCount: aggregatedWordCount,
+    textPreview,
+    sampledUrls: pagesForAggregation.map((p) => p.url),
+  };
+}
+
+/**
+ * Validate and normalize URL format for consistent audit caching and comparison.
+ *
+ * Normalizes:
+ * - Protocol: adds https:// if missing
+ * - Hostname: lowercases
+ * - Trailing slash: removes from path (except root)
+ * - Query params: removes common tracking params (utm_*, fbclid, gclid, etc.)
+ * - Fragment: removes hash fragment
+ *
+ * @param url - URL string to validate
+ * @returns Normalized URL or throws error
+ */
+export function validateAndNormalizeUrl(url: string): string {
+  if (!url || typeof url !== "string") {
+    throw new Error("URL måste anges");
+  }
+
+  let normalized = url.trim();
+
+  if (!normalized) {
+    throw new Error("URL kan inte vara tom");
+  }
+
+  // Auto-add https:// if missing protocol
+  if (!normalized.match(/^https?:\/\//i)) {
+    normalized = `https://${normalized}`;
+  }
+
+  // Validate URL format
+  try {
+    const urlObj = new URL(normalized);
+    if (!urlObj.hostname || urlObj.hostname.length === 0) {
+      throw new Error("Ogiltig URL - saknar domännamn");
+    }
+
+    // Normalize hostname to lowercase
+    urlObj.hostname = urlObj.hostname.toLowerCase();
+
+    // Remove trailing slash from path (keep root "/" intact)
+    if (urlObj.pathname.length > 1 && urlObj.pathname.endsWith("/")) {
+      urlObj.pathname = urlObj.pathname.slice(0, -1);
+    }
+
+    // Remove fragment (hash)
+    urlObj.hash = "";
+
+    // Remove common tracking/session query params for cleaner URLs
+    const trackingParams = [
+      "utm_source",
+      "utm_medium",
+      "utm_campaign",
+      "utm_term",
+      "utm_content",
+      "fbclid",
+      "gclid",
+      "gclsrc",
+      "dclid",
+      "msclkid",
+      "twclid",
+      "li_fat_id",
+      "mc_cid",
+      "mc_eid",
+      "_ga",
+      "_gl",
+      "ref",
+      "referrer",
+    ];
+    for (const param of trackingParams) {
+      urlObj.searchParams.delete(param);
+    }
+
+    // Sort remaining query params for consistent comparison
+    urlObj.searchParams.sort();
+
+    return urlObj.toString();
+  } catch (error) {
+    if (error instanceof TypeError) {
+      throw new Error("Ogiltig URL-format. Ange t.ex. 'exempel.se' eller 'https://exempel.se'");
+    }
+    throw error;
+  }
+}
+
+/**
+ * Create a canonical key from a URL for caching/deduplication.
+ * Strips www. prefix for consistency (www.example.com == example.com).
+ */
+export function getCanonicalUrlKey(url: string): string {
+  try {
+    const normalized = validateAndNormalizeUrl(url);
+    const urlObj = new URL(normalized);
+
+    // Remove www. prefix for canonical comparison
+    urlObj.hostname = urlObj.hostname.replace(/^www\./, "");
+
+    return urlObj.toString();
+  } catch {
+    // If normalization fails, return original trimmed URL
+    return url.trim().toLowerCase();
+  }
+}

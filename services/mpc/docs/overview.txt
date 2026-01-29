@@ -1,0 +1,138 @@
+Sajtmaskin MCP Server Documentation
+====================================
+
+This MCP server provides AI agents with access to project documentation,
+external API docs, and error reporting.
+
+VERSION: 0.2.0
+
+QUICK START
+-----------
+- Entry point: services/mpc/server.mjs (Node, ESM, stdio transport)
+- Start: From repo root, run `npm run mpc` or `node ./services/mpc/server.mjs`
+- Cursor config: Add to .cursor/mcp.json (see below)
+
+CURSOR MCP CONFIGURATION
+------------------------
+Create .cursor/mcp.json with:
+{
+  "mcpServers": {
+    "sajtmaskin-docs": {
+      "command": "npm",
+      "args": ["run", "mpc"],
+    "cwd": "C:\\Users\\Propietario\\Desktop\\sajtmaskin",
+      "env": {}
+    }
+  }
+}
+Then restart Cursor.
+
+AVAILABLE TOOLS
+---------------
+
+1. search_docs
+   - Search through all scraped documentation
+   - Parameters:
+     - query: string (search term)
+     - source: "all" | "ai-sdk" | "openai" | "vercel" | "v0" | "local"
+     - limit: number (1-20, default 5)
+   - Returns: Matching snippets with file paths
+
+2. get_doc
+   - Read a specific documentation file
+   - Parameters:
+     - docPath: string (relative path, e.g. "docgrab__ai-sdk.dev__docs/llms/llms.txt")
+   - Returns: File content (truncated at 50k chars)
+
+3. list_doc_sources
+   - List all available documentation sources and file counts
+   - No parameters
+   - Returns: Summary of sources and folder names
+
+4. report_error
+   - Log errors with level, stack, component, context
+  - Stored in: services/mpc/logs/error-log.jsonl
+
+5. list_errors
+   - Retrieve recent error entries (default 10, max 50)
+
+AVAILABLE RESOURCES (docs://local/{name})
+-----------------------------------------
+All .txt and .json files in this folder are exposed as MCP resources.
+
+Current documentation:
+- START-HERE.md          : Quick start guide (READ THIS FIRST!)
+- WHEN-TO-USE-MCP.md     : When and how to use MCP server
+- HOW-TO-UPDATE-DOCS.md  : How to download and update documentation
+- QUICK-UPDATE-AI-SDK.md : Quick guide to update AI SDK docs
+- EXAMPLES.md            : Practical examples for different scenarios
+- overview               : This file - MCP server overview
+- docs-index             : Complete documentation map
+- quick-reference        : Common APIs and patterns
+- error-playbook         : How to report and track errors
+
+SCRAPED DOCUMENTATION
+---------------------
+The following folders contain scraped external documentation:
+
+- docgrab__ai-sdk.dev__docs/
+  - llms/llms.txt : Full AI SDK 6 documentation
+  - md/           : Individual markdown files
+
+- docgrab__platform.openai.com__docs/
+  - llms/llms-full.txt : Full OpenAI API documentation
+  - llms/llms.txt      : Compact version
+
+- docgrab__vercel.com__docs/
+  - llms/llms.txt : Vercel platform documentation
+
+- docgrab__v0.app__docs_introduction/
+  - md/docs_introduction.md : v0 introduction
+
+UPDATING DOCUMENTATION
+----------------------
+See HOW-TO-UPDATE-DOCS.md for detailed instructions.
+
+Quick commands:
+  cd services/mpc/docs
+  python doc.py --auto "https://ai-sdk.dev/docs"      # Update AI SDK docs
+  python doc.py --auto "https://platform.openai.com/docs"  # Update OpenAI docs
+  python doc.py --auto "https://v0.dev/docs"          # Update v0 docs
+
+Flags:
+  --auto  : Non-interactive mode (no prompts)
+  --all   : Download all pages as separate files
+  --start : Only download the start page
+
+SEARCHING SPECIFIC SOURCES
+---------------------------
+To search ONLY in ai-sdk documentation, use source parameter:
+  "Använd search_docs med source 'ai-sdk' för att söka efter 'streamText'"
+
+Available sources: "ai-sdk", "openai", "vercel", "v0", "local", "all"
+
+LOG ROTATION
+------------
+Error log auto-rotates at 500 entries to prevent bloat.
+Location: services/mpc/logs/error-log.jsonl
+
+FOR AGENTS
+----------
+Start by reading quick-reference.txt for common patterns.
+Use search_docs to find specific API documentation.
+Use get_doc to read full files when needed.
+
+WHEN TO USE MCP SERVER
+----------------------
+Read WHEN-TO-USE-MCP.md for explicit guidance on when and how to use
+the MCP server. This file contains practical examples and clear instructions.
+
+Quick decision guide:
+- Need to search documentation? → Use search_docs
+- Know which file to read? → Use get_doc
+- Want to see available sources? → Use list_doc_sources
+- Need to log an error? → Use report_error
+- Want to see past errors? → Use list_errors
+
+Always be explicit: Say "Use MCP server's search_docs tool" instead of
+just asking for information. This ensures the agent knows to use MCP.

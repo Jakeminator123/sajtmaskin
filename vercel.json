@@ -1,0 +1,31 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "functions": {
+    "src/app/api/generate/route.ts": {
+      "maxDuration": 300
+    },
+    "src/app/api/refine/route.ts": {
+      "maxDuration": 300
+    },
+    "src/app/api/template/route.ts": {
+      "maxDuration": 300
+    },
+    "src/app/api/orchestrate/route.ts": {
+      "maxDuration": 300
+    },
+    "src/app/api/generate-video/route.ts": {
+      "maxDuration": 300
+    }
+  },
+  "headers": [
+    {
+      "source": "/api/(.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "no-store, max-age=0"
+        }
+      ]
+    }
+  ]
+}
