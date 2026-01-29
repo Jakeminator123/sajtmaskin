@@ -17,6 +17,18 @@ Prioritet
 4. error-playbook.txt — felrapportering/loggning
 5. local/*.txt — projekt-/team-specifika anteckningar
 
+Lokala quickrefs (docs://local/local/...)
+-----------------------------------------
+- local/ARCHITECTURE-AI-FLOW
+- local/README_sources_and_freshness
+- local/ai_sdk_tool_calls_structured_output_quickref
+- local/v0_model_api_openai_compat_format
+- local/v0_platform_api_json_formats
+- local/vercel_ai_gateway_openai_compat_quickref
+- local/oauth_sammanfattning_sajtmaksin
+- local/session-summary
+- local/cursor-mcp-config
+
 Lägga till eller flytta docs
 ----------------------------
 - Lägg nya filer som .txt/.md/.json under `services/mpc/docs/local/`.

@@ -20,6 +20,7 @@ next-env.d.ts
 .env.*
 .env.local
 *.pem
+*key
 .env.production
 
 # Database files (local data, not for git)
@@ -30,6 +31,10 @@ data/uploads/
 
 # MCP scraped documentation (60+ MB, regenerate with doc.py)
 services/mpc/docs/docgrab__*/
+services/mpc/docs/local/
+services/mpc/docs/*llms*
+services/mpc/docs/SDK_6.md
+services/mpc/docs/shad/
 services/mpc/logs/
 
 # Editor/OS
@@ -40,6 +45,7 @@ Thumbs.db
 
 # Cursor-specific (plans are session-specific, mcp.json is shared)
 .cursor/plans/
+.cursor/documents/
 
 # Logs
 *.log
@@ -73,5 +79,5 @@ old/
 .vercel
 .env*.local
 
-.vercel
-.env*.local
+
+

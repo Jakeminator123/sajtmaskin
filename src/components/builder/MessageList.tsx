@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import {
   Conversation,
@@ -143,6 +143,8 @@ export function MessageList({
                       hasInput,
                       hasOutput,
                     };
+                    const postCheckSummary =
+                      toolType === "tool-post-check" ? getPostCheckSummary(tool.output) : null;
 
                     // Collapse empty tool calls by default - they'll expand when data arrives
                     const toolHasData = hasToolData(tool as ToolUIPart);
@@ -158,6 +160,42 @@ export function MessageList({
                               typeof tool.errorText === "string" ? tool.errorText : undefined
                             }
                           />
+                          {postCheckSummary && (
+                            <div className="border-border bg-muted/40 mb-3 rounded-md border p-3 text-xs">
+                              <div className="text-muted-foreground mb-1 text-xs font-medium uppercase">
+                                Post-check-sammanfattning
+                              </div>
+                              <div className="text-muted-foreground space-y-1">
+                                {postCheckSummary.files !== null && (
+                                  <div>Filer: {postCheckSummary.files}</div>
+                                )}
+                                {postCheckSummary.added !== null &&
+                                  postCheckSummary.modified !== null &&
+                                  postCheckSummary.removed !== null && (
+                                    <div>
+                                      Ändringar: +{postCheckSummary.added} ~
+                                      {postCheckSummary.modified} -{postCheckSummary.removed}
+                                    </div>
+                                  )}
+                                {postCheckSummary.warnings !== null && (
+                                  <div>Varningar: {postCheckSummary.warnings}</div>
+                                )}
+                                {postCheckSummary.previousVersionId && (
+                                  <div>Föregående version: {postCheckSummary.previousVersionId}</div>
+                                )}
+                                {postCheckSummary.demoUrl && (
+                                  <a
+                                    className="text-primary inline-flex items-center gap-1"
+                                    href={postCheckSummary.demoUrl}
+                                    rel="noreferrer"
+                                    target="_blank"
+                                  >
+                                    Öppna preview-länk
+                                  </a>
+                                )}
+                              </div>
+                            </div>
+                          )}
                           {!hasInput && !hasOutput && !hasErrorText && (
                             <div className="text-muted-foreground p-4 text-xs">
                               v0 skickade en tool-call, men data har inte anlänt än. Detta är normalt under streaming. Data läggs till när v0 är redo.
@@ -166,6 +204,24 @@ export function MessageList({
                           <div className="border-border border-t p-4">
                             <div className="text-muted-foreground mb-2 text-xs font-medium uppercase">
                               Tool debug
+                            </div>
+                            <div className="text-muted-foreground mb-2 space-y-1 text-xs">
+                              <p>
+                                <span className="font-medium">hasInput</span> visar om tool-callen
+                                innehåller en input-payload (parametrar).
+                              </p>
+                              <p>
+                                <span className="font-medium">hasOutput</span> visar om tool-callen
+                                redan har ett resultat/response.
+                              </p>
+                              <p>
+                                <span className="font-medium">state</span> beskriver status (t.ex.
+                                input-available, output-available, output-error).
+                              </p>
+                              <p>
+                                <span className="font-medium">toolCallId</span> identifierar
+                                verktygsanropet och kan saknas tills det registrerats.
+                              </p>
                             </div>
                             <CodeBlock code={JSON.stringify(toolDebug, null, 2)} language="json" />
                           </div>
@@ -519,4 +575,42 @@ function openChatInV0(chatId: string | null) {
   if (!chatId) return;
   const url = `https://v0.app/chat/${encodeURIComponent(chatId)}`;
   window.open(url, "_blank", "noopener,noreferrer");
+}
+
+type PostCheckSummary = {
+  files: number | null;
+  added: number | null;
+  modified: number | null;
+  removed: number | null;
+  warnings: number | null;
+  demoUrl: string | null;
+  previousVersionId: string | null;
+};
+
+function getPostCheckSummary(output: unknown): PostCheckSummary | null {
+  if (!output || typeof output !== "object") return null;
+  const obj = output as Record<string, unknown>;
+  const summary =
+    obj.summary && typeof obj.summary === "object"
+      ? (obj.summary as Record<string, unknown>)
+      : null;
+  const toNumber = (value: unknown): number | null =>
+    typeof value === "number" && Number.isFinite(value) ? value : null;
+  const toString = (value: unknown): string | null =>
+    typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
+  const warningsValue = summary?.warnings ?? obj.warnings;
+  const warningsCount = Array.isArray(warningsValue) ? warningsValue.length : toNumber(warningsValue);
+
+  const summaryData: PostCheckSummary = {
+    files: toNumber(summary?.files ?? obj.files),
+    added: toNumber(summary?.added ?? obj.added),
+    modified: toNumber(summary?.modified ?? obj.modified),
+    removed: toNumber(summary?.removed ?? obj.removed),
+    warnings: warningsCount,
+    demoUrl: toString(obj.demoUrl),
+    previousVersionId: toString(obj.previousVersionId),
+  };
+
+  const hasAnyValue = Object.values(summaryData).some((value) => value !== null);
+  return hasAnyValue ? summaryData : null;
 }
