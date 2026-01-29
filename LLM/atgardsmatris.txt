@@ -24,6 +24,14 @@ AKTUELLA OBSERVATIONER (START)
       Trolig orsak: svar hamnar i plan/tool UI-delar utan vanlig text.
 - [x] "Calls Running" visar nu debug-info och forklart om output saknas.
 - [x] "Infosajt for kontorshotell" pill har nu label ("Plan actions").
+- [x] Tool debug forklarar hasInput/hasOutput/state/toolCallId i UI.
+      Fil: src/components/builder/MessageList.tsx
+- [x] Post-check visar sammanfattning (andringar, varningar, demoUrl) i UI.
+      Fil: src/components/builder/MessageList.tsx
+- [x] CSS-validering auto-fixar Tailwind v4 fel efter generation.
+      Fil: src/app/builder/page.tsx
+      Fil: src/lib/hooks/useCssValidation.ts
+      Fil: src/app/api/v0/chats/[chatId]/validate-css/route.ts
 - [ ] Text saknar ibland mellanrum vid streaming.
       Mojlig orsak: streaming-delar utan whitespace.
       Mitigation: lagg till forsiktig mellanslagshantering vid merge.

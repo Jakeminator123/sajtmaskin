@@ -32,6 +32,10 @@ public/video/
 
 # =============================================================================
 # CURSOR-SPECIFIKT
+.cursor/documents/
+services/mpc/docs/*llms*
+services/mpc/docs/SDK_6.md
+services/mpc/logs/
 # =============================================================================
 #.cursor/plans/
 
@@ -45,6 +49,8 @@ info
 .preprompt_history.json
 .git
 
+data/
+
 
 övrigt/
 
@@ -52,3 +58,5 @@ info
 SiteStudio_Projektspecifikation_ifillningsbar_v2.pdf
 
 övrigt
+shad
+services/mpc/docs/

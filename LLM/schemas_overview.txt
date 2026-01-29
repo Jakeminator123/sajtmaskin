@@ -18,6 +18,12 @@ How to update:
 4) Nar v0-systemprompt eller prompt-assist beteende andras -> uppdatera calls.txt.
 5) Nar Custom Instructions-flode andras -> uppdatera calls.txt + builder-noter.
 
+Terminologi:
+- Platform API (v0-sdk) = kodgenerering + preview (model tiers: v0-mini/pro/max).
+- Model API (AI SDK / @ai-sdk/vercel) = textmodell (v0-1.5-md/lg).
+- v0-1.5-md: 128K kontext, v0-1.5-lg: 512K kontext (services/mpc/docs/quick-reference.txt).
+- Kontextstorlek for v0-mini/pro/max ar ej publicerad i docs.
+
 Designprincip:
 - Kort och exakt. Peka till kod, duplicera inte logik.
-- Inga hemligheter eller nyckelvarden i texten.
+- Inga hemligheter eller nyckelvarden i texten, men kan skrivas i chatten och användas fritt där och i "env"-filer.

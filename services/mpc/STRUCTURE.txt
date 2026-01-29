@@ -31,7 +31,7 @@ SÅ HÄR STARTAR DU
 ALTERNATIV 1: Med visuellt fönster (rekommenderat för test)
 -----------------------------------------------------------
   Dubbelklicka på: start-gui.pyw
-  
+
   Ett litet fönster dyker upp uppe till höger med:
   - Grön/röd statusindikator
   - Start/Stopp-knappar
@@ -42,7 +42,7 @@ ALTERNATIV 2: Från terminal (för Cursor/automation)
 ----------------------------------------------------
   Från projektroten:
     npm run mpc
-  
+
   Eller direkt:
     node ./services/mpc/server.mjs
 
@@ -55,6 +55,10 @@ ALTERNATIV 3: I Cursor som MCP-server
      - Command: npm
      - Args: ["run", "mpc"]
      - Working Directory: C:\Users\Propietario\Desktop\sajtmaskin
+
+OBS:
+- Den aktiva Cursor-konfigurationen ligger i .cursor/mcp.json (repo-root).
+- En kopia av konfigen finns som referens i services/mpc/docs/local/cursor-mcp-config.json.
 
 
 ================================================================================

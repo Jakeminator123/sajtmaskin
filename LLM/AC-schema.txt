@@ -27,6 +27,10 @@ AC - UX/Debug
 - [ ] Debug visar faktisk provider/model som anropas.
 - [ ] Ingen dold fallback utan info.
 - [x] Tooltip forklarar skillnaden mellan Model Tier och Prompt Assist.
+- [x] Tool debug forklarar hasInput/hasOutput/state/toolCallId och visar post-check-sammanfattning.
 
 Noter:
 - Hojrisk-andringar uppdateras i LLM/atgardsmatris.txt.
+- Platform API (v0-sdk) bygger sajten (v0-mini/pro/max).
+- Model API (AI SDK / @ai-sdk/vercel) anvander v0-1.5-md/lg for text, ej for build.
+- CSS-validering auto-fixar Tailwind v4 fel efter generation; post-check ar read-only.
