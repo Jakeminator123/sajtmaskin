@@ -6,7 +6,9 @@
     "node": "25.4.0"
   },
   "scripts": {
+    "predev": "node scripts/refresh-token.mjs",
     "dev": "node scripts/next-runner.mjs dev",
+    "refresh-token": "node scripts/refresh-token.mjs",
     "build": "node scripts/next-runner.mjs build",
     "start": "node scripts/next-runner.mjs start",
     "lint": "eslint .",
