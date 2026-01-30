@@ -118,12 +118,21 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
               }
             };
 
+            const MAX_BUFFER_SIZE = 1024 * 1024; // 1MB buffer limit
+
             try {
               while (true) {
                 const { done, value } = await reader.read();
                 if (done) break;
 
                 buffer += decoder.decode(value, { stream: true });
+
+                // Prevent unbounded buffer growth from malformed streams
+                if (buffer.length > MAX_BUFFER_SIZE) {
+                  console.warn("[v0-stream] Buffer exceeded max size, truncating");
+                  buffer = buffer.slice(-MAX_BUFFER_SIZE / 2);
+                }
+
                 const lines = buffer.split("\n");
                 buffer = lines.pop() || "";
 
@@ -181,6 +190,13 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
                 ),
               );
             } finally {
+              // Release the stream reader lock to prevent memory leaks
+              try {
+                reader.releaseLock();
+              } catch {
+                // Reader may already be released
+              }
+
               if (!didSendDone && internalChatId) {
                 try {
                   const resolved = await resolveLatestVersion(chatId, {
@@ -193,27 +209,24 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
                   const finalDemoUrl = resolved.demoUrl || lastDemoUrl || null;
 
                   if (finalVersionId) {
-                    const existing = await db
-                      .select()
-                      .from(versions)
-                      .where(
-                        and(
-                          eq(versions.chatId, internalChatId),
-                          eq(versions.v0VersionId, finalVersionId),
-                        ),
-                      )
-                      .limit(1);
-
-                    if (existing.length === 0) {
-                      await db.insert(versions).values({
+                    // Use upsert to prevent race condition
+                    await db
+                      .insert(versions)
+                      .values({
                         id: nanoid(),
                         chatId: internalChatId,
                         v0VersionId: finalVersionId,
                         v0MessageId: lastMessageId,
                         demoUrl: finalDemoUrl,
                         metadata: sanitizeV0Metadata(resolved.latestChat ?? null),
+                      })
+                      .onConflictDoUpdate({
+                        target: [versions.chatId, versions.v0VersionId],
+                        set: {
+                          demoUrl: finalDemoUrl || undefined,
+                          metadata: sanitizeV0Metadata(resolved.latestChat ?? null),
+                        },
                       });
-                    }
                   }
 
                   didSendDone = true;

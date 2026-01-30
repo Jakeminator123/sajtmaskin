@@ -56,8 +56,19 @@ const pool = connectionString
       ssl: {
         rejectUnauthorized: false,
       },
+      // Connection pool configuration for better reliability
+      max: 10, // Maximum number of connections
+      idleTimeoutMillis: 30000, // Close idle connections after 30s
+      connectionTimeoutMillis: 10000, // Timeout for acquiring a connection
     })
   : null;
+
+// Log pool errors for debugging (they don't throw by default)
+if (pool) {
+  pool.on("error", (err) => {
+    console.error("[db/client] Unexpected pool error:", err.message);
+  });
+}
 
 export const db = connectionString
   ? drizzle(pool as Pool, { schema })

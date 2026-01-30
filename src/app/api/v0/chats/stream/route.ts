@@ -146,12 +146,20 @@ export async function POST(req: Request) {
               }
             };
 
+            const MAX_BUFFER_SIZE = 1024 * 1024; // 1MB buffer limit
+
             try {
               while (true) {
                 const { done, value } = await reader.read();
                 if (done) break;
 
                 buffer += decoder.decode(value, { stream: true });
+
+                // Prevent unbounded buffer growth from malformed streams
+                if (buffer.length > MAX_BUFFER_SIZE) {
+                  console.warn("[v0-stream] Buffer exceeded max size, truncating");
+                  buffer = buffer.slice(-MAX_BUFFER_SIZE / 2);
+                }
 
                 const lines = buffer.split("\n");
                 buffer = lines.pop() || "";
@@ -212,23 +220,30 @@ export async function POST(req: Request) {
                       });
                       internalProjectId = ensured.id;
 
-                      const existingChat = await db
-                        .select()
-                        .from(chats)
-                        .where(eq(chats.v0ChatId, v0ChatId))
-                        .limit(1);
-
-                      if (existingChat.length === 0) {
-                        internalChatId = nanoid();
-                        await db.insert(chats).values({
+                      // Use upsert to prevent race condition - atomically insert or get existing
+                      internalChatId = nanoid();
+                      const insertResult = await db
+                        .insert(chats)
+                        .values({
                           id: internalChatId,
                           v0ChatId: v0ChatId,
                           v0ProjectId: v0ProjectIdEffective,
                           projectId: internalProjectId,
                           webUrl: (parsed as any)?.webUrl || null,
-                        });
-                      } else {
-                        internalChatId = existingChat[0].id;
+                        })
+                        .onConflictDoNothing({ target: chats.v0ChatId })
+                        .returning({ id: chats.id });
+
+                      // If insert was skipped due to conflict, fetch the existing chat
+                      if (insertResult.length === 0) {
+                        const existingChat = await db
+                          .select()
+                          .from(chats)
+                          .where(eq(chats.v0ChatId, v0ChatId))
+                          .limit(1);
+                        if (existingChat.length > 0) {
+                          internalChatId = existingChat[0].id;
+                        }
                       }
                     } catch (dbError) {
                       console.error("Failed to save streaming chat to database:", dbError);
@@ -282,32 +297,24 @@ export async function POST(req: Request) {
 
                     if (internalChatId && finalVersionId) {
                       try {
-                        const existingVersion = await db
-                          .select()
-                          .from(versions)
-                          .where(
-                            and(
-                              eq(versions.chatId, internalChatId),
-                              eq(versions.v0VersionId, finalVersionId),
-                            ),
-                          )
-                          .limit(1);
-
-                        if (existingVersion.length === 0) {
-                          await db.insert(versions).values({
+                        // Use upsert to prevent race condition
+                        await db
+                          .insert(versions)
+                          .values({
                             id: nanoid(),
                             chatId: internalChatId,
                             v0VersionId: finalVersionId,
                             v0MessageId: messageId || null,
                             demoUrl: finalDemoUrl || null,
                             metadata: sanitizeV0Metadata(parsed),
+                          })
+                          .onConflictDoUpdate({
+                            target: [versions.chatId, versions.v0VersionId],
+                            set: {
+                              demoUrl: finalDemoUrl || undefined,
+                              metadata: sanitizeV0Metadata(parsed),
+                            },
                           });
-                        } else if (finalDemoUrl) {
-                          await db
-                            .update(versions)
-                            .set({ demoUrl: finalDemoUrl, metadata: sanitizeV0Metadata(parsed) })
-                            .where(eq(versions.id, existingVersion[0].id));
-                        }
                       } catch (dbError) {
                         console.error("Failed to save version to database:", dbError);
                       }
@@ -334,6 +341,13 @@ export async function POST(req: Request) {
                 ),
               );
             } finally {
+              // Release the stream reader lock to prevent memory leaks
+              try {
+                reader.releaseLock();
+              } catch {
+                // Reader may already be released
+              }
+
               if (!didSendDone && v0ChatId) {
                 try {
                   const resolved = await resolveLatestVersion(v0ChatId, {
@@ -346,35 +360,24 @@ export async function POST(req: Request) {
                   const finalDemoUrl = resolved.demoUrl || lastDemoUrl || null;
 
                   if (internalChatId && finalVersionId) {
-                    const existingVersion = await db
-                      .select()
-                      .from(versions)
-                      .where(
-                        and(
-                          eq(versions.chatId, internalChatId),
-                          eq(versions.v0VersionId, finalVersionId),
-                        ),
-                      )
-                      .limit(1);
-
-                    if (existingVersion.length === 0) {
-                      await db.insert(versions).values({
+                    // Use upsert to prevent race condition
+                    await db
+                      .insert(versions)
+                      .values({
                         id: nanoid(),
                         chatId: internalChatId,
                         v0VersionId: finalVersionId,
                         v0MessageId: lastMessageId,
                         demoUrl: finalDemoUrl,
                         metadata: sanitizeV0Metadata(resolved.latestChat ?? null),
-                      });
-                    } else if (finalDemoUrl) {
-                      await db
-                        .update(versions)
-                        .set({
-                          demoUrl: finalDemoUrl,
+                      })
+                      .onConflictDoUpdate({
+                        target: [versions.chatId, versions.v0VersionId],
+                        set: {
+                          demoUrl: finalDemoUrl || undefined,
                           metadata: sanitizeV0Metadata(resolved.latestChat ?? null),
-                        })
-                        .where(eq(versions.id, existingVersion[0].id));
-                    }
+                        },
+                      });
                   }
 
                   didSendDone = true;
