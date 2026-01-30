@@ -1,7 +1,7 @@
 /**
  * Error Messages
  * ==============
- * 
+ *
  * Centraliserade, användarvänliga felmeddelanden på svenska.
  * Används för att ge tydlig feedback istället för generiska "Något gick fel".
  */
@@ -98,7 +98,7 @@ export function getErrorMessage(error: unknown): string {
   if (error instanceof Error) {
     // Check for known error patterns
     const msg = error.message.toLowerCase();
-    
+
     if (msg.includes("rate limit") || msg.includes("429")) {
       return GENERATION_ERRORS.V0_RATE_LIMITED;
     }
@@ -120,13 +120,13 @@ export function getErrorMessage(error: unknown): string {
     if (msg.includes("network") || msg.includes("fetch")) {
       return NETWORK_ERRORS.CONNECTION_FAILED;
     }
-    
+
     // Return the original message if it's already user-friendly (non-technical)
     if (!msg.includes("error") && !msg.includes("exception") && error.message.length < 100) {
       return error.message;
     }
   }
-  
+
   return NETWORK_ERRORS.UNKNOWN;
 }
 
@@ -135,10 +135,10 @@ export function getErrorMessage(error: unknown): string {
  */
 export function formatApiError(error: unknown, fallback: string = NETWORK_ERRORS.UNKNOWN) {
   const message = error instanceof Error ? getErrorMessage(error) : fallback;
-  
+
   // Log the actual error for debugging
   console.error("[API Error]", error);
-  
+
   return {
     success: false,
     error: message,

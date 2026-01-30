@@ -9,7 +9,10 @@ import { createTransaction } from "@/lib/data/database";
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
+    const body = await req.json().catch(() => null);
+    if (!body || typeof body !== "object") {
+      return NextResponse.json({ success: false, error: "Ogiltig request body" }, { status: 400 });
+    }
     const { email, password, name } = body as {
       email?: string;
       password?: string;

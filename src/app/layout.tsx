@@ -32,10 +32,7 @@ export default function RootLayout({
       className={`${inter.variable} ${jetbrainsMono.variable}`}
       style={{ backgroundColor: "#000000" }}
     >
-      <body
-        className="font-mono antialiased"
-        style={{ backgroundColor: "#000000" }}
-      >
+      <body className="font-mono antialiased" style={{ backgroundColor: "#000000" }}>
         <AnalyticsTracker />
         {children}
         <CookieBanner />

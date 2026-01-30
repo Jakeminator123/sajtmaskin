@@ -83,7 +83,6 @@ Du var osäker på:
 ### **BEKRÄFTAT: Dina privata API-nycklar används**
 
 1. **OpenAI API**
-
    - Använder: `OPENAI_API_KEY` från `.env.local` (din privata nyckel)
    - Går till: `https://api.openai.com` (DIREKT, INTE via Vercel)
    - Används för: Semantic Router, Semantic Enhancer, bildgenerering, web search

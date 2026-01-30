@@ -5,7 +5,7 @@
 
 export function assertVercelToken(): void {
   if (!process.env.VERCEL_TOKEN && !process.env.VERCEL_API_TOKEN) {
-    throw new Error('Missing VERCEL_TOKEN. Set it in your environment variables.');
+    throw new Error("Missing VERCEL_TOKEN. Set it in your environment variables.");
   }
 }
 
@@ -14,7 +14,7 @@ export function getVercelToken(): string {
     (process.env.VERCEL_TOKEN && process.env.VERCEL_TOKEN.trim()) ||
     (process.env.VERCEL_API_TOKEN && process.env.VERCEL_API_TOKEN.trim());
   if (!token) {
-    throw new Error('Missing VERCEL_TOKEN. Set it in your environment variables.');
+    throw new Error("Missing VERCEL_TOKEN. Set it in your environment variables.");
   }
   return token;
 }

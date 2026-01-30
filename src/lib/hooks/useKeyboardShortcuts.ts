@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useCallback } from "react";
+import { useEffect, useCallback, useMemo } from "react";
 
 interface KeyboardShortcut {
   key: string;
@@ -66,67 +66,78 @@ export function useBuilderShortcuts(handlers: {
   onRefreshPreview?: () => void;
   onEscape?: () => void;
 }) {
-  const shortcuts: KeyboardShortcut[] = [
-    ...(handlers.onNewChat
-      ? [
-          {
-            key: "n",
-            ctrl: true,
-            action: handlers.onNewChat,
-            description: "Create new chat",
-          },
-        ]
-      : []),
-    ...(handlers.onSend
-      ? [
-          {
-            key: "Enter",
-            ctrl: true,
-            action: handlers.onSend,
-            description: "Send message",
-          },
-        ]
-      : []),
-    ...(handlers.onDeploy
-      ? [
-          {
-            key: "d",
-            ctrl: true,
-            action: handlers.onDeploy,
-            description: "Deploy current version",
-          },
-        ]
-      : []),
-    ...(handlers.onToggleSidebar
-      ? [
-          {
-            key: "b",
-            ctrl: true,
-            action: handlers.onToggleSidebar,
-            description: "Toggle sidebar",
-          },
-        ]
-      : []),
-    ...(handlers.onRefreshPreview
-      ? [
-          {
-            key: "r",
-            ctrl: true,
-            action: handlers.onRefreshPreview,
-            description: "Refresh preview",
-          },
-        ]
-      : []),
-    ...(handlers.onEscape
-      ? [
-          {
-            key: "Escape",
-            action: handlers.onEscape,
-            description: "Close/Cancel",
-          },
-        ]
-      : []),
-  ];
+  // Memoize shortcuts array to prevent re-registering listeners on every render
+  const shortcuts = useMemo<KeyboardShortcut[]>(
+    () => [
+      ...(handlers.onNewChat
+        ? [
+            {
+              key: "n",
+              ctrl: true,
+              action: handlers.onNewChat,
+              description: "Create new chat",
+            },
+          ]
+        : []),
+      ...(handlers.onSend
+        ? [
+            {
+              key: "Enter",
+              ctrl: true,
+              action: handlers.onSend,
+              description: "Send message",
+            },
+          ]
+        : []),
+      ...(handlers.onDeploy
+        ? [
+            {
+              key: "d",
+              ctrl: true,
+              action: handlers.onDeploy,
+              description: "Deploy current version",
+            },
+          ]
+        : []),
+      ...(handlers.onToggleSidebar
+        ? [
+            {
+              key: "b",
+              ctrl: true,
+              action: handlers.onToggleSidebar,
+              description: "Toggle sidebar",
+            },
+          ]
+        : []),
+      ...(handlers.onRefreshPreview
+        ? [
+            {
+              key: "r",
+              ctrl: true,
+              action: handlers.onRefreshPreview,
+              description: "Refresh preview",
+            },
+          ]
+        : []),
+      ...(handlers.onEscape
+        ? [
+            {
+              key: "Escape",
+              action: handlers.onEscape,
+              description: "Close/Cancel",
+            },
+          ]
+        : []),
+    ],
+    [
+      handlers.onNewChat,
+      handlers.onSend,
+      handlers.onDeploy,
+      handlers.onToggleSidebar,
+      handlers.onRefreshPreview,
+      handlers.onEscape,
+    ],
+  );
 
   useKeyboardShortcuts(shortcuts);
 

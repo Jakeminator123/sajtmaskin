@@ -1,3 +1,4 @@
+// "gateway" refers to Vercel AI Gateway (same gateway API used by /api/ai/* routes).
 export type PromptAssistProvider = "off" | "gateway" | "openai-compat";
 
 export function normalizeAssistModel(provider: PromptAssistProvider, rawModel: string): string {

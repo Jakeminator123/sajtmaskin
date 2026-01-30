@@ -54,7 +54,7 @@ export async function GET(req: NextRequest) {
     console.error("[API/auth/me] Error:", error);
     return NextResponse.json(
       { success: false, error: "Kunde inte hämta användarinformation. Försök ladda om sidan." },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

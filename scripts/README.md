@@ -10,7 +10,7 @@ Ett enkelt Python-skript för att ladda ner dokumentation till MCP-servern.
 python scripts/download-docs.py
 ```
 
-Skriptet frågar interaktivt efter en URL och laddar ner dokumentationen till 
+Skriptet frågar interaktivt efter en URL och laddar ner dokumentationen till
 `services/mpc/docs/` där MCP-servern automatiskt kan använda den.
 
 ### Exempel
@@ -22,6 +22,7 @@ När du kör skriptet:
 ```
 
 Skriptet kommer att:
+
 1. Ladda ner dokumentationen från URL:en
 2. Spara den i `services/mpc/docs/docgrab__[domän]__[sökväg]/`
 3. Göra den sökbar via MCP-serverns `search_docs` tool

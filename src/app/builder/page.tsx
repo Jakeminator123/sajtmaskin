@@ -757,10 +757,11 @@ function BuilderContent() {
     const initTemplate = async () => {
       setIsTemplateLoading(true);
       try {
+        const quality = MODEL_TIER_TO_QUALITY[selectedModelTier] || "max";
         const response = await fetch("/api/template", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ templateId, quality: "standard" }),
+          body: JSON.stringify({ templateId, quality }),
         });
         const data = await response.json();
         if (!response.ok || !data?.success) {
@@ -782,7 +783,7 @@ function BuilderContent() {
     };
 
     void initTemplate();
-  }, [auditPromptLoaded, templateId, chatId, isTemplateLoading, router]);
+  }, [auditPromptLoaded, templateId, chatId, isTemplateLoading, router, selectedModelTier]);
 
   return (
     <ErrorBoundary>

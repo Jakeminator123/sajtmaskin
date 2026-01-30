@@ -45,14 +45,11 @@ export function getPackageByPriceId(priceId: string) {
 }
 
 // Calculate savings percentage
-export function getSavingsPercent(
-  packageData: (typeof DIAMOND_PACKAGES)[number]
-) {
+export function getSavingsPercent(packageData: (typeof DIAMOND_PACKAGES)[number]) {
   const basePrice = 49; // Price for 10 diamonds
   const baseDiamonds = 10;
   const pricePerDiamond = basePrice / baseDiamonds;
   const actualPricePerDiamond = packageData.price / packageData.diamonds;
-  const savings =
-    ((pricePerDiamond - actualPricePerDiamond) / pricePerDiamond) * 100;
+  const savings = ((pricePerDiamond - actualPricePerDiamond) / pricePerDiamond) * 100;
   return Math.round(savings);
 }

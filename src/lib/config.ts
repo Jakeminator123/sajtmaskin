@@ -317,7 +317,9 @@ export const REDIS_CONFIG = {
   password: PARSED_REDIS_URL?.password || process.env.REDIS_PASSWORD || "",
   username: PARSED_REDIS_URL?.username || process.env.REDIS_USERNAME || "default",
   // Redis is only enabled if both host and password are configured
-  enabled: Boolean(PARSED_REDIS_URL?.host) || Boolean(process.env.REDIS_HOST && process.env.REDIS_PASSWORD),
+  enabled:
+    Boolean(PARSED_REDIS_URL?.host) ||
+    Boolean(process.env.REDIS_HOST && process.env.REDIS_PASSWORD),
 } as const;
 
 /**

@@ -151,9 +151,7 @@ export function RandomStyleAvatar({
 }: Omit<AvatarDiceBearProps, "style">) {
   const style = useMemo(() => {
     // Generate consistent style based on seed
-    const hash = seed
-      .split("")
-      .reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    const hash = seed.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
     return ALL_STYLES[hash % ALL_STYLES.length];
   }, [seed]);
 

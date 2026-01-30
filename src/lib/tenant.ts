@@ -1,7 +1,7 @@
-import { and, eq, isNull } from 'drizzle-orm';
-import { db } from '@/lib/db/client';
-import { chats, projects } from '@/lib/db/schema';
-import { nanoid } from 'nanoid';
+import { and, eq } from "drizzle-orm";
+import { db } from "@/lib/db/client";
+import { chats, projects } from "@/lib/db/schema";
+import { nanoid } from "nanoid";
 
 /**
  * Standardized v0ProjectId resolution.
@@ -31,8 +31,8 @@ export function generateProjectName(params: {
 }
 
 export function getRequestUserId(req: Request): string | null {
-  const userId = req.headers.get('x-user-id');
-  const trimmed = userId ? userId.trim() : '';
+  const userId = req.headers.get("x-user-id");
+  const trimmed = userId ? userId.trim() : "";
   return trimmed.length > 0 ? trimmed : null;
 }
 
@@ -80,11 +80,36 @@ export async function ensureProjectForRequest(params: {
   const userId = getRequestUserId(params.req);
   const v0ProjectId = params.v0ProjectId.trim();
   if (!v0ProjectId) {
-    throw new Error('Missing v0ProjectId');
+    throw new Error("Missing v0ProjectId");
   }
 
   const name = params.name ?? null;
+  const id = nanoid();
 
+  // Use upsert to prevent race condition - atomically insert or update
+  const result = await db
+    .insert(projects)
+    .values({
+      id,
+      userId: userId ?? null,
+      v0ProjectId,
+      name: name ?? `Project ${v0ProjectId}`,
+    })
+    .onConflictDoUpdate({
+      target: [projects.userId, projects.v0ProjectId],
+      set: {
+        // Update name if provided, otherwise keep existing
+        ...(name ? { name } : {}),
+        updatedAt: new Date(),
+      },
+    })
+    .returning({ id: projects.id, v0ProjectId: projects.v0ProjectId });
+
+  if (result.length > 0) {
+    return { id: result[0].id, v0ProjectId: result[0].v0ProjectId };
+  }
+
+  // Fallback: fetch existing project if upsert didn't return (shouldn't happen)
   const existing = userId
     ? await db
         .select()
@@ -97,31 +122,6 @@ export async function ensureProjectForRequest(params: {
     return { id: existing[0].id, v0ProjectId: existing[0].v0ProjectId };
   }
 
-  if (userId) {
-    const unowned = await db
-      .select()
-      .from(projects)
-      .where(and(eq(projects.v0ProjectId, v0ProjectId), isNull(projects.userId)))
-      .limit(1);
-
-    if (unowned.length > 0) {
-      await db
-        .update(projects)
-        .set({ userId, ...(name ? { name } : {}) })
-        .where(eq(projects.id, unowned[0].id));
-
-      return { id: unowned[0].id, v0ProjectId: unowned[0].v0ProjectId };
-    }
-  }
-
-  const id = nanoid();
-
-  await db.insert(projects).values({
-    id,
-    userId: userId ?? null,
-    v0ProjectId,
-    name: name ?? `Project ${v0ProjectId}`,
-  });
-
+  // This should never happen, but return the generated ID as last resort
   return { id, v0ProjectId };
 }

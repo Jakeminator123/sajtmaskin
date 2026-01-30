@@ -186,7 +186,19 @@ export interface SiteContentExtraction {
   sections: {
     name: string;
     content: string;
-    type: "hero" | "services" | "about" | "contact" | "testimonials" | "portfolio" | "pricing" | "faq" | "team" | "cta" | "footer" | "other";
+    type:
+      | "hero"
+      | "services"
+      | "about"
+      | "contact"
+      | "testimonials"
+      | "portfolio"
+      | "pricing"
+      | "faq"
+      | "team"
+      | "cta"
+      | "footer"
+      | "other";
   }[];
 
   // Call to actions
@@ -203,19 +215,27 @@ export interface SiteContentExtraction {
 
 // Color theme extraction
 export interface ColorThemeExtraction {
-  primary_color: string;        // Main brand color (hex)
-  secondary_color?: string;     // Secondary color (hex)
-  accent_color?: string;        // Accent/CTA color (hex)
-  background_color: string;     // Main background (hex)
-  text_color: string;           // Main text color (hex)
+  primary_color: string; // Main brand color (hex)
+  secondary_color?: string; // Secondary color (hex)
+  accent_color?: string; // Accent/CTA color (hex)
+  background_color: string; // Main background (hex)
+  text_color: string; // Main text color (hex)
 
   // Overall style
   theme_type: "light" | "dark" | "mixed";
-  style_description: string;    // e.g. "Minimalistisk, modern, professionell"
+  style_description: string; // e.g. "Minimalistisk, modern, professionell"
 
   // Design characteristics
-  design_style?: "minimalist" | "bold" | "playful" | "corporate" | "creative" | "elegant" | "tech" | "organic";
-  typography_style?: string;    // e.g. "Sans-serif, clean, modern"
+  design_style?:
+    | "minimalist"
+    | "bold"
+    | "playful"
+    | "corporate"
+    | "creative"
+    | "elegant"
+    | "tech"
+    | "organic";
+  typography_style?: string; // e.g. "Sans-serif, clean, modern"
 }
 
 // Ready-to-use prompt for template generation

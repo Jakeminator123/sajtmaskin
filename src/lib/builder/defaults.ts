@@ -89,8 +89,8 @@ export const PROMPT_ASSIST_MODEL_OPTIONS: Record<PromptAssistProvider, PromptAss
       { value: "google/gemini-2.5-flash", label: "Gemini 2.5 Flash" },
     ],
     "openai-compat": [
-      { value: "v0-1.5-md", label: "v0‑1.5‑md (128K)" },
       { value: "v0-1.5-lg", label: "v0‑1.5‑lg (512K)" },
+      { value: "v0-1.5-md", label: "v0‑1.5‑md (128K)" },
     ],
     off: [],
   };
@@ -121,12 +121,12 @@ export interface PromptAssistDefaults {
  * Default prompt assist configuration.
  * - Default provider is AI Gateway to keep all external models on the gateway.
  * - If enabled, gateway + gpt-5.2 gives highest quality prompt rewrites.
- * - Deep Brief OFF by default for snappy UX; user can enable for complex projects.
+ * - Deep Brief ON by default for higher quality; user can disable for speed.
  */
 export const DEFAULT_PROMPT_ASSIST: PromptAssistDefaults = {
   provider: "gateway",
   model: "openai/gpt-5.2",
-  deep: false,
+  deep: true,
 };
 
 /** Whether prompt assist is enabled by default (kept in sync with provider) */

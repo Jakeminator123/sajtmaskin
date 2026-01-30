@@ -100,7 +100,9 @@ export function ShadcnBlockPicker({
     if (!open) return;
     const hasSelected =
       selectedBlock &&
-      baseCategories.some((category) => category.items.some((item) => item.name === selectedBlock.name));
+      baseCategories.some((category) =>
+        category.items.some((item) => item.name === selectedBlock.name),
+      );
     if (hasSelected) return;
     const first = baseCategories[0]?.items[0] ?? null;
     setSelectedBlock(first);
@@ -166,9 +168,7 @@ export function ShadcnBlockPicker({
         if (!isActive) return;
         if (err instanceof Error && err.name === "AbortError") return;
         setAvailableBlocks(null);
-        setRegistryIndexError(
-          err instanceof Error ? err.message : "Failed to load registry index",
-        );
+        setRegistryIndexError(err instanceof Error ? err.message : "Failed to load registry index");
       }
     };
 
@@ -217,9 +217,9 @@ export function ShadcnBlockPicker({
           dependencyNames.map(async (dependency) => {
             const dependencyUrl = buildShadcnRegistryUrl(dependency, resolvedStyle);
             const dependencyResponse = await fetch(dependencyUrl, { signal: controller.signal });
-            const dependencyData = (await dependencyResponse.json().catch(() => null)) as
-              | ShadcnRegistryItem
-              | null;
+            const dependencyData = (await dependencyResponse
+              .json()
+              .catch(() => null)) as ShadcnRegistryItem | null;
             if (!dependencyResponse.ok) {
               throw new Error(
                 `Registry dependency "${dependency}" failed (HTTP ${dependencyResponse.status})`,
@@ -257,13 +257,15 @@ export function ShadcnBlockPicker({
     const trimmed = query.trim().toLowerCase();
     if (!trimmed) return baseCategories;
 
-    return baseCategories.map((category) => ({
-      ...category,
-      items: category.items.filter((block) => {
-        const haystack = `${block.title} ${block.name} ${block.description}`.toLowerCase();
-        return haystack.includes(trimmed);
-      }),
-    })).filter((category) => category.items.length > 0);
+    return baseCategories
+      .map((category) => ({
+        ...category,
+        items: category.items.filter((block) => {
+          const haystack = `${block.title} ${block.name} ${block.description}`.toLowerCase();
+          return haystack.includes(trimmed);
+        }),
+      }))
+      .filter((category) => category.items.length > 0);
   }, [query, baseCategories]);
 
   const previewMarkdown = useMemo(() => {
@@ -319,7 +321,7 @@ export function ShadcnBlockPicker({
         <div className="flex min-h-0 flex-1 flex-col gap-4 px-6 pb-6 md:flex-row">
           <div className="flex w-full flex-col gap-3 md:w-72">
             <div className="relative">
-              <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-500" />
+              <Search className="absolute top-2.5 left-3 h-4 w-4 text-gray-500" />
               <Input
                 value={query}
                 onChange={(event) => setQuery(event.target.value)}
@@ -328,7 +330,7 @@ export function ShadcnBlockPicker({
               />
             </div>
             <div className="space-y-1">
-              <div className="text-xs font-semibold uppercase text-gray-400">Style</div>
+              <div className="text-xs font-semibold text-gray-400 uppercase">Style</div>
               <Input
                 value={activeStyle}
                 onChange={(event) => setActiveStyle(event.target.value)}
@@ -342,7 +344,7 @@ export function ShadcnBlockPicker({
             <div className="flex-1 overflow-y-auto rounded-md border border-gray-800 p-2">
               {filteredCategories.map((category) => (
                 <div key={category.category} className="mb-3 last:mb-0">
-                  <div className="px-2 pb-1 text-xs font-semibold uppercase text-gray-400">
+                  <div className="px-2 pb-1 text-xs font-semibold text-gray-400 uppercase">
                     {category.category}
                   </div>
                   <div className="space-y-1">
@@ -405,7 +407,7 @@ export function ShadcnBlockPicker({
                   href={registryUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="text-xs text-brand-blue hover:underline"
+                  className="text-brand-blue text-xs hover:underline"
                 >
                   Öppna registry JSON
                 </a>
@@ -415,7 +417,7 @@ export function ShadcnBlockPicker({
                   href={previewLinks.viewUrl}
                   target="_blank"
                   rel="noreferrer"
-                  className="text-xs text-brand-blue hover:underline"
+                  className="text-brand-blue text-xs hover:underline"
                 >
                   Öppna förhandsvisning
                 </a>
@@ -447,7 +449,7 @@ export function ShadcnBlockPicker({
                   {error && <div className="text-sm text-red-400">{error}</div>}
                   <div className="grid gap-3 md:grid-cols-2">
                     <div className="space-y-2">
-                      <div className="text-xs uppercase text-gray-500">Light</div>
+                      <div className="text-xs text-gray-500 uppercase">Light</div>
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={previewLinks.lightUrl}
@@ -457,7 +459,7 @@ export function ShadcnBlockPicker({
                       />
                     </div>
                     <div className="space-y-2">
-                      <div className="text-xs uppercase text-gray-500">Dark</div>
+                      <div className="text-xs text-gray-500 uppercase">Dark</div>
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={previewLinks.darkUrl}
@@ -479,11 +481,7 @@ export function ShadcnBlockPicker({
             Stäng
           </Button>
           {hasChat && (
-            <Button
-              variant="secondary"
-              onClick={() => handleConfirm("add")}
-              disabled={!canAct}
-            >
+            <Button variant="secondary" onClick={() => handleConfirm("add")} disabled={!canAct}>
               {isSubmitting && pendingAction === "add" ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : null}

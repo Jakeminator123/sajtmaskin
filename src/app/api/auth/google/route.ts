@@ -13,9 +13,7 @@ export async function GET(req: NextRequest) {
     const redirect = searchParams.get("redirect") || "/";
 
     // Create state with redirect info
-    const state = Buffer.from(JSON.stringify({ redirect })).toString(
-      "base64url"
-    );
+    const state = Buffer.from(JSON.stringify({ redirect })).toString("base64url");
 
     // Generate Google OAuth URL
     const authUrl = getGoogleAuthUrl(state);
@@ -26,9 +24,7 @@ export async function GET(req: NextRequest) {
     console.error("[API/auth/google] Error:", error);
 
     // If Google OAuth is not configured, redirect to home with error
-    const errorMessage = encodeURIComponent(
-      "Google-inloggning är inte konfigurerad"
-    );
+    const errorMessage = encodeURIComponent("Google-inloggning är inte konfigurerad");
     return NextResponse.redirect(new URL(`/?error=${errorMessage}`, req.url));
   }
 }

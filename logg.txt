@@ -1,0 +1,94 @@
+PowerShell 7.5.4
+PS C:\Users\jakem\dev\projects\sajtmaskin> npm run dev
+
+> sajtmaskin-app@0.1.0 predev
+> node scripts/refresh-token.mjs
+
+[15:42:32] Checking OIDC token status...
+[15:42:32] Token expires: 2026-01-29 17:08:51 (86 min remaining)
+[15:42:32] Token is valid - no refresh needed
+
+> sajtmaskin-app@0.1.0 dev
+> node scripts/next-runner.mjs dev
+
+▲ Next.js 16.1.4 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://192.168.68.200:3000
+- Environments: .env.local
+
+✓ Starting...
+Creating turbopack project { dir: 'C:\\Users\\jakem\\dev\\projects\\sajtmaskin', testMode: true }
+✓ Ready in 9s
+(node:18116) Warning: `--localstorage-file` was provided without a valid path
+(Use `node --trace-warnings ...` to show where the warning was created)
+ GET / 200 in 2.0s (compile: 1195ms, proxy.ts: 338ms, render: 478ms)
+[Config] Using local data directory: C:\Users\jakem\dev\projects\sajtmaskin\data
+[Config] DEV | DB: C:\Users\jakem\dev\projects\sajtmaskin\data\sajtmaskin.db | Features: Redis Cache, Google Auth, Git Hub Auth, Stripe Payments, Unsplash, V0 Api, Open A I, Eleven Labs, Vercel Api, Vercel Blob
+14:42:51.822 [DB] [Database] Opening SQLite database {
+  path: 'C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\data\\sajtmaskin.db'
+}
+[Database] Initialized successfully at: C:\Users\jakem\dev\projects\sajtmaskin\data\sajtmaskin.db
+14:42:51.880 [DB] [Database] Database ready
+ POST /api/analytics 200 in 218ms (compile: 124ms, proxy.ts: 10ms, render: 85ms)
+ GET /api/auth/me 200 in 277ms (compile: 261ms, proxy.ts: 9ms, render: 7ms)
+ GET /builder?prompt=Hej%2C+jag+vill+ha+en+hemsida+som+ser+n%C3%A4stan+identisk+ut+med+adress%C3%A4ndring.se%2C+men+den+ska+vara+byggd+i+React%2C+Node+och+Tailwind%2C+tillsammans+med+%60Chadds%60+scenkomponenter+f%C3%B6r+en+modern+k%C3%A4nsla.+%0A%0AJag+%C3%B6nskar+flera+niv%C3%A5er+av+sidor%2C+men+d%C3%A4r+det+inte+finns+niv%C3%A5er+ska+det+st%C3%A5+%22kommer+snart%22.+Jag+vill+att+du+%C3%A4ndrar+f%C3%A4rgtemat+n%C3%A5got+och+skapar+en+egen+logotyp. 200 in 303ms (compile: 255ms, proxy.ts: 10ms, render: 38ms)
+ POST /api/analytics 200 in 49ms (compile: 20ms, proxy.ts: 24ms, render: 6ms)
+ GET /api/auth/me 200 in 44ms (compile: 17ms, proxy.ts: 22ms, render: 4ms)
+ GET /api/auth/me 200 in 16ms (compile: 3ms, proxy.ts: 7ms, render: 6ms)
+ GET /api/integrations/status 200 in 94ms (compile: 71ms, proxy.ts: 18ms, render: 5ms)
+14:44:05.235 [DB] [Redis] Creating client {
+  host: 'alert-silkworm-17000.upstash.io',
+  port: 6379,
+  username: 'default',
+  source: 'url'
+}
+(node:18116) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+14:44:05.432 [DB] [Redis] Connected
+14:44:05.824 [DB] [Redis] Ready
+ GET /api/health 200 in 1144ms (compile: 124ms, proxy.ts: 18ms, render: 1002ms)
+14:44:44.389 [AI] AI brief request received {
+  provider: 'gateway',
+  model: 'openai/gpt-5.2',
+  promptLength: 766,
+  temperature: 0.2,
+  imageGenerations: true
+}
+14:44:44.389 [AI] AI Gateway auth resolved (brief) {
+  auth: 'api-key',
+  provider: 'gateway',
+  model: 'openai/gpt-5.2',
+  onVercel: false
+}
+ POST /api/ai/brief 200 in 56s (compile: 447ms, proxy.ts: 6ms, render: 56s)
+14:45:40.223 [v0] v0 chat stream request {
+  modelId: 'v0-max',
+  promptLength: 8031,
+  attachments: 0,
+  systemProvided: true,
+  systemApplied: true,
+  systemIgnored: false,
+  thinking: true,
+  imageGenerations: true,
+  chatPrivacy: 'private'
+}
+[dev-log] site generation started { modelId: 'v0-max', projectId: null }
+[v0-stream] data for  : {"id":"jCS1LuYHp4M","object":"chat","url":"https://v0.app/chat/jCS1LuYHp4M","shareable":false,"privacy":"private","name":"New Chat","title":"New Chat","createdAt":"2026-01-29T14:45:41.329Z","updatedAt
+[v0-stream-debug] chatId candidate: jCS1LuYHp4M
+ GET /builder?chatId=jCS1LuYHp4M 200 in 51ms (compile: 4ms, proxy.ts: 5ms, render: 41ms)
+[v0-stream] data for  : {"id":"jCS1LuYHp4M","object":"chat.title","delta":"Adressändring service"}
+[v0-stream] data for  : {"id":"jCS1LuYHp4M","object":"chat.name","delta":"Adressändring service"}
+[v0-stream] data for  : {"id":"1iGPemMwsByuXiAk0DGCtk6nkiFca7CB","object":"message.experimental_content.chunk","delta":{"0":[[1,{"title":"Adressändring service"}]],"_t":"a"}}
+[v0-stream] data for  : {"id":"1iGPemMwsByuXiAk0DGCtk6nkiFca7CB","object":"message.experimental_content.chunk","delta":{"0":{"0":[0],"1":[{"title":"Adressändring service"},[["AssistantMessageContentPart",{"part":{"createdAt
+ GET /api/v0/chats/jCS1LuYHp4M 200 in 1276ms (compile: 840ms, proxy.ts: 8ms, render: 428ms)
+ GET /api/v0/chats/jCS1LuYHp4M/versions 200 in 1380ms (compile: 893ms, proxy.ts: 8ms, render: 479ms)
+[v0-stream] data for  : {"id":"1iGPemMwsByuXiAk0DGCtk6nkiFca7CB","object":"message.experimental_content.chunk","delta":{"0":{"1":{"0":{"1":{"part":{"parts":{"0":{"thought":["This","This is a comprehensive project"]},"_t":"a"
+[v0-stream] data for  : {"id":"1iGPemMwsByuXiAk0DGCtk6nkiFca7CB","object":"message.experimental_content.chunk","delta":{"0":{"1":{"0":{"1":{"part":{"parts":{"0":{"thought":["This is a comprehensive project","This is a compre
+[v0-stream] data for  : {"id":"1iGPemMwsByuXiAk0DGCtk6nkiFca7CB","object":"message.experimental_content.chunk","delta":{"0":{"1":{"0":{"1":{"part":{"parts":{"0":{"thought":["This is a comprehensive project to","This is a com
+[v0-stream] data for  : {"id":"1iGPemMwsByuXiAk0DGCtk6nkiFca7CB","object":"message.experimental_content.chunk","delta":{"0":{"1":{"0":{"1":{"part":{"parts":{"0":{"thought":["This is a comprehensive project to build a modern
+[v0-stream] data for  : {"id":"1iGPemMwsByuXiAk0DGCtk6nkiFca7CB","object":"message.experimental_content.chunk","delta":{"0":{"1":{"0":{"1":{"part":{"parts":{"0":{"thought":["This is a comprehensive project to build a modern
+[v0-stream] data for  : {"id":"1iGPemMwsByuXiAk0DGCtk6nkiFca7CB","object":"message.experimental_content.chunk","delta":{"0":{"1":{"0":{"1":{"part":{"parts":{"0":{"thought":["This is a comprehensive project to build a modern
+[v0-stream] data for  : {"id":"1iGPemMwsByuXiAk0DGCtk6nkiFca7CB","object":"message.experimental_content.chunk","delta":{"0":{"1":{"0":{"1":{"part":{"parts":{"0":{"duration":[0,1],"thought":["This is a comprehensive project t
+[v0-stream] data for  : {"id":"1iGPemMwsByuXiAk0DGCtk6nkiFca7CB","object":"message.experimental_content.chunk","delta":{"0":{"1":{"0":{"1":{"part":{"parts":{"0":{"thought":["This is a comprehensive project to build a modern
+[v0-stream] data for  : {"id":"1iGPemMwsByuXiAk0DGCtk6nkiFca7CB","object":"message.experimental_content.chunk","delta":{"0":{"1":{"0":{"1":{"part":{"parts":{"0":{"thought":["This is a comprehensive project to build a modern
+[v0-stream] data for  : {"id":"1iGPemMwsByuXiAk0DGCtk6nkiFca7CB","object":"message.experimental_content.chunk","delta":{"0":{"1":{"0":{"1":{"part":{"parts":{"0":{"thought":["This is a comprehensive project to build a modern
+[v0-stream] data for  : {"id":"1iGPemMwsByuXiAk0DGCtk6nkiFca7CB","object":"message.experimental_content.chunk","delta":{"0":{"1":{"0":{"1":{"part":{"parts":{"0":{"thought":["This is a comprehensive project to build a modern

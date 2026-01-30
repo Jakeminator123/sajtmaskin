@@ -7,6 +7,7 @@ MCP-servern ger dig tillgång till projektets dokumentation (AI SDK, OpenAI, Ver
 ## ⚡ Snabbstart (3 steg)
 
 ### 1. När ska du använda den?
+
 - ✅ Du behöver söka i dokumentationen
 - ✅ Du behöver läsa specifik dokumentation
 - ✅ Du vill logga fel för framtida analys
@@ -14,22 +15,24 @@ MCP-servern ger dig tillgång till projektets dokumentation (AI SDK, OpenAI, Ver
 
 ### 2. Vilket tool ska du använda?
 
-| Vad du vill göra | Tool att använda |
-|------------------|------------------|
-| Söka i dokumentation | `search_docs` |
-| Läsa specifik fil | `get_doc` |
+| Vad du vill göra       | Tool att använda   |
+| ---------------------- | ------------------ |
+| Söka i dokumentation   | `search_docs`      |
+| Läsa specifik fil      | `get_doc`          |
 | Se tillgängliga källor | `list_doc_sources` |
-| Logga fel | `report_error` |
-| Se tidigare fel | `list_errors` |
+| Logga fel              | `report_error`     |
+| Se tidigare fel        | `list_errors`      |
 
 ### 3. Var explicit i dina prompts!
 
 **✅ Rätt:**
+
 ```
 "Använd MCP-serverns search_docs tool för att söka efter 'streamText' i ai-sdk dokumentationen"
 ```
 
 **❌ Fel:**
+
 ```
 "Hitta information om streamText"
 ```

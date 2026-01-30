@@ -38,10 +38,7 @@ export const OPENAI_MODELS = {
  *
  * Source: OpenAI pricing docs (platform.openai.com / openai.com model pages).
  */
-export const OPENAI_PRICING_USD_PER_MTOK: Record<
-  string,
-  { input: number; output: number }
-> = {
+export const OPENAI_PRICING_USD_PER_MTOK: Record<string, { input: number; output: number }> = {
   // GPT-4.1 family (official docs)
   "gpt-4.1": { input: 2.0, output: 8.0 },
   "gpt-4.1-mini": { input: 0.4, output: 1.6 },

@@ -16,12 +16,7 @@ export default function ErrorPage({ error, reset }: ErrorPageProps) {
     <div className="flex min-h-screen items-center justify-center bg-black p-4">
       <div className="w-full max-w-md rounded-lg border border-gray-800 bg-gray-900 p-8 text-center">
         <div className="mb-4 text-red-500">
-          <svg
-            className="mx-auto h-16 w-16"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
+          <svg className="mx-auto h-16 w-16" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path
               strokeLinecap="round"
               strokeLinejoin="round"
@@ -31,9 +26,7 @@ export default function ErrorPage({ error, reset }: ErrorPageProps) {
           </svg>
         </div>
         <h2 className="mb-2 text-xl font-bold text-white">Något gick fel</h2>
-        <p className="mb-6 text-gray-400">
-          Ett oväntat fel inträffade. Försök att ladda om sidan.
-        </p>
+        <p className="mb-6 text-gray-400">Ett oväntat fel inträffade. Försök att ladda om sidan.</p>
         <div className="space-y-3">
           <button
             onClick={() => reset()}

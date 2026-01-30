@@ -22,7 +22,7 @@ function getRandomMessage() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { templateId, quality = "standard", skipCache = false } = body;
+    const { templateId, quality = "max", skipCache = false } = body;
 
     if (!templateId) {
       return NextResponse.json(
