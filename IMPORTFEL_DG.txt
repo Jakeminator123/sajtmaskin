@@ -1,0 +1,127 @@
+"PowerShell 7.5.4
+PS C:\Users\jakem\dev\projects\sajtmaskin> npm run dev
+
+> sajtmaskin-app@0.1.0 predev
+> node scripts/refresh-token.mjs
+
+[05:27:05] Checking OIDC token status...
+[05:27:05] Token expires: 2026-01-29 17:08:51 (701 min remaining)
+[05:27:05] Token is valid - no refresh needed
+
+> sajtmaskin-app@0.1.0 dev
+> node scripts/next-runner.mjs dev
+
+▲ Next.js 16.1.4 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://192.168.68.200:3000
+- Environments: .env.development.local, .env.local
+
+✓ Starting...
+Creating turbopack project { dir: 'C:\\Users\\jakem\\dev\\projects\\sajtmaskin', testMode: true }
+✓ Ready in 1145ms
+(node:25928) Warning: `--localstorage-file` was provided without a valid path
+(Use `node --trace-warnings ...` to show where the warning was created)
+ GET / 200 in 799ms (compile: 309ms, proxy.ts: 138ms, render: 352ms)
+[Config] Using local data directory: C:\Users\jakem\dev\projects\sajtmaskin\data
+[Config] DEV | DB: C:\Users\jakem\dev\projects\sajtmaskin\data\sajtmaskin.db | Features: Redis Cache, Google Auth, Git Hub Auth, Stripe Payments, Unsplash, V0 Api, Open A I, Eleven Labs, Vercel Api, Vercel Blob
+04:27:25.991 [DB] [Database] Opening SQLite database {
+  path: 'C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\data\\sajtmaskin.db'
+}
+[Database] Initialized successfully at: C:\Users\jakem\dev\projects\sajtmaskin\data\sajtmaskin.db
+04:27:26.021 [DB] [Database] Database ready
+ POST /api/analytics 200 in 198ms (compile: 129ms, proxy.ts: 12ms, render: 56ms)
+ GET /api/auth/me 200 in 252ms (compile: 234ms, proxy.ts: 11ms, render: 8ms)
+ GET /projects 200 in 2.3s (compile: 2.3s, proxy.ts: 7ms, render: 27ms)
+ POST /api/analytics 200 in 34ms (compile: 9ms, proxy.ts: 15ms, render: 10ms)
+ GET /api/auth/me 200 in 39ms (compile: 19ms, proxy.ts: 15ms, render: 6ms)
+ GET /api/auth/me 200 in 18ms (compile: 4ms, proxy.ts: 7ms, render: 7ms)
+04:27:34.430 [DB] [Redis] Creating client {
+  host: 'alert-silkworm-17000.upstash.io',
+  port: 6379,
+  username: 'default',
+  source: 'url'
+}
+(node:25928) [DEP0169] DeprecationWarning: `url.parse()` behavior is not standardized and prone to errors that have security implications. Use the WHATWG URL API instead. CVEs are not issued for `url.parse()` vulnerabilities.
+04:27:34.923 [DB] [Redis] Connected
+04:27:35.289 [DB] [Redis] Ready
+ GET /api/projects 200 in 1521ms (compile: 372ms, proxy.ts: 14ms, render: 1134ms)
+[API/projects] Redis cache hit
+ GET /api/projects 200 in 148ms (compile: 3ms, proxy.ts: 5ms, render: 140ms)
+ POST /api/analytics 200 in 19ms (compile: 5ms, proxy.ts: 8ms, render: 6ms)
+ GET /api/auth/me 200 in 24ms (compile: 11ms, proxy.ts: 8ms, render: 5ms)
+ GET /api/auth/me 200 in 12ms (compile: 2ms, proxy.ts: 4ms, render: 6ms)
+ GET /projects 200 in 33ms (compile: 5ms, proxy.ts: 5ms, render: 22ms)
+ GET /api/auth/me 200 in 22ms (compile: 7ms, proxy.ts: 11ms, render: 4ms)
+ POST /api/analytics 200 in 32ms (compile: 14ms, proxy.ts: 12ms, render: 7ms)
+ GET /api/auth/me 200 in 11ms (compile: 3ms, proxy.ts: 5ms, render: 3ms)
+[API/projects] Redis cache hit
+ GET /api/projects 200 in 165ms (compile: 12ms, proxy.ts: 11ms, render: 142ms)
+[API/projects] Redis cache hit
+ GET /api/projects 200 in 146ms (compile: 3ms, proxy.ts: 4ms, render: 140ms)
+ GET / 200 in 34ms (compile: 5ms, proxy.ts: 5ms, render: 24ms)
+ POST /api/analytics 200 in 19ms (compile: 5ms, proxy.ts: 9ms, render: 6ms)
+ GET /api/auth/me 200 in 23ms (compile: 11ms, proxy.ts: 9ms, render: 3ms)
+ GET /api/auth/me 200 in 10ms (compile: 3ms, proxy.ts: 3ms, render: 4ms)
+ GET /builder?prompt=Skulle+vilja+f%C3%B6rb%C3%A4ttra+denna+hemsida+p%C3%A5+alla+t%C3%A4nkabara+s%C3%A4tt.+mer+enhetlig.+Mer+hemtrevlig.+ 200 in 184ms (compile: 151ms, proxy.ts: 6ms, render: 27ms)
+ POST /api/analytics 200 in 19ms (compile: 8ms, proxy.ts: 6ms, render: 6ms)
+ GET /api/auth/me 200 in 37ms (compile: 12ms, proxy.ts: 21ms, render: 4ms)
+ GET /api/auth/me 200 in 85ms (compile: 5ms, proxy.ts: 74ms, render: 6ms)
+ GET /api/health 200 in 502ms (compile: 79ms, proxy.ts: 12ms, render: 411ms)
+Failed to save init chat to database: Error: Failed query: insert into "versions" ("id", "chat_id", "v0_version_id", "v0_message_id", "demo_url", "metadata", "pinned", "pinned_at", "created_at") values ($1, $2, $3, $4, $5, $6, default, default, default)
+params: wewaKTIjvi5EfHZRac2YG,TSdrm_BfT7HApgcmZ498U,b_kFNd2hT34Oh,,https://demo-kzmops1o4kwiydds2w6g.vusercontent.net,{"id":"b_kFNd2hT34Oh","object":"version","status":"completed","demoUrl":"https://demo-kzmops1o4kwiydds2w6g.vusercontent.net","screenshotUrl":"https://api.v0.dev/v1/chats/47XCxvN0mPb/versions/b_kFNd2hT34Oh/screenshot","createdAt":"2026-01-29T04:33:38.971Z","updatedAt":"2026-01-29T04:33:38.973Z","files":[{"object":"file","name":"dg97-site/public/images/blog/nallebjörnar_20251031_152235.png","content":"","locked":false},{"object":"file","name":"dg97-site/public/images/blog/nallebjörnar_20251031_152749.png","content":""
+
+
+
+och i slutet:
+
+
+
+
+"f7ed',\n          100: '#ffedd5',\n          200: '#fed7aa',\n          300: '#fdba74',\n          400: '#fb923c',\n          500: '#f97316',  // Orange accent\n          600: '#ea580c',\n          700: '#c2410c',\n          800: '#9a3412',\n          900: '#7c2d12',\n        },\n        neutral: {\n          50: '#fafafa',\n          100: '#f5f5f5',\n          200: '#e5e5e5',\n          300: '#d4d4d4',\n          400: '#a3a3a3',\n          500: '#737373',\n          600: '#525252',\n          700: '#404040',\n          800: '#262626',\n          900: '#171717',\n        },\n        success: {\n          50: '#f0fdf4',\n          100: '#dcfce7',\n          200: '#bbf7d0',\n          300: '#86efac',\n          400: '#4ade80',\n          500: '#22c55e',\n          600: '#16a34a',\n          700: '#15803d',\n          800: '#166534',\n          900: '#14532d',\n        }\n      },\n      fontFamily: {\n        sans: ['Inter', 'system-ui', 'sans-serif'],\n      },\n    },\n  },\n  plugins: [],\n}\n","locked":false}]}
+    at async (src\app\api\v0\chats\init\route.ts:347:15)
+    at async withRateLimit (src\lib\rateLimit.ts:178:20)
+  345 |
+  346 |             if (versionId) {
+> 347 |               await db.insert(versions).values({
+      |               ^
+  348 |                 id: nanoid(),
+  349 |                 chatId: internalChatId,
+  350 |                 v0VersionId: versionId, {
+  query: 'insert into "versions" ("id", "chat_id", "v0_version_id", "v0_message_id", "demo_url", "metadata", "pinned", "pinned_at", "created_at") values ($1, $2, $3, $4, $5, $6, default, default, default)',
+  params: [Array],
+  [cause]: error: unsupported Unicode escape sequence
+      at async (src\app\api\v0\chats\init\route.ts:347:15)
+      at async withRateLimit (src\lib\rateLimit.ts:178:20)
+    345 |
+    346 |             if (versionId) {
+  > 347 |               await db.insert(versions).values({
+        |               ^
+    348 |                 id: nanoid(),
+    349 |                 chatId: internalChatId,
+    350 |                 v0VersionId: versionId, {
+    length: 250,
+    severity: 'ERROR',
+    code: '22P05',
+    detail: '\\u0000 cannot be converted to text.',
+    hint: undefined,
+    position: undefined,
+    internalPosition: undefined,
+    internalQuery: undefined,
+    where: 'JSON data, line 1: ...g_gen.cpython-313.pyc","content":" \\r\\r\\n\\u0000...\n' +
+      "unnamed portal parameter $6 = '...'",
+    schema: undefined,
+    table: undefined,
+    column: undefined,
+    dataType: undefined,
+    constraint: undefined,
+    file: 'jsonfuncs.c',
+    line: '645',
+    routine: 'json_errsave_error'
+  }
+}
+ POST /api/v0/chats/init 200 in 95s (compile: 586ms, proxy.ts: 13ms, render: 94s)
+ GET /builder?chatId=47XCxvN0mPb 200 in 45ms (compile: 6ms, proxy.ts: 6ms, render: 33ms)
+ GET /api/v0/chats/47XCxvN0mPb 200 in 1379ms (compile: 888ms, proxy.ts: 6ms, render: 485ms)
+ GET /api/v0/chats/47XCxvN0mPb/versions 200 in 1411ms (compile: 858ms, proxy.ts: 7ms, render: 547ms)
+ GET /api/v0/chats/47XCxvN0mPb/versions 200 in 146ms (compile: 12ms, proxy.ts: 4ms, render: 130ms)
+ GET /api/v0/chats/47XCxvN0mPb/versions 200 in 136ms (compile: 16ms, proxy.ts: 4ms, render: 116ms)"
