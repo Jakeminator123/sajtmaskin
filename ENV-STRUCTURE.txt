@@ -1,0 +1,93 @@
+SAJTMASKIN ENV STRUCTURE (overview)
+===============================================================================
+
+GOAL
+- Keep production secrets in Vercel Project Environment Variables.
+- Keep local secrets in .env.local only.
+- Keep per-user tokens in the database (encrypted), not in env.
+- Keep anything NEXT_PUBLIC_* safe to expose in the browser.
+
+KEY CATEGORIES
+A) Server secrets (never in client)
+   Examples: OPENAI_API_KEY, V0_API_KEY, STRIPE_SECRET_KEY,
+   DATABASE_URL/POSTGRES_URL, webhook secrets, BLOB tokens.
+   Storage: Vercel Project env (Production/Preview/Development).
+
+B) Public config (safe in browser)
+   Examples: NEXT_PUBLIC_APP_URL, NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,
+   NEXT_PUBLIC_GOOGLE_MAPS_API_KEY.
+   Storage: Vercel Project env as NEXT_PUBLIC_*.
+
+C) Per-user tokens (user-owned)
+   Examples: OAuth access/refresh tokens after users connect GitHub/Google/etc.
+   Storage: Database per user (encrypt before saving).
+
+WHY SUPABASE + UPSTASH?
+- Supabase/Postgres is the primary database for your app data.
+- Upstash Redis is used for rate limiting and session storage (fast, ephemeral).
+- They serve different purposes and can coexist without overlap.
+
+UPSTASH STANDARD (recommended)
+- Use UPSTASH_REDIS_REST_URL + UPSTASH_REDIS_REST_TOKEN for:
+  - rate limiting
+  - session store
+- Do not set REDIS_URL unless you want Redis cache as a separate feature.
+
+WHERE KEYS SHOULD LIVE
+1) Vercel Project (Production/Preview/Development)
+   - All server secrets
+   - All public config (NEXT_PUBLIC_*)
+   - Environment-specific values (live vs test keys)
+
+2) Local .env.local
+   - Same structure as Preview, with dev/test keys
+   - Dev-only users/admin entries are allowed here
+   - VERCEL_OIDC_TOKEN can exist only for local gateway auth (auto-refreshed)
+
+3) v0 personal / v0 team
+   - Only V0_API_KEY if needed for code generation
+   - Prefer team key for production usage
+
+4) Database (per user)
+   - OAuth tokens and any user-specific external service data
+   - Use userId to namespace storage keys:
+     Example: "user:{userId}:storage:{resourceId}"
+
+NEXT_PUBLIC WARNING
+- Any NEXT_PUBLIC_* value is visible to anyone in the browser.
+- If a value should be private, do NOT prefix it with NEXT_PUBLIC_.
+
+ASCII SCHEMA
+----------------------------------------------------------------------------
+UserBrowser -> NextApp(client) -> NextApp(server)
+                                   |--> Postgres(Supabase) [app data]
+                                   |--> Upstash Redis [rate limit, sessions]
+                                   |--> External APIs [OpenAI, v0, Stripe, etc]
+
+KEY PLACEMENT SUMMARY
+----------------------------------------------------------------------------
+Vercel Project Env (Production/Preview/Development)
+- Server secrets: OPENAI_API_KEY, V0_API_KEY, ANTHROPIC_API_KEY, STRIPE_SECRET_KEY,
+  STRIPE_WEBHOOK_SECRET, POSTGRES_URL, BLOB_READ_WRITE_TOKEN, INBOUND_WEBHOOK_SHARED_SECRET,
+  VERCEL_TOKEN, VERCEL_TEAM_ID, VERCEL_PROJECT_ID, VERCEL_WEBHOOK_SECRET
+- Public config: NEXT_PUBLIC_APP_URL, NEXT_PUBLIC_BASE_URL,
+  NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY, NEXT_PUBLIC_GOOGLE_MAPS_API_KEY,
+  NEXT_PUBLIC_REGISTRY_BASE_URL, NEXT_PUBLIC_REGISTRY_STYLE
+- Rate limits: UPSTASH_REDIS_REST_URL, UPSTASH_REDIS_REST_TOKEN
+
+Local .env.local (development)
+- Same keys as Preview
+- Dev-only: TEST_USER_*, SUPERADMIN_*, BACKOFFICE_PASSWORD, DEBUG, V0_STREAM_DEBUG
+- Optional: FIGMA_ACCESS_TOKEN, PEXELS_API_KEY, ENABLE_PEXELS
+
+v0 (personal/team)
+- V0_API_KEY only (do not duplicate production secrets here)
+
+Database (per user)
+- OAuth access tokens and any user-specific external-service credentials
+
+NOTES / RECOMMENDATIONS
+- Replace JWT_SECRET with a long random value (>= 32 chars) and set it in Vercel.
+- Use Stripe live keys only in Production. Use test keys in Preview/Development.
+- If NEXT_PUBLIC_ADMIN_EMAIL is sensitive, move it server-side.
+- Free Upstash plan is OK for dev/preview; upgrade when production traffic grows.
