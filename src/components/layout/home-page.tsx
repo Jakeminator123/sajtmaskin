@@ -117,7 +117,6 @@ export function HomePage() {
       sessionStorage.setItem(`sajtmaskin_audit_prompt:${auditId}`, prompt);
       localStorage.setItem(`sajtmaskin_audit_prompt:${auditId}`, prompt);
       sessionStorage.setItem("sajtmaskin_audit_prompt_id", auditId);
-
     }
 
     // Navigate directly to builder with a flag indicating audit source
@@ -187,7 +186,6 @@ export function HomePage() {
         onClose={() => setShowAuthModal(false)}
         defaultMode={authMode}
       />
-
 
       {/* Audit Result Modal */}
       <AuditModal

@@ -160,7 +160,7 @@ export function PromptInputTextarea({
   const autoId = useId();
   const resolvedId = id ?? `prompt-input-${autoId}`;
   const resolvedName = name ?? `prompt-${autoId}`;
-  const ariaLabel = ariaLabelledByProp ? undefined : ariaLabelProp ?? placeholder ?? "Prompt";
+  const ariaLabel = ariaLabelledByProp ? undefined : (ariaLabelProp ?? placeholder ?? "Prompt");
 
   const handleChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
     onChange(e.target.value);

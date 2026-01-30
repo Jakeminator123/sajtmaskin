@@ -644,7 +644,7 @@ function getOpenAIClient(): OpenAI {
   const apiKey = getOpenAIApiKey();
   if (!apiKey) {
     throw new Error(
-      "OPENAI_API_KEY is required for audit (web_search tool not supported by AI Gateway)"
+      "OPENAI_API_KEY is required for audit (web_search tool not supported by AI Gateway)",
     );
   }
   return new OpenAI({

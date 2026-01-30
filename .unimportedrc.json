@@ -1,10 +1,6 @@
 {
   "$schema": "https://unimported.vercel.app/schema/unimportedrc.schema.json",
-  "entry": [
-    "src/app/**/*.{ts,tsx}",
-    "src/components/**/*.{ts,tsx}",
-    "src/lib/**/*.{ts,tsx}"
-  ],
+  "entry": ["src/app/**/*.{ts,tsx}", "src/components/**/*.{ts,tsx}", "src/lib/**/*.{ts,tsx}"],
   "ignore": [
     "**/*.d.ts",
     "**/*.test.*",

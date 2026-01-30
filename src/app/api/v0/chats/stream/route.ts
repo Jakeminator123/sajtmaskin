@@ -156,9 +156,19 @@ export async function POST(req: Request) {
                 buffer += decoder.decode(value, { stream: true });
 
                 // Prevent unbounded buffer growth from malformed streams
+                // Truncate at newline boundary to preserve event integrity
                 if (buffer.length > MAX_BUFFER_SIZE) {
-                  console.warn("[v0-stream] Buffer exceeded max size, truncating");
-                  buffer = buffer.slice(-MAX_BUFFER_SIZE / 2);
+                  console.warn(
+                    "[v0-stream] Buffer exceeded max size, truncating at newline boundary",
+                  );
+                  const truncateTarget = buffer.length - MAX_BUFFER_SIZE / 2;
+                  const newlineIndex = buffer.indexOf("\n", truncateTarget);
+                  if (newlineIndex !== -1) {
+                    buffer = buffer.slice(newlineIndex + 1);
+                  } else {
+                    // Fallback: no newline found, keep last half
+                    buffer = buffer.slice(-MAX_BUFFER_SIZE / 2);
+                  }
                 }
 
                 const lines = buffer.split("\n");
@@ -311,7 +321,7 @@ export async function POST(req: Request) {
                           .onConflictDoUpdate({
                             target: [versions.chatId, versions.v0VersionId],
                             set: {
-                              demoUrl: finalDemoUrl || undefined,
+                              demoUrl: finalDemoUrl ?? null,
                               metadata: sanitizeV0Metadata(parsed),
                             },
                           });
@@ -374,7 +384,7 @@ export async function POST(req: Request) {
                       .onConflictDoUpdate({
                         target: [versions.chatId, versions.v0VersionId],
                         set: {
-                          demoUrl: finalDemoUrl || undefined,
+                          demoUrl: finalDemoUrl,
                           metadata: sanitizeV0Metadata(resolved.latestChat ?? null),
                         },
                       });

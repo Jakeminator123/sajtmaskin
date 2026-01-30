@@ -19,7 +19,7 @@ export async function POST() {
     console.error("[API/auth/logout] Error:", error);
     return NextResponse.json(
       { success: false, error: "Något gick fel vid utloggning" },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

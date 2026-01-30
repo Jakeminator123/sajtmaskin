@@ -23,9 +23,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({
         success: true,
         canProceed,
-        reason: canProceed
-          ? null
-          : "Du har slut på diamanter. Köp fler för att fortsätta.",
+        reason: canProceed ? null : "Du har slut på diamanter. Köp fler för att fortsätta.",
         authenticated: true,
         balance: user.diamonds,
         cost: 1,
@@ -56,14 +54,12 @@ export async function GET(req: NextRequest) {
     if (action === "generate") {
       canProceed = guestUsage.generations_used < 1;
       if (!canProceed) {
-        reason =
-          "Du har använt din gratis generation. Skapa ett konto för att fortsätta bygga!";
+        reason = "Du har använt din gratis generation. Skapa ett konto för att fortsätta bygga!";
       }
     } else if (action === "refine") {
       canProceed = guestUsage.refines_used < 1;
       if (!canProceed) {
-        reason =
-          "Du har använt din gratis förfining. Skapa ett konto för att fortsätta förfina!";
+        reason = "Du har använt din gratis förfining. Skapa ett konto för att fortsätta förfina!";
       }
     }
 
@@ -83,7 +79,7 @@ export async function GET(req: NextRequest) {
     console.error("[API/credits/check] Error:", error);
     return NextResponse.json(
       { success: false, error: "Kunde inte kontrollera diamanter. Försök igen." },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

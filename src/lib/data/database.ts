@@ -2824,4 +2824,3 @@ export function updateDomainOrderStatus(
     ).run(status, now, id);
   }
 }
-

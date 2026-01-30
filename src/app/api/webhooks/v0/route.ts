@@ -55,15 +55,15 @@ async function handleChatCreated(data: any) {
   const { chatId, projectId } = data;
   if (!chatId) return;
 
-  const existing = await db.select().from(chats).where(eq(chats.v0ChatId, chatId)).limit(1);
-
-  if (existing.length === 0) {
-    await db.insert(chats).values({
+  // Use upsert to prevent race condition - atomically insert or ignore if exists
+  await db
+    .insert(chats)
+    .values({
       id: nanoid(),
       v0ChatId: chatId,
       v0ProjectId: projectId || "",
-    });
-  }
+    })
+    .onConflictDoNothing({ target: chats.v0ChatId });
 }
 
 async function handleMessageCompleted(data: any) {

@@ -18,7 +18,7 @@ const initRegistrySchema = z.object({
   // Quality level for generation
   quality: z
     .enum(["light", "standard", "pro", "premium", "max"])
-    .default("standard") as z.ZodType<QualityLevel>,
+    .default("max") as z.ZodType<QualityLevel>,
   // Optional name for the chat
   name: z.string().optional(),
   // Optional project ID

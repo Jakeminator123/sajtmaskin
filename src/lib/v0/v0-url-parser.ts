@@ -106,10 +106,7 @@ export function parseRegistryUrl(url: string): ParsedRegistryUrl {
  * @param style - Style variant (default: 'new-york-v4')
  * @returns Full registry URL
  */
-export function buildShadcnRegistryUrl(
-  componentName: string,
-  style?: string,
-): string {
+export function buildShadcnRegistryUrl(componentName: string, style?: string): string {
   const resolvedStyle = style?.trim() || getRegistryStyle();
   const baseUrl = getRegistryBaseUrl();
   return `${baseUrl}/r/styles/${resolvedStyle}/${componentName}.json`;

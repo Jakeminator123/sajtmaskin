@@ -401,7 +401,6 @@ export function InitFromRepoModal({ isOpen, onClose, onSuccess }: InitFromRepoMo
               </div>
             </div>
           )}
-
         </div>
 
         <div className="mt-4 flex gap-3 border-t border-gray-100 pt-4">

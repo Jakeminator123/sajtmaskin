@@ -145,9 +145,7 @@ export function buildShadcnBlockPrompt(
     lines.push(`Description: ${description}`);
   }
   lines.push("Do not replace existing pages or layout.");
-  lines.push(
-    "Add it as a new section on the homepage (`app/page.tsx`) below existing content.",
-  );
+  lines.push("Add it as a new section on the homepage (`app/page.tsx`) below existing content.");
   lines.push(`Create the block components under \`src/components/blocks/${blockName}/\`.`);
   lines.push("Use these import mappings:");
   lines.push(`- \`@/registry/${style}/ui/*\` -> \`@/components/ui/*\``);
@@ -180,7 +178,9 @@ export function buildShadcnBlockPrompt(
   lines.push(
     `- If a file is a page component, convert it into a reusable section component (e.g. \`${componentName}\`) instead of creating a new route.`,
   );
-  lines.push("- Keep existing content intact; only append the new section and required components.");
+  lines.push(
+    "- Keep existing content intact; only append the new section and required components.",
+  );
   lines.push("- Avoid introducing @v0/* imports.");
 
   return lines.join("\n\n");

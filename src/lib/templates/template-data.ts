@@ -109,9 +109,7 @@ function getTemplateCategoryId(template: Template): string {
 
   // PRIORITY 2: If template has a specific category in its data, use it
   if (template.category && template.category !== "Templates") {
-    const normalizedCategory = template.category
-      .toLowerCase()
-      .replace(/\s+/g, "-");
+    const normalizedCategory = template.category.toLowerCase().replace(/\s+/g, "-");
     if (availableCategories.includes(normalizedCategory)) {
       return normalizedCategory;
     }
@@ -1091,9 +1089,7 @@ export const COMPONENT_CATEGORIES: ComponentCategory[] = [
 ];
 
 // Legacy flat array for backward compatibility
-export const COMPONENTS: QuickPrompt[] = COMPONENT_CATEGORIES.flatMap(
-  (cat) => cat.components
-);
+export const COMPONENTS: QuickPrompt[] = COMPONENT_CATEGORIES.flatMap((cat) => cat.components);
 
 // Get all category IDs
 export const CATEGORY_IDS = Object.keys(CATEGORIES);

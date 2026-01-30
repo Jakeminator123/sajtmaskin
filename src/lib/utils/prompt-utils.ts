@@ -10,10 +10,7 @@ export interface MediaLibraryItem {
  * Enhance a prompt for v0 by resolving media library references.
  * Adds a catalog of available images so v0 can use exact URLs.
  */
-export function enhancePromptForV0(
-  prompt: string,
-  mediaLibrary?: MediaLibraryItem[]
-): string {
+export function enhancePromptForV0(prompt: string, mediaLibrary?: MediaLibraryItem[]): string {
   if (!mediaLibrary || mediaLibrary.length === 0) {
     return prompt;
   }
@@ -31,9 +28,7 @@ export function enhancePromptForV0(
     "logotypen",
   ];
 
-  const hasMediaReference = mediaReferences.some((ref) =>
-    prompt.toLowerCase().includes(ref)
-  );
+  const hasMediaReference = mediaReferences.some((ref) => prompt.toLowerCase().includes(ref));
 
   if (hasMediaReference) {
     const mediaCatalog = mediaLibrary

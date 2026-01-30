@@ -32,13 +32,7 @@
     "8lNrJsEZHaF"
   ],
 
-  "login-and-sign-up": [
-    "zdiN8dHwaaT",
-    "JTMkCmk0GvC",
-    "XmzC9oi7g4m",
-    "DuidKNEmCKf",
-    "ShQM1OceNZX"
-  ],
+  "login-and-sign-up": ["zdiN8dHwaaT", "JTMkCmk0GvC", "XmzC9oi7g4m", "DuidKNEmCKf", "ShQM1OceNZX"],
 
   "blog-and-portfolio": [
     "mA8N4h1POSv",
@@ -50,20 +44,9 @@
     "RjIZayM2Jjj"
   ],
 
-  "design-systems": [
-    "EYN85i0FdYV",
-    "Pf7lw1nypu5",
-    "9dPeJBX8qhz",
-    "33G2ek8YnAG"
-  ],
+  "design-systems": ["EYN85i0FdYV", "Pf7lw1nypu5", "9dPeJBX8qhz", "33G2ek8YnAG"],
 
-  "layouts": [
-    "lezjBDZqoIO",
-    "OSlhFl7nxUm",
-    "qK8iWfx4VMX",
-    "W0v7PBF5ev4",
-    "8Y9E0cStKrW"
-  ],
+  "layouts": ["lezjBDZqoIO", "OSlhFl7nxUm", "qK8iWfx4VMX", "W0v7PBF5ev4", "8Y9E0cStKrW"],
 
   "website-templates": [
     "Y7gJ5K3ewPJ",

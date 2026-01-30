@@ -708,6 +708,7 @@ export function useV0ChatMessaging(params: {
         });
         const finalMessage = appendAttachmentPrompt(messageForV0, options.attachmentPrompt);
         const thinkingForTier = selectedModelTier !== "v0-mini";
+        // Only trim whitespace; no model is involved here.
         const trimmedSystemPrompt = systemPrompt?.trim();
         const requestBody: Record<string, unknown> = {
           message: finalMessage,
@@ -873,9 +874,15 @@ export function useV0ChatMessaging(params: {
             }
           });
 
-          setMessages((prev) =>
-            prev.map((m) => (m.id === assistantMessageId ? { ...m, isStreaming: false } : m)),
-          );
+          // Ensure isStreaming is false even if stream ends without "done" event (fail-safe)
+          setMessages((prev) => {
+            const msg = prev.find((m) => m.id === assistantMessageId);
+            // Skip update if already not streaming (avoid duplicate render)
+            if (!msg?.isStreaming) return prev;
+            return prev.map((m) =>
+              m.id === assistantMessageId ? { ...m, isStreaming: false } : m,
+            );
+          });
         } else {
           const data = await response.json();
           const newChatId = data.id || data.chatId || data.v0ChatId || data.chat?.id;

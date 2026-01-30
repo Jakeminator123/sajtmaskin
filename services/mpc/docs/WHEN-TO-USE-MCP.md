@@ -7,18 +7,15 @@
 Använd MCP-servern när du behöver:
 
 1. **Söka i projektets dokumentation**
-
    - När du behöver hitta information om API:er, bibliotek eller mönster
    - När du inte är säker på hur något fungerar
    - När du behöver exempel eller referenser
 
 2. **Läsa specifik dokumentation**
-
    - När du vet vilken fil du behöver läsa
    - När du behöver fullständig dokumentation för ett ämne
 
 3. **Logga fel för framtida analys**
-
    - När något går fel och du vill spara informationen
    - När du vill spåra problem över tid
 

@@ -5,10 +5,7 @@ import { clearUserGitHub } from "@/lib/data/database";
 export async function POST(request: Request) {
   const user = await getCurrentUser(request);
   if (!user) {
-    return NextResponse.json(
-      { error: "Not authenticated" },
-      { status: 401 }
-    );
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
 
   clearUserGitHub(user.id);
