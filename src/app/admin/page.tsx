@@ -727,7 +727,7 @@ export default function AdminPage() {
 
               {!dbStats?.redis?.connected && (
                 <div className="bg-brand-amber/10 border-brand-amber/30 text-brand-amber border p-4 text-sm">
-                  Redis är inte konfigurerat. Lägg till REDIS_PASSWORD i .env.local för att aktivera
+                  Redis är inte konfigurerat. Lägg till REDIS_URL i .env.local för att aktivera
                   caching.
                 </div>
               )}

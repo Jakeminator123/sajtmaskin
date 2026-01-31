@@ -415,7 +415,7 @@ export async function POST(req: NextRequest) {
       }
 
       // 2. Delete Vercel projects
-      const vercelToken = process.env.VERCEL_TOKEN || process.env.VERCEL_API_TOKEN;
+      const vercelToken = process.env.VERCEL_TOKEN;
       if (vercelToken) {
         try {
           // Fetch all Vercel projects
@@ -550,7 +550,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === "cleanup-vercel-projects") {
-      const vercelToken = process.env.VERCEL_TOKEN || process.env.VERCEL_API_TOKEN;
+      const vercelToken = process.env.VERCEL_TOKEN;
       if (!vercelToken) {
         return NextResponse.json({
           success: false,

@@ -50,7 +50,7 @@ export async function POST(req: Request) {
       if (botError) return botError;
 
       const oidcToken = process.env.VERCEL_OIDC_TOKEN;
-      const token = process.env.VERCEL_TOKEN || process.env.VERCEL_API_TOKEN;
+      const token = process.env.VERCEL_TOKEN;
       const teamId = process.env.VERCEL_TEAM_ID;
       const projectId = process.env.VERCEL_PROJECT_ID;
 

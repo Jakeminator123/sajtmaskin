@@ -1,6 +1,6 @@
 DEPENDENCY & INSTALLATION STATUS
 ================================
-Senast uppdaterad: 2026-01-27
+Senast uppdaterad: 2026-01-30
 
 NODE.JS VERSION
 ---------------
@@ -12,9 +12,8 @@ NODE.JS VERSION
 
 PAKETHANTERARE
 --------------
-- Ingen lockfile hittad (package-lock.json, yarn.lock, pnpm-lock.yaml, bun.lockb)
-- Risk: Dependency drift mellan installationer
-- Rekommendation: Kör `npm install` och checka in package-lock.json
+- package-lock.json finns (npm)
+- Rekommendation: Håll lockfile uppdaterad via `npm install`
 
 DATABASE (Supabase PostgreSQL)
 ------------------------------
@@ -69,17 +68,15 @@ Dev Tools:
 
 KÄNDA ISSUES
 ------------
-1. Ingen lockfile -> dependency drift risk
-2. zustand deprecation warning från extern dependency
-3. Audit-routen kräver OPENAI_API_KEY direkt (web_search stöds inte av AI Gateway)
-4. versions.pinned: Drizzle schema har NOT NULL men Supabase tillåter NULL (minor)
+1. zustand deprecation warning från extern dependency
+2. Audit-routen kräver OPENAI_API_KEY direkt (web_search stöds inte av AI Gateway)
+3. versions.pinned: Drizzle schema har NOT NULL men Supabase tillåter NULL (minor)
 
 REKOMMENDERADE ÅTGÄRDER
 -----------------------
-1. [LÅGT] Lägg till lockfile: `npm install && git add package-lock.json`
-2. [LÅGT] Kör `npm outdated` för att se uppdaterbara paket
-3. [INFO] zustand varningen kommer från tredjepartspaket, inte från egen kod
-4. [LÅGT] Fixa pinned-kolumn: ALTER TABLE public.versions ALTER COLUMN pinned SET NOT NULL;
+1. [LÅGT] Kör `npm outdated` för att se uppdaterbara paket
+2. [INFO] zustand varningen kommer från tredjepartspaket, inte från egen kod
+3. [LÅGT] Fixa pinned-kolumn: ALTER TABLE public.versions ALTER COLUMN pinned SET NOT NULL;
 
 AUTOMATISKA INSTALLATIONSKOMMANDON
 ----------------------------------
@@ -90,7 +87,7 @@ Projektet har inga speciella install-scripts utöver standard:
 ENV-VARIABLER (KRÄVS)
 ---------------------
 Databas:
-- POSTGRES_URL eller DATABASE_URL (Supabase connection string)
+- POSTGRES_URL (Supabase connection string)
 
 AI/v0:
 - V0_API_KEY (v0 Platform API för site generation)

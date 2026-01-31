@@ -493,7 +493,7 @@ export function ChatInterface({
             {figmaPreviewError && <div className="text-xs text-red-500">{figmaPreviewError}</div>}
             {!figmaPreviewUrl && !figmaPreviewLoading && (
               <div className="text-muted-foreground text-[11px]">
-                Kräver FIGMA_ACCESS_TOKEN eller FIGMA_TOKEN för preview.
+                Kräver FIGMA_ACCESS_TOKEN för preview.
               </div>
             )}
             {figmaPreviewUrl && (

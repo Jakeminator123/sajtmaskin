@@ -309,11 +309,11 @@ function scanCodeForEnvKeys() {
   });
 
   const keys = new Set();
-  const dotPattern = /process\.env\.([A-Z0-9_]+)/g;
-  const bracketPattern = /process\.env\[['"]([A-Z0-9_]+)['"]\]/g;
 
   for (const file of files) {
     const content = readFileSync(file, "utf8");
+    const dotPattern = /process\.env\.([A-Z0-9_]+)/g;
+    const bracketPattern = /process\.env\[['"]([A-Z0-9_]+)['"]\]/g;
     let match;
     while ((match = dotPattern.exec(content))) {
       keys.add(match[1]);
@@ -362,21 +362,15 @@ function warnOnPlacement(envData, isProd) {
     log("JWT_SECRET", "ok", "JWT secret length looks good");
   }
 
-  if (keys.has("DATABASE_URL") && keys.has("POSTGRES_URL")) {
-    log(
-      "DB URLs",
-      "warn",
-      "Both DATABASE_URL and POSTGRES_URL are set",
-      "Prefer one canonical variable unless your tooling requires both",
-    );
+  if (keys.has("DATABASE_URL")) {
+    log("DB URLs", "warn", "DATABASE_URL is deprecated", "Use POSTGRES_URL only");
   } else {
-    log("DB URLs", "ok", "No duplicate DB URL variables");
+    log("DB URLs", "ok", "Using POSTGRES_URL only");
   }
 
-  const redisUrlKeys = ["REDIS_URL", "STORAGE_REDIS_URL", "STORAGE_KV_URL"];
+  const redisUrlKeys = ["REDIS_URL"];
   const redisPresent = redisUrlKeys.filter((key) => keys.has(key));
-  const upstashRestPresent =
-    keys.has("UPSTASH_REDIS_REST_URL") || keys.has("STORAGE_KV_REST_API_URL");
+  const upstashRestPresent = keys.has("UPSTASH_REDIS_REST_URL");
 
   if (redisPresent.length > 1 || (redisPresent.length && upstashRestPresent)) {
     const redisList = [...redisPresent];
@@ -391,22 +385,9 @@ function warnOnPlacement(envData, isProd) {
     log("Redis vars", "ok", "No obvious Redis/KV duplicates");
   }
 
-  if (keys.has("NEXT_PUBLIC_BASE_URL") && keys.has("NEXT_PUBLIC_APP_URL")) {
-    log(
-      "App URL vars",
-      "warn",
-      "Both NEXT_PUBLIC_BASE_URL and NEXT_PUBLIC_APP_URL are set",
-      "Prefer a single public URL variable",
-    );
-  } else {
-    log("App URL vars", "ok", "No duplicate public URL variables");
-  }
+  log("App URL vars", "ok", "Using NEXT_PUBLIC_APP_URL as the only public URL");
 
-  const publicAllowlist = new Set([
-    "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY",
-    "NEXT_PUBLIC_APP_URL",
-    "NEXT_PUBLIC_BASE_URL",
-  ]);
+  const publicAllowlist = new Set(["NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY", "NEXT_PUBLIC_APP_URL"]);
   const publicSecrets = [...keys].filter((key) => {
     if (!key.startsWith("NEXT_PUBLIC_")) return false;
     if (publicAllowlist.has(key)) return false;
@@ -488,6 +469,7 @@ async function fetchOpenAIBilling(key) {
     "https://api.openai.com/v1/dashboard/billing/credit_grants",
   ];
 
+  let lastError;
   for (const url of endpoints) {
     try {
       const res = await fetch(url, {
@@ -507,11 +489,12 @@ async function fetchOpenAIBilling(key) {
         expires_at: data.expires_at,
       };
     } catch (error) {
-      return { error: error.message };
+      lastError = error instanceof Error ? error.message : String(error);
+      continue;
     }
   }
 
-  return { error: "No billing endpoint available for this account" };
+  return { error: lastError || "No billing endpoint available for this account" };
 }
 
 async function testV0() {
@@ -791,9 +774,6 @@ async function testUnsplash() {
 async function testVercelApi() {
   const candidates = [
     { name: "VERCEL_TOKEN", value: process.env.VERCEL_TOKEN },
-    { name: "VERCEL_API_KEY", value: process.env.VERCEL_API_KEY },
-    { name: "VERCEL_ACCESS_TOKEN", value: process.env.VERCEL_ACCESS_TOKEN },
-    { name: "VERCEL_API_TOKEN", value: process.env.VERCEL_API_TOKEN },
   ].filter((item) => item.value);
 
   if (!candidates.length) {
@@ -877,15 +857,14 @@ async function testVercelBlob() {
 }
 
 async function testSupabase() {
-  const url =
-    process.env.POSTGRES_URL || process.env.POSTGRES_URL_NON_POOLING || process.env.DATABASE_URL;
+  const url = process.env.POSTGRES_URL;
   if (!url) {
-    log("DATABASE_URL", "warn", "No Postgres URL configured");
+    log("POSTGRES_URL", "warn", "No Postgres URL configured");
     return true;
   }
 
   if (!allowRequests) {
-    log("DATABASE_URL", "skip", "Skipping remote check (--no-requests)");
+    log("POSTGRES_URL", "skip", "Skipping remote check (--no-requests)");
     return true;
   }
 
@@ -902,19 +881,19 @@ async function testSupabase() {
     await pool.end();
     if (result.rows[0]?.test === 1) {
       const host = url.match(/@([^:/]+)/)?.[1] || "unknown";
-      log("DATABASE_URL", "ok", `Connected (${host.slice(0, 30)}...)`);
+      log("POSTGRES_URL", "ok", `Connected (${host.slice(0, 30)}...)`);
     } else {
-      log("DATABASE_URL", "warn", "Connection OK but query failed");
+      log("POSTGRES_URL", "warn", "Connection OK but query failed");
     }
     return true;
   } catch (error) {
-    log("DATABASE_URL", "fail", `Error: ${error.message?.slice(0, 60)}`);
+    log("POSTGRES_URL", "fail", `Error: ${error.message?.slice(0, 60)}`);
     return false;
   }
 }
 
 async function testRedis() {
-  const url = process.env.REDIS_URL || process.env.STORAGE_REDIS_URL || process.env.STORAGE_KV_URL;
+  const url = process.env.REDIS_URL;
   if (!url) {
     log("REDIS_URL", "skip", "Not configured (optional)");
     return true;
@@ -942,8 +921,8 @@ async function testRedis() {
 }
 
 async function testUpstashRest() {
-  const url = process.env.UPSTASH_REDIS_REST_URL || process.env.STORAGE_KV_REST_API_URL;
-  const token = process.env.UPSTASH_REDIS_REST_TOKEN || process.env.STORAGE_KV_REST_API_TOKEN;
+  const url = process.env.UPSTASH_REDIS_REST_URL;
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
 
   if (!url || !token) {
     log("Upstash REST", "skip", "Not configured (optional)");
@@ -980,8 +959,7 @@ function checkPublicConfig() {
   section("PUBLIC CONFIG CHECKS");
 
   const checks = [
-    { key: "NEXT_PUBLIC_APP_URL", required: true, hint: "Client app URL" },
-    { key: "NEXT_PUBLIC_BASE_URL", required: false, hint: "Legacy base URL" },
+    { key: "NEXT_PUBLIC_APP_URL", required: true, hint: "Client app URL (primary)" },
     { key: "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY", required: false, hint: "Stripe publishable key" },
     { key: "NEXT_PUBLIC_GOOGLE_MAPS_API_KEY", required: false, hint: "Google Maps JS API" },
     { key: "NEXT_PUBLIC_ADMIN_EMAIL", required: false, hint: "Shown in admin UI" },
@@ -999,16 +977,6 @@ function checkPublicConfig() {
       log(key, "skip", "Not configured (optional)", hint);
     }
   });
-
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL;
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL;
-  if (appUrl && baseUrl && appUrl.trim() !== baseUrl.trim()) {
-    log(
-      "NEXT_PUBLIC_URLS",
-      "warn",
-      "NEXT_PUBLIC_APP_URL and NEXT_PUBLIC_BASE_URL differ",
-    );
-  }
 
   const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL;
   if (adminEmail && !adminEmail.includes("@")) {

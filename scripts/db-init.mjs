@@ -9,14 +9,11 @@ function normalizeEnvUrl(value) {
   return trimmed;
 }
 
-const connectionString =
-  normalizeEnvUrl(process.env.POSTGRES_URL) ||
-  normalizeEnvUrl(process.env.POSTGRES_URL_NON_POOLING) ||
-  normalizeEnvUrl(process.env.DATABASE_URL);
+const connectionString = normalizeEnvUrl(process.env.POSTGRES_URL);
 
 if (!connectionString) {
   console.error("Missing database connection URL.");
-  console.error("Set POSTGRES_URL (preferred), POSTGRES_URL_NON_POOLING, or DATABASE_URL.");
+  console.error("Set POSTGRES_URL.");
   process.exit(1);
 }
 

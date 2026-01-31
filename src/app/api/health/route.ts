@@ -58,7 +58,7 @@ export async function GET() {
   } else {
     checks.redis = {
       status: "disabled",
-      reason: "REDIS_HOST or REDIS_PASSWORD not configured",
+      reason: "REDIS_URL not configured",
     };
   }
 

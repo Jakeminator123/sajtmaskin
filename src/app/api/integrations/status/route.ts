@@ -22,18 +22,12 @@ function isGatewayConfigured(): { enabled: boolean; notes?: string } {
 }
 
 function isV0ModelApiConfigured(): boolean {
-  return Boolean(process.env.VERCEL_API_KEY?.trim() || process.env.V0_API_KEY?.trim());
+  return Boolean(process.env.V0_API_KEY?.trim());
 }
 
 function getUpstashEnv(): { enabled: boolean; notes?: string } {
-  const url =
-    process.env.UPSTASH_REDIS_REST_URL ||
-    process.env.KV_REST_API_URL ||
-    process.env.STORAGE_KV_REST_API_URL;
-  const token =
-    process.env.UPSTASH_REDIS_REST_TOKEN ||
-    process.env.KV_REST_API_TOKEN ||
-    process.env.STORAGE_KV_REST_API_TOKEN;
+  const url = process.env.UPSTASH_REDIS_REST_URL;
+  const token = process.env.UPSTASH_REDIS_REST_TOKEN;
   if (url && token) return { enabled: true, notes: "ratelimit: upstash" };
   return { enabled: false, notes: "ratelimit: memory" };
 }
@@ -64,7 +58,7 @@ export async function GET() {
       label: "v0 Model API (openai-compat)",
       enabled: isV0ModelApiConfigured(),
       required: false,
-      requiredEnv: ["V0_API_KEY", "VERCEL_API_KEY"],
+      requiredEnv: ["V0_API_KEY"],
       affects: "Prompt‑assist via v0‑1.5‑md/lg",
     },
     {
@@ -88,8 +82,8 @@ export async function GET() {
       label: "Redis cache",
       enabled: FEATURES.useRedisCache,
       required: false,
-      requiredEnv: ["REDIS_URL", "REDIS_HOST", "REDIS_PASSWORD"],
-      affects: "Rate limits, sessioner, caching",
+      requiredEnv: ["REDIS_URL"],
+      affects: "Caching (optional)",
       notes: REDIS_CONFIG.enabled ? "redis cache on" : "redis cache off",
     },
     {
