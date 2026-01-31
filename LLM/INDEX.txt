@@ -8,7 +8,6 @@ Styrning:
 - Se LLM/mijo-logik.txt for detaljer
 
 Primara dokument:
-- LLM/atgardsmatris.txt
 - LLM/AC-schema.txt
 - LLM/schemas_overview.txt
 - LLM/mijo-logik.txt
@@ -27,4 +26,3 @@ Referens:
 
 Uppdatering:
 1) Andra kod -> uppdatera motsvarande doc i LLM/ eller schemas/.
-2) Hojrisk-andringar -> uppdatera atgardsmatris.
