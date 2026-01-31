@@ -1,6 +1,6 @@
 /**
  * Centralized configuration for environment-dependent settings
- * Handles paths, database, uploads consistently across local dev and production
+ * Handles paths and uploads consistently across local dev and production
  */
 
 import path from "path";
@@ -50,6 +50,7 @@ function normalizeRedisUrl(value: string | undefined, varName?: string): string 
 function resolveRedisUrl(): string | null {
   const candidates = [
     normalizeRedisUrl(process.env.REDIS_URL, "REDIS_URL"),
+    normalizeRedisUrl(process.env.KV_URL, "KV_URL"),
   ];
   return candidates.find((value) => value) || null;
 }
@@ -72,7 +73,7 @@ const RESOLVED_REDIS_URL = resolveRedisUrl();
 const PARSED_REDIS_URL = RESOLVED_REDIS_URL ? parseRedisUrl(RESOLVED_REDIS_URL) : null;
 
 /**
- * Data directory configuration
+ * Data directory configuration (local uploads)
  * - Production (Render): /var/data (persistent disk) - MUST be set via DATA_DIR env var
  * - Local development: ./data (relative to app root)
  *
@@ -111,7 +112,7 @@ function getDataDir(): string {
     hasWarnedAboutDataDir = true;
     console.error(
       "[Config] ❌ CRITICAL: DATA_DIR not set in production!\n" +
-        "  → Database and uploads will be lost on restart\n" +
+        "  → Uploads and local files will be lost on restart\n" +
         "  → Set DATA_DIR=/var/data and mount persistent disk",
     );
   }
@@ -138,7 +139,7 @@ export const PATHS = {
     return getDataDir();
   },
 
-  // SQLite database file
+  // Deprecated: kept for legacy SQLite file cleanup
   get database() {
     return path.join(getDataDir(), "sajtmaskin.db");
   },

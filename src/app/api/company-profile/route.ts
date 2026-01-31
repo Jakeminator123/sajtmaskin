@@ -16,7 +16,7 @@ import {
   searchCompanyProfiles,
   linkCompanyProfileToProject,
   type CompanyProfile,
-} from "@/lib/data/database";
+} from "@/lib/db/services";
 
 // GET - Retrieve company profiles
 export async function GET(req: NextRequest) {
@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
 
     // Get by project ID
     if (projectId) {
-      const profile = getCompanyProfileByProjectId(projectId);
+      const profile = await getCompanyProfileByProjectId(projectId);
       if (!profile) {
         return NextResponse.json({ success: false, error: "Profile not found" }, { status: 404 });
       }
@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
 
     // Get by company name
     if (companyName) {
-      const profile = getCompanyProfileByName(companyName);
+      const profile = await getCompanyProfileByName(companyName);
       if (!profile) {
         return NextResponse.json({ success: false, error: "Profile not found" }, { status: 404 });
       }
@@ -46,12 +46,12 @@ export async function GET(req: NextRequest) {
 
     // Search profiles
     if (search) {
-      const profiles = searchCompanyProfiles(search);
+      const profiles = await searchCompanyProfiles(search);
       return NextResponse.json({ success: true, profiles });
     }
 
     // Get all profiles
-    const profiles = getAllCompanyProfiles();
+    const profiles = await getAllCompanyProfiles();
     return NextResponse.json({ success: true, profiles });
   } catch (error) {
     console.error("[API/company-profile] GET error:", error);
@@ -125,7 +125,7 @@ export async function POST(req: NextRequest) {
       voice_transcript,
     };
 
-    const savedProfile = saveCompanyProfile(profileData);
+    const savedProfile = await saveCompanyProfile(profileData);
 
     console.log("[API/company-profile] Saved profile ID:", savedProfile.id);
 
@@ -151,7 +151,7 @@ export async function PATCH(req: NextRequest) {
       );
     }
 
-    linkCompanyProfileToProject(profileId, projectId);
+    await linkCompanyProfileToProject(profileId, projectId);
 
     return NextResponse.json({ success: true });
   } catch (error) {

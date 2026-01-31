@@ -82,7 +82,7 @@ export async function GET() {
       label: "Redis cache",
       enabled: FEATURES.useRedisCache,
       required: false,
-      requiredEnv: ["REDIS_URL"],
+      requiredEnv: ["REDIS_URL", "KV_URL"],
       affects: "Caching (optional)",
       notes: REDIS_CONFIG.enabled ? "redis cache on" : "redis cache off",
     },

@@ -17,7 +17,7 @@ import {
   users,
 } from "@/lib/db/schema";
 import { PATHS, SECRETS } from "@/lib/config";
-import { deleteBlob, isBlobUrl } from "@/lib/vercel/blob-service";
+import { deleteBlob, isVercelBlobUrl } from "@/lib/vercel/blob-service";
 
 function assertDbConfigured() {
   if (!dbConfigured) {
@@ -484,13 +484,18 @@ export async function getMediaLibraryByUser(
   fileType?: "image" | "video" | "pdf" | "text" | "logo" | "other",
 ): Promise<MediaLibraryItem[]> {
   assertDbConfigured();
-  const base = db.select().from(mediaLibrary).where(eq(mediaLibrary.user_id, userId));
   if (fileType) {
-    return base
+    return db
+      .select()
+      .from(mediaLibrary)
       .where(and(eq(mediaLibrary.user_id, userId), eq(mediaLibrary.file_type, fileType)))
       .orderBy(desc(mediaLibrary.created_at));
   }
-  return base.orderBy(desc(mediaLibrary.created_at));
+  return db
+    .select()
+    .from(mediaLibrary)
+    .where(eq(mediaLibrary.user_id, userId))
+    .orderBy(desc(mediaLibrary.created_at));
 }
 
 export async function getMediaLibraryCounts(userId: string): Promise<{
@@ -532,7 +537,7 @@ export async function deleteMediaLibraryItem(id: number, userId: string): Promis
   const item = await getMediaLibraryItemById(id);
   if (!item || item.user_id !== userId) return false;
 
-  if (item.blob_url && isBlobUrl(item.blob_url)) {
+  if (item.blob_url && isVercelBlobUrl(item.blob_url)) {
     await deleteBlob(item.blob_url);
   }
 

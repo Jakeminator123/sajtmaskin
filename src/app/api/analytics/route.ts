@@ -5,7 +5,7 @@
  */
 
 import { getCurrentUser } from "@/lib/auth/auth";
-import { TEST_USER_EMAIL, getAnalyticsStats, recordPageView } from "@/lib/data/database";
+import { TEST_USER_EMAIL, getAnalyticsStats, recordPageView } from "@/lib/db/services";
 import { getSessionIdFromRequest } from "@/lib/auth/session";
 import { NextRequest, NextResponse } from "next/server";
 
@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
       req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "unknown";
     const userAgent = req.headers.get("user-agent") || undefined;
 
-    recordPageView(path, sessionId || undefined, user?.id, ipAddress, userAgent, referrer);
+    await recordPageView(path, sessionId || undefined, user?.id, ipAddress, userAgent, referrer);
 
     return NextResponse.json({ success: true });
   } catch (error) {
@@ -63,7 +63,7 @@ export async function GET(req: NextRequest) {
     }
 
     const days = parseInt(req.nextUrl.searchParams.get("days") || "30");
-    const stats = getAnalyticsStats(days);
+    const stats = await getAnalyticsStats(days);
 
     return NextResponse.json({
       success: true,

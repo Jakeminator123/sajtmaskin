@@ -51,7 +51,7 @@ export async function POST(request: NextRequest) {
     const sessionId = getSessionIdFromRequest(request);
     const isPaidUser = user ? user.diamonds > 100 : false; // Simple check - could be more sophisticated
 
-    const limitCheck = canCreateProject(user?.id || null, sessionId || null, isPaidUser);
+    const limitCheck = await canCreateProject(user?.id || null, sessionId || null, isPaidUser);
 
     if (!limitCheck.allowed) {
       console.log("[API/projects] Project limit reached:", {
