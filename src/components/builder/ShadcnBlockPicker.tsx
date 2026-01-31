@@ -12,7 +12,11 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { SHADCN_BLOCKS, type ShadcnBlockItem } from "@/lib/shadcn-registry-blocks";
+import {
+  SHADCN_BLOCKS,
+  type ShadcnBlockCategory,
+  type ShadcnBlockItem,
+} from "@/lib/shadcn-registry-blocks";
 import type { ShadcnRegistryItem } from "@/lib/shadcn-registry-types";
 import {
   buildRegistryMarkdownPreview,
@@ -26,6 +30,53 @@ import {
 } from "@/lib/v0/v0-url-parser";
 
 const DEFAULT_STYLE = getRegistryStyle();
+
+const CATEGORY_LABEL_OVERRIDES: Record<string, string> = {
+  authentication: "Authentication",
+  login: "Login",
+  signup: "Signup",
+  dashboard: "Dashboard",
+  sidebar: "Sidebar",
+  charts: "Charts",
+  calendar: "Calendar",
+  date: "Date",
+  forms: "Forms",
+  marketing: "Marketing",
+  landing: "Landing",
+  other: "Other",
+};
+
+const CATEGORY_ORDER = [
+  "Authentication",
+  "Login",
+  "Signup",
+  "Dashboard",
+  "Sidebar",
+  "Charts",
+  "Calendar",
+  "Date",
+  "Forms",
+  "Marketing",
+  "Landing",
+  "Other",
+];
+
+function toTitleCase(value: string): string {
+  return value
+    .split(/[-_]+/g)
+    .filter(Boolean)
+    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
+function formatCategoryLabel(rawCategory: string): string {
+  const normalized = rawCategory.trim().toLowerCase();
+  return CATEGORY_LABEL_OVERRIDES[normalized] || toTitleCase(normalized);
+}
+
+function formatBlockTitle(name: string): string {
+  return toTitleCase(name);
+}
 
 export type ShadcnBlockAction = "add" | "start";
 
@@ -46,10 +97,17 @@ type RegistryCacheEntry = {
 type RegistryIndexItem = {
   name?: string;
   type?: string;
+  description?: string;
+  categories?: string[];
 };
 
 type RegistryIndexResponse = {
   items?: RegistryIndexItem[];
+};
+
+type RegistryIndexCache = {
+  names: Set<string>;
+  categories: ShadcnBlockCategory[];
 };
 
 interface ShadcnBlockPickerProps {
@@ -83,18 +141,22 @@ export function ShadcnBlockPicker({
   const [activeStyle, setActiveStyle] = useState(style);
   const [pendingAction, setPendingAction] = useState<ShadcnBlockAction | null>(null);
   const [availableBlocks, setAvailableBlocks] = useState<Set<string> | null>(null);
+  const [registryCategories, setRegistryCategories] = useState<ShadcnBlockCategory[] | null>(null);
   const [registryIndexError, setRegistryIndexError] = useState<string | null>(null);
   const cacheRef = useRef<Map<string, RegistryCacheEntry>>(new Map());
-  const registryIndexCacheRef = useRef<Map<string, Set<string>>>(new Map());
+  const registryIndexCacheRef = useRef<Map<string, RegistryIndexCache>>(new Map());
   const resolvedStyle = useMemo(() => activeStyle.trim() || DEFAULT_STYLE, [activeStyle]);
 
   const baseCategories = useMemo(() => {
+    if (registryCategories && registryCategories.length > 0) {
+      return registryCategories;
+    }
     const allowed = availableBlocks;
     return SHADCN_BLOCKS.map((category) => ({
       ...category,
       items: category.items.filter((block) => !allowed || allowed.has(block.name)),
     })).filter((category) => category.items.length > 0);
-  }, [availableBlocks]);
+  }, [registryCategories, availableBlocks]);
 
   useEffect(() => {
     if (!open) return;
@@ -133,7 +195,8 @@ export function ShadcnBlockPicker({
     const cacheKey = `${registryBaseUrl}::${resolvedStyle}`;
     const cached = registryIndexCacheRef.current.get(cacheKey);
     if (cached) {
-      setAvailableBlocks(cached);
+      setAvailableBlocks(cached.names);
+      setRegistryCategories(cached.categories);
       setRegistryIndexError(null);
       return () => controller.abort();
     }
@@ -155,19 +218,46 @@ export function ShadcnBlockPicker({
           throw new Error("Registry index response was empty");
         }
         const items = Array.isArray(data?.items) ? data?.items : [];
-        const names = new Set(
-          items
-            .filter((item) => item?.type === "registry:block" && typeof item?.name === "string")
-            .map((item) => item.name as string),
+        const blocks = items.filter(
+          (item) => item?.type === "registry:block" && typeof item?.name === "string",
         );
+        const names = new Set(blocks.map((item) => item.name as string));
+        const categoriesMap = new Map<string, ShadcnBlockItem[]>();
+        blocks.forEach((item) => {
+          const rawCategory = item.categories?.[0] || "other";
+          const categoryLabel = formatCategoryLabel(rawCategory);
+          const list = categoriesMap.get(categoryLabel) ?? [];
+          list.push({
+            name: item.name as string,
+            title: formatBlockTitle(item.name as string),
+            description: item.description || "",
+          });
+          categoriesMap.set(categoryLabel, list);
+        });
+        const orderMap = new Map(CATEGORY_ORDER.map((label, index) => [label, index]));
+        const categories = Array.from(categoriesMap.entries())
+          .map(([category, items]) => ({
+            category,
+            items: items.sort((a, b) => a.title.localeCompare(b.title)),
+          }))
+          .sort((a, b) => {
+            const aOrder = orderMap.get(a.category);
+            const bOrder = orderMap.get(b.category);
+            if (aOrder !== undefined && bOrder !== undefined) return aOrder - bOrder;
+            if (aOrder !== undefined) return -1;
+            if (bOrder !== undefined) return 1;
+            return a.category.localeCompare(b.category);
+          });
         if (!isActive) return;
-        registryIndexCacheRef.current.set(cacheKey, names);
+        registryIndexCacheRef.current.set(cacheKey, { names, categories });
         setAvailableBlocks(names);
+        setRegistryCategories(categories);
         setRegistryIndexError(null);
       } catch (err) {
         if (!isActive) return;
         if (err instanceof Error && err.name === "AbortError") return;
         setAvailableBlocks(null);
+        setRegistryCategories(null);
         setRegistryIndexError(err instanceof Error ? err.message : "Failed to load registry index");
       }
     };
