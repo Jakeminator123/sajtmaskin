@@ -133,9 +133,7 @@ export function ShadcnBlockPicker({
             }),
           );
           if (!isActive) return;
-          setDependencyItems(
-            dependencies.filter(Boolean) as ShadcnRegistryItem[],
-          );
+          setDependencyItems(dependencies.filter(Boolean) as ShadcnRegistryItem[]);
         }
       } catch {
         // Silent fail - we can still use the item without full data
@@ -209,9 +207,7 @@ export function ShadcnBlockPicker({
                 <Blocks className="h-5 w-5 text-violet-400" />
               </div>
               <div>
-                <DialogTitle className="text-lg font-semibold">
-                  Välj en komponent
-                </DialogTitle>
+                <DialogTitle className="text-lg font-semibold">Välj en komponent</DialogTitle>
                 <DialogDescription className="text-sm text-gray-400">
                   Lägg till professionella komponenter till din hemsida
                 </DialogDescription>
@@ -265,12 +261,10 @@ export function ShadcnBlockPicker({
                     <div key={category.id}>
                       <div className="mb-2 flex items-center gap-2 px-1">
                         <span className="text-base">{category.icon}</span>
-                        <span className="text-xs font-medium text-gray-400 uppercase tracking-wide">
+                        <span className="text-xs font-medium tracking-wide text-gray-400 uppercase">
                           {category.labelSv}
                         </span>
-                        <span className="text-[10px] text-gray-600">
-                          ({category.items.length})
-                        </span>
+                        <span className="text-[10px] text-gray-600">({category.items.length})</span>
                       </div>
                       <div className="space-y-1">
                         {category.items.map((item) => {
@@ -294,7 +288,7 @@ export function ShadcnBlockPicker({
                                 {item.title}
                               </div>
                               {item.description && (
-                                <div className="mt-0.5 text-xs text-gray-500 line-clamp-1">
+                                <div className="mt-0.5 line-clamp-1 text-xs text-gray-500">
                                   {item.description}
                                 </div>
                               )}
@@ -372,9 +366,9 @@ export function ShadcnBlockPicker({
                   <div className="mt-6 flex items-start gap-3 rounded-lg bg-violet-500/10 p-4">
                     <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-violet-400" />
                     <div className="text-sm text-gray-300">
-                      <strong className="text-violet-300">Tips:</strong> Du kan anpassa färger,
-                      text och bilder efter att du lagt till komponenten. Beskriv bara vad du
-                      vill ändra i chatten!
+                      <strong className="text-violet-300">Tips:</strong> Du kan anpassa färger, text
+                      och bilder efter att du lagt till komponenten. Beskriv bara vad du vill ändra
+                      i chatten!
                     </div>
                   </div>
                 </div>

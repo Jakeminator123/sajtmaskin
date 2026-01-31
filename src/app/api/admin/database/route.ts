@@ -35,8 +35,8 @@ async function isAdmin(req: NextRequest): Promise<boolean> {
 }
 
 async function countTable(table: unknown): Promise<number> {
-  const rows = await db.select({ count: sql<number>`count(*)` }).from(table as never);
-  return rows[0]?.count ?? 0;
+  const rows = await db.select({ count: sql<number>`count(*)` }).from(table as any);
+  return (rows[0] as { count: number } | undefined)?.count ?? 0;
 }
 
 async function getDbFileSize(): Promise<string> {
