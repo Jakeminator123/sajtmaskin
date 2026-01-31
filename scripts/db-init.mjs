@@ -1,4 +1,8 @@
 import { Pool } from "pg";
+import { config } from "dotenv";
+
+// Load .env.local for local development
+config({ path: ".env.local" });
 
 function normalizeEnvUrl(value) {
   if (!value) return undefined;

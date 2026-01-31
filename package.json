@@ -6,7 +6,7 @@
     "node": "25.4.0"
   },
   "scripts": {
-    "predev": "node scripts/refresh-token.mjs",
+    "predev": "node scripts/refresh-token.mjs && node scripts/db-init.mjs",
     "dev": "node scripts/next-runner.mjs dev",
     "refresh-token": "node scripts/refresh-token.mjs",
     "build": "node scripts/next-runner.mjs build",
