@@ -183,7 +183,7 @@ export function usePromptAssist(params: UsePromptAssistParams) {
             );
           }
           if (provider === "openai-compat") {
-            return "Kunde inte nå v0 Model API. Sätt V0_API_KEY eller VERCEL_API_KEY i .env.local.";
+            return "Kunde inte nå v0 Model API. Sätt V0_API_KEY i .env.local.";
           }
           return "Kunde inte nå AI Assist-endpointen. Kontrollera att servern kör.";
         })();

@@ -6,9 +6,8 @@
  * Checks if VERCEL_OIDC_TOKEN is expired and refreshes it automatically.
  */
 
-import { execSync, spawn } from "child_process";
-import { readFileSync, writeFileSync, existsSync } from "fs";
-import { join } from "path";
+import { execSync } from "child_process";
+import { readFileSync, writeFileSync, existsSync, unlinkSync } from "fs";
 
 const ENV_FILE = ".env.local";
 const STATUS_FILE = ".token-status.json";
@@ -126,7 +125,7 @@ async function main() {
   if (!newTokenMatch) {
     log("No OIDC token in pulled env", "error");
     try {
-      require("fs").unlinkSync(tempFile);
+      unlinkSync(tempFile);
     } catch {}
     return;
   }
@@ -143,7 +142,7 @@ async function main() {
 
   // Cleanup
   try {
-    require("fs").unlinkSync(tempFile);
+    unlinkSync(tempFile);
   } catch {}
 
   const newExpiryDate = new Date(newExpiry * 1000).toLocaleString("sv-SE");

@@ -1,7 +1,9 @@
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { chats, projects } from "@/lib/db/schema";
 import { nanoid } from "nanoid";
+import { getCurrentUser } from "@/lib/auth/auth";
+import { getSessionIdFromRequest } from "@/lib/auth/session";
 
 /**
  * Standardized v0ProjectId resolution.
@@ -30,18 +32,35 @@ export function generateProjectName(params: {
   return clientProjectId ? `Project ${clientProjectId}` : `Chat ${v0ChatId}`;
 }
 
-export function getRequestUserId(req: Request): string | null {
-  const userId = req.headers.get("x-user-id");
-  const trimmed = userId ? userId.trim() : "";
-  return trimmed.length > 0 ? trimmed : null;
+export async function getRequestUserId(req: Request): Promise<string | null> {
+  try {
+    const user = await getCurrentUser(req);
+    if (user?.id) return user.id;
+  } catch {
+    // ignore auth errors, fall back to headers/session
+  }
+
+  const headerUserId = req.headers.get("x-user-id");
+  const trimmed = headerUserId ? headerUserId.trim() : "";
+  if (trimmed.length > 0) return trimmed;
+
+  const sessionId = getSessionIdFromRequest(req);
+  if (sessionId) return `guest:${sessionId}`;
+
+  return null;
 }
 
 export async function getChatByV0ChatIdForRequest(req: Request, v0ChatId: string) {
-  const userId = getRequestUserId(req);
+  const userId = await getRequestUserId(req);
 
   if (!userId) {
-    const rows = await db.select().from(chats).where(eq(chats.v0ChatId, v0ChatId)).limit(1);
-    return rows[0] ?? null;
+    const rows = await db
+      .select({ chat: chats, project: projects })
+      .from(chats)
+      .leftJoin(projects, eq(chats.projectId, projects.id))
+      .where(and(eq(chats.v0ChatId, v0ChatId), isNull(projects.userId)))
+      .limit(1);
+    return rows[0]?.chat ?? null;
   }
 
   const rows = await db
@@ -55,11 +74,16 @@ export async function getChatByV0ChatIdForRequest(req: Request, v0ChatId: string
 }
 
 export async function getChatByIdForRequest(req: Request, chatId: string) {
-  const userId = getRequestUserId(req);
+  const userId = await getRequestUserId(req);
 
   if (!userId) {
-    const rows = await db.select().from(chats).where(eq(chats.id, chatId)).limit(1);
-    return rows[0] ?? null;
+    const rows = await db
+      .select({ chat: chats, project: projects })
+      .from(chats)
+      .leftJoin(projects, eq(chats.projectId, projects.id))
+      .where(and(eq(chats.id, chatId), isNull(projects.userId)))
+      .limit(1);
+    return rows[0]?.chat ?? null;
   }
 
   const rows = await db
@@ -77,7 +101,7 @@ export async function ensureProjectForRequest(params: {
   v0ProjectId: string;
   name?: string | null;
 }): Promise<{ id: string; v0ProjectId: string }> {
-  const userId = getRequestUserId(params.req);
+  const userId = await getRequestUserId(params.req);
   const v0ProjectId = params.v0ProjectId.trim();
   if (!v0ProjectId) {
     throw new Error("Missing v0ProjectId");
@@ -116,7 +140,11 @@ export async function ensureProjectForRequest(params: {
         .from(projects)
         .where(and(eq(projects.v0ProjectId, v0ProjectId), eq(projects.userId, userId)))
         .limit(1)
-    : await db.select().from(projects).where(eq(projects.v0ProjectId, v0ProjectId)).limit(1);
+    : await db
+        .select()
+        .from(projects)
+        .where(and(eq(projects.v0ProjectId, v0ProjectId), isNull(projects.userId)))
+        .limit(1);
 
   if (existing.length > 0) {
     return { id: existing[0].id, v0ProjectId: existing[0].v0ProjectId };

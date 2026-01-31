@@ -15,11 +15,16 @@ import {
   safeJsonParse,
 } from "@/lib/v0Stream";
 import { resolveLatestVersion } from "@/lib/v0/resolve-latest-version";
-import { and, eq } from "drizzle-orm";
+// drizzle-orm imports available if needed: and, eq
 import { nanoid } from "nanoid";
 import { NextResponse } from "next/server";
 import { withRateLimit } from "@/lib/rateLimit";
-import { ensureProjectForRequest, resolveV0ProjectId, generateProjectName } from "@/lib/tenant";
+import {
+  ensureProjectForRequest,
+  resolveV0ProjectId,
+  generateProjectName,
+  getChatByV0ChatIdForRequest,
+} from "@/lib/tenant";
 import { requireNotBot } from "@/lib/botProtection";
 import { devLogAppend, devLogFinalizeSite, devLogStartNewSite } from "@/lib/logging/devLog";
 import { debugLog } from "@/lib/utils/debug";
@@ -246,13 +251,13 @@ export async function POST(req: Request) {
 
                       // If insert was skipped due to conflict, fetch the existing chat
                       if (insertResult.length === 0) {
-                        const existingChat = await db
-                          .select()
-                          .from(chats)
-                          .where(eq(chats.v0ChatId, v0ChatId))
-                          .limit(1);
-                        if (existingChat.length > 0) {
-                          internalChatId = existingChat[0].id;
+                        const existingChat = await getChatByV0ChatIdForRequest(req, v0ChatId);
+                        if (existingChat) {
+                          internalChatId = existingChat.id;
+                        } else {
+                          console.warn(
+                            "[v0-stream] Chat exists but is not accessible for this tenant",
+                          );
                         }
                       }
                     } catch (dbError) {

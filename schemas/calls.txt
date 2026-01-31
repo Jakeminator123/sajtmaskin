@@ -296,7 +296,7 @@ PROVIDERS (prompt assist):
 
 ENV FLAGS:
 - AI_GATEWAY_API_KEY or VERCEL_OIDC_TOKEN (for provider=gateway)
-- V0_API_KEY or VERCEL_API_KEY (for provider=openai-compat)
+- V0_API_KEY (for provider=openai-compat)
 - V0_API_KEY (v0 generation)
 - OPENAI_API_KEY (audit only - web_search not supported by Gateway)
 - DEBUG=AI or DEBUG=true (server debug logs)

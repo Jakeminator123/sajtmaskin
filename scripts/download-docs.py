@@ -17,7 +17,7 @@ from pathlib import Path
 # Hitta projektroten (mappen med package.json)
 PROJECT_ROOT = Path(__file__).parent.parent
 DOCS_DIR = PROJECT_ROOT / "services" / "mpc" / "docs"
-DOC_PY = DOCS_DIR / "doc.py"
+DOC_PY = PROJECT_ROOT / "services" / "mpc" / "doc.py"
 
 
 def normalize_url(url: str) -> str:
@@ -33,7 +33,7 @@ def check_dependencies():
     """Kontrollera att doc.py finns"""
     if not DOC_PY.exists():
         print(f"❌ Fel: Kan inte hitta doc.py på {DOC_PY}")
-        print(f"   Kontrollera att services/mpc/docs/doc.py finns.")
+        print(f"   Kontrollera att services/mpc/doc.py finns.")
         return False
     
     if not DOCS_DIR.exists():

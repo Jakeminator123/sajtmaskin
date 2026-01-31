@@ -54,7 +54,7 @@ ALTERNATIV 3: I Cursor som MCP-server
      - Name: sajtmaskin-mpc
      - Command: npm
      - Args: ["run", "mpc"]
-     - Working Directory: C:\Users\Propietario\Desktop\sajtmaskin
+    - Working Directory: C:\Users\jakem\dev\projects\sajtmaskin
 
 OBS:
 - Den aktiva Cursor-konfigurationen ligger i .cursor/mcp.json (repo-root).

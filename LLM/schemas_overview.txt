@@ -8,7 +8,6 @@ Files in this folder:
   och vilka filer som ansvarar for vad.
 
 Relation to other docs:
-- atgardsmatris.txt (rot): listar buggar per flow.
 - src/...: kodkalla for sanning, schemas maste uppdateras nar kod andras.
 
 How to update:

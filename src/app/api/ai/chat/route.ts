@@ -34,20 +34,10 @@ const chatRequestSchema = z.object({
 });
 
 function getV0ModelApiKey(): { apiKey: string | null; source: string } {
-  const vercelApiKey = process.env.VERCEL_API_KEY;
   const v0ApiKey = process.env.V0_API_KEY;
-  const vercelToken = process.env.VERCEL_TOKEN;
-
-  if (vercelApiKey && vercelApiKey.trim() && (!vercelToken || vercelApiKey !== vercelToken)) {
-    return { apiKey: vercelApiKey, source: "VERCEL_API_KEY" };
-  }
 
   if (v0ApiKey && v0ApiKey.trim()) {
     return { apiKey: v0ApiKey, source: "V0_API_KEY" };
-  }
-
-  if (vercelApiKey && vercelApiKey.trim()) {
-    return { apiKey: vercelApiKey, source: "VERCEL_API_KEY (matches VERCEL_TOKEN?)" };
   }
 
   return { apiKey: null, source: "none" };
@@ -185,7 +175,7 @@ export async function POST(req: Request) {
         return NextResponse.json(
           {
             error: "Missing V0 API key",
-            setup: "Set VERCEL_API_KEY or V0_API_KEY for the v0 Model API.",
+            setup: "Set V0_API_KEY for the v0 Model API.",
           },
           { status: 401 },
         );
