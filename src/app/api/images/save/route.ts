@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/auth";
-import { saveImage } from "@/lib/data/database";
+import { saveImage } from "@/lib/db/services";
 import { uploadBlobFromBase64 } from "@/lib/vercel/blob-service";
 
 /**
@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
           if (projectId) {
             const filename = uploadResult.path.split("/").pop() || "unknown.png";
             const buffer = Buffer.from(img.base64, "base64");
-            saveImage(
+            await saveImage(
               projectId,
               filename,
               uploadResult.path,

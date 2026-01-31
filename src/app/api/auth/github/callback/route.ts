@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/auth";
-import { updateUserGitHub } from "@/lib/data/database";
+import { updateUserGitHub } from "@/lib/db/services";
 import { SECRETS, FEATURES, URLS } from "@/lib/config";
 
 /**
@@ -149,7 +149,7 @@ export async function GET(request: NextRequest) {
       githubUser.login,
     );
 
-    updateUserGitHub(user.id, accessToken, githubUser.login);
+    await updateUserGitHub(user.id, accessToken, githubUser.login);
 
     // Redirect back with success
     const successUrl = new URL(returnTo, URLS.baseUrl);

@@ -13,7 +13,7 @@ import {
   createGoogleUser,
   updateUserLastLogin,
   type User,
-} from "@/lib/data/database";
+} from "@/lib/db/services";
 import { SECRETS, URLS, IS_PRODUCTION } from "@/lib/config";
 
 // ============ Password Hashing ============
@@ -182,7 +182,7 @@ export async function getCurrentUser(request: Request): Promise<User | null> {
   const payload = verifyToken(token);
   if (!payload) return null;
 
-  const user = getUserById(payload.userId);
+  const user = await getUserById(payload.userId);
   return user;
 }
 
@@ -206,14 +206,14 @@ export async function registerUser(
   }
 
   // Check if user exists
-  const existingUser = getUserByEmail(email);
+  const existingUser = await getUserByEmail(email);
   if (existingUser) {
     return { error: "En användare med denna e-post finns redan" };
   }
 
   // Create user
   const passwordHash = hashPassword(password);
-  const user = createUser(email, passwordHash, name);
+  const user = await createUser(email, passwordHash, name);
 
   // Create token
   const token = createToken(user.id, user.email!);
@@ -228,7 +228,7 @@ export async function loginUser(
   email: string,
   password: string,
 ): Promise<{ user: User; token: string } | { error: string }> {
-  const user = getUserByEmail(email);
+  const user = await getUserByEmail(email);
   if (!user) {
     return { error: "Felaktig e-post eller lösenord" };
   }
@@ -242,7 +242,7 @@ export async function loginUser(
   }
 
   // Update last login
-  updateUserLastLogin(user.id);
+  await updateUserLastLogin(user.id);
 
   // Create token
   const token = createToken(user.id, user.email!);
@@ -368,7 +368,7 @@ export async function handleGoogleCallback(
   }
 
   // Create or update user
-  const user = createGoogleUser(
+  const user = await createGoogleUser(
     googleUser.id,
     googleUser.email,
     googleUser.name,
@@ -376,7 +376,7 @@ export async function handleGoogleCallback(
   );
 
   // Update last login
-  updateUserLastLogin(user.id);
+  await updateUserLastLogin(user.id);
 
   // Create token
   const token = createToken(user.id, user.email!);

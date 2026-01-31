@@ -6,7 +6,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/auth";
-import { getUserAuditById, deleteUserAudit } from "@/lib/data/database";
+import { getUserAuditById, deleteUserAudit } from "@/lib/db/services";
 import { getCachedAudit, invalidateUserAuditCache } from "@/lib/data/redis";
 
 interface RouteContext {
@@ -38,7 +38,7 @@ export async function GET(request: NextRequest, context: RouteContext) {
     const cachedResult = await getCachedAudit(auditId);
 
     // Get audit metadata from database (to verify ownership)
-    const audit = getUserAuditById(auditId, user.id);
+    const audit = await getUserAuditById(auditId, user.id);
 
     if (!audit) {
       return NextResponse.json({ success: false, error: "Audit hittades inte." }, { status: 404 });
@@ -100,7 +100,7 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
       return NextResponse.json({ success: false, error: "Ogiltigt audit-ID." }, { status: 400 });
     }
 
-    const deleted = deleteUserAudit(auditId, user.id);
+    const deleted = await deleteUserAudit(auditId, user.id);
 
     if (!deleted) {
       return NextResponse.json(

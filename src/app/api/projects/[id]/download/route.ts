@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/auth";
-import { getProjectById, getProjectData } from "@/lib/data/database";
+import { getProjectById, getProjectData } from "@/lib/db/services";
 import { sanitizeProjectPath } from "@/lib/utils/path-utils";
 import JSZip from "jszip";
 
@@ -29,7 +29,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     }
 
     // Get project
-    const project = getProjectById(projectId);
+    const project = await getProjectById(projectId);
     if (!project) {
       return NextResponse.json(
         { success: false, error: "Projektet hittades inte" },
@@ -46,7 +46,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     }
 
     // Get project files from project_data
-    const projectData = getProjectData(projectId);
+    const projectData = await getProjectData(projectId);
     const rawFiles = projectData?.files;
 
     if (!rawFiles || !Array.isArray(rawFiles) || rawFiles.length === 0) {

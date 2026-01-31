@@ -6,7 +6,7 @@ import {
   getProjectData,
   type Project,
   type ProjectData,
-} from "@/lib/data/database";
+} from "@/lib/db/services";
 import { getCache, setCache, deleteCache } from "@/lib/data/redis";
 
 interface RouteParams {
@@ -30,13 +30,13 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       });
     }
 
-    const project = getProjectById(id);
+    const project = await getProjectById(id);
 
     if (!project) {
       return NextResponse.json({ success: false, error: "Project not found" }, { status: 404 });
     }
 
-    const projectData = getProjectData(id);
+    const projectData = await getProjectData(id);
 
     await setCache(cacheKey, { project, data: projectData }, 120);
 
@@ -64,12 +64,12 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     const { id } = await params;
     const body = await request.json();
 
-    const existing = getProjectById(id);
+    const existing = await getProjectById(id);
     if (!existing) {
       return NextResponse.json({ success: false, error: "Project not found" }, { status: 404 });
     }
 
-    const updated = updateProject(id, body);
+    const updated = await updateProject(id, body);
 
     // Invalidate caches
     await deleteCache(`project:${id}`);
@@ -93,7 +93,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
 
-    const deleted = deleteProject(id);
+    const deleted = await deleteProject(id);
 
     if (!deleted) {
       return NextResponse.json({ success: false, error: "Project not found" }, { status: 404 });

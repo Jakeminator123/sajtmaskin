@@ -6,7 +6,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/auth";
-import { getUserAudits, saveUserAudit, getUserAuditCount } from "@/lib/data/database";
+import { getUserAudits, saveUserAudit, getUserAuditCount } from "@/lib/db/services";
 import { getCachedUserAuditList, cacheUserAuditList, cacheAudit } from "@/lib/data/redis";
 
 // Maximum audits per user (to prevent abuse)
@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Get from database
-    const audits = getUserAudits(user.id);
+    const audits = await getUserAudits(user.id);
 
     // Transform to lightweight list format
     const auditList = audits.map((a) => ({
@@ -95,7 +95,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check audit limit
-    const auditCount = getUserAuditCount(user.id);
+    const auditCount = await getUserAuditCount(user.id);
     if (auditCount >= MAX_AUDITS_PER_USER) {
       return NextResponse.json(
         {
@@ -107,7 +107,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Save to database
-    const savedAudit = saveUserAudit(user.id, url, domain, auditResult);
+    const savedAudit = await saveUserAudit(user.id, url, domain, auditResult);
 
     // Cache the audit
     await cacheAudit(savedAudit.id, user.id, auditResult);

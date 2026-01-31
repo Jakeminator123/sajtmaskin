@@ -1,24 +1,54 @@
 /**
  * API Route: Admin Database Operations
- * GET /api/admin/database - Get database stats and download
+ * GET /api/admin/database - Get database stats
  * POST /api/admin/database - Clear/reset database tables, manage uploads
  */
 
-import { NextRequest, NextResponse } from "next/server";
-import { getCurrentUser } from "@/lib/auth/auth";
-import { getDb, TEST_USER_EMAIL, getUploadsDir } from "@/lib/data/database";
-import { getRedisInfo, flushRedisCache } from "@/lib/data/redis";
-import { PATHS } from "@/lib/config";
+import { and, desc, eq, gt, isNotNull, isNull, lt, ne, sql } from "drizzle-orm";
 import fs from "fs";
 import path from "path";
-
-// Use centralized path configuration
-const DB_PATH = PATHS.database;
+import { NextRequest, NextResponse } from "next/server";
+import { getCurrentUser } from "@/lib/auth/auth";
+import { db } from "@/lib/db/client";
+import {
+  appProjects,
+  companyProfiles,
+  domainOrders,
+  guestUsage,
+  images,
+  mediaLibrary,
+  pageViews,
+  projectData,
+  projectFiles,
+  templateCache,
+  transactions,
+  users,
+} from "@/lib/db/schema";
+import { TEST_USER_EMAIL, getUploadsDir } from "@/lib/db/services";
+import { getRedisInfo, flushRedisCache } from "@/lib/data/redis";
+import { PATHS } from "@/lib/config";
 
 // Check if user is admin
 async function isAdmin(req: NextRequest): Promise<boolean> {
   const user = await getCurrentUser(req);
   return user?.email === TEST_USER_EMAIL;
+}
+
+async function countTable(table: unknown): Promise<number> {
+  const rows = await db.select({ count: sql<number>`count(*)` }).from(table as never);
+  return rows[0]?.count ?? 0;
+}
+
+async function getDbFileSize(): Promise<string> {
+  try {
+    const result = await db.execute(
+      sql`select pg_size_pretty(pg_database_size(current_database())) as size`,
+    );
+    const size = (result.rows?.[0] as { size?: string } | undefined)?.size;
+    return size || "Unknown";
+  } catch {
+    return "Unknown";
+  }
 }
 
 // Get database stats
@@ -30,78 +60,34 @@ export async function GET(req: NextRequest) {
   const action = req.nextUrl.searchParams.get("action");
 
   try {
-    const db = getDb();
-
-    // Download database file
     if (action === "download") {
-      if (!fs.existsSync(DB_PATH)) {
-        return NextResponse.json(
-          { success: false, error: "Database file not found" },
-          { status: 404 },
-        );
-      }
-
-      const fileBuffer = fs.readFileSync(DB_PATH);
-
-      return new NextResponse(fileBuffer, {
-        headers: {
-          "Content-Type": "application/octet-stream",
-          "Content-Disposition": `attachment; filename="sajtmaskin-backup-${new Date()
-            .toISOString()
-            .slice(0, 10)}.db"`,
-        },
-      });
+      return NextResponse.json(
+        { success: false, error: "Database download is not supported for Supabase." },
+        { status: 400 },
+      );
     }
 
-    // Get stats
     const uploadsInfo = getUploadsInfo();
-
-    // Get template cache stats
-    type CountResult = { count: number };
-    const templateCacheCount =
-      (db.prepare("SELECT COUNT(*) as count FROM template_cache").get() as CountResult | undefined)
-        ?.count || 0;
-
-    const templateCacheExpired =
-      (
-        db
-          .prepare(
-            "SELECT COUNT(*) as count FROM template_cache WHERE datetime(expires_at) < datetime('now')",
-          )
-          .get() as CountResult | undefined
-      )?.count || 0;
+    const templateCacheCount = await countTable(templateCache);
+    const templateCacheExpiredRows = await db
+      .select({ count: sql<number>`count(*)` })
+      .from(templateCache)
+      .where(lt(templateCache.expires_at, new Date()));
+    const templateCacheExpired = templateCacheExpiredRows[0]?.count ?? 0;
 
     const stats = {
-      sqlite: {
-        users:
-          (db.prepare("SELECT COUNT(*) as count FROM users").get() as CountResult | undefined)
-            ?.count || 0,
-        projects:
-          (db.prepare("SELECT COUNT(*) as count FROM projects").get() as CountResult | undefined)
-            ?.count || 0,
-        pageViews:
-          (db.prepare("SELECT COUNT(*) as count FROM page_views").get() as CountResult | undefined)
-            ?.count || 0,
-        transactions:
-          (
-            db.prepare("SELECT COUNT(*) as count FROM transactions").get() as
-              | CountResult
-              | undefined
-          )?.count || 0,
-        guestUsage:
-          (db.prepare("SELECT COUNT(*) as count FROM guest_usage").get() as CountResult | undefined)
-            ?.count || 0,
-        companyProfiles:
-          (
-            db.prepare("SELECT COUNT(*) as count FROM company_profiles").get() as
-              | CountResult
-              | undefined
-          )?.count || 0,
+      database: {
+        users: await countTable(users),
+        projects: await countTable(appProjects),
+        pageViews: await countTable(pageViews),
+        transactions: await countTable(transactions),
+        guestUsage: await countTable(guestUsage),
+        companyProfiles: await countTable(companyProfiles),
         templateCache: templateCacheCount,
         templateCacheExpired: templateCacheExpired,
       },
       redis: await getRedisInfo(),
-      dbFileSize: getDbFileSize(),
+      dbFileSize: await getDbFileSize(),
       uploads: uploadsInfo,
       dataDir: PATHS.dataDir,
     };
@@ -126,28 +112,37 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const { action, table } = body as { action?: string; table?: string };
 
-    const db = getDb();
-
     if (action === "clear") {
-      // Clear specific table
-      const allowedTables = [
-        "page_views",
-        "guest_usage",
-        "transactions",
-        "projects",
-        "company_profiles",
-        "users",
-      ];
+      const tableMap = {
+        page_views: pageViews,
+        guest_usage: guestUsage,
+        transactions: transactions,
+        projects: appProjects,
+        company_profiles: companyProfiles,
+        users: users,
+        template_cache: templateCache,
+        media_library: mediaLibrary,
+        project_data: projectData,
+        project_files: projectFiles,
+        images: images,
+        domain_orders: domainOrders,
+      } as const;
 
-      if (!table || !allowedTables.includes(table)) {
+      if (!table || !(table in tableMap)) {
         return NextResponse.json({ success: false, error: "Invalid table name" }, { status: 400 });
       }
 
-      // Special handling for users - don't delete test user
-      if (table === "users") {
-        db.prepare(`DELETE FROM users WHERE email != ?`).run(TEST_USER_EMAIL);
+      if (table === "users" && TEST_USER_EMAIL) {
+        await db.delete(users).where(ne(users.email, TEST_USER_EMAIL));
+      } else if (table === "projects") {
+        await db.delete(projectData).where(sql`true`);
+        await db.delete(projectFiles).where(sql`true`);
+        await db.delete(images).where(sql`true`);
+        await db.delete(companyProfiles).where(sql`true`);
+        await db.delete(domainOrders).where(sql`true`);
+        await db.delete(appProjects).where(sql`true`);
       } else {
-        db.prepare(`DELETE FROM ${table}`).run();
+        await db.delete(tableMap[table]).where(sql`true`);
       }
 
       console.log(`[Admin] Cleared table: ${table}`);
@@ -163,18 +158,25 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === "reset-all") {
-      // Clear all data except test user
-      db.prepare("DELETE FROM page_views").run();
-      db.prepare("DELETE FROM guest_usage").run();
-      db.prepare("DELETE FROM transactions").run();
-      db.prepare("DELETE FROM projects").run();
-      db.prepare("DELETE FROM company_profiles").run();
-      db.prepare(`DELETE FROM users WHERE email != ?`).run(TEST_USER_EMAIL);
+      await db.delete(pageViews).where(sql`true`);
+      await db.delete(guestUsage).where(sql`true`);
+      await db.delete(transactions).where(sql`true`);
+      await db.delete(projectData).where(sql`true`);
+      await db.delete(projectFiles).where(sql`true`);
+      await db.delete(images).where(sql`true`);
+      await db.delete(mediaLibrary).where(sql`true`);
+      await db.delete(companyProfiles).where(sql`true`);
+      await db.delete(templateCache).where(sql`true`);
+      await db.delete(domainOrders).where(sql`true`);
+      await db.delete(appProjects).where(sql`true`);
 
-      // Also flush Redis
+      if (TEST_USER_EMAIL) {
+        await db.delete(users).where(ne(users.email, TEST_USER_EMAIL));
+      } else {
+        await db.delete(users).where(sql`true`);
+      }
+
       await flushRedisCache();
-
-      // Clear uploads folder
       clearUploadsFolder();
 
       console.log("[Admin] Reset all databases");
@@ -195,26 +197,13 @@ export async function POST(req: NextRequest) {
 
     // ═══════════════════════════════════════════════════════════════════════
     // TEMPLATE CACHE MANAGEMENT
-    // Export/import templates to avoid API costs
     // ═══════════════════════════════════════════════════════════════════════
 
     if (action === "export-templates") {
-      // Export all cached templates as JSON
-      const templates = db
-        .prepare(
-          `SELECT template_id, chat_id, demo_url, version_id, code, files_json, model, created_at
-           FROM template_cache ORDER BY created_at DESC`,
-        )
-        .all() as Array<{
-        template_id: string;
-        chat_id: string;
-        demo_url: string | null;
-        version_id: string | null;
-        code: string | null;
-        files_json: string | null;
-        model: string | null;
-        created_at: string;
-      }>;
+      const templates = await db
+        .select()
+        .from(templateCache)
+        .orderBy(desc(templateCache.created_at));
 
       const exportData = templates.map((t) => ({
         templateId: t.template_id,
@@ -257,30 +246,40 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      const insertStmt = db.prepare(`
-        INSERT OR REPLACE INTO template_cache 
-          (template_id, chat_id, demo_url, version_id, code, files_json, model, created_at, expires_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-      `);
-
       let imported = 0;
       const expiresAt = new Date();
-      expiresAt.setDate(expiresAt.getDate() + 30); // 30 days cache
+      expiresAt.setDate(expiresAt.getDate() + 30);
 
       for (const t of templates as ImportTemplate[]) {
         if (!t.templateId || !t.chatId) continue;
         try {
-          insertStmt.run(
-            t.templateId,
-            t.chatId,
-            t.demoUrl || null,
-            t.versionId || null,
-            t.code || null,
-            t.files ? JSON.stringify(t.files) : null,
-            t.model || null,
-            new Date().toISOString(),
-            expiresAt.toISOString(),
-          );
+          await db
+            .insert(templateCache)
+            .values({
+              template_id: t.templateId,
+              user_id: null,
+              chat_id: t.chatId,
+              demo_url: t.demoUrl || null,
+              version_id: t.versionId || null,
+              code: t.code || null,
+              files_json: t.files ? JSON.stringify(t.files) : null,
+              model: t.model || null,
+              created_at: new Date(),
+              expires_at: expiresAt,
+            })
+            .onConflictDoUpdate({
+              target: [templateCache.template_id, templateCache.user_id],
+              set: {
+                chat_id: t.chatId,
+                demo_url: t.demoUrl || null,
+                version_id: t.versionId || null,
+                code: t.code || null,
+                files_json: t.files ? JSON.stringify(t.files) : null,
+                model: t.model || null,
+                created_at: new Date(),
+                expires_at: expiresAt,
+              },
+            });
           imported++;
         } catch (err) {
           console.error("[Admin] Failed to import template:", t.templateId, err);
@@ -296,32 +295,30 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === "clear-template-cache") {
-      const result = db.prepare("DELETE FROM template_cache").run();
-      console.log(`[Admin] Cleared ${result.changes} cached templates`);
+      const deleted = await db.delete(templateCache).returning({ id: templateCache.id });
+      console.log(`[Admin] Cleared ${deleted.length} cached templates`);
       return NextResponse.json({
         success: true,
-        deleted: result.changes,
-        message: `Cleared ${result.changes} cached templates`,
+        deleted: deleted.length,
+        message: `Cleared ${deleted.length} cached templates`,
       });
     }
 
     if (action === "extend-template-cache") {
-      // Extend all template cache expiry by 30 days
       const newExpiry = new Date();
       newExpiry.setDate(newExpiry.getDate() + 30);
 
-      const result = db
-        .prepare("UPDATE template_cache SET expires_at = ?")
-        .run(newExpiry.toISOString());
+      const updated = await db
+        .update(templateCache)
+        .set({ expires_at: newExpiry })
+        .returning({ id: templateCache.id });
 
-      console.log(`[Admin] Extended cache for ${result.changes} templates`);
+      console.log(`[Admin] Extended cache for ${updated.length} templates`);
       return NextResponse.json({
         success: true,
-        extended: result.changes,
+        extended: updated.length,
         newExpiry: newExpiry.toISOString(),
-        message: `Extended cache for ${
-          result.changes
-        } templates to ${newExpiry.toLocaleDateString()}`,
+        message: `Extended cache for ${updated.length} templates to ${newExpiry.toLocaleDateString()}`,
       });
     }
 
@@ -331,15 +328,9 @@ export async function POST(req: NextRequest) {
 
     if (action === "run-cleanup") {
       const { runCleanup, getCleanupStats } = await import("@/lib/project-cleanup");
-
-      // Get stats before cleanup
-      const statsBefore = getCleanupStats();
-
-      // Run cleanup
+      const statsBefore = await getCleanupStats();
       const result = await runCleanup();
-
-      // Get stats after cleanup
-      const statsAfter = getCleanupStats();
+      const statsAfter = await getCleanupStats();
 
       console.log("[Admin] Cleanup completed:", result);
       return NextResponse.json({
@@ -353,7 +344,7 @@ export async function POST(req: NextRequest) {
 
     if (action === "get-cleanup-stats") {
       const { getCleanupStats, CLEANUP_CONFIG } = await import("@/lib/project-cleanup");
-      const stats = getCleanupStats();
+      const stats = await getCleanupStats();
       return NextResponse.json({
         success: true,
         stats,
@@ -362,27 +353,25 @@ export async function POST(req: NextRequest) {
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
-    // MEGA CLEANUP - Clear v0, Vercel, SQLite, and Redis
+    // MEGA CLEANUP - Clear v0, Vercel, Postgres, and Redis
     // ═══════════════════════════════════════════════════════════════════════════
 
     if (action === "mega-cleanup") {
       const results: {
         v0: { deleted: number; errors: string[] };
         vercel: { deleted: number; errors: string[] };
-        sqlite: { deleted: number };
+        database: { deleted: number };
         redis: { success: boolean };
       } = {
         v0: { deleted: 0, errors: [] },
         vercel: { deleted: 0, errors: [] },
-        sqlite: { deleted: 0 },
+        database: { deleted: 0 },
         redis: { success: false },
       };
 
-      // 1. Delete v0 projects
       const v0ApiKey = process.env.V0_API_KEY;
       if (v0ApiKey) {
         try {
-          // Fetch all v0 projects
           const projectsRes = await fetch("https://api.v0.dev/v1/projects", {
             headers: { Authorization: `Bearer ${v0ApiKey}` },
           });
@@ -414,11 +403,9 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // 2. Delete Vercel projects
       const vercelToken = process.env.VERCEL_TOKEN;
       if (vercelToken) {
         try {
-          // Fetch all Vercel projects
           const projectsRes = await fetch("https://api.vercel.com/v9/projects", {
             headers: { Authorization: `Bearer ${vercelToken}` },
           });
@@ -450,44 +437,36 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // 3. Clear SQLite tables
-      const tablesToClear = [
-        "project_files",
-        "project_data",
-        "vercel_deployments",
-        "projects",
-        "images",
-        "media_library",
-        "company_profiles",
-        "template_cache",
-        "page_views",
-        "guest_usage",
-        "transactions",
-      ];
+      const deletedRows = await Promise.all([
+        db.delete(projectFiles).returning({ id: projectFiles.id }),
+        db.delete(projectData).returning({ id: projectData.project_id }),
+        db.delete(images).returning({ id: images.id }),
+        db.delete(mediaLibrary).returning({ id: mediaLibrary.id }),
+        db.delete(companyProfiles).returning({ id: companyProfiles.id }),
+        db.delete(templateCache).returning({ id: templateCache.id }),
+        db.delete(pageViews).returning({ id: pageViews.id }),
+        db.delete(guestUsage).returning({ id: guestUsage.id }),
+        db.delete(transactions).returning({ id: transactions.id }),
+        db.delete(domainOrders).returning({ id: domainOrders.id }),
+        db.delete(appProjects).returning({ id: appProjects.id }),
+      ]);
 
-      for (const table of tablesToClear) {
-        try {
-          const result = db.prepare(`DELETE FROM ${table}`).run();
-          results.sqlite.deleted += result.changes;
-        } catch {
-          // Table might not exist
-        }
+      results.database.deleted = deletedRows.reduce((sum, rows) => sum + rows.length, 0);
+
+      if (TEST_USER_EMAIL) {
+        await db.delete(users).where(ne(users.email, TEST_USER_EMAIL));
+      } else {
+        await db.delete(users).returning({ id: users.id });
       }
 
-      // Keep test user
-      db.prepare(`DELETE FROM users WHERE email != ?`).run(TEST_USER_EMAIL);
-
-      // 4. Flush Redis
       results.redis.success = await flushRedisCache();
-
-      // 5. Clear uploads folder
       clearUploadsFolder();
 
       console.log("[Admin] MEGA CLEANUP completed:", results);
       return NextResponse.json({
         success: true,
         results,
-        message: `Mega cleanup: ${results.v0.deleted} v0, ${results.vercel.deleted} Vercel, ${results.sqlite.deleted} SQLite rows`,
+        message: `Mega cleanup: ${results.v0.deleted} v0, ${results.vercel.deleted} Vercel, ${results.database.deleted} DB rows`,
       });
     }
 
@@ -608,27 +587,26 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === "cleanup-anonymous-projects") {
-      // Delete all anonymous projects older than X days
       const days = (body as { days?: number })?.days || 7;
       const cutoff = new Date();
       cutoff.setDate(cutoff.getDate() - days);
 
-      const result = db
-        .prepare(
-          `
-        DELETE FROM projects 
-        WHERE user_id IS NULL 
-        AND session_id IS NOT NULL 
-        AND datetime(updated_at) < datetime(?)
-      `,
+      const deleted = await db
+        .delete(appProjects)
+        .where(
+          and(
+            isNull(appProjects.user_id),
+            isNotNull(appProjects.session_id),
+            lt(appProjects.updated_at, cutoff),
+          ),
         )
-        .run(cutoff.toISOString());
+        .returning({ id: appProjects.id });
 
-      console.log(`[Admin] Deleted ${result.changes} anonymous projects older than ${days} days`);
+      console.log(`[Admin] Deleted ${deleted.length} anonymous projects older than ${days} days`);
       return NextResponse.json({
         success: true,
-        deleted: result.changes,
-        message: `Deleted ${result.changes} anonymous projects older than ${days} days`,
+        deleted: deleted.length,
+        message: `Deleted ${deleted.length} anonymous projects older than ${days} days`,
       });
     }
 
@@ -639,16 +617,6 @@ export async function POST(req: NextRequest) {
       { success: false, error: "Failed to perform action" },
       { status: 500 },
     );
-  }
-}
-
-function getDbFileSize(): string {
-  try {
-    const stats = fs.statSync(DB_PATH);
-    const bytes = stats.size;
-    return formatBytes(bytes);
-  } catch {
-    return "Unknown";
   }
 }
 

@@ -39,7 +39,7 @@ interface AnalyticsStats {
 }
 
 interface DatabaseStats {
-  sqlite: {
+  database: {
     users: number;
     projects: number;
     pageViews: number;
@@ -293,28 +293,6 @@ export default function AdminPage() {
     } finally {
       setActionLoading(null);
       setConfirmAction(null);
-    }
-  };
-
-  const handleDownloadDb = async () => {
-    setActionLoading("download");
-    try {
-      const response = await fetch("/api/admin/database?action=download");
-      if (response.ok) {
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = `sajtmaskin-backup-${new Date().toISOString().slice(0, 10)}.db`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        window.URL.revokeObjectURL(url);
-      }
-    } catch (err) {
-      console.error("Failed to download:", err);
-    } finally {
-      setActionLoading(null);
     }
   };
 
@@ -594,7 +572,7 @@ export default function AdminPage() {
         {/* Database Tab */}
         {activeTab === "database" && (
           <div className="space-y-6">
-            {/* SQLite Section */}
+            {/* Database Section */}
             <div className="border border-gray-800 bg-black/50 p-6">
               <div className="mb-6 flex items-center justify-between">
                 <div className="flex items-center gap-3">
@@ -602,35 +580,21 @@ export default function AdminPage() {
                     <HardDrive className="text-brand-teal h-5 w-5" />
                   </div>
                   <div>
-                    <h2 className="text-lg font-semibold text-white">SQLite Database</h2>
+                    <h2 className="text-lg font-semibold text-white">Supabase Database</h2>
                     <p className="text-sm text-gray-500">Storlek: {dbStats?.dbFileSize || "..."}</p>
                   </div>
                 </div>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={handleDownloadDb}
-                  disabled={actionLoading === "download"}
-                  className="gap-2 border-gray-700 text-gray-400 hover:bg-gray-800 hover:text-white"
-                >
-                  {actionLoading === "download" ? (
-                    <Loader2 className="h-4 w-4 animate-spin" />
-                  ) : (
-                    <Download className="h-4 w-4" />
-                  )}
-                  Ladda ner backup
-                </Button>
               </div>
 
               <div className="mb-6 grid grid-cols-2 gap-4 md:grid-cols-3">
-                {dbStats?.sqlite && (
+                {dbStats?.database && (
                   <>
-                    <DbStatCard label="Användare" value={dbStats.sqlite.users} />
-                    <DbStatCard label="Projekt" value={dbStats.sqlite.projects} />
-                    <DbStatCard label="Sidvisningar" value={dbStats.sqlite.pageViews} />
-                    <DbStatCard label="Transaktioner" value={dbStats.sqlite.transactions} />
-                    <DbStatCard label="Gäst-användning" value={dbStats.sqlite.guestUsage} />
-                    <DbStatCard label="Företagsprofiler" value={dbStats.sqlite.companyProfiles} />
+                    <DbStatCard label="Användare" value={dbStats.database.users} />
+                    <DbStatCard label="Projekt" value={dbStats.database.projects} />
+                    <DbStatCard label="Sidvisningar" value={dbStats.database.pageViews} />
+                    <DbStatCard label="Transaktioner" value={dbStats.database.transactions} />
+                    <DbStatCard label="Gäst-användning" value={dbStats.database.guestUsage} />
+                    <DbStatCard label="Företagsprofiler" value={dbStats.database.companyProfiles} />
                   </>
                 )}
               </div>
@@ -727,8 +691,8 @@ export default function AdminPage() {
 
               {!dbStats?.redis?.connected && (
                 <div className="bg-brand-amber/10 border-brand-amber/30 text-brand-amber border p-4 text-sm">
-                  Redis är inte konfigurerat. Lägg till REDIS_URL i .env.local för att aktivera
-                  caching.
+                  Redis är inte konfigurerat. Lägg till REDIS_URL eller KV_URL i .env.local för att
+                  aktivera caching.
                 </div>
               )}
             </div>
@@ -743,11 +707,11 @@ export default function AdminPage() {
                   <div>
                     <h2 className="text-lg font-semibold text-white">Template Cache</h2>
                     <p className="text-sm text-gray-500">
-                      {dbStats?.sqlite?.templateCache || 0} templates cachade
-                      {dbStats?.sqlite?.templateCacheExpired ? (
+                      {dbStats?.database?.templateCache || 0} templates cachade
+                      {dbStats?.database?.templateCacheExpired ? (
                         <span className="text-brand-amber">
                           {" "}
-                          • {dbStats.sqlite.templateCacheExpired} utgångna
+                          • {dbStats.database.templateCacheExpired} utgångna
                         </span>
                       ) : null}
                     </p>
@@ -1113,7 +1077,7 @@ export default function AdminPage() {
                     ) : (
                       <Trash2 className="h-3 w-3" />
                     )}
-                    {confirmAction === "reset-all" ? "Bekräfta?" : "Rensa SQLite + Redis"}
+                    {confirmAction === "reset-all" ? "Bekräfta?" : "Rensa databas + Redis"}
                   </Button>
                 </div>
 
@@ -1165,10 +1129,10 @@ export default function AdminPage() {
                     )}
                     {confirmAction === "mega-cleanup"
                       ? "🔥 KLICKA IGEN FÖR ATT RADERA ALLT 🔥"
-                      : "🔥 MEGA CLEANUP (v0 + Vercel + SQLite + Redis)"}
+                      : "🔥 MEGA CLEANUP (v0 + Vercel + Databas + Redis)"}
                   </Button>
                   <p className="mt-2 text-xs text-gray-600">
-                    Raderar: v0-projekt, Vercel-projekt, alla SQLite-tabeller, Redis-cache,
+                    Raderar: v0-projekt, Vercel-projekt, alla databastabeller, Redis-cache,
                     uppladdade filer
                   </p>
                 </div>
