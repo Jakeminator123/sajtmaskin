@@ -127,10 +127,39 @@ export function HomePage() {
       : "/builder?source=audit";
   };
 
+  const handleBuildFromPrompt = (prompt: string) => {
+    if (typeof window !== "undefined") {
+      const promptId =
+        typeof crypto !== "undefined" && "randomUUID" in crypto
+          ? crypto.randomUUID()
+          : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+      const storageKey = `sajtmaskin_freeform_prompt:${promptId}`;
+      let stored = false;
+      try {
+        sessionStorage.setItem(storageKey, prompt);
+        stored = true;
+      } catch {
+        // ignore storage errors
+      }
+      try {
+        localStorage.setItem(storageKey, prompt);
+        stored = true;
+      } catch {
+        // ignore storage errors
+      }
+      if (stored) {
+        router.push(`/builder?promptId=${encodeURIComponent(promptId)}`);
+        return;
+      }
+    }
+
+    router.push(`/builder?prompt=${encodeURIComponent(prompt)}`);
+  };
+
   // Handle wizard completion - navigate to builder with expanded prompt
   const handleWizardComplete = (_wizardData: WizardData, expandedPrompt: string) => {
     setShowWizard(false);
-    router.push(`/builder?prompt=${encodeURIComponent(expandedPrompt)}`);
+    handleBuildFromPrompt(expandedPrompt);
   };
 
   // Build initial prompt from onboarding data

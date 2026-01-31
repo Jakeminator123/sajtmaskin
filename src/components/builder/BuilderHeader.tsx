@@ -64,7 +64,6 @@ export function BuilderHeader(props: {
   enableImageGenerations: boolean;
   onEnableImageGenerationsChange: (v: boolean) => void;
   imageGenerationsSupported?: boolean;
-  blobSupported?: boolean;
 
   designSystemMode: boolean;
   onDesignSystemModeChange: (v: boolean) => void;
@@ -72,8 +71,6 @@ export function BuilderHeader(props: {
   showStructuredChat: boolean;
   onShowStructuredChatChange: (v: boolean) => void;
 
-  deployImageStrategy: "external" | "blob";
-  onDeployImageStrategyChange: (s: "external" | "blob") => void;
 
   onOpenImport: () => void;
   onOpenSandbox: () => void;
@@ -101,13 +98,10 @@ export function BuilderHeader(props: {
     enableImageGenerations,
     onEnableImageGenerationsChange,
     imageGenerationsSupported = true,
-    blobSupported = false,
     designSystemMode,
     onDesignSystemModeChange,
     showStructuredChat,
     onShowStructuredChatChange,
-    deployImageStrategy,
-    onDeployImageStrategyChange,
     onOpenImport,
     onOpenSandbox,
     onDeployProduction,
@@ -339,17 +333,6 @@ export function BuilderHeader(props: {
               Debug-läge (verktygsblock)
             </DropdownMenuCheckboxItem>
 
-            <DropdownMenuSeparator />
-            <DropdownMenuLabel>Deploy Image Strategy</DropdownMenuLabel>
-            <DropdownMenuRadioGroup
-              value={deployImageStrategy}
-              onValueChange={(v) => onDeployImageStrategyChange(v as "external" | "blob")}
-            >
-              <DropdownMenuRadioItem value="external">External URLs</DropdownMenuRadioItem>
-              <DropdownMenuRadioItem value="blob" disabled={!blobSupported}>
-                Vercel Blob
-              </DropdownMenuRadioItem>
-            </DropdownMenuRadioGroup>
           </DropdownMenuContent>
         </DropdownMenu>
 

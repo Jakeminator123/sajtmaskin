@@ -326,7 +326,11 @@ export async function POST(req: Request) {
                             },
                           });
                       } catch (dbError) {
-                        console.error("Failed to save version to database:", dbError);
+                        console.error(
+                          "Failed to save version to database:",
+                          { chatId: internalChatId, versionId: finalVersionId },
+                          dbError,
+                        );
                       }
                     }
 

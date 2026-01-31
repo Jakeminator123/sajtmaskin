@@ -39,7 +39,7 @@ import { uploadBlob, generateUniqueFilename } from "@/lib/vercel/blob-service";
 
 const MAX_IMAGES = 10; // Includes logos
 const MAX_VIDEOS = 3;
-const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB
+const MAX_FILE_SIZE = 4 * 1024 * 1024; // 4MB (Blob-safe for preview reliability)
 
 const ALLOWED_MIME_TYPES = [
   // Images
@@ -105,14 +105,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate file size
+    // Validate file size (Blob-safe for preview reliability)
     if (file.size > MAX_FILE_SIZE) {
       return NextResponse.json(
         {
           success: false,
           error: `Filen är för stor (${(file.size / 1024 / 1024).toFixed(
             2,
-          )}MB). Max storlek: 50MB.`,
+          )}MB). Max storlek: 4MB (krävs för stabil Blob-preview).`,
         },
         { status: 400 },
       );

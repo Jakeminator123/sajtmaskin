@@ -74,11 +74,11 @@ export async function POST(request: NextRequest) {
     const arrayBuffer = await response.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
-    // Check size (max 20MB for stock photos)
-    const maxSize = 20 * 1024 * 1024;
+    // Check size (Blob-safe for preview reliability)
+    const maxSize = 4 * 1024 * 1024;
     if (buffer.length > maxSize) {
       return NextResponse.json(
-        { success: false, error: "Bilden är för stor (max 20MB)" },
+        { success: false, error: "Bilden är för stor (max 4MB för Blob-preview)" },
         { status: 400 },
       );
     }
