@@ -37,6 +37,7 @@
     "@radix-ui/react-separator": "^1.1.8",
     "@radix-ui/react-slot": "^1.2.4",
     "@radix-ui/react-tooltip": "^1.2.8",
+    "@radix-ui/react-use-controllable-state": "^1.2.2",
     "@react-three/drei": "^10.7.7",
     "@react-three/fiber": "^9.4.2",
     "@tailwindcss/postcss": "^4.1.18",
@@ -108,6 +109,7 @@
   "overrides": {
     "@vercel/blob": {
       "undici": "7.18.2"
-    }
+    },
+    "esbuild": "^0.25.0"
   }
 }

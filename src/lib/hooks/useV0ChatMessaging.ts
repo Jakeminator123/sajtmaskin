@@ -153,13 +153,9 @@ function mergeStreamingText(previous: string, incoming: string): string {
   const needsSpace =
     last &&
     first &&
-    !/\s/.test(last) &&
-    !/\s/.test(first) &&
-    /[A-Za-z0-9]/.test(last) &&
+    /[.!?:;]$/.test(last) &&
     /[A-Za-z0-9]/.test(first) &&
-    !/[\/._:-]$/.test(last) &&
-    !/^[\/._:-]/.test(first) &&
-    !previous.slice(-12).toLowerCase().includes("http");
+    !/\s/.test(first);
 
   return needsSpace ? `${previous} ${incoming}` : previous + incoming;
 }

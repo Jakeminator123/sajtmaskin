@@ -14,7 +14,7 @@ import {
   isVercelConfigured,
   getDeploymentStatus,
 } from "@/lib/vercel/vercel-client";
-import { getProjectData } from "@/lib/data/database";
+import { getProjectData } from "@/lib/db/services";
 
 interface ProjectFile {
   path: string;
@@ -239,7 +239,7 @@ export async function deployProject(options: DeployProjectOptions): Promise<Depl
     const resolvedTeamId = options.teamId || process.env.VERCEL_TEAM_ID?.trim() || undefined;
 
     // Get project files from project_data
-    const projectData = getProjectData(options.projectId);
+    const projectData = await getProjectData(options.projectId);
     const rawFiles = projectData?.files;
 
     if (!rawFiles || !Array.isArray(rawFiles) || rawFiles.length === 0) {

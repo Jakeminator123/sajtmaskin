@@ -6,7 +6,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { getSessionIdFromRequest } from "@/lib/auth/session";
-import { getOrCreateGuestUsage } from "@/lib/data/database";
+import { getOrCreateGuestUsage } from "@/lib/db/services";
 
 export async function GET(req: NextRequest) {
   try {
@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
     let guestUsage = null;
 
     if (sessionId) {
-      guestUsage = getOrCreateGuestUsage(sessionId);
+      guestUsage = await getOrCreateGuestUsage(sessionId);
     }
 
     return NextResponse.json({

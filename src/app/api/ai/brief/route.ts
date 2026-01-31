@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireNotBot } from "@/lib/botProtection";
 import { withRateLimit } from "@/lib/rateLimit";
-import { debugLog } from "@/lib/utils/debug";
+import { debugLog, errorLog } from "@/lib/utils/debug";
 
 export const runtime = "nodejs";
 export const maxDuration = 420; // 7 minutes for deep brief with slow models
@@ -230,7 +230,7 @@ export async function POST(req: Request) {
 
       return NextResponse.json({ error: "Unsupported provider" }, { status: 400 });
     } catch (err) {
-      console.error("AI brief error:", err);
+      errorLog("AI", "AI brief error", err);
       return NextResponse.json(
         { error: err instanceof Error ? err.message : "Unknown error" },
         { status: 500 },

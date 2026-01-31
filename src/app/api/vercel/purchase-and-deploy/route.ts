@@ -16,8 +16,8 @@ import {
   getProject,
   DomainContactInfo,
 } from "@/lib/vercel/vercel-client";
-import { getProjectById } from "@/lib/data/database";
-import { saveDomainOrder, updateDomainOrderStatus } from "@/lib/data/database";
+import { getProjectById } from "@/lib/db/services";
+import { saveDomainOrder, updateDomainOrderStatus } from "@/lib/db/services";
 
 const USD_TO_SEK = 11; // Approximate conversion rate
 const MARKUP_MULTIPLIER = 3; // 300% markup
@@ -216,7 +216,7 @@ export async function POST(request: NextRequest) {
     };
 
     // Verify project exists
-    const project = getProjectById(projectId);
+    const project = await getProjectById(projectId);
     if (!project) {
       return NextResponse.json({ success: false, error: "Project not found" }, { status: 404 });
     }
@@ -281,7 +281,7 @@ export async function POST(request: NextRequest) {
     // Save domain order to database
     const orderId = crypto.randomUUID();
     try {
-      saveDomainOrder({
+      await saveDomainOrder({
         id: orderId,
         project_id: projectId,
         domain,
@@ -325,7 +325,7 @@ export async function POST(request: NextRequest) {
 
       // Update order status - domain purchased but deployment failed
       try {
-        updateDomainOrderStatus(orderId, "deployment_failed");
+        await updateDomainOrderStatus(orderId, "deployment_failed");
       } catch {
         // Ignore DB errors
       }
@@ -363,7 +363,7 @@ export async function POST(request: NextRequest) {
 
       // Update order status
       try {
-        updateDomainOrderStatus(orderId, "completed", purchaseResult.orderId, true);
+        await updateDomainOrderStatus(orderId, "completed", purchaseResult.orderId, true);
       } catch (dbError) {
         console.error("[API/vercel/purchase-and-deploy] Failed to update order status:", dbError);
       }

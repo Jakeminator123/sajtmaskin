@@ -15,6 +15,10 @@ type UsePromptAssistParams = {
   imageGenerations: boolean;
 };
 
+type PromptAssistOptions = {
+  forceShallow?: boolean;
+};
+
 async function readTextResponse(res: Response): Promise<string> {
   const reader = res.body?.getReader();
   if (!reader) return "";
@@ -33,7 +37,7 @@ export function usePromptAssist(params: UsePromptAssistParams) {
   const { provider, model, deep, imageGenerations } = params;
 
   const maybeEnhanceInitialPrompt = useCallback(
-    async (originalPrompt: string): Promise<string> => {
+    async (originalPrompt: string, options: PromptAssistOptions = {}): Promise<string> => {
       if (provider === "off") {
         debugLog("AI", "Prompt assist disabled", { reason: "provider=off" });
         return originalPrompt;
@@ -43,22 +47,23 @@ export function usePromptAssist(params: UsePromptAssistParams) {
       const systemPrompt = buildV0RewriteSystemPrompt();
       const startedAt = Date.now();
       const resolvedDeep = provider === "gateway" ? deep : false;
+      const useDeep = resolvedDeep && !options.forceShallow;
 
       debugLog("AI", "Prompt assist started", {
         provider,
         model: normalizedModel,
-        deep: resolvedDeep,
+        deep: useDeep,
         imageGenerations,
         promptLength: originalPrompt.length,
       });
 
       try {
-        const loadingMsg = resolvedDeep
+        const loadingMsg = useDeep
           ? "Skapar detaljerad brief (kan ta 30-60s)..."
           : "Förbättrar prompt (AI Assist)...";
         toast.loading(loadingMsg, { id: "sajtmaskin:prompt-assist" });
 
-        if (resolvedDeep) {
+        if (useDeep) {
           const controller = new AbortController();
           // Deep brief kan ta lång tid med GPT-5, 7 minuter timeout
           const timeoutId = setTimeout(() => controller.abort(), 420_000);
@@ -159,7 +164,7 @@ export function usePromptAssist(params: UsePromptAssistParams) {
           durationMs: Date.now() - startedAt,
           provider,
           model: normalizedModel,
-          deep: resolvedDeep,
+          deep: useDeep,
           error: rawMessage,
         });
 

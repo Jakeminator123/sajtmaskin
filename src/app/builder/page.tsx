@@ -548,6 +548,14 @@ function BuilderContent() {
     return `AI Gateway${promptAssistDeep ? " • Djup" : ""}`;
   }, [promptAssistProvider, promptAssistDeep]);
 
+  const handlePromptEnhance = useCallback(
+    async (message: string) => {
+      const isFollowUp = Boolean(chatId);
+      return maybeEnhanceInitialPrompt(message, { forceShallow: isFollowUp });
+    },
+    [chatId, maybeEnhanceInitialPrompt],
+  );
+
   const resetBeforeCreateChat = useCallback(() => {
     setCurrentDemoUrl(null);
     setPreviewRefreshToken(0);
@@ -827,6 +835,7 @@ function BuilderContent() {
           onPromptAssistModelChange={setPromptAssistModel}
           promptAssistDeep={promptAssistDeep}
           onPromptAssistDeepChange={setPromptAssistDeep}
+          canUseDeepBrief={!chatId}
           customInstructions={customInstructions}
           onCustomInstructionsChange={setCustomInstructions}
           applyInstructionsOnce={applyInstructionsOnce}
@@ -872,7 +881,7 @@ function BuilderContent() {
               onCreateChat={requestCreateChat}
               onSendMessage={sendMessage}
               onStartFromRegistry={handleStartFromRegistry}
-              onEnhancePrompt={maybeEnhanceInitialPrompt}
+              onEnhancePrompt={handlePromptEnhance}
               promptAssistStatus={promptAssistStatus}
               isBusy={isCreatingChat || isAnyStreaming || isTemplateLoading}
               designSystemMode={designSystemMode}

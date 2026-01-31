@@ -1,7 +1,9 @@
 import { createClient } from "v0-sdk";
+import { errorLog } from "@/lib/utils/debug";
 
 export function assertV0Key(): void {
   if (!process.env.V0_API_KEY) {
+    errorLog("v0", "Missing V0_API_KEY");
     throw new Error("Missing V0_API_KEY. Set it in your environment.");
   }
 }

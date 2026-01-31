@@ -6,7 +6,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { getSessionIdFromRequest } from "@/lib/auth/session";
-import { getOrCreateGuestUsage } from "@/lib/data/database";
+import { getOrCreateGuestUsage } from "@/lib/db/services";
 
 export async function GET(req: NextRequest) {
   try {
@@ -46,7 +46,7 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    const guestUsage = getOrCreateGuestUsage(sessionId);
+    const guestUsage = await getOrCreateGuestUsage(sessionId);
 
     let canProceed = false;
     let reason: string | null = null;

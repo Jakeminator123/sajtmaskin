@@ -19,6 +19,21 @@ interface PreviewPanelProps {
   refreshToken?: number;
 }
 
+type IntegrationItem = {
+  id: string;
+  label: string;
+  enabled: boolean;
+  required: boolean;
+  requiredEnv: string[];
+  affects: string;
+  notes?: string;
+};
+
+type IntegrationStatus = {
+  updatedAt: string;
+  items: IntegrationItem[];
+};
+
 export function PreviewPanel({
   chatId,
   versionId,
@@ -35,6 +50,8 @@ export function PreviewPanel({
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
   const [filesLoading, setFilesLoading] = useState(false);
   const [filesError, setFilesError] = useState<string | null>(null);
+  const [integrationStatus, setIntegrationStatus] = useState<IntegrationStatus | null>(null);
+  const [integrationError, setIntegrationError] = useState(false);
 
   const buildPreviewSrc = (url: string, token?: number) => {
     if (!token) return url;
@@ -47,6 +64,34 @@ export function PreviewPanel({
     setIframeLoading(true);
     setIframeError(false);
   }, [demoUrl, refreshToken]);
+
+  useEffect(() => {
+    if (!demoUrl) return;
+    let isActive = true;
+    const controller = new AbortController();
+    const load = async () => {
+      try {
+        const res = await fetch("/api/integrations/status", { signal: controller.signal });
+        const data = (await res.json().catch(() => null)) as IntegrationStatus | null;
+        if (!isActive) return;
+        if (res.ok && data) {
+          setIntegrationStatus(data);
+          setIntegrationError(false);
+        } else {
+          setIntegrationError(true);
+        }
+      } catch (error) {
+        if (!isActive) return;
+        if (error instanceof Error && error.name === "AbortError") return;
+        setIntegrationError(true);
+      }
+    };
+    load();
+    return () => {
+      isActive = false;
+      controller.abort();
+    };
+  }, [demoUrl]);
 
   const canShowCode = Boolean(chatId && versionId);
 
@@ -201,6 +246,11 @@ export function PreviewPanel({
     onClear();
   };
 
+  const blobStatus = useMemo(
+    () => integrationStatus?.items.find((item) => item.id === "vercel-blob") || null,
+    [integrationStatus],
+  );
+
   if (!demoUrl && !showCode) {
     return (
       <div className="flex h-full flex-col items-center justify-center bg-black/20 text-gray-500">
@@ -220,6 +270,9 @@ export function PreviewPanel({
 
   const isLoading = externalLoading || iframeLoading;
   const previewSrc = demoUrl ? buildPreviewSrc(demoUrl, refreshToken) : "";
+  const isV0Preview = Boolean(demoUrl && demoUrl.includes("vusercontent.net"));
+  const showBlobWarning = Boolean(demoUrl && blobStatus && !blobStatus.enabled);
+  const showExternalWarning = Boolean(demoUrl && isV0Preview);
 
   return (
     <div className="flex h-full flex-col bg-black/40">
@@ -274,6 +327,25 @@ export function PreviewPanel({
           </Button>
         </div>
       </div>
+      {!showCode && (showBlobWarning || showExternalWarning || integrationError) && (
+        <div className="border-b border-yellow-900/40 bg-yellow-950/30 px-4 py-2 text-xs text-yellow-200">
+          {showExternalWarning && (
+            <div>
+              Preview körs på v0. Externa media‑URL:er kan ge 404 eller blockeras. Ladda upp media
+              via mediabiblioteket för publika Blob‑URL:er.
+            </div>
+          )}
+          {showBlobWarning && (
+            <div>
+              Vercel Blob saknas. AI‑bilder och uppladdningar visas inte i preview förrän
+              BLOB_READ_WRITE_TOKEN är konfigurerad.
+            </div>
+          )}
+          {integrationError && (
+            <div>Kunde inte hämta integrationsstatus. Media kan saknas i preview.</div>
+          )}
+        </div>
+      )}
 
       {showCode ? (
         <div className="flex flex-1 overflow-hidden">

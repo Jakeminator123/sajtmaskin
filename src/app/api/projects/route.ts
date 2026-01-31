@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createProject, getAllProjects, type Project } from "@/lib/data/database";
+import { createProject, getAllProjects, type Project } from "@/lib/db/services";
 import { getCache, setCache, deleteCache } from "@/lib/data/redis";
 import { canCreateProject } from "@/lib/project-cleanup";
 import { getCurrentUser } from "@/lib/auth/auth";
@@ -20,7 +20,7 @@ export async function GET() {
       });
     }
 
-    const projects = getAllProjects();
+    const projects = await getAllProjects();
 
     // Cache best-effort (120s TTL)
     await setCache(cacheKey, { projects }, 120);
@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const project = createProject(
+    const project = await createProject(
       name,
       category,
       description,

@@ -6,6 +6,8 @@ import {
   jsonb,
   boolean,
   uniqueIndex,
+  integer,
+  serial,
 } from "drizzle-orm/pg-core";
 
 export const projects = pgTable(
@@ -72,4 +74,218 @@ export const deployments = pgTable("deployments", {
   status: varchar("status", { length: 50 }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+// ============================================================================
+// APP DATABASE TABLES (formerly SQLite)
+// ============================================================================
+
+export const appProjects = pgTable("app_projects", {
+  id: text("id").primaryKey(),
+  user_id: text("user_id"),
+  session_id: text("session_id"),
+  name: text("name").notNull(),
+  category: text("category"),
+  description: text("description"),
+  thumbnail_path: text("thumbnail_path"),
+  created_at: timestamp("created_at").defaultNow().notNull(),
+  updated_at: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const projectData = pgTable("project_data", {
+  project_id: text("project_id")
+    .primaryKey()
+    .references(() => appProjects.id, { onDelete: "cascade" }),
+  chat_id: text("chat_id"),
+  demo_url: text("demo_url"),
+  current_code: text("current_code"),
+  files: jsonb("files"),
+  messages: jsonb("messages"),
+  created_at: timestamp("created_at").defaultNow().notNull(),
+  updated_at: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const projectFiles = pgTable("project_files", {
+  id: serial("id").primaryKey(),
+  project_id: text("project_id")
+    .notNull()
+    .references(() => appProjects.id, { onDelete: "cascade" }),
+  path: text("path").notNull(),
+  size_bytes: integer("size_bytes"),
+  created_at: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const images = pgTable("images", {
+  id: serial("id").primaryKey(),
+  project_id: text("project_id")
+    .notNull()
+    .references(() => appProjects.id, { onDelete: "cascade" }),
+  filename: text("filename").notNull(),
+  file_path: text("file_path").notNull(),
+  original_name: text("original_name"),
+  mime_type: text("mime_type"),
+  size_bytes: integer("size_bytes"),
+  created_at: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const mediaLibrary = pgTable("media_library", {
+  id: serial("id").primaryKey(),
+  user_id: text("user_id").notNull(),
+  filename: text("filename").notNull(),
+  original_name: text("original_name").notNull(),
+  file_path: text("file_path").notNull(),
+  blob_url: text("blob_url"),
+  mime_type: text("mime_type").notNull(),
+  file_type: text("file_type").notNull(),
+  size_bytes: integer("size_bytes").notNull(),
+  description: text("description"),
+  tags: jsonb("tags"),
+  project_id: text("project_id"),
+  created_at: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const users = pgTable(
+  "users",
+  {
+    id: text("id").primaryKey(),
+    email: text("email").notNull(),
+    password_hash: text("password_hash"),
+    name: text("name"),
+    image: text("image"),
+    provider: text("provider"),
+    google_id: text("google_id"),
+    github_id: text("github_id"),
+    github_username: text("github_username"),
+    github_token: text("github_token"),
+    diamonds: integer("diamonds").default(5).notNull(),
+    tier: text("tier"),
+    created_at: timestamp("created_at").defaultNow().notNull(),
+    updated_at: timestamp("updated_at").defaultNow().notNull(),
+    last_login_at: timestamp("last_login_at"),
+  },
+  (table) => ({
+    emailIdx: uniqueIndex("users_email_idx").on(table.email),
+  }),
+);
+
+export const transactions = pgTable("transactions", {
+  id: text("id").primaryKey(),
+  user_id: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  type: text("type").notNull(),
+  amount: integer("amount").notNull(),
+  balance_after: integer("balance_after").notNull(),
+  description: text("description"),
+  stripe_payment_intent: text("stripe_payment_intent"),
+  stripe_session_id: text("stripe_session_id"),
+  created_at: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const guestUsage = pgTable(
+  "guest_usage",
+  {
+    id: serial("id").primaryKey(),
+    session_id: text("session_id").notNull(),
+    generations_used: integer("generations_used").default(0).notNull(),
+    refines_used: integer("refines_used").default(0).notNull(),
+    created_at: timestamp("created_at").defaultNow().notNull(),
+    updated_at: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    sessionIdx: uniqueIndex("guest_usage_session_idx").on(table.session_id),
+  }),
+);
+
+export const companyProfiles = pgTable("company_profiles", {
+  id: serial("id").primaryKey(),
+  project_id: text("project_id"),
+  company_name: text("company_name").notNull(),
+  industry: text("industry"),
+  location: text("location"),
+  existing_website: text("existing_website"),
+  website_analysis: text("website_analysis"),
+  site_likes: text("site_likes"),
+  site_dislikes: text("site_dislikes"),
+  site_feedback: text("site_feedback"),
+  target_audience: text("target_audience"),
+  purposes: text("purposes"),
+  special_wishes: text("special_wishes"),
+  color_palette_name: text("color_palette_name"),
+  color_primary: text("color_primary"),
+  color_secondary: text("color_secondary"),
+  color_accent: text("color_accent"),
+  competitor_insights: text("competitor_insights"),
+  industry_trends: text("industry_trends"),
+  research_sources: text("research_sources"),
+  inspiration_sites: text("inspiration_sites"),
+  voice_transcript: text("voice_transcript"),
+  created_at: timestamp("created_at").defaultNow().notNull(),
+  updated_at: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const templateCache = pgTable(
+  "template_cache",
+  {
+    id: serial("id").primaryKey(),
+    template_id: text("template_id").notNull(),
+    user_id: text("user_id"),
+    chat_id: text("chat_id").notNull(),
+    demo_url: text("demo_url"),
+    version_id: text("version_id"),
+    code: text("code"),
+    files_json: text("files_json"),
+    model: text("model"),
+    created_at: timestamp("created_at").defaultNow().notNull(),
+    expires_at: timestamp("expires_at").notNull(),
+  },
+  (table) => ({
+    templateUserIdx: uniqueIndex("template_cache_template_user_idx").on(
+      table.template_id,
+      table.user_id,
+    ),
+  }),
+);
+
+export const pageViews = pgTable("page_views", {
+  id: serial("id").primaryKey(),
+  path: text("path").notNull(),
+  session_id: text("session_id"),
+  user_id: text("user_id"),
+  ip_address: text("ip_address"),
+  user_agent: text("user_agent"),
+  referrer: text("referrer"),
+  created_at: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const userAudits = pgTable("user_audits", {
+  id: serial("id").primaryKey(),
+  user_id: text("user_id")
+    .notNull()
+    .references(() => users.id, { onDelete: "cascade" }),
+  url: text("url").notNull(),
+  domain: text("domain").notNull(),
+  company_name: text("company_name"),
+  score_overall: integer("score_overall"),
+  score_seo: integer("score_seo"),
+  score_ux: integer("score_ux"),
+  score_performance: integer("score_performance"),
+  score_security: integer("score_security"),
+  audit_result: text("audit_result").notNull(),
+  created_at: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const domainOrders = pgTable("domain_orders", {
+  id: text("id").primaryKey(),
+  project_id: text("project_id").notNull(),
+  domain: text("domain").notNull(),
+  order_id: text("order_id"),
+  customer_price: integer("customer_price"),
+  vercel_cost: integer("vercel_cost"),
+  currency: text("currency"),
+  status: text("status"),
+  years: integer("years"),
+  domain_added_to_project: boolean("domain_added_to_project").default(false).notNull(),
+  created_at: timestamp("created_at").defaultNow().notNull(),
+  updated_at: timestamp("updated_at").defaultNow().notNull(),
 });
