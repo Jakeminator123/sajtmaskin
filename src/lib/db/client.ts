@@ -20,18 +20,11 @@ function normalizeEnvUrl(value: string | undefined, varName?: string): string | 
   return trimmed;
 }
 
-const MISSING_DB_MESSAGE =
-  "Missing database connection string. Set POSTGRES_URL (preferred), POSTGRES_URL_NON_POOLING, or DATABASE_URL.";
+const MISSING_DB_MESSAGE = "Missing database connection string. Set POSTGRES_URL.";
 
 function resolveDbConnectionString(): string | null {
   const postgresUrl = normalizeEnvUrl(process.env.POSTGRES_URL, "POSTGRES_URL");
-  const nonPoolingUrl = normalizeEnvUrl(
-    process.env.POSTGRES_URL_NON_POOLING,
-    "POSTGRES_URL_NON_POOLING",
-  );
-  const databaseUrl = normalizeEnvUrl(process.env.DATABASE_URL, "DATABASE_URL");
-
-  const connectionString = postgresUrl || nonPoolingUrl || databaseUrl;
+  const connectionString = postgresUrl;
   if (!connectionString) {
     if (process.env.NODE_ENV === "production") {
       throw new Error(MISSING_DB_MESSAGE);

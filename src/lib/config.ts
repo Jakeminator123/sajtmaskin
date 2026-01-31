@@ -50,9 +50,6 @@ function normalizeRedisUrl(value: string | undefined, varName?: string): string 
 function resolveRedisUrl(): string | null {
   const candidates = [
     normalizeRedisUrl(process.env.REDIS_URL, "REDIS_URL"),
-    normalizeRedisUrl(process.env.UPSTASH_REDIS_URL, "UPSTASH_REDIS_URL"),
-    normalizeRedisUrl(process.env.STORAGE_REDIS_URL, "STORAGE_REDIS_URL"),
-    normalizeRedisUrl(process.env.STORAGE_KV_URL, "STORAGE_KV_URL"),
   ];
   return candidates.find((value) => value) || null;
 }
@@ -172,9 +169,7 @@ export const SECRETS = {
   },
 
   get openaiApiKey() {
-    // Support legacy/alternative naming used in parts of the codebase.
-    // Prefer OPENAI_API_KEY, fallback to OPEN_AI_API.
-    const key = sanitizeEnvValue(process.env.OPENAI_API_KEY || process.env.OPEN_AI_API);
+    const key = sanitizeEnvValue(process.env.OPENAI_API_KEY);
     if (!key && IS_PRODUCTION) {
       console.error("[Config] OPENAI_API_KEY is required");
     }
@@ -186,8 +181,7 @@ export const SECRETS = {
   },
 
   get vercelApiToken() {
-    // VERCEL_TOKEN is preferred, VERCEL_API_TOKEN is legacy fallback
-    return process.env.VERCEL_TOKEN || process.env.VERCEL_API_TOKEN || "";
+    return process.env.VERCEL_TOKEN || "";
   },
 
   get stripeSecretKey() {
@@ -207,7 +201,7 @@ export const SECRETS = {
   },
 
   get figmaAccessToken() {
-    return sanitizeEnvValue(process.env.FIGMA_ACCESS_TOKEN || process.env.FIGMA_TOKEN);
+    return sanitizeEnvValue(process.env.FIGMA_ACCESS_TOKEN);
   },
 
   // Google OAuth - automatically selects dev/prod credentials
@@ -230,7 +224,7 @@ export const SECRETS = {
   },
 
   get googleApiKey() {
-    return process.env.GOOGLE_API_KEY || process.env.GOOGLE_MAPS_API_KEY || "";
+    return process.env.GOOGLE_API_KEY || "";
   },
 
   // GitHub OAuth - automatically selects dev/prod credentials
@@ -311,15 +305,12 @@ export function validateRequiredSecrets(requiredSecrets: SecretName[]): string[]
  * Redis configuration
  */
 export const REDIS_CONFIG = {
-  url: RESOLVED_REDIS_URL && PARSED_REDIS_URL ? RESOLVED_REDIS_URL : "",
-  host: PARSED_REDIS_URL?.host || process.env.REDIS_HOST || "",
-  port: PARSED_REDIS_URL?.port || parseInt(process.env.REDIS_PORT || "6379"),
-  password: PARSED_REDIS_URL?.password || process.env.REDIS_PASSWORD || "",
-  username: PARSED_REDIS_URL?.username || process.env.REDIS_USERNAME || "default",
-  // Redis is only enabled if both host and password are configured
-  enabled:
-    Boolean(PARSED_REDIS_URL?.host) ||
-    Boolean(process.env.REDIS_HOST && process.env.REDIS_PASSWORD),
+  url: RESOLVED_REDIS_URL || "",
+  host: PARSED_REDIS_URL?.host || "",
+  port: PARSED_REDIS_URL?.port ?? 6379,
+  password: PARSED_REDIS_URL?.password || "",
+  username: PARSED_REDIS_URL?.username || "default",
+  enabled: Boolean(RESOLVED_REDIS_URL),
 } as const;
 
 /**
@@ -327,7 +318,7 @@ export const REDIS_CONFIG = {
  */
 export const URLS = {
   get baseUrl() {
-    return process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
+    return process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
   },
 
   get googleCallbackUrl() {

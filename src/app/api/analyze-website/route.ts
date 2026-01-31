@@ -104,7 +104,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Get OpenAI API key
-    const openaiApiKey = process.env.OPENAI_API_KEY || process.env.OPEN_AI_API;
+    const openaiApiKey = process.env.OPENAI_API_KEY;
 
     if (!openaiApiKey) {
       console.error("[API/analyze-website] OpenAI API key not configured");

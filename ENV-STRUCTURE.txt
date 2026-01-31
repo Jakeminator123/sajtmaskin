@@ -10,17 +10,21 @@ GOAL
 KEY CATEGORIES
 A) Server secrets (never in client)
    Examples: OPENAI_API_KEY, V0_API_KEY, STRIPE_SECRET_KEY,
-   DATABASE_URL/POSTGRES_URL, webhook secrets, BLOB tokens.
+   POSTGRES_URL, webhook secrets, BLOB tokens.
    Storage: Vercel Project env (Production/Preview/Development).
 
 B) Public config (safe in browser)
-   Examples: NEXT_PUBLIC_APP_URL, NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,
+   Examples: NEXT_PUBLIC_APP_URL (primary), NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY,
    NEXT_PUBLIC_GOOGLE_MAPS_API_KEY.
    Storage: Vercel Project env as NEXT_PUBLIC_*.
 
 C) Per-user tokens (user-owned)
    Examples: OAuth access/refresh tokens after users connect GitHub/Google/etc.
    Storage: Database per user (encrypt before saving).
+
+D) Tenant isolation (multi-tenant)
+   Each customer is a tenant. All tenant data is separated by user_id/tenant_id
+   columns in the shared Supabase database and enforced in server code.
 
 WHY SUPABASE + UPSTASH?
 - Supabase/Postgres is the primary database for your app data.
@@ -70,7 +74,7 @@ Vercel Project Env (Production/Preview/Development)
 - Server secrets: OPENAI_API_KEY, V0_API_KEY, ANTHROPIC_API_KEY, STRIPE_SECRET_KEY,
   STRIPE_WEBHOOK_SECRET, POSTGRES_URL, BLOB_READ_WRITE_TOKEN, INBOUND_WEBHOOK_SHARED_SECRET,
   VERCEL_TOKEN, VERCEL_TEAM_ID, VERCEL_PROJECT_ID, VERCEL_WEBHOOK_SECRET
-- Public config: NEXT_PUBLIC_APP_URL, NEXT_PUBLIC_BASE_URL,
+- Public config: NEXT_PUBLIC_APP_URL (primary),
   NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY, NEXT_PUBLIC_GOOGLE_MAPS_API_KEY,
   NEXT_PUBLIC_REGISTRY_BASE_URL, NEXT_PUBLIC_REGISTRY_STYLE
 - Rate limits: UPSTASH_REDIS_REST_URL, UPSTASH_REDIS_REST_TOKEN
@@ -85,6 +89,10 @@ v0 (personal/team)
 
 Database (per user)
 - OAuth access tokens and any user-specific external-service credentials
+
+TENANT RULE
+- All Postgres data is tenant-scoped by user_id in projects -> chats -> versions.
+- Guests use a guest:{sessionId} tenant id so they cannot see other guests.
 
 NOTES / RECOMMENDATIONS
 - Replace JWT_SECRET with a long random value (>= 32 chars) and set it in Vercel.

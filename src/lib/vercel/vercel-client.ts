@@ -11,8 +11,7 @@
 const VERCEL_API_BASE = "https://api.vercel.com";
 
 function requireToken(): string {
-  // VERCEL_TOKEN is preferred, VERCEL_API_TOKEN is legacy fallback
-  const token = process.env.VERCEL_TOKEN || process.env.VERCEL_API_TOKEN;
+  const token = process.env.VERCEL_TOKEN;
   if (!token) {
     throw new Error("VERCEL_TOKEN is required. Get it from: https://vercel.com/account/tokens");
   }
@@ -42,7 +41,7 @@ async function vercelFetch<T>(path: string, init?: RequestInit): Promise<T> {
  * Check if Vercel integration is configured
  */
 export function isVercelConfigured(): boolean {
-  return Boolean(process.env.VERCEL_TOKEN || process.env.VERCEL_API_TOKEN);
+  return Boolean(process.env.VERCEL_TOKEN);
 }
 
 /**
