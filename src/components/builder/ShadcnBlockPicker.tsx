@@ -188,7 +188,7 @@ export function ShadcnBlockPicker({
 
       setPendingAction(null);
     },
-    [selectedItem, registryItem, dependencyItems, onConfirm, isLoadingItem],
+    [selectedItem, registryItem, dependencyItems, onConfirm],
   );
 
   // Reset pending action when not submitting
