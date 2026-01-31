@@ -2,7 +2,9 @@
   "mcpServers": {
     "sajtmaskin-mpc": {
       "command": "node",
-      "args": ["./services/mpc/server.mjs"],
+      "args": [
+        "./services/mpc/server.mjs"
+      ],
       "cwd": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin",
       "env": {}
     }
