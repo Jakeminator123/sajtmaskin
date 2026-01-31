@@ -34,7 +34,7 @@ export type MaterializeImagesResult = {
 
 const DEFAULT_LIMITS: MaterializeImagesLimits = {
   maxImages: 25,
-  maxBytesPerImage: 8 * 1024 * 1024,
+  maxBytesPerImage: 4 * 1024 * 1024,
   maxTotalBytes: 50 * 1024 * 1024,
   timeoutMs: 15_000,
 };

@@ -46,7 +46,8 @@ const ACCEPTED_IMAGE_TYPES = [
 ];
 const ACCEPTED_DOC_TYPES = ["application/pdf"];
 const ACCEPTED_TYPES = [...ACCEPTED_IMAGE_TYPES, ...ACCEPTED_DOC_TYPES];
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+const MAX_IMAGE_SIZE = 4 * 1024 * 1024; // 4MB (Blob-safe for preview)
+const MAX_DOC_SIZE = 4 * 1024 * 1024; // 4MB (Blob-safe for preview)
 const MAX_FILES = 5;
 
 export interface UploadedFile {
@@ -115,8 +116,9 @@ export function FileUploadZone({
           continue;
         }
 
-        // Validate file size
-        if (file.size > MAX_FILE_SIZE) {
+        // Validate file size (Blob-safe limits for preview reliability)
+        const maxSize = file.type.startsWith("image/") ? MAX_IMAGE_SIZE : MAX_DOC_SIZE;
+        if (file.size > maxSize) {
           const errorFile: UploadedFile = {
             id: `error-${Date.now()}-${Math.random().toString(36).slice(2)}`,
             url: "",
@@ -124,7 +126,8 @@ export function FileUploadZone({
             mimeType: file.type,
             size: file.size,
             status: "error",
-            error: "Filen är för stor. Max 10MB.",
+            error:
+              "Filen är för stor för preview. Max 4MB (Blob-begränsning för stabila bilder).",
           };
           onFilesChange([...files, errorFile]);
           continue;
@@ -371,7 +374,7 @@ export function FileUploadZone({
               {isDragging ? "Släpp filer här" : "Dra filer hit eller klicka för att välja"}
             </p>
             <p className="mt-1 text-xs text-gray-500">
-              JPG, PNG, GIF, WebP, SVG eller PDF • Max 10MB • Max {MAX_FILES} filer
+              JPG, PNG, GIF, WebP, SVG eller PDF • Max 4MB • Max {MAX_FILES} filer
             </p>
           </div>
         </div>

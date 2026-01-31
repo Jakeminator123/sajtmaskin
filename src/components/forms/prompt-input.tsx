@@ -71,7 +71,38 @@ export function PromptInput({
     }
   }, [prompt]);
 
-  const handleSubmit = async () => {
+  const storePromptForBuilder = (value: string) => {
+    if (typeof window === "undefined") return null;
+    const promptId =
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    const storageKey = `sajtmaskin_freeform_prompt:${promptId}`;
+    let stored = false;
+    try {
+      sessionStorage.setItem(storageKey, value);
+      stored = true;
+    } catch {
+      // ignore storage errors
+    }
+    try {
+      localStorage.setItem(storageKey, value);
+      stored = true;
+    } catch {
+      // ignore storage errors
+    }
+    return stored ? promptId : null;
+  };
+
+  const navigateToBuilder = (value: string) => {
+    const promptId = storePromptForBuilder(value);
+    const url = promptId
+      ? `/builder?promptId=${encodeURIComponent(promptId)}`
+      : `/builder?prompt=${encodeURIComponent(value)}`;
+    router.push(url);
+  };
+
+  const handleSubmit = () => {
     if (!prompt.trim() || isLoading) return;
 
     if (onSubmit) {
@@ -79,7 +110,7 @@ export function PromptInput({
     }
 
     if (navigateOnSubmit) {
-      router.push(`/builder?prompt=${encodeURIComponent(prompt)}`);
+      navigateToBuilder(prompt);
     }
   };
 
@@ -106,7 +137,7 @@ export function PromptInput({
     }
 
     if (navigateOnSubmit) {
-      router.push(`/builder?prompt=${encodeURIComponent(expandedPrompt)}`);
+      navigateToBuilder(expandedPrompt);
     }
   };
 

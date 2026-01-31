@@ -19,7 +19,9 @@ import {
   DEFAULT_MODEL_TIER,
   DEFAULT_PROMPT_ASSIST,
   getDefaultPromptAssistModel,
+  getPromptAssistModelOptions,
   MODEL_TIER_OPTIONS,
+  PROMPT_ASSIST_PROVIDER_OPTIONS,
 } from "@/lib/builder/defaults";
 import { useChat } from "@/lib/hooks/useChat";
 import { useCssValidation } from "@/lib/hooks/useCssValidation";
@@ -33,10 +35,11 @@ import type { ModelTier } from "@/lib/validations/chatSchemas";
 import type { QualityLevel } from "@/lib/v0/v0-generator";
 import { cn } from "@/lib/utils";
 import { debugLog } from "@/lib/utils/debug";
-import { Check, Loader2 } from "lucide-react";
+import { Check, HelpCircle, Loader2 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import toast, { Toaster } from "react-hot-toast";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 type CreateChatOptions = {
   attachments?: V0UserFileAttachment[];
@@ -57,10 +60,11 @@ function BuilderContent() {
 
   const chatIdParam = searchParams.get("chatId");
   const promptParam = searchParams.get("prompt");
+  const promptId = searchParams.get("promptId");
   const templateId = searchParams.get("templateId");
   const source = searchParams.get("source");
   const auditId = searchParams.get("auditId");
-  const hasEntryParams = Boolean(promptParam || templateId || source === "audit");
+  const hasEntryParams = Boolean(promptParam || promptId || templateId || source === "audit");
 
   const [chatId, setChatId] = useState<string | null>(chatIdParam);
   const [currentDemoUrl, setCurrentDemoUrl] = useState<string | null>(null);
@@ -82,11 +86,9 @@ function BuilderContent() {
   const [isMediaEnabled, setIsMediaEnabled] = useState(false);
   const [designSystemMode, setDesignSystemMode] = useState(false);
   const [showStructuredChat, setShowStructuredChat] = useState(false);
-  const [deployImageStrategy, setDeployImageStrategy] = useState<"external" | "blob">("external");
   const [isIntentionalReset, setIsIntentionalReset] = useState(false);
   const [customInstructions, setCustomInstructions] = useState(DEFAULT_CUSTOM_INSTRUCTIONS);
   const [applyInstructionsOnce, setApplyInstructionsOnce] = useState(false);
-  const hasUserSelectedImageStrategy = useRef(false);
   const hasUserSelectedImageGenerations = useRef(false);
   const hasLoadedInstructions = useRef(false);
   const pendingInstructionsRef = useRef<string | null>(null);
@@ -103,6 +105,37 @@ function BuilderContent() {
   } | null>(null);
   const [hasSelectedModelTier, setHasSelectedModelTier] = useState(false);
 
+  const selectedTierOption = useMemo(
+    () => MODEL_TIER_OPTIONS.find((option) => option.value === selectedModelTier),
+    [selectedModelTier],
+  );
+  const assistProviderLabel = useMemo(() => {
+    const option = PROMPT_ASSIST_PROVIDER_OPTIONS.find((o) => o.value === promptAssistProvider);
+    return option?.label || promptAssistProvider;
+  }, [promptAssistProvider]);
+  const assistModelLabel = useMemo(() => {
+    const options = getPromptAssistModelOptions(promptAssistProvider);
+    const match = options.find((o) => o.value === promptAssistModel);
+    return match?.label || promptAssistModel || "Okänd";
+  }, [promptAssistProvider, promptAssistModel]);
+  const promptPreview = useMemo(() => {
+    const value = pendingCreate?.message?.trim() || "";
+    if (!value) return "Ingen prompt hittades.";
+    if (value.length <= 360) return value;
+    return `${value.slice(0, 360)}…`;
+  }, [pendingCreate]);
+  const hasCustomInstructions = useMemo(() => {
+    const trimmed = customInstructions.trim();
+    if (!trimmed) return false;
+    return trimmed !== DEFAULT_CUSTOM_INSTRUCTIONS.trim();
+  }, [customInstructions]);
+  const instructionsPreview = useMemo(() => {
+    const trimmed = customInstructions.trim();
+    if (!trimmed) return "Inga instruktioner.";
+    if (trimmed.length <= 220) return trimmed;
+    return `${trimmed.slice(0, 220)}…`;
+  }, [customInstructions]);
+
   useEffect(() => {
     if (source !== "audit" || typeof window === "undefined") return;
 
@@ -115,6 +148,15 @@ function BuilderContent() {
 
     setAuditPromptLoaded(true);
   }, [source, auditId]);
+
+  useEffect(() => {
+    if (!promptId || typeof window === "undefined") return;
+    const storageKey = `sajtmaskin_freeform_prompt:${promptId}`;
+    const storedPrompt = sessionStorage.getItem(storageKey) || localStorage.getItem(storageKey);
+    if (storedPrompt) {
+      setResolvedPrompt(storedPrompt);
+    }
+  }, [promptId]);
 
   useEffect(() => {
     fetchUser().catch(() => {});
@@ -258,20 +300,16 @@ function BuilderContent() {
         const { blobEnabled, v0Enabled } = flags;
         if (!isActive) return;
         setIsMediaEnabled(blobEnabled);
-        setIsImageGenerationsSupported(v0Enabled);
-        if (!v0Enabled) {
+        setIsImageGenerationsSupported(v0Enabled && blobEnabled);
+        if (!v0Enabled || !blobEnabled) {
           setEnableImageGenerations(false);
         } else if (!hasUserSelectedImageGenerations.current) {
           setEnableImageGenerations(true);
-        }
-        if (!blobEnabled) {
-          setDeployImageStrategy("external");
         }
         debugLog("AI", "Builder feature flags resolved", {
           v0Enabled,
           blobEnabled,
           userSelectedImageGenerations: hasUserSelectedImageGenerations.current,
-          userSelectedImageStrategy: hasUserSelectedImageStrategy.current,
         });
       } catch (error) {
         if (error instanceof Error && error.name === "AbortError") return;
@@ -434,15 +472,9 @@ function BuilderContent() {
 
       setIsDeploying(true);
       try {
-        let resolvedStrategy = deployImageStrategy;
-        if (deployImageStrategy === "blob") {
-          const flags = await fetchHealthFeatures();
-          if (flags && !flags.blobEnabled) {
-            setIsMediaEnabled(false);
-            setDeployImageStrategy("external");
-            resolvedStrategy = "external";
-            toast.error("Vercel Blob är avstängt. Byter till External URLs.");
-          }
+        const resolvedStrategy: ImageAssetStrategy = isMediaEnabled ? "blob" : "external";
+        if (!isMediaEnabled) {
+          toast.error("Blob storage saknas – deploy körs med externa bild-URL:er.");
         }
 
         const response = await fetch("/api/v0/deployments", {
@@ -485,13 +517,8 @@ function BuilderContent() {
         setIsDeploying(false);
       }
     },
-    [chatId, activeVersionId, isDeploying, deployImageStrategy, fetchHealthFeatures],
+    [chatId, activeVersionId, isDeploying, isMediaEnabled],
   );
-
-  const handleDeployImageStrategyChange = useCallback((strategy: "external" | "blob") => {
-    hasUserSelectedImageStrategy.current = true;
-    setDeployImageStrategy(strategy);
-  }, []);
 
   const handleEnableImageGenerationsChange = useCallback((value: boolean) => {
     hasUserSelectedImageGenerations.current = true;
@@ -638,7 +665,7 @@ function BuilderContent() {
 
       try {
         resetBeforeCreateChat();
-        const quality = MODEL_TIER_TO_QUALITY[selectedModelTier] || "standard";
+        const quality = MODEL_TIER_TO_QUALITY[selectedModelTier] || "max";
         const name = selection.block?.title ? `shadcn/ui: ${selection.block.title}` : undefined;
         const response = await fetch("/api/v0/chats/init-registry", {
           method: "POST",
@@ -806,13 +833,10 @@ function BuilderContent() {
           enableImageGenerations={enableImageGenerations}
           onEnableImageGenerationsChange={handleEnableImageGenerationsChange}
           imageGenerationsSupported={isImageGenerationsSupported}
-          blobSupported={isMediaEnabled}
           designSystemMode={designSystemMode}
           onDesignSystemModeChange={setDesignSystemMode}
           showStructuredChat={showStructuredChat}
           onShowStructuredChatChange={setShowStructuredChat}
-          deployImageStrategy={deployImageStrategy}
-          onDeployImageStrategyChange={handleDeployImageStrategyChange}
           onOpenImport={() => {
             setIsSandboxModalOpen(false);
             setIsImportModalOpen(true);
@@ -919,8 +943,67 @@ function BuilderContent() {
                   Välj modell för första prompten
                 </h2>
                 <p className="text-muted-foreground mt-1 text-sm">
-                  Du kan ändra senare i toppmenyn. Detta påverkar bara första körningen.
+                  Detta är första prompten i en ny chat. Du kan ändra senare i toppmenyn.
                 </p>
+              </div>
+              <div className="border-border bg-muted/40 text-muted-foreground mb-4 flex items-start gap-2 rounded-lg border p-3 text-xs">
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <span className="mt-0.5 cursor-help">
+                        <HelpCircle className="h-4 w-4" />
+                      </span>
+                    </TooltipTrigger>
+                    <TooltipContent side="right" className="max-w-xs">
+                      <p className="text-xs">
+                        Den här bekräftelsen visas bara för första prompten i en ny chat. Din prompt
+                        skickas som naturligt språk. Om Prompt Assist är på så skrivs prompten om
+                        innan v0 kör, medan system‑instruktioner skickas separat.
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+                <div className="space-y-1">
+                  <div className="text-foreground text-sm font-medium">
+                    Bekräfta första körningen
+                  </div>
+                  <div>
+                    Vi visar en snabb översikt för att säkerställa att rätt modell och assist‑val
+                    används innan chatId skapas.
+                  </div>
+                </div>
+              </div>
+              <div className="mb-4 space-y-2 text-xs">
+                <div className="border-border bg-background/60 flex items-center justify-between rounded-lg border px-3 py-2">
+                  <span className="text-muted-foreground">Model tier</span>
+                  <span className="text-foreground font-medium">
+                    {selectedTierOption?.label || selectedModelTier}
+                  </span>
+                </div>
+                <div className="border-border bg-background/60 flex items-center justify-between rounded-lg border px-3 py-2">
+                  <span className="text-muted-foreground">Prompt assist</span>
+                  <span className="text-foreground font-medium">
+                    {assistProviderLabel}
+                    {promptAssistProvider !== "off" ? ` • ${assistModelLabel}` : ""}
+                    {promptAssistProvider === "gateway" ? (promptAssistDeep ? " • Deep" : "") : ""}
+                  </span>
+                </div>
+                <div className="border-border bg-background/60 flex items-center justify-between rounded-lg border px-3 py-2">
+                  <span className="text-muted-foreground">AI‑bilder</span>
+                  <span className="text-foreground font-medium">
+                    {enableImageGenerations && isImageGenerationsSupported ? "På" : "Av"}
+                  </span>
+                </div>
+                <div className="border-border bg-background/60 rounded-lg border px-3 py-2">
+                  <div className="text-muted-foreground">System‑instruktioner</div>
+                  <div className="text-foreground mt-1">
+                    {hasCustomInstructions ? instructionsPreview : "Standard"}
+                  </div>
+                </div>
+                <div className="border-border bg-background/60 rounded-lg border px-3 py-2">
+                  <div className="text-muted-foreground">Första prompten</div>
+                  <div className="text-foreground mt-1 whitespace-pre-wrap">{promptPreview}</div>
+                </div>
               </div>
               <div className="space-y-2">
                 {MODEL_TIER_OPTIONS.map((option) => {

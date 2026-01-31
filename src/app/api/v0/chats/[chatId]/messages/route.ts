@@ -64,7 +64,11 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
           });
         }
       } catch (dbError) {
-        console.error("Failed to save version to database:", dbError);
+        console.error(
+          "Failed to save version to database:",
+          { chatId: dbChat.id, versionId },
+          dbError,
+        );
       }
 
       return NextResponse.json({

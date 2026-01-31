@@ -736,6 +736,9 @@ export function useV0ChatMessaging(params: {
           } catch {
             // ignore
           }
+          if (!errorMessage.includes("HTTP")) {
+            errorMessage = `${errorMessage} (HTTP ${response.status})`;
+          }
           throw new Error(errorMessage);
         }
 
@@ -1005,6 +1008,9 @@ export function useV0ChatMessaging(params: {
             errorMessage = errorData.error || errorData.message || errorMessage;
           } catch {
             // ignore
+          }
+          if (!errorMessage.includes("HTTP")) {
+            errorMessage = `${errorMessage} (HTTP ${response.status})`;
           }
           throw new Error(errorMessage);
         }
