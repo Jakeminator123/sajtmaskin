@@ -283,6 +283,27 @@ export function extractThinkingText(parsed: unknown): string | null {
   return findThoughtInObject(parsed);
 }
 
+/**
+ * Extract text fragment from V0's JSON-patch delta format.
+ * V0 sends content as: {"delta":[[0,1,6,2,2,"text fragment"],9,9]}
+ * The text is the last string element in the first array.
+ */
+function extractDeltaText(delta: unknown): string | null {
+  if (!Array.isArray(delta)) return null;
+
+  // Format: [[path..., "text"], 9, 9] or [[path..., "text"]]
+  const firstElement = delta[0];
+  if (!Array.isArray(firstElement)) return null;
+
+  // The text fragment is the last element in the path array
+  const lastElement = firstElement[firstElement.length - 1];
+  if (typeof lastElement === "string") {
+    return lastElement;
+  }
+
+  return null;
+}
+
 export function extractContentText(parsed: unknown, _raw: string): string | null {
   if (typeof parsed === "string") return parsed;
   if (!parsed || typeof parsed !== "object") return null;
@@ -290,6 +311,13 @@ export function extractContentText(parsed: unknown, _raw: string): string | null
   if (typeof obj.content === "string") return obj.content;
   if (typeof obj.text === "string") return obj.text;
   if (typeof obj.delta === "string") return obj.delta;
+
+  // Handle V0's JSON-patch delta format: {"delta":[[0,1,6,2,2,"text"],9,9]}
+  if (Array.isArray(obj.delta)) {
+    const deltaText = extractDeltaText(obj.delta);
+    if (deltaText) return deltaText;
+  }
+
   return null;
 }
 
