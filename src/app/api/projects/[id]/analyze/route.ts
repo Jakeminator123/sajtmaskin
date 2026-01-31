@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/auth";
-import { getProjectData, getProjectById } from "@/lib/data/database";
+import { getProjectData, getProjectById } from "@/lib/db/services";
 import OpenAI from "openai";
 
 /**
@@ -88,7 +88,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     // 2. Get project metadata
-    const project = getProjectById(projectId);
+    const project = await getProjectById(projectId);
     if (!project) {
       return NextResponse.json(
         { success: false, error: "Projektet hittades inte" },
@@ -105,7 +105,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     // 4. Get project files from project_data
-    const projectData = getProjectData(projectId);
+    const projectData = await getProjectData(projectId);
     const rawFiles = projectData?.files;
 
     if (!rawFiles || !Array.isArray(rawFiles) || rawFiles.length === 0) {

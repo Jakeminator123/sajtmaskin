@@ -9,7 +9,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { OpenAI } from "openai";
 import { getCurrentUser } from "@/lib/auth/auth";
-import { getUserById, createTransaction, isTestUser } from "@/lib/data/database";
+import { getUserById, createTransaction, isTestUser } from "@/lib/db/services";
 import { scrapeWebsite, validateAndNormalizeUrl, getCanonicalUrlKey } from "@/lib/webscraper";
 import {
   buildAuditPrompt,
@@ -1210,7 +1210,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Get fresh user data from database
-    const dbUser = getUserById(user.id);
+    const dbUser = await getUserById(user.id);
     if (!dbUser) {
       return NextResponse.json(
         { success: false, error: "Användare hittades inte." },
@@ -1663,7 +1663,7 @@ export async function POST(request: NextRequest) {
     // Deduct diamonds (only if not test user)
     if (!isTest) {
       try {
-        createTransaction(
+        await createTransaction(
           user.id,
           "audit",
           -auditCost,

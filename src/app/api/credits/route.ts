@@ -7,7 +7,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { getSessionIdFromRequest } from "@/lib/auth/session";
-import { getUserTransactions, getOrCreateGuestUsage } from "@/lib/data/database";
+import { getUserTransactions, getOrCreateGuestUsage } from "@/lib/db/services";
 
 /**
  * GET: Get current credit balance and usage info
@@ -19,7 +19,7 @@ export async function GET(req: NextRequest) {
 
     if (user) {
       // Get transaction history
-      const transactions = getUserTransactions(user.id, 10);
+      const transactions = await getUserTransactions(user.id, 10);
 
       return NextResponse.json({
         success: true,
@@ -52,7 +52,7 @@ export async function GET(req: NextRequest) {
       });
     }
 
-    const guestUsage = getOrCreateGuestUsage(sessionId);
+    const guestUsage = await getOrCreateGuestUsage(sessionId);
 
     return NextResponse.json({
       success: true,

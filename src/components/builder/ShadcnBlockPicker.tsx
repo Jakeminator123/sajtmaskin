@@ -2,7 +2,7 @@
 
 import { Blocks, Loader2, Search } from "lucide-react";
 import { Streamdown } from "streamdown";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -379,32 +379,36 @@ export function ShadcnBlockPicker({
     !isSubmitting &&
     !error;
 
-  const handleConfirm = async (action: ShadcnBlockAction) => {
-    if (!selectedBlock || !registryItem || !registryUrl) return;
-    setPendingAction(action);
-    await onConfirm(
-      {
-        block: selectedBlock,
-        registryItem,
-        dependencyItems,
-        registryUrl,
-        style: resolvedStyle,
-      },
-      action,
-    );
-  };
+  const handleConfirm = useCallback(
+    async (action: ShadcnBlockAction) => {
+      if (!selectedBlock || !registryItem || !registryUrl) return;
+      setPendingAction(action);
+      await onConfirm(
+        {
+          block: selectedBlock,
+          registryItem,
+          dependencyItems,
+          registryUrl,
+          style: resolvedStyle,
+        },
+        action,
+      );
+    },
+    [selectedBlock, registryItem, registryUrl, dependencyItems, resolvedStyle, onConfirm],
+  );
 
   return (
     <Dialog open={open}>
-      <DialogContent className="max-w-5xl">
+      <DialogContent className="flex max-h-[85vh] w-[min(92vw,960px)] max-w-4xl flex-col overflow-hidden">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Blocks className="h-4 w-4 text-gray-200" />
             shadcn/ui
           </DialogTitle>
           <DialogDescription>
-            Välj shadcn/ui-block, style och läge. Du kan starta ett nytt projekt eller lägga till i
-            nuvarande chat.
+            {hasChat
+              ? "Välj ett shadcn/ui-block och lägg till det i din nuvarande sida."
+              : "Skapa en sida först (fri text eller template) för att kunna lägga till block."}
           </DialogDescription>
         </DialogHeader>
 
@@ -444,7 +448,9 @@ export function ShadcnBlockPicker({
                         <button
                           key={block.name}
                           type="button"
-                          onClick={() => setSelectedBlock(block)}
+                          onClick={() => {
+                            setSelectedBlock(block);
+                          }}
                           className={`w-full rounded-md border px-3 py-2 text-left text-sm transition ${
                             isSelected
                               ? "border-brand-blue bg-brand-blue/10 text-white"
@@ -567,6 +573,11 @@ export function ShadcnBlockPicker({
         </div>
 
         <div className="flex items-center justify-end gap-2 border-t border-gray-800 px-6 py-4">
+          {!hasChat && (
+            <div className="text-xs text-gray-400">
+              Skapa en sida först för att kunna lägga till block.
+            </div>
+          )}
           <Button variant="outline" onClick={onClose} disabled={isSubmitting}>
             Stäng
           </Button>
@@ -578,12 +589,6 @@ export function ShadcnBlockPicker({
               Lägg till i chatten
             </Button>
           )}
-          <Button onClick={() => handleConfirm("start")} disabled={!canAct}>
-            {isSubmitting && pendingAction === "start" ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : null}
-            Starta nytt projekt
-          </Button>
         </div>
       </DialogContent>
     </Dialog>

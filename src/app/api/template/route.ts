@@ -1,4 +1,4 @@
-import { cacheTemplateResult, getCachedTemplate } from "@/lib/data/database";
+import { cacheTemplateResult, getCachedTemplate } from "@/lib/db/services";
 import { findMainFile, generateFromTemplate } from "@/lib/v0/v0-generator";
 import { TEMPLATES } from "@/lib/templates/template-data";
 import { getCurrentUser } from "@/lib/auth/auth";
@@ -60,7 +60,7 @@ export async function POST(request: NextRequest) {
     // IMPORTANT: Cache is now per-user to prevent cross-user pollution
     // ═══════════════════════════════════════════════════════════════════════════
     if (!skipCache) {
-      const cached = getCachedTemplate(templateId, userId);
+      const cached = await getCachedTemplate(templateId, userId);
       if (cached) {
         console.log(
           "[API /template] Returning CACHED result for:",
@@ -130,7 +130,7 @@ export async function POST(request: NextRequest) {
     // ═══════════════════════════════════════════════════════════════════════════
     if (result.chatId) {
       try {
-        cacheTemplateResult(
+        await cacheTemplateResult(
           templateId,
           {
             chatId: result.chatId,

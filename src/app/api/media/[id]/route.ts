@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/auth";
-import { deleteMediaLibraryItem, getMediaLibraryItemById } from "@/lib/data/database";
+import { deleteMediaLibraryItem, getMediaLibraryItemById } from "@/lib/db/services";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -39,7 +39,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     }
 
     // Check if item exists and belongs to user (for better error messages)
-    const item = getMediaLibraryItemById(mediaId);
+    const item = await getMediaLibraryItemById(mediaId);
     if (!item) {
       return NextResponse.json({ success: false, error: "Filen hittades inte" }, { status: 404 });
     }
@@ -56,7 +56,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     }
 
     // Delete the file (both from disk/blob and database)
-    const success = deleteMediaLibraryItem(mediaId, user.id);
+    const success = await deleteMediaLibraryItem(mediaId, user.id);
 
     if (!success) {
       return NextResponse.json(

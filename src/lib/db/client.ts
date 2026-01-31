@@ -43,9 +43,22 @@ function resolveDbConnectionString(): string | null {
 const connectionString = resolveDbConnectionString();
 export const dbConfigured = Boolean(connectionString);
 
+// Clean connection string for Supabase pooler compatibility
+function cleanConnectionString(connStr: string): string {
+  try {
+    const url = new URL(connStr);
+    // Remove sslmode from search params - we handle it via ssl option
+    url.searchParams.delete("sslmode");
+    url.searchParams.delete("supa");
+    return url.toString();
+  } catch {
+    return connStr;
+  }
+}
+
 const pool = connectionString
   ? new Pool({
-      connectionString,
+      connectionString: cleanConnectionString(connectionString),
       ssl: {
         rejectUnauthorized: false,
       },

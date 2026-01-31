@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getProjectById, saveImage } from "@/lib/data/database";
+import { getProjectById, saveImage } from "@/lib/db/services";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { uploadBlob, generateUniqueFilename } from "@/lib/vercel/blob-service";
 
@@ -21,7 +21,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    const project = getProjectById(id);
+    const project = await getProjectById(id);
     if (!project) {
       return NextResponse.json({ success: false, error: "Project not found" }, { status: 404 });
     }
@@ -58,7 +58,14 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     console.log(`[Upload] Image uploaded (${uploadResult.storageType}):`, uploadResult.url);
 
     // Save metadata to database
-    const imageRecord = saveImage(id, filename, uploadResult.path, file.name, file.type, file.size);
+    const imageRecord = await saveImage(
+      id,
+      filename,
+      uploadResult.path,
+      file.name,
+      file.type,
+      file.size,
+    );
 
     return NextResponse.json({
       success: true,

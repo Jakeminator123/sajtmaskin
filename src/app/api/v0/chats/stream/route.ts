@@ -27,13 +27,14 @@ import {
 } from "@/lib/tenant";
 import { requireNotBot } from "@/lib/botProtection";
 import { devLogAppend, devLogFinalizeSite, devLogStartNewSite } from "@/lib/logging/devLog";
-import { debugLog } from "@/lib/utils/debug";
+import { debugLog, errorLog } from "@/lib/utils/debug";
 import { sanitizeV0Metadata } from "@/lib/v0/sanitize-metadata";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
 
 export async function POST(req: Request) {
+  const requestId = req.headers.get("x-vercel-id") || "unknown";
   return withRateLimit(req, "chat:create", async () => {
     try {
       const botError = requireNotBot(req);
@@ -495,7 +496,7 @@ export async function POST(req: Request) {
 
       return NextResponse.json(chatData);
     } catch (err) {
-      console.error("Create chat error:", err);
+      errorLog("v0", `Create chat error (requestId=${requestId})`, err);
       return NextResponse.json(
         { error: err instanceof Error ? err.message : "Unknown error" },
         { status: 500 },

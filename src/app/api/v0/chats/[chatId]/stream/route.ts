@@ -18,13 +18,14 @@ import { resolveLatestVersion } from "@/lib/v0/resolve-latest-version";
 import { withRateLimit } from "@/lib/rateLimit";
 import { getChatByV0ChatIdForRequest } from "@/lib/tenant";
 import { devLogAppend } from "@/lib/logging/devLog";
-import { debugLog } from "@/lib/utils/debug";
+import { debugLog, errorLog } from "@/lib/utils/debug";
 import { sanitizeV0Metadata } from "@/lib/v0/sanitize-metadata";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
 
 export async function POST(req: Request, ctx: { params: Promise<{ chatId: string }> }) {
+  const requestId = req.headers.get("x-vercel-id") || "unknown";
   return withRateLimit(req, "message:send", async () => {
     try {
       assertV0Key();
@@ -334,7 +335,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
         { headers: createSSEHeaders() },
       );
     } catch (err) {
-      console.error("Send message error:", err);
+      errorLog("v0", `Send message error (requestId=${requestId})`, err);
       return NextResponse.json(
         { error: err instanceof Error ? err.message : "Unknown error" },
         { status: 500 },

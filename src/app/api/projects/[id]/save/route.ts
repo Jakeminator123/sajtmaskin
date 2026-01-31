@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getProjectById, saveProjectData } from "@/lib/data/database";
+import { getProjectById, saveProjectData } from "@/lib/db/services";
 import { deleteCache } from "@/lib/data/redis";
 
 interface RouteParams {
@@ -9,7 +9,7 @@ interface RouteParams {
 /**
  * POST /api/projects/[id]/save - Save project data (chat, files, etc.)
  *
- * NOTE: This route ONLY saves data locally (SQLite + Redis cache).
+ * NOTE: This route saves data to Supabase + Redis cache.
  * Vercel deployment is NOT triggered here!
  *
  * For deployment, use POST /api/vercel/deploy manually when user clicks "Publish".
@@ -20,7 +20,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const { id } = await params;
     const body = await request.json();
 
-    const project = getProjectById(id);
+    const project = await getProjectById(id);
     if (!project) {
       return NextResponse.json({ success: false, error: "Project not found" }, { status: 404 });
     }
@@ -28,7 +28,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     const { chatId, demoUrl, currentCode, files, messages } = body;
 
     // Save project data to database
-    saveProjectData({
+    await saveProjectData({
       project_id: id,
       chat_id: chatId,
       demo_url: demoUrl,

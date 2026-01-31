@@ -7,7 +7,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { createTransaction, getTransactionByStripeSession, getUserById } from "@/lib/data/database";
+import { createTransaction, getTransactionByStripeSession, getUserById } from "@/lib/db/services";
 import { SECRETS } from "@/lib/config";
 import Stripe from "stripe";
 
@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
       const session = event.data.object as Stripe.Checkout.Session;
 
       // Check if already processed (idempotency)
-      const existingTransaction = getTransactionByStripeSession(session.id);
+      const existingTransaction = await getTransactionByStripeSession(session.id);
       if (existingTransaction) {
         console.log("[Stripe/webhook] Session already processed:", session.id);
         return NextResponse.json({ received: true });
@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
       }
 
       // Verify user exists
-      const user = getUserById(userId);
+      const user = await getUserById(userId);
       if (!user) {
         console.error("[Stripe/webhook] User not found:", userId);
         return NextResponse.json({ error: "User not found" }, { status: 400 });
@@ -72,7 +72,7 @@ export async function POST(req: NextRequest) {
 
       // Add diamonds to user
       try {
-        const transaction = createTransaction(
+        const transaction = await createTransaction(
           userId,
           "purchase",
           diamonds,

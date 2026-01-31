@@ -4,7 +4,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { withRateLimit } from "@/lib/rateLimit";
 import { requireNotBot } from "@/lib/botProtection";
-import { debugLog } from "@/lib/utils/debug";
+import { debugLog, errorLog, warnLog } from "@/lib/utils/debug";
 
 export const runtime = "nodejs";
 export const maxDuration = 420; // 7 minutes for prompt assist with slow models
@@ -129,6 +129,7 @@ export async function POST(req: Request) {
         const hasGatewayApiKey = Boolean(process.env.AI_GATEWAY_API_KEY?.trim());
         const hasOidcToken = Boolean(process.env.VERCEL_OIDC_TOKEN?.trim());
         if (!hasGatewayApiKey && !hasOidcToken && !isProbablyOnVercel()) {
+          warnLog("AI", "AI Gateway auth missing for prompt assist");
           return NextResponse.json(
             {
               error: "Missing AI Gateway auth for gateway provider",
@@ -172,6 +173,7 @@ export async function POST(req: Request) {
 
       const { apiKey, source } = getV0ModelApiKey();
       if (!apiKey) {
+        warnLog("AI", "V0 Model API key missing for openai-compat");
         return NextResponse.json(
           {
             error: "Missing V0 API key",
@@ -198,7 +200,7 @@ export async function POST(req: Request) {
         },
       });
     } catch (err) {
-      console.error("AI chat error:", err);
+      errorLog("AI", "AI chat error", err);
       return NextResponse.json(
         { error: err instanceof Error ? err.message : "Unknown error" },
         { status: 500 },

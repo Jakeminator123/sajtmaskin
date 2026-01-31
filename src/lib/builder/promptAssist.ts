@@ -45,9 +45,6 @@ export function buildV0RewriteSystemPrompt(): string {
   return (
     "You are a prompt engineer for v0 (a website/app builder). " +
     "Rewrite the user request into a single, concrete, high-quality build prompt for v0. " +
-    "Always assume Next.js App Router + Tailwind CSS + shadcn/ui, and ensure a responsive, " +
-    "accessible, polished React UI with high visual quality. " +
-    "If images are requested or allowed, insist on high-quality visuals and proper alt text. " +
     "Keep it concise, include key requirements and UI details, and avoid extra commentary. " +
     "Output ONLY the rewritten prompt."
   );
@@ -115,7 +112,7 @@ export function buildV0PromptFromBrief(params: {
   const seoKeywords = asStringList(seo?.keywords);
 
   return [
-    "Build a beautiful, modern, production-ready website using Next.js (App Router) + Tailwind CSS + shadcn/ui.",
+    "Build a beautiful, modern, production-ready website using Next.js (App Router) + Tailwind CSS.",
     "Use shadcn/ui components where appropriate (buttons, inputs, cards, dialogs).",
     "",
     `Project: ${projectTitle}${brandName ? ` (${brandName})` : ""}`,
@@ -135,7 +132,7 @@ export function buildV0PromptFromBrief(params: {
       : null,
     "",
     imageGenerations
-      ? "Imagery: include high-quality images where they add value. Use next/image when appropriate and include descriptive alt text."
+      ? "Imagery: include tasteful images where they add value. Use next/image when appropriate and include descriptive alt text."
       : "Imagery: do not rely on generated images; prioritize layout, typography, and iconography. Images are optional.",
     imageryStyle.length ? `- Image style keywords: ${imageryStyle.join(", ")}` : null,
     imagerySubjects.length ? `- Suggested image subjects: ${imagerySubjects.join(", ")}` : null,

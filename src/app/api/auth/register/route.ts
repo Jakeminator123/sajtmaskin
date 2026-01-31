@@ -5,7 +5,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { registerUser, setAuthCookie } from "@/lib/auth/auth";
-import { createTransaction } from "@/lib/data/database";
+import { createTransaction } from "@/lib/db/services";
 
 export async function POST(req: NextRequest) {
   try {
@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Record signup bonus transaction
-    createTransaction(
+    await createTransaction(
       result.user.id,
       "signup_bonus",
       0, // Already have 5 diamonds from creation

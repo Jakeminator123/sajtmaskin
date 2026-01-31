@@ -120,6 +120,7 @@ export function ChatInterface({
   const [isSending, setIsSending] = useState(false);
   const [isEnhancing, setIsEnhancing] = useState(false);
   const [manualEnhanceUsed, setManualEnhanceUsed] = useState(false);
+  const [enhancedPrompt, setEnhancedPrompt] = useState<string | null>(null);
   const [files, setFiles] = useState<UploadedFile[]>([]);
   const [isMediaDrawerOpen, setIsMediaDrawerOpen] = useState(false);
   const [figmaUrl, setFigmaUrl] = useState("");
@@ -139,12 +140,18 @@ export function ChatInterface({
 
   const handleInputChange = (value: string) => {
     setInput(value);
+    if (enhancedPrompt) {
+      setEnhancedPrompt(null);
+      setManualEnhanceUsed(false);
+      return;
+    }
     if (!value.trim()) {
       setManualEnhanceUsed(false);
     }
   };
 
   const prefilledPromptRef = useRef<string | null>(null);
+  const lastChatIdRef = useRef<string | null>(chatId);
   useEffect(() => {
     if (chatId) return;
     if (!initialPrompt) return;
@@ -154,6 +161,19 @@ export function ChatInterface({
     setManualEnhanceUsed(false);
     prefilledPromptRef.current = initialPrompt;
   }, [chatId, initialPrompt, input]);
+
+  useEffect(() => {
+    const prevChatId = lastChatIdRef.current;
+    if (!prevChatId && chatId) {
+      setInput("");
+      setFiles([]);
+      setManualEnhanceUsed(false);
+      setEnhancedPrompt(null);
+      setFigmaUrl("");
+      setIsFigmaInputOpen(false);
+    }
+    lastChatIdRef.current = chatId;
+  }, [chatId]);
 
   const normalizedFigmaUrl = useMemo(() => normalizeDesignUrl(figmaUrl), [figmaUrl]);
 
@@ -224,7 +244,7 @@ export function ChatInterface({
       const enhanced = await onEnhancePrompt(current);
       const trimmedEnhanced = enhanced.trim();
       if (trimmedEnhanced) {
-        setInput(trimmedEnhanced);
+        setEnhancedPrompt(trimmedEnhanced);
         setManualEnhanceUsed(true);
         debugLog("AI", "Prompt manually enhanced", { length: trimmedEnhanced.length });
       }
@@ -303,7 +323,9 @@ export function ChatInterface({
   ) => {
     setIsSending(true);
     try {
-      const payload = await buildMessagePayload(baseMessage);
+      const resolvedMessage =
+        manualEnhanceUsed && enhancedPrompt?.trim() ? enhancedPrompt : baseMessage;
+      const payload = await buildMessagePayload(resolvedMessage);
       if (!payload.finalMessage.trim()) return;
       if (!chatId) {
         if (!onCreateChat) return;
@@ -324,6 +346,7 @@ export function ChatInterface({
         setInput("");
         setFiles([]);
         setManualEnhanceUsed(false);
+        setEnhancedPrompt(null);
         setFigmaUrl("");
         setIsFigmaInputOpen(false);
       }

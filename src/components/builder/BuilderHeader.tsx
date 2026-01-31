@@ -55,6 +55,7 @@ export function BuilderHeader(props: {
   onPromptAssistModelChange: (model: string) => void;
   promptAssistDeep: boolean;
   onPromptAssistDeepChange: (deep: boolean) => void;
+  canUseDeepBrief: boolean;
 
   customInstructions: string;
   onCustomInstructionsChange: (value: string) => void;
@@ -91,6 +92,7 @@ export function BuilderHeader(props: {
     onPromptAssistModelChange,
     promptAssistDeep,
     onPromptAssistDeepChange,
+    canUseDeepBrief,
     customInstructions,
     onCustomInstructionsChange,
     applyInstructionsOnce,
@@ -123,6 +125,7 @@ export function BuilderHeader(props: {
   const hasCustomInstructions = Boolean(customInstructions.trim());
   const isDefaultInstructions = customInstructions.trim() === DEFAULT_CUSTOM_INSTRUCTIONS.trim();
   const isGatewayProvider = promptAssistProvider === "gateway";
+  const isDeepBriefDisabled = isBusy || !isGatewayProvider || !canUseDeepBrief;
 
   useEffect(() => {
     const handleDialogClose = () => setIsInstructionsOpen(false);
@@ -256,10 +259,15 @@ export function BuilderHeader(props: {
                         <DropdownMenuCheckboxItem
                           checked={promptAssistDeep}
                           onCheckedChange={onPromptAssistDeepChange}
-                          disabled={isBusy || !isGatewayProvider}
+                          disabled={isDeepBriefDisabled}
                         >
                           <Sparkles className="mr-2 h-4 w-4" />
                           Deep Brief Mode
+                          {!canUseDeepBrief && (
+                            <span className="text-muted-foreground ml-2 text-xs">
+                              (endast ny chat)
+                            </span>
+                          )}
                           <HelpCircle className="text-muted-foreground ml-1 h-3 w-3" />
                         </DropdownMenuCheckboxItem>
                       </div>
@@ -268,7 +276,8 @@ export function BuilderHeader(props: {
                       <p className="text-xs">
                         AI skapar först en detaljerad brief (specifikation) som sedan används för
                         att bygga en bättre prompt. Tar längre tid men ger mer genomtänkta resultat.
-                        (Endast AI Gateway stödjer Deep Brief.)
+                        Används bara vid första prompten i en ny chat. (Endast AI Gateway stödjer
+                        Deep Brief.)
                       </p>
                     </TooltipContent>
                   </Tooltip>

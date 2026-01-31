@@ -132,13 +132,12 @@ export function buildShadcnBlockPrompt(
     dependencyItems?: ShadcnRegistryItem[];
   } = {},
 ): string {
+  const MAX_PROMPT_CHARS = 12000;
   const style = options.style ?? DEFAULT_STYLE;
   const blockName = item.name || "block";
   const displayName = options.displayName || blockName;
   const description = options.description || item.description;
   const componentName = `${toPascalCase(blockName)}Block`;
-  const dependencyItems = options.dependencyItems ?? [];
-
   const lines: string[] = [];
   lines.push(`Add the shadcn/ui block "${displayName}" to the existing site.`);
   if (description) {
@@ -156,11 +155,13 @@ export function buildShadcnBlockPrompt(
   );
   if (item.registryDependencies?.length) {
     lines.push(`Registry dependencies: ${item.registryDependencies.join(", ")}.`);
+    lines.push(
+      "Assume common shadcn/ui primitives already exist; only add minimal missing pieces.",
+    );
   }
 
   lines.push("Registry files (adapt paths/imports as noted):");
-  const allItems = [item, ...dependencyItems];
-  const files = allItems.flatMap((entry) => entry.files ?? []);
+  const files = item.files ?? [];
   const seenTargets = new Set<string>();
   files.forEach((file) => {
     const targetPath = mapRegistryFilePath(file.path);
@@ -183,5 +184,48 @@ export function buildShadcnBlockPrompt(
   );
   lines.push("- Avoid introducing @v0/* imports.");
 
-  return lines.join("\n\n");
+  const fullPrompt = lines.join("\n\n");
+  if (fullPrompt.length <= MAX_PROMPT_CHARS) {
+    return fullPrompt;
+  }
+
+  const slimLines: string[] = [];
+  slimLines.push(`Add the shadcn/ui block "${displayName}" to the existing site.`);
+  if (description) {
+    slimLines.push(`Description: ${description}`);
+  }
+  slimLines.push("Do not replace existing pages or layout.");
+  slimLines.push("Add it as a new section on the homepage (`app/page.tsx`) below existing content.");
+  slimLines.push(`Create the block components under \`src/components/blocks/${blockName}/\`.`);
+  slimLines.push("Use these import mappings:");
+  slimLines.push(`- \`@/registry/${style}/ui/*\` -> \`@/components/ui/*\``);
+  slimLines.push(`- \`@/registry/${style}/lib/utils\` -> \`@/lib/utils\``);
+  slimLines.push(`- \`@/registry/${style}/blocks/*\` -> \`@/components/blocks/*\``);
+  if (item.registryDependencies?.length) {
+    slimLines.push(`Registry dependencies: ${item.registryDependencies.join(", ")}.`);
+    slimLines.push(
+      "Assume common shadcn/ui primitives already exist; only add minimal missing pieces.",
+    );
+  }
+  if (files.length > 0) {
+    const slimTargets = new Set<string>();
+    slimLines.push("Registry files (paths only, content omitted to keep prompt short):");
+    files.forEach((file) => {
+      const targetPath = mapRegistryFilePath(file.path);
+      if (slimTargets.has(targetPath)) return;
+      slimTargets.add(targetPath);
+      slimLines.push(`- ${targetPath}`);
+    });
+  }
+  slimLines.push("Notes:");
+  slimLines.push(
+    `- If a file is a page component, convert it into a reusable section component (e.g. \`${componentName}\`) instead of creating a new route.`,
+  );
+  slimLines.push(
+    "- Keep existing content intact; only append the new section and required components.",
+  );
+  slimLines.push("- Avoid introducing @v0/* imports.");
+  slimLines.push("- If any dependency is missing, add the minimal shadcn/ui version.");
+
+  return slimLines.join("\n\n");
 }
