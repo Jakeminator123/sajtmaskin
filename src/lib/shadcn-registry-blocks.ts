@@ -40,9 +40,6 @@ export const SHADCN_BLOCKS: ShadcnBlockCategory[] = [
         title: "Analytics Dashboard",
         description: "Charts and stats overview",
       },
-      { name: "dashboard-02", title: "E-commerce Dashboard", description: "Sales and orders view" },
-      { name: "dashboard-03", title: "Project Dashboard", description: "Tasks and team overview" },
-      { name: "dashboard-04", title: "Finance Dashboard", description: "Financial metrics view" },
     ],
   },
   {
@@ -65,15 +62,6 @@ export const SHADCN_BLOCKS: ShadcnBlockCategory[] = [
         title: "Sidebar with Footer",
         description: "Sidebar with user profile footer",
       },
-    ],
-  },
-  {
-    category: "Cards",
-    items: [
-      { name: "cards-01", title: "Feature Cards", description: "Grid of feature highlight cards" },
-      { name: "cards-02", title: "Pricing Cards", description: "Pricing tier comparison cards" },
-      { name: "cards-03", title: "Team Cards", description: "Team member profile cards" },
-      { name: "cards-04", title: "Stats Cards", description: "Metric display cards" },
     ],
   },
   {
