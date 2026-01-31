@@ -23,21 +23,6 @@ public/video/
 *.mp4
 *.webm
 
-# =============================================================================
-# MCP DOKUMENTATION - LÄSES VIA MCP-SERVER, INTE INDEXERING
-# =============================================================================
-# Scraped docs (60+ MB) - använd MCP search_docs/get_doc istället
-#services/mpc/docs/docgrab__*/
-#services/mpc/logs/
-
-# =============================================================================
-# CURSOR-SPECIFIKT
-.cursor/documents/
-services/mpc/docs/*llms*
-services/mpc/docs/SDK_6.md
-services/mpc/logs/
-# =============================================================================
-#.cursor/plans/
 
 # =============================================================================
 # TEMP/DEV
@@ -49,8 +34,5 @@ info
 .preprompt_history.json
 .git
 
-data/
-
 shad
-services/mpc/docs/
 sajtgen
