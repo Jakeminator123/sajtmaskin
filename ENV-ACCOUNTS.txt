@@ -1,0 +1,88 @@
+SAJTMASKIN - ACCOUNTS & ENV PLACEMENT (outside project)
+===============================================================================
+
+OVERVIEW
+- You have multiple account contexts (V0 personal/team, Vercel personal/team).
+- Production should use team-scoped credentials.
+- Local development uses .env.local in this repo.
+- Customer data lives in a shared Supabase (multi-tenant) database.
+
+ACCOUNTS & KEYS
+1) V0 PERSONAL
+- Use only for local testing if you want to bill your personal account.
+- Key source: v0 settings page.
+- Recommended: do NOT use for production.
+
+2) V0 TEAM
+- Use for production and team projects.
+- Key source: v0 team settings (same key format as personal).
+- Env var: V0_API_KEY (set in Vercel Project env for production).
+
+3) VERCEL PERSONAL
+- Only needed if you deploy personal projects.
+- Do NOT use for the team project if the site runs under a team.
+
+4) VERCEL TEAM (production)
+- Use a team token for deployments/domains under the team.
+- Key source: Vercel account tokens (team owner recommended).
+- Env vars: VERCEL_TOKEN, VERCEL_TEAM_ID, VERCEL_PROJECT_ID.
+
+SAJTMASKIN PRODUCTION (Vercel Project env)
+- Core URLs:
+  NEXT_PUBLIC_APP_URL
+- Security:
+  JWT_SECRET (long random)
+- AI:
+  V0_API_KEY
+  OPENAI_API_KEY
+  ANTHROPIC_API_KEY (optional)
+  AI_GATEWAY_API_KEY (optional for gateway)
+- Database (shared Supabase):
+  POSTGRES_URL (preferred)
+- Rate limiting:
+  UPSTASH_REDIS_REST_URL
+  UPSTASH_REDIS_REST_TOKEN
+- Storage:
+  BLOB_READ_WRITE_TOKEN
+- Webhooks:
+  INBOUND_WEBHOOK_SHARED_SECRET
+- Stripe:
+  NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY
+  STRIPE_SECRET_KEY
+  STRIPE_WEBHOOK_SECRET
+  STRIPE_PRICE_10_DIAMONDS / STRIPE_PRICE_25_DIAMONDS / STRIPE_PRICE_50_DIAMONDS
+- Vercel API:
+  VERCEL_TOKEN
+  VERCEL_TEAM_ID
+  VERCEL_PROJECT_ID
+  VERCEL_WEBHOOK_SECRET
+- Optional media:
+  UNSPLASH_ACCESS_KEY
+  ELEVENLABS_API_KEY / ELEVENLABS_VOICE_ID
+  NEXT_PUBLIC_GOOGLE_MAPS_API_KEY
+  NEXT_PUBLIC_REGISTRY_BASE_URL / NEXT_PUBLIC_REGISTRY_STYLE
+
+LOCAL DEVELOPMENT (Cursor / .env.local)
+- Same structure as production, but use test/sandbox keys.
+- Allowed only in local:
+  DEBUG, V0_STREAM_DEBUG, SUPERADMIN_*, TEST_USER_*, BACKOFFICE_PASSWORD
+- VERCEL_OIDC_TOKEN may exist locally for AI Gateway auth (auto-refreshed).
+
+CUSTOMER PROJECTS (generated sites)
+- Customer projects are created under your Vercel team.
+- Do NOT store customer secrets in global Vercel env variables.
+- If a customer enables “Supabase integration”, store their data in the shared
+  Supabase database under their tenant_id (user_id).
+- If a customer needs unique env vars for their site, store them in your DB and
+  apply them at deploy-time to that customer's Vercel project via Vercel API.
+- The user interface should show integration status, not raw secret values.
+
+MULTI-TENANT SUPABASE MODEL (recommended)
+- One Supabase project under your control.
+- Each user is a tenant, isolated by user_id in Postgres tables.
+- Access is enforced in server code and should be mirrored by RLS policies.
+- This is the standard SaaS pattern and scales to small/medium deployments.
+
+COST NOTE
+- Shared Supabase: you pay for one project, costs scale with usage.
+- Per-customer databases: higher cost and higher operational complexity.

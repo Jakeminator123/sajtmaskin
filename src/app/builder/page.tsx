@@ -35,6 +35,7 @@ import type { ModelTier } from "@/lib/validations/chatSchemas";
 import type { QualityLevel } from "@/lib/v0/v0-generator";
 import { cn } from "@/lib/utils";
 import { debugLog } from "@/lib/utils/debug";
+import type { ImageAssetStrategy } from "@/lib/imageAssets";
 import { Check, HelpCircle, Loader2 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
