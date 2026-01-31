@@ -1,8 +1,7 @@
 "use client";
 
-import { Blocks, Loader2, Search } from "lucide-react";
-import { Streamdown } from "streamdown";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Blocks, Loader2, Search, X, Sparkles, ExternalLink } from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -12,103 +11,40 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import {
-  SHADCN_BLOCKS,
-  type ShadcnBlockCategory,
-  type ShadcnBlockItem,
-} from "@/lib/shadcn-registry-blocks";
 import type { ShadcnRegistryItem } from "@/lib/shadcn-registry-types";
 import {
-  buildRegistryMarkdownPreview,
-  buildShadcnPreviewImageUrl,
-  buildShadcnPreviewUrl,
-} from "@/lib/shadcn-registry-utils";
-import {
-  buildShadcnRegistryUrl,
-  getRegistryBaseUrl,
-  getRegistryStyle,
-} from "@/lib/v0/v0-url-parser";
+  type ComponentCategory,
+  type ComponentItem,
+  getBlocksByCategory,
+  searchBlocks,
+  fetchRegistryItem,
+  buildRegistryItemUrl,
+  buildPreviewUrl,
+  buildPreviewImageUrl,
+} from "@/lib/shadcn-registry-service";
+import { getRegistryStyle } from "@/lib/v0/v0-url-parser";
 
-const DEFAULT_STYLE = getRegistryStyle();
-
-const CATEGORY_LABEL_OVERRIDES: Record<string, string> = {
-  authentication: "Authentication",
-  login: "Login",
-  signup: "Signup",
-  dashboard: "Dashboard",
-  sidebar: "Sidebar",
-  charts: "Charts",
-  calendar: "Calendar",
-  date: "Date",
-  forms: "Forms",
-  marketing: "Marketing",
-  landing: "Landing",
-  other: "Other",
-};
-
-const CATEGORY_ORDER = [
-  "Authentication",
-  "Login",
-  "Signup",
-  "Dashboard",
-  "Sidebar",
-  "Charts",
-  "Calendar",
-  "Date",
-  "Forms",
-  "Marketing",
-  "Landing",
-  "Other",
-];
-
-function toTitleCase(value: string): string {
-  return value
-    .split(/[-_]+/g)
-    .filter(Boolean)
-    .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
-    .join(" ");
-}
-
-function formatCategoryLabel(rawCategory: string): string {
-  const normalized = rawCategory.trim().toLowerCase();
-  return CATEGORY_LABEL_OVERRIDES[normalized] || toTitleCase(normalized);
-}
-
-function formatBlockTitle(name: string): string {
-  return toTitleCase(name);
-}
+// ============================================
+// TYPES (exported for ChatInterface)
+// ============================================
 
 export type ShadcnBlockAction = "add" | "start";
 
 export type ShadcnBlockSelection = {
-  block: ShadcnBlockItem;
+  block: {
+    name: string;
+    title: string;
+    description: string;
+  };
   registryItem: ShadcnRegistryItem;
   dependencyItems?: ShadcnRegistryItem[];
   registryUrl: string;
   style: string;
 };
 
-type RegistryCacheEntry = {
-  registryUrl: string;
-  item: ShadcnRegistryItem;
-  dependencies: ShadcnRegistryItem[];
-};
-
-type RegistryIndexItem = {
-  name?: string;
-  type?: string;
-  description?: string;
-  categories?: string[];
-};
-
-type RegistryIndexResponse = {
-  items?: RegistryIndexItem[];
-};
-
-type RegistryIndexCache = {
-  names: Set<string>;
-  categories: ShadcnBlockCategory[];
-};
+// ============================================
+// COMPONENT
+// ============================================
 
 interface ShadcnBlockPickerProps {
   open: boolean;
@@ -117,8 +53,9 @@ interface ShadcnBlockPickerProps {
   isBusy?: boolean;
   isSubmitting?: boolean;
   hasChat?: boolean;
-  style?: string;
 }
+
+const DEFAULT_STYLE = getRegistryStyle();
 
 export function ShadcnBlockPicker({
   open,
@@ -127,468 +64,333 @@ export function ShadcnBlockPicker({
   isBusy = false,
   isSubmitting = false,
   hasChat = false,
-  style = DEFAULT_STYLE,
 }: ShadcnBlockPickerProps) {
-  const registryBaseUrl = getRegistryBaseUrl();
+  // State
   const [query, setQuery] = useState("");
-  const [selectedBlock, setSelectedBlock] = useState<ShadcnBlockItem | null>(null);
+  const [categories, setCategories] = useState<ComponentCategory[]>([]);
+  const [selectedItem, setSelectedItem] = useState<ComponentItem | null>(null);
   const [registryItem, setRegistryItem] = useState<ShadcnRegistryItem | null>(null);
-  const [dependencyItems, setDependencyItems] = useState<ShadcnRegistryItem[]>([]);
-  const [registryUrl, setRegistryUrl] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isLoadingCategories, setIsLoadingCategories] = useState(true);
+  const [isLoadingItem, setIsLoadingItem] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [previewMode, setPreviewMode] = useState<"preview" | "files">("preview");
-  const [activeStyle, setActiveStyle] = useState(style);
   const [pendingAction, setPendingAction] = useState<ShadcnBlockAction | null>(null);
-  const [availableBlocks, setAvailableBlocks] = useState<Set<string> | null>(null);
-  const [registryCategories, setRegistryCategories] = useState<ShadcnBlockCategory[] | null>(null);
-  const [registryIndexError, setRegistryIndexError] = useState<string | null>(null);
-  const cacheRef = useRef<Map<string, RegistryCacheEntry>>(new Map());
-  const registryIndexCacheRef = useRef<Map<string, RegistryIndexCache>>(new Map());
-  const resolvedStyle = useMemo(() => activeStyle.trim() || DEFAULT_STYLE, [activeStyle]);
 
-  const baseCategories = useMemo(() => {
-    if (registryCategories && registryCategories.length > 0) {
-      return registryCategories;
-    }
-    const allowed = availableBlocks;
-    return SHADCN_BLOCKS.map((category) => ({
-      ...category,
-      items: category.items.filter((block) => !allowed || allowed.has(block.name)),
-    })).filter((category) => category.items.length > 0);
-  }, [registryCategories, availableBlocks]);
-
+  // Load categories on mount
   useEffect(() => {
     if (!open) return;
-    const hasSelected =
-      selectedBlock &&
-      baseCategories.some((category) =>
-        category.items.some((item) => item.name === selectedBlock.name),
+
+    let isActive = true;
+    setIsLoadingCategories(true);
+    setError(null);
+
+    getBlocksByCategory(DEFAULT_STYLE)
+      .then((data) => {
+        if (!isActive) return;
+        setCategories(data);
+        // Auto-select first item
+        if (data.length > 0 && data[0].items.length > 0) {
+          setSelectedItem(data[0].items[0]);
+        }
+      })
+      .catch((err) => {
+        if (!isActive) return;
+        setError(err instanceof Error ? err.message : "Kunde inte ladda komponenter");
+      })
+      .finally(() => {
+        if (isActive) setIsLoadingCategories(false);
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [open]);
+
+  // Load selected item details
+  useEffect(() => {
+    if (!open || !selectedItem) return;
+
+    let isActive = true;
+    setIsLoadingItem(true);
+    setRegistryItem(null);
+
+    fetchRegistryItem(selectedItem.name, DEFAULT_STYLE)
+      .then((data) => {
+        if (!isActive) return;
+        setRegistryItem(data);
+      })
+      .catch(() => {
+        // Silent fail - we can still use the item without full data
+      })
+      .finally(() => {
+        if (isActive) setIsLoadingItem(false);
+      });
+
+    return () => {
+      isActive = false;
+    };
+  }, [open, selectedItem]);
+
+  // Filter categories by search
+  const filteredCategories = useMemo(() => {
+    return searchBlocks(categories, query);
+  }, [categories, query]);
+
+  // Can user take action?
+  const canAct = Boolean(selectedItem) && !isBusy && !isSubmitting;
+
+  // Handle confirm
+  const handleConfirm = useCallback(
+    async (action: ShadcnBlockAction) => {
+      if (!selectedItem) return;
+
+      setPendingAction(action);
+
+      const registryUrl = buildRegistryItemUrl(selectedItem.name, DEFAULT_STYLE);
+
+      await onConfirm(
+        {
+          block: {
+            name: selectedItem.name,
+            title: selectedItem.title,
+            description: selectedItem.description,
+          },
+          registryItem: registryItem || {
+            name: selectedItem.name,
+            description: selectedItem.description,
+          },
+          registryUrl,
+          style: DEFAULT_STYLE,
+        },
+        action,
       );
-    if (hasSelected) return;
-    const first = baseCategories[0]?.items[0] ?? null;
-    setSelectedBlock(first);
-  }, [open, selectedBlock, baseCategories]);
 
-  useEffect(() => {
-    if (!open) return;
-    setActiveStyle(style);
-  }, [open, style]);
+      setPendingAction(null);
+    },
+    [selectedItem, registryItem, onConfirm],
+  );
 
+  // Reset pending action when not submitting
   useEffect(() => {
     if (!isSubmitting) {
       setPendingAction(null);
     }
   }, [isSubmitting]);
 
-  useEffect(() => {
-    if (!open) return;
-    const handleDialogClose = () => onClose();
-    window.addEventListener("dialog-close", handleDialogClose);
-    return () => window.removeEventListener("dialog-close", handleDialogClose);
-  }, [open, onClose]);
-
-  useEffect(() => {
-    if (!open) return;
-    let isActive = true;
-    const controller = new AbortController();
-    const cacheKey = `${registryBaseUrl}::${resolvedStyle}`;
-    const cached = registryIndexCacheRef.current.get(cacheKey);
-    if (cached) {
-      setAvailableBlocks(cached.names);
-      setRegistryCategories(cached.categories);
-      setRegistryIndexError(null);
-      return () => controller.abort();
-    }
-
-    const loadRegistryIndex = async () => {
-      try {
-        const url = `${registryBaseUrl}/r/styles/${resolvedStyle}/registry.json`;
-        const response = await fetch(url, { signal: controller.signal });
-        if (!response.ok) {
-          throw new Error(`Registry index fetch failed (HTTP ${response.status})`);
-        }
-        let data: RegistryIndexResponse | null = null;
-        try {
-          data = (await response.json()) as RegistryIndexResponse;
-        } catch {
-          throw new Error("Registry index JSON was invalid");
-        }
-        if (!data || typeof data !== "object") {
-          throw new Error("Registry index response was empty");
-        }
-        const items = Array.isArray(data?.items) ? data?.items : [];
-        const blocks = items.filter(
-          (item) => item?.type === "registry:block" && typeof item?.name === "string",
-        );
-        const names = new Set(blocks.map((item) => item.name as string));
-        const categoriesMap = new Map<string, ShadcnBlockItem[]>();
-        blocks.forEach((item) => {
-          const rawCategory = item.categories?.[0] || "other";
-          const categoryLabel = formatCategoryLabel(rawCategory);
-          const list = categoriesMap.get(categoryLabel) ?? [];
-          list.push({
-            name: item.name as string,
-            title: formatBlockTitle(item.name as string),
-            description: item.description || "",
-          });
-          categoriesMap.set(categoryLabel, list);
-        });
-        const orderMap = new Map(CATEGORY_ORDER.map((label, index) => [label, index]));
-        const categories = Array.from(categoriesMap.entries())
-          .map(([category, items]) => ({
-            category,
-            items: items.sort((a, b) => a.title.localeCompare(b.title)),
-          }))
-          .sort((a, b) => {
-            const aOrder = orderMap.get(a.category);
-            const bOrder = orderMap.get(b.category);
-            if (aOrder !== undefined && bOrder !== undefined) return aOrder - bOrder;
-            if (aOrder !== undefined) return -1;
-            if (bOrder !== undefined) return 1;
-            return a.category.localeCompare(b.category);
-          });
-        if (!isActive) return;
-        registryIndexCacheRef.current.set(cacheKey, { names, categories });
-        setAvailableBlocks(names);
-        setRegistryCategories(categories);
-        setRegistryIndexError(null);
-      } catch (err) {
-        if (!isActive) return;
-        if (err instanceof Error && err.name === "AbortError") return;
-        setAvailableBlocks(null);
-        setRegistryCategories(null);
-        setRegistryIndexError(err instanceof Error ? err.message : "Failed to load registry index");
-      }
-    };
-
-    loadRegistryIndex();
-
-    return () => {
-      isActive = false;
-      controller.abort();
-    };
-  }, [open, registryBaseUrl, resolvedStyle]);
-
-  useEffect(() => {
-    if (!open || !selectedBlock) return;
-    let isActive = true;
-    const controller = new AbortController();
-
-    const cacheKey = `${resolvedStyle}:${selectedBlock.name}`;
-    const cached = cacheRef.current.get(cacheKey);
-    if (cached) {
-      setRegistryItem(cached.item);
-      setDependencyItems(cached.dependencies);
-      setRegistryUrl(cached.registryUrl);
-      setError(null);
-      return () => controller.abort();
-    }
-
-    setRegistryItem(null);
-    setDependencyItems([]);
-    setRegistryUrl(null);
-    setError(null);
-    setIsLoading(true);
-
-    const loadRegistry = async () => {
-      try {
-        const url = buildShadcnRegistryUrl(selectedBlock.name, resolvedStyle);
-        const response = await fetch(url, { signal: controller.signal });
-        const data = (await response.json().catch(() => null)) as ShadcnRegistryItem | null;
-        if (!response.ok) {
-          throw new Error(`Registry fetch failed (HTTP ${response.status})`);
-        }
-        if (!data || typeof data !== "object") {
-          throw new Error("Registry response was empty");
-        }
-        const dependencyNames = Array.from(new Set(data.registryDependencies ?? []));
-        const dependencies = await Promise.all(
-          dependencyNames.map(async (dependency) => {
-            const dependencyUrl = buildShadcnRegistryUrl(dependency, resolvedStyle);
-            const dependencyResponse = await fetch(dependencyUrl, { signal: controller.signal });
-            const dependencyData = (await dependencyResponse
-              .json()
-              .catch(() => null)) as ShadcnRegistryItem | null;
-            if (!dependencyResponse.ok) {
-              throw new Error(
-                `Registry dependency "${dependency}" failed (HTTP ${dependencyResponse.status})`,
-              );
-            }
-            if (!dependencyData || typeof dependencyData !== "object") {
-              throw new Error(`Registry dependency "${dependency}" response was empty`);
-            }
-            return dependencyData;
-          }),
-        );
-        if (!isActive) return;
-        cacheRef.current.set(cacheKey, { registryUrl: url, item: data, dependencies });
-        setRegistryItem(data);
-        setDependencyItems(dependencies);
-        setRegistryUrl(url);
-      } catch (err) {
-        if (!isActive) return;
-        if (err instanceof Error && err.name === "AbortError") return;
-        setError(err instanceof Error ? err.message : "Failed to load registry item");
-      } finally {
-        if (isActive) setIsLoading(false);
-      }
-    };
-
-    loadRegistry();
-
-    return () => {
-      isActive = false;
-      controller.abort();
-    };
-  }, [open, selectedBlock, resolvedStyle]);
-
-  const filteredCategories = useMemo(() => {
-    const trimmed = query.trim().toLowerCase();
-    if (!trimmed) return baseCategories;
-
-    return baseCategories
-      .map((category) => ({
-        ...category,
-        items: category.items.filter((block) => {
-          const haystack = `${block.title} ${block.name} ${block.description}`.toLowerCase();
-          return haystack.includes(trimmed);
-        }),
-      }))
-      .filter((category) => category.items.length > 0);
-  }, [query, baseCategories]);
-
-  const previewMarkdown = useMemo(() => {
-    if (!registryItem) return "";
-    return buildRegistryMarkdownPreview(registryItem, { style: resolvedStyle, maxLines: 90 });
-  }, [registryItem, resolvedStyle]);
-
-  const previewLinks = useMemo(() => {
-    if (!selectedBlock) return null;
-    return {
-      viewUrl: buildShadcnPreviewUrl(selectedBlock.name, resolvedStyle),
-      lightUrl: buildShadcnPreviewImageUrl(selectedBlock.name, "light", resolvedStyle),
-      darkUrl: buildShadcnPreviewImageUrl(selectedBlock.name, "dark", resolvedStyle),
-    };
-  }, [selectedBlock, resolvedStyle]);
-
-  const canAct =
-    Boolean(selectedBlock && registryItem && registryUrl) &&
-    !isBusy &&
-    !isLoading &&
-    !isSubmitting &&
-    !error;
-
-  const handleConfirm = useCallback(
-    async (action: ShadcnBlockAction) => {
-      if (!selectedBlock || !registryItem || !registryUrl) return;
-      setPendingAction(action);
-      await onConfirm(
-        {
-          block: selectedBlock,
-          registryItem,
-          dependencyItems,
-          registryUrl,
-          style: resolvedStyle,
-        },
-        action,
-      );
-    },
-    [selectedBlock, registryItem, registryUrl, dependencyItems, resolvedStyle, onConfirm],
-  );
-
   return (
-    <Dialog open={open}>
-      <DialogContent className="flex max-h-[85vh] w-[min(92vw,960px)] max-w-4xl flex-col overflow-hidden">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
-            <Blocks className="h-4 w-4 text-gray-200" />
-            shadcn/ui
-          </DialogTitle>
-          <DialogDescription>
-            {hasChat
-              ? "Välj ett shadcn/ui-block och lägg till det i din nuvarande sida."
-              : "Skapa en sida först (fri text eller template) för att kunna lägga till block."}
-          </DialogDescription>
+    <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
+      <DialogContent className="flex max-h-[90vh] w-[min(95vw,1100px)] max-w-5xl flex-col overflow-hidden p-0">
+        {/* Header */}
+        <DialogHeader className="border-b border-gray-800 px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-linear-to-br from-violet-500/20 to-purple-500/20">
+                <Blocks className="h-5 w-5 text-violet-400" />
+              </div>
+              <div>
+                <DialogTitle className="text-lg font-semibold">
+                  Välj en komponent
+                </DialogTitle>
+                <DialogDescription className="text-sm text-gray-400">
+                  Lägg till professionella komponenter till din hemsida
+                </DialogDescription>
+              </div>
+            </div>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onClose}
+              className="h-8 w-8 text-gray-400 hover:text-white"
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          </div>
         </DialogHeader>
 
-        <div className="flex min-h-0 flex-1 flex-col gap-4 px-6 pb-6 md:flex-row">
-          <div className="flex w-full flex-col gap-3 md:w-72">
-            <div className="relative">
-              <Search className="absolute top-2.5 left-3 h-4 w-4 text-gray-500" />
-              <Input
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="Sök block"
-                className="pl-9"
-              />
+        {/* Content */}
+        <div className="flex min-h-0 flex-1 flex-col md:flex-row">
+          {/* Sidebar - Categories */}
+          <div className="flex w-full flex-col border-b border-gray-800 md:w-80 md:border-r md:border-b-0">
+            {/* Search */}
+            <div className="p-4">
+              <div className="relative">
+                <Search className="absolute top-2.5 left-3 h-4 w-4 text-gray-500" />
+                <Input
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Sök komponenter..."
+                  className="bg-gray-900/50 pl-9"
+                />
+              </div>
             </div>
-            <div className="space-y-1">
-              <div className="text-xs font-semibold text-gray-400 uppercase">Style</div>
-              <Input
-                value={activeStyle}
-                onChange={(event) => setActiveStyle(event.target.value)}
-                placeholder="new-york-v4"
-              />
-              <div className="text-[11px] text-gray-500">Registry: {registryBaseUrl}</div>
-              {registryIndexError && (
-                <div className="text-xs text-red-400">{registryIndexError}</div>
-              )}
-            </div>
-            <div className="flex-1 overflow-y-auto rounded-md border border-gray-800 p-2">
-              {filteredCategories.map((category) => (
-                <div key={category.category} className="mb-3 last:mb-0">
-                  <div className="px-2 pb-1 text-xs font-semibold text-gray-400 uppercase">
-                    {category.category}
-                  </div>
-                  <div className="space-y-1">
-                    {category.items.map((block) => {
-                      const isSelected = selectedBlock?.name === block.name;
-                      return (
-                        <button
-                          key={block.name}
-                          type="button"
-                          onClick={() => {
-                            setSelectedBlock(block);
-                          }}
-                          className={`w-full rounded-md border px-3 py-2 text-left text-sm transition ${
-                            isSelected
-                              ? "border-brand-blue bg-brand-blue/10 text-white"
-                              : "border-transparent text-gray-300 hover:border-gray-700 hover:bg-gray-800/60"
-                          }`}
-                        >
-                          <div className="font-medium">{block.title}</div>
-                          <div className="text-xs text-gray-500">{block.description}</div>
-                        </button>
-                      );
-                    })}
-                  </div>
+
+            {/* Category list */}
+            <div className="flex-1 overflow-y-auto px-4 pb-4">
+              {isLoadingCategories ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="h-6 w-6 animate-spin text-gray-500" />
                 </div>
-              ))}
-              {filteredCategories.length === 0 && (
-                <div className="px-3 py-6 text-center text-sm text-gray-500">
-                  Inga block matchar din sökning.
+              ) : error ? (
+                <div className="rounded-lg bg-red-500/10 p-4 text-center text-sm text-red-400">
+                  {error}
+                </div>
+              ) : filteredCategories.length === 0 ? (
+                <div className="py-12 text-center text-sm text-gray-500">
+                  Inga komponenter matchar din sökning
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {filteredCategories.map((category) => (
+                    <div key={category.id}>
+                      <div className="mb-2 flex items-center gap-2 px-1">
+                        <span className="text-base">{category.icon}</span>
+                        <span className="text-xs font-medium text-gray-400 uppercase tracking-wide">
+                          {category.labelSv}
+                        </span>
+                        <span className="text-[10px] text-gray-600">
+                          ({category.items.length})
+                        </span>
+                      </div>
+                      <div className="space-y-1">
+                        {category.items.map((item) => {
+                          const isSelected = selectedItem?.name === item.name;
+                          return (
+                            <button
+                              key={item.name}
+                              type="button"
+                              onClick={() => setSelectedItem(item)}
+                              className={`w-full rounded-lg px-3 py-2.5 text-left transition-all ${
+                                isSelected
+                                  ? "bg-violet-500/15 ring-1 ring-violet-500/50"
+                                  : "hover:bg-gray-800/60"
+                              }`}
+                            >
+                              <div
+                                className={`text-sm font-medium ${
+                                  isSelected ? "text-violet-300" : "text-gray-200"
+                                }`}
+                              >
+                                {item.title}
+                              </div>
+                              {item.description && (
+                                <div className="mt-0.5 text-xs text-gray-500 line-clamp-1">
+                                  {item.description}
+                                </div>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ))}
                 </div>
               )}
             </div>
           </div>
 
-          <div className="flex min-h-0 flex-1 flex-col gap-3">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <div className="flex items-center gap-2">
-                <div className="text-sm font-medium text-gray-200">Förhandsvisning</div>
-                <div className="flex items-center rounded-md border border-gray-800 p-0.5">
-                  <Button
-                    type="button"
-                    variant={previewMode === "preview" ? "secondary" : "ghost"}
-                    size="sm"
-                    className="h-7 px-2 text-xs"
-                    onClick={() => setPreviewMode("preview")}
+          {/* Main - Preview */}
+          <div className="flex min-h-0 flex-1 flex-col">
+            {selectedItem ? (
+              <>
+                {/* Preview header */}
+                <div className="flex items-center justify-between border-b border-gray-800 px-6 py-3">
+                  <div>
+                    <h3 className="font-semibold text-white">{selectedItem.title}</h3>
+                    {selectedItem.description && (
+                      <p className="text-sm text-gray-400">{selectedItem.description}</p>
+                    )}
+                  </div>
+                  <a
+                    href={buildPreviewUrl(selectedItem.name, DEFAULT_STYLE)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center gap-1 text-xs text-violet-400 hover:text-violet-300"
                   >
-                    Förhandsvisning
-                  </Button>
-                  <Button
-                    type="button"
-                    variant={previewMode === "files" ? "secondary" : "ghost"}
-                    size="sm"
-                    className="h-7 px-2 text-xs"
-                    onClick={() => setPreviewMode("files")}
-                  >
-                    Filer
-                  </Button>
+                    <ExternalLink className="h-3 w-3" />
+                    Öppna
+                  </a>
                 </div>
-              </div>
-              {previewMode === "files" && registryUrl && (
-                <a
-                  href={registryUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-brand-blue text-xs hover:underline"
-                >
-                  Öppna registry JSON
-                </a>
-              )}
-              {previewMode === "preview" && previewLinks?.viewUrl && (
-                <a
-                  href={previewLinks.viewUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-brand-blue text-xs hover:underline"
-                >
-                  Öppna förhandsvisning
-                </a>
-              )}
-            </div>
-            <div className="min-h-[200px] flex-1 overflow-y-auto rounded-md border border-gray-800 bg-gray-950/40 p-4">
-              {previewMode === "files" && isLoading && (
-                <div className="flex h-full items-center justify-center text-sm text-gray-400">
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Laddar block...
-                </div>
-              )}
-              {!isLoading && error && previewMode === "files" && (
-                <div className="text-sm text-red-400">{error}</div>
-              )}
-              {previewMode === "files" && !isLoading && !error && registryItem && (
-                <div className="prose prose-invert max-w-none text-sm">
-                  <Streamdown>{previewMarkdown}</Streamdown>
-                </div>
-              )}
-              {previewMode === "files" && !isLoading && !error && !registryItem && (
-                <div className="text-sm text-gray-500">Välj ett block för att förhandsvisa.</div>
-              )}
-              {previewMode === "preview" && !selectedBlock && (
-                <div className="text-sm text-gray-500">Välj ett block för att förhandsvisa.</div>
-              )}
-              {previewMode === "preview" && selectedBlock && previewLinks && (
-                <div className="space-y-3">
-                  {error && <div className="text-sm text-red-400">{error}</div>}
-                  <div className="grid gap-3 md:grid-cols-2">
-                    <div className="space-y-2">
-                      <div className="text-xs text-gray-500 uppercase">Light</div>
+
+                {/* Preview images */}
+                <div className="flex-1 overflow-y-auto p-6">
+                  <div className="grid gap-4 md:grid-cols-2">
+                    {/* Light mode preview */}
+                    <div className="overflow-hidden rounded-xl border border-gray-800 bg-white">
+                      <div className="border-b border-gray-200 bg-gray-50 px-3 py-1.5">
+                        <span className="text-[10px] font-medium text-gray-500 uppercase">
+                          Ljust tema
+                        </span>
+                      </div>
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
-                        src={previewLinks.lightUrl}
-                        alt={`${selectedBlock.title} preview (light)`}
-                        className="w-full rounded-md border border-gray-800 object-cover"
+                        src={buildPreviewImageUrl(selectedItem.name, "light", DEFAULT_STYLE)}
+                        alt={`${selectedItem.title} - ljust tema`}
+                        className="w-full"
                         loading="lazy"
                       />
                     </div>
-                    <div className="space-y-2">
-                      <div className="text-xs text-gray-500 uppercase">Dark</div>
+
+                    {/* Dark mode preview */}
+                    <div className="overflow-hidden rounded-xl border border-gray-800 bg-gray-950">
+                      <div className="border-b border-gray-800 bg-gray-900 px-3 py-1.5">
+                        <span className="text-[10px] font-medium text-gray-500 uppercase">
+                          Mörkt tema
+                        </span>
+                      </div>
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
-                        src={previewLinks.darkUrl}
-                        alt={`${selectedBlock.title} preview (dark)`}
-                        className="w-full rounded-md border border-gray-800 object-cover"
+                        src={buildPreviewImageUrl(selectedItem.name, "dark", DEFAULT_STYLE)}
+                        alt={`${selectedItem.title} - mörkt tema`}
+                        className="w-full"
                         loading="lazy"
                       />
                     </div>
                   </div>
-                  <div className="text-xs text-gray-500">Förhandsvisning från registry</div>
+
+                  {/* Tip */}
+                  <div className="mt-6 flex items-start gap-3 rounded-lg bg-violet-500/10 p-4">
+                    <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-violet-400" />
+                    <div className="text-sm text-gray-300">
+                      <strong className="text-violet-300">Tips:</strong> Du kan anpassa färger,
+                      text och bilder efter att du lagt till komponenten. Beskriv bara vad du
+                      vill ändra i chatten!
+                    </div>
+                  </div>
                 </div>
-              )}
-            </div>
+              </>
+            ) : (
+              <div className="flex flex-1 items-center justify-center text-gray-500">
+                Välj en komponent i listan
+              </div>
+            )}
           </div>
         </div>
 
-        <div className="flex items-center justify-end gap-2 border-t border-gray-800 px-6 py-4">
-          {!hasChat && (
-            <div className="text-xs text-gray-400">
-              Skapa en sida först för att kunna lägga till block.
-            </div>
-          )}
-          <Button variant="outline" onClick={onClose} disabled={isSubmitting}>
-            Stäng
-          </Button>
-          {hasChat && (
-            <Button variant="secondary" onClick={() => handleConfirm("add")} disabled={!canAct}>
-              {isSubmitting && pendingAction === "add" ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : null}
-              Lägg till i chatten
+        {/* Footer */}
+        <div className="flex items-center justify-between border-t border-gray-800 px-6 py-4">
+          <div className="text-xs text-gray-500">
+            {hasChat
+              ? "Komponenten läggs till på din nuvarande sida"
+              : "Skapa en sida först för att lägga till komponenter"}
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={onClose} disabled={isSubmitting}>
+              Avbryt
             </Button>
-          )}
+            {hasChat && (
+              <Button
+                onClick={() => handleConfirm("add")}
+                disabled={!canAct}
+                className="bg-violet-600 hover:bg-violet-500"
+              >
+                {isSubmitting && pendingAction === "add" ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Sparkles className="mr-2 h-4 w-4" />
+                )}
+                Lägg till
+              </Button>
+            )}
+          </div>
         </div>
       </DialogContent>
     </Dialog>

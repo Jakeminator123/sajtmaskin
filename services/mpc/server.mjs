@@ -8,12 +8,14 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const DOCS_DIR = path.join(__dirname, "docs");
+const LLM_DOCS_DIR = path.join(__dirname, "..", "..", "LLM");
 const LOGS_DIR = path.join(__dirname, "logs");
 const ACCESS_LOG = path.join(LOGS_DIR, "access-log.jsonl");
 
 // Logg-rotation: max antal rader innan äldre tas bort
 const MAX_LOG_LINES = 500;
 const SUPPORTED_EXTS = new Set([".txt", ".md", ".json"]);
+const MAX_DEDUPE_BYTES = 512 * 1024; // Only compare small files to avoid heavy IO
 
 const server = new McpServer(
   { name: "sajtmaskin-mpc", version: "0.3.0" },
@@ -65,11 +67,22 @@ async function appendAccessLog(entry) {
 // ============================================
 
 /**
- * Recursively find all doc files in DOCS_DIR.
+ * Recursively find all doc files in configured doc sources.
  * Returns array of { resourceName, relativePath, fullPath, mimeType, ext }
  */
 async function indexAllDocs() {
   const results = [];
+  const normalizedIndex = new Map();
+  const docSources = [
+    { dir: DOCS_DIR, prefix: "", priority: 0 },
+    { dir: LLM_DOCS_DIR, prefix: "llm", priority: 1 },
+  ];
+
+  async function areFilesIdentical(fileA, fileB, size) {
+    if (size > MAX_DEDUPE_BYTES) return false;
+    const [bufA, bufB] = await Promise.all([fs.readFile(fileA), fs.readFile(fileB)]);
+    return bufA.equals(bufB);
+  }
 
   async function walk(dir, relPrefix = "") {
     let entries;
@@ -88,8 +101,26 @@ async function indexAllDocs() {
       } else if (entry.isFile()) {
         const ext = path.extname(entry.name).toLowerCase();
         if (SUPPORTED_EXTS.has(ext)) {
+          const stat = await fs.stat(fullPath);
           const relativePath = relPath.replace(/\\/g, "/");
           const resourceName = relativePath.slice(0, relativePath.length - ext.length);
+          const normalizedPath = relativePath.replace(/^llm\//, "");
+          const normalizedName = normalizedPath.slice(0, normalizedPath.length - ext.length);
+          const size = stat.size;
+          const existingBySize = normalizedIndex.get(normalizedName);
+          if (existingBySize && existingBySize.has(size) && size <= MAX_DEDUPE_BYTES) {
+            const candidates = existingBySize.get(size) || [];
+            let isDuplicate = false;
+            for (const candidate of candidates) {
+              if (await areFilesIdentical(candidate.fullPath, fullPath, size)) {
+                isDuplicate = true;
+                break;
+              }
+            }
+            if (isDuplicate) {
+              continue;
+            }
+          }
           const mimeType =
             ext === ".json" ? "application/json" : ext === ".md" ? "text/markdown" : "text/plain";
 
@@ -100,12 +131,20 @@ async function indexAllDocs() {
             mimeType,
             ext,
           });
+          const nextBySize = existingBySize || new Map();
+          const list = nextBySize.get(size) || [];
+          list.push({ fullPath });
+          nextBySize.set(size, list);
+          normalizedIndex.set(normalizedName, nextBySize);
         }
       }
     }
   }
 
-  await walk(DOCS_DIR);
+  for (const source of docSources) {
+    const prefix = source.prefix ? source.prefix : "";
+    await walk(source.dir, prefix);
+  }
   return results.sort((a, b) => a.resourceName.localeCompare(b.resourceName));
 }
 
@@ -137,7 +176,7 @@ async function registerDocResources() {
     template,
     {
       title: "Local MPC docs",
-      description: "Docs stored in services/mpc/docs",
+      description: "Docs stored in services/mpc/docs and LLM/",
       mimeType: "text/plain",
     },
     async (_uri, variables) => {
