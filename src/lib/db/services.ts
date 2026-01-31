@@ -204,7 +204,7 @@ export async function createTransaction(
 
 export async function getUserTransactions(userId: string, limit = 10): Promise<Transaction[]> {
   assertDbConfigured();
-  return db
+  return await db
     .select()
     .from(transactions)
     .where(eq(transactions.user_id, userId))
@@ -285,7 +285,7 @@ export async function createProject(
 
 export async function getAllProjects(): Promise<Project[]> {
   assertDbConfigured();
-  return db.select().from(appProjects).orderBy(desc(appProjects.updated_at));
+  return await db.select().from(appProjects).orderBy(desc(appProjects.updated_at));
 }
 
 export async function getProjectById(id: string): Promise<Project | null> {
@@ -485,13 +485,13 @@ export async function getMediaLibraryByUser(
 ): Promise<MediaLibraryItem[]> {
   assertDbConfigured();
   if (fileType) {
-    return db
+    return await db
       .select()
       .from(mediaLibrary)
       .where(and(eq(mediaLibrary.user_id, userId), eq(mediaLibrary.file_type, fileType)))
       .orderBy(desc(mediaLibrary.created_at));
   }
-  return db
+  return await db
     .select()
     .from(mediaLibrary)
     .where(eq(mediaLibrary.user_id, userId))

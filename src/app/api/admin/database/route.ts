@@ -4,7 +4,7 @@
  * POST /api/admin/database - Clear/reset database tables, manage uploads
  */
 
-import { and, desc, eq, gt, isNotNull, isNull, lt, ne, sql } from "drizzle-orm";
+import { and, desc, isNotNull, isNull, lt, ne, sql } from "drizzle-orm";
 import fs from "fs";
 import path from "path";
 import { NextRequest, NextResponse } from "next/server";
@@ -456,11 +456,10 @@ export async function POST(req: NextRequest) {
 
       results.database.deleted = deletedRows.reduce((sum, rows) => sum + rows.length, 0);
 
-      if (TEST_USER_EMAIL) {
-        await db.delete(users).where(ne(users.email, TEST_USER_EMAIL));
-      } else {
-        await db.delete(users).where(sql`true`).returning({ id: users.id });
-      }
+      const deletedUsers = TEST_USER_EMAIL
+        ? await db.delete(users).where(ne(users.email, TEST_USER_EMAIL)).returning({ id: users.id })
+        : await db.delete(users).where(sql`true`).returning({ id: users.id });
+      results.database.deleted += deletedUsers.length;
 
       results.redis.success = await flushRedisCache();
       clearUploadsFolder();
