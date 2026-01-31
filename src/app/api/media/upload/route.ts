@@ -5,8 +5,9 @@ import {
   canUserUploadFile,
   getMediaLibraryCounts,
   getMediaLibraryByUser,
-} from "@/lib/data/database";
+} from "@/lib/db/services";
 import { uploadBlob, generateUniqueFilename } from "@/lib/vercel/blob-service";
+import { errorLog, warnLog } from "@/lib/utils/debug";
 
 /**
  * Media Library Upload API
@@ -75,6 +76,7 @@ export async function POST(request: NextRequest) {
     // Require authentication
     const user = await getCurrentUser(request);
     if (!user) {
+      warnLog("Media", "Upload blocked: unauthenticated");
       return NextResponse.json(
         {
           success: false,
@@ -96,6 +98,7 @@ export async function POST(request: NextRequest) {
 
     // Validate file type
     if (!ALLOWED_MIME_TYPES.includes(file.type)) {
+      warnLog("Media", "Upload blocked: unsupported file type", { type: file.type });
       return NextResponse.json(
         {
           success: false,
@@ -107,6 +110,7 @@ export async function POST(request: NextRequest) {
 
     // Validate file size (Blob-safe for preview reliability)
     if (file.size > MAX_FILE_SIZE) {
+      warnLog("Media", "Upload blocked: file too large", { size: file.size });
       return NextResponse.json(
         {
           success: false,
@@ -119,7 +123,7 @@ export async function POST(request: NextRequest) {
     }
 
     // SERVER-SIDE LIMIT CHECK - Can't be bypassed by client
-    const limitCheck = canUserUploadFile(user.id, file.type, MAX_IMAGES, MAX_VIDEOS);
+    const limitCheck = await canUserUploadFile(user.id, file.type, MAX_IMAGES, MAX_VIDEOS);
     if (!limitCheck.allowed) {
       return NextResponse.json({ success: false, error: limitCheck.reason }, { status: 400 });
     }
@@ -153,6 +157,7 @@ export async function POST(request: NextRequest) {
     });
 
     if (!uploadResult) {
+      errorLog("Media", "Upload failed: no blob result");
       return NextResponse.json(
         { success: false, error: "Kunde inte spara filen" },
         { status: 500 },
@@ -162,7 +167,7 @@ export async function POST(request: NextRequest) {
     console.log(`[Media/Upload] ✅ Saved (${uploadResult.storageType}):`, uploadResult.url);
 
     // Save metadata to database
-    const mediaItem = saveMediaLibraryItem(
+    const mediaItem = await saveMediaLibraryItem(
       user.id,
       filename,
       file.name,
@@ -193,7 +198,7 @@ export async function POST(request: NextRequest) {
     });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Okänt fel";
-    console.error("[API/Media/Upload] Error:", error);
+    errorLog("Media", "Upload error", error);
     return NextResponse.json({ success: false, error: message }, { status: 500 });
   }
 }
@@ -225,10 +230,10 @@ export async function GET(request: NextRequest) {
 
     // SECURITY: Only return the current user's files
     // projectId filter removed - users should only see their own files
-    const items = getMediaLibraryByUser(user.id, fileType || undefined);
+    const items = await getMediaLibraryByUser(user.id, fileType || undefined);
 
     // Also return counts for limit display in UI
-    const counts = getMediaLibraryCounts(user.id);
+    const counts = await getMediaLibraryCounts(user.id);
 
     return NextResponse.json({
       success: true,
