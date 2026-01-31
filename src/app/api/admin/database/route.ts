@@ -295,7 +295,10 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === "clear-template-cache") {
-      const deleted = await db.delete(templateCache).returning({ id: templateCache.id });
+      const deleted = await db
+        .delete(templateCache)
+        .where(sql`true`)
+        .returning({ id: templateCache.id });
       console.log(`[Admin] Cleared ${deleted.length} cached templates`);
       return NextResponse.json({
         success: true,
@@ -438,17 +441,17 @@ export async function POST(req: NextRequest) {
       }
 
       const deletedRows = await Promise.all([
-        db.delete(projectFiles).returning({ id: projectFiles.id }),
-        db.delete(projectData).returning({ id: projectData.project_id }),
-        db.delete(images).returning({ id: images.id }),
-        db.delete(mediaLibrary).returning({ id: mediaLibrary.id }),
-        db.delete(companyProfiles).returning({ id: companyProfiles.id }),
-        db.delete(templateCache).returning({ id: templateCache.id }),
-        db.delete(pageViews).returning({ id: pageViews.id }),
-        db.delete(guestUsage).returning({ id: guestUsage.id }),
-        db.delete(transactions).returning({ id: transactions.id }),
-        db.delete(domainOrders).returning({ id: domainOrders.id }),
-        db.delete(appProjects).returning({ id: appProjects.id }),
+        db.delete(projectFiles).where(sql`true`).returning({ id: projectFiles.id }),
+        db.delete(projectData).where(sql`true`).returning({ id: projectData.project_id }),
+        db.delete(images).where(sql`true`).returning({ id: images.id }),
+        db.delete(mediaLibrary).where(sql`true`).returning({ id: mediaLibrary.id }),
+        db.delete(companyProfiles).where(sql`true`).returning({ id: companyProfiles.id }),
+        db.delete(templateCache).where(sql`true`).returning({ id: templateCache.id }),
+        db.delete(pageViews).where(sql`true`).returning({ id: pageViews.id }),
+        db.delete(guestUsage).where(sql`true`).returning({ id: guestUsage.id }),
+        db.delete(transactions).where(sql`true`).returning({ id: transactions.id }),
+        db.delete(domainOrders).where(sql`true`).returning({ id: domainOrders.id }),
+        db.delete(appProjects).where(sql`true`).returning({ id: appProjects.id }),
       ]);
 
       results.database.deleted = deletedRows.reduce((sum, rows) => sum + rows.length, 0);
@@ -456,7 +459,7 @@ export async function POST(req: NextRequest) {
       if (TEST_USER_EMAIL) {
         await db.delete(users).where(ne(users.email, TEST_USER_EMAIL));
       } else {
-        await db.delete(users).returning({ id: users.id });
+        await db.delete(users).where(sql`true`).returning({ id: users.id });
       }
 
       results.redis.success = await flushRedisCache();
