@@ -70,6 +70,7 @@ export function ShadcnBlockPicker({
   const [categories, setCategories] = useState<ComponentCategory[]>([]);
   const [selectedItem, setSelectedItem] = useState<ComponentItem | null>(null);
   const [registryItem, setRegistryItem] = useState<ShadcnRegistryItem | null>(null);
+  const [dependencyItems, setDependencyItems] = useState<ShadcnRegistryItem[]>([]);
   const [isLoadingCategories, setIsLoadingCategories] = useState(true);
   const [isLoadingItem, setIsLoadingItem] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -112,18 +113,38 @@ export function ShadcnBlockPicker({
     let isActive = true;
     setIsLoadingItem(true);
     setRegistryItem(null);
+    setDependencyItems([]);
 
-    fetchRegistryItem(selectedItem.name, DEFAULT_STYLE)
-      .then((data) => {
+    const loadRegistryDetails = async () => {
+      try {
+        const data = await fetchRegistryItem(selectedItem.name, DEFAULT_STYLE);
         if (!isActive) return;
         setRegistryItem(data);
-      })
-      .catch(() => {
+
+        const dependencyNames = Array.from(new Set(data.registryDependencies ?? []));
+        if (dependencyNames.length > 0) {
+          const dependencies = await Promise.all(
+            dependencyNames.map(async (dependency) => {
+              try {
+                return await fetchRegistryItem(dependency, DEFAULT_STYLE);
+              } catch {
+                return null;
+              }
+            }),
+          );
+          if (!isActive) return;
+          setDependencyItems(
+            dependencies.filter(Boolean) as ShadcnRegistryItem[],
+          );
+        }
+      } catch {
         // Silent fail - we can still use the item without full data
-      })
-      .finally(() => {
+      } finally {
         if (isActive) setIsLoadingItem(false);
-      });
+      }
+    };
+
+    loadRegistryDetails();
 
     return () => {
       isActive = false;
@@ -136,7 +157,7 @@ export function ShadcnBlockPicker({
   }, [categories, query]);
 
   // Can user take action?
-  const canAct = Boolean(selectedItem) && !isBusy && !isSubmitting;
+  const canAct = Boolean(selectedItem) && !isBusy && !isSubmitting && !isLoadingItem;
 
   // Handle confirm
   const handleConfirm = useCallback(
@@ -158,6 +179,7 @@ export function ShadcnBlockPicker({
             name: selectedItem.name,
             description: selectedItem.description,
           },
+          dependencyItems: dependencyItems.length > 0 ? dependencyItems : undefined,
           registryUrl,
           style: DEFAULT_STYLE,
         },
@@ -166,7 +188,7 @@ export function ShadcnBlockPicker({
 
       setPendingAction(null);
     },
-    [selectedItem, registryItem, onConfirm],
+    [selectedItem, registryItem, dependencyItems, onConfirm, isLoadingItem],
   );
 
   // Reset pending action when not submitting
