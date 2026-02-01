@@ -650,7 +650,7 @@ function BuilderContent() {
       if (projectId && data.chatId) {
         saveProjectData(projectId, {
           chatId: data.chatId,
-          demoUrl: data.demoUrl ?? null,
+          demoUrl: data.demoUrl ?? undefined,
         }).catch((error) => {
           console.warn("[Builder] Failed to save project chat mapping:", error);
         });
@@ -755,7 +755,7 @@ function BuilderContent() {
         if (projectId) {
           saveProjectData(projectId, {
             chatId: data.chatId,
-            demoUrl: data.demoUrl ?? null,
+            demoUrl: data.demoUrl ?? undefined,
           }).catch((error) => {
             console.warn("[Builder] Failed to save registry project mapping:", error);
           });
@@ -882,7 +882,7 @@ function BuilderContent() {
         if (projectId && data?.chatId) {
           saveProjectData(projectId, {
             chatId: data.chatId,
-            demoUrl: data.demoUrl ?? null,
+            demoUrl: data.demoUrl ?? undefined,
           }).catch((error) => {
             console.warn("[Builder] Failed to save template project mapping:", error);
           });
