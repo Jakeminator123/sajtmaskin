@@ -596,6 +596,7 @@ export function useV0ChatMessaging(params: {
   setChatId: (id: string | null) => void;
   chatIdParam: string | null;
   router: RouterLike;
+  projectId?: string | null;
   selectedModelTier: ModelTier;
   enableImageGenerations: boolean;
   systemPrompt?: string;
@@ -612,6 +613,7 @@ export function useV0ChatMessaging(params: {
     setChatId,
     chatIdParam,
     router,
+    projectId,
     selectedModelTier,
     enableImageGenerations,
     systemPrompt,
@@ -648,7 +650,12 @@ export function useV0ChatMessaging(params: {
         if (existingLock.chatId) {
           setChatId(existingLock.chatId);
           if (chatIdParam !== existingLock.chatId) {
-            router.replace(`/builder?chatId=${encodeURIComponent(existingLock.chatId)}`);
+            const params = new URLSearchParams();
+            params.set("chatId", existingLock.chatId);
+            if (projectId) {
+              params.set("project", projectId);
+            }
+            router.replace(`/builder?${params.toString()}`);
           }
           toast.success("Återansluter till pågående skapning");
         } else {
@@ -712,6 +719,9 @@ export function useV0ChatMessaging(params: {
           thinking: thinkingForTier,
           imageGenerations: enableImageGenerations,
         };
+        if (projectId) {
+          requestBody.projectId = projectId;
+        }
         if (trimmedSystemPrompt) {
           requestBody.system = trimmedSystemPrompt;
         }
@@ -812,7 +822,12 @@ export function useV0ChatMessaging(params: {
                   chatIdFromStream = id;
                   setChatId(id);
                   if (chatIdParam !== id) {
-                    router.replace(`/builder?chatId=${encodeURIComponent(id)}`);
+                    const params = new URLSearchParams();
+                    params.set("chatId", id);
+                    if (projectId) {
+                      params.set("project", projectId);
+                    }
+                    router.replace(`/builder?${params.toString()}`);
                   }
                   if (pendingCreateKeyRef.current) {
                     updateCreateChatLockChatId(pendingCreateKeyRef.current, id);
@@ -837,7 +852,12 @@ export function useV0ChatMessaging(params: {
                   const nextId = String(resolvedChatId);
                   setChatId(nextId);
                   if (chatIdParam !== nextId) {
-                    router.replace(`/builder?chatId=${encodeURIComponent(nextId)}`);
+                    const params = new URLSearchParams();
+                    params.set("chatId", nextId);
+                    if (projectId) {
+                      params.set("project", projectId);
+                    }
+                    router.replace(`/builder?${params.toString()}`);
                   }
                 }
                 if (resolvedChatId && pendingCreateKeyRef.current) {
@@ -893,7 +913,14 @@ export function useV0ChatMessaging(params: {
           }
 
           setChatId(newChatId);
-          router.replace(`/builder?chatId=${encodeURIComponent(newChatId)}`);
+          {
+            const params = new URLSearchParams();
+            params.set("chatId", newChatId);
+            if (projectId) {
+              params.set("project", projectId);
+            }
+            router.replace(`/builder?${params.toString()}`);
+          }
           if (pendingCreateKeyRef.current) {
             updateCreateChatLockChatId(pendingCreateKeyRef.current, newChatId);
           }
@@ -946,6 +973,7 @@ export function useV0ChatMessaging(params: {
       setChatId,
       chatIdParam,
       router,
+      projectId,
       setCurrentDemoUrl,
       onPreviewRefresh,
       onGenerationComplete,

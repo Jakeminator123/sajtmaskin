@@ -9,6 +9,7 @@ import {
   images,
   mediaLibrary,
   pageViews,
+  promptHandoffs,
   projectData,
   projectFiles,
   templateCache,
@@ -34,6 +35,7 @@ export type ProjectData = typeof projectData.$inferSelect & {
   files: unknown[] | null;
   messages: unknown[] | null;
 };
+export type PromptHandoff = typeof promptHandoffs.$inferSelect;
 export type MediaLibraryItem = typeof mediaLibrary.$inferSelect;
 export type CompanyProfile = typeof companyProfiles.$inferSelect;
 export type DomainOrder = typeof domainOrders.$inferSelect;
@@ -260,6 +262,48 @@ export async function getOrCreateGuestUsage(sessionId: string) {
 // ============================================================================
 // PROJECTS + PROJECT DATA
 // ============================================================================
+
+export async function createPromptHandoff(params: {
+  prompt: string;
+  source?: string | null;
+  projectId?: string | null;
+  userId?: string | null;
+  sessionId?: string | null;
+}): Promise<PromptHandoff> {
+  assertDbConfigured();
+  const id = nanoid();
+  const now = new Date();
+  const rows = await db
+    .insert(promptHandoffs)
+    .values({
+      id,
+      prompt: params.prompt,
+      source: params.source || null,
+      project_id: params.projectId || null,
+      user_id: params.userId || null,
+      session_id: params.sessionId || null,
+      created_at: now,
+    })
+    .returning();
+  return rows[0];
+}
+
+export async function getPromptHandoffById(id: string): Promise<PromptHandoff | null> {
+  assertDbConfigured();
+  const rows = await db.select().from(promptHandoffs).where(eq(promptHandoffs.id, id)).limit(1);
+  return rows[0] ?? null;
+}
+
+export async function consumePromptHandoff(id: string): Promise<PromptHandoff | null> {
+  assertDbConfigured();
+  const now = new Date();
+  const rows = await db
+    .update(promptHandoffs)
+    .set({ consumed_at: now })
+    .where(and(eq(promptHandoffs.id, id), isNull(promptHandoffs.consumed_at)))
+    .returning();
+  return rows[0] ?? null;
+}
 
 export async function createProject(
   name: string,

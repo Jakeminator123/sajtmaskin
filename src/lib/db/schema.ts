@@ -92,6 +92,17 @@ export const appProjects = pgTable("app_projects", {
   updated_at: timestamp("updated_at").defaultNow().notNull(),
 });
 
+export const promptHandoffs = pgTable("prompt_handoffs", {
+  id: text("id").primaryKey(),
+  prompt: text("prompt").notNull(),
+  source: text("source"),
+  project_id: text("project_id"),
+  user_id: text("user_id"),
+  session_id: text("session_id"),
+  consumed_at: timestamp("consumed_at"),
+  created_at: timestamp("created_at").defaultNow().notNull(),
+});
+
 export const projectData = pgTable("project_data", {
   project_id: text("project_id")
     .primaryKey()

@@ -24,6 +24,7 @@ import { Button } from "@/components/ui/button";
 import { HelpTooltip } from "@/components/layout";
 import { PromptWizardModalV2, type WizardData } from "@/components/modals";
 import { ArrowUp, Loader2, Wand2, Lightbulb } from "lucide-react";
+import toast from "react-hot-toast";
 
 // ═══════════════════════════════════════════════════════════════
 // TYPES
@@ -71,38 +72,37 @@ export function PromptInput({
     }
   }, [prompt]);
 
-  const storePromptForBuilder = (value: string) => {
-    if (typeof window === "undefined") return null;
-    const promptId =
-      typeof crypto !== "undefined" && "randomUUID" in crypto
-        ? crypto.randomUUID()
-        : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-    const storageKey = `sajtmaskin_freeform_prompt:${promptId}`;
-    let stored = false;
+  const createPromptForBuilder = async (value: string): Promise<string | null> => {
     try {
-      sessionStorage.setItem(storageKey, value);
-      stored = true;
-    } catch {
-      // ignore storage errors
+      const response = await fetch("/api/prompts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt: value, source: "freeform" }),
+      });
+      const data = (await response.json().catch(() => null)) as {
+        success?: boolean;
+        promptId?: string;
+        error?: string;
+      } | null;
+      if (!response.ok || !data?.promptId) {
+        const message = data?.error || "Kunde inte spara prompten";
+        throw new Error(message);
+      }
+      return data.promptId;
+    } catch (error) {
+      console.error("[PromptInput] Failed to create prompt handoff:", error);
+      toast.error(error instanceof Error ? error.message : "Kunde inte spara prompten");
+      return null;
     }
-    try {
-      localStorage.setItem(storageKey, value);
-      stored = true;
-    } catch {
-      // ignore storage errors
-    }
-    return stored ? promptId : null;
   };
 
-  const navigateToBuilder = (value: string) => {
-    const promptId = storePromptForBuilder(value);
-    const url = promptId
-      ? `/builder?promptId=${encodeURIComponent(promptId)}`
-      : `/builder?prompt=${encodeURIComponent(value)}`;
-    router.push(url);
+  const navigateToBuilder = async (value: string) => {
+    const promptId = await createPromptForBuilder(value);
+    if (!promptId) return;
+    router.push(`/builder?promptId=${encodeURIComponent(promptId)}`);
   };
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     if (!prompt.trim() || isLoading) return;
 
     if (onSubmit) {
@@ -110,7 +110,7 @@ export function PromptInput({
     }
 
     if (navigateOnSubmit) {
-      navigateToBuilder(prompt);
+      await navigateToBuilder(prompt);
     }
   };
 
@@ -118,7 +118,7 @@ export function PromptInput({
     // Enter to submit, Shift+Enter for new line
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      handleSubmit();
+      void handleSubmit();
     }
   };
 
@@ -128,7 +128,7 @@ export function PromptInput({
   };
 
   // Handle wizard completion - auto-submit the expanded prompt
-  const handleWizardComplete = (_wizardData: WizardData, expandedPrompt: string) => {
+  const handleWizardComplete = async (_wizardData: WizardData, expandedPrompt: string) => {
     setShowWizard(false);
 
     // Auto-submit with the expanded prompt
@@ -137,7 +137,7 @@ export function PromptInput({
     }
 
     if (navigateOnSubmit) {
-      navigateToBuilder(expandedPrompt);
+      await navigateToBuilder(expandedPrompt);
     }
   };
 

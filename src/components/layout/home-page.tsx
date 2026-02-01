@@ -50,6 +50,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "@/lib/auth/auth-store";
 import type { AuditResult } from "@/types/audit";
+import toast from "react-hot-toast";
 
 // ═══════════════════════════════════════════════════════════════
 // COMPONENT
@@ -67,8 +68,7 @@ export function HomePage() {
   const [showAuditModal, setShowAuditModal] = useState(false);
   const [showWizard, setShowWizard] = useState(false);
   const [activeBuildMethod, setActiveBuildMethod] = useState<BuildMethod>(null);
-  // Note: auditGeneratedPrompt removed - audit now navigates directly to builder
-  // with prompt stored in sessionStorage (avoids URL length limits)
+  // Note: auditGeneratedPrompt removed - audit navigates to builder via promptId
 
   // Get user state for personalized experience
   // IMPORTANT: Use isInitialized to prevent hydration mismatch
@@ -101,59 +101,53 @@ export function HomePage() {
     setShowAuthModal(true);
   };
 
-  // Handle "Build site from audit" - navigate directly to builder
-  // Uses sessionStorage for long prompts to avoid URL length limits
-  const handleBuildFromAudit = (prompt: string) => {
+  // Handle "Build site from audit" - navigate to builder with promptId
+  const handleBuildFromAudit = async (prompt: string) => {
     setShowAuditModal(false);
 
-    // Store the audit prompt in storage (URL-length safe) with a unique id
-    // so hard reloads don't lose the prompt during the audit→builder handoff.
-    if (typeof window !== "undefined") {
-      const auditId =
-        typeof crypto !== "undefined" && "randomUUID" in crypto
-          ? crypto.randomUUID()
-          : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-
-      sessionStorage.setItem(`sajtmaskin_audit_prompt:${auditId}`, prompt);
-      localStorage.setItem(`sajtmaskin_audit_prompt:${auditId}`, prompt);
-      sessionStorage.setItem("sajtmaskin_audit_prompt_id", auditId);
+    try {
+      const response = await fetch("/api/prompts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt, source: "audit" }),
+      });
+      const data = (await response.json().catch(() => null)) as {
+        success?: boolean;
+        promptId?: string;
+        error?: string;
+      } | null;
+      if (!response.ok || !data?.promptId) {
+        const message = data?.error || "Kunde inte spara audit‑prompten";
+        throw new Error(message);
+      }
+      window.location.href = `/builder?source=audit&promptId=${encodeURIComponent(data.promptId)}`;
+    } catch (error) {
+      console.error("[HomePage] Failed to create audit prompt handoff:", error);
+      toast.error(error instanceof Error ? error.message : "Kunde inte spara audit‑prompten");
     }
-
-    // Navigate directly to builder with a flag indicating audit source
-    // The actual prompt is in sessionStorage to avoid URL length issues
-    const auditId = sessionStorage.getItem("sajtmaskin_audit_prompt_id");
-    window.location.href = auditId
-      ? `/builder?source=audit&auditId=${encodeURIComponent(auditId)}`
-      : "/builder?source=audit";
   };
 
-  const handleBuildFromPrompt = (prompt: string) => {
-    if (typeof window !== "undefined") {
-      const promptId =
-        typeof crypto !== "undefined" && "randomUUID" in crypto
-          ? crypto.randomUUID()
-          : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
-      const storageKey = `sajtmaskin_freeform_prompt:${promptId}`;
-      let stored = false;
-      try {
-        sessionStorage.setItem(storageKey, prompt);
-        stored = true;
-      } catch {
-        // ignore storage errors
+  const handleBuildFromPrompt = async (prompt: string) => {
+    try {
+      const response = await fetch("/api/prompts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ prompt, source: "freeform" }),
+      });
+      const data = (await response.json().catch(() => null)) as {
+        success?: boolean;
+        promptId?: string;
+        error?: string;
+      } | null;
+      if (!response.ok || !data?.promptId) {
+        const message = data?.error || "Kunde inte spara prompten";
+        throw new Error(message);
       }
-      try {
-        localStorage.setItem(storageKey, prompt);
-        stored = true;
-      } catch {
-        // ignore storage errors
-      }
-      if (stored) {
-        router.push(`/builder?promptId=${encodeURIComponent(promptId)}`);
-        return;
-      }
+      router.push(`/builder?promptId=${encodeURIComponent(data.promptId)}`);
+    } catch (error) {
+      console.error("[HomePage] Failed to create prompt handoff:", error);
+      toast.error(error instanceof Error ? error.message : "Kunde inte spara prompten");
     }
-
-    router.push(`/builder?prompt=${encodeURIComponent(prompt)}`);
   };
 
   // Handle wizard completion - navigate to builder with expanded prompt
