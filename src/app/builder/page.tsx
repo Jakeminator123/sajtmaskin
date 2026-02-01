@@ -161,8 +161,9 @@ function BuilderContent() {
         }
         if (!isActive) return;
         setResolvedPrompt(data.prompt);
-        if (data.projectId) {
-          setProjectId((prev) => prev ?? data.projectId);
+        const incomingProjectId = data.projectId ?? null;
+        if (incomingProjectId) {
+          setProjectId((prev) => prev ?? incomingProjectId);
         }
       } catch (error) {
         if (!isActive) return;
