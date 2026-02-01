@@ -1,0 +1,319 @@
+BUGGANALYS: INSTALLATION OCH V0-INTEGRATION
+===========================================
+Datum: 2026-02-01
+Analys av: Installation och första prompt-flöde till V0 API
+
+ÖVERSIKT
+--------
+Denna analys fokuserar på buggar relaterade till installationen av nya hemsidor,
+särskilt hur första prompten skickas till V0 API och om V0-agenten har begränsningar
+relaterade till Shadcn-installationer.
+
+STRUKTURELL ÖVERSIKT
+---------------------
+Flöde när användare besöker sajten för att bygga ny hemsida:
+
+1. Användare kommer till `/builder` med URL-parametrar:
+   - `prompt` - Direkt prompt i URL
+   - `promptId` - ID för prompt i localStorage/sessionStorage
+   - `templateId` - V0 template ID
+   - `source=audit` - Från audit-flöde
+   - `chatId` - Existerande chat
+
+2. Builder-sidan (`src/app/builder/page.tsx`):
+   - Läser URL-parametrar
+   - Resolverar prompt från storage om `promptId` finns
+   - Sätter `resolvedPrompt` state
+   - Skapar `initialPrompt` från `resolvedPrompt`
+   - Skickar `initialPrompt` till `ChatInterface` komponent
+
+3. ChatInterface (`src/components/builder/ChatInterface.tsx`):
+   - Tar emot `initialPrompt` som prop
+   - Visar prompten i input-fältet (via useEffect)
+   - Väntar på manuell submit från användare
+
+4. När användare submitar:
+   - `createNewChat` anropas i `useV0ChatMessaging`
+   - Prompt kan förbättras via `maybeEnhanceInitialPrompt` (om prompt assist är aktiverat)
+   - Skickas till `/api/v0/chats/stream` endpoint
+   - Endpoint anropar V0 Platform API via `v0-sdk`
+
+5. V0-generator (`src/lib/v0/v0-generator.ts`):
+   - Bygger fullständig prompt (kan inkludera category prompts)
+   - Skickar till V0 Platform API via `v0.chats.create()`
+   - Returnerar genererad kod, demoUrl, chatId, versionId
+
+BUGG #1: KRITISK - INGEN AUTOMATISK SKICKNING AV FÖRSTA PROMPTEN
+==================================================================
+Sannolikhet att det är en bugg: 95%
+Påverkan: KRITISK (Hög)
+
+BESKRIVNING:
+När en användare besöker `/builder` med en initial prompt (via `prompt`, `promptId`,
+eller `source=audit`), sätts prompten i input-fältet men skickas INTE automatiskt
+till V0 API. Användaren måste manuellt klicka på submit-knappen.
+
+KODANALYS:
+- `src/app/builder/page.tsx:787`: `initialPrompt` skapas från `resolvedPrompt`
+- `src/app/builder/page.tsx:880`: `initialPrompt` skickas till `ChatInterface`
+  som prop
+- `src/components/builder/ChatInterface.tsx:153-163`: `initialPrompt` sätts i
+  input-fältet via useEffect, men ingen automatisk submit
+- `src/components/builder/ChatInterface.tsx:320-344`: Submit sker endast när
+  användare manuellt klickar på submit-knappen
+
+FÖRVÄNTAT BETEENDE:
+Enligt kravet ska "den första prompten skickas till V0" automatiskt när användaren
+besöker builder-sidan med en initial prompt, oavsett hur de kommer dit.
+
+FAKTISKT BETEENDE:
+Prompten visas i input-fältet men skickas inte automatiskt. Användaren måste
+manuellt klicka på submit.
+
+PÅVERKAN:
+- Användare kan missa att prompten inte skickats automatiskt
+- Sämre användarupplevelse - extra steg krävs
+- Kan leda till att användare tror att systemet är trasigt
+- Bryter mot kravet att första prompten ska skickas automatiskt
+
+LÖSNINGSFÖRSLAG:
+Lägg till en useEffect i `ChatInterface` eller `BuilderContent` som automatiskt
+skickar `initialPrompt` när den är tillgänglig och `chatId` är null:
+
+```typescript
+useEffect(() => {
+  if (!chatId && initialPrompt?.trim() && !isCreatingChat) {
+    requestCreateChat(initialPrompt.trim());
+  }
+}, [chatId, initialPrompt, isCreatingChat, requestCreateChat]);
+```
+
+RELATERADE FILER:
+- src/app/builder/page.tsx (rad 787, 880)
+- src/components/builder/ChatInterface.tsx (rad 153-163, 320-344)
+- src/lib/hooks/useV0ChatMessaging.ts (rad 631-689)
+
+BUGG #2: MEDIUM - SHADCN-INSTALLATION SAKNAS I V0-PROMPTER
+============================================================
+Sannolikhet att det är en bugg: 80%
+Påverkan: MEDIUM (Medel)
+
+BESKRIVNING:
+V0-prompter instruerar agenten att "Use shadcn/ui components where appropriate"
+men inkluderar INTE instruktioner om att installera shadcn/ui-paket eller sätta
+upp komponenter. Detta kan leda till att genererad kod inte fungerar om shadcn/ui
+inte är installerat i projektet.
+
+KODANALYS:
+- `src/lib/builder/promptAssist.ts:116`: "Use shadcn/ui components where appropriate"
+- `src/lib/v0/v0-generator.ts:165-1248`: Category prompts inkluderar shadcn-referenser
+- `src/lib/shadcn-registry-utils.ts:126-230`: `buildShadcnBlockPrompt` inkluderar
+  import-mappningar men inga installationsinstruktioner
+
+FÖRVÄNTAT BETEENDE:
+V0-agenten ska antingen:
+1. Installera shadcn/ui automatiskt när komponenter används, ELLER
+2. Inkludera tydliga instruktioner om att shadcn/ui måste installeras
+
+FAKTISKT BETEENDE:
+V0-agenten förväntas använda shadcn/ui-komponenter men får inga instruktioner om
+installation. Detta kan leda till:
+- Genererad kod som inte kompilerar (saknade imports)
+- Runtime-fel när komponenter används
+- Otydlighet om vad som krävs för att koden ska fungera
+
+PÅVERKAN:
+- Genererad kod kan vara ofullständig eller trasig
+- Användare kan behöva manuellt installera shadcn/ui efter generering
+- Sämre användarupplevelse - kod fungerar inte direkt
+
+LÖSNINGSFÖRSLAG:
+Lägg till installationsinstruktioner i V0-prompter:
+
+```typescript
+// I buildV0PromptFromBrief och category prompts:
+"Installation requirements:",
+"- Install shadcn/ui: npx shadcn@latest init",
+"- Install required components: npx shadcn@latest add button card input dialog",
+"- Ensure components.json is configured correctly",
+"",
+"Use shadcn/ui components where appropriate (buttons, inputs, cards, dialogs).",
+```
+
+RELATERADE FILER:
+- src/lib/builder/promptAssist.ts (rad 116)
+- src/lib/v0/v0-generator.ts (rad 165-1248)
+- src/lib/shadcn-registry-utils.ts (rad 126-230)
+
+BUGG #3: LÅG - SHADCN BLOCK PROMPT SAKNAR INSTALLATIONSINSTRUKTIONER
+====================================================================
+Sannolikhet att det är en bugg: 70%
+Påverkan: LÅG (Låg)
+
+BESKRIVNING:
+När användare startar från en Shadcn-block via `buildShadcnBlockPrompt`, inkluderas
+import-mappningar men inga instruktioner om att installera shadcn/ui eller
+nödvändiga dependencies.
+
+KODANALYS:
+- `src/lib/shadcn-registry-utils.ts:126-230`: `buildShadcnBlockPrompt` bygger prompt
+- Rad 150-152: Import-mappningar inkluderas
+- Rad 156-161: Registry dependencies nämns men inga installationsinstruktioner
+
+FÖRVÄNTAT BETEENDE:
+Prompten ska inkludera instruktioner om att installera shadcn/ui och nödvändiga
+komponenter innan blocket kan användas.
+
+FAKTISKT BETEENDE:
+Prompten förväntar sig att shadcn/ui redan är installerat och konfigurerat, men
+detta är inte alltid fallet.
+
+PÅVERKAN:
+- Block kan inte användas om shadcn/ui inte är installerat
+- Användare kan behöva manuellt installera dependencies
+
+LÖSNINGSFÖRSLAG:
+Lägg till installationsinstruktioner i början av prompten:
+
+```typescript
+lines.push("Before adding this block, ensure shadcn/ui is installed:");
+lines.push("- Run: npx shadcn@latest init");
+lines.push(`- Install dependencies: npx shadcn@latest add ${dependencies.join(' ')}`);
+```
+
+RELATERADE FILER:
+- src/lib/shadcn-registry-utils.ts (rad 126-230)
+
+BUGG #4: MEDIUM - INGEN VALIDERING AV SHADCN-INSTALLATION
+==========================================================
+Sannolikhet att det är en bugg: 60%
+Påverkan: MEDIUM (Medel)
+
+BESKRIVNING:
+Systemet validerar inte om shadcn/ui är installerat innan det instruerar V0-agenten
+att använda shadcn-komponenter. Detta kan leda till att genererad kod inte fungerar.
+
+KODANALYS:
+- Inga valideringsfunktioner hittades för shadcn-installation
+- V0-generator antar att shadcn/ui är tillgängligt
+- Inga fallback-strategier om shadcn/ui saknas
+
+FÖRVÄNTAT BETEENDE:
+Systemet ska antingen:
+1. Validera att shadcn/ui är installerat innan användning, ELLER
+2. Inkludera installationsinstruktioner i varje prompt som använder shadcn
+
+FAKTISKT BETEENDE:
+Systemet antar att shadcn/ui är tillgängligt utan validering.
+
+PÅVERKAN:
+- Genererad kod kan vara ofullständig
+- Runtime-fel kan uppstå
+- Användare kan behöva manuellt fixa installationer
+
+LÖSNINGSFÖRSLAG:
+Lägg till validering eller alltid inkludera installationsinstruktioner i prompter
+som använder shadcn/ui.
+
+RELATERADE FILER:
+- src/lib/v0/v0-generator.ts
+- src/lib/builder/promptAssist.ts
+
+BUGG #5: LÅG - PROMPT ASSIST KAN ÖVERSKRIVA SHADCN-INSTRUKTIONER
+=================================================================
+Sannolikhet att det är en bugg: 50%
+Påverkan: LÅG (Låg)
+
+BESKRIVNING:
+När `maybeEnhanceInitialPrompt` körs kan den potentiellt ändra eller ta bort
+shadcn-relaterade instruktioner från den ursprungliga prompten.
+
+KODANALYS:
+- `src/lib/hooks/useV0ChatMessaging.ts:696-698`: Prompt kan förbättras via
+  `maybeEnhanceInitialPrompt`
+- `src/lib/hooks/usePromptAssist.ts`: Prompt assist-logik kan modifiera prompten
+- Ingen garanti att shadcn-instruktioner bevaras efter förbättring
+
+FÖRVÄNTAT BETEENDE:
+Prompt assist ska bevara viktiga instruktioner som shadcn-installation.
+
+FAKTISKT BETEENDE:
+Prompt assist kan potentiellt ta bort eller ändra shadcn-instruktioner.
+
+PÅVERKAN:
+- Shadcn-instruktioner kan försvinna efter prompt-förbättring
+- Genererad kod kan sakna shadcn-komponenter
+
+LÖSNINGSFÖRSLAG:
+Säkerställ att prompt assist bevarar shadcn-relaterade instruktioner, eller lägg
+till dem efter assist-körning.
+
+RELATERADE FILER:
+- src/lib/hooks/useV0ChatMessaging.ts (rad 696-698)
+- src/lib/hooks/usePromptAssist.ts
+
+BUGG #6: MEDIUM - INGEN FÖLJUPPS-PROMPT AUTOMATISKT EFTER FÖRSTA GENERERING
+=============================================================================
+Sannolikhet att det är en bugg: 70%
+Påverkan: MEDIUM (Medel)
+
+BESKRIVNING:
+Efter att första versionen genererats finns det ingen automatisk följupps-prompt för
+att förbättra sidan. Användaren måste manuellt skicka följupps-prompter.
+
+KODANALYS:
+- `src/lib/hooks/useV0ChatMessaging.ts:572-620`: `handleGenerationComplete` körs
+  efter generering men skickar ingen följupps-prompt
+- Inga automatiska förbättringar eller följupps-prompter hittades
+
+FÖRVÄNTAT BETEENDE:
+Enligt kravet ska systemet "följa upp med andra prompts för att förbättra sidan"
+efter första genereringen.
+
+FAKTISKT BETEENDE:
+Efter första genereringen sker ingen automatisk följupp. Användaren måste manuellt
+skicka följupps-prompter.
+
+PÅVERKAN:
+- Sämre användarupplevelse - användare måste manuellt förbättra sidan
+- Bryter mot kravet om automatiska följupps-prompter
+
+LÖSNINGSFÖRSLAG:
+Lägg till automatiska följupps-prompter efter första genereringen, t.ex.:
+- "Förbättra responsiviteten"
+- "Lägg till mer innehåll"
+- "Förbättra SEO"
+
+RELATERADE FILER:
+- src/lib/hooks/useV0ChatMessaging.ts (rad 572-620)
+
+SAMMANFATTNING
+==============
+Totalt antal buggar identifierade: 6
+
+KRITISKA (1):
+- Bug #1: Ingen automatisk skickning av första prompten (95% sannolikhet)
+
+MEDIUM (3):
+- Bug #2: Shadcn-installation saknas i V0-prompter (80% sannolikhet)
+- Bug #4: Ingen validering av shadcn-installation (60% sannolikhet)
+- Bug #6: Ingen följupps-prompt automatiskt efter första generering (70% sannolikhet)
+
+LÅGA (2):
+- Bug #3: Shadcn block prompt saknar installationsinstruktioner (70% sannolikhet)
+- Bug #5: Prompt assist kan överskriva shadcn-instruktioner (50% sannolikhet)
+
+REKOMMENDATIONER
+================
+1. PRIORITET 1: Fixa Bug #1 - Lägg till automatisk skickning av första prompten
+2. PRIORITET 2: Fixa Bug #2 och #4 - Lägg till shadcn-installationsinstruktioner
+3. PRIORITET 3: Fixa Bug #6 - Implementera automatiska följupps-prompter
+4. PRIORITET 4: Fixa Bug #3 och #5 - Förbättra shadcn-hantering
+
+TESTNING
+========
+För att verifiera buggarna:
+1. Besök `/builder?prompt=test` - verifiera att prompten skickas automatiskt
+2. Generera en sida med shadcn-komponenter - verifiera att installation ingår
+3. Starta från shadcn-block - verifiera installationsinstruktioner
+4. Generera första versionen - verifiera att följupps-prompter skickas automatiskt

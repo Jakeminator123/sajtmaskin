@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
       score_ux: a.score_ux,
       score_performance: a.score_performance,
       score_security: a.score_security,
-      created_at: a.created_at,
+      created_at: a.created_at.toISOString(),
     }));
 
     // Cache the list

@@ -196,8 +196,14 @@ export function ShadcnBlockPicker({
     }
   }, [isSubmitting]);
 
+  useEffect(() => {
+    const handleDialogClose = () => onClose();
+    window.addEventListener("dialog-close", handleDialogClose);
+    return () => window.removeEventListener("dialog-close", handleDialogClose);
+  }, [onClose]);
+
   return (
-    <Dialog open={open} onOpenChange={(isOpen) => !isOpen && onClose()}>
+    <Dialog open={open}>
       <DialogContent className="flex max-h-[90vh] w-[min(95vw,1100px)] max-w-5xl flex-col overflow-hidden p-0">
         {/* Header */}
         <DialogHeader className="border-b border-gray-800 px-6 py-4">

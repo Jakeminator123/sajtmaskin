@@ -59,7 +59,11 @@ export async function getUserByEmail(email: string): Promise<User | null> {
   return rows[0] ?? null;
 }
 
-export async function createUser(email: string, passwordHash: string, name?: string): Promise<User> {
+export async function createUser(
+  email: string,
+  passwordHash: string,
+  name?: string,
+): Promise<User> {
   assertDbConfigured();
   const id = nanoid();
   const now = new Date();
@@ -541,7 +545,9 @@ export async function deleteMediaLibraryItem(id: number, userId: string): Promis
     await deleteBlob(item.blob_url);
   }
 
-  await db.delete(mediaLibrary).where(and(eq(mediaLibrary.id, id), eq(mediaLibrary.user_id, userId)));
+  await db
+    .delete(mediaLibrary)
+    .where(and(eq(mediaLibrary.id, id), eq(mediaLibrary.user_id, userId)));
   return true;
 }
 
@@ -827,10 +833,7 @@ export async function getUserAuditCount(userId: string): Promise<number> {
   return rows[0]?.count ?? 0;
 }
 
-export async function getUserAuditById(
-  auditId: number,
-  userId: string,
-): Promise<UserAudit | null> {
+export async function getUserAuditById(auditId: number, userId: string): Promise<UserAudit | null> {
   assertDbConfigured();
   const rows = await db
     .select()
@@ -946,10 +949,12 @@ export async function getAnalyticsStats(days = 30): Promise<{
   const [totalUsers] = await db.select({ count: sql<number>`count(*)` }).from(users);
   const [totalProjects] = await db.select({ count: sql<number>`count(*)` }).from(appProjects);
 
-  const [guestTotals] = await db.select({
-    generations: sql<number>`coalesce(sum(${guestUsage.generations_used}), 0)`,
-    refines: sql<number>`coalesce(sum(${guestUsage.refines_used}), 0)`,
-  }).from(guestUsage);
+  const [guestTotals] = await db
+    .select({
+      generations: sql<number>`coalesce(sum(${guestUsage.generations_used}), 0)`,
+      refines: sql<number>`coalesce(sum(${guestUsage.refines_used}), 0)`,
+    })
+    .from(guestUsage);
 
   const recentPageViews = await db
     .select({ path: pageViews.path, count: sql<number>`count(*)` })
@@ -970,13 +975,17 @@ export async function getAnalyticsStats(days = 30): Promise<{
     .groupBy(sql`${pageViews.created_at}::date`)
     .orderBy(sql`${pageViews.created_at}::date`);
 
-  const topReferrers = await db
+  const topReferrersRaw = await db
     .select({ referrer: pageViews.referrer, count: sql<number>`count(*)` })
     .from(pageViews)
     .where(and(gt(pageViews.created_at, startDate), sql`${pageViews.referrer} IS NOT NULL`))
     .groupBy(pageViews.referrer)
     .orderBy(desc(sql`count(*)`))
     .limit(10);
+
+  const topReferrers = topReferrersRaw.filter(
+    (referrer): referrer is { referrer: string; count: number } => referrer.referrer !== null,
+  );
 
   return {
     totalPageViews: pageViewsCount?.count ?? 0,
@@ -987,6 +996,6 @@ export async function getAnalyticsStats(days = 30): Promise<{
     totalRefines: guestTotals?.refines ?? 0,
     recentPageViews,
     dailyViews,
-    topReferrers: topReferrers.filter((r) => r.referrer),
+    topReferrers,
   };
 }
