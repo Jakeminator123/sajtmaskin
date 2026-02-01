@@ -161,8 +161,8 @@ function BuilderContent() {
         }
         if (!isActive) return;
         setResolvedPrompt(data.prompt);
-        if (data.projectId && !projectId) {
-          setProjectId(data.projectId);
+        if (data.projectId) {
+          setProjectId((prev) => prev ?? data.projectId);
         }
       } catch (error) {
         if (!isActive) return;
@@ -186,7 +186,7 @@ function BuilderContent() {
       isActive = false;
       controller.abort();
     };
-  }, [promptId, projectId, router, searchParams]);
+  }, [promptId, router, searchParams]);
 
   useEffect(() => {
     fetchUser().catch(() => {});
