@@ -8,6 +8,12 @@ import { assertV0Key, v0 } from "@/lib/v0";
 import { createDeploymentRecord, updateDeploymentStatus } from "@/lib/deployment";
 import { materializeImagesInTextFiles, type ImageAssetStrategy } from "@/lib/imageAssets";
 import {
+  SHADCN_BASELINE_PACKAGES,
+  collectExternalPackageNames,
+  ensureDependenciesInPackageJson,
+  getRepoDependencyVersionMap,
+} from "@/lib/deploy/dependency-utils";
+import {
   createVercelDeployment,
   getVercelDeployment,
   mapVercelReadyStateToStatus,
@@ -48,6 +54,48 @@ function applyPreDeployFixes(
       `Removed lockfiles to prefer npm: ${Array.from(removedLockfiles).join(", ")}`,
     );
   }
+
+  const versionMap = getRepoDependencyVersionMap();
+
+  const buildBasePackageJson = () => {
+    const missing: string[] = [];
+    const dependencies: Record<string, string> = {};
+    const devDependencies: Record<string, string> = {};
+    const addVersion = (target: Record<string, string>, pkg: string) => {
+      const version = versionMap[pkg];
+      if (version) {
+        target[pkg] = version;
+      } else {
+        missing.push(pkg);
+      }
+    };
+    ["next", "react", "react-dom"].forEach((pkg) => addVersion(dependencies, pkg));
+    [
+      "typescript",
+      "@types/react",
+      "@types/react-dom",
+      "@types/node",
+      "tailwindcss",
+      "postcss",
+      "@tailwindcss/postcss",
+    ].forEach((pkg) => addVersion(devDependencies, pkg));
+    const base = {
+      name: "generated-site",
+      version: "0.1.0",
+      private: true,
+      scripts: {
+        dev: "next dev",
+        build: "next build",
+        start: "next start",
+      },
+      dependencies,
+      devDependencies,
+    };
+    return {
+      content: `${JSON.stringify(base, null, 2)}\n`,
+      missing,
+    };
+  };
 
   const removeBrokenUtilityBlocks = (content: string) => {
     if (!content.includes("@utility")) {
@@ -180,6 +228,46 @@ function applyPreDeployFixes(
           `Removed ${result.removed} broken @utility block${result.removed > 1 ? "s" : ""} in ${f.name}`,
         );
       }
+    }
+  }
+
+  const requiredPackages = new Set<string>(SHADCN_BASELINE_PACKAGES);
+  const importedPackages = collectExternalPackageNames(nextFiles);
+  importedPackages.forEach((pkg) => requiredPackages.add(pkg));
+
+  const normalizePackageName = (name: string) => name.replace(/^\/+/, "");
+  let packageFile = nextFiles.find((f) => normalizePackageName(f.name) === "package.json");
+  if (!packageFile) {
+    const base = buildBasePackageJson();
+    if (base.missing.length > 0) {
+      warnings.push(
+        `Missing versions for base deps in package.json: ${base.missing.join(", ")}`,
+      );
+    }
+    packageFile = { name: "package.json", content: base.content };
+    nextFiles.push(packageFile);
+    fixesApplied.push("Added package.json scaffold");
+  }
+
+  if (packageFile?.content) {
+    try {
+      const result = ensureDependenciesInPackageJson({
+        packageJsonContent: packageFile.content,
+        requiredPackages,
+        versionMap,
+      });
+      packageFile.content = result.content;
+      if (result.added.length > 0) {
+        fixesApplied.push(`Added missing dependencies: ${result.added.join(", ")}`);
+      }
+      if (result.missing.length > 0) {
+        warnings.push(
+          `Missing versions for dependencies: ${result.missing.slice(0, 10).join(", ")}`,
+        );
+      }
+    } catch (error) {
+      warnings.push("Failed to update package.json dependencies (invalid JSON)");
+      console.warn("[deploy] Failed to patch package.json:", error);
     }
   }
 

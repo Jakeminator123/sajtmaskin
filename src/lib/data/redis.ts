@@ -292,6 +292,57 @@ export async function deleteCache(key: string): Promise<void> {
   }
 }
 
+// ============ Prompt Handoff ============
+
+const PROMPT_HANDOFF_PREFIX = "prompt_handoff:";
+const PROMPT_HANDOFF_TTL = 60 * 60 * 24 * 7; // 7 days
+
+export type CachedPromptHandoff = {
+  id: string;
+  prompt: string;
+  source?: string | null;
+  projectId?: string | null;
+  createdAt?: string | null;
+};
+
+export async function cachePromptHandoff(data: CachedPromptHandoff): Promise<void> {
+  const redis = getRedis();
+  if (!redis) return;
+  try {
+    await redis.setex(
+      `${PROMPT_HANDOFF_PREFIX}${data.id}`,
+      PROMPT_HANDOFF_TTL,
+      JSON.stringify(data),
+    );
+  } catch (error) {
+    console.error("[Redis] Failed to cache prompt handoff:", error);
+  }
+}
+
+export async function getCachedPromptHandoff(id: string): Promise<CachedPromptHandoff | null> {
+  const redis = getRedis();
+  if (!redis) return null;
+  try {
+    const data = await redis.get(`${PROMPT_HANDOFF_PREFIX}${id}`);
+    if (data) {
+      return JSON.parse(data) as CachedPromptHandoff;
+    }
+  } catch (error) {
+    console.error("[Redis] Failed to get cached prompt handoff:", error);
+  }
+  return null;
+}
+
+export async function deletePromptHandoffCache(id: string): Promise<void> {
+  const redis = getRedis();
+  if (!redis) return;
+  try {
+    await redis.del(`${PROMPT_HANDOFF_PREFIX}${id}`);
+  } catch (error) {
+    console.error("[Redis] Failed to delete prompt handoff cache:", error);
+  }
+}
+
 // ============ Audit Caching ============
 
 const AUDIT_CACHE_PREFIX = "audit:";

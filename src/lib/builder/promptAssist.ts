@@ -114,6 +114,7 @@ export function buildV0PromptFromBrief(params: {
   return [
     "Build a beautiful, modern, production-ready website using Next.js (App Router) + Tailwind CSS.",
     "Use shadcn/ui components where appropriate (buttons, inputs, cards, dialogs).",
+    "If you use shadcn/ui, ensure required @radix-ui/* deps are present in package.json and components.json + lib/utils.ts (cn helper) exist.",
     "",
     `Project: ${projectTitle}${brandName ? ` (${brandName})` : ""}`,
     pitch ? `One-sentence pitch: ${pitch}` : null,

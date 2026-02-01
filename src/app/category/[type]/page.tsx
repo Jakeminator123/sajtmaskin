@@ -36,6 +36,7 @@ import {
 import { createProject } from "@/lib/project-client";
 import Image from "next/image";
 import { PreviewModal } from "@/components/templates";
+import toast from "react-hot-toast";
 
 // Icon mapping - includes all icons used in V0_CATEGORIES and legacy CATEGORIES
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -83,6 +84,34 @@ export default function CategoryPage() {
   const Icon: React.ComponentType<{ className?: string }> =
     iconMap[displayCategory.icon] || FileText;
 
+  const createPromptHandoff = async (value: string, projectId: string): Promise<string | null> => {
+    try {
+      const response = await fetch("/api/prompts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prompt: value,
+          source: `category:${type}`,
+          projectId,
+        }),
+      });
+      const data = (await response.json().catch(() => null)) as {
+        success?: boolean;
+        promptId?: string;
+        error?: string;
+      } | null;
+      if (!response.ok || !data?.promptId) {
+        const message = data?.error || "Kunde inte spara prompten";
+        throw new Error(message);
+      }
+      return data.promptId;
+    } catch (error) {
+      console.error("[Category] Failed to create prompt handoff:", error);
+      toast.error(error instanceof Error ? error.message : "Kunde inte spara prompten");
+      return null;
+    }
+  };
+
   const handlePromptSubmit = async () => {
     if (prompt.trim() && !isCreating) {
       setIsCreating(true);
@@ -93,8 +122,13 @@ export default function CategoryPage() {
           type,
           prompt.trim().substring(0, 100),
         );
+        const promptId = await createPromptHandoff(prompt.trim(), project.id);
+        if (!promptId) {
+          setIsCreating(false);
+          return;
+        }
         router.push(
-          `/builder?project=${project.id}&type=${type}&prompt=${encodeURIComponent(prompt.trim())}`,
+          `/builder?project=${project.id}&type=${type}&promptId=${encodeURIComponent(promptId)}`,
         );
       } catch (error) {
         console.error("Failed to create project:", error);
@@ -113,8 +147,13 @@ export default function CategoryPage() {
         type,
         quickPrompt.prompt.substring(0, 100),
       );
+      const promptId = await createPromptHandoff(quickPrompt.prompt, project.id);
+      if (!promptId) {
+        setIsCreating(false);
+        return;
+      }
       router.push(
-        `/builder?project=${project.id}&type=${type}&prompt=${encodeURIComponent(quickPrompt.prompt)}`,
+        `/builder?project=${project.id}&type=${type}&promptId=${encodeURIComponent(promptId)}`,
       );
     } catch (error) {
       console.error("Failed to create project:", error);
@@ -173,9 +212,14 @@ export default function CategoryPage() {
         }).catch((err) => console.error("Failed to save company profile:", err));
       }
 
+      const promptId = await createPromptHandoff(expandedPrompt, project.id);
+      if (!promptId) {
+        setIsCreating(false);
+        return;
+      }
       // Navigate directly to builder with the expanded prompt
       router.push(
-        `/builder?project=${project.id}&type=${type}&prompt=${encodeURIComponent(expandedPrompt)}`,
+        `/builder?project=${project.id}&type=${type}&promptId=${encodeURIComponent(promptId)}`,
       );
     } catch (error) {
       console.error("Failed to create project:", error);

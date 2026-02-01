@@ -142,5 +142,6 @@ export const DEFAULT_IMAGE_GENERATIONS = true;
 /** Default system instructions for new chats (editable in UI) */
 export const DEFAULT_CUSTOM_INSTRUCTIONS =
   "Use Next.js App Router, Tailwind CSS, and shadcn/ui.\n" +
+  "If you use shadcn/ui, ensure it is installed and configured (components.json + lib/utils.ts with cn helper), and add required @radix-ui/* packages to package.json.\n" +
   "Build a responsive, accessible, polished React UI with high visual quality.\n" +
   "If imagery is used, ensure high-quality visuals and descriptive alt text.";

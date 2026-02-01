@@ -15,6 +15,11 @@ import {
   getDeploymentStatus,
 } from "@/lib/vercel/vercel-client";
 import { getProjectData } from "@/lib/db/services";
+import {
+  SHADCN_BASELINE_PACKAGES,
+  ensureDependenciesInPackageJson,
+  getRepoDependencyVersionMap,
+} from "@/lib/deploy/dependency-utils";
 
 interface ProjectFile {
   path: string;
@@ -45,7 +50,7 @@ export interface DeploymentResult {
 // These are the minimum files required for a Next.js 15 app to build on Vercel.
 // v0 only returns component files, so we need to add the rest.
 
-const PACKAGE_JSON = `{
+const BASE_PACKAGE_JSON = `{
   "name": "generated-site",
   "version": "0.1.0",
   "private": true,
@@ -74,6 +79,27 @@ const PACKAGE_JSON = `{
     "typescript": "^5.7.2"
   }
 }`;
+
+const PACKAGE_JSON = (() => {
+  try {
+    const versionMap = getRepoDependencyVersionMap();
+    const result = ensureDependenciesInPackageJson({
+      packageJsonContent: BASE_PACKAGE_JSON,
+      requiredPackages: SHADCN_BASELINE_PACKAGES,
+      versionMap,
+    });
+    if (result.missing.length > 0) {
+      console.warn(
+        "[Vercel Deployment] Missing versions for shadcn deps:",
+        result.missing.join(", "),
+      );
+    }
+    return result.content;
+  } catch (error) {
+    console.warn("[Vercel Deployment] Failed to extend package.json:", error);
+    return BASE_PACKAGE_JSON;
+  }
+})();
 
 const NEXT_CONFIG = `/** @type {import('next').NextConfig} */
 const nextConfig = {

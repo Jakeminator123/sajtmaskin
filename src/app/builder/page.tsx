@@ -14,6 +14,7 @@ import type { V0UserFileAttachment } from "@/components/media";
 import { Button } from "@/components/ui/button";
 import { clearPersistedMessages } from "@/lib/builder/messagesStorage";
 import type { ChatMessage } from "@/lib/builder/types";
+import { saveProjectData } from "@/lib/project-client";
 import {
   DEFAULT_CUSTOM_INSTRUCTIONS,
   DEFAULT_MODEL_TIER,
@@ -62,9 +63,9 @@ function BuilderContent() {
   const chatIdParam = searchParams.get("chatId");
   const promptParam = searchParams.get("prompt");
   const promptId = searchParams.get("promptId");
+  const projectParam = searchParams.get("project");
   const templateId = searchParams.get("templateId");
   const source = searchParams.get("source");
-  const auditId = searchParams.get("auditId");
   const hasEntryParams = Boolean(promptParam || promptId || templateId || source === "audit");
 
   const [chatId, setChatId] = useState<string | null>(chatIdParam);
@@ -105,6 +106,7 @@ function BuilderContent() {
     options?: CreateChatOptions;
   } | null>(null);
   const [hasSelectedModelTier, setHasSelectedModelTier] = useState(false);
+  const [projectId, setProjectId] = useState<string | null>(projectParam);
 
   const selectedTierOption = useMemo(
     () => MODEL_TIER_OPTIONS.find((option) => option.value === selectedModelTier),
@@ -138,31 +140,64 @@ function BuilderContent() {
   }, [customInstructions]);
 
   useEffect(() => {
-    if (source !== "audit" || typeof window === "undefined") return;
+    if (!promptId) return;
+    let isActive = true;
+    const controller = new AbortController();
 
-    const storageKey = auditId ? `sajtmaskin_audit_prompt:${auditId}` : "sajtmaskin_audit_prompt";
-    const storedPrompt = sessionStorage.getItem(storageKey) || localStorage.getItem(storageKey);
+    const fetchPrompt = async () => {
+      try {
+        const response = await fetch(`/api/prompts/${encodeURIComponent(promptId)}`, {
+          signal: controller.signal,
+        });
+        const data = (await response.json().catch(() => null)) as {
+          success?: boolean;
+          prompt?: string;
+          error?: string;
+          projectId?: string | null;
+        } | null;
+        if (!response.ok || !data?.prompt) {
+          const message = data?.error || "Prompten hittades inte";
+          throw new Error(message);
+        }
+        if (!isActive) return;
+        setResolvedPrompt(data.prompt);
+        if (data.projectId && !projectId) {
+          setProjectId(data.projectId);
+        }
+      } catch (error) {
+        if (!isActive) return;
+        console.warn("[Builder] Prompt handoff missing:", error);
+        toast.error("Prompten hittades inte eller har redan använts.");
+        setResolvedPrompt(null);
+      } finally {
+        if (isActive) {
+          setAuditPromptLoaded(true);
+          const nextParams = new URLSearchParams(searchParams.toString());
+          nextParams.delete("promptId");
+          const query = nextParams.toString();
+          router.replace(query ? `/builder?${query}` : "/builder");
+        }
+      }
+    };
 
-    if (storedPrompt) {
-      setResolvedPrompt(storedPrompt);
-    }
+    void fetchPrompt();
 
-    setAuditPromptLoaded(true);
-  }, [source, auditId]);
-
-  useEffect(() => {
-    if (!promptId || typeof window === "undefined") return;
-    const storageKey = `sajtmaskin_freeform_prompt:${promptId}`;
-    const storedPrompt = sessionStorage.getItem(storageKey) || localStorage.getItem(storageKey);
-    if (storedPrompt) {
-      setResolvedPrompt(storedPrompt);
-    }
-  }, [promptId]);
+    return () => {
+      isActive = false;
+      controller.abort();
+    };
+  }, [promptId, projectId, router, searchParams]);
 
   useEffect(() => {
     fetchUser().catch(() => {});
     // fetchUser is stable via zustand
   }, [fetchUser]);
+
+  useEffect(() => {
+    if (projectParam) {
+      setProjectId(projectParam);
+    }
+  }, [projectParam]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -363,15 +398,11 @@ function BuilderContent() {
   }, [searchParams, router]);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
     if (source !== "audit") return;
-    if (!auditId || !currentDemoUrl) return;
-
-    const key = `sajtmaskin_audit_prompt:${auditId}`;
-    sessionStorage.removeItem(key);
-    localStorage.removeItem(key);
-    sessionStorage.removeItem("sajtmaskin_audit_prompt_id");
-  }, [source, auditId, currentDemoUrl]);
+    if (!promptId) {
+      setAuditPromptLoaded(true);
+    }
+  }, [source, promptId]);
 
   const { chat } = useChat(chatId);
   const { versions, mutate: mutateVersions } = useVersions(chatId);
@@ -615,8 +646,16 @@ function BuilderContent() {
           console.warn("[CSS Validation] Failed:", err);
         });
       }
+      if (projectId && data.chatId) {
+        saveProjectData(projectId, {
+          chatId: data.chatId,
+          demoUrl: data.demoUrl ?? null,
+        }).catch((error) => {
+          console.warn("[Builder] Failed to save project chat mapping:", error);
+        });
+      }
     },
-    [applyInstructionsOnce, validateCss],
+    [applyInstructionsOnce, validateCss, projectId],
   );
 
   const { isCreatingChat, createNewChat, sendMessage } = useV0ChatMessaging({
@@ -624,6 +663,7 @@ function BuilderContent() {
     setChatId,
     chatIdParam,
     router,
+    projectId,
     selectedModelTier,
     enableImageGenerations,
     systemPrompt: customInstructions,
@@ -683,6 +723,7 @@ function BuilderContent() {
             registryUrl: selection.registryUrl,
             quality,
             name,
+            projectId: projectId || undefined,
           }),
         });
 
@@ -698,10 +739,26 @@ function BuilderContent() {
         }
 
         setChatId(data.chatId);
-        router.replace(`/builder?chatId=${encodeURIComponent(data.chatId)}`);
+        if (projectId) {
+          router.replace(
+            `/builder?chatId=${encodeURIComponent(data.chatId)}&project=${encodeURIComponent(
+              projectId,
+            )}`,
+          );
+        } else {
+          router.replace(`/builder?chatId=${encodeURIComponent(data.chatId)}`);
+        }
         setMessages([]);
         setCurrentDemoUrl(data.demoUrl || null);
         setHasSelectedModelTier(true);
+        if (projectId) {
+          saveProjectData(projectId, {
+            chatId: data.chatId,
+            demoUrl: data.demoUrl ?? null,
+          }).catch((error) => {
+            console.warn("[Builder] Failed to save registry project mapping:", error);
+          });
+        }
         toast.success("shadcn/ui-projekt skapat!");
       } catch (error) {
         toast.error(error instanceof Error ? error.message : "Kunde inte starta från shadcn/ui");
@@ -715,6 +772,7 @@ function BuilderContent() {
       setMessages,
       setCurrentDemoUrl,
       setHasSelectedModelTier,
+      projectId,
     ],
   );
 
@@ -736,6 +794,7 @@ function BuilderContent() {
     }
     router.replace("/builder");
     setChatId(null);
+    setProjectId(null);
     setCurrentDemoUrl(null);
     setPreviewRefreshToken(0);
     setMessages([]);
@@ -806,10 +865,26 @@ function BuilderContent() {
 
         if (data?.chatId) {
           setChatId(data.chatId);
-          router.replace(`/builder?chatId=${encodeURIComponent(data.chatId)}`);
+          if (projectId) {
+            router.replace(
+              `/builder?chatId=${encodeURIComponent(data.chatId)}&project=${encodeURIComponent(
+                projectId,
+              )}`,
+            );
+          } else {
+            router.replace(`/builder?chatId=${encodeURIComponent(data.chatId)}`);
+          }
         }
         if (data?.demoUrl) {
           setCurrentDemoUrl(data.demoUrl);
+        }
+        if (projectId && data?.chatId) {
+          saveProjectData(projectId, {
+            chatId: data.chatId,
+            demoUrl: data.demoUrl ?? null,
+          }).catch((error) => {
+            console.warn("[Builder] Failed to save template project mapping:", error);
+          });
         }
       } catch (error) {
         console.error("[Builder] Template init failed:", error);
@@ -819,7 +894,15 @@ function BuilderContent() {
     };
 
     void initTemplate();
-  }, [auditPromptLoaded, templateId, chatId, isTemplateLoading, router, selectedModelTier]);
+  }, [
+    auditPromptLoaded,
+    templateId,
+    chatId,
+    isTemplateLoading,
+    router,
+    selectedModelTier,
+    projectId,
+  ]);
 
   return (
     <ErrorBoundary>
