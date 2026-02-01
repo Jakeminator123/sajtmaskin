@@ -61,6 +61,7 @@ env.procuction
 env.local
 övrigt
 skrapning
+/[{]*.png
 
 # Avoid accidentally committing a nested clone/repo
 sajtgen
