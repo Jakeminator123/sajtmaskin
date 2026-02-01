@@ -110,7 +110,8 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { action, table } = body as { action?: string; table?: string };
+    const { action } = body as { action?: string };
+    const table = (body as { table?: string }).table;
 
     if (action === "clear") {
       const tableMap = {
@@ -128,7 +129,11 @@ export async function POST(req: NextRequest) {
         domain_orders: domainOrders,
       } as const;
 
-      if (!table || !(table in tableMap)) {
+      type TableKey = keyof typeof tableMap;
+      const isTableKey = (value: string): value is TableKey =>
+        Object.prototype.hasOwnProperty.call(tableMap, value);
+
+      if (!table || !isTableKey(table)) {
         return NextResponse.json({ success: false, error: "Invalid table name" }, { status: 400 });
       }
 
