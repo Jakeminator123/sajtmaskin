@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { assertV0Key, v0 } from "@/lib/v0";
 import { createSSEHeaders, formatSSEEvent } from "@/lib/streaming";
 import { db } from "@/lib/db/client";
-import { versions } from "@/lib/db/schema";
+import { chats, versions } from "@/lib/db/schema";
 import { and, eq } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import {
@@ -38,10 +38,46 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
         return NextResponse.json({ error: "Message is required" }, { status: 400 });
       }
 
-      const existingChat = await getChatByV0ChatIdForRequest(req, chatId);
+      let existingChat = await getChatByV0ChatIdForRequest(req, chatId);
+
+      // Fallback: if chat doesn't exist in our DB, create it on-the-fly
+      // This handles cases where the initial chat creation failed to save
       if (!existingChat) {
-        return NextResponse.json({ error: "Chat not found" }, { status: 404 });
+        try {
+          const { ensureProjectForRequest, resolveV0ProjectId } = await import("@/lib/tenant");
+          const v0ProjectId = resolveV0ProjectId({ v0ChatId: chatId });
+          const project = await ensureProjectForRequest({
+            req,
+            v0ProjectId,
+            name: `Chat ${chatId}`,
+          });
+
+          // Create the chat record
+          const newChatId = nanoid();
+          await db.insert(chats).values({
+            id: newChatId,
+            v0ChatId: chatId,
+            v0ProjectId,
+            projectId: project.id,
+          });
+
+          existingChat = {
+            id: newChatId,
+            v0ChatId: chatId,
+            v0ProjectId,
+            projectId: project.id,
+            webUrl: null,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          };
+
+          debugLog("v0", "Created missing chat record on-the-fly", { chatId, newChatId });
+        } catch (createErr) {
+          console.error("Failed to create chat record:", createErr);
+          return NextResponse.json({ error: "Chat not found" }, { status: 404 });
+        }
       }
+
       const internalChatId: string = existingChat.id;
       const requestStartedAt = Date.now();
 
