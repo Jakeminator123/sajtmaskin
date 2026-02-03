@@ -319,15 +319,20 @@ export const REDIS_CONFIG = {
  */
 export const URLS = {
   get baseUrl() {
-    return process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    const raw = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+    const trimmed = raw.trim();
+    const normalized = trimmed.replace(/\/+$/, "");
+    return normalized || "http://localhost:3000";
   },
 
   get googleCallbackUrl() {
-    return `${this.baseUrl}/api/auth/google/callback`;
+    const override = process.env.GOOGLE_REDIRECT_URI?.trim();
+    return override || `${this.baseUrl}/api/auth/google/callback`;
   },
 
   get githubCallbackUrl() {
-    return process.env.GITHUB_REDIRECT_URI || `${this.baseUrl}/api/auth/github/callback`;
+    const override = process.env.GITHUB_REDIRECT_URI?.trim();
+    return override || `${this.baseUrl}/api/auth/github/callback`;
   },
 } as const;
 

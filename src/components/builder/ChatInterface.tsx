@@ -389,13 +389,30 @@ export function ChatInterface({
       }
 
       if (!onCreateChat && !onSendMessage) return;
-      const prompt = buildShadcnBlockPrompt(selection.registryItem, {
+
+      // Build the full technical prompt for v0
+      const technicalPrompt = buildShadcnBlockPrompt(selection.registryItem, {
         style: selection.style,
         displayName: selection.block.title,
         description: selection.block.description,
         dependencyItems: selection.dependencyItems,
       });
-      await sendMessagePayload(prompt, { skipPromptAssist: true, clearDraft: false });
+
+      // Create a user-friendly summary at the start of the message
+      const blockTitle = selection.block.title || selection.registryItem.name;
+      const deps = selection.registryItem.registryDependencies?.length
+        ? ` (${selection.registryItem.registryDependencies.slice(0, 4).join(", ")}${selection.registryItem.registryDependencies.length > 4 ? "..." : ""})`
+        : "";
+
+      // Format: Short user summary + technical instructions for v0
+      // The UI will show the summary, technical details are collapsible
+      const fullMessage = `Lägg till shadcn/ui-block: **${blockTitle}**${deps}
+
+---
+
+${technicalPrompt}`;
+
+      await sendMessagePayload(fullMessage, { skipPromptAssist: true, clearDraft: false });
       setIsShadcnPickerOpen(false);
     } finally {
       setIsDesignSystemAction(false);

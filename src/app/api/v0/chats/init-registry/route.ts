@@ -5,6 +5,7 @@ import { nanoid } from "nanoid";
 import { withRateLimit } from "@/lib/rateLimit";
 import { z } from "zod/v4";
 import { ensureProjectForRequest } from "@/lib/tenant";
+import { ensureSessionIdFromRequest } from "@/lib/auth/session";
 import { initFromRegistry, type QualityLevel } from "@/lib/v0/v0-generator";
 import { isRegistryUrl, parseRegistryUrl } from "@/lib/v0/v0-url-parser";
 
@@ -40,6 +41,14 @@ const initRegistrySchema = z.object({
  * - https://custom-registry.com/r/{component}.json
  */
 export async function POST(req: Request) {
+  const session = ensureSessionIdFromRequest(req);
+  const sessionId = session.sessionId;
+  const attachSessionCookie = (response: Response) => {
+    if (session.setCookie) {
+      response.headers.set("Set-Cookie", session.setCookie);
+    }
+    return response;
+  };
   return withRateLimit(req, "chat:create", async () => {
     try {
       const body = await req.json().catch(() => ({}));
@@ -47,9 +56,11 @@ export async function POST(req: Request) {
       // Validate input
       const validationResult = initRegistrySchema.safeParse(body);
       if (!validationResult.success) {
-        return NextResponse.json(
-          { error: "Validation failed", details: validationResult.error.issues },
-          { status: 400 },
+        return attachSessionCookie(
+          NextResponse.json(
+            { error: "Validation failed", details: validationResult.error.issues },
+            { status: 400 },
+          ),
         );
       }
 
@@ -57,13 +68,15 @@ export async function POST(req: Request) {
 
       // Validate that it's actually a registry URL
       if (!isRegistryUrl(registryUrl)) {
-        return NextResponse.json(
-          {
-            error: "Invalid registry URL",
-            details:
-              "The URL does not appear to be a valid registry URL. Registry URLs typically end with .json and contain /r/ in the path.",
-          },
-          { status: 400 },
+        return attachSessionCookie(
+          NextResponse.json(
+            {
+              error: "Invalid registry URL",
+              details:
+                "The URL does not appear to be a valid registry URL. Registry URLs typically end with .json and contain /r/ in the path.",
+            },
+            { status: 400 },
+          ),
         );
       }
 
@@ -96,6 +109,7 @@ export async function POST(req: Request) {
           req,
           v0ProjectId,
           name: chatName,
+          sessionId,
         });
 
         // Save chat
@@ -125,41 +139,47 @@ export async function POST(req: Request) {
         }
       } catch (dbError) {
         console.error("Failed to save registry chat to database:", dbError);
-        return NextResponse.json(
-          {
-            error: "Failed to save registry chat",
-            details: "Database error while persisting chat metadata.",
-          },
-          { status: 500 },
+        return attachSessionCookie(
+          NextResponse.json(
+            {
+              error: "Failed to save registry chat",
+              details: "Database error while persisting chat metadata.",
+            },
+            { status: 500 },
+          ),
         );
       }
 
       if (!internalChatId) {
-        return NextResponse.json(
-          {
-            error: "Failed to save registry chat",
-            details: "No internal chat ID could be created.",
-          },
-          { status: 500 },
+        return attachSessionCookie(
+          NextResponse.json(
+            {
+              error: "Failed to save registry chat",
+              details: "No internal chat ID could be created.",
+            },
+            { status: 500 },
+          ),
         );
       }
 
-      return NextResponse.json({
-        success: true,
-        chatId: result.chatId,
-        internalChatId,
-        demoUrl: result.demoUrl,
-        versionId: result.versionId,
-        webUrl: result.webUrl,
-        files: result.files,
-        code: result.code,
-        model: result.model,
-        registry: {
-          url: registryUrl,
-          componentName,
-          style: parsed.style,
-        },
-      });
+      return attachSessionCookie(
+        NextResponse.json({
+          success: true,
+          chatId: result.chatId,
+          internalChatId,
+          demoUrl: result.demoUrl,
+          versionId: result.versionId,
+          webUrl: result.webUrl,
+          files: result.files,
+          code: result.code,
+          model: result.model,
+          registry: {
+            url: registryUrl,
+            componentName,
+            style: parsed.style,
+          },
+        }),
+      );
     } catch (err) {
       console.error("Init registry error:", err);
 
@@ -167,35 +187,41 @@ export async function POST(req: Request) {
 
       // Registry not found
       if (msg.toLowerCase().includes("not found") || msg.toLowerCase().includes("404")) {
-        return NextResponse.json(
-          {
-            error: "Registry item not found",
-            details:
-              "The specified registry URL could not be found. Check that the URL is correct.",
-          },
-          { status: 404 },
+        return attachSessionCookie(
+          NextResponse.json(
+            {
+              error: "Registry item not found",
+              details:
+                "The specified registry URL could not be found. Check that the URL is correct.",
+            },
+            { status: 404 },
+          ),
         );
       }
 
       // Rate limit
       if (msg.toLowerCase().includes("rate limit") || msg.toLowerCase().includes("429")) {
-        return NextResponse.json(
-          {
-            error: "Rate limit exceeded",
-            details: "Too many requests. Please wait before trying again.",
-          },
-          { status: 429 },
+        return attachSessionCookie(
+          NextResponse.json(
+            {
+              error: "Rate limit exceeded",
+              details: "Too many requests. Please wait before trying again.",
+            },
+            { status: 429 },
+          ),
         );
       }
 
       // Auth error
       if (msg.toLowerCase().includes("unauthorized") || msg.toLowerCase().includes("401")) {
-        return NextResponse.json(
-          {
-            error: "Authentication failed",
-            details: "V0_API_KEY is missing or invalid.",
-          },
-          { status: 401 },
+        return attachSessionCookie(
+          NextResponse.json(
+            {
+              error: "Authentication failed",
+              details: "V0_API_KEY is missing or invalid.",
+            },
+            { status: 401 },
+          ),
         );
       }
 
@@ -206,16 +232,20 @@ export async function POST(req: Request) {
         msg.includes("503") ||
         msg.includes("504")
       ) {
-        return NextResponse.json(
-          {
-            error: "v0 API temporarily unavailable",
-            details: "The v0 service is experiencing issues. Please try again.",
-          },
-          { status: 503 },
+        return attachSessionCookie(
+          NextResponse.json(
+            {
+              error: "v0 API temporarily unavailable",
+              details: "The v0 service is experiencing issues. Please try again.",
+            },
+            { status: 503 },
+          ),
         );
       }
 
-      return NextResponse.json({ error: msg || "Unknown error" }, { status: 500 });
+      return attachSessionCookie(
+        NextResponse.json({ error: msg || "Unknown error" }, { status: 500 }),
+      );
     }
   });
 }

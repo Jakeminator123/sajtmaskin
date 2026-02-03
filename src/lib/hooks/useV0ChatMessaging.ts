@@ -151,11 +151,7 @@ function mergeStreamingText(previous: string, incoming: string): string {
   const last = previous.slice(-1);
   const first = incoming[0];
   const needsSpace =
-    last &&
-    first &&
-    /[.!?:;]$/.test(last) &&
-    /[A-Za-z0-9]/.test(first) &&
-    !/\s/.test(first);
+    last && first && /[.!?:;]$/.test(last) && /[A-Za-z0-9]/.test(first) && !/\s/.test(first);
 
   return needsSpace ? `${previous} ${incoming}` : previous + incoming;
 }
@@ -753,6 +749,7 @@ export function useV0ChatMessaging(params: {
           let chatIdFromStream: string | null = null;
           let accumulatedThinking = "";
           let accumulatedContent = "";
+          let didReceiveDone = false;
 
           await consumeSseResponse(response, (event, data) => {
             switch (event) {
@@ -836,6 +833,7 @@ export function useV0ChatMessaging(params: {
                 break;
               }
               case "done": {
+                didReceiveDone = true;
                 const doneData = typeof data === "object" && data ? (data as any) : {};
                 if (doneData.demoUrl) {
                   setCurrentDemoUrl(doneData.demoUrl);
@@ -848,8 +846,12 @@ export function useV0ChatMessaging(params: {
                   doneData.latestVersion?.id ||
                   doneData.latestVersion?.versionId ||
                   null;
-                if (resolvedChatId && !chatIdFromStream) {
-                  const nextId = String(resolvedChatId);
+                if (!resolvedChatId) {
+                  throw new Error("No chat ID returned from stream");
+                }
+                const nextId = String(resolvedChatId);
+                if (!chatIdFromStream) {
+                  chatIdFromStream = nextId;
                   setChatId(nextId);
                   if (chatIdParam !== nextId) {
                     const params = new URLSearchParams();
@@ -860,8 +862,8 @@ export function useV0ChatMessaging(params: {
                     router.replace(`/builder?${params.toString()}`);
                   }
                 }
-                if (resolvedChatId && pendingCreateKeyRef.current) {
-                  updateCreateChatLockChatId(pendingCreateKeyRef.current, String(resolvedChatId));
+                if (pendingCreateKeyRef.current) {
+                  updateCreateChatLockChatId(pendingCreateKeyRef.current, nextId);
                 }
                 setMessages((prev) =>
                   prev.map((m) => (m.id === assistantMessageId ? { ...m, isStreaming: false } : m)),
@@ -870,7 +872,7 @@ export function useV0ChatMessaging(params: {
                 mutateVersions();
                 // Call generation complete callback with available data
                 onGenerationComplete?.({
-                  chatId: doneData.chatId || doneData.id || chatIdFromStream || "",
+                  chatId: nextId,
                   versionId: doneData.versionId,
                   demoUrl: doneData.demoUrl,
                 });
@@ -892,6 +894,10 @@ export function useV0ChatMessaging(params: {
               }
             }
           });
+
+          if (!chatIdFromStream && !didReceiveDone) {
+            throw new Error("No chat ID returned from stream");
+          }
 
           // Ensure isStreaming is false even if stream ends without "done" event (fail-safe)
           setMessages((prev) => {

@@ -232,6 +232,18 @@ export function getSessionIdFromRequest(request: Request): string | null {
   return null;
 }
 
+export function ensureSessionIdFromRequest(request: Request): {
+  sessionId: string;
+  setCookie: string | null;
+} {
+  const existing = getSessionIdFromRequest(request);
+  if (existing) {
+    return { sessionId: existing, setCookie: null };
+  }
+  const sessionId = generateSessionId();
+  return { sessionId, setCookie: createSessionCookie(sessionId) };
+}
+
 /**
  * Create session cookie value for Set-Cookie header
  */
