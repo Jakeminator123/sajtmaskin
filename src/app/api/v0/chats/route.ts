@@ -9,21 +9,32 @@ import { ensureProjectForRequest, resolveV0ProjectId, generateProjectName } from
 import { requireNotBot } from "@/lib/botProtection";
 import { debugLog } from "@/lib/utils/debug";
 import { sanitizeV0Metadata } from "@/lib/v0/sanitize-metadata";
+import { ensureSessionIdFromRequest } from "@/lib/auth/session";
 
 export async function POST(req: Request) {
+  const session = ensureSessionIdFromRequest(req);
+  const sessionId = session.sessionId;
+  const attachSessionCookie = (response: Response) => {
+    if (session.setCookie) {
+      response.headers.set("Set-Cookie", session.setCookie);
+    }
+    return response;
+  };
   return withRateLimit(req, "chat:create", async () => {
     try {
       const botError = requireNotBot(req);
-      if (botError) return botError;
+      if (botError) return attachSessionCookie(botError);
 
       assertV0Key();
 
       const body = await req.json().catch(() => ({}));
       const validationResult = createChatSchema.safeParse(body);
       if (!validationResult.success) {
-        return NextResponse.json(
-          { error: "Validation failed", details: validationResult.error.issues },
-          { status: 400 },
+        return attachSessionCookie(
+          NextResponse.json(
+            { error: "Validation failed", details: validationResult.error.issues },
+            { status: 400 },
+          ),
         );
       }
 
@@ -77,7 +88,7 @@ export async function POST(req: Request) {
           result && typeof result === "object" && "id" in result ? (result as any) : null;
         const v0ChatId: string | null = chatResult?.id || null;
         if (!v0ChatId) {
-          return NextResponse.json(result);
+          return attachSessionCookie(NextResponse.json(result));
         }
 
         internalChatId = nanoid();
@@ -98,6 +109,7 @@ export async function POST(req: Request) {
             req,
             v0ProjectId,
             name: projectName,
+            sessionId,
           });
           internalProjectId = project.id;
         } catch {
@@ -131,14 +143,18 @@ export async function POST(req: Request) {
         console.error("Failed to save chat to database:", dbError);
       }
 
-      return NextResponse.json({
-        ...result,
-        internalChatId,
-      });
+      return attachSessionCookie(
+        NextResponse.json({
+          ...result,
+          internalChatId,
+        }),
+      );
     } catch (err) {
-      return NextResponse.json(
-        { error: err instanceof Error ? err.message : "Unknown error" },
-        { status: 500 },
+      return attachSessionCookie(
+        NextResponse.json(
+          { error: err instanceof Error ? err.message : "Unknown error" },
+          { status: 500 },
+        ),
       );
     }
   });

@@ -17,6 +17,7 @@ import {
 import { resolveLatestVersion } from "@/lib/v0/resolve-latest-version";
 import { withRateLimit } from "@/lib/rateLimit";
 import { getChatByV0ChatIdForRequest } from "@/lib/tenant";
+import { ensureSessionIdFromRequest } from "@/lib/auth/session";
 import { devLogAppend } from "@/lib/logging/devLog";
 import { debugLog, errorLog } from "@/lib/utils/debug";
 import { sanitizeV0Metadata } from "@/lib/v0/sanitize-metadata";
@@ -26,6 +27,14 @@ export const maxDuration = 300;
 
 export async function POST(req: Request, ctx: { params: Promise<{ chatId: string }> }) {
   const requestId = req.headers.get("x-vercel-id") || "unknown";
+  const session = ensureSessionIdFromRequest(req);
+  const sessionId = session.sessionId;
+  const attachSessionCookie = (response: Response) => {
+    if (session.setCookie) {
+      response.headers.set("Set-Cookie", session.setCookie);
+    }
+    return response;
+  };
   return withRateLimit(req, "message:send", async () => {
     try {
       assertV0Key();
@@ -35,10 +44,12 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
       const { message, attachments } = body;
 
       if (!message) {
-        return NextResponse.json({ error: "Message is required" }, { status: 400 });
+        return attachSessionCookie(
+          NextResponse.json({ error: "Message is required" }, { status: 400 }),
+        );
       }
 
-      let existingChat = await getChatByV0ChatIdForRequest(req, chatId);
+      let existingChat = await getChatByV0ChatIdForRequest(req, chatId, { sessionId });
 
       // Fallback: if chat doesn't exist in our DB, create it on-the-fly
       // This handles cases where the initial chat creation failed to save
@@ -50,31 +61,54 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
             req,
             v0ProjectId,
             name: `Chat ${chatId}`,
+            sessionId,
           });
 
-          // Create the chat record
+          // Create the chat record with conflict handling for concurrent requests
           const newChatId = nanoid();
-          await db.insert(chats).values({
-            id: newChatId,
-            v0ChatId: chatId,
-            v0ProjectId,
-            projectId: project.id,
-          });
+          const insertResult = await db
+            .insert(chats)
+            .values({
+              id: newChatId,
+              v0ChatId: chatId,
+              v0ProjectId,
+              projectId: project.id,
+            })
+            .onConflictDoNothing({ target: chats.v0ChatId })
+            .returning({ id: chats.id, v0ChatId: chats.v0ChatId, v0ProjectId: chats.v0ProjectId });
 
-          existingChat = {
-            id: newChatId,
-            v0ChatId: chatId,
-            v0ProjectId,
-            projectId: project.id,
-            webUrl: null,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-          };
-
-          debugLog("v0", "Created missing chat record on-the-fly", { chatId, newChatId });
+          if (insertResult.length > 0) {
+            // Insert succeeded
+            existingChat = {
+              id: insertResult[0].id,
+              v0ChatId: insertResult[0].v0ChatId,
+              v0ProjectId: insertResult[0].v0ProjectId,
+              projectId: project.id,
+              webUrl: null,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            };
+            debugLog("v0", "Created missing chat record on-the-fly", { chatId, newChatId });
+          } else {
+            // Conflict - chat was created by another concurrent request, fetch it
+            existingChat = await getChatByV0ChatIdForRequest(req, chatId, { sessionId });
+            if (!existingChat) {
+              // Still not found (shouldn't happen, but handle gracefully)
+              console.error("Chat exists but not accessible after conflict", { chatId });
+              return attachSessionCookie(
+                NextResponse.json({ error: "Chat not found" }, { status: 404 }),
+              );
+            }
+            debugLog("v0", "Used existing chat after concurrent creation", {
+              chatId,
+              existingId: existingChat.id,
+            });
+          }
         } catch (createErr) {
           console.error("Failed to create chat record:", createErr);
-          return NextResponse.json({ error: "Chat not found" }, { status: 404 });
+          return attachSessionCookie(
+            NextResponse.json({ error: "Chat not found" }, { status: 404 }),
+          );
         }
       }
 
@@ -327,7 +361,8 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
           },
         });
 
-        return new Response(stream, { headers: createSSEHeaders() });
+        const headers = new Headers(createSSEHeaders());
+        return attachSessionCookie(new Response(stream, { headers }));
       }
 
       const messageResult = result as any;
@@ -361,20 +396,25 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
         }
       }
 
-      return new Response(
-        formatSSEEvent("done", {
-          chatId,
-          messageId: messageResult.messageId || null,
-          versionId,
-          demoUrl,
-        }),
-        { headers: createSSEHeaders() },
+      const headers = new Headers(createSSEHeaders());
+      return attachSessionCookie(
+        new Response(
+          formatSSEEvent("done", {
+            chatId,
+            messageId: messageResult.messageId || null,
+            versionId,
+            demoUrl,
+          }),
+          { headers },
+        ),
       );
     } catch (err) {
       errorLog("v0", `Send message error (requestId=${requestId})`, err);
-      return NextResponse.json(
-        { error: err instanceof Error ? err.message : "Unknown error" },
-        { status: 500 },
+      return attachSessionCookie(
+        NextResponse.json(
+          { error: err instanceof Error ? err.message : "Unknown error" },
+          { status: 500 },
+        ),
       );
     }
   });

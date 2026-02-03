@@ -19,6 +19,7 @@ import { resolveLatestVersion } from "@/lib/v0/resolve-latest-version";
 import { nanoid } from "nanoid";
 import { NextResponse } from "next/server";
 import { withRateLimit } from "@/lib/rateLimit";
+import { ensureSessionIdFromRequest } from "@/lib/auth/session";
 import {
   ensureProjectForRequest,
   resolveV0ProjectId,
@@ -35,10 +36,18 @@ export const maxDuration = 300;
 
 export async function POST(req: Request) {
   const requestId = req.headers.get("x-vercel-id") || "unknown";
+  const session = ensureSessionIdFromRequest(req);
+  const sessionId = session.sessionId;
+  const attachSessionCookie = (response: Response) => {
+    if (session.setCookie) {
+      response.headers.set("Set-Cookie", session.setCookie);
+    }
+    return response;
+  };
   return withRateLimit(req, "chat:create", async () => {
     try {
       const botError = requireNotBot(req);
-      if (botError) return botError;
+      if (botError) return attachSessionCookie(botError);
 
       assertV0Key();
 
@@ -48,9 +57,11 @@ export async function POST(req: Request) {
 
       const validationResult = createChatSchema.safeParse(body);
       if (!validationResult.success) {
-        return NextResponse.json(
-          { error: "Validation failed", details: validationResult.error.issues },
-          { status: 400 },
+        return attachSessionCookie(
+          NextResponse.json(
+            { error: "Validation failed", details: validationResult.error.issues },
+            { status: 400 },
+          ),
         );
       }
 
@@ -233,6 +244,7 @@ export async function POST(req: Request) {
                         req,
                         v0ProjectId: v0ProjectIdEffective,
                         name: projectName,
+                        sessionId,
                       });
                       internalProjectId = ensured.id;
 
@@ -252,7 +264,9 @@ export async function POST(req: Request) {
 
                       // If insert was skipped due to conflict, fetch the existing chat
                       if (insertResult.length === 0) {
-                        const existingChat = await getChatByV0ChatIdForRequest(req, v0ChatId);
+                        const existingChat = await getChatByV0ChatIdForRequest(req, v0ChatId, {
+                          sessionId,
+                        });
                         if (existingChat) {
                           internalChatId = existingChat.id;
                         } else {
@@ -298,7 +312,14 @@ export async function POST(req: Request) {
                   const finalDemoUrl = demoUrl || lastDemoUrl;
                   const finalVersionId = versionId || lastVersionId;
 
-                  if (!didSendDone && (isDoneEvent || finalDemoUrl)) {
+                  // Send "done" only when we have meaningful data:
+                  // - If we see a demoUrl, send done immediately (preview is ready)
+                  // - If we see a done event from v0 WITH version info, send done
+                  // - If done event without demoUrl/version, wait for finally block to resolve
+                  const hasMeaningfulData = finalDemoUrl || finalVersionId;
+                  const shouldSendDone = finalDemoUrl || (isDoneEvent && hasMeaningfulData);
+
+                  if (!didSendDone && shouldSendDone) {
                     didSendDone = true;
                     safeEnqueue(
                       encoder.encode(
@@ -366,6 +387,17 @@ export async function POST(req: Request) {
                 reader.releaseLock();
               } catch {
                 // Reader may already be released
+              }
+
+              if (!didSendDone && !v0ChatId) {
+                didSendDone = true;
+                safeEnqueue(
+                  encoder.encode(
+                    formatSSEEvent("error", {
+                      message: "No chat ID returned from stream. Please retry.",
+                    }),
+                  ),
+                );
               }
 
               if (!didSendDone && v0ChatId) {
@@ -441,7 +473,8 @@ export async function POST(req: Request) {
           },
         });
 
-        return new Response(stream, { headers: createSSEHeaders() });
+        const headers = new Headers(createSSEHeaders());
+        return attachSessionCookie(new Response(stream, { headers }));
       }
 
       const chatData = result as any;
@@ -466,6 +499,7 @@ export async function POST(req: Request) {
             req,
             v0ProjectId,
             name: projectName,
+            sessionId,
           });
           internalProjectId = project.id;
         } catch {
@@ -494,12 +528,14 @@ export async function POST(req: Request) {
         console.error("Failed to save chat to database:", dbError);
       }
 
-      return NextResponse.json(chatData);
+      return attachSessionCookie(NextResponse.json(chatData));
     } catch (err) {
       errorLog("v0", `Create chat error (requestId=${requestId})`, err);
-      return NextResponse.json(
-        { error: err instanceof Error ? err.message : "Unknown error" },
-        { status: 500 },
+      return attachSessionCookie(
+        NextResponse.json(
+          { error: err instanceof Error ? err.message : "Unknown error" },
+          { status: 500 },
+        ),
       );
     }
   });

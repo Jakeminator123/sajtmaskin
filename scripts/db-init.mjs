@@ -86,6 +86,16 @@ const setupQueries = [
     created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
     updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
   )`,
+  `CREATE TABLE IF NOT EXISTS prompt_handoffs (
+    id TEXT PRIMARY KEY,
+    prompt TEXT NOT NULL,
+    source TEXT,
+    project_id TEXT,
+    user_id TEXT,
+    session_id TEXT,
+    consumed_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
+  )`,
   `CREATE TABLE IF NOT EXISTS project_data (
     project_id TEXT PRIMARY KEY REFERENCES app_projects(id) ON DELETE CASCADE,
     chat_id TEXT,
@@ -244,6 +254,8 @@ const setupQueries = [
 ];
 
 const schemaQueries = [
+  // Critical: unique constraint required for upsert in tenant.ts
+  `CREATE UNIQUE INDEX IF NOT EXISTS projects_user_v0project_idx ON projects(user_id, v0_project_id)`,
   `CREATE INDEX IF NOT EXISTS idx_versions_chat_id ON versions(chat_id)`,
   `ALTER TABLE versions ADD COLUMN IF NOT EXISTS pinned BOOLEAN DEFAULT FALSE`,
   `ALTER TABLE versions ADD COLUMN IF NOT EXISTS pinned_at TIMESTAMPTZ`,
@@ -251,6 +263,8 @@ const schemaQueries = [
   `CREATE INDEX IF NOT EXISTS idx_deployments_vercel_deployment_id ON deployments(vercel_deployment_id)`,
   `CREATE INDEX IF NOT EXISTS idx_app_projects_user_id ON app_projects(user_id)`,
   `CREATE INDEX IF NOT EXISTS idx_app_projects_session_id ON app_projects(session_id)`,
+  `CREATE INDEX IF NOT EXISTS idx_prompt_handoffs_created_at ON prompt_handoffs(created_at)`,
+  `CREATE INDEX IF NOT EXISTS idx_prompt_handoffs_consumed_at ON prompt_handoffs(consumed_at)`,
   `CREATE INDEX IF NOT EXISTS idx_project_data_project_id ON project_data(project_id)`,
   `CREATE INDEX IF NOT EXISTS idx_media_library_user_id ON media_library(user_id)`,
   `CREATE INDEX IF NOT EXISTS idx_media_library_project_id ON media_library(project_id)`,

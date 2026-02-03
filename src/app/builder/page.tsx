@@ -405,7 +405,7 @@ function BuilderContent() {
     }
   }, [source, promptId]);
 
-  const { chat } = useChat(chatId);
+  const { chat, mutate: mutateChat } = useChat(chatId);
   const { versions, mutate: mutateVersions } = useVersions(chatId);
   type VersionSummary = {
     id?: string | null;
@@ -470,11 +470,31 @@ function BuilderContent() {
     }
   }, [chatId]);
 
+  // Sync demoUrl from chat or versions when available (fallback if stream didn't provide it)
   useEffect(() => {
-    if (chat?.demoUrl && !currentDemoUrl) {
-      setCurrentDemoUrl(chat.demoUrl);
+    if (currentDemoUrl) return; // Already have a demoUrl
+
+    // Try chat.demoUrl first (comes from latest version in API)
+    const chatDemoUrl = chat?.demoUrl;
+    if (chatDemoUrl) {
+      setCurrentDemoUrl(chatDemoUrl);
+      return;
     }
-  }, [chat, currentDemoUrl]);
+
+    // Try chat.latestVersion.demoUrl
+    const latestVersionDemoUrl = (chat as { latestVersion?: { demoUrl?: string | null } } | null)
+      ?.latestVersion?.demoUrl;
+    if (latestVersionDemoUrl) {
+      setCurrentDemoUrl(latestVersionDemoUrl);
+      return;
+    }
+
+    // Try first version in versionsList
+    const firstVersionDemoUrl = versionsList[0]?.demoUrl;
+    if (firstVersionDemoUrl) {
+      setCurrentDemoUrl(firstVersionDemoUrl);
+    }
+  }, [chat, currentDemoUrl, versionsList]);
 
   const latestVersionId = useMemo(() => {
     const latestFromVersions = versionsList[0]?.versionId || versionsList[0]?.id || null;
@@ -646,6 +666,13 @@ function BuilderContent() {
         validateCss(data.chatId, data.versionId).catch((err) => {
           console.warn("[CSS Validation] Failed:", err);
         });
+        // Refetch chat data to get demoUrl if stream didn't provide it
+        if (!data.demoUrl) {
+          setTimeout(() => {
+            mutateChat();
+            mutateVersions();
+          }, 1000); // Small delay to let DB update
+        }
       }
       if (projectId && data.chatId) {
         saveProjectData(projectId, {
@@ -656,7 +683,7 @@ function BuilderContent() {
         });
       }
     },
-    [applyInstructionsOnce, validateCss, projectId],
+    [applyInstructionsOnce, validateCss, projectId, mutateChat, mutateVersions],
   );
 
   const { isCreatingChat, createNewChat, sendMessage } = useV0ChatMessaging({

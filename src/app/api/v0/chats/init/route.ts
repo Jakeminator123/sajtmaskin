@@ -7,6 +7,7 @@ import { withRateLimit } from "@/lib/rateLimit";
 import { z } from "zod/v4";
 import { ensureProjectForRequest } from "@/lib/tenant";
 import { getCurrentUser } from "@/lib/auth/auth";
+import { ensureSessionIdFromRequest } from "@/lib/auth/session";
 import { sanitizeV0Metadata } from "@/lib/v0/sanitize-metadata";
 
 export const runtime = "nodejs";
@@ -159,6 +160,14 @@ const initChatSchema = z.object({
 });
 
 export async function POST(req: Request) {
+  const session = ensureSessionIdFromRequest(req);
+  const sessionId = session.sessionId;
+  const attachSessionCookie = (response: Response) => {
+    if (session.setCookie) {
+      response.headers.set("Set-Cookie", session.setCookie);
+    }
+    return response;
+  };
   return withRateLimit(req, "chat:create", async () => {
     try {
       assertV0Key();
@@ -167,9 +176,11 @@ export async function POST(req: Request) {
 
       const validationResult = initChatSchema.safeParse(body);
       if (!validationResult.success) {
-        return NextResponse.json(
-          { error: "Validation failed", details: validationResult.error.issues },
-          { status: 400 },
+        return attachSessionCookie(
+          NextResponse.json(
+            { error: "Validation failed", details: validationResult.error.issues },
+            { status: 400 },
+          ),
         );
       }
 
@@ -209,19 +220,25 @@ export async function POST(req: Request) {
 
         if (preferZip || (isPrivate && githubToken)) {
           if (!repoRef) {
-            return NextResponse.json({ error: "Invalid GitHub repository URL" }, { status: 400 });
+            return attachSessionCookie(
+              NextResponse.json({ error: "Invalid GitHub repository URL" }, { status: 400 }),
+            );
           }
           if (!resolvedBranch) {
-            return NextResponse.json(
-              { error: "Branch is required for ZIP import. Please specify a branch." },
-              { status: 400 },
+            return attachSessionCookie(
+              NextResponse.json(
+                { error: "Branch is required for ZIP import. Please specify a branch." },
+                { status: 400 },
+              ),
             );
           }
           if (isPrivate) {
             if (!githubToken) {
-              return NextResponse.json(
-                { error: "Connect GitHub to import private repositories." },
-                { status: 401 },
+              return attachSessionCookie(
+                NextResponse.json(
+                  { error: "Connect GitHub to import private repositories." },
+                  { status: 401 },
+                ),
               );
             }
             const zip = await downloadGithubZipBase64({
@@ -326,6 +343,7 @@ export async function POST(req: Request) {
             req,
             v0ProjectId,
             name: importName,
+            sessionId,
           });
           internalProjectId = project.id;
         }
@@ -360,17 +378,21 @@ export async function POST(req: Request) {
         console.error("Failed to save init chat to database:", dbError);
       }
 
-      return NextResponse.json({
-        ...result,
-        internalChatId,
-        source: source.type,
-        lockedFiles: configLockedFiles,
-      });
+      return attachSessionCookie(
+        NextResponse.json({
+          ...result,
+          internalChatId,
+          source: source.type,
+          lockedFiles: configLockedFiles,
+        }),
+      );
     } catch (err) {
       console.error("Init chat error:", err);
-      return NextResponse.json(
-        { error: err instanceof Error ? err.message : "Unknown error" },
-        { status: 500 },
+      return attachSessionCookie(
+        NextResponse.json(
+          { error: err instanceof Error ? err.message : "Unknown error" },
+          { status: 500 },
+        ),
       );
     }
   });

@@ -156,35 +156,84 @@ function collectKeyedStrings(value: unknown, keys: Set<string>, acc: string[]): 
   }
 }
 
-export function extractChatId(parsed: unknown, currentEvent?: string): string | null {
-  if (!parsed || typeof parsed !== "object") return null;
+function hasChatHints(obj: Record<string, unknown>, eventHint: string): boolean {
+  return (
+    eventHint.includes("chat") ||
+    typeof obj.webUrl === "string" ||
+    typeof obj.url === "string" ||
+    typeof obj.projectId === "string" ||
+    typeof obj.project_id === "string" ||
+    typeof obj.chatPrivacy === "string" ||
+    typeof obj.chat_privacy === "string" ||
+    typeof obj.privacy === "string" ||
+    typeof obj.shareable === "boolean" ||
+    typeof obj.title === "string" ||
+    typeof obj.modelId === "string" ||
+    typeof obj.model_id === "string" ||
+    typeof obj.modelConfiguration === "object" ||
+    typeof obj.latestVersion === "object" ||
+    obj.object === "chat"
+  );
+}
 
-  const obj = parsed as any;
-  const explicitCandidates = [obj.chatId, obj.chat_id, obj.chat?.id];
+function extractChatIdFromObject(value: unknown, eventHint: string): string | null {
+  if (!value || typeof value !== "object") return null;
+  const obj = value as any;
+  const explicitCandidates = [
+    obj.chatId,
+    obj.chat_id,
+    obj.chat?.id,
+    obj.data?.chatId,
+    obj.data?.chat_id,
+    obj.data?.chat?.id,
+  ];
   for (const c of explicitCandidates) {
     if (looksLikeV0ChatId(c)) return c;
   }
 
-  if (looksLikeV0ChatId(obj.id)) {
-    const eventHint = (currentEvent || "").toLowerCase();
-    const hasChatHints =
-      eventHint.includes("chat") ||
-      typeof obj.webUrl === "string" ||
-      typeof obj.url === "string" ||
-      typeof obj.projectId === "string" ||
-      typeof obj.project_id === "string" ||
-      typeof obj.chatPrivacy === "string" ||
-      typeof obj.chat_privacy === "string" ||
-      typeof obj.privacy === "string" ||
-      typeof obj.shareable === "boolean" ||
-      typeof obj.title === "string" ||
-      typeof obj.modelId === "string" ||
-      typeof obj.model_id === "string" ||
-      typeof obj.modelConfiguration === "object" ||
-      typeof obj.latestVersion === "object" ||
-      obj.object === "chat";
+  if (looksLikeV0ChatId(obj.id) && hasChatHints(obj as Record<string, unknown>, eventHint)) {
+    return obj.id;
+  }
 
-    if (hasChatHints) return obj.id;
+  return null;
+}
+
+export function extractChatId(parsed: unknown, currentEvent?: string): string | null {
+  if (!parsed) return null;
+  const eventHint = (currentEvent || "").toLowerCase();
+
+  if (Array.isArray(parsed)) {
+    for (const item of parsed) {
+      const found = extractChatId(item, currentEvent);
+      if (found) return found;
+    }
+    return null;
+  }
+
+  if (typeof parsed !== "object") return null;
+
+  const direct = extractChatIdFromObject(parsed, eventHint);
+  if (direct) return direct;
+
+  const obj = parsed as Record<string, unknown>;
+  const nestedCandidates = [
+    obj.data,
+    obj.payload,
+    obj.result,
+    obj.message,
+    obj.delta,
+    obj.chat,
+    obj.latestChat,
+  ];
+  for (const candidate of nestedCandidates) {
+    const found = extractChatIdFromObject(candidate, eventHint);
+    if (found) return found;
+  }
+
+  const nested: string[] = [];
+  collectKeyedStrings(obj, new Set(["chatId", "chat_id"]), nested);
+  for (const value of nested) {
+    if (looksLikeV0ChatId(value)) return value;
   }
 
   return null;

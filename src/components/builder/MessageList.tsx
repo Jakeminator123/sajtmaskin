@@ -30,7 +30,8 @@ import { CodeBlock } from "@/components/ai-elements/code-block";
 import { toAIElementsFormat, hasToolData } from "@/lib/builder/messageAdapter";
 import type { MessagePart } from "@/lib/builder/messageAdapter";
 import type { ChatMessage } from "@/lib/builder/types";
-import { MessageSquare } from "lucide-react";
+import { ChevronDown, ChevronUp, MessageSquare } from "lucide-react";
+import { useState } from "react";
 import type { ToolUIPart } from "ai";
 
 interface MessageListProps {
@@ -368,7 +369,7 @@ export function MessageList({
                     <span className="text-sm text-gray-500">Ansluter...</span>
                   ) : null
                 ) : (
-                  <p className="text-sm whitespace-pre-wrap text-white">{textContent}</p>
+                  <CollapsibleUserMessage content={textContent} />
                 )}
 
                 {showStructuredParts && message.role === "assistant" && sources.length > 0 && (
@@ -392,6 +393,60 @@ export function MessageList({
       </ConversationContent>
       <ConversationScrollButton />
     </Conversation>
+  );
+}
+
+/**
+ * CollapsibleUserMessage - Truncates long user messages (especially shadcn/ui block prompts)
+ * Shows first few lines with expand button for long technical messages.
+ */
+function CollapsibleUserMessage({ content }: { content: string }) {
+  const [isExpanded, setIsExpanded] = useState(false);
+
+  // Check if this is a long technical message (shadcn block prompt pattern)
+  const isTechnicalPrompt = content.includes("---") && content.includes("Registry files");
+  const lineCount = content.split("\n").length;
+  const charCount = content.length;
+
+  // Only collapse if message is long (>500 chars or >10 lines) and contains technical content
+  const shouldCollapse = isTechnicalPrompt && (charCount > 500 || lineCount > 10);
+
+  if (!shouldCollapse) {
+    return <p className="text-sm whitespace-pre-wrap text-white">{content}</p>;
+  }
+
+  // Extract summary line (first line before ---)
+  const lines = content.split("\n");
+  const summaryEndIndex = lines.findIndex((line) => line.trim() === "---");
+  const summaryLines = summaryEndIndex > 0 ? lines.slice(0, summaryEndIndex) : lines.slice(0, 3);
+  const summary = summaryLines.join("\n").trim();
+
+  if (isExpanded) {
+    return (
+      <div className="space-y-2">
+        <p className="text-sm whitespace-pre-wrap text-white">{content}</p>
+        <button
+          onClick={() => setIsExpanded(false)}
+          className="text-muted-foreground hover:text-foreground flex items-center gap-1 text-xs"
+        >
+          <ChevronUp className="h-3 w-3" />
+          Dölj detaljer
+        </button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-2">
+      <p className="text-sm whitespace-pre-wrap text-white">{summary}</p>
+      <button
+        onClick={() => setIsExpanded(true)}
+        className="text-muted-foreground hover:text-foreground flex items-center gap-1 text-xs"
+      >
+        <ChevronDown className="h-3 w-3" />
+        Visa tekniska instruktioner ({lineCount} rader)
+      </button>
+    </div>
   );
 }
 

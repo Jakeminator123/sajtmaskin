@@ -2,7 +2,7 @@ import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { chats, projects } from "@/lib/db/schema";
 import { nanoid } from "nanoid";
-import { getCurrentUser } from "@/lib/auth/auth";
+import { getCurrentUser, getTokenFromRequest } from "@/lib/auth/auth";
 import { getSessionIdFromRequest } from "@/lib/auth/session";
 
 /**
@@ -32,26 +32,79 @@ export function generateProjectName(params: {
   return clientProjectId ? `Project ${clientProjectId}` : `Chat ${v0ChatId}`;
 }
 
-export async function getRequestUserId(req: Request): Promise<string | null> {
+const AUTH_DEBUG_ENABLED = process.env.NODE_ENV !== "production" && process.env.AUTH_DEBUG === "1";
+
+function maskId(value: string): string {
+  if (value.length <= 8) return value;
+  return `${value.slice(0, 4)}...${value.slice(-4)}`;
+}
+
+function logAuthDebug(event: string, details: Record<string, unknown>): void {
+  if (!AUTH_DEBUG_ENABLED) return;
+  try {
+    console.log("[auth-debug]", event, details);
+  } catch {
+    // ignore logging errors
+  }
+}
+
+export async function getRequestUserId(
+  req: Request,
+  options?: { sessionId?: string },
+): Promise<string | null> {
+  const token = AUTH_DEBUG_ENABLED ? getTokenFromRequest(req) : null;
   try {
     const user = await getCurrentUser(req);
-    if (user?.id) return user.id;
-  } catch {
+    if (user?.id) {
+      if (AUTH_DEBUG_ENABLED) {
+        logAuthDebug("auth", { userId: maskId(user.id), hasToken: Boolean(token) });
+      }
+      return user.id;
+    }
+  } catch (error) {
+    if (AUTH_DEBUG_ENABLED) {
+      logAuthDebug("auth-error", {
+        message: error instanceof Error ? error.message : "Unknown error",
+        hasToken: Boolean(token),
+      });
+    }
     // ignore auth errors, fall back to headers/session
+  }
+
+  if (AUTH_DEBUG_ENABLED && token) {
+    logAuthDebug("auth-miss", { reason: "token-present-but-no-user" });
   }
 
   const headerUserId = req.headers.get("x-user-id");
   const trimmed = headerUserId ? headerUserId.trim() : "";
-  if (trimmed.length > 0) return trimmed;
+  if (trimmed.length > 0) {
+    if (AUTH_DEBUG_ENABLED) {
+      logAuthDebug("header", { userId: maskId(trimmed) });
+    }
+    return trimmed;
+  }
 
-  const sessionId = getSessionIdFromRequest(req);
-  if (sessionId) return `guest:${sessionId}`;
+  const sessionId = options?.sessionId ?? getSessionIdFromRequest(req);
+  if (sessionId) {
+    if (AUTH_DEBUG_ENABLED) {
+      logAuthDebug("guest", { sessionId: maskId(sessionId) });
+    }
+    return `guest:${sessionId}`;
+  }
+
+  if (AUTH_DEBUG_ENABLED) {
+    logAuthDebug("missing", { hasToken: Boolean(token) });
+  }
 
   return null;
 }
 
-export async function getChatByV0ChatIdForRequest(req: Request, v0ChatId: string) {
-  const userId = await getRequestUserId(req);
+export async function getChatByV0ChatIdForRequest(
+  req: Request,
+  v0ChatId: string,
+  options?: { sessionId?: string },
+) {
+  const userId = await getRequestUserId(req, options);
 
   if (!userId) {
     const rows = await db
@@ -73,8 +126,12 @@ export async function getChatByV0ChatIdForRequest(req: Request, v0ChatId: string
   return rows[0]?.chat ?? null;
 }
 
-export async function getChatByIdForRequest(req: Request, chatId: string) {
-  const userId = await getRequestUserId(req);
+export async function getChatByIdForRequest(
+  req: Request,
+  chatId: string,
+  options?: { sessionId?: string },
+) {
+  const userId = await getRequestUserId(req, options);
 
   if (!userId) {
     const rows = await db
@@ -100,8 +157,9 @@ export async function ensureProjectForRequest(params: {
   req: Request;
   v0ProjectId: string;
   name?: string | null;
+  sessionId?: string;
 }): Promise<{ id: string; v0ProjectId: string }> {
-  const userId = await getRequestUserId(params.req);
+  const userId = await getRequestUserId(params.req, { sessionId: params.sessionId });
   const v0ProjectId = params.v0ProjectId.trim();
   if (!v0ProjectId) {
     throw new Error("Missing v0ProjectId");
