@@ -20,7 +20,7 @@
  *   but produces more thorough results for complex projects.
  */
 
-import type { PromptAssistProvider } from "./promptAssist";
+import { GATEWAY_ASSIST_MODELS, V0_ASSIST_MODELS } from "./promptAssist";
 import type { ModelTier } from "@/lib/validations/chatSchemas";
 
 // ============================================
@@ -60,51 +60,30 @@ export const DEFAULT_MODEL_TIER: ModelTier = "v0-max";
 // PROMPT ASSIST OPTIONS
 // ============================================
 
-export interface PromptAssistProviderOption {
-  value: PromptAssistProvider;
-  label: string;
-  description?: string;
-}
-
 export interface PromptAssistModelOption {
   value: string;
   label: string;
 }
 
-export const PROMPT_ASSIST_PROVIDER_OPTIONS: PromptAssistProviderOption[] = [
-  { value: "gateway", label: "AI Gateway", description: "Rekommenderad (fallback)" },
-  { value: "openai-compat", label: "v0 Model API", description: "v0-1.5-md/lg (prompt assist)" },
-  { value: "off", label: "Av", description: "Skicka prompt direkt" },
+export const PROMPT_ASSIST_MODEL_OPTIONS: PromptAssistModelOption[] = [
+  { value: "openai/gpt-5.2", label: "GPT‑5.2 (Gateway)" },
+  { value: "openai/gpt-5.2-pro", label: "GPT‑5.2 Pro (Gateway)" },
+  { value: "anthropic/claude-opus-4.5", label: "Claude Opus 4.5 (Gateway)" },
+  { value: "anthropic/claude-sonnet-4.5", label: "Claude Sonnet 4.5 (Gateway)" },
+  { value: "v0-1.5-md", label: "v0‑1.5‑md (v0 Model API)" },
+  { value: "v0-1.5-lg", label: "v0‑1.5‑lg (v0 Model API)" },
 ];
 
-export const PROMPT_ASSIST_MODEL_OPTIONS: Record<PromptAssistProvider, PromptAssistModelOption[]> =
-  {
-    gateway: [
-      { value: "openai/gpt-5.2", label: "GPT‑5.2 (OpenAI)" },
-      { value: "openai/gpt-4o", label: "GPT‑4o (OpenAI)" },
-      { value: "openai/gpt-4o-mini", label: "GPT‑4o mini (OpenAI)" },
-      { value: "anthropic/claude-opus-4.5", label: "Claude Opus 4.5" },
-      { value: "anthropic/claude-sonnet-4.5", label: "Claude Sonnet 4.5" },
-      { value: "anthropic/claude-haiku-4.5", label: "Claude Haiku 4.5" },
-      { value: "google/gemini-2.5-flash", label: "Gemini 2.5 Flash" },
-    ],
-    "openai-compat": [
-      { value: "v0-1.5-lg", label: "v0‑1.5‑lg (512K)" },
-      { value: "v0-1.5-md", label: "v0‑1.5‑md (128K)" },
-    ],
-    off: [],
-  };
+const PROMPT_ASSIST_MODEL_ALLOWLIST = new Set([...GATEWAY_ASSIST_MODELS, ...V0_ASSIST_MODELS]);
 
-export function getPromptAssistModelOptions(
-  provider: PromptAssistProvider,
-): PromptAssistModelOption[] {
-  return PROMPT_ASSIST_MODEL_OPTIONS[provider] || [];
+export function getPromptAssistModelOptions(): PromptAssistModelOption[] {
+  return PROMPT_ASSIST_MODEL_OPTIONS;
 }
 
-export function getDefaultPromptAssistModel(provider: PromptAssistProvider): string {
-  const options = getPromptAssistModelOptions(provider);
-  if (options.length > 0) return options[0].value;
-  return DEFAULT_PROMPT_ASSIST.model;
+export function getDefaultPromptAssistModel(): string {
+  const defaultCandidate = DEFAULT_PROMPT_ASSIST.model;
+  if (PROMPT_ASSIST_MODEL_ALLOWLIST.has(defaultCandidate)) return defaultCandidate;
+  return PROMPT_ASSIST_MODEL_OPTIONS[0]?.value || defaultCandidate;
 }
 
 // ============================================
@@ -112,7 +91,6 @@ export function getDefaultPromptAssistModel(provider: PromptAssistProvider): str
 // ============================================
 
 export interface PromptAssistDefaults {
-  provider: PromptAssistProvider;
   model: string;
   deep: boolean;
 }
@@ -124,7 +102,6 @@ export interface PromptAssistDefaults {
  * - Deep Brief ON by default for higher quality; user can disable for speed.
  */
 export const DEFAULT_PROMPT_ASSIST: PromptAssistDefaults = {
-  provider: "gateway",
   model: "openai/gpt-5.2",
   deep: true,
 };
@@ -140,8 +117,48 @@ export const DEFAULT_PROMPT_ASSIST_ENABLED = true;
 export const DEFAULT_IMAGE_GENERATIONS = true;
 
 /** Default system instructions for new chats (editable in UI) */
-export const DEFAULT_CUSTOM_INSTRUCTIONS =
-  "Use Next.js App Router, Tailwind CSS, and shadcn/ui.\n" +
-  "If you use shadcn/ui, ensure it is installed and configured (components.json + lib/utils.ts with cn helper), and add required @radix-ui/* packages to package.json.\n" +
-  "Build a responsive, accessible, polished React UI with high visual quality.\n" +
-  "If imagery is used, ensure high-quality visuals and descriptive alt text.";
+export const DEFAULT_CUSTOM_INSTRUCTIONS = `## Tech Stack
+- Next.js 15 App Router with TypeScript
+- Tailwind CSS v4 for styling
+- shadcn/ui components from \`@/components/ui/*\`
+
+## Component Usage
+- ALWAYS use existing shadcn/ui components: Button, Card, Input, Dialog, Sheet, Tabs, etc.
+- If a component is missing, add via \`npx shadcn@latest add <component>\`
+- Never duplicate component files - use cn() helper from \`@/lib/utils\`
+- Import icons from lucide-react
+
+## Tailwind Best Practices
+- Use Tailwind's design tokens: colors (slate, zinc, violet), spacing (px-4, py-8), typography (text-sm, font-medium)
+- Leverage modern utilities: container, prose, animate-*, backdrop-blur, gradient-*
+- Use responsive prefixes: sm:, md:, lg:, xl:, 2xl:
+- Prefer gap-* over margins between flex/grid items
+- Use group/peer for interactive states
+
+## Layout Patterns
+- Full-width sections with max-w-7xl mx-auto for content
+- Hero: min-h-[80vh] or min-h-screen with flex items-center
+- Spacing between sections: py-16 md:py-24
+- Use CSS Grid for complex layouts, Flexbox for alignment
+
+## Visual Quality
+- Smooth transitions: transition-all duration-200
+- Subtle shadows: shadow-sm, shadow-lg
+- Border radius: rounded-lg, rounded-xl
+- Dark mode support: dark: prefixes
+- Hover/focus states on all interactive elements
+
+## Images
+- Use high-quality public URLs (https://)
+- Prefer .png, .jpg, .webp formats
+- Always include descriptive alt text
+- Use next/image with proper sizing
+- Placeholder images: unsplash.com or picsum.photos
+
+## Accessibility
+- Semantic HTML: header, main, section, article, footer
+- Proper heading hierarchy (h1 → h2 → h3)
+- ARIA labels where needed
+- Keyboard navigation support
+- Focus-visible rings on interactive elements`;
+
