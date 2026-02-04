@@ -1,6 +1,7 @@
 import { consumeSseResponse } from "@/lib/builder/sse";
 import type { ChatMessage, UiMessagePart } from "@/lib/builder/types";
 import type { ModelTier } from "@/lib/validations/chatSchemas";
+import { formatPromptForV0 } from "@/lib/builder/promptAssist";
 import { debugLog } from "@/lib/utils/debug";
 import { useCallback, useRef, useState } from "react";
 import toast from "react-hot-toast";
@@ -19,7 +20,6 @@ type V0Attachment = {
 type MessageOptions = {
   attachments?: V0Attachment[];
   attachmentPrompt?: string;
-  skipPromptAssist?: boolean;
 };
 
 type CreateChatLock = {
@@ -140,9 +140,11 @@ function mergeStreamingText(previous: string, incoming: string): string {
   if (!incoming) return previous;
   if (incoming.startsWith(previous)) return incoming;
   if (previous.startsWith(incoming)) return previous;
+  if (incoming.length > 16 && previous.includes(incoming)) return previous;
+  if (previous.length > 16 && incoming.includes(previous)) return incoming;
 
   const maxOverlap = Math.min(previous.length, incoming.length);
-  for (let size = maxOverlap; size > 0; size -= 1) {
+  for (let size = maxOverlap; size > 1; size -= 1) {
     if (previous.slice(-size) === incoming.slice(0, size)) {
       return previous + incoming.slice(size);
     }
@@ -587,20 +589,38 @@ async function runPostGenerationChecks(params: {
   }
 }
 
+async function triggerImageMaterialization(params: {
+  chatId: string;
+  versionId: string;
+  enabled: boolean;
+}): Promise<void> {
+  if (!params.enabled) return;
+  const { chatId, versionId } = params;
+  try {
+    const url = `/api/v0/chats/${encodeURIComponent(chatId)}/files?versionId=${encodeURIComponent(
+      versionId,
+    )}&materialize=1`;
+    await fetch(url, { method: "GET" });
+  } catch {
+    // best-effort only
+  }
+}
+
 export function useV0ChatMessaging(params: {
   chatId: string | null;
   setChatId: (id: string | null) => void;
   chatIdParam: string | null;
   router: RouterLike;
-  projectId?: string | null;
+  appProjectId?: string | null;
+  v0ProjectId?: string | null;
   selectedModelTier: ModelTier;
   enableImageGenerations: boolean;
   systemPrompt?: string;
-  maybeEnhanceInitialPrompt: (original: string) => Promise<string>;
   mutateVersions: () => void;
   setCurrentDemoUrl: (url: string | null) => void;
   onPreviewRefresh?: () => void;
   onGenerationComplete?: (data: { chatId: string; versionId?: string; demoUrl?: string }) => void;
+  onV0ProjectId?: (projectId: string) => void;
   setMessages: (next: ChatMessage[] | ((prev: ChatMessage[]) => ChatMessage[])) => void;
   resetBeforeCreateChat: () => void;
 }) {
@@ -609,15 +629,16 @@ export function useV0ChatMessaging(params: {
     setChatId,
     chatIdParam,
     router,
-    projectId,
+    appProjectId,
+    v0ProjectId,
     selectedModelTier,
     enableImageGenerations,
     systemPrompt,
-    maybeEnhanceInitialPrompt,
     mutateVersions,
     setCurrentDemoUrl,
     onPreviewRefresh,
     onGenerationComplete,
+    onV0ProjectId,
     setMessages,
     resetBeforeCreateChat,
   } = params;
@@ -648,8 +669,8 @@ export function useV0ChatMessaging(params: {
           if (chatIdParam !== existingLock.chatId) {
             const params = new URLSearchParams();
             params.set("chatId", existingLock.chatId);
-            if (projectId) {
-              params.set("project", projectId);
+            if (appProjectId) {
+              params.set("project", appProjectId);
             }
             router.replace(`/builder?${params.toString()}`);
           }
@@ -671,7 +692,6 @@ export function useV0ChatMessaging(params: {
 
       debugLog("AI", "Create chat requested", {
         messageLength: initialMessage.length,
-        skipPromptAssist: options.skipPromptAssist ?? false,
         attachments: options.attachments?.length ?? 0,
         imageGenerations: enableImageGenerations,
         modelTier: selectedModelTier,
@@ -692,20 +712,13 @@ export function useV0ChatMessaging(params: {
       setIsCreatingChat(true);
 
       try {
-        const shouldSkipAssist = options.skipPromptAssist ?? false;
-        if (shouldSkipAssist) {
-          debugLog("AI", "Prompt assist skipped", { reason: "manual-or-explicit" });
-        }
-        const messageForV0 = shouldSkipAssist
-          ? initialMessage
-          : await maybeEnhanceInitialPrompt(initialMessage);
-        debugLog("AI", "Prompt assist result", {
-          skipped: shouldSkipAssist,
+        const formattedMessage = formatPromptForV0(initialMessage);
+        debugLog("AI", "Prompt formatting result", {
           originalLength: initialMessage.length,
-          finalLength: messageForV0.length,
-          changed: messageForV0.trim() !== initialMessage.trim(),
+          finalLength: formattedMessage.length,
+          changed: formattedMessage.trim() !== initialMessage.trim(),
         });
-        const finalMessage = appendAttachmentPrompt(messageForV0, options.attachmentPrompt);
+        const finalMessage = appendAttachmentPrompt(formattedMessage, options.attachmentPrompt);
         const thinkingForTier = selectedModelTier !== "v0-mini";
         // Only trim whitespace; no model is involved here.
         const trimmedSystemPrompt = systemPrompt?.trim();
@@ -715,8 +728,8 @@ export function useV0ChatMessaging(params: {
           thinking: thinkingForTier,
           imageGenerations: enableImageGenerations,
         };
-        if (projectId) {
-          requestBody.projectId = projectId;
+        if (v0ProjectId) {
+          requestBody.projectId = v0ProjectId;
         }
         if (trimmedSystemPrompt) {
           requestBody.system = trimmedSystemPrompt;
@@ -747,6 +760,7 @@ export function useV0ChatMessaging(params: {
         const contentType = response.headers.get("content-type") || "";
         if (contentType.includes("text/event-stream")) {
           let chatIdFromStream: string | null = null;
+          let v0ProjectIdFromStream: string | null = null;
           let accumulatedThinking = "";
           let accumulatedContent = "";
           let didReceiveDone = false;
@@ -821,8 +835,8 @@ export function useV0ChatMessaging(params: {
                   if (chatIdParam !== id) {
                     const params = new URLSearchParams();
                     params.set("chatId", id);
-                    if (projectId) {
-                      params.set("project", projectId);
+                    if (appProjectId) {
+                      params.set("project", appProjectId);
                     }
                     router.replace(`/builder?${params.toString()}`);
                   }
@@ -832,9 +846,27 @@ export function useV0ChatMessaging(params: {
                 }
                 break;
               }
+              case "projectId": {
+                const nextV0ProjectId =
+                  typeof data === "string"
+                    ? data
+                    : (data as any)?.v0ProjectId || (data as any)?.v0_project_id || null;
+                if (nextV0ProjectId && !v0ProjectIdFromStream) {
+                  const id = String(nextV0ProjectId);
+                  v0ProjectIdFromStream = id;
+                  onV0ProjectId?.(id);
+                }
+                break;
+              }
               case "done": {
                 didReceiveDone = true;
                 const doneData = typeof data === "object" && data ? (data as any) : {};
+                const doneV0ProjectId =
+                  doneData.v0ProjectId || doneData.v0_project_id || null;
+                if (doneV0ProjectId && !v0ProjectIdFromStream) {
+                  v0ProjectIdFromStream = String(doneV0ProjectId);
+                  onV0ProjectId?.(v0ProjectIdFromStream);
+                }
                 if (doneData.demoUrl) {
                   setCurrentDemoUrl(doneData.demoUrl);
                 }
@@ -856,8 +888,8 @@ export function useV0ChatMessaging(params: {
                   if (chatIdParam !== nextId) {
                     const params = new URLSearchParams();
                     params.set("chatId", nextId);
-                    if (projectId) {
-                      params.set("project", projectId);
+                    if (appProjectId) {
+                      params.set("project", appProjectId);
                     }
                     router.replace(`/builder?${params.toString()}`);
                   }
@@ -876,6 +908,13 @@ export function useV0ChatMessaging(params: {
                   versionId: doneData.versionId,
                   demoUrl: doneData.demoUrl,
                 });
+                if (resolvedChatId && resolvedVersionId) {
+                  void triggerImageMaterialization({
+                    chatId: String(resolvedChatId),
+                    versionId: String(resolvedVersionId),
+                    enabled: enableImageGenerations,
+                  });
+                }
                 if (resolvedChatId && resolvedVersionId) {
                   void runPostGenerationChecks({
                     chatId: String(resolvedChatId),
@@ -911,6 +950,7 @@ export function useV0ChatMessaging(params: {
         } else {
           const data = await response.json();
           const newChatId = data.id || data.chatId || data.v0ChatId || data.chat?.id;
+          const newV0ProjectId = data.v0ProjectId || data.v0_project_id || null;
           const resolvedVersionId =
             data.versionId || data.latestVersion?.id || data.latestVersion?.versionId || null;
 
@@ -919,11 +959,14 @@ export function useV0ChatMessaging(params: {
           }
 
           setChatId(newChatId);
+          if (newV0ProjectId) {
+            onV0ProjectId?.(String(newV0ProjectId));
+          }
           {
             const params = new URLSearchParams();
             params.set("chatId", newChatId);
-            if (projectId) {
-              params.set("project", projectId);
+            if (appProjectId) {
+              params.set("project", appProjectId);
             }
             router.replace(`/builder?${params.toString()}`);
           }
@@ -941,6 +984,13 @@ export function useV0ChatMessaging(params: {
             versionId: resolvedVersionId ?? undefined,
             demoUrl: data.latestVersion?.demoUrl,
           });
+          if (resolvedVersionId) {
+            void triggerImageMaterialization({
+              chatId: String(newChatId),
+              versionId: String(resolvedVersionId),
+              enabled: enableImageGenerations,
+            });
+          }
           if (resolvedVersionId) {
             void runPostGenerationChecks({
               chatId: String(newChatId),
@@ -971,7 +1021,6 @@ export function useV0ChatMessaging(params: {
     [
       isCreatingChat,
       resetBeforeCreateChat,
-      maybeEnhanceInitialPrompt,
       selectedModelTier,
       enableImageGenerations,
       systemPrompt,
@@ -979,10 +1028,12 @@ export function useV0ChatMessaging(params: {
       setChatId,
       chatIdParam,
       router,
-      projectId,
+      appProjectId,
+      v0ProjectId,
       setCurrentDemoUrl,
       onPreviewRefresh,
       onGenerationComplete,
+      onV0ProjectId,
       mutateVersions,
     ],
   );
@@ -1020,7 +1071,8 @@ export function useV0ChatMessaging(params: {
       ]);
 
       try {
-        const finalMessage = appendAttachmentPrompt(messageText, options.attachmentPrompt);
+        const formattedMessage = formatPromptForV0(messageText);
+        const finalMessage = appendAttachmentPrompt(formattedMessage, options.attachmentPrompt);
         const requestBody: Record<string, unknown> = { message: finalMessage };
         if (options.attachments && options.attachments.length > 0) {
           requestBody.attachments = options.attachments;
@@ -1127,6 +1179,13 @@ export function useV0ChatMessaging(params: {
                 demoUrl: doneData.demoUrl,
               });
               if (chatId && resolvedVersionId) {
+                void triggerImageMaterialization({
+                  chatId: String(chatId),
+                  versionId: String(resolvedVersionId),
+                  enabled: enableImageGenerations,
+                });
+              }
+              if (chatId && resolvedVersionId) {
                 void runPostGenerationChecks({
                   chatId: String(chatId),
                   versionId: String(resolvedVersionId),
@@ -1156,6 +1215,7 @@ export function useV0ChatMessaging(params: {
     [
       chatId,
       createNewChat,
+      enableImageGenerations,
       setMessages,
       setCurrentDemoUrl,
       onPreviewRefresh,
