@@ -15,6 +15,13 @@ import { Button } from "@/components/ui/button";
 import { clearPersistedMessages } from "@/lib/builder/messagesStorage";
 import type { ChatMessage } from "@/lib/builder/types";
 import { buildPromptAssistContext } from "@/lib/builder/promptAssistContext";
+import {
+  normalizeBuildIntent,
+  normalizeBuildMethod,
+  resolveBuildIntentForMethod,
+  type BuildIntent,
+  type BuildMethod,
+} from "@/lib/builder/build-intent";
 import { createProject, saveProjectData } from "@/lib/project-client";
 import {
   DEFAULT_CUSTOM_INSTRUCTIONS,
@@ -59,7 +66,7 @@ function BuilderContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { fetchUser, isAuthenticated, isLoading: isAuthLoading } = useAuth();
-  const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authModalReason, setAuthModalReason] = useState<"builder" | "save" | null>(null);
 
   const chatIdParam = searchParams.get("chatId");
   const promptParam = searchParams.get("prompt");
@@ -67,6 +74,8 @@ function BuilderContent() {
   const projectParam = searchParams.get("project");
   const templateId = searchParams.get("templateId");
   const source = searchParams.get("source");
+  const buildIntentParam = searchParams.get("buildIntent");
+  const buildMethodParam = searchParams.get("buildMethod");
   const hasEntryParams = Boolean(promptParam || promptId || templateId || source === "audit");
 
   const [chatId, setChatId] = useState<string | null>(chatIdParam);
@@ -76,6 +85,12 @@ function BuilderContent() {
   const [isImportModalOpen, setIsImportModalOpen] = useState(false);
   const [selectedVersionId, setSelectedVersionId] = useState<string | null>(null);
   const [isVersionPanelCollapsed, setIsVersionPanelCollapsed] = useState(false);
+  const [buildIntent, setBuildIntent] = useState<BuildIntent>(() =>
+    normalizeBuildIntent(buildIntentParam),
+  );
+  const [buildMethod, setBuildMethod] = useState<BuildMethod | null>(() =>
+    normalizeBuildMethod(buildMethodParam) || (source === "audit" ? "audit" : null),
+  );
   const [selectedModelTier, setSelectedModelTier] = useState<ModelTier>(DEFAULT_MODEL_TIER);
   const [promptAssistModel, setPromptAssistModel] = useState(
     DEFAULT_PROMPT_ASSIST.model || getDefaultPromptAssistModel(),
@@ -90,7 +105,6 @@ function BuilderContent() {
   const [isMediaEnabled, setIsMediaEnabled] = useState(false);
   const [designSystemMode, setDesignSystemMode] = useState(false);
   const [showStructuredChat, setShowStructuredChat] = useState(false);
-  const [showSaveAuthModal, setShowSaveAuthModal] = useState(false);
   const [isIntentionalReset, setIsIntentionalReset] = useState(false);
   const [customInstructions, setCustomInstructions] = useState(DEFAULT_CUSTOM_INSTRUCTIONS);
   const [applyInstructionsOnce, setApplyInstructionsOnce] = useState(false);
@@ -122,10 +136,15 @@ function BuilderContent() {
   const promptAssistContextKeyRef = useRef<string | null>(null);
   // Raw page code for section analysis in component picker
   const [currentPageCode, setCurrentPageCode] = useState<string | undefined>(undefined);
+  const lastActiveVersionIdRef = useRef<string | null>(null);
 
   const selectedTierOption = useMemo(
     () => MODEL_TIER_OPTIONS.find((option) => option.value === selectedModelTier),
     [selectedModelTier],
+  );
+  const resolvedBuildIntent = useMemo(
+    () => resolveBuildIntentForMethod(buildMethod, buildIntent),
+    [buildMethod, buildIntent],
   );
   const assistModelLabel = useMemo(() => {
     const options = getPromptAssistModelOptions();
@@ -207,13 +226,30 @@ function BuilderContent() {
     // fetchUser is stable via zustand
   }, [fetchUser]);
 
+  useEffect(() => {
+    if (!buildIntentParam) return;
+    setBuildIntent(normalizeBuildIntent(buildIntentParam));
+  }, [buildIntentParam]);
+
+  useEffect(() => {
+    const normalized = normalizeBuildMethod(buildMethodParam);
+    if (normalized) {
+      setBuildMethod(normalized);
+      return;
+    }
+    if (source === "audit") {
+      setBuildMethod("audit");
+    }
+  }, [buildMethodParam, source]);
+
   // Require authentication - show modal if not logged in after auth check completes
   useEffect(() => {
-    if (!isAuthLoading && !isAuthenticated) {
-      setShowAuthModal(true);
-    } else if (isAuthenticated) {
-      setShowAuthModal(false);
+    if (isAuthLoading) return;
+    if (!isAuthenticated) {
+      setAuthModalReason((prev) => prev ?? "builder");
+      return;
     }
+    setAuthModalReason(null);
   }, [isAuthLoading, isAuthenticated]);
 
   useEffect(() => {
@@ -237,7 +273,10 @@ function BuilderContent() {
         const data = await res.json();
         if (data.chatId && isActive) {
           setChatId(data.chatId);
-          router.replace(`/builder?project=${projectParam}&chatId=${data.chatId}`);
+          const params = new URLSearchParams(searchParams.toString());
+          params.set("project", projectParam);
+          params.set("chatId", data.chatId);
+          router.replace(`/builder?${params.toString()}`);
         }
       } catch (error) {
         if (!isActive) return;
@@ -251,7 +290,7 @@ function BuilderContent() {
       isActive = false;
       controller.abort();
     };
-  }, [projectParam, chatIdParam, chatId, router]);
+  }, [projectParam, chatIdParam, chatId, router, searchParams]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -376,12 +415,12 @@ function BuilderContent() {
       const resolvedChatId = options.chatId ?? chatId;
       if (!resolvedChatId) return;
       if (projectParam === nextProjectId && chatIdParam === resolvedChatId) return;
-      const params = new URLSearchParams();
+      const params = new URLSearchParams(searchParams.toString());
       params.set("chatId", resolvedChatId);
       params.set("project", nextProjectId);
       router.replace(`/builder?${params.toString()}`);
     },
-    [chatId, chatIdParam, projectParam, router],
+    [chatId, chatIdParam, projectParam, router, searchParams],
   );
 
   useEffect(() => {
@@ -647,6 +686,7 @@ function BuilderContent() {
   // Version polling - faster while generating
   const { versions, mutate: mutateVersions } = useVersions(chatId, {
     isGenerating: isAnyStreaming,
+    pauseWhileGenerating: true,
   });
 
   // Handle chat not found - clear invalid chatId from state and localStorage
@@ -732,31 +772,30 @@ function BuilderContent() {
     }
   }, [chatId]);
 
-  // Sync demoUrl from chat or versions when available (fallback if stream didn't provide it)
+  // Sync demoUrl when active version changes or demoUrl is missing
   useEffect(() => {
-    if (currentDemoUrl) return; // Already have a demoUrl
+    if (!activeVersionId) return;
 
-    // Try chat.demoUrl first (comes from latest version in API)
-    const chatDemoUrl = chat?.demoUrl;
-    if (chatDemoUrl) {
-      setCurrentDemoUrl(chatDemoUrl);
-      return;
-    }
+    const didChangeVersion = lastActiveVersionIdRef.current !== activeVersionId;
+    lastActiveVersionIdRef.current = activeVersionId;
 
-    // Try chat.latestVersion.demoUrl
-    const latestVersionDemoUrl = (chat as { latestVersion?: { demoUrl?: string | null } } | null)
-      ?.latestVersion?.demoUrl;
-    if (latestVersionDemoUrl) {
-      setCurrentDemoUrl(latestVersionDemoUrl);
-      return;
-    }
+    if (!didChangeVersion && currentDemoUrl) return;
 
-    // Try first version in versionsList
-    const firstVersionDemoUrl = versionsList[0]?.demoUrl;
-    if (firstVersionDemoUrl) {
-      setCurrentDemoUrl(firstVersionDemoUrl);
+    const activeVersionMatch = versionsList.find(
+      (version) => version.versionId === activeVersionId || version.id === activeVersionId,
+    );
+    const nextDemoUrl =
+      activeVersionMatch?.demoUrl ||
+      chat?.demoUrl ||
+      (chat as { latestVersion?: { demoUrl?: string | null } } | null)?.latestVersion?.demoUrl ||
+      versionsList[0]?.demoUrl ||
+      null;
+
+    if (nextDemoUrl && nextDemoUrl !== currentDemoUrl) {
+      setCurrentDemoUrl(nextDemoUrl);
+      setPreviewRefreshToken(Date.now());
     }
-  }, [chat, currentDemoUrl, versionsList]);
+  }, [activeVersionId, chat, currentDemoUrl, versionsList]);
 
   const latestVersionId = useMemo(() => {
     // Find the most recently created version (regardless of pinned status)
@@ -925,6 +964,7 @@ function BuilderContent() {
     deep: promptAssistDeep,
     imageGenerations: enableImageGenerations,
     codeContext: promptAssistContext,
+    buildIntent: resolvedBuildIntent,
   });
 
   const handlePromptAssistModelChange = useCallback((model: string) => {
@@ -1031,6 +1071,8 @@ function BuilderContent() {
     selectedModelTier,
     enableImageGenerations,
     systemPrompt: customInstructions,
+    buildIntent: resolvedBuildIntent,
+    buildMethod,
     mutateVersions,
     setCurrentDemoUrl,
     onPreviewRefresh: bumpPreviewRefreshToken,
@@ -1148,7 +1190,9 @@ function BuilderContent() {
         if (appProjectId) {
           applyAppProjectId(appProjectId, { chatId: data.chatId });
         } else {
-          router.replace(`/builder?chatId=${encodeURIComponent(data.chatId)}`);
+          const params = new URLSearchParams(searchParams.toString());
+          params.set("chatId", data.chatId);
+          router.replace(`/builder?${params.toString()}`);
         }
         setMessages([]);
         setCurrentDemoUrl(data.demoUrl || null);
@@ -1176,6 +1220,7 @@ function BuilderContent() {
       setHasSelectedModelTier,
       appProjectId,
       applyAppProjectId,
+      searchParams,
     ],
   );
 
@@ -1190,7 +1235,7 @@ function BuilderContent() {
   const handleSaveProject = useCallback(async () => {
     if (isSavingProject) return;
     if (!isAuthenticated) {
-      setShowSaveAuthModal(true);
+      setAuthModalReason("save");
       return;
     }
     if (!chatId) {
@@ -1310,9 +1355,10 @@ function BuilderContent() {
       );
       if (match?.demoUrl) {
         setCurrentDemoUrl(match.demoUrl);
+        bumpPreviewRefreshToken();
       }
     },
-    [versionsList],
+    [versionsList, bumpPreviewRefreshToken],
   );
 
   const handleToggleVersionPanel = useCallback(() => {
@@ -1344,7 +1390,9 @@ function BuilderContent() {
           if (appProjectId) {
             applyAppProjectId(appProjectId, { chatId: data.chatId });
           } else {
-            router.replace(`/builder?chatId=${encodeURIComponent(data.chatId)}`);
+            const params = new URLSearchParams(searchParams.toString());
+            params.set("chatId", data.chatId);
+            router.replace(`/builder?${params.toString()}`);
           }
         }
         if (data?.demoUrl) {
@@ -1375,6 +1423,7 @@ function BuilderContent() {
     selectedModelTier,
     appProjectId,
     applyAppProjectId,
+    searchParams,
   ]);
 
   return (
@@ -1494,7 +1543,9 @@ function BuilderContent() {
             if (appProjectId) {
               applyAppProjectId(appProjectId, { chatId: newChatId });
             } else {
-              router.replace(`/builder?chatId=${newChatId}`);
+              const params = new URLSearchParams(searchParams.toString());
+              params.set("chatId", newChatId);
+              router.replace(`/builder?${params.toString()}`);
             }
             setMessages([]);
             setCurrentDemoUrl(null);
@@ -1503,21 +1554,14 @@ function BuilderContent() {
         />
 
         <RequireAuthModal
-          isOpen={showSaveAuthModal}
-          onClose={() => setShowSaveAuthModal(false)}
-          reason="save"
-        />
-
-        {/* Main authentication modal - blocks builder if not logged in */}
-        <RequireAuthModal
-          isOpen={showAuthModal}
+          isOpen={Boolean(authModalReason)}
           onClose={() => {
-            // Redirect to home if user closes modal without logging in
-            if (!isAuthenticated) {
+            if (authModalReason === "builder" && !isAuthenticated) {
               router.push("/");
             }
+            setAuthModalReason(null);
           }}
-          reason="builder"
+          reason={authModalReason ?? "builder"}
         />
 
         {isModelSelectOpen && (

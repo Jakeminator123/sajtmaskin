@@ -26,6 +26,8 @@ import {
   getIndustryPalettes,
 } from "@/components/forms/color-palette-picker";
 import { VoiceRecorder } from "@/components/forms/voice-recorder";
+import { buildIntentNoun } from "@/lib/builder/build-intent";
+import type { BuildIntent } from "@/lib/builder/build-intent";
 
 /**
  * PromptWizardModal V2 - Streamlined Business Analysis Wizard
@@ -175,6 +177,7 @@ interface PromptWizardModalProps {
   onComplete: (data: WizardData, expandedPrompt: string) => void;
   initialPrompt?: string;
   categoryType?: string;
+  buildIntent?: BuildIntent;
 }
 
 export function PromptWizardModalV2({
@@ -183,6 +186,7 @@ export function PromptWizardModalV2({
   onComplete,
   initialPrompt = "",
   categoryType = "website",
+  buildIntent = "website",
 }: PromptWizardModalProps) {
   // Current step (1-5)
   const [step, setStep] = useState(1);
@@ -377,8 +381,17 @@ export function PromptWizardModalV2({
       : null;
     const industryLabel = currentIndustry?.label || industry || "general";
 
+    const intentLabel = buildIntentNoun(buildIntent);
+    const intentHint =
+      buildIntent === "template"
+        ? "Scope: compact, reusable template (1–2 pages). Avoid heavy app logic."
+        : buildIntent === "app"
+          ? "Include app flows, stateful UI, and key data models where relevant."
+          : "Focus on content structure, marketing flow, and clear sections.";
+
     const promptParts = [
-      `Create a ${categoryType} website for ${companyName || "a business"}.`,
+      `Create a ${categoryType} ${intentLabel} for ${companyName || "a business"}.`,
+      `Build intent: ${intentHint}`,
       `Industry: ${industryLabel}.`,
       location ? `Location: ${location}.` : null,
       purposes.length ? `Goals: ${purposes.join(", ")}.` : null,
@@ -418,6 +431,7 @@ export function PromptWizardModalV2({
     voiceTranscript,
     selectedVibe,
     categoryType,
+    buildIntent,
     initialPrompt,
     websiteAnalysis,
     currentIndustry,

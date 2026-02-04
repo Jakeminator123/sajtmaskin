@@ -189,6 +189,7 @@ export function logV0(details: {
   chatId?: string;
   hasStreaming?: boolean;
   categoryType?: string;
+  intent?: string;
 }): void {
   logEventSync({
     source: "v0",

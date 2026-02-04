@@ -25,7 +25,7 @@
  * - Onboarding via custom hook
  */
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { TemplateGallery } from "@/components/templates";
 import { PromptInput } from "@/components/forms";
@@ -49,6 +49,13 @@ import {
   Wand2,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth/auth-store";
+import {
+  BUILD_INTENT_OPTIONS,
+  DEFAULT_BUILD_INTENT,
+  resolveBuildIntentForMethod,
+  type BuildIntent,
+  type BuildMethod,
+} from "@/lib/builder/build-intent";
 import type { AuditResult } from "@/types/audit";
 import toast from "react-hot-toast";
 
@@ -56,8 +63,7 @@ import toast from "react-hot-toast";
 // COMPONENT
 // ═══════════════════════════════════════════════════════════════
 
-// Build method types for clear user selection
-type BuildMethod = "category" | "audit" | "freeform" | null;
+type ActiveBuildMethod = BuildMethod | null;
 
 export function HomePage() {
   const router = useRouter();
@@ -67,7 +73,8 @@ export function HomePage() {
   const [auditedUrl, setAuditedUrl] = useState<string | null>(null);
   const [showAuditModal, setShowAuditModal] = useState(false);
   const [showWizard, setShowWizard] = useState(false);
-  const [activeBuildMethod, setActiveBuildMethod] = useState<BuildMethod>(null);
+  const [activeBuildMethod, setActiveBuildMethod] = useState<ActiveBuildMethod>(null);
+  const [buildIntent, setBuildIntent] = useState<BuildIntent>(DEFAULT_BUILD_INTENT);
   // Note: auditGeneratedPrompt removed - audit navigates to builder via promptId
 
   // Get user state for personalized experience
@@ -79,6 +86,11 @@ export function HomePage() {
 
   // Get user's first name for greeting
   const firstName = user?.name?.split(" ")[0] || user?.email?.split("@")[0] || undefined;
+
+  const selectedIntent = useMemo(
+    () => BUILD_INTENT_OPTIONS.find((option) => option.value === buildIntent),
+    [buildIntent],
+  );
 
   const handleLoginClick = () => {
     setAuthMode("login");
@@ -120,19 +132,25 @@ export function HomePage() {
         const message = data?.error || "Kunde inte spara audit‑prompten";
         throw new Error(message);
       }
-      window.location.href = `/builder?source=audit&promptId=${encodeURIComponent(data.promptId)}`;
+      const intent = resolveBuildIntentForMethod("audit", buildIntent);
+      const params = new URLSearchParams();
+      params.set("source", "audit");
+      params.set("promptId", data.promptId);
+      params.set("buildMethod", "audit");
+      params.set("buildIntent", intent);
+      router.push(`/builder?${params.toString()}`);
     } catch (error) {
       console.error("[HomePage] Failed to create audit prompt handoff:", error);
       toast.error(error instanceof Error ? error.message : "Kunde inte spara audit‑prompten");
     }
   };
 
-  const handleBuildFromPrompt = async (prompt: string) => {
+  const handleBuildFromPrompt = async (prompt: string, method: BuildMethod = "freeform") => {
     try {
       const response = await fetch("/api/prompts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt, source: "freeform" }),
+        body: JSON.stringify({ prompt, source: method }),
       });
       const data = (await response.json().catch(() => null)) as {
         success?: boolean;
@@ -143,7 +161,12 @@ export function HomePage() {
         const message = data?.error || "Kunde inte spara prompten";
         throw new Error(message);
       }
-      router.push(`/builder?promptId=${encodeURIComponent(data.promptId)}`);
+      const intent = resolveBuildIntentForMethod(method, buildIntent);
+      const params = new URLSearchParams();
+      params.set("promptId", data.promptId);
+      params.set("buildMethod", method);
+      params.set("buildIntent", intent);
+      router.push(`/builder?${params.toString()}`);
     } catch (error) {
       console.error("[HomePage] Failed to create prompt handoff:", error);
       toast.error(error instanceof Error ? error.message : "Kunde inte spara prompten");
@@ -153,7 +176,7 @@ export function HomePage() {
   // Handle wizard completion - navigate to builder with expanded prompt
   const handleWizardComplete = (_wizardData: WizardData, expandedPrompt: string) => {
     setShowWizard(false);
-    handleBuildFromPrompt(expandedPrompt);
+    handleBuildFromPrompt(expandedPrompt, "wizard");
   };
 
   // Build initial prompt from onboarding data
@@ -226,6 +249,7 @@ export function HomePage() {
         onComplete={handleWizardComplete}
         initialPrompt=""
         categoryType="website"
+        buildIntent={buildIntent}
       />
 
       {/* Onboarding Modal */}
@@ -289,6 +313,34 @@ export function HomePage() {
             </p>
           </div>
         )}
+
+        <div className="mb-4 flex w-full max-w-4xl flex-col gap-2">
+          <div className="flex items-center gap-2 text-xs font-medium tracking-wider text-gray-500 uppercase">
+            <span>Mål</span>
+            <HelpTooltip
+              text="Mall = snabb start med liten scope. Webbplats = marknads-/infosida. App = mer logik, flöden och data."
+              className="bg-black"
+            />
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            {BUILD_INTENT_OPTIONS.map((option) => (
+              <button
+                key={option.value}
+                onClick={() => setBuildIntent(option.value)}
+                className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
+                  buildIntent === option.value
+                    ? "border-brand-blue/60 bg-brand-blue/20 text-white"
+                    : "border-gray-800 bg-black/50 text-gray-400 hover:border-gray-700 hover:text-gray-200"
+                }`}
+              >
+                {option.label}
+              </button>
+            ))}
+          </div>
+          {selectedIntent?.description ? (
+            <p className="text-xs text-gray-500">{selectedIntent.description}</p>
+          ) : null}
+        </div>
 
         {/* ═══════════════════════════════════════════════════════════
             BUILD METHOD SELECTION
@@ -427,7 +479,11 @@ export function HomePage() {
               </span>
               <div className="via-brand-warm/50 h-px flex-1 bg-linear-to-r from-transparent to-transparent" />
             </div>
-            <PromptInput initialValue={initialContext || undefined} />
+            <PromptInput
+              initialValue={initialContext || undefined}
+              buildIntent={buildIntent}
+              buildMethod="freeform"
+            />
             <p className="mt-4 text-center text-xs text-gray-600">
               <kbd className="rounded bg-gray-800 px-1.5 py-0.5 text-[10px] text-gray-400">
                 Enter

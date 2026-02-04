@@ -23,6 +23,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { HelpTooltip } from "@/components/layout";
 import { PromptWizardModalV2, type WizardData } from "@/components/modals";
+import type { BuildIntent, BuildMethod } from "@/lib/builder/build-intent";
 import { ArrowUp, Loader2, Wand2, Lightbulb } from "lucide-react";
 import toast from "react-hot-toast";
 
@@ -36,6 +37,8 @@ interface PromptInputProps {
   placeholder?: string;
   navigateOnSubmit?: boolean;
   initialValue?: string;
+  buildIntent?: BuildIntent;
+  buildMethod?: BuildMethod;
 }
 
 const examplePrompts = [
@@ -50,6 +53,8 @@ export function PromptInput({
   placeholder = "Beskriv din webbplats med egna ord...",
   navigateOnSubmit = true,
   initialValue,
+  buildIntent,
+  buildMethod = "freeform",
 }: PromptInputProps) {
   const [prompt, setPrompt] = useState(initialValue || "");
   const [showWizard, setShowWizard] = useState(false);
@@ -77,7 +82,7 @@ export function PromptInput({
       const response = await fetch("/api/prompts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: value, source: "freeform" }),
+        body: JSON.stringify({ prompt: value, source: buildMethod || "freeform" }),
       });
       const data = (await response.json().catch(() => null)) as {
         success?: boolean;
@@ -99,7 +104,15 @@ export function PromptInput({
   const navigateToBuilder = async (value: string) => {
     const promptId = await createPromptForBuilder(value);
     if (!promptId) return;
-    router.push(`/builder?promptId=${encodeURIComponent(promptId)}`);
+    const params = new URLSearchParams();
+    params.set("promptId", promptId);
+    if (buildIntent) {
+      params.set("buildIntent", buildIntent);
+    }
+    if (buildMethod) {
+      params.set("buildMethod", buildMethod);
+    }
+    router.push(`/builder?${params.toString()}`);
   };
 
   const handleSubmit = async () => {
@@ -150,6 +163,7 @@ export function PromptInput({
         onComplete={handleWizardComplete}
         initialPrompt={prompt}
         categoryType="website"
+        buildIntent={buildIntent}
       />
 
       <div className="w-full max-w-2xl space-y-4">

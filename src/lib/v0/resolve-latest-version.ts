@@ -43,7 +43,7 @@ export async function resolveLatestVersion(
   options: ResolveLatestVersionOptions = {},
 ): Promise<LatestVersionResult> {
   const maxAttempts = options.maxAttempts ?? 12;
-  const delayMs = options.delayMs ?? 2000;
+  const baseDelayMs = options.delayMs ?? 2000;
   let versionId = options.preferVersionId ?? null;
   let demoUrl = options.preferDemoUrl ?? null;
   let status: string | null = null;
@@ -67,7 +67,8 @@ export async function resolveLatestVersion(
     }
 
     if (attempt < maxAttempts - 1) {
-      await sleep(delayMs);
+      const backoff = Math.min(baseDelayMs * Math.pow(1.35, attempt), 8000);
+      await sleep(backoff);
     }
   }
 

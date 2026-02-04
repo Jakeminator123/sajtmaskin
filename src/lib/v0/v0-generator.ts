@@ -47,6 +47,7 @@ import { enhancePromptForV0, type MediaLibraryItem } from "@/lib/utils/prompt-ut
 import { debugLog, logFinalPrompt, warnLog } from "@/lib/utils/debug";
 import { logV0 } from "@/lib/logging/file-logger";
 import { SECRETS } from "@/lib/config";
+import type { BuildIntent } from "@/lib/builder/build-intent";
 
 // Prompt length limits (v0 Platform API can handle ~100k tokens, but practical limit is lower)
 const MAX_PROMPT_LENGTH = Number(process.env.V0_MAX_PROMPT_LENGTH) || 50000;
@@ -131,6 +132,25 @@ const MODEL_MAP: Record<QualityLevel, V0ModelId> = {
   premium: "v0-max",
   max: "v0-max",
 };
+
+const BUILD_INTENT_SYSTEM_GUIDANCE: Record<BuildIntent, string> = {
+  template:
+    "Template build: keep scope compact (1–2 pages), focus on reusable sections, avoid heavy app logic.",
+  website: "Website build: focus on content structure, marketing flow, and clear sections.",
+  app: "App build: include stateful UI, app flows, and key data models where relevant.",
+};
+
+function resolveBuildIntentSystemPrompt(
+  intent: BuildIntent | undefined,
+  baseSystemPrompt?: string,
+): string | undefined {
+  const guidance = intent ? BUILD_INTENT_SYSTEM_GUIDANCE[intent] : null;
+  const base = baseSystemPrompt?.trim();
+  if (!guidance && !base) return undefined;
+  if (!guidance) return base;
+  if (!base) return `Build intent: ${guidance}`;
+  return `${base}\n\nBuild intent: ${guidance}`;
+}
 
 type V0SdkCreateRequest = Parameters<ReturnType<typeof createClient>["chats"]["create"]>[0];
 
@@ -508,6 +528,8 @@ export interface GenerateCodeOptions {
   quality?: QualityLevel;
   /** Category type for pre-built prompts */
   categoryType?: string;
+  /** Build intent to guide prompt/system rules */
+  buildIntent?: BuildIntent;
   /** Image URLs to use as reference/inspiration */
   attachments?: Array<{ url: string }>;
   /** Enable image generation in the output */
@@ -617,7 +639,7 @@ export async function generateCode(
     );
   }
 
-  const systemPrompt = options.systemPrompt?.trim();
+  const systemPrompt = resolveBuildIntentSystemPrompt(options.buildIntent, options.systemPrompt);
   debugLog("v0", "[v0-generator] Creating chat with v0 Platform API...");
   debugLog("v0", "[v0-generator] Model:", modelId);
   debugLog("v0", "[v0-generator] Prompt length:", fullPrompt.length);
@@ -640,6 +662,7 @@ export async function generateCode(
     promptSnippet: fullPrompt.substring(0, 200),
     hasStreaming: useStreaming,
     categoryType: options.categoryType,
+    intent: options.buildIntent,
   });
 
   const v0 = getV0Client();
