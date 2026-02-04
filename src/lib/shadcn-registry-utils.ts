@@ -123,6 +123,35 @@ export function buildRegistryMarkdownPreview(
   return lines.join("\n\n");
 }
 
+// Placement types (imported from ShadcnBlockPicker)
+export type PlacementOption =
+  | "top"
+  | "bottom"
+  | "after-hero"
+  | "after-features"
+  | "before-footer"
+  | "replace-section";
+
+// Get placement instruction text for the prompt
+function getPlacementInstruction(placement: PlacementOption): string {
+  switch (placement) {
+    case "top":
+      return "Add it as a NEW SECTION at the VERY TOP of the homepage (`app/page.tsx`), BEFORE all existing content including the hero section.";
+    case "after-hero":
+      return "Add it as a NEW SECTION on the homepage (`app/page.tsx`) IMMEDIATELY AFTER the hero section. Look for the hero section (usually the first major section with a headline and CTA) and place this component directly after it.";
+    case "after-features":
+      return "Add it as a NEW SECTION on the homepage (`app/page.tsx`) AFTER the features/benefits section. If there is no features section, place it after the second major section on the page.";
+    case "before-footer":
+      return "Add it as a NEW SECTION on the homepage (`app/page.tsx`) at the BOTTOM of the page content, just BEFORE the footer. This should be the last content section before any footer component.";
+    case "bottom":
+      return "Add it as a NEW SECTION on the homepage (`app/page.tsx`) at the very END of the page, after all other content including the footer.";
+    case "replace-section":
+      return "REPLACE an existing section on the homepage (`app/page.tsx`) with this component. Identify the most similar existing section and replace it entirely.";
+    default:
+      return "Add it as a new section on the homepage (`app/page.tsx`) below existing content.";
+  }
+}
+
 export function buildShadcnBlockPrompt(
   item: ShadcnRegistryItem,
   options: {
@@ -130,6 +159,7 @@ export function buildShadcnBlockPrompt(
     displayName?: string;
     description?: string;
     dependencyItems?: ShadcnRegistryItem[];
+    placement?: PlacementOption;
   } = {},
 ): string {
   const MAX_PROMPT_CHARS = 12000;
@@ -137,14 +167,19 @@ export function buildShadcnBlockPrompt(
   const blockName = item.name || "block";
   const displayName = options.displayName || blockName;
   const description = options.description || item.description;
+  const placement = options.placement ?? "bottom";
   const componentName = `${toPascalCase(blockName)}Block`;
   const lines: string[] = [];
   lines.push(`Add the shadcn/ui block "${displayName}" to the existing site.`);
   if (description) {
     lines.push(`Description: ${description}`);
   }
-  lines.push("Do not replace existing pages or layout.");
-  lines.push("Add it as a new section on the homepage (`app/page.tsx`) below existing content.");
+
+  // Placement-specific instructions
+  if (placement !== "replace-section") {
+    lines.push("Do not replace existing pages or layout. Keep ALL existing content intact.");
+  }
+  lines.push(getPlacementInstruction(placement));
   lines.push(`Create the block components under \`src/components/blocks/${blockName}/\`.`);
   lines.push("Use these import mappings:");
   lines.push(`- \`@/registry/${style}/ui/*\` -> \`@/components/ui/*\``);
@@ -194,8 +229,11 @@ export function buildShadcnBlockPrompt(
   if (description) {
     slimLines.push(`Description: ${description}`);
   }
-  slimLines.push("Do not replace existing pages or layout.");
-  slimLines.push("Add it as a new section on the homepage (`app/page.tsx`) below existing content.");
+  // Placement-specific instructions (slim version)
+  if (placement !== "replace-section") {
+    slimLines.push("Do not replace existing pages or layout. Keep ALL existing content intact.");
+  }
+  slimLines.push(getPlacementInstruction(placement));
   slimLines.push(`Create the block components under \`src/components/blocks/${blockName}/\`.`);
   slimLines.push("Use these import mappings:");
   slimLines.push(`- \`@/registry/${style}/ui/*\` -> \`@/components/ui/*\``);
