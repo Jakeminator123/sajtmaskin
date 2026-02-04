@@ -24,6 +24,9 @@ import {
   Edit,
   Play,
   HelpCircle,
+  Triangle,
+  ExternalLink,
+  Github,
 } from "lucide-react";
 import {
   getCategory,
@@ -32,6 +35,8 @@ import {
   getTemplatesByCategory,
   getTemplateImageUrl,
   type Template,
+  getAllVercelTemplates,
+  type VercelTemplate,
 } from "@/lib/templates/template-data";
 import { createProject } from "@/lib/project-client";
 import Image from "next/image";
@@ -51,6 +56,7 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   Layout,
   Gamepad2,
   HelpCircle,
+  Triangle, // Vercel logo
 };
 
 export default function CategoryPage() {
@@ -64,6 +70,10 @@ export default function CategoryPage() {
   const category = getCategory(type);
   const v0Category = V0_CATEGORIES[type];
   const v0Templates = v0Category ? getTemplatesByCategory(type) : [];
+
+  // Check if this is the Vercel templates category
+  const isVercelTemplatesCategory = type === "vercel-templates";
+  const vercelTemplates = isVercelTemplatesCategory ? getAllVercelTemplates() : [];
 
   // Use v0 category if available, otherwise use legacy category
   const displayCategory = v0Category || category;
@@ -363,6 +373,23 @@ export default function CategoryPage() {
               </div>
             </section>
           )}
+
+          {/* Section 4: Vercel Templates (GitHub repos) */}
+          {vercelTemplates.length > 0 && (
+            <section>
+              <div className="mb-4 flex items-center gap-2">
+                <Triangle className="h-5 w-5 text-white" />
+                <h2 className="text-lg font-semibold text-white">Vercel Templates</h2>
+                <HelpTooltip text="Officiella templates från vercel.com/templates. Importeras från GitHub." />
+              </div>
+
+              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+                {vercelTemplates.map((template) => (
+                  <VercelTemplateCard key={template.id} template={template} disabled={isCreating} />
+                ))}
+              </div>
+            </section>
+          )}
         </div>
       </div>
     </main>
@@ -456,5 +483,145 @@ function V0TemplateCard({ template, disabled }: { template: Template; disabled: 
         />
       )}
     </>
+  );
+}
+
+// Vercel Template Card Component (GitHub repo-based templates)
+function VercelTemplateCard({
+  template,
+  disabled,
+}: {
+  template: VercelTemplate;
+  disabled: boolean;
+}) {
+  const router = useRouter();
+  const [isCreating, setIsCreating] = useState(false);
+
+  const handleImport = async (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+
+    if (disabled || isCreating) return;
+
+    setIsCreating(true);
+    try {
+      // Create project in database
+      const project = await createProject(
+        `${template.title} - ${new Date().toLocaleDateString("sv-SE")}`,
+        "vercel-templates",
+        template.description,
+      );
+
+      // Initialize chat from Vercel template
+      const response = await fetch("/api/v0/chats/init-vercel-template", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          templateId: template.id,
+          projectId: project.id,
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ error: "Unknown error" }));
+        throw new Error(error.error || "Failed to import template");
+      }
+
+      const data = await response.json();
+      toast.success(`Template "${template.title}" importerad!`);
+
+      // Navigate to builder with the chat
+      router.push(`/builder?project=${project.id}&chat=${data.internalChatId || ""}`);
+    } catch (error) {
+      console.error("Failed to import Vercel template:", error);
+      toast.error(error instanceof Error ? error.message : "Kunde inte importera template");
+      setIsCreating(false);
+    }
+  };
+
+  const handleViewDemo = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (template.demoUrl) {
+      window.open(template.demoUrl, "_blank", "noopener,noreferrer");
+    }
+  };
+
+  const handleViewRepo = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    window.open(template.repoUrl, "_blank", "noopener,noreferrer");
+  };
+
+  return (
+    <div className="group cursor-pointer overflow-hidden rounded-lg border border-gray-800 bg-black/50 transition-all hover:border-white/30">
+      <div className="relative aspect-video overflow-hidden bg-gray-900">
+        {template.previewImageUrl ? (
+          <Image
+            src={template.previewImageUrl}
+            alt={template.title}
+            fill
+            className="object-cover transition-transform duration-300 group-hover:scale-105"
+            loading="lazy"
+            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+          />
+        ) : (
+          <div className="flex h-full items-center justify-center">
+            <Triangle className="h-12 w-12 text-gray-700" />
+          </div>
+        )}
+        {/* Framework badge */}
+        <div className="absolute top-2 right-2 rounded bg-black/70 px-2 py-0.5 text-xs text-gray-300">
+          {template.framework}
+        </div>
+      </div>
+      <div className="space-y-3 p-4">
+        <div>
+          <h3 className="line-clamp-1 text-sm font-medium text-white">{template.title}</h3>
+          <p className="mt-1 line-clamp-2 text-xs text-gray-400">{template.description}</p>
+        </div>
+        {/* Tags */}
+        <div className="flex flex-wrap gap-1">
+          {template.tags.slice(0, 3).map((tag) => (
+            <span key={tag} className="rounded bg-gray-800 px-1.5 py-0.5 text-[10px] text-gray-400">
+              {tag}
+            </span>
+          ))}
+        </div>
+        {/* Actions */}
+        <div className="flex gap-2">
+          <button
+            onClick={handleImport}
+            disabled={disabled || isCreating}
+            className="flex flex-1 items-center justify-center gap-2 rounded border border-white/20 bg-white/10 px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-white/20 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {isCreating ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Edit className="h-3.5 w-3.5" />
+            )}
+            {isCreating ? "Importerar..." : "Importera"}
+          </button>
+          {template.demoUrl && (
+            <button
+              onClick={handleViewDemo}
+              disabled={disabled}
+              className="flex items-center justify-center gap-1 rounded border border-gray-700 bg-gray-800 px-2 py-2 text-xs text-gray-300 transition-colors hover:bg-gray-700 disabled:opacity-50"
+              title="Öppna demo"
+            >
+              <ExternalLink className="h-3.5 w-3.5" />
+            </button>
+          )}
+          <button
+            onClick={handleViewRepo}
+            disabled={disabled}
+            className="flex items-center justify-center gap-1 rounded border border-gray-700 bg-gray-800 px-2 py-2 text-xs text-gray-300 transition-colors hover:bg-gray-700 disabled:opacity-50"
+            title="Öppna GitHub repo"
+          >
+            <Github className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }

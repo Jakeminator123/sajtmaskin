@@ -17,7 +17,11 @@ import { useRouter } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { ArrowRight } from "lucide-react";
 import * as LucideIcons from "lucide-react";
-import { getAllV0Categories, getTemplatesByCategory } from "@/lib/templates/template-data";
+import {
+  getAllV0Categories,
+  getTemplatesByCategory,
+  getAllVercelTemplates,
+} from "@/lib/templates/template-data";
 
 // ═══════════════════════════════════════════════════════════════
 // ICON MAPPING
@@ -33,6 +37,8 @@ const iconMap: Record<string, keyof typeof LucideIcons> = {
   Layout: "Layout",
   Globe: "Globe",
   Gamepad2: "Gamepad2",
+  HelpCircle: "HelpCircle",
+  Triangle: "Triangle", // Vercel logo
 };
 
 // ═══════════════════════════════════════════════════════════════
@@ -73,7 +79,11 @@ export function TemplateGallery({ onSelect }: TemplateGalleryProps) {
         const Icon = LucideIcons[IconName] as React.ComponentType<{
           className?: string;
         }>;
-        const templateCount = getTemplatesByCategory(category.id).length;
+        // Handle Vercel templates category specially
+        const templateCount =
+          category.id === "vercel-templates"
+            ? getAllVercelTemplates().length
+            : getTemplatesByCategory(category.id).length;
 
         // Stagger delay classes for animation
         const staggerClass = `stagger-${index + 1}`;
