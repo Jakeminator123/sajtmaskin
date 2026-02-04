@@ -199,7 +199,7 @@ export async function POST(req: Request) {
               models: defaultGatewayFallbackModels(normalizedModel),
             } as any,
           },
-          maxTokens,
+          maxOutputTokens: maxTokens,
           ...getTemperatureConfig(normalizedModel, temperature),
         });
 
@@ -230,7 +230,7 @@ export async function POST(req: Request) {
       const result = await generateText({
         model: modelProvider(normalizedModel),
         messages,
-        maxTokens,
+        maxOutputTokens: maxTokens,
         ...getTemperatureConfig(normalizedModel, temperature),
       });
 

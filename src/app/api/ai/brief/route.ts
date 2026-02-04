@@ -339,7 +339,7 @@ export async function POST(req: Request) {
             models: defaultGatewayFallbackModels(normalizedModel),
           } as any,
         },
-        maxTokens,
+        maxOutputTokens: maxTokens,
         ...getTemperatureConfig(normalizedModel, temperature),
       });
 
