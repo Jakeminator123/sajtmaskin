@@ -63,6 +63,18 @@ const nextConfig: NextConfig = {
         hostname: "v0.app",
         pathname: "/**",
       },
+      // Vercel Next.js image proxy (used in some v0 outputs)
+      {
+        protocol: "https",
+        hostname: "vercel.com",
+        pathname: "/_next/image",
+      },
+      // Contentful CDN (seen in v0 template assets)
+      {
+        protocol: "https",
+        hostname: "images.ctfassets.net",
+        pathname: "/**",
+      },
     ],
   },
   // Cross-Origin Isolation headers required for WebContainer (SharedArrayBuffer)
