@@ -60,7 +60,6 @@ function SheetContent({
 
   const hasTitle = hasSlot(children, "sheet-title");
   const hasDescription = hasSlot(children, "sheet-description");
-  const describedByProps = hasDescription ? {} : { "aria-describedby": undefined };
 
   return (
     <SheetPortal>
@@ -79,7 +78,6 @@ function SheetContent({
             "data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom inset-x-0 bottom-0 h-auto border-t",
           className,
         )}
-        {...describedByProps}
         {...props}
       >
         {!hasTitle ? <SheetTitle className="sr-only">Dialog</SheetTitle> : null}
