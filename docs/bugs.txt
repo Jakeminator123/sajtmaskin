@@ -1,0 +1,8 @@
+Bug log (open or unverified)
+
+- 2026-02-04: Prompt handoff removes promptId from URL even on fetch failure; retry flow can be lost after transient errors.
+- 2026-02-04: SSE thinking handling assumes full text per chunk; if v0 sends deltas, thought text can drop fragments.
+- 2026-02-04: Version list uses type assertion without validation in VersionHistory; malformed data may crash or mis-render.
+- 2026-02-04: v0 stream fallback to sync returns only "done" event (no meta); UI may miss model metadata.
+- 2026-02-04: resolveLatestVersion default timeout can be too short for large generations (missing demoUrl/versionId).
+- 2026-02-04: Create-chat lock relies on sessionStorage; multi-tab/incognito can still create duplicate chats.

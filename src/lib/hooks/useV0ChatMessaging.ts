@@ -1,5 +1,6 @@
 import { consumeSseResponse } from "@/lib/builder/sse";
 import type { ChatMessage, UiMessagePart } from "@/lib/builder/types";
+import type { BuildIntent, BuildMethod } from "@/lib/builder/build-intent";
 import type { ModelTier } from "@/lib/validations/chatSchemas";
 import { formatPromptForV0 } from "@/lib/builder/promptAssist";
 import { debugLog } from "@/lib/utils/debug";
@@ -732,6 +733,8 @@ export function useV0ChatMessaging(params: {
   selectedModelTier: ModelTier;
   enableImageGenerations: boolean;
   systemPrompt?: string;
+  buildIntent?: BuildIntent;
+  buildMethod?: BuildMethod | null;
   mutateVersions: () => void;
   setCurrentDemoUrl: (url: string | null) => void;
   onPreviewRefresh?: () => void;
@@ -750,6 +753,8 @@ export function useV0ChatMessaging(params: {
     selectedModelTier,
     enableImageGenerations,
     systemPrompt,
+    buildIntent,
+    buildMethod,
     mutateVersions,
     setCurrentDemoUrl,
     onPreviewRefresh,
@@ -758,6 +763,19 @@ export function useV0ChatMessaging(params: {
     setMessages,
     resetBeforeCreateChat,
   } = params;
+
+  const buildBuilderParams = useCallback(
+    (entries: Record<string, string | null | undefined>) => {
+      const params = new URLSearchParams();
+      Object.entries(entries).forEach(([key, value]) => {
+        if (value) params.set(key, value);
+      });
+      if (buildIntent) params.set("buildIntent", buildIntent);
+      if (buildMethod) params.set("buildMethod", buildMethod);
+      return params;
+    },
+    [buildIntent, buildMethod],
+  );
 
   const [isCreatingChat, setIsCreatingChat] = useState(false);
   const createChatInFlightRef = useRef(false);
@@ -786,11 +804,10 @@ export function useV0ChatMessaging(params: {
         if (existingLock.chatId) {
           setChatId(existingLock.chatId);
           if (chatIdParam !== existingLock.chatId) {
-            const params = new URLSearchParams();
-            params.set("chatId", existingLock.chatId);
-            if (appProjectId) {
-              params.set("project", appProjectId);
-            }
+            const params = buildBuilderParams({
+              chatId: existingLock.chatId,
+              project: appProjectId ?? undefined,
+            });
             router.replace(`/builder?${params.toString()}`);
           }
           toast.success("Återansluter till pågående skapning");
@@ -964,11 +981,10 @@ export function useV0ChatMessaging(params: {
                   chatIdFromStream = id;
                   setChatId(id);
                   if (chatIdParam !== id) {
-                    const params = new URLSearchParams();
-                    params.set("chatId", id);
-                    if (appProjectId) {
-                      params.set("project", appProjectId);
-                    }
+                    const params = buildBuilderParams({
+                      chatId: id,
+                      project: appProjectId ?? undefined,
+                    });
                     router.replace(`/builder?${params.toString()}`);
                   }
                   if (pendingCreateKeyRef.current) {
@@ -1016,11 +1032,10 @@ export function useV0ChatMessaging(params: {
                   chatIdFromStream = nextId;
                   setChatId(nextId);
                   if (chatIdParam !== nextId) {
-                    const params = new URLSearchParams();
-                    params.set("chatId", nextId);
-                    if (appProjectId) {
-                      params.set("project", appProjectId);
-                    }
+                    const params = buildBuilderParams({
+                      chatId: nextId,
+                      project: appProjectId ?? undefined,
+                    });
                     router.replace(`/builder?${params.toString()}`);
                   }
                 }
@@ -1032,10 +1047,10 @@ export function useV0ChatMessaging(params: {
                 );
                 toast.success("Chat created!");
                 mutateVersions();
-                // Call generation complete callback with available data
+                // Call generation complete callback with resolved data
                 onGenerationComplete?.({
                   chatId: nextId,
-                  versionId: doneData.versionId,
+                  versionId: resolvedVersionId ? String(resolvedVersionId) : undefined,
                   demoUrl: doneData.demoUrl,
                 });
                 if (resolvedChatId && resolvedVersionId) {
@@ -1105,11 +1120,10 @@ export function useV0ChatMessaging(params: {
             onV0ProjectId?.(String(newV0ProjectId));
           }
           {
-            const params = new URLSearchParams();
-            params.set("chatId", newChatId);
-            if (appProjectId) {
-              params.set("project", appProjectId);
-            }
+            const params = buildBuilderParams({
+              chatId: newChatId,
+              project: appProjectId ?? undefined,
+            });
             router.replace(`/builder?${params.toString()}`);
           }
           if (pendingCreateKeyRef.current) {
@@ -1185,6 +1199,7 @@ export function useV0ChatMessaging(params: {
       onGenerationComplete,
       onV0ProjectId,
       mutateVersions,
+      buildBuilderParams,
     ],
   );
 

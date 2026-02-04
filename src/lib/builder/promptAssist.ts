@@ -1,3 +1,5 @@
+import type { BuildIntent } from "./build-intent";
+
 // "gateway" refers to Vercel AI Gateway (same gateway API used by /api/ai/* routes).
 // "v0" refers to the v0 Model API (openai-compat).
 export type PromptAssistProvider = "gateway" | "v0";
@@ -72,23 +74,125 @@ const STYLE_KEYWORDS = [
   "futuristic",
 ] as const;
 
-const SHADCN_SETUP_BLOCK = [
-  "Use shadcn/ui components where appropriate (buttons, inputs, cards, dialogs).",
-  "## shadcn/ui Setup Requirements",
-  "Ensure these files exist with correct configuration:",
-  "- components.json: style 'new-york', rsc true, aliases for @/components, @/lib/utils, @/components/ui",
-  "- lib/utils.ts: export cn() using clsx + tailwind-merge",
-  "- globals.css: CSS variables for theming (--background, --foreground, --primary, etc.)",
-  "- package.json: include clsx, tailwind-merge, class-variance-authority, lucide-react, next-themes",
-  "- Add @radix-ui/* packages only when a specific component requires them",
-];
+const SHADCN_SETUP_DETAILS = {
+  componentsJson:
+    "components.json: style 'new-york', rsc true, aliases for @/components, @/lib/utils, @/components/ui",
+  libUtils: "lib/utils.ts: export cn() using clsx + tailwind-merge",
+  globalsCss: "globals.css: CSS variables for theming (--background, --foreground, --primary, etc.)",
+  packageJson:
+    "package.json: include clsx, tailwind-merge, class-variance-authority, lucide-react, next-themes",
+  radix: "Add @radix-ui/* packages only when a specific component requires them",
+};
 
-const CORE_TECH_CONSTRAINTS = [
-  "Use Tailwind's built-in animations; avoid custom @property or @keyframes rules.",
-  "Stick to shadcn/ui components and Tailwind utilities for maximum compatibility.",
-  "Ensure components.json, lib/utils.ts (cn helper), and CSS variables in globals.css exist.",
-  "Update package.json with clsx, tailwind-merge, class-variance-authority, lucide-react, next-themes.",
-  "Add @radix-ui/* packages only when a specific shadcn component requires them.",
+type ShadcnSetupVariant = "detailed" | "summary";
+
+function getShadcnSetupLines(variant: ShadcnSetupVariant): string[] {
+  if (variant === "detailed") {
+    return [
+      "Use shadcn/ui components where appropriate (buttons, inputs, cards, dialogs).",
+      "## shadcn/ui Setup Requirements",
+      "Ensure these files exist with correct configuration:",
+      `- ${SHADCN_SETUP_DETAILS.componentsJson}`,
+      `- ${SHADCN_SETUP_DETAILS.libUtils}`,
+      `- ${SHADCN_SETUP_DETAILS.globalsCss}`,
+      `- ${SHADCN_SETUP_DETAILS.packageJson}`,
+      `- ${SHADCN_SETUP_DETAILS.radix}`,
+    ];
+  }
+
+  return [
+    "Stick to shadcn/ui components and Tailwind utilities for maximum compatibility.",
+    "Ensure components.json, lib/utils.ts (cn helper), and CSS variables in globals.css exist.",
+    "Update package.json with clsx, tailwind-merge, class-variance-authority, lucide-react, next-themes.",
+    SHADCN_SETUP_DETAILS.radix,
+  ];
+}
+
+const CORE_TECH_CONSTRAINTS = getShadcnSetupLines("summary");
+const BUILD_INTENT_GUIDANCE: Record<
+  BuildIntent,
+  { summary: string; instructionLines: string[] }
+> = {
+  template: {
+    summary: "Template build: compact, reusable layout with minimal app logic.",
+    instructionLines: [
+      "Scope is compact: 1–2 pages max, reusable sections.",
+      "Avoid heavy app logic, databases, or auth unless explicitly requested.",
+      "Focus on layout, components, and clean content placeholders.",
+    ],
+  },
+  website: {
+    summary: "Website build: marketing/info content with clear structure.",
+    instructionLines: [
+      "Focus on content structure, marketing flow, and clear sections.",
+      "Prefer static content with light interactivity; keep logic minimal.",
+    ],
+  },
+  app: {
+    summary: "App build: stateful UI with flows, data models, and auth where needed.",
+    instructionLines: [
+      "Include app flows, stateful UI, and data-backed views where relevant.",
+      "Define key entities, empty states, and realistic data placeholders.",
+      "Add auth, settings, and CRUD patterns when it fits the prompt.",
+    ],
+  },
+};
+
+function resolveBuildIntent(intent?: BuildIntent | null): BuildIntent {
+  if (intent === "template" || intent === "app" || intent === "website") return intent;
+  return "website";
+}
+
+function getBuildIntentIntro(intent?: BuildIntent | null): string {
+  const resolved = resolveBuildIntent(intent);
+  return BUILD_INTENT_GUIDANCE[resolved].summary;
+}
+
+function getBuildIntentInstructionLines(intent?: BuildIntent | null): string[] {
+  const resolved = resolveBuildIntent(intent);
+  return BUILD_INTENT_GUIDANCE[resolved].instructionLines;
+}
+
+const MOTION_GUIDANCE = {
+  detailed: [
+    "Add tasteful motion: hover states, scroll-reveal animations (fade-in, slide-up), micro-interactions.",
+    "Use Tailwind animate-* utilities; avoid custom @keyframes or @property CSS rules.",
+    "Respect prefers-reduced-motion for accessibility.",
+  ],
+  compact: [
+    "Add tasteful motion: hover states, scroll-reveal animations, micro-interactions.",
+    "Use Tailwind animate-* utilities; avoid custom @keyframes or @property CSS rules.",
+  ],
+};
+
+const VISUAL_IDENTITY_GUIDANCE = {
+  detailed: [
+    "Avoid plain white backgrounds; use subtle tints, gradients, or layered sections.",
+    "Pick a distinct font pairing (e.g., Inter + Space Grotesk, DM Sans + DM Mono).",
+    "Create a cohesive color palette: primary, secondary, accent, with consistent application.",
+  ],
+  compact: [
+    "Avoid plain white backgrounds; use subtle tints, gradients, or layered sections.",
+    "Pick a distinct font pairing (e.g., Inter + Space Grotesk, DM Sans + DM Mono).",
+  ],
+};
+
+const QUALITY_BAR_GUIDANCE = {
+  detailed: [
+    "Aim for a premium, layered look: cards with borders, soft shadows, glassy panels, depth.",
+    "Vary layouts: bento grids, split hero, stats row, logo wall, testimonial carousel, alternating sections.",
+    "Increase visual density with tasteful imagery, lucide-react icons, and decorative accents.",
+  ],
+  compact: [
+    "Aim for a premium, layered look: cards with borders, soft shadows, glassy panels.",
+    "Vary layouts: bento grids, split hero, stats row, logo wall, testimonial carousel.",
+    "Use lucide-react icons and decorative accents for visual richness.",
+  ],
+};
+
+const IMAGE_DENSITY_GUIDANCE = [
+  "Include images in hero + at least 2-3 additional sections where it adds value.",
+  "Use consistent aspect ratios and professional cropping for visual harmony.",
 ];
 
 const CONSTRAINT_MARKERS = [
@@ -169,12 +273,16 @@ export function formatPromptForV0(prompt: string): string {
   return parts.join("\n\n");
 }
 
-export function buildV0RewriteSystemPrompt(params: { codeContext?: string | null } = {}): string {
+export function buildV0RewriteSystemPrompt(params: {
+  codeContext?: string | null;
+  buildIntent?: BuildIntent;
+} = {}): string {
+  const intentLine = getBuildIntentIntro(params.buildIntent);
   const base =
     "You are a prompt engineer for v0 (a website/app builder). " +
     "Rewrite the user request into a single, concrete, high-quality build prompt for v0. " +
     "Keep it concise, include key requirements and UI details, and avoid extra commentary. " +
-    "Output ONLY the rewritten prompt.";
+    `Output ONLY the rewritten prompt.\n\nBuild intent: ${intentLine}`;
 
   const codeContext = params.codeContext?.trim();
   if (!codeContext) return base;
@@ -196,8 +304,16 @@ export function buildV0PromptFromBrief(params: {
   brief: Brief;
   originalPrompt: string;
   imageGenerations: boolean;
+  buildIntent?: BuildIntent;
 }): string {
-  const { brief, originalPrompt, imageGenerations } = params;
+  const { brief, originalPrompt, imageGenerations, buildIntent } = params;
+  const resolvedIntent = resolveBuildIntent(buildIntent);
+  const intentLine =
+    resolvedIntent === "app"
+      ? "Build a modern, production-ready web app using Next.js (App Router) + Tailwind CSS."
+      : resolvedIntent === "template"
+        ? "Build a reusable, production-ready template using Next.js (App Router) + Tailwind CSS."
+        : "Build a beautiful, modern, production-ready website using Next.js (App Router) + Tailwind CSS.";
 
   const asString = (v: unknown): string => (typeof v === "string" ? v.trim() : "");
   const asStringList = (v: unknown): string[] =>
@@ -252,8 +368,9 @@ export function buildV0PromptFromBrief(params: {
   const seoKeywords = asStringList(seo?.keywords);
 
   return [
-    "Build a beautiful, modern, production-ready website using Next.js (App Router) + Tailwind CSS.",
-    ...SHADCN_SETUP_BLOCK,
+    intentLine,
+    `Build intent: ${getBuildIntentIntro(resolvedIntent)}`,
+    ...getShadcnSetupLines("detailed"),
     "",
     `Project: ${projectTitle}${brandName ? ` (${brandName})` : ""}`,
     pitch ? `One-sentence pitch: ${pitch}` : null,
@@ -304,8 +421,10 @@ export function buildDynamicInstructionAddendumFromBrief(params: {
   brief: Brief;
   originalPrompt: string;
   imageGenerations: boolean;
+  buildIntent?: BuildIntent;
 }): string {
-  const { brief, originalPrompt, imageGenerations } = params;
+  const { brief, originalPrompt, imageGenerations, buildIntent } = params;
+  const intentLines = getBuildIntentInstructionLines(buildIntent);
   const asString = (v: unknown): string => (typeof v === "string" ? v.trim() : "");
   const asStringList = (v: unknown): string[] =>
     Array.isArray(v) ? v.map((x) => asString(x)).filter(Boolean) : [];
@@ -349,28 +468,16 @@ export function buildDynamicInstructionAddendumFromBrief(params: {
   const mustHave = asStringList(brief.mustHave).slice(0, 10);
   const avoid = asStringList(brief.avoid).slice(0, 8);
 
-  const motionGuidance = [
-    "Add tasteful motion: hover states, scroll-reveal animations (fade-in, slide-up), micro-interactions.",
-    "Use Tailwind animate-* utilities; avoid custom @keyframes or @property CSS rules.",
-    "Respect prefers-reduced-motion for accessibility.",
-  ];
-  const visualIdentityGuidance = [
-    "Avoid plain white backgrounds; use subtle tints, gradients, or layered sections.",
-    "Pick a distinct font pairing (e.g., Inter + Space Grotesk, DM Sans + DM Mono).",
-    "Create a cohesive color palette: primary, secondary, accent, with consistent application.",
-  ];
-  const richnessGuidance = [
-    "Aim for a premium, layered look: cards with borders, soft shadows, glassy panels, depth.",
-    "Vary layouts: bento grids, split hero, stats row, logo wall, testimonial carousel, alternating sections.",
-    "Increase visual density with tasteful imagery, lucide-react icons, and decorative accents.",
-  ];
-  const imageDensityGuidance = [
-    "Include images in hero + at least 2-3 additional sections where it adds value.",
-    "Use consistent aspect ratios and professional cropping for visual harmony.",
-  ];
+  const motionGuidance = MOTION_GUIDANCE.detailed;
+  const visualIdentityGuidance = VISUAL_IDENTITY_GUIDANCE.detailed;
+  const richnessGuidance = QUALITY_BAR_GUIDANCE.detailed;
+  const imageDensityGuidance = IMAGE_DENSITY_GUIDANCE;
   const techConstraints = CORE_TECH_CONSTRAINTS;
 
   const parts: string[] = [
+    "## Build Intent",
+    ...intentLines.map((line) => `- ${line}`),
+    "",
     "## Project Context",
     `- Title: ${projectTitle}`,
     ...(brandName ? [`- Brand: ${brandName}`] : []),
@@ -416,33 +523,33 @@ export function buildDynamicInstructionAddendumFromBrief(params: {
 export function buildDynamicInstructionAddendumFromPrompt(params: {
   originalPrompt: string;
   imageGenerations: boolean;
+  buildIntent?: BuildIntent;
 }): string {
-  const { originalPrompt, imageGenerations } = params;
+  const { originalPrompt, imageGenerations, buildIntent } = params;
   const formatted = formatPromptForV0(originalPrompt);
   const imageryLine = imageGenerations
     ? "Prefer AI-generated images; fallback to high-quality stock. Always include alt text."
     : "Use high-quality stock images with descriptive alt text.";
+  const intentLines = getBuildIntentInstructionLines(buildIntent);
   return [
+    "## Build Intent",
+    ...intentLines.map((line) => `- ${line}`),
+    "",
     "## Project Context",
     formatted || originalPrompt.trim(),
     "",
     "## Interaction & Motion",
-    "Add tasteful motion: hover states, scroll-reveal animations, micro-interactions.",
-    "Use Tailwind animate-* utilities; avoid custom @keyframes or @property CSS rules.",
+    ...MOTION_GUIDANCE.compact,
     "",
     "## Visual Identity",
-    "Avoid plain white backgrounds; use subtle tints, gradients, or layered sections.",
-    "Pick a distinct font pairing (e.g., Inter + Space Grotesk, DM Sans + DM Mono).",
+    ...VISUAL_IDENTITY_GUIDANCE.compact,
     "",
     "## Quality Bar",
-    "Aim for a premium, layered look: cards with borders, soft shadows, glassy panels.",
-    "Vary layouts: bento grids, split hero, stats row, logo wall, testimonial carousel.",
-    "Use lucide-react icons and decorative accents for visual richness.",
+    ...QUALITY_BAR_GUIDANCE.compact,
     "",
     "## Imagery",
     imageryLine,
-    "Include images in hero + at least 2-3 additional sections where it adds value.",
-    "Use consistent aspect ratios and professional cropping for visual harmony.",
+    ...IMAGE_DENSITY_GUIDANCE,
     "",
     "## Technical Constraints",
     ...CORE_TECH_CONSTRAINTS,

@@ -9,6 +9,7 @@ import {
   resolvePromptAssistProvider,
 } from "@/lib/builder/promptAssist";
 import type { WebsiteSpec } from "@/lib/builder/promptAssistContext";
+import type { BuildIntent } from "@/lib/builder/build-intent";
 import { debugLog } from "@/lib/utils/debug";
 import { useCallback } from "react";
 import toast from "react-hot-toast";
@@ -18,6 +19,7 @@ type UsePromptAssistParams = {
   deep: boolean;
   imageGenerations: boolean;
   codeContext?: string | null;
+  buildIntent?: BuildIntent;
 };
 
 // Token limits - these are defaults; the server can override via env
@@ -92,7 +94,7 @@ async function readTextResponse(res: Response): Promise<string> {
 }
 
 export function usePromptAssist(params: UsePromptAssistParams) {
-  const { model, deep, imageGenerations, codeContext } = params;
+  const { model, deep, imageGenerations, codeContext, buildIntent } = params;
 
   const maybeEnhanceInitialPrompt = useCallback(
     async (originalPrompt: string, options: PromptAssistOptions = {}): Promise<string> => {
@@ -102,7 +104,7 @@ export function usePromptAssist(params: UsePromptAssistParams) {
         return originalPrompt;
       }
       const provider = resolvePromptAssistProvider(normalizedModel);
-      const systemPrompt = buildV0RewriteSystemPrompt({ codeContext });
+      const systemPrompt = buildV0RewriteSystemPrompt({ codeContext, buildIntent });
       const startedAt = Date.now();
       const resolvedDeep = isGatewayAssistModel(normalizedModel) ? deep : false;
       const useDeep = resolvedDeep && !options.forceShallow;
@@ -249,6 +251,7 @@ export function usePromptAssist(params: UsePromptAssistParams) {
               brief,
               originalPrompt,
               imageGenerations,
+              buildIntent,
             });
 
             debugLog("AI", "Prompt assist completed (brief)", {
@@ -311,7 +314,7 @@ export function usePromptAssist(params: UsePromptAssistParams) {
         return originalPrompt;
       }
     },
-    [model, deep, imageGenerations, codeContext],
+    [model, deep, imageGenerations, codeContext, buildIntent],
   );
 
   const generateDynamicInstructions = useCallback(
@@ -322,6 +325,7 @@ export function usePromptAssist(params: UsePromptAssistParams) {
         return buildDynamicInstructionAddendumFromPrompt({
           originalPrompt,
           imageGenerations,
+          buildIntent,
         });
       }
 
@@ -342,6 +346,7 @@ export function usePromptAssist(params: UsePromptAssistParams) {
         return buildDynamicInstructionAddendumFromPrompt({
           originalPrompt,
           imageGenerations,
+          buildIntent,
         });
       }
 
@@ -383,6 +388,7 @@ export function usePromptAssist(params: UsePromptAssistParams) {
           brief,
           originalPrompt,
           imageGenerations,
+          buildIntent,
         });
 
         debugLog("AI", "Dynamic instructions completed", {
@@ -399,6 +405,7 @@ export function usePromptAssist(params: UsePromptAssistParams) {
           buildDynamicInstructionAddendumFromPrompt({
             originalPrompt,
             imageGenerations,
+            buildIntent,
           })
         );
       } catch (err) {
@@ -432,12 +439,13 @@ export function usePromptAssist(params: UsePromptAssistParams) {
         return buildDynamicInstructionAddendumFromPrompt({
           originalPrompt,
           imageGenerations,
+          buildIntent,
         });
       } finally {
         clearTimeout(timeoutId);
       }
     },
-    [model, deep, imageGenerations],
+    [model, deep, imageGenerations, buildIntent],
   );
 
   /**

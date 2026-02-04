@@ -39,6 +39,7 @@ import {
   type VercelTemplate,
 } from "@/lib/templates/template-data";
 import { createProject } from "@/lib/project-client";
+import type { BuildIntent } from "@/lib/builder/build-intent";
 import Image from "next/image";
 import { PreviewModal } from "@/components/templates";
 import toast from "react-hot-toast";
@@ -63,6 +64,7 @@ export default function CategoryPage() {
   const params = useParams();
   const router = useRouter();
   const type = params.type as string;
+  const buildIntent: BuildIntent = "template";
   const [prompt, setPrompt] = useState("");
   const [isCreating, setIsCreating] = useState(false);
   const [showWizard, setShowWizard] = useState(false);
@@ -137,9 +139,13 @@ export default function CategoryPage() {
           setIsCreating(false);
           return;
         }
-        router.push(
-          `/builder?project=${project.id}&type=${type}&promptId=${encodeURIComponent(promptId)}`,
-        );
+        const params = new URLSearchParams();
+        params.set("project", project.id);
+        params.set("type", type);
+        params.set("promptId", promptId);
+        params.set("buildIntent", buildIntent);
+        params.set("buildMethod", "category");
+        router.push(`/builder?${params.toString()}`);
       } catch (error) {
         console.error("Failed to create project:", error);
         setIsCreating(false);
@@ -162,9 +168,13 @@ export default function CategoryPage() {
         setIsCreating(false);
         return;
       }
-      router.push(
-        `/builder?project=${project.id}&type=${type}&promptId=${encodeURIComponent(promptId)}`,
-      );
+      const params = new URLSearchParams();
+      params.set("project", project.id);
+      params.set("type", type);
+      params.set("promptId", promptId);
+      params.set("buildIntent", buildIntent);
+      params.set("buildMethod", "category");
+      router.push(`/builder?${params.toString()}`);
     } catch (error) {
       console.error("Failed to create project:", error);
       setIsCreating(false);
@@ -228,9 +238,13 @@ export default function CategoryPage() {
         return;
       }
       // Navigate directly to builder with the expanded prompt
-      router.push(
-        `/builder?project=${project.id}&type=${type}&promptId=${encodeURIComponent(promptId)}`,
-      );
+      const params = new URLSearchParams();
+      params.set("project", project.id);
+      params.set("type", type);
+      params.set("promptId", promptId);
+      params.set("buildIntent", buildIntent);
+      params.set("buildMethod", "category");
+      router.push(`/builder?${params.toString()}`);
     } catch (error) {
       console.error("Failed to create project:", error);
       setIsCreating(false);
@@ -249,6 +263,7 @@ export default function CategoryPage() {
         onComplete={handleWizardComplete}
         initialPrompt={prompt}
         categoryType={type}
+        buildIntent={buildIntent}
       />
 
       <div className="relative z-10 min-h-screen px-4 py-8">
@@ -425,7 +440,12 @@ function V0TemplateCard({ template, disabled }: { template: Template; disabled: 
         `Baserat på v0 template: ${template.id}`,
       );
       // Navigate to builder with templateId parameter
-      router.push(`/builder?project=${project.id}&templateId=${template.id}`);
+    const params = new URLSearchParams();
+    params.set("project", project.id);
+    params.set("templateId", template.id);
+    params.set("buildIntent", buildIntent);
+    params.set("buildMethod", "category");
+    router.push(`/builder?${params.toString()}`);
     } catch (error) {
       console.error("Failed to create project from v0 template:", error);
       setIsCreating(false);
@@ -535,7 +555,12 @@ function VercelTemplateCard({
         throw new Error("Ingen chat hittades för mallen");
       }
       // Navigate to builder with the app project ID and v0 chat ID
-      router.push(`/builder?project=${project.id}&chatId=${nextChatId}`);
+      const params = new URLSearchParams();
+      params.set("project", project.id);
+      params.set("chatId", nextChatId);
+      params.set("buildIntent", buildIntent);
+      params.set("buildMethod", "category");
+      router.push(`/builder?${params.toString()}`);
     } catch (error) {
       console.error("Failed to import Vercel template:", error);
       toast.error(error instanceof Error ? error.message : "Kunde inte importera template");

@@ -13,6 +13,8 @@ const fetcher = async (url: string) => {
 interface UseVersionsOptions {
   /** Enable frequent polling (e.g., during generation). Default: false */
   isGenerating?: boolean;
+  /** Pause polling entirely while generating (relies on SSE + mutate). */
+  pauseWhileGenerating?: boolean;
 }
 
 /**
@@ -22,10 +24,10 @@ interface UseVersionsOptions {
  * - When idle: poll every 15s for reasonable sync
  */
 export function useVersions(chatId: string | null, options: UseVersionsOptions = {}) {
-  const { isGenerating = false } = options;
+  const { isGenerating = false, pauseWhileGenerating = false } = options;
 
   // Poll every 5s during generation, 15s when idle
-  const refreshInterval = isGenerating ? 5000 : 15000;
+  const refreshInterval = pauseWhileGenerating && isGenerating ? 0 : isGenerating ? 5000 : 15000;
 
   const { data, error, isLoading, mutate } = useSWR(
     chatId ? `/api/v0/chats/${chatId}/versions` : null,
