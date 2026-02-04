@@ -123,17 +123,22 @@ export function buildRegistryMarkdownPreview(
   return lines.join("\n\n");
 }
 
-// Placement types (imported from ShadcnBlockPicker)
-export type PlacementOption =
-  | "top"
-  | "bottom"
-  | "after-hero"
-  | "after-features"
-  | "before-footer"
-  | "replace-section";
+import { placementToInstruction, type DetectedSection } from "@/lib/builder/sectionAnalyzer";
+
+// Placement types - now dynamic (string) to support detected sections
+export type PlacementOption = string;
 
 // Get placement instruction text for the prompt
-function getPlacementInstruction(placement: PlacementOption): string {
+function getPlacementInstruction(
+  placement: PlacementOption,
+  detectedSections?: DetectedSection[],
+): string {
+  // If we have detected sections, use the section analyzer
+  if (detectedSections && detectedSections.length > 0) {
+    return placementToInstruction(placement, detectedSections);
+  }
+
+  // Fallback to hardcoded instructions
   switch (placement) {
     case "top":
       return "Add it as a NEW SECTION at the VERY TOP of the homepage (`app/page.tsx`), BEFORE all existing content including the hero section.";
@@ -148,6 +153,11 @@ function getPlacementInstruction(placement: PlacementOption): string {
     case "replace-section":
       return "REPLACE an existing section on the homepage (`app/page.tsx`) with this component. Identify the most similar existing section and replace it entirely.";
     default:
+      // Handle dynamic "after-X" placements
+      if (placement.startsWith("after-")) {
+        const sectionType = placement.replace("after-", "");
+        return `Add it as a NEW SECTION on the homepage IMMEDIATELY AFTER the ${sectionType} section.`;
+      }
       return "Add it as a new section on the homepage (`app/page.tsx`) below existing content.";
   }
 }
@@ -160,6 +170,7 @@ export function buildShadcnBlockPrompt(
     description?: string;
     dependencyItems?: ShadcnRegistryItem[];
     placement?: PlacementOption;
+    detectedSections?: DetectedSection[];
   } = {},
 ): string {
   const MAX_PROMPT_CHARS = 12000;
@@ -168,6 +179,7 @@ export function buildShadcnBlockPrompt(
   const displayName = options.displayName || blockName;
   const description = options.description || item.description;
   const placement = options.placement ?? "bottom";
+  const detectedSections = options.detectedSections;
   const componentName = `${toPascalCase(blockName)}Block`;
   const lines: string[] = [];
   lines.push(`Add the shadcn/ui block "${displayName}" to the existing site.`);
@@ -179,7 +191,7 @@ export function buildShadcnBlockPrompt(
   if (placement !== "replace-section") {
     lines.push("Do not replace existing pages or layout. Keep ALL existing content intact.");
   }
-  lines.push(getPlacementInstruction(placement));
+  lines.push(getPlacementInstruction(placement, detectedSections));
   lines.push(`Create the block components under \`src/components/blocks/${blockName}/\`.`);
   lines.push("Use these import mappings:");
   lines.push(`- \`@/registry/${style}/ui/*\` -> \`@/components/ui/*\``);
@@ -210,7 +222,7 @@ export function buildShadcnBlockPrompt(
     lines.push("```");
   });
 
-  lines.push("Notes:");
+  lines.push("## Integration Notes:");
   lines.push(
     `- If a file is a page component, convert it into a reusable section component (e.g. \`${componentName}\`) instead of creating a new route.`,
   );
@@ -218,6 +230,15 @@ export function buildShadcnBlockPrompt(
     "- Keep existing content intact; only append the new section and required components.",
   );
   lines.push("- Avoid introducing @v0/* imports.");
+
+  lines.push("## Styling Guidelines:");
+  lines.push("- Use Tailwind CSS for all styling (no inline styles or CSS modules)");
+  lines.push("- Match the existing site's color scheme and design tokens");
+  lines.push("- Ensure responsive design: mobile-first with sm:/md:/lg: breakpoints");
+  lines.push("- Add smooth transitions: transition-all duration-200");
+  lines.push("- Use proper spacing: py-16 md:py-24 for section padding");
+  lines.push("- Maintain visual consistency with existing components");
+  lines.push("- Support dark mode if the site uses it (dark: prefixes)");
 
   const fullPrompt = lines.join("\n\n");
   if (fullPrompt.length <= MAX_PROMPT_CHARS) {
@@ -233,7 +254,7 @@ export function buildShadcnBlockPrompt(
   if (placement !== "replace-section") {
     slimLines.push("Do not replace existing pages or layout. Keep ALL existing content intact.");
   }
-  slimLines.push(getPlacementInstruction(placement));
+  slimLines.push(getPlacementInstruction(placement, detectedSections));
   slimLines.push(`Create the block components under \`src/components/blocks/${blockName}/\`.`);
   slimLines.push("Use these import mappings:");
   slimLines.push(`- \`@/registry/${style}/ui/*\` -> \`@/components/ui/*\``);

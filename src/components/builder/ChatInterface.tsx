@@ -30,6 +30,7 @@ import { Blocks, FileText, ImageIcon, Loader2, Sparkles } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { buildShadcnBlockPrompt } from "@/lib/shadcn-registry-utils";
 import { debugLog } from "@/lib/utils/debug";
+import toast from "react-hot-toast";
 
 type MessageOptions = {
   attachments?: V0UserFileAttachment[];
@@ -52,6 +53,8 @@ interface ChatInterfaceProps {
   isBusy?: boolean;
   designSystemMode?: boolean;
   mediaEnabled?: boolean;
+  /** Current generated code for section analysis in component picker */
+  currentCode?: string;
 }
 
 const DESIGN_SYSTEM_HINT = `DESIGN SYSTEM MODE:
@@ -113,6 +116,7 @@ export function ChatInterface({
   isBusy,
   designSystemMode = false,
   mediaEnabled = false,
+  currentCode,
 }: ChatInterfaceProps) {
   const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
@@ -379,6 +383,7 @@ export function ChatInterface({
         description: selection.block.description,
         dependencyItems: selection.dependencyItems,
         placement: selection.placement,
+        detectedSections: selection.detectedSections,
       });
 
       // Create a user-friendly summary at the start of the message
@@ -388,8 +393,13 @@ export function ChatInterface({
         : "";
 
       // Get placement label for user-friendly display
+      // Use PLACEMENT_OPTIONS as fallback, but prefer dynamic label from the placement value
       const placementOption = PLACEMENT_OPTIONS.find((p) => p.value === selection.placement);
-      const placementLabel = placementOption?.label || "Längst ner";
+      const placementLabel =
+        placementOption?.label ||
+        (selection.placement?.startsWith("after-")
+          ? `Efter ${selection.placement.replace("after-", "").charAt(0).toUpperCase() + selection.placement.replace("after-", "").slice(1)}`
+          : "Längst ner");
 
       // Format: Short user summary + technical instructions for v0
       // The UI will show the summary, technical details are collapsible
@@ -623,6 +633,7 @@ ${technicalPrompt}`;
         isBusy={inputDisabled}
         isSubmitting={isDesignSystemAction}
         hasChat={Boolean(chatId)}
+        currentCode={currentCode}
       />
     </div>
   );
