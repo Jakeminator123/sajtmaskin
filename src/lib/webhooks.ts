@@ -1,5 +1,3 @@
-import { createHmac, timingSafeEqual } from "crypto";
-
 export function validateWebhookSecret(request: Request, secret: string): boolean {
   const headerSecret = request.headers.get("x-webhook-secret");
   if (headerSecret && headerSecret === secret) {
@@ -7,32 +5,6 @@ export function validateWebhookSecret(request: Request, secret: string): boolean
   }
 
   return false;
-}
-
-export async function validateVercelSignature(request: Request, secret: string): Promise<boolean> {
-  const signature = request.headers.get("x-vercel-signature");
-  if (!signature) {
-    return false;
-  }
-
-  try {
-    const body = await request.clone().text();
-    const hmac = createHmac("sha1", secret);
-    hmac.update(body);
-    const expectedSignature = hmac.digest("hex");
-
-    const sigBuffer = Buffer.from(signature);
-    const expectedBuffer = Buffer.from(expectedSignature);
-
-    if (sigBuffer.length !== expectedBuffer.length) {
-      return false;
-    }
-
-    return timingSafeEqual(sigBuffer, expectedBuffer);
-  } catch (error) {
-    console.error("Signature validation error:", error);
-    return false;
-  }
 }
 
 export function getWebhookSecret(): string {

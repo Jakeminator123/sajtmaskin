@@ -19,6 +19,7 @@ import { resolveLatestVersion } from "@/lib/v0/resolve-latest-version";
 import { nanoid } from "nanoid";
 import { NextResponse } from "next/server";
 import { withRateLimit } from "@/lib/rateLimit";
+import { normalizeV0Error } from "@/lib/v0/errors";
 import { ensureSessionIdFromRequest } from "@/lib/auth/session";
 import {
   ensureProjectForRequest,
@@ -165,6 +166,17 @@ export async function POST(req: Request) {
             };
 
             const MAX_BUFFER_SIZE = 1024 * 1024; // 1MB buffer limit
+
+            safeEnqueue(
+              encoder.encode(
+                formatSSEEvent("meta", {
+                  modelId,
+                  thinking: resolvedThinking,
+                  imageGenerations: resolvedImageGenerations,
+                  chatPrivacy: resolvedChatPrivacy,
+                }),
+              ),
+            );
 
             try {
               while (true) {
@@ -388,10 +400,13 @@ export async function POST(req: Request) {
               }
             } catch (error) {
               console.error("Streaming error:", error);
+              const normalized = normalizeV0Error(error);
               safeEnqueue(
                 encoder.encode(
                   formatSSEEvent("error", {
-                    message: error instanceof Error ? error.message : "Unknown error",
+                    message: normalized.message,
+                    code: normalized.code,
+                    retryAfter: normalized.retryAfter ?? null,
                   }),
                 ),
               );
@@ -542,13 +557,28 @@ export async function POST(req: Request) {
         console.error("Failed to save chat to database:", dbError);
       }
 
-      return attachSessionCookie(NextResponse.json(chatData));
+      return attachSessionCookie(
+        NextResponse.json({
+          ...chatData,
+          meta: {
+            modelId,
+            thinking: resolvedThinking,
+            imageGenerations: resolvedImageGenerations,
+            chatPrivacy: resolvedChatPrivacy,
+          },
+        }),
+      );
     } catch (err) {
       errorLog("v0", `Create chat error (requestId=${requestId})`, err);
+      const normalized = normalizeV0Error(err);
       return attachSessionCookie(
         NextResponse.json(
-          { error: err instanceof Error ? err.message : "Unknown error" },
-          { status: 500 },
+          {
+            error: normalized.message,
+            code: normalized.code,
+            retryAfter: normalized.retryAfter ?? null,
+          },
+          { status: normalized.status },
         ),
       );
     }

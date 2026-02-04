@@ -1,6 +1,8 @@
 import {
   buildV0PromptFromBrief,
   buildV0RewriteSystemPrompt,
+  buildDynamicInstructionAddendumFromBrief,
+  buildDynamicInstructionAddendumFromPrompt,
   isGatewayAssistModel,
   isPromptAssistModelAllowed,
   normalizeAssistModel,
@@ -17,6 +19,10 @@ type UsePromptAssistParams = {
   imageGenerations: boolean;
   codeContext?: string | null;
 };
+
+// Token limits - these are defaults; the server can override via env
+const PROMPT_ASSIST_MAX_TOKENS = 2200;
+const BRIEF_ASSIST_MAX_TOKENS = 2600;
 
 type PromptAssistOptions = {
   forceShallow?: boolean;
@@ -168,6 +174,7 @@ export function usePromptAssist(params: UsePromptAssistParams) {
               provider,
               model: normalizedModel,
               temperature: 0.2,
+              maxTokens: PROMPT_ASSIST_MAX_TOKENS,
               messages: [
                 { role: "system", content: systemPrompt },
                 { role: "user", content: originalPrompt },
@@ -216,6 +223,7 @@ export function usePromptAssist(params: UsePromptAssistParams) {
                   provider,
                   model: normalizedModel,
                   temperature: 0.2,
+                  maxTokens: BRIEF_ASSIST_MAX_TOKENS,
                   prompt: originalPrompt,
                   imageGenerations,
                 }),
@@ -304,6 +312,123 @@ export function usePromptAssist(params: UsePromptAssistParams) {
       }
     },
     [model, deep, imageGenerations, codeContext],
+  );
+
+  const generateDynamicInstructions = useCallback(
+    async (originalPrompt: string, options: PromptAssistOptions = {}): Promise<string> => {
+      const normalizedModel = normalizeAssistModel(model);
+      if (!isPromptAssistModelAllowed(normalizedModel)) {
+        toast.error("Ogiltig förbättra‑modell. Välj en giltig modell.");
+        return buildDynamicInstructionAddendumFromPrompt({
+          originalPrompt,
+          imageGenerations,
+        });
+      }
+
+      const provider = resolvePromptAssistProvider(normalizedModel);
+      const startedAt = Date.now();
+      const resolvedDeep = isGatewayAssistModel(normalizedModel) ? deep : false;
+      const useDeep = resolvedDeep && !options.forceShallow;
+
+      debugLog("AI", "Dynamic instructions started", {
+        provider,
+        model: normalizedModel,
+        deep: useDeep,
+        imageGenerations,
+        promptLength: originalPrompt.length,
+      });
+
+      if (!useDeep) {
+        return buildDynamicInstructionAddendumFromPrompt({
+          originalPrompt,
+          imageGenerations,
+        });
+      }
+
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 420_000);
+      try {
+        toast.loading("Skapar dynamiska instruktioner...", {
+          id: "sajtmaskin:dynamic-instructions",
+        });
+
+        const res = await fetch("/api/ai/brief", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          signal: controller.signal,
+          body: JSON.stringify({
+            provider,
+            model: normalizedModel,
+            temperature: 0.2,
+            maxTokens: BRIEF_ASSIST_MAX_TOKENS,
+            prompt: originalPrompt,
+            imageGenerations,
+          }),
+        });
+
+        if (!res.ok) {
+          const err = await res.json().catch(() => null);
+          const msg =
+            (err && typeof err === "object" && (err as any).error) ||
+            `Dynamic instructions failed (HTTP ${res.status})`;
+          throw new Error(String(msg));
+        }
+
+        const brief = (await res.json().catch(() => null)) as any;
+        if (!brief || typeof brief !== "object") {
+          throw new Error("Dynamic instructions returned invalid JSON");
+        }
+
+        const addendum = buildDynamicInstructionAddendumFromBrief({
+          brief,
+          originalPrompt,
+          imageGenerations,
+        });
+
+        debugLog("AI", "Dynamic instructions completed", {
+          durationMs: Date.now() - startedAt,
+          outputLength: addendum.length,
+        });
+
+        toast.success("Instruktioner uppdaterade", {
+          id: "sajtmaskin:dynamic-instructions",
+        });
+
+        return (
+          addendum.trim() ||
+          buildDynamicInstructionAddendumFromPrompt({
+            originalPrompt,
+            imageGenerations,
+          })
+        );
+      } catch (err) {
+        const rawMessage = err instanceof Error ? err.message : "Dynamic instructions failed";
+        const isAbort = err instanceof Error && (err as any).name === "AbortError";
+
+        debugLog("AI", "Dynamic instructions failed", {
+          durationMs: Date.now() - startedAt,
+          error: rawMessage,
+        });
+
+        if (isAbort) {
+          toast.error("Instruktions‑generering tog för lång tid (timeout)", {
+            id: "sajtmaskin:dynamic-instructions",
+          });
+        } else {
+          toast.error(`Instruktions‑generering misslyckades: ${rawMessage}`, {
+            id: "sajtmaskin:dynamic-instructions",
+          });
+        }
+
+        return buildDynamicInstructionAddendumFromPrompt({
+          originalPrompt,
+          imageGenerations,
+        });
+      } finally {
+        clearTimeout(timeoutId);
+      }
+    },
+    [model, deep, imageGenerations],
   );
 
   /**
@@ -396,5 +521,5 @@ export function usePromptAssist(params: UsePromptAssistParams) {
     [],
   );
 
-  return { maybeEnhanceInitialPrompt, generateSpecFromPrompt };
+  return { maybeEnhanceInitialPrompt, generateSpecFromPrompt, generateDynamicInstructions };
 }

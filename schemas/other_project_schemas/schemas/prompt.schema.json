@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft-07/schema",
+  "title": "UserPromptMessage",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["role", "content"],
+  "properties": {
+    "role": {
+      "const": "user"
+    },
+    "content": {
+      "type": "string",
+      "minLength": 1
+    }
+  }
+}

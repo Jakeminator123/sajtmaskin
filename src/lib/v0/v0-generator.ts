@@ -44,9 +44,17 @@
 
 import { createClient, type ChatDetail } from "v0-sdk";
 import { enhancePromptForV0, type MediaLibraryItem } from "@/lib/utils/prompt-utils";
-import { debugLog, logFinalPrompt } from "@/lib/utils/debug";
+import { debugLog, logFinalPrompt, warnLog } from "@/lib/utils/debug";
 import { logV0 } from "@/lib/logging/file-logger";
 import { SECRETS } from "@/lib/config";
+
+// Prompt length limits (v0 Platform API can handle ~100k tokens, but practical limit is lower)
+const MAX_PROMPT_LENGTH = Number(process.env.V0_MAX_PROMPT_LENGTH) || 50000;
+const WARN_PROMPT_LENGTH = Number(process.env.V0_WARN_PROMPT_LENGTH) || 30000;
+
+// Rate limit retry config
+const RATE_LIMIT_RETRY_DELAY_MS = 2000;
+const RATE_LIMIT_MAX_RETRIES = 2;
 
 // Lazy-initialized v0 client (created at request time, not import time)
 let _v0Client: ReturnType<typeof createClient> | null = null;
@@ -541,6 +549,20 @@ export async function generateCode(
   const quality = options.quality || "standard";
   const modelId = MODEL_MAP[quality];
 
+  // Validate prompt length before processing
+  if (prompt.length > MAX_PROMPT_LENGTH) {
+    warnLog("v0", "Prompt exceeds max length, truncating", {
+      originalLength: prompt.length,
+      maxLength: MAX_PROMPT_LENGTH,
+    });
+    prompt = prompt.slice(0, MAX_PROMPT_LENGTH);
+  } else if (prompt.length > WARN_PROMPT_LENGTH) {
+    warnLog("v0", "Prompt is long, may be slow", {
+      length: prompt.length,
+      warnThreshold: WARN_PROMPT_LENGTH,
+    });
+  }
+
   // Build the full prompt
   let fullPrompt = "";
 
@@ -685,16 +707,23 @@ export async function generateCode(
   } catch (error) {
     console.error("[v0-generator] API Error:", error);
 
-    // Check for specific error types
+    // Check for specific error types with user-friendly messages
     if (error instanceof Error) {
       if (error.message.includes("rate limit") || error.message.includes("429")) {
-        throw new Error("rate limit exceeded");
+        warnLog("v0", "Rate limit hit", { model: modelId, promptLength: fullPrompt.length });
+        throw new Error(
+          `v0 rate limit exceeded. Wait ${RATE_LIMIT_RETRY_DELAY_MS / 1000}s and try again, or switch to a lower model tier.`,
+        );
       }
       if (error.message.includes("unauthorized") || error.message.includes("401")) {
-        throw new Error("API key invalid or expired");
+        throw new Error("v0 API key invalid or expired. Check V0_API_KEY in environment.");
       }
-      if (error.message.includes("timeout")) {
-        throw new Error("Request timed out - please try again");
+      if (error.message.includes("timeout") || error.message.includes("ETIMEDOUT")) {
+        throw new Error("v0 request timed out - please try again with a shorter prompt.");
+      }
+      if (error.message.includes("quota") || error.message.includes("limit exceeded")) {
+        warnLog("v0", "Quota exceeded", { model: modelId });
+        throw new Error("v0 quota exceeded. Upgrade your plan or wait for quota reset.");
       }
     }
     throw error;

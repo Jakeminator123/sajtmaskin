@@ -28,7 +28,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Blocks, FileText, ImageIcon, Loader2, Sparkles } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { buildShadcnBlockPrompt } from "@/lib/shadcn-registry-utils";
+import { buildShadcnBlockPrompt, buildShadcnComponentPrompt } from "@/lib/shadcn-registry-utils";
 import { debugLog } from "@/lib/utils/debug";
 import toast from "react-hot-toast";
 
@@ -376,18 +376,31 @@ export function ChatInterface({
 
       if (!onCreateChat && !onSendMessage) return;
 
+      const isComponent =
+        selection.itemType === "component" ||
+        selection.registryItem?.type?.toLowerCase().includes("component");
+
       // Build the full technical prompt for v0 with placement info
-      const technicalPrompt = buildShadcnBlockPrompt(selection.registryItem, {
-        style: selection.style,
-        displayName: selection.block.title,
-        description: selection.block.description,
-        dependencyItems: selection.dependencyItems,
-        placement: selection.placement,
-        detectedSections: selection.detectedSections,
-      });
+      const technicalPrompt = isComponent
+        ? buildShadcnComponentPrompt(selection.registryItem, {
+            style: selection.style,
+            displayName: selection.block.title,
+            description: selection.block.description,
+            dependencyItems: selection.dependencyItems,
+            placement: selection.placement,
+            detectedSections: selection.detectedSections,
+          })
+        : buildShadcnBlockPrompt(selection.registryItem, {
+            style: selection.style,
+            displayName: selection.block.title,
+            description: selection.block.description,
+            dependencyItems: selection.dependencyItems,
+            placement: selection.placement,
+            detectedSections: selection.detectedSections,
+          });
 
       // Create a user-friendly summary at the start of the message
-      const blockTitle = selection.block.title || selection.registryItem.name;
+      const itemTitle = selection.block.title || selection.registryItem.name;
       const deps = selection.registryItem.registryDependencies?.length
         ? ` (${selection.registryItem.registryDependencies.slice(0, 4).join(", ")}${selection.registryItem.registryDependencies.length > 4 ? "..." : ""})`
         : "";
@@ -403,7 +416,7 @@ export function ChatInterface({
 
       // Format: Short user summary + technical instructions for v0
       // The UI will show the summary, technical details are collapsible
-      const fullMessage = `Lägg till shadcn/ui-block: **${blockTitle}**${deps}
+      const fullMessage = `Lägg till shadcn/ui-${isComponent ? "komponent" : "block"}: **${itemTitle}**${deps}
 📍 Placering: ${placementLabel}
 
 ---
@@ -562,6 +575,7 @@ ${technicalPrompt}`;
                 ? "Skriv en uppdatering... (Enter för att skicka)"
                 : "Beskriv vad du vill bygga... (Enter för att skicka)"
             }
+            aria-label={chatId ? "Skriv en uppdatering" : "Beskriv vad du vill bygga"}
             disabled={inputDisabled}
             className="min-h-[80px] border-0 shadow-none focus-visible:ring-0"
           />

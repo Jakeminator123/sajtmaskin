@@ -251,6 +251,122 @@ const DESIGN_TOKEN_FILES = [
   "globals.css",
 ];
 
+type ModelInfoData = {
+  modelId?: string | null;
+  thinking?: boolean | null;
+  imageGenerations?: boolean | null;
+  chatPrivacy?: string | null;
+};
+
+function buildModelInfoSteps(info: ModelInfoData): string[] {
+  const steps: string[] = [];
+  const modelId = info.modelId ? String(info.modelId) : null;
+  steps.push(`Model: ${modelId || "okänd"}`);
+  if (modelId && modelId !== "v0-max") {
+    steps.push("Varning: inte V0 Max");
+  }
+  if (typeof info.thinking === "boolean") {
+    steps.push(`Thinking: ${info.thinking ? "på" : "av"}`);
+  }
+  if (typeof info.imageGenerations === "boolean") {
+    steps.push(`Bildgenerering: ${info.imageGenerations ? "på" : "av"}`);
+  }
+  if (typeof info.chatPrivacy === "string" && info.chatPrivacy.trim()) {
+    steps.push(`Chat privacy: ${info.chatPrivacy}`);
+  }
+  return steps;
+}
+
+function appendModelInfoPart(
+  setMessages: (next: ChatMessage[] | ((prev: ChatMessage[]) => ChatMessage[])) => void,
+  messageId: string,
+  info: ModelInfoData,
+) {
+  appendToolPartToMessage(setMessages, messageId, {
+    type: "tool:model-info",
+    toolName: "Model info",
+    toolCallId: `model-info:${messageId}`,
+    state: "output-available",
+    output: {
+      steps: buildModelInfoSteps(info),
+      ...info,
+    },
+  });
+}
+
+function toNumber(value: unknown): number | null {
+  const num = Number(value);
+  return Number.isFinite(num) ? num : null;
+}
+
+function getRetryAfterSeconds(
+  response: Response | null,
+  errorData: Record<string, unknown> | null,
+): number | null {
+  const direct = toNumber(errorData?.retryAfter ?? errorData?.retry_after);
+  if (direct !== null) return direct;
+  const header = response?.headers.get("Retry-After");
+  return header ? toNumber(header) : null;
+}
+
+function buildApiErrorMessage(params: {
+  response: Response;
+  errorData: Record<string, unknown> | null;
+  fallbackMessage: string;
+}): string {
+  const { response, errorData, fallbackMessage } = params;
+  const status = response.status;
+  const code = typeof errorData?.code === "string" ? errorData.code : "";
+  const retryAfter = getRetryAfterSeconds(response, errorData);
+
+  if (status === 429 || code === "rate_limit") {
+    const suffix = retryAfter ? ` Prova igen om ${retryAfter}s.` : "";
+    return `Rate limit: för många förfrågningar.${suffix}`;
+  }
+  if (status === 402 || code === "quota_exceeded") {
+    return "Kvoten är slut för v0. Kontrollera plan/billing.";
+  }
+  if (status === 401 || code === "unauthorized") {
+    return "V0_API_KEY saknas eller är ogiltig.";
+  }
+  if (status === 403 || code === "forbidden") {
+    return "Åtkomst nekad av v0 (403). Kontrollera behörigheter.";
+  }
+
+  let message =
+    (typeof errorData?.error === "string" && errorData?.error) ||
+    (typeof errorData?.message === "string" && errorData?.message) ||
+    fallbackMessage;
+  if (!message.includes("HTTP")) {
+    message = `${message} (HTTP ${status})`;
+  }
+  return message;
+}
+
+function buildStreamErrorMessage(errorData: Record<string, unknown> | null): string {
+  const code = typeof errorData?.code === "string" ? errorData.code : "";
+  const retryAfter = toNumber(errorData?.retryAfter ?? errorData?.retry_after);
+
+  if (code === "rate_limit") {
+    const suffix = retryAfter ? ` Prova igen om ${retryAfter}s.` : "";
+    return `Rate limit: för många förfrågningar.${suffix}`;
+  }
+  if (code === "quota_exceeded") {
+    return "Kvoten är slut för v0. Kontrollera plan/billing.";
+  }
+  if (code === "unauthorized") {
+    return "V0_API_KEY saknas eller är ogiltig.";
+  }
+  if (code === "forbidden") {
+    return "Åtkomst nekad av v0 (403). Kontrollera behörigheter.";
+  }
+  return (
+    (typeof errorData?.message === "string" && errorData?.message) ||
+    (typeof errorData?.error === "string" && errorData?.error) ||
+    "Stream error"
+  );
+}
+
 function appendToolPartToMessage(
   setMessages: (next: ChatMessage[] | ((prev: ChatMessage[]) => ChatMessage[])) => void,
   messageId: string,
@@ -648,19 +764,22 @@ export function useV0ChatMessaging(params: {
   const pendingCreateKeyRef = useRef<string | null>(null);
 
   const createNewChat = useCallback(
-    async (initialMessage: string, options: MessageOptions = {}) => {
+    async (initialMessage: string, options: MessageOptions = {}, systemPromptOverride?: string) => {
       if (isCreatingChat || createChatInFlightRef.current) return;
       if (!initialMessage?.trim()) {
         toast.error("Please enter a message to start a new chat");
         return;
       }
 
+      // Use override if provided (for dynamic instructions), otherwise fall back to hook param
+      const effectiveSystemPrompt = systemPromptOverride ?? systemPrompt;
+
       const createKey = buildCreateChatKey(
         initialMessage,
         options,
         selectedModelTier,
         enableImageGenerations,
-        systemPrompt,
+        effectiveSystemPrompt,
       );
       const existingLock = getActiveCreateChatLock(createKey);
       if (existingLock) {
@@ -695,7 +814,7 @@ export function useV0ChatMessaging(params: {
         attachments: options.attachments?.length ?? 0,
         imageGenerations: enableImageGenerations,
         modelTier: selectedModelTier,
-        systemPromptProvided: Boolean(systemPrompt?.trim()),
+        systemPromptProvided: Boolean(effectiveSystemPrompt?.trim()),
       });
 
       setMessages([
@@ -721,7 +840,7 @@ export function useV0ChatMessaging(params: {
         const finalMessage = appendAttachmentPrompt(formattedMessage, options.attachmentPrompt);
         const thinkingForTier = selectedModelTier !== "v0-mini";
         // Only trim whitespace; no model is involved here.
-        const trimmedSystemPrompt = systemPrompt?.trim();
+        const trimmedSystemPrompt = effectiveSystemPrompt?.trim();
         const requestBody: Record<string, unknown> = {
           message: finalMessage,
           modelId: selectedModelTier,
@@ -744,16 +863,17 @@ export function useV0ChatMessaging(params: {
         });
 
         if (!response.ok) {
-          let errorMessage = "Failed to create chat";
+          let errorData: Record<string, unknown> | null = null;
           try {
-            const errorData = await response.json();
-            errorMessage = errorData.error || errorData.message || errorMessage;
+            errorData = (await response.json()) as Record<string, unknown>;
           } catch {
             // ignore
           }
-          if (!errorMessage.includes("HTTP")) {
-            errorMessage = `${errorMessage} (HTTP ${response.status})`;
-          }
+          const errorMessage = buildApiErrorMessage({
+            response,
+            errorData,
+            fallbackMessage: "Failed to create chat",
+          });
           throw new Error(errorMessage);
         }
 
@@ -767,6 +887,17 @@ export function useV0ChatMessaging(params: {
 
           await consumeSseResponse(response, (event, data) => {
             switch (event) {
+              case "meta": {
+                const meta = typeof data === "object" && data ? (data as any) : {};
+                appendModelInfoPart(setMessages, assistantMessageId, {
+                  modelId: meta.modelId ?? selectedModelTier,
+                  thinking: typeof meta.thinking === "boolean" ? meta.thinking : null,
+                  imageGenerations:
+                    typeof meta.imageGenerations === "boolean" ? meta.imageGenerations : null,
+                  chatPrivacy: typeof meta.chatPrivacy === "string" ? meta.chatPrivacy : null,
+                });
+                break;
+              }
               case "thinking": {
                 const thinkingText =
                   typeof data === "string"
@@ -928,7 +1059,7 @@ export function useV0ChatMessaging(params: {
               case "error": {
                 const errorData =
                   typeof data === "object" && data ? (data as any) : { message: data };
-                throw new Error(errorData.message || errorData.error || "Stream error");
+                throw new Error(buildStreamErrorMessage(errorData as Record<string, unknown>));
               }
             }
           });
@@ -948,6 +1079,18 @@ export function useV0ChatMessaging(params: {
           });
         } else {
           const data = await response.json();
+          const meta =
+            data && typeof data === "object" && (data as any).meta && typeof (data as any).meta === "object"
+              ? ((data as any).meta as Record<string, unknown>)
+              : null;
+          appendModelInfoPart(setMessages, assistantMessageId, {
+            modelId:
+              (typeof meta?.modelId === "string" && meta?.modelId) || selectedModelTier || null,
+            thinking: typeof meta?.thinking === "boolean" ? (meta?.thinking as boolean) : null,
+            imageGenerations:
+              typeof meta?.imageGenerations === "boolean" ? (meta?.imageGenerations as boolean) : null,
+            chatPrivacy: typeof meta?.chatPrivacy === "string" ? (meta?.chatPrivacy as string) : null,
+          });
           const newChatId = data.id || data.chatId || data.v0ChatId || data.chat?.id;
           const newV0ProjectId = data.v0ProjectId || data.v0_project_id || null;
           const resolvedVersionId =
@@ -1006,7 +1149,15 @@ export function useV0ChatMessaging(params: {
         }
       } catch (error) {
         console.error("Error creating chat:", error);
-        toast.error(error instanceof Error ? error.message : "Failed to create chat");
+        const message = error instanceof Error ? error.message : "Failed to create chat";
+        toast.error(message);
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantMessageId && !m.content
+              ? { ...m, content: `Varning: ${message}`, isStreaming: false }
+              : m,
+          ),
+        );
       } finally {
         pendingCreateKeyRef.current = null;
         clearCreateChatLock();
@@ -1083,16 +1234,17 @@ export function useV0ChatMessaging(params: {
         });
 
         if (!response.ok) {
-          let errorMessage = "Failed to send message";
+          let errorData: Record<string, unknown> | null = null;
           try {
-            const errorData = await response.json();
-            errorMessage = errorData.error || errorData.message || errorMessage;
+            errorData = (await response.json()) as Record<string, unknown>;
           } catch {
             // ignore
           }
-          if (!errorMessage.includes("HTTP")) {
-            errorMessage = `${errorMessage} (HTTP ${response.status})`;
-          }
+          const errorMessage = buildApiErrorMessage({
+            response,
+            errorData,
+            fallbackMessage: "Failed to send message",
+          });
           throw new Error(errorMessage);
         }
 
@@ -1198,13 +1350,21 @@ export function useV0ChatMessaging(params: {
             case "error": {
               const errorData =
                 typeof data === "object" && data ? (data as any) : { message: data };
-              throw new Error(errorData.message || errorData.error || "Stream error");
+              throw new Error(buildStreamErrorMessage(errorData as Record<string, unknown>));
             }
           }
         });
       } catch (error) {
         console.error("Error sending streaming message:", error);
-        toast.error(error instanceof Error ? error.message : "Failed to send message");
+        const message = error instanceof Error ? error.message : "Failed to send message";
+        toast.error(message);
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantMessageId && !m.content
+              ? { ...m, content: `Varning: ${message}`, isStreaming: false }
+              : m,
+          ),
+        );
       } finally {
         setMessages((prev) =>
           prev.map((m) => (m.id === assistantMessageId ? { ...m, isStreaming: false } : m)),

@@ -19,7 +19,7 @@ export function InitFromRepoModal({ isOpen, onClose, onSuccess }: InitFromRepoMo
   const [githubUrl, setGithubUrl] = useState("");
   const [branch, setBranch] = useState("");
   const [message, setMessage] = useState("");
-  const [lockConfigFiles, setLockConfigFiles] = useState(true);
+  const [lockConfigFiles, setLockConfigFiles] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [zipFileName, setZipFileName] = useState<string | null>(null);
   const [zipContent, setZipContent] = useState<string | null>(null);

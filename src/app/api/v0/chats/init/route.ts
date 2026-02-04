@@ -155,7 +155,7 @@ const initChatSchema = z.object({
   ]),
   message: z.string().optional(),
   projectId: z.string().optional(),
-  lockConfigFiles: z.boolean().default(true),
+  lockConfigFiles: z.boolean().default(false),
   lockedFiles: z.array(z.string()).optional(),
 });
 

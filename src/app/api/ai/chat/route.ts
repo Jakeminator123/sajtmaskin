@@ -17,6 +17,10 @@ export const maxDuration = 420; // 7 minutes for prompt assist with slow models
 
 const BASE_URL = "https://api.v0.dev/v1";
 
+// Token limits configurable via env (for server-side control)
+const ENV_MAX_TOKENS = Number(process.env.AI_CHAT_MAX_TOKENS) || 8192;
+const DEFAULT_CHAT_MAX_TOKENS = 2200;
+
 const messageSchema = z.discriminatedUnion("role", [
   z.object({
     role: z.literal("system"),
@@ -37,7 +41,17 @@ const chatRequestSchema = z.object({
   model: z.string().optional().default("openai/gpt-5.2"),
   temperature: z.number().min(0).max(2).optional(),
   provider: z.enum(["gateway", "v0"]).optional().default("gateway"),
+  maxTokens: z.number().int().positive().max(ENV_MAX_TOKENS).optional(),
 });
+
+function resolveMaxTokens(requested?: number): number | undefined {
+  if (typeof requested !== "number") return DEFAULT_CHAT_MAX_TOKENS;
+  const capped = Math.min(requested, ENV_MAX_TOKENS);
+  if (capped !== requested) {
+    warnLog("AI", "maxTokens capped by env limit", { requested, capped, envLimit: ENV_MAX_TOKENS });
+  }
+  return capped;
+}
 
 function getV0ModelApiKey(): { apiKey: string | null; source: string } {
   const v0ApiKey = process.env.V0_API_KEY;
@@ -109,9 +123,10 @@ export async function POST(req: Request) {
         );
       }
 
-      const { messages, model, temperature, provider } = parsed.data;
+      const { messages, model, temperature, provider, maxTokens: requestedMaxTokens } = parsed.data;
       const normalizedModel = normalizeAssistModel(model);
       const resolvedProvider = isV0AssistModel(normalizedModel) ? "v0" : "gateway";
+      const maxTokens = resolveMaxTokens(requestedMaxTokens);
 
       if (!isPromptAssistModelAllowed(normalizedModel)) {
         return NextResponse.json(
@@ -138,6 +153,7 @@ export async function POST(req: Request) {
         model: normalizedModel,
         messages: messages.length,
         temperature: typeof temperature === "number" ? temperature : null,
+        maxTokens: typeof maxTokens === "number" ? maxTokens : null,
       });
 
       if (resolvedProvider === "gateway") {
@@ -183,6 +199,7 @@ export async function POST(req: Request) {
               models: defaultGatewayFallbackModels(normalizedModel),
             } as any,
           },
+          maxTokens,
           ...getTemperatureConfig(normalizedModel, temperature),
         });
 
@@ -213,6 +230,7 @@ export async function POST(req: Request) {
       const result = await generateText({
         model: modelProvider(normalizedModel),
         messages,
+        maxTokens,
         ...getTemperatureConfig(normalizedModel, temperature),
       });
 
