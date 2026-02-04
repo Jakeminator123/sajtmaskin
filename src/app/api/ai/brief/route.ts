@@ -333,6 +333,7 @@ export async function POST(req: Request) {
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
         ],
+        maxRetries: 2,
         providerOptions: {
           gateway: {
             ...(preferred ? { order: [preferred] } : {}),

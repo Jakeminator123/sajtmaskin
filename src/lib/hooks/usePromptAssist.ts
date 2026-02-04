@@ -404,6 +404,10 @@ export function usePromptAssist(params: UsePromptAssistParams) {
       } catch (err) {
         const rawMessage = err instanceof Error ? err.message : "Dynamic instructions failed";
         const isAbort = err instanceof Error && (err as any).name === "AbortError";
+        const normalizedMessage = rawMessage.toLowerCase();
+        const isParseError =
+          normalizedMessage.includes("no object generated") ||
+          normalizedMessage.includes("could not parse");
 
         debugLog("AI", "Dynamic instructions failed", {
           durationMs: Date.now() - startedAt,
@@ -413,6 +417,11 @@ export function usePromptAssist(params: UsePromptAssistParams) {
         if (isAbort) {
           toast.error("Instruktions‑generering tog för lång tid (timeout)", {
             id: "sajtmaskin:dynamic-instructions",
+          });
+        } else if (isParseError) {
+          toast("Instruktions‑generering misslyckades, använder snabbare variant.", {
+            id: "sajtmaskin:dynamic-instructions",
+            icon: "⚠️",
           });
         } else {
           toast.error(`Instruktions‑generering misslyckades: ${rawMessage}`, {
