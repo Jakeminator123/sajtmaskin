@@ -22,6 +22,7 @@ import {
   ShadcnBlockPicker,
   type ShadcnBlockAction,
   type ShadcnBlockSelection,
+  PLACEMENT_OPTIONS,
 } from "@/components/builder/ShadcnBlockPicker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -33,7 +34,6 @@ import { debugLog } from "@/lib/utils/debug";
 type MessageOptions = {
   attachments?: V0UserFileAttachment[];
   attachmentPrompt?: string;
-  skipPromptAssist?: boolean;
 };
 
 type FigmaPreviewResponse = {
@@ -49,7 +49,6 @@ interface ChatInterfaceProps {
   onSendMessage?: (message: string, options?: MessageOptions) => Promise<void>;
   onStartFromRegistry?: (selection: ShadcnBlockSelection) => Promise<void>;
   onEnhancePrompt?: (message: string) => Promise<string>;
-  promptAssistStatus?: string | null;
   isBusy?: boolean;
   designSystemMode?: boolean;
   mediaEnabled?: boolean;
@@ -111,7 +110,6 @@ export function ChatInterface({
   onSendMessage,
   onStartFromRegistry,
   onEnhancePrompt,
-  promptAssistStatus,
   isBusy,
   designSystemMode = false,
   mediaEnabled = false,
@@ -119,8 +117,6 @@ export function ChatInterface({
   const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
   const [isEnhancing, setIsEnhancing] = useState(false);
-  const [manualEnhanceUsed, setManualEnhanceUsed] = useState(false);
-  const [enhancedPrompt, setEnhancedPrompt] = useState<string | null>(null);
   const [files, setFiles] = useState<UploadedFile[]>([]);
   const [isMediaDrawerOpen, setIsMediaDrawerOpen] = useState(false);
   const [figmaUrl, setFigmaUrl] = useState("");
@@ -140,14 +136,6 @@ export function ChatInterface({
 
   const handleInputChange = (value: string) => {
     setInput(value);
-    if (enhancedPrompt) {
-      setEnhancedPrompt(null);
-      setManualEnhanceUsed(false);
-      return;
-    }
-    if (!value.trim()) {
-      setManualEnhanceUsed(false);
-    }
   };
 
   const prefilledPromptRef = useRef<string | null>(null);
@@ -158,7 +146,6 @@ export function ChatInterface({
     if (prefilledPromptRef.current === initialPrompt) return;
     if (input.trim()) return;
     setInput(initialPrompt);
-    setManualEnhanceUsed(false);
     prefilledPromptRef.current = initialPrompt;
   }, [chatId, initialPrompt, input]);
 
@@ -167,8 +154,6 @@ export function ChatInterface({
     if (!prevChatId && chatId) {
       setInput("");
       setFiles([]);
-      setManualEnhanceUsed(false);
-      setEnhancedPrompt(null);
       setFigmaUrl("");
       setIsFigmaInputOpen(false);
     }
@@ -244,10 +229,12 @@ export function ChatInterface({
       const enhanced = await onEnhancePrompt(current);
       const trimmedEnhanced = enhanced.trim();
       if (trimmedEnhanced) {
-        setEnhancedPrompt(trimmedEnhanced);
-        setManualEnhanceUsed(true);
+        setInput(trimmedEnhanced);
         debugLog("AI", "Prompt manually enhanced", { length: trimmedEnhanced.length });
       }
+    } catch (error) {
+      console.error("Prompt enhance failed:", error);
+      toast.error("Kunde inte förbättra prompten just nu.");
     } finally {
       setIsEnhancing(false);
     }
@@ -319,20 +306,17 @@ export function ChatInterface({
 
   const sendMessagePayload = async (
     baseMessage: string,
-    options: { skipPromptAssist?: boolean; clearDraft?: boolean } = {},
+    options: { clearDraft?: boolean } = {},
   ) => {
     setIsSending(true);
     try {
-      const resolvedMessage =
-        manualEnhanceUsed && enhancedPrompt?.trim() ? enhancedPrompt : baseMessage;
-      const payload = await buildMessagePayload(resolvedMessage);
+      const payload = await buildMessagePayload(baseMessage);
       if (!payload.finalMessage.trim()) return;
       if (!chatId) {
         if (!onCreateChat) return;
         const created = await onCreateChat(payload.finalMessage, {
           attachments: payload.finalAttachments,
           attachmentPrompt: payload.attachmentPrompt,
-          skipPromptAssist: options.skipPromptAssist ?? manualEnhanceUsed,
         });
         if (created === false) return;
       } else {
@@ -345,8 +329,6 @@ export function ChatInterface({
       if (options.clearDraft !== false) {
         setInput("");
         setFiles([]);
-        setManualEnhanceUsed(false);
-        setEnhancedPrompt(null);
         setFigmaUrl("");
         setIsFigmaInputOpen(false);
       }
@@ -390,12 +372,13 @@ export function ChatInterface({
 
       if (!onCreateChat && !onSendMessage) return;
 
-      // Build the full technical prompt for v0
+      // Build the full technical prompt for v0 with placement info
       const technicalPrompt = buildShadcnBlockPrompt(selection.registryItem, {
         style: selection.style,
         displayName: selection.block.title,
         description: selection.block.description,
         dependencyItems: selection.dependencyItems,
+        placement: selection.placement,
       });
 
       // Create a user-friendly summary at the start of the message
@@ -404,15 +387,20 @@ export function ChatInterface({
         ? ` (${selection.registryItem.registryDependencies.slice(0, 4).join(", ")}${selection.registryItem.registryDependencies.length > 4 ? "..." : ""})`
         : "";
 
+      // Get placement label for user-friendly display
+      const placementOption = PLACEMENT_OPTIONS.find((p) => p.value === selection.placement);
+      const placementLabel = placementOption?.label || "Längst ner";
+
       // Format: Short user summary + technical instructions for v0
       // The UI will show the summary, technical details are collapsible
       const fullMessage = `Lägg till shadcn/ui-block: **${blockTitle}**${deps}
+📍 Placering: ${placementLabel}
 
 ---
 
 ${technicalPrompt}`;
 
-      await sendMessagePayload(fullMessage, { skipPromptAssist: true, clearDraft: false });
+      await sendMessagePayload(fullMessage, { clearDraft: false });
       setIsShadcnPickerOpen(false);
     } finally {
       setIsDesignSystemAction(false);
@@ -455,12 +443,7 @@ ${technicalPrompt}`;
       >
         <PromptInputHeader className="flex flex-wrap items-center gap-2">
           <div className="ml-auto flex flex-wrap items-center gap-2">
-            {promptAssistStatus && (
-              <span className="text-muted-foreground text-[11px]">
-                AI-assist: {promptAssistStatus}
-              </span>
-            )}
-            {onEnhancePrompt && promptAssistStatus && (
+            {onEnhancePrompt && (
               <Button
                 type="button"
                 variant="outline"

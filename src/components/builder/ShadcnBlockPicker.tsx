@@ -1,6 +1,17 @@
 "use client";
 
-import { Blocks, Loader2, Search, X, Sparkles, ExternalLink } from "lucide-react";
+import {
+  Blocks,
+  Loader2,
+  Search,
+  X,
+  Sparkles,
+  ExternalLink,
+  ChevronDown,
+  ArrowUp,
+  ArrowDown,
+  Replace,
+} from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
@@ -11,6 +22,14 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+  DropdownMenuSeparator,
+  DropdownMenuLabel,
+} from "@/components/ui/dropdown-menu";
 import type { ShadcnRegistryItem } from "@/lib/shadcn-registry-types";
 import {
   type ComponentCategory,
@@ -21,6 +40,7 @@ import {
   buildRegistryItemUrl,
   buildPreviewUrl,
   buildPreviewImageUrl,
+  FEATURED_BLOCKS,
 } from "@/lib/shadcn-registry-service";
 import { getRegistryStyle } from "@/lib/v0/v0-url-parser";
 
@@ -29,6 +49,59 @@ import { getRegistryStyle } from "@/lib/v0/v0-url-parser";
 // ============================================
 
 export type ShadcnBlockAction = "add" | "start";
+
+// Placement options for where to add the component
+export type PlacementOption =
+  | "top" // At the top of the page
+  | "bottom" // At the bottom of the page
+  | "after-hero" // After the hero section
+  | "after-features" // After features section
+  | "before-footer" // Before the footer
+  | "replace-section"; // Replace an existing section
+
+export const PLACEMENT_OPTIONS: {
+  value: PlacementOption;
+  label: string;
+  description: string;
+  icon: React.ReactNode;
+}[] = [
+  {
+    value: "top",
+    label: "Längst upp",
+    description: "Överst på sidan, före allt annat innehåll",
+    icon: <ArrowUp className="h-4 w-4" />,
+  },
+  {
+    value: "after-hero",
+    label: "Efter Hero",
+    description: "Direkt efter hero-sektionen",
+    icon: <ArrowDown className="h-4 w-4" />,
+  },
+  {
+    value: "after-features",
+    label: "Efter Features",
+    description: "Efter features/funktioner-sektionen",
+    icon: <ArrowDown className="h-4 w-4" />,
+  },
+  {
+    value: "before-footer",
+    label: "Före Footer",
+    description: "Längst ner, precis före sidfoten",
+    icon: <ArrowDown className="h-4 w-4" />,
+  },
+  {
+    value: "bottom",
+    label: "Längst ner",
+    description: "Allra längst ner på sidan",
+    icon: <ArrowDown className="h-4 w-4" />,
+  },
+  {
+    value: "replace-section",
+    label: "Ersätt sektion",
+    description: "Ersätt en befintlig sektion med denna",
+    icon: <Replace className="h-4 w-4" />,
+  },
+];
 
 export type ShadcnBlockSelection = {
   block: {
@@ -40,6 +113,7 @@ export type ShadcnBlockSelection = {
   dependencyItems?: ShadcnRegistryItem[];
   registryUrl: string;
   style: string;
+  placement?: PlacementOption;
 };
 
 // ============================================
@@ -75,6 +149,46 @@ export function ShadcnBlockPicker({
   const [isLoadingItem, setIsLoadingItem] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [pendingAction, setPendingAction] = useState<ShadcnBlockAction | null>(null);
+  const [placement, setPlacement] = useState<PlacementOption>("bottom");
+  const [activeTab, setActiveTab] = useState<"popular" | "all">("popular");
+
+  // Get the current placement option details
+  const currentPlacement =
+    PLACEMENT_OPTIONS.find((p) => p.value === placement) || PLACEMENT_OPTIONS[4];
+
+  // Build popular items from FEATURED_BLOCKS
+  const popularItems = useMemo(() => {
+    const allItems = categories.flatMap((cat) => cat.items);
+    const popularBlockNames = FEATURED_BLOCKS.flatMap((group) => group.blocks);
+    return allItems.filter((item) => popularBlockNames.includes(item.name));
+  }, [categories]);
+
+  // Build popular categories for display
+  const popularCategories = useMemo(() => {
+    const result: ComponentCategory[] = [];
+    for (const featured of FEATURED_BLOCKS) {
+      const items = categories
+        .flatMap((cat) => cat.items)
+        .filter((item) => featured.blocks.includes(item.name));
+      if (items.length > 0) {
+        result.push({
+          id: featured.id,
+          label: featured.titleSv,
+          labelSv: featured.titleSv,
+          icon:
+            featured.id === "login"
+              ? "🔐"
+              : featured.id === "dashboard"
+                ? "📊"
+                : featured.id === "sidebar"
+                  ? "📋"
+                  : "📈",
+          items,
+        });
+      }
+    }
+    return result;
+  }, [categories]);
 
   // Load categories on mount
   useEffect(() => {
@@ -88,8 +202,13 @@ export function ShadcnBlockPicker({
       .then((data) => {
         if (!isActive) return;
         setCategories(data);
-        // Auto-select first item
-        if (data.length > 0 && data[0].items.length > 0) {
+        // Auto-select first popular item (from FEATURED_BLOCKS)
+        const allItems = data.flatMap((cat) => cat.items);
+        const firstPopularBlock = FEATURED_BLOCKS[0]?.blocks[0];
+        const firstPopularItem = allItems.find((item) => item.name === firstPopularBlock);
+        if (firstPopularItem) {
+          setSelectedItem(firstPopularItem);
+        } else if (data.length > 0 && data[0].items.length > 0) {
           setSelectedItem(data[0].items[0]);
         }
       })
@@ -180,13 +299,14 @@ export function ShadcnBlockPicker({
           dependencyItems: dependencyItems.length > 0 ? dependencyItems : undefined,
           registryUrl,
           style: DEFAULT_STYLE,
+          placement: action === "add" ? placement : undefined,
         },
         action,
       );
 
       setPendingAction(null);
     },
-    [selectedItem, registryItem, dependencyItems, onConfirm],
+    [selectedItem, registryItem, dependencyItems, onConfirm, placement],
   );
 
   // Reset pending action when not submitting
@@ -234,6 +354,32 @@ export function ShadcnBlockPicker({
         <div className="flex min-h-0 flex-1 flex-col md:flex-row">
           {/* Sidebar - Categories */}
           <div className="flex w-full flex-col border-b border-gray-800 md:w-80 md:border-r md:border-b-0">
+            {/* Tabs */}
+            <div className="flex border-b border-gray-800">
+              <button
+                type="button"
+                onClick={() => setActiveTab("popular")}
+                className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+                  activeTab === "popular"
+                    ? "border-b-2 border-violet-500 text-violet-400"
+                    : "text-gray-400 hover:text-gray-200"
+                }`}
+              >
+                ⭐ Populära
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab("all")}
+                className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+                  activeTab === "all"
+                    ? "border-b-2 border-violet-500 text-violet-400"
+                    : "text-gray-400 hover:text-gray-200"
+                }`}
+              >
+                Alla ({categories.reduce((acc, cat) => acc + cat.items.length, 0)})
+              </button>
+            </div>
+
             {/* Search */}
             <div className="p-4">
               <div className="relative">
@@ -257,11 +403,116 @@ export function ShadcnBlockPicker({
                 <div className="rounded-lg bg-red-500/10 p-4 text-center text-sm text-red-400">
                   {error}
                 </div>
+              ) : activeTab === "popular" ? (
+                // Popular tab - show featured blocks
+                query ? (
+                  // When searching, search in popular items
+                  popularItems.filter((item) =>
+                    `${item.title} ${item.name} ${item.description}`
+                      .toLowerCase()
+                      .includes(query.toLowerCase()),
+                  ).length === 0 ? (
+                    <div className="py-12 text-center text-sm text-gray-500">
+                      Inga populära komponenter matchar din sökning
+                    </div>
+                  ) : (
+                    <div className="space-y-1">
+                      {popularItems
+                        .filter((item) =>
+                          `${item.title} ${item.name} ${item.description}`
+                            .toLowerCase()
+                            .includes(query.toLowerCase()),
+                        )
+                        .map((item) => {
+                          const isSelected = selectedItem?.name === item.name;
+                          return (
+                            <button
+                              key={item.name}
+                              type="button"
+                              onClick={() => setSelectedItem(item)}
+                              className={`w-full rounded-lg px-3 py-2.5 text-left transition-all ${
+                                isSelected
+                                  ? "bg-violet-500/15 ring-1 ring-violet-500/50"
+                                  : "hover:bg-gray-800/60"
+                              }`}
+                            >
+                              <div
+                                className={`text-sm font-medium ${
+                                  isSelected ? "text-violet-300" : "text-gray-200"
+                                }`}
+                              >
+                                {item.title}
+                              </div>
+                              {item.description && (
+                                <div className="mt-0.5 line-clamp-1 text-xs text-gray-500">
+                                  {item.description}
+                                </div>
+                              )}
+                            </button>
+                          );
+                        })}
+                    </div>
+                  )
+                ) : (
+                  // No search - show categorized popular blocks
+                  <div className="space-y-4">
+                    {popularCategories.length === 0 ? (
+                      <div className="py-12 text-center text-sm text-gray-500">
+                        Laddar populära komponenter...
+                      </div>
+                    ) : (
+                      popularCategories.map((category) => (
+                        <div key={category.id}>
+                          <div className="mb-2 flex items-center gap-2 px-1">
+                            <span className="text-base">{category.icon}</span>
+                            <span className="text-xs font-medium tracking-wide text-gray-400 uppercase">
+                              {category.labelSv}
+                            </span>
+                            <span className="text-[10px] text-gray-600">
+                              ({category.items.length})
+                            </span>
+                          </div>
+                          <div className="space-y-1">
+                            {category.items.map((item) => {
+                              const isSelected = selectedItem?.name === item.name;
+                              return (
+                                <button
+                                  key={item.name}
+                                  type="button"
+                                  onClick={() => setSelectedItem(item)}
+                                  className={`w-full rounded-lg px-3 py-2.5 text-left transition-all ${
+                                    isSelected
+                                      ? "bg-violet-500/15 ring-1 ring-violet-500/50"
+                                      : "hover:bg-gray-800/60"
+                                  }`}
+                                >
+                                  <div
+                                    className={`text-sm font-medium ${
+                                      isSelected ? "text-violet-300" : "text-gray-200"
+                                    }`}
+                                  >
+                                    {item.title}
+                                  </div>
+                                  {item.description && (
+                                    <div className="mt-0.5 line-clamp-1 text-xs text-gray-500">
+                                      {item.description}
+                                    </div>
+                                  )}
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )
               ) : filteredCategories.length === 0 ? (
                 <div className="py-12 text-center text-sm text-gray-500">
                   Inga komponenter matchar din sökning
                 </div>
               ) : (
+                // All tab - show all categories
                 <div className="space-y-4">
                   {filteredCategories.map((category) => (
                     <div key={category.id}>
@@ -389,10 +640,55 @@ export function ShadcnBlockPicker({
 
         {/* Footer */}
         <div className="flex items-center justify-between border-t border-gray-800 px-6 py-4">
-          <div className="text-xs text-gray-500">
-            {hasChat
-              ? "Komponenten läggs till på din nuvarande sida"
-              : "Skapa en sida först för att lägga till komponenter"}
+          <div className="flex items-center gap-3">
+            {hasChat && (
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-9 gap-2 border-gray-700 bg-gray-800/50"
+                    disabled={isSubmitting}
+                  >
+                    {currentPlacement.icon}
+                    <span className="hidden sm:inline">{currentPlacement.label}</span>
+                    <ChevronDown className="h-3 w-3 opacity-50" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="start" className="w-64">
+                  <DropdownMenuLabel className="text-xs text-gray-400">
+                    Var ska komponenten placeras?
+                  </DropdownMenuLabel>
+                  <DropdownMenuSeparator />
+                  {PLACEMENT_OPTIONS.map((option) => (
+                    <DropdownMenuItem
+                      key={option.value}
+                      onClick={() => setPlacement(option.value)}
+                      className={`flex cursor-pointer items-start gap-3 py-2 ${
+                        placement === option.value ? "bg-violet-500/10" : ""
+                      }`}
+                    >
+                      <span className="mt-0.5 shrink-0 text-gray-400">{option.icon}</span>
+                      <div>
+                        <div
+                          className={`text-sm font-medium ${
+                            placement === option.value ? "text-violet-300" : "text-gray-200"
+                          }`}
+                        >
+                          {option.label}
+                        </div>
+                        <div className="text-xs text-gray-500">{option.description}</div>
+                      </div>
+                    </DropdownMenuItem>
+                  ))}
+                </DropdownMenuContent>
+              </DropdownMenu>
+            )}
+            {!hasChat && (
+              <div className="text-xs text-gray-500">
+                Skapa en sida först för att lägga till komponenter
+              </div>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <Button variant="outline" onClick={onClose} disabled={isSubmitting}>
