@@ -1,8 +1,9 @@
 import { createClient } from "v0-sdk";
 import { errorLog } from "@/lib/utils/debug";
+import { SECRETS } from "@/lib/config";
 
 export function assertV0Key(): void {
-  if (!process.env.V0_API_KEY) {
+  if (!SECRETS.v0ApiKey) {
     errorLog("v0", "Missing V0_API_KEY");
     throw new Error("Missing V0_API_KEY. Set it in your environment.");
   }
@@ -10,5 +11,5 @@ export function assertV0Key(): void {
 
 // Initialize v0 SDK with API key
 export const v0 = createClient({
-  apiKey: process.env.V0_API_KEY || "",
+  apiKey: SECRETS.v0ApiKey || "",
 });
