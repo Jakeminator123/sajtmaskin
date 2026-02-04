@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useId, useRef } from "react";
 import { Button } from "./button";
 import { AlertTriangle, X } from "lucide-react";
 
@@ -32,6 +32,8 @@ export function ConfirmDialog({
   isLoading = false,
 }: ConfirmDialogProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
+  const titleId = useId();
+  const descriptionId = useId();
 
   // Close on escape key
   useEffect(() => {
@@ -98,8 +100,8 @@ export function ConfirmDialog({
         className="animate-in fade-in-0 zoom-in-95 relative z-10 mx-4 w-full max-w-md border border-gray-800 bg-gray-900 shadow-xl duration-200"
         role="alertdialog"
         aria-modal="true"
-        aria-labelledby="dialog-title"
-        aria-describedby={description ? "dialog-description" : undefined}
+        aria-labelledby={titleId}
+        aria-describedby={description ? descriptionId : undefined}
       >
         {/* Close button */}
         <button
@@ -117,11 +119,11 @@ export function ConfirmDialog({
               <AlertTriangle className="h-5 w-5" />
             </div>
             <div className="flex-1">
-              <h2 id="dialog-title" className="text-lg font-semibold text-white">
+              <h2 id={titleId} className="text-lg font-semibold text-white">
                 {title}
               </h2>
               {description && (
-                <p id="dialog-description" className="mt-2 text-sm text-gray-400">
+                <p id={descriptionId} className="mt-2 text-sm text-gray-400">
                   {description}
                 </p>
               )}
