@@ -58,7 +58,8 @@ const MODEL_TIER_TO_QUALITY: Record<ModelTier, QualityLevel> = {
 function BuilderContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { fetchUser, isAuthenticated } = useAuth();
+  const { fetchUser, isAuthenticated, isLoading: isAuthLoading } = useAuth();
+  const [showAuthModal, setShowAuthModal] = useState(false);
 
   const chatIdParam = searchParams.get("chatId");
   const promptParam = searchParams.get("prompt");
@@ -205,6 +206,15 @@ function BuilderContent() {
     fetchUser().catch(() => {});
     // fetchUser is stable via zustand
   }, [fetchUser]);
+
+  // Require authentication - show modal if not logged in after auth check completes
+  useEffect(() => {
+    if (!isAuthLoading && !isAuthenticated) {
+      setShowAuthModal(true);
+    } else if (isAuthenticated) {
+      setShowAuthModal(false);
+    }
+  }, [isAuthLoading, isAuthenticated]);
 
   useEffect(() => {
     if (projectParam) {
@@ -631,10 +641,27 @@ function BuilderContent() {
     }
   }, [source, promptId]);
 
-  const { chat, mutate: mutateChat } = useChat(chatId);
+  const { chat, mutate: mutateChat, isError: isChatError } = useChat(chatId);
   const chatV0ProjectId = (chat as { v0ProjectId?: string | null } | null)?.v0ProjectId ?? null;
   // Version polling - uses slower interval by default (60s), faster only when generating
   const { versions, mutate: mutateVersions } = useVersions(chatId);
+
+  // Handle chat not found - clear invalid chatId from state and localStorage
+  useEffect(() => {
+    if (!chatId || !isChatError) return;
+    console.warn("[Builder] Chat not found or error loading chat:", chatId);
+    toast.error("Chatten kunde inte hittas. Skapar ny session...");
+    // Clear invalid chatId
+    try {
+      localStorage.removeItem("sajtmaskin:lastChatId");
+    } catch {
+      // ignore storage errors
+    }
+    setChatId(null);
+    setCurrentDemoUrl(null);
+    setMessages([]);
+    router.replace("/builder");
+  }, [chatId, isChatError, router]);
   type VersionSummary = {
     id?: string | null;
     versionId?: string | null;
@@ -687,17 +714,10 @@ function BuilderContent() {
       return;
     }
 
-    if (!chatIdParam && !chatId && !hasEntryParams && !entryIntentActive) {
-      try {
-        const last = localStorage.getItem("sajtmaskin:lastChatId");
-        if (last) {
-          setChatId(last);
-          router.replace(`/builder?chatId=${encodeURIComponent(last)}`);
-        }
-      } catch {
-        // ignore storage errors
-      }
-    }
+    // NOTE: We no longer auto-load the last chatId from localStorage.
+    // Each new visit to /builder should start fresh with a new project.
+    // The lastChatId is still saved for reference but not auto-loaded.
+    // Users can access previous chats via their project list or history.
   }, [chatIdParam, chatId, router, isIntentionalReset, hasEntryParams, entryIntentActive]);
 
   useEffect(() => {
@@ -1484,6 +1504,18 @@ function BuilderContent() {
           isOpen={showSaveAuthModal}
           onClose={() => setShowSaveAuthModal(false)}
           reason="save"
+        />
+
+        {/* Main authentication modal - blocks builder if not logged in */}
+        <RequireAuthModal
+          isOpen={showAuthModal}
+          onClose={() => {
+            // Redirect to home if user closes modal without logging in
+            if (!isAuthenticated) {
+              router.push("/");
+            }
+          }}
+          reason="builder"
         />
 
         {isModelSelectOpen && (
