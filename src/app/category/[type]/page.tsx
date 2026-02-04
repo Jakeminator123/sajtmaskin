@@ -518,7 +518,6 @@ function VercelTemplateCard({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           templateId: template.id,
-          projectId: project.id,
         }),
       });
 
@@ -530,8 +529,13 @@ function VercelTemplateCard({
       const data = await response.json();
       toast.success(`Template "${template.title}" importerad!`);
 
-      // Navigate to builder with the chat
-      router.push(`/builder?project=${project.id}&chat=${data.internalChatId || ""}`);
+      const nextChatId =
+        data.id || data.chatId || data.v0ChatId || data.chat?.id || data.internalChatId || "";
+      if (!nextChatId) {
+        throw new Error("Ingen chat hittades för mallen");
+      }
+      // Navigate to builder with the app project ID and v0 chat ID
+      router.push(`/builder?project=${project.id}&chatId=${nextChatId}`);
     } catch (error) {
       console.error("Failed to import Vercel template:", error);
       toast.error(error instanceof Error ? error.message : "Kunde inte importera template");
