@@ -92,6 +92,25 @@ function maskValue(value) {
   return `${str.slice(0, 4)}...${str.slice(-4)}`;
 }
 
+function normalizeVercelToken(value) {
+  if (!value) return "";
+  const trimmed = String(value).trim();
+  if (!trimmed) return "";
+  return trimmed.startsWith("vercel_token=") ? trimmed.slice("vercel_token=".length) : trimmed;
+}
+
+function cleanConnectionString(value) {
+  if (!value) return value;
+  try {
+    const url = new URL(value);
+    url.searchParams.delete("sslmode");
+    url.searchParams.delete("supa");
+    return url.toString();
+  } catch {
+    return value;
+  }
+}
+
 function formatEpochSeconds(seconds) {
   if (!seconds || Number.isNaN(Number(seconds))) return "unknown";
   return new Date(Number(seconds) * 1000).toISOString();
@@ -636,50 +655,6 @@ async function testAnthropic() {
   }
 }
 
-async function testElevenLabs() {
-  const key = process.env.ELEVENLABS_API_KEY;
-  if (!key) {
-    log("ELEVENLABS_API_KEY", "skip", "Not configured (optional)");
-    return true;
-  }
-
-  if (!allowRequests) {
-    log("ELEVENLABS_API_KEY", "skip", "Skipping remote check (--no-requests)", maskValue(key));
-    return true;
-  }
-
-  try {
-    const res = await fetch("https://api.elevenlabs.io/v1/user", {
-      headers: { "xi-api-key": key },
-    });
-
-    if (res.ok) {
-      const data = await res.json();
-      log("ELEVENLABS_API_KEY", "ok", "API accessible", maskValue(key));
-      const sub = data.subscription || {};
-      if (Object.keys(sub).length) {
-        const reset = sub.next_character_count_reset_unix
-          ? formatEpochSeconds(sub.next_character_count_reset_unix)
-          : "unknown";
-        log(
-          "ElevenLabs Budget",
-          "info",
-          `Tier: ${sub.tier || "n/a"}, Used: ${sub.character_count || "n/a"}, Limit: ${sub.character_limit || "n/a"}`,
-          `Reset: ${reset}`,
-        );
-      }
-    } else {
-      log("ELEVENLABS_API_KEY", "fail", `HTTP ${res.status}`, maskValue(key));
-      return false;
-    }
-
-    return true;
-  } catch (error) {
-    log("ELEVENLABS_API_KEY", "fail", `Error: ${error.message}`, maskValue(key));
-    return false;
-  }
-}
-
 async function testStripe() {
   const key = process.env.STRIPE_SECRET_KEY;
   if (!key) {
@@ -773,7 +748,7 @@ async function testUnsplash() {
 
 async function testVercelApi() {
   const candidates = [
-    { name: "VERCEL_TOKEN", value: process.env.VERCEL_TOKEN },
+    { name: "VERCEL_TOKEN", value: normalizeVercelToken(process.env.VERCEL_TOKEN) },
   ].filter((item) => item.value);
 
   if (!candidates.length) {
@@ -857,7 +832,7 @@ async function testVercelBlob() {
 }
 
 async function testSupabase() {
-  const url = process.env.POSTGRES_URL;
+  const url = cleanConnectionString(process.env.POSTGRES_URL);
   if (!url) {
     log("POSTGRES_URL", "warn", "No Postgres URL configured");
     return true;
@@ -1087,9 +1062,7 @@ async function main() {
     ]);
     if (includeArchive) {
       const archiveDir = resolve(ROOT, "senaste_miljovariablar");
-      const archiveFiles = collectEnvFiles(archiveDir).map((file) =>
-        relative(ROOT, file),
-      );
+      const archiveFiles = collectEnvFiles(archiveDir).map((file) => relative(ROOT, file));
       archiveFiles.forEach((file) => compareFiles.add(file));
     }
     compareEnvFiles([...compareFiles]);
@@ -1138,7 +1111,6 @@ async function main() {
   await testVercelApi();
   await testStripe();
   await testUnsplash();
-  await testElevenLabs();
   testOAuthFormats();
   testJwtSecret();
   testVercelOidcToken();

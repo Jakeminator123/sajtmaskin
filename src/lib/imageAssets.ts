@@ -67,7 +67,10 @@ function looksLikeImageUrl(rawUrl: string): boolean {
 
   if (u.protocol !== "http:" && u.protocol !== "https:") return false;
   const host = u.hostname.toLowerCase();
+  if (host.includes(".blob.vercel-storage.com")) return false;
   if (host === "localhost" || host === "127.0.0.1") return false;
+  // v0 preview assets are often hosted on vusercontent.net without extensions.
+  if (host.endsWith("vusercontent.net")) return true;
 
   const path = u.pathname.toLowerCase();
 

@@ -46,11 +46,11 @@ export async function GET() {
     },
     {
       id: "ai-gateway",
-      label: "AI Gateway (Prompt Assist)",
+      label: "AI Gateway",
       enabled: gateway.enabled,
       required: false,
       requiredEnv: ["AI_GATEWAY_API_KEY", "VERCEL_OIDC_TOKEN"],
-      affects: "Prompt‑assist via gateway + fallbacks",
+      affects: "Prompt‑assist + AI‑anrop via gateway",
       notes: gateway.notes,
     },
     {
@@ -126,22 +126,6 @@ export async function GET() {
       required: false,
       requiredEnv: ["UNSPLASH_ACCESS_KEY"],
       affects: "Stock‑bilder",
-    },
-    {
-      id: "openai",
-      label: "OpenAI (audit)",
-      enabled: FEATURES.useOpenAI,
-      required: false,
-      requiredEnv: ["OPENAI_API_KEY"],
-      affects: "Audit + web_search (ej gateway)",
-    },
-    {
-      id: "elevenlabs",
-      label: "ElevenLabs",
-      enabled: FEATURES.useElevenLabs,
-      required: false,
-      requiredEnv: ["ELEVENLABS_API_KEY"],
-      affects: "Röst/TTS",
     },
   ];
 

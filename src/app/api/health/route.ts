@@ -13,10 +13,13 @@ export async function GET() {
     timestamp: new Date().toISOString(),
     features: {
       redis: FEATURES.useRedisCache,
-      openai: FEATURES.useOpenAI,
       v0: FEATURES.useV0Api,
       vercel: FEATURES.useVercelApi,
       vercelBlob: FEATURES.useVercelBlob,
+    },
+    featureReasons: {
+      v0: FEATURES.useV0Api ? null : "Missing V0_API_KEY",
+      vercelBlob: FEATURES.useVercelBlob ? null : "Missing BLOB_READ_WRITE_TOKEN",
     },
   };
 

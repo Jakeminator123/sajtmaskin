@@ -138,6 +138,7 @@ export async function POST(req: Request) {
             let internalChatId: string | null = null;
             let internalProjectId: string | null = null;
             let didSendChatId = false;
+            let didSendProjectId = false;
             let didSendDone = false;
             let controllerClosed = false;
             let lastMessageId: string | null = null;
@@ -227,19 +228,16 @@ export async function POST(req: Request) {
 
                   if (v0ChatId && !didSendChatId) {
                     didSendChatId = true;
-                    devLogAppend("in-progress", { type: "site.chatId", chatId: v0ChatId });
-                    safeEnqueue(encoder.encode(formatSSEEvent("chatId", { id: v0ChatId })));
+                    const v0ProjectIdEffective = resolveV0ProjectId({
+                      v0ChatId,
+                      clientProjectId: projectId,
+                    });
+                    const projectName = generateProjectName({
+                      v0ChatId,
+                      clientProjectId: projectId,
+                    });
 
                     try {
-                      // Use standardized v0ProjectId resolution
-                      const v0ProjectIdEffective = resolveV0ProjectId({
-                        v0ChatId,
-                        clientProjectId: projectId,
-                      });
-                      const projectName = generateProjectName({
-                        v0ChatId,
-                        clientProjectId: projectId,
-                      });
                       const ensured = await ensureProjectForRequest({
                         req,
                         v0ProjectId: v0ProjectIdEffective,
@@ -277,6 +275,21 @@ export async function POST(req: Request) {
                       }
                     } catch (dbError) {
                       console.error("Failed to save streaming chat to database:", dbError);
+                    }
+
+                    devLogAppend("in-progress", { type: "site.chatId", chatId: v0ChatId });
+                    safeEnqueue(encoder.encode(formatSSEEvent("chatId", { id: v0ChatId })));
+
+                    if (internalProjectId && !didSendProjectId) {
+                      didSendProjectId = true;
+                      safeEnqueue(
+                        encoder.encode(
+                          formatSSEEvent("projectId", {
+                            id: internalProjectId,
+                            v0ProjectId: v0ProjectIdEffective,
+                          }),
+                        ),
+                      );
                     }
                   }
 
@@ -328,6 +341,7 @@ export async function POST(req: Request) {
                           demoUrl: finalDemoUrl || null,
                           versionId: finalVersionId || null,
                           messageId: messageId || null,
+                          projectId: internalProjectId || null,
                         }),
                       ),
                     );

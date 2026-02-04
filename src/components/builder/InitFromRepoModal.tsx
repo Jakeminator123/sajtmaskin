@@ -8,7 +8,7 @@ import { useAuth } from "@/lib/auth/auth-store";
 interface InitFromRepoModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSuccess: (chatId: string) => void;
+  onSuccess: (chatId: string, projectId?: string | null) => void;
 }
 
 type SourceType = "github" | "zip";
@@ -27,6 +27,13 @@ export function InitFromRepoModal({ isOpen, onClose, onSuccess }: InitFromRepoMo
   const [preferZip, setPreferZip] = useState(false);
   const [returnTo, setReturnTo] = useState("/projects");
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const handleClose = () => {
+    if (typeof window === "undefined") {
+      onClose();
+      return;
+    }
+    window.requestAnimationFrame(onClose);
+  };
 
   useEffect(() => {
     if (!isOpen || isInitialized) return;
@@ -117,6 +124,8 @@ export function InitFromRepoModal({ isOpen, onClose, onSuccess }: InitFromRepoMo
 
       const data = (await response.json().catch(() => null)) as {
         id?: string;
+        projectId?: string | null;
+        project_id?: string | null;
         error?: string;
         details?: string;
       } | null;
@@ -133,8 +142,9 @@ export function InitFromRepoModal({ isOpen, onClose, onSuccess }: InitFromRepoMo
       }
 
       toast.success("Project imported successfully!");
-      onSuccess(v0ChatId);
-      onClose();
+      const returnedProjectId = data?.projectId ?? data?.project_id ?? null;
+      onSuccess(v0ChatId, returnedProjectId);
+      handleClose();
     } catch (error) {
       console.error("Init error:", error);
       toast.error(error instanceof Error ? error.message : "Failed to import project");
@@ -145,13 +155,13 @@ export function InitFromRepoModal({ isOpen, onClose, onSuccess }: InitFromRepoMo
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={handleClose} />
 
       <div className="relative z-10 flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-xl bg-white p-6 shadow-2xl">
         <div className="mb-6 flex items-center justify-between">
           <h2 className="text-xl font-semibold text-gray-900">Import Existing Project</h2>
           <button
-            onClick={onClose}
+            onClick={handleClose}
             className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
           >
             <X className="h-5 w-5" />

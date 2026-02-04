@@ -169,14 +169,6 @@ export const SECRETS = {
     return secret || "dev-secret-change-in-production";
   },
 
-  get openaiApiKey() {
-    const key = sanitizeEnvValue(process.env.OPENAI_API_KEY);
-    if (!key && IS_PRODUCTION) {
-      console.error("[Config] OPENAI_API_KEY is required");
-    }
-    return key;
-  },
-
   get v0ApiKey() {
     return sanitizeEnvValue(process.env.V0_API_KEY);
   },
@@ -243,14 +235,6 @@ export const SECRETS = {
       return process.env.GITHUB_CLIENT_SECRET_DEV;
     }
     return process.env.GITHUB_CLIENT_SECRET || "";
-  },
-
-  get elevenLabsApiKey() {
-    return process.env.ELEVENLABS_API_KEY || "";
-  },
-
-  get elevenLabsVoiceId() {
-    return process.env.ELEVENLABS_VOICE_ID || "";
   },
 
   // Admin/Backoffice authentication
@@ -362,12 +346,6 @@ export const FEATURES = {
   // Enable v0 API for code generation
   useV0Api: Boolean(SECRETS.v0ApiKey),
 
-  // Enable OpenAI features
-  useOpenAI: Boolean(SECRETS.openaiApiKey),
-
-  // Enable ElevenLabs TTS
-  useElevenLabs: Boolean(SECRETS.elevenLabsApiKey),
-
   // Enable Vercel REST API integration
   useVercelApi: Boolean(SECRETS.vercelApiToken),
 
@@ -417,7 +395,7 @@ export function logConfig(): void {
  */
 export function validateEnv(): { valid: boolean; missing: string[] } {
   // Core required secrets for production
-  const coreSecrets: SecretName[] = IS_PRODUCTION ? ["jwtSecret", "openaiApiKey", "v0ApiKey"] : [];
+  const coreSecrets: SecretName[] = IS_PRODUCTION ? ["jwtSecret", "v0ApiKey"] : [];
 
   const missing = validateRequiredSecrets(coreSecrets);
 

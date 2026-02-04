@@ -46,6 +46,22 @@ function SheetContent({
 }: React.ComponentProps<typeof SheetPrimitive.Content> & {
   side?: "top" | "right" | "bottom" | "left";
 }) {
+  const hasSlot = (node: React.ReactNode, slot: string): boolean => {
+    const items = React.Children.toArray(node);
+    for (const item of items) {
+      if (!React.isValidElement(item)) continue;
+      const props = item.props as { children?: React.ReactNode; "data-slot"?: string };
+      const dataSlot = props["data-slot"];
+      if (dataSlot === slot) return true;
+      if (props.children && hasSlot(props.children, slot)) return true;
+    }
+    return false;
+  };
+
+  const hasTitle = hasSlot(children, "sheet-title");
+  const hasDescription = hasSlot(children, "sheet-description");
+  const describedByProps = hasDescription ? {} : { "aria-describedby": undefined };
+
   return (
     <SheetPortal>
       <SheetOverlay />
@@ -63,8 +79,13 @@ function SheetContent({
             "data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom inset-x-0 bottom-0 h-auto border-t",
           className,
         )}
+        {...describedByProps}
         {...props}
       >
+        {!hasTitle ? <SheetTitle className="sr-only">Dialog</SheetTitle> : null}
+        {!hasDescription ? (
+          <SheetDescription className="sr-only">Dialog content</SheetDescription>
+        ) : null}
         {children}
         <SheetPrimitive.Close className="ring-offset-background focus:ring-ring data-[state=open]:bg-secondary absolute top-4 right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none">
           <XIcon className="size-4" />

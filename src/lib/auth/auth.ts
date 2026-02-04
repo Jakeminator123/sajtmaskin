@@ -115,11 +115,11 @@ export function verifyToken(token: string): JWTPayload | null {
 /**
  * Set auth cookie with JWT token
  */
-export async function setAuthCookie(token: string): Promise<void> {
+export async function setAuthCookie(token: string, options?: { secure?: boolean }): Promise<void> {
   const cookieStore = await cookies();
   cookieStore.set(AUTH_COOKIE_NAME, token, {
     httpOnly: true,
-    secure: IS_PRODUCTION,
+    secure: typeof options?.secure === "boolean" ? options.secure : IS_PRODUCTION,
     sameSite: "lax",
     path: "/",
     maxAge: JWT_EXPIRY,

@@ -3,21 +3,28 @@
 /**
  * Reasoning Component (AI Elements)
  *
- * Displays AI thinking/reasoning process with collapsible content.
+ * Displays AI reasoning with auto-open/close while streaming.
  * Based on Vercel AI Elements specification.
  */
 
-import { createContext, useContext, useState, type HTMLAttributes, type ReactNode } from "react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { cn } from "@/lib/utils/utils";
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ComponentPropsWithoutRef,
+  type ReactNode,
+} from "react";
 
-// ============================================================================
-// REASONING CONTEXT
-// ============================================================================
-
-interface ReasoningContextValue {
+type ReasoningContextValue = {
   isOpen: boolean;
-  toggle: () => void;
-}
+  isStreaming: boolean;
+  durationMs: number;
+};
 
 const ReasoningContext = createContext<ReasoningContextValue | null>(null);
 
@@ -29,22 +36,95 @@ function useReasoningContext() {
   return context;
 }
 
-// ============================================================================
-// REASONING ROOT
-// ============================================================================
-
-export interface ReasoningProps extends HTMLAttributes<HTMLDivElement> {
+export interface ReasoningProps extends Omit<
+  ComponentPropsWithoutRef<typeof Collapsible>,
+  "open" | "defaultOpen" | "onOpenChange"
+> {
+  isStreaming?: boolean;
+  open?: boolean;
   defaultOpen?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  duration?: number;
   children: ReactNode;
 }
 
-export function Reasoning({ defaultOpen = false, children, className, ...props }: ReasoningProps) {
-  const [isOpen, setIsOpen] = useState(defaultOpen);
+export function Reasoning({
+  isStreaming = false,
+  open,
+  defaultOpen = false,
+  onOpenChange,
+  duration,
+  className,
+  children,
+  ...props
+}: ReasoningProps) {
+  const isControlled = open !== undefined;
+  const [internalOpen, setInternalOpen] = useState(defaultOpen);
+  const resolvedOpen = isControlled ? Boolean(open) : internalOpen;
+  const autoOpenedRef = useRef(false);
+  const streamStartRef = useRef<number | null>(null);
+  const [elapsedMs, setElapsedMs] = useState(0);
+
+  useEffect(() => {
+    if (isStreaming) {
+      if (!streamStartRef.current) {
+        streamStartRef.current = Date.now();
+      }
+      if (!resolvedOpen) {
+        if (isControlled) {
+          onOpenChange?.(true);
+        } else {
+          setInternalOpen(true);
+        }
+        autoOpenedRef.current = true;
+      }
+      return;
+    }
+
+    streamStartRef.current = null;
+    setElapsedMs(0);
+    if (autoOpenedRef.current) {
+      if (isControlled) {
+        onOpenChange?.(false);
+      } else {
+        setInternalOpen(false);
+      }
+      autoOpenedRef.current = false;
+    }
+  }, [isStreaming, resolvedOpen, isControlled, onOpenChange]);
+
+  useEffect(() => {
+    if (!isStreaming || duration !== undefined) return undefined;
+    const timer = window.setInterval(() => {
+      if (streamStartRef.current) {
+        setElapsedMs(Date.now() - streamStartRef.current);
+      }
+    }, 1000);
+    return () => window.clearInterval(timer);
+  }, [isStreaming, duration]);
+
+  const durationMs = duration ?? elapsedMs;
+
+  const handleOpenChange = (next: boolean) => {
+    if (!isControlled) {
+      setInternalOpen(next);
+    }
+    if (!next) {
+      autoOpenedRef.current = false;
+    }
+    onOpenChange?.(next);
+  };
+
+  const contextValue = useMemo(
+    () => ({ isOpen: resolvedOpen, isStreaming, durationMs }),
+    [resolvedOpen, isStreaming, durationMs],
+  );
 
   return (
-    <ReasoningContext.Provider value={{ isOpen, toggle: () => setIsOpen(!isOpen) }}>
-      <div
-        data-state={isOpen ? "open" : "closed"}
+    <ReasoningContext.Provider value={contextValue}>
+      <Collapsible
+        open={resolvedOpen}
+        onOpenChange={handleOpenChange}
         className={cn(
           "overflow-hidden rounded-lg border border-zinc-700/50 bg-zinc-900/50",
           className,
@@ -52,39 +132,36 @@ export function Reasoning({ defaultOpen = false, children, className, ...props }
         {...props}
       >
         {children}
-      </div>
+      </Collapsible>
     </ReasoningContext.Provider>
   );
 }
 
-// ============================================================================
-// REASONING TRIGGER (Collapsible header)
-// ============================================================================
-
-export interface ReasoningTriggerProps extends HTMLAttributes<HTMLButtonElement> {
-  children?: ReactNode;
-  isStreaming?: boolean;
+export interface ReasoningTriggerProps extends ComponentPropsWithoutRef<typeof CollapsibleTrigger> {
+  getThinkingMessage?: (durationMs: number) => ReactNode;
 }
 
 export function ReasoningTrigger({
   children,
-  isStreaming = false,
+  getThinkingMessage,
   className,
-  onClick,
   ...props
 }: ReasoningTriggerProps) {
-  const { isOpen, toggle } = useReasoningContext();
+  const { isOpen, isStreaming, durationMs } = useReasoningContext();
 
-  const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
-    toggle();
-    onClick?.(e);
-  };
+  const defaultThinking = useMemo(() => {
+    if (!isStreaming) return null;
+    const seconds = Math.max(1, Math.round(durationMs / 1000));
+    return (
+      <span className="flex items-center gap-2">
+        <span className="animate-pulse">💭</span>
+        {durationMs ? `Tänker (${seconds}s)...` : "Tänker..."}
+      </span>
+    );
+  }, [isStreaming, durationMs]);
 
   return (
-    <button
-      type="button"
-      onClick={handleClick}
-      aria-expanded={isOpen}
+    <CollapsibleTrigger
       className={cn(
         "flex w-full items-center gap-2 px-3 py-2 text-left",
         "text-sm text-zinc-400 hover:text-zinc-200",
@@ -94,10 +171,11 @@ export function ReasoningTrigger({
       {...props}
     >
       {isStreaming ? (
-        <span className="flex items-center gap-2">
-          <span className="animate-pulse">💭</span>
-          Tänker...
-        </span>
+        getThinkingMessage ? (
+          getThinkingMessage(durationMs)
+        ) : (
+          defaultThinking
+        )
       ) : (
         <>
           <svg
@@ -115,35 +193,21 @@ export function ReasoningTrigger({
           {children || "Visa resonemang"}
         </>
       )}
-    </button>
+    </CollapsibleTrigger>
   );
 }
 
-// ============================================================================
-// REASONING CONTENT
-// ============================================================================
-
-export interface ReasoningContentProps extends HTMLAttributes<HTMLDivElement> {
+export interface ReasoningContentProps extends ComponentPropsWithoutRef<typeof CollapsibleContent> {
   children: ReactNode;
 }
 
 export function ReasoningContent({ children, className, ...props }: ReasoningContentProps) {
-  const { isOpen } = useReasoningContext();
-
-  if (!isOpen) {
-    return null;
-  }
-
   return (
-    <div
-      className={cn(
-        "px-3 pb-3 text-sm leading-relaxed text-zinc-400",
-        "border-t border-zinc-800",
-        className,
-      )}
+    <CollapsibleContent
+      className={cn("px-3 pb-3 text-sm leading-relaxed text-zinc-400", className)}
       {...props}
     >
-      {children}
-    </div>
+      <div className="border-t border-zinc-800 pt-2">{children}</div>
+    </CollapsibleContent>
   );
 }

@@ -315,6 +315,7 @@ export async function POST(req: Request) {
       }
 
       let internalChatId: string | null = null;
+      let internalProjectId: string | null = null;
       try {
         internalChatId = nanoid();
         const chatResult = "id" in result ? result : null;
@@ -322,8 +323,6 @@ export async function POST(req: Request) {
           (chatResult && "projectId" in chatResult ? chatResult.projectId : null) ||
           projectId ||
           "";
-
-        let internalProjectId: string | null = null;
 
         if (v0ProjectId) {
           const importName =
@@ -382,6 +381,7 @@ export async function POST(req: Request) {
         NextResponse.json({
           ...result,
           internalChatId,
+          projectId: internalProjectId,
           source: source.type,
           lockedFiles: configLockedFiles,
         }),

@@ -497,8 +497,7 @@ function BuilderContent() {
   }, [source, promptId]);
 
   const { chat, mutate: mutateChat } = useChat(chatId);
-  const chatV0ProjectId =
-    (chat as { v0ProjectId?: string | null } | null)?.v0ProjectId ?? null;
+  const chatV0ProjectId = (chat as { v0ProjectId?: string | null } | null)?.v0ProjectId ?? null;
   const { versions, mutate: mutateVersions } = useVersions(chatId);
   type VersionSummary = {
     id?: string | null;

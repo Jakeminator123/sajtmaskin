@@ -13,6 +13,8 @@ import {
   createOrUpdateProject,
   isVercelConfigured,
   getDeploymentStatus,
+  listEnvironmentVariables,
+  setEnvironmentVariable,
 } from "@/lib/vercel/vercel-client";
 import { getProjectData } from "@/lib/db/services";
 import {
@@ -42,6 +44,35 @@ export interface DeploymentResult {
   url?: string;
   readyState?: string;
   error?: string;
+}
+
+const ALL_ENV_TARGETS: Array<"production" | "preview" | "development"> = [
+  "production",
+  "preview",
+  "development",
+];
+
+async function ensureProjectEnvVar(params: {
+  projectId: string;
+  key: string;
+  value: string;
+  teamId?: string;
+}): Promise<void> {
+  try {
+    const envs = await listEnvironmentVariables(params.projectId, params.teamId);
+    const exists = envs.some((env) => env.key === params.key);
+    if (exists) return;
+
+    await setEnvironmentVariable(params.projectId, params.key, params.value, {
+      target: ALL_ENV_TARGETS,
+      teamId: params.teamId,
+    });
+  } catch (error) {
+    console.warn(
+      `[Vercel Deployment] Failed to ensure env ${params.key}:`,
+      error instanceof Error ? error.message : error,
+    );
+  }
 }
 
 // ============================================================================
@@ -263,6 +294,7 @@ export async function deployProject(options: DeployProjectOptions): Promise<Depl
 
   try {
     const resolvedTeamId = options.teamId || process.env.VERCEL_TEAM_ID?.trim() || undefined;
+    const blobToken = process.env.BLOB_READ_WRITE_TOKEN?.trim();
 
     // Get project files from project_data
     const projectData = await getProjectData(options.projectId);
@@ -355,18 +387,31 @@ export async function deployProject(options: DeployProjectOptions): Promise<Depl
     console.log("[Vercel Deployment] Files:", Object.keys(vercelFiles).join(", "));
 
     // Ensure project exists in Vercel
-    await createOrUpdateProject(options.projectName, {
+    const project = await createOrUpdateProject(options.projectName, {
       framework: options.framework || "nextjs",
       teamId: resolvedTeamId,
     });
 
+    if (blobToken) {
+      await ensureProjectEnvVar({
+        projectId: project.id,
+        key: "BLOB_READ_WRITE_TOKEN",
+        value: blobToken,
+        teamId: resolvedTeamId,
+      });
+    }
+
     // Create deployment
+    const deploymentEnv = {
+      ...(options.env || {}),
+      ...(blobToken ? { BLOB_READ_WRITE_TOKEN: blobToken } : {}),
+    };
     const deployment = await createDeployment({
       name: options.projectName,
       files: vercelFiles,
       projectSettings: { framework: options.framework || "nextjs" },
       target: options.target || "production",
-      env: options.env,
+      env: deploymentEnv,
       teamId: resolvedTeamId,
     });
 

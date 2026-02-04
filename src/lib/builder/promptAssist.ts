@@ -1,52 +1,173 @@
 // "gateway" refers to Vercel AI Gateway (same gateway API used by /api/ai/* routes).
-export type PromptAssistProvider = "off" | "gateway" | "openai-compat";
+// "v0" refers to the v0 Model API (openai-compat).
+export type PromptAssistProvider = "gateway" | "v0";
 
-export function normalizeAssistModel(provider: PromptAssistProvider, rawModel: string): string {
+export const GATEWAY_ASSIST_MODELS = [
+  "openai/gpt-5.2",
+  "openai/gpt-5.2-pro",
+  "anthropic/claude-opus-4.5",
+  "anthropic/claude-sonnet-4.5",
+] as const;
+
+export const V0_ASSIST_MODELS = ["v0-1.5-md", "v0-1.5-lg"] as const;
+
+export type GatewayAssistModel = (typeof GATEWAY_ASSIST_MODELS)[number];
+export type V0AssistModel = (typeof V0_ASSIST_MODELS)[number];
+
+export function normalizeAssistModel(rawModel: string): string {
   const raw = String(rawModel || "").trim();
   if (!raw) return raw;
-
-  if (provider !== "gateway") return raw;
+  if (raw.startsWith("v0-")) return raw;
   if (raw.includes("/")) return raw;
-
-  const rawLower = raw.toLowerCase();
-  let providerHint: "openai" | "anthropic" | "xai" | "google" | null = null;
-  if (/\bopenai\b/.test(rawLower)) providerHint = "openai";
-  else if (/\banthropic\b|\bclaude\b/.test(rawLower)) providerHint = "anthropic";
-  else if (/\bxai\b|\bgrok\b/.test(rawLower)) providerHint = "xai";
-  else if (/\bgoogle\b|\bgemini\b/.test(rawLower)) providerHint = "google";
-
-  let modelPart = raw
-    .replace(/openai|anthropic|xai|google/gi, "")
-    .trim()
-    .replace(/^\W+|\W+$/g, "")
-    .replace(/gbt/gi, "gpt")
-    .replace(/\s+/g, "-");
-
-  if (!modelPart && /\bclaude\b/.test(rawLower)) modelPart = raw.trim().replace(/\s+/g, "-");
-
-  modelPart = modelPart.replace(/^gpt[- ]?(\d)(?:[._-]?(\d))?$/i, (_m, major, minor) =>
-    minor ? `gpt-${major}.${minor}` : `gpt-${major}`,
-  );
-
-  if (!modelPart) modelPart = "gpt-4o-mini";
-
-  if (!providerHint) {
-    const m = modelPart.toLowerCase();
-    if (m.startsWith("claude")) providerHint = "anthropic";
-    else if (m.startsWith("grok")) providerHint = "xai";
-    else if (m.startsWith("gemini")) providerHint = "google";
-    else providerHint = "openai";
-  }
-
-  return `${providerHint}/${modelPart}`;
+  return `openai/${raw}`;
 }
 
-export function buildV0RewriteSystemPrompt(): string {
-  return (
+export function isV0AssistModel(model: string): model is V0AssistModel {
+  return V0_ASSIST_MODELS.includes(model as V0AssistModel);
+}
+
+export function isGatewayAssistModel(model: string): model is GatewayAssistModel {
+  return GATEWAY_ASSIST_MODELS.includes(model as GatewayAssistModel);
+}
+
+export function isPromptAssistModelAllowed(model: string): boolean {
+  return isGatewayAssistModel(model) || isV0AssistModel(model);
+}
+
+export function resolvePromptAssistProvider(model: string): PromptAssistProvider {
+  return isV0AssistModel(model) ? "v0" : "gateway";
+}
+
+const SECTION_KEYWORDS = [
+  "hero",
+  "features",
+  "pricing",
+  "faq",
+  "testimonials",
+  "contact",
+  "about",
+  "footer",
+  "cta",
+  "gallery",
+  "services",
+  "team",
+  "blog",
+  "navbar",
+] as const;
+
+const STYLE_KEYWORDS = [
+  "minimal",
+  "modern",
+  "clean",
+  "bold",
+  "playful",
+  "professional",
+  "luxury",
+  "dark",
+  "light",
+  "retro",
+  "corporate",
+  "soft",
+  "elegant",
+  "futuristic",
+] as const;
+
+const CONSTRAINT_MARKERS = [
+  "must",
+  "should",
+  "avoid",
+  "do not",
+  "don't",
+  "ska",
+  "måste",
+  "undvik",
+  "inte",
+  "utan",
+] as const;
+
+function normalizeWhitespace(value: string): string {
+  const normalized = value.replace(/\r\n/g, "\n");
+  const trimmedLines = normalized.split("\n").map((line) => line.replace(/\s+$/g, ""));
+  return trimmedLines
+    .join("\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+function extractKeywordMatches(value: string, keywords: readonly string[]): string[] {
+  const normalized = value.toLowerCase();
+  const matches = keywords.filter((keyword) => normalized.includes(keyword));
+  return Array.from(new Set(matches));
+}
+
+function extractConstraints(value: string): string[] {
+  const lines = value
+    .split(/\n+/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const picked: string[] = [];
+  lines.forEach((line) => {
+    const lower = line.toLowerCase();
+    if (CONSTRAINT_MARKERS.some((marker) => lower.includes(marker))) {
+      if (!picked.includes(line)) {
+        picked.push(line);
+      }
+    }
+  });
+  return picked.slice(0, 6);
+}
+
+function extractUrls(value: string): string[] {
+  const matches = Array.from(value.matchAll(/https?:\/\/[^\s)]+/g)).map((m) => m[0]);
+  return Array.from(new Set(matches)).slice(0, 6);
+}
+
+export function formatPromptForV0(prompt: string): string {
+  if (!prompt) return "";
+  const normalized = normalizeWhitespace(String(prompt));
+  if (!normalized) return "";
+
+  const sections = extractKeywordMatches(normalized, SECTION_KEYWORDS);
+  const styles = extractKeywordMatches(normalized, STYLE_KEYWORDS);
+  const constraints = extractConstraints(normalized);
+  const urls = extractUrls(normalized);
+
+  const parts: string[] = ["MÅL", normalized];
+
+  if (sections.length) {
+    parts.push("SEKTIONER", sections.join(", "));
+  }
+  if (styles.length) {
+    parts.push("STIL", styles.join(", "));
+  }
+  if (constraints.length) {
+    parts.push("CONSTRAINTS", constraints.map((line) => `- ${line}`).join("\n"));
+  }
+  if (urls.length) {
+    parts.push("ASSETS/ATTACHMENTS", urls.map((url) => `- ${url}`).join("\n"));
+  }
+
+  return parts.join("\n\n");
+}
+
+export function buildV0RewriteSystemPrompt(params: { codeContext?: string | null } = {}): string {
+  const base =
     "You are a prompt engineer for v0 (a website/app builder). " +
     "Rewrite the user request into a single, concrete, high-quality build prompt for v0. " +
     "Keep it concise, include key requirements and UI details, and avoid extra commentary. " +
-    "Output ONLY the rewritten prompt."
+    "Output ONLY the rewritten prompt.";
+
+  const codeContext = params.codeContext?.trim();
+  if (!codeContext) return base;
+
+  return (
+    base +
+    "\n\nYou also receive a summary of the existing codebase. " +
+    "Use it to align the rewrite with the current structure and naming. " +
+    "If the request implies edits, reference the most relevant files/components from the context. " +
+    "Do not invent files or frameworks that are not in the context. " +
+    "Do not output the context itself.\n\n" +
+    `Codebase context:\n${codeContext}`
   );
 }
 
@@ -133,7 +254,7 @@ export function buildV0PromptFromBrief(params: {
       : null,
     "",
     imageGenerations
-      ? "Imagery: include tasteful images where they add value. Use next/image when appropriate and include descriptive alt text."
+      ? "Imagery: include tasteful images where they add value. Use next/image when appropriate, include descriptive alt text, and use public https image URLs (avoid data: URIs or local file paths)."
       : "Imagery: do not rely on generated images; prioritize layout, typography, and iconography. Images are optional.",
     imageryStyle.length ? `- Image style keywords: ${imageryStyle.join(", ")}` : null,
     imagerySubjects.length ? `- Suggested image subjects: ${imagerySubjects.join(", ")}` : null,

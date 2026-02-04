@@ -49,7 +49,7 @@ export async function GET(req: NextRequest) {
     }
 
     // Set auth cookie
-    await setAuthCookie(result.token);
+    await setAuthCookie(result.token, { secure: req.nextUrl.protocol === "https:" });
 
     // Redirect to original page with success
     return NextResponse.redirect(new URL(`${redirectUrl}?login=success`, req.url));

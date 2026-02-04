@@ -100,6 +100,7 @@ export async function POST(req: Request) {
 
       // Save chat and version to database
       let internalChatId: string | null = null;
+      let projectIdResult: string | null = null;
       try {
         internalChatId = nanoid();
         const v0ProjectId = projectId || `registry:${componentName}:${Date.now()}`;
@@ -111,6 +112,7 @@ export async function POST(req: Request) {
           name: chatName,
           sessionId,
         });
+        projectIdResult = project.id;
 
         // Save chat
         await db.insert(chats).values({
@@ -167,6 +169,7 @@ export async function POST(req: Request) {
           success: true,
           chatId: result.chatId,
           internalChatId,
+          projectId: projectIdResult,
           demoUrl: result.demoUrl,
           versionId: result.versionId,
           webUrl: result.webUrl,

@@ -10,7 +10,10 @@
 import {
   createContext,
   useContext,
+  useCallback,
+  useEffect,
   useId,
+  useRef,
   type HTMLAttributes,
   type ButtonHTMLAttributes,
   type ReactNode,
@@ -161,15 +164,43 @@ export function PromptInputTextarea({
   const resolvedId = id ?? `prompt-input-${autoId}`;
   const resolvedName = name ?? `prompt-${autoId}`;
   const ariaLabel = ariaLabelledByProp ? undefined : (ariaLabelProp ?? placeholder ?? "Prompt");
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
+  const resizeFrameRef = useRef<number | null>(null);
+
+  const scheduleResize = useCallback(
+    (target: HTMLTextAreaElement) => {
+      if (resizeFrameRef.current !== null) {
+        cancelAnimationFrame(resizeFrameRef.current);
+      }
+      resizeFrameRef.current = requestAnimationFrame(() => {
+        resizeFrameRef.current = null;
+        target.style.height = "auto";
+        const lineHeight = 24;
+        const minHeight = minRows * lineHeight;
+        const maxHeight = maxRows * lineHeight;
+        target.style.height = `${Math.min(Math.max(target.scrollHeight, minHeight), maxHeight)}px`;
+      });
+    },
+    [minRows, maxRows],
+  );
+
+  useEffect(() => {
+    const target = textareaRef.current;
+    if (target) {
+      scheduleResize(target);
+    }
+    return () => {
+      if (resizeFrameRef.current !== null) {
+        cancelAnimationFrame(resizeFrameRef.current);
+      }
+    };
+  }, [value, scheduleResize]);
 
   const handleChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
-    onChange(e.target.value);
-    // Auto-resize textarea
-    e.target.style.height = "auto";
-    const lineHeight = 24;
-    const minHeight = minRows * lineHeight;
-    const maxHeight = maxRows * lineHeight;
-    e.target.style.height = `${Math.min(Math.max(e.target.scrollHeight, minHeight), maxHeight)}px`;
+    const target = e.currentTarget;
+    onChange(target.value);
+    // Auto-resize textarea (deferred to avoid blocking input)
+    scheduleResize(target);
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -183,6 +214,7 @@ export function PromptInputTextarea({
 
   return (
     <textarea
+      ref={textareaRef}
       value={value}
       onChange={handleChange}
       onKeyDown={handleKeyDown}

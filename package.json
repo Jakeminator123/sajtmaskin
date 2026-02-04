@@ -22,7 +22,6 @@
     "test:api": "node scripts/test-api-usage.mjs"
   },
   "dependencies": {
-    "@ai-sdk/anthropic": "^3.0.23",
     "@ai-sdk/openai": "^3.0.18",
     "@ai-sdk/vercel": "^2.0.19",
     "@codesandbox/sandpack-react": "^2.20.0",

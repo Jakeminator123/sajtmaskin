@@ -6,9 +6,13 @@ Files in this folder:
 - calls.txt
   Standard for viktigaste API-anrop, skillnad gateway/inte gateway,
   och vilka filer som ansvarar for vad.
+- db-redis.txt
+  Oversikt av Postgres-tabeller och Redis/Upstash-nyckelstruktur.
 
 Relation to other docs:
 - src/...: kodkalla for sanning, schemas maste uppdateras nar kod andras.
+- calls.txt: listar prompt assist providers (gateway/openai/anthropic) och request-format.
+- db-redis.txt: speglar schema.ts och redis.ts.
 
 How to update:
 1) Nar ett endpoint, request eller response andras -> uppdatera calls.txt.
@@ -18,3 +22,9 @@ How to update:
 Designprincip:
 - Kort och exakt. Peka till kod, duplicera inte logik.
 - Inga hemligheter eller nyckelvarden i texten.
+
+Prompt Assist (kort systembild):
+- Simple: /api/ai/chat (messages[]), output = rewrite-text.
+- Deep: /api/ai/brief (prompt + imageGenerations), output = brief-JSON -> v0-prompt.
+- Providers: gateway (provider/model), openai + anthropic (model utan prefix).
+- Kodkontext injiceras i system-prompten (ingen extra payload-falt).
