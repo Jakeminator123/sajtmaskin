@@ -434,8 +434,8 @@ export async function POST(req: Request) {
                   const resolved = await resolveLatestVersion(v0ChatId, {
                     preferVersionId: lastVersionId,
                     preferDemoUrl: lastDemoUrl,
-                    maxAttempts: 15,
-                    delayMs: 2000,
+                    maxAttempts: 45,
+                    delayMs: 2500,
                   });
                   const finalVersionId = resolved.versionId || lastVersionId || null;
                   const finalDemoUrl = resolved.demoUrl || lastDemoUrl || null;

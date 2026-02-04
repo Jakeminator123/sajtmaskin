@@ -287,8 +287,8 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
                   const resolved = await resolveLatestVersion(chatId, {
                     preferVersionId: lastVersionId,
                     preferDemoUrl: lastDemoUrl,
-                    maxAttempts: 12,
-                    delayMs: 1500,
+                    maxAttempts: 45,
+                    delayMs: 2500,
                   });
                   const finalVersionId = resolved.versionId || lastVersionId || null;
                   const finalDemoUrl = resolved.demoUrl || lastDemoUrl || null;
