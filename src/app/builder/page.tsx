@@ -97,7 +97,7 @@ function BuilderContent() {
   const pendingInstructionsRef = useRef<string | null>(null);
   const hasLoadedInstructionsOnce = useRef(false);
   const pendingInstructionsOnceRef = useRef<boolean | null>(null);
-  const lastSyncedInstructionsRef = useRef<{ projectId: string; instructions: string } | null>(
+  const lastSyncedInstructionsRef = useRef<{ v0ProjectId: string; instructions: string } | null>(
     null,
   );
 
@@ -113,7 +113,8 @@ function BuilderContent() {
     options?: CreateChatOptions;
   } | null>(null);
   const [hasSelectedModelTier, setHasSelectedModelTier] = useState(false);
-  const [projectId, setProjectId] = useState<string | null>(projectParam);
+  const [appProjectId, setAppProjectId] = useState<string | null>(projectParam);
+  const [v0ProjectId, setV0ProjectId] = useState<string | null>(null);
   const [promptAssistContext, setPromptAssistContext] = useState<string | null>(null);
   const promptAssistContextKeyRef = useRef<string | null>(null);
   // Raw page code for section analysis in component picker
@@ -171,7 +172,7 @@ function BuilderContent() {
         setResolvedPrompt(data.prompt);
         const incomingProjectId = data.projectId ?? null;
         if (incomingProjectId) {
-          setProjectId((prev) => prev ?? incomingProjectId);
+          setAppProjectId((prev) => prev ?? incomingProjectId);
         }
       } catch (error) {
         if (!isActive) return;
@@ -205,26 +206,28 @@ function BuilderContent() {
 
   useEffect(() => {
     if (projectParam) {
-      setProjectId(projectParam);
+      setAppProjectId(projectParam);
     }
   }, [projectParam]);
 
+  // Sync entryIntentActive with URL params - set true when entry params exist, false when they don't.
+  // This ensures "load last chat" fallback works after navigating away from an entry intent URL.
   useEffect(() => {
-    if (promptParam || promptId || source === "audit") {
-      setEntryIntentActive(true);
-    }
+    const hasIntent = Boolean(promptParam || promptId || source === "audit");
+    setEntryIntentActive(hasIntent);
   }, [promptParam, promptId, source]);
 
+  // Also clear entry intent when a chat is successfully created
   useEffect(() => {
     if (chatId) {
       setEntryIntentActive(false);
     }
   }, [chatId]);
 
-  const applyProjectId = useCallback(
+  const applyAppProjectId = useCallback(
     (nextProjectId: string | null, options: { chatId?: string | null } = {}) => {
       if (!nextProjectId) return;
-      setProjectId((prev) => (prev === nextProjectId ? prev : nextProjectId));
+      setAppProjectId((prev) => (prev === nextProjectId ? prev : nextProjectId));
       const resolvedChatId = options.chatId ?? chatId;
       if (!resolvedChatId) return;
       if (projectParam === nextProjectId && chatIdParam === resolvedChatId) return;
@@ -306,11 +309,11 @@ function BuilderContent() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    if (!projectId || !hasLoadedInstructions.current) return;
+    if (!v0ProjectId || !hasLoadedInstructions.current) return;
     if (applyInstructionsOnce) return;
     const normalized = customInstructions.trim();
     const last = lastSyncedInstructionsRef.current;
-    if (last && last.projectId === projectId && last.instructions === normalized) {
+    if (last && last.v0ProjectId === v0ProjectId && last.instructions === normalized) {
       return;
     }
 
@@ -321,7 +324,7 @@ function BuilderContent() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       signal: controller.signal,
-      body: JSON.stringify({ projectId, instructions: normalized }),
+      body: JSON.stringify({ projectId: v0ProjectId, instructions: normalized }),
     })
       .then(async (res) => {
         if (!res.ok) {
@@ -336,19 +339,19 @@ function BuilderContent() {
               : `Failed to sync project instructions (HTTP ${res.status})`;
           throw new Error(msg);
         }
-        lastSyncedInstructionsRef.current = { projectId, instructions: normalized };
+        lastSyncedInstructionsRef.current = { v0ProjectId, instructions: normalized };
       })
       .catch((error) => {
         if (error instanceof Error && error.name === "AbortError") return;
         debugLog("v0", "Failed to sync project instructions", {
-          projectId,
+          projectId: v0ProjectId,
           error: error instanceof Error ? error.message : "Unknown error",
         });
       })
       .finally(() => {
         window.clearTimeout(timeoutId);
       });
-  }, [projectId, customInstructions, applyInstructionsOnce]);
+  }, [v0ProjectId, customInstructions, applyInstructionsOnce]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -494,6 +497,8 @@ function BuilderContent() {
   }, [source, promptId]);
 
   const { chat, mutate: mutateChat } = useChat(chatId);
+  const chatV0ProjectId =
+    (chat as { v0ProjectId?: string | null } | null)?.v0ProjectId ?? null;
   const { versions, mutate: mutateVersions } = useVersions(chatId);
   type VersionSummary = {
     id?: string | null;
@@ -504,6 +509,16 @@ function BuilderContent() {
     () => (Array.isArray(versions) ? (versions as VersionSummary[]) : []),
     [versions],
   );
+
+  useEffect(() => {
+    if (!chatId) {
+      setV0ProjectId(null);
+      return;
+    }
+    if (chatV0ProjectId && chatV0ProjectId !== v0ProjectId) {
+      setV0ProjectId(chatV0ProjectId);
+    }
+  }, [chatId, chatV0ProjectId, v0ProjectId]);
   const versionIdSet = useMemo(() => {
     return new Set(
       versionsList
@@ -514,6 +529,7 @@ function BuilderContent() {
 
   useEffect(() => {
     setSelectedVersionId(null);
+    setV0ProjectId(null);
   }, [chatId]);
 
   useEffect(() => {
@@ -816,8 +832,8 @@ function BuilderContent() {
           }, 1000); // Small delay to let DB update
         }
       }
-      if (projectId && data.chatId) {
-        saveProjectData(projectId, {
+      if (appProjectId && data.chatId) {
+        saveProjectData(appProjectId, {
           chatId: data.chatId,
           demoUrl: data.demoUrl ?? undefined,
         }).catch((error) => {
@@ -825,7 +841,7 @@ function BuilderContent() {
         });
       }
     },
-    [applyInstructionsOnce, validateCss, projectId, mutateChat, mutateVersions],
+    [applyInstructionsOnce, validateCss, appProjectId, mutateChat, mutateVersions],
   );
 
   const { isCreatingChat, createNewChat, sendMessage } = useV0ChatMessaging({
@@ -833,7 +849,8 @@ function BuilderContent() {
     setChatId,
     chatIdParam,
     router,
-    projectId,
+    appProjectId,
+    v0ProjectId,
     selectedModelTier,
     enableImageGenerations,
     systemPrompt: customInstructions,
@@ -841,7 +858,7 @@ function BuilderContent() {
     setCurrentDemoUrl,
     onPreviewRefresh: bumpPreviewRefreshToken,
     onGenerationComplete: handleGenerationComplete,
-    onProjectId: (nextProjectId) => applyProjectId(nextProjectId),
+    onV0ProjectId: (nextProjectId) => setV0ProjectId(nextProjectId),
     setMessages,
     resetBeforeCreateChat,
   });
@@ -894,7 +911,6 @@ function BuilderContent() {
             registryUrl: selection.registryUrl,
             quality,
             name,
-            projectId: projectId || undefined,
           }),
         });
 
@@ -911,18 +927,17 @@ function BuilderContent() {
           throw new Error(data?.error || data?.details || "Kunde inte starta från shadcn/ui");
         }
 
-        const nextProjectId = data.projectId ?? data.project_id ?? projectId ?? null;
         setChatId(data.chatId);
-        if (nextProjectId) {
-          applyProjectId(nextProjectId, { chatId: data.chatId });
+        if (appProjectId) {
+          applyAppProjectId(appProjectId, { chatId: data.chatId });
         } else {
           router.replace(`/builder?chatId=${encodeURIComponent(data.chatId)}`);
         }
         setMessages([]);
         setCurrentDemoUrl(data.demoUrl || null);
         setHasSelectedModelTier(true);
-        if (nextProjectId) {
-          saveProjectData(nextProjectId, {
+        if (appProjectId) {
+          saveProjectData(appProjectId, {
             chatId: data.chatId,
             demoUrl: data.demoUrl ?? undefined,
           }).catch((error) => {
@@ -942,8 +957,8 @@ function BuilderContent() {
       setMessages,
       setCurrentDemoUrl,
       setHasSelectedModelTier,
-      projectId,
-      applyProjectId,
+      appProjectId,
+      applyAppProjectId,
     ],
   );
 
@@ -968,7 +983,7 @@ function BuilderContent() {
 
     setIsSavingProject(true);
     try {
-      let targetProjectId = projectId;
+      let targetProjectId = appProjectId;
       if (!targetProjectId) {
         const dateLabel = new Date().toLocaleDateString("sv-SE");
         const firstUserMessage = messages.find(
@@ -980,7 +995,7 @@ function BuilderContent() {
 
         const created = await createProject(name, undefined, description);
         targetProjectId = created.id;
-        setProjectId(created.id);
+        setAppProjectId(created.id);
 
         const params = new URLSearchParams(searchParams);
         params.set("project", created.id);
@@ -1019,7 +1034,7 @@ function BuilderContent() {
     isSavingProject,
     isAuthenticated,
     chatId,
-    projectId,
+    appProjectId,
     activeVersionId,
     currentDemoUrl,
     messages,
@@ -1037,7 +1052,8 @@ function BuilderContent() {
     }
     router.replace("/builder");
     setChatId(null);
-    setProjectId(null);
+    setAppProjectId(null);
+    setV0ProjectId(null);
     setCurrentDemoUrl(null);
     setPreviewRefreshToken(0);
     setMessages([]);
@@ -1107,10 +1123,9 @@ function BuilderContent() {
         }
 
         if (data?.chatId) {
-          const nextProjectId = data.projectId ?? data.project_id ?? projectId ?? null;
           setChatId(data.chatId);
-          if (nextProjectId) {
-            applyProjectId(nextProjectId, { chatId: data.chatId });
+          if (appProjectId) {
+            applyAppProjectId(appProjectId, { chatId: data.chatId });
           } else {
             router.replace(`/builder?chatId=${encodeURIComponent(data.chatId)}`);
           }
@@ -1118,16 +1133,13 @@ function BuilderContent() {
         if (data?.demoUrl) {
           setCurrentDemoUrl(data.demoUrl);
         }
-        if (data?.chatId) {
-          const resolvedProjectId = data.projectId ?? data.project_id ?? projectId ?? null;
-          if (resolvedProjectId) {
-            saveProjectData(resolvedProjectId, {
-              chatId: data.chatId,
-              demoUrl: data.demoUrl ?? undefined,
-            }).catch((error) => {
-              console.warn("[Builder] Failed to save template project mapping:", error);
-            });
-          }
+        if (data?.chatId && appProjectId) {
+          saveProjectData(appProjectId, {
+            chatId: data.chatId,
+            demoUrl: data.demoUrl ?? undefined,
+          }).catch((error) => {
+            console.warn("[Builder] Failed to save template project mapping:", error);
+          });
         }
       } catch (error) {
         console.error("[Builder] Template init failed:", error);
@@ -1144,8 +1156,8 @@ function BuilderContent() {
     isTemplateLoading,
     router,
     selectedModelTier,
-    projectId,
-    applyProjectId,
+    appProjectId,
+    applyAppProjectId,
   ]);
 
   return (
@@ -1254,10 +1266,10 @@ function BuilderContent() {
         <InitFromRepoModal
           isOpen={isImportModalOpen}
           onClose={() => setIsImportModalOpen(false)}
-          onSuccess={(newChatId, nextProjectId) => {
+          onSuccess={(newChatId, _v0ProjectInternalId) => {
             setChatId(newChatId);
-            if (nextProjectId) {
-              applyProjectId(nextProjectId, { chatId: newChatId });
+            if (appProjectId) {
+              applyAppProjectId(appProjectId, { chatId: newChatId });
             } else {
               router.replace(`/builder?chatId=${newChatId}`);
             }
