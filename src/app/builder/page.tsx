@@ -643,8 +643,11 @@ function BuilderContent() {
 
   const { chat, mutate: mutateChat, isError: isChatError } = useChat(chatId);
   const chatV0ProjectId = (chat as { v0ProjectId?: string | null } | null)?.v0ProjectId ?? null;
-  // Version polling - uses slower interval by default (60s), faster only when generating
-  const { versions, mutate: mutateVersions } = useVersions(chatId);
+  const isAnyStreaming = useMemo(() => messages.some((m) => Boolean(m.isStreaming)), [messages]);
+  // Version polling - faster while generating
+  const { versions, mutate: mutateVersions } = useVersions(chatId, {
+    isGenerating: isAnyStreaming,
+  });
 
   // Handle chat not found - clear invalid chatId from state and localStorage
   useEffect(() => {
@@ -851,7 +854,6 @@ function BuilderContent() {
     };
   }, [chatId, activeVersionId]);
 
-  const isAnyStreaming = useMemo(() => messages.some((m) => Boolean(m.isStreaming)), [messages]);
   const mediaEnabled = isMediaEnabled && enableBlobMedia;
 
   const deployActiveVersionToVercel = useCallback(
