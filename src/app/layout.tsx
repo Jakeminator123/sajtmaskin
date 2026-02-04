@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import "./globals.css";
 import { AnalyticsTracker, CookieBanner } from "@/components/layout";
 
@@ -36,6 +37,7 @@ export default function RootLayout({
         <AnalyticsTracker />
         {children}
         <CookieBanner />
+        <SpeedInsights />
       </body>
     </html>
   );
