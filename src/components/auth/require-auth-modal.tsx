@@ -8,7 +8,7 @@ import { Diamond, Sparkles, Lock, X } from "lucide-react";
 interface RequireAuthModalProps {
   isOpen: boolean;
   onClose: () => void;
-  reason: "generation" | "refine" | "credits" | "download" | "save";
+  reason: "generation" | "refine" | "credits" | "download" | "save" | "builder";
 }
 
 const REASONS = {
@@ -35,6 +35,11 @@ const REASONS = {
   save: {
     title: "Skapa konto för att spara projekt",
     description: "Logga in eller skapa ett konto för att spara ditt projekt till ditt konto.",
+    icon: Lock,
+  },
+  builder: {
+    title: "Logga in för att använda Builder",
+    description: "Du måste vara inloggad för att skapa och redigera webbplatser i Builder.",
     icon: Lock,
   },
 };
