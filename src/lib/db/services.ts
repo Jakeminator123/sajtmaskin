@@ -22,7 +22,9 @@ import { deleteBlob, isVercelBlobUrl } from "@/lib/vercel/blob-service";
 
 function assertDbConfigured() {
   if (!dbConfigured) {
-    throw new Error("Database not configured. Set POSTGRES_URL.");
+    throw new Error(
+      "Database not configured. Set POSTGRES_URL (or POSTGRES_PRISMA_URL / POSTGRES_URL_NON_POOLING / DATABASE_URL).",
+    );
   }
 }
 
