@@ -43,6 +43,11 @@ import {
   FEATURED_BLOCKS,
 } from "@/lib/shadcn-registry-service";
 import { getRegistryStyle } from "@/lib/v0/v0-url-parser";
+import {
+  analyzeSections,
+  generatePlacementOptions,
+  type DetectedSection,
+} from "@/lib/builder/sectionAnalyzer";
 
 // ============================================
 // TYPES (exported for ChatInterface)
@@ -51,16 +56,11 @@ import { getRegistryStyle } from "@/lib/v0/v0-url-parser";
 export type ShadcnBlockAction = "add" | "start";
 
 // Placement options for where to add the component
-export type PlacementOption =
-  | "top" // At the top of the page
-  | "bottom" // At the bottom of the page
-  | "after-hero" // After the hero section
-  | "after-features" // After features section
-  | "before-footer" // Before the footer
-  | "replace-section"; // Replace an existing section
+export type PlacementOption = string; // Now dynamic based on detected sections
 
-export const PLACEMENT_OPTIONS: {
-  value: PlacementOption;
+// Default placement options (used when no code context)
+export const DEFAULT_PLACEMENT_OPTIONS: {
+  value: string;
   label: string;
   description: string;
   icon: React.ReactNode;
@@ -103,6 +103,9 @@ export const PLACEMENT_OPTIONS: {
   },
 ];
 
+// Keep PLACEMENT_OPTIONS as alias for backwards compatibility
+export const PLACEMENT_OPTIONS = DEFAULT_PLACEMENT_OPTIONS;
+
 export type ShadcnBlockSelection = {
   block: {
     name: string;
@@ -114,6 +117,7 @@ export type ShadcnBlockSelection = {
   registryUrl: string;
   style: string;
   placement?: PlacementOption;
+  detectedSections?: DetectedSection[];
 };
 
 // ============================================
@@ -127,6 +131,8 @@ interface ShadcnBlockPickerProps {
   isBusy?: boolean;
   isSubmitting?: boolean;
   hasChat?: boolean;
+  /** Optional: current generated code to analyze for sections */
+  currentCode?: string;
 }
 
 const DEFAULT_STYLE = getRegistryStyle();
@@ -138,6 +144,7 @@ export function ShadcnBlockPicker({
   isBusy = false,
   isSubmitting = false,
   hasChat = false,
+  currentCode,
 }: ShadcnBlockPickerProps) {
   // State
   const [query, setQuery] = useState("");
@@ -152,9 +159,32 @@ export function ShadcnBlockPicker({
   const [placement, setPlacement] = useState<PlacementOption>("bottom");
   const [activeTab, setActiveTab] = useState<"popular" | "all">("popular");
 
+  // Analyze sections from current code
+  const detectedSections = useMemo(() => {
+    if (!currentCode) return [];
+    return analyzeSections(currentCode);
+  }, [currentCode]);
+
+  // Generate dynamic placement options based on detected sections
+  const dynamicPlacementOptions = useMemo(() => {
+    if (detectedSections.length === 0) {
+      // Use default options if no sections detected
+      return DEFAULT_PLACEMENT_OPTIONS;
+    }
+
+    // Generate options based on detected sections
+    const generated = generatePlacementOptions(detectedSections);
+    return generated.map((opt) => ({
+      ...opt,
+      icon:
+        opt.value === "top" ? <ArrowUp className="h-4 w-4" /> : <ArrowDown className="h-4 w-4" />,
+    }));
+  }, [detectedSections]);
+
   // Get the current placement option details
   const currentPlacement =
-    PLACEMENT_OPTIONS.find((p) => p.value === placement) || PLACEMENT_OPTIONS[4];
+    dynamicPlacementOptions.find((p) => p.value === placement) ||
+    dynamicPlacementOptions[dynamicPlacementOptions.length - 1];
 
   // Build popular items from FEATURED_BLOCKS
   const popularItems = useMemo(() => {
@@ -175,14 +205,7 @@ export function ShadcnBlockPicker({
           id: featured.id,
           label: featured.titleSv,
           labelSv: featured.titleSv,
-          icon:
-            featured.id === "login"
-              ? "🔐"
-              : featured.id === "dashboard"
-                ? "📊"
-                : featured.id === "sidebar"
-                  ? "📋"
-                  : "📈",
+          icon: (featured as { icon?: string }).icon || "📦",
           items,
         });
       }
@@ -300,13 +323,14 @@ export function ShadcnBlockPicker({
           registryUrl,
           style: DEFAULT_STYLE,
           placement: action === "add" ? placement : undefined,
+          detectedSections: detectedSections.length > 0 ? detectedSections : undefined,
         },
         action,
       );
 
       setPendingAction(null);
     },
-    [selectedItem, registryItem, dependencyItems, onConfirm, placement],
+    [selectedItem, registryItem, dependencyItems, onConfirm, placement, detectedSections],
   );
 
   // Reset pending action when not submitting
@@ -657,10 +681,12 @@ export function ShadcnBlockPicker({
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="start" className="w-64">
                   <DropdownMenuLabel className="text-xs text-gray-400">
-                    Var ska komponenten placeras?
+                    {detectedSections.length > 0
+                      ? `Placera bland ${detectedSections.length} sektioner`
+                      : "Var ska komponenten placeras?"}
                   </DropdownMenuLabel>
                   <DropdownMenuSeparator />
-                  {PLACEMENT_OPTIONS.map((option) => (
+                  {dynamicPlacementOptions.map((option) => (
                     <DropdownMenuItem
                       key={option.value}
                       onClick={() => setPlacement(option.value)}

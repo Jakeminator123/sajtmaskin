@@ -5,6 +5,12 @@ import { z } from "zod";
 import { withRateLimit } from "@/lib/rateLimit";
 import { requireNotBot } from "@/lib/botProtection";
 import { debugLog, errorLog, warnLog } from "@/lib/utils/debug";
+import {
+  isGatewayAssistModel,
+  isPromptAssistModelAllowed,
+  isV0AssistModel,
+  normalizeAssistModel,
+} from "@/lib/builder/promptAssist";
 
 export const runtime = "nodejs";
 export const maxDuration = 420; // 7 minutes for prompt assist with slow models
@@ -30,7 +36,7 @@ const chatRequestSchema = z.object({
   messages: z.array(messageSchema).min(1, "messages is required"),
   model: z.string().optional().default("openai/gpt-5.2"),
   temperature: z.number().min(0).max(2).optional(),
-  provider: z.enum(["openai-compat", "gateway"]).optional().default("gateway"),
+  provider: z.enum(["gateway", "v0"]).optional().default("gateway"),
 });
 
 function getV0ModelApiKey(): { apiKey: string | null; source: string } {
@@ -61,15 +67,13 @@ function getGatewayPreferredProvider(model: string): string | null {
 }
 
 function defaultGatewayFallbackModels(primaryModel: string): string[] {
-  const m = primaryModel.toLowerCase();
-  const fallbacks = m.startsWith("openai/gpt-5")
-    ? ["anthropic/claude-sonnet-4.5", "google/gemini-2.5-flash", "openai/gpt-4o"]
-    : m.startsWith("anthropic/")
-      ? ["openai/gpt-5.2", "google/gemini-2.5-flash"]
-      : m.startsWith("google/")
-        ? ["openai/gpt-5.2", "anthropic/claude-sonnet-4.5"]
-        : ["openai/gpt-5.2", "anthropic/claude-sonnet-4.5", "google/gemini-2.5-flash"];
-  return fallbacks.filter((x) => x !== primaryModel);
+  const ordered = [
+    "openai/gpt-5.2",
+    "openai/gpt-5.2-pro",
+    "anthropic/claude-opus-4.5",
+    "anthropic/claude-sonnet-4.5",
+  ];
+  return ordered.filter((x) => x !== primaryModel);
 }
 
 function isReasoningModel(model: string): boolean {
@@ -106,21 +110,42 @@ export async function POST(req: Request) {
       }
 
       const { messages, model, temperature, provider } = parsed.data;
+      const normalizedModel = normalizeAssistModel(model);
+      const resolvedProvider = isV0AssistModel(normalizedModel) ? "v0" : "gateway";
+
+      if (!isPromptAssistModelAllowed(normalizedModel)) {
+        return NextResponse.json(
+          {
+            error: "Model not allowed for prompt assist",
+            setup: "Välj en modell från listan i buildern (gateway eller v0-md/lg).",
+          },
+          { status: 400 },
+        );
+      }
+
+      if (provider && provider !== resolvedProvider) {
+        return NextResponse.json(
+          {
+            error: "Provider does not match model",
+            setup: `Model "${normalizedModel}" kräver provider "${resolvedProvider}".`,
+          },
+          { status: 400 },
+        );
+      }
 
       debugLog("AI", "AI chat request received", {
-        provider,
-        model,
+        provider: resolvedProvider,
+        model: normalizedModel,
         messages: messages.length,
         temperature: typeof temperature === "number" ? temperature : null,
       });
 
-      if (provider === "gateway") {
-        if (!model.includes("/")) {
+      if (resolvedProvider === "gateway") {
+        if (!isGatewayAssistModel(normalizedModel)) {
           return NextResponse.json(
             {
               error: "Invalid model for gateway provider",
-              setup:
-                'When provider="gateway", set model to "provider/model" (e.g. "openai/gpt-5.2").',
+              setup: 'Set model to "openai/gpt-5.2" or "anthropic/claude-4.5".',
             },
             { status: 400 },
           );
@@ -144,36 +169,36 @@ export async function POST(req: Request) {
         debugLog("AI", "AI Gateway auth resolved", {
           auth: gatewayAuth,
           provider: "gateway",
-          model,
+          model: normalizedModel,
           onVercel: isProbablyOnVercel(),
         });
 
-        const preferred = getGatewayPreferredProvider(model);
-
+        const preferred = getGatewayPreferredProvider(normalizedModel);
         const result = await generateText({
-          model: gateway(model),
+          model: gateway(normalizedModel),
           messages,
           providerOptions: {
             gateway: {
               ...(preferred ? { order: [preferred] } : {}),
-              models: defaultGatewayFallbackModels(model),
+              models: defaultGatewayFallbackModels(normalizedModel),
             } as any,
           },
-          ...getTemperatureConfig(model, temperature),
+          ...getTemperatureConfig(normalizedModel, temperature),
         });
 
         return new Response(result.text, {
           headers: {
             "Content-Type": "text/plain; charset=utf-8",
             "Cache-Control": "no-store",
-            "X-Provider": provider,
+            "X-Provider": resolvedProvider,
+            "X-Key-Source": gatewayAuth,
           },
         });
       }
 
       const { apiKey, source } = getV0ModelApiKey();
       if (!apiKey) {
-        warnLog("AI", "V0 Model API key missing for openai-compat");
+        warnLog("AI", "V0 Model API key missing for v0 provider");
         return NextResponse.json(
           {
             error: "Missing V0 API key",
@@ -182,20 +207,20 @@ export async function POST(req: Request) {
           { status: 401 },
         );
       }
-      debugLog("AI", "AI chat using v0 Model API (openai-compat)", { model, keySource: source });
+      debugLog("AI", "AI chat using v0 Model API", { model: normalizedModel, keySource: source });
 
       const modelProvider = getOpenAICompatProvider(apiKey);
       const result = await generateText({
-        model: modelProvider(model),
+        model: modelProvider(normalizedModel),
         messages,
-        ...getTemperatureConfig(model, temperature),
+        ...getTemperatureConfig(normalizedModel, temperature),
       });
 
       return new Response(result.text, {
         headers: {
           "Content-Type": "text/plain; charset=utf-8",
           "Cache-Control": "no-store",
-          "X-Provider": provider,
+          "X-Provider": resolvedProvider,
           "X-Key-Source": source,
         },
       });

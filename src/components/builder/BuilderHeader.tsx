@@ -1,11 +1,10 @@
 "use client";
 
-import type { PromptAssistProvider } from "@/lib/builder/promptAssist";
+import { isGatewayAssistModel } from "@/lib/builder/promptAssist";
 import type { ModelTier } from "@/lib/validations/chatSchemas";
 import {
   DEFAULT_CUSTOM_INSTRUCTIONS,
   MODEL_TIER_OPTIONS,
-  PROMPT_ASSIST_PROVIDER_OPTIONS,
   getPromptAssistModelOptions,
 } from "@/lib/builder/defaults";
 import { Button } from "@/components/ui/button";
@@ -32,11 +31,11 @@ import {
   ChevronDown,
   FolderGit2,
   HelpCircle,
-  ImageIcon,
   Loader2,
   MessageSquare,
   Plus,
   Rocket,
+  Save,
   Settings2,
   Sparkles,
   TerminalSquare,
@@ -49,8 +48,6 @@ export function BuilderHeader(props: {
   selectedModelTier: ModelTier;
   onSelectedModelTierChange: (tier: ModelTier) => void;
 
-  promptAssistProvider: PromptAssistProvider;
-  onPromptAssistProviderChange: (provider: PromptAssistProvider) => void;
   promptAssistModel: string;
   onPromptAssistModelChange: (model: string) => void;
   promptAssistDeep: boolean;
@@ -62,32 +59,28 @@ export function BuilderHeader(props: {
   applyInstructionsOnce: boolean;
   onApplyInstructionsOnceChange: (value: boolean) => void;
 
-  enableImageGenerations: boolean;
-  onEnableImageGenerationsChange: (v: boolean) => void;
-  imageGenerationsSupported?: boolean;
-
   designSystemMode: boolean;
   onDesignSystemModeChange: (v: boolean) => void;
 
   showStructuredChat: boolean;
   onShowStructuredChatChange: (v: boolean) => void;
 
-
   onOpenImport: () => void;
   onOpenSandbox: () => void;
   onDeployProduction: () => void;
   onNewChat: () => void;
+  onSaveProject: () => void;
 
   isDeploying: boolean;
   isCreatingChat: boolean;
   isAnyStreaming: boolean;
+  isSavingProject: boolean;
   canDeploy: boolean;
+  canSaveProject: boolean;
 }) {
   const {
     selectedModelTier,
     onSelectedModelTierChange,
-    promptAssistProvider,
-    onPromptAssistProviderChange,
     promptAssistModel,
     onPromptAssistModelChange,
     promptAssistDeep,
@@ -97,9 +90,6 @@ export function BuilderHeader(props: {
     onCustomInstructionsChange,
     applyInstructionsOnce,
     onApplyInstructionsOnceChange,
-    enableImageGenerations,
-    onEnableImageGenerationsChange,
-    imageGenerationsSupported = true,
     designSystemMode,
     onDesignSystemModeChange,
     showStructuredChat,
@@ -108,23 +98,25 @@ export function BuilderHeader(props: {
     onOpenSandbox,
     onDeployProduction,
     onNewChat,
+    onSaveProject,
     isDeploying,
     isCreatingChat,
     isAnyStreaming,
+    isSavingProject,
     canDeploy,
+    canSaveProject,
   } = props;
 
   const isBusy = isAnyStreaming || isCreatingChat;
   const currentModel = MODEL_TIER_OPTIONS.find((m) => m.value === selectedModelTier);
-  const assistModelOptions = getPromptAssistModelOptions(promptAssistProvider);
+  const assistModelOptions = getPromptAssistModelOptions();
   const hasCustomAssistModel =
-    promptAssistProvider !== "off" &&
-    promptAssistModel &&
+    Boolean(promptAssistModel) &&
     !assistModelOptions.some((option) => option.value === promptAssistModel);
   const [isInstructionsOpen, setIsInstructionsOpen] = useState(false);
   const hasCustomInstructions = Boolean(customInstructions.trim());
   const isDefaultInstructions = customInstructions.trim() === DEFAULT_CUSTOM_INSTRUCTIONS.trim();
-  const isGatewayProvider = promptAssistProvider === "gateway";
+  const isGatewayProvider = isGatewayAssistModel(promptAssistModel);
   const isDeepBriefDisabled = isBusy || !isGatewayProvider || !canUseDeepBrief;
 
   useEffect(() => {
@@ -185,7 +177,7 @@ export function BuilderHeader(props: {
 
             <DropdownMenuSeparator />
             <DropdownMenuLabel className="flex items-center gap-2">
-              <span>Prompt Assist</span>
+              <span>Förbättra</span>
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -195,95 +187,55 @@ export function BuilderHeader(props: {
                   </TooltipTrigger>
                   <TooltipContent side="left" className="max-w-xs">
                     <p className="text-xs">
-                      Prompt Assist skriver om din prompt via AI Gateway eller v0 Model API innan v0
-                      kör. Av skickar prompten direkt utan omskrivning.
+                      Förbättrar din prompt manuellt via AI Gateway eller v0 Model API. Själva
+                      bygget styrs av Model Tier (v0-mini/pro/max).
                     </p>
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
             </DropdownMenuLabel>
             <DropdownMenuRadioGroup
-              value={promptAssistProvider}
-              onValueChange={(v) => onPromptAssistProviderChange(v as PromptAssistProvider)}
+              value={promptAssistModel}
+              onValueChange={(v) => onPromptAssistModelChange(v)}
             >
-              {PROMPT_ASSIST_PROVIDER_OPTIONS.map((option) => (
+              {assistModelOptions.map((option) => (
                 <DropdownMenuRadioItem key={option.value} value={option.value}>
                   {option.label}
-                  {option.description && (
-                    <span className="text-muted-foreground ml-2 text-xs">{option.description}</span>
-                  )}
                 </DropdownMenuRadioItem>
               ))}
+              {hasCustomAssistModel && (
+                <DropdownMenuRadioItem value={promptAssistModel}>
+                  Custom: {promptAssistModel}
+                </DropdownMenuRadioItem>
+              )}
             </DropdownMenuRadioGroup>
-
-            {promptAssistProvider !== "off" && (
-              <>
-                <DropdownMenuSeparator />
-                <DropdownMenuLabel className="flex items-center gap-2">
-                  <span>Assist Model</span>
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <span className="text-muted-foreground ml-auto flex cursor-help items-center">
-                          <HelpCircle className="h-3 w-3" />
-                        </span>
-                      </TooltipTrigger>
-                      <TooltipContent side="left" className="max-w-xs">
-                        <p className="text-xs">
-                          Modellen här används bara för att förbättra prompten. Själva bygget styrs
-                          av Model Tier (v0-mini/pro/max).
-                        </p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </DropdownMenuLabel>
-                <DropdownMenuRadioGroup
-                  value={promptAssistModel}
-                  onValueChange={(v) => onPromptAssistModelChange(v)}
-                >
-                  {assistModelOptions.map((option) => (
-                    <DropdownMenuRadioItem key={option.value} value={option.value}>
-                      {option.label}
-                    </DropdownMenuRadioItem>
-                  ))}
-                  {hasCustomAssistModel && (
-                    <DropdownMenuRadioItem value={promptAssistModel}>
-                      Custom: {promptAssistModel}
-                    </DropdownMenuRadioItem>
-                  )}
-                </DropdownMenuRadioGroup>
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div>
-                        <DropdownMenuCheckboxItem
-                          checked={promptAssistDeep}
-                          onCheckedChange={onPromptAssistDeepChange}
-                          disabled={isDeepBriefDisabled}
-                        >
-                          <Sparkles className="mr-2 h-4 w-4" />
-                          Deep Brief Mode
-                          {!canUseDeepBrief && (
-                            <span className="text-muted-foreground ml-2 text-xs">
-                              (endast ny chat)
-                            </span>
-                          )}
-                          <HelpCircle className="text-muted-foreground ml-1 h-3 w-3" />
-                        </DropdownMenuCheckboxItem>
-                      </div>
-                    </TooltipTrigger>
-                    <TooltipContent side="left" className="max-w-xs">
-                      <p className="text-xs">
-                        AI skapar först en detaljerad brief (specifikation) som sedan används för
-                        att bygga en bättre prompt. Tar längre tid men ger mer genomtänkta resultat.
-                        Används bara vid första prompten i en ny chat. (Endast AI Gateway stödjer
-                        Deep Brief.)
-                      </p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              </>
-            )}
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div>
+                    <DropdownMenuCheckboxItem
+                      checked={promptAssistDeep}
+                      onCheckedChange={onPromptAssistDeepChange}
+                      disabled={isDeepBriefDisabled}
+                    >
+                      <Sparkles className="mr-2 h-4 w-4" />
+                      Deep Brief Mode
+                      {!canUseDeepBrief && (
+                        <span className="text-muted-foreground ml-2 text-xs">(endast ny chat)</span>
+                      )}
+                      <HelpCircle className="text-muted-foreground ml-1 h-3 w-3" />
+                    </DropdownMenuCheckboxItem>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="left" className="max-w-xs">
+                  <p className="text-xs">
+                    AI skapar först en detaljerad brief (specifikation) som sedan används för att
+                    bygga en bättre prompt. Tar längre tid men ger mer genomtänkta resultat. Används
+                    bara vid första prompten i en ny chat. (Endast AI Gateway stödjer Deep Brief.)
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </DropdownMenuContent>
         </DropdownMenu>
 
@@ -297,15 +249,6 @@ export function BuilderHeader(props: {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
             <DropdownMenuLabel>Generation Options</DropdownMenuLabel>
-            <DropdownMenuCheckboxItem
-              checked={enableImageGenerations}
-              onCheckedChange={onEnableImageGenerationsChange}
-              disabled={isBusy || !imageGenerationsSupported}
-            >
-              <ImageIcon className="mr-2 h-4 w-4" />
-              Enable AI Images
-            </DropdownMenuCheckboxItem>
-
             <DropdownMenuCheckboxItem
               checked={designSystemMode}
               onCheckedChange={onDesignSystemModeChange}
@@ -341,7 +284,6 @@ export function BuilderHeader(props: {
               <MessageSquare className="mr-2 h-4 w-4" />
               Debug-läge (verktygsblock)
             </DropdownMenuCheckboxItem>
-
           </DropdownMenuContent>
         </DropdownMenu>
 
@@ -380,6 +322,21 @@ export function BuilderHeader(props: {
             <Plus className="h-4 w-4" />
           )}
           <span className="hidden sm:inline">New</span>
+        </Button>
+
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={onSaveProject}
+          disabled={!canSaveProject || isBusy || isSavingProject}
+          title="Spara projekt"
+        >
+          {isSavingProject ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <Save className="h-4 w-4" />
+          )}
+          <span className="hidden sm:inline">Spara</span>
         </Button>
 
         <Button

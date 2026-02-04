@@ -43,7 +43,7 @@ export async function POST(req: NextRequest) {
     );
 
     // Set auth cookie
-    await setAuthCookie(result.token);
+    await setAuthCookie(result.token, { secure: req.nextUrl.protocol === "https:" });
 
     // Return user data (without sensitive fields)
     return NextResponse.json({

@@ -8,7 +8,7 @@ import { Diamond, Sparkles, Lock, X } from "lucide-react";
 interface RequireAuthModalProps {
   isOpen: boolean;
   onClose: () => void;
-  reason: "generation" | "refine" | "credits" | "download";
+  reason: "generation" | "refine" | "credits" | "download" | "save";
 }
 
 const REASONS = {
@@ -32,6 +32,11 @@ const REASONS = {
     description: "Logga in eller skapa ett konto för att ladda ner din webbplats.",
     icon: Lock,
   },
+  save: {
+    title: "Skapa konto för att spara projekt",
+    description: "Logga in eller skapa ett konto för att spara ditt projekt till ditt konto.",
+    icon: Lock,
+  },
 };
 
 export function RequireAuthModal({ isOpen, onClose, reason }: RequireAuthModalProps) {
@@ -50,7 +55,7 @@ export function RequireAuthModal({ isOpen, onClose, reason }: RequireAuthModalPr
 
   return (
     <>
-      <div className="fixed inset-0 z-[100] flex items-center justify-center">
+      <div className="fixed inset-0 z-100 flex items-center justify-center">
         {/* Backdrop */}
         <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={onClose} />
 
@@ -65,7 +70,7 @@ export function RequireAuthModal({ isOpen, onClose, reason }: RequireAuthModalPr
           </button>
 
           {/* Decorative gradient */}
-          <div className="from-brand-teal/10 absolute inset-x-0 top-0 h-32 bg-gradient-to-b to-transparent" />
+          <div className="from-brand-teal/10 absolute inset-x-0 top-0 h-32 bg-linear-to-b to-transparent" />
 
           {/* Content */}
           <div className="relative p-8 text-center">

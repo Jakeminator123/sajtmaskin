@@ -40,6 +40,13 @@ export function SandboxModal({
   versionId,
   onUseInPreview,
 }: SandboxModalProps) {
+  const handleClose = () => {
+    if (typeof window === "undefined") {
+      onClose();
+      return;
+    }
+    window.requestAnimationFrame(onClose);
+  };
   const [sourceType, setSourceType] = useState<SourceType>("version");
   const [gitUrl, setGitUrl] = useState("");
   const [gitBranch, setGitBranch] = useState("");
@@ -161,7 +168,7 @@ export function SandboxModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={handleClose} />
 
       <div className="relative z-10 w-full max-w-lg rounded-xl bg-white p-6 shadow-2xl">
         <div className="mb-6 flex items-center justify-between">
@@ -170,7 +177,7 @@ export function SandboxModal({
             <h2 className="text-xl font-semibold text-gray-900">Run in Sandbox</h2>
           </div>
           <button
-            onClick={onClose}
+            onClick={handleClose}
             className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
           >
             <X className="h-5 w-5" />

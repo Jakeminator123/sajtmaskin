@@ -861,8 +861,7 @@ export function useV0ChatMessaging(params: {
               case "done": {
                 didReceiveDone = true;
                 const doneData = typeof data === "object" && data ? (data as any) : {};
-                const doneV0ProjectId =
-                  doneData.v0ProjectId || doneData.v0_project_id || null;
+                const doneV0ProjectId = doneData.v0ProjectId || doneData.v0_project_id || null;
                 if (doneV0ProjectId && !v0ProjectIdFromStream) {
                   v0ProjectIdFromStream = String(doneV0ProjectId);
                   onV0ProjectId?.(v0ProjectIdFromStream);

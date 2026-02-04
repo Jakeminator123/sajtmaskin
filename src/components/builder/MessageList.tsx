@@ -31,7 +31,7 @@ import { toAIElementsFormat, hasToolData } from "@/lib/builder/messageAdapter";
 import type { MessagePart } from "@/lib/builder/messageAdapter";
 import type { ChatMessage } from "@/lib/builder/types";
 import { ChevronDown, ChevronUp, MessageSquare } from "lucide-react";
-import { useState } from "react";
+import { memo, useMemo, useState } from "react";
 import type { ToolUIPart } from "ai";
 
 interface MessageListProps {
@@ -40,12 +40,12 @@ interface MessageListProps {
   showStructuredParts?: boolean;
 }
 
-export function MessageList({
+const MessageListComponent = ({
   chatId,
   messages: externalMessages = [],
   showStructuredParts = false,
-}: MessageListProps) {
-  const messages = externalMessages.map(toAIElementsFormat);
+}: MessageListProps) => {
+  const messages = useMemo(() => externalMessages.map(toAIElementsFormat), [externalMessages]);
 
   if (!chatId && messages.length === 0) {
     return (
@@ -113,8 +113,8 @@ export function MessageList({
             <Message key={message.id} from={message.role}>
               <MessageContent>
                 {message.role === "assistant" && reasoningPart && (
-                  <Reasoning>
-                    <ReasoningTrigger isStreaming={Boolean(message.isStreaming && !textContent)} />
+                  <Reasoning isStreaming={Boolean(message.isStreaming && !textContent)}>
+                    <ReasoningTrigger />
                     <ReasoningContent>{reasoningPart.reasoning}</ReasoningContent>
                   </Reasoning>
                 )}
@@ -394,7 +394,9 @@ export function MessageList({
       <ConversationScrollButton />
     </Conversation>
   );
-}
+};
+
+export const MessageList = memo(MessageListComponent);
 
 /**
  * CollapsibleUserMessage - Truncates long user messages (especially shadcn/ui block prompts)

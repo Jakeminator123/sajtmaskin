@@ -84,6 +84,10 @@ ENDPOINT: /api/ai/chat (POST)
 TRIGGER (UI): Prompt Assist ON + deep=false
 REQUEST BODY: provider, model, temperature, messages[]
 RESPONSE: text (rewritten prompt)
+EXAMPLE (gateway):
+{ provider: "gateway", model: "openai/gpt-5.2", temperature: 0.2, messages: [{ role: "system", content: "..." }, { role: "user", content: "..." }] }
+EXAMPLE (openai):
+{ provider: "openai", model: "gpt-4o-mini", temperature: 0.2, messages: [{ role: "system", content: "..." }, { role: "user", content: "..." }] }
 RELATED FILES:
 - src/lib/hooks/usePromptAssist.ts
 - src/app/api/ai/chat/route.ts
@@ -94,6 +98,10 @@ ENDPOINT: /api/ai/brief (POST)
 TRIGGER (UI): Prompt Assist ON + deep=true
 REQUEST BODY: provider, model, temperature, prompt, imageGenerations
 RESPONSE: JSON brief
+EXAMPLE (gateway):
+{ provider: "gateway", model: "openai/gpt-5.2", temperature: 0.2, prompt: "...", imageGenerations: true }
+EXAMPLE (anthropic):
+{ provider: "anthropic", model: "claude-sonnet-4.5", temperature: 0.2, prompt: "...", imageGenerations: true }
 RELATED FILES:
 - src/lib/hooks/usePromptAssist.ts
 - src/app/api/ai/brief/route.ts
@@ -284,21 +292,17 @@ ENV / CONFIG (relevant to calls)
 MODEL TIERS:
 - v0-mini, v0-pro, v0-max (builder)
 
-MODEL API (openai-compat):
-- v0-1.5-md (128K context)
-- v0-1.5-lg (512K context)
-- Used for Prompt Assist when provider=openai-compat
-
 PROVIDERS (prompt assist):
 - gateway (AI Gateway)
-- openai-compat (v0 Model API)
+- openai (Direct OpenAI)
+- anthropic (Direct Anthropic)
 - off (ingen omskrivning)
 
 ENV FLAGS:
 - AI_GATEWAY_API_KEY or VERCEL_OIDC_TOKEN (for provider=gateway)
-- V0_API_KEY (for provider=openai-compat)
+- OPENAI_API_KEY (for provider=openai)
+- ANTHROPIC_API_KEY or CLAUDE_ANTHROPIC_API_KEY (for provider=anthropic)
 - V0_API_KEY (v0 generation)
-- OPENAI_API_KEY (audit only - web_search not supported by Gateway)
 - DEBUG=AI or DEBUG=true (server debug logs)
 - V0_STREAM_DEBUG=1 (logga SSE events i /api/v0/chats/stream)
 

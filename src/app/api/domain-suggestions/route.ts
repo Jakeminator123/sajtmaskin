@@ -10,6 +10,7 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { generateText, gateway } from "ai";
 
 // Allow 30 seconds for domain checks
 export const maxDuration = 30;
@@ -20,15 +21,20 @@ interface DomainSuggestion {
   tld: string;
 }
 
-// Generate domain suggestions using GPT
+function hasGatewayAuth(): boolean {
+  const hasApiKey = Boolean(process.env.AI_GATEWAY_API_KEY?.trim());
+  const hasOidc = Boolean(process.env.VERCEL_OIDC_TOKEN?.trim());
+  const onVercel = process.env.VERCEL === "1" || Boolean(process.env.VERCEL_ENV);
+  return hasApiKey || hasOidc || onVercel;
+}
+
+// Generate domain suggestions using AI Gateway
 async function generateDomainNames(
   companyName: string,
   industry?: string,
   keywords?: string[],
 ): Promise<string[]> {
-  const openaiApiKey = process.env.OPENAI_API_KEY;
-
-  if (!openaiApiKey) {
+  if (!hasGatewayAuth()) {
     // Fallback: generate simple suggestions without AI
     const base = companyName
       .toLowerCase()
@@ -54,33 +60,18 @@ Return ONLY a JSON array of 5 domain names (without TLD), like:
 ["example1", "example2", "example3", "example4", "example5"]`;
 
   try {
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${openaiApiKey}`,
-      },
-      body: JSON.stringify({
-        model: "gpt-4o-mini",
-        messages: [
-          {
-            role: "system",
-            content: "You are a domain name expert. Return only valid JSON arrays.",
-          },
-          { role: "user", content: prompt },
-        ],
-        temperature: 0.8,
-        max_tokens: 200,
-      }),
+    const result = await generateText({
+      model: gateway("openai/gpt-5.2"),
+      messages: [
+        {
+          role: "system",
+          content: "You are a domain name expert. Return only valid JSON arrays.",
+        },
+        { role: "user", content: prompt },
+      ],
+      temperature: 0.8,
     });
-
-    if (!response.ok) {
-      console.error("[domain-suggestions] OpenAI error:", response.status);
-      throw new Error("OpenAI API error");
-    }
-
-    const data = await response.json();
-    const content = data.choices?.[0]?.message?.content || "[]";
+    const content = result.text || "[]";
 
     // Parse JSON from response
     const jsonMatch = content.match(/\[[\s\S]*\]/);

@@ -1,6 +1,5 @@
 /**
- * OpenAI prompts for website audit
- * Uses Responses API with expert model and WebSearch
+ * Prompts for website audit (gateway)
  */
 
 import type { AuditMode, WebsiteContent } from "@/types/audit";
@@ -21,10 +20,8 @@ ABSOLUT KRITISKT - FÖLJ DESSA REGLER EXAKT:
 2. Börja ALLTID ditt svar med { och sluta med }
 3. INGEN markdown, INGA \`\`\`json block, INGEN förklarande text
 4. Du får ALDRIG returnera ett tomt JSON-objekt {}. Om du saknar data: gör en kvalificerad bedömning och fyll fälten ändå.
-5. Om du använder web_search-verktyget, GÖR analysen och returnera sedan JSON-resultatet
-6. Om sidan är JavaScript-renderad eller innehållet är tunt: gör 2–3 separata web_search-anrop (t.ex. startsida + tjänstesida + om-oss) innan du analyserar
-7. Fyll ALLTID i alla fält - om du saknar information, gör en kvalificerad bedömning
-8. EXTRAHERA ALLT TEXTINNEHÅLL från sidan - rubriker, beskrivningar, tjänster, etc.
+5. Fyll ALLTID i alla fält - om du saknar information, gör en kvalificerad bedömning
+6. EXTRAHERA ALLT TEXTINNEHÅLL från sidan - rubriker, beskrivningar, tjänster, etc.
 
 LEVERERA JSON MED FÖLJANDE FÄLT (FYLL ALLTID I, ÄVEN OM DU MÅSTE GÖRA EN KVALIFICERAD BEDÖMNING):
 {
@@ -207,7 +204,6 @@ LEVERERA JSON MED FÖLJANDE FÄLT (FYLL ALLTID I, ÄVEN OM DU MÅSTE GÖRA EN KV
 VIKTIGT FÖR SITE_CONTENT:
 - Extrahera ALLT verkligt textinnehåll från sidan - inte generiska platshållare
 - Kopiera EXAKTA rubriker, beskrivningar, tjänstetexter som de står på sidan
-- Om du använder web_search, läs av det FAKTISKA innehållet på sidan
 - Sections-arrayen ska innehålla varje sektion med dess RIKTIGA innehåll
 - Detta är KRITISKT för att kunna bygga en ny sida som liknar originalet
 
@@ -227,13 +223,13 @@ VIKTIGT FÖR TEMPLATE_DATA:
 - Ge minst 8-10 förbättringsförslag sorterade efter prioritet
 - Inkludera konkreta kodexempel där relevant
 - Budgetuppskattningar ska vara realistiska för svenska marknaden (SEK)
-- Använd WebSearch för att jämföra med branschstandarder om möjligt
+- Jämför mot branschstandarder med rimliga antaganden
 - Använd INGA markdown-länkar. Skriv rena domäner/URL:er som vanlig text.
 - Svara ENDAST med JSON, ingen Markdown eller annan text
 - Alla strängar i JSON ska vara på svenska`;
 
 /**
- * Build the audit prompt for OpenAI Responses API
+ * Build the audit prompt for AI Gateway
  * @param websiteContent - Scraped website content
  * @param url - Original URL
  * @returns Formatted prompt messages
@@ -245,14 +241,13 @@ export function buildAuditPrompt(
 ): PromptMessage[] {
   // Detect if this is likely a JS-rendered page with minimal scraped content
   const isJsRendered = websiteContent.wordCount < 50;
-  const requiresWebSearch = isJsRendered || auditMode === "advanced";
-  const webSearchNote = isJsRendered
-    ? `\n\n⚠️ VIKTIGT: Scrapern kunde bara hämta ${websiteContent.wordCount} ord från denna sida. Detta är troligen en JavaScript-renderad webbapp (React, Vue, etc.). ANVÄND WEBSEARCH-VERKTYGET för att besöka och analysera den faktiska renderade sidan på ${url} innan du ger din analys. Gör 2–3 separata web_search-anrop (t.ex. startsida + om oss + tjänster) och sammanställ resultaten.`
+  const contentNote = isJsRendered
+    ? `\n\n⚠️ VIKTIGT: Scrapern kunde bara hämta ${websiteContent.wordCount} ord från denna sida. Detta är troligen en JavaScript-renderad webbapp (React, Vue, etc.). Gör kvalificerade antaganden där innehåll saknas.`
     : "";
   const modeLabel = auditMode === "advanced" ? "AVANCERAD" : "VANLIG";
   const modeInstructions =
     auditMode === "advanced"
-      ? `\n\nLÄGE: AVANCERAD\n- Gör en bredare marknads- och affärsanalys.\n- Ställ dig själv följdfrågor om bransch, storlek, kundgrupper, geografi och konkurrens innan du svarar.\n- Utför minst 3–5 web_search-anrop (t.ex. varumärkesnamn + stad, konkurrenter, branschstandarder).\n- Fyll business_profile, market_context, customer_segments och competitive_landscape med djup och konkreta antaganden.\n- Ge fler förbättringsförslag (minst 12) och mer detaljerade varför/hur.\n`
+      ? `\n\nLÄGE: AVANCERAD\n- Gör en bredare marknads- och affärsanalys.\n- Ställ dig själv följdfrågor om bransch, storlek, kundgrupper, geografi och konkurrens innan du svarar.\n- Fyll business_profile, market_context, customer_segments och competitive_landscape med djup och konkreta antaganden.\n- Ge fler förbättringsförslag (minst 12) och mer detaljerade varför/hur.\n`
       : `\n\nLÄGE: VANLIG\n- Håll affärssektionerna korta men konkreta.\n- Om data saknas: ge en rimlig, kort bedömning baserat på sajten.\n`;
 
   // Build headings section only if we have headings
@@ -262,13 +257,13 @@ export function buildAuditPrompt(
           .slice(0, 10)
           .map((h, i) => `${i + 1}. ${h}`)
           .join("\n")}`
-      : "\nRUBRIKER: Inga rubriker kunde hämtas (använd WebSearch för att se faktiskt innehåll)";
+      : "\nRUBRIKER: Inga rubriker kunde hämtas (troligen JS-renderad sida)";
 
   // Build text preview section
   const textSection =
     websiteContent.textPreview && websiteContent.textPreview.length > 10
       ? `\nTEXTINNEHÅLL (första ~800 tecken):\n${websiteContent.textPreview}`
-      : "\nTEXTINNEHÅLL: Kunde inte hämtas (JavaScript-renderad sida - använd WebSearch)";
+      : "\nTEXTINNEHÅLL: Kunde inte hämtas (troligen JS-renderad sida)";
 
   return [
     {
@@ -285,7 +280,7 @@ export function buildAuditPrompt(
       content: [
         {
           type: "text",
-          text: `Analysera denna webbplats grundligt: ${url}${webSearchNote}${modeInstructions}
+          text: `Analysera denna webbplats grundligt: ${url}${contentNote}${modeInstructions}
 
 AUDIT-LÄGE: ${modeLabel} (du MÅSTE sätta "audit_mode" till detta värde)
 
@@ -304,7 +299,7 @@ GRUNDLÄGGANDE INFO:
 - SSL/HTTPS: ${websiteContent.hasSSL ? "Ja ✓" : "NEJ - Kritisk säkerhetsbrist!"}
 - Svarstid: ${websiteContent.responseTime}ms
 - Antal ord (agg): ${websiteContent.wordCount}${
-            isJsRendered ? " (FÖR LÅGT - använd WebSearch!)" : ""
+            isJsRendered ? " (FÖR LÅGT - gör kvalificerade antaganden)" : ""
           }
 ${headingsSection}
 
@@ -330,11 +325,7 @@ GÖR EN KOMPLETT ANALYS AV:
 7. Säkerhet - HTTPS, headers, GDPR
 8. Mobilvänlighet - Responsive design
 
-${
-  requiresWebSearch
-    ? "DU MÅSTE ANVÄNDA WEBSEARCH för att analysera sidan innan du svarar. Gör flera web_search-anrop och sammanställ resultaten.\n\n"
-    : ""
-}Använd WebSearch för att jämföra med konkurrenter i samma bransch.
+Gör rimliga antaganden om konkurrenter i samma bransch.
 
 KRITISKT: Svara ENDAST med välformaterad JSON enligt schemat. Ingen markdown, ingen text före eller efter JSON-objektet. Börja direkt med { och sluta med }.`,
         },
@@ -344,35 +335,7 @@ KRITISKT: Svara ENDAST med välformaterad JSON enligt schemat. Ingen markdown, i
 }
 
 /**
- * Combine prompt messages into single strings for Responses API
- * @param prompt - Array of prompt messages
- * @returns Object with combined input and instructions
- */
-export function combinePromptForResponsesApi(prompt: PromptMessage[]): {
-  input: string;
-  instructions: string;
-} {
-  let input = "";
-  let instructions = "";
-
-  for (const msg of prompt) {
-    const combinedContent = msg.content.map((c) => c.text).join("\n");
-
-    if (msg.role === "system") {
-      instructions += instructions ? `\n\n${combinedContent}` : combinedContent;
-    } else {
-      input += input ? `\n\n${combinedContent}` : combinedContent;
-    }
-  }
-
-  return { input, instructions };
-}
-
-/**
- * Extract text from OpenAI Responses API response
- * Handles multiple response formats from different API versions
- * @param response - API response object
- * @returns Extracted text content
+ * Extract text from legacy response formats (unused in gateway flow).
  */
 export function extractOutputText(response: Record<string, unknown>): string {
   // Extract text from OpenAI response structure

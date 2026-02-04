@@ -8,14 +8,12 @@
  * - Endpoints used here are stable (deployments + projects)
  */
 
+import { getVercelToken } from "@/lib/vercel";
+
 const VERCEL_API_BASE = "https://api.vercel.com";
 
 function requireToken(): string {
-  const token = process.env.VERCEL_TOKEN;
-  if (!token) {
-    throw new Error("VERCEL_TOKEN is required. Get it from: https://vercel.com/account/tokens");
-  }
-  return token;
+  return getVercelToken();
 }
 
 async function vercelFetch<T>(path: string, init?: RequestInit): Promise<T> {

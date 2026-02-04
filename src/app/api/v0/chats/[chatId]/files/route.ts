@@ -5,6 +5,7 @@ import { getChatByV0ChatIdForRequest } from "@/lib/tenant";
 import { db } from "@/lib/db/client";
 import { versions } from "@/lib/db/schema";
 import { and, eq, or } from "drizzle-orm";
+import { materializeImagesInTextFiles } from "@/lib/imageAssets";
 
 const updateFilesSchema = z.object({
   versionId: z.string().min(1, "Version ID is required"),
@@ -41,6 +42,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ chatId: 
     if (!dbChat) return NextResponse.json({ error: "Chat not found" }, { status: 404 });
     const { searchParams } = new URL(req.url);
     const requestedVersionId = searchParams.get("versionId");
+    const shouldMaterialize = searchParams.get("materialize") === "1";
 
     const chat = await v0.chats.getById({ chatId });
 
@@ -56,9 +58,50 @@ export async function GET(req: Request, { params }: { params: Promise<{ chatId: 
       includeDefaultFiles: true,
     });
 
+    let files = ((version as any).files || []) as Array<{
+      name: string;
+      content: string;
+      locked?: boolean;
+    }>;
+    let resolvedVersionId = (version as any).id;
+
+    if (shouldMaterialize && process.env.BLOB_READ_WRITE_TOKEN) {
+      const isPinned = await isPinnedVersion(dbChat.id, versionIdToFetch);
+      if (!isPinned) {
+        const fileLocks = new Map<string, boolean | undefined>(
+          files.map((file) => [file.name, file.locked]),
+        );
+        try {
+          const imageAssets = await materializeImagesInTextFiles({
+            files: files.map((file) => ({ name: file.name, content: file.content })),
+            strategy: "blob",
+            blobToken: process.env.BLOB_READ_WRITE_TOKEN,
+            namespace: { chatId, versionId: versionIdToFetch },
+          });
+
+          if (imageAssets.summary.replaced > 0) {
+            const updatedFiles = imageAssets.files.map((file) => ({
+              name: file.name,
+              content: file.content,
+              locked: fileLocks.get(file.name),
+            }));
+            const updatedVersion = await v0.chats.updateVersion({
+              chatId,
+              versionId: versionIdToFetch,
+              files: updatedFiles,
+            });
+            resolvedVersionId = (updatedVersion as any).id || resolvedVersionId;
+            files = (updatedVersion as any).files || updatedFiles;
+          }
+        } catch (error) {
+          console.error("Error materializing images:", error);
+        }
+      }
+    }
+
     return NextResponse.json({
-      versionId: (version as any).id,
-      files: (version as any).files || [],
+      versionId: resolvedVersionId,
+      files,
     });
   } catch (err) {
     console.error("Error fetching files:", err);

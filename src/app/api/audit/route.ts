@@ -3,22 +3,15 @@
  * POST /api/audit - Analyze a website and return audit results
  *
  * Cost: 3 diamonds
- * Model: OpenAI Responses API + web_search (model fallbacks)
+ * Model: AI Gateway (no web_search)
  */
 
 import { NextRequest, NextResponse } from "next/server";
-import { OpenAI } from "openai";
+import { generateText, gateway } from "ai";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { getUserById, createTransaction, isTestUser } from "@/lib/db/services";
 import { scrapeWebsite, validateAndNormalizeUrl, getCanonicalUrlKey } from "@/lib/webscraper";
-import {
-  buildAuditPrompt,
-  combinePromptForResponsesApi,
-  extractOutputText,
-  extractFirstJsonObject,
-  parseJsonWithRepair,
-} from "@/lib/audit-prompts";
-import { OPENAI_MODELS, OPENAI_PRICING_USD_PER_MTOK } from "@/lib/ai/openai-models";
+import { buildAuditPrompt, extractFirstJsonObject, parseJsonWithRepair } from "@/lib/audit-prompts";
 import type { AuditMode, AuditResult, AuditRequest } from "@/types/audit";
 
 // Extend timeout for long-running AI calls
@@ -60,10 +53,12 @@ setInterval(cleanupStaleInFlightAudits, 60 * 1000);
 
 // ═══════════════════════════════════════════════════════════════════════════
 
-// Model configuration (fallback chain)
+// Model configuration (fallback chain) via AI Gateway
 const AUDIT_MODEL_CANDIDATES = [
-  OPENAI_MODELS.audit.primary,
-  ...OPENAI_MODELS.audit.fallbacks,
+  "openai/gpt-5.2",
+  "openai/gpt-5.2-pro",
+  "anthropic/claude-opus-4.5",
+  "anthropic/claude-sonnet-4.5",
 ] as const;
 
 // Structured output schema for the AI portion of the audit.
@@ -548,13 +543,6 @@ const AUDIT_AI_SCHEMA = {
   ],
 } as const;
 
-const AUDIT_TEXT_FORMAT = {
-  type: "json_schema",
-  name: "website_audit_v2",
-  strict: true,
-  schema: AUDIT_AI_SCHEMA,
-} as const;
-
 // ═══════════════════════════════════════════════════════════════════════════
 // SCHEMA SANITY CHECK - runs at module load to catch schema errors early
 // ═══════════════════════════════════════════════════════════════════════════
@@ -569,8 +557,8 @@ type JsonSchemaObject = {
 };
 
 /**
- * Validates that a JSON Schema with strict:true has all properties listed in required.
- * OpenAI's strict mode requires ALL properties to be in required array.
+ * Validates that a JSON Schema with additionalProperties:false
+ * has all properties listed in required.
  */
 function validateStrictSchema(schema: JsonSchemaObject, path: string = "root"): string[] {
   const errors: string[] = [];
@@ -579,7 +567,7 @@ function validateStrictSchema(schema: JsonSchemaObject, path: string = "root"): 
     const propKeys = Object.keys(schema.properties);
     const requiredKeys = schema.required ? [...schema.required] : [];
 
-    // OpenAI strict mode requires ALL properties to be listed in required
+    // Strict JSON mode requires ALL properties to be listed in required
     // when additionalProperties is false.
     if (schema.additionalProperties === false) {
       const missingRequired = propKeys.filter((k) => !requiredKeys.includes(k));
@@ -632,26 +620,14 @@ if (schemaErrors.length > 0) {
 // Cost calculation (for logging/display only)
 const USD_TO_SEK = 11.0;
 
-// Initialize OpenAI client lazily
-// NOTE: Audit uses OpenAI Responses API with web_search tool which is NOT supported
-// by AI Gateway. Therefore, audit must use direct OpenAI API with OPENAI_API_KEY.
-function getOpenAIApiKey(): string | null {
-  const apiKey = process.env.OPENAI_API_KEY;
-  return apiKey && apiKey.trim() ? apiKey : null;
-}
-
-function getOpenAIClient(): OpenAI {
-  const apiKey = getOpenAIApiKey();
-  if (!apiKey) {
-    throw new Error(
-      "OPENAI_API_KEY is required for audit (web_search tool not supported by AI Gateway)",
-    );
-  }
-  return new OpenAI({
-    apiKey,
-    timeout: 300000, // 5 minute timeout
-    maxRetries: 2,
-  });
+function getGatewayAuth(): { enabled: boolean; source: "api-key" | "oidc" | "vercel" | "none" } {
+  const hasApiKey = Boolean(process.env.AI_GATEWAY_API_KEY?.trim());
+  const hasOidc = Boolean(process.env.VERCEL_OIDC_TOKEN?.trim());
+  const onVercel = process.env.VERCEL === "1" || Boolean(process.env.VERCEL_ENV);
+  if (hasApiKey) return { enabled: true, source: "api-key" };
+  if (hasOidc) return { enabled: true, source: "oidc" };
+  if (onVercel) return { enabled: true, source: "vercel" };
+  return { enabled: false, source: "none" };
 }
 
 // Create a fallback result when AI response is invalid
@@ -1114,43 +1090,8 @@ function estimateWordCountFromSiteContent(siteContent?: AuditResult["site_conten
   return count;
 }
 
-function getPricingForModel(model: string): { input: number; output: number } {
-  // Default to the primary audit model pricing if unknown.
-  return (
-    OPENAI_PRICING_USD_PER_MTOK[model] ||
-    OPENAI_PRICING_USD_PER_MTOK[OPENAI_MODELS.audit.primary] || {
-      input: 0,
-      output: 0,
-    }
-  );
-}
-
-function shouldFallbackToNextModel(err: unknown): boolean {
-  const e = err as { status?: number; code?: string; message?: string };
-  const status = typeof e?.status === "number" ? e.status : undefined;
-  const code = typeof e?.code === "string" ? e.code : undefined;
-  const message = typeof e?.message === "string" ? e.message : "";
-
-  // Never fallback on auth/key issues.
-  if (status === 401 || code === "invalid_api_key") return false;
-
-  // Model availability / selection issues.
-  if (code === "model_not_found") return true;
-  if (status === 404 && message.toLowerCase().includes("model")) return true;
-  if (message.toLowerCase().includes("model") && message.toLowerCase().includes("not found"))
-    return true;
-
-  // Tool support mismatches (web_search not supported for a given model/variant).
-  if (
-    message.toLowerCase().includes("web_search") &&
-    (message.toLowerCase().includes("not supported") ||
-      message.toLowerCase().includes("unsupported") ||
-      message.toLowerCase().includes("doesn't support"))
-  ) {
-    return true;
-  }
-
-  return false;
+function getPricingForModel(_model: string): { input: number; output: number } {
+  return { input: 0, output: 0 };
 }
 
 export async function POST(request: NextRequest) {
@@ -1308,98 +1249,51 @@ export async function POST(request: NextRequest) {
     }
 
     const isJsRendered = websiteContent.wordCount < 50;
-    const requiresWebSearch = isJsRendered || resolvedAuditMode === "advanced";
 
-    // Build prompt
     const prompt = buildAuditPrompt(websiteContent, normalizedUrl, resolvedAuditMode);
-    const { input, instructions } = combinePromptForResponsesApi(prompt);
+    const promptMessages = prompt.map((message) => ({
+      role: message.role,
+      content: message.content.map((part) => part.text).join("\n"),
+    }));
 
-    // Call OpenAI Responses API with WebSearch
-    console.log(`[${requestId}] Calling OpenAI Responses API (web_search)`);
-
-    let response;
-    let usedModel: string | undefined;
-    let lastError: unknown;
-    let webSearchCallCount = 0;
-
-    const baseRequest = {
-      input,
-      instructions: instructions || undefined,
-      max_output_tokens: 16000,
-      tools: [{ type: "web_search" }] as Array<{ type: "web_search" }>,
-      // For JS-rendered pages or advanced audits, require web_search tool usage.
-      ...(requiresWebSearch ? { tool_choice: "required" as const } : {}),
-      text: { format: AUDIT_TEXT_FORMAT },
-      // Don't store user content on OpenAI side
-      store: false,
-    };
-
-    for (const model of AUDIT_MODEL_CANDIDATES) {
-      try {
-        console.log(`[${requestId}] Trying model: ${model}`);
-        response = await getOpenAIClient().responses.create(
-          {
-            model,
-            ...baseRequest,
-          },
-          {
-            timeout: 300000,
-          },
-        );
-        usedModel = model;
-        break;
-      } catch (apiError: unknown) {
-        lastError = apiError;
-        const err = apiError as {
-          status?: number;
-          code?: string;
-          message?: string;
-        };
-        console.warn(`[${requestId}] Model ${model} failed`, {
-          status: err?.status,
-          code: err?.code,
-          message: err?.message,
-        });
-
-        if (!shouldFallbackToNextModel(apiError)) {
-          throw apiError;
-        }
-      }
+    const gatewayAuth = getGatewayAuth();
+    if (!gatewayAuth.enabled) {
+      return NextResponse.json(
+        {
+          success: false,
+          error:
+            "AI Gateway är inte konfigurerad. Sätt AI_GATEWAY_API_KEY eller kör via Vercel OIDC.",
+        },
+        { status: 500 },
+      );
     }
 
-    if (!response || !usedModel) {
-      throw lastError || new Error("OpenAI API call failed");
-    }
+    const usedModel = AUDIT_MODEL_CANDIDATES[0];
+    console.log(`[${requestId}] Calling AI Gateway (${usedModel})`);
+    const aiResult = await generateText({
+      model: gateway(usedModel),
+      messages: promptMessages,
+      providerOptions: {
+        gateway: {
+          models: AUDIT_MODEL_CANDIDATES.slice(1),
+        } as any,
+      },
+      maxOutputTokens: 16000,
+    });
 
     const apiDuration = Date.now() - requestStartTime;
     console.log(`[${requestId}] API call completed in ${apiDuration}ms using ${usedModel}`);
 
-    // Debug: how the Responses API structured the output (tool calls vs message)
-    try {
-      const outputItems = (response as unknown as { output?: unknown }).output;
-      if (Array.isArray(outputItems)) {
-        const types = outputItems
-          .map((i) => (i as { type?: unknown })?.type)
-          .filter((t): t is string => typeof t === "string");
-        const webSearchCalls = types.filter(
-          (t) => t === "web_search_call" || t === "web_search_call_output",
-        ).length;
-        webSearchCallCount = webSearchCalls;
-        console.log(
-          `[${requestId}] Response output items: ${types.length} (web_search_call: ${webSearchCalls})`,
-        );
-      }
-    } catch {
-      // ignore debug issues
-    }
-
-    // Extract and parse response
-    const outputText = extractOutputText(response as unknown as Record<string, unknown>);
+    const outputText = aiResult.text || "";
+    const webSearchCallCount = 0;
 
     if (!outputText || outputText.trim().length === 0) {
       console.error(`[${requestId}] Empty response from API`);
-      console.error(`[${requestId}] Full response keys:`, Object.keys(response || {}));
-      console.error(`[${requestId}] Response preview:`, JSON.stringify(response).substring(0, 500));
+      console.error(`[${requestId}] Full response keys:`, Object.keys(aiResult || {}));
+      console.error(
+        `[${requestId}] Response preview:`,
+        JSON.stringify(aiResult).substring(0, 500),
+      );
       return NextResponse.json(
         { success: false, error: "Tom respons från AI. Försök igen." },
         { status: 500 },
@@ -1580,15 +1474,15 @@ export async function POST(request: NextRequest) {
     }
 
     // Calculate cost (for display)
-    interface Usage {
-      input_tokens?: number;
-      output_tokens?: number;
-      prompt_tokens?: number;
-      completion_tokens?: number;
-    }
-    const usage = ((response as { usage?: Usage }).usage || {}) as Usage;
-    const inputTokens = usage.input_tokens || usage.prompt_tokens || 0;
-    const outputTokens = usage.output_tokens || usage.completion_tokens || 0;
+    const usage = aiResult.usage ?? {};
+    const inputTokens =
+      (usage as { inputTokens?: number }).inputTokens ??
+      (usage as { promptTokens?: number }).promptTokens ??
+      0;
+    const outputTokens =
+      (usage as { outputTokens?: number }).outputTokens ??
+      (usage as { completionTokens?: number }).completionTokens ??
+      0;
     const pricing = getPricingForModel(usedModel);
     const costUSD = (inputTokens * pricing.input + outputTokens * pricing.output) / 1_000_000;
     const costSEK = costUSD * USD_TO_SEK;
@@ -1715,8 +1609,12 @@ export async function POST(request: NextRequest) {
     // Provide user-friendly error messages
     let errorMessage = "Ett fel uppstod vid analysen. Försök igen senare.";
 
-    if (err.status === 401 || err.message?.includes("OPENAI_API_KEY")) {
-      errorMessage = "API-nyckel saknas eller är ogiltig.";
+    if (
+      err.status === 401 ||
+      err.message?.includes("AI_GATEWAY") ||
+      err.message?.includes("Gateway")
+    ) {
+      errorMessage = "AI Gateway saknas eller är ogiltig.";
     } else if (err.status === 429) {
       errorMessage = "För många förfrågningar. Vänta en stund och försök igen.";
     } else if (err.message?.includes("timeout")) {

@@ -74,7 +74,10 @@ export const PROMPT_ASSIST_MODEL_OPTIONS: PromptAssistModelOption[] = [
   { value: "v0-1.5-lg", label: "v0‑1.5‑lg (v0 Model API)" },
 ];
 
-const PROMPT_ASSIST_MODEL_ALLOWLIST = new Set([...GATEWAY_ASSIST_MODELS, ...V0_ASSIST_MODELS]);
+const PROMPT_ASSIST_MODEL_ALLOWLIST = new Set<string>([
+  ...GATEWAY_ASSIST_MODELS,
+  ...V0_ASSIST_MODELS,
+]);
 
 export function getPromptAssistModelOptions(): PromptAssistModelOption[] {
   return PROMPT_ASSIST_MODEL_OPTIONS;
@@ -161,4 +164,3 @@ export const DEFAULT_CUSTOM_INSTRUCTIONS = `## Tech Stack
 - ARIA labels where needed
 - Keyboard navigation support
 - Focus-visible rings on interactive elements`;
-

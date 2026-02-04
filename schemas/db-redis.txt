@@ -1,0 +1,92 @@
+SAJTMASKIN SCHEMAS - DB + REDIS
+Purpose: Kort, exakt schema-oversikt for Postgres (Supabase) och Redis.
+Source of truth: src/lib/db/schema.ts och src/lib/data/redis.ts
+
+==============================================================================
+POSTGRES (Supabase) - TABLES
+==============================================================================
+projects
+- user_id (tenant-scope), v0_project_id, name, timestamps
+
+chats
+- project_id, v0_chat_id, v0_project_id, web_url, timestamps
+
+versions
+- chat_id, v0_version_id, v0_message_id, demo_url, metadata, pinned, timestamps
+
+deployments
+- project_id, chat_id, version_id, v0_deployment_id, vercel_deployment_id,
+  vercel_project_id, inspector_url, url, status, timestamps
+
+app_projects
+- user_id, session_id (guest scope), name, category, description, timestamps
+
+prompt_handoffs
+- project_id, user_id, session_id, prompt, source, consumed_at, timestamps
+
+project_data
+- project_id (PK), chat_id, demo_url, current_code, files, messages, timestamps
+
+project_files
+- project_id, path, size_bytes, timestamps
+
+images
+- project_id, filename, file_path, mime_type, size_bytes, timestamps
+
+media_library
+- user_id (tenant-scope), filename, file_path, blob_url, mime_type, file_type,
+  size_bytes, tags, project_id, timestamps
+
+users
+- email (unique), password_hash, provider ids, diamonds, tier, timestamps
+
+transactions
+- user_id, type, amount, balance_after, stripe references, timestamps
+
+guest_usage
+- session_id (guest scope), generations_used, refines_used, timestamps
+
+company_profiles
+- project_id, company_name, industry, site_feedback, palette, timestamps
+
+template_cache
+- template_id, user_id (nullable), chat_id, demo_url, files_json, code, model
+
+page_views
+- path, user_id, session_id, referrer, user_agent, timestamps
+
+user_audits
+- user_id, audit data, status, timestamps
+
+domain_orders
+- user_id, project_id, domain, order_id, status, timestamps
+
+Tenant rule:
+- Data is scoped by user_id where possible. Guests use session_id.
+- Enforced in server code (see services in src/lib/db/services.ts).
+
+==============================================================================
+REDIS / UPSTASH - USAGE
+==============================================================================
+1) Redis cache (ioredis)
+- Source: REDIS_URL or KV_URL
+- Used for cache + rate limiting fallbacks (see src/lib/data/redis.ts)
+
+Key prefixes (from redis.ts):
+- user:session:{userId}    CachedUser JSON (TTL 7 days)
+- ratelimit:{key}          Rate limit counters
+- cache:{key}              Generic JSON cache
+- audit:{auditId}          Cached audits
+- audit_list:{userId}      Cached audit lists
+- project:files:{projectId} Cache (read-only, DB is source)
+- project:meta:{projectId}  Cache (read-only, DB is source)
+- video:job:{videoId}      Video job cache
+- preview:{templateId}     Template preview cache
+
+2) Upstash REST (HTTP)
+- Source: UPSTASH_REDIS_REST_URL + UPSTASH_REDIS_REST_TOKEN
+- Used by auth/session and rate limiting (see src/lib/auth/session.ts, src/lib/rateLimit.ts)
+
+Notes:
+- REDIS_URL/KV_URL and UPSTASH_REDIS_REST_URL can point to the same Upstash instance.
+- No secrets or values should be stored in this file.

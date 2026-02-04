@@ -2,6 +2,7 @@ import { cacheTemplateResult, getCachedTemplate } from "@/lib/db/services";
 import { findMainFile, generateFromTemplate } from "@/lib/v0/v0-generator";
 import { TEMPLATES } from "@/lib/templates/template-data";
 import { getCurrentUser } from "@/lib/auth/auth";
+import { ensureProjectForRequest, generateProjectName, resolveV0ProjectId } from "@/lib/tenant";
 import { NextRequest, NextResponse } from "next/server";
 
 // Allow 5 minutes for v0 API responses
@@ -81,12 +82,27 @@ export async function POST(request: NextRequest) {
 
         // IMPORTANT: Return cached chatId for this user's template instance
         // This allows users to continue their own template conversations without creating new chats
+        let projectId: string | null = null;
+        try {
+          const v0ProjectId = resolveV0ProjectId({ v0ChatId: cached.chat_id });
+          const projectName = generateProjectName({ v0ChatId: cached.chat_id });
+          const project = await ensureProjectForRequest({
+            req: request,
+            v0ProjectId,
+            name: projectName,
+          });
+          projectId = project.id;
+        } catch {
+          projectId = null;
+        }
+
         return NextResponse.json({
           success: true,
           message: "Laddad från cache!",
           code: cached.code || "",
           files: files,
           chatId: cached.chat_id, // Return chatId for user's own template instance
+          projectId,
           demoUrl: cached.demo_url,
           model: cached.model,
           cached: true,
@@ -128,8 +144,17 @@ export async function POST(request: NextRequest) {
     // ═══════════════════════════════════════════════════════════════════════════
     // CACHE RESULT: Save to database for future requests (per-user cache)
     // ═══════════════════════════════════════════════════════════════════════════
+    let projectId: string | null = null;
     if (result.chatId) {
       try {
+        const v0ProjectId = resolveV0ProjectId({ v0ChatId: result.chatId });
+        const projectName = generateProjectName({ v0ChatId: result.chatId });
+        const project = await ensureProjectForRequest({
+          req: request,
+          v0ProjectId,
+          name: projectName,
+        });
+        projectId = project.id;
         await cacheTemplateResult(
           templateId,
           {
@@ -159,6 +184,7 @@ export async function POST(request: NextRequest) {
       code: mainCode || result.code,
       files: result.files,
       chatId: result.chatId,
+      projectId,
       demoUrl: result.demoUrl,
       model: result.model,
       cached: false,

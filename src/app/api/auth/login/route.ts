@@ -29,11 +29,15 @@ export async function POST(req: NextRequest) {
     const result = await loginUser(email, password);
 
     if ("error" in result) {
-      return NextResponse.json({ success: false, error: result.error }, { status: 401 });
+      const isGoogleOnly = result.error.toLowerCase().includes("google");
+      return NextResponse.json(
+        { success: false, error: result.error },
+        { status: isGoogleOnly ? 200 : 401 },
+      );
     }
 
     // Set auth cookie
-    await setAuthCookie(result.token);
+    await setAuthCookie(result.token, { secure: req.nextUrl.protocol === "https:" });
 
     // Return user data (without sensitive fields)
     return NextResponse.json({
