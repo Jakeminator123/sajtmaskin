@@ -43,7 +43,7 @@ import {
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Textarea } from "@/components/ui/textarea";
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 
 export function BuilderHeader(props: {
   selectedModelTier: ModelTier;
@@ -128,6 +128,7 @@ export function BuilderHeader(props: {
     Boolean(promptAssistModel) &&
     !assistModelOptions.some((option) => option.value === promptAssistModel);
   const [isInstructionsOpen, setIsInstructionsOpen] = useState(false);
+  const applyOnceId = useId();
   const hasCustomInstructions = Boolean(customInstructions.trim());
   const isDefaultInstructions = customInstructions.trim() === DEFAULT_CUSTOM_INSTRUCTIONS.trim();
   const isGatewayProvider = isGatewayAssistModel(promptAssistModel);
@@ -443,6 +444,8 @@ export function BuilderHeader(props: {
             </div>
             <label className="border-border bg-muted/40 flex items-start gap-3 rounded-lg border p-3 text-sm">
               <input
+                id={applyOnceId}
+                name="applyInstructionsOnce"
                 type="checkbox"
                 checked={applyInstructionsOnce}
                 onChange={(event) => onApplyInstructionsOnceChange(event.target.checked)}

@@ -1,7 +1,7 @@
 "use client";
 
 import { ExternalLink, FileCode, Github, Loader2, TerminalSquare, X } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useId, useMemo, useState } from "react";
 import toast from "react-hot-toast";
 
 type SandboxRuntime = "node24" | "node22" | "python3.13";
@@ -40,6 +40,7 @@ export function SandboxModal({
   versionId,
   onUseInPreview,
 }: SandboxModalProps) {
+  const baseId = useId();
   const handleClose = () => {
     if (typeof window === "undefined") {
       onClose();
@@ -266,8 +267,12 @@ export function SandboxModal({
 
         <div className="mb-6 space-y-4">
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">Runtime</label>
+            <label htmlFor={`${baseId}-runtime`} className="mb-1 block text-sm font-medium text-gray-700">
+              Runtime
+            </label>
             <select
+              id={`${baseId}-runtime`}
+              name="runtime"
               value={runtime}
               onChange={(e) => setRuntime(e.target.value as SandboxRuntime)}
               className="focus:border-brand-blue focus:ring-brand-blue/50 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-1 focus:outline-none"
@@ -278,8 +283,12 @@ export function SandboxModal({
             </select>
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">Ports</label>
+            <label htmlFor={`${baseId}-ports`} className="mb-1 block text-sm font-medium text-gray-700">
+              Ports
+            </label>
             <input
+              id={`${baseId}-ports`}
+              name="ports"
               type="text"
               value={ports}
               onChange={(e) => setPorts(e.target.value)}
@@ -288,8 +297,12 @@ export function SandboxModal({
             />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">Timeout</label>
+            <label htmlFor={`${baseId}-timeout`} className="mb-1 block text-sm font-medium text-gray-700">
+              Timeout
+            </label>
             <input
+              id={`${baseId}-timeout`}
+              name="timeout"
               type="text"
               value={timeout}
               onChange={(e) => setTimeout(e.target.value)}
@@ -298,8 +311,12 @@ export function SandboxModal({
             />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">vCPU</label>
+            <label htmlFor={`${baseId}-vcpus`} className="mb-1 block text-sm font-medium text-gray-700">
+              vCPU
+            </label>
             <input
+              id={`${baseId}-vcpus`}
+              name="vcpus"
               type="number"
               min={1}
               max={8}
@@ -309,8 +326,12 @@ export function SandboxModal({
             />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">Install command</label>
+            <label htmlFor={`${baseId}-install-command`} className="mb-1 block text-sm font-medium text-gray-700">
+              Install command
+            </label>
             <input
+              id={`${baseId}-install-command`}
+              name="installCommand"
               type="text"
               value={installCommand}
               onChange={(e) => setInstallCommand(e.target.value)}
@@ -318,8 +339,12 @@ export function SandboxModal({
             />
           </div>
           <div>
-            <label className="mb-1 block text-sm font-medium text-gray-700">Start command</label>
+            <label htmlFor={`${baseId}-start-command`} className="mb-1 block text-sm font-medium text-gray-700">
+              Start command
+            </label>
             <input
+              id={`${baseId}-start-command`}
+              name="startCommand"
               type="text"
               value={startCommand}
               onChange={(e) => setStartCommand(e.target.value)}
