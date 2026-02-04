@@ -1,0 +1,378 @@
+# Overview
+
+
+
+<div className="grid gap-6 md:grid-cols-2 not-prose mt-6">
+  <Card>
+    <CardHeader>
+      <div className="flex items-center justify-between">
+        <CardTitle className="text-xl">
+          Model API
+        </CardTitle>
+
+        <Badge variant="secondary">
+          OpenAI Compatible
+        </Badge>
+      </div>
+
+      <CardDescription className="text-base">
+        Direct AI model access for generating React components and Next.js apps.
+      </CardDescription>
+    </CardHeader>
+
+    <CardContent className="space-y-4">
+      <ul className="text-sm text-muted-foreground space-y-1">
+        <li>
+          • Framework-aware code generation
+        </li>
+
+        <li>
+          • Works with existing OpenAI tools
+        </li>
+
+        <li>
+          • Fast streaming responses
+        </li>
+
+        <li>
+          • Text + image inputs
+        </li>
+      </ul>
+
+      <div className="flex gap-2">
+        <Button asChild size="sm">
+          <a href="/docs/api/model">
+            Documentation
+          </a>
+        </Button>
+
+        <Button asChild variant="outline" size="sm">
+          <a href="https://ai-sdk.dev/playground/vercel:v0-1.5-md" target="_blank">
+            Try It
+          </a>
+        </Button>
+      </div>
+    </CardContent>
+  </Card>
+
+  <Card>
+    <CardHeader>
+      <div className="flex items-center justify-between">
+        <CardTitle className="text-xl">
+          Platform API
+        </CardTitle>
+
+        <Badge variant="secondary">
+          Full Stack
+        </Badge>
+      </div>
+
+      <CardDescription className="text-base">
+        Complete development infrastructure for building dev tools and platforms.
+      </CardDescription>
+    </CardHeader>
+
+    <CardContent className="space-y-4">
+      <ul className="text-sm text-muted-foreground space-y-1">
+        <li>
+          • Chat & conversation management
+        </li>
+
+        <li>
+          • Code parsing & file generation
+        </li>
+
+        <li>
+          • Browser app execution
+        </li>
+
+        <li>
+          • Project & deployment tools
+        </li>
+      </ul>
+
+      <div className="flex gap-2">
+        <Button asChild size="sm">
+          <a href="/docs/api/platform/overview">
+            Documentation
+          </a>
+        </Button>
+
+        <Button asChild variant="outline" size="sm">
+          <a href="/docs/api/platform/quickstart">
+            Quick Start
+          </a>
+        </Button>
+      </div>
+    </CardContent>
+  </Card>
+</div>
+
+## Quick Setup
+
+Both APIs require an API key from [v0.app settings](https://v0.app/chat/settings/keys) and a Premium or Team plan.
+
+Add your API key to `.env`:
+
+```bash
+V0_API_KEY=your_api_key_here
+```
+
+**Model API:** Use with AI SDK → `pnpm add ai @ai-sdk/vercel`\
+**Platform API:** Use v0 SDK → `pnpm add v0-sdk`
+
+
+
+---
+
+# v0 Model API
+
+
+
+The v0 Model API is designed for building modern web applications. It supports text and image inputs, provides fast streaming responses, and is compatible with the [OpenAI Chat Completions API](https://platform.openai.com/docs/api-reference/chat) format.
+
+## Features
+
+* **Framework aware completions**: Evaluated on modern stacks like Next.js and Vercel.
+* **Auto-fix**: Identifies and corrects common coding issues during generation.
+* **Quick edit**: Streams inline edits as they’re available.
+* **OpenAI compatible**: Can be used with any tool or SDK that supports OpenAI's API format.
+* **Multimodal**: Supports both text and image inputs (base64-encoded image data).
+
+You can experiment with the Models API in the AI Playground to test prompts and view responses:
+
+* [v0-1.5-md](https://ai-sdk.dev/playground/vercel:v0-1.5-md)
+* [v0-1.5-lg](https://ai-sdk.dev/playground/vercel:v0-1.5-lg)
+* [v0-1.0-md](https://ai-sdk.dev/playground/vercel:v0-1.0-md)
+
+## Getting started
+
+The v0 API is currently in beta and requires a Premium or Team plan with usage-based billing enabled. For details, visit the [pricing page](/pricing).
+
+To start using the Models API, create an API key on [v0.app](https://v0.app/chat/settings/keys).
+
+You can then integrate it using the [AI SDK](https://ai-sdk.dev/), a TypeScript library designed for working with and other OpenAI-compatible models.
+
+```bash
+pnpm add ai @ai-sdk/vercel
+```
+
+### Example usage
+
+```ts
+import { generateText } from 'ai'
+import { vercel } from '@ai-sdk/vercel'
+
+const { text } = await generateText({
+  model: vercel('v0-1.0-md'),
+  prompt: 'Create a Next.js AI chatbot with authentication',
+})
+```
+
+## Models
+
+### v0-1.5-md
+
+The `v0-1.5-md` model is for everyday tasks and UI generation.
+
+### v0-1.5-lg
+
+The `v0-1.5-lg` model is for advanced thinking or reasoning.
+
+### v0-1.0-md (legacy)
+
+The `v0-1.0-md` model is the legacy model served by the API.
+
+**Capabilities:**
+
+* Supports text and image inputs (multimodal)
+* Compatible with OpenAI’s Chat Completions format
+* Supports function/tool calls
+* Streaming responses with low latency
+* Optimized for frontend and full-stack web development
+
+## API reference
+
+### Endpoint
+
+```
+POST https://api.v0.dev/v1/chat/completions
+```
+
+This endpoint generates a model response based on a list of messages.
+
+### Headers
+
+| Header        | Required | Description                        |
+| ------------- | -------- | ---------------------------------- |
+| Authorization | Yes      | Bearer token: `Bearer $V0_API_KEY` |
+| Content-Type  | Yes      | Must be `application/json`         |
+
+### Request body
+
+| Field                   | Type             | Required | Description                                                        |
+| ----------------------- | ---------------- | -------- | ------------------------------------------------------------------ |
+| `model`                 | string           | Yes      | Model name.                                                        |
+| `messages`              | array            | Yes      | List of message objects forming the conversation.                  |
+| `stream`                | boolean          | No       | If true, the response will be returned as a stream of data chunks. |
+| `tools`                 | array            | No       | Optional tool definitions (e.g., functions or API calls).          |
+| `tool_choice`           | string or object | No       | Specifies which tool to call, if tools are provided.               |
+| `max_completion_tokens` | integer          | No       | Maximum generated output tokens (default: `4000`).                 |
+
+Each message object must contain:
+
+| Field     | Type            | Required | Description                                                         |
+| --------- | --------------- | -------- | ------------------------------------------------------------------- |
+| `role`    | string          | Yes      | One of `"user"`, `"assistant"`, or `"system"`.                      |
+| `content` | string or array | Yes      | The message content. Can be a string or array of text/image blocks. |
+
+### Example request
+
+```bash
+curl https://api.v0.dev/v1/chat/completions \
+  -H "Authorization: Bearer $V0_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "v0-1.5-md",
+    "messages": [
+      { "role": "user", "content": "Create a Next.js AI chatbot" }
+    ]
+  }'
+```
+
+### Example with streaming
+
+```bash
+curl https://api.v0.dev/v1/chat/completions \
+  -H "Authorization: Bearer $V0_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "v0-1.5-md",
+    "stream": true,
+    "messages": [
+      { "role": "user", "content": "Add login to my Next.js app" }
+    ]
+  }'
+```
+
+### Response
+
+If `stream` is `false` (default), the response is a JSON object:
+
+```json
+{
+  "id": "v0-123",
+  "model": "v0-1.5-md",
+  "object": "chat.completion",
+  "created": 1715620000,
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "Here's how to add login to your Next.js app..."
+      },
+      "finish_reason": "stop"
+    }
+  ]
+}
+```
+
+If `stream` is `true`, the server returns a series of data chunks formatted as [Server-Sent Events (SSE)](https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events). Each line begins with `data: ` followed by a partial delta:
+
+```json
+{
+  "id": "v0-123",
+  "model": "v0-1.5-md",
+  "object": "chat.completion.chunk",
+  "choices": [
+    {
+      "delta": {
+        "role": "assistant",
+        "content": "Here's how"
+      },
+      "index": 0,
+      "finish_reason": null
+    }
+  ]
+}
+```
+
+## Usage limits
+
+| Model     | Max context window size | Max output context size |
+| --------- | ----------------------- | ----------------------- |
+| v0-1.0-md | 128,000 tokens          | 64,000 tokens           |
+| v0-1.5-md | 128,000 tokens          | 64,000 tokens           |
+| v0-1.5-lg | 512,000 tokens          | 64,000 tokens           |
+
+To request a higher limit, contact us at [support@v0.dev](mailto:support@v0.dev).
+
+By using our API, you agree to our [API Terms](https://vercel.com/legal/api-terms).
+
+
+
+---
+
+
+https://v0.app/docs/api/platform/quickstart
+https://v0.app/docs/api/platform/overview
+https://v0.app/docs/api/platform/guides/displaying-chat-messages
+https://v0.app/docs/api/platform/guides/start-from-existing-code
+https://v0.app/docs/api/platform/guides/environment-variables
+https://v0.app/docs/api/platform/guides/lock-files-from-ai-changes
+https://v0.app/docs/api/platform/examples/v0-clone
+https://v0.app/docs/api/platform/examples/classic-v0
+https://v0.app/docs/api/platform/examples/ai-tools
+https://v0.app/docs/api/platform/examples/react-components
+https://v0.app/docs/api/platform/adapters/mcp-server
+https://v0.app/docs/api/platform/adapters/ai-tools
+https://v0.app/docs/api/platform/packages/v0-sdk
+https://v0.app/docs/api/platform/packages/create-v0-sdk-app
+https://v0.app/docs/api/platform/packages/react
+https://v0.app/docs/api/platform/packages/ai-tools
+https://v0.app/docs/api/platform/reference/projects/create
+https://v0.app/docs/api/platform/reference/projects/find
+https://v0.app/docs/api/platform/reference/projects/get-by-id
+https://v0.app/docs/api/platform/reference/projects/get-by-chat-id
+https://v0.app/docs/api/platform/reference/projects/update
+https://v0.app/docs/api/platform/reference/projects/assign
+https://v0.app/docs/api/platform/reference/projects/create-env-vars
+https://v0.app/docs/api/platform/reference/projects/delete-env-vars
+https://v0.app/docs/api/platform/reference/projects/delete
+https://v0.app/docs/api/platform/reference/projects/find-env-vars
+https://v0.app/docs/api/platform/reference/projects/get-env-var
+https://v0.app/docs/api/platform/reference/projects/update-env-vars
+https://v0.app/docs/api/platform/reference/chats/create
+https://v0.app/docs/api/platform/reference/chats/find
+https://v0.app/docs/api/platform/reference/chats/init
+https://v0.app/docs/api/platform/reference/chats/delete
+https://v0.app/docs/api/platform/reference/chats/get-by-id
+https://v0.app/docs/api/platform/reference/chats/update
+https://v0.app/docs/api/platform/reference/chats/favorite
+https://v0.app/docs/api/platform/reference/chats/fork
+https://v0.app/docs/api/platform/reference/chats/send-message
+https://v0.app/docs/api/platform/reference/chats/find-messages
+https://v0.app/docs/api/platform/reference/chats/get-message
+https://v0.app/docs/api/platform/reference/chats/find-versions
+https://v0.app/docs/api/platform/reference/chats/get-version
+https://v0.app/docs/api/platform/reference/chats/update-version
+https://v0.app/docs/api/platform/reference/chats/resume
+https://v0.app/docs/api/platform/reference/chats/download-version
+https://v0.app/docs/api/platform/reference/deployments/create
+https://v0.app/docs/api/platform/reference/deployments/find
+https://v0.app/docs/api/platform/reference/deployments/get-by-id
+https://v0.app/docs/api/platform/reference/deployments/delete
+https://v0.app/docs/api/platform/reference/deployments/find-logs
+https://v0.app/docs/api/platform/reference/deployments/find-errors
+https://v0.app/docs/api/platform/reference/hooks/find
+https://v0.app/docs/api/platform/reference/hooks/create
+https://v0.app/docs/api/platform/reference/hooks/get-by-id
+https://v0.app/docs/api/platform/reference/hooks/update
+https://v0.app/docs/api/platform/reference/hooks/delete
+https://v0.app/docs/api/platform/reference/rate-limits/find
+https://v0.app/docs/api/platform/reference/user/get
+https://v0.app/docs/api/platform/reference/user/get-billing
+https://v0.app/docs/api/platform/reference/user/get-plan
+https://v0.app/docs/api/platform/reference/user/get-scopes
+https://v0.app/docs/api/platform/reference/reports/get-usage

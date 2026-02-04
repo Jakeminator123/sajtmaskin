@@ -288,3 +288,106 @@ export function buildShadcnBlockPrompt(
 
   return slimLines.join("\n\n");
 }
+
+export function buildShadcnComponentPrompt(
+  item: ShadcnRegistryItem,
+  options: {
+    style?: string;
+    displayName?: string;
+    description?: string;
+    dependencyItems?: ShadcnRegistryItem[];
+    placement?: PlacementOption;
+    detectedSections?: DetectedSection[];
+  } = {},
+): string {
+  const MAX_PROMPT_CHARS = 12000;
+  const style = options.style ?? DEFAULT_STYLE;
+  const componentName = item.name || "component";
+  const displayName = options.displayName || componentName;
+  const description = options.description || item.description;
+  const placement = options.placement ?? "bottom";
+  const detectedSections = options.detectedSections;
+  const pascalName = `${toPascalCase(componentName)}Component`;
+  const lines: string[] = [];
+
+  lines.push(`Add the shadcn/ui component "${displayName}" to the project.`);
+  if (description) {
+    lines.push(`Description: ${description}`);
+  }
+  lines.push("Do not remove or replace existing content.");
+  lines.push("Create or update the component files under `src/components/ui/`.");
+  lines.push("Use these import mappings:");
+  lines.push(`- \`@/registry/${style}/ui/*\` -> \`@/components/ui/*\``);
+  lines.push(`- \`@/registry/${style}/lib/utils\` -> \`@/lib/utils\``);
+  lines.push(`- \`@/registry/${style}/blocks/*\` -> \`@/components/blocks/*\``);
+  lines.push(
+    "Only create dependency files that are missing; do not overwrite existing UI components.",
+  );
+  if (item.registryDependencies?.length) {
+    lines.push(`Registry dependencies: ${item.registryDependencies.join(", ")}.`);
+    lines.push("Assume common shadcn/ui primitives already exist; only add missing pieces.");
+  }
+
+  lines.push("Registry files (adapt paths/imports as noted):");
+  const files = item.files ?? [];
+  const seenTargets = new Set<string>();
+  files.forEach((file) => {
+    const targetPath = mapRegistryFilePath(file.path);
+    if (seenTargets.has(targetPath)) return;
+    seenTargets.add(targetPath);
+    const language = getLanguageFromPath(file.path);
+    const rewritten = rewriteRegistryImports(file.content ?? "", style);
+    lines.push(`### ${targetPath}`);
+    lines.push(`\`\`\`${language} filename="${targetPath}"`);
+    lines.push(rewritten || "// (empty)");
+    lines.push("```");
+  });
+
+  lines.push("## Integration Notes:");
+  lines.push(
+    `- Add a small demo section to the homepage using \`${pascalName}\` so the component is visible.`,
+  );
+  lines.push(getPlacementInstruction(placement, detectedSections));
+  lines.push("- Keep existing content intact; only append the demo section.");
+  lines.push("- Avoid introducing @v0/* imports.");
+
+  lines.push("## Styling Guidelines:");
+  lines.push("- Use Tailwind CSS for all styling (no inline styles or CSS modules)");
+  lines.push("- Match the existing site's color scheme and design tokens");
+  lines.push("- Ensure responsive design: mobile-first with sm:/md:/lg: breakpoints");
+  lines.push("- Add smooth transitions: transition-all duration-200");
+  lines.push("- Use proper spacing: py-16 md:py-24 for section padding");
+  lines.push("- Maintain visual consistency with existing components");
+  lines.push("- Support dark mode if the site uses it (dark: prefixes)");
+
+  const fullPrompt = lines.join("\n\n");
+  if (fullPrompt.length <= MAX_PROMPT_CHARS) {
+    return fullPrompt;
+  }
+
+  const slimLines: string[] = [];
+  slimLines.push(`Add the shadcn/ui component "${displayName}" to the project.`);
+  if (description) {
+    slimLines.push(`Description: ${description}`);
+  }
+  slimLines.push("Do not remove or replace existing content.");
+  slimLines.push(getPlacementInstruction(placement, detectedSections));
+  slimLines.push("Use these import mappings:");
+  slimLines.push(`- \`@/registry/${style}/ui/*\` -> \`@/components/ui/*\``);
+  slimLines.push(`- \`@/registry/${style}/lib/utils\` -> \`@/lib/utils\``);
+  if (item.registryDependencies?.length) {
+    slimLines.push(`Registry dependencies: ${item.registryDependencies.join(", ")}.`);
+  }
+  if (files.length > 0) {
+    const slimTargets = new Set<string>();
+    slimLines.push("Registry files (paths only, content omitted to keep prompt short):");
+    files.forEach((file) => {
+      const targetPath = mapRegistryFilePath(file.path);
+      if (slimTargets.has(targetPath)) return;
+      slimTargets.add(targetPath);
+      slimLines.push(`- ${targetPath}`);
+    });
+  }
+  slimLines.push("Keep existing content intact; only append a demo section.");
+  return slimLines.join("\n\n");
+}

@@ -6,11 +6,11 @@ import {
   Search,
   X,
   Sparkles,
-  ExternalLink,
   ChevronDown,
   ArrowUp,
   ArrowDown,
   Replace,
+  Code2,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -35,10 +35,10 @@ import {
   type ComponentCategory,
   type ComponentItem,
   getBlocksByCategory,
+  getComponentsByCategory,
   searchBlocks,
   fetchRegistryItem,
   buildRegistryItemUrl,
-  buildPreviewUrl,
   buildPreviewImageUrl,
   FEATURED_BLOCKS,
 } from "@/lib/shadcn-registry-service";
@@ -48,6 +48,7 @@ import {
   generatePlacementOptions,
   type DetectedSection,
 } from "@/lib/builder/sectionAnalyzer";
+import { buildRegistryMarkdownPreview } from "@/lib/shadcn-registry-utils";
 
 // ============================================
 // TYPES (exported for ChatInterface)
@@ -112,6 +113,7 @@ export type ShadcnBlockSelection = {
     title: string;
     description: string;
   };
+  itemType: "block" | "component";
   registryItem: ShadcnRegistryItem;
   dependencyItems?: ShadcnRegistryItem[];
   registryUrl: string;
@@ -158,6 +160,8 @@ export function ShadcnBlockPicker({
   const [pendingAction, setPendingAction] = useState<ShadcnBlockAction | null>(null);
   const [placement, setPlacement] = useState<PlacementOption>("bottom");
   const [activeTab, setActiveTab] = useState<"popular" | "all">("popular");
+  const [itemType, setItemType] = useState<"block" | "component">("block");
+  const [showCodePreview, setShowCodePreview] = useState(false);
 
   // Analyze sections from current code
   const detectedSections = useMemo(() => {
@@ -188,13 +192,15 @@ export function ShadcnBlockPicker({
 
   // Build popular items from FEATURED_BLOCKS
   const popularItems = useMemo(() => {
+    if (itemType !== "block") return [];
     const allItems = categories.flatMap((cat) => cat.items);
     const popularBlockNames = FEATURED_BLOCKS.flatMap((group) => group.blocks);
     return allItems.filter((item) => popularBlockNames.includes(item.name));
-  }, [categories]);
+  }, [categories, itemType]);
 
   // Build popular categories for display
   const popularCategories = useMemo(() => {
+    if (itemType !== "block") return [];
     const result: ComponentCategory[] = [];
     for (const featured of FEATURED_BLOCKS) {
       const items = categories
@@ -211,7 +217,7 @@ export function ShadcnBlockPicker({
       }
     }
     return result;
-  }, [categories]);
+  }, [categories, itemType]);
 
   // Load categories on mount
   useEffect(() => {
@@ -221,14 +227,19 @@ export function ShadcnBlockPicker({
     setIsLoadingCategories(true);
     setError(null);
 
-    getBlocksByCategory(DEFAULT_STYLE)
+    const loader = itemType === "component" ? getComponentsByCategory : getBlocksByCategory;
+
+    loader(DEFAULT_STYLE)
       .then((data) => {
         if (!isActive) return;
         setCategories(data);
         // Auto-select first popular item (from FEATURED_BLOCKS)
         const allItems = data.flatMap((cat) => cat.items);
-        const firstPopularBlock = FEATURED_BLOCKS[0]?.blocks[0];
-        const firstPopularItem = allItems.find((item) => item.name === firstPopularBlock);
+        const firstPopularBlock = itemType === "block" ? FEATURED_BLOCKS[0]?.blocks[0] : null;
+        const firstPopularItem =
+          firstPopularBlock && itemType === "block"
+            ? allItems.find((item) => item.name === firstPopularBlock)
+            : null;
         if (firstPopularItem) {
           setSelectedItem(firstPopularItem);
         } else if (data.length > 0 && data[0].items.length > 0) {
@@ -246,7 +257,7 @@ export function ShadcnBlockPicker({
     return () => {
       isActive = false;
     };
-  }, [open]);
+  }, [open, itemType]);
 
   // Load selected item details
   useEffect(() => {
@@ -291,6 +302,16 @@ export function ShadcnBlockPicker({
     };
   }, [open, selectedItem]);
 
+  useEffect(() => {
+    setShowCodePreview(false);
+  }, [selectedItem?.name]);
+
+  useEffect(() => {
+    if (itemType === "component" && activeTab === "popular") {
+      setActiveTab("all");
+    }
+  }, [itemType, activeTab]);
+
   // Filter categories by search
   const filteredCategories = useMemo(() => {
     return searchBlocks(categories, query);
@@ -315,6 +336,7 @@ export function ShadcnBlockPicker({
             title: selectedItem.title,
             description: selectedItem.description,
           },
+          itemType: selectedItem.type,
           registryItem: registryItem || {
             name: selectedItem.name,
             description: selectedItem.description,
@@ -378,30 +400,58 @@ export function ShadcnBlockPicker({
         <div className="flex min-h-0 flex-1 flex-col md:flex-row">
           {/* Sidebar - Categories */}
           <div className="flex w-full flex-col border-b border-gray-800 md:w-80 md:border-r md:border-b-0">
-            {/* Tabs */}
-            <div className="flex border-b border-gray-800">
-              <button
-                type="button"
-                onClick={() => setActiveTab("popular")}
-                className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
-                  activeTab === "popular"
-                    ? "border-b-2 border-violet-500 text-violet-400"
-                    : "text-gray-400 hover:text-gray-200"
-                }`}
-              >
-                ⭐ Populära
-              </button>
-              <button
-                type="button"
-                onClick={() => setActiveTab("all")}
-                className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
-                  activeTab === "all"
-                    ? "border-b-2 border-violet-500 text-violet-400"
-                    : "text-gray-400 hover:text-gray-200"
-                }`}
-              >
-                Alla ({categories.reduce((acc, cat) => acc + cat.items.length, 0)})
-              </button>
+            {/* Type toggle + Tabs */}
+            <div className="border-b border-gray-800">
+              <div className="flex gap-2 px-4 pt-4">
+                <button
+                  type="button"
+                  onClick={() => setItemType("block")}
+                  className={`flex-1 rounded-md px-3 py-2 text-xs font-medium transition-colors ${
+                    itemType === "block"
+                      ? "bg-violet-500/20 text-violet-300"
+                      : "bg-gray-800/60 text-gray-400 hover:text-gray-200"
+                  }`}
+                >
+                  Blocks
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setItemType("component")}
+                  className={`flex-1 rounded-md px-3 py-2 text-xs font-medium transition-colors ${
+                    itemType === "component"
+                      ? "bg-violet-500/20 text-violet-300"
+                      : "bg-gray-800/60 text-gray-400 hover:text-gray-200"
+                  }`}
+                >
+                  Komponenter
+                </button>
+              </div>
+              <div className="mt-3 flex border-t border-gray-800">
+                {itemType === "block" && (
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab("popular")}
+                    className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+                      activeTab === "popular"
+                        ? "border-b-2 border-violet-500 text-violet-400"
+                        : "text-gray-400 hover:text-gray-200"
+                    }`}
+                  >
+                    ⭐ Populära
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setActiveTab("all")}
+                  className={`flex-1 px-4 py-3 text-sm font-medium transition-colors ${
+                    activeTab === "all"
+                      ? "border-b-2 border-violet-500 text-violet-400"
+                      : "text-gray-400 hover:text-gray-200"
+                  }`}
+                >
+                  Alla ({categories.reduce((acc, cat) => acc + cat.items.length, 0)})
+                </button>
+              </div>
             </div>
 
             {/* Search */}
@@ -596,15 +646,15 @@ export function ShadcnBlockPicker({
                       <p className="text-sm text-gray-400">{selectedItem.description}</p>
                     )}
                   </div>
-                  <a
-                    href={buildPreviewUrl(selectedItem.name, DEFAULT_STYLE)}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="flex items-center gap-1 text-xs text-violet-400 hover:text-violet-300"
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setShowCodePreview((prev) => !prev)}
+                    className="h-8 gap-2 border-gray-700 bg-gray-800/50 text-xs text-violet-300 hover:text-violet-200"
                   >
-                    <ExternalLink className="h-3 w-3" />
-                    Öppna
-                  </a>
+                    <Code2 className="h-3 w-3" />
+                    {showCodePreview ? "Dölj kod" : "Visa kod"}
+                  </Button>
                 </div>
 
                 {/* Preview images */}
@@ -642,6 +692,20 @@ export function ShadcnBlockPicker({
                       />
                     </div>
                   </div>
+
+                  {showCodePreview && registryItem && (
+                    <div className="mt-6 rounded-xl border border-gray-800 bg-gray-950/80 p-4">
+                      <div className="mb-2 text-xs font-medium text-gray-400">
+                        Registry preview (kortad)
+                      </div>
+                      <pre className="text-xs whitespace-pre-wrap text-gray-200">
+                        {buildRegistryMarkdownPreview(registryItem, {
+                          style: DEFAULT_STYLE,
+                          maxLines: 120,
+                        })}
+                      </pre>
+                    </div>
+                  )}
 
                   {/* Tip */}
                   <div className="mt-6 flex items-start gap-3 rounded-lg bg-violet-500/10 p-4">

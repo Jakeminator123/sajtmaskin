@@ -21,6 +21,7 @@ import { ensureSessionIdFromRequest } from "@/lib/auth/session";
 import { devLogAppend } from "@/lib/logging/devLog";
 import { debugLog, errorLog } from "@/lib/utils/debug";
 import { sanitizeV0Metadata } from "@/lib/v0/sanitize-metadata";
+import { normalizeV0Error } from "@/lib/v0/errors";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -257,16 +258,19 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
               }
             } catch (error) {
               console.error("Streaming sendMessage proxy error:", error);
+              const normalized = normalizeV0Error(error);
               devLogAppend("latest", {
                 type: "site.message.error",
                 chatId,
-                message: error instanceof Error ? error.message : "Unknown error",
+                message: normalized.message,
                 durationMs: Date.now() - requestStartedAt,
               });
               safeEnqueue(
                 encoder.encode(
                   formatSSEEvent("error", {
-                    message: error instanceof Error ? error.message : "Unknown error",
+                    message: normalized.message,
+                    code: normalized.code,
+                    retryAfter: normalized.retryAfter ?? null,
                   }),
                 ),
               );
@@ -410,10 +414,15 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
       );
     } catch (err) {
       errorLog("v0", `Send message error (requestId=${requestId})`, err);
+      const normalized = normalizeV0Error(err);
       return attachSessionCookie(
         NextResponse.json(
-          { error: err instanceof Error ? err.message : "Unknown error" },
-          { status: 500 },
+          {
+            error: normalized.message,
+            code: normalized.code,
+            retryAfter: normalized.retryAfter ?? null,
+          },
+          { status: normalized.status },
         ),
       );
     }

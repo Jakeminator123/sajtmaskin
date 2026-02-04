@@ -1,0 +1,163 @@
+{
+  "version": "1.0",
+  "baseUrl": "http://localhost:3000",
+  "flows": [
+    {
+      "id": "prompt_assist_optional",
+      "title": "Prompt Assist (valfri)",
+      "steps": [
+        {
+          "order": 1,
+          "endpoint": "/api/ai/chat",
+          "method": "POST",
+          "purpose": "Forbattra anvandarens prompt innan v0-chat skapas.",
+          "request": {
+            "provider": "gateway|vercel|openai|anthropic|openai-compat",
+            "model": "provider/model eller v0-modell",
+            "temperature": 0.0,
+            "messages": [
+              { "$ref": "./systemprompt.schema.json" },
+              { "$ref": "./prompt.schema.json" }
+            ]
+          },
+          "response": {
+            "type": "text-stream",
+            "notes": "Returnerar streamad text (inte SSE)."
+          }
+        }
+      ]
+    },
+    {
+      "id": "create_chat_stream",
+      "title": "Skapa ny chat (SSE)",
+      "steps": [
+        {
+          "order": 1,
+          "endpoint": "/api/v0/chats/stream",
+          "method": "POST",
+          "purpose": "Startar ny v0-chat och streamar svar.",
+          "request": {
+            "message": "string",
+            "system": "string (optional)",
+            "projectId": "string (optional)",
+            "modelId": "v0-mini|v0-pro|v0-max (optional)",
+            "thinking": "boolean (optional)",
+            "imageGenerations": "boolean (optional)",
+            "chatPrivacy": "public|private (optional)"
+          },
+          "response": {
+            "type": "text/event-stream",
+            "events": ["chatId", "thinking", "content", "done", "error"]
+          }
+        },
+        {
+          "order": 2,
+          "endpoint": "/api/v0/chats/{chatId}/versions",
+          "method": "GET",
+          "purpose": "Hamta versionslista efter att chatId ar klar.",
+          "response": {
+            "versions": [
+              {
+                "versionId": "string",
+                "id": "string",
+                "messageId": "string|null",
+                "demoUrl": "string|null",
+                "metadata": "object|null",
+                "createdAt": "string (ISO)"
+              }
+            ]
+          }
+        },
+        {
+          "order": 3,
+          "endpoint": "/api/v0/chats/{chatId}/files",
+          "method": "GET",
+          "purpose": "Hamta filer for senaste eller valt versionId.",
+          "request": {
+            "versionId": "string (optional)"
+          },
+          "response": {
+            "versionId": "string",
+            "files": [
+              { "name": "string", "content": "string", "locked": "boolean (optional)" }
+            ]
+          }
+        }
+      ]
+    },
+    {
+      "id": "follow_up_message_stream",
+      "title": "Skicka uppfoljningsmeddelande (SSE)",
+      "steps": [
+        {
+          "order": 1,
+          "endpoint": "/api/v0/chats/{chatId}/stream",
+          "method": "POST",
+          "purpose": "Skickar nytt meddelande och streamar svar.",
+          "request": {
+            "message": "string",
+            "attachments": "array (optional)"
+          },
+          "response": {
+            "type": "text/event-stream",
+            "events": ["thinking", "content", "done", "error"]
+          }
+        },
+        {
+          "order": 2,
+          "endpoint": "/api/v0/chats/{chatId}/versions",
+          "method": "GET",
+          "purpose": "Uppdatera versionslistan efter nytt svar."
+        }
+      ]
+    },
+    {
+      "id": "deploy_version",
+      "title": "Deploy",
+      "steps": [
+        {
+          "order": 1,
+          "endpoint": "/api/v0/deployments",
+          "method": "POST",
+          "purpose": "Skapar deployment pa Vercel.",
+          "request": {
+            "chatId": "string",
+            "versionId": "string",
+            "projectName": "string (optional)",
+            "target": "production|preview (optional)",
+            "imageStrategy": "external|blob (optional)"
+          },
+          "response": {
+            "id": "string",
+            "status": "pending|building|ready|error",
+            "url": "string|null"
+          }
+        },
+        {
+          "order": 2,
+          "endpoint": "/api/v0/deployments?chatId={chatId}",
+          "method": "GET",
+          "purpose": "Lista deployments och poll status."
+        }
+      ]
+    },
+    {
+      "id": "webhooks_optional",
+      "title": "Webhooks (valfria)",
+      "steps": [
+        {
+          "order": 1,
+          "endpoint": "/api/webhooks/v0",
+          "method": "POST",
+          "purpose": "Tar emot v0 webhook events (chat, message, deployment)."
+        },
+        {
+          "order": 2,
+          "endpoint": "/api/webhooks/vercel",
+          "method": "POST",
+          "purpose": "Tar emot Vercel deployment webhook events."
+        }
+      ]
+    }
+  ]
+}

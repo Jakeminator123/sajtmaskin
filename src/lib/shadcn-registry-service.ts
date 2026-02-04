@@ -44,10 +44,11 @@ export interface ComponentItem {
   description: string;
   category: string;
   type: "block" | "component";
-  previewUrl?: string;
   lightImageUrl?: string;
   darkImageUrl?: string;
 }
+
+export type RegistryItemKind = "block" | "component";
 
 // ============================================
 // CATEGORY CONFIGURATION
@@ -107,10 +108,18 @@ export function buildRegistryItemUrl(name: string, style?: string): string {
   return `${baseUrl}/r/styles/${resolvedStyle}/${name}.json`;
 }
 
-export function buildPreviewUrl(name: string, style?: string): string {
-  const baseUrl = getRegistryBaseUrl();
-  const resolvedStyle = style?.trim() || getRegistryStyle();
-  return `${baseUrl}/view/${resolvedStyle}/${name}`;
+function buildRegistryProxyIndexUrl(style?: string): string {
+  const params = new URLSearchParams();
+  if (style?.trim()) params.set("style", style.trim());
+  const query = params.toString();
+  return `/api/shadcn/registry/index${query ? `?${query}` : ""}`;
+}
+
+function buildRegistryProxyItemUrl(name: string, style?: string): string {
+  const params = new URLSearchParams();
+  params.set("name", name);
+  if (style?.trim()) params.set("style", style.trim());
+  return `/api/shadcn/registry/item?${params.toString()}`;
 }
 
 export function buildPreviewImageUrl(
@@ -135,7 +144,10 @@ export async function fetchRegistryIndex(style?: string): Promise<RegistryIndex>
   const cached = getCached<RegistryIndex>(cacheKey);
   if (cached) return cached;
 
-  const url = buildRegistryIndexUrl(style);
+  const url =
+    typeof window === "undefined"
+      ? buildRegistryIndexUrl(style)
+      : buildRegistryProxyIndexUrl(style);
   const response = await fetch(url);
 
   if (!response.ok) {
@@ -150,15 +162,15 @@ export async function fetchRegistryIndex(style?: string): Promise<RegistryIndex>
 /**
  * Fetch a specific registry item (component/block)
  */
-export async function fetchRegistryItem(
-  name: string,
-  style?: string,
-): Promise<ShadcnRegistryItem> {
+export async function fetchRegistryItem(name: string, style?: string): Promise<ShadcnRegistryItem> {
   const cacheKey = `item:${name}:${style || "default"}`;
   const cached = getCached<ShadcnRegistryItem>(cacheKey);
   if (cached) return cached;
 
-  const url = buildRegistryItemUrl(name, style);
+  const url =
+    typeof window === "undefined"
+      ? buildRegistryItemUrl(name, style)
+      : buildRegistryProxyItemUrl(name, style);
   const response = await fetch(url);
 
   if (!response.ok) {
@@ -187,37 +199,45 @@ function getCategoryConfig(rawCategory: string) {
   return CATEGORY_CONFIG[normalized] || CATEGORY_CONFIG.other;
 }
 
+function isRegistryItemKind(item: RegistryIndexItem, kind: RegistryItemKind) {
+  const rawType = item.type?.toLowerCase() || "";
+  if (kind === "block") return rawType === "registry:block" || rawType === "block";
+  return rawType === "registry:component" || rawType === "component";
+}
+
 /**
- * Get all blocks organized by category (for the component picker)
+ * Get registry items organized by category (blocks or components)
  */
-export async function getBlocksByCategory(style?: string): Promise<ComponentCategory[]> {
+export async function getRegistryItemsByCategory(
+  style?: string,
+  kind: RegistryItemKind = "block",
+): Promise<ComponentCategory[]> {
   const index = await fetchRegistryIndex(style);
 
-  // Filter to only blocks
-  const blocks = index.items.filter(
-    (item) => item.type === "registry:block" && typeof item.name === "string",
+  // Filter by type
+  const filteredItems = index.items.filter(
+    (item) => isRegistryItemKind(item, kind) && typeof item.name === "string",
   );
 
   // Group by category
   const categoryMap = new Map<string, ComponentItem[]>();
 
-  for (const block of blocks) {
-    const rawCategory = block.categories?.[0] || "other";
+  for (const item of filteredItems) {
+    const rawCategory = item.categories?.[0] || "other";
     const categoryId = rawCategory.toLowerCase();
 
-    const item: ComponentItem = {
-      name: block.name,
-      title: toTitleCase(block.name),
-      description: block.description || "",
+    const entry: ComponentItem = {
+      name: item.name,
+      title: toTitleCase(item.name),
+      description: item.description || "",
       category: categoryId,
-      type: "block",
-      previewUrl: buildPreviewUrl(block.name, style),
-      lightImageUrl: buildPreviewImageUrl(block.name, "light", style),
-      darkImageUrl: buildPreviewImageUrl(block.name, "dark", style),
+      type: kind,
+      lightImageUrl: buildPreviewImageUrl(item.name, "light", style),
+      darkImageUrl: buildPreviewImageUrl(item.name, "dark", style),
     };
 
     const existing = categoryMap.get(categoryId) || [];
-    existing.push(item);
+    existing.push(entry);
     categoryMap.set(categoryId, existing);
   }
 
@@ -244,12 +264,23 @@ export async function getBlocksByCategory(style?: string): Promise<ComponentCate
 }
 
 /**
+ * Get all blocks organized by category (for the component picker)
+ */
+export async function getBlocksByCategory(style?: string): Promise<ComponentCategory[]> {
+  return getRegistryItemsByCategory(style, "block");
+}
+
+/**
+ * Get all components organized by category (for the component picker)
+ */
+export async function getComponentsByCategory(style?: string): Promise<ComponentCategory[]> {
+  return getRegistryItemsByCategory(style, "component");
+}
+
+/**
  * Search blocks by query string
  */
-export function searchBlocks(
-  categories: ComponentCategory[],
-  query: string,
-): ComponentCategory[] {
+export function searchBlocks(categories: ComponentCategory[], query: string): ComponentCategory[] {
   const trimmed = query.trim().toLowerCase();
   if (!trimmed) return categories;
 

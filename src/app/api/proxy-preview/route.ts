@@ -183,6 +183,50 @@ function removeCsp(html: string): string {
   return html.replace(/<meta[^>]+http-equiv=["']Content-Security-Policy["'][^>]*>/gi, "");
 }
 
+/**
+ * Clean preview mode: inject a script that suppresses @property warnings in the console.
+ * We can't remove @property rules as Tailwind v4 CSS depends on them.
+ * This is optional and only applied when ?clean=1 is passed.
+ */
+function injectConsoleFilter(html: string): string {
+  const consoleFilterScript = `
+<script>
+(function() {
+  // Suppress @property warnings from Tailwind v4
+  const originalWarn = console.warn;
+  const originalError = console.error;
+
+  const shouldSuppress = (args) => {
+    const msg = args[0]?.toString?.() || '';
+    return msg.includes('@property') && msg.includes('ignored');
+  };
+
+  console.warn = function(...args) {
+    if (!shouldSuppress(args)) {
+      originalWarn.apply(console, args);
+    }
+  };
+
+  console.error = function(...args) {
+    if (!shouldSuppress(args)) {
+      originalError.apply(console, args);
+    }
+  };
+})();
+</script>
+`;
+
+  // Inject at the very beginning of <head> to catch all warnings
+  if (html.includes("<head>")) {
+    return html.replace("<head>", `<head>${consoleFilterScript}`);
+  }
+  if (html.includes("<HEAD>")) {
+    return html.replace("<HEAD>", `<HEAD>${consoleFilterScript}`);
+  }
+  // Fallback: inject after doctype or at start
+  return consoleFilterScript + html;
+}
+
 function injectScript(html: string): string {
   // Inject before </body> or at end
   if (html.includes("</body>")) {
@@ -194,6 +238,7 @@ function injectScript(html: string): string {
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const url = searchParams.get("url");
+  const cleanMode = searchParams.get("clean") === "1";
 
   if (!url) {
     return new NextResponse("<html><body><h1>Missing ?url= parameter</h1></body></html>", {
@@ -244,6 +289,12 @@ export async function GET(req: Request) {
     // Process HTML
     html = removeCsp(html);
     html = rewriteUrls(html, target.origin, basePath);
+
+    // Optional clean mode: inject console filter to suppress @property warnings
+    if (cleanMode) {
+      html = injectConsoleFilter(html);
+    }
+
     html = injectScript(html);
 
     // NOTE: X-Frame-Options is handled by middleware.ts which sets SAMEORIGIN

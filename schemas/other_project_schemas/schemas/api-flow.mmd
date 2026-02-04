@@ -1,0 +1,25 @@
+flowchart TD
+  userInput["UserInput"]
+  promptAssist{PromptAssistEnabled}
+  aiChat["/api/ai/chat"]
+  createChat["/api/v0/chats/stream"]
+  sseEvents["SSE: chatId|thinking|content|done"]
+  versions["/api/v0/chats/{chatId}/versions"]
+  files["/api/v0/chats/{chatId}/files"]
+  followUp["/api/v0/chats/{chatId}/stream"]
+  deploy["/api/v0/deployments"]
+  deployList["/api/v0/deployments?chatId=..."]
+  webhooks["/api/webhooks/v0 + /api/webhooks/vercel"]
+
+  userInput --> promptAssist
+  promptAssist -- "yes" --> aiChat
+  promptAssist -- "no" --> createChat
+  aiChat --> createChat
+  createChat --> sseEvents
+  sseEvents --> versions
+  versions --> files
+  sseEvents --> followUp
+  followUp --> versions
+  versions --> deploy
+  deploy --> deployList
+  deploy --> webhooks

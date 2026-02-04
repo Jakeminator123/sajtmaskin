@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { AnalyticsTracker, CookieBanner } from "@/components/layout";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -34,6 +35,7 @@ export default function RootLayout({
     >
       <body className="font-mono antialiased" style={{ backgroundColor: "#000000" }}>
         <AnalyticsTracker />
+        <SpeedInsights />
         {children}
         <CookieBanner />
       </body>

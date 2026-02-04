@@ -31,6 +31,7 @@ import {
   ChevronDown,
   FolderGit2,
   HelpCircle,
+  Image as ImageIcon,
   Loader2,
   MessageSquare,
   Plus,
@@ -62,6 +63,13 @@ export function BuilderHeader(props: {
   designSystemMode: boolean;
   onDesignSystemModeChange: (v: boolean) => void;
 
+  enableImageGenerations: boolean;
+  onEnableImageGenerationsChange: (v: boolean) => void;
+  isImageGenerationsSupported: boolean;
+  isMediaEnabled: boolean;
+  enableBlobMedia: boolean;
+  onEnableBlobMediaChange: (v: boolean) => void;
+
   showStructuredChat: boolean;
   onShowStructuredChatChange: (v: boolean) => void;
 
@@ -92,6 +100,12 @@ export function BuilderHeader(props: {
     onApplyInstructionsOnceChange,
     designSystemMode,
     onDesignSystemModeChange,
+    enableImageGenerations,
+    onEnableImageGenerationsChange,
+    isImageGenerationsSupported,
+    isMediaEnabled,
+    enableBlobMedia,
+    onEnableBlobMediaChange,
     showStructuredChat,
     onShowStructuredChatChange,
     onOpenImport,
@@ -257,6 +271,60 @@ export function BuilderHeader(props: {
               <Sparkles className="mr-2 h-4 w-4" />
               Design System Mode
             </DropdownMenuCheckboxItem>
+
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div>
+                    <DropdownMenuCheckboxItem
+                      checked={enableImageGenerations}
+                      onCheckedChange={onEnableImageGenerationsChange}
+                      disabled={!isImageGenerationsSupported || isBusy}
+                    >
+                      <ImageIcon className="mr-2 h-4 w-4" />
+                      AI-bilder
+                      {!isImageGenerationsSupported && (
+                        <span className="text-muted-foreground ml-2 text-xs">(v0 av)</span>
+                      )}
+                      {isImageGenerationsSupported && !isMediaEnabled && (
+                        <span className="text-muted-foreground ml-2 text-xs">(blob saknas)</span>
+                      )}
+                    </DropdownMenuCheckboxItem>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="left" className="max-w-xs">
+                  <p className="text-xs">
+                    Slå på för att be v0 om bilder. Om Blob saknas kan bilder utebli i preview.
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div>
+                    <DropdownMenuCheckboxItem
+                      checked={enableBlobMedia}
+                      onCheckedChange={onEnableBlobMediaChange}
+                      disabled={isBusy}
+                    >
+                      <ImageIcon className="mr-2 h-4 w-4" />
+                      Blob-bilder
+                      {!isMediaEnabled && (
+                        <span className="text-muted-foreground ml-2 text-xs">(blob saknas)</span>
+                      )}
+                    </DropdownMenuCheckboxItem>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="left" className="max-w-xs">
+                  <p className="text-xs">
+                    Kopierar externa bild-URL:er till Vercel Blob vid deploy. Stäng av om du vill
+                    köra med externa länkar.
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
 
             <DropdownMenuSeparator />
             <DropdownMenuLabel>Instructions</DropdownMenuLabel>

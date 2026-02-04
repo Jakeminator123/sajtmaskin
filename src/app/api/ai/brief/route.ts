@@ -14,6 +14,10 @@ import {
 export const runtime = "nodejs";
 export const maxDuration = 420; // 7 minutes for deep brief with slow models
 
+// Token limits configurable via env (for server-side control)
+const ENV_MAX_TOKENS = Number(process.env.AI_BRIEF_MAX_TOKENS) || 8192;
+const DEFAULT_BRIEF_MAX_TOKENS = 2600;
+
 const briefRequestSchema = z.object({
   prompt: z.string().min(1, "prompt is required"),
   provider: z.enum(["gateway", "v0"]).optional().default("gateway"),
@@ -21,7 +25,21 @@ const briefRequestSchema = z.object({
   model: z.string().min(1).optional().default("openai/gpt-5.2"),
   temperature: z.number().min(0).max(2).optional(),
   imageGenerations: z.boolean().optional().default(true),
+  maxTokens: z.number().int().positive().max(ENV_MAX_TOKENS).optional(),
 });
+
+function resolveMaxTokens(requested?: number): number {
+  if (typeof requested !== "number") return DEFAULT_BRIEF_MAX_TOKENS;
+  const capped = Math.min(requested, ENV_MAX_TOKENS);
+  if (capped !== requested) {
+    debugLog("AI", "Brief maxTokens capped by env limit", {
+      requested,
+      capped,
+      envLimit: ENV_MAX_TOKENS,
+    });
+  }
+  return capped;
+}
 
 const sectionTypeSchema = z.enum([
   "hero",
@@ -219,9 +237,17 @@ export async function POST(req: Request) {
         );
       }
 
-      const { prompt, provider, model, temperature, imageGenerations } = parsed.data;
+      const {
+        prompt,
+        provider,
+        model,
+        temperature,
+        imageGenerations,
+        maxTokens: requestedMaxTokens,
+      } = parsed.data;
       const normalizedModel = normalizeAssistModel(model);
       const resolvedProvider = provider ?? "gateway";
+      const maxTokens = resolveMaxTokens(requestedMaxTokens);
 
       debugLog("AI", "AI brief request received", {
         provider: resolvedProvider,
@@ -229,6 +255,7 @@ export async function POST(req: Request) {
         promptLength: prompt.length,
         temperature: typeof temperature === "number" ? temperature : null,
         imageGenerations,
+        maxTokens,
       });
 
       const systemPrompt =
@@ -237,7 +264,7 @@ export async function POST(req: Request) {
         "Infer the most likely site type from the user request and adjust pages, sections, and content to fit. " +
         "Be specific about pages/sections, visual direction, and copy direction. " +
         "Include every field in the schema. If a value is unknown, use an empty string. " +
-        "Do NOT include any extra keys beyond the schema. Keep strings short.";
+        "Do NOT include any extra keys beyond the schema. Keep strings concise but detailed.";
 
       const siteTypeHint = inferSiteTypeHint(prompt);
       const userPrompt =
@@ -312,6 +339,7 @@ export async function POST(req: Request) {
             models: defaultGatewayFallbackModels(normalizedModel),
           } as any,
         },
+        maxTokens,
         ...getTemperatureConfig(normalizedModel, temperature),
       });
 

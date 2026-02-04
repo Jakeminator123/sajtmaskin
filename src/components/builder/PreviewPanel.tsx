@@ -52,12 +52,14 @@ export function PreviewPanel({
   const [filesError, setFilesError] = useState<string | null>(null);
   const [integrationStatus, setIntegrationStatus] = useState<IntegrationStatus | null>(null);
   const [integrationError, setIntegrationError] = useState(false);
-
-  const buildPreviewSrc = (url: string, token?: number) => {
-    if (!token) return url;
-    const separator = url.includes("?") ? "&" : "?";
-    return `${url}${separator}t=${token}`;
-  };
+  const buildPreviewSrc = useCallback((url: string, token?: number) => {
+    let src = url;
+    if (token) {
+      const separator = src.includes("?") ? "&" : "?";
+      src = `${src}${separator}t=${token}`;
+    }
+    return src;
+  }, []);
 
   useEffect(() => {
     if (!demoUrl) return;

@@ -26,6 +26,9 @@ export const RATE_LIMITS: Record<string, RateLimitConfig> = {
   default: { maxRequests: 60, windowMs: 60 * 1000 },
   "webhook:v0": { maxRequests: 120, windowMs: 60 * 1000 },
   "sandbox:create": { maxRequests: 10, windowMs: 60 * 1000 },
+  // v0 Platform API - separate limit to track v0 usage specifically
+  "v0:generate": { maxRequests: 15, windowMs: 60 * 1000 },
+  "v0:stream": { maxRequests: 20, windowMs: 60 * 1000 },
 };
 
 function getUpstashEnv() {

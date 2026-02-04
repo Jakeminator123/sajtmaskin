@@ -122,12 +122,76 @@ export const DEFAULT_IMAGE_GENERATIONS = true;
 /** Default system instructions for new chats (editable in UI) */
 export const DEFAULT_CUSTOM_INSTRUCTIONS = `## Tech Stack
 - Next.js 15 App Router with TypeScript
-- Tailwind CSS v4 for styling
+- Tailwind CSS v4 for styling (use utility classes, avoid custom @property rules)
 - shadcn/ui components from \`@/components/ui/*\`
+- Do not change core versions for next, react, react-dom, tailwindcss, postcss, typescript unless explicitly asked
+
+## shadcn/ui Bootstrap Setup
+When using shadcn/ui components, ensure the following project structure exists:
+
+### components.json (root)
+\`\`\`json
+{
+  "$schema": "https://ui.shadcn.com/schema.json",
+  "style": "new-york",
+  "rsc": true,
+  "tsx": true,
+  "tailwind": {
+    "config": "tailwind.config.cjs",
+    "css": "src/app/globals.css",
+    "baseColor": "zinc",
+    "cssVariables": true
+  },
+  "aliases": {
+    "components": "@/components",
+    "utils": "@/lib/utils",
+    "ui": "@/components/ui"
+  }
+}
+\`\`\`
+
+### lib/utils.ts
+\`\`\`ts
+import { type ClassValue, clsx } from "clsx";
+import { twMerge } from "tailwind-merge";
+export function cn(...inputs: ClassValue[]) {
+  return twMerge(clsx(inputs));
+}
+\`\`\`
+
+### Base dependencies (package.json)
+Always include these when using shadcn/ui:
+- clsx
+- tailwind-merge
+- class-variance-authority
+- tailwind-animate
+- lucide-react
+- next-themes (for dark mode)
+
+Add Radix packages (@radix-ui/*) only when a specific component requires them.
+
+### CSS Variables (globals.css)
+Include Tailwind CSS variables for theming in globals.css:
+\`\`\`css
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 240 10% 3.9%;
+    --primary: 240 5.9% 10%;
+    --primary-foreground: 0 0% 98%;
+    /* ... other theme tokens */
+  }
+  .dark {
+    --background: 240 10% 3.9%;
+    --foreground: 0 0% 98%;
+    /* ... dark mode tokens */
+  }
+}
+\`\`\`
 
 ## Component Usage
 - ALWAYS use existing shadcn/ui components: Button, Card, Input, Dialog, Sheet, Tabs, etc.
-- If a component is missing, add via \`npx shadcn@latest add <component>\`
+- When adding a new shadcn component, update both package.json (Radix deps) and components.json if needed
 - Never duplicate component files - use cn() helper from \`@/lib/utils\`
 - Import icons from lucide-react
 
@@ -138,18 +202,30 @@ export const DEFAULT_CUSTOM_INSTRUCTIONS = `## Tech Stack
 - Prefer gap-* over margins between flex/grid items
 - Use group/peer for interactive states
 
+## Visual Identity
+- Avoid plain white backgrounds; use subtle tints, gradients, or layered sections
+- Pick a distinct font pairing (e.g., Inter + Space Grotesk, or DM Sans + DM Mono)
+- Use a cohesive color palette with primary, secondary, accent colors
+
 ## Layout Patterns
 - Full-width sections with max-w-7xl mx-auto for content
 - Hero: min-h-[80vh] or min-h-screen with flex items-center
 - Spacing between sections: py-16 md:py-24
-- Use CSS Grid for complex layouts, Flexbox for alignment
+- Use CSS Grid for complex layouts (bento grids, masonry), Flexbox for alignment
+- Vary section layouts: split hero, stats row, logo wall, testimonial carousel
+
+## Motion & Interaction
+- Add tasteful hover states on all interactive elements
+- Use subtle scroll-reveal animations (fade-in, slide-up)
+- Use Tailwind's built-in animations; avoid custom @keyframes or @property rules
+- Respect prefers-reduced-motion for accessibility
 
 ## Visual Quality
 - Smooth transitions: transition-all duration-200
-- Subtle shadows: shadow-sm, shadow-lg
+- Layered depth: subtle shadows (shadow-sm, shadow-lg), borders, glassy panels
 - Border radius: rounded-lg, rounded-xl
 - Dark mode support: dark: prefixes
-- Hover/focus states on all interactive elements
+- Premium feel: cards with borders, soft backgrounds, consistent spacing
 
 ## Images
 - Use high-quality public URLs (https://)
@@ -157,6 +233,7 @@ export const DEFAULT_CUSTOM_INSTRUCTIONS = `## Tech Stack
 - Always include descriptive alt text
 - Use next/image with proper sizing
 - Placeholder images: unsplash.com or picsum.photos
+- Include images in hero + at least 2 other sections
 
 ## Accessibility
 - Semantic HTML: header, main, section, article, footer

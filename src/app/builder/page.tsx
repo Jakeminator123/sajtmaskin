@@ -83,7 +83,8 @@ function BuilderContent() {
   const [isSandboxModalOpen, setIsSandboxModalOpen] = useState(false);
   const [isDeploying, setIsDeploying] = useState(false);
   const [isSavingProject, setIsSavingProject] = useState(false);
-  const enableImageGenerations = true;
+  const [enableImageGenerations, setEnableImageGenerations] = useState(true);
+  const [enableBlobMedia, setEnableBlobMedia] = useState(true);
   const [isImageGenerationsSupported, setIsImageGenerationsSupported] = useState(true);
   const [isMediaEnabled, setIsMediaEnabled] = useState(false);
   const [designSystemMode, setDesignSystemMode] = useState(false);
@@ -97,6 +98,7 @@ function BuilderContent() {
   const pendingInstructionsRef = useRef<string | null>(null);
   const hasLoadedInstructionsOnce = useRef(false);
   const pendingInstructionsOnceRef = useRef<boolean | null>(null);
+  const autoProjectInitRef = useRef(false);
   const lastSyncedInstructionsRef = useRef<{ v0ProjectId: string; instructions: string } | null>(
     null,
   );
@@ -209,6 +211,139 @@ function BuilderContent() {
       setAppProjectId(projectParam);
     }
   }, [projectParam]);
+
+  // Load the latest chat for a project when project is in URL but chatId is not
+  useEffect(() => {
+    if (!projectParam || chatIdParam || chatId) return;
+    let isActive = true;
+    const controller = new AbortController();
+
+    const loadProjectChat = async () => {
+      try {
+        const res = await fetch(`/api/projects/${encodeURIComponent(projectParam)}/chat`, {
+          signal: controller.signal,
+        });
+        if (!res.ok || !isActive) return;
+        const data = await res.json();
+        if (data.chatId && isActive) {
+          setChatId(data.chatId);
+          router.replace(`/builder?project=${projectParam}&chatId=${data.chatId}`);
+        }
+      } catch (error) {
+        if (!isActive) return;
+        if (error instanceof Error && error.name === "AbortError") return;
+        console.warn("[Builder] Failed to load project chat:", error);
+      }
+    };
+
+    void loadProjectChat();
+    return () => {
+      isActive = false;
+      controller.abort();
+    };
+  }, [projectParam, chatIdParam, chatId, router]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const stored = localStorage.getItem("sajtmaskin:aiImages");
+      if (stored !== null) {
+        setEnableImageGenerations(stored === "true");
+      }
+    } catch {
+      // ignore storage errors
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      localStorage.setItem("sajtmaskin:aiImages", String(enableImageGenerations));
+    } catch {
+      // ignore storage errors
+    }
+  }, [enableImageGenerations]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const stored = localStorage.getItem("sajtmaskin:blobImages");
+      if (stored !== null) {
+        setEnableBlobMedia(stored === "true");
+      }
+    } catch {
+      // ignore storage errors
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      localStorage.setItem("sajtmaskin:blobImages", String(enableBlobMedia));
+    } catch {
+      // ignore storage errors
+    }
+  }, [enableBlobMedia]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (!appProjectId) return;
+    try {
+      localStorage.setItem("sajtmaskin:lastProjectId", appProjectId);
+    } catch {
+      // ignore storage errors
+    }
+  }, [appProjectId]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    if (autoProjectInitRef.current) return;
+    if (appProjectId || projectParam || chatIdParam || promptId || templateId || hasEntryParams) {
+      return;
+    }
+    autoProjectInitRef.current = true;
+
+    let restored: string | null = null;
+    try {
+      restored = localStorage.getItem("sajtmaskin:lastProjectId");
+    } catch {
+      restored = null;
+    }
+
+    if (restored) {
+      setAppProjectId(restored);
+      const params = new URLSearchParams(searchParams.toString());
+      params.set("project", restored);
+      router.replace(`/builder?${params.toString()}`);
+      return;
+    }
+
+    createProject("Untitled Project")
+      .then((project) => {
+        setAppProjectId(project.id);
+        try {
+          localStorage.setItem("sajtmaskin:lastProjectId", project.id);
+        } catch {
+          // ignore storage errors
+        }
+        const params = new URLSearchParams(searchParams.toString());
+        params.set("project", project.id);
+        router.replace(`/builder?${params.toString()}`);
+      })
+      .catch((error) => {
+        console.warn("[Builder] Auto project create failed:", error);
+        autoProjectInitRef.current = false;
+      });
+  }, [
+    appProjectId,
+    projectParam,
+    chatIdParam,
+    promptId,
+    templateId,
+    hasEntryParams,
+    router,
+    searchParams,
+  ]);
 
   // Sync entryIntentActive with URL params - set true when entry params exist, false when they don't.
   // This ensures "load last chat" fallback works after navigating away from an entry intent URL.
@@ -498,6 +633,7 @@ function BuilderContent() {
 
   const { chat, mutate: mutateChat } = useChat(chatId);
   const chatV0ProjectId = (chat as { v0ProjectId?: string | null } | null)?.v0ProjectId ?? null;
+  // Version polling - uses slower interval by default (60s), faster only when generating
   const { versions, mutate: mutateVersions } = useVersions(chatId);
   type VersionSummary = {
     id?: string | null;
@@ -600,7 +736,24 @@ function BuilderContent() {
   }, [chat, currentDemoUrl, versionsList]);
 
   const latestVersionId = useMemo(() => {
-    const latestFromVersions = versionsList[0]?.versionId || versionsList[0]?.id || null;
+    // Find the most recently created version (regardless of pinned status)
+    // versionsList is sorted with pinned first, so we need to find by createdAt
+    type VersionWithTime = {
+      versionId?: string | null;
+      id?: string | null;
+      createdAt?: string | Date | null;
+    };
+    const versionsWithTime = versionsList as VersionWithTime[];
+
+    // Sort by createdAt to find the truly latest version
+    const sortedByTime = [...versionsWithTime].sort((a, b) => {
+      const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return bTime - aTime; // Most recent first
+    });
+
+    const latestFromVersions = sortedByTime[0]?.versionId || sortedByTime[0]?.id || null;
+
     const latestFromChat = (() => {
       if (!chat || typeof chat !== "object") return null;
       const latest = (chat as { latestVersion?: { versionId?: string | null; id?: string | null } })
@@ -679,6 +832,7 @@ function BuilderContent() {
   }, [chatId, activeVersionId]);
 
   const isAnyStreaming = useMemo(() => messages.some((m) => Boolean(m.isStreaming)), [messages]);
+  const mediaEnabled = isMediaEnabled && enableBlobMedia;
 
   const deployActiveVersionToVercel = useCallback(
     async (target: "production" | "preview" = "production") => {
@@ -694,8 +848,10 @@ function BuilderContent() {
 
       setIsDeploying(true);
       try {
-        const resolvedStrategy: ImageAssetStrategy = isMediaEnabled ? "blob" : "external";
-        if (!isMediaEnabled) {
+        const wantsBlob = enableBlobMedia;
+        const resolvedStrategy: ImageAssetStrategy =
+          wantsBlob && isMediaEnabled ? "blob" : "external";
+        if (wantsBlob && !isMediaEnabled) {
           toast.error("Blob storage saknas – deploy körs med externa bild-URL:er.");
         }
 
@@ -739,10 +895,10 @@ function BuilderContent() {
         setIsDeploying(false);
       }
     },
-    [chatId, activeVersionId, isDeploying, isMediaEnabled],
+    [chatId, activeVersionId, isDeploying, isMediaEnabled, enableBlobMedia],
   );
 
-  const { maybeEnhanceInitialPrompt } = usePromptAssist({
+  const { maybeEnhanceInitialPrompt, generateDynamicInstructions } = usePromptAssist({
     model: promptAssistModel,
     deep: promptAssistDeep,
     imageGenerations: enableImageGenerations,
@@ -867,15 +1023,47 @@ function BuilderContent() {
     pendingInstructionsOnceRef.current = applyInstructionsOnce;
   }, [customInstructions, applyInstructionsOnce]);
 
+  const applyDynamicInstructionsForNewChat = useCallback(
+    async (message: string): Promise<string | null> => {
+      if (chatId) return null;
+      const trimmed = message.trim();
+      if (!trimmed) return null;
+      const addendum = await generateDynamicInstructions(trimmed, {
+        forceShallow: !promptAssistDeep,
+      });
+      const baseInstructions =
+        customInstructions.trim() &&
+        customInstructions.trim() !== DEFAULT_CUSTOM_INSTRUCTIONS.trim()
+          ? customInstructions.trim()
+          : DEFAULT_CUSTOM_INSTRUCTIONS.trim();
+      // If no addendum, still return base instructions
+      const combined = addendum.trim()
+        ? `${baseInstructions}\n\n${addendum}`.trim()
+        : baseInstructions;
+      setCustomInstructions(combined);
+      pendingInstructionsRef.current = combined;
+      pendingInstructionsOnceRef.current = false;
+      return combined; // Return for immediate use
+    },
+    [chatId, customInstructions, generateDynamicInstructions, promptAssistDeep],
+  );
+
   const confirmModelSelection = useCallback(async () => {
     const pending = pendingCreate;
     setIsModelSelectOpen(false);
     setPendingCreate(null);
     setHasSelectedModelTier(true);
     if (!pending) return;
+    const dynamicInstructions = await applyDynamicInstructionsForNewChat(pending.message);
     captureInstructionSnapshot();
-    await createNewChat(pending.message, pending.options);
-  }, [pendingCreate, createNewChat, captureInstructionSnapshot]);
+    // Pass dynamic instructions directly to avoid state race condition
+    await createNewChat(pending.message, pending.options, dynamicInstructions ?? undefined);
+  }, [
+    pendingCreate,
+    createNewChat,
+    captureInstructionSnapshot,
+    applyDynamicInstructionsForNewChat,
+  ]);
 
   const requestCreateChat = useCallback(
     async (message: string, options?: CreateChatOptions) => {
@@ -885,11 +1073,19 @@ function BuilderContent() {
         return false;
       }
       setEntryIntentActive(false);
+      const dynamicInstructions = await applyDynamicInstructionsForNewChat(message);
       captureInstructionSnapshot();
-      await createNewChat(message, options);
+      // Pass dynamic instructions directly to avoid state race condition
+      await createNewChat(message, options, dynamicInstructions ?? undefined);
       return true;
     },
-    [chatId, hasSelectedModelTier, createNewChat, captureInstructionSnapshot],
+    [
+      chatId,
+      hasSelectedModelTier,
+      createNewChat,
+      captureInstructionSnapshot,
+      applyDynamicInstructionsForNewChat,
+    ],
   );
 
   const handleStartFromRegistry = useCallback(
@@ -1178,6 +1374,12 @@ function BuilderContent() {
           onApplyInstructionsOnceChange={setApplyInstructionsOnce}
           designSystemMode={designSystemMode}
           onDesignSystemModeChange={setDesignSystemMode}
+          enableImageGenerations={enableImageGenerations}
+          onEnableImageGenerationsChange={setEnableImageGenerations}
+          isImageGenerationsSupported={isImageGenerationsSupported}
+          isMediaEnabled={isMediaEnabled}
+          enableBlobMedia={enableBlobMedia}
+          onEnableBlobMediaChange={setEnableBlobMedia}
           showStructuredChat={showStructuredChat}
           onShowStructuredChatChange={setShowStructuredChat}
           onOpenImport={() => {
@@ -1220,7 +1422,7 @@ function BuilderContent() {
               onEnhancePrompt={handlePromptEnhance}
               isBusy={isCreatingChat || isAnyStreaming || isTemplateLoading}
               designSystemMode={designSystemMode}
-              mediaEnabled={isMediaEnabled}
+              mediaEnabled={mediaEnabled}
               currentCode={currentPageCode}
             />
           </div>

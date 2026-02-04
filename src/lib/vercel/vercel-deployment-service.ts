@@ -81,35 +81,68 @@ async function ensureProjectEnvVar(params: {
 // These are the minimum files required for a Next.js 15 app to build on Vercel.
 // v0 only returns component files, so we need to add the rest.
 
-const BASE_PACKAGE_JSON = `{
-  "name": "generated-site",
-  "version": "0.1.0",
-  "private": true,
-  "scripts": {
-    "dev": "next dev",
-    "build": "next build",
-    "start": "next start"
-  },
-  "dependencies": {
-    "next": "15.0.0",
-    "react": "^18.3.1",
-    "react-dom": "^18.3.1",
-    "lucide-react": "^0.468.0",
-    "clsx": "^2.1.1",
-    "tailwind-merge": "^2.6.0",
-    "class-variance-authority": "^0.7.1",
-    "framer-motion": "^11.15.0"
-  },
-  "devDependencies": {
-    "@types/node": "^22.10.1",
-    "@types/react": "^18.3.12",
-    "@types/react-dom": "^18.3.1",
-    "@tailwindcss/postcss": "^4.1.18",
-    "postcss": "^8.5.1",
-    "tailwindcss": "^4.1.18",
-    "typescript": "^5.7.2"
-  }
-}`;
+const FALLBACK_BASE_VERSIONS: Record<string, string> = {
+  next: "15.0.0",
+  react: "^18.3.1",
+  "react-dom": "^18.3.1",
+  "lucide-react": "^0.468.0",
+  clsx: "^2.1.1",
+  "tailwind-merge": "^2.6.0",
+  "class-variance-authority": "^0.7.1",
+  "framer-motion": "^11.15.0",
+  "@types/node": "^22.10.1",
+  "@types/react": "^18.3.12",
+  "@types/react-dom": "^18.3.1",
+  "@tailwindcss/postcss": "^4.1.18",
+  postcss: "^8.5.1",
+  tailwindcss: "^4.1.18",
+  typescript: "^5.7.2",
+};
+
+const BASE_PACKAGE_JSON = (() => {
+  const versionMap = getRepoDependencyVersionMap();
+  const dependencies: Record<string, string> = {};
+  const devDependencies: Record<string, string> = {};
+  const addVersion = (target: Record<string, string>, pkg: string) => {
+    const version = versionMap[pkg] || FALLBACK_BASE_VERSIONS[pkg];
+    if (version) {
+      target[pkg] = version;
+    }
+  };
+  [
+    "next",
+    "react",
+    "react-dom",
+    "lucide-react",
+    "clsx",
+    "tailwind-merge",
+    "class-variance-authority",
+    "framer-motion",
+  ].forEach((pkg) => addVersion(dependencies, pkg));
+  [
+    "typescript",
+    "@types/react",
+    "@types/react-dom",
+    "@types/node",
+    "tailwindcss",
+    "postcss",
+    "@tailwindcss/postcss",
+  ].forEach((pkg) => addVersion(devDependencies, pkg));
+
+  const base = {
+    name: "generated-site",
+    version: "0.1.0",
+    private: true,
+    scripts: {
+      dev: "next dev",
+      build: "next build",
+      start: "next start",
+    },
+    dependencies,
+    devDependencies,
+  };
+  return `${JSON.stringify(base, null, 2)}\n`;
+})();
 
 const PACKAGE_JSON = (() => {
   try {

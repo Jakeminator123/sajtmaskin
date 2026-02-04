@@ -28,6 +28,8 @@ Lokala quickrefs (docs://local/local/...)
 - local/oauth_sammanfattning_sajtmaksin
 - local/session-summary
 - local/cursor-mcp-config
+- local/v0doc.dev — v0 API docs: Model API + Platform API overview, endpoints, SDK usage
+- local/shadcn-ui-integration — shadcn/ui setup: components.json, lib/utils.ts, CSS vars, deps
 
 Lägga till eller flytta docs
 ----------------------------
