@@ -611,6 +611,94 @@ function buildPostCheckSummary(params: {
   return lines.length > 0 ? lines.join("\n") : "";
 }
 
+function normalizeInternalHref(value: string): string | null {
+  const trimmed = value.trim();
+  if (!trimmed.startsWith("/")) return null;
+  if (trimmed.startsWith("//")) return null;
+  if (trimmed.startsWith("/api")) return null;
+  if (trimmed.startsWith("/_next")) return null;
+  if (trimmed.startsWith("/favicon")) return null;
+  if (trimmed.startsWith("/robots")) return null;
+  if (trimmed.startsWith("/sitemap")) return null;
+  if (trimmed.includes("${")) return null;
+  const cleaned = trimmed.split("#")[0].split("?")[0];
+  if (!cleaned) return null;
+  return cleaned === "" ? "/" : cleaned;
+}
+
+function extractStaticInternalLinks(files: FileEntry[]): string[] {
+  const results = new Set<string>();
+  const hrefRegex = /href\s*=\s*(?:"([^"]+)"|'([^']+)'|\{\s*["']([^"']+)["']\s*\})/g;
+  for (const file of files) {
+    if (!file?.content) continue;
+    const content = file.content;
+    let match: RegExpExecArray | null = null;
+    hrefRegex.lastIndex = 0;
+    while ((match = hrefRegex.exec(content))) {
+      const raw = match[1] || match[2] || match[3] || "";
+      const normalized = normalizeInternalHref(raw);
+      if (normalized) results.add(normalized);
+    }
+  }
+  return Array.from(results);
+}
+
+function extractAppRoutePaths(files: FileEntry[]): string[] {
+  const routes = new Set<string>();
+  for (const file of files) {
+    const rawName = file.name.replace(/^\/+/, "");
+    if (/^page\.(t|j)sx?$/.test(rawName)) {
+      routes.add("/");
+      continue;
+    }
+    let rest: string | null = null;
+    if (rawName.startsWith("src/app/")) rest = rawName.slice("src/app/".length);
+    if (rawName.startsWith("app/")) rest = rawName.slice("app/".length);
+    if (!rest) continue;
+    if (!/page\.(t|j)sx?$/.test(rest)) continue;
+    const parts = rest.split("/");
+    parts.pop();
+    const segments = parts
+      .filter(Boolean)
+      .filter((segment) => !(segment.startsWith("(") && segment.endsWith(")")))
+      .filter((segment) => !segment.startsWith("@"));
+    const route = `/${segments.join("/")}`;
+    routes.add(route === "/" ? "/" : route.replace(/\/+$/, ""));
+  }
+  return Array.from(routes);
+}
+
+function routePatternToRegex(route: string): RegExp {
+  const cleaned = route.replace(/\/+$/, "") || "/";
+  if (cleaned === "/") return /^\/$/;
+  const segments = cleaned.split("/").filter(Boolean);
+  let pattern = "^";
+  for (const segment of segments) {
+    if (segment.startsWith("[[...") && segment.endsWith("]]")) {
+      pattern += "(?:/.*)?";
+      break;
+    }
+    if (segment.startsWith("[...") && segment.endsWith("]")) {
+      pattern += "/.+";
+      continue;
+    }
+    if (segment.startsWith("[") && segment.endsWith("]")) {
+      pattern += "/[^/]+";
+      continue;
+    }
+    const escaped = segment.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    pattern += `/${escaped}`;
+  }
+  pattern += "$";
+  return new RegExp(pattern);
+}
+
+function findMissingRoutes(links: string[], routes: string[]): string[] {
+  if (routes.length === 0) return links;
+  const matchers = routes.map(routePatternToRegex);
+  return links.filter((link) => !matchers.some((matcher) => matcher.test(link)));
+}
+
 function appendPostCheckSummaryToMessage(
   setMessages: (next: ChatMessage[] | ((prev: ChatMessage[]) => ChatMessage[])) => void,
   messageId: string,
@@ -659,6 +747,14 @@ async function runPostGenerationChecks(params: {
         } fil(er).`,
       );
     }
+    const routePaths = extractAppRoutePaths(currentFiles);
+    const internalLinks = extractStaticInternalLinks(currentFiles);
+    const missingRoutes = findMissingRoutes(internalLinks, routePaths);
+    if (missingRoutes.length > 0) {
+      const preview = missingRoutes.slice(0, 6).join(", ");
+      const suffix = missingRoutes.length > 6 ? " …" : "";
+      warnings.push(`Saknar route för ${preview}${suffix}.`);
+    }
     const versionEntry = versions.find(
       (entry) => entry.versionId === versionId || entry.id === versionId,
     );
@@ -699,6 +795,7 @@ async function runPostGenerationChecks(params: {
         warnings: warnings.length,
       },
       warnings,
+      missingRoutes,
       suspiciousUseCalls,
       designTokens,
       previousVersionId,

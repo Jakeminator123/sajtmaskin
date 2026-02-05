@@ -12,6 +12,14 @@ import { BuilderHeader } from "@/components/builder/BuilderHeader";
 import { IntegrationStatusPanel } from "@/components/builder/IntegrationStatusPanel";
 import type { V0UserFileAttachment } from "@/components/media";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { clearPersistedMessages } from "@/lib/builder/messagesStorage";
 import type { ChatMessage } from "@/lib/builder/types";
 import { buildPromptAssistContext } from "@/lib/builder/promptAssistContext";
@@ -22,7 +30,7 @@ import {
   type BuildIntent,
   type BuildMethod,
 } from "@/lib/builder/build-intent";
-import { createProject, saveProjectData } from "@/lib/project-client";
+import { createProject, getProject, saveProjectData, updateProject } from "@/lib/project-client";
 import {
   DEFAULT_CUSTOM_INSTRUCTIONS,
   DEFAULT_MODEL_TIER,
@@ -127,12 +135,19 @@ function BuilderContent() {
   );
   const [isTemplateLoading, setIsTemplateLoading] = useState(false);
   const [isModelSelectOpen, setIsModelSelectOpen] = useState(false);
+  const [isPreparingPrompt, setIsPreparingPrompt] = useState(false);
   const [pendingCreate, setPendingCreate] = useState<{
     message: string;
     options?: CreateChatOptions;
   } | null>(null);
   const [hasSelectedModelTier, setHasSelectedModelTier] = useState(false);
   const [appProjectId, setAppProjectId] = useState<string | null>(projectParam);
+  const [appProjectName, setAppProjectName] = useState<string | null>(null);
+  const [pendingProjectName, setPendingProjectName] = useState<string | null>(null);
+  const [deployNameDialogOpen, setDeployNameDialogOpen] = useState(false);
+  const [deployNameInput, setDeployNameInput] = useState("");
+  const [deployNameError, setDeployNameError] = useState<string | null>(null);
+  const [isDeployNameSaving, setIsDeployNameSaving] = useState(false);
   const [v0ProjectId, setV0ProjectId] = useState<string | null>(null);
   const [promptAssistContext, setPromptAssistContext] = useState<string | null>(null);
   const promptAssistContextKeyRef = useRef<string | null>(null);
@@ -467,6 +482,25 @@ function BuilderContent() {
   );
 
   useEffect(() => {
+    if (!appProjectId) {
+      setAppProjectName(null);
+      return;
+    }
+    let isActive = true;
+    getProject(appProjectId)
+      .then((result) => {
+        if (!isActive) return;
+        setAppProjectName(result.project?.name ?? null);
+      })
+      .catch((error) => {
+        console.warn("[Builder] Failed to load project name:", error);
+      });
+    return () => {
+      isActive = false;
+    };
+  }, [appProjectId]);
+
+  useEffect(() => {
     if (typeof window === "undefined") return;
     try {
       const stored = localStorage.getItem("sajtmaskin:structuredChat");
@@ -486,6 +520,12 @@ function BuilderContent() {
       // ignore storage errors
     }
   }, [showStructuredChat]);
+
+  useEffect(() => {
+    const handleDialogClose = () => setDeployNameDialogOpen(false);
+    window.addEventListener("dialog-close", handleDialogClose);
+    return () => window.removeEventListener("dialog-close", handleDialogClose);
+  }, []);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -938,8 +978,28 @@ function BuilderContent() {
 
   const mediaEnabled = isMediaEnabled && enableBlobMedia;
 
+  const resolveSuggestedProjectName = useCallback(() => {
+    const preferred = pendingProjectName?.trim() || appProjectName?.trim();
+    if (preferred) return preferred;
+    const firstUserMessage = messages.find(
+      (message) => message.role === "user" && typeof message.content === "string",
+    );
+    const base =
+      firstUserMessage?.content?.trim() ||
+      resolvedPrompt?.trim() ||
+      (chatId ? `sajtmaskin-${chatId}` : "sajtmaskin");
+    const singleLine = base.split("\n")[0]?.trim();
+    return singleLine || "sajtmaskin";
+  }, [pendingProjectName, appProjectName, messages, resolvedPrompt, chatId]);
+
+  const handleOpenDeployDialog = useCallback(() => {
+    setDeployNameError(null);
+    setDeployNameInput(resolveSuggestedProjectName());
+    setDeployNameDialogOpen(true);
+  }, [resolveSuggestedProjectName]);
+
   const deployActiveVersionToVercel = useCallback(
-    async (target: "production" | "preview" = "production") => {
+    async (target: "production" | "preview" = "production", projectName?: string) => {
       if (!chatId) {
         toast.error("No chat selected");
         return;
@@ -967,6 +1027,7 @@ function BuilderContent() {
             versionId: activeVersionId,
             target,
             imageStrategy: resolvedStrategy,
+            ...(projectName?.trim() ? { projectName: projectName.trim() } : {}),
           }),
         });
 
@@ -1001,6 +1062,41 @@ function BuilderContent() {
     },
     [chatId, activeVersionId, isDeploying, isMediaEnabled, enableBlobMedia],
   );
+
+  const handleConfirmDeploy = useCallback(async () => {
+    if (isDeploying || isDeployNameSaving) return;
+    const rawName = deployNameInput.trim();
+    const nextName = rawName || resolveSuggestedProjectName();
+    if (!nextName.trim()) {
+      setDeployNameError("Ange ett projektnamn.");
+      return;
+    }
+    setDeployNameDialogOpen(false);
+    setPendingProjectName(nextName);
+
+    if (appProjectId && nextName.trim() !== (appProjectName ?? "").trim()) {
+      setIsDeployNameSaving(true);
+      try {
+        const updated = await updateProject(appProjectId, { name: nextName.trim() });
+        setAppProjectName(updated.name);
+      } catch (error) {
+        console.warn("[Builder] Failed to update project name:", error);
+        toast.error("Kunde inte uppdatera projektnamn.");
+      } finally {
+        setIsDeployNameSaving(false);
+      }
+    }
+
+    await deployActiveVersionToVercel("production", nextName);
+  }, [
+    isDeploying,
+    isDeployNameSaving,
+    deployNameInput,
+    resolveSuggestedProjectName,
+    appProjectId,
+    appProjectName,
+    deployActiveVersionToVercel,
+  ]);
 
   const { maybeEnhanceInitialPrompt, generateDynamicInstructions } = usePromptAssist({
     model: promptAssistModel,
@@ -1140,22 +1236,27 @@ function BuilderContent() {
       if (chatId) return null;
       const trimmed = message.trim();
       if (!trimmed) return null;
-      const addendum = await generateDynamicInstructions(trimmed, {
-        forceShallow: !promptAssistDeep,
-      });
-      const baseInstructions =
-        customInstructions.trim() &&
-        customInstructions.trim() !== DEFAULT_CUSTOM_INSTRUCTIONS.trim()
-          ? customInstructions.trim()
-          : DEFAULT_CUSTOM_INSTRUCTIONS.trim();
-      // If no addendum, still return base instructions
-      const combined = addendum.trim()
-        ? `${baseInstructions}\n\n${addendum}`.trim()
-        : baseInstructions;
-      setCustomInstructions(combined);
-      pendingInstructionsRef.current = combined;
-      pendingInstructionsOnceRef.current = false;
-      return combined; // Return for immediate use
+      setIsPreparingPrompt(true);
+      try {
+        const addendum = await generateDynamicInstructions(trimmed, {
+          forceShallow: !promptAssistDeep,
+        });
+        const baseInstructions =
+          customInstructions.trim() &&
+          customInstructions.trim() !== DEFAULT_CUSTOM_INSTRUCTIONS.trim()
+            ? customInstructions.trim()
+            : DEFAULT_CUSTOM_INSTRUCTIONS.trim();
+        // If no addendum, still return base instructions
+        const combined = addendum.trim()
+          ? `${baseInstructions}\n\n${addendum}`.trim()
+          : baseInstructions;
+        setCustomInstructions(combined);
+        pendingInstructionsRef.current = combined;
+        pendingInstructionsOnceRef.current = false;
+        return combined; // Return for immediate use
+      } finally {
+        setIsPreparingPrompt(false);
+      }
     },
     [chatId, customInstructions, generateDynamicInstructions, promptAssistDeep],
   );
@@ -1299,13 +1400,19 @@ function BuilderContent() {
         const firstUserMessage = messages.find(
           (message) => message.role === "user" && typeof message.content === "string",
         );
-        const baseTitle = firstUserMessage?.content?.trim().slice(0, 40);
-        const name = baseTitle ? `${baseTitle} - ${dateLabel}` : `Projekt ${dateLabel}`;
+        const preferredName = pendingProjectName?.trim();
+        const baseTitle = preferredName || firstUserMessage?.content?.trim().slice(0, 40);
+        const name = preferredName
+          ? preferredName
+          : baseTitle
+            ? `${baseTitle} - ${dateLabel}`
+            : `Projekt ${dateLabel}`;
         const description = firstUserMessage?.content?.trim().slice(0, 100);
 
         const created = await createProject(name, undefined, description);
         targetProjectId = created.id;
         setAppProjectId(created.id);
+        setAppProjectName(created.name);
 
         const params = new URLSearchParams(searchParams);
         params.set("project", created.id);
@@ -1348,6 +1455,7 @@ function BuilderContent() {
     activeVersionId,
     currentDemoUrl,
     messages,
+    pendingProjectName,
     router,
     searchParams,
   ]);
@@ -1363,6 +1471,10 @@ function BuilderContent() {
     router.replace("/builder");
     setChatId(null);
     setAppProjectId(null);
+    setAppProjectName(null);
+    setPendingProjectName(null);
+    setDeployNameInput("");
+    setDeployNameDialogOpen(false);
     setV0ProjectId(null);
     setCurrentDemoUrl(null);
     setPreviewRefreshToken(0);
@@ -1512,7 +1624,7 @@ function BuilderContent() {
             setIsImportModalOpen(false);
             setIsSandboxModalOpen(true);
           }}
-          onDeployProduction={() => deployActiveVersionToVercel("production")}
+          onDeployProduction={handleOpenDeployDialog}
           onNewChat={resetToNewChat}
           onSaveProject={handleSaveProject}
           isDeploying={isDeploying}
@@ -1542,11 +1654,58 @@ function BuilderContent() {
               onSendMessage={sendMessage}
               onStartFromRegistry={handleStartFromRegistry}
               onEnhancePrompt={handlePromptEnhance}
-              isBusy={isCreatingChat || isAnyStreaming || isTemplateLoading}
+              isBusy={isCreatingChat || isAnyStreaming || isTemplateLoading || isPreparingPrompt}
+              isPreparingPrompt={isPreparingPrompt}
               designSystemMode={designSystemMode}
               mediaEnabled={mediaEnabled}
               currentCode={currentPageCode}
             />
+            <Dialog open={deployNameDialogOpen}>
+              <DialogContent className="max-w-md">
+                <DialogHeader>
+                  <DialogTitle>Välj Vercel-projektnamn</DialogTitle>
+                  <DialogDescription>
+                    Namnet används i URL:en (namn.vercel.app) och normaliseras automatiskt.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-3">
+                  <div className="space-y-2">
+                    <Input
+                      value={deployNameInput}
+                      onChange={(event) => {
+                        setDeployNameInput(event.target.value);
+                        if (deployNameError) setDeployNameError(null);
+                      }}
+                      placeholder="t.ex. palma-livsstil"
+                      disabled={isDeploying || isDeployNameSaving}
+                    />
+                    {deployNameError && (
+                      <div className="text-xs text-red-400">{deployNameError}</div>
+                    )}
+                    <p className="text-muted-foreground text-xs">
+                      Vercel har inga mappar. Använd gärna prefix för gruppering om du vill hålla
+                      ordning.
+                    </p>
+                  </div>
+                  <div className="flex items-center justify-end gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => setDeployNameDialogOpen(false)}
+                      disabled={isDeploying || isDeployNameSaving}
+                    >
+                      Avbryt
+                    </Button>
+                    <Button onClick={handleConfirmDeploy} disabled={isDeploying || isDeployNameSaving}>
+                      {isDeployNameSaving ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        "Deploy"
+                      )}
+                    </Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
           </div>
 
           <div className="hidden flex-1 overflow-hidden lg:flex">

@@ -205,7 +205,9 @@ const MessageListComponent = ({
                           {!hasInput && !hasOutput && !hasErrorText && (
                             <div className="text-muted-foreground p-4 text-xs">
                               v0 skickade en tool-call, men data har inte anlänt än. Detta är
-                              normalt under streaming. Data läggs till när v0 är redo.
+                              normalt under streaming. Output läggs till när v0 är redo. Post-check
+                              är en snabb statisk kontroll och verifierar inte att sidan fungerar
+                              fullt ut.
                             </div>
                           )}
                           <div className="border-border border-t p-4">

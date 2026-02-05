@@ -51,6 +51,7 @@ interface ChatInterfaceProps {
   onStartFromRegistry?: (selection: ShadcnBlockSelection) => Promise<void>;
   onEnhancePrompt?: (message: string) => Promise<string>;
   isBusy?: boolean;
+  isPreparingPrompt?: boolean;
   designSystemMode?: boolean;
   mediaEnabled?: boolean;
   /** Current generated code for section analysis in component picker */
@@ -128,6 +129,7 @@ export function ChatInterface({
   onStartFromRegistry,
   onEnhancePrompt,
   isBusy,
+  isPreparingPrompt = false,
   designSystemMode = false,
   mediaEnabled = false,
   currentCode,
@@ -151,6 +153,7 @@ export function ChatInterface({
   const hasSuccessFiles = files.some((file) => file.status === "success");
   const inputDisabled = isSending || isBusy;
   const submitDisabled = inputDisabled || hasUploading;
+  const showPreparingPrompt = Boolean(isPreparingPrompt);
 
   const handleInputChange = (value: string) => {
     setInput(value);
@@ -595,6 +598,12 @@ ${technicalPrompt}`;
           />
         </PromptInputBody>
         <PromptInputFooter className="flex-col items-stretch gap-2">
+          {showPreparingPrompt && (
+            <div className="text-muted-foreground flex items-center gap-2 text-xs">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              Förbereder prompt...
+            </div>
+          )}
           <div className="flex items-center justify-between gap-2">
             <PromptInputTools className="flex flex-wrap items-center gap-2">
               {mediaEnabled && (
