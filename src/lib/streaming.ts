@@ -13,6 +13,6 @@ export function createSSEHeaders(): HeadersInit {
 }
 
 export function formatSSEEvent(event: string, data: unknown): string {
-  const jsonData = typeof data === "string" ? data : JSON.stringify(data);
+  const jsonData = JSON.stringify(data ?? null);
   return `event: ${event}\ndata: ${jsonData}\n\n`;
 }

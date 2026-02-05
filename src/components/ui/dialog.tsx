@@ -1,7 +1,7 @@
 "use client";
 
 import { Slot } from "@radix-ui/react-slot";
-import { useEffect, useRef, type ReactNode } from "react";
+import { Children, isValidElement, useEffect, useId, useRef, type ReactNode } from "react";
 
 interface DialogProps {
   open: boolean;
@@ -59,6 +59,24 @@ export function DialogTrigger({
 
 export function DialogContent({ children, className = "", showCloseButton }: DialogContentProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
+  const fallbackTitleId = useId();
+  const fallbackDescriptionId = useId();
+  const hasSlot = (node: ReactNode, slot: string): boolean => {
+    const items = Children.toArray(node);
+    for (const item of items) {
+      if (!isValidElement(item)) continue;
+      if (slot === "dialog-title" && item.type === DialogTitle) return true;
+      if (slot === "dialog-description" && item.type === DialogDescription) return true;
+      const props = item.props as { children?: ReactNode; "data-slot"?: string };
+      if (props["data-slot"] === slot) return true;
+      if (props.children && hasSlot(props.children, slot)) return true;
+    }
+    return false;
+  };
+  const hasTitle = hasSlot(children, "dialog-title");
+  const hasDescription = hasSlot(children, "dialog-description");
+  const ariaLabelledBy = hasTitle ? undefined : fallbackTitleId;
+  const ariaDescribedBy = hasDescription ? undefined : fallbackDescriptionId;
 
   // Close on escape key
   useEffect(() => {
@@ -106,7 +124,19 @@ export function DialogContent({ children, className = "", showCloseButton }: Dia
         className={`relative z-10 mx-4 w-full max-w-lg rounded-lg border border-gray-800 bg-gray-900 shadow-xl ${className}`}
         role="dialog"
         aria-modal="true"
+        aria-labelledby={ariaLabelledBy}
+        aria-describedby={ariaDescribedBy}
       >
+        {!hasTitle ? (
+          <DialogTitle className="sr-only" id={fallbackTitleId}>
+            Dialog
+          </DialogTitle>
+        ) : null}
+        {!hasDescription ? (
+          <DialogDescription className="sr-only" id={fallbackDescriptionId}>
+            Dialog content
+          </DialogDescription>
+        ) : null}
         {children}
         {showCloseButton ? (
           <button
@@ -131,9 +161,17 @@ export function DialogHeader({ children, className = "" }: DialogHeaderProps) {
 }
 
 export function DialogTitle({ children, className = "" }: DialogTitleProps) {
-  return <h2 className={`text-lg font-semibold text-white ${className}`}>{children}</h2>;
+  return (
+    <h2 data-slot="dialog-title" className={`text-lg font-semibold text-white ${className}`}>
+      {children}
+    </h2>
+  );
 }
 
 export function DialogDescription({ children, className = "" }: DialogDescriptionProps) {
-  return <p className={`mt-1 text-sm text-gray-400 ${className}`}>{children}</p>;
+  return (
+    <p data-slot="dialog-description" className={`mt-1 text-sm text-gray-400 ${className}`}>
+      {children}
+    </p>
+  );
 }

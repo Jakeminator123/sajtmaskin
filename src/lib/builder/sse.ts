@@ -3,8 +3,6 @@ type SseData = unknown;
 function parseSseData(raw: string): SseData {
   const trimmed = String(raw ?? "");
   if (!trimmed) return "";
-  const first = trimmed[0];
-  if (first !== "{" && first !== "[") return trimmed;
   try {
     return JSON.parse(trimmed);
   } catch {
@@ -22,6 +20,19 @@ export async function consumeSseResponse(
   const decoder = new TextDecoder();
   let buffer = "";
   let currentEvent = "";
+  let dataLines: string[] = [];
+
+  const flushEvent = () => {
+    if (!currentEvent || dataLines.length === 0) {
+      dataLines = [];
+      return;
+    }
+    const raw = dataLines.join("\n");
+    const data = parseSseData(raw);
+    onEvent(currentEvent, data, raw);
+    currentEvent = "";
+    dataLines = [];
+  };
 
   while (true) {
     const { done, value } = await reader.read();
@@ -32,16 +43,23 @@ export async function consumeSseResponse(
     buffer = lines.pop() || "";
 
     for (const line of lines) {
-      if (line.startsWith("event: ")) {
-        currentEvent = line.slice(7);
+      if (!line) {
+        flushEvent();
         continue;
       }
-      if (line.startsWith("data: ") && currentEvent) {
-        const raw = line.slice(6);
-        const data = parseSseData(raw);
-        onEvent(currentEvent, data, raw);
-        currentEvent = "";
+      if (line.startsWith("event:")) {
+        flushEvent();
+        currentEvent = line.slice(6).trimStart();
+        continue;
+      }
+      if (line.startsWith("data:")) {
+        const raw = line.slice(5);
+        const normalized = raw.startsWith(" ") ? raw.slice(1) : raw;
+        const cleaned = normalized.endsWith("\r") ? normalized.slice(0, -1) : normalized;
+        dataLines.push(cleaned);
       }
     }
   }
+
+  flushEvent();
 }

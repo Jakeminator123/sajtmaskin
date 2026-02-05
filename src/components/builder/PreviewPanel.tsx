@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertCircle, ExternalLink, FileText, Loader2, RefreshCw } from "lucide-react";
+import { AlertCircle, ExternalLink, FileText, Loader2, RefreshCw, Sparkles } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { CodeBlock, CodeBlockCopyButton } from "@/components/ai-elements/code-block";
@@ -254,14 +254,21 @@ export function PreviewPanel({
   );
 
   if (!demoUrl && !showCode) {
+    const isInitialEmpty = !chatId && !versionId && !externalLoading;
+    const title = isInitialEmpty ? "Välkommen" : "Ingen förhandsvisning ännu";
+    const subtitle = externalLoading
+      ? "AI tänker... preview kommer strax."
+      : isInitialEmpty
+        ? "Skriv en prompt till vänster så genererar vi första preview."
+        : "Preview saknas för senaste versionen. Testa att generera igen eller reparera.";
+    const showFixAction = Boolean(onFixPreview && !externalLoading && !isInitialEmpty);
+    const EmptyIcon = isInitialEmpty ? Sparkles : AlertCircle;
     return (
       <div className="flex h-full flex-col items-center justify-center bg-black/20 text-gray-500">
-        <AlertCircle className="mb-4 h-12 w-12" />
-        <p className="mb-2 text-lg font-medium">Ingen förhandsvisning ännu</p>
-        <p className="text-sm">
-          {externalLoading ? "AI tänker... preview kommer strax" : "Skapa något för att se preview"}
-        </p>
-        {onFixPreview && !externalLoading && (
+        <EmptyIcon className="mb-4 h-12 w-12" />
+        <p className="mb-2 text-lg font-medium">{title}</p>
+        <p className="text-sm">{subtitle}</p>
+        {showFixAction && (
           <Button className="mt-4" onClick={onFixPreview} disabled={externalLoading}>
             Försök reparera preview
           </Button>

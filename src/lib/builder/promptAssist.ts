@@ -253,6 +253,10 @@ function extractUrls(value: string): string[] {
   return Array.from(new Set(matches)).slice(0, 6);
 }
 
+const ACCESSIBILITY_REQUIREMENTS = [
+  "Dialoger måste ha DialogTitle + DialogDescription (sr-only ok) eller korrekt aria-describedby.",
+];
+
 export function formatPromptForV0(prompt: string): string {
   if (!prompt) return "";
   const normalized = normalizeWhitespace(String(prompt));
@@ -276,6 +280,12 @@ export function formatPromptForV0(prompt: string): string {
   }
   if (urls.length) {
     parts.push("ASSETS/ATTACHMENTS", urls.map((url) => `- ${url}`).join("\n"));
+  }
+  if (ACCESSIBILITY_REQUIREMENTS.length) {
+    parts.push(
+      "TILLGÄNGLIGHET",
+      ACCESSIBILITY_REQUIREMENTS.map((line) => `- ${line}`).join("\n"),
+    );
   }
 
   return parts.join("\n\n");

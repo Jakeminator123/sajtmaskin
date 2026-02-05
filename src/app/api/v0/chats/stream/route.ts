@@ -279,10 +279,14 @@ export async function POST(req: Request) {
                     continue;
                   }
 
-                  if (!line.startsWith("data: ")) continue;
+                  if (!line.startsWith("data:")) continue;
 
-                  const rawData = line.slice(6);
-                  const parsed = safeJsonParse(rawData);
+                  const rawData = line.slice(5);
+                  const normalizedData = rawData.startsWith(" ") ? rawData.slice(1) : rawData;
+                  const cleanData = normalizedData.endsWith("\r")
+                    ? normalizedData.slice(0, -1)
+                    : normalizedData;
+                  const parsed = safeJsonParse(cleanData);
                   if (debugStream) {
                     console.log(
                       "[v0-stream] data for",
@@ -381,7 +385,7 @@ export async function POST(req: Request) {
                     safeEnqueue(encoder.encode(formatSSEEvent("thinking", thinkingText)));
                   }
 
-                  const contentText = extractContentText(parsed, rawData);
+                  const contentText = extractContentText(parsed, cleanData);
                   if (contentText && !didSendDone) {
                     safeEnqueue(encoder.encode(formatSSEEvent("content", contentText)));
                   }

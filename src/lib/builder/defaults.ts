@@ -243,5 +243,6 @@ Include Tailwind CSS variables for theming in globals.css:
 - Semantic HTML: header, main, section, article, footer
 - Proper heading hierarchy (h1 → h2 → h3)
 - ARIA labels where needed
+- Dialogs must include DialogTitle + DialogDescription (sr-only ok)
 - Keyboard navigation support
 - Focus-visible rings on interactive elements`;

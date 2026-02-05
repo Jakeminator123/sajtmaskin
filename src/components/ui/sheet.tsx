@@ -46,10 +46,29 @@ function SheetContent({
 }: React.ComponentProps<typeof SheetPrimitive.Content> & {
   side?: "top" | "right" | "bottom" | "left";
 }) {
+  const {
+    "aria-labelledby": ariaLabelledByProp,
+    "aria-describedby": ariaDescribedByProp,
+    ...contentProps
+  } = props;
+  const fallbackTitleId = React.useId();
+  const fallbackDescriptionId = React.useId();
   const hasSlot = (node: React.ReactNode, slot: string): boolean => {
     const items = React.Children.toArray(node);
     for (const item of items) {
       if (!React.isValidElement(item)) continue;
+      if (
+        slot === "sheet-title" &&
+        (item.type === SheetTitle || item.type === SheetPrimitive.Title)
+      ) {
+        return true;
+      }
+      if (
+        slot === "sheet-description" &&
+        (item.type === SheetDescription || item.type === SheetPrimitive.Description)
+      ) {
+        return true;
+      }
       const props = item.props as { children?: React.ReactNode; "data-slot"?: string };
       const dataSlot = props["data-slot"];
       if (dataSlot === slot) return true;
@@ -60,12 +79,16 @@ function SheetContent({
 
   const hasTitle = hasSlot(children, "sheet-title");
   const hasDescription = hasSlot(children, "sheet-description");
+  const ariaLabelledBy = ariaLabelledByProp ?? (!hasTitle ? fallbackTitleId : undefined);
+  const ariaDescribedBy = ariaDescribedByProp ?? (!hasDescription ? fallbackDescriptionId : undefined);
 
   return (
     <SheetPortal>
       <SheetOverlay />
       <SheetPrimitive.Content
         data-slot="sheet-content"
+        aria-labelledby={ariaLabelledBy}
+        aria-describedby={ariaDescribedBy}
         className={cn(
           "bg-background data-[state=open]:animate-in data-[state=closed]:animate-out fixed z-50 flex flex-col gap-4 shadow-lg transition ease-in-out data-[state=closed]:duration-300 data-[state=open]:duration-500",
           side === "right" &&
@@ -78,11 +101,17 @@ function SheetContent({
             "data-[state=closed]:slide-out-to-bottom data-[state=open]:slide-in-from-bottom inset-x-0 bottom-0 h-auto border-t",
           className,
         )}
-        {...props}
+        {...contentProps}
       >
-        {!hasTitle ? <SheetTitle className="sr-only">Dialog</SheetTitle> : null}
+        {!hasTitle ? (
+          <SheetTitle className="sr-only" id={fallbackTitleId}>
+            Dialog
+          </SheetTitle>
+        ) : null}
         {!hasDescription ? (
-          <SheetDescription className="sr-only">Dialog content</SheetDescription>
+          <SheetDescription className="sr-only" id={fallbackDescriptionId}>
+            Dialog content
+          </SheetDescription>
         ) : null}
         {children}
         <SheetPrimitive.Close className="ring-offset-background focus:ring-ring data-[state=open]:bg-secondary absolute top-4 right-4 rounded-xs opacity-70 transition-opacity hover:opacity-100 focus:ring-2 focus:ring-offset-2 focus:outline-hidden disabled:pointer-events-none">

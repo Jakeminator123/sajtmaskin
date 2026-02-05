@@ -1390,8 +1390,8 @@ function BuilderContent() {
       return;
     }
     const prompt = currentDemoUrl
-      ? "Preview verkar vara fel eller laddar inte. Fixa versionen och returnera en fungerande demoUrl. Behåll layouten om möjligt."
-      : "Preview-länk saknas. Regenerera senaste versionen så att en demoUrl returneras.";
+      ? "Preview verkar vara fel eller laddar inte. Fixa versionen och returnera en fungerande demoUrl. Behåll layouten om möjligt. Om du använder Dialog, säkerställ att DialogTitle och DialogDescription finns (sr-only ok) eller att aria-describedby är korrekt."
+      : "Preview-länk saknas. Regenerera senaste versionen så att en demoUrl returneras. Om du använder Dialog, säkerställ att DialogTitle och DialogDescription finns (sr-only ok) eller att aria-describedby är korrekt.";
     await sendMessage(prompt);
   }, [chatId, currentDemoUrl, sendMessage]);
 

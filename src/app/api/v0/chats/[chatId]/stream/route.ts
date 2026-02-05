@@ -251,10 +251,14 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
                     _currentEvent = line.slice(6).trim();
                     continue;
                   }
-                  if (!line.startsWith("data: ")) continue;
+                  if (!line.startsWith("data:")) continue;
 
-                  const rawData = line.slice(6);
-                  const parsed = safeJsonParse(rawData);
+                  const rawData = line.slice(5);
+                  const normalizedData = rawData.startsWith(" ") ? rawData.slice(1) : rawData;
+                  const cleanData = normalizedData.endsWith("\r")
+                    ? normalizedData.slice(0, -1)
+                    : normalizedData;
+                  const parsed = safeJsonParse(cleanData);
 
                   const messageId = extractMessageId(parsed);
                   if (messageId) {
@@ -266,7 +270,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
                     safeEnqueue(encoder.encode(formatSSEEvent("thinking", thinkingText)));
                   }
 
-                  const contentText = extractContentText(parsed, rawData);
+                  const contentText = extractContentText(parsed, cleanData);
                   if (contentText && !didSendDone) {
                     safeEnqueue(encoder.encode(formatSSEEvent("content", contentText)));
                   }
