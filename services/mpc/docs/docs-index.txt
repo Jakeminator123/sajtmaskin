@@ -1,13 +1,16 @@
 Sajtmaskin Documentation Index
 ==============================
 
-Single källa: all dokumentation bor i `services/mpc/docs` och läses via MCP.
+Single källa: dokumentation finns i `services/mpc/docs` och `LLM/` och exponeras som
+MCP-resources via `docs://local/...`.
 
 Så läser du
 -----------
-- I Cursor MCP: använd `search_docs` (för att hitta) och `get_doc` (för att läsa).
+- MCP-servern exponerar endast resources (inga verktyg).
 - Top-level-filer i `docs/` exponeras som `docs://local/{name}`.
-- Alla filer i underkataloger kan läsas via relativa sökvägar med `get_doc`.
+- LLM-filer exponeras som `docs://local/llm/{name}`.
+  Exempel: `docs://local/llm/v0-prompt-guide`
+Obs: Vissa äldre .md-filer hänvisar till tools som inte är aktiverade i servern.
 
 Prioritet
 ---------
@@ -15,33 +18,32 @@ Prioritet
 2. quick-reference.txt — snabböversikt och vanliga mönster
 3. overview.txt — server/struktur
 4. error-playbook.txt — felrapportering/loggning
-5. local/*.txt — projekt-/team-specifika anteckningar
+5. LLM/*.txt — aktuella AI-/v0-notes
 
-Lokala quickrefs (docs://local/local/...)
------------------------------------------
-- local/ARCHITECTURE-AI-FLOW
-- local/README_sources_and_freshness
-- local/ai_sdk_tool_calls_structured_output_quickref
-- local/v0_model_api_openai_compat_format
-- local/v0_platform_api_json_formats
-- local/vercel_ai_gateway_openai_compat_quickref
-- local/oauth_sammanfattning_sajtmaksin
-- local/session-summary
-- local/cursor-mcp-config
-- local/v0doc.dev — v0 API docs: Model API + Platform API overview, endpoints, SDK usage
-- local/shadcn-ui-integration — shadcn/ui setup: components.json, lib/utils.ts, CSS vars, deps
+LLM-docs (docs://local/llm/...)
+-------------------------------
+- llm/AC-schema
+- llm/DEPS-STATUS
+- llm/INDEX
+- llm/atgardsmatris
+- llm/mijo-logik
+- llm/schemas_overview
+- llm/v0-prompt-guide
+
+Shad (docs://local/...)
+-----------------------
+- Shad_llms_full — shadcn/ui-relaterad LLM-kontext och referens
 
 Lägga till eller flytta docs
 ----------------------------
 - Lägg nya filer som .txt/.md/.json under `services/mpc/docs/local/`.
 - Starta om MPC-servern om den körs (`npm run mpc`) så indexet uppdateras.
 
-Källor via `search_docs` (source-param)
----------------------------------------
-- local: allt under `docs/` (inkl. dina filer och scraped innehåll)
-- ai-sdk / openai / vercel / v0: scraped-mappar `docgrab__*` i `docs/`
+Scraped docs
+------------
+- Om `docgrab__*` finns under `docs/` exponeras de också som resources.
 
 Tips
 ----
-- Ingen README/MD i roten behövs; håll allt i `services/mpc/docs`.
+- Håll allt i `services/mpc/docs` och `LLM/`.
 - Lägg inte hemligheter i docs/.

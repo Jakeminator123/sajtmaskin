@@ -27,6 +27,7 @@ import {
   DEFAULT_CUSTOM_INSTRUCTIONS,
   DEFAULT_MODEL_TIER,
   DEFAULT_PROMPT_ASSIST,
+  DEFAULT_THINKING,
   getDefaultPromptAssistModel,
   getPromptAssistModelOptions,
   MODEL_TIER_OPTIONS,
@@ -88,8 +89,8 @@ function BuilderContent() {
   const [buildIntent, setBuildIntent] = useState<BuildIntent>(() =>
     normalizeBuildIntent(buildIntentParam),
   );
-  const [buildMethod, setBuildMethod] = useState<BuildMethod | null>(() =>
-    normalizeBuildMethod(buildMethodParam) || (source === "audit" ? "audit" : null),
+  const [buildMethod, setBuildMethod] = useState<BuildMethod | null>(
+    () => normalizeBuildMethod(buildMethodParam) || (source === "audit" ? "audit" : null),
   );
   const [selectedModelTier, setSelectedModelTier] = useState<ModelTier>(DEFAULT_MODEL_TIER);
   const [promptAssistModel, setPromptAssistModel] = useState(
@@ -100,6 +101,7 @@ function BuilderContent() {
   const [isDeploying, setIsDeploying] = useState(false);
   const [isSavingProject, setIsSavingProject] = useState(false);
   const [enableImageGenerations, setEnableImageGenerations] = useState(true);
+  const [enableThinking, setEnableThinking] = useState(DEFAULT_THINKING);
   const [enableBlobMedia, setEnableBlobMedia] = useState(true);
   const [isImageGenerationsSupported, setIsImageGenerationsSupported] = useState(true);
   const [isMediaEnabled, setIsMediaEnabled] = useState(false);
@@ -142,6 +144,8 @@ function BuilderContent() {
     () => MODEL_TIER_OPTIONS.find((option) => option.value === selectedModelTier),
     [selectedModelTier],
   );
+  const isThinkingSupported = selectedModelTier !== "v0-mini";
+  const effectiveThinking = enableThinking && isThinkingSupported;
   const resolvedBuildIntent = useMemo(
     () => resolveBuildIntentForMethod(buildMethod, buildIntent),
     [buildMethod, buildIntent],
@@ -227,7 +231,6 @@ function BuilderContent() {
   }, [fetchUser]);
 
   useEffect(() => {
-    if (!buildIntentParam) return;
     setBuildIntent(normalizeBuildIntent(buildIntentParam));
   }, [buildIntentParam]);
 
@@ -239,7 +242,9 @@ function BuilderContent() {
     }
     if (source === "audit") {
       setBuildMethod("audit");
+      return;
     }
+    setBuildMethod(null);
   }, [buildMethodParam, source]);
 
   // Require authentication - show modal if not logged in after auth check completes
@@ -312,6 +317,27 @@ function BuilderContent() {
       // ignore storage errors
     }
   }, [enableImageGenerations]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const stored = localStorage.getItem("sajtmaskin:thinking");
+      if (stored !== null) {
+        setEnableThinking(stored === "true");
+      }
+    } catch {
+      // ignore storage errors
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      localStorage.setItem("sajtmaskin:thinking", String(enableThinking));
+    } catch {
+      // ignore storage errors
+    }
+  }, [enableThinking]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -1070,6 +1096,7 @@ function BuilderContent() {
     v0ProjectId,
     selectedModelTier,
     enableImageGenerations,
+    enableThinking: effectiveThinking,
     systemPrompt: customInstructions,
     buildIntent: resolvedBuildIntent,
     buildMethod,
@@ -1447,6 +1474,9 @@ function BuilderContent() {
           onDesignSystemModeChange={setDesignSystemMode}
           enableImageGenerations={enableImageGenerations}
           onEnableImageGenerationsChange={setEnableImageGenerations}
+          enableThinking={enableThinking}
+          onEnableThinkingChange={setEnableThinking}
+          isThinkingSupported={isThinkingSupported}
           isImageGenerationsSupported={isImageGenerationsSupported}
           isMediaEnabled={isMediaEnabled}
           enableBlobMedia={enableBlobMedia}

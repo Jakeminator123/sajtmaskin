@@ -57,27 +57,29 @@ const { object } = await generateObject({
 });
 ```
 
-V0 SDK KEY IMPORTS
-------------------
+V0 SDK (Platform API)
+---------------------
 
 ```typescript
 import { createClient } from 'v0-sdk';
 
 const v0 = createClient({ apiKey: process.env.V0_API_KEY });
 
-// Generate new code
-const result = await v0.chat.completions.create({
-  model: 'v0-1.5-md', // or 'v0-1.5-lg' for premium
-  messages: [{ role: 'user', content: 'Create a landing page...' }],
+// Create chat (new build)
+const chat = await v0.chats.create({
+  message: 'Create a landing page...',
+  modelConfiguration: {
+    modelId: 'v0-max',   // v0-mini | v0-pro | v0-max
+    thinking: true,
+  },
+  responseMode: 'sync',
 });
 
-// Continue conversation (refine)
-const refined = await v0.chat.completions.create({
-  model: 'v0-1.5-md',
-  messages: [
-    ...previousMessages,
-    { role: 'user', content: 'Make the header bigger' }
-  ],
+// Continue chat (refine)
+const followup = await v0.chats.sendMessage({
+  chatId: chat.id,
+  message: 'Make the header bigger',
+  responseMode: 'experimental_stream',
 });
 ```
 
@@ -114,24 +116,13 @@ const response = await openai.images.generate({
 const imageUrl = response.data[0].url;
 ```
 
-SAJTMASKIN PIPELINE
--------------------
+SAJTMASKIN CORE PATHS
+---------------------
 
-1. User prompt arrives at /api/orchestrate
-2. Semantic Router (gpt-4o-mini) classifies intent
-3. Code Crawler finds relevant code (no AI, just string matching)
-4. Semantic Enhancer (gpt-4o-mini) improves vague prompts
-5. Prompt Enricher combines everything (no AI)
-6. v0 API generates/refines code
-7. Result includes demoUrl for preview
-
-Key files:
-- lib/orchestrator-agent.ts  - Main pipeline coordinator
-- lib/semantic-router.ts     - Intent classification
-- lib/code-crawler.ts        - Code context extraction
-- lib/semantic-enhancer.ts   - Prompt improvement
-- lib/prompt-enricher.ts     - Final prompt assembly
-- lib/v0-generator.ts        - v0 API wrapper
+- src/lib/v0/v0-generator.ts           - v0 Platform API wrapper
+- src/lib/hooks/useV0ChatMessaging.ts  - SSE + chat orchestration
+- src/app/api/v0/chats/stream/route.ts - Create chat (stream)
+- src/app/api/v0/chats/[chatId]/stream/route.ts - Send message (stream)
 
 COMMON PATTERNS
 ---------------
@@ -176,17 +167,10 @@ const result = await generateText({
 DOCUMENTATION SOURCES
 ---------------------
 
-This MCP server provides access to scraped documentation:
-
-- docgrab__ai-sdk.dev__docs/     : AI SDK 6 full docs
-- docgrab__platform.openai.com__docs/ : OpenAI API docs
-- docgrab__vercel.com__docs/     : Vercel platform docs
-- docgrab__v0.app__docs_introduction/ : v0 introduction
-
-Use the search_docs tool to find specific information:
-  search_docs("streamText", "ai-sdk")
-  search_docs("web_search", "openai")
-  search_docs("deployment", "vercel")
+This MCP server exposes resources from:
+- services/mpc/docs (docs://local/*)
+- LLM/ (docs://local/llm/*)
+- docgrab__* folders if present under services/mpc/docs
 
 ENVIRONMENT VARIABLES
 ---------------------
