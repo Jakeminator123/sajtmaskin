@@ -77,6 +77,11 @@ SiteStudio_Projektspecifikation_ifillningsbar_v2.pdf
 
 old
 old/
+.cursor
+.cursorignore
+senaste_miljovariablar
+senaste_miljovariablar/old/
+/senaste_miljovariablar/old/
 
 .vercel
 .env*.local

@@ -13,6 +13,7 @@
  */
 
 import type { ShadcnRegistryItem } from "@/lib/shadcn-registry-types";
+import { resolveShadcnPreviewStyle } from "@/lib/shadcn-registry-utils";
 import { getRegistryBaseUrl, getRegistryStyle } from "@/lib/v0/v0-url-parser";
 
 // ============================================
@@ -28,6 +29,12 @@ export interface RegistryIndexItem {
 
 export interface RegistryIndex {
   items: RegistryIndexItem[];
+}
+
+export interface RegistrySummary {
+  total: number;
+  blocks: number;
+  components: number;
 }
 
 export interface ComponentCategory {
@@ -65,9 +72,18 @@ const CATEGORY_CONFIG: Record<
   sidebar: { label: "Sidebar", labelSv: "Sidofält", icon: "📋", order: 5 },
   charts: { label: "Charts", labelSv: "Diagram", icon: "📈", order: 6 },
   calendar: { label: "Calendar", labelSv: "Kalender", icon: "📅", order: 7 },
-  forms: { label: "Forms", labelSv: "Formulär", icon: "📄", order: 8 },
-  marketing: { label: "Marketing", labelSv: "Marknadsföring", icon: "🎯", order: 9 },
-  landing: { label: "Landing Pages", labelSv: "Landningssidor", icon: "🚀", order: 10 },
+  forms: { label: "Forms", labelSv: "Formulär", icon: "📝", order: 8 },
+  inputs: { label: "Inputs", labelSv: "Inmatning", icon: "⌨️", order: 9 },
+  navigation: { label: "Navigation", labelSv: "Navigation", icon: "🧭", order: 10 },
+  layout: { label: "Layout", labelSv: "Layout", icon: "🧱", order: 11 },
+  overlay: { label: "Overlay", labelSv: "Overlay", icon: "🪟", order: 12 },
+  feedback: { label: "Feedback", labelSv: "Feedback", icon: "💬", order: 13 },
+  data: { label: "Data", labelSv: "Data", icon: "🗂️", order: 14 },
+  table: { label: "Tables", labelSv: "Tabeller", icon: "📋", order: 15 },
+  typography: { label: "Typography", labelSv: "Typografi", icon: "🔤", order: 16 },
+  commerce: { label: "Commerce", labelSv: "E‑handel", icon: "🛒", order: 17 },
+  marketing: { label: "Marketing", labelSv: "Marknadsföring", icon: "🎯", order: 18 },
+  landing: { label: "Landing Pages", labelSv: "Landningssidor", icon: "🚀", order: 19 },
   other: { label: "Other", labelSv: "Övrigt", icon: "📦", order: 99 },
 };
 
@@ -128,7 +144,7 @@ export function buildPreviewImageUrl(
   style?: string,
 ): string {
   const baseUrl = getRegistryBaseUrl();
-  const resolvedStyle = style?.trim() || getRegistryStyle();
+  const resolvedStyle = resolveShadcnPreviewStyle(style?.trim() || getRegistryStyle());
   return `${baseUrl}/r/styles/${resolvedStyle}/${name}-${theme}.png`;
 }
 
@@ -155,8 +171,22 @@ export async function fetchRegistryIndex(style?: string): Promise<RegistryIndex>
   }
 
   const data = (await response.json()) as RegistryIndex;
+  if (!data || !Array.isArray(data.items)) {
+    throw new Error("Registry response saknar giltiga items");
+  }
   setCache(cacheKey, data);
   return data;
+}
+
+/**
+ * Fetch a summary of registry contents (counts)
+ */
+export async function fetchRegistrySummary(style?: string): Promise<RegistrySummary> {
+  const index = await fetchRegistryIndex(style);
+  const items = index.items || [];
+  const blocks = items.filter((item) => isRegistryItemKind(item, "block")).length;
+  const components = items.filter((item) => isRegistryItemKind(item, "component")).length;
+  return { total: items.length, blocks, components };
 }
 
 /**
@@ -196,13 +226,22 @@ function toTitleCase(value: string): string {
 
 function getCategoryConfig(rawCategory: string) {
   const normalized = rawCategory.trim().toLowerCase();
-  return CATEGORY_CONFIG[normalized] || CATEGORY_CONFIG.other;
+  if (!normalized) return CATEGORY_CONFIG.other;
+  const config = CATEGORY_CONFIG[normalized];
+  if (config) return config;
+  const label = toTitleCase(normalized);
+  return { label, labelSv: label, icon: "🧩", order: 50 };
 }
 
 function isRegistryItemKind(item: RegistryIndexItem, kind: RegistryItemKind) {
   const rawType = item.type?.toLowerCase() || "";
   if (kind === "block") return rawType === "registry:block" || rawType === "block";
-  return rawType === "registry:component" || rawType === "component";
+  return (
+    rawType === "registry:ui" ||
+    rawType === "ui" ||
+    rawType === "registry:component" ||
+    rawType === "component"
+  );
 }
 
 /**
@@ -223,8 +262,8 @@ export async function getRegistryItemsByCategory(
   const categoryMap = new Map<string, ComponentItem[]>();
 
   for (const item of filteredItems) {
-    const rawCategory = item.categories?.[0] || "other";
-    const categoryId = rawCategory.toLowerCase();
+    const rawCategory = item.categories?.[0]?.trim() || "other";
+    const categoryId = rawCategory.toLowerCase() || "other";
 
     const entry: ComponentItem = {
       name: item.name,

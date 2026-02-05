@@ -11,6 +11,8 @@ import {
   ArrowDown,
   Replace,
   Code2,
+  ExternalLink,
+  RefreshCw,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -48,7 +50,7 @@ import {
   generatePlacementOptions,
   type DetectedSection,
 } from "@/lib/builder/sectionAnalyzer";
-import { buildRegistryMarkdownPreview } from "@/lib/shadcn-registry-utils";
+import { buildRegistryMarkdownPreview, buildShadcnPreviewUrl } from "@/lib/shadcn-registry-utils";
 
 // ============================================
 // TYPES (exported for ChatInterface)
@@ -162,6 +164,8 @@ export function ShadcnBlockPicker({
   const [activeTab, setActiveTab] = useState<"popular" | "all">("popular");
   const [itemType, setItemType] = useState<"block" | "component">("block");
   const [showCodePreview, setShowCodePreview] = useState(false);
+  const [activeCategory, setActiveCategory] = useState<string>("all");
+  const [reloadKey, setReloadKey] = useState(0);
 
   // Analyze sections from current code
   const detectedSections = useMemo(() => {
@@ -226,6 +230,9 @@ export function ShadcnBlockPicker({
     let isActive = true;
     setIsLoadingCategories(true);
     setError(null);
+    setCategories([]);
+    setSelectedItem(null);
+    setActiveCategory("all");
 
     const loader = itemType === "component" ? getComponentsByCategory : getBlocksByCategory;
 
@@ -233,6 +240,7 @@ export function ShadcnBlockPicker({
       .then((data) => {
         if (!isActive) return;
         setCategories(data);
+        setActiveCategory("all");
         // Auto-select first popular item (from FEATURED_BLOCKS)
         const allItems = data.flatMap((cat) => cat.items);
         const firstPopularBlock = itemType === "block" ? FEATURED_BLOCKS[0]?.blocks[0] : null;
@@ -248,7 +256,9 @@ export function ShadcnBlockPicker({
       })
       .catch((err) => {
         if (!isActive) return;
-        setError(err instanceof Error ? err.message : "Kunde inte ladda komponenter");
+        setCategories([]);
+        setSelectedItem(null);
+        setError(err instanceof Error ? err.message : "Kunde inte ladda katalogen");
       })
       .finally(() => {
         if (isActive) setIsLoadingCategories(false);
@@ -257,7 +267,7 @@ export function ShadcnBlockPicker({
     return () => {
       isActive = false;
     };
-  }, [open, itemType]);
+  }, [open, itemType, reloadKey]);
 
   // Load selected item details
   useEffect(() => {
@@ -319,6 +329,10 @@ export function ShadcnBlockPicker({
 
   // Can user take action?
   const canAct = Boolean(selectedItem) && !isBusy && !isSubmitting && !isLoadingItem;
+
+  const handleReload = useCallback(() => {
+    setReloadKey((prev) => prev + 1);
+  }, []);
 
   // Handle confirm
   const handleConfirm = useCallback(
