@@ -14,12 +14,14 @@ interface RequireAuthModalProps {
 const REASONS = {
   generation: {
     title: "Du har använt din gratis generation",
-    description: "Skapa ett konto för att fortsätta bygga webbplatser. Du får 5 gratis diamanter!",
+    description:
+      "Skapa ett konto för att fortsätta bygga webbplatser. Du får 50 gratis diamanter!",
     icon: Sparkles,
   },
   refine: {
     title: "Du har använt din gratis förfining",
-    description: "Skapa ett konto för att fortsätta förfina din design. Du får 5 gratis diamanter!",
+    description:
+      "Skapa ett konto för att fortsätta förfina din design. Du får 50 gratis diamanter!",
     icon: Sparkles,
   },
   credits: {
@@ -95,7 +97,7 @@ export function RequireAuthModal({ isOpen, onClose, reason }: RequireAuthModalPr
               <div className="bg-brand-amber/10 border-brand-amber/30 mb-6 inline-flex items-center gap-2 border px-4 py-2">
                 <Diamond className="text-brand-amber h-4 w-4" />
                 <span className="text-brand-amber text-sm font-medium">
-                  +5 diamanter gratis vid registrering
+                  +50 diamanter gratis vid registrering
                 </span>
               </div>
             )}

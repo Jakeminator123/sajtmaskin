@@ -4,6 +4,8 @@ import { TEMPLATES } from "@/lib/templates/template-data";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { ensureProjectForRequest, generateProjectName, resolveV0ProjectId } from "@/lib/tenant";
 import { NextRequest, NextResponse } from "next/server";
+import { ensureSessionIdFromRequest } from "@/lib/auth/session";
+import { prepareCredits } from "@/lib/credits/server";
 
 // Allow 5 minutes for v0 API responses
 export const maxDuration = 300;
@@ -22,25 +24,38 @@ function getRandomMessage() {
 
 export async function POST(request: NextRequest) {
   try {
+    const session = ensureSessionIdFromRequest(request);
+    const sessionId = session.sessionId;
+    const attachSessionCookie = (response: Response) => {
+      if (session.setCookie) {
+        response.headers.set("Set-Cookie", session.setCookie);
+      }
+      return response;
+    };
+
     const body = await request.json();
     const { templateId, quality = "max", skipCache = false } = body;
 
     if (!templateId) {
-      return NextResponse.json(
-        { success: false, error: "Template ID is required" },
-        { status: 400 },
+      return attachSessionCookie(
+        NextResponse.json(
+          { success: false, error: "Template ID is required" },
+          { status: 400 },
+        ),
       );
     }
 
     // Validate templateId exists in our catalog (filters out placeholder "categories")
     const templateMeta = TEMPLATES.find((t) => t.id === templateId);
     if (!templateMeta) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Ogiltigt template-id. Välj en template från galleriet.",
-        },
-        { status: 404 },
+      return attachSessionCookie(
+        NextResponse.json(
+          {
+            success: false,
+            error: "Ogiltigt template-id. Välj en template från galleriet.",
+          },
+          { status: 404 },
+        ),
       );
     }
 
@@ -96,23 +111,35 @@ export async function POST(request: NextRequest) {
           projectId = null;
         }
 
-        return NextResponse.json({
-          success: true,
-          message: "Laddad från cache!",
-          code: cached.code || "",
-          files: files,
-          chatId: cached.chat_id, // Return chatId for user's own template instance
-          projectId,
-          demoUrl: cached.demo_url,
-          model: cached.model,
-          cached: true,
-        });
+        return attachSessionCookie(
+          NextResponse.json({
+            success: true,
+            message: "Laddad från cache!",
+            code: cached.code || "",
+            files: files,
+            chatId: cached.chat_id, // Return chatId for user's own template instance
+            projectId,
+            demoUrl: cached.demo_url,
+            model: cached.model,
+            cached: true,
+          }),
+        );
       }
     }
 
     // ═══════════════════════════════════════════════════════════════════════════
     // NO CACHE: Generate from template using v0 Platform API
     // ═══════════════════════════════════════════════════════════════════════════
+    const creditCheck = await prepareCredits(
+      request,
+      "prompt.template",
+      { quality },
+      { sessionId },
+    );
+    if (!creditCheck.ok) {
+      return attachSessionCookie(creditCheck.response);
+    }
+
     const result = await generateFromTemplate(templateId, quality);
 
     console.log("[API /template] Result:", {
@@ -128,12 +155,14 @@ export async function POST(request: NextRequest) {
 
     if (!hasFiles && !hasDemoUrl) {
       console.error("[API /template] No content received from v0 API");
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Mallen kunde inte laddas. v0 API returnerade inget innehåll.",
-        },
-        { status: 502 },
+      return attachSessionCookie(
+        NextResponse.json(
+          {
+            success: false,
+            error: "Mallen kunde inte laddas. v0 API returnerade inget innehåll.",
+          },
+          { status: 502 },
+        ),
       );
     }
 
@@ -178,17 +207,25 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    return NextResponse.json({
-      success: true,
-      message: getRandomMessage(),
-      code: mainCode || result.code,
-      files: result.files,
-      chatId: result.chatId,
-      projectId,
-      demoUrl: result.demoUrl,
-      model: result.model,
-      cached: false,
-    });
+    try {
+      await creditCheck.commit();
+    } catch (error) {
+      console.error("[credits] Failed to charge template:", error);
+    }
+
+    return attachSessionCookie(
+      NextResponse.json({
+        success: true,
+        message: getRandomMessage(),
+        code: mainCode || result.code,
+        files: result.files,
+        chatId: result.chatId,
+        projectId,
+        demoUrl: result.demoUrl,
+        model: result.model,
+        cached: false,
+      }),
+    );
   } catch (error) {
     console.error("[API /template] Error:", error);
 

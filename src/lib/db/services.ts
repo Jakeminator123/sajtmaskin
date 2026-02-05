@@ -263,6 +263,35 @@ export async function getOrCreateGuestUsage(sessionId: string) {
   return created[0];
 }
 
+export async function incrementGuestUsage(sessionId: string, type: "generate" | "refine") {
+  assertDbConfigured();
+  const now = new Date();
+  const updateFields =
+    type === "generate"
+      ? { generations_used: sql`${guestUsage.generations_used} + 1` }
+      : { refines_used: sql`${guestUsage.refines_used} + 1` };
+
+  const rows = await db
+    .insert(guestUsage)
+    .values({
+      session_id: sessionId,
+      generations_used: type === "generate" ? 1 : 0,
+      refines_used: type === "refine" ? 1 : 0,
+      created_at: now,
+      updated_at: now,
+    })
+    .onConflictDoUpdate({
+      target: guestUsage.session_id,
+      set: {
+        ...updateFields,
+        updated_at: now,
+      },
+    })
+    .returning();
+
+  return rows[0];
+}
+
 // ============================================================================
 // PROJECTS + PROJECT DATA
 // ============================================================================

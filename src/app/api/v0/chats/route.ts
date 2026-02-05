@@ -10,6 +10,7 @@ import { requireNotBot } from "@/lib/botProtection";
 import { debugLog } from "@/lib/utils/debug";
 import { sanitizeV0Metadata } from "@/lib/v0/sanitize-metadata";
 import { ensureSessionIdFromRequest } from "@/lib/auth/session";
+import { prepareCredits } from "@/lib/credits/server";
 
 export async function POST(req: Request) {
   const session = ensureSessionIdFromRequest(req);
@@ -67,6 +68,17 @@ export async function POST(req: Request) {
         imageGenerations: resolvedImageGenerations,
         chatPrivacy: resolvedChatPrivacy,
       });
+
+      const creditContext = {
+        modelId,
+        thinking: resolvedThinking,
+        imageGenerations: resolvedImageGenerations,
+        attachmentsCount: Array.isArray(attachments) ? attachments.length : 0,
+      };
+      const creditCheck = await prepareCredits(req, "prompt.create", creditContext, { sessionId });
+      if (!creditCheck.ok) {
+        return attachSessionCookie(creditCheck.response);
+      }
 
       const result = await v0.chats.create({
         message,
@@ -141,6 +153,12 @@ export async function POST(req: Request) {
         }
       } catch (dbError) {
         console.error("Failed to save chat to database:", dbError);
+      }
+
+      try {
+        await creditCheck.commit();
+      } catch (error) {
+        console.error("[credits] Failed to charge prompt:", error);
       }
 
       return attachSessionCookie(

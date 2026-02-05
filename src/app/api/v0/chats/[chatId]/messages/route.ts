@@ -7,8 +7,18 @@ import { nanoid } from "nanoid";
 import { withRateLimit } from "@/lib/rateLimit";
 import { getChatByV0ChatIdForRequest } from "@/lib/tenant";
 import { sanitizeV0Metadata } from "@/lib/v0/sanitize-metadata";
+import { prepareCredits } from "@/lib/credits/server";
+import { ensureSessionIdFromRequest } from "@/lib/auth/session";
 
 export async function POST(req: Request, ctx: { params: Promise<{ chatId: string }> }) {
+  const session = ensureSessionIdFromRequest(req);
+  const sessionId = session.sessionId;
+  const attachSessionCookie = (response: Response) => {
+    if (session.setCookie) {
+      response.headers.set("Set-Cookie", session.setCookie);
+    }
+    return response;
+  };
   return withRateLimit(req, "message:send", async () => {
     try {
       assertV0Key();
@@ -18,9 +28,11 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
 
       const validationResult = sendMessageSchema.safeParse(body);
       if (!validationResult.success) {
-        return NextResponse.json(
-          { error: "Validation failed", details: validationResult.error.issues },
-          { status: 400 },
+        return attachSessionCookie(
+          NextResponse.json(
+            { error: "Validation failed", details: validationResult.error.issues },
+            { status: 400 },
+          ),
         );
       }
 
@@ -29,7 +41,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
 
       const dbChat = await getChatByV0ChatIdForRequest(req, chatId);
       if (!dbChat) {
-        return NextResponse.json({ error: "Chat not found" }, { status: 404 });
+        return attachSessionCookie(NextResponse.json({ error: "Chat not found" }, { status: 404 }));
       }
 
       const resolvedModelId = modelId || "v0-max";
@@ -37,6 +49,17 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
         typeof thinking === "boolean" ? thinking : resolvedModelId === "v0-max";
       const resolvedImageGenerations =
         typeof imageGenerations === "boolean" ? imageGenerations : true;
+
+      const creditContext = {
+        modelId: resolvedModelId,
+        thinking: resolvedThinking,
+        imageGenerations: resolvedImageGenerations,
+        attachmentsCount: Array.isArray(attachments) ? attachments.length : 0,
+      };
+      const creditCheck = await prepareCredits(req, "prompt.refine", creditContext, { sessionId });
+      if (!creditCheck.ok) {
+        return attachSessionCookie(creditCheck.response);
+      }
 
       const result = await v0.chats.sendMessage({
         chatId,
@@ -84,15 +107,25 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
         );
       }
 
-      return NextResponse.json({
-        ...result,
-        savedVersionId,
-        messageId: actualMessageId,
-      });
+      try {
+        await creditCheck.commit();
+      } catch (error) {
+        console.error("[credits] Failed to charge refine:", error);
+      }
+
+      return attachSessionCookie(
+        NextResponse.json({
+          ...result,
+          savedVersionId,
+          messageId: actualMessageId,
+        }),
+      );
     } catch (err) {
-      return NextResponse.json(
-        { error: err instanceof Error ? err.message : "Unknown error" },
-        { status: 500 },
+      return attachSessionCookie(
+        NextResponse.json(
+          { error: err instanceof Error ? err.message : "Unknown error" },
+          { status: 500 },
+        ),
       );
     }
   });

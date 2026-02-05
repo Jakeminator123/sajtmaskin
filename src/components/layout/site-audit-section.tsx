@@ -3,6 +3,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { Search, Diamond, Loader2, AlertCircle } from "lucide-react";
 import { useAuth } from "@/lib/auth/auth-store";
+import { AUDIT_COSTS } from "@/lib/credits/pricing";
 import type { AuditMode, AuditResult } from "@/types/audit";
 import {
   Dialog,
@@ -11,11 +12,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-
-const AUDIT_COSTS: Record<AuditMode, number> = {
-  basic: 3,
-  advanced: 5,
-};
 
 interface SiteAuditSectionProps {
   onAuditComplete: (result: AuditResult, auditedUrl: string) => void;

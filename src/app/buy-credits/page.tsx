@@ -128,7 +128,8 @@ function BuyCreditsContent() {
             </div>
             <h1 className="mb-4 text-3xl font-bold text-white sm:text-4xl">Köp Diamanter</h1>
             <p className="mx-auto max-w-md text-gray-400">
-              Varje diamant ger dig en AI-generering eller förfining. Större paket = mer värde!
+              Diamanter används per handling (oftast 1-3 per prompt beroende på modell). Större
+              paket = mer värde!
             </p>
 
             {/* Current balance */}
@@ -196,10 +197,10 @@ function BuyCreditsContent() {
                 </p>
 
                 {/* Features */}
-                <ul className="mb-6 flex-grow space-y-2">
+                <ul className="mb-6 grow space-y-2">
                   <li className="flex items-center gap-2 text-sm text-gray-400">
                     <Sparkles className="text-brand-teal h-4 w-4" />
-                    {pkg.diamonds} AI-generationer
+                    {pkg.diamonds} diamanter att använda
                   </li>
                   <li className="flex items-center gap-2 text-sm text-gray-400">
                     <Zap className="text-brand-amber h-4 w-4" />
@@ -237,7 +238,7 @@ function BuyCreditsContent() {
                 </div>
                 <h3 className="mb-2 font-medium text-white">AI-generering</h3>
                 <p className="text-sm text-gray-500">
-                  Varje diamant = en komplett webbplats-generering
+                  Generering kostar 1-3 diamanter beroende på modell
                 </p>
               </div>
               <div>
@@ -245,7 +246,7 @@ function BuyCreditsContent() {
                   <Zap className="text-brand-amber h-6 w-6" />
                 </div>
                 <h3 className="mb-2 font-medium text-white">Förfining</h3>
-                <p className="text-sm text-gray-500">Varje diamant = en förfining av din design</p>
+                <p className="text-sm text-gray-500">Förfining kostar 1-2 diamanter beroende på modell</p>
               </div>
               <div>
                 <div className="bg-brand-teal/10 mx-auto mb-4 flex h-12 w-12 items-center justify-center">

@@ -7,18 +7,57 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { getSessionIdFromRequest } from "@/lib/auth/session";
 import { getOrCreateGuestUsage } from "@/lib/db/services";
+import {
+  getCreditCost,
+  type CreditAction,
+  type PricingContext,
+} from "@/lib/credits/pricing";
+
+const VALID_ACTIONS = new Set<CreditAction>([
+  "prompt.create",
+  "prompt.refine",
+  "prompt.template",
+  "prompt.registry",
+  "prompt.vercelTemplate",
+  "deploy.preview",
+  "deploy.production",
+  "audit.basic",
+  "audit.advanced",
+]);
+
+function resolveAction(searchParams: URLSearchParams): CreditAction {
+  const raw = (searchParams.get("action") || "prompt.create").trim();
+  if (VALID_ACTIONS.has(raw as CreditAction)) {
+    return raw as CreditAction;
+  }
+  if (raw === "generate") return "prompt.create";
+  if (raw === "refine") return "prompt.refine";
+  if (raw === "audit") {
+    return searchParams.get("mode") === "advanced" ? "audit.advanced" : "audit.basic";
+  }
+  if (raw === "deploy") {
+    return searchParams.get("target") === "preview" ? "deploy.preview" : "deploy.production";
+  }
+  return "prompt.create";
+}
 
 export async function GET(req: NextRequest) {
   try {
     const searchParams = req.nextUrl.searchParams;
-    const action = searchParams.get("action") || "generate";
+    const action = resolveAction(searchParams);
+    const context: PricingContext = {
+      modelId: searchParams.get("modelId"),
+      quality: (searchParams.get("quality") as PricingContext["quality"]) || null,
+      target: (searchParams.get("target") as PricingContext["target"]) || null,
+    };
+    const cost = getCreditCost(action, context);
 
     // Try to get authenticated user
     const user = await getCurrentUser(req);
 
     if (user) {
       // Authenticated user - check diamonds
-      const canProceed = user.diamonds >= 1;
+      const canProceed = user.diamonds >= cost;
 
       return NextResponse.json({
         success: true,
@@ -26,7 +65,7 @@ export async function GET(req: NextRequest) {
         reason: canProceed ? null : "Du har slut på diamanter. Köp fler för att fortsätta.",
         authenticated: true,
         balance: user.diamonds,
-        cost: 1,
+        cost,
       });
     }
 
@@ -39,6 +78,7 @@ export async function GET(req: NextRequest) {
         canProceed: true,
         reason: null,
         authenticated: false,
+        cost,
         guest: {
           generationsUsed: 0,
           refinesUsed: 0,
@@ -50,17 +90,26 @@ export async function GET(req: NextRequest) {
 
     let canProceed = false;
     let reason: string | null = null;
+    const guestAction =
+      action === "prompt.refine"
+        ? "refine"
+        : action.startsWith("prompt.")
+          ? "generate"
+          : null;
 
-    if (action === "generate") {
+    if (guestAction === "generate") {
       canProceed = guestUsage.generations_used < 1;
       if (!canProceed) {
         reason = "Du har använt din gratis generation. Skapa ett konto för att fortsätta bygga!";
       }
-    } else if (action === "refine") {
+    } else if (guestAction === "refine") {
       canProceed = guestUsage.refines_used < 1;
       if (!canProceed) {
         reason = "Du har använt din gratis förfining. Skapa ett konto för att fortsätta förfina!";
       }
+    } else {
+      canProceed = false;
+      reason = "Du måste vara inloggad för att fortsätta.";
     }
 
     return NextResponse.json({
@@ -68,6 +117,7 @@ export async function GET(req: NextRequest) {
       canProceed,
       reason,
       authenticated: false,
+      cost,
       guest: {
         generationsUsed: guestUsage.generations_used,
         refinesUsed: guestUsage.refines_used,

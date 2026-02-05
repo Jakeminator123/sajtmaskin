@@ -10,6 +10,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { deployProject } from "@/lib/vercel/vercel-deployment-service";
 import { isVercelConfigured } from "@/lib/vercel/vercel-client";
 import { FEATURES } from "@/lib/config";
+import { prepareCredits } from "@/lib/credits/server";
 
 export async function POST(request: NextRequest) {
   try {
@@ -38,6 +39,16 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const deployTarget = target === "preview" ? "preview" : "production";
+    const creditCheck = await prepareCredits(
+      request,
+      deployTarget === "preview" ? "deploy.preview" : "deploy.production",
+      { target: deployTarget },
+    );
+    if (!creditCheck.ok) {
+      return creditCheck.response;
+    }
+
     const result = await deployProject({
       projectId,
       projectName,
@@ -49,6 +60,12 @@ export async function POST(request: NextRequest) {
 
     if (!result.success) {
       return NextResponse.json(result, { status: 500 });
+    }
+
+    try {
+      await creditCheck.commit();
+    } catch (error) {
+      console.error("[credits] Failed to charge deploy:", error);
     }
 
     return NextResponse.json(result);

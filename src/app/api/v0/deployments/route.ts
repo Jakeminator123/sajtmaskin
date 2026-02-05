@@ -23,6 +23,7 @@ import {
 import { getChatByIdForRequest, getChatByV0ChatIdForRequest } from "@/lib/tenant";
 import { requireNotBot } from "@/lib/botProtection";
 import { devLogAppend } from "@/lib/logging/devLog";
+import { prepareCredits } from "@/lib/credits/server";
 
 export const runtime = "nodejs";
 
@@ -363,6 +364,15 @@ export async function POST(req: Request) {
 
       const internalVersionId = version[0].id;
       const v0VersionId = version[0].v0VersionId;
+      const deployTarget = target === "preview" ? "preview" : "production";
+      const creditCheck = await prepareCredits(
+        req,
+        deployTarget === "preview" ? "deploy.preview" : "deploy.production",
+        { target: deployTarget },
+      );
+      if (!creditCheck.ok) {
+        return creditCheck.response;
+      }
 
       devLogAppend("latest", {
         type: "site.deploy.start",
@@ -474,6 +484,12 @@ export async function POST(req: Request) {
             v0VersionId,
             url: created.url ?? null,
           });
+        }
+
+        try {
+          await creditCheck.commit();
+        } catch (error) {
+          console.error("[credits] Failed to charge deploy:", error);
         }
 
         return NextResponse.json({

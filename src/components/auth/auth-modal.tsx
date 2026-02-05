@@ -94,7 +94,7 @@ export function AuthModal({ isOpen, onClose, defaultMode = "login" }: AuthModalP
   };
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center">
+    <div className="fixed inset-0 z-100 flex items-center justify-center">
       {/* Backdrop */}
       <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={onClose} />
 
@@ -116,14 +116,14 @@ export function AuthModal({ isOpen, onClose, defaultMode = "login" }: AuthModalP
           <p className="mt-2 text-sm text-gray-400">
             {mode === "login"
               ? "Logga in för att fortsätta bygga"
-              : "Få 5 gratis diamanter när du skapar konto"}
+              : "Få 50 gratis diamanter när du skapar konto"}
           </p>
 
           {/* Signup bonus indicator */}
           {mode === "register" && (
             <div className="bg-brand-amber/10 border-brand-amber/30 mt-4 inline-flex items-center gap-2 border px-4 py-2">
               <Diamond className="text-brand-amber h-4 w-4" />
-              <span className="text-brand-amber text-sm font-medium">+5 diamanter gratis</span>
+              <span className="text-brand-amber text-sm font-medium">+50 diamanter gratis</span>
             </div>
           )}
         </div>

@@ -8,6 +8,7 @@ import { ensureProjectForRequest } from "@/lib/tenant";
 import { ensureSessionIdFromRequest } from "@/lib/auth/session";
 import { initFromRegistry, type QualityLevel } from "@/lib/v0/v0-generator";
 import { isRegistryUrl, parseRegistryUrl } from "@/lib/v0/v0-url-parser";
+import { prepareCredits } from "@/lib/credits/server";
 
 export const runtime = "nodejs";
 export const maxDuration = 120; // Registry init can take time
@@ -78,6 +79,16 @@ export async function POST(req: Request) {
             { status: 400 },
           ),
         );
+      }
+
+      const creditCheck = await prepareCredits(
+        req,
+        "prompt.registry",
+        { quality },
+        { sessionId },
+      );
+      if (!creditCheck.ok) {
+        return attachSessionCookie(creditCheck.response);
       }
 
       // Parse registry URL for metadata
@@ -162,6 +173,12 @@ export async function POST(req: Request) {
             { status: 500 },
           ),
         );
+      }
+
+      try {
+        await creditCheck.commit();
+      } catch (error) {
+        console.error("[credits] Failed to charge registry init:", error);
       }
 
       return attachSessionCookie(

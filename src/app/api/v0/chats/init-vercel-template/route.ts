@@ -9,6 +9,7 @@ import { ensureProjectForRequest } from "@/lib/tenant";
 import { ensureSessionIdFromRequest } from "@/lib/auth/session";
 import { sanitizeV0Metadata } from "@/lib/v0/sanitize-metadata";
 import { getVercelTemplateById } from "@/lib/templates/template-data";
+import { prepareCredits } from "@/lib/credits/server";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -65,6 +66,16 @@ export async function POST(req: Request) {
         return attachSessionCookie(
           NextResponse.json({ error: `Vercel template not found: ${templateId}` }, { status: 404 }),
         );
+      }
+
+      const creditCheck = await prepareCredits(
+        req,
+        "prompt.vercelTemplate",
+        { modelId: "v0-pro" },
+        { sessionId },
+      );
+      if (!creditCheck.ok) {
+        return attachSessionCookie(creditCheck.response);
       }
 
       // Initialize from the GitHub repo using v0 Platform API
@@ -131,6 +142,12 @@ export async function POST(req: Request) {
         }
       } catch (dbError) {
         console.error("Failed to save Vercel template chat to database:", dbError);
+      }
+
+      try {
+        await creditCheck.commit();
+      } catch (error) {
+        console.error("[credits] Failed to charge vercel template init:", error);
       }
 
       return attachSessionCookie(

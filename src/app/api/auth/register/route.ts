@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
     await createTransaction(
       result.user.id,
       "signup_bonus",
-      0, // Already have 5 diamonds from creation
+      0, // Already have 50 diamonds from creation
       "Välkomstbonus vid registrering",
     );
 

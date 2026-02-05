@@ -9,6 +9,7 @@ import { ensureProjectForRequest } from "@/lib/tenant";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { ensureSessionIdFromRequest } from "@/lib/auth/session";
 import { sanitizeV0Metadata } from "@/lib/v0/sanitize-metadata";
+import { prepareCredits } from "@/lib/credits/server";
 
 export const runtime = "nodejs";
 
@@ -265,6 +266,16 @@ export async function POST(req: Request) {
         initParams.zip = "content" in source ? { content: source.content } : { url: source.url };
       }
 
+      const creditCheck = await prepareCredits(
+        req,
+        "prompt.create",
+        { modelId: "v0-pro" },
+        { sessionId },
+      );
+      if (!creditCheck.ok) {
+        return attachSessionCookie(creditCheck.response);
+      }
+
       const result = await (v0.chats as any).init(initParams);
 
       try {
@@ -375,6 +386,12 @@ export async function POST(req: Request) {
         }
       } catch (dbError) {
         console.error("Failed to save init chat to database:", dbError);
+      }
+
+      try {
+        await creditCheck.commit();
+      } catch (error) {
+        console.error("[credits] Failed to charge init:", error);
       }
 
       return attachSessionCookie(

@@ -18,6 +18,7 @@ import { resolveLatestVersion } from "@/lib/v0/resolve-latest-version";
 import { withRateLimit } from "@/lib/rateLimit";
 import { getChatByV0ChatIdForRequest } from "@/lib/tenant";
 import { ensureSessionIdFromRequest } from "@/lib/auth/session";
+import { prepareCredits } from "@/lib/credits/server";
 import { devLogAppend } from "@/lib/logging/devLog";
 import { debugLog, errorLog } from "@/lib/utils/debug";
 import { sanitizeV0Metadata } from "@/lib/v0/sanitize-metadata";
@@ -136,6 +137,27 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
         thinking: resolvedThinking,
         imageGenerations: resolvedImageGenerations,
       });
+
+      const creditContext = {
+        modelId: resolvedModelId,
+        thinking: resolvedThinking,
+        imageGenerations: resolvedImageGenerations,
+        attachmentsCount: Array.isArray(attachments) ? attachments.length : 0,
+      };
+      const creditCheck = await prepareCredits(req, "prompt.refine", creditContext, { sessionId });
+      if (!creditCheck.ok) {
+        return attachSessionCookie(creditCheck.response);
+      }
+      let didChargeCredits = false;
+      const commitCreditsOnce = async () => {
+        if (didChargeCredits) return;
+        didChargeCredits = true;
+        try {
+          await creditCheck.commit();
+        } catch (error) {
+          console.error("[credits] Failed to charge refine:", error);
+        }
+      };
 
       devLogAppend("latest", {
         type: "site.message.start",
@@ -393,6 +415,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
                       demoUrl: finalDemoUrl,
                       durationMs: Date.now() - requestStartedAt,
                     });
+                    await commitCreditsOnce();
                     if (process.env.NODE_ENV === "development") {
                       console.log("[dev-log] follow-up finished", {
                         chatId,
@@ -448,6 +471,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
         }
       }
 
+      await commitCreditsOnce();
       const headers = new Headers(createSSEHeaders());
       return attachSessionCookie(
         new Response(

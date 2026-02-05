@@ -20,7 +20,7 @@ import { nanoid } from "nanoid";
 import { NextResponse } from "next/server";
 import { withRateLimit } from "@/lib/rateLimit";
 import { normalizeV0Error } from "@/lib/v0/errors";
-import { getCurrentUser } from "@/lib/auth/auth";
+import { prepareCredits } from "@/lib/credits/server";
 import { ensureSessionIdFromRequest } from "@/lib/auth/session";
 import {
   ensureProjectForRequest,
@@ -85,9 +85,29 @@ export async function POST(req: Request) {
       const resolvedImageGenerations =
         typeof imageGenerations === "boolean" ? imageGenerations : true;
       const resolvedChatPrivacy = chatPrivacy ?? "private";
+      const creditContext = {
+        modelId,
+        thinking: resolvedThinking,
+        imageGenerations: resolvedImageGenerations,
+        attachmentsCount: Array.isArray(attachments) ? attachments.length : 0,
+      };
+      const creditCheck = await prepareCredits(req, "prompt.create", creditContext, { sessionId });
+      if (!creditCheck.ok) {
+        return attachSessionCookie(creditCheck.response);
+      }
+      const creditUser = creditCheck.user;
+      let didChargeCredits = false;
+      const commitCreditsOnce = async () => {
+        if (didChargeCredits) return;
+        didChargeCredits = true;
+        try {
+          await creditCheck.commit();
+        } catch (error) {
+          console.error("[credits] Failed to charge prompt:", error);
+        }
+      };
 
       try {
-        const user = await getCurrentUser(req);
         const metaPayload =
           meta && typeof meta === "object"
             ? (() => {
@@ -111,7 +131,7 @@ export async function POST(req: Request) {
               : null;
         await createPromptLog({
           event: "create_chat",
-          userId: user?.id || null,
+          userId: creditUser?.id || null,
           sessionId,
           appProjectId: null,
           v0ProjectId: projectId ?? null,
@@ -481,6 +501,7 @@ export async function POST(req: Request) {
                       durationMs: Date.now() - generationStartedAt,
                     });
                     devLogFinalizeSite();
+                    await commitCreditsOnce();
                   }
                 }
               }
@@ -578,6 +599,7 @@ export async function POST(req: Request) {
                       durationMs: Date.now() - generationStartedAt,
                     });
                     devLogFinalizeSite();
+                    await commitCreditsOnce();
                   }
                 } catch (finalizeErr) {
                   console.error("Failed to finalize streaming chat:", finalizeErr);
@@ -643,6 +665,7 @@ export async function POST(req: Request) {
         console.error("Failed to save chat to database:", dbError);
       }
 
+      await commitCreditsOnce();
       return attachSessionCookie(
         NextResponse.json({
           ...chatData,

@@ -2,26 +2,20 @@
  * API Route: Website Audit
  * POST /api/audit - Analyze a website and return audit results
  *
- * Cost: 3 diamonds
+ * Cost: See credits pricing
  * Model: AI Gateway (no web_search)
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { generateText, gateway } from "ai";
-import { getCurrentUser } from "@/lib/auth/auth";
-import { getUserById, createTransaction, isTestUser } from "@/lib/db/services";
+import { prepareCredits } from "@/lib/credits/server";
+import { getCreditCost, type CreditAction } from "@/lib/credits/pricing";
 import { scrapeWebsite, validateAndNormalizeUrl, getCanonicalUrlKey } from "@/lib/webscraper";
 import { buildAuditPrompt, extractFirstJsonObject, parseJsonWithRepair } from "@/lib/audit-prompts";
 import type { AuditMode, AuditResult, AuditRequest } from "@/types/audit";
 
 // Extend timeout for long-running AI calls
 export const maxDuration = 300; // 5 minutes
-
-// Audit cost in diamonds
-const AUDIT_COSTS: Record<AuditMode, number> = {
-  basic: 3,
-  advanced: 5,
-};
 
 // ═══════════════════════════════════════════════════════════════════════════
 // IN-FLIGHT AUDIT TRACKING - prevents duplicate concurrent requests
@@ -1115,7 +1109,9 @@ export async function POST(request: NextRequest) {
 
     const { url, auditMode } = body;
     const resolvedAuditMode: AuditMode = auditMode === "advanced" ? "advanced" : "basic";
-    const auditCost = AUDIT_COSTS[resolvedAuditMode];
+    const auditAction: CreditAction =
+      resolvedAuditMode === "advanced" ? "audit.advanced" : "audit.basic";
+    const auditCost = getCreditCost(auditAction);
 
     // Validate URL
     let normalizedUrl: string;
@@ -1136,45 +1132,22 @@ export async function POST(request: NextRequest) {
     // Get canonical key for duplicate detection
     const canonicalKey = getCanonicalUrlKey(normalizedUrl);
 
-    // Check authentication and credits
-    const user = await getCurrentUser(request);
-
-    if (!user) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "Du måste vara inloggad för att använda audit-funktionen.",
-          requiresAuth: true,
-        },
-        { status: 401 },
-      );
+    const creditCheck = await prepareCredits(request, auditAction);
+    if (!creditCheck.ok) {
+      return creditCheck.response;
     }
 
-    // Get fresh user data from database
-    const dbUser = await getUserById(user.id);
-    if (!dbUser) {
+    const user = creditCheck.user;
+    if (!user) {
       return NextResponse.json(
         { success: false, error: "Användare hittades inte." },
         { status: 404 },
       );
     }
 
-    // Check if user has enough diamonds (test users have unlimited)
-    const isTest = isTestUser(dbUser);
-    if (!isTest && dbUser.diamonds < auditCost) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: `Du behöver minst ${auditCost} diamanter för att köra en audit. Du har ${dbUser.diamonds} diamanter.`,
-          insufficientCredits: true,
-          required: auditCost,
-          current: dbUser.diamonds,
-        },
-        { status: 402 },
-      );
-    }
-
-    console.log(`[${requestId}] User ${user.id} has ${dbUser.diamonds} diamonds (test: ${isTest})`);
+    console.log(
+      `[${requestId}] User ${user.id} has ${user.diamonds} diamonds (test: ${creditCheck.isTest})`,
+    );
 
     // Check for duplicate in-flight audit (same user + URL)
     inFlightKey = `${user.id}:${canonicalKey}`;
@@ -1554,22 +1527,16 @@ export async function POST(request: NextRequest) {
       },
     };
 
-    // Deduct diamonds (only if not test user)
-    if (!isTest) {
-      try {
-        await createTransaction(
-          user.id,
-          "audit",
-          -auditCost,
-          `Site Audit (${resolvedAuditMode}): ${domain}`,
-        );
+    try {
+      await creditCheck.commit();
+      if (creditCheck.isTest) {
+        console.log(`[${requestId}] Test user - no diamonds deducted`);
+      } else {
         console.log(`[${requestId}] Deducted ${auditCost} diamonds from user ${user.id}`);
-      } catch (txError) {
-        console.error(`[${requestId}] Failed to deduct diamonds:`, txError);
-        // Still return result even if transaction fails
       }
-    } else {
-      console.log(`[${requestId}] Test user - no diamonds deducted`);
+    } catch (txError) {
+      console.error(`[${requestId}] Failed to deduct diamonds:`, txError);
+      // Still return result even if transaction fails
     }
 
     const totalDuration = Date.now() - requestStartTime;

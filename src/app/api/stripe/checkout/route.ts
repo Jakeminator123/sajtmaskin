@@ -52,13 +52,9 @@ export async function POST(req: NextRequest) {
     // Get base URL for redirects
     const baseUrl = URLS.baseUrl;
 
-    // Create Checkout Session
-    const session = await stripe.checkout.sessions.create({
-      mode: "payment",
-      payment_method_types: ["card"],
-      customer_email: user.email || undefined,
-      line_items: [
-        {
+    const lineItem = packageData.priceId
+      ? { price: packageData.priceId, quantity: 1 }
+      : {
           price_data: {
             currency: "sek",
             product_data: {
@@ -69,8 +65,14 @@ export async function POST(req: NextRequest) {
             unit_amount: packageData.price * 100, // Stripe uses cents/öre
           },
           quantity: 1,
-        },
-      ],
+        };
+
+    // Create Checkout Session
+    const session = await stripe.checkout.sessions.create({
+      mode: "payment",
+      payment_method_types: ["card"],
+      customer_email: user.email || undefined,
+      line_items: [lineItem],
       metadata: {
         userId: user.id,
         packageId: packageData.id,
