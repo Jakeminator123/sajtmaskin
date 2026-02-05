@@ -30,11 +30,13 @@ interface DialogHeaderProps {
 interface DialogTitleProps {
   children: ReactNode;
   className?: string;
+  id?: string;
 }
 
 interface DialogDescriptionProps {
   children: ReactNode;
   className?: string;
+  id?: string;
 }
 
 export function Dialog({ open, children }: DialogProps) {
@@ -160,17 +162,17 @@ export function DialogHeader({ children, className = "" }: DialogHeaderProps) {
   return <div className={`p-6 pb-4 ${className}`}>{children}</div>;
 }
 
-export function DialogTitle({ children, className = "" }: DialogTitleProps) {
+export function DialogTitle({ children, className = "", id }: DialogTitleProps) {
   return (
-    <h2 data-slot="dialog-title" className={`text-lg font-semibold text-white ${className}`}>
+    <h2 data-slot="dialog-title" id={id} className={`text-lg font-semibold text-white ${className}`}>
       {children}
     </h2>
   );
 }
 
-export function DialogDescription({ children, className = "" }: DialogDescriptionProps) {
+export function DialogDescription({ children, className = "", id }: DialogDescriptionProps) {
   return (
-    <p data-slot="dialog-description" className={`mt-1 text-sm text-gray-400 ${className}`}>
+    <p data-slot="dialog-description" id={id} className={`mt-1 text-sm text-gray-400 ${className}`}>
       {children}
     </p>
   );
