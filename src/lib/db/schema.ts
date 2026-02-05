@@ -103,6 +103,30 @@ export const promptHandoffs = pgTable("prompt_handoffs", {
   created_at: timestamp("created_at").defaultNow().notNull(),
 });
 
+export const promptLogs = pgTable("prompt_logs", {
+  id: text("id").primaryKey(),
+  event: text("event").notNull(),
+  user_id: text("user_id"),
+  session_id: text("session_id"),
+  app_project_id: text("app_project_id"),
+  v0_project_id: text("v0_project_id"),
+  chat_id: text("chat_id"),
+  prompt_original: text("prompt_original"),
+  prompt_formatted: text("prompt_formatted"),
+  system_prompt: text("system_prompt"),
+  prompt_assist_model: text("prompt_assist_model"),
+  prompt_assist_deep: boolean("prompt_assist_deep"),
+  prompt_assist_mode: text("prompt_assist_mode"),
+  build_intent: text("build_intent"),
+  build_method: text("build_method"),
+  model_tier: text("model_tier"),
+  image_generations: boolean("image_generations"),
+  thinking: boolean("thinking"),
+  attachments_count: integer("attachments_count"),
+  meta: jsonb("meta"),
+  created_at: timestamp("created_at").defaultNow().notNull(),
+});
+
 export const projectData = pgTable("project_data", {
   project_id: text("project_id")
     .primaryKey()
@@ -168,7 +192,7 @@ export const users = pgTable(
     github_id: text("github_id"),
     github_username: text("github_username"),
     github_token: text("github_token"),
-    diamonds: integer("diamonds").default(5).notNull(),
+    diamonds: integer("diamonds").default(50).notNull(),
     tier: text("tier"),
     created_at: timestamp("created_at").defaultNow().notNull(),
     updated_at: timestamp("updated_at").defaultNow().notNull(),

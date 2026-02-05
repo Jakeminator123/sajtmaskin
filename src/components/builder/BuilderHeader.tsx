@@ -65,6 +65,9 @@ export function BuilderHeader(props: {
 
   enableImageGenerations: boolean;
   onEnableImageGenerationsChange: (v: boolean) => void;
+  enableThinking: boolean;
+  onEnableThinkingChange: (v: boolean) => void;
+  isThinkingSupported: boolean;
   isImageGenerationsSupported: boolean;
   isMediaEnabled: boolean;
   enableBlobMedia: boolean;
@@ -102,6 +105,9 @@ export function BuilderHeader(props: {
     onDesignSystemModeChange,
     enableImageGenerations,
     onEnableImageGenerationsChange,
+    enableThinking,
+    onEnableThinkingChange,
+    isThinkingSupported,
     isImageGenerationsSupported,
     isMediaEnabled,
     enableBlobMedia,
@@ -202,8 +208,9 @@ export function BuilderHeader(props: {
                   </TooltipTrigger>
                   <TooltipContent side="left" className="max-w-xs">
                     <p className="text-xs">
-                      Förbättrar din prompt manuellt via AI Gateway eller v0 Model API. Själva
-                      bygget styrs av Model Tier (v0-mini/pro/max).
+                      Rättar stavning/tydlighet i prompten med minimal omskrivning. Behåller språk
+                      om du inte uttryckligen ber om engelska. Själva bygget styrs av Model Tier
+                      (v0-mini/pro/max).
                     </p>
                   </TooltipContent>
                 </Tooltip>
@@ -272,6 +279,31 @@ export function BuilderHeader(props: {
               <Sparkles className="mr-2 h-4 w-4" />
               Design System Mode
             </DropdownMenuCheckboxItem>
+
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div>
+                    <DropdownMenuCheckboxItem
+                      checked={enableThinking}
+                      onCheckedChange={onEnableThinkingChange}
+                      disabled={isBusy || !isThinkingSupported}
+                    >
+                      <Sparkles className="mr-2 h-4 w-4" />
+                      Thinking
+                      {!isThinkingSupported && (
+                        <span className="text-muted-foreground ml-2 text-xs">(ej för mini)</span>
+                      )}
+                    </DropdownMenuCheckboxItem>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="left" className="max-w-xs">
+                  <p className="text-xs">
+                    Aktiverar mer resonemang i v0-svaret. Ger högre kvalitet men kan ta längre tid.
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
 
             <TooltipProvider>
               <Tooltip>

@@ -55,7 +55,6 @@ const WARN_PROMPT_LENGTH = Number(process.env.V0_WARN_PROMPT_LENGTH) || 30000;
 
 // Rate limit retry config
 const RATE_LIMIT_RETRY_DELAY_MS = 2000;
-const RATE_LIMIT_MAX_RETRIES = 2;
 
 // Lazy-initialized v0 client (created at request time, not import time)
 let _v0Client: ReturnType<typeof createClient> | null = null;
@@ -530,6 +529,8 @@ export interface GenerateCodeOptions {
   categoryType?: string;
   /** Build intent to guide prompt/system rules */
   buildIntent?: BuildIntent;
+  /** Enable v0 thinking mode (reasoning) */
+  thinking?: boolean;
   /** Image URLs to use as reference/inspiration */
   attachments?: Array<{ url: string }>;
   /** Enable image generation in the output */
@@ -640,6 +641,11 @@ export async function generateCode(
   }
 
   const systemPrompt = resolveBuildIntentSystemPrompt(options.buildIntent, options.systemPrompt);
+  const resolvedImageGenerations =
+    typeof options.imageGenerations === "boolean" ? options.imageGenerations : true;
+  const resolvedThinking =
+    typeof options.thinking === "boolean" ? options.thinking : modelId !== "v0-mini";
+
   debugLog("v0", "[v0-generator] Creating chat with v0 Platform API...");
   debugLog("v0", "[v0-generator] Model:", modelId);
   debugLog("v0", "[v0-generator] Prompt length:", fullPrompt.length);
@@ -677,9 +683,9 @@ export async function generateCode(
       chatPrivacy: "private",
       modelConfiguration: {
         modelId: toSdkModelId(modelId),
-        imageGenerations: options.imageGenerations ?? true,
-        // Enable thinking for better reasoning (premium gets more detailed thinking)
-        thinking: modelId === "v0-max",
+        imageGenerations: resolvedImageGenerations,
+        // Enable reasoning by default for non-mini tiers (override via options.thinking)
+        thinking: resolvedThinking,
       },
       // Use streaming mode if enabled, otherwise sync for full ChatDetail response
       responseMode: useStreaming ? undefined : "sync",
@@ -875,6 +881,7 @@ export async function refineCode(
       message: refinementInstruction,
       modelConfiguration: {
         modelId: toSdkModelId(modelId),
+        thinking: modelId !== "v0-mini",
       },
       responseMode: "sync", // Force synchronous response
     })) as ChatDetail;

@@ -474,7 +474,7 @@ ${technicalPrompt}`;
                 className="h-8"
                 onClick={handleEnhancePrompt}
                 disabled={inputDisabled || isEnhancing || !input.trim()}
-                title="Förbättra nuvarande prompt"
+                title="Rätta stavning/tydlighet i prompten"
               >
                 {isEnhancing ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />

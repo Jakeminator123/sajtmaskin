@@ -1,5 +1,6 @@
 import {
   buildV0PromptFromBrief,
+  buildV0PolishSystemPrompt,
   buildV0RewriteSystemPrompt,
   buildDynamicInstructionAddendumFromBrief,
   buildDynamicInstructionAddendumFromPrompt,
@@ -25,9 +26,15 @@ type UsePromptAssistParams = {
 // Token limits - these are defaults; the server can override via env
 const PROMPT_ASSIST_MAX_TOKENS = 2200;
 const BRIEF_ASSIST_MAX_TOKENS = 2600;
+// 10 minutes to accommodate slow models or gateway delays
+const PROMPT_ASSIST_TIMEOUT_MS = 600_000;
+
+type PromptAssistMode = "rewrite" | "polish";
 
 type PromptAssistOptions = {
   forceShallow?: boolean;
+  mode?: PromptAssistMode;
+  forceEnglish?: boolean;
 };
 
 const STOPWORDS = new Set([
@@ -98,19 +105,31 @@ export function usePromptAssist(params: UsePromptAssistParams) {
 
   const maybeEnhanceInitialPrompt = useCallback(
     async (originalPrompt: string, options: PromptAssistOptions = {}): Promise<string> => {
+      const mode = options.mode ?? "rewrite";
       const normalizedModel = normalizeAssistModel(model);
       if (!isPromptAssistModelAllowed(normalizedModel)) {
         toast.error("Ogiltig förbättra‑modell. Välj en giltig modell.");
         return originalPrompt;
       }
       const provider = resolvePromptAssistProvider(normalizedModel);
-      const systemPrompt = buildV0RewriteSystemPrompt({ codeContext, buildIntent });
+      const wantsEnglish =
+        options.forceEnglish ??
+        /\b(english|in english|på engelska|engelska)\b/i.test(originalPrompt);
+      const systemPrompt =
+        mode === "polish"
+          ? buildV0PolishSystemPrompt({ buildIntent, forceEnglish: wantsEnglish })
+          : buildV0RewriteSystemPrompt({ codeContext, buildIntent });
       const startedAt = Date.now();
       const resolvedDeep = isGatewayAssistModel(normalizedModel) ? deep : false;
-      const useDeep = resolvedDeep && !options.forceShallow;
+      const allowDeep = mode !== "polish";
+      const useDeep = allowDeep && resolvedDeep && !options.forceShallow;
       const originalNormalized = originalPrompt.trim();
 
-      const applyGuardrails = (candidate: string, source: "brief" | "shallow"): string => {
+      const applyGuardrails = (
+        candidate: string,
+        source: "brief" | "shallow",
+        allowLanguageSwitch: boolean,
+      ): string => {
         const enhanced = candidate.trim();
         if (!enhanced) {
           debugLog("AI", "Prompt assist guardrail fallback", { source, reason: "empty" });
@@ -125,7 +144,8 @@ export function usePromptAssist(params: UsePromptAssistParams) {
           });
           return originalPrompt;
         }
-        if (enhanced.length < originalNormalized.length * 0.15 && originalNormalized.length > 120) {
+        const minLengthRatio = mode === "polish" ? 0.65 : 0.15;
+        if (enhanced.length < originalNormalized.length * minLengthRatio && originalNormalized.length > 120) {
           debugLog("AI", "Prompt assist guardrail fallback", {
             source,
             reason: "shrunk_too_much",
@@ -134,7 +154,21 @@ export function usePromptAssist(params: UsePromptAssistParams) {
           });
           return originalPrompt;
         }
-        if (hasSwedishChars(originalNormalized) && !hasSwedishChars(enhanced)) {
+        const maxLengthRatio = mode === "polish" ? 1.45 : 999;
+        if (
+          mode === "polish" &&
+          originalNormalized.length > 80 &&
+          enhanced.length > originalNormalized.length * maxLengthRatio
+        ) {
+          debugLog("AI", "Prompt assist guardrail fallback", {
+            source,
+            reason: "grew_too_much",
+            originalLength: originalNormalized.length,
+            enhancedLength: enhanced.length,
+          });
+          return originalPrompt;
+        }
+        if (hasSwedishChars(originalNormalized) && !hasSwedishChars(enhanced) && !allowLanguageSwitch) {
           debugLog("AI", "Prompt assist guardrail fallback", {
             source,
             reason: "language_mismatch",
@@ -142,7 +176,8 @@ export function usePromptAssist(params: UsePromptAssistParams) {
           return originalPrompt;
         }
         const overlap = computeOverlapRatio(originalNormalized, enhanced);
-        if (overlap < 0.2 && originalNormalized.length > 80) {
+        const minOverlap = mode === "polish" ? 0.55 : 0.2;
+        if (overlap < minOverlap && originalNormalized.length > 80) {
           debugLog("AI", "Prompt assist guardrail fallback", {
             source,
             reason: "low_overlap",
@@ -163,8 +198,8 @@ export function usePromptAssist(params: UsePromptAssistParams) {
 
       const runShallow = async (): Promise<string> => {
         const controller = new AbortController();
-        // Normal prompt assist: 7 minuter timeout för att hantera långsamma modeller
-        const timeoutId = setTimeout(() => controller.abort(), 420_000);
+        // Normal prompt assist: längre timeout för att hantera långsamma modeller
+        const timeoutId = setTimeout(() => controller.abort(), PROMPT_ASSIST_TIMEOUT_MS);
 
         let res: Response;
         try {
@@ -175,7 +210,7 @@ export function usePromptAssist(params: UsePromptAssistParams) {
             body: JSON.stringify({
               provider,
               model: normalizedModel,
-              temperature: 0.2,
+              temperature: mode === "polish" ? 0.1 : 0.2,
               maxTokens: PROMPT_ASSIST_MAX_TOKENS,
               messages: [
                 { role: "system", content: systemPrompt },
@@ -200,21 +235,25 @@ export function usePromptAssist(params: UsePromptAssistParams) {
           durationMs: Date.now() - startedAt,
           outputLength: enhanced.length,
         });
-        toast.success("Prompt förbättrad", { id: "sajtmaskin:prompt-assist" });
-        return applyGuardrails(enhanced, "shallow");
+        toast.success(mode === "polish" ? "Prompt rättad" : "Prompt förbättrad", {
+          id: "sajtmaskin:prompt-assist",
+        });
+        return applyGuardrails(enhanced, "shallow", Boolean(wantsEnglish));
       };
 
       try {
         const loadingMsg = useDeep
           ? "Skapar detaljerad brief (kan ta 30-60s)..."
-          : "Förbättrar prompt...";
+          : mode === "polish"
+            ? "Rättar prompt..."
+            : "Förbättrar prompt...";
         toast.loading(loadingMsg, { id: "sajtmaskin:prompt-assist" });
 
-        if (useDeep) {
+        if (useDeep && allowDeep) {
           try {
             const controller = new AbortController();
-            // Deep brief kan ta lång tid med GPT-5, 7 minuter timeout
-            const timeoutId = setTimeout(() => controller.abort(), 420_000);
+            // Deep brief kan ta lång tid med GPT-5, längre timeout
+            const timeoutId = setTimeout(() => controller.abort(), PROMPT_ASSIST_TIMEOUT_MS);
             let briefRes: Response;
             try {
               briefRes = await fetch("/api/ai/brief", {
@@ -259,7 +298,7 @@ export function usePromptAssist(params: UsePromptAssistParams) {
               outputLength: finalPrompt.length,
             });
             toast.success("Prompt förbättrad (brief)", { id: "sajtmaskin:prompt-assist" });
-            return applyGuardrails(finalPrompt, "brief");
+            return applyGuardrails(finalPrompt, "brief", Boolean(wantsEnglish));
           } catch (err) {
             debugLog("AI", "Brief assist failed, falling back to shallow", {
               durationMs: Date.now() - startedAt,
@@ -351,7 +390,7 @@ export function usePromptAssist(params: UsePromptAssistParams) {
       }
 
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 420_000);
+      const timeoutId = setTimeout(() => controller.abort(), PROMPT_ASSIST_TIMEOUT_MS);
       try {
         toast.loading("Skapar dynamiska instruktioner...", {
           id: "sajtmaskin:dynamic-instructions",

@@ -24,17 +24,30 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
         );
       }
 
-      const { message, attachments } = validationResult.data;
+      const { message, attachments, modelId, thinking, imageGenerations, system } =
+        validationResult.data;
 
       const dbChat = await getChatByV0ChatIdForRequest(req, chatId);
       if (!dbChat) {
         return NextResponse.json({ error: "Chat not found" }, { status: 404 });
       }
 
+      const resolvedModelId = modelId || "v0-max";
+      const resolvedThinking =
+        typeof thinking === "boolean" ? thinking : resolvedModelId === "v0-max";
+      const resolvedImageGenerations =
+        typeof imageGenerations === "boolean" ? imageGenerations : true;
+
       const result = await v0.chats.sendMessage({
         chatId,
         message,
         attachments,
+        modelConfiguration: {
+          modelId: resolvedModelId,
+          thinking: resolvedThinking,
+          imageGenerations: resolvedImageGenerations,
+        },
+        ...(typeof system === "string" && system.trim() ? { system: system.trim() } : {}),
       });
 
       const messageResult = result as any;

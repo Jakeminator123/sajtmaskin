@@ -11,7 +11,7 @@ alwaysApply: true
 ## Where to find the docs
 
 - In the root folder, there is a folder: `Services`
-- Inside `Services`, there is a folder: `MPC` *(typo — should be `MCP`)*
+- Inside `Services`, there is a folder: `MPC` _(typo — should be `MCP`)_
 - Inside `Services/MPC`, there are documents alongside the server **MGS**.
 
 ## When to use these docs
@@ -19,5 +19,11 @@ alwaysApply: true
 - If you are unsure about anything related to this part of my website, consult these docs first, especially for:
   - User-facing page building / site generation
   - API integrations
+  - cahdcn ui
+  - SDK 6
+  - Platform API
+  - Model API
+  - AI SDK
+  - v0 SDK
   - SDK usage
   - General integrations and implementation details

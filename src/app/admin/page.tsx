@@ -24,6 +24,8 @@ import {
   AlertTriangle,
   HardDrive,
   Server,
+  Key,
+  FileText,
 } from "lucide-react";
 
 interface AnalyticsStats {
@@ -64,6 +66,83 @@ interface DatabaseStats {
   dataDir?: string;
 }
 
+interface EnvKeyStatus {
+  key: string;
+  required: boolean;
+  present: boolean;
+  notes?: string;
+}
+
+interface EnvStatusPayload {
+  runtime: {
+    nodeEnv: string | null;
+    vercelEnv: string | null;
+    vercel: string | null;
+    appUrl: string | null;
+    baseUrl: string;
+    vercelUrl: string | null;
+  };
+  vercel: {
+    teamId: string | null;
+    projectId: string | null;
+  };
+  features: Record<string, boolean>;
+  keys: EnvKeyStatus[];
+}
+
+interface IntegrationItem {
+  id: string;
+  label: string;
+  enabled: boolean;
+  required: boolean;
+  requiredEnv: string[];
+  affects: string;
+  notes?: string;
+}
+
+interface IntegrationStatus {
+  updatedAt: string;
+  items: IntegrationItem[];
+}
+
+interface VercelProject {
+  id: string;
+  name: string;
+  accountId: string;
+  updatedAt: number;
+}
+
+interface VercelEnvVar {
+  id: string | null;
+  key: string;
+  target: string[];
+  type?: string | null;
+}
+
+interface PromptLog {
+  id: string;
+  event: string;
+  userId: string | null;
+  sessionId: string | null;
+  appProjectId: string | null;
+  v0ProjectId: string | null;
+  chatId: string | null;
+  promptOriginal: string | null;
+  promptFormatted: string | null;
+  systemPrompt: string | null;
+  promptAssistModel: string | null;
+  promptAssistDeep: boolean | null;
+  promptAssistMode: string | null;
+  buildIntent: string | null;
+  buildMethod: string | null;
+  modelTier: string | null;
+  imageGenerations: boolean | null;
+  thinking: boolean | null;
+  attachmentsCount: number | null;
+  meta: Record<string, unknown> | null;
+  createdAt: string | null;
+}
+
 export default function AdminPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -73,10 +152,26 @@ export default function AdminPage() {
   const [stats, setStats] = useState<AnalyticsStats | null>(null);
   const [dbStats, setDbStats] = useState<DatabaseStats | null>(null);
   const [days, setDays] = useState(30);
-  const [activeTab, setActiveTab] = useState<"analytics" | "database">("analytics");
+  const [activeTab, setActiveTab] = useState<
+    "analytics" | "database" | "environment" | "prompts"
+  >("analytics");
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [confirmAction, setConfirmAction] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+  const [envStatus, setEnvStatus] = useState<EnvStatusPayload | null>(null);
+  const [envError, setEnvError] = useState<string | null>(null);
+  const [envLoading, setEnvLoading] = useState(false);
+  const [integrationStatus, setIntegrationStatus] = useState<IntegrationStatus | null>(null);
+  const [vercelProjects, setVercelProjects] = useState<VercelProject[]>([]);
+  const [vercelProjectsLoading, setVercelProjectsLoading] = useState(false);
+  const [vercelProjectsError, setVercelProjectsError] = useState<string | null>(null);
+  const [selectedVercelProjectId, setSelectedVercelProjectId] = useState<string | null>(null);
+  const [vercelEnvVars, setVercelEnvVars] = useState<VercelEnvVar[]>([]);
+  const [vercelEnvLoading, setVercelEnvLoading] = useState(false);
+  const [confirmVercelProjectId, setConfirmVercelProjectId] = useState<string | null>(null);
+  const [promptLogs, setPromptLogs] = useState<PromptLog[]>([]);
+  const [promptLogsLoading, setPromptLogsLoading] = useState(false);
+  const [promptLogsError, setPromptLogsError] = useState<string | null>(null);
 
   const fetchStats = async () => {
     setIsLoading(true);
@@ -117,6 +212,90 @@ export default function AdminPage() {
     }
   };
 
+  const fetchEnvStatus = async () => {
+    setEnvLoading(true);
+    setEnvError(null);
+    try {
+      const response = await fetch("/api/admin/env");
+      const data = await response.json();
+      if (data.success) {
+        setEnvStatus(data);
+      } else {
+        setEnvError(data.error || "Kunde inte hämta miljöstatus");
+      }
+    } catch {
+      setEnvError("Kunde inte hämta miljöstatus");
+    } finally {
+      setEnvLoading(false);
+    }
+  };
+
+  const fetchIntegrations = async () => {
+    try {
+      const response = await fetch("/api/integrations/status");
+      const data = await response.json();
+      if (response.ok) {
+        setIntegrationStatus(data);
+      }
+    } catch {
+      // Non-blocking
+    }
+  };
+
+  const fetchVercelProjects = async () => {
+    setVercelProjectsLoading(true);
+    setVercelProjectsError(null);
+    try {
+      const response = await fetch("/api/admin/vercel/projects");
+      const data = await response.json();
+      if (data.success) {
+        setVercelProjects(Array.isArray(data.projects) ? data.projects : []);
+      } else {
+        setVercelProjectsError(data.error || "Kunde inte hämta Vercel-projekt");
+      }
+    } catch {
+      setVercelProjectsError("Kunde inte hämta Vercel-projekt");
+    } finally {
+      setVercelProjectsLoading(false);
+    }
+  };
+
+  const fetchVercelEnv = async (projectId: string) => {
+    if (!projectId) return;
+    setVercelEnvLoading(true);
+    try {
+      const response = await fetch(
+        `/api/admin/vercel/env?projectId=${encodeURIComponent(projectId)}`,
+      );
+      const data = await response.json();
+      if (data.success) {
+        setVercelEnvVars(Array.isArray(data.envs) ? data.envs : []);
+      }
+    } catch {
+      // Non-blocking
+    } finally {
+      setVercelEnvLoading(false);
+    }
+  };
+
+  const fetchPromptLogs = async () => {
+    setPromptLogsLoading(true);
+    setPromptLogsError(null);
+    try {
+      const response = await fetch("/api/admin/prompt-logs?limit=20");
+      const data = await response.json();
+      if (data.success) {
+        setPromptLogs(Array.isArray(data.logs) ? data.logs : []);
+      } else {
+        setPromptLogsError(data.error || "Kunde inte hämta promptloggar");
+      }
+    } catch {
+      setPromptLogsError("Kunde inte hämta promptloggar");
+    } finally {
+      setPromptLogsLoading(false);
+    }
+  };
+
   // Check if already authenticated on mount
   useEffect(() => {
     const stored = localStorage.getItem("admin-auth");
@@ -149,6 +328,30 @@ export default function AdminPage() {
       fetchDbStats();
     }
   }, [activeTab, isAuthenticated]);
+
+  useEffect(() => {
+    if (activeTab === "environment" && isAuthenticated) {
+      fetchEnvStatus();
+      fetchIntegrations();
+      fetchVercelProjects();
+    }
+  }, [activeTab, isAuthenticated]);
+
+  useEffect(() => {
+    if (activeTab === "prompts" && isAuthenticated) {
+      fetchPromptLogs();
+    }
+  }, [activeTab, isAuthenticated]);
+
+  useEffect(() => {
+    if (!envStatus?.vercel?.projectId || selectedVercelProjectId) return;
+    setSelectedVercelProjectId(envStatus.vercel.projectId);
+  }, [envStatus, selectedVercelProjectId]);
+
+  useEffect(() => {
+    if (!selectedVercelProjectId) return;
+    fetchVercelEnv(selectedVercelProjectId);
+  }, [selectedVercelProjectId]);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -296,6 +499,37 @@ export default function AdminPage() {
     }
   };
 
+  const handleDeleteVercelProject = async (project: VercelProject) => {
+    if (confirmVercelProjectId !== project.id) {
+      setConfirmVercelProjectId(project.id);
+      return;
+    }
+
+    setActionLoading(`vercel:${project.id}`);
+    try {
+      const res = await fetch(`/api/admin/vercel/projects/${encodeURIComponent(project.id)}`, {
+        method: "DELETE",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        throw new Error(data?.error || "Kunde inte radera projekt");
+      }
+      setMessage(`Raderade Vercel-projekt: ${project.name}`);
+      setTimeout(() => setMessage(null), 5000);
+      await fetchVercelProjects();
+      if (selectedVercelProjectId === project.id) {
+        setSelectedVercelProjectId(null);
+        setVercelEnvVars([]);
+      }
+    } catch (err) {
+      setMessage(err instanceof Error ? err.message : "Radering misslyckades");
+      setTimeout(() => setMessage(null), 5000);
+    } finally {
+      setActionLoading(null);
+      setConfirmVercelProjectId(null);
+    }
+  };
+
   // Login form
   if (!isAuthenticated) {
     return (
@@ -424,6 +658,32 @@ export default function AdminPage() {
           >
             <Database className="h-4 w-4" />
             Databaser
+          </Button>
+          <Button
+            variant={activeTab === "environment" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setActiveTab("environment")}
+            className={`gap-2 ${
+              activeTab === "environment"
+                ? "bg-brand-teal hover:bg-brand-teal/90"
+                : "border-gray-700 text-gray-400 hover:bg-gray-800 hover:text-white"
+            }`}
+          >
+            <Key className="h-4 w-4" />
+            Miljö
+          </Button>
+          <Button
+            variant={activeTab === "prompts" ? "default" : "outline"}
+            size="sm"
+            onClick={() => setActiveTab("prompts")}
+            className={`gap-2 ${
+              activeTab === "prompts"
+                ? "bg-brand-teal hover:bg-brand-teal/90"
+                : "border-gray-700 text-gray-400 hover:bg-gray-800 hover:text-white"
+            }`}
+          >
+            <FileText className="h-4 w-4" />
+            Promptloggar
           </Button>
         </div>
 
@@ -1137,6 +1397,350 @@ export default function AdminPage() {
                   </p>
                 </div>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Environment Tab */}
+        {activeTab === "environment" && (
+          <div className="space-y-6">
+            {/* Runtime Section */}
+            <div className="border border-gray-800 bg-black/50 p-6">
+              <div className="mb-6 flex items-center gap-3">
+                <div className="bg-brand-teal/10 flex h-10 w-10 items-center justify-center">
+                  <Server className="text-brand-teal h-5 w-5" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold text-white">Runtime</h2>
+                  <p className="text-sm text-gray-500">Aktiv miljö och bas‑URL</p>
+                </div>
+              </div>
+
+              {envLoading && <p className="text-sm text-gray-500">Laddar miljöstatus...</p>}
+              {envError && <p className="text-sm text-red-400">{envError}</p>}
+
+              {envStatus && (
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                  <div className="border border-gray-800 bg-black/30 p-4">
+                    <div className="text-xs text-gray-500">NODE_ENV</div>
+                    <div className="text-sm text-white">{envStatus.runtime.nodeEnv || "okänd"}</div>
+                  </div>
+                  <div className="border border-gray-800 bg-black/30 p-4">
+                    <div className="text-xs text-gray-500">VERCEL_ENV</div>
+                    <div className="text-sm text-white">{envStatus.runtime.vercelEnv || "lokal"}</div>
+                  </div>
+                  <div className="border border-gray-800 bg-black/30 p-4">
+                    <div className="text-xs text-gray-500">Base URL</div>
+                    <div className="text-sm text-white">{envStatus.runtime.baseUrl}</div>
+                  </div>
+                  <div className="border border-gray-800 bg-black/30 p-4">
+                    <div className="text-xs text-gray-500">Vercel URL</div>
+                    <div className="text-sm text-white">
+                      {envStatus.runtime.vercelUrl || "ej tillgänglig"}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Integrations Section */}
+            <div className="border border-gray-800 bg-black/50 p-6">
+              <div className="mb-4 flex items-center gap-3">
+                <div className="bg-brand-teal/10 flex h-10 w-10 items-center justify-center">
+                  <Sparkles className="text-brand-teal h-5 w-5" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold text-white">Integrationer</h2>
+                  <p className="text-sm text-gray-500">Status per integration</p>
+                </div>
+              </div>
+
+              {!integrationStatus ? (
+                <p className="text-sm text-gray-500">Laddar integrationsstatus...</p>
+              ) : (
+                <div className="grid gap-2 md:grid-cols-2">
+                  {integrationStatus.items.map((item) => (
+                    <div key={item.id} className="border border-gray-800 bg-black/30 p-3 text-sm">
+                      <div className="flex items-center justify-between">
+                        <span className="text-gray-200">{item.label}</span>
+                        <span className={item.enabled ? "text-green-400" : "text-red-400"}>
+                          {item.enabled ? "OK" : item.required ? "Saknas" : "Valfri"}
+                        </span>
+                      </div>
+                      <div className="text-xs text-gray-500">{item.affects}</div>
+                      {item.notes && <div className="text-xs text-gray-600">Info: {item.notes}</div>}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Env Keys Section */}
+            <div className="border border-gray-800 bg-black/50 p-6">
+              <div className="mb-4 flex items-center gap-3">
+                <div className="bg-brand-teal/10 flex h-10 w-10 items-center justify-center">
+                  <Key className="text-brand-teal h-5 w-5" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold text-white">Env‑nycklar (runtime)</h2>
+                  <p className="text-sm text-gray-500">Visar endast om nyckeln finns</p>
+                </div>
+              </div>
+
+              {!envStatus ? (
+                <p className="text-sm text-gray-500">Laddar env‑status...</p>
+              ) : (
+                <div className="grid gap-2 md:grid-cols-2">
+                  {envStatus.keys.map((item) => (
+                    <div key={item.key} className="border border-gray-800 bg-black/30 p-3 text-sm">
+                      <div className="flex items-center justify-between">
+                        <span className="font-mono text-xs text-gray-300">{item.key}</span>
+                        <span className={item.present ? "text-green-400" : "text-red-400"}>
+                          {item.present ? "Satt" : item.required ? "Saknas" : "Valfri"}
+                        </span>
+                      </div>
+                      {item.notes && <div className="text-xs text-gray-500">{item.notes}</div>}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Vercel Projects Section */}
+            <div className="border border-gray-800 bg-black/50 p-6">
+              <div className="mb-4 flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="bg-brand-blue/10 flex h-10 w-10 items-center justify-center">
+                    <FolderOpen className="text-brand-blue h-5 w-5" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-semibold text-white">Vercel‑projekt</h2>
+                    <p className="text-sm text-gray-500">Lista och radera projekt</p>
+                  </div>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={fetchVercelProjects}
+                  disabled={vercelProjectsLoading}
+                  className="gap-2 border-gray-700 text-gray-400 hover:bg-gray-800 hover:text-white"
+                >
+                  <RefreshCw className={`h-4 w-4 ${vercelProjectsLoading ? "animate-spin" : ""}`} />
+                  Uppdatera
+                </Button>
+              </div>
+
+              {vercelProjectsError && (
+                <p className="text-sm text-red-400">{vercelProjectsError}</p>
+              )}
+
+              {vercelProjectsLoading && (
+                <p className="text-sm text-gray-500">Hämtar Vercel‑projekt...</p>
+              )}
+
+              {!vercelProjectsLoading && vercelProjects.length === 0 && (
+                <p className="text-sm text-gray-500">Inga projekt hittades.</p>
+              )}
+
+              {vercelProjects.length > 0 && (
+                <div className="space-y-2">
+                  {vercelProjects.map((project) => {
+                    const isConfirm = confirmVercelProjectId === project.id;
+                    const isLoading = actionLoading === `vercel:${project.id}`;
+                    const isSelected = selectedVercelProjectId === project.id;
+                    return (
+                      <div
+                        key={project.id}
+                        className={`border border-gray-800 bg-black/30 p-3 text-sm ${
+                          isSelected ? "ring-1 ring-brand-teal/60" : ""
+                        }`}
+                      >
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <div>
+                            <div className="text-gray-200">{project.name}</div>
+                            <div className="text-xs text-gray-500">ID: {project.id}</div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => setSelectedVercelProjectId(project.id)}
+                              className="border-gray-700 text-gray-400 hover:bg-gray-800 hover:text-white"
+                            >
+                              Visa env
+                            </Button>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleDeleteVercelProject(project)}
+                              disabled={isLoading}
+                              className={`gap-2 ${
+                                isConfirm
+                                  ? "border-red-500 text-red-400"
+                                  : "border-gray-700 text-gray-400 hover:bg-gray-800 hover:text-white"
+                              }`}
+                            >
+                              {isLoading ? (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                              ) : isConfirm ? (
+                                <AlertTriangle className="h-3 w-3" />
+                              ) : (
+                                <Trash2 className="h-3 w-3" />
+                              )}
+                              {isConfirm ? "Bekräfta?" : "Radera"}
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Vercel Env Section */}
+            <div className="border border-gray-800 bg-black/50 p-6">
+              <div className="mb-4 flex items-center gap-3">
+                <div className="bg-brand-blue/10 flex h-10 w-10 items-center justify-center">
+                  <Database className="text-brand-blue h-5 w-5" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-semibold text-white">Vercel env‑variabler</h2>
+                  <p className="text-sm text-gray-500">Visar nycklar + targets</p>
+                </div>
+              </div>
+
+              <div className="mb-3 flex flex-wrap items-center gap-2">
+                <span className="text-xs text-gray-500">Projekt:</span>
+                <select
+                  value={selectedVercelProjectId ?? ""}
+                  onChange={(e) => setSelectedVercelProjectId(e.target.value || null)}
+                  className="border border-gray-700 bg-black/50 px-3 py-2 text-xs text-white"
+                >
+                  <option value="">Välj projekt</option>
+                  {vercelProjects.map((project) => (
+                    <option key={project.id} value={project.id}>
+                      {project.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {vercelEnvLoading && (
+                <p className="text-sm text-gray-500">Hämtar env‑variabler...</p>
+              )}
+
+              {!vercelEnvLoading && selectedVercelProjectId && vercelEnvVars.length === 0 && (
+                <p className="text-sm text-gray-500">Inga env‑variabler hittades.</p>
+              )}
+
+              {vercelEnvVars.length > 0 && (
+                <div className="grid gap-2 md:grid-cols-2">
+                  {vercelEnvVars.map((envVar) => (
+                    <div key={envVar.id || envVar.key} className="border border-gray-800 bg-black/30 p-3 text-sm">
+                      <div className="flex items-center justify-between">
+                        <span className="font-mono text-xs text-gray-300">{envVar.key}</span>
+                        <span className="text-xs text-gray-500">
+                          {envVar.target.length > 0 ? envVar.target.join(", ") : "ingen target"}
+                        </span>
+                      </div>
+                      {envVar.type && <div className="text-xs text-gray-600">Typ: {envVar.type}</div>}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Prompt Logs Tab */}
+        {activeTab === "prompts" && (
+          <div className="space-y-6">
+            <div className="border border-gray-800 bg-black/50 p-6">
+              <div className="mb-4 flex items-center justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <div className="bg-brand-teal/10 flex h-10 w-10 items-center justify-center">
+                    <FileText className="text-brand-teal h-5 w-5" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-semibold text-white">Promptloggar</h2>
+                    <p className="text-sm text-gray-500">
+                      Senaste 20 körningar (val + genererad prompt)
+                    </p>
+                  </div>
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => fetchPromptLogs()}
+                  disabled={promptLogsLoading}
+                  className="gap-2 border-gray-700 text-gray-400 hover:bg-gray-800 hover:text-white"
+                >
+                  <RefreshCw className={`h-4 w-4 ${promptLogsLoading ? "animate-spin" : ""}`} />
+                  Uppdatera
+                </Button>
+              </div>
+
+              {promptLogsLoading && <p className="text-sm text-gray-500">Hämtar promptloggar...</p>}
+              {promptLogsError && <p className="text-sm text-red-400">{promptLogsError}</p>}
+
+              {!promptLogsLoading && !promptLogsError && promptLogs.length === 0 && (
+                <p className="text-sm text-gray-500">Inga promptloggar hittades ännu.</p>
+              )}
+
+              {promptLogs.length > 0 && (
+                <div className="space-y-4">
+                  {promptLogs.map((log) => (
+                    <div key={log.id} className="border border-gray-800 bg-black/30 p-4">
+                      <div className="flex flex-wrap items-center gap-2 text-xs text-gray-400">
+                        <span>
+                          {log.createdAt
+                            ? new Date(log.createdAt).toLocaleString("sv-SE")
+                            : "okänd tid"}
+                        </span>
+                        <span>• {log.event}</span>
+                        {log.modelTier && <span>• Tier: {log.modelTier}</span>}
+                        {log.buildIntent && <span>• Intent: {log.buildIntent}</span>}
+                        {log.buildMethod && <span>• Metod: {log.buildMethod}</span>}
+                        {typeof log.imageGenerations === "boolean" && (
+                          <span>• Bilder: {log.imageGenerations ? "på" : "av"}</span>
+                        )}
+                        {typeof log.thinking === "boolean" && (
+                          <span>• Thinking: {log.thinking ? "på" : "av"}</span>
+                        )}
+                        {log.promptAssistModel && (
+                          <span>• Förbättra‑modell: {log.promptAssistModel}</span>
+                        )}
+                        {typeof log.promptAssistDeep === "boolean" && (
+                          <span>• Deep: {log.promptAssistDeep ? "ja" : "nej"}</span>
+                        )}
+                      </div>
+
+                      <div className="mt-3 grid gap-3 md:grid-cols-2">
+                        <div>
+                          <p className="text-xs text-gray-500">Prompt (original)</p>
+                          <pre className="mt-1 max-h-48 overflow-auto whitespace-pre-wrap text-xs text-gray-200">
+                            {log.promptOriginal || "—"}
+                          </pre>
+                        </div>
+                        <div>
+                          <p className="text-xs text-gray-500">Prompt (formaterad)</p>
+                          <pre className="mt-1 max-h-48 overflow-auto whitespace-pre-wrap text-xs text-gray-200">
+                            {log.promptFormatted || "—"}
+                          </pre>
+                        </div>
+                      </div>
+
+                      <div className="mt-3">
+                        <p className="text-xs text-gray-500">Systemprompt</p>
+                        <pre className="mt-1 max-h-48 overflow-auto whitespace-pre-wrap text-xs text-gray-200">
+                          {log.systemPrompt || "—"}
+                        </pre>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           </div>
         )}

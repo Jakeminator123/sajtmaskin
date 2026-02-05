@@ -119,11 +119,14 @@ export const DEFAULT_PROMPT_ASSIST_ENABLED = true;
 /** Default for AI image generation toggle */
 export const DEFAULT_IMAGE_GENERATIONS = true;
 
+/** Default for v0 thinking toggle */
+export const DEFAULT_THINKING = true;
+
 /** Default system instructions for new chats (editable in UI) */
 export const DEFAULT_CUSTOM_INSTRUCTIONS = `## Tech Stack
 - Next.js 15 App Router with TypeScript
-- Tailwind CSS v4 for styling (use utility classes, avoid custom @property rules)
-- shadcn/ui components from \`@/components/ui/*\`
+- Tailwind CSS v4 for styling (utility classes)
+- shadcn/ui components (\`@/components/ui/*\`)
 - Do not change core versions for next, react, react-dom, tailwindcss, postcss, typescript unless explicitly asked
 
 ## shadcn/ui Bootstrap Setup
@@ -190,20 +193,21 @@ Include Tailwind CSS variables for theming in globals.css:
 \`\`\`
 
 ## Component Usage
-- ALWAYS use existing shadcn/ui components: Button, Card, Input, Dialog, Sheet, Tabs, etc.
-- When adding a new shadcn component, update both package.json (Radix deps) and components.json if needed
-- Never duplicate component files - use cn() helper from \`@/lib/utils\`
+- Use existing shadcn/ui components; avoid duplicating component files (use cn() from \`@/lib/utils\`)
+- When adding a new shadcn component, update dependencies/components.json if needed
 - Import icons from lucide-react
 
 ## Tailwind Best Practices
 - Use Tailwind's design tokens: colors (slate, zinc, violet), spacing (px-4, py-8), typography (text-sm, font-medium)
-- Leverage modern utilities: container, prose, animate-*, backdrop-blur, gradient-*
+- Leverage modern utilities: container, prose, backdrop-blur, gradient-*
 - Use responsive prefixes: sm:, md:, lg:, xl:, 2xl:
 - Prefer gap-* over margins between flex/grid items
 - Use group/peer for interactive states
 
 ## Visual Identity
-- Avoid plain white backgrounds; use subtle tints, gradients, or layered sections
+- Never use flat pure-white backgrounds across the whole page
+- Use layered backgrounds: gradients, soft tints, and section bands to create depth
+- Ensure the hero uses a distinctive background (gradient or tinted panel)
 - Pick a distinct font pairing (e.g., Inter + Space Grotesk, or DM Sans + DM Mono)
 - Use a cohesive color palette with primary, secondary, accent colors
 
@@ -216,7 +220,7 @@ Include Tailwind CSS variables for theming in globals.css:
 
 ## Motion & Interaction
 - Add tasteful hover states on all interactive elements
-- Use subtle scroll-reveal animations (fade-in, slide-up)
+- Use subtle scroll-reveal animations (fade-in, slide-up) in hero and at least 2 sections
 - Use Tailwind's built-in animations; avoid custom @keyframes or @property rules
 - Respect prefers-reduced-motion for accessibility
 

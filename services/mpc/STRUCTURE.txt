@@ -58,7 +58,7 @@ ALTERNATIV 3: I Cursor som MCP-server
 
 OBS:
 - Den aktiva Cursor-konfigurationen ligger i .cursor/mcp.json (repo-root).
-- En kopia av konfigen finns som referens i services/mpc/docs/local/cursor-mcp-config.json.
+- Håll bara den filen uppdaterad.
 
 
 ================================================================================

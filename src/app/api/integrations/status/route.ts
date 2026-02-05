@@ -32,9 +32,51 @@ function getUpstashEnv(): { enabled: boolean; notes?: string } {
   return { enabled: false, notes: "ratelimit: memory" };
 }
 
+const DB_ENV_VARS = [
+  "POSTGRES_URL",
+  "POSTGRES_PRISMA_URL",
+  "POSTGRES_URL_NON_POOLING",
+  "DATABASE_URL",
+] as const;
+
+function sanitizeEnvValue(value: string | undefined): string | null {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  if (
+    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+    (trimmed.startsWith("'") && trimmed.endsWith("'"))
+  ) {
+    const stripped = trimmed.slice(1, -1).trim();
+    return stripped || null;
+  }
+  return trimmed;
+}
+
+function resolveDbEnv(): { name: string; value: string } | null {
+  for (const name of DB_ENV_VARS) {
+    const raw = sanitizeEnvValue(process.env[name]);
+    if (!raw) continue;
+    if (/^\$\{[A-Z0-9_]+\}$/.test(raw) || /^\$[A-Z0-9_]+$/.test(raw)) {
+      continue;
+    }
+    return { name, value: raw };
+  }
+  return null;
+}
+
+function getPostgresEnv(): { enabled: boolean; notes?: string } {
+  const resolved = resolveDbEnv();
+  if (resolved) {
+    return { enabled: true, notes: `using: ${resolved.name}` };
+  }
+  return { enabled: false, notes: "missing" };
+}
+
 export async function GET() {
   const gateway = isGatewayConfigured();
   const upstash = getUpstashEnv();
+  const postgres = getPostgresEnv();
   const items: IntegrationStatus[] = [
     {
       id: "v0-platform",
@@ -43,6 +85,15 @@ export async function GET() {
       required: true,
       requiredEnv: ["V0_API_KEY"],
       affects: "Kodgenerering + preview",
+    },
+    {
+      id: "postgres",
+      label: "Postgres (DB)",
+      enabled: postgres.enabled,
+      required: true,
+      requiredEnv: [...DB_ENV_VARS],
+      affects: "Projekt, chat‑loggar, versionshistorik",
+      notes: postgres.notes,
     },
     {
       id: "ai-gateway",

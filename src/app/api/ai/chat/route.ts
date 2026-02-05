@@ -13,7 +13,7 @@ import {
 } from "@/lib/builder/promptAssist";
 
 export const runtime = "nodejs";
-export const maxDuration = 420; // 7 minutes for prompt assist with slow models
+export const maxDuration = 600; // 10 minutes for prompt assist with slow models
 
 const BASE_URL = "https://api.v0.dev/v1";
 
