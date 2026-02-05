@@ -22,6 +22,8 @@ export const metadata: Metadata = {
   },
 };
 
+const enableSpeedInsights = process.env.NEXT_PUBLIC_ENABLE_SPEED_INSIGHTS === "true";
+
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -35,7 +37,7 @@ export default function RootLayout({
     >
       <body className="font-mono antialiased" style={{ backgroundColor: "#000000" }}>
         <AnalyticsTracker />
-        <SpeedInsights />
+        {enableSpeedInsights ? <SpeedInsights /> : null}
         {children}
         <CookieBanner />
       </body>
