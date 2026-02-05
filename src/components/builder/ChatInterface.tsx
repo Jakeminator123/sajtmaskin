@@ -27,8 +27,12 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Blocks, FileText, ImageIcon, Loader2, Sparkles } from "lucide-react";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { buildShadcnBlockPrompt, buildShadcnComponentPrompt } from "@/lib/shadcn-registry-utils";
+import {
+  fetchRegistrySummary,
+  type RegistrySummary,
+} from "@/lib/shadcn-registry-service";
 import { debugLog } from "@/lib/utils/debug";
 import toast from "react-hot-toast";
 
@@ -144,6 +148,11 @@ export function ChatInterface({
   const [isTextUploaderOpen, setIsTextUploaderOpen] = useState(false);
   const [isShadcnPickerOpen, setIsShadcnPickerOpen] = useState(false);
   const [isDesignSystemAction, setIsDesignSystemAction] = useState(false);
+  const [registrySummary, setRegistrySummary] = useState<RegistrySummary | null>(null);
+  const [registryStatus, setRegistryStatus] = useState<"idle" | "loading" | "ready" | "error">(
+    "idle",
+  );
+  const [registryError, setRegistryError] = useState<string | null>(null);
   const [figmaPreviewUrl, setFigmaPreviewUrl] = useState<string | null>(null);
   const [figmaPreviewName, setFigmaPreviewName] = useState<string | null>(null);
   const [figmaPreviewError, setFigmaPreviewError] = useState<string | null>(null);
@@ -154,6 +163,50 @@ export function ChatInterface({
   const inputDisabled = isSending || isBusy;
   const submitDisabled = inputDisabled || hasUploading;
   const showPreparingPrompt = Boolean(isPreparingPrompt);
+
+  const loadRegistrySummary = useCallback(
+    async (options: { force?: boolean } = {}) => {
+      if (registryStatus === "loading") return;
+      if (!options.force && registryStatus === "ready") return;
+      setRegistryStatus("loading");
+      setRegistryError(null);
+      try {
+        const summary = await fetchRegistrySummary();
+        setRegistrySummary(summary);
+        setRegistryStatus("ready");
+      } catch (error) {
+        setRegistryStatus("error");
+        setRegistryError(error instanceof Error ? error.message : "Kunde inte ladda katalogen");
+      }
+    },
+    [registryStatus],
+  );
+
+  useEffect(() => {
+    if (registryStatus === "idle") {
+      loadRegistrySummary();
+    }
+  }, [registryStatus, loadRegistrySummary]);
+
+  useEffect(() => {
+    if (isShadcnPickerOpen) {
+      loadRegistrySummary({ force: true });
+    }
+  }, [isShadcnPickerOpen, loadRegistrySummary]);
+
+  const registryStatusLabel = useMemo(() => {
+    if (registryStatus === "loading") return "Laddar katalog...";
+    if (registryStatus === "error") return "Katalog offline";
+    if (registrySummary) {
+      return `${registrySummary.blocks} block • ${registrySummary.components} komponenter`;
+    }
+    return "Katalog";
+  }, [registryStatus, registrySummary]);
+
+  const registryStatusTitle =
+    registryStatus === "error" && registryError
+      ? `Katalogfel: ${registryError}`
+      : registryStatusLabel;
 
   const handleInputChange = (value: string) => {
     setInput(value);
@@ -516,13 +569,20 @@ ${technicalPrompt}`;
               type="button"
               variant="outline"
               size="sm"
-              className="h-8"
+              className="h-8 gap-2"
               onClick={() => setIsShadcnPickerOpen(true)}
               disabled={inputDisabled}
-              title="shadcn/ui-block"
+              title={`shadcn/ui · ${registryStatusTitle}`}
             >
               <Blocks className="h-3.5 w-3.5" />
-              shadcn/ui
+              <span className="flex items-center gap-1">
+                <span>shadcn/ui</span>
+                <span className="text-muted-foreground max-w-[150px] truncate text-[10px]">
+                  • {registryStatusLabel}
+                </span>
+              </span>
+              {registryStatus === "loading" && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+              {registryStatus === "error" && <span className="text-xs text-red-400">!</span>}
             </Button>
           </div>
         </PromptInputHeader>

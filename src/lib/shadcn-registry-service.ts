@@ -108,6 +108,19 @@ function setCache<T>(key: string, data: T): void {
   cache.set(key, { data, timestamp: Date.now() });
 }
 
+async function parseRegistryError(response: Response): Promise<string> {
+  const text = await response.text().catch(() => "");
+  if (!text) return "";
+  try {
+    const data = JSON.parse(text) as { error?: string; details?: string };
+    if (data?.error && data?.details) return `${data.error}: ${data.details}`;
+    if (data?.error) return data.error;
+  } catch {
+    // ignore
+  }
+  return text;
+}
+
 // ============================================
 // URL BUILDERS
 // ============================================
@@ -167,7 +180,9 @@ export async function fetchRegistryIndex(style?: string): Promise<RegistryIndex>
   const response = await fetch(url);
 
   if (!response.ok) {
-    throw new Error(`Failed to fetch registry index: ${response.status}`);
+    const details = await parseRegistryError(response);
+    const suffix = details ? ` - ${details}` : "";
+    throw new Error(`Kunde inte hämta registry-index (HTTP ${response.status})${suffix}`);
   }
 
   const data = (await response.json()) as RegistryIndex;
@@ -204,7 +219,9 @@ export async function fetchRegistryItem(name: string, style?: string): Promise<S
   const response = await fetch(url);
 
   if (!response.ok) {
-    throw new Error(`Failed to fetch registry item "${name}": ${response.status}`);
+    const details = await parseRegistryError(response);
+    const suffix = details ? ` - ${details}` : "";
+    throw new Error(`Kunde inte hämta registry-item "${name}" (HTTP ${response.status})${suffix}`);
   }
 
   const data = (await response.json()) as ShadcnRegistryItem;

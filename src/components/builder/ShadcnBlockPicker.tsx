@@ -194,14 +194,6 @@ export function ShadcnBlockPicker({
     dynamicPlacementOptions.find((p) => p.value === placement) ||
     dynamicPlacementOptions[dynamicPlacementOptions.length - 1];
 
-  // Build popular items from FEATURED_BLOCKS
-  const popularItems = useMemo(() => {
-    if (itemType !== "block") return [];
-    const allItems = categories.flatMap((cat) => cat.items);
-    const popularBlockNames = FEATURED_BLOCKS.flatMap((group) => group.blocks);
-    return allItems.filter((item) => popularBlockNames.includes(item.name));
-  }, [categories, itemType]);
-
   // Build popular categories for display
   const popularCategories = useMemo(() => {
     if (itemType !== "block") return [];
@@ -222,6 +214,38 @@ export function ShadcnBlockPicker({
     }
     return result;
   }, [categories, itemType]);
+
+  const sourceCategories = useMemo(
+    () => (activeTab === "popular" ? popularCategories : categories),
+    [activeTab, popularCategories, categories],
+  );
+
+  const searchedCategories = useMemo(() => {
+    return searchBlocks(sourceCategories, query);
+  }, [sourceCategories, query]);
+
+  const visibleCategories = useMemo(() => {
+    if (activeCategory === "all") return searchedCategories;
+    return searchedCategories.filter((category) => category.id === activeCategory);
+  }, [searchedCategories, activeCategory]);
+
+  const totalItemCount = useMemo(
+    () => categories.reduce((acc, cat) => acc + cat.items.length, 0),
+    [categories],
+  );
+
+  const sourceItemCount = useMemo(
+    () => sourceCategories.reduce((acc, cat) => acc + cat.items.length, 0),
+    [sourceCategories],
+  );
+
+  const visibleItemCount = useMemo(
+    () => visibleCategories.reduce((acc, cat) => acc + cat.items.length, 0),
+    [visibleCategories],
+  );
+
+  const itemLabel = itemType === "block" ? "block" : "komponent";
+  const itemLabelPlural = itemType === "block" ? "block" : "komponenter";
 
   // Load categories on mount
   useEffect(() => {
@@ -322,10 +346,18 @@ export function ShadcnBlockPicker({
     }
   }, [itemType, activeTab]);
 
-  // Filter categories by search
-  const filteredCategories = useMemo(() => {
-    return searchBlocks(categories, query);
-  }, [categories, query]);
+  useEffect(() => {
+    if (!open) return;
+    setActiveCategory("all");
+  }, [open, itemType, activeTab]);
+
+  useEffect(() => {
+    if (activeCategory === "all") return;
+    const exists = sourceCategories.some((category) => category.id === activeCategory);
+    if (!exists) {
+      setActiveCategory("all");
+    }
+  }, [activeCategory, sourceCategories]);
 
   // Can user take action?
   const canAct = Boolean(selectedItem) && !isBusy && !isSubmitting && !isLoadingItem;
@@ -393,9 +425,15 @@ export function ShadcnBlockPicker({
                 <Blocks className="h-5 w-5 text-violet-400" />
               </div>
               <div>
-                <DialogTitle className="text-lg font-semibold">Välj en komponent</DialogTitle>
+                <DialogTitle className="text-lg font-semibold">
+                  Välj shadcn/ui-{itemLabel}
+                </DialogTitle>
                 <DialogDescription className="text-sm text-gray-400">
-                  Lägg till professionella komponenter till din hemsida
+                  {isLoadingCategories
+                    ? "Laddar shadcn-katalog..."
+                    : error
+                      ? "Katalogen kunde inte laddas."
+                      : `Hittade ${sourceItemCount} ${itemLabelPlural} i registret.`}
                 </DialogDescription>
               </div>
             </div>
@@ -463,7 +501,7 @@ export function ShadcnBlockPicker({
                       : "text-gray-400 hover:text-gray-200"
                   }`}
                 >
-                  Alla ({categories.reduce((acc, cat) => acc + cat.items.length, 0)})
+                  Alla ({totalItemCount})
                 </button>
               </div>
             </div>
@@ -475,10 +513,54 @@ export function ShadcnBlockPicker({
                 <Input
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Sök komponenter..."
+                  placeholder={itemType === "block" ? "Sök block..." : "Sök komponenter..."}
                   className="bg-gray-900/50 pl-9"
                 />
               </div>
+              {!isLoadingCategories && !error && sourceItemCount > 0 && (
+                <div className="mt-2 flex items-center justify-between text-[11px] text-gray-500">
+                  <span>
+                    Visar {visibleItemCount} av {sourceItemCount}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={handleReload}
+                    className="inline-flex items-center gap-1 text-gray-400 hover:text-gray-200"
+                  >
+                    <RefreshCw className="h-3 w-3" />
+                    Uppdatera
+                  </button>
+                </div>
+              )}
+              {!isLoadingCategories && !error && sourceCategories.length > 0 && (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setActiveCategory("all")}
+                    className={`rounded-full border px-3 py-1 text-[11px] ${
+                      activeCategory === "all"
+                        ? "border-violet-500/60 bg-violet-500/15 text-violet-200"
+                        : "border-gray-700 text-gray-400 hover:text-gray-200"
+                    }`}
+                  >
+                    Alla ({sourceItemCount})
+                  </button>
+                  {sourceCategories.map((category) => (
+                    <button
+                      key={category.id}
+                      type="button"
+                      onClick={() => setActiveCategory(category.id)}
+                      className={`rounded-full border px-3 py-1 text-[11px] ${
+                        activeCategory === category.id
+                          ? "border-violet-500/60 bg-violet-500/15 text-violet-200"
+                          : "border-gray-700 text-gray-400 hover:text-gray-200"
+                      }`}
+                    >
+                      {category.labelSv} ({category.items.length})
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* Category list */}
@@ -488,121 +570,35 @@ export function ShadcnBlockPicker({
                   <Loader2 className="h-6 w-6 animate-spin text-gray-500" />
                 </div>
               ) : error ? (
-                <div className="rounded-lg bg-red-500/10 p-4 text-center text-sm text-red-400">
-                  {error}
-                </div>
-              ) : activeTab === "popular" ? (
-                // Popular tab - show featured blocks
-                query ? (
-                  // When searching, search in popular items
-                  popularItems.filter((item) =>
-                    `${item.title} ${item.name} ${item.description}`
-                      .toLowerCase()
-                      .includes(query.toLowerCase()),
-                  ).length === 0 ? (
-                    <div className="py-12 text-center text-sm text-gray-500">
-                      Inga populära komponenter matchar din sökning
-                    </div>
-                  ) : (
-                    <div className="space-y-1">
-                      {popularItems
-                        .filter((item) =>
-                          `${item.title} ${item.name} ${item.description}`
-                            .toLowerCase()
-                            .includes(query.toLowerCase()),
-                        )
-                        .map((item) => {
-                          const isSelected = selectedItem?.name === item.name;
-                          return (
-                            <button
-                              key={item.name}
-                              type="button"
-                              onClick={() => setSelectedItem(item)}
-                              className={`w-full rounded-lg px-3 py-2.5 text-left transition-all ${
-                                isSelected
-                                  ? "bg-violet-500/15 ring-1 ring-violet-500/50"
-                                  : "hover:bg-gray-800/60"
-                              }`}
-                            >
-                              <div
-                                className={`text-sm font-medium ${
-                                  isSelected ? "text-violet-300" : "text-gray-200"
-                                }`}
-                              >
-                                {item.title}
-                              </div>
-                              {item.description && (
-                                <div className="mt-0.5 line-clamp-1 text-xs text-gray-500">
-                                  {item.description}
-                                </div>
-                              )}
-                            </button>
-                          );
-                        })}
-                    </div>
-                  )
-                ) : (
-                  // No search - show categorized popular blocks
-                  <div className="space-y-4">
-                    {popularCategories.length === 0 ? (
-                      <div className="py-12 text-center text-sm text-gray-500">
-                        Laddar populära komponenter...
-                      </div>
-                    ) : (
-                      popularCategories.map((category) => (
-                        <div key={category.id}>
-                          <div className="mb-2 flex items-center gap-2 px-1">
-                            <span className="text-base">{category.icon}</span>
-                            <span className="text-xs font-medium tracking-wide text-gray-400 uppercase">
-                              {category.labelSv}
-                            </span>
-                            <span className="text-[10px] text-gray-600">
-                              ({category.items.length})
-                            </span>
-                          </div>
-                          <div className="space-y-1">
-                            {category.items.map((item) => {
-                              const isSelected = selectedItem?.name === item.name;
-                              return (
-                                <button
-                                  key={item.name}
-                                  type="button"
-                                  onClick={() => setSelectedItem(item)}
-                                  className={`w-full rounded-lg px-3 py-2.5 text-left transition-all ${
-                                    isSelected
-                                      ? "bg-violet-500/15 ring-1 ring-violet-500/50"
-                                      : "hover:bg-gray-800/60"
-                                  }`}
-                                >
-                                  <div
-                                    className={`text-sm font-medium ${
-                                      isSelected ? "text-violet-300" : "text-gray-200"
-                                    }`}
-                                  >
-                                    {item.title}
-                                  </div>
-                                  {item.description && (
-                                    <div className="mt-0.5 line-clamp-1 text-xs text-gray-500">
-                                      {item.description}
-                                    </div>
-                                  )}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      ))
-                    )}
+                <div className="space-y-3 rounded-lg bg-red-500/10 p-4 text-sm text-red-300">
+                  <div className="font-medium">Kunde inte ladda shadcn-katalogen</div>
+                  <div className="text-xs text-red-200/80">{error}</div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleReload}
+                      className="h-8 border-red-500/40 text-red-200"
+                    >
+                      <RefreshCw className="mr-2 h-3.5 w-3.5" />
+                      Försök igen
+                    </Button>
+                    <span className="text-[11px] text-red-200/70">
+                      Katalogen är publik, ingen inloggning krävs.
+                    </span>
                   </div>
-                )
-              ) : filteredCategories.length === 0 ? (
+                </div>
+              ) : visibleCategories.length === 0 ? (
                 <div className="py-12 text-center text-sm text-gray-500">
-                  Inga komponenter matchar din sökning
+                  {query
+                    ? `Inga ${itemLabelPlural} matchar din sökning`
+                    : activeTab === "popular"
+                      ? "Inga populära block hittades i katalogen"
+                      : `Inga ${itemLabelPlural} hittades i katalogen`}
                 </div>
               ) : (
-                // All tab - show all categories
                 <div className="space-y-4">
-                  {filteredCategories.map((category) => (
+                  {visibleCategories.map((category) => (
                     <div key={category.id}>
                       <div className="mb-2 flex items-center gap-2 px-1">
                         <span className="text-base">{category.icon}</span>
@@ -611,7 +607,7 @@ export function ShadcnBlockPicker({
                         </span>
                         <span className="text-[10px] text-gray-600">({category.items.length})</span>
                       </div>
-                      <div className="space-y-1">
+                      <div className="space-y-2">
                         {category.items.map((item) => {
                           const isSelected = selectedItem?.name === item.name;
                           return (
@@ -619,24 +615,48 @@ export function ShadcnBlockPicker({
                               key={item.name}
                               type="button"
                               onClick={() => setSelectedItem(item)}
-                              className={`w-full rounded-lg px-3 py-2.5 text-left transition-all ${
+                              className={`w-full rounded-lg border border-transparent px-3 py-2.5 text-left transition-all ${
                                 isSelected
-                                  ? "bg-violet-500/15 ring-1 ring-violet-500/50"
-                                  : "hover:bg-gray-800/60"
+                                  ? "border-violet-500/50 bg-violet-500/15"
+                                  : "hover:border-gray-700 hover:bg-gray-800/60"
                               }`}
                             >
-                              <div
-                                className={`text-sm font-medium ${
-                                  isSelected ? "text-violet-300" : "text-gray-200"
-                                }`}
-                              >
-                                {item.title}
-                              </div>
-                              {item.description && (
-                                <div className="mt-0.5 line-clamp-1 text-xs text-gray-500">
-                                  {item.description}
+                              <div className="flex items-center gap-3">
+                                <div className="relative h-12 w-16 overflow-hidden rounded-md border border-gray-800 bg-gray-900">
+                                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                                  <img
+                                    src={
+                                      item.lightImageUrl ||
+                                      buildPreviewImageUrl(item.name, "light", DEFAULT_STYLE)
+                                    }
+                                    alt={`${item.title} preview`}
+                                    className="h-full w-full object-cover"
+                                    loading="lazy"
+                                    onError={(event) => {
+                                      event.currentTarget.style.display = "none";
+                                    }}
+                                  />
                                 </div>
-                              )}
+                                <div className="min-w-0 flex-1">
+                                  <div className="flex items-center gap-2">
+                                    <div
+                                      className={`text-sm font-medium ${
+                                        isSelected ? "text-violet-300" : "text-gray-200"
+                                      }`}
+                                    >
+                                      {item.title}
+                                    </div>
+                                    <span className="text-[10px] uppercase text-gray-500">
+                                      {item.type === "block" ? "Block" : "UI"}
+                                    </span>
+                                  </div>
+                                  {item.description && (
+                                    <div className="mt-0.5 line-clamp-1 text-xs text-gray-500">
+                                      {item.description}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
                             </button>
                           );
                         })}
@@ -660,15 +680,32 @@ export function ShadcnBlockPicker({
                       <p className="text-sm text-gray-400">{selectedItem.description}</p>
                     )}
                   </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setShowCodePreview((prev) => !prev)}
-                    className="h-8 gap-2 border-gray-700 bg-gray-800/50 text-xs text-violet-300 hover:text-violet-200"
-                  >
-                    <Code2 className="h-3 w-3" />
-                    {showCodePreview ? "Dölj kod" : "Visa kod"}
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() =>
+                        window.open(
+                          buildShadcnPreviewUrl(selectedItem.name, DEFAULT_STYLE),
+                          "_blank",
+                          "noopener,noreferrer",
+                        )
+                      }
+                      className="h-8 gap-2 border-gray-700 bg-gray-800/50 text-xs text-gray-200 hover:text-white"
+                    >
+                      <ExternalLink className="h-3 w-3" />
+                      Öppna preview
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowCodePreview((prev) => !prev)}
+                      className="h-8 gap-2 border-gray-700 bg-gray-800/50 text-xs text-violet-300 hover:text-violet-200"
+                    >
+                      <Code2 className="h-3 w-3" />
+                      {showCodePreview ? "Dölj kod" : "Visa kod"}
+                    </Button>
+                  </div>
                 </div>
 
                 {/* Preview images */}
