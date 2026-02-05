@@ -172,6 +172,30 @@ export default function AdminPage() {
   const [promptLogs, setPromptLogs] = useState<PromptLog[]>([]);
   const [promptLogsLoading, setPromptLogsLoading] = useState(false);
   const [promptLogsError, setPromptLogsError] = useState<string | null>(null);
+  const [teamStatus, setTeamStatus] = useState<{
+    configured: boolean;
+    configuredTeamId: string | null;
+    configuredTeam: {
+      id: string;
+      slug: string;
+      name: string;
+      plan: string;
+      isFree: boolean;
+      isPro: boolean;
+      isEnterprise: boolean;
+    } | null;
+    teams: Array<{
+      id: string;
+      slug: string;
+      name: string;
+      plan: string;
+      isFree: boolean;
+      isPro: boolean;
+      isEnterprise: boolean;
+    }>;
+    warnings: string[];
+  } | null>(null);
+  const [teamStatusLoading, setTeamStatusLoading] = useState(false);
 
   const fetchStats = async () => {
     setIsLoading(true);
@@ -296,6 +320,21 @@ export default function AdminPage() {
     }
   };
 
+  const fetchTeamStatus = async () => {
+    setTeamStatusLoading(true);
+    try {
+      const response = await fetch("/api/admin/vercel/team-status");
+      const data = await response.json();
+      if (data.configured !== undefined) {
+        setTeamStatus(data);
+      }
+    } catch {
+      // Non-blocking
+    } finally {
+      setTeamStatusLoading(false);
+    }
+  };
+
   // Check if already authenticated on mount
   useEffect(() => {
     const stored = localStorage.getItem("admin-auth");
@@ -334,6 +373,7 @@ export default function AdminPage() {
       fetchEnvStatus();
       fetchIntegrations();
       fetchVercelProjects();
+      fetchTeamStatus();
     }
   }, [activeTab, isAuthenticated]);
 
@@ -1404,6 +1444,88 @@ export default function AdminPage() {
         {/* Environment Tab */}
         {activeTab === "environment" && (
           <div className="space-y-6">
+            {/* Team Status Warnings */}
+            {teamStatusLoading && (
+              <div className="flex items-center gap-2 border border-gray-800 bg-black/50 p-4 text-sm text-gray-400">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Hämtar Vercel team-status...
+              </div>
+            )}
+
+            {teamStatus && teamStatus.warnings.length > 0 && (
+              <div className="space-y-2">
+                {teamStatus.warnings.map((warning, i) => (
+                  <div
+                    key={i}
+                    className="flex items-start gap-3 border border-amber-500/50 bg-amber-500/10 p-4 text-sm"
+                  >
+                    <AlertTriangle className="h-5 w-5 flex-shrink-0 text-amber-400" />
+                    <div className="text-amber-200">{warning}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Team Plan Overview */}
+            {teamStatus && teamStatus.teams.length > 0 && (
+              <div className="border border-gray-800 bg-black/50 p-6">
+                <div className="mb-4 flex items-center gap-3">
+                  <div className="bg-brand-teal/10 flex h-10 w-10 items-center justify-center">
+                    <Users className="text-brand-teal h-5 w-5" />
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-semibold text-white">Vercel Teams</h2>
+                    <p className="text-sm text-gray-500">Team‑planer</p>
+                  </div>
+                </div>
+
+                <div className="grid gap-2 md:grid-cols-2">
+                  {teamStatus.teams.map((team) => {
+                    const isConfigured = team.id === teamStatus.configuredTeamId;
+                    return (
+                      <div
+                        key={team.id}
+                        className={`border p-3 text-sm ${
+                          isConfigured
+                            ? "border-brand-teal/50 bg-brand-teal/5 ring-1 ring-brand-teal/30"
+                            : "border-gray-800 bg-black/30"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-gray-200">{team.name}</span>
+                              {isConfigured && (
+                                <span className="text-xs text-brand-teal">(konfigurerat)</span>
+                              )}
+                            </div>
+                            <div className="text-xs text-gray-500">{team.slug}</div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span
+                              className={`rounded px-2 py-1 text-xs font-medium ${
+                                team.isFree
+                                  ? "bg-amber-500/20 text-amber-400"
+                                  : team.isPro
+                                    ? "bg-green-500/20 text-green-400"
+                                    : team.isEnterprise
+                                      ? "bg-purple-500/20 text-purple-400"
+                                      : "bg-gray-500/20 text-gray-400"
+                              }`}
+                            >
+                              {team.plan === "hobby"
+                                ? "Free (Hobby)"
+                                : team.plan.charAt(0).toUpperCase() + team.plan.slice(1)}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
             {/* Runtime Section */}
             <div className="border border-gray-800 bg-black/50 p-6">
               <div className="mb-6 flex items-center gap-3">
