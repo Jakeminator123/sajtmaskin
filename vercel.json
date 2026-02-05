@@ -1,14 +1,5 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "bypassProtection": {
-    "routes": [
-      "/icon.svg",
-      "/favicon.ico",
-      "/api/health",
-      "/_next/image",
-      "/_vercel/speed-insights/(.*)"
-    ]
-  },
   "functions": {
     "src/app/api/generate/route.ts": {
       "maxDuration": 300
