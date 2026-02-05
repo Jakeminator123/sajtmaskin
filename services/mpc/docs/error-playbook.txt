@@ -2,7 +2,11 @@ Error reporting playbook
 
 Goal: capture enough context so Cursor agents can reproduce and triage quickly.
 
-Fields to send via report_error
+Current status
+- This MCP server does not register error-logging tools.
+- Log issues in `docs/bugs.txt` (repo root) or add a simple script if needed.
+
+If/when an error-logging tool exists, send these fields
 - message (required): short summary of what went wrong.
 - level: error|warn|info (default error).
 - stack: stack trace if available.
@@ -21,4 +25,4 @@ Operational tips
 - Keep messages concise; include one issue per call.
 - Prefer structured context over long free-text notes.
 - Sensitive data should be masked before logging.
-- Use list_errors to verify what was captured.
+- Verify entries manually in the chosen log file.

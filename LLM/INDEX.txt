@@ -7,12 +7,13 @@ Styrning:
 - LLM=OFF for inga prefix
 - Se LLM/mijo-logik.txt for detaljer
 
-Primara dokument:
+Primära dokument:
 - LLM/AC-schema.txt
-- LLM/schemas_overview.txt
+- LLM/DEPS-STATUS.txt
+- LLM/atgardsmatris.txt
 - LLM/mijo-logik.txt
+- LLM/schemas_overview.txt
 - LLM/v0-prompt-guide.txt (v0 prompt best practices + templates)
-- LLM/shadcn-integration.txt (shadcn/ui komponenter for builder)
 
 MCP-docs (karnlista via docs://local/*):
 - docs://local/WHEN-TO-USE-MCP
