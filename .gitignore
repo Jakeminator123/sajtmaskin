@@ -63,9 +63,8 @@ env.local
 skrapning
 /[{]*.png
 
-_env.procuction
+_env.production
 _env.development
-
 
 # Avoid accidentally committing a nested clone/repo
 sajtgen
