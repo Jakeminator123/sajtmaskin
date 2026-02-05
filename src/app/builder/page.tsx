@@ -1254,6 +1254,9 @@ function BuilderContent() {
         pendingInstructionsRef.current = combined;
         pendingInstructionsOnceRef.current = false;
         return combined; // Return for immediate use
+      } catch (error) {
+        console.warn("[Builder] Dynamic instructions failed:", error);
+        return null;
       } finally {
         setIsPreparingPrompt(false);
       }
