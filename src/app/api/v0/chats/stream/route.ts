@@ -20,6 +20,7 @@ import { nanoid } from "nanoid";
 import { NextResponse } from "next/server";
 import { withRateLimit } from "@/lib/rateLimit";
 import { normalizeV0Error } from "@/lib/v0/errors";
+import { getCurrentUser } from "@/lib/auth/auth";
 import { ensureSessionIdFromRequest } from "@/lib/auth/session";
 import {
   ensureProjectForRequest,
@@ -31,6 +32,7 @@ import { requireNotBot } from "@/lib/botProtection";
 import { devLogAppend, devLogFinalizeSite, devLogStartNewSite } from "@/lib/logging/devLog";
 import { debugLog, errorLog } from "@/lib/utils/debug";
 import { sanitizeV0Metadata } from "@/lib/v0/sanitize-metadata";
+import { createPromptLog } from "@/lib/db/services";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -75,6 +77,7 @@ export async function POST(req: Request) {
         thinking = true,
         imageGenerations,
         chatPrivacy,
+        meta,
       } = validationResult.data;
       const trimmedSystemPrompt = typeof system === "string" ? system.trim() : "";
       const hasSystemPrompt = Boolean(trimmedSystemPrompt);
@@ -82,6 +85,69 @@ export async function POST(req: Request) {
       const resolvedImageGenerations =
         typeof imageGenerations === "boolean" ? imageGenerations : true;
       const resolvedChatPrivacy = chatPrivacy ?? "private";
+
+      try {
+        const user = await getCurrentUser(req);
+        const metaPayload =
+          meta && typeof meta === "object"
+            ? (() => {
+                const copy = { ...(meta as Record<string, unknown>) };
+                delete copy.promptOriginal;
+                delete copy.promptFormatted;
+                return Object.keys(copy).length > 0 ? copy : null;
+              })()
+            : null;
+        const promptOriginal =
+          typeof (meta as { promptOriginal?: unknown })?.promptOriginal === "string"
+            ? String((meta as { promptOriginal?: string }).promptOriginal)
+            : typeof message === "string"
+              ? message
+              : null;
+        const promptFormatted =
+          typeof (meta as { promptFormatted?: unknown })?.promptFormatted === "string"
+            ? String((meta as { promptFormatted?: string }).promptFormatted)
+            : typeof message === "string"
+              ? message
+              : null;
+        await createPromptLog({
+          event: "create_chat",
+          userId: user?.id || null,
+          sessionId,
+          appProjectId: null,
+          v0ProjectId: projectId ?? null,
+          chatId: null,
+          promptOriginal,
+          promptFormatted,
+          systemPrompt: trimmedSystemPrompt || null,
+          promptAssistModel:
+            typeof (meta as { promptAssistModel?: unknown })?.promptAssistModel === "string"
+              ? String((meta as { promptAssistModel?: string }).promptAssistModel)
+              : null,
+          promptAssistDeep:
+            typeof (meta as { promptAssistDeep?: unknown })?.promptAssistDeep === "boolean"
+              ? Boolean((meta as { promptAssistDeep?: boolean }).promptAssistDeep)
+              : null,
+          promptAssistMode:
+            typeof (meta as { promptAssistMode?: unknown })?.promptAssistMode === "string"
+              ? String((meta as { promptAssistMode?: string }).promptAssistMode)
+              : null,
+          buildIntent:
+            typeof (meta as { buildIntent?: unknown })?.buildIntent === "string"
+              ? String((meta as { buildIntent?: string }).buildIntent)
+              : null,
+          buildMethod:
+            typeof (meta as { buildMethod?: unknown })?.buildMethod === "string"
+              ? String((meta as { buildMethod?: string }).buildMethod)
+              : null,
+          modelTier: modelId,
+          imageGenerations: resolvedImageGenerations,
+          thinking: resolvedThinking,
+          attachmentsCount: Array.isArray(attachments) ? attachments.length : 0,
+          meta: metaPayload,
+        });
+      } catch (error) {
+        console.warn("[prompt-log] Failed to record prompt log:", error);
+      }
 
       debugLog("v0", "v0 chat stream request", {
         modelId,

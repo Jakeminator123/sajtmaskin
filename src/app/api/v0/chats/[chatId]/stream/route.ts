@@ -22,9 +22,14 @@ import { devLogAppend } from "@/lib/logging/devLog";
 import { debugLog, errorLog } from "@/lib/utils/debug";
 import { sanitizeV0Metadata } from "@/lib/v0/sanitize-metadata";
 import { normalizeV0Error } from "@/lib/v0/errors";
+import { modelTiers, type ModelTier } from "@/lib/validations/chatSchemas";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
+
+function coerceModelTier(value: unknown, fallback: ModelTier = "v0-max"): ModelTier {
+  return modelTiers.includes(value as ModelTier) ? (value as ModelTier) : fallback;
+}
 
 export async function POST(req: Request, ctx: { params: Promise<{ chatId: string }> }) {
   const requestId = req.headers.get("x-vercel-id") || "unknown";
@@ -42,7 +47,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
 
       const { chatId } = await ctx.params;
       const body = await req.json().catch(() => ({}));
-      const { message, attachments } = body;
+      const { message, attachments, modelId = "v0-max", thinking, imageGenerations, system } = body;
 
       if (!message) {
         return attachSessionCookie(
@@ -116,10 +121,19 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
       const internalChatId: string = existingChat.id;
       const requestStartedAt = Date.now();
 
+      const resolvedModelId = coerceModelTier(modelId);
+      const resolvedThinking =
+        typeof thinking === "boolean" ? thinking : resolvedModelId === "v0-max";
+      const resolvedImageGenerations =
+        typeof imageGenerations === "boolean" ? imageGenerations : true;
+
       debugLog("v0", "v0 follow-up message request", {
         chatId,
         messageLength: typeof message === "string" ? message.length : null,
         attachments: Array.isArray(attachments) ? attachments.length : 0,
+        modelId: resolvedModelId,
+        thinking: resolvedThinking,
+        imageGenerations: resolvedImageGenerations,
       });
 
       devLogAppend("latest", {
@@ -141,6 +155,12 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
           chatId,
           message,
           attachments,
+          modelConfiguration: {
+            modelId: resolvedModelId,
+            thinking: resolvedThinking,
+            imageGenerations: resolvedImageGenerations,
+          },
+          ...(typeof system === "string" && system.trim() ? { system: system.trim() } : {}),
           responseMode: "experimental_stream",
         });
       } catch (streamErr) {
@@ -152,6 +172,12 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
           chatId,
           message,
           attachments,
+          modelConfiguration: {
+            modelId: resolvedModelId,
+            thinking: resolvedThinking,
+            imageGenerations: resolvedImageGenerations,
+          },
+          ...(typeof system === "string" && system.trim() ? { system: system.trim() } : {}),
         });
       }
 

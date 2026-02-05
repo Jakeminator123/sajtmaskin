@@ -139,6 +139,8 @@ function BuilderContent() {
   // Raw page code for section analysis in component picker
   const [currentPageCode, setCurrentPageCode] = useState<string | undefined>(undefined);
   const lastActiveVersionIdRef = useRef<string | null>(null);
+  const promptFetchInFlightRef = useRef<string | null>(null);
+  const promptFetchDoneRef = useRef<string | null>(null);
 
   const selectedTierOption = useMemo(
     () => MODEL_TIER_OPTIONS.find((option) => option.value === selectedModelTier),
@@ -175,10 +177,14 @@ function BuilderContent() {
 
   useEffect(() => {
     if (!promptId) return;
+    if (promptFetchDoneRef.current === promptId) return;
+    if (promptFetchInFlightRef.current === promptId) return;
+    promptFetchInFlightRef.current = promptId;
     let isActive = true;
     const controller = new AbortController();
 
     const fetchPrompt = async () => {
+      let shouldClearPromptId = false;
       try {
         const response = await fetch(`/api/prompts/${encodeURIComponent(promptId)}`, {
           signal: controller.signal,
@@ -194,25 +200,34 @@ function BuilderContent() {
           throw new Error(message);
         }
         if (!isActive) return;
+        promptFetchDoneRef.current = promptId;
         setEntryIntentActive(true);
         setResolvedPrompt(data.prompt);
         const incomingProjectId = data.projectId ?? null;
         if (incomingProjectId) {
           setAppProjectId((prev) => prev ?? incomingProjectId);
         }
+        shouldClearPromptId = true;
       } catch (error) {
         if (!isActive) return;
+        if (controller.signal.aborted) return;
+        if (error instanceof Error && error.name === "AbortError") return;
         console.warn("[Builder] Prompt handoff missing:", error);
         toast.error("Prompten hittades inte eller har redan använts.");
         setResolvedPrompt(null);
         setEntryIntentActive(false);
       } finally {
+        if (promptFetchInFlightRef.current === promptId) {
+          promptFetchInFlightRef.current = null;
+        }
         if (isActive) {
           setAuditPromptLoaded(true);
-          const nextParams = new URLSearchParams(searchParams.toString());
-          nextParams.delete("promptId");
-          const query = nextParams.toString();
-          router.replace(query ? `/builder?${query}` : "/builder");
+          if (shouldClearPromptId) {
+            const nextParams = new URLSearchParams(searchParams.toString());
+            nextParams.delete("promptId");
+            const query = nextParams.toString();
+            router.replace(query ? `/builder?${query}` : "/builder");
+          }
         }
       }
     };
@@ -798,31 +813,6 @@ function BuilderContent() {
     }
   }, [chatId]);
 
-  // Sync demoUrl when active version changes or demoUrl is missing
-  useEffect(() => {
-    if (!activeVersionId) return;
-
-    const didChangeVersion = lastActiveVersionIdRef.current !== activeVersionId;
-    lastActiveVersionIdRef.current = activeVersionId;
-
-    if (!didChangeVersion && currentDemoUrl) return;
-
-    const activeVersionMatch = versionsList.find(
-      (version) => version.versionId === activeVersionId || version.id === activeVersionId,
-    );
-    const nextDemoUrl =
-      activeVersionMatch?.demoUrl ||
-      chat?.demoUrl ||
-      (chat as { latestVersion?: { demoUrl?: string | null } } | null)?.latestVersion?.demoUrl ||
-      versionsList[0]?.demoUrl ||
-      null;
-
-    if (nextDemoUrl && nextDemoUrl !== currentDemoUrl) {
-      setCurrentDemoUrl(nextDemoUrl);
-      setPreviewRefreshToken(Date.now());
-    }
-  }, [activeVersionId, chat, currentDemoUrl, versionsList]);
-
   const latestVersionId = useMemo(() => {
     // Find the most recently created version (regardless of pinned status)
     // versionsList is sorted with pinned first, so we need to find by createdAt
@@ -852,6 +842,31 @@ function BuilderContent() {
   }, [versionsList, chat]);
 
   const activeVersionId = selectedVersionId || latestVersionId;
+
+  // Sync demoUrl when active version changes or demoUrl is missing
+  useEffect(() => {
+    if (!activeVersionId) return;
+
+    const didChangeVersion = lastActiveVersionIdRef.current !== activeVersionId;
+    lastActiveVersionIdRef.current = activeVersionId;
+
+    if (!didChangeVersion && currentDemoUrl) return;
+
+    const activeVersionMatch = versionsList.find(
+      (version) => version.versionId === activeVersionId || version.id === activeVersionId,
+    );
+    const nextDemoUrl =
+      activeVersionMatch?.demoUrl ||
+      chat?.demoUrl ||
+      (chat as { latestVersion?: { demoUrl?: string | null } } | null)?.latestVersion?.demoUrl ||
+      versionsList[0]?.demoUrl ||
+      null;
+
+    if (nextDemoUrl && nextDemoUrl !== currentDemoUrl) {
+      setCurrentDemoUrl(nextDemoUrl);
+      setPreviewRefreshToken(Date.now());
+    }
+  }, [activeVersionId, chat, currentDemoUrl, versionsList]);
 
   useEffect(() => {
     const contextKey = chatId && activeVersionId ? `${chatId}:${activeVersionId}` : null;
@@ -1002,11 +1017,13 @@ function BuilderContent() {
 
   const handlePromptEnhance = useCallback(
     async (message: string) => {
-      const isFollowUp = Boolean(chatId);
-      const enhanced = await maybeEnhanceInitialPrompt(message, { forceShallow: isFollowUp });
+      const enhanced = await maybeEnhanceInitialPrompt(message, {
+        forceShallow: true,
+        mode: "polish",
+      });
       return formatPromptForV0(enhanced);
     },
-    [chatId, maybeEnhanceInitialPrompt],
+    [maybeEnhanceInitialPrompt],
   );
 
   const resetBeforeCreateChat = useCallback(() => {
@@ -1098,6 +1115,8 @@ function BuilderContent() {
     enableImageGenerations,
     enableThinking: effectiveThinking,
     systemPrompt: customInstructions,
+    promptAssistModel,
+    promptAssistDeep,
     buildIntent: resolvedBuildIntent,
     buildMethod,
     mutateVersions,

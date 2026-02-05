@@ -14,21 +14,21 @@ interface RateLimitConfig {
 }
 
 export const RATE_LIMITS: Record<string, RateLimitConfig> = {
-  "chat:create": { maxRequests: 10, windowMs: 60 * 1000 },
-  "message:send": { maxRequests: 20, windowMs: 60 * 1000 },
-  "deployment:create": { maxRequests: 5, windowMs: 60 * 1000 },
-  "blob:export": { maxRequests: 5, windowMs: 60 * 1000 },
-  "ai:chat": { maxRequests: 20, windowMs: 60 * 1000 },
-  "ai:brief": { maxRequests: 20, windowMs: 60 * 1000 },
-  "figma:preview": { maxRequests: 15, windowMs: 60 * 1000 },
-  "github:export": { maxRequests: 6, windowMs: 60 * 1000 },
-  read: { maxRequests: 100, windowMs: 60 * 1000 },
-  default: { maxRequests: 60, windowMs: 60 * 1000 },
-  "webhook:v0": { maxRequests: 120, windowMs: 60 * 1000 },
-  "sandbox:create": { maxRequests: 10, windowMs: 60 * 1000 },
+  "chat:create": { maxRequests: 15, windowMs: 60 * 1000 },
+  "message:send": { maxRequests: 30, windowMs: 60 * 1000 },
+  "deployment:create": { maxRequests: 8, windowMs: 60 * 1000 },
+  "blob:export": { maxRequests: 8, windowMs: 60 * 1000 },
+  "ai:chat": { maxRequests: 30, windowMs: 60 * 1000 },
+  "ai:brief": { maxRequests: 30, windowMs: 60 * 1000 },
+  "figma:preview": { maxRequests: 20, windowMs: 60 * 1000 },
+  "github:export": { maxRequests: 8, windowMs: 60 * 1000 },
+  read: { maxRequests: 150, windowMs: 60 * 1000 },
+  default: { maxRequests: 90, windowMs: 60 * 1000 },
+  "webhook:v0": { maxRequests: 180, windowMs: 60 * 1000 },
+  "sandbox:create": { maxRequests: 15, windowMs: 60 * 1000 },
   // v0 Platform API - separate limit to track v0 usage specifically
-  "v0:generate": { maxRequests: 15, windowMs: 60 * 1000 },
-  "v0:stream": { maxRequests: 20, windowMs: 60 * 1000 },
+  "v0:generate": { maxRequests: 20, windowMs: 60 * 1000 },
+  "v0:stream": { maxRequests: 30, windowMs: 60 * 1000 },
 };
 
 function getUpstashEnv() {
@@ -141,6 +141,7 @@ export async function withRateLimit(
   const clientId = getClientId(request);
   const limits = RATE_LIMITS[endpoint] || RATE_LIMITS["default"];
   const limiter = getLimiter(endpoint, limits);
+  const rateLimitMode = limiter.mode;
 
   let result: { allowed: boolean; remaining: number; resetAt: number };
 
@@ -167,6 +168,7 @@ export async function withRateLimit(
           "Content-Type": "application/json",
           ...createRateLimitHeaders(result),
           "Retry-After": Math.ceil((result.resetAt - Date.now()) / 1000).toString(),
+          "X-RateLimit-Mode": rateLimitMode,
         },
       },
     );
@@ -179,6 +181,7 @@ export async function withRateLimit(
   Object.entries(createRateLimitHeaders(result)).forEach(([key, value]) => {
     headers.set(key, value);
   });
+  headers.set("X-RateLimit-Mode", rateLimitMode);
 
   return new Response(clonedResponse.body, {
     status: clonedResponse.status,

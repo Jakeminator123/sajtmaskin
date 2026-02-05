@@ -203,8 +203,27 @@ function mergeUiParts(prev: UiMessagePart[] | undefined, next: UiMessagePart[]):
 
 function mergeUiPart(current: UiMessagePart, next: UiMessagePart): UiMessagePart {
   const merged = { ...current };
+  const streamKeys = new Set([
+    "output",
+    "result",
+    "response",
+    "toolOutput",
+    "tool_output",
+    "content",
+    "text",
+    "summary",
+  ]);
   Object.entries(next).forEach(([key, value]) => {
     if (value !== undefined) {
+      if (
+        typeof value === "string" &&
+        streamKeys.has(key) &&
+        typeof (merged as Record<string, unknown>)[key] === "string"
+      ) {
+        const prev = String((merged as Record<string, unknown>)[key]);
+        merged[key] = mergeStreamingText(prev, value);
+        return;
+      }
       merged[key] = value;
     }
   });
@@ -732,7 +751,11 @@ export function useV0ChatMessaging(params: {
   v0ProjectId?: string | null;
   selectedModelTier: ModelTier;
   enableImageGenerations: boolean;
+  enableThinking: boolean;
   systemPrompt?: string;
+  promptAssistModel?: string | null;
+  promptAssistDeep?: boolean;
+  promptAssistMode?: "polish" | "rewrite" | null;
   buildIntent?: BuildIntent;
   buildMethod?: BuildMethod | null;
   mutateVersions: () => void;
@@ -752,7 +775,11 @@ export function useV0ChatMessaging(params: {
     v0ProjectId,
     selectedModelTier,
     enableImageGenerations,
+    enableThinking,
     systemPrompt,
+    promptAssistModel,
+    promptAssistDeep,
+    promptAssistMode,
     buildIntent,
     buildMethod,
     mutateVersions,
@@ -855,14 +882,38 @@ export function useV0ChatMessaging(params: {
           changed: formattedMessage.trim() !== initialMessage.trim(),
         });
         const finalMessage = appendAttachmentPrompt(formattedMessage, options.attachmentPrompt);
-        const thinkingForTier = selectedModelTier !== "v0-mini";
+        const thinkingForTier = enableThinking && selectedModelTier !== "v0-mini";
         // Only trim whitespace; no model is involved here.
         const trimmedSystemPrompt = effectiveSystemPrompt?.trim();
+        const promptMeta: Record<string, unknown> = {
+          promptOriginal: initialMessage,
+          promptFormatted: formattedMessage,
+          formattedChanged: formattedMessage.trim() !== initialMessage.trim(),
+          promptLength: initialMessage.length,
+          formattedLength: formattedMessage.length,
+          attachmentsCount: options.attachments?.length ?? 0,
+        };
+        if (promptAssistModel) {
+          promptMeta.promptAssistModel = promptAssistModel;
+        }
+        if (typeof promptAssistDeep === "boolean") {
+          promptMeta.promptAssistDeep = promptAssistDeep;
+        }
+        if (promptAssistMode) {
+          promptMeta.promptAssistMode = promptAssistMode;
+        }
+        if (buildIntent) {
+          promptMeta.buildIntent = buildIntent;
+        }
+        if (buildMethod) {
+          promptMeta.buildMethod = buildMethod;
+        }
         const requestBody: Record<string, unknown> = {
           message: finalMessage,
           modelId: selectedModelTier,
           thinking: thinkingForTier,
           imageGenerations: enableImageGenerations,
+          meta: promptMeta,
         };
         if (v0ProjectId) {
           requestBody.projectId = v0ProjectId;
@@ -921,19 +972,21 @@ export function useV0ChatMessaging(params: {
                     ? data
                     : (data as any)?.thinking || (data as any)?.reasoning || null;
                 if (thinkingText) {
-                  // V0 sends the full thought text in each chunk (not incremental deltas)
-                  // So we replace rather than accumulate
-                  const newThought = String(thinkingText);
-                  if (newThought.length > accumulatedThinking.length) {
-                    accumulatedThinking = newThought;
-                  }
-                  setMessages((prev) =>
-                    prev.map((m) =>
-                      m.id === assistantMessageId
-                        ? { ...m, thinking: accumulatedThinking, isStreaming: true }
-                        : m,
-                    ),
+                  // V0 can send full text or deltas; merge to avoid dropping fragments.
+                  const mergedThought = mergeStreamingText(
+                    accumulatedThinking,
+                    String(thinkingText),
                   );
+                  if (mergedThought !== accumulatedThinking) {
+                    accumulatedThinking = mergedThought;
+                    setMessages((prev) =>
+                      prev.map((m) =>
+                        m.id === assistantMessageId
+                          ? { ...m, thinking: accumulatedThinking, isStreaming: true }
+                          : m,
+                      ),
+                    );
+                  }
                 }
                 break;
               }
@@ -1095,7 +1148,10 @@ export function useV0ChatMessaging(params: {
         } else {
           const data = await response.json();
           const meta =
-            data && typeof data === "object" && (data as any).meta && typeof (data as any).meta === "object"
+            data &&
+            typeof data === "object" &&
+            (data as any).meta &&
+            typeof (data as any).meta === "object"
               ? ((data as any).meta as Record<string, unknown>)
               : null;
           appendModelInfoPart(setMessages, assistantMessageId, {
@@ -1103,8 +1159,11 @@ export function useV0ChatMessaging(params: {
               (typeof meta?.modelId === "string" && meta?.modelId) || selectedModelTier || null,
             thinking: typeof meta?.thinking === "boolean" ? (meta?.thinking as boolean) : null,
             imageGenerations:
-              typeof meta?.imageGenerations === "boolean" ? (meta?.imageGenerations as boolean) : null,
-            chatPrivacy: typeof meta?.chatPrivacy === "string" ? (meta?.chatPrivacy as string) : null,
+              typeof meta?.imageGenerations === "boolean"
+                ? (meta?.imageGenerations as boolean)
+                : null,
+            chatPrivacy:
+              typeof meta?.chatPrivacy === "string" ? (meta?.chatPrivacy as string) : null,
           });
           const newChatId = data.id || data.chatId || data.v0ChatId || data.chat?.id;
           const newV0ProjectId = data.v0ProjectId || data.v0_project_id || null;
@@ -1187,6 +1246,7 @@ export function useV0ChatMessaging(params: {
       resetBeforeCreateChat,
       selectedModelTier,
       enableImageGenerations,
+      enableThinking,
       systemPrompt,
       setMessages,
       setChatId,
@@ -1200,6 +1260,11 @@ export function useV0ChatMessaging(params: {
       onV0ProjectId,
       mutateVersions,
       buildBuilderParams,
+      buildIntent,
+      buildMethod,
+      promptAssistModel,
+      promptAssistDeep,
+      promptAssistMode,
     ],
   );
 
@@ -1238,7 +1303,13 @@ export function useV0ChatMessaging(params: {
       try {
         const formattedMessage = formatPromptForV0(messageText);
         const finalMessage = appendAttachmentPrompt(formattedMessage, options.attachmentPrompt);
-        const requestBody: Record<string, unknown> = { message: finalMessage };
+        const thinkingForTier = enableThinking && selectedModelTier !== "v0-mini";
+        const requestBody: Record<string, unknown> = {
+          message: finalMessage,
+          modelId: selectedModelTier,
+          thinking: thinkingForTier,
+          imageGenerations: enableImageGenerations,
+        };
         if (options.attachments && options.attachments.length > 0) {
           requestBody.attachments = options.attachments;
         }
@@ -1274,19 +1345,18 @@ export function useV0ChatMessaging(params: {
                   ? data
                   : (data as any)?.thinking || (data as any)?.reasoning || null;
               if (thinkingText) {
-                // V0 sends the full thought text in each chunk (not incremental deltas)
-                // So we replace rather than accumulate
-                const newThought = String(thinkingText);
-                if (newThought.length > accumulatedThinking.length) {
-                  accumulatedThinking = newThought;
+                // V0 can send full text or deltas; merge to avoid dropping fragments.
+                const mergedThought = mergeStreamingText(accumulatedThinking, String(thinkingText));
+                if (mergedThought !== accumulatedThinking) {
+                  accumulatedThinking = mergedThought;
+                  setMessages((prev) =>
+                    prev.map((m) =>
+                      m.id === assistantMessageId
+                        ? { ...m, thinking: accumulatedThinking, isStreaming: true }
+                        : m,
+                    ),
+                  );
                 }
-                setMessages((prev) =>
-                  prev.map((m) =>
-                    m.id === assistantMessageId
-                      ? { ...m, thinking: accumulatedThinking, isStreaming: true }
-                      : m,
-                  ),
-                );
               }
               break;
             }
@@ -1390,6 +1460,7 @@ export function useV0ChatMessaging(params: {
       chatId,
       createNewChat,
       enableImageGenerations,
+      enableThinking,
       setMessages,
       setCurrentDemoUrl,
       onPreviewRefresh,

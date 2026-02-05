@@ -155,24 +155,30 @@ function getBuildIntentInstructionLines(intent?: BuildIntent | null): string[] {
 
 const MOTION_GUIDANCE = {
   detailed: [
-    "Add tasteful motion: hover states, scroll-reveal animations (fade-in, slide-up), micro-interactions.",
+    "Add tasteful motion throughout: hover states, scroll-reveal animations (fade-in, slide-up), micro-interactions.",
+    "Include subtle motion in hero and at least 2 additional sections.",
     "Use Tailwind animate-* utilities; avoid custom @keyframes or @property CSS rules.",
     "Respect prefers-reduced-motion for accessibility.",
   ],
   compact: [
-    "Add tasteful motion: hover states, scroll-reveal animations, micro-interactions.",
+    "Add tasteful motion throughout: hover states, scroll-reveal animations, micro-interactions.",
+    "Include subtle motion in hero and at least 2 additional sections.",
     "Use Tailwind animate-* utilities; avoid custom @keyframes or @property CSS rules.",
   ],
 };
 
 const VISUAL_IDENTITY_GUIDANCE = {
   detailed: [
-    "Avoid plain white backgrounds; use subtle tints, gradients, or layered sections.",
+    "Never use flat pure-white backgrounds across the whole page.",
+    "Use layered backgrounds: gradients, soft tints, and section bands to create depth.",
+    "Ensure the hero uses a distinctive background (gradient or tinted panel).",
     "Pick a distinct font pairing (e.g., Inter + Space Grotesk, DM Sans + DM Mono).",
     "Create a cohesive color palette: primary, secondary, accent, with consistent application.",
   ],
   compact: [
-    "Avoid plain white backgrounds; use subtle tints, gradients, or layered sections.",
+    "Never use flat pure-white backgrounds across the whole page.",
+    "Use layered backgrounds: gradients, soft tints, and section bands to create depth.",
+    "Ensure the hero uses a distinctive background (gradient or tinted panel).",
     "Pick a distinct font pairing (e.g., Inter + Space Grotesk, DM Sans + DM Mono).",
   ],
 };
@@ -182,11 +188,13 @@ const QUALITY_BAR_GUIDANCE = {
     "Aim for a premium, layered look: cards with borders, soft shadows, glassy panels, depth.",
     "Vary layouts: bento grids, split hero, stats row, logo wall, testimonial carousel, alternating sections.",
     "Increase visual density with tasteful imagery, lucide-react icons, and decorative accents.",
+    "Avoid flat, empty sections; use section separators, background bands, or subtle gradients.",
   ],
   compact: [
     "Aim for a premium, layered look: cards with borders, soft shadows, glassy panels.",
     "Vary layouts: bento grids, split hero, stats row, logo wall, testimonial carousel.",
     "Use lucide-react icons and decorative accents for visual richness.",
+    "Avoid flat, empty sections; use section separators or subtle gradients.",
   ],
 };
 
@@ -295,6 +303,25 @@ export function buildV0RewriteSystemPrompt(params: {
     "Do not invent files or frameworks that are not in the context. " +
     "Do not output the context itself.\n\n" +
     `Codebase context:\n${codeContext}`
+  );
+}
+
+export function buildV0PolishSystemPrompt(params: {
+  buildIntent?: BuildIntent;
+  forceEnglish?: boolean;
+} = {}): string {
+  const intentLine = getBuildIntentIntro(params.buildIntent);
+  const languageRule = params.forceEnglish
+    ? "Rewrite in English."
+    : "Keep the original language. Only translate to English if the user explicitly asks for it.";
+  return (
+    "You are a meticulous copy editor for v0 prompts. " +
+    "Polish the user's request with minimal changes: fix spelling, grammar, punctuation, and clarity. " +
+    "Do NOT add new requirements, sections, or features. " +
+    "Preserve meaning and keep length roughly the same. " +
+    `${languageRule} ` +
+    "Output ONLY the polished prompt.\n\n" +
+    `Build intent: ${intentLine}`
   );
 }
 
@@ -408,7 +435,7 @@ export function buildV0PromptFromBrief(params: {
     "Requirements:",
     "- Mobile-first and fully responsive",
     "- Accessible (semantic HTML, keyboard navigation, proper labels/alt text)",
-    "- Fast and clean UI (avoid heavy animations; keep it snappy)",
+    "- Fast and clean UI with subtle motion (hover states, scroll-reveal); avoid heavy or distracting animations",
     "- Use consistent spacing, typography scale, and component styling",
     "",
     `Original request (for reference): ${originalPrompt}`,

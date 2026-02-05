@@ -44,8 +44,8 @@ export function VersionHistory({
     createdAt?: string | Date | null;
     pinned?: boolean;
   };
-  const versionList = versions as VersionSummary[];
-  const pinnedCount = versionList.filter((version) => version.pinned).length;
+  const versionList = Array.isArray(versions) ? (versions as VersionSummary[]) : [];
+  const pinnedCount = versionList.filter((version) => Boolean(version?.pinned)).length;
   const [downloadingVersionId, setDownloadingVersionId] = useState<string | null>(null);
   const [exportingVersionId, setExportingVersionId] = useState<string | null>(null);
   const [exportingGitHubVersionId, setExportingGitHubVersionId] = useState<string | null>(null);

@@ -383,7 +383,12 @@ export default function CategoryPage() {
 
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {v0Templates.map((template) => (
-                  <V0TemplateCard key={template.id} template={template} disabled={isCreating} />
+                  <V0TemplateCard
+                    key={template.id}
+                    template={template}
+                    disabled={isCreating}
+                    buildIntent={buildIntent}
+                  />
                 ))}
               </div>
             </section>
@@ -400,7 +405,12 @@ export default function CategoryPage() {
 
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
                 {vercelTemplates.map((template) => (
-                  <VercelTemplateCard key={template.id} template={template} disabled={isCreating} />
+                  <VercelTemplateCard
+                    key={template.id}
+                    template={template}
+                    disabled={isCreating}
+                    buildIntent={buildIntent}
+                  />
                 ))}
               </div>
             </section>
@@ -412,7 +422,15 @@ export default function CategoryPage() {
 }
 
 // V0 Template Card Component
-function V0TemplateCard({ template, disabled }: { template: Template; disabled: boolean }) {
+function V0TemplateCard({
+  template,
+  disabled,
+  buildIntent,
+}: {
+  template: Template;
+  disabled: boolean;
+  buildIntent: BuildIntent;
+}) {
   const router = useRouter();
   const [isCreating, setIsCreating] = useState(false);
   const [showModal, setShowModal] = useState(false);
@@ -510,9 +528,11 @@ function V0TemplateCard({ template, disabled }: { template: Template; disabled: 
 function VercelTemplateCard({
   template,
   disabled,
+  buildIntent,
 }: {
   template: VercelTemplate;
   disabled: boolean;
+  buildIntent: BuildIntent;
 }) {
   const router = useRouter();
   const [isCreating, setIsCreating] = useState(false);

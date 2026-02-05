@@ -365,28 +365,47 @@ export async function listEnvironmentVariables(
   teamId?: string,
 ): Promise<
   Array<{
+    id?: string;
     key: string;
-    value: string;
     target: string[];
+    type?: string;
   }>
 > {
   try {
     const query = teamId ? `?teamId=${encodeURIComponent(teamId)}` : "";
     const { envs } = await vercelFetch<{
       envs: Array<{
+        id?: string;
         key: string;
         value: string;
         target?: string[];
+        type?: string;
       }>;
     }>(`/v9/projects/${projectId}/env${query}`);
 
     return envs.map((e) => ({
+      id: e.id,
       key: e.key,
-      value: e.value,
       target: e.target || [],
+      type: e.type,
     }));
   } catch (error) {
     console.error("[Vercel] Failed to list environment variables:", error);
+    throw error;
+  }
+}
+
+/**
+ * Delete a project
+ */
+export async function deleteProject(projectId: string, teamId?: string): Promise<void> {
+  try {
+    const query = teamId ? `?teamId=${encodeURIComponent(teamId)}` : "";
+    await vercelFetch(`/v9/projects/${encodeURIComponent(projectId)}${query}`, {
+      method: "DELETE",
+    });
+  } catch (error) {
+    console.error("[Vercel] Failed to delete project:", error);
     throw error;
   }
 }
