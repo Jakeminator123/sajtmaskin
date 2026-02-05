@@ -1459,7 +1459,7 @@ export default function AdminPage() {
                     key={i}
                     className="flex items-start gap-3 border border-amber-500/50 bg-amber-500/10 p-4 text-sm"
                   >
-                    <AlertTriangle className="h-5 w-5 flex-shrink-0 text-amber-400" />
+                    <AlertTriangle className="h-5 w-5 shrink-0 text-amber-400" />
                     <div className="text-amber-200">{warning}</div>
                   </div>
                 ))}
