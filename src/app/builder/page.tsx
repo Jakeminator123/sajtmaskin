@@ -105,7 +105,7 @@ function BuilderContent() {
   const [enableBlobMedia, setEnableBlobMedia] = useState(true);
   const [isImageGenerationsSupported, setIsImageGenerationsSupported] = useState(true);
   const [isMediaEnabled, setIsMediaEnabled] = useState(false);
-  const [designSystemMode, setDesignSystemMode] = useState(false);
+  const [designSystemMode, setDesignSystemMode] = useState(true); // Default ON for best results
   const [showStructuredChat, setShowStructuredChat] = useState(false);
   const [isIntentionalReset, setIsIntentionalReset] = useState(false);
   const [customInstructions, setCustomInstructions] = useState(DEFAULT_CUSTOM_INSTRUCTIONS);

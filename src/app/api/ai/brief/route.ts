@@ -57,6 +57,7 @@ const sectionTypeSchema = z.enum([
   "custom",
 ]);
 
+// Full schema - used when model can handle complexity
 const siteBriefSchema = z.object({
   projectTitle: z.string().describe("Short internal project title"),
   brandName: z.string().describe("Brand/company name if present, else empty string"),
@@ -114,6 +115,78 @@ const siteBriefSchema = z.object({
     metaDescription: z.string().describe("One concise meta description"),
     keywords: z.array(z.string()).min(3).max(30),
   }),
+});
+
+// Simplified fallback schema - more lenient constraints with optional fields
+const simplifiedBriefSchema = z.object({
+  projectTitle: z.string(),
+  brandName: z.string().optional().default(""),
+  oneSentencePitch: z.string(),
+  targetAudience: z.string().optional().default("General audience"),
+  primaryCallToAction: z.string().optional().default("Get Started"),
+  toneAndVoice: z.array(z.string()).optional().default([]),
+  pages: z
+    .array(
+      z.object({
+        name: z.string(),
+        path: z.string(),
+        purpose: z.string().optional().default(""),
+        sections: z
+          .array(
+            z.object({
+              type: z.string(),
+              heading: z.string(),
+              bullets: z.array(z.string()).optional().default([]),
+            }),
+          )
+          .optional()
+          .default([]),
+      }),
+    )
+    .optional()
+    .default([]),
+  visualDirection: z
+    .object({
+      styleKeywords: z.array(z.string()).optional().default([]),
+      colorPalette: z
+        .object({
+          primary: z.string().optional().default("#3b82f6"),
+          secondary: z.string().optional().default("#6366f1"),
+          accent: z.string().optional().default("#f59e0b"),
+          background: z.string().optional().default("#0a0a0a"),
+          text: z.string().optional().default("#ffffff"),
+        })
+        .optional(),
+      typography: z
+        .object({
+          headings: z.string().optional().default("Inter"),
+          body: z.string().optional().default("Inter"),
+        })
+        .optional(),
+    })
+    .optional(),
+  imagery: z
+    .object({
+      needsImages: z.boolean().optional().default(true),
+      styleKeywords: z.array(z.string()).optional().default([]),
+      suggestedSubjects: z.array(z.string()).optional().default([]),
+      altTextRules: z.array(z.string()).optional().default([]),
+    })
+    .optional(),
+  uiNotes: z
+    .object({
+      components: z.array(z.string()).optional().default([]),
+      interactions: z.array(z.string()).optional().default([]),
+      accessibility: z.array(z.string()).optional().default([]),
+    })
+    .optional(),
+  seo: z
+    .object({
+      titleTemplate: z.string().optional().default("{page} | Site"),
+      metaDescription: z.string().optional().default(""),
+      keywords: z.array(z.string()).optional().default([]),
+    })
+    .optional(),
 });
 
 type SiteTypeRule = {
@@ -326,29 +399,84 @@ export async function POST(req: Request) {
       });
 
       const preferred = getGatewayPreferredProvider(normalizedModel);
-      const result = await generateObject({
-        model: gateway(normalizedModel),
-        schema: siteBriefSchema,
-        messages: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-        maxRetries: 2,
-        providerOptions: {
-          gateway: {
-            ...(preferred ? { order: [preferred] } : {}),
-            models: defaultGatewayFallbackModels(normalizedModel),
-          } as any,
-        },
-        maxOutputTokens: maxTokens,
-        ...getTemperatureConfig(normalizedModel, temperature),
-      });
+
+      // Try full schema first, then fallback to simplified
+      let usedSimplified = false;
+      let result;
+
+      try {
+        result = await generateObject({
+          model: gateway(normalizedModel),
+          schema: siteBriefSchema,
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt },
+          ],
+          maxRetries: 1,
+          providerOptions: {
+            gateway: {
+              ...(preferred ? { order: [preferred] } : {}),
+              models: defaultGatewayFallbackModels(normalizedModel),
+            } as any,
+          },
+          maxOutputTokens: maxTokens,
+          ...getTemperatureConfig(normalizedModel, temperature),
+        });
+      } catch (fullSchemaErr) {
+        // Full schema failed, try simplified schema
+        debugLog("AI", "Full brief schema failed, trying simplified", {
+          error: fullSchemaErr instanceof Error ? fullSchemaErr.message : String(fullSchemaErr),
+        });
+
+        try {
+          result = await generateObject({
+            model: gateway(normalizedModel),
+            schema: simplifiedBriefSchema,
+            messages: [
+              { role: "system", content: systemPrompt + "\n\nIMPORTANT: Keep your response concise. Arrays can be empty if you're unsure." },
+              { role: "user", content: userPrompt },
+            ],
+            maxRetries: 1,
+            providerOptions: {
+              gateway: {
+                ...(preferred ? { order: [preferred] } : {}),
+                models: defaultGatewayFallbackModels(normalizedModel),
+              } as any,
+            },
+            maxOutputTokens: Math.min(maxTokens, 4096),
+            ...getTemperatureConfig(normalizedModel, temperature),
+          });
+          usedSimplified = true;
+        } catch (simplifiedErr) {
+          // Both schemas failed
+          const errMsg = simplifiedErr instanceof Error ? simplifiedErr.message : String(simplifiedErr);
+
+          errorLog("AI", "Brief generation failed - both schemas", {
+            model: normalizedModel,
+            promptLength: prompt.length,
+            fullError: fullSchemaErr instanceof Error ? fullSchemaErr.message : String(fullSchemaErr),
+            simplifiedError: errMsg,
+          });
+
+          return NextResponse.json(
+            {
+              error: "AI kunde inte generera brief. Försök igen eller förenkla prompten.",
+              details: errMsg.includes("could not parse")
+                ? "Modellen returnerade ett ogiltigt svar."
+                : errMsg,
+              suggestion: "Prova att korta ner eller förtydliga din beskrivning.",
+            },
+            { status: 422 },
+          );
+        }
+      }
 
       return NextResponse.json(result.object, {
         headers: {
           "Cache-Control": "no-store",
           "X-Provider": "gateway",
           "X-Key-Source": gatewayAuth,
+          ...(usedSimplified ? { "X-Schema": "simplified" } : {}),
         },
       });
     } catch (err) {

@@ -61,8 +61,22 @@ const DESIGN_SYSTEM_HINT = `DESIGN SYSTEM MODE:
 - Use semantic CSS variables for theme tokens (bg/fg, primary, accent).
 - Keep token definitions in globals.css or theme config, not hardcoded in components.
 - Use cva + cn for variants; keep variants limited and composable.
-- Create reusable UI primitives (buttons, inputs, cards).
+- Create reusable UI primitives (buttons, inputs, cards) from shadcn/ui.
 - Keep spacing scale consistent (4/8/12/16/24/32/48).
+- Ensure good accessibility and dark-mode compatibility.
+
+SHADCN/UI REQUIREMENTS:
+- Use shadcn/ui components (@/components/ui/*) as the foundation.
+- Include cn() from @/lib/utils for class merging.
+- Use Radix primitives via shadcn when available.
+- Use lucide-react for icons consistently.
+
+VISUAL POLISH:
+- Add subtle animations (hover states, transitions, scroll-reveal).
+- Use layered backgrounds with gradients or tinted panels, not flat white.
+- Include glassmorphism effects (backdrop-blur, bg-opacity) where appropriate.
+- Create visual hierarchy with shadows, borders, and spacing.
+- Make it feel like a polished app, not a basic template.
 - Ensure good accessibility and dark-mode compatibility.`;
 
 const IMAGE_EXTENSION_MIME: Record<string, string> = {

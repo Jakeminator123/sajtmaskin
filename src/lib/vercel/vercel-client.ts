@@ -656,3 +656,41 @@ export async function getDomainOrderStatus(
     throw error;
   }
 }
+
+// ============ Team Info ============
+
+export interface VercelTeamInfo {
+  id: string;
+  slug: string;
+  name: string;
+  billing?: {
+    plan?: string; // "hobby" | "pro" | "enterprise"
+  };
+  /** Direct plan field returned on newer API */
+  plan?: string;
+}
+
+/**
+ * Get team details including billing plan
+ */
+export async function getTeam(teamId: string): Promise<VercelTeamInfo> {
+  try {
+    return await vercelFetch<VercelTeamInfo>(`/v2/teams/${encodeURIComponent(teamId)}`);
+  } catch (error) {
+    console.error("[Vercel] Failed to get team:", error);
+    throw error;
+  }
+}
+
+/**
+ * List all teams the authenticated user belongs to
+ */
+export async function listTeams(): Promise<VercelTeamInfo[]> {
+  try {
+    const { teams } = await vercelFetch<{ teams: VercelTeamInfo[] }>("/v2/teams");
+    return teams;
+  } catch (error) {
+    console.error("[Vercel] Failed to list teams:", error);
+    throw error;
+  }
+}
