@@ -216,6 +216,8 @@ function BuilderContent() {
         toast.error("Prompten hittades inte eller har redan använts.");
         setResolvedPrompt(null);
         setEntryIntentActive(false);
+        promptFetchDoneRef.current = promptId;
+        shouldClearPromptId = true;
       } finally {
         if (promptFetchInFlightRef.current === promptId) {
           promptFetchInFlightRef.current = null;
