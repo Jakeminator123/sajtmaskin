@@ -437,7 +437,7 @@ export function HomePage() {
 
         {/* Category Selection (expanded) */}
         {activeBuildMethod === "category" && (
-          <div className="animate-fadeInUp w-full max-w-4xl">
+          <div className="animate-fadeInUp w-full max-w-4xl min-h-[200px]">
             <div className="mb-6 flex items-center gap-4">
               <div className="via-brand-teal/50 h-px flex-1 bg-linear-to-r from-transparent to-transparent" />
               <span className="text-brand-teal/70 flex items-center gap-2 text-sm font-medium tracking-wider uppercase">
@@ -452,7 +452,7 @@ export function HomePage() {
 
         {/* Site Audit Section (expanded) */}
         {activeBuildMethod === "audit" && (
-          <div className="animate-fadeInUp w-full max-w-2xl">
+          <div className="animate-fadeInUp w-full max-w-2xl min-h-[180px]">
             <div className="mb-6 flex items-center gap-4">
               <div className="via-brand-amber/50 h-px flex-1 bg-linear-to-r from-transparent to-transparent" />
               <span className="text-brand-amber/70 flex items-center gap-2 text-sm font-medium tracking-wider uppercase">
@@ -470,7 +470,7 @@ export function HomePage() {
 
         {/* Freeform Prompt Section (expanded) */}
         {activeBuildMethod === "freeform" && (
-          <div className="animate-fadeInUp w-full max-w-2xl">
+          <div className="animate-fadeInUp w-full max-w-2xl min-h-[280px]">
             <div className="mb-6 flex items-center gap-4">
               <div className="via-brand-warm/50 h-px flex-1 bg-linear-to-r from-transparent to-transparent" />
               <span className="text-brand-warm/70 flex items-center gap-2 text-sm font-medium tracking-wider uppercase">

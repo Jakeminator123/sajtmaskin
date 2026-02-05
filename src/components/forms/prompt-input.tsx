@@ -42,9 +42,9 @@ interface PromptInputProps {
 }
 
 const examplePrompts = [
-  "En modern SaaS-landningssida för ett projekthanteringsverktyg med mörkt tema",
-  "En portfolio för en fotograf med bildgalleri och kontaktformulär",
-  "En dashboard för att visa försäljningsstatistik med diagram och tabeller",
+  "En animerad SaaS-landning med glassmorfism, hover-effekter och mörkt tema",
+  "En städfirmas hemsida med rolig cookie-banner, animationer och app-känsla",
+  "En portfolio med parallax-scroll, bildgalleri och moderna animationer",
 ];
 
 export function PromptInput({
