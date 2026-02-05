@@ -340,7 +340,7 @@ export function PreviewPanel({
         <div className="border-b border-yellow-900/40 bg-yellow-950/30 px-4 py-2 text-xs text-yellow-200">
           {showExternalWarning && (
             <div>
-              Preview körs på v0. Externa media‑URL:er kan ge 404 eller blockeras. Ladda upp media
+              Sajmaskinens preview körs i utvecklingsmilö för snabbhet. Externa media‑URL:er kan ge 404 eller blockeras. Ladda upp media
               via mediabiblioteket för publika Blob‑URL:er.
             </div>
           )}
