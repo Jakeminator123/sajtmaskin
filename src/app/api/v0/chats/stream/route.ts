@@ -211,6 +211,13 @@ export async function POST(req: Request) {
             let lastMessageId: string | null = null;
             let lastDemoUrl: string | null = null;
             let lastVersionId: string | null = null;
+            let pingTimer: ReturnType<typeof setInterval> | null = null;
+
+            const stopPing = () => {
+              if (!pingTimer) return;
+              clearInterval(pingTimer);
+              pingTimer = null;
+            };
 
             const safeEnqueue = (data: Uint8Array) => {
               if (controllerClosed) return;
@@ -218,17 +225,27 @@ export async function POST(req: Request) {
                 controller.enqueue(data);
               } catch {
                 controllerClosed = true;
+                stopPing();
               }
             };
 
             const safeClose = () => {
               if (controllerClosed) return;
               controllerClosed = true;
+              stopPing();
               try {
                 controller.close();
               } catch {
                 // already closed
               }
+            };
+
+            const startPing = () => {
+              if (pingTimer) return;
+              pingTimer = setInterval(() => {
+                if (controllerClosed) return;
+                safeEnqueue(encoder.encode(formatSSEEvent("ping", { ts: Date.now() })));
+              }, 15000);
             };
 
             const MAX_BUFFER_SIZE = 1024 * 1024; // 1MB buffer limit
@@ -243,6 +260,7 @@ export async function POST(req: Request) {
                 }),
               ),
             );
+            startPing();
 
             try {
               while (true) {
@@ -281,12 +299,10 @@ export async function POST(req: Request) {
 
                   if (!line.startsWith("data:")) continue;
 
-                  const rawData = line.slice(5);
-                  const normalizedData = rawData.startsWith(" ") ? rawData.slice(1) : rawData;
-                  const cleanData = normalizedData.endsWith("\r")
-                    ? normalizedData.slice(0, -1)
-                    : normalizedData;
-                  const parsed = safeJsonParse(cleanData);
+                  let rawData = line.slice("data:".length);
+                  if (rawData.startsWith(" ")) rawData = rawData.slice(1);
+                  if (rawData.endsWith("\r")) rawData = rawData.slice(0, -1);
+                  const parsed = safeJsonParse(rawData);
                   if (debugStream) {
                     console.log(
                       "[v0-stream] data for",
@@ -385,7 +401,7 @@ export async function POST(req: Request) {
                     safeEnqueue(encoder.encode(formatSSEEvent("thinking", thinkingText)));
                   }
 
-                  const contentText = extractContentText(parsed, cleanData);
+                  const contentText = extractContentText(parsed, rawData);
                   if (contentText && !didSendDone) {
                     safeEnqueue(encoder.encode(formatSSEEvent("content", contentText)));
                   }

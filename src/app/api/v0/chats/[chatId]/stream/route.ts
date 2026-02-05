@@ -22,14 +22,10 @@ import { devLogAppend } from "@/lib/logging/devLog";
 import { debugLog, errorLog } from "@/lib/utils/debug";
 import { sanitizeV0Metadata } from "@/lib/v0/sanitize-metadata";
 import { normalizeV0Error } from "@/lib/v0/errors";
-import { modelTiers, type ModelTier } from "@/lib/validations/chatSchemas";
+import { sendMessageSchema } from "@/lib/validations/chatSchemas";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
-
-function coerceModelTier(value: unknown, fallback: ModelTier = "v0-max"): ModelTier {
-  return modelTiers.includes(value as ModelTier) ? (value as ModelTier) : fallback;
-}
 
 export async function POST(req: Request, ctx: { params: Promise<{ chatId: string }> }) {
   const requestId = req.headers.get("x-vercel-id") || "unknown";
@@ -47,13 +43,18 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
 
       const { chatId } = await ctx.params;
       const body = await req.json().catch(() => ({}));
-      const { message, attachments, modelId = "v0-max", thinking, imageGenerations, system } = body;
-
-      if (!message) {
+      const validationResult = sendMessageSchema.safeParse(body);
+      if (!validationResult.success) {
         return attachSessionCookie(
-          NextResponse.json({ error: "Message is required" }, { status: 400 }),
+          NextResponse.json(
+            { error: "Validation failed", details: validationResult.error.issues },
+            { status: 400 },
+          ),
         );
       }
+
+      const { message, attachments, modelId, thinking, imageGenerations, system } =
+        validationResult.data;
 
       let existingChat = await getChatByV0ChatIdForRequest(req, chatId, { sessionId });
 
@@ -121,7 +122,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
       const internalChatId: string = existingChat.id;
       const requestStartedAt = Date.now();
 
-      const resolvedModelId = coerceModelTier(modelId);
+      const resolvedModelId = modelId ?? "v0-max";
       const resolvedThinking =
         typeof thinking === "boolean" ? thinking : resolvedModelId === "v0-max";
       const resolvedImageGenerations =
@@ -196,6 +197,13 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
             let lastMessageId: string | null = null;
             let lastDemoUrl: string | null = null;
             let lastVersionId: string | null = null;
+            let pingTimer: ReturnType<typeof setInterval> | null = null;
+
+            const stopPing = () => {
+              if (!pingTimer) return;
+              clearInterval(pingTimer);
+              pingTimer = null;
+            };
 
             const safeEnqueue = (data: Uint8Array) => {
               if (controllerClosed) return;
@@ -203,12 +211,14 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
                 controller.enqueue(data);
               } catch {
                 controllerClosed = true;
+                stopPing();
               }
             };
 
             const safeClose = () => {
               if (controllerClosed) return;
               controllerClosed = true;
+              stopPing();
               try {
                 controller.close();
               } catch {
@@ -216,7 +226,17 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
               }
             };
 
+            const startPing = () => {
+              if (pingTimer) return;
+              pingTimer = setInterval(() => {
+                if (controllerClosed) return;
+                safeEnqueue(encoder.encode(formatSSEEvent("ping", { ts: Date.now() })));
+              }, 15000);
+            };
+
             const MAX_BUFFER_SIZE = 1024 * 1024; // 1MB buffer limit
+
+            startPing();
 
             try {
               while (true) {
@@ -253,12 +273,10 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
                   }
                   if (!line.startsWith("data:")) continue;
 
-                  const rawData = line.slice(5);
-                  const normalizedData = rawData.startsWith(" ") ? rawData.slice(1) : rawData;
-                  const cleanData = normalizedData.endsWith("\r")
-                    ? normalizedData.slice(0, -1)
-                    : normalizedData;
-                  const parsed = safeJsonParse(cleanData);
+                  let rawData = line.slice("data:".length);
+                  if (rawData.startsWith(" ")) rawData = rawData.slice(1);
+                  if (rawData.endsWith("\r")) rawData = rawData.slice(0, -1);
+                  const parsed = safeJsonParse(rawData);
 
                   const messageId = extractMessageId(parsed);
                   if (messageId) {
@@ -270,7 +288,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
                     safeEnqueue(encoder.encode(formatSSEEvent("thinking", thinkingText)));
                   }
 
-                  const contentText = extractContentText(parsed, cleanData);
+                  const contentText = extractContentText(parsed, rawData);
                   if (contentText && !didSendDone) {
                     safeEnqueue(encoder.encode(formatSSEEvent("content", contentText)));
                   }

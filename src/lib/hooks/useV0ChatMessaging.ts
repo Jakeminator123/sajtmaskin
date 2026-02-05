@@ -363,6 +363,14 @@ function buildApiErrorMessage(params: {
   return message;
 }
 
+function isNetworkError(error: unknown): boolean {
+  if (error instanceof TypeError) return true;
+  if (error instanceof Error) {
+    return /network|fetch|connection|reset/i.test(error.message);
+  }
+  return false;
+}
+
 function buildStreamErrorMessage(errorData: Record<string, unknown> | null): string {
   const code = typeof errorData?.code === "string" ? errorData.code : "";
   const retryAfter = toNumber(errorData?.retryAfter ?? errorData?.retry_after);
@@ -873,6 +881,79 @@ export function useV0ChatMessaging(params: {
         },
       ]);
       setIsCreatingChat(true);
+      const handleNonStreamingCreate = async (data: any) => {
+        const meta =
+          data &&
+          typeof data === "object" &&
+          (data as any).meta &&
+          typeof (data as any).meta === "object"
+            ? ((data as any).meta as Record<string, unknown>)
+            : null;
+        appendModelInfoPart(setMessages, assistantMessageId, {
+          modelId: (typeof meta?.modelId === "string" && meta?.modelId) || selectedModelTier || null,
+          thinking: typeof meta?.thinking === "boolean" ? (meta?.thinking as boolean) : null,
+          imageGenerations:
+            typeof meta?.imageGenerations === "boolean"
+              ? (meta?.imageGenerations as boolean)
+              : null,
+          chatPrivacy: typeof meta?.chatPrivacy === "string" ? (meta?.chatPrivacy as string) : null,
+        });
+        const newChatId = data.id || data.chatId || data.v0ChatId || data.chat?.id;
+        const newV0ProjectId = data.v0ProjectId || data.v0_project_id || null;
+        const resolvedVersionId =
+          data.versionId || data.latestVersion?.id || data.latestVersion?.versionId || null;
+
+        if (!newChatId) {
+          throw new Error("No chat ID returned from API");
+        }
+
+        setChatId(newChatId);
+        if (newV0ProjectId) {
+          onV0ProjectId?.(String(newV0ProjectId));
+        }
+        {
+          const params = buildBuilderParams({
+            chatId: newChatId,
+            project: appProjectId ?? undefined,
+          });
+          router.replace(`/builder?${params.toString()}`);
+        }
+        if (pendingCreateKeyRef.current) {
+          updateCreateChatLockChatId(pendingCreateKeyRef.current, newChatId);
+        }
+        toast.success("Chat created!");
+
+        if (data.latestVersion?.demoUrl) {
+          setCurrentDemoUrl(data.latestVersion.demoUrl);
+          onPreviewRefresh?.();
+        }
+        onGenerationComplete?.({
+          chatId: newChatId,
+          versionId: resolvedVersionId ?? undefined,
+          demoUrl: data.latestVersion?.demoUrl,
+        });
+        if (resolvedVersionId) {
+          void triggerImageMaterialization({
+            chatId: String(newChatId),
+            versionId: String(resolvedVersionId),
+            enabled: enableImageGenerations,
+          });
+        }
+        if (resolvedVersionId) {
+          void runPostGenerationChecks({
+            chatId: String(newChatId),
+            versionId: String(resolvedVersionId),
+            demoUrl: data.latestVersion?.demoUrl ?? null,
+            assistantMessageId,
+            setMessages,
+          });
+        }
+
+        setMessages((prev) =>
+          prev.map((m) => (m.id === assistantMessageId ? { ...m, isStreaming: false } : m)),
+        );
+      };
+      let requestBody: Record<string, unknown> | null = null;
 
       try {
         const formattedMessage = formatPromptForV0(initialMessage);
@@ -908,22 +989,21 @@ export function useV0ChatMessaging(params: {
         if (buildMethod) {
           promptMeta.buildMethod = buildMethod;
         }
-        const requestBody: Record<string, unknown> = {
+        requestBody = {
           message: finalMessage,
           modelId: selectedModelTier,
           thinking: thinkingForTier,
           imageGenerations: enableImageGenerations,
           meta: promptMeta,
         };
-        if (v0ProjectId) {
-          requestBody.projectId = v0ProjectId;
-        }
+        if (v0ProjectId) requestBody.projectId = v0ProjectId;
         if (trimmedSystemPrompt) {
           requestBody.system = trimmedSystemPrompt;
         }
         if (options.attachments && options.attachments.length > 0) {
           requestBody.attachments = options.attachments;
         }
+
         const response = await fetch("/api/v0/chats/stream", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -1147,82 +1227,40 @@ export function useV0ChatMessaging(params: {
           });
         } else {
           const data = await response.json();
-          const meta =
-            data &&
-            typeof data === "object" &&
-            (data as any).meta &&
-            typeof (data as any).meta === "object"
-              ? ((data as any).meta as Record<string, unknown>)
-              : null;
-          appendModelInfoPart(setMessages, assistantMessageId, {
-            modelId:
-              (typeof meta?.modelId === "string" && meta?.modelId) || selectedModelTier || null,
-            thinking: typeof meta?.thinking === "boolean" ? (meta?.thinking as boolean) : null,
-            imageGenerations:
-              typeof meta?.imageGenerations === "boolean"
-                ? (meta?.imageGenerations as boolean)
-                : null,
-            chatPrivacy:
-              typeof meta?.chatPrivacy === "string" ? (meta?.chatPrivacy as string) : null,
-          });
-          const newChatId = data.id || data.chatId || data.v0ChatId || data.chat?.id;
-          const newV0ProjectId = data.v0ProjectId || data.v0_project_id || null;
-          const resolvedVersionId =
-            data.versionId || data.latestVersion?.id || data.latestVersion?.versionId || null;
-
-          if (!newChatId) {
-            throw new Error("No chat ID returned from API");
-          }
-
-          setChatId(newChatId);
-          if (newV0ProjectId) {
-            onV0ProjectId?.(String(newV0ProjectId));
-          }
-          {
-            const params = buildBuilderParams({
-              chatId: newChatId,
-              project: appProjectId ?? undefined,
-            });
-            router.replace(`/builder?${params.toString()}`);
-          }
-          if (pendingCreateKeyRef.current) {
-            updateCreateChatLockChatId(pendingCreateKeyRef.current, newChatId);
-          }
-          toast.success("Chat created!");
-
-          if (data.latestVersion?.demoUrl) {
-            setCurrentDemoUrl(data.latestVersion.demoUrl);
-            onPreviewRefresh?.();
-          }
-          onGenerationComplete?.({
-            chatId: newChatId,
-            versionId: resolvedVersionId ?? undefined,
-            demoUrl: data.latestVersion?.demoUrl,
-          });
-          if (resolvedVersionId) {
-            void triggerImageMaterialization({
-              chatId: String(newChatId),
-              versionId: String(resolvedVersionId),
-              enabled: enableImageGenerations,
-            });
-          }
-          if (resolvedVersionId) {
-            void runPostGenerationChecks({
-              chatId: String(newChatId),
-              versionId: String(resolvedVersionId),
-              demoUrl: data.latestVersion?.demoUrl ?? null,
-              assistantMessageId,
-              setMessages,
-            });
-          }
-
-          setMessages((prev) =>
-            prev.map((m) => (m.id === assistantMessageId ? { ...m, isStreaming: false } : m)),
-          );
+          await handleNonStreamingCreate(data);
         }
       } catch (error) {
-        console.error("Error creating chat:", error);
-        const message = error instanceof Error ? error.message : "Failed to create chat";
+        let finalError = error;
+        if (isNetworkError(error) && requestBody) {
+          try {
+            const fallbackRes = await fetch("/api/v0/chats", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(requestBody),
+            });
+            if (!fallbackRes.ok) {
+              let errorData: Record<string, unknown> | null = null;
+              try {
+                errorData = (await fallbackRes.json()) as Record<string, unknown>;
+              } catch {
+                // ignore
+              }
+              const errorMessage = buildApiErrorMessage({
+                response: fallbackRes,
+                errorData,
+                fallbackMessage: "Failed to create chat",
+              });
+              throw new Error(errorMessage);
+            }
+            const data = await fallbackRes.json();
+            await handleNonStreamingCreate(data);
+            return;
+          } catch (fallbackErr) {
+            finalError = fallbackErr;
+          }
+        }
+        console.error("Error creating chat:", finalError);
+        const message = finalError instanceof Error ? finalError.message : "Failed to create chat";
         toast.error(message);
         setMessages((prev) =>
           prev.map((m) =>
@@ -1299,12 +1337,53 @@ export function useV0ChatMessaging(params: {
           uiParts: [],
         },
       ]);
+      const handleNonStreamingSend = async (data: any) => {
+        const demoUrl = data?.demoUrl || data?.latestVersion?.demoUrl || null;
+        if (demoUrl) setCurrentDemoUrl(demoUrl);
+        onPreviewRefresh?.();
+        const resolvedVersionId =
+          data?.versionId || data?.latestVersion?.id || data?.latestVersion?.versionId || null;
+        const responseText =
+          (typeof data?.text === "string" && data.text) ||
+          (typeof data?.message === "string" && data.message) ||
+          null;
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantMessageId
+              ? { ...m, content: responseText ?? m.content, isStreaming: false }
+              : m,
+          ),
+        );
+        mutateVersions();
+        onGenerationComplete?.({
+          chatId: chatId || "",
+          versionId: resolvedVersionId ?? undefined,
+          demoUrl: demoUrl ?? undefined,
+        });
+        if (chatId && resolvedVersionId) {
+          void triggerImageMaterialization({
+            chatId: String(chatId),
+            versionId: String(resolvedVersionId),
+            enabled: enableImageGenerations,
+          });
+        }
+        if (chatId && resolvedVersionId) {
+          void runPostGenerationChecks({
+            chatId: String(chatId),
+            versionId: String(resolvedVersionId),
+            demoUrl: demoUrl ?? null,
+            assistantMessageId,
+            setMessages,
+          });
+        }
+      };
+      let requestBody: Record<string, unknown> | null = null;
 
       try {
         const formattedMessage = formatPromptForV0(messageText);
         const finalMessage = appendAttachmentPrompt(formattedMessage, options.attachmentPrompt);
         const thinkingForTier = enableThinking && selectedModelTier !== "v0-mini";
-        const requestBody: Record<string, unknown> = {
+        requestBody = {
           message: finalMessage,
           modelId: selectedModelTier,
           thinking: thinkingForTier,
@@ -1313,6 +1392,7 @@ export function useV0ChatMessaging(params: {
         if (options.attachments && options.attachments.length > 0) {
           requestBody.attachments = options.attachments;
         }
+
         const response = await fetch(`/api/v0/chats/${chatId}/stream`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -1440,8 +1520,37 @@ export function useV0ChatMessaging(params: {
           }
         });
       } catch (error) {
-        console.error("Error sending streaming message:", error);
-        const message = error instanceof Error ? error.message : "Failed to send message";
+        let finalError = error;
+        if (isNetworkError(error) && requestBody) {
+          try {
+            const fallbackRes = await fetch(`/api/v0/chats/${chatId}/messages`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify(requestBody),
+            });
+            if (!fallbackRes.ok) {
+              let errorData: Record<string, unknown> | null = null;
+              try {
+                errorData = (await fallbackRes.json()) as Record<string, unknown>;
+              } catch {
+                // ignore
+              }
+              const errorMessage = buildApiErrorMessage({
+                response: fallbackRes,
+                errorData,
+                fallbackMessage: "Failed to send message",
+              });
+              throw new Error(errorMessage);
+            }
+            const data = await fallbackRes.json();
+            await handleNonStreamingSend(data);
+            return;
+          } catch (fallbackErr) {
+            finalError = fallbackErr;
+          }
+        }
+        console.error("Error sending streaming message:", finalError);
+        const message = finalError instanceof Error ? finalError.message : "Failed to send message";
         toast.error(message);
         setMessages((prev) =>
           prev.map((m) =>
