@@ -1357,8 +1357,8 @@ function BuilderContent() {
           customInstructions.trim() !== DEFAULT_CUSTOM_INSTRUCTIONS.trim()
             ? customInstructions.trim()
             : DEFAULT_CUSTOM_INSTRUCTIONS.trim();
-        // If no addendum, still return base instructions
-        const specSuffix = specMode ? SPEC_FILE_INSTRUCTION : "";
+        // Only reference the spec file if it was actually created (onBrief was called)
+        const specSuffix = pendingSpecRef.current ? SPEC_FILE_INSTRUCTION : "";
         const combined = addendum.trim()
           ? `${baseInstructions}\n\n${addendum}${specSuffix}`.trim()
           : `${baseInstructions}${specSuffix}`.trim();
