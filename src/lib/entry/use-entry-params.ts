@@ -74,11 +74,37 @@ export interface EntryParams {
 
 // ── Constants ───────────────────────────────────────────────────
 
-const VALID_ENTRY_MODES = new Set<EntryMode>(["audit", "wizard", "freeform"]);
+const VALID_ENTRY_MODES = new Set<string>(["audit", "wizard", "freeform", "analyserad"]);
 const TOKEN_PATTERN = /^demo-[a-z0-9]+$/i;
 
+/**
+ * URL param aliases → internal EntryMode.
+ * e.g. ?mode=analyserad maps to the "wizard" flow internally.
+ */
+const MODE_ALIASES: Record<string, EntryMode> = {
+  analyserad: "wizard",
+};
+
 /** Modes that skip the entry modal and activate directly */
-const DIRECT_MODES = new Set<EntryMode>(["audit"]);
+const DIRECT_MODES = new Set<EntryMode>(["audit", "wizard"]);
+
+/** Abbreviations that should be fully uppercased in company names */
+const UPPERCASE_WORDS = new Set(["ab", "hb", "kb", "ek", "ef", "ab"]);
+
+/**
+ * Convert a URL slug to a display name.
+ * e.g. "alpha-rekrytering-ab" → "Alpha Rekrytering AB"
+ */
+function formatCompanySlug(slug: string): string {
+  return slug
+    .split("-")
+    .map((word) =>
+      UPPERCASE_WORDS.has(word.toLowerCase())
+        ? word.toUpperCase()
+        : word.charAt(0).toUpperCase() + word.slice(1).toLowerCase(),
+    )
+    .join(" ");
+}
 
 // ── Hook ────────────────────────────────────────────────────────
 
@@ -107,15 +133,18 @@ export function useEntryParams(): EntryParams {
 
     let hasEntryParams = false;
 
-    // Company name (e.g. ?company=Alfarekrytering)
+    // Company name (e.g. ?company=alpha-rekrytering-ab → "Alpha Rekrytering AB")
     if (rawCompany) {
-      setCompany(decodeURIComponent(rawCompany));
+      const decoded = decodeURIComponent(rawCompany);
+      // Format slug (hyphens → spaces, capitalize, AB/HB uppercase)
+      setCompany(decoded.includes("-") ? formatCompanySlug(decoded) : decoded);
       hasEntryParams = true;
     }
 
-    // Mode (e.g. ?mode=audit)
-    if (rawMode && VALID_ENTRY_MODES.has(rawMode as EntryMode)) {
-      const entryMode = rawMode as EntryMode;
+    // Mode (e.g. ?mode=audit, ?mode=analyserad)
+    if (rawMode && VALID_ENTRY_MODES.has(rawMode)) {
+      // Resolve alias (e.g. "analyserad" → "wizard")
+      const entryMode: EntryMode = MODE_ALIASES[rawMode] ?? (rawMode as EntryMode);
 
       if (rawCompany && DIRECT_MODES.has(entryMode)) {
         // Company + direct mode → show welcome overlay first, then activate
