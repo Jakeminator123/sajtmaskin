@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback } from "react";
-import { ArrowRight, Play } from "lucide-react";
+import { ArrowRight, Play, AlertTriangle, Mail } from "lucide-react";
 
 /**
  * Welcome Overlay
@@ -80,6 +80,26 @@ export function WelcomeOverlay({ company, onContinue }: WelcomeOverlayProps) {
               />
             */}
           </div>
+        </div>
+
+        {/* ── Beta notice ── */}
+        <div className="w-full rounded-xl border border-brand-amber/10 bg-brand-amber/[0.03] px-6 py-4">
+          <div className="mb-2 flex items-center gap-2">
+            <AlertTriangle className="h-3.5 w-3.5 text-brand-amber/50" />
+            <span className="text-[12px] font-semibold tracking-wide text-brand-amber/50 uppercase">Under uppbyggnad</span>
+          </div>
+          <p className="text-[13px] leading-relaxed text-white/35">
+            Den här tjänsten är under utveckling. Stöter du på problem hjälper
+            våra utvecklare gärna till. Vill du bara ha en autogenererad sajt?
+            Mejla oss med dina preferenser så skapar vi en gratis demo-URL åt dig.
+          </p>
+          <a
+            href="mailto:erik@sajtstudio.se"
+            className="mt-3 inline-flex items-center gap-1.5 text-[13px] font-medium text-brand-amber/60 transition-colors hover:text-brand-amber/80"
+          >
+            <Mail className="h-3.5 w-3.5" />
+            erik@sajtstudio.se
+          </a>
         </div>
 
         {/* ── Layer 3: CTA ── */}
