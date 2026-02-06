@@ -57,6 +57,7 @@ import { cn } from "@/lib/utils";
 import { debugLog } from "@/lib/utils/debug";
 import type { ImageAssetStrategy } from "@/lib/imageAssets";
 import { Check, HelpCircle, Loader2 } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import toast, { Toaster } from "react-hot-toast";
@@ -1022,7 +1023,7 @@ function BuilderContent() {
           if (idx === -1) return null;
           const tail = normalized.slice(idx + marker.length);
           if (!tail) return null;
-          const indexMatch = tail.match(/(.+)\/index\.(tsx|ts|jsx|js)$/);
+          const indexMatch = tail.match(/([^/]+)\/index\.(tsx|ts|jsx|js)$/);
           if (indexMatch?.[1]) return indexMatch[1];
           const base = tail.split("/").pop() || "";
           const cleaned = base.replace(/\.(tsx|ts|jsx|js)$/, "");
@@ -1901,16 +1902,26 @@ function BuilderContent() {
           reason={authModalReason ?? "builder"}
         />
 
+        <AnimatePresence>
         {isModelSelectOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center">
-            <div
+            <motion.div
               className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
               onClick={() => {
                 setIsModelSelectOpen(false);
                 setPendingCreate(null);
               }}
             />
-            <div className="border-border bg-background relative z-10 w-full max-w-lg rounded-xl border p-6 shadow-2xl">
+            <motion.div
+              className="border-border bg-background relative z-10 w-full max-w-lg rounded-xl border p-6 shadow-2xl"
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              transition={{ duration: 0.2, ease: "easeOut" }}
+            >
               <div className="mb-4">
                 <h2 className="text-foreground text-lg font-semibold">
                   Välj modell för första prompten
@@ -2025,9 +2036,10 @@ function BuilderContent() {
                 </Button>
                 <Button onClick={confirmModelSelection}>Fortsätt</Button>
               </div>
-            </div>
+            </motion.div>
           </div>
         )}
+        </AnimatePresence>
       </div>
     </ErrorBoundary>
   );
