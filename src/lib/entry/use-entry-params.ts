@@ -48,12 +48,18 @@ import {
 // ── Types ───────────────────────────────────────────────────────
 
 export interface EntryParams {
-  /** Active entry mode from ?mode=xxx, or null */
+  /** Active entry mode that should show a modal first, or null */
   mode: EntryMode | null;
   /** Partner/referral name from ?ref=xxx */
   partner: string | null;
   /** Token from ?token=xxx (saved to sessionStorage) */
   token: EntryToken | null;
+  /**
+   * Action to apply immediately on mount (no modal).
+   * Some modes (e.g. audit) skip the modal and go straight
+   * to the corresponding section.
+   */
+  directAction: EntryMode | null;
   /** Dismiss the entry modal and activate the corresponding section */
   continueEntry: () => { action: "wizard" | "audit" | "freeform" } | null;
   /** Dismiss the entry modal without activating anything */
@@ -64,6 +70,9 @@ export interface EntryParams {
 
 const VALID_ENTRY_MODES = new Set<EntryMode>(["audit", "wizard", "freeform"]);
 const TOKEN_PATTERN = /^demo-[a-z0-9]+$/i;
+
+/** Modes that skip the entry modal and activate directly */
+const DIRECT_MODES = new Set<EntryMode>(["audit"]);
 
 // ── Hook ────────────────────────────────────────────────────────
 
@@ -77,6 +86,7 @@ export function useEntryParams(): EntryParams {
   const searchParams = useSearchParams();
 
   const [mode, setMode] = useState<EntryMode | null>(null);
+  const [directAction, setDirectAction] = useState<EntryMode | null>(null);
   const [partner, setPartner] = useState<string | null>(null);
   const [token, setToken] = useState<EntryToken | null>(null);
 
@@ -90,7 +100,14 @@ export function useEntryParams(): EntryParams {
 
     // Mode (e.g. ?mode=audit)
     if (rawMode && VALID_ENTRY_MODES.has(rawMode as EntryMode)) {
-      setMode(rawMode as EntryMode);
+      const entryMode = rawMode as EntryMode;
+      if (DIRECT_MODES.has(entryMode)) {
+        // Direct modes skip the modal — activate immediately
+        setDirectAction(entryMode);
+      } else {
+        // Other modes show the entry modal first
+        setMode(entryMode);
+      }
       hasEntryParams = true;
     }
 
@@ -134,5 +151,5 @@ export function useEntryParams(): EntryParams {
     setPartner(null);
   }, []);
 
-  return { mode, partner, token, continueEntry, dismissEntry };
+  return { mode, partner, token, directAction, continueEntry, dismissEntry };
 }

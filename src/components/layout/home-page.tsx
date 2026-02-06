@@ -25,7 +25,7 @@
  * - Onboarding via custom hook
  */
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { TemplateGallery } from "@/components/templates";
 import { PromptInput } from "@/components/forms";
@@ -87,6 +87,19 @@ export function HomePage() {
 
   const { showOnboarding, onboardingData, handleComplete, handleSkip, resetOnboarding } =
     useOnboarding();
+
+  // ── Direct entry activation (no modal, e.g. ?mode=audit) ──
+  useEffect(() => {
+    if (!entry.directAction) return;
+
+    if (entry.directAction === "audit") {
+      setActiveBuildMethod("audit");
+    } else if (entry.directAction === "wizard") {
+      setShowWizard(true);
+    } else if (entry.directAction === "freeform") {
+      setActiveBuildMethod("freeform");
+    }
+  }, [entry.directAction]);
 
   // Handle entry modal "Continue" — activate the appropriate section/modal
   const handleEntryContinue = () => {
