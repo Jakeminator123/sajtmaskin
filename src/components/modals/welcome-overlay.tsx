@@ -41,9 +41,9 @@ export function WelcomeOverlay({ company, onContinue }: WelcomeOverlayProps) {
       <div className="animate-fadeInUp relative flex w-full max-w-2xl flex-col items-center gap-8">
 
         {/* ── Layer 1: Welcome banner ── */}
-        <div className="w-full rounded-2xl border border-white/8 bg-[hsl(220,15%,7%)] p-8 text-center shadow-2xl">
+        <div className="relative w-full overflow-hidden rounded-2xl border border-white/8 bg-[hsl(220,15%,7%)] p-8 text-center shadow-2xl">
           {/* Top accent */}
-          <div className="absolute inset-x-0 top-0 h-px rounded-t-2xl bg-linear-to-r from-transparent via-brand-blue/30 to-transparent" />
+          <div className="absolute inset-x-0 top-0 h-px bg-linear-to-r from-transparent via-brand-blue/30 to-transparent" />
 
           <p className="mb-2 text-[13px] font-medium tracking-widest text-white/25 uppercase">
             Din sajt är redo

@@ -1,5 +1,4 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "Sajtmaskin Entry Flow Schema",
   "description": "Defines all URL parameters accepted by sajtmaskin.vercel.app when users arrive from external sites (sajtstudio.se). Used by the entry system in src/lib/entry/.",
 
