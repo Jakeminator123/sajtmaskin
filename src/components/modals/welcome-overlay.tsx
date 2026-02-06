@@ -83,7 +83,7 @@ export function WelcomeOverlay({ company, onContinue }: WelcomeOverlayProps) {
         </div>
 
         {/* ── Beta notice ── */}
-        <div className="w-full rounded-xl border border-brand-amber/10 bg-brand-amber/[0.03] px-6 py-4">
+        <div className="w-full rounded-xl border border-brand-amber/10 bg-brand-amber/3 px-6 py-4">
           <div className="mb-2 flex items-center gap-2">
             <AlertTriangle className="h-3.5 w-3.5 text-brand-amber/50" />
             <span className="text-[12px] font-semibold tracking-wide text-brand-amber/50 uppercase">Under uppbyggnad</span>
