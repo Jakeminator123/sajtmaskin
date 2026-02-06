@@ -35,6 +35,7 @@ import {
   AuditModal,
   PromptWizardModalV2,
   EntryModal,
+  WelcomeOverlay,
   type WizardData,
 } from "@/components/modals";
 import { useEntryParams } from "@/lib/entry";
@@ -88,9 +89,10 @@ export function HomePage() {
   const { showOnboarding, onboardingData, handleComplete, handleSkip, resetOnboarding } =
     useOnboarding();
 
-  // ── Direct entry activation (no modal, e.g. ?mode=audit) ──
+  // ── Direct entry activation (no modal, e.g. ?mode=audit without company) ──
   useEffect(() => {
-    if (!entry.directAction) return;
+    // If welcome overlay is active, wait for it to be dismissed first
+    if (!entry.directAction || entry.showWelcome) return;
 
     if (entry.directAction === "audit") {
       setActiveBuildMethod("audit");
@@ -99,7 +101,12 @@ export function HomePage() {
     } else if (entry.directAction === "freeform") {
       setActiveBuildMethod("freeform");
     }
-  }, [entry.directAction]);
+  }, [entry.directAction, entry.showWelcome]);
+
+  // Handle welcome overlay "Continue" — dismiss overlay, then directAction effect fires
+  const handleWelcomeContinue = () => {
+    entry.dismissWelcome();
+  };
 
   // Handle entry modal "Continue" — activate the appropriate section/modal
   const handleEntryContinue = () => {
@@ -271,6 +278,14 @@ export function HomePage() {
           partner={entry.partner}
           onContinue={handleEntryContinue}
           onClose={entry.dismissEntry}
+        />
+      )}
+
+      {/* Welcome Overlay — shown when arriving with ?company=xxx&mode=audit */}
+      {entry.showWelcome && entry.company && (
+        <WelcomeOverlay
+          company={entry.company}
+          onContinue={handleWelcomeContinue}
         />
       )}
 

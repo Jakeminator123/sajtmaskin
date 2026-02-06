@@ -54,12 +54,18 @@ export interface EntryParams {
   partner: string | null;
   /** Token from ?token=xxx (saved to sessionStorage) */
   token: EntryToken | null;
+  /** Company name from ?company=xxx (for personalized welcome) */
+  company: string | null;
   /**
    * Action to apply immediately on mount (no modal).
    * Some modes (e.g. audit) skip the modal and go straight
    * to the corresponding section.
    */
   directAction: EntryMode | null;
+  /** True when company param is present — shows WelcomeOverlay before audit */
+  showWelcome: boolean;
+  /** Dismiss the welcome overlay */
+  dismissWelcome: () => void;
   /** Dismiss the entry modal and activate the corresponding section */
   continueEntry: () => { action: "wizard" | "audit" | "freeform" } | null;
   /** Dismiss the entry modal without activating anything */
@@ -89,23 +95,37 @@ export function useEntryParams(): EntryParams {
   const [directAction, setDirectAction] = useState<EntryMode | null>(null);
   const [partner, setPartner] = useState<string | null>(null);
   const [token, setToken] = useState<EntryToken | null>(null);
+  const [company, setCompany] = useState<string | null>(null);
+  const [showWelcome, setShowWelcome] = useState(false);
 
   // ── Parse URL params on mount ──
   useEffect(() => {
     const rawMode = searchParams.get("mode");
     const rawRef = searchParams.get("ref");
     const rawToken = searchParams.get("token");
+    const rawCompany = searchParams.get("company");
 
     let hasEntryParams = false;
+
+    // Company name (e.g. ?company=Alfarekrytering)
+    if (rawCompany) {
+      setCompany(decodeURIComponent(rawCompany));
+      hasEntryParams = true;
+    }
 
     // Mode (e.g. ?mode=audit)
     if (rawMode && VALID_ENTRY_MODES.has(rawMode as EntryMode)) {
       const entryMode = rawMode as EntryMode;
-      if (DIRECT_MODES.has(entryMode)) {
-        // Direct modes skip the modal — activate immediately
+
+      if (rawCompany && DIRECT_MODES.has(entryMode)) {
+        // Company + direct mode → show welcome overlay first, then activate
+        setShowWelcome(true);
+        setDirectAction(entryMode);
+      } else if (DIRECT_MODES.has(entryMode)) {
+        // Direct mode without company → activate immediately
         setDirectAction(entryMode);
       } else {
-        // Other modes show the entry modal first
+        // Other modes → show the entry modal first
         setMode(entryMode);
       }
       hasEntryParams = true;
@@ -130,6 +150,7 @@ export function useEntryParams(): EntryParams {
       url.searchParams.delete("mode");
       url.searchParams.delete("ref");
       url.searchParams.delete("token");
+      url.searchParams.delete("company");
       window.history.replaceState({}, "", url.pathname + url.search);
     }
   }, [searchParams]);
@@ -151,5 +172,9 @@ export function useEntryParams(): EntryParams {
     setPartner(null);
   }, []);
 
-  return { mode, partner, token, directAction, continueEntry, dismissEntry };
+  const dismissWelcome = useCallback(() => {
+    setShowWelcome(false);
+  }, []);
+
+  return { mode, partner, token, company, directAction, showWelcome, dismissWelcome, continueEntry, dismissEntry };
 }
