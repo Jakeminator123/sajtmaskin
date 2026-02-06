@@ -156,6 +156,12 @@ function BuilderContent() {
   const [deployNameDialogOpen, setDeployNameDialogOpen] = useState(false);
   const [deployNameInput, setDeployNameInput] = useState("");
   const [deployNameError, setDeployNameError] = useState<string | null>(null);
+  const [domainSearchOpen, setDomainSearchOpen] = useState(false);
+  const [domainQuery, setDomainQuery] = useState("");
+  const [domainResults, setDomainResults] = useState<
+    Array<{ domain: string; available: boolean; price: number; currency: string }> | null
+  >(null);
+  const [isDomainSearching, setIsDomainSearching] = useState(false);
   const [isDeployNameSaving, setIsDeployNameSaving] = useState(false);
   const [v0ProjectId, setV0ProjectId] = useState<string | null>(null);
   const [promptAssistContext, setPromptAssistContext] = useState<string | null>(null);
@@ -1078,6 +1084,42 @@ function BuilderContent() {
     setDeployNameDialogOpen(true);
   }, [resolveSuggestedProjectName]);
 
+  const handleDomainSearch = useCallback(async () => {
+    if (!domainQuery.trim()) return;
+    setIsDomainSearching(true);
+    setDomainResults(null);
+    try {
+      // Generate TLD variations if user entered a bare name
+      const query = domainQuery.trim().toLowerCase();
+      const hasTld = query.includes(".");
+      const domains = hasTld
+        ? [query]
+        : [`${query}.se`, `${query}.com`, `${query}.io`, `${query}.app`, `${query}.net`];
+
+      const results = await Promise.all(
+        domains.map(async (domain) => {
+          try {
+            const res = await fetch(`/api/vercel/domains/price?domain=${encodeURIComponent(domain)}`);
+            const data = await res.json();
+            return {
+              domain,
+              available: data.available ?? true,
+              price: data.price ?? 0,
+              currency: data.currency ?? "SEK",
+            };
+          } catch {
+            return { domain, available: false, price: 0, currency: "SEK" };
+          }
+        }),
+      );
+      setDomainResults(results);
+    } catch {
+      toast.error("Kunde inte söka domäner");
+    } finally {
+      setIsDomainSearching(false);
+    }
+  }, [domainQuery]);
+
   const deployActiveVersionToVercel = useCallback(
     async (target: "production" | "preview" = "production", projectName?: string) => {
       if (!chatId) {
@@ -1753,6 +1795,7 @@ function BuilderContent() {
             setIsSandboxModalOpen(true);
           }}
           onDeployProduction={handleOpenDeployDialog}
+          onDomainSearch={() => setDomainSearchOpen(true)}
           onNewChat={resetToNewChat}
           onSaveProject={handleSaveProject}
           isDeploying={isDeploying}
@@ -1790,10 +1833,11 @@ function BuilderContent() {
               currentCode={currentPageCode}
               existingUiComponents={existingUiComponents}
             />
+            {/* ── Publicera-dialog ── */}
             <Dialog open={deployNameDialogOpen}>
               <DialogContent className="max-w-md">
                 <DialogHeader>
-                  <DialogTitle>Välj Vercel-projektnamn</DialogTitle>
+                  <DialogTitle>Publicera till Vercel</DialogTitle>
                   <DialogDescription>
                     Namnet används i URL:en (namn.vercel.app) och normaliseras automatiskt.
                   </DialogDescription>
@@ -1817,6 +1861,16 @@ function BuilderContent() {
                       ordning.
                     </p>
                   </div>
+                  {/* Cost notice */}
+                  <div className="rounded-md border border-border bg-muted/30 px-3 py-2.5 space-y-1">
+                    <p className="text-xs text-muted-foreground">
+                      <span className="font-medium text-foreground">Kostnad:</span> 20 credits för publicering
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      <span className="font-medium text-foreground">Hosting:</span> 10 credits/månad för att
+                      hålla sajten live
+                    </p>
+                  </div>
                   <div className="flex items-center justify-end gap-2">
                     <Button
                       variant="outline"
@@ -1829,8 +1883,89 @@ function BuilderContent() {
                       {isDeployNameSaving ? (
                         <Loader2 className="h-4 w-4 animate-spin" />
                       ) : (
-                        "Deploy"
+                        "Publicera"
                       )}
+                    </Button>
+                  </div>
+                </div>
+              </DialogContent>
+            </Dialog>
+
+            {/* ── Domänsök-dialog ── */}
+            <Dialog open={domainSearchOpen}>
+              <DialogContent className="max-w-lg">
+                <DialogHeader>
+                  <DialogTitle>Sök &amp; köp domän</DialogTitle>
+                  <DialogDescription>
+                    Sök efter en ledig domän för ditt projekt. Priser visas i SEK per år.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div className="flex gap-2">
+                    <Input
+                      value={domainQuery}
+                      onChange={(e) => setDomainQuery(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && handleDomainSearch()}
+                      placeholder="t.ex. mittforetag"
+                      disabled={isDomainSearching}
+                    />
+                    <Button
+                      onClick={handleDomainSearch}
+                      disabled={isDomainSearching || !domainQuery.trim()}
+                    >
+                      {isDomainSearching ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        "Sök"
+                      )}
+                    </Button>
+                  </div>
+
+                  {domainResults && (
+                    <div className="space-y-2">
+                      {domainResults.map((r) => (
+                        <div
+                          key={r.domain}
+                          className={`flex items-center justify-between rounded-md border px-3 py-2.5 text-sm ${
+                            r.available
+                              ? "border-brand-teal/30 bg-brand-teal/5"
+                              : "border-border bg-muted/20 opacity-60"
+                          }`}
+                        >
+                          <div className="flex items-center gap-2">
+                            <span
+                              className={`inline-block h-2 w-2 rounded-full ${r.available ? "bg-brand-teal" : "bg-red-400"}`}
+                            />
+                            <span className="font-medium text-foreground">{r.domain}</span>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            {r.available ? (
+                              <>
+                                <span className="text-muted-foreground">
+                                  {r.price} {r.currency}/år
+                                </span>
+                                <a
+                                  href={`mailto:jakob.olof.eberg@gmail.com,erik@sajtstudio.se?subject=${encodeURIComponent(`Domänköp: ${r.domain}`)}&body=${encodeURIComponent(`Hej!\n\nJag vill köpa domänen ${r.domain} (${r.price} ${r.currency}/år) via SajtMaskin.\n\nTack!`)}`}
+                                  className="text-xs font-medium text-brand-teal hover:text-brand-teal/80"
+                                >
+                                  Köp →
+                                </a>
+                              </>
+                            ) : (
+                              <span className="text-xs text-red-400">Upptagen</span>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-between pt-1">
+                    <p className="text-xs text-muted-foreground">
+                      Kontakta <span className="font-medium">hej@sajtmaskin.se</span> för hjälp.
+                    </p>
+                    <Button variant="outline" size="sm" onClick={() => setDomainSearchOpen(false)}>
+                      Stäng
                     </Button>
                   </div>
                 </div>

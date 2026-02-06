@@ -5,17 +5,18 @@
  * Takes wizard step data and returns AI-driven follow-up questions,
  * suggestions, and optionally scraped website data.
  *
- * Used by the prompt wizard modal to create adaptive, business-specific
- * questions based on what the user has already answered.
+ * Optimised for SPEED: uses generateText + JSON parsing instead of
+ * generateObject (structured output adds ~10s overhead on some models).
  */
 
 import { NextResponse } from "next/server";
-import { generateObject, gateway } from "ai";
+import { generateText, gateway } from "ai";
 import { z } from "zod";
 import { requireNotBot } from "@/lib/botProtection";
 import { withRateLimit } from "@/lib/rateLimit";
 import { scrapeWebsite } from "@/lib/webscraper";
 import { debugLog, errorLog } from "@/lib/utils/debug";
+import { prepareCredits } from "@/lib/credits/server";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -39,70 +40,24 @@ const enrichRequestSchema = z.object({
   scrapeUrl: z.string().optional(),
 });
 
-// ── Response schema for AI-generated follow-ups ─────────────────────
-
-const followUpSchema = z.object({
-  questions: z
-    .array(
-      z.object({
-        id: z.string().describe("Unique ID for this question (e.g. 'q_employees')"),
-        text: z.string().describe("The question to ask the user, in Swedish"),
-        type: z
-          .enum(["text", "select", "chips"])
-          .describe("Input type: text for free input, select for single choice, chips for multi"),
-        options: z
-          .array(z.string())
-          .optional()
-          .describe("Options for select/chips types"),
-        placeholder: z.string().optional().describe("Placeholder text for text inputs"),
-      }),
-    )
-    .min(1)
-    .max(3)
-    .describe("1-3 follow-up questions tailored to the user's business"),
-  suggestions: z
-    .array(
-      z.object({
-        type: z
-          .enum(["audience", "feature", "usp", "palette", "trend"])
-          .describe("What this suggestion is for"),
-        text: z.string().describe("The suggestion text, in Swedish"),
-      }),
-    )
-    .max(5)
-    .describe("Contextual suggestions based on input"),
-  insightSummary: z
-    .string()
-    .optional()
-    .describe("A brief insight about the business based on available data, in Swedish"),
-});
-
-// ── Industry context for better follow-up generation ────────────────
+// ── Industry context ────────────────────────────────────────────────
 
 const INDUSTRY_CONTEXT: Record<string, string> = {
-  cafe: "Swedish café/bakery. Think fika culture, cozy atmosphere, seasonal menus.",
-  restaurant: "Restaurant or bar. Dining experiences, reservations, seasonal menus, events.",
-  retail: "Retail/physical store. Product display, opening hours, loyalty programs.",
-  tech: "Tech/IT company. SaaS, digital services, case studies, integrations.",
-  consulting: "Consulting/services firm. Expertise, team, client testimonials, processes.",
-  health: "Healthcare/wellness. Treatments, booking, trust signals, certifications.",
-  creative: "Creative agency. Portfolio-driven, visual impact, process showcase.",
-  education: "Education. Courses, schedules, enrollment, instructor profiles.",
-  ecommerce: "E-commerce. Product catalog, checkout flow, reviews, shipping.",
-  realestate: "Real estate. Property listings, search/filter, valuations, agent profiles.",
-  other: "General business website.",
+  cafe: "Café/konditori",
+  restaurant: "Restaurang/bar",
+  retail: "Butik/detaljhandel",
+  tech: "Tech/IT-företag",
+  consulting: "Konsult/tjänster",
+  health: "Hälsa/wellness",
+  creative: "Kreativ byrå",
+  education: "Utbildning",
+  ecommerce: "E-handel",
+  realestate: "Fastigheter/mäklare",
+  other: "Företag",
 };
 
-// ── Gateway config ──────────────────────────────────────────────────
-
-const ENRICH_MODEL = "openai/gpt-5.2";
-
-function defaultFallbackModels(): string[] {
-  return [
-    "openai/gpt-5.2-pro",
-    "anthropic/claude-sonnet-4.5",
-  ];
-}
+// GPT-5 mini: fast ($0.25/1M in) and good enough for follow-up questions
+const ENRICH_MODEL = "openai/gpt-5-mini";
 
 // ── Main handler ────────────────────────────────────────────────────
 
@@ -124,6 +79,12 @@ export async function POST(req: Request) {
       const { step, data, scrapeUrl } = parsed.data;
 
       debugLog("WIZARD", "Enrich request", { step, industry: data.industry, scrapeUrl });
+
+      // Check credits (wizard enrich costs 11 credits)
+      const creditCheck = await prepareCredits(req, "wizard.enrich");
+      if (!creditCheck.ok) {
+        return creditCheck.response;
+      }
 
       // Check gateway auth
       const hasGatewayApiKey = Boolean(process.env.AI_GATEWAY_API_KEY?.trim());
@@ -170,73 +131,94 @@ export async function POST(req: Request) {
         }
       }
 
-      // ── Build system prompt ─────────────────────────────────────
-      const industryContext = INDUSTRY_CONTEXT[data.industry] || INDUSTRY_CONTEXT.other;
+      // ── Build compact prompt ────────────────────────────────────
+      const industryLabel = INDUSTRY_CONTEXT[data.industry] || data.industry || "företag";
 
-      const contextParts = [
-        `Industry: ${data.industry || "unknown"} - ${industryContext}`,
-        data.companyName ? `Company: ${data.companyName}` : null,
-        data.location ? `Location: ${data.location}` : null,
-        data.purposes.length ? `Goals: ${data.purposes.join(", ")}` : null,
-        data.targetAudience ? `Target audience: ${data.targetAudience}` : null,
+      const contextLines = [
+        `Bransch: ${industryLabel}`,
+        data.companyName ? `Företag: ${data.companyName}` : null,
+        data.location ? `Plats: ${data.location}` : null,
+        data.purposes.length ? `Mål: ${data.purposes.join(", ")}` : null,
+        data.targetAudience ? `Målgrupp: ${data.targetAudience}` : null,
         data.usp ? `USP: ${data.usp}` : null,
-        scrapedData
-          ? `Existing website data: Title="${scrapedData.title}", ${scrapedData.wordCount} words, headings: ${scrapedData.headings?.join(", ")}`
-          : null,
-        Object.keys(data.previousFollowUps).length
-          ? `Previous answers: ${JSON.stringify(data.previousFollowUps)}`
-          : null,
-      ].filter(Boolean);
+        scrapedData?.title ? `Befintlig sajt: "${scrapedData.title}" (${scrapedData.wordCount || 0} ord)` : null,
+      ].filter(Boolean).join(". ");
 
-      const stepInstructions: Record<number, string> = {
-        1: "The user just entered their company info (name, industry, location). Generate follow-up questions that dig deeper into their specific business: number of employees, physical vs online, what makes them unique, years in business, etc. Tailor to their industry.",
-        2: "The user has defined their goals and audience. Generate follow-ups about their competitive landscape, key differentiators (USP), brand values, and what specific problems they solve for their customers.",
-        3: "The user is looking at inspiration and their existing site. Generate follow-ups about what specifically they like/dislike about competitors, what features they've seen that they want, and any content gaps on their current site.",
-        4: "The user is choosing design preferences. Generate follow-ups about brand personality traits, any existing brand guidelines or assets, and specific visual elements they want (animations, illustrations, photography style).",
-        5: "Final step. Generate follow-ups about launch timeline, any specific integrations needed (booking, payment, email), and budget expectations.",
+      const stepFocus: Record<number, string> = {
+        1: "företagets storlek, unikhet och verksamhet",
+        2: "konkurrenter, USP och kundproblem de löser",
+        3: "vad de gillar/ogillar med konkurrenters sajter, funktioner de saknar",
+        4: "varumärkespersonlighet, visuella element, foto vs illustration",
+        5: "tidsplan, integrationer (bokning, betalning, e-post), budget",
       };
 
-      const systemPrompt = [
-        "You are a smart business consultant helping a Swedish business owner plan their new website.",
-        "Generate thoughtful, specific follow-up questions based on what they've told you so far.",
-        "All questions and suggestions MUST be in Swedish.",
-        "Make questions feel conversational and genuinely interested in their business.",
-        "Avoid generic questions -- be specific to their industry and situation.",
-        "",
-        `Current wizard step: ${step}/5`,
-        stepInstructions[step] || "",
-        "",
-        "Business context:",
-        ...contextParts,
-      ].join("\n");
+      // Single compact prompt -- no system message for speed
+      const prompt = `Du hjälper en svensk företagare bygga hemsida. Svara BARA med JSON.
 
-      // ── Generate follow-ups via AI Gateway ──────────────────────
-      const result = await generateObject({
+Kontext: ${contextLines}
+Steg ${step}/5 - fokus: ${stepFocus[step] || ""}
+
+Ge exakt detta JSON-format (inget annat):
+{"questions":[{"id":"q1","text":"Fråga på svenska","type":"text"},{"id":"q2","text":"Fråga 2","type":"select","options":["Alt 1","Alt 2","Alt 3"]}],"suggestions":[{"type":"feature","text":"Förslag på svenska"}]}
+
+Regler:
+- 2 frågor max, korta och specifika för ${industryLabel}
+- 1-2 förslag (type: feature/usp/trend)
+- Allt på svenska
+- Bara JSON, inget annat`;
+
+      const result = await generateText({
         model: gateway(ENRICH_MODEL),
-        schema: followUpSchema,
-        messages: [
-          { role: "system", content: systemPrompt },
-          {
-            role: "user",
-            content: `Generate follow-up questions for step ${step}. Context: ${contextParts.join(". ")}`,
-          },
-        ],
+        prompt,
         maxRetries: 1,
         providerOptions: {
           gateway: {
-            models: defaultFallbackModels(),
-          } as any, // eslint-disable-line @typescript-eslint/no-explicit-any
+            models: ["openai/gpt-5.2", "anthropic/claude-sonnet-4.5"],
+          } as any,
         },
-        maxOutputTokens: 1200,
+        maxOutputTokens: 400,
       });
+
+      // Parse JSON from response
+      let parsed_response: {
+        questions?: Array<{
+          id: string;
+          text: string;
+          type: string;
+          options?: string[];
+          placeholder?: string;
+        }>;
+        suggestions?: Array<{ type: string; text: string }>;
+        insightSummary?: string;
+      } = { questions: [], suggestions: [] };
+
+      try {
+        const text = result.text?.trim() || "";
+        // Extract JSON from response (handle markdown code fences)
+        const jsonMatch = text.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          parsed_response = JSON.parse(jsonMatch[0]);
+        }
+      } catch {
+        debugLog("WIZARD", "Failed to parse enrich JSON, using empty response");
+      }
 
       debugLog("WIZARD", "Enrich response generated", {
-        questionCount: result.object.questions.length,
-        suggestionCount: result.object.suggestions.length,
+        questionCount: parsed_response.questions?.length || 0,
+        suggestionCount: parsed_response.suggestions?.length || 0,
       });
 
+      // Charge credits after successful generation
+      try {
+        await creditCheck.commit();
+      } catch (error) {
+        console.error("[credits] Failed to charge wizard enrich:", error);
+      }
+
       return NextResponse.json({
-        ...result.object,
+        questions: parsed_response.questions || [],
+        suggestions: parsed_response.suggestions || [],
+        insightSummary: parsed_response.insightSummary || null,
         scrapedData,
       });
     } catch (err) {

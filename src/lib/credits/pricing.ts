@@ -4,6 +4,7 @@ export type CreditAction =
   | "prompt.template"
   | "prompt.registry"
   | "prompt.vercelTemplate"
+  | "wizard.enrich"
   | "deploy.preview"
   | "deploy.production"
   | "audit.basic"
@@ -21,16 +22,18 @@ export type PricingContext = {
   attachmentsCount?: number | null;
 };
 
+// ─── Prompt costs by model tier ───────────────────────────────────
+// Base rate: 1 credit ≈ 3 SEK
 const PROMPT_CREATE_COSTS: Record<ModelTier, number> = {
-  "v0-mini": 1,
-  "v0-pro": 2,
-  "v0-max": 3,
+  "v0-mini": 5,
+  "v0-pro": 7,
+  "v0-max": 10,
 };
 
 const PROMPT_REFINE_COSTS: Record<ModelTier, number> = {
-  "v0-mini": 1,
-  "v0-pro": 1,
-  "v0-max": 2,
+  "v0-mini": 3,
+  "v0-pro": 4,
+  "v0-max": 6,
 };
 
 const QUALITY_TO_MODEL: Record<QualityLevel, ModelTier> = {
@@ -47,16 +50,23 @@ const MODEL_LABELS: Record<ModelTier, string> = {
   "v0-max": "Max",
 };
 
+// ─── Feature costs ────────────────────────────────────────────────
+export const WIZARD_COST = 11;
+
 export const AUDIT_COSTS = {
-  basic: 3,
-  advanced: 5,
+  basic: 15,
+  advanced: 25,
 } as const;
 
 export const DEPLOY_COSTS = {
-  preview: 2,
-  production: 3,
+  preview: 20,
+  production: 20,
 } as const;
 
+/** Monthly hosting cost per active deployment (credits/month) */
+export const HOSTING_MONTHLY_COST = 10;
+
+// ─── Action classification ────────────────────────────────────────
 const PROMPT_CREATE_ACTIONS = new Set<CreditAction>([
   "prompt.create",
   "prompt.template",
@@ -90,6 +100,8 @@ export function getCreditCost(action: CreditAction, context: PricingContext = {}
     return PROMPT_REFINE_COSTS[resolveModelTier(context)];
   }
   switch (action) {
+    case "wizard.enrich":
+      return WIZARD_COST;
     case "deploy.preview":
       return DEPLOY_COSTS.preview;
     case "deploy.production":
@@ -115,6 +127,8 @@ export function getCreditTransactionType(action: CreditAction): string {
       return "prompt_registry";
     case "prompt.vercelTemplate":
       return "prompt_vercel_template";
+    case "wizard.enrich":
+      return "wizard_enrich";
     case "deploy.preview":
       return "deploy_preview";
     case "deploy.production":
@@ -142,6 +156,8 @@ export function getCreditDescription(action: CreditAction, context: PricingConte
       return `Registry (${modelLabel})`;
     case "prompt.vercelTemplate":
       return `Vercel-template (${modelLabel})`;
+    case "wizard.enrich":
+      return "Wizard-analys";
     case "deploy.preview":
       return "Deploy (preview)";
     case "deploy.production":
@@ -164,6 +180,8 @@ export function getActionLabel(action: CreditAction): string {
       return "en generering";
     case "prompt.refine":
       return "en förfining";
+    case "wizard.enrich":
+      return "en wizard-analys";
     case "deploy.preview":
       return "en preview-deploy";
     case "deploy.production":

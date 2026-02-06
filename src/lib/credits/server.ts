@@ -31,6 +31,7 @@ const ACTION_RULES: Record<CreditAction, ActionRule> = {
   "prompt.template": { allowGuest: true, guestUsageType: "generate", guestLimit: 1 },
   "prompt.registry": { allowGuest: true, guestUsageType: "generate", guestLimit: 1 },
   "prompt.vercelTemplate": { allowGuest: true, guestUsageType: "generate", guestLimit: 1 },
+  "wizard.enrich": { allowGuest: false },
   "deploy.preview": { allowGuest: false },
   "deploy.production": { allowGuest: false },
   "audit.basic": { allowGuest: false },
@@ -38,6 +39,7 @@ const ACTION_RULES: Record<CreditAction, ActionRule> = {
 };
 
 const AUTH_REQUIRED_MESSAGES: Partial<Record<CreditAction, string>> = {
+  "wizard.enrich": "Du måste vara inloggad för att använda wizard-läget.",
   "audit.basic": "Du måste vara inloggad för att använda audit-funktionen.",
   "audit.advanced": "Du måste vara inloggad för att använda audit-funktionen.",
   "deploy.preview": "Du måste vara inloggad för att deploya.",

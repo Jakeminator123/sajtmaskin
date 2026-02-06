@@ -39,6 +39,7 @@ import {
   Loader2,
   MessageSquare,
   Plus,
+  Globe,
   Rocket,
   Save,
   Settings2,
@@ -87,6 +88,7 @@ export function BuilderHeader(props: {
   onOpenImport: () => void;
   onOpenSandbox: () => void;
   onDeployProduction: () => void;
+  onDomainSearch: () => void;
   onNewChat: () => void;
   onSaveProject: () => void;
 
@@ -109,8 +111,8 @@ export function BuilderHeader(props: {
     onCustomInstructionsChange,
     applyInstructionsOnce,
     onApplyInstructionsOnceChange,
-    designSystemMode,
-    onDesignSystemModeChange,
+    designSystemMode: _designSystemMode,
+    onDesignSystemModeChange: _onDesignSystemModeChange,
     designTheme,
     onDesignThemeChange,
     specMode,
@@ -129,6 +131,7 @@ export function BuilderHeader(props: {
     onOpenImport,
     onOpenSandbox,
     onDeployProduction,
+    onDomainSearch,
     onNewChat,
     onSaveProject,
     isDeploying,
@@ -466,6 +469,17 @@ export function BuilderHeader(props: {
 
         <Button
           size="sm"
+          variant="outline"
+          onClick={onDomainSearch}
+          disabled={!canDeploy || isBusy}
+          title="Sök & köp domän"
+        >
+          <Globe className="h-4 w-4" />
+          <span className="hidden sm:inline">Domän</span>
+        </Button>
+
+        <Button
+          size="sm"
           onClick={onDeployProduction}
           disabled={!canDeploy || isBusy || isDeploying}
         >
@@ -474,7 +488,7 @@ export function BuilderHeader(props: {
           ) : (
             <Rocket className="h-4 w-4" />
           )}
-          <span className="hidden sm:inline">Deploy</span>
+          <span className="hidden sm:inline">Publicera</span>
         </Button>
       </div>
 

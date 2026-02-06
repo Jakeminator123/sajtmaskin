@@ -39,12 +39,12 @@ export async function GET(request: NextRequest) {
       };
 
       const vercelCostEstimate = estimatedVercelCosts[tld || "com"] || 50;
-      const customerPriceEstimate = vercelCostEstimate * 3; // 300% markup
+      const customerPriceEstimate = Math.round(vercelCostEstimate * 2.5); // 250% markup
 
       return NextResponse.json({
         success: true,
         domain,
-        price: customerPriceEstimate, // Customer price (300% markup)
+        price: customerPriceEstimate, // Customer price (250% markup)
         vercelCost: vercelCostEstimate, // Estimated Vercel cost
         currency: "SEK",
         period: 1,
@@ -64,14 +64,14 @@ export async function GET(request: NextRequest) {
       const vercelCostUsd = priceData.price;
       const vercelCostSek = vercelCostUsd * usdToSek;
 
-      // Apply 300% markup for customer price
-      const markupMultiplier = 3;
+      // Apply 250% markup for customer price
+      const markupMultiplier = 2.5;
       const customerPriceSek = Math.round(vercelCostSek * markupMultiplier);
 
       return NextResponse.json({
         success: true,
         domain: priceData.name,
-        price: customerPriceSek, // Customer price (300% markup)
+        price: customerPriceSek, // Customer price (250% markup)
         vercelCost: Math.round(vercelCostSek), // Vercel's cost
         priceUsd: vercelCostUsd, // Vercel's cost in USD
         currency: "SEK",
@@ -93,12 +93,12 @@ export async function GET(request: NextRequest) {
       };
 
       const vercelCostEstimate = estimatedVercelCosts[tld || "com"] || 50;
-      const customerPriceEstimate = vercelCostEstimate * 3; // 300% markup
+      const customerPriceEstimate = Math.round(vercelCostEstimate * 2.5); // 250% markup
 
       return NextResponse.json({
         success: true,
         domain,
-        price: customerPriceEstimate, // Customer price (300% markup)
+        price: customerPriceEstimate, // Customer price (250% markup)
         vercelCost: vercelCostEstimate, // Estimated Vercel cost
         currency: "SEK",
         period: 1,
