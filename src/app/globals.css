@@ -124,6 +124,25 @@
     animation: gradient 3s ease infinite;
   }
 
+  .animate-gradient-slow {
+    background-size: 300% auto;
+    animation: gradient 8s ease infinite;
+  }
+
+  /* Premium glow pulse for card hover states */
+  @keyframes glowPulse {
+    0%, 100% {
+      opacity: 0;
+    }
+    50% {
+      opacity: 1;
+    }
+  }
+
+  .animate-glow-pulse {
+    animation: glowPulse 3s ease-in-out infinite;
+  }
+
   /* Toast animations */
   @keyframes slide-in {
     from {
