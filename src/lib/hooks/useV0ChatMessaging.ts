@@ -781,10 +781,6 @@ async function runPostGenerationChecks(params: {
       const suffix = names.length > 8 ? " …" : "";
       steps.push(`Design tokens (${designTokens.source}): ${preview}${suffix}`);
     }
-    if (!resolvedDemoUrl) {
-      steps.push("Preview-länk saknas för versionen.");
-    }
-
     // Image URL validation — runs in background, auto-fixes broken Unsplash URLs
     let imageValidation: {
       valid?: boolean;
@@ -824,6 +820,12 @@ async function runPostGenerationChecks(params: {
       // Image validation is best-effort; don't block post-check
     }
 
+    // Check demo URL after image validation (which may produce a new demoUrl)
+    const finalDemoUrl = imageValidation?.demoUrl || resolvedDemoUrl;
+    if (!finalDemoUrl) {
+      steps.push("Preview-länk saknas för versionen.");
+    }
+
     const output = {
       steps,
       summary: {
@@ -839,7 +841,7 @@ async function runPostGenerationChecks(params: {
       designTokens,
       imageValidation,
       previousVersionId,
-      demoUrl: imageValidation?.demoUrl || resolvedDemoUrl,
+      demoUrl: finalDemoUrl,
     };
 
     appendToolPartToMessage(setMessages, assistantMessageId, {
@@ -854,7 +856,7 @@ async function runPostGenerationChecks(params: {
     appendPostCheckSummaryToMessage(
       setMessages,
       assistantMessageId,
-      buildPostCheckSummary({ changes, warnings, demoUrl: imageValidation?.demoUrl || resolvedDemoUrl }),
+      buildPostCheckSummary({ changes, warnings, demoUrl: finalDemoUrl }),
     );
   } catch (error) {
     appendToolPartToMessage(setMessages, assistantMessageId, {

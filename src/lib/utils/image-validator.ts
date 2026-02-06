@@ -271,10 +271,14 @@ export function applyReplacements(
   const replacements = broken.filter((b) => b.replacementUrl);
   if (replacements.length === 0) return { files, replacedCount: 0 };
 
+  // Sort longest URL first to prevent shorter URLs from corrupting longer ones
+  // e.g., "photo-abc" must not match inside "photo-abc?w=400"
+  const sorted = [...replacements].sort((a, b) => b.url.length - a.url.length);
+
   let replacedCount = 0;
   const updatedFiles = files.map((f) => {
     let content = f.content;
-    for (const entry of replacements) {
+    for (const entry of sorted) {
       if (entry.replacementUrl) {
         const parts = content.split(entry.url);
         const occurrences = parts.length - 1;
