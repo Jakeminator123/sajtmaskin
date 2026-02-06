@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useAuthStore } from "@/lib/auth/auth-store";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { X, Mail, Lock, User, Eye, EyeOff, Loader2, Diamond } from "lucide-react";
+import { X, Mail, Lock, User, Eye, EyeOff, Loader2, Coins } from "lucide-react";
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -116,14 +116,14 @@ export function AuthModal({ isOpen, onClose, defaultMode = "login" }: AuthModalP
           <p className="mt-2 text-sm text-gray-400">
             {mode === "login"
               ? "Logga in för att fortsätta bygga"
-              : "Få 50 gratis diamanter när du skapar konto"}
+              : "Få 50 gratis credits när du skapar konto"}
           </p>
 
           {/* Signup bonus indicator */}
           {mode === "register" && (
             <div className="bg-brand-amber/10 border-brand-amber/30 mt-4 inline-flex items-center gap-2 border px-4 py-2">
-              <Diamond className="text-brand-amber h-4 w-4" />
-              <span className="text-brand-amber text-sm font-medium">+50 diamanter gratis</span>
+              <Coins className="text-brand-amber h-4 w-4" />
+              <span className="text-brand-amber text-sm font-medium">+50 credits gratis</span>
             </div>
           )}
         </div>

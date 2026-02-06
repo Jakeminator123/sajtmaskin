@@ -5,7 +5,7 @@ import {
   X,
   Globe,
   Search,
-  Sparkles,
+  Wand2,
   Building2,
   FileText,
   ChevronDown,
@@ -107,7 +107,7 @@ export function OnboardingModal({ onComplete, onSkip }: OnboardingModalProps) {
           <div className="p-6">
             <div className="mb-6 text-center">
               <div className="bg-brand-teal/10 border-brand-teal/30 text-brand-teal mb-4 inline-flex items-center gap-2 border px-4 py-2 text-sm">
-                <Sparkles className="h-4 w-4" />
+                <Wand2 className="h-4 w-4" />
                 Välkommen till SajtMaskin
               </div>
               <h2 className="text-2xl font-bold text-white">Din AI-partner för hemsidor</h2>

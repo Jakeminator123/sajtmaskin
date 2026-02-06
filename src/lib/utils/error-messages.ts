@@ -20,8 +20,8 @@ export const AUTH_ERRORS = {
 // Credit/payment errors
 export const CREDIT_ERRORS = {
   INSUFFICIENT_CREDITS: (required: number, current: number) =>
-    `Du behöver ${required} diamanter men har bara ${current}. Köp fler diamanter för att fortsätta.`,
-  DEDUCTION_FAILED: "Kunde inte dra diamanter. Försök igen.",
+    `Du behöver ${required} credits men har bara ${current}. Köp fler credits för att fortsätta.`,
+  DEDUCTION_FAILED: "Kunde inte dra credits. Försök igen.",
   PAYMENT_FAILED: "Betalningen misslyckades. Kontrollera dina kortuppgifter.",
   SUBSCRIPTION_EXPIRED: "Din prenumeration har gått ut",
 } as const;

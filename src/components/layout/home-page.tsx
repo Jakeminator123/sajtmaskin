@@ -38,9 +38,10 @@ import {
 } from "@/components/modals";
 import { AuthModal } from "@/components/auth";
 import { HelpTooltip, Navbar, ShaderBackground, SiteAuditSection } from "./index";
+import { TrustedByMarquee } from "./trusted-by-marquee";
 import {
   RotateCcw,
-  Sparkles,
+  Wand2,
   FolderOpen,
   Search,
   Pencil,
@@ -271,7 +272,7 @@ export function HomePage() {
         {isInitialized && isAuthenticated && firstName && (
           <div className="animate-fadeIn text-center">
             <div className="from-brand-blue/10 via-brand-amber/10 to-brand-warm/10 border-brand-blue/30 mb-4 inline-flex items-center gap-2 rounded-full border bg-linear-to-r px-4 py-2">
-              <Sparkles className="text-brand-amber h-4 w-4" />
+              <Wand2 className="text-brand-amber h-4 w-4" />
               <span className="text-sm text-gray-300">
                 Välkommen tillbaka, <span className="font-medium text-white">{firstName}</span>!
               </span>
@@ -504,6 +505,9 @@ export function HomePage() {
           </p>
         )}
       </div>
+
+      {/* Trusted by marquee */}
+      <TrustedByMarquee />
     </main>
   );
 }

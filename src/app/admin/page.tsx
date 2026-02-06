@@ -9,13 +9,13 @@ import {
   ArrowLeft,
   Users,
   FolderOpen,
-  Sparkles,
+  Wand2,
   Eye,
   Lock,
   Loader2,
   TrendingUp,
   RefreshCw,
-  Diamond,
+  Coins,
   Mail,
   Database,
   Trash2,
@@ -413,8 +413,13 @@ export default function AdminPage() {
         return;
       }
 
-      const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL || "test@gmail.com";
-      if (data.user?.email !== adminEmail) {
+      const adminEmails = [
+        process.env.NEXT_PUBLIC_ADMIN_EMAIL || "test@gmail.com",
+        "jakob.olof.eberg@gmail.com",
+        "jocke@sajtmaskin.se",
+        "oscar@sajtmaskin.se",
+      ];
+      if (!adminEmails.includes(data.user?.email ?? "")) {
         setError("Du har inte admin-behörighet");
         await fetch("/api/auth/logout", { method: "POST" });
         setIsLoading(false);
@@ -783,13 +788,13 @@ export default function AdminPage() {
                     color="amber"
                   />
                   <StatCard
-                    icon={Sparkles}
+                    icon={Wand2}
                     label="Generationer"
                     value={stats.totalGenerations}
                     color="pink"
                   />
                   <StatCard
-                    icon={Diamond}
+                    icon={Coins}
                     label="Förfiningar"
                     value={stats.totalRefines}
                     color="cyan"
@@ -1002,7 +1007,7 @@ export default function AdminPage() {
               <div className="mb-6 flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="bg-brand-teal/10 flex h-10 w-10 items-center justify-center">
-                    <Sparkles className="text-brand-teal h-5 w-5" />
+                    <Wand2 className="text-brand-teal h-5 w-5" />
                   </div>
                   <div>
                     <h2 className="text-lg font-semibold text-white">Template Cache</h2>
@@ -1569,7 +1574,7 @@ export default function AdminPage() {
             <div className="border border-gray-800 bg-black/50 p-6">
               <div className="mb-4 flex items-center gap-3">
                 <div className="bg-brand-teal/10 flex h-10 w-10 items-center justify-center">
-                  <Sparkles className="text-brand-teal h-5 w-5" />
+                  <Wand2 className="text-brand-teal h-5 w-5" />
                 </div>
                 <div>
                   <h2 className="text-lg font-semibold text-white">Integrationer</h2>

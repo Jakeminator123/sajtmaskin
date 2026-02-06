@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         {
           success: false,
-          error: "Du måste vara inloggad för att köpa diamanter",
+          error: "Du måste vara inloggad för att köpa credits",
         },
         { status: 401 },
       );
@@ -59,7 +59,7 @@ export async function POST(req: NextRequest) {
             currency: "sek",
             product_data: {
               name: packageData.name,
-              description: `${packageData.diamonds} diamanter för SajtMaskin`,
+              description: `${packageData.diamonds} credits för SajtMaskin`,
               images: [], // Add product image URL if you have one
             },
             unit_amount: packageData.price * 100, // Stripe uses cents/öre

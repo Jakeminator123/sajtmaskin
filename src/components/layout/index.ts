@@ -1,5 +1,6 @@
 // Layout components - Navigation, backgrounds, utilities
 export { Navbar } from "./navbar";
+export { Footer } from "./footer";
 export { HomePage } from "./home-page";
 export { ShaderBackground } from "./shader-background";
 export { CookieBanner } from "./cookie-banner";

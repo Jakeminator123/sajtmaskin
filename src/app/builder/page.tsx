@@ -58,6 +58,7 @@ import { debugLog } from "@/lib/utils/debug";
 import type { ImageAssetStrategy } from "@/lib/imageAssets";
 import { Check, HelpCircle, Loader2 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
+import { ThinkingOverlay } from "@/components/builder/ThinkingOverlay";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import toast, { Toaster } from "react-hot-toast";
@@ -1773,6 +1774,7 @@ function BuilderContent() {
                 messages={messages}
                 showStructuredParts={showStructuredChat}
               />
+              <ThinkingOverlay isVisible={isAnyStreaming} />
             </div>
             <ChatInterface
               chatId={chatId}

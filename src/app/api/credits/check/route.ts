@@ -6,7 +6,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { getSessionIdFromRequest } from "@/lib/auth/session";
-import { getOrCreateGuestUsage } from "@/lib/db/services";
+import { getOrCreateGuestUsage, isTestUser } from "@/lib/db/services";
 import {
   getCreditCost,
   type CreditAction,
@@ -56,16 +56,17 @@ export async function GET(req: NextRequest) {
     const user = await getCurrentUser(req);
 
     if (user) {
-      // Authenticated user - check diamonds
-      const canProceed = user.diamonds >= cost;
+      // Admin/test users always have unlimited credits
+      const isAdmin = isTestUser(user);
+      const canProceed = isAdmin || user.diamonds >= cost;
 
       return NextResponse.json({
         success: true,
         canProceed,
-        reason: canProceed ? null : "Du har slut på diamanter. Köp fler för att fortsätta.",
+        reason: canProceed ? null : "Du har slut på credits. Köp fler för att fortsätta.",
         authenticated: true,
-        balance: user.diamonds,
-        cost,
+        balance: isAdmin ? 9999 : user.diamonds,
+        cost: isAdmin ? 0 : cost,
       });
     }
 
@@ -128,7 +129,7 @@ export async function GET(req: NextRequest) {
   } catch (error) {
     console.error("[API/credits/check] Error:", error);
     return NextResponse.json(
-      { success: false, error: "Kunde inte kontrollera diamanter. Försök igen." },
+      { success: false, error: "Kunde inte kontrollera credits. Försök igen." },
       { status: 500 },
     );
   }

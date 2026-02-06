@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { AuthModal } from "./auth-modal";
 import { Button } from "@/components/ui/button";
-import { Diamond, Sparkles, Lock, X } from "lucide-react";
+import { Coins, Wand2, Lock, X } from "lucide-react";
 
 interface RequireAuthModalProps {
   isOpen: boolean;
@@ -15,19 +15,19 @@ const REASONS = {
   generation: {
     title: "Du har använt din gratis generation",
     description:
-      "Skapa ett konto för att fortsätta bygga webbplatser. Du får 50 gratis diamanter!",
-    icon: Sparkles,
+      "Skapa ett konto för att fortsätta bygga webbplatser. Du får 50 gratis credits!",
+    icon: Wand2,
   },
   refine: {
     title: "Du har använt din gratis förfining",
     description:
-      "Skapa ett konto för att fortsätta förfina din design. Du får 50 gratis diamanter!",
-    icon: Sparkles,
+      "Skapa ett konto för att fortsätta förfina din design. Du får 50 gratis credits!",
+    icon: Wand2,
   },
   credits: {
-    title: "Du har slut på diamanter",
-    description: "Köp fler diamanter för att fortsätta bygga.",
-    icon: Diamond,
+    title: "Du har slut på credits",
+    description: "Köp fler credits för att fortsätta bygga.",
+    icon: Coins,
   },
   download: {
     title: "Skapa konto för att ladda ner",
@@ -95,9 +95,9 @@ export function RequireAuthModal({ isOpen, onClose, reason }: RequireAuthModalPr
             {/* Bonus badge */}
             {reason !== "credits" && (
               <div className="bg-brand-amber/10 border-brand-amber/30 mb-6 inline-flex items-center gap-2 border px-4 py-2">
-                <Diamond className="text-brand-amber h-4 w-4" />
+                <Coins className="text-brand-amber h-4 w-4" />
                 <span className="text-brand-amber text-sm font-medium">
-                  +50 diamanter gratis vid registrering
+                  +50 credits gratis vid registrering
                 </span>
               </div>
             )}
@@ -111,8 +111,8 @@ export function RequireAuthModal({ isOpen, onClose, reason }: RequireAuthModalPr
                     onClick={() => (window.location.href = "/buy-credits")}
                     className="bg-brand-teal hover:bg-brand-teal/90 h-11 w-full font-medium text-white"
                   >
-                    <Diamond className="mr-2 h-4 w-4" />
-                    Köp diamanter
+                    <Coins className="mr-2 h-4 w-4" />
+                    Köp credits
                   </Button>
                   <Button
                     variant="ghost"

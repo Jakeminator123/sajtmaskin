@@ -26,7 +26,7 @@ import {
 } from "@/components/builder/ShadcnBlockPicker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Blocks, FileText, ImageIcon, Loader2, Sparkles } from "lucide-react";
+import { Blocks, FileText, ImageIcon, Loader2, Wand2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { buildShadcnBlockPrompt, buildShadcnComponentPrompt } from "@/lib/shadcn-registry-utils";
 import {
@@ -544,7 +544,7 @@ ${technicalPrompt}`;
                 {isEnhancing ? (
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
                 ) : (
-                  <Sparkles className="h-3.5 w-3.5" />
+                  <Wand2 className="h-3.5 w-3.5" />
                 )}
                 Förbättra
               </Button>

@@ -5,7 +5,7 @@ import {
   X,
   ArrowRight,
   ArrowLeft,
-  Sparkles,
+  Wand2,
   Palette,
   Loader2,
   Check,
@@ -762,7 +762,7 @@ export function PromptWizardModalV2({
               {/* Design Vibe */}
               <div className="space-y-3">
                 <label className="flex items-center gap-2 text-sm font-medium text-gray-300">
-                  <Sparkles className="text-brand-teal h-4 w-4" />
+                  <Wand2 className="text-brand-teal h-4 w-4" />
                   Vilken stil passar dig?
                 </label>
                 <div className="grid grid-cols-3 gap-2">
@@ -930,7 +930,7 @@ export function PromptWizardModalV2({
             <div className="space-y-6">
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
-                  <Sparkles className="text-brand-teal h-5 w-5" />
+                  <Wand2 className="text-brand-teal h-5 w-5" />
                   <h3 className="text-xl font-bold text-white">Din genererade prompt</h3>
                 </div>
                 <p className="text-sm text-gray-400">Redigera om du vill, eller fortsätt direkt.</p>
@@ -1032,7 +1032,7 @@ export function PromptWizardModalV2({
                 </>
               ) : (
                 <>
-                  <Sparkles className="h-4 w-4" />
+                  <Wand2 className="h-4 w-4" />
                   Skapa magisk prompt
                 </>
               )}

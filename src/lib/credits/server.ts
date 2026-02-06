@@ -85,7 +85,7 @@ export async function evaluateCredits(
       cost,
       reason: canProceed
         ? null
-        : `Du behöver minst ${cost} diamanter för ${getActionLabel(action)}. Du har ${user.diamonds} diamanter.`,
+        : `Du behöver minst ${cost} credits för ${getActionLabel(action)}. Du har ${user.diamonds} credits.`,
       user,
       isTest,
       sessionId,

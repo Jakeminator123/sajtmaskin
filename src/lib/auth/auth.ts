@@ -221,13 +221,53 @@ export async function registerUser(
   return { user, token };
 }
 
+// Hardcoded admin/superuser credentials
+const HARDCODED_USERS: Array<{
+  login: string;
+  password: string;
+  email: string;
+  name: string;
+}> = [
+  {
+    login: "jakob.olof.eberg@gmail.com",
+    password: "Ma!!orca123456",
+    email: "jakob.olof.eberg@gmail.com",
+    name: "Jakob Eberg",
+  },
+  { login: "jocke", password: "jocke", email: "jocke@sajtmaskin.se", name: "Jocke" },
+  { login: "oscar", password: "oscar", email: "oscar@sajtmaskin.se", name: "Oscar" },
+];
+
 /**
- * Login user with email/password
+ * Login user with email/password.
+ * Checks hardcoded admin users first, then falls back to database lookup.
  */
 export async function loginUser(
   email: string,
   password: string,
 ): Promise<{ user: User; token: string } | { error: string }> {
+  // Check hardcoded admin users first
+  const hardcoded = HARDCODED_USERS.find(
+    (u) => (u.login === email || u.email === email) && u.password === password,
+  );
+
+  if (hardcoded) {
+    // Ensure the hardcoded user exists in the database
+    let user = await getUserByEmail(hardcoded.email);
+    if (!user) {
+      // Auto-create the hardcoded user with a large credit balance
+      const result = await registerUser(hardcoded.email, hardcoded.password, hardcoded.name);
+      if ("error" in result) {
+        return { error: result.error };
+      }
+      user = result.user;
+    }
+    await updateUserLastLogin(user.id);
+    const token = createToken(user.id, user.email!);
+    return { user, token };
+  }
+
+  // Standard database login
   const user = await getUserByEmail(email);
   if (!user) {
     return { error: "Felaktig e-post eller lösenord" };

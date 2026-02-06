@@ -171,15 +171,15 @@ export function SandboxModal({
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={handleClose} />
 
-      <div className="relative z-10 w-full max-w-lg rounded-xl bg-white p-6 shadow-2xl">
+      <div className="relative z-10 w-full max-w-lg rounded-xl bg-card p-6 shadow-2xl">
         <div className="mb-6 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <TerminalSquare className="h-5 w-5 text-gray-700" />
-            <h2 className="text-xl font-semibold text-gray-900">Run in Sandbox</h2>
+            <TerminalSquare className="h-5 w-5 text-foreground" />
+            <h2 className="text-xl font-semibold text-foreground">Run in Sandbox</h2>
           </div>
           <button
             onClick={handleClose}
-            className="rounded-lg p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+            className="rounded-lg p-1 text-muted-foreground hover:bg-muted hover:text-foreground"
           >
             <X className="h-5 w-5" />
           </button>
@@ -190,8 +190,8 @@ export function SandboxModal({
             onClick={() => setSourceType("version")}
             className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-medium transition-colors ${
               sourceType === "version"
-                ? "bg-gray-900 text-white"
-                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                ? "bg-primary text-primary-foreground"
+                : "bg-muted text-muted-foreground hover:bg-muted/80"
             }`}
           >
             <FileCode className="h-4 w-4" />
@@ -201,8 +201,8 @@ export function SandboxModal({
             onClick={() => setSourceType("git")}
             className={`flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-3 text-sm font-medium transition-colors ${
               sourceType === "git"
-                ? "bg-gray-900 text-white"
-                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                ? "bg-primary text-primary-foreground"
+                : "bg-muted text-muted-foreground hover:bg-muted/80"
             }`}
           >
             <Github className="h-4 w-4" />
@@ -215,7 +215,7 @@ export function SandboxModal({
             <div>
               <label
                 htmlFor="sandbox-git-url"
-                className="mb-1 block text-sm font-medium text-gray-700"
+                className="mb-1 block text-sm font-medium text-foreground"
               >
                 Repository URL
               </label>
@@ -226,13 +226,13 @@ export function SandboxModal({
                 placeholder="https://github.com/username/repo"
                 value={gitUrl}
                 onChange={(e) => setGitUrl(e.target.value)}
-                className="focus:border-brand-blue focus:ring-brand-blue/50 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-1 focus:outline-none"
+                className="focus:border-brand-blue focus:ring-brand-blue/50 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:ring-1 focus:outline-none"
               />
             </div>
             <div>
               <label
                 htmlFor="sandbox-git-branch"
-                className="mb-1 block text-sm font-medium text-gray-700"
+                className="mb-1 block text-sm font-medium text-foreground"
               >
                 Branch (optional)
               </label>
@@ -243,12 +243,12 @@ export function SandboxModal({
                 placeholder="main"
                 value={gitBranch}
                 onChange={(e) => setGitBranch(e.target.value)}
-                className="focus:border-brand-blue focus:ring-brand-blue/50 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-1 focus:outline-none"
+                className="focus:border-brand-blue focus:ring-brand-blue/50 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:ring-1 focus:outline-none"
               />
             </div>
           </div>
         ) : (
-          <div className="mb-6 rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm text-gray-700">
+          <div className="mb-6 rounded-lg border border-border bg-muted/50 p-3 text-sm text-muted-foreground">
             <div className="flex items-center justify-between">
               <span>
                 <span className="font-medium">Chat:</span> {chatId ? "selected" : "none"}
@@ -258,7 +258,7 @@ export function SandboxModal({
               </span>
             </div>
             {!canUseVersion && (
-              <p className="mt-2 text-xs text-gray-600">
+              <p className="mt-2 text-xs text-muted-foreground">
                 Select a chat and pick a version in the Version History first.
               </p>
             )}
@@ -267,7 +267,7 @@ export function SandboxModal({
 
         <div className="mb-6 space-y-4">
           <div>
-            <label htmlFor={`${baseId}-runtime`} className="mb-1 block text-sm font-medium text-gray-700">
+            <label htmlFor={`${baseId}-runtime`} className="mb-1 block text-sm font-medium text-foreground">
               Runtime
             </label>
             <select
@@ -275,7 +275,7 @@ export function SandboxModal({
               name="runtime"
               value={runtime}
               onChange={(e) => setRuntime(e.target.value as SandboxRuntime)}
-              className="focus:border-brand-blue focus:ring-brand-blue/50 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-1 focus:outline-none"
+              className="focus:border-brand-blue focus:ring-brand-blue/50 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:ring-1 focus:outline-none"
             >
               <option value="node24">Node 24</option>
               <option value="node22">Node 22</option>
@@ -283,7 +283,7 @@ export function SandboxModal({
             </select>
           </div>
           <div>
-            <label htmlFor={`${baseId}-ports`} className="mb-1 block text-sm font-medium text-gray-700">
+            <label htmlFor={`${baseId}-ports`} className="mb-1 block text-sm font-medium text-foreground">
               Ports
             </label>
             <input
@@ -292,12 +292,12 @@ export function SandboxModal({
               type="text"
               value={ports}
               onChange={(e) => setPorts(e.target.value)}
-              className="focus:border-brand-blue focus:ring-brand-blue/50 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-1 focus:outline-none"
+              className="focus:border-brand-blue focus:ring-brand-blue/50 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:ring-1 focus:outline-none"
               placeholder="3000, 5173"
             />
           </div>
           <div>
-            <label htmlFor={`${baseId}-timeout`} className="mb-1 block text-sm font-medium text-gray-700">
+            <label htmlFor={`${baseId}-timeout`} className="mb-1 block text-sm font-medium text-foreground">
               Timeout
             </label>
             <input
@@ -306,12 +306,12 @@ export function SandboxModal({
               type="text"
               value={timeout}
               onChange={(e) => setTimeout(e.target.value)}
-              className="focus:border-brand-blue focus:ring-brand-blue/50 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-1 focus:outline-none"
+              className="focus:border-brand-blue focus:ring-brand-blue/50 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:ring-1 focus:outline-none"
               placeholder="5m"
             />
           </div>
           <div>
-            <label htmlFor={`${baseId}-vcpus`} className="mb-1 block text-sm font-medium text-gray-700">
+            <label htmlFor={`${baseId}-vcpus`} className="mb-1 block text-sm font-medium text-foreground">
               vCPU
             </label>
             <input
@@ -322,11 +322,11 @@ export function SandboxModal({
               max={8}
               value={vcpus}
               onChange={(e) => setVcpus(Number(e.target.value))}
-              className="focus:border-brand-blue focus:ring-brand-blue/50 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-1 focus:outline-none"
+              className="focus:border-brand-blue focus:ring-brand-blue/50 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:ring-1 focus:outline-none"
             />
           </div>
           <div>
-            <label htmlFor={`${baseId}-install-command`} className="mb-1 block text-sm font-medium text-gray-700">
+            <label htmlFor={`${baseId}-install-command`} className="mb-1 block text-sm font-medium text-foreground">
               Install command
             </label>
             <input
@@ -335,11 +335,11 @@ export function SandboxModal({
               type="text"
               value={installCommand}
               onChange={(e) => setInstallCommand(e.target.value)}
-              className="focus:border-brand-blue focus:ring-brand-blue/50 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-1 focus:outline-none"
+              className="focus:border-brand-blue focus:ring-brand-blue/50 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:ring-1 focus:outline-none"
             />
           </div>
           <div>
-            <label htmlFor={`${baseId}-start-command`} className="mb-1 block text-sm font-medium text-gray-700">
+            <label htmlFor={`${baseId}-start-command`} className="mb-1 block text-sm font-medium text-foreground">
               Start command
             </label>
             <input
@@ -348,7 +348,7 @@ export function SandboxModal({
               type="text"
               value={startCommand}
               onChange={(e) => setStartCommand(e.target.value)}
-              className="focus:border-brand-blue focus:ring-brand-blue/50 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-1 focus:outline-none"
+              className="focus:border-brand-blue focus:ring-brand-blue/50 w-full rounded-lg border border-border bg-background px-3 py-2 text-sm text-foreground focus:ring-1 focus:outline-none"
             />
           </div>
         </div>
@@ -362,7 +362,7 @@ export function SandboxModal({
         <button
           onClick={handleCreate}
           disabled={isCreating}
-          className="flex w-full items-center justify-center gap-2 rounded-lg bg-gray-900 px-4 py-3 font-medium text-white transition-colors hover:bg-gray-800 disabled:opacity-50"
+          className="flex w-full items-center justify-center gap-2 rounded-lg bg-gray-900 px-4 py-3 font-medium text-white transition-colors hover:bg-primary/80 disabled:opacity-50"
         >
           {isCreating ? (
             <Loader2 className="h-5 w-5 animate-spin" />
@@ -373,13 +373,13 @@ export function SandboxModal({
         </button>
 
         {result && (
-          <div className="mt-6 rounded-lg border border-green-200 bg-green-50 p-4 text-sm text-green-800">
+          <div className="mt-6 rounded-lg border border-accent/30 bg-accent/10 p-4 text-sm text-accent">
             <div className="mb-2 font-medium">Sandbox ready!</div>
             <div className="space-y-2">
               {result.primaryUrl && (
                 <button
                   onClick={openPrimary}
-                  className="flex items-center gap-2 text-green-700 hover:text-green-900"
+                  className="flex items-center gap-2 text-accent hover:text-accent/80"
                 >
                   <ExternalLink className="h-4 w-4" />
                   Open primary URL
@@ -388,7 +388,7 @@ export function SandboxModal({
               {result.primaryUrl && onUseInPreview && (
                 <button
                   onClick={useInPreview}
-                  className="flex items-center gap-2 text-green-700 hover:text-green-900"
+                  className="flex items-center gap-2 text-accent hover:text-accent/80"
                 >
                   <ExternalLink className="h-4 w-4" />
                   Use in preview

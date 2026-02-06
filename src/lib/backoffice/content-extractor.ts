@@ -201,7 +201,7 @@ function extractColors(code: string): ColorTheme {
   // Common Tailwind color mappings
   const tailwindColors: Record<string, Record<string, string>> = {
     blue: { "500": "#3b82f6", "600": "#2563eb", "700": "#1d4ed8" },
-    teal: { "500": "#14b8a6", "600": "#0d9488" },
+    teal: { "500": "#4ade80", "600": "#22c55e" },
     emerald: { "500": "#10b981", "600": "#059669" },
     purple: { "500": "#8b5cf6", "600": "#7c3aed" },
     pink: { "500": "#ec4899", "600": "#db2777" },

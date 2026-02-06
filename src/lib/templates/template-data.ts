@@ -143,7 +143,7 @@ export const V0_CATEGORIES: Record<string, CategoryInfo> = {
     id: "ai",
     title: "AI",
     description: "AI-powered templates och komponenter",
-    icon: "Sparkles",
+    icon: "Wand2",
     quickPrompts: [],
   },
   animations: {

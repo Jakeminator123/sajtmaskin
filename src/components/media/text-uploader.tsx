@@ -21,7 +21,7 @@
  */
 
 import { useState, useRef, useCallback, useMemo } from "react";
-import { FileText, Upload, Loader2, X, AlertCircle, Sparkles, Save } from "lucide-react";
+import { FileText, Upload, Loader2, X, AlertCircle, Wand2, Save } from "lucide-react";
 import { cn } from "@/lib/utils/utils";
 
 // ============================================================================
@@ -361,7 +361,7 @@ export function TextUploader({
                 {/* Smart content hint */}
                 {contentHint && (
                   <div className="bg-brand-teal/10 border-brand-teal/30 flex items-center gap-2 rounded-lg border px-3 py-2">
-                    <Sparkles className="text-brand-teal h-4 w-4 shrink-0" />
+                    <Wand2 className="text-brand-teal h-4 w-4 shrink-0" />
                     <span className="text-brand-teal/80 text-xs">{contentHint.hint}</span>
                   </div>
                 )}

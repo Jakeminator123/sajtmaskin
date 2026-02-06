@@ -27,7 +27,7 @@ import {
   Plus,
   ChevronDown,
   ChevronUp,
-  Sparkles,
+  Wand2,
   Upload,
   GripVertical,
   FileText,
@@ -171,7 +171,7 @@ export function MediaBank({
         className="flex w-full items-center justify-between p-3 transition-colors hover:bg-gray-800/50"
       >
         <div className="flex items-center gap-2">
-          <Sparkles className="text-brand-blue h-4 w-4" />
+          <Wand2 className="text-brand-blue h-4 w-4" />
           <span className="text-sm font-medium text-white">Mediabank ({items.length})</span>
         </div>
         {isExpanded ? (
@@ -187,7 +187,7 @@ export function MediaBank({
           {generatedItems.length > 0 && (
             <div>
               <p className="mb-2 flex items-center gap-1 text-xs text-gray-500">
-                <Sparkles className="h-3 w-3" />
+                <Wand2 className="h-3 w-3" />
                 Genererade ({generatedItems.length})
               </p>
               <div className="grid grid-cols-3 gap-2">

@@ -1,24 +1,46 @@
 import type { Metadata } from "next";
-import { Inter, JetBrains_Mono } from "next/font/google";
+import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { AnalyticsTracker, CookieBanner } from "@/components/layout";
+import { OrganizationJsonLd, SoftwareApplicationJsonLd } from "@/components/layout/json-ld";
+import { ThemeProvider } from "next-themes";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 
-const inter = Inter({
+const geistSans = Geist({
   subsets: ["latin"],
-  variable: "--font-inter",
+  variable: "--font-geist-sans",
 });
 
-const jetbrainsMono = JetBrains_Mono({
+const geistMono = Geist_Mono({
   subsets: ["latin"],
-  variable: "--font-jetbrains-mono",
+  variable: "--font-geist-mono",
 });
 
 export const metadata: Metadata = {
-  title: "Sajtmaskin",
-  description: "Skapa professionella webbplatser på minuter med AI",
+  title: {
+    default: "Sajtmaskin – AI-driven webbplatsgenerering",
+    template: "%s | Sajtmaskin",
+  },
+  description:
+    "Skapa professionella webbplatser på minuter med AI. En tjänst från Pretty Good AB.",
+  metadataBase: new URL(
+    process.env.NEXT_PUBLIC_APP_URL || "https://sajtmaskin.se",
+  ),
   icons: {
     icon: "/icon.svg",
+  },
+  openGraph: {
+    type: "website",
+    locale: "sv_SE",
+    siteName: "Sajtmaskin",
+    images: [{ url: "/og-image.png", width: 1200, height: 630 }],
+  },
+  twitter: {
+    card: "summary_large_image",
+  },
+  robots: {
+    index: true,
+    follow: true,
   },
 };
 
@@ -32,14 +54,18 @@ export default function RootLayout({
   return (
     <html
       lang="sv"
-      className={`${inter.variable} ${jetbrainsMono.variable}`}
-      style={{ backgroundColor: "#000000" }}
+      className={`${geistSans.variable} ${geistMono.variable}`}
+      suppressHydrationWarning
     >
-      <body className="font-mono antialiased" style={{ backgroundColor: "#000000" }}>
-        <AnalyticsTracker />
-        {enableSpeedInsights ? <SpeedInsights /> : null}
-        {children}
-        <CookieBanner />
+      <body className="font-sans antialiased">
+        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
+          <OrganizationJsonLd />
+          <SoftwareApplicationJsonLd />
+          <AnalyticsTracker />
+          {enableSpeedInsights ? <SpeedInsights /> : null}
+          {children}
+          <CookieBanner />
+        </ThemeProvider>
       </body>
     </html>
   );

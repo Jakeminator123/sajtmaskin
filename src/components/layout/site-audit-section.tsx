@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
-import { Search, Diamond, Loader2, AlertCircle } from "lucide-react";
+import { Search, Coins, Loader2, AlertCircle } from "lucide-react";
 import { useAuth } from "@/lib/auth/auth-store";
 import { AUDIT_COSTS } from "@/lib/credits/pricing";
 import type { AuditMode, AuditResult } from "@/types/audit";
@@ -60,7 +60,7 @@ export function SiteAuditSection({ onAuditComplete, onRequireAuth }: SiteAuditSe
 
     const auditCost = AUDIT_COSTS[mode];
     if (user.diamonds < auditCost) {
-      setError(`Du behöver minst ${auditCost} diamanter. Du har ${user.diamonds}.`);
+      setError(`Du behöver minst ${auditCost} credits. Du har ${user.diamonds}.`);
       return;
     }
 
@@ -106,7 +106,7 @@ export function SiteAuditSection({ onAuditComplete, onRequireAuth }: SiteAuditSe
           return;
         }
         if (response.status === 402) {
-          setError(data.error || `Du behöver minst ${auditCost} diamanter.`);
+          setError(data.error || `Du behöver minst ${auditCost} credits.`);
           clearInterval(progressInterval);
           setIsLoading(false);
           setProgress(0);
@@ -205,7 +205,7 @@ export function SiteAuditSection({ onAuditComplete, onRequireAuth }: SiteAuditSe
               <Search className="h-5 w-5 transition-transform group-hover:scale-110" />
               <span>Välj analysnivå</span>
               <span className="flex items-center gap-1 bg-black/30 px-2 py-0.5 text-sm">
-                <Diamond className="text-brand-teal/80 h-3.5 w-3.5" />
+                <Coins className="text-brand-teal/80 h-3.5 w-3.5" />
                 <span>
                   {AUDIT_COSTS.basic}/{AUDIT_COSTS.advanced}
                 </span>
@@ -222,7 +222,7 @@ export function SiteAuditSection({ onAuditComplete, onRequireAuth }: SiteAuditSe
               <span
                 className={user.diamonds >= AUDIT_COSTS.basic ? "text-brand-teal" : "text-red-400"}
               >
-                {user.diamonds} diamanter
+                {user.diamonds} credits
               </span>
             </p>
             <p>
@@ -288,7 +288,7 @@ export function SiteAuditSection({ onAuditComplete, onRequireAuth }: SiteAuditSe
               <div className="mb-2 flex items-center justify-between">
                 <span className="text-sm font-semibold text-white">Vanlig analys</span>
                 <span className="text-brand-teal/80 flex items-center gap-1 text-xs">
-                  <Diamond className="h-3.5 w-3.5" />
+                  <Coins className="h-3.5 w-3.5" />
                   {AUDIT_COSTS.basic}
                 </span>
               </div>
@@ -304,7 +304,7 @@ export function SiteAuditSection({ onAuditComplete, onRequireAuth }: SiteAuditSe
               <div className="mb-2 flex items-center justify-between">
                 <span className="text-sm font-semibold text-white">Avancerad analys</span>
                 <span className="text-brand-blue/80 flex items-center gap-1 text-xs">
-                  <Diamond className="h-3.5 w-3.5" />
+                  <Coins className="h-3.5 w-3.5" />
                   {AUDIT_COSTS.advanced}
                 </span>
               </div>

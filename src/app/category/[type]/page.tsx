@@ -9,7 +9,7 @@ import { PromptWizardModalV2, type WizardData } from "@/components/modals";
 import {
   ArrowLeft,
   Rocket,
-  Sparkles,
+  Wand2,
   FileText,
   Globe,
   LayoutDashboard,
@@ -49,7 +49,7 @@ const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {
   FileText,
   Globe,
   LayoutDashboard,
-  Sparkles,
+  Wand2,
   Zap,
   Puzzle,
   Lock,
@@ -295,7 +295,7 @@ export default function CategoryPage() {
           {/* Section 1: Custom prompt */}
           <section>
             <div className="mb-4 flex items-center gap-2">
-              <Sparkles className="text-brand-teal h-5 w-5" />
+              <Wand2 className="text-brand-teal h-5 w-5" />
               <h2 className="text-lg font-semibold text-white">Beskriv med egna ord</h2>
               <HelpTooltip text="Skriv en beskrivning av vad du vill skapa så genererar AI:n det åt dig." />
             </div>

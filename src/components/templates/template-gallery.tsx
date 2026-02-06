@@ -28,7 +28,7 @@ import {
 // ═══════════════════════════════════════════════════════════════
 
 const iconMap: Record<string, keyof typeof LucideIcons> = {
-  Sparkles: "Sparkles",
+  Wand2: "Wand2",
   Zap: "Zap",
   Puzzle: "Puzzle",
   Lock: "Lock",

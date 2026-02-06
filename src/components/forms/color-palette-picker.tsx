@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Check, Palette, Sparkles } from "lucide-react";
+import { Check, Palette, Wand2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import styles from "./color-palette-picker.module.css";
 
@@ -284,7 +284,7 @@ export function ColorPalettePicker({
       {recommendedPalettes.length > 0 && (
         <div className="space-y-2">
           <div className="flex items-center gap-2">
-            <Sparkles className="text-brand-amber h-4 w-4" />
+            <Wand2 className="text-brand-amber h-4 w-4" />
             <span className="text-brand-amber text-sm font-medium">
               Rekommenderade för din bransch
             </span>

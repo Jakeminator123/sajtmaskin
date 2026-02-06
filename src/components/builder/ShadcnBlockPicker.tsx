@@ -5,7 +5,7 @@ import {
   Loader2,
   Search,
   X,
-  Sparkles,
+  Wand2,
   ChevronDown,
   ArrowUp,
   ArrowDown,
@@ -760,7 +760,7 @@ export function ShadcnBlockPicker({
 
                   {/* Tip */}
                   <div className="mt-6 flex items-start gap-3 rounded-lg bg-violet-500/10 p-4">
-                    <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-violet-400" />
+                    <Wand2 className="mt-0.5 h-4 w-4 shrink-0 text-violet-400" />
                     <div className="text-sm text-gray-300">
                       <strong className="text-violet-300">Tips:</strong> Du kan anpassa färger, text
                       och bilder efter att du lagt till komponenten. Beskriv bara vad du vill ändra
@@ -844,7 +844,7 @@ export function ShadcnBlockPicker({
                 {isSubmitting && pendingAction === "add" ? (
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                 ) : (
-                  <Sparkles className="mr-2 h-4 w-4" />
+                  <Wand2 className="mr-2 h-4 w-4" />
                 )}
                 Lägg till
               </Button>

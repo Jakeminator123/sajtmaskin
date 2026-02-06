@@ -14,7 +14,7 @@ export default function MetricsChart({ scores }: MetricsChartProps) {
 
   const getColorForScore = (score: number) => {
     if (score >= 80) return "#22c55e"; // green
-    if (score >= 60) return "#14b8a6"; // teal (matches sajtmaskin theme)
+    if (score >= 60) return "#4ade80"; // green (matches sajtmaskin theme)
     return "#ef4444"; // red
   };
 

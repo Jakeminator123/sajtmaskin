@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertCircle, ExternalLink, FileText, Loader2, RefreshCw, Sparkles } from "lucide-react";
+import { AlertCircle, ExternalLink, FileText, Loader2, RefreshCw, Wand2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { CodeBlock, CodeBlockCopyButton } from "@/components/ai-elements/code-block";
@@ -262,11 +262,11 @@ export function PreviewPanel({
         ? "Skriv en prompt till vänster så genererar vi första preview."
         : "Preview saknas för senaste versionen. Testa att generera igen eller reparera.";
     const showFixAction = Boolean(onFixPreview && !externalLoading && !isInitialEmpty);
-    const EmptyIcon = isInitialEmpty ? Sparkles : AlertCircle;
+    const EmptyIcon = isInitialEmpty ? Wand2 : AlertCircle;
     return (
       <div className="flex h-full flex-col items-center justify-center bg-black/20 text-gray-500">
         <EmptyIcon className="mb-4 h-12 w-12" />
-        <p className="mb-2 text-lg font-medium">{title}</p>
+        <p className="mb-2 text-lg font-medium tracking-tight">{title}</p>
         <p className="text-sm">{subtitle}</p>
         {showFixAction && (
           <Button className="mt-4" onClick={onFixPreview} disabled={externalLoading}>
@@ -286,7 +286,7 @@ export function PreviewPanel({
   return (
     <div className="flex h-full flex-col bg-black/40">
       <div className="flex items-center justify-between border-b border-gray-800 px-4 py-2">
-        <h3 className="font-semibold text-white">Preview</h3>
+        <h3 className="font-semibold tracking-tight text-white">Preview</h3>
         <div className="flex items-center gap-1">
           <Button
             variant="ghost"
@@ -391,8 +391,8 @@ export function PreviewPanel({
           {isLoading && (
             <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/60">
               <div className="text-center">
-                <Loader2 className="mx-auto mb-2 h-8 w-8 animate-spin text-gray-400" />
-                <p className="text-sm text-gray-400">Laddar preview...</p>
+                <Loader2 className="text-primary mx-auto mb-2 h-8 w-8 animate-spin" />
+                <p className="text-muted-foreground text-sm">Laddar preview...</p>
               </div>
             </div>
           )}

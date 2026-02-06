@@ -7,7 +7,7 @@
  * Main navigation bar with:
  * - Responsive design (desktop/mobile)
  * - User authentication state handling
- * - Diamond counter with low-balance warning animation
+ * - Credit counter with low-balance warning animation
  * - Smooth dropdown animations
  *
  * ACCESSIBILITY:
@@ -24,13 +24,13 @@ import { useAuth } from "@/lib/auth/auth-store";
 import { Button } from "@/components/ui/button";
 const rocketLogo = "/branding/rocket_style_40.png";
 import {
-  Diamond,
+  Coins,
   FolderOpen,
   LogIn,
   LogOut,
   User,
   ChevronDown,
-  Sparkles,
+  Wand2,
   Menu,
   X,
   AlertCircle,
@@ -40,7 +40,7 @@ import {
 // CONSTANTS
 // ═══════════════════════════════════════════════════════════════
 
-/** Diamond threshold for low-balance warning animation */
+/** Credit threshold for low-balance warning animation */
 const LOW_DIAMOND_THRESHOLD = 3;
 
 // ═══════════════════════════════════════════════════════════════
@@ -62,7 +62,7 @@ export function Navbar({ onLoginClick, onRegisterClick }: NavbarProps) {
   const [showUserMenu, setShowUserMenu] = useState(false);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
 
-  // Check if diamonds are running low (for warning animation)
+  // Check if credits are running low (for warning animation)
   const isLowBalance = useMemo(() => {
     return diamonds !== null && diamonds <= LOW_DIAMOND_THRESHOLD;
   }, [diamonds]);
@@ -129,7 +129,7 @@ export function Navbar({ onLoginClick, onRegisterClick }: NavbarProps) {
                   : "text-gray-400 hover:bg-gray-800/50 hover:text-white"
               }`}
             >
-              <Sparkles className="mr-1.5 h-4 w-4" />
+              <Wand2 className="mr-1.5 h-4 w-4" />
               Skapa
             </Button>
           </Link>
@@ -147,15 +147,41 @@ export function Navbar({ onLoginClick, onRegisterClick }: NavbarProps) {
               Projekt
             </Button>
           </Link>
+          <Link href="/templates">
+            <Button
+              variant="ghost"
+              size="sm"
+              className={`text-sm ${
+                isActive("/templates")
+                  ? "bg-gray-800/50 text-white"
+                  : "text-gray-400 hover:bg-gray-800/50 hover:text-white"
+              }`}
+            >
+              Mallar
+            </Button>
+          </Link>
+          <Link href="/buy-credits">
+            <Button
+              variant="ghost"
+              size="sm"
+              className={`text-sm ${
+                isActive("/buy-credits")
+                  ? "bg-gray-800/50 text-white"
+                  : "text-gray-400 hover:bg-gray-800/50 hover:text-white"
+              }`}
+            >
+              Priser
+            </Button>
+          </Link>
         </div>
 
         {/* Right side */}
         <div className="flex items-center gap-3">
-          {/* Diamond counter - only show for authenticated users */}
+          {/* Credit counter - only show for authenticated users */}
           {isAuthenticated && (
             <Link
               href="/buy-credits"
-              aria-label={`Du har ${diamonds} diamanter. Klicka för att köpa fler.`}
+              aria-label={`Du har ${diamonds} credits. Klicka för att köpa fler.`}
             >
               <div
                 className={`group flex cursor-pointer items-center gap-1.5 border bg-black/50 px-3 py-1.5 transition-all duration-300 ${
@@ -167,16 +193,16 @@ export function Navbar({ onLoginClick, onRegisterClick }: NavbarProps) {
                 {/* Low balance warning icon */}
                 {isLowBalance && <AlertCircle className="h-3.5 w-3.5 animate-pulse text-red-400" />}
 
-                {/* Diamond icon with pulse animation when low */}
-                <Diamond
+                {/* Credit icon with pulse animation when low */}
+                <Coins
                   className={`h-4 w-4 transition-all ${
                     isLowBalance
-                      ? "animate-diamondPulse text-red-400"
+                      ? "animate-creditPulse text-red-400"
                       : "text-brand-amber group-hover:text-brand-amber/80"
                   } `}
                 />
 
-                {/* Diamond count */}
+                {/* Credit count */}
                 <span
                   className={`text-sm font-semibold transition-colors ${
                     isLowBalance
@@ -248,9 +274,9 @@ export function Navbar({ onLoginClick, onRegisterClick }: NavbarProps) {
                     className="flex items-center justify-between px-4 py-2.5 transition-colors hover:bg-gray-800/50"
                     onClick={() => setShowUserMenu(false)}
                   >
-                    <span className="text-sm text-gray-400">Diamanter</span>
+                    <span className="text-sm text-gray-400">Credits</span>
                     <div className="flex items-center gap-1.5">
-                      <Diamond className="text-brand-amber h-4 w-4" />
+                      <Coins className="text-brand-amber h-4 w-4" />
                       <span className="text-brand-amber text-sm font-semibold">
                         {diamonds ?? 0}
                       </span>
@@ -263,8 +289,8 @@ export function Navbar({ onLoginClick, onRegisterClick }: NavbarProps) {
                     className="flex items-center gap-2 px-4 py-2.5 text-sm text-gray-300 transition-colors hover:bg-gray-800/50"
                     onClick={() => setShowUserMenu(false)}
                   >
-                    <Sparkles className="text-brand-teal h-4 w-4" />
-                    Köp diamanter
+                    <Wand2 className="text-brand-teal h-4 w-4" />
+                    Köp credits
                   </Link>
 
                   {/* Logout */}
@@ -328,7 +354,7 @@ export function Navbar({ onLoginClick, onRegisterClick }: NavbarProps) {
                 isActive("/") ? "bg-gray-800/50 text-white" : "text-gray-400"
               }`}
             >
-              <Sparkles className="h-5 w-5" />
+              <Wand2 className="h-5 w-5" />
               Skapa
             </Link>
             <Link
@@ -347,8 +373,8 @@ export function Navbar({ onLoginClick, onRegisterClick }: NavbarProps) {
                 onClick={() => setShowMobileMenu(false)}
                 className="flex items-center gap-2 px-4 py-3 text-gray-400"
               >
-                <Diamond className="text-brand-amber h-5 w-5" />
-                Köp diamanter
+                <Coins className="text-brand-amber h-5 w-5" />
+                Köp credits
               </Link>
             )}
           </div>

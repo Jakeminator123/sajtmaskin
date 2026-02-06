@@ -42,7 +42,7 @@ import {
   Rocket,
   Save,
   Settings2,
-  Sparkles,
+  Wand2,
   TerminalSquare,
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -161,7 +161,7 @@ export function BuilderHeader(props: {
   return (
     <header className="border-border bg-background flex h-14 items-center justify-between border-b px-4">
       <div className="flex items-center gap-3">
-        <h1 className="text-xl font-bold">Sajtmaskin</h1>
+        <h1 className="text-xl font-semibold tracking-tight">Sajtmaskin</h1>
       </div>
 
       <div className="flex items-center gap-2">
@@ -252,7 +252,7 @@ export function BuilderHeader(props: {
                       onCheckedChange={onPromptAssistDeepChange}
                       disabled={isDeepBriefDisabled}
                     >
-                      <Sparkles className="mr-2 h-4 w-4" />
+                      <Wand2 className="mr-2 h-4 w-4" />
                       Deep Brief Mode
                       {!canUseDeepBrief && (
                         <span className="text-muted-foreground ml-2 text-xs">(endast ny chat)</span>
@@ -300,7 +300,7 @@ export function BuilderHeader(props: {
               onCheckedChange={onSpecModeChange}
               disabled={isBusy}
             >
-              <Sparkles className="mr-2 h-4 w-4" />
+              <Wand2 className="mr-2 h-4 w-4" />
               Spec-fil (projektkontext)
             </DropdownMenuCheckboxItem>
 
@@ -313,7 +313,7 @@ export function BuilderHeader(props: {
                       onCheckedChange={onEnableThinkingChange}
                       disabled={isBusy || !isThinkingSupported}
                     >
-                      <Sparkles className="mr-2 h-4 w-4" />
+                      <Wand2 className="mr-2 h-4 w-4" />
                       Thinking
                       {!isThinkingSupported && (
                         <span className="text-muted-foreground ml-2 text-xs">(ej för mini)</span>

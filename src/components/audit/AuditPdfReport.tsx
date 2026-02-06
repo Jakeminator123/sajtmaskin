@@ -64,7 +64,7 @@ export function AuditPdfReport({ result, onClose }: AuditPdfReportProps) {
             justify-content: space-between;
             align-items: center;
             padding-bottom: 20px;
-            border-bottom: 3px solid #0d9488;
+            border-bottom: 3px solid #3b82f6;
             margin-bottom: 30px;
           }
 
@@ -83,7 +83,7 @@ export function AuditPdfReport({ result, onClose }: AuditPdfReportProps) {
           .logo {
             font-size: 24pt;
             font-weight: 800;
-            color: #0d9488;
+            color: #3b82f6;
             letter-spacing: -1px;
           }
 
@@ -106,7 +106,7 @@ export function AuditPdfReport({ result, onClose }: AuditPdfReportProps) {
 
           .report-subtitle {
             font-size: 14pt;
-            color: #0d9488;
+            color: #3b82f6;
             margin-bottom: 30px;
           }
 
@@ -121,7 +121,7 @@ export function AuditPdfReport({ result, onClose }: AuditPdfReportProps) {
             width: 140px;
             height: 140px;
             border-radius: 50%;
-            background: linear-gradient(135deg, #0d9488, #14b8a6);
+            background: linear-gradient(135deg, #3b82f6, #60a5fa);
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -159,7 +159,7 @@ export function AuditPdfReport({ result, onClose }: AuditPdfReportProps) {
           .score-item-value {
             font-size: 18pt;
             font-weight: 700;
-            color: #0d9488;
+            color: #3b82f6;
           }
 
           .score-item-label {
@@ -201,7 +201,7 @@ export function AuditPdfReport({ result, onClose }: AuditPdfReportProps) {
           .improvement-item {
             padding: 12px;
             background: #f8f9fa;
-            border-left: 4px solid #0d9488;
+            border-left: 4px solid #3b82f6;
             margin-bottom: 10px;
             page-break-inside: avoid;
           }
@@ -238,7 +238,7 @@ export function AuditPdfReport({ result, onClose }: AuditPdfReportProps) {
           .budget-range {
             font-size: 16pt;
             font-weight: 700;
-            color: #0d9488;
+            color: #3b82f6;
           }
 
           .budget-label {
@@ -257,7 +257,7 @@ export function AuditPdfReport({ result, onClose }: AuditPdfReportProps) {
 
           .footer-logo {
             font-weight: 700;
-            color: #0d9488;
+            color: #3b82f6;
           }
 
           .note {
@@ -265,7 +265,7 @@ export function AuditPdfReport({ result, onClose }: AuditPdfReportProps) {
             color: #4b5563;
             background: #f8fafc;
             border: 1px solid #e5e7eb;
-            border-left: 4px solid #0d9488;
+            border-left: 4px solid #3b82f6;
             border-radius: 8px;
             padding: 10px 12px;
             margin: 16px 0 24px 0;
@@ -273,7 +273,7 @@ export function AuditPdfReport({ result, onClose }: AuditPdfReportProps) {
 
           @media print {
             body { print-color-adjust: exact; -webkit-print-color-adjust: exact; }
-            .main-score { background: #0d9488 !important; }
+            .main-score { background: #3b82f6 !important; }
           }
         </style>
       </head>

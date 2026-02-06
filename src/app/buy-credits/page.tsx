@@ -7,9 +7,9 @@ import { Navbar, ShaderBackground } from "@/components/layout";
 import { AuthModal } from "@/components/auth";
 import { useAuth } from "@/lib/auth/auth-store";
 import { Button } from "@/components/ui/button";
-import { Diamond, ArrowLeft, CheckCircle, Sparkles, Loader2, Star, Zap } from "lucide-react";
+import { Coins, ArrowLeft, CheckCircle, Wand2, Loader2, Star, Zap } from "lucide-react";
 
-// Diamond packages
+// Credit packages
 const PACKAGES = [
   {
     id: "10_diamonds",
@@ -52,7 +52,7 @@ function BuyCreditsContent() {
     const sessionId = searchParams.get("session_id");
 
     if (success === "true" && sessionId) {
-      setSuccessMessage("Tack för ditt köp! Diamanterna har lagts till på ditt konto.");
+      setSuccessMessage("Tack för ditt köp! Credits har lagts till på ditt konto.");
       // Refresh user data to get updated balance
       fetchUser();
     }
@@ -124,21 +124,21 @@ function BuyCreditsContent() {
           {/* Header */}
           <div className="mb-12 text-center">
             <div className="bg-brand-amber/10 border-brand-amber/30 mb-6 inline-flex h-16 w-16 items-center justify-center border">
-              <Diamond className="text-brand-amber h-8 w-8" />
+              <Coins className="text-brand-amber h-8 w-8" />
             </div>
-            <h1 className="mb-4 text-3xl font-bold text-white sm:text-4xl">Köp Diamanter</h1>
+            <h1 className="mb-4 text-3xl font-bold text-white sm:text-4xl">Köp Credits</h1>
             <p className="mx-auto max-w-md text-gray-400">
-              Diamanter används per handling (oftast 1-3 per prompt beroende på modell). Större
+              Credits används per handling (oftast 1-3 per prompt beroende på modell). Större
               paket = mer värde!
             </p>
 
             {/* Current balance */}
             {isAuthenticated && (
               <div className="mt-6 inline-flex items-center gap-2 border border-gray-700 bg-black/50 px-4 py-2">
-                <Diamond className="text-brand-amber h-4 w-4" />
+                <Coins className="text-brand-amber h-4 w-4" />
                 <span className="text-sm text-gray-300">
                   Ditt saldo:{" "}
-                  <span className="text-brand-amber font-semibold">{diamonds} diamanter</span>
+                  <span className="text-brand-amber font-semibold">{diamonds} credits</span>
                 </span>
               </div>
             )}
@@ -176,11 +176,11 @@ function BuyCreditsContent() {
                 {/* Package name */}
                 <h3 className="mb-2 text-lg font-semibold text-white">{pkg.name}</h3>
 
-                {/* Diamond count */}
+                {/* Credit count */}
                 <div className="mb-4 flex items-center gap-2">
-                  <Diamond className="text-brand-amber h-6 w-6" />
+                  <Coins className="text-brand-amber h-6 w-6" />
                   <span className="text-3xl font-bold text-white">{pkg.diamonds}</span>
-                  <span className="text-gray-500">diamanter</span>
+                  <span className="text-gray-500">credits</span>
                 </div>
 
                 {/* Price */}
@@ -191,16 +191,16 @@ function BuyCreditsContent() {
                   )}
                 </div>
 
-                {/* Price per diamond */}
+                {/* Price per credit */}
                 <p className="mb-6 text-sm text-gray-500">
-                  {(pkg.price / pkg.diamonds).toFixed(1)} kr per diamant
+                  {(pkg.price / pkg.diamonds).toFixed(1)} kr per credit
                 </p>
 
                 {/* Features */}
                 <ul className="mb-6 grow space-y-2">
                   <li className="flex items-center gap-2 text-sm text-gray-400">
-                    <Sparkles className="text-brand-teal h-4 w-4" />
-                    {pkg.diamonds} diamanter att använda
+                    <Wand2 className="text-brand-teal h-4 w-4" />
+                    {pkg.diamonds} credits att använda
                   </li>
                   <li className="flex items-center gap-2 text-sm text-gray-400">
                     <Zap className="text-brand-amber h-4 w-4" />
@@ -234,11 +234,11 @@ function BuyCreditsContent() {
             <div className="grid gap-8 sm:grid-cols-3">
               <div>
                 <div className="bg-brand-teal/10 mx-auto mb-4 flex h-12 w-12 items-center justify-center">
-                  <Sparkles className="text-brand-teal h-6 w-6" />
+                  <Wand2 className="text-brand-teal h-6 w-6" />
                 </div>
                 <h3 className="mb-2 font-medium text-white">AI-generering</h3>
                 <p className="text-sm text-gray-500">
-                  Generering kostar 1-3 diamanter beroende på modell
+                  Generering kostar 1-3 credits beroende på modell
                 </p>
               </div>
               <div>
@@ -246,14 +246,14 @@ function BuyCreditsContent() {
                   <Zap className="text-brand-amber h-6 w-6" />
                 </div>
                 <h3 className="mb-2 font-medium text-white">Förfining</h3>
-                <p className="text-sm text-gray-500">Förfining kostar 1-2 diamanter beroende på modell</p>
+                <p className="text-sm text-gray-500">Förfining kostar 1-2 credits beroende på modell</p>
               </div>
               <div>
                 <div className="bg-brand-teal/10 mx-auto mb-4 flex h-12 w-12 items-center justify-center">
                   <CheckCircle className="text-brand-teal h-6 w-6" />
                 </div>
                 <h3 className="mb-2 font-medium text-white">Ingen prenumeration</h3>
-                <p className="text-sm text-gray-500">Engångsköp, diamanterna gäller för alltid</p>
+                <p className="text-sm text-gray-500">Engångsköp, credits gäller för alltid</p>
               </div>
             </div>
           </div>

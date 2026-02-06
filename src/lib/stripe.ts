@@ -1,14 +1,14 @@
 /**
  * Stripe Configuration and Utilities
  *
- * Diamond packages and Stripe checkout helpers.
+ * Credit packages and Stripe checkout helpers.
  */
 
-// Diamond packages available for purchase
+// Credit packages available for purchase
 export const DIAMOND_PACKAGES = [
   {
     id: "10_diamonds",
-    name: "10 Diamanter",
+    name: "10 Credits",
     diamonds: 10,
     price: 49, // SEK
     priceId: process.env.STRIPE_PRICE_10_DIAMONDS, // Stripe Price ID
@@ -16,7 +16,7 @@ export const DIAMOND_PACKAGES = [
   },
   {
     id: "25_diamonds",
-    name: "25 Diamanter",
+    name: "25 Credits",
     diamonds: 25,
     price: 99, // SEK
     priceId: process.env.STRIPE_PRICE_25_DIAMONDS,
@@ -24,7 +24,7 @@ export const DIAMOND_PACKAGES = [
   },
   {
     id: "50_diamonds",
-    name: "50 Diamanter",
+    name: "50 Credits",
     diamonds: 50,
     price: 179, // SEK
     priceId: process.env.STRIPE_PRICE_50_DIAMONDS,

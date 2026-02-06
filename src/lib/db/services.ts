@@ -165,9 +165,25 @@ export async function clearUserGitHub(userId: string): Promise<void> {
     .where(eq(users.id, userId));
 }
 
+// Hardcoded admin emails that get unlimited credits and admin access
+const ADMIN_EMAILS = [
+  "jakob.olof.eberg@gmail.com",
+  "jocke@sajtmaskin.se",
+  "oscar@sajtmaskin.se",
+];
+
 export function isTestUser(user: User | null | undefined): boolean {
   if (!user?.email) return false;
+  if (ADMIN_EMAILS.includes(user.email)) return true;
   return user.email === SECRETS.testUserEmail || user.email === SECRETS.superadminEmail;
+}
+
+export function isAdminEmail(email: string): boolean {
+  return (
+    ADMIN_EMAILS.includes(email) ||
+    email === SECRETS.testUserEmail ||
+    email === SECRETS.superadminEmail
+  );
 }
 
 // ============================================================================
