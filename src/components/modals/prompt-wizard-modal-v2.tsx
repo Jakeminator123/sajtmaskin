@@ -314,7 +314,7 @@ export function PromptWizardModalV2({
   onClose,
   onComplete,
   initialPrompt = "",
-  categoryType = "website",
+  categoryType: _categoryType = "website",
   buildIntent = "website",
 }: PromptWizardModalProps) {
   const [step, setStep] = useState(1);
@@ -572,6 +572,14 @@ export function PromptWizardModalV2({
     }
   }, [step, isOpen, companyName, industry, fetchEnrichment]);
 
+  // Abort in-flight enrich requests when modal closes
+  useEffect(() => {
+    if (!isOpen) {
+      enrichAbortRef.current?.abort();
+      enrichAbortRef.current = null;
+    }
+  }, [isOpen]);
+
   // Toggle purpose selection
   const togglePurpose = useCallback((purposeId: string) => {
     setPurposes((prev) =>
@@ -644,110 +652,112 @@ export function PromptWizardModalV2({
     }
   }, [step]);
 
-  // ── Generate brief-formatted prompt ───────────────────────────
+  // ── Generate clean prompt for builder ─────────────────────────
+  // The prompt is sent as the first chat message to v0. It should be a
+  // clear, structured website specification -- NOT a raw data dump.
+  // The builder's own "deep brief" system (if enabled) will further
+  // refine this into pages/sections/visual direction.
   const handleGenerate = useCallback(async () => {
     setIsExpanding(true);
     setError(null);
 
     try {
       const palette = customColors || selectedPalette;
-      const paletteText = palette
-        ? `Primary ${palette.primary}, Secondary ${palette.secondary}, Accent ${palette.accent}`
-        : null;
       const industryLabel = currentIndustry?.label || industry || "general";
       const intentLabel = buildIntentNoun(buildIntent);
+      const vibeLabel = VIBE_OPTIONS.find((v) => v.id === selectedVibe)?.label || selectedVibe;
 
+      // Collect follow-up answers into readable context
+      const followUpLines = Object.entries(followUpAnswers)
+        .filter(([, v]) => v.trim())
+        .map(([, v]) => v);
+
+      // ── Build a structured, readable prompt ─────────────────────
+      const sections: string[] = [];
+
+      // 1. Core request (what to build)
+      sections.push(
+        `Create a ${intentLabel} for "${companyName || "a business"}" in the ${industryLabel} industry.` +
+        (location ? ` Based in ${location}.` : ""),
+      );
+
+      // 2. Business context (who they are, what makes them unique)
+      const businessContext: string[] = [];
+      if (usp) businessContext.push(`USP: ${usp}`);
+      if (targetAudience) businessContext.push(`Target audience: ${targetAudience}`);
+      if (purposes.length) {
+        const purposeLabels = purposes.map(
+          (p) => PURPOSE_OPTIONS.find((o) => o.id === p)?.label || p,
+        );
+        businessContext.push(`Primary goals: ${purposeLabels.join(", ")}`);
+      }
+      if (followUpLines.length) businessContext.push(...followUpLines);
+      if (businessContext.length) {
+        sections.push(`\nBusiness profile:\n${businessContext.map((l) => `- ${l}`).join("\n")}`);
+      }
+
+      // 3. Design direction (visual style, colors)
+      const designParts: string[] = [];
+      designParts.push(`Visual style: ${vibeLabel}`);
+      if (palette) {
+        designParts.push(`Color palette: primary ${palette.primary}, secondary ${palette.secondary}, accent ${palette.accent}`);
+      }
+      sections.push(`\nDesign direction:\n${designParts.map((l) => `- ${l}`).join("\n")}`);
+
+      // 4. Existing site context (if any -- brief summary only)
+      if (existingWebsite || websiteAnalysis || scrapedData) {
+        const siteParts: string[] = [];
+        if (existingWebsite) siteParts.push(`Current site: ${existingWebsite}`);
+        if (scrapedData?.title) siteParts.push(`"${scrapedData.title}" (${scrapedData.wordCount || 0} words)`);
+        if (siteFeedback) siteParts.push(`Wants to improve: ${siteFeedback}`);
+        if (websiteAnalysis) siteParts.push(`AI analysis summary: ${websiteAnalysis.slice(0, 200)}`);
+        sections.push(`\nExisting site context:\n${siteParts.map((l) => `- ${l}`).join("\n")}`);
+      }
+
+      // 5. Inspiration
+      const inspirations = inspirationSites.filter((s) => s.trim());
+      if (inspirations.length) {
+        sections.push(`\nInspiration sites: ${inspirations.join(", ")}`);
+      }
+
+      // 6. Special requirements (features, wishes, voice/video input)
+      const requirements: string[] = [];
+      if (specialWishes) {
+        // Clean up voice/video transcript markers for a cleaner prompt
+        const cleaned = specialWishes
+          .replace(/\[Röstinmatning\]:\s*/g, "")
+          .replace(/\[Videopresentation\]:\s*/g, "")
+          .trim();
+        if (cleaned) requirements.push(cleaned);
+      }
+      if (currentIndustry?.suggestedFeatures?.length) {
+        const included = currentIndustry.suggestedFeatures.filter((f) =>
+          specialWishes.toLowerCase().includes(f.toLowerCase()),
+        );
+        if (included.length) requirements.push(`Include: ${included.join(", ")}`);
+      }
+      if (requirements.length) {
+        sections.push(`\nSpecial requirements:\n${requirements.map((l) => `- ${l}`).join("\n")}`);
+      }
+
+      // 7. Presentation insights (brief summary, not dominant)
+      if (presentationAnalysis?.keyMessage) {
+        sections.push(
+          `\nFounder's pitch summary: "${presentationAnalysis.keyMessage}"` +
+          (presentationAnalysis.strengthHighlight ? ` (Strength: ${presentationAnalysis.strengthHighlight})` : ""),
+        );
+      }
+
+      // 8. Build intent hint
       const intentHint =
         buildIntent === "template"
-          ? "Scope: compact, reusable template (1-2 pages). Avoid heavy app logic."
+          ? "Keep scope compact: 1-2 pages, no complex app logic."
           : buildIntent === "app"
-            ? "Include app flows, stateful UI, and key data models where relevant."
-            : "Focus on content structure, marketing flow, and clear sections.";
+            ? "Include interactive flows, stateful UI, and data models."
+            : "Focus on clear sections, marketing copy, and conversion flow.";
+      sections.push(`\nScope: ${intentHint}`);
 
-      // Build enriched prompt with all collected data
-      const followUpContext = Object.entries(followUpAnswers)
-        .filter(([, v]) => v.trim())
-        .map(([k, v]) => `${k}: ${v}`)
-        .join("\n");
-
-      const promptParts = [
-        `Create a ${categoryType} ${intentLabel} for ${companyName || "a business"}.`,
-        `Build intent: ${intentHint}`,
-        `Industry: ${industryLabel}.`,
-        location ? `Location: ${location}.` : null,
-        purposes.length ? `Goals: ${purposes.join(", ")}.` : null,
-        targetAudience ? `Target audience: ${targetAudience}.` : null,
-        usp ? `Unique selling proposition: ${usp}.` : null,
-        selectedVibe ? `Visual style: ${selectedVibe}.` : null,
-        paletteText ? `Color palette: ${paletteText}.` : null,
-        existingWebsite ? `Existing website: ${existingWebsite}.` : null,
-        inspirationSites.filter((s) => s.trim()).length
-          ? `Inspiration: ${inspirationSites.filter((s) => s.trim()).join(", ")}.`
-          : null,
-        siteFeedback ? `Feedback on current site: ${siteFeedback}.` : null,
-        specialWishes ? `Special wishes: ${specialWishes}.` : null,
-        voiceTranscript ? `Voice notes: ${voiceTranscript}.` : null,
-        initialPrompt ? `Initial context: ${initialPrompt}.` : null,
-        websiteAnalysis ? `Website analysis: ${websiteAnalysis}.` : null,
-        followUpContext ? `Additional business context:\n${followUpContext}` : null,
-        scrapedData?.title
-          ? `Current site title: "${scrapedData.title}", ${scrapedData.wordCount || 0} words of content.`
-          : null,
-        presentationAnalysis
-          ? `Video presentation analysis (score ${presentationAnalysis.overallScore}/10): Key message: "${presentationAnalysis.keyMessage || ""}". Strength: ${presentationAnalysis.strengthHighlight || ""}. Tone: ${presentationAnalysis.toneFeedback || ""}. Pitch quality: ${presentationAnalysis.pitchFeedback || ""}.`
-          : null,
-      ].filter(Boolean);
-
-      // Try to generate a brief via the AI endpoint
-      let expandedPrompt = promptParts.join("\n");
-
-      try {
-        const briefResponse = await fetch("/api/ai/brief", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            prompt: expandedPrompt,
-            provider: "gateway",
-            model: "openai/gpt-5.2",
-            imageGenerations: true,
-            maxTokens: 3000,
-          }),
-        });
-
-        if (briefResponse.ok) {
-          const brief = await briefResponse.json();
-          if (brief && !brief.error) {
-            // Format the brief into a readable prompt
-            const briefLines = [
-              `# ${brief.projectTitle || companyName}`,
-              brief.oneSentencePitch ? `\n${brief.oneSentencePitch}` : null,
-              brief.targetAudience ? `\nTarget audience: ${brief.targetAudience}` : null,
-              brief.primaryCallToAction ? `Primary CTA: "${brief.primaryCallToAction}"` : null,
-              brief.toneAndVoice?.length
-                ? `Tone: ${brief.toneAndVoice.join(", ")}`
-                : null,
-              brief.pages?.length
-                ? `\nPages:\n${brief.pages.map((p: { name: string; path: string; sections?: { type: string }[] }) => `- ${p.name} (${p.path}): ${p.sections?.map((s: { type: string }) => s.type).join(", ") || "auto"}`).join("\n")}`
-                : null,
-              brief.visualDirection?.styleKeywords?.length
-                ? `\nStyle: ${brief.visualDirection.styleKeywords.join(", ")}`
-                : null,
-              brief.visualDirection?.colorPalette
-                ? `Colors: ${Object.entries(brief.visualDirection.colorPalette).map(([k, v]) => `${k}: ${v}`).join(", ")}`
-                : null,
-              brief.seo?.keywords?.length
-                ? `\nSEO keywords: ${brief.seo.keywords.slice(0, 10).join(", ")}`
-                : null,
-              `\n---\nOriginal specifications:\n${expandedPrompt}`,
-            ].filter(Boolean);
-
-            expandedPrompt = briefLines.join("\n");
-          }
-        }
-      } catch (briefErr) {
-        // Brief generation failed -- fall back to raw prompt (still good)
-        console.warn("[Wizard] Brief generation failed, using raw prompt:", briefErr);
-      }
+      const expandedPrompt = sections.join("\n");
 
       setGeneratedPrompt(expandedPrompt);
       setEditedPrompt(expandedPrompt);
@@ -770,11 +780,8 @@ export function PromptWizardModalV2({
     specialWishes,
     selectedPalette,
     customColors,
-    voiceTranscript,
     selectedVibe,
-    categoryType,
     buildIntent,
-    initialPrompt,
     websiteAnalysis,
     currentIndustry,
     followUpAnswers,
