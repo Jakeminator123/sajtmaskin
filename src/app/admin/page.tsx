@@ -413,13 +413,11 @@ export default function AdminPage() {
         return;
       }
 
-      const adminEmails = [
-        process.env.NEXT_PUBLIC_ADMIN_EMAIL || "test@gmail.com",
-        "jakob.olof.eberg@gmail.com",
-        "jocke@sajtmaskin.se",
-        "oscar@sajtmaskin.se",
-      ];
-      if (!adminEmails.includes(data.user?.email ?? "")) {
+      const adminEmails = (process.env.NEXT_PUBLIC_ADMIN_EMAILS || process.env.NEXT_PUBLIC_ADMIN_EMAIL || "")
+        .split(",")
+        .map((e: string) => e.trim().toLowerCase())
+        .filter(Boolean);
+      if (!adminEmails.includes((data.user?.email ?? "").toLowerCase())) {
         setError("Du har inte admin-behörighet");
         await fetch("/api/auth/logout", { method: "POST" });
         setIsLoading(false);

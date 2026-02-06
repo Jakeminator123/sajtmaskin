@@ -16,7 +16,6 @@ import {
   Zap,
   Loader2,
   Layout,
-  Wand2,
   Puzzle,
   Lock,
   Palette,

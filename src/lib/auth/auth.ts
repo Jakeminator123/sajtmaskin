@@ -221,42 +221,43 @@ export async function registerUser(
   return { user, token };
 }
 
-// Hardcoded admin/superuser credentials
-const HARDCODED_USERS: Array<{
+/**
+ * Parse admin credentials from ADMIN_CREDENTIALS env var.
+ * Format: "login:password:email:name,login2:password2:email2:name2"
+ */
+function getAdminCredentials(): Array<{
   login: string;
   password: string;
   email: string;
   name: string;
-}> = [
-  {
-    login: "jakob.olof.eberg@gmail.com",
-    password: "Ma!!orca123456",
-    email: "jakob.olof.eberg@gmail.com",
-    name: "Jakob Eberg",
-  },
-  { login: "jocke", password: "jocke", email: "jocke@sajtmaskin.se", name: "Jocke" },
-  { login: "oscar", password: "oscar", email: "oscar@sajtmaskin.se", name: "Oscar" },
-];
+}> {
+  const raw = process.env.ADMIN_CREDENTIALS || "";
+  if (!raw) return [];
+  return raw.split(",").map((entry) => {
+    const [login, password, email, name] = entry.split(":");
+    return { login: login || "", password: password || "", email: email || login || "", name: name || login || "" };
+  });
+}
 
 /**
  * Login user with email/password.
- * Checks hardcoded admin users first, then falls back to database lookup.
+ * Checks env-configured admin credentials first, then falls back to database lookup.
  */
 export async function loginUser(
   email: string,
   password: string,
 ): Promise<{ user: User; token: string } | { error: string }> {
-  // Check hardcoded admin users first
-  const hardcoded = HARDCODED_USERS.find(
+  // Check admin credentials from env
+  const adminCreds = getAdminCredentials();
+  const adminMatch = adminCreds.find(
     (u) => (u.login === email || u.email === email) && u.password === password,
   );
 
-  if (hardcoded) {
-    // Ensure the hardcoded user exists in the database
-    let user = await getUserByEmail(hardcoded.email);
+  if (adminMatch) {
+    // Ensure the admin user exists in the database
+    let user = await getUserByEmail(adminMatch.email);
     if (!user) {
-      // Auto-create the hardcoded user with a large credit balance
-      const result = await registerUser(hardcoded.email, hardcoded.password, hardcoded.name);
+      const result = await registerUser(adminMatch.email, adminMatch.password, adminMatch.name);
       if ("error" in result) {
         return { error: result.error };
       }

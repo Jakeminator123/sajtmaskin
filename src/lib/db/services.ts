@@ -165,24 +165,30 @@ export async function clearUserGitHub(userId: string): Promise<void> {
     .where(eq(users.id, userId));
 }
 
-// Hardcoded admin emails that get unlimited credits and admin access
-const ADMIN_EMAILS = [
-  "jakob.olof.eberg@gmail.com",
-  "jocke@sajtmaskin.se",
-  "oscar@sajtmaskin.se",
-];
+/**
+ * Parse admin emails from ADMIN_EMAILS env var (comma-separated).
+ */
+function getAdminEmails(): string[] {
+  const raw = process.env.ADMIN_EMAILS || "";
+  return raw
+    .split(",")
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean);
+}
 
 export function isTestUser(user: User | null | undefined): boolean {
   if (!user?.email) return false;
-  if (ADMIN_EMAILS.includes(user.email)) return true;
-  return user.email === SECRETS.testUserEmail || user.email === SECRETS.superadminEmail;
+  const email = user.email.toLowerCase();
+  if (getAdminEmails().includes(email)) return true;
+  return email === SECRETS.testUserEmail || email === SECRETS.superadminEmail;
 }
 
 export function isAdminEmail(email: string): boolean {
+  const lower = email.toLowerCase();
   return (
-    ADMIN_EMAILS.includes(email) ||
-    email === SECRETS.testUserEmail ||
-    email === SECRETS.superadminEmail
+    getAdminEmails().includes(lower) ||
+    lower === SECRETS.testUserEmail ||
+    lower === SECRETS.superadminEmail
   );
 }
 

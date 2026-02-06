@@ -23,7 +23,7 @@ import {
 import { clearPersistedMessages } from "@/lib/builder/messagesStorage";
 import type { ChatMessage } from "@/lib/builder/types";
 import { buildPromptAssistContext, briefToSpec, promptToSpec } from "@/lib/builder/promptAssistContext";
-import { getThemeColors } from "@/lib/builder/theme-presets";
+import { getThemeColors, normalizeDesignTheme } from "@/lib/builder/theme-presets";
 import {
   normalizeBuildIntent,
   normalizeBuildMethod,
@@ -410,7 +410,7 @@ function BuilderContent() {
     if (typeof window === "undefined") return;
     try {
       const stored = localStorage.getItem("sajtmaskin:designTheme");
-      if (stored) setDesignTheme(stored as typeof designTheme);
+      if (stored) setDesignTheme(normalizeDesignTheme(stored));
     } catch {
       // ignore
     }
