@@ -730,7 +730,7 @@ export function PromptWizardModalV2({
           .trim();
         if (cleaned) requirements.push(cleaned);
       }
-      if (currentIndustry?.suggestedFeatures?.length) {
+      if (specialWishes && currentIndustry?.suggestedFeatures?.length) {
         const included = currentIndustry.suggestedFeatures.filter((f) =>
           specialWishes.toLowerCase().includes(f.toLowerCase()),
         );

@@ -34,7 +34,7 @@ export function BetaBanner() {
     if (!formData.message.trim() || sending) return;
     setSending(true);
     try {
-      await fetch("/api/contact", {
+      const res = await fetch("/api/contact", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -45,6 +45,7 @@ export function BetaBanner() {
           subject: "Beta-feedback",
         }),
       });
+      if (!res.ok) throw new Error("Request failed");
       setSent(true);
       setTimeout(() => {
         setShowForm(false);

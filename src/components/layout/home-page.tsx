@@ -268,7 +268,7 @@ export function HomePage() {
       <div className="relative z-10 flex min-h-screen flex-col items-center justify-center px-4 pt-28 pb-20">
         {/* Personalized greeting for logged-in users */}
         {isInitialized && isAuthenticated && firstName && (
-          <div className="animate-fadeIn mb-8" style={{ animationDelay: "0.1s" }}>
+          <div className="animate-fadeIn mb-8" style={{ animationDelay: "0.1s", animationFillMode: "forwards", opacity: 0 }}>
             <div className="inline-flex items-center gap-3 rounded-full border border-white/8 bg-white/3 px-5 py-2.5 backdrop-blur-xl">
               <div className="flex h-7 w-7 items-center justify-center rounded-full bg-white/8 text-[11px] font-semibold tracking-wide text-white/70">
                 {firstName[0]?.toUpperCase()}
@@ -567,7 +567,7 @@ export function HomePage() {
             </div>
 
             {/* Stats row with separators */}
-            <div className="animate-fadeIn flex items-center justify-center" style={{ animationDelay: "1.1s" }}>
+            <div className="animate-fadeIn flex items-center justify-center" style={{ animationDelay: "1.1s", animationFillMode: "forwards", opacity: 0 }}>
               <div className="flex items-center divide-x divide-white/6">
                 {[
                   { value: "5 sek", label: "Första utkast" },
