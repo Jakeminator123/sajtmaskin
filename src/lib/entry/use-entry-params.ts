@@ -12,7 +12,11 @@
  *
  * 1. sajtstudio.se "Utvärdera din sajt" button:
  *    → sajtmaskin.vercel.app?mode=audit
- *    → Shows entry modal, then expands audit section
+ *    → Expands audit section directly (with ?company=xxx shows welcome overlay first)
+ *
+ * 1b. sajtstudio.se with company slug:
+ *    → sajtmaskin.vercel.app?mode=analyserad&company=alpha-rekrytering-ab
+ *    → Welcome overlay ("Välkommen, Alpha Rekrytering AB") then wizard opens
  *
  * 2. sajtstudio.se "Bygg din sajt nu" / landing page:
  *    → sajtmaskin.vercel.app (no params)
@@ -89,7 +93,7 @@ const MODE_ALIASES: Record<string, EntryMode> = {
 const DIRECT_MODES = new Set<EntryMode>(["audit", "wizard"]);
 
 /** Abbreviations that should be fully uppercased in company names */
-const UPPERCASE_WORDS = new Set(["ab", "hb", "kb", "ek", "ef", "ab"]);
+const UPPERCASE_WORDS = new Set(["ab", "hb", "kb", "ek", "ef"]);
 
 /**
  * Convert a URL slug to a display name.

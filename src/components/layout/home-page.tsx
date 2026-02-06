@@ -304,6 +304,7 @@ export function HomePage() {
         onClose={() => setShowWizard(false)}
         onComplete={handleWizardComplete}
         initialPrompt=""
+        initialCompanyName={entry.company ?? ""}
         categoryType="website"
         buildIntent={buildIntent}
       />

@@ -69,12 +69,12 @@ export function WelcomeOverlay({ company, onContinue }: WelcomeOverlayProps) {
               <p className="text-[13px] text-white/25">Demo kommer snart</p>
             </div>
 
-            {/* 
+            {/*
               When video is ready, replace the placeholder above with:
-              <video 
-                src="/videos/demo.mp4" 
-                controls 
-                autoPlay 
+              <video
+                src="/videos/demo.mp4"
+                controls
+                autoPlay
                 muted
                 className="h-full w-full object-cover"
               />

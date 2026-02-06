@@ -194,6 +194,8 @@ interface PromptWizardModalProps {
   onClose: () => void;
   onComplete: (data: WizardData, expandedPrompt: string) => void;
   initialPrompt?: string;
+  /** Pre-fill company name (e.g. from ?company=xxx entry param) */
+  initialCompanyName?: string;
   categoryType?: string;
   buildIntent?: BuildIntent;
 }
@@ -314,6 +316,7 @@ export function PromptWizardModalV2({
   onClose,
   onComplete,
   initialPrompt = "",
+  initialCompanyName = "",
   categoryType: _categoryType = "website",
   buildIntent = "website",
 }: PromptWizardModalProps) {
@@ -342,7 +345,7 @@ export function PromptWizardModalV2({
   // ═══════════════════════════════════════════════════════════════
   // STEP 1: About You
   // ═══════════════════════════════════════════════════════════════
-  const [companyName, setCompanyName] = useState("");
+  const [companyName, setCompanyName] = useState(initialCompanyName);
   const [industry, setIndustry] = useState("");
   const [location, setLocation] = useState("");
   const [existingWebsite, setExistingWebsite] = useState("");
