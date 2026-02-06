@@ -22,7 +22,7 @@ import {
 } from "@/components/ui/dialog";
 import { clearPersistedMessages } from "@/lib/builder/messagesStorage";
 import type { ChatMessage } from "@/lib/builder/types";
-import { buildPromptAssistContext, briefToSpec } from "@/lib/builder/promptAssistContext";
+import { buildPromptAssistContext, briefToSpec, promptToSpec } from "@/lib/builder/promptAssistContext";
 import { getThemeColors } from "@/lib/builder/theme-presets";
 import {
   normalizeBuildIntent,
@@ -1352,12 +1352,19 @@ function BuilderContent() {
               }
             : undefined,
         });
+        // If spec mode is active but onBrief was never called (shallow path),
+        // generate a minimal spec from the prompt so the file still gets pushed.
+        if (specMode && !pendingSpecRef.current) {
+          const themeColors = getThemeColors(designTheme);
+          pendingSpecRef.current = promptToSpec(trimmed, themeColors);
+        }
+
         const baseInstructions =
           customInstructions.trim() &&
           customInstructions.trim() !== DEFAULT_CUSTOM_INSTRUCTIONS.trim()
             ? customInstructions.trim()
             : DEFAULT_CUSTOM_INSTRUCTIONS.trim();
-        // Only reference the spec file if it was actually created (onBrief was called)
+        // Only reference the spec file if it was actually created
         const specSuffix = pendingSpecRef.current ? SPEC_FILE_INSTRUCTION : "";
         const combined = addendum.trim()
           ? `${baseInstructions}\n\n${addendum}${specSuffix}`.trim()

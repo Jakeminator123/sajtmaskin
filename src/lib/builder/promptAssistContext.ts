@@ -287,6 +287,37 @@ export function briefToSpec(
   };
 }
 
+/**
+ * Build a minimal spec from just the user prompt (no brief available).
+ * Used when deep brief is disabled but spec mode is active.
+ */
+export function promptToSpec(
+  originalPrompt: string,
+  themeOverride?: ThemeColors | null,
+): SajtmaskinSpec {
+  return {
+    version: "1.0",
+    business: {
+      name: "Website",
+      tagline: "",
+      tone: [],
+      audience: "",
+    },
+    theme: {
+      primary: themeOverride?.primary || "",
+      secondary: themeOverride?.secondary || "",
+      accent: themeOverride?.accent || "",
+      font: "system",
+      styleKeywords: [],
+    },
+    pages: [{ path: "/", name: "Home", sections: ["hero", "features", "cta"] }],
+    constraints: {
+      noNewDependencies: true,
+      originalPrompt: originalPrompt.slice(0, 500),
+    },
+  };
+}
+
 // ── End spec file generation ────────────────────────────────────────────
 
 export type ContextFile = { name: string; content?: string | null };
