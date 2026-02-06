@@ -1,0 +1,159 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Sajtmaskin Entry Flow Schema",
+  "description": "Defines all URL parameters accepted by sajtmaskin.vercel.app when users arrive from external sites (sajtstudio.se). Used by the entry system in src/lib/entry/.",
+
+  "parameters": {
+    "mode": {
+      "type": "string",
+      "description": "Controls which section or modal activates on landing.",
+      "enum": ["audit", "analyserad", "wizard", "freeform"],
+      "aliases": {
+        "analyserad": "wizard"
+      },
+      "behavior": {
+        "audit": {
+          "internalMode": "audit",
+          "withoutCompany": "Audit-sektionen expanderas direkt.",
+          "withCompany": "WelcomeOverlay → sedan audit-sektionen."
+        },
+        "analyserad": {
+          "internalMode": "wizard",
+          "withoutCompany": "AI-wizard öppnas direkt.",
+          "withCompany": "WelcomeOverlay → sedan wizard med förifylt företagsnamn."
+        },
+        "wizard": {
+          "internalMode": "wizard",
+          "withoutCompany": "EntryModal visas ('Skapa din webbplats') → wizard.",
+          "withCompany": "WelcomeOverlay → sedan wizard med förifylt företagsnamn."
+        },
+        "freeform": {
+          "internalMode": "freeform",
+          "withoutCompany": "EntryModal visas ('Beskriv din vision') → fritext.",
+          "withCompany": "EntryModal visas → fritext."
+        }
+      }
+    },
+
+    "company": {
+      "type": "string",
+      "description": "Företagsnamn som URL-slug. Bindestreck → mellanslag, varje ord kapitaliseras. Kända förkortningar (AB, HB, KB, EK, EF) versaliseras.",
+      "format": "slug",
+      "examples": [
+        {
+          "input": "alfa-rekrytering-ab",
+          "output": "Alfa Rekrytering AB"
+        },
+        {
+          "input": "stockholms-hb",
+          "output": "Stockholms HB"
+        },
+        {
+          "input": "mitt-foretag",
+          "output": "Mitt Foretag"
+        },
+        {
+          "input": "Redan Formaterat",
+          "output": "Redan Formaterat"
+        }
+      ],
+      "effects": [
+        "WelcomeOverlay visas med 'Välkommen, {company}'",
+        "Wizard steg 1 förifyller företagsfältet"
+      ]
+    },
+
+    "ref": {
+      "type": "string",
+      "description": "Partner/referral-namn. Visas som badge i EntryModal.",
+      "examples": ["sajtstudio"],
+      "effects": [
+        "Partner-badge ('Via sajtstudio') i EntryModal"
+      ]
+    },
+
+    "token": {
+      "type": "string",
+      "description": "Demo-token från sajtstudios SQLite-databas (previews.db). Sparas i sessionStorage.",
+      "pattern": "^demo-[a-z0-9]+$",
+      "examples": ["demo-kzmpc9tk45vsovp4cme1"],
+      "storage": {
+        "key": "sajtmaskin_entry_token",
+        "type": "sessionStorage"
+      },
+      "effects": [
+        "Sparas tyst i sessionStorage (ingen synlig UI-effekt ännu)",
+        "Kan läsas med getEntryToken() från @/lib/entry"
+      ],
+      "futureUse": [
+        "Koppla ihop sessionen med sajtstudios analytics",
+        "Hämta kunddata via token för att förifylya wizard",
+        "Prioriterad/snabbspår-onboarding"
+      ]
+    }
+  },
+
+  "exampleUrls": {
+    "audit_enkel": {
+      "url": "https://sajtmaskin.vercel.app?mode=audit",
+      "description": "Audit direkt, ingen overlay."
+    },
+    "audit_med_foretag": {
+      "url": "https://sajtmaskin.vercel.app?mode=audit&company=alfa-rekrytering-ab&ref=sajtstudio",
+      "source": "sajtstudio.se/start/alfa-rekrytering-ab → 'Jag har en sajt idag'",
+      "flow": [
+        "1. WelcomeOverlay: 'Välkommen, Alfa Rekrytering AB'",
+        "2. Demovideo (platshållare)",
+        "3. Klick 'Fortsätt' → audit-sektionen expanderas"
+      ]
+    },
+    "analyserad_med_foretag": {
+      "url": "https://sajtmaskin.vercel.app?mode=analyserad&company=alfa-rekrytering-ab&ref=sajtstudio",
+      "source": "sajtstudio.se/start/alfa-rekrytering-ab → 'Jag vill ha en ny sajt'",
+      "flow": [
+        "1. WelcomeOverlay: 'Välkommen, Alfa Rekrytering AB'",
+        "2. Demovideo (platshållare)",
+        "3. Klick 'Fortsätt' → wizard öppnas med 'Alfa Rekrytering AB' i företagsfältet"
+      ]
+    },
+    "token_framtida": {
+      "url": "https://sajtmaskin.vercel.app?token=demo-kzmpc9tk45vsovp4cme1",
+      "source": "sajtstudio.se/start → klick på Sajtmaskin-kort (framtida)",
+      "flow": [
+        "1. Token sparas i sessionStorage",
+        "2. Normal landing (ingen visuell effekt ännu)"
+      ]
+    },
+    "full_kombination": {
+      "url": "https://sajtmaskin.vercel.app?mode=analyserad&company=alfa-rekrytering-ab&ref=sajtstudio&token=demo-abc123",
+      "description": "Alla parametrar kombinerade.",
+      "flow": [
+        "1. Token sparas i sessionStorage",
+        "2. WelcomeOverlay: 'Välkommen, Alfa Rekrytering AB'",
+        "3. Klick → wizard öppnas med förifylt namn"
+      ]
+    }
+  },
+
+  "architecture": {
+    "sajtstudio_flow": {
+      "description": "Flöde vid sajtstudio.se/start/alfa-rekrytering-ab",
+      "steps": [
+        "Sajtstudio catch-all route: slug='start', path=['alfa-rekrytering-ab']",
+        "→ iframe: landningssida.vercel.app/alfa-rekrytering-ab",
+        "Landningssidan visar: 'SajtStudio' partiklar + 'Välkommen' + 'Alfa Rekrytering AB'",
+        "Två valkort:",
+        "  'Jag har en sajt idag' (grön) → ?mode=audit&company=alfa-rekrytering-ab&ref=sajtstudio",
+        "  'Jag vill ha en ny sajt' (lila) → ?mode=analyserad&company=alfa-rekrytering-ab&ref=sajtstudio"
+      ]
+    },
+    "sajtmaskin_files": {
+      "src/lib/entry/use-entry-params.ts": "React hook — läser URL-params, styr flödet",
+      "src/lib/entry/entry-token.ts": "Token-hantering (sessionStorage)",
+      "src/lib/entry/index.ts": "Exportfil",
+      "src/lib/entry/ENTRY-SYSTEM.md": "Dokumentation (svensk)",
+      "src/components/modals/entry-modal.tsx": "Modal för wizard/freeform utan company",
+      "src/components/modals/welcome-overlay.tsx": "Välkomst-overlay med företagsnamn + demo"
+    }
+  }
+}
