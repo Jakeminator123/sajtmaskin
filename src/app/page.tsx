@@ -1,9 +1,12 @@
+import { Suspense } from "react";
 import { HomePage, Footer } from "@/components/layout";
 
 export default function Home() {
   return (
     <>
-      <HomePage />
+      <Suspense>
+        <HomePage />
+      </Suspense>
       <Footer />
     </>
   );
