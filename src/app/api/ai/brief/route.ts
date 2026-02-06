@@ -337,7 +337,13 @@ export async function POST(req: Request) {
         "Infer the most likely site type from the user request and adjust pages, sections, and content to fit. " +
         "Be specific about pages/sections, visual direction, and copy direction. " +
         "Include every field in the schema. If a value is unknown, use an empty string. " +
-        "Do NOT include any extra keys beyond the schema. Keep strings concise but detailed.";
+        "Do NOT include any extra keys beyond the schema. Keep strings concise but detailed.\n\n" +
+        "SCOPE AWARENESS (important):\n" +
+        "- Match the scope to the complexity of the user's request.\n" +
+        "- A short, casual request (e.g. 'a page for Lasse's flea market') should produce a compact, single-page brief with 4-6 sections. Do NOT over-engineer it with multiple pages.\n" +
+        "- A detailed, structured request with many requirements should produce a multi-page brief (2-5 pages) with richer sections.\n" +
+        "- When in doubt, lean toward fewer pages with more polished sections rather than many thin pages.\n" +
+        "- Always prefer quality over quantity: a beautiful one-pager beats a mediocre five-page site.";
 
       const siteTypeHint = inferSiteTypeHint(prompt);
       const userPrompt =

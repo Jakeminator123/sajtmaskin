@@ -60,29 +60,18 @@ interface ChatInterfaceProps {
   mediaEnabled?: boolean;
   /** Current generated code for section analysis in component picker */
   currentCode?: string;
+  /** UI components already present in the project (for dependency checks) */
+  existingUiComponents?: string[];
 }
 
-const DESIGN_SYSTEM_HINT = `DESIGN SYSTEM MODE:
+// Design system hint - only appended on the FIRST message (chat creation).
+// Follow-up messages rely on v0's chat history + the system prompt set at creation time.
+// This avoids repeating static instructions on every single message.
+const DESIGN_SYSTEM_HINT_INITIAL = `DESIGN SYSTEM MODE:
 - Use semantic CSS variables for theme tokens (bg/fg, primary, accent).
-- Keep token definitions in globals.css or theme config, not hardcoded in components.
+- Keep token definitions in globals.css, not hardcoded in components.
 - Use cva + cn for variants; keep variants limited and composable.
-- Create reusable UI primitives (buttons, inputs, cards) from shadcn/ui.
-- Keep spacing scale consistent (4/8/12/16/24/32/48).
-- Ensure good accessibility and dark-mode compatibility.
-
-SHADCN/UI REQUIREMENTS:
-- Use shadcn/ui components (@/components/ui/*) as the foundation.
-- Include cn() from @/lib/utils for class merging.
-- Use Radix primitives via shadcn when available.
-- Use lucide-react for icons consistently.
-
-VISUAL POLISH:
-- Add subtle animations (hover states, transitions, scroll-reveal).
-- Use layered backgrounds with gradients or tinted panels, not flat white.
-- Include glassmorphism effects (backdrop-blur, bg-opacity) where appropriate.
-- Create visual hierarchy with shadows, borders, and spacing.
-- Make it feel like a polished app, not a basic template.
-- Ensure good accessibility and dark-mode compatibility.`;
+- Keep spacing scale consistent (4/8/12/16/24/32/48).`;
 
 const IMAGE_EXTENSION_MIME: Record<string, string> = {
   png: "image/png",
@@ -137,6 +126,7 @@ export function ChatInterface({
   designSystemMode = false,
   mediaEnabled = false,
   currentCode,
+  existingUiComponents,
 }: ChatInterfaceProps) {
   const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
@@ -358,8 +348,11 @@ export function ChatInterface({
 
   const buildMessagePayload = async (baseMessage: string) => {
     const figmaLink = normalizedFigmaUrl;
+    // Only append design system hint on first message (no chatId = new chat).
+    // Follow-up messages rely on v0's system prompt + chat history.
+    const isNewChat = !chatId;
     const contextBlocks = [
-      designSystemMode ? DESIGN_SYSTEM_HINT : "",
+      designSystemMode && isNewChat ? DESIGN_SYSTEM_HINT_INITIAL : "",
       figmaLink ? `Use this Figma design as a reference: ${figmaLink}` : "",
     ].filter(Boolean);
     const finalMessage = contextBlocks.length
@@ -459,6 +452,7 @@ export function ChatInterface({
             dependencyItems: selection.dependencyItems,
             placement: selection.placement,
             detectedSections: selection.detectedSections,
+            existingUiComponents,
           })
         : buildShadcnBlockPrompt(selection.registryItem, {
             style: selection.style,
@@ -467,6 +461,7 @@ export function ChatInterface({
             dependencyItems: selection.dependencyItems,
             placement: selection.placement,
             detectedSections: selection.detectedSections,
+            existingUiComponents,
           });
 
       // Create a user-friendly summary at the start of the message

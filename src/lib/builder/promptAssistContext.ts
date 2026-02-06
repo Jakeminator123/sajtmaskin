@@ -194,6 +194,101 @@ export async function processPromptWithSpec(userPrompt: string): Promise<{
   };
 }
 
+// ── Spec file generation ────────────────────────────────────────────────
+// Converts a brief (from /api/ai/brief) into a structured JSON spec that
+// can be pushed to the v0 project as sajtmaskin.spec.json (locked file).
+
+import type { ThemeColors } from "./theme-presets";
+
+type BriefLike = Record<string, unknown>;
+
+function asStr(v: unknown): string {
+  return typeof v === "string" ? v.trim() : "";
+}
+function asStrList(v: unknown): string[] {
+  return Array.isArray(v) ? v.map((x) => asStr(x)).filter(Boolean) : [];
+}
+
+export interface SajtmaskinSpec {
+  version: string;
+  business: {
+    name: string;
+    tagline: string;
+    tone: string[];
+    audience: string;
+  };
+  theme: {
+    primary: string;
+    secondary: string;
+    accent: string;
+    font: string;
+    styleKeywords: string[];
+  };
+  pages: Array<{
+    path: string;
+    name: string;
+    sections: string[];
+  }>;
+  constraints: {
+    noNewDependencies: boolean;
+    originalPrompt: string;
+  };
+}
+
+/**
+ * Convert an AI brief into a persistent spec file.
+ * Optionally override theme colors with a selected preset.
+ */
+export function briefToSpec(
+  brief: BriefLike,
+  originalPrompt: string,
+  themeOverride?: ThemeColors | null,
+): SajtmaskinSpec {
+  const vis = (brief.visualDirection as Record<string, unknown>) || {};
+  const palette = (vis.colorPalette as Record<string, unknown>) || {};
+  const typo = (vis.typography as Record<string, unknown>) || {};
+  const pages = Array.isArray(brief.pages) ? brief.pages : [];
+
+  return {
+    version: "1.0",
+    business: {
+      name: asStr(brief.projectTitle) || asStr(brief.brandName) || "Website",
+      tagline: asStr(brief.oneSentencePitch) || "",
+      tone: asStrList(brief.toneAndVoice),
+      audience: asStr(brief.targetAudience) || "",
+    },
+    theme: {
+      primary: themeOverride?.primary || asStr(palette.primary) || "",
+      secondary: themeOverride?.secondary || asStr(palette.secondary) || "",
+      accent: themeOverride?.accent || asStr(palette.accent) || "",
+      font: asStr(typo.headings) || "system",
+      styleKeywords: asStrList(vis.styleKeywords),
+    },
+    pages: pages.slice(0, 10).map((p: Record<string, unknown>) => {
+      const sections = Array.isArray(p.sections) ? p.sections : [];
+      return {
+        path: asStr(p.path) || "/",
+        name: asStr(p.name) || "Page",
+        sections: sections
+          .slice(0, 14)
+          .map((s: unknown) => {
+            if (typeof s === "string") return s;
+            if (s && typeof s === "object" && "type" in s)
+              return asStr((s as Record<string, unknown>).type);
+            return "";
+          })
+          .filter(Boolean),
+      };
+    }),
+    constraints: {
+      noNewDependencies: true,
+      originalPrompt: originalPrompt.slice(0, 500),
+    },
+  };
+}
+
+// ── End spec file generation ────────────────────────────────────────────
+
 export type ContextFile = { name: string; content?: string | null };
 
 const CONTEXT_MAX_FILES = 6;

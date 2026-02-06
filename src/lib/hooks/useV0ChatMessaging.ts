@@ -352,6 +352,19 @@ function buildApiErrorMessage(params: {
   if (status === 403 || code === "forbidden") {
     return "Åtkomst nekad av v0 (403). Kontrollera behörigheter.";
   }
+  if (status === 422 || code === "unprocessable_entity_error") {
+    // Extract the nested error message from v0's error format
+    const nestedMsg =
+      typeof (errorData?.error as Record<string, unknown>)?.message === "string"
+        ? (errorData!.error as Record<string, unknown>).message as string
+        : typeof errorData?.message === "string"
+          ? errorData.message
+          : null;
+    if (nestedMsg?.toLowerCase().includes("attachment size")) {
+      return "Bilagan är för stor (max 3 MB). Försök med en mindre fil.";
+    }
+    return nestedMsg || "Ogiltigt anrop (422). Kontrollera bilagor och meddelande.";
+  }
 
   let message =
     (typeof errorData?.error === "string" && errorData?.error) ||

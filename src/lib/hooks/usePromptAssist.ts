@@ -35,6 +35,8 @@ type PromptAssistOptions = {
   forceShallow?: boolean;
   mode?: PromptAssistMode;
   forceEnglish?: boolean;
+  /** Called with the raw brief object when deep brief is generated (for spec file) */
+  onBrief?: (brief: Record<string, unknown>) => void;
 };
 
 const STOPWORDS = new Set([
@@ -421,6 +423,15 @@ export function usePromptAssist(params: UsePromptAssistParams) {
         const brief = (await res.json().catch(() => null)) as any;
         if (!brief || typeof brief !== "object") {
           throw new Error("Dynamic instructions returned invalid JSON");
+        }
+
+        // Notify caller with brief data (used for spec file generation)
+        if (options.onBrief) {
+          try {
+            options.onBrief(brief as Record<string, unknown>);
+          } catch {
+            // non-critical
+          }
         }
 
         const addendum = buildDynamicInstructionAddendumFromBrief({

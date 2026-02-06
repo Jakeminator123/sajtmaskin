@@ -140,15 +140,21 @@ When using shadcn/ui components, ensure the following project structure exists:
   "rsc": true,
   "tsx": true,
   "tailwind": {
-    "config": "tailwind.config.cjs",
+    "config": "",
     "css": "src/app/globals.css",
-    "baseColor": "zinc",
-    "cssVariables": true
+    "baseColor": "slate",
+    "cssVariables": true,
+    "prefix": ""
   },
   "aliases": {
     "components": "@/components",
     "utils": "@/lib/utils",
-    "ui": "@/components/ui"
+    "ui": "@/components/ui",
+    "lib": "@/lib",
+    "hooks": "@/hooks"
+  },
+  "registries": {
+    "@shadcn": "https://ui.shadcn.com/r/{name}.json"
   }
 }
 \`\`\`
@@ -246,3 +252,9 @@ Include Tailwind CSS variables for theming in globals.css:
 - Dialogs must include DialogTitle + DialogDescription (sr-only ok)
 - Keyboard navigation support
 - Focus-visible rings on interactive elements`;
+
+/** Spec file reference to append to system prompt when spec mode is active */
+export const SPEC_FILE_INSTRUCTION = `\n\n## Spec File
+- If sajtmaskin.spec.json exists in the project, treat it as the source of truth for business info, theme, pages, and constraints.
+- Do not contradict the spec unless the user explicitly asks.
+- When iterating, refer to the spec for context about the project.`;

@@ -171,6 +171,8 @@ export function buildShadcnBlockPrompt(
     dependencyItems?: ShadcnRegistryItem[];
     placement?: PlacementOption;
     detectedSections?: DetectedSection[];
+    /** Names of UI components already present in the v0 project (e.g. ["button","input","dialog"]) */
+    existingUiComponents?: string[];
   } = {},
 ): string {
   const MAX_PROMPT_CHARS = 12000;
@@ -198,12 +200,19 @@ export function buildShadcnBlockPrompt(
   lines.push(`- \`@/registry/${style}/lib/utils\` -> \`@/lib/utils\``);
   lines.push(`- \`@/registry/${style}/blocks/*\` -> \`@/components/blocks/*\``);
   lines.push(
-    "Only create dependency files that are missing; do not overwrite existing UI components.",
+    "Do not overwrite existing UI components, but CREATE any missing dependency components.",
   );
   if (item.registryDependencies?.length) {
     lines.push(`Registry dependencies: ${item.registryDependencies.join(", ")}.`);
+  }
+  if (options.existingUiComponents && options.existingUiComponents.length > 0) {
+    lines.push(`Existing UI components in the project: ${options.existingUiComponents.join(", ")}.`);
     lines.push(
-      "Assume common shadcn/ui primitives already exist; only add minimal missing pieces.",
+      "IMPORTANT: CREATE any dependency component NOT in the list above under src/components/ui/. Do NOT skip missing components — the block will break without them.",
+    );
+  } else {
+    lines.push(
+      "IMPORTANT: Check if each required UI component exists under src/components/ui/. If ANY dependency file is missing, CREATE it with a minimal shadcn/ui implementation. Do NOT assume components exist.",
     );
   }
 
@@ -262,10 +271,13 @@ export function buildShadcnBlockPrompt(
   slimLines.push(`- \`@/registry/${style}/blocks/*\` -> \`@/components/blocks/*\``);
   if (item.registryDependencies?.length) {
     slimLines.push(`Registry dependencies: ${item.registryDependencies.join(", ")}.`);
-    slimLines.push(
-      "Assume common shadcn/ui primitives already exist; only add minimal missing pieces.",
-    );
   }
+  if (options.existingUiComponents && options.existingUiComponents.length > 0) {
+    slimLines.push(`Existing UI components: ${options.existingUiComponents.join(", ")}.`);
+  }
+  slimLines.push(
+    "IMPORTANT: CREATE any missing dependency UI component under src/components/ui/. Do NOT skip missing components.",
+  );
   if (files.length > 0) {
     const slimTargets = new Set<string>();
     slimLines.push("Registry files (paths only, content omitted to keep prompt short):");
@@ -284,7 +296,6 @@ export function buildShadcnBlockPrompt(
     "- Keep existing content intact; only append the new section and required components.",
   );
   slimLines.push("- Avoid introducing @v0/* imports.");
-  slimLines.push("- If any dependency is missing, add the minimal shadcn/ui version.");
 
   return slimLines.join("\n\n");
 }
@@ -298,6 +309,8 @@ export function buildShadcnComponentPrompt(
     dependencyItems?: ShadcnRegistryItem[];
     placement?: PlacementOption;
     detectedSections?: DetectedSection[];
+    /** Names of UI components already present in the v0 project (e.g. ["button","input","dialog"]) */
+    existingUiComponents?: string[];
   } = {},
 ): string {
   const MAX_PROMPT_CHARS = 12000;
@@ -321,11 +334,20 @@ export function buildShadcnComponentPrompt(
   lines.push(`- \`@/registry/${style}/lib/utils\` -> \`@/lib/utils\``);
   lines.push(`- \`@/registry/${style}/blocks/*\` -> \`@/components/blocks/*\``);
   lines.push(
-    "Only create dependency files that are missing; do not overwrite existing UI components.",
+    "Do not overwrite existing UI components, but CREATE any missing dependency components.",
   );
   if (item.registryDependencies?.length) {
     lines.push(`Registry dependencies: ${item.registryDependencies.join(", ")}.`);
-    lines.push("Assume common shadcn/ui primitives already exist; only add missing pieces.");
+  }
+  if (options.existingUiComponents && options.existingUiComponents.length > 0) {
+    lines.push(`Existing UI components in the project: ${options.existingUiComponents.join(", ")}.`);
+    lines.push(
+      "IMPORTANT: CREATE any dependency component NOT in the list above under src/components/ui/. Do NOT skip missing components.",
+    );
+  } else {
+    lines.push(
+      "IMPORTANT: Check if each required UI component exists under src/components/ui/. If ANY dependency file is missing, CREATE it. Do NOT assume components exist.",
+    );
   }
 
   lines.push("Registry files (adapt paths/imports as noted):");
@@ -378,6 +400,12 @@ export function buildShadcnComponentPrompt(
   if (item.registryDependencies?.length) {
     slimLines.push(`Registry dependencies: ${item.registryDependencies.join(", ")}.`);
   }
+  if (options.existingUiComponents && options.existingUiComponents.length > 0) {
+    slimLines.push(`Existing UI components: ${options.existingUiComponents.join(", ")}.`);
+  }
+  slimLines.push(
+    "IMPORTANT: CREATE any missing dependency UI component under src/components/ui/. Do NOT skip missing components.",
+  );
   if (files.length > 0) {
     const slimTargets = new Set<string>();
     slimLines.push("Registry files (paths only, content omitted to keep prompt short):");

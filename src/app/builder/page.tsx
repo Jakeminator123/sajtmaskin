@@ -22,7 +22,8 @@ import {
 } from "@/components/ui/dialog";
 import { clearPersistedMessages } from "@/lib/builder/messagesStorage";
 import type { ChatMessage } from "@/lib/builder/types";
-import { buildPromptAssistContext } from "@/lib/builder/promptAssistContext";
+import { buildPromptAssistContext, briefToSpec } from "@/lib/builder/promptAssistContext";
+import { getThemeColors } from "@/lib/builder/theme-presets";
 import {
   normalizeBuildIntent,
   normalizeBuildMethod,
@@ -36,6 +37,7 @@ import {
   DEFAULT_MODEL_TIER,
   DEFAULT_PROMPT_ASSIST,
   DEFAULT_THINKING,
+  SPEC_FILE_INSTRUCTION,
   getDefaultPromptAssistModel,
   getPromptAssistModelOptions,
   MODEL_TIER_OPTIONS,
@@ -113,7 +115,12 @@ function BuilderContent() {
   const [enableBlobMedia, setEnableBlobMedia] = useState(true);
   const [isImageGenerationsSupported, setIsImageGenerationsSupported] = useState(true);
   const [isMediaEnabled, setIsMediaEnabled] = useState(false);
-  const [designSystemMode, setDesignSystemMode] = useState(true); // Default ON for best results
+  const [designTheme, setDesignTheme] = useState<
+    import("@/lib/builder/theme-presets").DesignTheme
+  >("blue");
+  const designSystemMode = designTheme !== "off";
+  const [specMode, setSpecMode] = useState(false);
+  const pendingSpecRef = useRef<object | null>(null);
   const [showStructuredChat, setShowStructuredChat] = useState(false);
   const [isIntentionalReset, setIsIntentionalReset] = useState(false);
   const [customInstructions, setCustomInstructions] = useState(DEFAULT_CUSTOM_INSTRUCTIONS);
@@ -153,6 +160,7 @@ function BuilderContent() {
   const promptAssistContextKeyRef = useRef<string | null>(null);
   // Raw page code for section analysis in component picker
   const [currentPageCode, setCurrentPageCode] = useState<string | undefined>(undefined);
+  const [existingUiComponents, setExistingUiComponents] = useState<string[]>([]);
   const lastActiveVersionIdRef = useRef<string | null>(null);
   const promptFetchInFlightRef = useRef<string | null>(null);
   const promptFetchDoneRef = useRef<string | null>(null);
@@ -395,6 +403,44 @@ function BuilderContent() {
       // ignore storage errors
     }
   }, [enableBlobMedia]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const stored = localStorage.getItem("sajtmaskin:designTheme");
+      if (stored) setDesignTheme(stored as typeof designTheme);
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      localStorage.setItem("sajtmaskin:designTheme", designTheme);
+    } catch {
+      // ignore
+    }
+  }, [designTheme]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const stored = localStorage.getItem("sajtmaskin:specMode");
+      if (stored !== null) setSpecMode(stored === "true");
+    } catch {
+      // ignore
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      localStorage.setItem("sajtmaskin:specMode", String(specMode));
+    } catch {
+      // ignore
+    }
+  }, [specMode]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -919,6 +965,7 @@ function BuilderContent() {
     if (!contextKey) {
       promptAssistContextKeyRef.current = null;
       setPromptAssistContext(null);
+      setExistingUiComponents([]);
       return;
     }
     if (promptAssistContextKeyRef.current === contextKey) return;
@@ -946,6 +993,7 @@ function BuilderContent() {
           if (isActive) {
             setPromptAssistContext("");
             setCurrentPageCode(undefined);
+            setExistingUiComponents([]);
           }
           return;
         }
@@ -965,10 +1013,36 @@ function BuilderContent() {
         if (isActive) {
           setCurrentPageCode(pageFile?.content || undefined);
         }
+
+        const extractUiComponentName = (fileName: string): string | null => {
+          if (!fileName) return null;
+          const normalized = fileName.replace(/\\/g, "/");
+          const marker = "/components/ui/";
+          const idx = normalized.lastIndexOf(marker);
+          if (idx === -1) return null;
+          const tail = normalized.slice(idx + marker.length);
+          if (!tail) return null;
+          const indexMatch = tail.match(/(.+)\/index\.(tsx|ts|jsx|js)$/);
+          if (indexMatch?.[1]) return indexMatch[1];
+          const base = tail.split("/").pop() || "";
+          const cleaned = base.replace(/\.(tsx|ts|jsx|js)$/, "");
+          return cleaned || null;
+        };
+
+        const nextUiComponents = Array.from(
+          new Set(
+            data.files
+              .map((file) => extractUiComponentName(file.name))
+              .filter((name): name is string => Boolean(name)),
+          ),
+        ).sort((a, b) => a.localeCompare(b));
+
+        if (isActive) setExistingUiComponents(nextUiComponents);
       } catch (error) {
         if (!isActive) return;
         if (error instanceof Error && error.name === "AbortError") return;
         setPromptAssistContext("");
+        setExistingUiComponents([]);
       }
     };
 
@@ -1181,6 +1255,33 @@ function BuilderContent() {
         }
         toast.success("Instruktioner användes för versionen och rensades.");
       }
+      // Push spec file to v0 project if spec mode is active and we have a pending spec
+      if (pendingSpecRef.current && data.chatId && data.versionId) {
+        try {
+          const specContent = JSON.stringify(pendingSpecRef.current, null, 2);
+          pendingSpecRef.current = null;
+          fetch(`/api/v0/chats/${encodeURIComponent(data.chatId)}/files`, {
+            method: "PUT",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              versionId: data.versionId,
+              files: [
+                {
+                  name: "sajtmaskin.spec.json",
+                  content: specContent,
+                  locked: true,
+                },
+              ],
+            }),
+          }).catch((err) => {
+            console.warn("[Spec] Failed to push spec file:", err);
+          });
+        } catch (err) {
+          console.warn("[Spec] Failed to serialize spec:", err);
+          pendingSpecRef.current = null;
+        }
+      }
+
       if (data.chatId && data.versionId) {
         // Run CSS validation in background (don't block UI)
         validateCss(data.chatId, data.versionId).catch((err) => {
@@ -1244,6 +1345,12 @@ function BuilderContent() {
       try {
         const addendum = await generateDynamicInstructions(trimmed, {
           forceShallow: !promptAssistDeep,
+          onBrief: specMode
+            ? (brief) => {
+                const themeColors = getThemeColors(designTheme);
+                pendingSpecRef.current = briefToSpec(brief, trimmed, themeColors);
+              }
+            : undefined,
         });
         const baseInstructions =
           customInstructions.trim() &&
@@ -1251,9 +1358,10 @@ function BuilderContent() {
             ? customInstructions.trim()
             : DEFAULT_CUSTOM_INSTRUCTIONS.trim();
         // If no addendum, still return base instructions
+        const specSuffix = specMode ? SPEC_FILE_INSTRUCTION : "";
         const combined = addendum.trim()
-          ? `${baseInstructions}\n\n${addendum}`.trim()
-          : baseInstructions;
+          ? `${baseInstructions}\n\n${addendum}${specSuffix}`.trim()
+          : `${baseInstructions}${specSuffix}`.trim();
         setCustomInstructions(combined);
         pendingInstructionsRef.current = combined;
         pendingInstructionsOnceRef.current = false;
@@ -1265,7 +1373,7 @@ function BuilderContent() {
         setIsPreparingPrompt(false);
       }
     },
-    [chatId, customInstructions, generateDynamicInstructions, promptAssistDeep],
+    [chatId, customInstructions, generateDynamicInstructions, promptAssistDeep, specMode, designTheme],
   );
 
   const confirmModelSelection = useCallback(async () => {
@@ -1611,7 +1719,11 @@ function BuilderContent() {
           applyInstructionsOnce={applyInstructionsOnce}
           onApplyInstructionsOnceChange={setApplyInstructionsOnce}
           designSystemMode={designSystemMode}
-          onDesignSystemModeChange={setDesignSystemMode}
+          onDesignSystemModeChange={(v: boolean) => setDesignTheme(v ? "blue" : "off")}
+          designTheme={designTheme}
+          onDesignThemeChange={setDesignTheme}
+          specMode={specMode}
+          onSpecModeChange={setSpecMode}
           enableImageGenerations={enableImageGenerations}
           onEnableImageGenerationsChange={setEnableImageGenerations}
           enableThinking={enableThinking}
@@ -1666,6 +1778,7 @@ function BuilderContent() {
               designSystemMode={designSystemMode}
               mediaEnabled={mediaEnabled}
               currentCode={currentPageCode}
+              existingUiComponents={existingUiComponents}
             />
             <Dialog open={deployNameDialogOpen}>
               <DialogContent className="max-w-md">

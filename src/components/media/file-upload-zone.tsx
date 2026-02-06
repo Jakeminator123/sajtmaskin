@@ -46,8 +46,8 @@ const ACCEPTED_IMAGE_TYPES = [
 ];
 const ACCEPTED_DOC_TYPES = ["application/pdf"];
 const ACCEPTED_TYPES = [...ACCEPTED_IMAGE_TYPES, ...ACCEPTED_DOC_TYPES];
-const MAX_IMAGE_SIZE = 4 * 1024 * 1024; // 4MB (Blob-safe for preview)
-const MAX_DOC_SIZE = 4 * 1024 * 1024; // 4MB (Blob-safe for preview)
+const MAX_IMAGE_SIZE = 3 * 1024 * 1024; // 3MB (v0 API attachment limit)
+const MAX_DOC_SIZE = 3 * 1024 * 1024; // 3MB (v0 API attachment limit)
 const MAX_FILES = 5;
 
 export interface UploadedFile {
@@ -127,7 +127,7 @@ export function FileUploadZone({
             size: file.size,
             status: "error",
             error:
-              "Filen är för stor för preview. Max 4MB (Blob-begränsning för stabila bilder).",
+              "Filen är för stor. Max 3 MB (v0 API-begränsning för bilagor).",
           };
           onFilesChange([...files, errorFile]);
           continue;

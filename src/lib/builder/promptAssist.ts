@@ -76,7 +76,7 @@ const STYLE_KEYWORDS = [
 
 const SHADCN_SETUP_DETAILS = {
   componentsJson:
-    "components.json: style 'new-york', rsc true, aliases for @/components, @/lib/utils, @/components/ui",
+    "components.json: style 'new-york', rsc true, baseColor 'slate', aliases for @/components, @/lib/utils, @/components/ui, @/lib, @/hooks",
   libUtils: "lib/utils.ts: export cn() using clsx + tailwind-merge",
   globalsCss: "globals.css: CSS variables for theming (--background, --foreground, --primary, etc.)",
   packageJson:
@@ -126,6 +126,8 @@ const BUILD_INTENT_GUIDANCE: Record<
     instructionLines: [
       "Focus on content structure, marketing flow, and clear sections.",
       "Prefer static content with light interactivity; keep logic minimal.",
+      "Match scope to the request: a short, simple prompt should yield a polished one-pager; a detailed prompt may produce multiple pages.",
+      "Use shadcn/ui components (buttons, cards, forms, dialogs) for all interactive and structured UI elements.",
     ],
   },
   app: {
@@ -202,6 +204,108 @@ const IMAGE_DENSITY_GUIDANCE = [
   "Include images in hero + at least 2-3 additional sections where it adds value.",
   "Use consistent aspect ratios and professional cropping for visual harmony.",
 ];
+
+// ── Dynamic guidance resolvers ──────────────────────────────────────────
+// These functions adapt the static guidance based on brief data (tone,
+// style keywords, color palette) so that a playful pink site gets
+// different instructions than a dark corporate one.
+
+function hasAny(list: string[], keywords: string[]): boolean {
+  const lower = list.map((s) => s.toLowerCase());
+  return keywords.some((k) => lower.some((l) => l.includes(k)));
+}
+
+function resolveMotionGuidance(
+  tone: string[],
+  styleKeywords: string[],
+  variant: "detailed" | "compact" = "detailed",
+): string[] {
+  const base = [...MOTION_GUIDANCE[variant]];
+  if (hasAny(tone, ["playful", "fun", "energetic", "lekfull"])) {
+    base.push("Use bouncy, playful micro-interactions and generous spring easing.");
+  }
+  if (hasAny(tone, ["professional", "corporate", "serious", "formal"])) {
+    base[0] = "Add restrained, professional motion: subtle fades and clean transitions only.";
+  }
+  if (hasAny(styleKeywords, ["minimal", "clean", "simple"])) {
+    return base.filter((l) => !l.includes("at least 2"));
+  }
+  if (hasAny(styleKeywords, ["animated", "dynamic", "motion", "animerad"])) {
+    base.push("Go heavy on animations — scroll-triggered reveals, parallax, floating elements.");
+  }
+  return base;
+}
+
+interface ColorPalette {
+  primary?: string;
+  secondary?: string;
+  accent?: string;
+  background?: string;
+  text?: string;
+}
+
+function isDarkPalette(palette: ColorPalette): boolean {
+  const bg = (palette.background || "").toLowerCase();
+  return (
+    bg.includes("#0") ||
+    bg.includes("#1") ||
+    bg.includes("#2") ||
+    bg.includes("dark") ||
+    bg.includes("black") ||
+    bg.includes("oklch(0.")
+  );
+}
+
+function resolveVisualIdentityGuidance(
+  palette: ColorPalette,
+  styleKeywords: string[],
+  tone: string[],
+  variant: "detailed" | "compact" = "detailed",
+): string[] {
+  const base = [...VISUAL_IDENTITY_GUIDANCE[variant]];
+  if (isDarkPalette(palette)) {
+    // Replace "never flat white" with dark-specific guidance
+    base[0] = "Use a rich dark background with subtle gradients or noise texture for depth.";
+    base.push("Ensure sufficient contrast between text and dark backgrounds (WCAG AA+).");
+  }
+  if (hasAny(styleKeywords, ["neon", "cyberpunk", "futuristic"])) {
+    base.push("Use neon accent glows, high-contrast borders, and monospace or geometric fonts.");
+  }
+  if (hasAny(tone, ["luxury", "elegant", "premium"])) {
+    base.push("Use generous whitespace, serif headings, and restrained accent color application.");
+  }
+  if (hasAny(tone, ["playful", "fun", "colorful", "lekfull"])) {
+    base.push("Use vibrant accent colors, rounded shapes, and energetic color contrasts.");
+  }
+  if (palette.primary) {
+    base.push(`Use the primary color (${palette.primary}) consistently for CTAs, links, and key accents.`);
+  }
+  return base;
+}
+
+function resolveQualityBarGuidance(
+  tone: string[],
+  styleKeywords: string[],
+  variant: "detailed" | "compact" = "detailed",
+): string[] {
+  const base = [...QUALITY_BAR_GUIDANCE[variant]];
+  if (hasAny(styleKeywords, ["minimal", "clean", "simple"])) {
+    return [
+      "Aim for a clean, minimal look: generous whitespace, sharp typography, few decorative elements.",
+      "Use simple layouts: single-column hero, clean card grid, focused CTAs.",
+      "Avoid visual clutter; let content breathe with consistent spacing.",
+    ];
+  }
+  if (hasAny(styleKeywords, ["bold", "dramatic", "intense", "maximal"])) {
+    base.push("Go bold: oversized typography, full-bleed images, high-contrast sections.");
+  }
+  if (hasAny(tone, ["playful", "fun", "whimsical"])) {
+    base.push("Add personality: custom illustrations, emoji accents, or quirky layout variations.");
+  }
+  return base;
+}
+
+// ── End dynamic guidance resolvers ──────────────────────────────────────
 
 const CONSTRAINT_MARKERS = [
   "must",
@@ -367,6 +471,10 @@ export function buildV0PromptFromBrief(params: {
   const palette = brief?.visualDirection?.colorPalette || {};
   const typography = brief?.visualDirection?.typography || {};
 
+  const motionGuidance = resolveMotionGuidance(tone, styleKeywords, "compact");
+  const visualIdentityGuidance = resolveVisualIdentityGuidance(palette, styleKeywords, tone, "compact");
+  const qualityGuidance = resolveQualityBarGuidance(tone, styleKeywords, "compact");
+
   const pages: any[] = Array.isArray(brief.pages) ? brief.pages : [];
   const pageLines = pages
     .slice(0, 10)
@@ -424,6 +532,11 @@ export function buildV0PromptFromBrief(params: {
     typography?.headings || typography?.body
       ? `- Typography: headings ${String(typography.headings || "Inter")}, body ${String(typography.body || "Inter")}`
       : null,
+    "",
+    "Design guidance:",
+    ...motionGuidance.map((line) => `- ${line}`),
+    ...visualIdentityGuidance.map((line) => `- ${line}`),
+    ...qualityGuidance.map((line) => `- ${line}`),
     "",
     imageGenerations
       ? "Imagery: include tasteful images where they add value. Use next/image when appropriate, include descriptive alt text, and use public https image URLs (avoid data: URIs or local file paths)."
@@ -505,9 +618,14 @@ export function buildDynamicInstructionAddendumFromBrief(params: {
   const mustHave = asStringList(brief.mustHave).slice(0, 10);
   const avoid = asStringList(brief.avoid).slice(0, 8);
 
-  const motionGuidance = MOTION_GUIDANCE.detailed;
-  const visualIdentityGuidance = VISUAL_IDENTITY_GUIDANCE.detailed;
-  const richnessGuidance = QUALITY_BAR_GUIDANCE.detailed;
+  // Extract visual direction fields for dynamic guidance
+  const styleKeywords = asStringList(brief?.visualDirection?.styleKeywords);
+  const colorPalette: ColorPalette = brief?.visualDirection?.colorPalette || {};
+
+  // Dynamic guidance adapted to the brief's tone, style, and palette
+  const motionGuidance = resolveMotionGuidance(tone, styleKeywords, "detailed");
+  const visualIdentityGuidance = resolveVisualIdentityGuidance(colorPalette, styleKeywords, tone, "detailed");
+  const richnessGuidance = resolveQualityBarGuidance(tone, styleKeywords, "detailed");
   const imageDensityGuidance = IMAGE_DENSITY_GUIDANCE;
   const techConstraints = CORE_TECH_CONSTRAINTS;
 
@@ -568,6 +686,14 @@ export function buildDynamicInstructionAddendumFromPrompt(params: {
     ? "Prefer AI-generated images; fallback to high-quality stock. Always include alt text."
     : "Use high-quality stock images with descriptive alt text.";
   const intentLines = getBuildIntentInstructionLines(buildIntent);
+
+  // Infer tone and style from the raw prompt for dynamic guidance
+  const promptStyles = extractKeywordMatches(originalPrompt, STYLE_KEYWORDS);
+  const promptTone = extractKeywordMatches(originalPrompt, [
+    "playful", "fun", "professional", "corporate", "luxury",
+    "elegant", "minimal", "dramatic", "lekfull", "energetic",
+  ] as const);
+
   return [
     "## Build Intent",
     ...intentLines.map((line) => `- ${line}`),
@@ -576,13 +702,13 @@ export function buildDynamicInstructionAddendumFromPrompt(params: {
     formatted || originalPrompt.trim(),
     "",
     "## Interaction & Motion",
-    ...MOTION_GUIDANCE.compact,
+    ...resolveMotionGuidance(promptTone, promptStyles, "compact"),
     "",
     "## Visual Identity",
-    ...VISUAL_IDENTITY_GUIDANCE.compact,
+    ...resolveVisualIdentityGuidance({}, promptStyles, promptTone, "compact"),
     "",
     "## Quality Bar",
-    ...QUALITY_BAR_GUIDANCE.compact,
+    ...resolveQualityBarGuidance(promptTone, promptStyles, "compact"),
     "",
     "## Imagery",
     imageryLine,
