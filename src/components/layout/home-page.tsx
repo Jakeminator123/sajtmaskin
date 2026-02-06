@@ -25,8 +25,8 @@
  * - Onboarding via custom hook
  */
 
-import { useEffect, useMemo, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { TemplateGallery } from "@/components/templates";
 import { PromptInput } from "@/components/forms";
 import {
@@ -36,8 +36,8 @@ import {
   PromptWizardModalV2,
   EntryModal,
   type WizardData,
-  type EntryMode,
 } from "@/components/modals";
+import { useEntryParams } from "@/lib/entry";
 import { AuthModal } from "@/components/auth";
 import { HelpTooltip, Navbar, ShaderBackground, SiteAuditSection } from "./index";
 import { TrustedByMarquee } from "./trusted-by-marquee";
@@ -67,12 +67,8 @@ import toast from "react-hot-toast";
 
 type ActiveBuildMethod = BuildMethod | null;
 
-// Valid entry modes that can be triggered via URL params
-const VALID_ENTRY_MODES = new Set<EntryMode>(["audit", "wizard", "freeform"]);
-
 export function HomePage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [auditResult, setAuditResult] = useState<AuditResult | null>(null);
@@ -82,9 +78,8 @@ export function HomePage() {
   const [activeBuildMethod, setActiveBuildMethod] = useState<ActiveBuildMethod>(null);
   const [buildIntent, setBuildIntent] = useState<BuildIntent>(DEFAULT_BUILD_INTENT);
 
-  // Entry mode state — triggered by URL params (e.g. ?mode=audit&ref=partner)
-  const [entryMode, setEntryMode] = useState<EntryMode | null>(null);
-  const [entryPartner, setEntryPartner] = useState<string | null>(null);
+  // ── Entry params (sajtstudio.se → sajtmaskin flow, see lib/entry/) ──
+  const entry = useEntryParams();
 
   // Get user state for personalized experience
   // IMPORTANT: Use isInitialized to prevent hydration mismatch
@@ -93,43 +88,18 @@ export function HomePage() {
   const { showOnboarding, onboardingData, handleComplete, handleSkip, resetOnboarding } =
     useOnboarding();
 
-  // ── Detect entry mode from URL params (e.g. ?mode=audit&ref=partner) ──
-  useEffect(() => {
-    const mode = searchParams.get("mode") as EntryMode | null;
-    const ref = searchParams.get("ref");
-
-    if (mode && VALID_ENTRY_MODES.has(mode)) {
-      setEntryMode(mode);
-      if (ref) setEntryPartner(ref);
-
-      // Clean the URL without triggering navigation/re-render
-      const url = new URL(window.location.href);
-      url.searchParams.delete("mode");
-      url.searchParams.delete("ref");
-      window.history.replaceState({}, "", url.pathname + url.search);
-    }
-  }, [searchParams]);
-
   // Handle entry modal "Continue" — activate the appropriate section/modal
   const handleEntryContinue = () => {
-    const mode = entryMode;
-    setEntryMode(null);
-    setEntryPartner(null);
+    const result = entry.continueEntry();
+    if (!result) return;
 
-    if (!mode) return;
-
-    if (mode === "wizard") {
+    if (result.action === "wizard") {
       setShowWizard(true);
-    } else if (mode === "audit") {
+    } else if (result.action === "audit") {
       setActiveBuildMethod("audit");
-    } else if (mode === "freeform") {
+    } else if (result.action === "freeform") {
       setActiveBuildMethod("freeform");
     }
-  };
-
-  const handleEntryClose = () => {
-    setEntryMode(null);
-    setEntryPartner(null);
   };
 
   // Get user's first name for greeting
@@ -282,12 +252,12 @@ export function HomePage() {
       />
 
       {/* Entry Modal — shown when users arrive via external links with ?mode=xxx */}
-      {entryMode && (
+      {entry.mode && (
         <EntryModal
-          mode={entryMode}
-          partner={entryPartner}
+          mode={entry.mode}
+          partner={entry.partner}
           onContinue={handleEntryContinue}
-          onClose={handleEntryClose}
+          onClose={entry.dismissEntry}
         />
       )}
 
