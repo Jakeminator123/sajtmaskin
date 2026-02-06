@@ -11,6 +11,9 @@ interface VoiceRecorderProps {
   language?: "sv" | "en";
   placeholder?: string;
   className?: string;
+  /** Compact mode: renders a small icon button that fits into toolbars */
+  compact?: boolean;
+  disabled?: boolean;
 }
 
 export function VoiceRecorder({
@@ -19,6 +22,8 @@ export function VoiceRecorder({
   language = "sv",
   placeholder = "Klicka för att börja prata...",
   className = "",
+  compact = false,
+  disabled = false,
 }: VoiceRecorderProps) {
   const [isRecording, setIsRecording] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
@@ -199,6 +204,74 @@ export function VoiceRecorder({
     return `${mins}:${secs.toString().padStart(2, "0")}`;
   };
 
+  // ── Compact mode ──────────────────────────────────────────────────
+  if (compact) {
+    return (
+      <div className={`inline-flex items-center gap-1.5 ${className}`}>
+        <button
+          type="button"
+          onClick={isRecording ? stopRecording : startRecording}
+          disabled={isTranscribing || disabled}
+          title={
+            isTranscribing
+              ? "Transkriberar..."
+              : isRecording
+                ? `Stoppa inspelning (${formatTime(recordingTime)})`
+                : "Spela in röstmeddelande"
+          }
+          className={`relative inline-flex h-7 w-7 items-center justify-center rounded-md border transition-all ${
+            isRecording
+              ? "border-red-500 bg-red-500/20 text-red-400 hover:bg-red-500/30"
+              : isTranscribing
+                ? "border-border text-muted-foreground cursor-wait opacity-60"
+                : "border-border text-muted-foreground hover:bg-accent hover:text-foreground"
+          } disabled:opacity-50`}
+        >
+          {isTranscribing ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+          ) : isRecording ? (
+            <Square className="h-3 w-3 fill-current" />
+          ) : (
+            <Mic className="h-3.5 w-3.5" />
+          )}
+
+          {/* Pulse ring when recording */}
+          {isRecording && (
+            <span className="absolute inset-0 animate-ping rounded-md border border-red-400/40" />
+          )}
+        </button>
+
+        {/* Show timer when recording */}
+        {isRecording && (
+          <span className="text-xs font-mono text-red-400">{formatTime(recordingTime)}</span>
+        )}
+
+        {/* Compact audio bars */}
+        {isRecording && (
+          <div className="flex items-center gap-0.5">
+            {[...Array(3)].map((_, i) => (
+              <div
+                key={i}
+                className={`w-0.5 rounded-full bg-red-500 transition-all ${styles.audioBar} ${barIndexClasses[i]} ${levelClass} ${
+                  audioLevel > i * 0.3 ? styles.barActive : styles.barInactive
+                }`}
+                style={{ height: `${8 + audioLevel * (4 + i * 3)}px` }}
+              />
+            ))}
+          </div>
+        )}
+
+        {/* Compact error tooltip */}
+        {error && (
+          <span className="text-xs text-red-400" title={error}>
+            <MicOff className="h-3.5 w-3.5" />
+          </span>
+        )}
+      </div>
+    );
+  }
+
+  // ── Full mode ─────────────────────────────────────────────────────
   return (
     <div className={`flex flex-col gap-3 ${className}`}>
       <div className="flex items-center gap-3">
@@ -206,7 +279,7 @@ export function VoiceRecorder({
         <Button
           type="button"
           onClick={isRecording ? stopRecording : startRecording}
-          disabled={isTranscribing}
+          disabled={isTranscribing || disabled}
           variant={isRecording ? "destructive" : "outline"}
           size="lg"
           className={`relative min-w-[180px] gap-2 transition-all ${

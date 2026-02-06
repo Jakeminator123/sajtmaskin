@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import {
   X,
   ArrowRight,
@@ -16,7 +16,11 @@ import {
   Mic,
   Building2,
   Target,
-  Wand2,
+  Sparkles,
+  TrendingUp,
+  Users,
+  Zap,
+  ExternalLink,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -30,19 +34,25 @@ import { buildIntentNoun } from "@/lib/builder/build-intent";
 import type { BuildIntent } from "@/lib/builder/build-intent";
 
 /**
- * PromptWizardModal V2 - Streamlined Business Analysis Wizard
+ * PromptWizardModal V2 - Adaptive Business Analysis Wizard
  *
- * OPTIMIZED: Reduced from 11 to 5 focused steps:
- * 1. About You (Company + Industry + Location combined)
- * 2. Your Goals (Purpose + Target Audience combined)
- * 3. Existing Site & Inspiration (combined)
- * 4. Design Preferences (Component styles + Color palette combined)
- * 5. Review & Generate (Special wishes + Voice + Final edit)
+ * 5 focused steps with AI-driven follow-up questions:
+ * 1. About You (Company + Industry + Location + Website scraping)
+ * 2. Your Goals (Purpose + Audience + USP + AI follow-ups)
+ * 3. Existing Site & Inspiration (Analysis + Feedback + Trends)
+ * 4. Design Preferences (Vibe + Color palette)
+ * 5. Review & Generate (Brief preview + Voice + Final edit)
  *
- * Each step is more comprehensive but less overwhelming.
+ * Key improvements over V1:
+ * - AI-driven follow-up questions adapt to business context
+ * - Web scraper integration for existing websites
+ * - USP and competitive differentiation questions
+ * - Voice input throughout
+ * - Brief-based output for better builder integration
  */
 
-// Industry options with suggested audience and features
+// ── Industry options with context ──────────────────────────────────
+
 const INDUSTRY_OPTIONS = [
   {
     id: "cafe",
@@ -123,7 +133,7 @@ const INDUSTRY_OPTIONS = [
   },
 ];
 
-// Purpose options with descriptions
+// Purpose options
 const PURPOSE_OPTIONS = [
   { id: "sell", label: "Sälja", icon: "🛒", desc: "Produkter/tjänster" },
   { id: "leads", label: "Leads", icon: "📧", desc: "Fånga kontakter" },
@@ -131,6 +141,8 @@ const PURPOSE_OPTIONS = [
   { id: "inform", label: "Informera", icon: "📚", desc: "Dela kunskap" },
   { id: "brand", label: "Varumärke", icon: "⭐", desc: "Bygga identitet" },
   { id: "booking", label: "Bokningar", icon: "📅", desc: "Ta emot bokningar" },
+  { id: "conversion", label: "Konvertering", icon: "📈", desc: "Öka konvertering" },
+  { id: "rebrand", label: "Rebrand", icon: "🔄", desc: "Ny identitet" },
 ];
 
 // Design vibe options
@@ -142,6 +154,8 @@ const VIBE_OPTIONS = [
   { id: "tech", label: "Futuristic", icon: "🚀" },
   { id: "minimal", label: "Minimal", icon: "◻️" },
 ];
+
+// ── Types ─────────────────────────────────────────────────────────
 
 export interface ComponentChoices {
   hero: string;
@@ -169,6 +183,8 @@ export interface WizardData {
   componentChoices?: ComponentChoices;
   industryTrends?: string;
   websiteAnalysis?: string;
+  usp?: string;
+  followUpAnswers?: Record<string, string>;
 }
 
 interface PromptWizardModalProps {
@@ -180,6 +196,117 @@ interface PromptWizardModalProps {
   buildIntent?: BuildIntent;
 }
 
+// ── Follow-up question types from API ─────────────────────────────
+
+interface FollowUpQuestion {
+  id: string;
+  text: string;
+  type: "text" | "select" | "chips";
+  options?: string[];
+  placeholder?: string;
+}
+
+interface EnrichSuggestion {
+  type: "audience" | "feature" | "usp" | "palette" | "trend";
+  text: string;
+}
+
+interface ScrapedData {
+  title?: string;
+  description?: string;
+  headings?: string[];
+  wordCount?: number;
+  hasImages?: boolean;
+  textSummary?: string;
+}
+
+// ── Shared input class ────────────────────────────────────────────
+
+const INPUT_CLASS =
+  "w-full rounded-lg border border-gray-800 bg-black/50 px-4 py-3 text-white placeholder-gray-500 transition-all focus:border-brand-teal focus:ring-1 focus:ring-brand-teal/50 focus:outline-none";
+
+// ── FollowUpRenderer ──────────────────────────────────────────────
+
+function FollowUpRenderer({
+  questions,
+  answers,
+  onAnswer,
+}: {
+  questions: FollowUpQuestion[];
+  answers: Record<string, string>;
+  onAnswer: (id: string, value: string) => void;
+}) {
+  if (!questions.length) return null;
+
+  return (
+    <div className="space-y-4 rounded-lg border border-gray-700/50 bg-linear-to-br from-gray-900/80 to-gray-950/80 p-4">
+      <div className="flex items-center gap-2 text-xs font-medium text-brand-teal/80">
+        <Sparkles className="h-3.5 w-3.5" />
+        AI-drivna följdfrågor baserade på din profil
+      </div>
+      {questions.map((q) => (
+        <div key={q.id} className="space-y-1.5">
+          <label className="text-sm text-gray-300">{q.text}</label>
+          {q.type === "text" && (
+            <input
+              type="text"
+              value={answers[q.id] || ""}
+              onChange={(e) => onAnswer(q.id, e.target.value)}
+              placeholder={q.placeholder || ""}
+              className={INPUT_CLASS + " text-sm"}
+            />
+          )}
+          {q.type === "select" && q.options && (
+            <div className="flex flex-wrap gap-1.5">
+              {q.options.map((opt) => (
+                <button
+                  key={opt}
+                  onClick={() => onAnswer(q.id, opt)}
+                  className={`rounded-full border px-3 py-1 text-xs transition-all ${
+                    answers[q.id] === opt
+                      ? "border-brand-teal bg-brand-teal/20 text-brand-teal/90"
+                      : "border-gray-700 text-gray-400 hover:border-gray-600 hover:text-white"
+                  }`}
+                >
+                  {opt}
+                </button>
+              ))}
+            </div>
+          )}
+          {q.type === "chips" && q.options && (
+            <div className="flex flex-wrap gap-1.5">
+              {q.options.map((opt) => {
+                const selected = (answers[q.id] || "").split(", ").filter(Boolean);
+                const isActive = selected.includes(opt);
+                return (
+                  <button
+                    key={opt}
+                    onClick={() => {
+                      const next = isActive
+                        ? selected.filter((s) => s !== opt)
+                        : [...selected, opt];
+                      onAnswer(q.id, next.join(", "));
+                    }}
+                    className={`rounded-full border px-3 py-1 text-xs transition-all ${
+                      isActive
+                        ? "border-brand-teal bg-brand-teal/20 text-brand-teal/90"
+                        : "border-gray-700 text-gray-400 hover:border-gray-600 hover:text-white"
+                    }`}
+                  >
+                    {isActive ? "✓" : "+"} {opt}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// ── Main Component ────────────────────────────────────────────────
+
 export function PromptWizardModalV2({
   isOpen,
   onClose,
@@ -188,13 +315,14 @@ export function PromptWizardModalV2({
   categoryType = "website",
   buildIntent = "website",
 }: PromptWizardModalProps) {
-  // Current step (1-5)
   const [step, setStep] = useState(1);
   const totalSteps = 5;
 
   // Loading states
   const [isExpanding, setIsExpanding] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isEnriching, setIsEnriching] = useState(false);
+  const [isScraping, setIsScraping] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Generated prompt state
@@ -202,23 +330,32 @@ export function PromptWizardModalV2({
   const [editedPrompt, setEditedPrompt] = useState<string>("");
   const [showEditMode, setShowEditMode] = useState(false);
 
+  // AI follow-up state
+  const [followUpQuestions, setFollowUpQuestions] = useState<FollowUpQuestion[]>([]);
+  const [followUpAnswers, setFollowUpAnswers] = useState<Record<string, string>>({});
+  const [suggestions, setSuggestions] = useState<EnrichSuggestion[]>([]);
+  const [insightSummary, setInsightSummary] = useState<string | null>(null);
+  const [scrapedData, setScrapedData] = useState<ScrapedData | null>(null);
+  const enrichedStepsRef = useRef<Set<number>>(new Set());
+
   // ═══════════════════════════════════════════════════════════════
   // STEP 1: About You
   // ═══════════════════════════════════════════════════════════════
   const [companyName, setCompanyName] = useState("");
   const [industry, setIndustry] = useState("");
   const [location, setLocation] = useState("");
+  const [existingWebsite, setExistingWebsite] = useState("");
 
   // ═══════════════════════════════════════════════════════════════
   // STEP 2: Your Goals
   // ═══════════════════════════════════════════════════════════════
   const [purposes, setPurposes] = useState<string[]>([]);
   const [targetAudience, setTargetAudience] = useState("");
+  const [usp, setUsp] = useState("");
 
   // ═══════════════════════════════════════════════════════════════
   // STEP 3: Existing Site & Inspiration
   // ═══════════════════════════════════════════════════════════════
-  const [existingWebsite, setExistingWebsite] = useState("");
   const [siteFeedback, setSiteFeedback] = useState("");
   const [inspirationSites, setInspirationSites] = useState<string[]>([""]);
   const [websiteAnalysis, setWebsiteAnalysis] = useState<string | null>(null);
@@ -245,6 +382,118 @@ export function PromptWizardModalV2({
   // Get current industry data
   const currentIndustry = INDUSTRY_OPTIONS.find((i) => i.id === industry);
 
+  // ── Follow-up answer handler ──────────────────────────────────
+  const handleFollowUpAnswer = useCallback((id: string, value: string) => {
+    setFollowUpAnswers((prev) => ({ ...prev, [id]: value }));
+  }, []);
+
+  // ── Fetch AI enrichment for current step ──────────────────────
+  const fetchEnrichment = useCallback(
+    async (currentStep: number, scrapeUrl?: string) => {
+      // Don't re-enrich the same step unless scraping
+      if (enrichedStepsRef.current.has(currentStep) && !scrapeUrl) return;
+
+      setIsEnriching(true);
+      try {
+        const response = await fetch("/api/wizard/enrich", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            step: currentStep,
+            data: {
+              companyName,
+              industry,
+              location,
+              existingWebsite,
+              purposes,
+              targetAudience,
+              usp,
+              selectedVibe,
+              specialWishes,
+              previousFollowUps: followUpAnswers,
+            },
+            scrapeUrl,
+          }),
+        });
+
+        if (!response.ok) {
+          console.warn("[Wizard] Enrich request failed:", response.status);
+          return;
+        }
+
+        const data = await response.json();
+
+        if (data.questions?.length) {
+          setFollowUpQuestions(data.questions);
+        }
+        if (data.suggestions?.length) {
+          setSuggestions(data.suggestions);
+        }
+        if (data.insightSummary) {
+          setInsightSummary(data.insightSummary);
+        }
+        if (data.scrapedData) {
+          setScrapedData(data.scrapedData);
+        }
+
+        enrichedStepsRef.current.add(currentStep);
+      } catch (err) {
+        console.warn("[Wizard] Enrich failed (non-fatal):", err);
+      } finally {
+        setIsEnriching(false);
+      }
+    },
+    [
+      companyName,
+      industry,
+      location,
+      existingWebsite,
+      purposes,
+      targetAudience,
+      usp,
+      selectedVibe,
+      specialWishes,
+      followUpAnswers,
+    ],
+  );
+
+  // ── Scrape website on URL entry ───────────────────────────────
+  const handleScrapeWebsite = useCallback(
+    async (url: string) => {
+      if (!url) return;
+      setIsScraping(true);
+      const fullUrl = url.startsWith("http") ? url : `https://${url}`;
+
+      // Trigger both analysis and enrich-scrape in parallel
+      const analysisPromise = fetch("/api/analyze-website", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: fullUrl }),
+      })
+        .then((r) => r.json())
+        .then((d) => {
+          if (d.success && d.analysis) setWebsiteAnalysis(d.analysis);
+        })
+        .catch(() => {});
+
+      const enrichPromise = fetchEnrichment(step, fullUrl);
+
+      await Promise.all([analysisPromise, enrichPromise]);
+      setIsScraping(false);
+    },
+    [fetchEnrichment, step],
+  );
+
+  // ── Auto-enrich on step change ────────────────────────────────
+  useEffect(() => {
+    if (!isOpen) return;
+    // Only enrich if we have minimum data
+    if (step >= 2 && companyName && industry) {
+      const timer = setTimeout(() => fetchEnrichment(step), 300);
+      return () => clearTimeout(timer);
+    }
+  }, [step, isOpen, companyName, industry, fetchEnrichment]);
+
   // Toggle purpose selection
   const togglePurpose = useCallback((purposeId: string) => {
     setPurposes((prev) =>
@@ -259,21 +508,19 @@ export function PromptWizardModalV2({
     if (industryData?.suggestedAudience) {
       setTargetAudience(industryData.suggestedAudience);
     }
-    // Update palette based on industry
     const industryPalettes = getIndustryPalettes(newIndustry);
     if (industryPalettes.length > 0) {
       setSelectedPalette(industryPalettes[0]);
     }
   }, []);
 
-  // Add inspiration site
+  // Inspiration helpers
   const addInspirationSite = useCallback(() => {
     if (inspirationSites.length < 3) {
       setInspirationSites((prev) => [...prev, ""]);
     }
   }, [inspirationSites.length]);
 
-  // Update inspiration site
   const updateInspirationSite = useCallback((index: number, value: string) => {
     setInspirationSites((prev) => {
       const newSites = [...prev];
@@ -282,33 +529,7 @@ export function PromptWizardModalV2({
     });
   }, []);
 
-  // Analyze existing website
-  const analyzeWebsite = useCallback(async () => {
-    if (!existingWebsite) return;
-
-    setIsAnalyzing(true);
-    try {
-      const url = existingWebsite.startsWith("http")
-        ? existingWebsite
-        : `https://${existingWebsite}`;
-      const response = await fetch("/api/analyze-website", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url }),
-      });
-
-      const data = await response.json();
-      if (response.ok && data.success) {
-        setWebsiteAnalysis(data.analysis);
-      }
-    } catch (err) {
-      console.error("Failed to analyze website:", err);
-    } finally {
-      setIsAnalyzing(false);
-    }
-  }, [existingWebsite]);
-
-  // Check if we can proceed to next step
+  // Step validation
   const canProceed = useCallback(() => {
     switch (step) {
       case 1:
@@ -316,106 +537,145 @@ export function PromptWizardModalV2({
       case 2:
         return purposes.length > 0;
       case 3:
-        return true; // Optional step
+        return true;
       case 4:
         return selectedPalette !== null || customColors !== null;
       case 5:
-        return true; // Can always proceed
+        return true;
       default:
         return true;
     }
   }, [step, companyName, industry, purposes, selectedPalette, customColors]);
 
-  // Handle step navigation
+  // Step navigation
   const handleNext = useCallback(() => {
     if (step < totalSteps) {
       setStep((prev) => prev + 1);
-      // Trigger analysis when moving from step 3
-      if (step === 3 && existingWebsite && !websiteAnalysis) {
-        analyzeWebsite();
-      }
+      setFollowUpQuestions([]);
+      setSuggestions([]);
+      setInsightSummary(null);
     }
-  }, [step, existingWebsite, websiteAnalysis, analyzeWebsite]);
+  }, [step]);
 
   const handleBack = useCallback(() => {
     if (step > 1) {
       setStep((prev) => prev - 1);
+      setFollowUpQuestions([]);
+      setSuggestions([]);
+      setInsightSummary(null);
     }
   }, [step]);
 
-  // Generate a deterministic prompt (no preprompting/orchestrator)
-  const handleGenerate = useCallback(() => {
+  // ── Generate brief-formatted prompt ───────────────────────────
+  const handleGenerate = useCallback(async () => {
     setIsExpanding(true);
     setError(null);
 
-    const componentChoices: ComponentChoices = {
-      hero: "geometric",
-      navigation: "sticky",
-      layout: "sections",
-      effects: "scroll",
-      vibe: selectedVibe,
-    };
+    try {
+      const palette = customColors || selectedPalette;
+      const paletteText = palette
+        ? `Primary ${palette.primary}, Secondary ${palette.secondary}, Accent ${palette.accent}`
+        : null;
+      const industryLabel = currentIndustry?.label || industry || "general";
+      const intentLabel = buildIntentNoun(buildIntent);
 
-    const wizardData: WizardData = {
-      companyName,
-      industry,
-      location,
-      existingWebsite,
-      siteLikes: [],
-      siteDislikes: [],
-      siteOtherFeedback: siteFeedback,
-      inspirationSites: inspirationSites.filter((s) => s.trim()),
-      purposes,
-      targetAudience,
-      specialWishes,
-      palette: selectedPalette,
-      customColors,
-      voiceTranscript: voiceTranscript || undefined,
-      componentChoices,
-      websiteAnalysis: websiteAnalysis || undefined,
-    };
+      const intentHint =
+        buildIntent === "template"
+          ? "Scope: compact, reusable template (1-2 pages). Avoid heavy app logic."
+          : buildIntent === "app"
+            ? "Include app flows, stateful UI, and key data models where relevant."
+            : "Focus on content structure, marketing flow, and clear sections.";
 
-    const palette = customColors || selectedPalette;
-    const paletteText = palette
-      ? `Primary ${palette.primary}, Secondary ${palette.secondary}, Accent ${palette.accent}`
-      : null;
-    const industryLabel = currentIndustry?.label || industry || "general";
+      // Build enriched prompt with all collected data
+      const followUpContext = Object.entries(followUpAnswers)
+        .filter(([, v]) => v.trim())
+        .map(([k, v]) => `${k}: ${v}`)
+        .join("\n");
 
-    const intentLabel = buildIntentNoun(buildIntent);
-    const intentHint =
-      buildIntent === "template"
-        ? "Scope: compact, reusable template (1–2 pages). Avoid heavy app logic."
-        : buildIntent === "app"
-          ? "Include app flows, stateful UI, and key data models where relevant."
-          : "Focus on content structure, marketing flow, and clear sections.";
+      const promptParts = [
+        `Create a ${categoryType} ${intentLabel} for ${companyName || "a business"}.`,
+        `Build intent: ${intentHint}`,
+        `Industry: ${industryLabel}.`,
+        location ? `Location: ${location}.` : null,
+        purposes.length ? `Goals: ${purposes.join(", ")}.` : null,
+        targetAudience ? `Target audience: ${targetAudience}.` : null,
+        usp ? `Unique selling proposition: ${usp}.` : null,
+        selectedVibe ? `Visual style: ${selectedVibe}.` : null,
+        paletteText ? `Color palette: ${paletteText}.` : null,
+        existingWebsite ? `Existing website: ${existingWebsite}.` : null,
+        inspirationSites.filter((s) => s.trim()).length
+          ? `Inspiration: ${inspirationSites.filter((s) => s.trim()).join(", ")}.`
+          : null,
+        siteFeedback ? `Feedback on current site: ${siteFeedback}.` : null,
+        specialWishes ? `Special wishes: ${specialWishes}.` : null,
+        voiceTranscript ? `Voice notes: ${voiceTranscript}.` : null,
+        initialPrompt ? `Initial context: ${initialPrompt}.` : null,
+        websiteAnalysis ? `Website analysis: ${websiteAnalysis}.` : null,
+        followUpContext ? `Additional business context:\n${followUpContext}` : null,
+        scrapedData?.title
+          ? `Current site title: "${scrapedData.title}", ${scrapedData.wordCount || 0} words of content.`
+          : null,
+      ].filter(Boolean);
 
-    const promptParts = [
-      `Create a ${categoryType} ${intentLabel} for ${companyName || "a business"}.`,
-      `Build intent: ${intentHint}`,
-      `Industry: ${industryLabel}.`,
-      location ? `Location: ${location}.` : null,
-      purposes.length ? `Goals: ${purposes.join(", ")}.` : null,
-      targetAudience ? `Target audience: ${targetAudience}.` : null,
-      selectedVibe ? `Visual style: ${selectedVibe}.` : null,
-      paletteText ? `Color palette: ${paletteText}.` : null,
-      existingWebsite ? `Existing website: ${existingWebsite}.` : null,
-      inspirationSites.filter((s) => s.trim()).length
-        ? `Inspiration: ${inspirationSites.filter((s) => s.trim()).join(", ")}.`
-        : null,
-      siteFeedback ? `Feedback: ${siteFeedback}.` : null,
-      specialWishes ? `Special wishes: ${specialWishes}.` : null,
-      voiceTranscript ? `Voice notes: ${voiceTranscript}.` : null,
-      initialPrompt ? `Initial context: ${initialPrompt}.` : null,
-      websiteAnalysis ? `Website analysis: ${websiteAnalysis}.` : null,
-    ].filter(Boolean);
+      // Try to generate a brief via the AI endpoint
+      let expandedPrompt = promptParts.join("\n");
 
-    const expandedPrompt = promptParts.join("\n");
-    setGeneratedPrompt(expandedPrompt);
-    setEditedPrompt(expandedPrompt);
-    setShowEditMode(true);
-    setIsExpanding(false);
+      try {
+        const briefResponse = await fetch("/api/ai/brief", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            prompt: expandedPrompt,
+            provider: "gateway",
+            model: "openai/gpt-5.2",
+            imageGenerations: true,
+            maxTokens: 3000,
+          }),
+        });
 
-    return wizardData;
+        if (briefResponse.ok) {
+          const brief = await briefResponse.json();
+          if (brief && !brief.error) {
+            // Format the brief into a readable prompt
+            const briefLines = [
+              `# ${brief.projectTitle || companyName}`,
+              brief.oneSentencePitch ? `\n${brief.oneSentencePitch}` : null,
+              brief.targetAudience ? `\nTarget audience: ${brief.targetAudience}` : null,
+              brief.primaryCallToAction ? `Primary CTA: "${brief.primaryCallToAction}"` : null,
+              brief.toneAndVoice?.length
+                ? `Tone: ${brief.toneAndVoice.join(", ")}`
+                : null,
+              brief.pages?.length
+                ? `\nPages:\n${brief.pages.map((p: { name: string; path: string; sections?: { type: string }[] }) => `- ${p.name} (${p.path}): ${p.sections?.map((s: { type: string }) => s.type).join(", ") || "auto"}`).join("\n")}`
+                : null,
+              brief.visualDirection?.styleKeywords?.length
+                ? `\nStyle: ${brief.visualDirection.styleKeywords.join(", ")}`
+                : null,
+              brief.visualDirection?.colorPalette
+                ? `Colors: ${Object.entries(brief.visualDirection.colorPalette).map(([k, v]) => `${k}: ${v}`).join(", ")}`
+                : null,
+              brief.seo?.keywords?.length
+                ? `\nSEO keywords: ${brief.seo.keywords.slice(0, 10).join(", ")}`
+                : null,
+              `\n---\nOriginal specifications:\n${expandedPrompt}`,
+            ].filter(Boolean);
+
+            expandedPrompt = briefLines.join("\n");
+          }
+        }
+      } catch (briefErr) {
+        // Brief generation failed -- fall back to raw prompt (still good)
+        console.warn("[Wizard] Brief generation failed, using raw prompt:", briefErr);
+      }
+
+      setGeneratedPrompt(expandedPrompt);
+      setEditedPrompt(expandedPrompt);
+      setShowEditMode(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Kunde inte generera prompt.");
+    } finally {
+      setIsExpanding(false);
+    }
   }, [
     companyName,
     industry,
@@ -425,6 +685,7 @@ export function PromptWizardModalV2({
     inspirationSites,
     purposes,
     targetAudience,
+    usp,
     specialWishes,
     selectedPalette,
     customColors,
@@ -435,6 +696,8 @@ export function PromptWizardModalV2({
     initialPrompt,
     websiteAnalysis,
     currentIndustry,
+    followUpAnswers,
+    scrapedData,
   ]);
 
   // Final completion
@@ -464,6 +727,8 @@ export function PromptWizardModalV2({
       voiceTranscript: voiceTranscript || undefined,
       componentChoices,
       websiteAnalysis: websiteAnalysis || undefined,
+      usp: usp || undefined,
+      followUpAnswers: Object.keys(followUpAnswers).length ? followUpAnswers : undefined,
     };
 
     onComplete(wizardData, editedPrompt);
@@ -482,11 +747,24 @@ export function PromptWizardModalV2({
     voiceTranscript,
     selectedVibe,
     websiteAnalysis,
+    usp,
+    followUpAnswers,
     editedPrompt,
     onComplete,
   ]);
 
   if (!isOpen) return null;
+
+  // ── Step titles and subtitles ─────────────────────────────────
+  const STEP_META: Record<number, { title: string; subtitle: string; icon: React.ReactNode }> = {
+    1: { title: "Berätta om ditt företag", subtitle: "Vi vill förstå ditt företag bättre", icon: <Building2 className="h-5 w-5" /> },
+    2: { title: "Mål och målgrupp", subtitle: "Vad vill du uppnå med din webbplats?", icon: <Target className="h-5 w-5" /> },
+    3: { title: "Nuvarande sida och inspiration", subtitle: "Vad finns idag och vad inspirerar dig?", icon: <Globe className="h-5 w-5" /> },
+    4: { title: "Design och färger", subtitle: "Hur ska din webbplats se ut och kännas?", icon: <Palette className="h-5 w-5" /> },
+    5: { title: "Slutför och skapa", subtitle: "Lägg till sista detaljerna", icon: <Rocket className="h-5 w-5" /> },
+  };
+
+  const currentMeta = STEP_META[step];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -497,8 +775,8 @@ export function PromptWizardModalV2({
       <div className="relative mx-4 max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-gray-800 bg-linear-to-b from-gray-950 to-black shadow-2xl">
         {/* Decorative background */}
         <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-2xl">
-          <div className="bg-brand-teal/10 absolute -top-32 -right-32 h-64 w-64 blur-3xl" />
-          <div className="bg-brand-blue/10 absolute -bottom-32 -left-32 h-64 w-64 blur-3xl" />
+          <div className="absolute -top-32 -right-32 h-64 w-64 bg-brand-teal/10 blur-3xl" />
+          <div className="absolute -bottom-32 -left-32 h-64 w-64 bg-brand-blue/10 blur-3xl" />
         </div>
 
         {/* Close button */}
@@ -510,53 +788,66 @@ export function PromptWizardModalV2({
         </button>
 
         {/* ═══════════════════════════════════════════════════════════
-            HEADER with step indicator
+            HEADER with progress indicator
             ═══════════════════════════════════════════════════════════ */}
         <div className="relative border-b border-gray-800/50 p-6">
-          {/* Progress bar */}
-          <div className="mb-6 flex items-center gap-2">
+          {/* Progress bar with step numbers */}
+          <div className="mb-6 flex items-center gap-1.5">
             {[1, 2, 3, 4, 5].map((s) => (
-              <div
-                key={s}
-                className={`h-1 flex-1 rounded-full transition-all duration-300 ${
-                  s < step
-                    ? "bg-brand-teal"
-                    : s === step
-                      ? "bg-brand-teal/80 animate-pulse"
-                      : "bg-gray-800"
-                }`}
-              />
+              <div key={s} className="flex flex-1 items-center gap-1.5">
+                <div
+                  className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold transition-all duration-300 ${
+                    s < step
+                      ? "bg-brand-teal text-black"
+                      : s === step
+                        ? "bg-brand-teal/20 text-brand-teal ring-2 ring-brand-teal/50"
+                        : "bg-gray-800 text-gray-500"
+                  }`}
+                >
+                  {s < step ? <Check className="h-3.5 w-3.5" /> : s}
+                </div>
+                {s < 5 && (
+                  <div
+                    className={`h-0.5 flex-1 rounded-full transition-all duration-300 ${
+                      s < step ? "bg-brand-teal" : "bg-gray-800"
+                    }`}
+                  />
+                )}
+              </div>
             ))}
           </div>
 
-          {/* Step title */}
-          <div className="space-y-2 text-center">
-            <h2 className="text-2xl font-bold text-white sm:text-3xl">
-              {step === 1 && "Berätta om dig"}
-              {step === 2 && "Dina mål"}
-              {step === 3 && "Nuvarande & Inspiration"}
-              {step === 4 && "Design & Färger"}
-              {step === 5 && "Sista detaljer"}
-            </h2>
-            <p className="text-sm text-gray-500">
-              Steg {step} av {totalSteps}
-            </p>
+          {/* Step title with icon */}
+          <div className="flex items-center gap-3 text-center">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-teal/20 text-brand-teal">
+              {currentMeta.icon}
+            </div>
+            <div className="text-left">
+              <h2 className="text-xl font-bold text-white sm:text-2xl">{currentMeta.title}</h2>
+              <p className="text-sm text-gray-500">{currentMeta.subtitle}</p>
+            </div>
           </div>
+
+          {/* AI insight banner */}
+          {insightSummary && (
+            <div className="mt-4 flex items-start gap-2 rounded-lg border border-brand-teal/20 bg-brand-teal/5 p-3">
+              <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-brand-teal" />
+              <p className="text-sm text-gray-300">{insightSummary}</p>
+            </div>
+          )}
         </div>
 
         {/* ═══════════════════════════════════════════════════════════
             CONTENT - Dynamic based on step
             ═══════════════════════════════════════════════════════════ */}
         <div className="min-h-[350px] p-6">
-          {/* ═══════════════════════════════════════════════════════════
-              STEP 1: About You
-              ═══════════════════════════════════════════════════════════ */}
+          {/* ═══ STEP 1: About You ═══ */}
           {step === 1 && (
             <div className="space-y-6">
               {/* Company Name */}
               <div className="space-y-2">
                 <label className="flex items-center gap-2 text-sm font-medium text-gray-300">
-                  <Building2 className="text-brand-teal h-4 w-4" />
+                  <Building2 className="h-4 w-4 text-brand-teal" />
                   Företagsnamn *
                 </label>
                 <input
@@ -564,7 +855,7 @@ export function PromptWizardModalV2({
                   value={companyName}
                   onChange={(e) => setCompanyName(e.target.value)}
                   placeholder="Ditt företag eller projekt..."
-                  className="focus:border-brand-teal focus:ring-brand-teal/50 w-full rounded-lg border border-gray-800 bg-black/50 px-4 py-3 text-white placeholder-gray-500 transition-all focus:ring-1 focus:outline-none"
+                  className={INPUT_CLASS}
                   autoFocus
                 />
               </div>
@@ -590,10 +881,10 @@ export function PromptWizardModalV2({
                 </div>
               </div>
 
-              {/* Location (optional) */}
+              {/* Location */}
               <div className="space-y-2">
                 <label className="flex items-center gap-2 text-sm font-medium text-gray-300">
-                  <Globe className="text-brand-teal h-4 w-4" />
+                  <Globe className="h-4 w-4 text-brand-teal" />
                   Plats <span className="font-normal text-gray-500">(valfritt)</span>
                 </label>
                 <input
@@ -601,47 +892,111 @@ export function PromptWizardModalV2({
                   value={location}
                   onChange={(e) => setLocation(e.target.value)}
                   placeholder="Stockholm, Göteborg, eller annat..."
-                  className="focus:border-brand-teal focus:ring-brand-teal/50 w-full rounded-lg border border-gray-800 bg-black/50 px-4 py-3 text-white placeholder-gray-500 transition-all focus:ring-1 focus:outline-none"
+                  className={INPUT_CLASS}
                 />
+              </div>
+
+              {/* Existing Website with Scraper */}
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 text-sm font-medium text-gray-300">
+                  <ExternalLink className="h-4 w-4 text-brand-teal" />
+                  Befintlig hemsida?{" "}
+                  <span className="font-normal text-gray-500">(valfritt - vi analyserar den)</span>
+                </label>
+                <div className="flex gap-2">
+                  <input
+                    type="url"
+                    value={existingWebsite}
+                    onChange={(e) => setExistingWebsite(e.target.value)}
+                    placeholder="https://dinhemsida.se"
+                    className={INPUT_CLASS + " flex-1"}
+                  />
+                  {existingWebsite && (
+                    <Button
+                      onClick={() => handleScrapeWebsite(existingWebsite)}
+                      disabled={isScraping || isAnalyzing}
+                      variant="outline"
+                      size="sm"
+                      className="shrink-0 gap-1"
+                    >
+                      {isScraping ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Zap className="h-4 w-4" />
+                      )}
+                      Analysera
+                    </Button>
+                  )}
+                </div>
+
+                {/* Scraped data card */}
+                {scrapedData && (
+                  <div className="rounded-lg border border-brand-teal/20 bg-brand-teal/5 p-3 space-y-2">
+                    <div className="flex items-center gap-2 text-xs font-medium text-brand-teal">
+                      <Check className="h-3.5 w-3.5" />
+                      Vi hittade din sida
+                    </div>
+                    {scrapedData.title && (
+                      <p className="text-sm text-white">{scrapedData.title}</p>
+                    )}
+                    {scrapedData.description && (
+                      <p className="text-xs text-gray-400">{scrapedData.description}</p>
+                    )}
+                    <div className="flex gap-3 text-xs text-gray-500">
+                      {scrapedData.wordCount && <span>{scrapedData.wordCount} ord</span>}
+                      {scrapedData.headings?.length && (
+                        <span>{scrapedData.headings.length} sektioner</span>
+                      )}
+                      {scrapedData.hasImages && <span>Har bilder</span>}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Voice input */}
+              <div className="flex items-center gap-3">
+                <VoiceRecorder
+                  compact
+                  onTranscript={(text) =>
+                    setCompanyName((prev) => (prev ? `${prev} ${text}` : text))
+                  }
+                />
+                <span className="text-xs text-gray-500">Eller berätta med rösten</span>
               </div>
             </div>
           )}
 
-          {/* ═══════════════════════════════════════════════════════════
-              STEP 2: Your Goals
-              ═══════════════════════════════════════════════════════════ */}
+          {/* ═══ STEP 2: Your Goals ═══ */}
           {step === 2 && (
             <div className="space-y-6">
               {/* Purpose Selection */}
               <div className="space-y-3">
                 <label className="flex items-center gap-2 text-sm font-medium text-gray-300">
-                  <Target className="text-brand-teal h-4 w-4" />
+                  <Target className="h-4 w-4 text-brand-teal" />
                   Vad vill du uppnå? * (välj ett eller flera)
                 </label>
-                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                   {PURPOSE_OPTIONS.map((option) => (
                     <button
                       key={option.id}
                       onClick={() => togglePurpose(option.id)}
-                      className={`flex items-center gap-3 rounded-lg border p-3 transition-all ${
+                      className={`flex flex-col items-center gap-1.5 rounded-lg border p-3 transition-all ${
                         purposes.includes(option.id)
                           ? "border-brand-teal bg-brand-teal/20"
                           : "border-gray-800 hover:border-gray-700"
                       }`}
                     >
                       <span className="text-xl">{option.icon}</span>
-                      <div className="text-left">
-                        <span
-                          className={`block text-sm font-medium ${
-                            purposes.includes(option.id) ? "text-brand-teal/80" : "text-white"
-                          }`}
-                        >
-                          {option.label}
-                        </span>
-                        <span className="text-xs text-gray-500">{option.desc}</span>
-                      </div>
+                      <span
+                        className={`text-xs font-medium ${
+                          purposes.includes(option.id) ? "text-brand-teal/80" : "text-white"
+                        }`}
+                      >
+                        {option.label}
+                      </span>
+                      <span className="text-[10px] text-gray-500">{option.desc}</span>
                       {purposes.includes(option.id) && (
-                        <Check className="text-brand-teal ml-auto h-4 w-4" />
+                        <Check className="h-3 w-3 text-brand-teal" />
                       )}
                     </button>
                   ))}
@@ -650,82 +1005,106 @@ export function PromptWizardModalV2({
 
               {/* Target Audience */}
               <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-300">Målgrupp</label>
+                <label className="flex items-center gap-2 text-sm font-medium text-gray-300">
+                  <Users className="h-4 w-4 text-brand-teal" />
+                  Målgrupp
+                </label>
                 {currentIndustry?.suggestedAudience && (
-                  <div className="bg-brand-teal/10 border-brand-teal/30 text-brand-teal/80 mb-2 rounded-lg border p-2 text-xs">
-                    💡 Förslag: {currentIndustry.suggestedAudience}
+                  <div className="mb-2 rounded-lg border border-brand-teal/30 bg-brand-teal/10 p-2 text-xs text-brand-teal/80">
+                    <Lightbulb className="mr-1 inline h-3 w-3" /> Förslag: {currentIndustry.suggestedAudience}
                   </div>
                 )}
                 <textarea
                   value={targetAudience}
                   onChange={(e) => setTargetAudience(e.target.value)}
                   placeholder="Beskriv din idealiska kund..."
-                  rows={3}
-                  className="focus:border-brand-teal focus:ring-brand-teal/50 w-full resize-none rounded-lg border border-gray-800 bg-black/50 px-4 py-3 text-white placeholder-gray-500 transition-all focus:ring-1 focus:outline-none"
+                  rows={2}
+                  className={INPUT_CLASS + " resize-none"}
                 />
               </div>
+
+              {/* USP - What makes you unique */}
+              <div className="space-y-2">
+                <label className="flex items-center gap-2 text-sm font-medium text-gray-300">
+                  <TrendingUp className="h-4 w-4 text-brand-teal" />
+                  Vad skiljer er från konkurrenterna?{" "}
+                  <span className="font-normal text-gray-500">(USP)</span>
+                </label>
+                <div className="flex gap-2">
+                  <textarea
+                    value={usp}
+                    onChange={(e) => setUsp(e.target.value)}
+                    placeholder="T.ex. 'Bäst pris i Sverige', 'Personlig service', '20 års erfarenhet'..."
+                    rows={2}
+                    className={INPUT_CLASS + " flex-1 resize-none"}
+                  />
+                  <VoiceRecorder
+                    compact
+                    onTranscript={(text) => setUsp((prev) => (prev ? `${prev} ${text}` : text))}
+                  />
+                </div>
+                {/* USP suggestions from AI */}
+                {suggestions
+                  .filter((s) => s.type === "usp")
+                  .map((s, i) => (
+                    <button
+                      key={i}
+                      onClick={() => setUsp((prev) => (prev ? `${prev}. ${s.text}` : s.text))}
+                      className="w-full rounded-lg border border-gray-700/50 bg-gray-900/50 p-2 text-left text-xs text-gray-400 transition hover:border-brand-teal/30 hover:text-gray-200"
+                    >
+                      <Sparkles className="mr-1 inline h-3 w-3 text-brand-teal/60" />
+                      {s.text}
+                    </button>
+                  ))}
+              </div>
+
+              {/* AI Follow-ups */}
+              {isEnriching && (
+                <div className="flex items-center gap-2 text-xs text-gray-500">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  Analyserar din profil...
+                </div>
+              )}
+              <FollowUpRenderer
+                questions={followUpQuestions}
+                answers={followUpAnswers}
+                onAnswer={handleFollowUpAnswer}
+              />
             </div>
           )}
 
-          {/* ═══════════════════════════════════════════════════════════
-              STEP 3: Existing Site & Inspiration
-              ═══════════════════════════════════════════════════════════ */}
+          {/* ═══ STEP 3: Existing Site & Inspiration ═══ */}
           {step === 3 && (
             <div className="space-y-6">
-              {/* Existing Website */}
-              <div className="space-y-2">
-                <label className="flex items-center gap-2 text-sm font-medium text-gray-300">
-                  <Globe className="text-brand-teal h-4 w-4" />
-                  Befintlig webbplats <span className="font-normal text-gray-500">(valfritt)</span>
-                </label>
-                <div className="flex gap-2">
-                  <input
-                    type="url"
-                    value={existingWebsite}
-                    onChange={(e) => setExistingWebsite(e.target.value)}
-                    placeholder="https://din-nuvarande-sajt.se"
-                    className="focus:border-brand-teal focus:ring-brand-teal/50 flex-1 rounded-lg border border-gray-800 bg-black/50 px-4 py-3 text-white placeholder-gray-500 transition-all focus:ring-1 focus:outline-none"
-                  />
-                  {existingWebsite && (
-                    <Button
-                      onClick={analyzeWebsite}
-                      disabled={isAnalyzing}
-                      variant="outline"
-                      size="sm"
-                      className="shrink-0"
-                    >
-                      {isAnalyzing ? <Loader2 className="h-4 w-4 animate-spin" /> : "Analysera"}
-                    </Button>
-                  )}
-                </div>
-                {websiteAnalysis && (
-                  <div className="bg-brand-teal/10 border-brand-teal/30 rounded-lg border p-3 text-sm text-gray-200">
-                    <p className="text-brand-teal mb-1 text-xs font-medium">AI-analys:</p>
-                    {websiteAnalysis}
+              {/* Website Analysis Result */}
+              {websiteAnalysis && (
+                <div className="rounded-lg border border-brand-teal/20 bg-linear-to-br from-brand-teal/5 to-transparent p-4 space-y-2">
+                  <div className="flex items-center gap-2 text-sm font-medium text-brand-teal">
+                    <Sparkles className="h-4 w-4" />
+                    AI-analys av {existingWebsite || "din sida"}
                   </div>
-                )}
-              </div>
-
-              {/* Site Feedback */}
-              {existingWebsite && (
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-gray-300">
-                    Vad vill du ändra/förbättra?
-                  </label>
-                  <textarea
-                    value={siteFeedback}
-                    onChange={(e) => setSiteFeedback(e.target.value)}
-                    placeholder="T.ex. Ser föråldrad ut, svår navigation, dålig mobilversion..."
-                    rows={2}
-                    className="focus:border-brand-teal focus:ring-brand-teal/50 w-full resize-none rounded-lg border border-gray-800 bg-black/50 px-4 py-3 text-white placeholder-gray-500 transition-all focus:ring-1 focus:outline-none"
-                  />
+                  <p className="text-sm text-gray-300 leading-relaxed">{websiteAnalysis}</p>
                 </div>
               )}
+
+              {/* Site Feedback */}
+              <div className="space-y-2">
+                <label className="text-sm font-medium text-gray-300">
+                  Vad vill du ändra/förbättra?
+                </label>
+                <textarea
+                  value={siteFeedback}
+                  onChange={(e) => setSiteFeedback(e.target.value)}
+                  placeholder="T.ex. Ser föråldrad ut, svår navigation, dålig mobilversion..."
+                  rows={3}
+                  className={INPUT_CLASS + " resize-none"}
+                />
+              </div>
 
               {/* Inspiration Sites */}
               <div className="space-y-2">
                 <label className="flex items-center gap-2 text-sm font-medium text-gray-300">
-                  <Lightbulb className="text-brand-amber h-4 w-4" />
+                  <Lightbulb className="h-4 w-4 text-amber-400" />
                   Inspirationssajter <span className="font-normal text-gray-500">(valfritt)</span>
                 </label>
                 <div className="space-y-2">
@@ -736,7 +1115,7 @@ export function PromptWizardModalV2({
                       value={site}
                       onChange={(e) => updateInspirationSite(index, e.target.value)}
                       placeholder={`https://inspiration-${index + 1}.se`}
-                      className="focus:border-brand-teal focus:ring-brand-teal/50 w-full rounded-lg border border-gray-800 bg-black/50 px-4 py-3 text-white placeholder-gray-500 transition-all focus:ring-1 focus:outline-none"
+                      className={INPUT_CLASS}
                     />
                   ))}
                   {inspirationSites.length < 3 && (
@@ -751,19 +1130,58 @@ export function PromptWizardModalV2({
                   )}
                 </div>
               </div>
+
+              {/* AI Follow-ups for inspiration */}
+              {isEnriching && (
+                <div className="flex items-center gap-2 text-xs text-gray-500">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  Hämtar förslag...
+                </div>
+              )}
+
+              {/* Trend suggestions */}
+              {suggestions.filter((s) => s.type === "trend").length > 0 && (
+                <div className="space-y-2">
+                  <label className="text-xs font-medium text-gray-400">
+                    <TrendingUp className="mr-1 inline h-3 w-3" />
+                    Trender inom {currentIndustry?.label || "din bransch"}
+                  </label>
+                  <div className="flex flex-wrap gap-1.5">
+                    {suggestions
+                      .filter((s) => s.type === "trend")
+                      .map((s, i) => (
+                        <button
+                          key={i}
+                          onClick={() =>
+                            setSiteFeedback((prev) =>
+                              prev ? `${prev}. ${s.text}` : `Jag vill ha: ${s.text}`,
+                            )
+                          }
+                          className="rounded-full border border-gray-700 bg-gray-900 px-3 py-1 text-xs text-gray-400 transition hover:border-brand-teal/50 hover:text-white"
+                        >
+                          + {s.text}
+                        </button>
+                      ))}
+                  </div>
+                </div>
+              )}
+
+              <FollowUpRenderer
+                questions={followUpQuestions}
+                answers={followUpAnswers}
+                onAnswer={handleFollowUpAnswer}
+              />
             </div>
           )}
 
-          {/* ═══════════════════════════════════════════════════════════
-              STEP 4: Design Preferences
-              ═══════════════════════════════════════════════════════════ */}
+          {/* ═══ STEP 4: Design Preferences ═══ */}
           {step === 4 && (
             <div className="space-y-6">
               {/* Design Vibe */}
               <div className="space-y-3">
                 <label className="flex items-center gap-2 text-sm font-medium text-gray-300">
-                  <Wand2 className="text-brand-teal h-4 w-4" />
-                  Vilken stil passar dig?
+                  <Wand2 className="h-4 w-4 text-brand-teal" />
+                  Vilken stil passar ditt varumärke?
                 </label>
                 <div className="grid grid-cols-3 gap-2">
                   {VIBE_OPTIONS.map((vibe) => (
@@ -792,9 +1210,16 @@ export function PromptWizardModalV2({
               {/* Color Palette */}
               <div className="space-y-3">
                 <label className="flex items-center gap-2 text-sm font-medium text-gray-300">
-                  <Palette className="text-brand-teal h-4 w-4" />
+                  <Palette className="h-4 w-4 text-brand-teal" />
                   Färgpalett
                 </label>
+                {/* AI palette suggestions */}
+                {suggestions.filter((s) => s.type === "palette").length > 0 && (
+                  <div className="rounded-lg border border-gray-700/50 bg-gray-900/50 p-2 text-xs text-gray-400">
+                    <Sparkles className="mr-1 inline h-3 w-3 text-brand-teal/60" />
+                    {suggestions.find((s) => s.type === "palette")?.text}
+                  </div>
+                )}
                 <ColorPalettePicker
                   selectedPalette={selectedPalette}
                   onSelect={setSelectedPalette}
@@ -810,12 +1235,17 @@ export function PromptWizardModalV2({
                   industry={industry}
                 />
               </div>
+
+              {/* AI Follow-ups */}
+              <FollowUpRenderer
+                questions={followUpQuestions}
+                answers={followUpAnswers}
+                onAnswer={handleFollowUpAnswer}
+              />
             </div>
           )}
 
-          {/* ═══════════════════════════════════════════════════════════
-              STEP 5: Special Wishes & Generate
-              ═══════════════════════════════════════════════════════════ */}
+          {/* ═══ STEP 5: Special Wishes & Generate ═══ */}
           {step === 5 && !showEditMode && (
             <div className="space-y-6">
               {/* Quick Features */}
@@ -827,9 +1257,7 @@ export function PromptWizardModalV2({
                     </label>
                     <div className="flex flex-wrap gap-2">
                       {currentIndustry.suggestedFeatures.map((feature, idx) => {
-                        const isIncluded = specialWishes
-                          .toLowerCase()
-                          .includes(feature.toLowerCase());
+                        const isIncluded = specialWishes.toLowerCase().includes(feature.toLowerCase());
                         return (
                           <button
                             key={idx}
@@ -843,14 +1271,31 @@ export function PromptWizardModalV2({
                             disabled={isIncluded}
                             className={`rounded-full px-3 py-1.5 text-sm transition-all ${
                               isIncluded
-                                ? "bg-brand-teal/30 text-brand-teal/80 border-brand-teal/50 border"
-                                : "hover:border-brand-teal/50 border border-gray-700 bg-gray-900 text-gray-400"
+                                ? "border border-brand-teal/50 bg-brand-teal/30 text-brand-teal/80"
+                                : "border border-gray-700 bg-gray-900 text-gray-400 hover:border-brand-teal/50"
                             }`}
                           >
                             {isIncluded ? "✓" : "+"} {feature}
                           </button>
                         );
                       })}
+                      {/* Feature suggestions from AI */}
+                      {suggestions
+                        .filter((s) => s.type === "feature")
+                        .map((s, i) => (
+                          <button
+                            key={`ai-${i}`}
+                            onClick={() =>
+                              setSpecialWishes((prev) =>
+                                prev ? `${prev}, ${s.text}` : `Jag vill ha: ${s.text}`,
+                              )
+                            }
+                            className="rounded-full border border-brand-teal/20 bg-brand-teal/5 px-3 py-1.5 text-sm text-brand-teal/60 transition hover:border-brand-teal/40 hover:text-brand-teal/80"
+                          >
+                            <Sparkles className="mr-1 inline h-3 w-3" />
+                            {s.text}
+                          </button>
+                        ))}
                     </div>
                   </div>
                 )}
@@ -858,7 +1303,7 @@ export function PromptWizardModalV2({
               {/* Special Wishes */}
               <div className="space-y-2">
                 <label className="flex items-center gap-2 text-sm font-medium text-gray-300">
-                  <Wand2 className="text-brand-teal h-4 w-4" />
+                  <Wand2 className="h-4 w-4 text-brand-teal" />
                   Egna önskemål <span className="font-normal text-gray-500">(valfritt)</span>
                 </label>
                 <textarea
@@ -866,14 +1311,14 @@ export function PromptWizardModalV2({
                   onChange={(e) => setSpecialWishes(e.target.value)}
                   placeholder="Beskriv fritt vad du vill ha på din webbplats..."
                   rows={4}
-                  className="focus:border-brand-teal focus:ring-brand-teal/50 w-full resize-none rounded-lg border border-gray-800 bg-black/50 px-4 py-3 text-white placeholder-gray-500 transition-all focus:ring-1 focus:outline-none"
+                  className={INPUT_CLASS + " resize-none"}
                 />
               </div>
 
               {/* Voice Input */}
               <div className="space-y-2 rounded-lg border border-gray-800 bg-gray-900/50 p-4">
                 <label className="flex items-center gap-2 text-sm font-medium text-gray-300">
-                  <Mic className="text-brand-teal h-4 w-4" />
+                  <Mic className="h-4 w-4 text-brand-teal" />
                   Eller prata in dina önskemål
                 </label>
                 <VoiceRecorder
@@ -890,57 +1335,96 @@ export function PromptWizardModalV2({
                 />
               </div>
 
-              {/* Summary */}
-              <div className="space-y-2 rounded-lg border border-gray-800 bg-gray-900/50 p-4">
-                <p className="text-sm font-medium text-gray-300">📋 Sammanfattning</p>
-                <div className="flex flex-wrap gap-2 text-xs">
+              {/* Professional Summary Card */}
+              <div className="rounded-lg border border-gray-700/50 bg-linear-to-br from-gray-900/80 to-gray-950 p-4 space-y-3">
+                <div className="flex items-center gap-2 text-sm font-medium text-white">
+                  <Sparkles className="h-4 w-4 text-brand-teal" />
+                  Din webbplats-brief
+                </div>
+                <div className="grid grid-cols-2 gap-3 text-xs">
                   {companyName && (
-                    <span className="rounded bg-gray-800 px-2 py-1 text-gray-300">
-                      {companyName}
-                    </span>
+                    <div className="space-y-0.5">
+                      <span className="text-gray-500">Företag</span>
+                      <p className="text-white">{companyName}</p>
+                    </div>
                   )}
                   {industry && (
-                    <span className="rounded bg-gray-800 px-2 py-1 text-gray-300">
-                      {currentIndustry?.icon} {currentIndustry?.label}
-                    </span>
+                    <div className="space-y-0.5">
+                      <span className="text-gray-500">Bransch</span>
+                      <p className="text-white">
+                        {currentIndustry?.icon} {currentIndustry?.label}
+                      </p>
+                    </div>
                   )}
                   {purposes.length > 0 && (
-                    <span className="rounded bg-gray-800 px-2 py-1 text-gray-300">
-                      {purposes.length} mål
-                    </span>
+                    <div className="space-y-0.5">
+                      <span className="text-gray-500">Mål</span>
+                      <p className="text-white">
+                        {purposes
+                          .map((p) => PURPOSE_OPTIONS.find((o) => o.id === p)?.label)
+                          .join(", ")}
+                      </p>
+                    </div>
+                  )}
+                  {selectedVibe && (
+                    <div className="space-y-0.5">
+                      <span className="text-gray-500">Stil</span>
+                      <p className="text-white">
+                        {VIBE_OPTIONS.find((v) => v.id === selectedVibe)?.label}
+                      </p>
+                    </div>
                   )}
                   {selectedPalette && (
-                    <span className="flex items-center gap-1 rounded bg-gray-800 px-2 py-1 text-gray-300">
-                      <span
-                        className="h-3 w-3 rounded-full"
-                        style={{ backgroundColor: selectedPalette.primary }}
-                      />
-                      {selectedPalette.name}
-                    </span>
+                    <div className="space-y-0.5 col-span-2">
+                      <span className="text-gray-500">Färger</span>
+                      <div className="flex items-center gap-2">
+                        <div className="flex gap-1">
+                          <span
+                            className="h-4 w-4 rounded-full border border-gray-700"
+                            style={{ backgroundColor: selectedPalette.primary }}
+                          />
+                          <span
+                            className="h-4 w-4 rounded-full border border-gray-700"
+                            style={{ backgroundColor: selectedPalette.secondary }}
+                          />
+                          <span
+                            className="h-4 w-4 rounded-full border border-gray-700"
+                            style={{ backgroundColor: selectedPalette.accent }}
+                          />
+                        </div>
+                        <span className="text-white">{selectedPalette.name}</span>
+                      </div>
+                    </div>
+                  )}
+                  {usp && (
+                    <div className="space-y-0.5 col-span-2">
+                      <span className="text-gray-500">USP</span>
+                      <p className="text-white">{usp}</p>
+                    </div>
                   )}
                 </div>
               </div>
             </div>
           )}
 
-          {/* ═══════════════════════════════════════════════════════════
-              EDIT MODE - After generation
-              ═══════════════════════════════════════════════════════════ */}
+          {/* ═══ EDIT MODE - After generation ═══ */}
           {showEditMode && (
             <div className="space-y-6">
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
-                  <Wand2 className="text-brand-teal h-5 w-5" />
-                  <h3 className="text-xl font-bold text-white">Din genererade prompt</h3>
+                  <Wand2 className="h-5 w-5 text-brand-teal" />
+                  <h3 className="text-xl font-bold text-white">Din genererade brief</h3>
                 </div>
-                <p className="text-sm text-gray-400">Redigera om du vill, eller fortsätt direkt.</p>
+                <p className="text-sm text-gray-400">
+                  Granska och redigera vid behov, eller fortsätt direkt.
+                </p>
               </div>
 
               <textarea
                 value={editedPrompt}
                 onChange={(e) => setEditedPrompt(e.target.value)}
-                rows={12}
-                className="focus:border-brand-teal focus:ring-brand-teal/50 w-full resize-none rounded-lg border border-gray-800 bg-black/50 px-4 py-3 font-mono text-sm text-white placeholder-gray-500 transition-all focus:ring-1 focus:outline-none"
+                rows={14}
+                className={INPUT_CLASS + " resize-none font-mono text-sm"}
               />
 
               <div className="flex gap-2">
@@ -1001,11 +1485,19 @@ export function PromptWizardModalV2({
             </Button>
           )}
 
+          {/* Enriching indicator */}
+          {isEnriching && (
+            <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-1.5 text-xs text-gray-500">
+              <Loader2 className="h-3 w-3 animate-spin" />
+              AI analyserar...
+            </div>
+          )}
+
           {/* Next/Generate/Complete button */}
           {showEditMode ? (
             <Button
               onClick={handleComplete}
-              className="from-brand-teal to-brand-teal/80 hover:from-brand-teal/90 hover:to-brand-teal/70 gap-2 bg-linear-to-r px-6"
+              className="gap-2 bg-linear-to-r from-brand-teal to-brand-teal/80 px-6 hover:from-brand-teal/90 hover:to-brand-teal/70"
             >
               <Rocket className="h-4 w-4" />
               Skapa webbplats
@@ -1014,7 +1506,7 @@ export function PromptWizardModalV2({
             <Button
               onClick={handleNext}
               disabled={!canProceed()}
-              className="bg-brand-teal hover:bg-brand-teal/90 gap-2 disabled:opacity-50"
+              className="gap-2 bg-brand-teal hover:bg-brand-teal/90 disabled:opacity-50"
             >
               Nästa
               <ArrowRight className="h-4 w-4" />
@@ -1023,17 +1515,17 @@ export function PromptWizardModalV2({
             <Button
               onClick={handleGenerate}
               disabled={isExpanding}
-              className="from-brand-teal to-brand-blue hover:from-brand-teal/90 hover:to-brand-blue/90 gap-2 bg-linear-to-r px-6"
+              className="gap-2 bg-linear-to-r from-brand-teal to-brand-blue px-6 hover:from-brand-teal/90 hover:to-brand-blue/90"
             >
               {isExpanding ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
-                  Skapar prompt...
+                  Skapar brief...
                 </>
               ) : (
                 <>
                   <Wand2 className="h-4 w-4" />
-                  Skapa magisk prompt
+                  Generera webbplats-brief
                 </>
               )}
             </Button>

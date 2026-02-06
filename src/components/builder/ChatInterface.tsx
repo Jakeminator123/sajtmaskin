@@ -27,6 +27,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Blocks, FileText, ImageIcon, Loader2, Wand2 } from "lucide-react";
+import { VoiceRecorder } from "@/components/forms/voice-recorder";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { buildShadcnBlockPrompt, buildShadcnComponentPrompt } from "@/lib/shadcn-registry-utils";
 import {
@@ -692,6 +693,13 @@ ${technicalPrompt}`;
                   </button>
                 </>
               )}
+              <VoiceRecorder
+                compact
+                disabled={inputDisabled}
+                onTranscript={(text) =>
+                  setInput((prev) => (prev ? `${prev} ${text}` : text))
+                }
+              />
               <span className="text-muted-foreground text-xs">Shift+Enter för ny rad</span>
             </PromptInputTools>
             <PromptInputSubmit disabled={submitDisabled}>

@@ -47,7 +47,6 @@ import {
   Pencil,
   ChevronDown,
   ChevronUp,
-  Wand2,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth/auth-store";
 import {

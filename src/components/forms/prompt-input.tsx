@@ -25,6 +25,7 @@ import { HelpTooltip } from "@/components/layout";
 import { PromptWizardModalV2, type WizardData } from "@/components/modals";
 import type { BuildIntent, BuildMethod } from "@/lib/builder/build-intent";
 import { ArrowUp, Loader2, Wand2, Lightbulb } from "lucide-react";
+import { VoiceRecorder } from "@/components/forms/voice-recorder";
 import toast from "react-hot-toast";
 
 // ═══════════════════════════════════════════════════════════════
@@ -181,6 +182,13 @@ export function PromptInput({
               aria-label="Beskriv din webbplats"
               className="max-h-[200px] min-h-[44px] flex-1 resize-none border-0 bg-transparent p-0 text-white placeholder:text-gray-500 focus-visible:ring-0 focus-visible:ring-offset-0"
               rows={1}
+            />
+            <VoiceRecorder
+              compact
+              disabled={isLoading}
+              onTranscript={(text) =>
+                setPrompt((prev) => (prev ? `${prev} ${text}` : text))
+              }
             />
             <Button
               onClick={() => setShowWizard(true)}

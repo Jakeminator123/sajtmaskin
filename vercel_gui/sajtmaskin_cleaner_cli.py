@@ -354,6 +354,20 @@ class VercelClient:
             p["slug"] = self.team_slug
         return p
 
+    def user_info(self) -> Dict[str, Any]:
+        data = request_json(self.s, "GET", f"{self.base}/v2/user", self.headers)
+        if isinstance(data, dict):
+            return data
+        return {}
+
+    def teams_list(self) -> List[Dict[str, Any]]:
+        data = request_json(self.s, "GET", f"{self.base}/v2/teams", self.headers)
+        if isinstance(data, dict) and isinstance(data.get("teams"), list):
+            return data["teams"]
+        if isinstance(data, list):
+            return data
+        return []
+
     def projects_all(self, limit: int = 100) -> List[Dict[str, Any]]:
         """
         Robust pagination: Vercel beskriver paginering via `pagination.next` och att man skickar
@@ -516,7 +530,7 @@ class SupabaseClient:
         return []
 
     def api_keys(self, project_ref: str, reveal: bool = False) -> List[Dict[str, Any]]:
-        # GET /v1/projects/{ref}/api-keys?reveal=true 
+        # GET /v1/projects/{ref}/api-keys?reveal=true
         params = {"reveal": "true"} if reveal else {}
         data = request_json(self.s, "GET", f"{self.base}/v1/projects/{project_ref}/api-keys", self.headers, params=params)
         if isinstance(data, list):
@@ -624,17 +638,22 @@ def cmd_scan(profile: Profile, args: argparse.Namespace) -> None:
     # Vercel
     if profile.vercel:
         vc = VercelClient(profile.vercel.token, profile.vercel.team_id, profile.vercel.team_slug)
-        projects = vc.projects_all()
-        gh = sum(1 for p in projects if vercel_is_github(p))
-        no_gh = len(projects) - gh
-        print(f"\nVercel projects: {len(projects)} | GitHub-linked: {gh} | Not linked: {no_gh}")
+        try:
+            projects = vc.projects_all()
+            gh = sum(1 for p in projects if vercel_is_github(p))
+            no_gh = len(projects) - gh
+            print(f"\nVercel projects: {len(projects)} | GitHub-linked: {gh} | Not linked: {no_gh}")
 
-        # visa topp 15 nyast
-        projects_sorted = sorted(projects, key=lambda p: p.get("createdAt", 0), reverse=True)
-        for p in projects_sorted[:15]:
-            repo = vercel_repo_str(p)
-            tag = "GH" if vercel_is_github(p) else "--"
-            print(f"  [{tag}] {p.get('name')} | id={p.get('id')} | created={dt_ms(p.get('createdAt'))} | repo={repo}")
+            # visa topp 15 nyast
+            projects_sorted = sorted(projects, key=lambda p: p.get("createdAt", 0), reverse=True)
+            for p in projects_sorted[:15]:
+                repo = vercel_repo_str(p)
+                tag = "GH" if vercel_is_github(p) else "--"
+                print(f"  [{tag}] {p.get('name')} | id={p.get('id')} | created={dt_ms(p.get('createdAt'))} | repo={repo}")
+        except HttpError as e:
+            print(f"\nVercel: HTTP {e.status} (kan vara scope/behörighet): {e.body[:200]}")
+        except RuntimeError as e:
+            print(f"\nVercel: {e}")
 
     else:
         print("\nVercel: (ingen konfig i profilen)")
@@ -642,11 +661,16 @@ def cmd_scan(profile: Profile, args: argparse.Namespace) -> None:
     # v0
     if profile.v0:
         v0c = V0Client(profile.v0.token)
-        v0_projects = v0c.projects_all()
-        print(f"\nv0 projects: {len(v0_projects)}")
-        for p in v0_projects[:15]:
-            # v0 project innehåller bl.a. privacy och ev. vercelProjectId :contentReference[oaicite:11]{index=11}
-            print(f"  {p.get('name')} | id={p.get('id')} | privacy={p.get('privacy')} | vercelProjectId={p.get('vercelProjectId')}")
+        try:
+            v0_projects = v0c.projects_all()
+            print(f"\nv0 projects: {len(v0_projects)}")
+            for p in v0_projects[:15]:
+                # v0 project innehåller bl.a. privacy och ev. vercelProjectId :contentReference[oaicite:11]{index=11}
+                print(f"  {p.get('name')} | id={p.get('id')} | privacy={p.get('privacy')} | vercelProjectId={p.get('vercelProjectId')}")
+        except HttpError as e:
+            print(f"\nv0: HTTP {e.status} (kan vara scope/behörighet): {e.body[:200]}")
+        except RuntimeError as e:
+            print(f"\nv0: {e}")
     else:
         print("\nv0: (ingen konfig i profilen)")
 

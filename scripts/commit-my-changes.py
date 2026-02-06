@@ -196,12 +196,9 @@ def main():
     # 3. Stage selected files
     paths = [f["path"] for f in selected_files]
 
-    # Reset staging area first (only for our selected files)
+    # git add handles additions, modifications, AND deletions correctly
     for p in paths:
-        if "deleted" in (next((f["status"] for f in selected_files if f["path"] == p), "")):
-            run(["git", "add", p])
-        else:
-            run(["git", "add", p])
+        run(["git", "add", p])
 
     # 4. Show diff preview
     print(f"\n{BOLD}Diff-preview:{RESET}")

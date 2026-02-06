@@ -93,6 +93,3 @@ sajtmaskin.code-workspace
 
 .vercel
 .env*.local
-
-.vercel
-.env*.local
