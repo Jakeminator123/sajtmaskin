@@ -254,6 +254,10 @@ function BuilderContent() {
     return () => {
       isActive = false;
       controller.abort();
+      // Clear in-flight ref synchronously so a StrictMode re-mount can retry the fetch
+      if (promptFetchInFlightRef.current === promptId) {
+        promptFetchInFlightRef.current = null;
+      }
     };
   }, [promptId, router, searchParams]);
 

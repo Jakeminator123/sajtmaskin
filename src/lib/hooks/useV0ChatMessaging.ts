@@ -785,6 +785,45 @@ async function runPostGenerationChecks(params: {
       steps.push("Preview-länk saknas för versionen.");
     }
 
+    // Image URL validation — runs in background, auto-fixes broken Unsplash URLs
+    let imageValidation: {
+      valid?: boolean;
+      total?: number;
+      broken?: { url: string; alt: string; file: string; status: number | string; replacementUrl: string | null }[];
+      replacedCount?: number;
+      warnings?: string[];
+      fixed?: boolean;
+      demoUrl?: string;
+    } | null = null;
+    try {
+      const imgRes = await fetch(
+        `/api/v0/chats/${encodeURIComponent(chatId)}/validate-images`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ versionId, autoFix: true }),
+          signal: controller.signal,
+        },
+      );
+      if (imgRes.ok) {
+        imageValidation = await imgRes.json();
+        if (imageValidation?.warnings?.length) {
+          warnings.push(...imageValidation.warnings);
+        }
+        if (imageValidation?.broken?.length) {
+          const brokenCount = imageValidation.broken.length;
+          const fixedCount = imageValidation.replacedCount ?? 0;
+          steps.push(
+            `Bilder: ${brokenCount} trasig(a) URL:er hittade${fixedCount > 0 ? `, ${fixedCount} ersatt(a) med Unsplash-alternativ` : ""}`,
+          );
+        } else if (imageValidation?.total && imageValidation.total > 0) {
+          steps.push(`Bilder: alla ${imageValidation.total} URL:er giltiga ✓`);
+        }
+      }
+    } catch {
+      // Image validation is best-effort; don't block post-check
+    }
+
     const output = {
       steps,
       summary: {
@@ -798,8 +837,9 @@ async function runPostGenerationChecks(params: {
       missingRoutes,
       suspiciousUseCalls,
       designTokens,
+      imageValidation,
       previousVersionId,
-      demoUrl: resolvedDemoUrl,
+      demoUrl: imageValidation?.demoUrl || resolvedDemoUrl,
     };
 
     appendToolPartToMessage(setMessages, assistantMessageId, {
@@ -814,7 +854,7 @@ async function runPostGenerationChecks(params: {
     appendPostCheckSummaryToMessage(
       setMessages,
       assistantMessageId,
-      buildPostCheckSummary({ changes, warnings, demoUrl: resolvedDemoUrl }),
+      buildPostCheckSummary({ changes, warnings, demoUrl: imageValidation?.demoUrl || resolvedDemoUrl }),
     );
   } catch (error) {
     appendToolPartToMessage(setMessages, assistantMessageId, {

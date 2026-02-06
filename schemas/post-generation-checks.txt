@@ -1,0 +1,108 @@
+POST-GENERATION CHECKS — SCHEMA
+═══════════════════════════════════════════════════════════════
+
+Trigger: Runs automatically after every v0 generation completes.
+Location: src/lib/hooks/useV0ChatMessaging.ts → runPostGenerationChecks()
+Runs: Client-side (browser), calls server APIs when needed.
+
+═══════════════════════════════════════════════════════════════
+EXECUTION ORDER (after v0 stream completes)
+═══════════════════════════════════════════════════════════════
+
+1. triggerImageMaterialization()  — downloads external images to Blob storage
+2. runPostGenerationChecks()      — full quality check pipeline (below)
+
+═══════════════════════════════════════════════════════════════
+runPostGenerationChecks — SCOPE & TASKS
+═══════════════════════════════════════════════════════════════
+
+Step 1: FILE DIFF
+  What: Compare current version files against previous version.
+  Output: Added/modified/removed file counts and names.
+  Source: fetchChatFiles() + diffFiles()
+
+Step 2: REACT use() MISUSE DETECTION
+  What: Scan files for suspicious React use() calls that break SSR.
+  Output: Warnings listing affected files.
+  Source: findSuspiciousUseCalls()
+
+Step 3: MISSING ROUTE DETECTION
+  What: Extract internal <Link href="..."> and compare against
+        actual app route paths in the generated project.
+  Output: List of referenced routes that have no matching file.
+  Source: extractAppRoutePaths() + extractStaticInternalLinks() + findMissingRoutes()
+
+Step 4: DESIGN TOKEN EXTRACTION
+  What: Extract CSS custom properties / design tokens from generated files.
+  Output: Token names and source file for reference.
+  Source: extractDesignTokens()
+
+Step 5: DEMO URL CHECK
+  What: Verify the version has a preview URL.
+  Output: Warning if missing.
+
+Step 6: IMAGE URL VALIDATION (NEW)
+  What: Validate all external image URLs in generated files.
+        HEAD-check each URL. For broken Unsplash URLs, search
+        the Unsplash API for a replacement based on alt text.
+        Auto-fix: replace broken URLs in version files.
+  Endpoint: POST /api/v0/chats/[chatId]/validate-images
+  Source: src/lib/utils/image-validator.ts
+  Output: Count of total/broken/replaced images + warnings.
+  Behavior:
+    - Best-effort (does not block other checks on failure)
+    - Only replaces broken Unsplash URLs (other hosts get reported only)
+    - Uses alt text as search query for Unsplash replacement
+    - Preserves original w/h/fit params from the broken URL
+    - Updates version files via v0 SDK when replacements are found
+
+═══════════════════════════════════════════════════════════════
+PARALLEL CHECKS (triggered separately, not part of runPostGenerationChecks)
+═══════════════════════════════════════════════════════════════
+
+CSS VALIDATION (auto-fix)
+  What: Validate CSS for Tailwind v4 compatibility issues.
+  Endpoint: POST /api/v0/chats/[chatId]/validate-css
+  Source: src/lib/utils/css-validator.ts
+  Trigger: src/app/builder/page.tsx → onGenerationComplete callback
+  Behavior: Auto-fixes empty custom properties, unclosed var(), etc.
+
+IMAGE MATERIALIZATION
+  What: Download external image URLs and upload to Vercel Blob Storage.
+  Endpoint: GET /api/v0/chats/[chatId]/files?materialize=1
+  Source: src/lib/imageAssets.ts
+  Trigger: triggerImageMaterialization() in useV0ChatMessaging.ts
+  Behavior: Best-effort. Replaces URLs with Blob URLs for deployment.
+
+═══════════════════════════════════════════════════════════════
+OUTPUT FORMAT
+═══════════════════════════════════════════════════════════════
+
+Results are appended to the chat as a tool message:
+  type: "tool:post-check"
+  toolName: "Post-check"
+
+Contains:
+  steps[]        — Human-readable summary lines
+  summary        — { files, added, modified, removed, warnings }
+  warnings[]     — Critical issues
+  missingRoutes  — Routes referenced but not found
+  suspiciousUseCalls — React use() issues
+  designTokens   — Extracted CSS tokens
+  imageValidation — Broken images + replacement info
+  demoUrl        — Preview URL (updated if image fix produced new version)
+
+═══════════════════════════════════════════════════════════════
+FILES
+═══════════════════════════════════════════════════════════════
+
+Core:
+  src/lib/hooks/useV0ChatMessaging.ts  — runPostGenerationChecks(), trigger logic
+  src/lib/utils/image-validator.ts     — Image URL extraction, validation, replacement
+  src/lib/utils/css-validator.ts       — CSS validation and auto-fix
+  src/lib/imageAssets.ts               — Image materialization to Blob storage
+
+API endpoints:
+  src/app/api/v0/chats/[chatId]/validate-images/route.ts — Image validation
+  src/app/api/v0/chats/[chatId]/validate-css/route.ts    — CSS validation
+  src/app/api/v0/chats/[chatId]/files/route.ts           — File access + materialization
