@@ -265,30 +265,43 @@ export function HomePage() {
         Intro
       </button>
 
-      <div className="relative z-10 flex min-h-screen flex-col items-center justify-center space-y-12 px-4 pt-24 pb-16">
+      <div className="relative z-10 flex min-h-screen flex-col items-center justify-center space-y-10 px-4 pt-24 pb-16">
         {/* Personalized greeting for logged-in users */}
-        {/* Only render after auth is initialized to prevent hydration mismatch */}
         {isInitialized && isAuthenticated && firstName && (
-          <div className="animate-fadeIn text-center">
-            <div className="from-brand-blue/10 via-brand-amber/10 to-brand-warm/10 border-brand-blue/30 mb-4 inline-flex items-center gap-2 rounded-full border bg-linear-to-r px-4 py-2">
-              <Wand2 className="text-brand-amber h-4 w-4" />
-              <span className="text-sm text-gray-300">
-                Välkommen tillbaka, <span className="font-medium text-white">{firstName}</span>!
-              </span>
-              <span className="text-xs text-gray-500">{user?.diamonds ?? 0} 💎</span>
+          <div className="animate-fadeIn text-center" style={{ animationDelay: "0.1s" }}>
+            <div className="group relative inline-flex items-center gap-3 overflow-hidden rounded-full border border-white/10 bg-white/5 px-5 py-2.5 backdrop-blur-md transition-all duration-500 hover:border-white/20 hover:bg-white/10">
+              {/* Animated gradient border glow */}
+              <div className="absolute inset-0 rounded-full opacity-0 transition-opacity duration-500 group-hover:opacity-100" style={{ background: "linear-gradient(90deg, rgba(59,130,246,0.15), rgba(245,158,11,0.15), rgba(20,184,166,0.15))", filter: "blur(8px)" }} />
+              <div className="relative flex items-center gap-3">
+                <div className="flex h-8 w-8 items-center justify-center rounded-full bg-linear-to-br from-brand-blue to-brand-teal">
+                  <Wand2 className="h-4 w-4 text-white" />
+                </div>
+                <span className="text-sm text-gray-300">
+                  Välkommen tillbaka, <span className="font-semibold text-white">{firstName}</span>
+                </span>
+                <div className="flex items-center gap-1 rounded-full bg-brand-amber/20 px-2.5 py-0.5">
+                  <span className="text-xs font-bold text-brand-amber">{user?.diamonds ?? 0}</span>
+                  <span className="text-xs">💎</span>
+                </div>
+              </div>
             </div>
           </div>
         )}
 
-        {/* Header - Main heading with animated entrance */}
-        {/* Use default text until auth is initialized to prevent hydration mismatch */}
-        <div className="animate-fadeInUp space-y-4 text-center">
-          <h1 className="text-3xl font-bold tracking-tight text-white sm:text-4xl md:text-5xl">
-            {isInitialized && isAuthenticated
-              ? "Vad vill du skapa idag?"
-              : "Vad vill du bygga idag?"}
+        {/* Hero heading with gradient text */}
+        <div className="animate-fadeInUp space-y-5 text-center" style={{ animationDelay: "0.2s" }}>
+          <h1 className="text-4xl font-extrabold tracking-tight sm:text-5xl md:text-6xl">
+            <span className="bg-linear-to-r from-white via-white to-gray-400 bg-clip-text text-transparent">
+              {isInitialized && isAuthenticated
+                ? "Vad vill du skapa"
+                : "Vad vill du bygga"}
+            </span>
+            <br />
+            <span className="bg-linear-to-r from-brand-teal via-brand-blue to-brand-amber bg-clip-text text-transparent">
+              idag?
+            </span>
           </h1>
-          <p className="mx-auto flex max-w-md items-center justify-center gap-2 text-sm text-gray-400 sm:text-base">
+          <p className="mx-auto flex max-w-lg items-center justify-center gap-2 text-sm text-gray-400 sm:text-base">
             {isInitialized && isAuthenticated
               ? "Dina projekt och analyser sparas automatiskt i ditt konto."
               : "Skapa professionella webbplatser på minuter med hjälp av AI."}
@@ -296,9 +309,9 @@ export function HomePage() {
           </p>
         </div>
 
-        {/* Show context from onboarding if available */}
+        {/* Onboarding context */}
         {initialContext && (
-          <div className="w-full max-w-2xl border border-gray-700 bg-black/70 p-4">
+          <div className="animate-fadeIn w-full max-w-2xl rounded-xl border border-gray-700/50 bg-white/5 p-4 backdrop-blur-sm">
             <div className="mb-2 flex items-center justify-between">
               <span className="text-brand-teal text-xs font-medium">✓ Din information sparad</span>
               <button
@@ -314,23 +327,26 @@ export function HomePage() {
           </div>
         )}
 
-        <div className="mb-4 flex w-full max-w-4xl flex-col gap-2">
-          <div className="flex items-center gap-2 text-xs font-medium tracking-wider text-gray-500 uppercase">
+        {/* Build intent selector */}
+        <div className="animate-fadeInUp flex w-full max-w-4xl flex-col items-center gap-3" style={{ animationDelay: "0.3s" }}>
+          <div className="flex items-center gap-2 text-[10px] font-semibold tracking-widest text-gray-500 uppercase">
+            <div className="h-px w-8 bg-gray-700" />
             <span>Mål</span>
             <HelpTooltip
               text="Mall = snabb start med liten scope. Webbplats = marknads-/infosida. App = mer logik, flöden och data."
               className="bg-black"
             />
+            <div className="h-px w-8 bg-gray-700" />
           </div>
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center justify-center gap-2">
             {BUILD_INTENT_OPTIONS.map((option) => (
               <button
                 key={option.value}
                 onClick={() => setBuildIntent(option.value)}
-                className={`rounded-full border px-3 py-1 text-xs font-medium transition ${
+                className={`rounded-full border px-4 py-1.5 text-xs font-medium transition-all duration-300 ${
                   buildIntent === option.value
-                    ? "border-brand-blue/60 bg-brand-blue/20 text-white"
-                    : "border-gray-800 bg-black/50 text-gray-400 hover:border-gray-700 hover:text-gray-200"
+                    ? "border-brand-blue/60 bg-brand-blue/20 text-white shadow-lg shadow-brand-blue/10"
+                    : "border-gray-800 bg-black/50 text-gray-400 hover:border-gray-600 hover:text-gray-200"
                 }`}
               >
                 {option.label}
@@ -338,94 +354,95 @@ export function HomePage() {
             ))}
           </div>
           {selectedIntent?.description ? (
-            <p className="text-xs text-gray-500">{selectedIntent.description}</p>
+            <p className="text-center text-xs text-gray-500">{selectedIntent.description}</p>
           ) : null}
         </div>
 
         {/* ═══════════════════════════════════════════════════════════
-            BUILD METHOD SELECTION
-            Clear options for how to start building
+            BUILD METHOD SELECTION - 4 animated cards
             ═══════════════════════════════════════════════════════════ */}
-        <div className="animate-fadeInUp stagger-2 w-full max-w-4xl [animation-fill-mode:forwards]">
+        <div className="w-full max-w-4xl">
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
-            {/* Analyzed Option - Opens AI wizard directly */}
+            {/* Analyzed Option */}
             <button
               onClick={() => setShowWizard(true)}
-              className="group hover:border-brand-blue/40 hover:bg-brand-blue/10 relative flex flex-col items-center rounded-xl border border-gray-800 bg-black/50 p-5 transition-all duration-300"
+              className="animate-fadeInUp group relative flex flex-col items-center overflow-hidden rounded-2xl border border-gray-800/80 bg-black/40 p-6 backdrop-blur-sm transition-all duration-500 hover:-translate-y-1 hover:border-brand-blue/40 hover:shadow-xl hover:shadow-brand-blue/5"
+              style={{ animationDelay: "0.35s", animationFillMode: "forwards" }}
             >
-              <div className="from-brand-blue to-brand-teal mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-linear-to-br transition-transform group-hover:scale-110">
+              <div className="absolute inset-0 opacity-0 transition-opacity duration-500 group-hover:opacity-100" style={{ background: "radial-gradient(circle at 50% 0%, rgba(59,130,246,0.12) 0%, transparent 70%)" }} />
+              <div className="relative mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-linear-to-br from-brand-blue to-brand-teal shadow-lg shadow-brand-blue/20 transition-all duration-500 group-hover:scale-110 group-hover:shadow-brand-blue/40">
                 <Wand2 className="h-6 w-6 text-white" />
               </div>
-              <span className="text-sm font-medium text-white">Analyserad</span>
-              <span className="mt-1 text-center text-xs text-gray-500">AI ställer frågor</span>
+              <span className="relative text-sm font-semibold text-white">Analyserad</span>
+              <span className="relative mt-1 text-center text-xs text-gray-500">AI ställer frågor</span>
             </button>
 
             {/* Category Option */}
             <button
-              onClick={() =>
-                setActiveBuildMethod(activeBuildMethod === "category" ? null : "category")
-              }
-              className={`group relative flex flex-col items-center rounded-xl border p-5 transition-all duration-300 ${
+              onClick={() => setActiveBuildMethod(activeBuildMethod === "category" ? null : "category")}
+              className={`animate-fadeInUp group relative flex flex-col items-center overflow-hidden rounded-2xl border p-6 backdrop-blur-sm transition-all duration-500 hover:-translate-y-1 ${
                 activeBuildMethod === "category"
-                  ? "from-brand-teal/20 to-brand-blue/10 border-brand-teal/50 shadow-brand-teal/10 bg-linear-to-br shadow-lg"
-                  : "hover:border-brand-teal/40 hover:bg-brand-teal/10 border-gray-800 bg-black/50"
+                  ? "border-brand-teal/50 bg-brand-teal/5 shadow-xl shadow-brand-teal/10"
+                  : "border-gray-800/80 bg-black/40 hover:border-brand-teal/40 hover:shadow-xl hover:shadow-brand-teal/5"
               }`}
+              style={{ animationDelay: "0.45s", animationFillMode: "forwards" }}
             >
-              <div className="from-brand-teal to-brand-blue mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-linear-to-br transition-transform group-hover:scale-110">
+              <div className="absolute inset-0 opacity-0 transition-opacity duration-500 group-hover:opacity-100" style={{ background: "radial-gradient(circle at 50% 0%, rgba(20,184,166,0.12) 0%, transparent 70%)" }} />
+              <div className="relative mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-linear-to-br from-brand-teal to-brand-blue shadow-lg shadow-brand-teal/20 transition-all duration-500 group-hover:scale-110 group-hover:shadow-brand-teal/40">
                 <FolderOpen className="h-6 w-6 text-white" />
               </div>
-              <span className="text-sm font-medium text-white">Kategori</span>
-              <span className="mt-1 text-center text-xs text-gray-500">Välj typ av sida</span>
+              <span className="relative text-sm font-semibold text-white">Kategori</span>
+              <span className="relative mt-1 text-center text-xs text-gray-500">Välj typ av sida</span>
               {activeBuildMethod === "category" ? (
-                <ChevronUp className="text-brand-teal absolute -bottom-1 h-4 w-4" />
+                <ChevronUp className="text-brand-teal absolute -bottom-0.5 h-4 w-4" />
               ) : (
-                <ChevronDown className="absolute -bottom-1 h-4 w-4 text-gray-600 opacity-0 transition-opacity group-hover:opacity-100" />
+                <ChevronDown className="absolute -bottom-0.5 h-4 w-4 text-gray-600 opacity-0 transition-all group-hover:opacity-100" />
               )}
             </button>
 
             {/* Audit Option */}
             <button
               onClick={() => setActiveBuildMethod(activeBuildMethod === "audit" ? null : "audit")}
-              className={`group relative flex flex-col items-center rounded-xl border p-5 transition-all duration-300 ${
+              className={`animate-fadeInUp group relative flex flex-col items-center overflow-hidden rounded-2xl border p-6 backdrop-blur-sm transition-all duration-500 hover:-translate-y-1 ${
                 activeBuildMethod === "audit"
-                  ? "from-brand-amber/20 to-brand-warm/20 border-brand-amber/50 shadow-brand-amber/10 bg-linear-to-br shadow-lg"
-                  : "hover:border-brand-amber/40 hover:bg-brand-amber/10 border-gray-800 bg-black/50"
+                  ? "border-brand-amber/50 bg-brand-amber/5 shadow-xl shadow-brand-amber/10"
+                  : "border-gray-800/80 bg-black/40 hover:border-brand-amber/40 hover:shadow-xl hover:shadow-brand-amber/5"
               }`}
+              style={{ animationDelay: "0.55s", animationFillMode: "forwards" }}
             >
-              <div className="from-brand-amber to-brand-warm mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-linear-to-br transition-transform group-hover:scale-110">
+              <div className="absolute inset-0 opacity-0 transition-opacity duration-500 group-hover:opacity-100" style={{ background: "radial-gradient(circle at 50% 0%, rgba(245,158,11,0.12) 0%, transparent 70%)" }} />
+              <div className="relative mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-linear-to-br from-brand-amber to-brand-warm shadow-lg shadow-brand-amber/20 transition-all duration-500 group-hover:scale-110 group-hover:shadow-brand-amber/40">
                 <Search className="h-6 w-6 text-white" />
               </div>
-              <span className="text-sm font-medium text-white">Audit</span>
-              <span className="mt-1 text-center text-xs text-gray-500">
-                Analysera befintlig sida
-              </span>
+              <span className="relative text-sm font-semibold text-white">Audit</span>
+              <span className="relative mt-1 text-center text-xs text-gray-500">Analysera befintlig sida</span>
               {activeBuildMethod === "audit" ? (
-                <ChevronUp className="text-brand-amber absolute -bottom-1 h-4 w-4" />
+                <ChevronUp className="text-brand-amber absolute -bottom-0.5 h-4 w-4" />
               ) : (
-                <ChevronDown className="absolute -bottom-1 h-4 w-4 text-gray-600 opacity-0 transition-opacity group-hover:opacity-100" />
+                <ChevronDown className="absolute -bottom-0.5 h-4 w-4 text-gray-600 opacity-0 transition-all group-hover:opacity-100" />
               )}
             </button>
 
             {/* Freeform Option */}
             <button
-              onClick={() =>
-                setActiveBuildMethod(activeBuildMethod === "freeform" ? null : "freeform")
-              }
-              className={`group relative flex flex-col items-center rounded-xl border p-5 transition-all duration-300 ${
+              onClick={() => setActiveBuildMethod(activeBuildMethod === "freeform" ? null : "freeform")}
+              className={`animate-fadeInUp group relative flex flex-col items-center overflow-hidden rounded-2xl border p-6 backdrop-blur-sm transition-all duration-500 hover:-translate-y-1 ${
                 activeBuildMethod === "freeform"
-                  ? "from-brand-warm/20 to-brand-amber/20 border-brand-warm/50 shadow-brand-warm/10 bg-linear-to-br shadow-lg"
-                  : "hover:border-brand-warm/40 hover:bg-brand-warm/10 border-gray-800 bg-black/50"
+                  ? "border-brand-warm/50 bg-brand-warm/5 shadow-xl shadow-brand-warm/10"
+                  : "border-gray-800/80 bg-black/40 hover:border-brand-warm/40 hover:shadow-xl hover:shadow-brand-warm/5"
               }`}
+              style={{ animationDelay: "0.65s", animationFillMode: "forwards" }}
             >
-              <div className="from-brand-warm to-brand-amber mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-linear-to-br transition-transform group-hover:scale-110">
+              <div className="absolute inset-0 opacity-0 transition-opacity duration-500 group-hover:opacity-100" style={{ background: "radial-gradient(circle at 50% 0%, rgba(239,68,68,0.08) 0%, transparent 70%)" }} />
+              <div className="relative mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-linear-to-br from-brand-warm to-brand-amber shadow-lg shadow-brand-warm/20 transition-all duration-500 group-hover:scale-110 group-hover:shadow-brand-warm/40">
                 <Pencil className="h-6 w-6 text-white" />
               </div>
-              <span className="text-sm font-medium text-white">Fritext</span>
-              <span className="mt-1 text-center text-xs text-gray-500">Beskriv din vision</span>
+              <span className="relative text-sm font-semibold text-white">Fritext</span>
+              <span className="relative mt-1 text-center text-xs text-gray-500">Beskriv din vision</span>
               {activeBuildMethod === "freeform" ? (
-                <ChevronUp className="text-brand-warm absolute -bottom-1 h-4 w-4" />
+                <ChevronUp className="text-brand-warm absolute -bottom-0.5 h-4 w-4" />
               ) : (
-                <ChevronDown className="absolute -bottom-1 h-4 w-4 text-gray-600 opacity-0 transition-opacity group-hover:opacity-100" />
+                <ChevronDown className="absolute -bottom-0.5 h-4 w-4 text-gray-600 opacity-0 transition-all group-hover:opacity-100" />
               )}
             </button>
           </div>
@@ -497,11 +514,77 @@ export function HomePage() {
           </div>
         )}
 
-        {/* Quick tip when no method is selected */}
+        {/* Feature highlights when no method is selected */}
         {!activeBuildMethod && (
-          <p className="animate-fadeIn text-center text-sm text-gray-500">
-            Välj ett alternativ ovan för att börja bygga din webbplats
-          </p>
+          <div className="w-full max-w-4xl space-y-10">
+            {/* Animated CTA with gradient line */}
+            <div className="animate-fadeIn flex items-center gap-4" style={{ animationDelay: "0.8s" }}>
+              <div className="h-px flex-1 bg-linear-to-r from-transparent via-gray-700/50 to-transparent" />
+              <p className="text-xs font-medium tracking-wider text-gray-500 uppercase">
+                Välj ovan eller utforska
+              </p>
+              <div className="h-px flex-1 bg-linear-to-r from-transparent via-gray-700/50 to-transparent" />
+            </div>
+
+            {/* Feature cards with staggered animation */}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+              {[
+                {
+                  icon: <Wand2 className="h-5 w-5" />,
+                  color: "brand-teal",
+                  title: "AI-driven design",
+                  desc: "Berätta om ditt företag och få en skräddarsydd webbplats baserad på din bransch och målgrupp.",
+                  delay: "0.9s",
+                },
+                {
+                  icon: <Search className="h-5 w-5" />,
+                  color: "brand-blue",
+                  title: "Gratis webbplatsanalys",
+                  desc: "Analysera din befintliga sajt med AI och få en detaljerad rapport med förbättringsförslag.",
+                  delay: "1.0s",
+                },
+                {
+                  icon: <Pencil className="h-5 w-5" />,
+                  color: "brand-amber",
+                  title: "Röst och video",
+                  desc: "Beskriv din vision med rösten eller spela in en presentation — AI bygger utifrån det.",
+                  delay: "1.1s",
+                },
+              ].map((feature) => (
+                <div
+                  key={feature.title}
+                  className="animate-fadeInUp group relative overflow-hidden rounded-2xl border border-gray-800/50 bg-black/30 p-5 backdrop-blur-sm transition-all duration-500 hover:-translate-y-1 hover:border-gray-700/80 hover:bg-black/50 hover:shadow-lg"
+                  style={{ animationDelay: feature.delay, animationFillMode: "forwards", opacity: 0 }}
+                >
+                  {/* Hover glow */}
+                  <div className={`absolute inset-0 opacity-0 transition-opacity duration-500 group-hover:opacity-100 bg-linear-to-b from-${feature.color}/5 to-transparent`} />
+                  <div className={`relative mb-3 flex h-10 w-10 items-center justify-center rounded-xl bg-${feature.color}/10 text-${feature.color} transition-transform duration-300 group-hover:scale-110`}>
+                    {feature.icon}
+                  </div>
+                  <h3 className="relative mb-1.5 text-sm font-semibold text-white">{feature.title}</h3>
+                  <p className="relative text-xs leading-relaxed text-gray-500">
+                    {feature.desc}
+                  </p>
+                </div>
+              ))}
+            </div>
+
+            {/* Animated stats row */}
+            <div className="animate-fadeIn flex items-center justify-center gap-6 sm:gap-10" style={{ animationDelay: "1.2s" }}>
+              {[
+                { value: "5 sek", label: "Första utkast" },
+                { value: "100+", label: "Mallar" },
+                { value: "SEO", label: "Inbyggd audit" },
+                { value: "1-klick", label: "Publicering" },
+              ].map((stat, i) => (
+                <div key={stat.label} className="group text-center">
+                  {i > 0 && <div className="hidden" />}
+                  <p className="text-lg font-bold text-white transition-colors group-hover:text-brand-teal">{stat.value}</p>
+                  <p className="text-[10px] font-medium tracking-widest text-gray-600 uppercase">{stat.label}</p>
+                </div>
+              ))}
+            </div>
+          </div>
         )}
       </div>
 

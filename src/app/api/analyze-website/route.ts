@@ -80,7 +80,8 @@ export async function POST(req: NextRequest) {
 Domän: ${parsedUrl.hostname}
 Sökord att undersöka: "${parsedUrl.hostname.replace("www.", "").split(".")[0]}" företag`;
 
-    const selectedModel = "openai/gpt-5.2";
+    // GPT-5-mini: fast and cheap, good quality for website analysis summaries
+    const selectedModel = "openai/gpt-5-mini";
     const promptSuffix = deepAnalysis
       ? "\n\nVar extra konkret och ge tydliga förbättringsförslag."
       : "";

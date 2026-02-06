@@ -1,12 +1,16 @@
 {
   "profiles": {
-    "default": {
-      "vercel": { "token_env": "VERCEL_TOKEN", "team_id_env": "VERCEL_TEAM_ID" },
-      "v0":     { "token_env": "V0_API_KEY" }
+    "prod": {
+      "vercel": { "token_env": "VERCEL_TOKEN_PROD", "team_id_env": "VERCEL_TEAM_ID_PROD" },
+      "v0":     { "token_env": "V0_API_KEY_TEAM" }
+    },
+    "dev": {
+      "vercel": { "token_env": "VERCEL_TOKEN_DEV", "team_id_env": "VERCEL_TEAM_ID_DEV" }
     }
   },
   "sqlite_candidates": [
     "app/data/sajtmaskin.db",
+    "app/data/dev.db",
     "data/sajtmaskin.db",
     "sajtmaskin.db"
   ]

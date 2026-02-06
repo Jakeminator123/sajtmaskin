@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
-import { AnalyticsTracker, CookieBanner } from "@/components/layout";
+import { AnalyticsTracker, BetaBanner, CookieBanner } from "@/components/layout";
 import { OrganizationJsonLd, SoftwareApplicationJsonLd } from "@/components/layout/json-ld";
 import { ThemeProvider } from "next-themes";
 import { SpeedInsights } from "@vercel/speed-insights/next";
@@ -63,6 +63,7 @@ export default function RootLayout({
           <SoftwareApplicationJsonLd />
           <AnalyticsTracker />
           {enableSpeedInsights ? <SpeedInsights /> : null}
+          <BetaBanner />
           {children}
           <CookieBanner />
         </ThemeProvider>

@@ -8,3 +8,4 @@ export { SiteAuditSection } from "./site-audit-section";
 export { AnalyticsTracker } from "./analytics-tracker";
 export { HelpTooltip } from "./help-tooltip";
 export { ClientOnly } from "./client-only";
+export { BetaBanner } from "./beta-banner";

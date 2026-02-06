@@ -14,7 +14,7 @@ import OpenAI, { toFile } from "openai";
 // Allow 60 seconds for audio processing
 export const maxDuration = 60;
 
-// Supported audio formats
+// Supported audio/video formats (Whisper handles video containers too)
 const SUPPORTED_FORMATS = [
   "audio/webm",
   "audio/mp3",
@@ -24,6 +24,8 @@ const SUPPORTED_FORMATS = [
   "audio/mp4",
   "audio/ogg",
   "audio/flac",
+  "video/webm",
+  "video/mp4",
 ];
 
 // Map browser mime types to Whisper-friendly extensions
@@ -37,6 +39,8 @@ function getFileExtension(mimeType: string): string {
     "audio/mp4": "mp4",
     "audio/ogg": "ogg",
     "audio/flac": "flac",
+    "video/webm": "webm",
+    "video/mp4": "mp4",
   };
   return map[mimeType] || "webm";
 }

@@ -1,0 +1,522 @@
+Hmm bra. kanske kan min denna bild hjälpa oss ännu mer samt lite allmänt om Vercel och om man skulle välja någpon installmetod: VercelLogotype
+AI Cloud
+
+
+
+
+
+Core Platform
+
+
+
+
+Security
+
+
+
+
+Company
+
+
+
+
+
+Learn
+
+
+
+
+Open Source
+
+
+
+
+Use Cases
+
+
+
+
+
+Tools
+
+
+
+Users
+
+
+
+Search Documentation
+⌘ K
+CLI
+Vercel CLI Overview
+Last updated November 18, 2025
+Vercel gives you multiple ways to interact with and configure your Vercel Projects. With the command-line interface (CLI) you can interact with the Vercel platform using a terminal, or through an automated system, enabling you to retrieve logs, manage certificates, replicate your deployment environment locally, manage Domain Name System (DNS) records, and more.
+
+If you'd like to interface with the platform programmatically, check out the REST API documentation.
+
+Installing Vercel CLI
+To download and install Vercel CLI, run the following command:
+
+Terminal
+
+pnpm i -g vercel
+Updating Vercel CLI
+When there is a new release of Vercel CLI, running any command will show you a message letting you know that an update is available.
+
+If you have installed our command-line interface through npm or Yarn, the easiest way to update it is by running the installation command yet again.
+
+Terminal
+
+pnpm i -g vercel@latest
+If you see permission errors, please read npm's official guide. Yarn depends on the same configuration as npm.
+
+Checking the version
+The --version option can be used to verify the version of Vercel CLI currently being used.
+
+terminal
+vercel --version
+Using the vercel command with the --version option.
+Using in a CI/CD environment
+Vercel CLI requires you to log in and authenticate before accessing resources or performing administrative tasks. In a terminal environment, you can use vercel login, which requires manual input. In a CI/CD environment where manual input is not possible, you can create a token on your tokens page and then use the --token option to authenticate.
+
+Available Commands
+alias
+Apply custom domain aliases to your Vercel deployments.
+
+vercel alias set [deployment-url] [custom-domain]
+vercel alias rm [custom-domain]
+vercel alias ls
+Learn more about the alias command
+
+bisect
+Perform a binary search on your deployments to help surface issues.
+
+vercel bisect
+vercel bisect --good [deployment-url] --bad [deployment-url]
+Learn more about the bisect command
+
+blob
+Interact with Vercel Blob storage to upload, list, delete, and copy files.
+
+vercel blob list
+vercel blob put [path-to-file]
+vercel blob del [url-or-pathname]
+vercel blob copy [from-url] [to-pathname]
+Learn more about the blob command
+
+build
+Build a Vercel Project locally or in your own CI environment.
+
+vercel build
+vercel build --prod
+Learn more about the build command
+
+cache
+Manage cache for your project (CDN cache and Data cache).
+
+vercel cache purge
+vercel cache purge --type cdn
+vercel cache purge --type data
+vercel cache invalidate --tag foo
+vercel cache dangerously-delete --tag foo
+Learn more about the cache command
+
+certs
+Manage certificates for your domains.
+
+vercel certs ls
+vercel certs issue [domain]
+vercel certs rm [certificate-id]
+Learn more about the certs command
+
+curl
+Make HTTP requests to your Vercel deployments with automatic deployment protection bypass. This is a beta command.
+
+vercel curl [path]
+vercel curl /api/hello
+vercel curl /api/data --deployment [deployment-url]
+Learn more about the curl command
+
+deploy
+Deploy your Vercel projects. Default command when no subcommand is specified.
+
+vercel
+vercel deploy
+vercel deploy --prod
+Learn more about the deploy command
+
+dev
+Replicate the Vercel deployment environment locally and test your project.
+
+vercel dev
+vercel dev --port 3000
+Learn more about the dev command
+
+dns
+Manage your DNS records for your domains.
+
+vercel dns ls [domain]
+vercel dns add [domain] [name] [type] [value]
+vercel dns rm [record-id]
+Learn more about the dns command
+
+domains
+Buy, sell, transfer, and manage your domains.
+
+vercel domains ls
+vercel domains add [domain] [project]
+vercel domains rm [domain]
+vercel domains buy [domain]
+Learn more about the domains command
+
+env
+Manage environment variables in your Vercel Projects.
+
+vercel env ls
+vercel env add [name] [environment]
+vercel env update [name] [environment]
+vercel env rm [name] [environment]
+vercel env pull [file]
+vercel env run -- <command>
+Learn more about the env command
+
+git
+Manage your Git provider connections.
+
+vercel git ls
+vercel git connect
+vercel git disconnect [provider]
+Learn more about the git command
+
+guidance
+Enable or disable guidance messages shown after CLI commands.
+
+vercel guidance enable
+vercel guidance disable
+vercel guidance status
+Learn more about the guidance command
+
+help
+Get information about all available Vercel CLI commands.
+
+vercel help
+vercel help [command]
+Learn more about the help command
+
+httpstat
+Visualize HTTP request timing statistics for your Vercel deployments with automatic deployment protection bypass.
+
+vercel httpstat [path]
+vercel httpstat /api/hello
+vercel httpstat /api/data --deployment [deployment-url]
+Learn more about the httpstat command
+
+init
+Initialize example Vercel Projects locally from the examples repository.
+
+vercel init
+vercel init [project-name]
+Learn more about the init command
+
+inspect
+Retrieve information about your Vercel deployments.
+
+vercel inspect [deployment-id-or-url]
+vercel inspect [deployment-id-or-url] --logs
+vercel inspect [deployment-id-or-url] --wait
+Learn more about the inspect command
+
+install
+Install native integrations with the option of adding a product.
+
+vercel install [integration-name]
+Learn more about the install command
+
+integration
+Perform key integration tasks (add, open, list, remove).
+
+vercel integration add [integration-name]
+vercel integration open [integration-name]
+vercel integration list
+vercel integration remove [integration-name]
+Learn more about the integration command
+
+integration-resource
+Perform native integration product resource tasks (remove, disconnect, create thresholds).
+
+vercel integration-resource remove [resource-name]
+vercel integration-resource disconnect [resource-name]
+Learn more about the integration-resource command
+
+link
+Link a local directory to a Vercel Project.
+
+vercel link
+vercel link [path-to-directory]
+Learn more about the link command
+
+list
+List recent deployments for the current Vercel Project.
+
+vercel list
+vercel list [project-name]
+Learn more about the list command
+
+login
+Login to your Vercel account through CLI.
+
+vercel login
+vercel login [email]
+vercel login --github
+Learn more about the login command
+
+logout
+Logout from your Vercel account through CLI.
+
+vercel logout
+Learn more about the logout command
+
+logs
+List runtime logs for a specific deployment.
+
+vercel logs [deployment-url]
+vercel logs [deployment-url] --follow
+Learn more about the logs command
+
+mcp
+Set up MCP client configuration for your Vercel Project.
+
+vercel mcp
+vercel mcp --project
+Learn more about the mcp command
+
+microfrontends
+Work with microfrontends configuration.
+
+vercel microfrontends pull
+vercel microfrontends pull --dpl [deployment-id-or-url]
+Learn more about the microfrontends command
+
+open
+Open your current project in the Vercel Dashboard.
+
+vercel open
+Learn more about the open command
+
+project
+List, add, inspect, remove, and manage your Vercel Projects.
+
+vercel project ls
+vercel project add
+vercel project rm
+vercel project inspect [project-name]
+Learn more about the project command
+
+promote
+Promote an existing deployment to be the current deployment.
+
+vercel promote [deployment-id-or-url]
+vercel promote status [project]
+Learn more about the promote command
+
+pull
+Update your local project with remote environment variables and project settings.
+
+vercel pull
+vercel pull --environment=production
+Learn more about the pull command
+
+redeploy
+Rebuild and redeploy an existing deployment.
+
+vercel redeploy [deployment-id-or-url]
+Learn more about the redeploy command
+
+redirects
+Manage project-level redirects.
+
+vercel redirects list
+vercel redirects add /old /new --status 301
+vercel redirects upload redirects.csv --overwrite
+vercel redirects promote <version-id>
+Learn more about the redirects command
+
+remove
+Remove deployments either by ID or for a specific Vercel Project.
+
+vercel remove [deployment-url]
+vercel remove [project-name]
+Learn more about the remove command
+
+rollback
+Roll back production deployments to previous deployments.
+
+vercel rollback
+vercel rollback [deployment-id-or-url]
+vercel rollback status [project]
+Learn more about the rollback command
+
+rolling-release
+Manage your project's rolling releases to gradually roll out new deployments.
+
+vercel rolling-release configure --cfg='[config]'
+vercel rolling-release start --dpl=[deployment-id]
+vercel rolling-release approve --dpl=[deployment-id]
+vercel rolling-release complete --dpl=[deployment-id]
+Learn more about the rolling-release command
+
+switch
+Switch between different team scopes.
+
+vercel switch
+vercel switch [team-name]
+Learn more about the switch command
+
+teams
+List, add, remove, and manage your teams.
+
+vercel teams list
+vercel teams add
+vercel teams invite [email]
+Learn more about the teams command
+
+target
+Manage custom environments (targets) and use the --target flag on relevant commands.
+
+vercel target list
+vercel target ls
+vercel deploy --target=staging
+Learn more about the target command
+
+telemetry
+Enable or disable telemetry collection.
+
+vercel telemetry status
+vercel telemetry enable
+vercel telemetry disable
+Learn more about the telemetry command
+
+whoami
+Display the username of the currently logged in user.
+
+vercel whoami
+Learn more about the whoami command
+
+Previous
+CDN / Request Collapsing
+Next
+Deploying from CLI
+Was this helpful?
+
+
+
+
+
+Your feedback...
+supported.
+On this page
+Installing Vercel CLI
+Updating Vercel CLI
+Checking the version
+Using in a CI/CD environment
+Available Commands
+alias
+bisect
+blob
+build
+cache
+certs
+curl
+deploy
+dev
+dns
+domains
+env
+git
+guidance
+help
+httpstat
+init
+inspect
+install
+integration
+integration-resource
+link
+list
+login
+logout
+logs
+mcp
+microfrontends
+open
+project
+promote
+pull
+redeploy
+redirects
+remove
+rollback
+rolling-release
+switch
+teams
+target
+telemetry
+whoami
+
+Copy as Markdown
+
+Give feedback
+
+Ask AI about this page
+Products
+AI
+Enterprise
+Fluid Compute
+Next.js
+Observability
+Previews
+Rendering
+Security
+Turbo
+Domains
+Sandbox
+Workflow
+v0
+Resources
+Community
+Docs
+Knowledge Base
+Academy
+Help
+Integrations
+Platforms
+Pricing
+Resources
+Solution Partners
+Startups
+Templates
+Company
+About
+Blog
+Careers
+Changelog
+Contact Us
+Customers
+Events
+Partners
+Shipped
+Privacy Policy
+Social
+GitHub
+LinkedIn
+Twitter
+YouTube
+Loading status…
+
+Select a display theme:![1770331905788](image/aaa/1770331905788.png)
+
+system
+
+light
+
+dark . Skriv nu ut allt igen, eller det som behövs för att kunan få upp denna GUI

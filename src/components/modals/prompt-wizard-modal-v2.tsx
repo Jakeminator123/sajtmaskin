@@ -21,6 +21,7 @@ import {
   Users,
   Zap,
   ExternalLink,
+  Video,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -30,6 +31,7 @@ import {
   getIndustryPalettes,
 } from "@/components/forms/color-palette-picker";
 import { VoiceRecorder } from "@/components/forms/voice-recorder";
+import { VideoRecorder } from "@/components/forms/video-recorder";
 import { buildIntentNoun } from "@/lib/builder/build-intent";
 import type { BuildIntent } from "@/lib/builder/build-intent";
 
@@ -242,7 +244,7 @@ function FollowUpRenderer({
     <div className="space-y-4 rounded-lg border border-gray-700/50 bg-linear-to-br from-gray-900/80 to-gray-950/80 p-4">
       <div className="flex items-center gap-2 text-xs font-medium text-brand-teal/80">
         <Sparkles className="h-3.5 w-3.5" />
-        AI-drivna följdfrågor baserade på din profil
+        Anpassade frågor för ert sajtbygge
       </div>
       {questions.map((q) => (
         <div key={q.id} className="space-y-1.5">
@@ -320,7 +322,6 @@ export function PromptWizardModalV2({
 
   // Loading states
   const [isExpanding, setIsExpanding] = useState(false);
-  const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [isEnriching, setIsEnriching] = useState(false);
   const [isScraping, setIsScraping] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -378,14 +379,96 @@ export function PromptWizardModalV2({
   // ═══════════════════════════════════════════════════════════════
   const [specialWishes, setSpecialWishes] = useState(initialPrompt);
   const [voiceTranscript, setVoiceTranscript] = useState("");
+  const [presentationAnalysis, setPresentationAnalysis] = useState<{
+    overallScore?: number;
+    toneFeedback?: string;
+    pitchFeedback?: string;
+    keyMessage?: string;
+    strengthHighlight?: string;
+  } | null>(null);
 
   // Get current industry data
   const currentIndustry = INDUSTRY_OPTIONS.find((i) => i.id === industry);
+
+  // ── Persist wizard state in localStorage ──────────────────────
+  const STORAGE_KEY = "sajtmaskin_wizard_draft";
+
+  // Restore saved draft on first open
+  const hasRestoredRef = useRef(false);
+  useEffect(() => {
+    if (!isOpen || hasRestoredRef.current) return;
+    hasRestoredRef.current = true;
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (!saved) return;
+      const draft = JSON.parse(saved);
+      // Only restore if draft is recent (< 7 days)
+      if (draft._ts && Date.now() - draft._ts > 7 * 24 * 60 * 60 * 1000) {
+        localStorage.removeItem(STORAGE_KEY);
+        return;
+      }
+      if (draft.companyName) setCompanyName(draft.companyName);
+      if (draft.industry) setIndustry(draft.industry);
+      if (draft.location) setLocation(draft.location);
+      if (draft.existingWebsite) setExistingWebsite(draft.existingWebsite);
+      if (draft.purposes?.length) setPurposes(draft.purposes);
+      if (draft.targetAudience) setTargetAudience(draft.targetAudience);
+      if (draft.usp) setUsp(draft.usp);
+      if (draft.siteFeedback) setSiteFeedback(draft.siteFeedback);
+      if (draft.selectedVibe) setSelectedVibe(draft.selectedVibe);
+      if (draft.specialWishes) setSpecialWishes(draft.specialWishes);
+      if (draft.step && draft.step > 1) setStep(draft.step);
+    } catch {
+      // ignore corrupt data
+    }
+  }, [isOpen]);
+
+  // Auto-save draft whenever key fields change
+  useEffect(() => {
+    if (!isOpen) return;
+    // Don't save empty state
+    if (!companyName && !industry) return;
+    const draft = {
+      companyName, industry, location, existingWebsite,
+      purposes, targetAudience, usp, siteFeedback,
+      selectedVibe, specialWishes, step,
+      _ts: Date.now(),
+    };
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(draft));
+    } catch {
+      // ignore (private browsing etc)
+    }
+  }, [
+    isOpen, companyName, industry, location, existingWebsite,
+    purposes, targetAudience, usp, siteFeedback,
+    selectedVibe, specialWishes, step,
+  ]);
+
+  // Clear draft when wizard completes
+  const clearDraft = useCallback(() => {
+    try { localStorage.removeItem(STORAGE_KEY); } catch { /* ignore */ }
+  }, []);
 
   // ── Follow-up answer handler ──────────────────────────────────
   const handleFollowUpAnswer = useCallback((id: string, value: string) => {
     setFollowUpAnswers((prev) => ({ ...prev, [id]: value }));
   }, []);
+
+  // ── Stable ref for enrichment data (avoids dependency churn) ──
+  const enrichDataRef = useRef({
+    companyName, industry, location, existingWebsite,
+    purposes, targetAudience, usp, selectedVibe,
+    specialWishes, followUpAnswers,
+  });
+  enrichDataRef.current = {
+    companyName, industry, location, existingWebsite,
+    purposes, targetAudience, usp, selectedVibe,
+    specialWishes, followUpAnswers,
+  };
+
+  // AbortController to cancel in-flight requests
+  const enrichAbortRef = useRef<AbortController | null>(null);
 
   // ── Fetch AI enrichment for current step ──────────────────────
   const fetchEnrichment = useCallback(
@@ -393,24 +476,31 @@ export function PromptWizardModalV2({
       // Don't re-enrich the same step unless scraping
       if (enrichedStepsRef.current.has(currentStep) && !scrapeUrl) return;
 
+      // Cancel any in-flight request
+      enrichAbortRef.current?.abort();
+      const controller = new AbortController();
+      enrichAbortRef.current = controller;
+
       setIsEnriching(true);
       try {
+        const d = enrichDataRef.current;
         const response = await fetch("/api/wizard/enrich", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
+          signal: controller.signal,
           body: JSON.stringify({
             step: currentStep,
             data: {
-              companyName,
-              industry,
-              location,
-              existingWebsite,
-              purposes,
-              targetAudience,
-              usp,
-              selectedVibe,
-              specialWishes,
-              previousFollowUps: followUpAnswers,
+              companyName: d.companyName,
+              industry: d.industry,
+              location: d.location,
+              existingWebsite: d.existingWebsite,
+              purposes: d.purposes,
+              targetAudience: d.targetAudience,
+              usp: d.usp,
+              selectedVibe: d.selectedVibe,
+              specialWishes: d.specialWishes,
+              previousFollowUps: d.followUpAnswers,
             },
             scrapeUrl,
           }),
@@ -438,34 +528,24 @@ export function PromptWizardModalV2({
 
         enrichedStepsRef.current.add(currentStep);
       } catch (err) {
+        if (err instanceof DOMException && err.name === "AbortError") return;
         console.warn("[Wizard] Enrich failed (non-fatal):", err);
       } finally {
         setIsEnriching(false);
       }
     },
-    [
-      companyName,
-      industry,
-      location,
-      existingWebsite,
-      purposes,
-      targetAudience,
-      usp,
-      selectedVibe,
-      specialWishes,
-      followUpAnswers,
-    ],
+    [], // Stable -- reads from enrichDataRef
   );
 
-  // ── Scrape website on URL entry ───────────────────────────────
+  // ── Scrape website on URL entry (non-blocking) ────────────────
   const handleScrapeWebsite = useCallback(
-    async (url: string) => {
+    (url: string) => {
       if (!url) return;
       setIsScraping(true);
       const fullUrl = url.startsWith("http") ? url : `https://${url}`;
 
-      // Trigger both analysis and enrich-scrape in parallel
-      const analysisPromise = fetch("/api/analyze-website", {
+      // Run analysis in background
+      fetch("/api/analyze-website", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ url: fullUrl }),
@@ -474,22 +554,20 @@ export function PromptWizardModalV2({
         .then((d) => {
           if (d.success && d.analysis) setWebsiteAnalysis(d.analysis);
         })
-        .catch(() => {});
+        .catch(() => {})
+        .finally(() => setIsScraping(false));
 
-      const enrichPromise = fetchEnrichment(step, fullUrl);
-
-      await Promise.all([analysisPromise, enrichPromise]);
-      setIsScraping(false);
+      // Run enrichment in background separately
+      fetchEnrichment(step, fullUrl);
     },
     [fetchEnrichment, step],
   );
 
-  // ── Auto-enrich on step change ────────────────────────────────
+  // ── Auto-enrich on step change (debounced, single request) ────
   useEffect(() => {
     if (!isOpen) return;
-    // Only enrich if we have minimum data
     if (step >= 2 && companyName && industry) {
-      const timer = setTimeout(() => fetchEnrichment(step), 300);
+      const timer = setTimeout(() => fetchEnrichment(step), 600);
       return () => clearTimeout(timer);
     }
   }, [step, isOpen, companyName, industry, fetchEnrichment]);
@@ -615,6 +693,9 @@ export function PromptWizardModalV2({
         scrapedData?.title
           ? `Current site title: "${scrapedData.title}", ${scrapedData.wordCount || 0} words of content.`
           : null,
+        presentationAnalysis
+          ? `Video presentation analysis (score ${presentationAnalysis.overallScore}/10): Key message: "${presentationAnalysis.keyMessage || ""}". Strength: ${presentationAnalysis.strengthHighlight || ""}. Tone: ${presentationAnalysis.toneFeedback || ""}. Pitch quality: ${presentationAnalysis.pitchFeedback || ""}.`
+          : null,
       ].filter(Boolean);
 
       // Try to generate a brief via the AI endpoint
@@ -698,6 +779,7 @@ export function PromptWizardModalV2({
     currentIndustry,
     followUpAnswers,
     scrapedData,
+    presentationAnalysis,
   ]);
 
   // Final completion
@@ -731,8 +813,10 @@ export function PromptWizardModalV2({
       followUpAnswers: Object.keys(followUpAnswers).length ? followUpAnswers : undefined,
     };
 
+    clearDraft();
     onComplete(wizardData, editedPrompt);
   }, [
+    clearDraft,
     companyName,
     industry,
     location,
@@ -768,8 +852,8 @@ export function PromptWizardModalV2({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
-      {/* Backdrop */}
-      <div className="absolute inset-0 bg-black/90 backdrop-blur-sm" onClick={onClose} />
+      {/* Backdrop -- clicking does NOT close (prevents accidental data loss) */}
+      <div className="absolute inset-0 bg-black/90 backdrop-blur-sm" />
 
       {/* Modal */}
       <div className="relative mx-4 max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-gray-800 bg-linear-to-b from-gray-950 to-black shadow-2xl">
@@ -914,7 +998,7 @@ export function PromptWizardModalV2({
                   {existingWebsite && (
                     <Button
                       onClick={() => handleScrapeWebsite(existingWebsite)}
-                      disabled={isScraping || isAnalyzing}
+                      disabled={isScraping}
                       variant="outline"
                       size="sm"
                       className="shrink-0 gap-1"
@@ -929,9 +1013,20 @@ export function PromptWizardModalV2({
                   )}
                 </div>
 
+                {/* Background analysis indicator */}
+                {isScraping && !scrapedData && (
+                  <div className="flex items-center gap-3 rounded-lg border border-brand-teal/10 bg-brand-teal/5 px-3 py-2">
+                    <Loader2 className="h-4 w-4 animate-spin text-brand-teal/60" />
+                    <div className="flex-1">
+                      <p className="text-xs font-medium text-brand-teal/80">Analyserar i bakgrunden...</p>
+                      <p className="text-[10px] text-gray-500">Du kan fortsätta till nästa steg medan vi jobbar</p>
+                    </div>
+                  </div>
+                )}
+
                 {/* Scraped data card */}
                 {scrapedData && (
-                  <div className="rounded-lg border border-brand-teal/20 bg-brand-teal/5 p-3 space-y-2">
+                  <div className="animate-in fade-in slide-in-from-bottom-2 rounded-lg border border-brand-teal/20 bg-brand-teal/5 p-3 space-y-2 duration-300">
                     <div className="flex items-center gap-2 text-xs font-medium text-brand-teal">
                       <Check className="h-3.5 w-3.5" />
                       Vi hittade din sida
@@ -940,12 +1035,12 @@ export function PromptWizardModalV2({
                       <p className="text-sm text-white">{scrapedData.title}</p>
                     )}
                     {scrapedData.description && (
-                      <p className="text-xs text-gray-400">{scrapedData.description}</p>
+                      <p className="text-xs text-gray-400 line-clamp-2">{scrapedData.description}</p>
                     )}
                     <div className="flex gap-3 text-xs text-gray-500">
-                      {scrapedData.wordCount && <span>{scrapedData.wordCount} ord</span>}
-                      {scrapedData.headings?.length && (
-                        <span>{scrapedData.headings.length} sektioner</span>
+                      {scrapedData.wordCount != null && <span>{scrapedData.wordCount} ord</span>}
+                      {(scrapedData.headings?.length ?? 0) > 0 && (
+                        <span>{scrapedData.headings!.length} sektioner</span>
                       )}
                       {scrapedData.hasImages && <span>Har bilder</span>}
                     </div>
@@ -1332,6 +1427,33 @@ export function PromptWizardModalV2({
                   }}
                   onRecordingChange={() => {}}
                   placeholder="Börja prata..."
+                />
+              </div>
+
+              {/* Video Presentation (optional) */}
+              <div className="space-y-2 rounded-lg border border-gray-800 bg-gray-900/50 p-4">
+                <label className="flex items-center gap-2 text-sm font-medium text-gray-300">
+                  <Video className="h-4 w-4 text-brand-blue" />
+                  Spela in en kort presentation
+                  <span className="font-normal text-gray-500">(valfritt)</span>
+                </label>
+                <p className="text-xs text-gray-500">
+                  Pitcha ditt företag framför kameran. AI transkriberar och ger konstruktiv
+                  feedback på ton, tydlighet och elevator pitch.
+                </p>
+                <VideoRecorder
+                  companyName={companyName}
+                  industry={currentIndustry?.label || industry}
+                  onTranscript={(transcript) => {
+                    setVoiceTranscript((prev) => (prev ? `${prev}\n${transcript}` : transcript));
+                    setSpecialWishes((prev) =>
+                      prev
+                        ? `${prev}\n\n[Videopresentation]: ${transcript}`
+                        : `[Videopresentation]: ${transcript}`,
+                    );
+                  }}
+                  onAnalysis={(a) => setPresentationAnalysis(a)}
+                  language="sv"
                 />
               </div>
 
