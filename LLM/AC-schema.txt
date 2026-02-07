@@ -16,6 +16,8 @@ AC - Flode
 - [x] Custom Instructions ar per chat (lagras lokalt per chatId).
 - [x] Manuell "Forbattra" skippar auto-assist vid forsta skick.
 - [x] imageGenerations styrs av v0-tillganglighet, Blob endast for deploy.
+- [x] Systemprompten ar enda kallar for teknisk standard och sprakregel.
+- [x] Prompt assist duplicerar inte shadcn-setup; fokus ar innehall/design.
 
 AC - Konfig
 - [ ] Endast server-env anvands for API-nycklar.
@@ -33,3 +35,4 @@ Noter:
 - Platform API (v0-sdk) bygger sajten (v0-mini/pro/max).
 - Model API (AI SDK / @ai-sdk/vercel) anvander v0-1.5-md/lg for text, ej for build.
 - CSS-validering auto-fixar Tailwind v4 fel efter generation; post-check ar read-only.
+- Sprakregel: matcha anvandarens sprak i synlig copy; oversatt endast vid explicit begaran.

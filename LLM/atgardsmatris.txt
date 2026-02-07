@@ -1,5 +1,5 @@
 SAJTMASKIN - ATGARDSMATRIS
 Status: OFF
-Datum: 2026-01-30
-Notering: Matrisen ar avstangd. Inga punkter ska laggas till har.
+Datum: 2026-02-07
+Notering: Matrisen ar avstangd. Uppdateras endast pa begaran.
 
