@@ -260,6 +260,22 @@ const setupQueries = [
     audit_result TEXT NOT NULL,
     created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
   )`,
+  `CREATE TABLE IF NOT EXISTS kostnadsfri_pages (
+    id BIGSERIAL PRIMARY KEY,
+    slug TEXT UNIQUE NOT NULL,
+    password_hash TEXT NOT NULL,
+    company_name TEXT NOT NULL,
+    industry TEXT,
+    website TEXT,
+    contact_email TEXT,
+    contact_name TEXT,
+    extra_data JSONB,
+    status TEXT DEFAULT 'active',
+    created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+    updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+    expires_at TIMESTAMPTZ,
+    consumed_at TIMESTAMPTZ
+  )`,
   `CREATE TABLE IF NOT EXISTS domain_orders (
     id TEXT PRIMARY KEY,
     project_id TEXT NOT NULL,
@@ -297,6 +313,7 @@ const schemaQueries = [
   `CREATE INDEX IF NOT EXISTS idx_page_views_created_at ON page_views(created_at)`,
   `CREATE INDEX IF NOT EXISTS idx_page_views_path ON page_views(path)`,
   `CREATE UNIQUE INDEX IF NOT EXISTS template_cache_template_user_idx ON template_cache(template_id, user_id)`,
+  `CREATE INDEX IF NOT EXISTS idx_kostnadsfri_pages_slug ON kostnadsfri_pages(slug)`,
 ];
 
 const cascadeQueries = [
@@ -339,6 +356,8 @@ const updatedAtTriggers = [
   `CREATE TRIGGER set_updated_at_company_profiles BEFORE UPDATE ON company_profiles FOR EACH ROW EXECUTE FUNCTION set_updated_at()`,
   `DROP TRIGGER IF EXISTS set_updated_at_domain_orders ON domain_orders`,
   `CREATE TRIGGER set_updated_at_domain_orders BEFORE UPDATE ON domain_orders FOR EACH ROW EXECUTE FUNCTION set_updated_at()`,
+  `DROP TRIGGER IF EXISTS set_updated_at_kostnadsfri_pages ON kostnadsfri_pages`,
+  `CREATE TRIGGER set_updated_at_kostnadsfri_pages BEFORE UPDATE ON kostnadsfri_pages FOR EACH ROW EXECUTE FUNCTION set_updated_at()`,
   `DROP TRIGGER IF EXISTS set_updated_at_project_data ON project_data`,
   `CREATE TRIGGER set_updated_at_project_data BEFORE UPDATE ON project_data FOR EACH ROW EXECUTE FUNCTION set_updated_at()`,
 ];

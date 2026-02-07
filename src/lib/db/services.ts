@@ -7,6 +7,7 @@ import {
   domainOrders,
   guestUsage,
   images,
+  kostnadsfriPages,
   mediaLibrary,
   pageViews,
   promptLogs,
@@ -43,6 +44,7 @@ export type PromptLog = typeof promptLogs.$inferSelect;
 export type MediaLibraryItem = typeof mediaLibrary.$inferSelect;
 export type CompanyProfile = typeof companyProfiles.$inferSelect;
 export type DomainOrder = typeof domainOrders.$inferSelect;
+export type KostnadsfriPage = typeof kostnadsfriPages.$inferSelect;
 export type UserAudit = typeof userAudits.$inferSelect;
 
 export function getUploadsDir(): string {
@@ -1164,4 +1166,69 @@ export async function getAnalyticsStats(days = 30): Promise<{
     dailyViews,
     topReferrers,
   };
+}
+
+// ============================================================================
+// KOSTNADSFRI PAGES (mail-link flow)
+// ============================================================================
+
+export async function createKostnadsfriPage(data: {
+  slug: string;
+  passwordHash: string;
+  companyName: string;
+  industry?: string;
+  website?: string;
+  contactEmail?: string;
+  contactName?: string;
+  extraData?: Record<string, unknown>;
+  expiresAt?: Date;
+}): Promise<KostnadsfriPage> {
+  assertDbConfigured();
+  const now = new Date();
+  const rows = await db
+    .insert(kostnadsfriPages)
+    .values({
+      slug: data.slug,
+      password_hash: data.passwordHash,
+      company_name: data.companyName,
+      industry: data.industry || null,
+      website: data.website || null,
+      contact_email: data.contactEmail || null,
+      contact_name: data.contactName || null,
+      extra_data: data.extraData || null,
+      status: "active",
+      created_at: now,
+      updated_at: now,
+      expires_at: data.expiresAt || null,
+    })
+    .returning();
+  return rows[0];
+}
+
+export async function getKostnadsfriPageBySlug(
+  slug: string,
+): Promise<KostnadsfriPage | null> {
+  assertDbConfigured();
+  const rows = await db
+    .select()
+    .from(kostnadsfriPages)
+    .where(eq(kostnadsfriPages.slug, slug))
+    .limit(1);
+  return rows[0] ?? null;
+}
+
+export async function markKostnadsfriConsumed(slug: string): Promise<void> {
+  assertDbConfigured();
+  await db
+    .update(kostnadsfriPages)
+    .set({ consumed_at: new Date(), status: "consumed" })
+    .where(eq(kostnadsfriPages.slug, slug));
+}
+
+export async function getAllKostnadsfriPages(): Promise<KostnadsfriPage[]> {
+  assertDbConfigured();
+  return db
+    .select()
+    .from(kostnadsfriPages)
+    .orderBy(desc(kostnadsfriPages.created_at));
 }

@@ -310,6 +310,27 @@ export const userAudits = pgTable("user_audits", {
   created_at: timestamp("created_at").defaultNow().notNull(),
 });
 
+// ============================================================================
+// KOSTNADSFRI PAGES (mail-link flow)
+// ============================================================================
+
+export const kostnadsfriPages = pgTable("kostnadsfri_pages", {
+  id: serial("id").primaryKey(),
+  slug: text("slug").notNull().unique(),
+  password_hash: text("password_hash").notNull(),
+  company_name: text("company_name").notNull(),
+  industry: text("industry"),
+  website: text("website"),
+  contact_email: text("contact_email"),
+  contact_name: text("contact_name"),
+  extra_data: jsonb("extra_data"),
+  status: text("status").default("active"),
+  created_at: timestamp("created_at").defaultNow().notNull(),
+  updated_at: timestamp("updated_at").defaultNow().notNull(),
+  expires_at: timestamp("expires_at"),
+  consumed_at: timestamp("consumed_at"),
+});
+
 export const domainOrders = pgTable("domain_orders", {
   id: text("id").primaryKey(),
   project_id: text("project_id").notNull(),
