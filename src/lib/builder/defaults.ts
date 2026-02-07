@@ -243,7 +243,7 @@ Include Tailwind CSS variables for theming in globals.css:
 - Prefer .png, .jpg, .webp formats
 - Include images in hero + at least 2 other sections
 - Never use blob: URIs, data: URIs, or local file paths for images
-- When v0 generates images, use those directly; otherwise fall back to public https URLs (unsplash.com or picsum.photos)
+- Prefer v0-generated images when available; only use public https URLs as a last resort
 
 ## Accessibility
 - Semantic HTML: header, main, section, article, footer
