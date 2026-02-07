@@ -1393,11 +1393,12 @@ function BuilderContent() {
       if (!trimmed) return null;
       setIsPreparingPrompt(true);
       try {
+        const themeColors =
+          buildMethod === "kostnadsfri" ? null : getThemeColors(designTheme);
         const addendum = await generateDynamicInstructions(trimmed, {
           forceShallow: !promptAssistDeep,
           onBrief: specMode
             ? (brief) => {
-                const themeColors = getThemeColors(designTheme);
                 pendingSpecRef.current = briefToSpec(brief, trimmed, themeColors);
               }
             : undefined,
@@ -1405,7 +1406,6 @@ function BuilderContent() {
         // If spec mode is active but onBrief was never called (shallow path),
         // generate a minimal spec from the prompt so the file still gets pushed.
         if (specMode && !pendingSpecRef.current) {
-          const themeColors = getThemeColors(designTheme);
           pendingSpecRef.current = promptToSpec(trimmed, themeColors);
         }
 
@@ -1430,7 +1430,15 @@ function BuilderContent() {
         setIsPreparingPrompt(false);
       }
     },
-    [chatId, customInstructions, generateDynamicInstructions, promptAssistDeep, specMode, designTheme],
+    [
+      chatId,
+      customInstructions,
+      generateDynamicInstructions,
+      promptAssistDeep,
+      specMode,
+      designTheme,
+      buildMethod,
+    ],
   );
 
   const confirmModelSelection = useCallback(async () => {

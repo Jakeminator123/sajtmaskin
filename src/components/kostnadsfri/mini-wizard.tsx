@@ -14,7 +14,6 @@ import {
   ColorPalettePicker,
   type ColorPalette,
   PREDEFINED_PALETTES,
-  getIndustryPalettes,
 } from "@/components/forms/color-palette-picker";
 import type { KostnadsfriCompanyData, MiniWizardData } from "@/lib/kostnadsfri";
 

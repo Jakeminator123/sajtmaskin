@@ -124,79 +124,22 @@ export const DEFAULT_THINKING = true;
 
 /** Default system instructions for new chats (editable in UI) */
 export const DEFAULT_CUSTOM_INSTRUCTIONS = `## Tech Stack
-- Next.js 15 App Router with TypeScript
+- Next.js App Router with TypeScript (React 19)
 - Tailwind CSS v4 for styling (utility classes)
-- shadcn/ui components (\`@/components/ui/*\`)
+- shadcn/ui components (\`@/components/ui/*\`, style "new-york")
+- Use Next.js route handlers for server logic (no custom Node/Express server)
 - Do not change core versions for next, react, react-dom, tailwindcss, postcss, typescript unless explicitly asked
 
-## shadcn/ui Bootstrap Setup
-When using shadcn/ui components, ensure the following project structure exists:
+## shadcn/ui Setup (summary)
+- components.json: style "new-york", rsc true, baseColor "slate", css "src/app/globals.css", aliases for @/components, @/lib/utils, @/components/ui, @/lib, @/hooks
+- \`src/lib/utils.ts\`: export cn() using clsx + tailwind-merge
+- \`src/app/globals.css\`: define CSS variables for theme tokens (--background, --foreground, --primary, etc.)
+- Ensure deps exist: clsx, tailwind-merge, class-variance-authority, lucide-react, next-themes
+- Use Tailwind v4 animation utilities via "tw-animate-css" (import it in globals.css when using animate-* utilities)
+- Add @radix-ui/* packages only when a specific component requires them
 
-### components.json (root)
-\`\`\`json
-{
-  "$schema": "https://ui.shadcn.com/schema.json",
-  "style": "new-york",
-  "rsc": true,
-  "tsx": true,
-  "tailwind": {
-    "config": "",
-    "css": "src/app/globals.css",
-    "baseColor": "slate",
-    "cssVariables": true,
-    "prefix": ""
-  },
-  "aliases": {
-    "components": "@/components",
-    "utils": "@/lib/utils",
-    "ui": "@/components/ui",
-    "lib": "@/lib",
-    "hooks": "@/hooks"
-  },
-  "registries": {
-    "@shadcn": "https://ui.shadcn.com/r/{name}.json"
-  }
-}
-\`\`\`
-
-### lib/utils.ts
-\`\`\`ts
-import { type ClassValue, clsx } from "clsx";
-import { twMerge } from "tailwind-merge";
-export function cn(...inputs: ClassValue[]) {
-  return twMerge(clsx(inputs));
-}
-\`\`\`
-
-### Base dependencies (package.json)
-Always include these when using shadcn/ui:
-- clsx
-- tailwind-merge
-- class-variance-authority
-- tailwind-animate
-- lucide-react
-- next-themes (for dark mode)
-
-Add Radix packages (@radix-ui/*) only when a specific component requires them.
-
-### CSS Variables (globals.css)
-Include Tailwind CSS variables for theming in globals.css:
-\`\`\`css
-@layer base {
-  :root {
-    --background: 0 0% 100%;
-    --foreground: 240 10% 3.9%;
-    --primary: 240 5.9% 10%;
-    --primary-foreground: 0 0% 98%;
-    /* ... other theme tokens */
-  }
-  .dark {
-    --background: 240 10% 3.9%;
-    --foreground: 0 0% 98%;
-    /* ... dark mode tokens */
-  }
-}
-\`\`\`
+## Language
+- Match the user's language for all visible copy. Only translate if the user explicitly asks.
 
 ## Component Usage
 - Use existing shadcn/ui components; avoid duplicating component files (use cn() from \`@/lib/utils\`)
@@ -205,6 +148,7 @@ Include Tailwind CSS variables for theming in globals.css:
 
 ## Tailwind Best Practices
 - Use Tailwind's design tokens: colors (slate, zinc, violet), spacing (px-4, py-8), typography (text-sm, font-medium)
+- Prefer Tailwind v4 CSS-first config: define tokens in globals.css with @theme inline; keep tailwind.config minimal
 - Leverage modern utilities: container, prose, backdrop-blur, gradient-*
 - Use responsive prefixes: sm:, md:, lg:, xl:, 2xl:
 - Prefer gap-* over margins between flex/grid items

@@ -74,41 +74,6 @@ const STYLE_KEYWORDS = [
   "futuristic",
 ] as const;
 
-const SHADCN_SETUP_DETAILS = {
-  componentsJson:
-    "components.json: style 'new-york', rsc true, baseColor 'slate', aliases for @/components, @/lib/utils, @/components/ui, @/lib, @/hooks",
-  libUtils: "lib/utils.ts: export cn() using clsx + tailwind-merge",
-  globalsCss: "globals.css: CSS variables for theming (--background, --foreground, --primary, etc.)",
-  packageJson:
-    "package.json: include clsx, tailwind-merge, class-variance-authority, lucide-react, next-themes",
-  radix: "Add @radix-ui/* packages only when a specific component requires them",
-};
-
-type ShadcnSetupVariant = "detailed" | "summary";
-
-function getShadcnSetupLines(variant: ShadcnSetupVariant): string[] {
-  if (variant === "detailed") {
-    return [
-      "Use shadcn/ui components where appropriate (buttons, inputs, cards, dialogs).",
-      "## shadcn/ui Setup Requirements",
-      "Ensure these files exist with correct configuration:",
-      `- ${SHADCN_SETUP_DETAILS.componentsJson}`,
-      `- ${SHADCN_SETUP_DETAILS.libUtils}`,
-      `- ${SHADCN_SETUP_DETAILS.globalsCss}`,
-      `- ${SHADCN_SETUP_DETAILS.packageJson}`,
-      `- ${SHADCN_SETUP_DETAILS.radix}`,
-    ];
-  }
-
-  return [
-    "Stick to shadcn/ui components and Tailwind utilities for maximum compatibility.",
-    "Ensure components.json, lib/utils.ts (cn helper), and CSS variables in globals.css exist.",
-    "Update package.json with clsx, tailwind-merge, class-variance-authority, lucide-react, next-themes.",
-    SHADCN_SETUP_DETAILS.radix,
-  ];
-}
-
-const CORE_TECH_CONSTRAINTS = getShadcnSetupLines("summary");
 const BUILD_INTENT_GUIDANCE: Record<
   BuildIntent,
   { summary: string; instructionLines: string[] }
@@ -451,10 +416,10 @@ export function buildV0PromptFromBrief(params: {
   const resolvedIntent = resolveBuildIntent(buildIntent);
   const intentLine =
     resolvedIntent === "app"
-      ? "Build a modern, production-ready web app using Next.js (App Router) + Tailwind CSS."
+      ? "Build a modern, production-ready web app using Next.js (App Router) + Tailwind CSS v4."
       : resolvedIntent === "template"
-        ? "Build a reusable, production-ready template using Next.js (App Router) + Tailwind CSS."
-        : "Build a beautiful, modern, production-ready website using Next.js (App Router) + Tailwind CSS.";
+        ? "Build a reusable, production-ready template using Next.js (App Router) + Tailwind CSS v4."
+        : "Build a beautiful, modern, production-ready website using Next.js (App Router) + Tailwind CSS v4.";
 
   const asString = (v: unknown): string => (typeof v === "string" ? v.trim() : "");
   const asStringList = (v: unknown): string[] =>
@@ -515,8 +480,6 @@ export function buildV0PromptFromBrief(params: {
   return [
     intentLine,
     `Build intent: ${getBuildIntentIntro(resolvedIntent)}`,
-    ...getShadcnSetupLines("detailed"),
-    "",
     `Project: ${projectTitle}${brandName ? ` (${brandName})` : ""}`,
     pitch ? `One-sentence pitch: ${pitch}` : null,
     audience ? `Target audience: ${audience}` : null,
@@ -558,7 +521,7 @@ export function buildV0PromptFromBrief(params: {
     "Requirements:",
     "- Mobile-first and fully responsive",
     "- Accessible (semantic HTML, keyboard navigation, proper labels/alt text)",
-    "- Fast and clean UI with subtle motion (hover states, scroll-reveal); avoid heavy or distracting animations",
+    "- Fast and clean UI with motion that matches the requested tone; avoid distracting gimmicks",
     "- Use consistent spacing, typography scale, and component styling",
     "",
     `Original request (for reference): ${originalPrompt}`,
@@ -627,7 +590,6 @@ export function buildDynamicInstructionAddendumFromBrief(params: {
   const visualIdentityGuidance = resolveVisualIdentityGuidance(colorPalette, styleKeywords, tone, "detailed");
   const richnessGuidance = resolveQualityBarGuidance(tone, styleKeywords, "detailed");
   const imageDensityGuidance = IMAGE_DENSITY_GUIDANCE;
-  const techConstraints = CORE_TECH_CONSTRAINTS;
 
   const parts: string[] = [
     "## Build Intent",
@@ -650,7 +612,6 @@ export function buildDynamicInstructionAddendumFromBrief(params: {
   parts.push("## Interaction & Motion", ...motionGuidance, "");
   parts.push("## Visual Identity", ...visualIdentityGuidance, "");
   parts.push("## Quality Bar", ...richnessGuidance, "");
-  parts.push("## Technical Constraints", ...techConstraints, "");
 
   parts.push(
     "## Imagery",
@@ -713,8 +674,5 @@ export function buildDynamicInstructionAddendumFromPrompt(params: {
     "## Imagery",
     imageryLine,
     ...IMAGE_DENSITY_GUIDANCE,
-    "",
-    "## Technical Constraints",
-    ...CORE_TECH_CONSTRAINTS,
   ].join("\n");
 }

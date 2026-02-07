@@ -44,6 +44,7 @@ export default async function KostnadsfriSlugPage({ params }: PageProps) {
   // Try to load from DB (for pre-created pages with extra data)
   let companyName = companyNameFromSlug(slug);
   let hasDbRecord = false;
+  let expiredReason: string | null = null;
 
   try {
     const page = await getKostnadsfriPageBySlug(slug);
@@ -51,20 +52,25 @@ export default async function KostnadsfriSlugPage({ params }: PageProps) {
       // Check if DB page is still accessible (expiry etc.)
       const access = isPageAccessible(page);
       if (!access.accessible) {
-        return (
-          <div className="flex min-h-screen items-center justify-center bg-black text-white">
-            <div className="text-center">
-              <h1 className="mb-4 text-2xl font-bold">Länken har gått ut</h1>
-              <p className="text-gray-400">{access.reason}</p>
-            </div>
-          </div>
-        );
+        expiredReason = access.reason ?? "Länken är inte längre giltig.";
+      } else {
+        companyName = page.company_name;
+        hasDbRecord = true;
       }
-      companyName = page.company_name;
-      hasDbRecord = true;
     }
   } catch {
     // DB not available — continue with slug-derived data
+  }
+
+  if (expiredReason) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-black text-white">
+        <div className="text-center">
+          <h1 className="mb-4 text-2xl font-bold">Länken har gått ut</h1>
+          <p className="text-gray-400">{expiredReason}</p>
+        </div>
+      </div>
+    );
   }
 
   return (
