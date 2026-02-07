@@ -11,15 +11,16 @@ alwaysApply: true
 ## Where to find the docs
 
 - In the root folder, there is a folder: `Services`
-- Inside `Services`, there is a folder: `MPC` _(typo — should be `MCP`)_
-- Inside `Services/MPC`, there are documents alongside the server **MGS**.
+- Inside `Services`, there is a folder: `mpc`
+- Documentation lives in `Services/mpc/docs`
+- MCP server entrypoint: `Services/mpc/server.mjs`
 
 ## When to use these docs
 
 - If you are unsure about anything related to this part of my website, consult these docs first, especially for:
   - User-facing page building / site generation
   - API integrations
-  - cahdcn ui
+ - shadcn/ui
   - SDK 6
   - Platform API
   - Model API

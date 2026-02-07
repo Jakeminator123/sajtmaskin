@@ -1,0 +1,37 @@
+---
+description: PowerShell-säkra git commit/push-kommandon
+alwaysApply: true
+---
+
+# PowerShell git-kommando-regel
+
+Gäller när du ger git commit/push-kommandon i PowerShell.
+
+- Använd ALDRIG bash-heredoc (<<EOF) eller $(cat <<'EOF') i PowerShell.
+- Använd PowerShell here-string (@' '@) eller flera -m-rader.
+- Om användaren uttryckligen säger att Git Bash/WSL används, då är bash-heredoc OK.
+
+## ❌ Fel (bash i PowerShell)
+git commit -m "$(cat <<'EOF'
+subject
+
+body
+EOF
+)"
+
+## ✅ Rätt (PowerShell)
+@'
+subject
+
+body
+'@ | git commit -F -
+
+## ✅ Rätt (kort variant)
+git commit -m "subject" -m "body"
+
+## ✅ Rätt med trailer
+@'
+subject
+
+body
+'@ | git commit --trailer "Co-authored-by: Cursor <cursoragent@cursor.com>" -F -
