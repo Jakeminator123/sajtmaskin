@@ -1541,6 +1541,12 @@ export function useV0ChatMessaging(params: {
           thinking: thinkingForTier,
           imageGenerations: enableImageGenerations,
         };
+        // Include system prompt on follow-ups so v0 retains custom instructions
+        // even in longer conversations where context may be truncated.
+        const trimmedSystem = systemPrompt?.trim();
+        if (trimmedSystem) {
+          requestBody.system = trimmedSystem;
+        }
         if (options.attachments && options.attachments.length > 0) {
           requestBody.attachments = options.attachments;
         }
@@ -1722,6 +1728,7 @@ export function useV0ChatMessaging(params: {
       createNewChat,
       enableImageGenerations,
       enableThinking,
+      systemPrompt,
       setMessages,
       setCurrentDemoUrl,
       onPreviewRefresh,

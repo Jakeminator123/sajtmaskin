@@ -238,12 +238,12 @@ Include Tailwind CSS variables for theming in globals.css:
 - Premium feel: cards with borders, soft backgrounds, consistent spacing
 
 ## Images
-- Use high-quality public URLs (https://)
-- Prefer .png, .jpg, .webp formats
 - Always include descriptive alt text
 - Use next/image with proper sizing
-- Placeholder images: unsplash.com or picsum.photos
+- Prefer .png, .jpg, .webp formats
 - Include images in hero + at least 2 other sections
+- Never use blob: URIs, data: URIs, or local file paths for images
+- When v0 generates images, use those directly; otherwise fall back to public https URLs (unsplash.com or picsum.photos)
 
 ## Accessibility
 - Semantic HTML: header, main, section, article, footer

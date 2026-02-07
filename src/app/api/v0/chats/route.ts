@@ -86,10 +86,10 @@ export async function POST(req: Request) {
         projectId,
         chatPrivacy: resolvedChatPrivacy,
         modelConfiguration: {
+          modelId,
           thinking: resolvedThinking,
           imageGenerations: resolvedImageGenerations,
         },
-        ...(modelId && { modelId }),
         ...(attachments ? { attachments } : {}),
       } as Parameters<typeof v0.chats.create>[0]);
 

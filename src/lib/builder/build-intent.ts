@@ -1,6 +1,6 @@
 export type BuildIntent = "template" | "website" | "app";
 
-export type BuildMethod = "wizard" | "category" | "audit" | "freeform";
+export type BuildMethod = "wizard" | "category" | "audit" | "freeform" | "kostnadsfri";
 
 export const DEFAULT_BUILD_INTENT: BuildIntent = "website";
 
@@ -36,7 +36,7 @@ export function normalizeBuildIntent(raw?: string | null): BuildIntent {
 
 export function normalizeBuildMethod(raw?: string | null): BuildMethod | null {
   const value = String(raw || "").toLowerCase();
-  if (value === "wizard" || value === "category" || value === "audit" || value === "freeform") {
+  if (value === "wizard" || value === "category" || value === "audit" || value === "freeform" || value === "kostnadsfri") {
     return value;
   }
   return null;
@@ -47,7 +47,7 @@ export function resolveBuildIntentForMethod(
   selected: BuildIntent,
 ): BuildIntent {
   if (method === "category") return "template";
-  if (method === "audit") return "website";
+  if (method === "audit" || method === "kostnadsfri") return "website";
   return selected;
 }
 

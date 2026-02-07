@@ -61,6 +61,11 @@ user_audits
 domain_orders
 - user_id, project_id, domain, order_id, status, timestamps
 
+kostnadsfri_pages
+- slug (unique), password_hash, company_name, industry, website,
+  contact_email, contact_name, extra_data (JSONB),
+  status (active|consumed|expired), expires_at, consumed_at, timestamps
+
 Tenant rule:
 - Data is scoped by user_id where possible. Guests use session_id.
 - Enforced in server code (see services in src/lib/db/services.ts).

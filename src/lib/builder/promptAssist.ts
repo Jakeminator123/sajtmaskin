@@ -539,8 +539,8 @@ export function buildV0PromptFromBrief(params: {
     ...qualityGuidance.map((line) => `- ${line}`),
     "",
     imageGenerations
-      ? "Imagery: include tasteful images where they add value. Use next/image when appropriate, include descriptive alt text, and use public https image URLs (avoid data: URIs or local file paths)."
-      : "Imagery: do not rely on generated images; prioritize layout, typography, and iconography. Images are optional.",
+      ? "Imagery: v0 image generation is enabled — use AI-generated images wherever they add value. Do NOT use placeholder services (unsplash, picsum, placehold.co) when image generation is available. Use next/image for sizing, always include descriptive alt text, and never use blob: or data: URIs."
+      : "Imagery: image generation is disabled — use high-quality stock images from Unsplash or Picsum as placeholders. Prioritize layout, typography, and iconography. Always include descriptive alt text.",
     imageryStyle.length ? `- Image style keywords: ${imageryStyle.join(", ")}` : null,
     imagerySubjects.length ? `- Suggested image subjects: ${imagerySubjects.join(", ")}` : null,
     altRules.length ? `- Alt text rules: ${altRules.join(" | ")}` : null,
@@ -655,8 +655,8 @@ export function buildDynamicInstructionAddendumFromBrief(params: {
   parts.push(
     "## Imagery",
     imageGenerations
-      ? "Use AI-generated images when possible; fallback to high-quality stock (Unsplash/Picsum)."
-      : "Use high-quality stock images (Unsplash/Picsum).",
+      ? "v0 image generation is enabled — rely on AI-generated images as the primary source. Do NOT use placeholder services (unsplash, picsum, placehold.co) when image generation is available. Never use blob: or data: URIs."
+      : "Image generation is disabled — use high-quality stock images from Unsplash or Picsum as placeholders.",
     "Always add descriptive alt text and optimize aspect ratios.",
     ...imageDensityGuidance.map((line) => `- ${line}`),
     ...(imageryNotes.length ? imageryNotes.map((note) => `- ${note}`) : []),
@@ -683,8 +683,8 @@ export function buildDynamicInstructionAddendumFromPrompt(params: {
   const { originalPrompt, imageGenerations, buildIntent } = params;
   const formatted = formatPromptForV0(originalPrompt);
   const imageryLine = imageGenerations
-    ? "Prefer AI-generated images; fallback to high-quality stock. Always include alt text."
-    : "Use high-quality stock images with descriptive alt text.";
+    ? "v0 image generation is enabled — use AI-generated images as the primary source. Do NOT use placeholder services (unsplash, picsum). Never use blob: or data: URIs. Always include alt text."
+    : "Image generation is disabled — use high-quality stock images (Unsplash/Picsum) with descriptive alt text.";
   const intentLines = getBuildIntentInstructionLines(buildIntent);
 
   // Infer tone and style from the raw prompt for dynamic guidance

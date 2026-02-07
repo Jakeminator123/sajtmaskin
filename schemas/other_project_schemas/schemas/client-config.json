@@ -1,17 +1,24 @@
 {
   "database": {
-    "driver": "better-sqlite3",
-    "envOverride": "SQLITE_PATH",
-    "defaultPath": "data/sajtgen.db"
+    "driver": "pg",
+    "dialect": "postgresql",
+    "envOverride": "POSTGRES_URL",
+    "host": "Supabase (pooled connection)"
   },
   "drizzle": {
-    "schemaFile": "lib/db/schema.ts",
-    "clientFile": "lib/db/client.ts",
+    "schemaFile": "src/lib/db/schema.ts",
+    "clientFile": "src/lib/db/client.ts",
     "configFile": "drizzle.config.ts",
-    "dialect": "sqlite"
+    "dialect": "postgresql"
   },
   "rateLimit": {
-    "mode": "memory",
-    "notes": "Upstash is optional. Om UPSTASH_* saknas anvands in-memory."
+    "mode": "upstash | memory",
+    "notes": "Upstash preferred (UPSTASH_REDIS_REST_URL + TOKEN). Falls back to in-memory if not configured."
+  },
+  "auth": {
+    "method": "JWT cookie (httpOnly)",
+    "cookie": "sajtmaskin_auth",
+    "providers": ["email", "google", "github"],
+    "guestSessions": "sajtmaskin_session cookie (30 days)"
   }
 }

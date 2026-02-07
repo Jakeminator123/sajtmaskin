@@ -2,13 +2,16 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod/v4";
 import { hashPassword } from "@/lib/auth/auth";
 import { createKostnadsfriPage, getKostnadsfriPageBySlug } from "@/lib/db/services";
-import { generateSlug } from "@/lib/kostnadsfri";
+import { generateSlug, generatePassword } from "@/lib/kostnadsfri";
 
 /**
  * POST /api/kostnadsfri — Create a new kostnadsfri page
  *
  * Requires KOSTNADSFRI_API_KEY in the x-api-key header.
  * Creates a password-protected company landing page at /kostnadsfri/[slug].
+ *
+ * Password can be provided explicitly, or omitted to auto-generate
+ * a deterministic password from the company slug + secret seed.
  */
 
 const createSchema = z.object({
@@ -17,7 +20,7 @@ const createSchema = z.object({
   website: z.string().optional(),
   contactEmail: z.string().email().optional(),
   contactName: z.string().optional(),
-  password: z.string().min(4, "Password must be at least 4 characters"),
+  password: z.string().min(4, "Password must be at least 4 characters").optional(),
   expiresInDays: z.number().positive().optional(),
 });
 
@@ -44,7 +47,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { companyName, industry, website, contactEmail, contactName, password, expiresInDays } =
+    const { companyName, industry, website, contactEmail, contactName, password: explicitPassword, expiresInDays } =
       validation.data;
 
     // Generate slug
@@ -65,6 +68,9 @@ export async function POST(request: NextRequest) {
         { status: 409 },
       );
     }
+
+    // Use explicit password or auto-generate from slug + seed
+    const password = explicitPassword || generatePassword(slug);
 
     // Hash password
     const passwordHash = hashPassword(password);
@@ -96,6 +102,7 @@ export async function POST(request: NextRequest) {
         id: page.id,
         slug: page.slug,
         companyName: page.company_name,
+        password,
         url,
         expiresAt: page.expires_at,
       },

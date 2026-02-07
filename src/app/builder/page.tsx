@@ -433,13 +433,19 @@ function BuilderContent() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+    // URL param override (e.g. from kostnadsfri flow)
+    const specParam = searchParams.get("specMode");
+    if (specParam === "true") {
+      setSpecMode(true);
+      return;
+    }
     try {
       const stored = localStorage.getItem("sajtmaskin:specMode");
       if (stored !== null) setSpecMode(stored === "true");
     } catch {
       // ignore
     }
-  }, []);
+  }, [searchParams]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
