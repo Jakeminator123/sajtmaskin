@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { assertV0Key, v0 } from "@/lib/v0";
 import { getChatByV0ChatIdForRequest } from "@/lib/tenant";
-import { validateFiles, formatIssuesForDisplay } from "@/lib/utils/css-validator";
+import { validateFiles, formatIssuesForDisplay, fixCssIssues } from "@/lib/utils/css-validator";
 import { z } from "zod";
 import { resolveVersionFiles } from "@/lib/v0/resolve-version-files";
 
@@ -79,7 +79,6 @@ export async function POST(req: Request, { params }: { params: Promise<{ chatId:
     const results = validateFiles(files.map((f: any) => ({ name: f.name, content: f.content })));
 
     const hasErrors = results.some((r) => r.issues.some((i) => i.severity === "error"));
-    const hasFixable = results.some((r) => r.issues.some((i) => Boolean(i.suggestion)));
 
     if (results.length === 0) {
       return NextResponse.json({
@@ -90,17 +89,26 @@ export async function POST(req: Request, { params }: { params: Promise<{ chatId:
     }
 
     // Auto-fix if requested
-    if (autoFix && hasFixable) {
-      const fixedIssueCount = results.reduce((sum, result) => {
-        if (!result.fixed) return sum;
-        return sum + result.issues.filter((issue) => Boolean(issue.suggestion)).length;
-      }, 0);
+    if (autoFix && hasErrors) {
+      const fixedIssueCount = results.reduce(
+        (sum, result) =>
+          sum +
+          result.issues.filter(
+            (issue) => issue.severity === "error" && Boolean(issue.suggestion),
+          ).length,
+        0,
+      );
       const updatedFiles = files.map((file: any) => {
         const result = results.find((r) => r.fileName === file.name);
-        if (result && result.fixed) {
+        const errorIssues = result
+          ? result.issues.filter(
+              (issue) => issue.severity === "error" && Boolean(issue.suggestion),
+            )
+          : [];
+        if (errorIssues.length > 0) {
           return {
             name: file.name,
-            content: result.fixed,
+            content: fixCssIssues(file.content, errorIssues),
             locked: file.locked,
           };
         }
