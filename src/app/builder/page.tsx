@@ -36,6 +36,7 @@ import {
   DEFAULT_CUSTOM_INSTRUCTIONS,
   DEFAULT_MODEL_TIER,
   DEFAULT_PROMPT_ASSIST,
+  DEFAULT_SPEC_MODE,
   DEFAULT_THINKING,
   SPEC_FILE_INSTRUCTION,
   getDefaultPromptAssistModel,
@@ -121,7 +122,7 @@ function BuilderContent() {
     import("@/lib/builder/theme-presets").DesignTheme
   >("blue");
   const designSystemMode = designTheme !== "off";
-  const [specMode, setSpecMode] = useState(false);
+  const [specMode] = useState(DEFAULT_SPEC_MODE);
   const pendingSpecRef = useRef<object | null>(null);
   const [showStructuredChat, setShowStructuredChat] = useState(false);
   const [isIntentionalReset, setIsIntentionalReset] = useState(false);
@@ -182,6 +183,10 @@ function BuilderContent() {
   const resolvedBuildIntent = useMemo(
     () => resolveBuildIntentForMethod(buildMethod, buildIntent),
     [buildMethod, buildIntent],
+  );
+  const themeColors = useMemo(
+    () => (buildMethod === "kostnadsfri" ? null : getThemeColors(designTheme)),
+    [buildMethod, designTheme],
   );
   const assistModelLabel = useMemo(() => {
     const options = getPromptAssistModelOptions();
@@ -430,31 +435,6 @@ function BuilderContent() {
       // ignore
     }
   }, [designTheme]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    // URL param override (e.g. from kostnadsfri flow)
-    const specParam = searchParams.get("specMode");
-    if (specParam === "true") {
-      setSpecMode(true);
-      return;
-    }
-    try {
-      const stored = localStorage.getItem("sajtmaskin:specMode");
-      if (stored !== null) setSpecMode(stored === "true");
-    } catch {
-      // ignore
-    }
-  }, [searchParams]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      localStorage.setItem("sajtmaskin:specMode", String(specMode));
-    } catch {
-      // ignore
-    }
-  }, [specMode]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -856,11 +836,29 @@ function BuilderContent() {
     id?: string | null;
     versionId?: string | null;
     demoUrl?: string | null;
+    createdAt?: string | Date | null;
   };
   const versionsList = useMemo(
     () => (Array.isArray(versions) ? (versions as VersionSummary[]) : []),
     [versions],
   );
+  const effectiveVersionsList = useMemo(() => {
+    const list = [...versionsList];
+    const latest = (chat as { latestVersion?: VersionSummary } | null)?.latestVersion;
+    const latestId = latest?.versionId || latest?.id || null;
+    if (!latestId) return list;
+    const exists = list.some(
+      (version) => version.versionId === latestId || version.id === latestId,
+    );
+    if (exists) return list;
+    list.unshift({
+      versionId: latest?.versionId || latest?.id || null,
+      id: latest?.id || null,
+      demoUrl: latest?.demoUrl ?? null,
+      createdAt: latest?.createdAt ?? new Date().toISOString(),
+    });
+    return list;
+  }, [versionsList, chat]);
 
   useEffect(() => {
     if (!chatId) {
@@ -873,11 +871,11 @@ function BuilderContent() {
   }, [chatId, chatV0ProjectId, v0ProjectId]);
   const versionIdSet = useMemo(() => {
     return new Set(
-      versionsList
+      effectiveVersionsList
         .map((version) => version.versionId || version.id || null)
         .filter((versionId): versionId is string => Boolean(versionId)),
     );
-  }, [versionsList]);
+  }, [effectiveVersionsList]);
 
   useEffect(() => {
     setSelectedVersionId(null);
@@ -927,7 +925,7 @@ function BuilderContent() {
       id?: string | null;
       createdAt?: string | Date | null;
     };
-    const versionsWithTime = versionsList as VersionWithTime[];
+    const versionsWithTime = effectiveVersionsList as VersionWithTime[];
 
     // Sort by createdAt to find the truly latest version
     const sortedByTime = [...versionsWithTime].sort((a, b) => {
@@ -945,7 +943,7 @@ function BuilderContent() {
       return latest?.versionId || latest?.id || null;
     })();
     return latestFromVersions || latestFromChat;
-  }, [versionsList, chat]);
+  }, [effectiveVersionsList, chat]);
 
   const activeVersionId = selectedVersionId || latestVersionId;
 
@@ -958,21 +956,21 @@ function BuilderContent() {
 
     if (!didChangeVersion && currentDemoUrl) return;
 
-    const activeVersionMatch = versionsList.find(
+    const activeVersionMatch = effectiveVersionsList.find(
       (version) => version.versionId === activeVersionId || version.id === activeVersionId,
     );
     const nextDemoUrl =
       activeVersionMatch?.demoUrl ||
       chat?.demoUrl ||
       (chat as { latestVersion?: { demoUrl?: string | null } } | null)?.latestVersion?.demoUrl ||
-      versionsList[0]?.demoUrl ||
+      effectiveVersionsList[0]?.demoUrl ||
       null;
 
     if (nextDemoUrl && nextDemoUrl !== currentDemoUrl) {
       setCurrentDemoUrl(nextDemoUrl);
       setPreviewRefreshToken(Date.now());
     }
-  }, [activeVersionId, chat, currentDemoUrl, versionsList]);
+  }, [activeVersionId, chat, currentDemoUrl, effectiveVersionsList]);
 
   useEffect(() => {
     const contextKey = chatId && activeVersionId ? `${chatId}:${activeVersionId}` : null;
@@ -1232,6 +1230,7 @@ function BuilderContent() {
     imageGenerations: enableImageGenerations,
     codeContext: promptAssistContext,
     buildIntent: resolvedBuildIntent,
+    themeColors,
   });
 
   const handlePromptAssistModelChange = useCallback((model: string) => {
@@ -1337,12 +1336,20 @@ function BuilderContent() {
         validateCss(data.chatId, data.versionId).catch((err) => {
           console.warn("[CSS Validation] Failed:", err);
         });
+        // Normalize unicode escapes in text content (best-effort)
+        fetch(`/api/v0/chats/${encodeURIComponent(data.chatId)}/normalize-text`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ versionId: data.versionId, autoFix: true }),
+        }).catch((err) => {
+          console.warn("[Unicode Normalize] Failed:", err);
+        });
         // Refetch chat data to get demoUrl if stream didn't provide it
         if (!data.demoUrl) {
           setTimeout(() => {
             mutateChat();
             mutateVersions();
-          }, 1000); // Small delay to let DB update
+          }, 4000); // Allow more time for large generations
         }
       }
       if (appProjectId && data.chatId) {
@@ -1366,6 +1373,7 @@ function BuilderContent() {
     v0ProjectId,
     selectedModelTier,
     enableImageGenerations,
+    enableImageMaterialization: mediaEnabled,
     enableThinking: effectiveThinking,
     systemPrompt: customInstructions,
     promptAssistModel,
@@ -1393,8 +1401,6 @@ function BuilderContent() {
       if (!trimmed) return null;
       setIsPreparingPrompt(true);
       try {
-        const themeColors =
-          buildMethod === "kostnadsfri" ? null : getThemeColors(designTheme);
         const addendum = await generateDynamicInstructions(trimmed, {
           forceShallow: !promptAssistDeep,
           onBrief: specMode
@@ -1436,8 +1442,7 @@ function BuilderContent() {
       generateDynamicInstructions,
       promptAssistDeep,
       specMode,
-      designTheme,
-      buildMethod,
+      themeColors,
     ],
   );
 
@@ -1602,10 +1607,11 @@ function BuilderContent() {
 
       let files: Array<{ name: string; content: string }> = [];
       if (activeVersionId) {
+        const materializeParam = mediaEnabled ? "&materialize=1" : "";
         const response = await fetch(
           `/api/v0/chats/${encodeURIComponent(chatId)}/files?versionId=${encodeURIComponent(
             activeVersionId,
-          )}&materialize=1`,
+          )}${materializeParam}`,
         );
         const data = (await response.json().catch(() => null)) as {
           files?: Array<{ name: string; content: string }>;
@@ -1634,6 +1640,7 @@ function BuilderContent() {
     appProjectId,
     activeVersionId,
     currentDemoUrl,
+    mediaEnabled,
     messages,
     pendingProjectName,
     router,
@@ -1690,7 +1697,7 @@ function BuilderContent() {
   const handleVersionSelect = useCallback(
     (versionId: string) => {
       setSelectedVersionId(versionId);
-      const match = versionsList.find(
+      const match = effectiveVersionsList.find(
         (version) => version.versionId === versionId || version.id === versionId,
       );
       if (match?.demoUrl) {
@@ -1698,7 +1705,7 @@ function BuilderContent() {
         bumpPreviewRefreshToken();
       }
     },
-    [versionsList, bumpPreviewRefreshToken],
+    [effectiveVersionsList, bumpPreviewRefreshToken],
   );
 
   const handleToggleVersionPanel = useCallback(() => {
@@ -1787,8 +1794,6 @@ function BuilderContent() {
           onDesignSystemModeChange={(v: boolean) => setDesignTheme(v ? "blue" : "off")}
           designTheme={designTheme}
           onDesignThemeChange={setDesignTheme}
-          specMode={specMode}
-          onSpecModeChange={setSpecMode}
           enableImageGenerations={enableImageGenerations}
           onEnableImageGenerationsChange={setEnableImageGenerations}
           enableThinking={enableThinking}

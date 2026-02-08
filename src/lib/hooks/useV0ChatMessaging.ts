@@ -438,9 +438,13 @@ async function fetchChatFiles(
   chatId: string,
   versionId: string,
   signal?: AbortSignal,
+  waitForReady = false,
 ): Promise<FileEntry[]> {
+  const waitParam = waitForReady ? "&wait=1" : "";
   const response = await fetch(
-    `/api/v0/chats/${encodeURIComponent(chatId)}/files?versionId=${encodeURIComponent(versionId)}`,
+    `/api/v0/chats/${encodeURIComponent(chatId)}/files?versionId=${encodeURIComponent(
+      versionId,
+    )}${waitParam}`,
     { signal },
   );
   const data = (await response.json().catch(() => null)) as {
@@ -743,12 +747,12 @@ async function runPostGenerationChecks(params: {
 
   try {
     const [currentFiles, versions] = await Promise.all([
-      fetchChatFiles(chatId, versionId, controller.signal),
+      fetchChatFiles(chatId, versionId, controller.signal, true),
       fetchChatVersions(chatId, controller.signal),
     ]);
     const previousVersionId = resolvePreviousVersionId(versionId, versions);
     const previousFiles = previousVersionId
-      ? await fetchChatFiles(chatId, previousVersionId, controller.signal)
+      ? await fetchChatFiles(chatId, previousVersionId, controller.signal, true)
       : [];
     const changes = previousVersionId ? diffFiles(previousFiles, currentFiles) : null;
     const suspiciousUseCalls = findSuspiciousUseCalls(currentFiles);
@@ -911,6 +915,7 @@ export function useV0ChatMessaging(params: {
   v0ProjectId?: string | null;
   selectedModelTier: ModelTier;
   enableImageGenerations: boolean;
+  enableImageMaterialization?: boolean;
   enableThinking: boolean;
   systemPrompt?: string;
   promptAssistModel?: string | null;
@@ -935,6 +940,7 @@ export function useV0ChatMessaging(params: {
     v0ProjectId,
     selectedModelTier,
     enableImageGenerations,
+    enableImageMaterialization = false,
     enableThinking,
     systemPrompt,
     promptAssistModel,
@@ -1088,7 +1094,7 @@ export function useV0ChatMessaging(params: {
           void triggerImageMaterialization({
             chatId: String(newChatId),
             versionId: String(resolvedVersionId),
-            enabled: enableImageGenerations,
+            enabled: enableImageMaterialization,
           });
         }
         if (resolvedVersionId) {
@@ -1342,7 +1348,7 @@ export function useV0ChatMessaging(params: {
                   void triggerImageMaterialization({
                     chatId: String(resolvedChatId),
                     versionId: String(resolvedVersionId),
-                    enabled: enableImageGenerations,
+                    enabled: enableImageMaterialization,
                   });
                 }
                 if (resolvedChatId && resolvedVersionId) {
@@ -1436,6 +1442,7 @@ export function useV0ChatMessaging(params: {
       resetBeforeCreateChat,
       selectedModelTier,
       enableImageGenerations,
+      enableImageMaterialization,
       enableThinking,
       systemPrompt,
       setMessages,
@@ -1516,7 +1523,7 @@ export function useV0ChatMessaging(params: {
           void triggerImageMaterialization({
             chatId: String(chatId),
             versionId: String(resolvedVersionId),
-            enabled: enableImageGenerations,
+            enabled: enableImageMaterialization,
           });
         }
         if (chatId && resolvedVersionId) {
@@ -1656,7 +1663,7 @@ export function useV0ChatMessaging(params: {
                 void triggerImageMaterialization({
                   chatId: String(chatId),
                   versionId: String(resolvedVersionId),
-                  enabled: enableImageGenerations,
+                  enabled: enableImageMaterialization,
                 });
               }
               if (chatId && resolvedVersionId) {
@@ -1727,6 +1734,7 @@ export function useV0ChatMessaging(params: {
       chatId,
       createNewChat,
       enableImageGenerations,
+      enableImageMaterialization,
       enableThinking,
       systemPrompt,
       setMessages,

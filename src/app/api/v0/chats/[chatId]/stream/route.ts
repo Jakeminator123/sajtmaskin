@@ -26,7 +26,7 @@ import { normalizeV0Error } from "@/lib/v0/errors";
 import { sendMessageSchema } from "@/lib/validations/chatSchemas";
 
 export const runtime = "nodejs";
-export const maxDuration = 300;
+export const maxDuration = 600;
 
 export async function POST(req: Request, ctx: { params: Promise<{ chatId: string }> }) {
   const requestId = req.headers.get("x-vercel-id") || "unknown";
@@ -357,8 +357,8 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
                   const resolved = await resolveLatestVersion(chatId, {
                     preferVersionId: lastVersionId,
                     preferDemoUrl: lastDemoUrl,
-                    maxAttempts: 45,
-                    delayMs: 2500,
+                    maxAttempts: 60,
+                    delayMs: 3000,
                   });
                   const finalVersionId = resolved.versionId || lastVersionId || null;
                   const finalDemoUrl = resolved.demoUrl || lastDemoUrl || null;

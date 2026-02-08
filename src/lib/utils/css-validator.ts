@@ -21,13 +21,42 @@
  */
 
 export interface CssIssue {
-  type: "empty-value" | "unclosed-var" | "invalid-syntax" | "missing-semicolon";
+  type:
+    | "empty-value"
+    | "unclosed-var"
+    | "invalid-syntax"
+    | "missing-semicolon"
+    | "invalid-property-rule";
   line: number;
   column: number;
   property?: string;
   original: string;
   suggestion?: string;
   severity: "error" | "warning";
+  endLine?: number;
+  action?: "remove-block";
+}
+
+function findAtRuleBlockEnd(lines: string[], startIndex: number): number {
+  let depth = 0;
+  let openFound = false;
+
+  for (let i = startIndex; i < lines.length; i++) {
+    const line = lines[i];
+    for (const char of line) {
+      if (char === "{") {
+        depth += 1;
+        openFound = true;
+      } else if (char === "}") {
+        if (openFound) depth -= 1;
+      }
+    }
+    if (openFound && depth <= 0) {
+      return i;
+    }
+  }
+
+  return startIndex;
 }
 
 /**
@@ -40,6 +69,26 @@ export function validateCss(content: string): CssIssue[] {
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     const lineNumber = i + 1;
+
+    // Detect invalid @property rules (property name must start with --)
+    const propertyRuleMatch = line.match(/@property\s+([^\s{]+)/);
+    if (propertyRuleMatch) {
+      const propertyName = propertyRuleMatch[1]?.trim() || "";
+      if (!propertyName.startsWith("--")) {
+        const endLine = findAtRuleBlockEnd(lines, i) + 1;
+        issues.push({
+          type: "invalid-property-rule",
+          line: lineNumber,
+          column: line.indexOf("@property"),
+          property: propertyName,
+          original: line.trim(),
+          suggestion: "Remove invalid @property rule",
+          severity: "warning",
+          endLine,
+          action: "remove-block",
+        });
+      }
+    }
 
     // Check for empty custom property values: `--foo: ;` or `--foo:;`
     const emptyValueMatch = line.match(/(--[\w-]+)\s*:\s*;/);
@@ -137,8 +186,12 @@ export function fixCssIssues(content: string, issues: CssIssue[]): string {
   // Sort issues by line number (descending) to fix from bottom to top
   // This prevents line number shifts from affecting subsequent fixes
   const sortedIssues = [...issues].sort((a, b) => b.line - a.line);
+  const blockRemoveIssues = sortedIssues.filter(
+    (issue) => issue.action === "remove-block" && typeof issue.endLine === "number",
+  );
+  const inlineIssues = sortedIssues.filter((issue) => issue.action !== "remove-block");
 
-  for (const issue of sortedIssues) {
+  for (const issue of inlineIssues) {
     if (!issue.suggestion) continue;
 
     const lineIndex = issue.line - 1;
@@ -165,7 +218,18 @@ export function fixCssIssues(content: string, issues: CssIssue[]): string {
           // Add semicolon
           lines[lineIndex] = line.trimEnd() + ";";
           break;
+        case "invalid-property-rule":
+          // Handled via remove-block pass
+          break;
       }
+    }
+  }
+
+  for (const issue of blockRemoveIssues) {
+    const lineIndex = issue.line - 1;
+    const endIndex = Math.max(lineIndex, (issue.endLine ?? issue.line) - 1);
+    if (lineIndex >= 0 && lineIndex < lines.length) {
+      lines.splice(lineIndex, endIndex - lineIndex + 1);
     }
   }
 

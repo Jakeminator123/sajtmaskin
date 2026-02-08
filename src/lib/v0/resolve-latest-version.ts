@@ -42,8 +42,8 @@ export async function resolveLatestVersion(
   chatId: string,
   options: ResolveLatestVersionOptions = {},
 ): Promise<LatestVersionResult> {
-  const maxAttempts = options.maxAttempts ?? 12;
-  const baseDelayMs = options.delayMs ?? 2000;
+  const maxAttempts = options.maxAttempts ?? 24;
+  const baseDelayMs = options.delayMs ?? 2500;
   let versionId = options.preferVersionId ?? null;
   let demoUrl = options.preferDemoUrl ?? null;
   let status: string | null = null;

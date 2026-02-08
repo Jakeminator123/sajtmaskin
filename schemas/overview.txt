@@ -11,7 +11,8 @@ Files in this folder:
 - post-generation-checks.txt
   Schema over alla post-generation checks som kors efter v0-generering:
   file diff, React use()-check, missing routes, design tokens, demo URL,
-  bild-URL-validering (med auto-fix via Unsplash), CSS-validering, materialisering.
+  bild-URL-validering (med auto-fix via Unsplash), CSS-validering,
+  unicode-normalisering, materialisering.
 
 Relation to other docs:
 - src/...: kodkalla for sanning, schemas maste uppdateras nar kod andras.

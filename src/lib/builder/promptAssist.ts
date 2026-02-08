@@ -1,4 +1,5 @@
 import type { BuildIntent } from "./build-intent";
+import type { ThemeColors } from "./theme-presets";
 
 // "gateway" refers to Vercel AI Gateway (same gateway API used by /api/ai/* routes).
 // "v0" refers to the v0 Model API (openai-compat).
@@ -207,6 +208,45 @@ interface ColorPalette {
   accent?: string;
   background?: string;
   text?: string;
+}
+
+function toColorPalette(themeOverride?: ThemeColors | null): ColorPalette {
+  if (!themeOverride) return {};
+  const palette: ColorPalette = {};
+  if (themeOverride.primary) palette.primary = themeOverride.primary;
+  if (themeOverride.secondary) palette.secondary = themeOverride.secondary;
+  if (themeOverride.accent) palette.accent = themeOverride.accent;
+  return palette;
+}
+
+function buildThemeAccentLines(themeOverride?: ThemeColors | null): string[] {
+  if (!themeOverride) return [];
+  const lines: string[] = [];
+  if (themeOverride.secondary) {
+    lines.push(
+      `Use the secondary color (${themeOverride.secondary}) for supporting surfaces and secondary UI elements.`,
+    );
+  }
+  if (themeOverride.accent) {
+    lines.push(
+      `Use the accent color (${themeOverride.accent}) for highlights, badges, and hover accents.`,
+    );
+  }
+  return lines;
+}
+
+function buildThemeTokenLines(themeOverride?: ThemeColors | null): string[] {
+  if (!themeOverride) return [];
+  const tokens: string[] = [];
+  if (themeOverride.primary) tokens.push(`- --primary: ${themeOverride.primary}`);
+  if (themeOverride.secondary) tokens.push(`- --secondary: ${themeOverride.secondary}`);
+  if (themeOverride.accent) tokens.push(`- --accent: ${themeOverride.accent}`);
+  if (tokens.length === 0) return [];
+  return [
+    "Theme tokens (must match exactly):",
+    ...tokens,
+    "Do not change these values.",
+  ];
 }
 
 function isDarkPalette(palette: ColorPalette): boolean {
@@ -535,8 +575,9 @@ export function buildDynamicInstructionAddendumFromBrief(params: {
   originalPrompt: string;
   imageGenerations: boolean;
   buildIntent?: BuildIntent;
+  themeOverride?: ThemeColors | null;
 }): string {
-  const { brief, originalPrompt, imageGenerations, buildIntent } = params;
+  const { brief, originalPrompt, imageGenerations, buildIntent, themeOverride } = params;
   const intentLines = getBuildIntentInstructionLines(buildIntent);
   const asString = (v: unknown): string => (typeof v === "string" ? v.trim() : "");
   const asStringList = (v: unknown): string[] =>
@@ -583,7 +624,13 @@ export function buildDynamicInstructionAddendumFromBrief(params: {
 
   // Extract visual direction fields for dynamic guidance
   const styleKeywords = asStringList(brief?.visualDirection?.styleKeywords);
-  const colorPalette: ColorPalette = brief?.visualDirection?.colorPalette || {};
+  const briefPalette: ColorPalette = brief?.visualDirection?.colorPalette || {};
+  const colorPalette: ColorPalette = {
+    ...briefPalette,
+    ...toColorPalette(themeOverride),
+  };
+  const themeAccentLines = buildThemeAccentLines(themeOverride);
+  const themeTokenLines = buildThemeTokenLines(themeOverride);
 
   // Dynamic guidance adapted to the brief's tone, style, and palette
   const motionGuidance = resolveMotionGuidance(tone, styleKeywords, "detailed");
@@ -610,7 +657,13 @@ export function buildDynamicInstructionAddendumFromBrief(params: {
   }
 
   parts.push("## Interaction & Motion", ...motionGuidance, "");
-  parts.push("## Visual Identity", ...visualIdentityGuidance, "");
+  parts.push(
+    "## Visual Identity",
+    ...visualIdentityGuidance,
+    ...themeAccentLines,
+    ...themeTokenLines,
+    "",
+  );
   parts.push("## Quality Bar", ...richnessGuidance, "");
 
   parts.push(
@@ -640,13 +693,17 @@ export function buildDynamicInstructionAddendumFromPrompt(params: {
   originalPrompt: string;
   imageGenerations: boolean;
   buildIntent?: BuildIntent;
+  themeOverride?: ThemeColors | null;
 }): string {
-  const { originalPrompt, imageGenerations, buildIntent } = params;
+  const { originalPrompt, imageGenerations, buildIntent, themeOverride } = params;
   const formatted = formatPromptForV0(originalPrompt);
   const imageryLine = imageGenerations
     ? "v0 image generation is enabled — use AI-generated images as the primary source. Do NOT use placeholder services (unsplash, picsum). Never use blob: or data: URIs. Always include alt text."
     : "Image generation is disabled — use high-quality stock images (Unsplash/Picsum) with descriptive alt text.";
   const intentLines = getBuildIntentInstructionLines(buildIntent);
+  const colorPalette = toColorPalette(themeOverride);
+  const themeAccentLines = buildThemeAccentLines(themeOverride);
+  const themeTokenLines = buildThemeTokenLines(themeOverride);
 
   // Infer tone and style from the raw prompt for dynamic guidance
   const promptStyles = extractKeywordMatches(originalPrompt, STYLE_KEYWORDS);
@@ -666,7 +723,9 @@ export function buildDynamicInstructionAddendumFromPrompt(params: {
     ...resolveMotionGuidance(promptTone, promptStyles, "compact"),
     "",
     "## Visual Identity",
-    ...resolveVisualIdentityGuidance({}, promptStyles, promptTone, "compact"),
+    ...resolveVisualIdentityGuidance(colorPalette, promptStyles, promptTone, "compact"),
+    ...themeAccentLines,
+    ...themeTokenLines,
     "",
     "## Quality Bar",
     ...resolveQualityBarGuidance(promptTone, promptStyles, "compact"),

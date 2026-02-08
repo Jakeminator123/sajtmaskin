@@ -132,6 +132,17 @@ NOTES: blockerar write om version ar pinned
 RELATED FILES:
 - src/app/api/v0/chats/[chatId]/files/route.ts
 
+FLOW: VERSION_NORMALIZE_TEXT
+ENDPOINT: /api/v0/chats/{chatId}/normalize-text (POST)
+TRIGGER (UI): Builder -> onGenerationComplete (auto-fix)
+REQUEST BODY: versionId, autoFix?
+RESPONSE: normalized, changed, changedFiles, replacements, fixed?, demoUrl?
+RELATED FILES:
+- src/app/api/v0/chats/[chatId]/normalize-text/route.ts
+- src/app/builder/page.tsx
+- src/lib/utils/unicode-normalizer.ts
+NOTES: Avkodar \uXXXX-sekvenser till riktiga tecken i text.
+
 ==============================================================================
 DEPLOY / VERCEL
 ==============================================================================

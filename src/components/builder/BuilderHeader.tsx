@@ -69,8 +69,6 @@ export function BuilderHeader(props: {
   onDesignSystemModeChange: (v: boolean) => void;
   designTheme: DesignTheme;
   onDesignThemeChange: (theme: DesignTheme) => void;
-  specMode: boolean;
-  onSpecModeChange: (v: boolean) => void;
 
   enableImageGenerations: boolean;
   onEnableImageGenerationsChange: (v: boolean) => void;
@@ -115,8 +113,6 @@ export function BuilderHeader(props: {
     onDesignSystemModeChange: _onDesignSystemModeChange,
     designTheme,
     onDesignThemeChange,
-    specMode,
-    onSpecModeChange,
     enableImageGenerations,
     onEnableImageGenerationsChange,
     enableThinking,
@@ -297,15 +293,6 @@ export function BuilderHeader(props: {
                 </DropdownMenuRadioItem>
               ))}
             </DropdownMenuRadioGroup>
-            <DropdownMenuSeparator />
-            <DropdownMenuCheckboxItem
-              checked={specMode}
-              onCheckedChange={onSpecModeChange}
-              disabled={isBusy}
-            >
-              <Wand2 className="mr-2 h-4 w-4" />
-              Spec-fil (projektkontext)
-            </DropdownMenuCheckboxItem>
 
             <TooltipProvider>
               <Tooltip>

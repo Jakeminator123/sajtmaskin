@@ -17,6 +17,7 @@ How to update:
 3) Nar naming eller konfiguration andras -> uppdatera "Env/Config" i calls.txt.
 4) Nar v0-systemprompt eller prompt-assist beteende andras -> uppdatera calls.txt.
 5) Nar Custom Instructions-flode andras -> uppdatera calls.txt + builder-noter.
+6) Nar post-generation checks utokas (CSS/unicode) -> uppdatera post-generation-checks.txt.
 
 Terminologi:
 - Platform API (v0-sdk) = kodgenerering + preview (model tiers: v0-mini/pro/max).

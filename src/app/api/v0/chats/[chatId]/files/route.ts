@@ -6,6 +6,7 @@ import { db } from "@/lib/db/client";
 import { versions } from "@/lib/db/schema";
 import { and, eq, or } from "drizzle-orm";
 import { materializeImagesInTextFiles } from "@/lib/imageAssets";
+import { resolveVersionFiles } from "@/lib/v0/resolve-version-files";
 
 const updateFilesSchema = z.object({
   versionId: z.string().min(1, "Version ID is required"),
@@ -43,6 +44,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ chatId: 
     const { searchParams } = new URL(req.url);
     const requestedVersionId = searchParams.get("versionId");
     const shouldMaterialize = searchParams.get("materialize") === "1";
+    const shouldWait = searchParams.get("wait") === "1";
 
     const chat = await v0.chats.getById({ chatId });
 
@@ -52,13 +54,29 @@ export async function GET(req: Request, { params }: { params: Promise<{ chatId: 
       return NextResponse.json({ error: "No version found for this chat" }, { status: 404 });
     }
 
-    const version = await v0.chats.getVersion({
-      chatId,
-      versionId: versionIdToFetch,
-      includeDefaultFiles: true,
-    });
+    const versionResponse = shouldWait
+      ? await resolveVersionFiles({
+          chatId,
+          versionId: versionIdToFetch,
+          options: { maxAttempts: 20, delayMs: 1500, minFiles: 1 },
+        })
+      : {
+          version: await v0.chats.getVersion({
+            chatId,
+            versionId: versionIdToFetch,
+            includeDefaultFiles: true,
+          }),
+          files: [],
+          resolved: true,
+          errorMessage: null,
+          attempts: 1,
+        };
 
-    let files = ((version as any).files || []) as Array<{
+    const version = versionResponse.version;
+
+    let files = (versionResponse.files.length > 0
+      ? versionResponse.files
+      : ((version as any)?.files || [])) as Array<{
       name: string;
       content: string;
       locked?: boolean;
