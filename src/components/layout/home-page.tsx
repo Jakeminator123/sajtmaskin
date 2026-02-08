@@ -61,6 +61,7 @@ import {
 } from "@/lib/builder/build-intent";
 import type { AuditResult } from "@/types/audit";
 import toast from "react-hot-toast";
+import { createProject } from "@/lib/project-client";
 
 // ═══════════════════════════════════════════════════════════════
 // COMPONENT
@@ -156,10 +157,17 @@ export function HomePage() {
     setShowAuditModal(false);
 
     try {
+      // Create app project first (same pattern as category page)
+      const project = await createProject(
+        `Audit - ${new Date().toLocaleDateString("sv-SE")}`,
+        "audit",
+        prompt.substring(0, 100),
+      );
+
       const response = await fetch("/api/prompts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt, source: "audit" }),
+        body: JSON.stringify({ prompt, source: "audit", projectId: project.id }),
       });
       const data = (await response.json().catch(() => null)) as {
         success?: boolean;
@@ -172,6 +180,7 @@ export function HomePage() {
       }
       const intent = resolveBuildIntentForMethod("audit", buildIntent);
       const params = new URLSearchParams();
+      params.set("project", project.id);
       params.set("source", "audit");
       params.set("promptId", data.promptId);
       params.set("buildMethod", "audit");
@@ -185,10 +194,17 @@ export function HomePage() {
 
   const handleBuildFromPrompt = async (prompt: string, method: BuildMethod = "freeform") => {
     try {
+      // Create app project first (same pattern as category page)
+      const project = await createProject(
+        `Nytt projekt - ${new Date().toLocaleDateString("sv-SE")}`,
+        method,
+        prompt.substring(0, 100),
+      );
+
       const response = await fetch("/api/prompts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt, source: method }),
+        body: JSON.stringify({ prompt, source: method, projectId: project.id }),
       });
       const data = (await response.json().catch(() => null)) as {
         success?: boolean;
@@ -201,6 +217,7 @@ export function HomePage() {
       }
       const intent = resolveBuildIntentForMethod(method, buildIntent);
       const params = new URLSearchParams();
+      params.set("project", project.id);
       params.set("promptId", data.promptId);
       params.set("buildMethod", method);
       params.set("buildIntent", intent);

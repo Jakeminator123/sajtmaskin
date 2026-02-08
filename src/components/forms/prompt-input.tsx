@@ -27,6 +27,7 @@ import type { BuildIntent, BuildMethod } from "@/lib/builder/build-intent";
 import { ArrowUp, Loader2, Wand2, Lightbulb } from "lucide-react";
 import { VoiceRecorder } from "@/components/forms/voice-recorder";
 import toast from "react-hot-toast";
+import { createProject } from "@/lib/project-client";
 
 // ═══════════════════════════════════════════════════════════════
 // TYPES
@@ -78,12 +79,19 @@ export function PromptInput({
     }
   }, [prompt]);
 
-  const createPromptForBuilder = async (value: string): Promise<string | null> => {
+  const createPromptForBuilder = async (
+    value: string,
+    projectId?: string,
+  ): Promise<string | null> => {
     try {
       const response = await fetch("/api/prompts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ prompt: value, source: buildMethod || "freeform" }),
+        body: JSON.stringify({
+          prompt: value,
+          source: buildMethod || "freeform",
+          projectId,
+        }),
       });
       const data = (await response.json().catch(() => null)) as {
         success?: boolean;
@@ -103,17 +111,30 @@ export function PromptInput({
   };
 
   const navigateToBuilder = async (value: string) => {
-    const promptId = await createPromptForBuilder(value);
-    if (!promptId) return;
-    const params = new URLSearchParams();
-    params.set("promptId", promptId);
-    if (buildIntent) {
-      params.set("buildIntent", buildIntent);
+    try {
+      // Create app project first (same pattern as category page)
+      const project = await createProject(
+        `Nytt projekt - ${new Date().toLocaleDateString("sv-SE")}`,
+        buildMethod || "freeform",
+        value.substring(0, 100),
+      );
+
+      const promptId = await createPromptForBuilder(value, project.id);
+      if (!promptId) return;
+      const params = new URLSearchParams();
+      params.set("project", project.id);
+      params.set("promptId", promptId);
+      if (buildIntent) {
+        params.set("buildIntent", buildIntent);
+      }
+      if (buildMethod) {
+        params.set("buildMethod", buildMethod);
+      }
+      router.push(`/builder?${params.toString()}`);
+    } catch (error) {
+      console.error("[PromptInput] Failed to create project:", error);
+      toast.error(error instanceof Error ? error.message : "Kunde inte skapa projekt");
     }
-    if (buildMethod) {
-      params.set("buildMethod", buildMethod);
-    }
-    router.push(`/builder?${params.toString()}`);
   };
 
   const handleSubmit = async () => {
