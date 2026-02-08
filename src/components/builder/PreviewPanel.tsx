@@ -1,11 +1,11 @@
 "use client";
 
-import { AlertCircle, ExternalLink, FileText, Loader2, RefreshCw, Wand2 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { AlertCircle, ExternalLink, FileText, Loader2, MousePointer2, RefreshCw, Wand2 } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { CodeBlock, CodeBlockCopyButton } from "@/components/ai-elements/code-block";
 import { buildFileTree } from "@/lib/builder/fileTree";
-import type { FileNode } from "@/lib/builder/types";
+import type { FileNode, InspectorSelection } from "@/lib/builder/types";
 import { FileExplorer } from "@/components/builder/FileExplorer";
 import { cn } from "@/lib/utils";
 
@@ -17,6 +17,8 @@ interface PreviewPanelProps {
   onClear?: () => void;
   onFixPreview?: () => void;
   refreshToken?: number;
+  onInspectorSelection?: (selection: InspectorSelection | null) => void;
+  inspectorClearToken?: number;
 }
 
 type IntegrationItem = {
@@ -42,6 +44,8 @@ export function PreviewPanel({
   onClear,
   onFixPreview,
   refreshToken,
+  onInspectorSelection,
+  inspectorClearToken,
 }: PreviewPanelProps) {
   const [iframeLoading, setIframeLoading] = useState(true);
   const [iframeError, setIframeError] = useState(false);
@@ -52,20 +56,58 @@ export function PreviewPanel({
   const [filesError, setFilesError] = useState<string | null>(null);
   const [integrationStatus, setIntegrationStatus] = useState<IntegrationStatus | null>(null);
   const [integrationError, setIntegrationError] = useState(false);
-  const buildPreviewSrc = useCallback((url: string, token?: number) => {
-    let src = url;
+  const [isInspectorMode, setIsInspectorMode] = useState(false);
+  const iframeRef = useRef<HTMLIFrameElement | null>(null);
+  const buildPreviewSrc = useCallback((url: string, token?: number, inspectorMode?: boolean) => {
+    let src = inspectorMode ? `/api/proxy-preview?url=${encodeURIComponent(url)}` : url;
     if (token) {
       const separator = src.includes("?") ? "&" : "?";
       src = `${src}${separator}t=${token}`;
     }
     return src;
   }, []);
+  const sendInspectorMessage = useCallback((message: { type: string; value?: unknown }) => {
+    const iframe = iframeRef.current;
+    const targetWindow = iframe?.contentWindow;
+    if (!targetWindow) return;
+    targetWindow.postMessage({ __fromParentInspector: true, ...message }, "*");
+  }, []);
+  const clearInspectorSelection = useCallback(() => {
+    sendInspectorMessage({ type: "clear-selection" });
+    onInspectorSelection?.(null);
+  }, [onInspectorSelection, sendInspectorMessage]);
 
   useEffect(() => {
     if (!demoUrl) return;
     setIframeLoading(true);
     setIframeError(false);
-  }, [demoUrl, refreshToken]);
+  }, [demoUrl, refreshToken, isInspectorMode]);
+
+  useEffect(() => {
+    if (!isInspectorMode || !demoUrl) return;
+    const handleMessage = (event: MessageEvent) => {
+      const data = event.data as { __fromInspector?: boolean; type?: string; payload?: unknown } | null;
+      if (!data || data.__fromInspector !== true) return;
+      if (iframeRef.current?.contentWindow && event.source !== iframeRef.current.contentWindow) return;
+      if (data.type !== "select") return;
+      const payload = data.payload as Partial<InspectorSelection> | null;
+      if (!payload || typeof payload.tag !== "string" || typeof payload.selector !== "string") return;
+      onInspectorSelection?.({
+        tag: payload.tag,
+        id: payload.id ?? null,
+        className: payload.className ?? null,
+        text: payload.text ?? null,
+        selector: payload.selector,
+      });
+    };
+    window.addEventListener("message", handleMessage);
+    return () => window.removeEventListener("message", handleMessage);
+  }, [demoUrl, isInspectorMode, onInspectorSelection]);
+
+  useEffect(() => {
+    if (inspectorClearToken === undefined) return;
+    clearInspectorSelection();
+  }, [inspectorClearToken, clearInspectorSelection]);
 
   useEffect(() => {
     if (!demoUrl) return;
@@ -96,6 +138,14 @@ export function PreviewPanel({
   }, [demoUrl]);
 
   const canShowCode = Boolean(chatId && versionId);
+  const canUseInspector = Boolean(demoUrl) && !showCode;
+
+  useEffect(() => {
+    if (!isInspectorMode) return;
+    if (canUseInspector) return;
+    setIsInspectorMode(false);
+    clearInspectorSelection();
+  }, [isInspectorMode, canUseInspector, clearInspectorSelection]);
 
   const selectedFile = useMemo(() => {
     if (!selectedPath) return null;
@@ -227,11 +277,11 @@ export function PreviewPanel({
   const handleRefresh = () => {
     setIframeLoading(true);
     setIframeError(false);
-    const iframe = document.getElementById("preview-iframe") as HTMLIFrameElement | null;
+    const iframe = iframeRef.current;
     if (iframe) {
       const base = demoUrl || iframe.src;
       if (!base) return;
-      iframe.src = buildPreviewSrc(base, Date.now());
+      iframe.src = buildPreviewSrc(base, Date.now(), isInspectorMode);
     }
   };
 
@@ -278,7 +328,7 @@ export function PreviewPanel({
   }
 
   const isLoading = externalLoading || iframeLoading;
-  const previewSrc = demoUrl ? buildPreviewSrc(demoUrl, refreshToken) : "";
+  const previewSrc = demoUrl ? buildPreviewSrc(demoUrl, refreshToken, isInspectorMode) : "";
   const isV0Preview = Boolean(demoUrl && demoUrl.includes("vusercontent.net"));
   const showBlobWarning = Boolean(demoUrl && blobStatus && !blobStatus.enabled);
   const showExternalWarning = Boolean(demoUrl && isV0Preview);
@@ -288,6 +338,31 @@ export function PreviewPanel({
       <div className="flex items-center justify-between border-b border-gray-800 px-4 py-2">
         <h3 className="font-semibold tracking-tight text-white">Preview</h3>
         <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              if (!canUseInspector) return;
+              setIsInspectorMode((prev) => {
+                const next = !prev;
+                if (prev && !next) {
+                  clearInspectorSelection();
+                }
+                return next;
+              });
+            }}
+            disabled={!canUseInspector}
+            title={canUseInspector ? "Inspektionsläge" : "Ingen preview att inspektera"}
+            aria-label="Inspektionsläge"
+            aria-pressed={isInspectorMode}
+            className={cn(
+              "text-gray-400 hover:text-white",
+              isInspectorMode && "bg-gray-800 text-white hover:text-white",
+            )}
+          >
+            <MousePointer2 className="mr-1 h-4 w-4" />
+            Inspektionsläge
+          </Button>
           <Button
             variant="ghost"
             size="sm"
@@ -320,6 +395,7 @@ export function PreviewPanel({
             onClick={handleRefresh}
             disabled={isLoading}
             title="Uppdatera preview"
+            aria-label="Uppdatera preview"
             className="text-gray-400 hover:text-white"
           >
             <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
@@ -419,6 +495,7 @@ export function PreviewPanel({
 
           <iframe
             id="preview-iframe"
+            ref={iframeRef}
             src={previewSrc}
             className="h-full w-full border-0"
             onLoad={handleIframeLoad}

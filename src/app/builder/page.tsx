@@ -21,7 +21,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { clearPersistedMessages } from "@/lib/builder/messagesStorage";
-import type { ChatMessage } from "@/lib/builder/types";
+import type { ChatMessage, InspectorSelection } from "@/lib/builder/types";
 import { buildPromptAssistContext, briefToSpec, promptToSpec } from "@/lib/builder/promptAssistContext";
 import { getThemeColors, normalizeDesignTheme } from "@/lib/builder/theme-presets";
 import {
@@ -170,6 +170,8 @@ function BuilderContent() {
   // Raw page code for section analysis in component picker
   const [currentPageCode, setCurrentPageCode] = useState<string | undefined>(undefined);
   const [existingUiComponents, setExistingUiComponents] = useState<string[]>([]);
+  const [inspectorSelection, setInspectorSelection] = useState<InspectorSelection | null>(null);
+  const [inspectorClearToken, setInspectorClearToken] = useState(0);
   const lastActiveVersionIdRef = useRef<string | null>(null);
   const promptFetchInFlightRef = useRef<string | null>(null);
   const promptFetchDoneRef = useRef<string | null>(null);
@@ -973,6 +975,11 @@ function BuilderContent() {
   }, [activeVersionId, chat, currentDemoUrl, effectiveVersionsList]);
 
   useEffect(() => {
+    setInspectorSelection(null);
+    setInspectorClearToken(Date.now());
+  }, [chatId, currentDemoUrl]);
+
+  useEffect(() => {
     const contextKey = chatId && activeVersionId ? `${chatId}:${activeVersionId}` : null;
     if (!contextKey) {
       promptAssistContextKeyRef.current = null;
@@ -1683,6 +1690,11 @@ function BuilderContent() {
     setCurrentDemoUrl(null);
   }, []);
 
+  const clearInspectorSelection = useCallback(() => {
+    setInspectorSelection(null);
+    setInspectorClearToken(Date.now());
+  }, []);
+
   const handleFixPreview = useCallback(async () => {
     if (!chatId) {
       toast.error("Ingen chat att reparera ännu.");
@@ -1775,7 +1787,7 @@ function BuilderContent() {
 
   return (
     <ErrorBoundary>
-      <div className="bg-muted/30 flex h-screen w-screen flex-col overflow-hidden">
+      <main className="bg-muted/30 flex h-screen w-screen flex-col overflow-hidden">
         <Toaster position="top-right" />
 
         <BuilderHeader
@@ -1851,6 +1863,8 @@ function BuilderContent() {
               mediaEnabled={mediaEnabled}
               currentCode={currentPageCode}
               existingUiComponents={existingUiComponents}
+              inspectorSelection={inspectorSelection}
+              onInspectorSelectionClear={clearInspectorSelection}
             />
             {/* ── Publicera-dialog ── */}
             <Dialog open={deployNameDialogOpen}>
@@ -2002,6 +2016,8 @@ function BuilderContent() {
                 onClear={handleClearPreview}
                 onFixPreview={handleFixPreview}
                 refreshToken={previewRefreshToken}
+                onInspectorSelection={setInspectorSelection}
+                inspectorClearToken={inspectorClearToken}
               />
             </div>
             <div
@@ -2196,7 +2212,7 @@ function BuilderContent() {
           </div>
         )}
         </AnimatePresence>
-      </div>
+      </main>
     </ErrorBoundary>
   );
 }

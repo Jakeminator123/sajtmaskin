@@ -40,17 +40,22 @@ import {
   getComponentsByCategory,
   searchBlocks,
   fetchRegistryItem,
+  fetchRegistryItemWithOptions,
   buildRegistryItemUrl,
   buildPreviewImageUrl,
   FEATURED_BLOCKS,
 } from "@/lib/shadcn-registry-service";
-import { getRegistryStyle } from "@/lib/v0/v0-url-parser";
+import { getRegistryBaseUrl, getRegistryStyle, resolveRegistryStyle } from "@/lib/v0/v0-url-parser";
 import {
   analyzeSections,
   generatePlacementOptions,
   type DetectedSection,
 } from "@/lib/builder/sectionAnalyzer";
-import { buildRegistryMarkdownPreview, buildShadcnPreviewUrl } from "@/lib/shadcn-registry-utils";
+import {
+  buildRegistryMarkdownPreview,
+  buildShadcnDocsUrl,
+  buildShadcnPreviewUrl,
+} from "@/lib/shadcn-registry-utils";
 
 // ============================================
 // TYPES (exported for ChatInterface)
@@ -139,7 +144,20 @@ interface ShadcnBlockPickerProps {
   currentCode?: string;
 }
 
-const DEFAULT_STYLE = getRegistryStyle();
+const REGISTRY_BASE_URL = getRegistryBaseUrl();
+const RAW_REGISTRY_STYLE = getRegistryStyle();
+const DEFAULT_STYLE = resolveRegistryStyle(RAW_REGISTRY_STYLE, REGISTRY_BASE_URL);
+const REGISTRY_LABEL = (() => {
+  try {
+    return new URL(REGISTRY_BASE_URL).host;
+  } catch {
+    return REGISTRY_BASE_URL;
+  }
+})();
+const REGISTRY_STYLE_LABEL =
+  RAW_REGISTRY_STYLE && RAW_REGISTRY_STYLE !== DEFAULT_STYLE
+    ? `${DEFAULT_STYLE} (från ${RAW_REGISTRY_STYLE})`
+    : DEFAULT_STYLE;
 
 export function ShadcnBlockPicker({
   open,
@@ -158,12 +176,17 @@ export function ShadcnBlockPicker({
   const [dependencyItems, setDependencyItems] = useState<ShadcnRegistryItem[]>([]);
   const [isLoadingCategories, setIsLoadingCategories] = useState(true);
   const [isLoadingItem, setIsLoadingItem] = useState(false);
+  const [itemError, setItemError] = useState<string | null>(null);
+  const [legacyItemAvailable, setLegacyItemAvailable] = useState<boolean | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pendingAction, setPendingAction] = useState<ShadcnBlockAction | null>(null);
   const [placement, setPlacement] = useState<PlacementOption>("bottom");
   const [activeTab, setActiveTab] = useState<"popular" | "all">("popular");
   const [itemType, setItemType] = useState<"block" | "component">("block");
   const [showCodePreview, setShowCodePreview] = useState(false);
+  const [lightPreviewFailed, setLightPreviewFailed] = useState(false);
+  const [darkPreviewFailed, setDarkPreviewFailed] = useState(false);
+  const [failedThumbnails, setFailedThumbnails] = useState<Set<string>>(new Set());
   const [activeCategory, setActiveCategory] = useState<string>("all");
   const [reloadKey, setReloadKey] = useState(0);
 
@@ -246,6 +269,15 @@ export function ShadcnBlockPicker({
 
   const itemLabel = itemType === "block" ? "block" : "komponent";
   const itemLabelPlural = itemType === "block" ? "block" : "komponenter";
+  const selectedPreviewLink = useMemo(() => {
+    if (!selectedItem) return null;
+    if (selectedItem.type === "block") {
+      return buildShadcnPreviewUrl(selectedItem.name, DEFAULT_STYLE);
+    }
+    return buildShadcnDocsUrl(selectedItem.name);
+  }, [selectedItem]);
+  const selectedPreviewLabel = selectedItem?.type === "block" ? "Preview" : "Docs";
+  const showPreviewImages = selectedItem?.type === "block";
 
   // Load categories on mount
   useEffect(() => {
@@ -259,8 +291,9 @@ export function ShadcnBlockPicker({
     setActiveCategory("all");
 
     const loader = itemType === "component" ? getComponentsByCategory : getBlocksByCategory;
+    const forceReload = reloadKey > 0;
 
-    loader(DEFAULT_STYLE)
+    loader(DEFAULT_STYLE, { force: forceReload })
       .then((data) => {
         if (!isActive) return;
         setCategories(data);
@@ -301,10 +334,17 @@ export function ShadcnBlockPicker({
     setIsLoadingItem(true);
     setRegistryItem(null);
     setDependencyItems([]);
+    setItemError(null);
+    setLegacyItemAvailable(null);
+    const forceReload = reloadKey > 0;
 
     const loadRegistryDetails = async () => {
       try {
-        const data = await fetchRegistryItem(selectedItem.name, DEFAULT_STYLE);
+        const data = forceReload
+          ? await fetchRegistryItemWithOptions(selectedItem.name, DEFAULT_STYLE, {
+              force: true,
+            })
+          : await fetchRegistryItem(selectedItem.name, DEFAULT_STYLE);
         if (!isActive) return;
         setRegistryItem(data);
 
@@ -322,8 +362,22 @@ export function ShadcnBlockPicker({
           if (!isActive) return;
           setDependencyItems(dependencies.filter(Boolean) as ShadcnRegistryItem[]);
         }
-      } catch {
-        // Silent fail - we can still use the item without full data
+      } catch (err) {
+        if (!isActive) return;
+        const message =
+          err instanceof Error ? err.message : "Kunde inte ladda registry-item";
+        setItemError(message);
+        try {
+          await fetchRegistryItemWithOptions(selectedItem.name, undefined, {
+            force: forceReload,
+            source: "legacy",
+          });
+          if (!isActive) return;
+          setLegacyItemAvailable(true);
+        } catch {
+          if (!isActive) return;
+          setLegacyItemAvailable(false);
+        }
       } finally {
         if (isActive) setIsLoadingItem(false);
       }
@@ -334,11 +388,21 @@ export function ShadcnBlockPicker({
     return () => {
       isActive = false;
     };
-  }, [open, selectedItem]);
+  }, [open, selectedItem, reloadKey]);
 
   useEffect(() => {
     setShowCodePreview(false);
   }, [selectedItem?.name]);
+
+  useEffect(() => {
+    setLightPreviewFailed(false);
+    setDarkPreviewFailed(false);
+    setLegacyItemAvailable(null);
+  }, [selectedItem?.name, reloadKey]);
+
+  useEffect(() => {
+    setFailedThumbnails(new Set());
+  }, [open, itemType, reloadKey]);
 
   useEffect(() => {
     if (itemType === "component" && activeTab === "popular") {
@@ -360,7 +424,8 @@ export function ShadcnBlockPicker({
   }, [activeCategory, sourceCategories]);
 
   // Can user take action?
-  const canAct = Boolean(selectedItem) && !isBusy && !isSubmitting && !isLoadingItem;
+  const canAct =
+    Boolean(selectedItem) && !isBusy && !isSubmitting && !isLoadingItem && !itemError;
 
   const handleReload = useCallback(() => {
     setReloadKey((prev) => prev + 1);
@@ -437,12 +502,16 @@ export function ShadcnBlockPicker({
                         ? "Katalogen kunde inte laddas."
                         : `${sourceItemCount} ${itemLabelPlural} tillgängliga`}
                   </DialogDescription>
+                  <div className="mt-1 text-[11px] text-muted-foreground/70">
+                    Källa: {REGISTRY_LABEL} • style: {REGISTRY_STYLE_LABEL}
+                  </div>
                 </div>
               </div>
               <Button
                 variant="ghost"
                 size="icon"
                 onClick={onClose}
+                aria-label="Stäng"
                 className="h-8 w-8 rounded-lg text-muted-foreground hover:text-foreground"
               >
                 <X className="h-4 w-4" />
@@ -607,6 +676,12 @@ export function ShadcnBlockPicker({
                       <div className="grid grid-cols-1 gap-1.5">
                         {category.items.map((item) => {
                           const isSelected = selectedItem?.name === item.name;
+                          const showThumbnail = item.type === "block";
+                          const thumbnailUrl = showThumbnail
+                            ? item.lightImageUrl || buildPreviewImageUrl(item.name, "light", DEFAULT_STYLE)
+                            : null;
+                          const thumbnailFailed =
+                            showThumbnail && thumbnailUrl ? failedThumbnails.has(item.name) : false;
                           return (
                             <button
                               key={item.name}
@@ -620,19 +695,27 @@ export function ShadcnBlockPicker({
                             >
                               <div className="flex items-center gap-3">
                                 <div className="relative h-14 w-20 shrink-0 overflow-hidden rounded-lg border border-border/50 bg-white">
-                                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                                  <img
-                                    src={
-                                      item.lightImageUrl ||
-                                      buildPreviewImageUrl(item.name, "light", DEFAULT_STYLE)
-                                    }
-                                    alt={`${item.title}`}
-                                    className="h-full w-full object-cover object-top"
-                                    loading="lazy"
-                                    onError={(event) => {
-                                      event.currentTarget.style.display = "none";
-                                    }}
-                                  />
+                                  {thumbnailUrl && !thumbnailFailed ? (
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    <img
+                                      src={thumbnailUrl}
+                                      alt={`${item.title}`}
+                                      className="h-full w-full object-cover object-top"
+                                      loading="lazy"
+                                      onError={() => {
+                                        setFailedThumbnails((prev) => {
+                                          if (prev.has(item.name)) return prev;
+                                          const next = new Set(prev);
+                                          next.add(item.name);
+                                          return next;
+                                        });
+                                      }}
+                                    />
+                                  ) : (
+                                    <div className="flex h-full w-full items-center justify-center bg-muted/40 text-[10px] text-muted-foreground">
+                                      Ingen preview
+                                    </div>
+                                  )}
                                 </div>
                                 <div className="min-w-0 flex-1">
                                   <div className="flex items-center gap-2">
@@ -688,21 +771,19 @@ export function ShadcnBlockPicker({
                     )}
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() =>
-                        window.open(
-                          buildShadcnPreviewUrl(selectedItem.name, DEFAULT_STYLE),
-                          "_blank",
-                          "noopener,noreferrer",
-                        )
-                      }
-                      className="h-7 gap-1.5 text-[11px]"
-                    >
-                      <ExternalLink className="h-3 w-3" />
-                      Preview
-                    </Button>
+                    {selectedPreviewLink && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() =>
+                          window.open(selectedPreviewLink, "_blank", "noopener,noreferrer")
+                        }
+                        className="h-7 gap-1.5 text-[11px]"
+                      >
+                        <ExternalLink className="h-3 w-3" />
+                        {selectedPreviewLabel}
+                      </Button>
+                    )}
                     <Button
                       variant="outline"
                       size="sm"
@@ -723,45 +804,91 @@ export function ShadcnBlockPicker({
                     </div>
                   ) : (
                     <>
-                      <div className="grid gap-4 md:grid-cols-2">
-                        {/* Light preview */}
-                        <div className="overflow-hidden rounded-xl border border-border/50 bg-white shadow-sm">
-                          <div className="flex items-center gap-1.5 border-b border-gray-100 bg-gray-50/80 px-3 py-1.5">
-                            <div className="h-2 w-2 rounded-full bg-gray-300" />
-                            <div className="h-2 w-2 rounded-full bg-gray-300" />
-                            <div className="h-2 w-2 rounded-full bg-gray-300" />
-                            <span className="ml-2 text-[10px] font-medium text-gray-400">
-                              Ljust tema
-                            </span>
+                      {itemError && (
+                        <div className="mb-4 rounded-xl border border-amber-500/20 bg-amber-500/10 p-3 text-xs text-amber-100/80">
+                          <div className="font-medium text-amber-200">
+                            Registry-item saknas eller är inkompatibel
                           </div>
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={buildPreviewImageUrl(selectedItem.name, "light", DEFAULT_STYLE)}
-                            alt={`${selectedItem.title} – ljust`}
-                            className="w-full"
-                            loading="lazy"
-                          />
+                          <div className="mt-1 text-amber-100/70">{itemError}</div>
+                          {legacyItemAvailable === true && (
+                            <div className="mt-2 text-amber-100/70">
+                              Finns i legacy-registret (v3). Det kan saknas v4-styling.
+                            </div>
+                          )}
+                          {legacyItemAvailable === false && (
+                            <div className="mt-2 text-amber-100/60">
+                              Hittas inte i legacy-registret heller.
+                            </div>
+                          )}
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={handleReload}
+                            className="mt-2 h-7"
+                          >
+                            Uppdatera katalogen
+                          </Button>
                         </div>
+                      )}
+                      {showPreviewImages ? (
+                        <div className="grid gap-4 md:grid-cols-2">
+                          {/* Light preview */}
+                          <div className="overflow-hidden rounded-xl border border-border/50 bg-white shadow-sm">
+                            <div className="flex items-center gap-1.5 border-b border-gray-100 bg-gray-50/80 px-3 py-1.5">
+                              <div className="h-2 w-2 rounded-full bg-gray-300" />
+                              <div className="h-2 w-2 rounded-full bg-gray-300" />
+                              <div className="h-2 w-2 rounded-full bg-gray-300" />
+                              <span className="ml-2 text-[10px] font-medium text-gray-400">
+                                Ljust tema
+                              </span>
+                            </div>
+                            {lightPreviewFailed ? (
+                              <div className="flex h-36 items-center justify-center text-xs text-muted-foreground">
+                                Ingen preview tillgänglig
+                              </div>
+                            ) : (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={buildPreviewImageUrl(selectedItem.name, "light", DEFAULT_STYLE)}
+                                alt={`${selectedItem.title} – ljust`}
+                                className="w-full"
+                                loading="lazy"
+                                onError={() => setLightPreviewFailed(true)}
+                              />
+                            )}
+                          </div>
 
-                        {/* Dark preview */}
-                        <div className="overflow-hidden rounded-xl border border-border/50 bg-gray-950 shadow-sm">
-                          <div className="flex items-center gap-1.5 border-b border-gray-800 bg-gray-900/80 px-3 py-1.5">
-                            <div className="h-2 w-2 rounded-full bg-gray-600" />
-                            <div className="h-2 w-2 rounded-full bg-gray-600" />
-                            <div className="h-2 w-2 rounded-full bg-gray-600" />
-                            <span className="ml-2 text-[10px] font-medium text-gray-500">
-                              Mörkt tema
-                            </span>
+                          {/* Dark preview */}
+                          <div className="overflow-hidden rounded-xl border border-border/50 bg-gray-950 shadow-sm">
+                            <div className="flex items-center gap-1.5 border-b border-gray-800 bg-gray-900/80 px-3 py-1.5">
+                              <div className="h-2 w-2 rounded-full bg-gray-600" />
+                              <div className="h-2 w-2 rounded-full bg-gray-600" />
+                              <div className="h-2 w-2 rounded-full bg-gray-600" />
+                              <span className="ml-2 text-[10px] font-medium text-gray-500">
+                                Mörkt tema
+                              </span>
+                            </div>
+                            {darkPreviewFailed ? (
+                              <div className="flex h-36 items-center justify-center text-xs text-muted-foreground">
+                                Ingen preview tillgänglig
+                              </div>
+                            ) : (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img
+                                src={buildPreviewImageUrl(selectedItem.name, "dark", DEFAULT_STYLE)}
+                                alt={`${selectedItem.title} – mörkt`}
+                                className="w-full"
+                                loading="lazy"
+                                onError={() => setDarkPreviewFailed(true)}
+                              />
+                            )}
                           </div>
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img
-                            src={buildPreviewImageUrl(selectedItem.name, "dark", DEFAULT_STYLE)}
-                            alt={`${selectedItem.title} – mörkt`}
-                            className="w-full"
-                            loading="lazy"
-                          />
                         </div>
-                      </div>
+                      ) : (
+                        <div className="rounded-xl border border-border/50 bg-muted/20 p-5 text-sm text-muted-foreground">
+                          Ingen preview för komponenter. Öppna docs för exempel och kod.
+                        </div>
+                      )}
 
                       {showCodePreview && registryItem && (
                         <div className="mt-5 overflow-hidden rounded-xl border border-border/50 bg-card">

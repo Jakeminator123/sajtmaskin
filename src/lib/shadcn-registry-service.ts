@@ -13,8 +13,7 @@
  */
 
 import type { ShadcnRegistryItem } from "@/lib/shadcn-registry-types";
-import { resolveShadcnPreviewStyle } from "@/lib/shadcn-registry-utils";
-import { getRegistryBaseUrl, getRegistryStyle } from "@/lib/v0/v0-url-parser";
+import { getRegistryBaseUrl, resolveRegistryStyle } from "@/lib/v0/v0-url-parser";
 
 // ============================================
 // TYPES
@@ -127,27 +126,38 @@ async function parseRegistryError(response: Response): Promise<string> {
 
 export function buildRegistryIndexUrl(style?: string): string {
   const baseUrl = getRegistryBaseUrl();
-  const resolvedStyle = style?.trim() || getRegistryStyle();
+  const resolvedStyle = resolveRegistryStyle(style, baseUrl);
   return `${baseUrl}/r/styles/${resolvedStyle}/registry.json`;
 }
 
 export function buildRegistryItemUrl(name: string, style?: string): string {
   const baseUrl = getRegistryBaseUrl();
-  const resolvedStyle = style?.trim() || getRegistryStyle();
+  const resolvedStyle = resolveRegistryStyle(style, baseUrl);
   return `${baseUrl}/r/styles/${resolvedStyle}/${name}.json`;
 }
 
-function buildRegistryProxyIndexUrl(style?: string): string {
+function buildRegistryProxyIndexUrl(
+  style?: string,
+  options: { force?: boolean; source?: string } = {},
+): string {
   const params = new URLSearchParams();
   if (style?.trim()) params.set("style", style.trim());
+  if (options.force) params.set("force", "1");
+  if (options.source) params.set("source", options.source);
   const query = params.toString();
   return `/api/shadcn/registry/index${query ? `?${query}` : ""}`;
 }
 
-function buildRegistryProxyItemUrl(name: string, style?: string): string {
+function buildRegistryProxyItemUrl(
+  name: string,
+  style?: string,
+  options: { force?: boolean; source?: string } = {},
+): string {
   const params = new URLSearchParams();
   params.set("name", name);
   if (style?.trim()) params.set("style", style.trim());
+  if (options.force) params.set("force", "1");
+  if (options.source) params.set("source", options.source);
   return `/api/shadcn/registry/item?${params.toString()}`;
 }
 
@@ -157,7 +167,7 @@ export function buildPreviewImageUrl(
   style?: string,
 ): string {
   const baseUrl = getRegistryBaseUrl();
-  const resolvedStyle = resolveShadcnPreviewStyle(style?.trim() || getRegistryStyle());
+  const resolvedStyle = resolveRegistryStyle(style, baseUrl);
   return `${baseUrl}/r/styles/${resolvedStyle}/${name}-${theme}.png`;
 }
 
@@ -169,6 +179,7 @@ export function buildPreviewImageUrl(
  * Fetch the registry index containing all available items
  */
 export async function fetchRegistryIndex(style?: string): Promise<RegistryIndex> {
+  const force = false;
   const cacheKey = `index:${style || "default"}`;
   const cached = getCached<RegistryIndex>(cacheKey);
   if (cached) return cached;
@@ -176,8 +187,37 @@ export async function fetchRegistryIndex(style?: string): Promise<RegistryIndex>
   const url =
     typeof window === "undefined"
       ? buildRegistryIndexUrl(style)
-      : buildRegistryProxyIndexUrl(style);
+      : buildRegistryProxyIndexUrl(style, { force });
   const response = await fetch(url);
+
+  if (!response.ok) {
+    const details = await parseRegistryError(response);
+    const suffix = details ? ` - ${details}` : "";
+    throw new Error(`Kunde inte hämta registry-index (HTTP ${response.status})${suffix}`);
+  }
+
+  const data = (await response.json()) as RegistryIndex;
+  if (!data || !Array.isArray(data.items)) {
+    throw new Error("Registry response saknar giltiga items");
+  }
+  setCache(cacheKey, data);
+  return data;
+}
+
+export async function fetchRegistryIndexWithOptions(
+  style?: string,
+  options: { force?: boolean; source?: string } = {},
+): Promise<RegistryIndex> {
+  const force = Boolean(options.force);
+  const cacheKey = `index:${style || "default"}`;
+  const cached = getCached<RegistryIndex>(cacheKey);
+  if (cached && !force) return cached;
+
+  const url =
+    typeof window === "undefined"
+      ? buildRegistryIndexUrl(style)
+      : buildRegistryProxyIndexUrl(style, { force, source: options.source });
+  const response = await fetch(url, force ? { cache: "no-store" } : undefined);
 
   if (!response.ok) {
     const details = await parseRegistryError(response);
@@ -229,6 +269,33 @@ export async function fetchRegistryItem(name: string, style?: string): Promise<S
   return data;
 }
 
+export async function fetchRegistryItemWithOptions(
+  name: string,
+  style?: string,
+  options: { force?: boolean; source?: string } = {},
+): Promise<ShadcnRegistryItem> {
+  const force = Boolean(options.force);
+  const cacheKey = `item:${name}:${style || "default"}`;
+  const cached = getCached<ShadcnRegistryItem>(cacheKey);
+  if (cached && !force) return cached;
+
+  const url =
+    typeof window === "undefined"
+      ? buildRegistryItemUrl(name, style)
+      : buildRegistryProxyItemUrl(name, style, { force, source: options.source });
+  const response = await fetch(url, force ? { cache: "no-store" } : undefined);
+
+  if (!response.ok) {
+    const details = await parseRegistryError(response);
+    const suffix = details ? ` - ${details}` : "";
+    throw new Error(`Kunde inte hämta registry-item "${name}" (HTTP ${response.status})${suffix}`);
+  }
+
+  const data = (await response.json()) as ShadcnRegistryItem;
+  setCache(cacheKey, data);
+  return data;
+}
+
 // ============================================
 // BLOCK/COMPONENT HELPERS
 // ============================================
@@ -267,8 +334,11 @@ function isRegistryItemKind(item: RegistryIndexItem, kind: RegistryItemKind) {
 export async function getRegistryItemsByCategory(
   style?: string,
   kind: RegistryItemKind = "block",
+  options: { force?: boolean } = {},
 ): Promise<ComponentCategory[]> {
-  const index = await fetchRegistryIndex(style);
+  const index = options.force
+    ? await fetchRegistryIndexWithOptions(style, options)
+    : await fetchRegistryIndex(style);
 
   // Filter by type
   const filteredItems = index.items.filter(
@@ -288,8 +358,8 @@ export async function getRegistryItemsByCategory(
       description: item.description || "",
       category: categoryId,
       type: kind,
-      lightImageUrl: buildPreviewImageUrl(item.name, "light", style),
-      darkImageUrl: buildPreviewImageUrl(item.name, "dark", style),
+      lightImageUrl: kind === "block" ? buildPreviewImageUrl(item.name, "light", style) : undefined,
+      darkImageUrl: kind === "block" ? buildPreviewImageUrl(item.name, "dark", style) : undefined,
     };
 
     const existing = categoryMap.get(categoryId) || [];
@@ -322,15 +392,21 @@ export async function getRegistryItemsByCategory(
 /**
  * Get all blocks organized by category (for the component picker)
  */
-export async function getBlocksByCategory(style?: string): Promise<ComponentCategory[]> {
-  return getRegistryItemsByCategory(style, "block");
+export async function getBlocksByCategory(
+  style?: string,
+  options: { force?: boolean } = {},
+): Promise<ComponentCategory[]> {
+  return getRegistryItemsByCategory(style, "block", options);
 }
 
 /**
  * Get all components organized by category (for the component picker)
  */
-export async function getComponentsByCategory(style?: string): Promise<ComponentCategory[]> {
-  return getRegistryItemsByCategory(style, "component");
+export async function getComponentsByCategory(
+  style?: string,
+  options: { force?: boolean } = {},
+): Promise<ComponentCategory[]> {
+  return getRegistryItemsByCategory(style, "component", options);
 }
 
 /**

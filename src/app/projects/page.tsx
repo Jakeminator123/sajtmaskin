@@ -164,7 +164,7 @@ export default function ProjectsPage() {
                   className="group overflow-hidden border border-gray-800 bg-black/50 transition-all hover:border-gray-700"
                 >
                   {/* Thumbnail */}
-                  <div className="relative aspect-video bg-gradient-to-br from-gray-900 to-black">
+                  <div className="relative aspect-video bg-linear-to-br from-gray-900 to-black">
                     {project.thumbnail_path &&
                     (project.thumbnail_path.startsWith("http") ||
                       project.thumbnail_path.startsWith("/")) &&
@@ -212,6 +212,7 @@ export default function ProjectsPage() {
                         size="icon"
                         className="h-8 w-8 text-gray-500 hover:bg-red-500/10 hover:text-red-400"
                         onClick={() => openDeleteDialog(project.id, project.name)}
+                        aria-label={`Ta bort projektet ${project.name}`}
                       >
                         <Trash2 className="h-4 w-4" />
                       </Button>

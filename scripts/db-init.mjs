@@ -314,6 +314,17 @@ const schemaQueries = [
   `CREATE INDEX IF NOT EXISTS idx_page_views_path ON page_views(path)`,
   `CREATE UNIQUE INDEX IF NOT EXISTS template_cache_template_user_idx ON template_cache(template_id, user_id)`,
   `CREATE INDEX IF NOT EXISTS idx_kostnadsfri_pages_slug ON kostnadsfri_pages(slug)`,
+  // Registry cache for shadcn/ui block picker
+  `CREATE TABLE IF NOT EXISTS registry_cache (
+    base_url TEXT NOT NULL,
+    style TEXT NOT NULL,
+    source TEXT NOT NULL,
+    index_json JSONB NOT NULL,
+    item_status JSONB,
+    fetched_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+    updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
+  )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS registry_cache_source_style_idx ON registry_cache(base_url, style, source)`,
 ];
 
 const cascadeQueries = [

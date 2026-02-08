@@ -330,7 +330,7 @@ export function HomePage() {
               <div className="flex h-7 w-7 items-center justify-center rounded-full bg-white/8 text-[11px] font-semibold tracking-wide text-white/70">
                 {firstName[0]?.toUpperCase()}
               </div>
-              <span className="text-[13px] text-white/45">
+              <span className="text-[13px] text-white/60">
                 Välkommen, <span className="font-medium text-white/80">{firstName}</span>
               </span>
               <div className="h-3.5 w-px bg-white/8" />
@@ -356,7 +356,7 @@ export function HomePage() {
             </span>
           </h1>
         </div>
-        <p className="animate-fadeInUp mb-12 flex items-center justify-center gap-2 text-[15px] leading-relaxed text-white/30" style={{ animationDelay: "0.25s" }}>
+        <p className="animate-fadeInUp mb-12 flex items-center justify-center gap-2 text-[15px] leading-relaxed text-white/70" style={{ animationDelay: "0.25s" }}>
           {isInitialized && isAuthenticated
             ? "Dina projekt och analyser sparas automatiskt i ditt konto."
             : "Skapa professionella webbplatser på minuter med hjälp av AI."}
@@ -370,12 +370,12 @@ export function HomePage() {
               <span className="text-[12px] font-medium text-brand-teal/70">✓ Din information sparad</span>
               <button
                 onClick={resetOnboarding}
-                className="text-[12px] text-white/25 transition-colors hover:text-white/50"
+                className="text-[12px] text-white/60 transition-colors hover:text-white/80"
               >
                 Ändra
               </button>
             </div>
-            <p className="line-clamp-3 text-[13px] whitespace-pre-line text-white/35">
+            <p className="line-clamp-3 text-[13px] whitespace-pre-line text-white/70">
               {initialContext}
             </p>
           </div>
@@ -384,7 +384,7 @@ export function HomePage() {
         {/* Build intent selector */}
         <div className="animate-fadeInUp mb-10 flex flex-col items-center gap-3" style={{ animationDelay: "0.3s" }}>
           <div className="flex items-center gap-2">
-            <span className="text-[11px] font-medium tracking-[0.15em] text-white/20 uppercase">Mål</span>
+            <span className="text-[11px] font-medium tracking-[0.15em] text-white/60 uppercase">Mål</span>
             <HelpTooltip
               text="Mall = snabb start med liten scope. Webbplats = marknads-/infosida. App = mer logik, flöden och data."
               className="bg-black"
@@ -398,7 +398,7 @@ export function HomePage() {
                 className={`rounded-full px-5 py-2 text-[13px] font-medium transition-all duration-300 ${
                   buildIntent === option.value
                     ? "bg-white/10 text-white shadow-sm"
-                    : "text-white/35 hover:text-white/55"
+                    : "text-white/70 hover:text-white/90"
                 }`}
               >
                 {option.label}
@@ -406,7 +406,7 @@ export function HomePage() {
             ))}
           </div>
           {selectedIntent?.description ? (
-            <p className="mt-1 text-center text-[12px] text-white/20">{selectedIntent.description}</p>
+            <p className="mt-1 text-center text-[12px] text-white/60">{selectedIntent.description}</p>
           ) : null}
         </div>
 
@@ -429,7 +429,7 @@ export function HomePage() {
                 <Wand2 className="h-5 w-5 text-brand-blue" />
               </div>
               <span className="text-[14px] font-semibold text-white">Analyserad</span>
-              <span className="mt-1.5 text-center text-[12px] text-white/30">AI ställer frågor</span>
+              <span className="mt-1.5 text-center text-[12px] text-white/70">AI ställer frågor</span>
             </button>
 
             {/* Category Option */}
@@ -448,7 +448,7 @@ export function HomePage() {
                 <FolderOpen className="h-5 w-5 text-brand-teal" />
               </div>
               <span className="text-[14px] font-semibold text-white">Kategori</span>
-              <span className="mt-1.5 text-center text-[12px] text-white/30">Välj typ av sida</span>
+              <span className="mt-1.5 text-center text-[12px] text-white/70">Välj typ av sida</span>
               {activeBuildMethod === "category" ? (
                 <ChevronUp className="text-brand-teal absolute -bottom-0.5 h-4 w-4" />
               ) : (
@@ -472,7 +472,7 @@ export function HomePage() {
                 <Search className="h-5 w-5 text-brand-amber" />
               </div>
               <span className="text-[14px] font-semibold text-white">Audit</span>
-              <span className="mt-1.5 text-center text-[12px] text-white/30">Analysera befintlig sida</span>
+              <span className="mt-1.5 text-center text-[12px] text-white/70">Analysera befintlig sida</span>
               {activeBuildMethod === "audit" ? (
                 <ChevronUp className="text-brand-amber absolute -bottom-0.5 h-4 w-4" />
               ) : (
@@ -496,7 +496,7 @@ export function HomePage() {
                 <Pencil className="h-5 w-5 text-brand-warm" />
               </div>
               <span className="text-[14px] font-semibold text-white">Fritext</span>
-              <span className="mt-1.5 text-center text-[12px] text-white/30">Beskriv din vision</span>
+              <span className="mt-1.5 text-center text-[12px] text-white/70">Beskriv din vision</span>
               {activeBuildMethod === "freeform" ? (
                 <ChevronUp className="text-brand-warm absolute -bottom-0.5 h-4 w-4" />
               ) : (
@@ -559,12 +559,12 @@ export function HomePage() {
               buildIntent={buildIntent}
               buildMethod="freeform"
             />
-            <p className="mt-4 text-center text-[11px] text-white/20">
-              <kbd className="rounded border border-white/6 bg-white/3 px-1.5 py-0.5 text-[10px] text-white/30">
+            <p className="mt-4 text-center text-[11px] text-white/60">
+              <kbd className="rounded border border-white/6 bg-white/3 px-1.5 py-0.5 text-[10px] text-white/70">
                 Enter
               </kbd>{" "}
               för att skicka •
-              <kbd className="ml-1 rounded border border-white/6 bg-white/3 px-1.5 py-0.5 text-[10px] text-white/30">
+              <kbd className="ml-1 rounded border border-white/6 bg-white/3 px-1.5 py-0.5 text-[10px] text-white/70">
                 Shift+Enter
               </kbd>{" "}
               för ny rad
@@ -586,8 +586,8 @@ export function HomePage() {
                 <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-brand-teal/10 transition-all duration-500 group-hover:bg-brand-teal/15">
                   <Wand2 className="h-4.5 w-4.5 text-brand-teal" />
                 </div>
-                <h3 className="mb-2 text-[14px] font-semibold text-white">AI-driven design</h3>
-                <p className="text-[13px] leading-relaxed text-white/30">
+                <h2 className="mb-2 text-[14px] font-semibold text-white">AI-driven design</h2>
+                <p className="text-[13px] leading-relaxed text-white/70">
                   Berätta om ditt företag och få en skräddarsydd webbplats baserad på din bransch och målgrupp.
                 </p>
               </div>
@@ -601,8 +601,8 @@ export function HomePage() {
                 <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-brand-blue/10 transition-all duration-500 group-hover:bg-brand-blue/15">
                   <Search className="h-4.5 w-4.5 text-brand-blue" />
                 </div>
-                <h3 className="mb-2 text-[14px] font-semibold text-white">Gratis webbplatsanalys</h3>
-                <p className="text-[13px] leading-relaxed text-white/30">
+                <h2 className="mb-2 text-[14px] font-semibold text-white">Gratis webbplatsanalys</h2>
+                <p className="text-[13px] leading-relaxed text-white/70">
                   Analysera din befintliga sajt med AI och få en detaljerad rapport med förbättringsförslag.
                 </p>
               </div>
@@ -616,8 +616,8 @@ export function HomePage() {
                 <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-brand-amber/10 transition-all duration-500 group-hover:bg-brand-amber/15">
                   <Pencil className="h-4.5 w-4.5 text-brand-amber" />
                 </div>
-                <h3 className="mb-2 text-[14px] font-semibold text-white">Röst och video</h3>
-                <p className="text-[13px] leading-relaxed text-white/30">
+                <h2 className="mb-2 text-[14px] font-semibold text-white">Röst och video</h2>
+                <p className="text-[13px] leading-relaxed text-white/70">
                   Beskriv din vision med rösten eller spela in en presentation — AI bygger utifrån det.
                 </p>
               </div>
@@ -634,7 +634,7 @@ export function HomePage() {
                 ].map((stat) => (
                   <div key={stat.label} className="px-6 text-center sm:px-8">
                     <p className="text-[15px] font-semibold text-white/80">{stat.value}</p>
-                    <p className="mt-0.5 text-[10px] font-medium tracking-[0.12em] text-white/20 uppercase">{stat.label}</p>
+                    <p className="mt-0.5 text-[10px] font-medium tracking-[0.12em] text-white/60 uppercase">{stat.label}</p>
                   </div>
                 ))}
               </div>

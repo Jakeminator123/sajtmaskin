@@ -7,6 +7,17 @@
       ],
       "cwd": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin",
       "env": {}
+    },
+    "openaiDeveloperDocs": {
+      "url": "https://developers.openai.com/mcp"
+    },
+    "shadcn": {
+      "command": "npx",
+      "args": [
+        "shadcn@latest",
+        "mcp"
+      ],
+      "cwd": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin"
     }
   }
 }

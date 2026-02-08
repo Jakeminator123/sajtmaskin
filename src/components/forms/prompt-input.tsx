@@ -176,6 +176,7 @@ export function PromptInput({
               onChange={(e) => setPrompt(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder={placeholder}
+              autoComplete="off"
               disabled={isLoading}
               id={`home-prompt-${promptInputId}`}
               name="homePrompt"
@@ -195,6 +196,7 @@ export function PromptInput({
               disabled={isLoading}
               size="icon"
               title="Bygg ut med AI"
+              aria-label="Bygg ut med AI"
               className="bg-brand-teal hover:bg-brand-teal/90 h-9 w-9 shrink-0 disabled:opacity-50"
             >
               <Wand2 className="h-4 w-4" />
@@ -204,6 +206,7 @@ export function PromptInput({
               disabled={!prompt.trim() || isLoading}
               size="icon"
               title="Skapa webbplats"
+              aria-label="Skapa webbplats"
               className="bg-brand-teal hover:bg-brand-teal/90 h-9 w-9 shrink-0 disabled:opacity-50"
             >
               {isLoading ? (

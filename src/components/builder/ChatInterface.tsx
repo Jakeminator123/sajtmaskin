@@ -34,6 +34,7 @@ import {
   fetchRegistrySummary,
   type RegistrySummary,
 } from "@/lib/shadcn-registry-service";
+import type { InspectorSelection } from "@/lib/builder/types";
 import { debugLog } from "@/lib/utils/debug";
 import toast from "react-hot-toast";
 
@@ -63,6 +64,8 @@ interface ChatInterfaceProps {
   currentCode?: string;
   /** UI components already present in the project (for dependency checks) */
   existingUiComponents?: string[];
+  inspectorSelection?: InspectorSelection | null;
+  onInspectorSelectionClear?: () => void;
 }
 
 // Design system hint - only appended on the FIRST message (chat creation).
@@ -128,6 +131,8 @@ export function ChatInterface({
   mediaEnabled = false,
   currentCode,
   existingUiComponents,
+  inspectorSelection = null,
+  onInspectorSelectionClear,
 }: ChatInterfaceProps) {
   const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
@@ -199,9 +204,49 @@ export function ChatInterface({
       ? `Katalogfel: ${registryError}`
       : registryStatusLabel;
 
+  const inspectorMeta = useMemo(() => {
+    if (!inspectorSelection) return null;
+    const tag = inspectorSelection.tag.toLowerCase();
+    const isHeading = /^h[1-6]$/.test(tag);
+    const isText = ["p", "span", "small", "label", "li"].includes(tag);
+    const isControl = ["button", "a", "input", "textarea", "select", "option"].includes(tag);
+    const isMedia = ["img", "svg", "picture", "video", "canvas"].includes(tag);
+    if (isHeading) {
+      return { label: "Rubrik", dotClass: "bg-brand-blue", textClass: "text-brand-blue" };
+    }
+    if (isControl) {
+      return { label: "Kontroll", dotClass: "bg-brand-amber", textClass: "text-brand-amber" };
+    }
+    if (isMedia) {
+      return { label: "Media", dotClass: "bg-brand-warm", textClass: "text-brand-warm" };
+    }
+    if (isText) {
+      return { label: "Text", dotClass: "bg-brand-teal", textClass: "text-brand-teal" };
+    }
+    return { label: "Block", dotClass: "bg-zinc-400", textClass: "text-muted-foreground" };
+  }, [inspectorSelection]);
+
   const handleInputChange = (value: string) => {
     setInput(value);
   };
+
+  const buildInspectorPrompt = useCallback((selection: InspectorSelection) => {
+    const lines = [
+      "Jag vill ändra detta element:",
+      `- Tagg: ${selection.tag}`,
+      selection.id ? `- ID: ${selection.id}` : null,
+      selection.className ? `- Klasser: ${selection.className}` : null,
+      selection.text ? `- Text: \"${selection.text}\"` : null,
+      `- Selector: ${selection.selector}`,
+    ].filter(Boolean);
+    return lines.join("\n");
+  }, []);
+
+  const handleInsertInspectorSelection = useCallback(() => {
+    if (!inspectorSelection) return;
+    const snippet = buildInspectorPrompt(inspectorSelection);
+    setInput((prev) => (prev ? `${prev}\n\n${snippet}` : snippet));
+  }, [buildInspectorPrompt, inspectorSelection]);
 
   const prefilledPromptRef = useRef<string | null>(null);
   const lastChatIdRef = useRef<string | null>(chatId);
@@ -523,6 +568,45 @@ ${technicalPrompt}`;
 
   return (
     <div className="border-border bg-background border-t p-4">
+      {inspectorSelection && inspectorMeta && (
+        <div className="border-border/60 bg-muted/30 mb-3 rounded-lg border px-3 py-2 text-xs text-muted-foreground">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className={`h-2 w-2 rounded-full ${inspectorMeta.dotClass}`} />
+            <span className="text-foreground text-xs font-medium">Markerat {inspectorMeta.label}</span>
+            <span className={`text-[11px] ${inspectorMeta.textClass}`}>{inspectorSelection.tag}</span>
+          </div>
+          <div className="mt-2 space-y-1 text-[11px]">
+            {inspectorSelection.text && (
+              <div className="text-foreground/80 line-clamp-1">“{inspectorSelection.text}”</div>
+            )}
+            <div className="text-muted-foreground/80 line-clamp-1">
+              Selector: {inspectorSelection.selector}
+            </div>
+            {inspectorSelection.id && (
+              <div className="text-muted-foreground/80 line-clamp-1">ID: {inspectorSelection.id}</div>
+            )}
+            {inspectorSelection.className && (
+              <div className="text-muted-foreground/80 line-clamp-1">
+                Klasser: {inspectorSelection.className}
+              </div>
+            )}
+          </div>
+          <div className="mt-2 flex flex-wrap gap-2">
+            <Button type="button" size="sm" variant="outline" onClick={handleInsertInspectorSelection}>
+              Infoga i prompt
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              onClick={onInspectorSelectionClear}
+              disabled={!onInspectorSelectionClear}
+            >
+              Rensa
+            </Button>
+          </div>
+        </div>
+      )}
       <PromptInput
         value={input}
         onChange={handleInputChange}
@@ -589,6 +673,7 @@ ${technicalPrompt}`;
                 value={figmaUrl}
                 onChange={(event) => setFigmaUrl(event.target.value)}
                 placeholder="Figma URL (delningslänk)"
+                autoComplete="url"
                 disabled={inputDisabled}
                 className="h-8"
               />
@@ -649,6 +734,7 @@ ${technicalPrompt}`;
                 : "Beskriv vad du vill bygga... (Enter för att skicka)"
             }
             aria-label={chatId ? "Skriv en uppdatering" : "Beskriv vad du vill bygga"}
+            autoComplete="off"
             disabled={inputDisabled}
             className="min-h-[80px] border-0 shadow-none focus-visible:ring-0"
           />
