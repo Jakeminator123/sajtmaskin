@@ -91,7 +91,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ chatId:
 
     // Auto-fix if requested
     if (autoFix && hasFixable) {
-      const totalIssues = results.reduce((sum, r) => sum + r.issues.length, 0);
+      const fixedIssueCount = results.reduce((sum, result) => {
+        if (!result.fixed) return sum;
+        return sum + result.issues.filter((issue) => Boolean(issue.suggestion)).length;
+      }, 0);
       const updatedFiles = files.map((file: any) => {
         const result = results.find((r) => r.fileName === file.name);
         if (result && result.fixed) {
@@ -119,7 +122,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ chatId:
           valid: false,
           issues: results,
           fixed: true,
-          message: `Fixed ${totalIssues} CSS issues`,
+          message: `Fixed ${fixedIssueCount} CSS issues`,
           demoUrl: (updatedVersion as any).demoUrl,
           formattedIssues: formatIssuesForDisplay(results),
         });

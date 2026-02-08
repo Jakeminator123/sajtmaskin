@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { assertV0Key, v0 } from "@/lib/v0";
 import { db } from "@/lib/db/client";
 import { versions } from "@/lib/db/schema";
-import { eq, desc } from "drizzle-orm";
+import { and, eq, desc } from "drizzle-orm";
 import { getChatByV0ChatIdForRequest } from "@/lib/tenant";
 import { nanoid } from "nanoid";
 
@@ -70,6 +70,26 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
         }
       }
 
+      const latestCreatedAt = latestVersion.length > 0 ? latestVersion[0].createdAt : null;
+      let latestFromV0CreatedAt: Date | string | null = null;
+      if (latestFromV0?.versionId) {
+        if (latestFromV0.versionId === latestDbVersionId) {
+          latestFromV0CreatedAt = latestVersion[0]?.createdAt ?? null;
+        } else {
+          const matchingVersion = await db
+            .select({ createdAt: versions.createdAt })
+            .from(versions)
+            .where(
+              and(
+                eq(versions.chatId, dbChat.id),
+                eq(versions.v0VersionId, latestFromV0.versionId),
+              ),
+            )
+            .limit(1);
+          latestFromV0CreatedAt = matchingVersion[0]?.createdAt ?? null;
+        }
+      }
+
       return NextResponse.json({
         chatId,
         id: dbChat.id,
@@ -84,14 +104,14 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
                 versionId: latestFromV0?.versionId ?? null,
                 messageId: latestFromV0?.messageId ?? null,
                 demoUrl: latestFromV0?.demoUrl ?? null,
-                createdAt: latestVersion[0]?.createdAt ?? null,
+                createdAt: latestFromV0?.versionId ? latestFromV0CreatedAt : null,
               }
             : latestVersion.length > 0
               ? {
                   versionId: latestVersion[0].v0VersionId,
                   messageId: latestVersion[0].v0MessageId,
                   demoUrl: latestVersion[0].demoUrl,
-                  createdAt: latestVersion[0].createdAt,
+                  createdAt: latestCreatedAt,
                 }
               : null,
         demoUrl: latestFromV0?.demoUrl ?? latestDemoUrl,
