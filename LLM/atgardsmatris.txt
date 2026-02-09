@@ -1,5 +1,10 @@
 SAJTMASKIN - ATGARDSMATRIS
 Status: OFF
-Datum: 2026-02-07
+Datum: 2026-02-08
 Notering: Matrisen ar avstangd. Uppdateras endast pa begaran.
+Senaste andringar (kort):
+- Spec-fil alltid aktiv i buildern (ingen toggle).
+- Design theme injiceras som lasta tokens i prompt-assist.
+- Unicode-normalisering efter generation (rensar \\uXXXX).
+- CSS auto-fix tar bort ogiltiga @property-regler.
 

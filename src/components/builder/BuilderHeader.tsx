@@ -33,6 +33,7 @@ import {
 import {
   Bot,
   ChevronDown,
+  Download,
   FolderGit2,
   HelpCircle,
   Image as ImageIcon,
@@ -69,8 +70,6 @@ export function BuilderHeader(props: {
   onDesignSystemModeChange: (v: boolean) => void;
   designTheme: DesignTheme;
   onDesignThemeChange: (theme: DesignTheme) => void;
-  specMode: boolean;
-  onSpecModeChange: (v: boolean) => void;
 
   enableImageGenerations: boolean;
   onEnableImageGenerationsChange: (v: boolean) => void;
@@ -84,6 +83,9 @@ export function BuilderHeader(props: {
 
   showStructuredChat: boolean;
   onShowStructuredChatChange: (v: boolean) => void;
+
+  chatId: string | null;
+  activeVersionId: string | null;
 
   onOpenImport: () => void;
   onOpenSandbox: () => void;
@@ -115,8 +117,6 @@ export function BuilderHeader(props: {
     onDesignSystemModeChange: _onDesignSystemModeChange,
     designTheme,
     onDesignThemeChange,
-    specMode,
-    onSpecModeChange,
     enableImageGenerations,
     onEnableImageGenerationsChange,
     enableThinking,
@@ -128,6 +128,8 @@ export function BuilderHeader(props: {
     onEnableBlobMediaChange,
     showStructuredChat,
     onShowStructuredChatChange,
+    chatId,
+    activeVersionId,
     onOpenImport,
     onOpenSandbox,
     onDeployProduction,
@@ -297,15 +299,6 @@ export function BuilderHeader(props: {
                 </DropdownMenuRadioItem>
               ))}
             </DropdownMenuRadioGroup>
-            <DropdownMenuSeparator />
-            <DropdownMenuCheckboxItem
-              checked={specMode}
-              onCheckedChange={onSpecModeChange}
-              disabled={isBusy}
-            >
-              <Wand2 className="mr-2 h-4 w-4" />
-              Spec-fil (projektkontext)
-            </DropdownMenuCheckboxItem>
 
             <TooltipProvider>
               <Tooltip>
@@ -465,6 +458,24 @@ export function BuilderHeader(props: {
             <Save className="h-4 w-4" />
           )}
           <span className="hidden sm:inline">Spara</span>
+        </Button>
+
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => {
+            if (chatId && activeVersionId) {
+              window.open(
+                `/api/v0/chats/${encodeURIComponent(chatId)}/versions/${encodeURIComponent(activeVersionId)}/download?format=zip`,
+                "_blank",
+              );
+            }
+          }}
+          disabled={!chatId || !activeVersionId || isBusy}
+          title="Ladda ner projekt som ZIP"
+        >
+          <Download className="h-4 w-4" />
+          <span className="hidden sm:inline">Ladda ner</span>
         </Button>
 
         <Button

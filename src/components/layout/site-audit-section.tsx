@@ -165,6 +165,7 @@ export function SiteAuditSection({ onAuditComplete, onRequireAuth }: SiteAuditSe
             value={url}
             onChange={(e) => setUrl(e.target.value)}
             placeholder="exempel.se eller https://exempel.se"
+            autoComplete="url"
             disabled={isLoading}
             className="focus:border-brand-teal/50 focus:ring-brand-teal/50 w-full border border-gray-700 bg-black/50 px-4 py-4 pl-12 text-white placeholder-gray-500 transition-all focus:ring-1 focus:outline-none disabled:opacity-50"
           />

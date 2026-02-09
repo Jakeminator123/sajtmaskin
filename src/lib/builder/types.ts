@@ -22,3 +22,11 @@ export interface FileNode {
   content?: string;
   locked?: boolean;
 }
+
+export type InspectorSelection = {
+  tag: string;
+  id: string | null;
+  className: string | null;
+  text: string | null;
+  selector: string;
+};

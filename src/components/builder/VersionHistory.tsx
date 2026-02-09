@@ -204,6 +204,7 @@ export function VersionHistory({
             size="icon-sm"
             onClick={onToggleCollapse}
             title="Expandera versioner"
+            aria-label="Expandera versioner"
             className="h-7 w-7"
           >
             <ChevronLeft className="h-4 w-4" />
@@ -262,6 +263,7 @@ export function VersionHistory({
               size="icon-sm"
               onClick={onToggleCollapse}
               title="Fäll in versioner"
+              aria-label="Fäll in versioner"
               className="h-7 w-7"
             >
               <ChevronRight className="h-4 w-4" />
@@ -368,6 +370,7 @@ export function VersionHistory({
                       onClick={(e) => handleDownload(e, version)}
                       disabled={isDownloading}
                       title="Download version"
+                      aria-label="Download version"
                       className="h-7 w-7"
                     >
                       {isDownloading ? (
@@ -382,6 +385,7 @@ export function VersionHistory({
                       onClick={(e) => handleExportToBlob(e, version)}
                       disabled={isExporting}
                       title="Export to Vercel Blob"
+                      aria-label="Export to Vercel Blob"
                       className="h-7 w-7"
                     >
                       {isExporting ? (
@@ -396,6 +400,7 @@ export function VersionHistory({
                       onClick={(e) => handleExportToGitHub(e, version)}
                       disabled={isExportingGitHub}
                       title="Export to GitHub"
+                      aria-label="Export to GitHub"
                       className="h-7 w-7"
                     >
                       {isExportingGitHub ? (
@@ -410,6 +415,7 @@ export function VersionHistory({
                       onClick={(e) => handleTogglePin(e, version)}
                       disabled={isPinning}
                       title={isPinned ? "Unpin version" : "Pin version"}
+                      aria-label={isPinned ? "Unpin version" : "Pin version"}
                       className="h-7 w-7"
                     >
                       {isPinning ? (

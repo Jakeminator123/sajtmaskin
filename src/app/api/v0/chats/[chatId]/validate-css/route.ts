@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 import { assertV0Key, v0 } from "@/lib/v0";
 import { getChatByV0ChatIdForRequest } from "@/lib/tenant";
-import { validateFiles, formatIssuesForDisplay } from "@/lib/utils/css-validator";
+import { validateFiles, formatIssuesForDisplay, fixCssIssues } from "@/lib/utils/css-validator";
 import { z } from "zod";
+import { resolveVersionFiles } from "@/lib/v0/resolve-version-files";
 
 export const runtime = "nodejs";
 
@@ -59,13 +60,13 @@ export async function POST(req: Request, { params }: { params: Promise<{ chatId:
     const { versionId, autoFix } = validation.data;
 
     // Get current version files
-    const version = await v0.chats.getVersion({
+    const resolved = await resolveVersionFiles({
       chatId,
       versionId,
-      includeDefaultFiles: true,
+      options: { maxAttempts: 20, delayMs: 1500, minFiles: 1 },
     });
-
-    const files = (version as any).files || [];
+    const version = resolved.version;
+    const files = resolved.files.length > 0 ? resolved.files : (version as any)?.files || [];
     if (files.length === 0) {
       return NextResponse.json({
         valid: true,
@@ -89,12 +90,25 @@ export async function POST(req: Request, { params }: { params: Promise<{ chatId:
 
     // Auto-fix if requested
     if (autoFix && hasErrors) {
+      const fixedIssueCount = results.reduce(
+        (sum, result) =>
+          sum +
+          result.issues.filter(
+            (issue) => issue.severity === "error" && Boolean(issue.suggestion),
+          ).length,
+        0,
+      );
       const updatedFiles = files.map((file: any) => {
         const result = results.find((r) => r.fileName === file.name);
-        if (result && result.fixed) {
+        const errorIssues = result
+          ? result.issues.filter(
+              (issue) => issue.severity === "error" && Boolean(issue.suggestion),
+            )
+          : [];
+        if (errorIssues.length > 0) {
           return {
             name: file.name,
-            content: result.fixed,
+            content: fixCssIssues(file.content, errorIssues),
             locked: file.locked,
           };
         }
@@ -116,7 +130,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ chatId:
           valid: false,
           issues: results,
           fixed: true,
-          message: `Fixed ${results.reduce((sum, r) => sum + r.issues.filter((i) => i.severity === "error").length, 0)} CSS issues`,
+          message: `Fixed ${fixedIssueCount} CSS issues`,
           demoUrl: (updatedVersion as any).demoUrl,
           formattedIssues: formatIssuesForDisplay(results),
         });

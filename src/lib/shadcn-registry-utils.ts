@@ -1,8 +1,8 @@
 import type { ShadcnRegistryItem } from "@/lib/shadcn-registry-types";
-import { getRegistryBaseUrl, getRegistryStyle } from "@/lib/v0/v0-url-parser";
+import { getRegistryBaseUrl, resolveRegistryStyle } from "@/lib/v0/v0-url-parser";
 
-const DEFAULT_STYLE = getRegistryStyle();
 const REGISTRY_BASE_URL = getRegistryBaseUrl();
+const DEFAULT_STYLE = resolveRegistryStyle(undefined, REGISTRY_BASE_URL);
 
 function toPascalCase(value: string): string {
   return value
@@ -65,14 +65,20 @@ export function mapRegistryFilePath(filePath: string): string {
 }
 
 export function resolveShadcnPreviewStyle(style?: string): string {
-  if (!style) return DEFAULT_STYLE;
-  if (style.endsWith("-v4")) return style;
-  return `${style}-v4`;
+  return resolveRegistryStyle(style, REGISTRY_BASE_URL);
 }
 
 export function buildShadcnPreviewUrl(blockName: string, style?: string): string {
   const previewStyle = resolveShadcnPreviewStyle(style);
   return `${REGISTRY_BASE_URL}/view/${previewStyle}/${blockName}`;
+}
+
+export function buildShadcnDocsUrl(
+  componentName: string,
+  options: { radix?: boolean } = {},
+): string {
+  const radixPrefix = options.radix ? "/radix" : "";
+  return `${REGISTRY_BASE_URL}/docs/components${radixPrefix}/${componentName}`;
 }
 
 export function buildShadcnPreviewImageUrl(

@@ -65,7 +65,14 @@ CSS VALIDATION (auto-fix)
   Endpoint: POST /api/v0/chats/[chatId]/validate-css
   Source: src/lib/utils/css-validator.ts
   Trigger: src/app/builder/page.tsx → onGenerationComplete callback
-  Behavior: Auto-fixes empty custom properties, unclosed var(), etc.
+  Behavior: Auto-fixes empty custom properties, unclosed var(), invalid @property rules, etc.
+
+UNICODE NORMALIZATION (auto-fix)
+  What: Decode \\uXXXX sequences to real characters in text content.
+  Endpoint: POST /api/v0/chats/[chatId]/normalize-text
+  Source: src/lib/utils/unicode-normalizer.ts
+  Trigger: src/app/builder/page.tsx → onGenerationComplete callback
+  Behavior: Best-effort; updates version files if replacements are found.
 
 IMAGE MATERIALIZATION
   What: Download external image URLs and upload to Vercel Blob Storage.
@@ -100,9 +107,11 @@ Core:
   src/lib/hooks/useV0ChatMessaging.ts  — runPostGenerationChecks(), trigger logic
   src/lib/utils/image-validator.ts     — Image URL extraction, validation, replacement
   src/lib/utils/css-validator.ts       — CSS validation and auto-fix
+  src/lib/utils/unicode-normalizer.ts  — Unicode escape normalization
   src/lib/imageAssets.ts               — Image materialization to Blob storage
 
 API endpoints:
   src/app/api/v0/chats/[chatId]/validate-images/route.ts — Image validation
   src/app/api/v0/chats/[chatId]/validate-css/route.ts    — CSS validation
+  src/app/api/v0/chats/[chatId]/normalize-text/route.ts  — Unicode normalization
   src/app/api/v0/chats/[chatId]/files/route.ts           — File access + materialization

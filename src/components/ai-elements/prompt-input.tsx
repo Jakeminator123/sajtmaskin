@@ -164,6 +164,7 @@ export function PromptInputTextarea({
   const resolvedId = id ?? `prompt-input-${autoId}`;
   const resolvedName = name ?? `prompt-${autoId}`;
   const ariaLabel = ariaLabelledByProp ? undefined : (ariaLabelProp ?? placeholder ?? "Prompt");
+  const autoComplete = props.autoComplete ?? "off";
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const resizeFrameRef = useRef<number | null>(null);
 
@@ -225,6 +226,7 @@ export function PromptInputTextarea({
       name={resolvedName}
       aria-label={ariaLabel}
       aria-labelledby={ariaLabelledByProp}
+      autoComplete={autoComplete}
       className={cn(
         "flex-1 resize-none bg-transparent text-sm text-white",
         "placeholder:text-zinc-500 focus:outline-none",
@@ -246,6 +248,7 @@ export interface PromptInputSubmitProps extends ButtonHTMLAttributes<HTMLButtonE
 
 export function PromptInputSubmit({ children, className, ...props }: PromptInputSubmitProps) {
   const { value, onSubmit, isLoading, disabled } = usePromptInput();
+  const ariaLabel = props["aria-label"] ?? (children ? undefined : "Send message");
 
   const handleClick = () => {
     if (value.trim() && !isLoading && !disabled) {
@@ -258,6 +261,7 @@ export function PromptInputSubmit({ children, className, ...props }: PromptInput
       type="button"
       onClick={handleClick}
       disabled={!value.trim() || isLoading || disabled}
+      aria-label={ariaLabel}
       className={cn(
         "shrink-0 rounded-xl p-2",
         "bg-brand-blue text-white",

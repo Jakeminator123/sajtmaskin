@@ -295,6 +295,8 @@ const setupQueries = [
 const schemaQueries = [
   // Critical: unique constraint required for upsert in tenant.ts
   `CREATE UNIQUE INDEX IF NOT EXISTS projects_user_v0project_idx ON projects(user_id, v0_project_id)`,
+  // Critical: unique constraint required for onConflictDoNothing in chat creation (stream routes + webhooks)
+  `CREATE UNIQUE INDEX IF NOT EXISTS chats_v0_chat_id_unique ON chats(v0_chat_id)`,
   `CREATE INDEX IF NOT EXISTS idx_versions_chat_id ON versions(chat_id)`,
   `ALTER TABLE versions ADD COLUMN IF NOT EXISTS pinned BOOLEAN DEFAULT FALSE`,
   `CREATE INDEX IF NOT EXISTS idx_prompt_logs_created_at ON prompt_logs(created_at DESC)`,
@@ -314,6 +316,17 @@ const schemaQueries = [
   `CREATE INDEX IF NOT EXISTS idx_page_views_path ON page_views(path)`,
   `CREATE UNIQUE INDEX IF NOT EXISTS template_cache_template_user_idx ON template_cache(template_id, user_id)`,
   `CREATE INDEX IF NOT EXISTS idx_kostnadsfri_pages_slug ON kostnadsfri_pages(slug)`,
+  // Registry cache for shadcn/ui block picker
+  `CREATE TABLE IF NOT EXISTS registry_cache (
+    base_url TEXT NOT NULL,
+    style TEXT NOT NULL,
+    source TEXT NOT NULL,
+    index_json JSONB NOT NULL,
+    item_status JSONB,
+    fetched_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+    updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
+  )`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS registry_cache_source_style_idx ON registry_cache(base_url, style, source)`,
 ];
 
 const cascadeQueries = [

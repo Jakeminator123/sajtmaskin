@@ -45,6 +45,21 @@ export function getRegistryStyle(fallback: string = DEFAULT_REGISTRY_STYLE): str
   return envValue || fallback;
 }
 
+export function resolveRegistryStyle(
+  style?: string,
+  baseUrl?: string,
+  options: { allowLegacy?: boolean } = {},
+): string {
+  const rawStyle = style?.trim() || getRegistryStyle();
+  const resolvedBase = baseUrl
+    ? normalizeRegistryBaseUrl(baseUrl) || getRegistryBaseUrl()
+    : getRegistryBaseUrl();
+  if (!options.allowLegacy && resolvedBase.includes("ui.shadcn.com") && !rawStyle.endsWith("-v4")) {
+    return `${rawStyle}-v4`;
+  }
+  return rawStyle;
+}
+
 /**
  * Check if a URL looks like a registry URL
  * Registry URLs typically:
@@ -107,7 +122,7 @@ export function parseRegistryUrl(url: string): ParsedRegistryUrl {
  * @returns Full registry URL
  */
 export function buildShadcnRegistryUrl(componentName: string, style?: string): string {
-  const resolvedStyle = style?.trim() || getRegistryStyle();
   const baseUrl = getRegistryBaseUrl();
+  const resolvedStyle = resolveRegistryStyle(style, baseUrl);
   return `${baseUrl}/r/styles/${resolvedStyle}/${componentName}.json`;
 }

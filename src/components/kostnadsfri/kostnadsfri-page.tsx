@@ -7,6 +7,7 @@ import { MiniWizard } from "./mini-wizard";
 import { ThinkingSpinner } from "./thinking-spinner";
 import type { KostnadsfriCompanyData, MiniWizardData } from "@/lib/kostnadsfri";
 import { buildPromptFromWizardData } from "@/lib/kostnadsfri";
+import { createProject } from "@/lib/project-client";
 
 /**
  * KostnadsfriPage — Client component that orchestrates the full flow:
@@ -47,13 +48,21 @@ export function KostnadsfriPage({ slug, companyName, hasDbRecord: _hasDbRecord }
         // Build prompt from wizard data
         const prompt = buildPromptFromWizardData(wizardData);
 
-        // Create prompt handoff
+        // Create app project first (same pattern as category page)
+        const project = await createProject(
+          `${companyName} - Kostnadsfri`,
+          "kostnadsfri",
+          prompt.substring(0, 100),
+        );
+
+        // Create prompt handoff with project reference
         const response = await fetch("/api/prompts", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             prompt,
             source: "kostnadsfri",
+            projectId: project.id,
           }),
         });
 
@@ -74,6 +83,7 @@ export function KostnadsfriPage({ slug, companyName, hasDbRecord: _hasDbRecord }
         // Navigate to builder with spec mode enabled for best quality
         setPhase("done");
         const params = new URLSearchParams({
+          project: project.id,
           promptId,
           buildMethod: "kostnadsfri",
           buildIntent: "website",
@@ -86,7 +96,7 @@ export function KostnadsfriPage({ slug, companyName, hasDbRecord: _hasDbRecord }
         setPhase("wizard");
       }
     },
-    [router],
+    [router, companyName],
   );
 
   return (

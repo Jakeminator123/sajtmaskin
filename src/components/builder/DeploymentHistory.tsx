@@ -79,7 +79,13 @@ export function DeploymentHistory({ chatId }: { chatId: string | null }) {
             {deployments.length} deployment{deployments.length !== 1 ? "s" : ""}
           </p>
         </div>
-        <Button variant="ghost" size="icon-sm" onClick={handleRefresh} title="Refresh">
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          onClick={handleRefresh}
+          title="Refresh"
+          aria-label="Refresh"
+        >
           <RefreshCw className="h-4 w-4" />
         </Button>
       </div>

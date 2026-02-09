@@ -9,12 +9,13 @@ import { NextResponse } from "next/server";
  * The page is served with:
  * - All relative URLs rewritten to absolute
  * - CSP headers removed
- * - Inspector script injected for hover/click detection
+ * - Inspector script injected after page load for hover/click detection
  */
 
 const inspectorScript = `
 <script>
-(function () {
+// Wait for page load (including Next.js hydration) before attaching inspector
+window.addEventListener("load", function () {
   if (window.__INSPECTOR_ATTACHED) return;
   window.__INSPECTOR_ATTACHED = true;
 
@@ -159,7 +160,7 @@ const inspectorScript = `
 
   // Signal ready
   post("ready", { url: window.location.href });
-})();
+});
 </script>
 `;
 
@@ -181,6 +182,35 @@ function rewriteUrls(html: string, baseOrigin: string, basePath: string): string
 
 function removeCsp(html: string): string {
   return html.replace(/<meta[^>]+http-equiv=["']Content-Security-Policy["'][^>]*>/gi, "");
+}
+
+/**
+ * Replace third-party iframes (Google Maps, YouTube, etc.) with placeholders.
+ * These embeds cannot work through the proxy and will crash the page.
+ * Only applied in inspector mode where the proxy is used.
+ */
+function neutralizeEmbeds(html: string): string {
+  return html.replace(
+    /<iframe([^>]*)\ssrc=["'](https?:\/\/(?!(?:localhost|127\.0\.0\.1))[^"']+)["']([^>]*)><\/iframe>/gi,
+    (_match, before, src, after) => {
+      try {
+        const widthMatch = (before + after).match(/width=["']?(\d+)/i);
+        const heightMatch = (before + after).match(/height=["']?(\d+)/i);
+        const w = widthMatch ? widthMatch[1] + "px" : "100%";
+        const h = heightMatch ? heightMatch[1] + "px" : "200px";
+        let domain: string;
+        try {
+          domain = new URL(src).hostname;
+        } catch {
+          domain = src.slice(0, 40);
+        }
+        return `<div style="width:${w};height:${h};display:flex;align-items:center;justify-content:center;background:#1a1a2e;border:1px dashed #444;border-radius:8px;color:#888;font-family:sans-serif;font-size:13px;">[Embed: ${domain}]</div>`;
+      } catch {
+        // If anything fails, return empty div instead of crashing the pipeline
+        return `<div style="width:100%;height:200px;background:#1a1a2e;border:1px dashed #444;border-radius:8px;"></div>`;
+      }
+    },
+  );
 }
 
 /**
@@ -288,6 +318,7 @@ export async function GET(req: Request) {
 
     // Process HTML
     html = removeCsp(html);
+    html = neutralizeEmbeds(html);
     html = rewriteUrls(html, target.origin, basePath);
 
     // Optional clean mode: inject console filter to suppress @property warnings

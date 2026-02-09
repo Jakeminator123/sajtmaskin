@@ -282,6 +282,26 @@ export const templateCache = pgTable(
   }),
 );
 
+export const registryCache = pgTable(
+  "registry_cache",
+  {
+    base_url: text("base_url").notNull(),
+    style: text("style").notNull(),
+    source: text("source").notNull(),
+    index_json: jsonb("index_json").notNull(),
+    item_status: jsonb("item_status"),
+    fetched_at: timestamp("fetched_at").defaultNow().notNull(),
+    updated_at: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    unique_cache: uniqueIndex("registry_cache_source_style_idx").on(
+      table.base_url,
+      table.style,
+      table.source,
+    ),
+  }),
+);
+
 export const pageViews = pgTable("page_views", {
   id: serial("id").primaryKey(),
   path: text("path").notNull(),

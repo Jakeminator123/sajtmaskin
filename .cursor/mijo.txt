@@ -1,5 +1,3 @@
 LLM=OFF
 LLM_PREFIX=Promptning under projekt
 LLM_SCOPE=OFF
-
-KKK=ON

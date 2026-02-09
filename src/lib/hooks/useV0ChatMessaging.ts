@@ -3,7 +3,7 @@ import type { ChatMessage, UiMessagePart } from "@/lib/builder/types";
 import type { BuildIntent, BuildMethod } from "@/lib/builder/build-intent";
 import type { ModelTier } from "@/lib/validations/chatSchemas";
 import { formatPromptForV0 } from "@/lib/builder/promptAssist";
-import { debugLog } from "@/lib/utils/debug";
+import { debugLog, warnLog } from "@/lib/utils/debug";
 import { useCallback, useRef, useState } from "react";
 import toast from "react-hot-toast";
 
@@ -157,6 +157,113 @@ function mergeStreamingText(previous: string, incoming: string): string {
     last && first && /[.!?:;]$/.test(last) && /[A-Za-z0-9]/.test(first) && !/\s/.test(first);
 
   return needsSpace ? `${previous} ${incoming}` : previous + incoming;
+}
+
+type StreamDebugStats = {
+  streamType: "create" | "send";
+  assistantMessageId: string;
+  startedAt: number;
+  contentEvents: number;
+  thinkingEvents: number;
+  partsEvents: number;
+  contentChars: number;
+  thinkingChars: number;
+  contentNoopEvents: number;
+  thinkingNoopEvents: number;
+  maxContentChunk: number;
+  maxThinkingChunk: number;
+  finalContentLength: number;
+  finalThinkingLength: number;
+  didReceiveDone: boolean;
+  chatId?: string | null;
+  versionId?: string | null;
+};
+
+function initStreamStats(streamType: StreamDebugStats["streamType"], assistantMessageId: string) {
+  const now = Date.now();
+  const stats: StreamDebugStats = {
+    streamType,
+    assistantMessageId,
+    startedAt: now,
+    contentEvents: 0,
+    thinkingEvents: 0,
+    partsEvents: 0,
+    contentChars: 0,
+    thinkingChars: 0,
+    contentNoopEvents: 0,
+    thinkingNoopEvents: 0,
+    maxContentChunk: 0,
+    maxThinkingChunk: 0,
+    finalContentLength: 0,
+    finalThinkingLength: 0,
+    didReceiveDone: false,
+  };
+  return stats;
+}
+
+function recordStreamText(
+  stats: StreamDebugStats,
+  kind: "content" | "thinking",
+  previous: string,
+  merged: string,
+  incomingLength: number,
+) {
+  if (kind === "content") {
+    stats.contentEvents += 1;
+    stats.contentChars += incomingLength;
+    stats.maxContentChunk = Math.max(stats.maxContentChunk, incomingLength);
+    if (merged.length === previous.length) {
+      stats.contentNoopEvents += 1;
+    }
+    stats.finalContentLength = merged.length;
+    return;
+  }
+  stats.thinkingEvents += 1;
+  stats.thinkingChars += incomingLength;
+  stats.maxThinkingChunk = Math.max(stats.maxThinkingChunk, incomingLength);
+  if (merged.length === previous.length) {
+    stats.thinkingNoopEvents += 1;
+  }
+  stats.finalThinkingLength = merged.length;
+}
+
+function recordStreamParts(stats: StreamDebugStats, partsCount: number) {
+  if (partsCount <= 0) return;
+  stats.partsEvents += 1;
+}
+
+function finalizeStreamStats(stats: StreamDebugStats) {
+  const durationMs = Date.now() - stats.startedAt;
+  const summary = {
+    streamType: stats.streamType,
+    assistantMessageId: stats.assistantMessageId,
+    chatId: stats.chatId ?? null,
+    versionId: stats.versionId ?? null,
+    durationMs,
+    didReceiveDone: stats.didReceiveDone,
+    contentEvents: stats.contentEvents,
+    contentChars: stats.contentChars,
+    contentNoopEvents: stats.contentNoopEvents,
+    maxContentChunk: stats.maxContentChunk,
+    finalContentLength: stats.finalContentLength,
+    thinkingEvents: stats.thinkingEvents,
+    thinkingChars: stats.thinkingChars,
+    thinkingNoopEvents: stats.thinkingNoopEvents,
+    maxThinkingChunk: stats.maxThinkingChunk,
+    finalThinkingLength: stats.finalThinkingLength,
+    partsEvents: stats.partsEvents,
+  };
+
+  debugLog("v0", "Stream summary", summary);
+
+  const shouldWarn =
+    !stats.didReceiveDone ||
+    (stats.contentEvents > 0 && stats.finalContentLength === 0) ||
+    (stats.thinkingEvents > 0 && stats.finalThinkingLength === 0);
+
+  if (shouldWarn) {
+    warnLog("v0", "Stream anomaly detected", summary);
+  }
 }
 
 function appendAttachmentPrompt(message: string, attachmentPrompt?: string): string {
@@ -438,9 +545,13 @@ async function fetchChatFiles(
   chatId: string,
   versionId: string,
   signal?: AbortSignal,
+  waitForReady = false,
 ): Promise<FileEntry[]> {
+  const waitParam = waitForReady ? "&wait=1" : "";
   const response = await fetch(
-    `/api/v0/chats/${encodeURIComponent(chatId)}/files?versionId=${encodeURIComponent(versionId)}`,
+    `/api/v0/chats/${encodeURIComponent(chatId)}/files?versionId=${encodeURIComponent(
+      versionId,
+    )}${waitParam}`,
     { signal },
   );
   const data = (await response.json().catch(() => null)) as {
@@ -743,12 +854,12 @@ async function runPostGenerationChecks(params: {
 
   try {
     const [currentFiles, versions] = await Promise.all([
-      fetchChatFiles(chatId, versionId, controller.signal),
+      fetchChatFiles(chatId, versionId, controller.signal, true),
       fetchChatVersions(chatId, controller.signal),
     ]);
     const previousVersionId = resolvePreviousVersionId(versionId, versions);
     const previousFiles = previousVersionId
-      ? await fetchChatFiles(chatId, previousVersionId, controller.signal)
+      ? await fetchChatFiles(chatId, previousVersionId, controller.signal, true)
       : [];
     const changes = previousVersionId ? diffFiles(previousFiles, currentFiles) : null;
     const suspiciousUseCalls = findSuspiciousUseCalls(currentFiles);
@@ -911,6 +1022,7 @@ export function useV0ChatMessaging(params: {
   v0ProjectId?: string | null;
   selectedModelTier: ModelTier;
   enableImageGenerations: boolean;
+  enableImageMaterialization?: boolean;
   enableThinking: boolean;
   systemPrompt?: string;
   promptAssistModel?: string | null;
@@ -935,6 +1047,7 @@ export function useV0ChatMessaging(params: {
     v0ProjectId,
     selectedModelTier,
     enableImageGenerations,
+    enableImageMaterialization = false,
     enableThinking,
     systemPrompt,
     promptAssistModel,
@@ -1088,7 +1201,7 @@ export function useV0ChatMessaging(params: {
           void triggerImageMaterialization({
             chatId: String(newChatId),
             versionId: String(resolvedVersionId),
-            enabled: enableImageGenerations,
+            enabled: enableImageMaterialization,
           });
         }
         if (resolvedVersionId) {
@@ -1184,185 +1297,201 @@ export function useV0ChatMessaging(params: {
           let accumulatedThinking = "";
           let accumulatedContent = "";
           let didReceiveDone = false;
+          const streamStats = initStreamStats("create", assistantMessageId);
 
-          await consumeSseResponse(response, (event, data) => {
-            switch (event) {
-              case "meta": {
-                const meta = typeof data === "object" && data ? (data as any) : {};
-                appendModelInfoPart(setMessages, assistantMessageId, {
-                  modelId: meta.modelId ?? selectedModelTier,
-                  thinking: typeof meta.thinking === "boolean" ? meta.thinking : null,
-                  imageGenerations:
-                    typeof meta.imageGenerations === "boolean" ? meta.imageGenerations : null,
-                  chatPrivacy: typeof meta.chatPrivacy === "string" ? meta.chatPrivacy : null,
-                });
-                break;
-              }
-              case "thinking": {
-                const thinkingText =
-                  typeof data === "string"
-                    ? data
-                    : (data as any)?.thinking || (data as any)?.reasoning || null;
-                if (thinkingText) {
-                  // V0 can send full text or deltas; merge to avoid dropping fragments.
-                  const mergedThought = mergeStreamingText(
-                    accumulatedThinking,
-                    String(thinkingText),
-                  );
-                  if (mergedThought !== accumulatedThinking) {
-                    accumulatedThinking = mergedThought;
+          try {
+            await consumeSseResponse(response, (event, data) => {
+              switch (event) {
+                case "meta": {
+                  const meta = typeof data === "object" && data ? (data as any) : {};
+                  appendModelInfoPart(setMessages, assistantMessageId, {
+                    modelId: meta.modelId ?? selectedModelTier,
+                    thinking: typeof meta.thinking === "boolean" ? meta.thinking : null,
+                    imageGenerations:
+                      typeof meta.imageGenerations === "boolean" ? meta.imageGenerations : null,
+                    chatPrivacy: typeof meta.chatPrivacy === "string" ? meta.chatPrivacy : null,
+                  });
+                  break;
+                }
+                case "thinking": {
+                  const thinkingText =
+                    typeof data === "string"
+                      ? data
+                      : (data as any)?.thinking || (data as any)?.reasoning || null;
+                  if (thinkingText) {
+                    const incoming = String(thinkingText);
+                    const previous = accumulatedThinking;
+                    // V0 can send full text or deltas; merge to avoid dropping fragments.
+                    const mergedThought = mergeStreamingText(previous, incoming);
+                    recordStreamText(streamStats, "thinking", previous, mergedThought, incoming.length);
+                    if (mergedThought !== accumulatedThinking) {
+                      accumulatedThinking = mergedThought;
+                      setMessages((prev) =>
+                        prev.map((m) =>
+                          m.id === assistantMessageId
+                            ? { ...m, thinking: accumulatedThinking, isStreaming: true }
+                            : m,
+                        ),
+                      );
+                    }
+                  }
+                  break;
+                }
+                case "content": {
+                  const contentText =
+                    typeof data === "string"
+                      ? data
+                      : (data as any)?.content || (data as any)?.text || (data as any)?.delta || null;
+                  if (contentText) {
+                    const incoming = String(contentText);
+                    const previous = accumulatedContent;
+                    const merged = mergeStreamingText(previous, incoming);
+                    recordStreamText(streamStats, "content", previous, merged, incoming.length);
+                    accumulatedContent = merged;
                     setMessages((prev) =>
                       prev.map((m) =>
                         m.id === assistantMessageId
-                          ? { ...m, thinking: accumulatedThinking, isStreaming: true }
+                          ? { ...m, content: accumulatedContent, isStreaming: true }
                           : m,
                       ),
                     );
                   }
+                  break;
                 }
-                break;
-              }
-              case "content": {
-                const contentText =
-                  typeof data === "string"
-                    ? data
-                    : (data as any)?.content || (data as any)?.text || (data as any)?.delta || null;
-                if (contentText) {
-                  accumulatedContent = mergeStreamingText(accumulatedContent, String(contentText));
-                  setMessages((prev) =>
-                    prev.map((m) =>
-                      m.id === assistantMessageId
-                        ? { ...m, content: accumulatedContent, isStreaming: true }
-                        : m,
-                    ),
-                  );
+                case "parts": {
+                  const nextParts = coerceUiParts(data);
+                  if (nextParts.length > 0) {
+                    recordStreamParts(streamStats, nextParts.length);
+                    setMessages((prev) =>
+                      prev.map((m) =>
+                        m.id === assistantMessageId
+                          ? {
+                              ...m,
+                              uiParts: mergeUiParts(m.uiParts, nextParts),
+                              isStreaming: true,
+                            }
+                          : m,
+                      ),
+                    );
+                  }
+                  break;
                 }
-                break;
-              }
-              case "parts": {
-                const nextParts = coerceUiParts(data);
-                if (nextParts.length > 0) {
-                  setMessages((prev) =>
-                    prev.map((m) =>
-                      m.id === assistantMessageId
-                        ? {
-                            ...m,
-                            uiParts: mergeUiParts(m.uiParts, nextParts),
-                            isStreaming: true,
-                          }
-                        : m,
-                    ),
-                  );
+                case "chatId": {
+                  const nextChatId =
+                    typeof data === "string"
+                      ? data
+                      : (data as any)?.id || (data as any)?.chatId || null;
+                  if (nextChatId && !chatIdFromStream) {
+                    const id = String(nextChatId);
+                    chatIdFromStream = id;
+                    streamStats.chatId = id;
+                    setChatId(id);
+                    if (chatIdParam !== id) {
+                      const params = buildBuilderParams({
+                        chatId: id,
+                        project: appProjectId ?? undefined,
+                      });
+                      router.replace(`/builder?${params.toString()}`);
+                    }
+                    if (pendingCreateKeyRef.current) {
+                      updateCreateChatLockChatId(pendingCreateKeyRef.current, id);
+                    }
+                  }
+                  break;
                 }
-                break;
-              }
-              case "chatId": {
-                const nextChatId =
-                  typeof data === "string"
-                    ? data
-                    : (data as any)?.id || (data as any)?.chatId || null;
-                if (nextChatId && !chatIdFromStream) {
-                  const id = String(nextChatId);
-                  chatIdFromStream = id;
-                  setChatId(id);
-                  if (chatIdParam !== id) {
-                    const params = buildBuilderParams({
-                      chatId: id,
-                      project: appProjectId ?? undefined,
-                    });
-                    router.replace(`/builder?${params.toString()}`);
+                case "projectId": {
+                  const nextV0ProjectId =
+                    typeof data === "string"
+                      ? data
+                      : (data as any)?.v0ProjectId || (data as any)?.v0_project_id || null;
+                  if (nextV0ProjectId && !v0ProjectIdFromStream) {
+                    const id = String(nextV0ProjectId);
+                    v0ProjectIdFromStream = id;
+                    onV0ProjectId?.(id);
+                  }
+                  break;
+                }
+                case "done": {
+                  didReceiveDone = true;
+                  streamStats.didReceiveDone = true;
+                  const doneData = typeof data === "object" && data ? (data as any) : {};
+                  const doneV0ProjectId = doneData.v0ProjectId || doneData.v0_project_id || null;
+                  if (doneV0ProjectId && !v0ProjectIdFromStream) {
+                    v0ProjectIdFromStream = String(doneV0ProjectId);
+                    onV0ProjectId?.(v0ProjectIdFromStream);
+                  }
+                  if (doneData.demoUrl) {
+                    setCurrentDemoUrl(doneData.demoUrl);
+                  }
+                  onPreviewRefresh?.();
+                  const resolvedChatId = doneData.chatId || doneData.id || chatIdFromStream || null;
+                  const resolvedVersionId =
+                    doneData.versionId ||
+                    doneData.version_id ||
+                    doneData.latestVersion?.id ||
+                    doneData.latestVersion?.versionId ||
+                    null;
+                  if (!resolvedChatId) {
+                    throw new Error("No chat ID returned from stream");
+                  }
+                  const nextId = String(resolvedChatId);
+                  streamStats.chatId = nextId;
+                  streamStats.versionId = resolvedVersionId ? String(resolvedVersionId) : null;
+                  if (!chatIdFromStream) {
+                    chatIdFromStream = nextId;
+                    setChatId(nextId);
+                    if (chatIdParam !== nextId) {
+                      const params = buildBuilderParams({
+                        chatId: nextId,
+                        project: appProjectId ?? undefined,
+                      });
+                      router.replace(`/builder?${params.toString()}`);
+                    }
                   }
                   if (pendingCreateKeyRef.current) {
-                    updateCreateChatLockChatId(pendingCreateKeyRef.current, id);
+                    updateCreateChatLockChatId(pendingCreateKeyRef.current, nextId);
                   }
-                }
-                break;
-              }
-              case "projectId": {
-                const nextV0ProjectId =
-                  typeof data === "string"
-                    ? data
-                    : (data as any)?.v0ProjectId || (data as any)?.v0_project_id || null;
-                if (nextV0ProjectId && !v0ProjectIdFromStream) {
-                  const id = String(nextV0ProjectId);
-                  v0ProjectIdFromStream = id;
-                  onV0ProjectId?.(id);
-                }
-                break;
-              }
-              case "done": {
-                didReceiveDone = true;
-                const doneData = typeof data === "object" && data ? (data as any) : {};
-                const doneV0ProjectId = doneData.v0ProjectId || doneData.v0_project_id || null;
-                if (doneV0ProjectId && !v0ProjectIdFromStream) {
-                  v0ProjectIdFromStream = String(doneV0ProjectId);
-                  onV0ProjectId?.(v0ProjectIdFromStream);
-                }
-                if (doneData.demoUrl) {
-                  setCurrentDemoUrl(doneData.demoUrl);
-                }
-                onPreviewRefresh?.();
-                const resolvedChatId = doneData.chatId || doneData.id || chatIdFromStream || null;
-                const resolvedVersionId =
-                  doneData.versionId ||
-                  doneData.version_id ||
-                  doneData.latestVersion?.id ||
-                  doneData.latestVersion?.versionId ||
-                  null;
-                if (!resolvedChatId) {
-                  throw new Error("No chat ID returned from stream");
-                }
-                const nextId = String(resolvedChatId);
-                if (!chatIdFromStream) {
-                  chatIdFromStream = nextId;
-                  setChatId(nextId);
-                  if (chatIdParam !== nextId) {
-                    const params = buildBuilderParams({
-                      chatId: nextId,
-                      project: appProjectId ?? undefined,
+                  setMessages((prev) =>
+                    prev.map((m) => (m.id === assistantMessageId ? { ...m, isStreaming: false } : m)),
+                  );
+                  toast.success("Chat created!");
+                  mutateVersions();
+                  // Call generation complete callback with resolved data
+                  onGenerationComplete?.({
+                    chatId: nextId,
+                    versionId: resolvedVersionId ? String(resolvedVersionId) : undefined,
+                    demoUrl: doneData.demoUrl,
+                  });
+                  if (resolvedChatId && resolvedVersionId) {
+                    void triggerImageMaterialization({
+                      chatId: String(resolvedChatId),
+                      versionId: String(resolvedVersionId),
+                      enabled: enableImageMaterialization,
                     });
-                    router.replace(`/builder?${params.toString()}`);
                   }
+                  if (resolvedChatId && resolvedVersionId) {
+                    void runPostGenerationChecks({
+                      chatId: String(resolvedChatId),
+                      versionId: String(resolvedVersionId),
+                      demoUrl: doneData.demoUrl ?? null,
+                      assistantMessageId,
+                      setMessages,
+                    });
+                  }
+                  break;
                 }
-                if (pendingCreateKeyRef.current) {
-                  updateCreateChatLockChatId(pendingCreateKeyRef.current, nextId);
+                case "error": {
+                  const errorData =
+                    typeof data === "object" && data ? (data as any) : { message: data };
+                  throw new Error(buildStreamErrorMessage(errorData as Record<string, unknown>));
                 }
-                setMessages((prev) =>
-                  prev.map((m) => (m.id === assistantMessageId ? { ...m, isStreaming: false } : m)),
-                );
-                toast.success("Chat created!");
-                mutateVersions();
-                // Call generation complete callback with resolved data
-                onGenerationComplete?.({
-                  chatId: nextId,
-                  versionId: resolvedVersionId ? String(resolvedVersionId) : undefined,
-                  demoUrl: doneData.demoUrl,
-                });
-                if (resolvedChatId && resolvedVersionId) {
-                  void triggerImageMaterialization({
-                    chatId: String(resolvedChatId),
-                    versionId: String(resolvedVersionId),
-                    enabled: enableImageGenerations,
-                  });
-                }
-                if (resolvedChatId && resolvedVersionId) {
-                  void runPostGenerationChecks({
-                    chatId: String(resolvedChatId),
-                    versionId: String(resolvedVersionId),
-                    demoUrl: doneData.demoUrl ?? null,
-                    assistantMessageId,
-                    setMessages,
-                  });
-                }
-                break;
               }
-              case "error": {
-                const errorData =
-                  typeof data === "object" && data ? (data as any) : { message: data };
-                throw new Error(buildStreamErrorMessage(errorData as Record<string, unknown>));
-              }
-            }
-          });
+            });
+          } finally {
+            streamStats.chatId = streamStats.chatId ?? chatIdFromStream ?? null;
+            streamStats.didReceiveDone = streamStats.didReceiveDone || didReceiveDone;
+            finalizeStreamStats(streamStats);
+          }
 
           if (!chatIdFromStream && !didReceiveDone) {
             throw new Error("No chat ID returned from stream");
@@ -1436,6 +1565,7 @@ export function useV0ChatMessaging(params: {
       resetBeforeCreateChat,
       selectedModelTier,
       enableImageGenerations,
+      enableImageMaterialization,
       enableThinking,
       systemPrompt,
       setMessages,
@@ -1516,7 +1646,7 @@ export function useV0ChatMessaging(params: {
           void triggerImageMaterialization({
             chatId: String(chatId),
             versionId: String(resolvedVersionId),
-            enabled: enableImageGenerations,
+            enabled: enableImageMaterialization,
           });
         }
         if (chatId && resolvedVersionId) {
@@ -1574,109 +1704,126 @@ export function useV0ChatMessaging(params: {
 
         let accumulatedThinking = "";
         let accumulatedContent = "";
+        const streamStats = initStreamStats("send", assistantMessageId);
 
-        await consumeSseResponse(response, (event, data) => {
-          switch (event) {
-            case "thinking": {
-              const thinkingText =
-                typeof data === "string"
-                  ? data
-                  : (data as any)?.thinking || (data as any)?.reasoning || null;
-              if (thinkingText) {
-                // V0 can send full text or deltas; merge to avoid dropping fragments.
-                const mergedThought = mergeStreamingText(accumulatedThinking, String(thinkingText));
-                if (mergedThought !== accumulatedThinking) {
-                  accumulatedThinking = mergedThought;
+        try {
+          await consumeSseResponse(response, (event, data) => {
+            switch (event) {
+              case "thinking": {
+                const thinkingText =
+                  typeof data === "string"
+                    ? data
+                    : (data as any)?.thinking || (data as any)?.reasoning || null;
+                if (thinkingText) {
+                  const incoming = String(thinkingText);
+                  const previous = accumulatedThinking;
+                  // V0 can send full text or deltas; merge to avoid dropping fragments.
+                  const mergedThought = mergeStreamingText(previous, incoming);
+                  recordStreamText(streamStats, "thinking", previous, mergedThought, incoming.length);
+                  if (mergedThought !== accumulatedThinking) {
+                    accumulatedThinking = mergedThought;
+                    setMessages((prev) =>
+                      prev.map((m) =>
+                        m.id === assistantMessageId
+                          ? { ...m, thinking: accumulatedThinking, isStreaming: true }
+                          : m,
+                      ),
+                    );
+                  }
+                }
+                break;
+              }
+              case "content": {
+                const contentText =
+                  typeof data === "string"
+                    ? data
+                    : (data as any)?.content || (data as any)?.text || (data as any)?.delta || null;
+                if (contentText) {
+                  const incoming = String(contentText);
+                  const previous = accumulatedContent;
+                  const merged = mergeStreamingText(previous, incoming);
+                  recordStreamText(streamStats, "content", previous, merged, incoming.length);
+                  accumulatedContent = merged;
                   setMessages((prev) =>
                     prev.map((m) =>
                       m.id === assistantMessageId
-                        ? { ...m, thinking: accumulatedThinking, isStreaming: true }
+                        ? { ...m, content: accumulatedContent, isStreaming: true }
                         : m,
                     ),
                   );
                 }
+                break;
               }
-              break;
-            }
-            case "content": {
-              const contentText =
-                typeof data === "string"
-                  ? data
-                  : (data as any)?.content || (data as any)?.text || (data as any)?.delta || null;
-              if (contentText) {
-                accumulatedContent = mergeStreamingText(accumulatedContent, String(contentText));
+              case "parts": {
+                const nextParts = coerceUiParts(data);
+                if (nextParts.length > 0) {
+                  recordStreamParts(streamStats, nextParts.length);
+                  setMessages((prev) =>
+                    prev.map((m) =>
+                      m.id === assistantMessageId
+                        ? {
+                            ...m,
+                            uiParts: mergeUiParts(m.uiParts, nextParts),
+                            isStreaming: true,
+                          }
+                        : m,
+                    ),
+                  );
+                }
+                break;
+              }
+              case "done": {
+                streamStats.didReceiveDone = true;
+                const doneData = typeof data === "object" && data ? (data as any) : {};
+                if (doneData?.demoUrl) setCurrentDemoUrl(doneData.demoUrl);
+                onPreviewRefresh?.();
+                const resolvedVersionId =
+                  doneData.versionId ||
+                  doneData.version_id ||
+                  doneData.latestVersion?.id ||
+                  doneData.latestVersion?.versionId ||
+                  null;
+                streamStats.chatId = chatId ?? null;
+                streamStats.versionId = resolvedVersionId ? String(resolvedVersionId) : null;
                 setMessages((prev) =>
-                  prev.map((m) =>
-                    m.id === assistantMessageId
-                      ? { ...m, content: accumulatedContent, isStreaming: true }
-                      : m,
-                  ),
+                  prev.map((m) => (m.id === assistantMessageId ? { ...m, isStreaming: false } : m)),
                 );
-              }
-              break;
-            }
-            case "parts": {
-              const nextParts = coerceUiParts(data);
-              if (nextParts.length > 0) {
-                setMessages((prev) =>
-                  prev.map((m) =>
-                    m.id === assistantMessageId
-                      ? {
-                          ...m,
-                          uiParts: mergeUiParts(m.uiParts, nextParts),
-                          isStreaming: true,
-                        }
-                      : m,
-                  ),
-                );
-              }
-              break;
-            }
-            case "done": {
-              const doneData = typeof data === "object" && data ? (data as any) : {};
-              if (doneData?.demoUrl) setCurrentDemoUrl(doneData.demoUrl);
-              onPreviewRefresh?.();
-              const resolvedVersionId =
-                doneData.versionId ||
-                doneData.version_id ||
-                doneData.latestVersion?.id ||
-                doneData.latestVersion?.versionId ||
-                null;
-              setMessages((prev) =>
-                prev.map((m) => (m.id === assistantMessageId ? { ...m, isStreaming: false } : m)),
-              );
-              mutateVersions();
-              // Call generation complete callback with available data
-              onGenerationComplete?.({
-                chatId: chatId || "",
-                versionId: resolvedVersionId ?? undefined,
-                demoUrl: doneData.demoUrl,
-              });
-              if (chatId && resolvedVersionId) {
-                void triggerImageMaterialization({
-                  chatId: String(chatId),
-                  versionId: String(resolvedVersionId),
-                  enabled: enableImageGenerations,
+                mutateVersions();
+                // Call generation complete callback with available data
+                onGenerationComplete?.({
+                  chatId: chatId || "",
+                  versionId: resolvedVersionId ?? undefined,
+                  demoUrl: doneData.demoUrl,
                 });
+                if (chatId && resolvedVersionId) {
+                  void triggerImageMaterialization({
+                    chatId: String(chatId),
+                    versionId: String(resolvedVersionId),
+                    enabled: enableImageMaterialization,
+                  });
+                }
+                if (chatId && resolvedVersionId) {
+                  void runPostGenerationChecks({
+                    chatId: String(chatId),
+                    versionId: String(resolvedVersionId),
+                    demoUrl: doneData.demoUrl ?? null,
+                    assistantMessageId,
+                    setMessages,
+                  });
+                }
+                break;
               }
-              if (chatId && resolvedVersionId) {
-                void runPostGenerationChecks({
-                  chatId: String(chatId),
-                  versionId: String(resolvedVersionId),
-                  demoUrl: doneData.demoUrl ?? null,
-                  assistantMessageId,
-                  setMessages,
-                });
+              case "error": {
+                const errorData =
+                  typeof data === "object" && data ? (data as any) : { message: data };
+                throw new Error(buildStreamErrorMessage(errorData as Record<string, unknown>));
               }
-              break;
             }
-            case "error": {
-              const errorData =
-                typeof data === "object" && data ? (data as any) : { message: data };
-              throw new Error(buildStreamErrorMessage(errorData as Record<string, unknown>));
-            }
-          }
-        });
+          });
+        } finally {
+          streamStats.chatId = streamStats.chatId ?? chatId ?? null;
+          finalizeStreamStats(streamStats);
+        }
       } catch (error) {
         let finalError = error;
         if (isNetworkError(error) && requestBody) {
@@ -1727,6 +1874,7 @@ export function useV0ChatMessaging(params: {
       chatId,
       createNewChat,
       enableImageGenerations,
+      enableImageMaterialization,
       enableThinking,
       systemPrompt,
       setMessages,

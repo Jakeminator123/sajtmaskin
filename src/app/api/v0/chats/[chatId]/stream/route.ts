@@ -20,13 +20,13 @@ import { getChatByV0ChatIdForRequest } from "@/lib/tenant";
 import { ensureSessionIdFromRequest } from "@/lib/auth/session";
 import { prepareCredits } from "@/lib/credits/server";
 import { devLogAppend } from "@/lib/logging/devLog";
-import { debugLog, errorLog } from "@/lib/utils/debug";
+import { debugLog, errorLog, warnLog } from "@/lib/utils/debug";
 import { sanitizeV0Metadata } from "@/lib/v0/sanitize-metadata";
 import { normalizeV0Error } from "@/lib/v0/errors";
 import { sendMessageSchema } from "@/lib/validations/chatSchemas";
 
 export const runtime = "nodejs";
-export const maxDuration = 300;
+export const maxDuration = 600;
 
 export async function POST(req: Request, ctx: { params: Promise<{ chatId: string }> }) {
   const requestId = req.headers.get("x-vercel-id") || "unknown";
@@ -270,11 +270,17 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
                 // Prevent unbounded buffer growth from malformed streams
                 // Truncate at newline boundary to preserve event integrity
                 if (buffer.length > MAX_BUFFER_SIZE) {
-                  console.warn(
-                    "[v0-stream] Buffer exceeded max size, truncating at newline boundary",
-                  );
                   const truncateTarget = buffer.length - MAX_BUFFER_SIZE / 2;
                   const newlineIndex = buffer.indexOf("\n", truncateTarget);
+                  warnLog("v0", "Stream buffer exceeded max size; truncating buffer", {
+                    requestId,
+                    chatId,
+                    currentEvent: _currentEvent,
+                    bufferLength: buffer.length,
+                    maxBufferSize: MAX_BUFFER_SIZE,
+                    truncateTarget,
+                    newlineIndex,
+                  });
                   if (newlineIndex !== -1) {
                     buffer = buffer.slice(newlineIndex + 1);
                   } else {
@@ -357,8 +363,8 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
                   const resolved = await resolveLatestVersion(chatId, {
                     preferVersionId: lastVersionId,
                     preferDemoUrl: lastDemoUrl,
-                    maxAttempts: 45,
-                    delayMs: 2500,
+                    maxAttempts: 60,
+                    delayMs: 3000,
                   });
                   const finalVersionId = resolved.versionId || lastVersionId || null;
                   const finalDemoUrl = resolved.demoUrl || lastDemoUrl || null;

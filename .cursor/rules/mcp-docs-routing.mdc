@@ -1,0 +1,11 @@
+---
+description: Route doc questions to MCP servers
+alwaysApply: true
+---
+
+# MCP Docs Routing
+
+- Project docs: use `sajtmaskin-mpc` resources first.
+- OpenAI API/model docs: use `openaiDeveloperDocs`.
+- shadcn/ui components/registry: use `shadcn` MCP server.
+- Vercel platform questions: use Vercel tools; if v0 MCP is added, use it for v0.

@@ -10,6 +10,7 @@ import {
   resolvePromptAssistProvider,
 } from "@/lib/builder/promptAssist";
 import type { WebsiteSpec } from "@/lib/builder/promptAssistContext";
+import type { ThemeColors } from "@/lib/builder/theme-presets";
 import type { BuildIntent } from "@/lib/builder/build-intent";
 import { debugLog } from "@/lib/utils/debug";
 import { useCallback } from "react";
@@ -21,6 +22,7 @@ type UsePromptAssistParams = {
   imageGenerations: boolean;
   codeContext?: string | null;
   buildIntent?: BuildIntent;
+  themeColors?: ThemeColors | null;
 };
 
 // Token limits - these are defaults; the server can override via env
@@ -103,7 +105,7 @@ async function readTextResponse(res: Response): Promise<string> {
 }
 
 export function usePromptAssist(params: UsePromptAssistParams) {
-  const { model, deep, imageGenerations, codeContext, buildIntent } = params;
+  const { model, deep, imageGenerations, codeContext, buildIntent, themeColors } = params;
 
   const maybeEnhanceInitialPrompt = useCallback(
     async (originalPrompt: string, options: PromptAssistOptions = {}): Promise<string> => {
@@ -367,6 +369,7 @@ export function usePromptAssist(params: UsePromptAssistParams) {
           originalPrompt,
           imageGenerations,
           buildIntent,
+          themeOverride: themeColors,
         });
       }
 
@@ -388,6 +391,7 @@ export function usePromptAssist(params: UsePromptAssistParams) {
           originalPrompt,
           imageGenerations,
           buildIntent,
+          themeOverride: themeColors,
         });
       }
 
@@ -439,6 +443,7 @@ export function usePromptAssist(params: UsePromptAssistParams) {
           originalPrompt,
           imageGenerations,
           buildIntent,
+          themeOverride: themeColors,
         });
 
         debugLog("AI", "Dynamic instructions completed", {
@@ -456,6 +461,7 @@ export function usePromptAssist(params: UsePromptAssistParams) {
             originalPrompt,
             imageGenerations,
             buildIntent,
+            themeOverride: themeColors,
           })
         );
       } catch (err) {
@@ -490,12 +496,13 @@ export function usePromptAssist(params: UsePromptAssistParams) {
           originalPrompt,
           imageGenerations,
           buildIntent,
+          themeOverride: themeColors,
         });
       } finally {
         clearTimeout(timeoutId);
       }
     },
-    [model, deep, imageGenerations, buildIntent],
+    [model, deep, imageGenerations, buildIntent, themeColors],
   );
 
   /**

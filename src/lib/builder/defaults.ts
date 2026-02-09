@@ -122,6 +122,9 @@ export const DEFAULT_IMAGE_GENERATIONS = true;
 /** Default for v0 thinking toggle */
 export const DEFAULT_THINKING = true;
 
+/** Default for spec mode in builder */
+export const DEFAULT_SPEC_MODE = true;
+
 /** Default system instructions for new chats (editable in UI) */
 export const DEFAULT_CUSTOM_INSTRUCTIONS = `## Tech Stack
 - Next.js App Router with TypeScript (React 19)
