@@ -3,13 +3,13 @@ import * as React from "react";
 import { cn } from "@/lib/utils/utils";
 
 const Input = React.forwardRef<HTMLInputElement, React.ComponentProps<"input">>(
-  ({ className, type, id, name, placeholder, ...props }, ref) => {
+  ({ className, type, id, name, placeholder, autoComplete: autoCompleteProp, ...props }, ref) => {
     const autoId = React.useId();
     const resolvedId = id || `input-${autoId}`;
     const resolvedName = name || resolvedId;
     const ariaLabel = props["aria-label"] || placeholder || name || "input field";
     const ariaLabelledBy = props["aria-labelledby"];
-    const autoComplete = props.autoComplete ?? "off";
+    const autoComplete = autoCompleteProp ?? "off";
 
     return (
       <input

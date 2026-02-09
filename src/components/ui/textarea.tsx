@@ -3,13 +3,13 @@ import * as React from "react";
 import { cn } from "@/lib/utils/utils";
 
 const Textarea = React.forwardRef<HTMLTextAreaElement, React.ComponentProps<"textarea">>(
-  ({ className, id, name, placeholder, ...props }, ref) => {
+  ({ className, id, name, placeholder, autoComplete: autoCompleteProp, ...props }, ref) => {
     const autoId = React.useId();
     const resolvedId = id || `textarea-${autoId}`;
     const resolvedName = name || resolvedId;
     const ariaLabel = props["aria-label"] || placeholder || name || "textarea";
     const ariaLabelledBy = props["aria-labelledby"];
-    const autoComplete = props.autoComplete ?? "off";
+    const autoComplete = autoCompleteProp ?? "off";
     return (
       <textarea
         id={resolvedId}

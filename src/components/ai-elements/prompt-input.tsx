@@ -157,6 +157,7 @@ export function PromptInputTextarea({
   name,
   "aria-label": ariaLabelProp,
   "aria-labelledby": ariaLabelledByProp,
+  autoComplete: autoCompleteProp,
   ...props
 }: PromptInputTextareaProps) {
   const { value, onChange, onSubmit, isLoading, disabled } = usePromptInput();
@@ -164,7 +165,7 @@ export function PromptInputTextarea({
   const resolvedId = id ?? `prompt-input-${autoId}`;
   const resolvedName = name ?? `prompt-${autoId}`;
   const ariaLabel = ariaLabelledByProp ? undefined : (ariaLabelProp ?? placeholder ?? "Prompt");
-  const autoComplete = props.autoComplete ?? "off";
+  const autoComplete = autoCompleteProp ?? "off";
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   const resizeFrameRef = useRef<number | null>(null);
 
