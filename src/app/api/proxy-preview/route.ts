@@ -193,13 +193,22 @@ function neutralizeEmbeds(html: string): string {
   return html.replace(
     /<iframe([^>]*)\ssrc=["'](https?:\/\/(?!(?:localhost|127\.0\.0\.1))[^"']+)["']([^>]*)><\/iframe>/gi,
     (_match, before, src, after) => {
-      // Extract width/height if present for the placeholder sizing
-      const widthMatch = (before + after).match(/width=["']?(\d+)/i);
-      const heightMatch = (before + after).match(/height=["']?(\d+)/i);
-      const w = widthMatch ? widthMatch[1] + "px" : "100%";
-      const h = heightMatch ? heightMatch[1] + "px" : "200px";
-      const domain = new URL(src).hostname;
-      return `<div style="width:${w};height:${h};display:flex;align-items:center;justify-content:center;background:#1a1a2e;border:1px dashed #444;border-radius:8px;color:#888;font-family:sans-serif;font-size:13px;">[Embed: ${domain}]</div>`;
+      try {
+        const widthMatch = (before + after).match(/width=["']?(\d+)/i);
+        const heightMatch = (before + after).match(/height=["']?(\d+)/i);
+        const w = widthMatch ? widthMatch[1] + "px" : "100%";
+        const h = heightMatch ? heightMatch[1] + "px" : "200px";
+        let domain: string;
+        try {
+          domain = new URL(src).hostname;
+        } catch {
+          domain = src.slice(0, 40);
+        }
+        return `<div style="width:${w};height:${h};display:flex;align-items:center;justify-content:center;background:#1a1a2e;border:1px dashed #444;border-radius:8px;color:#888;font-family:sans-serif;font-size:13px;">[Embed: ${domain}]</div>`;
+      } catch {
+        // If anything fails, return empty div instead of crashing the pipeline
+        return `<div style="width:100%;height:200px;background:#1a1a2e;border:1px dashed #444;border-radius:8px;"></div>`;
+      }
     },
   );
 }
