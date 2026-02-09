@@ -49,7 +49,7 @@ import { usePersistedChatMessages } from "@/lib/hooks/usePersistedChatMessages";
 import { usePromptAssist } from "@/lib/hooks/usePromptAssist";
 import { useV0ChatMessaging } from "@/lib/hooks/useV0ChatMessaging";
 import { useVersions } from "@/lib/hooks/useVersions";
-import { useAuth } from "@/lib/auth/auth-store";
+import { useAuth, useAuthStore } from "@/lib/auth/auth-store";
 import { RequireAuthModal } from "@/components/auth";
 import { formatPromptForV0, isGatewayAssistModel } from "@/lib/builder/promptAssist";
 import type { ModelTier } from "@/lib/validations/chatSchemas";
@@ -1493,6 +1493,29 @@ function BuilderContent() {
     ],
   );
 
+  // Auto-start generation for kostnadsfri flow after the user creates an account.
+  // The wizard data is preserved via promptId → resolvedPrompt, so we just need
+  // to trigger requestCreateChat once auth completes.
+  const autoGenerateTriggeredRef = useRef(false);
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    if (buildMethod !== "kostnadsfri") return;
+    if (!resolvedPrompt) return;
+    if (chatId) return; // already generating or has a chat
+    if (autoGenerateTriggeredRef.current) return;
+    autoGenerateTriggeredRef.current = true;
+
+    // Skip model selection for kostnadsfri — use pro tier and auto-start
+    setHasSelectedModelTier(true);
+    setSelectedModelTier("v0-pro");
+
+    // Small delay to let the builder UI settle after auth modal closes
+    const timer = setTimeout(() => {
+      void requestCreateChat(resolvedPrompt);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [isAuthenticated, buildMethod, resolvedPrompt, chatId, requestCreateChat]);
+
   const handleStartFromRegistry = useCallback(
     async (selection: ShadcnBlockSelection) => {
       if (!selection.registryUrl) {
@@ -2068,7 +2091,11 @@ function BuilderContent() {
         <RequireAuthModal
           isOpen={Boolean(authModalReason)}
           onClose={() => {
-            if (authModalReason === "builder" && !isAuthenticated) {
+            // Read fresh auth state directly from the store to avoid
+            // stale closure — React hasn't re-rendered yet when AuthModal
+            // calls onClose right after setUser().
+            const freshlyAuthed = useAuthStore.getState().user !== null;
+            if (authModalReason === "builder" && !freshlyAuthed) {
               router.push("/");
             }
             setAuthModalReason(null);
