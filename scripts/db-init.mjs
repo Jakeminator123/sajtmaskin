@@ -295,6 +295,8 @@ const setupQueries = [
 const schemaQueries = [
   // Critical: unique constraint required for upsert in tenant.ts
   `CREATE UNIQUE INDEX IF NOT EXISTS projects_user_v0project_idx ON projects(user_id, v0_project_id)`,
+  // Critical: unique constraint required for onConflictDoNothing in chat creation (stream routes + webhooks)
+  `CREATE UNIQUE INDEX IF NOT EXISTS chats_v0_chat_id_unique ON chats(v0_chat_id)`,
   `CREATE INDEX IF NOT EXISTS idx_versions_chat_id ON versions(chat_id)`,
   `ALTER TABLE versions ADD COLUMN IF NOT EXISTS pinned BOOLEAN DEFAULT FALSE`,
   `CREATE INDEX IF NOT EXISTS idx_prompt_logs_created_at ON prompt_logs(created_at DESC)`,

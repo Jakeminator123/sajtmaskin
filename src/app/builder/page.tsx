@@ -1817,6 +1817,8 @@ function BuilderContent() {
           onEnableBlobMediaChange={setEnableBlobMedia}
           showStructuredChat={showStructuredChat}
           onShowStructuredChatChange={setShowStructuredChat}
+          chatId={chatId}
+          activeVersionId={activeVersionId}
           onOpenImport={() => {
             setIsSandboxModalOpen(false);
             setIsImportModalOpen(true);
