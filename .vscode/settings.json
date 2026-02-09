@@ -3,7 +3,8 @@
   "editor.defaultFormatter": null,
   "editor.tabSize": 2,
   "editor.codeActionsOnSave": {
-    "source.fixAll.eslint": "explicit"
+    "source.fixAll.eslint": "explicit",
+    "source.organizeImports": "explicit"
   },
   "prettier.enable": false,
   "eslint.useFlatConfig": true,
