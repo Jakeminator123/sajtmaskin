@@ -10,22 +10,101 @@ const DEFAULT_PACKAGE_JSON_INDENT = 2;
 let cachedVersionMap: DependencyVersionMap | null = null;
 
 export const SHADCN_BASELINE_PACKAGES = [
+  // Radix UI primitives — all packages commonly used by shadcn/ui components
+  "@radix-ui/react-accordion",
+  "@radix-ui/react-alert-dialog",
+  "@radix-ui/react-aspect-ratio",
+  "@radix-ui/react-avatar",
+  "@radix-ui/react-checkbox",
   "@radix-ui/react-collapsible",
+  "@radix-ui/react-context-menu",
   "@radix-ui/react-dialog",
   "@radix-ui/react-dropdown-menu",
   "@radix-ui/react-hover-card",
+  "@radix-ui/react-label",
+  "@radix-ui/react-menubar",
+  "@radix-ui/react-navigation-menu",
+  "@radix-ui/react-popover",
   "@radix-ui/react-progress",
+  "@radix-ui/react-radio-group",
   "@radix-ui/react-scroll-area",
   "@radix-ui/react-select",
   "@radix-ui/react-separator",
+  "@radix-ui/react-slider",
   "@radix-ui/react-slot",
+  "@radix-ui/react-switch",
+  "@radix-ui/react-tabs",
+  "@radix-ui/react-toast",
+  "@radix-ui/react-toggle",
+  "@radix-ui/react-toggle-group",
   "@radix-ui/react-tooltip",
   "@radix-ui/react-use-controllable-state",
+  // Core shadcn utilities
   "class-variance-authority",
   "clsx",
   "lucide-react",
   "tailwind-merge",
+  // Common extras used by shadcn components
+  "next-themes",
+  "tw-animate-css",
 ];
+
+/**
+ * Fallback versions for shadcn/ui-related packages.
+ * Used when a package is detected in generated code but is not present
+ * in the hosting repo's own package.json. Keeps deploys working even
+ * when v0 emits imports the repo doesn't use locally.
+ *
+ * These should be updated periodically to stay current.
+ */
+export const SHADCN_FALLBACK_VERSIONS: DependencyVersionMap = {
+  // Radix UI primitives
+  "@radix-ui/react-accordion": "^1.2.3",
+  "@radix-ui/react-alert-dialog": "^1.1.6",
+  "@radix-ui/react-aspect-ratio": "^1.1.3",
+  "@radix-ui/react-avatar": "^1.1.6",
+  "@radix-ui/react-checkbox": "^1.1.5",
+  "@radix-ui/react-collapsible": "^1.1.12",
+  "@radix-ui/react-context-menu": "^2.2.10",
+  "@radix-ui/react-dialog": "^1.1.15",
+  "@radix-ui/react-dropdown-menu": "^2.1.16",
+  "@radix-ui/react-hover-card": "^1.1.15",
+  "@radix-ui/react-label": "^2.1.3",
+  "@radix-ui/react-menubar": "^1.1.11",
+  "@radix-ui/react-navigation-menu": "^1.2.10",
+  "@radix-ui/react-popover": "^1.1.10",
+  "@radix-ui/react-progress": "^1.1.8",
+  "@radix-ui/react-radio-group": "^1.2.6",
+  "@radix-ui/react-scroll-area": "^1.2.10",
+  "@radix-ui/react-select": "^2.2.6",
+  "@radix-ui/react-separator": "^1.1.8",
+  "@radix-ui/react-slider": "^1.2.6",
+  "@radix-ui/react-slot": "^1.2.4",
+  "@radix-ui/react-switch": "^1.1.6",
+  "@radix-ui/react-tabs": "^1.1.6",
+  "@radix-ui/react-toast": "^1.2.10",
+  "@radix-ui/react-toggle": "^1.1.7",
+  "@radix-ui/react-toggle-group": "^1.1.8",
+  "@radix-ui/react-tooltip": "^1.2.8",
+  "@radix-ui/react-use-controllable-state": "^1.2.2",
+  // Core shadcn utilities
+  "class-variance-authority": "^0.7.1",
+  "clsx": "^2.1.1",
+  "lucide-react": "^0.563.0",
+  "tailwind-merge": "^3.4.0",
+  // Common extras used by shadcn components
+  "cmdk": "^1.1.1",
+  "embla-carousel-react": "^8.6.0",
+  "input-otp": "^1.4.2",
+  "react-day-picker": "^9.6.4",
+  "react-resizable-panels": "^2.1.7",
+  "recharts": "^2.15.3",
+  "vaul": "^1.1.2",
+  "next-themes": "^0.4.6",
+  "sonner": "^2.0.7",
+  "tw-animate-css": "^1.3.4",
+  "framer-motion": "^12.29.0",
+};
 
 export function getRepoDependencyVersionMap(): DependencyVersionMap {
   if (cachedVersionMap) return cachedVersionMap;
@@ -48,6 +127,18 @@ export function getRepoDependencyVersionMap(): DependencyVersionMap {
     cachedVersionMap = {};
   }
   return cachedVersionMap;
+}
+
+/**
+ * Return a version map that merges the repo's own package.json versions
+ * with SHADCN_FALLBACK_VERSIONS. Repo versions take precedence so
+ * locally pinned versions are respected; fallback fills the gaps for
+ * packages the repo doesn't use but v0-generated code may reference.
+ */
+export function getDeployVersionMap(): DependencyVersionMap {
+  const repo = getRepoDependencyVersionMap();
+  // Spread fallback first, then repo on top so repo wins on conflicts
+  return { ...SHADCN_FALLBACK_VERSIONS, ...repo };
 }
 
 export function getPackageNameFromImport(specifier: string): string | null {

@@ -20,7 +20,7 @@ import { getProjectData } from "@/lib/db/services";
 import {
   SHADCN_BASELINE_PACKAGES,
   ensureDependenciesInPackageJson,
-  getRepoDependencyVersionMap,
+  getDeployVersionMap,
 } from "@/lib/deploy/dependency-utils";
 
 interface ProjectFile {
@@ -100,7 +100,7 @@ const FALLBACK_BASE_VERSIONS: Record<string, string> = {
 };
 
 const BASE_PACKAGE_JSON = (() => {
-  const versionMap = getRepoDependencyVersionMap();
+  const versionMap = getDeployVersionMap();
   const dependencies: Record<string, string> = {};
   const devDependencies: Record<string, string> = {};
   const addVersion = (target: Record<string, string>, pkg: string) => {
@@ -146,7 +146,7 @@ const BASE_PACKAGE_JSON = (() => {
 
 const PACKAGE_JSON = (() => {
   try {
-    const versionMap = getRepoDependencyVersionMap();
+    const versionMap = getDeployVersionMap();
     const result = ensureDependenciesInPackageJson({
       packageJsonContent: BASE_PACKAGE_JSON,
       requiredPackages: SHADCN_BASELINE_PACKAGES,

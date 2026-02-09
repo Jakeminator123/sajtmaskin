@@ -11,7 +11,7 @@ import {
   SHADCN_BASELINE_PACKAGES,
   collectExternalPackageNames,
   ensureDependenciesInPackageJson,
-  getRepoDependencyVersionMap,
+  getDeployVersionMap,
 } from "@/lib/deploy/dependency-utils";
 import {
   createVercelDeployment,
@@ -56,7 +56,7 @@ function applyPreDeployFixes(
     );
   }
 
-  const versionMap = getRepoDependencyVersionMap();
+  const versionMap = getDeployVersionMap();
 
   const buildBasePackageJson = () => {
     const missing: string[] = [];
