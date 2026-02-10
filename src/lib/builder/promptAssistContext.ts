@@ -249,7 +249,10 @@ export function briefToSpec(
   paletteState?: PaletteState | null,
 ): SajtmaskinSpec {
   const vis = (brief.visualDirection as Record<string, unknown>) || {};
-  const palette = (vis.colorPalette as Record<string, unknown>) || {};
+  const themeLocked = Boolean(
+    themeOverride && (themeOverride.primary || themeOverride.secondary || themeOverride.accent),
+  );
+  const palette = themeLocked ? {} : (vis.colorPalette as Record<string, unknown>) || {};
   const typo = (vis.typography as Record<string, unknown>) || {};
   const pages = Array.isArray(brief.pages) ? brief.pages : [];
   const paletteSpec = toPaletteSpec(paletteState);

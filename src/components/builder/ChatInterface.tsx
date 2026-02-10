@@ -360,6 +360,26 @@ export function ChatInterface({
     }
   };
 
+  const handlePlanRequest = async () => {
+    if (inputDisabled) return;
+    const current = input.trim();
+    if (!current) {
+      toast.error("Skriv en kort beskrivning innan du skapar en plan.");
+      return;
+    }
+
+    const planPrompt = [
+      "Skapa en plan/PRD innan du skriver kod.",
+      "Beskriv mål, sidor/sektioner, UI/UX-krav, dataflöden vid behov och risker.",
+      "Ställ frågor om något är oklart. Skriv ingen kod ännu.",
+      "",
+      "Projektbeskrivning:",
+      current,
+    ].join("\n");
+
+    await sendMessagePayload(planPrompt, { clearDraft: false });
+  };
+
   const resolveFigmaAttachment = async (
     figmaLink: string,
   ): Promise<V0UserFileAttachment | null> => {
@@ -715,6 +735,18 @@ ${technicalPrompt}`;
               title="Lägg till Figma-länk"
             >
               Figma-länk{figmaUrl.trim() ? " ✓" : ""}
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8 gap-2"
+              onClick={handlePlanRequest}
+              disabled={inputDisabled || !input.trim()}
+              title="Skapa plan/PRD innan kod"
+            >
+              <FileText className="h-3.5 w-3.5" />
+              Plan
             </Button>
             <Button
               type="button"

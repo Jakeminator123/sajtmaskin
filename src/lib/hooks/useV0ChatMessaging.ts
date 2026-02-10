@@ -4,7 +4,7 @@ import type { BuildIntent, BuildMethod } from "@/lib/builder/build-intent";
 import type { ModelTier } from "@/lib/validations/chatSchemas";
 import { formatPromptForV0 } from "@/lib/builder/promptAssist";
 import { debugLog, warnLog } from "@/lib/utils/debug";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
 
 type RouterLike = { replace: (href: string) => void };
@@ -27,6 +27,13 @@ type CreateChatLock = {
   key: string;
   createdAt: number;
   chatId?: string | null;
+};
+
+type AutoFixPayload = {
+  chatId: string;
+  versionId: string;
+  reasons: string[];
+  meta?: Record<string, unknown>;
 };
 
 const CREATE_CHAT_LOCK_KEY = "sajtmaskin:createChatLock";
@@ -57,6 +64,24 @@ function readCreateChatLock(): CreateChatLock | null {
   } catch {
     return null;
   }
+}
+
+function buildAutoFixPrompt(payload: AutoFixPayload): string {
+  const reasons = payload.reasons.length > 0 ? payload.reasons.join(", ") : "unknown issues";
+  const lines = [
+    "Auto-fix request:",
+    `Issues: ${reasons}.`,
+    "Fix the issues without changing unrelated layout or content.",
+    "Checklist:",
+    "- Ensure the preview/demo URL works.",
+    "- Add missing routes or update broken internal links.",
+    "- Fix invalid React use() usage and broken images if present.",
+    "Return with updated files only.",
+  ];
+  if (payload.meta) {
+    lines.push("", "Context (for reference):", JSON.stringify(payload.meta, null, 2));
+  }
+  return lines.join("\n");
 }
 
 function writeCreateChatLock(lock: CreateChatLock) {
@@ -843,14 +868,48 @@ function appendPostCheckSummaryToMessage(
   );
 }
 
+type VersionErrorLogPayload = {
+  level: "info" | "warning" | "error";
+  category?: string | null;
+  message: string;
+  meta?: Record<string, unknown> | null;
+};
+
+async function persistVersionErrorLogs(params: {
+  chatId: string;
+  versionId: string;
+  logs: VersionErrorLogPayload[];
+}) {
+  const { chatId, versionId, logs } = params;
+  if (!logs.length) return;
+  try {
+    await fetch(
+      `/api/v0/chats/${encodeURIComponent(chatId)}/versions/${encodeURIComponent(versionId)}/error-log`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ logs }),
+      },
+    );
+  } catch {
+    // Best-effort only
+  }
+}
+
 async function runPostGenerationChecks(params: {
   chatId: string;
   versionId: string;
   demoUrl?: string | null;
   assistantMessageId: string;
   setMessages: (next: ChatMessage[] | ((prev: ChatMessage[]) => ChatMessage[])) => void;
+  onAutoFix?: (payload: {
+    chatId: string;
+    versionId: string;
+    reasons: string[];
+    meta?: Record<string, unknown>;
+  }) => void;
 }) {
-  const { chatId, versionId, demoUrl, assistantMessageId, setMessages } = params;
+  const { chatId, versionId, demoUrl, assistantMessageId, setMessages, onAutoFix } = params;
   const toolCallId = `post-check:${versionId}`;
   const controller = new AbortController();
 
@@ -970,6 +1029,72 @@ async function runPostGenerationChecks(params: {
       demoUrl: finalDemoUrl,
     };
 
+    const logItems: VersionErrorLogPayload[] = [];
+    if (!finalDemoUrl) {
+      logItems.push({
+        level: "error",
+        category: "preview",
+        message: "Preview-lank saknas for versionen.",
+        meta: { versionId },
+      });
+    }
+    if (missingRoutes.length > 0) {
+      logItems.push({
+        level: "warning",
+        category: "routes",
+        message: "Saknade interna routes.",
+        meta: { missingRoutes },
+      });
+    }
+    if (suspiciousUseCalls.length > 0) {
+      logItems.push({
+        level: "warning",
+        category: "react",
+        message: "Misstankt React use()-anvandning.",
+        meta: { suspiciousUseCalls },
+      });
+    }
+    if (imageValidation?.broken?.length) {
+      logItems.push({
+        level: "warning",
+        category: "images",
+        message: "Trasiga bild-URL:er hittade.",
+        meta: {
+          broken: imageValidation.broken,
+          replacedCount: imageValidation.replacedCount ?? 0,
+        },
+      });
+    }
+    if (imageValidation?.warnings?.length) {
+      logItems.push({
+        level: "warning",
+        category: "images",
+        message: "Bildvalidering rapporterade varningar.",
+        meta: { warnings: imageValidation.warnings },
+      });
+    }
+
+    void persistVersionErrorLogs({ chatId, versionId, logs: logItems });
+
+    const autoFixReasons: string[] = [];
+    if (!finalDemoUrl) autoFixReasons.push("preview saknas");
+    if (missingRoutes.length > 0) autoFixReasons.push("saknade routes");
+    if (suspiciousUseCalls.length > 0) autoFixReasons.push("misstankt use()");
+    if (imageValidation?.broken?.length) autoFixReasons.push("trasiga bilder");
+    if (autoFixReasons.length > 0) {
+      onAutoFix?.({
+        chatId,
+        versionId,
+        reasons: autoFixReasons,
+        meta: {
+          missingRoutes,
+          suspiciousUseCalls,
+          imageValidation,
+          demoUrl: finalDemoUrl,
+        },
+      });
+    }
+
     appendToolPartToMessage(setMessages, assistantMessageId, {
       type: "tool:post-check",
       toolName: "Post-check",
@@ -985,6 +1110,17 @@ async function runPostGenerationChecks(params: {
       buildPostCheckSummary({ changes, warnings, demoUrl: finalDemoUrl }),
     );
   } catch (error) {
+    void persistVersionErrorLogs({
+      chatId,
+      versionId,
+      logs: [
+        {
+          level: "error",
+          category: "post-check",
+          message: error instanceof Error ? error.message : "Post-check failed",
+        },
+      ],
+    });
     appendToolPartToMessage(setMessages, assistantMessageId, {
       type: "tool:post-check",
       toolName: "Post-check",
@@ -1083,6 +1219,8 @@ export function useV0ChatMessaging(params: {
   const createChatInFlightRef = useRef(false);
   const pendingCreateKeyRef = useRef<string | null>(null);
   const streamAbortRef = useRef<AbortController | null>(null);
+  const autoFixAttemptsRef = useRef<Record<string, number>>({});
+  const autoFixHandlerRef = useRef<(payload: AutoFixPayload) => void>(() => {});
 
   const streamingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const startStreamSafetyTimer = useCallback(() => {
@@ -1233,6 +1371,7 @@ export function useV0ChatMessaging(params: {
             demoUrl: data.latestVersion?.demoUrl ?? null,
             assistantMessageId,
             setMessages,
+            onAutoFix: (payload) => autoFixHandlerRef.current(payload),
           });
         }
 
@@ -1505,6 +1644,7 @@ export function useV0ChatMessaging(params: {
                       demoUrl: doneData.demoUrl ?? null,
                       assistantMessageId,
                       setMessages,
+                      onAutoFix: (payload) => autoFixHandlerRef.current(payload),
                     });
                   }
                   break;
@@ -1689,6 +1829,7 @@ export function useV0ChatMessaging(params: {
             demoUrl: demoUrl ?? null,
             assistantMessageId,
             setMessages,
+            onAutoFix: (payload) => autoFixHandlerRef.current(payload),
           });
         }
       };
@@ -1849,6 +1990,7 @@ export function useV0ChatMessaging(params: {
                     demoUrl: doneData.demoUrl ?? null,
                     assistantMessageId,
                     setMessages,
+                    onAutoFix: (payload) => autoFixHandlerRef.current(payload),
                   });
                 }
                 break;
@@ -1938,6 +2080,34 @@ export function useV0ChatMessaging(params: {
       clearStreamSafetyTimer,
     ],
   );
+
+  const handleAutoFix = useCallback(
+    (payload: AutoFixPayload) => {
+      const attemptKey = payload.chatId;
+      const attempts = autoFixAttemptsRef.current[attemptKey] ?? 0;
+      if (attempts >= 2) return;
+      autoFixAttemptsRef.current[attemptKey] = attempts + 1;
+
+      const prompt = buildAutoFixPrompt(payload);
+      const delayMs = attempts === 0 ? 1500 : 4000;
+      setTimeout(() => {
+        void sendMessage(prompt);
+      }, delayMs);
+    },
+    [sendMessage],
+  );
+
+  autoFixHandlerRef.current = handleAutoFix;
+
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const payload = (event as CustomEvent<AutoFixPayload>).detail;
+      if (!payload?.chatId || !payload?.versionId) return;
+      handleAutoFix(payload);
+    };
+    window.addEventListener("sajtmaskin:auto-fix", handler as EventListener);
+    return () => window.removeEventListener("sajtmaskin:auto-fix", handler as EventListener);
+  }, [handleAutoFix]);
 
   return { isCreatingChat, createNewChat, sendMessage };
 }

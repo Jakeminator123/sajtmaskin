@@ -129,12 +129,12 @@ export const DEFAULT_SPEC_MODE = true;
 export const DEFAULT_CUSTOM_INSTRUCTIONS = `## Tech Stack
 - Next.js App Router with TypeScript (React 19)
 - Tailwind CSS v4 for styling (utility classes)
-- shadcn/ui components (\`@/components/ui/*\`, style "new-york")
+- shadcn/ui components (\`@/components/ui/*\`, style "new-york-v4")
 - Use Next.js route handlers for server logic (no custom Node/Express server)
 - Do not change core versions for next, react, react-dom, tailwindcss, postcss, typescript unless explicitly asked
 
 ## shadcn/ui Setup (summary)
-- components.json: style "new-york", rsc true, baseColor "slate", css "src/app/globals.css", aliases for @/components, @/lib/utils, @/components/ui, @/lib, @/hooks
+- components.json: style "new-york-v4", rsc true, baseColor "slate", css "src/app/globals.css", aliases for @/components, @/lib/utils, @/components/ui, @/lib, @/hooks
 - \`src/lib/utils.ts\`: export cn() using clsx + tailwind-merge
 - \`src/app/globals.css\`: define CSS variables for theme tokens (--background, --foreground, --primary, etc.)
 - Ensure deps exist: clsx, tailwind-merge, class-variance-authority, lucide-react, next-themes
@@ -146,6 +146,7 @@ export const DEFAULT_CUSTOM_INSTRUCTIONS = `## Tech Stack
 
 ## Component Usage
 - Use existing shadcn/ui components; avoid duplicating component files (use cn() from \`@/lib/utils\`)
+- Prefer shadcn/ui primitives for modals, overlays, badges, tooltips, sheets, and accordions
 - When adding a new shadcn component, update dependencies/components.json if needed
 - Import icons from lucide-react
 
@@ -175,6 +176,7 @@ export const DEFAULT_CUSTOM_INSTRUCTIONS = `## Tech Stack
 - Add tasteful hover states on all interactive elements
 - Use subtle scroll-reveal animations (fade-in, slide-up) in hero and at least 2 sections
 - Use Tailwind's built-in animations; avoid custom @keyframes or @property rules
+- For advanced motion (timelines, carousels, staggered reveals), you MAY use framer-motion (add dependency if missing)
 - Respect prefers-reduced-motion for accessibility
 
 ## Visual Quality

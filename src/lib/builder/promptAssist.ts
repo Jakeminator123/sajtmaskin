@@ -75,6 +75,85 @@ const STYLE_KEYWORDS = [
   "futuristic",
 ] as const;
 
+type MotionProfile = "static" | "balanced" | "lively";
+
+const MOTION_STATIC_STRICT_KEYWORDS = [
+  "statisk",
+  "stillsam",
+  "ingen animation",
+  "inga animationer",
+  "undvik animationer",
+  "utan animation",
+  "no animation",
+  "no animations",
+  "avoid animation",
+  "avoid animations",
+  "no motion",
+  "motionless",
+  "static site",
+  "still website",
+  "still page",
+  "reduced motion only",
+] as const;
+
+const MOTION_STATIC_KEYWORDS = [
+  "minimal motion",
+  "subtle motion",
+  "calm",
+  "quiet",
+  "lugn",
+  "still",
+  "static",
+  "no effects",
+  "reduced motion",
+  "prefers-reduced-motion",
+] as const;
+
+const MOTION_LIVELY_KEYWORDS = [
+  "livlig",
+  "lively",
+  "animated",
+  "animerad",
+  "animerade",
+  "animation",
+  "animationer",
+  "motion",
+  "dynamic",
+  "interaktiv",
+  "energisk",
+  "energetic",
+  "parallax",
+  "stagger",
+  "scroll reveal",
+  "micro-interactions",
+  "wow",
+  "glow",
+  "floating",
+  "playful",
+] as const;
+
+const MOTION_LIVELY_STYLE_KEYWORDS = [
+  "animated",
+  "animerad",
+  "dynamic",
+  "motion",
+  "futuristic",
+  "neon",
+  "bold",
+  "dramatic",
+  "maximal",
+  "playful",
+] as const;
+
+const MOTION_STATIC_STYLE_KEYWORDS = [
+  "minimal",
+  "clean",
+  "simple",
+  "corporate",
+  "professional",
+  "quiet",
+] as const;
+
 const BUILD_INTENT_GUIDANCE: Record<
   BuildIntent,
   { summary: string; instructionLines: string[] }
@@ -125,13 +204,15 @@ const MOTION_GUIDANCE = {
   detailed: [
     "Add tasteful motion throughout: hover states, scroll-reveal animations (fade-in, slide-up), micro-interactions.",
     "Include subtle motion in hero and at least 2 additional sections.",
-    "Use Tailwind animate-* utilities; avoid custom @keyframes or @property CSS rules.",
+    "Use Tailwind animate-* utilities for simple motion and motion-safe/motion-reduce variants to respect user preferences.",
+    "Avoid custom @keyframes or @property CSS rules unless explicitly requested.",
     "Respect prefers-reduced-motion for accessibility.",
   ],
   compact: [
     "Add tasteful motion throughout: hover states, scroll-reveal animations, micro-interactions.",
     "Include subtle motion in hero and at least 2 additional sections.",
-    "Use Tailwind animate-* utilities; avoid custom @keyframes or @property CSS rules.",
+    "Use Tailwind animate-* utilities and motion-safe/motion-reduce variants.",
+    "Avoid custom @keyframes or @property CSS rules unless explicitly requested.",
   ],
 };
 
@@ -181,12 +262,59 @@ function hasAny(list: string[], keywords: string[]): boolean {
   return keywords.some((k) => lower.some((l) => l.includes(k)));
 }
 
+function inferMotionProfile(params: {
+  prompt?: string;
+  tone?: string[];
+  styleKeywords?: string[];
+  buildIntent?: BuildIntent;
+  preferLively?: boolean;
+}): MotionProfile {
+  const prompt = params.prompt ?? "";
+  const tone = params.tone ?? [];
+  const styleKeywords = params.styleKeywords ?? [];
+  const preferLively = params.preferLively ?? true;
+
+  const strictStaticHits = extractKeywordMatches(prompt, MOTION_STATIC_STRICT_KEYWORDS).length;
+  if (strictStaticHits > 0) return "static";
+
+  let staticScore = extractKeywordMatches(prompt, MOTION_STATIC_KEYWORDS).length;
+  let livelyScore = extractKeywordMatches(prompt, MOTION_LIVELY_KEYWORDS).length;
+
+  if (hasAny(tone, ["playful", "fun", "energetic", "lively", "lekfull"])) {
+    livelyScore += 1;
+  }
+  if (hasAny(tone, ["professional", "corporate", "minimal", "calm", "lugn", "serious", "formal"])) {
+    staticScore += 1;
+  }
+
+  if (hasAny(styleKeywords, MOTION_LIVELY_STYLE_KEYWORDS)) livelyScore += 1;
+  if (hasAny(styleKeywords, MOTION_STATIC_STYLE_KEYWORDS)) staticScore += 1;
+
+  if (params.buildIntent === "template") {
+    staticScore += 1;
+  }
+
+  if (livelyScore >= staticScore + 1) return "lively";
+  if (staticScore >= livelyScore + 1) return "static";
+  return preferLively ? "lively" : "balanced";
+}
+
 function resolveMotionGuidance(
   tone: string[],
   styleKeywords: string[],
   variant: "detailed" | "compact" = "detailed",
+  profile: MotionProfile = "balanced",
 ): string[] {
-  const base = [...MOTION_GUIDANCE[variant]];
+  if (profile === "static") {
+    return [
+      "Keep motion minimal: only subtle hover and focus states.",
+      "Avoid scroll-reveal, autoplay, parallax, looping, and background animations.",
+      "Default to reduced motion (motion-reduce:animate-none) and respect prefers-reduced-motion.",
+      "Add data-animate hooks for future upgrades, but keep animations inactive for now.",
+    ];
+  }
+
+  let base = [...MOTION_GUIDANCE[variant]];
   if (hasAny(tone, ["playful", "fun", "energetic", "lekfull"])) {
     base.push("Use bouncy, playful micro-interactions and generous spring easing.");
   }
@@ -194,11 +322,22 @@ function resolveMotionGuidance(
     base[0] = "Add restrained, professional motion: subtle fades and clean transitions only.";
   }
   if (hasAny(styleKeywords, ["minimal", "clean", "simple"])) {
-    return base.filter((l) => !l.includes("at least 2"));
+    base = base.filter((l) => !l.includes("at least 2"));
   }
   if (hasAny(styleKeywords, ["animated", "dynamic", "motion", "animerad"])) {
     base.push("Go heavy on animations — scroll-triggered reveals, parallax, floating elements.");
   }
+  if (profile === "lively") {
+    base.push(
+      "Add richer motion: staggered entrances, scroll-triggered reveals, gentle parallax, floating accents.",
+    );
+    base.push(
+      "For complex sequences, framer-motion is allowed; otherwise stick to Tailwind animate-* utilities.",
+    );
+  }
+  base.push(
+    "Use consistent animation hooks (data-animate, data-stagger, data-delay) so motion can be extended later.",
+  );
   return base;
 }
 
@@ -249,6 +388,13 @@ function buildThemeTokenLines(themeOverride?: ThemeColors | null): string[] {
   ];
 }
 
+function hasThemeOverride(themeOverride?: ThemeColors | null): boolean {
+  return Boolean(
+    themeOverride &&
+      (themeOverride.primary || themeOverride.secondary || themeOverride.accent),
+  );
+}
+
 function isDarkPalette(palette: ColorPalette): boolean {
   const bg = (palette.background || "").toLowerCase();
   return (
@@ -266,12 +412,19 @@ function resolveVisualIdentityGuidance(
   styleKeywords: string[],
   tone: string[],
   variant: "detailed" | "compact" = "detailed",
+  options?: { themeLocked?: boolean },
 ): string[] {
   const base = [...VISUAL_IDENTITY_GUIDANCE[variant]];
   if (isDarkPalette(palette)) {
     // Replace "never flat white" with dark-specific guidance
     base[0] = "Use a rich dark background with subtle gradients or noise texture for depth.";
     base.push("Ensure sufficient contrast between text and dark backgrounds (WCAG AA+).");
+  }
+  if (options?.themeLocked) {
+    const paletteIndex = base.findIndex((line) => line.toLowerCase().includes("color palette"));
+    if (paletteIndex >= 0) {
+      base[paletteIndex] = "Use the provided theme tokens; do not invent a new palette.";
+    }
   }
   if (hasAny(styleKeywords, ["neon", "cyberpunk", "futuristic"])) {
     base.push("Use neon accent glows, high-contrast borders, and monospace or geometric fonts.");
@@ -451,8 +604,9 @@ export function buildV0PromptFromBrief(params: {
   originalPrompt: string;
   imageGenerations: boolean;
   buildIntent?: BuildIntent;
+  themeOverride?: ThemeColors | null;
 }): string {
-  const { brief, originalPrompt, imageGenerations, buildIntent } = params;
+  const { brief, originalPrompt, imageGenerations, buildIntent, themeOverride } = params;
   const resolvedIntent = resolveBuildIntent(buildIntent);
   const intentLine =
     resolvedIntent === "app"
@@ -473,12 +627,30 @@ export function buildV0PromptFromBrief(params: {
   const tone = asStringList(brief.toneAndVoice);
 
   const styleKeywords = asStringList(brief?.visualDirection?.styleKeywords);
-  const palette = brief?.visualDirection?.colorPalette || {};
+  const themeLocked = hasThemeOverride(themeOverride);
+  const briefPalette = themeLocked ? {} : (brief?.visualDirection?.colorPalette || {});
+  const palette = themeLocked ? toColorPalette(themeOverride) : briefPalette;
   const typography = brief?.visualDirection?.typography || {};
 
-  const motionGuidance = resolveMotionGuidance(tone, styleKeywords, "compact");
-  const visualIdentityGuidance = resolveVisualIdentityGuidance(palette, styleKeywords, tone, "compact");
+  const motionProfile = inferMotionProfile({
+    prompt: originalPrompt,
+    tone,
+    styleKeywords,
+    buildIntent,
+    preferLively: true,
+  });
+  const motionGuidance = resolveMotionGuidance(tone, styleKeywords, "compact", motionProfile);
+  const visualIdentityGuidance = resolveVisualIdentityGuidance(
+    palette,
+    styleKeywords,
+    tone,
+    "compact",
+    { themeLocked },
+  );
+  const themeAccentLines = themeLocked ? buildThemeAccentLines(themeOverride) : [];
+  const themeTokenLines = themeLocked ? buildThemeTokenLines(themeOverride) : [];
   const qualityGuidance = resolveQualityBarGuidance(tone, styleKeywords, "compact");
+  const toBulletLine = (line: string) => (line.startsWith("-") ? line : `- ${line}`);
 
   const pages: any[] = Array.isArray(brief.pages) ? brief.pages : [];
   const pageLines = pages
@@ -531,7 +703,7 @@ export function buildV0PromptFromBrief(params: {
     "",
     "Visual direction:",
     styleKeywords.length ? `- Style keywords: ${styleKeywords.join(", ")}` : null,
-    palette?.primary ? `- Color palette: primary ${String(palette.primary)}` : null,
+    !themeLocked && palette?.primary ? `- Color palette: primary ${String(palette.primary)}` : null,
     typography?.headings || typography?.body
       ? `- Typography: headings ${String(typography.headings || "Inter")}, body ${String(typography.body || "Inter")}`
       : null,
@@ -539,6 +711,8 @@ export function buildV0PromptFromBrief(params: {
     "Design guidance:",
     ...motionGuidance.map((line) => `- ${line}`),
     ...visualIdentityGuidance.map((line) => `- ${line}`),
+    ...themeAccentLines.map(toBulletLine),
+    ...themeTokenLines.map(toBulletLine),
     ...qualityGuidance.map((line) => `- ${line}`),
     "",
     imageGenerations
@@ -624,17 +798,28 @@ export function buildDynamicInstructionAddendumFromBrief(params: {
 
   // Extract visual direction fields for dynamic guidance
   const styleKeywords = asStringList(brief?.visualDirection?.styleKeywords);
-  const briefPalette: ColorPalette = brief?.visualDirection?.colorPalette || {};
-  const colorPalette: ColorPalette = {
-    ...briefPalette,
-    ...toColorPalette(themeOverride),
-  };
-  const themeAccentLines = buildThemeAccentLines(themeOverride);
-  const themeTokenLines = buildThemeTokenLines(themeOverride);
+  const themeLocked = hasThemeOverride(themeOverride);
+  const briefPalette: ColorPalette = themeLocked ? {} : (brief?.visualDirection?.colorPalette || {});
+  const colorPalette: ColorPalette = themeLocked ? toColorPalette(themeOverride) : briefPalette;
+  const themeAccentLines = themeLocked ? buildThemeAccentLines(themeOverride) : [];
+  const themeTokenLines = themeLocked ? buildThemeTokenLines(themeOverride) : [];
 
   // Dynamic guidance adapted to the brief's tone, style, and palette
-  const motionGuidance = resolveMotionGuidance(tone, styleKeywords, "detailed");
-  const visualIdentityGuidance = resolveVisualIdentityGuidance(colorPalette, styleKeywords, tone, "detailed");
+  const motionProfile = inferMotionProfile({
+    prompt: originalPrompt,
+    tone,
+    styleKeywords,
+    buildIntent,
+    preferLively: true,
+  });
+  const motionGuidance = resolveMotionGuidance(tone, styleKeywords, "detailed", motionProfile);
+  const visualIdentityGuidance = resolveVisualIdentityGuidance(
+    colorPalette,
+    styleKeywords,
+    tone,
+    "detailed",
+    { themeLocked },
+  );
   const richnessGuidance = resolveQualityBarGuidance(tone, styleKeywords, "detailed");
   const imageDensityGuidance = IMAGE_DENSITY_GUIDANCE;
 
@@ -701,9 +886,10 @@ export function buildDynamicInstructionAddendumFromPrompt(params: {
     ? "v0 image generation is enabled — use AI-generated images as the primary source. Do NOT use placeholder services (unsplash, picsum). Never use blob: or data: URIs. Always include alt text."
     : "Image generation is disabled — use high-quality stock images (Unsplash/Picsum) with descriptive alt text.";
   const intentLines = getBuildIntentInstructionLines(buildIntent);
-  const colorPalette = toColorPalette(themeOverride);
-  const themeAccentLines = buildThemeAccentLines(themeOverride);
-  const themeTokenLines = buildThemeTokenLines(themeOverride);
+  const themeLocked = hasThemeOverride(themeOverride);
+  const colorPalette = themeLocked ? toColorPalette(themeOverride) : {};
+  const themeAccentLines = themeLocked ? buildThemeAccentLines(themeOverride) : [];
+  const themeTokenLines = themeLocked ? buildThemeTokenLines(themeOverride) : [];
 
   // Infer tone and style from the raw prompt for dynamic guidance
   const promptStyles = extractKeywordMatches(originalPrompt, STYLE_KEYWORDS);
@@ -711,6 +897,13 @@ export function buildDynamicInstructionAddendumFromPrompt(params: {
     "playful", "fun", "professional", "corporate", "luxury",
     "elegant", "minimal", "dramatic", "lekfull", "energetic",
   ] as const);
+  const motionProfile = inferMotionProfile({
+    prompt: originalPrompt,
+    tone: promptTone,
+    styleKeywords: promptStyles,
+    buildIntent,
+    preferLively: true,
+  });
 
   return [
     "## Build Intent",
@@ -720,10 +913,12 @@ export function buildDynamicInstructionAddendumFromPrompt(params: {
     formatted || originalPrompt.trim(),
     "",
     "## Interaction & Motion",
-    ...resolveMotionGuidance(promptTone, promptStyles, "compact"),
+    ...resolveMotionGuidance(promptTone, promptStyles, "compact", motionProfile),
     "",
     "## Visual Identity",
-    ...resolveVisualIdentityGuidance(colorPalette, promptStyles, promptTone, "compact"),
+    ...resolveVisualIdentityGuidance(colorPalette, promptStyles, promptTone, "compact", {
+      themeLocked,
+    }),
     ...themeAccentLines,
     ...themeTokenLines,
     "",

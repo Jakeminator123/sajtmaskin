@@ -88,7 +88,8 @@ export function PreviewPanel({
     const handleMessage = (event: MessageEvent) => {
       const data = event.data as { __fromInspector?: boolean; type?: string; payload?: unknown } | null;
       if (!data || data.__fromInspector !== true) return;
-      if (iframeRef.current?.contentWindow && event.source !== iframeRef.current.contentWindow) return;
+      const targetWindow = iframeRef.current?.contentWindow;
+      if (!targetWindow || event.source !== targetWindow) return;
       if (data.type !== "select") return;
       const payload = data.payload as Partial<InspectorSelection> | null;
       if (!payload || typeof payload.tag !== "string" || typeof payload.selector !== "string") return;

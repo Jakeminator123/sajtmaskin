@@ -57,6 +57,22 @@ export const versions = pgTable(
   }),
 );
 
+export const versionErrorLogs = pgTable("version_error_logs", {
+  id: text("id").primaryKey(),
+  chat_id: text("chat_id")
+    .references(() => chats.id)
+    .notNull(),
+  version_id: text("version_id")
+    .references(() => versions.id, { onDelete: "cascade" })
+    .notNull(),
+  v0_version_id: text("v0_version_id"),
+  level: text("level").notNull(),
+  category: text("category"),
+  message: text("message").notNull(),
+  meta: jsonb("meta"),
+  created_at: timestamp("created_at").defaultNow().notNull(),
+});
+
 export const deployments = pgTable("deployments", {
   id: text("id").primaryKey(),
   projectId: text("project_id").references(() => projects.id),

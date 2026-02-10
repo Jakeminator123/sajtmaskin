@@ -61,6 +61,17 @@ const setupQueries = [
     pinned_at TIMESTAMPTZ,
     created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
   )`,
+  `CREATE TABLE IF NOT EXISTS version_error_logs (
+    id TEXT PRIMARY KEY,
+    chat_id TEXT NOT NULL REFERENCES chats(id) ON DELETE CASCADE,
+    version_id TEXT NOT NULL REFERENCES versions(id) ON DELETE CASCADE,
+    v0_version_id TEXT,
+    level TEXT NOT NULL,
+    category TEXT,
+    message TEXT NOT NULL,
+    meta JSONB,
+    created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
+  )`,
   `CREATE TABLE IF NOT EXISTS deployments (
     id TEXT PRIMARY KEY,
     project_id TEXT REFERENCES projects(id) ON DELETE CASCADE,
@@ -299,6 +310,8 @@ const schemaQueries = [
   // Critical: unique constraint required for onConflictDoNothing in chat creation (stream routes + webhooks)
   `CREATE UNIQUE INDEX IF NOT EXISTS chats_v0_chat_id_unique ON chats(v0_chat_id)`,
   `CREATE INDEX IF NOT EXISTS idx_versions_chat_id ON versions(chat_id)`,
+  `CREATE INDEX IF NOT EXISTS idx_version_error_logs_version_id ON version_error_logs(version_id)`,
+  `CREATE INDEX IF NOT EXISTS idx_version_error_logs_chat_id ON version_error_logs(chat_id)`,
   `ALTER TABLE versions ADD COLUMN IF NOT EXISTS pinned BOOLEAN DEFAULT FALSE`,
   `CREATE INDEX IF NOT EXISTS idx_prompt_logs_created_at ON prompt_logs(created_at DESC)`,
   `ALTER TABLE versions ADD COLUMN IF NOT EXISTS pinned_at TIMESTAMPTZ`,

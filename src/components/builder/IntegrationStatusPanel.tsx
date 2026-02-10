@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { AlertCircle, CheckCircle2, ChevronDown, ChevronUp } from "lucide-react";
 
 type IntegrationItem = {
@@ -22,6 +22,16 @@ export function IntegrationStatusPanel() {
   const [status, setStatus] = useState<IntegrationStatus | null>(null);
   const [error, setError] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const panelRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const handleOpen = () => {
+      setExpanded(true);
+      panelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    };
+    window.addEventListener("integrations-panel-open", handleOpen as EventListener);
+    return () => window.removeEventListener("integrations-panel-open", handleOpen as EventListener);
+  }, []);
 
   useEffect(() => {
     let isActive = true;
@@ -77,7 +87,11 @@ export function IntegrationStatusPanel() {
   const hasIssues = missingRequired.length > 0;
 
   return (
-    <div className="border-border bg-muted/10 border-b px-3 py-2 text-xs">
+    <div
+      ref={panelRef}
+      id="integrations-panel"
+      className="border-border bg-muted/10 border-b px-3 py-2 text-xs"
+    >
       <button
         type="button"
         onClick={() => setExpanded((prev) => !prev)}

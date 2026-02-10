@@ -18,6 +18,7 @@ import {
   transactions,
   userAudits,
   users,
+  versionErrorLogs,
 } from "@/lib/db/schema";
 import { PATHS, SECRETS } from "@/lib/config";
 import { deleteBlob, isVercelBlobUrl } from "@/lib/vercel/blob-service";
@@ -42,6 +43,7 @@ export type ProjectData = typeof projectData.$inferSelect & {
 };
 export type PromptHandoff = typeof promptHandoffs.$inferSelect;
 export type PromptLog = typeof promptLogs.$inferSelect;
+export type VersionErrorLog = typeof versionErrorLogs.$inferSelect;
 export type MediaLibraryItem = typeof mediaLibrary.$inferSelect;
 export type CompanyProfile = typeof companyProfiles.$inferSelect;
 export type DomainOrder = typeof domainOrders.$inferSelect;
@@ -428,6 +430,80 @@ export async function getRecentPromptLogs(limit = 20): Promise<PromptLog[]> {
   assertDbConfigured();
   const resolved = Number.isFinite(limit) ? Math.max(1, Math.min(limit, 100)) : 20;
   return db.select().from(promptLogs).orderBy(desc(promptLogs.created_at)).limit(resolved);
+}
+
+// ============================================================================
+// VERSION ERROR LOGS
+// ============================================================================
+
+export async function createVersionErrorLog(payload: {
+  chatId: string;
+  versionId: string;
+  v0VersionId?: string | null;
+  level: "info" | "warning" | "error";
+  category?: string | null;
+  message: string;
+  meta?: Record<string, unknown> | null;
+}): Promise<VersionErrorLog> {
+  assertDbConfigured();
+  const now = new Date();
+  const rows = await db
+    .insert(versionErrorLogs)
+    .values({
+      id: nanoid(),
+      chat_id: payload.chatId,
+      version_id: payload.versionId,
+      v0_version_id: payload.v0VersionId || null,
+      level: payload.level,
+      category: payload.category || null,
+      message: payload.message,
+      meta: payload.meta || null,
+      created_at: now,
+    })
+    .returning();
+  return rows[0];
+}
+
+export async function createVersionErrorLogs(
+  payloads: Array<{
+    chatId: string;
+    versionId: string;
+    v0VersionId?: string | null;
+    level: "info" | "warning" | "error";
+    category?: string | null;
+    message: string;
+    meta?: Record<string, unknown> | null;
+  }>,
+): Promise<VersionErrorLog[]> {
+  assertDbConfigured();
+  if (payloads.length === 0) return [];
+  const now = new Date();
+  const rows = await db
+    .insert(versionErrorLogs)
+    .values(
+      payloads.map((payload) => ({
+        id: nanoid(),
+        chat_id: payload.chatId,
+        version_id: payload.versionId,
+        v0_version_id: payload.v0VersionId || null,
+        level: payload.level,
+        category: payload.category || null,
+        message: payload.message,
+        meta: payload.meta || null,
+        created_at: now,
+      })),
+    )
+    .returning();
+  return rows;
+}
+
+export async function getVersionErrorLogs(versionId: string): Promise<VersionErrorLog[]> {
+  assertDbConfigured();
+  return db
+    .select()
+    .from(versionErrorLogs)
+    .where(eq(versionErrorLogs.version_id, versionId))
+    .orderBy(desc(versionErrorLogs.created_at));
 }
 
 export async function createProject(

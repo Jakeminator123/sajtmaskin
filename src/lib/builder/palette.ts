@@ -21,6 +21,58 @@ export type PaletteSpec = {
 
 const MAX_PALETTE_ITEMS = 16;
 
+export const DEFAULT_PALETTE_SELECTIONS: PaletteSelection[] = [
+  {
+    id: "dialog",
+    label: "Dialog",
+    description: "Modals and confirmations.",
+    source: "shadcn-component",
+    tags: ["modal", "overlay"],
+  },
+  {
+    id: "sheet",
+    label: "Sheet",
+    description: "Side panels and overlays.",
+    source: "shadcn-component",
+    tags: ["panel", "overlay"],
+  },
+  {
+    id: "badge",
+    label: "Badge",
+    description: "Status markers and quick labels.",
+    source: "shadcn-component",
+    tags: ["label", "status"],
+  },
+  {
+    id: "accordion",
+    label: "Accordion",
+    description: "Collapsible sections for FAQ and details.",
+    source: "shadcn-component",
+    tags: ["faq", "content"],
+  },
+  {
+    id: "carousel",
+    label: "Carousel",
+    description: "Animated sliders for testimonials and galleries.",
+    source: "shadcn-component",
+    tags: ["slider", "animation"],
+  },
+  {
+    id: "tooltip",
+    label: "Tooltip",
+    description: "Subtle hints and micro copy.",
+    source: "shadcn-component",
+    tags: ["help", "hint"],
+  },
+];
+
+export function getDefaultPaletteState(): PaletteState {
+  return {
+    selections: DEFAULT_PALETTE_SELECTIONS,
+    updatedAt: new Date().toISOString(),
+  };
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === "object" && !Array.isArray(value));
 }

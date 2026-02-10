@@ -233,6 +233,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
             let buffer = "";
             let _currentEvent = "";
             let didSendDone = false;
+            let didSendChatMeta = false;
             let lastMessageId: string | null = null;
             let lastDemoUrl: string | null = null;
             let lastVersionId: string | null = null;
@@ -246,6 +247,21 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
                 stopPing();
               }
             };
+
+            if (!didSendChatMeta) {
+              didSendChatMeta = true;
+              safeEnqueue(encoder.encode(formatSSEEvent("chatId", { id: chatId })));
+              if (existingChat?.projectId) {
+                safeEnqueue(
+                  encoder.encode(
+                    formatSSEEvent("projectId", {
+                      id: existingChat.projectId,
+                      v0ProjectId: existingChat.v0ProjectId,
+                    }),
+                  ),
+                );
+              }
+            }
 
             const safeClose = () => {
               if (controllerClosed) return;

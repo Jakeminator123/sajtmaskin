@@ -247,9 +247,9 @@ export interface PromptInputSubmitProps extends ButtonHTMLAttributes<HTMLButtonE
   children?: ReactNode;
 }
 
-export function PromptInputSubmit({ children, className, ...props }: PromptInputSubmitProps) {
+export function PromptInputSubmit({ children, className, "aria-label": ariaLabelProp, ...props }: PromptInputSubmitProps) {
   const { value, onSubmit, isLoading, disabled } = usePromptInput();
-  const ariaLabel = props["aria-label"] ?? (children ? undefined : "Send message");
+  const ariaLabel = ariaLabelProp ?? (children ? undefined : "Send message");
 
   const handleClick = () => {
     if (value.trim() && !isLoading && !disabled) {
@@ -259,6 +259,7 @@ export function PromptInputSubmit({ children, className, ...props }: PromptInput
 
   return (
     <button
+      {...props}
       type="button"
       onClick={handleClick}
       disabled={!value.trim() || isLoading || disabled}
@@ -271,7 +272,6 @@ export function PromptInputSubmit({ children, className, ...props }: PromptInput
         "transition-colors",
         className,
       )}
-      {...props}
     >
       {children || (
         <svg

@@ -295,6 +295,7 @@ export function usePromptAssist(params: UsePromptAssistParams) {
               originalPrompt,
               imageGenerations,
               buildIntent,
+              themeOverride: themeColors,
             });
 
             debugLog("AI", "Prompt assist completed (brief)", {
@@ -357,7 +358,7 @@ export function usePromptAssist(params: UsePromptAssistParams) {
         return originalPrompt;
       }
     },
-    [model, deep, imageGenerations, codeContext, buildIntent],
+    [model, deep, imageGenerations, codeContext, buildIntent, themeColors],
   );
 
   const generateDynamicInstructions = useCallback(

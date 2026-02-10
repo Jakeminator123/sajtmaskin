@@ -25,6 +25,7 @@ import type { ChatMessage, InspectorSelection } from "@/lib/builder/types";
 import { buildPromptAssistContext, briefToSpec, promptToSpec } from "@/lib/builder/promptAssistContext";
 import {
   buildPaletteInstruction,
+  getDefaultPaletteState,
   mergePaletteSelection,
   normalizePaletteState,
   type PaletteSelection,
@@ -161,10 +162,10 @@ function BuilderContent() {
   const [appProjectId, setAppProjectId] = useState<string | null>(projectParam);
   const [appProjectName, setAppProjectName] = useState<string | null>(null);
   const [pendingProjectName, setPendingProjectName] = useState<string | null>(null);
-  const [paletteState, setPaletteState] = useState<PaletteState>({ selections: [] });
+  const [paletteState, setPaletteState] = useState<PaletteState>(() => getDefaultPaletteState());
   const paletteLoadedRef = useRef(false);
   const lastPaletteSavedRef = useRef<string | null>(null);
-  const lastProjectIdRef = useRef<string | null>(projectParam ?? null);
+  const lastProjectIdRef = useRef<string | null>(appProjectId ?? null);
   const [deployNameDialogOpen, setDeployNameDialogOpen] = useState(false);
   const [deployNameInput, setDeployNameInput] = useState("");
   const [deployNameError, setDeployNameError] = useState<string | null>(null);
@@ -541,7 +542,7 @@ function BuilderContent() {
   useEffect(() => {
     if (!appProjectId) {
       setAppProjectName(null);
-      setPaletteState({ selections: [] });
+      setPaletteState(getDefaultPaletteState());
       paletteLoadedRef.current = false;
       lastPaletteSavedRef.current = null;
       lastProjectIdRef.current = null;
@@ -555,10 +556,14 @@ function BuilderContent() {
         if (!isActive) return;
         setAppProjectName(result.project?.name ?? null);
         const nextPalette = normalizePaletteState(result.data?.meta?.palette);
+        const defaultPalette = getDefaultPaletteState();
         setPaletteState((prev) => {
-          const isNewProject = !previousProjectId && appProjectId;
-          if (isNewProject && prev.selections.length > 0 && nextPalette.selections.length === 0) {
-            return prev;
+          const isNewProject = previousProjectId !== null && previousProjectId !== appProjectId;
+          if (nextPalette.selections.length === 0) {
+            if (!isNewProject && prev.selections.length > 0) {
+              return prev;
+            }
+            return defaultPalette;
           }
           return nextPalette;
         });
@@ -1309,6 +1314,44 @@ function BuilderContent() {
   // CSS validation hook - auto-fixes Tailwind v4 issues after generation
   const { validateAndFix: validateCss } = useCssValidation({ autoFix: true, showToasts: true });
 
+  const persistVersionErrorLogs = useCallback(
+    async (
+      chatId: string,
+      versionId: string,
+      logs: Array<{
+        level: "info" | "warning" | "error";
+        category?: string | null;
+        message: string;
+        meta?: Record<string, unknown> | null;
+      }>,
+    ) => {
+      if (!logs.length) return;
+      try {
+        await fetch(
+          `/api/v0/chats/${encodeURIComponent(chatId)}/versions/${encodeURIComponent(versionId)}/error-log`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ logs }),
+          },
+        );
+      } catch (error) {
+        console.warn("[Builder] Failed to persist version error logs:", error);
+      }
+    },
+    [],
+  );
+
+  const triggerAutoFix = useCallback((payload: {
+    chatId: string;
+    versionId: string;
+    reasons: string[];
+    meta?: Record<string, unknown>;
+  }) => {
+    if (typeof window === "undefined") return;
+    window.dispatchEvent(new CustomEvent("sajtmaskin:auto-fix", { detail: payload }));
+  }, []);
+
   // Handle generation completion - validate CSS to prevent runtime errors
   const handleGenerationComplete = useCallback(
     async (data: { chatId: string; versionId?: string; demoUrl?: string }) => {
@@ -1379,17 +1422,108 @@ function BuilderContent() {
 
       if (data.chatId && data.versionId) {
         // Run CSS validation in background (don't block UI)
-        validateCss(data.chatId, data.versionId).catch((err) => {
-          console.warn("[CSS Validation] Failed:", err);
-        });
+        validateCss(data.chatId, data.versionId)
+          .then((result) => {
+            if (!result) return;
+            const errorCount = result.issues.reduce(
+              (sum, file) => sum + file.issues.filter((issue) => issue.severity === "error").length,
+              0,
+            );
+            const warningCount = result.issues.reduce(
+              (sum, file) => sum + file.issues.filter((issue) => issue.severity === "warning").length,
+              0,
+            );
+            if (errorCount > 0 || warningCount > 0) {
+              const message =
+                errorCount > 0
+                  ? "CSS errors detected after validation."
+                  : "CSS warnings detected after validation.";
+              void persistVersionErrorLogs(data.chatId, data.versionId, [
+                {
+                  level: errorCount > 0 ? "error" : "warning",
+                  category: "css",
+                  message,
+                  meta: {
+                    errorCount,
+                    warningCount,
+                    fixed: Boolean(result.fixed),
+                    demoUrl: result.demoUrl ?? null,
+                    files: result.issues.map((file) => ({
+                      fileName: file.fileName,
+                      issueCount: file.issues.length,
+                    })),
+                  },
+                },
+              ]);
+            }
+            if (errorCount > 0 && !result.fixed) {
+              triggerAutoFix({
+                chatId: data.chatId,
+                versionId: data.versionId,
+                reasons: ["css errors"],
+                meta: { errorCount, warningCount },
+              });
+            }
+          })
+          .catch((err) => {
+            console.warn("[CSS Validation] Failed:", err);
+            void persistVersionErrorLogs(data.chatId, data.versionId, [
+              {
+                level: "error",
+                category: "css",
+                message: "CSS validation failed.",
+                meta: { error: err instanceof Error ? err.message : String(err) },
+              },
+            ]);
+          });
         // Normalize unicode escapes in text content (best-effort)
         fetch(`/api/v0/chats/${encodeURIComponent(data.chatId)}/normalize-text`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ versionId: data.versionId, autoFix: true }),
-        }).catch((err) => {
-          console.warn("[Unicode Normalize] Failed:", err);
-        });
+        })
+          .then(async (res) => {
+            const payload = (await res.json().catch(() => null)) as
+              | {
+                  normalized?: boolean;
+                  changed?: boolean;
+                  changedFiles?: number;
+                  replacements?: number;
+                  fixed?: boolean;
+                  demoUrl?: string | null;
+                  error?: string;
+                }
+              | null;
+            if (!res.ok) {
+              throw new Error(payload?.error || "Unicode normalization failed");
+            }
+            if (payload?.changed) {
+              void persistVersionErrorLogs(data.chatId, data.versionId, [
+                {
+                  level: "info",
+                  category: "unicode",
+                  message: "Unicode escapes normalized.",
+                  meta: {
+                    changedFiles: payload.changedFiles ?? 0,
+                    replacements: payload.replacements ?? 0,
+                    fixed: Boolean(payload.fixed),
+                    demoUrl: payload.demoUrl ?? null,
+                  },
+                },
+              ]);
+            }
+          })
+          .catch((err) => {
+            console.warn("[Unicode Normalize] Failed:", err);
+            void persistVersionErrorLogs(data.chatId, data.versionId, [
+              {
+                level: "warning",
+                category: "unicode",
+                message: "Unicode normalization failed.",
+                meta: { error: err instanceof Error ? err.message : String(err) },
+              },
+            ]);
+          });
         // Refetch chat data to get demoUrl if stream didn't provide it
         if (!data.demoUrl) {
           setTimeout(() => {
@@ -1407,7 +1541,15 @@ function BuilderContent() {
         });
       }
     },
-    [applyInstructionsOnce, validateCss, appProjectId, mutateChat, mutateVersions],
+    [
+      applyInstructionsOnce,
+      validateCss,
+      appProjectId,
+      mutateChat,
+      mutateVersions,
+      persistVersionErrorLogs,
+      triggerAutoFix,
+    ],
   );
 
   const { isCreatingChat, createNewChat, sendMessage } = useV0ChatMessaging({
@@ -1871,7 +2013,7 @@ function BuilderContent() {
   ]);
 
   return (
-    <ErrorBoundary>
+    <ErrorBoundary chatId={chatId} versionId={activeVersionId}>
       <main className="bg-muted/30 flex h-screen w-screen flex-col overflow-hidden">
         <Toaster position="top-right" />
 

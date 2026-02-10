@@ -263,7 +263,7 @@ const MessageListComponent = ({
                       typeof tool.state === "string" ? tool.state : "input-available"
                     ) as ToolUIPart["state"];
                     const { toolType, toolTitle } = resolveToolLabels(tool);
-                    const summary = getToolSummary(tool);
+                    const integrationSummary = getToolIntegrationSummary(tool);
                     const canOpen = Boolean(chatId);
 
                     return (
@@ -277,9 +277,19 @@ const MessageListComponent = ({
                             {getToolStateLabel(toolState)}
                           </span>
                         </div>
-                        {summary && (
+                        {integrationSummary?.name && (
                           <p className="text-muted-foreground mt-1 text-xs">
-                            Integration: {summary}
+                            Integration: {integrationSummary.name}
+                          </p>
+                        )}
+                        {integrationSummary?.envKeys && integrationSummary.envKeys.length > 0 && (
+                          <p className="text-muted-foreground mt-1 text-xs">
+                            Miljövariabler: {integrationSummary.envKeys.join(", ")}
+                          </p>
+                        )}
+                        {integrationSummary?.status && (
+                          <p className="text-muted-foreground mt-1 text-xs">
+                            Status: {integrationSummary.status}
                           </p>
                         )}
                         <p className="text-muted-foreground mt-2 text-xs">
@@ -295,6 +305,9 @@ const MessageListComponent = ({
                             disabled={!canOpen}
                           >
                             Öppna i v0
+                          </Button>
+                          <Button size="sm" variant="outline" onClick={openIntegrationsPanel}>
+                            Öppna Integrationspanelen
                           </Button>
                         </div>
                       </div>
@@ -599,21 +612,127 @@ function isActionableToolPart(tool: Partial<ToolUIPart> & { type?: string }) {
   const type = typeof tool.type === "string" ? tool.type.toLowerCase() : "";
   const toolWithName = tool as { name?: string; toolName?: string };
   const name = (toolWithName.name ?? toolWithName.toolName ?? "").toLowerCase();
-  return type.includes("install") || name.includes("install") || type.includes("integration");
+  return (
+    type.includes("install") ||
+    name.includes("install") ||
+    type.includes("integration") ||
+    name.includes("integration") ||
+    looksLikeEnvVarEvent(type) ||
+    looksLikeEnvVarEvent(name)
+  );
 }
 
-function getToolSummary(tool: Partial<ToolUIPart> & { input?: unknown }) {
-  const input = tool.input;
-  if (typeof input === "string") return input.trim().slice(0, 80) || null;
-  if (!input || typeof input !== "object") return null;
-  const obj = input as Record<string, unknown>;
+function looksLikeEnvVarEvent(value: string): boolean {
+  if (!value) return false;
+  const normalized = value.toLowerCase();
+  if (normalized.includes("environment")) return true;
+  if (normalized.includes("env-var") || normalized.includes("env_var") || normalized.includes("envvar")) {
+    return true;
+  }
+  if (normalized.includes("env") && (normalized.includes("var") || normalized.includes("variable"))) {
+    return true;
+  }
+  return false;
+}
+
+type ToolIntegrationSummary = {
+  name?: string;
+  envKeys?: string[];
+  status?: string;
+};
+
+function getToolIntegrationSummary(
+  tool: Partial<ToolUIPart> & { input?: unknown; output?: unknown; type?: string },
+): ToolIntegrationSummary | null {
+  const name =
+    extractIntegrationName(tool.input) ||
+    extractIntegrationName(tool.output) ||
+    extractIntegrationName(tool);
+  const envKeys = dedupeStrings([
+    ...extractEnvKeys(tool.input),
+    ...extractEnvKeys(tool.output),
+  ]);
+  let status = extractStatus(tool.output) || extractStatus(tool.input);
+  const type = typeof tool.type === "string" ? tool.type.toLowerCase() : "";
+  if (!status && type.includes("added-environment-variables")) {
+    status = "Miljövariabler tillagda";
+  }
+  if (!status && type.includes("added-integration")) {
+    status = "Integration tillagd";
+  }
+
+  if (!name && envKeys.length === 0 && !status) return null;
+  return {
+    name: name || undefined,
+    envKeys: envKeys.length > 0 ? envKeys : undefined,
+    status: status || undefined,
+  };
+}
+
+function extractIntegrationName(value: unknown): string | null {
+  if (!value) return null;
+  if (typeof value === "string") {
+    const trimmed = value.trim();
+    return trimmed ? trimmed : null;
+  }
+  if (typeof value === "object") {
+    const obj = value as Record<string, unknown>;
+    const candidate =
+      (typeof obj.integration === "string" && obj.integration) ||
+      (typeof obj.provider === "string" && obj.provider) ||
+      (typeof obj.service === "string" && obj.service) ||
+      (typeof obj.name === "string" && obj.name) ||
+      (typeof obj.title === "string" && obj.title) ||
+      null;
+    return candidate ? String(candidate) : null;
+  }
+  return null;
+}
+
+function extractEnvKeys(value: unknown): string[] {
+  if (!value) return [];
+  if (typeof value === "string") {
+    return looksLikeEnvKey(value) ? [value.trim()] : [];
+  }
+  if (Array.isArray(value)) {
+    return value.flatMap((item) => extractEnvKeys(item));
+  }
+  if (typeof value === "object") {
+    const obj = value as Record<string, unknown>;
+    const directKey = typeof obj.key === "string" ? obj.key : null;
+    if (directKey) return [directKey];
+    const containers = [
+      obj.envVars,
+      obj.environmentVariables,
+      obj.variables,
+      obj.vars,
+      obj.keys,
+      obj.env,
+    ];
+    return containers.flatMap((item) => extractEnvKeys(item));
+  }
+  return [];
+}
+
+function extractStatus(value: unknown): string | null {
+  if (!value || typeof value !== "object") return null;
+  const obj = value as Record<string, unknown>;
   const candidate =
-    (typeof obj.integration === "string" && obj.integration) ||
-    (typeof obj.provider === "string" && obj.provider) ||
-    (typeof obj.service === "string" && obj.service) ||
-    (typeof obj.name === "string" && obj.name) ||
+    (typeof obj.status === "string" && obj.status) ||
+    (typeof obj.state === "string" && obj.state) ||
+    (typeof obj.result === "string" && obj.result) ||
     null;
   return candidate ? String(candidate) : null;
+}
+
+function looksLikeEnvKey(value: string): boolean {
+  const trimmed = value.trim();
+  if (!trimmed) return false;
+  return /^[A-Z][A-Z0-9_]+$/.test(trimmed);
+}
+
+function dedupeStrings(values: string[]): string[] {
+  return Array.from(new Set(values.map((value) => value.trim()).filter(Boolean)));
 }
 
 function getToolStateLabel(state: ToolUIPart["state"]) {
@@ -641,6 +760,10 @@ function openChatInV0(chatId: string | null) {
   if (!chatId) return;
   const url = `https://v0.app/chat/${encodeURIComponent(chatId)}`;
   window.open(url, "_blank", "noopener,noreferrer");
+}
+
+function openIntegrationsPanel() {
+  window.dispatchEvent(new CustomEvent("integrations-panel-open"));
 }
 
 type PostCheckSummary = {
