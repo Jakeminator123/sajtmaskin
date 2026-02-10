@@ -26,6 +26,10 @@ interface VersionHistoryProps {
   onVersionSelect: (versionId: string) => void;
   isCollapsed?: boolean;
   onToggleCollapse?: () => void;
+  /** Pre-fetched versions from parent to avoid duplicate polling */
+  versions?: unknown[];
+  /** Mutate function from parent's useVersions instance */
+  mutateVersions?: () => void;
 }
 
 export function VersionHistory({
@@ -34,9 +38,15 @@ export function VersionHistory({
   onVersionSelect,
   isCollapsed = false,
   onToggleCollapse,
+  versions: externalVersions,
+  mutateVersions: externalMutate,
 }: VersionHistoryProps) {
   const { user, isAuthenticated, hasGitHub, isInitialized, fetchUser } = useAuth();
-  const { versions, isLoading, mutate } = useVersions(chatId);
+  // Use parent-provided versions when available to avoid duplicate polling
+  const internal = useVersions(chatId, { enabled: !externalVersions });
+  const versions = externalVersions ?? internal.versions;
+  const isLoading = externalVersions ? false : internal.isLoading;
+  const mutate = externalMutate ?? internal.mutate;
   type VersionSummary = {
     id?: string | null;
     versionId?: string | null;

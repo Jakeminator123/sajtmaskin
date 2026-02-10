@@ -1,0 +1,44 @@
+UNCERTAIN CHANGES -- Requires testing or documentation verification before implementing
+Date: 2026-02-10
+
+1. AbortController timeout on v0.chats.create() / v0.chats.sendMessage()
+   - Idea: Abort the v0 stream after ~5 minutes to leave time for resolveLatestVersion recovery
+   - Uncertainty: v0 docs do not specify what happens when the client disconnects from
+     an experimental_stream. The generation may continue (desired) or be cancelled (undesired).
+   - Action needed: Test manually -- start a stream, disconnect after 30s, then call
+     v0.chats.getById() to see if the version is eventually created.
+   - Files: src/app/api/v0/chats/stream/route.ts, src/app/api/v0/chats/[chatId]/stream/route.ts
+
+2. Lower maxDuration from 600 to 480
+   - Idea: Reduce function time limit to leave guaranteed headroom for the finally block
+   - Uncertainty: Most normal generations take 1-3 minutes. Lowering maxDuration could
+     cut off legitimate long-running generations. Without abort (item 1), this would make
+     things worse, not better.
+   - Dependency: Should only be done together with item 1.
+   - Files: src/app/api/v0/chats/stream/route.ts, src/app/api/v0/chats/[chatId]/stream/route.ts
+
+3. Post-generation burst throttling
+   - Idea: After a "done" event, 7+ parallel requests fire simultaneously (spec push,
+     CSS validation, normalize-text, saveProjectData, mutateChat/mutateVersions,
+     triggerImageMaterialization, runPostGenerationChecks). These could be sequenced or
+     throttled to reduce load on the v0 API and prevent rate limiting.
+   - Uncertainty: No evidence of actual failures from this burst. Rate limits are generous
+     (30 req/min for v0:stream). Sequencing could slow down the post-generation phase.
+   - Action needed: Monitor v0 API rate limit errors in production logs before changing.
+   - Files: src/app/builder/page.tsx (handleGenerationComplete),
+            src/lib/hooks/useV0ChatMessaging.ts (runPostGenerationChecks)
+
+4. Client-side version polling from v0 API (not just DB)
+   - Idea: When the versions endpoint returns empty for a known chatId, also query
+     v0.chats.getById() to check if v0 has a version that Sajtmaskin missed saving.
+   - Uncertainty: This would add extra API calls on every poll and might hit rate limits.
+     It's a workaround for the root cause (version not being saved), which is better
+     addressed by fixing the stream/finally flow.
+   - Files: src/app/api/v0/chats/[chatId]/versions/route.ts
+
+5. thinking: false for kostnadsfri (free demo) flow
+   - Idea: Disable thinking for free-tier generations to avoid the thinking loop problem
+   - Uncertainty: thinking: true with v0-max produces significantly better results.
+     Disabling it degrades quality for free users, which may hurt conversion.
+   - Trade-off: Speed/reliability vs quality. Business decision.
+   - Files: src/app/builder/page.tsx (kostnadsfri auto-generate effect)

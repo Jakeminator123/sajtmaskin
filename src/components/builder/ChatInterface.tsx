@@ -22,6 +22,7 @@ import {
   ShadcnBlockPicker,
   type ShadcnBlockAction,
   type ShadcnBlockSelection,
+  type PlacementOption,
   PLACEMENT_OPTIONS,
 } from "@/components/builder/ShadcnBlockPicker";
 import { Button } from "@/components/ui/button";
@@ -29,12 +30,15 @@ import { Input } from "@/components/ui/input";
 import { Blocks, FileText, ImageIcon, Loader2, Wand2 } from "lucide-react";
 import { VoiceRecorder } from "@/components/forms/voice-recorder";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { buildAiElementPrompt, type AiElementCatalogItem } from "@/lib/builder/ai-elements-catalog";
+import type { PaletteSelection } from "@/lib/builder/palette";
 import { buildShadcnBlockPrompt, buildShadcnComponentPrompt } from "@/lib/shadcn-registry-utils";
 import {
   fetchRegistrySummary,
   type RegistrySummary,
 } from "@/lib/shadcn-registry-service";
 import type { InspectorSelection } from "@/lib/builder/types";
+import type { DetectedSection } from "@/lib/builder/sectionAnalyzer";
 import { debugLog } from "@/lib/utils/debug";
 import toast from "react-hot-toast";
 
@@ -55,6 +59,9 @@ interface ChatInterfaceProps {
   onCreateChat?: (message: string, options?: MessageOptions) => Promise<boolean | void>;
   onSendMessage?: (message: string, options?: MessageOptions) => Promise<void>;
   onStartFromRegistry?: (selection: ShadcnBlockSelection) => Promise<void>;
+  onStartFromTemplate?: (templateId: string) => void;
+  onPaletteSelection?: (selection: PaletteSelection) => void;
+  paletteSelections?: PaletteSelection[];
   onEnhancePrompt?: (message: string) => Promise<string>;
   isBusy?: boolean;
   isPreparingPrompt?: boolean;
@@ -124,6 +131,9 @@ export function ChatInterface({
   onCreateChat,
   onSendMessage,
   onStartFromRegistry,
+  onStartFromTemplate,
+  onPaletteSelection,
+  paletteSelections,
   onEnhancePrompt,
   isBusy,
   isPreparingPrompt = false,
@@ -468,6 +478,16 @@ export function ChatInterface({
     await sendMessagePayload(baseMessage);
   };
 
+  const resolvePlacementLabel = (placement?: PlacementOption) => {
+    const placementOption = PLACEMENT_OPTIONS.find((p) => p.value === placement);
+    if (placementOption?.label) return placementOption.label;
+    if (placement?.startsWith("after-")) {
+      const label = placement.replace("after-", "");
+      return `Efter ${label.charAt(0).toUpperCase()}${label.slice(1)}`;
+    }
+    return "Längst ner";
+  };
+
   const handleDesignSystemAction = async (
     selection: ShadcnBlockSelection,
     action: ShadcnBlockAction,
@@ -535,10 +555,61 @@ export function ChatInterface({
 ${technicalPrompt}`;
 
       await sendMessagePayload(fullMessage, { clearDraft: false });
+      onPaletteSelection?.({
+        id: selection.registryItem.name || selection.block.name,
+        label: itemTitle,
+        description: selection.block.description || selection.registryItem.description,
+        source: isComponent ? "shadcn-component" : "shadcn-block",
+        dependencies: selection.registryItem.registryDependencies ?? undefined,
+      });
       setIsShadcnPickerOpen(false);
     } finally {
       setIsDesignSystemAction(false);
     }
+  };
+
+  const handleAiElementAction = async (
+    item: AiElementCatalogItem,
+    options: { placement?: PlacementOption; detectedSections?: DetectedSection[] } = {},
+  ) => {
+    if (!onCreateChat && !onSendMessage) return;
+
+    setIsDesignSystemAction(true);
+    try {
+      const placementLabel = resolvePlacementLabel(options.placement);
+      const technicalPrompt = buildAiElementPrompt(item, {
+        placement: options.placement,
+        detectedSections: options.detectedSections,
+      });
+      const deps = item.dependencies?.length
+        ? ` (${item.dependencies.slice(0, 4).join(", ")}${item.dependencies.length > 4 ? "..." : ""})`
+        : "";
+      const fullMessage = `Lägg till AI‑element: **${item.label}**${deps}
+📍 Placering: ${placementLabel}
+
+---
+
+${technicalPrompt}`;
+
+      await sendMessagePayload(fullMessage, { clearDraft: false });
+      onPaletteSelection?.({
+        id: item.id,
+        label: item.label,
+        description: item.description,
+        source: "ai-element",
+        tags: item.tags,
+        dependencies: item.dependencies,
+      });
+      setIsShadcnPickerOpen(false);
+    } finally {
+      setIsDesignSystemAction(false);
+    }
+  };
+
+  const handleTemplateSelect = (templateId: string) => {
+    if (!onStartFromTemplate) return;
+    onStartFromTemplate(templateId);
+    setIsShadcnPickerOpen(false);
   };
 
   const handleMediaSelect = (item: {
@@ -816,6 +887,9 @@ ${technicalPrompt}`;
         open={isShadcnPickerOpen}
         onClose={() => setIsShadcnPickerOpen(false)}
         onConfirm={handleDesignSystemAction}
+        onSelectAiElement={handleAiElementAction}
+        onSelectTemplate={handleTemplateSelect}
+        paletteSelections={paletteSelections}
         isBusy={inputDisabled}
         isSubmitting={isDesignSystemAction}
         hasChat={Boolean(chatId)}

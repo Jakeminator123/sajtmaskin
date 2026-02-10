@@ -13,6 +13,7 @@ import {
   Code2,
   ExternalLink,
   RefreshCw,
+  LayoutGrid,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -33,6 +34,8 @@ import {
   DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
 import type { ShadcnRegistryItem } from "@/lib/shadcn-registry-types";
+import { AI_ELEMENT_ITEMS, type AiElementCatalogItem } from "@/lib/builder/ai-elements-catalog";
+import type { PaletteSelection } from "@/lib/builder/palette";
 import {
   type ComponentCategory,
   type ComponentItem,
@@ -45,6 +48,13 @@ import {
   buildPreviewImageUrl,
   FEATURED_BLOCKS,
 } from "@/lib/shadcn-registry-service";
+import {
+  getAllV0Categories,
+  getTemplateImageUrl,
+  getTemplatesByCategory,
+  type CategoryInfo,
+  type Template,
+} from "@/lib/templates/template-data";
 import { getRegistryBaseUrl, getRegistryStyle, resolveRegistryStyle } from "@/lib/v0/v0-url-parser";
 import {
   analyzeSections,
@@ -137,6 +147,12 @@ interface ShadcnBlockPickerProps {
   open: boolean;
   onClose: () => void;
   onConfirm: (selection: ShadcnBlockSelection, action: ShadcnBlockAction) => void | Promise<void>;
+  onSelectAiElement?: (
+    item: AiElementCatalogItem,
+    options: { placement?: PlacementOption; detectedSections?: DetectedSection[] },
+  ) => void | Promise<void>;
+  onSelectTemplate?: (templateId: string) => void | Promise<void>;
+  paletteSelections?: PaletteSelection[];
   isBusy?: boolean;
   isSubmitting?: boolean;
   hasChat?: boolean;
@@ -163,6 +179,9 @@ export function ShadcnBlockPicker({
   open,
   onClose,
   onConfirm,
+  onSelectAiElement,
+  onSelectTemplate,
+  paletteSelections,
   isBusy = false,
   isSubmitting = false,
   hasChat = false,
@@ -183,6 +202,18 @@ export function ShadcnBlockPicker({
   const [placement, setPlacement] = useState<PlacementOption>("bottom");
   const [activeTab, setActiveTab] = useState<"popular" | "all">("popular");
   const [itemType, setItemType] = useState<"block" | "component">("block");
+  const [paletteTab, setPaletteTab] = useState<"templates" | "ai-elements" | "shadcn">(
+    hasChat ? "shadcn" : "templates",
+  );
+  const [aiQuery, setAiQuery] = useState("");
+  const [selectedAiItemId, setSelectedAiItemId] = useState<string | null>(
+    AI_ELEMENT_ITEMS[0]?.id ?? null,
+  );
+  const [templateCategory, setTemplateCategory] = useState<string>(() => {
+    const categories = getAllV0Categories();
+    return categories[0]?.id ?? "website-templates";
+  });
+  const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
   const [showCodePreview, setShowCodePreview] = useState(false);
   const [lightPreviewFailed, setLightPreviewFailed] = useState(false);
   const [darkPreviewFailed, setDarkPreviewFailed] = useState(false);
@@ -195,6 +226,35 @@ export function ShadcnBlockPicker({
     if (!currentCode) return [];
     return analyzeSections(currentCode);
   }, [currentCode]);
+
+  const templateCategories = useMemo(() => getAllV0Categories(), []);
+  const templateItems = useMemo(
+    () => getTemplatesByCategory(templateCategory),
+    [templateCategory],
+  );
+  const filteredAiItems = useMemo(() => {
+    const trimmed = aiQuery.trim().toLowerCase();
+    if (!trimmed) return AI_ELEMENT_ITEMS;
+    return AI_ELEMENT_ITEMS.filter((item) => {
+      const haystack = [
+        item.label,
+        item.description,
+        ...(item.tags ?? []),
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(trimmed);
+    });
+  }, [aiQuery]);
+  const selectedAiItem = useMemo(
+    () => filteredAiItems.find((item) => item.id === selectedAiItemId) ?? filteredAiItems[0],
+    [filteredAiItems, selectedAiItemId],
+  );
+  const paletteSelectionSet = useMemo(() => {
+    const entries = paletteSelections ?? [];
+    return new Set(entries.map((entry) => `${entry.source}:${entry.id}`));
+  }, [paletteSelections]);
 
   // Generate dynamic placement options based on detected sections
   const dynamicPlacementOptions = useMemo(() => {
@@ -269,6 +329,9 @@ export function ShadcnBlockPicker({
 
   const itemLabel = itemType === "block" ? "block" : "komponent";
   const itemLabelPlural = itemType === "block" ? "block" : "komponenter";
+  const isTemplatesTab = paletteTab === "templates";
+  const isAiTab = paletteTab === "ai-elements";
+  const isShadcnTab = paletteTab === "shadcn";
   const selectedPreviewLink = useMemo(() => {
     if (!selectedItem) return null;
     if (selectedItem.type === "block") {
@@ -279,9 +342,30 @@ export function ShadcnBlockPicker({
   const selectedPreviewLabel = selectedItem?.type === "block" ? "Preview" : "Docs";
   const showPreviewImages = selectedItem?.type === "block";
 
+  useEffect(() => {
+    if (hasChat && paletteTab === "templates") {
+      setPaletteTab("shadcn");
+    }
+  }, [hasChat, paletteTab]);
+
+  useEffect(() => {
+    if (!selectedAiItem && filteredAiItems.length > 0) {
+      setSelectedAiItemId(filteredAiItems[0]?.id ?? null);
+    }
+  }, [filteredAiItems, selectedAiItem]);
+
+  useEffect(() => {
+    if (templateItems.length > 0) {
+      setSelectedTemplate(templateItems[0]);
+    } else {
+      setSelectedTemplate(null);
+    }
+  }, [templateItems]);
+
   // Load categories on mount
   useEffect(() => {
     if (!open) return;
+    if (paletteTab !== "shadcn") return;
 
     let isActive = true;
     setIsLoadingCategories(true);
@@ -324,11 +408,12 @@ export function ShadcnBlockPicker({
     return () => {
       isActive = false;
     };
-  }, [open, itemType, reloadKey]);
+  }, [open, itemType, reloadKey, paletteTab]);
 
   // Load selected item details
   useEffect(() => {
     if (!open || !selectedItem) return;
+    if (paletteTab !== "shadcn") return;
 
     let isActive = true;
     setIsLoadingItem(true);
@@ -388,7 +473,7 @@ export function ShadcnBlockPicker({
     return () => {
       isActive = false;
     };
-  }, [open, selectedItem, reloadKey]);
+  }, [open, selectedItem, reloadKey, paletteTab]);
 
   useEffect(() => {
     setShowCodePreview(false);
@@ -426,6 +511,11 @@ export function ShadcnBlockPicker({
   // Can user take action?
   const canAct =
     Boolean(selectedItem) && !isBusy && !isSubmitting && !isLoadingItem && !itemError;
+  const canStartFromRegistry = canAct && itemType === "block";
+  const canAddAiElement =
+    Boolean(selectedAiItem) && !isBusy && !isSubmitting && Boolean(onSelectAiElement);
+  const canStartTemplate =
+    Boolean(selectedTemplate) && !isBusy && !hasChat && Boolean(onSelectTemplate);
 
   const handleReload = useCallback(() => {
     setReloadKey((prev) => prev + 1);
@@ -466,6 +556,16 @@ export function ShadcnBlockPicker({
     [selectedItem, registryItem, dependencyItems, onConfirm, placement, detectedSections],
   );
 
+  const handleAiElementConfirm = useCallback(async () => {
+    if (!selectedAiItem || !onSelectAiElement) return;
+    await onSelectAiElement(selectedAiItem, { placement, detectedSections });
+  }, [selectedAiItem, onSelectAiElement, placement, detectedSections]);
+
+  const handleTemplateConfirm = useCallback(async () => {
+    if (!selectedTemplate || !onSelectTemplate) return;
+    await onSelectTemplate(selectedTemplate.id);
+  }, [selectedTemplate, onSelectTemplate]);
+
   // Reset pending action when not submitting
   useEffect(() => {
     if (!isSubmitting) {
@@ -489,22 +589,38 @@ export function ShadcnBlockPicker({
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-linear-to-br from-brand-teal/20 via-brand-blue/15 to-brand-teal/10 ring-1 ring-brand-teal/20">
-                  <Blocks className="h-5 w-5 text-brand-teal" />
+                  {isTemplatesTab ? (
+                    <LayoutGrid className="h-5 w-5 text-brand-teal" />
+                  ) : isAiTab ? (
+                    <Wand2 className="h-5 w-5 text-brand-teal" />
+                  ) : (
+                    <Blocks className="h-5 w-5 text-brand-teal" />
+                  )}
                 </div>
                 <div>
                   <DialogTitle className="text-lg font-semibold tracking-tight text-foreground">
-                    Välj shadcn/ui-{itemLabel}
+                    {isTemplatesTab
+                      ? "Välj mall"
+                      : isAiTab
+                        ? "Välj AI‑element"
+                        : `Välj shadcn/ui-${itemLabel}`}
                   </DialogTitle>
                   <DialogDescription className="text-xs text-muted-foreground">
-                    {isLoadingCategories
-                      ? "Laddar katalog..."
-                      : error
-                        ? "Katalogen kunde inte laddas."
-                        : `${sourceItemCount} ${itemLabelPlural} tillgängliga`}
+                    {isTemplatesTab
+                      ? "Starta från en mall om du inte har någon chat ännu."
+                      : isAiTab
+                        ? "Bygg AI‑komponenter med snabbare iterationer."
+                        : isLoadingCategories
+                          ? "Laddar katalog..."
+                          : error
+                            ? "Katalogen kunde inte laddas."
+                            : `${sourceItemCount} ${itemLabelPlural} tillgängliga`}
                   </DialogDescription>
-                  <div className="mt-1 text-[11px] text-muted-foreground/70">
-                    Källa: {REGISTRY_LABEL} • style: {REGISTRY_STYLE_LABEL}
-                  </div>
+                  {isShadcnTab && (
+                    <div className="mt-1 text-[11px] text-muted-foreground/70">
+                      Källa: {REGISTRY_LABEL} • style: {REGISTRY_STYLE_LABEL}
+                    </div>
+                  )}
                 </div>
               </div>
               <Button
@@ -518,69 +634,113 @@ export function ShadcnBlockPicker({
               </Button>
             </div>
 
-            {/* Type toggle + tabs inline */}
-            <div className="mt-4 flex items-center gap-3">
+            {/* Palette tabs + shadcn filters */}
+            <div className="mt-4 flex flex-wrap items-center gap-3">
               <div className="flex rounded-lg border border-border bg-muted/30 p-0.5">
                 <button
                   type="button"
-                  onClick={() => setItemType("block")}
+                  onClick={() => setPaletteTab("templates")}
+                  disabled={hasChat}
                   className={`rounded-md px-3.5 py-1.5 text-xs font-medium transition-all ${
-                    itemType === "block"
+                    isTemplatesTab
+                      ? "bg-brand-blue/10 text-brand-blue shadow-sm ring-1 ring-brand-blue/20"
+                      : "text-muted-foreground hover:text-foreground"
+                  } ${hasChat ? "opacity-40" : ""}`}
+                >
+                  Mallar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPaletteTab("ai-elements")}
+                  className={`rounded-md px-3.5 py-1.5 text-xs font-medium transition-all ${
+                    isAiTab
                       ? "bg-brand-teal/15 text-brand-teal shadow-sm ring-1 ring-brand-teal/20"
                       : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
-                  Blocks
+                  AI Elements
                 </button>
                 <button
                   type="button"
-                  onClick={() => setItemType("component")}
+                  onClick={() => setPaletteTab("shadcn")}
                   className={`rounded-md px-3.5 py-1.5 text-xs font-medium transition-all ${
-                    itemType === "component"
-                      ? "bg-brand-teal/15 text-brand-teal shadow-sm ring-1 ring-brand-teal/20"
+                    isShadcnTab
+                      ? "bg-brand-amber/10 text-brand-amber shadow-sm ring-1 ring-brand-amber/20"
                       : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
-                  Komponenter
+                  shadcn/ui
                 </button>
               </div>
 
-              <div className="h-4 w-px bg-border" />
+              {isShadcnTab && (
+                <>
+                  <div className="h-4 w-px bg-border" />
+                  <div className="flex rounded-lg border border-border bg-muted/30 p-0.5">
+                    <button
+                      type="button"
+                      onClick={() => setItemType("block")}
+                      className={`rounded-md px-3.5 py-1.5 text-xs font-medium transition-all ${
+                        itemType === "block"
+                          ? "bg-brand-teal/15 text-brand-teal shadow-sm ring-1 ring-brand-teal/20"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      Blocks
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setItemType("component")}
+                      className={`rounded-md px-3.5 py-1.5 text-xs font-medium transition-all ${
+                        itemType === "component"
+                          ? "bg-brand-teal/15 text-brand-teal shadow-sm ring-1 ring-brand-teal/20"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      Komponenter
+                    </button>
+                  </div>
 
-              <div className="flex gap-1">
-                {itemType === "block" && (
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab("popular")}
-                    className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
-                      activeTab === "popular"
-                        ? "bg-brand-amber/10 text-brand-amber"
-                        : "text-muted-foreground hover:text-foreground"
-                    }`}
-                  >
-                    Populära
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={() => setActiveTab("all")}
-                  className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
-                    activeTab === "all"
-                      ? "bg-brand-blue/10 text-brand-blue"
-                      : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  Alla ({totalItemCount})
-                </button>
-              </div>
+                  <div className="h-4 w-px bg-border" />
+
+                  <div className="flex gap-1">
+                    {itemType === "block" && (
+                      <button
+                        type="button"
+                        onClick={() => setActiveTab("popular")}
+                        className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+                          activeTab === "popular"
+                            ? "bg-brand-amber/10 text-brand-amber"
+                            : "text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        Populära
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setActiveTab("all")}
+                      className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
+                        activeTab === "all"
+                          ? "bg-brand-blue/10 text-brand-blue"
+                          : "text-muted-foreground hover:text-foreground"
+                      }`}
+                    >
+                      Alla ({totalItemCount})
+                    </button>
+                  </div>
+                </>
+              )}
             </div>
           </DialogHeader>
         </div>
 
         {/* ── Content ── */}
         <div className="flex min-h-0 flex-1 flex-col border-t border-border/50 md:flex-row">
-          {/* Left sidebar */}
-          <div className="flex w-full flex-col border-b border-border/50 md:w-[340px] md:border-r md:border-b-0">
+          {isShadcnTab ? (
+            <>
+              {/* Left sidebar */}
+              <div className="flex w-full flex-col border-b border-border/50 md:w-[340px] md:border-r md:border-b-0">
             {/* Search + filters */}
             <div className="space-y-3 p-4">
               <div className="relative">
@@ -676,6 +836,11 @@ export function ShadcnBlockPicker({
                       <div className="grid grid-cols-1 gap-1.5">
                         {category.items.map((item) => {
                           const isSelected = selectedItem?.name === item.name;
+                          const paletteKey =
+                            item.type === "block"
+                              ? `shadcn-block:${item.name}`
+                              : `shadcn-component:${item.name}`;
+                          const isPinned = paletteSelectionSet.has(paletteKey);
                           const showThumbnail = item.type === "block";
                           const thumbnailUrl = showThumbnail
                             ? item.lightImageUrl || buildPreviewImageUrl(item.name, "light", DEFAULT_STYLE)
@@ -735,6 +900,11 @@ export function ShadcnBlockPicker({
                                     >
                                       {item.type === "block" ? "Block" : "UI"}
                                     </span>
+                                    {isPinned && (
+                                      <span className="text-[9px] font-medium text-brand-teal">
+                                        Tillagd
+                                      </span>
+                                    )}
                                   </div>
                                   {item.description && (
                                     <div className="mt-0.5 line-clamp-1 text-[11px] text-muted-foreground">
@@ -830,6 +1000,17 @@ export function ShadcnBlockPicker({
                           </Button>
                         </div>
                       )}
+                      {registryItem?.registryDependencies?.length ? (
+                        <div className="mb-4 rounded-xl border border-border/50 bg-card/60 p-4">
+                          <div className="text-xs font-medium text-foreground">Dependencies</div>
+                          <div className="mt-1 text-[11px] text-muted-foreground">
+                            {registryItem.registryDependencies.join(", ")}
+                          </div>
+                          <div className="mt-2 rounded-md bg-muted/40 px-3 py-2 text-[11px] font-mono text-foreground/80">
+                            npm i {registryItem.registryDependencies.join(" ")}
+                          </div>
+                        </div>
+                      ) : null}
                       {showPreviewImages ? (
                         <div className="grid gap-4 md:grid-cols-2">
                           {/* Light preview */}
@@ -926,12 +1107,216 @@ export function ShadcnBlockPicker({
               </div>
             )}
           </div>
+            </>
+          ) : isAiTab ? (
+            <>
+              <div className="flex w-full flex-col border-b border-border/50 md:w-[340px] md:border-r md:border-b-0">
+                <div className="space-y-3 p-4">
+                  <div className="relative">
+                    <Search className="absolute top-2.5 left-3 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      value={aiQuery}
+                      onChange={(e) => setAiQuery(e.target.value)}
+                      placeholder="Sök AI‑element..."
+                      className="h-9 bg-muted/30 pl-9 text-sm"
+                    />
+                  </div>
+                  <div className="text-[11px] text-muted-foreground">
+                    {filteredAiItems.length} element
+                  </div>
+                </div>
+                <div className="scrollbar-thin flex-1 overflow-y-auto px-3 pb-3">
+                  {filteredAiItems.length === 0 ? (
+                    <div className="py-12 text-center text-sm text-muted-foreground">
+                      Inga AI‑element matchar sökningen
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {filteredAiItems.map((item) => {
+                        const isSelected = selectedAiItem?.id === item.id;
+                        const isPinned = paletteSelectionSet.has(`ai-element:${item.id}`);
+                        return (
+                          <button
+                            key={item.id}
+                            type="button"
+                            onClick={() => setSelectedAiItemId(item.id)}
+                            className={`w-full rounded-lg border px-3 py-2 text-left transition-colors ${
+                              isSelected
+                                ? "border-brand-teal/40 bg-brand-teal/10"
+                                : "border-border/60 hover:bg-muted/40"
+                            }`}
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="text-sm font-medium text-foreground">{item.label}</div>
+                              {isPinned && (
+                                <span className="text-[10px] font-medium text-brand-teal">
+                                  Tillagd
+                                </span>
+                              )}
+                            </div>
+                            <div className="mt-1 text-xs text-muted-foreground">
+                              {item.description}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex min-h-0 flex-1 flex-col bg-muted/10">
+                {selectedAiItem ? (
+                  <>
+                    <div className="border-b border-border/50 px-6 py-3">
+                      <h3 className="truncate text-base font-semibold text-foreground">
+                        {selectedAiItem.label}
+                      </h3>
+                      <p className="mt-0.5 text-xs text-muted-foreground">
+                        {selectedAiItem.description}
+                      </p>
+                    </div>
+                    <div className="scrollbar-thin flex-1 overflow-y-auto p-5">
+                      {selectedAiItem.tags?.length ? (
+                        <div className="flex flex-wrap gap-1.5">
+                          {selectedAiItem.tags.map((tag) => (
+                            <span
+                              key={tag}
+                              className="rounded-full bg-muted/40 px-2.5 py-1 text-[11px] text-muted-foreground"
+                            >
+                              {tag}
+                            </span>
+                          ))}
+                        </div>
+                      ) : null}
+                      {selectedAiItem.dependencies?.length ? (
+                        <div className="mt-4 rounded-xl border border-border/50 bg-card/60 p-4">
+                          <div className="text-xs font-medium text-foreground">Dependencies</div>
+                          <div className="mt-1 text-[11px] text-muted-foreground">
+                            {selectedAiItem.dependencies.join(", ")}
+                          </div>
+                          <div className="mt-2 rounded-md bg-muted/40 px-3 py-2 text-[11px] font-mono text-foreground/80">
+                            npm i {selectedAiItem.dependencies.join(" ")}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="mt-4 text-xs text-muted-foreground">
+                          Inga extra dependencies krävs.
+                        </div>
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  <div className="flex flex-1 flex-col items-center justify-center gap-3 text-muted-foreground">
+                    <Wand2 className="h-8 w-8 opacity-30" />
+                    <span className="text-sm">Välj ett AI‑element i listan</span>
+                  </div>
+                )}
+              </div>
+            </>
+          ) : (
+            <>
+              <div className="flex w-full flex-col border-b border-border/50 md:w-[280px] md:border-r md:border-b-0">
+                <div className="space-y-2 p-4">
+                  <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    Kategorier
+                  </div>
+                  <div className="space-y-1">
+                    {templateCategories.map((category: CategoryInfo) => {
+                      const isActive = category.id === templateCategory;
+                      return (
+                        <button
+                          key={category.id}
+                          type="button"
+                          onClick={() => setTemplateCategory(category.id)}
+                          className={`w-full rounded-md px-3 py-2 text-left text-xs font-medium transition-colors ${
+                            isActive
+                              ? "bg-brand-blue/10 text-brand-blue"
+                              : "text-muted-foreground hover:text-foreground hover:bg-muted/40"
+                          }`}
+                        >
+                          {category.title}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex min-h-0 flex-1 flex-col bg-muted/10">
+                <div className="border-b border-border/50 px-6 py-3">
+                  <h3 className="truncate text-base font-semibold text-foreground">
+                    {templateCategories.find((cat) => cat.id === templateCategory)?.title ||
+                      "Mallar"}
+                  </h3>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    {templateCategories.find((cat) => cat.id === templateCategory)?.description ||
+                      "Välj en mall att starta från."}
+                  </p>
+                </div>
+                <div className="scrollbar-thin flex-1 overflow-y-auto p-5">
+                  {hasChat && (
+                    <div className="mb-4 rounded-xl border border-amber-500/20 bg-amber-500/10 p-3 text-xs text-amber-100/80">
+                      Skapa en ny chat för att starta från en mall.
+                    </div>
+                  )}
+                  {templateItems.length === 0 ? (
+                    <div className="py-12 text-center text-sm text-muted-foreground">
+                      Inga mallar hittades i kategorin.
+                    </div>
+                  ) : (
+                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                      {templateItems.slice(0, 12).map((template) => {
+                        const isSelected = selectedTemplate?.id === template.id;
+                        return (
+                          <button
+                            key={template.id}
+                            type="button"
+                            disabled={hasChat}
+                            onClick={() => setSelectedTemplate(template)}
+                            className={`group overflow-hidden rounded-xl border text-left transition-all ${
+                              isSelected
+                                ? "border-brand-teal/40 bg-brand-teal/10"
+                                : "border-border/60 hover:border-brand-teal/30 hover:bg-muted/40"
+                            } ${hasChat ? "opacity-60" : ""}`}
+                          >
+                            <div className="aspect-16/10 w-full overflow-hidden bg-muted/30">
+                              {/* eslint-disable-next-line @next/next/no-img-element */}
+                              <img
+                                src={getTemplateImageUrl(template)}
+                                alt={template.title}
+                                className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+                                loading="lazy"
+                              />
+                            </div>
+                            <div className="p-3">
+                              <div className="text-sm font-medium text-foreground">
+                                {template.title}
+                              </div>
+                              <div className="mt-1 text-[11px] text-muted-foreground">
+                                {template.category}
+                              </div>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {templateItems.length > 12 && (
+                    <div className="mt-4 text-[11px] text-muted-foreground">
+                      Visar 12 av {templateItems.length} mallar.
+                    </div>
+                  )}
+                </div>
+              </div>
+            </>
+          )}
         </div>
 
         {/* ── Footer ── */}
         <div className="flex items-center justify-between border-t border-border/50 bg-muted/20 px-6 py-3.5">
           <div className="flex items-center gap-3">
-            {hasChat && (
+            {!isTemplatesTab && hasChat && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
@@ -976,9 +1361,14 @@ export function ShadcnBlockPicker({
                 </DropdownMenuContent>
               </DropdownMenu>
             )}
-            {!hasChat && (
+            {!isTemplatesTab && !hasChat && !isShadcnTab && (
               <div className="text-xs text-muted-foreground">
                 Skapa en sida först för att lägga till komponenter
+              </div>
+            )}
+            {isTemplatesTab && selectedTemplate && (
+              <div className="text-xs text-muted-foreground">
+                Vald mall: <span className="font-medium text-foreground">{selectedTemplate.title}</span>
               </div>
             )}
           </div>
@@ -986,20 +1376,51 @@ export function ShadcnBlockPicker({
             <Button variant="outline" size="sm" onClick={onClose} disabled={isSubmitting}>
               Avbryt
             </Button>
-            {hasChat && (
+            {isTemplatesTab ? (
               <Button
                 size="sm"
-                onClick={() => handleConfirm("add")}
-                disabled={!canAct}
+                onClick={handleTemplateConfirm}
+                disabled={!canStartTemplate}
+                className="bg-brand-blue hover:bg-brand-blue/90 text-white shadow-sm shadow-brand-blue/20"
+              >
+                Starta mall
+              </Button>
+            ) : isAiTab ? (
+              <Button
+                size="sm"
+                onClick={handleAiElementConfirm}
+                disabled={!canAddAiElement || !hasChat}
                 className="bg-brand-teal hover:bg-brand-teal/90 text-white shadow-sm shadow-brand-teal/20"
               >
-                {isSubmitting && pendingAction === "add" ? (
-                  <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
-                ) : (
-                  <Wand2 className="mr-1.5 h-4 w-4" />
-                )}
                 Lägg till
               </Button>
+            ) : isShadcnTab ? (
+              hasChat ? (
+                <Button
+                  size="sm"
+                  onClick={() => handleConfirm("add")}
+                  disabled={!canAct}
+                  className="bg-brand-teal hover:bg-brand-teal/90 text-white shadow-sm shadow-brand-teal/20"
+                >
+                  {isSubmitting && pendingAction === "add" ? (
+                    <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Wand2 className="mr-1.5 h-4 w-4" />
+                  )}
+                  Lägg till
+                </Button>
+              ) : (
+                <Button
+                  size="sm"
+                  onClick={() => handleConfirm("start")}
+                  disabled={!canStartFromRegistry}
+                  className="bg-brand-amber hover:bg-brand-amber/90 text-white shadow-sm shadow-brand-amber/20"
+                >
+                  Starta från block
+                </Button>
+              )
+            ) : (
+              hasChat && null
             )}
           </div>
         </div>

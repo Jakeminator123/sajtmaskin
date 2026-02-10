@@ -15,6 +15,8 @@ interface UseVersionsOptions {
   isGenerating?: boolean;
   /** Pause polling entirely while generating (relies on SSE + mutate). */
   pauseWhileGenerating?: boolean;
+  /** Set to false to disable fetching entirely (e.g. when data comes from parent). Default: true */
+  enabled?: boolean;
 }
 
 /**
@@ -24,13 +26,13 @@ interface UseVersionsOptions {
  * - When idle: poll every 15s for reasonable sync
  */
 export function useVersions(chatId: string | null, options: UseVersionsOptions = {}) {
-  const { isGenerating = false, pauseWhileGenerating = false } = options;
+  const { isGenerating = false, pauseWhileGenerating = false, enabled = true } = options;
 
   // Poll every 5s during generation, 15s when idle
   const refreshInterval = pauseWhileGenerating && isGenerating ? 0 : isGenerating ? 5000 : 15000;
 
   const { data, error, isLoading, mutate } = useSWR(
-    chatId ? `/api/v0/chats/${chatId}/versions` : null,
+    enabled && chatId ? `/api/v0/chats/${chatId}/versions` : null,
     fetcher,
     {
       revalidateOnFocus: false,

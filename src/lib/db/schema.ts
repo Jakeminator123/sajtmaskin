@@ -136,6 +136,7 @@ export const projectData = pgTable("project_data", {
   current_code: text("current_code"),
   files: jsonb("files"),
   messages: jsonb("messages"),
+  meta: jsonb("meta"),
   created_at: timestamp("created_at").defaultNow().notNull(),
   updated_at: timestamp("updated_at").defaultNow().notNull(),
 });

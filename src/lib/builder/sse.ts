@@ -13,10 +13,12 @@ function parseSseData(raw: string): SseData {
 export async function consumeSseResponse(
   response: Response,
   onEvent: (event: string, data: SseData, raw: string) => void,
+  options?: { signal?: AbortSignal },
 ): Promise<void> {
   const reader = response.body?.getReader();
   if (!reader) throw new Error("No response body");
 
+  const signal = options?.signal;
   const decoder = new TextDecoder();
   let buffer = "";
   let currentEvent = "";
@@ -34,7 +36,9 @@ export async function consumeSseResponse(
     dataLines = [];
   };
 
+  try {
   while (true) {
+    if (signal?.aborted) break;
     const { done, value } = await reader.read();
     if (done) break;
 
@@ -62,4 +66,11 @@ export async function consumeSseResponse(
   }
 
   flushEvent();
+  } finally {
+    try {
+      reader.releaseLock();
+    } catch {
+      // reader may already be released
+    }
+  }
 }

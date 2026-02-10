@@ -38,6 +38,7 @@ export type Project = typeof appProjects.$inferSelect;
 export type ProjectData = typeof projectData.$inferSelect & {
   files: unknown[] | null;
   messages: unknown[] | null;
+  meta: unknown | null;
 };
 export type PromptHandoff = typeof promptHandoffs.$inferSelect;
 export type PromptLog = typeof promptLogs.$inferSelect;
@@ -516,40 +517,59 @@ export async function getProjectData(projectId: string): Promise<ProjectData | n
 
 export async function saveProjectData(data: {
   project_id: string;
-  chat_id?: string;
-  demo_url?: string;
-  current_code?: string;
-  files?: unknown[];
-  messages?: unknown[];
+  chat_id?: string | null;
+  demo_url?: string | null;
+  current_code?: string | null;
+  files?: unknown[] | null;
+  messages?: unknown[] | null;
+  meta?: unknown | null;
 }): Promise<void> {
   assertDbConfigured();
   const now = new Date();
 
+  const insertValues: typeof projectData.$inferInsert = {
+    project_id: data.project_id,
+    created_at: now,
+    updated_at: now,
+  };
+  const updateValues: Partial<typeof projectData.$inferInsert> = {
+    updated_at: now,
+  };
+
+  if ("chat_id" in data) {
+    insertValues.chat_id = data.chat_id ?? null;
+    updateValues.chat_id = data.chat_id ?? null;
+  }
+  if ("demo_url" in data) {
+    insertValues.demo_url = data.demo_url ?? null;
+    updateValues.demo_url = data.demo_url ?? null;
+  }
+  if ("current_code" in data) {
+    insertValues.current_code = data.current_code ?? null;
+    updateValues.current_code = data.current_code ?? null;
+  }
+  if ("files" in data) {
+    insertValues.files = data.files ?? [];
+    updateValues.files = data.files ?? [];
+  }
+  if ("messages" in data) {
+    insertValues.messages = data.messages ?? [];
+    updateValues.messages = data.messages ?? [];
+  }
+  if ("meta" in data) {
+    insertValues.meta = data.meta ?? null;
+    updateValues.meta = data.meta ?? null;
+  }
+
   await db
     .insert(projectData)
-    .values({
-      project_id: data.project_id,
-      chat_id: data.chat_id || null,
-      demo_url: data.demo_url || null,
-      current_code: data.current_code || null,
-      files: data.files || [],
-      messages: data.messages || [],
-      created_at: now,
-      updated_at: now,
-    })
+    .values(insertValues)
     .onConflictDoUpdate({
       target: projectData.project_id,
-      set: {
-        chat_id: data.chat_id || null,
-        demo_url: data.demo_url || null,
-        current_code: data.current_code || null,
-        files: data.files || [],
-        messages: data.messages || [],
-        updated_at: now,
-      },
+      set: updateValues,
     });
 
-  if (Array.isArray(data.files)) {
+  if ("files" in data && Array.isArray(data.files)) {
     await db.delete(projectFiles).where(eq(projectFiles.project_id, data.project_id));
     const rows = data.files
       .map((file) => {

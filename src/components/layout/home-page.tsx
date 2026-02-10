@@ -26,6 +26,7 @@
  */
 
 import { useEffect, useMemo, useState } from "react";
+import type { UseEmblaCarouselType } from "embla-carousel-react";
 import { useRouter } from "next/navigation";
 import { TemplateGallery } from "@/components/templates";
 import { PromptInput } from "@/components/forms";
@@ -42,6 +43,16 @@ import { useEntryParams } from "@/lib/entry";
 import { AuthModal } from "@/components/auth";
 import { HelpTooltip, Navbar, ShaderBackground, SiteAuditSection } from "./index";
 import { TrustedByMarquee } from "./trusted-by-marquee";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
+} from "@/components/ui/carousel";
+import { Progress } from "@/components/ui/progress";
 import {
   RotateCcw,
   Wand2,
@@ -50,6 +61,10 @@ import {
   Pencil,
   ChevronDown,
   ChevronUp,
+  ShieldCheck,
+  Sparkles,
+  Star,
+  Timer,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth/auth-store";
 import {
@@ -265,6 +280,92 @@ export function HomePage() {
   };
 
   const initialContext = getInitialContext();
+
+  const [testimonialsApi, setTestimonialsApi] = useState<UseEmblaCarouselType[1] | null>(null);
+
+  useEffect(() => {
+    if (!testimonialsApi) return;
+    if (typeof window === "undefined") return;
+    const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (prefersReducedMotion) return;
+    const interval = window.setInterval(() => {
+      if (testimonialsApi.canScrollNext()) {
+        testimonialsApi.scrollNext();
+      } else {
+        testimonialsApi.scrollTo(0);
+      }
+    }, 5200);
+    return () => window.clearInterval(interval);
+  }, [testimonialsApi]);
+
+  const impactStats = [
+    {
+      label: "Time-to-first-draft",
+      description: "Från idé till första version på några minuter.",
+      value: 92,
+      accent: "text-brand-teal",
+      icon: Timer,
+    },
+    {
+      label: "Designkvalitet",
+      description: "Konsekvent UI med shadcn/ui och tokens.",
+      value: 88,
+      accent: "text-brand-blue",
+      icon: Sparkles,
+    },
+    {
+      label: "Trygg lansering",
+      description: "Automatiska checks och tydliga nästa steg.",
+      value: 79,
+      accent: "text-brand-amber",
+      icon: ShieldCheck,
+    },
+  ];
+
+  const processSteps = [
+    {
+      title: "Beskriv din idé",
+      description: "Skriv, tala eller ladda upp material. AI tolkar och strukturerar.",
+    },
+    {
+      title: "Välj mall eller palett",
+      description: "Utgå från mallar eller lägg till komponenter i din palett.",
+    },
+    {
+      title: "Förfina i chatten",
+      description: "Justera layout, copy och animationer med enkla kommandon.",
+    },
+    {
+      title: "Publicera tryggt",
+      description: "Se preview, kör audit och gå live med ett klick.",
+    },
+  ];
+
+  const testimonials = [
+    {
+      quote:
+        "Vi gick från idé till live-sida på en lunch. Den kändes som ett designteam byggt den.",
+      name: "Alex K.",
+      role: "Founder, Nordic Labs",
+    },
+    {
+      quote:
+        "Sajtmaskin gav oss en professionell layout direkt, och justeringar var superenkla.",
+      name: "Maja B.",
+      role: "Marketing Lead, Fjordly",
+    },
+    {
+      quote: "Palett‑tänket är guld. Jag kan bygga vidare utan att tappa stilen.",
+      name: "Jonas R.",
+      role: "Product Designer",
+    },
+    {
+      quote:
+        "Våra kampanjsidor laddar snabbare och ser mer premium ut än tidigare.",
+      name: "Elina S.",
+      role: "Growth, Driftline",
+    },
+  ];
 
   return (
     <main className="bg-background min-h-screen">
@@ -662,6 +763,154 @@ export function HomePage() {
 
       {/* Trusted by marquee */}
       <TrustedByMarquee />
+
+      {/* Impact highlights */}
+      <section className="relative z-10 px-4 py-16">
+        <div className="mx-auto w-full max-w-6xl">
+          <div className="mb-10 text-center">
+            <Badge className="mb-3 bg-white/10 text-white/70">Resultat</Badge>
+            <h2 className="text-3xl font-semibold text-white sm:text-4xl">
+              Bygg snabbare utan att tumma på kvalitet
+            </h2>
+            <p className="mt-3 text-sm text-white/60">
+              En kombination av shadcn/ui, smarta defaults och AI‑assistans gör skillnaden.
+            </p>
+          </div>
+          <div className="grid gap-4 md:grid-cols-3">
+            {impactStats.map((stat) => {
+              const Icon = stat.icon;
+              return (
+                <Card
+                  key={stat.label}
+                  className="border-white/10 bg-white/4 text-white shadow-[0_0_40px_rgba(59,130,246,0.08)]"
+                >
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-white/8">
+                          <Icon className={`h-4.5 w-4.5 ${stat.accent}`} />
+                        </div>
+                        <CardTitle className="text-base font-semibold text-white">
+                          {stat.label}
+                        </CardTitle>
+                      </div>
+                      <Badge className="bg-white/8 text-white/60">+{stat.value}%</Badge>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <p className="mb-4 text-sm text-white/60">{stat.description}</p>
+                    <Progress value={stat.value} className="h-2 bg-white/10" />
+                  </CardContent>
+                </Card>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      {/* Process timeline */}
+      <section className="relative z-10 px-4 pb-16">
+        <div className="mx-auto grid w-full max-w-6xl gap-8 lg:grid-cols-[1.1fr_0.9fr]">
+          <div>
+            <Badge className="mb-3 bg-white/10 text-white/70">Flöde</Badge>
+            <h2 className="text-3xl font-semibold text-white sm:text-4xl">
+              Ett tydligt flöde från idé till publicering
+            </h2>
+            <p className="mt-3 text-sm text-white/60">
+              Varje steg ger dig tydlig feedback och konkreta nästa actions.
+            </p>
+            <div className="relative mt-8 space-y-5">
+              <div className="absolute left-4 top-0 h-full w-px bg-linear-to-b from-white/20 via-white/10 to-transparent" />
+              {processSteps.map((step, index) => (
+                <div key={step.title} className="relative pl-14">
+                  <div className="absolute left-0 top-1 flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-[12px] font-semibold text-white/70">
+                    {String(index + 1).padStart(2, "0")}
+                  </div>
+                  <Card className="border-white/10 bg-white/4 text-white">
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-base">{step.title}</CardTitle>
+                    </CardHeader>
+                    <CardContent>
+                      <p className="text-sm text-white/60">{step.description}</p>
+                    </CardContent>
+                  </Card>
+                </div>
+              ))}
+            </div>
+          </div>
+          <div className="rounded-3xl border border-white/10 bg-linear-to-b from-white/6 via-white/3 to-transparent p-6">
+            <div className="mb-4 flex items-center gap-3">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-teal/15">
+                <Sparkles className="h-5 w-5 text-brand-teal" />
+              </div>
+              <div>
+                <h3 className="text-base font-semibold text-white">Palett + AI</h3>
+                <p className="text-xs text-white/60">Allt du behöver finns redan på plats.</p>
+              </div>
+            </div>
+            <ul className="space-y-3 text-sm text-white/65">
+              <li className="flex items-center gap-2">
+                <span className="h-1.5 w-1.5 rounded-full bg-brand-teal" />
+                Välj mall när du vill starta om snabbt.
+              </li>
+              <li className="flex items-center gap-2">
+                <span className="h-1.5 w-1.5 rounded-full bg-brand-blue" />
+                Lägg till AI‑komponenter med färdiga prompts.
+              </li>
+              <li className="flex items-center gap-2">
+                <span className="h-1.5 w-1.5 rounded-full bg-brand-amber" />
+                shadcn/ui‑block med auto‑deps när det behövs.
+              </li>
+            </ul>
+          </div>
+        </div>
+      </section>
+
+      {/* Testimonials */}
+      <section className="relative z-10 px-4 pb-20">
+        <div className="mx-auto w-full max-w-6xl">
+          <div className="mb-8 flex items-end justify-between gap-4">
+            <div>
+              <Badge className="mb-3 bg-white/10 text-white/70">Case</Badge>
+              <h2 className="text-3xl font-semibold text-white sm:text-4xl">
+                Teams som bygger snabbare med Sajtmaskin
+              </h2>
+            </div>
+            <div className="hidden items-center gap-1 text-white/60 sm:flex">
+              <Star className="h-4 w-4 text-brand-amber" />
+              <span className="text-sm">4.9/5 i nöjdhet</span>
+            </div>
+          </div>
+          <Carousel
+            opts={{ align: "start", loop: true }}
+            setApi={setTestimonialsApi}
+            className="relative"
+          >
+            <CarouselContent>
+              {testimonials.map((item) => (
+                <CarouselItem key={item.name} className="md:basis-1/2 lg:basis-1/3">
+                  <Card className="h-full border-white/10 bg-white/4 text-white">
+                    <CardContent className="flex h-full flex-col gap-4">
+                      <div className="flex items-center gap-1 text-brand-amber">
+                        {Array.from({ length: 5 }).map((_, idx) => (
+                          <Star key={idx} className="h-4 w-4" />
+                        ))}
+                      </div>
+                      <p className="text-sm text-white/70">“{item.quote}”</p>
+                      <div className="mt-auto">
+                        <div className="text-sm font-semibold text-white">{item.name}</div>
+                        <div className="text-xs text-white/50">{item.role}</div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </CarouselItem>
+              ))}
+            </CarouselContent>
+            <CarouselPrevious className="-left-6 border-white/10 bg-white/5 text-white hover:bg-white/10" />
+            <CarouselNext className="-right-6 border-white/10 bg-white/5 text-white hover:bg-white/10" />
+          </Carousel>
+        </div>
+      </section>
     </main>
   );
 }

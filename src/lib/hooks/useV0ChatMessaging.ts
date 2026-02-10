@@ -31,6 +31,8 @@ type CreateChatLock = {
 
 const CREATE_CHAT_LOCK_KEY = "sajtmaskin:createChatLock";
 const CREATE_CHAT_LOCK_TTL_MS = 2 * 60 * 1000;
+// Max time a stream can be active before force-clearing isStreaming
+const STREAM_SAFETY_TIMEOUT_MS = 10 * 60 * 1000;
 
 function getSessionStorage(): Storage | null {
   if (typeof window === "undefined") return null;
@@ -1080,6 +1082,26 @@ export function useV0ChatMessaging(params: {
   const [isCreatingChat, setIsCreatingChat] = useState(false);
   const createChatInFlightRef = useRef(false);
   const pendingCreateKeyRef = useRef<string | null>(null);
+  const streamAbortRef = useRef<AbortController | null>(null);
+
+  const streamingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const startStreamSafetyTimer = useCallback(() => {
+    if (streamingTimerRef.current) clearTimeout(streamingTimerRef.current);
+    streamingTimerRef.current = setTimeout(() => {
+      streamingTimerRef.current = null;
+      warnLog("v0", "Stream safety timeout reached — force-clearing isStreaming");
+      streamAbortRef.current?.abort();
+      setMessages((prev: ChatMessage[]) =>
+        prev.map((m: ChatMessage) => (m.isStreaming ? { ...m, isStreaming: false } : m)),
+      );
+    }, STREAM_SAFETY_TIMEOUT_MS);
+  }, [setMessages]);
+  const clearStreamSafetyTimer = useCallback(() => {
+    if (streamingTimerRef.current) {
+      clearTimeout(streamingTimerRef.current);
+      streamingTimerRef.current = null;
+    }
+  }, []);
 
   const createNewChat = useCallback(
     async (initialMessage: string, options: MessageOptions = {}, systemPromptOverride?: string) => {
@@ -1269,10 +1291,17 @@ export function useV0ChatMessaging(params: {
           requestBody.attachments = options.attachments;
         }
 
+        // Abort any previous stream before starting a new one
+        streamAbortRef.current?.abort();
+        const streamController = new AbortController();
+        streamAbortRef.current = streamController;
+        startStreamSafetyTimer();
+
         const response = await fetch("/api/v0/chats/stream", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(requestBody),
+          signal: streamController.signal,
         });
 
         if (!response.ok) {
@@ -1486,8 +1515,9 @@ export function useV0ChatMessaging(params: {
                   throw new Error(buildStreamErrorMessage(errorData as Record<string, unknown>));
                 }
               }
-            });
+            }, { signal: streamController.signal });
           } finally {
+            streamAbortRef.current = null;
             streamStats.chatId = streamStats.chatId ?? chatIdFromStream ?? null;
             streamStats.didReceiveDone = streamStats.didReceiveDone || didReceiveDone;
             finalizeStreamStats(streamStats);
@@ -1551,6 +1581,7 @@ export function useV0ChatMessaging(params: {
           ),
         );
       } finally {
+        clearStreamSafetyTimer();
         pendingCreateKeyRef.current = null;
         clearCreateChatLock();
         createChatInFlightRef.current = false;
@@ -1585,6 +1616,8 @@ export function useV0ChatMessaging(params: {
       promptAssistModel,
       promptAssistDeep,
       promptAssistMode,
+      startStreamSafetyTimer,
+      clearStreamSafetyTimer,
     ],
   );
 
@@ -1681,10 +1714,17 @@ export function useV0ChatMessaging(params: {
           requestBody.attachments = options.attachments;
         }
 
+        // Abort any previous stream before starting a new one
+        streamAbortRef.current?.abort();
+        const streamController = new AbortController();
+        streamAbortRef.current = streamController;
+        startStreamSafetyTimer();
+
         const response = await fetch(`/api/v0/chats/${chatId}/stream`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify(requestBody),
+          signal: streamController.signal,
         });
 
         if (!response.ok) {
@@ -1819,11 +1859,21 @@ export function useV0ChatMessaging(params: {
                 throw new Error(buildStreamErrorMessage(errorData as Record<string, unknown>));
               }
             }
-          });
+          }, { signal: streamController.signal });
         } finally {
+          streamAbortRef.current = null;
           streamStats.chatId = streamStats.chatId ?? chatId ?? null;
           finalizeStreamStats(streamStats);
         }
+
+        // Ensure isStreaming is false even if stream ends without "done" event (fail-safe)
+        setMessages((prev) => {
+          const msg = prev.find((m) => m.id === assistantMessageId);
+          if (!msg?.isStreaming) return prev;
+          return prev.map((m) =>
+            m.id === assistantMessageId ? { ...m, isStreaming: false } : m,
+          );
+        });
       } catch (error) {
         let finalError = error;
         if (isNetworkError(error) && requestBody) {
@@ -1865,6 +1915,7 @@ export function useV0ChatMessaging(params: {
           ),
         );
       } finally {
+        clearStreamSafetyTimer();
         setMessages((prev) =>
           prev.map((m) => (m.id === assistantMessageId ? { ...m, isStreaming: false } : m)),
         );
@@ -1883,6 +1934,8 @@ export function useV0ChatMessaging(params: {
       onGenerationComplete,
       selectedModelTier,
       mutateVersions,
+      startStreamSafetyTimer,
+      clearStreamSafetyTimer,
     ],
   );
 

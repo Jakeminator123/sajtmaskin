@@ -199,6 +199,8 @@ export async function processPromptWithSpec(userPrompt: string): Promise<{
 // can be pushed to the v0 project as sajtmaskin.spec.json (locked file).
 
 import type { ThemeColors } from "./theme-presets";
+import type { PaletteSpec, PaletteState } from "./palette";
+import { toPaletteSpec } from "./palette";
 
 type BriefLike = Record<string, unknown>;
 
@@ -233,6 +235,7 @@ export interface SajtmaskinSpec {
     noNewDependencies: boolean;
     originalPrompt: string;
   };
+  palette?: PaletteSpec;
 }
 
 /**
@@ -243,11 +246,13 @@ export function briefToSpec(
   brief: BriefLike,
   originalPrompt: string,
   themeOverride?: ThemeColors | null,
+  paletteState?: PaletteState | null,
 ): SajtmaskinSpec {
   const vis = (brief.visualDirection as Record<string, unknown>) || {};
   const palette = (vis.colorPalette as Record<string, unknown>) || {};
   const typo = (vis.typography as Record<string, unknown>) || {};
   const pages = Array.isArray(brief.pages) ? brief.pages : [];
+  const paletteSpec = toPaletteSpec(paletteState);
 
   return {
     version: "1.0",
@@ -284,6 +289,7 @@ export function briefToSpec(
       noNewDependencies: true,
       originalPrompt: originalPrompt.slice(0, 500),
     },
+    ...(paletteSpec ? { palette: paletteSpec } : {}),
   };
 }
 
@@ -294,7 +300,9 @@ export function briefToSpec(
 export function promptToSpec(
   originalPrompt: string,
   themeOverride?: ThemeColors | null,
+  paletteState?: PaletteState | null,
 ): SajtmaskinSpec {
+  const paletteSpec = toPaletteSpec(paletteState);
   return {
     version: "1.0",
     business: {
@@ -315,6 +323,7 @@ export function promptToSpec(
       noNewDependencies: true,
       originalPrompt: originalPrompt.slice(0, 500),
     },
+    ...(paletteSpec ? { palette: paletteSpec } : {}),
   };
 }
 

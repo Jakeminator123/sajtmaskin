@@ -135,7 +135,7 @@ import { placementToInstruction, type DetectedSection } from "@/lib/builder/sect
 export type PlacementOption = string;
 
 // Get placement instruction text for the prompt
-function getPlacementInstruction(
+export function getPlacementInstruction(
   placement: PlacementOption,
   detectedSections?: DetectedSection[],
 ): string {
@@ -210,6 +210,7 @@ export function buildShadcnBlockPrompt(
   );
   if (item.registryDependencies?.length) {
     lines.push(`Registry dependencies: ${item.registryDependencies.join(", ")}.`);
+    lines.push("Ensure these dependencies are added to package.json if missing.");
   }
   if (options.existingUiComponents && options.existingUiComponents.length > 0) {
     lines.push(`Existing UI components in the project: ${options.existingUiComponents.join(", ")}.`);
@@ -277,6 +278,7 @@ export function buildShadcnBlockPrompt(
   slimLines.push(`- \`@/registry/${style}/blocks/*\` -> \`@/components/blocks/*\``);
   if (item.registryDependencies?.length) {
     slimLines.push(`Registry dependencies: ${item.registryDependencies.join(", ")}.`);
+    slimLines.push("Ensure these dependencies are added to package.json if missing.");
   }
   if (options.existingUiComponents && options.existingUiComponents.length > 0) {
     slimLines.push(`Existing UI components: ${options.existingUiComponents.join(", ")}.`);
@@ -344,6 +346,7 @@ export function buildShadcnComponentPrompt(
   );
   if (item.registryDependencies?.length) {
     lines.push(`Registry dependencies: ${item.registryDependencies.join(", ")}.`);
+    lines.push("Ensure these dependencies are added to package.json if missing.");
   }
   if (options.existingUiComponents && options.existingUiComponents.length > 0) {
     lines.push(`Existing UI components in the project: ${options.existingUiComponents.join(", ")}.`);
@@ -405,6 +408,7 @@ export function buildShadcnComponentPrompt(
   slimLines.push(`- \`@/registry/${style}/lib/utils\` -> \`@/lib/utils\``);
   if (item.registryDependencies?.length) {
     slimLines.push(`Registry dependencies: ${item.registryDependencies.join(", ")}.`);
+    slimLines.push("Ensure these dependencies are added to package.json if missing.");
   }
   if (options.existingUiComponents && options.existingUiComponents.length > 0) {
     slimLines.push(`Existing UI components: ${options.existingUiComponents.join(", ")}.`);

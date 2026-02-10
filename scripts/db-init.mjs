@@ -126,6 +126,7 @@ const setupQueries = [
     current_code TEXT,
     files JSONB,
     messages JSONB,
+    meta JSONB,
     created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
     updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
   )`,
@@ -301,6 +302,7 @@ const schemaQueries = [
   `ALTER TABLE versions ADD COLUMN IF NOT EXISTS pinned BOOLEAN DEFAULT FALSE`,
   `CREATE INDEX IF NOT EXISTS idx_prompt_logs_created_at ON prompt_logs(created_at DESC)`,
   `ALTER TABLE versions ADD COLUMN IF NOT EXISTS pinned_at TIMESTAMPTZ`,
+  `ALTER TABLE project_data ADD COLUMN IF NOT EXISTS meta JSONB`,
   `CREATE INDEX IF NOT EXISTS idx_deployments_chat_id ON deployments(chat_id)`,
   `CREATE INDEX IF NOT EXISTS idx_deployments_vercel_deployment_id ON deployments(vercel_deployment_id)`,
   `CREATE INDEX IF NOT EXISTS idx_app_projects_user_id ON app_projects(user_id)`,

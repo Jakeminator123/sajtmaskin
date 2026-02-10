@@ -1,4 +1,4 @@
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, isNull, or } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { chats, projects } from "@/lib/db/schema";
 import { nanoid } from "nanoid";
@@ -116,11 +116,27 @@ export async function getChatByV0ChatIdForRequest(
     return rows[0]?.chat ?? null;
   }
 
+  // Build ownership conditions: exact userId match + guest session fallback.
+  // When a user creates content as a guest and then logs in, the project still
+  // has userId='guest:<sessionId>'. We check both so the transition is seamless.
+  const ownerConditions = [eq(projects.userId, userId)];
+  if (!userId.startsWith("guest:")) {
+    const sessionId = options?.sessionId ?? getSessionIdFromRequest(req);
+    if (sessionId) {
+      ownerConditions.push(eq(projects.userId, `guest:${sessionId}`));
+    }
+  }
+
   const rows = await db
     .select({ chat: chats, project: projects })
     .from(chats)
     .leftJoin(projects, eq(chats.projectId, projects.id))
-    .where(and(eq(chats.v0ChatId, v0ChatId), eq(projects.userId, userId)))
+    .where(
+      and(
+        eq(chats.v0ChatId, v0ChatId),
+        ownerConditions.length > 1 ? or(...ownerConditions) : ownerConditions[0],
+      ),
+    )
     .limit(1);
 
   return rows[0]?.chat ?? null;
@@ -143,11 +159,25 @@ export async function getChatByIdForRequest(
     return rows[0]?.chat ?? null;
   }
 
+  // Same guest-session fallback as getChatByV0ChatIdForRequest
+  const ownerConditions = [eq(projects.userId, userId)];
+  if (!userId.startsWith("guest:")) {
+    const sessionId = options?.sessionId ?? getSessionIdFromRequest(req);
+    if (sessionId) {
+      ownerConditions.push(eq(projects.userId, `guest:${sessionId}`));
+    }
+  }
+
   const rows = await db
     .select({ chat: chats, project: projects })
     .from(chats)
     .leftJoin(projects, eq(chats.projectId, projects.id))
-    .where(and(eq(chats.id, chatId), eq(projects.userId, userId)))
+    .where(
+      and(
+        eq(chats.id, chatId),
+        ownerConditions.length > 1 ? or(...ownerConditions) : ownerConditions[0],
+      ),
+    )
     .limit(1);
 
   return rows[0]?.chat ?? null;

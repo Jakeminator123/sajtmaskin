@@ -23,6 +23,13 @@ import {
 import { clearPersistedMessages } from "@/lib/builder/messagesStorage";
 import type { ChatMessage, InspectorSelection } from "@/lib/builder/types";
 import { buildPromptAssistContext, briefToSpec, promptToSpec } from "@/lib/builder/promptAssistContext";
+import {
+  buildPaletteInstruction,
+  mergePaletteSelection,
+  normalizePaletteState,
+  type PaletteSelection,
+  type PaletteState,
+} from "@/lib/builder/palette";
 import { getThemeColors, normalizeDesignTheme } from "@/lib/builder/theme-presets";
 import {
   normalizeBuildIntent,
@@ -154,6 +161,10 @@ function BuilderContent() {
   const [appProjectId, setAppProjectId] = useState<string | null>(projectParam);
   const [appProjectName, setAppProjectName] = useState<string | null>(null);
   const [pendingProjectName, setPendingProjectName] = useState<string | null>(null);
+  const [paletteState, setPaletteState] = useState<PaletteState>({ selections: [] });
+  const paletteLoadedRef = useRef(false);
+  const lastPaletteSavedRef = useRef<string | null>(null);
+  const lastProjectIdRef = useRef<string | null>(projectParam ?? null);
   const [deployNameDialogOpen, setDeployNameDialogOpen] = useState(false);
   const [deployNameInput, setDeployNameInput] = useState("");
   const [deployNameError, setDeployNameError] = useState<string | null>(null);
@@ -530,13 +541,28 @@ function BuilderContent() {
   useEffect(() => {
     if (!appProjectId) {
       setAppProjectName(null);
+      setPaletteState({ selections: [] });
+      paletteLoadedRef.current = false;
+      lastPaletteSavedRef.current = null;
+      lastProjectIdRef.current = null;
       return;
     }
+    const previousProjectId = lastProjectIdRef.current;
+    lastProjectIdRef.current = appProjectId;
     let isActive = true;
     getProject(appProjectId)
       .then((result) => {
         if (!isActive) return;
         setAppProjectName(result.project?.name ?? null);
+        const nextPalette = normalizePaletteState(result.data?.meta?.palette);
+        setPaletteState((prev) => {
+          const isNewProject = !previousProjectId && appProjectId;
+          if (isNewProject && prev.selections.length > 0 && nextPalette.selections.length === 0) {
+            return prev;
+          }
+          return nextPalette;
+        });
+        paletteLoadedRef.current = true;
       })
       .catch((error) => {
         console.warn("[Builder] Failed to load project name:", error);
@@ -545,6 +571,19 @@ function BuilderContent() {
       isActive = false;
     };
   }, [appProjectId]);
+
+  useEffect(() => {
+    if (!appProjectId) return;
+    if (!paletteLoadedRef.current) return;
+    const serialized = JSON.stringify(paletteState);
+    if (serialized === lastPaletteSavedRef.current) return;
+    lastPaletteSavedRef.current = serialized;
+    saveProjectData(appProjectId, {
+      meta: { palette: paletteState },
+    }).catch((error) => {
+      console.warn("[Builder] Failed to persist palette state:", error);
+    });
+  }, [appProjectId, paletteState]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -1412,14 +1451,14 @@ function BuilderContent() {
           forceShallow: !promptAssistDeep,
           onBrief: specMode
             ? (brief) => {
-                pendingSpecRef.current = briefToSpec(brief, trimmed, themeColors);
+                pendingSpecRef.current = briefToSpec(brief, trimmed, themeColors, paletteState);
               }
             : undefined,
         });
         // If spec mode is active but onBrief was never called (shallow path),
         // generate a minimal spec from the prompt so the file still gets pushed.
         if (specMode && !pendingSpecRef.current) {
-          pendingSpecRef.current = promptToSpec(trimmed, themeColors);
+          pendingSpecRef.current = promptToSpec(trimmed, themeColors, paletteState);
         }
 
         const baseInstructions =
@@ -1429,9 +1468,11 @@ function BuilderContent() {
             : DEFAULT_CUSTOM_INSTRUCTIONS.trim();
         // Only reference the spec file if it was actually created
         const specSuffix = pendingSpecRef.current ? SPEC_FILE_INSTRUCTION : "";
+        const paletteHint = buildPaletteInstruction(paletteState);
+        const paletteSuffix = paletteHint ? `\n\n${paletteHint}` : "";
         const combined = addendum.trim()
-          ? `${baseInstructions}\n\n${addendum}${specSuffix}`.trim()
-          : `${baseInstructions}${specSuffix}`.trim();
+          ? `${baseInstructions}\n\n${addendum}${paletteSuffix}${specSuffix}`.trim()
+          : `${baseInstructions}${paletteSuffix}${specSuffix}`.trim();
         setCustomInstructions(combined);
         pendingInstructionsRef.current = combined;
         pendingInstructionsOnceRef.current = false;
@@ -1447,6 +1488,7 @@ function BuilderContent() {
       chatId,
       customInstructions,
       generateDynamicInstructions,
+      paletteState,
       promptAssistDeep,
       specMode,
       themeColors,
@@ -1505,9 +1547,9 @@ function BuilderContent() {
     if (autoGenerateTriggeredRef.current) return;
     autoGenerateTriggeredRef.current = true;
 
-    // Skip model selection for kostnadsfri — use pro tier and auto-start
+    // Skip model selection for kostnadsfri — use max tier and auto-start
     setHasSelectedModelTier(true);
-    setSelectedModelTier("v0-pro");
+    setSelectedModelTier("v0-max");
 
     // Small delay to let the builder UI settle after auth modal closes
     const timer = setTimeout(() => {
@@ -1588,6 +1630,24 @@ function BuilderContent() {
     ],
   );
 
+  const handleStartFromTemplate = useCallback(
+    (templateId: string) => {
+      if (!templateId) return;
+      if (chatId) {
+        toast.error("Starta en ny chat innan du väljer en mall.");
+        return;
+      }
+      const params = new URLSearchParams(searchParams.toString());
+      params.set("templateId", templateId);
+      router.replace(`/builder?${params.toString()}`);
+    },
+    [chatId, router, searchParams],
+  );
+
+  const handlePaletteSelection = useCallback((selection: PaletteSelection) => {
+    setPaletteState((prev) => mergePaletteSelection(prev, selection));
+  }, []);
+
   usePersistedChatMessages({
     chatId,
     isCreatingChat,
@@ -1656,6 +1716,7 @@ function BuilderContent() {
         demoUrl: currentDemoUrl ?? undefined,
         files,
         messages,
+        meta: { palette: paletteState },
       });
       toast.success("Projekt sparat.");
     } catch (error) {
@@ -1672,6 +1733,7 @@ function BuilderContent() {
     currentDemoUrl,
     mediaEnabled,
     messages,
+    paletteState,
     pendingProjectName,
     router,
     searchParams,
@@ -1881,6 +1943,9 @@ function BuilderContent() {
               onCreateChat={requestCreateChat}
               onSendMessage={sendMessage}
               onStartFromRegistry={handleStartFromRegistry}
+              onStartFromTemplate={handleStartFromTemplate}
+              onPaletteSelection={handlePaletteSelection}
+              paletteSelections={paletteState.selections}
               onEnhancePrompt={handlePromptEnhance}
               isBusy={isCreatingChat || isAnyStreaming || isTemplateLoading || isPreparingPrompt}
               isPreparingPrompt={isPreparingPrompt}
@@ -2057,6 +2122,8 @@ function BuilderContent() {
                 onVersionSelect={handleVersionSelect}
                 isCollapsed={isVersionPanelCollapsed}
                 onToggleCollapse={handleToggleVersionPanel}
+                versions={versions}
+                mutateVersions={mutateVersions}
               />
             </div>
           </div>

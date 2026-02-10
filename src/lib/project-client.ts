@@ -29,6 +29,7 @@ export interface ProjectData {
   current_code?: string;
   files: PersistedFile[];
   messages: PersistedMessage[];
+  meta?: Record<string, unknown> | null;
 }
 
 export interface ProjectWithData {
@@ -117,6 +118,7 @@ export async function saveProjectData(
     currentCode?: string;
     files?: PersistedFile[];
     messages?: PersistedMessage[];
+    meta?: Record<string, unknown> | null;
   },
 ): Promise<void> {
   const response = await fetch(`/api/projects/${projectId}/save`, {

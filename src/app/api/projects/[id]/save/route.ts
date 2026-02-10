@@ -25,17 +25,32 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ success: false, error: "Project not found" }, { status: 404 });
     }
 
-    const { chatId, demoUrl, currentCode, files, messages } = body;
+    const { chatId, demoUrl, currentCode, files, messages, meta } = body;
+
+    const payload: Parameters<typeof saveProjectData>[0] = {
+      project_id: id,
+    };
+    if (Object.prototype.hasOwnProperty.call(body, "chatId")) {
+      payload.chat_id = chatId ?? null;
+    }
+    if (Object.prototype.hasOwnProperty.call(body, "demoUrl")) {
+      payload.demo_url = demoUrl ?? null;
+    }
+    if (Object.prototype.hasOwnProperty.call(body, "currentCode")) {
+      payload.current_code = currentCode ?? null;
+    }
+    if (Object.prototype.hasOwnProperty.call(body, "files")) {
+      payload.files = Array.isArray(files) ? files : [];
+    }
+    if (Object.prototype.hasOwnProperty.call(body, "messages")) {
+      payload.messages = Array.isArray(messages) ? messages : [];
+    }
+    if (Object.prototype.hasOwnProperty.call(body, "meta")) {
+      payload.meta = meta ?? null;
+    }
 
     // Save project data to database
-    await saveProjectData({
-      project_id: id,
-      chat_id: chatId,
-      demo_url: demoUrl,
-      current_code: currentCode,
-      files: files || [],
-      messages: messages || [],
-    });
+    await saveProjectData(payload);
 
     // Invalidate caches (project detail + list)
     await Promise.all([deleteCache(`project:${id}`), deleteCache("projects:list")]);

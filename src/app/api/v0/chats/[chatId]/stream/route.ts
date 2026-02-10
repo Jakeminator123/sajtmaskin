@@ -209,23 +209,33 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
         const reader = v0Stream.getReader();
         const decoder = new TextDecoder();
 
+        // Hoisted so both cancel() and start() can access them
+        let controllerClosed = false;
+        let pingTimer: ReturnType<typeof setInterval> | null = null;
+        const stopPing = () => {
+          if (!pingTimer) return;
+          clearInterval(pingTimer);
+          pingTimer = null;
+        };
+
         const stream = new ReadableStream({
+          cancel() {
+            controllerClosed = true;
+            stopPing();
+            try {
+              reader.releaseLock();
+            } catch {
+              // reader may already be released
+            }
+          },
           async start(controller) {
             const encoder = new TextEncoder();
             let buffer = "";
             let _currentEvent = "";
             let didSendDone = false;
-            let controllerClosed = false;
             let lastMessageId: string | null = null;
             let lastDemoUrl: string | null = null;
             let lastVersionId: string | null = null;
-            let pingTimer: ReturnType<typeof setInterval> | null = null;
-
-            const stopPing = () => {
-              if (!pingTimer) return;
-              clearInterval(pingTimer);
-              pingTimer = null;
-            };
 
             const safeEnqueue = (data: Uint8Array) => {
               if (controllerClosed) return;
@@ -262,6 +272,8 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
 
             try {
               while (true) {
+                // Break early when the client disconnects or stream is cancelled
+                if (controllerClosed || req.signal?.aborted) break;
                 const { done, value } = await reader.read();
                 if (done) break;
 
@@ -363,7 +375,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
                   const resolved = await resolveLatestVersion(chatId, {
                     preferVersionId: lastVersionId,
                     preferDemoUrl: lastDemoUrl,
-                    maxAttempts: 60,
+                    maxAttempts: 12,
                     delayMs: 3000,
                   });
                   const finalVersionId = resolved.versionId || lastVersionId || null;
