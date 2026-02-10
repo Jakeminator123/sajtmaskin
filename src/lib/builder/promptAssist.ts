@@ -257,7 +257,7 @@ const IMAGE_DENSITY_GUIDANCE = [
 // style keywords, color palette) so that a playful pink site gets
 // different instructions than a dark corporate one.
 
-function hasAny(list: string[], keywords: string[]): boolean {
+function hasAny(list: readonly string[], keywords: readonly string[]): boolean {
   const lower = list.map((s) => s.toLowerCase());
   return keywords.some((k) => lower.some((l) => l.includes(k)));
 }

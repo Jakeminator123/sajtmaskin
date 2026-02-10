@@ -1421,8 +1421,9 @@ function BuilderContent() {
       }
 
       if (data.chatId && data.versionId) {
+        const { chatId, versionId } = data;
         // Run CSS validation in background (don't block UI)
-        validateCss(data.chatId, data.versionId)
+        validateCss(chatId, versionId)
           .then((result) => {
             if (!result) return;
             const errorCount = result.issues.reduce(
@@ -1438,7 +1439,7 @@ function BuilderContent() {
                 errorCount > 0
                   ? "CSS errors detected after validation."
                   : "CSS warnings detected after validation.";
-              void persistVersionErrorLogs(data.chatId, data.versionId, [
+              void persistVersionErrorLogs(chatId, versionId, [
                 {
                   level: errorCount > 0 ? "error" : "warning",
                   category: "css",
@@ -1458,8 +1459,8 @@ function BuilderContent() {
             }
             if (errorCount > 0 && !result.fixed) {
               triggerAutoFix({
-                chatId: data.chatId,
-                versionId: data.versionId,
+                chatId,
+                versionId,
                 reasons: ["css errors"],
                 meta: { errorCount, warningCount },
               });
@@ -1467,7 +1468,7 @@ function BuilderContent() {
           })
           .catch((err) => {
             console.warn("[CSS Validation] Failed:", err);
-            void persistVersionErrorLogs(data.chatId, data.versionId, [
+            void persistVersionErrorLogs(chatId, versionId, [
               {
                 level: "error",
                 category: "css",
@@ -1477,10 +1478,10 @@ function BuilderContent() {
             ]);
           });
         // Normalize unicode escapes in text content (best-effort)
-        fetch(`/api/v0/chats/${encodeURIComponent(data.chatId)}/normalize-text`, {
+        fetch(`/api/v0/chats/${encodeURIComponent(chatId)}/normalize-text`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ versionId: data.versionId, autoFix: true }),
+          body: JSON.stringify({ versionId, autoFix: true }),
         })
           .then(async (res) => {
             const payload = (await res.json().catch(() => null)) as
@@ -1498,7 +1499,7 @@ function BuilderContent() {
               throw new Error(payload?.error || "Unicode normalization failed");
             }
             if (payload?.changed) {
-              void persistVersionErrorLogs(data.chatId, data.versionId, [
+              void persistVersionErrorLogs(chatId, versionId, [
                 {
                   level: "info",
                   category: "unicode",
@@ -1515,7 +1516,7 @@ function BuilderContent() {
           })
           .catch((err) => {
             console.warn("[Unicode Normalize] Failed:", err);
-            void persistVersionErrorLogs(data.chatId, data.versionId, [
+            void persistVersionErrorLogs(chatId, versionId, [
               {
                 level: "warning",
                 category: "unicode",
