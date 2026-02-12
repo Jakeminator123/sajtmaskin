@@ -1,5 +1,6 @@
 import { and, desc, eq, gt, isNull, or, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
+import { randomBytes } from "crypto";
 import { db, dbConfigured } from "@/lib/db/client";
 import {
   appProjects,
@@ -87,6 +88,7 @@ export async function createUser(
       name: name || null,
       provider: "email",
       diamonds: 50,
+      email_verified: false,
       created_at: now,
       updated_at: now,
     })
@@ -117,6 +119,9 @@ export async function createGoogleUser(
         name,
         image: picture || null,
         provider: "google",
+        email_verified: true,
+        verification_token: null,
+        verification_token_expires: null,
         updated_at: now,
       })
       .where(eq(users.id, existing[0].id))
@@ -135,6 +140,7 @@ export async function createGoogleUser(
       provider: "google",
       google_id: googleId,
       diamonds: 50,
+      email_verified: true,
       created_at: now,
       updated_at: now,
     })
@@ -195,6 +201,80 @@ export function isAdminEmail(email: string): boolean {
     lower === SECRETS.testUserEmail ||
     lower === SECRETS.superadminEmail
   );
+}
+
+// ============================================================================
+// EMAIL VERIFICATION
+// ============================================================================
+
+const VERIFICATION_TOKEN_EXPIRY_HOURS = 24;
+
+/**
+ * Generate a cryptographically random verification token and store it
+ * on the user row. Returns the plain-text token to be included in the
+ * verification email link.
+ */
+export async function createVerificationToken(userId: string): Promise<string> {
+  assertDbConfigured();
+  const token = randomBytes(32).toString("hex");
+  const expires = new Date(Date.now() + VERIFICATION_TOKEN_EXPIRY_HOURS * 60 * 60 * 1000);
+
+  await db
+    .update(users)
+    .set({
+      verification_token: token,
+      verification_token_expires: expires,
+      updated_at: new Date(),
+    })
+    .where(eq(users.id, userId));
+
+  return token;
+}
+
+/**
+ * Look up a user by their verification token. Returns null if the token
+ * is unknown, already consumed, or expired.
+ */
+export async function getUserByVerificationToken(token: string): Promise<User | null> {
+  assertDbConfigured();
+  const rows = await db
+    .select()
+    .from(users)
+    .where(
+      and(
+        eq(users.verification_token, token),
+        gt(users.verification_token_expires, new Date()),
+      ),
+    )
+    .limit(1);
+  return rows[0] ?? null;
+}
+
+/**
+ * Mark a user's email as verified and clear the token fields.
+ */
+export async function markEmailVerified(userId: string): Promise<void> {
+  assertDbConfigured();
+  await db
+    .update(users)
+    .set({
+      email_verified: true,
+      verification_token: null,
+      verification_token_expires: null,
+      updated_at: new Date(),
+    })
+    .where(eq(users.id, userId));
+}
+
+/**
+ * Set the diamond balance for a user (used for admin bootstrapping).
+ */
+export async function setUserDiamonds(userId: string, diamonds: number): Promise<void> {
+  assertDbConfigured();
+  await db
+    .update(users)
+    .set({ diamonds, updated_at: new Date() })
+    .where(eq(users.id, userId));
 }
 
 // ============================================================================

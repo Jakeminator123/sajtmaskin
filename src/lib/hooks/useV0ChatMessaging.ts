@@ -3,6 +3,10 @@ import type { ChatMessage, UiMessagePart } from "@/lib/builder/types";
 import type { BuildIntent, BuildMethod } from "@/lib/builder/build-intent";
 import type { ModelTier } from "@/lib/validations/chatSchemas";
 import { formatPromptForV0 } from "@/lib/builder/promptAssist";
+import {
+  orchestratePromptMessage,
+  type PromptStrategyMeta,
+} from "@/lib/builder/promptOrchestration";
 import { debugLog, warnLog } from "@/lib/utils/debug";
 import { useCallback, useEffect, useRef, useState } from "react";
 import toast from "react-hot-toast";
@@ -136,7 +140,7 @@ function hashString(value: string): string {
 function buildCreateChatKey(
   message: string,
   options: MessageOptions,
-  modelTier: ModelTier,
+  modelId: string,
   imageGenerations: boolean,
   systemPrompt?: string,
 ): string {
@@ -154,7 +158,7 @@ function buildCreateChatKey(
   const attachmentPrompt = normalizePrompt(options.attachmentPrompt ?? "");
   const fingerprint = [
     normalizedMessage,
-    `model:${modelTier}`,
+    `model:${modelId}`,
     `images:${imageGenerations ? "1" : "0"}`,
     `system:${normalizedSystem}`,
     `attachments:${attachmentSignature}`,
@@ -293,7 +297,12 @@ function finalizeStreamStats(stats: StreamDebugStats) {
   }
 }
 
-function appendAttachmentPrompt(message: string, attachmentPrompt?: string): string {
+function appendAttachmentPrompt(
+  message: string,
+  attachmentPrompt?: string,
+  attachments?: V0Attachment[],
+): string {
+  if (attachments && attachments.length > 0) return message;
   if (!attachmentPrompt) return message;
   return `${message}${attachmentPrompt}`.trim();
 }
@@ -448,6 +457,40 @@ function appendModelInfoPart(
   });
 }
 
+function buildPromptStrategySteps(meta: PromptStrategyMeta): string[] {
+  const strategyLabel =
+    meta.strategy === "phase_plan_build_polish"
+      ? "fasad (Plan -> Build -> Polish)"
+      : meta.strategy === "summarize"
+        ? "sammanfattad"
+        : "direkt";
+  const lengthLine =
+    meta.originalLength !== meta.optimizedLength
+      ? `Langd: ${meta.originalLength} -> ${meta.optimizedLength} (mal ~${meta.budgetTarget})`
+      : `Langd: ${meta.originalLength} (mal ~${meta.budgetTarget})`;
+
+  const steps = [`Prompt optimerad: ${strategyLabel}`, `Typ: ${meta.promptType}`, lengthLine];
+  if (meta.reason) steps.push(`Orsak: ${meta.reason}`);
+  return steps;
+}
+
+function appendPromptStrategyPart(
+  setMessages: (next: ChatMessage[] | ((prev: ChatMessage[]) => ChatMessage[])) => void,
+  messageId: string,
+  meta: PromptStrategyMeta,
+) {
+  appendToolPartToMessage(setMessages, messageId, {
+    type: "tool:prompt-strategy",
+    toolName: "Prompt strategy",
+    toolCallId: `prompt-strategy:${messageId}`,
+    state: "output-available",
+    output: {
+      steps: buildPromptStrategySteps(meta),
+      ...meta,
+    },
+  });
+}
+
 function toNumber(value: unknown): number | null {
   const num = Number(value);
   return Number.isFinite(num) ? num : null;
@@ -497,12 +540,22 @@ function buildApiErrorMessage(params: {
     if (nestedMsg?.toLowerCase().includes("attachment size")) {
       return "Bilagan är för stor (max 3 MB). Försök med en mindre fil.";
     }
+    if (looksLikeUnsupportedModelError(nestedMsg)) {
+      return `Model ID avvisades av v0: "${nestedMsg}". Prova ett annat custom modelId eller byt tillbaka till mini/pro/max.`;
+    }
     return nestedMsg || "Ogiltigt anrop (422). Kontrollera bilagor och meddelande.";
   }
 
+  const directMessage =
+    (typeof errorData?.error === "string" && errorData.error) ||
+    (typeof errorData?.message === "string" && errorData.message) ||
+    "";
+  if (looksLikeUnsupportedModelError(directMessage)) {
+    return `Model ID avvisades av v0: "${directMessage}". Prova ett annat custom modelId eller byt tillbaka till mini/pro/max.`;
+  }
+
   let message =
-    (typeof errorData?.error === "string" && errorData?.error) ||
-    (typeof errorData?.message === "string" && errorData?.message) ||
+    directMessage ||
     fallbackMessage;
   if (!message.includes("HTTP")) {
     message = `${message} (HTTP ${status})`;
@@ -521,6 +574,10 @@ function isNetworkError(error: unknown): boolean {
 function buildStreamErrorMessage(errorData: Record<string, unknown> | null): string {
   const code = typeof errorData?.code === "string" ? errorData.code : "";
   const retryAfter = toNumber(errorData?.retryAfter ?? errorData?.retry_after);
+  const rawMessage =
+    (typeof errorData?.message === "string" && errorData.message) ||
+    (typeof errorData?.error === "string" && errorData.error) ||
+    "";
 
   if (code === "rate_limit") {
     const suffix = retryAfter ? ` Prova igen om ${retryAfter}s.` : "";
@@ -535,10 +592,25 @@ function buildStreamErrorMessage(errorData: Record<string, unknown> | null): str
   if (code === "forbidden") {
     return "Åtkomst nekad av v0 (403). Kontrollera behörigheter.";
   }
+  if (looksLikeUnsupportedModelError(rawMessage)) {
+    return `Model ID avvisades av v0: "${rawMessage}". Prova ett annat custom modelId eller byt tillbaka till mini/pro/max.`;
+  }
   return (
-    (typeof errorData?.message === "string" && errorData?.message) ||
-    (typeof errorData?.error === "string" && errorData?.error) ||
+    rawMessage ||
     "Stream error"
+  );
+}
+
+function looksLikeUnsupportedModelError(message: string | null | undefined): boolean {
+  const normalized = String(message ?? "").toLowerCase();
+  if (!normalized) return false;
+  return (
+    normalized.includes("model") &&
+    (normalized.includes("invalid") ||
+      normalized.includes("unknown") ||
+      normalized.includes("unsupported") ||
+      normalized.includes("not allowed") ||
+      normalized.includes("not supported"))
   );
 }
 
@@ -1159,9 +1231,11 @@ export function useV0ChatMessaging(params: {
   appProjectId?: string | null;
   v0ProjectId?: string | null;
   selectedModelTier: ModelTier;
+  selectedModelId: string;
   enableImageGenerations: boolean;
   enableImageMaterialization?: boolean;
   enableThinking: boolean;
+  planModeFirstPromptEnabled?: boolean;
   systemPrompt?: string;
   promptAssistModel?: string | null;
   promptAssistDeep?: boolean;
@@ -1184,9 +1258,11 @@ export function useV0ChatMessaging(params: {
     appProjectId,
     v0ProjectId,
     selectedModelTier,
+    selectedModelId,
     enableImageGenerations,
     enableImageMaterialization = false,
     enableThinking,
+    planModeFirstPromptEnabled = false,
     systemPrompt,
     promptAssistModel,
     promptAssistDeep,
@@ -1221,6 +1297,7 @@ export function useV0ChatMessaging(params: {
   const streamAbortRef = useRef<AbortController | null>(null);
   const autoFixAttemptsRef = useRef<Record<string, number>>({});
   const autoFixHandlerRef = useRef<(payload: AutoFixPayload) => void>(() => {});
+  const lastSentSystemPromptRef = useRef<string | null>(null);
 
   const streamingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const startStreamSafetyTimer = useCallback(() => {
@@ -1241,6 +1318,12 @@ export function useV0ChatMessaging(params: {
     }
   }, []);
 
+  useEffect(() => {
+    if (!chatId) {
+      lastSentSystemPromptRef.current = null;
+    }
+  }, [chatId]);
+
   const createNewChat = useCallback(
     async (initialMessage: string, options: MessageOptions = {}, systemPromptOverride?: string) => {
       if (isCreatingChat || createChatInFlightRef.current) return;
@@ -1255,7 +1338,7 @@ export function useV0ChatMessaging(params: {
       const createKey = buildCreateChatKey(
         initialMessage,
         options,
-        selectedModelTier,
+        selectedModelId,
         enableImageGenerations,
         effectiveSystemPrompt,
       );
@@ -1291,6 +1374,7 @@ export function useV0ChatMessaging(params: {
         attachments: options.attachments?.length ?? 0,
         imageGenerations: enableImageGenerations,
         modelTier: selectedModelTier,
+        modelId: selectedModelId,
         systemPromptProvided: Boolean(effectiveSystemPrompt?.trim()),
       });
 
@@ -1315,7 +1399,7 @@ export function useV0ChatMessaging(params: {
             ? ((data as any).meta as Record<string, unknown>)
             : null;
         appendModelInfoPart(setMessages, assistantMessageId, {
-          modelId: (typeof meta?.modelId === "string" && meta?.modelId) || selectedModelTier || null,
+          modelId: (typeof meta?.modelId === "string" && meta?.modelId) || selectedModelId || null,
           thinking: typeof meta?.thinking === "boolean" ? (meta?.thinking as boolean) : null,
           imageGenerations:
             typeof meta?.imageGenerations === "boolean"
@@ -1382,13 +1466,36 @@ export function useV0ChatMessaging(params: {
       let requestBody: Record<string, unknown> | null = null;
 
       try {
-        const formattedMessage = formatPromptForV0(initialMessage);
+        const orchestration = orchestratePromptMessage({
+          message: initialMessage,
+          buildMethod,
+          buildIntent,
+          isFirstPrompt: true,
+          planModeFirstPromptEnabled,
+          attachmentsCount: options.attachments?.length ?? 0,
+        });
+        if (orchestration.strategyMeta.strategy !== "direct") {
+          appendPromptStrategyPart(setMessages, assistantMessageId, orchestration.strategyMeta);
+          toast.success(
+            orchestration.strategyMeta.strategy === "phase_plan_build_polish"
+              ? "Prompt optimerad: fasad"
+              : "Prompt optimerad: sammanfattad",
+          );
+        }
+
+        const formattedMessage = formatPromptForV0(orchestration.finalMessage);
         debugLog("AI", "Prompt formatting result", {
           originalLength: initialMessage.length,
+          optimizedLength: orchestration.strategyMeta.optimizedLength,
           finalLength: formattedMessage.length,
+          strategy: orchestration.strategyMeta.strategy,
           changed: formattedMessage.trim() !== initialMessage.trim(),
         });
-        const finalMessage = appendAttachmentPrompt(formattedMessage, options.attachmentPrompt);
+        const finalMessage = appendAttachmentPrompt(
+          formattedMessage,
+          options.attachmentPrompt,
+          options.attachments,
+        );
         const thinkingForTier = enableThinking && selectedModelTier !== "v0-mini";
         // Only trim whitespace; no model is involved here.
         const trimmedSystemPrompt = effectiveSystemPrompt?.trim();
@@ -1397,8 +1504,15 @@ export function useV0ChatMessaging(params: {
           promptFormatted: formattedMessage,
           formattedChanged: formattedMessage.trim() !== initialMessage.trim(),
           promptLength: initialMessage.length,
+          promptOptimizedLength: orchestration.strategyMeta.optimizedLength,
           formattedLength: formattedMessage.length,
           attachmentsCount: options.attachments?.length ?? 0,
+          promptStrategy: orchestration.strategyMeta.strategy,
+          promptType: orchestration.strategyMeta.promptType,
+          promptBudgetTarget: orchestration.strategyMeta.budgetTarget,
+          promptReductionRatio: orchestration.strategyMeta.reductionRatio,
+          promptStrategyReason: orchestration.strategyMeta.reason,
+          promptComplexityScore: orchestration.strategyMeta.complexityScore,
         };
         if (promptAssistModel) {
           promptMeta.promptAssistModel = promptAssistModel;
@@ -1415,9 +1529,12 @@ export function useV0ChatMessaging(params: {
         if (buildMethod) {
           promptMeta.buildMethod = buildMethod;
         }
+        promptMeta.modelId = selectedModelId;
+        promptMeta.modelTier = selectedModelTier;
+        promptMeta.planModeFirstPrompt = Boolean(planModeFirstPromptEnabled);
         requestBody = {
           message: finalMessage,
-          modelId: selectedModelTier,
+          modelId: selectedModelId,
           thinking: thinkingForTier,
           imageGenerations: enableImageGenerations,
           meta: promptMeta,
@@ -1425,6 +1542,9 @@ export function useV0ChatMessaging(params: {
         if (v0ProjectId) requestBody.projectId = v0ProjectId;
         if (trimmedSystemPrompt) {
           requestBody.system = trimmedSystemPrompt;
+          lastSentSystemPromptRef.current = trimmedSystemPrompt;
+        } else {
+          lastSentSystemPromptRef.current = null;
         }
         if (options.attachments && options.attachments.length > 0) {
           requestBody.attachments = options.attachments;
@@ -1473,7 +1593,7 @@ export function useV0ChatMessaging(params: {
                 case "meta": {
                   const meta = typeof data === "object" && data ? (data as any) : {};
                   appendModelInfoPart(setMessages, assistantMessageId, {
-                    modelId: meta.modelId ?? selectedModelTier,
+                    modelId: meta.modelId ?? selectedModelId,
                     thinking: typeof meta.thinking === "boolean" ? meta.thinking : null,
                     imageGenerations:
                       typeof meta.imageGenerations === "boolean" ? meta.imageGenerations : null,
@@ -1735,9 +1855,11 @@ export function useV0ChatMessaging(params: {
       isCreatingChat,
       resetBeforeCreateChat,
       selectedModelTier,
+      selectedModelId,
       enableImageGenerations,
       enableImageMaterialization,
       enableThinking,
+      planModeFirstPromptEnabled,
       systemPrompt,
       setMessages,
       setChatId,
@@ -1778,6 +1900,7 @@ export function useV0ChatMessaging(params: {
         messageLength: messageText.length,
         attachments: options.attachments?.length ?? 0,
         modelTier: selectedModelTier,
+        modelId: selectedModelId,
       });
 
       setMessages((prev) => [
@@ -1836,20 +1959,65 @@ export function useV0ChatMessaging(params: {
       let requestBody: Record<string, unknown> | null = null;
 
       try {
-        const formattedMessage = formatPromptForV0(messageText);
-        const finalMessage = appendAttachmentPrompt(formattedMessage, options.attachmentPrompt);
+        const orchestration = orchestratePromptMessage({
+          message: messageText,
+          buildMethod,
+          buildIntent,
+          isFirstPrompt: false,
+          planModeFirstPromptEnabled,
+          attachmentsCount: options.attachments?.length ?? 0,
+        });
+        if (orchestration.strategyMeta.strategy !== "direct") {
+          appendPromptStrategyPart(setMessages, assistantMessageId, orchestration.strategyMeta);
+          toast.success(
+            orchestration.strategyMeta.strategy === "phase_plan_build_polish"
+              ? "Prompt optimerad: fasad"
+              : "Prompt optimerad: sammanfattad",
+          );
+        }
+
+        const formattedMessage = formatPromptForV0(orchestration.finalMessage);
+        const finalMessage = appendAttachmentPrompt(
+          formattedMessage,
+          options.attachmentPrompt,
+          options.attachments,
+        );
         const thinkingForTier = enableThinking && selectedModelTier !== "v0-mini";
+        const promptMeta: Record<string, unknown> = {
+          promptOriginal: messageText,
+          promptFormatted: formattedMessage,
+          promptLength: messageText.length,
+          promptOptimizedLength: orchestration.strategyMeta.optimizedLength,
+          formattedLength: formattedMessage.length,
+          attachmentsCount: options.attachments?.length ?? 0,
+          promptStrategy: orchestration.strategyMeta.strategy,
+          promptType: orchestration.strategyMeta.promptType,
+          promptBudgetTarget: orchestration.strategyMeta.budgetTarget,
+          promptReductionRatio: orchestration.strategyMeta.reductionRatio,
+          promptStrategyReason: orchestration.strategyMeta.reason,
+          promptComplexityScore: orchestration.strategyMeta.complexityScore,
+        };
+        if (buildIntent) {
+          promptMeta.buildIntent = buildIntent;
+        }
+        if (buildMethod) {
+          promptMeta.buildMethod = buildMethod;
+        }
         requestBody = {
           message: finalMessage,
-          modelId: selectedModelTier,
+          modelId: selectedModelId,
           thinking: thinkingForTier,
           imageGenerations: enableImageGenerations,
+          meta: promptMeta,
         };
-        // Include system prompt on follow-ups so v0 retains custom instructions
-        // even in longer conversations where context may be truncated.
+        // Avoid redundant large system payloads on every follow-up.
+        // Send only when changed since last create/send call.
         const trimmedSystem = systemPrompt?.trim();
-        if (trimmedSystem) {
+        const shouldSendSystem =
+          Boolean(trimmedSystem) && trimmedSystem !== lastSentSystemPromptRef.current;
+        if (trimmedSystem && shouldSendSystem) {
           requestBody.system = trimmedSystem;
+          lastSentSystemPromptRef.current = trimmedSystem;
         }
         if (options.attachments && options.attachments.length > 0) {
           requestBody.attachments = options.attachments;
@@ -2075,6 +2243,10 @@ export function useV0ChatMessaging(params: {
       onPreviewRefresh,
       onGenerationComplete,
       selectedModelTier,
+      selectedModelId,
+      buildIntent,
+      buildMethod,
+      planModeFirstPromptEnabled,
       mutateVersions,
       startStreamSafetyTimer,
       clearStreamSafetyTimer,

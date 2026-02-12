@@ -24,6 +24,7 @@ export async function GET(req: NextRequest) {
           image: user.image,
           diamonds: user.diamonds,
           provider: user.provider,
+          emailVerified: user.email_verified,
         },
       });
     }

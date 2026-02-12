@@ -34,11 +34,16 @@ export interface ModelTierOption {
   hint?: string;
 }
 
+export interface ExperimentalModelIdOption {
+  value: string;
+  label: string;
+}
+
 export const MODEL_TIER_OPTIONS: ModelTierOption[] = [
   {
     value: "v0-mini",
     label: "Mini",
-    description: "Snabbast, billigast",
+    description: "Snabb, utan djuptänk",
   },
   {
     value: "v0-pro",
@@ -51,6 +56,16 @@ export const MODEL_TIER_OPTIONS: ModelTierOption[] = [
     description: "Bäst kvalitet",
     hint: "Rekommenderad",
   },
+];
+
+/**
+ * Presets for testing new/unreleased model IDs in v0.
+ * These values are sent as-is and may be rejected by the v0 API.
+ */
+export const EXPERIMENTAL_MODEL_ID_OPTIONS: ExperimentalModelIdOption[] = [
+  { value: "fast", label: "FAST (experimental)" },
+  { value: "opus-4.6-fast", label: "Opus 4.6 FAST (experimental)" },
+  { value: "claude-opus-4.6-fast", label: "Claude Opus 4.6 FAST (experimental)" },
 ];
 
 /** Default model tier for new chats */
@@ -207,3 +222,13 @@ export const SPEC_FILE_INSTRUCTION = `\n\n## Spec File
 - If sajtmaskin.spec.json exists in the project, treat it as the source of truth for business info, theme, pages, and constraints.
 - Do not contradict the spec unless the user explicitly asks.
 - When iterating, refer to the spec for context about the project.`;
+
+/**
+ * Optional instruction profile for "plan mode" behavior in v0.
+ * Applied only on first prompt in a new chat when enabled from UI.
+ */
+export const PLAN_MODE_SYSTEM_INSTRUCTION = `## Plan Mode (First Prompt Only)
+- Before implementing changes, produce a concise execution plan with clear steps.
+- Wait for explicit user confirmation before major structural changes.
+- Keep the plan practical and focused on this request only.
+- After confirmation, implement in small validated increments.`;

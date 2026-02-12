@@ -237,6 +237,15 @@ export const SECRETS = {
     return process.env.GITHUB_CLIENT_SECRET || "";
   },
 
+  // Resend (transactional email)
+  get resendApiKey() {
+    return process.env.RESEND_API_KEY || "";
+  },
+
+  get emailFrom() {
+    return process.env.EMAIL_FROM || "Sajtmaskin <noreply@sajtmaskin.se>";
+  },
+
   // Admin/Backoffice authentication
   get backofficePassword() {
     return process.env.BACKOFFICE_PASSWORD || "";

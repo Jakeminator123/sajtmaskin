@@ -46,6 +46,8 @@ import {
   DEFAULT_PROMPT_ASSIST,
   DEFAULT_SPEC_MODE,
   DEFAULT_THINKING,
+  EXPERIMENTAL_MODEL_ID_OPTIONS,
+  PLAN_MODE_SYSTEM_INSTRUCTION,
   SPEC_FILE_INSTRUCTION,
   getDefaultPromptAssistModel,
   getPromptAssistModelOptions,
@@ -114,6 +116,8 @@ function BuilderContent() {
     () => normalizeBuildMethod(buildMethodParam) || (source === "audit" ? "audit" : null),
   );
   const [selectedModelTier, setSelectedModelTier] = useState<ModelTier>(DEFAULT_MODEL_TIER);
+  const [customModelId, setCustomModelId] = useState("");
+  const [planModeFirstPrompt, setPlanModeFirstPrompt] = useState(false);
   const [promptAssistModel, setPromptAssistModel] = useState(
     DEFAULT_PROMPT_ASSIST.model || getDefaultPromptAssistModel(),
   );
@@ -192,6 +196,9 @@ function BuilderContent() {
     () => MODEL_TIER_OPTIONS.find((option) => option.value === selectedModelTier),
     [selectedModelTier],
   );
+  const normalizedCustomModelId = useMemo(() => customModelId.trim(), [customModelId]);
+  const selectedModelId = normalizedCustomModelId || selectedModelTier;
+  const isUsingCustomModelId = Boolean(normalizedCustomModelId);
   const isThinkingSupported = selectedModelTier !== "v0-mini";
   const effectiveThinking = enableThinking && isThinkingSupported;
   const resolvedBuildIntent = useMemo(
@@ -409,6 +416,52 @@ function BuilderContent() {
       // ignore storage errors
     }
   }, [enableThinking]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const stored = localStorage.getItem("sajtmaskin:customModelId");
+      if (stored !== null) {
+        setCustomModelId(stored.trim());
+      }
+    } catch {
+      // ignore storage errors
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      if (normalizedCustomModelId) {
+        localStorage.setItem("sajtmaskin:customModelId", normalizedCustomModelId);
+      } else {
+        localStorage.removeItem("sajtmaskin:customModelId");
+      }
+    } catch {
+      // ignore storage errors
+    }
+  }, [normalizedCustomModelId]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const stored = localStorage.getItem("sajtmaskin:planModeFirstPrompt");
+      if (stored !== null) {
+        setPlanModeFirstPrompt(stored === "true");
+      }
+    } catch {
+      // ignore storage errors
+    }
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      localStorage.setItem("sajtmaskin:planModeFirstPrompt", String(planModeFirstPrompt));
+    } catch {
+      // ignore storage errors
+    }
+  }, [planModeFirstPrompt]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -1561,9 +1614,11 @@ function BuilderContent() {
     appProjectId,
     v0ProjectId,
     selectedModelTier,
+    selectedModelId,
     enableImageGenerations,
     enableImageMaterialization: mediaEnabled,
     enableThinking: effectiveThinking,
+    planModeFirstPromptEnabled: planModeFirstPrompt,
     systemPrompt: customInstructions,
     promptAssistModel,
     promptAssistDeep,
@@ -1638,6 +1693,17 @@ function BuilderContent() {
     ],
   );
 
+  const buildFirstPromptSystemOverride = useCallback(
+    (dynamicInstructions: string | null): string | undefined => {
+      const base = (dynamicInstructions ?? customInstructions ?? "").trim();
+      if (!base) return undefined;
+      if (!planModeFirstPrompt) return base;
+      const planBlock = PLAN_MODE_SYSTEM_INSTRUCTION.trim();
+      return `${base}\n\n${planBlock}`.trim();
+    },
+    [customInstructions, planModeFirstPrompt],
+  );
+
   const confirmModelSelection = useCallback(async () => {
     const pending = pendingCreate;
     setIsModelSelectOpen(false);
@@ -1646,13 +1712,15 @@ function BuilderContent() {
     if (!pending) return;
     const dynamicInstructions = await applyDynamicInstructionsForNewChat(pending.message);
     captureInstructionSnapshot();
+    const systemOverride = buildFirstPromptSystemOverride(dynamicInstructions);
     // Pass dynamic instructions directly to avoid state race condition
-    await createNewChat(pending.message, pending.options, dynamicInstructions ?? undefined);
+    await createNewChat(pending.message, pending.options, systemOverride);
   }, [
     pendingCreate,
     createNewChat,
     captureInstructionSnapshot,
     applyDynamicInstructionsForNewChat,
+    buildFirstPromptSystemOverride,
   ]);
 
   const requestCreateChat = useCallback(
@@ -1665,8 +1733,9 @@ function BuilderContent() {
       setEntryIntentActive(false);
       const dynamicInstructions = await applyDynamicInstructionsForNewChat(message);
       captureInstructionSnapshot();
+      const systemOverride = buildFirstPromptSystemOverride(dynamicInstructions);
       // Pass dynamic instructions directly to avoid state race condition
-      await createNewChat(message, options, dynamicInstructions ?? undefined);
+      await createNewChat(message, options, systemOverride);
       return true;
     },
     [
@@ -1675,6 +1744,7 @@ function BuilderContent() {
       createNewChat,
       captureInstructionSnapshot,
       applyDynamicInstructionsForNewChat,
+      buildFirstPromptSystemOverride,
     ],
   );
 
@@ -1693,6 +1763,7 @@ function BuilderContent() {
     // Skip model selection for kostnadsfri — use max tier and auto-start
     setHasSelectedModelTier(true);
     setSelectedModelTier("v0-max");
+    setCustomModelId("");
 
     // Small delay to let the builder UI settle after auth modal closes
     const timer = setTimeout(() => {
@@ -2021,6 +2092,8 @@ function BuilderContent() {
         <BuilderHeader
           selectedModelTier={selectedModelTier}
           onSelectedModelTierChange={setSelectedModelTier}
+          customModelId={customModelId}
+          onCustomModelIdChange={setCustomModelId}
           promptAssistModel={promptAssistModel}
           onPromptAssistModelChange={handlePromptAssistModelChange}
           promptAssistDeep={promptAssistDeep}
@@ -2030,6 +2103,8 @@ function BuilderContent() {
           onCustomInstructionsChange={setCustomInstructions}
           applyInstructionsOnce={applyInstructionsOnce}
           onApplyInstructionsOnceChange={setApplyInstructionsOnce}
+          planModeFirstPrompt={planModeFirstPrompt}
+          onPlanModeFirstPromptChange={setPlanModeFirstPrompt}
           designSystemMode={designSystemMode}
           onDesignSystemModeChange={(v: boolean) => setDesignTheme(v ? "blue" : "off")}
           designTheme={designTheme}
@@ -2092,7 +2167,6 @@ function BuilderContent() {
               onEnhancePrompt={handlePromptEnhance}
               isBusy={isCreatingChat || isAnyStreaming || isTemplateLoading || isPreparingPrompt}
               isPreparingPrompt={isPreparingPrompt}
-              designSystemMode={designSystemMode}
               mediaEnabled={mediaEnabled}
               currentCode={currentPageCode}
               existingUiComponents={existingUiComponents}
@@ -2370,7 +2444,13 @@ function BuilderContent() {
               </div>
               <div className="mb-4 space-y-2 text-xs">
                 <div className="border-border bg-background/60 flex items-center justify-between rounded-lg border px-3 py-2">
-                  <span className="text-muted-foreground">Model tier</span>
+                  <span className="text-muted-foreground">v0 modelId</span>
+                  <span className="text-foreground font-medium">
+                    {selectedModelId}
+                  </span>
+                </div>
+                <div className="border-border bg-background/60 flex items-center justify-between rounded-lg border px-3 py-2">
+                  <span className="text-muted-foreground">Bas-tier (fallback i UI)</span>
                   <span className="text-foreground font-medium">
                     {selectedTierOption?.label || selectedModelTier}
                   </span>
@@ -2385,10 +2465,16 @@ function BuilderContent() {
                 <div className="border-border bg-background/60 flex items-center justify-between rounded-lg border px-3 py-2">
                   <span className="text-muted-foreground">AI‑bilder</span>
                   <span className="text-foreground font-medium">
-                    På
+                    {enableImageGenerations ? "På" : "Av"}
                     {!isImageGenerationsSupported && (
                       <span className="text-muted-foreground ml-2 text-xs">(v0 saknas)</span>
                     )}
+                  </span>
+                </div>
+                <div className="border-border bg-background/60 flex items-center justify-between rounded-lg border px-3 py-2">
+                  <span className="text-muted-foreground">Plan-läge (första prompten)</span>
+                  <span className="text-foreground font-medium">
+                    {planModeFirstPrompt ? "På" : "Av"}
                   </span>
                 </div>
                 <div className="border-border bg-background/60 rounded-lg border px-3 py-2">
@@ -2434,6 +2520,42 @@ function BuilderContent() {
                     </button>
                   );
                 })}
+              </div>
+              <div className="mt-4 space-y-2 rounded-lg border p-3">
+                <div className="text-sm font-medium">Experimentellt custom modelId (v0)</div>
+                <div className="text-muted-foreground text-xs">
+                  Testa nya modelId manuellt. Om v0 nekar visas tydligt fel och du kan försöka igen.
+                </div>
+                <Input
+                  value={customModelId}
+                  onChange={(event) => setCustomModelId(event.target.value)}
+                  placeholder="t.ex. opus-4.6-fast"
+                />
+                <div className="flex flex-wrap gap-2">
+                  {EXPERIMENTAL_MODEL_ID_OPTIONS.map((option) => (
+                    <Button
+                      key={option.value}
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setCustomModelId(option.value)}
+                    >
+                      {option.value}
+                    </Button>
+                  ))}
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setCustomModelId("")}
+                    disabled={!isUsingCustomModelId}
+                  >
+                    Återställ
+                  </Button>
+                </div>
+                <div className="text-muted-foreground text-xs">
+                  Aktivt skickat modelId: <span className="font-mono">{selectedModelId}</span>
+                </div>
               </div>
               <div className="mt-6 flex items-center justify-end gap-2">
                 <Button

@@ -20,6 +20,8 @@ export function AuthModal({ isOpen, onClose, defaultMode = "login" }: AuthModalP
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [showResendVerification, setShowResendVerification] = useState(false);
 
   const { setUser } = useAuthStore();
 
@@ -27,6 +29,8 @@ export function AuthModal({ isOpen, onClose, defaultMode = "login" }: AuthModalP
     if (isOpen) {
       setMode(defaultMode);
       setError(null);
+      setSuccessMessage(null);
+      setShowResendVerification(false);
     }
   }, [defaultMode, isOpen]);
 
@@ -37,6 +41,8 @@ export function AuthModal({ isOpen, onClose, defaultMode = "login" }: AuthModalP
       setName("");
       setShowPassword(false);
       setError(null);
+      setSuccessMessage(null);
+      setShowResendVerification(false);
     }
   }, [isOpen]);
 
@@ -45,6 +51,8 @@ export function AuthModal({ isOpen, onClose, defaultMode = "login" }: AuthModalP
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setSuccessMessage(null);
+    setShowResendVerification(false);
     setIsLoading(true);
 
     try {
@@ -64,11 +72,24 @@ export function AuthModal({ isOpen, onClose, defaultMode = "login" }: AuthModalP
         setError(
           data.error || "Inloggning misslyckades. Kontrollera dina uppgifter och försök igen.",
         );
+        setShowResendVerification(Boolean(data.requiresEmailVerification && email));
+        return;
+      }
+
+      if (mode === "register" && data.requiresEmailVerification) {
+        setSuccessMessage(
+          data.message ||
+            "Vi har skickat ett verifieringsmail. Bekräfta din e-post innan du loggar in.",
+        );
+        setMode("login");
+        setPassword("");
         return;
       }
 
       // Update auth store
-      setUser(data.user);
+      if (data.user) {
+        setUser(data.user);
+      }
 
       // Close modal
       onClose();
@@ -79,6 +100,31 @@ export function AuthModal({ isOpen, onClose, defaultMode = "login" }: AuthModalP
       setName("");
     } catch {
       setError("Kunde inte ansluta till servern");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleResendVerification = async () => {
+    if (!email) return;
+    setError(null);
+    setSuccessMessage(null);
+    setIsLoading(true);
+    try {
+      const response = await fetch("/api/auth/resend-verification", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        setError(data.error || "Kunde inte skicka verifieringsmail");
+        return;
+      }
+      setSuccessMessage(data.message || "Verifieringsmail skickat.");
+      setShowResendVerification(false);
+    } catch {
+      setError("Kunde inte skicka verifieringsmail");
     } finally {
       setIsLoading(false);
     }
@@ -230,6 +276,24 @@ export function AuthModal({ isOpen, onClose, defaultMode = "login" }: AuthModalP
             <div className="border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-400">
               {error}
             </div>
+          )}
+
+          {successMessage && (
+            <div className="border border-emerald-500/30 bg-emerald-500/10 p-3 text-sm text-emerald-300">
+              {successMessage}
+            </div>
+          )}
+
+          {showResendVerification && (
+            <Button
+              type="button"
+              variant="outline"
+              className="h-10 w-full border-gray-700 bg-gray-900/50 text-white hover:bg-gray-800"
+              onClick={handleResendVerification}
+              disabled={isLoading}
+            >
+              Skicka verifieringsmail igen
+            </Button>
           )}
 
           {/* Submit button */}

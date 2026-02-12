@@ -3,12 +3,18 @@ import { z } from "zod";
 import { withRateLimit } from "@/lib/rateLimit";
 import { ensureSessionIdFromRequest } from "@/lib/auth/session";
 import { processPromptWithSpec } from "@/lib/builder/promptAssistContext";
+import { devLogAppend } from "@/lib/logging/devLog";
+import { MAX_AI_SPEC_PROMPT_CHARS } from "@/lib/builder/promptLimits";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
 
 const specRequestSchema = z.object({
-  prompt: z.string().min(1, "Prompt is required").max(10000, "Prompt too long"),
+  prompt: z
+    .string()
+    .trim()
+    .min(1, "Prompt is required")
+    .max(MAX_AI_SPEC_PROMPT_CHARS, `Prompt too long (max ${MAX_AI_SPEC_PROMPT_CHARS} chars)`),
 });
 
 /**
@@ -49,9 +55,18 @@ export async function POST(req: Request) {
       }
 
       const { prompt } = validationResult.data;
+      devLogAppend("latest", {
+        type: "assist.spec.request",
+        prompt,
+      });
 
       // Generate spec using the spec-first chain
       const result = await processPromptWithSpec(prompt);
+      devLogAppend("latest", {
+        type: "assist.spec.response",
+        enhancedPrompt: result.enhancedPrompt,
+        pages: Array.isArray(result.spec.pages) ? result.spec.pages.length : 0,
+      });
 
       return attachSessionCookie(
         NextResponse.json({
@@ -62,6 +77,10 @@ export async function POST(req: Request) {
       );
     } catch (err) {
       console.error("Spec generation error:", err);
+      devLogAppend("latest", {
+        type: "assist.spec.error",
+        message: err instanceof Error ? err.message : "Failed to generate spec",
+      });
       return attachSessionCookie(
         NextResponse.json(
           { error: err instanceof Error ? err.message : "Failed to generate spec" },

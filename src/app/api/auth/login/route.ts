@@ -30,9 +30,16 @@ export async function POST(req: NextRequest) {
 
     if ("error" in result) {
       const isGoogleOnly = result.error.toLowerCase().includes("google");
+      const requiresEmailVerification = result.error
+        .toLowerCase()
+        .includes("bekräfta din e-post");
       return NextResponse.json(
-        { success: false, error: result.error },
-        { status: isGoogleOnly ? 200 : 401 },
+        {
+          success: false,
+          error: result.error,
+          requiresEmailVerification,
+        },
+        { status: isGoogleOnly ? 200 : requiresEmailVerification ? 403 : 401 },
       );
     }
 
@@ -49,6 +56,7 @@ export async function POST(req: NextRequest) {
         image: result.user.image,
         diamonds: result.user.diamonds,
         provider: result.user.provider,
+        emailVerified: result.user.email_verified,
       },
     });
   } catch (error) {

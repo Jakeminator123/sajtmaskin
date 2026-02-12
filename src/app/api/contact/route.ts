@@ -21,8 +21,9 @@ const RECIPIENTS = [
   "erik@sajtstudio.se",
 ];
 
-// Fallback sender when no custom domain is verified in Resend
-const FROM_ADDRESS = process.env.RESEND_FROM_EMAIL || "Sajtmaskin <onboarding@resend.dev>";
+// Prefer unified EMAIL_FROM, keep RESEND_FROM_EMAIL for backward compatibility.
+const FROM_ADDRESS =
+  process.env.EMAIL_FROM || process.env.RESEND_FROM_EMAIL || "Sajtmaskin <onboarding@resend.dev>";
 
 const contactSchema = z.object({
   name: z.string().min(1).max(100),

@@ -23,21 +23,29 @@ export const maxDuration = 30;
 
 // ── Request schema ──────────────────────────────────────────────────
 
+const MAX_SHORT_TEXT = 300;
+const MAX_MEDIUM_TEXT = 3000;
+const MAX_LONG_TEXT = 12000;
+const MAX_URL_LENGTH = 2048;
+
 const enrichRequestSchema = z.object({
   step: z.number().int().min(1).max(5),
   data: z.object({
-    companyName: z.string().optional().default(""),
-    industry: z.string().optional().default(""),
-    location: z.string().optional().default(""),
-    existingWebsite: z.string().optional().default(""),
-    purposes: z.array(z.string()).optional().default([]),
-    targetAudience: z.string().optional().default(""),
-    usp: z.string().optional().default(""),
-    selectedVibe: z.string().optional().default(""),
-    specialWishes: z.string().optional().default(""),
-    previousFollowUps: z.record(z.string(), z.string()).optional().default({}),
+    companyName: z.string().max(MAX_SHORT_TEXT).optional().default(""),
+    industry: z.string().max(MAX_SHORT_TEXT).optional().default(""),
+    location: z.string().max(MAX_SHORT_TEXT).optional().default(""),
+    existingWebsite: z.string().max(MAX_URL_LENGTH).optional().default(""),
+    purposes: z.array(z.string().max(MAX_SHORT_TEXT)).max(20).optional().default([]),
+    targetAudience: z.string().max(MAX_MEDIUM_TEXT).optional().default(""),
+    usp: z.string().max(MAX_MEDIUM_TEXT).optional().default(""),
+    selectedVibe: z.string().max(MAX_SHORT_TEXT).optional().default(""),
+    specialWishes: z.string().max(MAX_LONG_TEXT).optional().default(""),
+    previousFollowUps: z
+      .record(z.string().max(MAX_SHORT_TEXT), z.string().max(MAX_MEDIUM_TEXT))
+      .optional()
+      .default({}),
   }),
-  scrapeUrl: z.string().optional(),
+  scrapeUrl: z.string().max(MAX_URL_LENGTH).optional(),
 });
 
 // ── Industry context ────────────────────────────────────────────────

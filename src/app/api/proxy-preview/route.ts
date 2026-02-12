@@ -177,6 +177,18 @@ function rewriteUrls(html: string, baseOrigin: string, basePath: string): string
     `$1${basePath}$2`,
   );
 
+  // Also rewrite srcset attributes (used by next/image and responsive images)
+  out = out.replace(
+    /(srcset=["'])([^"']+)(["'])/gi,
+    (_match, pre, value, post) => {
+      const patched = value.replace(
+        /(?:^|,\s*)\/(?!\/)/g,
+        (m: string) => m.replace(/\//, `${baseOrigin}/`),
+      );
+      return `${pre}${patched}${post}`;
+    },
+  );
+
   return out;
 }
 
@@ -257,6 +269,95 @@ function injectConsoleFilter(html: string): string {
   return consoleFilterScript + html;
 }
 
+/**
+ * Inject a <base> tag so that ALL relative URLs (scripts, styles, images,
+ * dynamic imports, CSS url(), etc.) resolve to the original v0 demo origin
+ * instead of the proxy host. This is the key fix for "black page" in
+ * inspector mode - without it, Next.js chunks and CSS fail to load.
+ */
+function injectBaseTag(html: string, baseHref: string): string {
+  const baseTag = `<base href="${baseHref}">`;
+  // Avoid duplicate <base> tags; replace any existing base href.
+  if (/<base\b[^>]*href=/i.test(html)) {
+    return html.replace(/<base\b[^>]*href=["'][^"']*["'][^>]*>/i, baseTag);
+  }
+  if (html.includes("<head>")) {
+    return html.replace("<head>", `<head>${baseTag}`);
+  }
+  if (html.includes("<HEAD>")) {
+    return html.replace("<HEAD>", `<HEAD>${baseTag}`);
+  }
+  // Fallback: inject at the very start of the document
+  return baseTag + html;
+}
+
+/**
+ * Inject an early script that patches window.fetch and Next.js internals
+ * so dynamically loaded resources (code-split chunks, API calls, etc.)
+ * also resolve to the original v0 demo origin instead of the proxy host.
+ *
+ * <base> handles static HTML attributes (src, href) but JS runtime calls
+ * like fetch("/_next/...") use window.location.origin by default.
+ */
+function buildOriginPatchScript(origin: string): string {
+  return `
+<script>
+(function() {
+  var O = ${JSON.stringify(origin)};
+  var LOCAL = window.location.origin;
+  // Patch fetch() so relative /_next/ and /api/ requests go to the real origin
+  var _fetch = window.fetch;
+  window.fetch = function(input, init) {
+    if (typeof input === "string") {
+      if (input.startsWith("/")) {
+        input = O + input;
+      } else if (input.startsWith(LOCAL + "/")) {
+        input = O + input.slice(LOCAL.length);
+      }
+    } else if (input instanceof URL && input.origin === LOCAL) {
+      input = O + input.pathname + input.search + input.hash;
+    } else if (input instanceof Request && input.url.startsWith(LOCAL + "/")) {
+      var path = input.url.slice(LOCAL.length);
+      input = new Request(O + path, input);
+    }
+    return _fetch.call(this, input, init);
+  };
+  // Patch XMLHttpRequest for legacy requests
+  var _xhrOpen = XMLHttpRequest.prototype.open;
+  XMLHttpRequest.prototype.open = function(method, url) {
+    if (typeof url === "string") {
+      if (url.startsWith("/")) {
+        url = O + url;
+      } else if (url.startsWith(LOCAL + "/")) {
+        url = O + url.slice(LOCAL.length);
+      }
+    }
+    return _xhrOpen.apply(this, [method, url].concat(Array.prototype.slice.call(arguments, 2)));
+  };
+  // Patch __NEXT_DATA__ assetPrefix when Next.js initializes
+  var _desc = Object.getOwnPropertyDescriptor(window, "__NEXT_DATA__");
+  if (!_desc || _desc.configurable) {
+    var _stored;
+    Object.defineProperty(window, "__NEXT_DATA__", {
+      configurable: true,
+      enumerable: true,
+      get: function() { return _stored; },
+      set: function(v) {
+        if (v && typeof v === "object" && !v.assetPrefix) {
+          v.assetPrefix = O;
+        }
+        _stored = v;
+        // After first set, switch to plain property for performance
+        Object.defineProperty(window, "__NEXT_DATA__", {
+          value: v, writable: true, configurable: true, enumerable: true,
+        });
+      },
+    });
+  }
+})();
+</script>`;
+}
+
 function injectScript(html: string): string {
   // Inject before </body> or at end
   if (html.includes("</body>")) {
@@ -319,6 +420,26 @@ export async function GET(req: Request) {
     // Process HTML
     html = removeCsp(html);
     html = neutralizeEmbeds(html);
+
+    // 1. Inject <base> tag FIRST so all relative URLs resolve to the real origin.
+    //    This is the primary fix for the "black page" problem: without it,
+    //    Next.js chunks, CSS, and images loaded from /_next/ 404 on localhost.
+    html = injectBaseTag(html, basePath);
+
+    // 2. Inject origin-patch script early in <head> to intercept fetch() and
+    //    XMLHttpRequest calls that use relative URLs at runtime.
+    const originPatch = buildOriginPatchScript(target.origin);
+    if (html.includes("</head>")) {
+      // Put it just before </head> so it runs before any deferred scripts
+      html = html.replace("</head>", `${originPatch}</head>`);
+    } else if (html.includes("</HEAD>")) {
+      html = html.replace("</HEAD>", `${originPatch}</HEAD>`);
+    } else {
+      html = originPatch + html;
+    }
+
+    // 3. Regex-rewrite remaining href/src attributes as a safety net
+    //    (redundant with <base> for most cases, but catches edge cases)
     html = rewriteUrls(html, target.origin, basePath);
 
     // Optional clean mode: inject console filter to suppress @property warnings
@@ -328,7 +449,7 @@ export async function GET(req: Request) {
 
     html = injectScript(html);
 
-    // NOTE: X-Frame-Options is handled by middleware.ts which sets SAMEORIGIN
+    // NOTE: X-Frame-Options is handled by proxy.ts which sets SAMEORIGIN
     // for /api/proxy-preview. We don't set it here to avoid the ALLOWALL
     // security vulnerability (clickjacking).
     return new NextResponse(html, {

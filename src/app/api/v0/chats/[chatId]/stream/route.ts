@@ -24,9 +24,32 @@ import { debugLog, errorLog, warnLog } from "@/lib/utils/debug";
 import { sanitizeV0Metadata } from "@/lib/v0/sanitize-metadata";
 import { normalizeV0Error } from "@/lib/v0/errors";
 import { sendMessageSchema } from "@/lib/validations/chatSchemas";
+import { WARN_CHAT_MESSAGE_CHARS, WARN_CHAT_SYSTEM_CHARS } from "@/lib/builder/promptLimits";
+import { orchestratePromptMessage } from "@/lib/builder/promptOrchestration";
 
 export const runtime = "nodejs";
 export const maxDuration = 600;
+
+function appendPreview(current: string, incoming: string, max = 320): string {
+  if (!incoming) return current;
+  const next = `${current}${incoming}`;
+  return next.length > max ? next.slice(-max) : next;
+}
+
+function extractToolNames(parts: Array<Record<string, unknown>>): string[] {
+  const names: string[] = [];
+  for (const part of parts) {
+    const type = typeof part.type === "string" ? part.type : "";
+    if (!type.startsWith("tool")) continue;
+    const name =
+      (typeof part.toolName === "string" && part.toolName) ||
+      (typeof part.name === "string" && part.name) ||
+      (typeof part.type === "string" && part.type) ||
+      "tool-call";
+    names.push(name);
+  }
+  return Array.from(new Set(names));
+}
 
 export async function POST(req: Request, ctx: { params: Promise<{ chatId: string }> }) {
   const requestId = req.headers.get("x-vercel-id") || "unknown";
@@ -54,7 +77,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
         );
       }
 
-      const { message, attachments, modelId, thinking, imageGenerations, system } =
+      const { message, attachments, modelId, thinking, imageGenerations, system, meta } =
         validationResult.data;
 
       let existingChat = await getChatByV0ChatIdForRequest(req, chatId, { sessionId });
@@ -128,14 +151,50 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
         typeof thinking === "boolean" ? thinking : resolvedModelId === "v0-max";
       const resolvedImageGenerations =
         typeof imageGenerations === "boolean" ? imageGenerations : true;
+      const metaBuildMethod =
+        typeof (meta as { buildMethod?: unknown })?.buildMethod === "string"
+          ? (meta as { buildMethod?: string }).buildMethod
+          : null;
+      const metaBuildIntent =
+        typeof (meta as { buildIntent?: unknown })?.buildIntent === "string"
+          ? (meta as { buildIntent?: string }).buildIntent
+          : null;
+      const promptOrchestration = orchestratePromptMessage({
+        message,
+        buildMethod: metaBuildMethod,
+        buildIntent: metaBuildIntent,
+        isFirstPrompt: false,
+        attachmentsCount: Array.isArray(attachments) ? attachments.length : 0,
+      });
+      const strategyMeta = promptOrchestration.strategyMeta;
+      const optimizedMessage = promptOrchestration.finalMessage;
+      const trimmedSystemPrompt = typeof system === "string" ? system.trim() : "";
+      if (
+        message.length > WARN_CHAT_MESSAGE_CHARS ||
+        optimizedMessage.length > WARN_CHAT_MESSAGE_CHARS ||
+        trimmedSystemPrompt.length > WARN_CHAT_SYSTEM_CHARS
+      ) {
+        devLogAppend("latest", {
+          type: "prompt.size.warning",
+          chatId,
+          messageLength: optimizedMessage.length,
+          originalMessageLength: message.length,
+          systemLength: trimmedSystemPrompt.length,
+          warnMessageChars: WARN_CHAT_MESSAGE_CHARS,
+          warnSystemChars: WARN_CHAT_SYSTEM_CHARS,
+        });
+      }
 
       debugLog("v0", "v0 follow-up message request", {
         chatId,
-        messageLength: typeof message === "string" ? message.length : null,
+        messageLength: optimizedMessage.length,
+        originalMessageLength: message.length,
         attachments: Array.isArray(attachments) ? attachments.length : 0,
         modelId: resolvedModelId,
         thinking: resolvedThinking,
         imageGenerations: resolvedImageGenerations,
+        promptStrategy: strategyMeta.strategy,
+        promptType: strategyMeta.promptType,
       });
 
       const creditContext = {
@@ -163,10 +222,30 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
         type: "site.message.start",
         chatId,
         message:
-          typeof message === "string"
-            ? `${message.slice(0, 500)}${message.length > 500 ? "…" : ""}`
+          typeof optimizedMessage === "string"
+            ? `${optimizedMessage.slice(0, 500)}${optimizedMessage.length > 500 ? "…" : ""}`
             : null,
+        slug: metaBuildMethod || metaBuildIntent || undefined,
+        originalMessageLength: message.length,
+        optimizedMessageLength: optimizedMessage.length,
+        promptStrategy: strategyMeta.strategy,
+        promptType: strategyMeta.promptType,
         attachmentsCount: Array.isArray(attachments) ? attachments.length : null,
+      });
+      devLogAppend("latest", {
+        type: "comm.request.send",
+        chatId,
+        modelId: resolvedModelId,
+        message: optimizedMessage,
+        slug: metaBuildMethod || metaBuildIntent || undefined,
+        promptType: strategyMeta.promptType,
+        promptStrategy: strategyMeta.strategy,
+        promptBudgetTarget: strategyMeta.budgetTarget,
+        originalLength: strategyMeta.originalLength,
+        optimizedLength: strategyMeta.optimizedLength,
+        reductionRatio: strategyMeta.reductionRatio,
+        strategyReason: strategyMeta.reason,
+        attachmentsCount: Array.isArray(attachments) ? attachments.length : 0,
       });
       if (process.env.NODE_ENV === "development") {
         console.log("[dev-log] follow-up started", { chatId });
@@ -176,14 +255,14 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
       try {
         result = await (v0.chats as any).sendMessage({
           chatId,
-          message,
+          message: optimizedMessage,
           attachments,
           modelConfiguration: {
             modelId: resolvedModelId,
             thinking: resolvedThinking,
             imageGenerations: resolvedImageGenerations,
           },
-          ...(typeof system === "string" && system.trim() ? { system: system.trim() } : {}),
+          ...(trimmedSystemPrompt ? { system: trimmedSystemPrompt } : {}),
           responseMode: "experimental_stream",
         });
       } catch (streamErr) {
@@ -191,16 +270,16 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
           "sendMessage streaming not available, falling back to non-stream response:",
           streamErr,
         );
-        result = await v0.chats.sendMessage({
+        result = await (v0.chats as any).sendMessage({
           chatId,
-          message,
+          message: optimizedMessage,
           attachments,
           modelConfiguration: {
             modelId: resolvedModelId,
             thinking: resolvedThinking,
             imageGenerations: resolvedImageGenerations,
           },
-          ...(typeof system === "string" && system.trim() ? { system: system.trim() } : {}),
+          ...(trimmedSystemPrompt ? { system: trimmedSystemPrompt } : {}),
         });
       }
 
@@ -237,6 +316,9 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
             let lastMessageId: string | null = null;
             let lastDemoUrl: string | null = null;
             let lastVersionId: string | null = null;
+            let assistantContentPreview = "";
+            let assistantThinkingPreview = "";
+            const seenToolCalls = new Set<string>();
 
             const safeEnqueue = (data: Uint8Array) => {
               if (controllerClosed) return;
@@ -341,16 +423,29 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
 
                   const thinkingText = extractThinkingText(parsed);
                   if (thinkingText && !didSendDone) {
+                    assistantThinkingPreview = appendPreview(assistantThinkingPreview, thinkingText);
                     safeEnqueue(encoder.encode(formatSSEEvent("thinking", thinkingText)));
                   }
 
                   const contentText = extractContentText(parsed, rawData);
                   if (contentText && !didSendDone) {
+                    assistantContentPreview = appendPreview(assistantContentPreview, contentText);
                     safeEnqueue(encoder.encode(formatSSEEvent("content", contentText)));
                   }
 
                   const uiParts = extractUiParts(parsed);
                   if (uiParts && uiParts.length > 0 && !didSendDone) {
+                    const toolNames = extractToolNames(uiParts);
+                    const freshToolNames = toolNames.filter((name) => !seenToolCalls.has(name));
+                    if (freshToolNames.length > 0) {
+                      freshToolNames.forEach((name) => seenToolCalls.add(name));
+                      devLogAppend("latest", {
+                        type: "comm.tool_calls",
+                        chatId,
+                        tools: freshToolNames,
+                        event: _currentEvent || null,
+                      });
+                    }
                     safeEnqueue(encoder.encode(formatSSEEvent("parts", uiParts)));
                   }
 
@@ -449,6 +544,16 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
                       demoUrl: finalDemoUrl,
                       durationMs: Date.now() - requestStartedAt,
                     });
+                    devLogAppend("latest", {
+                      type: "comm.response.send",
+                      chatId,
+                      messageId: lastMessageId || null,
+                      versionId: finalVersionId || null,
+                      demoUrl: finalDemoUrl || null,
+                      assistantPreview: assistantContentPreview || null,
+                      thinkingPreview: assistantThinkingPreview || null,
+                      toolCalls: Array.from(seenToolCalls),
+                    });
                     await commitCreditsOnce();
                     if (process.env.NODE_ENV === "development") {
                       console.log("[dev-log] follow-up finished", {
@@ -506,6 +611,17 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
       }
 
       await commitCreditsOnce();
+      devLogAppend("latest", {
+        type: "comm.response.send",
+        chatId,
+        messageId: messageResult.messageId || null,
+        versionId,
+        demoUrl,
+        assistantPreview:
+          (typeof messageResult.text === "string" && messageResult.text) ||
+          (typeof messageResult.message === "string" && messageResult.message) ||
+          null,
+      });
       const headers = new Headers(createSSEHeaders());
       return attachSessionCookie(
         new Response(
@@ -521,6 +637,12 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
     } catch (err) {
       errorLog("v0", `Send message error (requestId=${requestId})`, err);
       const normalized = normalizeV0Error(err);
+      devLogAppend("latest", {
+        type: "comm.error.send",
+        chatId: null,
+        message: normalized.message,
+        code: normalized.code,
+      });
       return attachSessionCookie(
         NextResponse.json(
           {

@@ -5,6 +5,16 @@
  * Popular package: 25 credits = 99 SEK (~4 kr/credit).
  */
 
+function normalizeStripePriceId(value: string | undefined): string | undefined {
+  const trimmed = value?.trim();
+  if (!trimmed) return undefined;
+  // Only accept real Stripe price IDs; fallback pricing is used otherwise.
+  if (!trimmed.startsWith("price_")) {
+    return undefined;
+  }
+  return trimmed;
+}
+
 // Credit packages available for purchase
 export const DIAMOND_PACKAGES = [
   {
@@ -12,7 +22,7 @@ export const DIAMOND_PACKAGES = [
     name: "Starter",
     diamonds: 10,
     price: 49, // SEK (4.9 kr/credit)
-    priceId: process.env.STRIPE_PRICE_10_CREDITS, // Optional Stripe Price ID
+    priceId: normalizeStripePriceId(process.env.STRIPE_PRICE_10_CREDITS), // Optional Stripe Price ID
     popular: false,
   },
   {
@@ -20,7 +30,7 @@ export const DIAMOND_PACKAGES = [
     name: "Popular",
     diamonds: 25,
     price: 99, // SEK (~4 kr/credit, ~19% off)
-    priceId: process.env.STRIPE_PRICE_25_CREDITS,
+    priceId: normalizeStripePriceId(process.env.STRIPE_PRICE_25_CREDITS),
     popular: true,
   },
   {
@@ -28,7 +38,7 @@ export const DIAMOND_PACKAGES = [
     name: "Pro",
     diamonds: 50,
     price: 179, // SEK (~3.6 kr/credit, ~27% off)
-    priceId: process.env.STRIPE_PRICE_50_CREDITS,
+    priceId: normalizeStripePriceId(process.env.STRIPE_PRICE_50_CREDITS),
     popular: false,
   },
 ] as const;

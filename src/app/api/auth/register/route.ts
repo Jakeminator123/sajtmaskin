@@ -1,11 +1,23 @@
 /**
  * API Route: Register new user
  * POST /api/auth/register
+ *
+ * After successful registration a verification email is sent.
+ * Non-admin users must verify email before they can log in.
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { registerUser, setAuthCookie } from "@/lib/auth/auth";
-import { createTransaction } from "@/lib/db/services";
+import {
+  createTransaction,
+  createVerificationToken,
+  isAdminEmail,
+  markEmailVerified,
+  setUserDiamonds,
+} from "@/lib/db/services";
+import { sendVerificationEmail } from "@/lib/email/send";
+
+const ADMIN_DIAMONDS = Number(process.env.SUPERADMIN_DIAMONDS) || 10_000;
 
 export async function POST(req: NextRequest) {
   try {
@@ -42,20 +54,55 @@ export async function POST(req: NextRequest) {
       "Välkomstbonus vid registrering",
     );
 
-    // Set auth cookie
-    await setAuthCookie(result.token, { secure: req.nextUrl.protocol === "https:" });
+    const normalizedEmail = email.trim().toLowerCase();
+    const isAdmin = isAdminEmail(normalizedEmail);
 
-    // Return user data (without sensitive fields)
+    // Admin users are auto-verified and can be logged in immediately.
+    if (isAdmin) {
+      await markEmailVerified(result.user.id);
+      const diamonds = Math.max(result.user.diamonds, ADMIN_DIAMONDS);
+      if (diamonds !== result.user.diamonds) {
+        await setUserDiamonds(result.user.id, diamonds);
+      }
+
+      await setAuthCookie(result.token, { secure: req.nextUrl.protocol === "https:" });
+      return NextResponse.json({
+        success: true,
+        requiresEmailVerification: false,
+        emailVerificationSent: false,
+        user: {
+          id: result.user.id,
+          email: result.user.email,
+          name: result.user.name,
+          image: result.user.image,
+          diamonds,
+          provider: result.user.provider,
+          emailVerified: true,
+        },
+      });
+    }
+
+    // Non-admin users must verify by email before login.
+    let emailVerificationSent = true;
+    try {
+      const token = await createVerificationToken(result.user.id);
+      const sendResult = await sendVerificationEmail(normalizedEmail, token, {
+        name,
+        baseUrl: req.nextUrl.origin,
+      });
+      emailVerificationSent = sendResult.success;
+    } catch (emailErr) {
+      console.error("[API/auth/register] Failed to send verification email:", emailErr);
+      emailVerificationSent = false;
+    }
+
     return NextResponse.json({
       success: true,
-      user: {
-        id: result.user.id,
-        email: result.user.email,
-        name: result.user.name,
-        image: result.user.image,
-        diamonds: result.user.diamonds,
-        provider: result.user.provider,
-      },
+      requiresEmailVerification: true,
+      emailVerificationSent,
+      message:
+        "Vi har skickat ett verifieringsmail. Bekräfta din e-post innan du loggar in.",
+      user: null,
     });
   } catch (error) {
     console.error("[API/auth/register] Error:", error);

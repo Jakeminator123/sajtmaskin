@@ -961,20 +961,39 @@ function checkPublicConfig() {
 
 function testStripePrices() {
   const prices = [
-    { key: "STRIPE_PRICE_10_DIAMONDS", label: "Stripe Price 10" },
-    { key: "STRIPE_PRICE_25_DIAMONDS", label: "Stripe Price 25" },
-    { key: "STRIPE_PRICE_50_DIAMONDS", label: "Stripe Price 50" },
+    { key: "STRIPE_PRICE_10_CREDITS", label: "Stripe Price 10 credits" },
+    { key: "STRIPE_PRICE_25_CREDITS", label: "Stripe Price 25 credits" },
+    { key: "STRIPE_PRICE_50_CREDITS", label: "Stripe Price 50 credits" },
   ];
   const hasStripe = Boolean(process.env.STRIPE_SECRET_KEY || process.env.STRIPE_WEBHOOK_SECRET);
 
   prices.forEach(({ key, label }) => {
     const value = process.env[key];
     if (value && value.trim()) {
-      log(label, "ok", "Configured", maskValue(value));
+      const normalized = value.trim();
+      if (!normalized.startsWith("price_")) {
+        log(label, "warn", "Configured but invalid format (expected Stripe price_...)");
+      } else {
+        log(label, "ok", "Configured", maskValue(value));
+      }
     } else if (hasStripe) {
       log(label, "warn", "Missing (required for checkout)");
     } else {
       log(label, "skip", "Not configured (optional)");
+    }
+  });
+
+  // Legacy aliases kept for migration safety. Not used by runtime Stripe integration.
+  const legacyPrices = [
+    "STRIPE_PRICE_10_DIAMONDS",
+    "STRIPE_PRICE_25_DIAMONDS",
+    "STRIPE_PRICE_50_DIAMONDS",
+    "STRIPE_PRICE_75_DIAMONDS",
+  ];
+  legacyPrices.forEach((key) => {
+    const value = process.env[key];
+    if (value && value.trim()) {
+      log(key, "warn", "Legacy key detected (deprecated, remove after migration)");
     }
   });
 }

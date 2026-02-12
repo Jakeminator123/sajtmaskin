@@ -9,6 +9,9 @@ import { getChatByV0ChatIdForRequest } from "@/lib/tenant";
 import { sanitizeV0Metadata } from "@/lib/v0/sanitize-metadata";
 import { prepareCredits } from "@/lib/credits/server";
 import { ensureSessionIdFromRequest } from "@/lib/auth/session";
+import { devLogAppend } from "@/lib/logging/devLog";
+import { WARN_CHAT_MESSAGE_CHARS, WARN_CHAT_SYSTEM_CHARS } from "@/lib/builder/promptLimits";
+import { orchestratePromptMessage } from "@/lib/builder/promptOrchestration";
 
 export async function POST(req: Request, ctx: { params: Promise<{ chatId: string }> }) {
   const session = ensureSessionIdFromRequest(req);
@@ -36,7 +39,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
         );
       }
 
-      const { message, attachments, modelId, thinking, imageGenerations, system } =
+      const { message, attachments, modelId, thinking, imageGenerations, system, meta } =
         validationResult.data;
 
       const dbChat = await getChatByV0ChatIdForRequest(req, chatId);
@@ -49,6 +52,54 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
         typeof thinking === "boolean" ? thinking : resolvedModelId === "v0-max";
       const resolvedImageGenerations =
         typeof imageGenerations === "boolean" ? imageGenerations : true;
+      const metaBuildMethod =
+        typeof (meta as { buildMethod?: unknown })?.buildMethod === "string"
+          ? (meta as { buildMethod?: string }).buildMethod
+          : null;
+      const metaBuildIntent =
+        typeof (meta as { buildIntent?: unknown })?.buildIntent === "string"
+          ? (meta as { buildIntent?: string }).buildIntent
+          : null;
+      const promptOrchestration = orchestratePromptMessage({
+        message,
+        buildMethod: metaBuildMethod,
+        buildIntent: metaBuildIntent,
+        isFirstPrompt: false,
+        attachmentsCount: Array.isArray(attachments) ? attachments.length : 0,
+      });
+      const strategyMeta = promptOrchestration.strategyMeta;
+      const optimizedMessage = promptOrchestration.finalMessage;
+      const trimmedSystemPrompt = typeof system === "string" ? system.trim() : "";
+      if (
+        message.length > WARN_CHAT_MESSAGE_CHARS ||
+        optimizedMessage.length > WARN_CHAT_MESSAGE_CHARS ||
+        trimmedSystemPrompt.length > WARN_CHAT_SYSTEM_CHARS
+      ) {
+        devLogAppend("latest", {
+          type: "prompt.size.warning",
+          chatId,
+          messageLength: optimizedMessage.length,
+          originalMessageLength: message.length,
+          systemLength: trimmedSystemPrompt.length,
+          warnMessageChars: WARN_CHAT_MESSAGE_CHARS,
+          warnSystemChars: WARN_CHAT_SYSTEM_CHARS,
+        });
+      }
+      devLogAppend("latest", {
+        type: "comm.request.send.sync",
+        chatId,
+        message: optimizedMessage,
+        modelId: resolvedModelId,
+        slug: metaBuildMethod || metaBuildIntent || undefined,
+        promptType: strategyMeta.promptType,
+        promptStrategy: strategyMeta.strategy,
+        promptBudgetTarget: strategyMeta.budgetTarget,
+        originalLength: strategyMeta.originalLength,
+        optimizedLength: strategyMeta.optimizedLength,
+        reductionRatio: strategyMeta.reductionRatio,
+        strategyReason: strategyMeta.reason,
+        attachmentsCount: Array.isArray(attachments) ? attachments.length : 0,
+      });
 
       const creditContext = {
         modelId: resolvedModelId,
@@ -61,16 +112,16 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
         return attachSessionCookie(creditCheck.response);
       }
 
-      const result = await v0.chats.sendMessage({
+      const result = await (v0.chats as any).sendMessage({
         chatId,
-        message,
+        message: optimizedMessage,
         attachments,
         modelConfiguration: {
           modelId: resolvedModelId,
           thinking: resolvedThinking,
           imageGenerations: resolvedImageGenerations,
         },
-        ...(typeof system === "string" && system.trim() ? { system: system.trim() } : {}),
+        ...(trimmedSystemPrompt ? { system: trimmedSystemPrompt } : {}),
       });
 
       const messageResult = result as any;
@@ -112,6 +163,17 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
       } catch (error) {
         console.error("[credits] Failed to charge refine:", error);
       }
+      devLogAppend("latest", {
+        type: "comm.response.send.sync",
+        chatId,
+        messageId: actualMessageId,
+        versionId,
+        demoUrl,
+        assistantPreview:
+          (typeof messageResult.text === "string" && messageResult.text) ||
+          (typeof messageResult.message === "string" && messageResult.message) ||
+          null,
+      });
 
       return attachSessionCookie(
         NextResponse.json({
@@ -121,6 +183,10 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
         }),
       );
     } catch (err) {
+      devLogAppend("latest", {
+        type: "comm.error.send.sync",
+        message: err instanceof Error ? err.message : "Unknown error",
+      });
       return attachSessionCookie(
         NextResponse.json(
           { error: err instanceof Error ? err.message : "Unknown error" },

@@ -8,9 +8,12 @@ import { withRateLimit } from "@/lib/rateLimit";
 import { ensureProjectForRequest, resolveV0ProjectId, generateProjectName } from "@/lib/tenant";
 import { requireNotBot } from "@/lib/botProtection";
 import { debugLog } from "@/lib/utils/debug";
+import { devLogAppend } from "@/lib/logging/devLog";
 import { sanitizeV0Metadata } from "@/lib/v0/sanitize-metadata";
 import { ensureSessionIdFromRequest } from "@/lib/auth/session";
 import { prepareCredits } from "@/lib/credits/server";
+import { WARN_CHAT_MESSAGE_CHARS, WARN_CHAT_SYSTEM_CHARS } from "@/lib/builder/promptLimits";
+import { orchestratePromptMessage } from "@/lib/builder/promptOrchestration";
 
 export async function POST(req: Request) {
   const session = ensureSessionIdFromRequest(req);
@@ -48,7 +51,31 @@ export async function POST(req: Request) {
         thinking,
         imageGenerations,
         chatPrivacy,
+        meta,
       } = validationResult.data;
+
+      const metaBuildMethod =
+        typeof (meta as { buildMethod?: unknown })?.buildMethod === "string"
+          ? (meta as { buildMethod?: string }).buildMethod
+          : null;
+      const metaBuildIntent =
+        typeof (meta as { buildIntent?: unknown })?.buildIntent === "string"
+          ? (meta as { buildIntent?: string }).buildIntent
+          : null;
+      const metaPlanModeFirstPrompt =
+        typeof (meta as { planModeFirstPrompt?: unknown })?.planModeFirstPrompt === "boolean"
+          ? Boolean((meta as { planModeFirstPrompt?: boolean }).planModeFirstPrompt)
+          : false;
+      const promptOrchestration = orchestratePromptMessage({
+        message,
+        buildMethod: metaBuildMethod,
+        buildIntent: metaBuildIntent,
+        isFirstPrompt: true,
+        planModeFirstPromptEnabled: metaPlanModeFirstPrompt,
+        attachmentsCount: Array.isArray(attachments) ? attachments.length : 0,
+      });
+      const strategyMeta = promptOrchestration.strategyMeta;
+      const optimizedMessage = promptOrchestration.finalMessage;
 
       const trimmedSystemPrompt = typeof system === "string" ? system.trim() : "";
       const hasSystemPrompt = Boolean(trimmedSystemPrompt);
@@ -56,16 +83,48 @@ export async function POST(req: Request) {
       const resolvedImageGenerations =
         typeof imageGenerations === "boolean" ? imageGenerations : true;
       const resolvedChatPrivacy = chatPrivacy ?? "private";
+      if (
+        message.length > WARN_CHAT_MESSAGE_CHARS ||
+        optimizedMessage.length > WARN_CHAT_MESSAGE_CHARS ||
+        trimmedSystemPrompt.length > WARN_CHAT_SYSTEM_CHARS
+      ) {
+        devLogAppend("latest", {
+          type: "prompt.size.warning",
+          messageLength: optimizedMessage.length,
+          originalMessageLength: message.length,
+          systemLength: trimmedSystemPrompt.length,
+          warnMessageChars: WARN_CHAT_MESSAGE_CHARS,
+          warnSystemChars: WARN_CHAT_SYSTEM_CHARS,
+        });
+      }
 
       debugLog("v0", "v0 chat request (sync)", {
         modelId,
-        promptLength: typeof message === "string" ? message.length : null,
+        promptLength: optimizedMessage.length,
+        originalPromptLength: message.length,
         attachments: Array.isArray(attachments) ? attachments.length : 0,
         systemProvided: hasSystemPrompt,
         systemApplied: hasSystemPrompt,
         systemIgnored: false,
         thinking: resolvedThinking,
         imageGenerations: resolvedImageGenerations,
+        chatPrivacy: resolvedChatPrivacy,
+        promptStrategy: strategyMeta.strategy,
+        promptType: strategyMeta.promptType,
+      });
+      devLogAppend("latest", {
+        type: "comm.request.create.sync",
+        modelId,
+        message: optimizedMessage,
+        slug: metaBuildMethod || metaBuildIntent || undefined,
+        promptType: strategyMeta.promptType,
+        promptStrategy: strategyMeta.strategy,
+        promptBudgetTarget: strategyMeta.budgetTarget,
+        originalLength: strategyMeta.originalLength,
+        optimizedLength: strategyMeta.optimizedLength,
+        reductionRatio: strategyMeta.reductionRatio,
+        strategyReason: strategyMeta.reason,
+        attachmentsCount: Array.isArray(attachments) ? attachments.length : 0,
         chatPrivacy: resolvedChatPrivacy,
       });
 
@@ -81,7 +140,7 @@ export async function POST(req: Request) {
       }
 
       const result = await v0.chats.create({
-        message,
+        message: optimizedMessage,
         ...(hasSystemPrompt ? { system: trimmedSystemPrompt } : {}),
         projectId,
         chatPrivacy: resolvedChatPrivacy,
@@ -100,6 +159,12 @@ export async function POST(req: Request) {
           result && typeof result === "object" && "id" in result ? (result as any) : null;
         const v0ChatId: string | null = chatResult?.id || null;
         if (!v0ChatId) {
+          devLogAppend("latest", {
+            type: "comm.response.create.sync",
+            chatId: null,
+            versionId: null,
+            demoUrl: null,
+          });
           return attachSessionCookie(NextResponse.json(result));
         }
 
@@ -160,6 +225,22 @@ export async function POST(req: Request) {
       } catch (error) {
         console.error("[credits] Failed to charge prompt:", error);
       }
+      const resultData = result as Record<string, unknown>;
+      const latestVersion =
+        resultData && typeof resultData.latestVersion === "object" && resultData.latestVersion
+          ? (resultData.latestVersion as Record<string, unknown>)
+          : null;
+      devLogAppend("latest", {
+        type: "comm.response.create.sync",
+        chatId: (typeof resultData.id === "string" && resultData.id) || null,
+        versionId:
+          (latestVersion && typeof latestVersion.id === "string" && latestVersion.id) ||
+          (latestVersion && typeof latestVersion.versionId === "string" && latestVersion.versionId) ||
+          null,
+        demoUrl:
+          (latestVersion && typeof latestVersion.demoUrl === "string" && latestVersion.demoUrl) ||
+          null,
+      });
 
       return attachSessionCookie(
         NextResponse.json({
@@ -168,6 +249,10 @@ export async function POST(req: Request) {
         }),
       );
     } catch (err) {
+      devLogAppend("latest", {
+        type: "comm.error.create.sync",
+        message: err instanceof Error ? err.message : "Unknown error",
+      });
       return attachSessionCookie(
         NextResponse.json(
           { error: err instanceof Error ? err.message : "Unknown error" },

@@ -22,6 +22,8 @@ import { withRateLimit } from "@/lib/rateLimit";
 import { normalizeV0Error } from "@/lib/v0/errors";
 import { prepareCredits } from "@/lib/credits/server";
 import { ensureSessionIdFromRequest } from "@/lib/auth/session";
+import { WARN_CHAT_MESSAGE_CHARS, WARN_CHAT_SYSTEM_CHARS } from "@/lib/builder/promptLimits";
+import { orchestratePromptMessage } from "@/lib/builder/promptOrchestration";
 import {
   ensureProjectForRequest,
   resolveV0ProjectId,
@@ -36,6 +38,27 @@ import { createPromptLog } from "@/lib/db/services";
 
 export const runtime = "nodejs";
 export const maxDuration = 600;
+
+function appendPreview(current: string, incoming: string, max = 320): string {
+  if (!incoming) return current;
+  const next = `${current}${incoming}`;
+  return next.length > max ? next.slice(-max) : next;
+}
+
+function extractToolNames(parts: Array<Record<string, unknown>>): string[] {
+  const names: string[] = [];
+  for (const part of parts) {
+    const type = typeof part.type === "string" ? part.type : "";
+    if (!type.startsWith("tool")) continue;
+    const name =
+      (typeof part.toolName === "string" && part.toolName) ||
+      (typeof part.name === "string" && part.name) ||
+      (typeof part.type === "string" && part.type) ||
+      "tool-call";
+    names.push(name);
+  }
+  return Array.from(new Set(names));
+}
 
 export async function POST(req: Request) {
   const requestId = req.headers.get("x-vercel-id") || "unknown";
@@ -79,12 +102,48 @@ export async function POST(req: Request) {
         chatPrivacy,
         meta,
       } = validationResult.data;
+      const metaBuildMethod =
+        typeof (meta as { buildMethod?: unknown })?.buildMethod === "string"
+          ? (meta as { buildMethod?: string }).buildMethod
+          : null;
+      const metaBuildIntent =
+        typeof (meta as { buildIntent?: unknown })?.buildIntent === "string"
+          ? (meta as { buildIntent?: string }).buildIntent
+          : null;
+      const metaPlanModeFirstPrompt =
+        typeof (meta as { planModeFirstPrompt?: unknown })?.planModeFirstPrompt === "boolean"
+          ? Boolean((meta as { planModeFirstPrompt?: boolean }).planModeFirstPrompt)
+          : false;
+      const promptOrchestration = orchestratePromptMessage({
+        message,
+        buildMethod: metaBuildMethod,
+        buildIntent: metaBuildIntent,
+        isFirstPrompt: true,
+        planModeFirstPromptEnabled: metaPlanModeFirstPrompt,
+        attachmentsCount: Array.isArray(attachments) ? attachments.length : 0,
+      });
+      const strategyMeta = promptOrchestration.strategyMeta;
+      const optimizedMessage = promptOrchestration.finalMessage;
       const trimmedSystemPrompt = typeof system === "string" ? system.trim() : "";
       const hasSystemPrompt = Boolean(trimmedSystemPrompt);
       const resolvedThinking = typeof thinking === "boolean" ? thinking : modelId === "v0-max";
       const resolvedImageGenerations =
         typeof imageGenerations === "boolean" ? imageGenerations : true;
       const resolvedChatPrivacy = chatPrivacy ?? "private";
+      if (
+        message.length > WARN_CHAT_MESSAGE_CHARS ||
+        optimizedMessage.length > WARN_CHAT_MESSAGE_CHARS ||
+        trimmedSystemPrompt.length > WARN_CHAT_SYSTEM_CHARS
+      ) {
+        devLogAppend("in-progress", {
+          type: "prompt.size.warning",
+          messageLength: optimizedMessage.length,
+          originalMessageLength: message.length,
+          systemLength: trimmedSystemPrompt.length,
+          warnMessageChars: WARN_CHAT_MESSAGE_CHARS,
+          warnSystemChars: WARN_CHAT_SYSTEM_CHARS,
+        });
+      }
       const creditContext = {
         modelId,
         thinking: resolvedThinking,
@@ -114,9 +173,24 @@ export async function POST(req: Request) {
                 const copy = { ...(meta as Record<string, unknown>) };
                 delete copy.promptOriginal;
                 delete copy.promptFormatted;
+                copy.promptStrategy = strategyMeta.strategy;
+                copy.promptType = strategyMeta.promptType;
+                copy.promptBudgetTarget = strategyMeta.budgetTarget;
+                copy.promptOptimizedLength = strategyMeta.optimizedLength;
+                copy.promptReductionRatio = strategyMeta.reductionRatio;
+                copy.promptStrategyReason = strategyMeta.reason;
+                copy.promptComplexityScore = strategyMeta.complexityScore;
                 return Object.keys(copy).length > 0 ? copy : null;
               })()
-            : null;
+            : {
+                promptStrategy: strategyMeta.strategy,
+                promptType: strategyMeta.promptType,
+                promptBudgetTarget: strategyMeta.budgetTarget,
+                promptOptimizedLength: strategyMeta.optimizedLength,
+                promptReductionRatio: strategyMeta.reductionRatio,
+                promptStrategyReason: strategyMeta.reason,
+                promptComplexityScore: strategyMeta.complexityScore,
+              };
         const promptOriginal =
           typeof (meta as { promptOriginal?: unknown })?.promptOriginal === "string"
             ? String((meta as { promptOriginal?: string }).promptOriginal)
@@ -126,8 +200,8 @@ export async function POST(req: Request) {
         const promptFormatted =
           typeof (meta as { promptFormatted?: unknown })?.promptFormatted === "string"
             ? String((meta as { promptFormatted?: string }).promptFormatted)
-            : typeof message === "string"
-              ? message
+            : typeof optimizedMessage === "string"
+              ? optimizedMessage
               : null;
         await createPromptLog({
           event: "create_chat",
@@ -151,14 +225,8 @@ export async function POST(req: Request) {
             typeof (meta as { promptAssistMode?: unknown })?.promptAssistMode === "string"
               ? String((meta as { promptAssistMode?: string }).promptAssistMode)
               : null,
-          buildIntent:
-            typeof (meta as { buildIntent?: unknown })?.buildIntent === "string"
-              ? String((meta as { buildIntent?: string }).buildIntent)
-              : null,
-          buildMethod:
-            typeof (meta as { buildMethod?: unknown })?.buildMethod === "string"
-              ? String((meta as { buildMethod?: string }).buildMethod)
-              : null,
+          buildIntent: metaBuildIntent,
+          buildMethod: metaBuildMethod,
           modelTier: modelId,
           imageGenerations: resolvedImageGenerations,
           thinking: resolvedThinking,
@@ -171,7 +239,8 @@ export async function POST(req: Request) {
 
       debugLog("v0", "v0 chat stream request", {
         modelId,
-        promptLength: typeof message === "string" ? message.length : null,
+        promptLength: optimizedMessage.length,
+        originalPromptLength: message.length,
         attachments: Array.isArray(attachments) ? attachments.length : 0,
         systemProvided: hasSystemPrompt,
         systemApplied: hasSystemPrompt,
@@ -179,14 +248,32 @@ export async function POST(req: Request) {
         thinking: resolvedThinking,
         imageGenerations: resolvedImageGenerations,
         chatPrivacy: resolvedChatPrivacy,
+        promptStrategy: strategyMeta.strategy,
+        promptType: strategyMeta.promptType,
+      });
+      devLogAppend("in-progress", {
+        type: "comm.request.create",
+        modelId,
+        chatPrivacy: resolvedChatPrivacy,
+        message: optimizedMessage,
+        slug: metaBuildMethod || metaBuildIntent || undefined,
+        promptType: strategyMeta.promptType,
+        promptStrategy: strategyMeta.strategy,
+        promptBudgetTarget: strategyMeta.budgetTarget,
+        originalLength: strategyMeta.originalLength,
+        optimizedLength: strategyMeta.optimizedLength,
+        reductionRatio: strategyMeta.reductionRatio,
+        strategyReason: strategyMeta.reason,
+        attachmentsCount: Array.isArray(attachments) ? attachments.length : 0,
       });
 
       devLogStartNewSite({
-        message,
+        message: optimizedMessage,
         modelId,
         thinking: resolvedThinking,
         imageGenerations: resolvedImageGenerations,
         projectId,
+        slug: metaBuildMethod || metaBuildIntent || undefined,
       });
       if (process.env.NODE_ENV === "development") {
         console.log("[dev-log] site generation started", {
@@ -198,7 +285,7 @@ export async function POST(req: Request) {
       const generationStartedAt = Date.now();
 
       const result = await v0.chats.create({
-        message,
+        message: optimizedMessage,
         ...(hasSystemPrompt ? { system: trimmedSystemPrompt } : {}),
         projectId,
         chatPrivacy: resolvedChatPrivacy,
@@ -248,6 +335,9 @@ export async function POST(req: Request) {
             let lastMessageId: string | null = null;
             let lastDemoUrl: string | null = null;
             let lastVersionId: string | null = null;
+            let assistantContentPreview = "";
+            let assistantThinkingPreview = "";
+            const seenToolCalls = new Set<string>();
 
             const safeEnqueue = (data: Uint8Array) => {
               if (controllerClosed) return;
@@ -436,16 +526,29 @@ export async function POST(req: Request) {
 
                   const thinkingText = extractThinkingText(parsed);
                   if (thinkingText && !didSendDone) {
+                    assistantThinkingPreview = appendPreview(assistantThinkingPreview, thinkingText);
                     safeEnqueue(encoder.encode(formatSSEEvent("thinking", thinkingText)));
                   }
 
                   const contentText = extractContentText(parsed, rawData);
                   if (contentText && !didSendDone) {
+                    assistantContentPreview = appendPreview(assistantContentPreview, contentText);
                     safeEnqueue(encoder.encode(formatSSEEvent("content", contentText)));
                   }
 
                   const uiParts = extractUiParts(parsed);
                   if (uiParts && uiParts.length > 0 && !didSendDone) {
+                    const toolNames = extractToolNames(uiParts);
+                    const freshToolNames = toolNames.filter((name) => !seenToolCalls.has(name));
+                    if (freshToolNames.length > 0) {
+                      freshToolNames.forEach((name) => seenToolCalls.add(name));
+                      devLogAppend("in-progress", {
+                        type: "comm.tool_calls",
+                        chatId: v0ChatId,
+                        tools: freshToolNames,
+                        event: currentEvent || null,
+                      });
+                    }
                     safeEnqueue(encoder.encode(formatSSEEvent("parts", uiParts)));
                   }
 
@@ -518,6 +621,15 @@ export async function POST(req: Request) {
                       demoUrl: finalDemoUrl,
                       durationMs: Date.now() - generationStartedAt,
                     });
+                    devLogAppend("in-progress", {
+                      type: "comm.response.create",
+                      chatId: v0ChatId,
+                      versionId: finalVersionId || null,
+                      demoUrl: finalDemoUrl || null,
+                      assistantPreview: assistantContentPreview || null,
+                      thinkingPreview: assistantThinkingPreview || null,
+                      toolCalls: Array.from(seenToolCalls),
+                    });
                     devLogFinalizeSite();
                     await commitCreditsOnce();
                   }
@@ -526,6 +638,12 @@ export async function POST(req: Request) {
             } catch (error) {
               console.error("Streaming error:", error);
               const normalized = normalizeV0Error(error);
+              devLogAppend("in-progress", {
+                type: "comm.error.create",
+                chatId: v0ChatId,
+                message: normalized.message,
+                code: normalized.code,
+              });
               safeEnqueue(
                 encoder.encode(
                   formatSSEEvent("error", {
@@ -616,6 +734,15 @@ export async function POST(req: Request) {
                       demoUrl: finalDemoUrl,
                       durationMs: Date.now() - generationStartedAt,
                     });
+                    devLogAppend("in-progress", {
+                      type: "comm.response.create",
+                      chatId: v0ChatId,
+                      versionId: finalVersionId || null,
+                      demoUrl: finalDemoUrl || null,
+                      assistantPreview: assistantContentPreview || null,
+                      thinkingPreview: assistantThinkingPreview || null,
+                      toolCalls: Array.from(seenToolCalls),
+                    });
                     devLogFinalizeSite();
                     await commitCreditsOnce();
                   }
@@ -684,6 +811,16 @@ export async function POST(req: Request) {
       }
 
       await commitCreditsOnce();
+      devLogAppend("latest", {
+        type: "comm.response.create",
+        chatId: chatData?.id || null,
+        versionId: chatData?.latestVersion?.id || chatData?.latestVersion?.versionId || null,
+        demoUrl: chatData?.latestVersion?.demoUrl || null,
+        assistantPreview:
+          (typeof chatData?.latestVersion?.content === "string" && chatData.latestVersion.content) ||
+          (typeof chatData?.latestVersion?.text === "string" && chatData.latestVersion.text) ||
+          null,
+      });
       return attachSessionCookie(
         NextResponse.json({
           ...chatData,
@@ -698,6 +835,11 @@ export async function POST(req: Request) {
     } catch (err) {
       errorLog("v0", `Create chat error (requestId=${requestId})`, err);
       const normalized = normalizeV0Error(err);
+      devLogAppend("latest", {
+        type: "comm.error.create",
+        message: normalized.message,
+        code: normalized.code,
+      });
       return attachSessionCookie(
         NextResponse.json(
           {

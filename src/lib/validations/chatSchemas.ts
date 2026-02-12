@@ -1,7 +1,15 @@
 import { z } from "zod";
+import { MAX_CHAT_MESSAGE_CHARS, MAX_CHAT_SYSTEM_CHARS } from "@/lib/builder/promptLimits";
 
 export const modelTiers = ["v0-mini", "v0-pro", "v0-max"] as const;
 export type ModelTier = (typeof modelTiers)[number];
+const MAX_ATTACHMENTS_PER_MESSAGE = 24;
+
+const modelIdSchema = z
+  .string()
+  .trim()
+  .min(1, "Model ID is required")
+  .max(80, "Model ID is too long");
 
 const promptMetaSchema = z
   .object({
@@ -21,11 +29,15 @@ const promptMetaSchema = z
   .passthrough();
 
 export const createChatSchema = z.object({
-  message: z.string().min(1, "Message is required"),
-  attachments: z.array(z.any()).optional(),
-  system: z.string().optional(),
+  message: z
+    .string()
+    .trim()
+    .min(1, "Message is required")
+    .max(MAX_CHAT_MESSAGE_CHARS, `Message too long (max ${MAX_CHAT_MESSAGE_CHARS} chars)`),
+  attachments: z.array(z.any()).max(MAX_ATTACHMENTS_PER_MESSAGE).optional(),
+  system: z.string().max(MAX_CHAT_SYSTEM_CHARS).optional(),
   projectId: z.string().optional(),
-  modelId: z.enum(modelTiers).optional().default("v0-max"),
+  modelId: modelIdSchema.optional().default("v0-max"),
   thinking: z.boolean().optional(),
   imageGenerations: z.boolean().optional(),
   chatPrivacy: z.enum(["public", "private"]).optional(),
@@ -33,12 +45,17 @@ export const createChatSchema = z.object({
 });
 
 export const sendMessageSchema = z.object({
-  message: z.string().min(1, "Message is required"),
-  attachments: z.array(z.any()).optional(),
-  system: z.string().optional(),
-  modelId: z.enum(modelTiers).optional(),
+  message: z
+    .string()
+    .trim()
+    .min(1, "Message is required")
+    .max(MAX_CHAT_MESSAGE_CHARS, `Message too long (max ${MAX_CHAT_MESSAGE_CHARS} chars)`),
+  attachments: z.array(z.any()).max(MAX_ATTACHMENTS_PER_MESSAGE).optional(),
+  system: z.string().max(MAX_CHAT_SYSTEM_CHARS).optional(),
+  modelId: modelIdSchema.optional(),
   thinking: z.boolean().optional(),
   imageGenerations: z.boolean().optional(),
+  meta: promptMetaSchema.optional(),
 });
 
 export const chatIdSchema = z.object({

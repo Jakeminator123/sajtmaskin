@@ -5,9 +5,13 @@ import { getCurrentUser } from "@/lib/auth/auth";
 import { getSessionIdFromRequest } from "@/lib/auth/session";
 import { createPromptHandoff } from "@/lib/db/services";
 import { cachePromptHandoff } from "@/lib/data/redis";
+import { MAX_PROMPT_HANDOFF_CHARS } from "@/lib/builder/promptLimits";
 
 const createPromptSchema = z.object({
-  prompt: z.string().min(1, "Prompt is required"),
+  prompt: z
+    .string()
+    .min(1, "Prompt is required")
+    .max(MAX_PROMPT_HANDOFF_CHARS, `Prompt too long (max ${MAX_PROMPT_HANDOFF_CHARS} chars)`),
   source: z.string().optional(),
   projectId: z.string().optional(),
 });

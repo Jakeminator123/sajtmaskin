@@ -5,12 +5,14 @@ import { z } from "zod";
 import { withRateLimit } from "@/lib/rateLimit";
 import { requireNotBot } from "@/lib/botProtection";
 import { debugLog, errorLog, warnLog } from "@/lib/utils/debug";
+import { devLogAppend } from "@/lib/logging/devLog";
 import {
   isGatewayAssistModel,
   isPromptAssistModelAllowed,
   isV0AssistModel,
   normalizeAssistModel,
 } from "@/lib/builder/promptAssist";
+import { MAX_AI_CHAT_MESSAGE_CHARS } from "@/lib/builder/promptLimits";
 
 export const runtime = "nodejs";
 export const maxDuration = 600; // 10 minutes for prompt assist with slow models
@@ -24,20 +26,20 @@ const DEFAULT_CHAT_MAX_TOKENS = 2200;
 const messageSchema = z.discriminatedUnion("role", [
   z.object({
     role: z.literal("system"),
-    content: z.string(),
+    content: z.string().max(MAX_AI_CHAT_MESSAGE_CHARS),
   }),
   z.object({
     role: z.literal("user"),
-    content: z.string(),
+    content: z.string().max(MAX_AI_CHAT_MESSAGE_CHARS),
   }),
   z.object({
     role: z.literal("assistant"),
-    content: z.string(),
+    content: z.string().max(MAX_AI_CHAT_MESSAGE_CHARS),
   }),
 ]);
 
 const chatRequestSchema = z.object({
-  messages: z.array(messageSchema).min(1, "messages is required"),
+  messages: z.array(messageSchema).min(1, "messages is required").max(40, "Too many messages"),
   model: z.string().optional().default("openai/gpt-5.2"),
   temperature: z.number().min(0).max(2).optional(),
   provider: z.enum(["gateway", "v0"]).optional().default("gateway"),
@@ -155,6 +157,14 @@ export async function POST(req: Request) {
         temperature: typeof temperature === "number" ? temperature : null,
         maxTokens: typeof maxTokens === "number" ? maxTokens : null,
       });
+      const lastUserMessage = [...messages].reverse().find((entry) => entry.role === "user")?.content;
+      devLogAppend("latest", {
+        type: "assist.chat.request",
+        provider: resolvedProvider,
+        model: normalizedModel,
+        messages: messages.length,
+        userPrompt: typeof lastUserMessage === "string" ? lastUserMessage : null,
+      });
 
       if (resolvedProvider === "gateway") {
         if (!isGatewayAssistModel(normalizedModel)) {
@@ -202,6 +212,12 @@ export async function POST(req: Request) {
           maxOutputTokens: maxTokens,
           ...getTemperatureConfig(normalizedModel, temperature),
         });
+        devLogAppend("latest", {
+          type: "assist.chat.response",
+          provider: resolvedProvider,
+          model: normalizedModel,
+          text: result.text,
+        });
 
         return new Response(result.text, {
           headers: {
@@ -233,6 +249,12 @@ export async function POST(req: Request) {
         maxOutputTokens: maxTokens,
         ...getTemperatureConfig(normalizedModel, temperature),
       });
+      devLogAppend("latest", {
+        type: "assist.chat.response",
+        provider: resolvedProvider,
+        model: normalizedModel,
+        text: result.text,
+      });
 
       return new Response(result.text, {
         headers: {
@@ -244,6 +266,10 @@ export async function POST(req: Request) {
       });
     } catch (err) {
       errorLog("AI", "AI chat error", err);
+      devLogAppend("latest", {
+        type: "assist.chat.error",
+        message: err instanceof Error ? err.message : "Unknown error",
+      });
       return NextResponse.json(
         { error: err instanceof Error ? err.message : "Unknown error" },
         { status: 500 },

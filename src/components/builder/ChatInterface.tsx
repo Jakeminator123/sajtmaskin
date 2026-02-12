@@ -65,7 +65,6 @@ interface ChatInterfaceProps {
   onEnhancePrompt?: (message: string) => Promise<string>;
   isBusy?: boolean;
   isPreparingPrompt?: boolean;
-  designSystemMode?: boolean;
   mediaEnabled?: boolean;
   /** Current generated code for section analysis in component picker */
   currentCode?: string;
@@ -74,15 +73,6 @@ interface ChatInterfaceProps {
   inspectorSelection?: InspectorSelection | null;
   onInspectorSelectionClear?: () => void;
 }
-
-// Design system hint - only appended on the FIRST message (chat creation).
-// Follow-up messages rely on v0's chat history + the system prompt set at creation time.
-// This avoids repeating static instructions on every single message.
-const DESIGN_SYSTEM_HINT_INITIAL = `DESIGN SYSTEM MODE:
-- Use semantic CSS variables for theme tokens (bg/fg, primary, accent).
-- Keep token definitions in globals.css, not hardcoded in components.
-- Use cva + cn for variants; keep variants limited and composable.
-- Keep spacing scale consistent (4/8/12/16/24/32/48).`;
 
 const IMAGE_EXTENSION_MIME: Record<string, string> = {
   png: "image/png",
@@ -137,7 +127,6 @@ export function ChatInterface({
   onEnhancePrompt,
   isBusy,
   isPreparingPrompt = false,
-  designSystemMode = false,
   mediaEnabled = false,
   currentCode,
   existingUiComponents,
@@ -424,11 +413,7 @@ export function ChatInterface({
 
   const buildMessagePayload = async (baseMessage: string) => {
     const figmaLink = normalizedFigmaUrl;
-    // Only append design system hint on first message (no chatId = new chat).
-    // Follow-up messages rely on v0's system prompt + chat history.
-    const isNewChat = !chatId;
     const contextBlocks = [
-      designSystemMode && isNewChat ? DESIGN_SYSTEM_HINT_INITIAL : "",
       figmaLink ? `Use this Figma design as a reference: ${figmaLink}` : "",
     ].filter(Boolean);
     const finalMessage = contextBlocks.length

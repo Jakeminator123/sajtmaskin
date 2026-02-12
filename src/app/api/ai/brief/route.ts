@@ -4,12 +4,14 @@ import { z } from "zod";
 import { requireNotBot } from "@/lib/botProtection";
 import { withRateLimit } from "@/lib/rateLimit";
 import { debugLog, errorLog } from "@/lib/utils/debug";
+import { devLogAppend } from "@/lib/logging/devLog";
 import {
   isGatewayAssistModel,
   isPromptAssistModelAllowed,
   isV0AssistModel,
   normalizeAssistModel,
 } from "@/lib/builder/promptAssist";
+import { MAX_AI_BRIEF_PROMPT_CHARS } from "@/lib/builder/promptLimits";
 
 export const runtime = "nodejs";
 export const maxDuration = 600; // 10 minutes for deep brief with slow models
@@ -19,7 +21,11 @@ const ENV_MAX_TOKENS = Number(process.env.AI_BRIEF_MAX_TOKENS) || 8192;
 const DEFAULT_BRIEF_MAX_TOKENS = 2600;
 
 const briefRequestSchema = z.object({
-  prompt: z.string().min(1, "prompt is required"),
+  prompt: z
+    .string()
+    .trim()
+    .min(1, "prompt is required")
+    .max(MAX_AI_BRIEF_PROMPT_CHARS, `prompt too long (max ${MAX_AI_BRIEF_PROMPT_CHARS} chars)`),
   provider: z.enum(["gateway", "v0"]).optional().default("gateway"),
   // gpt-5.2 provides best quality briefs; used as default for prompt assist
   model: z.string().min(1).optional().default("openai/gpt-5.2"),
@@ -330,6 +336,14 @@ export async function POST(req: Request) {
         imageGenerations,
         maxTokens,
       });
+      devLogAppend("latest", {
+        type: "assist.brief.request",
+        provider: resolvedProvider,
+        model: normalizedModel,
+        prompt,
+        imageGenerations,
+        maxTokens,
+      });
 
       const systemPrompt =
         "You are a senior product designer + information architect. " +
@@ -477,6 +491,17 @@ export async function POST(req: Request) {
         }
       }
 
+      const briefObject = result.object as Record<string, unknown>;
+      const pages = Array.isArray(briefObject.pages) ? briefObject.pages.length : 0;
+      devLogAppend("latest", {
+        type: "assist.brief.response",
+        provider: "gateway",
+        model: normalizedModel,
+        schema: usedSimplified ? "simplified" : "full",
+        projectTitle:
+          typeof briefObject.projectTitle === "string" ? briefObject.projectTitle : null,
+        pages,
+      });
       return NextResponse.json(result.object, {
         headers: {
           "Cache-Control": "no-store",
@@ -487,6 +512,10 @@ export async function POST(req: Request) {
       });
     } catch (err) {
       errorLog("AI", "AI brief error", err);
+      devLogAppend("latest", {
+        type: "assist.brief.error",
+        message: err instanceof Error ? err.message : "Unknown error",
+      });
       return NextResponse.json(
         { error: err instanceof Error ? err.message : "Unknown error" },
         { status: 500 },

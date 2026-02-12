@@ -48,10 +48,11 @@ import { debugLog, logFinalPrompt, warnLog } from "@/lib/utils/debug";
 import { logV0 } from "@/lib/logging/file-logger";
 import { SECRETS } from "@/lib/config";
 import type { BuildIntent } from "@/lib/builder/build-intent";
-
-// Prompt length limits (v0 Platform API can handle ~100k tokens, but practical limit is lower)
-const MAX_PROMPT_LENGTH = Number(process.env.V0_MAX_PROMPT_LENGTH) || 50000;
-const WARN_PROMPT_LENGTH = Number(process.env.V0_WARN_PROMPT_LENGTH) || 30000;
+import { orchestratePromptMessage } from "@/lib/builder/promptOrchestration";
+import {
+  MAX_CHAT_MESSAGE_CHARS,
+  WARN_CHAT_MESSAGE_CHARS,
+} from "@/lib/builder/promptLimits";
 
 // Rate limit retry config
 const RATE_LIMIT_RETRY_DELAY_MS = 2000;
@@ -153,6 +154,39 @@ function resolveBuildIntentSystemPrompt(
   if (!guidance) return base;
   if (!base) return `Build intent: ${guidance}`;
   return `${base}\n\nBuild intent: ${guidance}`;
+}
+
+function summarizeCodeContextForPrompt(code: string, maxChars = 50_000): string {
+  const normalized = String(code || "");
+  if (normalized.length <= maxChars) return normalized;
+
+  const lines = normalized.split(/\r?\n/);
+  const separator = "\n// ... middle omitted to keep prompt focused ...\n";
+  let headCount = Math.min(260, Math.max(60, Math.floor(lines.length * 0.55)));
+  let tailCount = Math.min(180, Math.max(40, Math.floor(lines.length * 0.3)));
+
+  const render = () => {
+    const head = lines.slice(0, headCount).join("\n");
+    const tail = lines.slice(-tailCount).join("\n");
+    return `${head}${separator}${tail}`.trim();
+  };
+
+  let candidate = render();
+  while (candidate.length > maxChars && (headCount > 20 || tailCount > 20)) {
+    if (headCount >= tailCount && headCount > 20) {
+      headCount -= 10;
+    } else if (tailCount > 20) {
+      tailCount -= 10;
+    } else {
+      break;
+    }
+    candidate = render();
+  }
+
+  if (candidate.length <= maxChars) return candidate;
+
+  // Last fallback for pathological single-line files.
+  return normalized.slice(0, maxChars);
 }
 
 type V0SdkCreateRequest = Parameters<ReturnType<typeof createClient>["chats"]["create"]>[0];
@@ -575,18 +609,30 @@ export async function generateCode(
 
   const quality = options.quality || "standard";
   const modelId = MODEL_MAP[quality];
+  const promptOrchestration = orchestratePromptMessage({
+    message: prompt,
+    buildMethod: options.categoryType ? "category" : null,
+    buildIntent: options.buildIntent,
+    isFirstPrompt: true,
+    attachmentsCount: options.attachments?.length ?? 0,
+    hardCap: MAX_CHAT_MESSAGE_CHARS,
+  });
+  const strategyMeta = promptOrchestration.strategyMeta;
+  prompt = promptOrchestration.finalMessage;
 
-  // Validate prompt length before processing
-  if (prompt.length > MAX_PROMPT_LENGTH) {
-    warnLog("v0", "Prompt exceeds max length, truncating", {
-      originalLength: prompt.length,
-      maxLength: MAX_PROMPT_LENGTH,
+  if (strategyMeta.strategy !== "direct") {
+    warnLog("v0", "Prompt orchestration applied in v0-generator", {
+      strategy: strategyMeta.strategy,
+      promptType: strategyMeta.promptType,
+      reason: strategyMeta.reason,
+      originalLength: strategyMeta.originalLength,
+      optimizedLength: strategyMeta.optimizedLength,
+      budgetTarget: strategyMeta.budgetTarget,
     });
-    prompt = prompt.slice(0, MAX_PROMPT_LENGTH);
-  } else if (prompt.length > WARN_PROMPT_LENGTH) {
+  } else if (prompt.length > WARN_CHAT_MESSAGE_CHARS) {
     warnLog("v0", "Prompt is long, may be slow", {
       length: prompt.length,
-      warnThreshold: WARN_PROMPT_LENGTH,
+      warnThreshold: WARN_CHAT_MESSAGE_CHARS,
     });
   }
 
@@ -844,6 +890,21 @@ export async function refineCode(
     instruction,
     mediaLibrary && mediaLibrary.length > 0 ? mediaLibrary : undefined,
   );
+  const refineOrchestration = orchestratePromptMessage({
+    message: instructionWithMedia,
+    isFirstPrompt: false,
+    attachmentsCount: mediaLibrary?.length ?? 0,
+    hardCap: MAX_CHAT_MESSAGE_CHARS,
+  });
+  const refinementInstruction = refineOrchestration.finalMessage;
+  if (refineOrchestration.strategyMeta.strategy !== "direct") {
+    warnLog("v0", "Refinement instruction orchestration applied", {
+      strategy: refineOrchestration.strategyMeta.strategy,
+      reason: refineOrchestration.strategyMeta.reason,
+      originalLength: refineOrchestration.strategyMeta.originalLength,
+      optimizedLength: refineOrchestration.strategyMeta.optimizedLength,
+    });
+  }
 
   // If we have an existing chat ID, send a message to that chat
   if (existingChatId) {
@@ -861,10 +922,6 @@ export async function refineCode(
     } catch (err) {
       console.warn("[v0-generator] Could not fetch previous chat state:", err);
     }
-
-    // Simple refinement instruction - V0 has chat history and understands context
-    // No need to repeat rules every time
-    const refinementInstruction = instructionWithMedia;
 
     // Log the complete refinement prompt in magenta for visibility
     logFinalPrompt(refinementInstruction, modelId);
@@ -970,13 +1027,14 @@ export async function refineCode(
   console.log("[v0-generator] No chatId provided, creating new chat for refinement...");
 
   // Simpler refinement prompt - include code context but skip verbose rules
+  const summarizedCode = summarizeCodeContextForPrompt(existingCode, 50_000);
   const refinementPrompt = `Refine this existing code:
 
 \`\`\`tsx
-${existingCode.substring(0, 50000)}${existingCode.length > 50000 ? "\n... [truncated]" : ""}
+${summarizedCode}${existingCode.length > summarizedCode.length ? "\n... [summarized]" : ""}
 \`\`\`
 
-${instructionWithMedia}
+${refinementInstruction}
 
 Keep the overall structure, just apply the requested changes.`;
 

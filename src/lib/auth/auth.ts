@@ -12,9 +12,15 @@ import {
   createUser,
   createGoogleUser,
   updateUserLastLogin,
+  isAdminEmail,
+  setUserDiamonds,
+  markEmailVerified,
   type User,
 } from "@/lib/db/services";
 import { SECRETS, URLS, IS_PRODUCTION } from "@/lib/config";
+
+/** Default diamond balance for admin/superuser accounts. */
+const ADMIN_DIAMONDS = Number(process.env.SUPERADMIN_DIAMONDS) || 10_000;
 
 // ============ Password Hashing ============
 
@@ -224,6 +230,10 @@ export async function registerUser(
 /**
  * Parse admin credentials from ADMIN_CREDENTIALS env var.
  * Format: "login:password:email:name,login2:password2:email2:name2"
+ *
+ * Also supports simpler fallback credentials from:
+ * - SUPERADMIN_EMAIL + SUPERADMIN_PASSWORD
+ * - TEST_USER_EMAIL + TEST_USER_PASSWORD
  */
 function getAdminCredentials(): Array<{
   login: string;
@@ -232,11 +242,47 @@ function getAdminCredentials(): Array<{
   name: string;
 }> {
   const raw = process.env.ADMIN_CREDENTIALS || "";
-  if (!raw) return [];
-  return raw.split(",").map((entry) => {
-    const [login, password, email, name] = entry.split(":");
-    return { login: login || "", password: password || "", email: email || login || "", name: name || login || "" };
+  const parsed = raw
+    .split(",")
+    .map((entry) => {
+      const [login, password, email, name] = entry.split(":");
+      return {
+        login: (login || "").trim(),
+        password: (password || "").trim(),
+        email: (email || login || "").trim(),
+        name: (name || login || "").trim(),
+      };
+    })
+    .filter((item) => item.login && item.password && item.email);
+
+  const fallback: Array<{ login: string; password: string; email: string; name: string }> = [];
+
+  if (SECRETS.superadminEmail && SECRETS.superadminPassword) {
+    fallback.push({
+      login: SECRETS.superadminEmail,
+      password: SECRETS.superadminPassword,
+      email: SECRETS.superadminEmail,
+      name: "Superadmin",
+    });
+  }
+
+  if (SECRETS.testUserEmail && SECRETS.testUserPassword) {
+    fallback.push({
+      login: SECRETS.testUserEmail,
+      password: SECRETS.testUserPassword,
+      email: SECRETS.testUserEmail,
+      name: "Test user",
+    });
+  }
+
+  const byEmail = new Map<string, { login: string; password: string; email: string; name: string }>();
+  [...parsed, ...fallback].forEach((cred) => {
+    if (!byEmail.has(cred.email.toLowerCase())) {
+      byEmail.set(cred.email.toLowerCase(), cred);
+    }
   });
+
+  return [...byEmail.values()];
 }
 
 /**
@@ -263,9 +309,12 @@ export async function loginUser(
       }
       user = result.user;
     }
+    // Bootstrap admin privileges: 10k diamonds + auto-verify email
+    await bootstrapAdminUser(user);
     await updateUserLastLogin(user.id);
-    const token = createToken(user.id, user.email!);
-    return { user, token };
+    const hydratedUser = (await getUserById(user.id)) ?? user;
+    const token = createToken(hydratedUser.id, hydratedUser.email!);
+    return { user: hydratedUser, token };
   }
 
   // Standard database login
@@ -282,13 +331,56 @@ export async function loginUser(
     return { error: "Felaktig e-post eller lösenord" };
   }
 
+  const isAdmin = isAdminEmail(user.email || email);
+
+  // Bootstrap admin privileges on regular login too (for ADMIN_EMAILS users)
+  if (isAdmin) {
+    await bootstrapAdminUser(user);
+  }
+
+  // Enforce email verification for regular email/password users.
+  // Legacy users created before this feature may not have a token;
+  // auto-verify them at first successful login to avoid lockouts.
+  if (!isAdmin && !user.email_verified) {
+    if (!user.verification_token) {
+      await markEmailVerified(user.id);
+    } else {
+      return { error: "Du måste bekräfta din e-post innan du kan logga in." };
+    }
+  }
+
   // Update last login
   await updateUserLastLogin(user.id);
 
   // Create token
-  const token = createToken(user.id, user.email!);
+  const hydratedUser = (await getUserById(user.id)) ?? user;
+  const token = createToken(hydratedUser.id, hydratedUser.email!);
 
-  return { user, token };
+  return { user: hydratedUser, token };
+}
+
+// ============ Admin Bootstrap ============
+
+/**
+ * Ensures an admin/superuser account has:
+ * - 10 000 diamonds (or env SUPERADMIN_DIAMONDS) for testing
+ * - Email auto-verified
+ *
+ * Ensures admins always have a high testing balance. Works in both
+ * local and production.
+ */
+async function bootstrapAdminUser(user: User): Promise<void> {
+  try {
+    if (user.diamonds < ADMIN_DIAMONDS) {
+      await setUserDiamonds(user.id, ADMIN_DIAMONDS);
+    }
+    if (!user.email_verified) {
+      await markEmailVerified(user.id);
+    }
+  } catch (err) {
+    // Non-fatal – log and continue
+    console.error("[Auth] Failed to bootstrap admin user:", err);
+  }
 }
 
 // ============ Google OAuth ============
@@ -416,13 +508,23 @@ export async function handleGoogleCallback(
     googleUser.picture,
   );
 
+  // Google-authenticated emails are inherently verified; mark as such.
+  // Also bootstrap admin privileges if applicable.
+  if (!user.email_verified) {
+    await markEmailVerified(user.id);
+  }
+  if (isAdminEmail(googleUser.email)) {
+    await bootstrapAdminUser(user);
+  }
+
   // Update last login
   await updateUserLastLogin(user.id);
 
-  // Create token
-  const token = createToken(user.id, user.email!);
+  // Create token using fresh row (may include updated diamonds/verification)
+  const hydratedUser = (await getUserById(user.id)) ?? user;
+  const token = createToken(hydratedUser.id, hydratedUser.email!);
 
-  return { user, token };
+  return { user: hydratedUser, token };
 }
 
 // ============ Type exports ============
