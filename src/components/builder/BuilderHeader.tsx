@@ -194,9 +194,9 @@ export function BuilderHeader(props: {
                   </TooltipTrigger>
                   <TooltipContent side="left" className="max-w-xs">
                     <p className="text-xs">
-                      Model Tier styr v0 Platform API (v0-mini/pro/max) som bygger sajten och
-                      preview. Prompt Assist Model är en separat AI-modell som bara förbättrar
-                      prompten innan v0 kör.
+                      Buildern ar nu låst till v0-max för stabil kvalitet och maximal kontext.
+                      Prompt Assist Model är en separat AI-modell som bara förbättrar prompten
+                      innan v0 kör.
                     </p>
                   </TooltipContent>
                 </Tooltip>
@@ -277,8 +277,8 @@ export function BuilderHeader(props: {
                   <TooltipContent side="left" className="max-w-xs">
                     <p className="text-xs">
                       Rättar stavning/tydlighet i prompten med minimal omskrivning. Behåller språk
-                      om du inte uttryckligen ber om engelska. Själva bygget styrs av Model Tier
-                      (v0-mini/pro/max).
+                      om du inte uttryckligen ber om engelska. Själva bygget kör alltid med
+                      v0-max.
                     </p>
                   </TooltipContent>
                 </Tooltip>

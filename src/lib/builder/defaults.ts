@@ -4,10 +4,8 @@
  *
  * CONCEPTS:
  *
- * Model Tiers (for v0 builder):
- *   - v0-mini: Fastest, cheapest. Good for quick prototypes.
- *   - v0-pro:  Balanced quality and speed.
- *   - v0-max:  Best quality, slower. Deep reasoning. RECOMMENDED.
+ * Model Tier policy (for v0 builder):
+ *   - v0-max is enforced as the only runtime tier for deterministic quality.
  *
  * Prompt Assist (preprocessing user prompts before v0 generation):
  *   - off:            No preprocessing, send prompt directly to v0.
@@ -41,19 +39,9 @@ export interface ExperimentalModelIdOption {
 
 export const MODEL_TIER_OPTIONS: ModelTierOption[] = [
   {
-    value: "v0-mini",
-    label: "Mini",
-    description: "Snabb, utan djuptänk",
-  },
-  {
-    value: "v0-pro",
-    label: "Pro",
-    description: "Balanserad",
-  },
-  {
     value: "v0-max",
     label: "Max",
-    description: "Bäst kvalitet",
+    description: "Låst: bäst kvalitet och mest kontext",
     hint: "Rekommenderad",
   },
 ];
@@ -73,8 +61,7 @@ export const EXPERIMENTAL_MODEL_ID_OPTIONS: ExperimentalModelIdOption[] = [
  * This keeps runtime model resolution deterministic for end users.
  */
 export const ENABLE_EXPERIMENTAL_MODEL_ID =
-  process.env.NODE_ENV !== "production" &&
-  process.env.NEXT_PUBLIC_ENABLE_EXPERIMENTAL_MODEL_ID === "1";
+  false;
 
 /** Default model tier for new chats */
 export const DEFAULT_MODEL_TIER: ModelTier = "v0-max";
