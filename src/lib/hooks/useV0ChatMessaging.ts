@@ -43,9 +43,9 @@ type AutoFixPayload = {
 const CREATE_CHAT_LOCK_KEY = "sajtmaskin:createChatLock";
 const CREATE_CHAT_LOCK_TTL_MS = 2 * 60 * 1000;
 // Max time a stream can be active before force-clearing isStreaming.
-// Plan mode gets a much larger timeout because first-turn planning can be long.
+// Plan mode gets a larger timeout, but stays below Vercel Pro's serverless cap (800s).
 const STREAM_SAFETY_TIMEOUT_DEFAULT_MS = 3 * 60 * 1000;
-const STREAM_SAFETY_TIMEOUT_PLAN_MODE_MS = 20 * 60 * 1000;
+const STREAM_SAFETY_TIMEOUT_PLAN_MODE_MS = 12 * 60 * 1000;
 
 function getSessionStorage(): Storage | null {
   if (typeof window === "undefined") return null;

@@ -39,7 +39,7 @@ import { createPromptLog } from "@/lib/db/services";
 import { resolveModelSelection } from "@/lib/v0/modelSelection";
 
 export const runtime = "nodejs";
-export const maxDuration = 1200;
+export const maxDuration = 800;
 const STREAM_RESOLVE_MAX_ATTEMPTS = 6;
 const STREAM_RESOLVE_DELAY_MS = 1200;
 
