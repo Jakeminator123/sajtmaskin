@@ -77,10 +77,18 @@ export function AuthModal({ isOpen, onClose, defaultMode = "login" }: AuthModalP
       }
 
       if (mode === "register" && data.requiresEmailVerification) {
-        setSuccessMessage(
-          data.message ||
-            "Vi har skickat ett verifieringsmail. Bekräfta din e-post innan du loggar in.",
-        );
+        if (data.emailVerificationSent === false) {
+          setError(
+            data.message ||
+              "Konto skapat, men verifieringsmail kunde inte skickas just nu. Försök igen.",
+          );
+          setShowResendVerification(Boolean(email));
+        } else {
+          setSuccessMessage(
+            data.message ||
+              "Vi har skickat ett verifieringsmail. Bekräfta din e-post innan du loggar in.",
+          );
+        }
         setMode("login");
         setPassword("");
         return;

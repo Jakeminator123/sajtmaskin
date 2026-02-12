@@ -11,6 +11,7 @@
 
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { SECRETS } from "@/lib/config";
 import { debugLog, errorLog } from "@/lib/utils/debug";
 
 export const runtime = "nodejs";
@@ -21,9 +22,7 @@ const RECIPIENTS = [
   "erik@sajtstudio.se",
 ];
 
-// Prefer unified EMAIL_FROM, keep RESEND_FROM_EMAIL for backward compatibility.
-const FROM_ADDRESS =
-  process.env.EMAIL_FROM || process.env.RESEND_FROM_EMAIL || "Sajtmaskin <onboarding@resend.dev>";
+const FROM_ADDRESS = SECRETS.emailFrom;
 
 const contactSchema = z.object({
   name: z.string().min(1).max(100),

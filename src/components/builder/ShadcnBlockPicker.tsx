@@ -14,6 +14,7 @@ import {
   ExternalLink,
   RefreshCw,
   LayoutGrid,
+  Palette,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -61,6 +62,11 @@ import {
   generatePlacementOptions,
   type DetectedSection,
 } from "@/lib/builder/sectionAnalyzer";
+import {
+  DESIGN_THEME_OPTIONS,
+  THEME_PRESETS,
+  type DesignTheme,
+} from "@/lib/builder/theme-presets";
 import {
   buildRegistryMarkdownPreview,
   buildShadcnDocsUrl,
@@ -156,6 +162,8 @@ interface ShadcnBlockPickerProps {
   isBusy?: boolean;
   isSubmitting?: boolean;
   hasChat?: boolean;
+  currentTheme?: DesignTheme;
+  onSelectTheme?: (theme: DesignTheme) => void | Promise<void>;
   /** Optional: current generated code to analyze for sections */
   currentCode?: string;
 }
@@ -185,6 +193,8 @@ export function ShadcnBlockPicker({
   isBusy = false,
   isSubmitting = false,
   hasChat = false,
+  currentTheme = "blue",
+  onSelectTheme,
   currentCode,
 }: ShadcnBlockPickerProps) {
   // State
@@ -202,9 +212,10 @@ export function ShadcnBlockPicker({
   const [placement, setPlacement] = useState<PlacementOption>("bottom");
   const [activeTab, setActiveTab] = useState<"popular" | "all">("popular");
   const [itemType, setItemType] = useState<"block" | "component">("block");
-  const [paletteTab, setPaletteTab] = useState<"templates" | "ai-elements" | "shadcn">(
-    hasChat ? "shadcn" : "templates",
+  const [paletteTab, setPaletteTab] = useState<"themes" | "templates" | "ai-elements" | "shadcn">(
+    hasChat ? "themes" : "templates",
   );
+  const [selectedTheme, setSelectedTheme] = useState<DesignTheme>(currentTheme);
   const [aiQuery, setAiQuery] = useState("");
   const [selectedAiItemId, setSelectedAiItemId] = useState<string | null>(
     AI_ELEMENT_ITEMS[0]?.id ?? null,
@@ -330,8 +341,22 @@ export function ShadcnBlockPicker({
   const itemLabel = itemType === "block" ? "block" : "komponent";
   const itemLabelPlural = itemType === "block" ? "block" : "komponenter";
   const isTemplatesTab = paletteTab === "templates";
+  const isThemesTab = paletteTab === "themes";
   const isAiTab = paletteTab === "ai-elements";
   const isShadcnTab = paletteTab === "shadcn";
+  const selectedThemeOption = useMemo(
+    () => DESIGN_THEME_OPTIONS.find((option) => option.value === selectedTheme),
+    [selectedTheme],
+  );
+  const selectedThemeColors =
+    selectedTheme !== "off" && selectedTheme !== "custom"
+      ? THEME_PRESETS[selectedTheme as keyof typeof THEME_PRESETS]
+      : null;
+  const canApplyTheme =
+    Boolean(onSelectTheme) &&
+    !isBusy &&
+    !isSubmitting &&
+    selectedTheme !== currentTheme;
   const selectedPreviewLink = useMemo(() => {
     if (!selectedItem) return null;
     if (selectedItem.type === "block") {
@@ -344,9 +369,14 @@ export function ShadcnBlockPicker({
 
   useEffect(() => {
     if (hasChat && paletteTab === "templates") {
-      setPaletteTab("shadcn");
+      setPaletteTab("themes");
     }
   }, [hasChat, paletteTab]);
+
+  useEffect(() => {
+    if (!open) return;
+    setSelectedTheme(currentTheme);
+  }, [open, currentTheme]);
 
   useEffect(() => {
     if (!selectedAiItem && filteredAiItems.length > 0) {
@@ -566,6 +596,12 @@ export function ShadcnBlockPicker({
     await onSelectTemplate(selectedTemplate.id);
   }, [selectedTemplate, onSelectTemplate]);
 
+  const handleThemeConfirm = useCallback(async () => {
+    if (!onSelectTheme) return;
+    await onSelectTheme(selectedTheme);
+    onClose();
+  }, [onSelectTheme, selectedTheme, onClose]);
+
   // Reset pending action when not submitting
   useEffect(() => {
     if (!isSubmitting) {
@@ -589,7 +625,9 @@ export function ShadcnBlockPicker({
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-linear-to-br from-brand-teal/20 via-brand-blue/15 to-brand-teal/10 ring-1 ring-brand-teal/20">
-                  {isTemplatesTab ? (
+                  {isThemesTab ? (
+                    <Palette className="h-5 w-5 text-brand-teal" />
+                  ) : isTemplatesTab ? (
                     <LayoutGrid className="h-5 w-5 text-brand-teal" />
                   ) : isAiTab ? (
                     <Wand2 className="h-5 w-5 text-brand-teal" />
@@ -599,14 +637,18 @@ export function ShadcnBlockPicker({
                 </div>
                 <div>
                   <DialogTitle className="text-lg font-semibold tracking-tight text-foreground">
-                    {isTemplatesTab
+                    {isThemesTab
+                      ? "Välj tema"
+                      : isTemplatesTab
                       ? "Välj mall"
                       : isAiTab
                         ? "Välj AI‑element"
-                        : `Välj shadcn/ui-${itemLabel}`}
+                        : "Välj UI‑element"}
                   </DialogTitle>
                   <DialogDescription className="text-xs text-muted-foreground">
-                    {isTemplatesTab
+                    {isThemesTab
+                      ? "Välj ett tema som styr färgtokens i nästa generation."
+                      : isTemplatesTab
                       ? "Starta från en mall om du inte har någon chat ännu."
                       : isAiTab
                         ? "Bygg AI‑komponenter med snabbare iterationer."
@@ -639,6 +681,17 @@ export function ShadcnBlockPicker({
               <div className="flex rounded-lg border border-border bg-muted/30 p-0.5">
                 <button
                   type="button"
+                  onClick={() => setPaletteTab("themes")}
+                  className={`rounded-md px-3.5 py-1.5 text-xs font-medium transition-all ${
+                    isThemesTab
+                      ? "bg-brand-blue/10 text-brand-blue shadow-sm ring-1 ring-brand-blue/20"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Teman
+                </button>
+                <button
+                  type="button"
                   onClick={() => setPaletteTab("templates")}
                   disabled={hasChat}
                   className={`rounded-md px-3.5 py-1.5 text-xs font-medium transition-all ${
@@ -669,7 +722,7 @@ export function ShadcnBlockPicker({
                       : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
-                  shadcn/ui
+                  UI‑element
                 </button>
               </div>
 
@@ -737,7 +790,92 @@ export function ShadcnBlockPicker({
 
         {/* ── Content ── */}
         <div className="flex min-h-0 flex-1 flex-col border-t border-border/50 md:flex-row">
-          {isShadcnTab ? (
+          {isThemesTab ? (
+            <>
+              <div className="flex w-full flex-col border-b border-border/50 md:w-[320px] md:border-r md:border-b-0">
+                <div className="space-y-2 p-4">
+                  <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                    Teman
+                  </div>
+                  <div className="space-y-1">
+                    {DESIGN_THEME_OPTIONS.map((option) => {
+                      const isActive = option.value === selectedTheme;
+                      return (
+                        <button
+                          key={option.value}
+                          type="button"
+                          onClick={() => setSelectedTheme(option.value)}
+                          className={`w-full rounded-md border px-3 py-2 text-left text-xs font-medium transition-colors ${
+                            isActive
+                              ? "border-brand-blue/30 bg-brand-blue/10 text-brand-blue"
+                              : "border-border/60 text-muted-foreground hover:bg-muted/40 hover:text-foreground"
+                          }`}
+                        >
+                          {option.label}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex min-h-0 flex-1 flex-col bg-muted/10">
+                <div className="border-b border-border/50 px-6 py-3">
+                  <h3 className="truncate text-base font-semibold text-foreground">
+                    {selectedThemeOption?.label || selectedTheme}
+                  </h3>
+                  <p className="mt-0.5 text-xs text-muted-foreground">
+                    Temat styr design tokens som skickas till generationen (primary/secondary/accent).
+                  </p>
+                </div>
+                <div className="scrollbar-thin flex-1 space-y-4 overflow-y-auto p-5">
+                  {selectedThemeColors ? (
+                    <div className="grid gap-3 md:grid-cols-3">
+                      <div className="rounded-xl border border-border/60 bg-card/60 p-3">
+                        <div className="text-[11px] text-muted-foreground">Primary</div>
+                        <div
+                          className="mt-2 h-10 rounded-md border border-border/50"
+                          style={{ backgroundColor: selectedThemeColors.primary }}
+                        />
+                        <div className="mt-2 break-all font-mono text-[10px] text-muted-foreground">
+                          {selectedThemeColors.primary}
+                        </div>
+                      </div>
+                      <div className="rounded-xl border border-border/60 bg-card/60 p-3">
+                        <div className="text-[11px] text-muted-foreground">Secondary</div>
+                        <div
+                          className="mt-2 h-10 rounded-md border border-border/50"
+                          style={{ backgroundColor: selectedThemeColors.secondary }}
+                        />
+                        <div className="mt-2 break-all font-mono text-[10px] text-muted-foreground">
+                          {selectedThemeColors.secondary}
+                        </div>
+                      </div>
+                      <div className="rounded-xl border border-border/60 bg-card/60 p-3">
+                        <div className="text-[11px] text-muted-foreground">Accent</div>
+                        <div
+                          className="mt-2 h-10 rounded-md border border-border/50"
+                          style={{ backgroundColor: selectedThemeColors.accent }}
+                        />
+                        <div className="mt-2 break-all font-mono text-[10px] text-muted-foreground">
+                          {selectedThemeColors.accent}
+                        </div>
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="rounded-xl border border-border/60 bg-card/60 p-4 text-sm text-muted-foreground">
+                      Designsystem-tema är avstängt. Då får modellen större frihet att välja färger.
+                    </div>
+                  )}
+
+                  <div className="rounded-xl border border-brand-blue/20 bg-brand-blue/5 p-4 text-[12px] leading-relaxed text-muted-foreground">
+                    v0 fungerar bäst när tema/tokens är tydliga. Använd tema här, lägg sedan till
+                    komponenter/block i flikarna AI‑element eller UI‑element.
+                  </div>
+                </div>
+              </div>
+            </>
+          ) : isShadcnTab ? (
             <>
               {/* Left sidebar */}
               <div className="flex w-full flex-col border-b border-border/50 md:w-[340px] md:border-r md:border-b-0">
@@ -1316,7 +1454,7 @@ export function ShadcnBlockPicker({
         {/* ── Footer ── */}
         <div className="flex items-center justify-between border-t border-border/50 bg-muted/20 px-6 py-3.5">
           <div className="flex items-center gap-3">
-            {!isTemplatesTab && hasChat && (
+            {!isTemplatesTab && !isThemesTab && hasChat && (
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
@@ -1361,7 +1499,7 @@ export function ShadcnBlockPicker({
                 </DropdownMenuContent>
               </DropdownMenu>
             )}
-            {!isTemplatesTab && !hasChat && !isShadcnTab && (
+            {!isTemplatesTab && !isThemesTab && !hasChat && !isShadcnTab && (
               <div className="text-xs text-muted-foreground">
                 Skapa en sida först för att lägga till komponenter
               </div>
@@ -1376,7 +1514,16 @@ export function ShadcnBlockPicker({
             <Button variant="outline" size="sm" onClick={onClose} disabled={isSubmitting}>
               Avbryt
             </Button>
-            {isTemplatesTab ? (
+            {isThemesTab ? (
+              <Button
+                size="sm"
+                onClick={handleThemeConfirm}
+                disabled={!canApplyTheme}
+                className="bg-brand-blue hover:bg-brand-blue/90 text-white shadow-sm shadow-brand-blue/20"
+              >
+                Använd tema
+              </Button>
+            ) : isTemplatesTab ? (
               <Button
                 size="sm"
                 onClick={handleTemplateConfirm}

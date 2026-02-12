@@ -8,10 +8,6 @@ import {
   MODEL_TIER_OPTIONS,
   getPromptAssistModelOptions,
 } from "@/lib/builder/defaults";
-import {
-  DESIGN_THEME_OPTIONS,
-  type DesignTheme,
-} from "@/lib/builder/theme-presets";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -71,11 +67,6 @@ export function BuilderHeader(props: {
   planModeFirstPrompt: boolean;
   onPlanModeFirstPromptChange: (value: boolean) => void;
 
-  designSystemMode: boolean;
-  onDesignSystemModeChange: (v: boolean) => void;
-  designTheme: DesignTheme;
-  onDesignThemeChange: (theme: DesignTheme) => void;
-
   enableImageGenerations: boolean;
   onEnableImageGenerationsChange: (v: boolean) => void;
   enableThinking: boolean;
@@ -122,10 +113,6 @@ export function BuilderHeader(props: {
     onApplyInstructionsOnceChange,
     planModeFirstPrompt,
     onPlanModeFirstPromptChange,
-    designSystemMode: _designSystemMode,
-    onDesignSystemModeChange: _onDesignSystemModeChange,
-    designTheme,
-    onDesignThemeChange,
     enableImageGenerations,
     onEnableImageGenerationsChange,
     enableThinking,
@@ -342,18 +329,6 @@ export function BuilderHeader(props: {
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="w-56">
             <DropdownMenuLabel>Generation Options</DropdownMenuLabel>
-            <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">Tema</DropdownMenuLabel>
-            <DropdownMenuRadioGroup
-              value={designTheme}
-              onValueChange={(v) => onDesignThemeChange(v as DesignTheme)}
-            >
-              {DESIGN_THEME_OPTIONS.map((opt) => (
-                <DropdownMenuRadioItem key={opt.value} value={opt.value} disabled={isBusy}>
-                  {opt.label}
-                </DropdownMenuRadioItem>
-              ))}
-            </DropdownMenuRadioGroup>
-
             <TooltipProvider>
               <Tooltip>
                 <TooltipTrigger asChild>

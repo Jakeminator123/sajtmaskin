@@ -12,6 +12,19 @@ export function safeJsonParse(value: string): unknown {
 
 const UI_PART_TYPES = new Set(["plan", "sources", "source"]);
 
+export type IntegrationSignalIntent = "install" | "connect" | "configure" | "env_vars";
+
+export type IntegrationSignal = {
+  key: string;
+  name?: string;
+  provider?: string;
+  status?: string;
+  intent?: IntegrationSignalIntent;
+  envVars?: string[];
+  marketplaceUrl?: string | null;
+  sourceEvent?: string | null;
+};
+
 function isUiPartType(type: unknown): type is string {
   return typeof type === "string" && (UI_PART_TYPES.has(type) || type.startsWith("tool"));
 }
@@ -74,6 +87,241 @@ function collectUiParts(value: unknown, acc: Array<Record<string, unknown>>): vo
   for (const next of Object.values(obj)) {
     collectUiParts(next, acc);
   }
+}
+
+function isIntegrationHint(value: string): boolean {
+  const normalized = value.toLowerCase();
+  return (
+    normalized.includes("integration") ||
+    normalized.includes("marketplace") ||
+    normalized.includes("install") ||
+    normalized.includes("connect") ||
+    normalized.includes("database") ||
+    normalized.includes("supabase") ||
+    normalized.includes("neon") ||
+    normalized.includes("upstash") ||
+    normalized.includes("redis") ||
+    normalized.includes("vercel") ||
+    normalized.includes("env var") ||
+    normalized.includes("environment variable") ||
+    normalized.includes("api key") ||
+    normalized.includes("mcp")
+  );
+}
+
+function isEnvVarKey(value: string): boolean {
+  return /^[A-Z][A-Z0-9_]+$/.test(value.trim());
+}
+
+function coerceString(value: unknown): string | null {
+  return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
+}
+
+function collectEnvVars(value: unknown, acc: Set<string>, depth = 0): void {
+  if (!value || depth > 8 || acc.size >= 32) return;
+  if (typeof value === "string") {
+    if (isEnvVarKey(value)) acc.add(value.trim());
+    return;
+  }
+  if (Array.isArray(value)) {
+    value.forEach((item) => collectEnvVars(item, acc, depth + 1));
+    return;
+  }
+  if (typeof value !== "object") return;
+  const obj = value as Record<string, unknown>;
+  const explicitKey = coerceString(obj.key);
+  if (explicitKey && isEnvVarKey(explicitKey)) {
+    acc.add(explicitKey);
+  }
+  for (const [key, next] of Object.entries(obj)) {
+    if (isEnvVarKey(key)) {
+      acc.add(key);
+      continue;
+    }
+    collectEnvVars(next, acc, depth + 1);
+  }
+}
+
+function normalizeIntent(value: string): IntegrationSignalIntent | undefined {
+  const normalized = value.toLowerCase();
+  if (normalized.includes("install")) return "install";
+  if (normalized.includes("connect")) return "connect";
+  if (
+    normalized.includes("env") &&
+    (normalized.includes("var") || normalized.includes("variable"))
+  ) {
+    return "env_vars";
+  }
+  if (normalized.includes("configure") || normalized.includes("setup")) return "configure";
+  return undefined;
+}
+
+function buildIntegrationKey(params: {
+  name?: string | null;
+  provider?: string | null;
+  intent?: IntegrationSignalIntent;
+  envVars: string[];
+  eventHint?: string | null;
+}): string {
+  const parts = [
+    params.name || "",
+    params.provider || "",
+    params.intent || "",
+    params.envVars.join(","),
+    params.eventHint || "",
+  ]
+    .join("|")
+    .toLowerCase()
+    .replace(/\s+/g, "-")
+    .replace(/[^a-z0-9_|,.-]/g, "");
+  return parts || "integration:unknown";
+}
+
+function collectIntegrationCandidates(
+  value: unknown,
+  acc: Array<Record<string, unknown>>,
+  depth = 0,
+): void {
+  if (!value || depth > 8 || acc.length >= 128) return;
+  if (Array.isArray(value)) {
+    value.forEach((item) => collectIntegrationCandidates(item, acc, depth + 1));
+    return;
+  }
+  if (typeof value !== "object") return;
+
+  const obj = value as Record<string, unknown>;
+  const keys = Object.keys(obj).map((key) => key.toLowerCase());
+  const keyHint = keys.some(
+    (key) =>
+      key.includes("integration") ||
+      key.includes("marketplace") ||
+      key.includes("install") ||
+      key.includes("provider") ||
+      key.includes("service") ||
+      key.includes("environment") ||
+      key.includes("env"),
+  );
+  const valueHint = [
+    obj.type,
+    obj.event,
+    obj.action,
+    obj.status,
+    obj.state,
+    obj.toolName,
+    obj.name,
+    obj.provider,
+    obj.service,
+  ]
+    .map((item) => coerceString(item))
+    .filter((item): item is string => Boolean(item))
+    .some((item) => isIntegrationHint(item));
+
+  if (keyHint || valueHint) {
+    acc.push(obj);
+  }
+
+  Object.values(obj).forEach((next) => {
+    if (next && typeof next === "object") {
+      collectIntegrationCandidates(next, acc, depth + 1);
+    }
+  });
+}
+
+function toIntegrationSignal(
+  candidate: Record<string, unknown>,
+  eventHint: string,
+): IntegrationSignal | null {
+  const name =
+    coerceString(candidate.integration) ||
+    coerceString(candidate.provider) ||
+    coerceString(candidate.service) ||
+    coerceString(candidate.name) ||
+    coerceString(candidate.title);
+  const provider = coerceString(candidate.provider) || coerceString(candidate.service);
+  const status =
+    coerceString(candidate.status) ||
+    coerceString(candidate.state) ||
+    coerceString(candidate.result);
+  const hintText = [
+    coerceString(candidate.type),
+    coerceString(candidate.event),
+    coerceString(candidate.action),
+    coerceString(candidate.name),
+    coerceString(candidate.toolName),
+    eventHint,
+  ]
+    .filter((value): value is string => Boolean(value))
+    .join(" ");
+  const intent = normalizeIntent(hintText);
+  const marketplaceUrl =
+    coerceString(candidate.marketplaceUrl) ||
+    coerceString(candidate.installUrl) ||
+    coerceString(candidate.url) ||
+    null;
+
+  const envVarsSet = new Set<string>();
+  collectEnvVars(
+    candidate.envVars ??
+      candidate.environmentVariables ??
+      candidate.requiredEnv ??
+      candidate.variables ??
+      candidate.vars ??
+      candidate.keys ??
+      candidate.env ??
+      candidate,
+    envVarsSet,
+  );
+  const envVars = Array.from(envVarsSet).sort();
+
+  const hasSignalData =
+    Boolean(name) ||
+    Boolean(provider) ||
+    Boolean(status) ||
+    Boolean(intent) ||
+    envVars.length > 0 ||
+    Boolean(marketplaceUrl) ||
+    isIntegrationHint(hintText);
+  if (!hasSignalData) return null;
+
+  return {
+    key: buildIntegrationKey({ name, provider, intent, envVars, eventHint }),
+    name: name || undefined,
+    provider: provider || undefined,
+    status: status || undefined,
+    intent,
+    envVars: envVars.length > 0 ? envVars : undefined,
+    marketplaceUrl,
+    sourceEvent: eventHint || null,
+  };
+}
+
+export function extractIntegrationSignals(
+  parsed: unknown,
+  currentEvent = "",
+  uiParts?: Array<Record<string, unknown>>,
+): IntegrationSignal[] {
+  const eventHint = currentEvent.toLowerCase();
+  const candidates: Array<Record<string, unknown>> = [];
+
+  collectIntegrationCandidates(parsed, candidates);
+  if (Array.isArray(uiParts) && uiParts.length > 0) {
+    collectIntegrationCandidates(uiParts, candidates);
+  }
+  if (eventHint && isIntegrationHint(eventHint) && parsed && typeof parsed === "object") {
+    candidates.push(parsed as Record<string, unknown>);
+  }
+
+  const seen = new Set<string>();
+  const signals: IntegrationSignal[] = [];
+  for (const candidate of candidates) {
+    const signal = toIntegrationSignal(candidate, eventHint);
+    if (!signal) continue;
+    if (seen.has(signal.key)) continue;
+    seen.add(signal.key);
+    signals.push(signal);
+    if (signals.length >= 16) break;
+  }
+  return signals;
 }
 
 export function extractUiParts(parsed: unknown): Array<Record<string, unknown>> | null {

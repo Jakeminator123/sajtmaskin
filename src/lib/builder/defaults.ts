@@ -156,6 +156,13 @@ export const DEFAULT_CUSTOM_INSTRUCTIONS = `## Tech Stack
 - Use Tailwind v4 animation utilities via "tw-animate-css" (import it in globals.css when using animate-* utilities)
 - Add @radix-ui/* packages only when a specific component requires them
 
+## Design System Execution
+- Treat theme tokens as source of truth. Do not drift into ad-hoc colors if a theme is selected.
+- Build in this order: small reusable components -> section blocks -> full page composition.
+- Reuse existing UI primitives/components before adding new ones.
+- Prefer token-driven styling in globals.css over one-off inline styles.
+- Keep outputs compatible with registry/Open-in-v0 workflows when possible.
+
 ## Language
 - Match the user's language for all visible copy. Only translate if the user explicitly asks.
 
@@ -208,6 +215,11 @@ export const DEFAULT_CUSTOM_INSTRUCTIONS = `## Tech Stack
 - Include images in hero + at least 2 other sections
 - Never use blob: URIs, data: URIs, or local file paths for images
 - Prefer v0-generated images when available; only use public https URLs as a last resort
+
+## Figma Workflow
+- If the user provides Figma, extract structure first (nav, hero, sections, footer) before polishing visuals.
+- Prefer iterative conversion: implement key components first, then assemble the full page.
+- Preserve spacing rhythm and typography hierarchy from the design reference.
 
 ## Accessibility
 - Semantic HTML: header, main, section, article, footer

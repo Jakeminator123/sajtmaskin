@@ -1,5 +1,13 @@
 export interface StreamEvent {
-  type: "thinking" | "content" | "parts" | "done" | "error" | "chatId" | "projectId";
+  type:
+    | "thinking"
+    | "content"
+    | "parts"
+    | "integration"
+    | "done"
+    | "error"
+    | "chatId"
+    | "projectId";
   data: unknown;
 }
 

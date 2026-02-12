@@ -211,7 +211,7 @@ export const users = pgTable(
     github_token: text("github_token"),
     diamonds: integer("diamonds").default(50).notNull(),
     tier: text("tier"),
-    email_verified: boolean("email_verified").default(true).notNull(),
+    email_verified: boolean("email_verified").default(false).notNull(),
     verification_token: text("verification_token"),
     verification_token_expires: timestamp("verification_token_expires"),
     created_at: timestamp("created_at").defaultNow().notNull(),
@@ -220,6 +220,33 @@ export const users = pgTable(
   },
   (table) => ({
     emailIdx: uniqueIndex("users_email_idx").on(table.email),
+  }),
+);
+
+export const userIntegrations = pgTable(
+  "user_integrations",
+  {
+    id: text("id").primaryKey(),
+    user_id: text("user_id").references(() => users.id, { onDelete: "cascade" }),
+    project_id: text("project_id"),
+    v0_project_id: text("v0_project_id"),
+    integration_type: text("integration_type").notNull(),
+    marketplace_slug: text("marketplace_slug"),
+    ownership_model: text("ownership_model").default("user_managed_vercel").notNull(),
+    billing_owner: text("billing_owner").default("user").notNull(),
+    status: text("status").default("pending").notNull(),
+    env_vars: jsonb("env_vars"),
+    install_url: text("install_url"),
+    installed_at: timestamp("installed_at"),
+    created_at: timestamp("created_at").defaultNow().notNull(),
+    updated_at: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (table) => ({
+    userProjectTypeIdx: uniqueIndex("user_integrations_owner_project_type_idx").on(
+      table.user_id,
+      table.project_id,
+      table.integration_type,
+    ),
   }),
 );
 

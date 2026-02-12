@@ -7,6 +7,7 @@ import {
   extractChatId,
   extractContentText,
   extractDemoUrl,
+  extractIntegrationSignals,
   extractMessageId,
   extractThinkingText,
   extractUiParts,
@@ -338,6 +339,7 @@ export async function POST(req: Request) {
             let assistantContentPreview = "";
             let assistantThinkingPreview = "";
             const seenToolCalls = new Set<string>();
+            const seenIntegrationSignals = new Set<string>();
 
             const safeEnqueue = (data: Uint8Array) => {
               if (controllerClosed) return;
@@ -550,6 +552,33 @@ export async function POST(req: Request) {
                       });
                     }
                     safeEnqueue(encoder.encode(formatSSEEvent("parts", uiParts)));
+                  }
+
+                  const integrationSignals = extractIntegrationSignals(
+                    parsed,
+                    currentEvent,
+                    uiParts || undefined,
+                  );
+                  if (integrationSignals.length > 0 && !didSendDone) {
+                    const freshSignals = integrationSignals.filter(
+                      (signal) => !seenIntegrationSignals.has(signal.key),
+                    );
+                    if (freshSignals.length > 0) {
+                      freshSignals.forEach((signal) => seenIntegrationSignals.add(signal.key));
+                      devLogAppend("in-progress", {
+                        type: "comm.integration_signals",
+                        chatId: v0ChatId,
+                        event: currentEvent || null,
+                        integrations: freshSignals,
+                      });
+                      safeEnqueue(
+                        encoder.encode(
+                          formatSSEEvent("integration", {
+                            items: freshSignals,
+                          }),
+                        ),
+                      );
+                    }
                   }
 
                   const demoUrl = extractDemoUrl(parsed);

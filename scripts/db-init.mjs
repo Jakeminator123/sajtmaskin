@@ -186,12 +186,28 @@ const setupQueries = [
     github_token TEXT,
     diamonds INTEGER DEFAULT 50 NOT NULL,
     tier TEXT,
-    email_verified BOOLEAN DEFAULT TRUE NOT NULL,
+    email_verified BOOLEAN DEFAULT FALSE NOT NULL,
     verification_token TEXT,
     verification_token_expires TIMESTAMPTZ,
     created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
     updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
     last_login_at TIMESTAMPTZ
+  )`,
+  `CREATE TABLE IF NOT EXISTS user_integrations (
+    id TEXT PRIMARY KEY,
+    user_id TEXT REFERENCES users(id) ON DELETE CASCADE,
+    project_id TEXT,
+    v0_project_id TEXT,
+    integration_type TEXT NOT NULL,
+    marketplace_slug TEXT,
+    ownership_model TEXT DEFAULT 'user_managed_vercel' NOT NULL,
+    billing_owner TEXT DEFAULT 'user' NOT NULL,
+    status TEXT DEFAULT 'pending' NOT NULL,
+    env_vars JSONB,
+    install_url TEXT,
+    installed_at TIMESTAMPTZ,
+    created_at TIMESTAMPTZ DEFAULT NOW() NOT NULL,
+    updated_at TIMESTAMPTZ DEFAULT NOW() NOT NULL
   )`,
   `CREATE TABLE IF NOT EXISTS transactions (
     id TEXT PRIMARY KEY,
@@ -315,11 +331,15 @@ const schemaQueries = [
   `CREATE INDEX IF NOT EXISTS idx_versions_chat_id ON versions(chat_id)`,
   `CREATE INDEX IF NOT EXISTS idx_version_error_logs_version_id ON version_error_logs(version_id)`,
   `CREATE INDEX IF NOT EXISTS idx_version_error_logs_chat_id ON version_error_logs(chat_id)`,
-  `ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN DEFAULT TRUE NOT NULL`,
+  `ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified BOOLEAN DEFAULT FALSE NOT NULL`,
   `ALTER TABLE users ALTER COLUMN diamonds SET DEFAULT 50`,
-  `ALTER TABLE users ALTER COLUMN email_verified SET DEFAULT TRUE`,
+  `ALTER TABLE users ALTER COLUMN email_verified SET DEFAULT FALSE`,
   `ALTER TABLE users ADD COLUMN IF NOT EXISTS verification_token TEXT`,
   `ALTER TABLE users ADD COLUMN IF NOT EXISTS verification_token_expires TIMESTAMPTZ`,
+  // Preserve Google/OAuth semantics while tightening email/password defaults.
+  // Any email-provider user that still has an active verification token should
+  // remain unverified until the token flow is completed.
+  `UPDATE users SET email_verified = FALSE WHERE provider = 'email' AND verification_token IS NOT NULL AND email_verified = TRUE`,
   `UPDATE users SET email_verified = TRUE WHERE provider = 'google' AND email_verified = FALSE`,
   `ALTER TABLE versions ADD COLUMN IF NOT EXISTS pinned BOOLEAN DEFAULT FALSE`,
   `CREATE INDEX IF NOT EXISTS idx_prompt_logs_created_at ON prompt_logs(created_at DESC)`,
@@ -339,6 +359,9 @@ const schemaQueries = [
   `CREATE INDEX IF NOT EXISTS idx_page_views_created_at ON page_views(created_at)`,
   `CREATE INDEX IF NOT EXISTS idx_page_views_path ON page_views(path)`,
   `CREATE UNIQUE INDEX IF NOT EXISTS users_email_idx ON users(email)`,
+  `CREATE UNIQUE INDEX IF NOT EXISTS user_integrations_owner_project_type_idx ON user_integrations(user_id, project_id, integration_type)`,
+  `CREATE INDEX IF NOT EXISTS idx_user_integrations_user_id ON user_integrations(user_id)`,
+  `CREATE INDEX IF NOT EXISTS idx_user_integrations_project_id ON user_integrations(project_id)`,
   `CREATE UNIQUE INDEX IF NOT EXISTS template_cache_template_user_idx ON template_cache(template_id, user_id)`,
   `CREATE INDEX IF NOT EXISTS idx_kostnadsfri_pages_slug ON kostnadsfri_pages(slug)`,
   // Registry cache for shadcn/ui block picker
@@ -398,6 +421,8 @@ const updatedAtTriggers = [
   `CREATE TRIGGER set_updated_at_kostnadsfri_pages BEFORE UPDATE ON kostnadsfri_pages FOR EACH ROW EXECUTE FUNCTION set_updated_at()`,
   `DROP TRIGGER IF EXISTS set_updated_at_project_data ON project_data`,
   `CREATE TRIGGER set_updated_at_project_data BEFORE UPDATE ON project_data FOR EACH ROW EXECUTE FUNCTION set_updated_at()`,
+  `DROP TRIGGER IF EXISTS set_updated_at_user_integrations ON user_integrations`,
+  `CREATE TRIGGER set_updated_at_user_integrations BEFORE UPDATE ON user_integrations FOR EACH ROW EXECUTE FUNCTION set_updated_at()`,
 ];
 
 async function run() {

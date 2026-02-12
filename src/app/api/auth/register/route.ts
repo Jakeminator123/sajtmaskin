@@ -2,7 +2,7 @@
  * API Route: Register new user
  * POST /api/auth/register
  *
- * After successful registration a verification email is sent.
+ * After successful registration a verification email is attempted.
  * Non-admin users must verify email before they can log in.
  */
 
@@ -84,6 +84,7 @@ export async function POST(req: NextRequest) {
 
     // Non-admin users must verify by email before login.
     let emailVerificationSent = true;
+    let emailVerificationReason: "provider_missing" | "send_failed" | null = null;
     try {
       const token = await createVerificationToken(result.user.id);
       const sendResult = await sendVerificationEmail(normalizedEmail, token, {
@@ -91,17 +92,29 @@ export async function POST(req: NextRequest) {
         baseUrl: req.nextUrl.origin,
       });
       emailVerificationSent = sendResult.success;
+      if (!sendResult.success) {
+        emailVerificationReason =
+          sendResult.deliveryMode === "provider_missing" ? "provider_missing" : "send_failed";
+      }
     } catch (emailErr) {
       console.error("[API/auth/register] Failed to send verification email:", emailErr);
       emailVerificationSent = false;
+      emailVerificationReason = "send_failed";
     }
+
+    const message = emailVerificationSent
+      ? "Vi har skickat ett verifieringsmail. Bekräfta din e-post innan du loggar in."
+      : emailVerificationReason === "provider_missing"
+        ? "Konto skapat, men verifieringsmail kunde inte skickas just nu eftersom e-posttjänsten saknas."
+        : "Konto skapat, men verifieringsmail kunde inte skickas. Försök igen via 'Skicka verifieringsmail igen'.";
 
     return NextResponse.json({
       success: true,
       requiresEmailVerification: true,
       emailVerificationSent,
-      message:
-        "Vi har skickat ett verifieringsmail. Bekräfta din e-post innan du loggar in.",
+      emailVerificationReason,
+      canResendVerification: true,
+      message,
       user: null,
     });
   } catch (error) {

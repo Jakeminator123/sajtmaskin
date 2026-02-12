@@ -47,6 +47,13 @@ export function verifyPassword(password: string, storedHash: string): boolean {
 const JWT_SECRET = SECRETS.jwtSecret;
 const JWT_EXPIRY = 7 * 24 * 60 * 60; // 7 days in seconds
 const AUTH_COOKIE_NAME = "sajtmaskin_auth";
+const LEGACY_EMAIL_AUTO_VERIFY_BEFORE_RAW =
+  process.env.LEGACY_EMAIL_AUTO_VERIFY_BEFORE || "2026-02-10T00:00:00.000Z";
+const LEGACY_EMAIL_AUTO_VERIFY_BEFORE_TS = Number.isFinite(
+  Date.parse(LEGACY_EMAIL_AUTO_VERIFY_BEFORE_RAW),
+)
+  ? Date.parse(LEGACY_EMAIL_AUTO_VERIFY_BEFORE_RAW)
+  : 0;
 
 // Google OAuth configuration - use centralized secrets
 const GOOGLE_CLIENT_ID = SECRETS.googleClientId;
@@ -342,10 +349,13 @@ export async function loginUser(
   // Legacy users created before this feature may not have a token;
   // auto-verify them at first successful login to avoid lockouts.
   if (!isAdmin && !user.email_verified) {
-    if (!user.verification_token) {
+    if (shouldAutoVerifyLegacyEmailUser(user)) {
       await markEmailVerified(user.id);
     } else {
-      return { error: "Du måste bekräfta din e-post innan du kan logga in." };
+      return {
+        error:
+          "Du måste bekräfta din e-post innan du kan logga in. Använd 'Skicka verifieringsmail igen' i inloggningsrutan.",
+      };
     }
   }
 
@@ -381,6 +391,15 @@ async function bootstrapAdminUser(user: User): Promise<void> {
     // Non-fatal – log and continue
     console.error("[Auth] Failed to bootstrap admin user:", err);
   }
+}
+
+function shouldAutoVerifyLegacyEmailUser(user: User): boolean {
+  if (user.provider !== "email") return false;
+  if (user.verification_token) return false;
+  if (user.last_login_at) return true;
+  const createdAt = user.created_at instanceof Date ? user.created_at.getTime() : NaN;
+  if (!Number.isFinite(createdAt)) return false;
+  return createdAt < LEGACY_EMAIL_AUTO_VERIFY_BEFORE_TS;
 }
 
 // ============ Google OAuth ============

@@ -10,6 +10,7 @@ import { SandboxModal } from "@/components/builder/SandboxModal";
 import { VersionHistory } from "@/components/builder/VersionHistory";
 import { BuilderHeader } from "@/components/builder/BuilderHeader";
 import { IntegrationStatusPanel } from "@/components/builder/IntegrationStatusPanel";
+import { ProjectEnvVarsPanel } from "@/components/builder/ProjectEnvVarsPanel";
 import type { V0UserFileAttachment } from "@/components/media";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -133,7 +134,6 @@ function BuilderContent() {
   const [designTheme, setDesignTheme] = useState<
     import("@/lib/builder/theme-presets").DesignTheme
   >("blue");
-  const designSystemMode = designTheme !== "off";
   const [specMode] = useState(DEFAULT_SPEC_MODE);
   const pendingSpecRef = useRef<object | null>(null);
   const [showStructuredChat, setShowStructuredChat] = useState(false);
@@ -1803,7 +1803,7 @@ function BuilderContent() {
         } | null;
 
         if (!response.ok || !data?.chatId) {
-          throw new Error(data?.error || data?.details || "Kunde inte starta från shadcn/ui");
+          throw new Error(data?.error || data?.details || "Kunde inte starta från designsystem");
         }
 
         setChatId(data.chatId);
@@ -1825,9 +1825,9 @@ function BuilderContent() {
             console.warn("[Builder] Failed to save registry project mapping:", error);
           });
         }
-        toast.success("shadcn/ui-projekt skapat!");
+        toast.success("Designsystem-projekt skapat!");
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Kunde inte starta från shadcn/ui");
+        toast.error(error instanceof Error ? error.message : "Kunde inte starta från designsystem");
       }
     },
     [
@@ -2105,10 +2105,6 @@ function BuilderContent() {
           onApplyInstructionsOnceChange={setApplyInstructionsOnce}
           planModeFirstPrompt={planModeFirstPrompt}
           onPlanModeFirstPromptChange={setPlanModeFirstPrompt}
-          designSystemMode={designSystemMode}
-          onDesignSystemModeChange={(v: boolean) => setDesignTheme(v ? "blue" : "off")}
-          designTheme={designTheme}
-          onDesignThemeChange={setDesignTheme}
           enableImageGenerations={enableImageGenerations}
           onEnableImageGenerationsChange={setEnableImageGenerations}
           enableThinking={enableThinking}
@@ -2147,6 +2143,7 @@ function BuilderContent() {
         <div className="flex flex-1 overflow-hidden">
           <div className="border-border bg-background flex w-full flex-col border-r lg:w-96">
             <IntegrationStatusPanel />
+            <ProjectEnvVarsPanel projectId={v0ProjectId} />
             <div className="flex-1 overflow-hidden">
               <MessageList
                 chatId={chatId}
@@ -2164,6 +2161,8 @@ function BuilderContent() {
               onStartFromTemplate={handleStartFromTemplate}
               onPaletteSelection={handlePaletteSelection}
               paletteSelections={paletteState.selections}
+              designTheme={designTheme}
+              onDesignThemeChange={setDesignTheme}
               onEnhancePrompt={handlePromptEnhance}
               isBusy={isCreatingChat || isAnyStreaming || isTemplateLoading || isPreparingPrompt}
               isPreparingPrompt={isPreparingPrompt}

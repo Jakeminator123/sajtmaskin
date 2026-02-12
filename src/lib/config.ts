@@ -139,11 +139,6 @@ export const PATHS = {
     return getDataDir();
   },
 
-  // Deprecated: kept for legacy SQLite file cleanup
-  get database() {
-    return path.join(getDataDir(), "sajtmaskin.db");
-  },
-
   // Uploads directory for user images
   get uploads() {
     return path.join(getDataDir(), "uploads");
@@ -363,6 +358,18 @@ export const FEATURES = {
   useVercelBlob: Boolean(process.env.BLOB_READ_WRITE_TOKEN),
 } as const;
 
+function resolveDbLogLabel(): string {
+  const dbEnvCandidates = [
+    "POSTGRES_URL",
+    "POSTGRES_PRISMA_URL",
+    "POSTGRES_URL_NON_POOLING",
+  ] as const;
+  for (const key of dbEnvCandidates) {
+    if (sanitizeEnvValue(process.env[key])) return key;
+  }
+  return "not-configured";
+}
+
 // Use globalThis to persist across hot reloads in dev mode
 declare global {
   var __configLogged: boolean | undefined;
@@ -392,9 +399,9 @@ export function logConfig(): void {
     .join(", ");
 
   console.log(
-    `[Config] ${IS_PRODUCTION ? "PROD" : "DEV"} | DB: ${
-      PATHS.database
-    } | Features: ${features || "none"}`,
+    `[Config] ${IS_PRODUCTION ? "PROD" : "DEV"} | DB: ${resolveDbLogLabel()} | Features: ${
+      features || "none"
+    }`,
   );
 }
 

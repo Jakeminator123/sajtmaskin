@@ -8,6 +8,7 @@ import { nanoid } from "nanoid";
 import {
   extractContentText,
   extractDemoUrl,
+  extractIntegrationSignals,
   extractMessageId,
   extractThinkingText,
   extractUiParts,
@@ -319,6 +320,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
             let assistantContentPreview = "";
             let assistantThinkingPreview = "";
             const seenToolCalls = new Set<string>();
+            const seenIntegrationSignals = new Set<string>();
 
             const safeEnqueue = (data: Uint8Array) => {
               if (controllerClosed) return;
@@ -447,6 +449,33 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
                       });
                     }
                     safeEnqueue(encoder.encode(formatSSEEvent("parts", uiParts)));
+                  }
+
+                  const integrationSignals = extractIntegrationSignals(
+                    parsed,
+                    _currentEvent,
+                    uiParts || undefined,
+                  );
+                  if (integrationSignals.length > 0 && !didSendDone) {
+                    const freshSignals = integrationSignals.filter(
+                      (signal) => !seenIntegrationSignals.has(signal.key),
+                    );
+                    if (freshSignals.length > 0) {
+                      freshSignals.forEach((signal) => seenIntegrationSignals.add(signal.key));
+                      devLogAppend("latest", {
+                        type: "comm.integration_signals",
+                        chatId,
+                        event: _currentEvent || null,
+                        integrations: freshSignals,
+                      });
+                      safeEnqueue(
+                        encoder.encode(
+                          formatSSEEvent("integration", {
+                            items: freshSignals,
+                          }),
+                        ),
+                      );
+                    }
                   }
 
                   const demoUrl = extractDemoUrl(parsed);

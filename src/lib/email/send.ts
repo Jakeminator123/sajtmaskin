@@ -25,6 +25,7 @@ export interface SendEmailResult {
   success: boolean;
   id?: string;
   error?: string;
+  deliveryMode?: "queued" | "provider_missing" | "failed";
 }
 
 interface VerificationEmailOptions {
@@ -48,12 +49,18 @@ export async function sendVerificationEmail(
 
   const verifyUrl = `${baseUrl}/api/auth/verify-email?token=${encodeURIComponent(token)}`;
 
-  // When Resend is not configured, log the link for local testing
+  // When Resend is not configured, log the link for local testing.
+  // Return success=false so API responses can truthfully tell users
+  // that no email was actually delivered.
   if (!resend) {
     console.log(
       `[Email] Resend not configured – verification link for ${to}:\n  ${verifyUrl}`,
     );
-    return { success: true };
+    return {
+      success: false,
+      deliveryMode: "provider_missing",
+      error: "Email provider is not configured",
+    };
   }
 
   try {
@@ -66,14 +73,15 @@ export async function sendVerificationEmail(
 
     if (error) {
       console.error("[Email] Failed to send verification:", error);
-      return { success: false, error: error.message };
+      return { success: false, error: error.message, deliveryMode: "failed" };
     }
 
-    return { success: true, id: data?.id };
+    return { success: true, id: data?.id, deliveryMode: "queued" };
   } catch (err) {
     console.error("[Email] Unexpected error:", err);
     return {
       success: false,
+      deliveryMode: "failed",
       error: err instanceof Error ? err.message : "Unknown error",
     };
   }

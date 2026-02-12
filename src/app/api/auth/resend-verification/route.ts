@@ -38,9 +38,16 @@ export async function POST(req: NextRequest) {
     });
 
     if (!result.success) {
+      const isProviderMissing = result.deliveryMode === "provider_missing";
       return NextResponse.json(
-        { success: false, error: "Kunde inte skicka verifieringsmail" },
-        { status: 500 },
+        {
+          success: false,
+          error: isProviderMissing
+            ? "E-posttjänsten är inte tillgänglig just nu. Försök igen senare."
+            : "Kunde inte skicka verifieringsmail",
+          reason: isProviderMissing ? "provider_missing" : "send_failed",
+        },
+        { status: isProviderMissing ? 503 : 500 },
       );
     }
 

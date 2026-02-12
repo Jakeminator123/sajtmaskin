@@ -183,6 +183,50 @@ export async function getChatByIdForRequest(
   return rows[0]?.chat ?? null;
 }
 
+export async function getProjectByIdForRequest(
+  req: Request,
+  projectId: string,
+  options?: { sessionId?: string },
+) {
+  const normalizedProjectId = projectId.trim();
+  if (!normalizedProjectId) return null;
+
+  const userId = await getRequestUserId(req, options);
+  const projectCondition = or(
+    eq(projects.id, normalizedProjectId),
+    eq(projects.v0ProjectId, normalizedProjectId),
+  );
+
+  if (!userId) {
+    const rows = await db
+      .select()
+      .from(projects)
+      .where(and(projectCondition, isNull(projects.userId)))
+      .limit(1);
+    return rows[0] ?? null;
+  }
+
+  const ownerConditions = [eq(projects.userId, userId)];
+  if (!userId.startsWith("guest:")) {
+    const sessionId = options?.sessionId ?? getSessionIdFromRequest(req);
+    if (sessionId) {
+      ownerConditions.push(eq(projects.userId, `guest:${sessionId}`));
+    }
+  }
+
+  const rows = await db
+    .select()
+    .from(projects)
+    .where(
+      and(
+        projectCondition,
+        ownerConditions.length > 1 ? or(...ownerConditions) : ownerConditions[0],
+      ),
+    )
+    .limit(1);
+  return rows[0] ?? null;
+}
+
 export async function ensureProjectForRequest(params: {
   req: Request;
   v0ProjectId: string;

@@ -1,51 +1,16 @@
 import { drizzle } from "drizzle-orm/node-postgres";
 import { Pool } from "pg";
 import * as schema from "./schema";
-
-const DB_ENV_VARS = [
-  "POSTGRES_URL",
-  "POSTGRES_PRISMA_URL",
-  "POSTGRES_URL_NON_POOLING",
-  "DATABASE_URL",
-] as const;
-
-function sanitizeEnvValue(value: string | undefined): string | undefined {
-  if (!value) return undefined;
-  const trimmed = value.trim();
-  if (!trimmed) return undefined;
-  if (
-    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
-    (trimmed.startsWith("'") && trimmed.endsWith("'"))
-  ) {
-    const stripped = trimmed.slice(1, -1).trim();
-    return stripped || undefined;
-  }
-  return trimmed;
-}
-
-function normalizeEnvUrl(value: string | undefined, varName?: string): string | undefined {
-  const sanitized = sanitizeEnvValue(value);
-  if (!sanitized) return undefined;
-
-  if (/^\$\{[A-Z0-9_]+\}$/.test(sanitized) || /^\$[A-Z0-9_]+$/.test(sanitized)) {
-    if (varName && process.env.NODE_ENV === "development") {
-      console.warn(
-        `[db/client] ${varName} contains uninterpolated variable reference "${sanitized}". ` +
-          "This is ignored. Set the actual connection string directly or use POSTGRES_URL instead.",
-      );
-    }
-    return undefined;
-  }
-
-  return sanitized;
-}
+import { resolveConfiguredDbEnv } from "./env";
 
 const MISSING_DB_MESSAGE =
-  "Missing database connection string. Set POSTGRES_URL (or POSTGRES_PRISMA_URL / POSTGRES_URL_NON_POOLING / DATABASE_URL).";
+  "Missing database connection string. Set POSTGRES_URL (or POSTGRES_PRISMA_URL / POSTGRES_URL_NON_POOLING).";
 
 function resolveDbConnectionString(): string | null {
   const connectionString =
-    DB_ENV_VARS.map((name) => normalizeEnvUrl(process.env[name], name)).find(Boolean) || null;
+    resolveConfiguredDbEnv(process.env, {
+      warnOnUninterpolated: process.env.NODE_ENV === "development",
+    })?.connectionString || null;
   if (!connectionString) {
     if (process.env.NODE_ENV === "production") {
       throw new Error(MISSING_DB_MESSAGE);

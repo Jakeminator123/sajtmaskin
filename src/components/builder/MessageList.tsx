@@ -264,6 +264,7 @@ const MessageListComponent = ({
                     ) as ToolUIPart["state"];
                     const { toolType, toolTitle } = resolveToolLabels(tool);
                     const integrationSummary = getToolIntegrationSummary(tool);
+                    const integrationCard = getIntegrationCardData(tool);
                     const canOpen = Boolean(chatId);
 
                     return (
@@ -292,12 +293,34 @@ const MessageListComponent = ({
                             Status: {integrationSummary.status}
                           </p>
                         )}
-                        <p className="text-muted-foreground mt-2 text-xs">
-                          Den här åtgärden hanteras av v0. Öppna chatten i v0 om du vill installera.
-                        </p>
-                        <p className="text-muted-foreground mt-1 text-xs">
-                          Om integration krävs: kontrollera Integrationspanelen för saknade nycklar.
-                        </p>
+                        {integrationCard ? (
+                          <div className="border-border bg-muted/20 mt-2 rounded-md border p-2 text-xs">
+                            {integrationCard.intentLabel && (
+                              <p className="text-muted-foreground">
+                                Åtgärd: {integrationCard.intentLabel}
+                              </p>
+                            )}
+                            {integrationCard.envKeys.length > 0 && (
+                              <p className="text-muted-foreground mt-1">
+                                Miljövariabler: {integrationCard.envKeys.join(", ")}
+                              </p>
+                            )}
+                            {integrationCard.sourceEvent && (
+                              <p className="text-muted-foreground mt-1">
+                                Källa: {integrationCard.sourceEvent}
+                              </p>
+                            )}
+                          </div>
+                        ) : (
+                          <>
+                            <p className="text-muted-foreground mt-2 text-xs">
+                              Den här åtgärden hanteras av v0. Öppna chatten i v0 om du vill installera.
+                            </p>
+                            <p className="text-muted-foreground mt-1 text-xs">
+                              Om integration krävs: kontrollera Integrationspanelen för saknade nycklar.
+                            </p>
+                          </>
+                        )}
                         <div className="mt-2 flex flex-wrap gap-2">
                           <Button
                             size="sm"
@@ -306,6 +329,17 @@ const MessageListComponent = ({
                           >
                             Öppna i v0
                           </Button>
+                          {integrationCard?.marketplaceUrl && (
+                            <Button size="sm" variant="outline" asChild>
+                              <a
+                                href={integrationCard.marketplaceUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                              >
+                                Öppna Marketplace
+                              </a>
+                            </Button>
+                          )}
                           <Button size="sm" variant="outline" onClick={openIntegrationsPanel}>
                             Öppna Integrationspanelen
                           </Button>
@@ -641,6 +675,15 @@ type ToolIntegrationSummary = {
   status?: string;
 };
 
+type IntegrationCardData = {
+  name: string;
+  status?: string;
+  intentLabel?: string;
+  envKeys: string[];
+  marketplaceUrl?: string | null;
+  sourceEvent?: string | null;
+};
+
 function getToolIntegrationSummary(
   tool: Partial<ToolUIPart> & { input?: unknown; output?: unknown; type?: string },
 ): ToolIntegrationSummary | null {
@@ -666,6 +709,43 @@ function getToolIntegrationSummary(
     name: name || undefined,
     envKeys: envKeys.length > 0 ? envKeys : undefined,
     status: status || undefined,
+  };
+}
+
+function getIntegrationCardData(
+  tool: Partial<ToolUIPart> & { input?: unknown; output?: unknown; type?: string },
+): IntegrationCardData | null {
+  const summary = getToolIntegrationSummary(tool);
+  const output = tool.output && typeof tool.output === "object" ? (tool.output as Record<string, unknown>) : null;
+  const intentRaw = typeof output?.intent === "string" ? output.intent : null;
+  const intentLabel =
+    intentRaw === "install"
+      ? "Installera"
+      : intentRaw === "connect"
+        ? "Koppla"
+        : intentRaw === "env_vars"
+          ? "Konfigurera miljövariabler"
+          : intentRaw === "configure"
+            ? "Konfigurera"
+            : undefined;
+  const marketplaceUrl =
+    (typeof output?.marketplaceUrl === "string" && output.marketplaceUrl) ||
+    (typeof output?.installUrl === "string" && output.installUrl) ||
+    null;
+  const sourceEvent = typeof output?.sourceEvent === "string" ? output.sourceEvent : null;
+  const name = summary?.name || (typeof output?.name === "string" ? output.name : null) || null;
+  const envKeys = summary?.envKeys ?? [];
+  const status =
+    summary?.status || (typeof output?.status === "string" ? output.status : undefined);
+
+  if (!name && envKeys.length === 0 && !marketplaceUrl && !intentLabel) return null;
+  return {
+    name: name || "Integration",
+    status,
+    intentLabel,
+    envKeys,
+    marketplaceUrl,
+    sourceEvent,
   };
 }
 

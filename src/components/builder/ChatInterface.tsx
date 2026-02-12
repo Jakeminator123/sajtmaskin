@@ -37,6 +37,10 @@ import {
   fetchRegistrySummary,
   type RegistrySummary,
 } from "@/lib/shadcn-registry-service";
+import {
+  DESIGN_THEME_OPTIONS,
+  type DesignTheme,
+} from "@/lib/builder/theme-presets";
 import type { InspectorSelection } from "@/lib/builder/types";
 import type { DetectedSection } from "@/lib/builder/sectionAnalyzer";
 import { debugLog } from "@/lib/utils/debug";
@@ -62,6 +66,8 @@ interface ChatInterfaceProps {
   onStartFromTemplate?: (templateId: string) => void;
   onPaletteSelection?: (selection: PaletteSelection) => void;
   paletteSelections?: PaletteSelection[];
+  designTheme?: DesignTheme;
+  onDesignThemeChange?: (theme: DesignTheme) => void;
   onEnhancePrompt?: (message: string) => Promise<string>;
   isBusy?: boolean;
   isPreparingPrompt?: boolean;
@@ -124,6 +130,8 @@ export function ChatInterface({
   onStartFromTemplate,
   onPaletteSelection,
   paletteSelections,
+  designTheme = "blue",
+  onDesignThemeChange,
   onEnhancePrompt,
   isBusy,
   isPreparingPrompt = false,
@@ -552,7 +560,7 @@ export function ChatInterface({
 
       // Format: Short user summary + technical instructions for v0
       // The UI will show the summary, technical details are collapsible
-      const fullMessage = `Lägg till shadcn/ui-${isComponent ? "komponent" : "block"}: **${itemTitle}**${deps}
+      const fullMessage = `Lägg till UI‑element (${isComponent ? "komponent" : "block"}): **${itemTitle}**${deps}
 📍 Placering: ${placementLabel}
 
 ---
@@ -572,6 +580,21 @@ ${technicalPrompt}`;
       setIsDesignSystemAction(false);
     }
   };
+
+  const handleDesignThemeSelect = useCallback(
+    async (theme: DesignTheme) => {
+      if (!onDesignThemeChange) return;
+      onDesignThemeChange(theme);
+      const label =
+        DESIGN_THEME_OPTIONS.find((option) => option.value === theme)?.label || theme;
+      toast.success(
+        theme === "off"
+          ? "Designsystem-tema avstängt."
+          : `Designsystem-tema uppdaterat: ${label}.`,
+      );
+    },
+    [onDesignThemeChange],
+  );
 
   const handleAiElementAction = async (
     item: AiElementCatalogItem,
@@ -740,13 +763,13 @@ ${technicalPrompt}`;
               className="h-8 gap-2"
               onClick={() => setIsShadcnPickerOpen(true)}
               disabled={inputDisabled}
-              title={`shadcn/ui · ${registryStatusTitle}`}
+              title={`Designsystem · ${registryStatusTitle}`}
             >
               <Blocks className="h-3.5 w-3.5" />
               <span className="flex items-center gap-1">
-                <span>shadcn/ui</span>
+                <span>Designsystem</span>
                 <span className="text-muted-foreground max-w-[150px] truncate text-[10px]">
-                  • {registryStatusLabel}
+                  • tema + element
                 </span>
               </span>
               {registryStatus === "loading" && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
@@ -906,6 +929,8 @@ ${technicalPrompt}`;
         onConfirm={handleDesignSystemAction}
         onSelectAiElement={handleAiElementAction}
         onSelectTemplate={handleTemplateSelect}
+        currentTheme={designTheme}
+        onSelectTheme={handleDesignThemeSelect}
         paletteSelections={paletteSelections}
         isBusy={inputDisabled}
         isSubmitting={isDesignSystemAction}

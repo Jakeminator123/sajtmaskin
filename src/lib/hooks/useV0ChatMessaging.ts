@@ -325,6 +325,98 @@ function coerceUiParts(data: unknown): UiMessagePart[] {
   return [];
 }
 
+type IntegrationSseSignal = {
+  key?: string;
+  name?: string;
+  provider?: string;
+  status?: string;
+  intent?: "install" | "connect" | "configure" | "env_vars";
+  envVars?: string[];
+  marketplaceUrl?: string | null;
+  sourceEvent?: string | null;
+};
+
+function coerceIntegrationSignals(data: unknown): IntegrationSseSignal[] {
+  const rawItems =
+    Array.isArray(data)
+      ? data
+      : data && typeof data === "object" && Array.isArray((data as { items?: unknown[] }).items)
+        ? (data as { items: unknown[] }).items
+        : data && typeof data === "object"
+          ? [data]
+          : [];
+
+  return rawItems
+    .map((item) => {
+      if (!item || typeof item !== "object") return null;
+      const signal = item as Record<string, unknown>;
+      const envVars = Array.isArray(signal.envVars)
+        ? signal.envVars.map((value) => String(value)).filter(Boolean)
+        : [];
+      return {
+        key: typeof signal.key === "string" ? signal.key : undefined,
+        name: typeof signal.name === "string" ? signal.name : undefined,
+        provider: typeof signal.provider === "string" ? signal.provider : undefined,
+        status: typeof signal.status === "string" ? signal.status : undefined,
+        intent:
+          signal.intent === "install" ||
+          signal.intent === "connect" ||
+          signal.intent === "configure" ||
+          signal.intent === "env_vars"
+            ? signal.intent
+            : undefined,
+        envVars: envVars.length > 0 ? envVars : undefined,
+        marketplaceUrl:
+          typeof signal.marketplaceUrl === "string" ? signal.marketplaceUrl : undefined,
+        sourceEvent: typeof signal.sourceEvent === "string" ? signal.sourceEvent : undefined,
+      } as IntegrationSseSignal;
+    })
+    .filter((item): item is IntegrationSseSignal => Boolean(item));
+}
+
+function buildIntegrationSteps(signal: IntegrationSseSignal): string[] {
+  const steps: string[] = [];
+  if (signal.name) steps.push(`Integration: ${signal.name}`);
+  if (signal.provider && signal.provider !== signal.name) {
+    steps.push(`Provider: ${signal.provider}`);
+  }
+  if (signal.intent) {
+    const label =
+      signal.intent === "env_vars"
+        ? "Konfigurera miljövariabler"
+        : signal.intent === "install"
+          ? "Installera integration"
+          : signal.intent === "connect"
+            ? "Koppla integration"
+            : "Konfigurera integration";
+    steps.push(`Åtgärd: ${label}`);
+  }
+  if (signal.envVars && signal.envVars.length > 0) {
+    steps.push(`Miljövariabler: ${signal.envVars.join(", ")}`);
+  }
+  if (signal.status) {
+    steps.push(`Status: ${signal.status}`);
+  }
+  if (signal.marketplaceUrl) {
+    steps.push(`Marketplace: ${signal.marketplaceUrl}`);
+  }
+  return steps;
+}
+
+function integrationSignalToToolPart(signal: IntegrationSseSignal, fallbackId: string): UiMessagePart {
+  const toolCallId = signal.key ? `integration:${signal.key}` : `integration:${fallbackId}`;
+  return {
+    type: "tool:integration-suggestion",
+    toolName: "Integration suggestion",
+    toolCallId,
+    state: "output-available",
+    output: {
+      ...signal,
+      steps: buildIntegrationSteps(signal),
+    },
+  } as UiMessagePart;
+}
+
 function mergeUiParts(prev: UiMessagePart[] | undefined, next: UiMessagePart[]): UiMessagePart[] {
   if (next.length === 0) return prev ?? [];
   const merged = [...(prev ?? [])];
@@ -1664,6 +1756,27 @@ export function useV0ChatMessaging(params: {
                   }
                   break;
                 }
+                case "integration": {
+                  const signals = coerceIntegrationSignals(data);
+                  if (signals.length > 0) {
+                    const integrationParts = signals.map((signal, index) =>
+                      integrationSignalToToolPart(signal, `${assistantMessageId}:${index}`),
+                    );
+                    recordStreamParts(streamStats, integrationParts.length);
+                    setMessages((prev) =>
+                      prev.map((m) =>
+                        m.id === assistantMessageId
+                          ? {
+                              ...m,
+                              uiParts: mergeUiParts(m.uiParts, integrationParts),
+                              isStreaming: true,
+                            }
+                          : m,
+                      ),
+                    );
+                  }
+                  break;
+                }
                 case "chatId": {
                   const nextChatId =
                     typeof data === "string"
@@ -2113,6 +2226,27 @@ export function useV0ChatMessaging(params: {
                         ? {
                             ...m,
                             uiParts: mergeUiParts(m.uiParts, nextParts),
+                            isStreaming: true,
+                          }
+                        : m,
+                    ),
+                  );
+                }
+                break;
+              }
+              case "integration": {
+                const signals = coerceIntegrationSignals(data);
+                if (signals.length > 0) {
+                  const integrationParts = signals.map((signal, index) =>
+                    integrationSignalToToolPart(signal, `${assistantMessageId}:${index}`),
+                  );
+                  recordStreamParts(streamStats, integrationParts.length);
+                  setMessages((prev) =>
+                    prev.map((m) =>
+                      m.id === assistantMessageId
+                        ? {
+                            ...m,
+                            uiParts: mergeUiParts(m.uiParts, integrationParts),
                             isStreaming: true,
                           }
                         : m,

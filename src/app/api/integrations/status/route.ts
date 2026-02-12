@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { FEATURES, REDIS_CONFIG } from "@/lib/config";
+import { DB_ENV_VARS, resolveConfiguredDbEnv } from "@/lib/db/env";
 
 type IntegrationStatus = {
   id: string;
@@ -32,41 +33,8 @@ function getUpstashEnv(): { enabled: boolean; notes?: string } {
   return { enabled: false, notes: "ratelimit: memory" };
 }
 
-const DB_ENV_VARS = [
-  "POSTGRES_URL",
-  "POSTGRES_PRISMA_URL",
-  "POSTGRES_URL_NON_POOLING",
-  "DATABASE_URL",
-] as const;
-
-function sanitizeEnvValue(value: string | undefined): string | null {
-  if (!value) return null;
-  const trimmed = value.trim();
-  if (!trimmed) return null;
-  if (
-    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
-    (trimmed.startsWith("'") && trimmed.endsWith("'"))
-  ) {
-    const stripped = trimmed.slice(1, -1).trim();
-    return stripped || null;
-  }
-  return trimmed;
-}
-
-function resolveDbEnv(): { name: string; value: string } | null {
-  for (const name of DB_ENV_VARS) {
-    const raw = sanitizeEnvValue(process.env[name]);
-    if (!raw) continue;
-    if (/^\$\{[A-Z0-9_]+\}$/.test(raw) || /^\$[A-Z0-9_]+$/.test(raw)) {
-      continue;
-    }
-    return { name, value: raw };
-  }
-  return null;
-}
-
 function getPostgresEnv(): { enabled: boolean; notes?: string } {
-  const resolved = resolveDbEnv();
+  const resolved = resolveConfiguredDbEnv();
   if (resolved) {
     return { enabled: true, notes: `using: ${resolved.name}` };
   }
