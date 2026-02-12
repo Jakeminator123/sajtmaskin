@@ -14,11 +14,13 @@ export async function GET() {
     features: {
       redis: FEATURES.useRedisCache,
       v0: FEATURES.useV0Api,
+      imageGenerations: FEATURES.useV0Api,
       vercel: FEATURES.useVercelApi,
       vercelBlob: FEATURES.useVercelBlob,
     },
     featureReasons: {
       v0: FEATURES.useV0Api ? null : "Missing V0_API_KEY",
+      imageGenerations: FEATURES.useV0Api ? null : "Missing V0_API_KEY",
       vercelBlob: FEATURES.useVercelBlob ? null : "Missing BLOB_READ_WRITE_TOKEN",
     },
   };

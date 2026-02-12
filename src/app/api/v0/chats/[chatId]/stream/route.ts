@@ -27,9 +27,12 @@ import { normalizeV0Error } from "@/lib/v0/errors";
 import { sendMessageSchema } from "@/lib/validations/chatSchemas";
 import { WARN_CHAT_MESSAGE_CHARS, WARN_CHAT_SYSTEM_CHARS } from "@/lib/builder/promptLimits";
 import { orchestratePromptMessage } from "@/lib/builder/promptOrchestration";
+import { resolveModelSelection } from "@/lib/v0/modelSelection";
 
 export const runtime = "nodejs";
 export const maxDuration = 600;
+const STREAM_RESOLVE_MAX_ATTEMPTS = 6;
+const STREAM_RESOLVE_DELAY_MS = 1200;
 
 function appendPreview(current: string, incoming: string, max = 320): string {
   if (!incoming) return current;
@@ -80,6 +83,15 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
 
       const { message, attachments, modelId, thinking, imageGenerations, system, meta } =
         validationResult.data;
+      const metaRequestedModelTier =
+        typeof (meta as { modelTier?: unknown })?.modelTier === "string"
+          ? String((meta as { modelTier?: string }).modelTier)
+          : null;
+      const modelSelection = resolveModelSelection({
+        requestedModelId: modelId,
+        requestedModelTier: metaRequestedModelTier,
+        fallbackTier: "v0-max",
+      });
 
       let existingChat = await getChatByV0ChatIdForRequest(req, chatId, { sessionId });
 
@@ -147,9 +159,10 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
       const internalChatId: string = existingChat.id;
       const requestStartedAt = Date.now();
 
-      const resolvedModelId = modelId ?? "v0-max";
+      const resolvedModelId = modelSelection.modelId;
+      const resolvedModelTier = modelSelection.modelTier;
       const resolvedThinking =
-        typeof thinking === "boolean" ? thinking : resolvedModelId === "v0-max";
+        typeof thinking === "boolean" ? thinking : resolvedModelTier === "v0-max";
       const resolvedImageGenerations =
         typeof imageGenerations === "boolean" ? imageGenerations : true;
       const metaBuildMethod =
@@ -192,6 +205,9 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
         originalMessageLength: message.length,
         attachments: Array.isArray(attachments) ? attachments.length : 0,
         modelId: resolvedModelId,
+        modelTier: resolvedModelTier,
+        customModelIdIgnored: modelSelection.customModelIdIgnored,
+        usingCustomModelId: modelSelection.usingCustomModelId,
         thinking: resolvedThinking,
         imageGenerations: resolvedImageGenerations,
         promptStrategy: strategyMeta.strategy,
@@ -515,8 +531,8 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
                   const resolved = await resolveLatestVersion(chatId, {
                     preferVersionId: lastVersionId,
                     preferDemoUrl: lastDemoUrl,
-                    maxAttempts: 12,
-                    delayMs: 3000,
+                    maxAttempts: STREAM_RESOLVE_MAX_ATTEMPTS,
+                    delayMs: STREAM_RESOLVE_DELAY_MS,
                   });
                   const finalVersionId = resolved.versionId || lastVersionId || null;
                   const finalDemoUrl = resolved.demoUrl || lastDemoUrl || null;
@@ -547,9 +563,10 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
                     safeEnqueue(
                       encoder.encode(
                         formatSSEEvent("error", {
+                          code: "preview_unavailable",
                           message:
                             resolved.errorMessage ||
-                            "No preview version was generated. Please try again.",
+                            "No preview version was generated. Retry the prompt or run preview repair.",
                         }),
                       ),
                     );

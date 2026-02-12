@@ -19,6 +19,9 @@ interface PreviewPanelProps {
   refreshToken?: number;
   onInspectorSelection?: (selection: InspectorSelection | null) => void;
   inspectorClearToken?: number;
+  imageGenerationsEnabled?: boolean;
+  imageGenerationsSupported?: boolean;
+  isBlobConfigured?: boolean;
 }
 
 type IntegrationItem = {
@@ -46,6 +49,9 @@ export function PreviewPanel({
   refreshToken,
   onInspectorSelection,
   inspectorClearToken,
+  imageGenerationsEnabled = true,
+  imageGenerationsSupported = true,
+  isBlobConfigured = false,
 }: PreviewPanelProps) {
   const [iframeLoading, setIframeLoading] = useState(true);
   const [iframeError, setIframeError] = useState(false);
@@ -333,6 +339,11 @@ export function PreviewPanel({
   const isV0Preview = Boolean(demoUrl && demoUrl.includes("vusercontent.net"));
   const showBlobWarning = Boolean(demoUrl && blobStatus && !blobStatus.enabled);
   const showExternalWarning = Boolean(demoUrl && isV0Preview);
+  const showImagesDisabledWarning = Boolean(demoUrl && !imageGenerationsEnabled);
+  const showImagesUnsupportedWarning = Boolean(
+    demoUrl && imageGenerationsEnabled && !imageGenerationsSupported,
+  );
+  const showBlobConfigWarning = Boolean(demoUrl && imageGenerationsEnabled && !isBlobConfigured);
 
   return (
     <div className="flex h-full flex-col bg-black/40">
@@ -413,7 +424,13 @@ export function PreviewPanel({
           </Button>
         </div>
       </div>
-      {!showCode && (showBlobWarning || showExternalWarning || integrationError) && (
+      {!showCode &&
+        (showBlobWarning ||
+          showExternalWarning ||
+          integrationError ||
+          showImagesDisabledWarning ||
+          showImagesUnsupportedWarning ||
+          showBlobConfigWarning) && (
         <div className="border-b border-yellow-900/40 bg-yellow-950/30 px-4 py-2 text-xs text-yellow-200">
           {showExternalWarning && (
             <div>
@@ -425,6 +442,18 @@ export function PreviewPanel({
             <div>
               Vercel Blob saknas. AI‑bilder och uppladdningar visas inte i preview förrän
               BLOB_READ_WRITE_TOKEN är konfigurerad.
+            </div>
+          )}
+          {showImagesDisabledWarning && (
+            <div>AI-bilder är avstängda i chat-inställningarna för den här sessionen.</div>
+          )}
+          {showImagesUnsupportedWarning && (
+            <div>v0-bildgenerering är inte tillgänglig just nu (saknad/ogiltig v0-konfiguration).</div>
+          )}
+          {showBlobConfigWarning && (
+            <div>
+              Blob är inte aktivt. Bilder kan skapas av v0 men saknas i preview tills blob är
+              konfigurerad.
             </div>
           )}
           {integrationError && (

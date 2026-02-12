@@ -6,6 +6,8 @@ type LatestVersionResult = {
   demoUrl: string | null;
   status: string | null;
   errorMessage: string | null;
+  attempts: number;
+  elapsedMs: number;
 };
 
 type ResolveLatestVersionOptions = {
@@ -49,8 +51,12 @@ export async function resolveLatestVersion(
   let status: string | null = null;
   let latestChat: unknown | null = null;
   let errorMessage: string | null = null;
+  const startedAt = Date.now();
+  let attempts = 0;
+  const terminalStatuses = new Set(["failed", "error", "completed", "done", "cancelled"]);
 
   for (let attempt = 0; attempt < maxAttempts; attempt += 1) {
+    attempts = attempt + 1;
     try {
       latestChat = await v0.chats.getById({ chatId });
       const extracted = extractLatestVersion(latestChat as any);
@@ -61,6 +67,9 @@ export async function resolveLatestVersion(
 
       if (versionId && demoUrl) break;
       if (status === "failed") break;
+      if (status && terminalStatuses.has(status.toLowerCase()) && !versionId && !demoUrl && attempt >= 2) {
+        break;
+      }
     } catch (error) {
       errorMessage = error instanceof Error ? error.message : "Unknown error";
       if (attempt >= maxAttempts - 1) break;
@@ -72,5 +81,13 @@ export async function resolveLatestVersion(
     }
   }
 
-  return { latestChat, versionId, demoUrl, status, errorMessage };
+  return {
+    latestChat,
+    versionId,
+    demoUrl,
+    status,
+    errorMessage,
+    attempts,
+    elapsedMs: Date.now() - startedAt,
+  };
 }

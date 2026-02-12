@@ -12,6 +12,7 @@ import { ensureSessionIdFromRequest } from "@/lib/auth/session";
 import { devLogAppend } from "@/lib/logging/devLog";
 import { WARN_CHAT_MESSAGE_CHARS, WARN_CHAT_SYSTEM_CHARS } from "@/lib/builder/promptLimits";
 import { orchestratePromptMessage } from "@/lib/builder/promptOrchestration";
+import { resolveModelSelection } from "@/lib/v0/modelSelection";
 
 export async function POST(req: Request, ctx: { params: Promise<{ chatId: string }> }) {
   const session = ensureSessionIdFromRequest(req);
@@ -41,15 +42,25 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
 
       const { message, attachments, modelId, thinking, imageGenerations, system, meta } =
         validationResult.data;
+      const metaRequestedModelTier =
+        typeof (meta as { modelTier?: unknown })?.modelTier === "string"
+          ? String((meta as { modelTier?: string }).modelTier)
+          : null;
+      const modelSelection = resolveModelSelection({
+        requestedModelId: modelId,
+        requestedModelTier: metaRequestedModelTier,
+        fallbackTier: "v0-max",
+      });
 
       const dbChat = await getChatByV0ChatIdForRequest(req, chatId);
       if (!dbChat) {
         return attachSessionCookie(NextResponse.json({ error: "Chat not found" }, { status: 404 }));
       }
 
-      const resolvedModelId = modelId || "v0-max";
+      const resolvedModelId = modelSelection.modelId;
+      const resolvedModelTier = modelSelection.modelTier;
       const resolvedThinking =
-        typeof thinking === "boolean" ? thinking : resolvedModelId === "v0-max";
+        typeof thinking === "boolean" ? thinking : resolvedModelTier === "v0-max";
       const resolvedImageGenerations =
         typeof imageGenerations === "boolean" ? imageGenerations : true;
       const metaBuildMethod =
@@ -90,6 +101,9 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
         chatId,
         message: optimizedMessage,
         modelId: resolvedModelId,
+        modelTier: resolvedModelTier,
+        customModelIdIgnored: modelSelection.customModelIdIgnored,
+        usingCustomModelId: modelSelection.usingCustomModelId,
         slug: metaBuildMethod || metaBuildIntent || undefined,
         promptType: strategyMeta.promptType,
         promptStrategy: strategyMeta.strategy,

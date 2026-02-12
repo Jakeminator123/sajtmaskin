@@ -43,7 +43,7 @@ type AutoFixPayload = {
 const CREATE_CHAT_LOCK_KEY = "sajtmaskin:createChatLock";
 const CREATE_CHAT_LOCK_TTL_MS = 2 * 60 * 1000;
 // Max time a stream can be active before force-clearing isStreaming
-const STREAM_SAFETY_TIMEOUT_MS = 10 * 60 * 1000;
+const STREAM_SAFETY_TIMEOUT_MS = 3 * 60 * 1000;
 
 function getSessionStorage(): Storage | null {
   if (typeof window === "undefined") return null;
@@ -210,6 +210,11 @@ type StreamDebugStats = {
   versionId?: string | null;
 };
 
+type StreamQualitySignal = {
+  hasCriticalAnomaly: boolean;
+  reasons: string[];
+};
+
 function initStreamStats(streamType: StreamDebugStats["streamType"], assistantMessageId: string) {
   const now = Date.now();
   const stats: StreamDebugStats = {
@@ -263,7 +268,7 @@ function recordStreamParts(stats: StreamDebugStats, partsCount: number) {
   stats.partsEvents += 1;
 }
 
-function finalizeStreamStats(stats: StreamDebugStats) {
+function finalizeStreamStats(stats: StreamDebugStats): StreamQualitySignal {
   const durationMs = Date.now() - stats.startedAt;
   const summary = {
     streamType: stats.streamType,
@@ -287,14 +292,22 @@ function finalizeStreamStats(stats: StreamDebugStats) {
 
   debugLog("v0", "Stream summary", summary);
 
-  const shouldWarn =
-    !stats.didReceiveDone ||
-    (stats.contentEvents > 0 && stats.finalContentLength === 0) ||
-    (stats.thinkingEvents > 0 && stats.finalThinkingLength === 0);
-
-  if (shouldWarn) {
-    warnLog("v0", "Stream anomaly detected", summary);
+  const reasons: string[] = [];
+  if (!stats.didReceiveDone) {
+    reasons.push("done_event_missing");
   }
+  if (stats.contentEvents > 0 && stats.finalContentLength === 0) {
+    reasons.push("content_empty_after_events");
+  }
+  if (stats.thinkingEvents > 0 && stats.finalThinkingLength === 0) {
+    reasons.push("thinking_empty_after_events");
+  }
+
+  const hasCriticalAnomaly = reasons.length > 0;
+  if (hasCriticalAnomaly) {
+    warnLog("v0", "Stream anomaly detected", { ...summary, reasons });
+  }
+  return { hasCriticalAnomaly, reasons };
 }
 
 function appendAttachmentPrompt(
@@ -684,8 +697,14 @@ function buildStreamErrorMessage(errorData: Record<string, unknown> | null): str
   if (code === "forbidden") {
     return "Åtkomst nekad av v0 (403). Kontrollera behörigheter.";
   }
+  if (code === "preview_unavailable") {
+    return "Preview-version kunde inte fastställas från streamen. Försök igen eller kör reparera preview.";
+  }
   if (looksLikeUnsupportedModelError(rawMessage)) {
     return `Model ID avvisades av v0: "${rawMessage}". Prova ett annat custom modelId eller byt tillbaka till mini/pro/max.`;
+  }
+  if (rawMessage.toLowerCase().includes("no preview version was generated")) {
+    return "Preview-version saknas efter streamen. Försök igen eller kör reparera preview.";
   }
   return (
     rawMessage ||
@@ -1066,6 +1085,7 @@ async function runPostGenerationChecks(params: {
   demoUrl?: string | null;
   assistantMessageId: string;
   setMessages: (next: ChatMessage[] | ((prev: ChatMessage[]) => ChatMessage[])) => void;
+  streamQuality?: StreamQualitySignal;
   onAutoFix?: (payload: {
     chatId: string;
     versionId: string;
@@ -1073,7 +1093,8 @@ async function runPostGenerationChecks(params: {
     meta?: Record<string, unknown>;
   }) => void;
 }) {
-  const { chatId, versionId, demoUrl, assistantMessageId, setMessages, onAutoFix } = params;
+  const { chatId, versionId, demoUrl, assistantMessageId, setMessages, streamQuality, onAutoFix } =
+    params;
   const toolCallId = `post-check:${versionId}`;
   const controller = new AbortController();
 
@@ -1175,6 +1196,50 @@ async function runPostGenerationChecks(params: {
       steps.push("Preview-länk saknas för versionen.");
     }
 
+    const changedFilesCount = changes
+      ? changes.added.length + changes.modified.length + changes.removed.length
+      : 1;
+    const qualityGateFailures: string[] = [];
+    if (changedFilesCount === 0) {
+      qualityGateFailures.push("no_file_changes");
+    }
+    if (!finalDemoUrl) {
+      qualityGateFailures.push("missing_preview_url");
+    }
+    if (streamQuality?.hasCriticalAnomaly) {
+      qualityGateFailures.push(`stream_anomaly:${streamQuality.reasons.join(",")}`);
+    }
+    const qualityGatePassed = qualityGateFailures.length === 0;
+    steps.push(
+      qualityGatePassed
+        ? "Quality gate: PASS (changes + preview + stream quality)."
+        : `Quality gate: FAIL (${qualityGateFailures.join(" | ")}).`,
+    );
+
+    const regressionMatrix = [
+      {
+        id: "A_long_prompt_plan_mode",
+        status: "manual",
+        expectation: "No aggressive truncation; plan remains concise and complete.",
+      },
+      {
+        id: "B_model_tier_change_mid_session",
+        status: "manual",
+        expectation: "Model resolution stays deterministic without stale custom overrides.",
+      },
+      {
+        id: "C_images_on_off_and_blob_on_off",
+        status:
+          imageValidation?.broken?.length && imageValidation.broken.length > 0 ? "fail" : "pass",
+        expectation: "Image flow reflects AI toggle + blob availability in preview.",
+      },
+      {
+        id: "D_missing_version_or_demo_from_stream",
+        status: finalDemoUrl ? "pass" : "fail",
+        expectation: "Stream finalization surfaces explicit fallback/retry state.",
+      },
+    ] as const;
+
     const output = {
       steps,
       summary: {
@@ -1191,6 +1256,11 @@ async function runPostGenerationChecks(params: {
       imageValidation,
       previousVersionId,
       demoUrl: finalDemoUrl,
+      qualityGate: {
+        passed: qualityGatePassed,
+        failures: qualityGateFailures,
+      },
+      regressionMatrix,
     };
 
     const logItems: VersionErrorLogPayload[] = [];
@@ -1235,6 +1305,14 @@ async function runPostGenerationChecks(params: {
         category: "images",
         message: "Bildvalidering rapporterade varningar.",
         meta: { warnings: imageValidation.warnings },
+      });
+    }
+    if (!qualityGatePassed) {
+      logItems.push({
+        level: "error",
+        category: "quality-gate",
+        message: "Quality gate failed after generation.",
+        meta: { failures: qualityGateFailures },
       });
     }
 
@@ -1392,17 +1470,30 @@ export function useV0ChatMessaging(params: {
   const lastSentSystemPromptRef = useRef<string | null>(null);
 
   const streamingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const startStreamSafetyTimer = useCallback(() => {
+  const touchStreamSafetyTimer = useCallback(() => {
     if (streamingTimerRef.current) clearTimeout(streamingTimerRef.current);
     streamingTimerRef.current = setTimeout(() => {
       streamingTimerRef.current = null;
       warnLog("v0", "Stream safety timeout reached — force-clearing isStreaming");
       streamAbortRef.current?.abort();
-      setMessages((prev: ChatMessage[]) =>
-        prev.map((m: ChatMessage) => (m.isStreaming ? { ...m, isStreaming: false } : m)),
-      );
+      setMessages((prev: ChatMessage[]) => {
+        const timeoutNotice =
+          "Varning: Stream timeout nåddes innan ett stabilt slut kom tillbaka. Försök igen eller kör reparera preview.";
+        return prev.map((m: ChatMessage) => {
+          if (!m.isStreaming) return m;
+          const content = m.content || "";
+          if (content.includes("Stream timeout")) {
+            return { ...m, isStreaming: false };
+          }
+          const nextContent = content.trim() ? `${content}\n\n${timeoutNotice}` : timeoutNotice;
+          return { ...m, content: nextContent, isStreaming: false };
+        });
+      });
     }, STREAM_SAFETY_TIMEOUT_MS);
   }, [setMessages]);
+  const startStreamSafetyTimer = useCallback(() => {
+    touchStreamSafetyTimer();
+  }, [touchStreamSafetyTimer]);
   const clearStreamSafetyTimer = useCallback(() => {
     if (streamingTimerRef.current) {
       clearTimeout(streamingTimerRef.current);
@@ -1677,10 +1768,15 @@ export function useV0ChatMessaging(params: {
           let accumulatedThinking = "";
           let accumulatedContent = "";
           let didReceiveDone = false;
+          const postCheckQueue: Array<{ chatId: string; versionId: string; demoUrl?: string | null }> =
+            [];
+          const materializeQueue: Array<{ chatId: string; versionId: string }> = [];
+          let streamQuality: StreamQualitySignal = { hasCriticalAnomaly: false, reasons: [] };
           const streamStats = initStreamStats("create", assistantMessageId);
 
           try {
             await consumeSseResponse(response, (event, data) => {
+              touchStreamSafetyTimer();
               switch (event) {
                 case "meta": {
                   const meta = typeof data === "object" && data ? (data as any) : {};
@@ -1864,20 +1960,14 @@ export function useV0ChatMessaging(params: {
                     demoUrl: doneData.demoUrl,
                   });
                   if (resolvedChatId && resolvedVersionId) {
-                    void triggerImageMaterialization({
+                    materializeQueue.push({
                       chatId: String(resolvedChatId),
                       versionId: String(resolvedVersionId),
-                      enabled: enableImageMaterialization,
                     });
-                  }
-                  if (resolvedChatId && resolvedVersionId) {
-                    void runPostGenerationChecks({
+                    postCheckQueue.push({
                       chatId: String(resolvedChatId),
                       versionId: String(resolvedVersionId),
                       demoUrl: doneData.demoUrl ?? null,
-                      assistantMessageId,
-                      setMessages,
-                      onAutoFix: (payload) => autoFixHandlerRef.current(payload),
                     });
                   }
                   break;
@@ -1893,10 +1983,13 @@ export function useV0ChatMessaging(params: {
             streamAbortRef.current = null;
             streamStats.chatId = streamStats.chatId ?? chatIdFromStream ?? null;
             streamStats.didReceiveDone = streamStats.didReceiveDone || didReceiveDone;
-            finalizeStreamStats(streamStats);
+            streamQuality = finalizeStreamStats(streamStats);
           }
 
-          if (!chatIdFromStream && !didReceiveDone) {
+          if (!didReceiveDone) {
+            throw new Error("Stream ended before completion. Please retry the prompt.");
+          }
+          if (!chatIdFromStream) {
             throw new Error("No chat ID returned from stream");
           }
 
@@ -1909,6 +2002,30 @@ export function useV0ChatMessaging(params: {
               m.id === assistantMessageId ? { ...m, isStreaming: false } : m,
             );
           });
+          const latestMaterializePayload =
+            materializeQueue.length > 0 ? materializeQueue[materializeQueue.length - 1] : null;
+          if (latestMaterializePayload) {
+            const payload = latestMaterializePayload;
+            void triggerImageMaterialization({
+              chatId: payload.chatId,
+              versionId: payload.versionId,
+              enabled: enableImageMaterialization,
+            });
+          }
+          const latestPostCheckPayload =
+            postCheckQueue.length > 0 ? postCheckQueue[postCheckQueue.length - 1] : null;
+          if (latestPostCheckPayload) {
+            const payload = latestPostCheckPayload;
+            void runPostGenerationChecks({
+              chatId: payload.chatId,
+              versionId: payload.versionId,
+              demoUrl: payload.demoUrl ?? null,
+              assistantMessageId,
+              setMessages,
+              streamQuality,
+              onAutoFix: (payload) => autoFixHandlerRef.current(payload),
+            });
+          }
         } else {
           const data = await response.json();
           await handleNonStreamingCreate(data);
@@ -1992,6 +2109,7 @@ export function useV0ChatMessaging(params: {
       promptAssistDeep,
       promptAssistMode,
       startStreamSafetyTimer,
+      touchStreamSafetyTimer,
       clearStreamSafetyTimer,
     ],
   );
@@ -2116,6 +2234,9 @@ export function useV0ChatMessaging(params: {
         if (buildMethod) {
           promptMeta.buildMethod = buildMethod;
         }
+        promptMeta.modelTier = selectedModelTier;
+        promptMeta.modelId = selectedModelId;
+        promptMeta.imageGenerations = enableImageGenerations;
         requestBody = {
           message: finalMessage,
           modelId: selectedModelId,
@@ -2166,10 +2287,15 @@ export function useV0ChatMessaging(params: {
 
         let accumulatedThinking = "";
         let accumulatedContent = "";
+        const postCheckQueue: Array<{ chatId: string; versionId: string; demoUrl?: string | null }> =
+          [];
+        const materializeQueue: Array<{ chatId: string; versionId: string }> = [];
+        let streamQuality: StreamQualitySignal = { hasCriticalAnomaly: false, reasons: [] };
         const streamStats = initStreamStats("send", assistantMessageId);
 
         try {
           await consumeSseResponse(response, (event, data) => {
+            touchStreamSafetyTimer();
             switch (event) {
               case "thinking": {
                 const thinkingText =
@@ -2279,20 +2405,14 @@ export function useV0ChatMessaging(params: {
                   demoUrl: doneData.demoUrl,
                 });
                 if (chatId && resolvedVersionId) {
-                  void triggerImageMaterialization({
+                  materializeQueue.push({
                     chatId: String(chatId),
                     versionId: String(resolvedVersionId),
-                    enabled: enableImageMaterialization,
                   });
-                }
-                if (chatId && resolvedVersionId) {
-                  void runPostGenerationChecks({
+                  postCheckQueue.push({
                     chatId: String(chatId),
                     versionId: String(resolvedVersionId),
                     demoUrl: doneData.demoUrl ?? null,
-                    assistantMessageId,
-                    setMessages,
-                    onAutoFix: (payload) => autoFixHandlerRef.current(payload),
                   });
                 }
                 break;
@@ -2307,7 +2427,7 @@ export function useV0ChatMessaging(params: {
         } finally {
           streamAbortRef.current = null;
           streamStats.chatId = streamStats.chatId ?? chatId ?? null;
-          finalizeStreamStats(streamStats);
+          streamQuality = finalizeStreamStats(streamStats);
         }
 
         // Ensure isStreaming is false even if stream ends without "done" event (fail-safe)
@@ -2318,6 +2438,33 @@ export function useV0ChatMessaging(params: {
             m.id === assistantMessageId ? { ...m, isStreaming: false } : m,
           );
         });
+        if (!streamStats.didReceiveDone) {
+          throw new Error("Stream ended before completion. Please retry the prompt.");
+        }
+        const latestMaterializePayload =
+          materializeQueue.length > 0 ? materializeQueue[materializeQueue.length - 1] : null;
+        if (latestMaterializePayload) {
+          const payload = latestMaterializePayload;
+          void triggerImageMaterialization({
+            chatId: payload.chatId,
+            versionId: payload.versionId,
+            enabled: enableImageMaterialization,
+          });
+        }
+        const latestPostCheckPayload =
+          postCheckQueue.length > 0 ? postCheckQueue[postCheckQueue.length - 1] : null;
+        if (latestPostCheckPayload) {
+          const payload = latestPostCheckPayload;
+          void runPostGenerationChecks({
+            chatId: payload.chatId,
+            versionId: payload.versionId,
+            demoUrl: payload.demoUrl ?? null,
+            assistantMessageId,
+            setMessages,
+            streamQuality,
+            onAutoFix: (payload) => autoFixHandlerRef.current(payload),
+          });
+        }
       } catch (error) {
         let finalError = error;
         if (isNetworkError(error) && requestBody) {
@@ -2383,6 +2530,7 @@ export function useV0ChatMessaging(params: {
       planModeFirstPromptEnabled,
       mutateVersions,
       startStreamSafetyTimer,
+      touchStreamSafetyTimer,
       clearStreamSafetyTimer,
     ],
   );

@@ -36,9 +36,12 @@ import { devLogAppend, devLogFinalizeSite, devLogStartNewSite } from "@/lib/logg
 import { debugLog, errorLog, warnLog } from "@/lib/utils/debug";
 import { sanitizeV0Metadata } from "@/lib/v0/sanitize-metadata";
 import { createPromptLog } from "@/lib/db/services";
+import { resolveModelSelection } from "@/lib/v0/modelSelection";
 
 export const runtime = "nodejs";
 export const maxDuration = 600;
+const STREAM_RESOLVE_MAX_ATTEMPTS = 6;
+const STREAM_RESOLVE_DELAY_MS = 1200;
 
 function appendPreview(current: string, incoming: string, max = 320): string {
   if (!incoming) return current;
@@ -103,6 +106,17 @@ export async function POST(req: Request) {
         chatPrivacy,
         meta,
       } = validationResult.data;
+      const metaRequestedModelTier =
+        typeof (meta as { modelTier?: unknown })?.modelTier === "string"
+          ? String((meta as { modelTier?: string }).modelTier)
+          : null;
+      const modelSelection = resolveModelSelection({
+        requestedModelId: modelId,
+        requestedModelTier: metaRequestedModelTier,
+        fallbackTier: "v0-max",
+      });
+      const resolvedModelId = modelSelection.modelId;
+      const resolvedModelTier = modelSelection.modelTier;
       const metaBuildMethod =
         typeof (meta as { buildMethod?: unknown })?.buildMethod === "string"
           ? (meta as { buildMethod?: string }).buildMethod
@@ -127,7 +141,8 @@ export async function POST(req: Request) {
       const optimizedMessage = promptOrchestration.finalMessage;
       const trimmedSystemPrompt = typeof system === "string" ? system.trim() : "";
       const hasSystemPrompt = Boolean(trimmedSystemPrompt);
-      const resolvedThinking = typeof thinking === "boolean" ? thinking : modelId === "v0-max";
+      const resolvedThinking =
+        typeof thinking === "boolean" ? thinking : resolvedModelTier === "v0-max";
       const resolvedImageGenerations =
         typeof imageGenerations === "boolean" ? imageGenerations : true;
       const resolvedChatPrivacy = chatPrivacy ?? "private";
@@ -146,7 +161,7 @@ export async function POST(req: Request) {
         });
       }
       const creditContext = {
-        modelId,
+        modelId: resolvedModelId,
         thinking: resolvedThinking,
         imageGenerations: resolvedImageGenerations,
         attachmentsCount: Array.isArray(attachments) ? attachments.length : 0,
@@ -228,7 +243,7 @@ export async function POST(req: Request) {
               : null,
           buildIntent: metaBuildIntent,
           buildMethod: metaBuildMethod,
-          modelTier: modelId,
+          modelTier: resolvedModelTier,
           imageGenerations: resolvedImageGenerations,
           thinking: resolvedThinking,
           attachmentsCount: Array.isArray(attachments) ? attachments.length : 0,
@@ -239,7 +254,10 @@ export async function POST(req: Request) {
       }
 
       debugLog("v0", "v0 chat stream request", {
-        modelId,
+        modelId: resolvedModelId,
+        modelTier: resolvedModelTier,
+        customModelIdIgnored: modelSelection.customModelIdIgnored,
+        usingCustomModelId: modelSelection.usingCustomModelId,
         promptLength: optimizedMessage.length,
         originalPromptLength: message.length,
         attachments: Array.isArray(attachments) ? attachments.length : 0,
@@ -254,7 +272,7 @@ export async function POST(req: Request) {
       });
       devLogAppend("in-progress", {
         type: "comm.request.create",
-        modelId,
+        modelId: resolvedModelId,
         chatPrivacy: resolvedChatPrivacy,
         message: optimizedMessage,
         slug: metaBuildMethod || metaBuildIntent || undefined,
@@ -270,7 +288,7 @@ export async function POST(req: Request) {
 
       devLogStartNewSite({
         message: optimizedMessage,
-        modelId,
+        modelId: resolvedModelId,
         thinking: resolvedThinking,
         imageGenerations: resolvedImageGenerations,
         projectId,
@@ -278,7 +296,7 @@ export async function POST(req: Request) {
       });
       if (process.env.NODE_ENV === "development") {
         console.log("[dev-log] site generation started", {
-          modelId,
+          modelId: resolvedModelId,
           projectId: projectId ?? null,
         });
       }
@@ -291,7 +309,7 @@ export async function POST(req: Request) {
         projectId,
         chatPrivacy: resolvedChatPrivacy,
         modelConfiguration: {
-          modelId,
+          modelId: resolvedModelId,
           thinking: resolvedThinking,
           imageGenerations: resolvedImageGenerations,
         },
@@ -375,7 +393,7 @@ export async function POST(req: Request) {
             safeEnqueue(
               encoder.encode(
                 formatSSEEvent("meta", {
-                  modelId,
+                  modelId: resolvedModelId,
                   thinking: resolvedThinking,
                   imageGenerations: resolvedImageGenerations,
                   chatPrivacy: resolvedChatPrivacy,
@@ -706,8 +724,8 @@ export async function POST(req: Request) {
                   const resolved = await resolveLatestVersion(v0ChatId, {
                     preferVersionId: lastVersionId,
                     preferDemoUrl: lastDemoUrl,
-                    maxAttempts: 12,
-                    delayMs: 3000,
+                    maxAttempts: STREAM_RESOLVE_MAX_ATTEMPTS,
+                    delayMs: STREAM_RESOLVE_DELAY_MS,
                   });
                   const finalVersionId = resolved.versionId || lastVersionId || null;
                   const finalDemoUrl = resolved.demoUrl || lastDemoUrl || null;
@@ -738,9 +756,10 @@ export async function POST(req: Request) {
                     safeEnqueue(
                       encoder.encode(
                         formatSSEEvent("error", {
+                          code: "preview_unavailable",
                           message:
                             resolved.errorMessage ||
-                            "No preview version was generated. Please try again.",
+                            "No preview version was generated. Retry the prompt or run preview repair.",
                         }),
                       ),
                     );
@@ -854,7 +873,8 @@ export async function POST(req: Request) {
         NextResponse.json({
           ...chatData,
           meta: {
-            modelId,
+            modelId: resolvedModelId,
+            modelTier: resolvedModelTier,
             thinking: resolvedThinking,
             imageGenerations: resolvedImageGenerations,
             chatPrivacy: resolvedChatPrivacy,

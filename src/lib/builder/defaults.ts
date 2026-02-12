@@ -68,6 +68,14 @@ export const EXPERIMENTAL_MODEL_ID_OPTIONS: ExperimentalModelIdOption[] = [
   { value: "claude-opus-4.6-fast", label: "Claude Opus 4.6 FAST (experimental)" },
 ];
 
+/**
+ * Experimental custom model IDs are explicitly opt-in and disabled in production.
+ * This keeps runtime model resolution deterministic for end users.
+ */
+export const ENABLE_EXPERIMENTAL_MODEL_ID =
+  process.env.NODE_ENV !== "production" &&
+  process.env.NEXT_PUBLIC_ENABLE_EXPERIMENTAL_MODEL_ID === "1";
+
 /** Default model tier for new chats */
 export const DEFAULT_MODEL_TIER: ModelTier = "v0-max";
 
@@ -243,4 +251,6 @@ export const PLAN_MODE_SYSTEM_INSTRUCTION = `## Plan Mode (First Prompt Only)
 - Before implementing changes, produce a concise execution plan with clear steps.
 - Wait for explicit user confirmation before major structural changes.
 - Keep the plan practical and focused on this request only.
+- Limit the plan to max 8 bullets and keep total plan text under ~1600 characters.
+- Preserve critical visual/design requirements from the original prompt; do not drop key constraints.
 - After confirmation, implement in small validated increments.`;

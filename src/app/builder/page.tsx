@@ -43,15 +43,15 @@ import {
 import { createProject, getProject, saveProjectData, updateProject } from "@/lib/project-client";
 import {
   DEFAULT_CUSTOM_INSTRUCTIONS,
+  DEFAULT_IMAGE_GENERATIONS,
   DEFAULT_MODEL_TIER,
   DEFAULT_PROMPT_ASSIST,
   DEFAULT_SPEC_MODE,
   DEFAULT_THINKING,
-  EXPERIMENTAL_MODEL_ID_OPTIONS,
+  ENABLE_EXPERIMENTAL_MODEL_ID,
   PLAN_MODE_SYSTEM_INSTRUCTION,
   SPEC_FILE_INSTRUCTION,
   getDefaultPromptAssistModel,
-  getPromptAssistModelOptions,
   MODEL_TIER_OPTIONS,
 } from "@/lib/builder/defaults";
 import { useChat } from "@/lib/hooks/useChat";
@@ -68,13 +68,11 @@ import type { QualityLevel } from "@/lib/v0/v0-generator";
 import { cn } from "@/lib/utils";
 import { debugLog } from "@/lib/utils/debug";
 import type { ImageAssetStrategy } from "@/lib/imageAssets";
-import { Check, HelpCircle, Loader2 } from "lucide-react";
-import { motion, AnimatePresence } from "framer-motion";
+import { Loader2 } from "lucide-react";
 import { ThinkingOverlay } from "@/components/builder/ThinkingOverlay";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import toast, { Toaster } from "react-hot-toast";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 type CreateChatOptions = {
   attachments?: V0UserFileAttachment[];
@@ -86,6 +84,51 @@ const MODEL_TIER_TO_QUALITY: Record<ModelTier, QualityLevel> = {
   "v0-pro": "standard",
   "v0-max": "max",
 };
+
+type ChatGenerationSettings = {
+  modelTier: ModelTier;
+  customModelId: string;
+  planModeFirstPrompt: boolean;
+  imageGenerations: boolean;
+};
+
+const CHAT_GENERATION_SETTINGS_PREFIX = "sajtmaskin:chatGenerationSettings:";
+const MODEL_TIER_SET = new Set<ModelTier>(MODEL_TIER_OPTIONS.map((option) => option.value));
+
+function buildChatGenerationSettingsKey(chatId: string): string {
+  return `${CHAT_GENERATION_SETTINGS_PREFIX}${chatId}`;
+}
+
+function readChatGenerationSettings(chatId: string): ChatGenerationSettings | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(buildChatGenerationSettingsKey(chatId));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as Partial<ChatGenerationSettings> | null;
+    if (!parsed || typeof parsed !== "object") return null;
+    if (!parsed.modelTier || !MODEL_TIER_SET.has(parsed.modelTier as ModelTier)) return null;
+    return {
+      modelTier: parsed.modelTier as ModelTier,
+      customModelId: typeof parsed.customModelId === "string" ? parsed.customModelId.trim() : "",
+      planModeFirstPrompt: Boolean(parsed.planModeFirstPrompt),
+      imageGenerations:
+        typeof parsed.imageGenerations === "boolean"
+          ? parsed.imageGenerations
+          : DEFAULT_IMAGE_GENERATIONS,
+    };
+  } catch {
+    return null;
+  }
+}
+
+function writeChatGenerationSettings(chatId: string, settings: ChatGenerationSettings): void {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(buildChatGenerationSettingsKey(chatId), JSON.stringify(settings));
+  } catch {
+    // ignore storage errors
+  }
+}
 
 function BuilderContent() {
   const router = useRouter();
@@ -126,7 +169,7 @@ function BuilderContent() {
   const [isSandboxModalOpen, setIsSandboxModalOpen] = useState(false);
   const [isDeploying, setIsDeploying] = useState(false);
   const [isSavingProject, setIsSavingProject] = useState(false);
-  const [enableImageGenerations, setEnableImageGenerations] = useState(true);
+  const [enableImageGenerations, setEnableImageGenerations] = useState(DEFAULT_IMAGE_GENERATIONS);
   const [enableThinking, setEnableThinking] = useState(DEFAULT_THINKING);
   const [enableBlobMedia, setEnableBlobMedia] = useState(true);
   const [isImageGenerationsSupported, setIsImageGenerationsSupported] = useState(true);
@@ -156,13 +199,7 @@ function BuilderContent() {
     Boolean(promptParam || promptId || source === "audit"),
   );
   const [isTemplateLoading, setIsTemplateLoading] = useState(false);
-  const [isModelSelectOpen, setIsModelSelectOpen] = useState(false);
   const [isPreparingPrompt, setIsPreparingPrompt] = useState(false);
-  const [pendingCreate, setPendingCreate] = useState<{
-    message: string;
-    options?: CreateChatOptions;
-  } | null>(null);
-  const [hasSelectedModelTier, setHasSelectedModelTier] = useState(false);
   const [appProjectId, setAppProjectId] = useState<string | null>(projectParam);
   const [appProjectName, setAppProjectName] = useState<string | null>(null);
   const [pendingProjectName, setPendingProjectName] = useState<string | null>(null);
@@ -191,14 +228,15 @@ function BuilderContent() {
   const lastActiveVersionIdRef = useRef<string | null>(null);
   const promptFetchInFlightRef = useRef<string | null>(null);
   const promptFetchDoneRef = useRef<string | null>(null);
+  const loadedGenerationSettingsChatRef = useRef<string | null>(null);
+  const applyingGenerationSettingsRef = useRef(false);
 
-  const selectedTierOption = useMemo(
-    () => MODEL_TIER_OPTIONS.find((option) => option.value === selectedModelTier),
-    [selectedModelTier],
-  );
+  const allowExperimentalModelId = ENABLE_EXPERIMENTAL_MODEL_ID;
   const normalizedCustomModelId = useMemo(() => customModelId.trim(), [customModelId]);
-  const selectedModelId = normalizedCustomModelId || selectedModelTier;
-  const isUsingCustomModelId = Boolean(normalizedCustomModelId);
+  const selectedModelId =
+    allowExperimentalModelId && normalizedCustomModelId
+      ? normalizedCustomModelId
+      : selectedModelTier;
   const isThinkingSupported = selectedModelTier !== "v0-mini";
   const effectiveThinking = enableThinking && isThinkingSupported;
   const resolvedBuildIntent = useMemo(
@@ -209,28 +247,6 @@ function BuilderContent() {
     () => (buildMethod === "kostnadsfri" ? null : getThemeColors(designTheme)),
     [buildMethod, designTheme],
   );
-  const assistModelLabel = useMemo(() => {
-    const options = getPromptAssistModelOptions();
-    const match = options.find((o) => o.value === promptAssistModel);
-    return match?.label || promptAssistModel || "Okänd";
-  }, [promptAssistModel]);
-  const promptPreview = useMemo(() => {
-    const value = pendingCreate?.message?.trim() || "";
-    if (!value) return "Ingen prompt hittades.";
-    if (value.length <= 360) return value;
-    return `${value.slice(0, 360)}…`;
-  }, [pendingCreate]);
-  const hasCustomInstructions = useMemo(() => {
-    const trimmed = customInstructions.trim();
-    if (!trimmed) return false;
-    return trimmed !== DEFAULT_CUSTOM_INSTRUCTIONS.trim();
-  }, [customInstructions]);
-  const instructionsPreview = useMemo(() => {
-    const trimmed = customInstructions.trim();
-    if (!trimmed) return "Inga instruktioner.";
-    if (trimmed.length <= 220) return trimmed;
-    return `${trimmed.slice(0, 220)}…`;
-  }, [customInstructions]);
 
   useEffect(() => {
     if (!promptId) return;
@@ -377,24 +393,15 @@ function BuilderContent() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
+    // Cleanup legacy global keys to prevent stale cross-chat leakage.
     try {
-      const stored = localStorage.getItem("sajtmaskin:aiImages");
-      if (stored !== null) {
-        setEnableImageGenerations(stored === "true");
-      }
+      localStorage.removeItem("sajtmaskin:aiImages");
+      localStorage.removeItem("sajtmaskin:customModelId");
+      localStorage.removeItem("sajtmaskin:planModeFirstPrompt");
     } catch {
       // ignore storage errors
     }
   }, []);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      localStorage.setItem("sajtmaskin:aiImages", String(enableImageGenerations));
-    } catch {
-      // ignore storage errors
-    }
-  }, [enableImageGenerations]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -418,50 +425,69 @@ function BuilderContent() {
   }, [enableThinking]);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      const stored = localStorage.getItem("sajtmaskin:customModelId");
-      if (stored !== null) {
-        setCustomModelId(stored.trim());
-      }
-    } catch {
-      // ignore storage errors
+    if (!allowExperimentalModelId && customModelId) {
+      setCustomModelId("");
     }
-  }, []);
+  }, [allowExperimentalModelId, customModelId]);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      if (normalizedCustomModelId) {
-        localStorage.setItem("sajtmaskin:customModelId", normalizedCustomModelId);
-      } else {
-        localStorage.removeItem("sajtmaskin:customModelId");
-      }
-    } catch {
-      // ignore storage errors
+    if (!chatId) {
+      loadedGenerationSettingsChatRef.current = null;
+      return;
     }
-  }, [normalizedCustomModelId]);
+    if (loadedGenerationSettingsChatRef.current === chatId) {
+      return;
+    }
+    const stored = readChatGenerationSettings(chatId);
+    applyingGenerationSettingsRef.current = true;
+    if (stored) {
+      setSelectedModelTier(stored.modelTier);
+      setCustomModelId(allowExperimentalModelId ? stored.customModelId : "");
+      setPlanModeFirstPrompt(Boolean(stored.planModeFirstPrompt));
+      setEnableImageGenerations(Boolean(stored.imageGenerations));
+    } else {
+      writeChatGenerationSettings(chatId, {
+        modelTier: selectedModelTier,
+        customModelId: allowExperimentalModelId ? normalizedCustomModelId : "",
+        planModeFirstPrompt,
+        imageGenerations: enableImageGenerations,
+      });
+    }
+    loadedGenerationSettingsChatRef.current = chatId;
+    applyingGenerationSettingsRef.current = false;
+  }, [
+    chatId,
+    allowExperimentalModelId,
+    selectedModelTier,
+    normalizedCustomModelId,
+    planModeFirstPrompt,
+    enableImageGenerations,
+  ]);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      const stored = localStorage.getItem("sajtmaskin:planModeFirstPrompt");
-      if (stored !== null) {
-        setPlanModeFirstPrompt(stored === "true");
-      }
-    } catch {
-      // ignore storage errors
-    }
-  }, []);
+    if (!chatId) return;
+    if (applyingGenerationSettingsRef.current) return;
+    if (loadedGenerationSettingsChatRef.current !== chatId) return;
+    writeChatGenerationSettings(chatId, {
+      modelTier: selectedModelTier,
+      customModelId: allowExperimentalModelId ? normalizedCustomModelId : "",
+      planModeFirstPrompt,
+      imageGenerations: enableImageGenerations,
+    });
+  }, [
+    chatId,
+    allowExperimentalModelId,
+    selectedModelTier,
+    normalizedCustomModelId,
+    planModeFirstPrompt,
+    enableImageGenerations,
+  ]);
 
   useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      localStorage.setItem("sajtmaskin:planModeFirstPrompt", String(planModeFirstPrompt));
-    } catch {
-      // ignore storage errors
-    }
-  }, [planModeFirstPrompt]);
+    // Plan mode applies to the first prompt of a chat only.
+    if (!chatId || !planModeFirstPrompt) return;
+    setPlanModeFirstPrompt(false);
+  }, [chatId, planModeFirstPrompt]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -835,6 +861,9 @@ function BuilderContent() {
         if (!isActive) return;
         setIsMediaEnabled(blobEnabled);
         setIsImageGenerationsSupported(v0Enabled);
+        if (!v0Enabled) {
+          setEnableImageGenerations(false);
+        }
         if (!v0Enabled && !featureWarnedRef.current.v0) {
           featureWarnedRef.current.v0 = true;
           const reason = reasons?.v0 || "V0_API_KEY saknas";
@@ -1704,32 +1733,8 @@ function BuilderContent() {
     [customInstructions, planModeFirstPrompt],
   );
 
-  const confirmModelSelection = useCallback(async () => {
-    const pending = pendingCreate;
-    setIsModelSelectOpen(false);
-    setPendingCreate(null);
-    setHasSelectedModelTier(true);
-    if (!pending) return;
-    const dynamicInstructions = await applyDynamicInstructionsForNewChat(pending.message);
-    captureInstructionSnapshot();
-    const systemOverride = buildFirstPromptSystemOverride(dynamicInstructions);
-    // Pass dynamic instructions directly to avoid state race condition
-    await createNewChat(pending.message, pending.options, systemOverride);
-  }, [
-    pendingCreate,
-    createNewChat,
-    captureInstructionSnapshot,
-    applyDynamicInstructionsForNewChat,
-    buildFirstPromptSystemOverride,
-  ]);
-
   const requestCreateChat = useCallback(
     async (message: string, options?: CreateChatOptions) => {
-      if (!chatId && !hasSelectedModelTier) {
-        setPendingCreate({ message, options });
-        setIsModelSelectOpen(true);
-        return false;
-      }
       setEntryIntentActive(false);
       const dynamicInstructions = await applyDynamicInstructionsForNewChat(message);
       captureInstructionSnapshot();
@@ -1739,8 +1744,6 @@ function BuilderContent() {
       return true;
     },
     [
-      chatId,
-      hasSelectedModelTier,
       createNewChat,
       captureInstructionSnapshot,
       applyDynamicInstructionsForNewChat,
@@ -1760,8 +1763,7 @@ function BuilderContent() {
     if (autoGenerateTriggeredRef.current) return;
     autoGenerateTriggeredRef.current = true;
 
-    // Skip model selection for kostnadsfri — use max tier and auto-start
-    setHasSelectedModelTier(true);
+    // Use deterministic tier defaults for kostnadsfri auto-start.
     setSelectedModelTier("v0-max");
     setCustomModelId("");
 
@@ -1816,7 +1818,6 @@ function BuilderContent() {
         }
         setMessages([]);
         setCurrentDemoUrl(data.demoUrl || null);
-        setHasSelectedModelTier(true);
         if (appProjectId) {
           saveProjectData(appProjectId, {
             chatId: data.chatId,
@@ -1837,7 +1838,6 @@ function BuilderContent() {
       setChatId,
       setMessages,
       setCurrentDemoUrl,
-      setHasSelectedModelTier,
       appProjectId,
       applyAppProjectId,
       searchParams,
@@ -1974,9 +1974,10 @@ function BuilderContent() {
     setMessages([]);
     setIsImportModalOpen(false);
     setIsSandboxModalOpen(false);
-    setIsModelSelectOpen(false);
-    setPendingCreate(null);
-    setHasSelectedModelTier(false);
+    setSelectedModelTier(DEFAULT_MODEL_TIER);
+    setCustomModelId("");
+    setPlanModeFirstPrompt(false);
+    setEnableImageGenerations(DEFAULT_IMAGE_GENERATIONS);
     setCustomInstructions(DEFAULT_CUSTOM_INSTRUCTIONS);
     setApplyInstructionsOnce(false);
     pendingInstructionsRef.current = null;
@@ -2092,6 +2093,7 @@ function BuilderContent() {
         <BuilderHeader
           selectedModelTier={selectedModelTier}
           onSelectedModelTierChange={setSelectedModelTier}
+          allowExperimentalModelId={allowExperimentalModelId}
           customModelId={customModelId}
           onCustomModelIdChange={setCustomModelId}
           promptAssistModel={promptAssistModel}
@@ -2319,6 +2321,9 @@ function BuilderContent() {
                 versionId={activeVersionId}
                 demoUrl={currentDemoUrl}
                 isLoading={isAnyStreaming || isCreatingChat}
+                imageGenerationsEnabled={enableImageGenerations}
+                imageGenerationsSupported={isImageGenerationsSupported}
+                isBlobConfigured={isMediaEnabled}
                 onClear={handleClearPreview}
                 onFixPreview={handleFixPreview}
                 refreshToken={previewRefreshToken}
@@ -2367,7 +2372,6 @@ function BuilderContent() {
             }
             setMessages([]);
             setCurrentDemoUrl(null);
-            setHasSelectedModelTier(true);
           }}
         />
 
@@ -2385,193 +2389,6 @@ function BuilderContent() {
           }}
           reason={authModalReason ?? "builder"}
         />
-
-        <AnimatePresence>
-        {isModelSelectOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center">
-            <motion.div
-              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => {
-                setIsModelSelectOpen(false);
-                setPendingCreate(null);
-              }}
-            />
-            <motion.div
-              className="border-border bg-background relative z-10 w-full max-w-lg rounded-xl border p-6 shadow-2xl"
-              initial={{ opacity: 0, scale: 0.95, y: 10 }}
-              animate={{ opacity: 1, scale: 1, y: 0 }}
-              exit={{ opacity: 0, scale: 0.95, y: 10 }}
-              transition={{ duration: 0.2, ease: "easeOut" }}
-            >
-              <div className="mb-4">
-                <h2 className="text-foreground text-lg font-semibold">
-                  Välj modell för första prompten
-                </h2>
-                <p className="text-muted-foreground mt-1 text-sm">
-                  Detta är första prompten i en ny chat. Du kan ändra senare i toppmenyn.
-                </p>
-              </div>
-              <div className="border-border bg-muted/40 text-muted-foreground mb-4 flex items-start gap-2 rounded-lg border p-3 text-xs">
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <span className="mt-0.5 cursor-help">
-                        <HelpCircle className="h-4 w-4" />
-                      </span>
-                    </TooltipTrigger>
-                    <TooltipContent side="right" className="max-w-xs">
-                      <p className="text-xs">
-                        Den här bekräftelsen visas bara för första prompten i en ny chat. Din prompt
-                        skickas som naturligt språk. Om Prompt Assist är på så skrivs prompten om
-                        innan v0 kör, medan system‑instruktioner skickas separat.
-                      </p>
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-                <div className="space-y-1">
-                  <div className="text-foreground text-sm font-medium">
-                    Bekräfta första körningen
-                  </div>
-                  <div>
-                    Vi visar en snabb översikt för att säkerställa att rätt modell och assist‑val
-                    används innan chatId skapas.
-                  </div>
-                </div>
-              </div>
-              <div className="mb-4 space-y-2 text-xs">
-                <div className="border-border bg-background/60 flex items-center justify-between rounded-lg border px-3 py-2">
-                  <span className="text-muted-foreground">v0 modelId</span>
-                  <span className="text-foreground font-medium">
-                    {selectedModelId}
-                  </span>
-                </div>
-                <div className="border-border bg-background/60 flex items-center justify-between rounded-lg border px-3 py-2">
-                  <span className="text-muted-foreground">Bas-tier (fallback i UI)</span>
-                  <span className="text-foreground font-medium">
-                    {selectedTierOption?.label || selectedModelTier}
-                  </span>
-                </div>
-                <div className="border-border bg-background/60 flex items-center justify-between rounded-lg border px-3 py-2">
-                  <span className="text-muted-foreground">Förbättra‑modell</span>
-                  <span className="text-foreground font-medium">
-                    {assistModelLabel}
-                    {isGatewayAssistModel(promptAssistModel) && promptAssistDeep ? " • Deep" : ""}
-                  </span>
-                </div>
-                <div className="border-border bg-background/60 flex items-center justify-between rounded-lg border px-3 py-2">
-                  <span className="text-muted-foreground">AI‑bilder</span>
-                  <span className="text-foreground font-medium">
-                    {enableImageGenerations ? "På" : "Av"}
-                    {!isImageGenerationsSupported && (
-                      <span className="text-muted-foreground ml-2 text-xs">(v0 saknas)</span>
-                    )}
-                  </span>
-                </div>
-                <div className="border-border bg-background/60 flex items-center justify-between rounded-lg border px-3 py-2">
-                  <span className="text-muted-foreground">Plan-läge (första prompten)</span>
-                  <span className="text-foreground font-medium">
-                    {planModeFirstPrompt ? "På" : "Av"}
-                  </span>
-                </div>
-                <div className="border-border bg-background/60 rounded-lg border px-3 py-2">
-                  <div className="text-muted-foreground">System‑instruktioner</div>
-                  <div className="text-foreground mt-1">
-                    {hasCustomInstructions ? instructionsPreview : "Standard"}
-                  </div>
-                </div>
-                <div className="border-border bg-background/60 rounded-lg border px-3 py-2">
-                  <div className="text-muted-foreground">Första prompten</div>
-                  <div className="text-foreground mt-1 whitespace-pre-wrap">{promptPreview}</div>
-                </div>
-              </div>
-              <div className="space-y-2">
-                {MODEL_TIER_OPTIONS.map((option) => {
-                  const isSelected = selectedModelTier === option.value;
-                  return (
-                    <button
-                      key={option.value}
-                      type="button"
-                      onClick={() => setSelectedModelTier(option.value)}
-                      className={cn(
-                        "w-full rounded-lg border px-4 py-3 text-left transition-colors",
-                        isSelected
-                          ? "border-brand-blue/60 bg-brand-blue/10"
-                          : "border-border hover:border-brand-blue/40",
-                      )}
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <span className="text-foreground text-sm font-medium">
-                            {option.label}
-                          </span>
-                          {option.hint ? (
-                            <span className="bg-brand-amber/20 text-brand-amber rounded-full px-2 py-0.5 text-[10px]">
-                              {option.hint}
-                            </span>
-                          ) : null}
-                        </div>
-                        {isSelected ? <Check className="text-brand-blue h-4 w-4" /> : null}
-                      </div>
-                      <p className="text-muted-foreground mt-1 text-xs">{option.description}</p>
-                    </button>
-                  );
-                })}
-              </div>
-              <div className="mt-4 space-y-2 rounded-lg border p-3">
-                <div className="text-sm font-medium">Experimentellt custom modelId (v0)</div>
-                <div className="text-muted-foreground text-xs">
-                  Testa nya modelId manuellt. Om v0 nekar visas tydligt fel och du kan försöka igen.
-                </div>
-                <Input
-                  value={customModelId}
-                  onChange={(event) => setCustomModelId(event.target.value)}
-                  placeholder="t.ex. opus-4.6-fast"
-                />
-                <div className="flex flex-wrap gap-2">
-                  {EXPERIMENTAL_MODEL_ID_OPTIONS.map((option) => (
-                    <Button
-                      key={option.value}
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCustomModelId(option.value)}
-                    >
-                      {option.value}
-                    </Button>
-                  ))}
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setCustomModelId("")}
-                    disabled={!isUsingCustomModelId}
-                  >
-                    Återställ
-                  </Button>
-                </div>
-                <div className="text-muted-foreground text-xs">
-                  Aktivt skickat modelId: <span className="font-mono">{selectedModelId}</span>
-                </div>
-              </div>
-              <div className="mt-6 flex items-center justify-end gap-2">
-                <Button
-                  variant="ghost"
-                  onClick={() => {
-                    setIsModelSelectOpen(false);
-                    setPendingCreate(null);
-                  }}
-                >
-                  Avbryt
-                </Button>
-                <Button onClick={confirmModelSelection}>Fortsätt</Button>
-              </div>
-            </motion.div>
-          </div>
-        )}
-        </AnimatePresence>
       </main>
     </ErrorBoundary>
   );

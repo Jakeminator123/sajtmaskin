@@ -51,6 +51,7 @@ import { useEffect, useId, useState } from "react";
 export function BuilderHeader(props: {
   selectedModelTier: ModelTier;
   onSelectedModelTierChange: (tier: ModelTier) => void;
+  allowExperimentalModelId: boolean;
   customModelId: string;
   onCustomModelIdChange: (modelId: string) => void;
 
@@ -100,6 +101,7 @@ export function BuilderHeader(props: {
   const {
     selectedModelTier,
     onSelectedModelTierChange,
+    allowExperimentalModelId,
     customModelId,
     onCustomModelIdChange,
     promptAssistModel,
@@ -143,7 +145,11 @@ export function BuilderHeader(props: {
   const isBusy = isAnyStreaming || isCreatingChat;
   const currentModel = MODEL_TIER_OPTIONS.find((m) => m.value === selectedModelTier);
   const normalizedCustomModelId = customModelId.trim();
-  const modelButtonLabel = normalizedCustomModelId || currentModel?.label || "AI";
+  const activeModelLabel =
+    allowExperimentalModelId && normalizedCustomModelId
+      ? normalizedCustomModelId
+      : currentModel?.label || "AI";
+  const modelButtonLabel = activeModelLabel;
   const assistModelOptions = getPromptAssistModelOptions();
   const hasCustomAssistModel =
     Boolean(promptAssistModel) &&
@@ -211,48 +217,52 @@ export function BuilderHeader(props: {
               ))}
             </DropdownMenuRadioGroup>
 
-            <DropdownMenuSeparator />
-            <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">
-              Experimentellt v0 modelId
-            </DropdownMenuLabel>
-            {EXPERIMENTAL_MODEL_ID_OPTIONS.map((option) => (
-              <DropdownMenuItem
-                key={option.value}
-                disabled={isBusy}
-                onSelect={(event) => {
-                  event.preventDefault();
-                  onCustomModelIdChange(option.value);
-                }}
-              >
-                {option.label}
-              </DropdownMenuItem>
-            ))}
-            <DropdownMenuItem
-              disabled={isBusy}
-              onSelect={(event) => {
-                event.preventDefault();
-                const suggested = normalizedCustomModelId || "opus-4.6-fast";
-                const next = window.prompt("Ange custom v0 modelId:", suggested);
-                if (next === null) return;
-                onCustomModelIdChange(next.trim());
-              }}
-            >
-              Skriv in modelId manuellt...
-            </DropdownMenuItem>
-            <DropdownMenuItem
-              disabled={isBusy || !normalizedCustomModelId}
-              onSelect={(event) => {
-                event.preventDefault();
-                onCustomModelIdChange("");
-              }}
-            >
-              Återställ till tier-val
-            </DropdownMenuItem>
-            {normalizedCustomModelId ? (
-              <div className="text-muted-foreground px-2 pb-1 text-[11px]">
-                Aktivt modelId: <span className="font-mono">{normalizedCustomModelId}</span>
-              </div>
-            ) : null}
+            {allowExperimentalModelId && (
+              <>
+                <DropdownMenuSeparator />
+                <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">
+                  Experimentellt v0 modelId
+                </DropdownMenuLabel>
+                {EXPERIMENTAL_MODEL_ID_OPTIONS.map((option) => (
+                  <DropdownMenuItem
+                    key={option.value}
+                    disabled={isBusy}
+                    onSelect={(event) => {
+                      event.preventDefault();
+                      onCustomModelIdChange(option.value);
+                    }}
+                  >
+                    {option.label}
+                  </DropdownMenuItem>
+                ))}
+                <DropdownMenuItem
+                  disabled={isBusy}
+                  onSelect={(event) => {
+                    event.preventDefault();
+                    const suggested = normalizedCustomModelId || "opus-4.6-fast";
+                    const next = window.prompt("Ange custom v0 modelId:", suggested);
+                    if (next === null) return;
+                    onCustomModelIdChange(next.trim());
+                  }}
+                >
+                  Skriv in modelId manuellt...
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  disabled={isBusy || !normalizedCustomModelId}
+                  onSelect={(event) => {
+                    event.preventDefault();
+                    onCustomModelIdChange("");
+                  }}
+                >
+                  Återställ till tier-val
+                </DropdownMenuItem>
+                {normalizedCustomModelId ? (
+                  <div className="text-muted-foreground px-2 pb-1 text-[11px]">
+                    Aktivt modelId: <span className="font-mono">{normalizedCustomModelId}</span>
+                  </div>
+                ) : null}
+              </>
+            )}
 
             <DropdownMenuSeparator />
             <DropdownMenuLabel className="flex items-center gap-2">

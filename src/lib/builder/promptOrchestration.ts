@@ -1,8 +1,10 @@
 import type { BuildIntent, BuildMethod } from "@/lib/builder/build-intent";
 import {
   MAX_CHAT_MESSAGE_CHARS,
+  ORCHESTRATION_PLAN_MODE_PHASE_THRESHOLD_CHARS,
   ORCHESTRATION_PHASE_FORCE_AUDIT_CHARS,
   ORCHESTRATION_PHASE_FORCE_CHARS,
+  PLAN_MODE_MAX_PLAN_CHARS,
   ORCHESTRATION_SOFT_TARGET_APP_CHARS,
   ORCHESTRATION_SOFT_TARGET_AUDIT_CHARS,
   ORCHESTRATION_SOFT_TARGET_FOLLOWUP_CHARS,
@@ -57,6 +59,7 @@ type ComplexitySignals = {
   sectionMarkerCount: number;
   urlCount: number;
   requirementKeywordCount: number;
+  designKeywordCount: number;
 };
 
 const SECTION_MARKERS = [
@@ -87,6 +90,23 @@ const REQUIREMENT_MARKERS = [
   "seo",
   "performance",
   "responsive",
+];
+
+const DESIGN_MARKERS = [
+  "figma",
+  "hero",
+  "layout",
+  "typography",
+  "font",
+  "palette",
+  "color",
+  "spacing",
+  "animation",
+  "motion",
+  "ui-element",
+  "designsystem",
+  "landing page",
+  "visual",
 ];
 
 const PHASE_HINTS = [
@@ -129,6 +149,11 @@ function looksTechnicalMessage(message: string): boolean {
     lower.includes("typescript") ||
     lower.includes("tsx")
   );
+}
+
+function looksDesignHeavyMessage(message: string): boolean {
+  const lower = toSafeLower(message);
+  return DESIGN_MARKERS.reduce((count, marker) => count + (lower.includes(marker) ? 1 : 0), 0) >= 3;
 }
 
 function detectPromptType(input: OrchestratePromptInput, normalizedMessage: string): PromptType {
@@ -174,6 +199,9 @@ function analyzeComplexity(message: string): ComplexitySignals {
   const requirementKeywordCount = REQUIREMENT_MARKERS.reduce((count, marker) => {
     return count + (joinedLower.includes(marker) ? 1 : 0);
   }, 0);
+  const designKeywordCount = DESIGN_MARKERS.reduce((count, marker) => {
+    return count + (joinedLower.includes(marker) ? 1 : 0);
+  }, 0);
 
   return {
     lineCount: lines.length,
@@ -182,6 +210,7 @@ function analyzeComplexity(message: string): ComplexitySignals {
     sectionMarkerCount,
     urlCount,
     requirementKeywordCount,
+    designKeywordCount,
   };
 }
 
@@ -193,6 +222,7 @@ function scoreComplexity(signals: ComplexitySignals, attachmentsCount: number): 
   if (signals.headingLikeCount > 6) score += 1;
   if (signals.sectionMarkerCount > 3) score += 1;
   if (signals.requirementKeywordCount > 5) score += 1;
+  if (signals.designKeywordCount > 4) score += 1;
   if (signals.urlCount > 3) score += 1;
   if (attachmentsCount > 4) score += 1;
   return score;
@@ -306,6 +336,7 @@ export function orchestratePromptMessage(input: OrchestratePromptInput): Orchest
   const attachmentsCount = Math.max(0, input.attachmentsCount ?? 0);
   const complexitySignals = analyzeComplexity(normalizedMessage);
   const complexityScore = scoreComplexity(complexitySignals, attachmentsCount);
+  const isDesignHeavy = looksDesignHeavyMessage(normalizedMessage);
 
   let strategy: PromptStrategy = "direct";
   let reason = "within_budget";
@@ -320,10 +351,14 @@ export function orchestratePromptMessage(input: OrchestratePromptInput): Orchest
     complexityScore >= 4 ||
     (promptType === "audit" && originalLength > Math.round(budgetTarget * 1.15)) ||
     (input.isFirstPrompt && toSafeLower(input.buildIntent) === "app" && originalLength > budgetTarget);
+  const planModePhaseThreshold = Math.max(
+    ORCHESTRATION_PLAN_MODE_PHASE_THRESHOLD_CHARS,
+    Math.round(phaseForceThreshold * 1.4),
+  );
   const prefersPhaseForPlanMode =
     input.isFirstPrompt &&
     Boolean(input.planModeFirstPromptEnabled) &&
-    originalLength > Math.round(budgetTarget * 1.15);
+    originalLength >= planModePhaseThreshold;
 
   if (normalizedMessage.length === 0) {
     reason = "empty_prompt";
@@ -335,12 +370,25 @@ export function orchestratePromptMessage(input: OrchestratePromptInput): Orchest
     strategy = "phase_plan_build_polish";
     reason = forcePhase ? "force_phase_threshold" : prefersPhaseForPlanMode ? "plan_mode_large_prompt" : "high_complexity";
     phaseHints = [...PHASE_HINTS];
-    const summary = summarizeMessage(normalizedMessage, Math.max(1200, Math.round(budgetTarget * 0.85)));
+    const summary = summarizeMessage(
+      normalizedMessage,
+      isDesignHeavy
+        ? Math.max(1_800, Math.round(budgetTarget * 0.95))
+        : Math.max(1_200, Math.round(budgetTarget * 0.85)),
+    );
     optimizedMessage = buildPhasedMessage(summary, promptType);
   } else {
     strategy = "summarize";
-    reason = "over_budget_summarized";
-    optimizedMessage = summarizeMessage(normalizedMessage, budgetTarget);
+    reason = isDesignHeavy ? "over_budget_summarized_design_safe" : "over_budget_summarized";
+    const summarizeTarget = isDesignHeavy
+      ? Math.min(hardCap - 120, Math.max(budgetTarget, Math.round(budgetTarget * 1.1)))
+      : budgetTarget;
+    optimizedMessage = summarizeMessage(normalizedMessage, summarizeTarget);
+  }
+
+  if (input.isFirstPrompt && input.planModeFirstPromptEnabled && optimizedMessage.length > PLAN_MODE_MAX_PLAN_CHARS) {
+    optimizedMessage = summarizeMessage(optimizedMessage, PLAN_MODE_MAX_PLAN_CHARS);
+    reason = `${reason}_plan_guardrail`;
   }
 
   if (optimizedMessage.length > hardCap) {

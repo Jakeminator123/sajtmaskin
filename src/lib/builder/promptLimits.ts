@@ -114,3 +114,21 @@ export const ORCHESTRATION_PHASE_FORCE_AUDIT_CHARS = readIntEnv(
   2_000,
   MAX_CHAT_MESSAGE_CHARS,
 );
+
+/**
+ * Plan mode guardrails:
+ * - Keep plan responses compact.
+ * - Avoid forcing aggressive phase condensation for medium-large prompts.
+ */
+export const PLAN_MODE_MAX_PLAN_CHARS = readIntEnv(
+  "SAJTMASKIN_PLAN_MODE_MAX_PLAN_CHARS",
+  1_600,
+  400,
+  10_000,
+);
+export const ORCHESTRATION_PLAN_MODE_PHASE_THRESHOLD_CHARS = readIntEnv(
+  "SAJTMASKIN_PLAN_MODE_PHASE_THRESHOLD_CHARS",
+  18_000,
+  4_000,
+  MAX_CHAT_MESSAGE_CHARS,
+);
