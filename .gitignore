@@ -55,6 +55,9 @@ mcp-monitoring-report.txt
 logs/
 manual_log/
 input_files_for_cursor/logg_*.txt
+DOM_dev_tols.txt
+chat_till_vanster.txt
+sajtmaskin-local-document.txt
 
 # Temp/dev files
 .preprompt_history.json

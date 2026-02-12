@@ -30,7 +30,7 @@ import { orchestratePromptMessage } from "@/lib/builder/promptOrchestration";
 import { resolveModelSelection } from "@/lib/v0/modelSelection";
 
 export const runtime = "nodejs";
-export const maxDuration = 600;
+export const maxDuration = 1200;
 const STREAM_RESOLVE_MAX_ATTEMPTS = 6;
 const STREAM_RESOLVE_DELAY_MS = 1200;
 
@@ -536,6 +536,9 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
                   });
                   const finalVersionId = resolved.versionId || lastVersionId || null;
                   const finalDemoUrl = resolved.demoUrl || lastDemoUrl || null;
+                  const hasAssistantReply = Boolean(
+                    assistantContentPreview.trim() || assistantThinkingPreview.trim(),
+                  );
 
                   if (finalVersionId) {
                     // Use upsert to prevent race condition
@@ -560,16 +563,43 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
 
                   didSendDone = true;
                   if (!finalVersionId && !finalDemoUrl) {
-                    safeEnqueue(
-                      encoder.encode(
-                        formatSSEEvent("error", {
-                          code: "preview_unavailable",
-                          message:
-                            resolved.errorMessage ||
-                            "No preview version was generated. Retry the prompt or run preview repair.",
-                        }),
-                      ),
-                    );
+                    if (hasAssistantReply) {
+                      safeEnqueue(
+                        encoder.encode(
+                          formatSSEEvent("done", {
+                            chatId,
+                            messageId: lastMessageId,
+                            versionId: null,
+                            demoUrl: null,
+                            awaitingInput: true,
+                          }),
+                        ),
+                      );
+
+                      devLogAppend("latest", {
+                        type: "comm.response.send",
+                        chatId,
+                        messageId: lastMessageId || null,
+                        versionId: null,
+                        demoUrl: null,
+                        awaitingInput: true,
+                        assistantPreview: assistantContentPreview || null,
+                        thinkingPreview: assistantThinkingPreview || null,
+                        toolCalls: Array.from(seenToolCalls),
+                      });
+                      await commitCreditsOnce();
+                    } else {
+                      safeEnqueue(
+                        encoder.encode(
+                          formatSSEEvent("error", {
+                            code: "preview_unavailable",
+                            message:
+                              resolved.errorMessage ||
+                              "No preview version was generated. Retry the prompt or run preview repair.",
+                          }),
+                        ),
+                      );
+                    }
                   } else {
                     safeEnqueue(
                       encoder.encode(

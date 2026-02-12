@@ -42,8 +42,10 @@ type AutoFixPayload = {
 
 const CREATE_CHAT_LOCK_KEY = "sajtmaskin:createChatLock";
 const CREATE_CHAT_LOCK_TTL_MS = 2 * 60 * 1000;
-// Max time a stream can be active before force-clearing isStreaming
-const STREAM_SAFETY_TIMEOUT_MS = 3 * 60 * 1000;
+// Max time a stream can be active before force-clearing isStreaming.
+// Plan mode gets a much larger timeout because first-turn planning can be long.
+const STREAM_SAFETY_TIMEOUT_DEFAULT_MS = 3 * 60 * 1000;
+const STREAM_SAFETY_TIMEOUT_PLAN_MODE_MS = 20 * 60 * 1000;
 
 function getSessionStorage(): Storage | null {
   if (typeof window === "undefined") return null;
@@ -1468,9 +1470,11 @@ export function useV0ChatMessaging(params: {
   const autoFixAttemptsRef = useRef<Record<string, number>>({});
   const autoFixHandlerRef = useRef<(payload: AutoFixPayload) => void>(() => {});
   const lastSentSystemPromptRef = useRef<string | null>(null);
+  const activeStreamTimeoutMsRef = useRef<number>(STREAM_SAFETY_TIMEOUT_DEFAULT_MS);
 
   const streamingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const touchStreamSafetyTimer = useCallback(() => {
+  const touchStreamSafetyTimer = useCallback((timeoutMs?: number) => {
+    const resolvedTimeoutMs = timeoutMs ?? activeStreamTimeoutMsRef.current;
     if (streamingTimerRef.current) clearTimeout(streamingTimerRef.current);
     streamingTimerRef.current = setTimeout(() => {
       streamingTimerRef.current = null;
@@ -1489,16 +1493,18 @@ export function useV0ChatMessaging(params: {
           return { ...m, content: nextContent, isStreaming: false };
         });
       });
-    }, STREAM_SAFETY_TIMEOUT_MS);
+    }, resolvedTimeoutMs);
   }, [setMessages]);
-  const startStreamSafetyTimer = useCallback(() => {
-    touchStreamSafetyTimer();
+  const startStreamSafetyTimer = useCallback((timeoutMs?: number) => {
+    activeStreamTimeoutMsRef.current = timeoutMs ?? STREAM_SAFETY_TIMEOUT_DEFAULT_MS;
+    touchStreamSafetyTimer(activeStreamTimeoutMsRef.current);
   }, [touchStreamSafetyTimer]);
   const clearStreamSafetyTimer = useCallback(() => {
     if (streamingTimerRef.current) {
       clearTimeout(streamingTimerRef.current);
       streamingTimerRef.current = null;
     }
+    activeStreamTimeoutMsRef.current = STREAM_SAFETY_TIMEOUT_DEFAULT_MS;
   }, []);
 
   useEffect(() => {
@@ -1737,7 +1743,10 @@ export function useV0ChatMessaging(params: {
         streamAbortRef.current?.abort();
         const streamController = new AbortController();
         streamAbortRef.current = streamController;
-        startStreamSafetyTimer();
+        const createTimeoutMs = planModeFirstPromptEnabled
+          ? STREAM_SAFETY_TIMEOUT_PLAN_MODE_MS
+          : STREAM_SAFETY_TIMEOUT_DEFAULT_MS;
+        startStreamSafetyTimer(createTimeoutMs);
 
         const response = await fetch("/api/v0/chats/stream", {
           method: "POST",
@@ -2261,7 +2270,7 @@ export function useV0ChatMessaging(params: {
         streamAbortRef.current?.abort();
         const streamController = new AbortController();
         streamAbortRef.current = streamController;
-        startStreamSafetyTimer();
+        startStreamSafetyTimer(STREAM_SAFETY_TIMEOUT_DEFAULT_MS);
 
         const response = await fetch(`/api/v0/chats/${chatId}/stream`, {
           method: "POST",

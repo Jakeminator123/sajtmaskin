@@ -39,7 +39,7 @@ import { createPromptLog } from "@/lib/db/services";
 import { resolveModelSelection } from "@/lib/v0/modelSelection";
 
 export const runtime = "nodejs";
-export const maxDuration = 600;
+export const maxDuration = 1200;
 const STREAM_RESOLVE_MAX_ATTEMPTS = 6;
 const STREAM_RESOLVE_DELAY_MS = 1200;
 
@@ -611,15 +611,19 @@ export async function POST(req: Request) {
                   const finalDemoUrl = demoUrl || lastDemoUrl;
                   const finalVersionId = versionId || lastVersionId;
 
-                  // Send "done" only when we have meaningful data:
-                  // - If we see a demoUrl, send done immediately (preview is ready)
-                  // - If we see a done event from v0 WITH version info, send done
-                  // - If done event without demoUrl/version, wait for finally block to resolve
+                  // Send "done" when:
+                  // - preview/version is available, OR
+                  // - v0 has completed with assistant content (clarification turn).
                   const hasMeaningfulData = finalDemoUrl || finalVersionId;
-                  const shouldSendDone = finalDemoUrl || (isDoneEvent && hasMeaningfulData);
+                  const hasAssistantReply = Boolean(
+                    assistantContentPreview.trim() || assistantThinkingPreview.trim(),
+                  );
+                  const shouldSendDone =
+                    Boolean(finalDemoUrl) || (isDoneEvent && (hasMeaningfulData || hasAssistantReply));
 
                   if (!didSendDone && shouldSendDone) {
                     didSendDone = true;
+                    const awaitingInput = !finalDemoUrl && !finalVersionId && hasAssistantReply;
                     safeEnqueue(
                       encoder.encode(
                         formatSSEEvent("done", {
@@ -628,6 +632,7 @@ export async function POST(req: Request) {
                           versionId: finalVersionId || null,
                           messageId: messageId || null,
                           projectId: internalProjectId || null,
+                          awaitingInput,
                         }),
                       ),
                     );
@@ -666,6 +671,7 @@ export async function POST(req: Request) {
                       chatId: v0ChatId,
                       versionId: finalVersionId,
                       demoUrl: finalDemoUrl,
+                      awaitingInput,
                       durationMs: Date.now() - generationStartedAt,
                     });
                     devLogAppend("in-progress", {
@@ -729,6 +735,9 @@ export async function POST(req: Request) {
                   });
                   const finalVersionId = resolved.versionId || lastVersionId || null;
                   const finalDemoUrl = resolved.demoUrl || lastDemoUrl || null;
+                  const hasAssistantReply = Boolean(
+                    assistantContentPreview.trim() || assistantThinkingPreview.trim(),
+                  );
 
                   if (internalChatId && finalVersionId) {
                     // Use upsert to prevent race condition
@@ -753,16 +762,42 @@ export async function POST(req: Request) {
 
                   didSendDone = true;
                   if (!finalVersionId && !finalDemoUrl) {
-                    safeEnqueue(
-                      encoder.encode(
-                        formatSSEEvent("error", {
-                          code: "preview_unavailable",
-                          message:
-                            resolved.errorMessage ||
-                            "No preview version was generated. Retry the prompt or run preview repair.",
-                        }),
-                      ),
-                    );
+                    if (hasAssistantReply) {
+                      safeEnqueue(
+                        encoder.encode(
+                          formatSSEEvent("done", {
+                            chatId: v0ChatId,
+                            demoUrl: null,
+                            versionId: null,
+                            messageId: lastMessageId,
+                            projectId: internalProjectId || null,
+                            awaitingInput: true,
+                          }),
+                        ),
+                      );
+                      devLogAppend("in-progress", {
+                        type: "comm.response.create",
+                        chatId: v0ChatId,
+                        versionId: null,
+                        demoUrl: null,
+                        awaitingInput: true,
+                        assistantPreview: assistantContentPreview || null,
+                        thinkingPreview: assistantThinkingPreview || null,
+                        toolCalls: Array.from(seenToolCalls),
+                      });
+                      await commitCreditsOnce();
+                    } else {
+                      safeEnqueue(
+                        encoder.encode(
+                          formatSSEEvent("error", {
+                            code: "preview_unavailable",
+                            message:
+                              resolved.errorMessage ||
+                              "No preview version was generated. Retry the prompt or run preview repair.",
+                          }),
+                        ),
+                      );
+                    }
                   } else {
                     safeEnqueue(
                       encoder.encode(
