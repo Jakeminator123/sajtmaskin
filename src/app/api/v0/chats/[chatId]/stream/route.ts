@@ -13,6 +13,7 @@ import {
   extractThinkingText,
   extractUiParts,
   extractVersionId,
+  shouldSuppressContentForEvent,
   safeJsonParse,
 } from "@/lib/v0Stream";
 import { resolveLatestVersion } from "@/lib/v0/resolve-latest-version";
@@ -38,6 +39,20 @@ function appendPreview(current: string, incoming: string, max = 320): string {
   if (!incoming) return current;
   const next = `${current}${incoming}`;
   return next.length > max ? next.slice(-max) : next;
+}
+
+function looksLikeIncompleteJson(raw: string): boolean {
+  const text = raw.trim();
+  if (!text) return false;
+  if (!(text.startsWith("{") || text.startsWith("[") || text.startsWith('"'))) return false;
+  const openCurly = (text.match(/\{/g) || []).length;
+  const closeCurly = (text.match(/\}/g) || []).length;
+  const openSquare = (text.match(/\[/g) || []).length;
+  const closeSquare = (text.match(/\]/g) || []).length;
+  if (openCurly > closeCurly) return true;
+  if (openSquare > closeSquare) return true;
+  if (/\\$/.test(text)) return true;
+  return false;
 }
 
 function extractToolNames(parts: Array<Record<string, unknown>>): string[] {
@@ -337,6 +352,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
             let assistantThinkingPreview = "";
             const seenToolCalls = new Set<string>();
             const seenIntegrationSignals = new Set<string>();
+            let pendingRawData: string | null = null;
 
             const safeEnqueue = (data: Uint8Array) => {
               if (controllerClosed) return;
@@ -424,6 +440,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
                   if (controllerClosed) break;
 
                   if (line.startsWith("event:")) {
+                    pendingRawData = null;
                     _currentEvent = line.slice(6).trim();
                     continue;
                   }
@@ -432,7 +449,15 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
                   let rawData = line.slice("data:".length);
                   if (rawData.startsWith(" ")) rawData = rawData.slice(1);
                   if (rawData.endsWith("\r")) rawData = rawData.slice(0, -1);
-                  const parsed = safeJsonParse(rawData);
+                  if (pendingRawData) {
+                    rawData = `${pendingRawData}\n${rawData}`;
+                  }
+                  let parsed = safeJsonParse(rawData);
+                  if (typeof parsed === "string" && looksLikeIncompleteJson(rawData)) {
+                    pendingRawData = rawData;
+                    continue;
+                  }
+                  pendingRawData = null;
 
                   const messageId = extractMessageId(parsed);
                   if (messageId) {
@@ -446,7 +471,8 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
                   }
 
                   const contentText = extractContentText(parsed, rawData);
-                  if (contentText && !didSendDone) {
+                  const suppressContent = shouldSuppressContentForEvent(parsed, _currentEvent);
+                  if (contentText && !didSendDone && !suppressContent) {
                     assistantContentPreview = appendPreview(assistantContentPreview, contentText);
                     safeEnqueue(encoder.encode(formatSSEEvent("content", contentText)));
                   }

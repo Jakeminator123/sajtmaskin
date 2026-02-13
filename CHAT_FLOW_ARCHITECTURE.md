@@ -1,5 +1,10 @@
 # Sajtmaskin Chat Flow Architecture
 
+> STATUS (2026-02-13): Legacy/reference document.
+> Primary consolidated audit: `BUILDER_V0_ALIGNMENT_AUDIT_2026-02-13.md`
+> Use the consolidated audit first for current conflicts, major risks, and action priority.
+> Last verified snippets in this file: 2026-02-13.
+
 Complete flow from user input to v0 generation, including all prompt preprocessing.
 
 ## First Prompt (New Chat Creation)
@@ -222,12 +227,24 @@ flowchart TD
 | Setting | Type | Default | Persisted | Location |
 |---------|------|---------|-----------|----------|
 | designTheme | DesignTheme | "blue" | localStorage | page.tsx |
-| specMode | boolean | false | localStorage | page.tsx |
-| modelTier | ModelTier | "v0-max" | URL param | page.tsx |
+| specMode | boolean | true | state only (no localStorage) | page.tsx + defaults.ts |
+| modelTier | ModelTier | "v0-max" | localStorage per chat (`chatGenerationSettings`) + URL seed | page.tsx |
 | enableThinking | boolean | true | localStorage | page.tsx |
 | enableImageGenerations | boolean | true | localStorage | page.tsx |
 | enableBlobMedia | boolean | true | localStorage | page.tsx |
+| planModeFirstPrompt | boolean | false | localStorage per chat (`chatGenerationSettings`) | page.tsx |
 | promptAssistDeep | boolean | true | state | page.tsx |
 | promptAssistModel | string | "openai/gpt-5.2" | state | page.tsx |
 | customInstructions | string | DEFAULT_CUSTOM_INSTRUCTIONS | localStorage (per chat) | page.tsx |
 | showStructuredChat | boolean | false | localStorage | page.tsx |
+
+## Operational Notes (2026-02-13)
+
+- Integration signals are now surfaced end-to-end:
+  - stream routes emit `integration`
+  - client consumes and renders integration cards in message UI
+- `awaitingInput` is handled in `done` events and rendered as actionable prompt/tool UI.
+- Create-stream and follow-up-stream are still not fully symmetric:
+  - create route emits `meta`
+  - follow-up route primarily finalizes in `finally` after version resolution
+- Plan mode applies to first prompt in a chat; follow-up turns do not get the same extended timeout by default.

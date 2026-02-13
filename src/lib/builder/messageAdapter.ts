@@ -110,6 +110,7 @@ function normalizeToolPart(part: UiMessagePart): ToolUIPart {
     raw.arguments ??
     (raw.function as { arguments?: unknown } | undefined)?.arguments;
   const output = raw.output ?? raw.result ?? raw.response ?? raw.toolOutput ?? raw.tool_output;
+  const approval = raw.approval && typeof raw.approval === "object" ? raw.approval : undefined;
   const errorText =
     (typeof raw.errorText === "string" && raw.errorText) ||
     (typeof raw.error === "string" && raw.error) ||
@@ -129,6 +130,7 @@ function normalizeToolPart(part: UiMessagePart): ToolUIPart {
     toolName,
     input: resolvedInput as ToolUIPart["input"],
     output: resolvedOutput as ToolUIPart["output"],
+    approval,
     errorText,
   } as ToolUIPart;
 }

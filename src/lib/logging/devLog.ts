@@ -4,8 +4,9 @@ import path from "node:path";
 type DevLogTarget = "in-progress" | "latest";
 type DevLogEntry = Record<string, unknown>;
 
-const ROOT_LOG_PATH = path.join(process.cwd(), "sajtmaskin-local.log");
-const ROOT_DOC_LOG_PATH = path.join(process.cwd(), "sajtmaskin-local-document.txt");
+const ROOT_LOG_DIR = path.join(process.cwd(), "logs");
+const ROOT_LOG_PATH = path.join(ROOT_LOG_DIR, "sajtmaskin-local.log");
+const ROOT_DOC_LOG_PATH = path.join(ROOT_LOG_DIR, "sajtmaskin-local-document.txt");
 const MAX_LOG_CHARS = 1000;
 const DEFAULT_DOC_MAX_WORDS = 10_000;
 const MAX_DOC_MAX_WORDS = 20_000;
@@ -82,6 +83,9 @@ function safeStringify(value: unknown, pretty = false): string {
 
 function ensureRootLogFiles(): void {
   try {
+    if (!fs.existsSync(ROOT_LOG_DIR)) {
+      fs.mkdirSync(ROOT_LOG_DIR, { recursive: true });
+    }
     if (!fs.existsSync(ROOT_LOG_PATH)) {
       fs.writeFileSync(ROOT_LOG_PATH, "", "utf8");
     }

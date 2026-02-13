@@ -230,6 +230,7 @@ function BuilderContent() {
   const promptFetchDoneRef = useRef<string | null>(null);
   const loadedGenerationSettingsChatRef = useRef<string | null>(null);
   const applyingGenerationSettingsRef = useRef(false);
+  const templateInitAttemptKeyRef = useRef<string | null>(null);
 
   const allowExperimentalModelId = ENABLE_EXPERIMENTAL_MODEL_ID;
   const normalizedCustomModelId = useMemo(() => customModelId.trim(), [customModelId]);
@@ -369,13 +370,30 @@ function BuilderContent() {
           signal: controller.signal,
         });
         if (!res.ok || !isActive) return;
-        const data = await res.json();
-        if (data.chatId && isActive) {
-          setChatId(data.chatId);
+        const data = (await res.json()) as {
+          chatId?: string | null;
+          v0ChatId?: string | null;
+          internalChatId?: string | null;
+        };
+        const v0ChatId =
+          typeof data.v0ChatId === "string" && data.v0ChatId.trim().length > 0
+            ? data.v0ChatId
+            : null;
+
+        if (v0ChatId && isActive) {
+          setChatId(v0ChatId);
           const params = new URLSearchParams(searchParams.toString());
           params.set("project", projectParam);
-          params.set("chatId", data.chatId);
+          params.set("chatId", v0ChatId);
           router.replace(`/builder?${params.toString()}`);
+          return;
+        }
+
+        if (data.internalChatId && isActive) {
+          console.warn(
+            "[Builder] Skipped project chat restore because v0ChatId was missing",
+            data.internalChatId,
+          );
         }
       } catch (error) {
         if (!isActive) return;
@@ -1847,6 +1865,10 @@ function BuilderContent() {
   const handleStartFromTemplate = useCallback(
     (templateId: string) => {
       if (!templateId) return;
+      if (isCreatingChat || isAnyStreaming || isTemplateLoading || isPreparingPrompt) {
+        toast.error("Vänta tills nuvarande generering är klar innan du väljer en mall.");
+        return;
+      }
       if (chatId) {
         toast.error("Starta en ny chat innan du väljer en mall.");
         return;
@@ -1855,7 +1877,7 @@ function BuilderContent() {
       params.set("templateId", templateId);
       router.replace(`/builder?${params.toString()}`);
     },
-    [chatId, router, searchParams],
+    [chatId, isAnyStreaming, isCreatingChat, isPreparingPrompt, isTemplateLoading, router, searchParams],
   );
 
   const handlePaletteSelection = useCallback((selection: PaletteSelection) => {
@@ -2027,8 +2049,18 @@ function BuilderContent() {
   const initialPrompt = templateId ? null : resolvedPrompt?.trim() || null;
 
   useEffect(() => {
+    if (templateId) return;
+    templateInitAttemptKeyRef.current = null;
+  }, [templateId]);
+
+  useEffect(() => {
     if (!auditPromptLoaded) return;
-    if (!templateId || chatId || isTemplateLoading) return;
+    if (!templateId || chatId) return;
+    if (isCreatingChat || isAnyStreaming) return;
+    const initKey = `${templateId}:${selectedModelTier}`;
+    if (templateInitAttemptKeyRef.current === initKey) return;
+    templateInitAttemptKeyRef.current = initKey;
+    let isActive = true;
 
     const initTemplate = async () => {
       setIsTemplateLoading(true);
@@ -2066,18 +2098,34 @@ function BuilderContent() {
           });
         }
       } catch (error) {
+        const message = error instanceof Error ? error.message : "Template init failed";
         console.error("[Builder] Template init failed:", error);
+        if (isActive) {
+          toast.error(message);
+          // Prevent repeated auto-init loops on failed template startup
+          // (e.g. insufficient credits or temporary API errors).
+          const params = new URLSearchParams(searchParams.toString());
+          params.delete("templateId");
+          const query = params.toString();
+          router.replace(query ? `/builder?${query}` : "/builder");
+        }
       } finally {
-        setIsTemplateLoading(false);
+        if (isActive) {
+          setIsTemplateLoading(false);
+        }
       }
     };
 
     void initTemplate();
+    return () => {
+      isActive = false;
+    };
   }, [
     auditPromptLoaded,
     templateId,
     chatId,
-    isTemplateLoading,
+    isCreatingChat,
+    isAnyStreaming,
     router,
     selectedModelTier,
     appProjectId,

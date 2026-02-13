@@ -30,6 +30,7 @@ import { CodeBlock } from "@/components/ai-elements/code-block";
 import { toAIElementsFormat, hasToolData } from "@/lib/builder/messageAdapter";
 import type { MessagePart } from "@/lib/builder/messageAdapter";
 import type { ChatMessage } from "@/lib/builder/types";
+import { cn } from "@/lib/utils";
 import { ChevronDown, ChevronUp, Loader2, MessageSquare } from "lucide-react";
 import { memo, useMemo, useState } from "react";
 import type { ToolUIPart } from "ai";
@@ -140,11 +141,20 @@ const MessageListComponent = ({
                 {showStructuredParts &&
                   message.role === "assistant" &&
                   toolParts.map((part, index) => {
-                    const tool = part.tool as Partial<ToolUIPart> & { type?: string };
+                    const tool = part.tool as Partial<ToolUIPart> & {
+                      type?: string;
+                      approval?: unknown;
+                    };
                     const toolState = (
                       typeof tool.state === "string" ? tool.state : "input-available"
                     ) as ToolUIPart["state"];
                     const { toolType, toolTitle } = resolveToolLabels(tool);
+                    const replyPrompt = getActionPrompt(tool, toolState);
+                    const canQuickReply =
+                      Boolean(onQuickReply) &&
+                      !quickReplyDisabled &&
+                      replyPrompt &&
+                      replyPrompt.options.length > 0;
                     const hasInput = tool.input !== undefined && tool.input !== null;
                     const hasOutput = tool.output !== undefined && tool.output !== null;
                     const hasErrorText =
@@ -175,6 +185,40 @@ const MessageListComponent = ({
                       >
                         <ToolHeader title={toolTitle} type={toolType} state={toolState} />
                         <ToolContent>
+                          {replyPrompt && (
+                            <div className="mb-3 rounded-md border border-amber-500/60 bg-amber-500/10 p-3 text-xs">
+                              <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-amber-200">
+                                Svar krävs
+                              </p>
+                              <p className="text-foreground text-sm font-semibold">
+                                {replyPrompt.question}
+                              </p>
+                              {replyPrompt.options.length > 0 && (
+                                <div className="mt-2 flex flex-wrap gap-2">
+                                  {replyPrompt.options.map((option, optionIndex) => {
+                                    const replyKey = `${message.id}:${optionIndex}:${option}`;
+                                    const isPending = pendingQuickReplyKey === replyKey;
+                                    return (
+                                      <Button
+                                        key={replyKey}
+                                        size="sm"
+                                        variant="secondary"
+                                        disabled={!canQuickReply || pendingQuickReplyKey !== null}
+                                        onClick={() =>
+                                          void sendQuickReply(message.id, optionIndex, option)
+                                        }
+                                      >
+                                        {isPending ? (
+                                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                        ) : null}
+                                        {option}
+                                      </Button>
+                                    );
+                                  })}
+                                </div>
+                              )}
+                            </div>
+                          )}
                           {hasInput && <ToolInput input={tool.input} />}
                           <ToolOutput
                             output={tool.output}
@@ -276,19 +320,23 @@ const MessageListComponent = ({
                 {!showStructuredParts &&
                   message.role === "assistant" &&
                   compactToolParts.map((part, index) => {
-                    const tool = part.tool as Partial<ToolUIPart> & { type?: string };
+                    const tool = part.tool as Partial<ToolUIPart> & {
+                      type?: string;
+                      approval?: unknown;
+                    };
                     const toolState = (
                       typeof tool.state === "string" ? tool.state : "input-available"
                     ) as ToolUIPart["state"];
                     const { toolType, toolTitle } = resolveToolLabels(tool);
                     const integrationSummary = getToolIntegrationSummary(tool);
                     const integrationCard = getIntegrationCardData(tool);
-                    const questionPrompt = getToolQuestionPrompt(tool);
+                    const replyPrompt = getActionPrompt(tool, toolState);
+                    const requiresUserReply = toolState === "approval-requested" || Boolean(replyPrompt);
                     const canQuickReply =
                       Boolean(onQuickReply) &&
                       !quickReplyDisabled &&
-                      questionPrompt &&
-                      questionPrompt.options.length > 0;
+                      replyPrompt &&
+                      replyPrompt.options.length > 0;
                     const canOpen = Boolean(chatId);
 
                     return (
@@ -302,12 +350,24 @@ const MessageListComponent = ({
                             {getToolStateLabel(toolState)}
                           </span>
                         </div>
-                        {questionPrompt ? (
-                          <div className="border-border bg-muted/20 mt-2 rounded-md border p-2 text-xs">
-                            <p className="text-foreground text-sm font-medium">{questionPrompt.question}</p>
-                            {questionPrompt.options.length > 0 ? (
+                        {replyPrompt ? (
+                          <div
+                            className={cn(
+                              "mt-2 rounded-md border p-2 text-xs",
+                              requiresUserReply
+                                ? "border-amber-500/60 bg-amber-500/10"
+                                : "border-border bg-muted/20",
+                            )}
+                          >
+                            {requiresUserReply && (
+                              <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-amber-200">
+                                Svar krävs
+                              </p>
+                            )}
+                            <p className="text-foreground text-sm font-semibold">{replyPrompt.question}</p>
+                            {replyPrompt.options.length > 0 ? (
                               <div className="mt-2 flex flex-wrap gap-2">
-                                {questionPrompt.options.map((option, optionIndex) => {
+                                {replyPrompt.options.map((option, optionIndex) => {
                                   const replyKey = `${message.id}:${optionIndex}:${option}`;
                                   const isPending = pendingQuickReplyKey === replyKey;
                                   return (
@@ -328,7 +388,7 @@ const MessageListComponent = ({
                               </div>
                             ) : (
                               <p className="text-muted-foreground mt-2">
-                                Reply in chat to continue generation.
+                                Svara i chatten för att fortsätta genereringen.
                               </p>
                             )}
                           </div>
@@ -398,7 +458,7 @@ const MessageListComponent = ({
                               </a>
                             </Button>
                           )}
-                          {!questionPrompt && (
+                          {!replyPrompt && (
                             <Button size="sm" variant="outline" onClick={openIntegrationsPanel}>
                               Öppna Integrationspanelen
                             </Button>
@@ -706,8 +766,15 @@ type ToolQuestionPrompt = {
 };
 
 function getToolQuestionPrompt(
-  tool: Partial<ToolUIPart> & { input?: unknown; output?: unknown; type?: string },
+  tool: Partial<ToolUIPart> & {
+    input?: unknown;
+    output?: unknown;
+    type?: string;
+    approval?: unknown;
+  },
 ): ToolQuestionPrompt | null {
+  const fromApproval = extractQuestionPrompt(tool.approval);
+  if (fromApproval) return fromApproval;
   const fromOutput = extractQuestionPrompt(tool.output);
   if (fromOutput) return fromOutput;
   const fromInput = extractQuestionPrompt(tool.input);
@@ -731,7 +798,64 @@ function getToolQuestionPrompt(
   };
 }
 
-function extractQuestionPrompt(value: unknown): ToolQuestionPrompt | null {
+function getActionPrompt(
+  tool: Partial<ToolUIPart> & {
+    input?: unknown;
+    output?: unknown;
+    type?: string;
+    approval?: unknown;
+  },
+  state: ToolUIPart["state"],
+): ToolQuestionPrompt | null {
+  const explicitPrompt = getToolQuestionPrompt(tool);
+  if (explicitPrompt) {
+    const hasOptions = explicitPrompt.options.length > 0;
+    const looksQuestion = looksLikeQuestionText(explicitPrompt.question);
+    if (hasOptions || looksQuestion || state === "approval-requested") {
+      if (state === "approval-requested" && explicitPrompt.options.length === 0) {
+        return {
+          question: explicitPrompt.question,
+          options: ["Approve plan", "Deny plan", "Other"],
+        };
+      }
+      return explicitPrompt;
+    }
+  }
+
+  if (state !== "approval-requested") return null;
+
+  const approvalOptions = extractApprovalOptions(tool);
+  return {
+    question: "v0 väntar på ditt svar innan nästa steg kan fortsätta.",
+    options:
+      approvalOptions.length > 0
+        ? approvalOptions
+        : ["Approve plan", "Deny plan", "Other"],
+  };
+}
+
+function looksLikeQuestionText(value: string): boolean {
+  const text = value.trim().toLowerCase();
+  if (!text) return false;
+  if (text.includes("?")) return true;
+  return [
+    "choose",
+    "select",
+    "pick",
+    "which",
+    "would you",
+    "approve",
+    "deny",
+    "option",
+    "alternativ",
+    "välj",
+    "valj",
+    "svara",
+  ].some((token) => text.includes(token));
+}
+
+function extractQuestionPrompt(value: unknown, depth = 0): ToolQuestionPrompt | null {
+  if (depth > 4) return null;
   if (!value || typeof value !== "object") return null;
   const obj = value as Record<string, unknown>;
   const question =
@@ -753,40 +877,102 @@ function extractQuestionPrompt(value: unknown): ToolQuestionPrompt | null {
       obj.items ??
       obj.questions,
   );
-  if (!question && options.length === 0) return null;
+  if (question || options.length > 0) {
+    return {
+      question: question || "Choose an answer to continue.",
+      options,
+    };
+  }
 
-  return {
-    question: question || "Choose an answer to continue.",
-    options,
-  };
+  const nestedCandidates = [
+    obj.approval,
+    obj.data,
+    obj.payload,
+    obj.result,
+    obj.response,
+    obj.meta,
+    obj.details,
+  ];
+  for (const candidate of nestedCandidates) {
+    const nested = extractQuestionPrompt(candidate, depth + 1);
+    if (nested) return nested;
+  }
+
+  for (const nestedValue of Object.values(obj)) {
+    if (!nestedValue || typeof nestedValue !== "object") continue;
+    const nested = extractQuestionPrompt(nestedValue, depth + 1);
+    if (nested) return nested;
+  }
+
+  return null;
 }
 
 function readQuestionOptions(value: unknown): string[] {
-  if (!Array.isArray(value)) return [];
-  const options = value
-    .map((item) => {
-      if (typeof item === "string") return item.trim();
-      if (!item || typeof item !== "object") return "";
-      const obj = item as Record<string, unknown>;
-      return (
-        (typeof obj.label === "string" && obj.label.trim()) ||
-        (typeof obj.text === "string" && obj.text.trim()) ||
-        (typeof obj.title === "string" && obj.title.trim()) ||
-        (typeof obj.value === "string" && obj.value.trim()) ||
-        (typeof obj.name === "string" && obj.name.trim()) ||
-        ""
-      );
-    })
-    .filter(Boolean);
+  if (Array.isArray(value)) {
+    const options = value
+      .map((item) => {
+        if (typeof item === "string") return item.trim();
+        if (!item || typeof item !== "object") return "";
+        const obj = item as Record<string, unknown>;
+        return (
+          (typeof obj.label === "string" && obj.label.trim()) ||
+          (typeof obj.text === "string" && obj.text.trim()) ||
+          (typeof obj.title === "string" && obj.title.trim()) ||
+          (typeof obj.value === "string" && obj.value.trim()) ||
+          (typeof obj.name === "string" && obj.name.trim()) ||
+          ""
+        );
+      })
+      .filter(Boolean);
+    return dedupeStrings(options).slice(0, 8);
+  }
+
+  if (value && typeof value === "object") {
+    const entries = Object.entries(value as Record<string, unknown>);
+    const options = entries
+      .map(([key, item]) => {
+        if (typeof item === "string" && item.trim()) return item.trim();
+        if (typeof key === "string" && key.trim()) return key.trim();
+        return "";
+      })
+      .filter(Boolean);
+    return dedupeStrings(options).slice(0, 8);
+  }
+
+  return [];
+}
+
+function extractApprovalOptions(
+  tool: Partial<ToolUIPart> & { input?: unknown; output?: unknown; approval?: unknown },
+): string[] {
+  const outputObj =
+    tool.output && typeof tool.output === "object" ? (tool.output as Record<string, unknown>) : null;
+  const inputObj =
+    tool.input && typeof tool.input === "object" ? (tool.input as Record<string, unknown>) : null;
+  const approvalObj =
+    tool.approval && typeof tool.approval === "object"
+      ? (tool.approval as Record<string, unknown>)
+      : null;
+  const options = dedupeStrings([
+    ...readQuestionOptions(approvalObj?.options ?? approvalObj?.choices ?? approvalObj?.answers),
+    ...readQuestionOptions(outputObj?.options ?? outputObj?.choices ?? outputObj?.answers),
+    ...readQuestionOptions(inputObj?.options ?? inputObj?.choices ?? inputObj?.answers),
+  ]);
   return dedupeStrings(options).slice(0, 8);
 }
 
 function isActionableToolPart(tool: Partial<ToolUIPart> & { type?: string }) {
   const state = typeof tool.state === "string" ? tool.state : "";
-  if (state === "approval-requested") return true;
+  const normalizedState = state as ToolUIPart["state"];
   if (
-    getToolQuestionPrompt(
-      tool as Partial<ToolUIPart> & { input?: unknown; output?: unknown; type?: string },
+    getActionPrompt(
+      tool as Partial<ToolUIPart> & {
+        input?: unknown;
+        output?: unknown;
+        type?: string;
+        approval?: unknown;
+      },
+      normalizedState,
     )
   ) {
     return true;

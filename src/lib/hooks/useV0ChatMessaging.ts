@@ -177,8 +177,11 @@ function mergeStreamingText(previous: string, incoming: string): string {
   if (incoming.length > 16 && previous.includes(incoming)) return previous;
   if (previous.length > 16 && incoming.includes(previous)) return incoming;
 
+  // Avoid accidental 1-2 char overlap matches ("me", "de", etc.) that
+  // truncate words and make the stream look corrupted.
+  const MIN_SAFE_OVERLAP = 8;
   const maxOverlap = Math.min(previous.length, incoming.length);
-  for (let size = maxOverlap; size > 1; size -= 1) {
+  for (let size = maxOverlap; size >= MIN_SAFE_OVERLAP; size -= 1) {
     if (previous.slice(-size) === incoming.slice(0, size)) {
       return previous + incoming.slice(size);
     }

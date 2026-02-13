@@ -693,6 +693,86 @@ export function extractContentText(parsed: unknown, _raw: string): string | null
   return null;
 }
 
+function eventLooksToolLike(currentEvent: string): boolean {
+  const eventName = (currentEvent || "").toLowerCase();
+  if (!eventName) return false;
+  return (
+    eventName.includes("tool") ||
+    eventName.includes("integration") ||
+    eventName.includes("approval") ||
+    eventName.includes("post-check") ||
+    eventName.includes("tool_call") ||
+    eventName.includes("tool-call") ||
+    eventName.includes("calls")
+  );
+}
+
+function hasToolCallArray(value: unknown): boolean {
+  return Array.isArray(value) && value.length > 0;
+}
+
+function containsToolLikePart(value: unknown): boolean {
+  if (!Array.isArray(value)) return false;
+  return value.some((item) => {
+    if (!item || typeof item !== "object") return false;
+    const part = item as Record<string, unknown>;
+    const type = typeof part.type === "string" ? part.type.toLowerCase() : "";
+    return type.startsWith("tool");
+  });
+}
+
+function payloadLooksToolLike(parsed: unknown): boolean {
+  if (!parsed || typeof parsed !== "object") return false;
+  const obj = parsed as Record<string, unknown>;
+
+  if (hasToolCallArray(obj.tool_calls) || hasToolCallArray(obj.toolCalls)) return true;
+
+  const deltaObj = obj.delta && typeof obj.delta === "object" ? (obj.delta as Record<string, unknown>) : null;
+  const messageObj =
+    obj.message && typeof obj.message === "object" ? (obj.message as Record<string, unknown>) : null;
+
+  if (
+    hasToolCallArray(deltaObj?.tool_calls) ||
+    hasToolCallArray(deltaObj?.toolCalls) ||
+    hasToolCallArray(messageObj?.tool_calls) ||
+    hasToolCallArray(messageObj?.toolCalls)
+  ) {
+    return true;
+  }
+
+  if (
+    containsToolLikePart(obj.parts) ||
+    containsToolLikePart(obj.uiParts) ||
+    containsToolLikePart(obj.ui_parts) ||
+    containsToolLikePart(deltaObj?.parts) ||
+    containsToolLikePart(deltaObj?.uiParts) ||
+    containsToolLikePart(messageObj?.parts) ||
+    containsToolLikePart(messageObj?.uiParts)
+  ) {
+    return true;
+  }
+
+  const typeHints = [
+    obj.type,
+    obj.event,
+    obj.object,
+    deltaObj?.type,
+    deltaObj?.event,
+    messageObj?.type,
+    messageObj?.event,
+  ]
+    .map((value) => (typeof value === "string" ? value.toLowerCase() : ""))
+    .filter(Boolean);
+
+  return typeHints.some((hint) =>
+    hint.includes("tool") || hint.includes("integration") || hint.includes("approval"),
+  );
+}
+
+export function shouldSuppressContentForEvent(parsed: unknown, currentEvent = ""): boolean {
+  return eventLooksToolLike(currentEvent) || payloadLooksToolLike(parsed);
+}
+
 export function isDoneLikeEvent(currentEvent: string, parsed: unknown): boolean {
   const evt = (currentEvent || "").toLowerCase();
   if (evt.includes("done") || evt.includes("complete")) return true;

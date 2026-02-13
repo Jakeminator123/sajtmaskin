@@ -1,5 +1,10 @@
 # AC-schema: Promptfloden (Fritext, Audit, Mall, Wizard)
 
+> STATUS (2026-02-13): Legacy/reference document.
+> Primary consolidated audit: `BUILDER_V0_ALIGNMENT_AUDIT_2026-02-13.md`
+> Use the consolidated audit first for current conflicts, major risks, and action priority.
+> Last verified snippets in this file: 2026-02-13.
+
 Detta dokument beskriver hur promptar och relaterade meddelanden skickas i Sajtmaskin, med fokus pa:
 
 - flode per startmetod
@@ -145,13 +150,13 @@ flowchart LR
 
 ### Risker / felanvandning
 
-- Inga maxgranser pa `message`/`system` i schema (`createChatSchema`, `sendMessageSchema`).
-- `attachments` ar `z.array(z.any())` (for oppen typning).
-- `POST /api/prompts` har ingen maxlangd.
+- Hard max finns nu pa `message`/`system` i schema (`createChatSchema`, `sendMessageSchema`).
+- Hard max finns nu pa `POST /api/prompts.prompt`.
+- `attachments` ar fortfarande `z.array(z.any())` (oppen typning), men antalet ar begransat per meddelande.
 
 ### Lagg till / ta bort (fritext)
 
-- **Lagg till:** hard limit + warning pa `message` och `system`.
+- **Lagg till:** starkare attachment-typning (inte bara `z.any()`).
 - **Lagg till:** plan-instruktion som kan slas pa endast for forsta prompten.
 - **Ta bort/minska:** duplicerad filkontext i text om attachments redan skickas.
 
@@ -196,7 +201,7 @@ flowchart LR
 ### Risker / felanvandning
 
 - Hog risk for overlangt forsta meddelande.
-- Inga harda maxgranser i handoff eller chatschema.
+- Harda maxgranser finns, men prompten kan fortfarande bli semantiskt for tung innan orkestrering.
 
 ### Lagg till / ta bort (audit)
 
@@ -297,7 +302,7 @@ flowchart LR
 ### 1) `system`-prompt
 
 - Ar stor som default och kombineras med dynamic addendum.
-- Skickas pa follow-up ocksa.
+- Pa follow-up skickas den endast nar instruktionerna faktiskt andrats (delta-beteende).
 - Inte "fel" funktionellt, men kan bli overkill och ge onodig token/latency-kostnad.
 
 ### 2) `spec`-fil (`sajtmaskin.spec.json`)
@@ -373,13 +378,13 @@ Resultat: semantiskt liknande information i flera lager -> stor payload utan mot
   1) stor `system`-prompt
   2) addendum/spec-lager
   3) dubblerad filkontext i text + attachments
-  4) avsaknad av harda maxgranser i centrala scheman.
+  4) stora audit/wizard-underlag som kraver aggressiv sammanfattning/fasning.
 
 ---
 
-## Implementerad styrning (lokalt)
+## Implementerad styrning (lokalt, verifierad 2026-02-13)
 
-- `modelId` kan testas manuellt (experimental) men valideras med hard cap pa langd.
+- `modelId` ar i normalfallet styrd till stabil tier; experimental model-id ar opt-in och avstangt som default i produktion.
 - `Plan-lage` styrs via instruktion i systemprompt (forsta prompten i ny chat).
 - `message/system/prompt` har harda maxgranser i centrala API-scheman for att stoppa obegransad tillvaxt.
 - Ny central policy i `src/lib/builder/promptOrchestration.ts`:
@@ -394,6 +399,6 @@ Resultat: semantiskt liknande information i flera lager -> stor payload utan mot
   - `originalLength`, `optimizedLength`, `reductionRatio`, `reason`
   - `slug` (for spårbarhet i dev-loggar)
 - Aldre hard truncation i `src/lib/v0/v0-generator.ts` ar ersatt med samma orkestreringspolicy.
-- Dev-logg finns i roten:
-  - `sajtmaskin-local.log` (kort rolling vy)
-  - `sajtmaskin-local-document.txt` (langre dokumentvy, 10k eller 20k ord via env)
+- Dev-logg ar centraliserad under `logs/`:
+  - `logs/sajtmaskin-local.log` (kort rolling vy)
+  - `logs/sajtmaskin-local-document.txt` (langre dokumentvy, 10k eller 20k ord via env)

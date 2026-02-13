@@ -33,14 +33,19 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({
         success: true,
         chatId: null,
+        v0ChatId: null,
+        internalChatId: null,
         message: "No chat found for this project",
       });
     }
 
+    // Builder uses v0 chat IDs for /api/v0/chats/* and /versions calls.
+    // Returning the internal DB chat ID here can put the UI in a broken state.
     return NextResponse.json({
       success: true,
-      chatId: latestChat.id,
+      chatId: latestChat.v0ChatId,
       v0ChatId: latestChat.v0ChatId,
+      internalChatId: latestChat.id,
     });
   } catch (error) {
     console.error("[API] Failed to get project chat:", error);

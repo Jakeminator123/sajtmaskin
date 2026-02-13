@@ -1,10 +1,15 @@
 # External Integrations Specification
 
+> STATUS (2026-02-13): Legacy/reference document.
+> Primary consolidated audit: `BUILDER_V0_ALIGNMENT_AUDIT_2026-02-13.md`
+> Use the consolidated audit first for current conflicts, major risks, and action priority.
+
 > This document describes the current state and future requirements for
 > per-user / per-project integrations in Sajtmaskin. It is intended as a
 > reference for any AI agent or developer working on this feature area.
 >
 > **Created:** 2026-02-09
+> **Last verified against code:** 2026-02-13
 > **Context:** Conversation about builder entry flows, project IDs, and
 > integration architecture.
 
@@ -123,13 +128,13 @@ When a user builds a project directly on v0.dev, the platform provides:
 │                                                    │             │
 │                                                    ▼             │
 │                                            Sajtmaskin stream     │
-│                                            parser IGNORES the    │
-│                                            event (not handled)   │
+│                                            parser extracts and   │
+│                                            forwards signals      │
 │                                                    │             │
 │                                                    ▼             │
-│                                            User sees nothing.    │
-│                                            Code has DB refs      │
-│                                            but no connection.    │
+│                                            Builder UI renders    │
+│                                            integration cards +   │
+│                                            action links          │
 └──────────────────────────────────────────────────────────────────┘
 ```
 
@@ -177,7 +182,7 @@ await v0.integrations.vercel.projects.find({ projectId: "..." });
 await v0.integrations.vercel.projects.create({ projectId: "..." });
 ```
 
-### Stream Events Being Ignored
+### Stream Events (Current Status)
 
 In `src/app/api/v0/chats/stream/route.ts`, the stream parser handles:
 - `content` — AI text responses
@@ -188,9 +193,9 @@ In `src/app/api/v0/chats/stream/route.ts`, the stream parser handles:
 - `done` — Stream complete
 - `error` — Error messages
 
-Integration-related events (if sent by v0) are **captured in
-`currentEvent` but never forwarded** to the client. They are effectively
-dropped.
+Integration-related events are now extracted, deduplicated, forwarded to the
+client as `integration` SSE events, and rendered in the builder chat UI.
+This closes the original "dropped integration signal" gap.
 
 ### Available MCP Preset Integrations (v0 supports)
 
@@ -217,35 +222,40 @@ dropped.
 
 To bring per-user integrations to Sajtmaskin, the following work is needed:
 
-### Phase 1: Detect and Surface Integration Signals
+### Phase 1: Detect and Surface Integration Signals (Completed)
 
 **Goal:** Show users when their project needs an integration.
 
-- Modify stream parser to detect integration-related SSE events from v0
-- Create a new `StreamEvent` type for integrations
-- Forward integration events to the client
-- Build a chat UI component that renders integration cards with
-  install/configure buttons
+- Stream parsers detect and normalize integration-related signals from v0
+- `StreamEvent` support includes integration events in the app flow
+- Integration events are forwarded to the client
+- Builder chat renders compact integration cards with actions
 
-**Files to modify:**
+**Verified files:**
 - `src/app/api/v0/chats/stream/route.ts` — detect + forward events
-- `src/app/api/v0/chats/[chatId]/stream/route.ts` — same
-- `src/lib/streaming.ts` — add integration event type
-- `src/lib/v0Stream.ts` — add extraction for integration fields
-- `src/components/builder/ChatInterface.tsx` — render integration cards
+- `src/app/api/v0/chats/[chatId]/stream/route.ts` — detect + forward events
+- `src/lib/streaming.ts` — integration event type present
+- `src/lib/v0Stream.ts` — extraction/normalization logic
+- `src/lib/hooks/useV0ChatMessaging.ts` — integration SSE consumption
+- `src/components/builder/MessageList.tsx` — integration card rendering
 
-### Phase 2: Per-Project Environment Variables
+### Phase 2: Per-Project Environment Variables (Partially Completed)
 
 **Goal:** Let users set env vars on their v0 projects.
 
-- Use `v0.projects.createEnvVars()` to set variables
-- Build a UI for managing project env vars in the builder
-- Store integration state in `project_data` or a new table
+- `v0.projects.createEnvVars/findEnvVars/deleteEnvVars` are wired via API routes
+- Builder has an env-vars panel for list/create/delete
+- Integration metadata persistence exists in `user_integrations`
+- Remaining: full end-to-end sync after external install completion/webhook
 
-**New API routes:**
+**Implemented routes:**
 - `POST /api/v0/projects/[projectId]/env-vars` — create/update
 - `GET /api/v0/projects/[projectId]/env-vars` — list
 - `DELETE /api/v0/projects/[projectId]/env-vars` — remove
+- `GET /api/integrations/marketplace/strategy`
+- `POST /api/integrations/marketplace/start`
+- `GET /api/integrations/marketplace/records`
+- `GET /api/integrations/mcp/priorities`
 
 ### Phase 3: Vercel Marketplace Connection
 
