@@ -40,6 +40,53 @@ function extractPartsArray(value: unknown): Array<Record<string, unknown>> | nul
 
 function extractToolCallParts(value: unknown): Array<Record<string, unknown>> | null {
   if (!Array.isArray(value)) return null;
+  const normalizeToolType = (rawType: unknown, fallbackName?: string): string => {
+    const directType = typeof rawType === "string" ? rawType.trim() : "";
+    if (directType) return directType;
+    const safeName =
+      typeof fallbackName === "string"
+        ? fallbackName
+            .trim()
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, "-")
+            .replace(/^-+|-+$/g, "")
+        : "";
+    return safeName ? `tool:${safeName}` : "tool-call";
+  };
+  const normalizeToolState = (rawState: unknown): string | undefined => {
+    const candidate = typeof rawState === "string" ? rawState.trim().toLowerCase() : "";
+    if (!candidate) return undefined;
+    if (candidate === "approval-requested") return "approval-requested";
+    if (candidate === "approval-responded") return "approval-responded";
+    if (candidate === "output-denied" || candidate === "denied") return "output-denied";
+    if (candidate === "output-error" || candidate === "error" || candidate === "failed") {
+      return "output-error";
+    }
+    if (candidate === "output-available" || candidate === "completed" || candidate === "complete") {
+      return "output-available";
+    }
+    if (candidate === "input-streaming" || candidate === "streaming") return "input-streaming";
+    if (candidate === "input-available" || candidate === "pending") return "input-available";
+    return undefined;
+  };
+  const hasQuestionHints = (payload: unknown, depth = 0): boolean => {
+    if (!payload || depth > 4 || typeof payload !== "object") return false;
+    if (Array.isArray(payload)) {
+      return payload.some((item) => hasQuestionHints(item, depth + 1));
+    }
+    const obj = payload as Record<string, unknown>;
+    const keys = Object.keys(obj).map((key) => key.toLowerCase());
+    const directKeyHit = keys.some(
+      (key) =>
+        key.includes("question") ||
+        key.includes("questions") ||
+        key.includes("option") ||
+        key.includes("choice") ||
+        key.includes("select"),
+    );
+    if (directKeyHit) return true;
+    return Object.values(obj).some((next) => hasQuestionHints(next, depth + 1));
+  };
   const parts = value
     .map((item) => {
       if (!item || typeof item !== "object") return null;
@@ -60,13 +107,41 @@ function extractToolCallParts(value: unknown): Array<Record<string, unknown>> | 
         obj.parameters ??
         obj.arguments ??
         (obj.function as { arguments?: unknown } | undefined)?.arguments;
+      const output =
+        obj.output ?? obj.result ?? obj.response ?? obj.toolOutput ?? obj.tool_output;
+      const approval =
+        obj.approval && typeof obj.approval === "object"
+          ? (obj.approval as Record<string, unknown>)
+          : undefined;
+      const errorText =
+        (typeof obj.errorText === "string" && obj.errorText) ||
+        (typeof obj.error === "string" && obj.error) ||
+        undefined;
+      const explicitState = normalizeToolState(obj.state ?? obj.status);
+      const inferredState =
+        explicitState ??
+        (typeof approval?.approved === "boolean"
+          ? "approval-responded"
+          : approval
+            ? "approval-requested"
+            : hasQuestionHints(input) || hasQuestionHints(output)
+              ? "approval-requested"
+              : errorText
+                ? "output-error"
+                : output !== undefined
+                  ? "output-available"
+                  : "input-available");
 
       return {
-        type: "tool-call",
+        type: normalizeToolType(obj.type, name),
         toolCallId: id,
         toolName: name,
         name,
         input,
+        output,
+        state: inferredState,
+        approval,
+        errorText,
       } as Record<string, unknown>;
     })
     .filter((part): part is Record<string, unknown> => Boolean(part));

@@ -30,7 +30,7 @@ import { CodeBlock } from "@/components/ai-elements/code-block";
 import { toAIElementsFormat, hasToolData } from "@/lib/builder/messageAdapter";
 import type { MessagePart } from "@/lib/builder/messageAdapter";
 import type { ChatMessage } from "@/lib/builder/types";
-import { ChevronDown, ChevronUp, MessageSquare } from "lucide-react";
+import { ChevronDown, ChevronUp, Loader2, MessageSquare } from "lucide-react";
 import { memo, useMemo, useState } from "react";
 import type { ToolUIPart } from "ai";
 
@@ -38,14 +38,32 @@ interface MessageListProps {
   chatId: string | null;
   messages?: Array<ChatMessage>;
   showStructuredParts?: boolean;
+  onQuickReply?: (text: string) => Promise<void> | void;
+  quickReplyDisabled?: boolean;
 }
 
 const MessageListComponent = ({
   chatId,
   messages: externalMessages = [],
   showStructuredParts = false,
+  onQuickReply,
+  quickReplyDisabled = false,
 }: MessageListProps) => {
   const messages = useMemo(() => externalMessages.map(toAIElementsFormat), [externalMessages]);
+  const [pendingQuickReplyKey, setPendingQuickReplyKey] = useState<string | null>(null);
+
+  const sendQuickReply = async (messageId: string, optionIndex: number, text: string) => {
+    if (!onQuickReply) return;
+    const key = `${messageId}:${optionIndex}:${text}`;
+    setPendingQuickReplyKey(key);
+    try {
+      await onQuickReply(text);
+    } catch (error) {
+      console.error("Quick reply failed:", error);
+    } finally {
+      setPendingQuickReplyKey((current) => (current === key ? null : current));
+    }
+  };
 
   if (!chatId && messages.length === 0) {
     return (
@@ -265,6 +283,12 @@ const MessageListComponent = ({
                     const { toolType, toolTitle } = resolveToolLabels(tool);
                     const integrationSummary = getToolIntegrationSummary(tool);
                     const integrationCard = getIntegrationCardData(tool);
+                    const questionPrompt = getToolQuestionPrompt(tool);
+                    const canQuickReply =
+                      Boolean(onQuickReply) &&
+                      !quickReplyDisabled &&
+                      questionPrompt &&
+                      questionPrompt.options.length > 0;
                     const canOpen = Boolean(chatId);
 
                     return (
@@ -278,47 +302,81 @@ const MessageListComponent = ({
                             {getToolStateLabel(toolState)}
                           </span>
                         </div>
-                        {integrationSummary?.name && (
-                          <p className="text-muted-foreground mt-1 text-xs">
-                            Integration: {integrationSummary.name}
-                          </p>
-                        )}
-                        {integrationSummary?.envKeys && integrationSummary.envKeys.length > 0 && (
-                          <p className="text-muted-foreground mt-1 text-xs">
-                            Miljövariabler: {integrationSummary.envKeys.join(", ")}
-                          </p>
-                        )}
-                        {integrationSummary?.status && (
-                          <p className="text-muted-foreground mt-1 text-xs">
-                            Status: {integrationSummary.status}
-                          </p>
-                        )}
-                        {integrationCard ? (
+                        {questionPrompt ? (
                           <div className="border-border bg-muted/20 mt-2 rounded-md border p-2 text-xs">
-                            {integrationCard.intentLabel && (
-                              <p className="text-muted-foreground">
-                                Åtgärd: {integrationCard.intentLabel}
-                              </p>
-                            )}
-                            {integrationCard.envKeys.length > 0 && (
-                              <p className="text-muted-foreground mt-1">
-                                Miljövariabler: {integrationCard.envKeys.join(", ")}
-                              </p>
-                            )}
-                            {integrationCard.sourceEvent && (
-                              <p className="text-muted-foreground mt-1">
-                                Källa: {integrationCard.sourceEvent}
+                            <p className="text-foreground text-sm font-medium">{questionPrompt.question}</p>
+                            {questionPrompt.options.length > 0 ? (
+                              <div className="mt-2 flex flex-wrap gap-2">
+                                {questionPrompt.options.map((option, optionIndex) => {
+                                  const replyKey = `${message.id}:${optionIndex}:${option}`;
+                                  const isPending = pendingQuickReplyKey === replyKey;
+                                  return (
+                                    <Button
+                                      key={replyKey}
+                                      size="sm"
+                                      variant="secondary"
+                                      disabled={!canQuickReply || pendingQuickReplyKey !== null}
+                                      onClick={() => void sendQuickReply(message.id, optionIndex, option)}
+                                    >
+                                      {isPending ? (
+                                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                      ) : null}
+                                      {option}
+                                    </Button>
+                                  );
+                                })}
+                              </div>
+                            ) : (
+                              <p className="text-muted-foreground mt-2">
+                                Reply in chat to continue generation.
                               </p>
                             )}
                           </div>
                         ) : (
                           <>
-                            <p className="text-muted-foreground mt-2 text-xs">
-                              Den här åtgärden hanteras av v0. Öppna chatten i v0 om du vill installera.
-                            </p>
-                            <p className="text-muted-foreground mt-1 text-xs">
-                              Om integration krävs: kontrollera Integrationspanelen för saknade nycklar.
-                            </p>
+                            {integrationSummary?.name && (
+                              <p className="text-muted-foreground mt-1 text-xs">
+                                Integration: {integrationSummary.name}
+                              </p>
+                            )}
+                            {integrationSummary?.envKeys && integrationSummary.envKeys.length > 0 && (
+                              <p className="text-muted-foreground mt-1 text-xs">
+                                Miljövariabler: {integrationSummary.envKeys.join(", ")}
+                              </p>
+                            )}
+                            {integrationSummary?.status && (
+                              <p className="text-muted-foreground mt-1 text-xs">
+                                Status: {integrationSummary.status}
+                              </p>
+                            )}
+                            {integrationCard ? (
+                              <div className="border-border bg-muted/20 mt-2 rounded-md border p-2 text-xs">
+                                {integrationCard.intentLabel && (
+                                  <p className="text-muted-foreground">
+                                    Åtgärd: {integrationCard.intentLabel}
+                                  </p>
+                                )}
+                                {integrationCard.envKeys.length > 0 && (
+                                  <p className="text-muted-foreground mt-1">
+                                    Miljövariabler: {integrationCard.envKeys.join(", ")}
+                                  </p>
+                                )}
+                                {integrationCard.sourceEvent && (
+                                  <p className="text-muted-foreground mt-1">
+                                    Källa: {integrationCard.sourceEvent}
+                                  </p>
+                                )}
+                              </div>
+                            ) : (
+                              <>
+                                <p className="text-muted-foreground mt-2 text-xs">
+                                  Den här åtgärden hanteras av v0. Öppna chatten i v0 om du vill installera.
+                                </p>
+                                <p className="text-muted-foreground mt-1 text-xs">
+                                  Om integration krävs: kontrollera Integrationspanelen för saknade nycklar.
+                                </p>
+                              </>
+                            )}
                           </>
                         )}
                         <div className="mt-2 flex flex-wrap gap-2">
@@ -340,9 +398,11 @@ const MessageListComponent = ({
                               </a>
                             </Button>
                           )}
-                          <Button size="sm" variant="outline" onClick={openIntegrationsPanel}>
-                            Öppna Integrationspanelen
-                          </Button>
+                          {!questionPrompt && (
+                            <Button size="sm" variant="outline" onClick={openIntegrationsPanel}>
+                              Öppna Integrationspanelen
+                            </Button>
+                          )}
                         </div>
                       </div>
                     );
@@ -640,9 +700,97 @@ function coerceStringArray(value: unknown): string[] {
   return value.map((item) => String(item)).filter((item) => item.trim().length > 0);
 }
 
+type ToolQuestionPrompt = {
+  question: string;
+  options: string[];
+};
+
+function getToolQuestionPrompt(
+  tool: Partial<ToolUIPart> & { input?: unknown; output?: unknown; type?: string },
+): ToolQuestionPrompt | null {
+  const fromOutput = extractQuestionPrompt(tool.output);
+  if (fromOutput) return fromOutput;
+  const fromInput = extractQuestionPrompt(tool.input);
+  if (fromInput) return fromInput;
+
+  const type = typeof tool.type === "string" ? tool.type.toLowerCase() : "";
+  const toolWithName = tool as { name?: string; toolName?: string };
+  const name = `${toolWithName.name ?? ""} ${toolWithName.toolName ?? ""}`.toLowerCase();
+  const hasQuestionHint =
+    type.includes("question") ||
+    type.includes("clarif") ||
+    type.includes("approval") ||
+    name.includes("question") ||
+    name.includes("clarif") ||
+    name.includes("approval");
+  if (!hasQuestionHint) return null;
+
+  return {
+    question: "Choose an answer to continue.",
+    options: [],
+  };
+}
+
+function extractQuestionPrompt(value: unknown): ToolQuestionPrompt | null {
+  if (!value || typeof value !== "object") return null;
+  const obj = value as Record<string, unknown>;
+  const question =
+    (typeof obj.question === "string" && obj.question.trim()) ||
+    (typeof obj.prompt === "string" && obj.prompt.trim()) ||
+    (typeof obj.title === "string" && obj.title.trim()) ||
+    (typeof obj.message === "string" && obj.message.trim()) ||
+    (typeof obj.text === "string" && obj.text.trim()) ||
+    (typeof obj.description === "string" && obj.description.trim()) ||
+    (typeof obj.label === "string" && obj.label.trim()) ||
+    null;
+
+  const options = readQuestionOptions(
+    obj.options ??
+      obj.choices ??
+      obj.answers ??
+      obj.buttons ??
+      obj.values ??
+      obj.items ??
+      obj.questions,
+  );
+  if (!question && options.length === 0) return null;
+
+  return {
+    question: question || "Choose an answer to continue.",
+    options,
+  };
+}
+
+function readQuestionOptions(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  const options = value
+    .map((item) => {
+      if (typeof item === "string") return item.trim();
+      if (!item || typeof item !== "object") return "";
+      const obj = item as Record<string, unknown>;
+      return (
+        (typeof obj.label === "string" && obj.label.trim()) ||
+        (typeof obj.text === "string" && obj.text.trim()) ||
+        (typeof obj.title === "string" && obj.title.trim()) ||
+        (typeof obj.value === "string" && obj.value.trim()) ||
+        (typeof obj.name === "string" && obj.name.trim()) ||
+        ""
+      );
+    })
+    .filter(Boolean);
+  return dedupeStrings(options).slice(0, 8);
+}
+
 function isActionableToolPart(tool: Partial<ToolUIPart> & { type?: string }) {
   const state = typeof tool.state === "string" ? tool.state : "";
   if (state === "approval-requested") return true;
+  if (
+    getToolQuestionPrompt(
+      tool as Partial<ToolUIPart> & { input?: unknown; output?: unknown; type?: string },
+    )
+  ) {
+    return true;
+  }
   const type = typeof tool.type === "string" ? tool.type.toLowerCase() : "";
   const toolWithName = tool as { name?: string; toolName?: string };
   const name = (toolWithName.name ?? toolWithName.toolName ?? "").toLowerCase();

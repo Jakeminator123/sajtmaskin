@@ -487,6 +487,41 @@ function normalizeWhitespace(value: string): string {
     .trim();
 }
 
+function isStructuredPrompt(value: string): boolean {
+  const lines = value
+    .split("\n")
+    .map((line) => line.trim())
+    .filter(Boolean);
+  if (lines.length === 0) return false;
+  const normalizedHeadings = new Set(
+    lines.map((line) =>
+      line
+        .toLowerCase()
+        .replace(/[^a-z0-9åäö#/_-]+/gi, " ")
+        .replace(/\s+/g, " ")
+        .trim(),
+    ),
+  );
+  const headingCandidates = [
+    "mal",
+    "mål",
+    "sektioner",
+    "stil",
+    "constraints",
+    "tillganglighet",
+    "tillgänglighet",
+    "assets/attachments",
+    "## build intent",
+    "## project context",
+    "## quality bar",
+  ];
+  const hitCount = headingCandidates.reduce(
+    (count, candidate) => count + (normalizedHeadings.has(candidate) ? 1 : 0),
+    0,
+  );
+  return hitCount >= 2;
+}
+
 function extractKeywordMatches(value: string, keywords: readonly string[]): string[] {
   const normalized = value.toLowerCase();
   const matches = keywords.filter((keyword) => normalized.includes(keyword));
@@ -515,6 +550,15 @@ function extractUrls(value: string): string[] {
   return Array.from(new Set(matches)).slice(0, 6);
 }
 
+function normalizeConstraintKey(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/\(sr-only ok\)/g, "")
+    .replace(/[^a-z0-9åäö]+/gi, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 const ACCESSIBILITY_REQUIREMENTS = [
   "Dialoger måste ha DialogTitle + DialogDescription (sr-only ok) eller korrekt aria-describedby.",
 ];
@@ -523,11 +567,32 @@ export function formatPromptForV0(prompt: string): string {
   if (!prompt) return "";
   const normalized = normalizeWhitespace(String(prompt));
   if (!normalized) return "";
+  if (isStructuredPrompt(normalized)) return normalized;
 
   const sections = extractKeywordMatches(normalized, SECTION_KEYWORDS);
   const styles = extractKeywordMatches(normalized, STYLE_KEYWORDS);
-  const constraints = extractConstraints(normalized);
+  const accessibilityKeys = new Set(
+    ACCESSIBILITY_REQUIREMENTS.map((line) => normalizeConstraintKey(line)),
+  );
+  const seenConstraintKeys = new Set<string>();
+  const constraints = extractConstraints(normalized).filter((line) => {
+    const key = normalizeConstraintKey(line);
+    if (!key) return false;
+    if (seenConstraintKeys.has(key)) return false;
+    seenConstraintKeys.add(key);
+    if (accessibilityKeys.has(key)) return false;
+    return true;
+  });
   const urls = extractUrls(normalized);
+  const normalizedPromptKeys = new Set(
+    normalized
+      .split(/\n+/)
+      .map((line) => normalizeConstraintKey(line))
+      .filter(Boolean),
+  );
+  const accessibilityRequirements = ACCESSIBILITY_REQUIREMENTS.filter(
+    (line) => !normalizedPromptKeys.has(normalizeConstraintKey(line)),
+  );
 
   const parts: string[] = ["MÅL", normalized];
 
@@ -543,10 +608,10 @@ export function formatPromptForV0(prompt: string): string {
   if (urls.length) {
     parts.push("ASSETS/ATTACHMENTS", urls.map((url) => `- ${url}`).join("\n"));
   }
-  if (ACCESSIBILITY_REQUIREMENTS.length) {
+  if (accessibilityRequirements.length) {
     parts.push(
       "TILLGÄNGLIGHET",
-      ACCESSIBILITY_REQUIREMENTS.map((line) => `- ${line}`).join("\n"),
+      accessibilityRequirements.map((line) => `- ${line}`).join("\n"),
     );
   }
 

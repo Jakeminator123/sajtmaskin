@@ -1937,6 +1937,7 @@ export function useV0ChatMessaging(params: {
                     doneData.latestVersion?.id ||
                     doneData.latestVersion?.versionId ||
                     null;
+                  const awaitingInput = Boolean(doneData.awaitingInput);
                   if (!resolvedChatId) {
                     throw new Error("No chat ID returned from stream");
                   }
@@ -1956,6 +1957,36 @@ export function useV0ChatMessaging(params: {
                   }
                   if (pendingCreateKeyRef.current) {
                     updateCreateChatLockChatId(pendingCreateKeyRef.current, nextId);
+                  }
+                  if (awaitingInput) {
+                    appendToolPartToMessage(setMessages, assistantMessageId, {
+                      type: "tool:awaiting-input",
+                      toolName: "Awaiting input",
+                      toolCallId: `awaiting-input:${assistantMessageId}`,
+                      state: "approval-requested",
+                      output: {
+                        question:
+                          "v0 needs your answer before the next version can be generated. Pick an option in chat or reply with free text.",
+                        chatId: nextId,
+                        messageId:
+                          doneData.messageId ||
+                          doneData.message_id ||
+                          doneData.latestVersion?.messageId ||
+                          null,
+                        awaitingInput: true,
+                      },
+                    });
+                    setMessages((prev) =>
+                      prev.map((m) => {
+                        if (m.id !== assistantMessageId || (m.content || "").trim()) return m;
+                        return {
+                          ...m,
+                          content:
+                            "I need your answer to a follow-up question before preview can be generated.",
+                        };
+                      }),
+                    );
+                    toast("v0 is waiting for your answer to continue.");
                   }
                   setMessages((prev) =>
                     prev.map((m) => (m.id === assistantMessageId ? { ...m, isStreaming: false } : m)),
@@ -2401,8 +2432,39 @@ export function useV0ChatMessaging(params: {
                   doneData.latestVersion?.id ||
                   doneData.latestVersion?.versionId ||
                   null;
+                const awaitingInput = Boolean(doneData.awaitingInput);
                 streamStats.chatId = chatId ?? null;
                 streamStats.versionId = resolvedVersionId ? String(resolvedVersionId) : null;
+                if (awaitingInput) {
+                  appendToolPartToMessage(setMessages, assistantMessageId, {
+                    type: "tool:awaiting-input",
+                    toolName: "Awaiting input",
+                    toolCallId: `awaiting-input:${assistantMessageId}`,
+                    state: "approval-requested",
+                    output: {
+                      question:
+                        "v0 needs your answer to a follow-up question before the next version can be generated.",
+                      chatId: chatId ?? null,
+                      messageId:
+                        doneData.messageId ||
+                        doneData.message_id ||
+                        doneData.latestVersion?.messageId ||
+                        null,
+                      awaitingInput: true,
+                    },
+                  });
+                  setMessages((prev) =>
+                    prev.map((m) => {
+                      if (m.id !== assistantMessageId || (m.content || "").trim()) return m;
+                      return {
+                        ...m,
+                        content:
+                          "I need your answer to a follow-up question before preview can be generated.",
+                      };
+                    }),
+                  );
+                  toast("v0 is waiting for your answer to continue.");
+                }
                 setMessages((prev) =>
                   prev.map((m) => (m.id === assistantMessageId ? { ...m, isStreaming: false } : m)),
                 );

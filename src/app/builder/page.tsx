@@ -2151,6 +2151,10 @@ function BuilderContent() {
                 chatId={chatId}
                 messages={messages}
                 showStructuredParts={showStructuredChat}
+                onQuickReply={(text) => sendMessage(text)}
+                quickReplyDisabled={
+                  isCreatingChat || isAnyStreaming || isTemplateLoading || isPreparingPrompt
+                }
               />
               <ThinkingOverlay isVisible={isAnyStreaming} />
             </div>
