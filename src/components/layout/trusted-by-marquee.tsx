@@ -6,21 +6,12 @@
  */
 
 const COMPANIES = [
-  "Northvolt",
-  "Storytel",
-  "Klarna",
-  "Spotify",
-  "Volvo Cars",
-  "H&M",
-  "IKEA",
-  "Hemnet",
-  "Voi",
-  "Truecaller",
-  "Epidemic Sound",
-  "Karma",
-  "Einride",
-  "Kry",
-  "Readly",
+  "Max Ventures",
+  "Bilen&Jag",
+  "Prometheus",
+  "DG97",
+  "1753 Scincare",
+  "Raymond Media",
 ];
 
 export function TrustedByMarquee() {
@@ -34,12 +25,12 @@ export function TrustedByMarquee() {
         Betrodda av företag som
       </p>
 
-      <div className="marquee-container flex gap-0">
+      <div className="marquee-container flex gap-0 text-[160px]">
         <div className="marquee-track flex shrink-0 items-center gap-12 px-6">
           {COMPANIES.map((name) => (
             <span
               key={name}
-              className="text-muted-foreground/40 hover:text-muted-foreground whitespace-nowrap text-lg font-medium tracking-tight transition-colors duration-300"
+              className="text-muted-foreground/40 hover:text-muted-foreground whitespace-nowrap font-medium tracking-tight transition-colors duration-300"
             >
               {name}
             </span>
@@ -49,7 +40,7 @@ export function TrustedByMarquee() {
           {COMPANIES.map((name) => (
             <span
               key={`dup-${name}`}
-              className="text-muted-foreground/40 hover:text-muted-foreground whitespace-nowrap text-lg font-medium tracking-tight transition-colors duration-300"
+              className="text-muted-foreground/40 hover:text-muted-foreground whitespace-nowrap font-medium tracking-tight transition-colors duration-300"
             >
               {name}
             </span>

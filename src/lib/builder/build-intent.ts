@@ -17,7 +17,7 @@ export const BUILD_INTENT_OPTIONS: Array<{
   {
     value: "website",
     label: "Webbplats",
-    description: "Marknads-/infosida",
+    description: "Valfri modern webbplats",
   },
   {
     value: "app",

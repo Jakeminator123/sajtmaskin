@@ -47,13 +47,6 @@ export function verifyPassword(password: string, storedHash: string): boolean {
 const JWT_SECRET = SECRETS.jwtSecret;
 const JWT_EXPIRY = 7 * 24 * 60 * 60; // 7 days in seconds
 const AUTH_COOKIE_NAME = "sajtmaskin_auth";
-const LEGACY_EMAIL_AUTO_VERIFY_BEFORE_RAW =
-  process.env.LEGACY_EMAIL_AUTO_VERIFY_BEFORE || "2026-02-10T00:00:00.000Z";
-const LEGACY_EMAIL_AUTO_VERIFY_BEFORE_TS = Number.isFinite(
-  Date.parse(LEGACY_EMAIL_AUTO_VERIFY_BEFORE_RAW),
-)
-  ? Date.parse(LEGACY_EMAIL_AUTO_VERIFY_BEFORE_RAW)
-  : 0;
 
 // Google OAuth configuration - use centralized secrets
 const GOOGLE_CLIENT_ID = SECRETS.googleClientId;
@@ -207,9 +200,11 @@ export async function registerUser(
   password: string,
   name?: string,
 ): Promise<{ user: User; token: string } | { error: string }> {
+  const normalizedEmail = email.trim().toLowerCase();
+
   // Validate email format
   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailRegex.test(email)) {
+  if (!emailRegex.test(normalizedEmail)) {
     return { error: "Ogiltig e-postadress" };
   }
 
@@ -219,14 +214,14 @@ export async function registerUser(
   }
 
   // Check if user exists
-  const existingUser = await getUserByEmail(email);
+  const existingUser = await getUserByEmail(normalizedEmail);
   if (existingUser) {
     return { error: "En användare med denna e-post finns redan" };
   }
 
   // Create user
   const passwordHash = hashPassword(password);
-  const user = await createUser(email, passwordHash, name);
+  const user = await createUser(normalizedEmail, passwordHash, name);
 
   // Create token
   const token = createToken(user.id, user.email!);
@@ -300,10 +295,14 @@ export async function loginUser(
   email: string,
   password: string,
 ): Promise<{ user: User; token: string } | { error: string }> {
+  const normalizedEmail = email.trim().toLowerCase();
+
   // Check admin credentials from env
   const adminCreds = getAdminCredentials();
   const adminMatch = adminCreds.find(
-    (u) => (u.login === email || u.email === email) && u.password === password,
+    (u) =>
+      (u.login.toLowerCase() === normalizedEmail || u.email.toLowerCase() === normalizedEmail) &&
+      u.password === password,
   );
 
   if (adminMatch) {
@@ -325,7 +324,7 @@ export async function loginUser(
   }
 
   // Standard database login
-  const user = await getUserByEmail(email);
+  const user = await getUserByEmail(normalizedEmail);
   if (!user) {
     return { error: "Felaktig e-post eller lösenord" };
   }
@@ -338,7 +337,7 @@ export async function loginUser(
     return { error: "Felaktig e-post eller lösenord" };
   }
 
-  const isAdmin = isAdminEmail(user.email || email);
+  const isAdmin = isAdminEmail(user.email || normalizedEmail);
 
   // Bootstrap admin privileges on regular login too (for ADMIN_EMAILS users)
   if (isAdmin) {
@@ -346,17 +345,11 @@ export async function loginUser(
   }
 
   // Enforce email verification for regular email/password users.
-  // Legacy users created before this feature may not have a token;
-  // auto-verify them at first successful login to avoid lockouts.
   if (!isAdmin && !user.email_verified) {
-    if (shouldAutoVerifyLegacyEmailUser(user)) {
-      await markEmailVerified(user.id);
-    } else {
-      return {
-        error:
-          "Du måste bekräfta din e-post innan du kan logga in. Använd 'Skicka verifieringsmail igen' i inloggningsrutan.",
-      };
-    }
+    return {
+      error:
+        "Du måste bekräfta din e-post innan du kan logga in. Använd 'Skicka verifieringsmail igen' i inloggningsrutan.",
+    };
   }
 
   // Update last login
@@ -391,15 +384,6 @@ async function bootstrapAdminUser(user: User): Promise<void> {
     // Non-fatal – log and continue
     console.error("[Auth] Failed to bootstrap admin user:", err);
   }
-}
-
-function shouldAutoVerifyLegacyEmailUser(user: User): boolean {
-  if (user.provider !== "email") return false;
-  if (user.verification_token) return false;
-  if (user.last_login_at) return true;
-  const createdAt = user.created_at instanceof Date ? user.created_at.getTime() : NaN;
-  if (!Number.isFinite(createdAt)) return false;
-  return createdAt < LEGACY_EMAIL_AUTO_VERIFY_BEFORE_TS;
 }
 
 // ============ Google OAuth ============

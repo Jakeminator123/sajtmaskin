@@ -137,7 +137,7 @@ const BUILD_INTENT_SYSTEM_GUIDANCE: Record<BuildIntent, string> = {
   template:
     "Template build: keep scope compact (1–2 pages), focus on reusable sections, avoid heavy app logic.",
   website:
-    "Website build: focus on content structure, marketing flow, and clear sections. " +
+    "Website build: focus on clear structure and flows that fit the requested use case. " +
     "Match scope to the request — a simple request should be a polished one-pager, " +
     "a detailed request may warrant multiple pages. Prefer quality over quantity. " +
     "Use shadcn/ui components for forms, cards, dialogs, and interactive elements.",

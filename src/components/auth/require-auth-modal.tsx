@@ -15,13 +15,13 @@ const REASONS = {
   generation: {
     title: "Du har använt din gratis generation",
     description:
-      "Skapa ett konto för att fortsätta bygga webbplatser. Du får 50 gratis credits!",
+      "Skapa ett konto för att fortsätta bygga webbplatser. Du får 50 credits efter verifierad e-post.",
     icon: Wand2,
   },
   refine: {
     title: "Du har använt din gratis förfining",
     description:
-      "Skapa ett konto för att fortsätta förfina din design. Du får 50 gratis credits!",
+      "Skapa ett konto för att fortsätta förfina din design. Du får 50 credits efter verifierad e-post.",
     icon: Wand2,
   },
   credits: {
@@ -97,7 +97,7 @@ export function RequireAuthModal({ isOpen, onClose, reason }: RequireAuthModalPr
               <div className="bg-brand-amber/10 border-brand-amber/30 mb-6 inline-flex items-center gap-2 border px-4 py-2">
                 <Coins className="text-brand-amber h-4 w-4" />
                 <span className="text-brand-amber text-sm font-medium">
-                  +50 credits gratis vid registrering
+                  +50 credits efter verifiering
                 </span>
               </div>
             )}

@@ -35,8 +35,9 @@ interface VerificationEmailOptions {
 
 /**
  * Send an email-verification link to a newly registered user.
- * Returns `{ success: true }` when the email was queued or when
- * the email provider is not configured (dev/test environments).
+ * Returns `{ success: true }` only when the email was queued.
+ * When the provider is missing in dev/test, returns `success: false`
+ * with `deliveryMode: "provider_missing"` and logs the link.
  */
 export async function sendVerificationEmail(
   to: string,

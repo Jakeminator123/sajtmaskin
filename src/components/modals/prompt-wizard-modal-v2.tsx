@@ -757,7 +757,7 @@ export function PromptWizardModalV2({
           ? "Keep scope compact: 1-2 pages, no complex app logic."
           : buildIntent === "app"
             ? "Include interactive flows, stateful UI, and data models."
-            : "Focus on clear sections, marketing copy, and conversion flow.";
+            : "Focus on clear structure, purposeful content, and flows that match the user's goal.";
       sections.push(`\nScope: ${intentHint}`);
 
       const expandedPrompt = sections.join("\n");

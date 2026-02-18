@@ -9,18 +9,12 @@ import { Loader2 } from "lucide-react";
  */
 
 const FACTS = [
-  { company: "Spotify", fact: "Startade i en lägenhet i Stockholm 2006" },
-  { company: "IKEA", fact: "Grundades av en 17-åring i Småland 1943" },
-  { company: "Klarna", fact: "Värderades till $6.7 miljarder vid första börsintroduktionen" },
-  { company: "Minecraft", fact: "Såldes till Microsoft för $2.5 miljarder 2014" },
-  { company: "H&M", fact: "Första butiken hette Hennes och öppnade i Västerås 1947" },
-  { company: "Volvo", fact: "Betyder 'jag rullar' på latin" },
-  { company: "Northvolt", fact: "Europas största batterifabrik – grundad 2016" },
-  { company: "Storytel", fact: "Finns i 25+ marknader med 2M+ prenumeranter" },
-  { company: "King", fact: "Candy Crush laddades ner 2.7 miljarder gånger" },
-  { company: "Hemnet", fact: "97% av alla bostadsaffärer i Sverige passerar Hemnet" },
-  { company: "Truecaller", fact: "500 miljoner användare – grundat i Stockholm" },
-  { company: "Epidemic Sound", fact: "Levererar musik till 90% av världens största YouTubers" },
+  { company: "Max Ventures", fact: "Investerar och utvecklar innovativa företag inom olika branscher" },
+  { company: "Bilen&Jag", fact: "Svensk plattform som förenklar köp och ägande av bil" },
+  { company: "Prometheus", fact: "Internationellt ledande AI-företag inom poker" },
+  { company: "DG97", fact: "Kontorshotellet på Drottninggatan" },
+  { company: "1753 Scincare", fact: "Hudvårdsmärke med fokus på naturliga ingredienser" },
+  { company: "Raymond Media", fact: "Producerar digitalt innehåll för ledande varumärken" },
 ];
 
 export function ThinkingOverlay({ isVisible }: { isVisible: boolean }) {

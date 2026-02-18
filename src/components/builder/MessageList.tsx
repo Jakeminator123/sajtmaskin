@@ -17,6 +17,13 @@ import {
 } from "@/components/ai-elements/tool";
 import { Button } from "@/components/ui/button";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   Plan,
   PlanAction,
   PlanContent,
@@ -28,11 +35,11 @@ import {
 } from "@/components/ai-elements/plan";
 import { CodeBlock } from "@/components/ai-elements/code-block";
 import { toAIElementsFormat, hasToolData } from "@/lib/builder/messageAdapter";
-import type { MessagePart } from "@/lib/builder/messageAdapter";
+import type { AIElementsMessage, MessagePart } from "@/lib/builder/messageAdapter";
 import type { ChatMessage } from "@/lib/builder/types";
 import { cn } from "@/lib/utils";
 import { ChevronDown, ChevronUp, Loader2, MessageSquare } from "lucide-react";
-import { memo, useMemo, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import type { ToolUIPart } from "ai";
 
 interface MessageListProps {
@@ -52,17 +59,49 @@ const MessageListComponent = ({
 }: MessageListProps) => {
   const messages = useMemo(() => externalMessages.map(toAIElementsFormat), [externalMessages]);
   const [pendingQuickReplyKey, setPendingQuickReplyKey] = useState<string | null>(null);
+  const [isReplyDialogOpen, setIsReplyDialogOpen] = useState(false);
+  const lastAutoOpenedReplyKeyRef = useRef<string | null>(null);
 
   const sendQuickReply = async (messageId: string, optionIndex: number, text: string) => {
-    if (!onQuickReply) return;
+    if (!onQuickReply) return false;
     const key = `${messageId}:${optionIndex}:${text}`;
     setPendingQuickReplyKey(key);
     try {
       await onQuickReply(text);
+      return true;
     } catch (error) {
       console.error("Quick reply failed:", error);
+      return false;
     } finally {
       setPendingQuickReplyKey((current) => (current === key ? null : current));
+    }
+  };
+
+  const pendingReply = useMemo(() => getLatestPendingReply(messages), [messages]);
+
+  useEffect(() => {
+    const pendingKey = pendingReply?.key ?? null;
+    if (!pendingKey) {
+      setIsReplyDialogOpen(false);
+      lastAutoOpenedReplyKeyRef.current = null;
+      return;
+    }
+    if (lastAutoOpenedReplyKeyRef.current === pendingKey) return;
+    lastAutoOpenedReplyKeyRef.current = pendingKey;
+    setIsReplyDialogOpen(true);
+  }, [pendingReply?.key]);
+
+  useEffect(() => {
+    const handleDialogClose = () => setIsReplyDialogOpen(false);
+    window.addEventListener("dialog-close", handleDialogClose);
+    return () => window.removeEventListener("dialog-close", handleDialogClose);
+  }, []);
+
+  const handleModalQuickReply = async (option: string, optionIndex: number) => {
+    if (!pendingReply) return;
+    const success = await sendQuickReply(pendingReply.messageId, optionIndex, option);
+    if (success) {
+      setIsReplyDialogOpen(false);
     }
   };
 
@@ -85,9 +124,10 @@ const MessageListComponent = ({
   }
 
   return (
-    <Conversation className="h-full">
-      <ConversationContent>
-        {messages.map((message) => {
+    <>
+      <Conversation className="h-full">
+        <ConversationContent>
+          {messages.map((message) => {
           const reasoningPart = message.parts.find(
             (p): p is Extract<MessagePart, { type: "reasoning" }> => p.type === "reasoning",
           );
@@ -558,10 +598,67 @@ const MessageListComponent = ({
               </MessageContent>
             </Message>
           );
-        })}
-      </ConversationContent>
-      <ConversationScrollButton />
-    </Conversation>
+          })}
+        </ConversationContent>
+        <ConversationScrollButton />
+      </Conversation>
+
+      {pendingReply && (
+        <>
+          <Dialog open={isReplyDialogOpen}>
+            <DialogContent className="sm:max-w-md">
+              <DialogHeader>
+                <DialogTitle className="font-semibold text-amber-300">
+                  Svar krävs för att fortsätta
+                </DialogTitle>
+                <DialogDescription>
+                  Buildern väntar på ditt val innan nästa steg i chatten kan fortsätta.
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-3">
+                <p className="text-foreground text-sm font-semibold">{pendingReply.question}</p>
+                {pendingReply.options.length > 0 ? (
+                  <div className="flex flex-wrap gap-2">
+                    {pendingReply.options.map((option, optionIndex) => {
+                      const replyKey = `${pendingReply.messageId}:${optionIndex}:${option}`;
+                      const isPending = pendingQuickReplyKey === replyKey;
+                      const canReply = Boolean(onQuickReply) && !quickReplyDisabled;
+                      return (
+                        <Button
+                          key={replyKey}
+                          size="sm"
+                          variant="secondary"
+                          disabled={!canReply || pendingQuickReplyKey !== null}
+                          onClick={() => void handleModalQuickReply(option, optionIndex)}
+                        >
+                          {isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                          {option}
+                        </Button>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <p className="text-muted-foreground text-xs">
+                    Svara i chatten för att fortsätta genereringen.
+                  </p>
+                )}
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          {!isReplyDialogOpen && (
+            <Button
+              type="button"
+              className="fixed bottom-6 right-6 z-40 bg-amber-500 text-black hover:bg-amber-400"
+              onClick={() => setIsReplyDialogOpen(true)}
+            >
+              Svar krävs
+            </Button>
+          )}
+        </>
+      )}
+    </>
   );
 };
 
@@ -764,6 +861,50 @@ type ToolQuestionPrompt = {
   question: string;
   options: string[];
 };
+
+type PendingReplyModalData = {
+  key: string;
+  messageId: string;
+  question: string;
+  options: string[];
+};
+
+function getLatestPendingReply(messages: AIElementsMessage[]): PendingReplyModalData | null {
+  for (let messageIndex = messages.length - 1; messageIndex >= 0; messageIndex -= 1) {
+    const message = messages[messageIndex];
+    if (message.role !== "assistant") continue;
+    const toolParts = message.parts.filter(
+      (part): part is Extract<MessagePart, { type: "tool" }> => part.type === "tool",
+    );
+    for (let toolIndex = toolParts.length - 1; toolIndex >= 0; toolIndex -= 1) {
+      const toolPart = toolParts[toolIndex];
+      const tool = toolPart.tool as Partial<ToolUIPart> & {
+        type?: string;
+        approval?: unknown;
+      };
+      const toolState = (
+        typeof tool.state === "string" ? tool.state : "input-available"
+      ) as ToolUIPart["state"];
+      const replyPrompt = getActionPrompt(tool, toolState);
+      if (!replyPrompt) continue;
+      const toolCallId =
+        (typeof tool.toolCallId === "string" && tool.toolCallId) || `tool-${toolIndex}`;
+      const key = [
+        message.id,
+        toolCallId,
+        replyPrompt.question,
+        replyPrompt.options.join("|"),
+      ].join(":");
+      return {
+        key,
+        messageId: message.id,
+        question: replyPrompt.question,
+        options: replyPrompt.options,
+      };
+    }
+  }
+  return null;
+}
 
 function getToolQuestionPrompt(
   tool: Partial<ToolUIPart> & {

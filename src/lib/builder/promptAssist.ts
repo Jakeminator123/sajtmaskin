@@ -167,9 +167,9 @@ const BUILD_INTENT_GUIDANCE: Record<
     ],
   },
   website: {
-    summary: "Website build: marketing/info content with clear structure.",
+    summary: "Website build: purpose-fit web experience with clear structure.",
     instructionLines: [
-      "Focus on content structure, marketing flow, and clear sections.",
+      "Focus on content structure, clear sections, and flows that fit the requested use case.",
       "Prefer static content with light interactivity; keep logic minimal.",
       "Match scope to the request: a short, simple prompt should yield a polished one-pager; a detailed prompt may produce multiple pages.",
       "Use shadcn/ui components (buttons, cards, forms, dialogs) for all interactive and structured UI elements.",

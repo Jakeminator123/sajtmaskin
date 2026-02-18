@@ -470,7 +470,7 @@ export async function POST(req: Request) {
                   if (pendingRawData) {
                     rawData = `${pendingRawData}\n${rawData}`;
                   }
-                  let parsed = safeJsonParse(rawData);
+                  const parsed = safeJsonParse(rawData);
                   if (typeof parsed === "string" && looksLikeIncompleteJson(rawData)) {
                     pendingRawData = rawData;
                     continue;

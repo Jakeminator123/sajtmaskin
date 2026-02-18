@@ -86,7 +86,7 @@ export function AuthModal({ isOpen, onClose, defaultMode = "login" }: AuthModalP
         } else {
           setSuccessMessage(
             data.message ||
-              "Vi har skickat ett verifieringsmail. Bekräfta din e-post innan du loggar in.",
+              "Vi har skickat ett verifieringsmail. Bekräfta din e-post för att aktivera konto och credits.",
           );
         }
         setMode("login");
@@ -170,14 +170,16 @@ export function AuthModal({ isOpen, onClose, defaultMode = "login" }: AuthModalP
           <p className="mt-2 text-sm text-gray-400">
             {mode === "login"
               ? "Logga in för att fortsätta bygga"
-              : "Få 50 gratis credits när du skapar konto"}
+              : "Få 50 credits efter verifierad e-post"}
           </p>
 
           {/* Signup bonus indicator */}
           {mode === "register" && (
             <div className="bg-brand-amber/10 border-brand-amber/30 mt-4 inline-flex items-center gap-2 border px-4 py-2">
               <Coins className="text-brand-amber h-4 w-4" />
-              <span className="text-brand-amber text-sm font-medium">+50 credits gratis</span>
+              <span className="text-brand-amber text-sm font-medium">
+                +50 credits efter verifiering
+              </span>
             </div>
           )}
         </div>

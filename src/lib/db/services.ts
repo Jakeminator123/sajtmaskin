@@ -1,6 +1,6 @@
 import { and, desc, eq, gt, isNull, or, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
-import { randomBytes } from "crypto";
+import { createHash, randomBytes } from "crypto";
 import { db, dbConfigured } from "@/lib/db/client";
 import {
   appProjects,
@@ -77,17 +77,19 @@ export async function createUser(
   name?: string,
 ): Promise<User> {
   assertDbConfigured();
+  const normalizedEmail = email.trim().toLowerCase();
   const id = nanoid();
   const now = new Date();
   const rows = await db
     .insert(users)
     .values({
       id,
-      email,
+      email: normalizedEmail,
       password_hash: passwordHash,
       name: name || null,
       provider: "email",
-      diamonds: 50,
+      // Credits are granted after successful email verification.
+      diamonds: 0,
       email_verified: false,
       created_at: now,
       updated_at: now,
@@ -103,11 +105,12 @@ export async function createGoogleUser(
   picture?: string,
 ): Promise<User> {
   assertDbConfigured();
+  const normalizedEmail = email.trim().toLowerCase();
   const now = new Date();
   const existing = await db
     .select()
     .from(users)
-    .where(or(eq(users.google_id, googleId), eq(users.email, email)))
+    .where(or(eq(users.google_id, googleId), eq(users.email, normalizedEmail)))
     .limit(1);
 
   if (existing[0]) {
@@ -115,7 +118,7 @@ export async function createGoogleUser(
       .update(users)
       .set({
         google_id: googleId,
-        email,
+        email: normalizedEmail,
         name,
         image: picture || null,
         provider: "google",
@@ -134,7 +137,7 @@ export async function createGoogleUser(
     .insert(users)
     .values({
       id,
-      email,
+      email: normalizedEmail,
       name,
       image: picture || null,
       provider: "google",
@@ -209,6 +212,10 @@ export function isAdminEmail(email: string): boolean {
 
 const VERIFICATION_TOKEN_EXPIRY_HOURS = 24;
 
+function hashVerificationToken(token: string): string {
+  return createHash("sha256").update(token).digest("hex");
+}
+
 /**
  * Generate a cryptographically random verification token and store it
  * on the user row. Returns the plain-text token to be included in the
@@ -217,12 +224,13 @@ const VERIFICATION_TOKEN_EXPIRY_HOURS = 24;
 export async function createVerificationToken(userId: string): Promise<string> {
   assertDbConfigured();
   const token = randomBytes(32).toString("hex");
+  const tokenHash = hashVerificationToken(token);
   const expires = new Date(Date.now() + VERIFICATION_TOKEN_EXPIRY_HOURS * 60 * 60 * 1000);
 
   await db
     .update(users)
     .set({
-      verification_token: token,
+      verification_token: tokenHash,
       verification_token_expires: expires,
       updated_at: new Date(),
     })
@@ -237,12 +245,13 @@ export async function createVerificationToken(userId: string): Promise<string> {
  */
 export async function getUserByVerificationToken(token: string): Promise<User | null> {
   assertDbConfigured();
+  const tokenHash = hashVerificationToken(token);
   const rows = await db
     .select()
     .from(users)
     .where(
       and(
-        eq(users.verification_token, token),
+        or(eq(users.verification_token, tokenHash), eq(users.verification_token, token)),
         gt(users.verification_token_expires, new Date()),
       ),
     )
@@ -317,6 +326,16 @@ export async function createTransaction(
     .returning();
 
   return rows[0];
+}
+
+export async function hasSignupBonusTransaction(userId: string): Promise<boolean> {
+  assertDbConfigured();
+  const rows = await db
+    .select({ id: transactions.id })
+    .from(transactions)
+    .where(and(eq(transactions.user_id, userId), eq(transactions.type, "signup_bonus")))
+    .limit(1);
+  return Boolean(rows[0]);
 }
 
 export async function getUserTransactions(userId: string, limit = 10): Promise<Transaction[]> {

@@ -52,7 +52,6 @@ import {
   CarouselNext,
   CarouselPrevious,
 } from "@/components/ui/carousel";
-import { Progress } from "@/components/ui/progress";
 import {
   RotateCcw,
   Wand2,
@@ -61,10 +60,8 @@ import {
   Pencil,
   ChevronDown,
   ChevronUp,
-  ShieldCheck,
   Sparkles,
   Star,
-  Timer,
 } from "lucide-react";
 import { useAuth } from "@/lib/auth/auth-store";
 import {
@@ -83,6 +80,9 @@ import { createProject } from "@/lib/project-client";
 // ═══════════════════════════════════════════════════════════════
 
 type ActiveBuildMethod = BuildMethod | null;
+const HOME_BUILD_INTENT_OPTIONS = BUILD_INTENT_OPTIONS.filter(
+  (option) => option.value !== "template",
+);
 
 export function HomePage() {
   const router = useRouter();
@@ -94,6 +94,13 @@ export function HomePage() {
   const [showWizard, setShowWizard] = useState(false);
   const [activeBuildMethod, setActiveBuildMethod] = useState<ActiveBuildMethod>(null);
   const [buildIntent, setBuildIntent] = useState<BuildIntent>(DEFAULT_BUILD_INTENT);
+
+  // Home flow should default to modern websites/apps, not template scope.
+  useEffect(() => {
+    if (buildIntent === "template") {
+      setBuildIntent("website");
+    }
+  }, [buildIntent]);
 
   // ── Entry params (sajtstudio.se → sajtmaskin flow, see lib/entry/) ──
   const entry = useEntryParams();
@@ -142,7 +149,7 @@ export function HomePage() {
   const firstName = user?.name?.split(" ")[0] || user?.email?.split("@")[0] || undefined;
 
   const selectedIntent = useMemo(
-    () => BUILD_INTENT_OPTIONS.find((option) => option.value === buildIntent),
+    () => HOME_BUILD_INTENT_OPTIONS.find((option) => option.value === buildIntent),
     [buildIntent],
   );
 
@@ -298,72 +305,55 @@ export function HomePage() {
     return () => window.clearInterval(interval);
   }, [testimonialsApi]);
 
-  const impactStats = [
-    {
-      label: "Time-to-first-draft",
-      description: "Från idé till första version på några minuter.",
-      value: 92,
-      accent: "text-brand-teal",
-      icon: Timer,
-    },
-    {
-      label: "Designkvalitet",
-      description: "Konsekvent UI med shadcn/ui och tokens.",
-      value: 88,
-      accent: "text-brand-blue",
-      icon: Sparkles,
-    },
-    {
-      label: "Trygg lansering",
-      description: "Automatiska checks och tydliga nästa steg.",
-      value: 79,
-      accent: "text-brand-amber",
-      icon: ShieldCheck,
-    },
-  ];
-
   const processSteps = [
     {
-      title: "Beskriv din idé",
-      description: "Skriv, tala eller ladda upp material. AI tolkar och strukturerar.",
+      title: "Välj 1 av 4 startvägar",
+      description: "Analyserad, Kategori, Audit eller Fritext - välj det sätt som passar din start bäst.",
     },
     {
-      title: "Välj mall eller palett",
-      description: "Utgå från mallar eller lägg till komponenter i din palett.",
+      title: "Öppna buildern",
+      description: "Ditt val tar dig in i buildern där projekt, prompt och kontext följer med direkt.",
     },
     {
-      title: "Förfina i chatten",
-      description: "Justera layout, copy och animationer med enkla kommandon.",
+      title: "Bygg och iterera",
+      description: "Skapa sidan, justera design och innehåll i chatten, och följ resultatet i preview.",
     },
     {
-      title: "Publicera tryggt",
-      description: "Se preview, kör audit och gå live med ett klick.",
+      title: "Sjösätt och publicera",
+      description: "Publicera via oss, och hantera domänköp/koppling när du är redo att gå live.",
     },
   ];
 
   const testimonials = [
     {
       quote:
-        "Vi gick från idé till live-sida på en lunch. Den kändes som ett designteam byggt den.",
-      name: "Alex K.",
-      role: "Founder, Nordic Labs",
+        "Vi gick från idé till första skarpa version snabbare än vi trodde, utan att tumma på känslan i varumärket.",
+      name: "Martin Arnold",
+      role: "Prometheus Poker AI",
     },
     {
       quote:
-        "Sajtmaskin gav oss en professionell layout direkt, och justeringar var superenkla.",
-      name: "Maja B.",
-      role: "Marketing Lead, Fjordly",
-    },
-    {
-      quote: "Palett‑tänket är guld. Jag kan bygga vidare utan att tappa stilen.",
-      name: "Jonas R.",
-      role: "Product Designer",
+        "Vi fick en professionell sida direkt och kunde iterera vidare med tydliga steg i stället för att börja om varje gång.",
+      name: "Joakim",
+      role: "VD, Raymond Media",
     },
     {
       quote:
-        "Våra kampanjsidor laddar snabbare och ser mer premium ut än tidigare.",
-      name: "Elina S.",
-      role: "Growth, Driftline",
+        "Flödet gjorde det enkelt att hålla ihop design, copy och struktur i en och samma process.",
+      name: "Christopher",
+      role: "VD, 1753 Scincare",
+    },
+    {
+      quote:
+        "Det blev mycket lättare att testa olika riktningar utan att tappa fart i projektet.",
+      name: "Ulrika",
+      role: "DG97",
+    },
+    {
+      quote:
+        "Resultatet känns genomarbetat direkt, och vi kunde gå från idé till publicerbar sida på kort tid.",
+      name: "Jens",
+      role: "Bilen&Jag",
     },
   ];
 
@@ -504,12 +494,12 @@ export function HomePage() {
           <div className="flex items-center gap-2">
             <span className="text-[11px] font-medium tracking-[0.15em] text-white/60 uppercase">Mål</span>
             <HelpTooltip
-              text="Mall = snabb start med liten scope. Webbplats = marknads-/infosida. App = mer logik, flöden och data."
+              text="Webbplats = valfri modern webbsida (företag, portfolio, innehåll, tjänst). App = mer logik, flöden och data."
               className="bg-black"
             />
           </div>
           <div className="flex items-center rounded-full border border-white/6 bg-white/2 p-1 backdrop-blur-md">
-            {BUILD_INTENT_OPTIONS.map((option) => (
+            {HOME_BUILD_INTENT_OPTIONS.map((option) => (
               <button
                 key={option.value}
                 onClick={() => setBuildIntent(option.value)}
@@ -692,55 +682,7 @@ export function HomePage() {
 
         {/* Feature highlights when no method is selected */}
         {!activeBuildMethod && (
-          <div className="w-full max-w-3xl space-y-14">
-            {/* Feature cards */}
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-              {/* AI-driven design */}
-              <div
-                className="animate-fadeInUp group relative overflow-hidden rounded-2xl border border-white/6 bg-white/2 p-6 backdrop-blur-sm transition-all duration-500 hover:border-white/10 hover:bg-white/4"
-                style={{ animationDelay: "0.8s", animationFillMode: "forwards", opacity: 0 }}
-              >
-                <div className="absolute inset-x-0 top-0 h-px bg-linear-to-r from-transparent via-white/4 to-transparent" />
-                <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-brand-teal/10 transition-all duration-500 group-hover:bg-brand-teal/15">
-                  <Wand2 className="h-4.5 w-4.5 text-brand-teal" />
-                </div>
-                <h2 className="mb-2 text-[14px] font-semibold text-white">AI-driven design</h2>
-                <p className="text-[13px] leading-relaxed text-white/70">
-                  Berätta om ditt företag och få en skräddarsydd webbplats baserad på din bransch och målgrupp.
-                </p>
-              </div>
-
-              {/* Gratis webbplatsanalys */}
-              <div
-                className="animate-fadeInUp group relative overflow-hidden rounded-2xl border border-white/6 bg-white/2 p-6 backdrop-blur-sm transition-all duration-500 hover:border-white/10 hover:bg-white/4"
-                style={{ animationDelay: "0.9s", animationFillMode: "forwards", opacity: 0 }}
-              >
-                <div className="absolute inset-x-0 top-0 h-px bg-linear-to-r from-transparent via-white/4 to-transparent" />
-                <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-brand-blue/10 transition-all duration-500 group-hover:bg-brand-blue/15">
-                  <Search className="h-4.5 w-4.5 text-brand-blue" />
-                </div>
-                <h2 className="mb-2 text-[14px] font-semibold text-white">Gratis webbplatsanalys</h2>
-                <p className="text-[13px] leading-relaxed text-white/70">
-                  Analysera din befintliga sajt med AI och få en detaljerad rapport med förbättringsförslag.
-                </p>
-              </div>
-
-              {/* Röst och video */}
-              <div
-                className="animate-fadeInUp group relative overflow-hidden rounded-2xl border border-white/6 bg-white/2 p-6 backdrop-blur-sm transition-all duration-500 hover:border-white/10 hover:bg-white/4"
-                style={{ animationDelay: "1.0s", animationFillMode: "forwards", opacity: 0 }}
-              >
-                <div className="absolute inset-x-0 top-0 h-px bg-linear-to-r from-transparent via-white/4 to-transparent" />
-                <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-xl bg-brand-amber/10 transition-all duration-500 group-hover:bg-brand-amber/15">
-                  <Pencil className="h-4.5 w-4.5 text-brand-amber" />
-                </div>
-                <h2 className="mb-2 text-[14px] font-semibold text-white">Röst och video</h2>
-                <p className="text-[13px] leading-relaxed text-white/70">
-                  Beskriv din vision med rösten eller spela in en presentation — AI bygger utifrån det.
-                </p>
-              </div>
-            </div>
-
+          <div className="w-full max-w-3xl">
             {/* Stats row with separators */}
             <div className="animate-fadeIn flex items-center justify-center" style={{ animationDelay: "1.1s", animationFillMode: "forwards", opacity: 0 }}>
               <div className="flex items-center divide-x divide-white/6">
@@ -764,60 +706,16 @@ export function HomePage() {
       {/* Trusted by marquee */}
       <TrustedByMarquee />
 
-      {/* Impact highlights */}
-      <section className="relative z-10 px-4 py-16">
-        <div className="mx-auto w-full max-w-6xl">
-          <div className="mb-10 text-center">
-            <Badge className="mb-3 bg-white/10 text-white/70">Resultat</Badge>
-            <h2 className="text-3xl font-semibold text-white sm:text-4xl">
-              Bygg snabbare utan att tumma på kvalitet
-            </h2>
-            <p className="mt-3 text-sm text-white/60">
-              En kombination av shadcn/ui, smarta defaults och AI‑assistans gör skillnaden.
-            </p>
-          </div>
-          <div className="grid gap-4 md:grid-cols-3">
-            {impactStats.map((stat) => {
-              const Icon = stat.icon;
-              return (
-                <Card
-                  key={stat.label}
-                  className="border-white/10 bg-white/4 text-white shadow-[0_0_40px_rgba(59,130,246,0.08)]"
-                >
-                  <CardHeader className="pb-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-white/8">
-                          <Icon className={`h-4.5 w-4.5 ${stat.accent}`} />
-                        </div>
-                        <CardTitle className="text-base font-semibold text-white">
-                          {stat.label}
-                        </CardTitle>
-                      </div>
-                      <Badge className="bg-white/8 text-white/60">+{stat.value}%</Badge>
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <p className="mb-4 text-sm text-white/60">{stat.description}</p>
-                    <Progress value={stat.value} className="h-2 bg-white/10" />
-                  </CardContent>
-                </Card>
-              );
-            })}
-          </div>
-        </div>
-      </section>
-
       {/* Process timeline */}
       <section className="relative z-10 px-4 pb-16">
         <div className="mx-auto grid w-full max-w-6xl gap-8 lg:grid-cols-[1.1fr_0.9fr]">
           <div>
             <Badge className="mb-3 bg-white/10 text-white/70">Flöde</Badge>
             <h2 className="text-3xl font-semibold text-white sm:text-4xl">
-              Ett tydligt flöde från idé till publicering
+              Från startval till live-sida
             </h2>
             <p className="mt-3 text-sm text-white/60">
-              Varje steg ger dig tydlig feedback och konkreta nästa actions.
+              Första steget är att välja väg in, sedan sker allt byggarbete i buildern.
             </p>
             <div className="relative mt-8 space-y-5">
               <div className="absolute left-4 top-0 h-full w-px bg-linear-to-b from-white/20 via-white/10 to-transparent" />
@@ -844,22 +742,22 @@ export function HomePage() {
                 <Sparkles className="h-5 w-5 text-brand-teal" />
               </div>
               <div>
-                <h3 className="text-base font-semibold text-white">Palett + AI</h3>
-                <p className="text-xs text-white/60">Allt du behöver finns redan på plats.</p>
+                <h3 className="text-base font-semibold text-white">Builder i praktiken</h3>
+                <p className="text-xs text-white/60">Detta händer efter att du valt startväg.</p>
               </div>
             </div>
             <ul className="space-y-3 text-sm text-white/65">
               <li className="flex items-center gap-2">
                 <span className="h-1.5 w-1.5 rounded-full bg-brand-teal" />
-                Välj mall när du vill starta om snabbt.
+                Du landar i buildern med rätt kontext från ditt val.
               </li>
               <li className="flex items-center gap-2">
                 <span className="h-1.5 w-1.5 rounded-full bg-brand-blue" />
-                Lägg till AI‑komponenter med färdiga prompts.
+                Du bygger vidare med promptar, komponenter och preview i samma flöde.
               </li>
               <li className="flex items-center gap-2">
                 <span className="h-1.5 w-1.5 rounded-full bg-brand-amber" />
-                shadcn/ui‑block med auto‑deps när det behövs.
+                När sidan är klar kan du publicera och koppla domän.
               </li>
             </ul>
           </div>
@@ -878,7 +776,7 @@ export function HomePage() {
             </div>
             <div className="hidden items-center gap-1 text-white/60 sm:flex">
               <Star className="h-4 w-4 text-brand-amber" />
-              <span className="text-sm">4.9/5 i nöjdhet</span>
+              <span className="text-sm">4.6/5 i nöjdhet</span>
             </div>
           </div>
           <Carousel

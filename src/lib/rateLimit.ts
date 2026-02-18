@@ -14,6 +14,9 @@ interface RateLimitConfig {
 }
 
 export const RATE_LIMITS: Record<string, RateLimitConfig> = {
+  "auth:register": { maxRequests: 5, windowMs: 15 * 60 * 1000 },
+  "auth:login": { maxRequests: 20, windowMs: 15 * 60 * 1000 },
+  "auth:resend-verification": { maxRequests: 6, windowMs: 60 * 60 * 1000 },
   "chat:create": { maxRequests: 15, windowMs: 60 * 1000 },
   "message:send": { maxRequests: 30, windowMs: 60 * 1000 },
   "deployment:create": { maxRequests: 8, windowMs: 60 * 1000 },
