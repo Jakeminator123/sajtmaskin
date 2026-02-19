@@ -193,7 +193,7 @@ export async function POST(request: NextRequest) {
       },
       note:
         uploadResult.storageType === "local"
-          ? "Filen är sparad lokalt. Fungerar i utveckling men v0-preview kanske inte kan nå den."
+          ? "Filen är sparad lokalt. Fungerar i utveckling men preview kanske inte kan nå den."
           : undefined,
     });
   } catch (error: unknown) {

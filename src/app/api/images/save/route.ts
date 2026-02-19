@@ -83,8 +83,8 @@ export async function POST(request: NextRequest) {
           continue;
         }
 
-        // Last resort - data URL (won't work in V0 preview)
-        console.log("[Images/Save] ⚠️ Using data URL (V0 preview won't work)");
+        // Last resort - data URL (won't work in preview)
+        console.log("[Images/Save] ⚠️ Using data URL (preview won't work)");
         savedImages.push({
           url: `data:image/png;base64,${img.base64}`,
           prompt: img.prompt,
@@ -99,7 +99,7 @@ export async function POST(request: NextRequest) {
       success: true,
       images: savedImages,
       note: savedImages.some((i) => i.storageType === "local")
-        ? "Bilder sparade lokalt. Fungerar i utveckling men V0-preview kan inte nå dem."
+        ? "Bilder sparade lokalt. Fungerar i utveckling men preview kan inte nå dem."
         : undefined,
     });
   } catch (error: unknown) {

@@ -361,13 +361,13 @@ export default function CategoryPage() {
             </section>
           )}
 
-          {/* Section 3: V0 Templates */}
+          {/* Section 3: Templates */}
           {v0Templates.length > 0 && (
             <section>
               <div className="mb-4 flex items-center gap-2">
                 <Layout className="text-brand-teal h-5 w-5" />
-                <h2 className="text-lg font-semibold text-white">V0 Templates</h2>
-                <HelpTooltip text="Templates från v0.app. Klicka för att öppna i v0.app." />
+                <h2 className="text-lg font-semibold text-white">Templates</h2>
+                <HelpTooltip text="Templates från den externa mallkatalogen. Klicka för att öppna." />
               </div>
 
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -423,7 +423,7 @@ function V0TemplateCard({
       const project = await createProject(
         `${template.title || template.id} - ${new Date().toLocaleDateString("sv-SE")}`,
         type,
-        `Baserat på v0 template: ${template.id}`,
+        `Baserat på template: ${template.id}`,
       );
       // Navigate to builder with templateId parameter
       const params = new URLSearchParams();
@@ -433,7 +433,7 @@ function V0TemplateCard({
       params.set("buildMethod", "category");
       router.push(`/builder?${params.toString()}`);
     } catch (error) {
-      console.error("Failed to create project from v0 template:", error);
+      console.error("Failed to create project from template:", error);
       setIsCreating(false);
     }
   };

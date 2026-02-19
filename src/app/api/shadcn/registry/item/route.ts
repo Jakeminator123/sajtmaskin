@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { getRegistryCache } from "@/lib/shadcn-registry-cache";
 import { getRegistryBaseUrl, resolveRegistryStyle } from "@/lib/v0/v0-url-parser";
 
 export const runtime = "nodejs";
@@ -39,17 +38,6 @@ export async function GET(req: Request) {
 
   if (!name) {
     return NextResponse.json({ error: "name is required" }, { status: 400 });
-  }
-
-  const baseUrl = resolveRegistryBaseUrl();
-  if (!force) {
-    const cache = await getRegistryCache({ baseUrl, style, source });
-    if (cache?.itemStatus?.[name] === false) {
-      return NextResponse.json(
-        { error: "Registry item saknas", details: `Item "${name}" hittades inte i registryn.` },
-        { status: 404 },
-      );
-    }
   }
 
   const url = buildRegistryItemUrl(name, style, source);

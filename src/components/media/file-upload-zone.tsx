@@ -126,8 +126,7 @@ export function FileUploadZone({
             mimeType: file.type,
             size: file.size,
             status: "error",
-            error:
-              "Filen är för stor. Max 3 MB (v0 API-begränsning för bilagor).",
+            error: "Filen är för stor. Max 3 MB för bilagor.",
           };
           onFilesChange([...files, errorFile]);
           continue;
@@ -183,7 +182,7 @@ export function FileUploadZone({
             if (!isPublicUrl) {
               console.warn(
                 "[FileUploadZone] ⚠️ File uploaded but URL is NOT public!",
-                "This file will NOT appear in v0 preview.",
+                "This file will NOT appear in preview.",
                 "URL:",
                 result.media.url,
               );
@@ -447,7 +446,7 @@ export function FileUploadZone({
                       {/* Public URL indicator */}
                       {file.isPublicUrl === false && (
                         <span className="text-brand-amber mt-0.5 block text-[10px]">
-                          ⚠️ Ej publik URL - fungerar inte i v0 preview
+                          ⚠️ Ej publik URL - fungerar inte i preview
                         </span>
                       )}
                       <input
@@ -482,7 +481,7 @@ export function FileUploadZone({
 
       {/* Help text */}
       <p className="text-xs text-gray-500">
-        💡 Bilder laddas upp till Vercel Blob för publika URLs som fungerar i v0-preview.
+        💡 Bilder laddas upp till Vercel Blob för publika URLs som fungerar i preview.
       </p>
     </div>
   );
@@ -503,7 +502,7 @@ export function filesToPromptText(files: UploadedFile[]): string {
     // Check if there were files but none with public URLs
     const hasNonPublicFiles = files.some((f) => f.status === "success" && f.isPublicUrl === false);
     if (hasNonPublicFiles) {
-      return "\n\n⚠️ De uppladdade filerna har inte publika URLs och kan inte användas i v0-preview.";
+      return "\n\n⚠️ De uppladdade filerna har inte publika URLs och kan inte användas i preview.";
     }
     return "";
   }

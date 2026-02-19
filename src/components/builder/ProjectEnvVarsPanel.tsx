@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ChevronDown, ChevronUp, KeyRound, Loader2, Plus, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -69,6 +69,10 @@ interface ProjectEnvVarsPanelProps {
   projectId: string | null;
 }
 
+type ProjectEnvVarsOpenDetail = {
+  envKeys?: string[];
+};
+
 export function ProjectEnvVarsPanel({ projectId }: ProjectEnvVarsPanelProps) {
   const [expanded, setExpanded] = useState(false);
   const [envVars, setEnvVars] = useState<EnvVarItem[]>([]);
@@ -84,6 +88,7 @@ export function ProjectEnvVarsPanel({ projectId }: ProjectEnvVarsPanelProps) {
   const [marketplaceRecords, setMarketplaceRecords] = useState<MarketplaceRecord[]>([]);
   const [isStartingInstall, setIsStartingInstall] = useState(false);
   const [mcpPriorities, setMcpPriorities] = useState<McpPriorityItem[]>([]);
+  const panelRef = useRef<HTMLDivElement | null>(null);
 
   const envVarCount = envVars.length;
 
@@ -198,6 +203,26 @@ export function ProjectEnvVarsPanel({ projectId }: ProjectEnvVarsPanelProps) {
     void loadMarketplaceMetadata();
   }, [expanded, loadEnvVars, loadMarketplaceMetadata]);
 
+  useEffect(() => {
+    const handleOpen = (event: Event) => {
+      const customEvent = event as CustomEvent<ProjectEnvVarsOpenDetail>;
+      const preferredKeys = Array.isArray(customEvent.detail?.envKeys)
+        ? customEvent.detail?.envKeys
+        : [];
+      if (preferredKeys.length > 0) {
+        const firstKey = preferredKeys[0]?.trim().toUpperCase();
+        if (firstKey && /^[A-Z][A-Z0-9_]*$/.test(firstKey)) {
+          setNewKey((current) => (current.trim().length > 0 ? current : firstKey));
+        }
+      }
+      setExpanded(true);
+      panelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    };
+    window.addEventListener("project-env-vars-open", handleOpen as EventListener);
+    return () =>
+      window.removeEventListener("project-env-vars-open", handleOpen as EventListener);
+  }, []);
+
   const canAdd = useMemo(() => {
     const key = newKey.trim().toUpperCase();
     return /^[A-Z][A-Z0-9_]*$/.test(key) && newValue.length > 0;
@@ -260,7 +285,7 @@ export function ProjectEnvVarsPanel({ projectId }: ProjectEnvVarsPanelProps) {
   );
 
   return (
-    <div className="border-border bg-muted/10 border-b px-3 py-2 text-xs">
+    <div ref={panelRef} className="border-border bg-muted/10 border-b px-3 py-2 text-xs">
       <button
         type="button"
         onClick={() => setExpanded((prev) => !prev)}
@@ -271,7 +296,7 @@ export function ProjectEnvVarsPanel({ projectId }: ProjectEnvVarsPanelProps) {
           <span className="font-medium text-gray-200">Projektmiljövariabler</span>
         </div>
         <span className="flex items-center gap-1 text-gray-400">
-          {projectId ? `${envVarCount} nycklar` : "ingen v0-projektkoppling"}
+          {projectId ? `${envVarCount} nycklar` : "ingen projektkoppling"}
           {expanded ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
         </span>
       </button>
@@ -280,7 +305,7 @@ export function ProjectEnvVarsPanel({ projectId }: ProjectEnvVarsPanelProps) {
         <div className="mt-2 space-y-2">
           {!projectId && (
             <div className="text-muted-foreground rounded-md border border-dashed p-2 text-xs">
-              Skapa eller öppna en chat först så att projektet får ett riktigt v0-projectId.
+              Skapa eller öppna en chat först så att projektet får ett riktigt projectId.
             </div>
           )}
 

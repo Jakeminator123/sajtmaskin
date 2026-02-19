@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/auth";
-import { getProjectData, getProjectById } from "@/lib/db/services";
+import { getProjectData, getProjectByIdForOwner } from "@/lib/db/services";
 import OpenAI from "openai";
 
 /**
@@ -88,19 +88,11 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     }
 
     // 2. Get project metadata
-    const project = await getProjectById(projectId);
+    const project = await getProjectByIdForOwner(projectId, { userId: user.id });
     if (!project) {
       return NextResponse.json(
         { success: false, error: "Projektet hittades inte" },
         { status: 404 },
-      );
-    }
-
-    // 3. Verify ownership
-    if (project.user_id !== user.id) {
-      return NextResponse.json(
-        { success: false, error: "Du kan bara analysera dina egna projekt" },
-        { status: 403 },
       );
     }
 

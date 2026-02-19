@@ -138,7 +138,7 @@ export function InitFromRepoModal({ isOpen, onClose, onSuccess }: InitFromRepoMo
       const v0ChatId = data.id;
 
       if (!v0ChatId) {
-        throw new Error("No v0 chat ID returned");
+        throw new Error("No chat ID returned");
       }
 
       toast.success("Project imported successfully!");

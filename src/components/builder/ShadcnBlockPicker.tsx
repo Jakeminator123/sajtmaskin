@@ -210,7 +210,7 @@ export function ShadcnBlockPicker({
   const [error, setError] = useState<string | null>(null);
   const [pendingAction, setPendingAction] = useState<ShadcnBlockAction | null>(null);
   const [placement, setPlacement] = useState<PlacementOption>("bottom");
-  const [activeTab, setActiveTab] = useState<"popular" | "all">("popular");
+  const [activeTab, setActiveTab] = useState<"popular" | "all">("all");
   const [itemType, setItemType] = useState<"block" | "component">("block");
   const [paletteTab, setPaletteTab] = useState<"themes" | "templates" | "ai-elements" | "shadcn">(
     hasChat ? "themes" : "templates",
@@ -366,12 +366,7 @@ export function ShadcnBlockPicker({
   }, [selectedItem]);
   const selectedPreviewLabel = selectedItem?.type === "block" ? "Preview" : "Docs";
   const showPreviewImages = selectedItem?.type === "block";
-
-  useEffect(() => {
-    if (hasChat && paletteTab === "templates") {
-      setPaletteTab("themes");
-    }
-  }, [hasChat, paletteTab]);
+  const selectedLivePreviewUrl = selectedItem?.type === "block" ? selectedPreviewLink : null;
 
   useEffect(() => {
     if (!open) return;
@@ -544,8 +539,7 @@ export function ShadcnBlockPicker({
   const canStartFromRegistry = canAct && itemType === "block";
   const canAddAiElement =
     Boolean(selectedAiItem) && !isBusy && !isSubmitting && Boolean(onSelectAiElement);
-  const canStartTemplate =
-    Boolean(selectedTemplate) && !isBusy && !hasChat && Boolean(onSelectTemplate);
+  const canStartTemplate = Boolean(selectedTemplate) && !isBusy && Boolean(onSelectTemplate);
 
   const handleReload = useCallback(() => {
     setReloadKey((prev) => prev + 1);
@@ -693,12 +687,11 @@ export function ShadcnBlockPicker({
                 <button
                   type="button"
                   onClick={() => setPaletteTab("templates")}
-                  disabled={hasChat}
                   className={`rounded-md px-3.5 py-1.5 text-xs font-medium transition-all ${
                     isTemplatesTab
                       ? "bg-brand-blue/10 text-brand-blue shadow-sm ring-1 ring-brand-blue/20"
                       : "text-muted-foreground hover:text-foreground"
-                  } ${hasChat ? "opacity-40" : ""}`}
+                  }`}
                 >
                   Mallar
                 </button>
@@ -869,7 +862,7 @@ export function ShadcnBlockPicker({
                   )}
 
                   <div className="rounded-xl border border-brand-blue/20 bg-brand-blue/5 p-4 text-[12px] leading-relaxed text-muted-foreground">
-                    v0 fungerar bäst när tema/tokens är tydliga. Använd tema här, lägg sedan till
+                    AI-motorn fungerar bäst när tema/tokens är tydliga. Använd tema här, lägg sedan till
                     komponenter/block i flikarna AI‑element eller UI‑element.
                   </div>
                 </div>
@@ -1203,11 +1196,29 @@ export function ShadcnBlockPicker({
                             )}
                           </div>
                         </div>
-                      ) : (
+                      ) : null}
+                      {showPreviewImages &&
+                        lightPreviewFailed &&
+                        darkPreviewFailed &&
+                        selectedLivePreviewUrl && (
+                          <div className="mt-4 overflow-hidden rounded-xl border border-border/50 bg-card/70">
+                            <div className="border-b border-border/50 px-3 py-2 text-[11px] text-muted-foreground">
+                              Live preview (fallback)
+                            </div>
+                            <iframe
+                              src={selectedLivePreviewUrl}
+                              title={`${selectedItem.title} live preview`}
+                              className="h-[420px] w-full border-0 bg-background"
+                              loading="lazy"
+                              referrerPolicy="no-referrer"
+                            />
+                          </div>
+                        )}
+                      {!showPreviewImages ? (
                         <div className="rounded-xl border border-border/50 bg-muted/20 p-5 text-sm text-muted-foreground">
                           Ingen preview för komponenter. Öppna docs för exempel och kod.
                         </div>
-                      )}
+                      ) : null}
 
                       {showCodePreview && registryItem && (
                         <div className="mt-5 overflow-hidden rounded-xl border border-border/50 bg-card">
@@ -1395,7 +1406,7 @@ export function ShadcnBlockPicker({
                 <div className="scrollbar-thin flex-1 overflow-y-auto p-5">
                   {hasChat && (
                     <div className="mb-4 rounded-xl border border-amber-500/20 bg-amber-500/10 p-3 text-xs text-amber-100/80">
-                      Skapa en ny chat för att starta från en mall.
+                      Om du startar från en mall skapas en ny chat.
                     </div>
                   )}
                   {templateItems.length === 0 ? (
@@ -1410,13 +1421,12 @@ export function ShadcnBlockPicker({
                           <button
                             key={template.id}
                             type="button"
-                            disabled={hasChat}
                             onClick={() => setSelectedTemplate(template)}
                             className={`group overflow-hidden rounded-xl border text-left transition-all ${
                               isSelected
                                 ? "border-brand-teal/40 bg-brand-teal/10"
                                 : "border-border/60 hover:border-brand-teal/30 hover:bg-muted/40"
-                            } ${hasChat ? "opacity-60" : ""}`}
+                            }`}
                           >
                             <div className="aspect-16/10 w-full overflow-hidden bg-muted/30">
                               {/* eslint-disable-next-line @next/next/no-img-element */}

@@ -140,16 +140,11 @@ export async function POST(req: Request) {
         typeof (meta as { buildIntent?: unknown })?.buildIntent === "string"
           ? (meta as { buildIntent?: string }).buildIntent
           : null;
-      const metaPlanModeFirstPrompt =
-        typeof (meta as { planModeFirstPrompt?: unknown })?.planModeFirstPrompt === "boolean"
-          ? Boolean((meta as { planModeFirstPrompt?: boolean }).planModeFirstPrompt)
-          : false;
       const promptOrchestration = orchestratePromptMessage({
         message,
         buildMethod: metaBuildMethod,
         buildIntent: metaBuildIntent,
         isFirstPrompt: true,
-        planModeFirstPromptEnabled: metaPlanModeFirstPrompt,
         attachmentsCount: Array.isArray(attachments) ? attachments.length : 0,
       });
       const strategyMeta = promptOrchestration.strategyMeta;

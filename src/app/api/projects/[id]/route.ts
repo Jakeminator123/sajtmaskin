@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import {
-  getProjectById,
+  getProjectByIdForOwner,
   updateProject,
   deleteProject,
   getProjectData,
@@ -8,17 +8,28 @@ import {
   type ProjectData,
 } from "@/lib/db/services";
 import { getCache, setCache, deleteCache } from "@/lib/data/redis";
+import { getCurrentUser } from "@/lib/auth/auth";
+import { getSessionIdFromRequest } from "@/lib/auth/session";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
+}
+
+function getOwnerCacheSegment(userId: string | null, sessionId: string | null): string {
+  if (userId) return `user:${userId}`;
+  if (sessionId) return `session:${sessionId}`;
+  return "anonymous";
 }
 
 // GET /api/projects/[id] - Get single project with data
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
+    const user = await getCurrentUser(request);
+    const sessionId = getSessionIdFromRequest(request);
+    const ownerKey = getOwnerCacheSegment(user?.id ?? null, sessionId);
 
-    const cacheKey = `project:${id}`;
+    const cacheKey = `project:${id}:${ownerKey}`;
     const cached = await getCache<{ project: Project; data: ProjectData }>(cacheKey);
     if (cached) {
       console.log("[API/projects/:id] Redis cache hit for", id);
@@ -30,7 +41,10 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       });
     }
 
-    const project = await getProjectById(id);
+    const project = await getProjectByIdForOwner(id, {
+      userId: user?.id ?? null,
+      sessionId,
+    });
 
     if (!project) {
       return NextResponse.json({ success: false, error: "Project not found" }, { status: 404 });
@@ -63,8 +77,14 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
     const body = await request.json();
+    const user = await getCurrentUser(request);
+    const sessionId = getSessionIdFromRequest(request);
+    const ownerKey = getOwnerCacheSegment(user?.id ?? null, sessionId);
 
-    const existing = await getProjectById(id);
+    const existing = await getProjectByIdForOwner(id, {
+      userId: user?.id ?? null,
+      sessionId,
+    });
     if (!existing) {
       return NextResponse.json({ success: false, error: "Project not found" }, { status: 404 });
     }
@@ -72,8 +92,12 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     const updated = await updateProject(id, body);
 
     // Invalidate caches
-    await deleteCache(`project:${id}`);
-    await deleteCache("projects:list");
+    await Promise.all([
+      deleteCache(`project:${id}`),
+      deleteCache(`project:${id}:${ownerKey}`),
+      deleteCache("projects:list"),
+      deleteCache(`projects:list:${ownerKey}`),
+    ]);
 
     return NextResponse.json({ success: true, project: updated });
   } catch (error: unknown) {
@@ -92,6 +116,17 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
 export async function DELETE(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
+    const user = await getCurrentUser(request);
+    const sessionId = getSessionIdFromRequest(request);
+    const ownerKey = getOwnerCacheSegment(user?.id ?? null, sessionId);
+
+    const existing = await getProjectByIdForOwner(id, {
+      userId: user?.id ?? null,
+      sessionId,
+    });
+    if (!existing) {
+      return NextResponse.json({ success: false, error: "Project not found" }, { status: 404 });
+    }
 
     const deleted = await deleteProject(id);
 
@@ -100,7 +135,12 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     }
 
     // Invalidate caches so deleted project disappears immediately
-    await Promise.all([deleteCache(`project:${id}`), deleteCache("projects:list")]);
+    await Promise.all([
+      deleteCache(`project:${id}`),
+      deleteCache(`project:${id}:${ownerKey}`),
+      deleteCache("projects:list"),
+      deleteCache(`projects:list:${ownerKey}`),
+    ]);
 
     return NextResponse.json({ success: true });
   } catch (error: unknown) {

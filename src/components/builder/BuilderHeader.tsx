@@ -65,8 +65,6 @@ export function BuilderHeader(props: {
   onCustomInstructionsChange: (value: string) => void;
   applyInstructionsOnce: boolean;
   onApplyInstructionsOnceChange: (value: boolean) => void;
-  planModeFirstPrompt: boolean;
-  onPlanModeFirstPromptChange: (value: boolean) => void;
 
   enableImageGenerations: boolean;
   onEnableImageGenerationsChange: (v: boolean) => void;
@@ -88,6 +86,7 @@ export function BuilderHeader(props: {
   onOpenSandbox: () => void;
   onDeployProduction: () => void;
   onDomainSearch: () => void;
+  onGoHome: () => void;
   onNewChat: () => void;
   onSaveProject: () => void;
 
@@ -113,8 +112,6 @@ export function BuilderHeader(props: {
     onCustomInstructionsChange,
     applyInstructionsOnce,
     onApplyInstructionsOnceChange,
-    planModeFirstPrompt,
-    onPlanModeFirstPromptChange,
     enableImageGenerations,
     onEnableImageGenerationsChange,
     enableThinking,
@@ -132,6 +129,7 @@ export function BuilderHeader(props: {
     onOpenSandbox,
     onDeployProduction,
     onDomainSearch,
+    onGoHome,
     onNewChat,
     onSaveProject,
     isDeploying,
@@ -170,7 +168,15 @@ export function BuilderHeader(props: {
   return (
     <header className="border-border bg-background flex h-14 items-center justify-between border-b px-4">
       <div className="flex items-center gap-3">
-        <h1 className="text-xl font-semibold tracking-tight">Sajtmaskin</h1>
+        <button
+          type="button"
+          onClick={onGoHome}
+          className="text-xl font-semibold tracking-tight transition-opacity hover:opacity-80"
+          aria-label="Gå till startsidan"
+          title="Till startsidan"
+        >
+          Sajtmaskin
+        </button>
       </div>
 
       <div className="flex items-center gap-2">
@@ -194,9 +200,9 @@ export function BuilderHeader(props: {
                   </TooltipTrigger>
                   <TooltipContent side="left" className="max-w-xs">
                     <p className="text-xs">
-                      Buildern ar nu låst till v0-max för stabil kvalitet och maximal kontext.
+                      Buildern ar nu låst till Max för stabil kvalitet och maximal kontext.
                       Prompt Assist Model är en separat AI-modell som bara förbättrar prompten
-                      innan v0 kör.
+                      innan generering.
                     </p>
                   </TooltipContent>
                 </Tooltip>
@@ -221,7 +227,7 @@ export function BuilderHeader(props: {
               <>
                 <DropdownMenuSeparator />
                 <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">
-                  Experimentellt v0 modelId
+                  Experimentellt modelId
                 </DropdownMenuLabel>
                 {EXPERIMENTAL_MODEL_ID_OPTIONS.map((option) => (
                   <DropdownMenuItem
@@ -240,7 +246,7 @@ export function BuilderHeader(props: {
                   onSelect={(event) => {
                     event.preventDefault();
                     const suggested = normalizedCustomModelId || "opus-4.6-fast";
-                    const next = window.prompt("Ange custom v0 modelId:", suggested);
+                    const next = window.prompt("Ange custom modelId:", suggested);
                     if (next === null) return;
                     onCustomModelIdChange(next.trim());
                   }}
@@ -278,7 +284,7 @@ export function BuilderHeader(props: {
                     <p className="text-xs">
                       Rättar stavning/tydlighet i prompten med minimal omskrivning. Behåller språk
                       om du inte uttryckligen ber om engelska. Själva bygget kör alltid med
-                      v0-max.
+                      Max-motorn.
                     </p>
                   </TooltipContent>
                 </Tooltip>
@@ -358,29 +364,7 @@ export function BuilderHeader(props: {
                 </TooltipTrigger>
                 <TooltipContent side="left" className="max-w-xs">
                   <p className="text-xs">
-                    Aktiverar mer resonemang i v0-svaret. Ger högre kvalitet men kan ta längre tid.
-                  </p>
-                </TooltipContent>
-              </Tooltip>
-            </TooltipProvider>
-
-            <TooltipProvider>
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <div>
-                    <DropdownMenuCheckboxItem
-                      checked={planModeFirstPrompt}
-                      onCheckedChange={onPlanModeFirstPromptChange}
-                      disabled={isBusy}
-                    >
-                      <Wand2 className="mr-2 h-4 w-4" />
-                      Plan-läge (första prompten)
-                    </DropdownMenuCheckboxItem>
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent side="left" className="max-w-xs">
-                  <p className="text-xs">
-                    Lägger till plan-instruktion till v0 endast vid första prompten i ny chat.
+                    Aktiverar mer resonemang i AI-svaret. Ger högre kvalitet men kan ta längre tid.
                   </p>
                 </TooltipContent>
               </Tooltip>
@@ -398,7 +382,9 @@ export function BuilderHeader(props: {
                       <ImageIcon className="mr-2 h-4 w-4" />
                       AI-bilder
                       {!isImageGenerationsSupported && (
-                        <span className="text-muted-foreground ml-2 text-xs">(v0 av)</span>
+                        <span className="text-muted-foreground ml-2 text-xs">
+                          (ej tillgängligt)
+                        </span>
                       )}
                       {isImageGenerationsSupported && !isMediaEnabled && (
                         <span className="text-muted-foreground ml-2 text-xs">(blob saknas)</span>
@@ -408,7 +394,7 @@ export function BuilderHeader(props: {
                 </TooltipTrigger>
                 <TooltipContent side="left" className="max-w-xs">
                   <p className="text-xs">
-                    Slå på för att be v0 om bilder. Om Blob saknas kan bilder utebli i preview.
+                    Slå på för att be AI om bilder. Om Blob saknas kan bilder utebli i preview.
                   </p>
                 </TooltipContent>
               </Tooltip>

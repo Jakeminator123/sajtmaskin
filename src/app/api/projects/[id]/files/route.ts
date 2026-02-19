@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/auth";
-import { getProjectById, getProjectData } from "@/lib/db/services";
+import { getProjectByIdForOwner, getProjectData } from "@/lib/db/services";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -26,19 +26,11 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     }
 
     // Get project
-    const project = await getProjectById(projectId);
+    const project = await getProjectByIdForOwner(projectId, { userId: user.id });
     if (!project) {
       return NextResponse.json(
         { success: false, error: "Projektet hittades inte" },
         { status: 404 },
-      );
-    }
-
-    // Ownership check
-    if (project.user_id !== user.id) {
-      return NextResponse.json(
-        { success: false, error: "Du kan bara visa dina egna projekt" },
-        { status: 403 },
       );
     }
 

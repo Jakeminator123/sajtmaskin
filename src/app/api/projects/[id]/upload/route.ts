@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getProjectById, saveImage } from "@/lib/db/services";
+import { getProjectByIdForOwner, saveImage } from "@/lib/db/services";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { uploadBlob, generateUniqueFilename } from "@/lib/vercel/blob-service";
 
@@ -21,7 +21,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    const project = await getProjectById(id);
+    const project = await getProjectByIdForOwner(id, { userId: user.id });
     if (!project) {
       return NextResponse.json({ success: false, error: "Project not found" }, { status: 404 });
     }

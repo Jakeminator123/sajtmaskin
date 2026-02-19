@@ -219,6 +219,23 @@ export async function POST(req: Request) {
         );
       }
 
+      // Upstream registry parse/URL handling issue (common for fresh/unsupported blocks)
+      if (
+        msg.toLowerCase().includes("failed to process url") ||
+        msg.toLowerCase().includes("parse json content")
+      ) {
+        return attachSessionCookie(
+          NextResponse.json(
+            {
+              error: "Registry-import kunde inte initieras",
+              details:
+                "AI-tjänsten kunde inte läsa registry-URL:en just nu. Prova igen eller använd fallback-läget 'Lägg till UI-element' i en chat.",
+            },
+            { status: 422 },
+          ),
+        );
+      }
+
       // Rate limit
       if (msg.toLowerCase().includes("rate limit") || msg.toLowerCase().includes("429")) {
         return attachSessionCookie(
@@ -238,7 +255,7 @@ export async function POST(req: Request) {
           NextResponse.json(
             {
               error: "Authentication failed",
-              details: "V0_API_KEY is missing or invalid.",
+              details: "API key is missing or invalid.",
             },
             { status: 401 },
           ),
@@ -255,8 +272,8 @@ export async function POST(req: Request) {
         return attachSessionCookie(
           NextResponse.json(
             {
-              error: "v0 API temporarily unavailable",
-              details: "The v0 service is experiencing issues. Please try again.",
+              error: "Generation API temporarily unavailable",
+              details: "The generation service is experiencing issues. Please try again.",
             },
             { status: 503 },
           ),

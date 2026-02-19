@@ -448,11 +448,11 @@ export function PreviewPanel({
             <div>AI-bilder är avstängda i chat-inställningarna för den här sessionen.</div>
           )}
           {showImagesUnsupportedWarning && (
-            <div>v0-bildgenerering är inte tillgänglig just nu (saknad/ogiltig v0-konfiguration).</div>
+            <div>Bildgenerering är inte tillgänglig just nu (saknad/ogiltig AI-konfiguration).</div>
           )}
           {showBlobConfigWarning && (
             <div>
-              Blob är inte aktivt. Bilder kan skapas av v0 men saknas i preview tills blob är
+              Blob är inte aktivt. Bilder kan skapas av AI men saknas i preview tills blob är
               konfigurerad.
             </div>
           )}

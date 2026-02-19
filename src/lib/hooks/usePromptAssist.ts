@@ -350,7 +350,8 @@ export function usePromptAssist(params: UsePromptAssistParams) {
               "eller kör på Vercel för OIDC-autentisering."
             );
           }
-          if (provider === "v0") return "Kunde inte nå v0 Model API. Sätt V0_API_KEY i .env.local.";
+          if (provider === "v0")
+            return "Kunde inte nå Model API. Sätt V0_API_KEY i .env.local.";
           return "Kunde inte nå AI Assist-endpointen. Kontrollera att servern kör.";
         })();
 

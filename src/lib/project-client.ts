@@ -6,6 +6,7 @@ export interface Project {
   category?: string;
   description?: string;
   thumbnail_path?: string;
+  demo_url?: string | null;
   created_at: string;
   updated_at: string;
 }

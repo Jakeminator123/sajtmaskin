@@ -1,7 +1,7 @@
 import { and, eq } from "drizzle-orm";
 import { db, dbConfigured } from "@/lib/db/client";
 import { registryCache } from "@/lib/db/schema";
-import type { RegistryIndex, RegistryIndexItem } from "@/lib/shadcn-registry-service";
+import type { RegistryIndex } from "@/lib/shadcn-registry-service";
 import { getRegistryBaseUrl, resolveRegistryStyle } from "@/lib/v0/v0-url-parser";
 
 export type RegistrySource = "official" | "legacy";
@@ -21,7 +21,6 @@ export type RegistryCacheResult = {
 };
 
 const CACHE_TTL_MS = 2 * 60 * 60 * 1000; // 2 hours
-const ITEM_CHECK_CONCURRENCY = 8;
 const LEGACY_STYLE_DEFAULT = "new-york";
 
 function normalizeBaseUrl(value: string): string {
@@ -46,10 +45,6 @@ function normalizeScope(scope: RegistryCacheScope): Required<RegistryCacheScope>
 
 function buildRegistryIndexUrl(scope: Required<RegistryCacheScope>): string {
   return `${scope.baseUrl}/r/styles/${encodeURIComponent(scope.style)}/registry.json`;
-}
-
-function buildRegistryItemUrl(scope: Required<RegistryCacheScope>, name: string): string {
-  return `${scope.baseUrl}/r/styles/${encodeURIComponent(scope.style)}/${encodeURIComponent(name)}.json`;
 }
 
 function isStale(fetchedAt: Date | null | undefined): boolean {
@@ -77,51 +72,6 @@ async function fetchRegistryIndexRemote(
     throw new Error("Registry index response saknar items");
   }
   return data;
-}
-
-async function checkItemExists(url: string): Promise<boolean> {
-  try {
-    const head = await fetch(url, { method: "HEAD", headers: buildRegistryHeaders() });
-    if (head.ok) return true;
-    if (head.status !== 405 && head.status !== 400) return false;
-  } catch {
-    // Fall through to GET as fallback
-  }
-  try {
-    const res = await fetch(url, { headers: buildRegistryHeaders() });
-    return res.ok;
-  } catch {
-    return false;
-  }
-}
-
-async function buildItemStatusMap(
-  scope: Required<RegistryCacheScope>,
-  items: RegistryIndexItem[],
-): Promise<Record<string, boolean>> {
-  const status: Record<string, boolean> = {};
-  let idx = 0;
-  const workers = Array.from({ length: ITEM_CHECK_CONCURRENCY }, async () => {
-    while (idx < items.length) {
-      const current = items[idx];
-      idx += 1;
-      if (!current?.name) continue;
-      const url = buildRegistryItemUrl(scope, current.name);
-      status[current.name] = await checkItemExists(url);
-    }
-  });
-  await Promise.all(workers);
-  return status;
-}
-
-export function filterRegistryIndexByStatus(
-  index: RegistryIndex,
-  itemStatus: Record<string, boolean>,
-): RegistryIndex {
-  return {
-    ...index,
-    items: index.items.filter((item) => itemStatus[item.name] !== false),
-  };
 }
 
 export async function getRegistryCache(
@@ -156,7 +106,9 @@ export async function refreshRegistryCache(
 ): Promise<RegistryCacheResult> {
   const normalized = normalizeScope(scope);
   const index = await fetchRegistryIndexRemote(normalized);
-  const itemStatus = await buildItemStatusMap(normalized, index.items || []);
+  // Do not hard-validate every item here. Transient network/rate-limit failures
+  // can incorrectly mark valid items as missing and cause stale/partial catalogs.
+  const itemStatus: Record<string, boolean> = {};
   const now = new Date();
 
   if (dbConfigured) {
@@ -200,10 +152,9 @@ export async function getRegistryIndexWithCache(
 
   if (!dbConfigured) {
     const index = await fetchRegistryIndexRemote(normalized);
-    const itemStatus = await buildItemStatusMap(normalized, index.items || []);
     return {
       index,
-      itemStatus,
+      itemStatus: {},
       fetchedAt: new Date(),
       stale: false,
       scope: normalized,

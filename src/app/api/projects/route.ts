@@ -1,16 +1,31 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createProject, getAllProjects, type Project } from "@/lib/db/services";
+import {
+  createProject,
+  getAllProjectsForOwner,
+  getProjectData,
+  type Project,
+} from "@/lib/db/services";
 import { getCache, setCache, deleteCache } from "@/lib/data/redis";
 import { canCreateProject } from "@/lib/project-cleanup";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { getSessionIdFromRequest } from "@/lib/auth/session";
 
+function getOwnerCacheSegment(userId: string | null, sessionId: string | null): string {
+  if (userId) return `user:${userId}`;
+  if (sessionId) return `session:${sessionId}`;
+  return "anonymous";
+}
+
 // GET /api/projects - List all projects
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
+    const user = await getCurrentUser(request);
+    const sessionId = getSessionIdFromRequest(request);
+    const ownerKey = getOwnerCacheSegment(user?.id ?? null, sessionId);
+    const cacheKey = `projects:list:${ownerKey}`;
+
     // Try Redis cache first (short TTL for freshness)
-    const cacheKey = "projects:list";
-    const cached = await getCache<{ projects: Project[] }>(cacheKey);
+    const cached = await getCache<{ projects: Array<Project & { demo_url?: string | null }> }>(cacheKey);
     if (cached) {
       console.log("[API/projects] Redis cache hit");
       return NextResponse.json({
@@ -20,12 +35,22 @@ export async function GET() {
       });
     }
 
-    const projects = await getAllProjects();
+    const projects = await getAllProjectsForOwner({
+      userId: user?.id ?? null,
+      sessionId,
+    });
+
+    // Include lightweight preview reference for project cards.
+    const projectDataRows = await Promise.all(projects.map((project) => getProjectData(project.id)));
+    const projectsWithPreview = projects.map((project, index) => ({
+      ...project,
+      demo_url: projectDataRows[index]?.demo_url ?? null,
+    }));
 
     // Cache best-effort (120s TTL)
-    await setCache(cacheKey, { projects }, 120);
+    await setCache(cacheKey, { projects: projectsWithPreview }, 120);
 
-    return NextResponse.json({ success: true, projects, cached: false });
+    return NextResponse.json({ success: true, projects: projectsWithPreview, cached: false });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Unknown error";
     console.error("[API] Failed to get projects:", error);
@@ -80,8 +105,9 @@ export async function POST(request: NextRequest) {
       user?.id, // userId for authenticated
     );
 
-    // Invalidate projects list cache
-    await deleteCache("projects:list");
+    // Invalidate projects list caches
+    const ownerKey = getOwnerCacheSegment(user?.id ?? null, sessionId);
+    await Promise.all([deleteCache("projects:list"), deleteCache(`projects:list:${ownerKey}`)]);
 
     return NextResponse.json({
       success: true,

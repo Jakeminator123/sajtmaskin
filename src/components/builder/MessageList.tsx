@@ -61,6 +61,7 @@ const MessageListComponent = ({
   const [pendingQuickReplyKey, setPendingQuickReplyKey] = useState<string | null>(null);
   const [isReplyDialogOpen, setIsReplyDialogOpen] = useState(false);
   const lastAutoOpenedReplyKeyRef = useRef<string | null>(null);
+  const lastAutoOpenedEnvRequirementRef = useRef<string | null>(null);
 
   const sendQuickReply = async (messageId: string, optionIndex: number, text: string) => {
     if (!onQuickReply) return false;
@@ -78,6 +79,7 @@ const MessageListComponent = ({
   };
 
   const pendingReply = useMemo(() => getLatestPendingReply(messages), [messages]);
+  const latestEnvRequirement = useMemo(() => getLatestEnvRequirement(messages), [messages]);
 
   useEffect(() => {
     const pendingKey = pendingReply?.key ?? null;
@@ -90,6 +92,17 @@ const MessageListComponent = ({
     lastAutoOpenedReplyKeyRef.current = pendingKey;
     setIsReplyDialogOpen(true);
   }, [pendingReply?.key]);
+
+  useEffect(() => {
+    const requirement = latestEnvRequirement;
+    if (!requirement) {
+      lastAutoOpenedEnvRequirementRef.current = null;
+      return;
+    }
+    if (lastAutoOpenedEnvRequirementRef.current === requirement.key) return;
+    lastAutoOpenedEnvRequirementRef.current = requirement.key;
+    openProjectEnvVarsPanel(requirement.envKeys);
+  }, [latestEnvRequirement]);
 
   useEffect(() => {
     const handleDialogClose = () => setIsReplyDialogOpen(false);
@@ -127,7 +140,7 @@ const MessageListComponent = ({
     <>
       <Conversation className="h-full">
         <ConversationContent>
-          {messages.map((message) => {
+          {messages.map((message, messageIndex) => {
           const reasoningPart = message.parts.find(
             (p): p is Extract<MessagePart, { type: "reasoning" }> => p.type === "reasoning",
           );
@@ -167,6 +180,7 @@ const MessageListComponent = ({
           const hasStructuredParts =
             showStructuredParts &&
             (toolParts.length > 0 || planParts.length > 0 || sources.length > 0);
+          const hasUserAfterCurrentMessage = hasUserMessageAfter(messages, messageIndex);
 
           return (
             <Message key={message.id} from={message.role}>
@@ -225,7 +239,7 @@ const MessageListComponent = ({
                       >
                         <ToolHeader title={toolTitle} type={toolType} state={toolState} />
                         <ToolContent>
-                          {replyPrompt && (
+                          {!pendingReply && !hasUserAfterCurrentMessage && replyPrompt && (
                             <div className="mb-3 rounded-md border border-amber-500/60 bg-amber-500/10 p-3 text-xs">
                               <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-amber-200">
                                 Svar krävs
@@ -306,8 +320,8 @@ const MessageListComponent = ({
                           )}
                           {!hasInput && !hasOutput && !hasErrorText && (
                             <div className="text-muted-foreground p-4 text-xs">
-                              v0 skickade en tool-call, men data har inte anlänt än. Detta är
-                              normalt under streaming. Output läggs till när v0 är redo. Post-check
+                              AI-motorn skickade en tool-call, men data har inte anlänt än. Detta är
+                              normalt under streaming. Output läggs till när svaret är redo. Post-check
                               är en snabb statisk kontroll och verifierar inte att sidan fungerar
                               fullt ut.
                             </div>
@@ -378,6 +392,10 @@ const MessageListComponent = ({
                       replyPrompt &&
                       replyPrompt.options.length > 0;
                     const canOpen = Boolean(chatId);
+                    const projectEnvKeys = dedupeStrings([
+                      ...(integrationSummary?.envKeys ?? []),
+                      ...(integrationCard?.envKeys ?? []),
+                    ]);
 
                     return (
                       <div
@@ -391,47 +409,53 @@ const MessageListComponent = ({
                           </span>
                         </div>
                         {replyPrompt ? (
-                          <div
-                            className={cn(
-                              "mt-2 rounded-md border p-2 text-xs",
-                              requiresUserReply
-                                ? "border-amber-500/60 bg-amber-500/10"
-                                : "border-border bg-muted/20",
-                            )}
-                          >
-                            {requiresUserReply && (
-                              <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-amber-200">
-                                Svar krävs
+                          !pendingReply && !hasUserAfterCurrentMessage ? (
+                            <div
+                              className={cn(
+                                "mt-2 rounded-md border p-2 text-xs",
+                                requiresUserReply
+                                  ? "border-amber-500/60 bg-amber-500/10"
+                                  : "border-border bg-muted/20",
+                              )}
+                            >
+                              {requiresUserReply && (
+                                <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-amber-200">
+                                  Svar krävs
+                                </p>
+                              )}
+                              <p className="text-foreground text-sm font-semibold">
+                                {replyPrompt.question}
                               </p>
-                            )}
-                            <p className="text-foreground text-sm font-semibold">{replyPrompt.question}</p>
-                            {replyPrompt.options.length > 0 ? (
-                              <div className="mt-2 flex flex-wrap gap-2">
-                                {replyPrompt.options.map((option, optionIndex) => {
-                                  const replyKey = `${message.id}:${optionIndex}:${option}`;
-                                  const isPending = pendingQuickReplyKey === replyKey;
-                                  return (
-                                    <Button
-                                      key={replyKey}
-                                      size="sm"
-                                      variant="secondary"
-                                      disabled={!canQuickReply || pendingQuickReplyKey !== null}
-                                      onClick={() => void sendQuickReply(message.id, optionIndex, option)}
-                                    >
-                                      {isPending ? (
-                                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                      ) : null}
-                                      {option}
-                                    </Button>
-                                  );
-                                })}
-                              </div>
-                            ) : (
-                              <p className="text-muted-foreground mt-2">
-                                Svara i chatten för att fortsätta genereringen.
-                              </p>
-                            )}
-                          </div>
+                              {replyPrompt.options.length > 0 ? (
+                                <div className="mt-2 flex flex-wrap gap-2">
+                                  {replyPrompt.options.map((option, optionIndex) => {
+                                    const replyKey = `${message.id}:${optionIndex}:${option}`;
+                                    const isPending = pendingQuickReplyKey === replyKey;
+                                    return (
+                                      <Button
+                                        key={replyKey}
+                                        size="sm"
+                                        variant="secondary"
+                                        disabled={!canQuickReply || pendingQuickReplyKey !== null}
+                                        onClick={() =>
+                                          void sendQuickReply(message.id, optionIndex, option)
+                                        }
+                                      >
+                                        {isPending ? (
+                                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                        ) : null}
+                                        {option}
+                                      </Button>
+                                    );
+                                  })}
+                                </div>
+                              ) : (
+                                <p className="text-muted-foreground mt-2">
+                                  Svara i chatten för att fortsätta genereringen.
+                                </p>
+                              )}
+                            </div>
+                          ) : null
                         ) : (
                           <>
                             {integrationSummary?.name && (
@@ -470,7 +494,8 @@ const MessageListComponent = ({
                             ) : (
                               <>
                                 <p className="text-muted-foreground mt-2 text-xs">
-                                  Den här åtgärden hanteras av v0. Öppna chatten i v0 om du vill installera.
+                                  Den här åtgärden hanteras av den externa motorn. Öppna extern chat
+                                  om du vill installera.
                                 </p>
                                 <p className="text-muted-foreground mt-1 text-xs">
                                   Om integration krävs: kontrollera Integrationspanelen för saknade nycklar.
@@ -485,7 +510,7 @@ const MessageListComponent = ({
                             onClick={() => openChatInV0(chatId)}
                             disabled={!canOpen}
                           >
-                            Öppna i v0
+                            Öppna extern chat
                           </Button>
                           {integrationCard?.marketplaceUrl && (
                             <Button size="sm" variant="outline" asChild>
@@ -496,6 +521,15 @@ const MessageListComponent = ({
                               >
                                 Öppna Marketplace
                               </a>
+                            </Button>
+                          )}
+                          {!replyPrompt && projectEnvKeys.length > 0 && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => openProjectEnvVarsPanel(projectEnvKeys)}
+                            >
+                              Öppna miljövariabler
                             </Button>
                           )}
                           {!replyPrompt && (
@@ -869,6 +903,11 @@ type PendingReplyModalData = {
   options: string[];
 };
 
+type EnvRequirementHint = {
+  key: string;
+  envKeys: string[];
+};
+
 function getLatestPendingReply(messages: AIElementsMessage[]): PendingReplyModalData | null {
   for (let messageIndex = messages.length - 1; messageIndex >= 0; messageIndex -= 1) {
     const message = messages[messageIndex];
@@ -887,6 +926,7 @@ function getLatestPendingReply(messages: AIElementsMessage[]): PendingReplyModal
       ) as ToolUIPart["state"];
       const replyPrompt = getActionPrompt(tool, toolState);
       if (!replyPrompt) continue;
+      if (hasUserMessageAfter(messages, messageIndex)) continue;
       const toolCallId =
         (typeof tool.toolCallId === "string" && tool.toolCallId) || `tool-${toolIndex}`;
       const key = [
@@ -904,6 +944,52 @@ function getLatestPendingReply(messages: AIElementsMessage[]): PendingReplyModal
     }
   }
   return null;
+}
+
+function getLatestEnvRequirement(messages: AIElementsMessage[]): EnvRequirementHint | null {
+  for (let messageIndex = messages.length - 1; messageIndex >= 0; messageIndex -= 1) {
+    const message = messages[messageIndex];
+    if (message.role !== "assistant") continue;
+    const toolParts = message.parts.filter(
+      (part): part is Extract<MessagePart, { type: "tool" }> => part.type === "tool",
+    );
+    for (let toolIndex = toolParts.length - 1; toolIndex >= 0; toolIndex -= 1) {
+      const toolPart = toolParts[toolIndex];
+      const tool = toolPart.tool as Partial<ToolUIPart> & {
+        type?: string;
+        output?: unknown;
+        input?: unknown;
+      };
+      const toolState = (
+        typeof tool.state === "string" ? tool.state : "input-available"
+      ) as ToolUIPart["state"];
+      const summary = getToolIntegrationSummary(tool);
+      const envKeys = dedupeStrings(summary?.envKeys ?? []);
+      const looksEnvLike = looksLikeEnvVarEvent(typeof tool.type === "string" ? tool.type : "");
+      const shouldPrompt =
+        envKeys.length > 0 &&
+        (toolState === "approval-requested" ||
+          toolState === "output-available" ||
+          toolState === "input-available" ||
+          looksEnvLike);
+      if (!shouldPrompt) continue;
+      if (hasUserMessageAfter(messages, messageIndex)) continue;
+      const toolCallId =
+        (typeof tool.toolCallId === "string" && tool.toolCallId) || `tool-${toolIndex}`;
+      return {
+        key: [message.id, toolCallId, envKeys.join("|")].join(":"),
+        envKeys,
+      };
+    }
+  }
+  return null;
+}
+
+function hasUserMessageAfter(messages: AIElementsMessage[], assistantMessageIndex: number): boolean {
+  for (let i = assistantMessageIndex + 1; i < messages.length; i += 1) {
+    if (messages[i]?.role === "user") return true;
+  }
+  return false;
 }
 
 function getToolQuestionPrompt(
@@ -934,7 +1020,7 @@ function getToolQuestionPrompt(
   if (!hasQuestionHint) return null;
 
   return {
-    question: "Choose an answer to continue.",
+    question: "Välj ett svar för att fortsätta.",
     options: [],
   };
 }
@@ -948,51 +1034,59 @@ function getActionPrompt(
   },
   state: ToolUIPart["state"],
 ): ToolQuestionPrompt | null {
+  // Only treat active approval requests as actionable reply prompts.
+  // This avoids resurrecting historical questions after reload.
+  if (state !== "approval-requested") return null;
+
   const explicitPrompt = getToolQuestionPrompt(tool);
   if (explicitPrompt) {
-    const hasOptions = explicitPrompt.options.length > 0;
-    const looksQuestion = looksLikeQuestionText(explicitPrompt.question);
-    if (hasOptions || looksQuestion || state === "approval-requested") {
-      if (state === "approval-requested" && explicitPrompt.options.length === 0) {
-        return {
-          question: explicitPrompt.question,
-          options: ["Approve plan", "Deny plan", "Other"],
-        };
-      }
-      return explicitPrompt;
+    const normalizedPrompt = {
+      question: normalizeQuestionText(explicitPrompt.question),
+      options: explicitPrompt.options.map(normalizeApprovalOptionLabel),
+    };
+    if (normalizedPrompt.options.length === 0) {
+      return {
+        question: normalizedPrompt.question,
+        options: ["Godkänn förslag", "Avvisa förslag", "Annat"],
+      };
     }
+    return normalizedPrompt;
   }
-
-  if (state !== "approval-requested") return null;
 
   const approvalOptions = extractApprovalOptions(tool);
   return {
-    question: "v0 väntar på ditt svar innan nästa steg kan fortsätta.",
+    question: "AI väntar på ditt svar innan nästa steg kan fortsätta.",
     options:
       approvalOptions.length > 0
-        ? approvalOptions
-        : ["Approve plan", "Deny plan", "Other"],
+        ? approvalOptions.map(normalizeApprovalOptionLabel)
+        : ["Godkänn förslag", "Avvisa förslag", "Annat"],
   };
 }
 
-function looksLikeQuestionText(value: string): boolean {
-  const text = value.trim().toLowerCase();
-  if (!text) return false;
-  if (text.includes("?")) return true;
-  return [
-    "choose",
-    "select",
-    "pick",
-    "which",
-    "would you",
-    "approve",
-    "deny",
-    "option",
-    "alternativ",
-    "välj",
-    "valj",
-    "svara",
-  ].some((token) => text.includes(token));
+function normalizeQuestionText(value: string): string {
+  return value
+    .replace(/\bv0\b/gi, "AI")
+    .replace(
+      /needs your answer before the next version can be generated\.?/gi,
+      "behöver ditt svar innan nästa version kan genereras.",
+    )
+    .replace(
+      /needs your answer to a follow-up question before the next version can be generated\.?/gi,
+      "behöver ditt svar på en följdfråga innan nästa version kan genereras.",
+    )
+    .replace(
+      /pick an option in chat or reply with free text\.?/gi,
+      "Välj ett alternativ i chatten eller svara med fri text.",
+    );
+}
+
+function normalizeApprovalOptionLabel(value: string): string {
+  const trimmed = value.trim();
+  const lower = trimmed.toLowerCase();
+  if (lower === "approve plan") return "Godkänn förslag";
+  if (lower === "deny plan") return "Avvisa förslag";
+  if (lower === "other") return "Annat";
+  return trimmed.replace(/\bv0\b/gi, "AI");
 }
 
 function extractQuestionPrompt(value: unknown, depth = 0): ToolQuestionPrompt | null {
@@ -1319,6 +1413,11 @@ function openChatInV0(chatId: string | null) {
 
 function openIntegrationsPanel() {
   window.dispatchEvent(new CustomEvent("integrations-panel-open"));
+}
+
+function openProjectEnvVarsPanel(envKeys?: string[]) {
+  const payload = Array.isArray(envKeys) && envKeys.length > 0 ? { envKeys } : undefined;
+  window.dispatchEvent(new CustomEvent("project-env-vars-open", { detail: payload }));
 }
 
 type PostCheckSummary = {

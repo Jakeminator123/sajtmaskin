@@ -58,7 +58,7 @@ export function normalizeV0Error(err: unknown): V0ErrorInfo {
     return {
       status: 429,
       code: "rate_limit",
-      message: `Rate limit mot v0.${suffix}`,
+      message: `Rate limit mot AI-tjänsten.${suffix}`,
       retryAfter,
     };
   }
@@ -72,7 +72,7 @@ export function normalizeV0Error(err: unknown): V0ErrorInfo {
     return {
       status: 402,
       code: "quota_exceeded",
-      message: "Kvoten är slut för v0. Kontrollera plan/billing.",
+      message: "Kvoten är slut för AI-tjänsten. Kontrollera plan/billing.",
       retryAfter,
     };
   }
@@ -86,7 +86,7 @@ export function normalizeV0Error(err: unknown): V0ErrorInfo {
     return {
       status: 401,
       code: "unauthorized",
-      message: "V0_API_KEY saknas eller är ogiltig.",
+      message: "API-nyckel saknas eller är ogiltig.",
       retryAfter,
     };
   }
@@ -95,7 +95,7 @@ export function normalizeV0Error(err: unknown): V0ErrorInfo {
     return {
       status: 403,
       code: "forbidden",
-      message: "Åtkomst nekad av v0 (403). Kontrollera behörigheter.",
+      message: "Åtkomst nekad av AI-tjänsten (403). Kontrollera behörigheter.",
       retryAfter,
     };
   }

@@ -509,20 +509,10 @@ export function ChatInterface({
 
     setIsDesignSystemAction(true);
     try {
-      if (action === "start") {
-        if (!onStartFromRegistry) return;
-        await onStartFromRegistry(selection);
-        setIsShadcnPickerOpen(false);
-        return;
-      }
-
-      if (!onCreateChat && !onSendMessage) return;
-
       const isComponent =
         selection.itemType === "component" ||
         selection.registryItem?.type?.toLowerCase().includes("component");
 
-      // Build the full technical prompt for v0 with placement info
       const technicalPrompt = isComponent
         ? buildShadcnComponentPrompt(selection.registryItem, {
             style: selection.style,
@@ -543,29 +533,57 @@ export function ChatInterface({
             existingUiComponents,
           });
 
-      // Create a user-friendly summary at the start of the message
       const itemTitle = selection.block.title || selection.registryItem.name;
       const deps = selection.registryItem.registryDependencies?.length
-        ? ` (${selection.registryItem.registryDependencies.slice(0, 4).join(", ")}${selection.registryItem.registryDependencies.length > 4 ? "..." : ""})`
+        ? ` (${selection.registryItem.registryDependencies.slice(0, 4).join(", ")}${
+            selection.registryItem.registryDependencies.length > 4 ? "..." : ""
+          })`
         : "";
-
-      // Get placement label for user-friendly display
-      // Use PLACEMENT_OPTIONS as fallback, but prefer dynamic label from the placement value
       const placementOption = PLACEMENT_OPTIONS.find((p) => p.value === selection.placement);
       const placementLabel =
         placementOption?.label ||
         (selection.placement?.startsWith("after-")
-          ? `Efter ${selection.placement.replace("after-", "").charAt(0).toUpperCase() + selection.placement.replace("after-", "").slice(1)}`
+          ? `Efter ${
+              selection.placement.replace("after-", "").charAt(0).toUpperCase() +
+              selection.placement.replace("after-", "").slice(1)
+            }`
           : "Längst ner");
 
-      // Format: Short user summary + technical instructions for v0
-      // The UI will show the summary, technical details are collapsible
       const fullMessage = `Lägg till UI‑element (${isComponent ? "komponent" : "block"}): **${itemTitle}**${deps}
 📍 Placering: ${placementLabel}
 
 ---
 
 ${technicalPrompt}`;
+
+      if (action === "start") {
+        if (onStartFromRegistry) {
+          try {
+            await onStartFromRegistry(selection);
+            setIsShadcnPickerOpen(false);
+            return;
+          } catch (error) {
+            const message =
+              error instanceof Error ? error.message : "Kunde inte starta direkt från registry";
+            // Fallback to prompt-based create when registry init fails upstream.
+            toast.error(`${message}. Fortsätter via fallback-läge.`);
+          }
+        }
+
+        if (!onCreateChat) return;
+        await sendMessagePayload(fullMessage, { clearDraft: false });
+        onPaletteSelection?.({
+          id: selection.registryItem.name || selection.block.name,
+          label: itemTitle,
+          description: selection.block.description || selection.registryItem.description,
+          source: isComponent ? "shadcn-component" : "shadcn-block",
+          dependencies: selection.registryItem.registryDependencies ?? undefined,
+        });
+        setIsShadcnPickerOpen(false);
+        return;
+      }
+
+      if (!onCreateChat && !onSendMessage) return;
 
       await sendMessagePayload(fullMessage, { clearDraft: false });
       onPaletteSelection?.({
