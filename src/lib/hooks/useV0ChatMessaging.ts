@@ -43,9 +43,7 @@ type AutoFixPayload = {
 const CREATE_CHAT_LOCK_KEY = "sajtmaskin:createChatLock";
 const CREATE_CHAT_LOCK_TTL_MS = 2 * 60 * 1000;
 // Max time a stream can be active before force-clearing isStreaming.
-// Plan mode gets a larger timeout, but stays below Vercel Pro's serverless cap (800s).
 const STREAM_SAFETY_TIMEOUT_DEFAULT_MS = 3 * 60 * 1000;
-const STREAM_SAFETY_TIMEOUT_PLAN_MODE_MS = 12 * 60 * 1000;
 
 function getSessionStorage(): Storage | null {
   if (typeof window === "undefined") return null;
@@ -536,7 +534,7 @@ function buildModelInfoSteps(info: ModelInfoData): string[] {
   const modelId = info.modelId ? String(info.modelId) : null;
   steps.push(`Model: ${modelId || "okänd"}`);
   if (modelId && modelId !== "v0-max") {
-    steps.push("Varning: inte V0 Max");
+    steps.push("Varning: inte Max-tier");
   }
   if (typeof info.thinking === "boolean") {
     steps.push(`Thinking: ${info.thinking ? "på" : "av"}`);
@@ -631,13 +629,13 @@ function buildApiErrorMessage(params: {
     return `Rate limit: för många förfrågningar.${suffix}`;
   }
   if (status === 402 || code === "quota_exceeded") {
-    return "Kvoten är slut för v0. Kontrollera plan/billing.";
+    return "Kvoten är slut för AI-tjänsten. Kontrollera plan/billing.";
   }
   if (status === 401 || code === "unauthorized") {
-    return "V0_API_KEY saknas eller är ogiltig.";
+    return "API-nyckel saknas eller är ogiltig.";
   }
   if (status === 403 || code === "forbidden") {
-    return "Åtkomst nekad av v0 (403). Kontrollera behörigheter.";
+    return "Åtkomst nekad av AI-tjänsten (403). Kontrollera behörigheter.";
   }
   if (status === 422 || code === "unprocessable_entity_error") {
     // Extract the nested error message from v0's error format
@@ -651,7 +649,7 @@ function buildApiErrorMessage(params: {
       return "Bilagan är för stor (max 3 MB). Försök med en mindre fil.";
     }
     if (looksLikeUnsupportedModelError(nestedMsg)) {
-      return `Model ID avvisades av v0: "${nestedMsg}". Prova ett annat custom modelId eller byt tillbaka till mini/pro/max.`;
+      return `Model ID avvisades av AI-tjänsten: "${nestedMsg}". Prova ett annat custom modelId eller byt tillbaka till mini/pro/max.`;
     }
     return nestedMsg || "Ogiltigt anrop (422). Kontrollera bilagor och meddelande.";
   }
@@ -661,7 +659,7 @@ function buildApiErrorMessage(params: {
     (typeof errorData?.message === "string" && errorData.message) ||
     "";
   if (looksLikeUnsupportedModelError(directMessage)) {
-    return `Model ID avvisades av v0: "${directMessage}". Prova ett annat custom modelId eller byt tillbaka till mini/pro/max.`;
+    return `Model ID avvisades av AI-tjänsten: "${directMessage}". Prova ett annat custom modelId eller byt tillbaka till mini/pro/max.`;
   }
 
   let message =
@@ -694,19 +692,19 @@ function buildStreamErrorMessage(errorData: Record<string, unknown> | null): str
     return `Rate limit: för många förfrågningar.${suffix}`;
   }
   if (code === "quota_exceeded") {
-    return "Kvoten är slut för v0. Kontrollera plan/billing.";
+    return "Kvoten är slut för AI-tjänsten. Kontrollera plan/billing.";
   }
   if (code === "unauthorized") {
-    return "V0_API_KEY saknas eller är ogiltig.";
+    return "API-nyckel saknas eller är ogiltig.";
   }
   if (code === "forbidden") {
-    return "Åtkomst nekad av v0 (403). Kontrollera behörigheter.";
+    return "Åtkomst nekad av AI-tjänsten (403). Kontrollera behörigheter.";
   }
   if (code === "preview_unavailable") {
     return "Preview-version kunde inte fastställas från streamen. Försök igen eller kör reparera preview.";
   }
   if (looksLikeUnsupportedModelError(rawMessage)) {
-    return `Model ID avvisades av v0: "${rawMessage}". Prova ett annat custom modelId eller byt tillbaka till mini/pro/max.`;
+    return `Model ID avvisades av AI-tjänsten: "${rawMessage}". Prova ett annat custom modelId eller byt tillbaka till mini/pro/max.`;
   }
   if (rawMessage.toLowerCase().includes("no preview version was generated")) {
     return "Preview-version saknas efter streamen. Försök igen eller kör reparera preview.";
@@ -1410,7 +1408,6 @@ export function useV0ChatMessaging(params: {
   enableImageGenerations: boolean;
   enableImageMaterialization?: boolean;
   enableThinking: boolean;
-  planModeFirstPromptEnabled?: boolean;
   systemPrompt?: string;
   promptAssistModel?: string | null;
   promptAssistDeep?: boolean;
@@ -1437,7 +1434,6 @@ export function useV0ChatMessaging(params: {
     enableImageGenerations,
     enableImageMaterialization = false,
     enableThinking,
-    planModeFirstPromptEnabled = false,
     systemPrompt,
     promptAssistModel,
     promptAssistDeep,
@@ -1663,7 +1659,6 @@ export function useV0ChatMessaging(params: {
           buildMethod,
           buildIntent,
           isFirstPrompt: true,
-          planModeFirstPromptEnabled,
           attachmentsCount: options.attachments?.length ?? 0,
         });
         if (orchestration.strategyMeta.strategy !== "direct") {
@@ -1723,7 +1718,6 @@ export function useV0ChatMessaging(params: {
         }
         promptMeta.modelId = selectedModelId;
         promptMeta.modelTier = selectedModelTier;
-        promptMeta.planModeFirstPrompt = Boolean(planModeFirstPromptEnabled);
         requestBody = {
           message: finalMessage,
           modelId: selectedModelId,
@@ -1746,10 +1740,7 @@ export function useV0ChatMessaging(params: {
         streamAbortRef.current?.abort();
         const streamController = new AbortController();
         streamAbortRef.current = streamController;
-        const createTimeoutMs = planModeFirstPromptEnabled
-          ? STREAM_SAFETY_TIMEOUT_PLAN_MODE_MS
-          : STREAM_SAFETY_TIMEOUT_DEFAULT_MS;
-        startStreamSafetyTimer(createTimeoutMs);
+        startStreamSafetyTimer(STREAM_SAFETY_TIMEOUT_DEFAULT_MS);
 
         const response = await fetch("/api/v0/chats/stream", {
           method: "POST",
@@ -1969,7 +1960,7 @@ export function useV0ChatMessaging(params: {
                       state: "approval-requested",
                       output: {
                         question:
-                          "v0 needs your answer before the next version can be generated. Pick an option in chat or reply with free text.",
+                          "AI needs your answer before the next version can be generated. Pick an option in chat or reply with free text.",
                         chatId: nextId,
                         messageId:
                           doneData.messageId ||
@@ -1985,11 +1976,11 @@ export function useV0ChatMessaging(params: {
                         return {
                           ...m,
                           content:
-                            "I need your answer to a follow-up question before preview can be generated.",
+                            "Jag behöver ditt svar på en följdfråga innan nästa preview kan genereras.",
                         };
                       }),
                     );
-                    toast("v0 is waiting for your answer to continue.");
+                    toast("AI väntar på ditt svar för att fortsätta.");
                   }
                   setMessages((prev) =>
                     prev.map((m) => (m.id === assistantMessageId ? { ...m, isStreaming: false } : m)),
@@ -2132,7 +2123,6 @@ export function useV0ChatMessaging(params: {
       enableImageGenerations,
       enableImageMaterialization,
       enableThinking,
-      planModeFirstPromptEnabled,
       systemPrompt,
       setMessages,
       setChatId,
@@ -2238,7 +2228,6 @@ export function useV0ChatMessaging(params: {
           buildMethod,
           buildIntent,
           isFirstPrompt: false,
-          planModeFirstPromptEnabled,
           attachmentsCount: options.attachments?.length ?? 0,
         });
         if (orchestration.strategyMeta.strategy !== "direct") {
@@ -2446,7 +2435,7 @@ export function useV0ChatMessaging(params: {
                     state: "approval-requested",
                     output: {
                       question:
-                        "v0 needs your answer to a follow-up question before the next version can be generated.",
+                        "AI needs your answer to a follow-up question before the next version can be generated.",
                       chatId: chatId ?? null,
                       messageId:
                         doneData.messageId ||
@@ -2462,11 +2451,11 @@ export function useV0ChatMessaging(params: {
                       return {
                         ...m,
                         content:
-                          "I need your answer to a follow-up question before preview can be generated.",
+                          "Jag behöver ditt svar på en följdfråga innan nästa preview kan genereras.",
                       };
                     }),
                   );
-                  toast("v0 is waiting for your answer to continue.");
+                  toast("AI väntar på ditt svar för att fortsätta.");
                 }
                 setMessages((prev) =>
                   prev.map((m) => (m.id === assistantMessageId ? { ...m, isStreaming: false } : m)),
@@ -2601,13 +2590,27 @@ export function useV0ChatMessaging(params: {
       selectedModelId,
       buildIntent,
       buildMethod,
-      planModeFirstPromptEnabled,
       mutateVersions,
       startStreamSafetyTimer,
       touchStreamSafetyTimer,
       clearStreamSafetyTimer,
     ],
   );
+
+  const cancelActiveGeneration = useCallback(() => {
+    streamAbortRef.current?.abort();
+    streamAbortRef.current = null;
+    clearStreamSafetyTimer();
+    pendingCreateKeyRef.current = null;
+    clearCreateChatLock();
+    createChatInFlightRef.current = false;
+    setIsCreatingChat(false);
+    setMessages((prev) =>
+      prev.map((message) =>
+        message.isStreaming ? { ...message, isStreaming: false } : message,
+      ),
+    );
+  }, [clearStreamSafetyTimer, setMessages]);
 
   const handleAutoFix = useCallback(
     (payload: AutoFixPayload) => {
@@ -2628,6 +2631,14 @@ export function useV0ChatMessaging(params: {
   autoFixHandlerRef.current = handleAutoFix;
 
   useEffect(() => {
+    return () => {
+      streamAbortRef.current?.abort();
+      streamAbortRef.current = null;
+      clearStreamSafetyTimer();
+    };
+  }, [clearStreamSafetyTimer]);
+
+  useEffect(() => {
     const handler = (event: Event) => {
       const payload = (event as CustomEvent<AutoFixPayload>).detail;
       if (!payload?.chatId || !payload?.versionId) return;
@@ -2637,5 +2648,5 @@ export function useV0ChatMessaging(params: {
     return () => window.removeEventListener("sajtmaskin:auto-fix", handler as EventListener);
   }, [handleAutoFix]);
 
-  return { isCreatingChat, createNewChat, sendMessage };
+  return { isCreatingChat, createNewChat, sendMessage, cancelActiveGeneration };
 }

@@ -80,8 +80,8 @@ export const PROMPT_ASSIST_MODEL_OPTIONS: PromptAssistModelOption[] = [
   { value: "openai/gpt-5.2-pro", label: "GPT‑5.2 Pro (Gateway)" },
   { value: "anthropic/claude-opus-4.5", label: "Claude Opus 4.5 (Gateway)" },
   { value: "anthropic/claude-sonnet-4.5", label: "Claude Sonnet 4.5 (Gateway)" },
-  { value: "v0-1.5-md", label: "v0‑1.5‑md (v0 Model API)" },
-  { value: "v0-1.5-lg", label: "v0‑1.5‑lg (v0 Model API)" },
+  { value: "v0-1.5-md", label: "Model API Medium" },
+  { value: "v0-1.5-lg", label: "Model API Large" },
 ];
 
 const PROMPT_ASSIST_MODEL_ALLOWLIST = new Set<string>([
@@ -156,7 +156,7 @@ export const DEFAULT_CUSTOM_INSTRUCTIONS = `## Tech Stack
 - Build in this order: small reusable components -> section blocks -> full page composition.
 - Reuse existing UI primitives/components before adding new ones.
 - Prefer token-driven styling in globals.css over one-off inline styles.
-- Keep outputs compatible with registry/Open-in-v0 workflows when possible.
+- Keep outputs compatible with registry/Open-in-Builder workflows when possible.
 
 ## Language
 - Match the user's language for all visible copy. Only translate if the user explicitly asks.
@@ -209,7 +209,7 @@ export const DEFAULT_CUSTOM_INSTRUCTIONS = `## Tech Stack
 - Prefer .png, .jpg, .webp formats
 - Include images in hero + at least 2 other sections
 - Never use blob: URIs, data: URIs, or local file paths for images
-- Prefer v0-generated images when available; only use public https URLs as a last resort
+- Prefer AI-generated images when available; only use public https URLs as a last resort
 
 ## Figma Workflow
 - If the user provides Figma, extract structure first (nav, hero, sections, footer) before polishing visuals.
@@ -230,14 +230,3 @@ export const SPEC_FILE_INSTRUCTION = `\n\n## Spec File
 - Do not contradict the spec unless the user explicitly asks.
 - When iterating, refer to the spec for context about the project.`;
 
-/**
- * Optional instruction profile for "plan mode" behavior in v0.
- * Applied only on first prompt in a new chat when enabled from UI.
- */
-export const PLAN_MODE_SYSTEM_INSTRUCTION = `## Plan Mode (First Prompt Only)
-- Before implementing changes, produce a concise execution plan with clear steps.
-- Wait for explicit user confirmation before major structural changes.
-- Keep the plan practical and focused on this request only.
-- Limit the plan to max 8 bullets and keep total plan text under ~1600 characters.
-- Preserve critical visual/design requirements from the original prompt; do not drop key constraints.
-- After confirmation, implement in small validated increments.`;

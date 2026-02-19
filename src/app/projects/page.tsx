@@ -15,7 +15,7 @@ export default function ProjectsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
-  const [failedImages, setFailedImages] = useState<Set<string>>(new Set());
+  const [failedVisuals, setFailedVisuals] = useState<Set<string>>(new Set());
   const [deleteDialog, setDeleteDialog] = useState<{
     isOpen: boolean;
     projectId: string;
@@ -165,27 +165,66 @@ export default function ProjectsPage() {
                 >
                   {/* Thumbnail */}
                   <div className="relative aspect-video bg-linear-to-br from-gray-900 to-black">
-                    {project.thumbnail_path &&
-                    (project.thumbnail_path.startsWith("http") ||
-                      project.thumbnail_path.startsWith("/")) &&
-                    !failedImages.has(project.id) ? (
-                      <Image
-                        src={project.thumbnail_path}
-                        alt={project.name}
-                        fill
-                        sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
-                        className="object-cover"
-                        unoptimized={project.thumbnail_path.startsWith("http")}
-                        onError={() => {
-                          // Track failed image, show placeholder instead
-                          setFailedImages((prev) => new Set(prev).add(project.id));
-                        }}
-                      />
-                    ) : (
-                      <div className="absolute inset-0 flex items-center justify-center text-gray-700">
-                        <Folder className="h-12 w-12" />
-                      </div>
-                    )}
+                    {(() => {
+                      const imageFailKey = `${project.id}:image`;
+                      const previewFailKey = `${project.id}:preview`;
+                      const hasImageThumbnail =
+                        typeof project.thumbnail_path === "string" &&
+                        (project.thumbnail_path.startsWith("http") ||
+                          project.thumbnail_path.startsWith("/")) &&
+                        !failedVisuals.has(imageFailKey);
+                      const hasPreviewFrame =
+                        typeof project.demo_url === "string" &&
+                        (project.demo_url.startsWith("http") || project.demo_url.startsWith("/")) &&
+                        !failedVisuals.has(previewFailKey);
+
+                      if (hasImageThumbnail) {
+                        return (
+                          <Image
+                            src={project.thumbnail_path as string}
+                            alt={project.name}
+                            fill
+                            sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                            className="object-cover"
+                            unoptimized={project.thumbnail_path?.startsWith("http") ?? false}
+                            onError={() => {
+                              setFailedVisuals((prev) => new Set(prev).add(imageFailKey));
+                            }}
+                          />
+                        );
+                      }
+
+                      if (hasPreviewFrame) {
+                        return (
+                          <iframe
+                            src={`/api/proxy-preview?url=${encodeURIComponent(project.demo_url as string)}`}
+                            title={`Preview av ${project.name}`}
+                            className="h-full w-full border-0"
+                            loading="lazy"
+                            sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+                            onLoad={(event) => {
+                              // iframe onError is unreliable for content-level failures.
+                              // Proxy error pages include a marker that we can detect on load.
+                              const doc = event.currentTarget.contentDocument;
+                              const isProxyError =
+                                doc?.documentElement?.getAttribute("data-proxy-preview-error") === "1";
+                              if (isProxyError) {
+                                setFailedVisuals((prev) => new Set(prev).add(previewFailKey));
+                              }
+                            }}
+                            onError={() => {
+                              setFailedVisuals((prev) => new Set(prev).add(previewFailKey));
+                            }}
+                          />
+                        );
+                      }
+
+                      return (
+                        <div className="absolute inset-0 flex items-center justify-center text-gray-700">
+                          <Folder className="h-12 w-12" />
+                        </div>
+                      );
+                    })()}
 
                     {/* Hover overlay */}
                     <div className="absolute inset-0 flex items-center justify-center gap-3 bg-black/60 opacity-0 transition-opacity group-hover:opacity-100">

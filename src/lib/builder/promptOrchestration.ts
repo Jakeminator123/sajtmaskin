@@ -1,10 +1,8 @@
 import type { BuildIntent, BuildMethod } from "@/lib/builder/build-intent";
 import {
   MAX_CHAT_MESSAGE_CHARS,
-  ORCHESTRATION_PLAN_MODE_PHASE_THRESHOLD_CHARS,
   ORCHESTRATION_PHASE_FORCE_AUDIT_CHARS,
   ORCHESTRATION_PHASE_FORCE_CHARS,
-  PLAN_MODE_MAX_PLAN_CHARS,
   ORCHESTRATION_SOFT_TARGET_APP_CHARS,
   ORCHESTRATION_SOFT_TARGET_AUDIT_CHARS,
   ORCHESTRATION_SOFT_TARGET_FOLLOWUP_CHARS,
@@ -42,7 +40,6 @@ export type OrchestratePromptInput = {
   buildMethod?: BuildMethod | null | string;
   buildIntent?: BuildIntent | null | string;
   isFirstPrompt: boolean;
-  planModeFirstPromptEnabled?: boolean;
   attachmentsCount?: number;
   hardCap?: number;
 };
@@ -154,6 +151,19 @@ function looksTechnicalMessage(message: string): boolean {
 function looksDesignHeavyMessage(message: string): boolean {
   const lower = toSafeLower(message);
   return DESIGN_MARKERS.reduce((count, marker) => count + (lower.includes(marker) ? 1 : 0), 0) >= 3;
+}
+
+function shouldPreserveRegistryPayload(message: string): boolean {
+  const lower = toSafeLower(message);
+  const normalized = lower.replace(/\u2011/g, "-");
+  const hasRegistrySignals =
+    normalized.includes("registry files") ||
+    normalized.includes("registry dependencies") ||
+    normalized.includes("add the shadcn/ui block") ||
+    normalized.includes("add the shadcn/ui component") ||
+    normalized.includes("ui-element");
+  const hasStructuredPayload = hasCodeFence(message) || message.includes("---");
+  return hasRegistrySignals && hasStructuredPayload;
 }
 
 function detectPromptType(input: OrchestratePromptInput, normalizedMessage: string): PromptType {
@@ -337,6 +347,7 @@ export function orchestratePromptMessage(input: OrchestratePromptInput): Orchest
   const complexitySignals = analyzeComplexity(normalizedMessage);
   const complexityScore = scoreComplexity(complexitySignals, attachmentsCount);
   const isDesignHeavy = looksDesignHeavyMessage(normalizedMessage);
+  const preserveRegistryPayload = shouldPreserveRegistryPayload(normalizedMessage);
 
   let strategy: PromptStrategy = "direct";
   let reason = "within_budget";
@@ -351,24 +362,21 @@ export function orchestratePromptMessage(input: OrchestratePromptInput): Orchest
     complexityScore >= 4 ||
     (promptType === "audit" && originalLength > Math.round(budgetTarget * 1.15)) ||
     (input.isFirstPrompt && toSafeLower(input.buildIntent) === "app" && originalLength > budgetTarget);
-  const planModePhaseThreshold = Math.max(
-    ORCHESTRATION_PLAN_MODE_PHASE_THRESHOLD_CHARS,
-    Math.round(phaseForceThreshold * 1.4),
-  );
-  const prefersPhaseForPlanMode =
-    input.isFirstPrompt &&
-    Boolean(input.planModeFirstPromptEnabled) &&
-    originalLength >= planModePhaseThreshold;
 
   if (normalizedMessage.length === 0) {
     reason = "empty_prompt";
     strategy = "direct";
+  } else if (preserveRegistryPayload) {
+    // Preserve full registry payloads (files/dependencies/placement) to avoid
+    // losing implementation-critical details during summarization/phasing.
+    strategy = "direct";
+    reason = "preserve_registry_payload";
   } else if (!exceedsBudget) {
     strategy = "direct";
     reason = "within_budget";
-  } else if (forcePhase || isComplex || prefersPhaseForPlanMode) {
+  } else if (forcePhase || isComplex) {
     strategy = "phase_plan_build_polish";
-    reason = forcePhase ? "force_phase_threshold" : prefersPhaseForPlanMode ? "plan_mode_large_prompt" : "high_complexity";
+    reason = forcePhase ? "force_phase_threshold" : "high_complexity";
     phaseHints = [...PHASE_HINTS];
     const summary = summarizeMessage(
       normalizedMessage,
@@ -384,11 +392,6 @@ export function orchestratePromptMessage(input: OrchestratePromptInput): Orchest
       ? Math.min(hardCap - 120, Math.max(budgetTarget, Math.round(budgetTarget * 1.1)))
       : budgetTarget;
     optimizedMessage = summarizeMessage(normalizedMessage, summarizeTarget);
-  }
-
-  if (input.isFirstPrompt && input.planModeFirstPromptEnabled && optimizedMessage.length > PLAN_MODE_MAX_PLAN_CHARS) {
-    optimizedMessage = summarizeMessage(optimizedMessage, PLAN_MODE_MAX_PLAN_CHARS);
-    reason = `${reason}_plan_guardrail`;
   }
 
   if (optimizedMessage.length > hardCap) {

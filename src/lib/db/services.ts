@@ -636,9 +636,52 @@ export async function getAllProjects(): Promise<Project[]> {
   return await db.select().from(appProjects).orderBy(desc(appProjects.updated_at));
 }
 
+type ProjectOwnerScope = {
+  userId?: string | null;
+  sessionId?: string | null;
+};
+
+function buildProjectOwnerCondition(scope: ProjectOwnerScope) {
+  const userId = scope.userId?.trim();
+  if (userId) {
+    return eq(appProjects.user_id, userId);
+  }
+  const sessionId = scope.sessionId?.trim();
+  if (sessionId) {
+    return and(isNull(appProjects.user_id), eq(appProjects.session_id, sessionId));
+  }
+  return null;
+}
+
+export async function getAllProjectsForOwner(scope: ProjectOwnerScope): Promise<Project[]> {
+  assertDbConfigured();
+  const ownerCondition = buildProjectOwnerCondition(scope);
+  if (!ownerCondition) return [];
+  return await db
+    .select()
+    .from(appProjects)
+    .where(ownerCondition)
+    .orderBy(desc(appProjects.updated_at));
+}
+
 export async function getProjectById(id: string): Promise<Project | null> {
   assertDbConfigured();
   const rows = await db.select().from(appProjects).where(eq(appProjects.id, id)).limit(1);
+  return rows[0] ?? null;
+}
+
+export async function getProjectByIdForOwner(
+  id: string,
+  scope: ProjectOwnerScope,
+): Promise<Project | null> {
+  assertDbConfigured();
+  const ownerCondition = buildProjectOwnerCondition(scope);
+  if (!ownerCondition) return null;
+  const rows = await db
+    .select()
+    .from(appProjects)
+    .where(and(eq(appProjects.id, id), ownerCondition))
+    .limit(1);
   return rows[0] ?? null;
 }
 

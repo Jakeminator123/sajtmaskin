@@ -1,13 +1,14 @@
 "use client";
 
 import { AlertCircle, ExternalLink, FileText, Loader2, MousePointer2, RefreshCw, Wand2 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { CodeBlock, CodeBlockCopyButton } from "@/components/ai-elements/code-block";
 import { buildFileTree } from "@/lib/builder/fileTree";
 import type { FileNode, InspectorSelection } from "@/lib/builder/types";
 import { FileExplorer } from "@/components/builder/FileExplorer";
 import { cn } from "@/lib/utils";
+import toast from "react-hot-toast";
 
 interface PreviewPanelProps {
   chatId: string | null;
@@ -63,7 +64,10 @@ export function PreviewPanel({
   const [integrationStatus, setIntegrationStatus] = useState<IntegrationStatus | null>(null);
   const [integrationError, setIntegrationError] = useState(false);
   const [isInspectorMode, setIsInspectorMode] = useState(false);
+  const [isViewSwitchPending, startViewSwitchTransition] = useTransition();
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
+  const wasInspectorModeRef = useRef(false);
+  const inspectorFallbackRef = useRef(false);
   const buildPreviewSrc = useCallback((url: string, token?: number, inspectorMode?: boolean) => {
     let src = inspectorMode ? `/api/proxy-preview?url=${encodeURIComponent(url)}` : url;
     if (token) {
@@ -87,6 +91,7 @@ export function PreviewPanel({
     if (!demoUrl) return;
     setIframeLoading(true);
     setIframeError(false);
+    inspectorFallbackRef.current = false;
   }, [demoUrl, refreshToken, isInspectorMode]);
 
   useEffect(() => {
@@ -110,6 +115,14 @@ export function PreviewPanel({
     window.addEventListener("message", handleMessage);
     return () => window.removeEventListener("message", handleMessage);
   }, [demoUrl, isInspectorMode, onInspectorSelection]);
+
+  useEffect(() => {
+    const wasInspectorMode = wasInspectorModeRef.current;
+    if (wasInspectorMode && !isInspectorMode) {
+      clearInspectorSelection();
+    }
+    wasInspectorModeRef.current = isInspectorMode;
+  }, [isInspectorMode, clearInspectorSelection]);
 
   useEffect(() => {
     if (inspectorClearToken === undefined) return;
@@ -151,8 +164,21 @@ export function PreviewPanel({
     if (!isInspectorMode) return;
     if (canUseInspector) return;
     setIsInspectorMode(false);
-    clearInspectorSelection();
-  }, [isInspectorMode, canUseInspector, clearInspectorSelection]);
+  }, [isInspectorMode, canUseInspector]);
+
+  const handleToggleInspectorMode = useCallback(() => {
+    if (!canUseInspector) return;
+    startViewSwitchTransition(() => {
+      setIsInspectorMode((prev) => !prev);
+    });
+  }, [canUseInspector, startViewSwitchTransition]);
+
+  const handleToggleCode = useCallback(() => {
+    if (!canShowCode) return;
+    startViewSwitchTransition(() => {
+      setShowCode((prev) => !prev);
+    });
+  }, [canShowCode, startViewSwitchTransition]);
 
   const selectedFile = useMemo(() => {
     if (!selectedPath) return null;
@@ -276,10 +302,20 @@ export function PreviewPanel({
     setIframeError(false);
   };
 
-  const handleIframeError = () => {
+  const handleIframeError = useCallback(() => {
+    if (isInspectorMode && !inspectorFallbackRef.current) {
+      inspectorFallbackRef.current = true;
+      setIsInspectorMode(false);
+      setIframeLoading(true);
+      setIframeError(false);
+      toast.error(
+        "Inspektionsläget kunde inte laddas för denna preview. Växlar tillbaka till vanlig preview.",
+      );
+      return;
+    }
     setIframeLoading(false);
     setIframeError(true);
-  };
+  }, [isInspectorMode]);
 
   const handleRefresh = () => {
     setIframeLoading(true);
@@ -309,6 +345,14 @@ export function PreviewPanel({
     () => integrationStatus?.items.find((item) => item.id === "vercel-blob") || null,
     [integrationStatus],
   );
+  const isSandboxPreview = useMemo(() => {
+    if (!demoUrl) return false;
+    try {
+      return /sandbox/i.test(new URL(demoUrl).hostname);
+    } catch {
+      return demoUrl.toLowerCase().includes("sandbox");
+    }
+  }, [demoUrl]);
 
   if (!demoUrl && !showCode) {
     const isInitialEmpty = !chatId && !versionId && !externalLoading;
@@ -339,6 +383,7 @@ export function PreviewPanel({
   const isV0Preview = Boolean(demoUrl && demoUrl.includes("vusercontent.net"));
   const showBlobWarning = Boolean(demoUrl && blobStatus && !blobStatus.enabled);
   const showExternalWarning = Boolean(demoUrl && isV0Preview);
+  const showSandboxWarning = Boolean(demoUrl && isSandboxPreview);
   const showImagesDisabledWarning = Boolean(demoUrl && !imageGenerationsEnabled);
   const showImagesUnsupportedWarning = Boolean(
     demoUrl && imageGenerationsEnabled && !imageGenerationsSupported,
@@ -353,17 +398,8 @@ export function PreviewPanel({
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => {
-              if (!canUseInspector) return;
-              setIsInspectorMode((prev) => {
-                const next = !prev;
-                if (prev && !next) {
-                  clearInspectorSelection();
-                }
-                return next;
-              });
-            }}
-            disabled={!canUseInspector}
+            onClick={handleToggleInspectorMode}
+            disabled={!canUseInspector || isViewSwitchPending}
             title={canUseInspector ? "Inspektionsläge" : "Ingen preview att inspektera"}
             aria-label="Inspektionsläge"
             aria-pressed={isInspectorMode}
@@ -378,8 +414,8 @@ export function PreviewPanel({
           <Button
             variant="ghost"
             size="sm"
-            onClick={() => setShowCode((prev) => !prev)}
-            disabled={!canShowCode}
+            onClick={handleToggleCode}
+            disabled={!canShowCode || isViewSwitchPending}
             title={canShowCode ? "Visa kod" : "Ingen kod tillgänglig än"}
             className={cn(
               "text-gray-400 hover:text-white",
@@ -427,6 +463,7 @@ export function PreviewPanel({
       {!showCode &&
         (showBlobWarning ||
           showExternalWarning ||
+          showSandboxWarning ||
           integrationError ||
           showImagesDisabledWarning ||
           showImagesUnsupportedWarning ||
@@ -436,6 +473,13 @@ export function PreviewPanel({
             <div>
               Sajmaskinens preview körs i utvecklingsmilö för snabbhet. Externa media‑URL:er kan ge 404 eller blockeras. Ladda upp media
               via mediabiblioteket för publika Blob‑URL:er.
+            </div>
+          )}
+          {showSandboxWarning && (
+            <div>
+              Preview körs från sandbox. Sandbox har separat runtime och kan sakna samma
+              miljövariabler som din ordinarie miljö (t.ex. blob-token), vilket kan göra att bilder
+              saknas där.
             </div>
           )}
           {showBlobWarning && (
@@ -448,11 +492,11 @@ export function PreviewPanel({
             <div>AI-bilder är avstängda i chat-inställningarna för den här sessionen.</div>
           )}
           {showImagesUnsupportedWarning && (
-            <div>v0-bildgenerering är inte tillgänglig just nu (saknad/ogiltig v0-konfiguration).</div>
+            <div>Bildgenerering är inte tillgänglig just nu (saknad/ogiltig AI-konfiguration).</div>
           )}
           {showBlobConfigWarning && (
             <div>
-              Blob är inte aktivt. Bilder kan skapas av v0 men saknas i preview tills blob är
+              Blob är inte aktivt. Bilder kan skapas av AI men saknas i preview tills blob är
               konfigurerad.
             </div>
           )}

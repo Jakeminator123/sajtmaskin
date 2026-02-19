@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { getRegistryIndexWithCache, filterRegistryIndexByStatus } from "@/lib/shadcn-registry-cache";
+import { getRegistryIndexWithCache } from "@/lib/shadcn-registry-cache";
 import { getRegistryBaseUrl } from "@/lib/v0/v0-url-parser";
 
 export const runtime = "nodejs";
@@ -19,8 +19,7 @@ export async function GET(req: Request) {
       { baseUrl, style, source },
       { force },
     );
-    const filtered = filterRegistryIndexByStatus(cache.index, cache.itemStatus);
-    return NextResponse.json(filtered);
+    return NextResponse.json(cache.index);
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "Registry request failed";
     return NextResponse.json({ error: message }, { status: 502 });

@@ -154,12 +154,12 @@ export async function POST(request: NextRequest) {
     const hasDemoUrl = !!result.demoUrl;
 
     if (!hasFiles && !hasDemoUrl) {
-      console.error("[API /template] No content received from v0 API");
+      console.error("[API /template] No content received from generation API");
       return attachSessionCookie(
         NextResponse.json(
           {
             success: false,
-            error: "Mallen kunde inte laddas. v0 API returnerade inget innehåll.",
+            error: "Mallen kunde inte laddas. Generationstjänsten returnerade inget innehåll.",
           },
           { status: 502 },
         ),
@@ -262,8 +262,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // For v0 API errors (500, 502, etc.), pass through the user-friendly message
-    if (errorMessage.includes("v0 API") || errorMessage.includes("tillfällig")) {
+    // For generation API errors (500, 502, etc.), pass through the user-friendly message
+    if (
+      errorMessage.includes("v0 API") ||
+      errorMessage.includes("Model API") ||
+      errorMessage.includes("generation API") ||
+      errorMessage.includes("tillfällig")
+    ) {
       return NextResponse.json(
         {
           success: false,

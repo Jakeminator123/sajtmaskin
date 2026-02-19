@@ -140,16 +140,11 @@ export async function POST(req: Request) {
         typeof (meta as { buildIntent?: unknown })?.buildIntent === "string"
           ? (meta as { buildIntent?: string }).buildIntent
           : null;
-      const metaPlanModeFirstPrompt =
-        typeof (meta as { planModeFirstPrompt?: unknown })?.planModeFirstPrompt === "boolean"
-          ? Boolean((meta as { planModeFirstPrompt?: boolean }).planModeFirstPrompt)
-          : false;
       const promptOrchestration = orchestratePromptMessage({
         message,
         buildMethod: metaBuildMethod,
         buildIntent: metaBuildIntent,
         isFirstPrompt: true,
-        planModeFirstPromptEnabled: metaPlanModeFirstPrompt,
         attachmentsCount: Array.isArray(attachments) ? attachments.length : 0,
       });
       const strategyMeta = promptOrchestration.strategyMeta;
@@ -404,7 +399,9 @@ export async function POST(req: Request) {
               }, 15000);
             };
 
-            const MAX_BUFFER_SIZE = 1024 * 1024; // 1MB buffer limit
+            // Keep a generous buffer window to avoid truncating large SSE data lines
+            // mid-event (which can drop tool/question payloads).
+            const MAX_BUFFER_SIZE = 8 * 1024 * 1024; // 8MB hard limit
 
             safeEnqueue(
               encoder.encode(
@@ -427,10 +424,10 @@ export async function POST(req: Request) {
 
                 buffer += decoder.decode(value, { stream: true });
 
-                // Prevent unbounded buffer growth from malformed streams
-                // Truncate at newline boundary to preserve event integrity
+                // Prevent unbounded buffer growth from malformed streams.
+                // Truncate at newline boundary to preserve event integrity.
                 if (buffer.length > MAX_BUFFER_SIZE) {
-                  const truncateTarget = buffer.length - MAX_BUFFER_SIZE / 2;
+                  const truncateTarget = buffer.length - MAX_BUFFER_SIZE;
                   const newlineIndex = buffer.indexOf("\n", truncateTarget);
                   warnLog("v0", "Stream buffer exceeded max size; truncating buffer", {
                     requestId,
@@ -444,8 +441,9 @@ export async function POST(req: Request) {
                   if (newlineIndex !== -1) {
                     buffer = buffer.slice(newlineIndex + 1);
                   } else {
-                    // Fallback: no newline found, keep last half
-                    buffer = buffer.slice(-MAX_BUFFER_SIZE / 2);
+                    // Fallback: no newline found, keep a full tail window.
+                    // This preserves as much context as possible for the parser.
+                    buffer = buffer.slice(-MAX_BUFFER_SIZE);
                   }
                 }
 
@@ -644,12 +642,15 @@ export async function POST(req: Request) {
                   const hasAssistantReply = Boolean(
                     assistantContentPreview.trim() || assistantThinkingPreview.trim(),
                   );
+                  const hasToolSignals =
+                    seenToolCalls.size > 0 || seenIntegrationSignals.size > 0;
                   const shouldSendDone =
                     Boolean(finalDemoUrl) || (isDoneEvent && (hasMeaningfulData || hasAssistantReply));
 
                   if (!didSendDone && shouldSendDone) {
                     didSendDone = true;
-                    const awaitingInput = !finalDemoUrl && !finalVersionId && hasAssistantReply;
+                    const awaitingInput =
+                      !finalDemoUrl && !finalVersionId && (hasAssistantReply || hasToolSignals);
                     safeEnqueue(
                       encoder.encode(
                         formatSSEEvent("done", {
@@ -764,6 +765,8 @@ export async function POST(req: Request) {
                   const hasAssistantReply = Boolean(
                     assistantContentPreview.trim() || assistantThinkingPreview.trim(),
                   );
+                  const hasToolSignals =
+                    seenToolCalls.size > 0 || seenIntegrationSignals.size > 0;
 
                   if (internalChatId && finalVersionId) {
                     // Use upsert to prevent race condition
@@ -788,7 +791,7 @@ export async function POST(req: Request) {
 
                   didSendDone = true;
                   if (!finalVersionId && !finalDemoUrl) {
-                    if (hasAssistantReply) {
+                    if (hasAssistantReply || hasToolSignals) {
                       safeEnqueue(
                         encoder.encode(
                           formatSSEEvent("done", {

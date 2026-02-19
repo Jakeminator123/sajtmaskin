@@ -11,16 +11,9 @@ import { VersionHistory } from "@/components/builder/VersionHistory";
 import { BuilderHeader } from "@/components/builder/BuilderHeader";
 import { IntegrationStatusPanel } from "@/components/builder/IntegrationStatusPanel";
 import { ProjectEnvVarsPanel } from "@/components/builder/ProjectEnvVarsPanel";
+import { DeployNameDialog } from "@/components/builder/DeployNameDialog";
+import { DomainSearchDialog, type DomainSearchResult } from "@/components/builder/DomainSearchDialog";
 import type { V0UserFileAttachment } from "@/components/media";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import { clearPersistedMessages } from "@/lib/builder/messagesStorage";
 import type { ChatMessage, InspectorSelection } from "@/lib/builder/types";
 import { buildPromptAssistContext, briefToSpec, promptToSpec } from "@/lib/builder/promptAssistContext";
@@ -49,10 +42,8 @@ import {
   DEFAULT_SPEC_MODE,
   DEFAULT_THINKING,
   ENABLE_EXPERIMENTAL_MODEL_ID,
-  PLAN_MODE_SYSTEM_INSTRUCTION,
   SPEC_FILE_INSTRUCTION,
   getDefaultPromptAssistModel,
-  MODEL_TIER_OPTIONS,
 } from "@/lib/builder/defaults";
 import { useChat } from "@/lib/hooks/useChat";
 import { useCssValidation } from "@/lib/hooks/useCssValidation";
@@ -63,6 +54,10 @@ import { useVersions } from "@/lib/hooks/useVersions";
 import { useAuth, useAuthStore } from "@/lib/auth/auth-store";
 import { RequireAuthModal } from "@/components/auth";
 import { formatPromptForV0, isGatewayAssistModel } from "@/lib/builder/promptAssist";
+import {
+  readChatGenerationSettings,
+  writeChatGenerationSettings,
+} from "@/lib/builder/chat-generation-settings";
 import type { ModelTier } from "@/lib/validations/chatSchemas";
 import type { QualityLevel } from "@/lib/v0/v0-generator";
 import { cn } from "@/lib/utils";
@@ -71,7 +66,7 @@ import type { ImageAssetStrategy } from "@/lib/imageAssets";
 import { Loader2 } from "lucide-react";
 import { ThinkingOverlay } from "@/components/builder/ThinkingOverlay";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import toast, { Toaster } from "react-hot-toast";
 
 type CreateChatOptions = {
@@ -85,54 +80,10 @@ const MODEL_TIER_TO_QUALITY: Record<ModelTier, QualityLevel> = {
   "v0-max": "max",
 };
 
-type ChatGenerationSettings = {
-  modelTier: ModelTier;
-  customModelId: string;
-  planModeFirstPrompt: boolean;
-  imageGenerations: boolean;
-};
-
-const CHAT_GENERATION_SETTINGS_PREFIX = "sajtmaskin:chatGenerationSettings:";
-const MODEL_TIER_SET = new Set<ModelTier>(MODEL_TIER_OPTIONS.map((option) => option.value));
-
-function buildChatGenerationSettingsKey(chatId: string): string {
-  return `${CHAT_GENERATION_SETTINGS_PREFIX}${chatId}`;
-}
-
-function readChatGenerationSettings(chatId: string): ChatGenerationSettings | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = localStorage.getItem(buildChatGenerationSettingsKey(chatId));
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as Partial<ChatGenerationSettings> | null;
-    if (!parsed || typeof parsed !== "object") return null;
-    if (!parsed.modelTier || !MODEL_TIER_SET.has(parsed.modelTier as ModelTier)) return null;
-    return {
-      modelTier: parsed.modelTier as ModelTier,
-      customModelId: typeof parsed.customModelId === "string" ? parsed.customModelId.trim() : "",
-      planModeFirstPrompt: Boolean(parsed.planModeFirstPrompt),
-      imageGenerations:
-        typeof parsed.imageGenerations === "boolean"
-          ? parsed.imageGenerations
-          : DEFAULT_IMAGE_GENERATIONS,
-    };
-  } catch {
-    return null;
-  }
-}
-
-function writeChatGenerationSettings(chatId: string, settings: ChatGenerationSettings): void {
-  if (typeof window === "undefined") return;
-  try {
-    localStorage.setItem(buildChatGenerationSettingsKey(chatId), JSON.stringify(settings));
-  } catch {
-    // ignore storage errors
-  }
-}
-
 function BuilderContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const [, startUiTransition] = useTransition();
   const { fetchUser, isAuthenticated, isLoading: isAuthLoading } = useAuth();
   const [authModalReason, setAuthModalReason] = useState<"builder" | "save" | null>(null);
 
@@ -161,7 +112,6 @@ function BuilderContent() {
   );
   const [selectedModelTier, setSelectedModelTier] = useState<ModelTier>(DEFAULT_MODEL_TIER);
   const [customModelId, setCustomModelId] = useState("");
-  const [planModeFirstPrompt, setPlanModeFirstPrompt] = useState(false);
   const [promptAssistModel, setPromptAssistModel] = useState(
     DEFAULT_PROMPT_ASSIST.model || getDefaultPromptAssistModel(),
   );
@@ -212,9 +162,7 @@ function BuilderContent() {
   const [deployNameError, setDeployNameError] = useState<string | null>(null);
   const [domainSearchOpen, setDomainSearchOpen] = useState(false);
   const [domainQuery, setDomainQuery] = useState("");
-  const [domainResults, setDomainResults] = useState<
-    Array<{ domain: string; available: boolean; price: number; currency: string }> | null
-  >(null);
+  const [domainResults, setDomainResults] = useState<DomainSearchResult[] | null>(null);
   const [isDomainSearching, setIsDomainSearching] = useState(false);
   const [isDeployNameSaving, setIsDeployNameSaving] = useState(false);
   const [v0ProjectId, setV0ProjectId] = useState<string | null>(null);
@@ -415,7 +363,6 @@ function BuilderContent() {
     try {
       localStorage.removeItem("sajtmaskin:aiImages");
       localStorage.removeItem("sajtmaskin:customModelId");
-      localStorage.removeItem("sajtmaskin:planModeFirstPrompt");
     } catch {
       // ignore storage errors
     }
@@ -461,13 +408,11 @@ function BuilderContent() {
     if (stored) {
       setSelectedModelTier(stored.modelTier);
       setCustomModelId(allowExperimentalModelId ? stored.customModelId : "");
-      setPlanModeFirstPrompt(Boolean(stored.planModeFirstPrompt));
       setEnableImageGenerations(Boolean(stored.imageGenerations));
     } else {
       writeChatGenerationSettings(chatId, {
         modelTier: selectedModelTier,
         customModelId: allowExperimentalModelId ? normalizedCustomModelId : "",
-        planModeFirstPrompt,
         imageGenerations: enableImageGenerations,
       });
     }
@@ -478,7 +423,6 @@ function BuilderContent() {
     allowExperimentalModelId,
     selectedModelTier,
     normalizedCustomModelId,
-    planModeFirstPrompt,
     enableImageGenerations,
   ]);
 
@@ -489,7 +433,6 @@ function BuilderContent() {
     writeChatGenerationSettings(chatId, {
       modelTier: selectedModelTier,
       customModelId: allowExperimentalModelId ? normalizedCustomModelId : "",
-      planModeFirstPrompt,
       imageGenerations: enableImageGenerations,
     });
   }, [
@@ -497,15 +440,8 @@ function BuilderContent() {
     allowExperimentalModelId,
     selectedModelTier,
     normalizedCustomModelId,
-    planModeFirstPrompt,
     enableImageGenerations,
   ]);
-
-  useEffect(() => {
-    // Plan mode applies to the first prompt of a chat only.
-    if (!chatId || !planModeFirstPrompt) return;
-    setPlanModeFirstPrompt(false);
-  }, [chatId, planModeFirstPrompt]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -668,6 +604,17 @@ function BuilderContent() {
       })
       .catch((error) => {
         console.warn("[Builder] Failed to load project name:", error);
+        if (error instanceof Error && error.message.toLowerCase().includes("project not found")) {
+          if (typeof window !== "undefined") {
+            const params = new URLSearchParams(window.location.search);
+            if (params.get("project") === appProjectId) {
+              params.delete("project");
+              const query = params.toString();
+              window.history.replaceState(null, "", query ? `/builder?${query}` : "/builder");
+            }
+          }
+          setAppProjectId(null);
+        }
       });
     return () => {
       isActive = false;
@@ -884,8 +831,8 @@ function BuilderContent() {
         }
         if (!v0Enabled && !featureWarnedRef.current.v0) {
           featureWarnedRef.current.v0 = true;
-          const reason = reasons?.v0 || "V0_API_KEY saknas";
-          toast.error(`v0 är avstängt: ${reason}`);
+          const reason = reasons?.v0 || "AI-konfiguration saknas";
+          toast.error(`Bildgenerering är avstängd: ${reason}`);
         }
         if (v0Enabled && !blobEnabled && !featureWarnedRef.current.blob) {
           featureWarnedRef.current.blob = true;
@@ -1653,7 +1600,7 @@ function BuilderContent() {
     ],
   );
 
-  const { isCreatingChat, createNewChat, sendMessage } = useV0ChatMessaging({
+  const { isCreatingChat, createNewChat, sendMessage, cancelActiveGeneration } = useV0ChatMessaging({
     chatId,
     setChatId,
     chatIdParam,
@@ -1665,7 +1612,6 @@ function BuilderContent() {
     enableImageGenerations,
     enableImageMaterialization: mediaEnabled,
     enableThinking: effectiveThinking,
-    planModeFirstPromptEnabled: planModeFirstPrompt,
     systemPrompt: customInstructions,
     promptAssistModel,
     promptAssistDeep,
@@ -1740,23 +1686,12 @@ function BuilderContent() {
     ],
   );
 
-  const buildFirstPromptSystemOverride = useCallback(
-    (dynamicInstructions: string | null): string | undefined => {
-      const base = (dynamicInstructions ?? customInstructions ?? "").trim();
-      if (!base) return undefined;
-      if (!planModeFirstPrompt) return base;
-      const planBlock = PLAN_MODE_SYSTEM_INSTRUCTION.trim();
-      return `${base}\n\n${planBlock}`.trim();
-    },
-    [customInstructions, planModeFirstPrompt],
-  );
-
   const requestCreateChat = useCallback(
     async (message: string, options?: CreateChatOptions) => {
       setEntryIntentActive(false);
       const dynamicInstructions = await applyDynamicInstructionsForNewChat(message);
       captureInstructionSnapshot();
-      const systemOverride = buildFirstPromptSystemOverride(dynamicInstructions);
+      const systemOverride = dynamicInstructions?.trim() ? dynamicInstructions.trim() : undefined;
       // Pass dynamic instructions directly to avoid state race condition
       await createNewChat(message, options, systemOverride);
       return true;
@@ -1765,7 +1700,6 @@ function BuilderContent() {
       createNewChat,
       captureInstructionSnapshot,
       applyDynamicInstructionsForNewChat,
-      buildFirstPromptSystemOverride,
     ],
   );
 
@@ -1796,7 +1730,7 @@ function BuilderContent() {
     async (selection: ShadcnBlockSelection) => {
       if (!selection.registryUrl) {
         toast.error("Registry-URL saknas");
-        return;
+        return false;
       }
 
       try {
@@ -1845,8 +1779,10 @@ function BuilderContent() {
           });
         }
         toast.success("Designsystem-projekt skapat!");
+        return true;
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Kunde inte starta från designsystem");
+        console.warn("[Builder] Could not start directly from registry:", error);
+        return false;
       }
     },
     [
@@ -1865,20 +1801,68 @@ function BuilderContent() {
   const handleStartFromTemplate = useCallback(
     (templateId: string) => {
       if (!templateId) return;
-      if (isCreatingChat || isAnyStreaming || isTemplateLoading || isPreparingPrompt) {
-        toast.error("Vänta tills nuvarande generering är klar innan du väljer en mall.");
+      if (isTemplateLoading || isPreparingPrompt) {
+        toast.error("Vänta tills nuvarande mall/process är klar innan du väljer en ny mall.");
         return;
       }
+
+      const hasActiveGeneration = isCreatingChat || isAnyStreaming;
+      if (hasActiveGeneration) {
+        const shouldAbort = window.confirm(
+          "Generering pågår just nu. Vill du avbryta och starta från mallen istället?",
+        );
+        if (!shouldAbort) return;
+        cancelActiveGeneration();
+      }
+
       if (chatId) {
-        toast.error("Starta en ny chat innan du väljer en mall.");
-        return;
+        const shouldStartFresh = window.confirm(
+          "Du har redan en aktiv chat. Vill du starta en ny chat från vald mall?",
+        );
+        if (!shouldStartFresh) return;
       }
+
+      setChatId(null);
+      setMessages([]);
+      setCurrentDemoUrl(null);
+      setSelectedVersionId(null);
+      setEntryIntentActive(false);
+      templateInitAttemptKeyRef.current = null;
       const params = new URLSearchParams(searchParams.toString());
+      params.delete("chatId");
+      params.delete("prompt");
+      params.delete("promptId");
+      params.delete("source");
       params.set("templateId", templateId);
       router.replace(`/builder?${params.toString()}`);
     },
-    [chatId, isAnyStreaming, isCreatingChat, isPreparingPrompt, isTemplateLoading, router, searchParams],
+    [
+      chatId,
+      isAnyStreaming,
+      isCreatingChat,
+      isPreparingPrompt,
+      isTemplateLoading,
+      cancelActiveGeneration,
+      router,
+      searchParams,
+    ],
   );
+
+  const handleGoHome = useCallback(() => {
+    const hasActiveGeneration = isCreatingChat || isAnyStreaming || isTemplateLoading || isPreparingPrompt;
+    if (hasActiveGeneration) {
+      cancelActiveGeneration();
+      toast("Generering avbruten. Går till startsidan.");
+    }
+    router.push("/");
+  }, [
+    isAnyStreaming,
+    isCreatingChat,
+    isPreparingPrompt,
+    isTemplateLoading,
+    cancelActiveGeneration,
+    router,
+  ]);
 
   const handlePaletteSelection = useCallback((selection: PaletteSelection) => {
     setPaletteState((prev) => mergePaletteSelection(prev, selection));
@@ -1984,29 +1968,30 @@ function BuilderContent() {
       clearPersistedMessages(chatId);
     }
     router.replace("/builder");
-    setChatId(null);
-    setAppProjectId(null);
-    setAppProjectName(null);
-    setPendingProjectName(null);
-    setDeployNameInput("");
-    setDeployNameDialogOpen(false);
-    setV0ProjectId(null);
-    setCurrentDemoUrl(null);
-    setPreviewRefreshToken(0);
-    setMessages([]);
-    setIsImportModalOpen(false);
-    setIsSandboxModalOpen(false);
-    setSelectedModelTier(DEFAULT_MODEL_TIER);
-    setCustomModelId("");
-    setPlanModeFirstPrompt(false);
-    setEnableImageGenerations(DEFAULT_IMAGE_GENERATIONS);
-    setCustomInstructions(DEFAULT_CUSTOM_INSTRUCTIONS);
-    setApplyInstructionsOnce(false);
     pendingInstructionsRef.current = null;
     pendingInstructionsOnceRef.current = null;
     hasLoadedInstructions.current = false;
     hasLoadedInstructionsOnce.current = false;
-  }, [router, chatId]);
+    startUiTransition(() => {
+      setChatId(null);
+      setAppProjectId(null);
+      setAppProjectName(null);
+      setPendingProjectName(null);
+      setDeployNameInput("");
+      setDeployNameDialogOpen(false);
+      setV0ProjectId(null);
+      setCurrentDemoUrl(null);
+      setPreviewRefreshToken(0);
+      setMessages([]);
+      setIsImportModalOpen(false);
+      setIsSandboxModalOpen(false);
+      setSelectedModelTier(DEFAULT_MODEL_TIER);
+      setCustomModelId("");
+      setEnableImageGenerations(DEFAULT_IMAGE_GENERATIONS);
+      setCustomInstructions(DEFAULT_CUSTOM_INSTRUCTIONS);
+      setApplyInstructionsOnce(false);
+    });
+  }, [router, chatId, startUiTransition]);
 
   const handleClearPreview = useCallback(() => {
     setCurrentDemoUrl(null);
@@ -2153,8 +2138,6 @@ function BuilderContent() {
           onCustomInstructionsChange={setCustomInstructions}
           applyInstructionsOnce={applyInstructionsOnce}
           onApplyInstructionsOnceChange={setApplyInstructionsOnce}
-          planModeFirstPrompt={planModeFirstPrompt}
-          onPlanModeFirstPromptChange={setPlanModeFirstPrompt}
           enableImageGenerations={enableImageGenerations}
           onEnableImageGenerationsChange={setEnableImageGenerations}
           enableThinking={enableThinking}
@@ -2178,6 +2161,7 @@ function BuilderContent() {
           }}
           onDeployProduction={handleOpenDeployDialog}
           onDomainSearch={() => setDomainSearchOpen(true)}
+          onGoHome={handleGoHome}
           onNewChat={resetToNewChat}
           onSaveProject={handleSaveProject}
           isDeploying={isDeploying}
@@ -2226,144 +2210,29 @@ function BuilderContent() {
               inspectorSelection={inspectorSelection}
               onInspectorSelectionClear={clearInspectorSelection}
             />
-            {/* ── Publicera-dialog ── */}
-            <Dialog open={deployNameDialogOpen}>
-              <DialogContent className="max-w-md">
-                <DialogHeader>
-                  <DialogTitle>Publicera till Vercel</DialogTitle>
-                  <DialogDescription>
-                    Namnet används i URL:en (namn.vercel.app) och normaliseras automatiskt.
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="space-y-3">
-                  <div className="space-y-2">
-                    <Input
-                      value={deployNameInput}
-                      onChange={(event) => {
-                        setDeployNameInput(event.target.value);
-                        if (deployNameError) setDeployNameError(null);
-                      }}
-                      placeholder="t.ex. palma-livsstil"
-                      disabled={isDeploying || isDeployNameSaving}
-                    />
-                    {deployNameError && (
-                      <div className="text-xs text-red-400">{deployNameError}</div>
-                    )}
-                    <p className="text-muted-foreground text-xs">
-                      Vercel har inga mappar. Använd gärna prefix för gruppering om du vill hålla
-                      ordning.
-                    </p>
-                  </div>
-                  {/* Cost notice */}
-                  <div className="rounded-md border border-border bg-muted/30 px-3 py-2.5 space-y-1">
-                    <p className="text-xs text-muted-foreground">
-                      <span className="font-medium text-foreground">Kostnad:</span> 20 credits för publicering
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      <span className="font-medium text-foreground">Hosting:</span> 10 credits/månad för att
-                      hålla sajten live
-                    </p>
-                  </div>
-                  <div className="flex items-center justify-end gap-2">
-                    <Button
-                      variant="outline"
-                      onClick={() => setDeployNameDialogOpen(false)}
-                      disabled={isDeploying || isDeployNameSaving}
-                    >
-                      Avbryt
-                    </Button>
-                    <Button onClick={handleConfirmDeploy} disabled={isDeploying || isDeployNameSaving}>
-                      {isDeployNameSaving ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        "Publicera"
-                      )}
-                    </Button>
-                  </div>
-                </div>
-              </DialogContent>
-            </Dialog>
+            <DeployNameDialog
+              open={deployNameDialogOpen}
+              deployName={deployNameInput}
+              deployNameError={deployNameError}
+              isDeploying={isDeploying}
+              isSaving={isDeployNameSaving}
+              onDeployNameChange={(value) => {
+                setDeployNameInput(value);
+                if (deployNameError) setDeployNameError(null);
+              }}
+              onCancel={() => setDeployNameDialogOpen(false)}
+              onConfirm={handleConfirmDeploy}
+            />
 
-            {/* ── Domänsök-dialog ── */}
-            <Dialog open={domainSearchOpen}>
-              <DialogContent className="max-w-lg">
-                <DialogHeader>
-                  <DialogTitle>Sök &amp; köp domän</DialogTitle>
-                  <DialogDescription>
-                    Sök efter en ledig domän för ditt projekt. Priser visas i SEK per år.
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4">
-                  <div className="flex gap-2">
-                    <Input
-                      value={domainQuery}
-                      onChange={(e) => setDomainQuery(e.target.value)}
-                      onKeyDown={(e) => e.key === "Enter" && handleDomainSearch()}
-                      placeholder="t.ex. mittforetag"
-                      disabled={isDomainSearching}
-                    />
-                    <Button
-                      onClick={handleDomainSearch}
-                      disabled={isDomainSearching || !domainQuery.trim()}
-                    >
-                      {isDomainSearching ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        "Sök"
-                      )}
-                    </Button>
-                  </div>
-
-                  {domainResults && (
-                    <div className="space-y-2">
-                      {domainResults.map((r) => (
-                        <div
-                          key={r.domain}
-                          className={`flex items-center justify-between rounded-md border px-3 py-2.5 text-sm ${
-                            r.available
-                              ? "border-brand-teal/30 bg-brand-teal/5"
-                              : "border-border bg-muted/20 opacity-60"
-                          }`}
-                        >
-                          <div className="flex items-center gap-2">
-                            <span
-                              className={`inline-block h-2 w-2 rounded-full ${r.available ? "bg-brand-teal" : "bg-red-400"}`}
-                            />
-                            <span className="font-medium text-foreground">{r.domain}</span>
-                          </div>
-                          <div className="flex items-center gap-3">
-                            {r.available ? (
-                              <>
-                                <span className="text-muted-foreground">
-                                  {r.price} {r.currency}/år
-                                </span>
-                                <a
-                                  href={`mailto:jakob.olof.eberg@gmail.com,erik@sajtstudio.se?subject=${encodeURIComponent(`Domänköp: ${r.domain}`)}&body=${encodeURIComponent(`Hej!\n\nJag vill köpa domänen ${r.domain} (${r.price} ${r.currency}/år) via SajtMaskin.\n\nTack!`)}`}
-                                  className="text-xs font-medium text-brand-teal hover:text-brand-teal/80"
-                                >
-                                  Köp →
-                                </a>
-                              </>
-                            ) : (
-                              <span className="text-xs text-red-400">Upptagen</span>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  <div className="flex items-center justify-between pt-1">
-                    <p className="text-xs text-muted-foreground">
-                      Kontakta <span className="font-medium">hej@sajtmaskin.se</span> för hjälp.
-                    </p>
-                    <Button variant="outline" size="sm" onClick={() => setDomainSearchOpen(false)}>
-                      Stäng
-                    </Button>
-                  </div>
-                </div>
-              </DialogContent>
-            </Dialog>
+            <DomainSearchDialog
+              open={domainSearchOpen}
+              query={domainQuery}
+              results={domainResults}
+              isSearching={isDomainSearching}
+              onQueryChange={setDomainQuery}
+              onSearch={handleDomainSearch}
+              onClose={() => setDomainSearchOpen(false)}
+            />
           </div>
 
           <div className="hidden flex-1 overflow-hidden lg:flex">

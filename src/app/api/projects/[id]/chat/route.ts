@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { desc, eq } from "drizzle-orm";
 import { db } from "@/lib/db/client";
 import { chats } from "@/lib/db/schema";
+import { getCurrentUser } from "@/lib/auth/auth";
+import { getSessionIdFromRequest } from "@/lib/auth/session";
+import { getProjectByIdForOwner } from "@/lib/db/services";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -14,6 +17,16 @@ interface RouteParams {
 export async function GET(request: NextRequest, { params }: RouteParams) {
   try {
     const { id: projectId } = await params;
+    const user = await getCurrentUser(request);
+    const sessionId = getSessionIdFromRequest(request);
+
+    const project = await getProjectByIdForOwner(projectId, {
+      userId: user?.id ?? null,
+      sessionId,
+    });
+    if (!project) {
+      return NextResponse.json({ success: false, error: "Project not found" }, { status: 404 });
+    }
 
     // Find the most recent chat for this project
     const results = await db

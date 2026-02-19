@@ -1,9 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getProjectById, saveProjectData } from "@/lib/db/services";
+import { getProjectByIdForOwner, saveProjectData } from "@/lib/db/services";
 import { deleteCache } from "@/lib/data/redis";
+import { getCurrentUser } from "@/lib/auth/auth";
+import { getSessionIdFromRequest } from "@/lib/auth/session";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
+}
+
+function getOwnerCacheSegment(userId: string | null, sessionId: string | null): string {
+  if (userId) return `user:${userId}`;
+  if (sessionId) return `session:${sessionId}`;
+  return "anonymous";
 }
 
 /**
@@ -19,8 +27,14 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
     const { id } = await params;
     const body = await request.json();
+    const user = await getCurrentUser(request);
+    const sessionId = getSessionIdFromRequest(request);
+    const ownerKey = getOwnerCacheSegment(user?.id ?? null, sessionId);
 
-    const project = await getProjectById(id);
+    const project = await getProjectByIdForOwner(id, {
+      userId: user?.id ?? null,
+      sessionId,
+    });
     if (!project) {
       return NextResponse.json({ success: false, error: "Project not found" }, { status: 404 });
     }
@@ -53,7 +67,12 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     await saveProjectData(payload);
 
     // Invalidate caches (project detail + list)
-    await Promise.all([deleteCache(`project:${id}`), deleteCache("projects:list")]);
+    await Promise.all([
+      deleteCache(`project:${id}`),
+      deleteCache(`project:${id}:${ownerKey}`),
+      deleteCache("projects:list"),
+      deleteCache(`projects:list:${ownerKey}`),
+    ]);
 
     // ═══════════════════════════════════════════════════════════════════════════
     // NO AUTOMATIC VERCEL DEPLOYMENT!

@@ -201,8 +201,6 @@ export function PromptInputTextarea({
   const handleChange = (e: ChangeEvent<HTMLTextAreaElement>) => {
     const target = e.currentTarget;
     onChange(target.value);
-    // Auto-resize textarea (deferred to avoid blocking input)
-    scheduleResize(target);
   };
 
   const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {

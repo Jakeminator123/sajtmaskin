@@ -48,7 +48,7 @@ export async function GET() {
   const items: IntegrationStatus[] = [
     {
       id: "v0-platform",
-      label: "v0 Platform API",
+      label: "Generation API",
       enabled: FEATURES.useV0Api,
       required: true,
       requiredEnv: ["V0_API_KEY"],
@@ -74,11 +74,11 @@ export async function GET() {
     },
     {
       id: "v0-model",
-      label: "v0 Model API (openai-compat)",
+      label: "Model API (OpenAI-compatible)",
       enabled: isV0ModelApiConfigured(),
       required: false,
       requiredEnv: ["V0_API_KEY"],
-      affects: "Prompt‑assist via v0‑1.5‑md/lg",
+      affects: "Prompt‑assist via medium/large-modeller",
     },
     {
       id: "vercel-api",

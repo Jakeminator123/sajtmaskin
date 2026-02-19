@@ -164,6 +164,63 @@ window.addEventListener("load", function () {
 </script>
 `;
 
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function buildProxyErrorHtml(message: string): string {
+  const safeMessage = escapeHtml(message);
+  return `<!doctype html>
+<html data-proxy-preview-error="1" lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Preview unavailable</title>
+    <style>
+      body {
+        margin: 0;
+        font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+        background: #0b0b0f;
+        color: #e5e7eb;
+        display: grid;
+        place-items: center;
+        min-height: 100vh;
+        padding: 24px;
+      }
+      .card {
+        max-width: 720px;
+        width: 100%;
+        border: 1px solid #2a2a35;
+        border-radius: 12px;
+        background: #12121a;
+        padding: 18px 20px;
+      }
+      h1 {
+        margin: 0 0 8px;
+        font-size: 18px;
+      }
+      p {
+        margin: 0;
+        color: #a1a1aa;
+        font-size: 14px;
+        line-height: 1.45;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="card">
+      <h1>Preview unavailable</h1>
+      <p>${safeMessage}</p>
+    </div>
+  </body>
+</html>`;
+}
+
 function rewriteUrls(html: string, baseOrigin: string, basePath: string): string {
   let out = html;
 
@@ -372,7 +429,7 @@ export async function GET(req: Request) {
   const cleanMode = searchParams.get("clean") === "1";
 
   if (!url) {
-    return new NextResponse("<html><body><h1>Missing ?url= parameter</h1></body></html>", {
+    return new NextResponse(buildProxyErrorHtml("Missing ?url= parameter"), {
       status: 400,
       headers: { "content-type": "text/html" },
     });
@@ -382,14 +439,14 @@ export async function GET(req: Request) {
   try {
     target = new URL(url);
   } catch {
-    return new NextResponse("<html><body><h1>Invalid URL format</h1></body></html>", {
+    return new NextResponse(buildProxyErrorHtml("Invalid URL format"), {
       status: 400,
       headers: { "content-type": "text/html" },
     });
   }
 
   if (!["http:", "https:"].includes(target.protocol)) {
-    return new NextResponse("<html><body><h1>Only http/https URLs allowed</h1></body></html>", {
+    return new NextResponse(buildProxyErrorHtml("Only http/https URLs allowed"), {
       status: 400,
       headers: { "content-type": "text/html" },
     });
@@ -406,10 +463,10 @@ export async function GET(req: Request) {
     });
 
     if (!res.ok) {
-      return new NextResponse(
-        `<html><body><h1>Failed to fetch: HTTP ${res.status}</h1></body></html>`,
-        { status: 502, headers: { "content-type": "text/html" } },
-      );
+      return new NextResponse(buildProxyErrorHtml(`Failed to fetch: HTTP ${res.status}`), {
+        status: 502,
+        headers: { "content-type": "text/html" },
+      });
     }
 
     let html = await res.text();
@@ -460,7 +517,7 @@ export async function GET(req: Request) {
     });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Unknown fetch error";
-    return new NextResponse(`<html><body><h1>Error: ${message}</h1></body></html>`, {
+    return new NextResponse(buildProxyErrorHtml(`Error: ${message}`), {
       status: 502,
       headers: { "content-type": "text/html" },
     });
