@@ -46,7 +46,7 @@ import {
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Textarea } from "@/components/ui/textarea";
-import { useEffect, useId, useState } from "react";
+import { useCallback, useEffect, useId, useState } from "react";
 
 export function BuilderHeader(props: {
   selectedModelTier: ModelTier;
@@ -158,6 +158,13 @@ export function BuilderHeader(props: {
   const isDefaultInstructions = customInstructions.trim() === DEFAULT_CUSTOM_INSTRUCTIONS.trim();
   const isGatewayProvider = isGatewayAssistModel(promptAssistModel);
   const isDeepBriefDisabled = isBusy || !isGatewayProvider || !canUseDeepBrief;
+  const runDeferredAction = useCallback((action: () => void) => {
+    if (typeof window === "undefined") {
+      action();
+      return;
+    }
+    window.requestAnimationFrame(action);
+  }, []);
 
   useEffect(() => {
     const handleDialogClose = () => setIsInstructionsOpen(false);
@@ -458,7 +465,7 @@ export function BuilderHeader(props: {
         <Button
           variant="outline"
           size="sm"
-          onClick={onOpenImport}
+          onClick={() => runDeferredAction(onOpenImport)}
           disabled={isBusy}
           title="Import from GitHub or ZIP"
         >
@@ -469,7 +476,7 @@ export function BuilderHeader(props: {
         <Button
           variant="outline"
           size="sm"
-          onClick={onOpenSandbox}
+          onClick={() => runDeferredAction(onOpenSandbox)}
           disabled={isBusy}
           title="Run in Vercel Sandbox"
         >
@@ -480,7 +487,7 @@ export function BuilderHeader(props: {
         <Button
           variant="outline"
           size="sm"
-          onClick={onNewChat}
+          onClick={() => runDeferredAction(onNewChat)}
           disabled={isBusy}
           title="Start a new chat"
         >
@@ -495,7 +502,11 @@ export function BuilderHeader(props: {
         <Button
           variant="outline"
           size="sm"
-          onClick={onSaveProject}
+          onClick={() =>
+            runDeferredAction(() => {
+              void onSaveProject();
+            })
+          }
           disabled={!canSaveProject || isBusy || isSavingProject}
           title="Spara projekt"
         >
@@ -528,7 +539,7 @@ export function BuilderHeader(props: {
         <Button
           size="sm"
           variant="outline"
-          onClick={onDomainSearch}
+          onClick={() => runDeferredAction(onDomainSearch)}
           disabled={!canDeploy || isBusy}
           title="Sök & köp domän"
         >
@@ -538,7 +549,11 @@ export function BuilderHeader(props: {
 
         <Button
           size="sm"
-          onClick={onDeployProduction}
+          onClick={() =>
+            runDeferredAction(() => {
+              void onDeployProduction();
+            })
+          }
           disabled={!canDeploy || isBusy || isDeploying}
         >
           {isDeploying ? (

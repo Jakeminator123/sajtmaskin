@@ -568,6 +568,8 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
                   const hasAssistantReply = Boolean(
                     assistantContentPreview.trim() || assistantThinkingPreview.trim(),
                   );
+                  const hasToolSignals =
+                    seenToolCalls.size > 0 || seenIntegrationSignals.size > 0;
 
                   if (finalVersionId) {
                     // Use upsert to prevent race condition
@@ -592,7 +594,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
 
                   didSendDone = true;
                   if (!finalVersionId && !finalDemoUrl) {
-                    if (hasAssistantReply) {
+                    if (hasAssistantReply || hasToolSignals) {
                       safeEnqueue(
                         encoder.encode(
                           formatSSEEvent("done", {

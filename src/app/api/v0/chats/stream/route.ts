@@ -642,12 +642,15 @@ export async function POST(req: Request) {
                   const hasAssistantReply = Boolean(
                     assistantContentPreview.trim() || assistantThinkingPreview.trim(),
                   );
+                  const hasToolSignals =
+                    seenToolCalls.size > 0 || seenIntegrationSignals.size > 0;
                   const shouldSendDone =
                     Boolean(finalDemoUrl) || (isDoneEvent && (hasMeaningfulData || hasAssistantReply));
 
                   if (!didSendDone && shouldSendDone) {
                     didSendDone = true;
-                    const awaitingInput = !finalDemoUrl && !finalVersionId && hasAssistantReply;
+                    const awaitingInput =
+                      !finalDemoUrl && !finalVersionId && (hasAssistantReply || hasToolSignals);
                     safeEnqueue(
                       encoder.encode(
                         formatSSEEvent("done", {
@@ -762,6 +765,8 @@ export async function POST(req: Request) {
                   const hasAssistantReply = Boolean(
                     assistantContentPreview.trim() || assistantThinkingPreview.trim(),
                   );
+                  const hasToolSignals =
+                    seenToolCalls.size > 0 || seenIntegrationSignals.size > 0;
 
                   if (internalChatId && finalVersionId) {
                     // Use upsert to prevent race condition
@@ -786,7 +791,7 @@ export async function POST(req: Request) {
 
                   didSendDone = true;
                   if (!finalVersionId && !finalDemoUrl) {
-                    if (hasAssistantReply) {
+                    if (hasAssistantReply || hasToolSignals) {
                       safeEnqueue(
                         encoder.encode(
                           formatSSEEvent("done", {

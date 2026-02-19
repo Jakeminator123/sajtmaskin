@@ -8,6 +8,7 @@ import { buildFileTree } from "@/lib/builder/fileTree";
 import type { FileNode, InspectorSelection } from "@/lib/builder/types";
 import { FileExplorer } from "@/components/builder/FileExplorer";
 import { cn } from "@/lib/utils";
+import toast from "react-hot-toast";
 
 interface PreviewPanelProps {
   chatId: string | null;
@@ -66,6 +67,7 @@ export function PreviewPanel({
   const [isViewSwitchPending, startViewSwitchTransition] = useTransition();
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const wasInspectorModeRef = useRef(false);
+  const inspectorFallbackRef = useRef(false);
   const buildPreviewSrc = useCallback((url: string, token?: number, inspectorMode?: boolean) => {
     let src = inspectorMode ? `/api/proxy-preview?url=${encodeURIComponent(url)}` : url;
     if (token) {
@@ -89,6 +91,7 @@ export function PreviewPanel({
     if (!demoUrl) return;
     setIframeLoading(true);
     setIframeError(false);
+    inspectorFallbackRef.current = false;
   }, [demoUrl, refreshToken, isInspectorMode]);
 
   useEffect(() => {
@@ -299,10 +302,20 @@ export function PreviewPanel({
     setIframeError(false);
   };
 
-  const handleIframeError = () => {
+  const handleIframeError = useCallback(() => {
+    if (isInspectorMode && !inspectorFallbackRef.current) {
+      inspectorFallbackRef.current = true;
+      setIsInspectorMode(false);
+      setIframeLoading(true);
+      setIframeError(false);
+      toast.error(
+        "Inspektionsläget kunde inte laddas för denna preview. Växlar tillbaka till vanlig preview.",
+      );
+      return;
+    }
     setIframeLoading(false);
     setIframeError(true);
-  };
+  }, [isInspectorMode]);
 
   const handleRefresh = () => {
     setIframeLoading(true);
@@ -332,6 +345,14 @@ export function PreviewPanel({
     () => integrationStatus?.items.find((item) => item.id === "vercel-blob") || null,
     [integrationStatus],
   );
+  const isSandboxPreview = useMemo(() => {
+    if (!demoUrl) return false;
+    try {
+      return /sandbox/i.test(new URL(demoUrl).hostname);
+    } catch {
+      return demoUrl.toLowerCase().includes("sandbox");
+    }
+  }, [demoUrl]);
 
   if (!demoUrl && !showCode) {
     const isInitialEmpty = !chatId && !versionId && !externalLoading;
@@ -362,6 +383,7 @@ export function PreviewPanel({
   const isV0Preview = Boolean(demoUrl && demoUrl.includes("vusercontent.net"));
   const showBlobWarning = Boolean(demoUrl && blobStatus && !blobStatus.enabled);
   const showExternalWarning = Boolean(demoUrl && isV0Preview);
+  const showSandboxWarning = Boolean(demoUrl && isSandboxPreview);
   const showImagesDisabledWarning = Boolean(demoUrl && !imageGenerationsEnabled);
   const showImagesUnsupportedWarning = Boolean(
     demoUrl && imageGenerationsEnabled && !imageGenerationsSupported,
@@ -441,6 +463,7 @@ export function PreviewPanel({
       {!showCode &&
         (showBlobWarning ||
           showExternalWarning ||
+          showSandboxWarning ||
           integrationError ||
           showImagesDisabledWarning ||
           showImagesUnsupportedWarning ||
@@ -450,6 +473,13 @@ export function PreviewPanel({
             <div>
               Sajmaskinens preview körs i utvecklingsmilö för snabbhet. Externa media‑URL:er kan ge 404 eller blockeras. Ladda upp media
               via mediabiblioteket för publika Blob‑URL:er.
+            </div>
+          )}
+          {showSandboxWarning && (
+            <div>
+              Preview körs från sandbox. Sandbox har separat runtime och kan sakna samma
+              miljövariabler som din ordinarie miljö (t.ex. blob-token), vilket kan göra att bilder
+              saknas där.
             </div>
           )}
           {showBlobWarning && (

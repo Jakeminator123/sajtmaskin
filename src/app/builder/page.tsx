@@ -66,7 +66,7 @@ import type { ImageAssetStrategy } from "@/lib/imageAssets";
 import { Loader2 } from "lucide-react";
 import { ThinkingOverlay } from "@/components/builder/ThinkingOverlay";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import toast, { Toaster } from "react-hot-toast";
 
 type CreateChatOptions = {
@@ -83,6 +83,7 @@ const MODEL_TIER_TO_QUALITY: Record<ModelTier, QualityLevel> = {
 function BuilderContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const [, startUiTransition] = useTransition();
   const { fetchUser, isAuthenticated, isLoading: isAuthLoading } = useAuth();
   const [authModalReason, setAuthModalReason] = useState<"builder" | "save" | null>(null);
 
@@ -1967,28 +1968,30 @@ function BuilderContent() {
       clearPersistedMessages(chatId);
     }
     router.replace("/builder");
-    setChatId(null);
-    setAppProjectId(null);
-    setAppProjectName(null);
-    setPendingProjectName(null);
-    setDeployNameInput("");
-    setDeployNameDialogOpen(false);
-    setV0ProjectId(null);
-    setCurrentDemoUrl(null);
-    setPreviewRefreshToken(0);
-    setMessages([]);
-    setIsImportModalOpen(false);
-    setIsSandboxModalOpen(false);
-    setSelectedModelTier(DEFAULT_MODEL_TIER);
-    setCustomModelId("");
-    setEnableImageGenerations(DEFAULT_IMAGE_GENERATIONS);
-    setCustomInstructions(DEFAULT_CUSTOM_INSTRUCTIONS);
-    setApplyInstructionsOnce(false);
     pendingInstructionsRef.current = null;
     pendingInstructionsOnceRef.current = null;
     hasLoadedInstructions.current = false;
     hasLoadedInstructionsOnce.current = false;
-  }, [router, chatId]);
+    startUiTransition(() => {
+      setChatId(null);
+      setAppProjectId(null);
+      setAppProjectName(null);
+      setPendingProjectName(null);
+      setDeployNameInput("");
+      setDeployNameDialogOpen(false);
+      setV0ProjectId(null);
+      setCurrentDemoUrl(null);
+      setPreviewRefreshToken(0);
+      setMessages([]);
+      setIsImportModalOpen(false);
+      setIsSandboxModalOpen(false);
+      setSelectedModelTier(DEFAULT_MODEL_TIER);
+      setCustomModelId("");
+      setEnableImageGenerations(DEFAULT_IMAGE_GENERATIONS);
+      setCustomInstructions(DEFAULT_CUSTOM_INSTRUCTIONS);
+      setApplyInstructionsOnce(false);
+    });
+  }, [router, chatId, startUiTransition]);
 
   const handleClearPreview = useCallback(() => {
     setCurrentDemoUrl(null);
