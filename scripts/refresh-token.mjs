@@ -64,7 +64,7 @@ async function main() {
   const tokenMatch = envContent.match(/VERCEL_OIDC_TOKEN="?([^"\r\n]+)"?/);
 
   if (!tokenMatch) {
-    log("No VERCEL_OIDC_TOKEN found - run 'vercel env pull' first", "warn");
+    log("No VERCEL_OIDC_TOKEN found - run 'npx vercel env pull' first", "warn");
     updateStatus("skip", null, "no_token");
     return;
   }
@@ -103,13 +103,13 @@ async function main() {
   const tempFile = ".env.vercel-temp";
 
   try {
-    execSync(`vercel env pull ${tempFile} --yes`, {
+    execSync(`npx --yes vercel env pull ${tempFile} --yes`, {
       stdio: "pipe",
       encoding: "utf8",
     });
   } catch (err) {
     log(`Failed to pull env: ${err.message}`, "error");
-    log("Try running 'vercel link' first", "warn");
+    log("Try running 'npx vercel link' first", "warn");
     updateStatus("refresh_failed", expiry, "vercel_error");
     return;
   }
