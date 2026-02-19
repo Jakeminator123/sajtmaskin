@@ -903,6 +903,10 @@ function BuilderContent() {
   const { chat, mutate: mutateChat, isError: isChatError } = useChat(chatId);
   const chatV0ProjectId = (chat as { v0ProjectId?: string | null } | null)?.v0ProjectId ?? null;
   const isAnyStreaming = useMemo(() => messages.some((m) => Boolean(m.isStreaming)), [messages]);
+  const isAwaitingInput = useMemo(() => {
+    const last = [...messages].reverse().find((m) => m.role === "assistant");
+    return Boolean(last?.uiParts?.some((p) => p.type === "tool:awaiting-input"));
+  }, [messages]);
   // Version polling - faster while generating
   const { versions, mutate: mutateVersions } = useVersions(chatId, {
     isGenerating: isAnyStreaming,
@@ -2245,6 +2249,7 @@ function BuilderContent() {
                 imageGenerationsEnabled={enableImageGenerations}
                 imageGenerationsSupported={isImageGenerationsSupported}
                 isBlobConfigured={isMediaEnabled}
+                awaitingInput={isAwaitingInput}
                 onClear={handleClearPreview}
                 onFixPreview={handleFixPreview}
                 refreshToken={previewRefreshToken}

@@ -912,6 +912,7 @@ function getLatestPendingReply(messages: AIElementsMessage[]): PendingReplyModal
   for (let messageIndex = messages.length - 1; messageIndex >= 0; messageIndex -= 1) {
     const message = messages[messageIndex];
     if (message.role !== "assistant") continue;
+    if (hasUserMessageAfter(messages, messageIndex)) continue;
     const toolParts = message.parts.filter(
       (part): part is Extract<MessagePart, { type: "tool" }> => part.type === "tool",
     );
@@ -926,7 +927,6 @@ function getLatestPendingReply(messages: AIElementsMessage[]): PendingReplyModal
       ) as ToolUIPart["state"];
       const replyPrompt = getActionPrompt(tool, toolState);
       if (!replyPrompt) continue;
-      if (hasUserMessageAfter(messages, messageIndex)) continue;
       const toolCallId =
         (typeof tool.toolCallId === "string" && tool.toolCallId) || `tool-${toolIndex}`;
       const key = [
@@ -940,6 +940,19 @@ function getLatestPendingReply(messages: AIElementsMessage[]): PendingReplyModal
         messageId: message.id,
         question: replyPrompt.question,
         options: replyPrompt.options,
+      };
+    }
+    // Fallback: awaiting-input tool present but question could not be extracted
+    const hasAwaitingInput = toolParts.some((p) => {
+      const t = p.tool as Partial<ToolUIPart> & { type?: string };
+      return t.type === "tool:awaiting-input" || t.state === "approval-requested";
+    });
+    if (hasAwaitingInput) {
+      return {
+        key: `${message.id}:awaiting-input-fallback`,
+        messageId: message.id,
+        question: "V0 väntar på ditt svar. Kontrollera meddelandet ovan och skriv ett svar.",
+        options: [],
       };
     }
   }

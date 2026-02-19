@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertCircle, ExternalLink, FileText, Loader2, MousePointer2, RefreshCw, Wand2 } from "lucide-react";
+import { AlertCircle, ExternalLink, FileText, Loader2, MessageCircleQuestion, MousePointer2, RefreshCw, Wand2 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { CodeBlock, CodeBlockCopyButton } from "@/components/ai-elements/code-block";
@@ -23,6 +23,7 @@ interface PreviewPanelProps {
   imageGenerationsEnabled?: boolean;
   imageGenerationsSupported?: boolean;
   isBlobConfigured?: boolean;
+  awaitingInput?: boolean;
 }
 
 type IntegrationItem = {
@@ -53,6 +54,7 @@ export function PreviewPanel({
   imageGenerationsEnabled = true,
   imageGenerationsSupported = true,
   isBlobConfigured = false,
+  awaitingInput = false,
 }: PreviewPanelProps) {
   const [iframeLoading, setIframeLoading] = useState(true);
   const [iframeError, setIframeError] = useState(false);
@@ -356,14 +358,20 @@ export function PreviewPanel({
 
   if (!demoUrl && !showCode) {
     const isInitialEmpty = !chatId && !versionId && !externalLoading;
-    const title = isInitialEmpty ? "Välkommen" : "Ingen förhandsvisning ännu";
-    const subtitle = externalLoading
-      ? "AI tänker... preview kommer strax."
+    const title = awaitingInput
+      ? "AI väntar på ditt svar"
       : isInitialEmpty
-        ? "Skriv en prompt till vänster så genererar vi första preview."
-        : "Preview saknas för senaste versionen. Testa att generera igen eller reparera.";
-    const showFixAction = Boolean(onFixPreview && !externalLoading && !isInitialEmpty);
-    const EmptyIcon = isInitialEmpty ? Wand2 : AlertCircle;
+        ? "Välkommen"
+        : "Ingen förhandsvisning ännu";
+    const subtitle = awaitingInput
+      ? "V0 behöver input innan preview kan genereras — se chatten till vänster."
+      : externalLoading
+        ? "AI tänker... preview kommer strax."
+        : isInitialEmpty
+          ? "Skriv en prompt till vänster så genererar vi första preview."
+          : "Preview saknas för senaste versionen. Testa att generera igen eller reparera.";
+    const showFixAction = Boolean(onFixPreview && !externalLoading && !isInitialEmpty && !awaitingInput);
+    const EmptyIcon = awaitingInput ? MessageCircleQuestion : isInitialEmpty ? Wand2 : AlertCircle;
     return (
       <div className="flex h-full flex-col items-center justify-center bg-black/20 text-gray-500">
         <EmptyIcon className="mb-4 h-12 w-12" />

@@ -75,6 +75,12 @@ const nextConfig: NextConfig = {
         hostname: "images.ctfassets.net",
         pathname: "/**",
       },
+      // v0 preview sandbox assets
+      {
+        protocol: "https",
+        hostname: "**.vusercontent.net",
+        pathname: "/**",
+      },
     ],
   },
   // Cross-Origin Isolation headers required for WebContainer (SharedArrayBuffer)

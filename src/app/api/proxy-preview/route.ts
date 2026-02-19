@@ -513,6 +513,8 @@ export async function GET(req: Request) {
       headers: {
         "content-type": "text/html; charset=utf-8",
         "cache-control": "no-store",
+        "access-control-allow-origin": "*",
+        "x-frame-options": "SAMEORIGIN",
       },
     });
   } catch (err: unknown) {

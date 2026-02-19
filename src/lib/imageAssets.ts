@@ -33,10 +33,10 @@ export type MaterializeImagesResult = {
 };
 
 const DEFAULT_LIMITS: MaterializeImagesLimits = {
-  maxImages: 25,
+  maxImages: 40,
   maxBytesPerImage: 4 * 1024 * 1024,
   maxTotalBytes: 50 * 1024 * 1024,
-  timeoutMs: 15_000,
+  timeoutMs: 30_000,
 };
 
 function toSafeSegment(input: string): string {
