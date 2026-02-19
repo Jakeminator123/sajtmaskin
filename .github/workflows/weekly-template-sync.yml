@@ -1,0 +1,51 @@
+name: Weekly Template Sync
+
+on:
+  schedule:
+    # Every Monday at 03:23 UTC
+    - cron: "23 3 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: weekly-template-sync
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 25
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Sync and validate templates
+        run: npm run templates:refresh
+
+      - name: Commit and push changes
+        shell: bash
+        run: |
+          if git diff --quiet -- src/lib/templates/templates.json src/lib/templates/template-categories.json; then
+            echo "No template updates to commit."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add src/lib/templates/templates.json src/lib/templates/template-categories.json
+          git commit -m "chore: weekly sync v0 templates"
+          git push
