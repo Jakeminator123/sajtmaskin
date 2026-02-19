@@ -944,7 +944,7 @@ function getLatestPendingReply(messages: AIElementsMessage[]): PendingReplyModal
     }
     // Fallback: awaiting-input tool present but question could not be extracted
     const hasAwaitingInput = toolParts.some((p) => {
-      const t = p.tool as Partial<ToolUIPart> & { type?: string };
+      const t = p.tool as { type?: string; state?: string };
       return t.type === "tool:awaiting-input" || t.state === "approval-requested";
     });
     if (hasAwaitingInput) {
