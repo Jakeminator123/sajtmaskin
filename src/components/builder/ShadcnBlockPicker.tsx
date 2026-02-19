@@ -533,12 +533,21 @@ export function ShadcnBlockPicker({
     }
   }, [activeCategory, sourceCategories]);
 
+  const waitForNextPaint = useCallback(async () => {
+    if (typeof window === "undefined") return;
+    await new Promise<void>((resolve) => {
+      requestAnimationFrame(() => {
+        window.setTimeout(resolve, 0);
+      });
+    });
+  }, []);
+
   // Can user take action?
   const canAct =
-    Boolean(selectedItem) && !isBusy && !isSubmitting && !isLoadingItem && !itemError;
+    Boolean(selectedItem) && !isBusy && !isSubmitting && !isLoadingItem && !itemError && !pendingAction;
   const canStartFromRegistry = canAct && itemType === "block";
   const canAddAiElement =
-    Boolean(selectedAiItem) && !isBusy && !isSubmitting && Boolean(onSelectAiElement);
+    Boolean(selectedAiItem) && !isBusy && !isSubmitting && !pendingAction && Boolean(onSelectAiElement);
   const canStartTemplate = Boolean(selectedTemplate) && !isBusy && Boolean(onSelectTemplate);
 
   const handleReload = useCallback(() => {
@@ -551,6 +560,7 @@ export function ShadcnBlockPicker({
       if (!selectedItem) return;
 
       setPendingAction(action);
+      await waitForNextPaint();
 
       const registryUrl = buildRegistryItemUrl(selectedItem.name, DEFAULT_STYLE);
 
@@ -577,13 +587,19 @@ export function ShadcnBlockPicker({
 
       setPendingAction(null);
     },
-    [selectedItem, registryItem, dependencyItems, onConfirm, placement, detectedSections],
+    [selectedItem, registryItem, dependencyItems, onConfirm, placement, detectedSections, waitForNextPaint],
   );
 
   const handleAiElementConfirm = useCallback(async () => {
     if (!selectedAiItem || !onSelectAiElement) return;
-    await onSelectAiElement(selectedAiItem, { placement, detectedSections });
-  }, [selectedAiItem, onSelectAiElement, placement, detectedSections]);
+    setPendingAction("add");
+    try {
+      await waitForNextPaint();
+      await onSelectAiElement(selectedAiItem, { placement, detectedSections });
+    } finally {
+      setPendingAction(null);
+    }
+  }, [selectedAiItem, onSelectAiElement, placement, detectedSections, waitForNextPaint]);
 
   const handleTemplateConfirm = useCallback(async () => {
     if (!selectedTemplate || !onSelectTemplate) return;

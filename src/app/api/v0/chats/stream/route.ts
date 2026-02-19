@@ -399,7 +399,9 @@ export async function POST(req: Request) {
               }, 15000);
             };
 
-            const MAX_BUFFER_SIZE = 1024 * 1024; // 1MB buffer limit
+            // Keep a generous buffer window to avoid truncating large SSE data lines
+            // mid-event (which can drop tool/question payloads).
+            const MAX_BUFFER_SIZE = 8 * 1024 * 1024; // 8MB hard limit
 
             safeEnqueue(
               encoder.encode(
@@ -422,10 +424,10 @@ export async function POST(req: Request) {
 
                 buffer += decoder.decode(value, { stream: true });
 
-                // Prevent unbounded buffer growth from malformed streams
-                // Truncate at newline boundary to preserve event integrity
+                // Prevent unbounded buffer growth from malformed streams.
+                // Truncate at newline boundary to preserve event integrity.
                 if (buffer.length > MAX_BUFFER_SIZE) {
-                  const truncateTarget = buffer.length - MAX_BUFFER_SIZE / 2;
+                  const truncateTarget = buffer.length - MAX_BUFFER_SIZE;
                   const newlineIndex = buffer.indexOf("\n", truncateTarget);
                   warnLog("v0", "Stream buffer exceeded max size; truncating buffer", {
                     requestId,
@@ -439,8 +441,9 @@ export async function POST(req: Request) {
                   if (newlineIndex !== -1) {
                     buffer = buffer.slice(newlineIndex + 1);
                   } else {
-                    // Fallback: no newline found, keep last half
-                    buffer = buffer.slice(-MAX_BUFFER_SIZE / 2);
+                    // Fallback: no newline found, keep a full tail window.
+                    // This preserves as much context as possible for the parser.
+                    buffer = buffer.slice(-MAX_BUFFER_SIZE);
                   }
                 }
 

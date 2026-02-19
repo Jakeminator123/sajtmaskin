@@ -62,7 +62,7 @@ interface ChatInterfaceProps {
   initialPrompt?: string | null;
   onCreateChat?: (message: string, options?: MessageOptions) => Promise<boolean | void>;
   onSendMessage?: (message: string, options?: MessageOptions) => Promise<void>;
-  onStartFromRegistry?: (selection: ShadcnBlockSelection) => Promise<void>;
+  onStartFromRegistry?: (selection: ShadcnBlockSelection) => Promise<boolean | void>;
   onStartFromTemplate?: (templateId: string) => void;
   onPaletteSelection?: (selection: PaletteSelection) => void;
   paletteSelections?: PaletteSelection[];
@@ -559,9 +559,13 @@ ${technicalPrompt}`;
       if (action === "start") {
         if (onStartFromRegistry) {
           try {
-            await onStartFromRegistry(selection);
-            setIsShadcnPickerOpen(false);
-            return;
+            const startedDirectly = await onStartFromRegistry(selection);
+            if (startedDirectly !== false) {
+              setIsShadcnPickerOpen(false);
+              return;
+            }
+            // Registry init returned a controlled failure; continue via prompt fallback.
+            toast.error("Kunde inte starta direkt från registry. Fortsätter via fallback-läge.");
           } catch (error) {
             const message =
               error instanceof Error ? error.message : "Kunde inte starta direkt från registry";
@@ -941,20 +945,22 @@ ${technicalPrompt}`;
         />
       )}
 
-      <ShadcnBlockPicker
-        open={isShadcnPickerOpen}
-        onClose={() => setIsShadcnPickerOpen(false)}
-        onConfirm={handleDesignSystemAction}
-        onSelectAiElement={handleAiElementAction}
-        onSelectTemplate={handleTemplateSelect}
-        currentTheme={designTheme}
-        onSelectTheme={handleDesignThemeSelect}
-        paletteSelections={paletteSelections}
-        isBusy={inputDisabled}
-        isSubmitting={isDesignSystemAction}
-        hasChat={Boolean(chatId)}
-        currentCode={currentCode}
-      />
+      {isShadcnPickerOpen ? (
+        <ShadcnBlockPicker
+          open={isShadcnPickerOpen}
+          onClose={() => setIsShadcnPickerOpen(false)}
+          onConfirm={handleDesignSystemAction}
+          onSelectAiElement={handleAiElementAction}
+          onSelectTemplate={handleTemplateSelect}
+          currentTheme={designTheme}
+          onSelectTheme={handleDesignThemeSelect}
+          paletteSelections={paletteSelections}
+          isBusy={inputDisabled}
+          isSubmitting={isDesignSystemAction}
+          hasChat={Boolean(chatId)}
+          currentCode={currentCode}
+        />
+      ) : null}
     </div>
   );
 }

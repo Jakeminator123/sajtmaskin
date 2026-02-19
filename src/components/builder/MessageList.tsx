@@ -1034,11 +1034,14 @@ function getActionPrompt(
   },
   state: ToolUIPart["state"],
 ): ToolQuestionPrompt | null {
-  // Only treat active approval requests as actionable reply prompts.
-  // This avoids resurrecting historical questions after reload.
-  if (state !== "approval-requested") return null;
-
   const explicitPrompt = getToolQuestionPrompt(tool);
+  // Some providers mark follow-up questions as "input-available" even when
+  // the payload already contains a concrete question/options prompt.
+  const isActionableState =
+    state === "approval-requested" ||
+    ((state === "input-available" || state === "input-streaming") && Boolean(explicitPrompt));
+  if (!isActionableState) return null;
+
   if (explicitPrompt) {
     const normalizedPrompt = {
       question: normalizeQuestionText(explicitPrompt.question),

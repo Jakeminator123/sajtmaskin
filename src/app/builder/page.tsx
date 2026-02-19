@@ -1729,7 +1729,7 @@ function BuilderContent() {
     async (selection: ShadcnBlockSelection) => {
       if (!selection.registryUrl) {
         toast.error("Registry-URL saknas");
-        return;
+        return false;
       }
 
       try {
@@ -1778,10 +1778,10 @@ function BuilderContent() {
           });
         }
         toast.success("Designsystem-projekt skapat!");
+        return true;
       } catch (error) {
-        throw (error instanceof Error
-          ? error
-          : new Error("Kunde inte starta från designsystem"));
+        console.warn("[Builder] Could not start directly from registry:", error);
+        return false;
       }
     },
     [
@@ -1850,11 +1850,8 @@ function BuilderContent() {
   const handleGoHome = useCallback(() => {
     const hasActiveGeneration = isCreatingChat || isAnyStreaming || isTemplateLoading || isPreparingPrompt;
     if (hasActiveGeneration) {
-      const shouldAbort = window.confirm(
-        "Generering pågår just nu. Vill du avbryta och gå till startsidan?",
-      );
-      if (!shouldAbort) return;
       cancelActiveGeneration();
+      toast("Generering avbruten. Går till startsidan.");
     }
     router.push("/");
   }, [
