@@ -8,10 +8,7 @@ export async function GET(request: NextRequest) {
   const sourceParam = searchParams.get("source");
 
   const intent = intentParam ? normalizeBuildIntent(intentParam) : undefined;
-  const source =
-    sourceParam === "v0" || sourceParam === "vercel"
-      ? (sourceParam as TemplateCatalogSource)
-      : undefined;
+  const source = sourceParam === "v0" ? (sourceParam as TemplateCatalogSource) : undefined;
 
   const templates = getTemplateCatalog({ intent, source });
 

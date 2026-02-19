@@ -1,9 +1,8 @@
 // Category data with quick prompts
-// V0 Templates integration + Vercel Templates
+// V0 Templates integration
 
 import templatesData from "./templates.json";
 import templateCategoriesData from "./template-categories.json";
-import vercelTemplatesData from "./vercel-templates.json";
 
 // Build reverse lookup: templateId -> category
 const templateCategoryMapping: Record<string, string> = {};
@@ -38,22 +37,6 @@ export interface Template {
   previewImageUrl: string; // External URL from Vercel Blob
   category: string;
 }
-
-// Vercel Template interface (GitHub repo-based templates)
-export interface VercelTemplate {
-  id: string;
-  title: string;
-  description: string;
-  category: "vercel-templates";
-  repoUrl: string;
-  previewImageUrl: string;
-  demoUrl: string | null;
-  tags: string[];
-  framework: string;
-}
-
-// Import and normalize Vercel templates from JSON
-export const VERCEL_TEMPLATES: VercelTemplate[] = vercelTemplatesData as VercelTemplate[];
 
 // Import and normalize templates from JSON
 // Filter out category placeholder templates that are not real v0 templates
@@ -207,13 +190,6 @@ export const V0_CATEGORIES: Record<string, CategoryInfo> = {
     title: "Okategoriserade",
     description: "Templates som ännu inte kategoriserats",
     icon: "HelpCircle",
-    quickPrompts: [],
-  },
-  "vercel-templates": {
-    id: "vercel-templates",
-    title: "Vercel Templates",
-    description: "Officiella Vercel och community-templates från GitHub",
-    icon: "Triangle",
     quickPrompts: [],
   },
 };
@@ -1142,7 +1118,6 @@ export const CATEGORY_TITLES: Record<string, string> = {
   layouts: "Layouts",
   "website-templates": "Website Templates",
   "apps-and-games": "Apps & Games",
-  "vercel-templates": "Vercel Templates",
 };
 
 // Get templates by category ID
@@ -1180,50 +1155,4 @@ export function getTemplateImageUrl(template: Template): string {
   }
   // Fallback to local file (only category thumbnails exist locally)
   return `/templates/${template.imageFilename}`;
-}
-
-// ═══════════════════════════════════════════════════════════════════════════
-// VERCEL TEMPLATES - GitHub repo-based templates from vercel.com/templates
-// ═══════════════════════════════════════════════════════════════════════════
-
-// Get all Vercel templates
-export function getAllVercelTemplates(): VercelTemplate[] {
-  return VERCEL_TEMPLATES;
-}
-
-// Get Vercel template by ID
-export function getVercelTemplateById(id: string): VercelTemplate | undefined {
-  return VERCEL_TEMPLATES.find((t) => t.id === id);
-}
-
-// Get Vercel templates by framework
-export function getVercelTemplatesByFramework(framework: string): VercelTemplate[] {
-  return VERCEL_TEMPLATES.filter((t) => t.framework.toLowerCase() === framework.toLowerCase());
-}
-
-// Get Vercel templates by tag
-export function getVercelTemplatesByTag(tag: string): VercelTemplate[] {
-  return VERCEL_TEMPLATES.filter((t) => t.tags.some((t) => t.toLowerCase() === tag.toLowerCase()));
-}
-
-// Get Vercel template image URL
-export function getVercelTemplateImageUrl(template: VercelTemplate): string {
-  return template.previewImageUrl;
-}
-
-// Check if a template ID is a Vercel template (starts with "vercel-")
-export function isVercelTemplate(templateId: string): boolean {
-  return templateId.startsWith("vercel-");
-}
-
-// Get unique frameworks from Vercel templates
-export function getVercelTemplateFrameworks(): string[] {
-  const frameworks = new Set(VERCEL_TEMPLATES.map((t) => t.framework));
-  return Array.from(frameworks);
-}
-
-// Get unique tags from Vercel templates
-export function getVercelTemplateTags(): string[] {
-  const tags = new Set(VERCEL_TEMPLATES.flatMap((t) => t.tags));
-  return Array.from(tags);
 }

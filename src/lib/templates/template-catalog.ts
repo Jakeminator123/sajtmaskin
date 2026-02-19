@@ -1,12 +1,7 @@
 import type { BuildIntent } from "@/lib/builder/build-intent";
-import {
-  TEMPLATES,
-  VERCEL_TEMPLATES,
-  type Template,
-  type VercelTemplate,
-} from "@/lib/templates/template-data";
+import { TEMPLATES, type Template } from "@/lib/templates/template-data";
 
-export type TemplateCatalogSource = "v0" | "vercel";
+export type TemplateCatalogSource = "v0";
 
 export type TemplateCatalogItem = {
   id: string;
@@ -42,26 +37,11 @@ function mapV0Template(template: Template): TemplateCatalogItem {
   };
 }
 
-function mapVercelTemplate(template: VercelTemplate): TemplateCatalogItem {
-  return {
-    id: template.id,
-    title: template.title,
-    category: template.category,
-    previewImageUrl: template.previewImageUrl,
-    source: "vercel",
-    buildIntent: "app",
-    repoUrl: template.repoUrl,
-    demoUrl: template.demoUrl,
-  };
-}
-
 export function getTemplateCatalog(params: {
   intent?: BuildIntent;
   source?: TemplateCatalogSource;
 } = {}): TemplateCatalogItem[] {
-  const { intent, source } = params;
+  const { intent } = params;
   const v0Items = TEMPLATES.map(mapV0Template);
-  const vercelItems = VERCEL_TEMPLATES.map(mapVercelTemplate);
-  const merged = source === "v0" ? v0Items : source === "vercel" ? vercelItems : [...v0Items, ...vercelItems];
-  return merged.filter((item) => (intent ? item.buildIntent === intent : true));
+  return v0Items.filter((item) => (intent ? item.buildIntent === intent : true));
 }

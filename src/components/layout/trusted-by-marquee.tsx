@@ -25,7 +25,7 @@ export function TrustedByMarquee() {
         Betrodda av företag som
       </p>
 
-      <div className="marquee-container flex gap-0 text-[160px]">
+      <div className="marquee-container flex gap-0 text-[96px] leading-none">
         <div className="marquee-track flex shrink-0 items-center gap-12 px-6">
           {COMPANIES.map((name) => (
             <span

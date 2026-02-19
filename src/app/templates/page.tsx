@@ -13,7 +13,6 @@ import {
   Globe,
   Gamepad2,
   HelpCircle,
-  Triangle,
   ArrowRight,
 } from "lucide-react";
 
@@ -34,7 +33,6 @@ const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {
   Globe,
   Gamepad2,
   HelpCircle,
-  Triangle,
 };
 
 export default function TemplatesPage() {

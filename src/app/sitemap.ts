@@ -12,7 +12,6 @@ const CATEGORIES = [
   "layouts",
   "website-templates",
   "apps-and-games",
-  "vercel-templates",
 ];
 
 export default function sitemap(): MetadataRoute.Sitemap {

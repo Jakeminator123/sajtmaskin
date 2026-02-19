@@ -19,7 +19,10 @@
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "db:init": "node scripts/db-init.mjs",
     "mpc": "node ./services/mpc/server.mjs",
-    "test:api": "node scripts/test-api-usage.mjs"
+    "test:api": "node scripts/test-api-usage.mjs",
+    "templates:sync": "node scripts/sync-v0-templates.mjs",
+    "templates:validate": "node scripts/validate-templates.mjs",
+    "templates:refresh": "node scripts/sync-v0-templates.mjs && node scripts/validate-templates.mjs"
   },
   "dependencies": {
     "@ai-sdk/openai": "^3.0.18",
