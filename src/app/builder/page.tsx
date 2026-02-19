@@ -44,7 +44,6 @@ import {
   ENABLE_EXPERIMENTAL_MODEL_ID,
   SPEC_FILE_INSTRUCTION,
   getDefaultPromptAssistModel,
-  MODEL_TIER_OPTIONS,
 } from "@/lib/builder/defaults";
 import { useChat } from "@/lib/hooks/useChat";
 import { useCssValidation } from "@/lib/hooks/useCssValidation";

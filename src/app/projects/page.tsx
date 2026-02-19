@@ -202,6 +202,16 @@ export default function ProjectsPage() {
                             className="h-full w-full border-0"
                             loading="lazy"
                             sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+                            onLoad={(event) => {
+                              // iframe onError is unreliable for content-level failures.
+                              // Proxy error pages include a marker that we can detect on load.
+                              const doc = event.currentTarget.contentDocument;
+                              const isProxyError =
+                                doc?.documentElement?.getAttribute("data-proxy-preview-error") === "1";
+                              if (isProxyError) {
+                                setFailedVisuals((prev) => new Set(prev).add(previewFailKey));
+                              }
+                            }}
                             onError={() => {
                               setFailedVisuals((prev) => new Set(prev).add(previewFailKey));
                             }}
