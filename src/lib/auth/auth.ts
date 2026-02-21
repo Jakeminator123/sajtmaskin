@@ -480,6 +480,7 @@ export async function getGoogleUserInfo(accessToken: string): Promise<{
   email: string;
   name: string;
   picture?: string;
+  emailVerified: boolean;
 } | null> {
   try {
     const response = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
@@ -499,6 +500,7 @@ export async function getGoogleUserInfo(accessToken: string): Promise<{
       email: data.email,
       name: data.name,
       picture: data.picture,
+      emailVerified: data.verified_email === true,
     };
   } catch (error) {
     console.error("[Auth] Google user info error:", error);
@@ -522,6 +524,10 @@ export async function handleGoogleCallback(
   const googleUser = await getGoogleUserInfo(tokens.accessToken);
   if (!googleUser) {
     return { error: "Kunde inte hämta användarinfo från Google" };
+  }
+
+  if (!googleUser.emailVerified) {
+    return { error: "E-postadressen är inte verifierad hos Google. Verifiera den i ditt Google-konto och försök igen." };
   }
 
   // Create or update user
