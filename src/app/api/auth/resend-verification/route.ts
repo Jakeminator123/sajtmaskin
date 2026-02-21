@@ -42,15 +42,27 @@ export async function POST(req: NextRequest) {
 
       if (!result.success) {
         const isProviderMissing = result.deliveryMode === "provider_missing";
+        const isRecipientRestricted = result.deliveryMode === "recipient_restricted";
+        const isSenderNotVerified = result.deliveryMode === "sender_not_verified";
         return NextResponse.json(
           {
             success: false,
             error: isProviderMissing
               ? "E-posttjänsten är inte tillgänglig just nu. Försök igen senare."
-              : "Kunde inte skicka verifieringsmail",
-            reason: isProviderMissing ? "provider_missing" : "send_failed",
+              : isRecipientRestricted
+                ? "E-posttjänsten kör i testläge. Verifiera domänen i Resend för att kunna skicka till andra mottagare."
+                : isSenderNotVerified
+                  ? "Avsändaradressen är inte verifierad i Resend."
+                  : "Kunde inte skicka verifieringsmail",
+            reason: isProviderMissing
+              ? "provider_missing"
+              : isRecipientRestricted
+                ? "recipient_restricted"
+                : isSenderNotVerified
+                  ? "sender_not_verified"
+                  : "send_failed",
           },
-          { status: isProviderMissing ? 503 : 500 },
+          { status: isProviderMissing || isRecipientRestricted || isSenderNotVerified ? 503 : 500 },
         );
       }
 

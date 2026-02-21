@@ -41,7 +41,8 @@ export async function POST(req: NextRequest) {
             error: result.error,
             requiresEmailVerification,
           },
-          { status: isGoogleOnly ? 200 : requiresEmailVerification ? 403 : 401 },
+          // Keep expected auth-state errors as 200 to avoid noisy browser "failed resource" logs.
+          { status: isGoogleOnly || requiresEmailVerification ? 200 : 401 },
         );
       }
 

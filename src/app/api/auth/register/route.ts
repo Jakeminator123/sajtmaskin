@@ -78,7 +78,12 @@ export async function POST(req: NextRequest) {
 
       // Non-admin users must verify by email before login.
       let emailVerificationSent = true;
-      let emailVerificationReason: "provider_missing" | "send_failed" | null = null;
+      let emailVerificationReason:
+        | "provider_missing"
+        | "recipient_restricted"
+        | "sender_not_verified"
+        | "send_failed"
+        | null = null;
       try {
         const token = await createVerificationToken(result.user.id);
         const sendResult = await sendVerificationEmail(normalizedEmail, token, {
@@ -87,8 +92,15 @@ export async function POST(req: NextRequest) {
         });
         emailVerificationSent = sendResult.success;
         if (!sendResult.success) {
-          emailVerificationReason =
-            sendResult.deliveryMode === "provider_missing" ? "provider_missing" : "send_failed";
+          if (sendResult.deliveryMode === "provider_missing") {
+            emailVerificationReason = "provider_missing";
+          } else if (sendResult.deliveryMode === "recipient_restricted") {
+            emailVerificationReason = "recipient_restricted";
+          } else if (sendResult.deliveryMode === "sender_not_verified") {
+            emailVerificationReason = "sender_not_verified";
+          } else {
+            emailVerificationReason = "send_failed";
+          }
         }
       } catch (emailErr) {
         console.error("[API/auth/register] Failed to send verification email:", emailErr);
@@ -100,6 +112,10 @@ export async function POST(req: NextRequest) {
         ? "Vi har skickat ett verifieringsmail. Bekräfta din e-post för att aktivera konto och välkomstcredits."
         : emailVerificationReason === "provider_missing"
           ? "Konto skapat, men verifieringsmail kunde inte skickas just nu eftersom e-posttjänsten saknas."
+          : emailVerificationReason === "recipient_restricted"
+            ? "Konto skapat, men e-posttjänsten är i testläge. Verifiera domänen i Resend för att skicka till andra mottagare."
+            : emailVerificationReason === "sender_not_verified"
+              ? "Konto skapat, men avsändaradressen är inte verifierad i Resend."
           : "Konto skapat, men verifieringsmail kunde inte skickas. Försök igen via 'Skicka verifieringsmail igen'.";
 
       return NextResponse.json({

@@ -25,7 +25,12 @@ export interface SendEmailResult {
   success: boolean;
   id?: string;
   error?: string;
-  deliveryMode?: "queued" | "provider_missing" | "failed";
+  deliveryMode?:
+    | "queued"
+    | "provider_missing"
+    | "failed"
+    | "recipient_restricted"
+    | "sender_not_verified";
 }
 
 interface VerificationEmailOptions {
@@ -74,16 +79,21 @@ export async function sendVerificationEmail(
 
     if (error) {
       console.error("[Email] Failed to send verification:", error);
-      return { success: false, error: error.message, deliveryMode: "failed" };
+      return {
+        success: false,
+        error: error.message,
+        deliveryMode: classifyProviderDeliveryMode(error.message),
+      };
     }
 
     return { success: true, id: data?.id, deliveryMode: "queued" };
   } catch (err) {
     console.error("[Email] Unexpected error:", err);
+    const message = err instanceof Error ? err.message : "Unknown error";
     return {
       success: false,
-      deliveryMode: "failed",
-      error: err instanceof Error ? err.message : "Unknown error",
+      deliveryMode: classifyProviderDeliveryMode(message),
+      error: message,
     };
   }
 }
@@ -114,4 +124,28 @@ function buildVerificationHtml(displayName: string, verifyUrl: string): string {
   <p style="font-size:12px; color:#999;">Du får detta mejl för att någon registrerade ett konto med din e-postadress på Sajtmaskin. Om det inte var du kan du ignorera detta mejl.</p>
 </body>
 </html>`.trim();
+}
+
+function classifyProviderDeliveryMode(message: string): SendEmailResult["deliveryMode"] {
+  const normalized = message.toLowerCase();
+
+  // Resend sandbox/testing mode: only account owner/verified recipients are allowed.
+  if (
+    normalized.includes("testing emails") ||
+    normalized.includes("sandbox") ||
+    normalized.includes("can only send to")
+  ) {
+    return "recipient_restricted";
+  }
+
+  // Sender domain/address not verified in provider.
+  if (
+    normalized.includes("domain is not verified") ||
+    normalized.includes("verify a domain") ||
+    (normalized.includes("from") && normalized.includes("not verified"))
+  ) {
+    return "sender_not_verified";
+  }
+
+  return "failed";
 }

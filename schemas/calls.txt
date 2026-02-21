@@ -173,22 +173,6 @@ RESPONSE: id, status, url?, inspectorUrl?, readyState?
 RELATED FILES:
 - src/app/api/v0/deployments/[deploymentId]/route.ts
 
-FLOW: VERCEL_PURCHASE_AND_DEPLOY
-ENDPOINT: /api/vercel/purchase-and-deploy (POST)
-TRIGGER (UI): Finalize modal -> "Kop & deploya"
-REQUEST BODY: projectId, domain, years?, contactInfo{...}, projectName?, framework?, teamId?
-RESPONSE: success, domain, deploymentId, deploymentUrl, customDomainUrl, orderId, customerPrice, vercelCost, currency, domainAdded, warning?
-RELATED FILES:
-- src/components/modals/finalize-modal.tsx
-- src/app/api/vercel/purchase-and-deploy/route.ts
-
-FLOW: VERCEL_DEPLOY_STATUS
-ENDPOINT: /api/vercel/status/{deploymentId} (GET)
-TRIGGER (UI): status for project deploys
-RESPONSE: success, deployment
-RELATED FILES:
-- src/app/api/vercel/status/[deploymentId]/route.ts
-
 ==============================================================================
 EXPORT / DOWNLOAD
 ==============================================================================

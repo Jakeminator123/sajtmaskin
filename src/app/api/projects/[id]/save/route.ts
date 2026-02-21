@@ -20,7 +20,7 @@ function getOwnerCacheSegment(userId: string | null, sessionId: string | null): 
  * NOTE: This route saves data to Supabase + Redis cache.
  * Vercel deployment is NOT triggered here!
  *
- * For deployment, use POST /api/vercel/deploy manually when user clicks "Publish".
+ * For deployment, use POST /api/v0/deployments when user clicks "Publish".
  * During editing, use v0's demoUrl for live preview (no build needed).
  */
 export async function POST(request: NextRequest, { params }: RouteParams) {
@@ -82,7 +82,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
     //
     // Now:
     // - Use v0's demoUrl for preview during editing (instant, no build)
-    // - Only deploy to Vercel when user clicks "Publish" (/api/vercel/deploy)
+    // - Only deploy to Vercel when user clicks "Publish" (/api/v0/deployments)
     // ═══════════════════════════════════════════════════════════════════════════
 
     return NextResponse.json({ success: true });
