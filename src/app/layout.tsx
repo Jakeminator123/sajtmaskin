@@ -33,7 +33,6 @@ export const metadata: Metadata = {
     type: "website",
     locale: "sv_SE",
     siteName: "Sajtmaskin",
-    images: [{ url: "/og-image.png", width: 1200, height: 630 }],
   },
   twitter: {
     card: "summary_large_image",
@@ -58,6 +57,13 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <body className="font-sans antialiased">
+        <noscript>
+          <div style={{ padding: "2rem", maxWidth: 600, margin: "0 auto", fontFamily: "system-ui, sans-serif", color: "#e5e7eb" }}>
+            <h1>Sajtmaskin</h1>
+            <p>AI-driven webbplatsgenerering. Skapa professionella webbplatser på minuter med AI. En tjänst från Pretty Good AB.</p>
+            <p>JavaScript krävs för att använda Sajtmaskin. Aktivera JavaScript i din webbläsare och ladda om sidan.</p>
+          </div>
+        </noscript>
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
           <OrganizationJsonLd />
           <SoftwareApplicationJsonLd />
