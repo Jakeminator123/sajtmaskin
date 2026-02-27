@@ -2,7 +2,6 @@
 
 import { ChatInterface } from "@/components/builder/ChatInterface";
 import type { ShadcnBlockSelection } from "@/components/builder/ShadcnBlockPicker";
-import { ErrorBoundary } from "@/components/builder/ErrorBoundary";
 import { InitFromRepoModal } from "@/components/builder/InitFromRepoModal";
 import { MessageList } from "@/components/builder/MessageList";
 import { PreviewPanel } from "@/components/builder/PreviewPanel";
@@ -12,10 +11,8 @@ import { BuilderHeader } from "@/components/builder/BuilderHeader";
 import { IntegrationStatusPanel } from "@/components/builder/IntegrationStatusPanel";
 import { ProjectEnvVarsPanel } from "@/components/builder/ProjectEnvVarsPanel";
 import { DeployNameDialog } from "@/components/builder/DeployNameDialog";
-import { DomainSearchDialog, type DomainSearchResult } from "@/components/builder/DomainSearchDialog";
-import type { V0UserFileAttachment } from "@/components/media";
+import { DomainSearchDialog } from "@/components/builder/DomainSearchDialog";
 import { clearPersistedMessages } from "@/lib/builder/messagesStorage";
-import type { ChatMessage, InspectorSelection } from "@/lib/builder/types";
 import { buildPromptAssistContext, briefToSpec, promptToSpec } from "@/lib/builder/promptAssistContext";
 import {
   buildPaletteInstruction,
@@ -23,27 +20,18 @@ import {
   mergePaletteSelection,
   normalizePaletteState,
   type PaletteSelection,
-  type PaletteState,
 } from "@/lib/builder/palette";
-import { getThemeColors, normalizeDesignTheme } from "@/lib/builder/theme-presets";
+import { normalizeDesignTheme } from "@/lib/builder/theme-presets";
 import {
   normalizeBuildIntent,
   normalizeBuildMethod,
-  resolveBuildIntentForMethod,
-  type BuildIntent,
-  type BuildMethod,
 } from "@/lib/builder/build-intent";
 import { createProject, getProject, saveProjectData, updateProject } from "@/lib/project-client";
 import {
   DEFAULT_CUSTOM_INSTRUCTIONS,
   DEFAULT_IMAGE_GENERATIONS,
   DEFAULT_MODEL_TIER,
-  DEFAULT_PROMPT_ASSIST,
-  DEFAULT_SPEC_MODE,
-  DEFAULT_THINKING,
-  ENABLE_EXPERIMENTAL_MODEL_ID,
   SPEC_FILE_INSTRUCTION,
-  getDefaultPromptAssistModel,
 } from "@/lib/builder/defaults";
 import { useChat } from "@/lib/hooks/useChat";
 import { useCssValidation } from "@/lib/hooks/useCssValidation";
@@ -58,8 +46,6 @@ import {
   readChatGenerationSettings,
   writeChatGenerationSettings,
 } from "@/lib/builder/chat-generation-settings";
-import type { ModelTier } from "@/lib/validations/chatSchemas";
-import type { QualityLevel } from "@/lib/v0/v0-generator";
 import { cn } from "@/lib/utils";
 import { debugLog } from "@/lib/utils/debug";
 import type { ImageAssetStrategy } from "@/lib/imageAssets";
@@ -67,18 +53,12 @@ import { Loader2 } from "lucide-react";
 import { ThinkingOverlay } from "@/components/builder/ThinkingOverlay";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
-import toast, { Toaster } from "react-hot-toast";
-
-type CreateChatOptions = {
-  attachments?: V0UserFileAttachment[];
-  attachmentPrompt?: string;
-};
-
-const MODEL_TIER_TO_QUALITY: Record<ModelTier, QualityLevel> = {
-  "v0-mini": "light",
-  "v0-pro": "standard",
-  "v0-max": "max",
-};
+import toast from "react-hot-toast";
+import { BuilderLayout } from "./BuilderLayout";
+import { useBuilderCallbacks } from "./useBuilderCallbacks";
+import { useBuilderEffects } from "./useBuilderEffects";
+import { useBuilderState } from "./useBuilderState";
+import { CreateChatOptions, MODEL_TIER_TO_QUALITY } from "./types";
 
 function BuilderContent() {
   const router = useRouter();
@@ -87,115 +67,141 @@ function BuilderContent() {
   const { fetchUser, isAuthenticated, isLoading: isAuthLoading } = useAuth();
   const [authModalReason, setAuthModalReason] = useState<"builder" | "save" | null>(null);
 
-  const chatIdParam = searchParams.get("chatId");
-  const promptParam = searchParams.get("prompt");
-  const promptId = searchParams.get("promptId");
-  const projectParam = searchParams.get("project");
-  const templateId = searchParams.get("templateId");
-  const source = searchParams.get("source");
-  const buildIntentParam = searchParams.get("buildIntent");
-  const buildMethodParam = searchParams.get("buildMethod");
-  const hasEntryParams = Boolean(promptParam || promptId || templateId || source === "audit");
-
-  const [chatId, setChatId] = useState<string | null>(chatIdParam);
-  const [currentDemoUrl, setCurrentDemoUrl] = useState<string | null>(null);
-  const [previewRefreshToken, setPreviewRefreshToken] = useState(0);
-  const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
-  const [selectedVersionId, setSelectedVersionId] = useState<string | null>(null);
-  const [isVersionPanelCollapsed, setIsVersionPanelCollapsed] = useState(false);
-  const [buildIntent, setBuildIntent] = useState<BuildIntent>(() =>
-    normalizeBuildIntent(buildIntentParam),
-  );
-  const [buildMethod, setBuildMethod] = useState<BuildMethod | null>(
-    () => normalizeBuildMethod(buildMethodParam) || (source === "audit" ? "audit" : null),
-  );
-  const [selectedModelTier, setSelectedModelTier] = useState<ModelTier>(DEFAULT_MODEL_TIER);
-  const [customModelId, setCustomModelId] = useState("");
-  const [promptAssistModel, setPromptAssistModel] = useState(
-    DEFAULT_PROMPT_ASSIST.model || getDefaultPromptAssistModel(),
-  );
-  const [promptAssistDeep, setPromptAssistDeep] = useState(DEFAULT_PROMPT_ASSIST.deep);
-  const [isSandboxModalOpen, setIsSandboxModalOpen] = useState(false);
-  const [isDeploying, setIsDeploying] = useState(false);
-  const [isSavingProject, setIsSavingProject] = useState(false);
-  const [enableImageGenerations, setEnableImageGenerations] = useState(DEFAULT_IMAGE_GENERATIONS);
-  const [enableThinking, setEnableThinking] = useState(DEFAULT_THINKING);
-  const [enableBlobMedia, setEnableBlobMedia] = useState(true);
-  const [isImageGenerationsSupported, setIsImageGenerationsSupported] = useState(true);
-  const [isMediaEnabled, setIsMediaEnabled] = useState(false);
-  const [designTheme, setDesignTheme] = useState<
-    import("@/lib/builder/theme-presets").DesignTheme
-  >("blue");
-  const [specMode] = useState(DEFAULT_SPEC_MODE);
-  const pendingSpecRef = useRef<object | null>(null);
-  const [showStructuredChat, setShowStructuredChat] = useState(false);
-  const [isIntentionalReset, setIsIntentionalReset] = useState(false);
-  const [customInstructions, setCustomInstructions] = useState(DEFAULT_CUSTOM_INSTRUCTIONS);
-  const [applyInstructionsOnce, setApplyInstructionsOnce] = useState(false);
-  const featureWarnedRef = useRef({ v0: false, blob: false });
-  const hasLoadedInstructions = useRef(false);
-  const pendingInstructionsRef = useRef<string | null>(null);
-  const hasLoadedInstructionsOnce = useRef(false);
-  const pendingInstructionsOnceRef = useRef<boolean | null>(null);
-  const autoProjectInitRef = useRef(false);
-  const lastSyncedInstructionsRef = useRef<{ v0ProjectId: string; instructions: string } | null>(
-    null,
-  );
-
-  const [auditPromptLoaded, setAuditPromptLoaded] = useState(source !== "audit");
-  const [resolvedPrompt, setResolvedPrompt] = useState<string | null>(promptParam);
-  const [entryIntentActive, setEntryIntentActive] = useState(
-    Boolean(promptParam || promptId || source === "audit"),
-  );
-  const [isTemplateLoading, setIsTemplateLoading] = useState(false);
-  const [isPreparingPrompt, setIsPreparingPrompt] = useState(false);
-  const [appProjectId, setAppProjectId] = useState<string | null>(projectParam);
-  const [appProjectName, setAppProjectName] = useState<string | null>(null);
-  const [pendingProjectName, setPendingProjectName] = useState<string | null>(null);
-  const [paletteState, setPaletteState] = useState<PaletteState>(() => getDefaultPaletteState());
-  const paletteLoadedRef = useRef(false);
-  const lastPaletteSavedRef = useRef<string | null>(null);
-  const lastProjectIdRef = useRef<string | null>(appProjectId ?? null);
-  const [deployNameDialogOpen, setDeployNameDialogOpen] = useState(false);
-  const [deployNameInput, setDeployNameInput] = useState("");
-  const [deployNameError, setDeployNameError] = useState<string | null>(null);
-  const [domainSearchOpen, setDomainSearchOpen] = useState(false);
-  const [domainQuery, setDomainQuery] = useState("");
-  const [domainResults, setDomainResults] = useState<DomainSearchResult[] | null>(null);
-  const [isDomainSearching, setIsDomainSearching] = useState(false);
-  const [isDeployNameSaving, setIsDeployNameSaving] = useState(false);
-  const [v0ProjectId, setV0ProjectId] = useState<string | null>(null);
-  const [promptAssistContext, setPromptAssistContext] = useState<string | null>(null);
-  const promptAssistContextKeyRef = useRef<string | null>(null);
-  // Raw page code for section analysis in component picker
-  const [currentPageCode, setCurrentPageCode] = useState<string | undefined>(undefined);
-  const [existingUiComponents, setExistingUiComponents] = useState<string[]>([]);
-  const [inspectorSelection, setInspectorSelection] = useState<InspectorSelection | null>(null);
-  const [inspectorClearToken, setInspectorClearToken] = useState(0);
-  const lastActiveVersionIdRef = useRef<string | null>(null);
-  const promptFetchInFlightRef = useRef<string | null>(null);
-  const promptFetchDoneRef = useRef<string | null>(null);
-  const loadedGenerationSettingsChatRef = useRef<string | null>(null);
-  const applyingGenerationSettingsRef = useRef(false);
-  const templateInitAttemptKeyRef = useRef<string | null>(null);
-
-  const allowExperimentalModelId = ENABLE_EXPERIMENTAL_MODEL_ID;
-  const normalizedCustomModelId = useMemo(() => customModelId.trim(), [customModelId]);
-  const selectedModelId =
-    allowExperimentalModelId && normalizedCustomModelId
-      ? normalizedCustomModelId
-      : selectedModelTier;
-  const isThinkingSupported = selectedModelTier !== "v0-mini";
-  const effectiveThinking = enableThinking && isThinkingSupported;
-  const resolvedBuildIntent = useMemo(
-    () => resolveBuildIntentForMethod(buildMethod, buildIntent),
-    [buildMethod, buildIntent],
-  );
-  const themeColors = useMemo(
-    () => (buildMethod === "kostnadsfri" ? null : getThemeColors(designTheme)),
-    [buildMethod, designTheme],
-  );
+  const {
+    chatIdParam,
+    promptParam,
+    promptId,
+    projectParam,
+    templateId,
+    source,
+    buildIntentParam,
+    buildMethodParam,
+    hasEntryParams,
+    chatId,
+    setChatId,
+    currentDemoUrl,
+    setCurrentDemoUrl,
+    previewRefreshToken,
+    setPreviewRefreshToken,
+    messages,
+    setMessages,
+    isImportModalOpen,
+    setIsImportModalOpen,
+    selectedVersionId,
+    setSelectedVersionId,
+    isVersionPanelCollapsed,
+    setIsVersionPanelCollapsed,
+    buildIntent,
+    setBuildIntent,
+    buildMethod,
+    setBuildMethod,
+    selectedModelTier,
+    setSelectedModelTier,
+    customModelId,
+    setCustomModelId,
+    promptAssistModel,
+    setPromptAssistModel,
+    promptAssistDeep,
+    setPromptAssistDeep,
+    isSandboxModalOpen,
+    setIsSandboxModalOpen,
+    isDeploying,
+    setIsDeploying,
+    isSavingProject,
+    setIsSavingProject,
+    enableImageGenerations,
+    setEnableImageGenerations,
+    enableThinking,
+    setEnableThinking,
+    enableBlobMedia,
+    setEnableBlobMedia,
+    isImageGenerationsSupported,
+    setIsImageGenerationsSupported,
+    isMediaEnabled,
+    setIsMediaEnabled,
+    designTheme,
+    setDesignTheme,
+    specMode,
+    pendingSpecRef,
+    showStructuredChat,
+    setShowStructuredChat,
+    isIntentionalReset,
+    setIsIntentionalReset,
+    customInstructions,
+    setCustomInstructions,
+    applyInstructionsOnce,
+    setApplyInstructionsOnce,
+    featureWarnedRef,
+    hasLoadedInstructions,
+    pendingInstructionsRef,
+    hasLoadedInstructionsOnce,
+    pendingInstructionsOnceRef,
+    autoProjectInitRef,
+    lastSyncedInstructionsRef,
+    auditPromptLoaded,
+    setAuditPromptLoaded,
+    resolvedPrompt,
+    setResolvedPrompt,
+    entryIntentActive,
+    setEntryIntentActive,
+    isTemplateLoading,
+    setIsTemplateLoading,
+    isPreparingPrompt,
+    setIsPreparingPrompt,
+    appProjectId,
+    setAppProjectId,
+    appProjectName,
+    setAppProjectName,
+    pendingProjectName,
+    setPendingProjectName,
+    paletteState,
+    setPaletteState,
+    paletteLoadedRef,
+    lastPaletteSavedRef,
+    lastProjectIdRef,
+    deployNameDialogOpen,
+    setDeployNameDialogOpen,
+    deployNameInput,
+    setDeployNameInput,
+    deployNameError,
+    setDeployNameError,
+    domainSearchOpen,
+    setDomainSearchOpen,
+    domainQuery,
+    setDomainQuery,
+    domainResults,
+    setDomainResults,
+    isDomainSearching,
+    setIsDomainSearching,
+    isDeployNameSaving,
+    setIsDeployNameSaving,
+    v0ProjectId,
+    setV0ProjectId,
+    promptAssistContext,
+    setPromptAssistContext,
+    promptAssistContextKeyRef,
+    currentPageCode,
+    setCurrentPageCode,
+    existingUiComponents,
+    setExistingUiComponents,
+    inspectorSelection,
+    setInspectorSelection,
+    inspectorClearToken,
+    setInspectorClearToken,
+    lastActiveVersionIdRef,
+    promptFetchInFlightRef,
+    promptFetchDoneRef,
+    loadedGenerationSettingsChatRef,
+    applyingGenerationSettingsRef,
+    templateInitAttemptKeyRef,
+    allowExperimentalModelId,
+    normalizedCustomModelId,
+    selectedModelId,
+    isThinkingSupported,
+    effectiveThinking,
+    resolvedBuildIntent,
+    themeColors,
+  } = useBuilderState(searchParams);
 
   useEffect(() => {
     if (!promptId) return;
@@ -1997,136 +2003,46 @@ function BuilderContent() {
     });
   }, [router, chatId, startUiTransition]);
 
-  const handleClearPreview = useCallback(() => {
-    setCurrentDemoUrl(null);
-  }, []);
-
-  const clearInspectorSelection = useCallback(() => {
-    setInspectorSelection(null);
-    setInspectorClearToken(Date.now());
-  }, []);
-
-  const handleFixPreview = useCallback(async () => {
-    if (!chatId) {
-      toast.error("Ingen chat att reparera ännu.");
-      return;
-    }
-    const prompt = currentDemoUrl
-      ? "Preview verkar vara fel eller laddar inte. Fixa versionen och returnera en fungerande demoUrl. Behåll layouten om möjligt. Om du använder Dialog, säkerställ att DialogTitle och DialogDescription finns (sr-only ok) eller att aria-describedby är korrekt."
-      : "Preview-länk saknas. Regenerera senaste versionen så att en demoUrl returneras. Om du använder Dialog, säkerställ att DialogTitle och DialogDescription finns (sr-only ok) eller att aria-describedby är korrekt.";
-    await sendMessage(prompt);
-  }, [chatId, currentDemoUrl, sendMessage]);
-
-  const handleVersionSelect = useCallback(
-    (versionId: string) => {
-      setSelectedVersionId(versionId);
-      const match = effectiveVersionsList.find(
-        (version) => version.versionId === versionId || version.id === versionId,
-      );
-      if (match?.demoUrl) {
-        setCurrentDemoUrl(match.demoUrl);
-        bumpPreviewRefreshToken();
-      }
-    },
-    [effectiveVersionsList, bumpPreviewRefreshToken],
-  );
-
-  const handleToggleVersionPanel = useCallback(() => {
-    setIsVersionPanelCollapsed((prev) => !prev);
-  }, []);
+  const {
+    handleClearPreview,
+    clearInspectorSelection,
+    handleFixPreview,
+    handleVersionSelect,
+    handleToggleVersionPanel,
+  } = useBuilderCallbacks({
+    chatId,
+    currentDemoUrl,
+    sendMessage,
+    effectiveVersionsList,
+    bumpPreviewRefreshToken,
+    setCurrentDemoUrl,
+    setSelectedVersionId,
+    setInspectorSelection,
+    setInspectorClearToken,
+    setIsVersionPanelCollapsed,
+  });
 
   const initialPrompt = templateId ? null : resolvedPrompt?.trim() || null;
 
-  useEffect(() => {
-    if (templateId) return;
-    templateInitAttemptKeyRef.current = null;
-  }, [templateId]);
-
-  useEffect(() => {
-    if (!auditPromptLoaded) return;
-    if (!templateId || chatId) return;
-    if (isCreatingChat || isAnyStreaming) return;
-    const initKey = `${templateId}:${selectedModelTier}`;
-    if (templateInitAttemptKeyRef.current === initKey) return;
-    templateInitAttemptKeyRef.current = initKey;
-    let isActive = true;
-
-    const initTemplate = async () => {
-      setIsTemplateLoading(true);
-      try {
-        const quality = MODEL_TIER_TO_QUALITY[selectedModelTier] || "max";
-        const response = await fetch("/api/template", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ templateId, quality }),
-        });
-        const data = await response.json();
-        if (!response.ok || !data?.success) {
-          throw new Error(data?.error || "Template init failed");
-        }
-
-        if (data?.chatId) {
-          setChatId(data.chatId);
-          if (appProjectId) {
-            applyAppProjectId(appProjectId, { chatId: data.chatId });
-          } else {
-            const params = new URLSearchParams(searchParams.toString());
-            params.set("chatId", data.chatId);
-            router.replace(`/builder?${params.toString()}`);
-          }
-        }
-        if (data?.demoUrl) {
-          setCurrentDemoUrl(data.demoUrl);
-        }
-        if (data?.chatId && appProjectId) {
-          saveProjectData(appProjectId, {
-            chatId: data.chatId,
-            demoUrl: data.demoUrl ?? undefined,
-          }).catch((error) => {
-            console.warn("[Builder] Failed to save template project mapping:", error);
-          });
-        }
-      } catch (error) {
-        const message = error instanceof Error ? error.message : "Template init failed";
-        console.error("[Builder] Template init failed:", error);
-        if (isActive) {
-          toast.error(message);
-          // Prevent repeated auto-init loops on failed template startup
-          // (e.g. insufficient credits or temporary API errors).
-          const params = new URLSearchParams(searchParams.toString());
-          params.delete("templateId");
-          const query = params.toString();
-          router.replace(query ? `/builder?${query}` : "/builder");
-        }
-      } finally {
-        if (isActive) {
-          setIsTemplateLoading(false);
-        }
-      }
-    };
-
-    void initTemplate();
-    return () => {
-      isActive = false;
-    };
-  }, [
+  useBuilderEffects({
     auditPromptLoaded,
     templateId,
     chatId,
     isCreatingChat,
     isAnyStreaming,
-    router,
     selectedModelTier,
     appProjectId,
     applyAppProjectId,
     searchParams,
-  ]);
+    router,
+    setChatId,
+    setCurrentDemoUrl,
+    setIsTemplateLoading,
+    templateInitAttemptKeyRef,
+  });
 
   return (
-    <ErrorBoundary chatId={chatId} versionId={activeVersionId}>
-      <main className="bg-muted/30 flex h-screen w-screen flex-col overflow-hidden">
-        <Toaster position="top-right" />
-
+    <BuilderLayout chatId={chatId} versionId={activeVersionId}>
         <BuilderHeader
           selectedModelTier={selectedModelTier}
           onSelectedModelTierChange={setSelectedModelTier}
@@ -2315,8 +2231,7 @@ function BuilderContent() {
           }}
           reason={authModalReason ?? "builder"}
         />
-      </main>
-    </ErrorBoundary>
+    </BuilderLayout>
   );
 }
 
