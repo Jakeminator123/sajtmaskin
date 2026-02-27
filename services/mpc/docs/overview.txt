@@ -1,93 +1,26 @@
-Sajtmaskin MCP Server Documentation
-====================================
+Sajtmaskin MCP Server
+=====================
 
-This MCP server provides AI agents with access to project documentation,
-external API docs, and error reporting.
+Project-specific documentation server for AI agents.
+External docs are handled by dedicated MCP servers (v0, Vercel, shadcn, OpenAI).
 
-VERSION: 0.3.0
+Entry point: services/mpc/server.mjs (Node, ESM, stdio transport)
+Start: npm run mpc
 
-QUICK START
------------
-- Entry point: services/mpc/server.mjs (Node, ESM, stdio transport)
-- Start: From repo root, run `npm run mpc` or `node ./services/mpc/server.mjs`
-- Cursor config: Add to .cursor/mcp.json (see below)
+WHAT IT DOES
+------------
+Exposes resources only (no tools) via docs://local/{name}.
+Files in services/mpc/docs/ and LLM/ are indexed automatically.
 
-CURSOR MCP CONFIGURATION
-------------------------
-Create .cursor/mcp.json with:
-{
-  "mcpServers": {
-    "sajtmaskin-mpc": {
-      "command": "node",
-      "args": ["./services/mpc/server.mjs"],
-      "cwd": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin",
-      "env": {}
-    }
-  }
-}
-Then restart Cursor.
-
-AVAILABLE TOOLS
----------------
-No tools are registered in this server. It only exposes resources via docs://local.
-
-AVAILABLE RESOURCES (docs://local/{name})
------------------------------------------
-All .txt/.md/.json files in services/mpc/docs are exposed as MCP resources.
-LLM docs are exposed as docs://local/llm/{name}.
-
-Current documentation:
-- START-HERE.md          : Quick start guide (READ THIS FIRST!)
-- WHEN-TO-USE-MCP.md     : When and how to use MCP server
-- HOW-TO-UPDATE-DOCS.md  : How to download and update documentation
-- QUICK-UPDATE-AI-SDK.md : Quick guide to update AI SDK docs
-- EXAMPLES.md            : Practical examples for different scenarios
-- overview               : This file - MCP server overview
-- docs-index             : Complete documentation map
-- quick-reference        : Common APIs and patterns
-- error-playbook         : How to report and track errors
-
-SCRAPED DOCUMENTATION
----------------------
-If docgrab__* folders exist under services/mpc/docs, they are exposed as resources.
-
-UPDATING DOCUMENTATION
-----------------------
-See HOW-TO-UPDATE-DOCS.md for detailed instructions.
-
-Quick commands:
-  cd services/mpc/docs
-  python doc.py --auto "https://ai-sdk.dev/docs"      # Update AI SDK docs
-  python doc.py --auto "https://platform.openai.com/docs"  # Update OpenAI docs
-  python doc.py --auto "https://v0.dev/docs"          # Update v0 docs
-
-Flags:
-  --auto  : Non-interactive mode (no prompts)
-  --all   : Download all pages as separate files
-  --start : Only download the start page
-
-SEARCHING DOCUMENTATION
------------------------
-This server exposes docs as resources (docs://local/*). Use resource listing
-to discover available files, then open the specific doc you need.
+RESOURCES
+---------
+- WHEN-TO-USE-MCP.md  : Which MCP server to use for what
+- quick-reference.txt : API patterns, models, code examples
+- overview.txt        : This file
+- docs-index.txt      : Documentation map
+- LLM/*.txt           : AI/prompt strategy notes
 
 LOG ROTATION
 ------------
-Access log auto-rotates at 500 entries to prevent bloat.
+Access log auto-rotates at 500 entries.
 Location: services/mpc/logs/access-log.jsonl
-
-FOR AGENTS
-----------
-Start by reading quick-reference.txt for common patterns.
-Browse docs://local/* resources, then open the specific file you need.
-
-WHEN TO USE MCP SERVER
-----------------------
-Read WHEN-TO-USE-MCP.md for explicit guidance on when and how to use
-the MCP server. This file contains practical examples and clear instructions.
-
-Quick decision guide:
-- Need documentation? → Use docs://local resources
-
-Always be explicit: Say "Use MCP server resources (docs://local/*)" instead of
-just asking for information. This ensures the agent knows to use MCP.

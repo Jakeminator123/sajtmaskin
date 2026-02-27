@@ -1,23 +1,21 @@
 Sajtmaskin Documentation Index
 ==============================
 
-Local docs live in `services/mpc/docs/` and `LLM/` and are exposed as
-MCP resources via `docs://local/...` by the `sajtmaskin-mpc` server.
+Project-specific docs exposed via the `sajtmaskin-mpc` MCP server.
+External docs (v0, shadcn, Vercel, OpenAI) are handled by dedicated MCP servers.
 
 How it works
 ------------
 - The server exposes **resources only** (no tools).
-- Files in `docs/` are exposed as `docs://local/{name}`.
-- Files in `LLM/` are exposed as `docs://local/llm/{name}`.
-  Example: `docs://local/llm/v0-prompt-guide`
+- Files in `docs/` -> `docs://local/{name}`
+- Files in `LLM/` -> `docs://local/llm/{name}`
 
-Reading priority
-----------------
-1. WHEN-TO-USE-MCP.md - Which MCP server to use for what (read first!)
-2. quick-reference.txt - Quick overview and common patterns
-3. overview.txt - Server structure
-4. error-playbook.txt - Error reporting/logging
-5. LLM/*.txt - AI/v0 notes
+Files in this server
+--------------------
+- WHEN-TO-USE-MCP.md - Which MCP server to use for what
+- quick-reference.txt - API patterns, models, code examples
+- overview.txt - Server structure
+- docs-index.txt - This file
 
 LLM docs (docs://local/llm/...)
 --------------------------------
@@ -33,8 +31,3 @@ Adding docs
 -----------
 - Add .txt/.md/.json files under `services/mpc/docs/` or `LLM/`.
 - Restart the MPC server (`npm run mpc`) to re-index.
-
-Tips
-----
-- Keep everything in `services/mpc/docs/` and `LLM/`.
-- Never put secrets in docs.
