@@ -5,7 +5,25 @@ alwaysApply: true
 
 # MCP Docs Routing
 
-- Project docs: use `sajtmaskin-mpc` resources first.
-- OpenAI API/model docs: use `openaiDeveloperDocs`.
-- shadcn/ui components/registry: use `shadcn` MCP server.
-- Vercel platform questions: use Vercel tools; if v0 MCP is added, use it for v0.
+When answering questions about external APIs, SDKs or platforms, prefer the
+relevant MCP server over web searches or training data. The servers provide
+up-to-date documentation and capabilities.
+
+## Available MCP servers
+
+| Server               | Scope                                          | Type       |
+|----------------------|------------------------------------------------|------------|
+| `sajtmaskin-mpc`     | Project docs, v0 prompt guide, architecture    | Resources  |
+| `v0`                 | v0 Platform API, code generation, chat mgmt    | Tools      |
+| `Vercel`             | Vercel projects, deployments, logs, docs search | Tools      |
+| `openaiDeveloperDocs`| OpenAI API and model documentation             | Resources  |
+| `shadcn`             | shadcn/ui component registry, installation     | Tools      |
+
+## Routing rules
+
+1. **Project-specific questions** (how does sajtmaskin work, architecture, patterns) -> `sajtmaskin-mpc` resources first.
+2. **v0 API, code generation, v0 SDK** -> `v0` MCP server.
+3. **Vercel deployments, projects, env vars, platform docs** -> `Vercel` MCP server.
+4. **OpenAI API, models, embeddings** -> `openaiDeveloperDocs`.
+5. **shadcn/ui components, installation, registry** -> `shadcn` MCP server.
+6. **AI SDK (Vercel)** -> Check `sajtmaskin-mpc` first (has local docs), then `Vercel` or web search.

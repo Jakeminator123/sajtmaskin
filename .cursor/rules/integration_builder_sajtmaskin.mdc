@@ -1,30 +1,31 @@
 ---
-description: 
+description: Project documentation and MCP server overview
 alwaysApply: true
 ---
 
 ## Documentation lookup rule
 
-- I have many docs connected via an MCP server.
-- The MCP server is named: **sajtmaskin-mpc**.
+Project documentation is available through multiple MCP servers.
+Use `sajtmaskin-mpc` for project-specific docs; use the dedicated MCP
+servers for external platform docs (see `mcp-docs-routing.mdc`).
 
-## Where to find the docs
+### Local docs (`sajtmaskin-mpc`)
 
-- In the root folder, there is a folder: `Services`
-- Inside `Services`, there is a folder: `mpc`
-- Documentation lives in `Services/mpc/docs`
-- MCP server entrypoint: `Services/mpc/server.mjs`
+- Entrypoint: `services/mpc/server.mjs`
+- Docs directory: `services/mpc/docs/` and `LLM/`
+- Exposes **resources only** (no tools) via `docs://local/{name}`
+- Contains: v0 prompt guide, architecture notes, AI SDK references, error playbook
 
-## When to use these docs
+### When to consult local docs
 
-- If you are unsure about anything related to this part of my website, consult these docs first, especially for:
-  - User-facing page building / site generation
-  - API integrations
- - shadcn/ui
-  - SDK 6
-  - Platform API
-  - Model API
-  - AI SDK
-  - v0 SDK
-  - SDK usage
-  - General integrations and implementation details
+- User-facing page building / site generation
+- v0 Platform API patterns and prompt strategies
+- AI SDK usage and streaming patterns
+- General integration details specific to this project
+
+### When to use other MCP servers instead
+
+- **v0 code generation or chat management** -> use the `v0` MCP server directly
+- **shadcn/ui component lookup or installation** -> use the `shadcn` MCP server
+- **Vercel deploy/project management** -> use the `Vercel` MCP server
+- **OpenAI API docs** -> use `openaiDeveloperDocs`

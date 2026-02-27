@@ -1,0 +1,72 @@
+---
+description: Project overview for all agents
+alwaysApply: true
+---
+
+# Sajtmaskin - Project Overview
+
+AI-powered website builder where users describe a website in natural language
+and get a working site generated, previewed, and deployed.
+
+## Tech Stack
+
+- **Framework**: Next.js 16 (App Router), React 19, TypeScript 5.9
+- **Styling**: Tailwind CSS 4, shadcn/ui (Radix primitives)
+- **AI/Generation**: v0 Platform API (v0-sdk), AI SDK 6 (@ai-sdk/openai, @ai-sdk/vercel)
+- **Database**: PostgreSQL (Supabase) via Drizzle ORM, SQLite fallback (better-sqlite3)
+- **Cache**: Redis (Upstash/ioredis)
+- **State**: Zustand (auth), React hooks (builder state)
+- **Payments**: Stripe
+- **Deploy target**: Vercel (user sites deployed via Vercel API)
+- **Storage**: Vercel Blob (AI-generated images)
+
+## Architecture
+
+```
+User prompt -> Builder UI -> v0 Platform API -> Generated code -> Preview -> Deploy to Vercel
+```
+
+### Key directories
+
+| Directory | Purpose |
+|-----------|---------|
+| `src/app/builder/` | Main builder page (prompt -> generate -> preview -> deploy) |
+| `src/app/admin/` | Admin dashboard |
+| `src/app/api/v0/` | v0 Platform API proxy routes (chat, stream, projects) |
+| `src/app/api/auth/` | Authentication (email, Google, GitHub OAuth) |
+| `src/app/api/ai/` | AI Gateway routes (prompt assist, brief, spec) |
+| `src/components/builder/` | Builder UI components (ChatInterface, MessageList, PreviewPanel) |
+| `src/components/ai-elements/` | AI Elements components (prompt input, reasoning, code blocks) |
+| `src/components/ui/` | shadcn/ui base components |
+| `src/lib/v0/` | v0 SDK wrapper, streaming, file parsing |
+| `src/lib/builder/` | Builder business logic (prompt assist, orchestration, types) |
+| `src/lib/hooks/` | React hooks (useV0ChatMessaging, useChat, useVersions) |
+| `src/lib/db/` | Drizzle schema + service layer |
+| `src/lib/auth/` | Auth logic + Zustand store |
+| `services/mpc/` | Local MCP documentation server |
+| `LLM/` | AI/prompt strategy notes (exposed via MCP) |
+
+### Core flow (builder)
+
+1. User enters prompt in `ChatInterface.tsx`
+2. Prompt optionally enhanced via `/api/ai/chat` (prompt assist)
+3. Sent to `/api/v0/chats/stream` or `/api/v0/chats/[chatId]/stream`
+4. v0 Platform API generates code, streamed back via SSE
+5. Preview rendered in `PreviewPanel.tsx`
+6. User can refine, deploy, or start new
+
+### Database tables (Drizzle)
+
+projects, chats, versions, deployments, users, transactions, user_integrations
+
+### Config
+
+All env vars accessed through `src/lib/config.ts` (SECRETS, FEATURES, PATHS, URLS).
+Feature flags auto-detect available services.
+
+## Conventions
+
+- Language: Swedish for user-facing copy, English for code/comments/logs
+- Path alias: `@/*` maps to `src/*`
+- Barrel exports: `index.ts` in component directories
+- API routes handle auth via session cookies (see `src/middleware.ts`)

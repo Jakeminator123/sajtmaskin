@@ -36,9 +36,8 @@ The builder is at `/builder` where users:
 
 | Endpoint | Purpose |
 |----------|---------|
-| `/api/v0/chats/init` | Create new chat |
-| `/api/v0/chats/stream` | Main streaming endpoint |
-| `/api/v0/chats/[chatId]/stream` | Chat-specific streaming |
+| `/api/v0/chats/stream` | Create new chat (streaming) |
+| `/api/v0/chats/[chatId]/stream` | Send message to existing chat (streaming) |
 | `/api/v0/chats/[chatId]/messages` | Message CRUD |
 | `/api/credits/check` | Credit validation |
 

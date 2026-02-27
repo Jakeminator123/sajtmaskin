@@ -1,132 +1,49 @@
-# När ska du använda MCP-servern?
+# When to use the MCP servers
 
-## Enkelt och explicit guide
+## Overview
 
-### 🎯 **NÄR SKA DU ANVÄNDA MCP-SERVERN?**
+The project has multiple MCP servers configured. Each serves a different purpose.
+The local `sajtmaskin-mpc` server exposes **resources only** (no tools).
+The external servers (v0, Vercel, shadcn, OpenAI) provide both docs and tools.
 
-Använd MCP-servern när du behöver:
+## Server quick reference
 
-1. **Söka i projektets dokumentation**
-   - När du behöver hitta information om API:er, bibliotek eller mönster
-   - När du inte är säker på hur något fungerar
-   - När du behöver exempel eller referenser
+| Server               | What it provides                               | How to use                        |
+|----------------------|------------------------------------------------|-----------------------------------|
+| `sajtmaskin-mpc`     | Project docs, v0 prompt guide, architecture    | Read resources: `docs://local/*`  |
+| `v0`                 | v0 code generation, chat management            | Use v0 tools directly             |
+| `Vercel`             | Deployments, projects, logs, Vercel docs       | Use Vercel tools directly         |
+| `openaiDeveloperDocs`| OpenAI API and model documentation             | Read resources                    |
+| `shadcn`             | Component registry, browse, install            | Use shadcn tools directly         |
 
-2. **Läsa specifik dokumentation**
-   - När du vet vilken fil du behöver läsa
-   - När du behöver fullständig dokumentation för ett ämne
+## When to use which
 
-3. **Logga fel för framtida analys**
-   - När något går fel och du vill spara informationen
-   - När du vill spåra problem över tid
+### Use `sajtmaskin-mpc` when:
+- You need project-specific documentation (architecture, patterns, prompt strategies)
+- You want the v0 prompt guide or AI SDK reference notes
+- You need the error playbook
 
-4. **Se vilka dokumentationskällor som finns**
-   - När du vill veta vad som är tillgängligt
-   - När du planerar att söka i dokumentationen
+Access via resources: `docs://local/{name}` (e.g. `docs://local/quick-reference`)
 
----
+### Use `v0` MCP when:
+- Working with v0 Platform API
+- Creating or managing v0 chats programmatically
+- Generating code via v0
 
-### ✅ **EXEMPEL: När du SKA använda MCP-servern**
+### Use `Vercel` MCP when:
+- Managing deployments, projects, or environment variables
+- Searching Vercel platform documentation
+- Analyzing deployment logs
 
-#### Exempel 1: Söka efter API-information
+### Use `shadcn` MCP when:
+- Looking up component props, variants, or APIs
+- Installing new shadcn/ui components
+- Browsing the component registry
 
-```
-"Använd MCP-servern för att söka efter information om v0 API templates"
-"Använd search_docs för att hitta hur man använder AI SDK streamText"
-"Sök i dokumentationen efter OpenAI image generation"
-```
+### Use `openaiDeveloperDocs` when:
+- Looking up OpenAI API endpoints, models, or parameters
 
-#### Exempel 2: Läsa specifik dokumentation
-
-```
-"Använd get_doc för att läsa quick-reference.txt"
-"Hämta dokumentationen om AI SDK från MCP-servern"
-```
-
-#### Exempel 3: Logga fel
-
-```
-"Logga detta fel i MCP error log: [beskrivning]"
-"Använd report_error för att spara detta problem"
-```
-
-#### Exempel 4: Lista källor
-
-```
-"Visa mig vilka dokumentationskällor som finns tillgängliga"
-"Använd list_doc_sources för att se vad som finns"
-```
-
----
-
-### ❌ **När du INTE behöver använda MCP-servern**
-
-- När du redan vet svaret eller har informationen tillgänglig
-- När du gör enkla kodändringar som inte kräver dokumentation
-- När du arbetar med projektets egen kod (använd codebase search istället)
-
----
-
-### 🚀 **SÅ HÄR ANVÄNDER DU MCP-SERVERN**
-
-#### Steg 1: Identifiera när du behöver dokumentation
-
-Tänk: "Behöver jag söka i extern dokumentation eller projektets dokumentation?"
-
-#### Steg 2: Använd rätt tool
-
-- **search_docs**: När du söker efter något
-- **get_doc**: När du vet vilken fil du behöver
-- **list_doc_sources**: När du vill se vad som finns
-- **report_error**: När du loggar fel
-- **list_errors**: När du vill se tidigare fel
-
-#### Steg 3: Var explicit i dina prompts
-
-Istället för: "Hitta information om v0"
-Säg: "Använd MCP-serverns search_docs tool för att söka efter 'v0 API templates'"
-
----
-
-### 📋 **QUICK REFERENCE**
-
-| Behov                  | Tool att använda   | Exempel                                           |
-| ---------------------- | ------------------ | ------------------------------------------------- |
-| Söka i dokumentation   | `search_docs`      | "Använd search_docs för att hitta 'streamText'"   |
-| Läsa specifik fil      | `get_doc`          | "Använd get_doc för att läsa quick-reference.txt" |
-| Se tillgängliga källor | `list_doc_sources` | "Visa mig tillgängliga dokumentationskällor"      |
-| Logga fel              | `report_error`     | "Logga detta fel: [beskrivning]"                  |
-| Se tidigare fel        | `list_errors`      | "Visa mig de senaste 10 felen"                    |
-
----
-
-### 💡 **TIPS**
-
-1. **Var explicit**: Säg "Använd MCP-servern" eller "Använd search_docs" istället för att bara be om information
-2. **Använd rätt source**: När du söker kan du specificera källa (ai-sdk, openai, vercel, v0, local)
-3. **Börja med search**: Använd `search_docs` först, sedan `get_doc` för att läsa fullständig information
-4. **Logga viktiga fel**: Använd `report_error` för att spara information som kan vara användbar senare
-
----
-
-### 🔍 **PRAKTISKA EXEMPEL**
-
-#### Exempel: Implementera en ny feature med AI SDK
-
-```
-1. "Använd MCP-serverns search_docs för att söka efter 'generateText' i ai-sdk dokumentationen"
-2. "Använd get_doc för att läsa den fullständiga dokumentationen om generateText"
-3. Implementera koden baserat på dokumentationen
-4. Om något går fel: "Logga detta fel i MCP error log med komponent 'feature-implementation'"
-```
-
-#### Exempel: Felsöka ett problem
-
-```
-1. "Använd list_errors för att se de senaste felen"
-2. "Använd search_docs för att hitta lösningar på detta problem"
-3. "Logga lösningen i error log när problemet är löst"
-```
-
----
-
-**Kom ihåg**: MCP-servern är din vän när du behöver dokumentation eller vill logga information. Var inte rädd för att använda den!
+## When NOT to use MCP servers
+- When you already know the answer
+- When working with the project source code directly (use codebase search)
+- For simple code changes that don't require external documentation
