@@ -152,11 +152,11 @@ export function ChatInterface({
   const [figmaUrl, setFigmaUrl] = useState("");
   const [isFigmaInputOpen, setIsFigmaInputOpen] = useState(false);
   const [isTextUploaderOpen, setIsTextUploaderOpen] = useState(false);
-  const [isShadcnPickerOpen, setIsShadcnPickerOpen] = useState(false);
+  const [isUiPickerOpen, setIsUiPickerOpen] = useState(false);
   const [isThemePickerOpen, setIsThemePickerOpen] = useState(false);
   const [isTemplatePickerOpen, setIsTemplatePickerOpen] = useState(false);
   const [isAiPickerOpen, setIsAiPickerOpen] = useState(false);
-  const [isDesignSystemAction, setIsDesignSystemAction] = useState(false);
+  const [isUiElementAction, setIsUiElementAction] = useState(false);
   const [registrySummary, setRegistrySummary] = useState<RegistrySummary | null>(null);
   const [registryStatus, setRegistryStatus] = useState<"idle" | "loading" | "ready" | "error">(
     "idle",
@@ -198,10 +198,10 @@ export function ChatInterface({
   }, [registryStatus, loadRegistrySummary]);
 
   useEffect(() => {
-    if (isShadcnPickerOpen) {
+    if (isUiPickerOpen) {
       loadRegistrySummary({ force: true });
     }
-  }, [isShadcnPickerOpen, loadRegistrySummary]);
+  }, [isUiPickerOpen, loadRegistrySummary]);
 
   const registryStatusLabel = useMemo(() => {
     if (registryStatus === "loading") return "Laddar katalog...";
@@ -513,7 +513,7 @@ export function ChatInterface({
   ) => {
     if (!selection.registryItem) return;
 
-    setIsDesignSystemAction(true);
+    setIsUiElementAction(true);
     try {
       const isComponent =
         selection.itemType === "component" ||
@@ -567,7 +567,7 @@ ${technicalPrompt}`;
           try {
             const startedDirectly = await onStartFromRegistry(selection);
             if (startedDirectly !== false) {
-              setIsShadcnPickerOpen(false);
+              setIsUiPickerOpen(false);
               return;
             }
             // Registry init returned a controlled failure; continue via prompt fallback.
@@ -589,7 +589,7 @@ ${technicalPrompt}`;
           source: isComponent ? "shadcn-component" : "shadcn-block",
           dependencies: selection.registryItem.registryDependencies ?? undefined,
         });
-        setIsShadcnPickerOpen(false);
+        setIsUiPickerOpen(false);
         return;
       }
 
@@ -603,9 +603,9 @@ ${technicalPrompt}`;
         source: isComponent ? "shadcn-component" : "shadcn-block",
         dependencies: selection.registryItem.registryDependencies ?? undefined,
       });
-      setIsShadcnPickerOpen(false);
+      setIsUiPickerOpen(false);
     } finally {
-      setIsDesignSystemAction(false);
+      setIsUiElementAction(false);
     }
   };
 
@@ -617,8 +617,8 @@ ${technicalPrompt}`;
         DESIGN_THEME_OPTIONS.find((option) => option.value === theme)?.label || theme;
       toast.success(
         theme === "off"
-          ? "Designsystem-tema avstängt."
-          : `Designsystem-tema uppdaterat: ${label}.`,
+          ? "Tema avstängt."
+          : `Tema uppdaterat: ${label}.`,
       );
     },
     [onDesignThemeChange],
@@ -630,7 +630,7 @@ ${technicalPrompt}`;
   ) => {
     if (!onCreateChat && !onSendMessage) return;
 
-    setIsDesignSystemAction(true);
+    setIsUiElementAction(true);
     try {
       const placementLabel = resolvePlacementLabel(options.placement);
       const technicalPrompt = buildAiElementPrompt(item, {
@@ -656,16 +656,16 @@ ${technicalPrompt}`;
         tags: item.tags,
         dependencies: item.dependencies,
       });
-      setIsShadcnPickerOpen(false);
+      setIsUiPickerOpen(false);
     } finally {
-      setIsDesignSystemAction(false);
+      setIsUiElementAction(false);
     }
   };
 
   const handleTemplateSelect = (templateId: string) => {
     if (!onStartFromTemplate) return;
     onStartFromTemplate(templateId);
-    setIsShadcnPickerOpen(false);
+    setIsUiPickerOpen(false);
   };
 
   const handleMediaSelect = (item: {
@@ -824,7 +824,7 @@ ${technicalPrompt}`;
               variant="outline"
               size="sm"
               className="h-8 gap-2"
-              onClick={() => setIsShadcnPickerOpen(true)}
+              onClick={() => setIsUiPickerOpen(true)}
               disabled={inputDisabled}
               title={`UI-element · ${registryStatusTitle}`}
             >
@@ -981,13 +981,13 @@ ${technicalPrompt}`;
         />
       )}
 
-      {isShadcnPickerOpen && (
+      {isUiPickerOpen && (
         <UiElementPicker
-          open={isShadcnPickerOpen}
-          onClose={() => setIsShadcnPickerOpen(false)}
+          open={isUiPickerOpen}
+          onClose={() => setIsUiPickerOpen(false)}
           onConfirm={handleDesignSystemAction}
           isBusy={inputDisabled}
-          isSubmitting={isDesignSystemAction}
+          isSubmitting={isUiElementAction}
           hasChat={Boolean(chatId)}
           currentCode={currentCode}
         />
@@ -1020,7 +1020,7 @@ ${technicalPrompt}`;
           onConfirm={handleAiElementAction}
           hasChat={Boolean(chatId)}
           isBusy={inputDisabled}
-          isSubmitting={isDesignSystemAction}
+          isSubmitting={isUiElementAction}
           currentCode={currentCode}
           paletteSelections={paletteSelections}
         />

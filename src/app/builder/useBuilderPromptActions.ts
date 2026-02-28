@@ -228,7 +228,7 @@ export function useBuilderPromptActions({
         } | null;
 
         if (!response.ok || !data?.chatId) {
-          throw new Error(data?.error || data?.details || "Kunde inte starta från designsystem");
+          throw new Error(data?.error || data?.details || "Kunde inte starta från UI-element");
         }
 
         setChatId(data.chatId);
@@ -249,7 +249,7 @@ export function useBuilderPromptActions({
             console.warn("[Builder] Failed to save registry project mapping:", error);
           });
         }
-        toast.success("Designsystem-projekt skapat!");
+        toast.success("Projekt skapat från block!");
         return true;
       } catch (error) {
         console.warn("[Builder] Could not start directly from registry:", error);

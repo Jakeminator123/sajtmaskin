@@ -103,6 +103,17 @@ behavior before deploying.
 After deployment, the site runs as a real Vercel deployment with full
 server capabilities.
 
+## Builder picker components
+
+The builder toolbar exposes four picker dialogs, each in its own file:
+
+| Component | File | What it does |
+|-----------|------|-------------|
+| `UiElementPicker` | `UiElementPicker.tsx` | Browse and insert shadcn/ui blocks & components |
+| `ThemePicker` | `ThemePicker.tsx` | Select a design theme (OKLch palette) |
+| `TemplatePicker` | `TemplatePicker.tsx` | Pick a starting template category |
+| `AiElementPicker` | `AiElementPicker.tsx` | Insert AI-powered UI elements (hero, pricing, etc.) |
+
 ## Naming conventions in code
 
 | Concept | Variable/type name | Example value |
