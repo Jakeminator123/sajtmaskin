@@ -21,6 +21,7 @@ import type {
   VercelEnvVar,
   VercelProject,
 } from "./types";
+import { EnvCompare } from "./EnvCompare";
 
 interface AdminEnvironmentTabProps {
   teamStatusLoading: boolean;
@@ -140,6 +141,8 @@ export function AdminEnvironmentTab({
           </div>
         </div>
       )}
+
+      <EnvCompare />
 
       <div className="border border-gray-800 bg-black/50 p-6">
         <div className="mb-6 flex items-center gap-3">
