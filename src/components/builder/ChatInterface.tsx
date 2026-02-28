@@ -25,6 +25,9 @@ import {
   type PlacementOption,
   PLACEMENT_OPTIONS,
 } from "@/components/builder/ShadcnBlockPicker";
+import { ThemePicker } from "@/components/builder/ThemePicker";
+import { TemplatePicker } from "@/components/builder/TemplatePicker";
+import { AiElementPicker } from "@/components/builder/AiElementPicker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Blocks, FileText, ImageIcon, Loader2, Wand2 } from "lucide-react";
@@ -150,6 +153,9 @@ export function ChatInterface({
   const [isFigmaInputOpen, setIsFigmaInputOpen] = useState(false);
   const [isTextUploaderOpen, setIsTextUploaderOpen] = useState(false);
   const [isShadcnPickerOpen, setIsShadcnPickerOpen] = useState(false);
+  const [isThemePickerOpen, setIsThemePickerOpen] = useState(false);
+  const [isTemplatePickerOpen, setIsTemplatePickerOpen] = useState(false);
+  const [isAiPickerOpen, setIsAiPickerOpen] = useState(false);
   const [isDesignSystemAction, setIsDesignSystemAction] = useState(false);
   const [registrySummary, setRegistrySummary] = useState<RegistrySummary | null>(null);
   const [registryStatus, setRegistryStatus] = useState<"idle" | "loading" | "ready" | "error">(
@@ -778,6 +784,41 @@ ${technicalPrompt}`;
               <FileText className="h-3.5 w-3.5" />
               Plan
             </Button>
+            {onDesignThemeChange && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-8 gap-2"
+                onClick={() => setIsThemePickerOpen(true)}
+                disabled={inputDisabled}
+                title="Välj tema"
+              >
+                Tema
+              </Button>
+            )}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8 gap-2"
+              onClick={() => setIsTemplatePickerOpen(true)}
+              disabled={inputDisabled}
+              title="Välj mall"
+            >
+              Mall
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-8 gap-2"
+              onClick={() => setIsAiPickerOpen(true)}
+              disabled={inputDisabled}
+              title="Välj AI-element"
+            >
+              AI‑element
+            </Button>
             <Button
               type="button"
               variant="outline"
@@ -785,15 +826,10 @@ ${technicalPrompt}`;
               className="h-8 gap-2"
               onClick={() => setIsShadcnPickerOpen(true)}
               disabled={inputDisabled}
-              title={`Designsystem · ${registryStatusTitle}`}
+              title={`UI-element · ${registryStatusTitle}`}
             >
               <Blocks className="h-3.5 w-3.5" />
-              <span className="flex items-center gap-1">
-                <span>Designsystem</span>
-                <span className="text-muted-foreground max-w-[150px] truncate text-[10px]">
-                  • tema + element
-                </span>
-              </span>
+              <span>UI‑element</span>
               {registryStatus === "loading" && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
               {registryStatus === "error" && <span className="text-xs text-red-400">!</span>}
             </Button>
@@ -945,22 +981,51 @@ ${technicalPrompt}`;
         />
       )}
 
-      {isShadcnPickerOpen ? (
+      {isShadcnPickerOpen && (
         <ShadcnBlockPicker
           open={isShadcnPickerOpen}
           onClose={() => setIsShadcnPickerOpen(false)}
           onConfirm={handleDesignSystemAction}
-          onSelectAiElement={handleAiElementAction}
-          onSelectTemplate={handleTemplateSelect}
-          currentTheme={designTheme}
-          onSelectTheme={handleDesignThemeSelect}
           paletteSelections={paletteSelections}
           isBusy={inputDisabled}
           isSubmitting={isDesignSystemAction}
           hasChat={Boolean(chatId)}
           currentCode={currentCode}
         />
-      ) : null}
+      )}
+
+      {isThemePickerOpen && onDesignThemeChange && (
+        <ThemePicker
+          open={isThemePickerOpen}
+          onClose={() => setIsThemePickerOpen(false)}
+          currentTheme={designTheme}
+          onSelectTheme={handleDesignThemeSelect}
+          isBusy={inputDisabled}
+        />
+      )}
+
+      {isTemplatePickerOpen && (
+        <TemplatePicker
+          open={isTemplatePickerOpen}
+          onClose={() => setIsTemplatePickerOpen(false)}
+          onSelectTemplate={handleTemplateSelect}
+          hasChat={Boolean(chatId)}
+          isBusy={inputDisabled}
+        />
+      )}
+
+      {isAiPickerOpen && (
+        <AiElementPicker
+          open={isAiPickerOpen}
+          onClose={() => setIsAiPickerOpen(false)}
+          onConfirm={handleAiElementAction}
+          hasChat={Boolean(chatId)}
+          isBusy={inputDisabled}
+          isSubmitting={isDesignSystemAction}
+          currentCode={currentCode}
+          paletteSelections={paletteSelections}
+        />
+      )}
     </div>
   );
 }
