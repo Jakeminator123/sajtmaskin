@@ -1,0 +1,116 @@
+---
+description: Product terminology and concepts
+alwaysApply: true
+---
+
+# Sajtmaskin Terminology
+
+## Site layers (top to bottom)
+
+| Layer | What it is | URL pattern |
+|-------|-----------|-------------|
+| **Vercel** | Hosting platform. Deploys, domains, env vars, CDN. | vercel.com |
+| **v0** | AI code generation platform. Generates React code, returns demoUrl. | v0.dev, *.vusercontent.net |
+| **Sajtmaskin** | Our app. Orchestrates v0, manages projects, users, deploy flow. | sajtmaskin.se |
+| **Demo sites** | User-generated sites. Built by v0, previewed via demoUrl, deployed to Vercel. | *.vercel.app or custom domain |
+
+## Pages in our app
+
+### Start page (`/`)
+
+The landing page with 4 entry modes shown as tabs/cards:
+
+| Mode | Code name | Component | What it does |
+|------|-----------|-----------|-------------|
+| **Analyserad** (Wizard) | `wizard` | `PromptWizardModalV2` | 5-step guided questionnaire that builds a detailed prompt |
+| **Kategori** (Templates) | `category` | `TemplateGallery` | Browse template categories, pick a starting point |
+| **Audit** | `audit` | `SiteAuditSection` + `AuditModal` | Analyze an existing website URL, show improvement suggestions |
+| **Fritext** (Freeform) | `freeform` | `PromptInput` | Type a free-text description directly |
+
+All 4 modes lead to the **builder** via `/builder?buildMethod=<mode>&...`
+
+### Builder (`/builder`)
+
+The main workspace where the user iterates on their site:
+- Left panel: chat interface (prompt, AI responses, version history)
+- Right panel: live preview (iframe showing the demoUrl from v0)
+- Header: model selection, deploy button, project settings
+
+### Admin (`/admin`)
+
+Internal dashboard with tabs: Database, Environment, Analytics, Prompts.
+
+## Key concepts
+
+### Build method (`BuildMethod`)
+
+How the user entered the builder. One of:
+`wizard` | `category` | `audit` | `freeform` | `kostnadsfri`
+
+### Build intent (`BuildIntent`)
+
+What the user wants to build:
+- `website` - standard multi-page website (default)
+- `app` - interactive app with logic/flows
+- `template` - compact 1-2 page template
+
+### Project
+
+A sajtmaskin project that groups chats, versions, and deployments together.
+Stored in our database. Has an `appProjectId` (ours) and optionally a
+`v0ProjectId` (on v0's side).
+
+### Chat
+
+A conversation with v0. Each chat produces versions. Mapped to a v0 chat ID.
+
+### Version
+
+A snapshot of generated code from a single v0 response. Has a `demoUrl`
+(live preview on v0's servers) and files (the actual React/Next.js code).
+
+### demoUrl
+
+A temporary preview URL returned by v0 Platform API after code generation.
+Hosted on `*.vusercontent.net`. Used directly in the builder's iframe preview.
+Not the same as a deployed site.
+
+### Deployment
+
+When the user clicks "Deploy", we:
+1. Fetch the version's files from v0
+2. Process images (upload to Vercel Blob if needed)
+3. Create a Vercel deployment via Vercel REST API
+4. Return a permanent URL on the user's Vercel project
+
+## Preview: why iframe and not always sandboxed?
+
+The builder preview uses a plain **iframe** with the v0 `demoUrl` as source.
+This is fast and simple - v0 hosts the preview, no local build needed.
+
+The **Sandbox** (`@vercel/sandbox` via `SandboxModal`) is a separate, manual
+tool for running code in an isolated server environment. It exists because:
+
+- The demoUrl preview is **read-only** - it shows what v0 generated but cannot
+  run custom server logic, access env vars, or connect to databases
+- Sandbox gives **full runtime control** - Node.js process, env vars, npm install
+- Sandbox is slower to start and costs more resources
+
+So the default flow is: demoUrl in iframe (instant, free, good enough for
+visual preview). Sandbox is opt-in for when the user needs to test server-side
+behavior before deploying.
+
+After deployment, the site runs as a real Vercel deployment with full
+server capabilities.
+
+## Naming conventions in code
+
+| Concept | Variable/type name | Example value |
+|---------|-------------------|---------------|
+| Our project ID | `appProjectId` | `"proj_abc123"` |
+| v0 project ID | `v0ProjectId` | `"prj_xyz"` |
+| v0 chat ID | `v0ChatId` / `chatId` | `"chat_abc"` |
+| Preview URL | `demoUrl` / `currentDemoUrl` | `"https://v0-abc.vusercontent.net"` |
+| Deployed URL | `url` (in deployment) | `"https://my-site.vercel.app"` |
+| Entry mode | `buildMethod` | `"wizard"` |
+| Build type | `buildIntent` | `"website"` |
