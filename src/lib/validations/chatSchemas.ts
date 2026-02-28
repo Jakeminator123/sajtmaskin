@@ -41,6 +41,7 @@ export const createChatSchema = z.object({
   thinking: z.boolean().optional(),
   imageGenerations: z.boolean().optional(),
   chatPrivacy: z.enum(["public", "private"]).optional(),
+  designSystemId: z.string().optional(),
   meta: promptMetaSchema.optional(),
 });
 

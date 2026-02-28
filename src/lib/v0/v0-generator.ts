@@ -568,6 +568,8 @@ export interface GenerateCodeOptions {
   mediaLibrary?: MediaLibraryItem[];
   /** Optional system prompt to guide v0 behavior */
   systemPrompt?: string;
+  /** v0 Design System ID to bind the chat to a specific design system */
+  designSystemId?: string;
   /** Callback for streaming updates (if v0Streaming feature is enabled) */
   onStream?: StreamingCallback;
 }
@@ -740,6 +742,12 @@ export async function generateCode(
     if (options.attachments && options.attachments.length > 0) {
       createRequest.attachments = options.attachments;
       console.info("[v0-generator] Including", options.attachments.length, "attachments");
+    }
+
+    if (options.designSystemId) {
+      // TODO: remove cast when v0-sdk types include designSystemId
+      (createRequest as V0SdkCreateRequest & { designSystemId?: string }).designSystemId =
+        options.designSystemId;
     }
 
     const rawResponse = await v0.chats.create(createRequest);

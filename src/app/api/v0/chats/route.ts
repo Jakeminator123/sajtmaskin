@@ -52,6 +52,7 @@ export async function POST(req: Request) {
         thinking,
         imageGenerations,
         chatPrivacy,
+        designSystemId,
         meta,
       } = validationResult.data;
       const metaRequestedModelTier =
@@ -161,7 +162,8 @@ export async function POST(req: Request) {
           imageGenerations: resolvedImageGenerations,
         },
         ...(attachments ? { attachments } : {}),
-      } as Parameters<typeof v0.chats.create>[0]);
+        ...(designSystemId ? { designSystemId } : {}),
+      } as Parameters<typeof v0.chats.create>[0] & { designSystemId?: string });
 
       // Save chat and initial version to database (best-effort).
       let internalChatId: string | null = null;

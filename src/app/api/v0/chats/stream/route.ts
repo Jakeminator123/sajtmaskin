@@ -119,6 +119,7 @@ export async function POST(req: Request) {
         thinking = true,
         imageGenerations,
         chatPrivacy,
+        designSystemId,
         meta,
       } = validationResult.data;
       const metaRequestedModelTier =
@@ -319,7 +320,8 @@ export async function POST(req: Request) {
         },
         responseMode: "experimental_stream",
         ...(attachments ? { attachments } : {}),
-      } as Parameters<typeof v0.chats.create>[0] & { responseMode?: string });
+        ...(designSystemId ? { designSystemId } : {}),
+      } as Parameters<typeof v0.chats.create>[0] & { responseMode?: string; designSystemId?: string });
 
       if (result && typeof (result as any).getReader === "function") {
         const v0Stream = result as unknown as ReadableStream<Uint8Array>;
