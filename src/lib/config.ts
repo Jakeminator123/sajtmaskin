@@ -1,28 +1,21 @@
 /**
- * Centralized configuration for environment-dependent settings
- * Handles paths and uploads consistently across local dev and production
+ * Centralized configuration for environment-dependent settings.
+ * All env vars are validated and sanitized through src/lib/env.ts.
  */
 
 import path from "path";
+import { getServerEnv } from "./env";
 
-// Detect environment
-export const IS_PRODUCTION = process.env.NODE_ENV === "production";
-export const IS_RENDER = Boolean(process.env.RENDER);
+const env = getServerEnv();
 
-/**
- * Render (and some CI systems) occasionally end up with quoted env values,
- * e.g. `"sk-..."` or `'sk-...'`, or trailing whitespace. Normalize those.
- */
-function sanitizeEnvValue(value: string | undefined): string {
-  if (!value) return "";
-  const trimmed = value.trim();
-  if (
-    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
-    (trimmed.startsWith("'") && trimmed.endsWith("'"))
-  ) {
-    return trimmed.slice(1, -1).trim();
-  }
-  return trimmed;
+export const IS_PRODUCTION = env.NODE_ENV === "production";
+export const IS_RENDER = Boolean(env.RENDER);
+
+function isBuildPhase(): boolean {
+  return (
+    env.NEXT_PHASE === "phase-production-build" ||
+    env.NEXT_PHASE === "phase-export"
+  );
 }
 
 type RedisUrlParts = {
@@ -32,27 +25,34 @@ type RedisUrlParts = {
   password: string;
 };
 
-function normalizeRedisUrl(value: string | undefined, varName?: string): string | null {
-  const sanitized = sanitizeEnvValue(value);
-  if (!sanitized) return null;
-  if (/^\$\{[A-Z0-9_]+\}$/.test(sanitized) || /^\$[A-Z0-9_]+$/.test(sanitized)) {
+function normalizeRedisUrl(
+  value: string | undefined,
+  varName?: string,
+): string | null {
+  if (!value) return null;
+  if (
+    /^\$\{[A-Z0-9_]+\}$/.test(value) ||
+    /^\$[A-Z0-9_]+$/.test(value)
+  ) {
     return null;
   }
-  if (!/^rediss?:\/\//i.test(sanitized)) {
-    if (process.env.NODE_ENV === "development" && varName) {
-      console.warn(`[Config] ${varName} must be redis:// or rediss://. Ignoring value.`);
+  if (!/^rediss?:\/\//i.test(value)) {
+    if (!IS_PRODUCTION && varName) {
+      console.warn(
+        `[Config] ${varName} must be redis:// or rediss://. Ignoring value.`,
+      );
     }
     return null;
   }
-  return sanitized;
+  return value;
 }
 
 function resolveRedisUrl(): string | null {
   const candidates = [
-    normalizeRedisUrl(process.env.REDIS_URL, "REDIS_URL"),
-    normalizeRedisUrl(process.env.KV_URL, "KV_URL"),
+    normalizeRedisUrl(env.REDIS_URL, "REDIS_URL"),
+    normalizeRedisUrl(env.KV_URL, "KV_URL"),
   ];
-  return candidates.find((value) => value) || null;
+  return candidates.find(Boolean) || null;
 }
 
 function parseRedisUrl(redisUrl: string): RedisUrlParts | null {
@@ -70,7 +70,9 @@ function parseRedisUrl(redisUrl: string): RedisUrlParts | null {
 }
 
 const RESOLVED_REDIS_URL = resolveRedisUrl();
-const PARSED_REDIS_URL = RESOLVED_REDIS_URL ? parseRedisUrl(RESOLVED_REDIS_URL) : null;
+const PARSED_REDIS_URL = RESOLVED_REDIS_URL
+  ? parseRedisUrl(RESOLVED_REDIS_URL)
+  : null;
 
 /**
  * Data directory configuration (local uploads)
@@ -82,33 +84,24 @@ const PARSED_REDIS_URL = RESOLVED_REDIS_URL ? parseRedisUrl(RESOLVED_REDIS_URL) 
  * 2. Set DATA_DIR=/var/data in environment variables
  * 3. Set root directory to "app" in Render settings
  */
-// Track if we've already warned about DATA_DIR (avoid spam during build)
 let hasWarnedAboutDataDir = false;
 
 function getDataDir(): string {
-  // Skip warnings during build phase (each worker resets module state)
-  const isBuildPhase =
-    process.env.NEXT_PHASE === "phase-production-build" ||
-    process.env.NEXT_PHASE === "phase-export";
-
-  // Render persistent disk (absolute path)
-  if (process.env.DATA_DIR) {
-    // Ensure it's an absolute path on production
-    const dataDir = process.env.DATA_DIR;
-    if (IS_PRODUCTION && !path.isAbsolute(dataDir)) {
-      // Resolve to absolute and warn once to aid Render users with relative vars
-      const resolved = path.resolve(dataDir);
-      if (!hasWarnedAboutDataDir && !isBuildPhase) {
+  if (env.DATA_DIR) {
+    if (IS_PRODUCTION && !path.isAbsolute(env.DATA_DIR)) {
+      const resolved = path.resolve(env.DATA_DIR);
+      if (!hasWarnedAboutDataDir && !isBuildPhase()) {
         hasWarnedAboutDataDir = true;
-        console.warn(`[Config] WARNING: DATA_DIR was relative, resolved to absolute: ${resolved}`);
+        console.warn(
+          `[Config] WARNING: DATA_DIR was relative, resolved to absolute: ${resolved}`,
+        );
       }
       return resolved;
     }
-    return dataDir;
+    return env.DATA_DIR;
   }
 
-  // Production without DATA_DIR set - warn once (skip during build/static generation)
-  if (IS_PRODUCTION && !hasWarnedAboutDataDir && !isBuildPhase) {
+  if (IS_PRODUCTION && !hasWarnedAboutDataDir && !isBuildPhase()) {
     hasWarnedAboutDataDir = true;
     console.error(
       "[Config] ❌ CRITICAL: DATA_DIR not set in production!\n" +
@@ -117,11 +110,8 @@ function getDataDir(): string {
     );
   }
 
-  // Local development: use ./data folder in app directory
-  // process.cwd() should be the app/ folder where package.json is
   const localDataDir = path.join(process.cwd(), "data");
 
-  // Debug: Log resolved path on first access (dev only)
   if (!IS_PRODUCTION && !hasWarnedAboutDataDir) {
     hasWarnedAboutDataDir = true;
     console.log(`[Config] Using local data directory: ${localDataDir}`);
@@ -134,12 +124,10 @@ function getDataDir(): string {
  * All paths configuration
  */
 export const PATHS = {
-  // Base data directory
   get dataDir() {
     return getDataDir();
   },
 
-  // Uploads directory for user images
   get uploads() {
     return path.join(getDataDir(), "uploads");
   },
@@ -153,119 +141,108 @@ export const PATHS = {
  */
 export const SECRETS = {
   get jwtSecret() {
-    const secret = process.env.JWT_SECRET;
-    // In production, JWT_SECRET is required - throw error if missing
-    const isBuildPhase =
-      process.env.NEXT_PHASE === "phase-production-build" ||
-      process.env.NEXT_PHASE === "phase-export";
-    if (!secret && IS_PRODUCTION && typeof window === "undefined" && !isBuildPhase) {
+    if (!env.JWT_SECRET && IS_PRODUCTION && !isBuildPhase()) {
       throw new Error("JWT_SECRET is required in production");
     }
-    return secret || "dev-secret-change-in-production";
+    return env.JWT_SECRET || "dev-secret-change-in-production";
   },
 
   get v0ApiKey() {
-    return sanitizeEnvValue(process.env.V0_API_KEY);
+    return env.V0_API_KEY ?? "";
   },
 
   get vercelApiToken() {
-    return process.env.VERCEL_TOKEN || "";
+    return env.VERCEL_TOKEN ?? "";
   },
 
   get stripeSecretKey() {
-    return process.env.STRIPE_SECRET_KEY || "";
+    return env.STRIPE_SECRET_KEY ?? "";
   },
 
   get stripeWebhookSecret() {
-    return process.env.STRIPE_WEBHOOK_SECRET || "";
+    return env.STRIPE_WEBHOOK_SECRET ?? "";
   },
 
   get unsplashAccessKey() {
-    return process.env.UNSPLASH_ACCESS_KEY || "";
+    return env.UNSPLASH_ACCESS_KEY ?? "";
   },
 
   get pexelsApiKey() {
-    return process.env.PEXELS_API_KEY || "";
+    return env.PEXELS_API_KEY ?? "";
   },
 
   get figmaAccessToken() {
-    return sanitizeEnvValue(process.env.FIGMA_ACCESS_TOKEN);
+    return env.FIGMA_ACCESS_TOKEN ?? "";
   },
 
   // Google OAuth - automatically selects dev/prod credentials
   // Set GOOGLE_CLIENT_ID_DEV + GOOGLE_CLIENT_SECRET_DEV for localhost
   // Set GOOGLE_CLIENT_ID + GOOGLE_CLIENT_SECRET for production
   get googleClientId() {
-    // In development, prefer _DEV variants if available
-    if (!IS_PRODUCTION && process.env.GOOGLE_CLIENT_ID_DEV) {
-      return process.env.GOOGLE_CLIENT_ID_DEV;
+    if (!IS_PRODUCTION && env.GOOGLE_CLIENT_ID_DEV) {
+      return env.GOOGLE_CLIENT_ID_DEV;
     }
-    return process.env.GOOGLE_CLIENT_ID || "";
+    return env.GOOGLE_CLIENT_ID ?? "";
   },
 
   get googleClientSecret() {
-    // In development, prefer _DEV variants if available
-    if (!IS_PRODUCTION && process.env.GOOGLE_CLIENT_SECRET_DEV) {
-      return process.env.GOOGLE_CLIENT_SECRET_DEV;
+    if (!IS_PRODUCTION && env.GOOGLE_CLIENT_SECRET_DEV) {
+      return env.GOOGLE_CLIENT_SECRET_DEV;
     }
-    return process.env.GOOGLE_CLIENT_SECRET || "";
+    return env.GOOGLE_CLIENT_SECRET ?? "";
   },
 
   get googleApiKey() {
-    return process.env.GOOGLE_API_KEY || "";
+    return env.GOOGLE_API_KEY ?? "";
   },
 
   // GitHub OAuth - automatically selects dev/prod credentials
   // Set GITHUB_CLIENT_ID_DEV + GITHUB_CLIENT_SECRET_DEV for localhost
   // Set GITHUB_CLIENT_ID + GITHUB_CLIENT_SECRET for production
   get githubClientId() {
-    if (!IS_PRODUCTION && process.env.GITHUB_CLIENT_ID_DEV) {
-      return process.env.GITHUB_CLIENT_ID_DEV;
+    if (!IS_PRODUCTION && env.GITHUB_CLIENT_ID_DEV) {
+      return env.GITHUB_CLIENT_ID_DEV;
     }
-    return process.env.GITHUB_CLIENT_ID || "";
+    return env.GITHUB_CLIENT_ID ?? "";
   },
 
   get githubClientSecret() {
-    if (!IS_PRODUCTION && process.env.GITHUB_CLIENT_SECRET_DEV) {
-      return process.env.GITHUB_CLIENT_SECRET_DEV;
+    if (!IS_PRODUCTION && env.GITHUB_CLIENT_SECRET_DEV) {
+      return env.GITHUB_CLIENT_SECRET_DEV;
     }
-    return process.env.GITHUB_CLIENT_SECRET || "";
+    return env.GITHUB_CLIENT_SECRET ?? "";
   },
 
-  // Resend (transactional email)
   get resendApiKey() {
-    return process.env.RESEND_API_KEY || "";
+    return env.RESEND_API_KEY ?? "";
   },
 
   get emailFrom() {
-    return process.env.EMAIL_FROM || "Sajtmaskin <noreply@sajtmaskin.se>";
+    return env.EMAIL_FROM;
   },
 
-  // Admin/Backoffice authentication
   get backofficePassword() {
-    return process.env.BACKOFFICE_PASSWORD || "";
+    return env.BACKOFFICE_PASSWORD ?? "";
   },
 
   get testUserEmail() {
-    return process.env.TEST_USER_EMAIL || "";
+    return env.TEST_USER_EMAIL ?? "";
   },
 
   get testUserPassword() {
-    return process.env.TEST_USER_PASSWORD || "";
+    return env.TEST_USER_PASSWORD ?? "";
   },
 
   // Superadmin credentials - works in ALL environments (including production)
-  // Use for unlimited diamonds and admin access
   get superadminEmail() {
-    return process.env.SUPERADMIN_EMAIL || "";
+    return env.SUPERADMIN_EMAIL ?? "";
   },
 
   get superadminPassword() {
-    return process.env.SUPERADMIN_PASSWORD || "";
+    return env.SUPERADMIN_PASSWORD ?? "";
   },
 } as const;
 
-// Type for secret names (excluding functions)
 type SecretName = Exclude<keyof typeof SECRETS, "prototype">;
 
 /**
@@ -307,20 +284,15 @@ export const REDIS_CONFIG = {
  */
 export const URLS = {
   get baseUrl() {
-    const raw = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
-    const trimmed = raw.trim();
-    const normalized = trimmed.replace(/\/+$/, "");
-    return normalized || "http://localhost:3000";
+    return env.NEXT_PUBLIC_APP_URL.replace(/\/+$/, "") || "http://localhost:3000";
   },
 
   get googleCallbackUrl() {
-    const override = process.env.GOOGLE_REDIRECT_URI?.trim();
-    return override || `${this.baseUrl}/api/auth/google/callback`;
+    return env.GOOGLE_REDIRECT_URI || `${this.baseUrl}/api/auth/google/callback`;
   },
 
   get githubCallbackUrl() {
-    const override = process.env.GITHUB_REDIRECT_URI?.trim();
-    return override || `${this.baseUrl}/api/auth/github/callback`;
+    return env.GITHUB_REDIRECT_URI || `${this.baseUrl}/api/auth/github/callback`;
   },
 } as const;
 
@@ -328,34 +300,25 @@ export const URLS = {
  * Feature flags
  */
 export const FEATURES = {
-  // Enable Redis caching
   useRedisCache: REDIS_CONFIG.enabled,
 
-  // Enable Google OAuth
   useGoogleAuth: Boolean(SECRETS.googleClientId && SECRETS.googleClientSecret),
 
-  // Enable GitHub OAuth
   useGitHubAuth: Boolean(SECRETS.githubClientId && SECRETS.githubClientSecret),
 
-  // Enable Stripe payments
   useStripePayments: Boolean(SECRETS.stripeSecretKey),
 
-  // Enable image APIs
   // NOTE: Pexels is disabled - set ENABLE_PEXELS=true to re-enable
-  // Reason: Focusing on Unsplash only for now (simpler, works well with v0)
-  usePexels: Boolean(SECRETS.pexelsApiKey) && process.env.ENABLE_PEXELS === "true",
+  usePexels: Boolean(SECRETS.pexelsApiKey) && env.ENABLE_PEXELS === "true",
   useUnsplash: Boolean(SECRETS.unsplashAccessKey),
   useFigmaApi: Boolean(SECRETS.figmaAccessToken),
 
-  // Enable v0 API for code generation
   useV0Api: Boolean(SECRETS.v0ApiKey),
 
-  // Enable Vercel REST API integration
   useVercelApi: Boolean(SECRETS.vercelApiToken),
 
-  // Enable Vercel Blob storage (CRITICAL for AI-generated images in v0 preview!)
-  // Without this, AI images will NOT appear in v0's demoUrl preview
-  useVercelBlob: Boolean(process.env.BLOB_READ_WRITE_TOKEN),
+  // CRITICAL for AI-generated images in v0 preview
+  useVercelBlob: Boolean(env.BLOB_READ_WRITE_TOKEN),
 } as const;
 
 function resolveDbLogLabel(): string {
@@ -365,12 +328,11 @@ function resolveDbLogLabel(): string {
     "POSTGRES_URL_NON_POOLING",
   ] as const;
   for (const key of dbEnvCandidates) {
-    if (sanitizeEnvValue(process.env[key])) return key;
+    if (env[key]) return key;
   }
   return "not-configured";
 }
 
-// Use globalThis to persist across hot reloads in dev mode
 declare global {
   var __configLogged: boolean | undefined;
 }
@@ -381,13 +343,9 @@ declare global {
  * SECURITY: Never log actual secret values!
  */
 export function logConfig(): void {
-  // Skip if already logged in this Node.js process
-  if (globalThis.__configLogged) {
-    return;
-  }
+  if (globalThis.__configLogged) return;
   globalThis.__configLogged = true;
 
-  // Compact single-line log for cleaner output
   const features = Object.entries(FEATURES)
     .filter(([, v]) => v)
     .map(([k]) =>
@@ -410,9 +368,7 @@ export function logConfig(): void {
  * Call this at app startup to fail fast if critical config is missing
  */
 export function validateEnv(): { valid: boolean; missing: string[] } {
-  // Core required secrets for production
   const coreSecrets: SecretName[] = IS_PRODUCTION ? ["jwtSecret", "v0ApiKey"] : [];
-
   const missing = validateRequiredSecrets(coreSecrets);
 
   if (missing.length > 0 && IS_PRODUCTION) {

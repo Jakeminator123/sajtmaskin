@@ -24,7 +24,9 @@ export function useAutoFix(
     [sendMessage],
   );
 
-  autoFixHandlerRef.current = handleAutoFix;
+  useEffect(() => {
+    autoFixHandlerRef.current = handleAutoFix;
+  });
 
   useEffect(() => {
     const handler = (event: Event) => {

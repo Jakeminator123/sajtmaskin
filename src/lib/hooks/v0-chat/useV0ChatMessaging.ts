@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef } from "react";
 import { warnLog } from "@/lib/utils/debug";
 import { STREAM_SAFETY_TIMEOUT_DEFAULT_MS } from "./constants";
 import type { AutoFixPayload, V0ChatMessagingParams, V0ChatMessagingReturn } from "./types";
-import { buildAutoFixPrompt, clearCreateChatLock } from "./helpers";
+import { clearCreateChatLock } from "./helpers";
 import { useCreateChat } from "./useCreateChat";
 import { useSendMessage } from "./useSendMessage";
 import { useAutoFix } from "./useAutoFix";
@@ -97,7 +97,9 @@ export function useV0ChatMessaging(params: V0ChatMessagingParams): V0ChatMessagi
   const { sendMessage } = useSendMessage(params, { createNewChat, ...sharedDeps });
 
   const { autoFixHandlerRef: resolvedAutoFixRef } = useAutoFix(sendMessage);
-  autoFixHandlerRef.current = resolvedAutoFixRef.current;
+  useEffect(() => {
+    autoFixHandlerRef.current = resolvedAutoFixRef.current;
+  });
 
   const cancelActiveGeneration = useCallback(() => {
     streamAbortRef.current?.abort();

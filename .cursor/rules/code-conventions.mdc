@@ -1,0 +1,48 @@
+---
+description: Code conventions for the sajtmaskin codebase
+alwaysApply: true
+---
+
+# Code Conventions
+
+## File size
+
+- Aim for **~400 lines max** per file. If a file grows past this, consider
+  splitting it into focused modules (see steps 2-5 in the refactoring roadmap
+  for examples of how large files were split).
+
+## Hooks
+
+- Each custom hook should do **one thing**. Prefer composing small hooks in
+  a controller/orchestrator hook over stuffing everything into a single hook.
+- Name hooks after their responsibility: `useBuilderDeployActions`,
+  `useBuilderPromptActions`, etc.
+
+## Pages (`page.tsx`)
+
+- Pages should be **thin wrappers**: a Suspense boundary + a controller hook +
+  a presentational shell component. Business logic belongs in hooks or
+  service functions, not inline in `page.tsx`.
+
+## API routes
+
+- Route handlers (`route.ts`) should validate input, call a service function,
+  and return a response. Heavy logic belongs in `src/lib/` service modules.
+
+## Components
+
+- New component directories should have a barrel `index.ts` re-exporting
+  public API.
+- Prefer composing existing shadcn/ui primitives over creating new base
+  components.
+
+## Imports
+
+- Use the `@/*` path alias for all `src/` imports.
+- Group imports: external packages first, then internal modules, then
+  relative imports.
+
+## Naming
+
+- **Swedish** for user-facing copy (UI strings, emails).
+- **English** for code, comments, logs, variable names, and commit messages.

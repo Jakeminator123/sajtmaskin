@@ -2,6 +2,7 @@ import { defineConfig, globalIgnores } from "eslint/config";
 import nextCoreWebVitals from "eslint-config-next/core-web-vitals";
 import nextTypescript from "eslint-config-next/typescript";
 import prettier from "eslint-config-prettier/flat";
+import reactHooks from "eslint-plugin-react-hooks";
 
 export default defineConfig([
   // Next.js recommended configs (flat config)
@@ -29,7 +30,6 @@ export default defineConfig([
   // Global rules
   {
     rules: {
-      // Allow unused vars prefixed with underscore
       "@typescript-eslint/no-unused-vars": [
         "warn",
         {
@@ -37,11 +37,18 @@ export default defineConfig([
           varsIgnorePattern: "^_",
         },
       ],
-      // Disable React Hooks rules introduced in eslint-config-next@16
-      // These are noisy in existing code; revisit later if needed.
-      "react-hooks/set-state-in-effect": "off",
-      "react-hooks/static-components": "off",
-      "react-hooks/immutability": "off",
+      "no-console": ["warn", { allow: ["warn", "error", "info"] }],
+      "@typescript-eslint/no-explicit-any": "warn",
+    },
+  },
+
+  // React Hooks rules (need the plugin registered to enable as warn)
+  {
+    plugins: { "react-hooks": reactHooks },
+    rules: {
+      "react-hooks/set-state-in-effect": "warn",
+      "react-hooks/static-components": "warn",
+      "react-hooks/immutability": "warn",
     },
   },
 
@@ -50,16 +57,6 @@ export default defineConfig([
     files: ["src/lib/config.ts"],
     rules: {
       "no-var": "off",
-    },
-  },
-
-  // Suppress explicit-any in API/lib/builder modules
-  // These areas use dynamic v0 API responses where full typing is impractical.
-  // Incrementally add stricter types over time as SDK types stabilize.
-  {
-    files: ["src/app/api/**/*.ts", "src/lib/**/*.ts", "src/components/builder/**/*.tsx"],
-    rules: {
-      "@typescript-eslint/no-explicit-any": "off",
     },
   },
 ]);
