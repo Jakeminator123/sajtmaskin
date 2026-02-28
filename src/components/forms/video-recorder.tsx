@@ -45,37 +45,84 @@ async function extractKeyframes(videoBlob: Blob, count: number = 4): Promise<str
     const frames: string[] = [];
     const canvas = document.createElement("canvas");
     const ctx = canvas.getContext("2d");
+    let settled = false;
+
+    const finalize = (result: string[]) => {
+      if (settled) return;
+      settled = true;
+      URL.revokeObjectURL(url);
+      video.onloadedmetadata = null;
+      video.onseeked = null;
+      video.onerror = null;
+      resolve(result);
+    };
 
     video.onloadedmetadata = () => {
       const duration = video.duration;
-      if (!duration || duration < 1 || !ctx) {
-        URL.revokeObjectURL(url);
-        resolve([]);
+      const width = video.videoWidth;
+      const height = video.videoHeight;
+
+      // Some MediaRecorder webm blobs report duration as Infinity/NaN.
+      // In that case we skip frame extraction instead of throwing on currentTime.
+      if (
+        !ctx ||
+        !Number.isFinite(duration) ||
+        duration <= 0 ||
+        !Number.isFinite(width) ||
+        !Number.isFinite(height) ||
+        width <= 0 ||
+        height <= 0
+      ) {
+        finalize([]);
         return;
       }
 
       canvas.width = 320; // Small enough for API but readable
-      canvas.height = Math.round(320 * (video.videoHeight / video.videoWidth));
+      canvas.height = Math.max(1, Math.round(320 * (height / width)));
 
       const times: number[] = [];
       for (let i = 0; i < count; i++) {
-        times.push((duration * (i + 0.5)) / count);
+        const time = (duration * (i + 0.5)) / count;
+        if (Number.isFinite(time) && time >= 0 && time <= duration) {
+          times.push(time);
+        }
+      }
+
+      if (times.length === 0) {
+        finalize([]);
+        return;
       }
 
       let idx = 0;
       const captureNext = () => {
         if (idx >= times.length) {
-          URL.revokeObjectURL(url);
-          resolve(frames);
+          finalize(frames);
           return;
         }
-        video.currentTime = times[idx];
+
+        const nextTime = times[idx];
+        if (!Number.isFinite(nextTime)) {
+          finalize(frames);
+          return;
+        }
+
+        try {
+          // Setting currentTime exactly to duration can throw in some browsers.
+          const safeTime = Math.min(nextTime, Math.max(0, duration - 0.001));
+          video.currentTime = safeTime;
+        } catch {
+          finalize(frames);
+        }
       };
 
       video.onseeked = () => {
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        const dataUrl = canvas.toDataURL("image/jpeg", 0.7);
-        frames.push(dataUrl);
+        try {
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          const dataUrl = canvas.toDataURL("image/jpeg", 0.7);
+          frames.push(dataUrl);
+        } catch {
+          // Ignore single-frame failures and continue.
+        }
         idx++;
         captureNext();
       };
@@ -84,8 +131,7 @@ async function extractKeyframes(videoBlob: Blob, count: number = 4): Promise<str
     };
 
     video.onerror = () => {
-      URL.revokeObjectURL(url);
-      resolve([]);
+      finalize([]);
     };
   });
 }

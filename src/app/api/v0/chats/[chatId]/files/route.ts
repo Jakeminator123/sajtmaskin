@@ -7,6 +7,15 @@ import { versions } from "@/lib/db/schema";
 import { and, eq, or } from "drizzle-orm";
 import { materializeImagesInTextFiles } from "@/lib/imageAssets";
 import { resolveVersionFiles } from "@/lib/v0/resolve-version-files";
+import { normalizeV0Error } from "@/lib/v0/errors";
+
+function v0ErrorResponse(err: unknown, fallbackMessage: string) {
+  const info = normalizeV0Error(err);
+  return NextResponse.json(
+    { error: info.message || fallbackMessage, code: info.code },
+    { status: info.status },
+  );
+}
 
 const updateFilesSchema = z.object({
   versionId: z.string().min(1, "Version ID is required"),
@@ -123,10 +132,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ chatId: 
     });
   } catch (err) {
     console.error("Error fetching files:", err);
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Failed to fetch files" },
-      { status: 500 },
-    );
+    return v0ErrorResponse(err, "Failed to fetch files");
   }
 }
 
@@ -165,10 +171,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ chatId: 
     });
   } catch (err) {
     console.error("Error updating files:", err);
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Failed to update files" },
-      { status: 500 },
-    );
+    return v0ErrorResponse(err, "Failed to update files");
   }
 }
 
@@ -243,10 +246,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ chatId
     });
   } catch (err) {
     console.error("Error updating file:", err);
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Failed to update file" },
-      { status: 500 },
-    );
+    return v0ErrorResponse(err, "Failed to update file");
   }
 }
 
@@ -299,9 +299,6 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ chatI
     });
   } catch (err) {
     console.error("Error deleting file:", err);
-    return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Failed to delete file" },
-      { status: 500 },
-    );
+    return v0ErrorResponse(err, "Failed to delete file");
   }
 }

@@ -13,7 +13,7 @@ function generateSessionId(): string {
 
 const API_PREFIX = "/api/";
 
-export function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const response = NextResponse.next();
 

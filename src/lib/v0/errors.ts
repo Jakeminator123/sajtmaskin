@@ -42,6 +42,22 @@ function getErrorMessage(err: unknown): string {
   return "Okänt fel";
 }
 
+/**
+ * Extract a meaningful HTTP status code from a v0 SDK error.
+ * Falls back to 500 if no status can be determined.
+ */
+export function extractV0StatusCode(err: unknown): number {
+  if (!err || typeof err !== "object") return 500;
+  const status = getStatusCode(err);
+  if (status) return status;
+  const msg = getErrorMessage(err).toLowerCase();
+  if (msg.includes("401") || msg.includes("unauthorized")) return 401;
+  if (msg.includes("403") || msg.includes("forbidden")) return 403;
+  if (msg.includes("404") || msg.includes("not found")) return 404;
+  if (msg.includes("429") || msg.includes("rate limit")) return 429;
+  return 500;
+}
+
 export function normalizeV0Error(err: unknown): V0ErrorInfo {
   const statusHint = getStatusCode(err);
   const retryAfter = getRetryAfterSeconds(err);

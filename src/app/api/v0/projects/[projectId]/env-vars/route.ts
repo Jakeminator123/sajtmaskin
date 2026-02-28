@@ -130,7 +130,8 @@ async function resolveOwnedV0ProjectId(req: Request, projectId: string) {
   }
   if (isSyntheticV0ProjectId(v0ProjectId)) {
     return {
-      error: "Env vars are not supported for synthetic project ids",
+      error:
+        "Miljövariabler kan inte sättas för detta projekt ännu. Projektet saknar ett riktigt v0 projekt-ID (har tillfälligt ID). Generera en ny sajt först så skapas ett riktigt projekt.",
       status: 422 as const,
     };
   }
