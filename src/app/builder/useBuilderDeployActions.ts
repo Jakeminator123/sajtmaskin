@@ -84,29 +84,14 @@ export function useBuilderDeployActions({
     setIsDomainSearching(true);
     setDomainResults(null);
     try {
-      const query = domainQuery.trim().toLowerCase();
-      const hasTld = query.includes(".");
-      const domains = hasTld
-        ? [query]
-        : [`${query}.se`, `${query}.com`, `${query}.io`, `${query}.app`, `${query}.net`];
-
-      const results = await Promise.all(
-        domains.map(async (domain) => {
-          try {
-            const res = await fetch(`/api/vercel/domains/price?domain=${encodeURIComponent(domain)}`);
-            const data = await res.json();
-            return {
-              domain,
-              available: data.available ?? true,
-              price: data.price ?? 0,
-              currency: data.currency ?? "SEK",
-            };
-          } catch {
-            return { domain, available: false, price: 0, currency: "SEK" };
-          }
-        }),
-      );
-      setDomainResults(results);
+      const res = await fetch("/api/domains/check", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query: domainQuery.trim() }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Search failed");
+      setDomainResults(data.results ?? []);
     } catch {
       toast.error("Kunde inte söka domäner");
     } finally {

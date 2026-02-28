@@ -52,6 +52,14 @@ const AUTH_COOKIE_NAME = "sajtmaskin_auth";
 const GOOGLE_CLIENT_ID = SECRETS.googleClientId;
 const GOOGLE_CLIENT_SECRET = SECRETS.googleClientSecret;
 const GOOGLE_REDIRECT_URI = URLS.googleCallbackUrl;
+const DEFAULT_GOOGLE_REDIRECT_URI = "http://localhost:3000/api/auth/google/callback";
+
+function resolveGoogleRedirectUri(override?: string): string {
+  const candidate = override?.trim();
+  if (candidate) return candidate;
+  if (GOOGLE_REDIRECT_URI) return GOOGLE_REDIRECT_URI;
+  return DEFAULT_GOOGLE_REDIRECT_URI;
+}
 
 // ============ JWT Token Management ============
 
@@ -412,14 +420,14 @@ async function bootstrapAdminUser(user: User): Promise<void> {
 /**
  * Get Google OAuth authorization URL
  */
-export function getGoogleAuthUrl(state?: string): string {
+export function getGoogleAuthUrl(state?: string, redirectUri?: string): string {
   if (!GOOGLE_CLIENT_ID) {
     throw new Error("GOOGLE_CLIENT_ID is not configured");
   }
 
   const params = new URLSearchParams({
     client_id: GOOGLE_CLIENT_ID,
-    redirect_uri: GOOGLE_REDIRECT_URI || "http://localhost:3000/api/auth/google/callback",
+    redirect_uri: resolveGoogleRedirectUri(redirectUri),
     response_type: "code",
     scope: "openid email profile",
     access_type: "offline",
@@ -435,6 +443,7 @@ export function getGoogleAuthUrl(state?: string): string {
  */
 export async function exchangeGoogleCode(
   code: string,
+  redirectUri?: string,
 ): Promise<{ accessToken: string; idToken: string } | null> {
   if (!GOOGLE_CLIENT_ID || !GOOGLE_CLIENT_SECRET) {
     console.error("[Auth] Google OAuth not configured");
@@ -451,7 +460,7 @@ export async function exchangeGoogleCode(
         code,
         client_id: GOOGLE_CLIENT_ID,
         client_secret: GOOGLE_CLIENT_SECRET,
-        redirect_uri: GOOGLE_REDIRECT_URI || "http://localhost:3000/api/auth/google/callback",
+        redirect_uri: resolveGoogleRedirectUri(redirectUri),
         grant_type: "authorization_code",
       }),
     });
@@ -513,9 +522,10 @@ export async function getGoogleUserInfo(accessToken: string): Promise<{
  */
 export async function handleGoogleCallback(
   code: string,
+  redirectUri?: string,
 ): Promise<{ user: User; token: string } | { error: string }> {
   // Exchange code for tokens
-  const tokens = await exchangeGoogleCode(code);
+  const tokens = await exchangeGoogleCode(code, redirectUri);
   if (!tokens) {
     return { error: "Kunde inte verifiera med Google" };
   }

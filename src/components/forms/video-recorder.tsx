@@ -277,13 +277,20 @@ export function VideoRecorder({
           throw new Error(transcribeResult.error || "Transkribering misslyckades");
         }
 
-        const transcript = transcribeResult.transcript || "";
+        const transcript = (transcribeResult.transcript || "").trim();
         if (!transcript) {
           setError("Inget tal upptacktes i videon. Forsok igen.");
           return;
         }
 
         onTranscript(transcript);
+
+        // Very short transcripts often fail downstream validation and produce noisy 400s.
+        // Keep the transcript for the brief, but skip presentation analysis in this case.
+        if (transcript.length < 10) {
+          console.warn("[VideoRecorder] Transcript too short for presentation analysis");
+          return;
+        }
 
         // Step 2: Analyze presentation (transcript + visual frames)
         setProcessingStep("AI granskar din presentation for sajtbriefen...");

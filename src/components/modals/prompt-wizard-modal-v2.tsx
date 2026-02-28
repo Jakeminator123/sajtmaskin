@@ -34,6 +34,7 @@ import { VoiceRecorder } from "@/components/forms/voice-recorder";
 import { VideoRecorder } from "@/components/forms/video-recorder";
 import { buildIntentNoun } from "@/lib/builder/build-intent";
 import type { BuildIntent } from "@/lib/builder/build-intent";
+import { useAuth } from "@/lib/auth/auth-store";
 
 /**
  * PromptWizardModal V2 - Adaptive Business Analysis Wizard
@@ -320,6 +321,7 @@ export function PromptWizardModalV2({
   categoryType: _categoryType = "website",
   buildIntent = "website",
 }: PromptWizardModalProps) {
+  const { isAuthenticated, isInitialized } = useAuth();
   const [step, setStep] = useState(1);
   const totalSteps = 5;
 
@@ -479,6 +481,9 @@ export function PromptWizardModalV2({
       // Don't re-enrich the same step unless scraping
       if (enrichedStepsRef.current.has(currentStep) && !scrapeUrl) return;
 
+      // Wizard enrich requires auth (credits action). Skip calls for guests.
+      if (!isInitialized || !isAuthenticated) return;
+
       // Cancel any in-flight request
       enrichAbortRef.current?.abort();
       const controller = new AbortController();
@@ -510,6 +515,8 @@ export function PromptWizardModalV2({
         });
 
         if (!response.ok) {
+          // Expected when auth/session is stale. Keep this non-fatal and quiet.
+          if (response.status === 401) return;
           console.warn("[Wizard] Enrich request failed:", response.status);
           return;
         }
@@ -537,7 +544,7 @@ export function PromptWizardModalV2({
         setIsEnriching(false);
       }
     },
-    [], // Stable -- reads from enrichDataRef
+    [isAuthenticated, isInitialized], // reads dynamic auth state + enrichDataRef
   );
 
   // ── Scrape website on URL entry (non-blocking) ────────────────

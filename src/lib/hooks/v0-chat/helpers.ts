@@ -1,6 +1,6 @@
-import type { ChatMessage, UiMessagePart } from "@/lib/builder/types";
+import type { UiMessagePart } from "@/lib/builder/types";
 import type { PromptStrategyMeta } from "@/lib/builder/promptOrchestration";
-import { CREATE_CHAT_LOCK_KEY, CREATE_CHAT_LOCK_TTL_MS, POST_CHECK_MARKER } from "./constants";
+import { CREATE_CHAT_LOCK_KEY, CREATE_CHAT_LOCK_TTL_MS } from "./constants";
 import type {
   AutoFixPayload,
   CreateChatLock,
@@ -393,7 +393,7 @@ export function coerceIntegrationSignals(data: unknown): IntegrationSseSignal[] 
           ? [data]
           : [];
 
-  return rawItems
+  const parsed = rawItems
     .map((item) => {
       if (!item || typeof item !== "object") return null;
       const signal = item as Record<string, unknown>;
@@ -419,33 +419,124 @@ export function coerceIntegrationSignals(data: unknown): IntegrationSseSignal[] 
       } as IntegrationSseSignal;
     })
     .filter((item): item is IntegrationSseSignal => Boolean(item));
+
+  return mergeIntegrationSignalsByProvider(parsed);
+}
+
+const KNOWN_PROVIDERS = [
+  "supabase", "neon", "upstash", "redis", "stripe", "openai",
+  "elevenlabs", "resend", "twilio", "sendgrid", "clerk", "auth0",
+  "firebase", "mongodb", "planetscale", "turso", "drizzle",
+  "prisma", "convex", "appwrite", "sanity", "contentful",
+];
+
+function deriveProviderKey(signal: IntegrationSseSignal): string {
+  const provider = signal.provider?.toLowerCase().trim();
+  if (provider) {
+    const match = KNOWN_PROVIDERS.find((k) => provider.includes(k));
+    if (match) return match;
+    return provider;
+  }
+
+  const name = signal.name?.toLowerCase().trim() ?? "";
+  for (const known of KNOWN_PROVIDERS) {
+    if (name.includes(known)) return known;
+  }
+
+  const envHint = signal.envVars?.join(" ").toLowerCase() ?? "";
+  for (const known of KNOWN_PROVIDERS) {
+    if (envHint.includes(known)) return known;
+  }
+
+  if (signal.key) return signal.key;
+  if (name) return name;
+  if (signal.envVars && signal.envVars.length > 0) {
+    return `env:${signal.envVars.sort().join(",")}`;
+  }
+  return `signal:${Math.random().toString(36).slice(2, 8)}`;
+}
+
+function mergeIntegrationSignalsByProvider(
+  signals: IntegrationSseSignal[],
+): IntegrationSseSignal[] {
+  if (signals.length <= 1) return signals;
+
+  const groups = new Map<string, IntegrationSseSignal[]>();
+  for (const signal of signals) {
+    const key = deriveProviderKey(signal);
+    const group = groups.get(key);
+    if (group) {
+      group.push(signal);
+    } else {
+      groups.set(key, [signal]);
+    }
+  }
+
+  const merged: IntegrationSseSignal[] = [];
+  for (const [, group] of groups) {
+    if (group.length === 1) {
+      merged.push(group[0]);
+      continue;
+    }
+    const allEnvVars = new Set<string>();
+    let bestName: string | undefined;
+    let bestProvider: string | undefined;
+    let bestStatus: string | undefined;
+    let bestIntent: IntegrationSseSignal["intent"];
+    let bestMarketplaceUrl: string | undefined;
+    let bestSourceEvent: string | undefined;
+
+    for (const s of group) {
+      if (s.name && !bestName) bestName = s.name;
+      if (s.provider && !bestProvider) bestProvider = s.provider;
+      if (s.status && !bestStatus) bestStatus = s.status;
+      if (s.intent && !bestIntent) bestIntent = s.intent;
+      if (s.marketplaceUrl && !bestMarketplaceUrl) bestMarketplaceUrl = s.marketplaceUrl;
+      if (s.sourceEvent && !bestSourceEvent) bestSourceEvent = s.sourceEvent;
+      if (s.envVars) s.envVars.forEach((v) => allEnvVars.add(v));
+    }
+
+    const envArr = [...allEnvVars].filter((v) => /^[A-Z][A-Z0-9_]+$/.test(v));
+    const mergedKey = bestProvider ?? bestName ?? group[0].key;
+    merged.push({
+      key: mergedKey ? `merged:${mergedKey}` : group[0].key,
+      name: bestName,
+      provider: bestProvider,
+      status: bestStatus,
+      intent: bestIntent,
+      envVars: envArr.length > 0 ? envArr : undefined,
+      marketplaceUrl: bestMarketplaceUrl,
+      sourceEvent: bestSourceEvent,
+    });
+  }
+
+  return merged;
 }
 
 function buildIntegrationSteps(signal: IntegrationSseSignal): string[] {
   const steps: string[] = [];
-  if (signal.name) steps.push(`Integration: ${signal.name}`);
-  if (signal.provider && signal.provider !== signal.name) {
-    steps.push(`Provider: ${signal.provider}`);
-  }
+  const displayName =
+    signal.provider ?? signal.name ?? "Integration";
+  steps.push(`Integration: ${displayName}`);
   if (signal.intent) {
     const label =
       signal.intent === "env_vars"
         ? "Konfigurera miljövariabler"
         : signal.intent === "install"
-          ? "Installera integration"
+          ? "Installera"
           : signal.intent === "connect"
-            ? "Koppla integration"
-            : "Konfigurera integration";
+            ? "Koppla"
+            : "Konfigurera";
     steps.push(`Åtgärd: ${label}`);
   }
   if (signal.envVars && signal.envVars.length > 0) {
-    steps.push(`Miljövariabler: ${signal.envVars.join(", ")}`);
+    const realKeys = signal.envVars.filter((v) => /^[A-Z][A-Z0-9_]+$/.test(v));
+    if (realKeys.length > 0) {
+      steps.push(`Miljövariabler: ${realKeys.join(", ")}`);
+    }
   }
   if (signal.status) {
     steps.push(`Status: ${signal.status}`);
-  }
-  if (signal.marketplaceUrl) {
-    steps.push(`Marketplace: ${signal.marketplaceUrl}`);
   }
   return steps;
 }

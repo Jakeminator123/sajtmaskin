@@ -7,7 +7,6 @@ import { PreviewPanel } from "@/components/builder/PreviewPanel";
 import { SandboxModal } from "@/components/builder/SandboxModal";
 import { VersionHistory } from "@/components/builder/VersionHistory";
 import { BuilderHeader } from "@/components/builder/BuilderHeader";
-import { IntegrationStatusPanel } from "@/components/builder/IntegrationStatusPanel";
 import { ProjectEnvVarsPanel } from "@/components/builder/ProjectEnvVarsPanel";
 import { DeployNameDialog } from "@/components/builder/DeployNameDialog";
 import { DomainSearchDialog } from "@/components/builder/DomainSearchDialog";
@@ -76,7 +75,6 @@ export function BuilderShellContent(vm: BuilderViewModel) {
 
       <div className="flex flex-1 overflow-hidden">
         <div className="border-border bg-background flex w-full flex-col border-r lg:w-96">
-          <IntegrationStatusPanel />
           <ProjectEnvVarsPanel projectId={vm.v0ProjectId} />
           <div className="flex-1 overflow-hidden">
             <MessageList

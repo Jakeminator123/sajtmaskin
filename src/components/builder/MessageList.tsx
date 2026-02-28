@@ -391,10 +391,16 @@ const MessageListComponent = ({
                       !quickReplyDisabled &&
                       replyPrompt &&
                       replyPrompt.options.length > 0;
-                    const canOpen = Boolean(chatId);
+                    const isRealEnvKey = (v: string) => /^[A-Z][A-Z0-9_]+$/.test(v.trim());
+                    const realEnvKeys = dedupeStrings(
+                      (integrationSummary?.envKeys ?? []).filter(isRealEnvKey),
+                    );
+                    const realCardEnvKeys = dedupeStrings(
+                      (integrationCard?.envKeys ?? []).filter(isRealEnvKey),
+                    );
                     const projectEnvKeys = dedupeStrings([
-                      ...(integrationSummary?.envKeys ?? []),
-                      ...(integrationCard?.envKeys ?? []),
+                      ...realEnvKeys,
+                      ...realCardEnvKeys,
                     ]);
 
                     return (
@@ -463,9 +469,9 @@ const MessageListComponent = ({
                                 Integration: {integrationSummary.name}
                               </p>
                             )}
-                            {integrationSummary?.envKeys && integrationSummary.envKeys.length > 0 && (
+                            {realEnvKeys.length > 0 && (
                               <p className="text-muted-foreground mt-1 text-xs">
-                                Miljövariabler: {integrationSummary.envKeys.join(", ")}
+                                Miljövariabler: {realEnvKeys.join(", ")}
                               </p>
                             )}
                             {integrationSummary?.status && (
@@ -480,61 +486,32 @@ const MessageListComponent = ({
                                     Åtgärd: {integrationCard.intentLabel}
                                   </p>
                                 )}
-                                {integrationCard.envKeys.length > 0 && (
+                                {realCardEnvKeys.length > 0 && (
                                   <p className="text-muted-foreground mt-1">
-                                    Miljövariabler: {integrationCard.envKeys.join(", ")}
-                                  </p>
-                                )}
-                                {integrationCard.sourceEvent && (
-                                  <p className="text-muted-foreground mt-1">
-                                    Källa: {integrationCard.sourceEvent}
+                                    Miljövariabler: {realCardEnvKeys.join(", ")}
                                   </p>
                                 )}
                               </div>
                             ) : (
-                              <>
-                                <p className="text-muted-foreground mt-2 text-xs">
-                                  Den här åtgärden hanteras av den externa motorn. Öppna extern chat
-                                  om du vill installera.
-                                </p>
-                                <p className="text-muted-foreground mt-1 text-xs">
-                                  Om integration krävs: kontrollera Integrationspanelen för saknade nycklar.
-                                </p>
-                              </>
+                              <p className="text-muted-foreground mt-2 text-xs">
+                                Den genererade sajten behöver denna integration.
+                                Konfigurera via miljövariabler eller Integrationspanelen.
+                              </p>
                             )}
                           </>
                         )}
                         <div className="mt-2 flex flex-wrap gap-2">
-                          <Button
-                            size="sm"
-                            onClick={() => openChatInV0(chatId)}
-                            disabled={!canOpen}
-                          >
-                            Öppna extern chat
-                          </Button>
-                          {integrationCard?.marketplaceUrl && (
-                            <Button size="sm" variant="outline" asChild>
-                              <a
-                                href={integrationCard.marketplaceUrl}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                              >
-                                Öppna Marketplace
-                              </a>
-                            </Button>
-                          )}
                           {!replyPrompt && projectEnvKeys.length > 0 && (
                             <Button
                               size="sm"
-                              variant="outline"
                               onClick={() => openProjectEnvVarsPanel(projectEnvKeys)}
                             >
-                              Öppna miljövariabler
+                              Konfigurera miljövariabler
                             </Button>
                           )}
                           {!replyPrompt && (
                             <Button size="sm" variant="outline" onClick={openIntegrationsPanel}>
-                              Öppna Integrationspanelen
+                              Visa integrationer
                             </Button>
                           )}
                         </div>
@@ -1334,22 +1311,32 @@ function getIntegrationCardData(
   };
 }
 
+function looksLikeFilePath(value: string): boolean {
+  return /[/\\]/.test(value) || /\.\w{1,4}$/.test(value);
+}
+
 function extractIntegrationName(value: unknown): string | null {
   if (!value) return null;
   if (typeof value === "string") {
     const trimmed = value.trim();
-    return trimmed ? trimmed : null;
+    if (!trimmed || looksLikeFilePath(trimmed)) return null;
+    return trimmed;
   }
   if (typeof value === "object") {
     const obj = value as Record<string, unknown>;
-    const candidate =
-      (typeof obj.integration === "string" && obj.integration) ||
-      (typeof obj.provider === "string" && obj.provider) ||
-      (typeof obj.service === "string" && obj.service) ||
-      (typeof obj.name === "string" && obj.name) ||
-      (typeof obj.title === "string" && obj.title) ||
-      null;
-    return candidate ? String(candidate) : null;
+    const candidates = [
+      obj.integration,
+      obj.provider,
+      obj.service,
+      obj.name,
+      obj.title,
+    ];
+    for (const c of candidates) {
+      if (typeof c === "string" && c.trim() && !looksLikeFilePath(c.trim())) {
+        return c.trim();
+      }
+    }
+    return null;
   }
   return null;
 }
@@ -1364,17 +1351,30 @@ function extractEnvKeys(value: unknown): string[] {
   }
   if (typeof value === "object") {
     const obj = value as Record<string, unknown>;
-    const directKey = typeof obj.key === "string" ? obj.key : null;
-    if (directKey) return [directKey];
+    const directKey = typeof obj.key === "string" && looksLikeEnvKey(obj.key) ? obj.key.trim() : null;
     const containers = [
       obj.envVars,
       obj.environmentVariables,
+      obj.requiredEnv,
       obj.variables,
       obj.vars,
       obj.keys,
       obj.env,
     ];
-    return containers.flatMap((item) => extractEnvKeys(item));
+    const fromContainers = containers.flatMap((item) => extractEnvKeys(item));
+    if (directKey) fromContainers.push(directKey);
+    if (fromContainers.length > 0) return fromContainers;
+
+    if (Array.isArray(obj.steps)) {
+      const fromSteps = (obj.steps as unknown[])
+        .filter((s): s is string => typeof s === "string")
+        .flatMap((s) => {
+          const match = s.match(/Milj.variabler:\s*(.+)/i);
+          if (!match) return [];
+          return match[1].split(",").map((k) => k.trim()).filter(looksLikeEnvKey);
+        });
+      if (fromSteps.length > 0) return fromSteps;
+    }
   }
   return [];
 }
@@ -1419,12 +1419,6 @@ function getToolStateLabel(state: ToolUIPart["state"]) {
     default:
       return "Åtgärd";
   }
-}
-
-function openChatInV0(chatId: string | null) {
-  if (!chatId) return;
-  const url = `https://v0.app/chat/${encodeURIComponent(chatId)}`;
-  window.open(url, "_blank", "noopener,noreferrer");
 }
 
 function openIntegrationsPanel() {

@@ -66,15 +66,16 @@ export function getRedis(): Redis | null {
         username: REDIS_CONFIG.username,
         source,
       });
-      redisClient = REDIS_CONFIG.url
-        ? new Redis(REDIS_CONFIG.url, redisOptions)
-        : new Redis({
-            host: REDIS_CONFIG.host,
-            port: REDIS_CONFIG.port,
-            username: REDIS_CONFIG.username,
-            password: REDIS_CONFIG.password,
-            ...redisOptions,
-          });
+      const useTls = REDIS_CONFIG.url.startsWith("rediss://");
+
+      redisClient = new Redis({
+        host: REDIS_CONFIG.host,
+        port: REDIS_CONFIG.port,
+        username: REDIS_CONFIG.username,
+        password: REDIS_CONFIG.password,
+        ...(useTls ? { tls: {} } : {}),
+        ...redisOptions,
+      });
 
       redisClient.on("error", (err) => {
         console.error("[Redis] Connection error:", err.message);
