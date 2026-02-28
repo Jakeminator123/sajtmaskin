@@ -1,6 +1,6 @@
 "use client";
 
-import type { ShadcnBlockSelection } from "@/components/builder/ShadcnBlockPicker";
+import type { ShadcnBlockSelection } from "@/components/builder/UiElementPicker";
 import type { ChatMessage } from "@/lib/builder/types";
 import type { PaletteSelection, PaletteState } from "@/lib/builder/palette";
 import type { BuildMethod } from "@/lib/builder/build-intent";

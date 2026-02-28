@@ -19,12 +19,12 @@ import {
   type V0UserFileAttachment,
 } from "@/components/media";
 import {
-  ShadcnBlockPicker,
+  UiElementPicker,
   type ShadcnBlockAction,
   type ShadcnBlockSelection,
   type PlacementOption,
   PLACEMENT_OPTIONS,
-} from "@/components/builder/ShadcnBlockPicker";
+} from "@/components/builder/UiElementPicker";
 import { ThemePicker } from "@/components/builder/ThemePicker";
 import { TemplatePicker } from "@/components/builder/TemplatePicker";
 import { AiElementPicker } from "@/components/builder/AiElementPicker";
@@ -982,11 +982,10 @@ ${technicalPrompt}`;
       )}
 
       {isShadcnPickerOpen && (
-        <ShadcnBlockPicker
+        <UiElementPicker
           open={isShadcnPickerOpen}
           onClose={() => setIsShadcnPickerOpen(false)}
           onConfirm={handleDesignSystemAction}
-          paletteSelections={paletteSelections}
           isBusy={inputDisabled}
           isSubmitting={isDesignSystemAction}
           hasChat={Boolean(chatId)}

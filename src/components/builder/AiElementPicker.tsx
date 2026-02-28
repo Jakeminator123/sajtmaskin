@@ -35,7 +35,7 @@ import {
   type DetectedSection,
 } from "@/lib/builder/sectionAnalyzer";
 
-// Placement options (mirrors DEFAULT_PLACEMENT_OPTIONS in ShadcnBlockPicker)
+// Placement options (mirrors DEFAULT_PLACEMENT_OPTIONS in UiElementPicker)
 const PLACEMENT_OPTIONS_STATIC = [
   {
     value: "top",

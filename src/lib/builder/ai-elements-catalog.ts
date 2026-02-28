@@ -1,4 +1,4 @@
-import type { PlacementOption } from "@/components/builder/ShadcnBlockPicker";
+import type { PlacementOption } from "@/components/builder/UiElementPicker";
 import type { DetectedSection } from "@/lib/builder/sectionAnalyzer";
 import { getPlacementInstruction } from "@/lib/shadcn-registry-utils";
 
