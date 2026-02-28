@@ -42,7 +42,7 @@ interface AnalysisResponse {
 }
 
 export async function POST(req: NextRequest) {
-  console.log("[API/analyze-website] Request received");
+  console.info("[API/analyze-website] Request received");
 
   try {
     const { url, deepAnalysis = true } = (await req.json()) as {
@@ -73,7 +73,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    console.log("[API/analyze-website] Analyzing URL:", url);
+    console.info("[API/analyze-website] Analyzing URL:", url);
 
     const userPrompt = `Analysera denna webbplats grundligt: ${url}
 

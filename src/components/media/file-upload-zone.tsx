@@ -187,7 +187,7 @@ export function FileUploadZone({
                 result.media.url,
               );
             } else {
-              console.log("[FileUploadZone] ✓ File uploaded with public URL:", result.media.url);
+              console.info("[FileUploadZone] ✓ File uploaded with public URL:", result.media.url);
             }
 
             onFilesChange(updatedFiles.map((f) => (f.id === uploadingFile.id ? successFile : f)));

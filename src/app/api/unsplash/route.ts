@@ -102,7 +102,7 @@ export async function POST(req: NextRequest) {
 
     // Use centralized config
     if (!FEATURES.useUnsplash) {
-      console.log("[API/unsplash] No UNSPLASH_ACCESS_KEY found, using fallback");
+      console.info("[API/unsplash] No UNSPLASH_ACCESS_KEY found, using fallback");
       return NextResponse.json({
         success: true,
         images: generateFallbackImages(industry, count),
@@ -166,7 +166,7 @@ export async function POST(req: NextRequest) {
       if (allImages.length >= count) break;
     }
 
-    console.log(`[API/unsplash] Found ${allImages.length} images for industry: ${industry}`);
+    console.info(`[API/unsplash] Found ${allImages.length} images for industry: ${industry}`);
 
     return NextResponse.json({
       success: true,

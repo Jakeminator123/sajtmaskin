@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: "Ogiltig URL" }, { status: 400 });
     }
 
-    console.log(`[Media/UploadFromUrl] Downloading image from: ${url.substring(0, 100)}...`);
+    console.info(`[Media/UploadFromUrl] Downloading image from: ${url.substring(0, 100)}...`);
 
     // Download the image
     const response = await fetch(url, {
@@ -104,7 +104,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log(`[Media/UploadFromUrl] ✅ Saved to Blob: ${uploadResult.url}`);
+    console.info(`[Media/UploadFromUrl] ✅ Saved to Blob: ${uploadResult.url}`);
 
     return NextResponse.json({
       success: true,

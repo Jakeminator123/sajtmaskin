@@ -279,9 +279,6 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
         strategyReason: strategyMeta.reason,
         attachmentsCount: Array.isArray(attachments) ? attachments.length : 0,
       });
-      if (process.env.NODE_ENV === "development") {
-        console.log("[dev-log] follow-up started", { chatId });
-      }
 
       let result: unknown;
       try {
@@ -662,13 +659,6 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
                       toolCalls: Array.from(seenToolCalls),
                     });
                     await commitCreditsOnce();
-                    if (process.env.NODE_ENV === "development") {
-                      console.log("[dev-log] follow-up finished", {
-                        chatId,
-                        versionId: finalVersionId,
-                        demoUrl: finalDemoUrl,
-                      });
-                    }
                   }
                 } catch (finalizeErr) {
                   console.error(

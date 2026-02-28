@@ -94,7 +94,7 @@ function checkAndRotateLog(): void {
         // Archive old log by appending timestamp
         const archivePath = LOG_PATH.replace(".log", `-${Date.now()}.log.old`);
         fs.renameSync(LOG_PATH, archivePath);
-        console.log(`[FileLogger] Rotated log to ${archivePath}`);
+        console.info(`[FileLogger] Rotated log to ${archivePath}`);
       }
     }
   } catch {

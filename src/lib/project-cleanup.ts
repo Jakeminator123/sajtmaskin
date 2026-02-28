@@ -74,7 +74,7 @@ export async function runCleanup(): Promise<CleanupResult> {
     expiredTemplateCaches: 0,
   };
 
-  console.log("[Cleanup] Starting cleanup cycle...");
+  console.info("[Cleanup] Starting cleanup cycle...");
 
   // 1. Delete old anonymous session projects
   const anonymousCutoff = new Date();
@@ -134,7 +134,7 @@ export async function runCleanup(): Promise<CleanupResult> {
       ),
     )
     .returning({ id: templateCache.id });
-  console.log(
+  console.info(
     "[Cleanup] Removed",
     orphanedTemplateCache.length,
     "orphaned template cache entries",
@@ -152,7 +152,7 @@ export async function runCleanup(): Promise<CleanupResult> {
     .where(sql`${images.project_id} NOT IN (SELECT ${appProjects.id} FROM ${appProjects})`)
     .returning({ id: images.id });
 
-  console.log("[Cleanup] Completed:", {
+  console.info("[Cleanup] Completed:", {
     deletedAnonymous: result.deletedAnonymousProjects,
     deletedUnsave: result.deletedUnsaveProjects,
     expiredCaches: result.expiredTemplateCaches,

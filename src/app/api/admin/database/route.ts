@@ -150,7 +150,7 @@ export async function POST(req: NextRequest) {
         await db.delete(tableMap[table]).where(sql`true`);
       }
 
-      console.log(`[Admin] Cleared table: ${table}`);
+      console.info(`[Admin] Cleared table: ${table}`);
       return NextResponse.json({ success: true, message: `Cleared ${table}` });
     }
 
@@ -184,7 +184,7 @@ export async function POST(req: NextRequest) {
       await flushRedisCache();
       clearUploadsFolder();
 
-      console.log("[Admin] Reset all databases");
+      console.info("[Admin] Reset all databases");
       return NextResponse.json({ success: true, message: "All data cleared" });
     }
 
@@ -221,7 +221,7 @@ export async function POST(req: NextRequest) {
         createdAt: t.created_at,
       }));
 
-      console.log(`[Admin] Exported ${templates.length} templates`);
+      console.info(`[Admin] Exported ${templates.length} templates`);
       return NextResponse.json({
         success: true,
         count: templates.length,
@@ -291,7 +291,7 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      console.log(`[Admin] Imported ${imported} templates`);
+      console.info(`[Admin] Imported ${imported} templates`);
       return NextResponse.json({
         success: true,
         imported,
@@ -304,7 +304,7 @@ export async function POST(req: NextRequest) {
         .delete(templateCache)
         .where(sql`true`)
         .returning({ id: templateCache.id });
-      console.log(`[Admin] Cleared ${deleted.length} cached templates`);
+      console.info(`[Admin] Cleared ${deleted.length} cached templates`);
       return NextResponse.json({
         success: true,
         deleted: deleted.length,
@@ -321,7 +321,7 @@ export async function POST(req: NextRequest) {
         .set({ expires_at: newExpiry })
         .returning({ id: templateCache.id });
 
-      console.log(`[Admin] Extended cache for ${updated.length} templates`);
+      console.info(`[Admin] Extended cache for ${updated.length} templates`);
       return NextResponse.json({
         success: true,
         extended: updated.length,
@@ -340,7 +340,6 @@ export async function POST(req: NextRequest) {
       const result = await runCleanup();
       const statsAfter = await getCleanupStats();
 
-      console.log("[Admin] Cleanup completed:", result);
       return NextResponse.json({
         success: true,
         result,
@@ -469,7 +468,6 @@ export async function POST(req: NextRequest) {
       results.redis.success = await flushRedisCache();
       clearUploadsFolder();
 
-      console.log("[Admin] MEGA CLEANUP completed:", results);
       return NextResponse.json({
         success: true,
         results,
@@ -609,7 +607,7 @@ export async function POST(req: NextRequest) {
         )
         .returning({ id: appProjects.id });
 
-      console.log(`[Admin] Deleted ${deleted.length} anonymous projects older than ${days} days`);
+      console.info(`[Admin] Deleted ${deleted.length} anonymous projects older than ${days} days`);
       return NextResponse.json({
         success: true,
         deleted: deleted.length,
@@ -707,7 +705,7 @@ function clearUploadsFolder(): {
       }
     }
 
-    console.log(`[Admin] Cleared uploads: ${deletedCount} files, ${formatBytes(freedBytes)} freed`);
+    console.info(`[Admin] Cleared uploads: ${deletedCount} files, ${formatBytes(freedBytes)} freed`);
     return {
       success: true,
       deletedCount,

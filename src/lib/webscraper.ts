@@ -657,7 +657,7 @@ export async function scrapeWebsite(url: string): Promise<WebsiteContent> {
 
         if (scored.length > 0) {
           candidateQueue.sort((a, b) => b.score - a.score);
-          console.log(
+          console.info(
             `[WebScraper] Sitemap fallback: queued ${Math.min(
               scored.length,
               SITEMAP_URL_LIMIT,

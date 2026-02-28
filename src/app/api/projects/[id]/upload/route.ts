@@ -55,7 +55,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ success: false, error: "Failed to upload file" }, { status: 500 });
     }
 
-    console.log(`[Upload] Image uploaded (${uploadResult.storageType}):`, uploadResult.url);
+    console.info(`[Upload] Image uploaded (${uploadResult.storageType}):`, uploadResult.url);
 
     // Save metadata to database
     const imageRecord = await saveImage(

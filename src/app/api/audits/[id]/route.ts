@@ -115,7 +115,7 @@ export async function DELETE(request: NextRequest, context: RouteContext) {
     // Invalidate cache
     await invalidateUserAuditCache(user.id);
 
-    console.log(`[API/audits/[id]] Deleted audit ${auditId} for user ${user.id}`);
+    console.info(`[API/audits/[id]] Deleted audit ${auditId} for user ${user.id}`);
 
     return NextResponse.json({
       success: true,

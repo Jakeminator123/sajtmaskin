@@ -74,9 +74,9 @@ export function debugLog(category: string, message: string, meta?: unknown): voi
   const timestamp = new Date().toISOString().slice(11, 23); // HH:mm:ss.SSS
 
   if (meta !== undefined) {
-    console.log(`${timestamp} ${prefix} ${message}`, meta);
+    console.info(`${timestamp} ${prefix} ${message}`, meta);
   } else {
-    console.log(`${timestamp} ${prefix} ${message}`);
+    console.info(`${timestamp} ${prefix} ${message}`);
   }
 }
 
@@ -156,13 +156,13 @@ export function logFinalPrompt(prompt: string, model: string): void {
   const divider = "═".repeat(80);
   const timestamp = new Date().toISOString().slice(11, 23);
 
-  console.log(`\n${COLORS.brightMagenta}${COLORS.bold}${divider}${COLORS.reset}`);
-  console.log(
+  console.info(`\n${COLORS.brightMagenta}${COLORS.bold}${divider}${COLORS.reset}`);
+  console.info(
     `${COLORS.brightMagenta}${COLORS.bold}[v0 FINAL PROMPT] ${timestamp} | Model: ${model} | Length: ${prompt.length} chars${COLORS.reset}`,
   );
-  console.log(`${COLORS.brightMagenta}${COLORS.bold}${divider}${COLORS.reset}`);
-  console.log(`${COLORS.magenta}${prompt}${COLORS.reset}`);
-  console.log(`${COLORS.brightMagenta}${COLORS.bold}${divider}${COLORS.reset}\n`);
+  console.info(`${COLORS.brightMagenta}${COLORS.bold}${divider}${COLORS.reset}`);
+  console.info(`${COLORS.magenta}${prompt}${COLORS.reset}`);
+  console.info(`${COLORS.brightMagenta}${COLORS.bold}${divider}${COLORS.reset}\n`);
 }
 
 // Legacy export for backward compatibility

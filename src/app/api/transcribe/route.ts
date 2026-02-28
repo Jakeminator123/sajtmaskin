@@ -46,7 +46,7 @@ function getFileExtension(mimeType: string): string {
 }
 
 export async function POST(req: NextRequest) {
-  console.log("[API/transcribe] Request received");
+  console.info("[API/transcribe] Request received");
 
   try {
     const apiKey = process.env.OPENAI_API_KEY?.trim();
@@ -75,7 +75,7 @@ export async function POST(req: NextRequest) {
 
     // Validate file type
     if (!SUPPORTED_FORMATS.includes(audioFile.type)) {
-      console.log("[API/transcribe] Unsupported format:", audioFile.type);
+      console.info("[API/transcribe] Unsupported format:", audioFile.type);
       return NextResponse.json(
         {
           success: false,
@@ -94,7 +94,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    console.log("[API/transcribe] Processing audio:", {
+    console.info("[API/transcribe] Processing audio:", {
       type: audioFile.type,
       size: `${(audioFile.size / 1024).toFixed(1)}KB`,
       language,
@@ -123,7 +123,7 @@ export async function POST(req: NextRequest) {
         : (transcription as unknown as { text: string }).text?.trim() ?? "";
 
     if (!transcript) {
-      console.log("[API/transcribe] Empty transcript returned");
+      console.info("[API/transcribe] Empty transcript returned");
       return NextResponse.json({
         success: true,
         transcript: "",
@@ -131,7 +131,7 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    console.log(
+    console.info(
       "[API/transcribe] Transcription successful:",
       transcript.slice(0, 80) + (transcript.length > 80 ? "..." : ""),
     );

@@ -713,14 +713,14 @@ Design: Professional dark sidebar (#1f2937), white content area, emerald (#10B98
 };
 
 // Component categories for better organization
-export interface ComponentCategory {
+export interface TemplateComponentCategory {
   name: string;
   components: QuickPrompt[];
 }
 
 // Components that can be added to any project (used in builder)
 // Organized by category: Basic → Advanced
-export const COMPONENT_CATEGORIES: ComponentCategory[] = [
+export const COMPONENT_CATEGORIES: TemplateComponentCategory[] = [
   {
     name: "🎯 Essential",
     components: [

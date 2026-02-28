@@ -96,7 +96,7 @@ export async function POST(req: Request) {
       const componentName = parsed.componentName || "component";
       const chatName = name || `Registry: ${componentName}`;
 
-      console.log("[init-registry] Initializing from registry:", {
+      console.info("[init-registry] Initializing from registry:", {
         registryUrl,
         componentName,
         style: parsed.style,

@@ -62,7 +62,7 @@ export async function GET(request: NextRequest) {
   githubAuthUrl.searchParams.set("scope", "repo user:email");
   githubAuthUrl.searchParams.set("state", state);
 
-  console.log("[GitHub OAuth] Redirecting to GitHub for authorization");
+  console.info("[GitHub OAuth] Redirecting to GitHub for authorization");
 
   return NextResponse.redirect(githubAuthUrl.toString());
 }

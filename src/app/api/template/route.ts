@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
     const user = await getCurrentUser(request);
     const userId = user?.id || null;
 
-    console.log(
+    console.info(
       "[API /template] Initializing from template:",
       templateId,
       "quality:",
@@ -78,12 +78,12 @@ export async function POST(request: NextRequest) {
     if (!skipCache) {
       const cached = await getCachedTemplate(templateId, userId);
       if (cached) {
-        console.log(
+        console.info(
           "[API /template] Returning CACHED result for:",
           templateId,
           userId ? `(user: ${userId})` : "(anonymous)",
         );
-        console.log("[API /template] Note: Using cached chatId from user-specific cache");
+        console.info("[API /template] Note: Using cached chatId from user-specific cache");
 
         // Parse cached files
         let files = null;
@@ -142,7 +142,7 @@ export async function POST(request: NextRequest) {
 
     const result = await generateFromTemplate(templateId, quality);
 
-    console.log("[API /template] Result:", {
+    console.info("[API /template] Result:", {
       hasFiles: !!result.files?.length,
       filesCount: result.files?.length,
       hasChatId: !!result.chatId,
@@ -196,7 +196,7 @@ export async function POST(request: NextRequest) {
           },
           userId,
         );
-        console.log(
+        console.info(
           "[API /template] Cached result for:",
           templateId,
           userId ? `(user: ${userId})` : "(anonymous)",

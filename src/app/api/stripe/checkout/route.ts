@@ -82,7 +82,7 @@ export async function POST(req: NextRequest) {
       cancel_url: `${baseUrl}/buy-credits?canceled=true`,
     });
 
-    console.log("[Stripe/checkout] Created session:", session.id);
+    console.info("[Stripe/checkout] Created session:", session.id);
 
     return NextResponse.json({
       success: true,

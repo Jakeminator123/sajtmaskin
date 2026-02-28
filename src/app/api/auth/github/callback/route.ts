@@ -95,7 +95,7 @@ export async function GET(request: NextRequest) {
 
   try {
     // Exchange code for access token
-    console.log("[GitHub OAuth] Exchanging code for access token...");
+    console.info("[GitHub OAuth] Exchanging code for access token...");
 
     const tokenResponse = await fetch("https://github.com/login/oauth/access_token", {
       method: "POST",
@@ -122,7 +122,7 @@ export async function GET(request: NextRequest) {
     const accessToken = tokenData.access_token;
 
     // Get GitHub user info
-    console.log("[GitHub OAuth] Fetching user info...");
+    console.info("[GitHub OAuth] Fetching user info...");
 
     const userResponse = await fetch("https://api.github.com/user", {
       headers: {
@@ -142,7 +142,7 @@ export async function GET(request: NextRequest) {
     const githubUser: GitHubUser = await userResponse.json();
 
     // Store GitHub token and username in user record
-    console.log(
+    console.info(
       "[GitHub OAuth] Saving GitHub connection for user:",
       user.id,
       "GitHub:",
@@ -157,7 +157,7 @@ export async function GET(request: NextRequest) {
     successUrl.searchParams.set("github_username", githubUser.login);
     if (returnSanitized) successUrl.searchParams.set("github_return_sanitized", "true");
 
-    console.log("[GitHub OAuth] Successfully connected GitHub account");
+    console.info("[GitHub OAuth] Successfully connected GitHub account");
 
     return NextResponse.redirect(successUrl.toString());
   } catch (error) {

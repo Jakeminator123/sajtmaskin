@@ -64,7 +64,7 @@ export async function GET(req: NextRequest) {
 
 // POST - Save or update company profile
 export async function POST(req: NextRequest) {
-  console.log("[API/company-profile] Saving profile...");
+  console.info("[API/company-profile] Saving profile...");
 
   try {
     const body = await req.json();
@@ -127,7 +127,7 @@ export async function POST(req: NextRequest) {
 
     const savedProfile = await saveCompanyProfile(profileData);
 
-    console.log("[API/company-profile] Saved profile ID:", savedProfile.id);
+    console.info("[API/company-profile] Saved profile ID:", savedProfile.id);
 
     return NextResponse.json({
       success: true,

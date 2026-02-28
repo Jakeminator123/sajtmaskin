@@ -1127,7 +1127,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log(`[${requestId}] Audit request for: ${normalizedUrl}`);
+    console.info(`[${requestId}] Audit request for: ${normalizedUrl}`);
 
     // Get canonical key for duplicate detection
     const canonicalKey = getCanonicalUrlKey(normalizedUrl);
@@ -1145,7 +1145,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log(
+    console.info(
       `[${requestId}] User ${user.id} has ${user.diamonds} diamonds (test: ${creditCheck.isTest})`,
     );
 
@@ -1154,7 +1154,7 @@ export async function POST(request: NextRequest) {
     const existingAudit = inFlightAudits.get(inFlightKey);
     if (existingAudit) {
       const ageMs = Date.now() - existingAudit.startTime;
-      console.log(
+      console.info(
         `[${requestId}] Duplicate audit request detected (in-flight for ${Math.round(
           ageMs / 1000,
         )}s)`,
@@ -1181,11 +1181,11 @@ export async function POST(request: NextRequest) {
     });
 
     // Scrape website content
-    console.log(`[${requestId}] Scraping website...`);
+    console.info(`[${requestId}] Scraping website...`);
     let websiteContent;
     try {
       websiteContent = await scrapeWebsite(normalizedUrl);
-      console.log(`[${requestId}] Scraping completed:`, {
+      console.info(`[${requestId}] Scraping completed:`, {
         title: websiteContent.title?.substring(0, 50),
         wordCount: websiteContent.wordCount,
         headingsCount: websiteContent.headings.length,
@@ -1242,7 +1242,7 @@ export async function POST(request: NextRequest) {
     }
 
     const usedModel = AUDIT_MODEL_CANDIDATES[0];
-    console.log(`[${requestId}] Calling AI Gateway (${usedModel})`);
+    console.info(`[${requestId}] Calling AI Gateway (${usedModel})`);
     const aiResult = await generateText({
       model: gateway(usedModel),
       messages: promptMessages,
@@ -1255,7 +1255,7 @@ export async function POST(request: NextRequest) {
     });
 
     const apiDuration = Date.now() - requestStartTime;
-    console.log(`[${requestId}] API call completed in ${apiDuration}ms using ${usedModel}`);
+    console.info(`[${requestId}] API call completed in ${apiDuration}ms using ${usedModel}`);
 
     const outputText = aiResult.text || "";
     const webSearchCallCount = 0;
@@ -1273,12 +1273,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Log first part of output for debugging
-    console.log(
-      `[${requestId}] Output text preview (first 300 chars):`,
-      outputText.substring(0, 300),
-    );
-
     // Clean output text - remove markdown code blocks if present
     let cleanedOutput = outputText.trim();
 
@@ -1286,7 +1280,7 @@ export async function POST(request: NextRequest) {
     const jsonBlockMatch = cleanedOutput.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
     if (jsonBlockMatch) {
       cleanedOutput = jsonBlockMatch[1].trim();
-      console.log(`[${requestId}] Removed markdown code block wrapper`);
+      console.info(`[${requestId}] Removed markdown code block wrapper`);
     }
 
     // Remove any text before the first { and after the last }
@@ -1297,7 +1291,7 @@ export async function POST(request: NextRequest) {
       const afterJson = cleanedOutput.substring(lastBrace + 1).trim();
       if (beforeJson || afterJson) {
         cleanedOutput = cleanedOutput.substring(firstBrace, lastBrace + 1);
-        console.log(`[${requestId}] Trimmed text before/after JSON`);
+        console.info(`[${requestId}] Trimmed text before/after JSON`);
       }
     }
 
@@ -1308,11 +1302,10 @@ export async function POST(request: NextRequest) {
 
     if (parseResult.success && parseResult.data) {
       auditResult = parseResult.data;
-      console.log(`[${requestId}] JSON parse succeeded`);
-      console.log(`[${requestId}] Parsed result keys:`, Object.keys(auditResult as object));
+      console.info(`[${requestId}] JSON parse succeeded`);
     } else {
       // Try to extract JSON from response if direct parse failed
-      console.log(
+      console.info(
         `[${requestId}] Direct parse failed, trying extraction:`,
         parseResult.error || "unknown",
       );
@@ -1322,17 +1315,17 @@ export async function POST(request: NextRequest) {
           `[${requestId}] Could not find JSON in response. Full output (first 2000 chars):`,
           outputText.substring(0, 2000),
         );
-        console.log(`[${requestId}] Falling back to scraped-data audit (AI response invalid JSON)`);
+        console.info(`[${requestId}] Falling back to scraped-data audit (AI response invalid JSON)`);
         auditResult = createFallbackResult(websiteContent, normalizedUrl, resolvedAuditMode);
         usedFallback = true;
       } else {
-        console.log(`[${requestId}] Extracted JSON length: ${jsonString.length} chars`);
+        console.info(`[${requestId}] Extracted JSON length: ${jsonString.length} chars`);
 
         // Try parsing extracted JSON with repair
         const extractParseResult = parseJsonWithRepair(jsonString);
         if (extractParseResult.success && extractParseResult.data) {
           auditResult = extractParseResult.data;
-          console.log(`[${requestId}] Extracted JSON parse succeeded`);
+          console.info(`[${requestId}] Extracted JSON parse succeeded`);
         } else {
           // Log the problematic JSON for debugging (first 1000 chars around error position)
           const errorPos = extractParseResult.error?.match(/position (\d+)/)?.[1];
@@ -1343,7 +1336,7 @@ export async function POST(request: NextRequest) {
             `[${requestId}] Problematic JSON section (chars ${startPos}-${endPos}):`,
             jsonString.substring(startPos, endPos),
           );
-          console.log(`[${requestId}] Falling back to scraped-data audit (AI JSON parse failed)`);
+          console.info(`[${requestId}] Falling back to scraped-data audit (AI JSON parse failed)`);
           auditResult = createFallbackResult(websiteContent, normalizedUrl, resolvedAuditMode);
           usedFallback = true;
         }
@@ -1402,7 +1395,7 @@ export async function POST(request: NextRequest) {
           nestedObj.improvements ||
           nestedObj.strengths
         ) {
-          console.log(`[${requestId}] Found nested audit result under key "${key}"`);
+          console.info(`[${requestId}] Found nested audit result under key "${key}"`);
           auditResult = nested;
           break;
         }
@@ -1434,14 +1427,14 @@ export async function POST(request: NextRequest) {
 
       // Try to return partial result anyway if it has ANYTHING useful
       if (auditResult && typeof auditResult === "object" && Object.keys(ar).length > 0) {
-        console.log(
+        console.info(
           `[${requestId}] Returning partial result despite validation failure (${
             Object.keys(ar).length
           } keys)`,
         );
       } else {
         // Create a minimal fallback result based on scraped data
-        console.log(`[${requestId}] Creating fallback result from scraped data`);
+        console.info(`[${requestId}] Creating fallback result from scraped data`);
         auditResult = createFallbackResult(websiteContent, normalizedUrl, resolvedAuditMode);
       }
     }
@@ -1459,7 +1452,7 @@ export async function POST(request: NextRequest) {
     const pricing = getPricingForModel(usedModel);
     const costUSD = (inputTokens * pricing.input + outputTokens * pricing.output) / 1_000_000;
     const costSEK = costUSD * USD_TO_SEK;
-    console.log(
+    console.info(
       `[${requestId}] Audit cost summary: mode=${resolvedAuditMode}, diamonds=${auditCost}, tokens=${
         inputTokens + outputTokens
       }, usd=${costUSD.toFixed(4)}, sek=${costSEK.toFixed(2)}, model=${usedModel || "unknown"}`,
@@ -1530,9 +1523,9 @@ export async function POST(request: NextRequest) {
     try {
       await creditCheck.commit();
       if (creditCheck.isTest) {
-        console.log(`[${requestId}] Test user - no diamonds deducted`);
+        console.info(`[${requestId}] Test user - no diamonds deducted`);
       } else {
-        console.log(`[${requestId}] Deducted ${auditCost} diamonds from user ${user.id}`);
+        console.info(`[${requestId}] Deducted ${auditCost} diamonds from user ${user.id}`);
       }
     } catch (txError) {
       console.error(`[${requestId}] Failed to deduct diamonds:`, txError);
@@ -1540,7 +1533,7 @@ export async function POST(request: NextRequest) {
     }
 
     const totalDuration = Date.now() - requestStartTime;
-    console.log(`[${requestId}] Audit completed in ${totalDuration}ms`);
+    console.info(`[${requestId}] Audit completed in ${totalDuration}ms`);
 
     // Clean up in-flight tracking
     inFlightAudits.delete(inFlightKey);

@@ -59,7 +59,7 @@ export async function sendVerificationEmail(
   // Return success=false so API responses can truthfully tell users
   // that no email was actually delivered.
   if (!resend) {
-    console.log(
+    console.info(
       `[Email] Resend not configured – verification link for ${to}:\n  ${verifyUrl}`,
     );
     return {

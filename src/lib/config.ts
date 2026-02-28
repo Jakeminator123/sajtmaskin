@@ -114,7 +114,7 @@ function getDataDir(): string {
 
   if (!IS_PRODUCTION && !hasWarnedAboutDataDir) {
     hasWarnedAboutDataDir = true;
-    console.log(`[Config] Using local data directory: ${localDataDir}`);
+    console.info(`[Config] Using local data directory: ${localDataDir}`);
   }
 
   return localDataDir;
@@ -356,7 +356,7 @@ export function logConfig(): void {
     )
     .join(", ");
 
-  console.log(
+  console.info(
     `[Config] ${IS_PRODUCTION ? "PROD" : "DEV"} | DB: ${resolveDbLogLabel()} | Features: ${
       features || "none"
     }`,

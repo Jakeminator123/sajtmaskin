@@ -27,6 +27,7 @@ export const TEST_USER_EMAIL = SECRETS.testUserEmail || SECRETS.superadminEmail 
 
 export type User = typeof users.$inferSelect;
 export type Transaction = typeof transactions.$inferSelect;
+/** DB row type — distinct from the client-side Project interface in project-client.ts */
 export type Project = typeof appProjects.$inferSelect;
 export type ProjectData = typeof projectData.$inferSelect & {
   files: unknown[] | null;

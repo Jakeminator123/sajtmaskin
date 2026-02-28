@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
   }
 
-  console.log("[Stripe/webhook] Received event:", event.type);
+  console.info("[Stripe/webhook] Received event:", event.type);
 
   // Handle the event
   switch (event.type) {
@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
       // Check if already processed (idempotency)
       const existingTransaction = await getTransactionByStripeSession(session.id);
       if (existingTransaction) {
-        console.log("[Stripe/webhook] Session already processed:", session.id);
+        console.info("[Stripe/webhook] Session already processed:", session.id);
         return NextResponse.json({ received: true });
       }
 
@@ -81,7 +81,7 @@ export async function POST(req: NextRequest) {
           session.id,
         );
 
-        console.log(
+        console.info(
           "[Stripe/webhook] Added",
           diamonds,
           "diamonds to user",
@@ -99,7 +99,7 @@ export async function POST(req: NextRequest) {
 
     case "payment_intent.payment_failed": {
       const paymentIntent = event.data.object as Stripe.PaymentIntent;
-      console.log(
+      console.info(
         "[Stripe/webhook] Payment failed:",
         paymentIntent.id,
         paymentIntent.last_payment_error?.message,
@@ -108,7 +108,7 @@ export async function POST(req: NextRequest) {
     }
 
     default:
-      console.log("[Stripe/webhook] Unhandled event type:", event.type);
+      console.info("[Stripe/webhook] Unhandled event type:", event.type);
   }
 
   return NextResponse.json({ received: true });

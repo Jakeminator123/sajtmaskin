@@ -342,7 +342,7 @@ export function extractOutputText(response: Record<string, unknown>): string {
 
   // Try output_text first (Responses API standard)
   if (typeof response?.output_text === "string" && response.output_text.trim()) {
-    console.log("[extractOutputText] Found output_text");
+    console.info("[extractOutputText] Found output_text");
     return response.output_text;
   }
 
@@ -351,26 +351,26 @@ export function extractOutputText(response: Record<string, unknown>): string {
     const choice = response.choices[0] as Record<string, unknown>;
     const message = choice?.message as Record<string, unknown>;
     if (typeof message?.content === "string") {
-      console.log("[extractOutputText] Found choices[0].message.content");
+      console.info("[extractOutputText] Found choices[0].message.content");
       return message.content;
     }
   }
 
   // Try content directly (some API versions)
   if (typeof response?.content === "string" && response.content.trim()) {
-    console.log("[extractOutputText] Found content");
+    console.info("[extractOutputText] Found content");
     return response.content;
   }
 
   // Try text directly
   if (typeof response?.text === "string" && response.text.trim()) {
-    console.log("[extractOutputText] Found text");
+    console.info("[extractOutputText] Found text");
     return response.text;
   }
 
   // Try to extract from output array (for tool calls in Responses API)
   if (Array.isArray(response?.output)) {
-    console.log(
+    console.info(
       "[extractOutputText] Processing output array with",
       response.output.length,
       "items",
@@ -382,16 +382,9 @@ export function extractOutputText(response: Record<string, unknown>): string {
 
     for (let idx = 0; idx < response.output.length; idx++) {
       const item = response.output[idx] as Record<string, unknown>;
-      console.log(
-        `[extractOutputText] Output item ${idx} type:`,
-        item?.type,
-        "keys:",
-        Object.keys(item || {}),
-      );
-
       // Skip web_search_call items - we want the final message
       if (item?.type === "web_search_call") {
-        console.log(`[extractOutputText] Skipping web_search_call item ${idx}`);
+        console.info(`[extractOutputText] Skipping web_search_call item ${idx}`);
         continue;
       }
 
@@ -414,7 +407,7 @@ export function extractOutputText(response: Record<string, unknown>): string {
           .join("");
 
         if (messageText) {
-          console.log(
+          console.info(
             `[extractOutputText] Found message content at item ${idx}, length:`,
             messageText.length,
           );
@@ -464,25 +457,25 @@ export function extractOutputText(response: Record<string, unknown>): string {
     if (textParts.length > 0) {
       // Return the last text part (usually the final response after tool calls)
       const finalText = textParts[textParts.length - 1];
-      console.log("[extractOutputText] Using final text part, length:", finalText.length);
+      console.info("[extractOutputText] Using final text part, length:", finalText.length);
       return finalText;
     }
   }
 
   // Last resort: stringify and look for JSON
-  console.log("[extractOutputText] No standard field found, checking full response");
+  console.info("[extractOutputText] No standard field found, checking full response");
   const responseStr = JSON.stringify(response);
 
   // Try to find JSON object in the stringified response
   if (responseStr.includes('"company"') || responseStr.includes('"audit_scores"')) {
-    console.log("[extractOutputText] Response contains audit-like JSON content");
+    console.info("[extractOutputText] Response contains audit-like JSON content");
     // Try to extract just the JSON part
     const jsonMatch = responseStr.match(/"text"\s*:\s*"(\{[\s\S]*?\})"/);
     if (jsonMatch) {
       try {
         // Unescape the JSON string
         const unescaped = JSON.parse(`"${jsonMatch[1].replace(/\\"/g, '"')}"`);
-        console.log("[extractOutputText] Extracted nested JSON from response");
+        console.info("[extractOutputText] Extracted nested JSON from response");
         return unescaped;
       } catch {
         // Ignore parse errors

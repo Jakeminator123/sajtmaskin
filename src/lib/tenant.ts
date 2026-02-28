@@ -39,13 +39,8 @@ function maskId(value: string): string {
   return `${value.slice(0, 4)}...${value.slice(-4)}`;
 }
 
-function logAuthDebug(event: string, details: Record<string, unknown>): void {
+function logAuthDebug(_event: string, _details: Record<string, unknown>): void {
   if (!AUTH_DEBUG_ENABLED) return;
-  try {
-    console.log("[auth-debug]", event, details);
-  } catch {
-    // ignore logging errors
-  }
 }
 
 export async function getRequestUserId(

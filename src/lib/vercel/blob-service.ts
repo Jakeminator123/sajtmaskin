@@ -143,7 +143,7 @@ async function uploadToVercelBlob(
     return null;
   }
   if (!process.env.BLOB_READ_WRITE_TOKEN) {
-    console.log("[BlobService] ⚠️ BLOB_READ_WRITE_TOKEN not configured");
+    console.info("[BlobService] ⚠️ BLOB_READ_WRITE_TOKEN not configured");
     return null;
   }
 
@@ -155,7 +155,7 @@ async function uploadToVercelBlob(
       addRandomSuffix: false, // We handle uniqueness in filename
     });
 
-    console.log("[BlobService] ✅ Uploaded to Vercel Blob:", blobPath);
+    console.info("[BlobService] ✅ Uploaded to Vercel Blob:", blobPath);
     return { url: blob.url };
   } catch (error) {
     console.error("[BlobService] ❌ Vercel Blob upload failed:", error);
@@ -195,7 +195,7 @@ export async function uploadBlob(options: BlobUploadOptions): Promise<BlobUpload
   }
 
   // Return null - local fallback handled in API routes
-  console.log("[BlobService] ⚠️ Upload failed, fallback to local in API route");
+  console.info("[BlobService] ⚠️ Upload failed, fallback to local in API route");
   return null;
 }
 
@@ -233,14 +233,14 @@ export async function uploadBlobFromBase64(
  */
 export async function deleteBlob(url: string): Promise<boolean> {
   if (!process.env.BLOB_READ_WRITE_TOKEN) {
-    console.log("[BlobService] ⚠️ Cannot delete - BLOB_READ_WRITE_TOKEN not configured");
+    console.info("[BlobService] ⚠️ Cannot delete - BLOB_READ_WRITE_TOKEN not configured");
     return false;
   }
 
   try {
     const { del } = await import("@vercel/blob");
     await del(url);
-    console.log("[BlobService] ✅ Deleted from Vercel Blob:", url);
+    console.info("[BlobService] ✅ Deleted from Vercel Blob:", url);
     return true;
   } catch (error) {
     console.error("[BlobService] ❌ Delete failed:", error);

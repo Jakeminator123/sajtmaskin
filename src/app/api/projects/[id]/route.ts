@@ -32,7 +32,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     const cacheKey = `project:${id}:${ownerKey}`;
     const cached = await getCache<{ project: Project; data: ProjectData }>(cacheKey);
     if (cached) {
-      console.log("[API/projects/:id] Redis cache hit for", id);
+      console.info("[API/projects/:id] Redis cache hit for", id);
       return NextResponse.json({
         success: true,
         project: cached.project,

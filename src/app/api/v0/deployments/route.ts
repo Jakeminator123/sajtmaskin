@@ -385,13 +385,6 @@ export async function POST(req: Request) {
         target: target || "production",
         imageStrategy: resolvedImageStrategy,
       });
-      if (process.env.NODE_ENV === "development") {
-        console.log("[dev-log] deploy started", {
-          v0ChatId,
-          v0VersionId,
-          target: target || "production",
-        });
-      }
 
       const deploymentId = await createDeploymentRecord({
         chatId: internalChatId,
@@ -424,7 +417,7 @@ export async function POST(req: Request) {
 
         const { files: fixedFiles, fixesApplied, warnings } = applyPreDeployFixes(textFiles);
         if (fixesApplied.length > 0) {
-          console.log("[deploy] applied fixes:", fixesApplied);
+          console.info("[deploy] applied fixes:", fixesApplied);
         }
         if (warnings.length > 0) {
           console.warn("[deploy] pre-deploy warnings:", warnings.slice(0, 5));
@@ -447,7 +440,7 @@ export async function POST(req: Request) {
         });
 
         if (imageAssets.warnings.length > 0) {
-          console.log("[deploy] image assets warnings:", imageAssets.warnings.slice(0, 5));
+          console.info("[deploy] image assets warnings:", imageAssets.warnings.slice(0, 5));
         }
 
         const vercelFiles = toVercelFilesFromTextFiles(imageAssets.files);
@@ -478,13 +471,6 @@ export async function POST(req: Request) {
           url: created.url ?? null,
           inspectorUrl: created.inspectorUrl ?? null,
         });
-        if (process.env.NODE_ENV === "development") {
-          console.log("[dev-log] deploy finished", {
-            v0ChatId,
-            v0VersionId,
-            url: created.url ?? null,
-          });
-        }
 
         try {
           await creditCheck.commit();

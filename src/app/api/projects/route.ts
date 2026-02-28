@@ -27,7 +27,7 @@ export async function GET(request: NextRequest) {
     // Try Redis cache first (short TTL for freshness)
     const cached = await getCache<{ projects: Array<Project & { demo_url?: string | null }> }>(cacheKey);
     if (cached) {
-      console.log("[API/projects] Redis cache hit");
+      console.info("[API/projects] Redis cache hit");
       return NextResponse.json({
         success: true,
         projects: cached.projects,
@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
     const limitCheck = await canCreateProject(user?.id || null, sessionId || null, isPaidUser);
 
     if (!limitCheck.allowed) {
-      console.log("[API/projects] Project limit reached:", {
+      console.info("[API/projects] Project limit reached:", {
         userId: user?.id,
         sessionId,
         current: limitCheck.current,

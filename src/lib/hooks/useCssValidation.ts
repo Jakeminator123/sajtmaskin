@@ -39,7 +39,7 @@ interface UseCssValidationOptions {
  * // After generation completes:
  * const result = await validateAndFix(chatId, versionId);
  * if (result && !result.valid) {
- *   console.log('Found CSS issues:', result.issues);
+ *   console.info('Found CSS issues:', result.issues);
  * }
  * ```
  */

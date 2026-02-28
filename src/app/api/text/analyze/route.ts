@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
 
     // Check if AI Gateway is configured
     if (!getGatewayApiKey()) {
-      console.log("[Text/Analyze] AI Gateway not configured, using defaults");
+      console.info("[Text/Analyze] AI Gateway not configured, using defaults");
       return NextResponse.json({
         success: true,
         summary: `${filename || "Textfil"} (${content.length} tecken)`,
@@ -170,7 +170,7 @@ Svara ENDAST med giltig JSON i detta format:
         throw new Error("No valid suggestions");
       }
 
-      console.log(
+      console.info(
         `[Text/Analyze] Generated ${validSuggestions.length} suggestions for ${filename}`,
       );
 

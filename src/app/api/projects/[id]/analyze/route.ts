@@ -76,7 +76,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
   try {
     const { id: projectId } = await params;
 
-    console.log("[Analyze] Starting analysis for project:", projectId);
+    console.info("[Analyze] Starting analysis for project:", projectId);
 
     // 1. Verify user is authenticated
     const user = await getCurrentUser(request);
@@ -115,7 +115,7 @@ export async function POST(request: NextRequest, { params }: RouteParams) {
       )
       .map((f) => ({ path: f.name, content: f.content }));
 
-    console.log("[Analyze] Found", files.length, "files");
+    console.info("[Analyze] Found", files.length, "files");
 
     // 5. Build file context for analysis
     // Prioritize important files and limit total size
@@ -171,7 +171,7 @@ ${fileContext}
 
 Ge en strukturerad analys enligt formatet.`;
 
-    console.log("[Analyze] Sending to OpenAI, context length:", totalChars);
+    console.info("[Analyze] Sending to OpenAI, context length:", totalChars);
 
     // 7. Call OpenAI Responses API
     const response = await getOpenAIClient().responses.create({
@@ -192,7 +192,7 @@ Ge en strukturerad analys enligt formatet.`;
         .map((c) => c.text)
         .join("\n") || "Kunde inte generera analys.";
 
-    console.log("[Analyze] Analysis completed, length:", analysis.length);
+    console.info("[Analyze] Analysis completed, length:", analysis.length);
 
     return NextResponse.json({
       success: true,

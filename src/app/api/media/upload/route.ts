@@ -164,7 +164,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log(`[Media/Upload] ✅ Saved (${uploadResult.storageType}):`, uploadResult.url);
+    console.info(`[Media/Upload] ✅ Saved (${uploadResult.storageType}):`, uploadResult.url);
 
     // Save metadata to database
     const mediaItem = await saveMediaLibraryItem(

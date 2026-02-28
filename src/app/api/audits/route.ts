@@ -112,7 +112,7 @@ export async function POST(request: NextRequest) {
     // Cache the audit
     await cacheAudit(savedAudit.id, user.id, auditResult);
 
-    console.log(`[API/audits] Saved audit ${savedAudit.id} for user ${user.id}: ${domain}`);
+    console.info(`[API/audits] Saved audit ${savedAudit.id} for user ${user.id}: ${domain}`);
 
     return NextResponse.json({
       success: true,

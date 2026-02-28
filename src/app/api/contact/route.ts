@@ -117,13 +117,10 @@ export async function POST(req: Request) {
       });
     } else {
       // Fallback: log the message (dev environment)
-      console.log("═══════════════════════════════════════════");
-      console.log("[CONTACT] Email would be sent (no RESEND_API_KEY):");
-      console.log(`  To: ${RECIPIENTS.join(", ")}`);
-      console.log(`  From: ${email} (${name})`);
-      console.log(`  Subject: ${fullSubject}`);
-      console.log(`  Message: ${message.slice(0, 200)}...`);
-      console.log("═══════════════════════════════════════════");
+      console.info(
+        "[CONTACT] Email would be sent (no RESEND_API_KEY):",
+        { to: RECIPIENTS, from: `${email} (${name})`, subject: fullSubject },
+      );
     }
 
     return NextResponse.json({ success: true });

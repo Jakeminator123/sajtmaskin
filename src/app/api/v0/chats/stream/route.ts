@@ -304,12 +304,6 @@ export async function POST(req: Request) {
         projectId,
         slug: metaBuildMethod || metaBuildIntent || undefined,
       });
-      if (process.env.NODE_ENV === "development") {
-        console.log("[dev-log] site generation started", {
-          modelId: resolvedModelId,
-          projectId: projectId ?? null,
-        });
-      }
 
       const generationStartedAt = Date.now();
 
@@ -456,7 +450,6 @@ export async function POST(req: Request) {
                   if (line.startsWith("event:")) {
                     pendingRawData = null;
                     currentEvent = line.slice(6).trim();
-                    if (debugStream) console.log("[v0-stream] event:", currentEvent);
                     continue;
                   }
 
@@ -474,22 +467,9 @@ export async function POST(req: Request) {
                     continue;
                   }
                   pendingRawData = null;
-                  if (debugStream) {
-                    console.log(
-                      "[v0-stream] data for",
-                      currentEvent,
-                      ":",
-                      typeof parsed === "string"
-                        ? parsed.slice(0, 100)
-                        : JSON.stringify(parsed).slice(0, 200),
-                    );
-                  }
 
                   if (!v0ChatId) {
                     const maybeChatId = extractChatId(parsed, currentEvent);
-                    if (debugStream) {
-                      console.log("[v0-stream-debug] chatId candidate:", maybeChatId);
-                    }
                     if (maybeChatId) {
                       v0ChatId = maybeChatId;
                     }

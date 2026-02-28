@@ -181,7 +181,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "companyName is required" }, { status: 400 });
     }
 
-    console.log("[domain-suggestions] Generating suggestions for:", companyName);
+    console.info("[domain-suggestions] Generating suggestions for:", companyName);
 
     // Generate domain name bases
     const baseNames = await generateDomainNames(companyName, industry, keywords);
@@ -212,7 +212,7 @@ export async function POST(req: NextRequest) {
 
     const checkedSuggestions = await Promise.all(checkPromises);
 
-    console.log("[domain-suggestions] Checked", checkedSuggestions.length, "domains");
+    console.info("[domain-suggestions] Checked", checkedSuggestions.length, "domains");
 
     return NextResponse.json({
       success: true,

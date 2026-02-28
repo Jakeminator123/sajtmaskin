@@ -65,7 +65,7 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       );
     }
 
-    console.log(`[Media/Delete] User ${user.id} deleted file ${mediaId}`);
+    console.info(`[Media/Delete] User ${user.id} deleted file ${mediaId}`);
 
     return NextResponse.json({ success: true });
   } catch (error: unknown) {

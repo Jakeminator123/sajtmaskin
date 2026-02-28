@@ -116,7 +116,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    console.log(`[Text/Extract] Extracted ${extractedText.length} chars from ${file.name}`);
+    console.info(`[Text/Extract] Extracted ${extractedText.length} chars from ${file.name}`);
 
     return NextResponse.json({
       success: true,

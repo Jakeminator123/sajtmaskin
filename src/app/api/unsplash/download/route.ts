@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
     const { downloadLocation, photoId } = body;
 
     if (!FEATURES.useUnsplash) {
-      console.log("[API/unsplash/download] Unsplash not configured, skipping");
+      console.info("[API/unsplash/download] Unsplash not configured, skipping");
       return NextResponse.json({ success: true, tracked: false });
     }
 
@@ -62,7 +62,7 @@ export async function POST(req: NextRequest) {
     }
 
     const data = await response.json();
-    console.log(`[API/unsplash/download] ✅ Download tracked for photo`);
+    console.info(`[API/unsplash/download] ✅ Download tracked for photo`);
 
     return NextResponse.json({
       success: true,

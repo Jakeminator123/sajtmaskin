@@ -1,17 +1,10 @@
 SAJTMASKIN LLM - INDEX
 Purpose: samla LLM-relaterade checklistor och schema for AI/gateway/API-val.
 
-Styrning:
-- Fil: .cursor/mijo.txt
-- LLM=ON for prefix
-- LLM=OFF for inga prefix
-- Se LLM/mijo-logik.txt for detaljer
-
 Primära dokument:
 - LLM/AC-schema.txt
 - LLM/DEPS-STATUS.txt
 - LLM/atgardsmatris.txt
-- LLM/mijo-logik.txt
 - LLM/schemas_overview.txt
 - LLM/v0-prompt-guide.txt (v0 prompt best practices + templates)
 
@@ -22,9 +15,5 @@ MCP-docs (karnlista via docs://local/*):
 - docs://local/docs-index
 - docs://local/error-playbook
 
-Referens:
-- schemas/calls.txt (rot)
-- schemas/overview.txt (rot)
-
 Uppdatering:
-1) Andra kod -> uppdatera motsvarande doc i LLM/ eller schemas/.
+1) Andra kod -> uppdatera motsvarande doc i LLM/.
