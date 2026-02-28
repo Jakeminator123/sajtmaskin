@@ -415,6 +415,27 @@ function buildOriginPatchScript(origin: string): string {
 </script>`;
 }
 
+/**
+ * Strip `allow-same-origin` from every sandbox attribute in the proxied HTML.
+ * Nested iframes in v0-generated pages sometimes have this combination, which
+ * triggers a browser security warning. Since the page is already served through
+ * the proxy (different origin from the real vusercontent.net), same-origin
+ * access inside nested iframes is meaningless anyway.
+ */
+function removeAllowSameOriginFromSandboxes(html: string): string {
+  return html.replace(
+    /(sandbox=["'])([^"']*)(["'])/gi,
+    (_match, pre, value, post) => {
+      const cleaned = (value as string)
+        .split(/\s+/)
+        .filter((t) => t !== "allow-same-origin")
+        .join(" ")
+        .trim();
+      return `${pre}${cleaned}${post}`;
+    },
+  );
+}
+
 function injectScript(html: string): string {
   // Inject before </body> or at end
   if (html.includes("</body>")) {
@@ -476,6 +497,7 @@ export async function GET(req: Request) {
 
     // Process HTML
     html = removeCsp(html);
+    html = removeAllowSameOriginFromSandboxes(html);
     html = neutralizeEmbeds(html);
 
     // 1. Inject <base> tag FIRST so all relative URLs resolve to the real origin.

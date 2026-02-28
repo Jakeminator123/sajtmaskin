@@ -582,7 +582,11 @@ export function PreviewPanel({
             className="h-full w-full border-0"
             onLoad={handleIframeLoad}
             onError={handleIframeError}
-            sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+            sandbox={
+              isInspectorMode
+                ? "allow-scripts allow-forms allow-popups"
+                : "allow-scripts allow-same-origin allow-forms allow-popups"
+            }
             title="Preview"
           />
         </div>
