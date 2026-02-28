@@ -4,7 +4,6 @@ import { isGatewayAssistModel } from "@/lib/builder/promptAssist";
 import type { ModelTier } from "@/lib/validations/chatSchemas";
 import {
   DEFAULT_CUSTOM_INSTRUCTIONS,
-  EXPERIMENTAL_MODEL_ID_OPTIONS,
   MODEL_TIER_OPTIONS,
   getPromptAssistModelOptions,
 } from "@/lib/builder/defaults";
@@ -51,9 +50,6 @@ import { useCallback, useEffect, useId, useState } from "react";
 export function BuilderHeader(props: {
   selectedModelTier: ModelTier;
   onSelectedModelTierChange: (tier: ModelTier) => void;
-  allowExperimentalModelId: boolean;
-  customModelId: string;
-  onCustomModelIdChange: (modelId: string) => void;
 
   promptAssistModel: string;
   onPromptAssistModelChange: (model: string) => void;
@@ -100,9 +96,6 @@ export function BuilderHeader(props: {
   const {
     selectedModelTier,
     onSelectedModelTierChange,
-    allowExperimentalModelId,
-    customModelId,
-    onCustomModelIdChange,
     promptAssistModel,
     onPromptAssistModelChange,
     promptAssistDeep,
@@ -142,12 +135,7 @@ export function BuilderHeader(props: {
 
   const isBusy = isAnyStreaming || isCreatingChat;
   const currentModel = MODEL_TIER_OPTIONS.find((m) => m.value === selectedModelTier);
-  const normalizedCustomModelId = customModelId.trim();
-  const activeModelLabel =
-    allowExperimentalModelId && normalizedCustomModelId
-      ? normalizedCustomModelId
-      : currentModel?.label || "AI";
-  const modelButtonLabel = activeModelLabel;
+  const modelButtonLabel = currentModel?.label || "AI";
   const assistModelOptions = getPromptAssistModelOptions();
   const hasCustomAssistModel =
     Boolean(promptAssistModel) &&
@@ -207,9 +195,9 @@ export function BuilderHeader(props: {
                   </TooltipTrigger>
                   <TooltipContent side="left" className="max-w-xs">
                     <p className="text-xs">
-                      Buildern ar nu låst till Max för stabil kvalitet och maximal kontext.
-                      Prompt Assist Model är en separat AI-modell som bara förbättrar prompten
-                      innan generering.
+                      Välj vilken v0-modell som bygger sajten. Max Fast rekommenderas för bäst
+                      kvalitet. Prompt Assist är en separat AI som förbättrar prompten före
+                      generering.
                     </p>
                   </TooltipContent>
                 </Tooltip>
@@ -230,53 +218,6 @@ export function BuilderHeader(props: {
               ))}
             </DropdownMenuRadioGroup>
 
-            {allowExperimentalModelId && (
-              <>
-                <DropdownMenuSeparator />
-                <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">
-                  Experimentellt modelId
-                </DropdownMenuLabel>
-                {EXPERIMENTAL_MODEL_ID_OPTIONS.map((option) => (
-                  <DropdownMenuItem
-                    key={option.value}
-                    disabled={isBusy}
-                    onSelect={(event) => {
-                      event.preventDefault();
-                      onCustomModelIdChange(option.value);
-                    }}
-                  >
-                    {option.label}
-                  </DropdownMenuItem>
-                ))}
-                <DropdownMenuItem
-                  disabled={isBusy}
-                  onSelect={(event) => {
-                    event.preventDefault();
-                    const suggested = normalizedCustomModelId || "opus-4.6-fast";
-                    const next = window.prompt("Ange custom modelId:", suggested);
-                    if (next === null) return;
-                    onCustomModelIdChange(next.trim());
-                  }}
-                >
-                  Skriv in modelId manuellt...
-                </DropdownMenuItem>
-                <DropdownMenuItem
-                  disabled={isBusy || !normalizedCustomModelId}
-                  onSelect={(event) => {
-                    event.preventDefault();
-                    onCustomModelIdChange("");
-                  }}
-                >
-                  Återställ till tier-val
-                </DropdownMenuItem>
-                {normalizedCustomModelId ? (
-                  <div className="text-muted-foreground px-2 pb-1 text-[11px]">
-                    Aktivt modelId: <span className="font-mono">{normalizedCustomModelId}</span>
-                  </div>
-                ) : null}
-              </>
-            )}
-
             <DropdownMenuSeparator />
             <DropdownMenuLabel className="flex items-center gap-2">
               <span>Förbättra</span>
@@ -290,8 +231,8 @@ export function BuilderHeader(props: {
                   <TooltipContent side="left" className="max-w-xs">
                     <p className="text-xs">
                       Rättar stavning/tydlighet i prompten med minimal omskrivning. Behåller språk
-                      om du inte uttryckligen ber om engelska. Själva bygget kör alltid med
-                      Max-motorn.
+                      om du inte uttryckligen ber om engelska. Själva bygget kör med den valda
+                      v0-modellen ovan.
                     </p>
                   </TooltipContent>
                 </Tooltip>
@@ -364,7 +305,7 @@ export function BuilderHeader(props: {
                       <Wand2 className="mr-2 h-4 w-4" />
                       Thinking
                       {!isThinkingSupported && (
-                        <span className="text-muted-foreground ml-2 text-xs">(ej för mini)</span>
+                        <span className="text-muted-foreground ml-2 text-xs">(ej tillgängligt)</span>
                       )}
                     </DropdownMenuCheckboxItem>
                   </div>

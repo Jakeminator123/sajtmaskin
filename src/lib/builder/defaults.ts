@@ -4,8 +4,11 @@
  *
  * CONCEPTS:
  *
- * Model Tier policy (for v0 builder):
- *   - v0-max is enforced as the only runtime tier for deterministic quality.
+ * Model Tiers (v0 Platform API – code generation):
+ *   - v0-1.5-md: Pro -- best error-free rate (93.87%), everyday tasks.
+ *   - v0-1.5-lg: Max -- advanced reasoning, 512K context.
+ *   - v0-max-fast: Max Fast -- default, verified from v0.app (Claude Opus 4.6 Fast).
+ *   - v0-gpt-5:  GPT-5 composite model (MCP server).
  *
  * Prompt Assist (preprocessing user prompts before v0 generation):
  *   - off:            No preprocessing, send prompt directly to v0.
@@ -19,6 +22,7 @@
  */
 
 import { GATEWAY_ASSIST_MODELS, V0_ASSIST_MODELS } from "./promptAssist";
+import { DEFAULT_MODEL_ID } from "@/lib/v0/models";
 import type { ModelTier } from "@/lib/validations/chatSchemas";
 
 // ============================================
@@ -32,39 +36,32 @@ export interface ModelTierOption {
   hint?: string;
 }
 
-export interface ExperimentalModelIdOption {
-  value: string;
-  label: string;
-}
-
 export const MODEL_TIER_OPTIONS: ModelTierOption[] = [
   {
-    value: "v0-max",
-    label: "Max",
-    description: "Låst: bäst kvalitet och mest kontext",
+    value: "v0-max-fast",
+    label: "Max Fast",
+    description: "Max-kvalitet + 2.5x snabbare (Claude Opus 4.6 Fast)",
     hint: "Rekommenderad",
+  },
+  {
+    value: "v0-1.5-lg",
+    label: "Max",
+    description: "Avancerat resonemang, 512K kontext",
+  },
+  {
+    value: "v0-1.5-md",
+    label: "Pro",
+    description: "Bäst felfri-ratio, vardagsuppgifter",
+  },
+  {
+    value: "v0-gpt-5",
+    label: "GPT-5",
+    description: "GPT-5 kompositmodell (experimentell)",
   },
 ];
 
-/**
- * Presets for testing new/unreleased model IDs in v0.
- * These values are sent as-is and may be rejected by the v0 API.
- */
-export const EXPERIMENTAL_MODEL_ID_OPTIONS: ExperimentalModelIdOption[] = [
-  { value: "fast", label: "FAST (experimental)" },
-  { value: "opus-4.6-fast", label: "Opus 4.6 FAST (experimental)" },
-  { value: "claude-opus-4.6-fast", label: "Claude Opus 4.6 FAST (experimental)" },
-];
-
-/**
- * Experimental custom model IDs are explicitly opt-in and disabled in production.
- * This keeps runtime model resolution deterministic for end users.
- */
-export const ENABLE_EXPERIMENTAL_MODEL_ID =
-  false;
-
 /** Default model tier for new chats */
-export const DEFAULT_MODEL_TIER: ModelTier = "v0-max";
+export const DEFAULT_MODEL_TIER: ModelTier = DEFAULT_MODEL_ID;
 
 // ============================================
 // PROMPT ASSIST OPTIONS

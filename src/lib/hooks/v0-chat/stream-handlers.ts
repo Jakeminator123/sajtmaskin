@@ -20,7 +20,7 @@ import { runPostGenerationChecks, triggerImageMaterialization } from "./post-che
 export type StreamContext = {
   streamType: "create" | "send";
   assistantMessageId: string;
-  selectedModelId: string;
+  selectedModelTier: string;
   chatId: string | null;
   setMessages: SetMessages;
   touchStreamSafetyTimer: () => void;
@@ -60,7 +60,7 @@ export async function handleSseStream(
 
   const {
     assistantMessageId,
-    selectedModelId,
+    selectedModelTier,
     setMessages,
     touchStreamSafetyTimer,
     setChatId,
@@ -89,7 +89,7 @@ export async function handleSseStream(
           case "meta": {
             const meta = typeof data === "object" && data ? (data as Record<string, unknown>) : {};
             appendModelInfoPart(setMessages, assistantMessageId, {
-              modelId: (meta.modelId as string) ?? selectedModelId,
+              modelId: (meta.modelId as string) ?? selectedModelTier,
               thinking: typeof meta.thinking === "boolean" ? meta.thinking : null,
               imageGenerations:
                 typeof meta.imageGenerations === "boolean" ? meta.imageGenerations : null,

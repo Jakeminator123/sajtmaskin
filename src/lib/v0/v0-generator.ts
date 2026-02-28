@@ -34,10 +34,11 @@
  * - "completed": Klart → returnera resultat
  * - "failed": Fel → sluta polla, logga error
  *
- * MODELLER (3 tiers):
- * - v0-mini: Mini (snabbast, billigast)
- * - v0-pro: Pro (bra kvalitet till rimlig kostnad)
- * - v0-max: Max (högsta kvalitet, långsammare/dyrare, rekommenderad)
+ * MODELLER (canonical IDs — see src/lib/v0/models.ts):
+ * - v0-max-fast: Max Fast (default, Claude Opus 4.6 Fast)
+ * - v0-1.5-lg:   Max (avancerat resonemang, 512K kontext)
+ * - v0-1.5-md:   Pro (bäst felfri-ratio, vardagsuppgifter)
+ * - v0-gpt-5:    GPT-5 kompositmodell (experimentell)
  *
  * All operations include error handling and structured logging.
  */
@@ -76,8 +77,13 @@ function getV0Client() {
   return _v0Client;
 }
 
-// Local type to avoid dependency on removed api-client
-export type QualityLevel = "light" | "standard" | "pro" | "premium" | "max";
+import {
+  type CanonicalModelId,
+  type QualityLevel,
+  QUALITY_TO_MODEL,
+} from "@/lib/v0/models";
+
+export type { QualityLevel };
 
 /**
  * Generated file structure from v0 API
@@ -109,29 +115,9 @@ export function findMainFile(files: GeneratedFile[]): GeneratedFile | undefined 
   );
 }
 
-/**
- * v0 Model Configuration
- * ======================
- *
- * Available v0 models (Platform API):
- * - v0-mini
- * - v0-pro
- * - v0-max
- *
- * Quality levels (aliases):
- * - light: v0-mini
- * - standard / pro: v0-pro
- * - premium / max: v0-max
- */
-export type V0ModelId = "v0-mini" | "v0-pro" | "v0-max";
+export type V0ModelId = CanonicalModelId;
 
-const MODEL_MAP: Record<QualityLevel, V0ModelId> = {
-  light: "v0-mini",
-  standard: "v0-pro",
-  pro: "v0-pro",
-  premium: "v0-max",
-  max: "v0-max",
-};
+const MODEL_MAP = QUALITY_TO_MODEL;
 
 const BUILD_INTENT_SYSTEM_GUIDANCE: Record<BuildIntent, string> = {
   template:
@@ -687,7 +673,7 @@ export async function generateCode(
   const resolvedImageGenerations =
     typeof options.imageGenerations === "boolean" ? options.imageGenerations : true;
   const resolvedThinking =
-    typeof options.thinking === "boolean" ? options.thinking : modelId !== "v0-mini";
+    typeof options.thinking === "boolean" ? options.thinking : true;
 
   debugLog("v0", "[v0-generator] Creating chat with v0 Platform API...");
   debugLog("v0", "[v0-generator] Model:", modelId);
@@ -727,7 +713,6 @@ export async function generateCode(
       modelConfiguration: {
         modelId: toSdkModelId(modelId),
         imageGenerations: resolvedImageGenerations,
-        // Enable reasoning by default for non-mini tiers (override via options.thinking)
         thinking: resolvedThinking,
       },
       // Use streaming mode if enabled, otherwise sync for full ChatDetail response
@@ -921,7 +906,7 @@ export async function refineCode(
       message: refinementInstruction,
       modelConfiguration: {
         modelId: toSdkModelId(modelId),
-        thinking: modelId !== "v0-mini",
+        thinking: true,
       },
       responseMode: "sync", // Force synchronous response
     })) as ChatDetail;

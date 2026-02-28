@@ -108,7 +108,6 @@ export function useBuilderPageController() {
     setIsSandboxModalOpen: state.setIsSandboxModalOpen,
     setIsSavingProject: state.setIsSavingProject,
     setSelectedModelTier: state.setSelectedModelTier,
-    setCustomModelId: state.setCustomModelId,
     setEnableImageGenerations: state.setEnableImageGenerations,
     setCustomInstructions: state.setCustomInstructions,
     setApplyInstructionsOnce: state.setApplyInstructionsOnce,
@@ -171,7 +170,6 @@ export function useBuilderPageController() {
       appProjectId: state.appProjectId,
       v0ProjectId: state.v0ProjectId,
       selectedModelTier: state.selectedModelTier,
-      selectedModelId: state.selectedModelId,
       enableImageGenerations: state.enableImageGenerations,
       enableImageMaterialization: derived.mediaEnabled,
       enableThinking: state.effectiveThinking,
@@ -481,13 +479,6 @@ export function useBuilderPageController() {
     }
   }, [state.enableThinking]);
 
-  // Experimental model guard
-  useEffect(() => {
-    if (!state.allowExperimentalModelId && state.customModelId) {
-      state.setCustomModelId("");
-    }
-  }, [state.allowExperimentalModelId, state.customModelId]);
-
   // Generation settings per-chat load/save
   useEffect(() => {
     if (!state.chatId) {
@@ -499,12 +490,10 @@ export function useBuilderPageController() {
     state.applyingGenerationSettingsRef.current = true;
     if (stored) {
       state.setSelectedModelTier(stored.modelTier);
-      state.setCustomModelId(state.allowExperimentalModelId ? stored.customModelId : "");
       state.setEnableImageGenerations(Boolean(stored.imageGenerations));
     } else {
       writeChatGenerationSettings(state.chatId, {
         modelTier: state.selectedModelTier,
-        customModelId: state.allowExperimentalModelId ? state.normalizedCustomModelId : "",
         imageGenerations: state.enableImageGenerations,
       });
     }
@@ -512,9 +501,7 @@ export function useBuilderPageController() {
     state.applyingGenerationSettingsRef.current = false;
   }, [
     state.chatId,
-    state.allowExperimentalModelId,
     state.selectedModelTier,
-    state.normalizedCustomModelId,
     state.enableImageGenerations,
   ]);
 
@@ -524,14 +511,11 @@ export function useBuilderPageController() {
     if (state.loadedGenerationSettingsChatRef.current !== state.chatId) return;
     writeChatGenerationSettings(state.chatId, {
       modelTier: state.selectedModelTier,
-      customModelId: state.allowExperimentalModelId ? state.normalizedCustomModelId : "",
       imageGenerations: state.enableImageGenerations,
     });
   }, [
     state.chatId,
-    state.allowExperimentalModelId,
     state.selectedModelTier,
-    state.normalizedCustomModelId,
     state.enableImageGenerations,
   ]);
 
@@ -1170,8 +1154,7 @@ export function useBuilderPageController() {
     if (autoGenerateTriggeredRef.current) return;
     autoGenerateTriggeredRef.current = true;
 
-    state.setSelectedModelTier("v0-max");
-    state.setCustomModelId("");
+    state.setSelectedModelTier("v0-max-fast");
 
     const timer = setTimeout(() => {
       void promptActions.requestCreateChat(state.resolvedPrompt!);
@@ -1196,8 +1179,6 @@ export function useBuilderPageController() {
     chatId: state.chatId,
     messages: state.messages,
     selectedModelTier: state.selectedModelTier,
-    allowExperimentalModelId: state.allowExperimentalModelId,
-    customModelId: state.customModelId,
     promptAssistModel: state.promptAssistModel,
     promptAssistDeep: state.promptAssistDeep,
     customInstructions: state.customInstructions,
@@ -1236,7 +1217,6 @@ export function useBuilderPageController() {
 
     // Setters the shell needs for onChange handlers
     setSelectedModelTier: state.setSelectedModelTier,
-    setCustomModelId: state.setCustomModelId,
     setPromptAssistDeep: state.setPromptAssistDeep,
     setCustomInstructions: state.setCustomInstructions,
     setApplyInstructionsOnce: state.setApplyInstructionsOnce,

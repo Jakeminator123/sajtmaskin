@@ -1,15 +1,21 @@
 import { z } from "zod";
 import { MAX_CHAT_MESSAGE_CHARS, MAX_CHAT_SYSTEM_CHARS } from "@/lib/builder/promptLimits";
+import {
+  ACCEPTED_MODEL_IDS,
+  CANONICAL_MODEL_IDS,
+  DEFAULT_MODEL_ID,
+  type CanonicalModelId,
+} from "@/lib/v0/models";
 
-export const modelTiers = ["v0-mini", "v0-pro", "v0-max"] as const;
-export type ModelTier = (typeof modelTiers)[number];
+export const modelTiers = CANONICAL_MODEL_IDS;
+export type ModelTier = CanonicalModelId;
+
+export const acceptedModelIds = ACCEPTED_MODEL_IDS;
 const MAX_ATTACHMENTS_PER_MESSAGE = 24;
 
-const modelIdSchema = z
-  .string()
-  .trim()
-  .min(1, "Model ID is required")
-  .max(80, "Model ID is too long");
+const modelIdSchema = z.enum(
+  ACCEPTED_MODEL_IDS as unknown as [string, ...string[]],
+);
 
 const promptMetaSchema = z
   .object({
@@ -37,7 +43,7 @@ export const createChatSchema = z.object({
   attachments: z.array(z.any()).max(MAX_ATTACHMENTS_PER_MESSAGE).optional(),
   system: z.string().max(MAX_CHAT_SYSTEM_CHARS).optional(),
   projectId: z.string().optional(),
-  modelId: modelIdSchema.optional().default("v0-max"),
+  modelId: modelIdSchema.optional().default(DEFAULT_MODEL_ID),
   thinking: z.boolean().optional(),
   imageGenerations: z.boolean().optional(),
   chatPrivacy: z.enum(["public", "private"]).optional(),

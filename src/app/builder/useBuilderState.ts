@@ -20,7 +20,6 @@ import {
   DEFAULT_PROMPT_ASSIST,
   DEFAULT_SPEC_MODE,
   DEFAULT_THINKING,
-  ENABLE_EXPERIMENTAL_MODEL_ID,
   getDefaultPromptAssistModel,
 } from "@/lib/builder/defaults";
 import { getThemeColors, type DesignTheme } from "@/lib/builder/theme-presets";
@@ -53,7 +52,6 @@ export function useBuilderState(searchParams: ReadonlyURLSearchParams) {
     () => normalizeBuildMethod(buildMethodParam) || (source === "audit" ? "audit" : null),
   );
   const [selectedModelTier, setSelectedModelTier] = useState<ModelTier>(DEFAULT_MODEL_TIER);
-  const [customModelId, setCustomModelId] = useState("");
   const [promptAssistModel, setPromptAssistModel] = useState(
     DEFAULT_PROMPT_ASSIST.model || getDefaultPromptAssistModel(),
   );
@@ -120,13 +118,7 @@ export function useBuilderState(searchParams: ReadonlyURLSearchParams) {
   const applyingGenerationSettingsRef = useRef(false);
   const templateInitAttemptKeyRef = useRef<string | null>(null);
 
-  const allowExperimentalModelId = ENABLE_EXPERIMENTAL_MODEL_ID;
-  const normalizedCustomModelId = useMemo(() => customModelId.trim(), [customModelId]);
-  const selectedModelId =
-    allowExperimentalModelId && normalizedCustomModelId
-      ? normalizedCustomModelId
-      : selectedModelTier;
-  const isThinkingSupported = selectedModelTier !== "v0-mini";
+  const isThinkingSupported = true;
   const effectiveThinking = enableThinking && isThinkingSupported;
   const resolvedBuildIntent = useMemo(
     () => resolveBuildIntentForMethod(buildMethod, buildIntent),
@@ -167,8 +159,6 @@ export function useBuilderState(searchParams: ReadonlyURLSearchParams) {
     setBuildMethod,
     selectedModelTier,
     setSelectedModelTier,
-    customModelId,
-    setCustomModelId,
     promptAssistModel,
     setPromptAssistModel,
     promptAssistDeep,
@@ -264,9 +254,6 @@ export function useBuilderState(searchParams: ReadonlyURLSearchParams) {
     loadedGenerationSettingsChatRef,
     applyingGenerationSettingsRef,
     templateInitAttemptKeyRef,
-    allowExperimentalModelId,
-    normalizedCustomModelId,
-    selectedModelId,
     isThinkingSupported,
     effectiveThinking,
     resolvedBuildIntent,

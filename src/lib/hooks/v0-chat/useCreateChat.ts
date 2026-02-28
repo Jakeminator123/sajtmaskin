@@ -40,7 +40,6 @@ export function useCreateChat(
     appProjectId,
     v0ProjectId,
     selectedModelTier,
-    selectedModelId,
     enableImageGenerations,
     enableImageMaterialization = false,
     enableThinking,
@@ -86,7 +85,7 @@ export function useCreateChat(
       const createKey = buildCreateChatKey(
         initialMessage,
         options,
-        selectedModelId,
+        selectedModelTier,
         enableImageGenerations,
         effectiveSystemPrompt,
       );
@@ -122,7 +121,7 @@ export function useCreateChat(
         attachments: options.attachments?.length ?? 0,
         imageGenerations: enableImageGenerations,
         modelTier: selectedModelTier,
-        modelId: selectedModelId,
+        modelId: selectedModelTier,
         systemPromptProvided: Boolean(effectiveSystemPrompt?.trim()),
       });
 
@@ -146,7 +145,7 @@ export function useCreateChat(
             : null;
         appendModelInfoPart(setMessages, assistantMessageId, {
           modelId:
-            (typeof meta?.modelId === "string" && meta?.modelId) || selectedModelId || null,
+            (typeof meta?.modelId === "string" && meta?.modelId) || selectedModelTier || null,
           thinking: typeof meta?.thinking === "boolean" ? (meta.thinking as boolean) : null,
           imageGenerations:
             typeof meta?.imageGenerations === "boolean"
@@ -245,7 +244,7 @@ export function useCreateChat(
           options.attachmentPrompt,
           options.attachments,
         );
-        const thinkingForTier = enableThinking && selectedModelTier !== "v0-mini";
+        const thinkingForTier = enableThinking;
         const trimmedSystemPrompt = effectiveSystemPrompt?.trim();
         const promptMeta: Record<string, unknown> = {
           promptOriginal: initialMessage,
@@ -267,12 +266,12 @@ export function useCreateChat(
         if (promptAssistMode) promptMeta.promptAssistMode = promptAssistMode;
         if (buildIntent) promptMeta.buildIntent = buildIntent;
         if (buildMethod) promptMeta.buildMethod = buildMethod;
-        promptMeta.modelId = selectedModelId;
+        promptMeta.modelId = selectedModelTier;
         promptMeta.modelTier = selectedModelTier;
 
         requestBody = {
           message: finalMessage,
-          modelId: selectedModelId,
+          modelId: selectedModelTier,
           thinking: thinkingForTier,
           imageGenerations: enableImageGenerations,
           meta: promptMeta,
@@ -319,7 +318,7 @@ export function useCreateChat(
             {
               streamType: "create",
               assistantMessageId,
-              selectedModelId,
+              selectedModelTier,
               chatId: null,
               setMessages,
               touchStreamSafetyTimer,
@@ -399,7 +398,7 @@ export function useCreateChat(
       isCreatingChat,
       resetBeforeCreateChat,
       selectedModelTier,
-      selectedModelId,
+      selectedModelTier,
       enableImageGenerations,
       enableImageMaterialization,
       enableThinking,

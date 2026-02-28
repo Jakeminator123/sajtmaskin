@@ -105,7 +105,6 @@ export type V0ChatMessagingParams = {
   appProjectId?: string | null;
   v0ProjectId?: string | null;
   selectedModelTier: ModelTier;
-  selectedModelId: string;
   enableImageGenerations: boolean;
   enableImageMaterialization?: boolean;
   enableThinking: boolean;

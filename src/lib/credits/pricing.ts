@@ -10,8 +10,17 @@ export type CreditAction =
   | "audit.basic"
   | "audit.advanced";
 
-export type ModelTier = "v0-mini" | "v0-pro" | "v0-max";
-export type QualityLevel = "light" | "standard" | "pro" | "premium" | "max";
+import {
+  type CanonicalModelId,
+  type QualityLevel,
+  canonicalizeModelId,
+  DEFAULT_MODEL_ID,
+  QUALITY_TO_MODEL,
+  MODEL_LABELS,
+} from "@/lib/v0/models";
+
+export type ModelTier = CanonicalModelId;
+export type { QualityLevel };
 
 export type PricingContext = {
   modelId?: string | null;
@@ -25,30 +34,21 @@ export type PricingContext = {
 // ─── Prompt costs by model tier ───────────────────────────────────
 // Base rate: 1 credit ≈ 3 SEK
 const PROMPT_CREATE_COSTS: Record<ModelTier, number> = {
-  "v0-mini": 5,
-  "v0-pro": 7,
-  "v0-max": 10,
+  "v0-max-fast": 10,
+  "v0-1.5-md": 7,
+  "v0-1.5-lg": 10,
+  "v0-gpt-5": 10,
 };
 
 const PROMPT_REFINE_COSTS: Record<ModelTier, number> = {
-  "v0-mini": 3,
-  "v0-pro": 4,
-  "v0-max": 6,
+  "v0-max-fast": 6,
+  "v0-1.5-md": 4,
+  "v0-1.5-lg": 6,
+  "v0-gpt-5": 6,
 };
 
-const QUALITY_TO_MODEL: Record<QualityLevel, ModelTier> = {
-  light: "v0-mini",
-  standard: "v0-pro",
-  pro: "v0-pro",
-  premium: "v0-max",
-  max: "v0-max",
-};
-
-const MODEL_LABELS: Record<ModelTier, string> = {
-  "v0-mini": "Mini",
-  "v0-pro": "Pro",
-  "v0-max": "Max",
-};
+// QUALITY_TO_MODEL, MODEL_LABELS, and legacy alias mapping are
+// imported from @/lib/v0/models (single source of truth).
 
 // ─── Feature costs ────────────────────────────────────────────────
 export const WIZARD_COST = 11;
@@ -76,20 +76,13 @@ const PROMPT_CREATE_ACTIONS = new Set<CreditAction>([
 
 const PROMPT_REFINE_ACTIONS = new Set<CreditAction>(["prompt.refine"]);
 
-function normalizeModelTier(modelId?: string | null): ModelTier | null {
-  if (modelId === "v0-mini" || modelId === "v0-pro" || modelId === "v0-max") {
-    return modelId;
-  }
-  return null;
-}
-
 export function resolveModelTier(context: PricingContext = {}): ModelTier {
-  const normalized = normalizeModelTier(context.modelId);
-  if (normalized) return normalized;
+  const canonical = canonicalizeModelId(context.modelId);
+  if (canonical) return canonical;
   if (context.quality && QUALITY_TO_MODEL[context.quality]) {
     return QUALITY_TO_MODEL[context.quality];
   }
-  return "v0-max";
+  return DEFAULT_MODEL_ID;
 }
 
 export function getCreditCost(action: CreditAction, context: PricingContext = {}): number {

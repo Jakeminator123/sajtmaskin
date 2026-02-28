@@ -33,7 +33,6 @@ export function useSendMessage(
   const {
     chatId,
     selectedModelTier,
-    selectedModelId,
     enableImageGenerations,
     enableImageMaterialization = false,
     enableThinking,
@@ -74,7 +73,7 @@ export function useSendMessage(
         messageLength: messageText.length,
         attachments: options.attachments?.length ?? 0,
         modelTier: selectedModelTier,
-        modelId: selectedModelId,
+        modelId: selectedModelTier,
       });
 
       setMessages((prev) => [
@@ -161,7 +160,7 @@ export function useSendMessage(
           options.attachmentPrompt,
           options.attachments,
         );
-        const thinkingForTier = enableThinking && selectedModelTier !== "v0-mini";
+        const thinkingForTier = enableThinking;
         const promptMeta: Record<string, unknown> = {
           promptOriginal: messageText,
           promptFormatted: formattedMessage,
@@ -179,12 +178,12 @@ export function useSendMessage(
         if (buildIntent) promptMeta.buildIntent = buildIntent;
         if (buildMethod) promptMeta.buildMethod = buildMethod;
         promptMeta.modelTier = selectedModelTier;
-        promptMeta.modelId = selectedModelId;
+        promptMeta.modelId = selectedModelTier;
         promptMeta.imageGenerations = enableImageGenerations;
 
         requestBody = {
           message: finalMessage,
-          modelId: selectedModelId,
+          modelId: selectedModelTier,
           thinking: thinkingForTier,
           imageGenerations: enableImageGenerations,
           meta: promptMeta,
@@ -233,7 +232,7 @@ export function useSendMessage(
           {
             streamType: "send",
             assistantMessageId,
-            selectedModelId,
+            selectedModelTier,
             chatId,
             setMessages,
             touchStreamSafetyTimer,
@@ -307,7 +306,7 @@ export function useSendMessage(
       onPreviewRefresh,
       onGenerationComplete,
       selectedModelTier,
-      selectedModelId,
+      selectedModelTier,
       buildIntent,
       buildMethod,
       mutateVersions,

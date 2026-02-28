@@ -46,7 +46,6 @@ type Args = {
   setIsSandboxModalOpen: Dispatch<SetStateAction<boolean>>;
   setIsSavingProject: Dispatch<SetStateAction<boolean>>;
   setSelectedModelTier: Dispatch<SetStateAction<ModelTier>>;
-  setCustomModelId: Dispatch<SetStateAction<string>>;
   setEnableImageGenerations: Dispatch<SetStateAction<boolean>>;
   setCustomInstructions: Dispatch<SetStateAction<string>>;
   setApplyInstructionsOnce: Dispatch<SetStateAction<boolean>>;
@@ -90,7 +89,6 @@ export function useBuilderProjectActions({
   setIsSandboxModalOpen,
   setIsSavingProject,
   setSelectedModelTier,
-  setCustomModelId,
   setEnableImageGenerations,
   setCustomInstructions,
   setApplyInstructionsOnce,
@@ -243,7 +241,6 @@ export function useBuilderProjectActions({
       setIsImportModalOpen(false);
       setIsSandboxModalOpen(false);
       setSelectedModelTier(DEFAULT_MODEL_TIER);
-      setCustomModelId("");
       setEnableImageGenerations(DEFAULT_IMAGE_GENERATIONS);
       setCustomInstructions(DEFAULT_CUSTOM_INSTRUCTIONS);
       setApplyInstructionsOnce(false);
@@ -269,7 +266,6 @@ export function useBuilderProjectActions({
     setIsImportModalOpen,
     setIsSandboxModalOpen,
     setSelectedModelTier,
-    setCustomModelId,
     setEnableImageGenerations,
     setCustomInstructions,
     setApplyInstructionsOnce,

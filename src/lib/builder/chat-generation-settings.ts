@@ -6,7 +6,6 @@ import type { ModelTier } from "@/lib/validations/chatSchemas";
 
 export type ChatGenerationSettings = {
   modelTier: ModelTier;
-  customModelId: string;
   imageGenerations: boolean;
 };
 
@@ -27,7 +26,6 @@ export function readChatGenerationSettings(chatId: string): ChatGenerationSettin
     if (!parsed.modelTier || !MODEL_TIER_SET.has(parsed.modelTier as ModelTier)) return null;
     return {
       modelTier: parsed.modelTier as ModelTier,
-      customModelId: typeof parsed.customModelId === "string" ? parsed.customModelId.trim() : "",
       imageGenerations:
         typeof parsed.imageGenerations === "boolean"
           ? parsed.imageGenerations
@@ -46,4 +44,3 @@ export function writeChatGenerationSettings(chatId: string, settings: ChatGenera
     // ignore storage errors
   }
 }
-

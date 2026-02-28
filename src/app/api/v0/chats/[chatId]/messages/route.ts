@@ -49,7 +49,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
       const modelSelection = resolveModelSelection({
         requestedModelId: modelId,
         requestedModelTier: metaRequestedModelTier,
-        fallbackTier: "v0-max",
+        fallbackTier: "v0-max-fast",
       });
 
       const dbChat = await getChatByV0ChatIdForRequest(req, chatId);
@@ -60,7 +60,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
       const resolvedModelId = modelSelection.modelId;
       const resolvedModelTier = modelSelection.modelTier;
       const resolvedThinking =
-        typeof thinking === "boolean" ? thinking : resolvedModelTier === "v0-max";
+        typeof thinking === "boolean" ? thinking : true;
       const resolvedImageGenerations =
         typeof imageGenerations === "boolean" ? imageGenerations : true;
       const metaBuildMethod =
@@ -102,8 +102,6 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
         message: optimizedMessage,
         modelId: resolvedModelId,
         modelTier: resolvedModelTier,
-        customModelIdIgnored: modelSelection.customModelIdIgnored,
-        usingCustomModelId: modelSelection.usingCustomModelId,
         slug: metaBuildMethod || metaBuildIntent || undefined,
         promptType: strategyMeta.promptType,
         promptStrategy: strategyMeta.strategy,

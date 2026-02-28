@@ -25,9 +25,6 @@ export function BuilderShellContent(vm: BuilderViewModel) {
       <BuilderHeader
         selectedModelTier={vm.selectedModelTier}
         onSelectedModelTierChange={vm.setSelectedModelTier}
-        allowExperimentalModelId={vm.allowExperimentalModelId}
-        customModelId={vm.customModelId}
-        onCustomModelIdChange={vm.setCustomModelId}
         promptAssistModel={vm.promptAssistModel}
         onPromptAssistModelChange={vm.handlePromptAssistModelChange}
         promptAssistDeep={vm.promptAssistDeep}

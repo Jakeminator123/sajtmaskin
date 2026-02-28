@@ -20,10 +20,12 @@ How to update:
 6) Nar post-generation checks utokas (CSS/unicode) -> uppdatera post-generation-checks.txt.
 
 Terminologi:
-- Platform API (v0-sdk) = kodgenerering + preview (model tiers: v0-mini/pro/max).
-- Model API (AI SDK / @ai-sdk/vercel) = textmodell (v0-1.5-md/lg).
-- v0-1.5-md: 128K kontext, v0-1.5-lg: 512K kontext (services/mpc/docs/quick-reference.txt).
-- Kontextstorlek for v0-mini/pro/max ar ej publicerad i docs.
+- Platform API (v0-sdk) = kodgenerering + preview.
+  Canonical tiers: v0-max-fast (default), v0-1.5-lg, v0-1.5-md, v0-gpt-5.
+  Legacy aliases: v0-mini -> v0-1.5-md, v0-pro -> v0-1.5-md, v0-max -> v0-max-fast.
+  Source of truth: src/lib/v0/models.ts
+- Model API (AI SDK / @ai-sdk/openai) = textmodell (v0-1.5-md/lg).
+  Anvands enbart for prompt assist, ej for sajtbygge.
 
 Designprincip:
 - Kort och exakt. Peka till kod, duplicera inte logik.

@@ -1,16 +1,24 @@
 "use client";
 
 import type { V0UserFileAttachment } from "@/components/media";
-import type { ModelTier } from "@/lib/validations/chatSchemas";
-import type { QualityLevel } from "@/lib/v0/v0-generator";
+import { QUALITY_TO_MODEL, type CanonicalModelId, type QualityLevel } from "@/lib/v0/models";
 
 export type CreateChatOptions = {
   attachments?: V0UserFileAttachment[];
   attachmentPrompt?: string;
 };
 
-export const MODEL_TIER_TO_QUALITY: Record<ModelTier, QualityLevel> = {
-  "v0-mini": "light",
-  "v0-pro": "standard",
-  "v0-max": "max",
+const _inverted = Object.entries(QUALITY_TO_MODEL).reduce(
+  (acc, [quality, modelId]) => {
+    if (!acc[modelId]) acc[modelId] = quality as QualityLevel;
+    return acc;
+  },
+  {} as Partial<Record<CanonicalModelId, QualityLevel>>,
+);
+
+export const MODEL_TIER_TO_QUALITY: Partial<Record<string, QualityLevel>> = {
+  ..._inverted,
+  "v0-max-fast": "max",
+  "v0-gpt-5": "max",
+  "v0-1.5-lg": "max",
 };

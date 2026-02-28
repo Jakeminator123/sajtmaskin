@@ -34,8 +34,9 @@ AC - UX/Debug
 - [x] Tool debug forklarar hasInput/hasOutput/state/toolCallId och visar post-check-sammanfattning.
 
 Noter:
-- Platform API (v0-sdk) bygger sajten (v0-mini/pro/max).
-- Model API (AI SDK / @ai-sdk/vercel) anvander v0-1.5-md/lg for text, ej for build.
+- Platform API (v0-sdk) bygger sajten (v0-max-fast/v0-1.5-lg/v0-1.5-md/v0-gpt-5).
+  Source of truth: src/lib/v0/models.ts
+- Model API (AI SDK / @ai-sdk/openai) anvander v0-1.5-md/lg for text, ej for build.
 - CSS-validering auto-fixar Tailwind v4 fel efter generation; post-check ar read-only.
 - Unicode-normalisering kor efter generation for att rensa \\uXXXX-sekvenser.
 - Sprakregel: matcha anvandarens sprak i synlig copy; oversatt endast vid explicit begaran.

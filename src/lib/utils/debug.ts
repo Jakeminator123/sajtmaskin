@@ -150,7 +150,7 @@ export function truncateForLog(text: string, maxLength: number = 500, label?: st
  * This is ALWAYS logged (not affected by debug settings) because it's critical info
  *
  * @param prompt - The complete prompt being sent to v0
- * @param model - The model being used (e.g., "v0-pro")
+ * @param model - The model being used (e.g., "v0-max-fast")
  */
 export function logFinalPrompt(prompt: string, model: string): void {
   const divider = "═".repeat(80);

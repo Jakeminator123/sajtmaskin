@@ -566,8 +566,8 @@ function buildModelInfoSteps(info: ModelInfoData): string[] {
   const steps: string[] = [];
   const modelId = info.modelId ? String(info.modelId) : null;
   steps.push(`Model: ${modelId || "okänd"}`);
-  if (modelId && modelId !== "v0-max") {
-    steps.push("Varning: inte Max-tier");
+  if (modelId && modelId !== "v0-max-fast") {
+    steps.push("Varning: inte Max Fast");
   }
   if (typeof info.thinking === "boolean") {
     steps.push(`Thinking: ${info.thinking ? "på" : "av"}`);
@@ -698,7 +698,7 @@ export function buildApiErrorMessage(params: {
       return "Bilagan är för stor (max 3 MB). Försök med en mindre fil.";
     }
     if (looksLikeUnsupportedModelError(nestedMsg)) {
-      return `Model ID avvisades av AI-tjänsten: "${nestedMsg}". Prova ett annat custom modelId eller byt tillbaka till mini/pro/max.`;
+      return `Model ID avvisades av AI-tjänsten: "${nestedMsg}". Byt till en giltig modell (Max Fast, Max, Pro eller GPT-5).`;
     }
     return nestedMsg || "Ogiltigt anrop (422). Kontrollera bilagor och meddelande.";
   }
@@ -708,7 +708,7 @@ export function buildApiErrorMessage(params: {
     (typeof errorData?.message === "string" && errorData.message) ||
     "";
   if (looksLikeUnsupportedModelError(directMessage)) {
-    return `Model ID avvisades av AI-tjänsten: "${directMessage}". Prova ett annat custom modelId eller byt tillbaka till mini/pro/max.`;
+    return `Model ID avvisades av AI-tjänsten: "${directMessage}". Byt till en giltig modell (Max Fast, Max, Pro eller GPT-5).`;
   }
 
   let message = directMessage || fallbackMessage;
@@ -751,7 +751,7 @@ export function buildStreamErrorMessage(errorData: Record<string, unknown> | nul
     return "Preview-version kunde inte fastställas från streamen. Försök igen eller kör reparera preview.";
   }
   if (looksLikeUnsupportedModelError(rawMessage)) {
-    return `Model ID avvisades av AI-tjänsten: "${rawMessage}". Prova ett annat custom modelId eller byt tillbaka till mini/pro/max.`;
+    return `Model ID avvisades av AI-tjänsten: "${rawMessage}". Byt till en giltig modell (Max Fast, Max, Pro eller GPT-5).`;
   }
   if (rawMessage.toLowerCase().includes("no preview version was generated")) {
     return "Preview-version saknas efter streamen. Försök igen eller kör reparera preview.";

@@ -115,7 +115,7 @@ export async function POST(req: Request) {
         attachments,
         projectId,
         system,
-        modelId = "v0-max",
+        modelId = "v0-max-fast",
         thinking = true,
         imageGenerations,
         chatPrivacy,
@@ -129,7 +129,7 @@ export async function POST(req: Request) {
       const modelSelection = resolveModelSelection({
         requestedModelId: modelId,
         requestedModelTier: metaRequestedModelTier,
-        fallbackTier: "v0-max",
+        fallbackTier: "v0-max-fast",
       });
       const resolvedModelId = modelSelection.modelId;
       const resolvedModelTier = modelSelection.modelTier;
@@ -153,7 +153,7 @@ export async function POST(req: Request) {
       const trimmedSystemPrompt = typeof system === "string" ? system.trim() : "";
       const hasSystemPrompt = Boolean(trimmedSystemPrompt);
       const resolvedThinking =
-        typeof thinking === "boolean" ? thinking : resolvedModelTier === "v0-max";
+        typeof thinking === "boolean" ? thinking : true;
       const resolvedImageGenerations =
         typeof imageGenerations === "boolean" ? imageGenerations : true;
       const resolvedChatPrivacy = chatPrivacy ?? "private";
@@ -267,8 +267,6 @@ export async function POST(req: Request) {
       debugLog("v0", "v0 chat stream request", {
         modelId: resolvedModelId,
         modelTier: resolvedModelTier,
-        customModelIdIgnored: modelSelection.customModelIdIgnored,
-        usingCustomModelId: modelSelection.usingCustomModelId,
         promptLength: optimizedMessage.length,
         originalPromptLength: message.length,
         attachments: Array.isArray(attachments) ? attachments.length : 0,
@@ -314,7 +312,7 @@ export async function POST(req: Request) {
         projectId,
         chatPrivacy: resolvedChatPrivacy,
         modelConfiguration: {
-          modelId: resolvedModelId,
+          modelId: resolvedModelId as string,
           thinking: resolvedThinking,
           imageGenerations: resolvedImageGenerations,
         },
