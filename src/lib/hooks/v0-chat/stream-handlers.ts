@@ -267,14 +267,17 @@ export async function handleSseStream(
             }
 
             if (awaitingInput) {
+              const contentTail = accumulatedContent.trim().slice(-300);
+              const questionPreview = contentTail
+                ? contentTail
+                : "AI needs your answer before the next version can be generated. Pick an option in chat or reply with free text.";
               appendToolPartToMessage(setMessages, assistantMessageId, {
                 type: "tool:awaiting-input",
                 toolName: "Awaiting input",
                 toolCallId: `awaiting-input:${assistantMessageId}`,
                 state: "approval-requested",
                 output: {
-                  question:
-                    "AI needs your answer before the next version can be generated. Pick an option in chat or reply with free text.",
+                  question: questionPreview,
                   chatId: nextId,
                   messageId:
                     doneData.messageId ||

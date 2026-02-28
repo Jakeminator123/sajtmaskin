@@ -554,7 +554,7 @@ export async function POST(req: Request) {
                   }
 
                   const contentText = extractContentText(parsed, rawData);
-                  const suppressContent = shouldSuppressContentForEvent(parsed, currentEvent);
+                  const suppressContent = shouldSuppressContentForEvent(parsed, currentEvent, contentText);
                   if (contentText && !didSendDone && !suppressContent) {
                     assistantContentPreview = appendPreview(assistantContentPreview, contentText);
                     safeEnqueue(encoder.encode(formatSSEEvent("content", contentText)));

@@ -700,10 +700,7 @@ function eventLooksToolLike(currentEvent: string): boolean {
     eventName.includes("tool") ||
     eventName.includes("integration") ||
     eventName.includes("approval") ||
-    eventName.includes("post-check") ||
-    eventName.includes("tool_call") ||
-    eventName.includes("tool-call") ||
-    eventName.includes("calls")
+    eventName.includes("post-check")
   );
 }
 
@@ -769,8 +766,22 @@ function payloadLooksToolLike(parsed: unknown): boolean {
   );
 }
 
-export function shouldSuppressContentForEvent(parsed: unknown, currentEvent = ""): boolean {
-  return eventLooksToolLike(currentEvent) || payloadLooksToolLike(parsed);
+function looksLikeProse(text: string): boolean {
+  const trimmed = text.trim();
+  if (trimmed.length < 6) return false;
+  if (/^\s*[{\[]/.test(trimmed)) return false;
+  return /[a-zA-Z]\s+[a-zA-Z]/.test(trimmed);
+}
+
+export function shouldSuppressContentForEvent(
+  parsed: unknown,
+  currentEvent = "",
+  contentText?: string | null,
+): boolean {
+  const isToolLike = eventLooksToolLike(currentEvent) || payloadLooksToolLike(parsed);
+  if (!isToolLike) return false;
+  if (contentText && looksLikeProse(contentText)) return false;
+  return true;
 }
 
 export function isDoneLikeEvent(currentEvent: string, parsed: unknown): boolean {

@@ -135,10 +135,10 @@ export function mergeStreamingText(previous: string, incoming: string): string {
   if (!incoming) return previous;
   if (incoming.startsWith(previous)) return incoming;
   if (previous.startsWith(incoming)) return previous;
-  if (incoming.length > 16 && previous.includes(incoming)) return previous;
-  if (previous.length > 16 && incoming.includes(previous)) return incoming;
+  if (incoming.length > 64 && previous.includes(incoming)) return previous;
+  if (previous.length > 64 && incoming.includes(previous)) return incoming;
 
-  const MIN_SAFE_OVERLAP = 8;
+  const MIN_SAFE_OVERLAP = 24;
   const maxOverlap = Math.min(previous.length, incoming.length);
   for (let size = maxOverlap; size >= MIN_SAFE_OVERLAP; size -= 1) {
     if (previous.slice(-size) === incoming.slice(0, size)) {

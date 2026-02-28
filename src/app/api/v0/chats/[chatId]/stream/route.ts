@@ -471,7 +471,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
                   }
 
                   const contentText = extractContentText(parsed, rawData);
-                  const suppressContent = shouldSuppressContentForEvent(parsed, _currentEvent);
+                  const suppressContent = shouldSuppressContentForEvent(parsed, _currentEvent, contentText);
                   if (contentText && !didSendDone && !suppressContent) {
                     assistantContentPreview = appendPreview(assistantContentPreview, contentText);
                     safeEnqueue(encoder.encode(formatSSEEvent("content", contentText)));
