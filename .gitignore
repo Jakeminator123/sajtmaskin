@@ -60,12 +60,9 @@ chat_till_vanster.txt
 
 # Temp/dev files
 .preprompt_history.json
-env.procuction
-env.local
 övrigt
 skrapning
 /[{]*.png
-
 _env.production
 _env.development
 
@@ -79,19 +76,9 @@ SiteStudio_Projektspecifikation_ifillningsbar_v2.pdf
 environments.production
 vercel-env-deploy.txt
 
-SiteStudio_Projektspecifikation_ifillningsbar_v2.pdf
-
-old
 old/
-.cursorignore
-senaste_miljovariablar
-senaste_miljovariablar/old/
-/senaste_miljovariablar/old/
-
+senaste_miljovariablar/
 sajtmaskin.code-workspace
 
+# Vercel
 .vercel
-.env*.local
-
-.vercel
-.env*.local

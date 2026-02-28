@@ -1,11 +1,11 @@
 # =============================================================================
 # SAJTMASKIN .cursorignore
 # =============================================================================
-# Filer här indexeras INTE av Cursor - sparar minne och gör sökningar snabbare.
-# För dokumentation: använd MCP-servern istället (search_docs, get_doc).
+# Files here are NOT indexed by Cursor - saves memory and speeds up searches.
+# For documentation: use the MCP server instead (search_docs, get_doc).
 # =============================================================================
 
-# Build/cache (ändras konstant, ingen nytta att indexera)
+# Build/cache
 node_modules
 .next
 .cache
@@ -13,45 +13,23 @@ dist
 build
 coverage
 
-# Generated files
+# Generated / large files
 tsconfig.tsbuildinfo
-#next-env.d.ts
 package-lock.json
 
-# Stora mediefiler
+# Large media
 public/video/
 *.mp4
 *.webm
-# =============================================================================
-# MCP DOKUMENTATION - LÄSES VIA MCP-SERVER, INTE INDEXERING
-# =============================================================================
-# Scraped docs (60+ MB) - använd MCP search_docs/get_doc istället
-#services/mpc/docs/docgrab__*/
-#services/mpc/logs/
 
-# =============================================================================
-# CURSOR-SPECIFIKT
-#.cursor/documents/
-#services/mpc/docs/*llms*
-#services/mpc/docs/SDK_6.md
-#services/mpc/logs/
-# =============================================================================
-#.cursor/plans/
+# MCP scraped docs (60+ MB) - use MCP search_docs/get_doc instead
+services/mpc/docs/docgrab__*/
+services/mpc/logs/
 
-
-# =============================================================================
-# TEMP/DEV
-# =============================================================================
+# Temp/dev
 old
 skrapning
-INPUT_FOR_CURSOR
-info
+ovrigt
+sajtgen
 .preprompt_history.json
 .git
-
-
-sajtgen
-
-
-
-övrigt
