@@ -112,6 +112,9 @@ export function useBuilderState(searchParams: ReadonlyURLSearchParams) {
   const [existingUiComponents, setExistingUiComponents] = useState<string[]>([]);
   const [inspectorSelection, setInspectorSelection] = useState<InspectorSelection | null>(null);
   const [inspectorClearToken, setInspectorClearToken] = useState(0);
+  const [serverProjectChatId, setServerProjectChatId] = useState<string | null>(null);
+  const [serverProjectMessages, setServerProjectMessages] = useState<ChatMessage[]>([]);
+  const [serverProjectDemoUrl, setServerProjectDemoUrl] = useState<string | null>(null);
   const lastActiveVersionIdRef = useRef<string | null>(null);
   const promptFetchInFlightRef = useRef<string | null>(null);
   const promptFetchDoneRef = useRef<string | null>(null);
@@ -251,6 +254,12 @@ export function useBuilderState(searchParams: ReadonlyURLSearchParams) {
     setInspectorSelection,
     inspectorClearToken,
     setInspectorClearToken,
+    serverProjectChatId,
+    setServerProjectChatId,
+    serverProjectMessages,
+    setServerProjectMessages,
+    serverProjectDemoUrl,
+    setServerProjectDemoUrl,
     lastActiveVersionIdRef,
     promptFetchInFlightRef,
     promptFetchDoneRef,

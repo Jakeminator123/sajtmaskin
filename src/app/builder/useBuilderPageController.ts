@@ -1,5 +1,6 @@
 "use client";
 
+import type { ChatMessage } from "@/lib/builder/types";
 import { buildPromptAssistContext } from "@/lib/builder/promptAssistContext";
 import {
   normalizeBuildIntent,
@@ -43,6 +44,37 @@ export function useBuilderPageController() {
   const [authModalReason, setAuthModalReason] = useState<"builder" | "save" | null>(null);
 
   const state = useBuilderState(searchParams);
+
+  // Destructure state for clean effect dependency tracking.
+  // Setters (from useState) and refs (from useRef) are stable across
+  // renders — including them in dep arrays is safe and avoids the need
+  // for eslint-disable comments.
+  const {
+    appProjectId, applyInstructionsOnce, buildIntentParam, buildMethod,
+    buildMethodParam, chatId, chatIdParam, currentDemoUrl, customInstructions,
+    designTheme, enableBlobMedia, enableImageGenerations, enableThinking,
+    entryIntentActive, hasEntryParams, isIntentionalReset, paletteState,
+    projectParam, promptId, promptParam, resolvedPrompt, selectedModelTier,
+    selectedVersionId, serverProjectChatId, serverProjectDemoUrl,
+    showStructuredChat, source, templateId, v0ProjectId,
+    setApplyInstructionsOnce, setAppProjectId, setAppProjectName,
+    setAuditPromptLoaded, setBuildIntent, setBuildMethod, setChatId,
+    setCurrentDemoUrl, setCurrentPageCode, setCustomInstructions,
+    setDeployNameDialogOpen, setDesignTheme, setEnableBlobMedia,
+    setEnableImageGenerations, setEnableThinking, setEntryIntentActive,
+    setExistingUiComponents, setInspectorClearToken, setInspectorSelection,
+    setIsImageGenerationsSupported, setIsIntentionalReset, setIsMediaEnabled,
+    setMessages, setPaletteState, setPreviewRefreshToken, setPromptAssistContext,
+    setResolvedPrompt, setSelectedModelTier, setSelectedVersionId,
+    setServerProjectChatId, setServerProjectDemoUrl, setServerProjectMessages,
+    setShowStructuredChat, setV0ProjectId,
+    applyingGenerationSettingsRef, autoProjectInitRef, featureWarnedRef,
+    hasLoadedInstructions, hasLoadedInstructionsOnce, lastActiveVersionIdRef,
+    lastPaletteSavedRef, lastProjectIdRef, lastSyncedInstructionsRef,
+    loadedGenerationSettingsChatRef, paletteLoadedRef, pendingInstructionsOnceRef,
+    pendingInstructionsRef, promptAssistContextKeyRef, promptFetchDoneRef,
+    promptFetchInFlightRef,
+  } = state;
 
   // ── External data hooks ──────────────────────────────────────────────
   const { chat, mutate: mutateChat, isError: isChatError } = useChat(state.chatId);
@@ -153,13 +185,13 @@ export function useBuilderPageController() {
 
   // ── V0 Chat messaging ───────────────────────────────────────────────
   const resetBeforeCreateChat = useCallback(() => {
-    state.setCurrentDemoUrl(null);
-    state.setPreviewRefreshToken(0);
-  }, [state.setCurrentDemoUrl, state.setPreviewRefreshToken]);
+    setCurrentDemoUrl(null);
+    setPreviewRefreshToken(0);
+  }, [setCurrentDemoUrl, setPreviewRefreshToken]);
 
   const bumpPreviewRefreshToken = useCallback(() => {
-    state.setPreviewRefreshToken(Date.now());
-  }, [state.setPreviewRefreshToken]);
+    setPreviewRefreshToken(Date.now());
+  }, [setPreviewRefreshToken]);
 
   const { isCreatingChat, createNewChat, sendMessage, cancelActiveGeneration } =
     useV0ChatMessaging({
@@ -261,6 +293,8 @@ export function useBuilderPageController() {
     isAnyStreaming: derived.isAnyStreaming,
     messages: state.messages,
     setMessages: state.setMessages,
+    serverMessages: state.serverProjectMessages,
+    serverMessagesChatId: state.serverProjectChatId,
   });
 
   // ── Template init effects ────────────────────────────────────────────
@@ -290,11 +324,10 @@ export function useBuilderPageController() {
 
   // Prompt fetch
   useEffect(() => {
-    const { promptId } = state;
     if (!promptId) return;
-    if (state.promptFetchDoneRef.current === promptId) return;
-    if (state.promptFetchInFlightRef.current === promptId) return;
-    state.promptFetchInFlightRef.current = promptId;
+    if (promptFetchDoneRef.current === promptId) return;
+    if (promptFetchInFlightRef.current === promptId) return;
+    promptFetchInFlightRef.current = promptId;
     let isActive = true;
     const controller = new AbortController();
 
@@ -314,11 +347,11 @@ export function useBuilderPageController() {
           throw new Error(data?.error || "Prompten hittades inte");
         }
         if (!isActive) return;
-        state.promptFetchDoneRef.current = promptId;
-        state.setEntryIntentActive(true);
-        state.setResolvedPrompt(data.prompt);
+        promptFetchDoneRef.current = promptId;
+        setEntryIntentActive(true);
+        setResolvedPrompt(data.prompt);
         if (data.projectId) {
-          state.setAppProjectId((prev) => prev ?? data.projectId!);
+          setAppProjectId((prev) => prev ?? data.projectId!);
         }
         shouldClearPromptId = true;
       } catch (error) {
@@ -327,16 +360,16 @@ export function useBuilderPageController() {
         if (error instanceof Error && error.name === "AbortError") return;
         console.warn("[Builder] Prompt handoff missing:", error);
         toast.error("Prompten hittades inte eller har redan använts.");
-        state.setResolvedPrompt(null);
-        state.setEntryIntentActive(false);
-        state.promptFetchDoneRef.current = promptId;
+        setResolvedPrompt(null);
+        setEntryIntentActive(false);
+        promptFetchDoneRef.current = promptId;
         shouldClearPromptId = true;
       } finally {
-        if (state.promptFetchInFlightRef.current === promptId) {
-          state.promptFetchInFlightRef.current = null;
+        if (promptFetchInFlightRef.current === promptId) {
+          promptFetchInFlightRef.current = null;
         }
         if (isActive) {
-          state.setAuditPromptLoaded(true);
+          setAuditPromptLoaded(true);
           if (shouldClearPromptId) {
             const nextParams = new URLSearchParams(searchParams.toString());
             nextParams.delete("promptId");
@@ -351,11 +384,11 @@ export function useBuilderPageController() {
     return () => {
       isActive = false;
       controller.abort();
-      if (state.promptFetchInFlightRef.current === promptId) {
-        state.promptFetchInFlightRef.current = null;
+      if (promptFetchInFlightRef.current === promptId) {
+        promptFetchInFlightRef.current = null;
       }
     };
-  }, [state.promptId, router, searchParams]);
+  }, [promptId, promptFetchDoneRef, promptFetchInFlightRef, setEntryIntentActive, setResolvedPrompt, setAppProjectId, setAuditPromptLoaded, router, searchParams]);
 
   // Auth fetch
   useEffect(() => {
@@ -364,21 +397,21 @@ export function useBuilderPageController() {
 
   // Build intent / method sync
   useEffect(() => {
-    state.setBuildIntent(normalizeBuildIntent(state.buildIntentParam));
-  }, [state.buildIntentParam]);
+    setBuildIntent(normalizeBuildIntent(buildIntentParam));
+  }, [buildIntentParam, setBuildIntent]);
 
   useEffect(() => {
-    const normalized = normalizeBuildMethod(state.buildMethodParam);
+    const normalized = normalizeBuildMethod(buildMethodParam);
     if (normalized) {
-      state.setBuildMethod(normalized);
+      setBuildMethod(normalized);
       return;
     }
-    if (state.source === "audit") {
-      state.setBuildMethod("audit");
+    if (source === "audit") {
+      setBuildMethod("audit");
       return;
     }
-    state.setBuildMethod(null);
-  }, [state.buildMethodParam, state.source]);
+    setBuildMethod(null);
+  }, [buildMethodParam, source, setBuildMethod]);
 
   // Auth modal
   useEffect(() => {
@@ -392,21 +425,21 @@ export function useBuilderPageController() {
 
   // Project param -> appProjectId
   useEffect(() => {
-    if (state.projectParam) {
-      state.setAppProjectId(state.projectParam);
+    if (projectParam) {
+      setAppProjectId(projectParam);
     }
-  }, [state.projectParam]);
+  }, [projectParam, setAppProjectId]);
 
   // Load latest chat for project when project is in URL but chatId is not
   useEffect(() => {
-    if (!state.projectParam || state.chatIdParam || state.chatId) return;
+    if (!projectParam || chatIdParam || chatId) return;
     let isActive = true;
     const controller = new AbortController();
 
     const loadProjectChat = async () => {
       try {
         const res = await fetch(
-          `/api/projects/${encodeURIComponent(state.projectParam!)}/chat`,
+          `/api/projects/${encodeURIComponent(projectParam!)}/chat`,
           { signal: controller.signal },
         );
         if (!res.ok || !isActive) return;
@@ -421,9 +454,9 @@ export function useBuilderPageController() {
             : null;
 
         if (v0ChatId && isActive) {
-          state.setChatId(v0ChatId);
+          setChatId(v0ChatId);
           const params = new URLSearchParams(searchParams.toString());
-          params.set("project", state.projectParam!);
+          params.set("project", projectParam!);
           params.set("chatId", v0ChatId);
           router.replace(`/builder?${params.toString()}`);
           return;
@@ -447,7 +480,7 @@ export function useBuilderPageController() {
       isActive = false;
       controller.abort();
     };
-  }, [state.projectParam, state.chatIdParam, state.chatId, router, searchParams]);
+  }, [projectParam, chatIdParam, chatId, setChatId, router, searchParams]);
 
   // Legacy localStorage cleanup
   useEffect(() => {
@@ -465,127 +498,112 @@ export function useBuilderPageController() {
     if (typeof window === "undefined") return;
     try {
       const stored = localStorage.getItem("sajtmaskin:thinking");
-      if (stored !== null) state.setEnableThinking(stored === "true");
+      if (stored !== null) setEnableThinking(stored === "true");
     } catch {
       /* ignore */
     }
-  }, []);
+  }, [setEnableThinking]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
-      localStorage.setItem("sajtmaskin:thinking", String(state.enableThinking));
+      localStorage.setItem("sajtmaskin:thinking", String(enableThinking));
     } catch {
       /* ignore */
     }
-  }, [state.enableThinking]);
+  }, [enableThinking]);
 
   // Generation settings per-chat load/save
   useEffect(() => {
-    if (!state.chatId) {
-      state.loadedGenerationSettingsChatRef.current = null;
+    if (!chatId) {
+      loadedGenerationSettingsChatRef.current = null;
       return;
     }
-    if (state.loadedGenerationSettingsChatRef.current === state.chatId) return;
-    const stored = readChatGenerationSettings(state.chatId);
-    state.applyingGenerationSettingsRef.current = true;
+    if (loadedGenerationSettingsChatRef.current === chatId) return;
+    const stored = readChatGenerationSettings(chatId);
+    applyingGenerationSettingsRef.current = true;
     if (stored) {
-      state.setSelectedModelTier(stored.modelTier);
-      state.setEnableImageGenerations(Boolean(stored.imageGenerations));
+      setSelectedModelTier(stored.modelTier);
+      setEnableImageGenerations(Boolean(stored.imageGenerations));
     } else {
-      writeChatGenerationSettings(state.chatId, {
-        modelTier: state.selectedModelTier,
-        imageGenerations: state.enableImageGenerations,
+      writeChatGenerationSettings(chatId, {
+        modelTier: selectedModelTier,
+        imageGenerations: enableImageGenerations,
       });
     }
-    state.loadedGenerationSettingsChatRef.current = state.chatId;
-    state.applyingGenerationSettingsRef.current = false;
-  }, [
-    state.chatId,
-    state.selectedModelTier,
-    state.enableImageGenerations,
-  ]);
+    loadedGenerationSettingsChatRef.current = chatId;
+    applyingGenerationSettingsRef.current = false;
+  }, [chatId, selectedModelTier, enableImageGenerations, loadedGenerationSettingsChatRef, applyingGenerationSettingsRef, setSelectedModelTier, setEnableImageGenerations]);
 
   useEffect(() => {
-    if (!state.chatId) return;
-    if (state.applyingGenerationSettingsRef.current) return;
-    if (state.loadedGenerationSettingsChatRef.current !== state.chatId) return;
-    writeChatGenerationSettings(state.chatId, {
-      modelTier: state.selectedModelTier,
-      imageGenerations: state.enableImageGenerations,
+    if (!chatId) return;
+    if (applyingGenerationSettingsRef.current) return;
+    if (loadedGenerationSettingsChatRef.current !== chatId) return;
+    writeChatGenerationSettings(chatId, {
+      modelTier: selectedModelTier,
+      imageGenerations: enableImageGenerations,
     });
-  }, [
-    state.chatId,
-    state.selectedModelTier,
-    state.enableImageGenerations,
-  ]);
+  }, [chatId, selectedModelTier, enableImageGenerations, applyingGenerationSettingsRef, loadedGenerationSettingsChatRef]);
 
   // Blob media localStorage sync
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
       const stored = localStorage.getItem("sajtmaskin:blobImages");
-      if (stored !== null) state.setEnableBlobMedia(stored === "true");
+      if (stored !== null) setEnableBlobMedia(stored === "true");
     } catch {
       /* ignore */
     }
-  }, []);
+  }, [setEnableBlobMedia]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
-      localStorage.setItem("sajtmaskin:blobImages", String(state.enableBlobMedia));
+      localStorage.setItem("sajtmaskin:blobImages", String(enableBlobMedia));
     } catch {
       /* ignore */
     }
-  }, [state.enableBlobMedia]);
+  }, [enableBlobMedia]);
 
   // Design theme localStorage sync
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
       const stored = localStorage.getItem("sajtmaskin:designTheme");
-      if (stored) state.setDesignTheme(normalizeDesignTheme(stored));
+      if (stored) setDesignTheme(normalizeDesignTheme(stored));
     } catch {
       /* ignore */
     }
-  }, []);
+  }, [setDesignTheme]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
-      localStorage.setItem("sajtmaskin:designTheme", state.designTheme);
+      localStorage.setItem("sajtmaskin:designTheme", designTheme);
     } catch {
       /* ignore */
     }
-  }, [state.designTheme]);
+  }, [designTheme]);
 
   // AppProjectId localStorage persist
   useEffect(() => {
     if (typeof window === "undefined") return;
-    if (!state.appProjectId) return;
+    if (!appProjectId) return;
     try {
-      localStorage.setItem("sajtmaskin:lastProjectId", state.appProjectId);
+      localStorage.setItem("sajtmaskin:lastProjectId", appProjectId);
     } catch {
       /* ignore */
     }
-  }, [state.appProjectId]);
+  }, [appProjectId]);
 
   // Auto project init
   useEffect(() => {
     if (typeof window === "undefined") return;
-    if (state.autoProjectInitRef.current) return;
-    if (
-      state.appProjectId ||
-      state.projectParam ||
-      state.chatIdParam ||
-      state.promptId ||
-      state.templateId ||
-      state.hasEntryParams
-    ) {
+    if (autoProjectInitRef.current) return;
+    if (appProjectId || projectParam || chatIdParam || promptId || templateId || hasEntryParams) {
       return;
     }
-    state.autoProjectInitRef.current = true;
+    autoProjectInitRef.current = true;
 
     let restored: string | null = null;
     try {
@@ -595,7 +613,7 @@ export function useBuilderPageController() {
     }
 
     if (restored) {
-      state.setAppProjectId(restored);
+      setAppProjectId(restored);
       const params = new URLSearchParams(searchParams.toString());
       params.set("project", restored);
       router.replace(`/builder?${params.toString()}`);
@@ -605,7 +623,7 @@ export function useBuilderPageController() {
     import("@/lib/project-client").then(({ createProject }) =>
       createProject("Untitled Project")
         .then((project) => {
-          state.setAppProjectId(project.id);
+          setAppProjectId(project.id);
           try {
             localStorage.setItem("sajtmaskin:lastProjectId", project.id);
           } catch {
@@ -617,156 +635,168 @@ export function useBuilderPageController() {
         })
         .catch((error) => {
           console.warn("[Builder] Auto project create failed:", error);
-          state.autoProjectInitRef.current = false;
+          autoProjectInitRef.current = false;
         }),
     );
-  }, [
-    state.appProjectId,
-    state.projectParam,
-    state.chatIdParam,
-    state.promptId,
-    state.templateId,
-    state.hasEntryParams,
-    router,
-    searchParams,
-  ]);
+  }, [appProjectId, projectParam, chatIdParam, promptId, templateId, hasEntryParams, autoProjectInitRef, setAppProjectId, router, searchParams]);
 
   // Entry intent sync
   useEffect(() => {
-    const hasIntent = Boolean(state.promptParam || state.promptId || state.source === "audit");
-    state.setEntryIntentActive(hasIntent);
-  }, [state.promptParam, state.promptId, state.source]);
+    const hasIntent = Boolean(promptParam || promptId || source === "audit");
+    setEntryIntentActive(hasIntent);
+  }, [promptParam, promptId, source, setEntryIntentActive]);
 
   useEffect(() => {
-    if (state.chatId) state.setEntryIntentActive(false);
-  }, [state.chatId]);
+    if (chatId) setEntryIntentActive(false);
+  }, [chatId, setEntryIntentActive]);
 
-  // Project name / palette load
+  // Project name / palette / messages / demoUrl load
   useEffect(() => {
-    if (!state.appProjectId) {
-      state.setAppProjectName(null);
-      state.setPaletteState(getDefaultPaletteState());
-      state.paletteLoadedRef.current = false;
-      state.lastPaletteSavedRef.current = null;
-      state.lastProjectIdRef.current = null;
+    if (!appProjectId) {
+      setAppProjectName(null);
+      setPaletteState(getDefaultPaletteState());
+      paletteLoadedRef.current = false;
+      lastPaletteSavedRef.current = null;
+      lastProjectIdRef.current = null;
+      setServerProjectChatId(null);
+      setServerProjectMessages([]);
+      setServerProjectDemoUrl(null);
       return;
     }
-    const previousProjectId = state.lastProjectIdRef.current;
-    state.lastProjectIdRef.current = state.appProjectId;
+    const previousProjectId = lastProjectIdRef.current;
+    lastProjectIdRef.current = appProjectId;
+    if (previousProjectId !== appProjectId) {
+      setServerProjectChatId(null);
+      setServerProjectMessages([]);
+      setServerProjectDemoUrl(null);
+    }
     let isActive = true;
-    getProject(state.appProjectId)
+    getProject(appProjectId)
       .then((result) => {
         if (!isActive) return;
-        state.setAppProjectName(result.project?.name ?? null);
+        setAppProjectName(result.project?.name ?? null);
         const nextPalette = normalizePaletteState(result.data?.meta?.palette);
         const defaultPalette = getDefaultPaletteState();
-        state.setPaletteState((prev) => {
-          const isNewProject = previousProjectId !== null && previousProjectId !== state.appProjectId;
+        setPaletteState((prev) => {
+          const isNewProject = previousProjectId !== null && previousProjectId !== appProjectId;
           if (nextPalette.selections.length === 0) {
             if (!isNewProject && prev.selections.length > 0) return prev;
             return defaultPalette;
           }
           return nextPalette;
         });
-        state.paletteLoadedRef.current = true;
+        paletteLoadedRef.current = true;
+
+        const serverChatId =
+          typeof result.data?.chat_id === "string" && result.data.chat_id.trim().length > 0
+            ? result.data.chat_id.trim()
+            : null;
+        setServerProjectChatId(serverChatId);
+
+        const serverMsgs = Array.isArray(result.data?.messages) ? result.data.messages : [];
+        setServerProjectMessages(serverMsgs as ChatMessage[]);
+
+        const serverDemoUrl =
+          typeof result.data?.demo_url === "string" ? result.data.demo_url : null;
+        setServerProjectDemoUrl(serverDemoUrl);
       })
       .catch((error) => {
         console.warn("[Builder] Failed to load project name:", error);
         if (error instanceof Error && error.message.toLowerCase().includes("project not found")) {
           if (typeof window !== "undefined") {
             const params = new URLSearchParams(window.location.search);
-            if (params.get("project") === state.appProjectId) {
+            if (params.get("project") === appProjectId) {
               params.delete("project");
               const query = params.toString();
               window.history.replaceState(null, "", query ? `/builder?${query}` : "/builder");
             }
           }
-          state.setAppProjectId(null);
+          setAppProjectId(null);
         }
       });
     return () => {
       isActive = false;
     };
-  }, [state.appProjectId]);
+  }, [appProjectId, setAppProjectName, setPaletteState, paletteLoadedRef, lastPaletteSavedRef, lastProjectIdRef, setServerProjectChatId, setServerProjectMessages, setServerProjectDemoUrl, setAppProjectId]);
 
   // Palette persist
   useEffect(() => {
-    if (!state.appProjectId) return;
-    if (!state.paletteLoadedRef.current) return;
-    const serialized = JSON.stringify(state.paletteState);
-    if (serialized === state.lastPaletteSavedRef.current) return;
-    state.lastPaletteSavedRef.current = serialized;
-    saveProjectData(state.appProjectId, {
-      meta: { palette: state.paletteState },
+    if (!appProjectId) return;
+    if (!paletteLoadedRef.current) return;
+    const serialized = JSON.stringify(paletteState);
+    if (serialized === lastPaletteSavedRef.current) return;
+    lastPaletteSavedRef.current = serialized;
+    saveProjectData(appProjectId, {
+      meta: { palette: paletteState },
     }).catch((error) => {
       console.warn("[Builder] Failed to persist palette state:", error);
     });
-  }, [state.appProjectId, state.paletteState]);
+  }, [appProjectId, paletteState, paletteLoadedRef, lastPaletteSavedRef]);
 
   // Structured chat localStorage sync
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
       const stored = localStorage.getItem("sajtmaskin:structuredChat");
-      if (stored !== null) state.setShowStructuredChat(stored === "true");
+      if (stored !== null) setShowStructuredChat(stored === "true");
     } catch {
       /* ignore */
     }
-  }, []);
+  }, [setShowStructuredChat]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
     try {
-      localStorage.setItem("sajtmaskin:structuredChat", String(state.showStructuredChat));
+      localStorage.setItem("sajtmaskin:structuredChat", String(showStructuredChat));
     } catch {
       /* ignore */
     }
-  }, [state.showStructuredChat]);
+  }, [showStructuredChat]);
 
   // Deploy dialog close handler
   useEffect(() => {
-    const handleDialogClose = () => state.setDeployNameDialogOpen(false);
+    const handleDialogClose = () => setDeployNameDialogOpen(false);
     window.addEventListener("dialog-close", handleDialogClose);
     return () => window.removeEventListener("dialog-close", handleDialogClose);
-  }, []);
+  }, [setDeployNameDialogOpen]);
 
   // Custom instructions load / save
   useEffect(() => {
     if (typeof window === "undefined") return;
-    if (!state.chatId) {
-      state.hasLoadedInstructions.current = false;
+    if (!chatId) {
+      hasLoadedInstructions.current = false;
       return;
     }
-    const storageKey = `sajtmaskin:chatInstructions:${state.chatId}`;
+    const storageKey = `sajtmaskin:chatInstructions:${chatId}`;
     let stored: string | null = null;
     try {
       stored = localStorage.getItem(storageKey);
     } catch {
       stored = null;
     }
-    const pending = state.pendingInstructionsRef.current;
+    const pending = pendingInstructionsRef.current;
     if (stored !== null) {
-      state.setCustomInstructions(stored);
+      setCustomInstructions(stored);
     } else if (pending) {
       const normalized = pending.trim();
-      state.setCustomInstructions(normalized);
+      setCustomInstructions(normalized);
       try {
         localStorage.setItem(storageKey, normalized);
       } catch {
         /* ignore */
       }
     } else {
-      state.setCustomInstructions("");
+      setCustomInstructions("");
     }
-    state.pendingInstructionsRef.current = null;
-    state.hasLoadedInstructions.current = true;
-  }, [state.chatId]);
+    pendingInstructionsRef.current = null;
+    hasLoadedInstructions.current = true;
+  }, [chatId, hasLoadedInstructions, pendingInstructionsRef, setCustomInstructions]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    if (!state.chatId || !state.hasLoadedInstructions.current) return;
-    const storageKey = `sajtmaskin:chatInstructions:${state.chatId}`;
-    const normalized = state.customInstructions.trim();
+    if (!chatId || !hasLoadedInstructions.current) return;
+    const storageKey = `sajtmaskin:chatInstructions:${chatId}`;
+    const normalized = customInstructions.trim();
     try {
       if (normalized) {
         localStorage.setItem(storageKey, normalized);
@@ -776,16 +806,16 @@ export function useBuilderPageController() {
     } catch {
       /* ignore */
     }
-  }, [state.chatId, state.customInstructions]);
+  }, [chatId, customInstructions, hasLoadedInstructions]);
 
   // V0 project instructions sync
   useEffect(() => {
     if (typeof window === "undefined") return;
-    if (!state.v0ProjectId || !state.hasLoadedInstructions.current) return;
-    if (state.applyInstructionsOnce) return;
-    const normalized = state.customInstructions.trim();
-    const last = state.lastSyncedInstructionsRef.current;
-    if (last && last.v0ProjectId === state.v0ProjectId && last.instructions === normalized) return;
+    if (!v0ProjectId || !hasLoadedInstructions.current) return;
+    if (applyInstructionsOnce) return;
+    const normalized = customInstructions.trim();
+    const last = lastSyncedInstructionsRef.current;
+    if (last && last.v0ProjectId === v0ProjectId && last.instructions === normalized) return;
 
     const controller = new AbortController();
     const timeoutId = window.setTimeout(() => controller.abort(), 10_000);
@@ -794,7 +824,7 @@ export function useBuilderPageController() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       signal: controller.signal,
-      body: JSON.stringify({ projectId: state.v0ProjectId, instructions: normalized }),
+      body: JSON.stringify({ projectId: v0ProjectId, instructions: normalized }),
     })
       .then(async (res) => {
         if (!res.ok) {
@@ -809,61 +839,61 @@ export function useBuilderPageController() {
               : `Failed to sync project instructions (HTTP ${res.status})`;
           throw new Error(msg);
         }
-        state.lastSyncedInstructionsRef.current = {
-          v0ProjectId: state.v0ProjectId!,
+        lastSyncedInstructionsRef.current = {
+          v0ProjectId: v0ProjectId!,
           instructions: normalized,
         };
       })
       .catch((error) => {
         if (error instanceof Error && error.name === "AbortError") return;
         debugLog("v0", "Failed to sync project instructions", {
-          projectId: state.v0ProjectId,
+          projectId: v0ProjectId,
           error: error instanceof Error ? error.message : "Unknown error",
         });
       })
       .finally(() => {
         window.clearTimeout(timeoutId);
       });
-  }, [state.v0ProjectId, state.customInstructions, state.applyInstructionsOnce]);
+  }, [v0ProjectId, customInstructions, applyInstructionsOnce, hasLoadedInstructions, lastSyncedInstructionsRef]);
 
   // Apply-instructions-once load / save
   useEffect(() => {
     if (typeof window === "undefined") return;
-    if (!state.chatId) {
-      state.hasLoadedInstructionsOnce.current = false;
-      state.setApplyInstructionsOnce(false);
+    if (!chatId) {
+      hasLoadedInstructionsOnce.current = false;
+      setApplyInstructionsOnce(false);
       return;
     }
-    const storageKey = `sajtmaskin:chatInstructionsOnce:${state.chatId}`;
+    const storageKey = `sajtmaskin:chatInstructionsOnce:${chatId}`;
     let stored: string | null = null;
     try {
       stored = localStorage.getItem(storageKey);
     } catch {
       stored = null;
     }
-    const pending = state.pendingInstructionsOnceRef.current;
+    const pending = pendingInstructionsOnceRef.current;
     if (stored !== null) {
-      state.setApplyInstructionsOnce(stored === "true");
+      setApplyInstructionsOnce(stored === "true");
     } else if (pending !== null) {
-      state.setApplyInstructionsOnce(pending);
+      setApplyInstructionsOnce(pending);
       try {
         localStorage.setItem(storageKey, String(pending));
       } catch {
         /* ignore */
       }
     } else {
-      state.setApplyInstructionsOnce(false);
+      setApplyInstructionsOnce(false);
     }
-    state.pendingInstructionsOnceRef.current = null;
-    state.hasLoadedInstructionsOnce.current = true;
-  }, [state.chatId]);
+    pendingInstructionsOnceRef.current = null;
+    hasLoadedInstructionsOnce.current = true;
+  }, [chatId, hasLoadedInstructionsOnce, pendingInstructionsOnceRef, setApplyInstructionsOnce]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    if (!state.chatId || !state.hasLoadedInstructionsOnce.current) return;
-    const storageKey = `sajtmaskin:chatInstructionsOnce:${state.chatId}`;
+    if (!chatId || !hasLoadedInstructionsOnce.current) return;
+    const storageKey = `sajtmaskin:chatInstructionsOnce:${chatId}`;
     try {
-      if (state.applyInstructionsOnce) {
+      if (applyInstructionsOnce) {
         localStorage.setItem(storageKey, "true");
       } else {
         localStorage.removeItem(storageKey);
@@ -871,7 +901,7 @@ export function useBuilderPageController() {
     } catch {
       /* ignore */
     }
-  }, [state.chatId, state.applyInstructionsOnce]);
+  }, [chatId, applyInstructionsOnce, hasLoadedInstructionsOnce]);
 
   // Health features
   useEffect(() => {
@@ -884,16 +914,16 @@ export function useBuilderPageController() {
         if (!flags) return;
         const { blobEnabled, v0Enabled, reasons } = flags;
         if (!isActive) return;
-        state.setIsMediaEnabled(blobEnabled);
-        state.setIsImageGenerationsSupported(v0Enabled);
-        if (!v0Enabled) state.setEnableImageGenerations(false);
-        if (!v0Enabled && !state.featureWarnedRef.current.v0) {
-          state.featureWarnedRef.current.v0 = true;
+        setIsMediaEnabled(blobEnabled);
+        setIsImageGenerationsSupported(v0Enabled);
+        if (!v0Enabled) setEnableImageGenerations(false);
+        if (!v0Enabled && !featureWarnedRef.current.v0) {
+          featureWarnedRef.current.v0 = true;
           const reason = reasons?.v0 || "AI-konfiguration saknas";
           toast.error(`Bildgenerering är avstängd: ${reason}`);
         }
-        if (v0Enabled && !blobEnabled && !state.featureWarnedRef.current.blob) {
-          state.featureWarnedRef.current.blob = true;
+        if (v0Enabled && !blobEnabled && !featureWarnedRef.current.blob) {
+          featureWarnedRef.current.blob = true;
           const reason = reasons?.vercelBlob || "BLOB_READ_WRITE_TOKEN saknas";
           toast(`Blob saknas: ${reason}. Bilder kan saknas i preview.`);
         }
@@ -908,7 +938,7 @@ export function useBuilderPageController() {
       isActive = false;
       controller.abort();
     };
-  }, [deployActions.fetchHealthFeatures]);
+  }, [deployActions, setIsMediaEnabled, setIsImageGenerationsSupported, setEnableImageGenerations, featureWarnedRef]);
 
   // GitHub OAuth callback
   useEffect(() => {
@@ -950,135 +980,131 @@ export function useBuilderPageController() {
 
   // Audit prompt loaded
   useEffect(() => {
-    if (state.source !== "audit") return;
-    if (!state.promptId) state.setAuditPromptLoaded(true);
-  }, [state.source, state.promptId]);
+    if (source !== "audit") return;
+    if (!promptId) setAuditPromptLoaded(true);
+  }, [source, promptId, setAuditPromptLoaded]);
 
   // Chat not found
   useEffect(() => {
-    if (!state.chatId || !isChatError) return;
-    console.warn("[Builder] Chat not found or error loading chat:", state.chatId);
+    if (!chatId || !isChatError) return;
+    console.warn("[Builder] Chat not found or error loading chat:", chatId);
     toast.error("Chatten kunde inte hittas. Skapar ny session...");
     try {
       localStorage.removeItem("sajtmaskin:lastChatId");
     } catch {
       /* ignore */
     }
-    state.setChatId(null);
-    state.setCurrentDemoUrl(null);
-    state.setMessages([]);
+    setChatId(null);
+    setCurrentDemoUrl(null);
+    setMessages([]);
     router.replace("/builder");
-  }, [state.chatId, isChatError, router]);
+  }, [chatId, isChatError, router, setChatId, setCurrentDemoUrl, setMessages]);
 
   // V0 project id sync
   useEffect(() => {
-    if (!state.chatId) {
-      state.setV0ProjectId(null);
+    if (!chatId) {
+      setV0ProjectId(null);
       return;
     }
-    if (derived.chatV0ProjectId && derived.chatV0ProjectId !== state.v0ProjectId) {
-      state.setV0ProjectId(derived.chatV0ProjectId);
+    if (derived.chatV0ProjectId && derived.chatV0ProjectId !== v0ProjectId) {
+      setV0ProjectId(derived.chatV0ProjectId);
     }
-  }, [state.chatId, derived.chatV0ProjectId, state.v0ProjectId]);
+  }, [chatId, derived.chatV0ProjectId, v0ProjectId, setV0ProjectId]);
 
   // Reset selected version on chat change
   useEffect(() => {
-    state.setSelectedVersionId(null);
-    state.setV0ProjectId(null);
-  }, [state.chatId]);
+    setSelectedVersionId(null);
+    setV0ProjectId(null);
+  }, [chatId, setSelectedVersionId, setV0ProjectId]);
 
   useEffect(() => {
-    if (!state.selectedVersionId) return;
-    if (!derived.versionIdSet.has(state.selectedVersionId)) {
-      state.setSelectedVersionId(null);
+    if (!selectedVersionId) return;
+    if (!derived.versionIdSet.has(selectedVersionId)) {
+      setSelectedVersionId(null);
     }
-  }, [state.selectedVersionId, derived.versionIdSet]);
+  }, [selectedVersionId, derived.versionIdSet, setSelectedVersionId]);
 
   // ChatId URL sync
   useEffect(() => {
-    if (state.isIntentionalReset) {
-      if (!state.chatIdParam) state.setIsIntentionalReset(false);
+    if (isIntentionalReset) {
+      if (!chatIdParam) setIsIntentionalReset(false);
       return;
     }
-    if (state.chatIdParam && state.chatIdParam !== state.chatId) {
-      state.setChatId(state.chatIdParam);
+    if (chatIdParam && chatIdParam !== chatId) {
+      setChatId(chatIdParam);
     }
-  }, [
-    state.chatIdParam,
-    state.chatId,
-    router,
-    state.isIntentionalReset,
-    state.hasEntryParams,
-    state.entryIntentActive,
-  ]);
+  }, [chatIdParam, chatId, router, isIntentionalReset, hasEntryParams, entryIntentActive, setIsIntentionalReset, setChatId]);
 
   useEffect(() => {
-    if (!state.chatId) return;
+    if (!chatId) return;
     try {
-      localStorage.setItem("sajtmaskin:lastChatId", state.chatId);
+      localStorage.setItem("sajtmaskin:lastChatId", chatId);
     } catch {
       /* ignore */
     }
-  }, [state.chatId]);
+  }, [chatId]);
 
   // DemoUrl sync when active version changes
   useEffect(() => {
-    if (!derived.activeVersionId) return;
+    const didChangeVersion = lastActiveVersionIdRef.current !== derived.activeVersionId;
+    lastActiveVersionIdRef.current = derived.activeVersionId;
 
-    const didChangeVersion = state.lastActiveVersionIdRef.current !== derived.activeVersionId;
-    state.lastActiveVersionIdRef.current = derived.activeVersionId;
+    if (!didChangeVersion && currentDemoUrl) return;
 
-    if (!didChangeVersion && state.currentDemoUrl) return;
-
-    const activeVersionMatch = derived.effectiveVersionsList.find(
-      (v) => v.versionId === derived.activeVersionId || v.id === derived.activeVersionId,
-    );
+    const activeVersionMatch = derived.activeVersionId
+      ? derived.effectiveVersionsList.find(
+          (v) => v.versionId === derived.activeVersionId || v.id === derived.activeVersionId,
+        )
+      : undefined;
     const chatObj = chat as ChatData;
+    const canUseServerDemoUrl =
+      !serverProjectChatId || !chatId || serverProjectChatId === chatId;
     const nextDemoUrl =
       activeVersionMatch?.demoUrl ||
       chatObj?.demoUrl ||
       chatObj?.latestVersion?.demoUrl ||
       derived.effectiveVersionsList[0]?.demoUrl ||
+      (canUseServerDemoUrl ? serverProjectDemoUrl : null) ||
       null;
 
-    if (nextDemoUrl && nextDemoUrl !== state.currentDemoUrl) {
-      state.setCurrentDemoUrl(nextDemoUrl);
-      state.setPreviewRefreshToken(Date.now());
+    if (nextDemoUrl && nextDemoUrl !== currentDemoUrl) {
+      setCurrentDemoUrl(nextDemoUrl);
+      setPreviewRefreshToken(Date.now());
     }
-  }, [derived.activeVersionId, chat, state.currentDemoUrl, derived.effectiveVersionsList]);
+  }, [derived.activeVersionId, chat, currentDemoUrl, derived.effectiveVersionsList, serverProjectDemoUrl, serverProjectChatId, chatId, lastActiveVersionIdRef, setCurrentDemoUrl, setPreviewRefreshToken]);
 
   // Inspector clear on chat/url change
   useEffect(() => {
-    state.setInspectorSelection(null);
-    state.setInspectorClearToken(Date.now());
-  }, [state.chatId, state.currentDemoUrl]);
+    setInspectorSelection(null);
+    setInspectorClearToken(Date.now());
+  }, [chatId, currentDemoUrl, setInspectorSelection, setInspectorClearToken]);
 
   // Prompt assist context fetch
   useEffect(() => {
     const contextKey =
-      state.chatId && derived.activeVersionId
-        ? `${state.chatId}:${derived.activeVersionId}`
+      chatId && derived.activeVersionId
+        ? `${chatId}:${derived.activeVersionId}`
         : null;
     if (!contextKey) {
-      state.promptAssistContextKeyRef.current = null;
-      state.setPromptAssistContext(null);
-      state.setExistingUiComponents([]);
+      promptAssistContextKeyRef.current = null;
+      setPromptAssistContext(null);
+      setExistingUiComponents([]);
       return;
     }
-    if (state.promptAssistContextKeyRef.current === contextKey) return;
-    state.promptAssistContextKeyRef.current = contextKey;
+    if (promptAssistContextKeyRef.current === contextKey) return;
+    promptAssistContextKeyRef.current = contextKey;
 
     let isActive = true;
     const controller = new AbortController();
 
     const fetchContext = async () => {
       try {
-        if (!state.chatId || !derived.activeVersionId) {
-          if (isActive) state.setPromptAssistContext("");
+        if (!chatId || !derived.activeVersionId) {
+          if (isActive) setPromptAssistContext("");
           return;
         }
         const response = await fetch(
-          `/api/v0/chats/${encodeURIComponent(state.chatId)}/files?versionId=${encodeURIComponent(
+          `/api/v0/chats/${encodeURIComponent(chatId)}/files?versionId=${encodeURIComponent(
             derived.activeVersionId,
           )}`,
           { signal: controller.signal },
@@ -1088,14 +1114,14 @@ export function useBuilderPageController() {
         } | null;
         if (!response.ok || !Array.isArray(data?.files)) {
           if (isActive) {
-            state.setPromptAssistContext("");
-            state.setCurrentPageCode(undefined);
-            state.setExistingUiComponents([]);
+            setPromptAssistContext("");
+            setCurrentPageCode(undefined);
+            setExistingUiComponents([]);
           }
           return;
         }
         const context = buildPromptAssistContext(data.files);
-        if (isActive) state.setPromptAssistContext(context);
+        if (isActive) setPromptAssistContext(context);
 
         const pageFile = data.files.find(
           (f) =>
@@ -1105,7 +1131,7 @@ export function useBuilderPageController() {
             f.name === "index.tsx" ||
             f.name === "App.tsx",
         );
-        if (isActive) state.setCurrentPageCode(pageFile?.content || undefined);
+        if (isActive) setCurrentPageCode(pageFile?.content || undefined);
 
         const extractUiComponentName = (fileName: string): string | null => {
           if (!fileName) return null;
@@ -1130,12 +1156,12 @@ export function useBuilderPageController() {
           ),
         ).sort((a, b) => a.localeCompare(b));
 
-        if (isActive) state.setExistingUiComponents(nextUiComponents);
+        if (isActive) setExistingUiComponents(nextUiComponents);
       } catch (error) {
         if (!isActive) return;
         if (error instanceof Error && error.name === "AbortError") return;
-        state.setPromptAssistContext("");
-        state.setExistingUiComponents([]);
+        setPromptAssistContext("");
+        setExistingUiComponents([]);
       }
     };
 
@@ -1144,24 +1170,24 @@ export function useBuilderPageController() {
       isActive = false;
       controller.abort();
     };
-  }, [state.chatId, derived.activeVersionId]);
+  }, [chatId, derived.activeVersionId, promptAssistContextKeyRef, setPromptAssistContext, setExistingUiComponents, setCurrentPageCode]);
 
   // Auto-start generation for kostnadsfri flow
   useEffect(() => {
     if (!isAuthenticated) return;
-    if (state.buildMethod !== "kostnadsfri") return;
-    if (!state.resolvedPrompt) return;
-    if (state.chatId) return;
+    if (buildMethod !== "kostnadsfri") return;
+    if (!resolvedPrompt) return;
+    if (chatId) return;
     if (autoGenerateTriggeredRef.current) return;
     autoGenerateTriggeredRef.current = true;
 
-    state.setSelectedModelTier("v0-max-fast");
+    setSelectedModelTier("v0-max-fast");
 
     const timer = setTimeout(() => {
-      void promptActions.requestCreateChat(state.resolvedPrompt!);
+      void promptActions.requestCreateChat(resolvedPrompt!);
     }, 500);
     return () => clearTimeout(timer);
-  }, [isAuthenticated, state.buildMethod, state.resolvedPrompt, state.chatId, promptActions.requestCreateChat]);
+  }, [isAuthenticated, buildMethod, resolvedPrompt, chatId, setSelectedModelTier, promptActions]);
 
   // =====================================================================
   // Return view model

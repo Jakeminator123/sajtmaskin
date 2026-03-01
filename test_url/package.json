@@ -1,0 +1,10 @@
+{
+  "name": "test-url-iframe-lab",
+  "version": "0.0.1",
+  "private": true,
+  "description": "Isolated iframe lab for testing demo URLs, inspection, and live probes. Delete this folder when done.",
+  "scripts": {
+    "dev": "node run.js",
+    "start": "node run.js --no-open"
+  }
+}

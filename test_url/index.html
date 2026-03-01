@@ -1,0 +1,495 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Isolated URL Inspector Lab</title>
+<style>
+:root{color-scheme:dark;--bg:#0f1115;--panel:#171a21;--line:#2a2f3a;--text:#e7ecf5;--muted:#a9b3c2;--ok:#42d392;--warn:#f6c760;--err:#ff7a7a;--accent:#6ba4ff}
+*{box-sizing:border-box;margin:0}
+body{font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:var(--bg);color:var(--text)}
+input,button,select{border:1px solid var(--line);border-radius:6px;background:#0f131b;color:var(--text);padding:8px 10px;font-size:13px}
+button{cursor:pointer}button:hover{border-color:#41506a}
+button[data-active="true"]{border-color:var(--accent);background:#1a2740}
+.hint{font-size:11px;color:var(--muted)}
+a{color:var(--accent)}
+
+/* --- layout --- */
+.app{min-height:100vh;display:flex;flex-direction:column}
+.topbar{background:var(--panel);border-bottom:1px solid var(--line);padding:10px 12px;display:flex;flex-direction:column;gap:8px}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.statusbar{padding:8px 12px;font-size:12px;color:var(--muted);border-bottom:1px solid var(--line)}
+.statusbar[data-level="ok"]{color:var(--ok)}
+.statusbar[data-level="warn"]{color:var(--warn)}
+.statusbar[data-level="error"]{color:var(--err)}
+
+.workspace{flex:1;display:grid;grid-template-columns:1fr 380px;min-height:0}
+.preview{position:relative;min-height:0;border-right:1px solid var(--line)}
+iframe{width:100%;height:100%;border:0;background:#0d0f14;display:block}
+.overlay{position:absolute;inset:0;display:grid;place-items:center;text-align:center;padding:24px}
+#loadingOverlay{background:rgba(10,13,18,.72)}
+#inspectOverlay{background:rgba(20,40,74,.15);border:2px dashed rgba(107,164,255,.5);cursor:crosshair;pointer-events:none}
+.overlay[hidden]{display:none}
+
+.sidepanel{display:flex;flex-direction:column;min-height:0}
+.sidepanel-head{padding:10px 12px;border-bottom:1px solid var(--line);font-size:13px;font-weight:600}
+#inspectInfo{padding:8px 12px;border-bottom:1px solid var(--line);font-size:12px;color:var(--muted);min-height:36px}
+#log{flex:1;margin:0;padding:10px 12px;font:11px/1.5 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;overflow:auto;white-space:pre-wrap;word-break:break-all;color:var(--muted)}
+
+/* --- modal --- */
+.modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.6);display:grid;place-items:center;z-index:100}
+.modal-bg[hidden]{display:none}
+.modal{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:24px;max-width:440px;width:90%;display:flex;flex-direction:column;gap:14px}
+.modal h2{font-size:16px;font-weight:600}
+.modal input{width:100%}
+.project-list{max-height:260px;overflow:auto;display:flex;flex-direction:column;gap:4px}
+.project-item{padding:8px 10px;border:1px solid var(--line);border-radius:6px;cursor:pointer;display:flex;justify-content:space-between;font-size:13px}
+.project-item:hover{border-color:var(--accent)}
+.project-item .url{font-size:11px;color:var(--muted);max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+@media(max-width:1080px){.workspace{grid-template-columns:1fr;grid-template-rows:1fr 260px}.preview{border-right:0;border-bottom:1px solid var(--line)}}
+</style>
+</head>
+<body>
+<div class="app">
+
+  <div class="topbar">
+    <div class="row">
+      <input id="urlInput" style="flex:1;min-width:200px" type="text" placeholder="Paste demo URL or pick from projects below"/>
+      <button id="loadBtn">Load iframe</button>
+      <button id="reloadBtn">Force reload</button>
+      <button id="openLiveBtn">Open live</button>
+      <button id="inspectBtn">Inspect</button>
+      <button id="loginBtn">Login / Projects</button>
+    </div>
+    <div class="row">
+      <button id="monitorBtn">Start monitor</button>
+      <label class="hint">Probe ms <input id="probeMs" type="number" min="1000" step="500" value="3000" style="width:80px"/></label>
+      <button id="clearBtn">Clear iframe</button>
+      <span class="hint" style="margin-left:auto">Isolated lab. Delete <code>test_url/</code> when done.</span>
+    </div>
+  </div>
+
+  <div id="status" class="statusbar" data-level="info">Ready. Paste a URL or click "Login / Projects" to pick one.</div>
+
+  <div class="workspace">
+    <div class="preview">
+      <iframe id="previewFrame" src="about:blank" title="Preview"></iframe>
+      <div id="loadingOverlay" class="overlay" hidden><div><div id="loadingText">Loading...</div><div class="hint">Cold starts can take several seconds.</div></div></div>
+      <div id="inspectOverlay" class="overlay" hidden><div><div>Cross-origin inspection fallback</div><div class="hint">Cannot access DOM. Click logs coordinates only.</div></div></div>
+    </div>
+    <aside class="sidepanel">
+      <div class="sidepanel-head">Inspector + Log</div>
+      <div id="inspectInfo">Inspection off.</div>
+      <pre id="log"></pre>
+    </aside>
+  </div>
+</div>
+
+<!-- Login / Projects modal -->
+<div id="loginModal" class="modal-bg" hidden>
+  <div class="modal">
+    <h2 id="modalTitle">Login to main app</h2>
+    <div id="loginForm">
+      <div style="display:flex;flex-direction:column;gap:10px">
+        <input id="emailInput" type="email" placeholder="E-post"/>
+        <input id="pwInput" type="password" placeholder="Lösenord"/>
+        <button id="doLoginBtn" style="align-self:flex-start">Login</button>
+        <div id="loginError" class="hint" style="color:var(--err)"></div>
+      </div>
+    </div>
+    <div id="projectsSection" hidden>
+      <div style="margin-bottom:8px;font-size:13px">Your projects (click to load demo URL):</div>
+      <div id="projectsList" class="project-list"></div>
+      <div class="hint" style="margin-top:6px">Or paste a URL manually above and close this dialog.</div>
+    </div>
+    <div class="row" style="justify-content:space-between">
+      <button id="closeModalBtn">Close</button>
+      <button id="refreshProjectsBtn" hidden>Refresh projects</button>
+    </div>
+  </div>
+</div>
+
+<script>
+(function(){
+  const $ = (id) => document.getElementById(id);
+  const urlInput = $("urlInput");
+  const loadBtn = $("loadBtn");
+  const reloadBtn = $("reloadBtn");
+  const openLiveBtn = $("openLiveBtn");
+  const inspectBtn = $("inspectBtn");
+  const loginBtn = $("loginBtn");
+  const monitorBtn = $("monitorBtn");
+  const clearBtn = $("clearBtn");
+  const probeMs = $("probeMs");
+  const statusBar = $("status");
+  const inspectInfo = $("inspectInfo");
+  const logEl = $("log");
+  const iframe = $("previewFrame");
+  const loadingOverlay = $("loadingOverlay");
+  const loadingText = $("loadingText");
+  const inspectOverlay = $("inspectOverlay");
+  const loginModal = $("loginModal");
+  const modalTitle = $("modalTitle");
+  const loginForm = $("loginForm");
+  const emailInput = $("emailInput");
+  const pwInput = $("pwInput");
+  const doLoginBtn = $("doLoginBtn");
+  const loginError = $("loginError");
+  const projectsSection = $("projectsSection");
+  const projectsList = $("projectsList");
+  const closeModalBtn = $("closeModalBtn");
+  const refreshProjectsBtn = $("refreshProjectsBtn");
+
+  let currentUrl = "";
+  let slowTimer = null;
+  let delayTimer = null;
+  let monitorTimer = null;
+  let inspectMode = false;
+  let sameOriginCleanup = null;
+  let lastHovered = null;
+  let logLines = [];
+  let isLoggedIn = false;
+
+  function log(msg) {
+    const ts = new Date().toISOString().replace("T"," ").slice(0,23);
+    const line = `[${ts}] ${msg}`;
+    logLines.unshift(line);
+    if (logLines.length > 120) logLines.length = 120;
+    logEl.textContent = logLines.join("\n");
+    fetch("/log", { method: "POST", body: line }).catch(()=>{});
+  }
+
+  function setStatus(text, level) { statusBar.textContent = text; statusBar.dataset.level = level || "info"; }
+
+  function normalizeUrl(raw) {
+    const v = String(raw||"").trim();
+    if (!v) return null;
+    const wp = /^https?:\/\//i.test(v) ? v : `https://${v}`;
+    try { const p = new URL(wp); return (p.protocol==="http:"||p.protocol==="https:") ? p.toString() : null; } catch { return null; }
+  }
+
+  function cacheBust(url) { const p = new URL(url); p.searchParams.set("_t", Date.now()); return p.toString(); }
+
+  function clearTimers() {
+    if (slowTimer) { clearTimeout(slowTimer); slowTimer = null; }
+    if (delayTimer) { clearTimeout(delayTimer); delayTimer = null; }
+  }
+
+  // ── Load / reload ─────────────────────────────────
+  function loadUrl(force) {
+    const url = normalizeUrl(urlInput.value);
+    if (!url) { setStatus("Invalid URL.", "error"); return; }
+    currentUrl = url;
+    localStorage.setItem("test_url:last-url", url);
+    clearTimers();
+
+    const target = force ? cacheBust(url) : url;
+    loadingText.textContent = "Loading preview...";
+    loadingOverlay.hidden = false;
+    setStatus("Loading " + target, "info");
+    log("LOAD " + (force?"(force) ":"") + target);
+
+    iframe.src = target;
+    slowTimer = setTimeout(() => {
+      setStatus("Still loading after 10s. Cold start or blocked iframe.", "warn");
+      log("SLOW_WARN 10s elapsed");
+      loadingText.textContent = "Still loading...";
+    }, 10000);
+  }
+
+  iframe.addEventListener("load", () => {
+    clearTimers();
+    loadingOverlay.hidden = true;
+    const src = iframe.src || "about:blank";
+    setStatus("Iframe loaded: " + src, "ok");
+    log("IFRAME_LOAD " + src);
+    if (inspectMode) tryEnableInspection();
+  });
+
+  // ── Inspection ────────────────────────────────────
+  function cssPath(node) {
+    if (!node||!node.tagName) return "<unknown>";
+    const parts = [];
+    let cur = node;
+    while (cur && cur.tagName && parts.length < 6) {
+      let seg = cur.tagName.toLowerCase();
+      if (cur.id) { parts.unshift(seg+"#"+cur.id); break; }
+      if (cur.classList && cur.classList.length) seg += "."+cur.classList[0];
+      const parent = cur.parentElement;
+      if (parent) {
+        const sibs = Array.from(parent.children).filter(e=>e.tagName===cur.tagName);
+        if (sibs.length>1) seg += `:nth-of-type(${sibs.indexOf(cur)+1})`;
+      }
+      parts.unshift(seg);
+      cur = cur.parentElement;
+    }
+    return parts.join(" > ");
+  }
+
+  function enableSameOrigin() {
+    let doc;
+    try { doc = iframe.contentDocument; } catch { return false; }
+    if (!doc||!doc.documentElement) return false;
+
+    let style = doc.getElementById("__lab_style");
+    if (!style) {
+      style = doc.createElement("style");
+      style.id = "__lab_style";
+      style.textContent = ".__lab_hover{outline:2px solid #42d392!important;cursor:crosshair!important}";
+      doc.head.appendChild(style);
+    }
+
+    const onMove = (e) => {
+      const next = e.target && e.target.classList ? e.target : null;
+      if (next === lastHovered) return;
+      if (lastHovered && lastHovered.classList) lastHovered.classList.remove("__lab_hover");
+      if (next && next.classList) next.classList.add("__lab_hover");
+      lastHovered = next;
+    };
+    const onClick = (e) => {
+      e.preventDefault(); e.stopPropagation();
+      const sel = cssPath(e.target);
+      const rect = e.target.getBoundingClientRect();
+      setStatus("Inspect: " + sel, "ok");
+      log("INSPECT_CLICK(same-origin) " + sel + " rect=" + JSON.stringify({x:Math.round(rect.x),y:Math.round(rect.y),w:Math.round(rect.width),h:Math.round(rect.height)}));
+    };
+    doc.addEventListener("mousemove", onMove, true);
+    doc.addEventListener("click", onClick, true);
+
+    sameOriginCleanup = () => {
+      doc.removeEventListener("mousemove", onMove, true);
+      doc.removeEventListener("click", onClick, true);
+      if (lastHovered&&lastHovered.classList) lastHovered.classList.remove("__lab_hover");
+      lastHovered = null;
+    };
+    inspectInfo.textContent = "Same-origin inspection active. Click elements to log CSS path + rect.";
+    log("INSPECT_MODE same-origin enabled");
+    return true;
+  }
+
+  function enableCrossOrigin() {
+    inspectInfo.textContent = "Cross-origin iframe. Cannot access DOM. Click logs coordinates only.";
+    inspectOverlay.hidden = false;
+    inspectOverlay.style.pointerEvents = "auto";
+    log("INSPECT_MODE cross-origin fallback");
+  }
+
+  function tryEnableInspection() {
+    if (!inspectMode) return;
+    if (sameOriginCleanup) { sameOriginCleanup(); sameOriginCleanup = null; }
+    inspectOverlay.hidden = true;
+    inspectOverlay.style.pointerEvents = "none";
+    try {
+      if (iframe.contentDocument && iframe.contentDocument.documentElement) {
+        if (enableSameOrigin()) return;
+      }
+      enableCrossOrigin();
+    } catch { enableCrossOrigin(); }
+  }
+
+  function disableInspection() {
+    inspectMode = false;
+    inspectBtn.dataset.active = "false";
+    inspectBtn.textContent = "Inspect";
+    inspectOverlay.hidden = true;
+    inspectOverlay.style.pointerEvents = "none";
+    if (sameOriginCleanup) { sameOriginCleanup(); sameOriginCleanup = null; }
+    inspectInfo.textContent = "Inspection off.";
+    log("INSPECT_MODE disabled");
+  }
+
+  function toggleInspect() {
+    if (inspectMode) { disableInspection(); return; }
+    inspectMode = true;
+    inspectBtn.dataset.active = "true";
+    inspectBtn.textContent = "Stop inspect";
+    log("INSPECT_MODE toggled on");
+    tryEnableInspection();
+  }
+
+  inspectOverlay.addEventListener("click", (e) => {
+    if (!inspectMode) return;
+    const r = inspectOverlay.getBoundingClientRect();
+    const x = Math.round(e.clientX-r.left), y = Math.round(e.clientY-r.top);
+    setStatus("Cross-origin click @ "+x+","+y, "warn");
+    log("INSPECT_CLICK(cross-origin) x="+x+" y="+y);
+  });
+
+  // ── Monitor ───────────────────────────────────────
+  async function probeOnce() {
+    const url = normalizeUrl(urlInput.value);
+    if (!url) return;
+    try {
+      const r = await fetch("/probe?url="+encodeURIComponent(url)+"&timeoutMs=8000", {cache:"no-store"});
+      const d = await r.json();
+      if (d.ok) {
+        setStatus("Probe OK "+d.status+" in "+d.elapsedMs+"ms", "ok");
+        log("PROBE ok="+d.status+" "+d.elapsedMs+"ms finalUrl="+d.finalUrl);
+      } else {
+        setStatus("Probe: "+(d.timedOut?"timeout":"fail")+" "+d.elapsedMs+"ms", "warn");
+        log("PROBE fail reason="+(d.error||"unknown")+" "+d.elapsedMs+"ms");
+      }
+    } catch(e) {
+      log("PROBE exception: "+e.message);
+    }
+  }
+
+  function toggleMonitor() {
+    if (monitorTimer) {
+      clearInterval(monitorTimer); monitorTimer = null;
+      monitorBtn.textContent = "Start monitor"; monitorBtn.dataset.active = "false";
+      log("MONITOR stopped"); return;
+    }
+    const ms = Math.max(1000, Number(probeMs.value)||3000);
+    monitorTimer = setInterval(probeOnce, ms);
+    monitorBtn.textContent = "Stop monitor"; monitorBtn.dataset.active = "true";
+    log("MONITOR started every "+ms+"ms");
+    probeOnce();
+  }
+
+  // ── Login / Projects ──────────────────────────────
+  function showModal() { loginModal.hidden = false; emailInput.focus(); }
+  function hideModal() { loginModal.hidden = true; }
+
+  async function doLogin() {
+    loginError.textContent = "";
+    const email = emailInput.value.trim();
+    const pw = pwInput.value;
+    if (!email||!pw) { loginError.textContent = "Fyll i e-post och lösenord."; return; }
+
+    doLoginBtn.disabled = true;
+    doLoginBtn.textContent = "Loggar in...";
+    log("LOGIN attempt " + email);
+
+    try {
+      const r = await fetch("/api/login", {
+        method: "POST",
+        headers: {"Content-Type":"application/json"},
+        body: JSON.stringify({email, password: pw}),
+      });
+      const d = await r.json();
+      if (!d.success) {
+        loginError.textContent = d.error || "Login failed";
+        log("LOGIN failed: " + (d.error||"unknown"));
+        return;
+      }
+
+      // If server returned set-cookie header via proxy, store it so we can forward
+      const setCookies = r.headers.get("x-set-cookies");
+      if (setCookies) {
+        try {
+          const cookies = JSON.parse(setCookies);
+          cookies.forEach(c => { document.cookie = c; });
+        } catch {}
+      }
+
+      isLoggedIn = true;
+      loginBtn.textContent = d.user?.email || "Logged in";
+      modalTitle.textContent = "Projects for " + (d.user?.email||"user");
+      loginForm.hidden = true;
+      projectsSection.hidden = false;
+      refreshProjectsBtn.hidden = false;
+      log("LOGIN ok user=" + (d.user?.email||"?"));
+      loadProjects();
+    } catch(e) {
+      loginError.textContent = "Network error: " + e.message;
+      log("LOGIN error: " + e.message);
+    } finally {
+      doLoginBtn.disabled = false;
+      doLoginBtn.textContent = "Login";
+    }
+  }
+
+  async function loadProjects() {
+    projectsList.innerHTML = '<div class="hint">Loading projects...</div>';
+    try {
+      const r = await fetch("/api/projects", { credentials: "include" });
+      const d = await r.json();
+      if (!d.success || !Array.isArray(d.projects)) {
+        projectsList.innerHTML = '<div class="hint" style="color:var(--err)">Could not load projects. Are you logged in to the main app?</div>';
+        log("PROJECTS failed: " + (d.error||"no data"));
+        return;
+      }
+      log("PROJECTS loaded " + d.projects.length + " projects");
+      if (d.projects.length === 0) {
+        projectsList.innerHTML = '<div class="hint">No projects found.</div>';
+        return;
+      }
+      projectsList.innerHTML = "";
+      d.projects.forEach(p => {
+        const el = document.createElement("div");
+        el.className = "project-item";
+        el.innerHTML = `<span>${esc(p.name||p.id)}</span><span class="url">${esc(p.demo_url||"no demo_url")}</span>`;
+        el.addEventListener("click", () => pickProject(p));
+        projectsList.appendChild(el);
+      });
+    } catch(e) {
+      projectsList.innerHTML = '<div class="hint" style="color:var(--err)">'+esc(e.message)+'</div>';
+      log("PROJECTS exception: " + e.message);
+    }
+  }
+
+  function pickProject(p) {
+    log("PROJECT_PICK id=" + p.id + " name=" + (p.name||"") + " demo_url=" + (p.demo_url||"none"));
+    if (p.demo_url) {
+      urlInput.value = p.demo_url;
+      hideModal();
+      loadUrl(false);
+    } else {
+      setStatus("Project has no demo_url. Fetching project data...", "warn");
+      fetchProjectDetail(p.id);
+    }
+  }
+
+  async function fetchProjectDetail(id) {
+    try {
+      const r = await fetch("/api/projects/" + encodeURIComponent(id), { credentials: "include" });
+      const d = await r.json();
+      const demoUrl = d.data?.demo_url || null;
+      log("PROJECT_DETAIL id=" + id + " demo_url=" + (demoUrl||"none"));
+      if (demoUrl) {
+        urlInput.value = demoUrl;
+        hideModal();
+        loadUrl(false);
+      } else {
+        setStatus("No demo_url found for project " + id, "warn");
+      }
+    } catch(e) {
+      log("PROJECT_DETAIL error: " + e.message);
+    }
+  }
+
+  function esc(s) { const d = document.createElement("div"); d.textContent = s; return d.innerHTML; }
+
+  // ── Wire up ───────────────────────────────────────
+  loadBtn.addEventListener("click", () => loadUrl(false));
+  reloadBtn.addEventListener("click", () => loadUrl(true));
+  openLiveBtn.addEventListener("click", () => {
+    const url = normalizeUrl(urlInput.value);
+    if (!url) { setStatus("Invalid URL", "error"); return; }
+    window.open(url, "_blank", "noopener");
+    log("OPEN_LIVE " + url);
+  });
+  inspectBtn.addEventListener("click", toggleInspect);
+  loginBtn.addEventListener("click", showModal);
+  monitorBtn.addEventListener("click", toggleMonitor);
+  clearBtn.addEventListener("click", () => {
+    clearTimers(); iframe.src = "about:blank"; loadingOverlay.hidden = true;
+    setStatus("Cleared.", "info"); log("CLEAR");
+  });
+  closeModalBtn.addEventListener("click", hideModal);
+  doLoginBtn.addEventListener("click", doLogin);
+  refreshProjectsBtn.addEventListener("click", loadProjects);
+  pwInput.addEventListener("keydown", (e) => { if (e.key==="Enter") doLogin(); });
+  urlInput.addEventListener("keydown", (e) => { if (e.key==="Enter") loadUrl(false); });
+
+  // ── Init ──────────────────────────────────────────
+  const fromQuery = new URLSearchParams(location.search).get("url");
+  const fromStorage = localStorage.getItem("test_url:last-url");
+  if (fromQuery) { urlInput.value = fromQuery; loadUrl(false); }
+  else if (fromStorage) { urlInput.value = fromStorage; }
+})();
+</script>
+</body>
+</html>
