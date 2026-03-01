@@ -416,6 +416,66 @@ function buildOriginPatchScript(origin: string): string {
 }
 
 /**
+ * Patch dynamically created <script> and <link rel="modulepreload"> elements
+ * so their src/href resolves to the real v0 demo origin instead of localhost.
+ *
+ * This closes the gap left by the <base> tag and fetch() patches: Next.js
+ * App Router creates script elements at runtime for code-split chunks via
+ * document.createElement("script"), and sets .src to a root-relative path
+ * like "/_next/static/chunks/app/page-abc.js". Because the page is served
+ * from the proxy (localhost), that path 404s. This patch intercepts the
+ * property setter and rewrites the URL before the browser fetches it.
+ *
+ * Built as a separate function so it can be disabled independently
+ * (query param ?nodynamic=1) or removed without touching other patches.
+ */
+function buildDynamicScriptPatch(origin: string): string {
+  return `
+<script>
+(function() {
+  var O = ${JSON.stringify(origin)};
+  var LOCAL = window.location.origin;
+
+  function rewriteUrl(v) {
+    if (typeof v !== "string") return v;
+    if (v.startsWith("/") && !v.startsWith("//")) return O + v;
+    if (v.startsWith(LOCAL + "/")) return O + v.slice(LOCAL.length);
+    return v;
+  }
+
+  var _create = document.createElement.bind(document);
+  var scriptSrcDesc = Object.getOwnPropertyDescriptor(HTMLScriptElement.prototype, "src");
+  var linkHrefDesc = Object.getOwnPropertyDescriptor(HTMLLinkElement.prototype, "href");
+
+  document.createElement = function(tag, opts) {
+    var el = _create(tag, opts);
+    var t = (typeof tag === "string" ? tag : "").toLowerCase();
+
+    if (t === "script" && scriptSrcDesc) {
+      Object.defineProperty(el, "src", {
+        configurable: true,
+        enumerable: true,
+        get: function() { return scriptSrcDesc.get.call(this); },
+        set: function(v) { scriptSrcDesc.set.call(this, rewriteUrl(v)); }
+      });
+    }
+
+    if (t === "link" && linkHrefDesc) {
+      Object.defineProperty(el, "href", {
+        configurable: true,
+        enumerable: true,
+        get: function() { return linkHrefDesc.get.call(this); },
+        set: function(v) { linkHrefDesc.set.call(this, rewriteUrl(v)); }
+      });
+    }
+
+    return el;
+  };
+})();
+</script>`;
+}
+
+/**
  * Strip `allow-same-origin` from every sandbox attribute in the proxied HTML.
  * Nested iframes in v0-generated pages sometimes have this combination, which
  * triggers a browser security warning. Since the page is already served through
@@ -448,6 +508,8 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const url = searchParams.get("url");
   const cleanMode = searchParams.get("clean") === "1";
+  const noDynamicPatch = searchParams.get("nodynamic") === "1";
+  const stripNestedSandboxSameOrigin = searchParams.get("stripsandbox") === "1";
 
   if (!url) {
     return new NextResponse(buildProxyErrorHtml("Missing ?url= parameter"), {
@@ -497,7 +559,9 @@ export async function GET(req: Request) {
 
     // Process HTML
     html = removeCsp(html);
-    html = removeAllowSameOriginFromSandboxes(html);
+    if (stripNestedSandboxSameOrigin) {
+      html = removeAllowSameOriginFromSandboxes(html);
+    }
     html = neutralizeEmbeds(html);
 
     // 1. Inject <base> tag FIRST so all relative URLs resolve to the real origin.
@@ -515,6 +579,20 @@ export async function GET(req: Request) {
       html = html.replace("</HEAD>", `${originPatch}</HEAD>`);
     } else {
       html = originPatch + html;
+    }
+
+    // 2b. Patch dynamically created <script>/<link> elements so their
+    //     src/href resolves to the real origin (catches Next.js code-splitting).
+    //     Disable with ?nodynamic=1 for A/B testing.
+    if (!noDynamicPatch) {
+      const dynamicPatch = buildDynamicScriptPatch(target.origin);
+      if (html.includes("</head>")) {
+        html = html.replace("</head>", `${dynamicPatch}</head>`);
+      } else if (html.includes("</HEAD>")) {
+        html = html.replace("</HEAD>", `${dynamicPatch}</HEAD>`);
+      } else {
+        html = dynamicPatch + html;
+      }
     }
 
     // 3. Regex-rewrite remaining href/src attributes as a safety net

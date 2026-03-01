@@ -1,4 +1,4 @@
-import { and, desc, eq, isNull } from "drizzle-orm";
+import { and, desc, eq, isNull, or } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { db } from "@/lib/db/client";
 import {
@@ -20,10 +20,18 @@ type ProjectOwnerScope = {
 
 function buildProjectOwnerCondition(scope: ProjectOwnerScope) {
   const userId = scope.userId?.trim();
+  const sessionId = scope.sessionId?.trim();
+
+  if (userId && sessionId) {
+    // Logged-in user: match their own projects OR unclaimed session projects
+    return or(
+      eq(appProjects.user_id, userId),
+      and(isNull(appProjects.user_id), eq(appProjects.session_id, sessionId)),
+    );
+  }
   if (userId) {
     return eq(appProjects.user_id, userId);
   }
-  const sessionId = scope.sessionId?.trim();
   if (sessionId) {
     return and(isNull(appProjects.user_id), eq(appProjects.session_id, sessionId));
   }
@@ -132,7 +140,23 @@ export async function getProjectByIdForOwner(
     .from(appProjects)
     .where(and(eq(appProjects.id, id), ownerCondition))
     .limit(1);
-  return rows[0] ?? null;
+  const project = rows[0] ?? null;
+
+  // Claim unclaimed session projects for the logged-in user
+  const userId = scope.userId?.trim();
+  if (project && userId && !project.user_id) {
+    db.update(appProjects)
+      .set({ user_id: userId, updated_at: new Date() })
+      .where(and(eq(appProjects.id, id), isNull(appProjects.user_id)))
+      .then(() => {
+        console.info("[DB] Claimed session project", id, "for user", userId);
+      })
+      .catch((err) => {
+        console.warn("[DB] Failed to claim session project:", err);
+      });
+  }
+
+  return project;
 }
 
 export async function updateProject(

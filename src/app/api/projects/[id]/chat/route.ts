@@ -4,10 +4,53 @@ import { db } from "@/lib/db/client";
 import { chats } from "@/lib/db/schema";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { getSessionIdFromRequest } from "@/lib/auth/session";
-import { getProjectByIdForOwner } from "@/lib/db/services";
+import { getProjectByIdForOwner, getProjectData } from "@/lib/db/services";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
+}
+
+type ChatRow = {
+  id: string;
+  v0ChatId: string;
+  createdAt: Date;
+};
+
+async function findChatFromProjectData(projectId: string): Promise<ChatRow | null> {
+  const data = await getProjectData(projectId);
+  const persistedChatId =
+    typeof data?.chat_id === "string" ? data.chat_id.trim() : "";
+  if (!persistedChatId) return null;
+
+  // Preferred path: project_data.chat_id stores the v0 chat ID.
+  const byV0ChatId = await db
+    .select({
+      id: chats.id,
+      v0ChatId: chats.v0ChatId,
+      createdAt: chats.createdAt,
+    })
+    .from(chats)
+    .where(eq(chats.v0ChatId, persistedChatId))
+    .limit(1);
+  if (byV0ChatId[0]) return byV0ChatId[0];
+
+  // Legacy fallback: older rows may have stored the internal DB chat ID.
+  const byInternalId = await db
+    .select({
+      id: chats.id,
+      v0ChatId: chats.v0ChatId,
+      createdAt: chats.createdAt,
+    })
+    .from(chats)
+    .where(eq(chats.id, persistedChatId))
+    .limit(1);
+  if (byInternalId[0]) return byInternalId[0];
+
+  console.warn("[API/projects/:id/chat] Saved chat reference not found", {
+    projectId,
+    persistedChatId,
+  });
+  return null;
 }
 
 /**
@@ -28,7 +71,18 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ success: false, error: "Project not found" }, { status: 404 });
     }
 
-    // Find the most recent chat for this project
+    // Preferred restore source for app projects.
+    const chatFromProjectData = await findChatFromProjectData(projectId);
+    if (chatFromProjectData) {
+      return NextResponse.json({
+        success: true,
+        chatId: chatFromProjectData.v0ChatId,
+        v0ChatId: chatFromProjectData.v0ChatId,
+        internalChatId: chatFromProjectData.id,
+      });
+    }
+
+    // Fallback for legacy mappings where chats.projectId happened to match.
     const results = await db
       .select({
         id: chats.id,
