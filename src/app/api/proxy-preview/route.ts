@@ -1,15 +1,24 @@
 import { NextResponse } from "next/server";
 
 /**
- * Full HTML proxy that serves the page as a real document (not srcDoc).
- * This allows Next.js apps to hydrate correctly since they have a real origin.
+ * Full HTML proxy for inspector mode. Fetches a v0 demo page, processes
+ * the HTML so all sub-resources load through /api/proxy-asset (same-origin),
+ * and injects the inspector script for hover/click element detection.
  *
  * Usage: GET /api/proxy-preview?url=https://demo-xxx.vusercontent.net
  *
- * The page is served with:
- * - All relative URLs rewritten to absolute
- * - CSP headers removed
- * - Inspector script injected after page load for hover/click detection
+ * IMPORTANT: The target demo page must be publicly accessible. v0 pages
+ * set to "private" will return empty content because this server-side
+ * fetch cannot forward the user's v0 session cookies.
+ *
+ * Pipeline:
+ * 1. Fetch HTML from vusercontent.net (server-side)
+ * 2. Strip CSP, blocking="render", <base> tags, v0-loading class, embeds
+ * 3. Inject JS patches (fetch/XHR/createElement -> /api/proxy-asset)
+ * 4. Rewrite static src/href/srcset to /api/proxy-asset URLs
+ * 5. Rewrite CSS url() references to proxy URLs
+ * 6. (Optional) Console filter for @property warnings (?clean=1)
+ * 7. Inject inspector script (hover/click detection via postMessage)
  */
 
 const inspectorScript = `
@@ -222,25 +231,28 @@ function buildProxyErrorHtml(message: string): string {
 }
 
 function rewriteUrls(html: string, baseOrigin: string, basePath: string): string {
+  const PROXY = "/api/proxy-asset?url=";
   let out = html;
 
-  // Rewrite root-relative URLs (href="/..." or src="/...")
-  out = out.replace(/((?:href|src|action)=["'])\/(?!\/)/gi, `$1${baseOrigin}/`);
-
-  // Rewrite bare-relative URLs (href="something.css" not starting with http/data/#)
-  // Only match actual relative paths, not absolute URLs or data URIs
   out = out.replace(
-    /((?:href|src)=["'])(?!https?:\/\/|data:|#|\/|mailto:|tel:)([^"']+["'])/gi,
-    `$1${basePath}$2`,
+    /((?:href|src|action)=["'])(\/(?!\/)[^"']*)/gi,
+    (_match: string, pre: string, path: string) =>
+      `${pre}${PROXY}${encodeURIComponent(baseOrigin + path)}`,
   );
 
-  // Also rewrite srcset attributes (used by next/image and responsive images)
+  out = out.replace(
+    /((?:href|src)=["'])(?!https?:\/\/|data:|#|\/|mailto:|tel:|javascript:)([^"']+)/gi,
+    (_match: string, pre: string, relPath: string) =>
+      `${pre}${PROXY}${encodeURIComponent(basePath + relPath)}`,
+  );
+
   out = out.replace(
     /(srcset=["'])([^"']+)(["'])/gi,
     (_match, pre, value, post) => {
-      const patched = value.replace(
-        /(?:^|,\s*)\/(?!\/)/g,
-        (m: string) => m.replace(/\//, `${baseOrigin}/`),
+      const patched = (value as string).replace(
+        /(^|,\s*)(\/(?!\/)[^\s,]+)/g,
+        (_m: string, sep: string, path: string) =>
+          `${sep}${PROXY}${encodeURIComponent(baseOrigin + path)}`,
       );
       return `${pre}${patched}${post}`;
     },
@@ -327,34 +339,9 @@ function injectConsoleFilter(html: string): string {
 }
 
 /**
- * Inject a <base> tag so that ALL relative URLs (scripts, styles, images,
- * dynamic imports, CSS url(), etc.) resolve to the original v0 demo origin
- * instead of the proxy host. This is the key fix for "black page" in
- * inspector mode - without it, Next.js chunks and CSS fail to load.
- */
-function injectBaseTag(html: string, baseHref: string): string {
-  const baseTag = `<base href="${baseHref}">`;
-  // Avoid duplicate <base> tags; replace any existing base href.
-  if (/<base\b[^>]*href=/i.test(html)) {
-    return html.replace(/<base\b[^>]*href=["'][^"']*["'][^>]*>/i, baseTag);
-  }
-  if (html.includes("<head>")) {
-    return html.replace("<head>", `<head>${baseTag}`);
-  }
-  if (html.includes("<HEAD>")) {
-    return html.replace("<HEAD>", `<HEAD>${baseTag}`);
-  }
-  // Fallback: inject at the very start of the document
-  return baseTag + html;
-}
-
-/**
- * Inject an early script that patches window.fetch and Next.js internals
- * so dynamically loaded resources (code-split chunks, API calls, etc.)
- * also resolve to the original v0 demo origin instead of the proxy host.
- *
- * <base> handles static HTML attributes (src, href) but JS runtime calls
- * like fetch("/_next/...") use window.location.origin by default.
+ * Inject an early script that patches window.fetch, XHR and __NEXT_DATA__
+ * so dynamically loaded resources are routed through /api/proxy-asset
+ * instead of hitting the original origin (CORS) or localhost (404).
  */
 function buildOriginPatchScript(origin: string): string {
   return `
@@ -362,36 +349,46 @@ function buildOriginPatchScript(origin: string): string {
 (function() {
   var O = ${JSON.stringify(origin)};
   var LOCAL = window.location.origin;
-  // Patch fetch() so relative /_next/ and /api/ requests go to the real origin
+  var P = "/api/proxy-asset?url=";
+  function px(u) { return P + encodeURIComponent(u); }
   var _fetch = window.fetch;
   window.fetch = function(input, init) {
     if (typeof input === "string") {
-      if (input.startsWith("/")) {
-        input = O + input;
+      if (input.startsWith("/") && !input.startsWith("//") && !input.startsWith(P)) {
+        input = px(O + input);
       } else if (input.startsWith(LOCAL + "/")) {
-        input = O + input.slice(LOCAL.length);
+        input = px(O + input.slice(LOCAL.length));
+      } else if (input.startsWith(O)) {
+        input = px(input);
       }
-    } else if (input instanceof URL && input.origin === LOCAL) {
-      input = O + input.pathname + input.search + input.hash;
-    } else if (input instanceof Request && input.url.startsWith(LOCAL + "/")) {
-      var path = input.url.slice(LOCAL.length);
-      input = new Request(O + path, input);
+    } else if (input instanceof URL) {
+      if (input.origin === LOCAL) {
+        input = px(O + input.pathname + input.search + input.hash);
+      } else if (input.href.startsWith(O)) {
+        input = px(input.href);
+      }
+    } else if (input instanceof Request) {
+      if (input.url.startsWith(LOCAL + "/")) {
+        input = new Request(px(O + input.url.slice(LOCAL.length)), input);
+      } else if (input.url.startsWith(O)) {
+        input = new Request(px(input.url), input);
+      }
     }
     return _fetch.call(this, input, init);
   };
-  // Patch XMLHttpRequest for legacy requests
   var _xhrOpen = XMLHttpRequest.prototype.open;
   XMLHttpRequest.prototype.open = function(method, url) {
     if (typeof url === "string") {
-      if (url.startsWith("/")) {
-        url = O + url;
+      if (url.startsWith("/") && !url.startsWith("//") && !url.startsWith(P)) {
+        url = px(O + url);
       } else if (url.startsWith(LOCAL + "/")) {
-        url = O + url.slice(LOCAL.length);
+        url = px(O + url.slice(LOCAL.length));
+      } else if (url.startsWith(O)) {
+        url = px(url);
       }
     }
     return _xhrOpen.apply(this, [method, url].concat(Array.prototype.slice.call(arguments, 2)));
   };
-  // Patch __NEXT_DATA__ assetPrefix when Next.js initializes
   var _desc = Object.getOwnPropertyDescriptor(window, "__NEXT_DATA__");
   if (!_desc || _desc.configurable) {
     var _stored;
@@ -404,7 +401,6 @@ function buildOriginPatchScript(origin: string): string {
           v.assetPrefix = O;
         }
         _stored = v;
-        // After first set, switch to plain property for performance
         Object.defineProperty(window, "__NEXT_DATA__", {
           value: v, writable: true, configurable: true, enumerable: true,
         });
@@ -416,18 +412,12 @@ function buildOriginPatchScript(origin: string): string {
 }
 
 /**
- * Patch dynamically created <script> and <link rel="modulepreload"> elements
- * so their src/href resolves to the real v0 demo origin instead of localhost.
+ * Patch document.createElement so dynamically created <script> and <link>
+ * elements have their src/href routed through /api/proxy-asset. Next.js
+ * App Router creates these at runtime for code-split chunks. Without this
+ * patch, they would 404 on localhost or hit CORS on vusercontent.
  *
- * This closes the gap left by the <base> tag and fetch() patches: Next.js
- * App Router creates script elements at runtime for code-split chunks via
- * document.createElement("script"), and sets .src to a root-relative path
- * like "/_next/static/chunks/app/page-abc.js". Because the page is served
- * from the proxy (localhost), that path 404s. This patch intercepts the
- * property setter and rewrites the URL before the browser fetches it.
- *
- * Built as a separate function so it can be disabled independently
- * (query param ?nodynamic=1) or removed without touching other patches.
+ * Disable with ?nodynamic=1 for A/B testing.
  */
 function buildDynamicScriptPatch(origin: string): string {
   return `
@@ -435,11 +425,14 @@ function buildDynamicScriptPatch(origin: string): string {
 (function() {
   var O = ${JSON.stringify(origin)};
   var LOCAL = window.location.origin;
+  var P = "/api/proxy-asset?url=";
 
   function rewriteUrl(v) {
     if (typeof v !== "string") return v;
-    if (v.startsWith("/") && !v.startsWith("//")) return O + v;
-    if (v.startsWith(LOCAL + "/")) return O + v.slice(LOCAL.length);
+    if (v.startsWith(P)) return v;
+    if (v.startsWith("/") && !v.startsWith("//")) return P + encodeURIComponent(O + v);
+    if (v.startsWith(LOCAL + "/")) return P + encodeURIComponent(O + v.slice(LOCAL.length));
+    if (v.startsWith(O)) return P + encodeURIComponent(v);
     return v;
   }
 
@@ -493,6 +486,32 @@ function removeAllowSameOriginFromSandboxes(html: string): string {
         .trim();
       return `${pre}${cleaned}${post}`;
     },
+  );
+}
+
+function removeBaseTags(html: string): string {
+  return html.replace(/<base\b[^>]*>/gi, "");
+}
+
+function removeRenderBlocking(html: string): string {
+  html = html.replace(/<link[^>]*\brel=["']expect["'][^>]*>/gi, "");
+  html = html.replace(/\s*blocking=["'][^"']*["']/gi, "");
+  html = html.replace(
+    /(<body\b[^>]*\bclass=["'])([^"']*)["']/gi,
+    (_m: string, pre: string, cls: string) => {
+      const cleaned = cls.replace(/\bv0-loading\b/g, "").trim();
+      return cleaned ? `${pre}${cleaned}"` : pre.replace(/\s*class=$/, "") + '"';
+    },
+  );
+  return html;
+}
+
+function rewriteCssUrls(html: string, origin: string): string {
+  const PROXY = "/api/proxy-asset?url=";
+  return html.replace(
+    /url\(\s*(['"]?)(\/(?!\/|api\/proxy-asset)[^)'"]*)\1\s*\)/gi,
+    (_m: string, quote: string, path: string) =>
+      `url(${quote}${PROXY}${encodeURIComponent(origin + path)}${quote})`,
   );
 }
 
@@ -563,17 +582,14 @@ export async function GET(req: Request) {
       html = removeAllowSameOriginFromSandboxes(html);
     }
     html = neutralizeEmbeds(html);
+    html = removeBaseTags(html);
+    html = removeRenderBlocking(html);
 
-    // 1. Inject <base> tag FIRST so all relative URLs resolve to the real origin.
-    //    This is the primary fix for the "black page" problem: without it,
-    //    Next.js chunks, CSS, and images loaded from /_next/ 404 on localhost.
-    html = injectBaseTag(html, basePath);
-
-    // 2. Inject origin-patch script early in <head> to intercept fetch() and
-    //    XMLHttpRequest calls that use relative URLs at runtime.
+    // 1. Inject runtime patches early in <head>. These intercept fetch(),
+    //    XHR, and dynamically created script/link elements so all resource
+    //    requests are routed through /api/proxy-asset (same-origin).
     const originPatch = buildOriginPatchScript(target.origin);
     if (html.includes("</head>")) {
-      // Put it just before </head> so it runs before any deferred scripts
       html = html.replace("</head>", `${originPatch}</head>`);
     } else if (html.includes("</HEAD>")) {
       html = html.replace("</HEAD>", `${originPatch}</HEAD>`);
@@ -581,9 +597,6 @@ export async function GET(req: Request) {
       html = originPatch + html;
     }
 
-    // 2b. Patch dynamically created <script>/<link> elements so their
-    //     src/href resolves to the real origin (catches Next.js code-splitting).
-    //     Disable with ?nodynamic=1 for A/B testing.
     if (!noDynamicPatch) {
       const dynamicPatch = buildDynamicScriptPatch(target.origin);
       if (html.includes("</head>")) {
@@ -595,9 +608,11 @@ export async function GET(req: Request) {
       }
     }
 
-    // 3. Regex-rewrite remaining href/src attributes as a safety net
-    //    (redundant with <base> for most cases, but catches edge cases)
+    // 2. Rewrite static HTML attributes (src, href, srcset) to proxy URLs
     html = rewriteUrls(html, target.origin, basePath);
+
+    // 3. Rewrite CSS url() references in inline <style> and style attributes
+    html = rewriteCssUrls(html, target.origin);
 
     // Optional clean mode: inject console filter to suppress @property warnings
     if (cleanMode) {
@@ -606,9 +621,7 @@ export async function GET(req: Request) {
 
     html = injectScript(html);
 
-    // NOTE: X-Frame-Options is handled by proxy.ts which sets SAMEORIGIN
-    // for /api/proxy-preview. We don't set it here to avoid the ALLOWALL
-    // security vulnerability (clickjacking).
+    // X-Frame-Options SAMEORIGIN allows embedding in our own builder iframe.
     return new NextResponse(html, {
       headers: {
         "content-type": "text/html; charset=utf-8",

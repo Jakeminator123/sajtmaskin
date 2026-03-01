@@ -69,6 +69,8 @@ export function BuilderHeader(props: {
   isThinkingSupported: boolean;
   isImageGenerationsSupported: boolean;
   isMediaEnabled: boolean;
+  chatPrivacy: "private" | "unlisted";
+  onChatPrivacyChange: (v: "private" | "unlisted") => void;
   enableBlobMedia: boolean;
   onEnableBlobMediaChange: (v: boolean) => void;
 
@@ -112,6 +114,8 @@ export function BuilderHeader(props: {
     isThinkingSupported,
     isImageGenerationsSupported,
     isMediaEnabled,
+    chatPrivacy,
+    onChatPrivacyChange,
     enableBlobMedia,
     onEnableBlobMediaChange,
     showStructuredChat,
@@ -369,6 +373,31 @@ export function BuilderHeader(props: {
                   <p className="text-xs">
                     Kopierar externa bild-URL:er till Vercel Blob vid deploy. Stäng av om du vill
                     köra med externa länkar.
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div>
+                    <DropdownMenuCheckboxItem
+                      checked={chatPrivacy === "unlisted"}
+                      onCheckedChange={(checked) =>
+                        onChatPrivacyChange(checked ? "unlisted" : "private")
+                      }
+                      disabled={isBusy}
+                    >
+                      <Globe className="mr-2 h-4 w-4" />
+                      Publik preview
+                    </DropdownMenuCheckboxItem>
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="left" className="max-w-xs">
+                  <p className="text-xs">
+                    Gör demo-sidan tillgänglig via URL (unlisted). Krävs för att inspektionsläget ska
+                    fungera. Privata sidor kan inte proxas.
                   </p>
                 </TooltipContent>
               </Tooltip>

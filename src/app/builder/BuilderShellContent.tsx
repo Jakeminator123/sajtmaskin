@@ -41,6 +41,8 @@ export function BuilderShellContent(vm: BuilderViewModel) {
         isThinkingSupported={vm.isThinkingSupported}
         isImageGenerationsSupported={vm.isImageGenerationsSupported}
         isMediaEnabled={vm.isMediaEnabled}
+        chatPrivacy={vm.chatPrivacy}
+        onChatPrivacyChange={vm.setChatPrivacy}
         enableBlobMedia={vm.enableBlobMedia}
         onEnableBlobMediaChange={vm.setEnableBlobMedia}
         showStructuredChat={vm.showStructuredChat}

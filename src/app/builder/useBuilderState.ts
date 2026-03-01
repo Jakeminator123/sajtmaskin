@@ -61,6 +61,7 @@ export function useBuilderState(searchParams: ReadonlyURLSearchParams) {
   const [isSavingProject, setIsSavingProject] = useState(false);
   const [enableImageGenerations, setEnableImageGenerations] = useState(DEFAULT_IMAGE_GENERATIONS);
   const [enableThinking, setEnableThinking] = useState(DEFAULT_THINKING);
+  const [chatPrivacy, setChatPrivacy] = useState<"private" | "unlisted">("private");
   const [enableBlobMedia, setEnableBlobMedia] = useState(true);
   const [isImageGenerationsSupported, setIsImageGenerationsSupported] = useState(true);
   const [isMediaEnabled, setIsMediaEnabled] = useState(false);
@@ -169,6 +170,8 @@ export function useBuilderState(searchParams: ReadonlyURLSearchParams) {
     setIsDeploying,
     isSavingProject,
     setIsSavingProject,
+    chatPrivacy,
+    setChatPrivacy,
     enableImageGenerations,
     setEnableImageGenerations,
     enableThinking,

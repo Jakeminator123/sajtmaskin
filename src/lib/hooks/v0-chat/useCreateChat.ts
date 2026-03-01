@@ -43,6 +43,7 @@ export function useCreateChat(
     enableImageGenerations,
     enableImageMaterialization = false,
     enableThinking,
+    chatPrivacy,
     systemPrompt,
     promptAssistModel,
     promptAssistDeep,
@@ -274,6 +275,7 @@ export function useCreateChat(
           modelId: selectedModelTier,
           thinking: thinkingForTier,
           imageGenerations: enableImageGenerations,
+          chatPrivacy: chatPrivacy || "private",
           meta: promptMeta,
         };
         if (v0ProjectId) requestBody.projectId = v0ProjectId;
@@ -420,6 +422,7 @@ export function useCreateChat(
       promptAssistModel,
       promptAssistDeep,
       promptAssistMode,
+      chatPrivacy,
       startStreamSafetyTimer,
       touchStreamSafetyTimer,
       clearStreamSafetyTimer,

@@ -1,5 +1,19 @@
 import { NextResponse } from "next/server";
 
+/**
+ * Asset proxy for inspector mode. Fetches JS, CSS, images and other
+ * sub-resources from vusercontent.net server-side and returns them as
+ * same-origin responses. This avoids CORS/CORP issues that occur when
+ * a proxied page (served from localhost) tries to load cross-origin assets.
+ *
+ * Usage: GET /api/proxy-asset?url=https://demo-xxx.vusercontent.net/_next/static/chunk.js
+ *
+ * For CSS files, root-relative url() references are rewritten to also
+ * go through this proxy so fonts/images referenced in CSS load correctly.
+ *
+ * Only vusercontent.net origins are allowed (security allowlist).
+ */
+
 const ALLOWED_HOSTS = [".vusercontent.net"];
 
 function isAllowedOrigin(url: URL): boolean {
@@ -49,7 +63,7 @@ export async function GET(req: Request) {
       /\.[a-f0-9]{8,}\.\w+$/.test(target.pathname);
 
     const cacheControl = isImmutable
-      ? "public, max-age=31536000, immutable"
+      ? "public, max-age=86400, stale-while-revalidate=604800"
       : "public, max-age=60, stale-while-revalidate=300";
 
     const headers: Record<string, string> = {
@@ -58,11 +72,21 @@ export async function GET(req: Request) {
       "access-control-allow-origin": "*",
     };
 
-    const contentLength = upstream.headers.get("content-length");
-    if (contentLength) {
-      headers["content-length"] = contentLength;
+    if (contentType.includes("text/css")) {
+      let css = await upstream.text();
+      const assetOrigin = target.origin;
+      const PROXY = "/api/proxy-asset?url=";
+      css = css.replace(
+        /url\(\s*(['"]?)(\/(?!\/|api\/proxy-asset)[^)'"]*)\1\s*\)/gi,
+        (_m: string, quote: string, path: string) =>
+          `url(${quote}${PROXY}${encodeURIComponent(assetOrigin + path)}${quote})`,
+      );
+      return new NextResponse(css, { headers });
     }
 
+    // Do NOT forward upstream content-length: Node.js fetch auto-decompresses
+    // gzip/brotli responses, so the decompressed body is larger than the
+    // original content-length header. Omitting it lets chunked transfer work.
     return new NextResponse(upstream.body, { headers });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Fetch failed";
