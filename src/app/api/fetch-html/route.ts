@@ -1,9 +1,12 @@
 import { NextResponse } from "next/server";
+import { validateSsrfTarget, safeFetch } from "@/lib/ssrf-guard";
 
 /**
  * Server-side fetch of external HTML pages.
  * This bypasses CORS by proxying the request, then sanitizes
  * dangerous content so the HTML can be safely displayed in an iframe with srcDoc.
+ *
+ * Security: Private/internal IPs are blocked. Redirects are validated.
  */
 
 function stripDangerous(html: string): string {
@@ -69,14 +72,14 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Invalid URL format" }, { status: 400 });
   }
 
-  // Only allow http/https protocols
-  if (!["http:", "https:"].includes(target.protocol)) {
-    return NextResponse.json({ error: "Only http/https URLs allowed" }, { status: 400 });
+  const ssrfCheck = validateSsrfTarget(target);
+  if (!ssrfCheck.ok) {
+    return NextResponse.json({ error: ssrfCheck.reason }, { status: 403 });
   }
 
   try {
-    const res = await fetch(target.toString(), {
-      redirect: "follow",
+    const res = await safeFetch(target.toString(), {
+      timeoutMs: 15_000,
       headers: {
         "User-Agent":
           "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36",

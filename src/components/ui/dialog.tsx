@@ -2,7 +2,7 @@
 
 import { Slot } from "@radix-ui/react-slot";
 import { Children, isValidElement, useCallback, useEffect, useId, useRef, type ReactNode } from "react";
-import { cn } from "@/lib/utils/utils";
+import { cn } from "@/lib/utils";
 
 interface DialogProps {
   open: boolean;

@@ -1,7 +1,6 @@
 import type { UiMessagePart } from "@/lib/builder/types";
 import { DESIGN_TOKEN_FILES, POST_CHECK_MARKER } from "./constants";
 import type {
-  AutoFixPayload,
   DesignTokenSummary,
   FileEntry,
   SetMessages,
@@ -672,6 +671,14 @@ export async function runPostGenerationChecks(params: {
       assistantMessageId,
       buildPostCheckSummary({ changes, warnings, demoUrl: finalDemoUrl }),
     );
+
+    void runSandboxQualityGate({
+      chatId,
+      versionId,
+      assistantMessageId,
+      setMessages,
+      onAutoFix: autoFixReasons.length === 0 ? onAutoFix : undefined,
+    });
   } catch (error) {
     void persistVersionErrorLogs({
       chatId,
@@ -694,5 +701,125 @@ export async function runPostGenerationChecks(params: {
     });
   } finally {
     controller.abort();
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Sandbox quality gate (non-blocking, best-effort)
+// ---------------------------------------------------------------------------
+
+type QualityGateCheckResult = {
+  check: string;
+  passed: boolean;
+  exitCode: number;
+  output: string;
+};
+
+async function runSandboxQualityGate(params: {
+  chatId: string;
+  versionId: string;
+  assistantMessageId: string;
+  setMessages: SetMessages;
+  onAutoFix?: (payload: {
+    chatId: string;
+    versionId: string;
+    reasons: string[];
+    meta?: Record<string, unknown>;
+  }) => void;
+}) {
+  const { chatId, versionId, assistantMessageId, setMessages, onAutoFix } = params;
+  const toolCallId = `quality-gate:${versionId}`;
+
+  appendToolPartToMessage(setMessages, assistantMessageId, {
+    type: "tool:quality-gate",
+    toolName: "Quality gate",
+    toolCallId,
+    state: "input-streaming",
+    input: { chatId, versionId, checks: ["typecheck", "build"] },
+  } as UiMessagePart);
+
+  try {
+    const res = await fetch(
+      `/api/v0/chats/${encodeURIComponent(chatId)}/quality-gate`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ versionId, checks: ["typecheck", "build"] }),
+      },
+    );
+
+    if (res.status === 501) {
+      appendToolPartToMessage(setMessages, assistantMessageId, {
+        type: "tool:quality-gate",
+        toolName: "Quality gate",
+        toolCallId,
+        state: "output-available",
+        output: { skipped: true, reason: "Sandbox not configured" },
+      } as UiMessagePart);
+      return;
+    }
+
+    const data = (await res.json().catch(() => null)) as {
+      passed?: boolean;
+      checks?: QualityGateCheckResult[];
+      sandboxDurationMs?: number;
+      error?: string;
+    } | null;
+
+    if (!res.ok || !data) {
+      appendToolPartToMessage(setMessages, assistantMessageId, {
+        type: "tool:quality-gate",
+        toolName: "Quality gate",
+        toolCallId,
+        state: "output-error",
+        errorText: data?.error || `Quality gate request failed (HTTP ${res.status})`,
+      } as UiMessagePart);
+      return;
+    }
+
+    const steps: string[] = [];
+    const failedChecks: string[] = [];
+    for (const check of data.checks ?? []) {
+      const icon = check.passed ? "PASS" : "FAIL";
+      steps.push(`${check.check}: ${icon} (exit ${check.exitCode})`);
+      if (!check.passed) failedChecks.push(check.check);
+    }
+    if (data.sandboxDurationMs) {
+      steps.push(`Duration: ${Math.round(data.sandboxDurationMs / 1000)}s`);
+    }
+
+    appendToolPartToMessage(setMessages, assistantMessageId, {
+      type: "tool:quality-gate",
+      toolName: "Quality gate",
+      toolCallId,
+      state: "output-available",
+      output: {
+        passed: data.passed,
+        steps,
+        checks: data.checks,
+        sandboxDurationMs: data.sandboxDurationMs,
+      },
+    } as UiMessagePart);
+
+    if (!data.passed && failedChecks.length > 0 && onAutoFix) {
+      const failedOutputs: Record<string, string> = {};
+      for (const c of data.checks ?? []) {
+        if (!c.passed) failedOutputs[c.check] = c.output.slice(0, 2000);
+      }
+      onAutoFix({
+        chatId,
+        versionId,
+        reasons: failedChecks.map((c) => `${c} failed`),
+        meta: { qualityGate: failedOutputs },
+      });
+    }
+  } catch {
+    appendToolPartToMessage(setMessages, assistantMessageId, {
+      type: "tool:quality-gate",
+      toolName: "Quality gate",
+      toolCallId,
+      state: "output-error",
+      errorText: "Quality gate request failed (network error)",
+    } as UiMessagePart);
   }
 }

@@ -6,8 +6,7 @@ alwaysApply: false
 # LLM strategy documents
 
 The `LLM/` directory contains strategy and architecture notes about the
-AI/prompt/gateway logic. These are also exposed via the `sajtmaskin-mpc`
-MCP server as `docs://local/llm/*`.
+AI/prompt/gateway logic.
 
 ## Key files
 

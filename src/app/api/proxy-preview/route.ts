@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { validateSsrfTarget, safeFetch } from "@/lib/ssrf-guard";
 
 /**
  * Full HTML proxy for inspector mode. Fetches a v0 demo page, processes
@@ -6,6 +7,9 @@ import { NextResponse } from "next/server";
  * and injects the inspector script for hover/click element detection.
  *
  * Usage: GET /api/proxy-preview?url=https://demo-xxx.vusercontent.net
+ *
+ * Security: Only *.vusercontent.net hosts are allowed (allowlist).
+ * Private/internal IPs are blocked. Redirects are validated.
  *
  * IMPORTANT: The target demo page must be publicly accessible. v0 pages
  * set to "private" will return empty content because this server-side
@@ -96,10 +100,13 @@ window.addEventListener("load", function () {
     };
   };
 
+  var _parentOrigin = (function() {
+    try { return window.parent.location.origin; } catch(e) { return "*"; }
+  })();
   const post = (type, payload) => {
     window.parent?.postMessage(
       { __fromInspector: true, type, payload },
-      "*"
+      _parentOrigin
     );
   };
 
@@ -154,6 +161,7 @@ window.addEventListener("load", function () {
   );
 
   window.addEventListener("message", (event) => {
+    if (_parentOrigin !== "*" && event.origin !== _parentOrigin) return;
     const data = event.data;
     if (!data || data.__fromParentInspector !== true) return;
     if (data.type === "set-freeze") {
@@ -547,16 +555,17 @@ export async function GET(req: Request) {
     });
   }
 
-  if (!["http:", "https:"].includes(target.protocol)) {
-    return new NextResponse(buildProxyErrorHtml("Only http/https URLs allowed"), {
-      status: 400,
+  const ssrfCheck = validateSsrfTarget(target, { allowlistOnly: true });
+  if (!ssrfCheck.ok) {
+    return new NextResponse(buildProxyErrorHtml(ssrfCheck.reason), {
+      status: 403,
       headers: { "content-type": "text/html" },
     });
   }
 
   try {
-    const res = await fetch(target.toString(), {
-      redirect: "follow",
+    const res = await safeFetch(target.toString(), {
+      timeoutMs: 15_000,
       headers: {
         "User-Agent":
           "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36",

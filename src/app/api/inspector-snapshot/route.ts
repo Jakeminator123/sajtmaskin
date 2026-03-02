@@ -67,8 +67,11 @@ window.addEventListener("load", function () {
     };
   };
 
+  var _parentOrigin = (function() {
+    try { return window.parent.location.origin; } catch(e) { return "*"; }
+  })();
   const post = (type, payload) => {
-    window.parent?.postMessage({ __fromInspector: true, type, payload }, "*");
+    window.parent?.postMessage({ __fromInspector: true, type, payload }, _parentOrigin);
   };
 
   const clearHover = () => {
@@ -120,6 +123,7 @@ window.addEventListener("load", function () {
   );
 
   window.addEventListener("message", (event) => {
+    if (_parentOrigin !== "*" && event.origin !== _parentOrigin) return;
     const data = event.data;
     if (!data || data.__fromParentInspector !== true) return;
     if (data.type === "set-freeze") {

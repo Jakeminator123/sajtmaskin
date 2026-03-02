@@ -43,8 +43,7 @@ User prompt -> Builder UI -> v0 Platform API -> Generated code -> Preview -> Dep
 | `src/lib/hooks/` | React hooks (useV0ChatMessaging, useChat, useVersions) |
 | `src/lib/db/` | Drizzle schema + service layer |
 | `src/lib/auth/` | Auth logic + Zustand store |
-| `services/mpc/` | Local MCP documentation server |
-| `LLM/` | AI/prompt strategy notes (exposed via MCP) |
+| `LLM/` | AI/prompt strategy notes |
 
 ### Core flow (builder)
 

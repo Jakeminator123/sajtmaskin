@@ -148,6 +148,29 @@ function looksTechnicalMessage(message: string): boolean {
   );
 }
 
+const TECHNICAL_DIRECT_TRIGGERS = [
+  "auto-fix request",
+  "auto-fix",
+  "npm run build",
+  "npm run typecheck",
+  "npm run lint",
+  "typeerror:",
+  "syntaxerror:",
+  "referenceerror:",
+  "failed to compile",
+  "eslint",
+  "stack trace",
+  "error ts",
+];
+const TECHNICAL_DIRECT_PATTERNS = [/\bTS\d{4}\b/];
+
+function mustPreserveTechnicalContent(message: string): boolean {
+  const lower = toSafeLower(message);
+  if (TECHNICAL_DIRECT_TRIGGERS.some((t) => lower.includes(t))) return true;
+  if (TECHNICAL_DIRECT_PATTERNS.some((p) => p.test(message))) return true;
+  return false;
+}
+
 function looksDesignHeavyMessage(message: string): boolean {
   const lower = toSafeLower(message);
   return DESIGN_MARKERS.reduce((count, marker) => count + (lower.includes(marker) ? 1 : 0), 0) >= 3;
@@ -363,14 +386,17 @@ export function orchestratePromptMessage(input: OrchestratePromptInput): Orchest
     (promptType === "audit" && originalLength > Math.round(budgetTarget * 1.15)) ||
     (input.isFirstPrompt && toSafeLower(input.buildIntent) === "app" && originalLength > budgetTarget);
 
+  const forceDirect = mustPreserveTechnicalContent(normalizedMessage);
+
   if (normalizedMessage.length === 0) {
     reason = "empty_prompt";
     strategy = "direct";
   } else if (preserveRegistryPayload) {
-    // Preserve full registry payloads (files/dependencies/placement) to avoid
-    // losing implementation-critical details during summarization/phasing.
     strategy = "direct";
     reason = "preserve_registry_payload";
+  } else if (forceDirect) {
+    strategy = "direct";
+    reason = "technical_content_preserved";
   } else if (!exceedsBudget) {
     strategy = "direct";
     reason = "within_budget";
@@ -394,7 +420,7 @@ export function orchestratePromptMessage(input: OrchestratePromptInput): Orchest
     optimizedMessage = summarizeMessage(normalizedMessage, summarizeTarget);
   }
 
-  if (optimizedMessage.length > hardCap) {
+  if (optimizedMessage.length > hardCap && !forceDirect) {
     const emergencyTarget = Math.max(1200, Math.min(hardCap - 200, budgetTarget));
     optimizedMessage = summarizeMessage(optimizedMessage, emergencyTarget);
     if (optimizedMessage.length > hardCap) {

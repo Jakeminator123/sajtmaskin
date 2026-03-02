@@ -222,6 +222,8 @@ const MessageListComponent = ({
                     };
                     const postCheckSummary =
                       toolType === "tool-post-check" ? getPostCheckSummary(tool.output) : null;
+                    const qualityGateSummary =
+                      toolType === "tool-quality-gate" ? getQualityGateSummary(tool.output) : null;
 
                     // Collapse empty tool calls by default - they'll expand when data arrives
                     const toolHasData = hasToolData(tool as ToolUIPart);
@@ -310,6 +312,42 @@ const MessageListComponent = ({
                                   </a>
                                 )}
                               </div>
+                            </div>
+                          )}
+                          {qualityGateSummary && (
+                            <div className="border-border bg-muted/40 mb-3 rounded-md border p-3 text-xs">
+                              <div className="text-muted-foreground mb-1 text-xs font-medium uppercase">
+                                Quality gate
+                              </div>
+                              {qualityGateSummary.skipped ? (
+                                <div className="text-muted-foreground">
+                                  Hoppades över{qualityGateSummary.reason ? `: ${qualityGateSummary.reason}` : ""}
+                                </div>
+                              ) : (
+                                <div className="space-y-1">
+                                  <div className={qualityGateSummary.passed ? "text-emerald-400" : "text-rose-400"}>
+                                    {qualityGateSummary.passed ? "PASS" : "FAIL"}
+                                  </div>
+                                  {qualityGateSummary.checks.map((c) => (
+                                    <div key={c.check} className="text-muted-foreground flex items-center gap-1.5">
+                                      <span className={c.passed ? "text-emerald-400" : "text-rose-400"}>
+                                        {c.passed ? "\u2713" : "\u2717"}
+                                      </span>
+                                      <span>{c.check}</span>
+                                      {!c.passed && c.output && (
+                                        <span className="ml-1 text-[10px] text-rose-400/70 truncate max-w-[280px]" title={c.output}>
+                                          {c.output.split("\n")[0]?.slice(0, 80)}
+                                        </span>
+                                      )}
+                                    </div>
+                                  ))}
+                                  {qualityGateSummary.sandboxDurationMs !== null && (
+                                    <div className="text-muted-foreground/50 text-[10px]">
+                                      {Math.round(qualityGateSummary.sandboxDurationMs / 1000)}s
+                                    </div>
+                                  )}
+                                </div>
+                              )}
                             </div>
                           )}
                           {!hasInput && !hasOutput && !hasErrorText && (
@@ -1462,4 +1500,46 @@ function getPostCheckSummary(output: unknown): PostCheckSummary | null {
 
   const hasAnyValue = Object.values(summaryData).some((value) => value !== null);
   return hasAnyValue ? summaryData : null;
+}
+
+type QualityGateCheckInfo = {
+  check: string;
+  passed: boolean;
+  exitCode: number;
+  output: string;
+};
+
+type QualityGateSummary = {
+  passed: boolean;
+  skipped: boolean;
+  reason?: string;
+  checks: QualityGateCheckInfo[];
+  sandboxDurationMs: number | null;
+};
+
+function getQualityGateSummary(output: unknown): QualityGateSummary | null {
+  if (!output || typeof output !== "object") return null;
+  const obj = output as Record<string, unknown>;
+  if (obj.skipped) {
+    return {
+      passed: true,
+      skipped: true,
+      reason: typeof obj.reason === "string" ? obj.reason : undefined,
+      checks: [],
+      sandboxDurationMs: null,
+    };
+  }
+  const checks = Array.isArray(obj.checks)
+    ? (obj.checks as QualityGateCheckInfo[]).filter(
+        (c) => c && typeof c.check === "string",
+      )
+    : [];
+  if (checks.length === 0) return null;
+  return {
+    passed: Boolean(obj.passed),
+    skipped: false,
+    checks,
+    sandboxDurationMs:
+      typeof obj.sandboxDurationMs === "number" ? obj.sandboxDurationMs : null,
+  };
 }

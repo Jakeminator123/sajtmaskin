@@ -18,7 +18,6 @@
     "format:check": "prettier . --check",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "db:init": "node scripts/db-init.mjs",
-    "mpc": "node ./services/mpc/server.mjs",
     "test": "vitest",
     "test:ci": "vitest run",
     "test:api": "node scripts/test-api-usage.mjs",

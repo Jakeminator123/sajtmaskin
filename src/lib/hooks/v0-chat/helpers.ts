@@ -775,17 +775,27 @@ export function buildStreamErrorMessage(errorData: Record<string, unknown> | nul
 export function buildAutoFixPrompt(payload: AutoFixPayload): string {
   const reasons = payload.reasons.length > 0 ? payload.reasons.join(", ") : "unknown issues";
   const lines = [
-    "Auto-fix request:",
-    `Issues: ${reasons}.`,
-    "Fix the issues without changing unrelated layout or content.",
-    "Checklist:",
-    "- Ensure the preview/demo URL works.",
-    "- Add missing routes or update broken internal links.",
-    "- Fix invalid React use() usage and broken images if present.",
-    "Return with updated files only.",
+    "AUTO-FIX REQUEST — STRICT MINIMAL DIFF",
+    "",
+    `Issues detected: ${reasons}.`,
+    "",
+    "Rules:",
+    "1. Make the SMALLEST possible change to fix the listed issues.",
+    "2. Do NOT change layout, naming, styling, or architecture unless required by the fix.",
+    "3. Do NOT add new dependencies or restructure files.",
+    "4. Return ONLY the changed files with minimal edits.",
+    "",
+    "Acceptance criteria (the fix MUST pass all):",
+    "- TypeScript typecheck (tsc --noEmit) passes.",
+    "- Build (next build) succeeds.",
+    "- Preview/demo URL loads without errors.",
+    "- All internal links resolve to existing routes.",
+    "- No broken images or invalid React use() calls.",
   ];
   if (payload.meta) {
-    lines.push("", "Context (for reference):", JSON.stringify(payload.meta, null, 2));
+    const metaStr = JSON.stringify(payload.meta, null, 2);
+    const truncated = metaStr.length > 3000 ? metaStr.slice(0, 3000) + "\n..." : metaStr;
+    lines.push("", "Diagnostic context:", truncated);
   }
   return lines.join("\n");
 }

@@ -10,6 +10,8 @@ import type { FileNode, ElementMapItem, ElementMapResponse } from "@/lib/builder
 import { buildJsxElementRegistry, matchCapturedElement, type RegistryMatch } from "@/lib/builder/jsx-element-registry";
 import { ElementRegistry } from "@/components/builder/ElementRegistry";
 import { FileExplorer } from "@/components/builder/FileExplorer";
+import { useIntegrationStatus } from "@/lib/hooks/useIntegrationStatus";
+import { useInspectorWorkerStatus } from "@/lib/hooks/useInspectorWorkerStatus";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -60,23 +62,7 @@ interface PreviewPanelProps {
   awaitingInput?: boolean;
 }
 
-type IntegrationItem = {
-  id: string;
-  label: string;
-  enabled: boolean;
-  required: boolean;
-  requiredEnv: string[];
-  affects: string;
-  notes?: string;
-};
-
-type IntegrationStatus = {
-  updatedAt: string;
-  items: IntegrationItem[];
-};
-
 type PreviewViewMode = "preview" | "code" | "registry";
-type InspectorWorkerStatus = "unknown" | "healthy" | "unhealthy" | "disabled";
 type InspectEngine = "playwright" | "ai" | "map";
 
 type AiMatchResult = {
@@ -120,10 +106,8 @@ export function PreviewPanel({
   const [filesError, setFilesError] = useState<string | null>(null);
   const [selectedRegistryId, setSelectedRegistryId] = useState<string | null>(null);
   const [selectedRegistryLine, setSelectedRegistryLine] = useState<number | null>(null);
-  const [integrationStatus, setIntegrationStatus] = useState<IntegrationStatus | null>(null);
-  const [integrationError, setIntegrationError] = useState(false);
-  const [inspectorWorkerStatus, setInspectorWorkerStatus] = useState<InspectorWorkerStatus>("unknown");
-  const [inspectorWorkerMessage, setInspectorWorkerMessage] = useState<string | null>(null);
+  const { integrationStatus, integrationError } = useIntegrationStatus(demoUrl);
+  const { inspectorWorkerStatus, inspectorWorkerMessage } = useInspectorWorkerStatus();
   const [isViewSwitchPending, startViewSwitchTransition] = useTransition();
   const [inspectMode, setInspectMode] = useState(false);
   const [inspectEngine, setInspectEngine] = useState<InspectEngine>("map");
@@ -518,71 +502,6 @@ export function PreviewPanel({
     }, 3000);
     return () => window.clearTimeout(timer);
   }, [demoUrl, versionId, fetchElementMap]);
-
-  useEffect(() => {
-    if (!demoUrl) return;
-    let isActive = true;
-    const controller = new AbortController();
-    const load = async () => {
-      try {
-        const res = await fetch("/api/integrations/status", { signal: controller.signal });
-        const data = (await res.json().catch(() => null)) as IntegrationStatus | null;
-        if (!isActive) return;
-        if (res.ok && data) {
-          setIntegrationStatus(data);
-          setIntegrationError(false);
-        } else {
-          setIntegrationError(true);
-        }
-      } catch (error) {
-        if (!isActive) return;
-        if (error instanceof Error && error.name === "AbortError") return;
-        setIntegrationError(true);
-      }
-    };
-    load();
-    return () => {
-      isActive = false;
-      controller.abort();
-    };
-  }, [demoUrl]);
-
-  useEffect(() => {
-    let isActive = true;
-
-    const checkWorkerStatus = async () => {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 2500);
-      try {
-        const res = await fetch("/api/inspector-worker-status", {
-          method: "GET",
-          cache: "no-store",
-          signal: controller.signal,
-        });
-        const data = (await res.json().catch(() => null)) as {
-          status?: InspectorWorkerStatus;
-          message?: string;
-        } | null;
-        if (!isActive) return;
-        const status = data?.status || "unhealthy";
-        setInspectorWorkerStatus(status);
-        setInspectorWorkerMessage(data?.message || null);
-      } catch {
-        if (!isActive) return;
-        setInspectorWorkerStatus("unhealthy");
-        setInspectorWorkerMessage("Inspector worker status kunde inte hämtas.");
-      } finally {
-        clearTimeout(timeoutId);
-      }
-    };
-
-    checkWorkerStatus();
-    const timer = window.setInterval(checkWorkerStatus, 30_000);
-    return () => {
-      isActive = false;
-      window.clearInterval(timer);
-    };
-  }, []);
 
   const canShowCode = Boolean(chatId && versionId);
   const isCodeView = viewMode !== "preview";

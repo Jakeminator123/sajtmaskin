@@ -23,6 +23,7 @@ import { usePromptAssist } from "@/lib/hooks/usePromptAssist";
 import { useV0ChatMessaging } from "@/lib/hooks/useV0ChatMessaging";
 import { useVersions } from "@/lib/hooks/useVersions";
 import { useAuth } from "@/lib/auth/auth-store";
+import { useLocalStorageBooleanSync } from "@/lib/hooks/useLocalStorageSync";
 import { debugLog } from "@/lib/utils/debug";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
@@ -491,25 +492,7 @@ export function useBuilderPageController() {
     }
   }, []);
 
-  // Thinking localStorage sync
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      const stored = localStorage.getItem("sajtmaskin:thinking");
-      if (stored !== null) setEnableThinking(stored === "true");
-    } catch {
-      /* ignore */
-    }
-  }, [setEnableThinking]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      localStorage.setItem("sajtmaskin:thinking", String(enableThinking));
-    } catch {
-      /* ignore */
-    }
-  }, [enableThinking]);
+  useLocalStorageBooleanSync("sajtmaskin:thinking", enableThinking, setEnableThinking);
 
   // Generation settings per-chat load/save
   useEffect(() => {
@@ -543,25 +526,7 @@ export function useBuilderPageController() {
     });
   }, [chatId, selectedModelTier, enableImageGenerations, applyingGenerationSettingsRef, loadedGenerationSettingsChatRef]);
 
-  // Blob media localStorage sync
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      const stored = localStorage.getItem("sajtmaskin:blobImages");
-      if (stored !== null) setEnableBlobMedia(stored === "true");
-    } catch {
-      /* ignore */
-    }
-  }, [setEnableBlobMedia]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      localStorage.setItem("sajtmaskin:blobImages", String(enableBlobMedia));
-    } catch {
-      /* ignore */
-    }
-  }, [enableBlobMedia]);
+  useLocalStorageBooleanSync("sajtmaskin:blobImages", enableBlobMedia, setEnableBlobMedia);
 
   // Design theme localStorage sync
   useEffect(() => {
@@ -731,25 +696,7 @@ export function useBuilderPageController() {
     });
   }, [appProjectId, paletteState, paletteLoadedRef, lastPaletteSavedRef]);
 
-  // Structured chat localStorage sync
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      const stored = localStorage.getItem("sajtmaskin:structuredChat");
-      if (stored !== null) setShowStructuredChat(stored === "true");
-    } catch {
-      /* ignore */
-    }
-  }, [setShowStructuredChat]);
-
-  useEffect(() => {
-    if (typeof window === "undefined") return;
-    try {
-      localStorage.setItem("sajtmaskin:structuredChat", String(showStructuredChat));
-    } catch {
-      /* ignore */
-    }
-  }, [showStructuredChat]);
+  useLocalStorageBooleanSync("sajtmaskin:structuredChat", showStructuredChat, setShowStructuredChat);
 
   // Custom instructions load / save
   useEffect(() => {
