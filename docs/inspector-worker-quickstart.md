@@ -1,5 +1,4 @@
-
-![1772427772334](image/inspector-worker-quickstart/1772427772334.png)![1772428008212](image/inspector-worker-quickstart/1772428008212.png)# Inspector Worker Quickstart
+# Inspector Worker Quickstart
 
 This guide runs Playwright capture in an isolated container, without changing the rest of the app stack.
 

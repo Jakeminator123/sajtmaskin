@@ -5,6 +5,4 @@ dockerfilePath = "Dockerfile"
 [deploy]
 restartPolicyType = "always"
 restartPolicyMaxRetries = 5
-
-[[deploy.healthcheckPath]]
-path = "/health"
+healthcheckPath = "/health"
