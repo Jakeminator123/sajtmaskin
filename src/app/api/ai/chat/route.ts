@@ -207,7 +207,7 @@ export async function POST(req: Request) {
             gateway: {
               ...(preferred ? { order: [preferred] } : {}),
               models: defaultGatewayFallbackModels(normalizedModel),
-            } as Record<string, unknown>,
+            } as import("@ai-sdk/provider").JSONObject,
           },
           maxOutputTokens: maxTokens,
           ...getTemperatureConfig(normalizedModel, temperature),
