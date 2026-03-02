@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useCallback, useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { AuthModal } from "@/components/auth";
 import { Navbar } from "@/components/landing-v2/navbar";
 import { ChatArea } from "@/components/landing-v2/chat-area";
@@ -29,6 +29,8 @@ import { createProject } from "@/lib/project-client";
 
 function RootLandingContent() {
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
 
   const [showAuthModal, setShowAuthModal] = useState(false);
   const [authMode, setAuthMode] = useState<"login" | "register">("login");
@@ -44,6 +46,8 @@ function RootLandingContent() {
   const [auditResult, setAuditResult] = useState<AuditResult | null>(null);
   const [auditedUrl, setAuditedUrl] = useState<string | null>(null);
   const [showAuditModal, setShowAuditModal] = useState(false);
+  const [auditUrl, setAuditUrl] = useState("");
+  const [auditSubmitSignal, setAuditSubmitSignal] = useState(0);
 
   const entry = useEntryParams();
   const { showOnboarding, handleComplete, handleSkip } = useOnboarding();
@@ -64,6 +68,51 @@ function RootLandingContent() {
       setSelectedCategory("fritext");
     }
   }, [entry.directAction, entry.showWelcome]);
+
+  useEffect(() => {
+    const login = searchParams.get("login");
+    const authError = searchParams.get("error");
+    const verified = searchParams.get("verified");
+    const reason = searchParams.get("reason");
+
+    if (!login && !authError && !verified) return;
+
+    if (login === "success") {
+      toast.success("Inloggningen lyckades.");
+    }
+
+    if (authError) {
+      toast.error(authError);
+      setAuthMode("login");
+      setShowAuthModal(true);
+    }
+
+    if (verified === "success") {
+      toast.success("E-postadressen är verifierad. Logga in för att fortsätta.");
+      setAuthMode("login");
+      setShowAuthModal(true);
+    } else if (verified === "error") {
+      const verificationErrorMessage =
+        reason === "missing_token"
+          ? "Verifieringslänken saknar token."
+          : reason === "invalid_or_expired"
+            ? "Verifieringslänken är ogiltig eller har gått ut."
+            : reason === "server_error"
+              ? "Något gick fel vid e-postverifiering."
+              : "Kunde inte verifiera e-postadressen.";
+      toast.error(verificationErrorMessage);
+      setAuthMode("login");
+      setShowAuthModal(true);
+    }
+
+    const nextParams = new URLSearchParams(searchParams.toString());
+    nextParams.delete("login");
+    nextParams.delete("error");
+    nextParams.delete("verified");
+    nextParams.delete("reason");
+    const nextQuery = nextParams.toString();
+    router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname);
+  }, [pathname, router, searchParams]);
 
   const firstName =
     user?.name?.split(" ")[0] || user?.email?.split("@")[0] || undefined;
@@ -104,6 +153,10 @@ function RootLandingContent() {
     setAuditResult(result);
     setAuditedUrl(url);
     setShowAuditModal(true);
+  }, []);
+
+  const handleAuditSubmitFromHero = useCallback(() => {
+    setAuditSubmitSignal((prev) => prev + 1);
   }, []);
 
   const handleBuildFromAudit = useCallback(
@@ -147,7 +200,7 @@ function RootLandingContent() {
   );
 
   const handleWizardComplete = useCallback(
-    async (_data: WizardData, expandedPrompt: string) => {
+    async (wizardData: WizardData, expandedPrompt: string) => {
       setShowWizard(false);
       try {
         const project = await createProject(
@@ -155,6 +208,35 @@ function RootLandingContent() {
           "wizard",
           expandedPrompt.substring(0, 100),
         );
+
+        if (wizardData.companyName) {
+          fetch("/api/company-profile", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              project_id: project.id,
+              company_name: wizardData.companyName,
+              industry: wizardData.industry,
+              location: wizardData.location,
+              existing_website: wizardData.existingWebsite,
+              website_analysis: wizardData.websiteAnalysis,
+              site_likes: wizardData.siteLikes,
+              site_dislikes: wizardData.siteDislikes,
+              site_feedback: wizardData.siteOtherFeedback,
+              target_audience: wizardData.targetAudience,
+              purposes: wizardData.purposes,
+              special_wishes: wizardData.specialWishes,
+              color_palette_name: wizardData.palette?.name,
+              color_primary: wizardData.customColors?.primary || wizardData.palette?.primary,
+              color_secondary: wizardData.customColors?.secondary || wizardData.palette?.secondary,
+              color_accent: wizardData.customColors?.accent || wizardData.palette?.accent,
+              industry_trends: wizardData.industryTrends,
+              inspiration_sites: wizardData.inspirationSites,
+              voice_transcript: wizardData.voiceTranscript,
+            }),
+          }).catch((err) => console.error("[RootLanding] Failed to save company profile:", err));
+        }
+
         const response = await fetch("/api/prompts", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -223,16 +305,20 @@ function RootLandingContent() {
       return (
         <div className="w-full max-w-2xl animate-fade-up">
           <div className="flex items-center gap-4 mb-6">
-            <div className="h-px flex-1 bg-linear-to-r from-transparent via-amber-500/20 to-transparent" />
-            <span className="text-xs font-medium text-amber-400 tracking-widest uppercase flex items-center gap-2">
-              <span className="h-1.5 w-1.5 rounded-full bg-amber-400 animate-pulse" />
+            <div className="h-px flex-1 bg-linear-to-r from-transparent via-primary/20 to-transparent" />
+            <span className="text-xs font-medium text-primary tracking-widest uppercase flex items-center gap-2">
+              <span className="h-1.5 w-1.5 rounded-full bg-primary animate-pulse" />
               Analysera webbplats
             </span>
-            <div className="h-px flex-1 bg-linear-to-r from-transparent via-amber-500/20 to-transparent" />
+            <div className="h-px flex-1 bg-linear-to-r from-transparent via-primary/20 to-transparent" />
           </div>
           <SiteAuditSection
             onAuditComplete={handleAuditComplete}
             onRequireAuth={handleLoginClick}
+            url={auditUrl}
+            onUrlChange={setAuditUrl}
+            hideUrlInput
+            externalSubmitSignal={auditSubmitSignal}
           />
         </div>
       );
@@ -277,6 +363,9 @@ function RootLandingContent() {
           onSelectedCategoryChange={handleCategoryChange}
           expandedContent={renderExpandedContent()}
           heroPrefix={renderHeroPrefix()}
+          auditUrl={auditUrl}
+          onAuditUrlChange={setAuditUrl}
+          onAuditSubmit={handleAuditSubmitFromHero}
         />
       </div>
 

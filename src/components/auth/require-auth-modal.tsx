@@ -62,41 +62,43 @@ export function RequireAuthModal({ isOpen, onClose, reason }: RequireAuthModalPr
 
   return (
     <>
-      <div className="fixed inset-0 z-100 flex items-center justify-center">
+      <div className="fixed inset-0 z-100 flex items-center justify-center p-4">
         {/* Backdrop */}
-        <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" onClick={onClose} />
+        <div className="absolute inset-0 bg-black/70 backdrop-blur-lg" onClick={onClose} />
 
         {/* Modal */}
-        <div className="animate-in fade-in zoom-in-95 relative mx-4 w-full max-w-md overflow-hidden border border-gray-800 bg-black shadow-2xl duration-200">
+        <div className="animate-in fade-in zoom-in-95 relative w-full max-w-md overflow-hidden rounded-2xl border border-border/35 bg-card/85 shadow-2xl backdrop-blur-2xl duration-200">
+          <div className="pointer-events-none absolute inset-0 bg-linear-to-br from-primary/12 via-transparent to-primary/4" />
+
           {/* Close button */}
           <button
             onClick={onClose}
-            className="absolute top-4 right-4 z-10 p-1.5 text-gray-500 transition-colors hover:bg-gray-800 hover:text-gray-300"
+            className="absolute top-4 right-4 z-20 rounded-lg border border-border/20 bg-secondary/60 p-1.5 text-muted-foreground transition-colors hover:text-foreground hover:bg-secondary"
+            aria-label="Stäng inloggningskrav"
           >
             <X className="h-5 w-5" />
           </button>
 
-          {/* Decorative gradient */}
-          <div className="from-brand-teal/10 absolute inset-x-0 top-0 h-32 bg-linear-to-b to-transparent" />
-
           {/* Content */}
-          <div className="relative p-8 text-center">
+          <div className="relative z-10 p-8 text-center">
             {/* Icon */}
-            <div className="bg-brand-teal/10 border-brand-teal/30 mx-auto mb-6 flex h-16 w-16 items-center justify-center border">
-              <Icon className="text-brand-teal h-8 w-8" />
+            <div className="mx-auto mb-6 flex h-16 w-16 items-center justify-center rounded-xl border border-primary/25 bg-primary/10">
+              <Icon className="h-8 w-8 text-primary" />
             </div>
 
             {/* Title */}
-            <h2 className="mb-3 text-2xl font-bold text-white">{reasonData.title}</h2>
+            <h2 className="mb-3 text-2xl font-(--font-heading) tracking-tight text-foreground">
+              {reasonData.title}
+            </h2>
 
             {/* Description */}
-            <p className="mb-6 text-gray-400">{reasonData.description}</p>
+            <p className="mb-6 text-muted-foreground">{reasonData.description}</p>
 
             {/* Bonus badge */}
             {reason !== "credits" && (
-              <div className="bg-brand-amber/10 border-brand-amber/30 mb-6 inline-flex items-center gap-2 border px-4 py-2">
-                <Coins className="text-brand-amber h-4 w-4" />
-                <span className="text-brand-amber text-sm font-medium">
+              <div className="mb-6 inline-flex items-center gap-2 rounded-full border border-primary/25 bg-primary/10 px-4 py-2">
+                <Coins className="h-4 w-4 text-primary" />
+                <span className="text-sm font-medium text-primary">
                   +50 credits efter verifiering
                 </span>
               </div>
@@ -109,15 +111,15 @@ export function RequireAuthModal({ isOpen, onClose, reason }: RequireAuthModalPr
                 <>
                   <Button
                     onClick={() => (window.location.href = "/buy-credits")}
-                    className="bg-brand-teal hover:bg-brand-teal/90 h-11 w-full font-medium text-white"
+                    className="h-11 w-full bg-primary text-primary-foreground font-medium hover:bg-primary/90"
                   >
                     <Coins className="mr-2 h-4 w-4" />
                     Köp credits
                   </Button>
                   <Button
-                    variant="ghost"
+                    variant="outline"
                     onClick={onClose}
-                    className="h-11 w-full text-gray-400 hover:text-white"
+                    className="h-11 w-full border-border/35 bg-secondary/50 text-foreground hover:bg-secondary/75"
                   >
                     Avbryt
                   </Button>
@@ -127,14 +129,14 @@ export function RequireAuthModal({ isOpen, onClose, reason }: RequireAuthModalPr
                 <>
                   <Button
                     onClick={() => handleAuthClick("register")}
-                    className="bg-brand-teal hover:bg-brand-teal/90 h-11 w-full font-medium text-white"
+                    className="h-11 w-full bg-primary text-primary-foreground font-medium hover:bg-primary/90"
                   >
                     Skapa gratis konto
                   </Button>
                   <Button
-                    variant="ghost"
+                    variant="outline"
                     onClick={() => handleAuthClick("login")}
-                    className="h-11 w-full text-gray-400 hover:text-white"
+                    className="h-11 w-full border-border/35 bg-secondary/50 text-foreground hover:bg-secondary/75"
                   >
                     Har redan konto? Logga in
                   </Button>

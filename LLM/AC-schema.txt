@@ -12,6 +12,9 @@ AC - Flode
 - [ ] "Forbattra" anvander /api/ai/chat eller /api/ai/brief.
 - [ ] "Skicka" anvander /api/v0/chats/stream.
 - [ ] Provider=off gor inga /api/ai/*-anrop.
+- [x] Wizard enrich anvander previousFollowUps och kan kora final_check for AI-klargoranden.
+- [x] Wizard preflight validerar/slimmar slutprompt via formatPromptForV0 + handoff-langtaksgrans innan /api/prompts.
+- [x] Root landing sparar strukturerad WizardData till /api/company-profile (brand/context ateranvandbar).
 - [x] v0-systemprompt skickas i v0-routes (system vidarebefordras).
 - [x] Custom Instructions ar per chat (lagras lokalt per chatId).
 - [x] Manuell "Forbattra" skippar auto-assist vid forsta skick.
@@ -40,3 +43,4 @@ Noter:
 - CSS-validering auto-fixar Tailwind v4 fel efter generation; post-check ar read-only.
 - Unicode-normalisering kor efter generation for att rensa \\uXXXX-sekvenser.
 - Sprakregel: matcha anvandarens sprak i synlig copy; oversatt endast vid explicit begaran.
+- Core promptpipeline i buildern ar oforandrad i denna iteration (ingen funktionell refaktor i promptOrchestration/usePromptAssist/api/v0/chats/*).

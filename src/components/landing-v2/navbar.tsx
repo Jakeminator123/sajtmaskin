@@ -2,7 +2,7 @@
 
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth/auth-store";
-import { Menu, X } from "lucide-react";
+import { LogOut, Menu, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { AnimatedLogo } from "./animated-logo";
@@ -15,7 +15,7 @@ interface NavbarProps {
 export function Navbar({ onLoginClick, onRegisterClick }: NavbarProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
-  const { isAuthenticated, isInitialized } = useAuth();
+  const { isAuthenticated, isInitialized, logout } = useAuth();
   const router = useRouter();
 
   useEffect(() => {
@@ -52,6 +52,12 @@ export function Navbar({ onLoginClick, onRegisterClick }: NavbarProps) {
     onLoginClick?.();
   };
 
+  const handleLogout = () => {
+    logout();
+    setMobileOpen(false);
+    router.push("/");
+  };
+
   return (
     <nav
       className={`relative z-20 flex items-center justify-between px-6 py-3.5 border-b transition-all duration-300 ${
@@ -80,6 +86,16 @@ export function Navbar({ onLoginClick, onRegisterClick }: NavbarProps) {
       </div>
 
       <div className="hidden lg:flex items-center gap-3">
+        {isInitialized && isAuthenticated && (
+          <Button
+            variant="ghost"
+            className="text-sm text-muted-foreground hover:text-foreground"
+            onClick={handleLogout}
+          >
+            <LogOut className="w-4 h-4 mr-1.5" />
+            Logga ut
+          </Button>
+        )}
         <Button
           variant="ghost"
           className="text-sm text-muted-foreground hover:text-foreground"
@@ -118,6 +134,16 @@ export function Navbar({ onLoginClick, onRegisterClick }: NavbarProps) {
             </a>
           ))}
           <div className="flex flex-col gap-2 pt-4 mt-2 border-t border-border/30">
+            {isInitialized && isAuthenticated && (
+              <Button
+                variant="ghost"
+                className="justify-start text-sm text-muted-foreground hover:text-foreground"
+                onClick={handleLogout}
+              >
+                <LogOut className="w-4 h-4 mr-1.5" />
+                Logga ut
+              </Button>
+            )}
             <Button
               variant="ghost"
               className="justify-start text-sm text-muted-foreground hover:text-foreground"

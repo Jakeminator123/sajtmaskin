@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useMemo, useRef } from "react";
 import {
   X,
   ArrowRight,
@@ -22,6 +22,29 @@ import {
   Zap,
   ExternalLink,
   Video,
+  Coffee,
+  UtensilsCrossed,
+  ShoppingBag,
+  Monitor,
+  BriefcaseBusiness,
+  HeartPulse,
+  Brush,
+  GraduationCap,
+  Store,
+  House,
+  ShoppingCart,
+  Mail,
+  ImageIcon,
+  BookOpenText,
+  BadgeCheck,
+  CalendarCheck,
+  BarChart3,
+  RefreshCcw,
+  PartyPopper,
+  Gem,
+  Cpu,
+  Square,
+  type LucideIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -35,6 +58,9 @@ import { VideoRecorder } from "@/components/forms/video-recorder";
 import { buildIntentNoun } from "@/lib/builder/build-intent";
 import type { BuildIntent } from "@/lib/builder/build-intent";
 import { useAuth } from "@/lib/auth/auth-store";
+import { StepVisual } from "@/components/modals/step-visual";
+import { formatPromptForV0 } from "@/lib/builder/promptAssist";
+import { MAX_PROMPT_HANDOFF_CHARS } from "@/lib/builder/promptLimits";
 
 /**
  * PromptWizardModal V2 - Adaptive Business Analysis Wizard
@@ -56,106 +82,127 @@ import { useAuth } from "@/lib/auth/auth-store";
 
 // ── Industry options with context ──────────────────────────────────
 
-const INDUSTRY_OPTIONS = [
+type IndustryOption = {
+  id: string;
+  label: string;
+  icon: LucideIcon;
+  suggestedAudience: string;
+  suggestedFeatures: string[];
+};
+
+const INDUSTRY_OPTIONS: IndustryOption[] = [
   {
     id: "cafe",
     label: "Café/Konditori",
-    icon: "☕",
+    icon: Coffee,
     suggestedAudience: "Kaffeälskare och fika-entusiaster i närområdet",
     suggestedFeatures: ["Meny", "Öppettider", "Bildgalleri", "Bordbokning"],
   },
   {
     id: "restaurant",
     label: "Restaurang/Bar",
-    icon: "🍽️",
+    icon: UtensilsCrossed,
     suggestedAudience: "Matälskare, par och grupper som söker upplevelser",
     suggestedFeatures: ["Meny", "Bordbokning", "Events", "Chef's specials"],
   },
   {
     id: "retail",
     label: "Butik/Detaljhandel",
-    icon: "🛍️",
+    icon: ShoppingBag,
     suggestedAudience: "Shoppingintresserade som söker kvalitet",
     suggestedFeatures: ["Produktkatalog", "Erbjudanden", "Hitta butik"],
   },
   {
     id: "tech",
     label: "Tech/IT-företag",
-    icon: "💻",
+    icon: Monitor,
     suggestedAudience: "Företag och startups som behöver digitala lösningar",
     suggestedFeatures: ["Tjänster", "Case studies", "Prissättning"],
   },
   {
     id: "consulting",
     label: "Konsult/Tjänster",
-    icon: "💼",
+    icon: BriefcaseBusiness,
     suggestedAudience: "Företag som behöver experthjälp",
     suggestedFeatures: ["Tjänster", "Team", "Kontakt", "Testimonials"],
   },
   {
     id: "health",
     label: "Hälsa/Wellness",
-    icon: "🏥",
+    icon: HeartPulse,
     suggestedAudience: "Hälsomedvetna individer som söker välmående",
     suggestedFeatures: ["Behandlingar", "Onlinebokning", "Prislista"],
   },
   {
     id: "creative",
     label: "Kreativ byrå",
-    icon: "🎨",
+    icon: Brush,
     suggestedAudience: "Företag som behöver kreativa lösningar",
     suggestedFeatures: ["Portfolio", "Tjänster", "Process", "Kontakt"],
   },
   {
     id: "education",
     label: "Utbildning",
-    icon: "📚",
+    icon: GraduationCap,
     suggestedAudience: "Studenter och yrkesverksamma som vill lära sig",
     suggestedFeatures: ["Kurser", "Schema", "Anmälan", "Lärare"],
   },
   {
     id: "ecommerce",
     label: "E-handel",
-    icon: "🛒",
+    icon: Store,
     suggestedAudience: "Onlineshoppare som söker bekvämlighet",
     suggestedFeatures: ["Produkter", "Varukorg", "Checkout", "Recensioner"],
   },
   {
     id: "realestate",
     label: "Fastigheter",
-    icon: "🏠",
+    icon: House,
     suggestedAudience: "Bostadssökare och säljare",
     suggestedFeatures: ["Objekt", "Sök/Filter", "Kontakt", "Värdering"],
   },
   {
     id: "other",
     label: "Annat",
-    icon: "✨",
+    icon: Sparkles,
     suggestedAudience: "",
     suggestedFeatures: [],
   },
 ];
 
 // Purpose options
-const PURPOSE_OPTIONS = [
-  { id: "sell", label: "Sälja", icon: "🛒", desc: "Produkter/tjänster" },
-  { id: "leads", label: "Leads", icon: "📧", desc: "Fånga kontakter" },
-  { id: "portfolio", label: "Portfolio", icon: "🎨", desc: "Visa arbeten" },
-  { id: "inform", label: "Informera", icon: "📚", desc: "Dela kunskap" },
-  { id: "brand", label: "Varumärke", icon: "⭐", desc: "Bygga identitet" },
-  { id: "booking", label: "Bokningar", icon: "📅", desc: "Ta emot bokningar" },
-  { id: "conversion", label: "Konvertering", icon: "📈", desc: "Öka konvertering" },
-  { id: "rebrand", label: "Rebrand", icon: "🔄", desc: "Ny identitet" },
+type PurposeOption = {
+  id: string;
+  label: string;
+  icon: LucideIcon;
+  desc: string;
+};
+
+const PURPOSE_OPTIONS: PurposeOption[] = [
+  { id: "sell", label: "Sälja", icon: ShoppingCart, desc: "Produkter/tjänster" },
+  { id: "leads", label: "Leads", icon: Mail, desc: "Fånga kontakter" },
+  { id: "portfolio", label: "Portfolio", icon: ImageIcon, desc: "Visa arbeten" },
+  { id: "inform", label: "Informera", icon: BookOpenText, desc: "Dela kunskap" },
+  { id: "brand", label: "Varumärke", icon: BadgeCheck, desc: "Bygga identitet" },
+  { id: "booking", label: "Bokningar", icon: CalendarCheck, desc: "Ta emot bokningar" },
+  { id: "conversion", label: "Konvertering", icon: BarChart3, desc: "Öka konvertering" },
+  { id: "rebrand", label: "Rebrand", icon: RefreshCcw, desc: "Ny identitet" },
 ];
 
 // Design vibe options
-const VIBE_OPTIONS = [
-  { id: "modern", label: "Modern & Clean", icon: "✨" },
-  { id: "playful", label: "Playful & Fun", icon: "🎨" },
-  { id: "brutalist", label: "Brutalist", icon: "🏗️" },
-  { id: "luxury", label: "Luxury", icon: "💎" },
-  { id: "tech", label: "Futuristic", icon: "🚀" },
-  { id: "minimal", label: "Minimal", icon: "◻️" },
+type VibeOption = {
+  id: string;
+  label: string;
+  icon: LucideIcon;
+};
+
+const VIBE_OPTIONS: VibeOption[] = [
+  { id: "modern", label: "Modern & Clean", icon: Sparkles },
+  { id: "playful", label: "Playful & Fun", icon: PartyPopper },
+  { id: "brutalist", label: "Brutalist", icon: Building2 },
+  { id: "luxury", label: "Luxury", icon: Gem },
+  { id: "tech", label: "Futuristic", icon: Cpu },
+  { id: "minimal", label: "Minimal", icon: Square },
 ];
 
 // ── Types ─────────────────────────────────────────────────────────
@@ -209,6 +256,12 @@ interface FollowUpQuestion {
   type: "text" | "select" | "chips";
   options?: string[];
   placeholder?: string;
+  priority?: "low" | "medium" | "high";
+  dependsOn?: {
+    answerId: string;
+    includes?: string[];
+    excludes?: string[];
+  };
 }
 
 interface EnrichSuggestion {
@@ -223,6 +276,22 @@ interface ScrapedData {
   wordCount?: number;
   hasImages?: boolean;
   textSummary?: string;
+}
+
+interface EnrichMeta {
+  confidence?: number;
+  needsClarification?: boolean;
+  unknowns?: string[];
+  priority?: "low" | "medium" | "high";
+}
+
+interface EnrichResponsePayload {
+  questions?: FollowUpQuestion[];
+  suggestions?: EnrichSuggestion[];
+  insightSummary?: string | null;
+  scrapedData?: ScrapedData | null;
+  meta?: EnrichMeta;
+  contextHash?: string;
 }
 
 // ── Shared input class (landing-style) ─────────────────────────────
@@ -241,7 +310,24 @@ function FollowUpRenderer({
   answers: Record<string, string>;
   onAnswer: (id: string, value: string) => void;
 }) {
-  if (!questions.length) return null;
+  const visibleQuestions = useMemo(() => {
+    return questions.filter((q) => {
+      if (!q.dependsOn) return true;
+      const dep = q.dependsOn;
+      const source = (answers[dep.answerId] || "").toLowerCase();
+      if (dep.includes?.length) {
+        const hasAny = dep.includes.some((token) => source.includes(token.toLowerCase()));
+        if (!hasAny) return false;
+      }
+      if (dep.excludes?.length) {
+        const hasExcluded = dep.excludes.some((token) => source.includes(token.toLowerCase()));
+        if (hasExcluded) return false;
+      }
+      return true;
+    });
+  }, [questions, answers]);
+
+  if (!visibleQuestions.length) return null;
 
   return (
     <div className="space-y-4 rounded-xl border border-primary/20 bg-primary/5 p-4">
@@ -249,9 +335,14 @@ function FollowUpRenderer({
         <Sparkles className="h-3.5 w-3.5" />
         Anpassade frågor för ert sajtbygge
       </div>
-      {questions.map((q) => (
+      {visibleQuestions.map((q) => (
         <div key={q.id} className="space-y-1.5">
-          <label className="text-sm text-foreground">{q.text}</label>
+          <label className="text-sm text-foreground">
+            {q.text}
+            {q.priority === "high" ? (
+              <span className="ml-1 text-[10px] uppercase tracking-wide text-primary">Viktig</span>
+            ) : null}
+          </label>
           {q.type === "text" && (
             <input
               type="text"
@@ -322,13 +413,15 @@ export function PromptWizardModalV2({
   buildIntent = "website",
 }: PromptWizardModalProps) {
   const { isAuthenticated, isInitialized } = useAuth();
-  const [step, setStep] = useState(1);
-  const totalSteps = 5;
+  const [step, setStep] = useState<number>(1);
+  const stepRef = useRef(step);
+  stepRef.current = step;
 
   // Loading states
   const [isExpanding, setIsExpanding] = useState(false);
   const [isEnriching, setIsEnriching] = useState(false);
   const [isScraping, setIsScraping] = useState(false);
+  const [isClarifying, setIsClarifying] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Generated prompt state
@@ -342,7 +435,11 @@ export function PromptWizardModalV2({
   const [suggestions, setSuggestions] = useState<EnrichSuggestion[]>([]);
   const [insightSummary, setInsightSummary] = useState<string | null>(null);
   const [scrapedData, setScrapedData] = useState<ScrapedData | null>(null);
-  const enrichedStepsRef = useRef<Set<number>>(new Set());
+  const [activeEnrichMeta, setActiveEnrichMeta] = useState<EnrichMeta | null>(null);
+  const [clarifyQuestions, setClarifyQuestions] = useState<FollowUpQuestion[]>([]);
+  const [showClarifyGate, setShowClarifyGate] = useState(false);
+  const enrichCacheRef = useRef<Map<string, EnrichResponsePayload>>(new Map());
+  const enrichByStepRef = useRef<Map<number, EnrichResponsePayload>>(new Map());
 
   // ═══════════════════════════════════════════════════════════════
   // STEP 1: About You
@@ -394,6 +491,28 @@ export function PromptWizardModalV2({
 
   // Get current industry data
   const currentIndustry = INDUSTRY_OPTIONS.find((i) => i.id === industry);
+  const shouldIncludeResearchStep = useMemo(() => {
+    if (existingWebsite.trim()) return true;
+    if (siteFeedback.trim()) return true;
+    if (inspirationSites.some((site) => site.trim())) return true;
+    if (purposes.includes("rebrand") || purposes.includes("conversion")) return true;
+    return false;
+  }, [existingWebsite, siteFeedback, inspirationSites, purposes]);
+  const stepFlow = useMemo<number[]>(
+    () => (shouldIncludeResearchStep ? [1, 2, 3, 4, 5] : [1, 2, 4, 5]),
+    [shouldIncludeResearchStep],
+  );
+  const totalSteps = stepFlow.length;
+  const currentStepIndex = stepFlow.indexOf(step);
+
+  useEffect(() => {
+    if (currentStepIndex !== -1) return;
+    if (step > 3 && stepFlow.includes(4)) {
+      setStep(4);
+      return;
+    }
+    setStep(stepFlow[0] ?? 1);
+  }, [step, stepFlow, currentStepIndex]);
 
   // ── Persist wizard state in localStorage ──────────────────────
   const STORAGE_KEY = "sajtmaskin_wizard_draft";
@@ -420,8 +539,19 @@ export function PromptWizardModalV2({
       if (draft.targetAudience) setTargetAudience(draft.targetAudience);
       if (draft.usp) setUsp(draft.usp);
       if (draft.siteFeedback) setSiteFeedback(draft.siteFeedback);
+      if (Array.isArray(draft.inspirationSites) && draft.inspirationSites.length > 0) {
+        setInspirationSites(draft.inspirationSites.slice(0, 3));
+      }
       if (draft.selectedVibe) setSelectedVibe(draft.selectedVibe);
       if (draft.specialWishes) setSpecialWishes(draft.specialWishes);
+      if (draft.customColors) setCustomColors(draft.customColors);
+      if (draft.selectedPaletteName) {
+        const savedPalette = PREDEFINED_PALETTES.find((p) => p.name === draft.selectedPaletteName);
+        if (savedPalette) setSelectedPalette(savedPalette);
+      }
+      if (draft.followUpAnswers && typeof draft.followUpAnswers === "object") {
+        setFollowUpAnswers(draft.followUpAnswers);
+      }
       if (draft.step && draft.step > 1) setStep(draft.step);
     } catch {
       // ignore corrupt data
@@ -436,7 +566,11 @@ export function PromptWizardModalV2({
     const draft = {
       companyName, industry, location, existingWebsite,
       purposes, targetAudience, usp, siteFeedback,
+      inspirationSites,
       selectedVibe, specialWishes, step,
+      selectedPaletteName: selectedPalette?.name || null,
+      customColors,
+      followUpAnswers,
       _ts: Date.now(),
     };
     try {
@@ -447,7 +581,10 @@ export function PromptWizardModalV2({
   }, [
     isOpen, companyName, industry, location, existingWebsite,
     purposes, targetAudience, usp, siteFeedback,
+    inspirationSites,
     selectedVibe, specialWishes, step,
+    selectedPalette, customColors,
+    followUpAnswers,
   ]);
 
   // Clear draft when wizard completes
@@ -463,26 +600,77 @@ export function PromptWizardModalV2({
   // ── Stable ref for enrichment data (avoids dependency churn) ──
   const enrichDataRef = useRef({
     companyName, industry, location, existingWebsite,
+    inspirationSites,
     purposes, targetAudience, usp, selectedVibe,
     specialWishes, followUpAnswers,
   });
   enrichDataRef.current = {
     companyName, industry, location, existingWebsite,
+    inspirationSites,
     purposes, targetAudience, usp, selectedVibe,
     specialWishes, followUpAnswers,
   };
 
+  const applyEnrichmentToActiveStep = useCallback((payload: EnrichResponsePayload | null) => {
+    setFollowUpQuestions(payload?.questions ?? []);
+    setSuggestions(payload?.suggestions ?? []);
+    setInsightSummary(payload?.insightSummary ?? null);
+    setScrapedData(payload?.scrapedData ?? null);
+    setActiveEnrichMeta(payload?.meta ?? null);
+  }, []);
+
   // AbortController to cancel in-flight requests
   const enrichAbortRef = useRef<AbortController | null>(null);
+  const buildEnrichContextHash = useCallback(
+    (currentStep: number, mode: "step" | "final_check", scrapeUrl?: string) => {
+      const d = enrichDataRef.current;
+      const followUps = Object.entries(d.followUpAnswers)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([k, v]) => [k, v.trim()]);
+      return JSON.stringify({
+        mode,
+        step: currentStep,
+        scrapeUrl: scrapeUrl || "",
+        companyName: d.companyName.trim(),
+        industry: d.industry,
+        location: d.location.trim(),
+        existingWebsite: d.existingWebsite.trim(),
+        inspirationSites: d.inspirationSites.map((site) => site.trim()).filter(Boolean),
+        purposes: [...d.purposes].sort(),
+        targetAudience: d.targetAudience.trim(),
+        usp: d.usp.trim(),
+        selectedVibe: d.selectedVibe,
+        specialWishes: d.specialWishes.trim(),
+        followUps,
+      });
+    },
+    [],
+  );
 
   // ── Fetch AI enrichment for current step ──────────────────────
   const fetchEnrichment = useCallback(
-    async (currentStep: number, scrapeUrl?: string) => {
-      // Don't re-enrich the same step unless scraping
-      if (enrichedStepsRef.current.has(currentStep) && !scrapeUrl) return;
-
+    async (
+      currentStep: number,
+      options: { scrapeUrl?: string; mode?: "step" | "final_check"; force?: boolean } = {},
+    ): Promise<EnrichResponsePayload | null> => {
+      const mode = options.mode ?? "step";
+      const scrapeUrl = options.scrapeUrl;
+      const contextHash = buildEnrichContextHash(currentStep, mode, scrapeUrl);
       // Wizard enrich requires auth (credits action). Skip calls for guests.
-      if (!isInitialized || !isAuthenticated) return;
+      if (!isInitialized || !isAuthenticated) return null;
+
+      if (!options.force) {
+        const cached = enrichCacheRef.current.get(contextHash);
+        if (cached) {
+          if (mode === "step") {
+            enrichByStepRef.current.set(currentStep, cached);
+            if (stepRef.current === currentStep) {
+              applyEnrichmentToActiveStep(cached);
+            }
+          }
+          return cached;
+        }
+      }
 
       // Cancel any in-flight request
       enrichAbortRef.current?.abort();
@@ -497,12 +685,14 @@ export function PromptWizardModalV2({
           headers: { "Content-Type": "application/json" },
           signal: controller.signal,
           body: JSON.stringify({
+            mode,
             step: currentStep,
             data: {
               companyName: d.companyName,
               industry: d.industry,
               location: d.location,
               existingWebsite: d.existingWebsite,
+              inspirationSites: d.inspirationSites,
               purposes: d.purposes,
               targetAudience: d.targetAudience,
               usp: d.usp,
@@ -516,35 +706,38 @@ export function PromptWizardModalV2({
 
         if (!response.ok) {
           // Expected when auth/session is stale. Keep this non-fatal and quiet.
-          if (response.status === 401) return;
+          if (response.status === 401) return null;
           console.warn("[Wizard] Enrich request failed:", response.status);
-          return;
+          return null;
         }
 
-        const data = await response.json();
+        const data = (await response.json()) as EnrichResponsePayload;
+        const payload: EnrichResponsePayload = {
+          questions: Array.isArray(data.questions) ? data.questions : [],
+          suggestions: Array.isArray(data.suggestions) ? data.suggestions : [],
+          insightSummary: data.insightSummary || null,
+          scrapedData: data.scrapedData || null,
+          meta: data.meta,
+          contextHash,
+        };
 
-        if (data.questions?.length) {
-          setFollowUpQuestions(data.questions);
+        enrichCacheRef.current.set(contextHash, payload);
+        if (mode === "step") {
+          enrichByStepRef.current.set(currentStep, payload);
+          if (stepRef.current === currentStep) {
+            applyEnrichmentToActiveStep(payload);
+          }
         }
-        if (data.suggestions?.length) {
-          setSuggestions(data.suggestions);
-        }
-        if (data.insightSummary) {
-          setInsightSummary(data.insightSummary);
-        }
-        if (data.scrapedData) {
-          setScrapedData(data.scrapedData);
-        }
-
-        enrichedStepsRef.current.add(currentStep);
+        return payload;
       } catch (err) {
-        if (err instanceof DOMException && err.name === "AbortError") return;
+        if (err instanceof DOMException && err.name === "AbortError") return null;
         console.warn("[Wizard] Enrich failed (non-fatal):", err);
+        return null;
       } finally {
         setIsEnriching(false);
       }
     },
-    [isAuthenticated, isInitialized], // reads dynamic auth state + enrichDataRef
+    [applyEnrichmentToActiveStep, buildEnrichContextHash, isAuthenticated, isInitialized],
   );
 
   // ── Scrape website on URL entry (non-blocking) ────────────────
@@ -568,19 +761,38 @@ export function PromptWizardModalV2({
         .finally(() => setIsScraping(false));
 
       // Run enrichment in background separately
-      fetchEnrichment(step, fullUrl);
+      void fetchEnrichment(step, { scrapeUrl: fullUrl, force: true });
     },
     [fetchEnrichment, step],
   );
+
+  // Restore step-specific enrichment result when navigating.
+  useEffect(() => {
+    if (!isOpen) return;
+    const stepResult = enrichByStepRef.current.get(step) || null;
+    applyEnrichmentToActiveStep(stepResult);
+    setShowClarifyGate(false);
+    setClarifyQuestions([]);
+  }, [applyEnrichmentToActiveStep, isOpen, step]);
 
   // ── Auto-enrich on step change (debounced, single request) ────
   useEffect(() => {
     if (!isOpen) return;
     if (step >= 2 && companyName && industry) {
-      const timer = setTimeout(() => fetchEnrichment(step), 600);
-      return () => clearTimeout(timer);
+      const timer = setTimeout(() => {
+        void fetchEnrichment(step, { mode: "step" });
+      }, 500);
+      const prefetchTimer = setTimeout(() => {
+        const nextStep = stepFlow[currentStepIndex + 1];
+        if (!nextStep || nextStep === 5) return;
+        void fetchEnrichment(nextStep, { mode: "step" });
+      }, 1200);
+      return () => {
+        clearTimeout(timer);
+        clearTimeout(prefetchTimer);
+      };
     }
-  }, [step, isOpen, companyName, industry, fetchEnrichment]);
+  }, [step, isOpen, companyName, industry, fetchEnrichment, stepFlow, currentStepIndex]);
 
   // Abort in-flight enrich requests when modal closes
   useEffect(() => {
@@ -637,30 +849,52 @@ export function PromptWizardModalV2({
       case 4:
         return selectedPalette !== null || customColors !== null;
       case 5:
-        return true;
+        if (!showClarifyGate || clarifyQuestions.length === 0) return true;
+        return clarifyQuestions.every((q) => (followUpAnswers[q.id] || "").trim().length > 0);
       default:
         return true;
     }
-  }, [step, companyName, industry, purposes, selectedPalette, customColors]);
+  }, [
+    step,
+    companyName,
+    industry,
+    purposes,
+    selectedPalette,
+    customColors,
+    showClarifyGate,
+    clarifyQuestions,
+    followUpAnswers,
+  ]);
 
   // Step navigation
   const handleNext = useCallback(() => {
-    if (step < totalSteps) {
-      setStep((prev) => prev + 1);
-      setFollowUpQuestions([]);
-      setSuggestions([]);
-      setInsightSummary(null);
-    }
-  }, [step]);
+    const index = stepFlow.indexOf(step);
+    if (index === -1) return;
+    const nextStep = stepFlow[index + 1];
+    if (nextStep) setStep(nextStep);
+  }, [step, stepFlow]);
 
   const handleBack = useCallback(() => {
-    if (step > 1) {
-      setStep((prev) => prev - 1);
-      setFollowUpQuestions([]);
-      setSuggestions([]);
-      setInsightSummary(null);
-    }
-  }, [step]);
+    const index = stepFlow.indexOf(step);
+    if (index <= 0) return;
+    const previousStep = stepFlow[index - 1];
+    if (previousStep) setStep(previousStep);
+  }, [step, stepFlow]);
+
+  const shouldAskForClarification = useCallback(() => {
+    const confidence = activeEnrichMeta?.confidence ?? 1;
+    const answeredFollowUpsCount = Object.values(followUpAnswers).filter((value) => value.trim()).length;
+    const unansweredHighPriority = followUpQuestions.some(
+      (q) => q.priority === "high" && !(followUpAnswers[q.id] || "").trim(),
+    );
+    const weakCoreContext = !targetAudience.trim() || !usp.trim();
+    return (
+      Boolean(activeEnrichMeta?.needsClarification) ||
+      confidence < 0.58 ||
+      unansweredHighPriority ||
+      (weakCoreContext && answeredFollowUpsCount < 2)
+    );
+  }, [activeEnrichMeta, followUpQuestions, followUpAnswers, targetAudience, usp]);
 
   // ── Generate clean prompt for builder ─────────────────────────
   // The prompt is sent as the first chat message to v0. It should be a
@@ -672,6 +906,29 @@ export function PromptWizardModalV2({
     setError(null);
 
     try {
+      if (!showClarifyGate && shouldAskForClarification()) {
+        setIsClarifying(true);
+        const clarification = await fetchEnrichment(5, {
+          mode: "final_check",
+          force: true,
+        });
+        const finalQuestions = clarification?.questions || [];
+        if (finalQuestions.length > 0) {
+          setClarifyQuestions(finalQuestions);
+          setShowClarifyGate(true);
+          setError("Svara på AI:s klargörande frågor innan vi skapar briefen.");
+          return;
+        }
+      }
+
+      if (
+        showClarifyGate &&
+        clarifyQuestions.some((q) => (followUpAnswers[q.id] || "").trim().length === 0)
+      ) {
+        setError("Några klargöranden saknar svar. Fyll i dem, eller gå tillbaka och justera input.");
+        return;
+      }
+
       const palette = customColors || selectedPalette;
       const industryLabel = currentIndustry?.label || industry || "general";
       const intentLabel = buildIntentNoun(buildIntent);
@@ -768,16 +1025,32 @@ export function PromptWizardModalV2({
       sections.push(`\nScope: ${intentHint}`);
 
       const expandedPrompt = sections.join("\n");
+      const preflightPrompt = formatPromptForV0(expandedPrompt).trim();
+      if (!preflightPrompt) {
+        throw new Error("Prompten blev tom efter preflight. Lägg till mer information och försök igen.");
+      }
+      if (preflightPrompt.length > MAX_PROMPT_HANDOFF_CHARS) {
+        throw new Error(
+          `Prompten är för lång (${preflightPrompt.length} tecken). Max är ${MAX_PROMPT_HANDOFF_CHARS}.`,
+        );
+      }
 
-      setGeneratedPrompt(expandedPrompt);
-      setEditedPrompt(expandedPrompt);
+      setGeneratedPrompt(preflightPrompt);
+      setEditedPrompt(preflightPrompt);
       setShowEditMode(true);
+      setShowClarifyGate(false);
+      setClarifyQuestions([]);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Kunde inte generera prompt.");
     } finally {
+      setIsClarifying(false);
       setIsExpanding(false);
     }
   }, [
+    showClarifyGate,
+    shouldAskForClarification,
+    fetchEnrichment,
+    clarifyQuestions,
     companyName,
     industry,
     location,
@@ -797,10 +1070,23 @@ export function PromptWizardModalV2({
     followUpAnswers,
     scrapedData,
     presentationAnalysis,
+    setIsClarifying,
   ]);
 
   // Final completion
   const handleComplete = useCallback(() => {
+    const finalPrompt = formatPromptForV0((editedPrompt || generatedPrompt || "").trim()).trim();
+    if (!finalPrompt) {
+      setError("Briefen är tom. Generera eller skriv in en giltig prompt innan du fortsätter.");
+      return;
+    }
+    if (finalPrompt.length > MAX_PROMPT_HANDOFF_CHARS) {
+      setError(
+        `Briefen är för lång (${finalPrompt.length} tecken). Korta ned den till max ${MAX_PROMPT_HANDOFF_CHARS}.`,
+      );
+      return;
+    }
+
     const componentChoices: ComponentChoices = {
       hero: "geometric",
       navigation: "sticky",
@@ -831,7 +1117,7 @@ export function PromptWizardModalV2({
     };
 
     clearDraft();
-    onComplete(wizardData, editedPrompt);
+    onComplete(wizardData, finalPrompt);
   }, [
     clearDraft,
     companyName,
@@ -851,6 +1137,8 @@ export function PromptWizardModalV2({
     usp,
     followUpAnswers,
     editedPrompt,
+    generatedPrompt,
+    setError,
     onComplete,
   ]);
 
@@ -865,7 +1153,7 @@ export function PromptWizardModalV2({
     5: { title: "Slutför och skapa", subtitle: "Lägg till sista detaljerna", icon: <Rocket className="h-5 w-5" /> },
   };
 
-  const currentMeta = STEP_META[step];
+  const currentMeta = STEP_META[step] ?? STEP_META[1];
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -895,23 +1183,23 @@ export function PromptWizardModalV2({
         <div className="relative border-b border-border/50 p-6">
           {/* Progress bar with step numbers */}
           <div className="mb-6 flex items-center gap-1.5">
-            {[1, 2, 3, 4, 5].map((s) => (
-              <div key={s} className="flex flex-1 items-center gap-1.5">
+            {stepFlow.map((s, idx) => (
+              <div key={`wizard-step-${s}`} className="flex flex-1 items-center gap-1.5">
                 <div
                   className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold transition-all duration-300 ${
-                    s < step
+                    idx < currentStepIndex
                       ? "bg-primary text-primary-foreground"
-                      : s === step
+                      : idx === currentStepIndex
                         ? "bg-primary/20 text-primary ring-2 ring-primary/50"
                         : "bg-secondary text-muted-foreground"
                   }`}
                 >
-                  {s < step ? <Check className="h-3.5 w-3.5" /> : s}
+                  {idx < currentStepIndex ? <Check className="h-3.5 w-3.5" /> : idx + 1}
                 </div>
-                {s < 5 && (
+                {idx < totalSteps - 1 && (
                   <div
                     className={`h-0.5 flex-1 rounded-full transition-all duration-300 ${
-                      s < step ? "bg-primary" : "bg-secondary"
+                      idx < currentStepIndex ? "bg-primary" : "bg-secondary"
                     }`}
                   />
                 )}
@@ -924,6 +1212,12 @@ export function PromptWizardModalV2({
             <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/20 text-primary">
               {currentMeta.icon}
             </div>
+            <StepVisual
+              step={step}
+              industry={industry}
+              selectedVibe={selectedVibe}
+              isBusy={isEnriching || isScraping || isClarifying}
+            />
             <div className="text-left">
               <h2 className="text-xl font-(--font-heading) text-foreground sm:text-2xl">{currentMeta.title}</h2>
               <p className="text-sm text-muted-foreground">{currentMeta.subtitle}</p>
@@ -935,6 +1229,14 @@ export function PromptWizardModalV2({
             <div className="mt-4 flex items-start gap-2 rounded-xl border border-primary/20 bg-primary/5 p-3">
               <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
               <p className="text-sm text-foreground">{insightSummary}</p>
+            </div>
+          )}
+          {activeEnrichMeta?.needsClarification && (activeEnrichMeta.unknowns?.length ?? 0) > 0 && (
+            <div className="mt-3 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3">
+              <p className="text-xs font-medium text-amber-300">AI behöver förtydliganden kring:</p>
+              <p className="mt-1 text-xs text-amber-100">
+                {activeEnrichMeta?.unknowns?.slice(0, 3).join(", ")}
+              </p>
             </div>
           )}
         </div>
@@ -976,7 +1278,7 @@ export function PromptWizardModalV2({
                           : "border-border/30 bg-card/50 text-muted-foreground hover:border-primary/30 hover:text-foreground hover:bg-card/80"
                       }`}
                     >
-                      <span className="text-2xl">{option.icon}</span>
+                      <option.icon className="h-5 w-5" />
                       <span className="text-center text-xs">{option.label}</span>
                     </button>
                   ))}
@@ -1099,7 +1401,7 @@ export function PromptWizardModalV2({
                           : "border-gray-800 hover:border-gray-700"
                       }`}
                     >
-                      <span className="text-xl">{option.icon}</span>
+                      <option.icon className="h-4 w-4" />
                       <span
                         className={`text-xs font-medium ${
                           purposes.includes(option.id) ? "text-brand-teal/80" : "text-white"
@@ -1307,7 +1609,7 @@ export function PromptWizardModalV2({
                           : "border-gray-800 hover:border-gray-700"
                       }`}
                     >
-                      <span className="text-2xl">{vibe.icon}</span>
+                      <vibe.icon className="h-5 w-5" />
                       <span
                         className={`text-xs font-medium ${
                           selectedVibe === vibe.id ? "text-brand-teal/80" : "text-gray-400"
@@ -1361,6 +1663,28 @@ export function PromptWizardModalV2({
           {/* ═══ STEP 5: Special Wishes & Generate ═══ */}
           {step === 5 && !showEditMode && (
             <div className="space-y-6">
+              {(showClarifyGate || isClarifying) && (
+                <div className="space-y-3 rounded-xl border border-primary/30 bg-primary/5 p-4">
+                  <div className="flex items-center gap-2 text-sm font-medium text-primary">
+                    <Sparkles className="h-4 w-4" />
+                    Innan vi skapar briefen: AI vill förtydliga några saker
+                  </div>
+                  {isClarifying && (
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      Sammanställer klargörandefrågor...
+                    </div>
+                  )}
+                  {showClarifyGate && clarifyQuestions.length > 0 && (
+                    <FollowUpRenderer
+                      questions={clarifyQuestions}
+                      answers={followUpAnswers}
+                      onAnswer={handleFollowUpAnswer}
+                    />
+                  )}
+                </div>
+              )}
+
               {/* Quick Features */}
               {currentIndustry?.suggestedFeatures &&
                 currentIndustry.suggestedFeatures.length > 0 && (
@@ -1491,8 +1815,9 @@ export function PromptWizardModalV2({
                   {industry && (
                     <div className="space-y-0.5">
                       <span className="text-gray-500">Bransch</span>
-                      <p className="text-white">
-                        {currentIndustry?.icon} {currentIndustry?.label}
+                      <p className="flex items-center gap-1 text-white">
+                        {currentIndustry?.icon ? <currentIndustry.icon className="h-3.5 w-3.5" /> : null}
+                        {currentIndustry?.label}
                       </p>
                     </div>
                   )}
@@ -1598,7 +1923,7 @@ export function PromptWizardModalV2({
             <Button
               variant="ghost"
               onClick={step === 1 ? onClose : handleBack}
-              disabled={isExpanding}
+              disabled={isExpanding || isClarifying}
               className="gap-2 text-muted-foreground hover:text-foreground"
             >
               {step === 1 ? (
@@ -1626,10 +1951,10 @@ export function PromptWizardModalV2({
           )}
 
           {/* Enriching indicator */}
-          {isEnriching && (
+          {(isEnriching || isClarifying) && (
             <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-1.5 text-xs text-muted-foreground">
               <Loader2 className="h-3 w-3 animate-spin" />
-              AI analyserar...
+              {isClarifying ? "AI förtydligar..." : "AI analyserar..."}
             </div>
           )}
 
@@ -1642,10 +1967,10 @@ export function PromptWizardModalV2({
               <Rocket className="h-4 w-4" />
               Skapa webbplats
             </Button>
-          ) : step < totalSteps ? (
+          ) : currentStepIndex < totalSteps - 1 ? (
             <Button
               onClick={handleNext}
-              disabled={!canProceed()}
+              disabled={!canProceed() || isClarifying}
               className="btn-3d btn-glow gap-2 bg-primary text-primary-foreground shadow-lg shadow-primary/25 hover:bg-primary/90 disabled:opacity-50"
             >
               Nästa
@@ -1654,10 +1979,15 @@ export function PromptWizardModalV2({
           ) : (
             <Button
               onClick={handleGenerate}
-              disabled={isExpanding}
+              disabled={isExpanding || isClarifying}
               className="btn-3d btn-glow gap-2 bg-primary px-6 text-primary-foreground shadow-lg shadow-primary/25 hover:bg-primary/90"
             >
-              {isExpanding ? (
+              {isClarifying ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Hämtar klargöranden...
+                </>
+              ) : isExpanding ? (
                 <>
                   <Loader2 className="h-4 w-4 animate-spin" />
                   Skapar brief...

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { Search, Coins, Loader2, AlertCircle, BarChart2, Lock, Sparkles } from "lucide-react";
 import { useAuth } from "@/lib/auth/auth-store";
 import { AUDIT_COSTS } from "@/lib/credits/pricing";
@@ -17,33 +17,71 @@ import { Button } from "@/components/ui/button";
 interface SiteAuditSectionProps {
   onAuditComplete: (result: AuditResult, auditedUrl: string) => void;
   onRequireAuth: () => void;
+  url?: string;
+  onUrlChange?: (url: string) => void;
+  hideUrlInput?: boolean;
+  externalSubmitSignal?: number;
 }
 
-export function SiteAuditSection({ onAuditComplete, onRequireAuth }: SiteAuditSectionProps) {
+export function SiteAuditSection({
+  onAuditComplete,
+  onRequireAuth,
+  url,
+  onUrlChange,
+  hideUrlInput = false,
+  externalSubmitSignal,
+}: SiteAuditSectionProps) {
   const { user, isAuthenticated, updateDiamonds } = useAuth();
-  const [url, setUrl] = useState("");
+  const [internalUrl, setInternalUrl] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
   const [showModeDialog, setShowModeDialog] = useState(false);
+  const lastHandledSubmitSignalRef = useRef<number | undefined>(undefined);
+
+  const isUrlControlled = typeof url === "string";
+  const currentUrl = isUrlControlled ? url : internalUrl;
+
+  const setUrlValue = useCallback(
+    (value: string) => {
+      if (isUrlControlled) {
+        onUrlChange?.(value);
+        return;
+      }
+      setInternalUrl(value);
+    },
+    [isUrlControlled, onUrlChange],
+  );
 
   const canAffordBasic = user && user.diamonds >= AUDIT_COSTS.basic;
   const canAffordAdvanced = user && user.diamonds >= AUDIT_COSTS.advanced;
 
-  const handleSubmit = (e: FormEvent) => {
-    e.preventDefault();
+  const requestModeSelection = useCallback(() => {
     if (isLoading) return;
-
     setError(null);
-    if (!url.trim()) {
+    if (!currentUrl.trim()) {
       setError("Ange en URL för att analysera.");
       return;
     }
-
     setShowModeDialog(true);
-  };
+  }, [currentUrl, isLoading]);
 
-  const startAudit = async (mode: AuditMode) => {
+  const handleSubmit = useCallback(
+    (e: FormEvent) => {
+      e.preventDefault();
+      requestModeSelection();
+    },
+    [requestModeSelection],
+  );
+
+  useEffect(() => {
+    if (externalSubmitSignal === undefined) return;
+    if (lastHandledSubmitSignalRef.current === externalSubmitSignal) return;
+    lastHandledSubmitSignalRef.current = externalSubmitSignal;
+    requestModeSelection();
+  }, [externalSubmitSignal, requestModeSelection]);
+
+  const startAudit = useCallback(async (mode: AuditMode) => {
     setShowModeDialog(false);
     setError(null);
 
@@ -60,7 +98,7 @@ export function SiteAuditSection({ onAuditComplete, onRequireAuth }: SiteAuditSe
     }
 
     // Validate URL
-    let normalizedUrl = url.trim();
+    let normalizedUrl = currentUrl.trim();
     if (!normalizedUrl) {
       setError("Ange en URL för att analysera.");
       return;
@@ -123,7 +161,7 @@ export function SiteAuditSection({ onAuditComplete, onRequireAuth }: SiteAuditSe
 
       // Pass result and URL to parent
       onAuditComplete(data.result, normalizedUrl);
-      setUrl("");
+      setUrlValue("");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Ett oväntat fel uppstod.");
     } finally {
@@ -131,31 +169,33 @@ export function SiteAuditSection({ onAuditComplete, onRequireAuth }: SiteAuditSe
       setIsLoading(false);
       setProgress(0);
     }
-  };
+  }, [currentUrl, isAuthenticated, onAuditComplete, onRequireAuth, setUrlValue, updateDiamonds, user]);
 
   return (
     <div className="w-full max-w-2xl">
       {/* Form */}
       <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="input-3d rounded-2xl border border-border/30 bg-secondary/50 backdrop-blur-xl shadow-2xl overflow-hidden">
-          <label htmlFor="audit-url" className="sr-only">
-            URL att analysera
-          </label>
-          <div className="relative flex items-center">
-            <Search className="absolute left-4 h-5 w-5 text-muted-foreground pointer-events-none" />
-            <input
-              id="audit-url"
-              name="auditUrl"
-              type="text"
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              placeholder="exempel.se eller https://exempel.se"
-              autoComplete="url"
-              disabled={isLoading}
-              className="w-full bg-transparent border-none py-4 pl-12 pr-4 text-foreground placeholder:text-muted-foreground/60 outline-none transition-colors disabled:opacity-50"
-            />
+        {!hideUrlInput && (
+          <div className="input-3d rounded-2xl border border-border/30 bg-secondary/50 backdrop-blur-xl shadow-2xl overflow-hidden">
+            <label htmlFor="audit-url" className="sr-only">
+              URL att analysera
+            </label>
+            <div className="relative flex items-center">
+              <Search className="absolute left-4 h-5 w-5 text-muted-foreground pointer-events-none" />
+              <input
+                id="audit-url"
+                name="auditUrl"
+                type="text"
+                value={currentUrl}
+                onChange={(e) => setUrlValue(e.target.value)}
+                placeholder="exempel.se eller https://exempel.se"
+                autoComplete="url"
+                disabled={isLoading}
+                className="w-full bg-transparent border-none py-4 pl-12 pr-4 text-foreground placeholder:text-muted-foreground/60 outline-none transition-colors disabled:opacity-50"
+              />
+            </div>
           </div>
-        </div>
+        )}
 
         {error && (
           <div className="flex items-start gap-2 rounded-xl border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
@@ -175,7 +215,7 @@ export function SiteAuditSection({ onAuditComplete, onRequireAuth }: SiteAuditSe
 
         <Button
           type="submit"
-          disabled={isLoading || !url.trim()}
+          disabled={isLoading || !currentUrl.trim()}
           className="btn-3d btn-glow w-full gap-3 rounded-xl bg-primary px-6 py-4 font-medium text-primary-foreground shadow-lg shadow-primary/25 hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-50"
         >
           {isLoading ? (

@@ -1,11 +1,14 @@
 "use client";
 
 import { Canvas, useFrame } from "@react-three/fiber";
-import { useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
+import { Object3D } from "three";
 import type * as THREE from "three";
 
 function DottedSphere({ radius = 1.2, dotCount = 800, dotSize = 0.035 }) {
   const groupRef = useRef<THREE.Group>(null);
+  const instancedRef = useRef<THREE.InstancedMesh>(null);
+  const dummy = useMemo(() => new Object3D(), []);
 
   const dots = useMemo(() => {
     const positions: [number, number, number][] = [];
@@ -23,6 +26,19 @@ function DottedSphere({ radius = 1.2, dotCount = 800, dotSize = 0.035 }) {
     return positions;
   }, [radius, dotCount]);
 
+  useEffect(() => {
+    const mesh = instancedRef.current;
+    if (!mesh) return;
+
+    for (let i = 0; i < dots.length; i++) {
+      const [x, y, z] = dots[i];
+      dummy.position.set(x, y, z);
+      dummy.updateMatrix();
+      mesh.setMatrixAt(i, dummy.matrix);
+    }
+    mesh.instanceMatrix.needsUpdate = true;
+  }, [dots, dummy]);
+
   useFrame((state) => {
     if (groupRef.current) {
       groupRef.current.rotation.y = state.clock.elapsedTime * 0.08;
@@ -32,18 +48,16 @@ function DottedSphere({ radius = 1.2, dotCount = 800, dotSize = 0.035 }) {
 
   return (
     <group ref={groupRef}>
-      {dots.map((pos, i) => (
-        <mesh key={i} position={pos}>
-          <sphereGeometry args={[dotSize, 8, 8]} />
-          <meshStandardMaterial
-            color="#5eead4"
-            emissive="#2dd4bf"
-            emissiveIntensity={0.8}
-            metalness={0.9}
-            roughness={0.1}
-          />
-        </mesh>
-      ))}
+      <instancedMesh ref={instancedRef} args={[undefined, undefined, dots.length]}>
+        <sphereGeometry args={[dotSize, 8, 8]} />
+        <meshStandardMaterial
+          color="#5eead4"
+          emissive="#2dd4bf"
+          emissiveIntensity={0.8}
+          metalness={0.9}
+          roughness={0.1}
+        />
+      </instancedMesh>
     </group>
   );
 }

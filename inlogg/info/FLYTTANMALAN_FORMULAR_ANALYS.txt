@@ -1,0 +1,228 @@
+================================================================================
+FLYTTANMÄLAN - SKATTEVERKET - FORMULÄRANALYS
+================================================================================
+Analys av formulär/Flyttanmälan _ Skatteverket.html och tillhörande filer.
+Genererad: 2025-02-20 (uppdaterad: 2026-02-20)
+
+================================================================================
+1. ÖVERSIKT
+================================================================================
+- Angular-app (fbfflytt-kund-web, ng-version 19.2.18)
+- Formulär-ID: fbfFlyttanmalanForm
+- Wizard med 6 steg, custom elements (flytt-skv-*, skv-*)
+- Många element använder Shadow DOM
+
+================================================================================
+2. WIZARD-STEG (i ordning)
+================================================================================
+
+Steg 1 (order=10): nuvarandeuppgifter - Nuvarande uppgifter
+  -> Endast visning (läses från folkbokföringen). Knapp "Ändra" finns.
+
+Steg 2 (order=20): inflyttningsdatum - Inflyttningsdatum
+  -> FYLLBARA FÄLT (se nedan)
+
+Steg 3 (order=30): adress - Ny adress
+  -> FYLLBARA FÄLT (se nedan)
+
+Steg 4 (order=40): personer - Personer
+  -> Tabell med kryssrutor för vilka som flyttar (förvalda från folkbokföring)
+
+Steg 5 (order=50): kontakt - Kontaktuppgifter
+  -> FYLLBARA FÄLT (se nedan)
+
+Steg 6 (order=60): granska - Granska
+  -> Sammanfattning + signering/skicka
+
+================================================================================
+3. FYLLBARA FÄLT - DETALJER
+================================================================================
+
+--- STEG 2: Inflyttningsdatum ---
+
+Fält: inflyttningsdatum (Datum du flyttar in)
+  Element: input#inflyttningsdatum, name="inflyttningsdatum"
+  Typ: Datumväljare (flytt-skv-datepicker)
+  Krävs: JA (*)
+  Format: YYYY-MM-DD (t.ex. 2020-05-14)
+  Validering: -
+  OBS: Kalenderknapp finns - "Öppna eller stäng kalendervy"
+  Selector: #inflyttningsdatum eller input[name="inflyttningsdatum"]
+
+Fält: period (Adressen gäller)
+  Element: Radio buttons, name="period"
+  Typ: Radiogrupp (flytt-skv-selection type="radio")
+  Krävs: JA (*)
+  Alternativ:
+    - "Tills vidare" (value="true") - förvalt
+    - "Antal månader" (value="false") - visar troligen extra fält för antal
+  Selector: input[name="period"][value="true"] eller input[name="period"][value="false"]
+  OBS: Vid "Antal månader" visas troligen ett numeriskt fält (ej synligt i sparad HTML)
+
+--- STEG 3: Ny adress ---
+
+Fält: gatuadress (Gatunamn och nummer)
+  Element: input#gatuadress, name="gatuadress"
+  Typ: Text med autocomplete (adresssökning)
+  Krävs: JA (*)
+  Maxlängd: 70 tecken
+  Tillåtet: Hela gatunamnet utan förkortning (t.ex. Storgatan 5)
+  OBS: Lägenhetsnummer skrivs i annat fält. Autocomplete triggas vid 3+ tecken.
+  Selector: #gatuadress eller input[name="gatuadress"]
+
+Fält: postnummer
+  Element: input#postnummer, name="postnummer"
+  Typ: Text (inputmode="numeric")
+  Krävs: JA (*)
+  Min/max: 5 siffror
+  Pattern: [0-9]{5}
+  Selector: #postnummer eller input[name="postnummer"]
+
+Fält: postort
+  Element: input#postort, name="postort"
+  Typ: Text
+  Krävs: JA (*)
+  Maxlängd: 20 tecken
+  Selector: #postort eller input[name="postort"]
+
+Fält: lagenhetsnummer (Lägenhetsnummer)
+  Element: input#lagenhetsnummer, name="lagenhetsnummer"
+  Typ: Text
+  Krävs: NEJ (valfritt för lägenhet)
+  Maxlängd: 10 tecken
+  Tillåtet: 4 siffror (t.ex. 1002), eller "4 TR", "BV", "NB", "1/2 TR", "VÅN 2"
+  Selector: #lagenhetsnummer eller input[name="lagenhetsnummer"]
+  OBS: Tomt för enfamiljsfastighet (villa, radhus)
+
+Fält: fastighetsbeteckning
+  Element: input#fastighetsbeteckning, name="fastighetsbeteckning"
+  Typ: Text
+  Krävs: NEJ
+  Maxlängd: 40 tecken
+  Exempel: "Bonden 7:1"
+  Selector: #fastighetsbeteckning eller input[name="fastighetsbeteckning"]
+
+Fält: fastighetsagare (Fastighetsägare)
+  Element: input#fastighetsagare, name="fastighetsagare"
+  Typ: Text
+  Krävs: NEJ
+  Maxlängd: 50 tecken
+  Tillåtet: Namn och telefon till hyresvärd, eller "egen" om du äger
+  Selector: #fastighetsagare eller input[name="fastighetsagare"]
+
+--- STEG 5: Kontaktuppgifter ---
+
+Fält: telefonnummer
+  Element: input#telefonnummer, name="telefonnummer"
+  Typ: tel
+  Krävs: NEJ
+  Minlängd: 8, maxlängd: 15
+  Selector: #telefonnummer eller input[name="telefonnummer"]
+
+Fält: email (E-postadress)
+  Element: input#email, name="email"
+  Typ: text (för e-post)
+  Krävs: NEJ
+  Maxlängd: 50 tecken
+  Selector: #email eller input[name="email"]
+
+================================================================================
+4. MOCKUP-EXEMPEL FÖR VARJE FÄLT
+================================================================================
+
+Fält                 | Mockup-exempel              | Kommentar
+---------------------|-----------------------------|----------------------------------
+inflyttningsdatum    | 2026-01-15                  | YYYY-MM-DD
+period               | (förvalt "Tills vidare")   | Radio, inget att fylla
+gatuadress           | Storgatan 12               | Eller Kungsgatan 5, Folkungagatan 83
+postnummer           | 11122                      | 5 siffror, Stockholm
+postort              | Stockholm                  |
+lagenhetsnummer      | 1401                       | 4 siffror för lägenhet
+fastighetsbeteckning | Rudan mindre 10            | Från sparad HTML
+fastighetsagare      | egen                       | Eller "AB Hyresvärd 08-123456"
+telefonnummer        | 0701234567                 | 8-15 siffror
+email                | test@example.com          |
+
+================================================================================
+5. NÖDVÄNDIGA KNAPPAR
+================================================================================
+
+Navigering mellan steg:
+  - "Nästa" (primary) - custom element: skv-button-10-0-7[button-type="primary"]
+    class="flytt-skv-wizard-step-button", Shadow DOM med <button> inuti
+    data-tracking-context varierar per steg (t.ex. "Inflyttningsdatum", "Ny adress")
+  - "Avbryt" (tertiary) - skv-button-10-0-7 button-type="tertiary" icon="close"
+  - OBS: Alla knappar är custom elements med Shadow DOM, inte native <button>
+
+Bekräfta-checkbox (steg 3, adress):
+  - Dyker upp dynamiskt vid adressvalideringsvarning
+  - Element: skv-selection-control-10-0-12[type="checkbox"]
+  - Text: "Jag bekräftar att jag läst men vill ändå gå vidare med min anmälan"
+  - Måste kryssas i innan Nästa fungerar
+
+Före formuläret (klicksekvenser i skv4):
+  - Cookie-banner: #deny-all ("Tillåt endast nödvändiga")
+  - Inloggning: a[aria-label*="Inloggning"], button#login-info-button
+  - BankID: button#bankid-standard
+  - QR-kod: path[fill='#FFFFFF'], path[fill='#000000'], svg path
+
+Steg 4 Personer:
+  - Tabell med kryssrutor - användaren väljer vilka som flyttar
+  - Inga textfält att fylla - förvalt från folkbokföring
+
+Steg 6 Granska:
+  - Sammanfattning + signering/skicka-knapp (BankID)
+
+================================================================================
+6. DATUMHANTERING
+================================================================================
+
+Inflyttningsdatum (inflyttningsdatum):
+  - Komponent: flytt-skv-datepicker
+  - Input: type="text" med datumformat
+  - Kalenderknapp öppnar datumväljare
+  - Format: YYYY-MM-DD
+  - För automatisering: Fyll input direkt ELLER klicka kalenderknapp och välj datum
+  - Kalenderknapp: button.flytt-skv-datepicker-button
+    aria-label="Öppna eller stäng kalendervy"
+
+================================================================================
+7. VALIDERING OCH BEGRÄNSNINGAR
+================================================================================
+
+Postnummer: Exakt 5 siffror, pattern [0-9]{5}
+Gatuadress: Max 70 tecken, autocomplete från adressregister
+Lägenhetsnummer: Krävs om huset har lägenhetsnummer; format 4 siffror eller TR/BV/NB etc.
+Telefon: 8-15 tecken
+Datum: Senast en vecka efter flytt måste anmälan vara inne
+
+================================================================================
+8. REKOMMENDERADE SELECTORS FÖR AUTOMATISERING
+================================================================================
+
+Prioritet - använd name eller id (stabilt):
+  input[name="inflyttningsdatum"]
+  input[name="gatuadress"]
+  input[name="postnummer"]
+  input[name="postort"]
+  input[name="lagenhetsnummer"]
+  input[name="fastighetsbeteckning"]
+  input[name="fastighetsagare"]
+  input[name="telefonnummer"]
+  input[name="email"]
+
+OBS: Alla formulärfält ligger i Shadow DOM (custom elements med <template shadowrootmode="open">).
+     Playwright piercar shadow DOM automatiskt med locator/fill.
+
+================================================================================
+9. TILLHÖRANDE FILER (Flyttanmälan _ Skatteverket_files)
+================================================================================
+
+- styles.P1Wkdc4X.css, styles.6f844ec18f393fe3.css
+- main.D61aIJwU.js, main.94ebb081bb62afb0.js (Angular/komponenter)
+- entry.*.js, runtime.*.js, polyfills.*.js
+- webcomponents-loader.js, custom-elements-es5-adapter.js
+- env.js, matomo.js, tracking.js
+
+Formuläret är dynamiskt - mycket logik finns i JavaScript.
+Sparad HTML visar ett specifikt tillstånd (inloggad användare, steg 2 aktivt).

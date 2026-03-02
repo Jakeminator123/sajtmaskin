@@ -1,0 +1,8 @@
+{
+  "jobId": "1b6f5f14df8d",
+  "startedAt": "2026-02-23T14:59:54.410410",
+  "pid": 1532,
+  "flaskPort": 8768,
+  "cloneQrViewUrl": "http://127.0.0.1:8768/clone/qr-view/1b6f5f14df8d",
+  "cloneQrStateUrl": "http://127.0.0.1:8768/api/clone/state/1b6f5f14df8d"
+}

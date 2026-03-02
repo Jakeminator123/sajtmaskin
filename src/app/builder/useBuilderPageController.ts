@@ -60,7 +60,7 @@ export function useBuilderPageController() {
     setApplyInstructionsOnce, setAppProjectId, setAppProjectName,
     setAuditPromptLoaded, setBuildIntent, setBuildMethod, setChatId,
     setCurrentDemoUrl, setCurrentPageCode, setCustomInstructions,
-    setDeployNameDialogOpen, setDesignTheme, setEnableBlobMedia,
+    setDesignTheme, setEnableBlobMedia,
     setEnableImageGenerations, setEnableThinking, setEntryIntentActive,
     setExistingUiComponents,
     setIsImageGenerationsSupported, setIsIntentionalReset, setIsMediaEnabled,
@@ -931,33 +931,59 @@ export function useBuilderPageController() {
     };
   }, [deployActions, setIsMediaEnabled, setIsImageGenerationsSupported, setEnableImageGenerations, featureWarnedRef]);
 
-  // GitHub OAuth callback
+  // OAuth callback feedback
   useEffect(() => {
     if (!searchParams) return;
     const connected = searchParams.get("github_connected");
     const username = searchParams.get("github_username");
-    const error = searchParams.get("github_error");
-    const errorReason = searchParams.get("github_error_reason");
+    const githubError = searchParams.get("github_error");
+    const githubErrorReason = searchParams.get("github_error_reason");
+    const login = searchParams.get("login");
+    const authError = searchParams.get("error");
+    const verified = searchParams.get("verified");
+    const verificationReason = searchParams.get("reason");
 
-    if (!connected && !error) return;
+    const hasGitHubFeedback = Boolean(connected || githubError);
+    const hasAuthFeedback = Boolean(login || authError || verified);
+    if (!hasGitHubFeedback && !hasAuthFeedback) return;
 
     if (connected) {
       toast.success(username ? `GitHub kopplat: @${username}` : "GitHub kopplat");
-    } else if (error) {
+    } else if (githubError) {
       const message =
-        error === "not_authenticated"
+        githubError === "not_authenticated"
           ? "Logga in för att koppla GitHub"
-          : error === "not_configured"
+          : githubError === "not_configured"
             ? "GitHub OAuth är inte konfigurerat"
-            : error === "user_fetch_failed"
+            : githubError === "user_fetch_failed"
               ? "Kunde inte hämta GitHub-användare"
-              : error === "no_code"
+              : githubError === "no_code"
                 ? "GitHub gav ingen kod"
                 : "GitHub-anslutning misslyckades";
       toast.error(message);
-      if (errorReason === "unsafe_return") {
+      if (githubErrorReason === "unsafe_return") {
         console.warn("[GitHub OAuth] Unsafe return URL sanitized");
       }
+    }
+
+    if (login === "success") {
+      toast.success("Inloggningen lyckades.");
+    }
+    if (authError) {
+      toast.error(authError);
+    }
+    if (verified === "success") {
+      toast.success("E-postadressen är verifierad. Logga in för att fortsätta.");
+    } else if (verified === "error") {
+      const verificationMessage =
+        verificationReason === "missing_token"
+          ? "Verifieringslänken saknar token."
+          : verificationReason === "invalid_or_expired"
+            ? "Verifieringslänken är ogiltig eller har gått ut."
+            : verificationReason === "server_error"
+              ? "Något gick fel vid e-postverifiering."
+              : "Kunde inte verifiera e-postadressen.";
+      toast.error(verificationMessage);
     }
 
     const nextParams = new URLSearchParams(searchParams.toString());
@@ -965,6 +991,10 @@ export function useBuilderPageController() {
     nextParams.delete("github_username");
     nextParams.delete("github_error");
     nextParams.delete("github_error_reason");
+    nextParams.delete("login");
+    nextParams.delete("error");
+    nextParams.delete("verified");
+    nextParams.delete("reason");
     const query = nextParams.toString();
     router.replace(query ? `/builder?${query}` : "/builder");
   }, [searchParams, router]);

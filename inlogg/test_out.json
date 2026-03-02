@@ -1,0 +1,14 @@
+{
+  "namn_input": "",
+  "postort": "Stockholm",
+  "postnummer": "11622",
+  "fastighetsagare": "",
+  "bast_match": null,
+  "konfidens": 0.35,
+  "kallor_aktiva": [
+    "PAP"
+  ],
+  "kallor_saknar": [],
+  "naesta_steg": [],
+  "postort_kalla": "PAP API"
+}

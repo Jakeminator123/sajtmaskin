@@ -8,6 +8,7 @@ import {
   getPromptAssistModelOptions,
 } from "@/lib/builder/defaults";
 import { Button } from "@/components/ui/button";
+import { useAuth } from "@/lib/auth/auth-store";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -34,6 +35,8 @@ import {
   HelpCircle,
   Image as ImageIcon,
   Loader2,
+  Link2,
+  LogOut,
   MessageSquare,
   Plus,
   Globe,
@@ -76,6 +79,8 @@ export function BuilderHeader(props: {
 
   showStructuredChat: boolean;
   onShowStructuredChatChange: (v: boolean) => void;
+  isFigmaInputOpen: boolean;
+  onToggleFigmaInput: () => void;
 
   chatId: string | null;
   activeVersionId: string | null;
@@ -120,6 +125,8 @@ export function BuilderHeader(props: {
     onEnableBlobMediaChange,
     showStructuredChat,
     onShowStructuredChatChange,
+    isFigmaInputOpen,
+    onToggleFigmaInput,
     chatId,
     activeVersionId,
     onOpenImport,
@@ -157,6 +164,11 @@ export function BuilderHeader(props: {
     }
     window.requestAnimationFrame(action);
   }, []);
+  const { isAuthenticated, logout } = useAuth();
+  const handleLogout = useCallback(() => {
+    logout();
+    runDeferredAction(onGoHome);
+  }, [logout, onGoHome, runDeferredAction]);
 
   return (
     <header className="border-border bg-background flex h-14 items-center justify-between border-b px-4">
@@ -170,6 +182,12 @@ export function BuilderHeader(props: {
         >
           Sajtmaskin
         </button>
+        {isAuthenticated && (
+          <Button variant="ghost" size="sm" onClick={handleLogout} title="Logga ut">
+            <LogOut className="h-4 w-4" />
+            <span className="hidden sm:inline">Logga ut</span>
+          </Button>
+        )}
       </div>
 
       <div className="flex items-center gap-2">
@@ -396,6 +414,19 @@ export function BuilderHeader(props: {
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
+
+            <DropdownMenuSeparator />
+            <DropdownMenuLabel>Prompt Input</DropdownMenuLabel>
+            <DropdownMenuItem
+              disabled={isBusy}
+              onSelect={(event) => {
+                event.preventDefault();
+                onToggleFigmaInput();
+              }}
+            >
+              <Link2 className="mr-2 h-4 w-4" />
+              {isFigmaInputOpen ? "Dölj Figma-länk" : "Visa Figma-länk"}
+            </DropdownMenuItem>
 
             <DropdownMenuSeparator />
             <DropdownMenuLabel>Instructions</DropdownMenuLabel>

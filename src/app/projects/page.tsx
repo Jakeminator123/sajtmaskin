@@ -3,18 +3,24 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Navbar, ShaderBackground } from "@/components/layout";
 import { AuthModal } from "@/components/auth";
 import { Plus, Trash2, ExternalLink, Clock, Folder } from "lucide-react";
 import { getProjects, deleteProject, Project } from "@/lib/project-client";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
+import toast from "react-hot-toast";
 
 export default function ProjectsPage() {
+  const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authMode, setAuthMode] = useState<"login" | "register">("login");
   const [failedVisuals, setFailedVisuals] = useState<Set<string>>(new Set());
   const [deleteDialog, setDeleteDialog] = useState<{
     isOpen: boolean;
@@ -26,6 +32,27 @@ export default function ProjectsPage() {
   useEffect(() => {
     loadProjects();
   }, []); // Only run on mount
+
+  useEffect(() => {
+    const login = searchParams.get("login");
+    const authError = searchParams.get("error");
+    if (!login && !authError) return;
+
+    if (login === "success") {
+      toast.success("Inloggningen lyckades.");
+    }
+    if (authError) {
+      toast.error(authError);
+      setAuthMode("login");
+      setShowAuthModal(true);
+    }
+
+    const nextParams = new URLSearchParams(searchParams.toString());
+    nextParams.delete("login");
+    nextParams.delete("error");
+    const nextQuery = nextParams.toString();
+    router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname);
+  }, [pathname, router, searchParams]);
 
   async function loadProjects() {
     try {
@@ -103,13 +130,19 @@ export default function ProjectsPage() {
       <ShaderBackground theme="default" speed={0.2} opacity={0.3} />
 
       <Navbar
-        onLoginClick={() => setShowAuthModal(true)}
-        onRegisterClick={() => setShowAuthModal(true)}
+        onLoginClick={() => {
+          setAuthMode("login");
+          setShowAuthModal(true);
+        }}
+        onRegisterClick={() => {
+          setAuthMode("register");
+          setShowAuthModal(true);
+        }}
       />
       <AuthModal
         isOpen={showAuthModal}
         onClose={() => setShowAuthModal(false)}
-        defaultMode="login"
+        defaultMode={authMode}
       />
 
       <div className="relative z-10 mx-auto max-w-6xl px-6 pt-24 pb-12">

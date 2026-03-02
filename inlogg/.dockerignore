@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+.git/
+runtime/
+results/
+*.log
+*.txt
+!requirements.txt
+!config.txt
+info/
+inlogg_utanfor/

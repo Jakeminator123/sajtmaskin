@@ -10,6 +10,7 @@
  */
 
 import { NextResponse } from "next/server";
+import { createHash } from "node:crypto";
 import { generateText, gateway } from "ai";
 import { z } from "zod";
 import { requireNotBot } from "@/lib/botProtection";
@@ -27,14 +28,20 @@ const MAX_SHORT_TEXT = 300;
 const MAX_MEDIUM_TEXT = 3000;
 const MAX_LONG_TEXT = 12000;
 const MAX_URL_LENGTH = 2048;
+const MAX_QUESTION_OPTIONS = 8;
+const MAX_UNKNOWNS = 4;
+const MAX_FOLLOWUP_QUESTIONS = 4;
+const MAX_SUGGESTIONS = 4;
 
 const enrichRequestSchema = z.object({
+  mode: z.enum(["step", "final_check"]).optional().default("step"),
   step: z.number().int().min(1).max(5),
   data: z.object({
     companyName: z.string().max(MAX_SHORT_TEXT).optional().default(""),
     industry: z.string().max(MAX_SHORT_TEXT).optional().default(""),
     location: z.string().max(MAX_SHORT_TEXT).optional().default(""),
     existingWebsite: z.string().max(MAX_URL_LENGTH).optional().default(""),
+    inspirationSites: z.array(z.string().max(MAX_URL_LENGTH)).max(5).optional().default([]),
     purposes: z.array(z.string().max(MAX_SHORT_TEXT)).max(20).optional().default([]),
     targetAudience: z.string().max(MAX_MEDIUM_TEXT).optional().default(""),
     usp: z.string().max(MAX_MEDIUM_TEXT).optional().default(""),
@@ -46,6 +53,41 @@ const enrichRequestSchema = z.object({
       .default({}),
   }),
   scrapeUrl: z.string().max(MAX_URL_LENGTH).optional(),
+});
+
+const followUpDependencySchema = z.object({
+  answerId: z.string().min(1).max(MAX_SHORT_TEXT),
+  includes: z.array(z.string().min(1).max(MAX_SHORT_TEXT)).max(6).optional(),
+  excludes: z.array(z.string().min(1).max(MAX_SHORT_TEXT)).max(6).optional(),
+});
+
+const followUpQuestionSchema = z.object({
+  id: z.string().min(1).max(40),
+  text: z.string().min(3).max(220),
+  type: z.enum(["text", "select", "chips"]).default("text"),
+  options: z.array(z.string().min(1).max(MAX_SHORT_TEXT)).max(MAX_QUESTION_OPTIONS).optional(),
+  placeholder: z.string().max(MAX_SHORT_TEXT).optional(),
+  priority: z.enum(["low", "medium", "high"]).optional(),
+  dependsOn: followUpDependencySchema.optional(),
+});
+
+const suggestionSchema = z.object({
+  type: z.enum(["audience", "feature", "usp", "palette", "trend"]).default("feature"),
+  text: z.string().min(2).max(MAX_SHORT_TEXT),
+});
+
+const enrichMetaSchema = z.object({
+  confidence: z.number().min(0).max(1).optional(),
+  needsClarification: z.boolean().optional(),
+  unknowns: z.array(z.string().min(2).max(MAX_SHORT_TEXT)).max(MAX_UNKNOWNS).optional(),
+  priority: z.enum(["low", "medium", "high"]).optional(),
+});
+
+const enrichResponseSchema = z.object({
+  questions: z.array(followUpQuestionSchema).max(MAX_FOLLOWUP_QUESTIONS).optional().default([]),
+  suggestions: z.array(suggestionSchema).max(MAX_SUGGESTIONS).optional().default([]),
+  insightSummary: z.string().max(MAX_MEDIUM_TEXT).optional().nullable(),
+  meta: enrichMetaSchema.optional(),
 });
 
 // ── Industry context ────────────────────────────────────────────────
@@ -67,6 +109,107 @@ const INDUSTRY_CONTEXT: Record<string, string> = {
 // GPT-5 mini: fast ($0.25/1M in) and good enough for follow-up questions
 const ENRICH_MODEL = "openai/gpt-5-mini";
 
+type EnrichResponse = z.infer<typeof enrichResponseSchema>;
+
+function toText(value: unknown): string {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function makeQuestionId(index: number): string {
+  return `q${index + 1}`;
+}
+
+function sanitizeQuestion(rawQuestion: unknown, index: number): z.infer<typeof followUpQuestionSchema> | null {
+  if (!rawQuestion || typeof rawQuestion !== "object") return null;
+  const candidate = rawQuestion as Record<string, unknown>;
+  const type = toText(candidate.type).toLowerCase();
+  const optionsRaw = Array.isArray(candidate.options)
+    ? candidate.options.map((opt) => toText(opt)).filter(Boolean).slice(0, MAX_QUESTION_OPTIONS)
+    : undefined;
+  const normalizedType = type === "select" || type === "chips" ? type : "text";
+
+  const normalized = {
+    id: toText(candidate.id) || makeQuestionId(index),
+    text: toText(candidate.text),
+    type: normalizedType as "text" | "select" | "chips",
+    options:
+      normalizedType === "text"
+        ? undefined
+        : optionsRaw && optionsRaw.length > 0
+          ? optionsRaw
+          : undefined,
+    placeholder: toText(candidate.placeholder) || undefined,
+    priority: ["low", "medium", "high"].includes(toText(candidate.priority))
+      ? (toText(candidate.priority) as "low" | "medium" | "high")
+      : undefined,
+    dependsOn:
+      candidate.dependsOn && typeof candidate.dependsOn === "object"
+        ? {
+            answerId: toText((candidate.dependsOn as Record<string, unknown>).answerId),
+            includes: Array.isArray((candidate.dependsOn as Record<string, unknown>).includes)
+              ? ((candidate.dependsOn as Record<string, unknown>).includes as unknown[])
+                  .map((item) => toText(item))
+                  .filter(Boolean)
+                  .slice(0, 6)
+              : undefined,
+            excludes: Array.isArray((candidate.dependsOn as Record<string, unknown>).excludes)
+              ? ((candidate.dependsOn as Record<string, unknown>).excludes as unknown[])
+                  .map((item) => toText(item))
+                  .filter(Boolean)
+                  .slice(0, 6)
+              : undefined,
+          }
+        : undefined,
+  };
+
+  const parsed = followUpQuestionSchema.safeParse(normalized);
+  if (!parsed.success) return null;
+  if ((parsed.data.type === "select" || parsed.data.type === "chips") && !parsed.data.options?.length) {
+    return { ...parsed.data, type: "text", options: undefined };
+  }
+  return parsed.data;
+}
+
+function normalizeResponse(raw: unknown): EnrichResponse {
+  const parsed = enrichResponseSchema.safeParse(raw);
+  if (parsed.success) return parsed.data;
+
+  const obj = raw && typeof raw === "object" ? (raw as Record<string, unknown>) : {};
+  const questions = Array.isArray(obj.questions)
+    ? obj.questions
+        .map((q, index) => sanitizeQuestion(q, index))
+        .filter((q): q is z.infer<typeof followUpQuestionSchema> => Boolean(q))
+        .slice(0, MAX_FOLLOWUP_QUESTIONS)
+    : [];
+  const suggestions = Array.isArray(obj.suggestions)
+    ? obj.suggestions
+        .map((item) => {
+          if (!item || typeof item !== "object") return null;
+          const candidate = item as Record<string, unknown>;
+          const parsedSuggestion = suggestionSchema.safeParse({
+            type: toText(candidate.type).toLowerCase() || "feature",
+            text: toText(candidate.text),
+          });
+          return parsedSuggestion.success ? parsedSuggestion.data : null;
+        })
+        .filter((entry): entry is z.infer<typeof suggestionSchema> => Boolean(entry))
+        .slice(0, MAX_SUGGESTIONS)
+    : [];
+  const insightSummary = toText(obj.insightSummary) || null;
+  const metaParsed = enrichMetaSchema.safeParse(obj.meta);
+
+  return {
+    questions,
+    suggestions,
+    insightSummary,
+    meta: metaParsed.success ? metaParsed.data : undefined,
+  };
+}
+
+function contextHash(payload: unknown): string {
+  return createHash("sha1").update(JSON.stringify(payload)).digest("hex").slice(0, 12);
+}
+
 // ── Main handler ────────────────────────────────────────────────────
 
 export async function POST(req: Request) {
@@ -84,9 +227,9 @@ export async function POST(req: Request) {
         );
       }
 
-      const { step, data, scrapeUrl } = parsed.data;
+      const { mode, step, data, scrapeUrl } = parsed.data;
 
-      debugLog("WIZARD", "Enrich request", { step, industry: data.industry, scrapeUrl });
+      debugLog("WIZARD", "Enrich request", { mode, step, industry: data.industry, scrapeUrl });
 
       // Check credits (wizard enrich costs 11 credits)
       const creditCheck = await prepareCredits(req, "wizard.enrich");
@@ -141,15 +284,21 @@ export async function POST(req: Request) {
 
       // ── Build compact prompt ────────────────────────────────────
       const industryLabel = INDUSTRY_CONTEXT[data.industry] || data.industry || "företag";
+      const followUpContext = Object.entries(data.previousFollowUps)
+        .filter(([, value]) => value.trim().length > 0)
+        .slice(0, 8)
+        .map(([key, value]) => `${key}: ${value.trim()}`);
 
       const contextLines = [
         `Bransch: ${industryLabel}`,
         data.companyName ? `Företag: ${data.companyName}` : null,
         data.location ? `Plats: ${data.location}` : null,
+        data.inspirationSites.length ? `Inspiration: ${data.inspirationSites.join(", ")}` : null,
         data.purposes.length ? `Mål: ${data.purposes.join(", ")}` : null,
         data.targetAudience ? `Målgrupp: ${data.targetAudience}` : null,
         data.usp ? `USP: ${data.usp}` : null,
         scrapedData?.title ? `Befintlig sajt: "${scrapedData.title}" (${scrapedData.wordCount || 0} ord)` : null,
+        followUpContext.length ? `Tidigare följdsvar: ${followUpContext.join(" | ")}` : null,
       ].filter(Boolean).join(". ");
 
       const stepFocus: Record<number, string> = {
@@ -160,18 +309,33 @@ export async function POST(req: Request) {
         5: "tidsplan, integrationer (bokning, betalning, e-post), budget",
       };
 
-      // Single compact prompt -- no system message for speed
-      const prompt = `Du hjälper en svensk företagare bygga hemsida. Svara BARA med JSON.
+      const prompt =
+        mode === "final_check"
+          ? `Du hjälper en svensk företagare bygga hemsida. Svara BARA med JSON.
+
+Kontext: ${contextLines}
+Läge: Slutkontroll före slutprompt. Fokusera på oklarheter och risker.
+
+Ge exakt detta JSON-format (inget annat):
+{"questions":[{"id":"clarify1","text":"Fråga på svenska","type":"text","priority":"high"}],"suggestions":[],"insightSummary":"Kort summering","meta":{"confidence":0.0,"needsClarification":true,"unknowns":["oklarhet"],"priority":"high"}}
+
+Regler:
+- 0-3 frågor, bara om något är oklart
+- Frågor ska vara korta, konkreta och direkt avgörande
+- Om underlaget är tydligt: returnera questions:[] och needsClarification:false
+- Bara JSON, inget annat`
+          : `Du hjälper en svensk företagare bygga hemsida. Svara BARA med JSON.
 
 Kontext: ${contextLines}
 Steg ${step}/5 - fokus: ${stepFocus[step] || ""}
 
 Ge exakt detta JSON-format (inget annat):
-{"questions":[{"id":"q1","text":"Fråga på svenska","type":"text"},{"id":"q2","text":"Fråga 2","type":"select","options":["Alt 1","Alt 2","Alt 3"]}],"suggestions":[{"type":"feature","text":"Förslag på svenska"}]}
+{"questions":[{"id":"q1","text":"Fråga på svenska","type":"text","priority":"medium"},{"id":"q2","text":"Fråga 2","type":"select","options":["Alt 1","Alt 2","Alt 3"]}],"suggestions":[{"type":"feature","text":"Förslag på svenska"}],"insightSummary":"Kort sammanfattning","meta":{"confidence":0.0,"needsClarification":false,"unknowns":[],"priority":"medium"}}
 
 Regler:
 - 2 frågor max, korta och specifika för ${industryLabel}
 - 1-2 förslag (type: feature/usp/trend)
+- Använd previousFollowUps för att undvika upprepade frågor
 - Allt på svenska
 - Bara JSON, inget annat`;
 
@@ -182,38 +346,52 @@ Regler:
         providerOptions: {
           gateway: {
             models: ["openai/gpt-5.2", "anthropic/claude-sonnet-4.5"],
-          } as any,
+          },
         },
-        maxOutputTokens: 400,
+        maxOutputTokens: mode === "final_check" ? 520 : 420,
       });
 
       // Parse JSON from response
-      let parsed_response: {
-        questions?: Array<{
-          id: string;
-          text: string;
-          type: string;
-          options?: string[];
-          placeholder?: string;
-        }>;
-        suggestions?: Array<{ type: string; text: string }>;
-        insightSummary?: string;
-      } = { questions: [], suggestions: [] };
+      let parsedResponse: unknown = {};
 
       try {
         const text = result.text?.trim() || "";
         // Extract JSON from response (handle markdown code fences)
         const jsonMatch = text.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
-          parsed_response = JSON.parse(jsonMatch[0]);
+          parsedResponse = JSON.parse(jsonMatch[0]);
         }
       } catch {
         debugLog("WIZARD", "Failed to parse enrich JSON, using empty response");
       }
 
+      const normalized = normalizeResponse(parsedResponse);
+      const responsePayload = {
+        questions: normalized.questions || [],
+        suggestions: normalized.suggestions || [],
+        insightSummary: normalized.insightSummary || null,
+        meta: normalized.meta || {
+          confidence: normalized.questions?.length ? 0.55 : 0.8,
+          needsClarification: mode === "final_check" ? normalized.questions.length > 0 : false,
+          unknowns: [],
+          priority: normalized.questions.some((q) => q.priority === "high") ? "high" : "medium",
+        },
+        scrapedData,
+        contextHash: contextHash({
+          mode,
+          step,
+          industry: data.industry,
+          purposes: data.purposes,
+          previousFollowUps: Object.keys(data.previousFollowUps).length,
+          scrapeUrl: scrapeUrl || null,
+        }),
+      };
+
       debugLog("WIZARD", "Enrich response generated", {
-        questionCount: parsed_response.questions?.length || 0,
-        suggestionCount: parsed_response.suggestions?.length || 0,
+        mode,
+        questionCount: responsePayload.questions.length,
+        suggestionCount: responsePayload.suggestions.length,
+        needsClarification: responsePayload.meta?.needsClarification || false,
       });
 
       // Charge credits after successful generation
@@ -223,12 +401,7 @@ Regler:
         console.error("[credits] Failed to charge wizard enrich:", error);
       }
 
-      return NextResponse.json({
-        questions: parsed_response.questions || [],
-        suggestions: parsed_response.suggestions || [],
-        insightSummary: parsed_response.insightSummary || null,
-        scrapedData,
-      });
+      return NextResponse.json(responsePayload);
     } catch (err) {
       errorLog("WIZARD", "Enrich error", err);
       return NextResponse.json(
@@ -236,6 +409,12 @@ Regler:
           error: err instanceof Error ? err.message : "Unknown error",
           questions: [],
           suggestions: [],
+          meta: {
+            confidence: 0.4,
+            needsClarification: false,
+            unknowns: [],
+            priority: "medium",
+          },
         },
         { status: 500 },
       );

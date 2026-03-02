@@ -14,11 +14,13 @@ import { ThinkingOverlay } from "@/components/builder/ThinkingOverlay";
 import { RequireAuthModal } from "@/components/auth";
 import { useAuthStore } from "@/lib/auth/auth-store";
 import { cn } from "@/lib/utils";
+import { useState } from "react";
 import { BuilderLayout } from "./BuilderLayout";
 import type { BuilderViewModel } from "./useBuilderPageController";
 
 export function BuilderShellContent(vm: BuilderViewModel) {
   const isBusy = vm.isCreatingChat || vm.isAnyStreaming || vm.isTemplateLoading || vm.isPreparingPrompt;
+  const [isFigmaInputOpen, setIsFigmaInputOpen] = useState(false);
 
   return (
     <BuilderLayout chatId={vm.chatId} versionId={vm.activeVersionId}>
@@ -47,6 +49,8 @@ export function BuilderShellContent(vm: BuilderViewModel) {
         onEnableBlobMediaChange={vm.setEnableBlobMedia}
         showStructuredChat={vm.showStructuredChat}
         onShowStructuredChatChange={vm.setShowStructuredChat}
+        isFigmaInputOpen={isFigmaInputOpen}
+        onToggleFigmaInput={() => setIsFigmaInputOpen((value) => !value)}
         chatId={vm.chatId}
         activeVersionId={vm.activeVersionId}
         onOpenImport={() => {
@@ -97,6 +101,8 @@ export function BuilderShellContent(vm: BuilderViewModel) {
             designTheme={vm.designTheme}
             onDesignThemeChange={vm.setDesignTheme}
             onEnhancePrompt={vm.handlePromptEnhance}
+            isFigmaInputOpen={isFigmaInputOpen}
+            onFigmaInputOpenChange={setIsFigmaInputOpen}
             isBusy={isBusy}
             isPreparingPrompt={vm.isPreparingPrompt}
             mediaEnabled={vm.mediaEnabled}

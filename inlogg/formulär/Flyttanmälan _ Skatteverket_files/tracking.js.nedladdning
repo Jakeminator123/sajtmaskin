@@ -1,0 +1,56 @@
+(function (root) {
+  let allCookies = {};
+  if (document.cookie) {
+    allCookies = document.cookie.split(/\s*;\s*/).reduce((memo, x) => {
+      const [key, value] = x.split(/=(.*)/, 2);
+      return {
+        ...memo,
+        [key]: decodeURIComponent(value),
+      };
+    }, {});
+  }
+  const cookie = allCookies['SKVCookieAllow'];
+  const settingsAllowed = cookie?.split(',').some((c) => c === 'settings') ?? false;
+  const statisticsAllowed = cookie?.split(',').some((c) => c === 'statistics') ?? false;
+
+  const cookies = {
+    allowStatistics: statisticsAllowed,
+    allowSettings: settingsAllowed,
+  };
+
+  if (cookies.allowStatistics) {
+    init();
+  } else {
+    root.addEventListener('FinCookiesAllowStatistics', function (e) {
+      if (e.detail) {
+        init();
+      }
+    });
+  }
+
+  function init() {
+    root._paq = root._paq || [];
+    var _paq = root._paq;
+    _paq.push([
+      'setDomains',
+      ['*.skatteverket.se', '*.funktionstjanster.se', '*.sso.skatteverket.se', '*.www.skatteverket.se'],
+    ]);
+    _paq.push(['enableCrossDomainLinking']);
+    _paq.push(['setDoNotTrack', true]);
+    _paq.push(['enableHeartBeatTimer']);
+    _paq.push(['enableLinkTracking']);
+    _paq.push(['setReferrerUrl', '']);
+    _paq.push(['HeatmapSessionRecording::disable']);
+    var url = "//matomo.skv.analys.cloud/";
+    _paq.push(['setTrackerUrl', url + 'matomo.php']);
+    _paq.push(['setSiteId', '40']);
+    var d = document,
+      g = d.createElement('script'),
+      s = d.getElementsByTagName('script')[0];
+    g.type = 'text/javascript';
+    g.async = true;
+    g.defer = true;
+    g.src = url + 'matomo.js';
+    s.parentNode.insertBefore(g, s);
+  }
+})(window);

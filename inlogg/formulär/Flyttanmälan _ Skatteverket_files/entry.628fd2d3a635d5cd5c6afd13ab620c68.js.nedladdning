@@ -1,0 +1,18 @@
+
+(function() {
+
+  if (window.WebComponents && window.WebComponents.ready) {
+    loadScripts();
+  } else {
+    window.addEventListener('WebComponentsReady', loadScripts);
+  }
+
+  function loadScripts() {
+    window.removeEventListener('WebComponentsReady', loadScripts);
+    var script1 = document.createElement('script');
+    script1.src = '/portal/static/main.D61aIJwU.js';
+    script1.async = false;
+    script1.type = 'module';
+    document.head.appendChild(script1);
+  }
+})();

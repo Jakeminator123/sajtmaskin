@@ -33,6 +33,7 @@
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
+  animation-name: landing-v2-shader-float-centered;
   animation-duration: 35s;
   animation-delay: -10s;
 }
@@ -116,19 +117,20 @@
   transform-style: preserve-3d;
   transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
   box-shadow:
-    0 1px 3px rgba(0, 0, 0, 0.1),
-    0 2px 6px rgba(0, 0, 0, 0.08),
-    0 0 0 1px rgba(255, 255, 255, 0.08);
+    0 1px 3px rgba(0, 0, 0, 0.15),
+    0 2px 8px rgba(0, 0, 0, 0.12),
+    0 0 0 1px rgba(255, 255, 255, 0.06),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
 }
 
 .card-3d:hover {
-  transform: translateY(-6px) rotateX(2deg);
+  transform: translateY(-8px) rotateX(2deg) scale(1.01);
   box-shadow:
-    0 4px 8px rgba(0, 0, 0, 0.12),
-    0 8px 16px rgba(0, 0, 0, 0.1),
-    0 0 16px rgba(0, 0, 0, 0.06),
-    0 0 0 1px rgba(255, 255, 255, 0.15),
-    0 0 24px rgba(255, 255, 255, 0.1);
+    0 8px 16px rgba(0, 0, 0, 0.2),
+    0 16px 32px rgba(0, 0, 0, 0.15),
+    0 0 0 1px rgba(45, 212, 191, 0.15),
+    0 0 40px rgba(45, 212, 191, 0.04),
+    inset 0 1px 0 rgba(255, 255, 255, 0.06);
 }
 
 .input-3d {
@@ -183,6 +185,22 @@
   }
   75% {
     transform: translate(40px, 30px) scale(1.05);
+  }
+}
+
+@keyframes landing-v2-shader-float-centered {
+  0%,
+  100% {
+    transform: translate(-50%, -50%) scale(1);
+  }
+  25% {
+    transform: translate(calc(-50% + 50px), calc(-50% - 50px)) scale(1.1);
+  }
+  50% {
+    transform: translate(calc(-50% - 30px), calc(-50% + 40px)) scale(0.95);
+  }
+  75% {
+    transform: translate(calc(-50% + 40px), calc(-50% + 30px)) scale(1.05);
   }
 }
 
@@ -283,4 +301,81 @@
     transform: translateY(12px) scale(0);
     opacity: 0;
   }
+}
+
+/* ── Wireframe 3D shape animations ── */
+@keyframes wf-spin-kf {
+  from { transform: rotateX(0deg) rotateY(0deg); }
+  to { transform: rotateX(360deg) rotateY(360deg); }
+}
+@keyframes wf-spin-reverse-kf {
+  from { transform: rotateX(360deg) rotateY(0deg); }
+  to { transform: rotateX(0deg) rotateY(360deg); }
+}
+@keyframes wf-spin-diamond-kf {
+  from { transform: rotateX(45deg) rotateZ(45deg) rotateY(0deg); }
+  to { transform: rotateX(45deg) rotateZ(45deg) rotateY(360deg); }
+}
+@keyframes wf-spin-slow-kf {
+  from { transform: rotateY(0deg) rotateX(15deg); }
+  to { transform: rotateY(360deg) rotateX(15deg); }
+}
+@keyframes wf-spin-fast-kf {
+  from { transform: rotateX(0deg) rotateY(0deg) rotateZ(0deg); }
+  to { transform: rotateX(360deg) rotateY(720deg) rotateZ(360deg); }
+}
+@keyframes wf-spin-pulse-kf {
+  0% { transform: rotateX(0deg) rotateY(0deg) scale(1); }
+  25% { transform: rotateX(90deg) rotateY(90deg) scale(1.06); }
+  50% { transform: rotateX(180deg) rotateY(180deg) scale(0.94); }
+  75% { transform: rotateX(270deg) rotateY(270deg) scale(1.06); }
+  100% { transform: rotateX(360deg) rotateY(360deg) scale(1); }
+}
+@keyframes float-particle-kf {
+  0%, 100% { transform: translateY(0) translateX(0); opacity: 0.3; }
+  25% { transform: translateY(-18px) translateX(8px); opacity: 0.7; }
+  50% { transform: translateY(-4px) translateX(-12px); opacity: 0.5; }
+  75% { transform: translateY(-22px) translateX(4px); opacity: 0.4; }
+}
+@keyframes scan-line-kf {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(200%); }
+}
+@keyframes modal-content-enter-kf {
+  from { opacity: 0; transform: scale(0.95) translateY(14px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+@keyframes modal-backdrop-enter-kf {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.wf-spin { transform-style: preserve-3d; animation: wf-spin-kf 20s linear infinite; }
+.wf-spin-reverse { transform-style: preserve-3d; animation: wf-spin-reverse-kf 15s linear infinite; }
+.wf-spin-diamond { transform-style: preserve-3d; animation: wf-spin-diamond-kf 18s linear infinite; }
+.wf-spin-slow { transform-style: preserve-3d; animation: wf-spin-slow-kf 30s linear infinite; }
+.wf-spin-slow-offset { transform-style: preserve-3d; animation: wf-spin-slow-kf 25s linear infinite reverse; }
+.wf-spin-fast { transform-style: preserve-3d; animation: wf-spin-fast-kf 10s linear infinite; }
+.wf-spin-pulse { transform-style: preserve-3d; animation: wf-spin-pulse-kf 20s ease-in-out infinite; }
+
+.modal-scan-line {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    transparent 0%,
+    oklch(0.72 0.15 192 / 0.04) 45%,
+    oklch(0.72 0.15 192 / 0.08) 50%,
+    oklch(0.72 0.15 192 / 0.04) 55%,
+    transparent 100%
+  );
+  animation: scan-line-kf 4s linear infinite;
+  pointer-events: none;
+}
+
+.modal-content-enter {
+  animation: modal-content-enter-kf 0.35s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.modal-backdrop-enter {
+  animation: modal-backdrop-enter-kf 0.25s ease-out both;
 }

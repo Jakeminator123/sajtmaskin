@@ -31,3 +31,25 @@ Designprincip:
 - Kort och exakt. Peka till kod, duplicera inte logik.
 - Inga hemligheter eller nyckelvarden i texten, men kan skrivas i chatten och användas fritt där och i "env"-filer.
 - Teknisk standard och sprakregel ligger i DEFAULT_CUSTOM_INSTRUCTIONS (src/lib/builder/defaults.ts).
+
+Wizard enrich (2026-03):
+- Endpoint: POST /api/wizard/enrich
+- Request:
+  - mode: "step" | "final_check" (default "step")
+  - step: 1..5
+  - data:
+    - companyName, industry, location, existingWebsite
+    - inspirationSites[]
+    - purposes[], targetAudience, usp, selectedVibe, specialWishes
+    - previousFollowUps: Record<string,string>
+  - scrapeUrl?: string
+- Response:
+  - questions[]: { id, text, type, options?, placeholder?, priority?, dependsOn? }
+  - suggestions[]: { type, text }
+  - insightSummary?: string | null
+  - meta?: { confidence?, needsClarification?, unknowns?, priority? }
+  - scrapedData?: { title?, description?, headings?, wordCount?, hasImages?, textSummary? }
+  - contextHash?: string
+- Not:
+  - mode=final_check anvands for AI-klargoranden innan slutbrief i wizardn.
+  - previousFollowUps ska alltid beaktas for att undvika repetitiva fragor.

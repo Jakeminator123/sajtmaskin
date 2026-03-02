@@ -1,0 +1,61 @@
+Kort svar
+Nej, “vi är transparenta i ToS” räcker inte i sig.
+Ni behöver rättslig grund enligt GDPR, dataminimering, retention, säkerhet, och avtalsenlig användning av BankID/Skatteverkets tjänster.
+I nuvarande upplägg loggas persondata och auth-data i klartext, vilket är hög risk.
+Vad som kan vara olagligt (eller klart riskfyllt)
+1) GDPR-brott (mest sannolikt i ert nuvarande upplägg)
+IMY säger att behandling utan rättslig grund är olaglig och att loggning måste vara proportionerlig/minimerad.
+I er implementation loggas bl.a. fulla response-bodies från auth/API:
+I skv3.py loggas JSON-body direkt i on_response via _log_qr_data("RESPONSE", ...) i skv3.py.
+I skv3_qr_log.txt finns identifierande uppgifter (namn + personnummer), t.ex. skv_username och skv_user i skv3_qr_log.txt.
+Detta kan bryta mot:
+rättslig grund (GDPR art. 6),
+uppgiftsminimering och lagringsminimering (GDPR art. 5),
+privacy by default/design (GDPR art. 25).
+2) Obehörig åtkomst kan bli dataintrång
+Dataintrång i svensk rätt kräver “olovlig” åtkomst/manipulation. Om automation sker utan giltigt mandat från kontoinnehavare/systemägare finns straffrättslig risk.
+3) Brott mot BankID/Skatteverket-villkor (ofta civilrättsligt)
+Även om inte alltid straffrätt kan det vara avtalsbrott:
+avstängning,
+uppsägning av integration/tjänst,
+skadeståndsanspråk.
+Vad krävs för att det ska vara “okej”
+Minimikrav (compliance-gate innan drift)
+Rättslig grund per datatyp (inte bara generell ToS-text).
+Dataminimering i kod:
+logga inte fulla response-bodies,
+logga inte personnummer, namn, autostarttoken, full bankid://-URL.
+Retention-policy:
+kort TTL (t.ex. dagar, inte “tills vidare”),
+automatisk gallring.
+Åtkomstkontroll:
+begränsad läsning av loggar,
+revisionsspår på loggåtkomst.
+Säker lagring:
+kryptering i vila,
+skyddad filrättighet.
+Transparens + rättigheter:
+exakt info om vad som loggas, varför, hur länge,
+process för registerutdrag/radering/invändning.
+DPIA om hög risk föreligger.
+Avtalsstöd:
+verifiera att BankID/Skatteverket-flödet får automatiseras på detta sätt.
+Workarounds med lägre juridisk risk
+Gå från innehållsloggning till händelseloggning:
+timestamp, endpoint-kategori, statuskod, intern anonym sessionshash.
+Maskning/pseudonymisering:
+personnummer → hash/trunkering,
+token → aldrig i klartext.
+Allowlist för loggning:
+endast tekniska endpoints, aldrig userinfo/profilsvar.
+Korta retentiontider och automatiserad rensning.
+Separera test/prod:
+inga riktiga personuppgifter i testloggar.
+Officiella integrationsvägar:
+där möjligt, använd avtalat API istället för UI-automation.
+Viktig osäkerhet (ärligt läge)
+Jag hittar starka offentliga källor för GDPR/IMY och dataintrång, men fullständiga BankID/Skatteverket-avtal för exakt just ert användningsfall är inte fullt maskinläsbart via öppna sidor här.
+Så den enda säkra “go/no-go”-nivån kräver att ni:
+1) läser era faktiska avtal/villkor, och
+2) gör en juridisk avstämning (intern jurist/dataskyddsombud).
+Om du vill kan jag nästa steg ge dig en konkret “måste stoppas nu / kan behållas med ändring / OK”-lista direkt mot ert nuvarande skv3.py-beteende.

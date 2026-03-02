@@ -24,7 +24,7 @@ import {
   Server,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { useState, useRef, useEffect, useCallback, type MouseEvent as ReactMouseEvent } from "react"
+import { useState, useRef, useEffect, useCallback, useMemo, type MouseEvent as ReactMouseEvent } from "react"
 import { useRouter } from "next/navigation"
 import type { BuildIntent, BuildMethod } from "@/lib/builder/build-intent"
 import { createProject } from "@/lib/project-client"
@@ -156,42 +156,116 @@ function resolveRouteTarget(categoryId: string | null): LandingRouteTarget {
   }
 }
 
+type ShapeVariant = "double" | "diamond" | "grid" | "triple" | "fast" | "pulse"
+
 const features = [
   {
     icon: Code2,
     title: "React & Next.js",
     description:
       "Varje sajt byggs med React 19 och Next.js 16 \u2014 samma ramverk som Spotify, Netflix och Klarna anv\u00e4nder. Snabbt, s\u00f6kv\u00e4nligt och framtidss\u00e4kert.",
+    shape: "double" as ShapeVariant,
+    modalSubtitle: "Ramverket bakom moderna webben",
+    modalDescription:
+      "React 19 och Next.js 16 utg\u00f6r ryggraden i varje sajt vi genererar. Server Components renderar sidan p\u00e5 servern f\u00f6r blixtsnabb laddtid, medan klientkomponenter ger interaktivitet utan overhead.",
+    highlights: [
+      "React 19 Server Components \u2014 HTML streamas direkt, JS skickas bara vid behov",
+      "Next.js 16 App Router med layouter, laddningsstates och felgr\u00e4nser",
+      "Inkrementell statisk regenerering (ISR) \u2014 statisk snabbhet, dynamisk fr\u00e4sch\u00f6r",
+      "Automatisk koddelning per route och komponent",
+    ],
+    codeFile: "next.config.ts",
+    codeSnippet: `import type { NextConfig } from "next"\n\nconst config: NextConfig = {\n  reactStrictMode: true,\n  images: { formats: ["image/avif", "image/webp"] },\n  experimental: { ppr: true },\n}\nexport default config`,
   },
   {
     icon: Server,
     title: "Node.js & Edge Functions",
     description:
       "Serverledd rendering och edge-funktioner som k\u00f6rs p\u00e5 Vercel. Din sajt laddas blixtsnabbt oavsett var i Sverige dina kunder befinner sig.",
+    shape: "diamond" as ShapeVariant,
+    modalSubtitle: "Millisekunder till din kund",
+    modalDescription:
+      "Edge Functions k\u00f6rs p\u00e5 Vercels globala n\u00e4tverk med noder i Stockholm och hela Europa. Cold start under 50ms inneb\u00e4r att din sajt alltid svarar snabbt \u2014 oavsett var bes\u00f6karen befinner sig.",
+    highlights: [
+      "Vercel Edge Runtime \u2014 < 50ms kall-start globalt",
+      "Automatisk geo-routing till n\u00e4rmaste datacenter",
+      "Streaming SSR f\u00f6r progressiv rendering av stora sidor",
+      "Edge Middleware f\u00f6r auth, redirects och A/B-tester",
+    ],
+    codeFile: "middleware.ts",
+    codeSnippet: `import { NextResponse } from "next/server"\nimport type { NextRequest } from "next/server"\n\nexport function middleware(req: NextRequest) {\n  const country = req.geo?.country ?? "SE"\n  const res = NextResponse.next()\n  res.headers.set("x-geo", country)\n  return res\n}`,
   },
   {
     icon: Layers,
     title: "Tailwind CSS & Headless UI",
     description:
       "Pixel-perfekt design med Tailwind CSS v4 och tillg\u00e4ngliga komponenter. Responsivt p\u00e5 alla sk\u00e4rmar, fr\u00e5n mobil till widescreen.",
+    shape: "grid" as ShapeVariant,
+    modalSubtitle: "Design utan kompromisser",
+    modalDescription:
+      "Tailwind CSS v4 med JIT-kompilering ger pixel-perfekt kontroll utan att skeppa oanv\u00e4nd CSS. Kombinerat med Headless UI f\u00e5r du tillg\u00e4ngliga, ostylda komponenter som du kan forma helt fritt.",
+    highlights: [
+      "Tailwind CSS v4 \u2014 JIT-kompilering, noll oanv\u00e4nd CSS i produktion",
+      "Design tokens och custom themes f\u00f6r konsekvent varum\u00e4rke",
+      "Headless UI-komponenter med inbyggd ARIA och tangentbordsnavigering",
+      "Mobile-first responsive design \u2014 fungerar perfekt p\u00e5 alla sk\u00e4rmar",
+    ],
+    codeFile: "button.tsx",
+    codeSnippet: `import { cva } from "class-variance-authority"\n\nconst button = cva(\n  "inline-flex items-center justify-center rounded-lg " +\n  "font-medium transition-colors focus-visible:ring-2",\n  {\n    variants: {\n      variant: {\n        primary: "bg-primary text-primary-foreground",\n        outline: "border border-border bg-transparent",\n      },\n    },\n  }\n)`,
   },
   {
     icon: ShieldCheck,
     title: "TypeScript & Zod-validering",
     description:
       "Typs\u00e4ker kod genomg\u00e5ende med TypeScript och Zod. F\u00e4rre buggar, s\u00e4krare formul\u00e4r och robust datahantering fr\u00e5n dag ett.",
+    shape: "triple" as ShapeVariant,
+    modalSubtitle: "Typs\u00e4kerhet i varje lager",
+    modalDescription:
+      "Med TypeScript i strict mode och Zod-schemas f\u00e5ngas fel redan vid kompilering \u2014 inte i produktion. Fr\u00e5n databasschema till API-respons till formul\u00e4rvalidering: varje steg \u00e4r typat.",
+    highlights: [
+      "TypeScript strict mode \u2014 inga implicit any, inga null-krascher",
+      "Zod-schemas validerar all indata p\u00e5 server och klient",
+      "End-to-end typs\u00e4kerhet: Prisma \u2192 tRPC/API \u2192 React-formul\u00e4r",
+      "Automatisk TypeScript-generering fr\u00e5n API-kontrakt",
+    ],
+    codeFile: "schema.ts",
+    codeSnippet: `import { z } from "zod"\n\nexport const contactSchema = z.object({\n  name: z.string().min(2, "Namn kr\u00e4vs"),\n  email: z.string().email("Ogiltig e-post"),\n  phone: z.string()\n    .regex(/^\\\\+?[\\\\d\\\\s-]{7,}$/, "Ogiltigt nummer")\n    .optional(),\n  message: z.string().min(10, "Minst 10 tecken"),\n})\n\nexport type ContactForm = z.infer<typeof contactSchema>`,
   },
   {
     icon: Gauge,
     title: "Lighthouse 100/100",
     description:
       "Inbyggd s\u00f6kmotoroptimering, tillg\u00e4nglighet (WCAG 2.1) och prestanda-optimering. Varje sajt siktar p\u00e5 gr\u00f6nt i alla Lighthouse-kategorier.",
+    shape: "fast" as ShapeVariant,
+    modalSubtitle: "Gr\u00f6nt i alla kategorier",
+    modalDescription:
+      "Lighthouse m\u00e4ter prestanda, tillg\u00e4nglighet, SEO och best practices. V\u00e5ra sajter siktar p\u00e5 95+ i varje kategori \u2014 inte genom tricks, utan genom r\u00e4tt arkitektur fr\u00e5n start.",
+    highlights: [
+      "Core Web Vitals: LCP < 1.2s, INP < 200ms, CLS < 0.1",
+      "Automatisk bildoptimering med next/image och AVIF/WebP",
+      "WCAG 2.1 AA-tillg\u00e4nglighet \u2014 semantisk HTML, ARIA, kontrastcheck",
+      "Strukturerad data (JSON-LD) och optimerade meta-taggar f\u00f6r SEO",
+    ],
+    codeFile: "layout.tsx",
+    codeSnippet: `import type { Metadata } from "next"\n\nexport const metadata: Metadata = {\n  title: "Mitt F\u00f6retag | Professionella tj\u00e4nster",\n  openGraph: {\n    type: "website",\n    locale: "sv_SE",\n    images: [{ url: "/og.png", width: 1200, height: 630 }],\n  },\n  robots: { index: true, follow: true },\n}`,
   },
   {
     icon: Smartphone,
     title: "PWA & Offline-redo",
     description:
       "Progressive Web App-st\u00f6d s\u00e5 att dina kunder kan installera sajten p\u00e5 mobilen. Push-notiser, offline-cache och app-k\u00e4nsla.",
+    shape: "pulse" as ShapeVariant,
+    modalSubtitle: "Appen utan App Store",
+    modalDescription:
+      "Med PWA-st\u00f6d kan dina bes\u00f6kare installera sajten som en app direkt fr\u00e5n webbl\u00e4saren. Service Workers hanterar caching och offline-st\u00f6d, medan Web Push API m\u00f6jligg\u00f6r notiser.",
+    highlights: [
+      "Service Worker med precaching av kritiska resurser",
+      "Web App Manifest \u2014 install\u00e9rbar direkt p\u00e5 hemsk\u00e4rmen",
+      "Push-notiser via Web Push API f\u00f6r kundengagemang",
+      "Offline-first strategi med stale-while-revalidate",
+    ],
+    codeFile: "manifest.json",
+    codeSnippet: `{\n  "name": "Mitt F\u00f6retag",\n  "short_name": "MittF\u00f6retag",\n  "start_url": "/",\n  "display": "standalone",\n  "background_color": "#0a0a0a",\n  "theme_color": "#2dd4bf",\n  "icons": [\n    { "src": "/icon-192.png", "sizes": "192x192" },\n    { "src": "/icon-512.png", "sizes": "512x512" }\n  ]\n}`,
   },
 ]
 
@@ -335,18 +409,308 @@ const trustLogos = [
   "Sonos",
 ]
 
-/* WordPress vs SajtMaskin comparison */
-const comparisonRows = [
-  { feature: "Laddtid (TTFB)", sajtmaskin: "< 50ms (Edge)", wordpress: "800ms\u20131.2s", winner: "sajtmaskin" },
-  { feature: "S\u00e4kerhetsuppdateringar", sajtmaskin: "Automatiskt via Vercel", wordpress: "Manuella plugins", winner: "sajtmaskin" },
-  { feature: "Hosting", sajtmaskin: "Global CDN, 99.99% uptime", wordpress: "Delad server, ok\u00e4nd uptime", winner: "sajtmaskin" },
-  { feature: "SEO-po\u00e4ng (Lighthouse)", sajtmaskin: "95\u2013100 / 100", wordpress: "40\u201370 / 100", winner: "sajtmaskin" },
-  { feature: "Responsiv design", sajtmaskin: "Mobile-first, inbyggt", wordpress: "Beror p\u00e5 tema", winner: "sajtmaskin" },
-  { feature: "Plugins & s\u00e4kerhet", sajtmaskin: "Inga plugins = ingen attackyta", wordpress: "Tusentals plugins = risk", winner: "sajtmaskin" },
-  { feature: "Kodbas", sajtmaskin: "React + TypeScript", wordpress: "PHP + jQuery", winner: "sajtmaskin" },
-  { feature: "Anpassningsbarhet", sajtmaskin: "Full frihet i koden", wordpress: "Begr\u00e4nsad av tema", winner: "sajtmaskin" },
-  { feature: "Pris f\u00f6r hosting", sajtmaskin: "Gratis (Vercel Hobby)", wordpress: "299\u2013599 kr/m\u00e5n", winner: "sajtmaskin" },
+type ComparisonParamKey =
+  | "devSpeed"
+  | "editorCms"
+  | "performance"
+  | "seo"
+  | "appCustomization"
+  | "scalability"
+  | "security"
+  | "maintenance"
+  | "cost"
+  | "ecosystem"
+
+type ComparisonScenarioId = "growth" | "editor" | "speed"
+
+type ComparisonParameter = {
+  key: ComparisonParamKey
+  label: string
+}
+
+type ComparisonMethod = {
+  key: string
+  label: string
+  bestFor: string
+  summary: string
+  strengths: string[]
+  caveats: string[]
+  scores: Record<ComparisonParamKey, number>
+}
+
+type ComparisonScenario = {
+  id: ComparisonScenarioId
+  label: string
+  description: string
+  weights: Record<ComparisonParamKey, number>
+}
+
+const comparisonParameters: ComparisonParameter[] = [
+  { key: "devSpeed", label: "Dev-hastighet" },
+  { key: "editorCms", label: "Redakt\u00f6r/CMS" },
+  { key: "performance", label: "Prestanda" },
+  { key: "seo", label: "SEO" },
+  { key: "appCustomization", label: "App-anpassning" },
+  { key: "scalability", label: "Skalbarhet" },
+  { key: "security", label: "S\u00e4kerhet" },
+  { key: "maintenance", label: "Underh\u00e5ll" },
+  { key: "cost", label: "Kostnad" },
+  { key: "ecosystem", label: "Ekosystem" },
 ]
+
+const comparisonScenarios: ComparisonScenario[] = [
+  {
+    id: "growth",
+    label: "Tillv\u00e4xt & m\u00e4tbarhet",
+    description:
+      "Viktning f\u00f6r sm\u00e5f\u00f6retag som vill v\u00e4xa med SEO, prestanda, integrationer och m\u00f6jlighet att bygga vidare till portal/app.",
+    weights: {
+      devSpeed: 8,
+      editorCms: 6,
+      performance: 14,
+      seo: 12,
+      appCustomization: 15,
+      scalability: 10,
+      security: 9,
+      maintenance: 8,
+      cost: 8,
+      ecosystem: 10,
+    },
+  },
+  {
+    id: "editor",
+    label: "Redakt\u00f6r & enkel drift",
+    description:
+      "Fokus p\u00e5 att redigera inneh\u00e5ll snabbt och h\u00e5lla nere teknisk komplexitet i vardagen f\u00f6r team utan utvecklare.",
+    weights: {
+      devSpeed: 12,
+      editorCms: 20,
+      performance: 10,
+      seo: 10,
+      appCustomization: 8,
+      scalability: 7,
+      security: 8,
+      maintenance: 12,
+      cost: 8,
+      ecosystem: 5,
+    },
+  },
+  {
+    id: "speed",
+    label: "Prestanda & framtidss\u00e4kring",
+    description:
+      "Tyngdpunkt p\u00e5 Core Web Vitals, s\u00e4kerhet och teknisk flexibilitet n\u00e4r sajten ska t\u00e5la avancerade funktioner \u00f6ver tid.",
+    weights: {
+      devSpeed: 6,
+      editorCms: 4,
+      performance: 18,
+      seo: 14,
+      appCustomization: 20,
+      scalability: 12,
+      security: 12,
+      maintenance: 6,
+      cost: 3,
+      ecosystem: 5,
+    },
+  },
+]
+
+const comparisonMethods: ComparisonMethod[] = [
+  {
+    key: "next",
+    label: "Next.js (React)",
+    bestFor: "F\u00f6retag som vill kombinera snabb sajt med framtida app-funktioner.",
+    summary: "Balanserar topprestanda, SEO och utvecklingsfrihet utan att l\u00e5sa fast aff\u00e4ren i ett plugin-ekosystem.",
+    strengths: ["Stark p\u00e5 prestanda och SEO", "H\u00f6g app-anpassning och skalbarhet", "Bra s\u00e4kerhetsniv\u00e5 med modern stack"],
+    caveats: ["Redakt\u00f6rsfl\u00f6de kr\u00e4ver ofta headless CMS eller anpassad admin"],
+    scores: {
+      devSpeed: 80,
+      editorCms: 65,
+      performance: 92,
+      seo: 92,
+      appCustomization: 95,
+      scalability: 90,
+      security: 88,
+      maintenance: 78,
+      cost: 70,
+      ecosystem: 90,
+    },
+  },
+  {
+    key: "headlessWpNext",
+    label: "Headless WordPress + Next.js",
+    bestFor: "Team som vill ha b\u00e5de redakt\u00f6rsgr\u00e4nssnitt och modern frontend.",
+    summary: "Vanlig hybrid n\u00e4r man vill beh\u00e5lla WordPress f\u00f6r content men f\u00e5 fart, SEO och UX fr\u00e5n Next.js.",
+    strengths: ["Mycket stark CMS-upplevelse", "N\u00e4stan samma frontend-f\u00f6rdelar som ren Next", "Stort ekosystem"],
+    caveats: ["Tv\u00e5 system att drifta ger h\u00f6gre underh\u00e5ll och mer komplex kostnadsbild"],
+    scores: {
+      devSpeed: 70,
+      editorCms: 95,
+      performance: 92,
+      seo: 92,
+      appCustomization: 92,
+      scalability: 88,
+      security: 80,
+      maintenance: 62,
+      cost: 60,
+      ecosystem: 92,
+    },
+  },
+  {
+    key: "static",
+    label: "Static (Astro/Hugo) + Git CMS",
+    bestFor: "Landningssidor med minimalt attackutrymme och mycket h\u00f6g fart.",
+    summary: "Ger extrem prestanda och l\u00e5g driftkostnad, men kr\u00e4ver mer struktur f\u00f6r inneh\u00e5llsarbete och app-funktioner.",
+    strengths: ["Mycket h\u00f6g prestanda och s\u00e4kerhet", "Skalar och driftar billigt", "Bra f\u00f6r SEO och statiskt inneh\u00e5ll"],
+    caveats: ["Svagare redakt\u00f6rsfl\u00f6de och mindre app-k\u00e4nsla utan extra setup"],
+    scores: {
+      devSpeed: 72,
+      editorCms: 60,
+      performance: 96,
+      seo: 92,
+      appCustomization: 70,
+      scalability: 96,
+      security: 96,
+      maintenance: 82,
+      cost: 85,
+      ecosystem: 75,
+    },
+  },
+  {
+    key: "shopify",
+    label: "Shopify",
+    bestFor: "F\u00f6retag d\u00e4r e-handel \u00e4r huvudfl\u00f6det fr\u00e5n dag ett.",
+    summary: "Stabil e-handelsplattform med snabb start, men mindre frihet och h\u00f6gre plattformskostnad \u00f6ver tid.",
+    strengths: ["V\u00e4ldigt stark f\u00f6r e-handel", "L\u00e5g driftfriktion", "H\u00f6g s\u00e4kerhet och bra ekosystem"],
+    caveats: ["Kostnad och anpassning styrs av Shopify-modellen"],
+    scores: {
+      devSpeed: 82,
+      editorCms: 88,
+      performance: 78,
+      seo: 82,
+      appCustomization: 75,
+      scalability: 88,
+      security: 92,
+      maintenance: 88,
+      cost: 55,
+      ecosystem: 92,
+    },
+  },
+  {
+    key: "mvc",
+    label: "Server-rendered MVC (Django/Laravel/Rails)",
+    bestFor: "Team med backendfokus som vill bygga funktionstunga system.",
+    summary: "Mogen och stabil modell f\u00f6r aff\u00e4rslogik, men mindre frontend-flexibilitet \u00e4n modern React/Next-stack.",
+    strengths: ["Bra app-logik och serverkontroll", "Mogen teknik med bred kompetens", "Stabil SEO med SSR"],
+    caveats: ["Kan bli l\u00e5ngsammare att iterera i UI/UX j\u00e4mf\u00f6rt med komponentbaserad frontend"],
+    scores: {
+      devSpeed: 70,
+      editorCms: 65,
+      performance: 82,
+      seo: 86,
+      appCustomization: 88,
+      scalability: 82,
+      security: 82,
+      maintenance: 78,
+      cost: 70,
+      ecosystem: 82,
+    },
+  },
+  {
+    key: "reactSpaNode",
+    label: "React SPA + Node API",
+    bestFor: "Produkter med app-beteende d\u00e4r SEO inte \u00e4r h\u00f6gsta prioritet.",
+    summary: "Mycket flexibel app-arkitektur, men tappar ofta SEO och initial prestanda j\u00e4mf\u00f6rt med SSR/SSG-first uppl\u00e4gg.",
+    strengths: ["Maximal frihet f\u00f6r interaktivitet", "Bra f\u00f6r dashboard/portal", "Skalar v\u00e4l med tydlig API-arkitektur"],
+    caveats: ["Svagare SEO om SSR saknas"],
+    scores: {
+      devSpeed: 70,
+      editorCms: 45,
+      performance: 85,
+      seo: 70,
+      appCustomization: 95,
+      scalability: 88,
+      security: 85,
+      maintenance: 72,
+      cost: 70,
+      ecosystem: 85,
+    },
+  },
+  {
+    key: "webflow",
+    label: "Webflow",
+    bestFor: "Designdrivna sajter som ska lanseras snabbt utan kodteam.",
+    summary: "Snabb v\u00e4g till snygg sajt och bra redigering, men mer begr\u00e4nsat n\u00e4r avancerad logik kr\u00e4vs.",
+    strengths: ["H\u00f6g dev-hastighet", "Bra redakt\u00f6rsfl\u00f6de", "L\u00e5g teknisk tr\u00f6skel i teamet"],
+    caveats: ["Mindre flexibilitet f\u00f6r komplex app-funktionalitet"],
+    scores: {
+      devSpeed: 88,
+      editorCms: 88,
+      performance: 78,
+      seo: 82,
+      appCustomization: 60,
+      scalability: 78,
+      security: 88,
+      maintenance: 88,
+      cost: 65,
+      ecosystem: 65,
+    },
+  },
+  {
+    key: "wordpress",
+    label: "WordPress (tema + plugins)",
+    bestFor: "Inneh\u00e5llstunga sajter med fokus p\u00e5 redakt\u00f6rsarbete framf\u00f6r produktlogik.",
+    summary: "Enorm spridning och CMS-styrka, men l\u00e5ngsiktigt kan plugin-beroenden ge prestanda- och s\u00e4kerhetsskuld.",
+    strengths: [
+      "V\u00e4ldigt stark CMS/redakt\u00f6r",
+      "Snabb start med teman/plugins",
+      "Stort ekosystem och h\u00f6g tillg\u00e5nglighet p\u00e5 kompetens",
+    ],
+    caveats: ["Prestanda, s\u00e4kerhet och underh\u00e5ll varierar kraftigt med plugin- och hostingsetup"],
+    scores: {
+      devSpeed: 85,
+      editorCms: 95,
+      performance: 60,
+      seo: 82,
+      appCustomization: 70,
+      scalability: 72,
+      security: 55,
+      maintenance: 60,
+      cost: 85,
+      ecosystem: 95,
+    },
+  },
+  {
+    key: "wixSquarespace",
+    label: "Wix / Squarespace",
+    bestFor: "Sm\u00e5 bolag som vill publicera snabbt med l\u00e5g teknisk komplexitet.",
+    summary: "V\u00e4ldigt enkelt att komma ig\u00e5ng, men begr\u00e4nsningar m\u00e4rks n\u00e4r kraven p\u00e5 unik funktionalitet \u00f6kar.",
+    strengths: ["Mycket snabb start", "L\u00e4tt att underh\u00e5lla", "F\u00f6ruts\u00e4gbar drift"],
+    caveats: ["L\u00e4gre tak f\u00f6r avancerad anpassning och skalning"],
+    scores: {
+      devSpeed: 92,
+      editorCms: 82,
+      performance: 68,
+      seo: 72,
+      appCustomization: 50,
+      scalability: 68,
+      security: 88,
+      maintenance: 92,
+      cost: 70,
+      ecosystem: 65,
+    },
+  },
+]
+
+function getComparisonScore(method: ComparisonMethod, scenario: ComparisonScenario): number {
+  const totalWeight = comparisonParameters.reduce((sum, parameter) => sum + scenario.weights[parameter.key], 0)
+  if (totalWeight === 0) return 0
+  const weightedTotal = comparisonParameters.reduce(
+    (sum, parameter) => sum + method.scores[parameter.key] * scenario.weights[parameter.key],
+    0,
+  )
+  return Math.round(weightedTotal / totalWeight)
+}
 
 const siteTypes = [
   "Restaurangsida",
@@ -437,6 +801,31 @@ function useRotatingText(items: string[], interval = 2400) {
   return { text: items[index], visible }
 }
 
+/* ──────────────────── SCROLL TRIGGER ──────────────────── */
+
+function useInView(threshold = 0.3) {
+  const ref = useRef<HTMLDivElement>(null)
+  const [visible, setVisible] = useState(false)
+
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setVisible(true)
+          observer.disconnect()
+        }
+      },
+      { threshold },
+    )
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [threshold])
+
+  return { ref, visible }
+}
+
 /* ──────────────────── FAQ ITEM ──────────────────── */
 
 function FaqItem({ q, a }: { q: string; a: string }) {
@@ -461,6 +850,504 @@ function FaqItem({ q, a }: { q: string; a: string }) {
   )
 }
 
+/* ──────────────────── 3D WIREFRAME COMPONENTS ──────────────────── */
+
+const modalParticles = [
+  { x: 22, y: 28, dur: 4.2, delay: -1.3 },
+  { x: 72, y: 18, dur: 3.7, delay: -0.5 },
+  { x: 38, y: 72, dur: 5.1, delay: -2.4 },
+  { x: 58, y: 35, dur: 3.9, delay: -1.8 },
+  { x: 28, y: 58, dur: 4.5, delay: -3.1 },
+  { x: 78, y: 62, dur: 3.3, delay: -0.9 },
+  { x: 48, y: 22, dur: 4.8, delay: -2.7 },
+  { x: 65, y: 78, dur: 3.6, delay: -1.6 },
+]
+
+type MeshProps = { size: number; className: string; borderOpacity?: number }
+
+function CubeMesh({ size, className, borderOpacity = 0.2 }: MeshProps) {
+  const half = size / 2
+  const face = (transform: string) => ({
+    position: "absolute" as const,
+    width: size,
+    height: size,
+    border: `1px solid oklch(0.72 0.15 192 / ${borderOpacity})`,
+    background: `oklch(0.72 0.15 192 / 0.02)`,
+    transform,
+  })
+  return (
+    <div
+      className={className}
+      style={{
+        width: size, height: size,
+        transformStyle: "preserve-3d" as const,
+        position: "absolute" as const,
+        left: "50%", top: "50%",
+        marginLeft: -half, marginTop: -half,
+      }}
+    >
+      <div style={face(`translateZ(${half}px)`)} />
+      <div style={face(`rotateY(180deg) translateZ(${half}px)`)} />
+      <div style={face(`rotateY(90deg) translateZ(${half}px)`)} />
+      <div style={face(`rotateY(-90deg) translateZ(${half}px)`)} />
+      <div style={face(`rotateX(90deg) translateZ(${half}px)`)} />
+      <div style={face(`rotateX(-90deg) translateZ(${half}px)`)} />
+    </div>
+  )
+}
+
+function SphereMesh({ size, className, borderOpacity = 0.2 }: MeshProps) {
+  const half = size / 2
+  const ring = (ry: number, rx = 0) => ({
+    position: "absolute" as const,
+    width: size, height: size,
+    borderRadius: "50%",
+    border: `1px solid oklch(0.72 0.15 192 / ${borderOpacity})`,
+    transform: `rotateY(${ry}deg) rotateX(${rx}deg)`,
+  })
+  return (
+    <div
+      className={className}
+      style={{
+        width: size, height: size,
+        transformStyle: "preserve-3d" as const,
+        position: "absolute" as const,
+        left: "50%", top: "50%",
+        marginLeft: -half, marginTop: -half,
+      }}
+    >
+      <div style={ring(0)} />
+      <div style={ring(60)} />
+      <div style={ring(120)} />
+      <div style={ring(0, 90)} />
+    </div>
+  )
+}
+
+function PyramidMesh({ size, className, borderOpacity = 0.2 }: MeshProps) {
+  const half = size / 2
+  const tri = (ry: number) => ({
+    position: "absolute" as const,
+    width: size, height: size,
+    clipPath: "polygon(50% 8%, 8% 92%, 92% 92%)",
+    background: `linear-gradient(to bottom, oklch(0.72 0.15 192 / ${borderOpacity * 0.6}), oklch(0.72 0.15 192 / ${borderOpacity * 0.08}))`,
+    transform: `rotateY(${ry}deg)`,
+  })
+  return (
+    <div
+      className={className}
+      style={{
+        width: size, height: size,
+        transformStyle: "preserve-3d" as const,
+        position: "absolute" as const,
+        left: "50%", top: "50%",
+        marginLeft: -half, marginTop: -half,
+      }}
+    >
+      <div style={tri(0)} />
+      <div style={tri(60)} />
+      <div style={tri(120)} />
+    </div>
+  )
+}
+
+function OctaMesh({ size, className, borderOpacity = 0.2 }: MeshProps) {
+  const half = size / 2
+  const diamond = (ry: number) => ({
+    position: "absolute" as const,
+    width: size, height: size,
+    clipPath: "polygon(50% 5%, 95% 50%, 50% 95%, 5% 50%)",
+    background: `linear-gradient(135deg, oklch(0.72 0.15 192 / ${borderOpacity * 0.5}), oklch(0.72 0.15 192 / ${borderOpacity * 0.08}))`,
+    transform: `rotateY(${ry}deg)`,
+  })
+  return (
+    <div
+      className={className}
+      style={{
+        width: size, height: size,
+        transformStyle: "preserve-3d" as const,
+        position: "absolute" as const,
+        left: "50%", top: "50%",
+        marginLeft: -half, marginTop: -half,
+      }}
+    >
+      <div style={diamond(0)} />
+      <div style={diamond(60)} />
+      <div style={diamond(120)} />
+    </div>
+  )
+}
+
+function RingMesh({ size, className, borderOpacity = 0.2 }: MeshProps) {
+  const half = size / 2
+  const s = size * 0.85
+  const pad = (size - s) / 2
+  const ring = (ry: number, rx: number) => ({
+    position: "absolute" as const,
+    width: s, height: s,
+    left: pad, top: pad,
+    borderRadius: "50%",
+    border: `1.5px solid oklch(0.72 0.15 192 / ${borderOpacity})`,
+    transform: `rotateY(${ry}deg) rotateX(${rx}deg)`,
+  })
+  return (
+    <div
+      className={className}
+      style={{
+        width: size, height: size,
+        transformStyle: "preserve-3d" as const,
+        position: "absolute" as const,
+        left: "50%", top: "50%",
+        marginLeft: -half, marginTop: -half,
+      }}
+    >
+      <div style={ring(0, 65)} />
+      <div style={ring(60, 65)} />
+      <div style={ring(120, 65)} />
+    </div>
+  )
+}
+
+function HexMesh({ size, className, borderOpacity = 0.2 }: MeshProps) {
+  const half = size / 2
+  const s = size * 0.85
+  const pad = (size - s) / 2
+  const hex = (z: number) => ({
+    position: "absolute" as const,
+    width: s, height: s,
+    left: pad, top: pad,
+    clipPath: "polygon(50% 0%, 100% 25%, 100% 75%, 50% 100%, 0% 75%, 0% 25%)",
+    background: `linear-gradient(135deg, oklch(0.72 0.15 192 / ${borderOpacity * 0.25}), oklch(0.72 0.15 192 / ${borderOpacity * 0.06}))`,
+    transform: `translateZ(${z}px)`,
+  })
+  return (
+    <div
+      className={className}
+      style={{
+        width: size, height: size,
+        transformStyle: "preserve-3d" as const,
+        position: "absolute" as const,
+        left: "50%", top: "50%",
+        marginLeft: -half, marginTop: -half,
+      }}
+    >
+      <div style={hex(size * 0.22)} />
+      <div style={hex(0)} />
+      <div style={hex(-size * 0.22)} />
+    </div>
+  )
+}
+
+function renderMiniShape(variant: ShapeVariant) {
+  switch (variant) {
+    case "double": return <CubeMesh size={44} className="wf-spin-slow" borderOpacity={0.8} />
+    case "diamond": return <SphereMesh size={50} className="wf-spin-slow" borderOpacity={0.6} />
+    case "grid": return <HexMesh size={48} className="wf-spin-slow" borderOpacity={0.7} />
+    case "triple": return <PyramidMesh size={50} className="wf-spin-slow" borderOpacity={0.7} />
+    case "fast": return <OctaMesh size={46} className="wf-spin-slow" borderOpacity={0.8} />
+    case "pulse": return <RingMesh size={50} className="wf-spin-slow" borderOpacity={0.6} />
+  }
+}
+
+function WireframeShape({ variant }: { variant: ShapeVariant }) {
+  const configs: Record<ShapeVariant, React.ReactNode> = {
+    double: (
+      <>
+        <CubeMesh size={120} className="wf-spin" borderOpacity={0.2} />
+        <CubeMesh size={68} className="wf-spin-reverse" borderOpacity={0.12} />
+      </>
+    ),
+    diamond: (
+      <>
+        <SphereMesh size={120} className="wf-spin-slow" borderOpacity={0.22} />
+        <SphereMesh size={70} className="wf-spin-reverse" borderOpacity={0.12} />
+      </>
+    ),
+    grid: (
+      <>
+        <HexMesh size={120} className="wf-spin-slow" borderOpacity={0.3} />
+        <HexMesh size={72} className="wf-spin-slow-offset" borderOpacity={0.15} />
+      </>
+    ),
+    triple: (
+      <>
+        <PyramidMesh size={130} className="wf-spin" borderOpacity={0.28} />
+        <PyramidMesh size={75} className="wf-spin-reverse" borderOpacity={0.15} />
+      </>
+    ),
+    fast: (
+      <>
+        <OctaMesh size={120} className="wf-spin-fast" borderOpacity={0.3} />
+        <OctaMesh size={65} className="wf-spin-reverse" borderOpacity={0.15} />
+      </>
+    ),
+    pulse: (
+      <>
+        <RingMesh size={120} className="wf-spin-pulse" borderOpacity={0.25} />
+        <RingMesh size={70} className="wf-spin-reverse" borderOpacity={0.12} />
+      </>
+    ),
+  }
+
+  return (
+    <div className="relative" style={{ width: 200, height: 200, perspective: 800 }}>
+      {configs[variant]}
+      <div className="absolute inset-0 rounded-full bg-primary/5 blur-3xl pointer-events-none" />
+    </div>
+  )
+}
+
+/* ──────────────────── ANIMATED BAR ──────────────────── */
+
+function AnimatedBar({
+  value,
+  max = 100,
+  delay = 0,
+  className,
+  barClass,
+}: {
+  value: number
+  max?: number
+  delay?: number
+  className?: string
+  barClass?: string
+}) {
+  const { ref, visible } = useInView(0.2)
+  const pct = Math.min((value / max) * 100, 100)
+  return (
+    <div ref={ref} className={`h-1.5 rounded-full bg-secondary/60 overflow-hidden ${className ?? ""}`}>
+      <div
+        className={`h-full rounded-full transition-all duration-1000 ease-out ${barClass ?? "bg-primary/70"}`}
+        style={{
+          width: visible ? `${pct}%` : "0%",
+          transitionDelay: `${delay}ms`,
+        }}
+      />
+    </div>
+  )
+}
+
+/* ──────────────────── LIGHTHOUSE GAUGES ──────────────────── */
+
+const lighthouseScores = [
+  { label: "Performance", score: 98 },
+  { label: "Tillg\u00e4nglighet", score: 100 },
+  { label: "Best Practices", score: 100 },
+  { label: "SEO", score: 100 },
+]
+
+function LighthouseGauges() {
+  const { ref, visible } = useInView(0.25)
+  return (
+    <div ref={ref} className="flex flex-wrap justify-center gap-8 md:gap-14 mt-14">
+      {lighthouseScores.map((item, i) => {
+        const r = 40
+        const c = 2 * Math.PI * r
+        const offset = c - (item.score / 100) * c
+        return (
+          <div key={item.label} className="flex flex-col items-center gap-3">
+            <div className="relative w-24 h-24">
+              <svg className="w-full h-full -rotate-90" viewBox="0 0 100 100">
+                <circle
+                  cx="50" cy="50" r={r}
+                  fill="none" stroke="oklch(0.15 0 0)" strokeWidth="3.5"
+                />
+                <circle
+                  cx="50" cy="50" r={r}
+                  fill="none"
+                  stroke="oklch(0.72 0.15 192)"
+                  strokeWidth="3.5"
+                  strokeLinecap="round"
+                  strokeDasharray={c}
+                  strokeDashoffset={visible ? offset : c}
+                  style={{
+                    transition: `stroke-dashoffset 1.5s cubic-bezier(0.4, 0, 0.2, 1) ${i * 0.2}s`,
+                  }}
+                />
+              </svg>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <span
+                  className={`text-xl font-(--font-heading) transition-all duration-700 ${visible ? "text-foreground opacity-100" : "text-muted-foreground opacity-0"}`}
+                  style={{ transitionDelay: `${i * 0.2 + 0.6}s` }}
+                >
+                  {item.score}
+                </span>
+              </div>
+            </div>
+            <span className="text-xs text-muted-foreground">{item.label}</span>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+/* ──────────────────── FEATURE CARD ──────────────────── */
+
+function FeatureCard({
+  feature,
+  onClick,
+  index = 0,
+}: {
+  feature: (typeof features)[number]
+  onClick: () => void
+  index?: number
+}) {
+  const { ref: scrollRef, visible: scrollVisible } = useInView(0.15)
+  const Icon = feature.icon
+
+  const handleMouse = useCallback((e: ReactMouseEvent<HTMLDivElement>) => {
+    const el = e.currentTarget
+    const rect = el.getBoundingClientRect()
+    el.style.setProperty("--glow-x", `${e.clientX - rect.left}px`)
+    el.style.setProperty("--glow-y", `${e.clientY - rect.top}px`)
+  }, [])
+
+  return (
+    <div
+      ref={scrollRef}
+      className={`card-3d group relative bg-card/50 backdrop-blur-sm rounded-2xl border border-border/20 p-6 flex flex-col gap-4 hover:border-primary/20 cursor-pointer overflow-hidden transition-all duration-700 ${scrollVisible ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"}`}
+      style={{ transitionDelay: `${index * 100}ms` }}
+      onClick={onClick}
+      onMouseMove={handleMouse}
+      role="button"
+      tabIndex={0}
+      onKeyDown={(e) => {
+        if (e.key === "Enter" || e.key === " ") onClick()
+      }}
+    >
+      {/* Mouse-follow radial glow */}
+      <div
+        className="pointer-events-none absolute inset-0 z-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300"
+        style={{
+          background:
+            "radial-gradient(250px circle at var(--glow-x, 50%) var(--glow-y, 50%), oklch(0.72 0.15 192 / 0.07) 0%, transparent 70%)",
+        }}
+      />
+
+      {/* Mini wireframe decoration — unique shape per card */}
+      <div
+        className="absolute -top-1 -right-1 opacity-[0.08] group-hover:opacity-[0.25] transition-opacity duration-700 pointer-events-none"
+        style={{ width: 80, height: 80, perspective: 400 }}
+      >
+        {renderMiniShape(feature.shape)}
+      </div>
+
+      <div className="relative z-10 w-11 h-11 rounded-xl bg-primary/8 border border-primary/15 flex items-center justify-center group-hover:bg-primary/12 group-hover:border-primary/25 transition-colors">
+        <Icon className="w-5 h-5 text-primary" />
+      </div>
+      <h3 className="relative z-10 text-base text-foreground font-(--font-heading)">
+        {feature.title}
+      </h3>
+      <p className="relative z-10 text-sm text-muted-foreground leading-relaxed">
+        {feature.description}
+      </p>
+      <span className="relative z-10 text-xs text-primary/60 group-hover:text-primary transition-colors mt-auto flex items-center gap-1">
+        L&auml;s mer <ArrowRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
+      </span>
+
+      {/* Bottom edge glow */}
+      <div className="absolute bottom-0 left-[10%] right-[10%] h-px bg-linear-to-r from-transparent via-primary/30 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+    </div>
+  )
+}
+
+/* ──────────────────── FEATURE MODAL ──────────────────── */
+
+function FeatureModal({
+  feature,
+  onClose,
+}: {
+  feature: (typeof features)[number] | null
+  onClose: () => void
+}) {
+  if (!feature) return null
+
+  const Icon = feature.icon
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-8"
+      onClick={onClose}
+    >
+      <div className="absolute inset-0 bg-black/60 backdrop-blur-xl modal-backdrop-enter" />
+
+      <div
+        className="relative z-10 w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-card/95 backdrop-blur-2xl border border-border/30 rounded-3xl shadow-2xl modal-content-enter"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button
+          onClick={onClose}
+          className="absolute top-4 right-4 z-30 w-9 h-9 rounded-xl bg-secondary/60 hover:bg-secondary border border-border/30 flex items-center justify-center text-muted-foreground hover:text-foreground transition-all cursor-pointer"
+          aria-label="St&auml;ng"
+        >
+          <X className="w-4 h-4" />
+        </button>
+
+        {/* 3D Shape Header */}
+        <div className="relative h-52 md:h-64 overflow-hidden rounded-t-3xl bg-linear-to-b from-secondary/40 to-transparent border-b border-border/20">
+          <div className="absolute inset-0 grid-background opacity-[0.15]" />
+          <div className="modal-scan-line" />
+          <div className="absolute inset-0 flex items-center justify-center">
+            <WireframeShape variant={feature.shape} />
+          </div>
+          {modalParticles.map((p, i) => (
+            <div
+              key={i}
+              className="absolute w-1 h-1 rounded-full bg-primary/40"
+              style={{
+                left: `${p.x}%`,
+                top: `${p.y}%`,
+                animation: `float-particle-kf ${p.dur}s ease-in-out infinite`,
+                animationDelay: `${p.delay}s`,
+              }}
+            />
+          ))}
+          <div className="absolute bottom-0 left-0 right-0 h-24 bg-linear-to-t from-card/95 to-transparent" />
+        </div>
+
+        {/* Content */}
+        <div className="px-7 md:px-8 pb-8 -mt-8 relative z-10">
+          <div className="flex items-center gap-4 mb-5">
+            <div className="w-12 h-12 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center shadow-lg shadow-primary/5">
+              <Icon className="w-6 h-6 text-primary" />
+            </div>
+            <div>
+              <h3 className="text-xl font-(--font-heading) text-foreground">{feature.title}</h3>
+              <p className="text-sm text-primary/70">{feature.modalSubtitle}</p>
+            </div>
+          </div>
+
+          <p className="text-sm text-muted-foreground leading-relaxed mb-7">
+            {feature.modalDescription}
+          </p>
+
+          <div className="space-y-3 mb-7">
+            {feature.highlights.map((h, i) => (
+              <div key={i} className="flex items-start gap-3 group/h">
+                <div className="w-1.5 h-1.5 rounded-full bg-primary mt-[7px] shrink-0 group-hover/h:scale-150 transition-transform" />
+                <span className="text-sm text-foreground/80 leading-relaxed">{h}</span>
+              </div>
+            ))}
+          </div>
+
+          <div className="bg-secondary/30 border border-border/20 rounded-xl overflow-hidden">
+            <div className="flex items-center gap-2 px-4 py-2.5 border-b border-border/15">
+              <div className="w-2.5 h-2.5 rounded-full bg-destructive/60" />
+              <div className="w-2.5 h-2.5 rounded-full bg-chart-4/60" />
+              <div className="w-2.5 h-2.5 rounded-full bg-primary/60" />
+              <span className="ml-2 text-xs text-muted-foreground font-mono">{feature.codeFile}</span>
+            </div>
+            <pre className="p-4 text-[11px] md:text-xs font-mono text-muted-foreground leading-relaxed overflow-x-auto">
+              <code>{feature.codeSnippet}</code>
+            </pre>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 /* ──────────────────── MAIN COMPONENT ──────────────────── */
 
 export interface ChatAreaProps {
@@ -468,6 +1355,9 @@ export interface ChatAreaProps {
   onSelectedCategoryChange?: (id: string | null) => void
   expandedContent?: React.ReactNode
   heroPrefix?: React.ReactNode
+  auditUrl?: string
+  onAuditUrlChange?: (url: string) => void
+  onAuditSubmit?: () => void
 }
 
 export function ChatArea({
@@ -475,6 +1365,9 @@ export function ChatArea({
   onSelectedCategoryChange,
   expandedContent,
   heroPrefix,
+  auditUrl,
+  onAuditUrlChange,
+  onAuditSubmit,
 }: ChatAreaProps = {}) {
   const router = useRouter()
   const [showVoiceRecorder, setShowVoiceRecorder] = useState(false)
@@ -482,6 +1375,50 @@ export function ChatArea({
   const selectedCategory = controlledCategory !== undefined ? controlledCategory : internalCategory
   const [inputValue, setInputValue] = useState("")
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [activeFeature, setActiveFeature] = useState<(typeof features)[number] | null>(null)
+  const [activeComparisonScenarioId, setActiveComparisonScenarioId] = useState<ComparisonScenarioId>("growth")
+  const [selectedComparisonMethodKey, setSelectedComparisonMethodKey] = useState("next")
+  const activeComparisonScenario =
+    comparisonScenarios.find((scenario) => scenario.id === activeComparisonScenarioId) ?? comparisonScenarios[0]!
+  const rankedComparisonMethods = useMemo(
+    () =>
+      comparisonMethods
+        .map((method) => ({
+          method,
+          total: getComparisonScore(method, activeComparisonScenario),
+        }))
+        .sort((a, b) => b.total - a.total),
+    [activeComparisonScenario],
+  )
+  const fallbackComparisonMethod = comparisonMethods[0]!
+  const selectedComparisonMethod = useMemo(
+    () =>
+      rankedComparisonMethods.find((entry) => entry.method.key === selectedComparisonMethodKey) ?? {
+        method: fallbackComparisonMethod,
+        total: getComparisonScore(fallbackComparisonMethod, activeComparisonScenario),
+      },
+    [activeComparisonScenario, fallbackComparisonMethod, rankedComparisonMethods, selectedComparisonMethodKey],
+  )
+  const comparisonLeaderScore = rankedComparisonMethods[0]?.total ?? selectedComparisonMethod.total
+  const wordpressComparisonMethod = comparisonMethods.find((method) => method.key === "wordpress") ?? fallbackComparisonMethod
+  const wordpressScenarioScore = getComparisonScore(wordpressComparisonMethod, activeComparisonScenario)
+  const selectedVsWordpressDelta = selectedComparisonMethod.total - wordpressScenarioScore
+  const selectedComparisonDrivers = useMemo(
+    () =>
+      comparisonParameters
+        .map((parameter) => {
+          const weight = activeComparisonScenario.weights[parameter.key]
+          const score = selectedComparisonMethod.method.scores[parameter.key]
+          return {
+            parameter,
+            weight,
+            score,
+            weightedContribution: Math.round((score * weight) / 100),
+          }
+        })
+        .sort((a, b) => b.weightedContribution - a.weightedContribution),
+    [activeComparisonScenario, selectedComparisonMethod],
+  )
   const websitesCounter = useHonestCounter(2480, 3, "Varje stor resa b\u00f6rjar med tre steg. Dessa tre sajter laddar dock p\u00e5 under 50ms.")
   const usersCounter = useHonestCounter(850, 2, "Tv\u00e5 f\u00f6retagare som valde framtiden. Snart \u00e4r ni hundratals.")
   const rotatingType = useRotatingText(siteTypes)
@@ -498,6 +1435,38 @@ export function ChatArea({
   }, [])
 
   const activeCategory = categories.find((c) => c.id === selectedCategory)
+
+  useEffect(() => {
+    if (!activeFeature) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setActiveFeature(null)
+    }
+    document.addEventListener("keydown", onKey)
+    document.body.style.overflow = "hidden"
+    return () => {
+      document.removeEventListener("keydown", onKey)
+      document.body.style.overflow = ""
+    }
+  }, [activeFeature])
+  const isAuditMode = selectedCategory === "audit"
+  const currentAuditUrl = auditUrl ?? inputValue
+
+  const handleAuditUrlChange = useCallback(
+    (value: string) => {
+      if (onAuditUrlChange) {
+        onAuditUrlChange(value)
+        return
+      }
+      setInputValue(value)
+    },
+    [onAuditUrlChange],
+  )
+
+  useEffect(() => {
+    if (isAuditMode && showVoiceRecorder) {
+      setShowVoiceRecorder(false)
+    }
+  }, [isAuditMode, showVoiceRecorder])
 
   const startBuild = useCallback(
     async (categoryOverride?: string | null, promptOverride?: string) => {
@@ -561,6 +1530,14 @@ export function ChatArea({
     },
     [inputValue, isSubmitting, router, selectedCategory],
   )
+
+  const submitPrimaryInput = useCallback(() => {
+    if (isAuditMode && onAuditSubmit) {
+      onAuditSubmit()
+      return
+    }
+    void startBuild()
+  }, [isAuditMode, onAuditSubmit, startBuild])
 
   return (
     <main className="flex-1 flex flex-col relative overflow-hidden">
@@ -695,8 +1672,8 @@ export function ChatArea({
           </div>
 
           {/* Input area */}
-          <div className="w-full max-w-2xl animate-fade-up" style={{ animationDelay: "0.6s" }}>
-            {showVoiceRecorder && (
+          <div className={`w-full ${isAuditMode ? "max-w-xl" : "max-w-2xl"} animate-fade-up`} style={{ animationDelay: "0.6s" }}>
+            {showVoiceRecorder && !isAuditMode && (
               <div className="mb-3 input-3d bg-secondary/80 backdrop-blur-xl rounded-2xl border border-border/50 px-4 py-3 shadow-2xl animate-in slide-in-from-bottom-2 fade-in duration-300">
                 <div className="flex items-center justify-between gap-4">
                   <VoiceRecorder
@@ -722,50 +1699,74 @@ export function ChatArea({
               </div>
             )}
 
-            <div className="input-3d bg-secondary/50 backdrop-blur-xl rounded-2xl border border-border/30 p-4 shadow-2xl">
-              <div className="space-y-3">
-                <textarea
-                  placeholder={activeCategory?.placeholder ?? "Beskriv ditt f\u00f6retag \u2014 t.ex. \u201dJag driver en fris\u00f6rsalong i G\u00f6teborg med 3 anst\u00e4llda\u201d"}
-                  value={inputValue}
-                  onChange={(e) => setInputValue(e.target.value)}
-                  onKeyDown={(event) => {
-                    if (event.key === "Enter" && !event.shiftKey) {
-                      event.preventDefault()
-                      void startBuild()
-                    }
-                  }}
-                  className="w-full bg-transparent border-none outline-none resize-none text-foreground placeholder:text-muted-foreground/60 text-base min-h-[68px] font-normal leading-relaxed"
-                />
+            <div className={`input-3d bg-secondary/50 backdrop-blur-xl rounded-2xl border border-border/30 ${isAuditMode ? "p-3" : "p-4"} shadow-2xl`}>
+              <div className={isAuditMode ? "space-y-2" : "space-y-3"}>
+                {isAuditMode ? (
+                  <input
+                    type="url"
+                    inputMode="url"
+                    autoComplete="url"
+                    placeholder={activeCategory?.placeholder ?? "Klistra in din webbadress här, t.ex. https://mittforetag.se"}
+                    value={currentAuditUrl}
+                    onChange={(e) => handleAuditUrlChange(e.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.preventDefault()
+                        submitPrimaryInput()
+                      }
+                    }}
+                    className="w-full bg-transparent border-none outline-none text-foreground placeholder:text-muted-foreground/60 text-base font-normal leading-relaxed py-2"
+                  />
+                ) : (
+                  <textarea
+                    placeholder={activeCategory?.placeholder ?? "Beskriv ditt f\u00f6retag \u2014 t.ex. \u201dJag driver en fris\u00f6rsalong i G\u00f6teborg med 3 anst\u00e4llda\u201d"}
+                    value={inputValue}
+                    onChange={(e) => setInputValue(e.target.value)}
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter" && !event.shiftKey) {
+                        event.preventDefault()
+                        submitPrimaryInput()
+                      }
+                    }}
+                    className="w-full bg-transparent border-none outline-none resize-none text-foreground placeholder:text-muted-foreground/60 text-base min-h-[68px] font-normal leading-relaxed"
+                  />
+                )}
                 <div className="flex items-center justify-between pt-2 border-t border-border/15">
                   <p className="text-xs text-muted-foreground">
-                    {activeCategory ? `L\u00e4ge: ${activeCategory.label}` : "V\u00e4lj en kategori ovan eller skriv fritt"}
+                    {activeCategory
+                      ? `L\u00e4ge: ${activeCategory.label}`
+                      : "V\u00e4lj en kategori ovan eller skriv fritt"}
                   </p>
                   <div className="flex items-center gap-2">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-9 w-9 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary/60"
-                      onClick={() => setShowVoiceRecorder((v) => !v)}
-                      aria-label="Spela in röst"
-                    >
-                      <Mic className="w-4 h-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-9 w-9 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary/60"
-                      aria-label="Spela in video (tillgänglig i wizard)"
-                      title="Videoinspelning med analys av hållning och blickkontakt finns i Analyserad-wizarden"
-                    >
-                      <Video className="w-4 h-4" />
-                    </Button>
+                    {!isAuditMode && (
+                      <>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-9 w-9 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary/60"
+                          onClick={() => setShowVoiceRecorder((v) => !v)}
+                          aria-label="Spela in röst"
+                        >
+                          <Mic className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-9 w-9 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary/60"
+                          aria-label="Spela in video (tillgänglig i wizard)"
+                          title="Videoinspelning med analys av hållning och blickkontakt finns i Analyserad-wizarden"
+                        >
+                          <Video className="w-4 h-4" />
+                        </Button>
+                      </>
+                    )}
                     <Button
                       size="icon"
                       className="h-9 w-9 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/25"
                       aria-label="Skicka"
-                      disabled={isSubmitting}
+                      disabled={isSubmitting || (isAuditMode && currentAuditUrl.trim().length === 0)}
                       onClick={() => {
-                        void startBuild()
+                        submitPrimaryInput()
                       }}
                     >
                       <ArrowUp className="w-4 h-4" />
@@ -851,71 +1852,220 @@ export function ChatArea({
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-              {features.map((feature) => {
-                const Icon = feature.icon
-                return (
-                  <div
-                    key={feature.title}
-                    className="card-3d group bg-card/50 backdrop-blur-sm rounded-2xl border border-border/20 p-6 flex flex-col gap-4 hover:border-primary/20"
-                  >
-                    <div className="w-11 h-11 rounded-xl bg-primary/8 border border-primary/15 flex items-center justify-center group-hover:bg-primary/12 group-hover:border-primary/25 transition-colors">
-                      <Icon className="w-5 h-5 text-primary" />
-                    </div>
-                    <h3 className="text-base text-foreground font-(--font-heading)">
-                      {feature.title}
-                    </h3>
-                    <p className="text-sm text-muted-foreground leading-relaxed">
-                      {feature.description}
-                    </p>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        </section>
-
-        {/* ━━━ WORDPRESS COMPARISON ━━━ */}
-        <section className="px-6 py-20 md:py-28 border-t border-border/15">
-          <div className="max-w-4xl mx-auto">
-            <div className="text-center mb-14">
-              <p className="text-xs font-medium text-primary tracking-widest uppercase mb-3">J&auml;mf&ouml;relse</p>
-              <h2 className="text-2xl md:text-4xl text-foreground font-(--font-heading) tracking-tight text-balance mb-4">
-                Varf&ouml;r inte WordPress?
-              </h2>
-              <p className="text-muted-foreground max-w-lg mx-auto leading-relaxed text-pretty">
-                WordPress driver 40% av webben &mdash; men det designades 2003. Din nya sajt f&ouml;rtj&auml;nar teknik fr&aring;n 2026.
-              </p>
-            </div>
-
-            <div className="rounded-2xl border border-border/20 overflow-hidden bg-card/30 backdrop-blur-sm">
-              {/* Table header */}
-              <div className="grid grid-cols-3 gap-0 text-xs font-semibold uppercase tracking-wider border-b border-border/20">
-                <div className="px-5 py-3.5 text-muted-foreground">Funktion</div>
-                <div className="px-5 py-3.5 text-primary text-center border-x border-border/15 bg-primary/3">SajtMaskin</div>
-                <div className="px-5 py-3.5 text-muted-foreground/60 text-center">WordPress</div>
-              </div>
-              {/* Table rows */}
-              {comparisonRows.map((row, i) => (
-                <div
-                  key={row.feature}
-                  className={`grid grid-cols-3 gap-0 text-sm group hover:bg-secondary/30 transition-colors ${
-                    i < comparisonRows.length - 1 ? "border-b border-border/10" : ""
-                  }`}
-                >
-                  <div className="px-5 py-3.5 text-foreground/80 font-medium">{row.feature}</div>
-                  <div className="px-5 py-3.5 text-center border-x border-border/10 bg-primary/2 text-foreground font-medium group-hover:text-primary transition-colors">
-                    {row.sajtmaskin}
-                  </div>
-                  <div className="px-5 py-3.5 text-center text-muted-foreground/50">
-                    {row.wordpress}
-                  </div>
-                </div>
+              {features.map((feature, i) => (
+                <FeatureCard
+                  key={feature.title}
+                  feature={feature}
+                  onClick={() => setActiveFeature(feature)}
+                  index={i}
+                />
               ))}
             </div>
 
-            <p className="text-center text-xs text-muted-foreground/40 mt-5">
-              K&auml;lla: web.dev, Vercel benchmarks &amp; branschdata. WordPress-siffror g&auml;ller typisk delad hosting med popul&auml;ra teman.
+            <LighthouseGauges />
+          </div>
+        </section>
+
+        {/* ━━━ SITE BUILD METHOD COMPARISON ━━━ */}
+        <section className="px-6 py-20 md:py-28 border-t border-border/15">
+          <div className="max-w-6xl mx-auto">
+            <div className="text-center mb-10">
+              <p className="text-xs font-medium text-primary tracking-widest uppercase mb-3">J&auml;mf&ouml;relse</p>
+              <h2 className="text-2xl md:text-4xl text-foreground font-(--font-heading) tracking-tight text-balance mb-4">
+                Olika s&auml;tt att bygga sajt
+              </h2>
+              <p className="text-muted-foreground max-w-3xl mx-auto leading-relaxed text-pretty">
+                H&auml;r j&auml;mf&ouml;r vi 9 metoder fr&aring;n matrisen i <code>sajtmaskin-matris.md</code> med 10 parametrar. V&auml;lj scenario
+                f&ouml;r att se hur rankingen f&ouml;r&auml;ndras beroende p&aring; vad som &auml;r viktigast f&ouml;r ditt bolag.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center justify-center gap-2.5 mb-3">
+              {comparisonScenarios.map((scenario) => {
+                const isActive = scenario.id === activeComparisonScenario.id
+                return (
+                  <button
+                    key={scenario.id}
+                    onClick={() => setActiveComparisonScenarioId(scenario.id)}
+                    aria-pressed={isActive}
+                    className={`rounded-xl border px-4 py-2 text-sm transition-all cursor-pointer ${
+                      isActive
+                        ? "bg-primary/12 border-primary/40 text-foreground shadow-lg shadow-primary/5"
+                        : "bg-secondary/40 border-border/20 text-muted-foreground hover:text-foreground hover:bg-secondary/60"
+                    }`}
+                  >
+                    {scenario.label}
+                  </button>
+                )
+              })}
+            </div>
+            <p className="text-center text-xs text-muted-foreground/70 mb-8 max-w-2xl mx-auto leading-relaxed">
+              {activeComparisonScenario.description}
             </p>
+
+            <div className="grid gap-5 lg:grid-cols-[1.65fr_1fr]">
+              <div className="rounded-2xl border border-border/20 overflow-hidden bg-card/30 backdrop-blur-sm">
+                <div className="grid grid-cols-[48px_1fr_auto] gap-3 items-center px-4 py-3 text-[11px] font-semibold uppercase tracking-wider border-b border-border/20 text-muted-foreground">
+                  <span>#</span>
+                  <span>Metod</span>
+                  <span>Total</span>
+                </div>
+
+                {rankedComparisonMethods.map((entry, index) => {
+                  const isSelected = entry.method.key === selectedComparisonMethod.method.key
+                  const behindLeader = Math.max(0, comparisonLeaderScore - entry.total)
+                  return (
+                    <button
+                      key={entry.method.key}
+                      onClick={() => setSelectedComparisonMethodKey(entry.method.key)}
+                      aria-pressed={isSelected}
+                      className={`w-full text-left px-4 py-3.5 border-b border-border/10 transition-colors cursor-pointer ${
+                        isSelected ? "bg-primary/8" : "hover:bg-secondary/25"
+                      }`}
+                    >
+                      <div className="grid grid-cols-[48px_1fr_auto] gap-3 items-center">
+                        <span
+                          className={`w-7 h-7 rounded-full border flex items-center justify-center text-xs ${
+                            isSelected
+                              ? "border-primary/50 text-primary bg-primary/10"
+                              : "border-border/30 text-muted-foreground"
+                          }`}
+                        >
+                          {index + 1}
+                        </span>
+                        <div className="min-w-0">
+                          <p className="text-sm font-medium text-foreground truncate">{entry.method.label}</p>
+                          <p className="text-xs text-muted-foreground/80 leading-relaxed line-clamp-2">{entry.method.bestFor}</p>
+                          <AnimatedBar value={entry.total} className="mt-2" delay={index * 80} />
+                        </div>
+                        <div className="text-right">
+                          <p className="text-lg text-foreground font-(--font-heading) leading-none">{entry.total}</p>
+                          <p className="text-[11px] text-muted-foreground mt-1">
+                            {behindLeader === 0 ? "Ledare" : `-${behindLeader} fr\u00e5n #1`}
+                          </p>
+                        </div>
+                      </div>
+                    </button>
+                  )
+                })}
+              </div>
+
+              <div className="rounded-2xl border border-border/20 bg-card/30 backdrop-blur-sm p-5">
+                <p className="text-[11px] uppercase tracking-wider text-primary/80 font-semibold">Vald metod</p>
+                <h3 className="mt-2 text-lg text-foreground font-(--font-heading)">{selectedComparisonMethod.method.label}</h3>
+                <p className="text-sm text-muted-foreground leading-relaxed mt-2">{selectedComparisonMethod.method.summary}</p>
+
+                <div className="mt-4 flex flex-wrap items-center gap-2 text-xs">
+                  <span className="rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-primary font-medium">
+                    Score {selectedComparisonMethod.total}/100
+                  </span>
+                  <span
+                    className={`rounded-full border px-3 py-1 ${
+                      selectedVsWordpressDelta >= 0
+                        ? "border-primary/25 text-primary/90 bg-primary/5"
+                        : "border-destructive/35 text-destructive/90 bg-destructive/5"
+                    }`}
+                  >
+                    {selectedVsWordpressDelta >= 0 ? `+${selectedVsWordpressDelta}` : selectedVsWordpressDelta} mot WordPress
+                  </span>
+                </div>
+
+                <div className="mt-5 space-y-2.5">
+                  {selectedComparisonMethod.method.strengths.map((strength) => (
+                    <div key={strength} className="flex items-start gap-2 text-sm text-foreground/85">
+                      <Check className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5" />
+                      <span>{strength}</span>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="mt-4 pt-4 border-t border-border/15">
+                  <p className="text-xs uppercase tracking-wider text-muted-foreground/80 mb-2">Att t\u00e4nka p\u00e5</p>
+                  {selectedComparisonMethod.method.caveats.map((caveat) => (
+                    <p key={caveat} className="text-sm text-muted-foreground leading-relaxed">
+                      {caveat}
+                    </p>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-6 rounded-2xl border border-border/20 bg-card/20 p-5">
+              <p className="text-sm text-foreground font-medium">Varf&ouml;r den h&auml;r score:n?</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                Toppfaktorer i vald scenario-viktning f&ouml;r <span className="text-foreground">{selectedComparisonMethod.method.label}</span>.
+              </p>
+              <div className="mt-4 grid gap-3 md:grid-cols-2">
+                {selectedComparisonDrivers.slice(0, 4).map((driver) => (
+                  <div key={driver.parameter.key} className="rounded-xl border border-border/15 bg-secondary/30 px-3.5 py-3">
+                    <div className="flex items-center justify-between gap-3 text-xs mb-2">
+                      <span className="text-foreground/90">{driver.parameter.label}</span>
+                      <span className="text-muted-foreground">
+                        {driver.score}p • vikt {driver.weight}
+                      </span>
+                    </div>
+                    <AnimatedBar value={driver.score} />
+                    <p className="text-[11px] text-muted-foreground mt-2">
+                      Bidrar med ungef\u00e4r {driver.weightedContribution} po\u00e4ng till totalen.
+                    </p>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-6 rounded-2xl border border-border/20 bg-card/20 p-5">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-1">
+                <p className="text-sm text-foreground font-medium">Alla 10 parametrar</p>
+                <div className="flex items-center gap-4 text-[10px]">
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-2.5 h-2.5 rounded-full bg-primary/70" />
+                    <span className="text-muted-foreground">{selectedComparisonMethod.method.label}</span>
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="w-2.5 h-2.5 rounded-full bg-muted-foreground/25" />
+                    <span className="text-muted-foreground">WordPress</span>
+                  </span>
+                </div>
+              </div>
+              <p className="text-xs text-muted-foreground mb-5">
+                Viktade po&auml;ng per parameter. Scenario-viktning justerar rankingen.
+              </p>
+              <div className="grid gap-3 md:grid-cols-2">
+                {comparisonParameters.map((parameter, idx) => {
+                  const selectedScore = selectedComparisonMethod.method.scores[parameter.key]
+                  const wpScore = wordpressComparisonMethod.scores[parameter.key]
+                  const weight = activeComparisonScenario.weights[parameter.key]
+                  const delta = selectedScore - wpScore
+                  return (
+                    <div key={parameter.key} className="rounded-xl border border-border/15 bg-secondary/20 px-3.5 py-3">
+                      <div className="flex items-center justify-between gap-2 text-xs mb-2.5">
+                        <span className="text-foreground/90 font-medium">{parameter.label}</span>
+                        <div className="flex items-center gap-2">
+                          <span className="text-muted-foreground/50 text-[10px]">vikt&nbsp;{weight}</span>
+                          <span
+                            className={`text-[10px] font-semibold px-1.5 py-0.5 rounded ${
+                              delta >= 0
+                                ? "text-primary bg-primary/8"
+                                : "text-destructive bg-destructive/8"
+                            }`}
+                          >
+                            {delta >= 0 ? `+${delta}` : delta}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="space-y-1.5">
+                        <AnimatedBar value={selectedScore} className="h-[7px]!" delay={idx * 60} />
+                        <AnimatedBar value={wpScore} className="h-[7px]!" barClass="bg-muted-foreground/25" delay={idx * 60 + 150} />
+                      </div>
+                      <div className="flex items-center justify-between mt-1.5 text-[10px] text-muted-foreground/50">
+                        <span>{selectedScore}p</span>
+                        <span>{wpScore}p</span>
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
           </div>
         </section>
 
@@ -1249,7 +2399,8 @@ export function ChatArea({
                 className="btn-3d btn-glow bg-primary text-primary-foreground hover:bg-primary/90 font-medium text-base px-8 shadow-lg shadow-primary/25"
                 disabled={isSubmitting}
                 onClick={() => {
-                  void startBuild(selectedCategory ?? "fritext")
+                  const ctaCategory = selectedCategory === "audit" ? "fritext" : selectedCategory ?? "fritext"
+                  void startBuild(ctaCategory)
                 }}
               >
                 Skapa din sajt nu
@@ -1324,6 +2475,8 @@ export function ChatArea({
         </footer>
 
       </div>
+
+      <FeatureModal feature={activeFeature} onClose={() => setActiveFeature(null)} />
     </main>
   )
 }

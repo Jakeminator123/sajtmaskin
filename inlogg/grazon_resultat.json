@@ -1,0 +1,22 @@
+{
+  "namn_input": "Jakob Eberg",
+  "postort": "Stockholm",
+  "postnummer": "11622",
+  "fastighetsagare": "",
+  "bast_match": null,
+  "konfidens": 0.35,
+  "kallor_aktiva": [
+    "PAP"
+  ],
+  "kallor_saknar": [
+    "PersonKontakt (kontakta info@marknadsinformation.se)",
+    "Ratsit (begar nyckel pa ratsit.se/Content/API_Webservice.aspx)",
+    "Eniro Person (krav uppgradering fran trial, 990 kr/man)"
+  ],
+  "naesta_steg": [
+    "PersonKontakt: telefon -> person (krav avtal)",
+    "Ratsit: namn/personnr -> persondata (krav API-nyckel)",
+    "Eniro Person: namnsokning (uppgradera pa api.eniro.com)"
+  ],
+  "postort_kalla": "PAP API"
+}

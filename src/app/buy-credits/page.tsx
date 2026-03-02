@@ -1,7 +1,7 @@
 "use client";
 
 import { Suspense, useEffect, useState, useCallback } from "react";
-import { useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Navbar, ShaderBackground } from "@/components/layout";
 import { AuthModal } from "@/components/auth";
@@ -37,6 +37,7 @@ import {
   ArrowRight,
   ExternalLink,
 } from "lucide-react";
+import toast from "react-hot-toast";
 
 // ─── Credit Packages ──────────────────────────────────────────────
 const PACKAGES = [
@@ -130,9 +131,12 @@ function buildMailtoLink(data: {
 // Main Content Component
 // ═══════════════════════════════════════════════════════════════════
 function BuyCreditsContent() {
+  const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const { isAuthenticated, diamonds, fetchUser } = useAuth();
   const [showAuthModal, setShowAuthModal] = useState(false);
+  const [authMode, setAuthMode] = useState<"login" | "register">("register");
   const [selectedPackage, setSelectedPackage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -162,7 +166,47 @@ function BuyCreditsContent() {
       setSuccessMessage("Tack för ditt köp! Credits har lagts till på ditt konto.");
       fetchUser();
     }
-  }, [searchParams, fetchUser]);
+
+    const login = searchParams.get("login");
+    const authError = searchParams.get("error");
+    const verified = searchParams.get("verified");
+    const reason = searchParams.get("reason");
+    if (!login && !authError && !verified) return;
+
+    if (login === "success") {
+      toast.success("Inloggningen lyckades.");
+    }
+    if (authError) {
+      toast.error(authError);
+      setAuthMode("login");
+      setShowAuthModal(true);
+    }
+    if (verified === "success") {
+      toast.success("E-postadressen är verifierad. Logga in för att fortsätta.");
+      setAuthMode("login");
+      setShowAuthModal(true);
+    } else if (verified === "error") {
+      const verificationMessage =
+        reason === "missing_token"
+          ? "Verifieringslänken saknar token."
+          : reason === "invalid_or_expired"
+            ? "Verifieringslänken är ogiltig eller har gått ut."
+            : reason === "server_error"
+              ? "Något gick fel vid e-postverifiering."
+              : "Kunde inte verifiera e-postadressen.";
+      toast.error(verificationMessage);
+      setAuthMode("login");
+      setShowAuthModal(true);
+    }
+
+    const nextParams = new URLSearchParams(searchParams.toString());
+    nextParams.delete("login");
+    nextParams.delete("error");
+    nextParams.delete("verified");
+    nextParams.delete("reason");
+    const nextQuery = nextParams.toString();
+    router.replace(nextQuery ? `${pathname}?${nextQuery}` : pathname);
+  }, [fetchUser, pathname, router, searchParams]);
 
   useEffect(() => {
     fetchUser();
@@ -171,6 +215,7 @@ function BuyCreditsContent() {
   // ─── Stripe checkout handler ──────────────────────────────────
   const handlePurchase = async (packageId: string) => {
     if (!isAuthenticated) {
+      setAuthMode("login");
       setShowAuthModal(true);
       return;
     }
@@ -223,8 +268,14 @@ function BuyCreditsContent() {
     <div className="bg-background min-h-screen">
       <ShaderBackground theme="warm" speed={0.2} opacity={0.25} />
       <Navbar
-        onLoginClick={() => setShowAuthModal(true)}
-        onRegisterClick={() => setShowAuthModal(true)}
+        onLoginClick={() => {
+          setAuthMode("login");
+          setShowAuthModal(true);
+        }}
+        onRegisterClick={() => {
+          setAuthMode("register");
+          setShowAuthModal(true);
+        }}
       />
 
       <main className="relative z-10 px-4 pt-24 pb-16">
@@ -869,7 +920,7 @@ function BuyCreditsContent() {
       <AuthModal
         isOpen={showAuthModal}
         onClose={() => setShowAuthModal(false)}
-        defaultMode="register"
+        defaultMode={authMode}
       />
     </div>
   );

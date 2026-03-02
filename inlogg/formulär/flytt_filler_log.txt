@@ -1,0 +1,26 @@
+Flytt form filler started (scan-fill-advance mode)
+
+  -> First Nästa gate ready
+  -> Clicked Nästa
+OK: inflyttningsdatum = '2026-01-15'
+Round 2: filled 1 field(s). Clicking Nästa...
+  -> Clicked Nästa
+OK: gatuadress = 'Storgatan 12'
+OK: postnummer = '11122'
+OK: postort = 'Stockholm'
+OK: lagenhetsnummer = '1401'
+OK: fastighetsbeteckning = 'Rudan mindre 10'
+OK: fastighetsagare = 'egen'
+Round 3: filled 6 field(s). Clicking Nästa...
+  -> Checked confirmation checkbox
+  -> Clicked Nästa
+  -> Clicked Nästa
+OK: telefonnummer = '0701234567'
+OK: email = 'test@example.com'
+Round 5: filled 2 field(s). Clicking Nästa...
+  -> Clicked Nästa
+  -> Clicked Nästa
+
+All 9 fields filled!
+
+Flytt form filler finished. Filled: ['email', 'fastighetsagare', 'fastighetsbeteckning', 'gatuadress', 'inflyttningsdatum', 'lagenhetsnummer', 'postnummer', 'postort', 'telefonnummer']

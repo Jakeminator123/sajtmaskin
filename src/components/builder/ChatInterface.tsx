@@ -169,6 +169,8 @@ interface ChatInterfaceProps {
   designTheme?: DesignTheme;
   onDesignThemeChange?: (theme: DesignTheme) => void;
   onEnhancePrompt?: (message: string) => Promise<string>;
+  isFigmaInputOpen?: boolean;
+  onFigmaInputOpenChange?: (open: boolean) => void;
   isBusy?: boolean;
   isPreparingPrompt?: boolean;
   mediaEnabled?: boolean;
@@ -229,6 +231,8 @@ export function ChatInterface({
   designTheme = "blue",
   onDesignThemeChange,
   onEnhancePrompt,
+  isFigmaInputOpen: controlledFigmaInputOpen,
+  onFigmaInputOpenChange,
   isBusy,
   isPreparingPrompt = false,
   mediaEnabled = false,
@@ -241,7 +245,7 @@ export function ChatInterface({
   const [files, setFiles] = useState<UploadedFile[]>([]);
   const [isMediaDrawerOpen, setIsMediaDrawerOpen] = useState(false);
   const [figmaUrl, setFigmaUrl] = useState("");
-  const [isFigmaInputOpen, setIsFigmaInputOpen] = useState(false);
+  const [internalFigmaInputOpen, setInternalFigmaInputOpen] = useState(false);
   const [isTextUploaderOpen, setIsTextUploaderOpen] = useState(false);
   const [isUiElementAction, setIsUiElementAction] = useState(false);
   const [figmaPreviewUrl, setFigmaPreviewUrl] = useState<string | null>(null);
@@ -249,6 +253,18 @@ export function ChatInterface({
   const [figmaPreviewError, setFigmaPreviewError] = useState<string | null>(null);
   const [figmaPreviewLoading, setFigmaPreviewLoading] = useState(false);
   const [inspectPoints, setInspectPoints] = useState<InspectPointToken[]>([]);
+  const isFigmaInputOpen = controlledFigmaInputOpen ?? internalFigmaInputOpen;
+  const setFigmaInputOpen = useCallback(
+    (next: boolean | ((prev: boolean) => boolean)) => {
+      const resolved = typeof next === "function" ? next(isFigmaInputOpen) : next;
+      if (onFigmaInputOpenChange) {
+        onFigmaInputOpenChange(resolved);
+        return;
+      }
+      setInternalFigmaInputOpen(resolved);
+    },
+    [isFigmaInputOpen, onFigmaInputOpenChange],
+  );
 
   // Single unified picker state replaces 4 separate picker states
   const [pickerTab, setPickerTab] = useState<UnifiedPickerTab | null>(null);
@@ -280,11 +296,11 @@ export function ChatInterface({
       setInput("");
       setFiles([]);
       setFigmaUrl("");
-      setIsFigmaInputOpen(false);
+      setFigmaInputOpen(false);
       setInspectPoints([]);
     }
     lastChatIdRef.current = chatId;
-  }, [chatId]);
+  }, [chatId, setFigmaInputOpen]);
 
   const normalizedFigmaUrl = useMemo(() => normalizeDesignUrl(figmaUrl), [figmaUrl]);
 
@@ -608,7 +624,7 @@ export function ChatInterface({
         setInput("");
         setFiles([]);
         setFigmaUrl("");
-        setIsFigmaInputOpen(false);
+        setFigmaInputOpen(false);
         setInspectPoints([]);
       }
     } finally {
@@ -828,7 +844,7 @@ ${technicalPrompt}`;
         className="border-input bg-background rounded-lg border shadow-sm"
       >
         <PromptInputHeader className="flex flex-wrap items-center gap-2">
-          <div className="ml-auto flex items-center gap-2">
+          <div className="ml-auto flex min-w-0 max-w-full flex-wrap items-center justify-end gap-2">
             {onEnhancePrompt && (
               <Button
                 type="button"
@@ -847,17 +863,6 @@ ${technicalPrompt}`;
                 Förbättra
               </Button>
             )}
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-8"
-              onClick={() => setIsFigmaInputOpen((v) => !v)}
-              disabled={inputDisabled}
-              title="Lägg till Figma-länk"
-            >
-              Figma-länk{figmaUrl.trim() ? " ✓" : ""}
-            </Button>
             <Button
               type="button"
               variant="outline"
@@ -902,7 +907,7 @@ ${technicalPrompt}`;
                 className="h-8"
                 onClick={() => {
                   setFigmaUrl("");
-                  setIsFigmaInputOpen(false);
+                  setFigmaInputOpen(false);
                 }}
                 disabled={inputDisabled}
               >
