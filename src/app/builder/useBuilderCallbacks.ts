@@ -1,6 +1,5 @@
 "use client";
 
-import type { InspectorSelection } from "@/lib/builder/types";
 import { useCallback, type Dispatch, type SetStateAction } from "react";
 import toast from "react-hot-toast";
 
@@ -18,8 +17,6 @@ type UseBuilderCallbacksArgs = {
   bumpPreviewRefreshToken: () => void;
   setCurrentDemoUrl: Dispatch<SetStateAction<string | null>>;
   setSelectedVersionId: Dispatch<SetStateAction<string | null>>;
-  setInspectorSelection: Dispatch<SetStateAction<InspectorSelection | null>>;
-  setInspectorClearToken: Dispatch<SetStateAction<number>>;
   setIsVersionPanelCollapsed: Dispatch<SetStateAction<boolean>>;
 };
 
@@ -31,18 +28,11 @@ export function useBuilderCallbacks({
   bumpPreviewRefreshToken,
   setCurrentDemoUrl,
   setSelectedVersionId,
-  setInspectorSelection,
-  setInspectorClearToken,
   setIsVersionPanelCollapsed,
 }: UseBuilderCallbacksArgs) {
   const handleClearPreview = useCallback(() => {
     setCurrentDemoUrl(null);
   }, [setCurrentDemoUrl]);
-
-  const clearInspectorSelection = useCallback(() => {
-    setInspectorSelection(null);
-    setInspectorClearToken(Date.now());
-  }, [setInspectorSelection, setInspectorClearToken]);
 
   const handleFixPreview = useCallback(async () => {
     if (!chatId) {
@@ -75,7 +65,6 @@ export function useBuilderCallbacks({
 
   return {
     handleClearPreview,
-    clearInspectorSelection,
     handleFixPreview,
     handleVersionSelect,
     handleToggleVersionPanel,

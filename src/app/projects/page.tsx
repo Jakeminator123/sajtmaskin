@@ -167,16 +167,11 @@ export default function ProjectsPage() {
                   <div className="relative aspect-video bg-linear-to-br from-gray-900 to-black">
                     {(() => {
                       const imageFailKey = `${project.id}:image`;
-                      const previewFailKey = `${project.id}:preview`;
                       const hasImageThumbnail =
                         typeof project.thumbnail_path === "string" &&
                         (project.thumbnail_path.startsWith("http") ||
                           project.thumbnail_path.startsWith("/")) &&
                         !failedVisuals.has(imageFailKey);
-                      const hasPreviewFrame =
-                        typeof project.demo_url === "string" &&
-                        (project.demo_url.startsWith("http") || project.demo_url.startsWith("/")) &&
-                        !failedVisuals.has(previewFailKey);
 
                       if (hasImageThumbnail) {
                         return (
@@ -189,31 +184,6 @@ export default function ProjectsPage() {
                             unoptimized={project.thumbnail_path?.startsWith("http") ?? false}
                             onError={() => {
                               setFailedVisuals((prev) => new Set(prev).add(imageFailKey));
-                            }}
-                          />
-                        );
-                      }
-
-                      if (hasPreviewFrame) {
-                        return (
-                          <iframe
-                            src={`/api/proxy-preview?url=${encodeURIComponent(project.demo_url as string)}`}
-                            title={`Preview av ${project.name}`}
-                            className="h-full w-full border-0"
-                            loading="lazy"
-                            sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
-                            onLoad={(event) => {
-                              // iframe onError is unreliable for content-level failures.
-                              // Proxy error pages include a marker that we can detect on load.
-                              const doc = event.currentTarget.contentDocument;
-                              const isProxyError =
-                                doc?.documentElement?.getAttribute("data-proxy-preview-error") === "1";
-                              if (isProxyError) {
-                                setFailedVisuals((prev) => new Set(prev).add(previewFailKey));
-                              }
-                            }}
-                            onError={() => {
-                              setFailedVisuals((prev) => new Set(prev).add(previewFailKey));
                             }}
                           />
                         );

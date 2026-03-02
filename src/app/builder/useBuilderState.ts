@@ -1,7 +1,7 @@
 "use client";
 
 import type { DomainSearchResult } from "@/components/builder/DomainSearchDialog";
-import type { ChatMessage, InspectorSelection } from "@/lib/builder/types";
+import type { ChatMessage } from "@/lib/builder/types";
 import {
   normalizeBuildIntent,
   normalizeBuildMethod,
@@ -110,8 +110,6 @@ export function useBuilderState(searchParams: ReadonlyURLSearchParams) {
   // Raw page code for section analysis in component picker
   const [currentPageCode, setCurrentPageCode] = useState<string | undefined>(undefined);
   const [existingUiComponents, setExistingUiComponents] = useState<string[]>([]);
-  const [inspectorSelection, setInspectorSelection] = useState<InspectorSelection | null>(null);
-  const [inspectorClearToken, setInspectorClearToken] = useState(0);
   const [serverProjectChatId, setServerProjectChatId] = useState<string | null>(null);
   const [serverProjectMessages, setServerProjectMessages] = useState<ChatMessage[]>([]);
   const [serverProjectDemoUrl, setServerProjectDemoUrl] = useState<string | null>(null);
@@ -250,10 +248,6 @@ export function useBuilderState(searchParams: ReadonlyURLSearchParams) {
     setCurrentPageCode,
     existingUiComponents,
     setExistingUiComponents,
-    inspectorSelection,
-    setInspectorSelection,
-    inspectorClearToken,
-    setInspectorClearToken,
     serverProjectChatId,
     setServerProjectChatId,
     serverProjectMessages,

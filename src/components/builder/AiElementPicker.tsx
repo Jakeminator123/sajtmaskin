@@ -162,8 +162,8 @@ export function AiElementPicker({
   }, [selectedAiItem, onConfirm, placement, detectedSections, onClose]);
 
   return (
-    <Dialog open={open}>
-      <DialogContent className="flex max-h-[92vh] w-[min(96vw,1100px)] max-w-5xl flex-col overflow-hidden rounded-2xl border-border/50 bg-background/95 p-0 shadow-2xl backdrop-blur-xl">
+    <Dialog open={open} onClose={onClose}>
+      <DialogContent className="flex max-h-[92vh] w-[min(96vw,1100px)] max-w-5xl flex-col overflow-hidden rounded-2xl border-border/50 bg-background/95 p-0 shadow-2xl backdrop-blur-xl" onClose={onClose}>
         <div className="relative overflow-hidden">
           <div className="absolute inset-x-0 top-0 h-px bg-linear-to-r from-transparent via-brand-teal/50 to-transparent" />
           <DialogHeader className="px-6 pt-5 pb-4">

@@ -19,32 +19,27 @@ import {
   type V0UserFileAttachment,
 } from "@/components/media";
 import {
-  UiElementPicker,
   type ShadcnBlockAction,
   type ShadcnBlockSelection,
   type PlacementOption,
   PLACEMENT_OPTIONS,
 } from "@/components/builder/UiElementPicker";
-import { ThemePicker } from "@/components/builder/ThemePicker";
-import { TemplatePicker } from "@/components/builder/TemplatePicker";
-import { AiElementPicker } from "@/components/builder/AiElementPicker";
+import {
+  UnifiedElementPicker,
+  type UnifiedPickerTab,
+} from "@/components/builder/UnifiedElementPicker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Blocks, FileText, ImageIcon, Loader2, Wand2 } from "lucide-react";
+import { FileText, ImageIcon, Loader2, Plus, Wand2 } from "lucide-react";
 import { VoiceRecorder } from "@/components/forms/voice-recorder";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { buildAiElementPrompt, type AiElementCatalogItem } from "@/lib/builder/ai-elements-catalog";
 import type { PaletteSelection } from "@/lib/builder/palette";
 import { buildShadcnBlockPrompt, buildShadcnComponentPrompt } from "@/lib/shadcn-registry-utils";
 import {
-  fetchRegistrySummary,
-  type RegistrySummary,
-} from "@/lib/shadcn-registry-service";
-import {
   DESIGN_THEME_OPTIONS,
   type DesignTheme,
 } from "@/lib/builder/theme-presets";
-import type { InspectorSelection } from "@/lib/builder/types";
 import type { DetectedSection } from "@/lib/builder/sectionAnalyzer";
 import { debugLog } from "@/lib/utils/debug";
 import toast from "react-hot-toast";
@@ -75,12 +70,8 @@ interface ChatInterfaceProps {
   isBusy?: boolean;
   isPreparingPrompt?: boolean;
   mediaEnabled?: boolean;
-  /** Current generated code for section analysis in component picker */
   currentCode?: string;
-  /** UI components already present in the project (for dependency checks) */
   existingUiComponents?: string[];
-  inspectorSelection?: InspectorSelection | null;
-  onInspectorSelectionClear?: () => void;
 }
 
 const IMAGE_EXTENSION_MIME: Record<string, string> = {
@@ -141,8 +132,6 @@ export function ChatInterface({
   mediaEnabled = false,
   currentCode,
   existingUiComponents,
-  inspectorSelection = null,
-  onInspectorSelectionClear,
 }: ChatInterfaceProps) {
   const [input, setInput] = useState("");
   const [isSending, setIsSending] = useState(false);
@@ -152,20 +141,14 @@ export function ChatInterface({
   const [figmaUrl, setFigmaUrl] = useState("");
   const [isFigmaInputOpen, setIsFigmaInputOpen] = useState(false);
   const [isTextUploaderOpen, setIsTextUploaderOpen] = useState(false);
-  const [isUiPickerOpen, setIsUiPickerOpen] = useState(false);
-  const [isThemePickerOpen, setIsThemePickerOpen] = useState(false);
-  const [isTemplatePickerOpen, setIsTemplatePickerOpen] = useState(false);
-  const [isAiPickerOpen, setIsAiPickerOpen] = useState(false);
   const [isUiElementAction, setIsUiElementAction] = useState(false);
-  const [registrySummary, setRegistrySummary] = useState<RegistrySummary | null>(null);
-  const [registryStatus, setRegistryStatus] = useState<"idle" | "loading" | "ready" | "error">(
-    "idle",
-  );
-  const [registryError, setRegistryError] = useState<string | null>(null);
   const [figmaPreviewUrl, setFigmaPreviewUrl] = useState<string | null>(null);
   const [figmaPreviewName, setFigmaPreviewName] = useState<string | null>(null);
   const [figmaPreviewError, setFigmaPreviewError] = useState<string | null>(null);
   const [figmaPreviewLoading, setFigmaPreviewLoading] = useState(false);
+
+  // Single unified picker state replaces 4 separate picker states
+  const [pickerTab, setPickerTab] = useState<UnifiedPickerTab | null>(null);
 
   const hasUploading = files.some((file) => file.status === "uploading");
   const hasSuccessFiles = files.some((file) => file.status === "success");
@@ -173,93 +156,9 @@ export function ChatInterface({
   const submitDisabled = inputDisabled || hasUploading;
   const showPreparingPrompt = Boolean(isPreparingPrompt);
 
-  const loadRegistrySummary = useCallback(
-    async (options: { force?: boolean } = {}) => {
-      if (registryStatus === "loading") return;
-      if (!options.force && registryStatus === "ready") return;
-      setRegistryStatus("loading");
-      setRegistryError(null);
-      try {
-        const summary = await fetchRegistrySummary();
-        setRegistrySummary(summary);
-        setRegistryStatus("ready");
-      } catch (error) {
-        setRegistryStatus("error");
-        setRegistryError(error instanceof Error ? error.message : "Kunde inte ladda katalogen");
-      }
-    },
-    [registryStatus],
-  );
-
-  useEffect(() => {
-    if (registryStatus === "idle") {
-      loadRegistrySummary();
-    }
-  }, [registryStatus, loadRegistrySummary]);
-
-  useEffect(() => {
-    if (isUiPickerOpen) {
-      loadRegistrySummary({ force: true });
-    }
-  }, [isUiPickerOpen, loadRegistrySummary]);
-
-  const registryStatusLabel = useMemo(() => {
-    if (registryStatus === "loading") return "Laddar katalog...";
-    if (registryStatus === "error") return "Katalog offline";
-    if (registrySummary) {
-      return `${registrySummary.blocks} block • ${registrySummary.components} komponenter`;
-    }
-    return "Katalog";
-  }, [registryStatus, registrySummary]);
-
-  const registryStatusTitle =
-    registryStatus === "error" && registryError
-      ? `Katalogfel: ${registryError}`
-      : registryStatusLabel;
-
-  const inspectorMeta = useMemo(() => {
-    if (!inspectorSelection) return null;
-    const tag = inspectorSelection.tag.toLowerCase();
-    const isHeading = /^h[1-6]$/.test(tag);
-    const isText = ["p", "span", "small", "label", "li"].includes(tag);
-    const isControl = ["button", "a", "input", "textarea", "select", "option"].includes(tag);
-    const isMedia = ["img", "svg", "picture", "video", "canvas"].includes(tag);
-    if (isHeading) {
-      return { label: "Rubrik", dotClass: "bg-brand-blue", textClass: "text-brand-blue" };
-    }
-    if (isControl) {
-      return { label: "Kontroll", dotClass: "bg-brand-amber", textClass: "text-brand-amber" };
-    }
-    if (isMedia) {
-      return { label: "Media", dotClass: "bg-brand-warm", textClass: "text-brand-warm" };
-    }
-    if (isText) {
-      return { label: "Text", dotClass: "bg-brand-teal", textClass: "text-brand-teal" };
-    }
-    return { label: "Block", dotClass: "bg-zinc-400", textClass: "text-muted-foreground" };
-  }, [inspectorSelection]);
-
   const handleInputChange = (value: string) => {
     setInput(value);
   };
-
-  const buildInspectorPrompt = useCallback((selection: InspectorSelection) => {
-    const lines = [
-      "Jag vill ändra detta element:",
-      `- Tagg: ${selection.tag}`,
-      selection.id ? `- ID: ${selection.id}` : null,
-      selection.className ? `- Klasser: ${selection.className}` : null,
-      selection.text ? `- Text: \"${selection.text}\"` : null,
-      `- Selector: ${selection.selector}`,
-    ].filter(Boolean);
-    return lines.join("\n");
-  }, []);
-
-  const handleInsertInspectorSelection = useCallback(() => {
-    if (!inspectorSelection) return;
-    const snippet = buildInspectorPrompt(inspectorSelection);
-    setInput((prev) => (prev ? `${prev}\n\n${snippet}` : snippet));
-  }, [buildInspectorPrompt, inspectorSelection]);
 
   const prefilledPromptRef = useRef<string | null>(null);
   const lastChatIdRef = useRef<string | null>(chatId);
@@ -481,10 +380,8 @@ export function ChatInterface({
 
   const handleSubmit = async ({ text }: { text: string }) => {
     if (submitDisabled) return;
-
     const trimmed = text.trim();
     if (!trimmed && !hasSuccessFiles) return;
-
     const baseMessage = trimmed || "Use the attached files as visual references for the design.";
     await sendMessagePayload(baseMessage);
   };
@@ -492,7 +389,6 @@ export function ChatInterface({
   const handleTextContentReady = async (content: string, filename: string) => {
     const trimmedContent = content.trim();
     if (!trimmedContent) return;
-
     const baseMessage = `Use the following content from "${filename}" as source text:\n\n${trimmedContent}`;
     await sendMessagePayload(baseMessage);
   };
@@ -545,15 +441,7 @@ export function ChatInterface({
             selection.registryItem.registryDependencies.length > 4 ? "..." : ""
           })`
         : "";
-      const placementOption = PLACEMENT_OPTIONS.find((p) => p.value === selection.placement);
-      const placementLabel =
-        placementOption?.label ||
-        (selection.placement?.startsWith("after-")
-          ? `Efter ${
-              selection.placement.replace("after-", "").charAt(0).toUpperCase() +
-              selection.placement.replace("after-", "").slice(1)
-            }`
-          : "Längst ner");
+      const placementLabel = resolvePlacementLabel(selection.placement);
 
       const fullMessage = `Lägg till UI‑element (${isComponent ? "komponent" : "block"}): **${itemTitle}**${deps}
 📍 Placering: ${placementLabel}
@@ -567,15 +455,13 @@ ${technicalPrompt}`;
           try {
             const startedDirectly = await onStartFromRegistry(selection);
             if (startedDirectly !== false) {
-              setIsUiPickerOpen(false);
+              setPickerTab(null);
               return;
             }
-            // Registry init returned a controlled failure; continue via prompt fallback.
             toast.error("Kunde inte starta direkt från registry. Fortsätter via fallback-läge.");
           } catch (error) {
             const message =
               error instanceof Error ? error.message : "Kunde inte starta direkt från registry";
-            // Fallback to prompt-based create when registry init fails upstream.
             toast.error(`${message}. Fortsätter via fallback-läge.`);
           }
         }
@@ -589,7 +475,7 @@ ${technicalPrompt}`;
           source: isComponent ? "shadcn-component" : "shadcn-block",
           dependencies: selection.registryItem.registryDependencies ?? undefined,
         });
-        setIsUiPickerOpen(false);
+        setPickerTab(null);
         return;
       }
 
@@ -603,7 +489,7 @@ ${technicalPrompt}`;
         source: isComponent ? "shadcn-component" : "shadcn-block",
         dependencies: selection.registryItem.registryDependencies ?? undefined,
       });
-      setIsUiPickerOpen(false);
+      setPickerTab(null);
     } finally {
       setIsUiElementAction(false);
     }
@@ -620,6 +506,7 @@ ${technicalPrompt}`;
           ? "Tema avstängt."
           : `Tema uppdaterat: ${label}.`,
       );
+      setPickerTab(null);
     },
     [onDesignThemeChange],
   );
@@ -656,7 +543,7 @@ ${technicalPrompt}`;
         tags: item.tags,
         dependencies: item.dependencies,
       });
-      setIsUiPickerOpen(false);
+      setPickerTab(null);
     } finally {
       setIsUiElementAction(false);
     }
@@ -665,7 +552,7 @@ ${technicalPrompt}`;
   const handleTemplateSelect = (templateId: string) => {
     if (!onStartFromTemplate) return;
     onStartFromTemplate(templateId);
-    setIsUiPickerOpen(false);
+    setPickerTab(null);
   };
 
   const handleMediaSelect = (item: {
@@ -695,45 +582,6 @@ ${technicalPrompt}`;
 
   return (
     <div className="border-border bg-background border-t p-4">
-      {inspectorSelection && inspectorMeta && (
-        <div className="border-border/60 bg-muted/30 mb-3 rounded-lg border px-3 py-2 text-xs text-muted-foreground">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className={`h-2 w-2 rounded-full ${inspectorMeta.dotClass}`} />
-            <span className="text-foreground text-xs font-medium">Markerat {inspectorMeta.label}</span>
-            <span className={`text-[11px] ${inspectorMeta.textClass}`}>{inspectorSelection.tag}</span>
-          </div>
-          <div className="mt-2 space-y-1 text-[11px]">
-            {inspectorSelection.text && (
-              <div className="text-foreground/80 line-clamp-1">“{inspectorSelection.text}”</div>
-            )}
-            <div className="text-muted-foreground/80 line-clamp-1">
-              Selector: {inspectorSelection.selector}
-            </div>
-            {inspectorSelection.id && (
-              <div className="text-muted-foreground/80 line-clamp-1">ID: {inspectorSelection.id}</div>
-            )}
-            {inspectorSelection.className && (
-              <div className="text-muted-foreground/80 line-clamp-1">
-                Klasser: {inspectorSelection.className}
-              </div>
-            )}
-          </div>
-          <div className="mt-2 flex flex-wrap gap-2">
-            <Button type="button" size="sm" variant="outline" onClick={handleInsertInspectorSelection}>
-              Infoga i prompt
-            </Button>
-            <Button
-              type="button"
-              size="sm"
-              variant="ghost"
-              onClick={onInspectorSelectionClear}
-              disabled={!onInspectorSelectionClear}
-            >
-              Rensa
-            </Button>
-          </div>
-        </div>
-      )}
       <PromptInput
         value={input}
         onChange={handleInputChange}
@@ -742,7 +590,7 @@ ${technicalPrompt}`;
         className="border-input bg-background rounded-lg border shadow-sm"
       >
         <PromptInputHeader className="flex flex-wrap items-center gap-2">
-          <div className="ml-auto flex flex-wrap items-center gap-2">
+          <div className="ml-auto flex items-center gap-2">
             {onEnhancePrompt && (
               <Button
                 type="button"
@@ -754,9 +602,9 @@ ${technicalPrompt}`;
                 title="Rätta stavning/tydlighet i prompten"
               >
                 {isEnhancing ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  <Loader2 className="size-3.5 animate-spin" />
                 ) : (
-                  <Wand2 className="h-3.5 w-3.5" />
+                  <Wand2 className="size-3.5" />
                 )}
                 Förbättra
               </Button>
@@ -781,57 +629,20 @@ ${technicalPrompt}`;
               disabled={inputDisabled || !input.trim()}
               title="Skapa plan/PRD innan kod"
             >
-              <FileText className="h-3.5 w-3.5" />
+              <FileText className="size-3.5" />
               Plan
             </Button>
-            {onDesignThemeChange && (
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                className="h-8 gap-2"
-                onClick={() => setIsThemePickerOpen(true)}
-                disabled={inputDisabled}
-                title="Välj tema"
-              >
-                Tema
-              </Button>
-            )}
             <Button
               type="button"
               variant="outline"
               size="sm"
               className="h-8 gap-2"
-              onClick={() => setIsTemplatePickerOpen(true)}
+              onClick={() => setPickerTab("ui")}
               disabled={inputDisabled}
-              title="Välj mall"
+              title="Lägg till element (UI, AI, Mallar, Tema)"
             >
-              Mall
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-8 gap-2"
-              onClick={() => setIsAiPickerOpen(true)}
-              disabled={inputDisabled}
-              title="Välj AI-element"
-            >
-              AI‑element
-            </Button>
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-8 gap-2"
-              onClick={() => setIsUiPickerOpen(true)}
-              disabled={inputDisabled}
-              title={`UI-element · ${registryStatusTitle}`}
-            >
-              <Blocks className="h-3.5 w-3.5" />
-              <span>UI‑element</span>
-              {registryStatus === "loading" && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
-              {registryStatus === "error" && <span className="text-xs text-red-400">!</span>}
+              <Plus className="size-3.5" />
+              Lägg till
             </Button>
           </div>
         </PromptInputHeader>
@@ -911,7 +722,7 @@ ${technicalPrompt}`;
         <PromptInputFooter className="flex-col items-stretch gap-2">
           {showPreparingPrompt && (
             <div className="text-muted-foreground flex items-center gap-2 text-xs">
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              <Loader2 className="size-3.5 animate-spin" />
               Förbereder prompt...
             </div>
           )}
@@ -933,7 +744,7 @@ ${technicalPrompt}`;
                     className="border-border text-muted-foreground hover:bg-accent hover:text-foreground inline-flex h-7 items-center gap-1 rounded-md border px-2 text-xs disabled:opacity-50"
                     title="Öppna mediabibliotek"
                   >
-                    <ImageIcon className="h-3.5 w-3.5" />
+                    <ImageIcon className="size-3.5" />
                     Mediabibliotek
                   </button>
                   <button
@@ -943,7 +754,7 @@ ${technicalPrompt}`;
                     className="border-border text-muted-foreground hover:bg-accent hover:text-foreground inline-flex h-7 items-center gap-1 rounded-md border px-2 text-xs disabled:opacity-50"
                     title="Lägg till text eller PDF"
                   >
-                    <FileText className="h-3.5 w-3.5" />
+                    <FileText className="size-3.5" />
                     Text/PDF
                   </button>
                 </>
@@ -958,7 +769,7 @@ ${technicalPrompt}`;
               <span className="text-muted-foreground text-xs">Shift+Enter för ny rad</span>
             </PromptInputTools>
             <PromptInputSubmit disabled={submitDisabled}>
-              {isSending ? <Loader2 className="h-4 w-4 animate-spin" /> : undefined}
+              {isSending ? <Loader2 className="size-4 animate-spin" /> : undefined}
             </PromptInputSubmit>
           </div>
         </PromptInputFooter>
@@ -981,48 +792,22 @@ ${technicalPrompt}`;
         />
       )}
 
-      {isUiPickerOpen && (
-        <UiElementPicker
-          open={isUiPickerOpen}
-          onClose={() => setIsUiPickerOpen(false)}
-          onConfirm={handleDesignSystemAction}
+      {pickerTab && (
+        <UnifiedElementPicker
+          open={Boolean(pickerTab)}
+          initialTab={pickerTab}
+          onClose={() => setPickerTab(null)}
+          onUiConfirm={handleDesignSystemAction}
+          onAiConfirm={handleAiElementAction}
+          onTemplateSelect={handleTemplateSelect}
+          onThemeSelect={handleDesignThemeSelect}
           isBusy={inputDisabled}
           isSubmitting={isUiElementAction}
           hasChat={Boolean(chatId)}
-          currentCode={currentCode}
-        />
-      )}
-
-      {isThemePickerOpen && onDesignThemeChange && (
-        <ThemePicker
-          open={isThemePickerOpen}
-          onClose={() => setIsThemePickerOpen(false)}
-          currentTheme={designTheme}
-          onSelectTheme={handleDesignThemeSelect}
-          isBusy={inputDisabled}
-        />
-      )}
-
-      {isTemplatePickerOpen && (
-        <TemplatePicker
-          open={isTemplatePickerOpen}
-          onClose={() => setIsTemplatePickerOpen(false)}
-          onSelectTemplate={handleTemplateSelect}
-          hasChat={Boolean(chatId)}
-          isBusy={inputDisabled}
-        />
-      )}
-
-      {isAiPickerOpen && (
-        <AiElementPicker
-          open={isAiPickerOpen}
-          onClose={() => setIsAiPickerOpen(false)}
-          onConfirm={handleAiElementAction}
-          hasChat={Boolean(chatId)}
-          isBusy={inputDisabled}
-          isSubmitting={isUiElementAction}
           currentCode={currentCode}
           paletteSelections={paletteSelections}
+          currentTheme={designTheme}
+          showThemeTab={Boolean(onDesignThemeChange)}
         />
       )}
     </div>

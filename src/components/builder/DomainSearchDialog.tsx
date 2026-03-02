@@ -66,8 +66,8 @@ export function DomainSearchDialog({
   onClose,
 }: DomainSearchDialogProps) {
   return (
-    <Dialog open={open}>
-      <DialogContent className="max-w-lg">
+    <Dialog open={open} onClose={onClose}>
+      <DialogContent className="max-w-lg" onClose={onClose}>
         <DialogHeader>
           <DialogTitle>Sök &amp; köp domän</DialogTitle>
           <DialogDescription>

@@ -29,12 +29,6 @@ export function SiteAuditSection({ onAuditComplete, onRequireAuth }: SiteAuditSe
   const canAffordBasic = user && user.diamonds >= AUDIT_COSTS.basic;
   const canAffordAdvanced = user && user.diamonds >= AUDIT_COSTS.advanced;
 
-  useEffect(() => {
-    const handleDialogClose = () => setShowModeDialog(false);
-    window.addEventListener("dialog-close", handleDialogClose);
-    return () => window.removeEventListener("dialog-close", handleDialogClose);
-  }, []);
-
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault();
     if (isLoading) return;
@@ -271,8 +265,8 @@ export function SiteAuditSection({ onAuditComplete, onRequireAuth }: SiteAuditSe
         ))}
       </div>
 
-      <Dialog open={showModeDialog}>
-        <DialogContent className="max-w-2xl">
+      <Dialog open={showModeDialog} onClose={() => setShowModeDialog(false)}>
+        <DialogContent className="max-w-2xl" onClose={() => setShowModeDialog(false)}>
           <DialogHeader>
             <DialogTitle>Välj analysnivå</DialogTitle>
             <DialogDescription>

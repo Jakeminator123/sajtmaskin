@@ -102,8 +102,6 @@ export function BuilderShellContent(vm: BuilderViewModel) {
             mediaEnabled={vm.mediaEnabled}
             currentCode={vm.currentPageCode}
             existingUiComponents={vm.existingUiComponents}
-            inspectorSelection={vm.inspectorSelection}
-            onInspectorSelectionClear={vm.clearInspectorSelection}
           />
           <DeployNameDialog
             open={vm.deployNameDialogOpen}
@@ -144,8 +142,6 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               onClear={vm.handleClearPreview}
               onFixPreview={vm.handleFixPreview}
               refreshToken={vm.previewRefreshToken}
-              onInspectorSelection={vm.setInspectorSelection}
-              inspectorClearToken={vm.inspectorClearToken}
             />
           </div>
           <div

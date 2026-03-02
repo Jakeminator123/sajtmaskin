@@ -62,7 +62,7 @@ export function useBuilderPageController() {
     setCurrentDemoUrl, setCurrentPageCode, setCustomInstructions,
     setDeployNameDialogOpen, setDesignTheme, setEnableBlobMedia,
     setEnableImageGenerations, setEnableThinking, setEntryIntentActive,
-    setExistingUiComponents, setInspectorClearToken, setInspectorSelection,
+    setExistingUiComponents,
     setIsImageGenerationsSupported, setIsIntentionalReset, setIsMediaEnabled,
     setMessages, setPaletteState, setPreviewRefreshToken, setPromptAssistContext,
     setResolvedPrompt, setSelectedModelTier, setSelectedVersionId,
@@ -281,8 +281,6 @@ export function useBuilderPageController() {
     bumpPreviewRefreshToken,
     setCurrentDemoUrl: state.setCurrentDemoUrl,
     setSelectedVersionId: state.setSelectedVersionId,
-    setInspectorSelection: state.setInspectorSelection,
-    setInspectorClearToken: state.setInspectorClearToken,
     setIsVersionPanelCollapsed: state.setIsVersionPanelCollapsed,
   });
 
@@ -753,13 +751,6 @@ export function useBuilderPageController() {
     }
   }, [showStructuredChat]);
 
-  // Deploy dialog close handler
-  useEffect(() => {
-    const handleDialogClose = () => setDeployNameDialogOpen(false);
-    window.addEventListener("dialog-close", handleDialogClose);
-    return () => window.removeEventListener("dialog-close", handleDialogClose);
-  }, [setDeployNameDialogOpen]);
-
   // Custom instructions load / save
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -1073,12 +1064,6 @@ export function useBuilderPageController() {
     }
   }, [derived.activeVersionId, chat, currentDemoUrl, derived.effectiveVersionsList, serverProjectDemoUrl, serverProjectChatId, chatId, lastActiveVersionIdRef, setCurrentDemoUrl, setPreviewRefreshToken]);
 
-  // Inspector clear on chat/url change
-  useEffect(() => {
-    setInspectorSelection(null);
-    setInspectorClearToken(Date.now());
-  }, [chatId, currentDemoUrl, setInspectorSelection, setInspectorClearToken]);
-
   // Prompt assist context fetch
   useEffect(() => {
     const contextKey =
@@ -1237,8 +1222,6 @@ export function useBuilderPageController() {
     paletteState: state.paletteState,
     currentDemoUrl: state.currentDemoUrl,
     previewRefreshToken: state.previewRefreshToken,
-    inspectorSelection: state.inspectorSelection,
-    inspectorClearToken: state.inspectorClearToken,
     isVersionPanelCollapsed: state.isVersionPanelCollapsed,
     currentPageCode: state.currentPageCode,
     existingUiComponents: state.existingUiComponents,
@@ -1264,7 +1247,6 @@ export function useBuilderPageController() {
     setCurrentDemoUrl: state.setCurrentDemoUrl,
     setChatId: state.setChatId,
     setMessages: state.setMessages,
-    setInspectorSelection: state.setInspectorSelection,
 
     // Derived
     isAnyStreaming: derived.isAnyStreaming,
@@ -1303,7 +1285,6 @@ export function useBuilderPageController() {
 
     // Preview / version callbacks
     handleClearPreview: builderCallbacks.handleClearPreview,
-    clearInspectorSelection: builderCallbacks.clearInspectorSelection,
     handleFixPreview: builderCallbacks.handleFixPreview,
     handleVersionSelect: builderCallbacks.handleVersionSelect,
     handleToggleVersionPanel: builderCallbacks.handleToggleVersionPanel,

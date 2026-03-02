@@ -7,6 +7,10 @@ import type { ShadcnRegistryItem } from "@/lib/shadcn-registry-types";
 import type { ComponentItem } from "@/lib/shadcn-registry-service";
 import { buildPreviewImageUrl } from "@/lib/shadcn-registry-service";
 import {
+  getShadcnComponentCategoryLabelSv,
+  type ComponentPreviewKind,
+} from "@/lib/builder/shadcn-component-metadata";
+import {
   buildRegistryMarkdownPreview,
   buildShadcnDocsUrl,
   buildShadcnPreviewUrl,
@@ -34,6 +38,7 @@ export function UiElementPickerPreview({
   onReload,
 }: Props) {
   const [showCode, setShowCode] = useState(false);
+  const [previewTheme, setPreviewTheme] = useState<"light" | "dark">("light");
   const [lightFailed, setLightFailed] = useState(false);
   const [darkFailed, setDarkFailed] = useState(false);
   const [prevItemName, setPrevItemName] = useState(selectedItem?.name);
@@ -41,6 +46,7 @@ export function UiElementPickerPreview({
   if (selectedItem?.name !== prevItemName) {
     setPrevItemName(selectedItem?.name);
     setShowCode(false);
+    setPreviewTheme("light");
     setLightFailed(false);
     setDarkFailed(false);
   }
@@ -54,15 +60,24 @@ export function UiElementPickerPreview({
 
   const isBlock = selectedItem?.type === "block";
   const liveUrl = isBlock ? previewLink : null;
+  const currentThemeFailed = previewTheme === "light" ? lightFailed : darkFailed;
 
   if (!selectedItem) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-3 text-muted-foreground">
-        <Blocks className="h-8 w-8 opacity-30" />
+        <Blocks className="size-8 opacity-30" />
         <span className="text-sm">Välj ett {itemLabel} i listan</span>
       </div>
     );
   }
+
+  const componentKind = (selectedItem.previewKind || selectedItem.iconKey || "other") as ComponentPreviewKind;
+  const componentMeta = COMPONENT_DETAIL_META[componentKind] || COMPONENT_DETAIL_META.other;
+  const componentCategorySv = getShadcnComponentCategoryLabelSv(selectedItem.category);
+  const componentDependencies = registryItem?.registryDependencies ?? [];
+  const componentUsageHint =
+    selectedItem.usageHint ||
+    "Använd komponenten som bas och be AI justera färger, spacing och innehåll efter din design.";
 
   return (
     <>
@@ -78,6 +93,24 @@ export function UiElementPickerPreview({
           )}
         </div>
         <div className="flex shrink-0 items-center gap-2">
+          {isBlock && (
+            <div className="flex rounded-md border border-border bg-muted/30 p-0.5">
+              {(["light", "dark"] as const).map((theme) => (
+                <button
+                  key={theme}
+                  type="button"
+                  onClick={() => setPreviewTheme(theme)}
+                  className={`rounded-sm px-2.5 py-1 text-[11px] font-medium transition-all ${
+                    previewTheme === theme
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {theme === "light" ? "Ljust" : "Mörkt"}
+                </button>
+              ))}
+            </div>
+          )}
           {previewLink && (
             <Button
               variant="outline"
@@ -85,7 +118,7 @@ export function UiElementPickerPreview({
               className="h-7 gap-1.5 text-[11px]"
               onClick={() => window.open(previewLink, "_blank", "noopener,noreferrer")}
             >
-              <ExternalLink className="h-3 w-3" />
+              <ExternalLink className="size-3" />
               {isBlock ? "Preview" : "Docs"}
             </Button>
           )}
@@ -95,7 +128,7 @@ export function UiElementPickerPreview({
             className={`h-7 gap-1.5 text-[11px] ${showCode ? "bg-brand-teal/10 text-brand-teal border-brand-teal/30" : ""}`}
             onClick={() => setShowCode((v) => !v)}
           >
-            <Code2 className="h-3 w-3" /> Kod
+            <Code2 className="size-3" /> Kod
           </Button>
         </div>
       </div>
@@ -103,7 +136,7 @@ export function UiElementPickerPreview({
       <div className="scrollbar-thin flex-1 overflow-y-auto p-5">
         {isLoading ? (
           <div className="flex items-center justify-center py-20">
-            <Loader2 className="h-6 w-6 animate-spin text-brand-teal/60" />
+            <Loader2 className="size-6 animate-spin text-brand-teal/60" />
           </div>
         ) : (
           <>
@@ -124,12 +157,12 @@ export function UiElementPickerPreview({
                   </div>
                 )}
                 <Button variant="outline" size="sm" onClick={onReload} className="mt-2 h-7">
-                  <RefreshCw className="mr-1.5 h-3 w-3" /> Uppdatera katalogen
+                  <RefreshCw className="mr-1.5 size-3" /> Uppdatera katalogen
                 </Button>
               </div>
             )}
 
-            {registryItem?.registryDependencies?.length ? (
+            {isBlock && registryItem?.registryDependencies?.length ? (
               <div className="mb-4 rounded-xl border border-border/50 bg-card/60 p-4">
                 <div className="text-xs font-medium text-foreground">Dependencies</div>
                 <div className="mt-1 text-[11px] text-muted-foreground">
@@ -142,27 +175,60 @@ export function UiElementPickerPreview({
             ) : null}
 
             {isBlock ? (
-              <div className="grid gap-4 md:grid-cols-2">
-                <ThemePreviewCard
-                  mode="light"
-                  name={selectedItem.name}
-                  title={selectedItem.title}
-                  style={style}
-                  failed={lightFailed}
-                  onFail={() => setLightFailed(true)}
-                />
-                <ThemePreviewCard
-                  mode="dark"
-                  name={selectedItem.name}
-                  title={selectedItem.title}
-                  style={style}
-                  failed={darkFailed}
-                  onFail={() => setDarkFailed(true)}
-                />
-              </div>
+              <ThemePreviewCard
+                mode={previewTheme}
+                name={selectedItem.name}
+                title={selectedItem.title}
+                style={style}
+                failed={currentThemeFailed}
+                onFail={() => previewTheme === "light" ? setLightFailed(true) : setDarkFailed(true)}
+              />
             ) : (
-              <div className="rounded-xl border border-border/50 bg-muted/20 p-5 text-sm text-muted-foreground">
-                Ingen preview för komponenter. Öppna docs för exempel och kod.
+              <div className="rounded-xl border border-border/50 bg-muted/20 p-5">
+                <div className="flex items-center gap-3">
+                  <div className={`flex size-10 items-center justify-center rounded-lg ${componentMeta.iconClass}`}>
+                    <span className="text-base leading-none">{componentMeta.emoji}</span>
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <div className="text-sm font-medium text-foreground">{selectedItem.title}</div>
+                      <span className={`rounded px-1.5 py-0.5 text-[10px] font-medium ${componentMeta.badgeClass}`}>
+                        {componentMeta.label}
+                      </span>
+                    </div>
+                    <div className="text-xs text-muted-foreground">Kategori: {componentCategorySv}</div>
+                  </div>
+                </div>
+                {registryItem?.description && (
+                  <p className="mt-3 text-sm text-muted-foreground">{registryItem.description}</p>
+                )}
+                {componentDependencies.length > 0 ? (
+                  <div className="mt-4">
+                    <div className="text-[11px] font-medium text-foreground">Dependencies</div>
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {componentDependencies.map((dep) => (
+                        <span
+                          key={dep}
+                          className="rounded-full border border-border/60 bg-card px-2 py-0.5 text-[10px] text-muted-foreground"
+                        >
+                          {dep}
+                        </span>
+                      ))}
+                    </div>
+                    <div className="mt-2 text-[11px] text-muted-foreground">
+                      {componentDependencies.length} beroenden kan behövas för full funktion.
+                    </div>
+                  </div>
+                ) : (
+                  <div className="mt-4 text-[11px] text-muted-foreground">Inga extra dependencies krävs.</div>
+                )}
+                <div className={`mt-4 rounded-lg border px-3 py-2.5 ${componentMeta.hintClass}`}>
+                  <div className="text-[11px] font-medium">Användningstips</div>
+                  <div className="mt-1 text-[12px] leading-relaxed">{componentUsageHint}</div>
+                </div>
+                <div className="mt-3 text-xs text-muted-foreground/70">
+                  Öppna docs för interaktiva exempel, API-referens och åtkomst till senaste implementationen.
+                </div>
               </div>
             )}
 
@@ -195,7 +261,7 @@ export function UiElementPickerPreview({
             )}
 
             <div className="mt-5 flex items-start gap-3 rounded-xl border border-brand-teal/15 bg-brand-teal/5 p-4">
-              <Wand2 className="mt-0.5 h-4 w-4 shrink-0 text-brand-teal" />
+              <Wand2 className="mt-0.5 size-4 shrink-0 text-brand-teal" />
               <p className="text-[13px] leading-relaxed text-muted-foreground">
                 <span className="font-medium text-brand-teal">Tips:</span> Du kan anpassa färger,
                 text och bilder efter att du lagt till komponenten — beskriv bara vad du vill ändra
@@ -208,6 +274,82 @@ export function UiElementPickerPreview({
     </>
   );
 }
+
+const COMPONENT_DETAIL_META: Record<
+  ComponentPreviewKind,
+  { emoji: string; label: string; iconClass: string; badgeClass: string; hintClass: string }
+> = {
+  inputs: {
+    emoji: "⌨️",
+    label: "Input",
+    iconClass: "bg-brand-blue/10 text-brand-blue",
+    badgeClass: "bg-brand-blue/10 text-brand-blue/80",
+    hintClass: "border-brand-blue/20 bg-brand-blue/5 text-brand-blue/90",
+  },
+  forms: {
+    emoji: "📝",
+    label: "Form",
+    iconClass: "bg-brand-amber/10 text-brand-amber",
+    badgeClass: "bg-brand-amber/10 text-brand-amber/80",
+    hintClass: "border-brand-amber/20 bg-brand-amber/5 text-brand-amber/90",
+  },
+  overlay: {
+    emoji: "🪟",
+    label: "Overlay",
+    iconClass: "bg-violet-500/10 text-violet-300",
+    badgeClass: "bg-violet-500/10 text-violet-300",
+    hintClass: "border-violet-500/20 bg-violet-500/5 text-violet-200",
+  },
+  navigation: {
+    emoji: "🧭",
+    label: "Navigation",
+    iconClass: "bg-cyan-500/10 text-cyan-300",
+    badgeClass: "bg-cyan-500/10 text-cyan-300",
+    hintClass: "border-cyan-500/20 bg-cyan-500/5 text-cyan-200",
+  },
+  layout: {
+    emoji: "🧱",
+    label: "Layout",
+    iconClass: "bg-emerald-500/10 text-emerald-300",
+    badgeClass: "bg-emerald-500/10 text-emerald-300",
+    hintClass: "border-emerald-500/20 bg-emerald-500/5 text-emerald-200",
+  },
+  feedback: {
+    emoji: "💬",
+    label: "Feedback",
+    iconClass: "bg-pink-500/10 text-pink-300",
+    badgeClass: "bg-pink-500/10 text-pink-300",
+    hintClass: "border-pink-500/20 bg-pink-500/5 text-pink-200",
+  },
+  data: {
+    emoji: "🗂️",
+    label: "Data",
+    iconClass: "bg-teal-500/10 text-teal-300",
+    badgeClass: "bg-teal-500/10 text-teal-300",
+    hintClass: "border-teal-500/20 bg-teal-500/5 text-teal-200",
+  },
+  table: {
+    emoji: "📋",
+    label: "Tabell",
+    iconClass: "bg-indigo-500/10 text-indigo-300",
+    badgeClass: "bg-indigo-500/10 text-indigo-300",
+    hintClass: "border-indigo-500/20 bg-indigo-500/5 text-indigo-200",
+  },
+  typography: {
+    emoji: "🔤",
+    label: "Typografi",
+    iconClass: "bg-fuchsia-500/10 text-fuchsia-300",
+    badgeClass: "bg-fuchsia-500/10 text-fuchsia-300",
+    hintClass: "border-fuchsia-500/20 bg-fuchsia-500/5 text-fuchsia-200",
+  },
+  other: {
+    emoji: "📦",
+    label: "UI",
+    iconClass: "bg-muted/70 text-foreground/80",
+    badgeClass: "bg-muted/70 text-foreground/80",
+    hintClass: "border-border/70 bg-muted/40 text-foreground/80",
+  },
+};
 
 function ThemePreviewCard({
   mode,
@@ -235,7 +377,7 @@ function ThemePreviewCard({
         {[0, 1, 2].map((i) => (
           <div
             key={i}
-            className={`h-2 w-2 rounded-full ${isLight ? "bg-gray-300" : "bg-gray-600"}`}
+            className={`size-2 rounded-full ${isLight ? "bg-gray-300" : "bg-gray-600"}`}
           />
         ))}
         <span

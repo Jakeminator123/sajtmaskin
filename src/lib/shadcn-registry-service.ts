@@ -14,6 +14,10 @@
 
 import type { ShadcnRegistryItem } from "@/lib/shadcn-registry-types";
 import { getRegistryBaseUrl, resolveRegistryStyle } from "@/lib/v0/v0-url-parser";
+import {
+  resolveShadcnComponentMetadata,
+  type ComponentPreviewKind,
+} from "@/lib/builder/shadcn-component-metadata";
 
 // ============================================
 // TYPES
@@ -22,6 +26,7 @@ import { getRegistryBaseUrl, resolveRegistryStyle } from "@/lib/v0/v0-url-parser
 export interface RegistryIndexItem {
   name: string;
   type: string;
+  title?: string;
   description?: string;
   categories?: string[];
 }
@@ -52,6 +57,9 @@ export interface ComponentItem {
   type: "block" | "component";
   lightImageUrl?: string;
   darkImageUrl?: string;
+  previewKind?: ComponentPreviewKind;
+  iconKey?: ComponentPreviewKind;
+  usageHint?: string;
 }
 
 export type RegistryItemKind = "block" | "component";
@@ -349,17 +357,23 @@ export async function getRegistryItemsByCategory(
   const categoryMap = new Map<string, ComponentItem[]>();
 
   for (const item of filteredItems) {
-    const rawCategory = item.categories?.[0]?.trim() || "other";
+    const componentMetadata =
+      kind === "component" ? resolveShadcnComponentMetadata(item.name, item.description) : null;
+    const fallbackCategory = componentMetadata?.category ?? "other";
+    const rawCategory = item.categories?.[0]?.trim() || fallbackCategory;
     const categoryId = rawCategory.toLowerCase() || "other";
 
     const entry: ComponentItem = {
       name: item.name,
-      title: toTitleCase(item.name),
+      title: item.title?.trim() || toTitleCase(item.name),
       description: item.description || "",
       category: categoryId,
       type: kind,
       lightImageUrl: kind === "block" ? buildPreviewImageUrl(item.name, "light", style) : undefined,
       darkImageUrl: kind === "block" ? buildPreviewImageUrl(item.name, "dark", style) : undefined,
+      previewKind: componentMetadata?.previewKind,
+      iconKey: componentMetadata?.iconKey,
+      usageHint: componentMetadata?.usageHint,
     };
 
     const existing = categoryMap.get(categoryId) || [];

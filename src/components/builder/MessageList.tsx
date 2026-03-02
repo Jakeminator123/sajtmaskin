@@ -104,12 +104,6 @@ const MessageListComponent = ({
     openProjectEnvVarsPanel(requirement.envKeys);
   }, [latestEnvRequirement]);
 
-  useEffect(() => {
-    const handleDialogClose = () => setIsReplyDialogOpen(false);
-    window.addEventListener("dialog-close", handleDialogClose);
-    return () => window.removeEventListener("dialog-close", handleDialogClose);
-  }, []);
-
   const handleModalQuickReply = async (option: string, optionIndex: number) => {
     if (!pendingReply) return;
     const success = await sendQuickReply(pendingReply.messageId, optionIndex, option);
@@ -616,8 +610,8 @@ const MessageListComponent = ({
 
       {pendingReply && (
         <>
-          <Dialog open={isReplyDialogOpen}>
-            <DialogContent className="sm:max-w-md">
+          <Dialog open={isReplyDialogOpen} onClose={() => setIsReplyDialogOpen(false)}>
+            <DialogContent className="sm:max-w-md" onClose={() => setIsReplyDialogOpen(false)}>
               <DialogHeader>
                 <DialogTitle className="font-semibold text-amber-300">
                   Svar krävs för att fortsätta

@@ -273,12 +273,6 @@ export function UiElementPicker({
     }
   }, [activeCategory, sourceCategories]);
   useEffect(() => { if (!isSubmitting) setPendingAction(null); }, [isSubmitting]);
-  useEffect(() => {
-    const close = () => onClose();
-    window.addEventListener("dialog-close", close);
-    return () => window.removeEventListener("dialog-close", close);
-  }, [onClose]);
-
   const waitForNextPaint = useCallback(async () => {
     if (typeof window === "undefined") return;
     await new Promise<void>((r) => requestAnimationFrame(() => window.setTimeout(r, 0)));
@@ -313,8 +307,8 @@ export function UiElementPicker({
   );
 
   return (
-    <Dialog open={open}>
-      <DialogContent className="flex max-h-[92vh] w-[min(96vw,1200px)] max-w-6xl flex-col overflow-hidden rounded-2xl border-border/50 bg-background/95 p-0 shadow-2xl backdrop-blur-xl">
+    <Dialog open={open} onClose={onClose}>
+      <DialogContent className="flex max-h-[92vh] w-[min(96vw,1200px)] max-w-6xl flex-col overflow-hidden rounded-2xl border-border/50 bg-background/95 p-0 shadow-2xl backdrop-blur-xl" onClose={onClose}>
         {/* Header */}
         <div className="relative overflow-hidden">
           <div className="absolute inset-x-0 top-0 h-px bg-linear-to-r from-transparent via-brand-teal/50 to-transparent" />
@@ -472,7 +466,7 @@ export function UiElementPicker({
                               }`}
                             >
                               <div className="flex items-center gap-3">
-                                <div className="relative h-14 w-20 shrink-0 overflow-hidden rounded-lg border border-border/50 bg-white">
+                                <div className="relative h-20 w-32 shrink-0 overflow-hidden rounded-lg border border-border/50 bg-white">
                                   {thumbUrl && !thumbFailed ? (
                                     // eslint-disable-next-line @next/next/no-img-element
                                     <img

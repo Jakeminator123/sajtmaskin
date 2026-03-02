@@ -158,12 +158,6 @@ export function BuilderHeader(props: {
     window.requestAnimationFrame(action);
   }, []);
 
-  useEffect(() => {
-    const handleDialogClose = () => setIsInstructionsOpen(false);
-    window.addEventListener("dialog-close", handleDialogClose);
-    return () => window.removeEventListener("dialog-close", handleDialogClose);
-  }, []);
-
   return (
     <header className="border-border bg-background flex h-14 items-center justify-between border-b px-4">
       <div className="flex items-center gap-3">
@@ -535,8 +529,8 @@ export function BuilderHeader(props: {
         </Button>
       </div>
 
-      <Dialog open={isInstructionsOpen}>
-        <DialogContent className="max-w-lg">
+      <Dialog open={isInstructionsOpen} onClose={() => setIsInstructionsOpen(false)}>
+        <DialogContent className="max-w-lg" onClose={() => setIsInstructionsOpen(false)}>
           <DialogHeader>
             <DialogTitle>Custom Instructions</DialogTitle>
             <DialogDescription>

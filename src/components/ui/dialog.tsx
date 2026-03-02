@@ -1,10 +1,12 @@
 "use client";
 
 import { Slot } from "@radix-ui/react-slot";
-import { Children, isValidElement, useEffect, useId, useRef, type ReactNode } from "react";
+import { Children, isValidElement, useCallback, useEffect, useId, useRef, type ReactNode } from "react";
+import { cn } from "@/lib/utils/utils";
 
 interface DialogProps {
   open: boolean;
+  onClose?: () => void;
   children: ReactNode;
 }
 
@@ -20,6 +22,7 @@ interface DialogContentProps {
   children: ReactNode;
   className?: string;
   showCloseButton?: boolean;
+  onClose?: () => void;
 }
 
 interface DialogHeaderProps {
@@ -39,7 +42,7 @@ interface DialogDescriptionProps {
   id?: string;
 }
 
-export function Dialog({ open, children }: DialogProps) {
+export function Dialog({ open, onClose, children }: DialogProps) {
   if (!open) return null;
   return <>{children}</>;
 }
@@ -59,7 +62,7 @@ export function DialogTrigger({
   return <Comp {...mergedProps}>{children}</Comp>;
 }
 
-export function DialogContent({ children, className = "", showCloseButton }: DialogContentProps) {
+export function DialogContent({ children, className = "", showCloseButton, onClose }: DialogContentProps) {
   const dialogRef = useRef<HTMLDivElement>(null);
   const fallbackTitleId = useId();
   const fallbackDescriptionId = useId();
@@ -80,11 +83,15 @@ export function DialogContent({ children, className = "", showCloseButton }: Dia
   const ariaLabelledBy = hasTitle ? undefined : fallbackTitleId;
   const ariaDescribedBy = hasDescription ? undefined : fallbackDescriptionId;
 
-  // Close on escape key
+  const requestClose = useCallback(() => {
+    if (onClose) {
+      onClose();
+    }
+  }, [onClose]);
+
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        // Don't close if user is typing in an input field
         const target = e.target as HTMLElement;
         const isInput = target.tagName === "INPUT" || target.tagName === "TEXTAREA";
         const isContentEditable = target.isContentEditable;
@@ -95,16 +102,13 @@ export function DialogContent({ children, className = "", showCloseButton }: Dia
 
         e.preventDefault();
         e.stopPropagation();
-        const event = new CustomEvent("dialog-close");
-        window.dispatchEvent(event);
+        requestClose();
       }
     };
-    // Use capture phase to handle before other handlers
     document.addEventListener("keydown", handleEscape, true);
     return () => document.removeEventListener("keydown", handleEscape, true);
-  }, []);
+  }, [requestClose]);
 
-  // Prevent body scroll when open
   useEffect(() => {
     document.body.style.overflow = "hidden";
     return () => {
@@ -116,14 +120,11 @@ export function DialogContent({ children, className = "", showCloseButton }: Dia
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div
         className="absolute inset-0 bg-black/70 backdrop-blur-sm"
-        onClick={() => {
-          const event = new CustomEvent("dialog-close");
-          window.dispatchEvent(event);
-        }}
+        onClick={requestClose}
       />
       <div
         ref={dialogRef}
-        className={`relative z-10 mx-4 w-full max-w-lg rounded-lg border border-gray-800 bg-gray-900 shadow-xl ${className}`}
+        className={cn("relative z-10 mx-4 w-full max-w-lg rounded-lg border border-gray-800 bg-gray-900 shadow-xl", className)}
         role="dialog"
         aria-modal="true"
         aria-labelledby={ariaLabelledBy}
@@ -143,10 +144,7 @@ export function DialogContent({ children, className = "", showCloseButton }: Dia
         {showCloseButton ? (
           <button
             type="button"
-            onClick={() => {
-              const event = new CustomEvent("dialog-close");
-              window.dispatchEvent(event);
-            }}
+            onClick={requestClose}
             className="absolute top-3 right-3 text-gray-400 hover:text-gray-200"
             aria-label="Close"
           >
@@ -159,12 +157,12 @@ export function DialogContent({ children, className = "", showCloseButton }: Dia
 }
 
 export function DialogHeader({ children, className = "" }: DialogHeaderProps) {
-  return <div className={`p-6 pb-4 ${className}`}>{children}</div>;
+  return <div className={cn("p-6 pb-4", className)}>{children}</div>;
 }
 
 export function DialogTitle({ children, className = "", id }: DialogTitleProps) {
   return (
-    <h2 data-slot="dialog-title" id={id} className={`text-lg font-semibold text-white ${className}`}>
+    <h2 data-slot="dialog-title" id={id} className={cn("text-lg font-semibold text-white", className)}>
       {children}
     </h2>
   );
@@ -172,7 +170,7 @@ export function DialogTitle({ children, className = "", id }: DialogTitleProps) 
 
 export function DialogDescription({ children, className = "", id }: DialogDescriptionProps) {
   return (
-    <p data-slot="dialog-description" id={id} className={`mt-1 text-sm text-gray-400 ${className}`}>
+    <p data-slot="dialog-description" id={id} className={cn("mt-1 text-sm text-gray-400", className)}>
       {children}
     </p>
   );
