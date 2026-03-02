@@ -798,14 +798,29 @@ export function PromptWizardModalV2({
     [applyEnrichmentToActiveStep, buildEnrichContextHash, isAuthenticated, isInitialized, companyLookup, competitors],
   );
 
-  // ── Scrape website on URL entry (non-blocking) ────────────────
+  // ── Scrape website: fast first, deep in background ──────────
   const handleScrapeWebsite = useCallback(
     (url: string) => {
       if (!url) return;
       setIsScraping(true);
       const fullUrl = url.startsWith("http") ? url : `https://${url}`;
 
-      // Run analysis in background
+      // Phase 1: Quick scrape via lightweight API -- ~1-2s
+      fetch("/api/wizard/quick-scrape", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url: fullUrl }),
+      })
+        .then((r) => r.json())
+        .then((d) => {
+          if (d.success && d.data) {
+            setScrapedData(d.data);
+            setIsScraping(false);
+          }
+        })
+        .catch(() => {});
+
+      // Phase 2: Deep AI analysis in background -- 5-15s, updates websiteAnalysis when done
       fetch("/api/analyze-website", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -818,7 +833,7 @@ export function PromptWizardModalV2({
         .catch(() => {})
         .finally(() => setIsScraping(false));
 
-      // Run enrichment in background separately
+      // Phase 3: Full enrich with scrape data -- runs alongside phase 2
       void fetchEnrichment(step, { scrapeUrl: fullUrl, force: true });
     },
     [fetchEnrichment, step],

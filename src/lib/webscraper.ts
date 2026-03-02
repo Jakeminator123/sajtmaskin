@@ -595,6 +595,61 @@ async function safeFetch(targetUrl: string): Promise<ParsedPage | null> {
 }
 
 /**
+ * Quick scrape: fetches only the root page and extracts title, description,
+ * headings, and a text summary. Typically completes in 1-2 seconds.
+ * Used by the wizard for immediate feedback before the full deep scrape runs.
+ */
+export async function quickScrapeWebsite(url: string): Promise<{
+  title: string;
+  description: string;
+  headings: string[];
+  wordCount: number;
+  hasImages: boolean;
+  textSummary: string;
+}> {
+  const normalizedUrl = normalizeInputUrl(url);
+  if (!normalizedUrl) throw new Error("URL måste anges");
+
+  const res = await fetchWithTimeout(normalizedUrl, 5000, {
+    "User-Agent":
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131 Safari/537.36",
+    Accept: "text/html,application/xhtml+xml,*/*;q=0.8",
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  const html = await res.text();
+  const cheerio = await getCheerio();
+  const $ = cheerio.load(html);
+
+  $("script, style, noscript").remove();
+
+  const title = $("title").text().trim() || "Ingen titel";
+  const description =
+    $('meta[name="description"]').attr("content") ||
+    $('meta[property="og:description"]').attr("content") ||
+    "";
+  const headings: string[] = [];
+  $("h1, h2, h3").each((_, el) => {
+    const text = $(el).text().trim();
+    if (text && headings.length < 15) headings.push(text);
+  });
+  const mainEl = $("main, article, [role='main'], .content").first();
+  let bodyText = (mainEl.length > 0 ? mainEl.text() : $("body").text())
+    .replace(/\s+/g, " ")
+    .trim();
+  const words = bodyText.split(" ").filter((w) => w.length > 0);
+  const hasImages = $("img").length > 0;
+
+  return {
+    title,
+    description: description.trim(),
+    headings,
+    wordCount: words.length,
+    hasImages,
+    textSummary: words.slice(0, 200).join(" "),
+  };
+}
+
+/**
  * Scrape website content for audit analysis.
  * Tries to pick a meaningful entry page and pulls a few internal pages for context.
  */
