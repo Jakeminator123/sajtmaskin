@@ -329,11 +329,15 @@ export async function POST(req: Request) {
 
       const stepFocus: Record<number, string> = {
         1: "företagets storlek, unikhet och verksamhet",
-        2: "konkurrenter, USP och kundproblem de löser",
+        2: "målgrupp, konkurrenter, USP och kundproblem de löser",
         3: "konkurrentlandskapet, vad som saknas jämfört med toppkonkurrenter, SEO-möjligheter",
         4: "varumärkespersonlighet, visuella element, foto vs illustration",
         5: "tidsplan, integrationer (bokning, betalning, e-post), budget",
       };
+
+      const suggestionRule = step === 2 && !data.targetAudience
+        ? `- 1-2 förslag. Inkludera ALLTID en suggestion med type:"audience" som beskriver den mest sannolika målgruppen baserat på bransch, företagsnamn, plats och eventuell bolagsdata. Övriga förslag: type: usp/feature/trend`
+        : `- 1-2 förslag (type: feature/usp/trend)`;
 
       const prompt =
         mode === "final_check"
@@ -356,11 +360,11 @@ Kontext: ${contextLines}
 Steg ${step}/5 - fokus: ${stepFocus[step] || ""}
 
 Ge exakt detta JSON-format (inget annat):
-{"questions":[{"id":"q1","text":"Fråga på svenska","type":"text","priority":"medium"},{"id":"q2","text":"Fråga 2","type":"select","options":["Alt 1","Alt 2","Alt 3"]}],"suggestions":[{"type":"feature","text":"Förslag på svenska"}],"insightSummary":"Kort sammanfattning","meta":{"confidence":0.0,"needsClarification":false,"unknowns":[],"priority":"medium"}}
+{"questions":[{"id":"q1","text":"Fråga på svenska","type":"text","priority":"medium"},{"id":"q2","text":"Fråga 2","type":"select","options":["Alt 1","Alt 2","Alt 3"]}],"suggestions":[{"type":"audience","text":"Beskriv målgrupp"},{"type":"feature","text":"Förslag på svenska"}],"insightSummary":"Kort sammanfattning","meta":{"confidence":0.0,"needsClarification":false,"unknowns":[],"priority":"medium"}}
 
 Regler:
 - 2 frågor max, korta och specifika för ${industryLabel}
-- 1-2 förslag (type: feature/usp/trend)
+${suggestionRule}
 - Använd previousFollowUps för att undvika upprepade frågor
 - Allt på svenska
 - Bara JSON, inget annat`;

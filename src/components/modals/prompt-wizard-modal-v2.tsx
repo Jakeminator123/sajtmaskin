@@ -89,7 +89,6 @@ type IndustryOption = {
   id: string;
   label: string;
   icon: LucideIcon;
-  suggestedAudience: string;
   suggestedFeatures: string[];
 };
 
@@ -98,77 +97,66 @@ const INDUSTRY_OPTIONS: IndustryOption[] = [
     id: "cafe",
     label: "Café/Konditori",
     icon: Coffee,
-    suggestedAudience: "Kaffeälskare och fika-entusiaster i närområdet",
     suggestedFeatures: ["Meny", "Öppettider", "Bildgalleri", "Bordbokning"],
   },
   {
     id: "restaurant",
     label: "Restaurang/Bar",
     icon: UtensilsCrossed,
-    suggestedAudience: "Matälskare, par och grupper som söker upplevelser",
     suggestedFeatures: ["Meny", "Bordbokning", "Events", "Chef's specials"],
   },
   {
     id: "retail",
     label: "Butik/Detaljhandel",
     icon: ShoppingBag,
-    suggestedAudience: "Shoppingintresserade som söker kvalitet",
     suggestedFeatures: ["Produktkatalog", "Erbjudanden", "Hitta butik"],
   },
   {
     id: "tech",
     label: "Tech/IT-företag",
     icon: Monitor,
-    suggestedAudience: "Företag och startups som behöver digitala lösningar",
     suggestedFeatures: ["Tjänster", "Case studies", "Prissättning"],
   },
   {
     id: "consulting",
     label: "Konsult/Tjänster",
     icon: BriefcaseBusiness,
-    suggestedAudience: "Företag som behöver experthjälp",
     suggestedFeatures: ["Tjänster", "Team", "Kontakt", "Testimonials"],
   },
   {
     id: "health",
     label: "Hälsa/Wellness",
     icon: HeartPulse,
-    suggestedAudience: "Hälsomedvetna individer som söker välmående",
     suggestedFeatures: ["Behandlingar", "Onlinebokning", "Prislista"],
   },
   {
     id: "creative",
     label: "Kreativ byrå",
     icon: Brush,
-    suggestedAudience: "Företag som behöver kreativa lösningar",
     suggestedFeatures: ["Portfolio", "Tjänster", "Process", "Kontakt"],
   },
   {
     id: "education",
     label: "Utbildning",
     icon: GraduationCap,
-    suggestedAudience: "Studenter och yrkesverksamma som vill lära sig",
     suggestedFeatures: ["Kurser", "Schema", "Anmälan", "Lärare"],
   },
   {
     id: "ecommerce",
     label: "E-handel",
     icon: Store,
-    suggestedAudience: "Onlineshoppare som söker bekvämlighet",
     suggestedFeatures: ["Produkter", "Varukorg", "Checkout", "Recensioner"],
   },
   {
     id: "realestate",
     label: "Fastigheter",
     icon: House,
-    suggestedAudience: "Bostadssökare och säljare",
     suggestedFeatures: ["Objekt", "Sök/Filter", "Kontakt", "Värdering"],
   },
   {
     id: "other",
     label: "Annat",
     icon: Sparkles,
-    suggestedAudience: "",
     suggestedFeatures: [],
   },
 ];
@@ -664,6 +652,10 @@ export function PromptWizardModalV2({
     setInsightSummary(payload?.insightSummary ?? null);
     setScrapedData(payload?.scrapedData ?? null);
     setActiveEnrichMeta(payload?.meta ?? null);
+    const aiAudience = payload?.suggestions?.find((s) => s.type === "audience");
+    if (aiAudience?.text) {
+      setAudienceSuggestion(aiAudience.text);
+    }
   }, []);
 
   // AbortController to cancel in-flight requests
@@ -798,14 +790,14 @@ export function PromptWizardModalV2({
     [applyEnrichmentToActiveStep, buildEnrichContextHash, isAuthenticated, isInitialized, companyLookup, competitors],
   );
 
-  // ── Scrape website: fast first, deep in background ──────────
+  // ── Scrape website: quick-scrape first, then AI analysis with real content ──
   const handleScrapeWebsite = useCallback(
     (url: string) => {
       if (!url) return;
       setIsScraping(true);
       const fullUrl = url.startsWith("http") ? url : `https://${url}`;
 
-      // Phase 1: Quick scrape via lightweight API -- ~1-2s
+      // Phase 1: Quick scrape, then feed result into AI analysis
       fetch("/api/wizard/quick-scrape", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -813,27 +805,43 @@ export function PromptWizardModalV2({
       })
         .then((r) => r.json())
         .then((d) => {
-          if (d.success && d.data) {
-            setScrapedData(d.data);
-            setIsScraping(false);
+          const quickData = d.success && d.data ? d.data : null;
+          if (quickData) {
+            setScrapedData(quickData);
           }
-        })
-        .catch(() => {});
 
-      // Phase 2: Deep AI analysis in background -- 5-15s, updates websiteAnalysis when done
-      fetch("/api/analyze-website", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: fullUrl }),
-      })
-        .then((r) => r.json())
-        .then((d) => {
-          if (d.success && d.analysis) setWebsiteAnalysis(d.analysis);
+          // Phase 2: AI analysis -- pass scraped content so the model has real data
+          fetch("/api/analyze-website", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              url: fullUrl,
+              scrapedContent: quickData ?? undefined,
+            }),
+          })
+            .then((r) => r.json())
+            .then((d) => {
+              if (d.success && d.analysis) setWebsiteAnalysis(d.analysis);
+            })
+            .catch(() => {})
+            .finally(() => setIsScraping(false));
         })
-        .catch(() => {})
-        .finally(() => setIsScraping(false));
+        .catch(() => {
+          // Quick-scrape failed entirely -- still try AI analysis without content
+          fetch("/api/analyze-website", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ url: fullUrl }),
+          })
+            .then((r) => r.json())
+            .then((d) => {
+              if (d.success && d.analysis) setWebsiteAnalysis(d.analysis);
+            })
+            .catch(() => {})
+            .finally(() => setIsScraping(false));
+        });
 
-      // Phase 3: Full enrich with scrape data -- runs alongside phase 2
+      // Phase 3: Full enrich with scrape data -- runs alongside
       void fetchEnrichment(step, { scrapeUrl: fullUrl, force: true });
     },
     [fetchEnrichment, step],
@@ -954,13 +962,10 @@ export function PromptWizardModalV2({
     );
   }, []);
 
-  // Handle industry change -- suggest audience as chip, don't prefill
+  // Handle industry change -- audience suggestion comes from AI enrich, not static data
   const handleIndustryChange = useCallback((newIndustry: string) => {
     setIndustry(newIndustry);
-    const industryData = INDUSTRY_OPTIONS.find((i) => i.id === newIndustry);
-    if (industryData?.suggestedAudience) {
-      setAudienceSuggestion(industryData.suggestedAudience);
-    }
+    setAudienceSuggestion(null);
     const industryPalettes = getIndustryPalettes(newIndustry);
     if (industryPalettes.length > 0) {
       setSelectedPalette(industryPalettes[0]);
@@ -1631,7 +1636,7 @@ export function PromptWizardModalV2({
                 <textarea
                   value={targetAudience}
                   onChange={(e) => setTargetAudience(e.target.value)}
-                  placeholder="Beskriv din idealiska kund..."
+                  placeholder={isEnriching ? "Analyserar din profil för att föreslå målgrupp..." : ""}
                   rows={2}
                   className={INPUT_CLASS + " resize-none"}
                 />

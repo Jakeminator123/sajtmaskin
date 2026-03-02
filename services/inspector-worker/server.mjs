@@ -546,6 +546,135 @@ const server = http.createServer(async (req, res) => {
     }
   }
 
+  if (method === "POST" && url.pathname === "/element-map") {
+    if (AUTH_TOKEN) {
+      const headerToken = req.headers["x-inspector-token"];
+      if (headerToken !== AUTH_TOKEN) {
+        return json(res, 401, { success: false, error: "Unauthorized" });
+      }
+    }
+
+    try {
+      const body = await readJsonBody(req);
+      if (!body || typeof body !== "object") {
+        return json(res, 400, { success: false, error: "Invalid JSON body." });
+      }
+      const targetUrl = typeof body.url === "string" ? body.url.trim() : "";
+      if (!targetUrl) {
+        return json(res, 400, { success: false, error: "Missing url." });
+      }
+      let parsedUrl;
+      try { parsedUrl = new URL(targetUrl); } catch { return json(res, 400, { success: false, error: "Invalid URL." }); }
+      if (!["http:", "https:"].includes(parsedUrl.protocol)) {
+        return json(res, 400, { success: false, error: "Only http/https." });
+      }
+      if (isDisallowedHost(parsedUrl.hostname)) {
+        return json(res, 403, { success: false, error: "Disallowed host." });
+      }
+
+      const vpW = clamp(Math.round(Number(body.viewportWidth) || 1280), 320, 2400);
+      const vpH = clamp(Math.round(Number(body.viewportHeight) || 800), 240, 2400);
+      const maxElements = clamp(Math.round(Number(body.maxElements) || 300), 50, 600);
+
+      let browser = null;
+      try {
+        browser = await chromium.launch({ headless: true });
+        const page = await browser.newPage({
+          viewport: { width: vpW, height: vpH },
+          userAgent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120 Safari/537.36",
+        });
+        await page.goto(parsedUrl.toString(), { waitUntil: "domcontentloaded", timeout: NAVIGATION_TIMEOUT_MS });
+        await waitForStabilizedPage(page);
+
+        for (let attempt = 0; attempt < 4; attempt++) {
+          const hasContent = await page.evaluate(() => {
+            const els = document.querySelectorAll("body *:not(script):not(style):not(noscript):not(link):not(meta)");
+            let visible = 0;
+            for (const el of els) {
+              try { const r = el.getBoundingClientRect(); if (r.width > 10 && r.height > 10) visible++; } catch {}
+            }
+            return visible >= 3;
+          }).catch(() => false);
+          if (hasContent) break;
+          await page.waitForTimeout(2000).catch(() => undefined);
+        }
+
+        const elements = await page.evaluate((params) => {
+          const skip = new Set(["script", "style", "noscript", "head", "meta", "link", "template", "html", "body"]);
+          const vpW = window.innerWidth || 1;
+          const vpH = window.innerHeight || 1;
+          const pct = (v, base) => Math.round((Math.max(0, Math.min(1, v / base)) * 100) * 10) / 10;
+
+          const cssEscape = (val) => {
+            if (typeof CSS !== "undefined" && typeof CSS.escape === "function") return CSS.escape(val);
+            return String(val).replace(/[^a-zA-Z0-9_-]/g, "\\$&");
+          };
+          const buildSelector = (el) => {
+            const parts = [];
+            let cur = el;
+            while (cur && cur.nodeType === 1) {
+              const tag = cur.tagName.toLowerCase();
+              if (tag === "html") break;
+              const id = cur.getAttribute("id");
+              if (id) { parts.unshift("#" + cssEscape(id)); break; }
+              const cls = (cur.getAttribute("class") || "").split(/\s+/).filter(Boolean).slice(0, 2).map(c => "." + cssEscape(c)).join("");
+              let nth = 1;
+              if (cur.parentElement) {
+                const siblings = Array.from(cur.parentElement.children).filter(c => c.tagName === cur.tagName);
+                nth = Math.max(1, siblings.indexOf(cur) + 1);
+              }
+              parts.unshift(tag + cls + ":nth-of-type(" + nth + ")");
+              cur = cur.parentElement;
+            }
+            return parts.join(" > ");
+          };
+
+          const all = Array.from(document.querySelectorAll("*")).filter(el => {
+            const tag = (el.tagName || "").toLowerCase();
+            if (skip.has(tag)) return false;
+            let r;
+            try { r = el.getBoundingClientRect(); } catch { return false; }
+            return r && r.width > 2 && r.height > 2;
+          });
+
+          return all.slice(0, params.max).map(el => {
+            const r = el.getBoundingClientRect();
+            const tag = el.tagName.toLowerCase();
+            const text = (el.innerText || el.textContent || "").trim().replace(/\s+/g, " ").slice(0, 120) || null;
+            const className = (typeof el.className === "string" ? el.className.trim() : "") || null;
+            return {
+              tag,
+              id: el.id || null,
+              className,
+              text,
+              selector: buildSelector(el),
+              rect: { x: Math.round(r.left), y: Math.round(r.top), width: Math.round(r.width), height: Math.round(r.height) },
+              vpPercent: { x: pct(r.left, vpW), y: pct(r.top, vpH), w: pct(r.width, vpW), h: pct(r.height, vpH) },
+            };
+          });
+        }, { max: maxElements });
+
+        return json(res, 200, {
+          success: true,
+          elements,
+          viewport: { width: vpW, height: vpH },
+          elementCount: elements.length,
+          collectedAt: new Date().toISOString(),
+        });
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : "Unknown element-map error";
+        return json(res, 502, { success: false, error: "Element map failed.", details: msg });
+      } finally {
+        if (browser) await browser.close().catch(() => undefined);
+      }
+    } catch (err) {
+      if (err instanceof Error && err.message === "Body too large") {
+        return json(res, 413, { success: false, error: "Request body too large" });
+      }
+      return json(res, 400, { success: false, error: "Invalid JSON." });
+    }
+  }
+
   return json(res, 404, { success: false, error: "Not found" });
 });
 

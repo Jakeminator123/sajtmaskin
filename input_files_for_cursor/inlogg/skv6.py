@@ -700,9 +700,11 @@ def _run_playwright_job(
 
     try:
         with sync_playwright() as p:
-            chromium_args = []
+            chromium_args = [
+                "--disable-features=LocalNetworkAccessChecks",
+            ]
             if _resolve_headless():
-                chromium_args = [
+                chromium_args += [
                     "--disable-dev-shm-usage",
                     "--disable-gpu",
                     "--no-sandbox",
@@ -1479,9 +1481,551 @@ def _run_playwright_job(
         _schedule_job_cleanup(job_id)
 
 
+MAX_ELEMENTS_LOG = 500
+
+
+def _run_open_url_scrape_job(job_id: str, url: str, search_text: Optional[str] = None, wait_seconds: float = 0.0) -> None:
+    """Öppna URL i Playwright (synligt fönster), samla upp till MAX_ELEMENTS_LOG element (synliga endast).
+    Om search_text anges returneras endast element vars text innehåller söksträngen.
+    wait_seconds: extra väntetid (sek) efter networkidle innan DOM-scan."""
+    job = _get_job(job_id)
+    if not job:
+        return
+
+    job.state = "running"
+    job.started_at = time.time()
+    job.message = "Öppnar webbläsare..."
+    job.details = job.details or {}
+    job.details["element_log"] = []
+    _set_job(job)
+
+    try:
+        with sync_playwright() as p:
+            browser = p.chromium.launch(
+                headless=False,
+                args=["--disable-features=LocalNetworkAccessChecks"],
+            )
+            page = browser.new_page()
+            job.message = f"Går till: {url}"
+            _set_job(job)
+            try:
+                page.goto(url, wait_until="networkidle", timeout=60000)
+            except Exception:
+                page.goto(url, wait_until="domcontentloaded", timeout=30000)
+            if wait_seconds > 0:
+                job.message = f"Väntar {wait_seconds}s extra för JS-rendering..."
+                _set_job(job)
+                time.sleep(wait_seconds)
+
+            job.message = "Samlar synliga element..." if not search_text else f"Söker efter \"{search_text}\"..."
+            _set_job(job)
+
+            search_js = (search_text or "").strip().replace("\\", "\\\\").replace('"', '\\"').replace("\n", " ")
+            elements_data = page.evaluate(
+                """(params) => {
+                    const maxEl = params.maxEl || 500;
+                    const searchStr = params.searchStr || '';
+                    const skip = ['script','style','noscript','head','meta','link','template'];
+                    const vpW = window.innerWidth || 1;
+                    const vpH = window.innerHeight || 1;
+                    const pageW = Math.max(document.body ? document.body.scrollWidth : vpW, document.documentElement ? document.documentElement.scrollWidth : vpW, vpW);
+                    const pageH = Math.max(document.body ? document.body.scrollHeight : vpH, document.documentElement ? document.documentElement.scrollHeight : vpH, vpH);
+                    const clamp = (v) => Math.max(0, Math.min(100, v));
+                    const pct1 = (v, base) => Math.round(clamp(v / base * 100) * 10) / 10;
+                    const all = Array.from(document.querySelectorAll('*')).filter(el => {
+                        const tag = (el.tagName || '').toLowerCase();
+                        if (skip.includes(tag)) return false;
+                        let r;
+                        try { r = el.getBoundingClientRect(); } catch(e) { return false; }
+                        if (!r || r.width <= 0 || r.height <= 0) return false;
+                        if (searchStr) {
+                            const raw = (el.innerText || el.textContent || '').trim();
+                            if (!raw.toLowerCase().includes(searchStr.toLowerCase())) return false;
+                        }
+                        return true;
+                    });
+                    return all.slice(0, maxEl).map(el => {
+                        const tag = (el.tagName || '').toLowerCase();
+                        const id = el.id ? '#' + el.id : '';
+                        let cls = (el.className && typeof el.className === 'string') ? el.className.trim().split(/\\s+/).slice(0,2).join('.') : '';
+                        if (cls) cls = '.' + cls;
+                        let text = '';
+                        try { const t = (el.innerText || el.textContent || '').trim().replace(/\\s+/g,' ').slice(0, 120); if(t) text = ' "' + t + '"'; } catch(e) {}
+                        let left = 0, top = 0, width = 0, height = 0;
+                        try {
+                            const r = el.getBoundingClientRect();
+                            left = Math.round(r.left + window.scrollX);
+                            top = Math.round(r.top + window.scrollY);
+                            width = Math.round(r.width);
+                            height = Math.round(r.height);
+                        } catch(e) {}
+                        return { tag, id, cls, text, left, top, width, height,
+                            vp_x: pct1(left, vpW), vp_y: pct1(top, vpH), vp_w: pct1(width, vpW), vp_h: pct1(height, vpH),
+                            pg_x: pct1(left, pageW), pg_y: pct1(top, pageH), pg_w: pct1(width, pageW), pg_h: pct1(height, pageH) };
+                    });
+                }""",
+                {"maxEl": MAX_ELEMENTS_LOG, "searchStr": search_js},
+            )
+
+            log_lines = []
+            for i, item in enumerate(elements_data or [], 1):
+                tag = item.get("tag", "?")
+                id_part = item.get("id", "")
+                cls_part = item.get("cls", "")
+                text_part = item.get("text", "")
+                left = item.get("left", 0)
+                top = item.get("top", 0)
+                width = item.get("width", 0)
+                height = item.get("height", 0)
+                vp = f" [vp: x={item.get('vp_x',0)}% y={item.get('vp_y',0)}% w={item.get('vp_w',0)}% h={item.get('vp_h',0)}%]"
+                pg = f" [page: x={item.get('pg_x',0)}% y={item.get('pg_y',0)}% w={item.get('pg_w',0)}% h={item.get('pg_h',0)}%]"
+                coords = f" [x={left}, y={top}, w={width}, h={height}]{vp}{pg}"
+                line = f"{i}. {tag}{id_part}{cls_part}{text_part}{coords}"
+                log_lines.append(line)
+
+            job.details["element_log"] = log_lines
+            job.ended_at = time.time()
+            job.state = "matched"
+            if search_text:
+                job.message = f"Klar. {len(log_lines)} element innehåller \"{search_text}\" (max {MAX_ELEMENTS_LOG})."
+            else:
+                job.message = f"Klar. {len(log_lines)} synliga element loggade (max {MAX_ELEMENTS_LOG})."
+            _set_job(job)
+            browser.close()
+            _schedule_job_cleanup(job_id)
+    except Exception as e:
+        job.state = "error"
+        job.ended_at = time.time()
+        job.message = f"Fel: {e}"
+        job.details = job.details or {}
+        job.details["element_log"] = job.details.get("element_log", []) + [f"Fel: {e}"]
+        _set_job(job)
+        _schedule_job_cleanup(job_id)
+
+
+def _run_click_mode_job(job_id: str, url: str) -> None:
+    """Öppna URL i Playwright (synligt fönster), injicera klicklyssnare – vid klick skickas elementinfo till job.details (last_click, click_log)."""
+    job = _get_job(job_id)
+    if not job:
+        return
+
+    job.state = "running"
+    job.started_at = time.time()
+    job.message = "Öppnar Playwright-fönster – klicka på sidan för att se elementinfo här."
+    job.details = job.details or {}
+    job.details["last_click"] = None
+    job.details["click_log"] = []
+    _set_job(job)
+
+    # Base URL for click-report API (Playwright page will POST here from any origin)
+    api_base = os.environ.get("SKV_CLICK_API_BASE", f"http://127.0.0.1:{APP_PORT}")
+
+    try:
+        with sync_playwright() as p:
+            browser = p.chromium.launch(
+                headless=False,
+                args=["--disable-features=LocalNetworkAccessChecks"],
+            )
+            page = browser.new_page()
+
+            job.message = f"Går till: {url} – klicka på ett element."
+            _set_job(job)
+            page.goto(url, wait_until="domcontentloaded", timeout=30000)
+
+            # Inject click listener that POSTs to our API (works from any origin)
+            page.evaluate(
+                """(args) => {
+                    var baseUrl = args.baseUrl || 'http://127.0.0.1:8767';
+                    var jobId = args.jobId || '';
+                    function sendClick(el) {
+                        try {
+                            var r = el.getBoundingClientRect();
+                            var vpW = window.innerWidth || 1;
+                            var vpH = window.innerHeight || 1;
+                            var pageW = Math.max(document.body ? document.body.scrollWidth : vpW, document.documentElement ? document.documentElement.scrollWidth : vpW, vpW);
+                            var pageH = Math.max(document.body ? document.body.scrollHeight : vpH, document.documentElement ? document.documentElement.scrollHeight : vpH, vpH);
+                            function clamp(v){return Math.max(0,Math.min(100,v));}
+                            function pct1(v,b){return Math.round(clamp(v/b*100)*10)/10;}
+                            var left = Math.round(r.left + window.scrollX);
+                            var top = Math.round(r.top + window.scrollY);
+                            var width = Math.round(r.width);
+                            var height = Math.round(r.height);
+                            var payload = {
+                                job_id: jobId,
+                                tag: el.tagName ? el.tagName.toLowerCase() : '',
+                                id: el.id || '',
+                                cls: (el.className && typeof el.className === 'string') ? el.className.trim().split(/\\s+/).slice(0,2).join('.') : '',
+                                text: (el.innerText || el.textContent || '').trim().replace(/\\s+/g, ' ').slice(0, 120),
+                                left: left, top: top, width: width, height: height,
+                                vp_x: pct1(left,vpW), vp_y: pct1(top,vpH), vp_w: pct1(width,vpW), vp_h: pct1(height,vpH),
+                                pg_x: pct1(left,pageW), pg_y: pct1(top,pageH), pg_w: pct1(width,pageW), pg_h: pct1(height,pageH)
+                            };
+                            fetch(baseUrl + '/api/click-report', {
+                                method: 'POST',
+                                mode: 'cors',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify(payload)
+                            }).catch(function() {});
+                        } catch(err) {}
+                    }
+                    document.addEventListener('click', function(e) { sendClick(e.target); }, true);
+                }""",
+                {"baseUrl": api_base, "jobId": job_id},
+            )
+
+            job.message = "Fönster öppet – klicka var som helst på sidan. Elementinfo visas här. Klicka 'Stäng fönster' när du är klar."
+            _set_job(job)
+
+            while not _is_cancelled(job_id):
+                req = None
+                j = _get_job(job_id)
+                if j and j.details:
+                    req = j.details.pop("element_at_point_request", None)
+                if req and isinstance(req, dict):
+                    x_val = req.get("x", 0)
+                    y_val = req.get("y", 0)
+                    try:
+                        result = page.evaluate(
+                            """(xy) => {
+                                var el = document.elementFromPoint(xy.x, xy.y);
+                                if (!el) return { error: 'Inget element vid dessa koordinater' };
+                                var r = el.getBoundingClientRect();
+                                var vpW = window.innerWidth || 1;
+                                var vpH = window.innerHeight || 1;
+                                var pageW = Math.max(document.body ? document.body.scrollWidth : vpW, document.documentElement ? document.documentElement.scrollWidth : vpW, vpW);
+                                var pageH = Math.max(document.body ? document.body.scrollHeight : vpH, document.documentElement ? document.documentElement.scrollHeight : vpH, vpH);
+                                function clamp(v){return Math.max(0,Math.min(100,v));}
+                                function pct1(v,b){return Math.round(clamp(v/b*100)*10)/10;}
+                                var tag = (el.tagName || '').toLowerCase();
+                                var id = el.id || '';
+                                var cls = (el.className && typeof el.className === 'string') ? el.className.trim().split(/\\s+/).slice(0,3).join('.') : '';
+                                var text = (el.innerText || el.textContent || '').trim().replace(/\\s+/g, ' ').slice(0, 200);
+                                var left = Math.round(r.left + window.scrollX);
+                                var top = Math.round(r.top + window.scrollY);
+                                var width = Math.round(r.width);
+                                var height = Math.round(r.height);
+                                return {
+                                    tag: tag, id: id, cls: cls, text: text,
+                                    left: left, top: top, width: width, height: height,
+                                    href: el.href || (el.getAttribute && el.getAttribute('href')) || '',
+                                    name: el.name || (el.getAttribute && el.getAttribute('name')) || '',
+                                    type: el.type || (el.getAttribute && el.getAttribute('type')) || '',
+                                    vp_x: pct1(left,vpW), vp_y: pct1(top,vpH), vp_w: pct1(width,vpW), vp_h: pct1(height,vpH),
+                                    pg_x: pct1(left,pageW), pg_y: pct1(top,pageH), pg_w: pct1(width,pageW), pg_h: pct1(height,pageH)
+                                };
+                            }""",
+                            {"x": int(x_val), "y": int(y_val)},
+                        )
+                        j = _get_job(job_id)
+                        if j:
+                            j.details = j.details or {}
+                            j.details["element_at_point_result"] = result
+                            _set_job(j)
+                    except Exception as e:
+                        j = _get_job(job_id)
+                        if j:
+                            j.details = j.details or {}
+                            j.details["element_at_point_result"] = {"error": str(e)}
+                            _set_job(j)
+                time.sleep(0.5)
+            try:
+                browser.close()
+            except Exception:
+                pass
+            job.state = "cancelled"
+            job.ended_at = time.time()
+            job.message = "Fönster stängt."
+            _set_job(job)
+            _schedule_job_cleanup(job_id)
+    except Exception as e:
+        job.state = "error"
+        job.ended_at = time.time()
+        job.message = f"Fel: {e}"
+        job.details = job.details or {}
+        job.details["click_log"] = job.details.get("click_log", []) + [f"Fel: {e}"]
+        _set_job(job)
+        _schedule_job_cleanup(job_id)
+
+
 # ----------------------------
 # Web UI
 # ----------------------------
+
+START_HTML = """
+<!doctype html>
+<html lang="sv">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <title>Öppna URL – Elementlogg</title>
+  <style>
+    body { font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial; margin: 24px; max-width: 720px; }
+    .card { border: 1px solid #ddd; border-radius: 12px; padding: 20px; }
+    label { display: block; font-size: 13px; margin-top: 12px; color: #333; }
+    input { width: 100%; padding: 12px; border-radius: 10px; border: 1px solid #ccc; box-sizing: border-box; }
+    button { margin-top: 14px; padding: 12px 20px; border-radius: 10px; border: 1px solid #333; background: #111; color: #fff; cursor: pointer; font-size: 1rem; }
+    button:disabled { opacity: 0.6; cursor: not-allowed; }
+    .log { white-space: pre-wrap; font-family: ui-monospace, Consolas, monospace; font-size: 12px; background: #f5f5f5; border: 1px solid #ddd; border-radius: 10px; padding: 14px; margin-top: 16px; min-height: 280px; max-height: 50vh; overflow-y: auto; }
+    .small { font-size: 12px; color: #666; margin-top: 8px; }
+  </style>
+</head>
+<body>
+  <h1>Öppna URL – Elementlogg</h1>
+  <p class="small">Ange URL och klicka Okej. Endast synliga element (w&gt;0, h&gt;0) loggas. Ange valfritt sökord för att bara visa element som innehåller texten (t.ex. "Logga in", "State of the Art").</p>
+
+  <div class="card">
+    <label for="url">URL</label>
+    <input id="url" type="url" placeholder="https://example.com" value="https://www7.skatteverket.se/portal/flyttanmalan/" />
+    <label for="searchText">Sök text (valfritt) – endast element som innehåller denna text visas</label>
+    <input id="searchText" type="text" placeholder="t.ex. Logga in, State of the Art" />
+    <label for="scrapeWait">Extra väntetid (sek) – låt JS/SPA rendera klart innan scan (0 = ingen extra väntan)</label>
+    <input id="scrapeWait" type="number" min="0" max="60" step="0.5" placeholder="0" value="0" />
+    <button id="okBtn" onclick="openAndLog()">Okej</button>
+
+    <label for="logField" style="margin-top: 18px;">Logg (synliga element, max 500, med koordinater)</label>
+    <div id="logField" class="log" aria-live="polite">Ingen körning ännu. Ange URL och klicka Okej.</div>
+  </div>
+
+  <div class="card" style="margin-top: 20px;">
+    <h2 style="margin-top: 0;">Klicka för elementinfo</h2>
+    <p class="small">Öppna en sida i ett Playwright-fönster. Klicka var som helst på sidan – elementinfo (tag, id, klass, text, koordinater) visas här i huvudfönstret.</p>
+    <label for="clickUrl">URL</label>
+    <input id="clickUrl" type="url" placeholder="https://example.com" value="https://example.com" />
+    <div style="display: flex; gap: 10px; margin-top: 12px; flex-wrap: wrap;">
+      <button id="openClickBtn" onclick="openClickMode()">Öppna Playwright-fönster</button>
+      <button id="closeClickBtn" class="secondary" onclick="closeClickMode()" disabled>Stäng fönster</button>
+    </div>
+    <label for="clickLogField" style="margin-top: 18px;">Elementinfo (senast klickade + alla klick)</label>
+    <div id="clickLogField" class="log" aria-live="polite" style="min-height: 200px;">Öppna ett fönster och klicka på sidan. Info visas här.</div>
+  </div>
+
+  <div class="card" style="margin-top: 20px;">
+    <h2 style="margin-top: 0;">Element vid koordinater</h2>
+    <p class="small">Ange URL och koordinater (x, y i viewport-px). Playwright öppnar sidan, hämtar elementet vid den punkten och stänger sedan fönstret.</p>
+    <label for="coordUrl">URL</label>
+    <input id="coordUrl" type="url" placeholder="https://example.com" value="https://example.com" />
+    <div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; margin-top: 8px;">
+      <div style="min-width: 90px;">
+        <label for="coordX">X</label>
+        <input id="coordX" type="number" placeholder="0" value="100" />
+      </div>
+      <div style="min-width: 90px;">
+        <label for="coordY">Y</label>
+        <input id="coordY" type="number" placeholder="0" value="100" />
+      </div>
+      <div style="min-width: 110px;">
+        <label for="coordWait">Extra väntetid (sek)</label>
+        <input id="coordWait" type="number" min="0" max="30" step="0.5" placeholder="0" value="0" />
+      </div>
+      <button id="getAtPointBtn" onclick="getElementAtPoint()">Hämta elementinfo</button>
+    </div>
+    <label for="coordResultField" style="margin-top: 14px;">Elementinfo vid (x, y)</label>
+    <div id="coordResultField" class="log" aria-live="polite" style="min-height: 140px;">Ange URL, x, y och klicka Hämta.</div>
+  </div>
+
+  <p class="small" style="margin-top: 16px;"><a href="/flytt">Flyttanmälan – full flöde</a></p>
+
+<script>
+let currentJobId = null;
+let pollTimer = null;
+
+function setLog(lines, status) {
+  const el = document.getElementById("logField");
+  if (lines && lines.length) {
+    el.textContent = status ? status + "\\n\\n" + lines.join("\\n") : lines.join("\\n");
+  } else {
+    el.textContent = status || "Ingen data.";
+  }
+}
+
+async function openAndLog() {
+  const url = document.getElementById("url").value.trim();
+  if (!url || (!url.startsWith("http://") && !url.startsWith("https://"))) {
+    document.getElementById("logField").textContent = "Ange en giltig URL (http:// eller https://).";
+    return;
+  }
+
+  document.getElementById("okBtn").disabled = true;
+  document.getElementById("logField").textContent = "Startar...";
+
+  const waitSec = parseFloat(document.getElementById("scrapeWait").value) || 0;
+  const res = await fetch("/api/open-and-scrape", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      url: url,
+      search_text: document.getElementById("searchText").value.trim() || null,
+      wait_seconds: waitSec
+    }),
+  });
+  const data = await res.json();
+  if (data.error) {
+    document.getElementById("logField").textContent = "Fel: " + data.error;
+    document.getElementById("okBtn").disabled = false;
+    return;
+  }
+
+  currentJobId = data.job_id;
+  if (pollTimer) clearInterval(pollTimer);
+  pollTimer = setInterval(pollLog, 500);
+  pollLog();
+}
+
+async function pollLog() {
+  if (!currentJobId) return;
+  const res = await fetch("/api/status/" + encodeURIComponent(currentJobId));
+  const data = await res.json();
+  const details = data.details || {};
+  const lines = details.element_log || [];
+  const status = data.message || data.state || "";
+  setLog(lines, status);
+
+  if (["matched", "error", "cancelled"].includes(data.state)) {
+    clearInterval(pollTimer);
+    pollTimer = null;
+    document.getElementById("okBtn").disabled = false;
+  }
+}
+
+let currentClickJobId = null;
+let clickPollTimer = null;
+
+function setClickLog(lines, status) {
+  const el = document.getElementById("clickLogField");
+  if (lines && lines.length) {
+    el.textContent = status ? status + "\\n\\n" + lines.join("\\n") : lines.join("\\n");
+  } else {
+    el.textContent = status || "Öppna ett fönster och klicka på sidan. Info visas här.";
+  }
+}
+
+async function openClickMode() {
+  const url = document.getElementById("clickUrl").value.trim();
+  if (!url || (!url.startsWith("http://") && !url.startsWith("https://"))) {
+    document.getElementById("clickLogField").textContent = "Ange en giltig URL (http:// eller https://).";
+    return;
+  }
+
+  document.getElementById("openClickBtn").disabled = true;
+  document.getElementById("clickLogField").textContent = "Öppnar Playwright-fönster...";
+
+  const res = await fetch("/api/open-click-mode", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ url: url }),
+  });
+  const data = await res.json();
+  if (data.error) {
+    document.getElementById("clickLogField").textContent = "Fel: " + data.error;
+    document.getElementById("openClickBtn").disabled = false;
+    return;
+  }
+
+  currentClickJobId = data.job_id;
+  document.getElementById("closeClickBtn").disabled = false;
+  if (clickPollTimer) clearInterval(clickPollTimer);
+  clickPollTimer = setInterval(pollClickMode, 400);
+  pollClickMode();
+}
+
+async function pollClickMode() {
+  if (!currentClickJobId) return;
+  const res = await fetch("/api/status/" + encodeURIComponent(currentClickJobId));
+  const data = await res.json();
+  const details = data.details || {};
+  const lines = details.click_log || [];
+  const status = data.message || "";
+  setClickLog(lines, status);
+
+  const coordResult = details.element_at_point_result;
+  const coordEl = document.getElementById("coordResultField");
+  if (coordResult !== undefined && coordResult !== null) {
+    if (typeof coordResult === 'object' && coordResult.error) {
+      coordEl.textContent = "Fel: " + coordResult.error;
+    } else if (typeof coordResult === 'object') {
+      const parts = [];
+      if (coordResult.tag) parts.push('tag:   ' + coordResult.tag);
+      if (coordResult.id) parts.push('id:    ' + coordResult.id);
+      if (coordResult.cls) parts.push('klass: ' + coordResult.cls);
+      if (coordResult.text) parts.push('text:  "' + coordResult.text + '"');
+      if (coordResult.href) parts.push('href:  ' + coordResult.href);
+      if (coordResult.name) parts.push('name:  ' + coordResult.name);
+      if (coordResult.type) parts.push('type:  ' + coordResult.type);
+      parts.push('pos:   x=' + coordResult.left + ' y=' + coordResult.top + ' w=' + coordResult.width + ' h=' + coordResult.height);
+      parts.push('vp:    x=' + (coordResult.vp_x||0) + '% y=' + (coordResult.vp_y||0) + '% w=' + (coordResult.vp_w||0) + '% h=' + (coordResult.vp_h||0) + '%');
+      parts.push('page:  x=' + (coordResult.pg_x||0) + '% y=' + (coordResult.pg_y||0) + '% w=' + (coordResult.pg_w||0) + '% h=' + (coordResult.pg_h||0) + '%');
+      coordEl.textContent = parts.join("\\n");
+    } else {
+      coordEl.textContent = String(coordResult);
+    }
+  }
+
+  if (["cancelled", "error"].includes(data.state)) {
+    clearInterval(clickPollTimer);
+    clickPollTimer = null;
+    currentClickJobId = null;
+    document.getElementById("openClickBtn").disabled = false;
+    document.getElementById("closeClickBtn").disabled = true;
+    document.getElementById("coordResultField").textContent = "Ange x, y och klicka Hämta. Kräver att Playwright-fönster är öppet.";
+  }
+}
+
+async function closeClickMode() {
+  if (!currentClickJobId) return;
+  await fetch("/api/cancel/" + encodeURIComponent(currentClickJobId), { method: "POST" });
+}
+
+async function getElementAtPoint() {
+  const url = document.getElementById("coordUrl").value.trim();
+  const x = parseInt(document.getElementById("coordX").value, 10);
+  const y = parseInt(document.getElementById("coordY").value, 10);
+  const coordEl = document.getElementById("coordResultField");
+  if (!url || (!url.startsWith("http://") && !url.startsWith("https://"))) {
+    coordEl.textContent = "Ange en giltig URL (http:// eller https://).";
+    return;
+  }
+  if (isNaN(x) || isNaN(y)) {
+    coordEl.textContent = "Ange giltiga heltal för X och Y.";
+    return;
+  }
+  const waitSec = parseFloat(document.getElementById("coordWait").value) || 0;
+  document.getElementById("getAtPointBtn").disabled = true;
+  coordEl.textContent = waitSec > 0
+    ? `Öppnar sida, väntar ${waitSec}s och hämtar element...`
+    : "Öppnar sida (väntar på networkidle) och hämtar element...";
+  const res = await fetch("/api/fetch-element-at-point", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ url: url, x: x, y: y, wait_seconds: waitSec }),
+  });
+  const data = await res.json();
+  document.getElementById("getAtPointBtn").disabled = false;
+  if (data.error) {
+    coordEl.textContent = "Fel: " + data.error;
+    return;
+  }
+  const el = data.element || {};
+  if (el.error) {
+    coordEl.textContent = "Fel: " + el.error;
+    return;
+  }
+  const lines = [];
+  if (el.tag) lines.push("tag:   " + el.tag);
+  if (el.id) lines.push("id:    " + el.id);
+  if (el.cls) lines.push("klass: " + el.cls);
+  if (el.text) lines.push('text:  "' + el.text + '"');
+  if (el.href) lines.push("href:  " + el.href);
+  if (el.name) lines.push("name:  " + el.name);
+  if (el.type) lines.push("type:  " + el.type);
+  lines.push("pos:   x=" + el.left + " y=" + el.top + " w=" + el.width + " h=" + el.height);
+  lines.push("vp:    x=" + (el.vp_x||0) + "% y=" + (el.vp_y||0) + "% w=" + (el.vp_w||0) + "% h=" + (el.vp_h||0) + "%");
+  lines.push("page:  x=" + (el.pg_x||0) + "% y=" + (el.pg_y||0) + "% w=" + (el.pg_w||0) + "% h=" + (el.pg_h||0) + "%");
+  coordEl.textContent = lines.join("\\n");
+}
+</script>
+</body>
+</html>
+"""
 
 INDEX_HTML = """
 <!doctype html>
@@ -1511,6 +2055,7 @@ INDEX_HTML = """
   <p class="small">
     Klicksekvenser → QR-inloggning → formuläret fylls automatiskt.
     Logg: <code>skv6_session_log.txt</code> (en fil per session, överskriver föregående)
+    <br><a href="/">Öppna URL – enkel elementlogg</a>
   </p>
 
   <div class="card">
@@ -1778,6 +2323,11 @@ go();
 
 @app.get("/")
 def index():
+    return render_template_string(START_HTML)
+
+
+@app.get("/flytt")
+def flytt_index():
     return render_template_string(INDEX_HTML)
 
 
@@ -1934,6 +2484,177 @@ def api_status(job_id: str):
 def api_cancel(job_id: str):
     ok = _cancel_job(job_id)
     return jsonify({"ok": ok})
+
+
+@app.post("/api/click-report")
+def api_click_report():
+    """Tar emot klick från Playwright-sidan (fetch från injicerad script). Uppdaterar job.details.click_log och last_click."""
+    data = request.get_json(force=True, silent=True) or request.form or {}
+    job_id = (data.get("job_id") or "").strip()
+    if not job_id:
+        return jsonify({"ok": False, "error": "missing job_id"}), 400
+    job = _get_job(job_id)
+    if not job:
+        return jsonify({"ok": False, "error": "job not found"}), 404
+    tag = (data.get("tag") or "?").lower()
+    id_part = (data.get("id") or "").strip()
+    if id_part and not id_part.startswith("#"):
+        id_part = "#" + id_part
+    cls_part = (data.get("cls") or "").strip()
+    if cls_part and not cls_part.startswith("."):
+        cls_part = "." + cls_part
+    text_part = (data.get("text") or "").strip()
+    if text_part:
+        text_part = ' "' + text_part[:120] + '"'
+    left = data.get("left", 0)
+    top = data.get("top", 0)
+    width = data.get("width", 0)
+    height = data.get("height", 0)
+    vp = f" [vp: x={data.get('vp_x',0)}% y={data.get('vp_y',0)}% w={data.get('vp_w',0)}% h={data.get('vp_h',0)}%]"
+    pg = f" [page: x={data.get('pg_x',0)}% y={data.get('pg_y',0)}% w={data.get('pg_w',0)}% h={data.get('pg_h',0)}%]"
+    line = f"{tag}{id_part}{cls_part}{text_part} [x={left}, y={top}, w={width}, h={height}]{vp}{pg}"
+    job.details = job.details or {}
+    job.details["last_click"] = data
+    job.details["click_log"] = job.details.get("click_log", []) + [line]
+    _set_job(job)
+    return jsonify({"ok": True})
+
+
+@app.post("/api/open-and-scrape")
+def api_open_and_scrape():
+    """Starta jobb: öppna URL i Playwright (synligt fönster), logga synliga element (max 500) med koordinater.
+    Om search_text anges visas endast element som innehåller den texten (t.ex. 'Logga in', 'State of the Art')."""
+    data = request.get_json(force=True) or {}
+    url = (data.get("url") or "").strip()
+    search_text = (data.get("search_text") or data.get("search") or "").strip() or None
+    try:
+        wait_seconds = float(data.get("wait_seconds") or 0)
+        wait_seconds = max(0.0, min(wait_seconds, 60.0))
+    except (TypeError, ValueError):
+        wait_seconds = 0.0
+    if not url.startswith(("http://", "https://")):
+        return jsonify({"error": "URL måste börja med http:// eller https://"}), 400
+    active = _count_active_jobs()
+    if active >= MAX_CONCURRENT_JOBS:
+        return jsonify({"error": f"Max {MAX_CONCURRENT_JOBS} samtidiga jobb."}), 429
+    job_id = uuid.uuid4().hex[:12]
+    job = JobStatus(job_id=job_id, state="queued", message="Köad...", details={"element_log": []})
+    _set_job(job)
+    threading.Thread(target=_run_open_url_scrape_job, args=(job_id, url), kwargs={"search_text": search_text, "wait_seconds": wait_seconds}, daemon=True).start()
+    return jsonify(asdict(job))
+
+
+@app.post("/api/fetch-element-at-point")
+def api_fetch_element_at_point():
+    """Öppna URL i Playwright (headless), vänta på networkidle + extra fördröjning, hämta elementet vid (x, y)."""
+    data = request.get_json(force=True) or {}
+    url = (data.get("url") or "").strip()
+    try:
+        x_val = int(data.get("x", 0))
+        y_val = int(data.get("y", 0))
+    except (TypeError, ValueError):
+        return jsonify({"error": "x och y måste vara heltal"}), 400
+    try:
+        extra_wait = float(data.get("wait_seconds") or 0)
+        extra_wait = max(0.0, min(extra_wait, 30.0))
+    except (TypeError, ValueError):
+        extra_wait = 0.0
+    if not url.startswith(("http://", "https://")):
+        return jsonify({"error": "URL måste börja med http:// eller https://"}), 400
+
+    try:
+        with sync_playwright() as pw:
+            browser = pw.chromium.launch(
+                headless=True,
+                args=["--disable-features=LocalNetworkAccessChecks"],
+            )
+            page = browser.new_page()
+            try:
+                page.goto(url, wait_until="networkidle", timeout=60000)
+            except Exception:
+                page.goto(url, wait_until="domcontentloaded", timeout=30000)
+            if extra_wait > 0:
+                time.sleep(extra_wait)
+            result = page.evaluate(
+                """(xy) => {
+                    var el = document.elementFromPoint(xy.x, xy.y);
+                    if (!el) return { error: 'Inget element vid dessa koordinater' };
+                    var r = el.getBoundingClientRect();
+                    var vpW = window.innerWidth || 1;
+                    var vpH = window.innerHeight || 1;
+                    var pageW = Math.max(document.body ? document.body.scrollWidth : vpW, document.documentElement ? document.documentElement.scrollWidth : vpW, vpW);
+                    var pageH = Math.max(document.body ? document.body.scrollHeight : vpH, document.documentElement ? document.documentElement.scrollHeight : vpH, vpH);
+                    function clamp(v){return Math.max(0,Math.min(100,v));}
+                    function pct1(v,b){return Math.round(clamp(v/b*100)*10)/10;}
+                    var tag = (el.tagName || '').toLowerCase();
+                    var id = el.id || '';
+                    var cls = (el.className && typeof el.className === 'string') ? el.className.trim().split(/\\s+/).slice(0,3).join('.') : '';
+                    var text = (el.innerText || el.textContent || '').trim().replace(/\\s+/g, ' ').slice(0, 200);
+                    var left = Math.round(r.left + window.scrollX);
+                    var top = Math.round(r.top + window.scrollY);
+                    var width = Math.round(r.width);
+                    var height = Math.round(r.height);
+                    return {
+                        tag: tag, id: id, cls: cls, text: text,
+                        left: left, top: top, width: width, height: height,
+                        href: el.href || (el.getAttribute && el.getAttribute('href')) || '',
+                        name: el.name || (el.getAttribute && el.getAttribute('name')) || '',
+                        type: el.type || (el.getAttribute && el.getAttribute('type')) || '',
+                        vp_x: pct1(left,vpW), vp_y: pct1(top,vpH), vp_w: pct1(width,vpW), vp_h: pct1(height,vpH),
+                        pg_x: pct1(left,pageW), pg_y: pct1(top,pageH), pg_w: pct1(width,pageW), pg_h: pct1(height,pageH)
+                    };
+                }""",
+                {"x": x_val, "y": y_val},
+            )
+            browser.close()
+            return jsonify({"ok": True, "element": result, "url": url, "x": x_val, "y": y_val})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@app.post("/api/element-at-point")
+def api_element_at_point():
+    """Sätt koordinatförfrågan för ett körande click-mode-jobb. Worker hämtar element vid (x,y) och sätter element_at_point_result."""
+    data = request.get_json(force=True) or {}
+    job_id = (data.get("job_id") or "").strip()
+    try:
+        x_val = int(data.get("x", 0))
+        y_val = int(data.get("y", 0))
+    except (TypeError, ValueError):
+        return jsonify({"ok": False, "error": "x och y måste vara heltal"}), 400
+    if not job_id:
+        return jsonify({"ok": False, "error": "missing job_id"}), 400
+    job = _get_job(job_id)
+    if not job:
+        return jsonify({"ok": False, "error": "job not found"}), 404
+    if job.state != "running":
+        return jsonify({"ok": False, "error": "Playwright-fönstret måste vara öppet (kör 'Klicka för elementinfo' först)"}), 400
+    job.details = job.details or {}
+    job.details["element_at_point_request"] = {"x": x_val, "y": y_val}
+    _set_job(job)
+    return jsonify({"ok": True})
+
+
+@app.post("/api/open-click-mode")
+def api_open_click_mode():
+    """Öppna URL i Playwright (synligt fönster). Klicka på sidan – elementinfo skickas till huvudfönstrets loggfält."""
+    data = request.get_json(force=True) or {}
+    url = (data.get("url") or "").strip()
+    if not url.startswith(("http://", "https://")):
+        return jsonify({"error": "URL måste börja med http:// eller https://"}), 400
+    active = _count_active_jobs()
+    if active >= MAX_CONCURRENT_JOBS:
+        return jsonify({"error": f"Max {MAX_CONCURRENT_JOBS} samtidiga jobb."}), 429
+    job_id = uuid.uuid4().hex[:12]
+    job = JobStatus(
+        job_id=job_id,
+        state="queued",
+        message="Köad...",
+        details={"last_click": None, "click_log": [], "element_log": []},
+    )
+    _set_job(job)
+    threading.Thread(target=_run_click_mode_job, args=(job_id, url), daemon=True).start()
+    return jsonify(asdict(job))
 
 
 def main():

@@ -610,7 +610,7 @@ export async function quickScrapeWebsite(url: string): Promise<{
   const normalizedUrl = normalizeInputUrl(url);
   if (!normalizedUrl) throw new Error("URL måste anges");
 
-  const res = await fetchWithTimeout(normalizedUrl, 5000, {
+  const res = await fetchWithTimeout(normalizedUrl, 10000, {
     "User-Agent":
       "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/131 Safari/537.36",
     Accept: "text/html,application/xhtml+xml,*/*;q=0.8",

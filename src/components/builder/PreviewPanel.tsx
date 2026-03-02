@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { CodeBlock, CodeBlockCopyButton } from "@/components/ai-elements/code-block";
 import { buildFileTree } from "@/lib/builder/fileTree";
 import { dispatchInspectCaptureEvent } from "@/lib/builder/inspect-events";
-import type { FileNode } from "@/lib/builder/types";
+import type { FileNode, ElementMapItem, ElementMapResponse } from "@/lib/builder/types";
 import { buildJsxElementRegistry, matchCapturedElement, type RegistryMatch } from "@/lib/builder/jsx-element-registry";
 import { ElementRegistry } from "@/components/builder/ElementRegistry";
 import { FileExplorer } from "@/components/builder/FileExplorer";
@@ -77,7 +77,7 @@ type IntegrationStatus = {
 
 type PreviewViewMode = "preview" | "code" | "registry";
 type InspectorWorkerStatus = "unknown" | "healthy" | "unhealthy" | "disabled";
-type InspectEngine = "playwright" | "ai";
+type InspectEngine = "playwright" | "ai" | "map";
 
 type AiMatchResult = {
   tag: string;
@@ -126,13 +126,16 @@ export function PreviewPanel({
   const [inspectorWorkerMessage, setInspectorWorkerMessage] = useState<string | null>(null);
   const [isViewSwitchPending, startViewSwitchTransition] = useTransition();
   const [inspectMode, setInspectMode] = useState(false);
-  const [inspectEngine, setInspectEngine] = useState<InspectEngine>("ai");
+  const [inspectEngine, setInspectEngine] = useState<InspectEngine>("map");
   const [isCapturePending, setIsCapturePending] = useState(false);
   const [inspectStatus, setInspectStatus] = useState<string | null>(null);
   const [inspectPulse, setInspectPulse] = useState<InspectPulseMarker | null>(null);
   const [lastCodeMatch, setLastCodeMatch] = useState<RegistryMatch | null>(null);
   const [lastAiCostDisplay, setLastAiCostDisplay] = useState<string | null>(null);
   const [totalAiCostUsd, setTotalAiCostUsd] = useState(0);
+  const [elementMap, setElementMap] = useState<ElementMapItem[]>([]);
+  const [elementMapLoading, setElementMapLoading] = useState(false);
+  const [hoveredMapElement, setHoveredMapElement] = useState<ElementMapItem | null>(null);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const inspectPulseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const codeScrollRef = useRef<HTMLDivElement | null>(null);
@@ -166,6 +169,29 @@ export function PreviewPanel({
     }
   }, [chatId, versionId, files.length]);
 
+  const fetchElementMap = useCallback(async (url: string, width: number, height: number) => {
+    setElementMapLoading(true);
+    try {
+      const res = await fetch("/api/inspector-element-map", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url, viewportWidth: width, viewportHeight: height, maxElements: 300 }),
+      });
+      const data = (await res.json().catch(() => null)) as ElementMapResponse | null;
+      if (res.ok && data?.success && Array.isArray(data.elements)) {
+        setElementMap(data.elements);
+        return data.elements.length;
+      }
+      setElementMap([]);
+      return 0;
+    } catch {
+      setElementMap([]);
+      return 0;
+    } finally {
+      setElementMapLoading(false);
+    }
+  }, []);
+
   const handleToggleInspect = useCallback(() => {
     if (!demoUrl) return;
     setInspectMode((prev) => {
@@ -178,12 +204,21 @@ export function PreviewPanel({
           iframe.src = buildPreviewSrc(demoUrl, Date.now());
         }
         fetchFilesForRegistry();
+        const container = iframeRef.current?.parentElement;
+        const w = container?.clientWidth || 1280;
+        const h = container?.clientHeight || 800;
+        fetchElementMap(demoUrl, w, h).then((count) => {
+          if (count > 0) setInspectStatus(`Elementkarta laddad: ${count} element. Hovra för att identifiera.`);
+        });
+      } else {
+        setHoveredMapElement(null);
+        setElementMap([]);
       }
       return next;
     });
     setLastCodeMatch(null);
-    setInspectStatus("Klicka i previewn för att skapa en förbättrad punktbild.");
-  }, [buildPreviewSrc, demoUrl, fetchFilesForRegistry]);
+    setInspectStatus("Laddar elementkarta...");
+  }, [buildPreviewSrc, demoUrl, fetchFilesForRegistry, fetchElementMap]);
 
   const flatFilesForAi = useMemo(() => {
     const result: Array<{ name: string; content: string }> = [];
@@ -216,6 +251,53 @@ export function PreviewPanel({
       setIsCapturePending(true);
       setLastCodeMatch(null);
       setLastAiCostDisplay(null);
+
+      if (inspectEngine === "map") {
+        const el = hoveredMapElement;
+        if (!el) {
+          setIsCapturePending(false);
+          toast("Hovra över ett element först.");
+          return;
+        }
+
+        const codeMatch = matchCapturedElement(elementRegistryRef.current, {
+          tag: el.tag,
+          id: el.id,
+          className: el.className,
+          text: el.text,
+          selector: el.selector,
+        });
+        setLastCodeMatch(codeMatch);
+
+        const matchHint = codeMatch ? ` → ${codeMatch.item.filePath}:${codeMatch.item.lineNumber}` : "";
+        setInspectStatus(`<${el.tag}>${el.text ? ` "${el.text.slice(0, 50)}"` : ""}${matchHint}`);
+        toast.success(`Valde <${el.tag}>${codeMatch ? ` i ${codeMatch.item.filePath}:${codeMatch.item.lineNumber}` : ""}`);
+
+        dispatchInspectCaptureEvent({
+          id: captureId,
+          demoUrl,
+          xPercent,
+          yPercent,
+          viewportWidth: Math.round(rect.width),
+          viewportHeight: Math.round(rect.height),
+          pointSummary: `Map: <${el.tag}> vid ${xPercent}%/${yPercent}%${el.text ? ` "${el.text.slice(0, 60)}"` : ""}${matchHint}`,
+          element: {
+            tag: el.tag,
+            id: el.id,
+            className: el.className,
+            text: el.text,
+            ariaLabel: null,
+            role: null,
+            href: null,
+            selector: el.selector,
+            nearestHeading: null,
+          },
+          source: "local",
+        });
+
+        setIsCapturePending(false);
+        return;
+      }
 
       if (inspectEngine === "ai") {
         setInspectStatus("AI analyserar klickposition...");
@@ -408,7 +490,7 @@ export function PreviewPanel({
         setIsCapturePending(false);
       }
     },
-    [demoUrl, inspectMode, inspectEngine, isCapturePending, iframeLoading, externalLoading, flatFilesForAi, chatId, versionId],
+    [demoUrl, inspectMode, inspectEngine, isCapturePending, iframeLoading, externalLoading, flatFilesForAi, chatId, versionId, hoveredMapElement],
   );
 
   useEffect(() => {
@@ -424,6 +506,18 @@ export function PreviewPanel({
     setIframeLoading(true);
     setIframeError(false);
   }, [demoUrl, refreshToken]);
+
+  useEffect(() => {
+    if (!demoUrl) return;
+    setElementMap([]);
+    const timer = window.setTimeout(() => {
+      const container = iframeRef.current?.parentElement;
+      const w = container?.clientWidth || 1280;
+      const h = container?.clientHeight || 800;
+      fetchElementMap(demoUrl, w, h);
+    }, 3000);
+    return () => window.clearTimeout(timer);
+  }, [demoUrl, versionId, fetchElementMap]);
 
   useEffect(() => {
     if (!demoUrl) return;
@@ -850,7 +944,42 @@ export function PreviewPanel({
                   isCapturePending && "pointer-events-none",
                 )}
                 onClick={handleCaptureClick}
+                onMouseMove={inspectEngine === "map" && elementMap.length > 0 ? (e) => {
+                  const rect = e.currentTarget.getBoundingClientRect();
+                  if (rect.width <= 0 || rect.height <= 0) return;
+                  const xPct = ((e.clientX - rect.left) / rect.width) * 100;
+                  const yPct = ((e.clientY - rect.top) / rect.height) * 100;
+                  let best: ElementMapItem | null = null;
+                  let bestArea = Infinity;
+                  for (const el of elementMap) {
+                    const vp = el.vpPercent;
+                    if (xPct >= vp.x && xPct <= vp.x + vp.w && yPct >= vp.y && yPct <= vp.y + vp.h) {
+                      const area = vp.w * vp.h;
+                      if (area < bestArea && area > 0.01) {
+                        best = el;
+                        bestArea = area;
+                      }
+                    }
+                  }
+                  setHoveredMapElement(best);
+                } : undefined}
+                onMouseLeave={inspectEngine === "map" ? () => setHoveredMapElement(null) : undefined}
               />
+              {inspectEngine === "map" && hoveredMapElement && (
+                <div
+                  className="pointer-events-none absolute z-25 border-2 border-violet-400 bg-violet-500/10"
+                  style={{
+                    left: `${hoveredMapElement.vpPercent.x}%`,
+                    top: `${hoveredMapElement.vpPercent.y}%`,
+                    width: `${hoveredMapElement.vpPercent.w}%`,
+                    height: `${hoveredMapElement.vpPercent.h}%`,
+                  }}
+                >
+                  <div className="absolute bottom-full left-0 mb-1 max-w-64 truncate rounded bg-zinc-900/95 px-2 py-1 text-[11px] text-violet-200 shadow-lg">
+                    &lt;{hoveredMapElement.tag}&gt;{hoveredMapElement.text ? ` "${hoveredMapElement.text.slice(0, 40)}"` : ""}{hoveredMapElement.className ? ` .${hoveredMapElement.className.split(/\s+/).slice(0, 2).join(".")}` : ""}
+                  </div>
+                </div>
+              )}
               {inspectPulse && (
                 <div
                   key={inspectPulse.key}
@@ -891,7 +1020,24 @@ export function PreviewPanel({
                           <BrainCircuit className="h-2.5 w-2.5" />
                           AI
                         </button>
+                        <button
+                          type="button"
+                          onClick={() => setInspectEngine("map")}
+                          className={cn(
+                            "inline-flex items-center gap-0.5 rounded px-1 py-0.5 transition-colors",
+                            inspectEngine === "map" ? "bg-violet-800 text-violet-200" : "text-zinc-500 hover:text-zinc-300",
+                          )}
+                          title="Map: forkompilerad elementkarta med hover"
+                        >
+                          <MousePointer2 className="h-2.5 w-2.5" />
+                          Map
+                        </button>
                       </span>
+                      {inspectEngine === "map" && (
+                        <span className="text-[10px] text-violet-400/70">
+                          {elementMapLoading ? "Laddar karta..." : `${elementMap.length} element`}
+                        </span>
+                      )}
                       {totalAiCostUsd > 0 && (
                         <span className="text-[10px] text-amber-400/70" title="Total AI-kostnad denna session">
                           session: ${totalAiCostUsd.toFixed(4)}{lastAiCostDisplay ? ` (senaste: ${lastAiCostDisplay})` : ""}
@@ -899,9 +1045,11 @@ export function PreviewPanel({
                       )}
                     </div>
                     <div className="text-zinc-400">
-                      {inspectEngine === "ai"
-                        ? "Klicka i previewn — AI identifierar elementet i koden."
-                        : "Klicka i previewn — Playwright tar screenshot + hittar DOM-element."}
+                      {inspectEngine === "map"
+                        ? "Hovra för att markera element. Klicka för att välja."
+                        : inspectEngine === "ai"
+                          ? "Klicka i previewn — AI identifierar elementet i koden."
+                          : "Klicka i previewn — Playwright tar screenshot + hittar DOM-element."}
                     </div>
                     {inspectStatus && <div className="mt-1 whitespace-pre-line text-zinc-500">{inspectStatus}</div>}
                   </div>

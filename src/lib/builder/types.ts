@@ -30,3 +30,22 @@ export type InspectorSelection = {
   text: string | null;
   selector: string;
 };
+
+export type ElementMapItem = {
+  tag: string;
+  id: string | null;
+  className: string | null;
+  text: string | null;
+  selector: string;
+  rect: { x: number; y: number; width: number; height: number };
+  vpPercent: { x: number; y: number; w: number; h: number };
+};
+
+export type ElementMapResponse = {
+  success: boolean;
+  elements?: ElementMapItem[];
+  viewport?: { width: number; height: number };
+  elementCount?: number;
+  collectedAt?: string;
+  error?: string;
+};

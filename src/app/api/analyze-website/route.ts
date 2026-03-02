@@ -2,28 +2,28 @@
  * API Route: Analyze website with AI Gateway
  * POST /api/analyze-website
  *
- * Takes a URL and uses AI to provide a high-level analysis.
- * Web search is not used; analysis is based on the URL and inferred context.
+ * Scrapes the website first, then feeds the actual content to the AI model
+ * for a grounded analysis. Falls back to URL-only analysis if scraping fails.
  */
 
 import { NextRequest, NextResponse } from "next/server";
 import { generateText, gateway } from "ai";
+import { quickScrapeWebsite } from "@/lib/webscraper";
 
-// Allow 90 seconds for web search + analysis
-export const maxDuration = 90;
+export const maxDuration = 60;
 
 const ANALYSIS_PROMPT = `Du är en expert på webbdesign, UX och digital marknadsföring.
-Analysera en webbplats utifrån URL:en och ge en kvalificerad bedömning.
+Analysera webbplatsens FAKTISKA innehåll nedan och ge en kvalificerad bedömning.
 
-GE EN ANALYS PÅ SVENSKA (max 200 ord) med:
+GE EN ANALYS PÅ SVENSKA (max 250 ord) med:
 
 **Om företaget:**
-- Vad de gör och vilken bransch
+- Vad de gör och vilken bransch (baserat på det du ser i innehållet)
 - Deras huvudsakliga tjänster/produkter
-- Geografiskt område (om relevant)
+- Geografiskt område (om det framgår)
 
 **Designanalys:**
-- Generellt intryck av sajten
+- Generellt intryck baserat på innehåll och struktur
 - Vad som fungerar bra
 - 2-3 konkreta förbättringsförslag
 
@@ -31,30 +31,45 @@ GE EN ANALYS PÅ SVENSKA (max 200 ord) med:
 - Hur de kan sticka ut mot konkurrenter
 - Förslag på funktioner som kan öka konvertering
 
-Var konstruktiv, positiv och ge KONKRETA, HANDLINGSBARA råd!`;
+Var konstruktiv, positiv och ge KONKRETA, HANDLINGSBARA råd!
+Basera analysen ENBART på det faktiska innehållet du får -- gissa inte.`;
+
+const FALLBACK_ANALYSIS_PROMPT = `Du är en expert på webbdesign, UX och digital marknadsföring.
+Webbplatsen kunde inte skrapas (troligtvis pga JavaScript-rendering, bot-skydd eller timeout).
+Ge en KORT analys (max 100 ord) på svenska baserat på domännamnet.
+
+VIKTIGT: Var ärlig om att du inte kunde läsa sidan och att analysen är begränsad.
+Ge generella tips som passar de flesta företagswebbplatser.`;
 
 interface AnalysisResponse {
   success: boolean;
   analysis: string;
-  sources?: Array<{ url: string; title: string }>;
   model: string;
-  usedWebSearch: boolean;
+  scraped: boolean;
 }
 
 export async function POST(req: NextRequest) {
   console.info("[API/analyze-website] Request received");
 
   try {
-    const { url, deepAnalysis = true } = (await req.json()) as {
+    const body = (await req.json()) as {
       url: string;
       deepAnalysis?: boolean;
+      scrapedContent?: {
+        title?: string;
+        description?: string;
+        headings?: string[];
+        wordCount?: number;
+        textSummary?: string;
+      };
     };
+
+    const { url, deepAnalysis = true, scrapedContent } = body;
 
     if (!url) {
       return NextResponse.json({ success: false, error: "URL is required" }, { status: 400 });
     }
 
-    // Validate URL
     let parsedUrl: URL;
     try {
       parsedUrl = new URL(url);
@@ -75,24 +90,66 @@ export async function POST(req: NextRequest) {
 
     console.info("[API/analyze-website] Analyzing URL:", url);
 
-    const userPrompt = `Analysera denna webbplats grundligt: ${url}
+    let scraped = false;
+    let contentForAnalysis = scrapedContent;
 
-Domän: ${parsedUrl.hostname}
-Sökord att undersöka: "${parsedUrl.hostname.replace("www.", "").split(".")[0]}" företag`;
+    if (!contentForAnalysis?.textSummary) {
+      try {
+        const data = await quickScrapeWebsite(url);
+        contentForAnalysis = {
+          title: data.title,
+          description: data.description,
+          headings: data.headings,
+          wordCount: data.wordCount,
+          textSummary: data.textSummary,
+        };
+        scraped = true;
+        console.info("[API/analyze-website] Scraped successfully:", {
+          title: data.title,
+          wordCount: data.wordCount,
+        });
+      } catch (err) {
+        console.warn("[API/analyze-website] Scrape failed, using fallback:", err instanceof Error ? err.message : err);
+      }
+    } else {
+      scraped = true;
+    }
 
-    // GPT-5-mini: fast and cheap, good quality for website analysis summaries
+    const hasContent = contentForAnalysis?.textSummary && contentForAnalysis.textSummary.length > 20;
+
     const selectedModel = "openai/gpt-5-mini";
-    const promptSuffix = deepAnalysis
-      ? "\n\nVar extra konkret och ge tydliga förbättringsförslag."
-      : "";
+
+    let userPrompt: string;
+    let systemPrompt: string;
+
+    if (hasContent) {
+      systemPrompt = ANALYSIS_PROMPT;
+      const contentLines = [
+        `URL: ${url}`,
+        `Domän: ${parsedUrl.hostname}`,
+        contentForAnalysis!.title ? `Titel: ${contentForAnalysis!.title}` : null,
+        contentForAnalysis!.description ? `Beskrivning: ${contentForAnalysis!.description}` : null,
+        contentForAnalysis!.headings?.length ? `Rubriker: ${contentForAnalysis!.headings.join(", ")}` : null,
+        contentForAnalysis!.wordCount ? `Ordantal: ${contentForAnalysis!.wordCount}` : null,
+        contentForAnalysis!.textSummary ? `\nInnehåll från sidan:\n${contentForAnalysis!.textSummary}` : null,
+      ].filter(Boolean).join("\n");
+      userPrompt = `Analysera denna webbplats baserat på det skrapade innehållet:\n\n${contentLines}`;
+    } else {
+      systemPrompt = FALLBACK_ANALYSIS_PROMPT;
+      userPrompt = `Webbplatsen ${url} (domän: ${parsedUrl.hostname}) kunde inte skrapas. Ge en begränsad analys baserat på domännamnet.`;
+    }
+
+    if (deepAnalysis) {
+      userPrompt += "\n\nVar extra konkret och ge tydliga förbättringsförslag.";
+    }
 
     const result = await generateText({
       model: gateway(selectedModel),
       messages: [
-        { role: "system", content: ANALYSIS_PROMPT },
-        { role: "user", content: `${userPrompt}${promptSuffix}` },
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt },
       ],
-      temperature: 0.7,
+      temperature: 0.5,
     });
 
     const analysis = result.text?.trim();
@@ -105,8 +162,7 @@ Sökord att undersöka: "${parsedUrl.hostname.replace("www.", "").split(".")[0]}
       success: true,
       analysis,
       model: selectedModel,
-      usedWebSearch: false,
-      sources: [],
+      scraped,
     };
 
     return NextResponse.json(response);

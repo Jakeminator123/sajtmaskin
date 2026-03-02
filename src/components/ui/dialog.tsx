@@ -42,7 +42,7 @@ interface DialogDescriptionProps {
   id?: string;
 }
 
-export function Dialog({ open, onClose, children }: DialogProps) {
+export function Dialog({ open, onClose: _onClose, children }: DialogProps) {
   if (!open) return null;
   return <>{children}</>;
 }
@@ -117,7 +117,7 @@ export function DialogContent({ children, className = "", showCloseButton, onClo
   }, []);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div
         className="absolute inset-0 bg-black/70 backdrop-blur-sm"
         onClick={requestClose}

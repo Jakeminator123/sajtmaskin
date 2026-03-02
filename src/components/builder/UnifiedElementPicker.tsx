@@ -10,13 +10,11 @@ import {
   Loader2,
   MessageSquare,
   Code2,
-  Mic,
   GitBranch,
   Package,
   Palette,
   Plus,
   RefreshCw,
-  Replace,
   Search,
   Wand2,
   X,
@@ -189,8 +187,8 @@ export function UnifiedElementPicker({
     if (uiActiveCategory === "all") return uiSearched;
     return uiSearched.filter((c) => c.id === uiActiveCategory);
   }, [uiSearched, uiActiveCategory]);
-  const uiTotalCount = useMemo(() => uiCategories.reduce((a, c) => a + c.items.length, 0), [uiCategories]);
-  const uiVisibleCount = useMemo(() => uiVisible.reduce((a, c) => a + c.items.length, 0), [uiVisible]);
+  const _uiTotalCount = useMemo(() => uiCategories.reduce((a, c) => a + c.items.length, 0), [uiCategories]);
+  const _uiVisibleCount = useMemo(() => uiVisible.reduce((a, c) => a + c.items.length, 0), [uiVisible]);
 
   useEffect(() => {
     if (!open || activeTab !== "ui") return;
@@ -367,7 +365,7 @@ export function UnifiedElementPicker({
 
   return (
     <Dialog open={open} onClose={onClose}>
-      <DialogContent className="flex max-h-[85vh] w-[min(96vw,1100px)] max-w-5xl flex-col overflow-hidden rounded-2xl border-border/50 bg-background/95 p-0 shadow-2xl backdrop-blur-xl" onClose={onClose}>
+      <DialogContent className="flex h-[80vh] max-h-[900px] w-[min(96vw,1100px)] max-w-5xl flex-col overflow-hidden rounded-2xl border-border/50 bg-background/95 p-0 shadow-2xl backdrop-blur-xl" onClose={onClose}>
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as UnifiedPickerTab)} className="contents">
         {/* ── Header ── */}
         <div className="relative overflow-hidden">
@@ -415,7 +413,7 @@ export function UnifiedElementPicker({
           <TabsContent value="ui" forceMount className="flex min-h-0 flex-1 flex-col md:flex-row data-[state=inactive]:hidden">
             <>
               {/* UI sidebar */}
-              <div className="flex w-full flex-col border-b border-border/50 md:w-[340px] md:border-r md:border-b-0">
+              <div className="flex w-full flex-1 min-h-0 flex-col border-b border-border/50 md:w-80 md:flex-none md:border-r md:border-b-0">
                 <div className="space-y-3 p-4">
                   <div className="relative">
                     <Search className="absolute top-2.5 left-3 size-4 text-muted-foreground" />
@@ -523,7 +521,7 @@ export function UnifiedElementPicker({
           <TabsContent value="ai" forceMount className="flex min-h-0 flex-1 flex-col md:flex-row data-[state=inactive]:hidden">
             <>
               {/* AI sidebar */}
-              <div className="flex w-full flex-col border-b border-border/50 md:w-[340px] md:border-r md:border-b-0">
+              <div className="flex w-full flex-1 min-h-0 flex-col border-b border-border/50 md:w-80 md:flex-none md:border-r md:border-b-0">
                 <div className="space-y-3 p-4">
                   <div className="relative">
                     <Search className="absolute top-2.5 left-3 size-4 text-muted-foreground" />
@@ -618,8 +616,8 @@ export function UnifiedElementPicker({
           <TabsContent value="mall" forceMount className="flex min-h-0 flex-1 flex-col md:flex-row data-[state=inactive]:hidden">
             <>
               {/* Template sidebar */}
-              <div className="flex w-full flex-col border-b border-border/50 md:w-[280px] md:border-r md:border-b-0">
-                <div className="space-y-2 p-4">
+              <div className="flex w-full flex-1 min-h-0 flex-col border-b border-border/50 md:w-80 md:flex-none md:border-r md:border-b-0">
+                <div className="scrollbar-thin flex-1 space-y-2 overflow-y-auto p-4">
                   <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Kategorier</div>
                   <div className="space-y-1">
                     {templateCategories.map((category: CategoryInfo) => (
@@ -669,8 +667,8 @@ export function UnifiedElementPicker({
           <TabsContent value="tema" forceMount className="flex min-h-0 flex-1 flex-col md:flex-row data-[state=inactive]:hidden">
             <>
               {/* Theme sidebar */}
-              <div className="flex w-full flex-col border-b border-border/50 md:w-[320px] md:border-r md:border-b-0">
-                <div className="space-y-2 p-4">
+              <div className="flex w-full flex-1 min-h-0 flex-col border-b border-border/50 md:w-80 md:flex-none md:border-r md:border-b-0">
+                <div className="scrollbar-thin flex-1 space-y-2 overflow-y-auto p-4">
                   <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Teman</div>
                   <div className="space-y-1">
                     {DESIGN_THEME_OPTIONS.map((option) => (
