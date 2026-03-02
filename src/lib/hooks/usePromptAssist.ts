@@ -17,6 +17,18 @@ import { debugLog } from "@/lib/utils/debug";
 import { useCallback } from "react";
 import { toast } from "sonner";
 
+function extractErrorMessage(value: unknown): string | null {
+  if (value && typeof value === "object" && "error" in value) {
+    const msg = (value as Record<string, unknown>).error;
+    return typeof msg === "string" ? msg : null;
+  }
+  return null;
+}
+
+function isAbortError(err: unknown): boolean {
+  return err instanceof DOMException && err.name === "AbortError";
+}
+
 type UsePromptAssistParams = {
   model: string;
   deep: boolean;
@@ -224,7 +236,7 @@ export function usePromptAssist(params: UsePromptAssistParams) {
         if (!res.ok) {
           const err = await res.json().catch(() => null);
           const msg =
-            (err && typeof err === "object" && (err as any).error) ||
+            extractErrorMessage(err) ||
             `AI Assist failed (HTTP ${res.status})`;
           throw new Error(String(msg));
         }
@@ -275,12 +287,12 @@ export function usePromptAssist(params: UsePromptAssistParams) {
             if (!briefRes.ok) {
               const err = await briefRes.json().catch(() => null);
               const msg =
-                (err && typeof err === "object" && (err as any).error) ||
+                extractErrorMessage(err) ||
                 `AI Assist failed (HTTP ${briefRes.status})`;
               throw new Error(String(msg));
             }
 
-            const brief = (await briefRes.json().catch(() => null)) as any;
+            const brief = (await briefRes.json().catch(() => null)) as Record<string, unknown> | null;
             if (!brief || typeof brief !== "object") {
               throw new Error("AI Assist brief returned invalid JSON");
             }
@@ -315,7 +327,7 @@ export function usePromptAssist(params: UsePromptAssistParams) {
         return await runShallow();
       } catch (err) {
         const rawMessage = err instanceof Error ? err.message : "AI Assist misslyckades";
-        const isAbort = err instanceof Error && (err as any).name === "AbortError";
+        const isAbort = isAbortError(err);
         const isFailedFetch = /Failed to fetch/i.test(rawMessage);
         const isGatewayTimeout =
           /headers timeout|gateway request failed|gatewayresponseerror/i.test(
@@ -431,20 +443,19 @@ export function usePromptAssist(params: UsePromptAssistParams) {
         if (!res.ok) {
           const err = await res.json().catch(() => null);
           const msg =
-            (err && typeof err === "object" && (err as any).error) ||
+            extractErrorMessage(err) ||
             `Dynamic instructions failed (HTTP ${res.status})`;
           throw new Error(String(msg));
         }
 
-        const brief = (await res.json().catch(() => null)) as any;
+        const brief = (await res.json().catch(() => null)) as Record<string, unknown> | null;
         if (!brief || typeof brief !== "object") {
           throw new Error("Dynamic instructions returned invalid JSON");
         }
 
-        // Notify caller with brief data (used for spec file generation)
         if (options.onBrief) {
           try {
-            options.onBrief(brief as Record<string, unknown>);
+            options.onBrief(brief);
           } catch {
             // non-critical
           }
@@ -478,7 +489,7 @@ export function usePromptAssist(params: UsePromptAssistParams) {
         );
       } catch (err) {
         const rawMessage = err instanceof Error ? err.message : "Dynamic instructions failed";
-        const isAbort = err instanceof Error && (err as any).name === "AbortError";
+        const isAbort = isAbortError(err);
         const normalizedMessage = rawMessage.toLowerCase();
         const isParseError =
           normalizedMessage.includes("no object generated") ||
@@ -560,7 +571,7 @@ export function usePromptAssist(params: UsePromptAssistParams) {
         if (!res.ok) {
           const err = await res.json().catch(() => null);
           const msg =
-            (err && typeof err === "object" && (err as any).error) ||
+            extractErrorMessage(err) ||
             `Spec generation failed (HTTP ${res.status})`;
           throw new Error(String(msg));
         }
@@ -584,7 +595,7 @@ export function usePromptAssist(params: UsePromptAssistParams) {
         };
       } catch (err) {
         const rawMessage = err instanceof Error ? err.message : "Spec generation failed";
-        const isAbort = err instanceof Error && (err as any).name === "AbortError";
+        const isAbort = isAbortError(err);
 
         debugLog("AI", "Spec-first chain failed", {
           durationMs: Date.now() - startedAt,
