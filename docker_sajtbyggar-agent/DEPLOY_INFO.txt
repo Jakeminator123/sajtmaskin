@@ -1,0 +1,115 @@
+OpenClaw Setup Guide — Sajtagenten (docker_sajtbyggar-agent)
+============================================================
+
+Purpose
+-------
+This folder contains the Docker setup for "Sajtagenten", an OpenClaw-based
+AI agent with broad read access to a target website. The agent can read pages,
+sitemaps, metadata, and public APIs on the configured site.
+
+This is a generic template. Adapt IDENTITY.md and environment variables
+to your specific project before deploying.
+
+
+1) Architecture
+---------------
+- The consuming app (frontend) runs separately (e.g. Vercel, Netlify, etc.).
+- OpenClaw Gateway runs as a Docker Web Service (Render, Railway, etc.).
+- The frontend calls OpenClaw through its own API proxy routes.
+- Sajtagenten reads the target site via configured URL (SAJTAGENT_TARGET_SITE_URL).
+
+
+2) Repo Paths
+-------------
+- Docker root:       docker_sajtbyggar-agent/
+- Entrypoint:        docker_sajtbyggar-agent/docker-entrypoint.sh
+- Dockerfile:        docker_sajtbyggar-agent/Dockerfile
+- Health check:      docker_sajtbyggar-agent/docker-healthcheck.sh
+- Agent identity:    docker_sajtbyggar-agent/config/agents/sajtagenten/agent/IDENTITY.md
+- Workspace seed:    docker_sajtbyggar-agent/config/workspace/
+
+
+3) Render Service Configuration
+-------------------------------
+Service type: Web Service
+Runtime:      Docker
+Root dir:     docker_sajtbyggar-agent
+
+Disk:
+- Mount path: /root/.openclaw
+- Size: 1 GB or larger
+
+Required environment variables:
+- OPENCLAW_GATEWAY_TOKEN=<secret>
+- OPENCLAW_GATEWAY_PORT=10000
+- OPENAI_API_KEY=<secret>
+- SAJTAGENT_TARGET_SITE_URL=https://example.com   (the site the agent reads)
+
+Optional environment variables:
+- OPENCLAW_GATEWAY_BIND=lan
+- OPENCLAW_MODEL_PRIMARY=openai/gpt-5.1-codex
+- OPENCLAW_MODEL_FALLBACK=openai/gpt-5.3-codex
+- SAJTAGENT_ALLOWED_ORIGINS=https://my-app.vercel.app,https://staging.example.com
+- OPENCLAW_CONTROLUI_DISABLE_DEVICE_AUTH=false
+- JUICEFACTORY_API_KEY=<optional, for Qwen models>
+
+Notes:
+- Do not manually set PORT unless you have a specific reason.
+- Port resolution order: PORT -> OPENCLAW_GATEWAY_PORT -> 18789
+
+
+4) Frontend / Consuming App Environment Variables
+--------------------------------------------------
+Required:
+- OPENCLAW_GATEWAY_URL=https://openclaw-sajtagenten.onrender.com
+- OPENCLAW_GATEWAY_TOKEN=<same token as Render>
+- OPENCLAW_AGENT_ID=sajtagenten
+
+Recommended:
+- OPENCLAW_AGENT_TOKEN=<secret>
+
+
+5) Smoke Test Checklist
+-----------------------
+Render / hosting checks:
+1) GET <gateway-url>/health -> HTTP 200
+2) Logs contain:
+   - "Config written"
+   - "[gateway] listening on ws://0.0.0.0:<port>"
+
+Frontend checks:
+1) GET <app-url>/api/openclaw/health  -> healthy response
+2) POST <app-url>/api/openclaw/chat   -> HTTP 200 with SSE chunks
+
+
+6) Common Failures and Fixes
+-----------------------------
+Symptom: Build fails at npm install with SSH/git errors
+Fix:     git + ca-certificates installed; GitHub SSH -> HTTPS rewrite in Dockerfile.
+
+Symptom: "No open ports detected" on Render
+Fix:     Ensure OPENCLAW_GATEWAY_BIND=lan and service listens on correct port.
+
+Symptom: "Gateway start blocked: set gateway.mode=local"
+Fix:     gateway.mode must be "local", or run with --allow-unconfigured.
+
+Symptom: /v1/chat/completions returns 405
+Fix:     gateway.http.endpoints.chatCompletions.enabled must be true.
+
+Symptom: "No API key found for provider openai-codex"
+Fix:     Set OPENAI_API_KEY on the hosting platform.
+
+
+7) Security Notes
+-----------------
+- Never commit secrets to git.
+- Rotate OPENCLAW_GATEWAY_TOKEN after stabilization.
+- The agent has READ-ONLY access to the target site — it cannot modify content.
+
+
+8) Customization
+----------------
+- Edit config/agents/sajtagenten/agent/IDENTITY.md to change agent personality.
+- Add workspace skill files to config/workspace/ for domain-specific capabilities.
+- Set SAJTAGENT_ALLOWED_ORIGINS to whitelist additional frontend origins.
+- Set SAJTAGENT_TARGET_SITE_URL to the site the agent should be able to read.

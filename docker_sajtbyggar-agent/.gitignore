@@ -1,0 +1,12 @@
+# Never commit real openclaw config (tokens, secrets)
+config/openclaw.json
+.env
+
+# Keep the workspace skills but not runtime artifacts
+config/workspace/sessions/
+config/workspace/cache/
+config/workspace/*.log
+
+# OS
+.DS_Store
+Thumbs.db

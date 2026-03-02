@@ -1,0 +1,11 @@
+services:
+  - type: web
+    name: openclaw-sajtagenten
+    runtime: docker
+    plan: starter
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    disk:
+      name: openclaw-sajtagenten-data
+      mountPath: /root/.openclaw
+      sizeGB: 1

@@ -1,0 +1,10 @@
+{
+  "_comment": "Copy this to openclaw.json and fill in real values. Used for local dev only — the container generates its own config at runtime.",
+  "gatewayToken": "FILL_IN_FROM_LOCAL",
+  "agents": {
+    "sajtagenten": {
+      "model": "FILL_IN_FROM_LOCAL",
+      "systemPrompt": "FILL_IN_FROM_LOCAL"
+    }
+  }
+}
