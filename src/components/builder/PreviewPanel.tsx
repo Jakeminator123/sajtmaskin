@@ -1,14 +1,48 @@
 "use client";
 
-import { AlertCircle, ExternalLink, FileText, Loader2, MessageCircleQuestion, MousePointer2, RefreshCw, Wand2 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { AlertCircle, ExternalLink, FileText, Loader2, MessageCircleQuestion, MousePointer2, RefreshCw, Search, Wand2, X } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition, type MouseEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { CodeBlock, CodeBlockCopyButton } from "@/components/ai-elements/code-block";
 import { buildFileTree } from "@/lib/builder/fileTree";
+import { dispatchInspectCaptureEvent } from "@/lib/builder/inspect-events";
 import type { FileNode } from "@/lib/builder/types";
 import { FileExplorer } from "@/components/builder/FileExplorer";
 import { cn } from "@/lib/utils";
 import toast from "react-hot-toast";
+
+type CaptureResponse = {
+  success?: boolean;
+  capturedUrl?: string;
+  previewDataUrl?: string;
+  previewMimeType?: string;
+  pointSummary?: string;
+  element?: {
+    tag?: string;
+    id?: string | null;
+    className?: string | null;
+    text?: string | null;
+    ariaLabel?: string | null;
+    role?: string | null;
+    href?: string | null;
+    selector?: string | null;
+    nearestHeading?: string | null;
+  };
+  clip?: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
+  source?: "worker" | "local";
+  error?: string;
+};
+
+type InspectPulseMarker = {
+  x: number;
+  y: number;
+  key: number;
+};
 
 interface PreviewPanelProps {
   chatId: string | null;
@@ -62,7 +96,12 @@ export function PreviewPanel({
   const [integrationStatus, setIntegrationStatus] = useState<IntegrationStatus | null>(null);
   const [integrationError, setIntegrationError] = useState(false);
   const [isViewSwitchPending, startViewSwitchTransition] = useTransition();
+  const [inspectMode, setInspectMode] = useState(false);
+  const [isCapturePending, setIsCapturePending] = useState(false);
+  const [inspectStatus, setInspectStatus] = useState<string | null>(null);
+  const [inspectPulse, setInspectPulse] = useState<InspectPulseMarker | null>(null);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
+  const inspectPulseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const buildPreviewSrc = useCallback((url: string, token?: number) => {
     let src = url;
@@ -71,6 +110,129 @@ export function PreviewPanel({
       src = `${src}${separator}t=${token}`;
     }
     return src;
+  }, []);
+
+  const handleToggleInspect = useCallback(() => {
+    if (!demoUrl) return;
+    setInspectMode((prev) => {
+      const next = !prev;
+      if (next) {
+        setIframeLoading(true);
+        setIframeError(false);
+        const iframe = iframeRef.current;
+        if (iframe) {
+          iframe.src = buildPreviewSrc(demoUrl, Date.now());
+        }
+      }
+      return next;
+    });
+    setInspectStatus("Klicka i previewn för att skapa en förbättrad punktbild.");
+  }, [buildPreviewSrc, demoUrl]);
+
+  const handleCaptureClick = useCallback(
+    async (event: MouseEvent<HTMLDivElement>) => {
+      if (!demoUrl || !inspectMode || isCapturePending || iframeLoading || externalLoading) return;
+
+      const rect = event.currentTarget.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0) return;
+
+      const x = Math.min(Math.max(event.clientX - rect.left, 0), rect.width);
+      const y = Math.min(Math.max(event.clientY - rect.top, 0), rect.height);
+      const xPercent = Number(((x / rect.width) * 100).toFixed(2));
+      const yPercent = Number(((y / rect.height) * 100).toFixed(2));
+      const captureId = `inspect-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
+      setInspectPulse({ x, y, key: Date.now() });
+      if (inspectPulseTimerRef.current) clearTimeout(inspectPulseTimerRef.current);
+      inspectPulseTimerRef.current = setTimeout(() => setInspectPulse(null), 900);
+
+      setIsCapturePending(true);
+      setInspectStatus("Skapar punktbild...");
+
+      try {
+        const response = await fetch("/api/inspector-capture", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            url: demoUrl,
+            xPercent,
+            yPercent,
+            viewportWidth: Math.round(rect.width),
+            viewportHeight: Math.round(rect.height),
+          }),
+        });
+
+        const data = (await response.json().catch(() => null)) as CaptureResponse | null;
+
+        dispatchInspectCaptureEvent({
+          id: captureId,
+          demoUrl,
+          xPercent,
+          yPercent,
+          viewportWidth: Math.round(rect.width),
+          viewportHeight: Math.round(rect.height),
+          capturedUrl: data?.capturedUrl,
+          previewDataUrl: data?.previewDataUrl,
+          pointSummary: data?.pointSummary,
+          element: data?.element
+            ? {
+                tag: data.element.tag || "unknown",
+                id: data.element.id || null,
+                className: data.element.className || null,
+                text: data.element.text || null,
+                ariaLabel: data.element.ariaLabel || null,
+                role: data.element.role || null,
+                href: data.element.href || null,
+                selector: data.element.selector || null,
+                nearestHeading: data.element.nearestHeading || null,
+              }
+            : undefined,
+          clip: data?.clip,
+          source: data?.source,
+          error: response.ok ? undefined : (data?.error || "Kunde inte skapa punktbild"),
+        });
+
+        if (!response.ok) {
+          toast.error(data?.error || "Punkt tillagd utan bild.");
+          setInspectStatus("Punkt tillagd utan bild (kunde inte skapa preview).");
+          return;
+        }
+
+        toast.success("Punkt tillagd i chatten.");
+        if (data?.pointSummary) {
+          setInspectStatus(`${data.pointSummary}${data.source ? ` (${data.source})` : ""}`);
+        } else {
+          setInspectStatus(`Senaste punkt: x ${xPercent}% • y ${yPercent}%`);
+        }
+        if (data?.element?.tag && ["html", "body"].includes(data.element.tag)) {
+          toast("Tip: klicka närmare själva elementet (t.ex. knapptexten) för mer exakt DOM-träff.", {
+            duration: 4500,
+          });
+        }
+      } catch {
+        dispatchInspectCaptureEvent({
+          id: captureId,
+          demoUrl,
+          xPercent,
+          yPercent,
+          viewportWidth: Math.round(rect.width),
+          viewportHeight: Math.round(rect.height),
+          error: "Nätverksfel vid punktfångst",
+        });
+        toast.error("Nätverksfel vid punktfångst.");
+        setInspectStatus("Punkt tillagd utan bild (nätverksfel).");
+      } finally {
+        setIsCapturePending(false);
+      }
+    },
+    [demoUrl, inspectMode, isCapturePending, iframeLoading, externalLoading],
+  );
+
+  useEffect(() => {
+    return () => {
+      if (inspectPulseTimerRef.current) {
+        clearTimeout(inspectPulseTimerRef.current);
+      }
+    };
   }, []);
 
   useEffect(() => {
@@ -299,6 +461,10 @@ export function PreviewPanel({
             <MousePointer2 className="mr-1 h-4 w-4" />
             Inspektionsläge
           </Button>
+          <Button variant="ghost" size="sm" onClick={handleToggleInspect} disabled={!demoUrl} title="Markera punkt i preview och skicka till chatten" className={cn("text-gray-400 hover:text-white", inspectMode && "bg-emerald-900/50 text-emerald-300 hover:text-emerald-200")}>
+            <Search className="mr-1 h-4 w-4" />
+            Inspektionstestknapp
+          </Button>
           <Button variant="ghost" size="sm" onClick={handleToggleCode} disabled={!canShowCode || isViewSwitchPending} title={canShowCode ? "Visa kod" : "Ingen kod tillgänglig än"} className={cn("text-gray-400 hover:text-white", showCode && "bg-gray-800 text-white hover:text-white")}>
             <FileText className="mr-1 h-4 w-4" />
             Kod
@@ -351,7 +517,7 @@ export function PreviewPanel({
             <div className="absolute inset-0 z-10 flex items-center justify-center bg-black/80">
               <div className="text-center">
                 <Loader2 className="text-primary mx-auto mb-2 h-8 w-8 animate-spin" />
-                <p className="text-muted-foreground text-sm">Laddar preview\u2026</p>
+                <p className="text-muted-foreground text-sm">Laddar preview...</p>
               </div>
             </div>
           )}
@@ -375,6 +541,55 @@ export function PreviewPanel({
             sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
             title="Preview"
           />
+
+          {inspectMode && (
+            <>
+              <div
+                className={cn(
+                  "absolute inset-0 z-20 cursor-crosshair bg-emerald-950/5",
+                  isCapturePending && "pointer-events-none",
+                )}
+                onClick={handleCaptureClick}
+              />
+              {inspectPulse && (
+                <div
+                  key={inspectPulse.key}
+                  className="pointer-events-none absolute z-30"
+                  style={{ left: inspectPulse.x, top: inspectPulse.y }}
+                >
+                  <span className="absolute -translate-x-1/2 -translate-y-1/2 inline-flex h-11 w-11 animate-ping rounded-full border-2 border-rose-400 bg-rose-500/30" />
+                  <span className="absolute -translate-x-1/2 -translate-y-1/2 inline-flex h-4 w-4 rounded-full bg-rose-500 ring-2 ring-white/90 shadow-[0_0_0_2px_rgba(0,0,0,0.35)]" />
+                </div>
+              )}
+              <div className="absolute right-0 bottom-0 left-0 z-30 border-t border-emerald-800/60 bg-zinc-950/95 px-4 py-3 text-xs text-gray-300 backdrop-blur-sm">
+                <div className="flex items-center justify-between gap-2">
+                  <div>
+                    <div className="font-semibold tracking-tight text-emerald-400">Inspektionstestknapp aktiv</div>
+                    <div className="text-zinc-400">
+                      Klicka i previewn för att skapa en punkt till chatten (plupp med koordinater + bild).
+                    </div>
+                    {inspectStatus && <div className="mt-1 text-zinc-500">{inspectStatus}</div>}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {isCapturePending && (
+                      <div className="rounded bg-zinc-800 px-2 py-1 text-[11px] text-zinc-300">Skapar bild...</div>
+                    )}
+                    <button
+                      type="button"
+                      onClick={handleToggleInspect}
+                      className="rounded bg-zinc-800 px-2 py-1 text-[11px] font-medium text-zinc-300 transition-colors hover:text-white"
+                      title="Stäng inspektionstest"
+                    >
+                      <span className="inline-flex items-center gap-1">
+                        <X className="h-3.5 w-3.5" />
+                        Avsluta
+                      </span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </>
+          )}
         </div>
       )}
     </div>

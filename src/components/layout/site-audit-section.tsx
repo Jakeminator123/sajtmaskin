@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, type FormEvent } from "react";
-import { Search, Coins, Loader2, AlertCircle } from "lucide-react";
+import { Search, Coins, Loader2, AlertCircle, BarChart2, Lock, Sparkles } from "lucide-react";
 import { useAuth } from "@/lib/auth/auth-store";
 import { AUDIT_COSTS } from "@/lib/credits/pricing";
 import type { AuditMode, AuditResult } from "@/types/audit";
@@ -12,6 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { Button } from "@/components/ui/button";
 
 interface SiteAuditSectionProps {
   onAuditComplete: (result: AuditResult, auditedUrl: string) => void;
@@ -134,61 +135,48 @@ export function SiteAuditSection({ onAuditComplete, onRequireAuth }: SiteAuditSe
 
   return (
     <div className="w-full max-w-2xl">
-      {/* Section Header */}
-      <div className="mb-6 text-center">
-        <div className="bg-brand-teal/10 border-brand-teal/30 mb-4 inline-flex items-center gap-2 border px-4 py-2">
-          <Search className="text-brand-teal h-4 w-4" />
-          <span className="text-brand-teal text-sm font-medium">Webbplatsanalys</span>
-        </div>
-        <h2 className="mb-2 text-2xl font-bold text-white">Analysera en webbplats</h2>
-        <p className="text-sm text-gray-400">
-          Få en AI-driven analys av valfri webbplats med förbättringsförslag och budgetuppskattning.
-        </p>
-      </div>
-
       {/* Form */}
       <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="relative">
+        <div className="input-3d rounded-2xl border border-border/30 bg-secondary/50 backdrop-blur-xl shadow-2xl overflow-hidden">
           <label htmlFor="audit-url" className="sr-only">
             URL att analysera
           </label>
-          <input
-            id="audit-url"
-            name="auditUrl"
-            type="text"
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
-            placeholder="exempel.se eller https://exempel.se"
-            autoComplete="url"
-            disabled={isLoading}
-            className="focus:border-brand-teal/50 focus:ring-brand-teal/50 w-full border border-gray-700 bg-black/50 px-4 py-4 pl-12 text-white placeholder-gray-500 transition-all focus:ring-1 focus:outline-none disabled:opacity-50"
-          />
-          <Search className="absolute top-1/2 left-4 h-5 w-5 -translate-y-1/2 text-gray-500" />
+          <div className="relative flex items-center">
+            <Search className="absolute left-4 h-5 w-5 text-muted-foreground pointer-events-none" />
+            <input
+              id="audit-url"
+              name="auditUrl"
+              type="text"
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              placeholder="exempel.se eller https://exempel.se"
+              autoComplete="url"
+              disabled={isLoading}
+              className="w-full bg-transparent border-none py-4 pl-12 pr-4 text-foreground placeholder:text-muted-foreground/60 outline-none transition-colors disabled:opacity-50"
+            />
+          </div>
         </div>
 
-        {/* Error Message */}
         {error && (
-          <div className="flex items-start gap-2 border border-red-500/30 bg-red-500/10 p-3 text-sm text-red-400">
+          <div className="flex items-start gap-2 rounded-xl border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
             <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" />
             <span>{error}</span>
           </div>
         )}
 
-        {/* Progress Bar */}
         {isLoading && (
-          <div className="h-1 w-full overflow-hidden bg-gray-800">
+          <div className="h-1.5 w-full overflow-hidden rounded-full bg-secondary">
             <div
-              className="bg-brand-teal h-full transition-all duration-500"
+              className="h-full bg-primary transition-all duration-500"
               style={{ width: `${progress}%` }}
             />
           </div>
         )}
 
-        {/* Submit Button */}
-        <button
+        <Button
           type="submit"
           disabled={isLoading || !url.trim()}
-          className="bg-brand-teal hover:bg-brand-teal/90 group flex w-full items-center justify-center gap-3 px-6 py-4 font-medium text-white transition-all disabled:cursor-not-allowed disabled:bg-gray-700"
+          className="btn-3d btn-glow w-full gap-3 rounded-xl bg-primary px-6 py-4 font-medium text-primary-foreground shadow-lg shadow-primary/25 hover:bg-primary/90 disabled:pointer-events-none disabled:opacity-50"
         >
           {isLoading ? (
             <>
@@ -199,34 +187,33 @@ export function SiteAuditSection({ onAuditComplete, onRequireAuth }: SiteAuditSe
             <>
               <Search className="h-5 w-5 transition-transform group-hover:scale-110" />
               <span>Välj analysnivå</span>
-              <span className="flex items-center gap-1 bg-black/30 px-2 py-0.5 text-sm">
-                <Coins className="text-brand-teal/80 h-3.5 w-3.5" />
+              <span className="flex items-center gap-1 rounded-md bg-primary-foreground/20 px-2 py-0.5 text-sm">
+                <Coins className="h-3.5 w-3.5" />
                 <span>
                   {AUDIT_COSTS.basic}/{AUDIT_COSTS.advanced}
                 </span>
               </span>
             </>
           )}
-        </button>
+        </Button>
 
-        {/* Credits Info */}
         {isAuthenticated && user && (
-          <div className="space-y-1 text-center text-xs text-gray-500">
+          <div className="space-y-1 text-center text-xs text-muted-foreground">
             <p>
               Du har{" "}
               <span
-                className={user.diamonds >= AUDIT_COSTS.basic ? "text-brand-teal" : "text-red-400"}
+                className={user.diamonds >= AUDIT_COSTS.basic ? "text-primary font-medium" : "text-destructive"}
               >
                 {user.diamonds} credits
               </span>
             </p>
             <p>
               Vanlig:{" "}
-              <span className={canAffordBasic ? "text-brand-teal" : "text-red-400"}>
+              <span className={canAffordBasic ? "text-primary" : "text-destructive"}>
                 {AUDIT_COSTS.basic}
               </span>{" "}
               | Avancerad:{" "}
-              <span className={canAffordAdvanced ? "text-brand-teal" : "text-red-400"}>
+              <span className={canAffordAdvanced ? "text-primary" : "text-destructive"}>
                 {AUDIT_COSTS.advanced}
               </span>
             </p>
@@ -234,11 +221,11 @@ export function SiteAuditSection({ onAuditComplete, onRequireAuth }: SiteAuditSe
         )}
 
         {!isAuthenticated && (
-          <p className="text-center text-xs text-gray-500">
+          <p className="text-center text-xs text-muted-foreground">
             <button
               type="button"
               onClick={onRequireAuth}
-              className="text-brand-teal hover:text-brand-teal/80 underline"
+              className="text-primary hover:text-primary/80 underline font-medium"
             >
               Logga in
             </button>{" "}
@@ -247,29 +234,32 @@ export function SiteAuditSection({ onAuditComplete, onRequireAuth }: SiteAuditSe
         )}
       </form>
 
-      {/* Features List */}
-      <div className="mt-8 grid grid-cols-2 gap-3 text-xs">
+      {/* Feature cards - same style as landing */}
+      <div className="mt-8 grid grid-cols-2 gap-3">
         {[
-          { icon: "📊", text: "SEO & Prestanda" },
-          { icon: "🔒", text: "Säkerhetsanalys" },
-          { icon: "💰", text: "Budgetuppskattning" },
-          { icon: "✨", text: "Affärs- & marknadsinsikter" },
-        ].map((feature, index) => (
+          { icon: BarChart2, text: "SEO & Prestanda" },
+          { icon: Coins, text: "Budgetuppskattning" },
+          { icon: Lock, text: "Säkerhetsanalys" },
+          { icon: Sparkles, text: "Affärs- & marknadsinsikter" },
+        ].map(({ icon: Icon, text }) => (
           <div
-            key={`audit-feature-${index}-${feature.text || feature.icon}`}
-            className="flex items-center gap-2 border border-gray-800 bg-black/30 p-2 text-gray-400"
+            key={text}
+            className="flex items-center gap-2.5 rounded-xl border border-border/20 bg-card/50 px-3 py-2.5 text-muted-foreground transition-colors hover:border-primary/20 hover:bg-card/80"
           >
-            <span>{feature.icon}</span>
-            <span>{feature.text}</span>
+            <Icon className="h-4 w-4 shrink-0 text-primary/80" />
+            <span className="text-xs font-medium text-foreground">{text}</span>
           </div>
         ))}
       </div>
 
       <Dialog open={showModeDialog} onClose={() => setShowModeDialog(false)}>
-        <DialogContent className="max-w-2xl" onClose={() => setShowModeDialog(false)}>
+        <DialogContent
+          className="max-w-2xl border-border/40 bg-background/95 backdrop-blur-xl rounded-2xl shadow-2xl"
+          onClose={() => setShowModeDialog(false)}
+        >
           <DialogHeader>
-            <DialogTitle>Välj analysnivå</DialogTitle>
-            <DialogDescription>
+            <DialogTitle className="text-foreground font-(--font-heading)">Välj analysnivå</DialogTitle>
+            <DialogDescription className="text-muted-foreground">
               Vanlig ger en snabb kvalitetskontroll. Avancerad gör djupare marknads- och
               affärsanalys med fler dimensioner.
             </DialogDescription>
@@ -278,32 +268,32 @@ export function SiteAuditSection({ onAuditComplete, onRequireAuth }: SiteAuditSe
             <button
               type="button"
               onClick={() => startAudit("basic")}
-              className="hover:border-brand-teal/50 border border-gray-800 bg-black/40 p-4 text-left transition-colors"
+              className="rounded-xl border border-border/30 bg-card/50 p-4 text-left transition-all hover:border-primary/30 hover:bg-card/80 hover:shadow-lg"
             >
               <div className="mb-2 flex items-center justify-between">
-                <span className="text-sm font-semibold text-white">Vanlig analys</span>
-                <span className="text-brand-teal/80 flex items-center gap-1 text-xs">
+                <span className="text-sm font-semibold text-foreground">Vanlig analys</span>
+                <span className="flex items-center gap-1 text-xs text-primary">
                   <Coins className="h-3.5 w-3.5" />
                   {AUDIT_COSTS.basic}
                 </span>
               </div>
-              <p className="text-xs text-gray-400">
+              <p className="text-xs text-muted-foreground">
                 Fokuserar på SEO, UX, prestanda och tydliga förbättringsförslag.
               </p>
             </button>
             <button
               type="button"
               onClick={() => startAudit("advanced")}
-              className="hover:border-brand-blue/50 border border-gray-800 bg-black/40 p-4 text-left transition-colors"
+              className="rounded-xl border border-border/30 bg-card/50 p-4 text-left transition-all hover:border-primary/30 hover:bg-card/80 hover:shadow-lg"
             >
               <div className="mb-2 flex items-center justify-between">
-                <span className="text-sm font-semibold text-white">Avancerad analys</span>
-                <span className="text-brand-blue/80 flex items-center gap-1 text-xs">
+                <span className="text-sm font-semibold text-foreground">Avancerad analys</span>
+                <span className="flex items-center gap-1 text-xs text-primary">
                   <Coins className="h-3.5 w-3.5" />
                   {AUDIT_COSTS.advanced}
                 </span>
               </div>
-              <p className="text-xs text-gray-400">
+              <p className="text-xs text-muted-foreground">
                 Inkluderar bransch, företagsstorlek, kundsegment, geo, konkurrens och affärslogik.
               </p>
             </button>

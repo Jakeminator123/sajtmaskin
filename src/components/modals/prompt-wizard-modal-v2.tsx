@@ -225,10 +225,10 @@ interface ScrapedData {
   textSummary?: string;
 }
 
-// ── Shared input class ────────────────────────────────────────────
+// ── Shared input class (landing-style) ─────────────────────────────
 
 const INPUT_CLASS =
-  "w-full rounded-lg border border-gray-800 bg-black/50 px-4 py-3 text-white placeholder-gray-500 transition-all focus:border-brand-teal focus:ring-1 focus:ring-brand-teal/50 focus:outline-none";
+  "w-full rounded-xl border border-border/30 bg-secondary/50 px-4 py-3 text-foreground placeholder:text-muted-foreground/60 transition-all focus:border-primary focus:ring-1 focus:ring-primary/30 focus:outline-none";
 
 // ── FollowUpRenderer ──────────────────────────────────────────────
 
@@ -244,14 +244,14 @@ function FollowUpRenderer({
   if (!questions.length) return null;
 
   return (
-    <div className="space-y-4 rounded-lg border border-gray-700/50 bg-linear-to-br from-gray-900/80 to-gray-950/80 p-4">
-      <div className="flex items-center gap-2 text-xs font-medium text-brand-teal/80">
+    <div className="space-y-4 rounded-xl border border-primary/20 bg-primary/5 p-4">
+      <div className="flex items-center gap-2 text-xs font-medium text-primary">
         <Sparkles className="h-3.5 w-3.5" />
         Anpassade frågor för ert sajtbygge
       </div>
       {questions.map((q) => (
         <div key={q.id} className="space-y-1.5">
-          <label className="text-sm text-gray-300">{q.text}</label>
+          <label className="text-sm text-foreground">{q.text}</label>
           {q.type === "text" && (
             <input
               type="text"
@@ -269,8 +269,8 @@ function FollowUpRenderer({
                   onClick={() => onAnswer(q.id, opt)}
                   className={`rounded-full border px-3 py-1 text-xs transition-all ${
                     answers[q.id] === opt
-                      ? "border-brand-teal bg-brand-teal/20 text-brand-teal/90"
-                      : "border-gray-700 text-gray-400 hover:border-gray-600 hover:text-white"
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border/30 text-muted-foreground hover:border-primary/30 hover:text-foreground"
                   }`}
                 >
                   {opt}
@@ -294,8 +294,8 @@ function FollowUpRenderer({
                     }}
                     className={`rounded-full border px-3 py-1 text-xs transition-all ${
                       isActive
-                        ? "border-brand-teal bg-brand-teal/20 text-brand-teal/90"
-                        : "border-gray-700 text-gray-400 hover:border-gray-600 hover:text-white"
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "border-border/30 text-muted-foreground hover:border-primary/30 hover:text-foreground"
                     }`}
                   >
                     {isActive ? "✓" : "+"} {opt}
@@ -870,20 +870,21 @@ export function PromptWizardModalV2({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       {/* Backdrop -- clicking does NOT close (prevents accidental data loss) */}
-      <div className="absolute inset-0 bg-black/90 backdrop-blur-sm" />
+      <div className="absolute inset-0 bg-background/90 backdrop-blur-md" />
 
-      {/* Modal */}
-      <div className="relative mx-4 max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-gray-800 bg-linear-to-b from-gray-950 to-black shadow-2xl">
+      {/* Modal - same visual language as landing */}
+      <div className="relative mx-4 max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl border border-border/40 bg-background/95 shadow-2xl backdrop-blur-xl">
         {/* Decorative background */}
         <div className="pointer-events-none absolute inset-0 overflow-hidden rounded-2xl">
-          <div className="absolute -top-32 -right-32 h-64 w-64 bg-brand-teal/10 blur-3xl" />
-          <div className="absolute -bottom-32 -left-32 h-64 w-64 bg-brand-blue/10 blur-3xl" />
+          <div className="absolute -top-32 -right-32 h-64 w-64 bg-primary/10 blur-3xl" />
+          <div className="absolute -bottom-32 -left-32 h-64 w-64 bg-primary/5 blur-3xl" />
         </div>
 
         {/* Close button */}
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 z-10 p-2 text-gray-500 transition-colors duration-200 hover:rotate-90 hover:text-white"
+          className="absolute top-4 right-4 z-10 p-2 text-muted-foreground transition-colors duration-200 hover:rotate-90 hover:text-foreground"
+          aria-label="Stäng"
         >
           <X className="h-5 w-5" />
         </button>
@@ -891,7 +892,7 @@ export function PromptWizardModalV2({
         {/* ═══════════════════════════════════════════════════════════
             HEADER with progress indicator
             ═══════════════════════════════════════════════════════════ */}
-        <div className="relative border-b border-gray-800/50 p-6">
+        <div className="relative border-b border-border/50 p-6">
           {/* Progress bar with step numbers */}
           <div className="mb-6 flex items-center gap-1.5">
             {[1, 2, 3, 4, 5].map((s) => (
@@ -899,10 +900,10 @@ export function PromptWizardModalV2({
                 <div
                   className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold transition-all duration-300 ${
                     s < step
-                      ? "bg-brand-teal text-black"
+                      ? "bg-primary text-primary-foreground"
                       : s === step
-                        ? "bg-brand-teal/20 text-brand-teal ring-2 ring-brand-teal/50"
-                        : "bg-gray-800 text-gray-500"
+                        ? "bg-primary/20 text-primary ring-2 ring-primary/50"
+                        : "bg-secondary text-muted-foreground"
                   }`}
                 >
                   {s < step ? <Check className="h-3.5 w-3.5" /> : s}
@@ -910,7 +911,7 @@ export function PromptWizardModalV2({
                 {s < 5 && (
                   <div
                     className={`h-0.5 flex-1 rounded-full transition-all duration-300 ${
-                      s < step ? "bg-brand-teal" : "bg-gray-800"
+                      s < step ? "bg-primary" : "bg-secondary"
                     }`}
                   />
                 )}
@@ -920,20 +921,20 @@ export function PromptWizardModalV2({
 
           {/* Step title with icon */}
           <div className="flex items-center gap-3 text-center">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-brand-teal/20 text-brand-teal">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary/20 text-primary">
               {currentMeta.icon}
             </div>
             <div className="text-left">
-              <h2 className="text-xl font-bold text-white sm:text-2xl">{currentMeta.title}</h2>
-              <p className="text-sm text-gray-500">{currentMeta.subtitle}</p>
+              <h2 className="text-xl font-(--font-heading) text-foreground sm:text-2xl">{currentMeta.title}</h2>
+              <p className="text-sm text-muted-foreground">{currentMeta.subtitle}</p>
             </div>
           </div>
 
           {/* AI insight banner */}
           {insightSummary && (
-            <div className="mt-4 flex items-start gap-2 rounded-lg border border-brand-teal/20 bg-brand-teal/5 p-3">
-              <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-brand-teal" />
-              <p className="text-sm text-gray-300">{insightSummary}</p>
+            <div className="mt-4 flex items-start gap-2 rounded-xl border border-primary/20 bg-primary/5 p-3">
+              <Sparkles className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+              <p className="text-sm text-foreground">{insightSummary}</p>
             </div>
           )}
         </div>
@@ -947,8 +948,8 @@ export function PromptWizardModalV2({
             <div className="space-y-6">
               {/* Company Name */}
               <div className="space-y-2">
-                <label className="flex items-center gap-2 text-sm font-medium text-gray-300">
-                  <Building2 className="h-4 w-4 text-brand-teal" />
+                <label className="flex items-center gap-2 text-sm font-medium text-foreground">
+                  <Building2 className="h-4 w-4 text-primary" />
                   Företagsnamn *
                 </label>
                 <input
@@ -963,16 +964,16 @@ export function PromptWizardModalV2({
 
               {/* Industry Grid */}
               <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-300">Bransch *</label>
+                <label className="text-sm font-medium text-foreground">Bransch *</label>
                 <div className="grid grid-cols-3 gap-2 sm:grid-cols-4">
                   {INDUSTRY_OPTIONS.map((option) => (
                     <button
                       key={option.id}
                       onClick={() => handleIndustryChange(option.id)}
-                      className={`flex flex-col items-center gap-1 rounded-lg border p-3 transition-all ${
+                      className={`flex flex-col items-center gap-1 rounded-xl border p-3 transition-all ${
                         industry === option.id
-                          ? "border-brand-teal bg-brand-teal/20 text-brand-teal/80"
-                          : "border-gray-800 text-gray-400 hover:border-gray-700 hover:text-white"
+                          ? "border-primary bg-primary/10 text-primary"
+                          : "border-border/30 bg-card/50 text-muted-foreground hover:border-primary/30 hover:text-foreground hover:bg-card/80"
                       }`}
                     >
                       <span className="text-2xl">{option.icon}</span>
@@ -984,9 +985,9 @@ export function PromptWizardModalV2({
 
               {/* Location */}
               <div className="space-y-2">
-                <label className="flex items-center gap-2 text-sm font-medium text-gray-300">
-                  <Globe className="h-4 w-4 text-brand-teal" />
-                  Plats <span className="font-normal text-gray-500">(valfritt)</span>
+                <label className="flex items-center gap-2 text-sm font-medium text-foreground">
+                  <Globe className="h-4 w-4 text-primary" />
+                  Plats <span className="font-normal text-muted-foreground">(valfritt)</span>
                 </label>
                 <input
                   type="text"
@@ -999,10 +1000,10 @@ export function PromptWizardModalV2({
 
               {/* Existing Website with Scraper */}
               <div className="space-y-2">
-                <label className="flex items-center gap-2 text-sm font-medium text-gray-300">
-                  <ExternalLink className="h-4 w-4 text-brand-teal" />
+                <label className="flex items-center gap-2 text-sm font-medium text-foreground">
+                  <ExternalLink className="h-4 w-4 text-primary" />
                   Befintlig hemsida?{" "}
-                  <span className="font-normal text-gray-500">(valfritt - vi analyserar den)</span>
+                  <span className="font-normal text-muted-foreground">(valfritt - vi analyserar den)</span>
                 </label>
                 <div className="flex gap-2">
                   <input
@@ -1032,29 +1033,29 @@ export function PromptWizardModalV2({
 
                 {/* Background analysis indicator */}
                 {isScraping && !scrapedData && (
-                  <div className="flex items-center gap-3 rounded-lg border border-brand-teal/10 bg-brand-teal/5 px-3 py-2">
-                    <Loader2 className="h-4 w-4 animate-spin text-brand-teal/60" />
+                  <div className="flex items-center gap-3 rounded-xl border border-primary/20 bg-primary/5 px-3 py-2">
+                    <Loader2 className="h-4 w-4 animate-spin text-primary/60" />
                     <div className="flex-1">
-                      <p className="text-xs font-medium text-brand-teal/80">Analyserar i bakgrunden...</p>
-                      <p className="text-[10px] text-gray-500">Du kan fortsätta till nästa steg medan vi jobbar</p>
+                      <p className="text-xs font-medium text-primary">Analyserar i bakgrunden...</p>
+                      <p className="text-[10px] text-muted-foreground">Du kan fortsätta till nästa steg medan vi jobbar</p>
                     </div>
                   </div>
                 )}
 
                 {/* Scraped data card */}
                 {scrapedData && (
-                  <div className="animate-in fade-in slide-in-from-bottom-2 rounded-lg border border-brand-teal/20 bg-brand-teal/5 p-3 space-y-2 duration-300">
-                    <div className="flex items-center gap-2 text-xs font-medium text-brand-teal">
+                  <div className="animate-in fade-in slide-in-from-bottom-2 rounded-xl border border-primary/20 bg-primary/5 p-3 space-y-2 duration-300">
+                    <div className="flex items-center gap-2 text-xs font-medium text-primary">
                       <Check className="h-3.5 w-3.5" />
                       Vi hittade din sida
                     </div>
                     {scrapedData.title && (
-                      <p className="text-sm text-white">{scrapedData.title}</p>
+                      <p className="text-sm text-foreground">{scrapedData.title}</p>
                     )}
                     {scrapedData.description && (
-                      <p className="text-xs text-gray-400 line-clamp-2">{scrapedData.description}</p>
+                      <p className="text-xs text-muted-foreground line-clamp-2">{scrapedData.description}</p>
                     )}
-                    <div className="flex gap-3 text-xs text-gray-500">
+                    <div className="flex gap-3 text-xs text-muted-foreground">
                       {scrapedData.wordCount != null && <span>{scrapedData.wordCount} ord</span>}
                       {(scrapedData.headings?.length ?? 0) > 0 && (
                         <span>{scrapedData.headings!.length} sektioner</span>
@@ -1073,7 +1074,7 @@ export function PromptWizardModalV2({
                     setCompanyName((prev) => (prev ? `${prev} ${text}` : text))
                   }
                 />
-                <span className="text-xs text-gray-500">Eller berätta med rösten</span>
+                <span className="text-xs text-muted-foreground">Eller berätta med rösten</span>
               </div>
             </div>
           )}
@@ -1582,7 +1583,7 @@ export function PromptWizardModalV2({
 
           {/* Error Message */}
           {error && (
-            <div className="mt-4 rounded-lg border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-400">
+            <div className="mt-4 rounded-xl border border-destructive/30 bg-destructive/10 p-4 text-sm text-destructive">
               {error}
             </div>
           )}
@@ -1591,14 +1592,14 @@ export function PromptWizardModalV2({
         {/* ═══════════════════════════════════════════════════════════
             FOOTER - Navigation buttons
             ═══════════════════════════════════════════════════════════ */}
-        <div className="relative flex items-center justify-between gap-3 border-t border-gray-800/50 p-6">
+        <div className="relative flex items-center justify-between gap-3 border-t border-border/50 p-6">
           {/* Back button */}
           {!showEditMode ? (
             <Button
               variant="ghost"
               onClick={step === 1 ? onClose : handleBack}
               disabled={isExpanding}
-              className="gap-2 text-gray-400 hover:text-white"
+              className="gap-2 text-muted-foreground hover:text-foreground"
             >
               {step === 1 ? (
                 "Avbryt"
@@ -1617,7 +1618,7 @@ export function PromptWizardModalV2({
                 setGeneratedPrompt(null);
                 setEditedPrompt("");
               }}
-              className="gap-2 text-gray-400 hover:text-white"
+              className="gap-2 text-muted-foreground hover:text-foreground"
             >
               <ArrowLeft className="h-4 w-4" />
               Tillbaka
@@ -1626,7 +1627,7 @@ export function PromptWizardModalV2({
 
           {/* Enriching indicator */}
           {isEnriching && (
-            <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-1.5 text-xs text-gray-500">
+            <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-1.5 text-xs text-muted-foreground">
               <Loader2 className="h-3 w-3 animate-spin" />
               AI analyserar...
             </div>
@@ -1636,7 +1637,7 @@ export function PromptWizardModalV2({
           {showEditMode ? (
             <Button
               onClick={handleComplete}
-              className="gap-2 bg-linear-to-r from-brand-teal to-brand-teal/80 px-6 hover:from-brand-teal/90 hover:to-brand-teal/70"
+              className="btn-3d btn-glow gap-2 bg-primary px-6 text-primary-foreground shadow-lg shadow-primary/25 hover:bg-primary/90"
             >
               <Rocket className="h-4 w-4" />
               Skapa webbplats
@@ -1645,7 +1646,7 @@ export function PromptWizardModalV2({
             <Button
               onClick={handleNext}
               disabled={!canProceed()}
-              className="gap-2 bg-brand-teal hover:bg-brand-teal/90 disabled:opacity-50"
+              className="btn-3d btn-glow gap-2 bg-primary text-primary-foreground shadow-lg shadow-primary/25 hover:bg-primary/90 disabled:opacity-50"
             >
               Nästa
               <ArrowRight className="h-4 w-4" />
@@ -1654,7 +1655,7 @@ export function PromptWizardModalV2({
             <Button
               onClick={handleGenerate}
               disabled={isExpanding}
-              className="gap-2 bg-linear-to-r from-brand-teal to-brand-blue px-6 hover:from-brand-teal/90 hover:to-brand-blue/90"
+              className="btn-3d btn-glow gap-2 bg-primary px-6 text-primary-foreground shadow-lg shadow-primary/25 hover:bg-primary/90"
             >
               {isExpanding ? (
                 <>

@@ -1,0 +1,16 @@
+services:
+  inspector-worker:
+    container_name: sajtmaskin-inspector-worker
+    build:
+      context: ./services/inspector-worker
+      dockerfile: Dockerfile
+    ports:
+      - "3310:3310"
+    environment:
+      PORT: 3310
+      INSPECTOR_CAPTURE_WORKER_TOKEN: ${INSPECTOR_CAPTURE_WORKER_TOKEN:-}
+      INSPECTOR_CAPTURE_NAVIGATION_TIMEOUT_MS: ${INSPECTOR_CAPTURE_NAVIGATION_TIMEOUT_MS:-25000}
+      INSPECTOR_CAPTURE_NETWORK_IDLE_TIMEOUT_MS: ${INSPECTOR_CAPTURE_NETWORK_IDLE_TIMEOUT_MS:-8000}
+      INSPECTOR_CAPTURE_MAX_BODY_BYTES: ${INSPECTOR_CAPTURE_MAX_BODY_BYTES:-64000}
+    restart: unless-stopped
+

@@ -30,7 +30,7 @@ import {
 } from "@/components/builder/UnifiedElementPicker";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { FileText, ImageIcon, Loader2, Plus, Wand2 } from "lucide-react";
+import { FileText, ImageIcon, Loader2, Plus, Wand2, X } from "lucide-react";
 import { VoiceRecorder } from "@/components/forms/voice-recorder";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { buildAiElementPrompt, type AiElementCatalogItem } from "@/lib/builder/ai-elements-catalog";
@@ -40,6 +40,11 @@ import {
   DESIGN_THEME_OPTIONS,
   type DesignTheme,
 } from "@/lib/builder/theme-presets";
+import {
+  INSPECT_CAPTURE_EVENT,
+  type InspectCapturedElement,
+  type InspectCaptureEventDetail,
+} from "@/lib/builder/inspect-events";
 import type { DetectedSection } from "@/lib/builder/sectionAnalyzer";
 import { debugLog } from "@/lib/utils/debug";
 import toast from "react-hot-toast";
@@ -54,6 +59,103 @@ type FigmaPreviewResponse = {
   fileName?: string;
   error?: string;
 };
+
+type InspectPointToken = {
+  id: string;
+  demoUrl: string;
+  capturedUrl?: string;
+  xPercent: number;
+  yPercent: number;
+  viewportWidth: number;
+  viewportHeight: number;
+  previewDataUrl?: string;
+  uploading: boolean;
+  uploadError?: string;
+  fileId?: string;
+  filename?: string;
+  pointSummary?: string;
+  element?: InspectCapturedElement;
+  clip?: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
+  source?: "worker" | "local";
+};
+
+type MediaUploadResponse = {
+  success?: boolean;
+  media?: {
+    id?: string | number;
+    url?: string;
+    filename?: string;
+    mimeType?: string;
+    storageType?: string;
+  };
+  error?: string;
+};
+
+function dataUrlToFile(dataUrl: string, filename: string): File | null {
+  const parts = dataUrl.match(/^data:([^;]+);base64,(.+)$/);
+  if (!parts) return null;
+  const mimeType = parts[1];
+  const base64 = parts[2];
+  const binary = atob(base64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i += 1) {
+    bytes[i] = binary.charCodeAt(i);
+  }
+  return new File([bytes], filename, { type: mimeType });
+}
+
+function getExtensionFromDataUrl(dataUrl?: string): string {
+  if (!dataUrl) return "png";
+  const mime = dataUrl.match(/^data:([^;]+);base64,/)?.[1] || "";
+  if (mime === "image/jpeg") return "jpg";
+  if (mime === "image/webp") return "webp";
+  if (mime === "image/gif") return "gif";
+  return "png";
+}
+
+function buildInspectPointsPrompt(points: InspectPointToken[]): string {
+  if (!points.length) return "";
+  const sourceUrls = Array.from(new Set(points.map((point) => point.demoUrl).filter(Boolean)));
+  const lines = points.map((point, index) => {
+    const imagePart = point.filename ? `, bildfil: ${point.filename}` : "";
+    const base = `- Punkt ${index + 1}: x=${point.xPercent.toFixed(1)}%, y=${point.yPercent.toFixed(1)}%, viewport=${Math.round(point.viewportWidth)}x${Math.round(point.viewportHeight)}${imagePart}`;
+    const extras: string[] = [];
+    if (point.pointSummary) extras.push(`  - Sammanfattning: ${point.pointSummary}`);
+    if (point.capturedUrl && point.capturedUrl !== point.demoUrl) {
+      extras.push(`  - Slutlig capture-URL: ${point.capturedUrl}`);
+    }
+    if (point.element) {
+      const elementParts = [
+        point.element.tag ? `<${point.element.tag}>` : null,
+        point.element.id ? `#${point.element.id}` : null,
+        point.element.className ? `.${point.element.className.split(/\s+/).slice(0, 3).join(".")}` : null,
+      ].filter(Boolean);
+      if (elementParts.length > 0) {
+        extras.push(`  - DOM-träff: ${elementParts.join(" ")}`);
+      }
+      if (point.element.selector) extras.push(`  - CSS-selector: ${point.element.selector}`);
+      if (point.element.nearestHeading) extras.push(`  - Närmaste rubrik: ${point.element.nearestHeading}`);
+      if (point.element.text) extras.push(`  - Träff-text: ${point.element.text}`);
+      if (point.element.ariaLabel) extras.push(`  - Aria-label: ${point.element.ariaLabel}`);
+    }
+    if (point.clip) {
+      extras.push(`  - Bildutsnitt: x=${point.clip.x}, y=${point.clip.y}, w=${point.clip.width}, h=${point.clip.height}`);
+    }
+    if (point.source) {
+      extras.push(`  - Capture-källa: ${point.source}`);
+    }
+    return [base, ...extras].join("\n");
+  });
+  const sourcePart = sourceUrls.length
+    ? `\nKälla: ${sourceUrls.join(" | ")}`
+    : "";
+  return `Användarens markerade fokuspunkter i preview:${sourcePart}\n${lines.join("\n")}\nPrioritera ändringar nära dessa punkter. Om informationen krockar med resten av sidan, utgå från punktens DOM-träff/selector före antaganden.`;
+}
 
 interface ChatInterfaceProps {
   chatId: string | null;
@@ -146,6 +248,7 @@ export function ChatInterface({
   const [figmaPreviewName, setFigmaPreviewName] = useState<string | null>(null);
   const [figmaPreviewError, setFigmaPreviewError] = useState<string | null>(null);
   const [figmaPreviewLoading, setFigmaPreviewLoading] = useState(false);
+  const [inspectPoints, setInspectPoints] = useState<InspectPointToken[]>([]);
 
   // Single unified picker state replaces 4 separate picker states
   const [pickerTab, setPickerTab] = useState<UnifiedPickerTab | null>(null);
@@ -178,6 +281,7 @@ export function ChatInterface({
       setFiles([]);
       setFigmaUrl("");
       setIsFigmaInputOpen(false);
+      setInspectPoints([]);
     }
     lastChatIdRef.current = chatId;
   }, [chatId]);
@@ -240,6 +344,137 @@ export function ChatInterface({
       controller.abort();
     };
   }, [normalizedFigmaUrl]);
+
+  const uploadInspectPreview = useCallback(async (previewDataUrl: string, filename: string) => {
+    const file = dataUrlToFile(previewDataUrl, filename);
+    if (!file) {
+      throw new Error("Ogiltig preview-bild");
+    }
+
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("description", "Inspector point preview");
+    const response = await fetch("/api/media/upload", {
+      method: "POST",
+      body: formData,
+    });
+    const result = (await response.json().catch(() => null)) as MediaUploadResponse | null;
+
+    if (!response.ok || !result?.success || !result.media?.url) {
+      throw new Error(result?.error || "Kunde inte ladda upp inspector-bild");
+    }
+
+    return { media: result.media, file };
+  }, []);
+
+  const handleRemoveInspectPoint = useCallback((pointId: string) => {
+    setInspectPoints((prevPoints) => {
+      const target = prevPoints.find((point) => point.id === pointId);
+      if (target?.fileId) {
+        setFiles((prevFiles) => prevFiles.filter((file) => file.id !== target.fileId));
+      }
+      return prevPoints.filter((point) => point.id !== pointId);
+    });
+  }, []);
+
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const detail = (event as CustomEvent<InspectCaptureEventDetail>).detail;
+      if (!detail?.id || !detail.demoUrl) return;
+
+      const pointId = detail.id;
+      const fileName = `inspect-${Math.round(detail.xPercent)}-${Math.round(detail.yPercent)}.${getExtensionFromDataUrl(detail.previewDataUrl)}`;
+
+      setInspectPoints((prevPoints) => {
+        if (prevPoints.some((point) => point.id === pointId)) return prevPoints;
+        const nextPoint: InspectPointToken = {
+          id: pointId,
+          demoUrl: detail.demoUrl,
+          capturedUrl: detail.capturedUrl,
+          xPercent: detail.xPercent,
+          yPercent: detail.yPercent,
+          viewportWidth: detail.viewportWidth,
+          viewportHeight: detail.viewportHeight,
+          previewDataUrl: detail.previewDataUrl,
+          pointSummary: detail.pointSummary,
+          element: detail.element,
+          clip: detail.clip,
+          source: detail.source,
+          uploading: Boolean(detail.previewDataUrl),
+          uploadError: detail.error,
+        };
+        return [nextPoint, ...prevPoints].slice(0, 8);
+      });
+
+      if (detail.error) {
+        toast.error("Punkt tillagd utan preview-bild.");
+        return;
+      }
+      const previewDataUrl = detail.previewDataUrl;
+      if (!previewDataUrl) return;
+
+      void (async () => {
+        try {
+          const { media, file } = await uploadInspectPreview(previewDataUrl, fileName);
+          const uploadedId = String(media.id || `inspect-upload-${Date.now()}`);
+          const uploadedFile: UploadedFile = {
+            id: uploadedId,
+            url: media.url || "",
+            filename: file.name,
+            mimeType: media.mimeType || file.type || "image/jpeg",
+            size: file.size,
+            status: "success",
+            purpose: `inspect point x=${detail.xPercent.toFixed(1)} y=${detail.yPercent.toFixed(1)}${
+              detail.element?.nearestHeading ? ` heading=${detail.element.nearestHeading}` : ""
+            }`,
+            isPublicUrl:
+              media.storageType === "blob" || (media.url || "").includes("blob.vercel-storage.com"),
+          };
+
+          setFiles((prevFiles) => {
+            if (
+              prevFiles.some((entry) => entry.id === uploadedId) ||
+              prevFiles.some((entry) => entry.url === uploadedFile.url)
+            ) {
+              return prevFiles;
+            }
+            return [uploadedFile, ...prevFiles];
+          });
+
+          setInspectPoints((prevPoints) =>
+            prevPoints.map((point) =>
+              point.id === pointId
+                ? {
+                    ...point,
+                    uploading: false,
+                    uploadError: undefined,
+                    fileId: uploadedId,
+                    filename: uploadedFile.filename,
+                  }
+                : point,
+            ),
+          );
+        } catch (error) {
+          const message = error instanceof Error ? error.message : "Kunde inte ladda upp punktbild";
+          setInspectPoints((prevPoints) =>
+            prevPoints.map((point) =>
+              point.id === pointId
+                ? {
+                    ...point,
+                    uploading: false,
+                    uploadError: message,
+                  }
+                : point,
+            ),
+          );
+          toast.error("Punkt tillagd utan bilaga (uppladdning misslyckades).");
+        }
+      })();
+    };
+
+    window.addEventListener(INSPECT_CAPTURE_EVENT, handler as EventListener);
+    return () => window.removeEventListener(INSPECT_CAPTURE_EVENT, handler as EventListener);
+  }, [uploadInspectPreview]);
 
   const handleEnhancePrompt = async () => {
     if (!onEnhancePrompt) return;
@@ -326,8 +561,10 @@ export function ChatInterface({
 
   const buildMessagePayload = async (baseMessage: string) => {
     const figmaLink = normalizedFigmaUrl;
+    const inspectPointsPrompt = buildInspectPointsPrompt(inspectPoints);
     const contextBlocks = [
       figmaLink ? `Use this Figma design as a reference: ${figmaLink}` : "",
+      inspectPointsPrompt,
     ].filter(Boolean);
     const finalMessage = contextBlocks.length
       ? `${baseMessage}\n\n${contextBlocks.join("\n\n")}`
@@ -372,6 +609,7 @@ export function ChatInterface({
         setFiles([]);
         setFigmaUrl("");
         setIsFigmaInputOpen(false);
+        setInspectPoints([]);
       }
     } finally {
       setIsSending(false);
@@ -704,6 +942,81 @@ ${technicalPrompt}`;
                 </Button>
               </div>
             )}
+          </div>
+        )}
+        {inspectPoints.length > 0 && (
+          <div className="space-y-1 px-3 pb-2">
+            <div className="text-muted-foreground text-[11px]">
+              Markerade punkter från preview
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {inspectPoints.map((point, index) => (
+                <div key={point.id} className="group relative">
+                  <button
+                    type="button"
+                    className="border-border bg-muted text-foreground hover:bg-accent inline-flex h-7 min-w-7 items-center justify-center rounded-full border px-2 text-[11px] font-semibold"
+                    title={`Punkt ${index + 1}: x ${point.xPercent.toFixed(1)}% y ${point.yPercent.toFixed(1)}%`}
+                  >
+                    {index + 1}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleRemoveInspectPoint(point.id)}
+                    className="absolute -top-1 -right-1 rounded-full bg-zinc-900 p-0.5 text-zinc-400 opacity-0 transition-opacity hover:text-white group-hover:opacity-100"
+                    title="Ta bort punkt"
+                  >
+                    <X className="size-3" />
+                  </button>
+                  <div className="border-border bg-popover text-popover-foreground pointer-events-none absolute bottom-9 left-0 z-30 hidden w-56 rounded-md border p-2 shadow-lg group-hover:block">
+                    <div className="text-xs font-medium">Punkt {index + 1}</div>
+                    <div className="text-muted-foreground text-[11px]">
+                      x {point.xPercent.toFixed(1)}% • y {point.yPercent.toFixed(1)}%
+                    </div>
+                    {point.pointSummary && (
+                      <div className="text-muted-foreground mt-1 line-clamp-3 text-[11px]">
+                        {point.pointSummary}
+                      </div>
+                    )}
+                    {point.element?.nearestHeading && (
+                      <div className="text-muted-foreground mt-1 text-[11px]">
+                        Rubrik: {point.element.nearestHeading}
+                      </div>
+                    )}
+                    {point.element?.selector && (
+                      <div className="mt-1 line-clamp-2 font-mono text-[10px] text-zinc-400">
+                        {point.element.selector}
+                      </div>
+                    )}
+                    {point.capturedUrl && point.capturedUrl !== point.demoUrl && (
+                      <div className="text-muted-foreground mt-1 line-clamp-2 text-[10px]">
+                        URL: {point.capturedUrl}
+                      </div>
+                    )}
+                    {point.previewDataUrl && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={point.previewDataUrl}
+                        alt={`Preview punkt ${index + 1}`}
+                        className="mt-1 h-24 w-full rounded object-cover"
+                      />
+                    )}
+                    {point.uploading && (
+                      <div className="text-muted-foreground mt-1 text-[11px]">
+                        Laddar upp punktbild...
+                      </div>
+                    )}
+                    {point.uploadError && (
+                      <div className="mt-1 text-[11px] text-red-500">{point.uploadError}</div>
+                    )}
+                    {!point.uploading && !point.uploadError && (
+                      <div className="text-muted-foreground mt-1 text-[11px]">
+                        Lägger med koordinater{point.filename ? ` + ${point.filename}` : ""} i nästa meddelande.
+                      </div>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         )}
         <PromptInputBody>
