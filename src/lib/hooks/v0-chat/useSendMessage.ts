@@ -1,5 +1,5 @@
 import { useCallback } from "react";
-import toast from "react-hot-toast";
+import { toast } from "sonner";
 import { formatPromptForV0 } from "@/lib/builder/promptAssist";
 import { orchestratePromptMessage } from "@/lib/builder/promptOrchestration";
 import { debugLog } from "@/lib/utils/debug";
@@ -37,6 +37,8 @@ export function useSendMessage(
     enableImageMaterialization = false,
     enableThinking,
     systemPrompt,
+    promptAssistModel,
+    promptAssistDeep,
     buildIntent,
     buildMethod,
     mutateVersions,
@@ -242,6 +244,8 @@ export function useSendMessage(
             mutateVersions,
             enableImageMaterialization,
             autoFixHandlerRef,
+            promptAssistModel,
+            promptAssistDeep,
           },
           streamController.signal,
         );
@@ -306,9 +310,10 @@ export function useSendMessage(
       onPreviewRefresh,
       onGenerationComplete,
       selectedModelTier,
-      selectedModelTier,
       buildIntent,
       buildMethod,
+      promptAssistModel,
+      promptAssistDeep,
       mutateVersions,
       startStreamSafetyTimer,
       touchStreamSafetyTimer,

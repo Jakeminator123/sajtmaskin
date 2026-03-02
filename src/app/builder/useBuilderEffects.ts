@@ -4,7 +4,7 @@ import { saveProjectData } from "@/lib/project-client";
 import type { ModelTier } from "@/lib/validations/chatSchemas";
 import type { ReadonlyURLSearchParams } from "next/navigation";
 import { useEffect, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
-import toast from "react-hot-toast";
+import { toast } from "sonner";
 import { MODEL_TIER_TO_QUALITY } from "./types";
 
 type UseBuilderEffectsArgs = {

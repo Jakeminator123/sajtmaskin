@@ -4,7 +4,7 @@ import type { DomainSearchResult } from "@/components/builder/DomainSearchDialog
 import type { ImageAssetStrategy } from "@/lib/imageAssets";
 import { saveProjectData, updateProject } from "@/lib/project-client";
 import { useCallback, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
-import toast from "react-hot-toast";
+import { toast } from "sonner";
 
 type Args = {
   chatId: string | null;

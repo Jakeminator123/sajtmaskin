@@ -22,6 +22,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -357,28 +358,24 @@ export function UiElementPicker({
                 ))}
               </div>
               <div className="h-4 w-px bg-border" />
-              <div className="flex gap-1">
-                {itemType === "block" && (
-                  <button
-                    type="button"
-                    onClick={() => setActiveTab("popular")}
-                    className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
-                      activeTab === "popular" ? "bg-brand-amber/10 text-brand-amber" : "text-muted-foreground hover:text-foreground"
-                    }`}
+              <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "popular" | "all")}>
+                <TabsList className="h-auto w-auto gap-1 bg-transparent p-0">
+                  {itemType === "block" && (
+                    <TabsTrigger
+                      value="popular"
+                      className="h-auto rounded-md border-0 px-3 py-1.5 text-xs font-medium shadow-none transition-colors data-[state=active]:bg-brand-amber/10 data-[state=active]:text-brand-amber data-[state=inactive]:bg-transparent data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-foreground"
+                    >
+                      Populära
+                    </TabsTrigger>
+                  )}
+                  <TabsTrigger
+                    value="all"
+                    className="h-auto rounded-md border-0 px-3 py-1.5 text-xs font-medium shadow-none transition-colors data-[state=active]:bg-brand-blue/10 data-[state=active]:text-brand-blue data-[state=inactive]:bg-transparent data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-foreground"
                   >
-                    Populära
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={() => setActiveTab("all")}
-                  className={`rounded-md px-3 py-1.5 text-xs font-medium transition-colors ${
-                    activeTab === "all" ? "bg-brand-blue/10 text-brand-blue" : "text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  Alla ({totalItemCount})
-                </button>
-              </div>
+                    Alla ({totalItemCount})
+                  </TabsTrigger>
+                </TabsList>
+              </Tabs>
             </div>
           </DialogHeader>
         </div>

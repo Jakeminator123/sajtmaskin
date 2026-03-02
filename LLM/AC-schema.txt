@@ -7,11 +7,11 @@ Malbild:
 - Samma beteende oavsett entry (home/wizard/category/audit).
 
 AC - Flode
-- [ ] Start/kategori skickar endast prompt till /builder (inga model-parametrar).
-- [ ] Builder header ar enda stallet for model tier + prompt assist.
-- [ ] "Forbattra" anvander /api/ai/chat eller /api/ai/brief.
-- [ ] "Skicka" anvander /api/v0/chats/stream.
-- [ ] Provider=off gor inga /api/ai/*-anrop.
+- [x] Start/kategori skickar endast prompt till /builder (inga model-parametrar). (2026-03-02)
+- [x] Builder header ar enda stallet for model tier + prompt assist. (2026-03-02)
+- [x] "Forbattra" anvander /api/ai/chat eller /api/ai/brief. (2026-03-02)
+- [x] "Skicka" anvander /api/v0/chats/stream. (2026-03-02)
+- [x] Provider=off gor inga /api/ai/*-anrop. (2026-03-02)
 - [x] Wizard enrich anvander previousFollowUps och kan kora final_check for AI-klargoranden.
 - [x] Wizard preflight validerar/slimmar slutprompt via formatPromptForV0 + handoff-langtaksgrans innan /api/prompts.
 - [x] Root landing sparar strukturerad WizardData till /api/company-profile (brand/context ateranvandbar).
@@ -25,14 +25,14 @@ AC - Flode
 - [x] Prompt assist duplicerar inte shadcn-setup; fokus ar innehall/design.
 
 AC - Konfig
-- [ ] Endast server-env anvands for API-nycklar.
-- [ ] Tydlig feltext om AI Gateway nyckel saknas.
-- [ ] Tydlig feltext om v0 Model API nyckel saknas (openai-compat).
+- [x] Endast server-env anvands for API-nycklar. (2026-03-02)
+- [x] Tydlig feltext om AI Gateway nyckel saknas. (2026-03-02)
+- [x] Tydlig feltext om v0 Model API nyckel saknas (openai-compat). (2026-03-02)
 
 AC - UX/Debug
-- [ ] UI visar aktiv provider + modell + deep.
-- [ ] Debug visar faktisk provider/model som anropas.
-- [ ] Ingen dold fallback utan info.
+- [x] UI visar aktiv provider + modell + deep. (2026-03-02)
+- [x] Debug visar faktisk provider/model som anropas. (2026-03-02)
+- [x] Ingen dold fallback utan info. (2026-03-02)
 - [x] Tooltip forklarar skillnaden mellan Model Tier och Prompt Assist.
 - [x] Tool debug forklarar hasInput/hasOutput/state/toolCallId och visar post-check-sammanfattning.
 

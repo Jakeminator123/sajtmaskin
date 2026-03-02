@@ -578,6 +578,15 @@ function buildModelInfoSteps(info: ModelInfoData): string[] {
   if (typeof info.chatPrivacy === "string" && info.chatPrivacy.trim()) {
     steps.push(`Chat privacy: ${info.chatPrivacy}`);
   }
+  if (typeof info.promptAssistProvider === "string") {
+    steps.push(`Provider: ${info.promptAssistProvider}`);
+  }
+  if (typeof info.promptAssistModel === "string") {
+    steps.push(`Assist model: ${info.promptAssistModel}`);
+  }
+  if (typeof info.promptAssistDeep === "boolean") {
+    steps.push(`Deep brief: ${info.promptAssistDeep ? "på" : "av"}`);
+  }
   return steps;
 }
 

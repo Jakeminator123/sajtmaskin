@@ -6,6 +6,7 @@ import {
   buildDynamicInstructionAddendumFromPrompt,
   isGatewayAssistModel,
   isPromptAssistModelAllowed,
+  isPromptAssistOff,
   normalizeAssistModel,
   resolvePromptAssistProvider,
 } from "@/lib/builder/promptAssist";
@@ -14,7 +15,7 @@ import type { ThemeColors } from "@/lib/builder/theme-presets";
 import type { BuildIntent } from "@/lib/builder/build-intent";
 import { debugLog } from "@/lib/utils/debug";
 import { useCallback } from "react";
-import toast from "react-hot-toast";
+import { toast } from "sonner";
 
 type UsePromptAssistParams = {
   model: string;
@@ -90,18 +91,18 @@ function hasSwedishChars(value: string): boolean {
   return /[åäö]/i.test(value);
 }
 
-async function readTextResponse(res: Response): Promise<string> {
+async function readStreamText(res: Response): Promise<string> {
   const reader = res.body?.getReader();
   if (!reader) return "";
   const decoder = new TextDecoder();
-  let out = "";
+  let text = "";
   while (true) {
     const { done, value } = await reader.read();
     if (done) break;
-    out += decoder.decode(value, { stream: true });
+    text += decoder.decode(value, { stream: true });
   }
-  out += decoder.decode();
-  return out;
+  text += decoder.decode();
+  return text;
 }
 
 export function usePromptAssist(params: UsePromptAssistParams) {
@@ -111,6 +112,10 @@ export function usePromptAssist(params: UsePromptAssistParams) {
     async (originalPrompt: string, options: PromptAssistOptions = {}): Promise<string> => {
       const mode = options.mode ?? "rewrite";
       const normalizedModel = normalizeAssistModel(model);
+      if (isPromptAssistOff(normalizedModel)) {
+        debugLog("AI", "Prompt assist off – skipping", { model: normalizedModel });
+        return originalPrompt;
+      }
       if (!isPromptAssistModelAllowed(normalizedModel)) {
         toast.error("Ogiltig förbättra‑modell. Välj en giltig modell.");
         return originalPrompt;
@@ -134,29 +139,31 @@ export function usePromptAssist(params: UsePromptAssistParams) {
         source: "brief" | "shallow",
         allowLanguageSwitch: boolean,
       ): string => {
+        const guardFallback = (reason: string, extra?: Record<string, unknown>): string => {
+          debugLog("AI", "Prompt assist guardrail fallback", { source, reason, ...extra });
+          toast("Prompten skickades oförändrad (guardrail).", {
+            id: "sajtmaskin:prompt-assist-guardrail",
+            icon: "ℹ️",
+          });
+          return originalPrompt;
+        };
+
         const enhanced = candidate.trim();
         if (!enhanced) {
-          debugLog("AI", "Prompt assist guardrail fallback", { source, reason: "empty" });
-          return originalPrompt;
+          return guardFallback("empty");
         }
         if (enhanced.length < 20 && originalNormalized.length > 60) {
-          debugLog("AI", "Prompt assist guardrail fallback", {
-            source,
-            reason: "too_short",
+          return guardFallback("too_short", {
             originalLength: originalNormalized.length,
             enhancedLength: enhanced.length,
           });
-          return originalPrompt;
         }
         const minLengthRatio = mode === "polish" ? 0.65 : 0.15;
         if (enhanced.length < originalNormalized.length * minLengthRatio && originalNormalized.length > 120) {
-          debugLog("AI", "Prompt assist guardrail fallback", {
-            source,
-            reason: "shrunk_too_much",
+          return guardFallback("shrunk_too_much", {
             originalLength: originalNormalized.length,
             enhancedLength: enhanced.length,
           });
-          return originalPrompt;
         }
         const maxLengthRatio = mode === "polish" ? 1.45 : 999;
         if (
@@ -164,30 +171,18 @@ export function usePromptAssist(params: UsePromptAssistParams) {
           originalNormalized.length > 80 &&
           enhanced.length > originalNormalized.length * maxLengthRatio
         ) {
-          debugLog("AI", "Prompt assist guardrail fallback", {
-            source,
-            reason: "grew_too_much",
+          return guardFallback("grew_too_much", {
             originalLength: originalNormalized.length,
             enhancedLength: enhanced.length,
           });
-          return originalPrompt;
         }
         if (hasSwedishChars(originalNormalized) && !hasSwedishChars(enhanced) && !allowLanguageSwitch) {
-          debugLog("AI", "Prompt assist guardrail fallback", {
-            source,
-            reason: "language_mismatch",
-          });
-          return originalPrompt;
+          return guardFallback("language_mismatch");
         }
         const overlap = computeOverlapRatio(originalNormalized, enhanced);
         const minOverlap = mode === "polish" ? 0.55 : 0.2;
         if (overlap < minOverlap && originalNormalized.length > 80) {
-          debugLog("AI", "Prompt assist guardrail fallback", {
-            source,
-            reason: "low_overlap",
-            overlap,
-          });
-          return originalPrompt;
+          return guardFallback("low_overlap", { overlap });
         }
         return enhanced;
       };
@@ -234,7 +229,7 @@ export function usePromptAssist(params: UsePromptAssistParams) {
           throw new Error(String(msg));
         }
 
-        const enhanced = (await readTextResponse(res)).trim();
+        const enhanced = (await readStreamText(res)).trim();
         debugLog("AI", "Prompt assist completed", {
           durationMs: Date.now() - startedAt,
           outputLength: enhanced.length,
@@ -309,6 +304,10 @@ export function usePromptAssist(params: UsePromptAssistParams) {
               durationMs: Date.now() - startedAt,
               error: err instanceof Error ? err.message : "Unknown error",
             });
+            toast("Deep brief misslyckades, använde enkel förbättring istället.", {
+              id: "sajtmaskin:prompt-assist",
+              icon: "⚠️",
+            });
             return await runShallow();
           }
         }
@@ -365,6 +364,17 @@ export function usePromptAssist(params: UsePromptAssistParams) {
   const generateDynamicInstructions = useCallback(
     async (originalPrompt: string, options: PromptAssistOptions = {}): Promise<string> => {
       const normalizedModel = normalizeAssistModel(model);
+      if (isPromptAssistOff(normalizedModel)) {
+        debugLog("AI", "Prompt assist off – skipping dynamic instructions", {
+          model: normalizedModel,
+        });
+        return buildDynamicInstructionAddendumFromPrompt({
+          originalPrompt,
+          imageGenerations,
+          buildIntent,
+          themeOverride: themeColors,
+        });
+      }
       if (!isPromptAssistModelAllowed(normalizedModel)) {
         toast.error("Ogiltig förbättra‑modell. Välj en giltig modell.");
         return buildDynamicInstructionAddendumFromPrompt({

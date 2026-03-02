@@ -38,6 +38,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
 import type { ShadcnRegistryItem } from "@/lib/shadcn-registry-types";
 import type {
@@ -367,6 +368,7 @@ export function UnifiedElementPicker({
   return (
     <Dialog open={open} onClose={onClose}>
       <DialogContent className="flex max-h-[85vh] w-[min(96vw,1100px)] max-w-5xl flex-col overflow-hidden rounded-2xl border-border/50 bg-background/95 p-0 shadow-2xl backdrop-blur-xl" onClose={onClose}>
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as UnifiedPickerTab)} className="contents">
         {/* ── Header ── */}
         <div className="relative overflow-hidden">
           <div className="absolute inset-x-0 top-0 h-px bg-linear-to-r from-transparent via-brand-teal/50 to-transparent" />
@@ -390,33 +392,27 @@ export function UnifiedElementPicker({
               </Button>
             </div>
             {/* Tabs */}
-            <div className="mt-4 flex gap-1 rounded-lg border border-border bg-muted/30 p-0.5">
+            <TabsList className="mt-4 flex h-auto w-auto gap-1 rounded-lg border border-border bg-muted/30 p-0.5">
               {tabs.map((tab) => {
                 const Icon = tab.icon;
-                const isActive = activeTab === tab.id;
                 return (
-                  <button
+                  <TabsTrigger
                     key={tab.id}
-                    type="button"
-                    onClick={() => setActiveTab(tab.id)}
-                    className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-all ${
-                      isActive
-                        ? "bg-brand-teal/15 text-brand-teal shadow-sm ring-1 ring-brand-teal/20"
-                        : "text-muted-foreground hover:text-foreground"
-                    }`}
+                    value={tab.id}
+                    className="flex items-center gap-1.5 rounded-md border-0 px-3 py-1.5 text-xs font-medium shadow-none transition-all data-[state=active]:bg-brand-teal/15 data-[state=active]:text-brand-teal data-[state=active]:shadow-sm data-[state=active]:ring-1 data-[state=active]:ring-brand-teal/20 data-[state=inactive]:bg-transparent data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-foreground"
                   >
                     <Icon className="size-3.5" />
                     {tab.label}
-                  </button>
+                  </TabsTrigger>
                 );
               })}
-            </div>
+            </TabsList>
           </DialogHeader>
         </div>
 
         {/* ── Tab Content ── */}
         <div className="flex min-h-0 flex-1 flex-col border-t border-border/50 md:flex-row">
-          {activeTab === "ui" && (
+          <TabsContent value="ui" forceMount className="flex min-h-0 flex-1 flex-col md:flex-row data-[state=inactive]:hidden">
             <>
               {/* UI sidebar */}
               <div className="flex w-full flex-col border-b border-border/50 md:w-[340px] md:border-r md:border-b-0">
@@ -522,9 +518,9 @@ export function UnifiedElementPicker({
                 />
               </div>
             </>
-          )}
+          </TabsContent>
 
-          {activeTab === "ai" && (
+          <TabsContent value="ai" forceMount className="flex min-h-0 flex-1 flex-col md:flex-row data-[state=inactive]:hidden">
             <>
               {/* AI sidebar */}
               <div className="flex w-full flex-col border-b border-border/50 md:w-[340px] md:border-r md:border-b-0">
@@ -617,9 +613,9 @@ export function UnifiedElementPicker({
                 )}
               </div>
             </>
-          )}
+          </TabsContent>
 
-          {activeTab === "mall" && (
+          <TabsContent value="mall" forceMount className="flex min-h-0 flex-1 flex-col md:flex-row data-[state=inactive]:hidden">
             <>
               {/* Template sidebar */}
               <div className="flex w-full flex-col border-b border-border/50 md:w-[280px] md:border-r md:border-b-0">
@@ -668,9 +664,9 @@ export function UnifiedElementPicker({
                 </div>
               </div>
             </>
-          )}
+          </TabsContent>
 
-          {activeTab === "tema" && (
+          <TabsContent value="tema" forceMount className="flex min-h-0 flex-1 flex-col md:flex-row data-[state=inactive]:hidden">
             <>
               {/* Theme sidebar */}
               <div className="flex w-full flex-col border-b border-border/50 md:w-[320px] md:border-r md:border-b-0">
@@ -708,8 +704,9 @@ export function UnifiedElementPicker({
                 </div>
               </div>
             </>
-          )}
+          </TabsContent>
         </div>
+        </Tabs>
 
         {/* ── Footer ── */}
         <div className="flex items-center justify-between border-t border-border/50 bg-muted/20 px-6 py-3.5">

@@ -36,7 +36,7 @@ import { createProject } from "@/lib/project-client";
 import type { BuildIntent } from "@/lib/builder/build-intent";
 import Image from "next/image";
 import { PreviewModal } from "@/components/templates";
-import toast from "react-hot-toast";
+import { toast } from "sonner";
 
 // Icon mapping - includes all icons used in V0_CATEGORIES and legacy CATEGORIES
 const iconMap: Record<string, React.ComponentType<{ className?: string }>> = {

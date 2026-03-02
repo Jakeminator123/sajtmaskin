@@ -1,18 +1,28 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Navbar, ShaderBackground } from "@/components/layout";
 import { AuthModal } from "@/components/auth";
-import { Plus, Trash2, ExternalLink, Clock, Folder } from "lucide-react";
+import { Loader2, Plus, Trash2, ExternalLink, Clock, Folder } from "lucide-react";
 import { getProjects, deleteProject, Project } from "@/lib/project-client";
-import { ConfirmDialog } from "@/components/ui/confirm-dialog";
-import toast from "react-hot-toast";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Skeleton } from "@/components/ui/skeleton";
+import { toast } from "sonner";
 
-export default function ProjectsPage() {
+function ProjectsPageInner() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -162,8 +172,23 @@ export default function ProjectsPage() {
 
         {/* Loading state */}
         {loading && (
-          <div className="flex items-center justify-center py-20">
-            <div className="border-brand-teal h-8 w-8 animate-spin border-b-2" />
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="overflow-hidden border border-gray-800 bg-black/50">
+                <Skeleton className="aspect-video w-full rounded-none" />
+                <div className="p-4 space-y-3">
+                  <div className="flex items-start justify-between">
+                    <div className="space-y-2">
+                      <Skeleton className="h-5 w-36" />
+                      <Skeleton className="h-4 w-16 rounded-none" />
+                    </div>
+                    <Skeleton className="h-8 w-8" />
+                  </div>
+                  <Skeleton className="h-4 w-full" />
+                  <Skeleton className="h-3 w-28" />
+                </div>
+              </div>
+            ))}
           </div>
         )}
 
@@ -279,17 +304,64 @@ export default function ProjectsPage() {
       </div>
 
       {/* Delete Confirmation Dialog */}
-      <ConfirmDialog
-        isOpen={deleteDialog.isOpen}
-        onClose={closeDeleteDialog}
-        onConfirm={confirmDelete}
-        title="Ta bort projekt?"
-        description={`Är du säker på att du vill ta bort "${deleteDialog.projectName}"? Denna åtgärd kan inte ångras.`}
-        confirmText="Ta bort"
-        cancelText="Avbryt"
-        variant="danger"
-        isLoading={isDeleting}
-      />
+      <AlertDialog open={deleteDialog.isOpen} onOpenChange={(open) => { if (!open) closeDeleteDialog(); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Ta bort projekt?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Är du säker på att du vill ta bort &quot;{deleteDialog.projectName}&quot;? Denna åtgärd
+              kan inte ångras.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Avbryt</AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={confirmDelete}
+              disabled={isDeleting}
+            >
+              {isDeleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              Ta bort
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
+  );
+}
+
+function ProjectsPageFallback() {
+  return (
+    <div className="bg-background min-h-screen">
+      <div className="relative z-10 mx-auto max-w-6xl px-6 pt-24 pb-12">
+        <div className="mb-10 flex items-center justify-between">
+          <div>
+            <Skeleton className="h-8 w-48" />
+            <Skeleton className="mt-2 h-4 w-28" />
+          </div>
+          <Skeleton className="h-10 w-32 rounded-md" />
+        </div>
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <div key={i} className="overflow-hidden border border-gray-800 bg-black/50">
+              <Skeleton className="aspect-video w-full rounded-none" />
+              <div className="space-y-3 p-4">
+                <Skeleton className="h-5 w-36" />
+                <Skeleton className="h-4 w-full" />
+                <Skeleton className="h-3 w-28" />
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default function ProjectsPage() {
+  return (
+    <Suspense fallback={<ProjectsPageFallback />}>
+      <ProjectsPageInner />
+    </Suspense>
   );
 }

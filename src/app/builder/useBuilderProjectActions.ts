@@ -11,7 +11,7 @@ import { clearPersistedMessages } from "@/lib/builder/messagesStorage";
 import { createProject, saveProjectData } from "@/lib/project-client";
 import type { ModelTier } from "@/lib/validations/chatSchemas";
 import { useCallback, type Dispatch, type MutableRefObject, type SetStateAction, type TransitionStartFunction } from "react";
-import toast from "react-hot-toast";
+import { toast } from "sonner";
 
 type Args = {
   chatId: string | null;

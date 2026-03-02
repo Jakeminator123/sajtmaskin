@@ -51,6 +51,17 @@ const enrichRequestSchema = z.object({
       .record(z.string().max(MAX_SHORT_TEXT), z.string().max(MAX_MEDIUM_TEXT))
       .optional()
       .default({}),
+    companyLookup: z.object({
+      found: z.boolean(),
+      employees: z.number().optional(),
+      revenueKsek: z.number().optional(),
+      industries: z.array(z.string()).optional(),
+      purpose: z.string().optional(),
+    }).optional(),
+    competitors: z.array(z.object({
+      name: z.string(),
+      website: z.string().optional(),
+    })).max(6).optional(),
   }),
   scrapeUrl: z.string().max(MAX_URL_LENGTH).optional(),
 });
@@ -289,10 +300,25 @@ export async function POST(req: Request) {
         .slice(0, 8)
         .map(([key, value]) => `${key}: ${value.trim()}`);
 
+      const companyLookupContext = data.companyLookup?.found
+        ? [
+            data.companyLookup.employees ? `~${data.companyLookup.employees} anställda` : null,
+            data.companyLookup.revenueKsek ? `omsättning ${Math.round(data.companyLookup.revenueKsek / 1000)} MSEK` : null,
+            data.companyLookup.industries?.length ? `NACE: ${data.companyLookup.industries.join(", ")}` : null,
+            data.companyLookup.purpose ? `Verksamhet: ${data.companyLookup.purpose.slice(0, 120)}` : null,
+          ].filter(Boolean).join(", ")
+        : null;
+
+      const competitorsContext = data.competitors?.length
+        ? `Konkurrenter: ${data.competitors.slice(0, 4).map((c) => c.name).join(", ")}`
+        : null;
+
       const contextLines = [
         `Bransch: ${industryLabel}`,
         data.companyName ? `Företag: ${data.companyName}` : null,
         data.location ? `Plats: ${data.location}` : null,
+        companyLookupContext ? `Bolagsdata: ${companyLookupContext}` : null,
+        competitorsContext,
         data.inspirationSites.length ? `Inspiration: ${data.inspirationSites.join(", ")}` : null,
         data.purposes.length ? `Mål: ${data.purposes.join(", ")}` : null,
         data.targetAudience ? `Målgrupp: ${data.targetAudience}` : null,
@@ -304,7 +330,7 @@ export async function POST(req: Request) {
       const stepFocus: Record<number, string> = {
         1: "företagets storlek, unikhet och verksamhet",
         2: "konkurrenter, USP och kundproblem de löser",
-        3: "vad de gillar/ogillar med konkurrenters sajter, funktioner de saknar",
+        3: "konkurrentlandskapet, vad som saknas jämfört med toppkonkurrenter, SEO-möjligheter",
         4: "varumärkespersonlighet, visuella element, foto vs illustration",
         5: "tidsplan, integrationer (bokning, betalning, e-post), budget",
       };

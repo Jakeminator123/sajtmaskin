@@ -179,4 +179,3 @@ REFERENCES
 - v0.dev/docs/text-prompting
 - vercel.com/blog/how-to-prompt-v0
 - Your code: src/lib/v0/v0-generator.ts
-- Your schemas: schemas/calls.txt

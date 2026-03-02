@@ -6,7 +6,9 @@ import "@/styles/landing-v2.css";
 import { AnalyticsTracker, BetaBanner, CookieBanner } from "@/components/layout";
 import { OrganizationJsonLd, SoftwareApplicationJsonLd } from "@/components/layout/json-ld";
 import { ThemeProvider } from "next-themes";
+import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
+import { Toaster } from "@/components/ui/sonner";
 
 const geistSans = Geist({
   subsets: ["latin"],
@@ -57,8 +59,6 @@ export const metadata: Metadata = {
   },
 };
 
-const enableSpeedInsights = process.env.NEXT_PUBLIC_ENABLE_SPEED_INSIGHTS === "true";
-
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -82,9 +82,11 @@ export default function RootLayout({
           <OrganizationJsonLd />
           <SoftwareApplicationJsonLd />
           <AnalyticsTracker />
-          {enableSpeedInsights ? <SpeedInsights /> : null}
+          <Analytics />
+          <SpeedInsights />
           <BetaBanner />
           {children}
+          <Toaster position="top-right" />
           <CookieBanner />
         </ThemeProvider>
       </body>

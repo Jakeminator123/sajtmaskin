@@ -99,10 +99,19 @@ export function normalizeV0Error(err: unknown): V0ErrorInfo {
     normalized.includes("api key") ||
     normalized.includes("401")
   ) {
+    const isV0Key =
+      normalized.includes("v0") ||
+      normalized.includes("platform") ||
+      normalized.includes("model api");
+    const setup = isV0Key
+      ? "Kontrollera V0_API_KEY i miljövariabler."
+      : "Kontrollera API-nycklar i miljövariabler.";
     return {
       status: 401,
       code: "unauthorized",
-      message: "API-nyckel saknas eller är ogiltig.",
+      message: rawMessage
+        ? `${rawMessage} – ${setup}`
+        : `API-nyckel saknas eller är ogiltig. ${setup}`,
       retryAfter,
     };
   }

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, type Dispatch, type SetStateAction } from "react";
-import toast from "react-hot-toast";
+import { toast } from "sonner";
 
 type VersionLike = {
   versionId?: string | null;

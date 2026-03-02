@@ -1,10 +1,11 @@
 "use client";
 
-import { isGatewayAssistModel } from "@/lib/builder/promptAssist";
+import { isGatewayAssistModel, resolvePromptAssistProvider } from "@/lib/builder/promptAssist";
 import type { ModelTier } from "@/lib/validations/chatSchemas";
 import {
   DEFAULT_CUSTOM_INSTRUCTIONS,
   MODEL_TIER_OPTIONS,
+  PROMPT_ASSIST_OFF_VALUE,
   getPromptAssistModelOptions,
 } from "@/lib/builder/defaults";
 import { Button } from "@/components/ui/button";
@@ -48,6 +49,8 @@ import {
 } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { useCallback, useEffect, useId, useState } from "react";
 
 export function BuilderHeader(props: {
@@ -155,8 +158,15 @@ export function BuilderHeader(props: {
   const applyOnceId = useId();
   const hasCustomInstructions = Boolean(customInstructions.trim());
   const isDefaultInstructions = customInstructions.trim() === DEFAULT_CUSTOM_INSTRUCTIONS.trim();
+  const isAssistOff = promptAssistModel === PROMPT_ASSIST_OFF_VALUE;
   const isGatewayProvider = isGatewayAssistModel(promptAssistModel);
-  const isDeepBriefDisabled = isBusy || !isGatewayProvider || !canUseDeepBrief;
+  const isDeepBriefDisabled = isBusy || isAssistOff || !isGatewayProvider || !canUseDeepBrief;
+  const assistProviderLabel = isAssistOff
+    ? "Av"
+    : `${resolvePromptAssistProvider(promptAssistModel)}: ${promptAssistModel}`;
+  const assistStatusSummary = isAssistOff
+    ? "Förbättra: Av"
+    : `Förbättra: ${assistProviderLabel}${promptAssistDeep && isGatewayProvider ? " (deep)" : ""}`;
   const runDeferredAction = useCallback((action: () => void) => {
     if (typeof window === "undefined") {
       action();
@@ -192,13 +202,26 @@ export function BuilderHeader(props: {
 
       <div className="flex items-center gap-2">
         <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm" disabled={isBusy}>
-              <Bot className="h-4 w-4" />
-              <span className="hidden max-w-[180px] truncate sm:inline">{modelButtonLabel}</span>
-              <ChevronDown className="h-3 w-3 opacity-50" />
-            </Button>
-          </DropdownMenuTrigger>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" disabled={isBusy}>
+                    <Bot className="h-4 w-4" />
+                    <span className="hidden max-w-[180px] truncate sm:inline">{modelButtonLabel}</span>
+                    {promptAssistDeep && isGatewayProvider && !isAssistOff && (
+                      <Wand2 className="text-primary h-3 w-3" />
+                    )}
+                    <ChevronDown className="h-3 w-3 opacity-50" />
+                  </Button>
+                </DropdownMenuTrigger>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="max-w-xs text-xs">
+                <p>Bygg: {modelButtonLabel}</p>
+                <p>{assistStatusSummary}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
           <DropdownMenuContent align="end" className="w-64">
             <DropdownMenuLabel className="flex items-center gap-2">
               <span>Model Tier</span>
@@ -258,11 +281,19 @@ export function BuilderHeader(props: {
               value={promptAssistModel}
               onValueChange={(v) => onPromptAssistModelChange(v)}
             >
-              {assistModelOptions.map((option) => (
-                <DropdownMenuRadioItem key={option.value} value={option.value}>
-                  {option.label}
-                </DropdownMenuRadioItem>
-              ))}
+              {assistModelOptions.map((option, idx) => {
+                const isOff = option.value === PROMPT_ASSIST_OFF_VALUE;
+                const nextOption = assistModelOptions[idx + 1];
+                const needsSeparator = isOff && nextOption && nextOption.value !== PROMPT_ASSIST_OFF_VALUE;
+                return (
+                  <span key={option.value}>
+                    <DropdownMenuRadioItem value={option.value}>
+                      {option.label}
+                    </DropdownMenuRadioItem>
+                    {needsSeparator && <DropdownMenuSeparator />}
+                  </span>
+                );
+              })}
               {hasCustomAssistModel && (
                 <DropdownMenuRadioItem value={promptAssistModel}>
                   Custom: {promptAssistModel}
@@ -580,23 +611,21 @@ export function BuilderHeader(props: {
               Exempel: “Använd Next.js App Router, Tailwind CSS, shadcn/ui och prioritera
               tillgänglighet.”
             </div>
-            <label className="border-border bg-muted/40 flex items-start gap-3 rounded-lg border p-3 text-sm">
-              <input
+            <div className="border-border bg-muted/40 flex items-start gap-3 rounded-lg border p-3 text-sm">
+              <Switch
                 id={applyOnceId}
-                name="applyInstructionsOnce"
-                type="checkbox"
                 checked={applyInstructionsOnce}
-                onChange={(event) => onApplyInstructionsOnceChange(event.target.checked)}
-                className="text-brand-blue mt-1 rounded border-gray-300"
+                onCheckedChange={onApplyInstructionsOnceChange}
                 disabled={isBusy}
+                className="mt-0.5"
               />
-              <span>
+              <Label htmlFor={applyOnceId} className="flex flex-col gap-1 font-normal">
                 <span className="font-medium">Gäller endast nästa generation</span>
-                <span className="text-muted-foreground block text-xs">
+                <span className="text-muted-foreground text-xs">
                   Efter att versionen skapats rensas instruktionerna automatiskt.
                 </span>
-              </span>
-            </label>
+              </Label>
+            </div>
             <div className="flex justify-end gap-2">
               <Button
                 variant="outline"

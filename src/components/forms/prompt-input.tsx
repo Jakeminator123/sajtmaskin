@@ -26,7 +26,7 @@ import { PromptWizardModalV2, type WizardData } from "@/components/modals";
 import type { BuildIntent, BuildMethod } from "@/lib/builder/build-intent";
 import { ArrowUp, Loader2, Wand2, Lightbulb } from "lucide-react";
 import { VoiceRecorder } from "@/components/forms/voice-recorder";
-import toast from "react-hot-toast";
+import { toast } from "sonner";
 import { createProject } from "@/lib/project-client";
 
 // ═══════════════════════════════════════════════════════════════

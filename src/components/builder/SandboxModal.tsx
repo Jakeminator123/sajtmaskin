@@ -2,7 +2,7 @@
 
 import { ExternalLink, FileCode, Github, Loader2, TerminalSquare, X } from "lucide-react";
 import { useId, useMemo, useState } from "react";
-import toast from "react-hot-toast";
+import { toast } from "sonner";
 
 type SandboxRuntime = "node24" | "node22" | "python3.13";
 type SourceType = "version" | "git";

@@ -47,7 +47,7 @@ import {
 } from "@/lib/builder/inspect-events";
 import type { DetectedSection } from "@/lib/builder/sectionAnalyzer";
 import { debugLog } from "@/lib/utils/debug";
-import toast from "react-hot-toast";
+import { toast } from "sonner";
 
 type MessageOptions = {
   attachments?: V0UserFileAttachment[];

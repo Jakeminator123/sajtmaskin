@@ -72,7 +72,10 @@ export interface PromptAssistModelOption {
   label: string;
 }
 
+export const PROMPT_ASSIST_OFF_VALUE = "off";
+
 export const PROMPT_ASSIST_MODEL_OPTIONS: PromptAssistModelOption[] = [
+  { value: PROMPT_ASSIST_OFF_VALUE, label: "Av – skicka direkt" },
   { value: "openai/gpt-5.2", label: "GPT‑5.2 (Gateway)" },
   { value: "openai/gpt-5.2-pro", label: "GPT‑5.2 Pro (Gateway)" },
   { value: "anthropic/claude-opus-4.5", label: "Claude Opus 4.5 (Gateway)" },

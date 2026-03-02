@@ -11,6 +11,7 @@ import {
   ChevronDown,
   ArrowRight,
 } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 
 /**
  * OnboardingModal - Welcome modal for first-time visitors
@@ -221,14 +222,17 @@ export function OnboardingModal({ onComplete, onSkip }: OnboardingModalProps) {
                 )}
               </div>
 
-              {/* FIELD 2: Analyze from web checkbox */}
+              {/* FIELD 2: Analyze from web toggle */}
               <div className="space-y-3">
-                <label className="flex cursor-pointer items-start gap-3 border border-gray-800 bg-gray-900/50 p-4 transition-colors hover:border-gray-700">
-                  <input
-                    type="checkbox"
+                <label
+                  htmlFor="analyze-web"
+                  className="flex cursor-pointer items-start gap-3 border border-gray-800 bg-gray-900/50 p-4 transition-colors hover:border-gray-700"
+                >
+                  <Switch
+                    id="analyze-web"
                     checked={analyzeFromWeb}
-                    onChange={(e) => setAnalyzeFromWeb(e.target.checked)}
-                    className="text-brand-teal focus:ring-brand-teal mt-1 h-5 w-5 border-gray-700 bg-black focus:ring-offset-0"
+                    onCheckedChange={setAnalyzeFromWeb}
+                    className="mt-1"
                   />
                   <div>
                     <div className="flex items-center gap-2 font-medium text-white">

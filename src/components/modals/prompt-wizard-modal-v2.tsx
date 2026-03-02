@@ -59,8 +59,11 @@ import { buildIntentNoun } from "@/lib/builder/build-intent";
 import type { BuildIntent } from "@/lib/builder/build-intent";
 import { useAuth } from "@/lib/auth/auth-store";
 import { StepVisual } from "@/components/modals/step-visual";
+import { CompetitorMap } from "@/components/modals/competitor-map";
 import { formatPromptForV0 } from "@/lib/builder/promptAssist";
 import { MAX_PROMPT_HANDOFF_CHARS } from "@/lib/builder/promptLimits";
+import type { CompanyLookupResult } from "@/app/api/wizard/company-lookup/route";
+import type { Competitor } from "@/app/api/wizard/competitors/route";
 
 /**
  * PromptWizardModal V2 - Adaptive Business Analysis Wizard
@@ -294,6 +297,34 @@ interface EnrichResponsePayload {
   contextHash?: string;
 }
 
+// ── Design feature chips ──────────────────────────────────────────
+type DesignFeature = {
+  id: string;
+  label: string;
+  promptText: string;
+  relevantIndustries?: string[];
+};
+
+const DESIGN_FEATURES: DesignFeature[] = [
+  { id: "want_animations", label: "Snygga animationer", promptText: "Include tasteful animations (scroll reveals, hover effects, micro-interactions)" },
+  { id: "want_dark_mode", label: "Mörkt/ljust tema", promptText: "Dark mode support with theme toggle" },
+  { id: "want_logo", label: "Skapa logotyp", promptText: "Generate a professional logo/wordmark for the brand" },
+  { id: "want_contact_form", label: "Kontaktformulär", promptText: "Contact form with validation and success state" },
+  { id: "want_newsletter", label: "Nyhetsbrev", promptText: "Newsletter signup section with email capture" },
+  { id: "want_social", label: "Sociala medier", promptText: "Social media links and feed integration" },
+  { id: "want_booking", label: "Bokningsfunktion", promptText: "Integrated booking/scheduling widget", relevantIndustries: ["cafe", "restaurant", "health", "creative", "consulting"] },
+  { id: "want_i18n", label: "Flerspråkigt", promptText: "Multi-language support (Swedish + English)" },
+  { id: "want_map", label: "Karta med plats", promptText: "Embedded map showing business location" },
+  { id: "want_blog", label: "Blogg/Nyheter", promptText: "Blog section with article cards and pagination" },
+];
+
+function looksLikeDomain(value: string): boolean {
+  const trimmed = value.trim().toLowerCase();
+  if (!trimmed || trimmed.length < 4) return false;
+  if (/^(ingen|nej|vet inte|saknar|har inte|n\/a)/i.test(trimmed)) return false;
+  return /\.[a-z]{2,}$/i.test(trimmed.replace(/^https?:\/\//i, ""));
+}
+
 // ── Shared input class (landing-style) ─────────────────────────────
 
 const INPUT_CLASS =
@@ -489,6 +520,20 @@ export function PromptWizardModalV2({
     strengthHighlight?: string;
   } | null>(null);
 
+  // ═══════════════════════════════════════════════════════════════
+  // V3: Intelligence state
+  // ═══════════════════════════════════════════════════════════════
+  const [companyLookup, setCompanyLookup] = useState<CompanyLookupResult | null>(null);
+  const [isLookingUp, setIsLookingUp] = useState(false);
+  const [competitors, setCompetitors] = useState<Competitor[]>([]);
+  const [marketInsight, setMarketInsight] = useState<string | null>(null);
+  const [isLoadingCompetitors, setIsLoadingCompetitors] = useState(false);
+  const [selectedFeatures, setSelectedFeatures] = useState<Set<string>>(new Set());
+  const [audienceSuggestion, setAudienceSuggestion] = useState<string | null>(null);
+  const autoAnalyzeRef = useRef<string | null>(null);
+  const companyLookupRef = useRef<string | null>(null);
+  const competitorsRef = useRef<string | null>(null);
+
   // Get current industry data
   const currentIndustry = INDUSTRY_OPTIONS.find((i) => i.id === industry);
   const shouldIncludeResearchStep = useMemo(() => {
@@ -496,8 +541,10 @@ export function PromptWizardModalV2({
     if (siteFeedback.trim()) return true;
     if (inspirationSites.some((site) => site.trim())) return true;
     if (purposes.includes("rebrand") || purposes.includes("conversion")) return true;
+    if (competitors.length > 0) return true;
+    if (websiteAnalysis) return true;
     return false;
-  }, [existingWebsite, siteFeedback, inspirationSites, purposes]);
+  }, [existingWebsite, siteFeedback, inspirationSites, purposes, competitors.length, websiteAnalysis]);
   const stepFlow = useMemo<number[]>(
     () => (shouldIncludeResearchStep ? [1, 2, 3, 4, 5] : [1, 2, 4, 5]),
     [shouldIncludeResearchStep],
@@ -699,6 +746,17 @@ export function PromptWizardModalV2({
               selectedVibe: d.selectedVibe,
               specialWishes: d.specialWishes,
               previousFollowUps: d.followUpAnswers,
+              companyLookup: companyLookup?.found ? {
+                found: true,
+                employees: companyLookup.employees,
+                revenueKsek: companyLookup.revenueKsek,
+                industries: companyLookup.industries,
+                purpose: companyLookup.purpose,
+              } : undefined,
+              competitors: competitors.length ? competitors.map((c) => ({
+                name: c.name,
+                website: c.website,
+              })) : undefined,
             },
             scrapeUrl,
           }),
@@ -737,7 +795,7 @@ export function PromptWizardModalV2({
         setIsEnriching(false);
       }
     },
-    [applyEnrichmentToActiveStep, buildEnrichContextHash, isAuthenticated, isInitialized],
+    [applyEnrichmentToActiveStep, buildEnrichContextHash, isAuthenticated, isInitialized, companyLookup, competitors],
   );
 
   // ── Scrape website on URL entry (non-blocking) ────────────────
@@ -802,6 +860,78 @@ export function PromptWizardModalV2({
     }
   }, [isOpen]);
 
+  // ── V3: Auto-detect domain and start background analysis ─────
+  useEffect(() => {
+    if (!isOpen || !isAuthenticated) return;
+    const value = existingWebsite.trim();
+    if (!looksLikeDomain(value) || autoAnalyzeRef.current === value) return;
+    const timer = setTimeout(() => {
+      if (autoAnalyzeRef.current === value) return;
+      autoAnalyzeRef.current = value;
+      handleScrapeWebsite(value);
+    }, 800);
+    return () => clearTimeout(timer);
+  }, [existingWebsite, isOpen, isAuthenticated, handleScrapeWebsite]);
+
+  // ── V3: Auto company lookup from companyName ──────────────────
+  useEffect(() => {
+    if (!isOpen || !isAuthenticated || !isInitialized) return;
+    const name = companyName.trim();
+    if (name.length < 3 || companyLookupRef.current === name) return;
+    const controller = new AbortController();
+    const timer = setTimeout(() => {
+      if (companyLookupRef.current === name) return;
+      companyLookupRef.current = name;
+      setIsLookingUp(true);
+      fetch("/api/wizard/company-lookup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
+        body: JSON.stringify({ companyName: name }),
+      })
+        .then((r) => r.json())
+        .then((data: CompanyLookupResult) => {
+          if (data.found) setCompanyLookup(data);
+        })
+        .catch(() => {})
+        .finally(() => setIsLookingUp(false));
+    }, 1200);
+    return () => { clearTimeout(timer); controller.abort(); };
+  }, [companyName, isOpen, isAuthenticated, isInitialized]);
+
+  // ── V3: Auto competitor discovery ─────────────────────────────
+  useEffect(() => {
+    if (!isOpen || !isAuthenticated || !isInitialized) return;
+    if (!companyName.trim() || !industry) return;
+    const key = `${companyName.trim()}|${industry}|${location.trim()}`;
+    if (competitorsRef.current === key) return;
+    const controller = new AbortController();
+    const timer = setTimeout(() => {
+      if (competitorsRef.current === key) return;
+      competitorsRef.current = key;
+      setIsLoadingCompetitors(true);
+      fetch("/api/wizard/competitors", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        signal: controller.signal,
+        body: JSON.stringify({
+          companyName: companyName.trim(),
+          industry,
+          location: location.trim(),
+          existingWebsite: existingWebsite.trim(),
+        }),
+      })
+        .then((r) => r.json())
+        .then((data: { competitors?: Competitor[]; marketInsight?: string }) => {
+          if (data.competitors?.length) setCompetitors(data.competitors);
+          if (data.marketInsight) setMarketInsight(data.marketInsight);
+        })
+        .catch(() => {})
+        .finally(() => setIsLoadingCompetitors(false));
+    }, 1500);
+    return () => { clearTimeout(timer); controller.abort(); };
+  }, [companyName, industry, location, existingWebsite, isOpen, isAuthenticated, isInitialized]);
+
   // Toggle purpose selection
   const togglePurpose = useCallback((purposeId: string) => {
     setPurposes((prev) =>
@@ -809,12 +939,12 @@ export function PromptWizardModalV2({
     );
   }, []);
 
-  // Handle industry change - auto-suggest audience
+  // Handle industry change -- suggest audience as chip, don't prefill
   const handleIndustryChange = useCallback((newIndustry: string) => {
     setIndustry(newIndustry);
     const industryData = INDUSTRY_OPTIONS.find((i) => i.id === newIndustry);
     if (industryData?.suggestedAudience) {
-      setTargetAudience(industryData.suggestedAudience);
+      setAudienceSuggestion(industryData.suggestedAudience);
     }
     const industryPalettes = getIndustryPalettes(newIndustry);
     if (industryPalettes.length > 0) {
@@ -958,6 +1088,11 @@ export function PromptWizardModalV2({
         );
         businessContext.push(`Primary goals: ${purposeLabels.join(", ")}`);
       }
+      if (companyLookup?.found) {
+        if (companyLookup.purpose) businessContext.push(`Company description: ${companyLookup.purpose}`);
+        if (companyLookup.employees) businessContext.push(`Employees: ~${companyLookup.employees}`);
+        if (companyLookup.industries?.length) businessContext.push(`Registered industries: ${companyLookup.industries.join(", ")}`);
+      }
       if (followUpLines.length) businessContext.push(...followUpLines);
       if (businessContext.length) {
         sections.push(`\nBusiness profile:\n${businessContext.map((l) => `- ${l}`).join("\n")}`);
@@ -981,10 +1116,17 @@ export function PromptWizardModalV2({
         sections.push(`\nExisting site context:\n${siteParts.map((l) => `- ${l}`).join("\n")}`);
       }
 
-      // 5. Inspiration
+      // 5. Inspiration + competitors
       const inspirations = inspirationSites.filter((s) => s.trim());
       if (inspirations.length) {
         sections.push(`\nInspiration sites: ${inspirations.join(", ")}`);
+      }
+      if (competitors.length > 0) {
+        const compNames = competitors.slice(0, 4).map((c) =>
+          c.website ? `${c.name} (${c.website})` : c.name,
+        );
+        sections.push(`\nKey competitors in the area: ${compNames.join(", ")}`);
+        if (marketInsight) sections.push(`Market insight: ${marketInsight}`);
       }
 
       // 6. Special requirements (features, wishes, voice/video input)
@@ -1015,7 +1157,15 @@ export function PromptWizardModalV2({
         );
       }
 
-      // 8. Build intent hint
+      // 8. Design feature preferences
+      const featureLines = DESIGN_FEATURES
+        .filter((f) => selectedFeatures.has(f.id))
+        .map((f) => f.promptText);
+      if (featureLines.length) {
+        sections.push(`\nTechnical preferences:\n${featureLines.map((l) => `- ${l}`).join("\n")}`);
+      }
+
+      // 9. Build intent hint
       const intentHint =
         buildIntent === "template"
           ? "Keep scope compact: 1-2 pages, no complex app logic."
@@ -1070,6 +1220,10 @@ export function PromptWizardModalV2({
     followUpAnswers,
     scrapedData,
     presentationAnalysis,
+    companyLookup,
+    competitors,
+    marketInsight,
+    selectedFeatures,
     setIsClarifying,
   ]);
 
@@ -1237,6 +1391,26 @@ export function PromptWizardModalV2({
               <p className="mt-1 text-xs text-amber-100">
                 {activeEnrichMeta?.unknowns?.slice(0, 3).join(", ")}
               </p>
+            </div>
+          )}
+          {/* Background analysis status bar */}
+          {(isScraping || isLookingUp || isLoadingCompetitors) && (
+            <div className="mt-3 flex flex-wrap items-center gap-3 text-[10px] text-muted-foreground">
+              {isScraping && (
+                <span className="flex items-center gap-1">
+                  <Loader2 className="h-3 w-3 animate-spin" /> Analyserar webbplats
+                </span>
+              )}
+              {isLookingUp && (
+                <span className="flex items-center gap-1">
+                  <Loader2 className="h-3 w-3 animate-spin" /> Hämtar bolagsinfo
+                </span>
+              )}
+              {isLoadingCompetitors && (
+                <span className="flex items-center gap-1">
+                  <Loader2 className="h-3 w-3 animate-spin" /> Kartlägger konkurrenter
+                </span>
+              )}
             </div>
           )}
         </div>
@@ -1424,9 +1598,19 @@ export function PromptWizardModalV2({
                   <Users className="h-4 w-4 text-brand-teal" />
                   Målgrupp
                 </label>
-                {currentIndustry?.suggestedAudience && (
-                  <div className="mb-2 rounded-lg border border-brand-teal/30 bg-brand-teal/10 p-2 text-xs text-brand-teal/80">
-                    <Lightbulb className="mr-1 inline h-3 w-3" /> Förslag: {currentIndustry.suggestedAudience}
+                {audienceSuggestion && !targetAudience.trim() && (
+                  <button
+                    onClick={() => { setTargetAudience(audienceSuggestion); setAudienceSuggestion(null); }}
+                    className="w-full rounded-lg border border-brand-teal/30 bg-brand-teal/10 p-2 text-left text-xs text-brand-teal/80 transition hover:bg-brand-teal/20"
+                  >
+                    <Lightbulb className="mr-1 inline h-3 w-3" /> Förslag: {audienceSuggestion}
+                    <span className="ml-1 text-brand-teal/60">(klicka för att använda)</span>
+                  </button>
+                )}
+                {companyLookup?.purpose && !targetAudience.trim() && !audienceSuggestion && (
+                  <div className="rounded-lg border border-primary/20 bg-primary/5 p-2 text-xs text-muted-foreground">
+                    <Sparkles className="mr-1 inline h-3 w-3 text-primary" />
+                    Baserat på bolagsinfo: {companyLookup.purpose.slice(0, 120)}
                   </div>
                 )}
                 <textarea
@@ -1488,7 +1672,7 @@ export function PromptWizardModalV2({
             </div>
           )}
 
-          {/* ═══ STEP 3: Existing Site & Inspiration ═══ */}
+          {/* ═══ STEP 3: Existing Site & Inspiration & Competitors ═══ */}
           {step === 3 && (
             <div className="space-y-6">
               {/* Website Analysis Result */}
@@ -1499,6 +1683,23 @@ export function PromptWizardModalV2({
                     AI-analys av {existingWebsite || "din sida"}
                   </div>
                   <p className="text-sm text-gray-300 leading-relaxed">{websiteAnalysis}</p>
+                </div>
+              )}
+
+              {/* Company lookup info */}
+              {companyLookup?.found && (
+                <div className="rounded-lg border border-indigo-500/20 bg-indigo-500/5 p-3 space-y-1">
+                  <div className="flex items-center gap-2 text-xs font-medium text-indigo-300">
+                    <Building2 className="h-3.5 w-3.5" />
+                    Bolagsinformation
+                  </div>
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-400">
+                    {companyLookup.orgNr && <span>Org.nr: {companyLookup.orgNr}</span>}
+                    {companyLookup.companyType && <span>{companyLookup.companyType}</span>}
+                    {companyLookup.city && <span>{companyLookup.city}</span>}
+                    {companyLookup.employees != null && <span>{companyLookup.employees} anställda</span>}
+                    {companyLookup.revenueKsek != null && <span>Oms: {Math.round(companyLookup.revenueKsek / 1000)} MSEK</span>}
+                  </div>
                 </div>
               )}
 
@@ -1516,12 +1717,57 @@ export function PromptWizardModalV2({
                 />
               </div>
 
+              {/* Competitor Map */}
+              {(competitors.length > 0 || isLoadingCompetitors) && (
+                <div className="space-y-2">
+                  <label className="flex items-center gap-2 text-sm font-medium text-gray-300">
+                    <TrendingUp className="h-4 w-4 text-brand-teal" />
+                    Konkurrenter i ditt område
+                  </label>
+                  {marketInsight && (
+                    <p className="text-xs text-gray-400">{marketInsight}</p>
+                  )}
+                  <CompetitorMap
+                    competitors={competitors}
+                    centerLat={competitors[0]?.lat}
+                    centerLng={competitors[0]?.lng}
+                    isLoading={isLoadingCompetitors}
+                    onAddInspiration={(url) => {
+                      const emptyIdx = inspirationSites.findIndex((s) => !s.trim());
+                      if (emptyIdx >= 0) {
+                        updateInspirationSite(emptyIdx, url);
+                      } else if (inspirationSites.length < 3) {
+                        setInspirationSites((prev) => [...prev, url]);
+                      }
+                    }}
+                  />
+                </div>
+              )}
+
               {/* Inspiration Sites */}
               <div className="space-y-2">
                 <label className="flex items-center gap-2 text-sm font-medium text-gray-300">
                   <Lightbulb className="h-4 w-4 text-amber-400" />
                   Inspirationssajter <span className="font-normal text-gray-500">(valfritt)</span>
                 </label>
+                {competitors.filter((c) => c.isInspiration && c.website).length > 0 &&
+                  inspirationSites.every((s) => !s.trim()) && (
+                  <div className="flex flex-wrap gap-1.5">
+                    {competitors.filter((c) => c.isInspiration && c.website).map((c, i) => (
+                      <button
+                        key={i}
+                        onClick={() => {
+                          const emptyIdx = inspirationSites.findIndex((s) => !s.trim());
+                          if (emptyIdx >= 0) updateInspirationSite(emptyIdx, c.website!);
+                          else if (inspirationSites.length < 3) setInspirationSites((prev) => [...prev, c.website!]);
+                        }}
+                        className="rounded-full border border-emerald-600/30 bg-emerald-600/10 px-3 py-1 text-xs text-emerald-300 transition hover:bg-emerald-600/20"
+                      >
+                        + {c.name}: {c.website}
+                      </button>
+                    ))}
+                  </div>
+                )}
                 <div className="space-y-2">
                   {inspirationSites.map((site, index) => (
                     <input
@@ -1546,7 +1792,7 @@ export function PromptWizardModalV2({
                 </div>
               </div>
 
-              {/* AI Follow-ups for inspiration */}
+              {/* AI Follow-ups */}
               {isEnriching && (
                 <div className="flex items-center gap-2 text-xs text-gray-500">
                   <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -1685,6 +1931,39 @@ export function PromptWizardModalV2({
                 </div>
               )}
 
+              {/* Design Feature Chips */}
+              <div className="space-y-3">
+                <label className="flex items-center gap-2 text-sm font-medium text-gray-300">
+                  <Wand2 className="h-4 w-4 text-brand-teal" />
+                  Funktioner och teknik
+                </label>
+                <div className="flex flex-wrap gap-2">
+                  {DESIGN_FEATURES
+                    .filter((f) => !f.relevantIndustries || f.relevantIndustries.includes(industry))
+                    .map((feature) => {
+                      const isSelected = selectedFeatures.has(feature.id);
+                      return (
+                        <button
+                          key={feature.id}
+                          onClick={() => setSelectedFeatures((prev) => {
+                            const next = new Set(prev);
+                            if (next.has(feature.id)) next.delete(feature.id);
+                            else next.add(feature.id);
+                            return next;
+                          })}
+                          className={`rounded-full px-3 py-1.5 text-xs transition-all ${
+                            isSelected
+                              ? "border border-brand-teal/50 bg-brand-teal/20 text-brand-teal"
+                              : "border border-gray-700 bg-gray-900 text-gray-400 hover:border-brand-teal/30 hover:text-gray-200"
+                          }`}
+                        >
+                          {isSelected ? "✓" : "+"} {feature.label}
+                        </button>
+                      );
+                    })}
+                </div>
+              </div>
+
               {/* Quick Features */}
               {currentIndustry?.suggestedFeatures &&
                 currentIndustry.suggestedFeatures.length > 0 && (
@@ -1776,12 +2055,12 @@ export function PromptWizardModalV2({
               <div className="space-y-2 rounded-lg border border-gray-800 bg-gray-900/50 p-4">
                 <label className="flex items-center gap-2 text-sm font-medium text-gray-300">
                   <Video className="h-4 w-4 text-brand-blue" />
-                  Spela in en kort presentation
+                  Beskriv din vision fritt
                   <span className="font-normal text-gray-500">(valfritt)</span>
                 </label>
                 <p className="text-xs text-gray-500">
-                  Pitcha ditt företag framför kameran. AI transkriberar och ger konstruktiv
-                  feedback på ton, tydlighet och elevator pitch.
+                  Berätta om ditt företag och vad du vill ha. AI transkriberar, extraherar
+                  önskemål och ger feedback på ton och tydlighet.
                 </p>
                 <VideoRecorder
                   companyName={companyName}

@@ -14,7 +14,7 @@ import {
 import { formatPromptForV0, isGatewayAssistModel } from "@/lib/builder/promptAssist";
 import { saveProjectData } from "@/lib/project-client";
 import { useCallback, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
-import toast from "react-hot-toast";
+import { toast } from "sonner";
 import type { CreateChatOptions } from "./types";
 import { MODEL_TIER_TO_QUALITY } from "./types";
 import type { ModelTier } from "@/lib/validations/chatSchemas";

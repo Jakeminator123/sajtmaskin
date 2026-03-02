@@ -1,15 +1,17 @@
 "use client";
 
-import { AlertCircle, ExternalLink, FileText, Loader2, MessageCircleQuestion, MousePointer2, RefreshCw, Search, Wand2, X } from "lucide-react";
+import { AlertCircle, BrainCircuit, Code2, ExternalLink, FileText, Loader2, MessageCircleQuestion, MousePointer2, RefreshCw, Search, Wand2, X, Zap } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition, type MouseEvent } from "react";
 import { Button } from "@/components/ui/button";
 import { CodeBlock, CodeBlockCopyButton } from "@/components/ai-elements/code-block";
 import { buildFileTree } from "@/lib/builder/fileTree";
 import { dispatchInspectCaptureEvent } from "@/lib/builder/inspect-events";
 import type { FileNode } from "@/lib/builder/types";
+import { buildJsxElementRegistry, matchCapturedElement, type RegistryMatch } from "@/lib/builder/jsx-element-registry";
+import { ElementRegistry } from "@/components/builder/ElementRegistry";
 import { FileExplorer } from "@/components/builder/FileExplorer";
 import { cn } from "@/lib/utils";
-import toast from "react-hot-toast";
+import { toast } from "sonner";
 
 type CaptureResponse = {
   success?: boolean;
@@ -73,6 +75,29 @@ type IntegrationStatus = {
   items: IntegrationItem[];
 };
 
+type PreviewViewMode = "preview" | "code" | "registry";
+type InspectorWorkerStatus = "unknown" | "healthy" | "unhealthy" | "disabled";
+type InspectEngine = "playwright" | "ai";
+
+type AiMatchResult = {
+  tag: string;
+  text: string | null;
+  className: string | null;
+  filePath: string | null;
+  lineNumber: number | null;
+  confidence: string;
+  reasoning: string | null;
+};
+
+type AiMatchResponse = {
+  success: boolean;
+  model?: string;
+  element?: AiMatchResult | null;
+  tokens?: { input: number; output: number; total: number };
+  cost?: { usd: number; display: string };
+  error?: string;
+};
+
 export function PreviewPanel({
   chatId,
   versionId,
@@ -88,20 +113,30 @@ export function PreviewPanel({
 }: PreviewPanelProps) {
   const [iframeLoading, setIframeLoading] = useState(true);
   const [iframeError, setIframeError] = useState(false);
-  const [showCode, setShowCode] = useState(false);
+  const [viewMode, setViewMode] = useState<PreviewViewMode>("preview");
   const [files, setFiles] = useState<FileNode[]>([]);
   const [selectedPath, setSelectedPath] = useState<string | null>(null);
   const [filesLoading, setFilesLoading] = useState(false);
   const [filesError, setFilesError] = useState<string | null>(null);
+  const [selectedRegistryId, setSelectedRegistryId] = useState<string | null>(null);
+  const [selectedRegistryLine, setSelectedRegistryLine] = useState<number | null>(null);
   const [integrationStatus, setIntegrationStatus] = useState<IntegrationStatus | null>(null);
   const [integrationError, setIntegrationError] = useState(false);
+  const [inspectorWorkerStatus, setInspectorWorkerStatus] = useState<InspectorWorkerStatus>("unknown");
+  const [inspectorWorkerMessage, setInspectorWorkerMessage] = useState<string | null>(null);
   const [isViewSwitchPending, startViewSwitchTransition] = useTransition();
   const [inspectMode, setInspectMode] = useState(false);
+  const [inspectEngine, setInspectEngine] = useState<InspectEngine>("ai");
   const [isCapturePending, setIsCapturePending] = useState(false);
   const [inspectStatus, setInspectStatus] = useState<string | null>(null);
   const [inspectPulse, setInspectPulse] = useState<InspectPulseMarker | null>(null);
+  const [lastCodeMatch, setLastCodeMatch] = useState<RegistryMatch | null>(null);
+  const [lastAiCostDisplay, setLastAiCostDisplay] = useState<string | null>(null);
+  const [totalAiCostUsd, setTotalAiCostUsd] = useState(0);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const inspectPulseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const codeScrollRef = useRef<HTMLDivElement | null>(null);
+  const elementRegistryRef = useRef<ReturnType<typeof buildJsxElementRegistry>>([]);
 
   const buildPreviewSrc = useCallback((url: string, token?: number) => {
     let src = url;
@@ -111,6 +146,25 @@ export function PreviewPanel({
     }
     return src;
   }, []);
+
+  const fetchFilesForRegistry = useCallback(async () => {
+    if (!chatId || !versionId || files.length > 0) return;
+    try {
+      const response = await fetch(
+        `/api/v0/chats/${encodeURIComponent(chatId)}/files?versionId=${encodeURIComponent(versionId)}`,
+      );
+      const data = (await response.json().catch(() => null)) as {
+        files?: Array<{ name: string; content: string; locked?: boolean }>;
+      } | null;
+      if (!response.ok) return;
+      const flatFiles = Array.isArray(data?.files) ? data.files : [];
+      if (flatFiles.length > 0) {
+        setFiles(buildFileTree(flatFiles));
+      }
+    } catch {
+      /* best-effort */
+    }
+  }, [chatId, versionId, files.length]);
 
   const handleToggleInspect = useCallback(() => {
     if (!demoUrl) return;
@@ -123,11 +177,25 @@ export function PreviewPanel({
         if (iframe) {
           iframe.src = buildPreviewSrc(demoUrl, Date.now());
         }
+        fetchFilesForRegistry();
       }
       return next;
     });
+    setLastCodeMatch(null);
     setInspectStatus("Klicka i previewn för att skapa en förbättrad punktbild.");
-  }, [buildPreviewSrc, demoUrl]);
+  }, [buildPreviewSrc, demoUrl, fetchFilesForRegistry]);
+
+  const flatFilesForAi = useMemo(() => {
+    const result: Array<{ name: string; content: string }> = [];
+    const walk = (nodes: FileNode[]) => {
+      for (const node of nodes) {
+        if (node.type === "file" && node.content) result.push({ name: node.path, content: node.content });
+        if (node.children?.length) walk(node.children);
+      }
+    };
+    walk(files);
+    return result;
+  }, [files]);
 
   const handleCaptureClick = useCallback(
     async (event: MouseEvent<HTMLDivElement>) => {
@@ -146,7 +214,110 @@ export function PreviewPanel({
       inspectPulseTimerRef.current = setTimeout(() => setInspectPulse(null), 900);
 
       setIsCapturePending(true);
-      setInspectStatus("Skapar punktbild...");
+      setLastCodeMatch(null);
+      setLastAiCostDisplay(null);
+
+      if (inspectEngine === "ai") {
+        setInspectStatus("AI analyserar klickposition...");
+        try {
+          let aiFiles = flatFilesForAi;
+          if (aiFiles.length === 0 && chatId && versionId) {
+            setInspectStatus("Hämtar kodfiler...");
+            try {
+              const filesRes = await fetch(
+                `/api/v0/chats/${encodeURIComponent(chatId)}/files?versionId=${encodeURIComponent(versionId)}`,
+              );
+              const filesData = (await filesRes.json().catch(() => null)) as {
+                files?: Array<{ name: string; content: string }>;
+              } | null;
+              if (filesRes.ok && Array.isArray(filesData?.files) && filesData.files.length > 0) {
+                aiFiles = filesData.files;
+                setFiles(buildFileTree(filesData.files));
+              }
+            } catch { /* best-effort */ }
+            setInspectStatus("AI analyserar klickposition...");
+          }
+
+          const response = await fetch("/api/inspector-ai-match", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              xPercent,
+              yPercent,
+              viewportWidth: Math.round(rect.width),
+              viewportHeight: Math.round(rect.height),
+              files: aiFiles,
+            }),
+          });
+          const data = (await response.json().catch(() => null)) as AiMatchResponse | null;
+
+          if (data?.cost?.display) setLastAiCostDisplay(data.cost.display);
+          if (data?.cost?.usd) setTotalAiCostUsd((prev) => prev + data.cost!.usd);
+
+          if (!response.ok || !data?.success) {
+            toast.error(data?.error || "AI-matchning misslyckades.");
+            setInspectStatus(`AI-fel: ${data?.error || "okänt"}`);
+            return;
+          }
+
+          const el = data.element;
+          if (!el || !el.filePath) {
+            setInspectStatus(`AI kunde inte identifiera elementet vid ${xPercent}%/${yPercent}%. (${data.cost?.display || ""})`);
+            return;
+          }
+
+          const registryHit = matchCapturedElement(elementRegistryRef.current, {
+            tag: el.tag,
+            className: el.className,
+            text: el.text,
+          });
+          setLastCodeMatch(registryHit);
+
+          const tokenInfo = data.tokens ? ` ${data.tokens.total} tokens` : "";
+          const costInfo = data.cost?.display ? ` (${data.cost.display})` : "";
+          const confLabel = el.confidence === "high" ? "hög" : el.confidence === "medium" ? "medel" : "låg";
+          setInspectStatus(
+            `AI: <${el.tag}> i ${el.filePath}:${el.lineNumber ?? "?"} [${confLabel}]${tokenInfo}${costInfo}` +
+            (el.reasoning ? `\n${el.reasoning}` : ""),
+          );
+
+          if (registryHit) {
+            toast.success(`AI hittade <${el.tag}> i ${el.filePath}:${el.lineNumber}`);
+          } else {
+            toast(`AI-gissning: <${el.tag}> i ${el.filePath}:${el.lineNumber} (${confLabel} konfidens)`);
+          }
+
+          dispatchInspectCaptureEvent({
+            id: captureId,
+            demoUrl,
+            xPercent,
+            yPercent,
+            viewportWidth: Math.round(rect.width),
+            viewportHeight: Math.round(rect.height),
+            pointSummary: `AI: <${el.tag}> vid ${el.filePath}:${el.lineNumber} (${confLabel})`,
+            element: {
+              tag: el.tag,
+              id: null,
+              className: el.className || null,
+              text: el.text || null,
+              ariaLabel: null,
+              role: null,
+              href: null,
+              selector: null,
+              nearestHeading: null,
+            },
+            source: "local",
+          });
+        } catch {
+          toast.error("Nätverksfel vid AI-matchning.");
+          setInspectStatus("AI-matchning misslyckades (nätverksfel).");
+        } finally {
+          setIsCapturePending(false);
+        }
+        return;
+      }
+
+      setInspectStatus("Skapar punktbild (Playwright)...");
 
       try {
         const response = await fetch("/api/inspector-capture", {
@@ -198,15 +369,28 @@ export function PreviewPanel({
         }
 
         toast.success("Punkt tillagd i chatten.");
+
+        const codeMatch = data?.element
+          ? matchCapturedElement(elementRegistryRef.current, {
+              tag: data.element.tag,
+              id: data.element.id,
+              className: data.element.className,
+              text: data.element.text,
+              selector: data.element.selector,
+            })
+          : null;
+        setLastCodeMatch(codeMatch);
+
         if (data?.pointSummary) {
-          setInspectStatus(`${data.pointSummary}${data.source ? ` (${data.source})` : ""}`);
+          const matchHint = codeMatch
+            ? ` → ${codeMatch.item.filePath}:${codeMatch.item.lineNumber}`
+            : "";
+          setInspectStatus(`${data.pointSummary}${data.source ? ` (${data.source})` : ""}${matchHint}`);
         } else {
           setInspectStatus(`Senaste punkt: x ${xPercent}% • y ${yPercent}%`);
         }
         if (data?.element?.tag && ["html", "body"].includes(data.element.tag)) {
-          toast("Tip: klicka närmare själva elementet (t.ex. knapptexten) för mer exakt DOM-träff.", {
-            duration: 4500,
-          });
+          toast("Tip: klicka närmare själva elementet (t.ex. knapptexten) för mer exakt DOM-träff.");
         }
       } catch {
         dispatchInspectCaptureEvent({
@@ -224,7 +408,7 @@ export function PreviewPanel({
         setIsCapturePending(false);
       }
     },
-    [demoUrl, inspectMode, isCapturePending, iframeLoading, externalLoading],
+    [demoUrl, inspectMode, inspectEngine, isCapturePending, iframeLoading, externalLoading, flatFilesForAi, chatId, versionId],
   );
 
   useEffect(() => {
@@ -269,7 +453,46 @@ export function PreviewPanel({
     };
   }, [demoUrl]);
 
+  useEffect(() => {
+    let isActive = true;
+
+    const checkWorkerStatus = async () => {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 2500);
+      try {
+        const res = await fetch("/api/inspector-worker-status", {
+          method: "GET",
+          cache: "no-store",
+          signal: controller.signal,
+        });
+        const data = (await res.json().catch(() => null)) as {
+          status?: InspectorWorkerStatus;
+          message?: string;
+        } | null;
+        if (!isActive) return;
+        const status = data?.status || "unhealthy";
+        setInspectorWorkerStatus(status);
+        setInspectorWorkerMessage(data?.message || null);
+      } catch {
+        if (!isActive) return;
+        setInspectorWorkerStatus("unhealthy");
+        setInspectorWorkerMessage("Inspector worker status kunde inte hämtas.");
+      } finally {
+        clearTimeout(timeoutId);
+      }
+    };
+
+    checkWorkerStatus();
+    const timer = window.setInterval(checkWorkerStatus, 30_000);
+    return () => {
+      isActive = false;
+      window.clearInterval(timer);
+    };
+  }, []);
+
   const canShowCode = Boolean(chatId && versionId);
+  const isCodeView = viewMode !== "preview";
+  const showElementRegistry = viewMode === "registry";
 
   const handleInspectInNewTab = useCallback(() => {
     if (!demoUrl) return;
@@ -282,7 +505,16 @@ export function PreviewPanel({
   const handleToggleCode = useCallback(() => {
     if (!canShowCode) return;
     startViewSwitchTransition(() => {
-      setShowCode((prev) => !prev);
+      setViewMode((prev) => (prev === "code" ? "preview" : "code"));
+      setSelectedRegistryId(null);
+      setSelectedRegistryLine(null);
+    });
+  }, [canShowCode, startViewSwitchTransition]);
+
+  const handleToggleElementRegistry = useCallback(() => {
+    if (!canShowCode) return;
+    startViewSwitchTransition(() => {
+      setViewMode((prev) => (prev === "registry" ? "preview" : "registry"));
     });
   }, [canShowCode, startViewSwitchTransition]);
 
@@ -335,7 +567,7 @@ export function PreviewPanel({
   };
 
   useEffect(() => {
-    if (!showCode || !chatId || !versionId) return;
+    if (!isCodeView || !chatId || !versionId) return;
     let isActive = true;
     const controller = new AbortController();
     const loadFiles = async () => {
@@ -377,7 +609,21 @@ export function PreviewPanel({
     };
     loadFiles();
     return () => { isActive = false; controller.abort(); };
-  }, [showCode, chatId, versionId, findFirstFile, getPreferredFilePath]);
+  }, [isCodeView, chatId, versionId, findFirstFile, getPreferredFilePath]);
+
+  const elementRegistry = useMemo(() => buildJsxElementRegistry(files), [files]);
+  elementRegistryRef.current = elementRegistry;
+
+  useEffect(() => {
+    if (!showElementRegistry || !selectedRegistryLine) return;
+    const container = codeScrollRef.current;
+    if (!container) return;
+    const approxLineHeight = 18;
+    container.scrollTo({
+      top: Math.max(0, (selectedRegistryLine - 4) * approxLineHeight),
+      behavior: "smooth",
+    });
+  }, [showElementRegistry, selectedRegistryLine, selectedPath]);
 
   const handleIframeLoad = useCallback(() => {
     setIframeLoading(false);
@@ -420,7 +666,7 @@ export function PreviewPanel({
     try { return /sandbox/i.test(new URL(demoUrl).hostname); } catch { return demoUrl.toLowerCase().includes("sandbox"); }
   }, [demoUrl]);
 
-  if (!demoUrl && !showCode) {
+  if (!demoUrl && !isCodeView) {
     const isInitialEmpty = !chatId && !versionId && !externalLoading;
     const title = awaitingInput ? "AI väntar på ditt svar" : isInitialEmpty ? "Välkommen" : "Ingen förhandsvisning ännu";
     const subtitle = awaitingInput
@@ -451,12 +697,35 @@ export function PreviewPanel({
   const showImagesDisabledWarning = Boolean(demoUrl && !imageGenerationsEnabled);
   const showImagesUnsupportedWarning = Boolean(demoUrl && imageGenerationsEnabled && !imageGenerationsSupported);
   const showBlobConfigWarning = Boolean(demoUrl && imageGenerationsEnabled && !isBlobConfigured);
+  const workerLampClass =
+    inspectorWorkerStatus === "healthy"
+      ? "bg-emerald-400"
+      : inspectorWorkerStatus === "disabled"
+        ? "bg-zinc-500"
+        : inspectorWorkerStatus === "unknown"
+          ? "bg-amber-400 animate-pulse"
+          : "bg-rose-400";
+  const workerLampTitle =
+    inspectorWorkerStatus === "healthy"
+      ? "Inspector worker är online."
+      : inspectorWorkerStatus === "disabled"
+        ? "Inspector worker är inte konfigurerad."
+        : inspectorWorkerStatus === "unknown"
+          ? "Kontrollerar inspector worker..."
+          : inspectorWorkerMessage || "Inspector worker är offline. Fallback används.";
 
   return (
     <div className="flex h-full flex-col bg-black/40">
       <div className="flex items-center justify-between border-b border-gray-800 px-4 py-2">
         <h3 className="font-semibold tracking-tight text-white">Preview</h3>
         <div className="flex items-center gap-1">
+          <div
+            className="mr-1 inline-flex items-center gap-1 rounded border border-gray-700 bg-black/40 px-2 py-1 text-[11px] text-gray-400"
+            title={workerLampTitle}
+          >
+            <span className={cn("h-2 w-2 rounded-full", workerLampClass)} />
+            <span>Worker</span>
+          </div>
           <Button variant="ghost" size="sm" onClick={handleInspectInNewTab} disabled={!demoUrl} title="Öppna i ny flik för inspektion (Ctrl+Shift+C)" className="text-gray-400 hover:text-white">
             <MousePointer2 className="mr-1 h-4 w-4" />
             Inspektionsläge
@@ -465,7 +734,11 @@ export function PreviewPanel({
             <Search className="mr-1 h-4 w-4" />
             Inspektionstestknapp
           </Button>
-          <Button variant="ghost" size="sm" onClick={handleToggleCode} disabled={!canShowCode || isViewSwitchPending} title={canShowCode ? "Visa kod" : "Ingen kod tillgänglig än"} className={cn("text-gray-400 hover:text-white", showCode && "bg-gray-800 text-white hover:text-white")}>
+          <Button variant="ghost" size="sm" onClick={handleToggleElementRegistry} disabled={!canShowCode || isViewSwitchPending} title={canShowCode ? "Inspektera kod via elementregister" : "Ingen kod tillgänglig än"} className={cn("text-gray-400 hover:text-white", showElementRegistry && "bg-purple-900/40 text-purple-200 hover:text-purple-100")}>
+            <Code2 className="mr-1 h-4 w-4" />
+            Inspektera kod
+          </Button>
+          <Button variant="ghost" size="sm" onClick={handleToggleCode} disabled={!canShowCode || isViewSwitchPending} title={canShowCode ? "Visa kod" : "Ingen kod tillgänglig än"} className={cn("text-gray-400 hover:text-white", viewMode === "code" && "bg-gray-800 text-white hover:text-white")}>
             <FileText className="mr-1 h-4 w-4" />
             Kod
           </Button>
@@ -481,7 +754,7 @@ export function PreviewPanel({
           </Button>
         </div>
       </div>
-      {!showCode && (showBlobWarning || showExternalWarning || showSandboxWarning || integrationError || showImagesDisabledWarning || showImagesUnsupportedWarning || showBlobConfigWarning) && (
+      {!isCodeView && (showBlobWarning || showExternalWarning || showSandboxWarning || integrationError || showImagesDisabledWarning || showImagesUnsupportedWarning || showBlobConfigWarning) && (
         <div className="border-b border-yellow-900/40 bg-yellow-950/30 px-4 py-2 text-xs text-yellow-200">
           {showExternalWarning && <div>Sajmaskinens preview körs i utvecklingsmilö för snabbhet. Externa media‑URL:er kan ge 404 eller blockeras. Ladda upp media via mediabiblioteket för publika Blob‑URL:er.</div>}
           {showSandboxWarning && <div>Preview körs från sandbox. Sandbox har separat runtime och kan sakna samma miljövariabler som din ordinarie miljö (t.ex. blob-token).</div>}
@@ -493,17 +766,44 @@ export function PreviewPanel({
         </div>
       )}
 
-      {showCode ? (
+      {isCodeView ? (
         <div className="flex flex-1 overflow-hidden">
           <div className="w-64 border-r border-gray-800 bg-black/50">
-            <FileExplorer files={files} selectedPath={selectedPath} onFileSelect={(file) => setSelectedPath(file.path)} isLoading={filesLoading} error={filesError} />
+            {showElementRegistry ? (
+              <ElementRegistry
+                items={elementRegistry}
+                selectedId={selectedRegistryId}
+                isLoading={filesLoading}
+                error={filesError}
+                onSelect={(item) => {
+                  setSelectedRegistryId(item.id);
+                  setSelectedRegistryLine(item.lineNumber);
+                  setSelectedPath(item.filePath);
+                }}
+              />
+            ) : (
+              <FileExplorer
+                files={files}
+                selectedPath={selectedPath}
+                onFileSelect={(file) => {
+                  setSelectedRegistryId(null);
+                  setSelectedRegistryLine(null);
+                  setSelectedPath(file.path);
+                }}
+                isLoading={filesLoading}
+                error={filesError}
+              />
+            )}
           </div>
-          <div className="flex-1 overflow-auto p-4">
+          <div ref={codeScrollRef} className="flex-1 overflow-auto p-4">
             {!selectedFile ? (
               <div className="flex h-full items-center justify-center text-sm text-gray-400">Ingen fil vald</div>
             ) : (
               <div className="space-y-3">
                 <div className="text-sm text-gray-300">{selectedFile.path}</div>
+                {showElementRegistry && selectedRegistryLine && (
+                  <div className="text-xs text-purple-300">Målrad: {selectedRegistryLine}</div>
+                )}
                 <CodeBlock code={selectedFile.content || ""} language={getLanguageFromName(selectedFile.name)} showLineNumbers>
                   <CodeBlockCopyButton className="text-gray-300 hover:text-white" />
                 </CodeBlock>
@@ -563,16 +863,72 @@ export function PreviewPanel({
               )}
               <div className="absolute right-0 bottom-0 left-0 z-30 border-t border-emerald-800/60 bg-zinc-950/95 px-4 py-3 text-xs text-gray-300 backdrop-blur-sm">
                 <div className="flex items-center justify-between gap-2">
-                  <div>
-                    <div className="font-semibold tracking-tight text-emerald-400">Inspektionstestknapp aktiv</div>
-                    <div className="text-zinc-400">
-                      Klicka i previewn för att skapa en punkt till chatten (plupp med koordinater + bild).
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold tracking-tight text-emerald-400">Inspektion aktiv</span>
+                      <span className="inline-flex items-center gap-1 rounded border border-zinc-700 bg-zinc-900/80 px-1.5 py-0.5 text-[10px]">
+                        <button
+                          type="button"
+                          onClick={() => setInspectEngine("playwright")}
+                          className={cn(
+                            "inline-flex items-center gap-0.5 rounded px-1 py-0.5 transition-colors",
+                            inspectEngine === "playwright" ? "bg-emerald-800 text-emerald-200" : "text-zinc-500 hover:text-zinc-300",
+                          )}
+                          title="Playwright: headless browser (screenshot + DOM)"
+                        >
+                          <Zap className="h-2.5 w-2.5" />
+                          PW
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setInspectEngine("ai")}
+                          className={cn(
+                            "inline-flex items-center gap-0.5 rounded px-1 py-0.5 transition-colors",
+                            inspectEngine === "ai" ? "bg-purple-800 text-purple-200" : "text-zinc-500 hover:text-zinc-300",
+                          )}
+                          title="AI: gpt-4o-mini analyserar koden"
+                        >
+                          <BrainCircuit className="h-2.5 w-2.5" />
+                          AI
+                        </button>
+                      </span>
+                      {totalAiCostUsd > 0 && (
+                        <span className="text-[10px] text-amber-400/70" title="Total AI-kostnad denna session">
+                          session: ${totalAiCostUsd.toFixed(4)}{lastAiCostDisplay ? ` (senaste: ${lastAiCostDisplay})` : ""}
+                        </span>
+                      )}
                     </div>
-                    {inspectStatus && <div className="mt-1 text-zinc-500">{inspectStatus}</div>}
+                    <div className="text-zinc-400">
+                      {inspectEngine === "ai"
+                        ? "Klicka i previewn — AI identifierar elementet i koden."
+                        : "Klicka i previewn — Playwright tar screenshot + hittar DOM-element."}
+                    </div>
+                    {inspectStatus && <div className="mt-1 whitespace-pre-line text-zinc-500">{inspectStatus}</div>}
                   </div>
                   <div className="flex items-center gap-2">
                     {isCapturePending && (
                       <div className="rounded bg-zinc-800 px-2 py-1 text-[11px] text-zinc-300">Skapar bild...</div>
+                    )}
+                    {lastCodeMatch && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setInspectMode(false);
+                          startViewSwitchTransition(() => {
+                            setViewMode("registry");
+                            setSelectedRegistryId(lastCodeMatch.item.id);
+                            setSelectedRegistryLine(lastCodeMatch.item.lineNumber);
+                            setSelectedPath(lastCodeMatch.item.filePath);
+                          });
+                        }}
+                        className="rounded bg-purple-900/60 px-2 py-1 text-[11px] font-medium text-purple-200 transition-colors hover:bg-purple-800/70 hover:text-white"
+                        title={`Visa ${lastCodeMatch.item.filePath}:${lastCodeMatch.item.lineNumber}`}
+                      >
+                        <span className="inline-flex items-center gap-1">
+                          <Code2 className="h-3.5 w-3.5" />
+                          Visa i kod
+                        </span>
+                      </button>
                     )}
                     <button
                       type="button"

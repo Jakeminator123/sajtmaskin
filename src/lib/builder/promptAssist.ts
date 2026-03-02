@@ -33,8 +33,12 @@ export function isGatewayAssistModel(model: string): model is GatewayAssistModel
   return GATEWAY_ASSIST_MODELS.includes(model as GatewayAssistModel);
 }
 
+export function isPromptAssistOff(model: string): boolean {
+  return model === "off";
+}
+
 export function isPromptAssistModelAllowed(model: string): boolean {
-  return isGatewayAssistModel(model) || isV0AssistModel(model);
+  return isPromptAssistOff(model) || isGatewayAssistModel(model) || isV0AssistModel(model);
 }
 
 export function resolvePromptAssistProvider(model: string): PromptAssistProvider {

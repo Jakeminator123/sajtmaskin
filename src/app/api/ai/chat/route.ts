@@ -1,5 +1,5 @@
 import { createOpenAI } from "@ai-sdk/openai";
-import { gateway, generateText } from "ai";
+import { gateway, streamText } from "ai";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { withRateLimit } from "@/lib/rateLimit";
@@ -200,7 +200,7 @@ export async function POST(req: Request) {
         });
 
         const preferred = getGatewayPreferredProvider(normalizedModel);
-        const result = await generateText({
+        const result = streamText({
           model: gateway(normalizedModel),
           messages,
           providerOptions: {
@@ -211,17 +211,18 @@ export async function POST(req: Request) {
           },
           maxOutputTokens: maxTokens,
           ...getTemperatureConfig(normalizedModel, temperature),
-        });
-        devLogAppend("latest", {
-          type: "assist.chat.response",
-          provider: resolvedProvider,
-          model: normalizedModel,
-          text: result.text,
+          onFinish({ text }) {
+            devLogAppend("latest", {
+              type: "assist.chat.response",
+              provider: resolvedProvider,
+              model: normalizedModel,
+              text,
+            });
+          },
         });
 
-        return new Response(result.text, {
+        return result.toTextStreamResponse({
           headers: {
-            "Content-Type": "text/plain; charset=utf-8",
             "Cache-Control": "no-store",
             "X-Provider": resolvedProvider,
             "X-Key-Source": gatewayAuth,
@@ -243,22 +244,23 @@ export async function POST(req: Request) {
       debugLog("AI", "AI chat using v0 Model API", { model: normalizedModel, keySource: source });
 
       const modelProvider = getOpenAICompatProvider(apiKey);
-      const result = await generateText({
+      const result = streamText({
         model: modelProvider(normalizedModel),
         messages,
         maxOutputTokens: maxTokens,
         ...getTemperatureConfig(normalizedModel, temperature),
-      });
-      devLogAppend("latest", {
-        type: "assist.chat.response",
-        provider: resolvedProvider,
-        model: normalizedModel,
-        text: result.text,
+        onFinish({ text }) {
+          devLogAppend("latest", {
+            type: "assist.chat.response",
+            provider: resolvedProvider,
+            model: normalizedModel,
+            text,
+          });
+        },
       });
 
-      return new Response(result.text, {
+      return result.toTextStreamResponse({
         headers: {
-          "Content-Type": "text/plain; charset=utf-8",
           "Cache-Control": "no-store",
           "X-Provider": resolvedProvider,
           "X-Key-Source": source,

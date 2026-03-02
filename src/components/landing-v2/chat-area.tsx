@@ -28,7 +28,7 @@ import { useState, useRef, useEffect, useCallback, useMemo, type MouseEvent as R
 import { useRouter } from "next/navigation"
 import type { BuildIntent, BuildMethod } from "@/lib/builder/build-intent"
 import { createProject } from "@/lib/project-client"
-import toast from "react-hot-toast"
+import { toast } from "sonner"
 import { ParticleOrb } from "@/components/landing-v2/particle-orb"
 import { LanyardBadge } from "@/components/landing-v2/lanyard-badge"
 import { VoiceRecorder } from "@/components/forms/voice-recorder"

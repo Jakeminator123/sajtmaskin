@@ -9,6 +9,7 @@ import { useAuth } from "@/lib/auth/auth-store";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -37,7 +38,7 @@ import {
   ArrowRight,
   ExternalLink,
 } from "lucide-react";
-import toast from "react-hot-toast";
+import { toast } from "sonner";
 
 // ─── Credit Packages ──────────────────────────────────────────────
 const PACKAGES = [
@@ -140,7 +141,6 @@ function BuyCreditsContent() {
   const [selectedPackage, setSelectedPackage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"credits" | "studio">("credits");
 
   // ─── SajtStudio form state ────────────────────────────────────
   const [formStep, setFormStep] = useState(0);
@@ -321,38 +321,31 @@ function BuyCreditsContent() {
             </div>
           )}
 
+          <Tabs defaultValue="credits" className="w-full gap-0">
           {/* ═══ TAB NAVIGATION ═══ */}
           <div className="mb-10 flex justify-center">
-            <div className="inline-flex rounded-lg border border-border bg-card/50 backdrop-blur-sm p-1 gap-1">
-              <button
-                onClick={() => setActiveTab("credits")}
-                className={`flex items-center gap-2 rounded-md px-5 py-2.5 text-sm font-medium transition-all ${
-                  activeTab === "credits"
-                    ? "bg-brand-teal text-white shadow-md shadow-brand-teal/20"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
-                }`}
+            <TabsList className="inline-flex h-auto w-auto rounded-lg border border-border bg-card/50 backdrop-blur-sm p-1 gap-1">
+              <TabsTrigger
+                value="credits"
+                className="flex items-center gap-2 rounded-md border-0 px-5 py-2.5 text-sm font-medium shadow-none transition-all data-[state=active]:bg-brand-teal data-[state=active]:text-white data-[state=active]:shadow-md data-[state=active]:shadow-brand-teal/20 data-[state=inactive]:bg-transparent data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-foreground data-[state=inactive]:hover:bg-muted/50"
               >
                 <Sparkles className="h-4 w-4" />
                 AI Credits
-              </button>
-              <button
-                onClick={() => setActiveTab("studio")}
-                className={`flex items-center gap-2 rounded-md px-5 py-2.5 text-sm font-medium transition-all ${
-                  activeTab === "studio"
-                    ? "bg-brand-blue text-white shadow-md shadow-brand-blue/20"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted/50"
-                }`}
+              </TabsTrigger>
+              <TabsTrigger
+                value="studio"
+                className="flex items-center gap-2 rounded-md border-0 px-5 py-2.5 text-sm font-medium shadow-none transition-all data-[state=active]:bg-brand-blue data-[state=active]:text-white data-[state=active]:shadow-md data-[state=active]:shadow-brand-blue/20 data-[state=inactive]:bg-transparent data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-foreground data-[state=inactive]:hover:bg-muted/50"
               >
                 <Building2 className="h-4 w-4" />
                 SajtStudio Hjälp
-              </button>
-            </div>
+              </TabsTrigger>
+            </TabsList>
           </div>
 
           {/* ═══════════════════════════════════════════════════════ */}
           {/* CREDITS TAB                                            */}
           {/* ═══════════════════════════════════════════════════════ */}
-          {activeTab === "credits" && (
+          <TabsContent value="credits">
             <div className="animate-fadeIn">
               {/* Package cards */}
               <div className="grid gap-6 md:grid-cols-3">
@@ -508,12 +501,12 @@ function BuyCreditsContent() {
                 Pay.
               </p>
             </div>
-          )}
+          </TabsContent>
 
           {/* ═══════════════════════════════════════════════════════ */}
           {/* SAJTSTUDIO TAB                                         */}
           {/* ═══════════════════════════════════════════════════════ */}
-          {activeTab === "studio" && (
+          <TabsContent value="studio">
             <div className="animate-fadeIn">
               {/* Intro */}
               <div className="text-center mb-10">
@@ -889,7 +882,8 @@ function BuyCreditsContent() {
                 </CardContent>
               </Card>
             </div>
-          )}
+          </TabsContent>
+          </Tabs>
 
           {/* ═══ CONTACT FOOTER ═══ */}
           <div className="mt-20 text-center">

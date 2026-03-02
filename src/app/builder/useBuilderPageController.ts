@@ -26,7 +26,7 @@ import { useAuth } from "@/lib/auth/auth-store";
 import { debugLog } from "@/lib/utils/debug";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
-import toast from "react-hot-toast";
+import { toast } from "sonner";
 
 import { useBuilderCallbacks } from "./useBuilderCallbacks";
 import { useBuilderDeployActions } from "./useBuilderDeployActions";

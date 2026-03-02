@@ -14,6 +14,9 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 
 // ---------------------------------------------------------------------------
@@ -414,41 +417,30 @@ export function ProjectEnvVarsPanel({ projectId }: ProjectSettingsPanelProps) {
 
       {expanded && (
         <div className="mt-2">
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as Tab)} className="w-full gap-0">
           {/* Tab bar */}
-          <div className="border-border mb-2 flex gap-1 border-b pb-1">
-            <button
-              type="button"
-              onClick={() => setActiveTab("integrations")}
-              className={cn(
-                "flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs transition-colors",
-                activeTab === "integrations"
-                  ? "bg-primary/10 text-primary font-medium"
-                  : "text-muted-foreground hover:text-foreground",
-              )}
+          <TabsList className="mb-2 flex h-auto w-auto gap-1 border-b border-border bg-transparent p-0 pb-1">
+            <TabsTrigger
+              value="integrations"
+              className="flex items-center gap-1.5 rounded-md border-0 px-2.5 py-1 text-xs shadow-none transition-colors data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:font-medium data-[state=inactive]:bg-transparent data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-foreground"
             >
               <Plug className="h-3 w-3" />
               Integrationer
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab("env")}
-              className={cn(
-                "flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs transition-colors",
-                activeTab === "env"
-                  ? "bg-primary/10 text-primary font-medium"
-                  : "text-muted-foreground hover:text-foreground",
-              )}
+            </TabsTrigger>
+            <TabsTrigger
+              value="env"
+              className="flex items-center gap-1.5 rounded-md border-0 px-2.5 py-1 text-xs shadow-none transition-colors data-[state=active]:bg-primary/10 data-[state=active]:text-primary data-[state=active]:font-medium data-[state=inactive]:bg-transparent data-[state=inactive]:text-muted-foreground data-[state=inactive]:hover:text-foreground"
             >
               <KeyRound className="h-3 w-3" />
               Miljövariabler
               {envVarCount > 0 && (
                 <span className="text-muted-foreground text-[10px]">({envVarCount})</span>
               )}
-            </button>
-          </div>
+            </TabsTrigger>
+          </TabsList>
 
           {/* Integrations tab */}
-          {activeTab === "integrations" && (
+          <TabsContent value="integrations">
             <div className="space-y-2">
               {integrationError && (
                 <div className="text-muted-foreground text-xs">
@@ -585,10 +577,10 @@ export function ProjectEnvVarsPanel({ projectId }: ProjectSettingsPanelProps) {
                 </div>
               )}
             </div>
-          )}
+          </TabsContent>
 
           {/* Env vars tab */}
-          {activeTab === "env" && (
+          <TabsContent value="env">
             <div className="space-y-2">
               {!projectId && (
                 <div className="text-muted-foreground rounded-md border border-dashed p-2 text-xs">
@@ -624,14 +616,17 @@ export function ProjectEnvVarsPanel({ projectId }: ProjectSettingsPanelProps) {
                     </Button>
                   </div>
 
-                  <label className="text-muted-foreground flex items-center gap-2 text-xs">
-                    <input
-                      type="checkbox"
+                  <div className="flex items-center gap-2">
+                    <Switch
+                      id="env-sensitive"
+                      size="sm"
                       checked={newSensitive}
-                      onChange={(event) => setNewSensitive(event.target.checked)}
+                      onCheckedChange={setNewSensitive}
                     />
-                    Markera som känslig (rekommenderas)
-                  </label>
+                    <Label htmlFor="env-sensitive" className="text-muted-foreground text-xs font-normal">
+                      Markera som känslig (rekommenderas)
+                    </Label>
+                  </div>
 
                   {isLoading ? (
                     <div className="text-muted-foreground flex items-center gap-2">
@@ -677,7 +672,8 @@ export function ProjectEnvVarsPanel({ projectId }: ProjectSettingsPanelProps) {
                 </>
               )}
             </div>
-          )}
+          </TabsContent>
+          </Tabs>
 
           {error && <div className="mt-2 text-xs text-red-400">{error}</div>}
         </div>

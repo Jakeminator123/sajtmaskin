@@ -17,7 +17,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import toast from "react-hot-toast";
+import { Skeleton } from "@/components/ui/skeleton";
+import { toast } from "sonner";
 import { useAuth } from "@/lib/auth/auth-store";
 
 interface VersionHistoryProps {
@@ -237,8 +238,27 @@ export function VersionHistory({
 
   if (isLoading) {
     return (
-      <div className="flex h-full items-center justify-center">
-        <div className="text-muted-foreground text-sm">Loading versions...</div>
+      <div className="flex h-full flex-col">
+        <div className="border-border border-b px-4 py-3">
+          <Skeleton className="h-5 w-32" />
+          <Skeleton className="mt-2 h-3 w-24" />
+        </div>
+        <div className="flex-1 space-y-2 overflow-y-auto p-2">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="rounded-lg border p-3">
+              <div className="mb-2 flex items-center gap-2">
+                <Skeleton className="h-3 w-3 rounded-full" />
+                <Skeleton className="h-3 w-20" />
+              </div>
+              <Skeleton className="h-3 w-3/4" />
+              <div className="mt-2 flex gap-1">
+                {Array.from({ length: 4 }).map((_, j) => (
+                  <Skeleton key={j} className="h-7 w-7 rounded-md" />
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
       </div>
     );
   }

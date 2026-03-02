@@ -4,6 +4,7 @@ import { ChevronDown, ChevronRight, File, Folder, FolderOpen } from "lucide-reac
 import { useState } from "react";
 import type { FileNode } from "@/lib/builder/types";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 
 interface FileExplorerProps {
@@ -109,8 +110,36 @@ export function FileExplorer({
 }: FileExplorerProps) {
   if (isLoading) {
     return (
-      <div className="text-muted-foreground flex h-full items-center justify-center p-4">
-        <p className="text-center text-sm">Loading files...</p>
+      <div className="flex h-full flex-col">
+        <div className="border-border border-b px-4 py-3">
+          <Skeleton className="h-5 w-16" />
+        </div>
+        <div className="space-y-1 p-2">
+          <div className="flex items-center gap-2 px-2 py-1">
+            <Skeleton className="h-3 w-3" />
+            <Skeleton className="h-4 w-4 rounded" />
+            <Skeleton className="h-3 w-24" />
+          </div>
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="flex items-center gap-2 py-1" style={{ paddingLeft: `${20 + 8}px` }}>
+              <Skeleton className="h-3 w-3 shrink-0" />
+              <Skeleton className="h-4 w-4 shrink-0 rounded" />
+              <Skeleton className="h-3" style={{ width: `${60 + i * 15}px` }} />
+            </div>
+          ))}
+          <div className="flex items-center gap-2 px-2 py-1">
+            <Skeleton className="h-3 w-3" />
+            <Skeleton className="h-4 w-4 rounded" />
+            <Skeleton className="h-3 w-20" />
+          </div>
+          {Array.from({ length: 2 }).map((_, i) => (
+            <div key={i} className="flex items-center gap-2 py-1" style={{ paddingLeft: `${20 + 8}px` }}>
+              <Skeleton className="h-3 w-3 shrink-0" />
+              <Skeleton className="h-4 w-4 shrink-0 rounded" />
+              <Skeleton className="h-3" style={{ width: `${50 + i * 20}px` }} />
+            </div>
+          ))}
+        </div>
       </div>
     );
   }

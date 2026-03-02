@@ -2,7 +2,7 @@
 
 import { FolderArchive, Github, Loader2, Lock, Upload, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
-import toast from "react-hot-toast";
+import { toast } from "sonner";
 import { useAuth } from "@/lib/auth/auth-store";
 
 interface InitFromRepoModalProps {

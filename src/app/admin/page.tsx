@@ -15,6 +15,7 @@ import {
 import { ShaderBackground } from "@/components/layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { AdminAnalyticsTab } from "./components/AdminAnalyticsTab";
 import { AdminDatabaseTab } from "./components/AdminDatabaseTab";
 import { AdminEnvironmentTab } from "./components/AdminEnvironmentTab";
@@ -536,62 +537,39 @@ export default function AdminPage() {
           </div>
         )}
 
-        <div className="mb-6 flex gap-2">
-          <Button
-            variant={activeTab === "analytics" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setActiveTab("analytics")}
-            className={`gap-2 ${
-              activeTab === "analytics"
-                ? "bg-brand-teal hover:bg-brand-teal/90"
-                : "border-gray-700 text-gray-400 hover:bg-gray-800 hover:text-white"
-            }`}
+        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as AdminTab)} className="w-full gap-0">
+        <TabsList className="mb-6 flex h-auto w-auto gap-2 bg-transparent p-0">
+          <TabsTrigger
+            value="analytics"
+            className="gap-2 rounded-md border border-transparent px-3 py-1.5 text-sm shadow-none transition-all data-[state=active]:border-transparent data-[state=active]:bg-brand-teal data-[state=active]:text-white data-[state=active]:hover:bg-brand-teal/90 data-[state=inactive]:border-gray-700 data-[state=inactive]:bg-transparent data-[state=inactive]:text-gray-400 data-[state=inactive]:hover:bg-gray-800 data-[state=inactive]:hover:text-white"
           >
             <TrendingUp className="h-4 w-4" />
             Statistik
-          </Button>
-          <Button
-            variant={activeTab === "database" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setActiveTab("database")}
-            className={`gap-2 ${
-              activeTab === "database"
-                ? "bg-brand-teal hover:bg-brand-teal/90"
-                : "border-gray-700 text-gray-400 hover:bg-gray-800 hover:text-white"
-            }`}
+          </TabsTrigger>
+          <TabsTrigger
+            value="database"
+            className="gap-2 rounded-md border border-transparent px-3 py-1.5 text-sm shadow-none transition-all data-[state=active]:border-transparent data-[state=active]:bg-brand-teal data-[state=active]:text-white data-[state=active]:hover:bg-brand-teal/90 data-[state=inactive]:border-gray-700 data-[state=inactive]:bg-transparent data-[state=inactive]:text-gray-400 data-[state=inactive]:hover:bg-gray-800 data-[state=inactive]:hover:text-white"
           >
             <Database className="h-4 w-4" />
             Databaser
-          </Button>
-          <Button
-            variant={activeTab === "environment" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setActiveTab("environment")}
-            className={`gap-2 ${
-              activeTab === "environment"
-                ? "bg-brand-teal hover:bg-brand-teal/90"
-                : "border-gray-700 text-gray-400 hover:bg-gray-800 hover:text-white"
-            }`}
+          </TabsTrigger>
+          <TabsTrigger
+            value="environment"
+            className="gap-2 rounded-md border border-transparent px-3 py-1.5 text-sm shadow-none transition-all data-[state=active]:border-transparent data-[state=active]:bg-brand-teal data-[state=active]:text-white data-[state=active]:hover:bg-brand-teal/90 data-[state=inactive]:border-gray-700 data-[state=inactive]:bg-transparent data-[state=inactive]:text-gray-400 data-[state=inactive]:hover:bg-gray-800 data-[state=inactive]:hover:text-white"
           >
             <Key className="h-4 w-4" />
             Miljö
-          </Button>
-          <Button
-            variant={activeTab === "prompts" ? "default" : "outline"}
-            size="sm"
-            onClick={() => setActiveTab("prompts")}
-            className={`gap-2 ${
-              activeTab === "prompts"
-                ? "bg-brand-teal hover:bg-brand-teal/90"
-                : "border-gray-700 text-gray-400 hover:bg-gray-800 hover:text-white"
-            }`}
+          </TabsTrigger>
+          <TabsTrigger
+            value="prompts"
+            className="gap-2 rounded-md border border-transparent px-3 py-1.5 text-sm shadow-none transition-all data-[state=active]:border-transparent data-[state=active]:bg-brand-teal data-[state=active]:text-white data-[state=active]:hover:bg-brand-teal/90 data-[state=inactive]:border-gray-700 data-[state=inactive]:bg-transparent data-[state=inactive]:text-gray-400 data-[state=inactive]:hover:bg-gray-800 data-[state=inactive]:hover:text-white"
           >
             <FileText className="h-4 w-4" />
             Promptloggar
-          </Button>
-        </div>
+          </TabsTrigger>
+        </TabsList>
 
-        {activeTab === "analytics" && (
+        <TabsContent value="analytics">
           <AdminAnalyticsTab
             days={days}
             onDaysChange={setDays}
@@ -599,9 +577,9 @@ export default function AdminPage() {
             stats={stats}
             onRefresh={fetchStats}
           />
-        )}
+        </TabsContent>
 
-        {activeTab === "database" && (
+        <TabsContent value="database">
           <AdminDatabaseTab
             dbStats={dbStats}
             actionLoading={actionLoading}
@@ -616,9 +594,9 @@ export default function AdminPage() {
             refreshDbStats={fetchDbStats}
             refreshStats={fetchStats}
           />
-        )}
+        </TabsContent>
 
-        {activeTab === "environment" && (
+        <TabsContent value="environment">
           <AdminEnvironmentTab
             teamStatusLoading={teamStatusLoading}
             teamStatus={teamStatus}
@@ -638,16 +616,17 @@ export default function AdminPage() {
             onRefreshVercelProjects={fetchVercelProjects}
             onDeleteVercelProject={handleDeleteVercelProject}
           />
-        )}
+        </TabsContent>
 
-        {activeTab === "prompts" && (
+        <TabsContent value="prompts">
           <AdminPromptsTab
             promptLogs={promptLogs}
             promptLogsLoading={promptLogsLoading}
             promptLogsError={promptLogsError}
             onRefresh={fetchPromptLogs}
           />
-        )}
+        </TabsContent>
+        </Tabs>
       </div>
     </div>
   );

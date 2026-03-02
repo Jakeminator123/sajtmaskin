@@ -24,7 +24,7 @@ import {
   type BuildIntent,
 } from "@/lib/builder/build-intent";
 import type { AuditResult } from "@/types/audit";
-import toast from "react-hot-toast";
+import { toast } from "sonner";
 import { createProject } from "@/lib/project-client";
 
 function RootLandingContent() {

@@ -23,6 +23,7 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import { useCallback, useEffect, useState } from "react";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
 interface AuditModalProps {
   result: AuditResult | null;
@@ -520,6 +521,7 @@ export function AuditModal({
               </div>
             </div>
 
+            <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as TabId)} className="flex min-h-0 flex-1 flex-col gap-0">
             {/* Tabs */}
             <div className="flex shrink-0 items-center border-b border-gray-800">
               <button
@@ -531,22 +533,18 @@ export function AuditModal({
                 <ChevronLeft className="h-5 w-5" />
               </button>
 
-              <div className="flex flex-1 overflow-x-auto">
+              <TabsList className="flex h-auto flex-1 overflow-x-auto rounded-none bg-transparent p-0">
                 {tabs.map((tab) => (
-                  <button
+                  <TabsTrigger
                     key={tab.id}
-                    onClick={() => setActiveTab(tab.id)}
-                    className={`flex flex-1 items-center justify-center gap-2 px-4 py-3 text-sm font-medium whitespace-nowrap transition-colors ${
-                      activeTab === tab.id
-                        ? "text-brand-teal border-brand-teal bg-brand-teal/10 border-b-2"
-                        : "text-gray-400 hover:bg-gray-800/50 hover:text-white"
-                    }`}
+                    value={tab.id}
+                    className="flex flex-1 items-center justify-center gap-2 rounded-none border-b-2 border-transparent px-4 py-3 text-sm font-medium whitespace-nowrap shadow-none transition-colors data-[state=active]:border-brand-teal data-[state=active]:bg-brand-teal/10 data-[state=active]:text-brand-teal data-[state=inactive]:bg-transparent data-[state=inactive]:text-gray-400 data-[state=inactive]:hover:bg-gray-800/50 data-[state=inactive]:hover:text-white"
                   >
                     <span>{tab.icon}</span>
                     <span className="hidden sm:inline">{tab.label}</span>
-                  </button>
+                  </TabsTrigger>
                 ))}
-              </div>
+              </TabsList>
 
               <button
                 onClick={() => navigateTab("next")}
@@ -562,7 +560,7 @@ export function AuditModal({
             <div className="flex-1 overflow-y-auto p-6">
               <AnimatePresence mode="wait">
                 {/* Overview Tab */}
-                {activeTab === "overview" && (
+                <TabsContent value="overview" forceMount className="data-[state=inactive]:hidden">
                   <motion.div
                     key="overview"
                     initial={{ opacity: 0, x: 20 }}
@@ -629,10 +627,10 @@ export function AuditModal({
                       </div>
                     )}
                   </motion.div>
-                )}
+                </TabsContent>
 
                 {/* Improvements Tab */}
-                {activeTab === "improvements" && (
+                <TabsContent value="improvements" forceMount className="data-[state=inactive]:hidden">
                   <motion.div
                     key="improvements"
                     initial={{ opacity: 0, x: 20 }}
@@ -649,10 +647,10 @@ export function AuditModal({
                       />
                     )}
                   </motion.div>
-                )}
+                </TabsContent>
 
                 {/* Technical Tab */}
-                {activeTab === "technical" && (
+                <TabsContent value="technical" forceMount className="data-[state=inactive]:hidden">
                   <motion.div
                     key="technical"
                     initial={{ opacity: 0, x: 20 }}
@@ -703,10 +701,10 @@ export function AuditModal({
                         />
                       )}
                   </motion.div>
-                )}
+                </TabsContent>
 
                 {/* Business/Budget Tab */}
-                {activeTab === "business" && (
+                <TabsContent value="business" forceMount className="data-[state=inactive]:hidden">
                   <motion.div
                     key="business"
                     initial={{ opacity: 0, x: 20 }}
@@ -929,9 +927,10 @@ export function AuditModal({
                       />
                     )}
                   </motion.div>
-                )}
+                </TabsContent>
               </AnimatePresence>
             </div>
+            </Tabs>
 
             {/* Footer */}
             <div className="flex shrink-0 items-center justify-between border-t border-gray-800 bg-black/50 p-4">

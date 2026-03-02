@@ -16,8 +16,5 @@
     "ui": "@/components/ui",
     "lib": "@/lib",
     "hooks": "@/hooks"
-  },
-  "registries": {
-    "@shadcn": "https://ui.shadcn.com/r/styles/new-york-v4/{name}.json"
   }
 }

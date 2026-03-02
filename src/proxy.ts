@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
+const AUTH_COOKIE = "sajtmaskin_auth";
 const SESSION_COOKIE_NAME = "sajtmaskin_session";
 const SESSION_MAX_AGE = 30 * 24 * 60 * 60; // 30 days
+
+const AUTH_PROTECTED_PAGES = ["/builder", "/admin"];
+const AUTH_PROTECTED_API = ["/api/v0/", "/api/ai/"];
 
 function generateSessionId(): string {
   const timestamp = Date.now().toString(36);
@@ -11,13 +15,32 @@ function generateSessionId(): string {
   return `sess_${timestamp}_${randomPart}${randomPart2}`;
 }
 
-const API_PREFIX = "/api/";
+function isAuthProtected(pathname: string): boolean {
+  for (const prefix of AUTH_PROTECTED_PAGES) {
+    if (pathname === prefix || pathname.startsWith(prefix + "/")) return true;
+  }
+  for (const prefix of AUTH_PROTECTED_API) {
+    if (pathname.startsWith(prefix)) return true;
+  }
+  return false;
+}
 
 export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  const hasAuth = request.cookies.has(AUTH_COOKIE);
+
+  if (isAuthProtected(pathname)) {
+    if (pathname.startsWith("/api/")) {
+      if (!hasAuth && !request.cookies.has(SESSION_COOKIE_NAME)) {
+        return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+      }
+    } else if (!hasAuth) {
+      return NextResponse.redirect(new URL("/", request.url));
+    }
+  }
+
   const response = NextResponse.next();
 
-  // Security headers on every response
   response.headers.set("X-Content-Type-Options", "nosniff");
   response.headers.set("X-XSS-Protection", "1; mode=block");
   response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
@@ -28,9 +51,7 @@ export function proxy(request: NextRequest) {
     response.headers.set("X-Frame-Options", "DENY");
   }
 
-  // Only create/propagate session cookies on API routes.
-  // Marketing pages stay cookie-free so Vercel edge can cache them.
-  if (pathname.startsWith(API_PREFIX)) {
+  if (pathname.startsWith("/api/")) {
     let sessionId = request.cookies.get(SESSION_COOKIE_NAME)?.value;
     let isNewSession = false;
 

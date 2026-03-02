@@ -1,6 +1,7 @@
 import { consumeSseResponse } from "@/lib/builder/sse";
+import { isPromptAssistOff, resolvePromptAssistProvider } from "@/lib/builder/promptAssist";
 import type { AutoFixPayload, SetMessages, StreamQualitySignal } from "./types";
-import toast from "react-hot-toast";
+import { toast } from "sonner";
 import {
   appendModelInfoPart,
   appendToolPartToMessage,
@@ -39,6 +40,8 @@ export type StreamContext = {
   mutateVersions: () => void;
   enableImageMaterialization: boolean;
   autoFixHandlerRef: React.MutableRefObject<(payload: AutoFixPayload) => void>;
+  promptAssistModel?: string | null;
+  promptAssistDeep?: boolean;
 };
 
 import { updateCreateChatLockChatId } from "./helpers";
@@ -88,12 +91,18 @@ export async function handleSseStream(
         switch (event) {
           case "meta": {
             const meta = typeof data === "object" && data ? (data as Record<string, unknown>) : {};
+            const paModel = ctx.promptAssistModel ?? null;
             appendModelInfoPart(setMessages, assistantMessageId, {
               modelId: (meta.modelId as string) ?? selectedModelTier,
               thinking: typeof meta.thinking === "boolean" ? meta.thinking : null,
               imageGenerations:
                 typeof meta.imageGenerations === "boolean" ? meta.imageGenerations : null,
               chatPrivacy: typeof meta.chatPrivacy === "string" ? meta.chatPrivacy : null,
+              promptAssistProvider: paModel
+                ? (isPromptAssistOff(paModel) ? "off" : resolvePromptAssistProvider(paModel))
+                : null,
+              promptAssistModel: paModel,
+              promptAssistDeep: ctx.promptAssistDeep ?? null,
             });
             break;
           }

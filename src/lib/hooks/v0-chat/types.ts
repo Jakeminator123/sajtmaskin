@@ -70,6 +70,9 @@ export type ModelInfoData = {
   thinking?: boolean | null;
   imageGenerations?: boolean | null;
   chatPrivacy?: string | null;
+  promptAssistProvider?: string | null;
+  promptAssistModel?: string | null;
+  promptAssistDeep?: boolean | null;
 };
 
 export type IntegrationSseSignal = {

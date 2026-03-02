@@ -3,21 +3,14 @@ Purpose: Samla en standard for hur anrop och floden fungerar.
 Scope: Endast beskrivande dokument (ingen runtime).
 
 Files in this folder:
-- calls.txt
-  Standard for viktigaste API-anrop, skillnad gateway/inte gateway,
-  och vilka filer som ansvarar for vad.
+(No standalone API call doc yet. API flows are documented inline in the source code.)
 
 Relation to other docs:
 - src/...: kodkalla for sanning, schemas maste uppdateras nar kod andras.
 
 How to update:
 0) Uppdatera endast pa uttrycklig begaran.
-1) Nar ett endpoint, request eller response andras -> uppdatera calls.txt.
-2) Nar nya floden tillkommer -> lagg till under "Flows" i calls.txt.
-3) Nar naming eller konfiguration andras -> uppdatera "Env/Config" i calls.txt.
-4) Nar v0-systemprompt eller prompt-assist beteende andras -> uppdatera calls.txt.
-5) Nar Custom Instructions-flode andras -> uppdatera calls.txt + builder-noter.
-6) Nar post-generation checks utokas (CSS/unicode) -> uppdatera post-generation-checks.txt.
+1) Nar post-generation checks utokas (CSS/unicode) -> uppdatera post-generation-checks.txt.
 
 Terminologi:
 - Platform API (v0-sdk) = kodgenerering + preview.
@@ -32,7 +25,7 @@ Designprincip:
 - Inga hemligheter eller nyckelvarden i texten, men kan skrivas i chatten och användas fritt där och i "env"-filer.
 - Teknisk standard och sprakregel ligger i DEFAULT_CUSTOM_INSTRUCTIONS (src/lib/builder/defaults.ts).
 
-Wizard enrich (2026-03):
+Wizard enrich (2026-03, V3):
 - Endpoint: POST /api/wizard/enrich
 - Request:
   - mode: "step" | "final_check" (default "step")
@@ -42,6 +35,8 @@ Wizard enrich (2026-03):
     - inspirationSites[]
     - purposes[], targetAudience, usp, selectedVibe, specialWishes
     - previousFollowUps: Record<string,string>
+    - companyLookup?: { found, employees?, revenueKsek?, industries?, purpose? }
+    - competitors?: { name, website? }[]
   - scrapeUrl?: string
 - Response:
   - questions[]: { id, text, type, options?, placeholder?, priority?, dependsOn? }
@@ -53,3 +48,20 @@ Wizard enrich (2026-03):
 - Not:
   - mode=final_check anvands for AI-klargoranden innan slutbrief i wizardn.
   - previousFollowUps ska alltid beaktas for att undvika repetitiva fragor.
+  - companyLookup och competitors injiceras i AI-kontexten for smartare fragor.
+
+Wizard company-lookup (2026-03, V3):
+- Endpoint: POST /api/wizard/company-lookup
+- Request: { companyName: string, orgNr?: string }
+- Response: CompanyLookupResult { found, companyName?, orgNr?, companyType?, city?,
+    address?, industries?, revenueKsek?, employees?, ceo?, homepage?, purpose?,
+    source?: "allabolag" | "ai_search" | "none" }
+- Strategi: 1) Cheerio-skrapa allabolag.se 2) AI web_search fallback 3) Tomt svar
+- Trigger: Automatiskt fran steg 1 nar companyName >= 3 tecken (debounce 1200ms)
+
+Wizard competitors (2026-03, V3):
+- Endpoint: POST /api/wizard/competitors
+- Request: { companyName, industry, location?, existingWebsite? }
+- Response: { competitors[]: { name, description, website?, lat?, lng?, isInspiration? },
+    marketInsight?: string }
+- Trigger: Automatiskt fran steg 1 nar companyName + industry ifyllt (debounce 1500ms)

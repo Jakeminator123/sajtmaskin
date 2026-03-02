@@ -47,7 +47,7 @@ export const versions = pgTable(
     v0MessageId: text("v0_message_id"),
     demoUrl: text("demo_url"),
     metadata: jsonb("metadata"),
-    pinned: boolean("pinned").default(false),
+    pinned: boolean("pinned").default(false).notNull(),
     pinnedAt: timestamp("pinned_at"),
     createdAt: timestamp("created_at").defaultNow().notNull(),
   },

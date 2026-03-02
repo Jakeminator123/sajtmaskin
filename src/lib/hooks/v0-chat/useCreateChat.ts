@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState } from "react";
-import toast from "react-hot-toast";
-import { formatPromptForV0 } from "@/lib/builder/promptAssist";
+import { toast } from "sonner";
+import { formatPromptForV0, resolvePromptAssistProvider, isPromptAssistOff } from "@/lib/builder/promptAssist";
 import { orchestratePromptMessage } from "@/lib/builder/promptOrchestration";
 import { debugLog } from "@/lib/utils/debug";
 import { STREAM_SAFETY_TIMEOUT_DEFAULT_MS } from "./constants";
@@ -153,6 +153,11 @@ export function useCreateChat(
               ? (meta.imageGenerations as boolean)
               : null,
           chatPrivacy: typeof meta?.chatPrivacy === "string" ? (meta.chatPrivacy as string) : null,
+          promptAssistProvider: promptAssistModel
+            ? (isPromptAssistOff(promptAssistModel) ? "off" : resolvePromptAssistProvider(promptAssistModel))
+            : null,
+          promptAssistModel: promptAssistModel ?? null,
+          promptAssistDeep: promptAssistDeep ?? null,
         });
         const newChatId =
           data.id || data.chatId || data.v0ChatId || (data.chat as Record<string, unknown>)?.id;
@@ -337,6 +342,8 @@ export function useCreateChat(
               mutateVersions,
               enableImageMaterialization,
               autoFixHandlerRef,
+              promptAssistModel,
+              promptAssistDeep,
             },
             streamController.signal,
           );

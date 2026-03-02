@@ -109,6 +109,12 @@ function isDisallowedHost(hostname) {
 async function waitForStabilizedPage(page) {
   await page.waitForLoadState("networkidle", { timeout: NETWORK_IDLE_TIMEOUT_MS }).catch(() => undefined);
   await page
+    .waitForSelector("body > *:not(script):not(style)", {
+      state: "attached",
+      timeout: 4_000,
+    })
+    .catch(() => undefined);
+  await page
     .evaluate(async () => {
       const fontsApi = document.fonts;
       if (!fontsApi?.ready) return;
@@ -119,7 +125,7 @@ async function waitForStabilizedPage(page) {
       }
     })
     .catch(() => undefined);
-  await page.waitForTimeout(300).catch(() => undefined);
+  await page.waitForTimeout(800).catch(() => undefined);
 }
 
 async function describePoint(page, x, y) {
