@@ -3,29 +3,8 @@ description: Project documentation and MCP server overview
 alwaysApply: true
 ---
 
-## Documentation lookup rule
-
-Project documentation is available through multiple MCP servers.
-Use `sajtmaskin-mpc` for project-specific docs; use the dedicated MCP
-servers for external platform docs (see `mcp-docs-routing.mdc`).
-
-### Local docs (`sajtmaskin-mpc`)
-
-- Entrypoint: `services/mpc/server.mjs`
-- Docs directory: `services/mpc/docs/` and `LLM/`
-- Exposes **resources only** (no tools) via `docs://local/{name}`
-- Contains: v0 prompt guide, architecture notes, AI SDK references, error playbook
-
-### When to consult local docs
-
-- User-facing page building / site generation
-- v0 Platform API patterns and prompt strategies
-- AI SDK usage and streaming patterns
-- General integration details specific to this project
-
-### When to use other MCP servers instead
+### When to use other MCP servers for documentation
 
 - **v0 code generation or chat management** -> use the `v0` MCP server directly
-- **shadcn/ui component lookup or installation** -> use the `shadcn` MCP server
 - **Vercel deploy/project management** -> use the `Vercel` MCP server
 - **OpenAI API docs** -> use `openaiDeveloperDocs`
