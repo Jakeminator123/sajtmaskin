@@ -60,6 +60,7 @@ import type { BuildIntent } from "@/lib/builder/build-intent";
 import { useAuth } from "@/lib/auth/auth-store";
 import { StepVisual } from "@/components/modals/step-visual";
 import { CompetitorMap } from "@/components/modals/competitor-map";
+import { LocationPicker } from "@/components/modals/location-picker";
 import { formatPromptForV0 } from "@/lib/builder/promptAssist";
 import { MAX_PROMPT_HANDOFF_CHARS } from "@/lib/builder/promptLimits";
 import type { CompanyLookupResult } from "@/app/api/wizard/company-lookup/route";
@@ -210,6 +211,8 @@ export interface WizardData {
   companyName: string;
   industry: string;
   location: string;
+  locationLat?: number;
+  locationLng?: number;
   existingWebsite: string;
   siteLikes: string[];
   siteDislikes: string[];
@@ -466,6 +469,8 @@ export function PromptWizardModalV2({
   const [companyName, setCompanyName] = useState(initialCompanyName);
   const [industry, setIndustry] = useState("");
   const [location, setLocation] = useState("");
+  const [locationLat, setLocationLat] = useState<number | undefined>();
+  const [locationLng, setLocationLng] = useState<number | undefined>();
   const [existingWebsite, setExistingWebsite] = useState("");
 
   // ═══════════════════════════════════════════════════════════════
@@ -569,6 +574,8 @@ export function PromptWizardModalV2({
       if (draft.companyName) setCompanyName(draft.companyName);
       if (draft.industry) setIndustry(draft.industry);
       if (draft.location) setLocation(draft.location);
+      if (typeof draft.locationLat === "number") setLocationLat(draft.locationLat);
+      if (typeof draft.locationLng === "number") setLocationLng(draft.locationLng);
       if (draft.existingWebsite) setExistingWebsite(draft.existingWebsite);
       if (draft.purposes?.length) setPurposes(draft.purposes);
       if (draft.targetAudience) setTargetAudience(draft.targetAudience);
@@ -599,7 +606,7 @@ export function PromptWizardModalV2({
     // Don't save empty state
     if (!companyName && !industry) return;
     const draft = {
-      companyName, industry, location, existingWebsite,
+      companyName, industry, location, locationLat, locationLng, existingWebsite,
       purposes, targetAudience, usp, siteFeedback,
       inspirationSites,
       selectedVibe, specialWishes, step,
@@ -614,7 +621,7 @@ export function PromptWizardModalV2({
       // ignore (private browsing etc)
     }
   }, [
-    isOpen, companyName, industry, location, existingWebsite,
+    isOpen, companyName, industry, location, locationLat, locationLng, existingWebsite,
     purposes, targetAudience, usp, siteFeedback,
     inspirationSites,
     selectedVibe, specialWishes, step,
@@ -922,6 +929,12 @@ export function PromptWizardModalV2({
     return () => { clearTimeout(timer); controller.abort(); };
   }, [companyName, isOpen, isAuthenticated, isInitialized]);
 
+  // Auto-fill location from company lookup (only if user hasn't set one)
+  useEffect(() => {
+    if (!companyLookup?.city || location.trim()) return;
+    setLocation(companyLookup.city);
+  }, [companyLookup, location]);
+
   // ── V3: Auto competitor discovery ─────────────────────────────
   useEffect(() => {
     if (!isOpen || !isAuthenticated || !isInitialized) return;
@@ -941,6 +954,8 @@ export function PromptWizardModalV2({
           companyName: companyName.trim(),
           industry,
           location: location.trim(),
+          lat: locationLat,
+          lng: locationLng,
           existingWebsite: existingWebsite.trim(),
         }),
       })
@@ -1273,6 +1288,8 @@ export function PromptWizardModalV2({
       companyName,
       industry,
       location,
+      locationLat,
+      locationLng,
       existingWebsite,
       siteLikes: [],
       siteDislikes: [],
@@ -1297,6 +1314,8 @@ export function PromptWizardModalV2({
     companyName,
     industry,
     location,
+    locationLat,
+    locationLng,
     existingWebsite,
     siteFeedback,
     inspirationSites,
@@ -1485,12 +1504,16 @@ export function PromptWizardModalV2({
                   <Globe className="h-4 w-4 text-primary" />
                   Plats <span className="font-normal text-muted-foreground">(valfritt)</span>
                 </label>
-                <input
-                  type="text"
+                <LocationPicker
                   value={location}
-                  onChange={(e) => setLocation(e.target.value)}
-                  placeholder="Stockholm, Göteborg, eller annat..."
-                  className={INPUT_CLASS}
+                  lat={locationLat}
+                  lng={locationLng}
+                  onLocationChange={(name, lat, lng) => {
+                    setLocation(name);
+                    setLocationLat(lat || undefined);
+                    setLocationLng(lng || undefined);
+                  }}
+                  inputClassName={INPUT_CLASS}
                 />
               </div>
 
@@ -1749,8 +1772,8 @@ export function PromptWizardModalV2({
                   )}
                   <CompetitorMap
                     competitors={competitors}
-                    centerLat={competitors[0]?.lat}
-                    centerLng={competitors[0]?.lng}
+                    centerLat={locationLat ?? competitors[0]?.lat}
+                    centerLng={locationLng ?? competitors[0]?.lng}
                     isLoading={isLoadingCompetitors}
                     onAddInspiration={(url) => {
                       const emptyIdx = inspirationSites.findIndex((s) => !s.trim());

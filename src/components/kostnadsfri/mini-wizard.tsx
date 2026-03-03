@@ -15,6 +15,7 @@ import {
   type ColorPalette,
   PREDEFINED_PALETTES,
 } from "@/components/forms/color-palette-picker";
+import { LocationPicker } from "@/components/modals/location-picker";
 import type { KostnadsfriCompanyData, MiniWizardData } from "@/lib/kostnadsfri";
 
 /**
@@ -303,12 +304,10 @@ export function MiniWizard({ companyData, onComplete, error }: MiniWizardProps) 
                 <label className="mb-1.5 block text-sm font-medium text-gray-300">
                   Ort / Plats
                 </label>
-                <input
-                  type="text"
+                <LocationPicker
                   value={location}
-                  onChange={(e) => setLocation(e.target.value)}
-                  placeholder="t.ex. Stockholm, Malmo, Goteborg..."
-                  className={INPUT_CLASS}
+                  onLocationChange={(name) => setLocation(name)}
+                  inputClassName={INPUT_CLASS}
                 />
               </div>
 

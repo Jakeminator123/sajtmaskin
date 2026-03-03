@@ -108,8 +108,8 @@ async function main() {
       category: templateCategoryMap[t.id] ?? t.category ?? "uncategorized",
     }));
 
-  console.log(`📦 Found ${templates.length} templates`);
-  console.log(`🧠 Model: ${MODEL} (${DIMENSIONS} dimensions)`);
+  console.info(`📦 Found ${templates.length} templates`);
+  console.info(`🧠 Model: ${MODEL} (${DIMENSIONS} dimensions)`);
 
   const allEmbeddings: EmbeddingEntry[] = [];
   const totalBatches = Math.ceil(templates.length / BATCH_SIZE);
@@ -119,7 +119,7 @@ async function main() {
     const batchNum = Math.floor(i / BATCH_SIZE) + 1;
     const texts = batch.map(buildEmbeddingText);
 
-    console.log(`  Batch ${batchNum}/${totalBatches} (${batch.length} templates)...`);
+    console.info(`  Batch ${batchNum}/${totalBatches} (${batch.length} templates)...`);
 
     const response = await openai.embeddings.create({
       model: MODEL,
@@ -154,8 +154,8 @@ async function main() {
   fs.writeFileSync(OUTPUT_PATH, JSON.stringify(output), "utf-8");
 
   const fileSizeMB = (fs.statSync(OUTPUT_PATH).size / 1024 / 1024).toFixed(2);
-  console.log(`\n✅ Saved ${allEmbeddings.length} embeddings to ${OUTPUT_PATH}`);
-  console.log(`   File size: ${fileSizeMB} MB`);
+  console.info(`\n✅ Saved ${allEmbeddings.length} embeddings to ${OUTPUT_PATH}`);
+  console.info(`   File size: ${fileSizeMB} MB`);
 }
 
 main().catch((err) => {
