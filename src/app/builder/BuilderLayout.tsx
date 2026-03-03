@@ -11,7 +11,7 @@ type BuilderLayoutProps = {
 export function BuilderLayout({ chatId, versionId, children }: BuilderLayoutProps) {
   return (
     <ErrorBoundary chatId={chatId} versionId={versionId}>
-      <main className="bg-muted/30 flex h-screen w-screen flex-col overflow-hidden">
+      <main className="bg-muted/30 flex h-screen w-screen flex-col overflow-x-hidden supports-[height:100dvh]:h-dvh md:overflow-hidden">
         {children}
       </main>
     </ErrorBoundary>

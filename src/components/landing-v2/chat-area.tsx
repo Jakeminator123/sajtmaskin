@@ -1540,7 +1540,7 @@ export function ChatArea({
   }, [isAuditMode, onAuditSubmit, startBuild])
 
   return (
-    <main className="flex-1 flex flex-col relative overflow-hidden">
+    <main className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
       {/* Background layers */}
       <div className="absolute inset-0 bg-background" />
       <div className="absolute inset-0 overflow-hidden">
@@ -1557,10 +1557,13 @@ export function ChatArea({
       />
 
       {/* Scrollable content */}
-      <div className="relative z-10 flex-1 overflow-y-auto scroll-smooth" data-scroll-container>
+      <div
+        className="relative z-10 flex min-h-0 flex-1 touch-pan-y flex-col overflow-y-auto overscroll-y-contain scroll-smooth [-webkit-overflow-scrolling:touch]"
+        data-scroll-container
+      >
 
         {/* ━━━ HERO ━━━ */}
-        <section className="flex flex-col items-center justify-center px-6 pt-10 pb-8 md:pt-16 md:pb-12 min-h-[calc(100vh-57px)]">
+        <section className="flex min-h-[calc(100vh-57px)] flex-col items-center justify-center px-6 pt-10 pb-8 supports-[height:100svh]:min-h-[calc(100svh-57px)] md:pt-16 md:pb-12">
           {heroPrefix}
           {/* Particle orb */}
           <div className="relative mb-5 animate-fade-up" style={{ animationDelay: "0.1s" }}>
