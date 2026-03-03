@@ -28,6 +28,10 @@ export function LocationPicker({
   const autocompleteRef = useRef<google.maps.places.Autocomplete | null>(null);
   const geocoderRef = useRef<google.maps.Geocoder | null>(null);
 
+  // Stable ref so callbacks never depend on the caller's function identity
+  const onChangeRef = useRef(onLocationChange);
+  useEffect(() => { onChangeRef.current = onLocationChange; }, [onLocationChange]);
+
   const [scriptLoaded, setScriptLoaded] = useState(false);
   const [geoLoading, setGeoLoading] = useState(false);
   const [inputValue, setInputValue] = useState(value);
@@ -68,14 +72,15 @@ export function LocationPicker({
           addr.address_components.find((c) => c.types.includes("postal_town"))?.long_name ??
           addr.formatted_address;
         setInputValue(city);
-        onLocationChange(city, position.lat, position.lng);
+        onChangeRef.current(city, position.lat, position.lng);
       });
     },
-    [onLocationChange],
+    [],
   );
 
   const initMap = useCallback(() => {
     if (!mapRef.current || !window.google?.maps) return;
+    if (mapInstanceRef.current) return;
 
     const center = hasInitialCoords
       ? { lat: lat!, lng: lng! }
@@ -138,16 +143,15 @@ export function LocationPicker({
           inputRef.current?.value ??
           "";
         setInputValue(city);
-        onLocationChange(city, p.lat, p.lng);
+        onChangeRef.current(city, p.lat, p.lng);
       });
     }
-  }, [hasInitialCoords, lat, lng, movePin, reverseGeocode, onLocationChange]);
+  }, [hasInitialCoords, lat, lng, movePin, reverseGeocode]);
 
   useEffect(() => {
     if (scriptLoaded) initMap();
   }, [scriptLoaded, initMap]);
 
-  // IP geolocation on mount (only if no coords provided)
   useEffect(() => {
     if (hasInitialCoords) return;
     let cancelled = false;
@@ -162,7 +166,7 @@ export function LocationPicker({
           mapInstanceRef.current?.setZoom(10);
           if (!value && data.city) {
             setInputValue(data.city);
-            onLocationChange(data.city, p.lat, p.lng);
+            onChangeRef.current(data.city, p.lat, p.lng);
           }
         }
       })
@@ -173,7 +177,6 @@ export function LocationPicker({
     return () => {
       cancelled = true;
     };
-    // Run once on mount
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

@@ -968,7 +968,7 @@ export function PromptWizardModalV2({
         .finally(() => setIsLoadingCompetitors(false));
     }, 1500);
     return () => { clearTimeout(timer); controller.abort(); };
-  }, [companyName, industry, location, existingWebsite, isOpen, isAuthenticated, isInitialized]);
+  }, [companyName, industry, location, locationLat, locationLng, existingWebsite, isOpen, isAuthenticated, isInitialized]);
 
   // Toggle purpose selection
   const togglePurpose = useCallback((purposeId: string) => {
