@@ -108,6 +108,11 @@ type ProjectEnvVarsOpenDetail = {
   envKeys?: string[];
 };
 
+const SYNTHETIC_V0_PROJECT_PREFIXES = ["chat:", "registry:"];
+function isSyntheticV0ProjectId(id: string): boolean {
+  return SYNTHETIC_V0_PROJECT_PREFIXES.some((prefix) => id.startsWith(prefix));
+}
+
 // ---------------------------------------------------------------------------
 // Main component
 // ---------------------------------------------------------------------------
@@ -125,6 +130,7 @@ export function ProjectEnvVarsPanel({ projectId }: ProjectSettingsPanelProps) {
   const [newKey, setNewKey] = useState("");
   const [newValue, setNewValue] = useState("");
   const [newSensitive, setNewSensitive] = useState(true);
+  const [syntheticProject, setSyntheticProject] = useState(false);
 
   // --- integration state ---
   const [integrationStatus, setIntegrationStatus] = useState<IntegrationStatusResponse | null>(
@@ -146,8 +152,16 @@ export function ProjectEnvVarsPanel({ projectId }: ProjectSettingsPanelProps) {
     if (!projectId) {
       setEnvVars([]);
       setError(null);
+      setSyntheticProject(false);
       return;
     }
+    if (isSyntheticV0ProjectId(projectId)) {
+      setEnvVars([]);
+      setError(null);
+      setSyntheticProject(true);
+      return;
+    }
+    setSyntheticProject(false);
     setIsLoading(true);
     setError(null);
     try {
@@ -585,6 +599,12 @@ export function ProjectEnvVarsPanel({ projectId }: ProjectSettingsPanelProps) {
               {!projectId && (
                 <div className="text-muted-foreground rounded-md border border-dashed p-2 text-xs">
                   Skapa eller öppna en chat först så att projektet får ett riktigt projectId.
+                </div>
+              )}
+
+              {syntheticProject && (
+                <div className="rounded-lg border border-border/30 bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+                  Miljövariabler kan sättas efter att en sajt har genererats och ett riktigt projekt skapats.
                 </div>
               )}
 

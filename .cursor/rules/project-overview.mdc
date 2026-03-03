@@ -44,7 +44,7 @@ User prompt -> Builder UI -> v0 Platform API -> Generated code -> Preview -> Dep
 | `src/lib/db/` | Drizzle schema + service layer |
 | `src/lib/auth/` | Auth logic + Zustand store + edge-auth.ts for middleware |
 | `src/lib/brave-search.ts` | Brave Web Search API wrapper |
-| `src/middleware.ts` | Centralized auth redirects, CORS, security headers (Edge Runtime) |
+| `src/proxy.ts` | Centralized auth redirects, CORS, security headers (Node.js runtime) |
 | `LLM/` | AI/prompt strategy notes |
 
 ### Core flow (builder)
@@ -70,4 +70,4 @@ Feature flags auto-detect available services.
 - Language: Swedish for user-facing copy, English for code/comments/logs
 - Path alias: `@/*` maps to `src/*`
 - Barrel exports: `index.ts` in component directories
-- API routes handle auth via session cookies (see `src/middleware.ts`)
+- API routes handle auth via session cookies (see `src/proxy.ts`)

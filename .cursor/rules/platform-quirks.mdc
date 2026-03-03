@@ -1,0 +1,21 @@
+---
+description: Platform-specific quirks for this project/user/machine
+alwaysApply: true
+---
+
+# Platform quirks (Windows / this project)
+
+## Shell & heredoc
+- This machine runs **PowerShell on Windows**. Bash heredocs (`<<'EOF'`) do NOT work natively.
+- When writing files in Vercel Sandbox or similar remote environments, always prefer SDK methods (`sandbox.writeFiles()`) over `bash -c cat <<EOF` to avoid both heredoc incompatibility and OS argument-length limits (`argument list too long`).
+
+## Vercel Sandbox file writes
+- Use `sandbox.writeFiles([{ path, content: Buffer.from(str, "utf-8") }])` instead of shell heredocs.
+- The OS `exec` arg limit (~2 MB) is easily hit with large generated codebases (20+ files).
+
+## Playwright / Inspector
+- `INSPECTOR_CAPTURE_WORKER_URL` is often unset locally. Inspector endpoints (`element-map`, `capture`) have local Playwright fallbacks via `chromium.launch()`.
+- Ensure Playwright browsers are installed: `npx playwright install chromium`.
+
+## Stream proxy (long v0 generations)
+- Never call `reader.releaseLock()` while a `reader.read()` is pending — use `reader.cancel()` in `ReadableStream.cancel()` callbacks instead, to avoid `ERR_INVALID_STATE`.

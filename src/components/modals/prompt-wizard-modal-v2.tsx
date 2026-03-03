@@ -288,6 +288,8 @@ interface EnrichResponsePayload {
   contextHash?: string;
 }
 
+const CLARIFY_FALLBACK_ID = "clarify_fallback";
+
 // ── Design feature chips ──────────────────────────────────────────
 type DesignFeature = {
   id: string;
@@ -323,6 +325,31 @@ const INPUT_CLASS =
 
 // ── FollowUpRenderer ──────────────────────────────────────────────
 
+function isFollowUpQuestionVisible(
+  question: FollowUpQuestion,
+  answers: Record<string, string>,
+): boolean {
+  if (!question.dependsOn) return true;
+  const dep = question.dependsOn;
+  const source = (answers[dep.answerId] || "").toLowerCase();
+  if (dep.includes?.length) {
+    const hasAny = dep.includes.some((token) => source.includes(token.toLowerCase()));
+    if (!hasAny) return false;
+  }
+  if (dep.excludes?.length) {
+    const hasExcluded = dep.excludes.some((token) => source.includes(token.toLowerCase()));
+    if (hasExcluded) return false;
+  }
+  return true;
+}
+
+function getVisibleFollowUpQuestions(
+  questions: FollowUpQuestion[],
+  answers: Record<string, string>,
+): FollowUpQuestion[] {
+  return questions.filter((q) => isFollowUpQuestionVisible(q, answers));
+}
+
 function FollowUpRenderer({
   questions,
   answers,
@@ -333,20 +360,7 @@ function FollowUpRenderer({
   onAnswer: (id: string, value: string) => void;
 }) {
   const visibleQuestions = useMemo(() => {
-    return questions.filter((q) => {
-      if (!q.dependsOn) return true;
-      const dep = q.dependsOn;
-      const source = (answers[dep.answerId] || "").toLowerCase();
-      if (dep.includes?.length) {
-        const hasAny = dep.includes.some((token) => source.includes(token.toLowerCase()));
-        if (!hasAny) return false;
-      }
-      if (dep.excludes?.length) {
-        const hasExcluded = dep.excludes.some((token) => source.includes(token.toLowerCase()));
-        if (hasExcluded) return false;
-      }
-      return true;
-    });
+    return getVisibleFollowUpQuestions(questions, answers);
   }, [questions, answers]);
 
   if (!visibleQuestions.length) return null;
@@ -1003,6 +1017,14 @@ export function PromptWizardModalV2({
   }, []);
 
   // Step validation
+  const visibleClarifyQuestions = useMemo(
+    () => getVisibleFollowUpQuestions(clarifyQuestions, followUpAnswers),
+    [clarifyQuestions, followUpAnswers],
+  );
+  const hasClarifyUnknowns = (activeEnrichMeta?.unknowns?.length ?? 0) > 0;
+  const requiresClarifyFallback =
+    showClarifyGate && hasClarifyUnknowns && visibleClarifyQuestions.length === 0;
+
   const canProceed = useCallback(() => {
     switch (step) {
       case 1:
@@ -1014,8 +1036,16 @@ export function PromptWizardModalV2({
       case 4:
         return selectedPalette !== null || customColors !== null;
       case 5:
-        if (!showClarifyGate || clarifyQuestions.length === 0) return true;
-        return clarifyQuestions.every((q) => (followUpAnswers[q.id] || "").trim().length > 0);
+        if (!showClarifyGate) return true;
+        if (visibleClarifyQuestions.length > 0) {
+          return visibleClarifyQuestions.every(
+            (q) => (followUpAnswers[q.id] || "").trim().length > 0,
+          );
+        }
+        if (requiresClarifyFallback) {
+          return (followUpAnswers[CLARIFY_FALLBACK_ID] || "").trim().length > 0;
+        }
+        return true;
       default:
         return true;
     }
@@ -1027,7 +1057,8 @@ export function PromptWizardModalV2({
     selectedPalette,
     customColors,
     showClarifyGate,
-    clarifyQuestions,
+    visibleClarifyQuestions,
+    requiresClarifyFallback,
     followUpAnswers,
   ]);
 
@@ -1078,20 +1109,39 @@ export function PromptWizardModalV2({
           force: true,
         });
         const finalQuestions = clarification?.questions || [];
-        if (finalQuestions.length > 0) {
+        const finalMeta = clarification?.meta;
+        const finalUnknowns = finalMeta?.unknowns || [];
+        const needsClarification =
+          finalQuestions.length > 0 || Boolean(finalMeta?.needsClarification) || finalUnknowns.length > 0;
+
+        if (finalMeta) {
+          setActiveEnrichMeta(finalMeta);
+        }
+
+        if (needsClarification) {
           setClarifyQuestions(finalQuestions);
           setShowClarifyGate(true);
-          setError("Svara på AI:s klargörande frågor innan vi skapar briefen.");
+          setError(
+            finalQuestions.length > 0
+              ? "Svara på AI:s klargörande frågor innan vi skapar briefen."
+              : "AI behöver ett kort förtydligande. Svara i fältet nedan innan vi skapar briefen.",
+          );
           return;
         }
       }
 
-      if (
-        showClarifyGate &&
-        clarifyQuestions.some((q) => (followUpAnswers[q.id] || "").trim().length === 0)
-      ) {
-        setError("Några klargöranden saknar svar. Fyll i dem, eller gå tillbaka och justera input.");
-        return;
+      if (showClarifyGate) {
+        if (
+          visibleClarifyQuestions.length > 0 &&
+          visibleClarifyQuestions.some((q) => (followUpAnswers[q.id] || "").trim().length === 0)
+        ) {
+          setError("Några klargöranden saknar svar. Fyll i dem, eller gå tillbaka och justera input.");
+          return;
+        }
+        if (requiresClarifyFallback && !(followUpAnswers[CLARIFY_FALLBACK_ID] || "").trim()) {
+          setError("AI behöver ett förtydligande. Skriv ett kort svar i klargörandefältet.");
+          return;
+        }
       }
 
       const palette = customColors || selectedPalette;
@@ -1235,7 +1285,8 @@ export function PromptWizardModalV2({
     showClarifyGate,
     shouldAskForClarification,
     fetchEnrichment,
-    clarifyQuestions,
+    visibleClarifyQuestions,
+    requiresClarifyFallback,
     companyName,
     industry,
     location,
@@ -1970,6 +2021,24 @@ export function PromptWizardModalV2({
                       answers={followUpAnswers}
                       onAnswer={handleFollowUpAnswer}
                     />
+                  )}
+                  {showClarifyGate && requiresClarifyFallback && (
+                    <div className="space-y-1.5 rounded-xl border border-amber-500/30 bg-amber-500/5 p-3">
+                      <label className="text-xs font-medium text-amber-200">
+                        Svara till AI innan briefen skapas
+                      </label>
+                      <textarea
+                        value={followUpAnswers[CLARIFY_FALLBACK_ID] || ""}
+                        onChange={(e) => handleFollowUpAnswer(CLARIFY_FALLBACK_ID, e.target.value)}
+                        rows={3}
+                        placeholder={
+                          hasClarifyUnknowns
+                            ? `Svara kort på detta: ${(activeEnrichMeta?.unknowns || []).slice(0, 3).join(", ")}`
+                            : "Skriv de saknade detaljerna (t.ex. tidsplan, budget, betalningslösning)."
+                        }
+                        className={INPUT_CLASS + " text-sm"}
+                      />
+                    </div>
                   )}
                 </div>
               )}

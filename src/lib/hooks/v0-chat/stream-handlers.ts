@@ -277,24 +277,41 @@ export async function handleSseStream(
 
             if (awaitingInput) {
               const contentTail = accumulatedContent.trim().slice(-300);
-              const questionPreview = contentTail
+              const looksLikeQuestion =
+                contentTail &&
+                (contentTail.slice(-25).includes("?") || contentTail.length <= 100);
+              const questionPreview = looksLikeQuestion
                 ? contentTail
-                : "AI needs your answer before the next version can be generated. Pick an option in chat or reply with free text.";
-              appendToolPartToMessage(setMessages, assistantMessageId, {
-                type: "tool:awaiting-input",
-                toolName: "Awaiting input",
-                toolCallId: `awaiting-input:${assistantMessageId}`,
-                state: "approval-requested",
-                output: {
-                  question: questionPreview,
-                  chatId: nextId,
-                  messageId:
-                    doneData.messageId ||
-                    doneData.message_id ||
-                    (doneData.latestVersion as Record<string, unknown> | undefined)?.messageId ||
-                    null,
-                  awaitingInput: true,
-                },
+                : "AI väntar på ditt svar. Läs meddelandet ovan och svara i chatten.";
+              setMessages((prev) => {
+                const assistantMsg = prev.find((m) => m.id === assistantMessageId);
+                const hasApprovalRequested = (assistantMsg?.uiParts ?? []).some(
+                  (p) =>
+                    (p as { state?: string; type?: string }).state === "approval-requested" ||
+                    (p as { type?: string }).type === "tool:awaiting-input",
+                );
+                if (hasApprovalRequested) return prev;
+                const part = {
+                  type: "tool:awaiting-input",
+                  toolName: "Awaiting input",
+                  toolCallId: `awaiting-input:${assistantMessageId}`,
+                  state: "approval-requested",
+                  output: {
+                    question: questionPreview,
+                    chatId: nextId,
+                    messageId:
+                      doneData.messageId ||
+                      doneData.message_id ||
+                      (doneData.latestVersion as Record<string, unknown> | undefined)?.messageId ||
+                      null,
+                    awaitingInput: true,
+                  },
+                } as Parameters<typeof appendToolPartToMessage>[2];
+                return prev.map((m) =>
+                  m.id === assistantMessageId
+                    ? { ...m, uiParts: mergeUiParts(m.uiParts, [part]) }
+                    : m,
+                );
               });
               setMessages((prev) =>
                 prev.map((m) => {

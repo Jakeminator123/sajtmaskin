@@ -133,17 +133,31 @@ export function buildCreateChatKey(
 export function mergeStreamingText(previous: string, incoming: string): string {
   if (!previous) return incoming;
   if (!incoming) return previous;
+  if (incoming === previous) return previous;
+  if (incoming.length < 50 && previous.endsWith(incoming)) return previous;
   if (incoming.startsWith(previous)) return incoming;
   if (previous.startsWith(incoming)) return previous;
-  if (incoming.length > 64 && previous.includes(incoming)) return previous;
-  if (previous.length > 64 && incoming.includes(previous)) return incoming;
 
-  const MIN_SAFE_OVERLAP = 24;
+  // v0 sometimes sends full accumulated text (not just delta). If incoming
+  // fully contains our previous text it's a safe full-replace.
+  if (incoming.length > 64 && previous.length > 64 && incoming.includes(previous)) return incoming;
+  // The reverse (previous includes incoming) means incoming is a subset we
+  // already have -- only safe when previous is substantially longer.
+  if (previous.length > 64 && previous.includes(incoming) && previous.length >= incoming.length) return previous;
+
+  const MIN_SAFE_OVERLAP = 12;
   const maxOverlap = Math.min(previous.length, incoming.length);
   for (let size = maxOverlap; size >= MIN_SAFE_OVERLAP; size -= 1) {
     if (previous.slice(-size) === incoming.slice(0, size)) {
       return previous + incoming.slice(size);
     }
+  }
+
+  // Large incoming that doesn't overlap -- likely a full-content replace from
+  // v0 (the provider restarted its accumulation). Keep the longer text to
+  // avoid truncating content that was already displayed.
+  if (incoming.length > 200 && incoming.length > previous.length * 0.8) {
+    return incoming.length >= previous.length ? incoming : previous;
   }
 
   const last = previous.slice(-1);

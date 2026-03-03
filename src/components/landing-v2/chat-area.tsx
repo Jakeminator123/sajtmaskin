@@ -190,10 +190,10 @@ const features = [
       "Vercel Edge Runtime \u2014 < 50ms kall-start globalt",
       "Automatisk geo-routing till n\u00e4rmaste datacenter",
       "Streaming SSR f\u00f6r progressiv rendering av stora sidor",
-      "Edge Middleware f\u00f6r auth, redirects och A/B-tester",
+      "Proxy (tidigare middleware) f\u00f6r auth, redirects och A/B-tester",
     ],
-    codeFile: "middleware.ts",
-    codeSnippet: `import { NextResponse } from "next/server"\nimport type { NextRequest } from "next/server"\n\nexport function middleware(req: NextRequest) {\n  const country = req.geo?.country ?? "SE"\n  const res = NextResponse.next()\n  res.headers.set("x-geo", country)\n  return res\n}`,
+    codeFile: "proxy.ts",
+    codeSnippet: `import { NextResponse } from "next/server"\nimport type { NextRequest } from "next/server"\n\nexport function proxy(req: NextRequest) {\n  const country = req.geo?.country ?? "SE"\n  const res = NextResponse.next()\n  res.headers.set("x-geo", country)\n  return res\n}`,
   },
   {
     icon: Layers,

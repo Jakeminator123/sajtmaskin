@@ -46,14 +46,6 @@ function isSafeRelativePath(path: string): boolean {
   return /^[A-Za-z0-9._/@-]+$/.test(path);
 }
 
-function makeSafeHeredoc(content: string): { delimiter: string; body: string } {
-  let delimiter = `GATE_EOF_${Math.random().toString(36).slice(2)}`;
-  while (content.includes(delimiter)) {
-    delimiter = `GATE_EOF_${Math.random().toString(36).slice(2)}`;
-  }
-  return { delimiter, body: content };
-}
-
 async function resolveInternalVersionId(chatId: string, versionId: string) {
   const byInternal = await db
     .select()
@@ -125,22 +117,14 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
     });
 
     try {
-      for (const file of files) {
-        if (!isSafeRelativePath(file.name)) continue;
-        const { delimiter, body: fileBody } = makeSafeHeredoc(String(file.content ?? ""));
-        await sandbox.runCommand({
-          cmd: "bash",
-          args: [
-            "-c",
-            [
-              `set -e`,
-              `mkdir -p "$(dirname "${file.name}")"`,
-              `cat > "${file.name}" <<'${delimiter}'`,
-              fileBody,
-              `${delimiter}`,
-            ].join("\n"),
-          ],
-        });
+      const writePayload = files
+        .filter((file) => isSafeRelativePath(file.name))
+        .map((file) => ({
+          path: file.name,
+          content: Buffer.from(String(file.content ?? ""), "utf-8"),
+        }));
+      if (writePayload.length > 0) {
+        await sandbox.writeFiles(writePayload);
       }
 
       await sandbox.runCommand({ cmd: "bash", args: ["-c", "npm install --prefer-offline 2>&1 || true"] });

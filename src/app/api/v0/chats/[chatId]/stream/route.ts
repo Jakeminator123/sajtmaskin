@@ -328,11 +328,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
           cancel() {
             controllerClosed = true;
             stopPing();
-            try {
-              reader.releaseLock();
-            } catch {
-              // reader may already be released
-            }
+            reader.cancel().catch(() => {});
           },
           async start(controller) {
             const encoder = new TextEncoder();

@@ -37,6 +37,8 @@ export async function GET(
   const stream = new ReadableStream({
     async start(controller) {
       let closed = false;
+      let pollStarted = false;
+      let sub: ReturnType<typeof createRedisSubscriber> = null;
 
       function send(data: Record<string, unknown>) {
         if (closed) return;
@@ -53,6 +55,13 @@ export async function GET(
         try {
           controller.close();
         } catch {}
+      }
+
+      function disconnectSubscriber() {
+        if (!sub) return;
+        sub.unsubscribe().catch(() => {});
+        sub.disconnect();
+        sub = null;
       }
 
       send({
@@ -73,44 +82,7 @@ export async function GET(
         return;
       }
 
-      req.signal.addEventListener("abort", () => {
-        close();
-      });
-
-      const sub = createRedisSubscriber();
-      if (sub) {
-        const channel = deployStatusChannel(vercelDeploymentId);
-
-        sub.subscribe(channel).catch(() => {
-          sub.disconnect();
-          close();
-        });
-
-        sub.on("message", (_ch: string, message: string) => {
-          try {
-            const data = JSON.parse(message);
-            send(data);
-            if (TERMINAL_STATUSES.has(data.status)) {
-              sub.unsubscribe().catch(() => {});
-              sub.disconnect();
-              close();
-            }
-          } catch {}
-        });
-
-        sub.on("error", () => {
-          sub.disconnect();
-        });
-
-        req.signal.addEventListener("abort", () => {
-          sub.unsubscribe().catch(() => {});
-          sub.disconnect();
-        });
-
-        return;
-      }
-
-      // Fallback: poll Vercel API when Redis is unavailable
+      // Fallback: poll Vercel API when Redis is unavailable or fails
       const poll = async () => {
         while (!closed) {
           await new Promise((r) => setTimeout(r, POLL_INTERVAL_MS));
@@ -140,7 +112,46 @@ export async function GET(
         }
       };
 
-      poll();
+      function startPollingFallback() {
+        if (pollStarted || closed) return;
+        pollStarted = true;
+        void poll();
+      }
+
+      req.signal.addEventListener("abort", () => {
+        disconnectSubscriber();
+        close();
+      });
+
+      sub = createRedisSubscriber();
+      if (sub) {
+        const channel = deployStatusChannel(vercelDeploymentId);
+
+        sub.subscribe(channel).catch(() => {
+          disconnectSubscriber();
+          startPollingFallback();
+        });
+
+        sub.on("message", (_ch: string, message: string) => {
+          try {
+            const data = JSON.parse(message);
+            send(data);
+            if (TERMINAL_STATUSES.has(data.status)) {
+              disconnectSubscriber();
+              close();
+            }
+          } catch {}
+        });
+
+        sub.on("error", () => {
+          disconnectSubscriber();
+          startPollingFallback();
+        });
+
+        return;
+      }
+
+      startPollingFallback();
     },
   });
 

@@ -1070,9 +1070,14 @@ function getActionPrompt(
       options: explicitPrompt.options.map(normalizeApprovalOptionLabel),
     };
     if (normalizedPrompt.options.length === 0) {
+      const q = normalizedPrompt.question;
+      const looksLikeApprovalQuestion =
+        q.length <= 120 || q.slice(-25).includes("?");
       return {
         question: normalizedPrompt.question,
-        options: ["Godkänn förslag", "Avvisa förslag", "Annat"],
+        options: looksLikeApprovalQuestion
+          ? ["Godkänn förslag", "Avvisa förslag", "Annat"]
+          : [],
       };
     }
     return normalizedPrompt;
