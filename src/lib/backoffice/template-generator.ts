@@ -1119,9 +1119,9 @@ const DATA_DIR = process.env.DATA_DIR || path.join(process.cwd(), "data");
 const CONTENT_FILE = path.join(DATA_DIR, "content.json");
 const COLORS_FILE = path.join(DATA_DIR, "colors.json");
 const MANIFEST_FILE = path.join(process.cwd(), "data", "manifest.json");
-const STORAGE_BACKEND = process.env.STORAGE_BACKEND === "json-blob" ? "json-blob" : "fs";
-const BLOB_CONTENT_KEY = process.env.BLOB_CONTENT_KEY || "backoffice/content.json";
-const BLOB_COLORS_KEY = process.env.BLOB_COLORS_KEY || "backoffice/colors.json";
+const STORAGE_BACKEND = process.env.STORAGE_BACKEND?.trim() === "json-blob" ? "json-blob" : "fs";
+const BLOB_CONTENT_KEY = process.env.BLOB_CONTENT_KEY?.trim() || "backoffice/content.json";
+const BLOB_COLORS_KEY = process.env.BLOB_COLORS_KEY?.trim() || "backoffice/colors.json";
 
 type ContentData = { content: any[]; products: any[]; colors: Record<string, unknown> };
 
@@ -1140,7 +1140,7 @@ function readManifest(): ContentData {
 }
 
 async function readBlobJson<T>(pathname: string): Promise<T | null> {
-  const token = process.env.BLOB_READ_WRITE_TOKEN;
+  const token = process.env.BLOB_READ_WRITE_TOKEN?.trim();
   if (!token) return null;
 
   const blobSdk = await import("@vercel/blob");
@@ -1158,7 +1158,7 @@ async function readBlobJson<T>(pathname: string): Promise<T | null> {
 }
 
 async function writeBlobJson(pathname: string, data: unknown): Promise<void> {
-  const token = process.env.BLOB_READ_WRITE_TOKEN;
+  const token = process.env.BLOB_READ_WRITE_TOKEN?.trim();
   if (!token) {
     throw new Error("BLOB_READ_WRITE_TOKEN is required for STORAGE_BACKEND=json-blob");
   }
