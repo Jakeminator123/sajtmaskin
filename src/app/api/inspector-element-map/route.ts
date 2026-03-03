@@ -17,13 +17,6 @@ type MapRequest = {
   maxElements?: number;
 };
 
-type ElementInfo = {
-  tag: string;
-  id: string | null;
-  className: string | null;
-  text: string | null;
-  vpPercent: { x: number; y: number; w: number; h: number };
-};
 
 const cache = new Map<string, { data: unknown; ts: number }>();
 const CACHE_TTL_MS = 60_000;
