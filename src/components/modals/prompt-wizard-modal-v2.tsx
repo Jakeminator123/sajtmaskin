@@ -939,7 +939,7 @@ export function PromptWizardModalV2({
   useEffect(() => {
     if (!isOpen || !isAuthenticated || !isInitialized) return;
     if (!companyName.trim() || !industry) return;
-    const key = `${companyName.trim()}|${industry}|${location.trim()}`;
+    const key = `${companyName.trim()}|${industry}|${location.trim()}|${locationLat?.toFixed(5) ?? ""}|${locationLng?.toFixed(5) ?? ""}`;
     if (competitorsRef.current === key) return;
     const controller = new AbortController();
     const timer = setTimeout(() => {

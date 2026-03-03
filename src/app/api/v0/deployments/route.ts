@@ -5,6 +5,7 @@ import { and, eq, desc } from "drizzle-orm";
 import { z } from "zod/v4";
 import { withRateLimit } from "@/lib/rateLimit";
 import { assertV0Key, v0 } from "@/lib/v0";
+import { fetchV0ProjectEnvVars } from "@/lib/v0/v0-env-vars";
 import { createDeploymentRecord, updateDeploymentStatus } from "@/lib/deployment";
 import { materializeImagesInTextFiles, type ImageAssetStrategy } from "@/lib/imageAssets";
 import {
@@ -18,6 +19,7 @@ import {
   getVercelDeployment,
   mapVercelReadyStateToStatus,
   sanitizeVercelProjectName,
+  syncEnvVarsToVercelProject,
   toVercelFilesFromTextFiles,
 } from "@/lib/vercelDeploy";
 import { getChatByIdForRequest, getChatByV0ChatIdForRequest } from "@/lib/tenant";
@@ -445,11 +447,41 @@ export async function POST(req: Request) {
 
         const vercelFiles = toVercelFilesFromTextFiles(imageAssets.files);
 
+        let deployEnvVars: Record<string, string> = {};
+        if (chat!.v0ProjectId) {
+          try {
+            deployEnvVars = await fetchV0ProjectEnvVars(chat!.v0ProjectId);
+            if (Object.keys(deployEnvVars).length > 0) {
+              console.info(
+                `[deploy] resolved ${Object.keys(deployEnvVars).length} env var(s) from v0 project ${chat!.v0ProjectId}`,
+              );
+            }
+          } catch (envErr) {
+            console.warn("[deploy] failed to fetch v0 project env vars (non-fatal):", envErr);
+          }
+        }
+
         const created = await createVercelDeployment({
           projectName: vercelProjectName,
           target: target || "production",
           files: vercelFiles,
+          envVars: Object.keys(deployEnvVars).length > 0 ? deployEnvVars : undefined,
         });
+
+        // Persist env vars at the Vercel project level for future redeploys
+        if (created.vercelProjectId && Object.keys(deployEnvVars).length > 0) {
+          const envSync = await syncEnvVarsToVercelProject(
+            created.vercelProjectId,
+            deployEnvVars,
+          );
+          if (envSync.errors.length > 0) {
+            console.warn("[deploy] env var project sync errors:", envSync.errors);
+          } else if (envSync.synced > 0) {
+            console.info(
+              `[deploy] synced ${envSync.synced} env var(s) to Vercel project ${created.vercelProjectId}`,
+            );
+          }
+        }
 
         const mapped = mapVercelReadyStateToStatus(created.readyState);
         await updateDeploymentStatus(deploymentId, mapped.status, {

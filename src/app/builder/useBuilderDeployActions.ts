@@ -22,6 +22,9 @@ type Args = {
   pendingInstructionsRef: MutableRefObject<string | null>;
   pendingInstructionsOnceRef: MutableRefObject<boolean | null>;
   setIsDeploying: Dispatch<SetStateAction<boolean>>;
+  setDomainManagerOpen: Dispatch<SetStateAction<boolean>>;
+  setLastDeployVercelProjectId: Dispatch<SetStateAction<string | null>>;
+  setActiveDeploymentId: Dispatch<SetStateAction<string | null>>;
   setDomainResults: Dispatch<SetStateAction<DomainSearchResult[] | null>>;
   setIsDomainSearching: Dispatch<SetStateAction<boolean>>;
   setDeployNameDialogOpen: Dispatch<SetStateAction<boolean>>;
@@ -58,6 +61,9 @@ export function useBuilderDeployActions({
   pendingInstructionsRef,
   pendingInstructionsOnceRef,
   setIsDeploying,
+  setDomainManagerOpen,
+  setLastDeployVercelProjectId,
+  setActiveDeploymentId,
   setDomainResults,
   setIsDomainSearching,
   setDeployNameDialogOpen,
@@ -141,13 +147,28 @@ export function useBuilderDeployActions({
 
         const rawUrl = typeof data?.url === "string" ? data.url : null;
         const url = rawUrl ? (rawUrl.startsWith("http") ? rawUrl : `https://${rawUrl}`) : null;
+        const deployVercelProjectId =
+          typeof data?.vercelProjectId === "string" ? data.vercelProjectId : null;
+        const returnedDeploymentId = typeof data?.id === "string" ? data.id : null;
+
+        if (deployVercelProjectId) {
+          setLastDeployVercelProjectId(deployVercelProjectId);
+        }
+        if (returnedDeploymentId) {
+          setActiveDeploymentId(returnedDeploymentId);
+        }
 
         toast.success(url ? "Deployment started (Vercel building...)" : "Deployment started");
         if (url) {
-          toast(
-            `Vercel URL: ${url}`,
-            { duration: 15000 },
-          );
+          toast(`Vercel URL: ${url}`, {
+            duration: 15000,
+            action: deployVercelProjectId
+              ? {
+                  label: "Koppla domän",
+                  onClick: () => setDomainManagerOpen(true),
+                }
+              : undefined,
+          });
         }
       } catch (error) {
         console.error("Deploy error:", error);
@@ -156,7 +177,7 @@ export function useBuilderDeployActions({
         setIsDeploying(false);
       }
     },
-    [chatId, activeVersionId, isDeploying, isMediaEnabled, enableBlobMedia, setIsDeploying],
+    [chatId, activeVersionId, isDeploying, isMediaEnabled, enableBlobMedia, setIsDeploying, setLastDeployVercelProjectId, setActiveDeploymentId, setDomainManagerOpen],
   );
 
   const handleConfirmDeploy = useCallback(async () => {

@@ -44,6 +44,7 @@ export function useCreateChat(
     enableImageMaterialization = false,
     enableThinking,
     chatPrivacy,
+    designSystemId,
     systemPrompt,
     promptAssistModel,
     promptAssistDeep,
@@ -283,6 +284,7 @@ export function useCreateChat(
           chatPrivacy: chatPrivacy || "private",
           meta: promptMeta,
         };
+        if (designSystemId) requestBody.designSystemId = designSystemId;
         if (v0ProjectId) requestBody.projectId = v0ProjectId;
         if (trimmedSystemPrompt) {
           requestBody.system = trimmedSystemPrompt;
@@ -407,10 +409,10 @@ export function useCreateChat(
       isCreatingChat,
       resetBeforeCreateChat,
       selectedModelTier,
-      selectedModelTier,
       enableImageGenerations,
       enableImageMaterialization,
       enableThinking,
+      designSystemId,
       systemPrompt,
       setMessages,
       setChatId,

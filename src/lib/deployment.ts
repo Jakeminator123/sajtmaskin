@@ -12,6 +12,7 @@ export interface DeploymentInfo {
   status: DeploymentStatus;
   vercelProjectId?: string | null;
   url?: string | null;
+  domain?: string | null;
   inspectorUrl?: string | null;
   createdAt: Date;
   updatedAt: Date;
@@ -80,6 +81,7 @@ export async function getDeployment(deploymentId: string): Promise<DeploymentInf
     status: result[0].status as DeploymentStatus,
     vercelProjectId: result[0].vercelProjectId,
     url: result[0].url,
+    domain: result[0].domain,
     inspectorUrl: result[0].inspectorUrl,
     createdAt: result[0].createdAt,
     updatedAt: result[0].updatedAt,
@@ -100,6 +102,7 @@ export async function getDeploymentsForChat(chatId: string): Promise<DeploymentI
     status: d.status as DeploymentStatus,
     vercelProjectId: d.vercelProjectId,
     url: d.url,
+    domain: d.domain,
     inspectorUrl: d.inspectorUrl,
     createdAt: d.createdAt,
     updatedAt: d.updatedAt,
@@ -123,10 +126,21 @@ export async function getLatestDeployment(chatId: string): Promise<DeploymentInf
     status: result[0].status as DeploymentStatus,
     vercelProjectId: result[0].vercelProjectId,
     url: result[0].url,
+    domain: result[0].domain,
     inspectorUrl: result[0].inspectorUrl,
     createdAt: result[0].createdAt,
     updatedAt: result[0].updatedAt,
   };
+}
+
+export async function setDeploymentDomain(
+  deploymentId: string,
+  domain: string,
+): Promise<void> {
+  await db
+    .update(deployments)
+    .set({ domain, updatedAt: new Date() })
+    .where(eq(deployments.id, deploymentId));
 }
 
 export async function getVersionForDeployment(versionId: string) {

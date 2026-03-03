@@ -345,6 +345,7 @@ const schemaQueries = [
   `CREATE INDEX IF NOT EXISTS idx_prompt_logs_created_at ON prompt_logs(created_at DESC)`,
   `ALTER TABLE versions ADD COLUMN IF NOT EXISTS pinned_at TIMESTAMPTZ`,
   `ALTER TABLE project_data ADD COLUMN IF NOT EXISTS meta JSONB`,
+  `ALTER TABLE deployments ADD COLUMN IF NOT EXISTS domain TEXT`,
   `CREATE INDEX IF NOT EXISTS idx_deployments_chat_id ON deployments(chat_id)`,
   `CREATE INDEX IF NOT EXISTS idx_deployments_vercel_deployment_id ON deployments(vercel_deployment_id)`,
   `CREATE INDEX IF NOT EXISTS idx_app_projects_user_id ON app_projects(user_id)`,
@@ -451,7 +452,7 @@ async function run() {
         dupes.rows[0],
       );
     }
-    console.log("Database tables are ready.");
+    console.info("Database tables are ready.");
   } catch (err) {
     console.error("Failed to initialize database tables:", err?.message || err);
     process.exitCode = 1;

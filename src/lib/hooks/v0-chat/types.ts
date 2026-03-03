@@ -112,6 +112,7 @@ export type V0ChatMessagingParams = {
   enableImageMaterialization?: boolean;
   enableThinking: boolean;
   chatPrivacy?: "private" | "unlisted";
+  designSystemId?: string;
   systemPrompt?: string;
   promptAssistModel?: string | null;
   promptAssistDeep?: boolean;

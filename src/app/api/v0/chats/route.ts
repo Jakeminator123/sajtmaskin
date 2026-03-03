@@ -15,6 +15,7 @@ import { prepareCredits } from "@/lib/credits/server";
 import { WARN_CHAT_MESSAGE_CHARS, WARN_CHAT_SYSTEM_CHARS } from "@/lib/builder/promptLimits";
 import { orchestratePromptMessage } from "@/lib/builder/promptOrchestration";
 import { resolveModelSelection } from "@/lib/v0/modelSelection";
+import { AI } from "@/lib/config";
 
 export async function POST(req: Request) {
   const session = ensureSessionIdFromRequest(req);
@@ -52,9 +53,10 @@ export async function POST(req: Request) {
         thinking,
         imageGenerations,
         chatPrivacy,
-        designSystemId,
+        designSystemId: clientDesignSystemId,
         meta,
       } = validationResult.data;
+      const designSystemId = clientDesignSystemId || AI.designSystemId;
       const metaRequestedModelTier =
         typeof (meta as { modelTier?: unknown })?.modelTier === "string"
           ? String((meta as { modelTier?: string }).modelTier)

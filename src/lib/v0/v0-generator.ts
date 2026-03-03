@@ -1137,9 +1137,10 @@ export async function initFromRegistry(
     quality?: QualityLevel;
     name?: string;
     maxRetries?: number;
+    designSystemId?: string;
   } = {},
 ): Promise<GenerationResult> {
-  const { quality = "standard", name, maxRetries = 2 } = options;
+  const { quality = "standard", name, maxRetries = 2, designSystemId } = options;
   const model = MODEL_MAP[quality];
 
   console.info(
@@ -1161,13 +1162,17 @@ export async function initFromRegistry(
         await new Promise((resolve) => setTimeout(resolve, attempt * 2000));
       }
 
-      // Initialize chat from registry URL
-      const chat = (await v0.chats.init({
-        type: "registry",
+      const initRequest = {
+        type: "registry" as const,
         registry: { url: registryUrl },
-        chatPrivacy: "private",
+        chatPrivacy: "private" as const,
         name: name || `Registry: ${new URL(registryUrl).pathname.split("/").pop()}`,
-      })) as ChatDetail;
+      };
+      if (designSystemId) {
+        (initRequest as typeof initRequest & { designSystemId?: string }).designSystemId =
+          designSystemId;
+      }
+      const chat = (await v0.chats.init(initRequest)) as ChatDetail;
 
       debugLog("v0", "[v0-generator] Registry initialized:", chat.id);
       debugLog("v0", "[v0-generator] Version status:", chat.latestVersion?.status);

@@ -10,6 +10,7 @@ import { BuilderHeader } from "@/components/builder/BuilderHeader";
 import { ProjectEnvVarsPanel } from "@/components/builder/ProjectEnvVarsPanel";
 import { DeployNameDialog } from "@/components/builder/DeployNameDialog";
 import { DomainSearchDialog } from "@/components/builder/DomainSearchDialog";
+import { DomainManager } from "@/components/builder/DomainManager";
 import { ThinkingOverlay } from "@/components/builder/ThinkingOverlay";
 import { RequireAuthModal } from "@/components/auth";
 import { useAuthStore } from "@/lib/auth/auth-store";
@@ -58,6 +59,8 @@ export function BuilderShellContent(vm: BuilderViewModel) {
         promptAssistDeep={vm.promptAssistDeep}
         onPromptAssistDeepChange={vm.setPromptAssistDeep}
         canUseDeepBrief={!vm.chatId}
+        designSystemId={vm.designSystemId}
+        onDesignSystemIdChange={vm.setDesignSystemId}
         customInstructions={vm.customInstructions}
         onCustomInstructionsChange={vm.setCustomInstructions}
         applyInstructionsOnce={vm.applyInstructionsOnce}
@@ -88,7 +91,13 @@ export function BuilderShellContent(vm: BuilderViewModel) {
           vm.setIsSandboxModalOpen(true);
         }}
         onDeployProduction={vm.handleOpenDeployDialog}
-        onDomainSearch={() => vm.setDomainSearchOpen(true)}
+        onDomainSearch={() => {
+          if (vm.lastDeployVercelProjectId) {
+            vm.setDomainManagerOpen(true);
+          } else {
+            vm.setDomainSearchOpen(true);
+          }
+        }}
         onGoHome={vm.handleGoHome}
         onNewChat={vm.resetToNewChat}
         onSaveProject={vm.handleSaveProject}
@@ -100,6 +109,8 @@ export function BuilderShellContent(vm: BuilderViewModel) {
           vm.chatId && vm.activeVersionId && !vm.isCreatingChat && !vm.isAnyStreaming && !vm.isDeploying,
         )}
         canSaveProject={Boolean(vm.chatId)}
+        deploymentStatus={vm.deploymentStatus}
+        deploymentUrl={vm.deploymentUrl}
       />
 
       <div className="flex flex-1 overflow-hidden">
@@ -157,6 +168,13 @@ export function BuilderShellContent(vm: BuilderViewModel) {
             onQueryChange={vm.setDomainQuery}
             onSearch={vm.handleDomainSearch}
             onClose={() => vm.setDomainSearchOpen(false)}
+          />
+
+          <DomainManager
+            open={vm.domainManagerOpen}
+            onClose={() => vm.setDomainManagerOpen(false)}
+            projectId={vm.lastDeployVercelProjectId}
+            deploymentId={vm.activeDeploymentId}
           />
         </div>
 

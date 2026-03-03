@@ -38,6 +38,7 @@ import { debugLog, errorLog, warnLog } from "@/lib/utils/debug";
 import { sanitizeV0Metadata } from "@/lib/v0/sanitize-metadata";
 import { createPromptLog } from "@/lib/db/services";
 import { resolveModelSelection } from "@/lib/v0/modelSelection";
+import { AI } from "@/lib/config";
 
 export const runtime = "nodejs";
 export const maxDuration = 800;
@@ -119,9 +120,10 @@ export async function POST(req: Request) {
         thinking = true,
         imageGenerations,
         chatPrivacy,
-        designSystemId,
+        designSystemId: clientDesignSystemId,
         meta,
       } = validationResult.data;
+      const designSystemId = clientDesignSystemId || AI.designSystemId;
       const metaRequestedModelTier =
         typeof (meta as { modelTier?: unknown })?.modelTier === "string"
           ? String((meta as { modelTier?: string }).modelTier)

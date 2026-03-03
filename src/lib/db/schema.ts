@@ -87,6 +87,7 @@ export const deployments = pgTable("deployments", {
   vercelProjectId: text("vercel_project_id"),
   inspectorUrl: text("inspector_url"),
   url: text("url"),
+  domain: text("domain"),
   status: varchar("status", { length: 50 }),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),

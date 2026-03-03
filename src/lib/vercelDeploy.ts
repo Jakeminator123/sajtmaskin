@@ -12,6 +12,7 @@ export type CreateVercelDeploymentInput = {
   projectName: string;
   target: VercelDeploymentTarget;
   files: VercelFile[];
+  envVars?: Record<string, string>;
 };
 
 export type CreateVercelDeploymentResult = {
@@ -82,6 +83,9 @@ export async function createVercelDeployment(
       name: input.projectName,
       target: input.target,
       files: input.files,
+      ...(input.envVars && Object.keys(input.envVars).length > 0
+        ? { env: input.envVars, build: { env: input.envVars } }
+        : {}),
     }),
   });
 
@@ -143,6 +147,61 @@ export async function getVercelDeployment(
     inspectorUrl: (json as any)?.inspectorUrl ?? null,
     readyState: (json as any)?.readyState ?? null,
   };
+}
+
+/**
+ * Upsert env vars on a Vercel project so they persist across redeploys
+ * triggered from the Vercel dashboard or git pushes.
+ */
+export async function syncEnvVarsToVercelProject(
+  vercelProjectId: string,
+  envVars: Record<string, string>,
+): Promise<{ synced: number; errors: string[] }> {
+  if (!vercelProjectId || Object.keys(envVars).length === 0) {
+    return { synced: 0, errors: [] };
+  }
+
+  const token = getVercelToken();
+  const teamId = getVercelTeamId();
+  const errors: string[] = [];
+  let synced = 0;
+
+  const url = new URL(
+    `https://api.vercel.com/v10/projects/${encodeURIComponent(vercelProjectId)}/env`,
+  );
+  if (teamId) url.searchParams.set("teamId", teamId);
+  url.searchParams.set("upsert", "true");
+
+  const body = Object.entries(envVars).map(([key, value]) => ({
+    key,
+    value,
+    target: ["production", "preview", "development"],
+    type: "encrypted",
+  }));
+
+  try {
+    const res = await fetch(url.toString(), {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (res.ok) {
+      synced = body.length;
+    } else {
+      const json = await res.json().catch(() => null);
+      const msg =
+        (json as any)?.error?.message ?? `Vercel env sync failed (HTTP ${res.status})`;
+      errors.push(msg);
+    }
+  } catch (err) {
+    errors.push(err instanceof Error ? err.message : String(err));
+  }
+
+  return { synced, errors };
 }
 
 export function mapVercelReadyStateToStatus(readyState: string | null): {

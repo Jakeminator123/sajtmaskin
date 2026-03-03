@@ -35,7 +35,7 @@ User prompt -> Builder UI -> v0 Platform API -> Generated code -> Preview -> Dep
 | `src/app/api/v0/` | v0 Platform API proxy routes (chat, stream, projects) |
 | `src/app/api/auth/` | Authentication (email, Google, GitHub OAuth) |
 | `src/app/api/ai/` | AI Gateway routes (prompt assist, brief, spec) |
-| `src/components/builder/` | Builder UI components (ChatInterface, MessageList, PreviewPanel) |
+| `src/components/builder/` | Builder UI components (ChatInterface, MessageList, PreviewPanel) |![1772500015428](image/project-overview/1772500015428.png)
 | `src/components/ai-elements/` | AI Elements components (prompt input, reasoning, code blocks) |
 | `src/components/ui/` | shadcn/ui base components |
 | `src/lib/v0/` | v0 SDK wrapper, streaming, file parsing |

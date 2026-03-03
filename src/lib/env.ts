@@ -97,6 +97,9 @@ export const serverSchema = z.object({
   // AI – Direct OpenAI (Responses API)
   OPENAI_API_KEY: z.string().optional(),
 
+  // v0 Design System
+  DESIGN_SYSTEM_ID: z.string().optional(),
+
   // Feature flags
   ENABLE_PEXELS: z.string().optional(),
   USE_RESPONSES_API: z.string().optional(),

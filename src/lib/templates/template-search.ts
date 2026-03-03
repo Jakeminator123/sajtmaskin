@@ -61,23 +61,23 @@ export function cosineSimilarity(a: number[], b: number[]): number {
   return denom === 0 ? 0 : dot / denom;
 }
 
+export interface TemplateSearchResult {
+  template: TemplateCatalogItem;
+  score: number;
+}
+
 /**
  * Semantic template search using pre-computed embeddings.
  *
  * 1. Loads cached template embeddings from JSON (once per process)
  * 2. Embeds the query string via OpenAI
  * 3. Ranks templates by cosine similarity
- * 4. Returns top K results as TemplateCatalogItem[]
- *
- * Returns empty array if:
- * - No OPENAI_API_KEY configured
- * - Embeddings file doesn't exist / is empty
- * - API call fails
+ * 4. Returns top K results with scores
  */
 export async function searchTemplates(
   query: string,
   topK: number = DEFAULT_TOP_K,
-): Promise<TemplateCatalogItem[]> {
+): Promise<TemplateSearchResult[]> {
   const apiKey = SECRETS.openaiApiKey;
   if (!apiKey) return [];
 
@@ -107,12 +107,12 @@ export async function searchTemplates(
   scored.sort((a, b) => b.score - a.score);
 
   const lookup = getCatalogLookup();
-  const results: TemplateCatalogItem[] = [];
+  const results: TemplateSearchResult[] = [];
 
-  for (const { id } of scored) {
+  for (const { id, score } of scored) {
     if (results.length >= topK) break;
     const item = lookup.get(id);
-    if (item) results.push(item);
+    if (item) results.push({ template: item, score });
   }
 
   return results;

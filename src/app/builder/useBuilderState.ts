@@ -66,6 +66,7 @@ export function useBuilderState(searchParams: ReadonlyURLSearchParams) {
   const [isImageGenerationsSupported, setIsImageGenerationsSupported] = useState(true);
   const [isMediaEnabled, setIsMediaEnabled] = useState(false);
   const [designTheme, setDesignTheme] = useState<DesignTheme>("blue");
+  const [designSystemId, setDesignSystemId] = useState("");
   const [specMode] = useState(DEFAULT_SPEC_MODE);
   const pendingSpecRef = useRef<object | null>(null);
   const [showStructuredChat, setShowStructuredChat] = useState(false);
@@ -100,9 +101,12 @@ export function useBuilderState(searchParams: ReadonlyURLSearchParams) {
   const [deployNameInput, setDeployNameInput] = useState("");
   const [deployNameError, setDeployNameError] = useState<string | null>(null);
   const [domainSearchOpen, setDomainSearchOpen] = useState(false);
+  const [domainManagerOpen, setDomainManagerOpen] = useState(false);
   const [domainQuery, setDomainQuery] = useState("");
   const [domainResults, setDomainResults] = useState<DomainSearchResult[] | null>(null);
   const [isDomainSearching, setIsDomainSearching] = useState(false);
+  const [lastDeployVercelProjectId, setLastDeployVercelProjectId] = useState<string | null>(null);
+  const [activeDeploymentId, setActiveDeploymentId] = useState<string | null>(null);
   const [isDeployNameSaving, setIsDeployNameSaving] = useState(false);
   const [v0ProjectId, setV0ProjectId] = useState<string | null>(null);
   const [promptAssistContext, setPromptAssistContext] = useState<string | null>(null);
@@ -185,6 +189,8 @@ export function useBuilderState(searchParams: ReadonlyURLSearchParams) {
     setIsMediaEnabled,
     designTheme,
     setDesignTheme,
+    designSystemId,
+    setDesignSystemId,
     specMode,
     pendingSpecRef,
     showStructuredChat,
@@ -231,12 +237,18 @@ export function useBuilderState(searchParams: ReadonlyURLSearchParams) {
     setDeployNameError,
     domainSearchOpen,
     setDomainSearchOpen,
+    domainManagerOpen,
+    setDomainManagerOpen,
     domainQuery,
     setDomainQuery,
     domainResults,
     setDomainResults,
     isDomainSearching,
     setIsDomainSearching,
+    lastDeployVercelProjectId,
+    setLastDeployVercelProjectId,
+    activeDeploymentId,
+    setActiveDeploymentId,
     isDeployNameSaving,
     setIsDeployNameSaving,
     v0ProjectId,

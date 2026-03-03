@@ -35,6 +35,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
@@ -72,6 +73,7 @@ import type { PaletteSelection } from "@/lib/builder/palette";
 
 import {
   getAllV0Categories,
+  getTemplateById,
   getTemplateImageUrl,
   getTemplatesByCategory,
   type CategoryInfo,
@@ -90,6 +92,16 @@ import { DEFAULT_PLACEMENT_OPTIONS } from "./UiElementPicker";
 // ── Types ──
 
 export type UnifiedPickerTab = "ui" | "ai" | "mall" | "tema";
+
+interface TemplateSearchResultItem {
+  template: {
+    id: string;
+    title: string;
+    category: string;
+    previewImageUrl: string;
+  };
+  score: number;
+}
 
 interface UnifiedElementPickerProps {
   open: boolean;
@@ -326,6 +338,55 @@ export function UnifiedElementPicker({
   const [selectedTemplate, setSelectedTemplate] = useState<Template | null>(null);
   const templateItems = useMemo(() => getTemplatesByCategory(templateCategory), [templateCategory]);
 
+  const [templateQuery, setTemplateQuery] = useState("");
+  const [templateSearchResults, setTemplateSearchResults] = useState<TemplateSearchResultItem[] | null>(null);
+  const [templateSearchLoading, setTemplateSearchLoading] = useState(false);
+  const [templateSearchError, setTemplateSearchError] = useState(false);
+
+  useEffect(() => {
+    const trimmed = templateQuery.trim();
+    if (!trimmed) {
+      setTemplateSearchResults(null);
+      setTemplateSearchError(false);
+      setTemplateSearchLoading(false);
+      return;
+    }
+
+    setTemplateSearchLoading(true);
+    let cancelled = false;
+
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch("/api/templates/search", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ query: trimmed, topK: 12 }),
+        });
+        if (cancelled) return;
+        const data = await res.json();
+        if (cancelled) return;
+        if (data.success) {
+          setTemplateSearchResults(data.results);
+          setTemplateSearchError(false);
+        } else {
+          setTemplateSearchError(true);
+          setTemplateSearchResults(null);
+        }
+      } catch {
+        if (cancelled) return;
+        setTemplateSearchError(true);
+        setTemplateSearchResults(null);
+      } finally {
+        if (!cancelled) setTemplateSearchLoading(false);
+      }
+    }, 500);
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [templateQuery]);
+
   useEffect(() => {
     if (templateItems.length > 0) setSelectedTemplate(templateItems[0]);
     else setSelectedTemplate(null);
@@ -336,6 +397,11 @@ export function UnifiedElementPicker({
     if (!selectedTemplate) return;
     onTemplateSelect(selectedTemplate.id);
   };
+
+  const handleSearchResultSelect = useCallback((item: TemplateSearchResultItem) => {
+    const template = getTemplateById(item.template.id);
+    if (template) setSelectedTemplate(template);
+  }, []);
 
   // ── Theme tab state ──
   const [selectedTheme, setSelectedTheme] = useState<DesignTheme>(currentTheme);
@@ -617,11 +683,27 @@ export function UnifiedElementPicker({
             <>
               {/* Template sidebar */}
               <div className="flex w-full flex-1 min-h-0 flex-col border-b border-border/50 md:w-80 md:flex-none md:border-r md:border-b-0">
-                <div className="scrollbar-thin flex-1 space-y-2 overflow-y-auto p-4">
+                <div className="space-y-3 p-4 pb-2">
+                  <div className="relative">
+                    <Search className="absolute top-2.5 left-3 size-4 text-muted-foreground" />
+                    <Input
+                      value={templateQuery}
+                      onChange={(e) => setTemplateQuery(e.target.value)}
+                      placeholder="Beskriv vad du vill bygga..."
+                      className="h-9 bg-muted/30 pl-9 pr-9 text-sm"
+                    />
+                    {templateQuery && (
+                      <button type="button" onClick={() => setTemplateQuery("")} className="absolute top-2.5 right-3 text-muted-foreground hover:text-foreground">
+                        <X className="size-4" />
+                      </button>
+                    )}
+                  </div>
+                </div>
+                <div className="scrollbar-thin flex-1 space-y-2 overflow-y-auto px-4 pb-4">
                   <div className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">Kategorier</div>
                   <div className="space-y-1">
                     {templateCategories.map((category: CategoryInfo) => (
-                      <button key={category.id} type="button" onClick={() => setTemplateCategory(category.id)} className={`w-full rounded-md px-3 py-2 text-left text-xs font-medium transition-colors ${category.id === templateCategory ? "bg-brand-blue/10 text-brand-blue" : "text-muted-foreground hover:bg-muted/40 hover:text-foreground"}`}>
+                      <button key={category.id} type="button" onClick={() => { setTemplateCategory(category.id); setTemplateQuery(""); }} className={`w-full rounded-md px-3 py-2 text-left text-xs font-medium transition-colors ${category.id === templateCategory && !templateQuery.trim() ? "bg-brand-blue/10 text-brand-blue" : "text-muted-foreground hover:bg-muted/40 hover:text-foreground"}`}>
                         {category.title}
                       </button>
                     ))}
@@ -631,33 +713,85 @@ export function UnifiedElementPicker({
               {/* Template grid */}
               <div className="flex min-h-0 flex-1 flex-col bg-muted/10">
                 <div className="border-b border-border/50 px-6 py-3">
-                  <h3 className="truncate text-base font-semibold text-foreground">{templateCategories.find((c) => c.id === templateCategory)?.title || "Mallar"}</h3>
-                  <p className="mt-0.5 text-xs text-muted-foreground">{templateCategories.find((c) => c.id === templateCategory)?.description || "Välj en mall att starta från."}</p>
+                  {templateQuery.trim() ? (
+                    <>
+                      <h3 className="truncate text-base font-semibold text-foreground">Sökresultat</h3>
+                      <p className="mt-0.5 text-xs text-muted-foreground">Mallar som matchar &ldquo;{templateQuery.trim()}&rdquo;</p>
+                    </>
+                  ) : (
+                    <>
+                      <h3 className="truncate text-base font-semibold text-foreground">{templateCategories.find((c) => c.id === templateCategory)?.title || "Mallar"}</h3>
+                      <p className="mt-0.5 text-xs text-muted-foreground">{templateCategories.find((c) => c.id === templateCategory)?.description || "Välj en mall att starta från."}</p>
+                    </>
+                  )}
                 </div>
                 <div className="scrollbar-thin flex-1 overflow-y-auto p-5">
                   {hasChat && (
                     <div className="mb-4 rounded-xl border border-amber-500/20 bg-amber-500/10 p-3 text-xs text-amber-100/80">Om du startar från en mall skapas en ny chat.</div>
                   )}
-                  {templateItems.length === 0 ? (
-                    <div className="py-12 text-center text-sm text-muted-foreground">Inga mallar hittades i kategorin.</div>
-                  ) : (
-                    <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-                      {templateItems.map((template) => {
-                        const isSelected = selectedTemplate?.id === template.id;
-                        return (
-                          <button key={template.id} type="button" onClick={() => setSelectedTemplate(template)} className={`group overflow-hidden rounded-xl border text-left transition-all ${isSelected ? "border-brand-teal/40 bg-brand-teal/10" : "border-border/60 hover:border-brand-teal/30 hover:bg-muted/40"}`}>
-                            <div className="aspect-16/10 w-full overflow-hidden bg-muted/30">
-                              {/* eslint-disable-next-line @next/next/no-img-element */}
-                              <img src={getTemplateImageUrl(template)} alt={template.title} className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]" loading="lazy" />
-                            </div>
-                            <div className="p-3">
-                              <div className="text-sm font-medium text-foreground">{template.title}</div>
-                              <div className="mt-1 text-[11px] text-muted-foreground">{template.category}</div>
-                            </div>
-                          </button>
-                        );
-                      })}
+                  {templateQuery.trim() && templateSearchLoading ? (
+                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                      {Array.from({ length: 6 }).map((_, i) => (
+                        <div key={i} className="overflow-hidden rounded-xl border border-border/60">
+                          <div className="aspect-16/10 w-full animate-pulse bg-muted/40" />
+                          <div className="space-y-2 p-3">
+                            <div className="h-4 w-3/4 animate-pulse rounded bg-muted/40" />
+                            <div className="h-3 w-1/2 animate-pulse rounded bg-muted/40" />
+                          </div>
+                        </div>
+                      ))}
                     </div>
+                  ) : templateQuery.trim() && templateSearchResults && !templateSearchError ? (
+                    templateSearchResults.length === 0 ? (
+                      <div className="py-12 text-center text-sm text-muted-foreground">Inga mallar hittades. Prova en annan beskrivning.</div>
+                    ) : (
+                      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                        {templateSearchResults.map((result) => {
+                          const isSelected = selectedTemplate?.id === result.template.id;
+                          const scorePercent = Math.round(result.score * 100);
+                          return (
+                            <button key={result.template.id} type="button" onClick={() => handleSearchResultSelect(result)} className={`group overflow-hidden rounded-xl border text-left transition-all ${isSelected ? "border-brand-teal/40 bg-brand-teal/10" : "border-border/60 hover:border-brand-teal/30 hover:bg-muted/40"}`}>
+                              <div className="relative aspect-16/10 w-full overflow-hidden bg-muted/30">
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img src={result.template.previewImageUrl} alt={result.template.title} className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]" loading="lazy" />
+                                <Badge className="absolute top-2 right-2 border-0 bg-black/60 text-[10px] text-white backdrop-blur-sm">{scorePercent}% match</Badge>
+                              </div>
+                              <div className="p-3">
+                                <div className="truncate text-sm font-medium text-foreground">{result.template.title}</div>
+                                <div className="mt-1 text-[11px] text-muted-foreground">{result.template.category}</div>
+                              </div>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    )
+                  ) : (
+                    <>
+                      {templateQuery.trim() && templateSearchError && (
+                        <div className="mb-4 rounded-lg border border-destructive/30 bg-destructive/5 px-3 py-2 text-xs text-destructive">Sökningen misslyckades. Visar kategoriserade mallar istället.</div>
+                      )}
+                      {templateItems.length === 0 ? (
+                        <div className="py-12 text-center text-sm text-muted-foreground">Inga mallar hittades i kategorin.</div>
+                      ) : (
+                        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                          {templateItems.map((template) => {
+                            const isSelected = selectedTemplate?.id === template.id;
+                            return (
+                              <button key={template.id} type="button" onClick={() => setSelectedTemplate(template)} className={`group overflow-hidden rounded-xl border text-left transition-all ${isSelected ? "border-brand-teal/40 bg-brand-teal/10" : "border-border/60 hover:border-brand-teal/30 hover:bg-muted/40"}`}>
+                                <div className="aspect-16/10 w-full overflow-hidden bg-muted/30">
+                                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                                  <img src={getTemplateImageUrl(template)} alt={template.title} className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]" loading="lazy" />
+                                </div>
+                                <div className="p-3">
+                                  <div className="text-sm font-medium text-foreground">{template.title}</div>
+                                  <div className="mt-1 text-[11px] text-muted-foreground">{template.category}</div>
+                                </div>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </>
                   )}
                 </div>
               </div>

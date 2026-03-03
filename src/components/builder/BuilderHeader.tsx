@@ -39,6 +39,7 @@ import {
   Link2,
   LogOut,
   MessageSquare,
+  Palette,
   Plus,
   Globe,
   Rocket,
@@ -51,7 +52,20 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { useCallback, useEffect, useId, useState } from "react";
+import { useCallback, useId, useState } from "react";
+
+export type DesignSystemOption = {
+  value: string;
+  label: string;
+  description: string;
+};
+
+export const DESIGN_SYSTEM_OPTIONS: DesignSystemOption[] = [
+  { value: "", label: "Standard", description: "Inget design system" },
+  { value: "ds_minimal", label: "Minimalistisk", description: "Rent och enkelt" },
+  { value: "ds_corporate", label: "Företag", description: "Professionellt" },
+  { value: "ds_creative", label: "Kreativ", description: "Uttrycksfullt" },
+];
 
 export function BuilderHeader(props: {
   selectedModelTier: ModelTier;
@@ -62,6 +76,9 @@ export function BuilderHeader(props: {
   promptAssistDeep: boolean;
   onPromptAssistDeepChange: (deep: boolean) => void;
   canUseDeepBrief: boolean;
+
+  designSystemId: string;
+  onDesignSystemIdChange: (id: string) => void;
 
   customInstructions: string;
   onCustomInstructionsChange: (value: string) => void;
@@ -102,6 +119,8 @@ export function BuilderHeader(props: {
   isSavingProject: boolean;
   canDeploy: boolean;
   canSaveProject: boolean;
+  deploymentStatus?: "pending" | "building" | "ready" | "error" | "cancelled" | null;
+  deploymentUrl?: string | null;
 }) {
   const {
     selectedModelTier,
@@ -111,6 +130,8 @@ export function BuilderHeader(props: {
     promptAssistDeep,
     onPromptAssistDeepChange,
     canUseDeepBrief,
+    designSystemId,
+    onDesignSystemIdChange,
     customInstructions,
     onCustomInstructionsChange,
     applyInstructionsOnce,
@@ -145,6 +166,8 @@ export function BuilderHeader(props: {
     isSavingProject,
     canDeploy,
     canSaveProject,
+    deploymentStatus,
+    deploymentUrl,
   } = props;
 
   const isBusy = isAnyStreaming || isCreatingChat;
@@ -327,6 +350,41 @@ export function BuilderHeader(props: {
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        <DropdownMenu>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" disabled={isBusy}>
+                    <Palette className="h-4 w-4" />
+                    <span className="hidden max-w-[120px] truncate sm:inline">
+                      {DESIGN_SYSTEM_OPTIONS.find((o) => o.value === designSystemId)?.label || "Design"}
+                    </span>
+                    <ChevronDown className="h-3 w-3 opacity-50" />
+                  </Button>
+                </DropdownMenuTrigger>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="max-w-xs text-xs">
+                <p>Välj design system för genererad kod</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuLabel>Design System</DropdownMenuLabel>
+            <DropdownMenuRadioGroup
+              value={designSystemId}
+              onValueChange={onDesignSystemIdChange}
+            >
+              {DESIGN_SYSTEM_OPTIONS.map((option) => (
+                <DropdownMenuRadioItem key={option.value} value={option.value}>
+                  <span className="font-medium">{option.label}</span>
+                  <span className="text-muted-foreground ml-2 text-xs">{option.description}</span>
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
           </DropdownMenuContent>
         </DropdownMenu>
 
@@ -573,22 +631,39 @@ export function BuilderHeader(props: {
           <span className="hidden sm:inline">Domän</span>
         </Button>
 
-        <Button
-          size="sm"
-          onClick={() =>
-            runDeferredAction(() => {
-              void onDeployProduction();
-            })
-          }
-          disabled={!canDeploy || isBusy || isDeploying}
-        >
-          {isDeploying ? (
+        {deploymentStatus === "building" ? (
+          <Button size="sm" variant="outline" disabled>
             <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <Rocket className="h-4 w-4" />
-          )}
-          <span className="hidden sm:inline">Publicera</span>
-        </Button>
+            <span className="hidden sm:inline">Bygger...</span>
+          </Button>
+        ) : deploymentStatus === "ready" && deploymentUrl ? (
+          <Button
+            size="sm"
+            variant="outline"
+            className="border-green-500 text-green-600"
+            onClick={() => window.open(deploymentUrl.startsWith("http") ? deploymentUrl : `https://${deploymentUrl}`, "_blank")}
+          >
+            <Globe className="h-4 w-4" />
+            <span className="hidden sm:inline">Publicerad</span>
+          </Button>
+        ) : (
+          <Button
+            size="sm"
+            onClick={() =>
+              runDeferredAction(() => {
+                void onDeployProduction();
+              })
+            }
+            disabled={!canDeploy || isBusy || isDeploying}
+          >
+            {isDeploying ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Rocket className="h-4 w-4" />
+            )}
+            <span className="hidden sm:inline">Publicera</span>
+          </Button>
+        )}
       </div>
 
       <Dialog open={isInstructionsOpen} onClose={() => setIsInstructionsOpen(false)}>

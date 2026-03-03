@@ -23,6 +23,7 @@ import { usePromptAssist } from "@/lib/hooks/usePromptAssist";
 import { useV0ChatMessaging } from "@/lib/hooks/useV0ChatMessaging";
 import { useVersions } from "@/lib/hooks/useVersions";
 import { useAuth } from "@/lib/auth/auth-store";
+import { useDeploymentStatus } from "@/lib/hooks/useDeploymentStatus";
 import { useLocalStorageBooleanSync } from "@/lib/hooks/useLocalStorageSync";
 import { debugLog } from "@/lib/utils/debug";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -53,7 +54,7 @@ export function useBuilderPageController() {
   const {
     appProjectId, applyInstructionsOnce, buildIntentParam, buildMethod,
     buildMethodParam, chatId, chatIdParam, currentDemoUrl, customInstructions,
-    designTheme, enableBlobMedia, enableImageGenerations, enableThinking,
+    designTheme, designSystemId, enableBlobMedia, enableImageGenerations, enableThinking,
     entryIntentActive, hasEntryParams, isIntentionalReset, paletteState,
     projectParam, promptId, promptParam, resolvedPrompt, selectedModelTier,
     selectedVersionId, serverProjectChatId, serverProjectDemoUrl,
@@ -61,7 +62,7 @@ export function useBuilderPageController() {
     setApplyInstructionsOnce, setAppProjectId, setAppProjectName,
     setAuditPromptLoaded, setBuildIntent, setBuildMethod, setChatId,
     setCurrentDemoUrl, setCurrentPageCode, setCustomInstructions,
-    setDesignTheme, setEnableBlobMedia,
+    setDesignTheme, setDesignSystemId, setEnableBlobMedia,
     setEnableImageGenerations, setEnableThinking, setEntryIntentActive,
     setExistingUiComponents,
     setIsImageGenerationsSupported, setIsIntentionalReset, setIsMediaEnabled,
@@ -168,6 +169,9 @@ export function useBuilderPageController() {
     pendingInstructionsRef: state.pendingInstructionsRef,
     pendingInstructionsOnceRef: state.pendingInstructionsOnceRef,
     setIsDeploying: state.setIsDeploying,
+    setDomainManagerOpen: state.setDomainManagerOpen,
+    setLastDeployVercelProjectId: state.setLastDeployVercelProjectId,
+    setActiveDeploymentId: state.setActiveDeploymentId,
     setDomainResults: state.setDomainResults,
     setIsDomainSearching: state.setIsDomainSearching,
     setDeployNameDialogOpen: state.setDeployNameDialogOpen,
@@ -183,6 +187,9 @@ export function useBuilderPageController() {
     mutateVersions,
     validateCss,
   });
+
+  // ── Deployment status SSE ──────────────────────────────────────────
+  const deploymentStatus = useDeploymentStatus(state.activeDeploymentId);
 
   // ── V0 Chat messaging ───────────────────────────────────────────────
   const resetBeforeCreateChat = useCallback(() => {
@@ -207,6 +214,7 @@ export function useBuilderPageController() {
       enableImageMaterialization: derived.mediaEnabled,
       enableThinking: state.effectiveThinking,
       chatPrivacy: state.chatPrivacy,
+      designSystemId: state.designSystemId || undefined,
       systemPrompt: state.customInstructions,
       promptAssistModel: state.promptAssistModel,
       promptAssistDeep: state.promptAssistDeep,
@@ -547,6 +555,26 @@ export function useBuilderPageController() {
       /* ignore */
     }
   }, [designTheme]);
+
+  // Design system ID localStorage sync
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const stored = localStorage.getItem("sajtmaskin:designSystemId");
+      if (stored) setDesignSystemId(stored);
+    } catch {
+      /* ignore */
+    }
+  }, [setDesignSystemId]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      localStorage.setItem("sajtmaskin:designSystemId", designSystemId);
+    } catch {
+      /* ignore */
+    }
+  }, [designSystemId]);
 
   // AppProjectId localStorage persist
   useEffect(() => {
@@ -1182,6 +1210,7 @@ export function useBuilderPageController() {
     enableBlobMedia: state.enableBlobMedia,
     showStructuredChat: state.showStructuredChat,
     designTheme: state.designTheme,
+    designSystemId: state.designSystemId,
     isImportModalOpen: state.isImportModalOpen,
     isSandboxModalOpen: state.isSandboxModalOpen,
     isDeploying: state.isDeploying,
@@ -1192,9 +1221,15 @@ export function useBuilderPageController() {
     deployNameInput: state.deployNameInput,
     deployNameError: state.deployNameError,
     domainSearchOpen: state.domainSearchOpen,
+    domainManagerOpen: state.domainManagerOpen,
     domainQuery: state.domainQuery,
     domainResults: state.domainResults,
     isDomainSearching: state.isDomainSearching,
+    lastDeployVercelProjectId: state.lastDeployVercelProjectId,
+    activeDeploymentId: state.activeDeploymentId,
+    deploymentStatus: deploymentStatus.status,
+    deploymentUrl: deploymentStatus.url,
+    deploymentInspectorUrl: deploymentStatus.inspectorUrl,
     v0ProjectId: state.v0ProjectId,
     paletteState: state.paletteState,
     currentDemoUrl: state.currentDemoUrl,
@@ -1214,12 +1249,14 @@ export function useBuilderPageController() {
     setEnableBlobMedia: state.setEnableBlobMedia,
     setShowStructuredChat: state.setShowStructuredChat,
     setDesignTheme: state.setDesignTheme,
+    setDesignSystemId: state.setDesignSystemId,
     setIsImportModalOpen: state.setIsImportModalOpen,
     setIsSandboxModalOpen: state.setIsSandboxModalOpen,
     setDeployNameDialogOpen: state.setDeployNameDialogOpen,
     setDeployNameInput: state.setDeployNameInput,
     setDeployNameError: state.setDeployNameError,
     setDomainSearchOpen: state.setDomainSearchOpen,
+    setDomainManagerOpen: state.setDomainManagerOpen,
     setDomainQuery: state.setDomainQuery,
     setCurrentDemoUrl: state.setCurrentDemoUrl,
     setChatId: state.setChatId,

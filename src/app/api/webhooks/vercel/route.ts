@@ -4,6 +4,7 @@ import { db } from "@/lib/db/client";
 import { deployments } from "@/lib/db/schema";
 import { eq } from "drizzle-orm";
 import { updateDeploymentStatus } from "@/lib/deployment";
+import { createRedisPublisher, deployStatusChannel } from "@/lib/redis-pubsub";
 
 export const runtime = "nodejs";
 
@@ -133,6 +134,21 @@ export async function POST(req: Request) {
     ...(inspectorUrl ? { inspectorUrl } : {}),
     ...(projectId ? { vercelProjectId: projectId } : {}),
   });
+
+  let pub: ReturnType<typeof createRedisPublisher> = null;
+  try {
+    pub = createRedisPublisher();
+    if (pub) {
+      await pub.publish(
+        deployStatusChannel(deploymentId),
+        JSON.stringify({ status, url, inspectorUrl, projectId }),
+      );
+    }
+  } catch (pubErr) {
+    console.warn("[webhook] Redis publish failed (non-fatal):", pubErr);
+  } finally {
+    pub?.disconnect();
+  }
 
   return NextResponse.json({ ok: true });
 }
