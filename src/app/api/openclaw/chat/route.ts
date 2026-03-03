@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withRateLimit } from "@/lib/rateLimit";
+import { OPENCLAW } from "@/lib/config";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -61,8 +62,8 @@ function buildContextBlock(ctx: Record<string, unknown>): string {
 
 export async function POST(req: NextRequest) {
   return withRateLimit(req, "openclaw:chat", async () => {
-    const gatewayUrl = process.env.OPENCLAW_GATEWAY_URL;
-    const gatewayToken = process.env.OPENCLAW_GATEWAY_TOKEN;
+    const gatewayUrl = OPENCLAW.gatewayUrl;
+    const gatewayToken = OPENCLAW.gatewayToken;
 
     if (!gatewayUrl) {
       return NextResponse.json(

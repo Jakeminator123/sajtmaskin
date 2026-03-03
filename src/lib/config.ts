@@ -305,6 +305,21 @@ export const URLS = {
 } as const;
 
 /**
+ * OpenClaw (Sajtagenten) gateway
+ */
+export const OPENCLAW = {
+  get gatewayUrl(): string {
+    return env.OPENCLAW_GATEWAY_URL?.replace(/\/+$/, "") ?? "";
+  },
+  get gatewayToken(): string {
+    return env.OPENCLAW_GATEWAY_TOKEN ?? "";
+  },
+  get enabled(): boolean {
+    return Boolean(env.OPENCLAW_GATEWAY_URL);
+  },
+} as const;
+
+/**
  * AI / v0 configuration
  */
 export const AI = {

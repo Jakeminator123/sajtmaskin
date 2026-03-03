@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
+import { OPENCLAW } from "@/lib/config";
 
 export const runtime = "nodejs";
 
 export async function GET() {
-  const gatewayUrl = process.env.OPENCLAW_GATEWAY_URL;
+  const gatewayUrl = OPENCLAW.gatewayUrl;
   if (!gatewayUrl) {
     return NextResponse.json(
       { status: "unconfigured", error: "OPENCLAW_GATEWAY_URL not set" },
@@ -13,8 +14,8 @@ export async function GET() {
 
   try {
     const res = await fetch(`${gatewayUrl}/health`, {
-      headers: process.env.OPENCLAW_GATEWAY_TOKEN
-        ? { Authorization: `Bearer ${process.env.OPENCLAW_GATEWAY_TOKEN}` }
+      headers: OPENCLAW.gatewayToken
+        ? { Authorization: `Bearer ${OPENCLAW.gatewayToken}` }
         : {},
       signal: AbortSignal.timeout(5_000),
     });

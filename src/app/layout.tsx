@@ -11,8 +11,9 @@ import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Toaster } from "@/components/ui/sonner";
 import { OpenClawChatLazy } from "@/components/openclaw/OpenClawChatLazy";
+import { OPENCLAW } from "@/lib/config";
 
-const openclawEnabled = Boolean(process.env.OPENCLAW_GATEWAY_URL?.trim());
+const openclawEnabled = OPENCLAW.enabled;
 
 const geistSans = Geist({
   subsets: ["latin"],

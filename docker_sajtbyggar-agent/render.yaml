@@ -17,6 +17,8 @@ services:
         value: "10000"
       - key: OPENCLAW_GATEWAY_BIND
         value: lan
+      - key: OPENCLAW_CONTROLUI_DISABLE_DEVICE_AUTH
+        value: "true"
     disk:
       name: openclaw-sajtagenten-data
       mountPath: /root/.openclaw
