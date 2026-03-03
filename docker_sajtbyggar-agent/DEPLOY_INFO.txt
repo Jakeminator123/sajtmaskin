@@ -61,7 +61,7 @@ Notes:
 4) Frontend / Consuming App Environment Variables
 --------------------------------------------------
 Required:
-- OPENCLAW_GATEWAY_URL=https://openclaw-sajtagenten.onrender.com
+- OPENCLAW_GATEWAY_URL=https://sajtagenten.onrender.com
 - OPENCLAW_GATEWAY_TOKEN=<same token as Render>
 - OPENCLAW_AGENT_ID=sajtagenten
 
