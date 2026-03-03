@@ -8,6 +8,8 @@
  */
 
 import { NextRequest, NextResponse } from "next/server";
+import { getCurrentUser } from "@/lib/auth/auth";
+import { getSessionIdFromRequest } from "@/lib/auth/session";
 import {
   saveCompanyProfile,
   getCompanyProfileByProjectId,
@@ -15,19 +17,33 @@ import {
   getAllCompanyProfiles,
   searchCompanyProfiles,
   linkCompanyProfileToProject,
+  getProjectByIdForOwner,
   type CompanyProfile,
 } from "@/lib/db/services";
 
 // GET - Retrieve company profiles
 export async function GET(req: NextRequest) {
   try {
+    const user = await getCurrentUser(req);
+    const sessionId = getSessionIdFromRequest(req);
+    if (!user && !sessionId) {
+      return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+    }
+
     const { searchParams } = new URL(req.url);
     const projectId = searchParams.get("projectId");
     const companyName = searchParams.get("companyName");
     const search = searchParams.get("search");
 
-    // Get by project ID
+    // Get by project ID — verify the caller owns the project
     if (projectId) {
+      const project = await getProjectByIdForOwner(projectId, {
+        userId: user?.id ?? null,
+        sessionId,
+      });
+      if (!project) {
+        return NextResponse.json({ success: false, error: "Profile not found" }, { status: 404 });
+      }
       const profile = await getCompanyProfileByProjectId(projectId);
       if (!profile) {
         return NextResponse.json({ success: false, error: "Profile not found" }, { status: 404 });
@@ -64,6 +80,12 @@ export async function GET(req: NextRequest) {
 
 // POST - Save or update company profile
 export async function POST(req: NextRequest) {
+  const user = await getCurrentUser(req);
+  const sessionId = getSessionIdFromRequest(req);
+  if (!user && !sessionId) {
+    return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+  }
+
   console.info("[API/company-profile] Saving profile...");
 
   try {
@@ -141,6 +163,12 @@ export async function POST(req: NextRequest) {
 
 // PATCH - Link profile to project
 export async function PATCH(req: NextRequest) {
+  const user = await getCurrentUser(req);
+  const sessionId = getSessionIdFromRequest(req);
+  if (!user && !sessionId) {
+    return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
+  }
+
   try {
     const { profileId, projectId } = await req.json();
 
@@ -149,6 +177,14 @@ export async function PATCH(req: NextRequest) {
         { success: false, error: "profileId and projectId are required" },
         { status: 400 },
       );
+    }
+
+    const project = await getProjectByIdForOwner(projectId, {
+      userId: user?.id ?? null,
+      sessionId,
+    });
+    if (!project) {
+      return NextResponse.json({ success: false, error: "Project not found" }, { status: 404 });
     }
 
     await linkCompanyProfileToProject(profileId, projectId);

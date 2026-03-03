@@ -12,12 +12,14 @@
 import { NextResponse } from "next/server";
 import { createHash } from "node:crypto";
 import { generateText, gateway } from "ai";
+import OpenAI from "openai";
 import { z } from "zod";
 import { requireNotBot } from "@/lib/botProtection";
 import { withRateLimit } from "@/lib/rateLimit";
 import { scrapeWebsite } from "@/lib/webscraper";
 import { debugLog, errorLog } from "@/lib/utils/debug";
 import { prepareCredits } from "@/lib/credits/server";
+import { FEATURES, SECRETS } from "@/lib/config";
 
 export const runtime = "nodejs";
 export const maxDuration = 30;
@@ -100,6 +102,59 @@ const enrichResponseSchema = z.object({
   insightSummary: z.string().max(MAX_MEDIUM_TEXT).optional().nullable(),
   meta: enrichMetaSchema.optional(),
 });
+
+// ── JSON Schema for Responses API structured output ─────────────────
+
+const ENRICH_JSON_SCHEMA = {
+  type: "object" as const,
+  properties: {
+    questions: {
+      type: "array" as const,
+      items: {
+        type: "object" as const,
+        properties: {
+          id: { type: "string" as const },
+          text: { type: "string" as const },
+          type: { type: "string" as const, enum: ["text", "select", "chips"] },
+          options: {
+            type: ["array", "null"] as unknown as "array",
+            items: { type: "string" as const },
+          },
+          placeholder: { type: ["string", "null"] as unknown as "string" },
+          priority: { type: ["string", "null"] as unknown as "string", enum: ["low", "medium", "high", null] },
+        },
+        required: ["id", "text", "type", "options", "placeholder", "priority"] as const,
+        additionalProperties: false,
+      },
+    },
+    suggestions: {
+      type: "array" as const,
+      items: {
+        type: "object" as const,
+        properties: {
+          type: { type: "string" as const, enum: ["audience", "feature", "usp", "palette", "trend"] },
+          text: { type: "string" as const },
+        },
+        required: ["type", "text"] as const,
+        additionalProperties: false,
+      },
+    },
+    insightSummary: { type: ["string", "null"] as unknown as "string" },
+    meta: {
+      type: ["object", "null"] as unknown as "object",
+      properties: {
+        confidence: { type: "number" as const },
+        needsClarification: { type: "boolean" as const },
+        unknowns: { type: "array" as const, items: { type: "string" as const } },
+        priority: { type: "string" as const, enum: ["low", "medium", "high"] },
+      },
+      required: ["confidence", "needsClarification", "unknowns", "priority"] as const,
+      additionalProperties: false,
+    },
+  },
+  required: ["questions", "suggestions", "insightSummary", "meta"] as const,
+  additionalProperties: false,
+} as const;
 
 // ── Industry context ────────────────────────────────────────────────
 
@@ -248,16 +303,17 @@ export async function POST(req: Request) {
         return creditCheck.response;
       }
 
-      // Check gateway auth
-      const hasGatewayApiKey = Boolean(process.env.AI_GATEWAY_API_KEY?.trim());
-      const hasOidcToken = Boolean(process.env.VERCEL_OIDC_TOKEN?.trim());
-      const onVercel = process.env.VERCEL === "1" || Boolean(process.env.VERCEL_ENV);
+      if (!FEATURES.useResponsesApi) {
+        const hasGatewayApiKey = Boolean(process.env.AI_GATEWAY_API_KEY?.trim());
+        const hasOidcToken = Boolean(process.env.VERCEL_OIDC_TOKEN?.trim());
+        const onVercel = process.env.VERCEL === "1" || Boolean(process.env.VERCEL_ENV);
 
-      if (!hasGatewayApiKey && !hasOidcToken && !onVercel) {
-        return NextResponse.json(
-          { error: "AI Gateway auth missing" },
-          { status: 503 },
-        );
+        if (!hasGatewayApiKey && !hasOidcToken && !onVercel) {
+          return NextResponse.json(
+            { error: "AI Gateway auth missing" },
+            { status: 503 },
+          );
+        }
       }
 
       // ── Optional scraping ───────────────────────────────────────
@@ -369,33 +425,59 @@ ${suggestionRule}
 - Allt på svenska
 - Bara JSON, inget annat`;
 
-      const result = await generateText({
-        model: gateway(ENRICH_MODEL),
-        prompt,
-        maxRetries: 1,
-        providerOptions: {
-          gateway: {
-            models: ["openai/gpt-5.2", "anthropic/claude-sonnet-4.5"],
+      let normalized: EnrichResponse;
+
+      if (FEATURES.useResponsesApi) {
+        // ── Responses API path (structured output) ──────────────
+        const openai = new OpenAI({ apiKey: SECRETS.openaiApiKey });
+        const RESPONSES_MODEL = "gpt-5-mini";
+
+        const response = await openai.responses.create({
+          model: RESPONSES_MODEL,
+          instructions: prompt,
+          input: "Generera svaret baserat på instruktionerna.",
+          text: {
+            format: {
+              type: "json_schema",
+              name: "wizard_enrich",
+              schema: ENRICH_JSON_SCHEMA,
+              strict: true,
+            },
           },
-        },
-        maxOutputTokens: mode === "final_check" ? 520 : 420,
-      });
+          store: false,
+        });
 
-      // Parse JSON from response
-      let parsedResponse: unknown = {};
+        const rawParsed = JSON.parse(response.output_text);
+        normalized = normalizeResponse(rawParsed);
+        debugLog("WIZARD", "Responses API enrich completed", { model: RESPONSES_MODEL });
+      } else {
+        // ── Gateway fallback path ───────────────────────────────
+        const result = await generateText({
+          model: gateway(ENRICH_MODEL),
+          prompt,
+          maxRetries: 1,
+          providerOptions: {
+            gateway: {
+              models: ["openai/gpt-5.2", "anthropic/claude-sonnet-4.5"],
+            },
+          },
+          maxOutputTokens: mode === "final_check" ? 520 : 420,
+        });
 
-      try {
-        const text = result.text?.trim() || "";
-        // Extract JSON from response (handle markdown code fences)
-        const jsonMatch = text.match(/\{[\s\S]*\}/);
-        if (jsonMatch) {
-          parsedResponse = JSON.parse(jsonMatch[0]);
+        let parsedResponse: unknown = {};
+
+        try {
+          const text = result.text?.trim() || "";
+          const jsonMatch = text.match(/\{[\s\S]*\}/);
+          if (jsonMatch) {
+            parsedResponse = JSON.parse(jsonMatch[0]);
+          }
+        } catch {
+          debugLog("WIZARD", "Failed to parse enrich JSON, using empty response");
         }
-      } catch {
-        debugLog("WIZARD", "Failed to parse enrich JSON, using empty response");
-      }
 
-      const normalized = normalizeResponse(parsedResponse);
+        normalized = normalizeResponse(parsedResponse);
+      }
       const responsePayload = {
         questions: normalized.questions || [],
         suggestions: normalized.suggestions || [],

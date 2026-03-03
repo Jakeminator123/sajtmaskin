@@ -123,16 +123,22 @@ export async function getMediaLibraryCounts(userId: string): Promise<{
   return { images: imageCount, videos, other };
 }
 
-export async function getMediaLibraryItemById(id: number): Promise<MediaLibraryItem | null> {
+export async function getMediaLibraryItemById(
+  id: number,
+  userId?: string,
+): Promise<MediaLibraryItem | null> {
   assertDbConfigured();
-  const rows = await db.select().from(mediaLibrary).where(eq(mediaLibrary.id, id)).limit(1);
+  const condition = userId
+    ? and(eq(mediaLibrary.id, id), eq(mediaLibrary.user_id, userId))
+    : eq(mediaLibrary.id, id);
+  const rows = await db.select().from(mediaLibrary).where(condition).limit(1);
   return rows[0] ?? null;
 }
 
 export async function deleteMediaLibraryItem(id: number, userId: string): Promise<boolean> {
   assertDbConfigured();
-  const item = await getMediaLibraryItemById(id);
-  if (!item || item.user_id !== userId) return false;
+  const item = await getMediaLibraryItemById(id, userId);
+  if (!item) return false;
 
   if (item.blob_url && isVercelBlobUrl(item.blob_url)) {
     await deleteBlob(item.blob_url);

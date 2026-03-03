@@ -9,6 +9,12 @@ import { ThemeProvider } from "next-themes";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Toaster } from "@/components/ui/sonner";
+import dynamic from "next/dynamic";
+
+const OpenClawChat = dynamic(
+  () => import("@/components/openclaw/OpenClawChat").then((m) => m.OpenClawChat),
+  { ssr: false },
+);
 
 const geistSans = Geist({
   subsets: ["latin"],
@@ -87,6 +93,7 @@ export default function RootLayout({
           <BetaBanner />
           {children}
           <Toaster position="top-right" />
+          <OpenClawChat />
           <CookieBanner />
         </ThemeProvider>
       </body>

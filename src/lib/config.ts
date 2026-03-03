@@ -217,6 +217,14 @@ export const SECRETS = {
     return env.RESEND_API_KEY ?? "";
   },
 
+  get braveApiKey() {
+    return env.BRAVE_API_KEY ?? "";
+  },
+
+  get openaiApiKey() {
+    return env.OPENAI_API_KEY ?? "";
+  },
+
   get emailFrom() {
     return env.EMAIL_FROM;
   },
@@ -316,6 +324,14 @@ export const FEATURES = {
   useV0Api: Boolean(SECRETS.v0ApiKey),
 
   useVercelApi: Boolean(SECRETS.vercelApiToken),
+
+  useBraveSearch: Boolean(SECRETS.braveApiKey),
+
+  useResponsesApi:
+    Boolean(SECRETS.openaiApiKey) && env.USE_RESPONSES_API !== "false",
+
+  useAuditWebSearch:
+    Boolean(SECRETS.openaiApiKey) && env.AUDIT_WEB_SEARCH === "true",
 
   // CRITICAL for AI-generated images in v0 preview
   useVercelBlob: Boolean(env.BLOB_READ_WRITE_TOKEN),

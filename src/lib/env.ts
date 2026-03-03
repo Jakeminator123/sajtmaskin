@@ -61,6 +61,7 @@ export const serverSchema = z.object({
   FIGMA_ACCESS_TOKEN: z.string().optional(),
   GOOGLE_API_KEY: z.string().optional(),
   RESEND_API_KEY: z.string().optional(),
+  BRAVE_API_KEY: z.string().optional(),
 
   // OAuth – Google
   GOOGLE_CLIENT_ID: z.string().optional(),
@@ -89,8 +90,17 @@ export const serverSchema = z.object({
   TEST_USER_EMAIL: z.string().optional(),
   TEST_USER_PASSWORD: z.string().optional(),
 
+  // OpenClaw (Sajtagenten)
+  OPENCLAW_GATEWAY_URL: z.string().optional(),
+  OPENCLAW_GATEWAY_TOKEN: z.string().optional(),
+
+  // AI – Direct OpenAI (Responses API)
+  OPENAI_API_KEY: z.string().optional(),
+
   // Feature flags
   ENABLE_PEXELS: z.string().optional(),
+  USE_RESPONSES_API: z.string().optional(),
+  AUDIT_WEB_SEARCH: z.string().optional(),
 
   // Public (validated server-side; client sees them via Next.js inlining)
   NEXT_PUBLIC_APP_URL: z.string().default("http://localhost:3000"),

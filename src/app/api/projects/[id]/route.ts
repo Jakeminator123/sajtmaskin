@@ -81,15 +81,13 @@ export async function PUT(request: NextRequest, { params }: RouteParams) {
     const sessionId = getSessionIdFromRequest(request);
     const ownerKey = getOwnerCacheSegment(user?.id ?? null, sessionId);
 
-    const existing = await getProjectByIdForOwner(id, {
-      userId: user?.id ?? null,
-      sessionId,
-    });
+    const ownerScope = { userId: user?.id ?? null, sessionId };
+    const existing = await getProjectByIdForOwner(id, ownerScope);
     if (!existing) {
       return NextResponse.json({ success: false, error: "Project not found" }, { status: 404 });
     }
 
-    const updated = await updateProject(id, body);
+    const updated = await updateProject(id, body, ownerScope);
 
     // Invalidate caches
     await Promise.all([
@@ -120,15 +118,13 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
     const sessionId = getSessionIdFromRequest(request);
     const ownerKey = getOwnerCacheSegment(user?.id ?? null, sessionId);
 
-    const existing = await getProjectByIdForOwner(id, {
-      userId: user?.id ?? null,
-      sessionId,
-    });
+    const ownerScope = { userId: user?.id ?? null, sessionId };
+    const existing = await getProjectByIdForOwner(id, ownerScope);
     if (!existing) {
       return NextResponse.json({ success: false, error: "Project not found" }, { status: 404 });
     }
 
-    const deleted = await deleteProject(id);
+    const deleted = await deleteProject(id, ownerScope);
 
     if (!deleted) {
       return NextResponse.json({ success: false, error: "Project not found" }, { status: 404 });

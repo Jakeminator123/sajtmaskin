@@ -8,10 +8,12 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { generateText, gateway } from "ai";
+import OpenAI from "openai";
 import { prepareCredits } from "@/lib/credits/server";
 import { getCreditCost, type CreditAction } from "@/lib/credits/pricing";
 import { scrapeWebsite, validateAndNormalizeUrl, getCanonicalUrlKey } from "@/lib/webscraper";
 import { buildAuditPrompt, extractFirstJsonObject, parseJsonWithRepair } from "@/lib/audit-prompts";
+import { FEATURES, SECRETS } from "@/lib/config";
 import type { AuditMode, AuditResult, AuditRequest } from "@/types/audit";
 
 // Extend timeout for long-running AI calls
@@ -1229,116 +1231,200 @@ export async function POST(request: NextRequest) {
       content: message.content.map((part) => part.text).join("\n"),
     }));
 
-    const gatewayAuth = getGatewayAuth();
-    if (!gatewayAuth.enabled) {
-      return NextResponse.json(
-        {
-          success: false,
-          error:
-            "AI Gateway är inte konfigurerad. Sätt AI_GATEWAY_API_KEY eller kör via Vercel OIDC.",
-        },
-        { status: 500 },
-      );
-    }
-
-    const usedModel = AUDIT_MODEL_CANDIDATES[0];
-    console.info(`[${requestId}] Calling AI Gateway (${usedModel})`);
-    const aiResult = await generateText({
-      model: gateway(usedModel),
-      messages: promptMessages,
-      providerOptions: {
-        gateway: {
-          models: AUDIT_MODEL_CANDIDATES.slice(1),
-        } as any,
-      },
-      maxOutputTokens: 16000,
-    });
-
-    const apiDuration = Date.now() - requestStartTime;
-    console.info(`[${requestId}] API call completed in ${apiDuration}ms using ${usedModel}`);
-
-    const outputText = aiResult.text || "";
-    const webSearchCallCount = 0;
-
-    if (!outputText || outputText.trim().length === 0) {
-      console.error(`[${requestId}] Empty response from API`);
-      console.error(`[${requestId}] Full response keys:`, Object.keys(aiResult || {}));
-      console.error(
-        `[${requestId}] Response preview:`,
-        JSON.stringify(aiResult).substring(0, 500),
-      );
-      return NextResponse.json(
-        { success: false, error: "Tom respons från AI. Försök igen." },
-        { status: 500 },
-      );
-    }
-
-    // Clean output text - remove markdown code blocks if present
-    let cleanedOutput = outputText.trim();
-
-    // Remove ```json ... ``` or ``` ... ``` wrapper if present
-    const jsonBlockMatch = cleanedOutput.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
-    if (jsonBlockMatch) {
-      cleanedOutput = jsonBlockMatch[1].trim();
-      console.info(`[${requestId}] Removed markdown code block wrapper`);
-    }
-
-    // Remove any text before the first { and after the last }
-    const firstBrace = cleanedOutput.indexOf("{");
-    const lastBrace = cleanedOutput.lastIndexOf("}");
-    if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
-      const beforeJson = cleanedOutput.substring(0, firstBrace).trim();
-      const afterJson = cleanedOutput.substring(lastBrace + 1).trim();
-      if (beforeJson || afterJson) {
-        cleanedOutput = cleanedOutput.substring(firstBrace, lastBrace + 1);
-        console.info(`[${requestId}] Trimmed text before/after JSON`);
-      }
-    }
-
-    // Parse JSON response with repair attempts
+    // ── AI call: Responses API (structured output) or Gateway fallback ──
     let auditResult: Partial<AuditResult> = {};
     let usedFallback = false;
-    const parseResult = parseJsonWithRepair(cleanedOutput);
+    let webSearchCallCount = 0;
+    let inputTokens = 0;
+    let outputTokens = 0;
+    let usedModel: string = AUDIT_MODEL_CANDIDATES[0];
 
-    if (parseResult.success && parseResult.data) {
-      auditResult = parseResult.data;
-      console.info(`[${requestId}] JSON parse succeeded`);
-    } else {
-      // Try to extract JSON from response if direct parse failed
+    if (FEATURES.useResponsesApi) {
+      // ── Responses API path ──────────────────────────────────────
+      const RESPONSES_MODEL = "gpt-5.2";
+      usedModel = RESPONSES_MODEL;
+
+      const openai = new OpenAI({ apiKey: SECRETS.openaiApiKey });
+
+      const tools: OpenAI.Responses.Tool[] = FEATURES.useAuditWebSearch
+        ? [{ type: "web_search_preview" as const, search_context_size: "low" as const }]
+        : [];
+
+      const promptContent = promptMessages
+        .map((m) => `${m.role === "system" ? "[System]\n" : ""}${m.content}`)
+        .join("\n\n");
+
       console.info(
-        `[${requestId}] Direct parse failed, trying extraction:`,
-        parseResult.error || "unknown",
+        `[${requestId}] Calling Responses API (${RESPONSES_MODEL}, web_search=${FEATURES.useAuditWebSearch})`,
       );
-      const jsonString = extractFirstJsonObject(outputText);
-      if (!jsonString) {
-        console.error(
-          `[${requestId}] Could not find JSON in response. Full output (first 2000 chars):`,
-          outputText.substring(0, 2000),
+
+      const response = await openai.responses.create({
+        model: RESPONSES_MODEL,
+        input: [{ role: "user", content: promptContent }],
+        tools: tools.length > 0 ? tools : undefined,
+        text: {
+          format: {
+            type: "json_schema",
+            name: "website_audit",
+            schema: AUDIT_AI_SCHEMA,
+            strict: true,
+          },
+        },
+        store: false,
+      });
+
+      const apiDuration = Date.now() - requestStartTime;
+
+      webSearchCallCount = response.output.filter(
+        (item) => item.type === "web_search_call",
+      ).length;
+
+      if (response.usage) {
+        inputTokens = response.usage.input_tokens ?? 0;
+        outputTokens = response.usage.output_tokens ?? 0;
+      }
+
+      console.info(
+        `[${requestId}] Responses API completed in ${apiDuration}ms (web_searches=${webSearchCallCount})`,
+      );
+
+      if (!response.output_text || response.output_text.trim().length === 0) {
+        console.error(`[${requestId}] Empty response from Responses API`);
+        return NextResponse.json(
+          { success: false, error: "Tom respons från AI. Försök igen." },
+          { status: 500 },
         );
-        console.info(`[${requestId}] Falling back to scraped-data audit (AI response invalid JSON)`);
+      }
+
+      try {
+        auditResult = JSON.parse(response.output_text);
+        console.info(`[${requestId}] Structured output parsed successfully`);
+      } catch (parseErr) {
+        console.error(`[${requestId}] Structured output parse failed (unexpected):`, parseErr);
         auditResult = createFallbackResult(websiteContent, normalizedUrl, resolvedAuditMode);
         usedFallback = true;
-      } else {
-        console.info(`[${requestId}] Extracted JSON length: ${jsonString.length} chars`);
+      }
+    } else {
+      // ── Gateway fallback path (old behaviour) ───────────────────
+      const gatewayAuth = getGatewayAuth();
+      if (!gatewayAuth.enabled) {
+        return NextResponse.json(
+          {
+            success: false,
+            error:
+              "AI Gateway är inte konfigurerad. Sätt AI_GATEWAY_API_KEY eller kör via Vercel OIDC.",
+          },
+          { status: 500 },
+        );
+      }
 
-        // Try parsing extracted JSON with repair
-        const extractParseResult = parseJsonWithRepair(jsonString);
-        if (extractParseResult.success && extractParseResult.data) {
-          auditResult = extractParseResult.data;
-          console.info(`[${requestId}] Extracted JSON parse succeeded`);
-        } else {
-          // Log the problematic JSON for debugging (first 1000 chars around error position)
-          const errorPos = extractParseResult.error?.match(/position (\d+)/)?.[1];
-          const startPos = errorPos ? Math.max(0, parseInt(errorPos) - 500) : 0;
-          const endPos = errorPos ? Math.min(jsonString.length, parseInt(errorPos) + 500) : 1000;
-          console.error(`[${requestId}] Failed to parse extracted JSON:`, extractParseResult.error);
+      console.info(`[${requestId}] Calling AI Gateway (${usedModel})`);
+      const aiResult = await generateText({
+        model: gateway(usedModel),
+        messages: promptMessages,
+        providerOptions: {
+          gateway: {
+            models: AUDIT_MODEL_CANDIDATES.slice(1),
+          } as any,
+        },
+        maxOutputTokens: 16000,
+      });
+
+      const apiDuration = Date.now() - requestStartTime;
+      console.info(`[${requestId}] Gateway completed in ${apiDuration}ms using ${usedModel}`);
+
+      const usage = aiResult.usage ?? {};
+      inputTokens =
+        (usage as { inputTokens?: number }).inputTokens ??
+        (usage as { promptTokens?: number }).promptTokens ??
+        0;
+      outputTokens =
+        (usage as { outputTokens?: number }).outputTokens ??
+        (usage as { completionTokens?: number }).completionTokens ??
+        0;
+
+      const outputText = aiResult.text || "";
+
+      if (!outputText || outputText.trim().length === 0) {
+        console.error(`[${requestId}] Empty response from API`);
+        console.error(`[${requestId}] Full response keys:`, Object.keys(aiResult || {}));
+        console.error(
+          `[${requestId}] Response preview:`,
+          JSON.stringify(aiResult).substring(0, 500),
+        );
+        return NextResponse.json(
+          { success: false, error: "Tom respons från AI. Försök igen." },
+          { status: 500 },
+        );
+      }
+
+      let cleanedOutput = outputText.trim();
+
+      const jsonBlockMatch = cleanedOutput.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+      if (jsonBlockMatch) {
+        cleanedOutput = jsonBlockMatch[1].trim();
+        console.info(`[${requestId}] Removed markdown code block wrapper`);
+      }
+
+      const firstBrace = cleanedOutput.indexOf("{");
+      const lastBrace = cleanedOutput.lastIndexOf("}");
+      if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+        const beforeJson = cleanedOutput.substring(0, firstBrace).trim();
+        const afterJson = cleanedOutput.substring(lastBrace + 1).trim();
+        if (beforeJson || afterJson) {
+          cleanedOutput = cleanedOutput.substring(firstBrace, lastBrace + 1);
+          console.info(`[${requestId}] Trimmed text before/after JSON`);
+        }
+      }
+
+      const parseResult = parseJsonWithRepair(cleanedOutput);
+
+      if (parseResult.success && parseResult.data) {
+        auditResult = parseResult.data;
+        console.info(`[${requestId}] JSON parse succeeded`);
+      } else {
+        console.info(
+          `[${requestId}] Direct parse failed, trying extraction:`,
+          parseResult.error || "unknown",
+        );
+        const jsonString = extractFirstJsonObject(outputText);
+        if (!jsonString) {
           console.error(
-            `[${requestId}] Problematic JSON section (chars ${startPos}-${endPos}):`,
-            jsonString.substring(startPos, endPos),
+            `[${requestId}] Could not find JSON in response. Full output (first 2000 chars):`,
+            outputText.substring(0, 2000),
           );
-          console.info(`[${requestId}] Falling back to scraped-data audit (AI JSON parse failed)`);
+          console.info(
+            `[${requestId}] Falling back to scraped-data audit (AI response invalid JSON)`,
+          );
           auditResult = createFallbackResult(websiteContent, normalizedUrl, resolvedAuditMode);
           usedFallback = true;
+        } else {
+          console.info(`[${requestId}] Extracted JSON length: ${jsonString.length} chars`);
+
+          const extractParseResult = parseJsonWithRepair(jsonString);
+          if (extractParseResult.success && extractParseResult.data) {
+            auditResult = extractParseResult.data;
+            console.info(`[${requestId}] Extracted JSON parse succeeded`);
+          } else {
+            const errorPos = extractParseResult.error?.match(/position (\d+)/)?.[1];
+            const startPos = errorPos ? Math.max(0, parseInt(errorPos) - 500) : 0;
+            const endPos = errorPos
+              ? Math.min(jsonString.length, parseInt(errorPos) + 500)
+              : 1000;
+            console.error(
+              `[${requestId}] Failed to parse extracted JSON:`,
+              extractParseResult.error,
+            );
+            console.error(
+              `[${requestId}] Problematic JSON section (chars ${startPos}-${endPos}):`,
+              jsonString.substring(startPos, endPos),
+            );
+            console.info(
+              `[${requestId}] Falling back to scraped-data audit (AI JSON parse failed)`,
+            );
+            auditResult = createFallbackResult(websiteContent, normalizedUrl, resolvedAuditMode);
+            usedFallback = true;
+          }
         }
       }
     }
@@ -1440,15 +1526,6 @@ export async function POST(request: NextRequest) {
     }
 
     // Calculate cost (for display)
-    const usage = aiResult.usage ?? {};
-    const inputTokens =
-      (usage as { inputTokens?: number }).inputTokens ??
-      (usage as { promptTokens?: number }).promptTokens ??
-      0;
-    const outputTokens =
-      (usage as { outputTokens?: number }).outputTokens ??
-      (usage as { completionTokens?: number }).completionTokens ??
-      0;
     const pricing = getPricingForModel(usedModel);
     const costUSD = (inputTokens * pricing.input + outputTokens * pricing.output) / 1_000_000;
     const costSEK = costUSD * USD_TO_SEK;

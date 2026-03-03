@@ -1,4 +1,4 @@
-import { desc, sql } from "drizzle-orm";
+import { desc, eq, sql } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { db } from "@/lib/db/client";
 import { promptLogs } from "@/lib/db/schema";
@@ -29,6 +29,7 @@ export async function createPromptLog(payload: {
   assertDbConfigured();
   const retentionLimit = 20;
   const now = new Date();
+  const ownerId = payload.userId || payload.sessionId || null;
   await db.insert(promptLogs).values({
     id: nanoid(),
     event: payload.event,
@@ -55,15 +56,40 @@ export async function createPromptLog(payload: {
     meta: payload.meta || null,
     created_at: now,
   });
-  await db.execute(
-    sql`DELETE FROM prompt_logs WHERE id IN (
-      SELECT id FROM prompt_logs ORDER BY created_at DESC OFFSET ${retentionLimit}
-    )`,
-  );
+
+  if (ownerId) {
+    const ownerFilter = payload.userId
+      ? sql`user_id = ${payload.userId}`
+      : sql`session_id = ${payload.sessionId}`;
+    await db.execute(
+      sql`DELETE FROM prompt_logs WHERE id IN (
+        SELECT id FROM prompt_logs WHERE ${ownerFilter} ORDER BY created_at DESC OFFSET ${retentionLimit}
+      )`,
+    );
+  } else {
+    await db.execute(
+      sql`DELETE FROM prompt_logs WHERE id IN (
+        SELECT id FROM prompt_logs WHERE user_id IS NULL AND session_id IS NULL ORDER BY created_at DESC OFFSET ${retentionLimit}
+      )`,
+    );
+  }
 }
 
-export async function getRecentPromptLogs(limit = 20): Promise<PromptLog[]> {
+/**
+ * Get recent prompt logs for a specific user (admin use).
+ * When userId is provided, returns only that user's logs.
+ * When omitted, returns all logs (admin-only — caller must enforce auth).
+ */
+export async function getRecentPromptLogs(limit = 20, userId?: string): Promise<PromptLog[]> {
   assertDbConfigured();
   const resolved = Number.isFinite(limit) ? Math.max(1, Math.min(limit, 100)) : 20;
+  if (userId) {
+    return db
+      .select()
+      .from(promptLogs)
+      .where(eq(promptLogs.user_id, userId))
+      .orderBy(desc(promptLogs.created_at))
+      .limit(resolved);
+  }
   return db.select().from(promptLogs).orderBy(desc(promptLogs.created_at)).limit(resolved);
 }

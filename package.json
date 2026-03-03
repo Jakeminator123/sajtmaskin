@@ -24,6 +24,7 @@
     "templates:sync": "node scripts/sync-v0-templates.mjs",
     "templates:validate": "node scripts/validate-templates.mjs",
     "templates:refresh": "node scripts/sync-v0-templates.mjs && node scripts/validate-templates.mjs",
+    "templates:embeddings": "npx tsx scripts/generate-template-embeddings.ts",
     "inspector:worker:up": "docker compose -f docker-compose.inspector-worker.yml up -d --build",
     "inspector:worker:down": "docker compose -f docker-compose.inspector-worker.yml down",
     "inspector:worker:logs": "docker compose -f docker-compose.inspector-worker.yml logs -f inspector-worker",

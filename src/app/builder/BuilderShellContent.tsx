@@ -14,13 +14,39 @@ import { ThinkingOverlay } from "@/components/builder/ThinkingOverlay";
 import { RequireAuthModal } from "@/components/auth";
 import { useAuthStore } from "@/lib/auth/auth-store";
 import { cn } from "@/lib/utils";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { BuilderLayout } from "./BuilderLayout";
 import type { BuilderViewModel } from "./useBuilderPageController";
 
 export function BuilderShellContent(vm: BuilderViewModel) {
   const isBusy = vm.isCreatingChat || vm.isAnyStreaming || vm.isTemplateLoading || vm.isPreparingPrompt;
   const [isFigmaInputOpen, setIsFigmaInputOpen] = useState(false);
+
+  useEffect(() => {
+    window.__SITEMASKIN_CONTEXT = {
+      page: "builder",
+      chatId: vm.chatId,
+      activeVersionId: vm.activeVersionId,
+      demoUrl: vm.currentDemoUrl,
+      recentMessages: vm.messages.slice(-5).map((m) => ({
+        role: m.role,
+        content:
+          typeof m.content === "string" ? m.content.slice(0, 300) : "[structured]",
+      })),
+      currentCode: vm.currentPageCode?.slice(0, 3000) || null,
+      isStreaming: vm.isAnyStreaming,
+    };
+    return () => {
+      delete window.__SITEMASKIN_CONTEXT;
+    };
+  }, [
+    vm.chatId,
+    vm.activeVersionId,
+    vm.currentDemoUrl,
+    vm.messages,
+    vm.currentPageCode,
+    vm.isAnyStreaming,
+  ]);
 
   return (
     <BuilderLayout chatId={vm.chatId} versionId={vm.activeVersionId}>

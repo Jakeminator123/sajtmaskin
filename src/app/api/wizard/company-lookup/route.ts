@@ -13,6 +13,7 @@ import { withRateLimit } from "@/lib/rateLimit";
 import { requireNotBot } from "@/lib/botProtection";
 import { debugLog } from "@/lib/utils/debug";
 import { prepareCredits } from "@/lib/credits/server";
+import { braveWebSearch } from "@/lib/brave-search";
 
 export const runtime = "nodejs";
 export const maxDuration = 25;
@@ -115,6 +116,57 @@ async function lookupViaCheerio(companyName: string): Promise<CompanyLookupResul
   };
 }
 
+/**
+ * Step 2: Brave Search → find allabolag URL → Cheerio-scrape it.
+ * Searches for the company on Brave, extracts the first allabolag.se
+ * company page link, then scrapes that page with Cheerio.
+ */
+async function lookupViaBraveSearch(companyName: string): Promise<CompanyLookupResult> {
+  const results = await braveWebSearch(`företag ${companyName} allabolag`, 5);
+  if (results.length === 0) throw new Error("Brave returned no results");
+
+  const allabolagUrl = results
+    .map((r) => r.url)
+    .find((u) => u.includes("allabolag.se/foretag/"));
+
+  if (!allabolagUrl) throw new Error("No allabolag company URL in Brave results");
+
+  const cheerio = await import("cheerio");
+  const companyRes = await fetch(allabolagUrl, {
+    headers: BROWSER_HEADERS,
+    signal: AbortSignal.timeout(8000),
+  });
+  if (!companyRes.ok) throw new Error(`Company page returned ${companyRes.status}`);
+
+  const companyHtml = await companyRes.text();
+  const $company = cheerio.load(companyHtml);
+  const nextDataScript = $company("#__NEXT_DATA__").html();
+  if (!nextDataScript) throw new Error("No __NEXT_DATA__ found on Brave-discovered URL");
+
+  const nextData = JSON.parse(nextDataScript);
+  const c = nextData?.props?.pageProps?.company;
+  if (!c) throw new Error("No company object in __NEXT_DATA__");
+
+  const addr = c.visitorAddress || {};
+  const cp = c.contactPerson || {};
+
+  return {
+    found: true,
+    companyName: c.name || companyName,
+    orgNr: fmtOrgNr(c.orgnr || ""),
+    companyType: c.companyType?.name,
+    city: addr.postPlace || undefined,
+    address: [addr.addressLine, addr.zipCode, addr.postPlace].filter(Boolean).join(", "),
+    industries: (c.industries || []).map((i: { name?: string }) => i.name).filter(Boolean),
+    revenueKsek: safeInt(c.revenue),
+    employees: safeInt(c.employees),
+    ceo: cp.name ? `${cp.name}${cp.role ? ` (${cp.role})` : ""}` : undefined,
+    homepage: (c.homePage || "").trim() || undefined,
+    purpose: (c.purpose || "").slice(0, 300) || undefined,
+    source: "allabolag",
+  };
+}
+
 async function lookupViaAiSearch(companyName: string): Promise<CompanyLookupResult> {
   const result = await generateText({
     model: gateway("openai/gpt-5-mini"),
@@ -173,20 +225,33 @@ export async function POST(req: Request) {
 
       let result: CompanyLookupResult = EMPTY_RESULT;
 
+      // Step 1: Direct Cheerio scrape of allabolag.se
       try {
         result = await lookupViaCheerio(companyName);
         debugLog("WIZARD", "Cheerio lookup succeeded", { name: result.companyName, orgNr: result.orgNr });
       } catch (cheerioErr) {
-        debugLog("WIZARD", "Cheerio lookup failed, trying AI search", {
+        debugLog("WIZARD", "Cheerio lookup failed", {
           error: cheerioErr instanceof Error ? cheerioErr.message : String(cheerioErr),
         });
+
+        // Step 2: Brave Search → find allabolag URL → Cheerio that
         try {
-          result = await lookupViaAiSearch(companyName);
-          debugLog("WIZARD", "AI search lookup result", { found: result.found });
-        } catch (aiErr) {
-          debugLog("WIZARD", "AI search also failed", {
-            error: aiErr instanceof Error ? aiErr.message : String(aiErr),
+          result = await lookupViaBraveSearch(companyName);
+          debugLog("WIZARD", "Brave+Cheerio lookup succeeded", { name: result.companyName });
+        } catch (braveErr) {
+          debugLog("WIZARD", "Brave lookup failed, trying AI search", {
+            error: braveErr instanceof Error ? braveErr.message : String(braveErr),
           });
+
+          // Step 3: AI fallback (only if both Cheerio and Brave fail)
+          try {
+            result = await lookupViaAiSearch(companyName);
+            debugLog("WIZARD", "AI search lookup result", { found: result.found });
+          } catch (aiErr) {
+            debugLog("WIZARD", "AI search also failed", {
+              error: aiErr instanceof Error ? aiErr.message : String(aiErr),
+            });
+          }
         }
       }
 

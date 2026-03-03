@@ -9,12 +9,12 @@ med tillräcklig kontext för att en agent ska kunna köra den utan extra info.
 
 | # | Fil | Område | Prio | Insats | Status |
 |---|-----|--------|------|--------|--------|
-| 1 | `01-F-rls-policies.md` | Supabase RLS-policies | HÖG | LÅG | [ ] |
-| 2 | `02-B-brave-search.md` | Brave Search API-integration | HÖG | LÅG-MEDEL | [ ] |
-| 3 | `03-A-design-system.md` | v0 Design System / Registry | HÖG | MEDEL | [ ] |
-| 4 | `04-C-responses-api.md` | OpenAI Responses API-migration | MEDEL | MEDEL-HÖG | [ ] |
-| 5 | `05-D-middleware.md` | Next.js Middleware (auth/rate) | MEDEL | MEDEL | [ ] |
-| 6 | `06-E-embeddings.md` | Embeddings för template-sökning | LÅG-MEDEL | MEDEL | [ ] |
+| 1 | `01-F-rls-policies.md` | Supabase RLS-policies | HÖG | LÅG | [~] App-layer klart |
+| 2 | `02-B-brave-search.md` | Brave Search API-integration | HÖG | LÅG-MEDEL | [x] B1-B4 klart |
+| 3 | `03-A-design-system.md` | v0 Design System / Registry | HÖG | MEDEL | [ ] Manuellt arbete |
+| 4 | `04-C-responses-api.md` | OpenAI Responses API-migration | MEDEL | MEDEL-HÖG | [x] C1-C4b klart |
+| 5 | `05-D-middleware.md` | Next.js Middleware (auth/rate) | MEDEL | MEDEL | [x] D1-D4 klart |
+| 6 | `06-E-embeddings.md` | Embeddings för template-sökning | LÅG-MEDEL | MEDEL | [x] E1-E4 klart |
 
 ## Beroenden mellan planer
 

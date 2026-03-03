@@ -3,8 +3,20 @@ services:
     name: openclaw-sajtagenten
     runtime: docker
     plan: starter
+    rootDir: docker_sajtbyggar-agent
     dockerfilePath: ./Dockerfile
     healthCheckPath: /health
+    envVars:
+      - key: OPENCLAW_GATEWAY_TOKEN
+        sync: false
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: SAJTAGENT_TARGET_SITE_URL
+        sync: false
+      - key: OPENCLAW_GATEWAY_PORT
+        value: "10000"
+      - key: OPENCLAW_GATEWAY_BIND
+        value: lan
     disk:
       name: openclaw-sajtagenten-data
       mountPath: /root/.openclaw

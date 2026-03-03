@@ -162,6 +162,7 @@ export async function getProjectByIdForOwner(
 export async function updateProject(
   id: string,
   updates: Partial<Project>,
+  scope?: ProjectOwnerScope,
 ): Promise<Project | null> {
   assertDbConfigured();
   const allowed: Partial<Project> = {};
@@ -171,20 +172,25 @@ export async function updateProject(
   if (typeof updates.thumbnail_path === "string") allowed.thumbnail_path = updates.thumbnail_path;
 
   if (Object.keys(allowed).length === 0) {
-    return getProjectById(id);
+    return scope ? getProjectByIdForOwner(id, scope) : getProjectById(id);
   }
+
+  const ownerCondition = scope ? buildProjectOwnerCondition(scope) : null;
+  const whereClause = ownerCondition
+    ? and(eq(appProjects.id, id), ownerCondition)
+    : eq(appProjects.id, id);
 
   const rows = await db
     .update(appProjects)
     .set({ ...allowed, updated_at: new Date() })
-    .where(eq(appProjects.id, id))
+    .where(whereClause)
     .returning();
   return rows[0] ?? null;
 }
 
-export async function deleteProject(id: string): Promise<boolean> {
+export async function deleteProject(id: string, scope?: ProjectOwnerScope): Promise<boolean> {
   assertDbConfigured();
-  const existing = await getProjectById(id);
+  const existing = scope ? await getProjectByIdForOwner(id, scope) : await getProjectById(id);
   if (!existing) return false;
 
   await db.delete(projectData).where(eq(projectData.project_id, id));

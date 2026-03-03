@@ -1,16 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/auth";
 import OpenAI from "openai";
+import { FEATURES, SECRETS } from "@/lib/config";
 
 /**
  * Text Analysis API
  * =================
  *
  * Analyzes text content and suggests how to use it in a website.
- * Uses GPT-4o-mini (fast & cheap) instead of v0 API.
- *
- * This is a "pre-processor" that helps users formulate better prompts
- * for v0 without wasting expensive API calls.
+ * Uses Responses API with structured output for guaranteed JSON.
  *
  * POST /api/text/analyze
  * Body: { content: string, filename: string, contentType: string }
@@ -24,22 +22,38 @@ interface TextSuggestion {
   prompt: string;
 }
 
-// Use the cheapest/fastest model
-const ANALYSIS_MODEL = "gpt-4o-mini";
+const ANALYSIS_MODEL = "gpt-5-nano";
+
+const TEXT_ANALYZE_SCHEMA = {
+  type: "object" as const,
+  properties: {
+    summary: { type: "string" as const },
+    suggestions: {
+      type: "array" as const,
+      items: {
+        type: "object" as const,
+        properties: {
+          id: { type: "string" as const },
+          label: { type: "string" as const },
+          description: { type: "string" as const },
+          prompt: { type: "string" as const },
+        },
+        required: ["id", "label", "description", "prompt"] as const,
+        additionalProperties: false,
+      },
+    },
+  },
+  required: ["summary", "suggestions"] as const,
+  additionalProperties: false,
+};
 
 function getGatewayApiKey(): string | null {
   const apiKey = process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_OIDC_TOKEN;
   return apiKey && apiKey.trim() ? apiKey : null;
 }
 
-function toGatewayModelId(model: string): string {
-  if (model.includes("/")) return model;
-  return `openai/${model}`;
-}
-
 export async function POST(request: NextRequest) {
   try {
-    // Optional auth - allow guests to use this
     await getCurrentUser(request);
 
     const body = await request.json();
@@ -52,9 +66,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Check if AI Gateway is configured
-    if (!getGatewayApiKey()) {
-      console.info("[Text/Analyze] AI Gateway not configured, using defaults");
+    // Gate: need either OPENAI_API_KEY (Responses API) or gateway key
+    if (!SECRETS.openaiApiKey && !getGatewayApiKey()) {
+      console.info("[Text/Analyze] No AI keys configured, using defaults");
       return NextResponse.json({
         success: true,
         summary: `${filename || "Textfil"} (${content.length} tecken)`,
@@ -62,18 +76,9 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    const openai = new OpenAI({
-      apiKey: getGatewayApiKey() ?? "",
-      baseURL: "https://ai-gateway.vercel.sh/v1",
-    });
-
-    // Truncate content for analysis (save tokens)
     const truncatedContent = content.substring(0, 4000);
 
-    // Use Responses API with structured outputs (text.format)
-    const response = await openai.responses.create({
-      model: toGatewayModelId(ANALYSIS_MODEL),
-      instructions: `Du är en webbutvecklare som hjälper användare lägga till textinnehåll på webbplatser.
+    const instructions = `Du är en webbutvecklare som hjälper användare lägga till textinnehåll på webbplatser.
 
 Analysera texten och föreslå 3-4 sätt att använda den i en modern webbdesign.
 
@@ -86,12 +91,58 @@ Regler:
 - Anpassa förslagen efter innehållets typ (JSON → tabeller/kort, About-text → hero/sektion)
 - Prompterna ska vara specifika och inkludera den faktiska texten
 - Svara på svenska
-- Ge 3-4 varierande förslag`,
-      input: `Filnamn: ${filename || "textfil.txt"}
+- Ge 3-4 varierande förslag`;
+
+    const inputText = `Filnamn: ${filename || "textfil.txt"}
 Filtyp: ${contentType || "text"}
 
 Innehåll:
-${truncatedContent}
+${truncatedContent}`;
+
+    // ── Responses API path (structured output) ──────────────────
+    if (FEATURES.useResponsesApi) {
+      const openai = new OpenAI({ apiKey: SECRETS.openaiApiKey });
+
+      const response = await openai.responses.create({
+        model: ANALYSIS_MODEL,
+        instructions,
+        input: inputText,
+        text: {
+          format: {
+            type: "json_schema",
+            name: "text_analysis",
+            schema: TEXT_ANALYZE_SCHEMA,
+            strict: true,
+          },
+        },
+        store: false,
+      });
+
+      const parsed: { summary: string; suggestions: TextSuggestion[] } = JSON.parse(
+        response.output_text,
+      );
+
+      console.info(
+        `[Text/Analyze] Responses API: ${parsed.suggestions.length} suggestions for ${filename}`,
+      );
+
+      return NextResponse.json({
+        success: true,
+        summary: parsed.summary,
+        suggestions: parsed.suggestions,
+      });
+    }
+
+    // ── Gateway fallback path (old behaviour) ───────────────────
+    const openai = new OpenAI({
+      apiKey: getGatewayApiKey() ?? "",
+      baseURL: "https://ai-gateway.vercel.sh/v1",
+    });
+
+    const response = await openai.responses.create({
+      model: `openai/${ANALYSIS_MODEL}`,
+      instructions,
+      input: `${inputText}
 
 Svara ENDAST med giltig JSON i detta format:
 {
@@ -101,33 +152,26 @@ Svara ENDAST med giltig JSON i detta format:
       "id": "unique-id",
       "label": "Kort etikett (2-4 ord)",
       "description": "Kort beskrivning av vad detta alternativ gör",
-      "prompt": "Den fullständiga prompten som ska skickas till AI:n. Ange även var innehållet ska placeras på sidan eller om det bara ska sparas."
+      "prompt": "Den fullständiga prompten som ska skickas till AI:n."
     }
   ]
 }`,
-      // Note: TypeScript SDK doesn't fully support text.format yet, so we parse JSON from output_text
-      // This is still better than Chat Completions as we use Responses API
-      store: false, // No need to store for this analysis
+      store: false,
     });
 
-    // Use output_text helper from Responses API
     let responseText = response.output_text || "";
 
-    // Parse JSON response
     try {
-      // Extract JSON if wrapped in markdown code blocks
       const jsonMatch = responseText.match(/```(?:json)?\s*([\s\S]*?)```/);
       if (jsonMatch) {
         responseText = jsonMatch[1];
       }
       const parsed = JSON.parse(responseText.trim());
 
-      // Validate structure
       if (!parsed.suggestions || !Array.isArray(parsed.suggestions)) {
         throw new Error("Invalid response structure");
       }
 
-      // Ensure each suggestion has required fields
       const validSuggestions = parsed.suggestions
         .filter(
           (
@@ -171,7 +215,7 @@ Svara ENDAST med giltig JSON i detta format:
       }
 
       console.info(
-        `[Text/Analyze] Generated ${validSuggestions.length} suggestions for ${filename}`,
+        `[Text/Analyze] Gateway: ${validSuggestions.length} suggestions for ${filename}`,
       );
 
       return NextResponse.json({
@@ -180,8 +224,7 @@ Svara ENDAST med giltig JSON i detta format:
         suggestions: validSuggestions,
       });
     } catch (parseError) {
-      console.error("[Text/Analyze] Failed to parse AI response:", parseError);
-      // Fall back to defaults
+      console.error("[Text/Analyze] Failed to parse gateway AI response:", parseError);
       return NextResponse.json({
         success: true,
         summary: `${filename || "Textfil"} (${content.length} tecken)`,
@@ -191,7 +234,6 @@ Svara ENDAST med giltig JSON i detta format:
   } catch (error: unknown) {
     console.error("[API/Text/Analyze] Error:", error);
 
-    // Return defaults on error instead of failing
     return NextResponse.json({
       success: true,
       summary: "Kunde inte analysera filen automatiskt",
@@ -240,7 +282,6 @@ function getDefaultSuggestions(content: string, contentType: string): TextSugges
     ];
   }
 
-  // Default for plain text
   return [
     {
       id: "text-section",

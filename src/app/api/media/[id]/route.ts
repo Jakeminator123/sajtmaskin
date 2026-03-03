@@ -38,19 +38,10 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
       return NextResponse.json({ success: false, error: "Ogiltigt fil-ID" }, { status: 400 });
     }
 
-    // Check if item exists and belongs to user (for better error messages)
-    const item = await getMediaLibraryItemById(mediaId);
+    const item = await getMediaLibraryItemById(mediaId, user.id);
     if (!item) {
-      return NextResponse.json({ success: false, error: "Filen hittades inte" }, { status: 404 });
-    }
-
-    if (item.user_id !== user.id) {
-      // Don't reveal that the file exists to prevent enumeration attacks
       return NextResponse.json(
-        {
-          success: false,
-          error: "Filen hittades inte eller du har inte behörighet",
-        },
+        { success: false, error: "Filen hittades inte eller du har inte behörighet" },
         { status: 404 },
       );
     }

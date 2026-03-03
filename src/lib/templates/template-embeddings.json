@@ -1,0 +1,9 @@
+{
+  "_meta": {
+    "model": "text-embedding-3-small",
+    "dimensions": 1536,
+    "generated": "PLACEHOLDER — run `npm run templates:embeddings` to generate real embeddings",
+    "count": 0
+  },
+  "embeddings": []
+}
