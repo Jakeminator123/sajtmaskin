@@ -680,5 +680,25 @@ const server = http.createServer(async (req, res) => {
 
 server.listen(PORT, () => {
   console.info(`[inspector-worker] listening on http://0.0.0.0:${PORT}`);
+  console.info(`[inspector-worker] health → http://localhost:${PORT}/health`);
 });
+
+let shuttingDown = false;
+
+async function gracefulShutdown(signal) {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  console.info(`[inspector-worker] ${signal} received – shutting down`);
+  server.close(() => {
+    console.info("[inspector-worker] server closed");
+    process.exit(0);
+  });
+  setTimeout(() => {
+    console.warn("[inspector-worker] forced exit after 5 s timeout");
+    process.exit(1);
+  }, 5_000);
+}
+
+process.on("SIGINT", () => gracefulShutdown("SIGINT"));
+process.on("SIGTERM", () => gracefulShutdown("SIGTERM"));
 
