@@ -6,6 +6,7 @@ import { ensureProjectForRequest, generateProjectName, resolveV0ProjectId } from
 import { NextRequest, NextResponse } from "next/server";
 import { ensureSessionIdFromRequest } from "@/lib/auth/session";
 import { prepareCredits } from "@/lib/credits/server";
+import { withRateLimit } from "@/lib/rateLimit";
 
 // Allow 5 minutes for v0 API responses
 export const maxDuration = 300;
@@ -23,15 +24,16 @@ function getRandomMessage() {
 }
 
 export async function POST(request: NextRequest) {
-  try {
-    const session = ensureSessionIdFromRequest(request);
-    const sessionId = session.sessionId;
-    const attachSessionCookie = (response: Response) => {
-      if (session.setCookie) {
-        response.headers.set("Set-Cookie", session.setCookie);
-      }
-      return response;
-    };
+  return withRateLimit(request, "template:init", async () => {
+    try {
+      const session = ensureSessionIdFromRequest(request);
+      const sessionId = session.sessionId;
+      const attachSessionCookie = (response: Response) => {
+        if (session.setCookie) {
+          response.headers.set("Set-Cookie", session.setCookie);
+        }
+        return response;
+      };
 
     const body = await request.json();
     const { templateId, quality = "max", skipCache = false } = body;
@@ -226,64 +228,65 @@ export async function POST(request: NextRequest) {
         cached: false,
       }),
     );
-  } catch (error) {
-    console.error("[API /template] Error:", error);
+    } catch (error) {
+      console.error("[API /template] Error:", error);
 
-    const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
 
-    // Handle specific error types with appropriate status codes
-    if (errorMessage.includes("not found") || errorMessage.includes("404")) {
+      // Handle specific error types with appropriate status codes
+      if (errorMessage.includes("not found") || errorMessage.includes("404")) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "Template hittades inte. Välj en annan template.",
+          },
+          { status: 404 },
+        );
+      }
+
+      if (errorMessage.includes("rate limit") || errorMessage.includes("429")) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "För många förfrågningar. Vänta en stund och försök igen.",
+          },
+          { status: 429 },
+        );
+      }
+
+      if (errorMessage.includes("API-nyckel") || errorMessage.includes("401")) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "API-konfigurationsfel. Kontakta support.",
+          },
+          { status: 500 },
+        );
+      }
+
+      // For generation API errors (500, 502, etc.), pass through the user-friendly message
+      if (
+        errorMessage.includes("v0 API") ||
+        errorMessage.includes("Model API") ||
+        errorMessage.includes("generation API") ||
+        errorMessage.includes("tillfällig")
+      ) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: errorMessage,
+          },
+          { status: 502 },
+        );
+      }
+
       return NextResponse.json(
         {
           success: false,
-          error: "Template hittades inte. Välj en annan template.",
-        },
-        { status: 404 },
-      );
-    }
-
-    if (errorMessage.includes("rate limit") || errorMessage.includes("429")) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "För många förfrågningar. Vänta en stund och försök igen.",
-        },
-        { status: 429 },
-      );
-    }
-
-    if (errorMessage.includes("API-nyckel") || errorMessage.includes("401")) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "API-konfigurationsfel. Kontakta support.",
+          error: `Kunde inte ladda template: ${errorMessage}`,
         },
         { status: 500 },
       );
     }
-
-    // For generation API errors (500, 502, etc.), pass through the user-friendly message
-    if (
-      errorMessage.includes("v0 API") ||
-      errorMessage.includes("Model API") ||
-      errorMessage.includes("generation API") ||
-      errorMessage.includes("tillfällig")
-    ) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: errorMessage,
-        },
-        { status: 502 },
-      );
-    }
-
-    return NextResponse.json(
-      {
-        success: false,
-        error: `Kunde inte ladda template: ${errorMessage}`,
-      },
-      { status: 500 },
-    );
-  }
+  });
 }

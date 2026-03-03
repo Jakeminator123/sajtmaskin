@@ -11,6 +11,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { generateText, gateway } from "ai";
+import { withRateLimit } from "@/lib/rateLimit";
 
 // Allow 30 seconds for domain checks
 export const maxDuration = 30;
@@ -173,53 +174,55 @@ async function checkDomainViaDns(domain: string): Promise<boolean | null> {
 }
 
 export async function POST(req: NextRequest) {
-  try {
-    const body = await req.json();
-    const { companyName, industry, keywords } = body;
+  return withRateLimit(req, "domains:suggest", async () => {
+    try {
+      const body = await req.json();
+      const { companyName, industry, keywords } = body;
 
-    if (!companyName || typeof companyName !== "string") {
-      return NextResponse.json({ error: "companyName is required" }, { status: 400 });
-    }
+      if (!companyName || typeof companyName !== "string") {
+        return NextResponse.json({ error: "companyName is required" }, { status: 400 });
+      }
 
-    console.info("[domain-suggestions] Generating suggestions for:", companyName);
+      console.info("[domain-suggestions] Generating suggestions for:", companyName);
 
-    // Generate domain name bases
-    const baseNames = await generateDomainNames(companyName, industry, keywords);
+      // Generate domain name bases
+      const baseNames = await generateDomainNames(companyName, industry, keywords);
 
-    // Create full domain suggestions with different TLDs
-    const suggestions: DomainSuggestion[] = [];
+      // Create full domain suggestions with different TLDs
+      const suggestions: DomainSuggestion[] = [];
 
-    // Prioritize .se and .com for each name
-    for (const name of baseNames.slice(0, 5)) {
-      for (const tld of [".se", ".com"]) {
-        if (suggestions.length < 8) {
-          suggestions.push({
-            domain: `${name}${tld}`,
-            available: null,
-            tld,
-          });
+      // Prioritize .se and .com for each name
+      for (const name of baseNames.slice(0, 5)) {
+        for (const tld of [".se", ".com"]) {
+          if (suggestions.length < 8) {
+            suggestions.push({
+              domain: `${name}${tld}`,
+              available: null,
+              tld,
+            });
+          }
         }
       }
+
+      // Check availability in parallel (but with some rate limiting)
+      const checkPromises = suggestions.map(async (suggestion, index) => {
+        // Stagger requests slightly to avoid rate limiting
+        await new Promise((resolve) => setTimeout(resolve, index * 200));
+        const available = await checkDomainAvailability(suggestion.domain);
+        return { ...suggestion, available };
+      });
+
+      const checkedSuggestions = await Promise.all(checkPromises);
+
+      console.info("[domain-suggestions] Checked", checkedSuggestions.length, "domains");
+
+      return NextResponse.json({
+        success: true,
+        suggestions: checkedSuggestions,
+      });
+    } catch (error) {
+      console.error("[domain-suggestions] Error:", error);
+      return NextResponse.json({ error: "Failed to generate domain suggestions" }, { status: 500 });
     }
-
-    // Check availability in parallel (but with some rate limiting)
-    const checkPromises = suggestions.map(async (suggestion, index) => {
-      // Stagger requests slightly to avoid rate limiting
-      await new Promise((resolve) => setTimeout(resolve, index * 200));
-      const available = await checkDomainAvailability(suggestion.domain);
-      return { ...suggestion, available };
-    });
-
-    const checkedSuggestions = await Promise.all(checkPromises);
-
-    console.info("[domain-suggestions] Checked", checkedSuggestions.length, "domains");
-
-    return NextResponse.json({
-      success: true,
-      suggestions: checkedSuggestions,
-    });
-  } catch (error) {
-    console.error("[domain-suggestions] Error:", error);
-    return NextResponse.json({ error: "Failed to generate domain suggestions" }, { status: 500 });
-  }
+  });
 }

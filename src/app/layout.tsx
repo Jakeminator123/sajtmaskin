@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Inter, Space_Grotesk } from "next/font/google";
+import { headers } from "next/headers";
 import "./globals.css";
 import "@/styles/landing-v2.css";
 import { AnalyticsTracker, BetaBanner, CookieBanner } from "@/components/layout";
@@ -60,18 +61,21 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const requestHeaders = await headers();
+  const cspNonce = requestHeaders.get("x-csp-nonce");
+
   return (
     <html
       lang="sv"
       className={`${geistSans.variable} ${geistMono.variable} ${inter.variable} ${spaceGrotesk.variable}`}
       suppressHydrationWarning
     >
-      <body className="font-sans antialiased">
+      <body className="font-sans antialiased" data-csp-nonce={cspNonce ?? ""}>
         <noscript>
           <div style={{ padding: "2rem", maxWidth: 600, margin: "0 auto", fontFamily: "system-ui, sans-serif", color: "#e5e7eb" }}>
             <h1>Sajtmaskin</h1>

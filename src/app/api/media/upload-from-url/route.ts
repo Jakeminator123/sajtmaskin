@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { uploadBlob, generateUniqueFilename } from "@/lib/vercel/blob-service";
 import { validateSsrfTarget, safeFetch } from "@/lib/ssrf-guard";
+import { withRateLimit } from "@/lib/rateLimit";
 
 /**
  * Media Upload from URL API
@@ -16,7 +17,8 @@ import { validateSsrfTarget, safeFetch } from "@/lib/ssrf-guard";
  */
 
 export async function POST(request: NextRequest) {
-  try {
+  return withRateLimit(request, "media:upload-url", async () => {
+    try {
     // Require authentication
     const user = await getCurrentUser(request);
     if (!user) {
@@ -126,14 +128,15 @@ export async function POST(request: NextRequest) {
         storageType: uploadResult.storageType,
       },
     });
-  } catch (error) {
-    console.error("[Media/UploadFromUrl] Error:", error);
-    return NextResponse.json(
-      {
-        success: false,
-        error: error instanceof Error ? error.message : "Okänt fel",
-      },
-      { status: 500 },
-    );
-  }
+    } catch (error) {
+      console.error("[Media/UploadFromUrl] Error:", error);
+      return NextResponse.json(
+        {
+          success: false,
+          error: error instanceof Error ? error.message : "Okänt fel",
+        },
+        { status: 500 },
+      );
+    }
+  });
 }

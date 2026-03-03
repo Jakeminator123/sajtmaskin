@@ -7,6 +7,7 @@ import {
   getMediaLibraryByUser,
 } from "@/lib/db/services";
 import { uploadBlob, generateUniqueFilename } from "@/lib/vercel/blob-service";
+import { withRateLimit } from "@/lib/rateLimit";
 import { errorLog, warnLog } from "@/lib/utils/debug";
 
 /**
@@ -72,7 +73,8 @@ const ALLOWED_MIME_TYPES = [
 // ============================================================================
 
 export async function POST(request: NextRequest) {
-  try {
+  return withRateLimit(request, "media:upload", async () => {
+    try {
     // Require authentication
     const user = await getCurrentUser(request);
     if (!user) {
@@ -196,11 +198,12 @@ export async function POST(request: NextRequest) {
           ? "Filen är sparad lokalt. Fungerar i utveckling men preview kanske inte kan nå den."
           : undefined,
     });
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : "Okänt fel";
-    errorLog("Media", "Upload error", error);
-    return NextResponse.json({ success: false, error: message }, { status: 500 });
-  }
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Okänt fel";
+      errorLog("Media", "Upload error", error);
+      return NextResponse.json({ success: false, error: message }, { status: 500 });
+    }
+  });
 }
 
 // ============================================================================

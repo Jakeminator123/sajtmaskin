@@ -33,27 +33,40 @@ function needsUserAuth(pathname: string): boolean {
   return AUTH_REQUIRED_PATHS.has(pathname);
 }
 
-function addSecurityHeaders(response: NextResponse): void {
+function buildCspPolicy(nonce: string): string {
+  return [
+    "default-src 'self'",
+    `script-src 'self' 'nonce-${nonce}'`,
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: blob: *.vusercontent.net *.blob.vercel-storage.com api.dicebear.com quickchart.io images.unsplash.com images.pexels.com",
+    "font-src 'self' data:",
+    "frame-src *.vusercontent.net",
+    "connect-src 'self' *.vusercontent.net wss:",
+    "media-src 'self' blob:",
+    "object-src 'none'",
+    "base-uri 'self'",
+    "frame-ancestors 'self'",
+  ].join("; ");
+}
+
+function addSecurityHeaders(response: NextResponse, nonce: string, enforceCsp: boolean): void {
   response.headers.set("X-Frame-Options", "SAMEORIGIN");
   response.headers.set("X-Content-Type-Options", "nosniff");
   response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+  response.headers.set("X-CSP-Nonce", nonce);
   response.headers.set(
     "Strict-Transport-Security",
     "max-age=63072000; includeSubDomains",
   );
-  response.headers.set(
-    "Content-Security-Policy-Report-Only",
-    [
-      "default-src 'self'",
-      "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
-      "style-src 'self' 'unsafe-inline'",
-      "img-src 'self' data: blob: *.vusercontent.net *.blob.vercel-storage.com api.dicebear.com quickchart.io images.unsplash.com images.pexels.com",
-      "font-src 'self' data:",
-      "frame-src *.vusercontent.net",
-      "connect-src 'self' *.vusercontent.net wss:",
-      "media-src 'self' blob:",
-    ].join("; "),
-  );
+
+  const policy = buildCspPolicy(nonce);
+  if (enforceCsp) {
+    response.headers.set("Content-Security-Policy", policy);
+    response.headers.delete("Content-Security-Policy-Report-Only");
+  } else {
+    response.headers.set("Content-Security-Policy-Report-Only", policy);
+    response.headers.delete("Content-Security-Policy");
+  }
 }
 
 function addCorsHeaders(
@@ -82,12 +95,16 @@ function addCorsHeaders(
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const origin = request.headers.get("origin");
+  const nonce = crypto.randomUUID();
+  const enforceCsp = process.env.CSP_ENFORCE === "true";
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-csp-nonce", nonce);
 
   // ---- CORS preflight for API routes ----
   if (isApiRoute(pathname) && request.method === "OPTIONS") {
     const preflight = new NextResponse(null, { status: 204 });
     addCorsHeaders(preflight, origin);
-    addSecurityHeaders(preflight);
+    addSecurityHeaders(preflight, nonce, enforceCsp);
     return preflight;
   }
 
@@ -99,15 +116,23 @@ export async function proxy(request: NextRequest) {
 
     if (needsAdminAuth(pathname)) {
       if (!payload || !isAdminEmailEdge(payload.email)) {
-        return NextResponse.redirect(new URL("/", request.url));
+        const redirect = NextResponse.redirect(new URL("/", request.url));
+        addSecurityHeaders(redirect, nonce, enforceCsp);
+        return redirect;
       }
     } else if (!payload) {
-      return NextResponse.redirect(new URL("/", request.url));
+      const redirect = NextResponse.redirect(new URL("/", request.url));
+      addSecurityHeaders(redirect, nonce, enforceCsp);
+      return redirect;
     }
   }
 
   // ---- Continue to route ----
-  const response = NextResponse.next();
+  const response = NextResponse.next({
+    request: {
+      headers: requestHeaders,
+    },
+  });
 
   // ---- CORS headers for API responses ----
   if (isApiRoute(pathname)) {
@@ -115,7 +140,7 @@ export async function proxy(request: NextRequest) {
   }
 
   // ---- Security headers on all responses ----
-  addSecurityHeaders(response);
+  addSecurityHeaders(response, nonce, enforceCsp);
 
   return response;
 }

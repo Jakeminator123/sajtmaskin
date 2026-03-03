@@ -12,6 +12,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { SECRETS } from "@/lib/config";
+import { withRateLimit } from "@/lib/rateLimit";
 import { debugLog, errorLog } from "@/lib/utils/debug";
 
 export const runtime = "nodejs";
@@ -33,29 +34,30 @@ const contactSchema = z.object({
 });
 
 export async function POST(req: Request) {
-  try {
-    const body = await req.json().catch(() => null);
-    const parsed = contactSchema.safeParse(body);
+  return withRateLimit(req, "contact:submit", async () => {
+    try {
+      const body = await req.json().catch(() => null);
+      const parsed = contactSchema.safeParse(body);
 
-    if (!parsed.success) {
-      return NextResponse.json(
-        { error: "Ogiltig data", details: parsed.error.issues },
-        { status: 400 },
-      );
-    }
+      if (!parsed.success) {
+        return NextResponse.json(
+          { error: "Ogiltig data", details: parsed.error.issues },
+          { status: 400 },
+        );
+      }
 
-    const { name, email, subject, message, type } = parsed.data;
+      const { name, email, subject, message, type } = parsed.data;
 
-    const typeLabels: Record<string, string> = {
-      feedback: "Feedback",
-      bug: "Buggrapport",
-      question: "Fråga",
-      other: "Meddelande",
-    };
+      const typeLabels: Record<string, string> = {
+        feedback: "Feedback",
+        bug: "Buggrapport",
+        question: "Fråga",
+        other: "Meddelande",
+      };
 
-    const fullSubject = `[Sajtmaskin ${typeLabels[type]}] ${subject}`;
+      const fullSubject = `[Sajtmaskin ${typeLabels[type]}] ${subject}`;
 
-    const htmlBody = `
+      const htmlBody = `
       <div style="font-family: system-ui, sans-serif; max-width: 600px; margin: 0 auto;">
         <div style="background: #0a0a0a; color: white; padding: 20px 24px; border-radius: 8px 8px 0 0;">
           <h2 style="margin: 0; font-size: 18px;">
@@ -88,49 +90,50 @@ export async function POST(req: Request) {
       </div>
     `;
 
-    const resendKey = process.env.RESEND_API_KEY?.trim();
+      const resendKey = process.env.RESEND_API_KEY?.trim();
 
-    if (resendKey) {
-      // Send via Resend
-      const { Resend } = await import("resend");
-      const resend = new Resend(resendKey);
+      if (resendKey) {
+        // Send via Resend
+        const { Resend } = await import("resend");
+        const resend = new Resend(resendKey);
 
-      const { error: sendError } = await resend.emails.send({
-        from: FROM_ADDRESS,
-        to: RECIPIENTS,
-        replyTo: email,
-        subject: fullSubject,
-        html: htmlBody,
-      });
+        const { error: sendError } = await resend.emails.send({
+          from: FROM_ADDRESS,
+          to: RECIPIENTS,
+          replyTo: email,
+          subject: fullSubject,
+          html: htmlBody,
+        });
 
-      if (sendError) {
-        errorLog("CONTACT", "Resend send error", sendError);
-        return NextResponse.json(
-          { error: "Kunde inte skicka meddelandet. Försök igen." },
-          { status: 500 },
+        if (sendError) {
+          errorLog("CONTACT", "Resend send error", sendError);
+          return NextResponse.json(
+            { error: "Kunde inte skicka meddelandet. Försök igen." },
+            { status: 500 },
+          );
+        }
+
+        debugLog("CONTACT", "Email sent via Resend", {
+          to: RECIPIENTS,
+          subject: fullSubject,
+        });
+      } else {
+        // Fallback: log the message (dev environment)
+        console.info(
+          "[CONTACT] Email would be sent (no RESEND_API_KEY):",
+          { to: RECIPIENTS, from: `${email} (${name})`, subject: fullSubject },
         );
       }
 
-      debugLog("CONTACT", "Email sent via Resend", {
-        to: RECIPIENTS,
-        subject: fullSubject,
-      });
-    } else {
-      // Fallback: log the message (dev environment)
-      console.info(
-        "[CONTACT] Email would be sent (no RESEND_API_KEY):",
-        { to: RECIPIENTS, from: `${email} (${name})`, subject: fullSubject },
+      return NextResponse.json({ success: true });
+    } catch (err) {
+      errorLog("CONTACT", "Contact form error", err);
+      return NextResponse.json(
+        { error: "Internt fel. Försök igen eller mejla hej@sajtmaskin.se direkt." },
+        { status: 500 },
       );
     }
-
-    return NextResponse.json({ success: true });
-  } catch (err) {
-    errorLog("CONTACT", "Contact form error", err);
-    return NextResponse.json(
-      { error: "Internt fel. Försök igen eller mejla hej@sajtmaskin.se direkt." },
-      { status: 500 },
-    );
-  }
+  });
 }
 
 function escapeHtml(input: string): string {

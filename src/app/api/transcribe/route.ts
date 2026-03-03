@@ -10,6 +10,7 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import OpenAI, { toFile } from "openai";
+import { withRateLimit } from "@/lib/rateLimit";
 
 // Allow 60 seconds for audio processing
 export const maxDuration = 60;
@@ -46,9 +47,10 @@ function getFileExtension(mimeType: string): string {
 }
 
 export async function POST(req: NextRequest) {
-  console.info("[API/transcribe] Request received");
+  return withRateLimit(req, "audio:transcribe", async () => {
+    console.info("[API/transcribe] Request received");
 
-  try {
+    try {
     const apiKey = process.env.OPENAI_API_KEY?.trim();
     if (!apiKey) {
       console.error("[API/transcribe] Missing OPENAI_API_KEY");
@@ -140,39 +142,40 @@ export async function POST(req: NextRequest) {
       success: true,
       transcript,
     });
-  } catch (error) {
-    console.error("[API/transcribe] Error:", error);
+    } catch (error) {
+      console.error("[API/transcribe] Error:", error);
 
-    const message =
-      error instanceof Error ? error.message : "Unknown error";
+      const message =
+        error instanceof Error ? error.message : "Unknown error";
 
-    // Handle specific OpenAI errors
-    if (message.includes("invalid_api_key") || message.includes("401")) {
+      // Handle specific OpenAI errors
+      if (message.includes("invalid_api_key") || message.includes("401")) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "Ogiltig API-nyckel för transkribering.",
+          },
+          { status: 401 },
+        );
+      }
+
+      if (message.includes("rate_limit") || message.includes("429")) {
+        return NextResponse.json(
+          {
+            success: false,
+            error: "För många förfrågningar. Vänta en stund och försök igen.",
+          },
+          { status: 429 },
+        );
+      }
+
       return NextResponse.json(
         {
           success: false,
-          error: "Ogiltig API-nyckel för transkribering.",
+          error: "Kunde inte transkribera ljud. Försök igen.",
         },
-        { status: 401 },
+        { status: 500 },
       );
     }
-
-    if (message.includes("rate_limit") || message.includes("429")) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: "För många förfrågningar. Vänta en stund och försök igen.",
-        },
-        { status: 429 },
-      );
-    }
-
-    return NextResponse.json(
-      {
-        success: false,
-        error: "Kunde inte transkribera ljud. Försök igen.",
-      },
-      { status: 500 },
-    );
-  }
+  });
 }

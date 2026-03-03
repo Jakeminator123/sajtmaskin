@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/auth";
 import OpenAI from "openai";
 import { FEATURES, SECRETS } from "@/lib/config";
+import { withRateLimit } from "@/lib/rateLimit";
 
 /**
  * Text Analysis API
@@ -53,8 +54,9 @@ function getGatewayApiKey(): string | null {
 }
 
 export async function POST(request: NextRequest) {
-  try {
-    await getCurrentUser(request);
+  return withRateLimit(request, "text:analyze", async () => {
+    try {
+      await getCurrentUser(request);
 
     const body = await request.json();
     const { content, filename, contentType } = body;
@@ -231,15 +233,16 @@ Svara ENDAST med giltig JSON i detta format:
         suggestions: getDefaultSuggestions(content, contentType),
       });
     }
-  } catch (error: unknown) {
-    console.error("[API/Text/Analyze] Error:", error);
+    } catch (error: unknown) {
+      console.error("[API/Text/Analyze] Error:", error);
 
-    return NextResponse.json({
-      success: false,
-      summary: "Kunde inte analysera filen automatiskt",
-      suggestions: getDefaultSuggestions("", "text"),
-    });
-  }
+      return NextResponse.json({
+        success: false,
+        summary: "Kunde inte analysera filen automatiskt",
+        suggestions: getDefaultSuggestions("", "text"),
+      });
+    }
+  });
 }
 
 /**

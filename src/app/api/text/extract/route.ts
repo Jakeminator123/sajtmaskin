@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { withRateLimit } from "@/lib/rateLimit";
 
 /**
  * Text Extraction API
@@ -16,7 +17,8 @@ import { NextRequest, NextResponse } from "next/server";
  */
 
 export async function POST(request: NextRequest) {
-  try {
+  return withRateLimit(request, "text:extract", async () => {
+    try {
     const formData = await request.formData();
     const file = formData.get("file") as File;
 
@@ -124,9 +126,10 @@ export async function POST(request: NextRequest) {
       filename: file.name,
       charCount: extractedText.length,
     });
-  } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : "Okänt fel";
-    console.error("[API/Text/Extract] Error:", error);
-    return NextResponse.json({ success: false, error: message }, { status: 500 });
-  }
+    } catch (error: unknown) {
+      const message = error instanceof Error ? error.message : "Okänt fel";
+      console.error("[API/Text/Extract] Error:", error);
+      return NextResponse.json({ success: false, error: message }, { status: 500 });
+    }
+  });
 }

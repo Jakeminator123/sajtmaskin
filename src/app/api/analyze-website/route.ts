@@ -9,6 +9,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { generateText, gateway } from "ai";
 import { quickScrapeWebsite } from "@/lib/webscraper";
+import { withRateLimit } from "@/lib/rateLimit";
 
 export const maxDuration = 60;
 
@@ -49,9 +50,10 @@ interface AnalysisResponse {
 }
 
 export async function POST(req: NextRequest) {
-  console.info("[API/analyze-website] Request received");
+  return withRateLimit(req, "analyze:website", async () => {
+    console.info("[API/analyze-website] Request received");
 
-  try {
+    try {
     const body = (await req.json()) as {
       url: string;
       deepAnalysis?: boolean;
@@ -166,15 +168,16 @@ export async function POST(req: NextRequest) {
     };
 
     return NextResponse.json(response);
-  } catch (error) {
-    console.error("[API/analyze-website] Error:", error);
+    } catch (error) {
+      console.error("[API/analyze-website] Error:", error);
 
-    return NextResponse.json(
-      {
-        success: false,
-        error: "Failed to analyze website. Please try again.",
-      },
-      { status: 500 },
-    );
-  }
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Failed to analyze website. Please try again.",
+        },
+        { status: 500 },
+      );
+    }
+  });
 }

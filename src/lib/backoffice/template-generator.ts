@@ -882,6 +882,7 @@ import { createHmac, randomBytes, timingSafeEqual } from "crypto";
 const COOKIE_NAME = "backoffice_session";
 const SESSION_MAX_AGE = 8 * 60 * 60; // 8 hours
 const IS_PRODUCTION = process.env.NODE_ENV === "production";
+const SESSION_VERSION_DEFAULT = "1";
 
 // In-memory rate limiter for brute-force protection
 const loginAttempts = new Map<string, { count: number; resetAt: number }>();
@@ -907,6 +908,12 @@ function hmacSign(data: string, secret: string): string {
   return createHmac("sha256", secret).update(data).digest("hex");
 }
 
+function getSessionVersion(): string {
+  const raw = process.env.BACKOFFICE_SESSION_VERSION?.trim();
+  if (!raw) return SESSION_VERSION_DEFAULT;
+  return raw;
+}
+
 function constantTimeEqual(a: string, b: string): boolean {
   if (a.length !== b.length) return false;
   return timingSafeEqual(Buffer.from(a), Buffer.from(b));
@@ -926,15 +933,16 @@ export function validateOrigin(req: NextRequest): boolean {
 export function verifySessionCookie(cookieValue: string | undefined): boolean {
   if (!cookieValue) return false;
   const parts = cookieValue.split(".");
-  if (parts.length !== 3) return false;
+  if (parts.length !== 4) return false;
 
-  const [tokenPart, expiry, signature] = parts;
+  const [tokenPart, expiry, sessionVersion, signature] = parts;
   if (Date.now() > parseInt(expiry)) return false;
 
   const secret = process.env.BACKOFFICE_PASSWORD;
   if (!secret) return false;
+  if (sessionVersion !== getSessionVersion()) return false;
 
-  const expected = hmacSign(tokenPart + "." + expiry, secret);
+  const expected = hmacSign(tokenPart + "." + expiry + "." + sessionVersion, secret);
   return constantTimeEqual(signature, expected);
 }
 
@@ -972,8 +980,9 @@ export async function POST(req: NextRequest) {
 
     const token = randomBytes(32).toString("hex");
     const expiry = Date.now() + SESSION_MAX_AGE * 1000;
-    const signature = hmacSign(token + "." + expiry, correctPassword);
-    const cookieValue = \`\${token}.\${expiry}.\${signature}\`;
+    const sessionVersion = getSessionVersion();
+    const signature = hmacSign(token + "." + expiry + "." + sessionVersion, correctPassword);
+    const cookieValue = \`\${token}.\${expiry}.\${sessionVersion}.\${signature}\`;
 
     const response = NextResponse.json({ success: true });
     response.cookies.set(COOKIE_NAME, cookieValue, {
@@ -1014,33 +1023,11 @@ export async function DELETE() {
 function generateContentRoute(): string {
   return `import { NextRequest, NextResponse } from "next/server";
 import { verifySessionCookie, validateOrigin } from "../auth/route";
-import fs from "fs";
-import path from "path";
-
-const DATA_DIR = process.env.DATA_DIR || path.join(process.cwd(), "data");
-const CONTENT_FILE = path.join(DATA_DIR, "content.json");
-
-function ensureDataDir() {
-  const dir = path.dirname(CONTENT_FILE);
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-  }
-}
+import { loadContentData, saveContentData } from "../_lib/storage";
 
 export async function GET() {
   try {
-    ensureDataDir();
-
-    if (!fs.existsSync(CONTENT_FILE)) {
-      const manifestPath = path.join(process.cwd(), "data", "manifest.json");
-      if (fs.existsSync(manifestPath)) {
-        const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
-        return NextResponse.json(manifest);
-      }
-      return NextResponse.json({ content: [], products: [], colors: {} });
-    }
-
-    const content = JSON.parse(fs.readFileSync(CONTENT_FILE, "utf-8"));
+    const content = await loadContentData();
     return NextResponse.json(content);
   } catch {
     return NextResponse.json(
@@ -1062,24 +1049,14 @@ export async function PUT(req: NextRequest) {
     }
 
     const { updates } = await req.json();
-    ensureDataDir();
-
-    let content = { content: [], products: [], colors: {} };
-    if (fs.existsSync(CONTENT_FILE)) {
-      content = JSON.parse(fs.readFileSync(CONTENT_FILE, "utf-8"));
-    } else {
-      const manifestPath = path.join(process.cwd(), "data", "manifest.json");
-      if (fs.existsSync(manifestPath)) {
-        content = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
-      }
-    }
+    const content = await loadContentData();
 
     for (const [id, value] of Object.entries(updates)) {
       const item = content.content.find((c: any) => c.id === id);
       if (item) item.value = value;
     }
 
-    fs.writeFileSync(CONTENT_FILE, JSON.stringify(content, null, 2));
+    await saveContentData(content);
 
     return NextResponse.json({ success: true });
   } catch {
@@ -1098,34 +1075,12 @@ export async function PUT(req: NextRequest) {
 function generateColorsRoute(): string {
   return `import { NextRequest, NextResponse } from "next/server";
 import { verifySessionCookie, validateOrigin } from "../auth/route";
-import fs from "fs";
-import path from "path";
-
-const DATA_DIR = process.env.DATA_DIR || path.join(process.cwd(), "data");
-const COLORS_FILE = path.join(DATA_DIR, "colors.json");
-
-function ensureDataDir() {
-  const dir = path.dirname(COLORS_FILE);
-  if (!fs.existsSync(dir)) {
-    fs.mkdirSync(dir, { recursive: true });
-  }
-}
+import { loadColorsData, saveColorsData } from "../_lib/storage";
 
 export async function GET() {
   try {
-    ensureDataDir();
-
-    if (!fs.existsSync(COLORS_FILE)) {
-      const manifestPath = path.join(process.cwd(), "data", "manifest.json");
-      if (fs.existsSync(manifestPath)) {
-        const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
-        return NextResponse.json({ colors: manifest.colors });
-      }
-      return NextResponse.json({ colors: null });
-    }
-
-    const colors = JSON.parse(fs.readFileSync(COLORS_FILE, "utf-8"));
-    return NextResponse.json({ colors });
+    const data = await loadColorsData();
+    return NextResponse.json(data);
   } catch {
     return NextResponse.json({ error: "Failed to load colors" }, { status: 500 });
   }
@@ -1143,13 +1098,127 @@ export async function PUT(req: NextRequest) {
     }
 
     const { colors } = await req.json();
-    ensureDataDir();
-    fs.writeFileSync(COLORS_FILE, JSON.stringify(colors, null, 2));
+    await saveColorsData(colors);
 
     return NextResponse.json({ success: true });
   } catch {
     return NextResponse.json({ error: "Failed to save colors" }, { status: 500 });
   }
+}
+`;
+}
+
+/**
+ * Generate shared storage helper for backoffice routes
+ */
+function generateStorageLib(): string {
+  return `import fs from "fs";
+import path from "path";
+
+const DATA_DIR = process.env.DATA_DIR || path.join(process.cwd(), "data");
+const CONTENT_FILE = path.join(DATA_DIR, "content.json");
+const COLORS_FILE = path.join(DATA_DIR, "colors.json");
+const MANIFEST_FILE = path.join(process.cwd(), "data", "manifest.json");
+const STORAGE_BACKEND = process.env.STORAGE_BACKEND === "json-blob" ? "json-blob" : "fs";
+const BLOB_CONTENT_KEY = process.env.BLOB_CONTENT_KEY || "backoffice/content.json";
+const BLOB_COLORS_KEY = process.env.BLOB_COLORS_KEY || "backoffice/colors.json";
+
+type ContentData = { content: any[]; products: any[]; colors: Record<string, unknown> };
+
+function ensureDataDir() {
+  const dir = path.dirname(CONTENT_FILE);
+  if (!fs.existsSync(dir)) {
+    fs.mkdirSync(dir, { recursive: true });
+  }
+}
+
+function readManifest(): ContentData {
+  if (fs.existsSync(MANIFEST_FILE)) {
+    return JSON.parse(fs.readFileSync(MANIFEST_FILE, "utf-8"));
+  }
+  return { content: [], products: [], colors: {} };
+}
+
+async function readBlobJson<T>(pathname: string): Promise<T | null> {
+  const token = process.env.BLOB_READ_WRITE_TOKEN;
+  if (!token) return null;
+
+  const blobSdk = await import("@vercel/blob");
+  const listResult = await blobSdk.list({
+    token,
+    prefix: pathname,
+    limit: 1,
+  });
+  const match = listResult.blobs.find((blob) => blob.pathname === pathname) || listResult.blobs[0];
+  if (!match) return null;
+
+  const response = await fetch(match.url, { cache: "no-store" });
+  if (!response.ok) return null;
+  return (await response.json()) as T;
+}
+
+async function writeBlobJson(pathname: string, data: unknown): Promise<void> {
+  const token = process.env.BLOB_READ_WRITE_TOKEN;
+  if (!token) {
+    throw new Error("BLOB_READ_WRITE_TOKEN is required for STORAGE_BACKEND=json-blob");
+  }
+  const blobSdk = await import("@vercel/blob");
+  await blobSdk.put(pathname, JSON.stringify(data, null, 2), {
+    access: "public",
+    contentType: "application/json",
+    token,
+    addRandomSuffix: false,
+  });
+}
+
+export async function loadContentData(): Promise<ContentData> {
+  if (STORAGE_BACKEND === "json-blob") {
+    const data = await readBlobJson<ContentData>(BLOB_CONTENT_KEY);
+    if (data) return data;
+    return readManifest();
+  }
+
+  ensureDataDir();
+  if (!fs.existsSync(CONTENT_FILE)) {
+    return readManifest();
+  }
+  return JSON.parse(fs.readFileSync(CONTENT_FILE, "utf-8"));
+}
+
+export async function saveContentData(data: ContentData): Promise<void> {
+  if (STORAGE_BACKEND === "json-blob") {
+    await writeBlobJson(BLOB_CONTENT_KEY, data);
+    return;
+  }
+
+  ensureDataDir();
+  fs.writeFileSync(CONTENT_FILE, JSON.stringify(data, null, 2));
+}
+
+export async function loadColorsData(): Promise<{ colors: Record<string, unknown> | null }> {
+  if (STORAGE_BACKEND === "json-blob") {
+    const colors = await readBlobJson<Record<string, unknown>>(BLOB_COLORS_KEY);
+    if (colors) return { colors };
+    const manifest = readManifest();
+    return { colors: manifest.colors || null };
+  }
+
+  ensureDataDir();
+  if (!fs.existsSync(COLORS_FILE)) {
+    const manifest = readManifest();
+    return { colors: manifest.colors || null };
+  }
+  return { colors: JSON.parse(fs.readFileSync(COLORS_FILE, "utf-8")) };
+}
+
+export async function saveColorsData(colors: Record<string, unknown>): Promise<void> {
+  if (STORAGE_BACKEND === "json-blob") {
+    await writeBlobJson(BLOB_COLORS_KEY, colors);
+    return;
+  }
+
+  ensureDataDir();
+  fs.writeFileSync(COLORS_FILE, JSON.stringify(colors, null, 2));
 }
 `;
 }
@@ -1204,6 +1273,7 @@ export function generateBackofficeFiles(
 
     // API routes
     { path: "app/api/backoffice/auth/route.ts", content: generateAuthRoute() },
+    { path: "app/api/backoffice/_lib/storage.ts", content: generateStorageLib() },
     {
       path: "app/api/backoffice/content/route.ts",
       content: generateContentRoute(),
@@ -1228,9 +1298,23 @@ export function generateBackofficeFiles(
 ${passwordComment}
 BACKOFFICE_PASSWORD=${passwordValue}
 
+# Session version for forced logout/revocation.
+# Increase this value (e.g. 1 -> 2) to invalidate all active sessions.
+BACKOFFICE_SESSION_VERSION=1
+
 # Data directory for content/color changes (default: ./data)
 # On Vercel/serverless, set to /tmp/data (ephemeral - resets on redeploy)
 # DATA_DIR=/tmp/data
+
+# Storage backend for backoffice edits:
+# - fs: writes to DATA_DIR (default)
+# - json-blob: stores JSON in Vercel Blob (recommended on Vercel)
+# STORAGE_BACKEND=fs
+
+# Required when STORAGE_BACKEND=json-blob
+# BLOB_READ_WRITE_TOKEN=vercel_blob_rw_...
+# BLOB_CONTENT_KEY=backoffice/content.json
+# BLOB_COLORS_KEY=backoffice/colors.json
 
 # For image uploads (optional - uses local storage by default)
 # CLOUDINARY_URL=cloudinary://...
@@ -1277,9 +1361,16 @@ ${manifest.products.length > 0 ? "- **Produkter**: Hantera produkter och priser"
 
 ### Vercel
 1. Lägg till miljövariabler i Vercel-dashboarden
-2. Sätt \`DATA_DIR=/tmp/data\` (Vercels filsystem är read-only)
-3. **OBS:** Ändringar i /tmp nollställs vid varje deploy.
-   För persistent lagring, använd en databas eller Vercel KV.
+2. Välj lagring:
+   - **Enklast (ephemeral):** \`STORAGE_BACKEND=fs\` + \`DATA_DIR=/tmp/data\`
+   - **Persistent:** \`STORAGE_BACKEND=json-blob\` + \`BLOB_READ_WRITE_TOKEN\`
+3. För \`json-blob\`, installera beroendet i projektet:
+   \`\`\`
+   npm install @vercel/blob
+   \`\`\`
+4. Sätt ev. egna nycklar:
+   - \`BLOB_CONTENT_KEY=backoffice/content.json\`
+   - \`BLOB_COLORS_KEY=backoffice/colors.json\`
 
 ### Render, Railway eller liknande
 1. Lägg till miljövariabler i din hosting-dashboard
@@ -1294,6 +1385,7 @@ ${manifest.products.length > 0 ? "- **Produkter**: Hantera produkter och priser"
 ## Säkerhet
 
 - Sessioner hanteras via HttpOnly-cookies (ej synliga för JavaScript)
+- För att tvinga utloggning av alla: öka \`BACKOFFICE_SESSION_VERSION\` i .env och redeploya
 - Byt lösenord regelbundet
 - Använd ett starkt lösenord (12+ tecken)
 - Dela aldrig lösenordet i klartext

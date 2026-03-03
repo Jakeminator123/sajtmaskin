@@ -14,6 +14,7 @@ import { getCreditCost, type CreditAction } from "@/lib/credits/pricing";
 import { scrapeWebsite, validateAndNormalizeUrl, getCanonicalUrlKey } from "@/lib/webscraper";
 import { buildAuditPrompt, extractFirstJsonObject, parseJsonWithRepair } from "@/lib/audit-prompts";
 import { FEATURES, SECRETS } from "@/lib/config";
+import { withRateLimit } from "@/lib/rateLimit";
 import type { AuditMode, AuditResult, AuditRequest } from "@/types/audit";
 
 // Extend timeout for long-running AI calls
@@ -1091,13 +1092,14 @@ function getPricingForModel(_model: string): { input: number; output: number } {
 }
 
 export async function POST(request: NextRequest) {
-  const requestId = `audit_${Date.now()}_${Math.random().toString(36).substring(7)}`;
-  const requestStartTime = Date.now();
+  return withRateLimit(request, "audit:create", async () => {
+    const requestId = `audit_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+    const requestStartTime = Date.now();
 
-  // Track in-flight key for cleanup (set after user auth succeeds)
-  let inFlightKey: string | null = null;
+    // Track in-flight key for cleanup (set after user auth succeeds)
+    let inFlightKey: string | null = null;
 
-  try {
+    try {
     // Parse request body
     let body: AuditRequest;
     try {
@@ -1628,7 +1630,7 @@ export async function POST(request: NextRequest) {
         },
       },
     );
-  } catch (error: unknown) {
+    } catch (error: unknown) {
     // Clean up in-flight tracking on error
     if (inFlightKey) {
       inFlightAudits.delete(inFlightKey);
@@ -1682,5 +1684,6 @@ export async function POST(request: NextRequest) {
         },
       },
     );
-  }
+    }
+  });
 }
