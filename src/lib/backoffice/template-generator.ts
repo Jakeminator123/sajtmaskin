@@ -911,7 +911,7 @@ function hmacSign(data: string, secret: string): string {
 function getSessionVersion(): string {
   const raw = process.env.BACKOFFICE_SESSION_VERSION?.trim();
   if (!raw) return SESSION_VERSION_DEFAULT;
-  return raw;
+  return raw.replace(/\./g, "_");
 }
 
 function constantTimeEqual(a: string, b: string): boolean {
