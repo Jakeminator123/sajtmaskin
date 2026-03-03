@@ -37,25 +37,43 @@ npm run inspector:install
 This installs the worker's own `node_modules` **and** downloads the Chromium
 binary that Playwright needs.
 
-## 3a) Start locally (recommended for dev)
+## 3) Start (automatic)
+
+The inspector worker starts **automatically** when you run:
+
+```bash
+npm run dev      # development
+npm run start    # production
+```
+
+`next-runner.mjs` detects `INSPECTOR_CAPTURE_WORKER_URL` pointing to
+localhost, checks if the port is already in use, and spawns the worker as
+a managed child process. When Next.js exits the worker is killed too.
+
+Behaviour:
+
+- **Port already in use** → skips spawning (you can still run it manually)
+- **Worker crashes** → auto-restarts up to 5 times with back-off
+- **`npm run build`** → worker is NOT started (not needed at build time)
+- **No `INSPECTOR_CAPTURE_WORKER_URL`** → worker is not started
+
+Worker logs appear inline in the same terminal prefixed with
+`[inspector-worker]`.
+
+### Manual start (alternative)
+
+If you prefer running the worker in a separate terminal:
 
 ```bash
 npm run inspector:start
 ```
 
-The worker prints `[inspector-worker] listening on http://0.0.0.0:3310`.
+Stop with **Ctrl+C** — the server shuts down gracefully.
 
-Stop it with **Ctrl+C** — the server shuts down gracefully.
-
-## 3b) Start with Docker (alternative)
+### Docker (alternative)
 
 ```bash
-npm run inspector:docker:up
-```
-
-Other Docker commands:
-
-```bash
+npm run inspector:docker:up      # build & start
 npm run inspector:docker:ps      # check status
 npm run inspector:docker:logs    # stream logs
 npm run inspector:docker:down    # stop
@@ -70,15 +88,9 @@ npm run inspector:health
 
 In the builder UI the **Worker** lamp next to the preview should be green.
 
-## 5) Full dev workflow
+## 5) Dev workflow
 
-Terminal 1 — inspector worker:
-
-```bash
-npm run inspector:start
-```
-
-Terminal 2 — Next.js dev server:
+Just one terminal:
 
 ```bash
 npm run dev
