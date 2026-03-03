@@ -47,6 +47,9 @@ export const serverSchema = z.object({
   // Storage
   DATA_DIR: z.string().optional(),
   BLOB_READ_WRITE_TOKEN: z.string().optional(),
+  BLOB_CONTENT_KEY: z.string().optional(),
+  BLOB_COLORS_KEY: z.string().optional(),
+  STORAGE_BACKEND: z.enum(["fs", "json-blob"]).optional(),
 
   // Auth
   JWT_SECRET: z.string().optional(),
@@ -82,6 +85,7 @@ export const serverSchema = z.object({
 
   // Admin
   BACKOFFICE_PASSWORD: z.string().optional(),
+  BACKOFFICE_SESSION_VERSION: z.string().optional(),
   ADMIN_EMAILS: z.string().optional(),
   SUPERADMIN_EMAIL: z.string().optional(),
   SUPERADMIN_PASSWORD: z.string().optional(),
@@ -104,6 +108,10 @@ export const serverSchema = z.object({
   ENABLE_PEXELS: z.string().optional(),
   USE_RESPONSES_API: z.string().optional(),
   AUDIT_WEB_SEARCH: z.string().optional(),
+  V0_STREAMING_ENABLED: z.string().optional(),
+  LOG_PROMPTS: z.string().optional(),
+  CSP_ENFORCE: z.string().optional(),
+  DB_SSL_REJECT_UNAUTHORIZED: z.string().optional(),
 
   // Public (validated server-side; client sees them via Next.js inlining)
   NEXT_PUBLIC_APP_URL: z.string().default("http://localhost:3000"),

@@ -449,7 +449,7 @@ export type StreamingCallback = (chunk: {
  * Default: enabled. Set V0_STREAMING_ENABLED=false to disable.
  */
 export function isV0StreamingEnabled(): boolean {
-  return process.env.V0_STREAMING_ENABLED !== "false";
+  return process.env.V0_STREAMING_ENABLED?.trim().toLowerCase() !== "false";
 }
 
 /**

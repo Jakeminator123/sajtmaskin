@@ -30,7 +30,8 @@ url.searchParams.delete("supa");
 const pool = new Pool({
   connectionString: url.toString(),
   ssl: {
-    rejectUnauthorized: process.env.DB_SSL_REJECT_UNAUTHORIZED !== "false",
+    rejectUnauthorized:
+      process.env.DB_SSL_REJECT_UNAUTHORIZED?.trim().toLowerCase() !== "false",
   },
 });
 

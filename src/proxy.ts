@@ -96,7 +96,7 @@ export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
   const origin = request.headers.get("origin");
   const nonce = crypto.randomUUID();
-  const enforceCsp = process.env.CSP_ENFORCE === "true";
+  const enforceCsp = process.env.CSP_ENFORCE?.trim().toLowerCase() === "true";
   const requestHeaders = new Headers(request.headers);
   requestHeaders.set("x-csp-nonce", nonce);
 

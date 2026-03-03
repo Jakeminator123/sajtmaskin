@@ -153,7 +153,8 @@ export function truncateForLog(text: string, maxLength: number = 500, label?: st
  * @param model - The model being used (e.g., "v0-max-fast")
  */
 export function logFinalPrompt(prompt: string, model: string): void {
-  if (process.env.NODE_ENV === "production" && process.env.LOG_PROMPTS !== "true") {
+  const logPrompts = process.env.LOG_PROMPTS?.trim().toLowerCase() === "true";
+  if (process.env.NODE_ENV === "production" && !logPrompts) {
     return;
   }
 
