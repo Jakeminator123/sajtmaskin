@@ -46,7 +46,6 @@ export {
   getPromptHandoffById,
   consumePromptHandoff,
   createProject,
-  getAllProjects,
   getAllProjectsForOwner,
   getProjectById,
   getProjectByIdForOwner,

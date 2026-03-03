@@ -106,11 +106,6 @@ export async function createProject(
   return rows[0];
 }
 
-export async function getAllProjects(): Promise<Project[]> {
-  assertDbConfigured();
-  return await db.select().from(appProjects).orderBy(desc(appProjects.updated_at));
-}
-
 export async function getAllProjectsForOwner(scope: ProjectOwnerScope): Promise<Project[]> {
   assertDbConfigured();
   const ownerCondition = buildProjectOwnerCondition(scope);

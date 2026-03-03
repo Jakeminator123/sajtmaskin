@@ -47,10 +47,10 @@ Bakgrund:
   Returnerar: { web: { results: [{ title, url, description }] } }
 
 Steg:
-- [ ] B1. Lagg till BRAVE_API_KEY i .env.local och Vercel env vars
-- [ ] B2. Skapa src/lib/brave-search.ts (tunn wrapper, ~30 rader)
-- [ ] B3. Integrera i /api/wizard/company-lookup som steg 2 (mellan Cheerio och AI)
-- [ ] B4. Integrera i /api/wizard/competitors (sokresultat -> AI-analys)
+- [x] B1. Lagg till BRAVE_API_KEY i .env.local och Vercel env vars
+- [x] B2. Skapa src/lib/brave-search.ts (tunn wrapper, ~30 rader)
+- [x] B3. Integrera i /api/wizard/company-lookup som steg 2 (mellan Cheerio och AI)
+- [x] B4. Integrera i /api/wizard/competitors (sokresultat -> AI-analys)
 - [ ] B5. FRAMTIDA: Template-sokning via Brave (sok "restaurang hemsida mall" etc)
         Resultaten kan rankas med embeddings (se punkt E).
 
@@ -73,11 +73,11 @@ OBS: web_search i Responses API ar INTE gratis - det ar OpenAIs eget websok
 som company-lookup - Brave ar billigare/gratis pa free tier.
 
 Steg:
-- [ ] C1. Migrera /api/text/analyze fullt (redan halvvags, rensa manuell JSON-parse)
-- [ ] C2. Migrera /api/audit -> responses.create med structured output
+- [x] C1. Migrera /api/text/analyze fullt (redan halvvags, rensa manuell JSON-parse)
+- [x] C2. Migrera /api/audit -> responses.create med structured output
         (eliminerar JSON-parsfel, ger garanterad schema)
-- [ ] C3. Testa web_search i audit-routen (for SEO-kontext, konkurrentdata)
-- [ ] C4. Migrera /api/wizard/enrich -> structured outputs for questions/suggestions
+- [x] C3. Testa web_search i audit-routen (for SEO-kontext, konkurrentdata)
+- [x] C4. Migrera /api/wizard/enrich -> structured outputs for questions/suggestions
 - [ ] C5. Utvardera kostnad: OpenAI web_search vs Brave for company-lookup
 
 ================================================================================
@@ -93,10 +93,10 @@ Bakgrund:
 - Next.js 16 middleware kan: auth-check, redirect, rate-limit headers, CORS
 
 Steg:
-- [ ] D1. Skapa src/middleware.ts med auth-check for /builder, /admin, /projects
-- [ ] D2. Redirect oinloggade till / (eller visa login-modal)
-- [ ] D3. Centralisera rate-limit headers (flytta fran per-route)
-- [ ] D4. CORS-setup for API-routes
+- [x] D1. Skapa src/middleware.ts med auth-check for /builder, /admin, /projects
+- [x] D2. Redirect oinloggade till / (eller visa login-modal)
+- [x] D3. Centralisera rate-limit headers (flytta fran per-route)
+- [x] D4. CORS-setup for API-routes
 
 ================================================================================
 E. EMBEDDINGS FOR TEMPLATE-SOKNING
@@ -114,9 +114,9 @@ Bakgrund:
 - Kan aven anvandas for: smart prompt-forslag, liknande-projekt-sokning
 
 Steg:
-- [ ] E1. Generera embeddings for alla templates (titel + beskrivning + kategori)
-- [ ] E2. Lagra i Supabase (pgvector) eller lokal JSON-cache
-- [ ] E3. Vid sokning: embed anvandarprompt -> cosine similarity -> topp 5
+- [x] E1. Generera embeddings for alla templates (titel + beskrivning + kategori)
+- [x] E2. Lagra i Supabase (pgvector) eller lokal JSON-cache
+- [x] E3. Vid sokning: embed anvandarprompt -> cosine similarity -> topp 5
 - [ ] E4. Visa i "Mallar"-fliken med "AI-foreslagna mallar baserat pa din beskrivning"
 - [ ] E5. FRAMTIDA: Koppla ihop med Brave-sok (E + B5) for att hitta
         externa mallar/inspiration och ranka dem med embeddings.
@@ -133,8 +133,8 @@ Bakgrund:
 - Alla anvandare kan i teorin lasa/skriva varandras data via direktanslutning.
 
 Steg:
-- [ ] F1. Definiera policies: projects WHERE user_id = auth.uid()
-- [ ] F2. Samma for chats, versions, deployments
+- [~] F1. Definiera policies: projects WHERE user_id = auth.uid()
+- [~] F2. Samma for chats, versions, deployments
 - [ ] F3. Testa med tva olika anvandare
 - [ ] F4. Verifiera att Drizzle-anrop fortfarande fungerar (service role vs user role)
 

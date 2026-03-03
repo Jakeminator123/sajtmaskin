@@ -61,35 +61,10 @@ function fmtOrgNr(raw: string): string {
   return digits.length === 10 ? `${digits.slice(0, 6)}-${digits.slice(6)}` : raw;
 }
 
-async function lookupViaCheerio(companyName: string): Promise<CompanyLookupResult> {
-  const searchUrl = `${ALLABOLAG_BASE}/bransch-sok?q=${encodeURIComponent(companyName)}`;
-  const searchRes = await fetch(searchUrl, {
-    headers: BROWSER_HEADERS,
-    signal: AbortSignal.timeout(8000),
-  });
-  if (!searchRes.ok) throw new Error(`Search returned ${searchRes.status}`);
-
+async function parseAllabolagPage(html: string, companyName: string): Promise<CompanyLookupResult> {
   const cheerio = await import("cheerio");
-  const searchHtml = await searchRes.text();
-  const $search = cheerio.load(searchHtml);
-
-  const firstLink = $search('a[href*="/foretag/"]')
-    .toArray()
-    .map((el) => $search(el).attr("href") || "")
-    .find((href) => href.split("/").length > 4);
-
-  if (!firstLink) throw new Error("No company link found");
-
-  const companyUrl = firstLink.startsWith("http") ? firstLink : `${ALLABOLAG_BASE}${firstLink}`;
-  const companyRes = await fetch(companyUrl, {
-    headers: BROWSER_HEADERS,
-    signal: AbortSignal.timeout(8000),
-  });
-  if (!companyRes.ok) throw new Error(`Company page returned ${companyRes.status}`);
-
-  const companyHtml = await companyRes.text();
-  const $company = cheerio.load(companyHtml);
-  const nextDataScript = $company("#__NEXT_DATA__").html();
+  const $ = cheerio.load(html);
+  const nextDataScript = $("#__NEXT_DATA__").html();
   if (!nextDataScript) throw new Error("No __NEXT_DATA__ found");
 
   const nextData = JSON.parse(nextDataScript);
@@ -116,11 +91,35 @@ async function lookupViaCheerio(companyName: string): Promise<CompanyLookupResul
   };
 }
 
-/**
- * Step 2: Brave Search → find allabolag URL → Cheerio-scrape it.
- * Searches for the company on Brave, extracts the first allabolag.se
- * company page link, then scrapes that page with Cheerio.
- */
+async function lookupViaCheerio(companyName: string): Promise<CompanyLookupResult> {
+  const searchUrl = `${ALLABOLAG_BASE}/bransch-sok?q=${encodeURIComponent(companyName)}`;
+  const searchRes = await fetch(searchUrl, {
+    headers: BROWSER_HEADERS,
+    signal: AbortSignal.timeout(8000),
+  });
+  if (!searchRes.ok) throw new Error(`Search returned ${searchRes.status}`);
+
+  const cheerio = await import("cheerio");
+  const searchHtml = await searchRes.text();
+  const $search = cheerio.load(searchHtml);
+
+  const firstLink = $search('a[href*="/foretag/"]')
+    .toArray()
+    .map((el) => $search(el).attr("href") || "")
+    .find((href) => href.split("/").length > 4);
+
+  if (!firstLink) throw new Error("No company link found");
+
+  const companyUrl = firstLink.startsWith("http") ? firstLink : `${ALLABOLAG_BASE}${firstLink}`;
+  const companyRes = await fetch(companyUrl, {
+    headers: BROWSER_HEADERS,
+    signal: AbortSignal.timeout(8000),
+  });
+  if (!companyRes.ok) throw new Error(`Company page returned ${companyRes.status}`);
+
+  return parseAllabolagPage(await companyRes.text(), companyName);
+}
+
 async function lookupViaBraveSearch(companyName: string): Promise<CompanyLookupResult> {
   const results = await braveWebSearch(`företag ${companyName} allabolag`, 5);
   if (results.length === 0) throw new Error("Brave returned no results");
@@ -131,40 +130,13 @@ async function lookupViaBraveSearch(companyName: string): Promise<CompanyLookupR
 
   if (!allabolagUrl) throw new Error("No allabolag company URL in Brave results");
 
-  const cheerio = await import("cheerio");
   const companyRes = await fetch(allabolagUrl, {
     headers: BROWSER_HEADERS,
     signal: AbortSignal.timeout(8000),
   });
   if (!companyRes.ok) throw new Error(`Company page returned ${companyRes.status}`);
 
-  const companyHtml = await companyRes.text();
-  const $company = cheerio.load(companyHtml);
-  const nextDataScript = $company("#__NEXT_DATA__").html();
-  if (!nextDataScript) throw new Error("No __NEXT_DATA__ found on Brave-discovered URL");
-
-  const nextData = JSON.parse(nextDataScript);
-  const c = nextData?.props?.pageProps?.company;
-  if (!c) throw new Error("No company object in __NEXT_DATA__");
-
-  const addr = c.visitorAddress || {};
-  const cp = c.contactPerson || {};
-
-  return {
-    found: true,
-    companyName: c.name || companyName,
-    orgNr: fmtOrgNr(c.orgnr || ""),
-    companyType: c.companyType?.name,
-    city: addr.postPlace || undefined,
-    address: [addr.addressLine, addr.zipCode, addr.postPlace].filter(Boolean).join(", "),
-    industries: (c.industries || []).map((i: { name?: string }) => i.name).filter(Boolean),
-    revenueKsek: safeInt(c.revenue),
-    employees: safeInt(c.employees),
-    ceo: cp.name ? `${cp.name}${cp.role ? ` (${cp.role})` : ""}` : undefined,
-    homepage: (c.homePage || "").trim() || undefined,
-    purpose: (c.purpose || "").slice(0, 300) || undefined,
-    source: "allabolag",
-  };
+  return parseAllabolagPage(await companyRes.text(), companyName);
 }
 
 async function lookupViaAiSearch(companyName: string): Promise<CompanyLookupResult> {

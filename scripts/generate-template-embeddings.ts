@@ -127,6 +127,12 @@ async function main() {
       dimensions: DIMENSIONS,
     });
 
+    if (response.data.length !== texts.length) {
+      throw new Error(
+        `Embedding count mismatch: expected ${texts.length}, got ${response.data.length}`,
+      );
+    }
+
     for (let j = 0; j < batch.length; j++) {
       allEmbeddings.push({
         id: batch[j].id,

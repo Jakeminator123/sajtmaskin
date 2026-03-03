@@ -86,13 +86,18 @@ export async function searchTemplates(
 
   const openai = new OpenAI({ apiKey });
 
-  const response = await openai.embeddings.create({
-    model: EMBEDDING_MODEL,
-    input: query,
-    dimensions: 1536,
-  });
-
-  const queryEmbedding = response.data[0].embedding;
+  let queryEmbedding: number[];
+  try {
+    const response = await openai.embeddings.create({
+      model: EMBEDDING_MODEL,
+      input: query,
+      dimensions: 1536,
+    });
+    queryEmbedding = response.data[0].embedding;
+  } catch (err) {
+    console.error("[template-search] Embedding API call failed:", err);
+    return [];
+  }
 
   const scored = embeddings.map((entry) => ({
     id: entry.id,

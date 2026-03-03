@@ -235,7 +235,7 @@ Svara ENDAST med giltig JSON i detta format:
     console.error("[API/Text/Analyze] Error:", error);
 
     return NextResponse.json({
-      success: true,
+      success: false,
       summary: "Kunde inte analysera filen automatiskt",
       suggestions: getDefaultSuggestions("", "text"),
     });

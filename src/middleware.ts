@@ -77,6 +77,7 @@ export async function middleware(request: NextRequest) {
   // ---- Page auth redirects ----
   if (needsAdminAuth(pathname) || needsUserAuth(pathname)) {
     const token = getTokenFromRequestEdge(request);
+    // Edge Runtime cannot import config.ts (Node.js singleton), so read directly from env
     const jwtSecret = process.env.JWT_SECRET || "dev-secret-change-in-production";
     const payload = token ? await verifyTokenEdge(token, jwtSecret) : null;
 

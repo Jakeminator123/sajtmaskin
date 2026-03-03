@@ -13,7 +13,7 @@ and get a working site generated, previewed, and deployed.
 - **Framework**: Next.js 16 (App Router), React 19, TypeScript 5.9
 - **Styling**: Tailwind CSS 4, shadcn/ui (Radix primitives)
 - **AI/Generation**: v0 Platform API (v0-sdk), AI SDK 6 (@ai-sdk/openai, @ai-sdk/vercel)
-- **Database**: PostgreSQL (Supabase) via Drizzle ORM, SQLite fallback (better-sqlite3)
+- **Database**: PostgreSQL (Supabase) via Drizzle ORM
 - **Cache**: Redis (Upstash/ioredis)
 - **State**: Zustand (auth), React hooks (builder state)
 - **Payments**: Stripe
@@ -42,7 +42,9 @@ User prompt -> Builder UI -> v0 Platform API -> Generated code -> Preview -> Dep
 | `src/lib/builder/` | Builder business logic (prompt assist, orchestration, types) |
 | `src/lib/hooks/` | React hooks (useV0ChatMessaging, useChat, useVersions) |
 | `src/lib/db/` | Drizzle schema + service layer |
-| `src/lib/auth/` | Auth logic + Zustand store |
+| `src/lib/auth/` | Auth logic + Zustand store + edge-auth.ts for middleware |
+| `src/lib/brave-search.ts` | Brave Web Search API wrapper |
+| `src/middleware.ts` | Centralized auth redirects, CORS, security headers (Edge Runtime) |
 | `LLM/` | AI/prompt strategy notes |
 
 ### Core flow (builder)
