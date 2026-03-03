@@ -1,0 +1,149 @@
+SAJTMASKIN - ROADMAP NEXT
+=========================
+Skapad: 2026-03-03
+Baserat pa: Genomgang av hela kodbasen + MCP-servrar (v0, openaiDeveloperDocs) + webb.
+
+Status-nyckel: [ ] = ej paborjad, [~] = delvis, [x] = klart
+
+================================================================================
+A. DESIGN SYSTEM (v0 designSystemId)
+================================================================================
+Prioritet: HOG
+Insats: MEDEL (setup + integration)
+Varde: Konsistent design i ALLA genererade sajter utan extra prompt-text
+
+Bakgrund:
+- Koden har redan stod: src/lib/v0/v0-generator.ts rad 732-735 (TODO-cast).
+- v0 stodjer "registry" = en publik URL med tokens.css + layout.tsx + komponenter.
+- Nar designSystemId skickas med createChat far v0 automatiskt farg, typsnitt
+  och komponent-stil utan att det behover beskrivas i prompten.
+
+Steg:
+- [ ] A1. Skapa registry-repo fran Vercels starter: github.com/vercel/registry-starter
+- [ ] A2. Anpassa tokens.css (farger, radier, spacing) for Sajtmaskin-branding
+- [ ] A3. Lagg till egna anpassade shadcn-komponenter (header, footer, hero)
+- [ ] A4. Deploya registryt till Vercel (publik URL kravs)
+- [ ] A5. Hamta designSystemId fran v0 (skapa via v0.dev UI eller init-registry API)
+- [ ] A6. Koppla designSystemId i builder-flodet (ChatInterface -> stream routes)
+- [ ] A7. UI: Lat anvandare valja design system (dropdown i BuilderHeader)
+
+Not: Man kan INTE "ladda ned" ett design system fran v0 - det ar tvarttom:
+du skapar ett registry (en Next.js-app med CSS + komponenter) och ger v0
+dess URL. v0 laser fran ditt registry vid generation.
+
+================================================================================
+B. BRAVE SEARCH API - WEBSOK FOR WIZARD + MALLAR
+================================================================================
+Prioritet: HOG
+Insats: LAG-MEDEL
+Varde: Battre company-lookup, konkurrentanalys, och framtida template-sok
+
+Bakgrund:
+- BRAVE_API_KEY finns (se .env.local - COMMITTA ALDRIG nyckeln)
+- Idag: company-lookup kor Cheerio-scrape pa allabolag.se, fallback = AI gateway.
+  AI-fallbacken har INGEN websok - den "fantiserar" data fran traning.
+- Brave Search API: GET https://api.search.brave.com/res/v1/web/search
+  Header: X-Subscription-Token: <BRAVE_API_KEY>
+  Returnerar: { web: { results: [{ title, url, description }] } }
+
+Steg:
+- [ ] B1. Lagg till BRAVE_API_KEY i .env.local och Vercel env vars
+- [ ] B2. Skapa src/lib/brave-search.ts (tunn wrapper, ~30 rader)
+- [ ] B3. Integrera i /api/wizard/company-lookup som steg 2 (mellan Cheerio och AI)
+- [ ] B4. Integrera i /api/wizard/competitors (sokresultat -> AI-analys)
+- [ ] B5. FRAMTIDA: Template-sokning via Brave (sok "restaurang hemsida mall" etc)
+        Resultaten kan rankas med embeddings (se punkt E).
+
+================================================================================
+C. OPENAI RESPONSES API (ersatter Chat Completions)
+================================================================================
+Prioritet: MEDEL
+Insats: MEDEL-HOG (migration, testa noggrant)
+Varde: 40-80% billigare, inbyggd websok, structured outputs, battre caching
+
+Bakgrund:
+- Responses API ar OpenAIs nya standard (mars 2025+), ersatter Chat Completions.
+- Anrop: openai.responses.create({ model, input, tools: [{ type: "web_search" }] })
+- Inbyggda verktyg: web_search, file_search, code_interpreter
+- Idag: Bara src/app/api/text/analyze/route.ts anvander responses.create.
+  Resten (ai/chat, audit, wizard/enrich) kor Chat Completions via AI SDK streamText.
+
+OBS: web_search i Responses API ar INTE gratis - det ar OpenAIs eget websok
+(kostar per sokning). Det ar darfor Brave ar ett bra alternativ for saker
+som company-lookup - Brave ar billigare/gratis pa free tier.
+
+Steg:
+- [ ] C1. Migrera /api/text/analyze fullt (redan halvvags, rensa manuell JSON-parse)
+- [ ] C2. Migrera /api/audit -> responses.create med structured output
+        (eliminerar JSON-parsfel, ger garanterad schema)
+- [ ] C3. Testa web_search i audit-routen (for SEO-kontext, konkurrentdata)
+- [ ] C4. Migrera /api/wizard/enrich -> structured outputs for questions/suggestions
+- [ ] C5. Utvardera kostnad: OpenAI web_search vs Brave for company-lookup
+
+================================================================================
+D. MIDDLEWARE.TS (centraliserad auth + rate limiting)
+================================================================================
+Prioritet: MEDEL
+Insats: MEDEL
+Varde: Enklare kod, sakrare, battre UX (redirects)
+
+Bakgrund:
+- Saknas helt (project-overview namner den men den finns inte)
+- Idag: varje API-route kor getCurrentUser + withRateLimit manuellt
+- Next.js 16 middleware kan: auth-check, redirect, rate-limit headers, CORS
+
+Steg:
+- [ ] D1. Skapa src/middleware.ts med auth-check for /builder, /admin, /projects
+- [ ] D2. Redirect oinloggade till / (eller visa login-modal)
+- [ ] D3. Centralisera rate-limit headers (flytta fran per-route)
+- [ ] D4. CORS-setup for API-routes
+
+================================================================================
+E. EMBEDDINGS FOR TEMPLATE-SOKNING
+================================================================================
+Prioritet: LAG-MEDEL (spannande men inte akut)
+Insats: MEDEL
+Varde: Anvandare beskriver vad de vill ha -> hittar basta mallen
+
+Bakgrund:
+- Idag: Templates ar haardkodade i template-data.ts + templates.json
+  Filtrering: bara pa kategori (getTemplateCatalog({ intent }))
+- Med embeddings: "Jag vill ha en modern restaurangsida med bokning"
+  -> Semantisk matchning mot template-titlar + beskrivningar
+- OpenAI: POST /v1/embeddings, modell text-embedding-3-small (~$0.02/1M tokens)
+- Kan aven anvandas for: smart prompt-forslag, liknande-projekt-sokning
+
+Steg:
+- [ ] E1. Generera embeddings for alla templates (titel + beskrivning + kategori)
+- [ ] E2. Lagra i Supabase (pgvector) eller lokal JSON-cache
+- [ ] E3. Vid sokning: embed anvandarprompt -> cosine similarity -> topp 5
+- [ ] E4. Visa i "Mallar"-fliken med "AI-foreslagna mallar baserat pa din beskrivning"
+- [ ] E5. FRAMTIDA: Koppla ihop med Brave-sok (E + B5) for att hitta
+        externa mallar/inspiration och ranka dem med embeddings.
+
+================================================================================
+F. RLS-POLICIES (sakerhet)
+================================================================================
+Prioritet: HOG (sakerhetskritiskt)
+Insats: LAG
+Varde: Faktisk data-isolation mellan anvandare
+
+Bakgrund:
+- Supabase RLS ar aktiverat men med "Allow all" policies = ingen sakring.
+- Alla anvandare kan i teorin lasa/skriva varandras data via direktanslutning.
+
+Steg:
+- [ ] F1. Definiera policies: projects WHERE user_id = auth.uid()
+- [ ] F2. Samma for chats, versions, deployments
+- [ ] F3. Testa med tva olika anvandare
+- [ ] F4. Verifiera att Drizzle-anrop fortfarande fungerar (service role vs user role)
+
+================================================================================
+PRIORITETSORDNING
+================================================================================
+1. F - RLS-policies (sakerhet, liten insats, stort varde)
+2. B - Brave Search (lag insats, direkt forbattring i wizard)
+3. A - Design System (stor forbattring i genererad kvalitet)
+4. C - Responses API (kostnadsoptimering, battre outputs)
+5. D - Middleware (kodkvalitet, centraliserad logik)
+6. E - Embeddings/template-sok (coolast men lagst akut)

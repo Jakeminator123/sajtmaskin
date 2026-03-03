@@ -7,13 +7,7 @@ Primära dokument:
 - LLM/atgardsmatris.txt
 - LLM/schemas_overview.txt
 - LLM/v0-prompt-guide.txt (v0 prompt best practices + templates)
-
-MCP-docs (karnlista via docs://local/*):
-- docs://local/WHEN-TO-USE-MCP
-- docs://local/quick-reference
-- docs://local/overview
-- docs://local/docs-index
-- docs://local/error-playbook
+- LLM/ROADMAP-next.txt (prioriterad forbattringslista 2026-03)
 
 Uppdatering:
 1) Andra kod -> uppdatera motsvarande doc i LLM/.
