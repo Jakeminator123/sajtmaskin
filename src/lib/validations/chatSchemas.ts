@@ -13,6 +13,10 @@ export type ModelTier = CanonicalModelId;
 export const acceptedModelIds = ACCEPTED_MODEL_IDS;
 const MAX_ATTACHMENTS_PER_MESSAGE = 24;
 
+const attachmentSchema = z.object({
+  url: z.string().url("Attachment must have a valid URL"),
+});
+
 const modelIdSchema = z.enum(
   ACCEPTED_MODEL_IDS as unknown as [string, ...string[]],
 );
@@ -40,7 +44,7 @@ export const createChatSchema = z.object({
     .trim()
     .min(1, "Message is required")
     .max(MAX_CHAT_MESSAGE_CHARS, `Message too long (max ${MAX_CHAT_MESSAGE_CHARS} chars)`),
-  attachments: z.array(z.any()).max(MAX_ATTACHMENTS_PER_MESSAGE).optional(),
+  attachments: z.array(attachmentSchema).max(MAX_ATTACHMENTS_PER_MESSAGE).optional(),
   system: z.string().max(MAX_CHAT_SYSTEM_CHARS).optional(),
   projectId: z.string().optional(),
   modelId: modelIdSchema.optional().default(DEFAULT_MODEL_ID),
@@ -57,7 +61,7 @@ export const sendMessageSchema = z.object({
     .trim()
     .min(1, "Message is required")
     .max(MAX_CHAT_MESSAGE_CHARS, `Message too long (max ${MAX_CHAT_MESSAGE_CHARS} chars)`),
-  attachments: z.array(z.any()).max(MAX_ATTACHMENTS_PER_MESSAGE).optional(),
+  attachments: z.array(attachmentSchema).max(MAX_ATTACHMENTS_PER_MESSAGE).optional(),
   system: z.string().max(MAX_CHAT_SYSTEM_CHARS).optional(),
   modelId: modelIdSchema.optional(),
   thinking: z.boolean().optional(),

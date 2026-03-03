@@ -37,6 +37,23 @@ function addSecurityHeaders(response: NextResponse): void {
   response.headers.set("X-Frame-Options", "SAMEORIGIN");
   response.headers.set("X-Content-Type-Options", "nosniff");
   response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
+  response.headers.set(
+    "Strict-Transport-Security",
+    "max-age=63072000; includeSubDomains",
+  );
+  response.headers.set(
+    "Content-Security-Policy-Report-Only",
+    [
+      "default-src 'self'",
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
+      "style-src 'self' 'unsafe-inline'",
+      "img-src 'self' data: blob: *.vusercontent.net *.blob.vercel-storage.com api.dicebear.com quickchart.io images.unsplash.com images.pexels.com",
+      "font-src 'self' data:",
+      "frame-src *.vusercontent.net",
+      "connect-src 'self' *.vusercontent.net wss:",
+      "media-src 'self' blob:",
+    ].join("; "),
+  );
 }
 
 function addCorsHeaders(

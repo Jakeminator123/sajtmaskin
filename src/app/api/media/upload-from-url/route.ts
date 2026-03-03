@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { uploadBlob, generateUniqueFilename } from "@/lib/vercel/blob-service";
+import { validateSsrfTarget, safeFetch } from "@/lib/ssrf-guard";
 
 /**
  * Media Upload from URL API
@@ -32,21 +33,28 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, error: "URL krävs" }, { status: 400 });
     }
 
-    // Validate URL
+    let parsedUrl: URL;
     try {
-      new URL(url);
+      parsedUrl = new URL(url);
     } catch {
       return NextResponse.json({ success: false, error: "Ogiltig URL" }, { status: 400 });
     }
 
+    const ssrfCheck = validateSsrfTarget(parsedUrl);
+    if (!ssrfCheck.ok) {
+      return NextResponse.json(
+        { success: false, error: `Otillåten URL: ${ssrfCheck.reason}` },
+        { status: 400 },
+      );
+    }
+
     console.info(`[Media/UploadFromUrl] Downloading image from: ${url.substring(0, 100)}...`);
 
-    // Download the image
-    const response = await fetch(url, {
+    const response = await safeFetch(url, {
       headers: {
-        // Some sites require a user agent
         "User-Agent": "Mozilla/5.0 (compatible; Sajtmaskin/1.0)",
       },
+      timeoutMs: 15_000,
     });
 
     if (!response.ok) {

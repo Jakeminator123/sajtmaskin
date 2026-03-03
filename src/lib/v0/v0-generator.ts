@@ -445,11 +445,11 @@ export type StreamingCallback = (chunk: {
 }) => void;
 
 /**
- * Check if v0 streaming is enabled via feature toggle
- * Streaming shows generation progress in real-time
+ * Check if v0 streaming is enabled via feature toggle.
+ * Default: enabled. Set V0_STREAMING_ENABLED=false to disable.
  */
 export function isV0StreamingEnabled(): boolean {
-  return true;
+  return process.env.V0_STREAMING_ENABLED !== "false";
 }
 
 /**
@@ -558,6 +558,8 @@ export interface GenerateCodeOptions {
   designSystemId?: string;
   /** Callback for streaming updates (if v0Streaming feature is enabled) */
   onStream?: StreamingCallback;
+  /** Indicates the prompt was already expanded by orchestrator/prompt-assist */
+  isExpanded?: boolean;
 }
 
 /**
@@ -618,15 +620,10 @@ export async function generateCode(
   // Build the full prompt
   let fullPrompt = "";
 
-  // Check if prompt is already expanded (from Creative Brief Enhancer or orchestrator)
-  // Expanded prompts contain detailed structure like "hero section", "navigation", etc.
+  // Prefer explicit metadata flag from orchestrator; fall back to heuristic
   const isAlreadyExpanded =
-    prompt.includes("hero section") ||
-    prompt.includes("navigation") ||
-    prompt.startsWith("Create a") ||
-    prompt.startsWith("Build a") ||
-    prompt.includes("USER REQUEST:") ||
-    prompt.includes("ORIGINAL REQUEST:");
+    options.isExpanded ??
+    (prompt.includes("USER REQUEST:") || prompt.includes("ORIGINAL REQUEST:"));
 
   // Use category prompt if available
   // IMPROVED: If prompt is already expanded, merge instead of replacing

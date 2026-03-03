@@ -153,6 +153,10 @@ export function truncateForLog(text: string, maxLength: number = 500, label?: st
  * @param model - The model being used (e.g., "v0-max-fast")
  */
 export function logFinalPrompt(prompt: string, model: string): void {
+  if (process.env.NODE_ENV === "production" && process.env.LOG_PROMPTS !== "true") {
+    return;
+  }
+
   const divider = "═".repeat(80);
   const timestamp = new Date().toISOString().slice(11, 23);
 

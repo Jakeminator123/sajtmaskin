@@ -1,0 +1,31 @@
+10 åtgärder att se över (prioriterat)
+
+Backoffice-auth: byt från localStorage-token till HttpOnly-cookie + serversession
+I src/lib/backoffice/template-generator.ts genereras en token som klienten sparar i localStorage. Det är XSS-känsligt och saknar server-side invalidation.
+
+Backoffice-auth: rate limiting + brute-force skydd på /api/backoffice/auth
+Lägg in IP/session-baserad rate limit och lockout. Annars är det trivialt att gissa lösenord.
+
+Backoffice token-signering: använd HMAC + constant-time compare
+Nu signeras med sha256(token + expiry + password). Byt till createHmac("sha256", secret) och jämför signaturer med constant-time (för att minska sidokanalsrisk).
+
+Backoffice datalagring: skriv inte till local filesystem på serverless
+content/route.ts och colors/route.ts skriver JSON till process.cwd()/data/*.json. På Vercel/serverless är filsystemet ofta ephemeral och/eller read-only. Flytta till Postgres/KV/Blob (du har redan pg, Upstash, Vercel Blob i deps).
+
+Säkerhetsgranska vad som loggas i v0-flödet
+v0-generator.ts loggar “final prompt” och även prompt-snippets. Det kan råka innehålla persondata, tokens, kundinfo. Inför redaction + nivåstyrning (dev-only), och logga aldrig hela prompten i prod.
+
+Validera och begränsa externa URL:er (attachments/media/remotePatterns)
+v0-generator.ts accepterar attachments: [{url}] och media URLs. Lägg allowlist/URL-validering och blockera interna IP/metadata endpoints (SSRF-risk). Se även över wildcard-hosts i next.config.ts för images.
+
+Gör feature toggles riktiga (streaming/thinking/imageGenerations)
+isV0StreamingEnabled() returnerar alltid true. Gör detta env-/flag-styrt och säkerställ att routes inte oavsiktligt kör streaming/“thinking” i prod.
+
+Städa upp Node-version och byggkedja
+package.json pinnas till Node 25.4.0. Byt till LTS (och definiera även engines), annars ökar risken för konstiga edge-fel i CI/Vercel och dependencies.
+
+DB-init: separera “dev bootstrap” från prod och ta bort rejectUnauthorized:false som default
+I scripts/db-init.mjs används ssl: { rejectUnauthorized:false }. Gör det explicit (t.ex. endast för specifika pooler/hostnames) och styr via env. Se också till att predev inte kör DB-migrering/init oavsiktligt.
+
+Prompt-heuristics: gör “expanded prompt”-detektion deterministisk
+I v0-generator.ts avgörs “already expanded” via text-contains (“hero section”, “navigation”…). Det är skört och kan ge fel merge/replacement. Bättre: låt orchestrator returnera en flagga/metadata som används istället för heuristik.

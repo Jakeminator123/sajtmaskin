@@ -51,8 +51,6 @@ export default function BackofficePage() {
       const data = await res.json();
 
       if (data.success) {
-        // Store session token
-        localStorage.setItem("backoffice-token", data.token);
         router.push("/backoffice/dashboard");
       } else {
         setError(data.error || "Fel lösenord");
@@ -205,17 +203,20 @@ export default function DashboardPage() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Verify auth
-    const token = localStorage.getItem("backoffice-token");
-    if (!token) {
-      router.push("/backoffice");
-      return;
-    }
-    setIsLoading(false);
+    fetch("/api/backoffice/auth")
+      .then((res) => res.json())
+      .then((data) => {
+        if (!data.authenticated) {
+          router.push("/backoffice");
+        } else {
+          setIsLoading(false);
+        }
+      })
+      .catch(() => router.push("/backoffice"));
   }, [router]);
 
-  const handleLogout = () => {
-    localStorage.removeItem("backoffice-token");
+  const handleLogout = async () => {
+    await fetch("/api/backoffice/auth", { method: "DELETE" });
     router.push("/backoffice");
   };
 
@@ -361,39 +362,36 @@ export default function ContentPage() {
   const [search, setSearch] = useState("");
 
   useEffect(() => {
-    // Verify auth
-    const token = localStorage.getItem("backoffice-token");
-    if (!token) {
-      router.push("/backoffice");
-      return;
-    }
-
-    // Load content
-    fetch("/api/backoffice/content")
+    fetch("/api/backoffice/auth")
       .then((res) => res.json())
       .then((data) => {
+        if (!data.authenticated) {
+          router.push("/backoffice");
+          return;
+        }
+        return fetch("/api/backoffice/content");
+      })
+      .then((res) => res?.json())
+      .then((data) => {
+        if (!data) return;
         const textContent = data.content.filter((c: ContentItem) => c.type === "text");
         setContent(textContent);
-        // Initialize edited content with current values
         const initial: Record<string, string> = {};
         textContent.forEach((c: ContentItem) => {
           initial[c.id] = c.value;
         });
         setEditedContent(initial);
       })
+      .catch(() => router.push("/backoffice"))
       .finally(() => setIsLoading(false));
   }, [router]);
 
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      const token = localStorage.getItem("backoffice-token");
       await fetch("/api/backoffice/content", {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: \`Bearer \${token}\`,
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ updates: editedContent }),
       });
       setSaved(true);
@@ -542,18 +540,22 @@ export default function ImagesPage() {
   const [uploadingId, setUploadingId] = useState<string | null>(null);
 
   useEffect(() => {
-    const token = localStorage.getItem("backoffice-token");
-    if (!token) {
-      router.push("/backoffice");
-      return;
-    }
-
-    fetch("/api/backoffice/content")
+    fetch("/api/backoffice/auth")
       .then((res) => res.json())
       .then((data) => {
+        if (!data.authenticated) {
+          router.push("/backoffice");
+          return;
+        }
+        return fetch("/api/backoffice/content");
+      })
+      .then((res) => res?.json())
+      .then((data) => {
+        if (!data) return;
         const imageContent = data.content.filter((c: ImageItem) => c.type === "image");
         setImages(imageContent);
       })
+      .catch(() => router.push("/backoffice"))
       .finally(() => setIsLoading(false));
   }, [router]);
 
@@ -565,10 +567,8 @@ export default function ImagesPage() {
     formData.append("contentId", id);
 
     try {
-      const token = localStorage.getItem("backoffice-token");
       const res = await fetch("/api/backoffice/upload", {
         method: "POST",
-        headers: { Authorization: \`Bearer \${token}\` },
         body: formData,
       });
 
@@ -717,30 +717,30 @@ export default function ColorsPage() {
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    const token = localStorage.getItem("backoffice-token");
-    if (!token) {
-      router.push("/backoffice");
-      return;
-    }
-
-    fetch("/api/backoffice/colors")
+    fetch("/api/backoffice/auth")
       .then((res) => res.json())
       .then((data) => {
+        if (!data.authenticated) {
+          router.push("/backoffice");
+          return;
+        }
+        return fetch("/api/backoffice/colors");
+      })
+      .then((res) => res?.json())
+      .then((data) => {
+        if (!data) return;
         if (data.colors) setColors(data.colors);
       })
+      .catch(() => router.push("/backoffice"))
       .finally(() => setIsLoading(false));
   }, [router]);
 
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      const token = localStorage.getItem("backoffice-token");
       await fetch("/api/backoffice/colors", {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: \`Bearer \${token}\`,
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ colors }),
       });
       setSaved(true);
@@ -877,11 +877,82 @@ export default function ColorsPage() {
  */
 function generateAuthRoute(): string {
   return `import { NextRequest, NextResponse } from "next/server";
-import { createHash, randomBytes } from "crypto";
+import { createHmac, randomBytes, timingSafeEqual } from "crypto";
 
-// Simple password verification (uses env var BACKOFFICE_PASSWORD)
+const COOKIE_NAME = "backoffice_session";
+const SESSION_MAX_AGE = 8 * 60 * 60; // 8 hours
+const IS_PRODUCTION = process.env.NODE_ENV === "production";
+
+// In-memory rate limiter for brute-force protection
+const loginAttempts = new Map<string, { count: number; resetAt: number }>();
+const MAX_ATTEMPTS = 5;
+const WINDOW_MS = 15 * 60 * 1000; // 15 min
+
+function checkRateLimit(ip: string): boolean {
+  const now = Date.now();
+  const entry = loginAttempts.get(ip);
+  if (!entry || now > entry.resetAt) {
+    loginAttempts.set(ip, { count: 1, resetAt: now + WINDOW_MS });
+    return true;
+  }
+  entry.count++;
+  return entry.count <= MAX_ATTEMPTS;
+}
+
+function getClientIp(req: NextRequest): string {
+  return req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+}
+
+function hmacSign(data: string, secret: string): string {
+  return createHmac("sha256", secret).update(data).digest("hex");
+}
+
+function constantTimeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  return timingSafeEqual(Buffer.from(a), Buffer.from(b));
+}
+
+export function validateOrigin(req: NextRequest): boolean {
+  const origin = req.headers.get("origin");
+  const referer = req.headers.get("referer");
+  const host = req.headers.get("host");
+  if (!host) return false;
+  const allowedOrigin = \`\${IS_PRODUCTION ? "https" : "http"}://\${host}\`;
+  if (origin) return origin === allowedOrigin;
+  if (referer) return referer.startsWith(allowedOrigin);
+  return false;
+}
+
+export function verifySessionCookie(cookieValue: string | undefined): boolean {
+  if (!cookieValue) return false;
+  const parts = cookieValue.split(".");
+  if (parts.length !== 3) return false;
+
+  const [tokenPart, expiry, signature] = parts;
+  if (Date.now() > parseInt(expiry)) return false;
+
+  const secret = process.env.BACKOFFICE_PASSWORD;
+  if (!secret) return false;
+
+  const expected = hmacSign(tokenPart + "." + expiry, secret);
+  return constantTimeEqual(signature, expected);
+}
+
+// POST - Login
 export async function POST(req: NextRequest) {
   try {
+    if (!validateOrigin(req)) {
+      return NextResponse.json({ success: false, error: "Invalid origin" }, { status: 403 });
+    }
+
+    const ip = getClientIp(req);
+    if (!checkRateLimit(ip)) {
+      return NextResponse.json(
+        { success: false, error: "För många försök. Vänta och försök igen." },
+        { status: 429 }
+      );
+    }
+
     const { password } = await req.json();
     const correctPassword = process.env.BACKOFFICE_PASSWORD;
 
@@ -899,48 +970,40 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Generate a simple session token
     const token = randomBytes(32).toString("hex");
-    const expiry = Date.now() + 24 * 60 * 60 * 1000; // 24 hours
+    const expiry = Date.now() + SESSION_MAX_AGE * 1000;
+    const signature = hmacSign(token + "." + expiry, correctPassword);
+    const cookieValue = \`\${token}.\${expiry}.\${signature}\`;
 
-    // In production, you'd store this in a database
-    // For simplicity, we'll use a signed token
-    const signature = createHash("sha256")
-      .update(token + expiry + process.env.BACKOFFICE_PASSWORD)
-      .digest("hex");
-
-    return NextResponse.json({
-      success: true,
-      token: \`\${token}.\${expiry}.\${signature}\`,
+    const response = NextResponse.json({ success: true });
+    response.cookies.set(COOKIE_NAME, cookieValue, {
+      httpOnly: true,
+      secure: IS_PRODUCTION,
+      sameSite: "strict",
+      path: "/",
+      maxAge: SESSION_MAX_AGE,
     });
-  } catch (error) {
-    console.error("[Template Generator] Error:", error);
+
+    return response;
+  } catch {
     return NextResponse.json(
-      { success: false, error: "Template-generering misslyckades. Försök med en annan beskrivning." },
+      { success: false, error: "Inloggning misslyckades" },
       { status: 500 }
     );
   }
 }
 
-// Verify token helper (export for use in other routes)
-export function verifyToken(authHeader: string | null): boolean {
-  if (!authHeader?.startsWith("Bearer ")) return false;
+// GET - Verify authentication status
+export async function GET(req: NextRequest) {
+  const session = req.cookies.get(COOKIE_NAME);
+  return NextResponse.json({ authenticated: verifySessionCookie(session?.value) });
+}
 
-  const token = authHeader.slice(7);
-  const parts = token.split(".");
-  if (parts.length !== 3) return false;
-
-  const [tokenPart, expiry, signature] = parts;
-
-  // Check expiry
-  if (Date.now() > parseInt(expiry)) return false;
-
-  // Verify signature
-  const expectedSignature = createHash("sha256")
-    .update(tokenPart + expiry + process.env.BACKOFFICE_PASSWORD)
-    .digest("hex");
-
-  return signature === expectedSignature;
+// DELETE - Logout
+export async function DELETE() {
+  const response = NextResponse.json({ success: true });
+  response.cookies.delete(COOKIE_NAME);
+  return response;
 }
 `;
 }
@@ -950,13 +1013,13 @@ export function verifyToken(authHeader: string | null): boolean {
  */
 function generateContentRoute(): string {
   return `import { NextRequest, NextResponse } from "next/server";
-import { verifyToken } from "../auth/route";
+import { verifySessionCookie, validateOrigin } from "../auth/route";
 import fs from "fs";
 import path from "path";
 
-const CONTENT_FILE = path.join(process.cwd(), "data", "content.json");
+const DATA_DIR = process.env.DATA_DIR || path.join(process.cwd(), "data");
+const CONTENT_FILE = path.join(DATA_DIR, "content.json");
 
-// Ensure data directory exists
 function ensureDataDir() {
   const dir = path.dirname(CONTENT_FILE);
   if (!fs.existsSync(dir)) {
@@ -964,13 +1027,11 @@ function ensureDataDir() {
   }
 }
 
-// Get content
 export async function GET() {
   try {
     ensureDataDir();
 
     if (!fs.existsSync(CONTENT_FILE)) {
-      // Return manifest from build time
       const manifestPath = path.join(process.cwd(), "data", "manifest.json");
       if (fs.existsSync(manifestPath)) {
         const manifest = JSON.parse(fs.readFileSync(manifestPath, "utf-8"));
@@ -981,7 +1042,7 @@ export async function GET() {
 
     const content = JSON.parse(fs.readFileSync(CONTENT_FILE, "utf-8"));
     return NextResponse.json(content);
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       { error: "Failed to load content" },
       { status: 500 }
@@ -989,18 +1050,20 @@ export async function GET() {
   }
 }
 
-// Update content
 export async function PUT(req: NextRequest) {
   try {
-    // Verify auth
-    if (!verifyToken(req.headers.get("authorization"))) {
+    const session = req.cookies.get("backoffice_session");
+    if (!verifySessionCookie(session?.value)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    if (!validateOrigin(req)) {
+      return NextResponse.json({ error: "Invalid origin" }, { status: 403 });
     }
 
     const { updates } = await req.json();
     ensureDataDir();
 
-    // Load existing content
     let content = { content: [], products: [], colors: {} };
     if (fs.existsSync(CONTENT_FILE)) {
       content = JSON.parse(fs.readFileSync(CONTENT_FILE, "utf-8"));
@@ -1011,17 +1074,15 @@ export async function PUT(req: NextRequest) {
       }
     }
 
-    // Apply updates
     for (const [id, value] of Object.entries(updates)) {
       const item = content.content.find((c: any) => c.id === id);
       if (item) item.value = value;
     }
 
-    // Save
     fs.writeFileSync(CONTENT_FILE, JSON.stringify(content, null, 2));
 
     return NextResponse.json({ success: true });
-  } catch (error) {
+  } catch {
     return NextResponse.json(
       { error: "Failed to update content" },
       { status: 500 }
@@ -1036,11 +1097,12 @@ export async function PUT(req: NextRequest) {
  */
 function generateColorsRoute(): string {
   return `import { NextRequest, NextResponse } from "next/server";
-import { verifyToken } from "../auth/route";
+import { verifySessionCookie, validateOrigin } from "../auth/route";
 import fs from "fs";
 import path from "path";
 
-const COLORS_FILE = path.join(process.cwd(), "data", "colors.json");
+const DATA_DIR = process.env.DATA_DIR || path.join(process.cwd(), "data");
+const COLORS_FILE = path.join(DATA_DIR, "colors.json");
 
 function ensureDataDir() {
   const dir = path.dirname(COLORS_FILE);
@@ -1064,15 +1126,20 @@ export async function GET() {
 
     const colors = JSON.parse(fs.readFileSync(COLORS_FILE, "utf-8"));
     return NextResponse.json({ colors });
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: "Failed to load colors" }, { status: 500 });
   }
 }
 
 export async function PUT(req: NextRequest) {
   try {
-    if (!verifyToken(req.headers.get("authorization"))) {
+    const session = req.cookies.get("backoffice_session");
+    if (!verifySessionCookie(session?.value)) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    if (!validateOrigin(req)) {
+      return NextResponse.json({ error: "Invalid origin" }, { status: 403 });
     }
 
     const { colors } = await req.json();
@@ -1080,7 +1147,7 @@ export async function PUT(req: NextRequest) {
     fs.writeFileSync(COLORS_FILE, JSON.stringify(colors, null, 2));
 
     return NextResponse.json({ success: true });
-  } catch (error) {
+  } catch {
     return NextResponse.json({ error: "Failed to save colors" }, { status: 500 });
   }
 }
@@ -1161,6 +1228,10 @@ export function generateBackofficeFiles(
 ${passwordComment}
 BACKOFFICE_PASSWORD=${passwordValue}
 
+# Data directory for content/color changes (default: ./data)
+# On Vercel/serverless, set to /tmp/data (ephemeral - resets on redeploy)
+# DATA_DIR=/tmp/data
+
 # For image uploads (optional - uses local storage by default)
 # CLOUDINARY_URL=cloudinary://...
 # or
@@ -1204,6 +1275,12 @@ ${manifest.products.length > 0 ? "- **Produkter**: Hantera produkter och priser"
 
 ## Deployment
 
+### Vercel
+1. Lägg till miljövariabler i Vercel-dashboarden
+2. Sätt \`DATA_DIR=/tmp/data\` (Vercels filsystem är read-only)
+3. **OBS:** Ändringar i /tmp nollställs vid varje deploy.
+   För persistent lagring, använd en databas eller Vercel KV.
+
 ### Render, Railway eller liknande
 1. Lägg till miljövariabler i din hosting-dashboard
 2. Konfigurera build-kommando: \`npm run build\`
@@ -1216,6 +1293,7 @@ ${manifest.products.length > 0 ? "- **Produkter**: Hantera produkter och priser"
 
 ## Säkerhet
 
+- Sessioner hanteras via HttpOnly-cookies (ej synliga för JavaScript)
 - Byt lösenord regelbundet
 - Använd ett starkt lösenord (12+ tecken)
 - Dela aldrig lösenordet i klartext

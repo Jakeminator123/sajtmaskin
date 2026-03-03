@@ -2,8 +2,11 @@
   "name": "sajtmaskin-app",
   "version": "0.1.0",
   "private": true,
+  "engines": {
+    "node": ">=22.0.0"
+  },
   "volta": {
-    "node": "25.4.0"
+    "node": "22.14.0"
   },
   "scripts": {
     "predev": "node scripts/refresh-token.mjs && node scripts/db-init.mjs",
