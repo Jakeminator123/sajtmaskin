@@ -12,6 +12,8 @@ import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Toaster } from "@/components/ui/sonner";
 import { OpenClawChatLazy } from "@/components/openclaw/OpenClawChatLazy";
 
+const openclawEnabled = Boolean(process.env.OPENCLAW_GATEWAY_URL?.trim());
+
 const geistSans = Geist({
   subsets: ["latin"],
   variable: "--font-geist-sans",
@@ -67,7 +69,7 @@ export default async function RootLayout({
   children: React.ReactNode;
 }>) {
   const requestHeaders = await headers();
-  const cspNonce = requestHeaders.get("x-csp-nonce");
+  const nonce = requestHeaders.get("x-csp-nonce") ?? undefined;
 
   return (
     <html
@@ -75,7 +77,7 @@ export default async function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} ${inter.variable} ${spaceGrotesk.variable}`}
       suppressHydrationWarning
     >
-      <body className="font-sans antialiased" data-csp-nonce={cspNonce ?? ""}>
+      <body className="font-sans antialiased">
         <noscript>
           <div style={{ padding: "2rem", maxWidth: 600, margin: "0 auto", fontFamily: "system-ui, sans-serif", color: "#e5e7eb" }}>
             <h1>Sajtmaskin</h1>
@@ -83,7 +85,7 @@ export default async function RootLayout({
             <p>JavaScript krävs för att använda Sajtmaskin. Aktivera JavaScript i din webbläsare och ladda om sidan.</p>
           </div>
         </noscript>
-        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
+        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false} nonce={nonce}>
           <OrganizationJsonLd />
           <SoftwareApplicationJsonLd />
           <AnalyticsTracker />
@@ -92,7 +94,7 @@ export default async function RootLayout({
           <BetaBanner />
           {children}
           <Toaster position="top-right" />
-          <OpenClawChatLazy />
+          {openclawEnabled && <OpenClawChatLazy />}
           <CookieBanner />
         </ThemeProvider>
       </body>
