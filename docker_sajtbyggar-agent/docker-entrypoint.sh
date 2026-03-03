@@ -104,9 +104,6 @@ cat > "$CONFIG_FILE" <<EOF
     },
     "list": [
       {
-        "id": "main"
-      },
-      {
         "id": "sajtagenten",
         "name": "sajtagenten",
         "workspace": "${WORKSPACE_DIR}",
