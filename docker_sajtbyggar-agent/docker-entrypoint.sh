@@ -83,6 +83,7 @@ cat > "$CONFIG_FILE" <<EOF
       "enabled": true,
       "dangerouslyDisableDeviceAuth": ${CONTROLUI_DISABLE_DEVICE_AUTH},
       "allowedOrigins": [
+        "https://sajtagenten.onrender.com",
         "${TARGET_SITE_URL}",
         "http://localhost:3000"${EXTRA_ORIGINS:+,
         ${EXTRA_ORIGINS}}
