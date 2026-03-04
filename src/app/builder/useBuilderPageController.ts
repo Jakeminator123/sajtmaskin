@@ -44,6 +44,7 @@ export function useBuilderPageController() {
   const [, startUiTransition] = useTransition();
   const { fetchUser, isAuthenticated, isLoading: isAuthLoading } = useAuth();
   const [authModalReason, setAuthModalReason] = useState<"builder" | "save" | null>(null);
+  const [tipsEnabled, setTipsEnabled] = useState(false);
 
   const state = useBuilderState(searchParams);
 
@@ -725,6 +726,7 @@ export function useBuilderPageController() {
   }, [appProjectId, paletteState, paletteLoadedRef, lastPaletteSavedRef]);
 
   useLocalStorageBooleanSync("sajtmaskin:structuredChat", showStructuredChat, setShowStructuredChat);
+  useLocalStorageBooleanSync("sajtmaskin:openclawTipsEnabled", tipsEnabled, setTipsEnabled);
 
   // Custom instructions load / save
   useEffect(() => {
@@ -1209,6 +1211,7 @@ export function useBuilderPageController() {
     isMediaEnabled: state.isMediaEnabled,
     enableBlobMedia: state.enableBlobMedia,
     showStructuredChat: state.showStructuredChat,
+    tipsEnabled,
     designTheme: state.designTheme,
     designSystemId: state.designSystemId,
     isImportModalOpen: state.isImportModalOpen,
@@ -1248,6 +1251,7 @@ export function useBuilderPageController() {
     setEnableThinking: state.setEnableThinking,
     setEnableBlobMedia: state.setEnableBlobMedia,
     setShowStructuredChat: state.setShowStructuredChat,
+    setTipsEnabled,
     setDesignTheme: state.setDesignTheme,
     setDesignSystemId: state.setDesignSystemId,
     setIsImportModalOpen: state.setIsImportModalOpen,

@@ -41,6 +41,7 @@ import {
   MessageSquare,
   Palette,
   Plus,
+  Lightbulb,
   Globe,
   Rocket,
   Save,
@@ -99,6 +100,8 @@ export function BuilderHeader(props: {
 
   showStructuredChat: boolean;
   onShowStructuredChatChange: (v: boolean) => void;
+  tipsEnabled: boolean;
+  onTipsEnabledChange: (v: boolean) => void;
   isFigmaInputOpen: boolean;
   onToggleFigmaInput: () => void;
 
@@ -149,6 +152,8 @@ export function BuilderHeader(props: {
     onEnableBlobMediaChange,
     showStructuredChat,
     onShowStructuredChatChange,
+    tipsEnabled,
+    onTipsEnabledChange,
     isFigmaInputOpen,
     onToggleFigmaInput,
     chatId,
@@ -545,6 +550,16 @@ export function BuilderHeader(props: {
             </DropdownMenuCheckboxItem>
           </DropdownMenuContent>
         </DropdownMenu>
+
+        <Button
+          variant={tipsEnabled ? "default" : "outline"}
+          size="sm"
+          onClick={() => onTipsEnabledChange(!tipsEnabled)}
+          title={`AI-tips ${tipsEnabled ? "på" : "av"} (2 credits per tips)`}
+        >
+          <Lightbulb className="h-4 w-4" />
+          <span className="hidden sm:inline">{tipsEnabled ? "Tips: På" : "Tips: Av"}</span>
+        </Button>
 
         <Button
           variant="outline"

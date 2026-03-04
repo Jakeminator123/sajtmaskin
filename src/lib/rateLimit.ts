@@ -26,6 +26,7 @@ export const RATE_LIMITS: Record<string, RateLimitConfig> = {
   "text:extract": { maxRequests: 20, windowMs: 60 * 1000 },
   "text:analyze": { maxRequests: 20, windowMs: 60 * 1000 },
   "openclaw:chat": { maxRequests: 20, windowMs: 60 * 1000 },
+  "openclaw:tips": { maxRequests: 20, windowMs: 60 * 1000 },
   "template:init": { maxRequests: 10, windowMs: 60 * 1000 },
   "domains:suggest": { maxRequests: 15, windowMs: 60 * 1000 },
   "chat:create": { maxRequests: 15, windowMs: 60 * 1000 },

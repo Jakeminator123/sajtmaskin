@@ -12,20 +12,161 @@ import { DeployNameDialog } from "@/components/builder/DeployNameDialog";
 import { DomainSearchDialog } from "@/components/builder/DomainSearchDialog";
 import { DomainManager } from "@/components/builder/DomainManager";
 import { ThinkingOverlay } from "@/components/builder/ThinkingOverlay";
+import { TipCard } from "@/components/builder/TipCard";
 import { RequireAuthModal } from "@/components/auth";
 import { useAuthStore } from "@/lib/auth/auth-store";
+import type { ChatMessage } from "@/lib/builder/types";
 import { cn } from "@/lib/utils";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { BuilderLayout } from "./BuilderLayout";
 import type { BuilderViewModel } from "./useBuilderPageController";
+
+function getLatestCompletedAssistantMessage(messages: ChatMessage[]): ChatMessage | null {
+  for (let i = messages.length - 1; i >= 0; i -= 1) {
+    const message = messages[i];
+    if (
+      message?.role === "assistant" &&
+      !message.isStreaming &&
+      typeof message.content === "string" &&
+      message.content.trim().length > 0
+    ) {
+      return message;
+    }
+  }
+  return null;
+}
+
+function getLatestUserMessage(messages: ChatMessage[]): ChatMessage | null {
+  for (let i = messages.length - 1; i >= 0; i -= 1) {
+    const message = messages[i];
+    if (
+      message?.role === "user" &&
+      typeof message.content === "string" &&
+      message.content.trim().length > 0
+    ) {
+      return message;
+    }
+  }
+  return null;
+}
 
 export function BuilderShellContent(vm: BuilderViewModel) {
   const isBusy = vm.isCreatingChat || vm.isAnyStreaming || vm.isTemplateLoading || vm.isPreparingPrompt;
   const [isFigmaInputOpen, setIsFigmaInputOpen] = useState(false);
+  const [tipPanelOpen, setTipPanelOpen] = useState(false);
+  const [tipText, setTipText] = useState<string | null>(null);
+  const [tipError, setTipError] = useState<string | null>(null);
+  const [tipCost, setTipCost] = useState<number | null>(null);
+  const [isTipLoading, setIsTipLoading] = useState(false);
+  const previousStreamingRef = useRef(vm.isAnyStreaming);
+  const lastAutoTipAssistantIdRef = useRef<string | null>(null);
+
+  const requestTip = useCallback(
+    async (assistantMessage: ChatMessage | null) => {
+      if (!assistantMessage) {
+        setTipError("Inget AI-svar att hämta tips från ännu.");
+        setTipPanelOpen(true);
+        return;
+      }
+
+      setIsTipLoading(true);
+      setTipError(null);
+      try {
+        const latestUser = getLatestUserMessage(vm.messages);
+        const res = await fetch("/api/openclaw/tips", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            context: {
+              page: "builder",
+              projectId: vm.appProjectId,
+              chatId: vm.chatId,
+              activeVersionId: vm.activeVersionId,
+              demoUrl: vm.currentDemoUrl,
+              recentMessages: vm.messages.slice(-5).map((m) => ({
+                role: m.role,
+                content: typeof m.content === "string" ? m.content.slice(0, 300) : "[structured]",
+              })),
+              latestUserMessage: latestUser?.content?.slice(0, 500) || "",
+              latestAssistantMessage: assistantMessage.content.slice(0, 900),
+              currentCode: vm.currentPageCode?.slice(0, 2200) || "",
+            },
+          }),
+        });
+
+        const data = (await res.json().catch(() => null)) as
+          | { success?: boolean; tip?: string; error?: string; cost?: number }
+          | null;
+
+        if (!res.ok || !data?.success || typeof data.tip !== "string") {
+          const message = data?.error || "Kunde inte hämta tips just nu.";
+          setTipError(message);
+          setTipPanelOpen(true);
+          return;
+        }
+
+        setTipText(data.tip.trim());
+        setTipCost(typeof data.cost === "number" ? data.cost : 2);
+        setTipError(null);
+        setTipPanelOpen(true);
+      } catch {
+        setTipError("Kunde inte hämta tips just nu.");
+        setTipPanelOpen(true);
+      } finally {
+        setIsTipLoading(false);
+      }
+    },
+    [
+      vm.activeVersionId,
+      vm.appProjectId,
+      vm.chatId,
+      vm.currentDemoUrl,
+      vm.currentPageCode,
+      vm.messages,
+    ],
+  );
+
+  const handleRefreshTip = useCallback(() => {
+    const latestAssistant = getLatestCompletedAssistantMessage(vm.messages);
+    void requestTip(latestAssistant);
+  }, [requestTip, vm.messages]);
+
+  useEffect(() => {
+    if (!vm.chatId) {
+      setTipPanelOpen(false);
+      setTipText(null);
+      setTipError(null);
+      setTipCost(null);
+      setIsTipLoading(false);
+      lastAutoTipAssistantIdRef.current = null;
+    }
+  }, [vm.chatId]);
+
+  useEffect(() => {
+    if (!vm.tipsEnabled) {
+      setTipPanelOpen(false);
+    }
+  }, [vm.tipsEnabled]);
+
+  useEffect(() => {
+    const wasStreaming = previousStreamingRef.current;
+    previousStreamingRef.current = vm.isAnyStreaming;
+
+    if (!vm.tipsEnabled) return;
+    if (!wasStreaming || vm.isAnyStreaming) return;
+
+    const latestAssistant = getLatestCompletedAssistantMessage(vm.messages);
+    if (!latestAssistant) return;
+    if (lastAutoTipAssistantIdRef.current === latestAssistant.id) return;
+
+    lastAutoTipAssistantIdRef.current = latestAssistant.id;
+    void requestTip(latestAssistant);
+  }, [requestTip, vm.isAnyStreaming, vm.messages, vm.tipsEnabled]);
 
   useEffect(() => {
     window.__SITEMASKIN_CONTEXT = {
       page: "builder",
+      projectId: vm.appProjectId,
       chatId: vm.chatId,
       activeVersionId: vm.activeVersionId,
       demoUrl: vm.currentDemoUrl,
@@ -41,6 +182,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
       delete window.__SITEMASKIN_CONTEXT;
     };
   }, [
+    vm.appProjectId,
     vm.chatId,
     vm.activeVersionId,
     vm.currentDemoUrl,
@@ -78,6 +220,8 @@ export function BuilderShellContent(vm: BuilderViewModel) {
         onEnableBlobMediaChange={vm.setEnableBlobMedia}
         showStructuredChat={vm.showStructuredChat}
         onShowStructuredChatChange={vm.setShowStructuredChat}
+        tipsEnabled={vm.tipsEnabled}
+        onTipsEnabledChange={vm.setTipsEnabled}
         isFigmaInputOpen={isFigmaInputOpen}
         onToggleFigmaInput={() => setIsFigmaInputOpen((value) => !value)}
         chatId={vm.chatId}
@@ -116,13 +260,22 @@ export function BuilderShellContent(vm: BuilderViewModel) {
       <div className="flex min-h-0 flex-1 overflow-hidden">
         <div className="border-border bg-background flex min-h-0 w-full flex-col border-r lg:w-96">
           <ProjectEnvVarsPanel projectId={vm.v0ProjectId} />
-          <div className="min-h-0 flex-1 overflow-hidden">
+          <div className="relative min-h-0 flex-1 overflow-hidden">
             <MessageList
               chatId={vm.chatId}
               messages={vm.messages}
               showStructuredParts={vm.showStructuredChat}
               onQuickReply={(text) => vm.sendMessage(text)}
               quickReplyDisabled={isBusy}
+            />
+            <TipCard
+              open={tipPanelOpen && vm.tipsEnabled}
+              isLoading={isTipLoading}
+              tip={tipText}
+              error={tipError}
+              cost={tipCost}
+              onRefresh={handleRefreshTip}
+              onClose={() => setTipPanelOpen(false)}
             />
             <ThinkingOverlay isVisible={vm.isAnyStreaming} />
           </div>

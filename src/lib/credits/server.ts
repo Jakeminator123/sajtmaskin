@@ -36,6 +36,7 @@ const ACTION_RULES: Record<CreditAction, ActionRule> = {
   "deploy.production": { allowGuest: false },
   "audit.basic": { allowGuest: false },
   "audit.advanced": { allowGuest: false },
+  "openclaw.tip": { allowGuest: false },
 };
 
 const AUTH_REQUIRED_MESSAGES: Partial<Record<CreditAction, string>> = {
@@ -44,6 +45,7 @@ const AUTH_REQUIRED_MESSAGES: Partial<Record<CreditAction, string>> = {
   "audit.advanced": "Du måste vara inloggad för att använda audit-funktionen.",
   "deploy.preview": "Du måste vara inloggad för att deploya.",
   "deploy.production": "Du måste vara inloggad för att deploya.",
+  "openclaw.tip": "Du måste vara inloggad för att använda AI-tips.",
 };
 
 const GUEST_LIMIT_MESSAGES: Record<GuestUsageType, string> = {

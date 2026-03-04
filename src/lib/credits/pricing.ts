@@ -8,7 +8,8 @@ export type CreditAction =
   | "deploy.preview"
   | "deploy.production"
   | "audit.basic"
-  | "audit.advanced";
+  | "audit.advanced"
+  | "openclaw.tip";
 
 import {
   type CanonicalModelId,
@@ -63,6 +64,8 @@ export const DEPLOY_COSTS = {
   production: 20,
 } as const;
 
+export const OPENCLAW_TIP_COST = 2;
+
 /** Monthly hosting cost per active deployment (credits/month) */
 export const HOSTING_MONTHLY_COST = 10;
 
@@ -103,6 +106,8 @@ export function getCreditCost(action: CreditAction, context: PricingContext = {}
       return AUDIT_COSTS.basic;
     case "audit.advanced":
       return AUDIT_COSTS.advanced;
+    case "openclaw.tip":
+      return OPENCLAW_TIP_COST;
     default:
       return 0;
   }
@@ -130,6 +135,8 @@ export function getCreditTransactionType(action: CreditAction): string {
       return "audit_basic";
     case "audit.advanced":
       return "audit_advanced";
+    case "openclaw.tip":
+      return "openclaw_tip";
     default:
       return "credit_charge";
   }
@@ -159,6 +166,8 @@ export function getCreditDescription(action: CreditAction, context: PricingConte
       return "Audit (basic)";
     case "audit.advanced":
       return "Audit (advanced)";
+    case "openclaw.tip":
+      return "AI-tip (Sajtagenten)";
     default:
       return "Kreditdrag";
   }
@@ -182,6 +191,8 @@ export function getActionLabel(action: CreditAction): string {
     case "audit.basic":
     case "audit.advanced":
       return "en audit";
+    case "openclaw.tip":
+      return "ett AI-tips";
     default:
       return "denna åtgärd";
   }

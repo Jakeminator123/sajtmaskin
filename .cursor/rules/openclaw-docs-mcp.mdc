@@ -1,0 +1,35 @@
+---
+description: Consult OpenClaw documentation MCP server for install, config, CLI, gateway, channel, and tool questions
+alwaysApply: true
+---
+
+# OpenClaw Documentation Lookup
+
+When a conversation involves **OpenClaw** — installation, configuration, CLI commands,
+gateway setup, channels, tools, agents, MCP integration, or troubleshooting — always
+consult the `openclaw-docs` MCP server before relying on training data.
+
+OpenClaw is a newer project and your training data may be outdated or incorrect.
+
+## Available tools (from `openclaw-docs` MCP server)
+
+| Tool | When to use |
+|---|---|
+| `openclaw_docs_search` | Find specific topics (e.g. "gateway auth token", "telegram channel") |
+| `openclaw_docs_section` | Read a full documentation section by heading |
+| `openclaw_docs_index` | List all available doc pages to discover what exists |
+| `openclaw_docs_chunk` | Read raw docs from a character offset (for continuation) |
+
+## Workflow
+
+1. **First**, run `openclaw_docs_search` with relevant keywords
+2. If you need more detail, use `openclaw_docs_section` with the heading from search results
+3. If unsure what docs exist, start with `openclaw_docs_index`
+
+## When to consult automatically
+
+- User asks about OpenClaw installation or setup
+- User mentions `openclaw.json`, gateway, or OpenClaw CLI
+- You are generating OpenClaw configuration and want to verify correctness
+- You encounter an OpenClaw error or unexpected behavior
+- User references channels (Telegram, Discord, Slack, etc.) in an OpenClaw context

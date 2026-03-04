@@ -122,28 +122,34 @@ Steg:
         externa mallar/inspiration och ranka dem med embeddings.
 
 ================================================================================
-F. RLS-POLICIES (sakerhet)
+F. RLS / DATA-ISOLATION (sakerhet)
 ================================================================================
 Prioritet: HOG (sakerhetskritiskt)
-Insats: LAG
+Insats: LAG-MEDEL
 Varde: Faktisk data-isolation mellan anvandare
 
 Bakgrund:
-- Supabase RLS ar aktiverat men med "Allow all" policies = ingen sakring.
-- Alla anvandare kan i teorin lasa/skriva varandras data via direktanslutning.
+- Supabase RLS ar aktiverat men med "Allow all" policies = ingen sakring pa DB-niva.
+- Beslut (tva22): Approach A — app-layer enforcement via tenant.ts
+  (INTE full RLS med custom session variables — for komplext med Drizzle + serverless)
+- tenant.ts har getRequestUserId, getChatByV0ChatIdForRequest, etc.
 
-Steg:
-- [~] F1. Definiera policies: projects WHERE user_id = auth.uid()
-- [~] F2. Samma for chats, versions, deployments
-- [ ] F3. Testa med tva olika anvandare
-- [ ] F4. Verifiera att Drizzle-anrop fortfarande fungerar (service role vs user role)
+Status efter tva22:
+- [x] F1. proxy.ts med CSP nonce, HSTS, auth-gating
+- [x] F2. SSRF-guard for URL-fetching (ssrf-guard.ts)
+- [x] F3. Rate limiting (withRateLimit) pa 44 routes
+- [x] F4. Backoffice cookie-auth med HMAC + timingSafeEqual
+- [~] F5. App-layer ownership filters i DB-services (delvis — se bygglan_2/00-TRIAGE.md)
+- [ ] F6. Kvarstaende kritiska fixar (6 st) — se bygglan_2/01-PLAN-critical-fixes.md
+- [ ] F7. Hardening (5 st) — se bygglan_2/02-PLAN-hardening.md
+
+Se bygglan_2/ for fullstandig triagering och implementationsplaner.
 
 ================================================================================
 PRIORITETSORDNING
 ================================================================================
-1. F - RLS-policies (sakerhet, liten insats, stort varde)
-2. B - Brave Search (lag insats, direkt forbattring i wizard)
+1. F - Sakerhet: kritiska fixar (bygglan_2/01-PLAN) — FORE PRODUKTION
+2. F - Sakerhet: hardening (bygglan_2/02-PLAN) — inom 1-2 veckor
 3. A - Design System (stor forbattring i genererad kvalitet)
-4. C - Responses API (kostnadsoptimering, battre outputs)
-5. D - Middleware (kodkvalitet, centraliserad logik)
-6. E - Embeddings/template-sok (coolast men lagst akut)
+4. B5/E - Template-sokning (Brave + Embeddings)
+5. F - Sakerhet: polish (bygglan_2/03-PLAN) — nar tid finns

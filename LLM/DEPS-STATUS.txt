@@ -1,14 +1,13 @@
 DEPENDENCY & INSTALLATION STATUS
 ================================
-Senast uppdaterad: 2026-03-02
+Senast uppdaterad: 2026-03-04
 
 NODE.JS VERSION
 ---------------
-- Pinned: 25.4.0 (konsekvent i alla filer)
-- .node-version: 25.4.0
-- .nvmrc: 25.4.0
-- .tool-versions: nodejs 25.4.0
-- package.json volta: 25.4.0
+- Pinned: 22.14.0 (LTS, ändrat från 25.4.0 i tva22-branchen)
+- .node-version: 22.14.0
+- Node 22 = Maintenance LTS (stöds till april 2027)
+- Framtida: Överväg Node 24 (Active LTS) när Next.js stöder det
 
 PAKETHANTERARE
 --------------
@@ -23,13 +22,41 @@ DATABASE (Supabase PostgreSQL)
 - ORM: Drizzle ORM (src/lib/db/client.ts + src/lib/db/schema.ts)
 - Brave Search: src/lib/brave-search.ts (wrapper for Brave Web Search API)
 
-Tabeller (4 st, alla med RLS aktiverat):
-- projects: id, user_id, v0_project_id, name, created_at, updated_at
-- chats: id, project_id, v0_chat_id, v0_project_id, web_url, created_at, updated_at
-- versions: id, chat_id, v0_version_id, v0_message_id, demo_url, metadata, pinned, pinned_at, created_at
-- deployments: id, project_id, chat_id, version_id, v0_deployment_id, vercel_deployment_id, vercel_project_id, inspector_url, url, status, created_at, updated_at
+Tabeller (~22 st, RLS aktiverat med "Allow all" — app-layer enforcement):
+Ägarskap-tabeller (har user_id):
+- projects: user_id (v0-projekt)
+- app_projects: user_id + session_id (guest-stöd)
+- users: id (auth-tabell)
+- media_library: user_id
+- transactions: user_id
+- user_audits: user_id
+- user_integrations: user_id + project_id
+- template_cache: user_id (nullable)
 
-RLS Status: ✅ Aktiverat med "Allow all" policies (2026-01-27)
+FK-ägda tabeller (ägarskap via projekt/chatt):
+- chats: project_id → projects
+- versions: chat_id → chats
+- version_error_logs: version_id → versions
+- deployments: project_id → projects
+- company_profiles: project_id → app_projects
+- project_data: project_id → app_projects
+- project_files: project_id → app_projects
+- images: project_id → app_projects
+- domain_orders: project_id (text, ingen FK)
+
+Session-baserade:
+- guest_usage: session_id
+- prompt_handoffs: user_id + session_id
+
+Delade / publika:
+- page_views: analytics (session_id + user_id, båda optional)
+- prompt_logs: user_id (nullable)
+- registry_cache: global cache
+- kostnadsfri_pages: slug + lösenord (ingen user)
+
+RLS Status: Aktiverat men "Allow all" policies — isolation sker i app-lagret
+via tenant.ts (getChatByV0ChatIdForRequest, getProjectByIdForRequest etc.)
+Se bygglan_2/00-TRIAGE.md för säkerhetsplan.
 
 NYCKEL-DEPENDENCIES (2026-01-27)
 --------------------------------
@@ -85,6 +112,11 @@ ENV-VARIABLER (KRÄVS)
 ---------------------
 Databas:
 - POSTGRES_URL (Supabase connection string)
+- DB_SSL_REJECT_UNAUTHORIZED (default true; sätts false bara för lokal dev)
+
+Auth/Säkerhet (KRÄVS I PROD):
+- JWT_SECRET (kritiskt — app vägrar starta utan i prod)
+- BACKOFFICE_PASSWORD (backoffice-auth)
 
 AI/v0:
 - V0_API_KEY (v0 Platform API för site generation)
@@ -94,7 +126,14 @@ AI/v0:
 - USE_RESPONSES_API=true (opt-in OpenAI Responses API migration)
 - AUDIT_WEB_SEARCH=false (opt-in web_search i audit-route)
 
+Rate Limiting (REKOMMENDERAT I PROD):
+- UPSTASH_REDIS_REST_URL (Upstash Redis för distribuerad rate limiting)
+- UPSTASH_REDIS_REST_TOKEN
+- Not: Utan Redis faller rate limiting tillbaka till in-memory (ej pålitligt i serverless)
+
 Övrigt:
 - BLOB_READ_WRITE_TOKEN (Vercel Blob för bilder)
 - REDIS_URL (caching)
+- CRON_SECRET (skyddar cron-endpoints)
+- KOSTNADSFRI_API_KEY (API-nyckel för kostnadsfri-tjänsten)
 - Se .env.local för fullständig lista
