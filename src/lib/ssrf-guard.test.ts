@@ -83,4 +83,58 @@ describe("ssrf-guard", () => {
     expect(await res.text()).toBe("ok");
     expect(globalThis.fetch).toHaveBeenCalledTimes(2);
   });
+
+  it("blocks private IP on later redirect hop (chained SSRF)", async () => {
+    globalThis.fetch = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(null, { status: 302, headers: { Location: "https://hop1.example.com" } }),
+      )
+      .mockResolvedValueOnce(
+        new Response(null, { status: 302, headers: { Location: "https://hop2.example.com" } }),
+      )
+      .mockResolvedValueOnce(
+        new Response(null, { status: 302, headers: { Location: "http://169.254.169.254/metadata" } }),
+      ) as unknown as typeof fetch;
+
+    const res = await safeFetch("https://example.com");
+    expect(res.status).toBe(403);
+    expect(await res.text()).toContain("Redirect blocked");
+    expect(globalThis.fetch).toHaveBeenCalledTimes(3);
+  });
+
+  it("returns 400 when redirect chain exceeds max hops", async () => {
+    const redirect = () =>
+      new Response(null, { status: 302, headers: { Location: "https://example.com/next" } });
+    globalThis.fetch = vi
+      .fn()
+      .mockResolvedValueOnce(redirect())
+      .mockResolvedValueOnce(redirect())
+      .mockResolvedValueOnce(redirect())
+      .mockResolvedValueOnce(redirect())
+      .mockResolvedValueOnce(redirect())
+      .mockResolvedValueOnce(redirect()) as unknown as typeof fetch;
+
+    const res = await safeFetch("https://example.com");
+    expect(res.status).toBe(400);
+    expect(await res.text()).toContain("Too many redirects");
+    expect(globalThis.fetch).toHaveBeenCalledTimes(6);
+  });
+
+  it("follows multi-hop safe redirect chain to completion", async () => {
+    globalThis.fetch = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(null, { status: 301, headers: { Location: "https://a.example.com" } }),
+      )
+      .mockResolvedValueOnce(
+        new Response(null, { status: 302, headers: { Location: "https://b.example.com" } }),
+      )
+      .mockResolvedValueOnce(new Response("final", { status: 200 })) as unknown as typeof fetch;
+
+    const res = await safeFetch("https://example.com");
+    expect(res.status).toBe(200);
+    expect(await res.text()).toBe("final");
+    expect(globalThis.fetch).toHaveBeenCalledTimes(3);
+  });
 });

@@ -74,6 +74,7 @@ export {
   getAllCompanyProfiles,
   searchCompanyProfiles,
   linkCompanyProfileToProject,
+  type OwnerScope,
 } from "./company-profiles";
 
 export {

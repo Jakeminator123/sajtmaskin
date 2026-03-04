@@ -76,7 +76,9 @@ export function validateSsrfTarget(
   return { ok: true };
 }
 
-export function safeFetch(
+const MAX_REDIRECTS = 5;
+
+export async function safeFetch(
   url: string,
   init?: RequestInit & { timeoutMs?: number },
 ): Promise<Response> {
@@ -87,33 +89,42 @@ export function safeFetch(
     ? combineSignals(rest.signal, controller.signal)
     : controller.signal;
 
-  return fetch(url, { ...rest, signal, redirect: "manual" }).then(
-    async (res) => {
-      clearTimeout(timer);
-      if (res.status >= 300 && res.status < 400) {
-        const location = res.headers.get("location");
-        if (!location) return res;
-        let redirectUrl: URL;
-        try {
-          redirectUrl = new URL(location, url);
-        } catch {
-          return res;
-        }
-        const check = validateSsrfTarget(redirectUrl);
-        if (!check.ok) {
-          return new Response(`Redirect blocked: ${check.reason}`, { status: 403 });
-        }
-        return fetch(redirectUrl.toString(), { ...rest, signal: controller.signal, redirect: "follow" }).finally(
-          () => clearTimeout(timer),
-        );
+  try {
+    let currentUrl = url;
+    let redirectCount = 0;
+
+    for (;;) {
+      const res = await fetch(currentUrl, { ...rest, signal, redirect: "manual" });
+
+      if (res.status < 300 || res.status >= 400) {
+        return res;
       }
-      return res;
-    },
-    (err) => {
-      clearTimeout(timer);
-      throw err;
-    },
-  );
+
+      redirectCount++;
+      if (redirectCount > MAX_REDIRECTS) {
+        return new Response("Too many redirects", { status: 400 });
+      }
+
+      const location = res.headers.get("location");
+      if (!location) return res;
+
+      let redirectUrl: URL;
+      try {
+        redirectUrl = new URL(location, currentUrl);
+      } catch {
+        return res;
+      }
+
+      const check = validateSsrfTarget(redirectUrl);
+      if (!check.ok) {
+        return new Response(`Redirect blocked: ${check.reason}`, { status: 403 });
+      }
+
+      currentUrl = redirectUrl.toString();
+    }
+  } finally {
+    clearTimeout(timer);
+  }
 }
 
 function combineSignals(a: AbortSignal, b: AbortSignal): AbortSignal {

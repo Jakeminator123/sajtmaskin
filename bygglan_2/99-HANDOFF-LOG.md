@@ -108,7 +108,50 @@ All 6 critical security fixes (M1-M6) implemented and verified:
 
 ---
 
-### Entry 3 — (next agent fills this in)
+### Entry 3 — 2026-03-04 — Phase 2 hardening complete
+
+**Agent:** Phase 2 implementation agents (3 batches)
+**What was done:**
+All 5 hardening tasks (S1-S5) implemented and verified:
+
+- **S1** (SSRF redirect chain): `src/lib/ssrf-guard.ts` — all redirect hops now
+  validated via `validateSsrfTarget`. Max 5 redirects. 3 new tests added.
+- **S2** (Redis prod requirement): `src/lib/rateLimit.ts` — cached Redis client
+  and Ratelimit instances at module level. Production warning if Redis not configured.
+  Added Upstash env vars to `src/lib/env.ts` schema.
+- **S3** (company profiles ownership): `src/lib/db/services/company-profiles.ts` —
+  added `OwnerScope` type and ownership verification to save, search, list, and link
+  functions. Updated `src/app/api/company-profile/route.ts` to pass scope.
+- **S4** (CSP reporting): Added `report-uri /api/csp-report` to CSP header in
+  `src/proxy.ts`. Created `src/app/api/csp-report/route.ts` endpoint with rate
+  limiting (100/min). Added `csp:report` rate limit key.
+- **S5** (CORS Vary): `src/proxy.ts` — added `Vary: Origin` when CORS headers
+  are set dynamically.
+
+**Verification:**
+- `npm run test:ci` — 38/38 tests pass (5 test files)
+- `npx tsc --noEmit` — 0 errors
+- ESLint — 0 errors on all changed files
+
+**Blockers encountered:** None
+
+**What's next:** Phase 3 (polish/deferred items) — no urgency, pick up when convenient.
+All critical and hardening security fixes are now complete.
+
+**Files changed:**
+- `src/lib/ssrf-guard.ts`
+- `src/lib/ssrf-guard.test.ts`
+- `src/lib/rateLimit.ts`
+- `src/lib/env.ts`
+- `src/lib/db/services/company-profiles.ts`
+- `src/lib/db/services/index.ts`
+- `src/app/api/company-profile/route.ts`
+- `src/app/api/csp-report/route.ts` (new)
+- `src/proxy.ts`
+
+---
+
+### Entry 4 — (next agent fills this in)
 
 **Agent:**
 **What was done:**

@@ -30,6 +30,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ success: false, error: "Unauthorized" }, { status: 401 });
     }
 
+    const scope = { userId: user?.id ?? null, sessionId };
     const { searchParams } = new URL(req.url);
     const projectId = searchParams.get("projectId");
     const companyName = searchParams.get("companyName");
@@ -37,10 +38,7 @@ export async function GET(req: NextRequest) {
 
     // Get by project ID — verify the caller owns the project
     if (projectId) {
-      const project = await getProjectByIdForOwner(projectId, {
-        userId: user?.id ?? null,
-        sessionId,
-      });
+      const project = await getProjectByIdForOwner(projectId, scope);
       if (!project) {
         return NextResponse.json({ success: false, error: "Profile not found" }, { status: 404 });
       }
@@ -62,12 +60,12 @@ export async function GET(req: NextRequest) {
 
     // Search profiles
     if (search) {
-      const profiles = await searchCompanyProfiles(search);
+      const profiles = await searchCompanyProfiles(search, scope);
       return NextResponse.json({ success: true, profiles });
     }
 
     // Get all profiles
-    const profiles = await getAllCompanyProfiles();
+    const profiles = await getAllCompanyProfiles(scope);
     return NextResponse.json({ success: true, profiles });
   } catch (error) {
     console.error("[API/company-profile] GET error:", error);
@@ -122,6 +120,18 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    const scope = { userId: user?.id ?? null, sessionId };
+
+    if (project_id) {
+      const project = await getProjectByIdForOwner(project_id, scope);
+      if (!project) {
+        return NextResponse.json(
+          { success: false, error: "Project not found" },
+          { status: 404 },
+        );
+      }
+    }
+
     // Build profile object
     const profileData: Omit<CompanyProfile, "id" | "created_at" | "updated_at"> = {
       project_id,
@@ -147,7 +157,7 @@ export async function POST(req: NextRequest) {
       voice_transcript,
     };
 
-    const savedProfile = await saveCompanyProfile(profileData);
+    const savedProfile = await saveCompanyProfile(profileData, scope);
 
     console.info("[API/company-profile] Saved profile ID:", savedProfile.id);
 
@@ -179,15 +189,13 @@ export async function PATCH(req: NextRequest) {
       );
     }
 
-    const project = await getProjectByIdForOwner(projectId, {
-      userId: user?.id ?? null,
-      sessionId,
-    });
+    const scope = { userId: user?.id ?? null, sessionId };
+    const project = await getProjectByIdForOwner(projectId, scope);
     if (!project) {
       return NextResponse.json({ success: false, error: "Project not found" }, { status: 404 });
     }
 
-    await linkCompanyProfileToProject(profileId, projectId);
+    await linkCompanyProfileToProject(profileId, projectId, scope);
 
     return NextResponse.json({ success: true });
   } catch (error) {

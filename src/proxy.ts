@@ -46,6 +46,7 @@ function buildCspPolicy(nonce: string): string {
     "object-src 'none'",
     "base-uri 'self'",
     "frame-ancestors 'self'",
+    "report-uri /api/csp-report",
   ].join("; ");
 }
 
@@ -75,6 +76,8 @@ function addCorsHeaders(
   const allowed = origin && ALLOWED_ORIGINS.has(origin) ? origin : "";
   if (allowed) {
     response.headers.set("Access-Control-Allow-Origin", allowed);
+    const existing = response.headers.get("Vary");
+    response.headers.set("Vary", existing ? `${existing}, Origin` : "Origin");
   }
   response.headers.set(
     "Access-Control-Allow-Methods",

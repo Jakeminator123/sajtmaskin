@@ -1,6 +1,15 @@
 import { Ratelimit } from "@upstash/ratelimit";
 import { Redis } from "@upstash/redis";
 
+if (
+  process.env.NODE_ENV === "production" &&
+  !process.env.UPSTASH_REDIS_REST_URL
+) {
+  console.warn(
+    "[RateLimit] WARNING: Using in-memory rate limiting in production. This is unreliable in serverless. Set UPSTASH_REDIS_REST_URL and UPSTASH_REDIS_REST_TOKEN.",
+  );
+}
+
 interface RateLimitEntry {
   count: number;
   resetAt: number;
@@ -46,26 +55,35 @@ export const RATE_LIMITS: Record<string, RateLimitConfig> = {
   default: { maxRequests: 90, windowMs: 60 * 1000 },
   "webhook:v0": { maxRequests: 180, windowMs: 60 * 1000 },
   "sandbox:create": { maxRequests: 15, windowMs: 60 * 1000 },
+  "csp:report": { maxRequests: 100, windowMs: 60 * 1000 },
   // v0 Platform API - separate limit to track v0 usage specifically
   "v0:generate": { maxRequests: 20, windowMs: 60 * 1000 },
   "v0:stream": { maxRequests: 30, windowMs: 60 * 1000 },
 };
 
-function getUpstashEnv() {
+let _cachedRedis: Redis | null = null;
+const _cachedLimiters = new Map<string, Ratelimit>();
+
+function getRedis(): Redis | null {
+  if (_cachedRedis) return _cachedRedis;
   const url = process.env.UPSTASH_REDIS_REST_URL;
   const token = process.env.UPSTASH_REDIS_REST_TOKEN;
   if (!url || !token) return null;
-  return { url, token };
+  _cachedRedis = new Redis({ url, token });
+  return _cachedRedis;
 }
 
 function getLimiter(
   endpoint: string,
   limits: RateLimitConfig,
 ): { mode: "upstash"; limiter: Ratelimit } | { mode: "memory" } {
-  const env = getUpstashEnv();
-  if (!env) return { mode: "memory" };
+  const redis = getRedis();
+  if (!redis) return { mode: "memory" };
 
-  const redis = new Redis({ url: env.url, token: env.token });
+  const key = `${endpoint}:${limits.maxRequests}:${limits.windowMs}`;
+  const cached = _cachedLimiters.get(key);
+  if (cached) return { mode: "upstash", limiter: cached };
+
   const limiter = new Ratelimit({
     redis,
     limiter: Ratelimit.fixedWindow(
@@ -74,6 +92,7 @@ function getLimiter(
     ),
     prefix: `sajtmaskin:ratelimit:${endpoint}`,
   });
+  _cachedLimiters.set(key, limiter);
   return { mode: "upstash", limiter };
 }
 
