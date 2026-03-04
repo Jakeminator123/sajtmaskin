@@ -5,9 +5,18 @@ import { useCallback, useEffect, useMemo, useRef, useState, useTransition, type 
 import { Button } from "@/components/ui/button";
 import { CodeBlock, CodeBlockCopyButton } from "@/components/ai-elements/code-block";
 import { buildFileTree } from "@/lib/builder/fileTree";
-import { dispatchInspectCaptureEvent } from "@/lib/builder/inspect-events";
+import {
+  dispatchInspectCaptureEvent,
+  dispatchPlacementSelectEvent,
+  type PlacementSelectEventDetail,
+} from "@/lib/builder/inspect-events";
 import type { FileNode, ElementMapItem, ElementMapResponse } from "@/lib/builder/types";
 import { buildJsxElementRegistry, matchCapturedElement, type RegistryMatch } from "@/lib/builder/jsx-element-registry";
+import {
+  extractSectionZones,
+  nearestInsertionPoint,
+  type InsertionPoint,
+} from "@/lib/builder/sectionAnalyzer";
 import { ElementRegistry } from "@/components/builder/ElementRegistry";
 import { FileExplorer } from "@/components/builder/FileExplorer";
 import { useIntegrationStatus } from "@/lib/hooks/useIntegrationStatus";
@@ -60,6 +69,12 @@ interface PreviewPanelProps {
   imageGenerationsSupported?: boolean;
   isBlobConfigured?: boolean;
   awaitingInput?: boolean;
+  placementMode?: boolean;
+  pendingPlacementItem?: {
+    title: string;
+    description?: string | null;
+  } | null;
+  onPlacementComplete?: (detail: PlacementSelectEventDetail) => void;
 }
 
 type PreviewViewMode = "preview" | "code" | "registry";
@@ -96,6 +111,9 @@ export function PreviewPanel({
   imageGenerationsSupported = true,
   isBlobConfigured = false,
   awaitingInput = false,
+  placementMode = false,
+  pendingPlacementItem = null,
+  onPlacementComplete,
 }: PreviewPanelProps) {
   const [iframeLoading, setIframeLoading] = useState(true);
   const [iframeError, setIframeError] = useState(false);
@@ -120,6 +138,7 @@ export function PreviewPanel({
   const [elementMap, setElementMap] = useState<ElementMapItem[]>([]);
   const [elementMapLoading, setElementMapLoading] = useState(false);
   const [hoveredMapElement, setHoveredMapElement] = useState<ElementMapItem | null>(null);
+  const [hoveredPlacement, setHoveredPlacement] = useState<InsertionPoint | null>(null);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const inspectPulseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const codeScrollRef = useRef<HTMLDivElement | null>(null);
@@ -215,6 +234,52 @@ export function PreviewPanel({
     walk(files);
     return result;
   }, [files]);
+
+  const sectionZones = useMemo(() => extractSectionZones(elementMap), [elementMap]);
+
+  const handlePlacementMouseMove = useCallback(
+    (event: MouseEvent<HTMLDivElement>) => {
+      if (!placementMode) return;
+      const rect = event.currentTarget.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0) return;
+      const y = Math.min(Math.max(event.clientY - rect.top, 0), rect.height);
+      const yPercent = Number(((y / rect.height) * 100).toFixed(2));
+      const insertion = nearestInsertionPoint(yPercent, sectionZones);
+      setHoveredPlacement(insertion);
+    },
+    [placementMode, sectionZones],
+  );
+
+  const handlePlacementClick = useCallback(
+    (event: MouseEvent<HTMLDivElement>) => {
+      if (!demoUrl || !placementMode || iframeLoading || externalLoading) return;
+      const rect = event.currentTarget.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0) return;
+
+      const x = Math.min(Math.max(event.clientX - rect.left, 0), rect.width);
+      const y = Math.min(Math.max(event.clientY - rect.top, 0), rect.height);
+      const xPercent = Number(((x / rect.width) * 100).toFixed(2));
+      const yPercent = Number(((y / rect.height) * 100).toFixed(2));
+      const insertion = nearestInsertionPoint(yPercent, sectionZones);
+
+      const detail: PlacementSelectEventDetail = {
+        id: `placement-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        demoUrl,
+        xPercent,
+        yPercent,
+        lineYPercent: insertion.lineYPercent,
+        viewportWidth: Math.round(rect.width),
+        viewportHeight: Math.round(rect.height),
+        placement: insertion.placement,
+        placementLabel: insertion.label,
+        anchorSection: insertion.anchorSection,
+      };
+      dispatchPlacementSelectEvent(detail);
+      onPlacementComplete?.(detail);
+      toast.success(`Placering vald: ${insertion.label}`);
+    },
+    [demoUrl, placementMode, iframeLoading, externalLoading, sectionZones, onPlacementComplete],
+  );
 
   const handleCaptureClick = useCallback(
     async (event: MouseEvent<HTMLDivElement>) => {
@@ -503,6 +568,23 @@ export function PreviewPanel({
     return () => window.clearTimeout(timer);
   }, [demoUrl, versionId, fetchElementMap]);
 
+  useEffect(() => {
+    if (!placementMode) return;
+    setInspectMode(false);
+    setHoveredMapElement(null);
+  }, [placementMode]);
+
+  useEffect(() => {
+    if (!placementMode || !demoUrl) {
+      setHoveredPlacement(null);
+      return;
+    }
+    const container = iframeRef.current?.parentElement;
+    const w = container?.clientWidth || 1280;
+    const h = container?.clientHeight || 800;
+    void fetchElementMap(demoUrl, w, h);
+  }, [placementMode, demoUrl, fetchElementMap]);
+
   const canShowCode = Boolean(chatId && versionId);
   const isCodeView = viewMode !== "preview";
   const showElementRegistry = viewMode === "registry";
@@ -726,6 +808,8 @@ export function PreviewPanel({
         : inspectorWorkerStatus === "unknown"
           ? "Kontrollerar inspector worker..."
           : inspectorWorkerMessage || "Inspector worker är offline. Fallback används.";
+  const showPlacementOverlay = placementMode && Boolean(demoUrl);
+  const showInspectOverlay = inspectMode && !showPlacementOverlay;
 
   return (
     <div className="flex h-full flex-col bg-black/40">
@@ -743,7 +827,21 @@ export function PreviewPanel({
             <MousePointer2 className="mr-1 h-4 w-4" />
             Inspektionsläge
           </Button>
-          <Button variant="ghost" size="sm" onClick={handleToggleInspect} disabled={!demoUrl} title="Markera punkt i preview och skicka till chatten" className={cn("text-gray-400 hover:text-white", inspectMode && "bg-emerald-900/50 text-emerald-300 hover:text-emerald-200")}>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleToggleInspect}
+            disabled={!demoUrl || placementMode}
+            title={
+              placementMode
+                ? "Placering aktiv - avsluta placering först"
+                : "Markera punkt i preview och skicka till chatten"
+            }
+            className={cn(
+              "text-gray-400 hover:text-white",
+              inspectMode && "bg-emerald-900/50 text-emerald-300 hover:text-emerald-200",
+            )}
+          >
             <Search className="mr-1 h-4 w-4" />
             Inspektionstestknapp
           </Button>
@@ -855,7 +953,51 @@ export function PreviewPanel({
             title="Preview"
           />
 
-          {inspectMode && (
+          {showPlacementOverlay && (
+            <>
+              <div
+                className={cn(
+                  "absolute inset-0 z-20 cursor-crosshair bg-sky-950/10",
+                  (iframeLoading || externalLoading) && "pointer-events-none",
+                )}
+                onClick={handlePlacementClick}
+                onMouseMove={handlePlacementMouseMove}
+                onMouseLeave={() => setHoveredPlacement(null)}
+              />
+              {hoveredPlacement && (
+                <div
+                  className="pointer-events-none absolute inset-x-0 z-30 border-t-2 border-dashed border-sky-400"
+                  style={{ top: `${hoveredPlacement.lineYPercent}%` }}
+                >
+                  <div className="absolute -top-6 left-3 rounded bg-sky-950/90 px-2 py-1 text-[11px] text-sky-200 shadow-lg">
+                    {hoveredPlacement.label}
+                  </div>
+                </div>
+              )}
+              <div className="absolute top-3 left-3 right-3 z-30 rounded border border-sky-700/70 bg-sky-950/85 px-3 py-2 text-xs text-sky-100 shadow-lg backdrop-blur-sm">
+                <div className="font-semibold tracking-tight text-sky-300">
+                  Placering aktiv
+                </div>
+                <div className="mt-1">
+                  Klicka i previewn för att placera{" "}
+                  <span className="font-medium text-white">
+                    {pendingPlacementItem?.title || "det valda elementet"}
+                  </span>
+                  .
+                </div>
+                {pendingPlacementItem?.description ? (
+                  <div className="mt-1 text-sky-200/85">{pendingPlacementItem.description}</div>
+                ) : null}
+                <div className="mt-1 text-[11px] text-sky-200/80">
+                  {elementMapLoading
+                    ? "Laddar elementkarta för exakt placering..."
+                    : `Identifierade zoner: ${sectionZones.length}`}
+                </div>
+              </div>
+            </>
+          )}
+
+          {showInspectOverlay && (
             <>
               <div
                 className={cn(
