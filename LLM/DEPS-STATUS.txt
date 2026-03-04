@@ -115,7 +115,7 @@ Databas:
 - DB_SSL_REJECT_UNAUTHORIZED (default true; sätts false bara för lokal dev)
 
 Auth/Säkerhet (KRÄVS I PROD):
-- JWT_SECRET (kritiskt — app vägrar starta utan i prod)
+- JWT_SECRET (kritiskt — utan denna loggas varning och all auth misslyckas)
 - BACKOFFICE_PASSWORD (backoffice-auth)
 
 AI/v0:

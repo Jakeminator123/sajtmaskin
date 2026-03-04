@@ -9,10 +9,11 @@ Primära dokument:
 - LLM/v0-prompt-guide.txt (v0 prompt best practices + templates)
 - LLM/ROADMAP-next.txt (prioriterad forbattringslista 2026-03)
 
-Säkerhetsplaner (bygglan_2/):
+Säkerhet (allt klart utom polish):
+- upcoming_polish.md (rotmappen — kvarstaende icke-bradskande forbattringar)
 - bygglan_2/00-TRIAGE.md (triagering av 25 sakerhetspunkter + ordlista)
-- bygglan_2/01-PLAN-critical-fixes.md (Fas 1: 6 kritiska fixar, FORE PROD)
-- bygglan_2/02-PLAN-hardening.md (Fas 2: 5 hardening-atgarder, vecka 1-2)
+- bygglan_2/01-PLAN-critical-fixes.md (Fas 1: KLART — 6 kritiska fixar)
+- bygglan_2/02-PLAN-hardening.md (Fas 2: KLART — 5 hardening-atgarder)
 - bygglan_2/03-PLAN-polish.md (Fas 3: polish, nar tid finns)
 - bygglan_2/99-HANDOFF-LOG.md (logg mellan agent-sessioner)
 - bygglan_2/utokad_deepresearch_openai.md (original AI-sakerhetsgranskning)
