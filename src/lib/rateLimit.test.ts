@@ -17,21 +17,43 @@ afterEach(() => {
 });
 
 describe("rateLimit", () => {
-  it("extracts client id from x-user-id first", () => {
+  it("uses verified userId when provided", () => {
+    const req = new Request("https://example.com", {
+      headers: { "x-forwarded-for": "1.2.3.4" },
+    });
+    expect(getClientId(req, "user_123")).toBe("user:user_123");
+  });
+
+  it("ignores x-user-id header from request", () => {
     const req = new Request("https://example.com", {
       headers: {
-        "x-user-id": "user_123",
+        "x-user-id": "spoofed_id",
         "x-forwarded-for": "1.2.3.4",
       },
     });
-    expect(getClientId(req)).toBe("user:user_123");
+    expect(getClientId(req)).toBe("ip:1.2.3.4");
   });
 
-  it("extracts client id from first forwarded IP", () => {
+  it("prefers x-real-ip over x-forwarded-for", () => {
+    const req = new Request("https://example.com", {
+      headers: {
+        "x-real-ip": "5.5.5.5",
+        "x-forwarded-for": "9.9.9.9, 10.0.0.1",
+      },
+    });
+    expect(getClientId(req)).toBe("ip:5.5.5.5");
+  });
+
+  it("falls back to first forwarded IP", () => {
     const req = new Request("https://example.com", {
       headers: { "x-forwarded-for": "9.9.9.9, 10.0.0.1" },
     });
     expect(getClientId(req)).toBe("ip:9.9.9.9");
+  });
+
+  it("returns ip:unknown when no IP headers present", () => {
+    const req = new Request("https://example.com");
+    expect(getClientId(req)).toBe("ip:unknown");
   });
 
   it("enforces limits in memory mode", () => {

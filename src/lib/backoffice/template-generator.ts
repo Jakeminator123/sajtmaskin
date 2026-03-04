@@ -1025,8 +1025,13 @@ function generateContentRoute(): string {
 import { verifySessionCookie, validateOrigin } from "../auth/route";
 import { loadContentData, saveContentData } from "../_lib/storage";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
+    const session = req.cookies.get("backoffice_session");
+    if (!verifySessionCookie(session?.value)) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const content = await loadContentData();
     return NextResponse.json(content);
   } catch {
@@ -1077,8 +1082,13 @@ function generateColorsRoute(): string {
 import { verifySessionCookie, validateOrigin } from "../auth/route";
 import { loadColorsData, saveColorsData } from "../_lib/storage";
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
+    const session = req.cookies.get("backoffice_session");
+    if (!verifySessionCookie(session?.value)) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
     const data = await loadColorsData();
     return NextResponse.json(data);
   } catch {

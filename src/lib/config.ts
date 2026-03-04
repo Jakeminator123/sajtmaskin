@@ -139,12 +139,21 @@ export const PATHS = {
  * SECURITY: All secrets are accessed through getters to avoid
  * accidental exposure in logs/errors. Never log secret values!
  */
+let _jwtSecretWarned = false;
+
 export const SECRETS = {
   get jwtSecret() {
-    if (!env.JWT_SECRET && IS_PRODUCTION && !isBuildPhase()) {
-      throw new Error("JWT_SECRET is required in production");
+    if (env.JWT_SECRET) return env.JWT_SECRET;
+    if (IS_PRODUCTION && !isBuildPhase()) {
+      if (!_jwtSecretWarned) {
+        _jwtSecretWarned = true;
+        console.warn(
+          "[Config] JWT_SECRET is not set in production — auth will not work",
+        );
+      }
+      return "";
     }
-    return env.JWT_SECRET || "dev-secret-change-in-production";
+    return "dev-secret-do-not-use-in-prod";
   },
 
   get v0ApiKey() {

@@ -10,28 +10,40 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { setDeploymentDomain } from "@/lib/deployment";
+import { getCurrentUser } from "@/lib/auth/auth";
+import { withRateLimit } from "@/lib/rateLimit";
 
 export async function POST(req: NextRequest) {
-  try {
-    const body = await req.json();
-    const deploymentId = (body.deploymentId ?? "").trim();
-    const domain = (body.domain ?? "").trim().toLowerCase();
-
-    if (!deploymentId || !domain) {
+  return withRateLimit(req, "domains:save", async () => {
+    const user = await getCurrentUser(req);
+    if (!user) {
       return NextResponse.json(
-        { error: "deploymentId and domain are required" },
-        { status: 400 },
+        { error: "Authentication required" },
+        { status: 401 },
       );
     }
 
-    await setDeploymentDomain(deploymentId, domain);
+    try {
+      const body = await req.json();
+      const deploymentId = (body.deploymentId ?? "").trim();
+      const domain = (body.domain ?? "").trim().toLowerCase();
 
-    return NextResponse.json({ success: true, deploymentId, domain });
-  } catch (error) {
-    console.error("[domains/save] Error:", error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Unknown error" },
-      { status: 500 },
-    );
-  }
+      if (!deploymentId || !domain) {
+        return NextResponse.json(
+          { error: "deploymentId and domain are required" },
+          { status: 400 },
+        );
+      }
+
+      await setDeploymentDomain(deploymentId, domain);
+
+      return NextResponse.json({ success: true, deploymentId, domain });
+    } catch (error) {
+      console.error("[domains/save] Error:", error);
+      return NextResponse.json(
+        { error: error instanceof Error ? error.message : "Unknown error" },
+        { status: 500 },
+      );
+    }
+  });
 }

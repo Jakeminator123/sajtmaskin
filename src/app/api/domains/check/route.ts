@@ -19,6 +19,7 @@ import {
   isVercelConfigured,
 } from "@/lib/vercel/vercel-client";
 import { domainIsFree, isLoopiaConfigured } from "@/lib/loopia/loopia-client";
+import { withRateLimit } from "@/lib/rateLimit";
 
 export const maxDuration = 20;
 
@@ -35,7 +36,6 @@ export interface DomainCheckResult {
   error: string | null;
 }
 
-// DNS-based availability check (fallback when no API is configured)
 async function checkViaDns(domain: string): Promise<boolean | null> {
   try {
     const res = await fetch(`https://dns.google/resolve?name=${domain}&type=A`, {
@@ -43,7 +43,7 @@ async function checkViaDns(domain: string): Promise<boolean | null> {
     });
     if (!res.ok) return null;
     const data = await res.json();
-    if (data.Status === 3) return true; // NXDOMAIN = likely available
+    if (data.Status === 3) return true;
     if (data.Status === 0 && data.Answer) return false;
     return null;
   } catch {
@@ -51,7 +51,6 @@ async function checkViaDns(domain: string): Promise<boolean | null> {
   }
 }
 
-// Check a Swedish domain (.se/.nu)
 async function checkSwedishDomain(domain: string): Promise<DomainCheckResult> {
   const tld = domain.split(".").pop()!;
   const estimatedPrices: Record<string, number> = { se: 199, nu: 199 };
@@ -76,7 +75,6 @@ async function checkSwedishDomain(domain: string): Promise<DomainCheckResult> {
     }
   }
 
-  // Fallback: DNS check
   const available = await checkViaDns(domain);
   return {
     domain,
@@ -91,7 +89,6 @@ async function checkSwedishDomain(domain: string): Promise<DomainCheckResult> {
   };
 }
 
-// Check a Vercel-supported domain
 async function checkVercelDomain(domain: string): Promise<DomainCheckResult> {
   const USD_TO_SEK = 11;
   const MARKUP = 2.5;
@@ -122,7 +119,6 @@ async function checkVercelDomain(domain: string): Promise<DomainCheckResult> {
     }
   }
 
-  // Fallback estimates
   const tld = domain.split(".").pop()?.toLowerCase() ?? "com";
   const estimatedPrices: Record<string, number> = {
     com: 100, io: 365, app: 138, net: 100, dev: 138, co: 228, org: 100,
@@ -143,61 +139,60 @@ async function checkVercelDomain(domain: string): Promise<DomainCheckResult> {
 }
 
 export async function POST(req: NextRequest) {
-  try {
-    const body = await req.json();
-    const rawQuery = (body.query ?? "").trim().toLowerCase();
+  return withRateLimit(req, "domains:check", async () => {
+    try {
+      const body = await req.json();
+      const rawQuery = (body.query ?? "").trim().toLowerCase();
 
-    if (!rawQuery) {
-      return NextResponse.json({ error: "query is required" }, { status: 400 });
+      if (!rawQuery) {
+        return NextResponse.json({ error: "query is required" }, { status: 400 });
+      }
+
+      const hasTld = rawQuery.includes(".");
+      let domains: string[];
+
+      if (hasTld) {
+        domains = [rawQuery];
+      } else {
+        domains = [
+          `${rawQuery}.se`,
+          `${rawQuery}.com`,
+          `${rawQuery}.nu`,
+          `${rawQuery}.io`,
+          `${rawQuery}.app`,
+          `${rawQuery}.net`,
+        ];
+      }
+
+      const results = await Promise.all(
+        domains.map(async (domain, index): Promise<DomainCheckResult> => {
+          if (index > 0) {
+            await new Promise((r) => setTimeout(r, index * 150));
+          }
+
+          const tld = domain.split(".").pop()?.toLowerCase() ?? "";
+
+          if (SWEDISH_TLDS.has(tld)) {
+            return checkSwedishDomain(domain);
+          }
+          return checkVercelDomain(domain);
+        }),
+      );
+
+      return NextResponse.json({
+        success: true,
+        results,
+        providers: {
+          vercel: isVercelConfigured(),
+          loopia: isLoopiaConfigured(),
+        },
+      });
+    } catch (error) {
+      console.error("[domains/check] Error:", error);
+      return NextResponse.json(
+        { error: error instanceof Error ? error.message : "Unknown error" },
+        { status: 500 },
+      );
     }
-
-    // Build domain list from query
-    const hasTld = rawQuery.includes(".");
-    let domains: string[];
-
-    if (hasTld) {
-      domains = [rawQuery];
-    } else {
-      domains = [
-        `${rawQuery}.se`,
-        `${rawQuery}.com`,
-        `${rawQuery}.nu`,
-        `${rawQuery}.io`,
-        `${rawQuery}.app`,
-        `${rawQuery}.net`,
-      ];
-    }
-
-    // Check all domains in parallel, routing to correct provider
-    const results = await Promise.all(
-      domains.map(async (domain, index): Promise<DomainCheckResult> => {
-        // Slight stagger to avoid rate-limiting
-        if (index > 0) {
-          await new Promise((r) => setTimeout(r, index * 150));
-        }
-
-        const tld = domain.split(".").pop()?.toLowerCase() ?? "";
-
-        if (SWEDISH_TLDS.has(tld)) {
-          return checkSwedishDomain(domain);
-        }
-        return checkVercelDomain(domain);
-      }),
-    );
-
-    return NextResponse.json({
-      success: true,
-      results,
-      providers: {
-        vercel: isVercelConfigured(),
-        loopia: isLoopiaConfigured(),
-      },
-    });
-  } catch (error) {
-    console.error("[domains/check] Error:", error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Unknown error" },
-      { status: 500 },
-    );
-  }
+  });
 }

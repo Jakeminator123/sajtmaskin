@@ -4,6 +4,7 @@
  */
 
 import type { WebsiteContent } from "@/types/audit";
+import { safeFetch as guardedFetch, validateSsrfTarget } from "@/lib/ssrf-guard";
 
 // Crawl settings
 const MAX_PAGES = 4; // root + up to three strong internal pages
@@ -125,17 +126,14 @@ async function fetchWithTimeout(
   timeoutMs: number,
   headers?: Record<string, string>,
 ): Promise<Response> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), timeoutMs);
-  try {
-    return await fetch(url, {
-      signal: controller.signal,
-      redirect: "follow",
-      headers: headers || undefined,
-    });
-  } finally {
-    clearTimeout(timeout);
+  const check = validateSsrfTarget(new URL(url));
+  if (!check.ok) {
+    throw new Error(`Blockerad URL: ${check.reason}`);
   }
+  return guardedFetch(url, {
+    timeoutMs,
+    headers: headers || undefined,
+  });
 }
 
 function extractSitemapLocs(xml: string): string[] {
@@ -254,8 +252,11 @@ async function tryWordPressFallback(
 
   for (const candidate of uniqueCandidates) {
     try {
-      const response = await fetch(candidate, {
+      const wpCheck = validateSsrfTarget(new URL(candidate));
+      if (!wpCheck.ok) continue;
+      const response = await guardedFetch(candidate, {
         headers: { Accept: "application/json" },
+        timeoutMs: 10_000,
       });
       if (!response.ok) continue;
 
@@ -299,16 +300,18 @@ async function fetchPage(url: string): Promise<{
   finalUrl: string;
   responseTime: number;
 }> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), 15000); // 15s timeout
+  const urlObj = new URL(url);
+  const check = validateSsrfTarget(urlObj);
+  if (!check.ok) {
+    throw new Error(`Blockerad URL: ${check.reason}`);
+  }
 
   const start = Date.now();
   let response: Response;
 
   try {
-    const urlObj = new URL(url);
-    response = await fetch(url, {
-      signal: controller.signal,
+    response = await guardedFetch(url, {
+      timeoutMs: 15_000,
       headers: {
         "User-Agent":
           "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
@@ -325,16 +328,12 @@ async function fetchPage(url: string): Promise<{
         "Sec-Fetch-User": "?1",
         "Upgrade-Insecure-Requests": "1",
       },
-      redirect: "follow",
     });
   } catch (fetchError) {
-    clearTimeout(timeout);
     if (fetchError instanceof Error) {
-      // Handle abort timeout
       if (fetchError.name === "AbortError") {
         throw new Error("Timeout: Hemsidan svarade inte inom 15 sekunder");
       }
-      // Handle connection timeout (from undici/node)
       const errorMessage = fetchError.message || "";
       const cause = fetchError.cause as { code?: string; message?: string } | undefined;
       const causeMessage = cause?.message || "";
@@ -348,42 +347,34 @@ async function fetchPage(url: string): Promise<{
         causeCode === "UND_ERR_CONNECT_TIMEOUT" ||
         causeCode === "ETIMEDOUT"
       ) {
-        const domain = new URL(url).hostname;
         throw new Error(
-          `Timeout: Kunde inte ansluta till ${domain}. ` +
+          `Timeout: Kunde inte ansluta till ${urlObj.hostname}. ` +
             `Servern svarade inte på anslutningsförsöket. ` +
             `Detta kan bero på att sidan är nere, har brandvägg som blockerar, eller har nätverksproblem. ` +
             `Försök igen om en stund eller kontrollera att URL:en är korrekt.`,
         );
       }
-      // Handle DNS errors
       if (errorMessage.includes("ENOTFOUND") || causeMessage.includes("ENOTFOUND")) {
-        const domain = new URL(url).hostname;
         throw new Error(
-          `DNS-fel: Kunde inte hitta domänen ${domain}. ` +
+          `DNS-fel: Kunde inte hitta domänen ${urlObj.hostname}. ` +
             `Kontrollera att URL:en är korrekt stavad.`,
         );
       }
-      // Handle connection refused
       if (errorMessage.includes("ECONNREFUSED") || causeMessage.includes("ECONNREFUSED")) {
-        const domain = new URL(url).hostname;
         throw new Error(
-          `Anslutning nekad: Servern ${domain} avvisade anslutningen. ` +
+          `Anslutning nekad: Servern ${urlObj.hostname} avvisade anslutningen. ` +
             `Sidan kan vara nere eller ha problem.`,
         );
       }
     }
     throw fetchError;
-  } finally {
-    clearTimeout(timeout);
   }
 
   if (!response.ok) {
     const status = response.status;
     if (status === 403) {
-      const domain = new URL(url).hostname;
       throw new Error(
-        `403 Forbidden: ${domain} blockerar automatiska requests. ` +
+        `403 Forbidden: ${urlObj.hostname} blockerar automatiska requests. ` +
           `Många stora webbplatser (t.ex. IKEA, Amazon, etc.) använder Cloudflare eller liknande bot-skydd som förhindrar automatisk scraping. ` +
           `Tyvärr kan vi inte kringgå dessa säkerhetsåtgärder. ` +
           `Försök med en annan webbplats eller kontakta webbplatsens ägare om du behöver analysera deras sida.`,
@@ -583,7 +574,7 @@ async function fetchAndParse(targetUrl: string): Promise<ParsedPage> {
   return parsePage(page.html, page.finalUrl, page.responseTime);
 }
 
-async function safeFetch(targetUrl: string): Promise<ParsedPage | null> {
+async function tryFetchPage(targetUrl: string): Promise<ParsedPage | null> {
   try {
     return await fetchAndParse(targetUrl);
   } catch (error) {
@@ -633,7 +624,7 @@ export async function quickScrapeWebsite(url: string): Promise<{
     if (text && headings.length < 15) headings.push(text);
   });
   const mainEl = $("main, article, [role='main'], .content").first();
-  let bodyText = (mainEl.length > 0 ? mainEl.text() : $("body").text())
+  const bodyText = (mainEl.length > 0 ? mainEl.text() : $("body").text())
     .replace(/\s+/g, " ")
     .trim();
   const words = bodyText.split(" ").filter((w) => w.length > 0);
@@ -734,7 +725,7 @@ export async function scrapeWebsite(url: string): Promise<WebsiteContent> {
     // URL even if it redirects to another location.
     visited.add(candidate.url);
 
-    const parsed = await safeFetch(candidate.url);
+    const parsed = await tryFetchPage(candidate.url);
     if (!parsed) continue;
 
     // Also mark the final resolved URL to prevent duplicates after redirects.

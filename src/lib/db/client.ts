@@ -46,7 +46,7 @@ const pool = connectionString
   ? new Pool({
       connectionString: cleanConnectionString(connectionString),
       ssl: {
-        rejectUnauthorized: false,
+        rejectUnauthorized: process.env.DB_SSL_REJECT_UNAUTHORIZED !== "false",
       },
       // Connection pool configuration for better reliability
       max: 10, // Maximum number of connections

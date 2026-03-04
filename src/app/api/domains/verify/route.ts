@@ -11,78 +11,90 @@
 
 import { NextRequest, NextResponse } from "next/server";
 import { getVercelToken } from "@/lib/vercel";
+import { getCurrentUser } from "@/lib/auth/auth";
+import { withRateLimit } from "@/lib/rateLimit";
 
 export const maxDuration = 15;
 
 const VERCEL_API_BASE = "https://api.vercel.com";
 
 export async function POST(req: NextRequest) {
-  try {
-    const body = await req.json();
-    const domain = (body.domain ?? "").trim().toLowerCase();
-    const projectId =
-      body.projectId?.trim() || process.env.VERCEL_PROJECT_ID;
-    const teamId = process.env.VERCEL_TEAM_ID;
-
-    if (!domain) {
-      return NextResponse.json({ error: "domain is required" }, { status: 400 });
-    }
-
-    if (!projectId) {
+  return withRateLimit(req, "domains:verify", async () => {
+    const user = await getCurrentUser(req);
+    if (!user) {
       return NextResponse.json(
-        { error: "projectId is required (or set VERCEL_PROJECT_ID)" },
-        { status: 400 },
+        { error: "Authentication required" },
+        { status: 401 },
       );
     }
 
-    let token: string;
     try {
-      token = getVercelToken();
-    } catch {
-      return NextResponse.json(
-        { error: "Vercel is not configured (missing VERCEL_TOKEN)" },
-        { status: 503 },
-      );
-    }
+      const body = await req.json();
+      const domain = (body.domain ?? "").trim().toLowerCase();
+      const projectId =
+        body.projectId?.trim() || process.env.VERCEL_PROJECT_ID;
+      const teamId = process.env.VERCEL_TEAM_ID;
 
-    const query = teamId ? `?teamId=${encodeURIComponent(teamId)}` : "";
-    const verifyRes = await fetch(
-      `${VERCEL_API_BASE}/v9/projects/${encodeURIComponent(projectId)}/domains/${encodeURIComponent(domain)}/verify${query}`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-        },
-      },
-    );
+      if (!domain) {
+        return NextResponse.json({ error: "domain is required" }, { status: 400 });
+      }
 
-    const data = await verifyRes.json();
+      if (!projectId) {
+        return NextResponse.json(
+          { error: "projectId is required (or set VERCEL_PROJECT_ID)" },
+          { status: 400 },
+        );
+      }
 
-    if (!verifyRes.ok) {
-      return NextResponse.json(
+      let token: string;
+      try {
+        token = getVercelToken();
+      } catch {
+        return NextResponse.json(
+          { error: "Vercel is not configured (missing VERCEL_TOKEN)" },
+          { status: 503 },
+        );
+      }
+
+      const query = teamId ? `?teamId=${encodeURIComponent(teamId)}` : "";
+      const verifyRes = await fetch(
+        `${VERCEL_API_BASE}/v9/projects/${encodeURIComponent(projectId)}/domains/${encodeURIComponent(domain)}/verify${query}`,
         {
-          error: data?.error?.message || `Verification failed (HTTP ${verifyRes.status})`,
-          code: data?.error?.code,
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
         },
-        { status: verifyRes.status },
+      );
+
+      const data = await verifyRes.json();
+
+      if (!verifyRes.ok) {
+        return NextResponse.json(
+          {
+            error: data?.error?.message || `Verification failed (HTTP ${verifyRes.status})`,
+            code: data?.error?.code,
+          },
+          { status: verifyRes.status },
+        );
+      }
+
+      const verified = data.verified === true;
+      const verification = data.verification ?? [];
+
+      return NextResponse.json({
+        success: true,
+        domain: data.name || domain,
+        verified,
+        verification,
+      });
+    } catch (error) {
+      console.error("[domains/verify] Error:", error);
+      return NextResponse.json(
+        { error: error instanceof Error ? error.message : "Unknown error" },
+        { status: 500 },
       );
     }
-
-    const verified = data.verified === true;
-    const verification = data.verification ?? [];
-
-    return NextResponse.json({
-      success: true,
-      domain: data.name || domain,
-      verified,
-      verification,
-    });
-  } catch (error) {
-    console.error("[domains/verify] Error:", error);
-    return NextResponse.json(
-      { error: error instanceof Error ? error.message : "Unknown error" },
-      { status: 500 },
-    );
-  }
+  });
 }

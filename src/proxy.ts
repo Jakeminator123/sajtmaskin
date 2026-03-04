@@ -87,6 +87,8 @@ function addCorsHeaders(
   response.headers.set("Access-Control-Max-Age", "86400");
 }
 
+let _jwtMissingWarned = false;
+
 // ---------------------------------------------------------------------------
 // Proxy (formerly middleware – renamed in Next.js 16)
 // ---------------------------------------------------------------------------
@@ -110,8 +112,19 @@ export async function proxy(request: NextRequest) {
   // ---- Page auth redirects ----
   if (needsAdminAuth(pathname) || needsUserAuth(pathname)) {
     const token = getTokenFromRequestEdge(request);
-    const jwtSecret = process.env.JWT_SECRET || "dev-secret-change-in-production";
-    const payload = token ? await verifyTokenEdge(token, jwtSecret) : null;
+    const jwtSecret =
+      process.env.JWT_SECRET ||
+      (process.env.NODE_ENV === "production"
+        ? null
+        : "dev-secret-do-not-use-in-prod");
+    if (!jwtSecret && !_jwtMissingWarned) {
+      _jwtMissingWarned = true;
+      console.warn(
+        "[Proxy] JWT_SECRET is not set — all auth-gated pages will redirect to /",
+      );
+    }
+    const payload =
+      token && jwtSecret ? await verifyTokenEdge(token, jwtSecret) : null;
 
     if (needsAdminAuth(pathname)) {
       if (!payload || !isAdminEmailEdge(payload.email)) {

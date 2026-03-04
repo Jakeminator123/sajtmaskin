@@ -29,6 +29,11 @@ export const RATE_LIMITS: Record<string, RateLimitConfig> = {
   "openclaw:tips": { maxRequests: 20, windowMs: 60 * 1000 },
   "template:init": { maxRequests: 10, windowMs: 60 * 1000 },
   "domains:suggest": { maxRequests: 15, windowMs: 60 * 1000 },
+  "domains:save": { maxRequests: 15, windowMs: 60 * 1000 },
+  "domains:link": { maxRequests: 10, windowMs: 60 * 1000 },
+  "domains:verify": { maxRequests: 15, windowMs: 60 * 1000 },
+  "domains:check": { maxRequests: 20, windowMs: 60 * 1000 },
+  "download:create": { maxRequests: 10, windowMs: 60 * 1000 },
   "chat:create": { maxRequests: 15, windowMs: 60 * 1000 },
   "message:send": { maxRequests: 30, windowMs: 60 * 1000 },
   "deployment:create": { maxRequests: 8, windowMs: 60 * 1000 },
@@ -72,12 +77,13 @@ function getLimiter(
   return { mode: "upstash", limiter };
 }
 
-export function getClientId(request: Request): string {
-  const userId = request.headers.get("x-user-id");
+export function getClientId(request: Request, userId?: string): string {
   if (userId) return `user:${userId}`;
 
-  const forwarded = request.headers.get("x-forwarded-for");
-  const ip = forwarded?.split(",")[0]?.trim() || request.headers.get("x-real-ip") || "unknown";
+  const ip =
+    request.headers.get("x-real-ip") ||
+    request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    "unknown";
 
   return `ip:${ip}`;
 }
@@ -152,8 +158,9 @@ export async function withRateLimit(
   request: Request,
   endpoint: string,
   handler: () => Promise<Response>,
+  options?: { userId?: string },
 ): Promise<Response> {
-  const clientId = getClientId(request);
+  const clientId = getClientId(request, options?.userId);
   const limits = RATE_LIMITS[endpoint] || RATE_LIMITS["default"];
   const limiter = getLimiter(endpoint, limits);
   const rateLimitMode = limiter.mode;

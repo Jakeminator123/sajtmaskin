@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { downloadVersionAsZip } from "@/lib/v0/v0-generator";
 import JSZip from "jszip";
 import { extractContent, generateBackofficeFiles } from "@/lib/backoffice";
+import { getCurrentUser } from "@/lib/auth/auth";
+import { withRateLimit } from "@/lib/rateLimit";
 
 /**
  * Download endpoint with optional backoffice injection
@@ -12,7 +14,6 @@ import { extractContent, generateBackofficeFiles } from "@/lib/backoffice";
  * POST body: { chatId, versionId, includeBackoffice, password }
  */
 
-// Helper to process download request
 async function processDownload(
   chatId: string,
   versionId: string,
@@ -32,7 +33,6 @@ async function processDownload(
       );
     }
 
-    // If backoffice not requested, return original ZIP
     if (!includeBackoffice) {
       return new NextResponse(zipBuffer, {
         headers: {
@@ -42,7 +42,6 @@ async function processDownload(
       });
     }
 
-    // Load original ZIP
     let zip: JSZip;
     try {
       zip = await JSZip.loadAsync(zipBuffer);
@@ -55,7 +54,6 @@ async function processDownload(
       );
     }
 
-    // Extract all code from the ZIP to analyze
     const codeFiles: { name: string; content: string }[] = [];
     const filePromises: Promise<void>[] = [];
 
@@ -82,19 +80,16 @@ async function processDownload(
 
     await Promise.all(filePromises);
 
-    // Extract content manifest from the code
-    const MAX_COMBINED_CODE_SIZE = 5 * 1024 * 1024; // 5MB
+    const MAX_COMBINED_CODE_SIZE = 5 * 1024 * 1024;
     let combinedCode = codeFiles.map((f) => f.content).join("\n\n");
     if (combinedCode.length > MAX_COMBINED_CODE_SIZE) {
       combinedCode = combinedCode.substring(0, MAX_COMBINED_CODE_SIZE);
     }
     const manifest = extractContent(combinedCode, codeFiles);
 
-    // Generate backoffice files with user's password
     const backofficePassword = password && password.trim().length > 0 ? password.trim() : undefined;
     const backoffice = generateBackofficeFiles(manifest, backofficePassword);
 
-    // Add backoffice files to ZIP
     for (const file of backoffice.files) {
       zip.file(file.path, file.content);
     }
@@ -102,7 +97,6 @@ async function processDownload(
     zip.file(".env.example", backoffice.envExample);
     zip.file("BACKOFFICE-SETUP.md", backoffice.setupInstructions);
 
-    // Generate new ZIP
     const newZipBuffer = await zip.generateAsync({
       type: "arraybuffer",
       compression: "DEFLATE",
@@ -125,11 +119,50 @@ async function processDownload(
   }
 }
 
-// POST handler - secure way to send password
 export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json();
-    const { chatId, versionId, includeBackoffice, password } = body;
+  return withRateLimit(request, "download:create", async () => {
+    const user = await getCurrentUser(request);
+    if (!user) {
+      return NextResponse.json(
+        { error: "Authentication required" },
+        { status: 401 },
+      );
+    }
+
+    try {
+      const body = await request.json();
+      const { chatId, versionId, includeBackoffice, password } = body;
+
+      if (!chatId || !versionId) {
+        return NextResponse.json(
+          { success: false, error: "chatId and versionId are required" },
+          { status: 400 },
+        );
+      }
+
+      return processDownload(chatId, versionId, !!includeBackoffice, password);
+    } catch (error) {
+      console.error("[API/download] POST error:", error);
+      return NextResponse.json({ success: false, error: "Invalid request body" }, { status: 400 });
+    }
+  });
+}
+
+export async function GET(request: NextRequest) {
+  return withRateLimit(request, "download:create", async () => {
+    const user = await getCurrentUser(request);
+    if (!user) {
+      return NextResponse.json(
+        { error: "Authentication required" },
+        { status: 401 },
+      );
+    }
+
+    const searchParams = request.nextUrl.searchParams;
+    const chatId = searchParams.get("chatId");
+    const versionId = searchParams.get("versionId");
+    const includeBackoffice = searchParams.get("includeBackoffice") === "true";
+    const password = searchParams.get("password");
 
     if (!chatId || !versionId) {
       return NextResponse.json(
@@ -138,28 +171,6 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    return processDownload(chatId, versionId, !!includeBackoffice, password);
-  } catch (error) {
-    console.error("[API/download] POST error:", error);
-    return NextResponse.json({ success: false, error: "Invalid request body" }, { status: 400 });
-  }
-}
-
-// GET handler - for simple downloads without password (backwards compatible)
-export async function GET(request: NextRequest) {
-  const searchParams = request.nextUrl.searchParams;
-  const chatId = searchParams.get("chatId");
-  const versionId = searchParams.get("versionId");
-  const includeBackoffice = searchParams.get("includeBackoffice") === "true";
-  // NOTE: Password in URL is deprecated for security reasons - use POST instead
-  const password = searchParams.get("password");
-
-  if (!chatId || !versionId) {
-    return NextResponse.json(
-      { success: false, error: "chatId and versionId are required" },
-      { status: 400 },
-    );
-  }
-
-  return processDownload(chatId, versionId, includeBackoffice, password || undefined);
+    return processDownload(chatId, versionId, includeBackoffice, password || undefined);
+  });
 }

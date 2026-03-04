@@ -61,13 +61,50 @@ security plans should read this file FIRST, then update it when done.
 
 ---
 
-### Entry 2 — (next agent fills this in)
+### Entry 2 — 2026-03-04 — Phase 1 critical fixes complete
 
-**Agent:**
+**Agent:** Phase 1 implementation agents (3 batches of 2)
 **What was done:**
-**Blockers encountered:**
-**What's next:**
+All 6 critical security fixes (M1-M6) implemented and verified:
+
+- **M1** (dev fallback secret): `src/proxy.ts` and `src/lib/config.ts` — removed
+  hardcoded `"dev-secret-change-in-production"`. Production uses null/empty with
+  warning log; dev uses safe fallback. Auth-gated pages redirect to / when no secret.
+- **M2** (webscraper SSRF): `src/lib/webscraper.ts` — all fetch paths now use
+  `safeFetch`/`validateSsrfTarget` from ssrf-guard. Renamed local `safeFetch` to
+  `tryFetchPage` to avoid collision.
+- **M3** (DB SSL): `src/lib/db/client.ts` — `rejectUnauthorized` now defaults to
+  `true`, override via `DB_SSL_REJECT_UNAUTHORIZED=false` env var.
+- **M4** (backoffice GET auth): `src/lib/backoffice/template-generator.ts` — both
+  content and colors GET handlers now verify session cookie, return 401 without it.
+- **M5** (rate limit spoofing): `src/lib/rateLimit.ts` — `getClientId` no longer
+  trusts `x-user-id` header. Uses optional verified `userId` param or IP fallback.
+  Updated tests in `rateLimit.test.ts`.
+- **M6** (domain/download auth): 5 route files updated with `getCurrentUser` and
+  `withRateLimit`. Added rate limit keys for domains:save/link/verify/check and
+  download:create. `domains/check` kept public but rate-limited.
+
+**Verification:**
+- `npm run test:ci` — 35/35 tests pass (5 test files)
+- `npx tsc --noEmit` — 0 errors
+- ESLint — 0 errors on changed files (1 pre-existing warning in domains/check)
+
+**Blockers encountered:** None
+**What's next:** Phase 2 hardening (bygglan_2/02-PLAN-hardening.md)
+
 **Files changed:**
+- `src/proxy.ts`
+- `src/lib/config.ts`
+- `src/lib/db/client.ts`
+- `src/lib/webscraper.ts`
+- `src/lib/backoffice/template-generator.ts`
+- `src/lib/rateLimit.ts`
+- `src/lib/rateLimit.test.ts`
+- `src/app/api/domains/save/route.ts`
+- `src/app/api/domains/link/route.ts`
+- `src/app/api/domains/verify/route.ts`
+- `src/app/api/domains/check/route.ts`
+- `src/app/api/download/route.ts`
 
 ---
 
