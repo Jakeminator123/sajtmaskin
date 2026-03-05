@@ -558,16 +558,9 @@ export function AuditModal({
 
             {/* Content */}
             <div className="flex-1 overflow-y-auto p-6">
-              <AnimatePresence mode="wait">
                 {/* Overview Tab */}
                 <TabsContent value="overview" forceMount className="data-[state=inactive]:hidden">
-                  <motion.div
-                    key="overview"
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -20 }}
-                    className="space-y-6"
-                  >
+                  <div className="space-y-6">
                     {hasScores && result.audit_scores && (
                       <MetricsChart scores={result.audit_scores as { [key: string]: number }} />
                     )}
@@ -626,17 +619,11 @@ export function AuditModal({
                         </ul>
                       </div>
                     )}
-                  </motion.div>
+                  </div>
                 </TabsContent>
 
                 {/* Improvements Tab */}
                 <TabsContent value="improvements" forceMount className="data-[state=inactive]:hidden">
-                  <motion.div
-                    key="improvements"
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -20 }}
-                  >
                     {hasImprovements && result.improvements ? (
                       <ImprovementsList improvements={result.improvements} />
                     ) : (
@@ -646,18 +633,11 @@ export function AuditModal({
                         description="Analysen genererade inga specifika förbättringsförslag."
                       />
                     )}
-                  </motion.div>
                 </TabsContent>
 
                 {/* Technical Tab */}
                 <TabsContent value="technical" forceMount className="data-[state=inactive]:hidden">
-                  <motion.div
-                    key="technical"
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -20 }}
-                    className="space-y-6"
-                  >
+                  <div className="space-y-6">
                     {hasSecurity && result.security_analysis && (
                       <SecurityReport securityAnalysis={result.security_analysis} />
                     )}
@@ -700,18 +680,12 @@ export function AuditModal({
                           description="Analysen genererade inga tekniska detaljer."
                         />
                       )}
-                  </motion.div>
+                  </div>
                 </TabsContent>
 
                 {/* Business/Budget Tab */}
                 <TabsContent value="business" forceMount className="data-[state=inactive]:hidden">
-                  <motion.div
-                    key="business"
-                    initial={{ opacity: 0, x: 20 }}
-                    animate={{ opacity: 1, x: 0 }}
-                    exit={{ opacity: 0, x: -20 }}
-                    className="space-y-6"
-                  >
+                  <div className="space-y-6">
                     {hasBudget && result.budget_estimate && (
                       <BudgetEstimate budget={result.budget_estimate} />
                     )}
@@ -926,9 +900,8 @@ export function AuditModal({
                         description="Analysen genererade inga budgetuppskattningar."
                       />
                     )}
-                  </motion.div>
+                  </div>
                 </TabsContent>
-              </AnimatePresence>
             </div>
             </Tabs>
 

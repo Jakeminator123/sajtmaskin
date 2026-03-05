@@ -5,6 +5,7 @@ export const dynamic = "force-dynamic";
 
 const WORKER_URL = process.env.INSPECTOR_CAPTURE_WORKER_URL?.trim() || "";
 const HEALTH_TIMEOUT_MS = 1500;
+const IS_VERCEL = Boolean(process.env.VERCEL);
 
 export async function GET() {
   if (!WORKER_URL) {
@@ -12,7 +13,9 @@ export async function GET() {
       enabled: false,
       healthy: false,
       status: "disabled" as const,
-      message: "Inspector worker is not configured.",
+      message: IS_VERCEL
+        ? "INSPECTOR_CAPTURE_WORKER_URL is not set. Deploy the inspector-worker and add the env var."
+        : "Inspector worker is not configured. Set INSPECTOR_CAPTURE_WORKER_URL in .env.local.",
     });
   }
 
@@ -24,7 +27,7 @@ export async function GET() {
       enabled: true,
       healthy: false,
       status: "unhealthy" as const,
-      message: "Inspector worker URL is invalid.",
+      message: `INSPECTOR_CAPTURE_WORKER_URL is not a valid URL.`,
     });
   }
 
@@ -45,7 +48,9 @@ export async function GET() {
       healthy: isHealthy,
       status: (isHealthy ? "healthy" : "unhealthy") as "healthy" | "unhealthy",
       workerUrl: WORKER_URL,
-      message: isHealthy ? "Inspector worker is reachable." : "Inspector worker did not return healthy status.",
+      message: isHealthy
+        ? "Inspector worker is reachable."
+        : `Worker at ${healthUrl.hostname} did not return healthy status (HTTP ${response.status}).`,
     });
   } catch {
     return NextResponse.json({
@@ -53,7 +58,7 @@ export async function GET() {
       healthy: false,
       status: "unhealthy" as const,
       workerUrl: WORKER_URL,
-      message: "Inspector worker is unreachable.",
+      message: `Inspector worker at ${healthUrl.hostname} is unreachable (timeout ${HEALTH_TIMEOUT_MS}ms).`,
     });
   } finally {
     clearTimeout(timeoutId);

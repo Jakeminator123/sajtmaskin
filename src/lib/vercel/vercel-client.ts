@@ -428,8 +428,7 @@ export async function deleteDeployment(deploymentId: string, teamId?: string): P
 // ============ Domain Management ============
 
 /**
- * Check domain price
- * Returns pricing info for a domain
+ * Check domain price via Registrar API (v1)
  */
 export async function getDomainPrice(
   domain: string,
@@ -437,17 +436,17 @@ export async function getDomainPrice(
 ): Promise<{
   name: string;
   price: number;
-  period: number; // years
+  period: number;
 }> {
   try {
-    const query = new URLSearchParams({ name: domain });
-    if (teamId) query.append("teamId", teamId);
+    const query = teamId ? `?teamId=${encodeURIComponent(teamId)}` : "";
 
-    return await vercelFetch<{
-      name: string;
-      price: number;
-      period: number;
-    }>(`/v4/domains/price?${query.toString()}`);
+    const data = await vercelFetch<{
+      purchasePrice: number;
+      years: number;
+    }>(`/v1/registrar/domains/${encodeURIComponent(domain)}/price${query}`);
+
+    return { name: domain, price: data.purchasePrice, period: data.years };
   } catch (error) {
     console.error("[Vercel] Failed to get domain price:", error);
     throw error;
@@ -455,7 +454,7 @@ export async function getDomainPrice(
 }
 
 /**
- * Check if a domain is available for purchase
+ * Check if a domain is available for purchase via Registrar API (v1)
  */
 export async function checkDomainAvailability(
   domain: string,
@@ -465,13 +464,13 @@ export async function checkDomainAvailability(
   available: boolean;
 }> {
   try {
-    const query = new URLSearchParams({ name: domain });
-    if (teamId) query.append("teamId", teamId);
+    const query = teamId ? `?teamId=${encodeURIComponent(teamId)}` : "";
 
-    return await vercelFetch<{
-      name: string;
+    const data = await vercelFetch<{
       available: boolean;
-    }>(`/v4/domains/status?${query.toString()}`);
+    }>(`/v1/registrar/domains/${encodeURIComponent(domain)}/availability${query}`);
+
+    return { name: domain, available: data.available };
   } catch (error) {
     console.error("[Vercel] Failed to check domain availability:", error);
     throw error;

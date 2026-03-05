@@ -792,22 +792,19 @@ export function PreviewPanel({
   const showImagesDisabledWarning = Boolean(demoUrl && !imageGenerationsEnabled);
   const showImagesUnsupportedWarning = Boolean(demoUrl && imageGenerationsEnabled && !imageGenerationsSupported);
   const showBlobConfigWarning = Boolean(demoUrl && imageGenerationsEnabled && !isBlobConfigured);
+  const showWorkerLamp = inspectorWorkerStatus !== "disabled";
   const workerLampClass =
     inspectorWorkerStatus === "healthy"
       ? "bg-emerald-400"
-      : inspectorWorkerStatus === "disabled"
-        ? "bg-zinc-500"
-        : inspectorWorkerStatus === "unknown"
-          ? "bg-amber-400 animate-pulse"
-          : "bg-rose-400";
+      : inspectorWorkerStatus === "unknown"
+        ? "bg-amber-400 animate-pulse"
+        : "bg-rose-400";
   const workerLampTitle =
     inspectorWorkerStatus === "healthy"
       ? "Inspector worker är online."
-      : inspectorWorkerStatus === "disabled"
-        ? "Inspector worker är inte konfigurerad."
-        : inspectorWorkerStatus === "unknown"
-          ? "Kontrollerar inspector worker..."
-          : inspectorWorkerMessage || "Inspector worker är offline. Fallback används.";
+      : inspectorWorkerStatus === "unknown"
+        ? "Kontrollerar inspector worker..."
+        : inspectorWorkerMessage || "Inspector worker är offline. Fallback används.";
   const showPlacementOverlay = placementMode && Boolean(demoUrl);
   const showInspectOverlay = inspectMode && !showPlacementOverlay;
 
@@ -816,13 +813,15 @@ export function PreviewPanel({
       <div className="flex items-center justify-between border-b border-gray-800 px-4 py-2">
         <h3 className="font-semibold tracking-tight text-white">Preview</h3>
         <div className="flex items-center gap-1">
-          <div
-            className="mr-1 inline-flex items-center gap-1 rounded border border-gray-700 bg-black/40 px-2 py-1 text-[11px] text-gray-400"
-            title={workerLampTitle}
-          >
-            <span className={cn("h-2 w-2 rounded-full", workerLampClass)} />
-            <span>Worker</span>
-          </div>
+          {showWorkerLamp && (
+            <div
+              className="mr-1 inline-flex items-center gap-1 rounded border border-gray-700 bg-black/40 px-2 py-1 text-[11px] text-gray-400"
+              title={workerLampTitle}
+            >
+              <span className={cn("h-2 w-2 rounded-full", workerLampClass)} />
+              <span>Worker</span>
+            </div>
+          )}
           <Button variant="ghost" size="sm" onClick={handleInspectInNewTab} disabled={!demoUrl} title="Öppna i ny flik för inspektion (Ctrl+Shift+C)" className="text-gray-400 hover:text-white">
             <MousePointer2 className="mr-1 h-4 w-4" />
             Inspektionsläge
