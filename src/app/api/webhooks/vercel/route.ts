@@ -38,6 +38,7 @@ function mapWebhookTypeToStatus(
       return "ready";
     case "deployment.error":
       return "error";
+    case "deployment.checkrun.cancel":
     case "deployment.canceled":
     case "deployment.cancelled":
       return "cancelled";
@@ -115,6 +116,17 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true, ignored: true, reason: "unhandled event type", type });
   }
 
+  const projectId = extractProjectId(body);
+  const configuredProjectId = process.env.VERCEL_PROJECT_ID?.trim() || null;
+  if (configuredProjectId && projectId && projectId !== configuredProjectId) {
+    return NextResponse.json({
+      ok: true,
+      ignored: true,
+      reason: "project mismatch",
+      projectId,
+    });
+  }
+
   const match = await db
     .select()
     .from(deployments)
@@ -127,7 +139,6 @@ export async function POST(req: Request) {
 
   const url = extractUrl(body);
   const inspectorUrl = extractInspectorUrl(body);
-  const projectId = extractProjectId(body);
 
   await updateDeploymentStatus(match[0].id, status, {
     ...(url ? { url } : {}),
