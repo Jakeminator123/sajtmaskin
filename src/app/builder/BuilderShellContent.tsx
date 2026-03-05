@@ -1,8 +1,13 @@
 "use client";
 
-import { ChatInterface } from "@/components/builder/ChatInterface";
+import {
+  ChatInterface,
+  type VisualPlacementDecision,
+  type VisualPlacementRequest,
+} from "@/components/builder/ChatInterface";
 import { InitFromRepoModal } from "@/components/builder/InitFromRepoModal";
 import { MessageList } from "@/components/builder/MessageList";
+import { PlacementConfirmDialog } from "@/components/builder/PlacementConfirmDialog";
 import { PreviewPanel } from "@/components/builder/PreviewPanel";
 import { SandboxModal } from "@/components/builder/SandboxModal";
 import { VersionHistory } from "@/components/builder/VersionHistory";
@@ -15,9 +20,16 @@ import { ThinkingOverlay } from "@/components/builder/ThinkingOverlay";
 import { TipCard } from "@/components/builder/TipCard";
 import { RequireAuthModal } from "@/components/auth";
 import { useAuthStore } from "@/lib/auth/auth-store";
+import { buildAiElementPrompt } from "@/lib/builder/ai-elements-catalog";
+import type { PlacementSelectEventDetail } from "@/lib/builder/inspect-events";
+import {
+  buildShadcnBlockPrompt,
+  buildShadcnComponentPrompt,
+} from "@/lib/shadcn-registry-utils";
 import type { ChatMessage } from "@/lib/builder/types";
 import { cn } from "@/lib/utils";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 import { BuilderLayout } from "./BuilderLayout";
 import type { BuilderViewModel } from "./useBuilderPageController";
 
@@ -50,6 +62,79 @@ function getLatestUserMessage(messages: ChatMessage[]): ChatMessage | null {
   return null;
 }
 
+function buildCustomizationInstruction(customization: string): string {
+  const trimmed = customization.trim();
+  if (!trimmed) return "";
+  return [
+    "",
+    "Ytterligare implementeringsinstruktion från användaren:",
+    trimmed,
+    "Följ instruktionen ovan samtidigt som du håller vald placering exakt.",
+  ].join("\n");
+}
+
+function buildUiPlacementMessage(
+  request: Extract<VisualPlacementRequest, { kind: "ui" }>,
+  placement: PlacementSelectEventDetail,
+  customization: string,
+  existingUiComponents?: string[],
+): string {
+  const selection = request.selection;
+  const technicalPrompt = request.isComponent
+    ? buildShadcnComponentPrompt(selection.registryItem, {
+        style: selection.style,
+        displayName: selection.block.title,
+        description: selection.block.description,
+        dependencyItems: selection.dependencyItems,
+        placement: placement.placement,
+        detectedSections: selection.detectedSections,
+        existingUiComponents,
+      })
+    : buildShadcnBlockPrompt(selection.registryItem, {
+        style: selection.style,
+        displayName: selection.block.title,
+        description: selection.block.description,
+        dependencyItems: selection.dependencyItems,
+        placement: placement.placement,
+        detectedSections: selection.detectedSections,
+        existingUiComponents,
+      });
+
+  const anchorLine = placement.anchorSection
+    ? `\n🧭 Ankare: ${placement.anchorSection.label}`
+    : "";
+  const extraInstruction = buildCustomizationInstruction(customization);
+
+  return `Lägg till UI‑element (${request.isComponent ? "komponent" : "block"}): **${request.itemTitle}**${request.deps}
+📍 Placering: ${placement.placementLabel}${anchorLine}
+
+---
+
+${technicalPrompt}${extraInstruction}`;
+}
+
+function buildAiPlacementMessage(
+  request: Extract<VisualPlacementRequest, { kind: "ai" }>,
+  placement: PlacementSelectEventDetail,
+  customization: string,
+): string {
+  const technicalPrompt = buildAiElementPrompt(request.item, {
+    placement: placement.placement,
+    detectedSections: request.options.detectedSections,
+  });
+  const anchorLine = placement.anchorSection
+    ? `\n🧭 Ankare: ${placement.anchorSection.label}`
+    : "";
+  const extraInstruction = buildCustomizationInstruction(customization);
+
+  return `Lägg till AI‑element: **${request.item.label}**${request.deps}
+📍 Placering: ${placement.placementLabel}${anchorLine}
+
+---
+
+${technicalPrompt}${extraInstruction}`;
+}
+
 export function BuilderShellContent(vm: BuilderViewModel) {
   const isBusy = vm.isCreatingChat || vm.isAnyStreaming || vm.isTemplateLoading || vm.isPreparingPrompt;
   const [isFigmaInputOpen, setIsFigmaInputOpen] = useState(false);
@@ -60,6 +145,13 @@ export function BuilderShellContent(vm: BuilderViewModel) {
   const [isTipLoading, setIsTipLoading] = useState(false);
   const previousStreamingRef = useRef(vm.isAnyStreaming);
   const lastAutoTipAssistantIdRef = useRef<string | null>(null);
+  const [pendingPlacementRequest, setPendingPlacementRequest] =
+    useState<VisualPlacementRequest | null>(null);
+  const [placementSelection, setPlacementSelection] =
+    useState<PlacementSelectEventDetail | null>(null);
+  const [placementConfirmOpen, setPlacementConfirmOpen] = useState(false);
+  const [isPlacementSubmitting, setIsPlacementSubmitting] = useState(false);
+  const placementResolverRef = useRef<((decision: VisualPlacementDecision) => void) | null>(null);
 
   const requestTip = useCallback(
     async (assistantMessage: ChatMessage | null) => {
@@ -164,6 +256,50 @@ export function BuilderShellContent(vm: BuilderViewModel) {
   }, [requestTip, vm.isAnyStreaming, vm.messages, vm.tipsEnabled]);
 
   useEffect(() => {
+    if (process.env.NODE_ENV !== "development") return;
+
+    const seen = new Set<string>();
+    const observer = new MutationObserver((mutations) => {
+      for (const m of mutations) {
+        for (const node of m.addedNodes) {
+          if (!(node instanceof HTMLElement)) continue;
+          const imgs =
+            node.tagName === "IMG"
+              ? [node as HTMLImageElement]
+              : Array.from(node.querySelectorAll<HTMLImageElement>("img[src]"));
+
+          for (const img of imgs) {
+            const src = img.src || img.getAttribute("src") || "";
+            if (!src || src.startsWith("data:") || src.startsWith("blob:")) continue;
+            try {
+              const url = new URL(src, window.location.origin);
+              if (url.origin === window.location.origin) continue;
+              if (seen.has(url.href)) continue;
+              seen.add(url.href);
+
+              const closestLabel =
+                img.alt ||
+                img.closest("[data-label]")?.getAttribute("data-label") ||
+                img.closest("[aria-label]")?.getAttribute("aria-label") ||
+                img.parentElement?.textContent?.trim().slice(0, 60) ||
+                "(unknown)";
+
+              console.info(
+                `%c[ExtImg]%c ${closestLabel}\n${url.href}`,
+                "color:#f59e0b;font-weight:bold",
+                "color:inherit",
+              );
+            } catch { /* invalid URL */ }
+          }
+        }
+      }
+    });
+
+    observer.observe(document.body, { childList: true, subtree: true });
+    return () => observer.disconnect();
+  }, []);
+
+  useEffect(() => {
     window.__SITEMASKIN_CONTEXT = {
       page: "builder",
       projectId: vm.appProjectId,
@@ -190,6 +326,121 @@ export function BuilderShellContent(vm: BuilderViewModel) {
     vm.currentPageCode,
     vm.isAnyStreaming,
   ]);
+
+  const resolvePlacementFlow = useCallback((decision: VisualPlacementDecision) => {
+    setPendingPlacementRequest(null);
+    setPlacementSelection(null);
+    setPlacementConfirmOpen(false);
+    const resolver = placementResolverRef.current;
+    placementResolverRef.current = null;
+    if (resolver) {
+      resolver(decision);
+    }
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      const resolver = placementResolverRef.current;
+      placementResolverRef.current = null;
+      if (resolver) resolver("cancelled");
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!pendingPlacementRequest) return;
+    if (vm.chatId && vm.currentDemoUrl) return;
+    resolvePlacementFlow("cancelled");
+  }, [pendingPlacementRequest, resolvePlacementFlow, vm.chatId, vm.currentDemoUrl]);
+
+  const handleRequestPlacement = useCallback(
+    async (request: VisualPlacementRequest) => {
+      if (!vm.chatId || !vm.currentDemoUrl) return "fallback";
+
+      const existingResolver = placementResolverRef.current;
+      if (existingResolver) {
+        placementResolverRef.current = null;
+        existingResolver("cancelled");
+      }
+
+      setPendingPlacementRequest(request);
+      setPlacementSelection(null);
+      setPlacementConfirmOpen(false);
+
+      return await new Promise<VisualPlacementDecision>((resolve) => {
+        placementResolverRef.current = resolve;
+      });
+    },
+    [vm.chatId, vm.currentDemoUrl],
+  );
+
+  const handlePlacementComplete = useCallback(
+    (detail: PlacementSelectEventDetail) => {
+      if (!pendingPlacementRequest) return;
+      setPlacementSelection(detail);
+      setPlacementConfirmOpen(true);
+    },
+    [pendingPlacementRequest],
+  );
+
+  const handlePlacementCancel = useCallback(() => {
+    resolvePlacementFlow("cancelled");
+  }, [resolvePlacementFlow]);
+
+  const handlePlacementConfirm = useCallback(
+    async (customization: string) => {
+      if (!pendingPlacementRequest || !placementSelection || !vm.chatId) {
+        resolvePlacementFlow("cancelled");
+        return;
+      }
+
+      setIsPlacementSubmitting(true);
+      try {
+        const fullMessage =
+          pendingPlacementRequest.kind === "ui"
+            ? buildUiPlacementMessage(
+                pendingPlacementRequest,
+                placementSelection,
+                customization,
+                vm.existingUiComponents,
+              )
+            : buildAiPlacementMessage(
+                pendingPlacementRequest,
+                placementSelection,
+                customization,
+              );
+
+        await vm.sendMessage(fullMessage);
+        resolvePlacementFlow("handled");
+      } catch (error) {
+        const message =
+          error instanceof Error ? error.message : "Kunde inte skicka placeringsinstruktion";
+        toast.error(message);
+      } finally {
+        setIsPlacementSubmitting(false);
+      }
+    },
+    [
+      pendingPlacementRequest,
+      placementSelection,
+      vm,
+      resolvePlacementFlow,
+    ],
+  );
+
+  const pendingPlacementItem = pendingPlacementRequest
+    ? pendingPlacementRequest.kind === "ui"
+      ? {
+          title: pendingPlacementRequest.itemTitle,
+          description:
+            pendingPlacementRequest.selection.block.description ||
+            pendingPlacementRequest.selection.registryItem.description ||
+            null,
+        }
+      : {
+          title: pendingPlacementRequest.item.label,
+          description: pendingPlacementRequest.item.description,
+        }
+    : null;
 
   return (
     <BuilderLayout chatId={vm.chatId} versionId={vm.activeVersionId}>
@@ -285,6 +536,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
             onCreateChat={vm.requestCreateChat}
             onSendMessage={vm.sendMessage}
             onStartFromRegistry={vm.handleStartFromRegistry}
+            onRequestPlacement={handleRequestPlacement}
             onStartFromTemplate={vm.handleStartFromTemplate}
             onPaletteSelection={vm.handlePaletteSelection}
             paletteSelections={vm.paletteState.selections}
@@ -345,6 +597,9 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               onClear={vm.handleClearPreview}
               onFixPreview={vm.handleFixPreview}
               refreshToken={vm.previewRefreshToken}
+              placementMode={Boolean(pendingPlacementRequest)}
+              pendingPlacementItem={pendingPlacementItem}
+              onPlacementComplete={handlePlacementComplete}
             />
           </div>
           <div
@@ -365,6 +620,16 @@ export function BuilderShellContent(vm: BuilderViewModel) {
           </div>
         </div>
       </div>
+
+      <PlacementConfirmDialog
+        open={placementConfirmOpen && Boolean(pendingPlacementRequest) && Boolean(placementSelection)}
+        elementName={pendingPlacementItem?.title || "Element"}
+        elementDescription={pendingPlacementItem?.description}
+        placementLabel={placementSelection?.placementLabel || "Vald placering"}
+        onConfirm={handlePlacementConfirm}
+        onCancel={handlePlacementCancel}
+        isSubmitting={isPlacementSubmitting}
+      />
 
       <SandboxModal
         isOpen={vm.isSandboxModalOpen}

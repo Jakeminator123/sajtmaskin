@@ -16,6 +16,7 @@ export default defineConfig([
   globalIgnores([
     "src/templates/**/*",
     ".next/**/*",
+    ".vercel/**/*",
     "out/**/*",
     "build/**/*",
     "dist/**/*",
@@ -25,6 +26,7 @@ export default defineConfig([
     "node_modules/**/*",
     "sajtmaskin/**/*",
     "base/**/*",
+    "old/**/*",
   ]),
 
   // Global rules

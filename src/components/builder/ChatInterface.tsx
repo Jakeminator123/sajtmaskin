@@ -54,6 +54,24 @@ type MessageOptions = {
   attachmentPrompt?: string;
 };
 
+export type VisualPlacementRequest =
+  | {
+      kind: "ui";
+      action: ShadcnBlockAction;
+      selection: ShadcnBlockSelection;
+      isComponent: boolean;
+      itemTitle: string;
+      deps: string;
+    }
+  | {
+      kind: "ai";
+      item: AiElementCatalogItem;
+      options: { placement?: PlacementOption; detectedSections?: DetectedSection[] };
+      deps: string;
+    };
+
+export type VisualPlacementDecision = "handled" | "cancelled" | "fallback";
+
 type FigmaPreviewResponse = {
   imageUrl?: string;
   fileName?: string;
@@ -163,6 +181,7 @@ interface ChatInterfaceProps {
   onCreateChat?: (message: string, options?: MessageOptions) => Promise<boolean | void>;
   onSendMessage?: (message: string, options?: MessageOptions) => Promise<void>;
   onStartFromRegistry?: (selection: ShadcnBlockSelection) => Promise<boolean | void>;
+  onRequestPlacement?: (request: VisualPlacementRequest) => Promise<VisualPlacementDecision | void>;
   onStartFromTemplate?: (templateId: string) => void;
   onPaletteSelection?: (selection: PaletteSelection) => void;
   paletteSelections?: PaletteSelection[];
@@ -225,6 +244,7 @@ export function ChatInterface({
   onCreateChat,
   onSendMessage,
   onStartFromRegistry,
+  onRequestPlacement,
   onStartFromTemplate,
   onPaletteSelection,
   paletteSelections,
@@ -667,7 +687,7 @@ export function ChatInterface({
     try {
       const isComponent =
         selection.itemType === "component" ||
-        selection.registryItem?.type?.toLowerCase().includes("component");
+        (selection.registryItem?.type?.toLowerCase().includes("component") ?? false);
 
       const technicalPrompt = isComponent
         ? buildShadcnComponentPrompt(selection.registryItem, {
@@ -696,6 +716,30 @@ export function ChatInterface({
           })`
         : "";
       const placementLabel = resolvePlacementLabel(selection.placement);
+
+      if (action === "add" && chatId && onRequestPlacement) {
+        setPickerTab(null);
+        const decision = await onRequestPlacement({
+          kind: "ui",
+          action,
+          selection,
+          isComponent,
+          itemTitle,
+          deps,
+        });
+        if (decision !== "fallback") {
+          if (decision !== "cancelled") {
+            onPaletteSelection?.({
+              id: selection.registryItem.name || selection.block.name,
+              label: itemTitle,
+              description: selection.block.description || selection.registryItem.description,
+              source: isComponent ? "shadcn-component" : "shadcn-block",
+              dependencies: selection.registryItem.registryDependencies ?? undefined,
+            });
+          }
+          return;
+        }
+      }
 
       const fullMessage = `Lägg till UI‑element (${isComponent ? "komponent" : "block"}): **${itemTitle}**${deps}
 📍 Placering: ${placementLabel}
@@ -781,6 +825,30 @@ ${technicalPrompt}`;
       const deps = item.dependencies?.length
         ? ` (${item.dependencies.slice(0, 4).join(", ")}${item.dependencies.length > 4 ? "..." : ""})`
         : "";
+
+      if (chatId && onRequestPlacement) {
+        setPickerTab(null);
+        const decision = await onRequestPlacement({
+          kind: "ai",
+          item,
+          options,
+          deps,
+        });
+        if (decision !== "fallback") {
+          if (decision !== "cancelled") {
+            onPaletteSelection?.({
+              id: item.id,
+              label: item.label,
+              description: item.description,
+              source: "ai-element",
+              tags: item.tags,
+              dependencies: item.dependencies,
+            });
+          }
+          return;
+        }
+      }
+
       const fullMessage = `Lägg till AI‑element: **${item.label}**${deps}
 📍 Placering: ${placementLabel}
 

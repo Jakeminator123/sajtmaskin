@@ -35,6 +35,30 @@ type PreDeployDiagnostics = {
   warnings: string[];
 };
 
+type V0VersionWithFiles = {
+  files?: unknown;
+};
+
+type V0VersionTextFile = {
+  name: string;
+  content: string;
+};
+
+function extractTextFilesFromV0Version(version: unknown): V0VersionTextFile[] {
+  if (!version || typeof version !== "object") return [];
+  const maybeFiles = (version as V0VersionWithFiles).files;
+  if (!Array.isArray(maybeFiles)) return [];
+
+  return maybeFiles
+    .filter((file): file is { name: unknown; content: unknown } => {
+      return Boolean(file) && typeof file === "object";
+    })
+    .filter((file): file is { name: string; content: string } => {
+      return typeof file.name === "string" && typeof file.content === "string";
+    })
+    .map((file) => ({ name: file.name, content: file.content }));
+}
+
 function applyPreDeployFixes(
   files: Array<{ name: string; content: string }>,
 ): PreDeployDiagnostics {
@@ -400,10 +424,7 @@ export async function POST(req: Request) {
           includeDefaultFiles: true,
         });
 
-        const rawFiles = Array.isArray((v0Version as any)?.files) ? (v0Version as any).files : [];
-        const textFiles = rawFiles
-          .filter((f: any) => f && typeof f.name === "string" && typeof f.content === "string")
-          .map((f: any) => ({ name: f.name, content: f.content }));
+        const textFiles = extractTextFilesFromV0Version(v0Version);
 
         if (textFiles.length === 0) {
           await updateDeploymentStatus(deploymentId, "error");
@@ -570,6 +591,15 @@ export async function GET(req: Request) {
       .from(deployments)
       .where(eq(deployments.chatId, internalChatId))
       .orderBy(desc(deployments.createdAt));
+    const refreshedById = new Map<
+      string,
+      {
+        status: ReturnType<typeof mapVercelReadyStateToStatus>["status"];
+        url: string | null;
+        inspectorUrl: string | null;
+        vercelProjectId: string | null;
+      }
+    >();
 
     const latestRefreshCandidate = result.find((d) => {
       const status = String(d.status || "pending");
@@ -588,29 +618,33 @@ export async function GET(req: Request) {
           vercelProjectId: vercel.vercelProjectId ?? undefined,
         });
 
-        latestRefreshCandidate.status = mapped.status as any;
-        if (vercel.url) latestRefreshCandidate.url = vercel.url as any;
-        if (vercel.inspectorUrl) latestRefreshCandidate.inspectorUrl = vercel.inspectorUrl as any;
-        if (vercel.vercelProjectId)
-          latestRefreshCandidate.vercelProjectId = vercel.vercelProjectId as any;
+        refreshedById.set(latestRefreshCandidate.id, {
+          status: mapped.status,
+          url: vercel.url ?? latestRefreshCandidate.url ?? null,
+          inspectorUrl: vercel.inspectorUrl ?? latestRefreshCandidate.inspectorUrl ?? null,
+          vercelProjectId: vercel.vercelProjectId ?? latestRefreshCandidate.vercelProjectId ?? null,
+        });
       } catch (err) {
         console.error("Failed to refresh latest deployment in list:", err);
       }
     }
 
     return NextResponse.json({
-      deployments: result.map((d) => ({
-        id: d.id,
-        chatId: d.chatId,
-        versionId: d.versionId,
-        status: d.status,
-        url: d.url,
-        inspectorUrl: d.inspectorUrl,
-        vercelDeploymentId: d.vercelDeploymentId,
-        vercelProjectId: d.vercelProjectId,
-        createdAt: d.createdAt,
-        updatedAt: d.updatedAt,
-      })),
+      deployments: result.map((d) => {
+        const refreshed = refreshedById.get(d.id);
+        return {
+          id: d.id,
+          chatId: d.chatId,
+          versionId: d.versionId,
+          status: refreshed?.status ?? d.status,
+          url: refreshed?.url ?? d.url,
+          inspectorUrl: refreshed?.inspectorUrl ?? d.inspectorUrl,
+          vercelDeploymentId: d.vercelDeploymentId,
+          vercelProjectId: refreshed?.vercelProjectId ?? d.vercelProjectId,
+          createdAt: d.createdAt,
+          updatedAt: d.updatedAt,
+        };
+      }),
     });
   } catch (err) {
     console.error("Get deployments error:", err);

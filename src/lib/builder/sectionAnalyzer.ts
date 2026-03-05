@@ -1,3 +1,5 @@
+import type { ElementMapItem } from "@/lib/builder/types";
+
 /**
  * Section Analyzer
  * ================
@@ -116,6 +118,66 @@ const SECTION_PATTERNS: {
     nameSv: "Footer",
   },
 ];
+
+const SECTION_NAME_BY_TYPE = new Map(
+  SECTION_PATTERNS.map((pattern) => [pattern.type, pattern.nameSv]),
+);
+
+export type SectionZone = {
+  id: string;
+  label: string;
+  type: DetectedSection["type"];
+  top: number;
+  bottom: number;
+  height: number;
+};
+
+export type InsertionPoint = {
+  placement: string;
+  label: string;
+  lineYPercent: number;
+  anchorSection?: {
+    id: string;
+    label: string;
+    type: string;
+    top: number;
+    bottom: number;
+  };
+};
+
+function clampPercent(value: number): number {
+  if (!Number.isFinite(value)) return 0;
+  return Math.min(100, Math.max(0, value));
+}
+
+function inferSectionTypeFromElement(element: ElementMapItem): DetectedSection["type"] {
+  const haystack = [
+    element.tag,
+    element.id || "",
+    element.className || "",
+    element.selector || "",
+    element.text || "",
+  ]
+    .join(" ")
+    .toLowerCase();
+
+  if (/(^|\s)(header|navbar|navigation|topbar|nav)(\s|$)/.test(haystack)) return "header";
+  if (/(^|\s)(hero|banner|jumbotron|landing)(\s|$)/.test(haystack)) return "hero";
+  if (/(^|\s)(feature|benefit|service|capabilit)(\s|$)/.test(haystack)) return "features";
+  if (/(^|\s)(pricing|price|plan|tier|subscription)(\s|$)/.test(haystack)) return "pricing";
+  if (/(^|\s)(testimonial|review|feedback|quote)(\s|$)/.test(haystack)) return "testimonials";
+  if (/(^|\s)(cta|call.?to.?action|get.?started|ready.?to)(\s|$)/.test(haystack)) return "cta";
+  if (/(^|\s)(faq|accordion|question)(\s|$)/.test(haystack)) return "faq";
+  if (/(^|\s)(contact|get.?in.?touch|reach.?us)(\s|$)/.test(haystack)) return "contact";
+  if (/(^|\s)(about|mission|story|company)(\s|$)/.test(haystack)) return "about";
+  if (/(^|\s)(team|member|staff|employee)(\s|$)/.test(haystack)) return "team";
+  if (/(^|\s)(stat|metric|number|achievement)(\s|$)/.test(haystack)) return "stats";
+  if (/(^|\s)(gallery|portfolio|showcase|project)(\s|$)/.test(haystack)) return "gallery";
+  if (/(^|\s)(form|newsletter|subscribe|signup)(\s|$)/.test(haystack)) return "form";
+  if (element.tag.toLowerCase() === "footer" || /(^|\s)(footer|copyright)(\s|$)/.test(haystack))
+    return "footer";
+  return "content";
+}
 
 /**
  * Analyze code to detect sections
@@ -269,4 +331,116 @@ export function hasDetectableSections(code: string): boolean {
   }
 
   return false;
+}
+
+/**
+ * Build coarse top-level zones from inspector element maps.
+ * These zones are used for visual insertion lines in the preview overlay.
+ */
+export function extractSectionZones(elementMap: ElementMapItem[]): SectionZone[] {
+  const candidateTags = new Set(["section", "main", "header", "footer", "article", "div"]);
+  const candidates = elementMap
+    .filter((element) => {
+      const tag = element.tag?.toLowerCase?.() || "";
+      if (!candidateTags.has(tag)) return false;
+      const width = clampPercent(element.vpPercent.w);
+      const height = clampPercent(element.vpPercent.h);
+      return width >= 45 && height >= 8;
+    })
+    .map((element, index) => {
+      const type = inferSectionTypeFromElement(element);
+      const label = SECTION_NAME_BY_TYPE.get(type) || "Innehåll";
+      const top = clampPercent(element.vpPercent.y);
+      const bottom = clampPercent(element.vpPercent.y + element.vpPercent.h);
+      return {
+        id: `zone-${index}-${type}`,
+        type,
+        label,
+        top,
+        bottom,
+        height: Math.max(0, bottom - top),
+      } satisfies SectionZone;
+    })
+    .filter((zone) => zone.height >= 6)
+    .sort((a, b) => a.top - b.top || b.height - a.height);
+
+  if (candidates.length === 0) return [];
+
+  const merged: SectionZone[] = [];
+  for (const candidate of candidates) {
+    const last = merged[merged.length - 1];
+    if (!last) {
+      merged.push(candidate);
+      continue;
+    }
+
+    const overlaps = candidate.top <= last.bottom - 3;
+    const veryClose = Math.abs(candidate.top - last.top) <= 2;
+    if (overlaps || veryClose) {
+      const nextTop = Math.min(last.top, candidate.top);
+      const nextBottom = Math.max(last.bottom, candidate.bottom);
+      const shouldReplaceIdentity =
+        candidate.height > last.height || (last.type === "content" && candidate.type !== "content");
+      merged[merged.length - 1] = {
+        id: shouldReplaceIdentity ? candidate.id : last.id,
+        type: shouldReplaceIdentity ? candidate.type : last.type,
+        label: shouldReplaceIdentity ? candidate.label : last.label,
+        top: nextTop,
+        bottom: nextBottom,
+        height: Math.max(0, nextBottom - nextTop),
+      };
+      continue;
+    }
+    merged.push(candidate);
+  }
+
+  return merged.slice(0, 10);
+}
+
+/**
+ * Resolve nearest insertion line based on viewport y-position.
+ * Returns a placement value compatible with prompt builders.
+ */
+export function nearestInsertionPoint(yPercent: number, zones: SectionZone[]): InsertionPoint {
+  const y = clampPercent(yPercent);
+
+  if (zones.length === 0) {
+    if (y <= 50) {
+      return { placement: "top", label: "Längst upp", lineYPercent: 0 };
+    }
+    return { placement: "bottom", label: "Längst ner", lineYPercent: 100 };
+  }
+
+  const points: InsertionPoint[] = [
+    { placement: "top", label: "Längst upp", lineYPercent: 0 },
+    ...zones.map((zone) => {
+      const typeForPlacement = zone.type === "unknown" ? "content" : zone.type;
+      return {
+        placement: `after-${typeForPlacement}`,
+        label: `Efter ${zone.label}`,
+        lineYPercent: clampPercent(zone.bottom),
+        anchorSection: {
+          id: zone.id,
+          label: zone.label,
+          type: zone.type,
+          top: zone.top,
+          bottom: zone.bottom,
+        },
+      } satisfies InsertionPoint;
+    }),
+    { placement: "bottom", label: "Längst ner", lineYPercent: 100 },
+  ];
+
+  let best = points[0];
+  let bestDistance = Math.abs(y - best.lineYPercent);
+  for (let i = 1; i < points.length; i += 1) {
+    const candidate = points[i];
+    const distance = Math.abs(y - candidate.lineYPercent);
+    if (distance < bestDistance) {
+      best = candidate;
+      bestDistance = distance;
+    }
+  }
+
+  return best;
 }

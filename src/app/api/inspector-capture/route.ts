@@ -1,9 +1,11 @@
 import { NextResponse } from "next/server";
 import net from "node:net";
-import { chromium, type Page } from "playwright";
+import type { Page } from "playwright";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+const IS_SERVERLESS = Boolean(process.env.VERCEL);
 
 const NAVIGATION_TIMEOUT_MS = 25_000;
 const NETWORK_IDLE_TIMEOUT_MS = 8_000;
@@ -519,6 +521,14 @@ export async function POST(req: Request) {
   });
   if (workerResult) return workerResult;
 
+  if (IS_SERVERLESS) {
+    return NextResponse.json(
+      { success: false, error: "Inspector worker is not available. Local Playwright fallback is not supported in serverless." },
+      { status: 503 },
+    );
+  }
+
+  const { chromium } = await import("playwright");
   let browser: Awaited<ReturnType<typeof chromium.launch>> | null = null;
   try {
     browser = await chromium.launch({ headless: true });

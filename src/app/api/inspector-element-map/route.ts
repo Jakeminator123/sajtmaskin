@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { chromium } from "playwright";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -9,6 +8,7 @@ const WORKER_TOKEN = process.env.INSPECTOR_CAPTURE_WORKER_TOKEN?.trim() || "";
 const WORKER_TIMEOUT_MS = 15_000;
 const NAVIGATION_TIMEOUT_MS = 20_000;
 const NETWORK_IDLE_TIMEOUT_MS = 8_000;
+const IS_SERVERLESS = Boolean(process.env.VERCEL);
 
 type MapRequest = {
   url: string;
@@ -72,6 +72,7 @@ async function localElementMap(
   vpH: number,
   maxElements: number,
 ): Promise<NextResponse> {
+  const { chromium } = await import("playwright");
   let browser: Awaited<ReturnType<typeof chromium.launch>> | null = null;
   try {
     browser = await chromium.launch({ headless: true });
@@ -170,6 +171,13 @@ export async function POST(req: Request) {
     const data = await workerResult.json();
     cache.set(key, { data, ts: Date.now() });
     return NextResponse.json(data);
+  }
+
+  if (IS_SERVERLESS) {
+    return NextResponse.json(
+      { success: false, error: "Inspector worker is not available. Local Playwright fallback is not supported in serverless." },
+      { status: 503 },
+    );
   }
 
   const localResult = await localElementMap(body.url, vpW, vpH, maxElements);
