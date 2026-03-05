@@ -47,11 +47,11 @@ function extractVercelErrorMessage(payload: unknown): string | null {
   const root = asJsonObject(payload);
   if (!root) return null;
 
-  const rootMessage = readStringField(root, "message");
-  if (rootMessage) return rootMessage;
-
   const errorObj = asJsonObject(root.error);
-  return readStringField(errorObj, "message");
+  const nestedMessage = readStringField(errorObj, "message");
+  if (nestedMessage) return nestedMessage;
+
+  return readStringField(root, "message");
 }
 
 export function getVercelTeamId(): string | null {
