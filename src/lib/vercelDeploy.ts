@@ -31,6 +31,29 @@ export type GetVercelDeploymentResult = {
   readyState: string | null;
 };
 
+type JsonObject = Record<string, unknown>;
+
+function asJsonObject(value: unknown): JsonObject | null {
+  return value && typeof value === "object" ? (value as JsonObject) : null;
+}
+
+function readStringField(obj: JsonObject | null, key: string): string | null {
+  if (!obj) return null;
+  const value = obj[key];
+  return typeof value === "string" ? value : null;
+}
+
+function extractVercelErrorMessage(payload: unknown): string | null {
+  const root = asJsonObject(payload);
+  if (!root) return null;
+
+  const rootMessage = readStringField(root, "message");
+  if (rootMessage) return rootMessage;
+
+  const errorObj = asJsonObject(root.error);
+  return readStringField(errorObj, "message");
+}
+
 export function getVercelTeamId(): string | null {
   const teamId = process.env.VERCEL_TEAM_ID;
   return teamId && teamId.trim().length > 0 ? teamId.trim() : null;
@@ -91,24 +114,22 @@ export async function createVercelDeployment(
 
   const json = await res.json().catch(() => null);
   if (!res.ok) {
-    const message =
-      (json && typeof json === "object" && (json as any).error && (json as any).error.message) ||
-      (json && typeof json === "object" && (json as any).message) ||
-      `Vercel deployment failed (HTTP ${res.status})`;
+    const message = extractVercelErrorMessage(json) ?? `Vercel deployment failed (HTTP ${res.status})`;
     throw new Error(message);
   }
 
-  const deploymentId = (json as any)?.id as string | undefined;
+  const root = asJsonObject(json);
+  const deploymentId = readStringField(root, "id");
   if (!deploymentId) {
     throw new Error("Vercel deployment response missing id");
   }
 
   return {
     vercelDeploymentId: deploymentId,
-    vercelProjectId: (json as any)?.projectId ?? null,
-    url: (json as any)?.url ?? null,
-    inspectorUrl: (json as any)?.inspectorUrl ?? null,
-    readyState: (json as any)?.readyState ?? null,
+    vercelProjectId: readStringField(root, "projectId"),
+    url: readStringField(root, "url"),
+    inspectorUrl: readStringField(root, "inspectorUrl"),
+    readyState: readStringField(root, "readyState"),
   };
 }
 
@@ -134,18 +155,17 @@ export async function getVercelDeployment(
   const json = await res.json().catch(() => null);
   if (!res.ok) {
     const message =
-      (json && typeof json === "object" && (json as any).error && (json as any).error.message) ||
-      (json && typeof json === "object" && (json as any).message) ||
-      `Vercel deployment fetch failed (HTTP ${res.status})`;
+      extractVercelErrorMessage(json) ?? `Vercel deployment fetch failed (HTTP ${res.status})`;
     throw new Error(message);
   }
 
+  const root = asJsonObject(json);
   return {
     vercelDeploymentId,
-    vercelProjectId: (json as any)?.projectId ?? null,
-    url: (json as any)?.url ?? null,
-    inspectorUrl: (json as any)?.inspectorUrl ?? null,
-    readyState: (json as any)?.readyState ?? null,
+    vercelProjectId: readStringField(root, "projectId"),
+    url: readStringField(root, "url"),
+    inspectorUrl: readStringField(root, "inspectorUrl"),
+    readyState: readStringField(root, "readyState"),
   };
 }
 
@@ -193,8 +213,7 @@ export async function syncEnvVarsToVercelProject(
       synced = body.length;
     } else {
       const json = await res.json().catch(() => null);
-      const msg =
-        (json as any)?.error?.message ?? `Vercel env sync failed (HTTP ${res.status})`;
+      const msg = extractVercelErrorMessage(json) ?? `Vercel env sync failed (HTTP ${res.status})`;
       errors.push(msg);
     }
   } catch (err) {
