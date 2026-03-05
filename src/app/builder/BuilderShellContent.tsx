@@ -415,6 +415,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
         const message =
           error instanceof Error ? error.message : "Kunde inte skicka placeringsinstruktion";
         toast.error(message);
+        resolvePlacementFlow("cancelled");
       } finally {
         setIsPlacementSubmitting(false);
       }

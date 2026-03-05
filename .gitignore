@@ -75,6 +75,7 @@ sajtgen
 
 # Large local docs/specs (keep out of git unless intentionally added)
 SiteStudio_Projektspecifikation_ifillningsbar_v2.pdf
+ANALYS-*.txt
 
 # Local env dumps (often contain secrets)
 environments.production
