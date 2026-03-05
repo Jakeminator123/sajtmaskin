@@ -30,8 +30,11 @@ interface RawTemplate {
 
 interface CategoryMeta {
   id: string;
-  title: string;
-  description: string;
+  titleSv: string;
+  titleEn: string;
+  descriptionSv: string;
+  keywordsSv: string[];
+  keywordsEn: string[];
 }
 
 interface EmbeddingEntry {
@@ -50,21 +53,100 @@ interface EmbeddingsFile {
 }
 
 const V0_CATEGORIES: Record<string, CategoryMeta> = {
-  ai: { id: "ai", title: "AI", description: "AI-powered templates och komponenter" },
-  animations: { id: "animations", title: "Animations", description: "Animerade komponenter och effekter" },
-  components: { id: "components", title: "Components", description: "Återanvändbara UI-komponenter" },
-  "login-and-sign-up": { id: "login-and-sign-up", title: "Login & Sign Up", description: "Inloggnings- och registreringsformulär" },
-  "blog-and-portfolio": { id: "blog-and-portfolio", title: "Blog & Portfolio", description: "Bloggar och portfoliowebbplatser" },
-  "design-systems": { id: "design-systems", title: "Design Systems", description: "Designsystem och komponentbibliotek" },
-  layouts: { id: "layouts", title: "Layouts", description: "Sidlayouter och strukturer" },
-  "website-templates": { id: "website-templates", title: "Website Templates", description: "Kompletta webbplatstemplates" },
-  "apps-and-games": { id: "apps-and-games", title: "Apps & Games", description: "Applikationer och spel" },
-  uncategorized: { id: "uncategorized", title: "Okategoriserade", description: "Templates som ännu inte kategoriserats" },
+  ai: {
+    id: "ai",
+    titleSv: "AI",
+    titleEn: "AI",
+    descriptionSv: "AI-drivna mallar och komponenter",
+    keywordsSv: ["agent", "automation", "assistent"],
+    keywordsEn: ["agent", "automation", "assistant"],
+  },
+  animations: {
+    id: "animations",
+    titleSv: "Animationer",
+    titleEn: "Animations",
+    descriptionSv: "Animerade komponenter och effekter",
+    keywordsSv: ["animation", "mikrointeraktion", "motion"],
+    keywordsEn: ["animation", "microinteraction", "motion"],
+  },
+  components: {
+    id: "components",
+    titleSv: "Komponenter",
+    titleEn: "Components",
+    descriptionSv: "Återanvändbara UI-komponenter",
+    keywordsSv: ["ui", "komponent", "gränssnitt"],
+    keywordsEn: ["ui", "component", "interface"],
+  },
+  "login-and-sign-up": {
+    id: "login-and-sign-up",
+    titleSv: "Inloggning och registrering",
+    titleEn: "Login and Sign Up",
+    descriptionSv: "Inloggnings- och registreringsformulär",
+    keywordsSv: ["inloggning", "konto", "auth"],
+    keywordsEn: ["login", "signup", "auth"],
+  },
+  "blog-and-portfolio": {
+    id: "blog-and-portfolio",
+    titleSv: "Blogg och portfolio",
+    titleEn: "Blog and Portfolio",
+    descriptionSv: "Bloggar och portfoliowebbplatser",
+    keywordsSv: ["blogg", "portfolio", "innehåll"],
+    keywordsEn: ["blog", "portfolio", "content"],
+  },
+  "design-systems": {
+    id: "design-systems",
+    titleSv: "Designsystem",
+    titleEn: "Design Systems",
+    descriptionSv: "Designsystem och komponentbibliotek",
+    keywordsSv: ["designsystem", "tokens", "ui-kit"],
+    keywordsEn: ["design system", "tokens", "ui kit"],
+  },
+  layouts: {
+    id: "layouts",
+    titleSv: "Layouter",
+    titleEn: "Layouts",
+    descriptionSv: "Sidlayouter och strukturer",
+    keywordsSv: ["layout", "grid", "sektioner"],
+    keywordsEn: ["layout", "grid", "sections"],
+  },
+  "website-templates": {
+    id: "website-templates",
+    titleSv: "Webbplatsmallar",
+    titleEn: "Website Templates",
+    descriptionSv: "Kompletta webbplatsmallar",
+    keywordsSv: ["hemsida", "webbplats", "mall"],
+    keywordsEn: ["website", "web", "template"],
+  },
+  "apps-and-games": {
+    id: "apps-and-games",
+    titleSv: "Appar och spel",
+    titleEn: "Apps and Games",
+    descriptionSv: "Applikationer och spel",
+    keywordsSv: ["app", "spel", "dashboard"],
+    keywordsEn: ["app", "game", "dashboard"],
+  },
+  uncategorized: {
+    id: "uncategorized",
+    titleSv: "Okategoriserade",
+    titleEn: "Uncategorized",
+    descriptionSv: "Mallar som inte kategoriserats ännu",
+    keywordsSv: ["mall", "webb", "design"],
+    keywordsEn: ["template", "web", "design"],
+  },
 };
 
 function buildEmbeddingText(template: RawTemplate): string {
   const cat = V0_CATEGORIES[template.category] ?? V0_CATEGORIES["uncategorized"];
-  return `${template.title} ${cat.title} ${cat.description}`;
+  const normalizedCategoryId = template.category.replace(/-/g, " ");
+  return [
+    `Template title: ${template.title}`,
+    `Kategori: ${cat.titleSv}`,
+    `Category: ${cat.titleEn}`,
+    `Beskrivning: ${cat.descriptionSv}`,
+    `Category id: ${template.category} (${normalizedCategoryId})`,
+    `Sökord sv: ${cat.keywordsSv.join(", ")}, mall, webbplats, hemsida`,
+    `Keywords en: ${cat.keywordsEn.join(", ")}, template, website, web design`,
+  ].join("\n");
 }
 
 async function main() {

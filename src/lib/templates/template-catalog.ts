@@ -1,5 +1,10 @@
 import type { BuildIntent } from "@/lib/builder/build-intent";
-import { TEMPLATES, type Template } from "@/lib/templates/template-data";
+import {
+  TEMPLATES,
+  type Template,
+  getTemplateCategoryId,
+  getTemplateCategoryTitle,
+} from "@/lib/templates/template-data";
 
 export type TemplateCatalogSource = "v0";
 
@@ -25,13 +30,15 @@ function inferBuildIntent(category?: string | null): BuildIntent {
 }
 
 function mapV0Template(template: Template): TemplateCatalogItem {
+  const categoryId = getTemplateCategoryId(template);
+
   return {
     id: template.id,
     title: template.title,
-    category: template.category,
+    category: getTemplateCategoryTitle(template),
     previewImageUrl: template.previewImageUrl,
     source: "v0",
-    buildIntent: inferBuildIntent(template.category),
+    buildIntent: inferBuildIntent(categoryId),
     viewUrl: template.viewUrl,
     editUrl: template.editUrl,
   };

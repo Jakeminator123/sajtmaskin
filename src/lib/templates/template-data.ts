@@ -65,7 +65,7 @@ export const TEMPLATES: Template[] = rawTemplates.map((t) => ({
 }));
 
 // Map template slugs/IDs to category IDs
-function getTemplateCategoryId(template: Template): string {
+export function getTemplateCategoryId(template: Template): string {
   // Category slugs that are actual categories (not templates)
   const categorySlugs = [
     "ai",
@@ -125,62 +125,62 @@ export const V0_CATEGORIES: Record<string, CategoryInfo> = {
   ai: {
     id: "ai",
     title: "AI",
-    description: "AI-powered templates och komponenter",
+    description: "AI-drivna mallar och komponenter",
     icon: "Wand2",
     quickPrompts: [],
   },
   animations: {
     id: "animations",
-    title: "Animations",
+    title: "Animationer",
     description: "Animerade komponenter och effekter",
     icon: "Zap",
     quickPrompts: [],
   },
   components: {
     id: "components",
-    title: "Components",
+    title: "Komponenter",
     description: "Återanvändbara UI-komponenter",
     icon: "Puzzle",
     quickPrompts: [],
   },
   "login-and-sign-up": {
     id: "login-and-sign-up",
-    title: "Login & Sign Up",
+    title: "Inloggning & registrering",
     description: "Inloggnings- och registreringsformulär",
     icon: "Lock",
     quickPrompts: [],
   },
   "blog-and-portfolio": {
     id: "blog-and-portfolio",
-    title: "Blog & Portfolio",
+    title: "Blogg & portfolio",
     description: "Bloggar och portfoliowebbplatser",
     icon: "FileText",
     quickPrompts: [],
   },
   "design-systems": {
     id: "design-systems",
-    title: "Design Systems",
+    title: "Designsystem",
     description: "Designsystem och komponentbibliotek",
     icon: "Palette",
     quickPrompts: [],
   },
   layouts: {
     id: "layouts",
-    title: "Layouts",
+    title: "Layouter",
     description: "Sidlayouter och strukturer",
     icon: "Layout",
     quickPrompts: [],
   },
   "website-templates": {
     id: "website-templates",
-    title: "Website Templates",
-    description: "Kompletta webbplatstemplates",
+    title: "Webbplatsmallar",
+    description: "Kompletta webbplatsmallar",
     icon: "Globe",
     quickPrompts: [],
   },
   "apps-and-games": {
     id: "apps-and-games",
-    title: "Apps & Games",
+    title: "Appar & spel",
     description: "Applikationer och spel",
     icon: "Gamepad2",
     quickPrompts: [],
@@ -188,7 +188,7 @@ export const V0_CATEGORIES: Record<string, CategoryInfo> = {
   uncategorized: {
     id: "uncategorized",
     title: "Okategoriserade",
-    description: "Templates som ännu inte kategoriserats",
+    description: "Mallar som ännu inte kategoriserats",
     icon: "HelpCircle",
     quickPrompts: [],
   },
@@ -1106,19 +1106,27 @@ export function getQuickPromptsForCategory(categoryId: string): QuickPrompt[] {
 
 // Category titles in Swedish for display
 export const CATEGORY_TITLES: Record<string, string> = {
-  "landing-page": "Landing Page",
+  "landing-page": "Landningssida",
   website: "Hemsida",
-  dashboard: "Dashboard",
+  dashboard: "Instrumentpanel",
   ai: "AI",
-  animations: "Animations",
-  components: "Components",
-  "login-and-sign-up": "Login & Sign Up",
-  "blog-and-portfolio": "Blog & Portfolio",
-  "design-systems": "Design Systems",
-  layouts: "Layouts",
-  "website-templates": "Website Templates",
-  "apps-and-games": "Apps & Games",
+  animations: "Animationer",
+  components: "Komponenter",
+  "login-and-sign-up": "Inloggning & registrering",
+  "blog-and-portfolio": "Blogg & portfolio",
+  "design-systems": "Designsystem",
+  layouts: "Layouter",
+  "website-templates": "Webbplatsmallar",
+  "apps-and-games": "Appar & spel",
 };
+
+export function getV0CategoryTitle(categoryId: string): string {
+  return V0_CATEGORIES[categoryId]?.title || CATEGORY_TITLES[categoryId] || categoryId;
+}
+
+export function getTemplateCategoryTitle(template: Template): string {
+  return getV0CategoryTitle(getTemplateCategoryId(template));
+}
 
 // Get templates by category ID
 export function getTemplatesByCategory(categoryId: string): Template[] {

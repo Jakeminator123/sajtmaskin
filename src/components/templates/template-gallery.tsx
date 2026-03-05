@@ -112,7 +112,7 @@ export function TemplateGallery({ onSelect }: TemplateGalleryProps) {
               {/* Template count */}
               <div className="flex items-center justify-center pt-2">
                 <span className="rounded-full bg-gray-800/50 px-3 py-1.5 text-xs text-gray-400">
-                  {templateCount} templates
+                  {templateCount} mallar
                 </span>
               </div>
 

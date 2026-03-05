@@ -5,6 +5,12 @@ on:
     # Every Monday at 03:23 UTC
     - cron: "23 3 * * 1"
   workflow_dispatch:
+    inputs:
+      include_embeddings:
+        description: "Generate template embeddings"
+        required: false
+        default: true
+        type: boolean
 
 permissions:
   contents: write
@@ -35,10 +41,16 @@ jobs:
       - name: Sync and validate templates
         run: npm run templates:refresh
 
+      - name: Generate template embeddings
+        if: ${{ secrets.OPENAI_API_KEY != '' && github.event.inputs.include_embeddings != 'false' }}
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: npm run templates:embeddings
+
       - name: Commit and push changes
         shell: bash
         run: |
-          if git diff --quiet -- src/lib/templates/templates.json src/lib/templates/template-categories.json; then
+          if git diff --quiet -- src/lib/templates/templates.json src/lib/templates/template-categories.json src/lib/templates/template-embeddings.json; then
             echo "No template updates to commit."
             exit 0
           fi
@@ -46,6 +58,6 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
 
-          git add src/lib/templates/templates.json src/lib/templates/template-categories.json
-          git commit -m "chore: weekly sync v0 templates"
+          git add src/lib/templates/templates.json src/lib/templates/template-categories.json src/lib/templates/template-embeddings.json
+          git commit -m "chore: weekly sync v0 templates and embeddings"
           git push

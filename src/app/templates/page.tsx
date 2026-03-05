@@ -19,7 +19,7 @@ import {
 export const metadata: Metadata = {
   title: "Webbplatsmallar",
   description:
-    "Bläddra bland professionella webbplatsmallar. AI-genererade templates för alla branscher och behov.",
+    "Bläddra bland professionella webbplatsmallar. AI-genererade mallar för alla branscher och behov.",
 };
 
 const ICON_MAP: Record<string, React.ComponentType<{ className?: string }>> = {

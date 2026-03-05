@@ -7,6 +7,13 @@ import {
 
 const EMBEDDING_MODEL = "text-embedding-3-small";
 const DEFAULT_TOP_K = 5;
+const QUERY_HINTS: Array<{ match: RegExp; hint: string }> = [
+  { match: /\b(hemsida|webbplats|sajt)\b/i, hint: "website" },
+  { match: /\b(mall|mallar|template|templates)\b/i, hint: "template" },
+  { match: /\b(inloggning|registrering|konto)\b/i, hint: "login signup auth" },
+  { match: /\b(app|appar|spel|game)\b/i, hint: "apps and games" },
+  { match: /\b(blogg|portfolio)\b/i, hint: "blog portfolio" },
+];
 
 interface EmbeddingEntry {
   id: string;
@@ -47,6 +54,63 @@ function getCatalogLookup(): Map<string, TemplateCatalogItem> {
   return catalogLookup;
 }
 
+function normalizeForSearch(value: string): string {
+  return value
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function expandQueryForEmbeddings(query: string): string {
+  const normalized = normalizeForSearch(query);
+  const hints = QUERY_HINTS
+    .filter(({ match }) => match.test(normalized))
+    .map(({ hint }) => hint);
+
+  if (hints.length === 0) return query;
+  const uniqueHints = Array.from(new Set(hints)).join(", ");
+  return `${query}\n\nRelated search terms: ${uniqueHints}`;
+}
+
+function keywordSimilarity(query: string, item: TemplateCatalogItem): number {
+  const q = normalizeForSearch(query);
+  if (!q) return 0;
+
+  const haystack = normalizeForSearch(`${item.title} ${item.category}`);
+  if (!haystack) return 0;
+
+  const tokens = Array.from(new Set(q.split(" ").filter((token) => token.length >= 2)));
+  if (tokens.length === 0) return haystack.includes(q) ? 0.6 : 0;
+
+  let totalWeight = 0;
+  let matchedWeight = 0;
+
+  for (const token of tokens) {
+    const weight = token.length >= 6 ? 1.2 : 1;
+    totalWeight += weight;
+    if (haystack.includes(token)) matchedWeight += weight;
+  }
+
+  let score = totalWeight > 0 ? matchedWeight / totalWeight : 0;
+  if (haystack.includes(q)) score = Math.max(score, 0.98);
+  return Math.min(0.99, score);
+}
+
+function fallbackKeywordSearch(query: string, topK: number): TemplateSearchResult[] {
+  const catalog = getTemplateCatalog();
+  return catalog
+    .map((template) => ({
+      template,
+      score: keywordSimilarity(query, template),
+    }))
+    .filter(({ score }) => score > 0)
+    .sort((a, b) => b.score - a.score)
+    .slice(0, topK);
+}
+
 export function cosineSimilarity(a: number[], b: number[]): number {
   if (a.length !== b.length) return 0;
   let dot = 0;
@@ -78,11 +142,13 @@ export async function searchTemplates(
   query: string,
   topK: number = DEFAULT_TOP_K,
 ): Promise<TemplateSearchResult[]> {
+  const fallbackResults = fallbackKeywordSearch(query, topK);
+
   const apiKey = SECRETS.openaiApiKey;
-  if (!apiKey) return [];
+  if (!apiKey) return fallbackResults;
 
   const embeddings = loadEmbeddings();
-  if (embeddings.length === 0) return [];
+  if (embeddings.length === 0) return fallbackResults;
 
   const openai = new OpenAI({ apiKey });
 
@@ -90,19 +156,20 @@ export async function searchTemplates(
   try {
     const response = await openai.embeddings.create({
       model: EMBEDDING_MODEL,
-      input: query,
+      input: expandQueryForEmbeddings(query),
       dimensions: 1536,
     });
     queryEmbedding = response.data[0].embedding;
   } catch (err) {
     console.error("[template-search] Embedding API call failed:", err);
-    return [];
+    return fallbackResults;
   }
 
   const scored = embeddings.map((entry) => ({
     id: entry.id,
     score: cosineSimilarity(queryEmbedding, entry.embedding),
-  }));
+  }))
+    .filter(({ score }) => Number.isFinite(score) && score > 0);
 
   scored.sort((a, b) => b.score - a.score);
 
@@ -113,6 +180,18 @@ export async function searchTemplates(
     if (results.length >= topK) break;
     const item = lookup.get(id);
     if (item) results.push({ template: item, score });
+  }
+
+  if (results.length >= topK || fallbackResults.length === 0) {
+    return results;
+  }
+
+  const seenIds = new Set(results.map((item) => item.template.id));
+  for (const candidate of fallbackResults) {
+    if (results.length >= topK) break;
+    if (seenIds.has(candidate.template.id)) continue;
+    results.push(candidate);
+    seenIds.add(candidate.template.id);
   }
 
   return results;

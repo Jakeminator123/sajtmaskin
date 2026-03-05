@@ -278,6 +278,39 @@ export function AdminDatabaseTab({
               variant="outline"
               size="sm"
               onClick={async () => {
+                setActionLoading("trigger-template-sync");
+                try {
+                  const res = await fetch("/api/admin/templates/sync", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ includeEmbeddings: true }),
+                  });
+                  const data = (await res.json().catch(() => null)) as
+                    | { success?: boolean; error?: string; message?: string }
+                    | null;
+                  if (!res.ok || !data?.success) {
+                    throw new Error(data?.error || "Kunde inte starta template-sync");
+                  }
+                  showMessage(data.message || "Template-sync startad");
+                } catch (err) {
+                  showMessage(err instanceof Error ? err.message : "Kunde inte starta template-sync");
+                }
+                setActionLoading(null);
+              }}
+              disabled={actionLoading === "trigger-template-sync"}
+              className="gap-2 border-brand-blue/50 text-brand-blue hover:bg-brand-blue/20 hover:text-white"
+            >
+              {actionLoading === "trigger-template-sync" ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <RefreshCw className="h-4 w-4" />
+              )}
+              Synka mallar + embeddings
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={async () => {
                 setActionLoading("extend-cache");
                 try {
                   const res = await fetch("/api/admin/database", {
@@ -351,7 +384,8 @@ export function AdminDatabaseTab({
         </div>
         <p className="text-sm text-gray-500">
           Spara templates lokalt för att undvika API-kostnader. Exportera → spara filen → importera
-          på andra enheter.
+          på andra enheter. Knappen Synka mallar + embeddings triggar GitHub workflow för att
+          uppdatera template-filerna i repot.
         </p>
       </div>
 

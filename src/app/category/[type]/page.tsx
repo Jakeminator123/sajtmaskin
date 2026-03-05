@@ -366,8 +366,8 @@ export default function CategoryPage() {
             <section>
               <div className="mb-4 flex items-center gap-2">
                 <Layout className="text-brand-teal h-5 w-5" />
-                <h2 className="text-lg font-semibold text-white">Templates</h2>
-                <HelpTooltip text="Templates från den externa mallkatalogen. Klicka för att öppna." />
+                <h2 className="text-lg font-semibold text-white">Mallar</h2>
+                <HelpTooltip text="Mallar från den externa mallkatalogen. Klicka för att öppna." />
               </div>
 
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
@@ -380,6 +380,7 @@ export default function CategoryPage() {
                   />
                 ))}
               </div>
+
             </section>
           )}
 
@@ -462,7 +463,7 @@ function V0TemplateCard({
               className="bg-brand-teal/20 hover:bg-brand-teal/30 border-brand-teal/30 text-brand-teal flex flex-1 items-center justify-center gap-2 rounded border px-3 py-2 text-xs font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-50"
             >
               <Play className="h-3.5 w-3.5" />
-              Preview
+              Förhandsvisa
             </button>
             <button
               onClick={handleEdit}
@@ -474,7 +475,7 @@ function V0TemplateCard({
               ) : (
                 <Edit className="h-3.5 w-3.5" />
               )}
-              {isCreating ? "Skapar..." : "Edit"}
+              {isCreating ? "Skapar..." : "Redigera"}
             </button>
           </div>
         </div>

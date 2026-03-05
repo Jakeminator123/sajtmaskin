@@ -48,6 +48,12 @@ const ENV_KEYS: EnvKeyDefinition[] = [
   { key: "GOOGLE_CLIENT_SECRET", required: false, notes: "Google OAuth" },
   { key: "GITHUB_CLIENT_ID", required: false, notes: "GitHub OAuth" },
   { key: "GITHUB_CLIENT_SECRET", required: false, notes: "GitHub OAuth" },
+  { key: "TEMPLATE_SYNC_GITHUB_TOKEN", required: false, notes: "GitHub workflow dispatch token" },
+  { key: "TEMPLATE_SYNC_REPO_OWNER", required: false, notes: "Repo owner for template sync" },
+  { key: "TEMPLATE_SYNC_REPO_NAME", required: false, notes: "Repo name for template sync" },
+  { key: "TEMPLATE_SYNC_WORKFLOW_FILE", required: false, notes: "Workflow file name (default weekly-template-sync.yml)" },
+  { key: "TEMPLATE_SYNC_REF", required: false, notes: "Branch/ref for workflow dispatch" },
+  { key: "TEMPLATE_SYNC_INCLUDE_EMBEDDINGS", required: false, notes: "Default include embeddings true/false" },
   { key: "UNSPLASH_ACCESS_KEY", required: false, notes: "Unsplash" },
   { key: "FIGMA_ACCESS_TOKEN", required: false, notes: "Figma" },
 ];
