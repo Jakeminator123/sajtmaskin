@@ -6,13 +6,20 @@ import { resolveConfiguredDbEnv } from "./env";
 const MISSING_DB_MESSAGE =
   "Missing database connection string. Set POSTGRES_URL (or POSTGRES_PRISMA_URL / POSTGRES_URL_NON_POOLING).";
 
+function isBuildPhase(): boolean {
+  return (
+    process.env.NEXT_PHASE === "phase-production-build" ||
+    process.env.NEXT_PHASE === "phase-export"
+  );
+}
+
 function resolveDbConnectionString(): string | null {
   const connectionString =
     resolveConfiguredDbEnv(process.env, {
       warnOnUninterpolated: process.env.NODE_ENV === "development",
     })?.connectionString || null;
   if (!connectionString) {
-    if (process.env.NODE_ENV === "production") {
+    if (process.env.NODE_ENV === "production" && !isBuildPhase()) {
       throw new Error(MISSING_DB_MESSAGE);
     }
 
