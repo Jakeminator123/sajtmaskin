@@ -88,11 +88,14 @@ sajtmaskin.code-workspace
 
 # Automation kit (local-only)
 automation/
+.automation/
 .cursor-gpt-kit/
 config.txt
 config.browser.txt
+config.example.txt
 INSTALERA.py
 INSTALLERA.py
+check_env.py
 
 # Vercel
 .vercel
