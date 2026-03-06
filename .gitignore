@@ -100,6 +100,8 @@ check_env.py
 # Vercel
 .vercel
 
+
+
 # >>> cursor-gpt automation local artifacts >>>
 .cursor/agents/
 .cursor/rules/automation-safety.mdc
@@ -125,5 +127,3 @@ playwright-report/
 test-results/
 node_modules/
 # <<< cursor-gpt automation local artifacts <<<
-
-
