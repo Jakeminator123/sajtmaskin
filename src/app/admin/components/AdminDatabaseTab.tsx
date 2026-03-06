@@ -50,6 +50,8 @@ export function AdminDatabaseTab({
     setMessage(text);
     window.setTimeout(() => setMessage(null), durationMs);
   };
+  const templateCacheCount = dbStats?.database?.templateCache ?? 0;
+  const templateCacheExpiredCount = dbStats?.database?.templateCacheExpired ?? 0;
 
   return (
     <div className="space-y-6">
@@ -184,11 +186,11 @@ export function AdminDatabaseTab({
             <div>
               <h2 className="text-lg font-semibold text-white">Template Cache</h2>
               <p className="text-sm text-gray-500">
-                {dbStats?.database?.templateCache || 0} templates cachade
-                {dbStats?.database?.templateCacheExpired ? (
+                {templateCacheCount} templates cachade
+                {templateCacheExpiredCount > 0 ? (
                   <span className="text-brand-amber">
                     {" "}
-                    • {dbStats.database.templateCacheExpired} utgångna
+                    • {templateCacheExpiredCount} utgångna
                   </span>
                 ) : null}
               </p>
