@@ -9,7 +9,7 @@ on:
       include_embeddings:
         description: "Generate template embeddings"
         required: false
-        default: true
+        default: false
         type: boolean
 
 permissions:

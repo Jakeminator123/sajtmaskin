@@ -4,6 +4,14 @@ import {
   getTemplateCatalog,
   type TemplateCatalogItem,
 } from "@/lib/templates/template-catalog";
+import type {
+  EmbeddingEntry,
+  EmbeddingsFile,
+} from "@/lib/templates/template-embeddings-core";
+import {
+  loadTemplateEmbeddingsFromBlob,
+  resolveTemplateEmbeddingsStorageMode,
+} from "@/lib/templates/template-embeddings-storage";
 
 const EMBEDDING_MODEL = "text-embedding-3-small";
 const DEFAULT_TOP_K = 5;
@@ -15,33 +23,49 @@ const QUERY_HINTS: Array<{ match: RegExp; hint: string }> = [
   { match: /\b(blogg|portfolio)\b/i, hint: "blog portfolio" },
 ];
 
-interface EmbeddingEntry {
-  id: string;
-  embedding: number[];
-}
-
-interface EmbeddingsFile {
-  _meta: { model: string; dimensions: number; generated: string; count: number };
-  embeddings: EmbeddingEntry[];
-}
-
 // In-memory cache — loaded once per process lifetime
 let cachedEmbeddings: EmbeddingEntry[] | null = null;
+let loadingEmbeddingsPromise: Promise<EmbeddingEntry[]> | null = null;
 let catalogLookup: Map<string, TemplateCatalogItem> | null = null;
 
-function loadEmbeddings(): EmbeddingEntry[] {
-  if (cachedEmbeddings) return cachedEmbeddings;
-
+function loadLocalEmbeddingsFromFile(): EmbeddingEntry[] {
   try {
     // Dynamic require to load the JSON at runtime (not bundled by webpack)
     // eslint-disable-next-line @typescript-eslint/no-require-imports
     const data: EmbeddingsFile = require("./template-embeddings.json");
-    cachedEmbeddings = data.embeddings ?? [];
+    return data.embeddings ?? [];
   } catch {
-    cachedEmbeddings = [];
+    return [];
   }
+}
 
-  return cachedEmbeddings;
+async function loadEmbeddings(): Promise<EmbeddingEntry[]> {
+  if (cachedEmbeddings) return cachedEmbeddings;
+  if (loadingEmbeddingsPromise) return loadingEmbeddingsPromise;
+
+  loadingEmbeddingsPromise = (async () => {
+    try {
+      if (resolveTemplateEmbeddingsStorageMode() === "blob") {
+        const remote = await loadTemplateEmbeddingsFromBlob();
+        if (remote?.embeddings?.length) {
+          cachedEmbeddings = remote.embeddings;
+          return cachedEmbeddings;
+        }
+      }
+
+      cachedEmbeddings = loadLocalEmbeddingsFromFile();
+      return cachedEmbeddings;
+    } finally {
+      loadingEmbeddingsPromise = null;
+    }
+  })();
+
+  try {
+    return await loadingEmbeddingsPromise;
+  } catch {
+    cachedEmbeddings = loadLocalEmbeddingsFromFile();
+    return cachedEmbeddings;
+  }
 }
 
 function getCatalogLookup(): Map<string, TemplateCatalogItem> {
@@ -133,7 +157,7 @@ export interface TemplateSearchResult {
 /**
  * Semantic template search using pre-computed embeddings.
  *
- * 1. Loads cached template embeddings from JSON (once per process)
+ * 1. Loads cached template embeddings from blob/local JSON (once per process)
  * 2. Embeds the query string via OpenAI
  * 3. Ranks templates by cosine similarity
  * 4. Returns top K results with scores
@@ -147,7 +171,7 @@ export async function searchTemplates(
   const apiKey = SECRETS.openaiApiKey;
   if (!apiKey) return fallbackResults;
 
-  const embeddings = loadEmbeddings();
+  const embeddings = await loadEmbeddings();
   if (embeddings.length === 0) return fallbackResults;
 
   const openai = new OpenAI({ apiKey });
@@ -202,5 +226,6 @@ export async function searchTemplates(
  */
 export function invalidateEmbeddingsCache(): void {
   cachedEmbeddings = null;
+  loadingEmbeddingsPromise = null;
   catalogLookup = null;
 }

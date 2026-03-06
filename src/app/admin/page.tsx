@@ -29,6 +29,7 @@ import type {
   EnvStatusPayload,
   IntegrationStatus,
   PromptLog,
+  TemplateSyncStatus,
   TeamStatus,
   VercelEnvVar,
   VercelProject,
@@ -63,6 +64,7 @@ export default function AdminPage() {
   const [promptLogsError, setPromptLogsError] = useState<string | null>(null);
   const [teamStatus, setTeamStatus] = useState<TeamStatus | null>(null);
   const [teamStatusLoading, setTeamStatusLoading] = useState(false);
+  const [templateSyncStatus, setTemplateSyncStatus] = useState<TemplateSyncStatus | null>(null);
 
   const fetchStats = async () => {
     setIsLoading(true);
@@ -202,6 +204,20 @@ export default function AdminPage() {
     }
   };
 
+  const fetchTemplateSyncStatus = async () => {
+    try {
+      const response = await fetch("/api/admin/templates/sync");
+      const data = await response.json();
+      if (data.success) {
+        setTemplateSyncStatus(data as TemplateSyncStatus);
+      } else {
+        setTemplateSyncStatus(null);
+      }
+    } catch {
+      setTemplateSyncStatus(null);
+    }
+  };
+
   useEffect(() => {
     const stored = localStorage.getItem("admin-auth");
     if (stored === "true") {
@@ -229,6 +245,7 @@ export default function AdminPage() {
   useEffect(() => {
     if (activeTab === "database" && isAuthenticated) {
       fetchDbStats();
+      fetchTemplateSyncStatus();
     }
   }, [activeTab, isAuthenticated]);
 
@@ -315,6 +332,7 @@ export default function AdminPage() {
     setPassword("");
     setStats(null);
     setDbStats(null);
+    setTemplateSyncStatus(null);
     localStorage.removeItem("admin-auth");
   };
 
@@ -584,6 +602,7 @@ export default function AdminPage() {
         <TabsContent value="database">
           <AdminDatabaseTab
             dbStats={dbStats}
+            templateSyncConfigured={Boolean(templateSyncStatus?.configured)}
             actionLoading={actionLoading}
             confirmAction={confirmAction}
             onClearTable={handleClearTable}

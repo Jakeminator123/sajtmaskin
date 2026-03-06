@@ -97,6 +97,9 @@ export const serverSchema = z.object({
   TEMPLATE_SYNC_WORKFLOW_FILE: z.string().optional(),
   TEMPLATE_SYNC_REF: z.string().optional(),
   TEMPLATE_SYNC_INCLUDE_EMBEDDINGS: z.string().optional(),
+  TEMPLATE_EMBEDDINGS_STORAGE: z.string().optional(),
+  TEMPLATE_EMBEDDINGS_BLOB_KEY: z.string().optional(),
+  TEMPLATE_EMBEDDINGS_AUTO_REBUILD: z.string().optional(),
 
   // Test
   TEST_USER_EMAIL: z.string().optional(),

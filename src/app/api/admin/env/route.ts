@@ -54,6 +54,9 @@ const ENV_KEYS: EnvKeyDefinition[] = [
   { key: "TEMPLATE_SYNC_WORKFLOW_FILE", required: false, notes: "Workflow file name (default weekly-template-sync.yml)" },
   { key: "TEMPLATE_SYNC_REF", required: false, notes: "Branch/ref for workflow dispatch" },
   { key: "TEMPLATE_SYNC_INCLUDE_EMBEDDINGS", required: false, notes: "Default include embeddings true/false" },
+  { key: "TEMPLATE_EMBEDDINGS_STORAGE", required: false, notes: "Embeddings storage mode: auto/blob/local" },
+  { key: "TEMPLATE_EMBEDDINGS_BLOB_KEY", required: false, notes: "Blob path for template embeddings JSON" },
+  { key: "TEMPLATE_EMBEDDINGS_AUTO_REBUILD", required: false, notes: "Enable weekly cron rebuild for embeddings" },
   { key: "UNSPLASH_ACCESS_KEY", required: false, notes: "Unsplash" },
   { key: "FIGMA_ACCESS_TOKEN", required: false, notes: "Figma" },
 ];

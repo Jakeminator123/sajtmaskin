@@ -3,6 +3,9 @@
   "functions": {
     "src/app/api/template/route.ts": {
       "maxDuration": 300
+    },
+    "src/app/api/cron/templates/embeddings/route.ts": {
+      "maxDuration": 300
     }
   },
   "headers": [
@@ -20,6 +23,10 @@
     {
       "path": "/api/shadcn/registry/refresh",
       "schedule": "0 */2 * * *"
+    },
+    {
+      "path": "/api/cron/templates/embeddings",
+      "schedule": "45 4 * * 1"
     }
   ]
 }

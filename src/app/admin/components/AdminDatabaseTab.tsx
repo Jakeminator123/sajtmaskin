@@ -17,6 +17,7 @@ import type { DatabaseStats } from "./types";
 
 interface AdminDatabaseTabProps {
   dbStats: DatabaseStats | null;
+  templateSyncConfigured: boolean;
   actionLoading: string | null;
   confirmAction: string | null;
   onClearTable: (table: string) => void | Promise<void>;
@@ -32,6 +33,7 @@ interface AdminDatabaseTabProps {
 
 export function AdminDatabaseTab({
   dbStats,
+  templateSyncConfigured,
   actionLoading,
   confirmAction,
   onClearTable,
@@ -274,38 +276,73 @@ export function AdminDatabaseTab({
               )}
               Importera
             </Button>
+            {templateSyncConfigured ? (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={async () => {
+                  setActionLoading("trigger-template-sync");
+                  try {
+                    const res = await fetch("/api/admin/templates/sync", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ includeEmbeddings: false }),
+                    });
+                    const data = (await res.json().catch(() => null)) as
+                      | { success?: boolean; error?: string; message?: string }
+                      | null;
+                    if (!res.ok || !data?.success) {
+                      throw new Error(data?.error || "Kunde inte starta template-sync");
+                    }
+                    showMessage(data.message || "Template-sync startad");
+                  } catch (err) {
+                    showMessage(err instanceof Error ? err.message : "Kunde inte starta template-sync");
+                  }
+                  setActionLoading(null);
+                }}
+                disabled={actionLoading === "trigger-template-sync"}
+                className="gap-2 border-brand-blue/50 text-brand-blue hover:bg-brand-blue/20 hover:text-white"
+              >
+                {actionLoading === "trigger-template-sync" ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="h-4 w-4" />
+                )}
+                Synka mallar (GitHub)
+              </Button>
+            ) : null}
             <Button
               variant="outline"
               size="sm"
               onClick={async () => {
-                setActionLoading("trigger-template-sync");
+                setActionLoading("regenerate-embeddings");
                 try {
-                  const res = await fetch("/api/admin/templates/sync", {
+                  const res = await fetch("/api/admin/templates/embeddings", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ includeEmbeddings: true }),
+                    body: JSON.stringify({ storage: "auto" }),
                   });
                   const data = (await res.json().catch(() => null)) as
                     | { success?: boolean; error?: string; message?: string }
                     | null;
                   if (!res.ok || !data?.success) {
-                    throw new Error(data?.error || "Kunde inte starta template-sync");
+                    throw new Error(data?.error || "Kunde inte regenerera embeddings");
                   }
-                  showMessage(data.message || "Template-sync startad");
+                  showMessage(data.message || "Embeddings regenererade");
                 } catch (err) {
-                  showMessage(err instanceof Error ? err.message : "Kunde inte starta template-sync");
+                  showMessage(err instanceof Error ? err.message : "Kunde inte regenerera embeddings");
                 }
                 setActionLoading(null);
               }}
-              disabled={actionLoading === "trigger-template-sync"}
-              className="gap-2 border-brand-blue/50 text-brand-blue hover:bg-brand-blue/20 hover:text-white"
+              disabled={actionLoading === "regenerate-embeddings"}
+              className="gap-2 border-brand-teal/50 text-brand-teal hover:bg-brand-teal/20 hover:text-white"
             >
-              {actionLoading === "trigger-template-sync" ? (
+              {actionLoading === "regenerate-embeddings" ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
-                <RefreshCw className="h-4 w-4" />
+                <Wand2 className="h-4 w-4" />
               )}
-              Synka mallar + embeddings
+              Regenerera embeddings (Vercel)
             </Button>
             <Button
               variant="outline"
@@ -384,8 +421,8 @@ export function AdminDatabaseTab({
         </div>
         <p className="text-sm text-gray-500">
           Spara templates lokalt för att undvika API-kostnader. Exportera → spara filen → importera
-          på andra enheter. Knappen Synka mallar + embeddings triggar GitHub workflow för att
-          uppdatera template-filerna i repot.
+          på andra enheter. Regenerera embeddings (Vercel) använder OPENAI_API_KEY och sparar
+          embeddings i vald lagring.
         </p>
       </div>
 
