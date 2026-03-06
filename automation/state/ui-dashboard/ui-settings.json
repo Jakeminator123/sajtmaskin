@@ -1,0 +1,19 @@
+{
+  "repo_path": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin",
+  "repo_name": "sajtmaskin",
+  "iteration_start": "1",
+  "iteration_count": "1",
+  "runtime_mode": "playwright",
+  "generate_prompt": false,
+  "recover_flags": true,
+  "run_agent_flow": true,
+  "agent_skip_quality": false,
+  "agent_skip_release": false,
+  "create_snapshots": false,
+  "snapshot_branch_prefix": "automation-iteration",
+  "snapshot_commit_prefix": "commit-iteration",
+  "archive_baseline": true,
+  "install_force_overwrite": false,
+  "install_playwright": false,
+  "uninstall_force_remove_modified": false
+}

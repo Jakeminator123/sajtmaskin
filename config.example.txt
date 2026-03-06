@@ -1,0 +1,9 @@
+# Minimal config. Copy this file to config.txt in the repo root.
+AUTOMATION_ENABLED=true
+MAX_ITERATIONS=3
+INBOX_DIR=automation/inbox
+PURPOSE_PATH=purpose.md
+ROADMAP_PATH=roadmap.md
+LINT_COMMAND=
+BUILD_COMMAND=
+TEST_COMMAND=

@@ -1,0 +1,25 @@
+{
+  "title": "zero-touch",
+  "command": [
+    "C:\\Program Files\\Python313\\python.exe",
+    "C:\\Users\\jakem\\dev\\projects\\sajtmaskin\\automation\\kit_manager.py",
+    "zero-touch",
+    "--target",
+    "C:\\Users\\jakem\\dev\\projects\\sajtmaskin",
+    "--iteration-start",
+    "1",
+    "--iteration-count",
+    "1",
+    "--runtime",
+    "playwright",
+    "--repo-name",
+    "sajtmaskin",
+    "--skip-generate-prompt",
+    "--recover-stale-flags",
+    "--run-agent-flow"
+  ],
+  "started_at_utc": "2026-03-06T02:38:49.089417+00:00",
+  "pid": 28824,
+  "ended_at_utc": "2026-03-06T02:38:49.367974+00:00",
+  "exit_code": 1
+}

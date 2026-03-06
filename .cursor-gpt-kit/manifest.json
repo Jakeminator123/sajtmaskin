@@ -1,0 +1,176 @@
+{
+  "manifest_version": 1,
+  "installed_at_utc": "2026-03-06T02:33:43.618433+00:00",
+  "toolkit_root": "C:\\Users\\jakem\\dev\\projects\\cursor_gpt",
+  "target_repo": "C:\\Users\\jakem\\dev\\projects\\sajtmaskin",
+  "created_dirs": [
+    "automation",
+    "automation/inbox",
+    "automation/packets",
+    "automation/reports",
+    "automation/runtime",
+    "automation/templates"
+  ],
+  "entries": [
+    {
+      "path": ".cursor/agents/implementer.md",
+      "existed_before": false,
+      "backup_path": null,
+      "installed_sha256": "a6f8bdab78f5020e5aec29c112f0fa5986a6827c5da72890eee865355d5c0b3d"
+    },
+    {
+      "path": ".cursor/agents/release-manager.md",
+      "existed_before": false,
+      "backup_path": null,
+      "installed_sha256": "1db5037934bc87802b3b378ce99d74e9f3b3daa2cdf6bfa82a79a18a6750faca"
+    },
+    {
+      "path": ".cursor/agents/verifier.md",
+      "existed_before": false,
+      "backup_path": null,
+      "installed_sha256": "b9f455be126256700b052bc6514f28f3937320b93df5aacc5d260e4aa5d2beb0"
+    },
+    {
+      "path": ".cursor/rules/automation-safety.mdc",
+      "existed_before": false,
+      "backup_path": null,
+      "installed_sha256": "78ee6f7e6f4973c017df10798fbf9cd9a35c6d323b2e421540ba5acab7721bef"
+    },
+    {
+      "path": "automation/browser-io-notes.md",
+      "existed_before": false,
+      "backup_path": null,
+      "installed_sha256": "3882c9b97dadf0816318cb87a4ed95aa39b6399eac77ab76ba0a21d6f2382ffb"
+    },
+    {
+      "path": "automation/generate-browser-input.ps1",
+      "existed_before": false,
+      "backup_path": null,
+      "installed_sha256": "b238bf72bc908955c2b818bbaab7ec0cbe2979ebcfffd1ceaabb97fdb59fa00d"
+    },
+    {
+      "path": "automation/inbox/.gitkeep",
+      "existed_before": false,
+      "backup_path": null,
+      "installed_sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+    },
+    {
+      "path": "automation/install-to-repo.ps1",
+      "existed_before": false,
+      "backup_path": null,
+      "installed_sha256": "efb6c19a80ced6522de5cb62cff690393537e922ebc5a2873e7316dbd5571ee6"
+    },
+    {
+      "path": "automation/kit_dashboard.py",
+      "existed_before": false,
+      "backup_path": null,
+      "installed_sha256": "819ff8cdc441c9f1deb6088fb671bf73d4690cdefc7600155cc4ded442770f21"
+    },
+    {
+      "path": "automation/kit_manager.py",
+      "existed_before": false,
+      "backup_path": null,
+      "installed_sha256": "3e734ce552dfdb045d256190adbf09dba7f1bf7c0686c29eefa1254397ce50cc"
+    },
+    {
+      "path": "automation/packets/.gitkeep",
+      "existed_before": false,
+      "backup_path": null,
+      "installed_sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+    },
+    {
+      "path": "automation/README.md",
+      "existed_before": false,
+      "backup_path": null,
+      "installed_sha256": "40002032914d1b30896842003909d232539384200f1600d31ebe8e3a24b91dc6"
+    },
+    {
+      "path": "automation/reports/.gitkeep",
+      "existed_before": false,
+      "backup_path": null,
+      "installed_sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+    },
+    {
+      "path": "automation/run-browser-automation.mjs",
+      "existed_before": false,
+      "backup_path": null,
+      "installed_sha256": "76dd1130e9d086b2b6e87613ff91535a1e10846b24aa60f7811d803920eeaf4b"
+    },
+    {
+      "path": "automation/run-browser-automation.ps1",
+      "existed_before": false,
+      "backup_path": null,
+      "installed_sha256": "9ecc2f0400c6f4f26076799e632b4d68599947cd6addb0d17a0818a5dbb360a9"
+    },
+    {
+      "path": "automation/run-iterations.ps1",
+      "existed_before": false,
+      "backup_path": null,
+      "installed_sha256": "253f5895871e135bc3c958cc2bf76e299b4ebcb47206700ccd4506915204045f"
+    },
+    {
+      "path": "automation/runtime/.gitkeep",
+      "existed_before": false,
+      "backup_path": null,
+      "installed_sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+    },
+    {
+      "path": "automation/templates/browser-input.md",
+      "existed_before": false,
+      "backup_path": null,
+      "installed_sha256": "c2245c9a4397daf792858c26a97d84f91f33c1086d30d12243a1c31dc11d2520"
+    },
+    {
+      "path": "automation/templates/master-brief.md",
+      "existed_before": false,
+      "backup_path": null,
+      "installed_sha256": "b7d78c2b20d9f08cc01b802b60319d800013c45e45cfce3348ebbd9fc318fcbb"
+    },
+    {
+      "path": "automation/templates/steering-log.md",
+      "existed_before": false,
+      "backup_path": null,
+      "installed_sha256": "9dea7b19681236e4e2d843e1a3a8c9cdec4597917d23a00ad3761a6a6b46a47b"
+    },
+    {
+      "path": "automation/templates/work-item.md",
+      "existed_before": false,
+      "backup_path": null,
+      "installed_sha256": "5eb12458517e85a838a95bd915a131ac9044f037227934b4b213df9588a86d43"
+    },
+    {
+      "path": "config.browser.txt",
+      "existed_before": false,
+      "backup_path": null,
+      "installed_sha256": "8f52820f43fc7835cdb2c5a6e415b3d44e5a3c6716e8311a7603051f384256cb"
+    },
+    {
+      "path": "config.example.txt",
+      "existed_before": false,
+      "backup_path": null,
+      "installed_sha256": "1473f36bc726a3e65eea73ebe8bb7c146ac9b7a5121adc306b461f420e2c602e"
+    },
+    {
+      "path": "config.txt",
+      "existed_before": false,
+      "backup_path": null,
+      "installed_sha256": "abace6ca73c52a8a71f6741565eb4ccd83528615544ddc0cb0a66b8a97f77ead"
+    },
+    {
+      "path": "INSTALERA.py",
+      "existed_before": false,
+      "backup_path": null,
+      "installed_sha256": "01de3ee076cfb76d3c22fbf0299acedc3e22f46df94a9070942ccbfca4eb282f"
+    },
+    {
+      "path": "INSTALLERA.py",
+      "existed_before": false,
+      "backup_path": null,
+      "installed_sha256": "76baae67727293e7b8a6ef1288b9201ed2a000591cb2ddf890e41fe7ffb21f28"
+    }
+  ],
+  "options": {
+    "force_overwrite": false,
+    "install_playwright": true
+  }
+}
