@@ -33,6 +33,39 @@ import { toast } from "sonner";
 import { BuilderLayout } from "./BuilderLayout";
 import type { BuilderViewModel } from "./useBuilderPageController";
 
+const CONTEXT_RECENT_MESSAGE_COUNT = 5;
+const CONTEXT_MESSAGE_MAX_CHARS = 300;
+const TIP_USER_MESSAGE_MAX_CHARS = 500;
+const TIP_ASSISTANT_MESSAGE_MAX_CHARS = 900;
+const TIP_CODE_MAX_CHARS = 2200;
+const OPENCLAW_CONTEXT_CODE_MAX_CHARS = 3000;
+
+type TipApiResponse = {
+  success?: boolean;
+  tip?: string;
+  error?: string;
+  cost?: number;
+};
+
+type ContextMessage = {
+  role: ChatMessage["role"];
+  content: string;
+};
+
+function toContextMessage(message: ChatMessage, maxChars: number): ContextMessage {
+  return {
+    role: message.role,
+    content:
+      typeof message.content === "string" ? message.content.slice(0, maxChars) : "[structured]",
+  };
+}
+
+function buildRecentContextMessages(messages: ChatMessage[]): ContextMessage[] {
+  return messages
+    .slice(-CONTEXT_RECENT_MESSAGE_COUNT)
+    .map((message) => toContextMessage(message, CONTEXT_MESSAGE_MAX_CHARS));
+}
+
 function getLatestCompletedAssistantMessage(messages: ChatMessage[]): ChatMessage | null {
   for (let i = messages.length - 1; i >= 0; i -= 1) {
     const message = messages[i];
@@ -145,6 +178,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
   const [isTipLoading, setIsTipLoading] = useState(false);
   const previousStreamingRef = useRef(vm.isAnyStreaming);
   const lastAutoTipAssistantIdRef = useRef<string | null>(null);
+  const latestTipRequestIdRef = useRef(0);
   const [pendingPlacementRequest, setPendingPlacementRequest] =
     useState<VisualPlacementRequest | null>(null);
   const [placementSelection, setPlacementSelection] =
@@ -156,11 +190,15 @@ export function BuilderShellContent(vm: BuilderViewModel) {
   const requestTip = useCallback(
     async (assistantMessage: ChatMessage | null) => {
       if (!assistantMessage) {
+        setTipText(null);
+        setTipCost(null);
         setTipError("Inget AI-svar att hämta tips från ännu.");
         setTipPanelOpen(true);
         return;
       }
 
+      const tipRequestId = latestTipRequestIdRef.current + 1;
+      latestTipRequestIdRef.current = tipRequestId;
       setIsTipLoading(true);
       setTipError(null);
       try {
@@ -175,37 +213,52 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               chatId: vm.chatId,
               activeVersionId: vm.activeVersionId,
               demoUrl: vm.currentDemoUrl,
-              recentMessages: vm.messages.slice(-5).map((m) => ({
-                role: m.role,
-                content: typeof m.content === "string" ? m.content.slice(0, 300) : "[structured]",
-              })),
-              latestUserMessage: latestUser?.content?.slice(0, 500) || "",
-              latestAssistantMessage: assistantMessage.content.slice(0, 900),
-              currentCode: vm.currentPageCode?.slice(0, 2200) || "",
+              recentMessages: buildRecentContextMessages(vm.messages),
+              latestUserMessage: latestUser?.content?.slice(0, TIP_USER_MESSAGE_MAX_CHARS) || "",
+              latestAssistantMessage: assistantMessage.content.slice(
+                0,
+                TIP_ASSISTANT_MESSAGE_MAX_CHARS,
+              ),
+              currentCode: vm.currentPageCode?.slice(0, TIP_CODE_MAX_CHARS) || "",
             },
           }),
         });
 
-        const data = (await res.json().catch(() => null)) as
-          | { success?: boolean; tip?: string; error?: string; cost?: number }
-          | null;
+        const data = (await res.json().catch(() => null)) as TipApiResponse | null;
+        if (latestTipRequestIdRef.current !== tipRequestId) return;
 
         if (!res.ok || !data?.success || typeof data.tip !== "string") {
           const message = data?.error || "Kunde inte hämta tips just nu.";
+          setTipText(null);
+          setTipCost(null);
           setTipError(message);
           setTipPanelOpen(true);
           return;
         }
 
-        setTipText(data.tip.trim());
+        const trimmedTip = data.tip.trim();
+        if (!trimmedTip) {
+          setTipText(null);
+          setTipCost(null);
+          setTipError("Kunde inte hämta tips just nu.");
+          setTipPanelOpen(true);
+          return;
+        }
+
+        setTipText(trimmedTip);
         setTipCost(typeof data.cost === "number" ? data.cost : 2);
         setTipError(null);
         setTipPanelOpen(true);
       } catch {
+        if (latestTipRequestIdRef.current !== tipRequestId) return;
+        setTipText(null);
+        setTipCost(null);
         setTipError("Kunde inte hämta tips just nu.");
         setTipPanelOpen(true);
       } finally {
-        setIsTipLoading(false);
+        if (latestTipRequestIdRef.current === tipRequestId) {
+          setIsTipLoading(false);
+        }
       }
     },
     [
@@ -225,6 +278,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
 
   useEffect(() => {
     if (!vm.chatId) {
+      latestTipRequestIdRef.current += 1;
       setTipPanelOpen(false);
       setTipText(null);
       setTipError(null);
@@ -236,6 +290,8 @@ export function BuilderShellContent(vm: BuilderViewModel) {
 
   useEffect(() => {
     if (!vm.tipsEnabled) {
+      latestTipRequestIdRef.current += 1;
+      setIsTipLoading(false);
       setTipPanelOpen(false);
     }
   }, [vm.tipsEnabled]);
@@ -306,12 +362,8 @@ export function BuilderShellContent(vm: BuilderViewModel) {
       chatId: vm.chatId,
       activeVersionId: vm.activeVersionId,
       demoUrl: vm.currentDemoUrl,
-      recentMessages: vm.messages.slice(-5).map((m) => ({
-        role: m.role,
-        content:
-          typeof m.content === "string" ? m.content.slice(0, 300) : "[structured]",
-      })),
-      currentCode: vm.currentPageCode?.slice(0, 3000) || null,
+      recentMessages: buildRecentContextMessages(vm.messages),
+      currentCode: vm.currentPageCode?.slice(0, OPENCLAW_CONTEXT_CODE_MAX_CHARS) || null,
       isStreaming: vm.isAnyStreaming,
     };
     return () => {
