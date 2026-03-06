@@ -1,4 +1,4 @@
-# =============================================================================
+﻿# =============================================================================
 # SAJTMASKIN .gitignore
 # =============================================================================
 
@@ -99,3 +99,22 @@ check_env.py
 
 # Vercel
 .vercel
+
+# >>> cursor-gpt automation local artifacts >>>
+.cursor-gpt-kit/
+.automation/
+automation/state/run-state.json
+automation/state/ui-dashboard/
+automation/inbox/deep-research-report*.md
+automation/inbox/tmp-*
+automation/runtime/browser-input-*.md
+automation/packets/iteration-*/
+automation/reports/iteration-*/
+automation/reports/browser-run-iteration-*.json
+automation/reports/final-summary.md
+automation/reports/final-summary.json
+playwright-report/
+test-results/
+node_modules/
+# <<< cursor-gpt automation local artifacts <<<
+
