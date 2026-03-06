@@ -1,0 +1,29 @@
+---
+description: Kör sekventiell multi-agent automation på exakt "run automation"
+alwaysApply: true
+---
+
+# run automation
+
+Aktivera denna rutin **endast** när användarens meddelande är exakt
+`run automation` (trimmat, case-insensitive).
+
+Läs `.cursor/automation/PROTOCOL.md` och följ det steg för steg.
+
+## Interaktiv fas (användaren är närvarande)
+
+1. Arkivera eventuell tidigare `runs/`-mapp.
+2. Fråga: "Beskriv ditt slutgiltiga mål och syfte med denna automation."
+3. Fråga: "Vill du att jag sammanställer input till bättre format?"
+4. Fråga: "Vilken AI-modell vill du att workload-agenterna kör med?"
+5. Läs input + skanna projektet som ska editeras.
+6. Ge ett allmänt utlåtande om underlaget och omfattningen.
+7. Ställ 1-5 uppföljningsfrågor.
+8. Kompilera och meddela att autonom körning börjar.
+
+## Autonom fas (inga fler frågor, kan ta lång tid)
+
+9. Skriv Roadmap + 3-20 workload-filer.
+10. Kör subagenter sekventiellt (med vald modell). Verifiera + fixa mellan varje steg.
+11. Lint + build-test.
+12. Slutrapport med plan vs utfall.

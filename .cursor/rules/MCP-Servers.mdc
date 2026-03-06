@@ -1,8 +1,18 @@
 ---
+description: Tillgängliga MCP-servrar och vad de kan göra
 alwaysApply: true
 ---
 
-Here is MCP-servers vith inforamtion for you to use:
-openaiDeveloperDocs
-v0
-Vercel
+# MCP-servrar
+
+Konfigurerade i `.cursor/mcp.json`. Använd alltid relevant MCP-server
+före web search eller träningsdata.
+
+| Server | Vad den gör |
+|--------|-------------|
+| `v0` | v0 Platform API -- skapa chattar, generera kod, hantera projekt |
+| `openaiDeveloperDocs` | OpenAI API-dokumentation -- sök, läs, hämta spec |
+| `Vercel` | Vercel-plattformen -- deploys, projekt, loggar, docs |
+| `openclaw-docs` | OpenClaw-dokumentation -- installation, gateway, kanaler |
+
+Se `mcp-docs-routing.mdc` för detaljerade routingregler.
