@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth/auth";
-import { TEST_USER_EMAIL } from "@/lib/db/services";
+import { SECRETS } from "@/lib/config";
 import { serverSchema } from "@/lib/env";
 import {
   listEnvironmentVariables,
@@ -42,6 +42,8 @@ interface CompareRow {
   inVercel: boolean;
   vercelTargets: string[];
 }
+
+const TEST_USER_EMAIL = SECRETS.testUserEmail || SECRETS.superadminEmail || "";
 
 function isUnresolved(value: string | undefined): boolean {
   if (!value) return true;

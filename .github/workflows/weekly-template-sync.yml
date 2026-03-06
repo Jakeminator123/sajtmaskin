@@ -22,17 +22,19 @@ concurrency:
 jobs:
   sync:
     runs-on: ubuntu-latest
+    env:
+      OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@v6
         with:
-          node-version: 25
+          node-version-file: .node-version
           cache: npm
 
       - name: Install dependencies
@@ -42,9 +44,7 @@ jobs:
         run: npm run templates:refresh
 
       - name: Generate template embeddings
-        if: ${{ secrets.OPENAI_API_KEY != '' && github.event.inputs.include_embeddings != 'false' }}
-        env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        if: ${{ env.OPENAI_API_KEY != '' && (github.event_name != 'workflow_dispatch' || github.event.inputs.include_embeddings == 'true') }}
         run: npm run templates:embeddings
 
       - name: Commit and push changes
