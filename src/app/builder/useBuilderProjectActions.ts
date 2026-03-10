@@ -218,6 +218,7 @@ export function useBuilderProjectActions({
     setIsIntentionalReset(true);
     if (typeof window !== "undefined") {
       localStorage.removeItem("sajtmaskin:lastChatId");
+      localStorage.removeItem("sajtmaskin:lastProjectId");
     }
     if (chatId) {
       clearPersistedMessages(chatId);
