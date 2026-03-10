@@ -211,7 +211,7 @@ export async function POST(req: Request) {
         try {
           const intent =
             (metaBuildIntent as "template" | "website" | "app") || DEFAULT_BUILD_INTENT;
-          const ownSystemPrompt = buildSystemPrompt({
+          const ownSystemPrompt = await buildSystemPrompt({
             intent,
             originalPrompt: message,
             imageGenerations: resolvedImageGenerations,

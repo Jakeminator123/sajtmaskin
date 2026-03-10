@@ -117,6 +117,9 @@ export const serverSchema = z.object({
   // v0 Design System
   DESIGN_SYSTEM_ID: z.string().optional(),
 
+  // MCP integration (generated code access)
+  MCP_GENERATED_CODE_API_KEY: z.string().optional(),
+
   // Feature flags
   ENABLE_PEXELS: z.string().optional(),
   USE_RESPONSES_API: z.string().optional(),

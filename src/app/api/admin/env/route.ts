@@ -65,6 +65,7 @@ const ENV_KEYS: EnvKeyDefinition[] = [
   { key: "TEMPLATE_EMBEDDINGS_STORAGE", required: false, notes: "Embeddings storage mode: auto/blob/local" },
   { key: "TEMPLATE_EMBEDDINGS_BLOB_KEY", required: false, notes: "Blob path for template embeddings JSON" },
   { key: "TEMPLATE_EMBEDDINGS_AUTO_REBUILD", required: false, notes: "Enable weekly cron rebuild for embeddings" },
+  { key: "MCP_GENERATED_CODE_API_KEY", required: false, notes: "Service key for MCP generated-code integration" },
   { key: "UNSPLASH_ACCESS_KEY", required: false, notes: "Unsplash" },
   { key: "FIGMA_ACCESS_TOKEN", required: false, notes: "Figma" },
 ];

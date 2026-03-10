@@ -14,5 +14,7 @@ före web search eller träningsdata.
 | `openaiDeveloperDocs` | OpenAI API-dokumentation -- sök, läs, hämta spec |
 | `Vercel` | Vercel-plattformen -- deploys, projekt, loggar, docs |
 | `openclaw-docs` | OpenClaw-dokumentation -- installation, gateway, kanaler |
+| `sajtmaskin-generated-code` | Hämta full genererad kod från sajtmaskin (chatId/versionId) |
+| `sajtmaskin-scaffolds` | Inspektera interna scaffolds -- manifests, filer, taggar, jämför |
 
 Se `mcp-docs-routing.mdc` för detaljerade routingregler.

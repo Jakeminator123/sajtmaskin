@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { withRateLimit } from "@/lib/rateLimit";
 import { OPENCLAW } from "@/lib/config";
+import { resolveFileContext } from "@/lib/openclaw/resolve-file-context";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -36,7 +37,10 @@ Regler:
 - Du kan INTE göra förändringar på användares sajter — du förklarar, guider och svarar på frågor.
 - Nämn ALDRIG Vercel, v0, v0 Platform API eller specifik underliggande infrastruktur. Säg istället "publicera live", "vår AI-motor" eller "modern molninfrastruktur".`;
 
-function buildContextBlock(ctx: Record<string, unknown>): string {
+function buildContextBlock(
+  ctx: Record<string, unknown>,
+  fileBlock?: string | null,
+): string {
   const parts: string[] = ["[BUILDER-KONTEXT]"];
 
   if (ctx.page) parts.push(`Sida: ${ctx.page}`);
@@ -52,7 +56,9 @@ function buildContextBlock(ctx: Record<string, unknown>): string {
     }
   }
 
-  if (typeof ctx.currentCode === "string" && ctx.currentCode.length > 0) {
+  if (fileBlock) {
+    parts.push(`\n${fileBlock}`);
+  } else if (typeof ctx.currentCode === "string" && ctx.currentCode.length > 0) {
     parts.push(`\nKodavsnitt (första ~3000 tecken):\n\`\`\`\n${ctx.currentCode}\n\`\`\``);
   }
 
@@ -88,9 +94,23 @@ export async function POST(req: NextRequest) {
     ];
 
     if (body.context && typeof body.context === "object") {
+      const ctx = body.context;
+      let fileBlock: string | null = null;
+
+      const chatId = typeof ctx.chatId === "string" ? ctx.chatId : "";
+      const versionId = typeof ctx.activeVersionId === "string" ? ctx.activeVersionId : "";
+      if (chatId) {
+        const fc = await resolveFileContext(chatId, versionId || null);
+        if (fc) {
+          fileBlock = fc.fullText
+            ? `[GENERERADE FILER — ${fc.files.length} filer]\n${fc.fullText}\n[/GENERERADE FILER]`
+            : `[FILMANIFEST — ${fc.files.length} filer]\n${fc.manifest}\n[/FILMANIFEST]`;
+        }
+      }
+
       messages.push({
         role: "system",
-        content: buildContextBlock(body.context),
+        content: buildContextBlock(ctx, fileBlock),
       });
     }
 

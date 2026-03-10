@@ -35,14 +35,6 @@ function isSafeRelativePath(path: string): boolean {
   return /^[A-Za-z0-9._/-]+$/.test(path);
 }
 
-function makeSafeHeredoc(content: string): { delimiter: string; body: string } {
-  let delimiter = `SAJTMASKIN_EOF_${Math.random().toString(36).slice(2)}`;
-  while (content.includes(delimiter)) {
-    delimiter = `SAJTMASKIN_EOF_${Math.random().toString(36).slice(2)}`;
-  }
-  return { delimiter, body: content };
-}
-
 export async function POST(req: Request) {
   return withRateLimit(req, "sandbox:create", async () => {
     try {
@@ -131,21 +123,12 @@ export async function POST(req: Request) {
 
       try {
         if (fileEntries) {
-          for (const [filePath, content] of fileEntries) {
-            const { delimiter, body: fileBody } = makeSafeHeredoc(String(content ?? ""));
-            await sandbox.runCommand({
-              cmd: "bash",
-              args: [
-                "-c",
-                [
-                  `set -e`,
-                  `mkdir -p "$(dirname "${filePath}")"`,
-                  `cat > "${filePath}" <<'${delimiter}'`,
-                  fileBody,
-                  `${delimiter}`,
-                ].join("\n"),
-              ],
-            });
+          const writePayload = fileEntries.map(([filePath, content]) => ({
+            path: filePath,
+            content: Buffer.from(String(content ?? ""), "utf-8"),
+          }));
+          if (writePayload.length > 0) {
+            await sandbox.writeFiles(writePayload);
           }
         }
 

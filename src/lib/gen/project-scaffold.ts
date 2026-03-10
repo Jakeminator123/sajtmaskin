@@ -13,7 +13,7 @@ const PACKAGE_JSON = `{
     "lint": "next lint"
   },
   "dependencies": {
-    "next": "^15.3.2",
+    "next": "^16.1.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "radix-ui": "^1.4.3",
@@ -120,7 +120,10 @@ const LAYOUT_TSX = `import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 
-const inter = Inter({ subsets: ["latin"] });
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-sans",
+});
 
 export const metadata: Metadata = {
   title: "Sajtmaskin Project",
@@ -134,7 +137,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="sv" className="dark">
-      <body className={inter.className}>
+      <body className={\`\${inter.variable} antialiased\`}>
         {children}
       </body>
     </html>

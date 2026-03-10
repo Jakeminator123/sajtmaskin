@@ -82,7 +82,7 @@ async function evaluatePrompt(
 ): Promise<EvalResult> {
   const start = performance.now();
 
-  const systemPrompt = buildSystemPrompt({
+  const systemPrompt = await buildSystemPrompt({
     intent: evalPrompt.intent,
     imageGenerations: false,
   });
@@ -143,10 +143,10 @@ export async function runEval(
 
   for (const evalPrompt of prompts) {
     try {
-      console.log(`[eval] Running: ${evalPrompt.id}...`);
+      console.info(`[eval] Running: ${evalPrompt.id}...`);
       const result = await evaluatePrompt(evalPrompt, model);
       results.push(result);
-      console.log(
+      console.info(
         `[eval] ${evalPrompt.id}: score=${(result.totalScore * 100).toFixed(0)}% ` +
           `files=${result.fileCount} time=${result.generationTimeMs}ms ` +
           `${result.passed ? "PASS" : "FAIL"}`,

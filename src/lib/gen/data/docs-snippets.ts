@@ -1,6 +1,6 @@
 export interface DocSnippet {
   id: string;
-  category: "shadcn" | "nextjs" | "tailwind" | "patterns" | "lucide";
+  category: "shadcn" | "nextjs" | "tailwind" | "patterns" | "lucide" | "library";
   keywords: string[];
   title: string;
   content: string;
@@ -438,11 +438,11 @@ Custom keyframes in tailwind.config: extend: { keyframes: { fadeIn: {
     category: "tailwind",
     keywords: ["gradient", "bg-gradient", "color-stop", "from", "to", "via"],
     title: "Gradients",
-    content: `Linear gradients with direction + color stops:
-<div className="bg-gradient-to-r from-purple-500 to-pink-500">
-<div className="bg-gradient-to-br from-blue-600 via-purple-600 to-pink-500">
+    content: `Linear gradients with direction + color stops (Tailwind v4 syntax):
+<div className="bg-linear-to-r from-purple-500 to-pink-500">
+<div className="bg-linear-to-br from-blue-600 via-purple-600 to-pink-500">
 Directions: to-t, to-tr, to-r, to-br, to-b, to-bl, to-l, to-tl
-Text gradient: <h1 className="bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+Text gradient: <h1 className="bg-linear-to-r from-primary to-accent bg-clip-text text-transparent">
 Use semantic colors: from-primary/80 to-secondary/60`,
   },
   {
@@ -663,5 +663,231 @@ Eye, EyeOff, Lock, Unlock, Star, Heart, Bookmark
 MoreHorizontal (three dots), MoreVertical, Filter, SlidersHorizontal
 Loader2 (spinner — use with animate-spin)
 import { Plus, Trash2, Pencil, Check, Loader2, MoreHorizontal } from "lucide-react"`,
+  },
+
+  // ── shadcn on-demand groups (7) ──────────────────────────────────────────
+
+  {
+    id: "shadcn-forms-group",
+    category: "shadcn",
+    keywords: ["form", "input", "textarea", "select", "checkbox", "radio", "switch", "label", "formular", "fält", "formulär"],
+    title: "shadcn Form Components",
+    content: `Form input components — import from @/components/ui/*:
+- { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form" (requires react-hook-form + zod)
+- { Input } from "@/components/ui/input"
+- { Label } from "@/components/ui/label"
+- { Textarea } from "@/components/ui/textarea"
+- { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+- { Checkbox } from "@/components/ui/checkbox"
+- { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"
+- { Switch } from "@/components/ui/switch"
+- { Slider } from "@/components/ui/slider"
+- { Calendar } from "@/components/ui/calendar"
+- { InputOTP, InputOTPGroup, InputOTPSeparator, InputOTPSlot } from "@/components/ui/input-otp"`,
+  },
+  {
+    id: "shadcn-layout-group",
+    category: "shadcn",
+    keywords: ["card", "layout", "container", "separator", "scroll", "panel", "resize", "aspect", "kort", "scroll"],
+    title: "shadcn Layout Components",
+    content: `Layout and container components — import from @/components/ui/*:
+- { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+- { Separator } from "@/components/ui/separator"
+- { ScrollArea, ScrollBar } from "@/components/ui/scroll-area"
+- { AspectRatio } from "@/components/ui/aspect-ratio"
+- { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable"
+- { Skeleton } from "@/components/ui/skeleton"`,
+  },
+  {
+    id: "shadcn-navigation-group",
+    category: "shadcn",
+    keywords: ["nav", "menu", "breadcrumb", "sidebar", "tabs", "navigation", "menubar", "meny", "flik", "flikar", "navigering"],
+    title: "shadcn Navigation Components",
+    content: `Navigation components — import from @/components/ui/*:
+- { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+- { NavigationMenu, NavigationMenuContent, NavigationMenuItem, NavigationMenuLink, NavigationMenuList, NavigationMenuTrigger } from "@/components/ui/navigation-menu"
+- { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb"
+- { Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"
+- { Menubar, MenubarContent, MenubarItem, MenubarMenu, MenubarSeparator, MenubarTrigger } from "@/components/ui/menubar"
+- { Command, CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"`,
+  },
+  {
+    id: "shadcn-overlay-group",
+    category: "shadcn",
+    keywords: ["dialog", "modal", "sheet", "drawer", "popover", "dropdown", "tooltip", "hover", "alert-dialog", "context-menu"],
+    title: "shadcn Overlay Components",
+    content: `Overlay and popup components — import from @/components/ui/*:
+- { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"
+- { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"
+- { Drawer, DrawerContent, DrawerDescription, DrawerFooter, DrawerHeader, DrawerTitle, DrawerTrigger } from "@/components/ui/drawer"
+- { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
+- { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
+- { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
+- { HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"
+- { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog"
+- { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from "@/components/ui/context-menu"
+Dialogs require DialogTitle + DialogDescription (use sr-only if hidden).`,
+  },
+  {
+    id: "shadcn-data-group",
+    category: "shadcn",
+    keywords: ["table", "chart", "data", "stats", "graph", "diagram", "analytics", "tabell", "graf", "statistik"],
+    title: "shadcn Data Display Components",
+    content: `Data display components — import from @/components/ui/*:
+- { Table, TableBody, TableCaption, TableCell, TableFooter, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+- { ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from "@/components/ui/chart"
+Charts use Recharts under the hood. Wrap in <ChartContainer config={chartConfig}>. Use <LineChart>, <BarChart>, <PieChart> etc. from "recharts" inside.`,
+  },
+  {
+    id: "shadcn-feedback-group",
+    category: "shadcn",
+    keywords: ["badge", "alert", "progress", "skeleton", "loading", "toast", "notification", "meddelande", "laddning"],
+    title: "shadcn Feedback Components",
+    content: `Feedback and status components — import from @/components/ui/*:
+- { Badge } from "@/components/ui/badge"
+- { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+- { Progress } from "@/components/ui/progress"
+- { Skeleton } from "@/components/ui/skeleton"
+- { Sonner } from "@/components/ui/sonner" (toast notifications via sonner library)`,
+  },
+  {
+    id: "shadcn-interactive-group",
+    category: "shadcn",
+    keywords: ["toggle", "slider", "pagination", "carousel", "accordion", "collapsible", "karusell", "reglage"],
+    title: "shadcn Interactive Components",
+    content: `Interactive components — import from @/components/ui/*:
+- { Toggle } from "@/components/ui/toggle"
+- { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"
+- { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination"
+- { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel"
+- { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"
+- { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"`,
+  },
+
+  // ── library snippets (10) ──────────────────────────────────────────────
+
+  {
+    id: "lib-framer-motion",
+    category: "library",
+    keywords: ["animation", "motion", "framer", "animate", "transition", "spring", "stagger", "animering", "rörelse"],
+    title: "Framer Motion",
+    content: `framer-motion for React animations:
+import { motion, AnimatePresence } from "framer-motion"
+<motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
+Variants: const variants = { hidden: { opacity: 0 }, visible: { opacity: 1 } }
+AnimatePresence wraps conditional elements for exit animations.
+useInView from "framer-motion" for scroll-triggered animations.
+whileHover, whileTap for gesture animations.
+Add "framer-motion" to dependencies if not present.`,
+  },
+  {
+    id: "lib-recharts",
+    category: "library",
+    keywords: ["chart", "graph", "line-chart", "bar-chart", "pie", "analytics", "recharts", "diagram", "graf"],
+    title: "Recharts",
+    content: `Recharts for data visualization (used by shadcn/ui chart):
+import { LineChart, Line, BarChart, Bar, PieChart, Pie, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, Cell } from "recharts"
+Wrap in <ResponsiveContainer width="100%" height={300}>.
+Or use shadcn wrapper: <ChartContainer config={chartConfig}> for consistent styling.
+Data format: const data = [{ name: "Jan", value: 400 }, ...].
+Add "recharts" to dependencies.`,
+  },
+  {
+    id: "lib-tanstack-table",
+    category: "library",
+    keywords: ["data-table", "sorting", "filtering", "pagination", "tanstack", "react-table", "tabell", "sortering"],
+    title: "TanStack React Table",
+    content: `@tanstack/react-table for advanced data tables:
+import { useReactTable, getCoreRowModel, getPaginationRowModel, getSortedRowModel, getFilteredRowModel, flexRender } from "@tanstack/react-table"
+const columns: ColumnDef<T>[] = [{ accessorKey: "name", header: "Name" }]
+const table = useReactTable({ data, columns, getCoreRowModel: getCoreRowModel() })
+Combine with shadcn Table components for styling.
+Add "@tanstack/react-table" to dependencies.`,
+  },
+  {
+    id: "lib-react-three",
+    category: "library",
+    keywords: ["3d", "three", "canvas", "webgl", "scene", "mesh", "orb", "sphere", "particle"],
+    title: "React Three Fiber",
+    content: `@react-three/fiber for 3D in React:
+import { Canvas, useFrame } from "@react-three/fiber"
+import { OrbitControls, Environment } from "@react-three/drei"
+<Canvas><mesh><boxGeometry /><meshStandardMaterial color="hotpink" /></mesh></Canvas>
+useFrame((state) => { ref.current.rotation.y += 0.01 }) for animation loop.
+Must be wrapped in a "use client" component.
+Add "@react-three/fiber", "@react-three/drei", "three" to dependencies.`,
+  },
+  {
+    id: "lib-embla-carousel",
+    category: "library",
+    keywords: ["carousel", "slider", "slideshow", "gallery", "swipe", "karusell", "bildspel"],
+    title: "Embla Carousel",
+    content: `embla-carousel-react for carousels (used by shadcn Carousel):
+shadcn provides Carousel components that wrap embla:
+import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel"
+<Carousel><CarouselContent><CarouselItem>slide</CarouselItem></CarouselContent><CarouselPrevious /><CarouselNext /></Carousel>
+For custom: import useEmblaCarousel from "embla-carousel-react"; autoplay via "embla-carousel-autoplay".`,
+  },
+  {
+    id: "lib-date-fns",
+    category: "library",
+    keywords: ["date", "time", "format", "calendar", "relative", "parse", "datum", "tid"],
+    title: "date-fns",
+    content: `date-fns for date formatting:
+import { format, formatDistance, formatRelative, parseISO, isAfter, isBefore, addDays, subDays } from "date-fns"
+import { sv } from "date-fns/locale" // Swedish locale
+format(new Date(), "d MMMM yyyy", { locale: sv }) // "10 mars 2026"
+formatDistance(date, new Date(), { addSuffix: true }) // "3 days ago"
+Add "date-fns" to dependencies.`,
+  },
+  {
+    id: "lib-react-hook-form",
+    category: "library",
+    keywords: ["form", "validation", "zod", "schema", "submit", "field", "validering", "formulär"],
+    title: "React Hook Form + Zod",
+    content: `react-hook-form + zod for type-safe forms:
+import { useForm } from "react-hook-form"
+import { zodResolver } from "@hookform/resolvers/zod"
+import { z } from "zod"
+const schema = z.object({ email: z.string().email(), name: z.string().min(2) })
+const form = useForm({ resolver: zodResolver(schema) })
+Combine with shadcn Form components for full UI integration.
+Add "react-hook-form", "@hookform/resolvers", "zod" to dependencies.`,
+  },
+  {
+    id: "lib-zustand",
+    category: "library",
+    keywords: ["state", "store", "global", "zustand", "persist", "state-management", "tillstånd"],
+    title: "Zustand State Management",
+    content: `zustand for lightweight global state:
+import { create } from "zustand"
+const useStore = create((set) => ({ count: 0, increment: () => set((s) => ({ count: s.count + 1 })) }))
+With persist: import { persist } from "zustand/middleware"
+create(persist((set) => ({ ... }), { name: "store-key" }))
+Add "zustand" to dependencies.`,
+  },
+  {
+    id: "lib-next-themes",
+    category: "library",
+    keywords: ["theme", "dark", "light", "mode", "toggle", "switch", "mörkt", "ljust", "tema"],
+    title: "next-themes",
+    content: `next-themes for dark/light mode:
+import { ThemeProvider } from "next-themes"
+Wrap app in <ThemeProvider attribute="class" defaultTheme="system">
+import { useTheme } from "next-themes"
+const { theme, setTheme } = useTheme() // "light" | "dark" | "system"
+Add "next-themes" to dependencies. Use suppressHydrationWarning on <html>.`,
+  },
+  {
+    id: "lib-lucide-advanced",
+    category: "library",
+    keywords: ["icon", "lucide", "dynamic", "custom", "animated", "ikon"],
+    title: "Lucide React Advanced",
+    content: `Advanced lucide-react patterns:
+Dynamic icon: import { icons } from "lucide-react"; const Icon = icons["ArrowRight"];
+All icons: import * as LucideIcons from "lucide-react"
+Animated: <Loader2 className="animate-spin h-4 w-4" />
+Custom size: <Icon size={24} strokeWidth={1.5} />
+Always import individually for tree-shaking: import { ArrowRight, Check } from "lucide-react"`,
   },
 ];

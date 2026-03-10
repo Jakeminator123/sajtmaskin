@@ -40,14 +40,18 @@ import { createPromptLog } from "@/lib/db/services";
 import { resolveModelSelection, resolveEngineModelId } from "@/lib/v0/modelSelection";
 import { AI } from "@/lib/config";
 import { shouldUseV0Fallback, createGenerationPipeline } from "@/lib/gen/fallback";
-import { matchScaffold, getScaffoldById, serializeScaffoldForPrompt, detectScaffoldMode } from "@/lib/gen/scaffolds";
+import {
+  matchScaffoldWithEmbeddings,
+  getScaffoldById,
+  serializeScaffoldForPrompt,
+  detectScaffoldMode,
+} from "@/lib/gen/scaffolds";
 import type { ScaffoldManifest } from "@/lib/gen/scaffolds";
-import { compressUrls, expandUrls } from "@/lib/gen/url-compress";
+import { compressUrls } from "@/lib/gen/url-compress";
 import { buildSystemPrompt, getSystemPromptLengths, type Brief } from "@/lib/gen/system-prompt";
 import { SuspenseLineProcessor, parseSSEBuffer } from "@/lib/gen/route-helpers";
 import * as chatRepo from "@/lib/db/chat-repository";
 import type { BuildIntent } from "@/lib/builder/build-intent";
-import { buildPreviewUrl } from "@/lib/gen/preview";
 import { finalizeAndSaveVersion } from "@/lib/gen/stream/finalize-version";
 
 export const runtime = "nodejs";
@@ -278,7 +282,7 @@ export async function POST(req: Request) {
         console.warn("[prompt-log] Failed to record prompt log:", error);
       }
 
-      debugLog("v0", "v0 chat stream request", {
+      debugLog("v0", "Chat stream request (own engine unless fallback=true)", {
         modelId: resolvedModelId,
         modelTier: resolvedModelTier,
         promptLength: optimizedMessage.length,
@@ -353,7 +357,10 @@ export async function POST(req: Request) {
         if (metaScaffoldMode === "manual" && metaScaffoldId) {
           resolvedScaffold = getScaffoldById(metaScaffoldId);
         } else if (metaScaffoldMode === "auto") {
-          resolvedScaffold = matchScaffold(optimizedMessage, engineIntent);
+          resolvedScaffold = await matchScaffoldWithEmbeddings(
+            optimizedMessage,
+            engineIntent,
+          );
         }
 
         const promptForSystemContext = optimizedMessage;
@@ -376,7 +383,7 @@ export async function POST(req: Request) {
           });
         }
 
-        const engineSystemPrompt = buildSystemPrompt({
+        const engineSystemPrompt = await buildSystemPrompt({
           intent: engineIntent,
           imageGenerations: resolvedImageGenerations,
           themeOverride: metaThemeColors,

@@ -216,7 +216,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
           metaBuildIntent === "app"
             ? (metaBuildIntent as BuildIntent)
             : "website";
-        const engineSystemPrompt = buildSystemPrompt({
+        const engineSystemPrompt = await buildSystemPrompt({
           intent: engineIntent,
           imageGenerations: resolvedImageGenerations,
           originalPrompt: promptForSystemContext,
@@ -736,7 +736,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
         });
       }
 
-      debugLog("v0", "v0 follow-up message request", {
+      debugLog("v0", "Follow-up message request (own engine unless fallback=true)", {
         chatId,
         messageLength: optimizedMessage.length,
         originalMessageLength: message.length,

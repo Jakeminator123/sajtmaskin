@@ -2,6 +2,7 @@ import { parseCodeProject, type CodeFile } from "@/lib/gen/parser";
 import { fixUseClient } from "./use-client-fixer";
 import { runImportValidator } from "./import-validator";
 import { fixReactImport } from "./react-import-fixer";
+import { fixFontImport } from "./rules/font-import-fixer";
 import type { SyntaxValidation } from "./syntax-validator";
 import { runJsxChecker } from "./jsx-checker";
 import { runDepCompleter } from "./dep-completer";
@@ -131,6 +132,21 @@ export async function runAutoFix(
         );
       }
 
+      // 3b. font-import-fixer (layout files only)
+      try {
+        const fontResult = fixFontImport(currentCode, file.path);
+        if (fontResult.fixed) {
+          currentCode = fontResult.code;
+          for (const fix of fontResult.fixes) {
+            allFixes.push({ ...fix, file: file.path });
+          }
+        }
+      } catch (err) {
+        allWarnings.push(
+          `[${file.path}] font-import-fixer threw: ${err instanceof Error ? err.message : String(err)}`,
+        );
+      }
+
       // 4. syntax-validator (async, dynamically imported to avoid Turbopack bundling esbuild)
       try {
         const { validateSyntax } = await import("./syntax-validator");
@@ -216,7 +232,8 @@ export async function runAutoFix(
 
 /**
  * Replace original file contents in the raw CodeProject string with fixed versions.
- * Preserves the overall document structure (markdown, fences, attributes).
+ * Uses file-path-aware fenced block matching to avoid replacing the wrong file
+ * when multiple files contain identical content snippets.
  */
 function rebuildContent(
   originalContent: string,
@@ -228,10 +245,20 @@ function rebuildContent(
   for (let i = 0; i < originalFiles.length; i++) {
     const orig = originalFiles[i];
     const fixed = fixedFiles[i];
-
     if (orig.content === fixed.content) continue;
 
-    result = result.replace(orig.content, fixed.content);
+    const escapedPath = orig.path.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const fenceRe = new RegExp(
+      "(```\\w+\\s+file=\"" + escapedPath + "\"[^\\n]*\\n)" +
+        "([\\s\\S]*?)" +
+        "(\\n```)",
+    );
+    const match = result.match(fenceRe);
+    if (match) {
+      result = result.replace(fenceRe, `$1${fixed.content}$3`);
+    } else {
+      result = result.replace(orig.content, fixed.content);
+    }
   }
 
   return result;

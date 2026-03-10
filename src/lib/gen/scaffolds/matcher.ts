@@ -1,6 +1,14 @@
+/**
+ * Scaffold matching — selects the best internal scaffold for a prompt.
+ *
+ * Uses keyword matching as primary strategy, with embedding-based
+ * semantic search as fallback when keywords yield only generic defaults.
+ * Only matches against the 10 internal scaffolds in registry.ts.
+ */
 import type { ScaffoldManifest } from "./types";
 import type { BuildIntent } from "@/lib/builder/build-intent";
 import { getScaffoldByFamily, getScaffoldById } from "./registry";
+import { searchScaffolds } from "./scaffold-search";
 
 const LANDING_KEYWORDS = [
   "landing",
@@ -265,25 +273,26 @@ function pickBestScaffold(
   return getScaffoldById(best.id);
 }
 
+/**
+ * Synchronous keyword-based scaffold matching.
+ * Fast and deterministic -- used as the primary matcher.
+ */
 export function matchScaffold(
   prompt: string,
   buildIntent?: BuildIntent | null,
 ): ScaffoldManifest | null {
   const lower = prompt.toLowerCase();
 
-  // Auth-specific: login, signup, forgot password
   const authScore = countKeywordMatches(lower, AUTH_KEYWORDS);
   if (authScore >= MIN_SCORE) {
     return getScaffoldByFamily("auth-pages");
   }
 
-  // Ecommerce: shop, products, cart
   const ecommerceScore = countKeywordMatches(lower, ECOMMERCE_KEYWORDS);
   if (ecommerceScore >= MIN_SCORE) {
     return getScaffoldByFamily("ecommerce");
   }
 
-  // App/dashboard intent
   if (buildIntent === "app") {
     const dashboardScore = countKeywordMatches(lower, DASHBOARD_KEYWORDS);
     const appScore = countKeywordMatches(lower, APP_KEYWORDS);
@@ -302,7 +311,6 @@ export function matchScaffold(
     return getScaffoldByFamily("app-shell");
   }
 
-  // Content-type scaffolds: pick best among landing, saas, portfolio, blog
   const saasScore = countKeywordMatches(lower, SAAS_KEYWORDS);
   const portfolioScore = countKeywordMatches(lower, PORTFOLIO_KEYWORDS);
   const landingScore = countKeywordMatches(lower, LANDING_KEYWORDS);
@@ -319,16 +327,48 @@ export function matchScaffold(
     return bestContent;
   }
 
-  // Fallback: content-site for generic content prompts
   const contentScore = countKeywordMatches(lower, CONTENT_KEYWORDS);
   if (contentScore >= MIN_SCORE) {
     return getScaffoldByFamily("content-site");
   }
 
-  // Default for website/template
   if (buildIntent === "website" || buildIntent === "template") {
     return getScaffoldById("landing-page");
   }
 
   return getScaffoldByFamily("base-nextjs");
+}
+
+const EMBEDDING_MIN_SCORE = 0.35;
+
+/**
+ * Async scaffold matching that combines keyword matching with semantic
+ * embedding search. Uses keyword match as the primary result; falls back
+ * to embedding search when keywords only produce a generic default
+ * (landing-page or base-nextjs), which suggests the prompt uses
+ * vocabulary not covered by the keyword lists.
+ */
+export async function matchScaffoldWithEmbeddings(
+  prompt: string,
+  buildIntent?: BuildIntent | null,
+): Promise<ScaffoldManifest | null> {
+  const keywordResult = matchScaffold(prompt, buildIntent);
+
+  const isGenericDefault =
+    !keywordResult ||
+    keywordResult.id === "landing-page" ||
+    keywordResult.id === "base-nextjs";
+
+  if (!isGenericDefault) return keywordResult;
+
+  try {
+    const results = await searchScaffolds(prompt, 1);
+    if (results.length > 0 && results[0].score >= EMBEDDING_MIN_SCORE) {
+      return results[0].scaffold;
+    }
+  } catch {
+    // embedding search is best-effort; fall through to keyword result
+  }
+
+  return keywordResult;
 }

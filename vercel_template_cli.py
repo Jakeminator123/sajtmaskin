@@ -94,6 +94,21 @@ class Template:
     repo: Optional[str]
 
 
+@dataclass
+class ScaffoldCandidate:
+    """Formalized scaffold candidate for curation pipeline."""
+
+    slug: str
+    name: str
+    description: str
+    vercel_url: str
+    repo: Optional[str]
+    category: str
+    status: str  # candidate | approved_reference | ignore
+    rationale: str
+    scaffold_family: Optional[str]  # maps to internal ScaffoldFamily if relevant
+
+
 class VercelScraper:
     """Scrape Vercel template categories and discover repository links."""
 
@@ -252,6 +267,57 @@ class VercelScraper:
         return data
 
 
+SCAFFOLD_FAMILY_HINTS: Dict[str, List[str]] = {
+    "ecommerce": ["ecommerce", "commerce", "shop", "store", "storefront"],
+    "blog": ["blog", "markdown", "editorial", "magazine"],
+    "portfolio": ["portfolio", "gallery", "photography", "personal"],
+    "saas-landing": ["saas", "subscription", "pricing"],
+    "landing-page": ["starter", "marketing", "landing"],
+    "dashboard": ["dashboard", "admin", "analytics"],
+    "auth-pages": ["authentication", "auth", "login"],
+    "app-shell": ["backend", "admin-dashboard", "realtime"],
+}
+
+
+def infer_scaffold_family(slug: str, name: str, description: str) -> Optional[str]:
+    """Heuristically map a Vercel template to an internal scaffold family."""
+    text = f"{slug} {name} {description}".lower()
+    best_family: Optional[str] = None
+    best_hits = 0
+    for family, hints in SCAFFOLD_FAMILY_HINTS.items():
+        hits = sum(1 for h in hints if h in text)
+        if hits > best_hits:
+            best_hits = hits
+            best_family = family
+    return best_family if best_hits > 0 else None
+
+
+def templates_to_candidates(
+    data: Dict[str, List[Template]],
+) -> List[Dict]:
+    """Convert scraped templates to formalized scaffold candidate dicts."""
+    candidates: List[Dict] = []
+    seen_urls: set = set()
+    for slug, templates in data.items():
+        for tpl in templates:
+            if tpl.url in seen_urls:
+                continue
+            seen_urls.add(tpl.url)
+            family = infer_scaffold_family(slug, tpl.name, tpl.description)
+            candidates.append({
+                "slug": slug,
+                "name": tpl.name,
+                "description": tpl.description,
+                "vercel_url": tpl.url,
+                "repo": tpl.repo,
+                "category": slug,
+                "status": "candidate",
+                "rationale": "",
+                "scaffold_family": family,
+            })
+    return candidates
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(
         description="Scrape Vercel template categories and export results",
@@ -282,6 +348,15 @@ def parse_args() -> argparse.Namespace:
         "--json",
         type=str,
         help="Output path for saving results as JSON.  If omitted, prints to STDOUT.",
+    )
+    parser.add_argument(
+        "--candidates",
+        type=str,
+        help=(
+            "Output path for formalized scaffold candidates JSON. "
+            "Produces a list of {slug, name, description, vercel_url, repo, "
+            "category, status, rationale, scaffold_family} objects."
+        ),
     )
     return parser.parse_args()
 
@@ -360,14 +435,28 @@ def main() -> None:
         print(f"{slug}: {len(templates)} templates")
     # Export to JSON or print details
     if args.json:
-        # serialise dataclasses to dicts
         serialisable = {
             slug: [t.__dict__ for t in templates] for slug, templates in data.items()
         }
         with open(args.json, "w", encoding="utf-8") as fh:
             json.dump(serialisable, fh, indent=2)
         print(f"Results saved to {args.json}")
-    else:
+
+    if args.candidates:
+        candidates = templates_to_candidates(data)
+        output = {
+            "_meta": {
+                "generated": __import__("datetime").datetime.now().isoformat(),
+                "source": "vercel_template_cli.py",
+                "total": len(candidates),
+            },
+            "candidates": candidates,
+        }
+        with open(args.candidates, "w", encoding="utf-8") as fh:
+            json.dump(output, fh, indent=2, ensure_ascii=False)
+        print(f"Scaffold candidates saved to {args.candidates}")
+
+    if not args.json and not args.candidates:
         for slug, templates in data.items():
             print(f"\n{slug} templates:")
             for tpl in templates:

@@ -40,6 +40,7 @@ type PreparedModule = {
 type PreviewValidationIssue = {
   file: string;
   message: string;
+  severity: "error" | "warning";
 };
 
 function escapeRegExp(value: string): string {
@@ -412,6 +413,10 @@ function normalizeTranspiledModule(
       if (targetModule?.defaultExportName) {
         result = result.replace(defaultRe, targetModule.defaultExportName);
       }
+      result = result.replace(memberRe, "$1");
+    } else if (source.startsWith("@/") || source.startsWith("./") || source.startsWith("../")) {
+      result = result.replace(fullMatch, "");
+      result = result.replace(defaultRe, varName);
       result = result.replace(memberRe, "$1");
     }
   }
@@ -936,6 +941,7 @@ function collectPreviewValidationIssues(modules: PreparedModule[]): PreviewValid
           issues.push({
             file: preparedModule.file.path,
             message: `Missing local import target: ${imp.source}`,
+            severity: "warning",
           });
         }
         continue;
@@ -946,6 +952,7 @@ function collectPreviewValidationIssues(modules: PreparedModule[]): PreviewValid
         issues.push({
           file: preparedModule.file.path,
           message: `Resolved local import is unavailable in preview: ${imp.source} -> ${targetPath}`,
+          severity: "warning",
         });
         continue;
       }
@@ -954,12 +961,58 @@ function collectPreviewValidationIssues(modules: PreparedModule[]): PreviewValid
         issues.push({
           file: preparedModule.file.path,
           message: `Local import expects a default export from ${imp.source}, but none was found`,
+          severity: "warning",
         });
       }
     }
   }
 
   return issues;
+}
+
+function buildMissingImportStubs(modules: PreparedModule[], issues: PreviewValidationIssue[]): string {
+  if (issues.length === 0) return "";
+
+  const fileMap = buildCodeFileMap(modules.map((m) => m.file));
+  const stubbed = new Set<string>();
+  const lines: string[] = [];
+
+  for (const preparedModule of modules) {
+    for (const imp of preparedModule.imports) {
+      if (isPreviewHandledImportSource(imp.source)) continue;
+
+      const targetPath = resolveLocalImportPath(fileMap, preparedModule.file.path, imp.source);
+      if (targetPath) continue;
+      if (!imp.source.startsWith(".") && !imp.source.startsWith("@/")) continue;
+
+      if (imp.defaultImport && !stubbed.has(imp.defaultImport)) {
+        stubbed.add(imp.defaultImport);
+        lines.push(
+          `var ${imp.defaultImport} = (props) => React.createElement("div", ` +
+            `{ "data-stub": ${JSON.stringify(imp.source)}, style: { padding: "1rem", border: "1px dashed #666", borderRadius: "0.5rem", color: "#999", fontSize: "0.85rem", textAlign: "center" } }, ` +
+            `"[${imp.defaultImport}]");`,
+        );
+      }
+
+      for (const binding of imp.namedImports) {
+        if (!stubbed.has(binding.local)) {
+          stubbed.add(binding.local);
+          lines.push(
+            `var ${binding.local} = (props) => React.createElement("div", ` +
+              `{ "data-stub": ${JSON.stringify(imp.source)}, style: { padding: "0.5rem", border: "1px dashed #666", borderRadius: "0.25rem", color: "#999", fontSize: "0.85rem" } }, ` +
+              `"[${binding.local}]");`,
+          );
+        }
+      }
+
+      if (imp.namespaceImport && !stubbed.has(imp.namespaceImport)) {
+        stubbed.add(imp.namespaceImport);
+        lines.push(`var ${imp.namespaceImport} = new Proxy({}, { get: (_, key) => (props) => React.createElement("span", null, "[" + String(key) + "]") });`);
+      }
+    }
+  }
+
+  return lines.join("\n");
 }
 
 function buildPreviewScript(pageFile: CodeFile, componentFiles: CodeFile[]): string {
@@ -981,8 +1034,11 @@ function buildPreviewScript(pageFile: CodeFile, componentFiles: CodeFile[]): str
   }
 
   const validationIssues = collectPreviewValidationIssues(modules);
-  if (validationIssues.length > 0) {
-    const visibleIssues = validationIssues.slice(0, PREVIEW_TRANSPILE_ERROR_LIMIT);
+  const validationErrors = validationIssues.filter((i) => i.severity === "error");
+  const validationWarnings = validationIssues.filter((i) => i.severity === "warning");
+
+  if (validationErrors.length > 0) {
+    const visibleIssues = validationErrors.slice(0, PREVIEW_TRANSPILE_ERROR_LIMIT);
     const errorMessage = [
       "Preview validation failed for generated code.",
       "",
@@ -993,6 +1049,11 @@ function buildPreviewScript(pageFile: CodeFile, componentFiles: CodeFile[]): str
     );
   }
 
+  const missingImportStubs = buildMissingImportStubs(modules, validationWarnings);
+  const warningLog = validationWarnings.length > 0
+    ? validationWarnings.map((w) => `console.warn("[preview] ${w.file}: ${w.message.replace(/"/g, '\\"')}");`).join("\n")
+    : "";
+
   const moduleCode = modules.map((module) => module.transformedCode).join("\n\n");
   const localAliases = buildLocalImportAliases(modules);
   const pageModule = modules[modules.length - 1];
@@ -1001,6 +1062,8 @@ function buildPreviewScript(pageFile: CodeFile, componentFiles: CodeFile[]): str
   return escapeInlineScript(
     [
       prelude,
+      missingImportStubs,
+      warningLog,
       moduleCode,
       localAliases,
       "try {",
@@ -1086,6 +1149,17 @@ export function buildSandboxFiles(files: CodeFile[]): Record<string, string> {
  * Creates a preview URL for a given chatId + versionId.
  * Points to the /api/preview-render endpoint which serves the HTML.
  */
-export function buildPreviewUrl(chatId: string, versionId: string): string {
-  return `/api/preview-render?chatId=${encodeURIComponent(chatId)}&versionId=${encodeURIComponent(versionId)}`;
+export function buildPreviewUrl(
+  chatId: string,
+  versionId: string,
+  projectId?: string | null,
+): string {
+  const params = new URLSearchParams({
+    chatId,
+    versionId,
+  });
+  if (projectId) {
+    params.set("projectId", projectId);
+  }
+  return `/api/preview-render?${params.toString()}`;
 }

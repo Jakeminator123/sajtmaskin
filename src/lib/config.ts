@@ -238,6 +238,10 @@ export const SECRETS = {
     return env.EMAIL_FROM;
   },
 
+  get mcpGeneratedCodeApiKey() {
+    return env.MCP_GENERATED_CODE_API_KEY ?? "";
+  },
+
   get backofficePassword() {
     return env.BACKOFFICE_PASSWORD ?? "";
   },

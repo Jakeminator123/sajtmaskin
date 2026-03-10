@@ -8,7 +8,7 @@ interface UnsplashSearchResult {
   }>;
 }
 
-const PLACEHOLDER_RE =
+const _PLACEHOLDER_RE =
   /\/placeholder\.svg\?(?:[^"'\s]*&)?text=([^&"'\s]+)(?:[^"'\s]*height=(\d+))?(?:[^"'\s]*width=(\d+))?/g;
 
 const PLACEHOLDER_FULL_RE =
@@ -65,6 +65,25 @@ function chooseOrientation(
   return "squarish";
 }
 
+const FILLER_WORDS = new Set([
+  "och", "i", "med", "som", "en", "ett", "den", "det", "av", "på", "för",
+  "till", "från", "om", "att", "är", "var", "har", "kan", "ska", "vill",
+  "the", "a", "an", "of", "in", "with", "and", "for", "on", "at", "from",
+  "that", "is", "are", "was", "has", "very", "really", "also", "some",
+]);
+
+function normalizeSearchQuery(raw: string, maxWords = 6): string {
+  const words = raw
+    .replace(/[+_-]/g, " ")
+    .split(/\s+/)
+    .filter((w) => w.length > 1 && !FILLER_WORDS.has(w.toLowerCase()));
+  return words.slice(0, maxWords).join(" ");
+}
+
+function shortenQuery(normalized: string, maxWords = 3): string {
+  return normalized.split(/\s+/).slice(0, maxWords).join(" ");
+}
+
 export interface MaterializeResult {
   content: string;
   replacedCount: number;
@@ -119,7 +138,11 @@ export async function materializeImages(content: string): Promise<MaterializeRes
 
     if (!url) {
       const orientation = chooseOrientation(match.width, match.height);
-      const rawUrl = await searchUnsplash(match.text, accessKey, orientation);
+      const normalized = normalizeSearchQuery(match.text);
+      let rawUrl = await searchUnsplash(normalized, accessKey, orientation);
+      if (!rawUrl && normalized.split(/\s+/).length > 3) {
+        rawUrl = await searchUnsplash(shortenQuery(normalized), accessKey, orientation);
+      }
       if (rawUrl) {
         url = buildUnsplashUrl(rawUrl, match.width, match.height);
         seen.set(cacheKey, url);

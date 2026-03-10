@@ -48,7 +48,7 @@ export function serializeScaffoldForPrompt(
       ? `\n\n## Scaffold Theme Reference (adapt freely)\n\n\`\`\`css file="${globalsCss.path}"\n${globalsCss.content}\n\`\`\``
       : "";
 
-    return `## Scaffold: ${scaffold.label} (inspirational mode)\n\n${scaffold.description}\n\nThe user's request describes a unique visual identity. Use the scaffold's file structure as a starting point, but **create the visual design and layout from scratch** based on the user's vision. You are not bound by the scaffold's existing layout or component patterns.\n\nScaffold file paths (create these files with your own implementation):\n${filePaths}${themeBlock}\n\n**IMPORTANT — Color adaptation:** Update the \`@theme inline\` color tokens to match the user's requested palette and atmosphere. Never leave scaffold defaults unchanged.${hints}`;
+    return `## Scaffold: ${scaffold.label} (inspirational mode)\n\n${scaffold.description}\n\nThe user's request describes a unique visual identity. Use the scaffold's file structure as a flexible starting point, but **create the visual design, layout, and page structure from scratch** based on the user's vision. You are not bound by the scaffold's existing layout, component patterns, or number of pages. If the user wants multiple pages, create them freely.\n\nScaffold file paths (create these files with your own implementation):\n${filePaths}${themeBlock}\n\n**IMPORTANT — Color adaptation:** The scaffold's \`@theme inline\` uses deliberately neutral gray tokens (hue 0, no color). You MUST replace them with a vivid, on-theme palette derived from the user's request. Always emit a complete \`app/globals.css\` with adapted colors. If the output still looks gray/neutral, you forgot to adapt the colors.${hints}`;
   }
 
   const ctx = buildFileContext({
@@ -58,7 +58,7 @@ export function serializeScaffoldForPrompt(
 
   const fileBlocks = renderScaffoldFiles(scaffold);
 
-  return `## Scaffold: ${scaffold.label}\n\n${scaffold.description}\n\nTreat these scaffold files as the current starter project. Modify them when they already fit the request instead of rewriting everything from scratch. Only return files you need to CREATE or MODIFY. Files you omit are kept as-is.\n\n**IMPORTANT — Color adaptation:** The scaffold's \`app/globals.css\` contains neutral placeholder colors. You MUST update the \`@theme inline\` color tokens (--color-primary, --color-secondary, --color-accent, etc.) to match the user's requested color palette or the site's subject matter. Never leave the default neutral/gray theme unchanged.\n\n${ctx.summary}\n\n## Scaffold Files\n\n${fileBlocks}${hints}`;
+  return `## Scaffold: ${scaffold.label}\n\n${scaffold.description}\n\nTreat these scaffold files as a flexible starting point — not a rigid template. Adapt structure, pages, and components freely to match what the user actually asked for. If the user wants two pages, create two pages even if the scaffold only has one. Only return files you need to CREATE or MODIFY. Files you omit are kept as-is.\n\n**IMPORTANT — Color adaptation:** The scaffold's \`app/globals.css\` contains deliberately neutral gray placeholder tokens (hue 0). You MUST replace them with a vivid, on-theme palette that fits the user's request. Always emit \`app/globals.css\` with adapted \`@theme inline\` color tokens. Gray/neutral output means you forgot.\n\n${ctx.summary}\n\n## Scaffold Files\n\n${fileBlocks}${hints}`;
 }
 
 function inferLang(path: string): string {

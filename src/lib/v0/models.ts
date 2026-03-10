@@ -99,6 +99,11 @@ export function canonicalizeModelId(
   return null;
 }
 
+/**
+ * User-facing labels. Despite the v0-prefixed keys, these tiers apply to
+ * the own engine (default) and only fall back to the v0 Platform API
+ * when V0_FALLBACK_BUILDER=y.
+ */
 export const MODEL_LABELS: Record<CanonicalModelId, string> = {
   "v0-max-fast": "Fast",
   "v0-1.5-md": "Pro",

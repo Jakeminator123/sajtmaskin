@@ -20,23 +20,23 @@ export const appShellManifest: ScaffoldManifest = {
       content: `@import "tailwindcss";
 
 @theme inline {
-  --color-background: oklch(0.12 0.004 250);
-  --color-foreground: oklch(0.95 0.003 250);
-  --color-card: oklch(0.16 0.004 250);
-  --color-card-foreground: oklch(0.95 0.003 250);
-  --color-primary: oklch(0.65 0.2 250);
-  --color-primary-foreground: oklch(0.98 0.003 250);
-  --color-secondary: oklch(0.19 0.005 250);
-  --color-secondary-foreground: oklch(0.9 0.003 250);
-  --color-muted: oklch(0.19 0.004 250);
-  --color-muted-foreground: oklch(0.6 0.01 250);
-  --color-accent: oklch(0.22 0.005 250);
-  --color-accent-foreground: oklch(0.9 0.003 250);
+  --color-background: oklch(0.12 0.004 0);
+  --color-foreground: oklch(0.95 0.004 0);
+  --color-card: oklch(0.16 0.004 0);
+  --color-card-foreground: oklch(0.95 0.004 0);
+  --color-primary: oklch(0.65 0.004 0);
+  --color-primary-foreground: oklch(0.98 0 0);
+  --color-secondary: oklch(0.19 0.004 0);
+  --color-secondary-foreground: oklch(0.9 0.004 0);
+  --color-muted: oklch(0.19 0.004 0);
+  --color-muted-foreground: oklch(0.6 0.004 0);
+  --color-accent: oklch(0.22 0.004 0);
+  --color-accent-foreground: oklch(0.9 0.004 0);
   --color-destructive: oklch(0.55 0.2 25);
   --color-destructive-foreground: oklch(0.98 0.005 25);
-  --color-border: oklch(0.23 0.005 250);
-  --color-input: oklch(0.2 0.005 250);
-  --color-ring: oklch(0.65 0.2 250);
+  --color-border: oklch(0.23 0.004 0);
+  --color-input: oklch(0.2 0.004 0);
+  --color-ring: oklch(0.65 0.004 0);
   --radius: 0.5rem;
   --sidebar-width: 260px;
 }

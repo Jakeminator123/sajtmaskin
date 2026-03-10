@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { OPENCLAW } from "@/lib/config";
 import { prepareCredits } from "@/lib/credits/server";
 import { withRateLimit } from "@/lib/rateLimit";
+import { resolveFileContext } from "@/lib/openclaw/resolve-file-context";
 
 export const runtime = "nodejs";
 export const maxDuration = 60;
@@ -69,9 +70,13 @@ function buildTipsContextBlock(ctx: Record<string, unknown>): string {
     parts.push(...recent);
   }
 
-  const currentCode = normalizeText(ctx.currentCode, 2200);
-  if (currentCode) {
-    parts.push(`\nKodavsnitt:\n\`\`\`\n${currentCode}\n\`\`\``);
+  if (typeof ctx._fileManifest === "string" && ctx._fileManifest.length > 0) {
+    parts.push(`\n[FILMANIFEST]\n${ctx._fileManifest}\n[/FILMANIFEST]`);
+  } else {
+    const currentCode = normalizeText(ctx.currentCode, 2200);
+    if (currentCode) {
+      parts.push(`\nKodavsnitt:\n\`\`\`\n${currentCode}\n\`\`\``);
+    }
   }
 
   parts.push("[/BUILDER-TIPS-KONTEXT]");
@@ -121,7 +126,20 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: "Invalid JSON" }, { status: 400 });
     }
 
-    const context = body.context && typeof body.context === "object" ? body.context : {};
+    const context: Record<string, unknown> =
+      body.context && typeof body.context === "object"
+        ? { ...body.context }
+        : {};
+
+    const tipChatId = typeof context.chatId === "string" ? context.chatId : "";
+    const tipVersionId =
+      typeof context.activeVersionId === "string" ? context.activeVersionId : "";
+    if (tipChatId && !context._fileManifest) {
+      const fc = await resolveFileContext(tipChatId, tipVersionId || null);
+      if (fc) {
+        context._fileManifest = fc.manifest;
+      }
+    }
 
     try {
       const upstream = await fetch(`${gatewayUrl}/v1/chat/completions`, {

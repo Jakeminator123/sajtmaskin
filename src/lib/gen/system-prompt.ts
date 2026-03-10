@@ -17,6 +17,7 @@
 import type { BuildIntent } from "@/lib/builder/build-intent";
 import type { ThemeColors } from "@/lib/builder/theme-presets";
 import { searchKnowledgeBase } from "./context/knowledge-base";
+import { enrichWithRegistry } from "./context/registry-enricher";
 
 // ═══════════════════════════════════════════════════════════════════════════
 // STATIC CORE — never changes per request (prompt-cache optimized)
@@ -66,54 +67,17 @@ Rules for output format:
 ## shadcn/ui Components
 
 These components are pre-installed at \`@/components/ui/{name}\`. Import them — NEVER generate them.
+Use any component by name: \`import { Button } from "@/components/ui/button"\`.
+The most relevant components and libraries for this task are listed in the **Relevant Documentation** section below.
 
-Available components and their import paths:
+Common imports (always available):
 - \`{ Button } from "@/components/ui/button"\`
-- \`{ Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"\`
+- \`{ Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"\`
 - \`{ Input } from "@/components/ui/input"\`
 - \`{ Label } from "@/components/ui/label"\`
-- \`{ Textarea } from "@/components/ui/textarea"\`
-- \`{ Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"\`
-- \`{ Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog"\`
-- \`{ Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet"\`
-- \`{ Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"\`
-- \`{ Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion"\`
 - \`{ Badge } from "@/components/ui/badge"\`
-- \`{ Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"\`
 - \`{ Separator } from "@/components/ui/separator"\`
-- \`{ Switch } from "@/components/ui/switch"\`
-- \`{ Checkbox } from "@/components/ui/checkbox"\`
-- \`{ RadioGroup, RadioGroupItem } from "@/components/ui/radio-group"\`
-- \`{ Progress } from "@/components/ui/progress"\`
-- \`{ Slider } from "@/components/ui/slider"\`
-- \`{ Skeleton } from "@/components/ui/skeleton"\`
-- \`{ ScrollArea, ScrollBar } from "@/components/ui/scroll-area"\`
-- \`{ Table, TableBody, TableCaption, TableCell, TableFooter, TableHead, TableHeader, TableRow } from "@/components/ui/table"\`
-- \`{ Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"\`
-- \`{ Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"\`
-- \`{ DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"\`
-- \`{ NavigationMenu, NavigationMenuContent, NavigationMenuItem, NavigationMenuLink, NavigationMenuList, NavigationMenuTrigger } from "@/components/ui/navigation-menu"\`
-- \`{ Command, CommandDialog, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command"\`
-- \`{ AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from "@/components/ui/alert-dialog"\`
-- \`{ HoverCard, HoverCardContent, HoverCardTrigger } from "@/components/ui/hover-card"\`
-- \`{ Drawer, DrawerContent, DrawerDescription, DrawerFooter, DrawerHeader, DrawerTitle, DrawerTrigger } from "@/components/ui/drawer"\`
-- \`{ Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel"\`
-- \`{ Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"\`
-- \`{ Toggle } from "@/components/ui/toggle"\`
-- \`{ ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group"\`
-- \`{ Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination"\`
-- \`{ Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb"\`
-- \`{ Calendar } from "@/components/ui/calendar"\`
-- \`{ Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form"\`
-- \`{ Menubar, MenubarContent, MenubarItem, MenubarMenu, MenubarSeparator, MenubarTrigger } from "@/components/ui/menubar"\`
-- \`{ ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/components/ui/resizable"\`
-- \`{ ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from "@/components/ui/context-menu"\`
-- \`{ Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"\`
-- \`{ AspectRatio } from "@/components/ui/aspect-ratio"\`
-- \`{ ChartContainer, ChartTooltip, ChartTooltipContent, ChartLegend, ChartLegendContent } from "@/components/ui/chart"\`
-- \`{ Sidebar, SidebarContent, SidebarFooter, SidebarGroup, SidebarGroupContent, SidebarGroupLabel, SidebarHeader, SidebarMenu, SidebarMenuButton, SidebarMenuItem, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar"\`
-- \`{ InputOTP, InputOTPGroup, InputOTPSeparator, InputOTPSlot } from "@/components/ui/input-otp"\`
-- \`{ Sonner } from "@/components/ui/sonner"\`
+- \`{ Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"\`
 
 The utility function \`cn()\` is available: \`import { cn } from "@/lib/utils"\`.
 
@@ -188,11 +152,11 @@ Use \`/placeholder.svg?height=H&width=W&text=DESCRIPTION\` for ALL images. Write
 - NEVER use \`/ai/\` paths, \`/api/ai-image\`, \`blob:\`, \`data:\` URIs, picsum.photos, or placehold.co.
 - NEVER fabricate Unsplash photo IDs — the post-processor handles real image sourcing.
 
-## Existing Files (do NOT regenerate)
+## Existing Files (do NOT regenerate unless explicitly needed)
 
 These files already exist in the project runtime:
-- app/layout.tsx
-- app/globals.css
+- app/layout.tsx — handles font loading via \`import { Inter } from "next/font/google"\` with \`variable: "--font-sans"\`. If you regenerate layout.tsx, you MUST include the font import and variable setup. Never reference a font name (Inter, Geist, etc.) without importing it first.
+- app/globals.css — contains \`@theme inline\` color tokens. You MUST regenerate this file with colors adapted to the user's request.
 - components/ui/* (all shadcn/ui components)
 - hooks/use-mobile.tsx
 - hooks/use-toast.ts
@@ -203,11 +167,26 @@ These files already exist in the project runtime:
 
 ## Scaffold Starters
 
-- You may receive a scaffold starter in the request context.
-- If the scaffold's structure fits the user's request, modify it rather than rewriting everything.
-- If the user's request describes a unique visual identity (retro, futuristic, western, cyberpunk, vintage, neon, etc.), treat the scaffold as structural inspiration only — rebuild the visual design, layout, and atmosphere to match the user's vision.
-- When replacing scaffold files, make sure imports, exports, and shared layout patterns still line up.
-- The scaffold's \`globals.css\` color tokens MUST always be adapted to the requested theme — never leave scaffold defaults unchanged.
+You may receive a scaffold starter in the request context. A scaffold is a **flexible starting point**, not a rigid template.
+
+### Locked (infrastructure — do not change)
+- CSS token **names**: \`--color-primary\`, \`--color-background\`, etc. Keep the standard naming convention.
+- Font loading: use \`next/font/google\` with \`variable: "--font-sans"\` in \`app/layout.tsx\`.
+- shadcn/ui patterns: import from \`@/components/ui/*\`, use \`cn()\` from \`@/lib/utils\`.
+- Config files: never output \`package.json\`, \`tsconfig.json\`, \`next.config.*\`, \`postcss.config.*\`, or \`tailwind.config.*\`.
+
+### Flexible (prompt-driven — adapt freely)
+- **Color token values.** The scaffold's \`globals.css\` tokens are deliberately neutral gray (hue 0). You MUST replace them with a vivid palette derived from the user's prompt. Gray output means you forgot.
+- **Page count and routes.** If the user asks for 2 pages and the scaffold has 1, create 2. If 5, create 5. Add route files freely. Scaffold routes are suggestions, not constraints.
+- **Components and sections.** Replace, remove, or add components to match the user's vision. The scaffold's sections are not mandatory.
+- **Layout structure.** Nav, sidebar, footer, hero — all can change based on the prompt.
+- **Copy, imagery, and atmosphere.** Always match the user's requested language, tone, and visual identity.
+
+### Creative prompts
+If the user's request describes a unique visual identity (retro, futuristic, western, cyberpunk, vintage, neon, etc.), treat the scaffold as structural inspiration only — rebuild the visual design, layout, and atmosphere from scratch.
+
+### Import safety
+When replacing scaffold files, make sure imports, exports, and shared layout patterns still line up. Every component you reference in JSX must either exist in your output or in the scaffold's existing files.
 
 ## Accessibility
 
@@ -427,12 +406,12 @@ function strList(v: unknown): string[] {
  * Builds the dynamic (per-request) portion of the system prompt.
  * Contains build intent guidance, project context, visual identity, and media catalog.
  */
-export function buildDynamicContext(options: DynamicContextOptions): string {
+export async function buildDynamicContext(options: DynamicContextOptions): Promise<string> {
   const {
     intent,
     brief,
     themeOverride,
-    imageGenerations = false,
+    imageGenerations: _imageGenerations = false,
     mediaCatalog,
     originalPrompt,
     scaffoldContext,
@@ -590,13 +569,22 @@ export function buildDynamicContext(options: DynamicContextOptions): string {
     }
   }
 
-  // ── Relevant Documentation (KB search) ──────────────────────────────────
+  // ── Relevant Documentation (KB search + registry enrichment) ────────────
   if (originalPrompt) {
-    const kbMatches = searchKnowledgeBase({ query: originalPrompt, maxResults: 5, maxChars: 3000 });
+    const kbMatches = searchKnowledgeBase({ query: originalPrompt, maxResults: 7, maxChars: 4000 });
     if (kbMatches.length > 0) {
       parts.push("## Relevant Documentation", "");
       for (const match of kbMatches) {
         parts.push(`### ${match.title}`, "", match.content, "");
+      }
+
+      try {
+        const registryExtra = await enrichWithRegistry(kbMatches);
+        if (registryExtra) {
+          parts.push(registryExtra, "");
+        }
+      } catch {
+        // Registry unavailable -- continue without enrichment
       }
     }
   }
@@ -633,8 +621,8 @@ export interface BuildSystemPromptOptions {
  * The static core is always the first portion of the string, which allows
  * OpenAI's prompt prefix caching to kick in after the first request.
  */
-export function buildSystemPrompt(options: BuildSystemPromptOptions): string {
-  const dynamicContext = buildDynamicContext({
+export async function buildSystemPrompt(options: BuildSystemPromptOptions): Promise<string> {
+  const dynamicContext = await buildDynamicContext({
     intent: options.intent,
     brief: options.brief,
     themeOverride: options.themeOverride,

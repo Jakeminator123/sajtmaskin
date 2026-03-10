@@ -2,6 +2,8 @@ import type { ScaffoldManifest } from "@/lib/gen/scaffolds";
 import { runAutoFix } from "@/lib/gen/autofix/pipeline";
 import { validateAndFix } from "@/lib/gen/autofix/validate-and-fix";
 import { checkScaffoldImports } from "@/lib/gen/autofix/rules/scaffold-import-checker";
+import { checkCrossFileImports } from "@/lib/gen/autofix/rules/cross-file-import-checker";
+import { runProjectSanityChecks } from "@/lib/gen/validation/project-sanity";
 import { expandUrls } from "@/lib/gen/url-compress";
 import { materializeImages } from "@/lib/gen/post-process/image-materializer";
 import { buildPreviewUrl } from "@/lib/gen/preview";
@@ -112,7 +114,7 @@ export async function finalizeAndSaveVersion(
   const assistantMsg = chatRepo.addMessage(chatId, "assistant", contentForVersion);
 
   // 5. Parse files + scaffold merge
-  const { parseFilesFromContent, mergeVersionFiles } = await import(
+  const { parseFilesFromContent, mergeVersionFilesWithWarnings } = await import(
     "@/lib/gen/version-manager"
   );
   let filesJson = parseFilesFromContent(contentForVersion);
@@ -130,10 +132,29 @@ export async function finalizeAndSaveVersion(
       content: f.content,
       language: "tsx" as const,
     }));
-    const mergedFiles = mergeVersionFiles(scaffoldBase, generatedFiles);
+    const mergeResult = mergeVersionFilesWithWarnings(scaffoldBase, generatedFiles);
+    const mergedFiles = mergeResult.files;
+    if (mergeResult.warnings.length > 0) {
+      devLogAppend("in-progress", {
+        type: "merge-warnings",
+        chatId,
+        warnings: mergeResult.warnings,
+      });
+    }
 
-    // 5b. Scaffold import check (after merge)
-    const importResult = checkScaffoldImports(mergedFiles, resolvedScaffold);
+    // 5b. Cross-file import check (stub missing components)
+    const crossFileResult = checkCrossFileImports(mergedFiles);
+    const afterCrossFile = crossFileResult.files;
+    if (crossFileResult.fixes.length > 0) {
+      devLogAppend("in-progress", {
+        type: "cross-file-import-checker",
+        chatId,
+        fixes: crossFileResult.fixes,
+      });
+    }
+
+    // 5c. Scaffold import check (after merge + cross-file stubs)
+    const importResult = checkScaffoldImports(afterCrossFile, resolvedScaffold);
     if (importResult.fixes.length > 0) {
       devLogAppend("in-progress", {
         type: "scaffold-import-checker",
@@ -142,6 +163,42 @@ export async function finalizeAndSaveVersion(
       });
     }
     filesJson = JSON.stringify(importResult.files);
+  } else {
+    // No scaffold — still run cross-file import check on parsed files
+    const generatedFiles = (
+      JSON.parse(filesJson) as Array<{
+        path: string;
+        content: string;
+        language?: string;
+      }>
+    ).map((f) => ({ ...f, language: f.language || "tsx" }));
+    const crossFileResult = checkCrossFileImports(generatedFiles);
+    if (crossFileResult.fixes.length > 0) {
+      devLogAppend("in-progress", {
+        type: "cross-file-import-checker",
+        chatId,
+        fixes: crossFileResult.fixes,
+      });
+      filesJson = JSON.stringify(crossFileResult.files);
+    }
+  }
+
+  // 5d. Project-level sanity checks (post-merge)
+  try {
+    const finalFiles = (
+      JSON.parse(filesJson) as Array<{ path: string; content: string; language?: string }>
+    ).map((f) => ({ ...f, language: f.language || "tsx" }));
+    const sanity = runProjectSanityChecks(finalFiles);
+    if (sanity.issues.length > 0) {
+      devLogAppend("in-progress", {
+        type: "project-sanity",
+        chatId,
+        valid: sanity.valid,
+        issues: sanity.issues.slice(0, 20),
+      });
+    }
+  } catch (sanityErr) {
+    console.warn("[sanity] Project sanity check error:", sanityErr);
   }
 
   // 6. Create version

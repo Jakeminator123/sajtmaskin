@@ -28,20 +28,20 @@ export const blogManifest: ScaffoldManifest = {
       content: `@import "tailwindcss";
 
 @theme inline {
-  --color-background: oklch(0.99 0.003 250);
-  --color-foreground: oklch(0.15 0.004 250);
+  --color-background: oklch(0.99 0 0);
+  --color-foreground: oklch(0.15 0.004 0);
   --color-card: oklch(1 0 0);
-  --color-card-foreground: oklch(0.18 0.004 250);
-  --color-primary: oklch(0.5 0.14 250);
-  --color-primary-foreground: oklch(0.98 0.003 250);
-  --color-secondary: oklch(0.96 0.004 250);
-  --color-secondary-foreground: oklch(0.2 0.004 250);
-  --color-muted: oklch(0.95 0.003 250);
-  --color-muted-foreground: oklch(0.45 0.01 250);
-  --color-accent: oklch(0.94 0.01 250);
-  --color-accent-foreground: oklch(0.2 0.004 250);
-  --color-border: oklch(0.91 0.004 250);
-  --color-ring: oklch(0.5 0.14 250);
+  --color-card-foreground: oklch(0.18 0.004 0);
+  --color-primary: oklch(0.5 0.004 0);
+  --color-primary-foreground: oklch(0.98 0 0);
+  --color-secondary: oklch(0.96 0 0);
+  --color-secondary-foreground: oklch(0.2 0.004 0);
+  --color-muted: oklch(0.95 0.004 0);
+  --color-muted-foreground: oklch(0.45 0.004 0);
+  --color-accent: oklch(0.94 0.004 0);
+  --color-accent-foreground: oklch(0.2 0.004 0);
+  --color-border: oklch(0.91 0.004 0);
+  --color-ring: oklch(0.5 0.004 0);
   --radius: 0.75rem;
 }
 

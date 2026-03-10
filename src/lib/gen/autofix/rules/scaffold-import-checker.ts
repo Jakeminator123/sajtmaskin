@@ -41,10 +41,12 @@ export function checkScaffoldImports(
   let layoutContent = layoutFile.content;
 
   for (const comp of scaffoldComponents) {
-    const isReferenced =
-      layoutContent.includes(`<${comp.name}`) ||
-      layoutContent.includes(`<${comp.name}/>`);
-    const isImported = layoutContent.includes(comp.name);
+    const jsxRe = new RegExp(`<${comp.name}[\\s/>]`);
+    const isReferenced = jsxRe.test(layoutContent);
+    const importRe = new RegExp(
+      `import\\s+(?:(?:\\{[^}]*\\b${comp.name}\\b[^}]*\\})|(?:${comp.name}))\\s+from\\s+`,
+    );
+    const isImported = importRe.test(layoutContent);
 
     if (isReferenced && !isImported) {
       const importLine = `import { ${comp.name} } from "${comp.importPath}";\n`;

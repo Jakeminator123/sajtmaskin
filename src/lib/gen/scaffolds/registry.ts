@@ -1,3 +1,12 @@
+/**
+ * Internal scaffold registry — the single source of truth for runtime
+ * scaffold selection. Only scaffolds listed in ALL_SCAFFOLDS are used
+ * by matchScaffoldWithEmbeddings() during code generation.
+ *
+ * External Vercel templates (_template_refs/, vercel_template_cli.py)
+ * are research/reference material for creating new internal scaffolds.
+ * They are NOT used at runtime and have no connection to this registry.
+ */
 import type { ScaffoldManifest, ScaffoldFamily } from "./types";
 import { baseNextjsManifest } from "./base-nextjs/manifest";
 import { contentSiteManifest } from "./content-site/manifest";

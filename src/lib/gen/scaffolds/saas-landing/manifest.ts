@@ -28,20 +28,20 @@ export const saasLandingManifest: ScaffoldManifest = {
       content: `@import "tailwindcss";
 
 @theme inline {
-  --color-background: oklch(0.145 0.005 250);
-  --color-foreground: oklch(0.97 0.003 250);
-  --color-card: oklch(0.19 0.005 250);
-  --color-card-foreground: oklch(0.97 0.003 250);
-  --color-primary: oklch(0.72 0.16 150);
-  --color-primary-foreground: oklch(0.14 0.004 150);
-  --color-secondary: oklch(0.23 0.005 250);
-  --color-secondary-foreground: oklch(0.95 0.003 250);
-  --color-muted: oklch(0.22 0.005 250);
-  --color-muted-foreground: oklch(0.72 0.01 250);
-  --color-accent: oklch(0.24 0.01 250);
-  --color-accent-foreground: oklch(0.95 0.003 250);
-  --color-border: oklch(0.28 0.005 250);
-  --color-ring: oklch(0.72 0.16 150);
+  --color-background: oklch(0.145 0.004 0);
+  --color-foreground: oklch(0.97 0 0);
+  --color-card: oklch(0.19 0.004 0);
+  --color-card-foreground: oklch(0.97 0 0);
+  --color-primary: oklch(0.72 0.004 0);
+  --color-primary-foreground: oklch(0.14 0.004 0);
+  --color-secondary: oklch(0.23 0.004 0);
+  --color-secondary-foreground: oklch(0.95 0.004 0);
+  --color-muted: oklch(0.22 0.004 0);
+  --color-muted-foreground: oklch(0.72 0.004 0);
+  --color-accent: oklch(0.24 0.004 0);
+  --color-accent-foreground: oklch(0.95 0.004 0);
+  --color-border: oklch(0.28 0.004 0);
+  --color-ring: oklch(0.72 0.004 0);
   --radius: 0.95rem;
 }
 

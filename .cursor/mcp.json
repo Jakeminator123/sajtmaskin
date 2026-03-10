@@ -5,6 +5,21 @@
     },
     "openaiDeveloperDocs": {
       "url": "https://developers.openai.com/mcp"
+    },
+    "Vercel": {
+      "url": "https://mcp.vercel.com"
+    },
+    "sajtmaskin-generated-code": {
+      "command": "npx",
+      "args": ["tsx", "services/mcp/generated-code-server.ts"],
+      "env": {
+        "SAJTMASKIN_BASE_URL": "http://localhost:3000",
+        "MCP_GENERATED_CODE_API_KEY": "d4a7c2b81ae3c30f095e4ca7e1793c4a6af5c7f176c1fa8d7b5133d107168a62"
+      }
+    },
+    "sajtmaskin-scaffolds": {
+      "command": "npx",
+      "args": ["tsx", "services/mcp/scaffold-server.ts"]
     }
   }
 }
