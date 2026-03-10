@@ -1,3 +1,10 @@
+/**
+ * Model selection logic — resolves a user's tier choice to a concrete model ID.
+ *
+ * This file lives in `v0/` for historical reasons but serves both engines.
+ * `resolveEngineModelId()` returns an OpenAI model ID (e.g. "gpt-5.3-codex")
+ * when the own engine is active, or a v0 tier ID when v0 fallback is on.
+ */
 import {
   canonicalizeModelId,
   DEFAULT_MODEL_ID,

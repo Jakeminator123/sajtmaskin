@@ -21,7 +21,7 @@ import { useChat } from "@/lib/hooks/useChat";
 import { useCssValidation } from "@/lib/hooks/useCssValidation";
 import { usePersistedChatMessages } from "@/lib/hooks/usePersistedChatMessages";
 import { usePromptAssist } from "@/lib/hooks/usePromptAssist";
-import { useV0ChatMessaging } from "@/lib/hooks/useV0ChatMessaging";
+import { useChatMessaging } from "@/lib/hooks/chat";
 import { useVersions } from "@/lib/hooks/useVersions";
 import { useAuth } from "@/lib/auth/auth-store";
 import { useDeploymentStatus } from "@/lib/hooks/useDeploymentStatus";
@@ -210,7 +210,7 @@ export function useBuilderPageController() {
   }, [setPreviewRefreshToken]);
 
   const { isCreatingChat, createNewChat, sendMessage, cancelActiveGeneration } =
-    useV0ChatMessaging({
+    useChatMessaging({
       chatId: state.chatId,
       setChatId: state.setChatId,
       chatIdParam: state.chatIdParam,

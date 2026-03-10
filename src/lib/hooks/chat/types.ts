@@ -1,3 +1,11 @@
+/**
+ * Chat hook types — shared by both the own engine and v0 fallback.
+ *
+ * Type names retain the "V0" prefix for backward compatibility. New code
+ * should prefer the aliased names from the barrel export:
+ *   ChatMessagingParams (alias for V0ChatMessagingParams)
+ *   ChatMessagingReturn (alias for V0ChatMessagingReturn)
+ */
 import type { ChatMessage } from "@/lib/builder/types";
 import type { BuildIntent, BuildMethod } from "@/lib/builder/build-intent";
 import type { ScaffoldMode } from "@/lib/gen/scaffolds";

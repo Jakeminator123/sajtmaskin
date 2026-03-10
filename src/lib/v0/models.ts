@@ -1,12 +1,19 @@
 /**
- * Canonical v0 model schema — single source of truth.
+ * Model tier definitions — single source of truth for both engines.
  *
- * All model IDs, labels, legacy aliases, and the default tier are defined
- * here. Every other module (validation, pricing, UI, selection) imports
- * from this file instead of maintaining its own copy.
+ * IMPORTANT: This file lives in `v0/` for historical reasons, but it defines
+ * models for BOTH the own engine (OpenAI direct) and the v0 Platform API
+ * fallback. The tier IDs (`v0-max-fast`, `v0-1.5-md`, etc.) are internal
+ * labels — they do NOT imply v0 Platform API usage.
  *
- * V0_MODELS: v0 Platform API models (used when V0_FALLBACK_BUILDER=y).
- * OWN_MODELS: OpenAI models for the default engine (GPT 5.2).
+ * When the own engine is active (default, V0_FALLBACK_BUILDER != "y"):
+ *   v0-max-fast  ->  gpt-4.1          (Fast tier)
+ *   v0-1.5-md    ->  gpt-5.3-codex    (Pro tier, code-specialized)
+ *   v0-1.5-lg    ->  gpt-5.4          (Max tier, flagship)
+ *   v0-gpt-5     ->  gpt-5.1-codex-max (Codex Max, xhigh reasoning)
+ *
+ * When v0 fallback is active (V0_FALLBACK_BUILDER=y):
+ *   Tier IDs are sent as-is to the v0 Platform API.
  */
 
 /** v0 Platform API model IDs — used for fallback when V0_FALLBACK_BUILDER=y */

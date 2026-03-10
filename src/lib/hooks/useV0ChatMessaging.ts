@@ -1,1 +1,2 @@
-export { useV0ChatMessaging } from "./v0-chat";
+/** @deprecated Import from `@/lib/hooks/chat` instead. */
+export { useV0ChatMessaging, useV0ChatMessaging as useChatMessaging } from "./chat";
