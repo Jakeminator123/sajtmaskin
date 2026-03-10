@@ -598,7 +598,7 @@ function buildPreviewPrelude(modules: PreparedModule[]): string {
     "  const imgStyle = { ...style, width: typeof w === 'number' ? w + 'px' : w, height: typeof h === 'number' ? h + 'px' : h, objectFit: 'cover' };",
     "  return React.createElement('img', { ...rest, src, alt: alt || '', style: imgStyle, onError: () => setFailed(true) });",
     "};",
-    "const Link = ({ href, children, ...props }) => React.createElement('a', { href, ...props }, children);",
+    "const Link = ({ href, children, ...props }) => React.createElement('a', { href: href || '#', ...props, onClick: (e) => { e.preventDefault(); if (typeof __previewPost === 'function') __previewPost('navigation-attempt', { href }); } }, children);",
     "const useRouter = () => ({ push: () => {}, replace: () => {}, back: () => {}, forward: () => {}, prefetch: async () => {} });",
     "const usePathname = () => '/';",
     "const useSearchParams = () => new URLSearchParams();",

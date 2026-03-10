@@ -334,6 +334,15 @@ export async function POST(req: Request) {
           typeof (meta as Record<string, unknown>)?.scaffoldId === "string"
             ? String((meta as Record<string, string>).scaffoldId)
             : null;
+        const metaThemeColors = (() => {
+          const raw = (meta as Record<string, unknown>)?.themeColors;
+          if (!raw || typeof raw !== "object") return null;
+          const tc = raw as Record<string, unknown>;
+          if (typeof tc.primary === "string" && typeof tc.secondary === "string" && typeof tc.accent === "string") {
+            return { primary: tc.primary, secondary: tc.secondary, accent: tc.accent };
+          }
+          return null;
+        })();
 
         let resolvedScaffold: ScaffoldManifest | null = null;
         if (metaScaffoldMode === "manual" && metaScaffoldId) {
@@ -357,6 +366,7 @@ export async function POST(req: Request) {
         const engineSystemPrompt = buildSystemPrompt({
           intent: engineIntent,
           imageGenerations: resolvedImageGenerations,
+          themeOverride: metaThemeColors,
           originalPrompt: promptForSystemContext,
         });
         const promptLengths = getSystemPromptLengths(engineSystemPrompt);

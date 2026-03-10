@@ -230,6 +230,7 @@ export function useBuilderPageController() {
       buildMethod: state.buildMethod,
       scaffoldMode: state.scaffoldMode,
       scaffoldId: state.scaffoldId,
+      themeColors: state.themeColors,
       mutateVersions,
       setCurrentDemoUrl: state.setCurrentDemoUrl,
       onPreviewRefresh: bumpPreviewRefreshToken,
@@ -1305,7 +1306,10 @@ export function useBuilderPageController() {
     // Project actions
     applyAppProjectId: projectActions.applyAppProjectId,
     handleSaveProject: projectActions.handleSaveProject,
-    resetToNewChat: projectActions.resetToNewChat,
+    resetToNewChat: useCallback(() => {
+      autoProjectInitRef.current = false;
+      projectActions.resetToNewChat();
+    }, [projectActions, autoProjectInitRef]),
 
     // Deploy actions
     handleOpenDeployDialog: deployActions.handleOpenDeployDialog,

@@ -57,13 +57,16 @@ export function expandUrls(
   content: string,
   urlMap: Record<string, string>,
 ): string {
-  if (!content.includes("{{") || Object.keys(urlMap).length === 0) {
+  if (!content.includes("{{")) {
     return content;
   }
 
   const aliasRe = /\{\{((?:MEDIA|URL)_\d+)\}\}/g;
   return content.replace(aliasRe, (full, key: string) => {
-    return urlMap[key] ?? full;
+    const resolved = urlMap[key];
+    if (resolved) return resolved;
+    console.warn(`[url-compress] Unresolved alias ${full} — replacing with placeholder`);
+    return `/placeholder.svg?height=400&width=600&text=${encodeURIComponent(key)}`;
   });
 }
 

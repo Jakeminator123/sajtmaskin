@@ -64,9 +64,9 @@ export const MODEL_TIER_OPTIONS: ModelTierOption[] = [
 /** Default build tier for new chats */
 export const DEFAULT_MODEL_TIER: ModelTier = "v0-1.5-lg";
 
-/** Default scaffold selection for new chats */
-export const DEFAULT_SCAFFOLD_MODE: ScaffoldMode = "manual";
-export const DEFAULT_SCAFFOLD_ID = "portfolio";
+/** Default scaffold selection for new chats — off means no scaffold unless user picks one */
+export const DEFAULT_SCAFFOLD_MODE: ScaffoldMode = "auto";
+export const DEFAULT_SCAFFOLD_ID: string | null = null;
 
 // ============================================
 // PROMPT ASSIST OPTIONS

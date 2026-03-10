@@ -2,6 +2,7 @@ import type { ChatMessage } from "@/lib/builder/types";
 import type { BuildIntent, BuildMethod } from "@/lib/builder/build-intent";
 import type { ScaffoldMode } from "@/lib/gen/scaffolds";
 import type { ModelTier } from "@/lib/validations/chatSchemas";
+import type { ThemeColors } from "@/lib/builder/theme-presets";
 
 export type RouterLike = { replace: (href: string) => void };
 
@@ -123,6 +124,7 @@ export type V0ChatMessagingParams = {
   buildMethod?: BuildMethod | null;
   scaffoldMode?: ScaffoldMode;
   scaffoldId?: string | null;
+  themeColors?: ThemeColors | null;
   mutateVersions: () => void;
   setCurrentDemoUrl: (url: string | null) => void;
   onPreviewRefresh?: () => void;
