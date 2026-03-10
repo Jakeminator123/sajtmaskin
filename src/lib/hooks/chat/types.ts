@@ -1,10 +1,5 @@
 /**
  * Chat hook types — shared by both the own engine and v0 fallback.
- *
- * Type names retain the "V0" prefix for backward compatibility. New code
- * should prefer the aliased names from the barrel export:
- *   ChatMessagingParams (alias for V0ChatMessagingParams)
- *   ChatMessagingReturn (alias for V0ChatMessagingReturn)
  */
 import type { ChatMessage } from "@/lib/builder/types";
 import type { BuildIntent, BuildMethod } from "@/lib/builder/build-intent";
@@ -15,7 +10,7 @@ import type { MutableRefObject } from "react";
 
 export type RouterLike = { replace: (href: string) => void };
 
-export type V0Attachment = {
+export type ChatAttachment = {
   type: "user_file";
   url: string;
   filename: string;
@@ -25,7 +20,7 @@ export type V0Attachment = {
 };
 
 export type MessageOptions = {
-  attachments?: V0Attachment[];
+  attachments?: ChatAttachment[];
   attachmentPrompt?: string;
 };
 
@@ -112,7 +107,7 @@ export type VersionErrorLogPayload = {
 
 export type SetMessages = (next: ChatMessage[] | ((prev: ChatMessage[]) => ChatMessage[])) => void;
 
-export type V0ChatMessagingParams = {
+export type ChatMessagingParams = {
   chatId: string | null;
   setChatId: (id: string | null) => void;
   chatIdParam: string | null;
@@ -144,7 +139,7 @@ export type V0ChatMessagingParams = {
   resetBeforeCreateChat: () => void;
 };
 
-export type V0ChatMessagingReturn = {
+export type ChatMessagingReturn = {
   isCreatingChat: boolean;
   createNewChat: (
     initialMessage: string,

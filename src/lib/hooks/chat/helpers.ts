@@ -11,7 +11,7 @@ import type {
   SetMessages,
   StreamDebugStats,
   StreamQualitySignal,
-  V0Attachment,
+  ChatAttachment,
 } from "./types";
 import { debugLog, warnLog } from "@/lib/utils/debug";
 
@@ -276,7 +276,7 @@ export function finalizeStreamStats(stats: StreamDebugStats): StreamQualitySigna
 export function appendAttachmentPrompt(
   message: string,
   attachmentPrompt?: string,
-  attachments?: V0Attachment[],
+  attachments?: ChatAttachment[],
 ): string {
   if (attachments && attachments.length > 0) return message;
   if (!attachmentPrompt) return message;

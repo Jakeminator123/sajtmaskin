@@ -1,21 +1,17 @@
 import { useCallback, useEffect, useRef } from "react";
 import { warnLog } from "@/lib/utils/debug";
 import { STREAM_SAFETY_TIMEOUT_DEFAULT_MS } from "./constants";
-import type { AutoFixPayload, V0ChatMessagingParams, V0ChatMessagingReturn } from "./types";
+import type { AutoFixPayload, ChatMessagingParams, ChatMessagingReturn } from "./types";
 import { clearCreateChatLock } from "./helpers";
 import { useCreateChat } from "./useCreateChat";
 import { useSendMessage } from "./useSendMessage";
 import { useAutoFix } from "./useAutoFix";
 
 /**
- * Shared chat messaging hook -- handles BOTH the own engine (OpenAI direct)
- * and the v0 Platform API fallback. Despite the legacy "V0" in its name,
- * this hook is used for ALL chat creation and streaming.
- *
- * The name is kept for backward compatibility. Use the re-export
- * `useChatMessaging` from `@/lib/hooks/chat` for new code.
+ * Shared chat messaging hook — handles both the own engine (OpenAI direct)
+ * and the v0 Platform API fallback.
  */
-export function useV0ChatMessaging(params: V0ChatMessagingParams): V0ChatMessagingReturn {
+export function useChatMessaging(params: ChatMessagingParams): ChatMessagingReturn {
   const { chatId, setMessages } = params;
 
   const streamAbortRef = useRef<AbortController | null>(null);

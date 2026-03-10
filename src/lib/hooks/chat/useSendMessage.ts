@@ -4,7 +4,7 @@ import { formatPrompt } from "@/lib/builder/promptAssist";
 import { debugLog } from "@/lib/utils/debug";
 import { MODEL_LABELS, canonicalizeModelId } from "@/lib/v0/models";
 import { STREAM_SAFETY_TIMEOUT_DEFAULT_MS } from "./constants";
-import type { AutoFixPayload, MessageOptions, V0ChatMessagingParams } from "./types";
+import type { AutoFixPayload, MessageOptions, ChatMessagingParams } from "./types";
 import {
   appendAttachmentPrompt,
   buildApiErrorMessage,
@@ -15,7 +15,7 @@ import { runPostGenerationChecks, triggerImageMaterialization } from "./post-che
 import { handleSseStream } from "./stream-handlers";
 
 export function useSendMessage(
-  params: V0ChatMessagingParams,
+  params: ChatMessagingParams,
   deps: {
     createNewChat: (
       initialMessage: string,

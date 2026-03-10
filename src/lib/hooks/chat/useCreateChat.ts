@@ -4,7 +4,7 @@ import { formatPrompt, resolvePromptAssistProvider, isPromptAssistOff } from "@/
 import { debugLog } from "@/lib/utils/debug";
 import { MODEL_LABELS, canonicalizeModelId, v0TierToOpenAIModel } from "@/lib/v0/models";
 import { STREAM_SAFETY_TIMEOUT_DEFAULT_MS } from "./constants";
-import type { AutoFixPayload, MessageOptions, V0ChatMessagingParams } from "./types";
+import type { AutoFixPayload, MessageOptions, ChatMessagingParams } from "./types";
 import {
   appendAttachmentPrompt,
   appendModelInfoPart,
@@ -21,7 +21,7 @@ import { runPostGenerationChecks, triggerImageMaterialization } from "./post-che
 import { handleSseStream } from "./stream-handlers";
 
 export function useCreateChat(
-  params: V0ChatMessagingParams,
+  params: ChatMessagingParams,
   deps: {
     buildBuilderParams: (entries: Record<string, string | null | undefined>) => URLSearchParams;
     streamAbortRef: React.MutableRefObject<AbortController | null>;
