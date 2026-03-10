@@ -158,6 +158,9 @@ function cloneRef(ref) {
   if (isSparse) {
     run("git", ["sparse-checkout", "set", ...ref.sparsePaths], { cwd: targetDir });
   }
+
+  // Keep reference repos as plain folders inside this repo, not embedded git repos.
+  rmSync(resolve(targetDir, ".git"), { recursive: true, force: true });
 }
 
 function main() {
