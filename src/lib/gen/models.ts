@@ -10,7 +10,7 @@ export type ModelTier = "fast" | "standard" | "quality";
 const MODEL_TIER_MAP: Record<ModelTier, string> = {
   fast: "gpt-4.1-mini",
   standard: "gpt-5.2",
-  quality: "gpt-5.2",
+  quality: "gpt-5.4",
 };
 
 /**

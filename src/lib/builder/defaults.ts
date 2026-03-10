@@ -42,24 +42,19 @@ export interface ModelTierOption {
 export const MODEL_TIER_OPTIONS: ModelTierOption[] = [
   {
     value: "v0-max-fast",
-    label: "Max Fast",
-    description: "Max-kvalitet + 2.5x snabbare (Claude Opus 4.6 Fast)",
+    label: "Fast",
+    description: "Snabbast. GPT-4.1 Mini i egen motor.",
     hint: "Rekommenderad",
   },
   {
-    value: "v0-1.5-lg",
-    label: "Max",
-    description: "Avancerat resonemang, 512K kontext",
-  },
-  {
     value: "v0-1.5-md",
-    label: "Pro",
-    description: "Bäst felfri-ratio, vardagsuppgifter",
+    label: "Standard",
+    description: "Balanserad kvalitet. GPT-5.2 i egen motor.",
   },
   {
-    value: "v0-gpt-5",
-    label: "GPT-5",
-    description: "GPT-5 kompositmodell (experimentell)",
+    value: "v0-1.5-lg",
+    label: "Kvalitet",
+    description: "Högst kvalitet. GPT-5.4 i egen motor.",
   },
 ];
 
@@ -79,9 +74,13 @@ export const PROMPT_ASSIST_OFF_VALUE = "off";
 
 export const PROMPT_ASSIST_MODEL_OPTIONS: PromptAssistModelOption[] = [
   { value: PROMPT_ASSIST_OFF_VALUE, label: "Av – skicka direkt" },
-  { value: "openai/gpt-5.2", label: "GPT‑5.2 (Gateway)" },
-  { value: "anthropic/claude-opus-4.5", label: "Claude Opus 4.5 (Gateway)" },
-  { value: "anthropic/claude-sonnet-4.5", label: "Claude Sonnet 4.5 (Gateway)" },
+  { value: "anthropic-direct/claude-haiku-4-5-20251001", label: "Claude Haiku 4.5 (Fast)" },
+  { value: "openai/gpt-4.1-mini", label: "GPT‑4.1 Mini (Fast)" },
+  { value: "openai/gpt-5.2", label: "GPT‑5.2 (Standard)" },
+  { value: "openai/gpt-5.4", label: "GPT‑5.4 (Kvalitet)" },
+  { value: "openai/gpt-5.3-codex", label: "GPT‑5.3 Codex (Experimentell)" },
+  { value: "anthropic-direct/claude-sonnet-4-6", label: "Claude Sonnet 4.6" },
+  { value: "anthropic-direct/claude-opus-4-6", label: "Claude Opus 4.6" },
   { value: "v0-1.5-md", label: "Model API Medium" },
   { value: "v0-1.5-lg", label: "Model API Large" },
 ];
@@ -113,12 +112,12 @@ export interface PromptAssistDefaults {
 /**
  * Default prompt assist configuration.
  * - Default provider is AI Gateway to keep all external models on the gateway.
- * - If enabled, gateway + gpt-5.2 gives highest quality prompt rewrites.
- * - Deep Brief ON by default for higher quality; user can disable for speed.
+ * - Fast prompt assist is the sensible default; code generation is already expensive.
+ * - Deep Brief OFF by default for speed; user can enable for harder prompts.
  */
 export const DEFAULT_PROMPT_ASSIST: PromptAssistDefaults = {
-  model: "openai/gpt-5.2",
-  deep: true,
+  model: "anthropic-direct/claude-haiku-4-5-20251001",
+  deep: false,
 };
 
 /** Whether prompt assist is enabled by default (kept in sync with provider) */

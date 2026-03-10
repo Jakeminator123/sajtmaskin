@@ -25,7 +25,7 @@ export type CanonicalModelId = (typeof V0_MODEL_IDS)[number];
 export const DEFAULT_MODEL_ID: CanonicalModelId = "v0-max-fast";
 
 /** OpenAI model IDs for the default engine (when not using v0 fallback) */
-export const OWN_MODEL_IDS = ["gpt-5.2", "gpt-4.1", "gpt-4.1-mini"] as const;
+export const OWN_MODEL_IDS = ["gpt-5.4", "gpt-5.2", "gpt-4.1-mini"] as const;
 
 export type OwnModelId = (typeof OWN_MODEL_IDS)[number];
 
@@ -104,11 +104,11 @@ export const QUALITY_TO_MODEL: Record<QualityLevel, CanonicalModelId> = {
  * Used when V0_FALLBACK_BUILDER is not set (own GPT 5.2 engine).
  */
 export const QUALITY_TO_OPENAI_MODEL: Record<QualityLevel, OwnModelId> = {
-  light: "gpt-5.2",
+  light: "gpt-4.1-mini",
   standard: "gpt-5.2",
   pro: "gpt-5.2",
-  premium: "gpt-5.2",
-  max: "gpt-5.2",
+  premium: "gpt-5.4",
+  max: "gpt-5.4",
 };
 
 /**

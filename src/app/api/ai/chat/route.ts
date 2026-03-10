@@ -1,3 +1,4 @@
+import { createAnthropic } from "@ai-sdk/anthropic";
 import { createOpenAI } from "@ai-sdk/openai";
 import { gateway, streamText } from "ai";
 import { NextResponse } from "next/server";
@@ -7,6 +8,7 @@ import { requireNotBot } from "@/lib/botProtection";
 import { debugLog, errorLog, warnLog } from "@/lib/utils/debug";
 import { devLogAppend } from "@/lib/logging/devLog";
 import {
+  isAnthropicAssistModel,
   isGatewayAssistModel,
   isPromptAssistModelAllowed,
   isV0AssistModel,
@@ -40,9 +42,9 @@ const messageSchema = z.discriminatedUnion("role", [
 
 const chatRequestSchema = z.object({
   messages: z.array(messageSchema).min(1, "messages is required").max(40, "Too many messages"),
-  model: z.string().optional().default("openai/gpt-5.2"),
+  model: z.string().optional().default("anthropic-direct/claude-haiku-4-5-20251001"),
   temperature: z.number().min(0).max(2).optional(),
-  provider: z.enum(["gateway", "v0"]).optional().default("gateway"),
+  provider: z.enum(["gateway", "v0", "anthropic"]).optional(),
   maxTokens: z.number().int().positive().max(ENV_MAX_TOKENS).optional(),
 });
 
@@ -70,6 +72,20 @@ function getOpenAICompatProvider(apiKey: string) {
     apiKey,
     baseURL: BASE_URL,
   });
+}
+
+function getAnthropicProvider(apiKey: string) {
+  return createAnthropic({
+    apiKey,
+  });
+}
+
+function getAnthropicApiKey(): string | null {
+  return process.env.ANTHROPIC_API_KEY?.trim() || null;
+}
+
+function resolveAnthropicModelId(model: string): string {
+  return model.replace(/^anthropic-direct\//, "");
 }
 
 function isProbablyOnVercel(): boolean {
@@ -126,7 +142,11 @@ export async function POST(req: Request) {
 
       const { messages, model, temperature, provider, maxTokens: requestedMaxTokens } = parsed.data;
       const normalizedModel = normalizeAssistModel(model);
-      const resolvedProvider = isV0AssistModel(normalizedModel) ? "v0" : "gateway";
+      const resolvedProvider = isV0AssistModel(normalizedModel)
+        ? "v0"
+        : isAnthropicAssistModel(normalizedModel)
+          ? "anthropic"
+          : "gateway";
       const maxTokens = resolveMaxTokens(requestedMaxTokens);
 
       if (!isPromptAssistModelAllowed(normalizedModel)) {
@@ -225,6 +245,54 @@ export async function POST(req: Request) {
             "Cache-Control": "no-store",
             "X-Provider": resolvedProvider,
             "X-Key-Source": gatewayAuth,
+          },
+        });
+      }
+
+      if (resolvedProvider === "anthropic") {
+        if (!isAnthropicAssistModel(normalizedModel)) {
+          return NextResponse.json(
+            {
+              error: "Invalid model for anthropic provider",
+              setup: "Set model to a supported direct Anthropic model.",
+            },
+            { status: 400 },
+          );
+        }
+
+        const apiKey = getAnthropicApiKey();
+        if (!apiKey) {
+          return NextResponse.json(
+            {
+              error: "Missing Anthropic API key",
+              setup: "Set ANTHROPIC_API_KEY to use direct Claude prompt assist.",
+            },
+            { status: 401 },
+          );
+        }
+
+        const anthropic = getAnthropicProvider(apiKey);
+        const anthropicModel = resolveAnthropicModelId(normalizedModel);
+        const result = streamText({
+          model: anthropic(anthropicModel),
+          messages,
+          maxOutputTokens: maxTokens,
+          ...getTemperatureConfig(anthropicModel, temperature),
+          onFinish({ text }) {
+            devLogAppend("latest", {
+              type: "assist.chat.response",
+              provider: resolvedProvider,
+              model: normalizedModel,
+              text,
+            });
+          },
+        });
+
+        return result.toTextStreamResponse({
+          headers: {
+            "Cache-Control": "no-store",
+            "X-Provider": resolvedProvider,
+            "X-Key-Source": "ANTHROPIC_API_KEY",
           },
         });
       }

@@ -3,17 +3,26 @@ import type { ThemeColors } from "./theme-presets";
 
 // "gateway" refers to Vercel AI Gateway (same gateway API used by /api/ai/* routes).
 // "v0" refers to the v0 Model API (openai-compat).
-export type PromptAssistProvider = "gateway" | "v0";
+// "anthropic" refers to Anthropic direct API access via ANTHROPIC_API_KEY.
+export type PromptAssistProvider = "gateway" | "v0" | "anthropic";
 
 export const GATEWAY_ASSIST_MODELS = [
+  "openai/gpt-4.1-mini",
   "openai/gpt-5.2",
-  "anthropic/claude-opus-4.5",
-  "anthropic/claude-sonnet-4.5",
+  "openai/gpt-5.4",
+  "openai/gpt-5.3-codex",
+] as const;
+
+export const ANTHROPIC_ASSIST_MODELS = [
+  "anthropic-direct/claude-haiku-4-5-20251001",
+  "anthropic-direct/claude-sonnet-4-6",
+  "anthropic-direct/claude-opus-4-6",
 ] as const;
 
 export const V0_ASSIST_MODELS = ["v0-1.5-md", "v0-1.5-lg"] as const;
 
 export type GatewayAssistModel = (typeof GATEWAY_ASSIST_MODELS)[number];
+export type AnthropicAssistModel = (typeof ANTHROPIC_ASSIST_MODELS)[number];
 export type V0AssistModel = (typeof V0_ASSIST_MODELS)[number];
 
 export function normalizeAssistModel(rawModel: string): string {
@@ -32,15 +41,25 @@ export function isGatewayAssistModel(model: string): model is GatewayAssistModel
   return GATEWAY_ASSIST_MODELS.includes(model as GatewayAssistModel);
 }
 
+export function isAnthropicAssistModel(model: string): model is AnthropicAssistModel {
+  return ANTHROPIC_ASSIST_MODELS.includes(model as AnthropicAssistModel);
+}
+
 export function isPromptAssistOff(model: string): boolean {
   return model === "off";
 }
 
 export function isPromptAssistModelAllowed(model: string): boolean {
-  return isPromptAssistOff(model) || isGatewayAssistModel(model) || isV0AssistModel(model);
+  return (
+    isPromptAssistOff(model) ||
+    isGatewayAssistModel(model) ||
+    isAnthropicAssistModel(model) ||
+    isV0AssistModel(model)
+  );
 }
 
 export function resolvePromptAssistProvider(model: string): PromptAssistProvider {
+  if (isAnthropicAssistModel(model)) return "anthropic";
   return isV0AssistModel(model) ? "v0" : "gateway";
 }
 
