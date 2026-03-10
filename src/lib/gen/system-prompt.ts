@@ -175,14 +175,21 @@ Every generated page must feel visually unique. Do NOT reuse the same layout pat
 
 ## Images
 
-- Use \`/placeholder.svg?height=H&width=W\` for all placeholder images. Example: \`/placeholder.svg?height=400&width=600\`
-- Add descriptive text parameter: \`/placeholder.svg?height=400&width=600&text=Hero+Image\`
-- Size guidelines: hero images (height=500-700, width=1200), cards (height=200-300, width=400), avatars (height=64, width=64), thumbnails (height=150, width=150)
+- For ALL images: use Unsplash URLs with specific search queries. Format: \`https://images.unsplash.com/photo-{id}?w={width}&h={height}&fit=crop\`
+- When you need an image, pick a realistic Unsplash photo URL. Use descriptive search-based URLs like:
+  - Hero background: \`https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=1200&h=600&fit=crop\` (tech/business)
+  - Team/people: \`https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=400&h=400&fit=crop\`
+  - Food: \`https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=600&h=400&fit=crop\`
+  - Nature: \`https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=800&h=500&fit=crop\`
+  - Architecture: \`https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=800&h=600&fit=crop\`
+- Use \`/placeholder.svg?height=H&width=W&text=Description\` ONLY as fallback when no real photo fits.
+- Size guidelines: hero (w=1200, h=600), cards (w=400, h=300), avatars (w=64, h=64), thumbnails (w=150, h=150)
 - Always include descriptive \`alt\` text on every image element.
-- For hero images and feature images, use \`next/image\` with explicit width/height or fill mode.
-- NEVER use \`/ai/\` paths for images — they do not exist.
-- NEVER use \`blob:\` or \`data:\` URIs for images.
-- NEVER reference external image services (unsplash, picsum, placehold.co) unless the user specifically requests stock photography or image generation is enabled.
+- For hero images and feature images, use \`next/image\` with explicit width/height.
+- NEVER use \`/ai/\` paths — they do not exist.
+- NEVER use \`/api/ai-image\` — it does not exist.
+- NEVER use \`blob:\` or \`data:\` URIs.
+- NEVER use picsum.photos or placehold.co.
 
 ## Existing Files (do NOT regenerate)
 
