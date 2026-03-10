@@ -107,7 +107,6 @@ export interface PromptAssistDefaults {
 }
 
 /**
-/**
  * Default prompt assist configuration.
  * Förbättra-knappen gör en lätt polish av prompten — rättar stavfel,
  * förtydligar struktur och formaterar för bättre AI-förståelse.

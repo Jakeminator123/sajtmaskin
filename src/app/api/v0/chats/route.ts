@@ -311,8 +311,8 @@ export async function POST(req: Request) {
       let internalChatId: string | null = null;
       try {
         const chatResult =
-          result && typeof result === "object" && "id" in result ? (result as any) : null;
-        const v0ChatId: string | null = chatResult?.id || null;
+          result && typeof result === "object" && "id" in result ? (result as Record<string, unknown>) : null;
+        const v0ChatId: string | null = (chatResult?.id as string) || null;
         if (!v0ChatId) {
           devLogAppend("latest", {
             type: "comm.response.create.sync",
@@ -326,7 +326,7 @@ export async function POST(req: Request) {
         internalChatId = nanoid();
         const v0ProjectId = resolveV0ProjectId({
           v0ChatId,
-          chatDataProjectId: chatResult?.projectId,
+          chatDataProjectId: chatResult?.projectId as string | undefined,
           clientProjectId: projectId,
         });
         const projectName = generateProjectName({
@@ -352,19 +352,19 @@ export async function POST(req: Request) {
           v0ChatId,
           v0ProjectId,
           projectId: internalProjectId,
-          webUrl: chatResult?.webUrl || null,
+          webUrl: (chatResult?.webUrl as string) || null,
         });
 
-        const latestVersion = chatResult?.latestVersion || null;
+        const latestVersion = (chatResult?.latestVersion || null) as Record<string, unknown> | null;
         if (latestVersion) {
-          const versionId = latestVersion.id || latestVersion.versionId;
-          const demoUrl = latestVersion.demoUrl || latestVersion.demo_url || null;
+          const versionId = (latestVersion.id || latestVersion.versionId) as string | undefined;
+          const demoUrl = (latestVersion.demoUrl || latestVersion.demo_url || null) as string | null;
           if (versionId) {
             await db.insert(versions).values({
               id: nanoid(),
               chatId: internalChatId,
               v0VersionId: versionId,
-              v0MessageId: latestVersion.messageId || null,
+              v0MessageId: (latestVersion.messageId as string) || null,
               demoUrl,
               metadata: sanitizeV0Metadata(latestVersion),
             });

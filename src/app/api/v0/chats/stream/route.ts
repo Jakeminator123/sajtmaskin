@@ -107,7 +107,7 @@ export async function POST(req: Request) {
       if (botError) return attachSessionCookie(botError);
 
       const body = await req.json().catch(() => ({}));
-      const debugStream =
+      const _debugStream =
         process.env.NODE_ENV !== "production" && process.env.V0_STREAM_DEBUG === "1";
 
       const validationResult = createChatSchema.safeParse(body);
@@ -825,7 +825,7 @@ export async function POST(req: Request) {
         ...(designSystemId ? { designSystemId } : {}),
       } as Parameters<typeof v0.chats.create>[0] & { responseMode?: string; designSystemId?: string });
 
-      if (result && typeof (result as any).getReader === "function") {
+      if (result && typeof (result as unknown as { getReader?: unknown }).getReader === "function") {
         const v0Stream = result as unknown as ReadableStream<Uint8Array>;
         const reader = v0Stream.getReader();
         const decoder = new TextDecoder();
@@ -1004,7 +1004,7 @@ export async function POST(req: Request) {
                           v0ChatId: v0ChatId,
                           v0ProjectId: v0ProjectIdEffective,
                           projectId: internalProjectId,
-                          webUrl: (parsed as any)?.webUrl || null,
+                          webUrl: (parsed as Record<string, unknown>)?.webUrl as string | null ?? null,
                         })
                         .onConflictDoNothing({ target: chats.v0ChatId })
                         .returning({ id: chats.id });
@@ -1351,19 +1351,21 @@ export async function POST(req: Request) {
         return attachSessionCookie(new Response(stream, { headers }));
       }
 
-      const chatData = result as any;
+      const chatData = result as Record<string, unknown>;
+      const chatDataLatest = (typeof chatData?.latestVersion === "object" && chatData.latestVersion
+        ? chatData.latestVersion
+        : {}) as Record<string, unknown>;
 
       try {
         const internalChatId = nanoid();
-        const v0ChatId = chatData.id;
-        // Use standardized v0ProjectId resolution
+        const v0ChatId = chatData.id as string;
         const v0ProjectId = resolveV0ProjectId({
           v0ChatId,
-          chatDataProjectId: chatData.projectId,
+          chatDataProjectId: chatData.projectId as string | undefined,
           clientProjectId: projectId,
         });
         const projectName = generateProjectName({
-          v0ChatId,
+          v0ChatId: v0ChatId as string,
           clientProjectId: projectId,
         });
 
@@ -1382,20 +1384,20 @@ export async function POST(req: Request) {
 
         await db.insert(chats).values({
           id: internalChatId,
-          v0ChatId,
-          v0ProjectId,
+          v0ChatId: v0ChatId as string,
+          v0ProjectId: v0ProjectId as string,
           projectId: internalProjectId,
-          webUrl: chatData.webUrl || null,
+          webUrl: (chatData.webUrl as string) || null,
         });
 
-        if (chatData.latestVersion) {
+        if (chatDataLatest && Object.keys(chatDataLatest).length > 0) {
           await db.insert(versions).values({
             id: nanoid(),
             chatId: internalChatId,
-            v0VersionId: chatData.latestVersion.id || chatData.latestVersion.versionId,
-            v0MessageId: chatData.latestVersion.messageId || null,
-            demoUrl: chatData.latestVersion.demoUrl || null,
-            metadata: sanitizeV0Metadata(chatData.latestVersion),
+            v0VersionId: (chatDataLatest.id || chatDataLatest.versionId) as string,
+            v0MessageId: (chatDataLatest.messageId as string) || null,
+            demoUrl: (chatDataLatest.demoUrl as string) || null,
+            metadata: sanitizeV0Metadata(chatDataLatest),
           });
         }
       } catch (dbError) {
@@ -1406,11 +1408,11 @@ export async function POST(req: Request) {
       devLogAppend("latest", {
         type: "comm.response.create",
         chatId: chatData?.id || null,
-        versionId: chatData?.latestVersion?.id || chatData?.latestVersion?.versionId || null,
-        demoUrl: chatData?.latestVersion?.demoUrl || null,
+        versionId: chatDataLatest?.id || chatDataLatest?.versionId || null,
+        demoUrl: chatDataLatest?.demoUrl || null,
         assistantPreview:
-          (typeof chatData?.latestVersion?.content === "string" && chatData.latestVersion.content) ||
-          (typeof chatData?.latestVersion?.text === "string" && chatData.latestVersion.text) ||
+          (typeof chatDataLatest?.content === "string" && chatDataLatest.content) ||
+          (typeof chatDataLatest?.text === "string" && chatDataLatest.text) ||
           null,
       });
       return attachSessionCookie(
