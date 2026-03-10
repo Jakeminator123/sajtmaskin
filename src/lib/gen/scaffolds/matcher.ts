@@ -113,6 +113,11 @@ const DASHBOARD_KEYWORDS = [
   "diagram",
   "table",
   "tabell",
+  "kontrollpanel",
+  "nyckeltal",
+  "graf",
+  "grafer",
+  "sammanställning",
 ];
 
 const APP_KEYWORDS = [
@@ -134,15 +139,23 @@ const APP_KEYWORDS = [
   "workspace",
   "portal",
   "backoffice",
+  "administrera",
+  "hantera",
+  "kontoinställningar",
+  "kontohantering",
+  "systemvy",
+  "översiktsvy",
 ];
 
 const AUTH_KEYWORDS = [
   "auth",
   "login",
   "inloggning",
+  "logga in",
   "signup",
   "sign up",
   "registrera",
+  "registrering",
   "register",
   "password",
   "lösenord",
@@ -150,6 +163,12 @@ const AUTH_KEYWORDS = [
   "glömt lösenord",
   "reset password",
   "återställ",
+  "autentisering",
+  "konto",
+  "skapa konto",
+  "verifiera",
+  "verifiering",
+  "tvåfaktor",
 ];
 
 const CONTENT_KEYWORDS = [

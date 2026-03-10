@@ -257,8 +257,8 @@ export default function HomePage() {
               </p>
               <Separator className="max-w-32" />
               <div>
-                <p className="font-medium">Maja Lind</p>
-                <p className="text-sm text-muted-foreground">Growth lead, Northline Studio</p>
+                <p className="font-medium">[Kundens namn]</p>
+                <p className="text-sm text-muted-foreground">[Roll], [Företag]</p>
               </div>
             </div>
             <div className="rounded-[1.6rem] bg-background/85 p-6 shadow-sm">
@@ -300,7 +300,7 @@ export function SiteHeader() {
     <header className="sticky top-0 z-50 border-b bg-background/85 backdrop-blur-md">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
         <a href="/" className="font-semibold tracking-tight">
-          Northline
+          [Företagsnamn]
         </a>
 
         <nav className="hidden items-center gap-7 md:flex">
@@ -353,7 +353,7 @@ export function SiteFooter() {
     <footer className="px-6 py-12 sm:px-8">
       <div className="mx-auto grid max-w-6xl gap-10 rounded-4xl border bg-card/80 p-8 lg:grid-cols-[1.2fr_0.8fr_0.8fr]">
         <div className="space-y-4">
-          <p className="text-lg font-semibold tracking-tight">Northline</p>
+          <p className="text-lg font-semibold tracking-tight">[Företagsnamn]</p>
           <p className="max-w-sm text-sm leading-7 text-muted-foreground">
             Starter för moderna företagssidor där struktur, tydlighet och nästa steg redan finns på plats.
           </p>

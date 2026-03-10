@@ -414,6 +414,7 @@ export interface DynamicContextOptions {
   imageGenerations?: boolean;
   mediaCatalog?: MediaCatalogItem[];
   originalPrompt?: string;
+  scaffoldContext?: string;
 }
 
 function str(v: unknown): string {
@@ -436,6 +437,7 @@ export function buildDynamicContext(options: DynamicContextOptions): string {
     imageGenerations = false,
     mediaCatalog,
     originalPrompt,
+    scaffoldContext,
   } = options;
 
   const parts: string[] = [];
@@ -448,6 +450,11 @@ export function buildDynamicContext(options: DynamicContextOptions): string {
     ...guidance.rules.map((r) => `- ${r}`),
     "",
   );
+
+  // ── Scaffold ───────────────────────────────────────────────────────────
+  if (scaffoldContext) {
+    parts.push("## Scaffold", "", scaffoldContext.trim(), "");
+  }
 
   // ── Project Context (from brief) ────────────────────────────────────────
   if (brief) {
@@ -628,6 +635,7 @@ export interface BuildSystemPromptOptions {
   imageGenerations?: boolean;
   mediaCatalog?: MediaCatalogItem[];
   originalPrompt?: string;
+  scaffoldContext?: string;
 }
 
 /**
@@ -645,6 +653,7 @@ export function buildSystemPrompt(options: BuildSystemPromptOptions): string {
     imageGenerations: options.imageGenerations,
     mediaCatalog: options.mediaCatalog,
     originalPrompt: options.originalPrompt,
+    scaffoldContext: options.scaffoldContext,
   });
 
   return `${STATIC_CORE}${SYSTEM_PROMPT_SEPARATOR}${dynamicContext}`;

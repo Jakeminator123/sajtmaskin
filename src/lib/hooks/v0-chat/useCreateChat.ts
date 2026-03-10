@@ -54,6 +54,7 @@ export function useCreateChat(
     scaffoldMode,
     scaffoldId,
     themeColors,
+    pendingBriefRef,
     mutateVersions,
     setCurrentDemoUrl,
     onPreviewRefresh,
@@ -258,6 +259,10 @@ export function useCreateChat(
         if (scaffoldId) promptMeta.scaffoldId = scaffoldId;
         if (appProjectId) promptMeta.appProjectId = appProjectId;
         if (themeColors) promptMeta.themeColors = themeColors;
+        if (pendingBriefRef?.current) {
+          promptMeta.brief = pendingBriefRef.current;
+          pendingBriefRef.current = null;
+        }
         promptMeta.modelId = selectedModelTier;
         promptMeta.modelTier = selectedModelTier;
 
@@ -425,6 +430,7 @@ export function useCreateChat(
       scaffoldMode,
       scaffoldId,
       themeColors,
+      pendingBriefRef,
       promptAssistModel,
       promptAssistDeep,
       promptAssistMode,

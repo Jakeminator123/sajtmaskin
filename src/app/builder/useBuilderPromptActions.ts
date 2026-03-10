@@ -37,6 +37,7 @@ type Args = {
   designTheme: DesignTheme;
   appProjectId: string | null;
   pendingSpecRef: MutableRefObject<object | null>;
+  pendingBriefRef: MutableRefObject<Record<string, unknown> | null>;
   pendingInstructionsRef: MutableRefObject<string | null>;
   pendingInstructionsOnceRef: MutableRefObject<boolean | null>;
   templateInitAttemptKeyRef: MutableRefObject<string | null>;
@@ -87,6 +88,7 @@ export function useBuilderPromptActions({
   designTheme: _designTheme,
   appProjectId,
   pendingSpecRef,
+  pendingBriefRef,
   pendingInstructionsRef,
   pendingInstructionsOnceRef,
   templateInitAttemptKeyRef,
@@ -143,11 +145,12 @@ export function useBuilderPromptActions({
       try {
         const addendum = await generateDynamicInstructions(trimmed, {
           forceShallow: !promptAssistDeep,
-          onBrief: specMode
-            ? (brief) => {
-                pendingSpecRef.current = briefToSpec(brief, trimmed, themeColors, paletteState);
-              }
-            : undefined,
+          onBrief: (brief) => {
+            pendingBriefRef.current = brief;
+            if (specMode) {
+              pendingSpecRef.current = briefToSpec(brief, trimmed, themeColors, paletteState);
+            }
+          },
         });
         if (specMode && !pendingSpecRef.current) {
           pendingSpecRef.current = promptToSpec(trimmed, themeColors, paletteState);
@@ -184,6 +187,7 @@ export function useBuilderPromptActions({
       specMode,
       themeColors,
       pendingSpecRef,
+      pendingBriefRef,
       pendingInstructionsRef,
       pendingInstructionsOnceRef,
       setIsPreparingPrompt,

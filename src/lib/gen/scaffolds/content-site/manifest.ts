@@ -78,7 +78,7 @@ import { SiteFooter } from "@/components/site-footer";
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
 export const metadata: Metadata = {
-  title: "Brand Studio — Modern webbplats",
+  title: "[Företagsnamn] — Modern webbplats",
   description: "En modern innehållssajt med stark hero, sektioner och tydliga CTA-ytor.",
 };
 
@@ -123,20 +123,20 @@ const features = [
 
 const testimonials = [
   {
-    name: "Emma Lindqvist",
-    role: "VD, Bloom Studio",
+    name: "[Kundens namn]",
+    role: "[Roll], [Företag]",
     quote: "Teamet levererade en webbplats som överträffade våra förväntningar. Proffsigt, snabbt och tydligt.",
     rating: 5,
   },
   {
-    name: "Johan Bergström",
-    role: "Grundare, TechNova",
+    name: "[Kundens namn]",
+    role: "[Roll], [Företag]",
     quote: "Fantastisk process från start till mål. Vår nya sajt har ökat konverteringen med 40%.",
     rating: 5,
   },
   {
-    name: "Sara Henriksson",
-    role: "Marknadschef, GreenLoop",
+    name: "[Kundens namn]",
+    role: "[Roll], [Företag]",
     quote: "Äntligen en byrå som förstår både design och teknik. Starkt rekommenderad.",
     rating: 5,
   },
@@ -269,7 +269,7 @@ export function SiteHeader() {
     <header className="sticky top-0 z-50 border-b border-border bg-background/80 backdrop-blur-md">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
         <a href="/" className="text-lg font-bold tracking-tight">
-          Brand Studio
+          [Företagsnamn]
         </a>
 
         <nav className="hidden md:flex items-center gap-8">
@@ -351,7 +351,7 @@ export function SiteFooter() {
       <div className="mx-auto max-w-6xl">
         <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-4">
           <div className="space-y-4">
-            <p className="text-lg font-bold tracking-tight">Brand Studio</p>
+            <p className="text-lg font-bold tracking-tight">[Företagsnamn]</p>
             <p className="text-sm text-muted-foreground max-w-xs">
               En flexibel starter för moderna företagssajter, kampanjsidor och innehållsdrivna upplevelser.
             </p>
@@ -391,7 +391,7 @@ export function SiteFooter() {
 
         <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
           <p className="text-xs text-muted-foreground">
-            &copy; {new Date().getFullYear()} Brand Studio. Alla rättigheter förbehållna.
+            &copy; {new Date().getFullYear()} [Företagsnamn]. Alla rättigheter förbehållna.
           </p>
           <div className="flex gap-6">
             <a href="#" className="text-xs text-muted-foreground hover:text-foreground transition-colors">

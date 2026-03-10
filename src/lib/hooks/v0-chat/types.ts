@@ -3,6 +3,7 @@ import type { BuildIntent, BuildMethod } from "@/lib/builder/build-intent";
 import type { ScaffoldMode } from "@/lib/gen/scaffolds";
 import type { ModelTier } from "@/lib/validations/chatSchemas";
 import type { ThemeColors } from "@/lib/builder/theme-presets";
+import type { MutableRefObject } from "react";
 
 export type RouterLike = { replace: (href: string) => void };
 
@@ -125,6 +126,7 @@ export type V0ChatMessagingParams = {
   scaffoldMode?: ScaffoldMode;
   scaffoldId?: string | null;
   themeColors?: ThemeColors | null;
+  pendingBriefRef?: MutableRefObject<Record<string, unknown> | null>;
   mutateVersions: () => void;
   setCurrentDemoUrl: (url: string | null) => void;
   onPreviewRefresh?: () => void;

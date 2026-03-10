@@ -96,19 +96,19 @@ import { ProjectCard } from "@/components/project-card";
 
 const projects = [
   {
-    title: "Northshore Studio",
+    title: "[Projektnamn 1]",
     category: "Brand site",
     description: "A layered studio site with a warmer editorial feel, focused on clarity, testimonials, and enquiry quality.",
     image: "https://images.unsplash.com/photo-1497366754035-f200968a6e72?w=900&h=700&fit=crop",
   },
   {
-    title: "Motion Desk",
+    title: "[Projektnamn 2]",
     category: "Product launch",
     description: "A launch page for a design tool, built around product framing, dense UI screenshots, and pricing-driven conversion.",
     image: "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=900&h=700&fit=crop",
   },
   {
-    title: "Field Notes",
+    title: "[Projektnamn 3]",
     category: "Portfolio + writing",
     description: "A personal site that balances project case studies with lighter essays and a more reflective tone.",
     image: "https://images.unsplash.com/photo-1517048676732-d65bc937f952?w=900&h=700&fit=crop",
@@ -305,7 +305,7 @@ export function SiteFooter() {
     <footer className="px-6 py-12 sm:px-8">
       <div className="mx-auto grid max-w-6xl gap-10 rounded-4xl border bg-card/75 p-8 lg:grid-cols-[1.2fr_0.8fr_0.8fr]">
         <div className="space-y-4">
-          <p className="text-lg font-semibold tracking-tight">Avery Studio</p>
+          <p className="text-lg font-semibold tracking-tight">[Företagsnamn]</p>
           <p className="max-w-sm text-sm leading-7 text-muted-foreground">
             Personal portfolio starter for creatives, consultants, and founder-led brands that need a sharper first impression.
           </p>

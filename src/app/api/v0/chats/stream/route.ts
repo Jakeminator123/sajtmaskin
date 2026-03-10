@@ -43,7 +43,7 @@ import { shouldUseV0Fallback, createGenerationPipeline } from "@/lib/gen/fallbac
 import { matchScaffold, getScaffoldById, serializeScaffoldForPrompt } from "@/lib/gen/scaffolds";
 import type { ScaffoldManifest } from "@/lib/gen/scaffolds";
 import { compressUrls, expandUrls } from "@/lib/gen/url-compress";
-import { buildSystemPrompt, getSystemPromptLengths } from "@/lib/gen/system-prompt";
+import { buildSystemPrompt, getSystemPromptLengths, type Brief } from "@/lib/gen/system-prompt";
 import { SuspenseLineProcessor, parseSSEBuffer } from "@/lib/gen/route-helpers";
 import * as chatRepo from "@/lib/db/chat-repository";
 import type { BuildIntent } from "@/lib/builder/build-intent";
@@ -164,7 +164,7 @@ export async function POST(req: Request) {
         attachmentsCount: Array.isArray(attachments) ? attachments.length : 0,
       });
       const strategyMeta = promptOrchestration.strategyMeta;
-      let optimizedMessage = promptOrchestration.finalMessage;
+      const optimizedMessage = promptOrchestration.finalMessage;
       const trimmedSystemPrompt = typeof system === "string" ? system.trim() : "";
       const hasSystemPrompt = Boolean(trimmedSystemPrompt);
       const resolvedThinking =
@@ -344,6 +344,12 @@ export async function POST(req: Request) {
           return null;
         })();
 
+        const metaBrief = (() => {
+          const raw = (meta as Record<string, unknown>)?.brief;
+          if (!raw || typeof raw !== "object") return null;
+          return raw as Record<string, unknown>;
+        })();
+
         let resolvedScaffold: ScaffoldManifest | null = null;
         if (metaScaffoldMode === "manual" && metaScaffoldId) {
           resolvedScaffold = getScaffoldById(metaScaffoldId);
@@ -353,9 +359,9 @@ export async function POST(req: Request) {
 
         const promptForSystemContext = optimizedMessage;
 
+        let scaffoldContextForPrompt: string | undefined;
         if (resolvedScaffold) {
-          const scaffoldContext = serializeScaffoldForPrompt(resolvedScaffold);
-          optimizedMessage = `${scaffoldContext}\n\n---\n\n${optimizedMessage}`;
+          scaffoldContextForPrompt = serializeScaffoldForPrompt(resolvedScaffold);
           debugLog("engine", "Scaffold injected", {
             scaffoldId: resolvedScaffold.id,
             family: resolvedScaffold.family,
@@ -368,6 +374,8 @@ export async function POST(req: Request) {
           imageGenerations: resolvedImageGenerations,
           themeOverride: metaThemeColors,
           originalPrompt: promptForSystemContext,
+          scaffoldContext: scaffoldContextForPrompt,
+          brief: metaBrief as Brief | null,
         });
         const promptLengths = getSystemPromptLengths(engineSystemPrompt);
         debugLog("prompt-cache", "System prompt lengths", promptLengths);

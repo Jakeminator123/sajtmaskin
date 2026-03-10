@@ -72,6 +72,7 @@ export function useBuilderState(searchParams: ReadonlyURLSearchParams) {
   const [designSystemId, setDesignSystemId] = useState("");
   const [specMode] = useState(DEFAULT_SPEC_MODE);
   const pendingSpecRef = useRef<object | null>(null);
+  const pendingBriefRef = useRef<Record<string, unknown> | null>(null);
   const [showStructuredChat, setShowStructuredChat] = useState(false);
   const [isIntentionalReset, setIsIntentionalReset] = useState(false);
   const [customInstructions, setCustomInstructions] = useState(DEFAULT_CUSTOM_INSTRUCTIONS);
@@ -199,6 +200,7 @@ export function useBuilderState(searchParams: ReadonlyURLSearchParams) {
     setDesignSystemId,
     specMode,
     pendingSpecRef,
+    pendingBriefRef,
     showStructuredChat,
     setShowStructuredChat,
     isIntentionalReset,
