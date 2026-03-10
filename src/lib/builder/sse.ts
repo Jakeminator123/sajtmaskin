@@ -68,9 +68,9 @@ export async function consumeSseResponse(
   flushEvent();
   } finally {
     try {
-      reader.releaseLock();
+      await reader.cancel();
     } catch {
-      // reader may already be released
+      // reader may already be closed
     }
   }
 }

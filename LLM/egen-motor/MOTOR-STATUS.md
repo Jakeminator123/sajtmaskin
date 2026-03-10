@@ -1,7 +1,6 @@
 # Motor-status: Egen kodgenereringsmotor
 
-> Senast uppdaterad: 2026-03-10
-> Syfte: Övergripande status, kända problem och nästa steg
+> Senast uppdaterad: 2026-03-10 (efter Fas 4-5)
 
 ## Arkitektur
 
@@ -9,98 +8,103 @@
 Användarens prompt
        │
        ▼
-┌──────────────────────────┐
-│  PRE-GENERATION          │
-│  - Prompt-orkestrering   │
-│  - URL-komprimering      │
-│  - Dynamisk kontext (KB) │
-│  - File context (uppf.)  │
-└──────────┬───────────────┘
+┌──────────────────────────────┐
+│  PROMPT ASSIST               │
+│  - Polish: gpt-4.1-mini     │
+│  - Deep Brief: gpt-5.4      │
+│  (via AI Gateway)            │
+└──────────┬───────────────────┘
            ▼
-┌──────────────────────────┐
-│  GENERATION              │
-│  GPT 5.2 via AI SDK      │
-│  (v0 = opt-in fallback)  │
-└──────────┬───────────────┘
+┌──────────────────────────────┐
+│  PRE-GENERATION              │
+│  - Prompt-orkestrering       │
+│  - Scaffold-matchning (9 st) │
+│  - URL-komprimering          │
+│  - Dynamisk kontext (KB)     │
+│  - Brief -> system prompt    │
+│  - buildSystemPrompt()       │
+└──────────┬───────────────────┘
            ▼
-┌──────────────────────────┐
-│  POST-GENERATION         │
-│  - 12 suspense-regler    │
-│  - 7-stegs autofix       │
-│  - esbuild-validering    │
-│  - LLM fixer (4.1-mini)  │
-│  - Säkerhetscheckar      │
-└──────────┬───────────────┘
+┌──────────────────────────────┐
+│  GENERATION (4 tiers)        │
+│  Fast:      gpt-4.1          │
+│  Pro:       gpt-5.3-codex    │
+│  Max:       gpt-5.4          │
+│  Codex Max: gpt-5.1-codex-max│
+│  (alla via OPENAI_API_KEY)   │
+└──────────┬───────────────────┘
            ▼
-┌──────────────────────────┐
-│  PREVIEW & DELIVERY      │
-│  - Preview-render (iframe)│
-│  - Nedladdning (zip)     │
-│  - Deploy (Vercel)       │
-└──────────────────────────┘
+┌──────────────────────────────┐
+│  POST-GENERATION             │
+│  finalizeAndSaveVersion():   │
+│  1. 7-stegs autofix          │
+│  2. esbuild-validering       │
+│  3. URL-expansion            │
+│  4. Fil-parsning             │
+│  5. Scaffold-merge + varning │
+│  6. Import-checker (scaffold)│
+│  7. Version-sparning         │
+└──────────┬───────────────────┘
+           ▼
+┌──────────────────────────────┐
+│  PREVIEW & DELIVERY          │
+│  - Preview-render (iframe)   │
+│  - Nedladdning (zip)         │
+│  - Deploy (Vercel API)       │
+└──────────────────────────────┘
 ```
 
-## Kända problem (att lösa)
+## Modellmappning (egen motor)
 
-### P1: Nedladdning saknar shadcn/ui-komponenter (KRITISKT)
+| UI-tier | v0 tier-ID | OpenAI-modell | Användning |
+|---------|-----------|---------------|------------|
+| **Fast** | v0-max-fast | `gpt-4.1` | Snabba ändringar, enkla sidor |
+| **Pro** | v0-1.5-md | `gpt-5.3-codex` | Kodspecialiserad, balanserad |
+| **Max** | v0-1.5-lg | `gpt-5.4` | Flaggskepp, bäst reasoning |
+| **Codex Max** | v0-gpt-5 | `gpt-5.1-codex-max` | Kodgenerering med xhigh reasoning |
 
-**Problem:** Systemprompt instruerar LLM:en "shadcn/ui är pre-installerat, generera dem inte". Men nedladdningszipfilen innehåller inte `components/ui/*`. Resultat: `npm run build` misslyckas med "Module not found: Can't resolve '@/components/ui/input'" etc.
+Default: **Pro** (`gpt-5.3-codex`)
 
-**Lösning:** `project-scaffold.ts` måste inkludera de shadcn/ui-komponenter som genererad kod faktiskt importerar. Två alternativ:
-- A) Statiskt: Bunta alla ~50 shadcn-komponenter i scaffolden (stor men garanterat komplett)
-- B) Dynamiskt: Scanna genererade filer efter `@/components/ui/`-imports, inkludera bara de som används
+## API-nycklar
 
-**Status:** Under implementering
+| Flöde | Nyckel |
+|-------|--------|
+| Kodgenerering | `OPENAI_API_KEY` (direkt mot OpenAI) |
+| Prompt Assist | `AI_GATEWAY_API_KEY` (Vercel AI Gateway) |
+| Deep Brief | `AI_GATEWAY_API_KEY` (gateway-only) |
+| V0-fallback | `V0_API_KEY` (bara om `V0_FALLBACK_BUILDER=y`) |
 
-### P2: Preview visar "ful" version (MEDEL)
+## Scaffold-system (9 scaffolds)
 
-**Problem:** Preview-renderaren använder:
-- Nakna HTML-stubs för shadcn-komponenter (Button = `<button>`, Card = `<div>`)
-- Tomma `<span>` för Lucide-ikoner
-- Tailwind CDN utan komplett shadcn-konfiguration
+landing-page, saas-landing, portfolio, blog, dashboard, auth-pages, ecommerce, content-site, app-shell
 
-**Resultat:** Preview ser ut som ~40% av den riktiga sajten.
+Matcher: keyword-baserad med ordgräns-regex, svenska + engelska.
+Scaffold-kontext injiceras i system prompt (inte user message).
+Import-checker körs efter merge.
 
-**Lösning:** Förbättra stubs med inline-styling som approximerar shadcn:s utseende. Rendera Lucide-ikoner som inline-SVG.
-
-### P3: Ingen template/scaffold-matching (FÖRBÄTTRING)
-
-**Problem:** Varje generation startar från noll. LLM:en genererar hela sajten from scratch, vilket ger:
-- Inkonsekvent kvalitet
-- Mer kod = fler felkällor
-- Saknade grundelement (nav, footer ibland)
-
-**Lösning:** Skapa 5-8 lokala starter-scaffolds (landing-page, dashboard, blog, etc.). Matcha användarens prompt mot rätt scaffold. Skicka scaffolden som kontext så LLM:en redigerar istället för att generera.
-
-Scaffolds:
-1. `landing-page` — Hero + features + pricing + testimonials + footer
-2. `dashboard` — Sidebar + topbar + stats-cards + data-table
-3. `blog` — Post-lista + single-post + sidebar
-4. `portfolio` — Gallery + about + contact
-5. `e-commerce` — Product-grid + filter + cart
-6. `auth-app` — Login/register + protected layout
-7. `saas-app` — Dashboard + settings + billing
-
-## Implementerat (fungerande)
+## Implementerat
 
 | Modul | Filer | Status |
 |-------|-------|--------|
-| Kodgenerering (GPT 5.2) | `src/lib/gen/engine.ts` | Fungerar |
+| Kodgenerering (4 tiers) | `src/lib/gen/engine.ts` | Fungerar |
 | Systemprompt (~17K tokens) | `src/lib/gen/system-prompt.ts` | Fungerar |
 | 12 suspense-regler | `src/lib/gen/suspense/rules/*` | Fungerar |
-| 7-stegs autofix pipeline | `src/lib/gen/autofix/*` | Fungerar |
+| 7-stegs autofix | `src/lib/gen/autofix/*` | Fungerar |
+| Scaffold-import-checker | `src/lib/gen/autofix/rules/scaffold-import-checker.ts` | Ny |
+| finalizeAndSaveVersion | `src/lib/gen/stream/finalize-version.ts` | Ny |
+| Merge med varningar | `src/lib/gen/version-manager.ts` | Förbättrad |
 | esbuild syntax-validering | `src/lib/gen/autofix/syntax-validator.ts` | Fungerar |
-| LLM fixer (GPT 4.1 mini) | `src/lib/gen/autofix/llm-fixer.ts` | Fungerar |
-| validateAndFix i routes | `src/lib/gen/autofix/validate-and-fix.ts` | Integrerat |
+| LLM fixer | `src/lib/gen/autofix/llm-fixer.ts` | Fungerar |
 | Säkerhetsmodul | `src/lib/gen/security/*` | Fungerar |
 | 50 docs-snippets + KB | `src/lib/gen/data/docs-snippets.ts` | Fungerar |
 | 792 Lucide-ikoner | `src/lib/gen/data/lucide-icons.ts` | Fungerar |
-| File context + merge | `src/lib/gen/context/*` | Integrerat |
-| Preview-render | `src/lib/gen/preview.ts` | Fungerar (med begränsningar) |
-| Projekt-scaffold | `src/lib/gen/project-scaffold.ts` | Ny — saknar shadcn-filer |
-| Eval-ramverk | `src/lib/gen/eval/*` | Fungerar (ej körd) |
+| Preview-render | `src/lib/gen/preview.ts` | Fungerar |
+| Projekt-scaffold | `src/lib/gen/project-scaffold.ts` | Fungerar |
+| 9 scaffolds | `src/lib/gen/scaffolds/*/manifest.ts` | Alla klara |
 
-## Byggplaner och dokumentation
+## Kända kvarvarande begränsningar
 
-- `EGEN_MOTOR/` — Ursprunglig analys (v0 vs sajtmaskin, mars 2026)
-- `EGEN_MOTOR_V2/` — Byggplaner 01-13 + valideringslogg
+- KB-sökning är keyword-baserad (embedding planerad men ej implementerad)
+- Preview stubs approximerar shadcn -- inte pixelperfekt
+- Ingen scaffold-medveten retry vid generingsfel
+- Ingen multipage-detection i prompts

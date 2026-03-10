@@ -47,9 +47,8 @@ import { buildSystemPrompt, getSystemPromptLengths, type Brief } from "@/lib/gen
 import { SuspenseLineProcessor, parseSSEBuffer } from "@/lib/gen/route-helpers";
 import * as chatRepo from "@/lib/db/chat-repository";
 import type { BuildIntent } from "@/lib/builder/build-intent";
-import { runAutoFix } from "@/lib/gen/autofix/pipeline";
-import { validateAndFix } from "@/lib/gen/autofix/validate-and-fix";
 import { buildPreviewUrl } from "@/lib/gen/preview";
+import { finalizeAndSaveVersion } from "@/lib/gen/stream/finalize-version";
 
 export const runtime = "nodejs";
 export const maxDuration = 800;
@@ -452,6 +451,8 @@ export async function POST(req: Request) {
                   thinking: resolvedThinking,
                   imageGenerations: resolvedImageGenerations,
                   chatPrivacy: resolvedChatPrivacy,
+                  scaffoldId: resolvedScaffold?.id ?? null,
+                  scaffoldFamily: resolvedScaffold?.family ?? null,
                 }),
               ),
             );
@@ -508,92 +509,28 @@ export async function POST(req: Request) {
                         safeEnqueue(enc.encode(formatSSEEvent("content", flushed)));
                       }
 
-                      let contentForVersion = accumulatedContent;
-                      try {
-                        const autoFixResult = await runAutoFix(accumulatedContent, {
-                          chatId: engineChat.id,
-                          model: engineModel,
-                        });
-                        contentForVersion = autoFixResult.fixedContent;
-
-                        if (autoFixResult.fixes.length > 0 || autoFixResult.warnings.length > 0) {
-                          devLogAppend("in-progress", {
-                            type: "autofix.result",
-                            chatId: engineChat.id,
-                            fixes: autoFixResult.fixes,
-                            warnings: autoFixResult.warnings.slice(0, 20),
-                            dependencies: autoFixResult.dependencies,
-                          });
-                        }
-                      } catch (autofixErr) {
-                        console.warn("[autofix] Pipeline error, using raw content:", autofixErr);
-                      }
-
-                      const syntaxResult = await validateAndFix(contentForVersion, {
+                      const doneData = evt.data as Record<string, unknown> | null;
+                      const finalized = await finalizeAndSaveVersion({
+                        accumulatedContent,
                         chatId: engineChat.id,
                         model: engineModel,
-                      });
-                      contentForVersion = syntaxResult.content;
-                      contentForVersion = expandUrls(contentForVersion, urlMap);
-                      if (syntaxResult.fixerUsed) {
-                        devLogAppend("in-progress", {
-                          type: "syntax-validation.result",
-                          chatId: engineChat.id,
-                          fixerImproved: syntaxResult.fixerImproved,
-                          errorsBefore: syntaxResult.errorsBefore,
-                          errorsAfter: syntaxResult.errorsAfter,
-                        });
-                      }
-
-                      const assistantMsg = chatRepo.addMessage(
-                        engineChat.id,
-                        "assistant",
-                        contentForVersion,
-                      );
-                      const { parseFilesFromContent, mergeVersionFiles } = await import("@/lib/gen/version-manager");
-                      let filesJson = parseFilesFromContent(contentForVersion);
-                      if (resolvedScaffold) {
-                        const generatedFiles = (JSON.parse(filesJson) as Array<{ path: string; content: string; language?: string }>).map(f => ({ ...f, language: f.language || "tsx" }));
-                        const scaffoldBase = resolvedScaffold.files.map((f) => ({
-                          path: f.path,
-                          content: f.content,
-                          language: "tsx" as const,
-                        }));
-                        const mergedFiles = mergeVersionFiles(scaffoldBase, generatedFiles);
-                        filesJson = JSON.stringify(mergedFiles);
-                      }
-                      const version = chatRepo.createVersion(
-                        engineChat.id,
-                        assistantMsg.id,
-                        filesJson,
-                      );
-
-                      const doneData = evt.data as Record<string, unknown> | null;
-                      chatRepo.logGeneration(
-                        engineChat.id,
-                        engineModel,
-                        {
-                          prompt:
-                            typeof doneData?.promptTokens === "number"
-                              ? doneData.promptTokens
-                              : undefined,
-                          completion:
-                            typeof doneData?.completionTokens === "number"
-                              ? doneData.completionTokens
-                              : undefined,
+                        resolvedScaffold,
+                        urlMap,
+                        startedAt: engineStartedAt,
+                        tokenUsage: {
+                          prompt: typeof doneData?.promptTokens === "number" ? doneData.promptTokens : undefined,
+                          completion: typeof doneData?.completionTokens === "number" ? doneData.completionTokens : undefined,
                         },
-                        Date.now() - engineStartedAt,
-                        true,
-                      );
+                      });
 
                       didSendDone = true;
-                      const previewUrl = buildPreviewUrl(engineChat.id, version.id);
+                      const { version, messageId: assistantMsgId, previewUrl } = finalized;
                       safeEnqueue(
                         enc.encode(
                           formatSSEEvent("done", {
                             chatId: engineChat.id,
                             versionId: version.id,
-                            messageId: assistantMsg.id,
+                            messageId: assistantMsgId,
                             demoUrl: previewUrl,
                           }),
                         ),
@@ -671,82 +608,32 @@ export async function POST(req: Request) {
                       safeEnqueue(enc.encode(formatSSEEvent("content", flushed)));
                     }
 
-                    let contentForVersion = accumulatedContent;
-                    try {
-                      const autoFixResult = await runAutoFix(accumulatedContent, {
-                        chatId: engineChat.id,
-                        model: engineModel,
-                      });
-                      contentForVersion = autoFixResult.fixedContent;
-                    } catch {
-                      // use raw content
-                    }
-
-                    const bufferSyntaxResult = await validateAndFix(contentForVersion, {
+                    const doneData = evt.data as Record<string, unknown> | null;
+                    const bufFinalized = await finalizeAndSaveVersion({
+                      accumulatedContent,
                       chatId: engineChat.id,
                       model: engineModel,
-                    });
-                    contentForVersion = bufferSyntaxResult.content;
-
-                    const assistantMsg = chatRepo.addMessage(
-                      engineChat.id,
-                      "assistant",
-                      contentForVersion,
-                    );
-                    const { parseFilesFromContent, mergeVersionFiles } = await import("@/lib/gen/version-manager");
-                    let filesJson = parseFilesFromContent(contentForVersion);
-                    if (resolvedScaffold) {
-                      const generatedFiles = (JSON.parse(filesJson) as Array<{ path: string; content: string; language?: string }>).map(f => ({ ...f, language: f.language || "tsx" }));
-                      const scaffoldBase = resolvedScaffold.files.map((f) => ({
-                        path: f.path,
-                        content: f.content,
-                        language: "tsx" as const,
-                      }));
-                      const mergedFiles = mergeVersionFiles(scaffoldBase, generatedFiles);
-                      filesJson = JSON.stringify(mergedFiles);
-                    }
-                    const version = chatRepo.createVersion(
-                      engineChat.id,
-                      assistantMsg.id,
-                      filesJson,
-                    );
-
-                    const doneData = evt.data as Record<string, unknown> | null;
-                    chatRepo.logGeneration(
-                      engineChat.id,
-                      engineModel,
-                      {
-                        prompt:
-                          typeof doneData?.promptTokens === "number"
-                            ? doneData.promptTokens
-                            : undefined,
-                        completion:
-                          typeof doneData?.completionTokens === "number"
-                            ? doneData.completionTokens
-                            : undefined,
+                      resolvedScaffold,
+                      urlMap,
+                      startedAt: engineStartedAt,
+                      tokenUsage: {
+                        prompt: typeof doneData?.promptTokens === "number" ? doneData.promptTokens : undefined,
+                        completion: typeof doneData?.completionTokens === "number" ? doneData.completionTokens : undefined,
                       },
-                      Date.now() - engineStartedAt,
-                      true,
-                    );
+                      logNote: "Done from buffer flush",
+                    });
 
                     didSendDone = true;
-                    const previewUrl = buildPreviewUrl(engineChat.id, version.id);
                     safeEnqueue(
                       enc.encode(
                         formatSSEEvent("done", {
                           chatId: engineChat.id,
-                          versionId: version.id,
-                          messageId: assistantMsg.id,
-                          demoUrl: previewUrl,
+                          versionId: bufFinalized.version.id,
+                          messageId: bufFinalized.messageId,
+                          demoUrl: bufFinalized.previewUrl,
                         }),
                       ),
                     );
-                    debugLog("engine", "Saved version from buffer flush", {
-                      chatId: engineChat.id,
-                      versionId: version.id,
-                      contentLen: contentForVersion.length,
-                      filesJson: filesJson.slice(0, 200),
-                    });
                     await commitCreditsOnce();
                   }
                 }
@@ -758,48 +645,26 @@ export async function POST(req: Request) {
 
                 if (accumulatedContent) {
                   try {
-                    const assistantMsg = chatRepo.addMessage(engineChat.id, "assistant", accumulatedContent);
-                    const { parseFilesFromContent, mergeVersionFiles } = await import("@/lib/gen/version-manager");
-                    let filesJson = parseFilesFromContent(accumulatedContent);
-                    if (resolvedScaffold) {
-                      const generatedFiles = (JSON.parse(filesJson) as Array<{ path: string; content: string; language?: string }>).map(f => ({ ...f, language: f.language || "tsx" }));
-                      const scaffoldBase = resolvedScaffold.files.map((f) => ({
-                        path: f.path,
-                        content: f.content,
-                        language: "tsx" as const,
-                      }));
-                      const mergedFiles = mergeVersionFiles(scaffoldBase, generatedFiles);
-                      filesJson = JSON.stringify(mergedFiles);
-                    }
-                    const version = chatRepo.createVersion(
-                      engineChat.id,
-                      assistantMsg.id,
-                      filesJson,
-                    );
-                    const previewUrl = buildPreviewUrl(engineChat.id, version.id);
+                    const fallbackFinalized = await finalizeAndSaveVersion({
+                      accumulatedContent,
+                      chatId: engineChat.id,
+                      model: engineModel,
+                      resolvedScaffold,
+                      urlMap,
+                      startedAt: engineStartedAt,
+                      runAutofix: false,
+                      logNote: "Done from fallback flush",
+                    });
                     didSendDone = true;
                     safeEnqueue(
                       enc.encode(
                         formatSSEEvent("done", {
                           chatId: engineChat.id,
-                          versionId: version.id,
-                          messageId: assistantMsg.id,
-                          demoUrl: previewUrl,
+                          versionId: fallbackFinalized.version.id,
+                          messageId: fallbackFinalized.messageId,
+                          demoUrl: fallbackFinalized.previewUrl,
                         }),
                       ),
-                    );
-                    debugLog("engine", "Saved version from fallback flush", {
-                      chatId: engineChat.id,
-                      versionId: version.id,
-                      contentLen: accumulatedContent.length,
-                    });
-                    chatRepo.logGeneration(
-                      engineChat.id,
-                      engineModel,
-                      {},
-                      Date.now() - engineStartedAt,
-                      true,
-                      "Done from fallback flush",
                     );
                     await commitCreditsOnce();
                   } catch {

@@ -356,6 +356,7 @@ export function useCreateChat(
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify(requestBody),
+              signal: streamAbortRef.current?.signal,
             });
             if (!fallbackRes.ok) {
               let errorData: Record<string, unknown> | null = null;

@@ -171,6 +171,35 @@ const AUTH_KEYWORDS = [
   "tvåfaktor",
 ];
 
+const ECOMMERCE_KEYWORDS = [
+  "ecommerce",
+  "e-commerce",
+  "e-handel",
+  "webshop",
+  "webbshop",
+  "shop",
+  "butik",
+  "store",
+  "online store",
+  "nätbutik",
+  "product",
+  "produkt",
+  "produkter",
+  "cart",
+  "varukorg",
+  "kundvagn",
+  "checkout",
+  "kassa",
+  "betalning",
+  "order",
+  "beställning",
+  "inventory",
+  "lager",
+  "catalog",
+  "katalog",
+  "storefront",
+];
+
 const CONTENT_KEYWORDS = [
   "content",
   "innehåll",
@@ -246,6 +275,12 @@ export function matchScaffold(
   const authScore = countKeywordMatches(lower, AUTH_KEYWORDS);
   if (authScore >= MIN_SCORE) {
     return getScaffoldByFamily("auth-pages");
+  }
+
+  // Ecommerce: shop, products, cart
+  const ecommerceScore = countKeywordMatches(lower, ECOMMERCE_KEYWORDS);
+  if (ecommerceScore >= MIN_SCORE) {
+    return getScaffoldByFamily("ecommerce");
   }
 
   // App/dashboard intent

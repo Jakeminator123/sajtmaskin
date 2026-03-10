@@ -61,21 +61,59 @@ export function getLatestVersionFiles(chatId: string): CodeFile[] | null {
   }
 }
 
+export interface MergeWarning {
+  type: "significant-shrink" | "scaffold-file-dropped";
+  file: string;
+  previousSize: number;
+  newSize: number;
+}
+
+export interface MergeResult {
+  files: CodeFile[];
+  warnings: MergeWarning[];
+}
+
 /**
  * Merges new generated files into the previous file set.
  * Files in newFiles overwrite matching paths; all other previous files are kept.
  * Result is sorted by path for deterministic ordering.
+ *
+ * Warns when a generated file is significantly smaller than the scaffold
+ * original (potential token truncation).
  */
 export function mergeVersionFiles(
   previousFiles: CodeFile[],
   newFiles: CodeFile[],
 ): CodeFile[] {
+  const { files } = mergeVersionFilesWithWarnings(previousFiles, newFiles);
+  return files;
+}
+
+export function mergeVersionFilesWithWarnings(
+  previousFiles: CodeFile[],
+  newFiles: CodeFile[],
+): MergeResult {
   const merged = new Map<string, CodeFile>();
+  const warnings: MergeWarning[] = [];
+
   for (const f of previousFiles) {
     merged.set(f.path, f);
   }
   for (const f of newFiles) {
+    const prev = merged.get(f.path);
+    if (prev && f.content.length < prev.content.length * 0.3) {
+      warnings.push({
+        type: "significant-shrink",
+        file: f.path,
+        previousSize: prev.content.length,
+        newSize: f.content.length,
+      });
+    }
     merged.set(f.path, f);
   }
-  return Array.from(merged.values()).sort((a, b) => a.path.localeCompare(b.path));
+
+  return {
+    files: Array.from(merged.values()).sort((a, b) => a.path.localeCompare(b.path)),
+    warnings,
+  };
 }

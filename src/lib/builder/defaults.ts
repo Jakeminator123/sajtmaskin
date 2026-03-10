@@ -40,24 +40,25 @@ export interface ModelTierOption {
 export const MODEL_TIER_OPTIONS: ModelTierOption[] = [
   {
     value: "v0-max-fast",
-    label: "Max Fast",
-    description: "Snabbaste byggtiern. I egen motor ungefär GPT-4.1 Mini, i v0-motor snabb max-tier.",
-    hint: "Rekommenderad",
+    label: "Fast",
+    description: "Snabb och effektiv. Använder GPT-4.1 — bra för enkla sidor och snabba ändringar.",
+    hint: "Snabbast",
   },
   {
     value: "v0-1.5-md",
     label: "Pro",
-    description: "Balanserad kvalitet för vardagsarbete. I egen motor ungefär GPT-5.2.",
+    description: "Kodspecialiserad motor. Använder GPT-5.3 Codex — bäst balans mellan kvalitet och hastighet.",
+    hint: "Rekommenderad",
   },
   {
     value: "v0-1.5-lg",
     label: "Max",
-    description: "Högre resonemang och större omtag. I egen motor ungefär GPT-5.4.",
+    description: "Flaggskeppsmodell. Använder GPT-5.4 — bäst resonemang och mest komplett output.",
   },
   {
     value: "v0-gpt-5",
-    label: "GPT-5",
-    description: "Experimentell v0-tier. I egen motor behandlas den som högsta kvalitet.",
+    label: "Codex Max",
+    description: "Avancerad kodmotor med djupt resonemang. Använder GPT-5.1 Codex Max — för komplexa projekt.",
   },
 ];
 

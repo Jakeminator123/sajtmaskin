@@ -25,6 +25,7 @@ export function useAutoFix(
 ) {
   const autoFixAttemptsRef = useRef<Record<string, AttemptEntry>>({});
   const autoFixHandlerRef = useRef<(payload: AutoFixPayload) => void>(() => {});
+  const pendingTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const handleAutoFix = useCallback(
     (payload: AutoFixPayload) => {
@@ -40,7 +41,8 @@ export function useAutoFix(
 
       const prompt = buildAutoFixPrompt(payload);
       const delayMs = attempts === 0 ? 1500 : 4000;
-      setTimeout(() => {
+      pendingTimerRef.current = setTimeout(() => {
+        pendingTimerRef.current = null;
         void sendMessage(prompt);
       }, delayMs);
     },
@@ -58,7 +60,10 @@ export function useAutoFix(
       handleAutoFix(payload);
     };
     window.addEventListener("sajtmaskin:auto-fix", handler as EventListener);
-    return () => window.removeEventListener("sajtmaskin:auto-fix", handler as EventListener);
+    return () => {
+      window.removeEventListener("sajtmaskin:auto-fix", handler as EventListener);
+      if (pendingTimerRef.current) clearTimeout(pendingTimerRef.current);
+    };
   }, [handleAutoFix]);
 
   return { autoFixHandlerRef };

@@ -7,7 +7,8 @@ export type ScaffoldFamily =
   | "portfolio"
   | "blog"
   | "dashboard"
-  | "auth-pages";
+  | "auth-pages"
+  | "ecommerce";
 export type ScaffoldMode = "off" | "auto" | "manual";
 
 export interface ScaffoldFile {

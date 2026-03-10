@@ -1,16 +1,17 @@
 import { createOpenAI } from "@ai-sdk/openai";
 import { DEFAULT_OWN_MODEL_ID } from "@/lib/v0/models";
 
-/** Default model for code generation (GPT 5.2). Aligned with v0/models.ts OWN_MODELS. */
+/** Default model for code generation. Aligned with v0/models.ts OWN_MODELS. */
 export const DEFAULT_MODEL = DEFAULT_OWN_MODEL_ID;
 
-export type ModelTier = "fast" | "standard" | "quality";
+export type ModelTier = "fast" | "standard" | "quality" | "codex-max";
 
-/** Maps gen tier names to OpenAI model IDs. Aligned with v0 QUALITY_TO_OPENAI_MODEL. */
+/** Maps gen tier names to OpenAI model IDs. Single source: v0/models.ts QUALITY_TO_OPENAI_MODEL. */
 const MODEL_TIER_MAP: Record<ModelTier, string> = {
-  fast: "gpt-4.1-mini",
-  standard: "gpt-5.2",
+  fast: "gpt-4.1",
+  standard: "gpt-5.3-codex",
   quality: "gpt-5.4",
+  "codex-max": "gpt-5.1-codex-max",
 };
 
 /**

@@ -8,6 +8,7 @@ import { portfolioManifest } from "./portfolio/manifest";
 import { blogManifest } from "./blog/manifest";
 import { dashboardManifest } from "./dashboard/manifest";
 import { authPagesManifest } from "./auth-pages/manifest";
+import { ecommerceManifest } from "./ecommerce/manifest";
 
 const ALL_SCAFFOLDS: ScaffoldManifest[] = [
   baseNextjsManifest,
@@ -17,6 +18,7 @@ const ALL_SCAFFOLDS: ScaffoldManifest[] = [
   blogManifest,
   dashboardManifest,
   authPagesManifest,
+  ecommerceManifest,
   contentSiteManifest,
   appShellManifest,
 ];

@@ -29,7 +29,12 @@ function renderScaffoldFiles(scaffold: ScaffoldManifest, maxChars = 14000): stri
 
   for (const file of scaffold.files) {
     const block = `\`\`\`${inferLang(file.path)} file="${file.path}"\n${file.content}\n\`\`\``;
-    if (usedChars > 0 && usedChars + block.length > maxChars) {
+    if (usedChars + block.length > maxChars) {
+      if (usedChars === 0) {
+        const truncated = file.content.substring(0, maxChars - 200);
+        blocks.push(`\`\`\`${inferLang(file.path)} file="${file.path}"\n${truncated}\n// ... truncated\n\`\`\``);
+        usedChars = maxChars;
+      }
       blocks.push(`_Additional scaffold files omitted for length: ${scaffold.files.length - blocks.length}_`);
       break;
     }

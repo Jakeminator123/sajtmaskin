@@ -25,12 +25,19 @@ export type CanonicalModelId = (typeof V0_MODEL_IDS)[number];
 export const DEFAULT_MODEL_ID: CanonicalModelId = "v0-max-fast";
 
 /** OpenAI model IDs for the default engine (when not using v0 fallback) */
-export const OWN_MODEL_IDS = ["gpt-5.4", "gpt-5.2", "gpt-4.1-mini"] as const;
+export const OWN_MODEL_IDS = [
+  "gpt-5.4",
+  "gpt-5.3-codex",
+  "gpt-5.1-codex-max",
+  "gpt-5.2",
+  "gpt-4.1",
+  "gpt-4.1-mini",
+] as const;
 
 export type OwnModelId = (typeof OWN_MODEL_IDS)[number];
 
 /** Default OpenAI model for code generation */
-export const DEFAULT_OWN_MODEL_ID: OwnModelId = "gpt-5.2";
+export const DEFAULT_OWN_MODEL_ID: OwnModelId = "gpt-5.3-codex";
 
 /**
  * Old model IDs that may exist in persisted data (localStorage, DB rows,
@@ -86,10 +93,10 @@ export function canonicalizeModelId(
 }
 
 export const MODEL_LABELS: Record<CanonicalModelId, string> = {
-  "v0-max-fast": "Max Fast",
+  "v0-max-fast": "Fast",
   "v0-1.5-md": "Pro",
   "v0-1.5-lg": "Max",
-  "v0-gpt-5": "GPT-5",
+  "v0-gpt-5": "Codex Max",
 };
 
 export type QualityLevel = "light" | "standard" | "pro" | "premium" | "max";
@@ -107,24 +114,29 @@ export const QUALITY_TO_MODEL: Record<QualityLevel, CanonicalModelId> = {
  * Used when V0_FALLBACK_BUILDER is not set (own GPT 5.2 engine).
  */
 export const QUALITY_TO_OPENAI_MODEL: Record<QualityLevel, OwnModelId> = {
-  light: "gpt-4.1-mini",
-  standard: "gpt-5.2",
-  pro: "gpt-5.2",
+  light: "gpt-4.1",
+  standard: "gpt-5.3-codex",
+  pro: "gpt-5.3-codex",
   premium: "gpt-5.4",
-  max: "gpt-5.4",
+  max: "gpt-5.1-codex-max",
 };
 
 /**
- * Maps v0 model tier to OpenAI model ID for non-fallback generation.
- * Used when user selects a tier and we use the own engine.
+ * Maps v0 model tier to OpenAI model ID for own-engine generation.
+ *
+ * | Tier       | OpenAI model       | Use case                    |
+ * |------------|--------------------|-----------------------------|
+ * | Fast       | gpt-4.1            | Quick edits, simple sites   |
+ * | Pro        | gpt-5.3-codex      | Code-specialized, balanced  |
+ * | Max        | gpt-5.4            | Flagship, best reasoning    |
+ * | Codex Max  | gpt-5.1-codex-max  | Code + xhigh reasoning      |
  */
 export function v0TierToOpenAIModel(v0Tier: CanonicalModelId): OwnModelId {
-  const qualityMap: Partial<Record<CanonicalModelId, QualityLevel>> = {
-    "v0-1.5-md": "standard",
-    "v0-max-fast": "max",
-    "v0-1.5-lg": "max",
-    "v0-gpt-5": "max",
+  const tierMap: Record<CanonicalModelId, OwnModelId> = {
+    "v0-max-fast": "gpt-4.1",
+    "v0-1.5-md": "gpt-5.3-codex",
+    "v0-1.5-lg": "gpt-5.4",
+    "v0-gpt-5": "gpt-5.1-codex-max",
   };
-  const quality = qualityMap[v0Tier] ?? "standard";
-  return QUALITY_TO_OPENAI_MODEL[quality];
+  return tierMap[v0Tier] ?? "gpt-5.3-codex";
 }

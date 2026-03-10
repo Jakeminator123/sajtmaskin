@@ -10,6 +10,7 @@ export interface GenerateOptions {
   chatHistory?: ModelMessage[];
   thinking?: boolean;
   maxTokens?: number;
+  abortSignal?: AbortSignal;
 }
 
 const DEFAULT_MAX_TOKENS = 16_384;
@@ -35,6 +36,7 @@ export function generateCode(
     chatHistory,
     thinking = true,
     maxTokens,
+    abortSignal,
   } = options;
 
   const model = getOpenAIModel(modelId ?? DEFAULT_MODEL);
@@ -49,6 +51,7 @@ export function generateCode(
     system: systemPrompt,
     messages,
     maxOutputTokens: maxTokens ?? DEFAULT_MAX_TOKENS,
+    abortSignal,
   });
 
   return createCodeGenSSEStream(result, { thinking, meta });

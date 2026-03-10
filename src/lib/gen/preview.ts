@@ -398,7 +398,10 @@ function normalizeTranspiledModule(
     ) {
       result = result.replace(fullMatch, "");
       result = result.replace(memberRe, "$1");
-      result = result.replace(defaultRe, "undefined");
+      const defaultFallback = source === "lucide-react"
+        ? "function(){return null}"
+        : "undefined";
+      result = result.replace(defaultRe, defaultFallback);
       continue;
     }
 
