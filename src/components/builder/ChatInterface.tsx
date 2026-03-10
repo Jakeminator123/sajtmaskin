@@ -911,49 +911,58 @@ ${technicalPrompt}`;
         disabled={inputDisabled}
         className="border-input bg-background rounded-lg border shadow-sm"
       >
-        <PromptInputHeader className="flex flex-wrap items-center gap-2">
-          <div className="ml-auto flex min-w-0 max-w-full flex-wrap items-center justify-end gap-2">
+        <PromptInputHeader className="flex-col items-stretch gap-3">
+          <div className="flex flex-col gap-1">
+            <p className="text-xs font-medium text-zinc-100" suppressHydrationWarning>
+              Förfina innan du skickar
+            </p>
+            <p className="text-[11px] leading-5 text-zinc-400" suppressHydrationWarning>
+              Ta texten i rutan nedan och gör den tydligare, bygg en plan först eller lägg till
+              element innan du skickar.
+            </p>
+          </div>
+          <div className="flex w-full gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {onEnhancePrompt && (
               <Button
                 type="button"
                 variant="outline"
                 size="sm"
-                className="h-8"
+                className="h-8 shrink-0 justify-start whitespace-nowrap"
                 onClick={handleEnhancePrompt}
                 disabled={inputDisabled || isEnhancing || !input.trim()}
-                title="Rätta stavning/tydlighet i prompten"
+                title="Snabb polish: tar texten i rutan nedan och gör prompten tydligare utan att ändra innebörd"
               >
                 {isEnhancing ? (
                   <Loader2 className="size-3.5 animate-spin" />
                 ) : (
                   <Wand2 className="size-3.5" />
                 )}
-                Förbättra
+                Skriv om prompt
               </Button>
             )}
             <Button
               type="button"
               variant="outline"
               size="sm"
-              className="h-8 gap-2"
+              className="h-8 shrink-0 justify-start gap-2 whitespace-nowrap"
               onClick={handlePlanRequest}
               disabled={inputDisabled || !input.trim()}
-              title="Skapa plan/PRD innan kod"
+              title="Tyngre förbättring: gör en plan eller PRD innan kod"
             >
               <FileText className="size-3.5" />
-              Plan
+              Skapa plan
             </Button>
             <Button
               type="button"
               variant="outline"
               size="sm"
-              className="h-8 gap-2"
+              className="h-8 shrink-0 justify-start gap-2 whitespace-nowrap"
               onClick={() => setPickerTab("ui")}
               disabled={inputDisabled}
-              title="Lägg till element (UI, AI, Mallar, Tema)"
+              title="Lägg till element, AI-block, mallar eller tema"
             >
               <Plus className="size-3.5" />
-              Lägg till
+              Lägg till element
             </Button>
           </div>
         </PromptInputHeader>

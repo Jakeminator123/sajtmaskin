@@ -50,6 +50,7 @@ type PromptAssistOptions = {
   forceShallow?: boolean;
   mode?: PromptAssistMode;
   forceEnglish?: boolean;
+  modelOverride?: string;
   /** Called with the raw brief object when deep brief is generated (for spec file) */
   onBrief?: (brief: Record<string, unknown>) => void;
 };
@@ -123,7 +124,7 @@ export function usePromptAssist(params: UsePromptAssistParams) {
   const maybeEnhanceInitialPrompt = useCallback(
     async (originalPrompt: string, options: PromptAssistOptions = {}): Promise<string> => {
       const mode = options.mode ?? "rewrite";
-      const normalizedModel = normalizeAssistModel(model);
+      const normalizedModel = normalizeAssistModel(options.modelOverride ?? model);
       if (isPromptAssistOff(normalizedModel)) {
         debugLog("AI", "Prompt assist off – skipping", { model: normalizedModel });
         return originalPrompt;
@@ -375,7 +376,7 @@ export function usePromptAssist(params: UsePromptAssistParams) {
 
   const generateDynamicInstructions = useCallback(
     async (originalPrompt: string, options: PromptAssistOptions = {}): Promise<string> => {
-      const normalizedModel = normalizeAssistModel(model);
+      const normalizedModel = normalizeAssistModel(options.modelOverride ?? model);
       if (isPromptAssistOff(normalizedModel)) {
         debugLog("AI", "Prompt assist off – skipping dynamic instructions", {
           model: normalizedModel,

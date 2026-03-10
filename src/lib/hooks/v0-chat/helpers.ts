@@ -1,5 +1,6 @@
 import type { UiMessagePart } from "@/lib/builder/types";
 import type { PromptStrategyMeta } from "@/lib/builder/promptOrchestration";
+import { MODEL_LABELS, canonicalizeModelId } from "@/lib/v0/models";
 import { CREATE_CHAT_LOCK_KEY, CREATE_CHAT_LOCK_TTL_MS } from "./constants";
 import type {
   AutoFixPayload,
@@ -579,10 +580,16 @@ export function integrationSignalToToolPart(
 function buildModelInfoSteps(info: ModelInfoData): string[] {
   const steps: string[] = [];
   const modelId = info.modelId ? String(info.modelId) : null;
-  steps.push(`Model: ${modelId || "okänd"}`);
-  if (modelId && modelId !== "v0-max-fast") {
-    steps.push("Varning: inte Max Fast");
+  const modelTier =
+    typeof info.modelTier === "string" && info.modelTier.trim().length > 0
+      ? info.modelTier.trim()
+      : null;
+  const canonicalTier = modelTier ? canonicalizeModelId(modelTier) : null;
+  const modelTierLabel = canonicalTier ? MODEL_LABELS[canonicalTier] : null;
+  if (modelTier) {
+    steps.push(`Byggtier: ${modelTierLabel ?? modelTier}`);
   }
+  steps.push(`${modelTier ? "Motor" : "Model"}: ${modelId || "okänd"}`);
   if (typeof info.thinking === "boolean") {
     steps.push(`Thinking: ${info.thinking ? "på" : "av"}`);
   }
@@ -746,6 +753,33 @@ export function isNetworkError(error: unknown): boolean {
   if (error instanceof Error) {
     return /network|fetch|connection|reset/i.test(error.message);
   }
+  return false;
+}
+
+export function isAbortLikeError(error: unknown): boolean {
+  if (!error) return false;
+
+  if (error instanceof DOMException) {
+    return error.name === "AbortError";
+  }
+
+  if (error instanceof Error) {
+    return (
+      error.name === "AbortError" ||
+      /aborted|aborterror|bodystreambuffer was aborted/i.test(error.message)
+    );
+  }
+
+  if (typeof error === "object" && error !== null) {
+    const maybeName = "name" in error ? error.name : null;
+    const maybeMessage = "message" in error ? error.message : null;
+    return (
+      maybeName === "AbortError" ||
+      (typeof maybeMessage === "string" &&
+        /aborted|aborterror|bodystreambuffer was aborted/i.test(maybeMessage))
+    );
+  }
+
   return false;
 }
 

@@ -57,6 +57,54 @@ type InspectPulseMarker = {
   key: number;
 };
 
+type PreviewIssuePayload = {
+  message?: string | null;
+  name?: string | null;
+  stack?: string | null;
+  kind?: string | null;
+};
+
+type PreviewIframeMessage = {
+  source?: string;
+  type?: "preview-error" | "preview-ready";
+  payload?: PreviewIssuePayload;
+};
+
+function summarizePreviewReason(kind: string, message: string, name?: string | null): string {
+  if (kind === "validation") return "preview validation failed";
+  if (kind === "compile") return "preview compilation failed";
+  if (kind === "route") return "preview route failed";
+  if (name === "ReferenceError" || /\bis not defined\b/i.test(message)) {
+    return "preview has undefined symbol";
+  }
+  return "preview runtime failed";
+}
+
+function detectOwnEnginePreviewIssue(doc: Document | null): PreviewIssuePayload | null {
+  if (!doc?.body) return null;
+
+  const root = doc.getElementById("root");
+  const rootText = root?.innerText?.trim() || "";
+  if (rootText.startsWith("Preview-fel")) {
+    return {
+      message: rootText.replace(/^Preview-fel\s*/u, "").trim() || "Unknown preview error",
+      kind: rootText.includes("Preview validation failed") ? "validation" : "runtime",
+    };
+  }
+
+  if (!root) {
+    const bodyText = doc.body.innerText.trim();
+    if (bodyText) {
+      return {
+        message: bodyText,
+        kind: "route",
+      };
+    }
+  }
+
+  return null;
+}
+
 interface PreviewPanelProps {
   chatId: string | null;
   versionId: string | null;
@@ -147,6 +195,7 @@ export function PreviewPanel({
   const codeScrollRef = useRef<HTMLDivElement | null>(null);
   const previewReadyTimerRef = useRef<number | null>(null);
   const elementRegistryRef = useRef<ReturnType<typeof buildJsxElementRegistry>>([]);
+  const previewIssueKeysRef = useRef<Set<string>>(new Set());
 
   const clearPreviewReadyTimer = useCallback(() => {
     if (previewReadyTimerRef.current) {
@@ -163,6 +212,61 @@ export function PreviewPanel({
     }
     return src;
   }, []);
+
+  const reportPreviewIssue = useCallback(
+    async (payload: PreviewIssuePayload) => {
+      if (!chatId || !versionId) return;
+
+      const message = payload.message?.trim();
+      if (!message) return;
+
+      const kind = payload.kind?.trim() || "runtime";
+      const dedupeKey = `${chatId}:${versionId}:${kind}:${message}`;
+      if (previewIssueKeysRef.current.has(dedupeKey)) return;
+      previewIssueKeysRef.current.add(dedupeKey);
+
+      const reason = summarizePreviewReason(kind, message, payload.name);
+      const meta = {
+        source: "own-engine-preview",
+        demoUrl,
+        kind,
+        name: payload.name ?? null,
+        message,
+        stack: payload.stack ?? null,
+      };
+
+      try {
+        await fetch(
+          `/api/v0/chats/${encodeURIComponent(chatId)}/versions/${encodeURIComponent(versionId)}/error-log`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              level: "error",
+              category: "preview",
+              message: reason,
+              meta,
+            }),
+          },
+        );
+      } catch (error) {
+        console.warn("[Preview] Failed to persist preview issue:", error);
+      }
+
+      window.dispatchEvent(
+        new CustomEvent("sajtmaskin:auto-fix", {
+          detail: {
+            chatId,
+            versionId,
+            reasons: [reason],
+            meta,
+          },
+        }),
+      );
+      toast.error("Preview-fel upptäckt. Försöker reparera automatiskt.", { duration: 5000 });
+    },
+    [chatId, versionId, demoUrl],
+  );
 
   const fetchFilesForRegistry = useCallback(async () => {
     if (!chatId || !versionId || files.length > 0) return;
@@ -559,6 +663,11 @@ export function PreviewPanel({
     [demoUrl, inspectMode, inspectEngine, isCapturePending, iframeLoading, externalLoading, flatFilesForAi, chatId, versionId, hoveredMapElement],
   );
 
+  const isOwnEnginePreview = useMemo(() => {
+    if (!demoUrl) return false;
+    return demoUrl.startsWith("/api/preview-render");
+  }, [demoUrl]);
+
   useEffect(() => {
     return () => {
       if (inspectPulseTimerRef.current) {
@@ -569,10 +678,28 @@ export function PreviewPanel({
   }, [clearPreviewReadyTimer]);
 
   useEffect(() => {
+    previewIssueKeysRef.current.clear();
+  }, [chatId, versionId, demoUrl]);
+
+  useEffect(() => {
     if (!demoUrl) return;
     setIframeLoading(true);
     setIframeError(false);
   }, [demoUrl, refreshToken]);
+
+  useEffect(() => {
+    const handlePreviewMessage = (event: MessageEvent<PreviewIframeMessage>) => {
+      const iframeWindow = iframeRef.current?.contentWindow;
+      if (!iframeWindow || event.source !== iframeWindow) return;
+      const data = event.data;
+      if (!data || typeof data !== "object" || data.source !== "sajtmaskin-preview") return;
+      if (!isOwnEnginePreview || data.type !== "preview-error") return;
+      void reportPreviewIssue(data.payload ?? {});
+    };
+
+    window.addEventListener("message", handlePreviewMessage);
+    return () => window.removeEventListener("message", handlePreviewMessage);
+  }, [isOwnEnginePreview, reportPreviewIssue]);
 
   useEffect(() => {
     if (!demoUrl) return;
@@ -759,11 +886,6 @@ export function PreviewPanel({
     });
   }, [showElementRegistry, selectedRegistryLine, selectedPath]);
 
-  const isOwnEnginePreview = useMemo(() => {
-    if (!demoUrl) return false;
-    return demoUrl.startsWith("/api/preview-render");
-  }, [demoUrl]);
-
   const handleIframeLoad = useCallback(() => {
     clearPreviewReadyTimer();
 
@@ -780,6 +902,14 @@ export function PreviewPanel({
       const checkReady = () => {
         try {
           const doc = iframe.contentDocument;
+          const previewIssue = detectOwnEnginePreviewIssue(doc);
+          if (previewIssue) {
+            setIframeLoading(false);
+            setIframeError(false);
+            clearPreviewReadyTimer();
+            void reportPreviewIssue(previewIssue);
+            return;
+          }
           const root = doc?.getElementById("root");
           const hasRootChildren = Boolean(root && root.childElementCount > 0);
           const hasBodyContent = Boolean((doc?.body?.innerText || "").trim().length > 0);
@@ -814,13 +944,19 @@ export function PreviewPanel({
 
     setIframeLoading(false);
     setIframeError(false);
-  }, [clearPreviewReadyTimer, isOwnEnginePreview]);
+  }, [clearPreviewReadyTimer, isOwnEnginePreview, reportPreviewIssue]);
 
   const handleIframeError = useCallback(() => {
     clearPreviewReadyTimer();
     setIframeLoading(false);
     setIframeError(true);
-  }, [clearPreviewReadyTimer]);
+    if (isOwnEnginePreview) {
+      void reportPreviewIssue({
+        message: "Preview iframe failed to load.",
+        kind: "transport",
+      });
+    }
+  }, [clearPreviewReadyTimer, isOwnEnginePreview, reportPreviewIssue]);
 
   const handleRefresh = () => {
     clearPreviewReadyTimer();
@@ -867,8 +1003,8 @@ export function PreviewPanel({
     return (
       <div className="flex h-full flex-col items-center justify-center bg-black/20 text-gray-500">
         <EmptyIcon className="mb-4 h-12 w-12" />
-        <p className="mb-2 text-lg font-medium tracking-tight">{title}</p>
-        <p className="text-sm">{subtitle}</p>
+        <p className="mb-2 text-lg font-medium tracking-tight" suppressHydrationWarning>{title}</p>
+        <p className="text-sm" suppressHydrationWarning>{subtitle}</p>
         {showFixAction && (
           <Button className="mt-4" onClick={onFixPreview} disabled={externalLoading}>Försök reparera preview</Button>
         )}

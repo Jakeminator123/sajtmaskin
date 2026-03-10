@@ -9,6 +9,7 @@ import { buildPaletteInstruction, mergePaletteSelection } from "@/lib/builder/pa
 import { briefToSpec, promptToSpec } from "@/lib/builder/promptAssistContext";
 import {
   DEFAULT_CUSTOM_INSTRUCTIONS,
+  DEFAULT_PROMPT_POLISH_MODEL,
   SPEC_FILE_INSTRUCTION,
 } from "@/lib/builder/defaults";
 import { formatPrompt, isGatewayAssistModel } from "@/lib/builder/promptAssist";
@@ -54,7 +55,7 @@ type Args = {
   setPaletteState: Dispatch<SetStateAction<PaletteState>>;
   maybeEnhanceInitialPrompt: (
     message: string,
-    options?: { forceShallow?: boolean; mode?: "rewrite" | "polish" },
+    options?: { forceShallow?: boolean; mode?: "rewrite" | "polish"; modelOverride?: string },
   ) => Promise<string>;
   generateDynamicInstructions: (
     message: string,
@@ -121,6 +122,7 @@ export function useBuilderPromptActions({
       const enhanced = await maybeEnhanceInitialPrompt(message, {
         forceShallow: true,
         mode: "polish",
+        modelOverride: DEFAULT_PROMPT_POLISH_MODEL,
       });
       return formatPrompt(enhanced);
     },

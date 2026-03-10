@@ -6,7 +6,11 @@ import {
   DEFAULT_CUSTOM_INSTRUCTIONS,
   DEFAULT_IMAGE_GENERATIONS,
   DEFAULT_MODEL_TIER,
+  DEFAULT_PROMPT_ASSIST,
+  DEFAULT_SCAFFOLD_ID,
+  DEFAULT_SCAFFOLD_MODE,
 } from "@/lib/builder/defaults";
+import { DEFAULT_DESIGN_THEME, type DesignTheme } from "@/lib/builder/theme-presets";
 import { clearPersistedMessages } from "@/lib/builder/messagesStorage";
 import { createProject, saveProjectData } from "@/lib/project-client";
 import type { ModelTier } from "@/lib/validations/chatSchemas";
@@ -46,7 +50,12 @@ type Args = {
   setIsSandboxModalOpen: Dispatch<SetStateAction<boolean>>;
   setIsSavingProject: Dispatch<SetStateAction<boolean>>;
   setSelectedModelTier: Dispatch<SetStateAction<ModelTier>>;
+  setPromptAssistModel: Dispatch<SetStateAction<string>>;
+  setPromptAssistDeep: Dispatch<SetStateAction<boolean>>;
   setEnableImageGenerations: Dispatch<SetStateAction<boolean>>;
+  setDesignTheme: Dispatch<SetStateAction<DesignTheme>>;
+  setScaffoldMode: Dispatch<SetStateAction<"off" | "auto" | "manual">>;
+  setScaffoldId: Dispatch<SetStateAction<string | null>>;
   setCustomInstructions: Dispatch<SetStateAction<string>>;
   setApplyInstructionsOnce: Dispatch<SetStateAction<boolean>>;
   setDeployNameInput: Dispatch<SetStateAction<string>>;
@@ -89,7 +98,12 @@ export function useBuilderProjectActions({
   setIsSandboxModalOpen,
   setIsSavingProject,
   setSelectedModelTier,
+  setPromptAssistModel,
+  setPromptAssistDeep,
   setEnableImageGenerations,
+  setDesignTheme,
+  setScaffoldMode,
+  setScaffoldId,
   setCustomInstructions,
   setApplyInstructionsOnce,
   setDeployNameInput,
@@ -242,7 +256,12 @@ export function useBuilderProjectActions({
       setIsImportModalOpen(false);
       setIsSandboxModalOpen(false);
       setSelectedModelTier(DEFAULT_MODEL_TIER);
+      setPromptAssistModel(DEFAULT_PROMPT_ASSIST.model);
+      setPromptAssistDeep(DEFAULT_PROMPT_ASSIST.deep);
       setEnableImageGenerations(DEFAULT_IMAGE_GENERATIONS);
+      setDesignTheme(DEFAULT_DESIGN_THEME);
+      setScaffoldMode(DEFAULT_SCAFFOLD_MODE);
+      setScaffoldId(DEFAULT_SCAFFOLD_ID);
       setCustomInstructions(DEFAULT_CUSTOM_INSTRUCTIONS);
       setApplyInstructionsOnce(false);
     });
@@ -267,7 +286,12 @@ export function useBuilderProjectActions({
     setIsImportModalOpen,
     setIsSandboxModalOpen,
     setSelectedModelTier,
+    setPromptAssistModel,
+    setPromptAssistDeep,
     setEnableImageGenerations,
+    setDesignTheme,
+    setScaffoldMode,
+    setScaffoldId,
     setCustomInstructions,
     setApplyInstructionsOnce,
     setIsIntentionalReset,

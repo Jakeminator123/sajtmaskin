@@ -643,6 +643,9 @@ export async function runPostGenerationChecks(params: {
     if (missingRoutes.length > 0) autoFixReasons.push("saknade routes");
     if (suspiciousUseCalls.length > 0) autoFixReasons.push("misstankt use()");
     if (imageValidation?.broken?.length) autoFixReasons.push("trasiga bilder");
+    if (imageValidation?.warnings?.some((warning) => warning.includes("[semantic-image]"))) {
+      autoFixReasons.push("misstankt irrelevanta bilder");
+    }
     if (autoFixReasons.length > 0) {
       onAutoFix?.({
         chatId,

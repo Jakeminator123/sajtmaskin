@@ -113,11 +113,12 @@ export async function GET(req: Request, { params }: { params: Promise<{ chatId: 
     const { chatId } = await params;
 
     // ---------------------------------------------------------------
-    // Non-fallback: fetch files from SQLite
+    // Non-fallback: fetch files from SQLite (+ optional blob materialization)
     // ---------------------------------------------------------------
     if (!shouldUseV0Fallback()) {
       const { searchParams } = new URL(req.url);
       const requestedVersionId = searchParams.get("versionId");
+      const shouldMaterialize = searchParams.get("materialize") === "1";
 
       let files;
       let resolvedVersionId: string | null = null;
@@ -138,6 +139,36 @@ export async function GET(req: Request, { params }: { params: Promise<{ chatId: 
             { error: "No versions found for this chat" },
             { status: 404 },
           );
+        }
+      }
+
+      const effectiveVersionId = resolvedVersionId ?? requestedVersionId ?? chatId;
+
+      if (shouldMaterialize && process.env.BLOB_READ_WRITE_TOKEN) {
+        try {
+          const textFiles = files.map((f) => ({ name: f.path, content: f.content }));
+          const imageAssets = await materializeImagesInTextFiles({
+            files: textFiles,
+            strategy: "blob",
+            blobToken: process.env.BLOB_READ_WRITE_TOKEN,
+            namespace: { chatId, versionId: effectiveVersionId },
+          });
+
+          if (imageAssets.summary.replaced > 0) {
+            const blobFileMap = new Map(imageAssets.files.map((f) => [f.name, f.content]));
+            files = files.map((f) => ({
+              ...f,
+              content: blobFileMap.get(f.path) ?? f.content,
+            }));
+            if (resolvedVersionId) {
+              updateVersionFiles(resolvedVersionId, JSON.stringify(files));
+            }
+            console.log(
+              `[materialize] Own engine: uploaded ${imageAssets.summary.uploaded} images, replaced ${imageAssets.summary.replaced} references`,
+            );
+          }
+        } catch (error) {
+          console.error("[materialize] Own engine image materialization failed:", error);
         }
       }
 

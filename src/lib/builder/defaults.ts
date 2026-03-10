@@ -5,13 +5,11 @@
  * CONCEPTS:
  *
  * Model Tiers:
- *   - Default engine (V0_FALLBACK_BUILDER not set): tiers map to OpenAI models
- *     (gpt-5.2, gpt-4.1, gpt-4.1-mini). Max/premium → gpt-5.2.
- *   - v0 fallback (V0_FALLBACK_BUILDER=y): v0 Platform API models:
- *     - v0-1.5-md: Pro -- best error-free rate, everyday tasks.
- *     - v0-1.5-lg: Max -- advanced reasoning, 512K context.
- *     - v0-max-fast: Max Fast -- default.
- *     - v0-gpt-5:  GPT-5 composite model.
+ *   - The first group represents build tiers, not prompt-assist models.
+ *   - When V0_FALLBACK_BUILDER=y, these map to v0 Platform API models.
+ *   - Otherwise, the same tiers map to the own engine's OpenAI models.
+ *   - Prompt Assist models are listed separately below and are only used to
+ *     rewrite/brief the prompt before generation.
  *
  * Prompt Assist (preprocessing user prompts before generation):
  *   - off:            No preprocessing, send prompt directly to v0.
@@ -25,7 +23,7 @@
  */
 
 import { GATEWAY_ASSIST_MODELS, V0_ASSIST_MODELS } from "./promptAssist";
-import { DEFAULT_MODEL_ID } from "@/lib/v0/models";
+import type { ScaffoldMode } from "@/lib/gen/scaffolds";
 import type { ModelTier } from "@/lib/validations/chatSchemas";
 
 // ============================================
@@ -42,24 +40,33 @@ export interface ModelTierOption {
 export const MODEL_TIER_OPTIONS: ModelTierOption[] = [
   {
     value: "v0-max-fast",
-    label: "Fast",
-    description: "Snabbast. GPT-4.1 Mini i egen motor.",
+    label: "Max Fast",
+    description: "Snabbaste byggtiern. I egen motor ungefär GPT-4.1 Mini, i v0-motor snabb max-tier.",
     hint: "Rekommenderad",
   },
   {
     value: "v0-1.5-md",
-    label: "Standard",
-    description: "Balanserad kvalitet. GPT-5.2 i egen motor.",
+    label: "Pro",
+    description: "Balanserad kvalitet för vardagsarbete. I egen motor ungefär GPT-5.2.",
   },
   {
     value: "v0-1.5-lg",
-    label: "Kvalitet",
-    description: "Högst kvalitet. GPT-5.4 i egen motor.",
+    label: "Max",
+    description: "Högre resonemang och större omtag. I egen motor ungefär GPT-5.4.",
+  },
+  {
+    value: "v0-gpt-5",
+    label: "GPT-5",
+    description: "Experimentell v0-tier. I egen motor behandlas den som högsta kvalitet.",
   },
 ];
 
-/** Default model tier for new chats */
-export const DEFAULT_MODEL_TIER: ModelTier = DEFAULT_MODEL_ID;
+/** Default build tier for new chats */
+export const DEFAULT_MODEL_TIER: ModelTier = "v0-1.5-lg";
+
+/** Default scaffold selection for new chats */
+export const DEFAULT_SCAFFOLD_MODE: ScaffoldMode = "manual";
+export const DEFAULT_SCAFFOLD_ID = "portfolio";
 
 // ============================================
 // PROMPT ASSIST OPTIONS
@@ -74,9 +81,12 @@ export const PROMPT_ASSIST_OFF_VALUE = "off";
 
 export const PROMPT_ASSIST_MODEL_OPTIONS: PromptAssistModelOption[] = [
   { value: PROMPT_ASSIST_OFF_VALUE, label: "Av – skicka direkt" },
-  { value: "anthropic-direct/claude-haiku-4-5-20251001", label: "Claude Haiku 4.5 (Snabb)" },
-  { value: "openai/gpt-4.1-mini", label: "GPT‑4.1 Mini (Snabb)" },
-  { value: "openai/gpt-5.2", label: "GPT‑5.2 (Standard)" },
+  { value: "openai/gpt-5.4", label: "GPT‑5.4 (Gateway)" },
+  { value: "openai/gpt-5.2", label: "GPT‑5.2 (Gateway)" },
+  { value: "openai/gpt-4.1-mini", label: "GPT‑4.1 Mini (Gateway)" },
+  { value: "anthropic-direct/claude-sonnet-4-6", label: "Claude Sonnet 4.6" },
+  { value: "v0-1.5-md", label: "v0 1.5 Medium" },
+  { value: "v0-1.5-lg", label: "v0 1.5 Large" },
 ];
 
 const PROMPT_ASSIST_MODEL_ALLOWLIST = new Set<string>([
@@ -106,16 +116,19 @@ export interface PromptAssistDefaults {
   deep: boolean;
 }
 
+/** Fast model for the local "Skriv om prompt" action only. */
+export const DEFAULT_PROMPT_POLISH_MODEL = "openai/gpt-4.1-mini";
+
 /**
  * Default prompt assist configuration.
  * Förbättra-knappen gör en lätt polish av prompten — rättar stavfel,
  * förtydligar struktur och formaterar för bättre AI-förståelse.
  * Den är INTE en full plan/spec-generator.
- * Claude Haiku 4.5 via direkt Anthropic API är snabb och billig för denna uppgift.
+ * Standardvalet ligger på gateway-modell för bättre allmän promptpolish.
  */
 export const DEFAULT_PROMPT_ASSIST: PromptAssistDefaults = {
-  model: "anthropic-direct/claude-haiku-4-5-20251001",
-  deep: false,
+  model: "openai/gpt-5.4",
+  deep: true,
 };
 
 /** Whether prompt assist is enabled by default (kept in sync with provider) */
@@ -206,9 +219,12 @@ export const DEFAULT_CUSTOM_INSTRUCTIONS = `## Tech Stack
 - Always include descriptive alt text
 - Use next/image with proper sizing
 - Prefer .png, .jpg, .webp formats
+- The hero section MUST have a large, prominent image (w=1200, h=600 minimum)
 - Include images in hero + at least 2 other sections
 - Never use blob: URIs, data: URIs, or local file paths for images
-- Prefer AI-generated images when available; only use public https URLs as a last resort
+- Prefer AI-generated images when available; when not, use real Unsplash photos matching the site topic exactly
+- NEVER use generic stock photos (office/laptop/handshake/coffee) unless the site is about those topics
+- When using Unsplash, use the format: https://images.unsplash.com/photo-{ID}?w={W}&h={H}&fit=crop&q=80
 
 ## Figma Workflow
 - If the user provides Figma, extract structure first (nav, hero, sections, footer) before polishing visuals.

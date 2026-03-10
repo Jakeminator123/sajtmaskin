@@ -53,7 +53,7 @@ export function resolveModelSelection(params: {
  *
  * - When useV0Fallback: returns the v0 model ID (for v0 Platform API).
  * - When not fallback: maps the v0 tier to the corresponding OpenAI model
- *   (e.g. v0-max-fast → gpt-5.2, v0-gpt-5 → gpt-5.2).
+ *   (e.g. v0-max-fast → gpt-5.4, v0-1.5-md → gpt-5.2).
  *
  * Requires OPENAI_API_KEY when useV0Fallback is false.
  * Requires V0_API_KEY when useV0Fallback is true.

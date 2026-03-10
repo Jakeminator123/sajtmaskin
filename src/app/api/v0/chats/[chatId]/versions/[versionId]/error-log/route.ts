@@ -3,6 +3,8 @@ import { db } from "@/lib/db/client";
 import { versions } from "@/lib/db/schema";
 import { and, eq } from "drizzle-orm";
 import { getChatByV0ChatIdForRequest } from "@/lib/tenant";
+import { shouldUseV0Fallback } from "@/lib/gen/fallback";
+import { getChat as getEngineChat, getVersionById as getEngineVersion } from "@/lib/db/chat-repository";
 import { createVersionErrorLog, createVersionErrorLogs, getVersionErrorLogs } from "@/lib/db/services";
 
 type RouteParams = { params: Promise<{ chatId: string; versionId: string }> };
@@ -32,6 +34,19 @@ async function resolveVersionId(chatId: string, versionId: string) {
 export async function POST(request: Request, ctx: RouteParams) {
   try {
     const { chatId, versionId } = await ctx.params;
+    if (!shouldUseV0Fallback()) {
+      const chat = getEngineChat(chatId);
+      if (!chat) {
+        return NextResponse.json({ error: "Chat not found" }, { status: 404 });
+      }
+      const version = getEngineVersion(versionId);
+      if (!version || version.chat_id !== chatId) {
+        return NextResponse.json({ error: "Version not found" }, { status: 404 });
+      }
+      await request.json().catch(() => null);
+      return NextResponse.json({ success: true, stored: false, logs: [] });
+    }
+
     const chat = await getChatByV0ChatIdForRequest(request, chatId);
     if (!chat) {
       return NextResponse.json({ error: "Chat not found" }, { status: 404 });
@@ -88,6 +103,18 @@ export async function POST(request: Request, ctx: RouteParams) {
 export async function GET(request: Request, ctx: RouteParams) {
   try {
     const { chatId, versionId } = await ctx.params;
+    if (!shouldUseV0Fallback()) {
+      const chat = getEngineChat(chatId);
+      if (!chat) {
+        return NextResponse.json({ error: "Chat not found" }, { status: 404 });
+      }
+      const version = getEngineVersion(versionId);
+      if (!version || version.chat_id !== chatId) {
+        return NextResponse.json({ error: "Version not found" }, { status: 404 });
+      }
+      return NextResponse.json({ success: true, stored: false, logs: [] });
+    }
+
     const chat = await getChatByV0ChatIdForRequest(request, chatId);
     if (!chat) {
       return NextResponse.json({ error: "Chat not found" }, { status: 404 });

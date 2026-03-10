@@ -14,16 +14,18 @@ import {
   getDefaultPaletteState,
   type PaletteState,
 } from "@/lib/builder/palette";
+import { DEFAULT_DESIGN_THEME, getThemeColors, type DesignTheme } from "@/lib/builder/theme-presets";
 import {
   DEFAULT_CUSTOM_INSTRUCTIONS,
   DEFAULT_IMAGE_GENERATIONS,
   DEFAULT_MODEL_TIER,
   DEFAULT_PROMPT_ASSIST,
+  DEFAULT_SCAFFOLD_ID,
+  DEFAULT_SCAFFOLD_MODE,
   DEFAULT_SPEC_MODE,
   DEFAULT_THINKING,
   getDefaultPromptAssistModel,
 } from "@/lib/builder/defaults";
-import { getThemeColors, type DesignTheme } from "@/lib/builder/theme-presets";
 import type { ModelTier } from "@/lib/validations/chatSchemas";
 import type { ReadonlyURLSearchParams } from "next/navigation";
 import { useMemo, useRef, useState } from "react";
@@ -66,7 +68,7 @@ export function useBuilderState(searchParams: ReadonlyURLSearchParams) {
   const [enableBlobMedia, setEnableBlobMedia] = useState(true);
   const [isImageGenerationsSupported, setIsImageGenerationsSupported] = useState(true);
   const [isMediaEnabled, setIsMediaEnabled] = useState(false);
-  const [designTheme, setDesignTheme] = useState<DesignTheme>("blue");
+  const [designTheme, setDesignTheme] = useState<DesignTheme>(DEFAULT_DESIGN_THEME);
   const [designSystemId, setDesignSystemId] = useState("");
   const [specMode] = useState(DEFAULT_SPEC_MODE);
   const pendingSpecRef = useRef<object | null>(null);
@@ -125,8 +127,8 @@ export function useBuilderState(searchParams: ReadonlyURLSearchParams) {
   const applyingGenerationSettingsRef = useRef(false);
   const templateInitAttemptKeyRef = useRef<string | null>(null);
 
-  const [scaffoldMode, setScaffoldMode] = useState<ScaffoldMode>("auto");
-  const [scaffoldId, setScaffoldId] = useState<string | null>(null);
+  const [scaffoldMode, setScaffoldMode] = useState<ScaffoldMode>(DEFAULT_SCAFFOLD_MODE);
+  const [scaffoldId, setScaffoldId] = useState<string | null>(DEFAULT_SCAFFOLD_ID);
 
   const isThinkingSupported = true;
   const effectiveThinking = enableThinking && isThinkingSupported;

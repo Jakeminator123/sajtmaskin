@@ -127,6 +127,7 @@ You are competing with the best AI code generators. Your output must look like a
 - Create visual depth with layered backgrounds: \`bg-background\` for page, \`bg-card\` for elevated surfaces, \`bg-muted\` for recessed areas.
 - Use subtle gradients for hero sections: \`bg-gradient-to-b from-background to-muted/50\`.
 - Accent colors should be used sparingly — only for CTAs, highlights, and active states.
+- Do NOT default to blue/purple for every site. Derive the palette from the subject matter, atmosphere, and brand. Seasonal or cultural sites may fit evergreen, forest, deep red, warm gold, candlelight cream, bark brown, or snowy neutrals better than SaaS blue.
 
 ### Typography & Spacing
 - Create clear typographic hierarchy: hero headings \`text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight\`, section headings \`text-3xl font-semibold\`, body \`text-lg text-muted-foreground leading-relaxed\`.
@@ -175,21 +176,21 @@ Every generated page must feel visually unique. Do NOT reuse the same layout pat
 
 ## Images
 
-- For ALL images: use Unsplash URLs with specific search queries. Format: \`https://images.unsplash.com/photo-{id}?w={width}&h={height}&fit=crop\`
-- When you need an image, pick a realistic Unsplash photo URL. Use descriptive search-based URLs like:
-  - Hero background: \`https://images.unsplash.com/photo-1460925895917-afdab827c52f?w=1200&h=600&fit=crop\` (tech/business)
-  - Team/people: \`https://images.unsplash.com/photo-1522071820081-009f0129c71c?w=400&h=400&fit=crop\`
-  - Food: \`https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=600&h=400&fit=crop\`
-  - Nature: \`https://images.unsplash.com/photo-1470071459604-3b5ec3a7fe05?w=800&h=500&fit=crop\`
-  - Architecture: \`https://images.unsplash.com/photo-1486406146926-c627a92ad1ab?w=800&h=600&fit=crop\`
+- If image generation is enabled in the request context, prefer AI-generated images or provided media assets.
+- If image generation is disabled, use topic-matched Unsplash images only when they genuinely represent the subject.
+- The image subject MUST match both the page topic and the alt text.
+- Do NOT use generic office, laptop, coworking, startup, or team-meeting photos unless the site is actually about business, software, or work.
+- For seasonal, cultural, travel, nature, food, or product sites, imagery must depict that exact subject matter directly.
 - Use \`/placeholder.svg?height=H&width=W&text=Description\` ONLY as fallback when no real photo fits.
 - Size guidelines: hero (w=1200, h=600), cards (w=400, h=300), avatars (w=64, h=64), thumbnails (w=150, h=150)
 - Always include descriptive \`alt\` text on every image element.
 - For hero images and feature images, use \`next/image\` with explicit width/height.
+- The hero section MUST contain a large, prominent image. Never build a hero without a visual.
 - NEVER use \`/ai/\` paths — they do not exist.
 - NEVER use \`/api/ai-image\` — it does not exist.
 - NEVER use \`blob:\` or \`data:\` URIs.
 - NEVER use picsum.photos or placehold.co.
+- When using Unsplash, use real photo IDs you know exist. Format: \`https://images.unsplash.com/photo-{ID}?w={W}&h={H}&fit=crop&q=80\`
 
 ## Existing Files (do NOT regenerate)
 
@@ -537,7 +538,14 @@ export function buildDynamicContext(options: DynamicContextOptions): string {
   parts.push("## Imagery", "");
   if (imageGenerations) {
     parts.push(
-      "Image generation is **enabled**. Use AI-generated images wherever they add value. Do NOT use placeholder services (unsplash, picsum, placehold.co). Use `next/image` for sizing. Always include descriptive alt text. Never use `blob:` or `data:` URIs.",
+      "Image generation is **enabled**. Use AI-generated images wherever they add value. Do NOT use placeholder services (picsum, placehold.co). Use `next/image` for sizing. Always include descriptive alt text. Never use `blob:` or `data:` URIs.",
+      "",
+      "**Fallback for own-engine builds:** When no AI-generated images are provided, use real photos from Unsplash that directly depict the site's subject matter.",
+      "- Build the URL as: `https://images.unsplash.com/photo-{ID}?w={WIDTH}&h={HEIGHT}&fit=crop&q=80`",
+      "- The hero section **MUST** contain a large, topic-specific image (w=1200, h=600 minimum).",
+      "- Include images in at least 2 additional sections beyond the hero.",
+      "- NEVER use generic stock photos (office desks, laptops, handshakes, coffee) unless the site is specifically about those subjects.",
+      "- Match the image to the **exact topic**: vinyl records site → vinyl records/turntables; Christmas trees → real Christmas trees; restaurant → actual food/dining.",
     );
   } else {
     parts.push(

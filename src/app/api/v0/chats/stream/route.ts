@@ -42,7 +42,7 @@ import { AI } from "@/lib/config";
 import { shouldUseV0Fallback, createGenerationPipeline } from "@/lib/gen/fallback";
 import { matchScaffold, getScaffoldById, serializeScaffoldForPrompt } from "@/lib/gen/scaffolds";
 import type { ScaffoldManifest } from "@/lib/gen/scaffolds";
-import { compressUrls } from "@/lib/gen/url-compress";
+import { compressUrls, expandUrls } from "@/lib/gen/url-compress";
 import { buildSystemPrompt, getSystemPromptLengths } from "@/lib/gen/system-prompt";
 import { SuspenseLineProcessor, parseSSEBuffer } from "@/lib/gen/route-helpers";
 import * as chatRepo from "@/lib/db/chat-repository";
@@ -430,6 +430,7 @@ export async function POST(req: Request) {
               enc.encode(
                 formatSSEEvent("meta", {
                   modelId: engineModel,
+                  modelTier: resolvedModelTier,
                   thinking: resolvedThinking,
                   imageGenerations: resolvedImageGenerations,
                   chatPrivacy: resolvedChatPrivacy,
@@ -515,6 +516,7 @@ export async function POST(req: Request) {
                         model: engineModel,
                       });
                       contentForVersion = syntaxResult.content;
+                      contentForVersion = expandUrls(contentForVersion, urlMap);
                       if (syntaxResult.fixerUsed) {
                         devLogAppend("in-progress", {
                           type: "syntax-validation.result",
@@ -904,6 +906,7 @@ export async function POST(req: Request) {
               encoder.encode(
                 formatSSEEvent("meta", {
                   modelId: resolvedModelId,
+                  modelTier: resolvedModelTier,
                   thinking: resolvedThinking,
                   imageGenerations: resolvedImageGenerations,
                   chatPrivacy: resolvedChatPrivacy,

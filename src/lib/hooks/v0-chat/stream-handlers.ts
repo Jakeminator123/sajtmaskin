@@ -95,6 +95,8 @@ export async function handleSseStream(
             const paModel = ctx.promptAssistModel ?? null;
             appendModelInfoPart(setMessages, assistantMessageId, {
               modelId: (meta.modelId as string) ?? selectedModelTier,
+              modelTier:
+                (typeof meta.modelTier === "string" && meta.modelTier) || selectedModelTier || null,
               thinking: typeof meta.thinking === "boolean" ? meta.thinking : null,
               imageGenerations:
                 typeof meta.imageGenerations === "boolean" ? meta.imageGenerations : null,

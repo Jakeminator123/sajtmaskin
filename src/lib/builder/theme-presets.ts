@@ -17,7 +17,7 @@ export type DesignTheme =
   | "custom"
   | "off";
 
-export const DEFAULT_DESIGN_THEME: DesignTheme = "blue";
+export const DEFAULT_DESIGN_THEME: DesignTheme = "off";
 
 export interface ThemeColors {
   primary: string;

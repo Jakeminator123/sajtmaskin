@@ -34,10 +34,13 @@ export const DEFAULT_OWN_MODEL_ID: OwnModelId = "gpt-5.2";
 
 /**
  * Old model IDs that may exist in persisted data (localStorage, DB rows,
- * URL params). The resolver maps them to the current canonical ID so the
+ * URL params). Multiple legacy IDs may intentionally point to the same
+ * canonical tier. These are compatibility aliases, not separate active
+ * models. The resolver maps them to the current canonical ID so the
  * v0 Platform API always receives a valid value.
  */
 export const LEGACY_ALIAS: Record<string, CanonicalModelId> = {
+  "v0-1.5-sm": "v0-max-fast",
   "v0-mini": "v0-1.5-md",
   "v0-pro": "v0-1.5-md",
   "v0-max": "v0-max-fast",

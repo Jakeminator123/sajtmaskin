@@ -45,6 +45,14 @@ describe("resolveModelSelection", () => {
     });
   });
 
+  it("accepts v0-1.5-sm as alias for Max Fast", () => {
+    const result = resolveModelSelection({ requestedModelId: "v0-1.5-sm" });
+    expect(result).toEqual({
+      modelId: "v0-max-fast",
+      modelTier: "v0-max-fast",
+    });
+  });
+
   it("ignores null requestedModelId and uses requestedModelTier", () => {
     const result = resolveModelSelection({
       requestedModelId: null,
@@ -61,9 +69,9 @@ describe("resolveEngineModelId", () => {
   });
 
   it("maps v0 tier to OpenAI model when useV0Fallback is false", () => {
-    expect(resolveEngineModelId("v0-max-fast", false)).toBe("gpt-5.2");
+    expect(resolveEngineModelId("v0-max-fast", false)).toBe("gpt-5.4");
     expect(resolveEngineModelId("v0-1.5-md", false)).toBe("gpt-5.2");
-    expect(resolveEngineModelId("v0-gpt-5", false)).toBe("gpt-5.2");
-    expect(resolveEngineModelId("v0-1.5-lg", false)).toBe("gpt-5.2");
+    expect(resolveEngineModelId("v0-gpt-5", false)).toBe("gpt-5.4");
+    expect(resolveEngineModelId("v0-1.5-lg", false)).toBe("gpt-5.4");
   });
 });

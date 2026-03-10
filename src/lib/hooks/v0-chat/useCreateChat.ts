@@ -2,6 +2,7 @@ import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
 import { formatPrompt, resolvePromptAssistProvider, isPromptAssistOff } from "@/lib/builder/promptAssist";
 import { debugLog } from "@/lib/utils/debug";
+import { MODEL_LABELS, canonicalizeModelId } from "@/lib/v0/models";
 import { STREAM_SAFETY_TIMEOUT_DEFAULT_MS } from "./constants";
 import type { AutoFixPayload, MessageOptions, V0ChatMessagingParams } from "./types";
 import {
@@ -11,6 +12,7 @@ import {
   buildCreateChatKey,
   clearCreateChatLock,
   getActiveCreateChatLock,
+  isAbortLikeError,
   isNetworkError,
   updateCreateChatLockChatId,
   writeCreateChatLock,
@@ -122,7 +124,7 @@ export function useCreateChat(
         messageLength: initialMessage.length,
         attachments: options.attachments?.length ?? 0,
         imageGenerations: enableImageGenerations,
-        modelTier: selectedModelTier,
+        modelTier: MODEL_LABELS[canonicalizeModelId(selectedModelTier) ?? "v0-1.5-lg"],
         modelId: selectedModelTier,
         systemPromptProvided: Boolean(effectiveSystemPrompt?.trim()),
       });
@@ -148,6 +150,8 @@ export function useCreateChat(
         appendModelInfoPart(setMessages, assistantMessageId, {
           modelId:
             (typeof meta?.modelId === "string" && meta?.modelId) || selectedModelTier || null,
+          modelTier:
+            (typeof meta?.modelTier === "string" && meta?.modelTier) || selectedModelTier || null,
           thinking: typeof meta?.thinking === "boolean" ? (meta.thinking as boolean) : null,
           imageGenerations:
             typeof meta?.imageGenerations === "boolean"
@@ -333,6 +337,11 @@ export function useCreateChat(
           await handleNonStreamingCreate(data);
         }
       } catch (error) {
+        if (isAbortLikeError(error)) {
+          debugLog("AI", "Create chat stream aborted");
+          return;
+        }
+
         let finalError = error;
         if (isNetworkError(error) && requestBody) {
           try {
@@ -360,6 +369,10 @@ export function useCreateChat(
             await handleNonStreamingCreate(data);
             return;
           } catch (fallbackErr) {
+            if (isAbortLikeError(fallbackErr)) {
+              debugLog("AI", "Create chat fallback aborted");
+              return;
+            }
             finalError = fallbackErr;
           }
         }

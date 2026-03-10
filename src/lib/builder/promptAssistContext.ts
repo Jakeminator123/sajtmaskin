@@ -60,7 +60,7 @@ const DEFAULT_SPEC: WebsiteSpec = {
   oneSentencePitch: "A beautiful, responsive website built with modern technologies",
   targetAudience: "General audience",
   tone: "professional",
-  primaryColorHint: "blue",
+  primaryColorHint: "subject-led",
   pages: [
     {
       path: "/",

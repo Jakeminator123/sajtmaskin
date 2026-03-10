@@ -30,7 +30,7 @@ import { WARN_CHAT_MESSAGE_CHARS, WARN_CHAT_SYSTEM_CHARS } from "@/lib/builder/p
 import { orchestratePromptMessage } from "@/lib/builder/promptOrchestration";
 import { resolveModelSelection, resolveEngineModelId } from "@/lib/v0/modelSelection";
 import { shouldUseV0Fallback, createGenerationPipeline } from "@/lib/gen/fallback";
-import { compressUrls } from "@/lib/gen/url-compress";
+import { compressUrls, expandUrls } from "@/lib/gen/url-compress";
 import { buildSystemPrompt, getSystemPromptLengths } from "@/lib/gen/system-prompt";
 import { SuspenseLineProcessor, parseSSEBuffer } from "@/lib/gen/route-helpers";
 import * as chatRepo from "@/lib/db/chat-repository";
@@ -296,6 +296,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
               enc.encode(
                 formatSSEEvent("meta", {
                   modelId: engineModel,
+                  modelTier: resolvedModelTier,
                   thinking: resolvedThinking,
                   imageGenerations: resolvedImageGenerations,
                 }),
@@ -380,6 +381,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
                         model: engineModel,
                       });
                       contentForVersion = syntaxResult.content;
+                      contentForVersion = expandUrls(contentForVersion, urlMap);
                       if (syntaxResult.fixerUsed) {
                         devLogAppend("latest", {
                           type: "syntax-validation.result",

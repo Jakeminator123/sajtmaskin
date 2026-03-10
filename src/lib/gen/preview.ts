@@ -37,6 +37,11 @@ type PreparedModule = {
   transpileErrors: string[];
 };
 
+type PreviewValidationIssue = {
+  file: string;
+  message: string;
+};
+
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -536,10 +541,31 @@ function prepareModules(pageFile: CodeFile, componentFiles: CodeFile[]): Prepare
 function buildPreviewPrelude(modules: PreparedModule[]): string {
   const lines: string[] = [
     "const __previewRoot = document.getElementById('root');",
-    "function __previewShowError(error) {",
+    "const __previewReportedErrors = new Set();",
+    "function __previewPost(type, payload) {",
+    "  try {",
+    "    if (window.parent && window.parent !== window) {",
+    "      window.parent.postMessage({ source: 'sajtmaskin-preview', type, payload }, '*');",
+    "    }",
+    "  } catch {",
+    "    // ignore cross-window postMessage failures",
+    "  }",
+    "}",
+    "function __previewReportError(error, meta) {",
+    "  const message = error && typeof error === 'object' && 'message' in error ? String(error.message) : String(error ?? 'Okänt preview-fel');",
+    "  const name = error && typeof error === 'object' && 'name' in error ? String(error.name || '') : '';",
+    "  const stack = error && typeof error === 'object' && 'stack' in error ? String(error.stack || '') : '';",
+    "  const kind = meta && typeof meta === 'object' && 'kind' in meta ? String(meta.kind || '') : 'runtime';",
+    "  const dedupeKey = [kind, name, message].join('::');",
+    "  if (__previewReportedErrors.has(dedupeKey)) return;",
+    "  __previewReportedErrors.add(dedupeKey);",
+    "  __previewPost('preview-error', { message, name: name || null, stack: stack || null, kind });",
+    "}",
+    "function __previewShowError(error, meta) {",
     "  if (!__previewRoot) return;",
     "  const message = error && typeof error === 'object' && 'message' in error ? String(error.message) : String(error ?? 'Okänt preview-fel');",
     "  __previewRoot.innerHTML = '<div style=\"padding:2rem;font-family:system-ui;color:#ef4444\"><h2 style=\"margin:0 0 1rem\">Preview-fel</h2><pre style=\"white-space:pre-wrap;font-size:13px;color:#a3a3a3\">' + message + '</pre></div>';",
+    "  __previewReportError(error, meta);",
     "}",
     "const Image = (props = {}) => {",
     "  const { src, alt, style, onError, width, height, fill, ...rest } = props;",
@@ -592,6 +618,7 @@ function buildPreviewPrelude(modules: PreparedModule[]): string {
     "  }",
     "  componentDidCatch(error) {",
     "    console.error('Preview render error:', error);",
+    "    __previewReportError(error, { kind: 'react-render' });",
     "  }",
     "  render() {",
     "    if (this.state?.error) {",
@@ -879,6 +906,59 @@ function buildLocalImportAliases(modules: PreparedModule[]): string {
   return [...lines].join("\n");
 }
 
+function isPreviewHandledImportSource(source: string): boolean {
+  return (
+    source === "react" ||
+    source === "next/image" ||
+    source === "next/link" ||
+    source === "next/navigation" ||
+    source === "lucide-react" ||
+    source === "@/lib/utils" ||
+    source.startsWith("@/components/ui/")
+  );
+}
+
+function collectPreviewValidationIssues(modules: PreparedModule[]): PreviewValidationIssue[] {
+  const fileMap = buildCodeFileMap(modules.map((module) => module.file));
+  const moduleByPath = buildPreparedModuleMap(modules);
+  const issues: PreviewValidationIssue[] = [];
+
+  for (const preparedModule of modules) {
+    for (const imp of preparedModule.imports) {
+      if (isPreviewHandledImportSource(imp.source)) continue;
+
+      const targetPath = resolveLocalImportPath(fileMap, preparedModule.file.path, imp.source);
+      if (!targetPath) {
+        if (imp.source.startsWith(".") || imp.source.startsWith("@/")) {
+          issues.push({
+            file: preparedModule.file.path,
+            message: `Missing local import target: ${imp.source}`,
+          });
+        }
+        continue;
+      }
+
+      const targetModule = moduleByPath.get(targetPath);
+      if (!targetModule) {
+        issues.push({
+          file: preparedModule.file.path,
+          message: `Resolved local import is unavailable in preview: ${imp.source} -> ${targetPath}`,
+        });
+        continue;
+      }
+
+      if (imp.defaultImport && !targetModule.defaultExportName) {
+        issues.push({
+          file: preparedModule.file.path,
+          message: `Local import expects a default export from ${imp.source}, but none was found`,
+        });
+      }
+    }
+  }
+
+  return issues;
+}
+
 function buildPreviewScript(pageFile: CodeFile, componentFiles: CodeFile[]): string {
   const modules = prepareModules(pageFile, componentFiles);
   const prelude = buildPreviewPrelude(modules);
@@ -893,9 +973,23 @@ function buildPreviewScript(pageFile: CodeFile, componentFiles: CodeFile[]): str
       ...visibleErrors.map((entry) => `- ${entry}`),
     ].join("\n");
     return escapeInlineScript(
-      [prelude, `__previewShowError(${JSON.stringify(errorMessage)});`].join("\n\n"),
+      [prelude, `__previewShowError(${JSON.stringify(errorMessage)}, { kind: 'compile' });`].join("\n\n"),
     );
   }
+
+  const validationIssues = collectPreviewValidationIssues(modules);
+  if (validationIssues.length > 0) {
+    const visibleIssues = validationIssues.slice(0, PREVIEW_TRANSPILE_ERROR_LIMIT);
+    const errorMessage = [
+      "Preview validation failed for generated code.",
+      "",
+      ...visibleIssues.map((issue) => `- ${issue.file}: ${issue.message}`),
+    ].join("\n");
+    return escapeInlineScript(
+      [prelude, `__previewShowError(${JSON.stringify(errorMessage)}, { kind: 'validation' });`].join("\n\n"),
+    );
+  }
+
   const moduleCode = modules.map((module) => module.transformedCode).join("\n\n");
   const localAliases = buildLocalImportAliases(modules);
   const pageModule = modules[modules.length - 1];
@@ -911,9 +1005,10 @@ function buildPreviewScript(pageFile: CodeFile, componentFiles: CodeFile[]): str
       "    ReactDOM.createRoot(__previewRoot).render(",
       `      React.createElement(__PreviewErrorBoundary, null, React.createElement(${renderName})),`,
       "    );",
+      "    __previewPost('preview-ready', { ok: true });",
       "  }",
       "} catch (error) {",
-      "  __previewShowError(error);",
+      "  __previewShowError(error, { kind: 'runtime' });",
       "}",
     ].filter(Boolean).join("\n\n"),
   );
@@ -935,7 +1030,27 @@ export function buildPreviewHtml(files: CodeFile[]): string | null {
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Preview</title>
+  <script>
+    (() => {
+      const originalWarn = console.warn.bind(console);
+      const tailwindBrowserWarning = "cdn.tailwindcss.com should not be used in production";
+      console.warn = (...args) => {
+        const joined = args
+          .map((arg) => (typeof arg === "string" ? arg : ""))
+          .join(" ");
+        if (joined.includes(tailwindBrowserWarning)) return;
+        originalWarn(...args);
+      };
+      window.__restorePreviewWarn = () => {
+        console.warn = originalWarn;
+      };
+    })();
+  </script>
   <script src="https://cdn.tailwindcss.com"><\/script>
+  <script>
+    window.__restorePreviewWarn?.();
+    delete window.__restorePreviewWarn;
+  </script>
   <style>
     ${baseCss}
     ${customCss}

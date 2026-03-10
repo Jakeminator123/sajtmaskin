@@ -190,6 +190,14 @@ export function BuilderHeader(props: {
   const isBusy = isAnyStreaming || isCreatingChat;
   const currentModel = MODEL_TIER_OPTIONS.find((m) => m.value === selectedModelTier);
   const modelButtonLabel = currentModel?.label || "AI";
+  const designButtonLabel =
+    DESIGN_SYSTEM_OPTIONS.find((option) => option.value === designSystemId)?.label || "Standard";
+  const scaffoldButtonLabel =
+    scaffoldMode === "off"
+      ? "Av"
+      : scaffoldMode === "auto"
+        ? "Auto"
+        : getAllScaffolds().find((scaffold) => scaffold.id === scaffoldId)?.label ?? "Välj";
   const assistModelOptions = getPromptAssistModelOptions();
   const hasCustomAssistModel =
     Boolean(promptAssistModel) &&
@@ -248,7 +256,9 @@ export function BuilderHeader(props: {
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" size="sm" disabled={isBusy}>
                     <Bot className="h-4 w-4" />
-                    <span className="hidden max-w-[180px] truncate sm:inline">{modelButtonLabel}</span>
+                    <span className="hidden max-w-[220px] truncate sm:inline">
+                      Modell: {modelButtonLabel}
+                    </span>
                     {promptAssistDeep && isGatewayProvider && !isAssistOff && (
                       <Wand2 className="text-primary h-3 w-3" />
                     )}
@@ -257,7 +267,7 @@ export function BuilderHeader(props: {
                 </DropdownMenuTrigger>
               </TooltipTrigger>
               <TooltipContent side="bottom" className="max-w-xs text-xs">
-                <p>Bygg: {modelButtonLabel}</p>
+                <p>Byggmodell: {modelButtonLabel}</p>
                 <p>{assistStatusSummary}</p>
               </TooltipContent>
             </Tooltip>
@@ -274,9 +284,10 @@ export function BuilderHeader(props: {
                   </TooltipTrigger>
                   <TooltipContent side="left" className="max-w-xs">
                     <p className="text-xs">
-                      Välj modellnivå för bygg. Standardmotorn använder GPT 5.2; Max-nivå
-                      använder också GPT 5.2. Vid v0-fallback används v0-modeller. Prompt Assist är en
-                      separat AI som förbättrar prompten före generering.
+                      Detta är byggtiers för själva genereringen. Om `V0_FALLBACK_BUILDER=y`
+                      används motsvarande v0-tier direkt. Annars mappar samma tier till egen motor
+                      ungefär som GPT-4.1 Mini, GPT-5.2 och GPT-5.4. Prompt Assist nedan är separat
+                      och används bara för att förbättra prompt, scaffold-val och designbrief innan bygg.
                     </p>
                   </TooltipContent>
                 </Tooltip>
@@ -309,9 +320,10 @@ export function BuilderHeader(props: {
                   </TooltipTrigger>
                   <TooltipContent side="left" className="max-w-xs">
                     <p className="text-xs">
-                      Rättar stavning/tydlighet i prompten med minimal omskrivning. Behåller språk
-                      om du inte uttryckligen ber om engelska. Själva bygget kör med den valda
-                      v0-modellen ovan.
+                      Den här modellen styr den tyngre förbättringen: deep brief, scaffold-hjälp,
+                      designbrief och dynamiska instruktioner före första bygget. Den snabba knappen
+                      `Skriv om prompt` använder i stället en lättare polish-modell bara för texten i
+                      inmatningsrutan.
                     </p>
                   </TooltipContent>
                 </Tooltip>
@@ -377,8 +389,8 @@ export function BuilderHeader(props: {
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" size="sm" disabled={isBusy}>
                     <Palette className="h-4 w-4" />
-                    <span className="hidden max-w-[120px] truncate sm:inline">
-                      {DESIGN_SYSTEM_OPTIONS.find((o) => o.value === designSystemId)?.label || "Design"}
+                    <span className="hidden max-w-[180px] truncate sm:inline">
+                      Design: {designButtonLabel}
                     </span>
                     <ChevronDown className="h-3 w-3 opacity-50" />
                   </Button>
@@ -412,12 +424,8 @@ export function BuilderHeader(props: {
                 <DropdownMenuTrigger asChild>
                   <Button variant="outline" size="sm" disabled={isBusy}>
                     <Layers className="h-4 w-4" />
-                    <span className="hidden max-w-[120px] truncate sm:inline">
-                      {scaffoldMode === "off"
-                        ? "Mall: Av"
-                        : scaffoldMode === "auto"
-                          ? "Mall: Auto"
-                          : getAllScaffolds().find((s) => s.id === scaffoldId)?.label ?? "Mall: Välj"}
+                    <span className="hidden max-w-[180px] truncate sm:inline">
+                      Mall: {scaffoldButtonLabel}
                     </span>
                     <ChevronDown className="h-3 w-3 opacity-50" />
                   </Button>

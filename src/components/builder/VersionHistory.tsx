@@ -277,7 +277,7 @@ export function VersionHistory({
     const showSyncing = Boolean(chatId) && !syncingElapsed;
     return (
       <div className="text-muted-foreground flex h-full items-center justify-center p-4">
-        <p className="text-center text-sm">
+        <p className="text-center text-sm" suppressHydrationWarning>
           {showSyncing
             ? "Synkar versionshistorik..."
             : "Inga versioner ännu. Generera en sida för att skapa en version."}

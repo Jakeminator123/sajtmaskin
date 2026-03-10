@@ -463,6 +463,53 @@ function resolveVisualIdentityGuidance(
   return base;
 }
 
+function isSeasonalOrCulturalTopic(value: string): boolean {
+  const lower = value.toLowerCase();
+  return [
+    "jul",
+    "christmas",
+    "holiday",
+    "festive",
+    "vinter",
+    "winter",
+    "gran",
+    "granar",
+    "tree",
+    "trees",
+    "tyskland",
+    "germany",
+    "julmarknad",
+    "market",
+    "skog",
+    "forest",
+  ].some((keyword) => lower.includes(keyword));
+}
+
+function getSubjectPaletteGuidance(value: string): string[] {
+  const lower = value.toLowerCase();
+  if (
+    [
+      "jul",
+      "christmas",
+      "festive",
+      "holiday",
+      "gran",
+      "granar",
+      "julmarknad",
+      "snow",
+      "snö",
+      "winter",
+      "vinter",
+    ].some((keyword) => lower.includes(keyword))
+  ) {
+    return [
+      "Suggested subject palette: evergreen/spruce green, deep Christmas red, snow white, bark brown, and warm gold.",
+      "Use those colors in hero backgrounds, CTA accents, badges, borders, and decorative details instead of default SaaS blue.",
+    ];
+  }
+  return [];
+}
+
 function resolveQualityBarGuidance(
   tone: string[],
   styleKeywords: string[],
@@ -775,7 +822,6 @@ export function buildPromptFromBrief(params: {
   const imageryStyle = asStringList(imagery?.styleKeywords);
   const imagerySubjects = asStringList(imagery?.suggestedSubjects);
   const altRules = asStringList(imagery?.altTextRules);
-
   const ui = brief?.uiNotes || {};
   const uiComponents = asStringList(ui?.components);
   const uiInteractions = asStringList(ui?.interactions);
@@ -813,7 +859,7 @@ export function buildPromptFromBrief(params: {
     ...qualityGuidance.map((line) => `- ${line}`),
     "",
     imageGenerations
-      ? "Imagery: image generation is enabled — use AI-generated images wherever they add value. Do NOT use placeholder services (unsplash, picsum, placehold.co). Use next/image for sizing, always include descriptive alt text, and never use blob: or data: URIs."
+      ? "Imagery: image generation is enabled — use AI-generated images wherever they add value. When no AI images are provided, use real Unsplash photos that directly depict the site topic (format: https://images.unsplash.com/photo-{ID}?w={W}&h={H}&fit=crop&q=80). Hero MUST have a large image. NEVER use generic stock photos. Use next/image for sizing, always include descriptive alt text, and never use blob: or data: URIs."
       : "Imagery: image generation is disabled — use /placeholder.svg?height=H&width=W for all images. Prioritize layout, typography, and iconography. Always include descriptive alt text.",
     imageryStyle.length ? `- Image style keywords: ${imageryStyle.join(", ")}` : null,
     imagerySubjects.length ? `- Suggested image subjects: ${imagerySubjects.join(", ")}` : null,
@@ -893,6 +939,9 @@ export function buildDynamicInstructionAddendumFromBrief(params: {
     ...asStringList(imagery?.subjects),
     ...asStringList(imagery?.shotTypes),
   ].filter(Boolean);
+  const topicIsSeasonalOrCultural = isSeasonalOrCulturalTopic(
+    [projectTitle, brandName, pitch, originalPrompt, imageryNotes.join(" ")].join(" "),
+  );
 
   const mustHave = asStringList(brief.mustHave).slice(0, 10);
   const avoid = asStringList(brief.avoid).slice(0, 8);
@@ -955,6 +1004,14 @@ export function buildDynamicInstructionAddendumFromBrief(params: {
   parts.push(
     "## Visual Identity",
     ...visualIdentityGuidance,
+    ...(topicIsSeasonalOrCultural
+      ? [
+          "Use a subject-led palette rather than default modern SaaS blue. Pull colors from the topic itself: evergreen, spruce, bark, warm gold, candlelight cream, deep red, winter white, or other relevant hues.",
+          ...getSubjectPaletteGuidance(
+            [projectTitle, brandName, pitch, originalPrompt, styleKeywords.join(" ")].join(" "),
+          ),
+        ]
+      : []),
     ...themeAccentLines,
     ...themeTokenLines,
     "",
@@ -964,9 +1021,11 @@ export function buildDynamicInstructionAddendumFromBrief(params: {
   parts.push(
     "## Imagery",
     imageGenerations
-      ? "Image generation is enabled — use AI-generated images as the primary source. Do NOT use placeholder services (unsplash, picsum, placehold.co). Never use blob: or data: URIs."
+      ? "Image generation is enabled — use AI-generated images as the primary source. When no AI images are provided, use real Unsplash photos that directly depict the site topic (format: https://images.unsplash.com/photo-{ID}?w={W}&h={H}&fit=crop&q=80). Hero MUST have a prominent image. Never use blob: or data: URIs."
       : "Image generation is disabled — use /placeholder.svg?height=H&width=W for all images.",
     "Alt text required on all images. Use next/image with explicit dimensions.",
+    "Every image must visually match its alt text and the actual page topic.",
+    "Avoid generic office, laptop, startup, coworking, and meeting photos unless that is the real subject of the site.",
     ...imageDensityGuidance.map((line) => `- ${line}`),
     ...(imageryNotes.length ? imageryNotes.map((note) => `- ${note}`) : []),
     "",
@@ -993,13 +1052,14 @@ export function buildDynamicInstructionAddendumFromPrompt(params: {
   const { originalPrompt, imageGenerations, buildIntent, themeOverride } = params;
   const formatted = formatPrompt(originalPrompt);
   const imageryLine = imageGenerations
-    ? "Image generation is enabled — use AI-generated images as the primary source. Do NOT use placeholder services. Never use blob: or data: URIs. Always include alt text."
+    ? "Image generation is enabled — use AI-generated images as the primary source. When no AI images are provided, use real Unsplash photos matching the site topic (format: https://images.unsplash.com/photo-{ID}?w={W}&h={H}&fit=crop&q=80). Hero MUST have a prominent image. Never use blob: or data: URIs. Always include alt text."
     : "Image generation is disabled — use /placeholder.svg?height=H&width=W for all images. Always include alt text.";
   const intentLines = getBuildIntentInstructionLines(buildIntent);
   const themeLocked = hasThemeOverride(themeOverride);
   const colorPalette = themeLocked ? toColorPalette(themeOverride) : {};
   const themeAccentLines = themeLocked ? buildThemeAccentLines(themeOverride) : [];
   const themeTokenLines = themeLocked ? buildThemeTokenLines(themeOverride) : [];
+  const topicIsSeasonalOrCultural = isSeasonalOrCulturalTopic(originalPrompt);
 
   // Infer tone and style from the raw prompt for dynamic guidance
   const promptStyles = extractKeywordMatches(originalPrompt, STYLE_KEYWORDS);
@@ -1034,6 +1094,12 @@ export function buildDynamicInstructionAddendumFromPrompt(params: {
     ...resolveVisualIdentityGuidance(colorPalette, promptStyles, promptTone, "compact", {
       themeLocked,
     }),
+    ...(topicIsSeasonalOrCultural
+      ? [
+          "Use a subject-led palette instead of default SaaS blue. Seasonal/cultural themes should borrow color cues from the actual subject matter.",
+          ...getSubjectPaletteGuidance(originalPrompt),
+        ]
+      : []),
     ...themeAccentLines,
     ...themeTokenLines,
     "",
@@ -1042,6 +1108,8 @@ export function buildDynamicInstructionAddendumFromPrompt(params: {
     "",
     "## Imagery",
     imageryLine,
+    "Every image must visually match the subject, not just fill the layout.",
+    "Avoid generic office, laptop, startup, coworking, and meeting photos unless the request is actually about business/software/work.",
     ...IMAGE_DENSITY_GUIDANCE,
   ].join("\n");
 }

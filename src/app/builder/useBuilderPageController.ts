@@ -15,6 +15,7 @@ import {
   readChatGenerationSettings,
   writeChatGenerationSettings,
 } from "@/lib/builder/chat-generation-settings";
+import { DEFAULT_MODEL_TIER } from "@/lib/builder/defaults";
 import { getProject, saveProjectData } from "@/lib/project-client";
 import { useChat } from "@/lib/hooks/useChat";
 import { useCssValidation } from "@/lib/hooks/useCssValidation";
@@ -71,7 +72,6 @@ export function useBuilderPageController() {
     setResolvedPrompt, setSelectedModelTier, setSelectedVersionId,
     setServerProjectChatId, setServerProjectDemoUrl, setServerProjectMessages,
     setShowStructuredChat, setV0ProjectId,
-    setScaffoldMode, setScaffoldId,
     applyingGenerationSettingsRef, autoProjectInitRef, featureWarnedRef,
     hasLoadedInstructions, hasLoadedInstructionsOnce, lastActiveVersionIdRef,
     lastPaletteSavedRef, lastProjectIdRef, lastSyncedInstructionsRef,
@@ -144,7 +144,12 @@ export function useBuilderPageController() {
     setIsSandboxModalOpen: state.setIsSandboxModalOpen,
     setIsSavingProject: state.setIsSavingProject,
     setSelectedModelTier: state.setSelectedModelTier,
+    setPromptAssistModel: state.setPromptAssistModel,
+    setPromptAssistDeep: state.setPromptAssistDeep,
     setEnableImageGenerations: state.setEnableImageGenerations,
+    setDesignTheme: state.setDesignTheme,
+    setScaffoldMode: state.setScaffoldMode,
+    setScaffoldId: state.setScaffoldId,
     setCustomInstructions: state.setCustomInstructions,
     setApplyInstructionsOnce: state.setApplyInstructionsOnce,
     setDeployNameInput: state.setDeployNameInput,
@@ -189,6 +194,7 @@ export function useBuilderPageController() {
     mutateVersions,
     validateCss,
   });
+  const fetchHealthFeatures = deployActions.fetchHealthFeatures;
 
   // ── Deployment status SSE ──────────────────────────────────────────
   const deploymentStatus = useDeploymentStatus(state.activeDeploymentId);
@@ -545,7 +551,13 @@ export function useBuilderPageController() {
     if (typeof window === "undefined") return;
     try {
       const stored = localStorage.getItem("sajtmaskin:designTheme");
-      if (stored) setDesignTheme(normalizeDesignTheme(stored));
+      if (!stored) return;
+      if (stored === "blue") {
+        setDesignTheme("off");
+        localStorage.setItem("sajtmaskin:designTheme", "off");
+        return;
+      }
+      setDesignTheme(normalizeDesignTheme(stored));
     } catch {
       /* ignore */
     }
@@ -881,7 +893,7 @@ export function useBuilderPageController() {
 
     const loadImageStrategyDefault = async () => {
       try {
-        const flags = await deployActions.fetchHealthFeatures(controller.signal);
+        const flags = await fetchHealthFeatures(controller.signal);
         if (!flags) return;
         const { blobEnabled, v0Enabled, reasons } = flags;
         if (!isActive) return;
@@ -909,7 +921,7 @@ export function useBuilderPageController() {
       isActive = false;
       controller.abort();
     };
-  }, [deployActions, setIsMediaEnabled, setIsImageGenerationsSupported, setEnableImageGenerations, featureWarnedRef]);
+  }, [fetchHealthFeatures, setIsMediaEnabled, setIsImageGenerationsSupported, setEnableImageGenerations, featureWarnedRef]);
 
   // OAuth callback feedback
   useEffect(() => {
@@ -1176,7 +1188,7 @@ export function useBuilderPageController() {
     if (autoGenerateTriggeredRef.current) return;
     autoGenerateTriggeredRef.current = true;
 
-    setSelectedModelTier("v0-max-fast");
+    setSelectedModelTier(DEFAULT_MODEL_TIER);
 
     const timer = setTimeout(() => {
       void promptActions.requestCreateChat(resolvedPrompt!);

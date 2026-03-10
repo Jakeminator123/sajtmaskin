@@ -41,6 +41,45 @@ export interface ImageValidationResult {
   warnings: string[];
 }
 
+const TOPIC_SPECIFIC_IMAGE_KEYWORDS = [
+  "jul",
+  "christmas",
+  "holiday",
+  "festive",
+  "vinter",
+  "winter",
+  "gran",
+  "granar",
+  "tree",
+  "trees",
+  "julmarknad",
+  "market",
+  "tyskland",
+  "germany",
+  "forest",
+  "skog",
+  "snow",
+  "dekor",
+  "ornament",
+] as const;
+
+function hasTopicSpecificAltText(alt: string): boolean {
+  const lower = alt.toLowerCase();
+  return TOPIC_SPECIFIC_IMAGE_KEYWORDS.some((keyword) => lower.includes(keyword));
+}
+
+function findSemanticImageWarnings(refs: ImageRef[]): string[] {
+  const warnings: string[] = [];
+  for (const ref of refs) {
+    if (!isUnsplashUrl(ref.url)) continue;
+    if (!ref.alt || !hasTopicSpecificAltText(ref.alt)) continue;
+    warnings.push(
+      `[semantic-image] Kontrollera att bilden verkligen matchar motivet i ${ref.file}: "${ref.alt}" använder extern Unsplash-bild som kan vara semantiskt fel trots giltig URL.`,
+    );
+  }
+  return warnings;
+}
+
 // ═══════════════════════════════════════════════════════════════
 // URL EXTRACTION
 // ═══════════════════════════════════════════════════════════════
@@ -313,6 +352,8 @@ export async function validateImages(params: {
   if (refs.length === 0) {
     return { total: 0, broken: [], replacedCount: 0, files, warnings };
   }
+
+  warnings.push(...findSemanticImageWarnings(refs));
 
   let broken = await findBrokenImages(refs);
   if (broken.length === 0) {
