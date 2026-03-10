@@ -1,5 +1,6 @@
 import type { ChatMessage } from "@/lib/builder/types";
 import type { BuildIntent, BuildMethod } from "@/lib/builder/build-intent";
+import type { ScaffoldMode } from "@/lib/gen/scaffolds";
 import type { ModelTier } from "@/lib/validations/chatSchemas";
 
 export type RouterLike = { replace: (href: string) => void };
@@ -119,6 +120,8 @@ export type V0ChatMessagingParams = {
   promptAssistMode?: "polish" | "rewrite" | null;
   buildIntent?: BuildIntent;
   buildMethod?: BuildMethod | null;
+  scaffoldMode?: ScaffoldMode;
+  scaffoldId?: string | null;
   mutateVersions: () => void;
   setCurrentDemoUrl: (url: string | null) => void;
   onPreviewRefresh?: () => void;

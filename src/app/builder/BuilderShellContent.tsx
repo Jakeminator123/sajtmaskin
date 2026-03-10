@@ -507,6 +507,10 @@ export function BuilderShellContent(vm: BuilderViewModel) {
         canUseDeepBrief={!vm.chatId}
         designSystemId={vm.designSystemId}
         onDesignSystemIdChange={vm.setDesignSystemId}
+        scaffoldMode={vm.scaffoldMode}
+        scaffoldId={vm.scaffoldId}
+        onScaffoldModeChange={vm.setScaffoldMode}
+        onScaffoldIdChange={vm.setScaffoldId}
         customInstructions={vm.customInstructions}
         onCustomInstructionsChange={vm.setCustomInstructions}
         applyInstructionsOnce={vm.applyInstructionsOnce}

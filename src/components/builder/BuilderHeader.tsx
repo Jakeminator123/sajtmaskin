@@ -10,6 +10,8 @@ import {
 } from "@/lib/builder/defaults";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth/auth-store";
+import type { ScaffoldMode } from "@/lib/gen/scaffolds";
+import { getAllScaffolds } from "@/lib/gen/scaffolds";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -35,6 +37,7 @@ import {
   FolderGit2,
   HelpCircle,
   Image as ImageIcon,
+  Layers,
   Loader2,
   Link2,
   LogOut,
@@ -80,6 +83,11 @@ export function BuilderHeader(props: {
 
   designSystemId: string;
   onDesignSystemIdChange: (id: string) => void;
+
+  scaffoldMode: ScaffoldMode;
+  scaffoldId: string | null;
+  onScaffoldModeChange: (mode: ScaffoldMode) => void;
+  onScaffoldIdChange: (id: string | null) => void;
 
   customInstructions: string;
   onCustomInstructionsChange: (value: string) => void;
@@ -135,6 +143,10 @@ export function BuilderHeader(props: {
     canUseDeepBrief,
     designSystemId,
     onDesignSystemIdChange,
+    scaffoldMode,
+    scaffoldId,
+    onScaffoldModeChange,
+    onScaffoldIdChange,
     customInstructions,
     onCustomInstructionsChange,
     applyInstructionsOnce,
@@ -387,6 +399,65 @@ export function BuilderHeader(props: {
                 <DropdownMenuRadioItem key={option.value} value={option.value}>
                   <span className="font-medium">{option.label}</span>
                   <span className="text-muted-foreground ml-2 text-xs">{option.description}</span>
+                </DropdownMenuRadioItem>
+              ))}
+            </DropdownMenuRadioGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
+
+        <DropdownMenu>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="outline" size="sm" disabled={isBusy}>
+                    <Layers className="h-4 w-4" />
+                    <span className="hidden max-w-[120px] truncate sm:inline">
+                      {scaffoldMode === "off"
+                        ? "Mall: Av"
+                        : scaffoldMode === "auto"
+                          ? "Mall: Auto"
+                          : getAllScaffolds().find((s) => s.id === scaffoldId)?.label ?? "Mall: Välj"}
+                    </span>
+                    <ChevronDown className="h-3 w-3 opacity-50" />
+                  </Button>
+                </DropdownMenuTrigger>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="max-w-xs text-xs">
+                <p>Hemsidemall — startpunkt för genererad kod</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuLabel>Hemsidemall</DropdownMenuLabel>
+            <DropdownMenuRadioGroup
+              value={scaffoldMode === "manual" ? `manual:${scaffoldId ?? ""}` : scaffoldMode}
+              onValueChange={(v) => {
+                if (v === "off" || v === "auto") {
+                  onScaffoldModeChange(v);
+                  onScaffoldIdChange(null);
+                } else if (v.startsWith("manual:")) {
+                  const id = v.slice("manual:".length);
+                  onScaffoldModeChange("manual");
+                  onScaffoldIdChange(id || null);
+                }
+              }}
+            >
+              <DropdownMenuRadioItem value="off">Av</DropdownMenuRadioItem>
+              <DropdownMenuRadioItem value="auto">Auto</DropdownMenuRadioItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuLabel className="text-muted-foreground text-xs font-normal">
+                Välj själv
+              </DropdownMenuLabel>
+              {getAllScaffolds().map((scaffold) => (
+                <DropdownMenuRadioItem
+                  key={scaffold.id}
+                  value={`manual:${scaffold.id}`}
+                >
+                  <span className="font-medium">{scaffold.label}</span>
+                  <span className="text-muted-foreground ml-2 text-xs">
+                    {scaffold.description}
+                  </span>
                 </DropdownMenuRadioItem>
               ))}
             </DropdownMenuRadioGroup>

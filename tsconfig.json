@@ -40,6 +40,7 @@
     "node_modules",
     "src/templates",
     "drizzle.config.ts",
-    "old"
+    "old",
+    "_template_refs"
   ]
 }

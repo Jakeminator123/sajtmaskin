@@ -40,6 +40,8 @@ import { createPromptLog } from "@/lib/db/services";
 import { resolveModelSelection, resolveEngineModelId } from "@/lib/v0/modelSelection";
 import { AI } from "@/lib/config";
 import { shouldUseV0Fallback, createGenerationPipeline } from "@/lib/gen/fallback";
+import { matchScaffold, getScaffoldById, serializeScaffoldForPrompt } from "@/lib/gen/scaffolds";
+import type { ScaffoldManifest } from "@/lib/gen/scaffolds";
 import { compressUrls } from "@/lib/gen/url-compress";
 import { buildSystemPrompt, getSystemPromptLengths } from "@/lib/gen/system-prompt";
 import { SuspenseLineProcessor, parseSSEBuffer } from "@/lib/gen/route-helpers";
@@ -162,7 +164,7 @@ export async function POST(req: Request) {
         attachmentsCount: Array.isArray(attachments) ? attachments.length : 0,
       });
       const strategyMeta = promptOrchestration.strategyMeta;
-      const optimizedMessage = promptOrchestration.finalMessage;
+      let optimizedMessage = promptOrchestration.finalMessage;
       const trimmedSystemPrompt = typeof system === "string" ? system.trim() : "";
       const hasSystemPrompt = Boolean(trimmedSystemPrompt);
       const resolvedThinking =
@@ -323,6 +325,33 @@ export async function POST(req: Request) {
           metaBuildIntent === "template" || metaBuildIntent === "website" || metaBuildIntent === "app"
             ? (metaBuildIntent as BuildIntent)
             : "website";
+
+        const metaScaffoldMode =
+          typeof (meta as Record<string, unknown>)?.scaffoldMode === "string"
+            ? String((meta as Record<string, string>).scaffoldMode)
+            : "auto";
+        const metaScaffoldId =
+          typeof (meta as Record<string, unknown>)?.scaffoldId === "string"
+            ? String((meta as Record<string, string>).scaffoldId)
+            : null;
+
+        let resolvedScaffold: ScaffoldManifest | null = null;
+        if (metaScaffoldMode === "manual" && metaScaffoldId) {
+          resolvedScaffold = getScaffoldById(metaScaffoldId);
+        } else if (metaScaffoldMode === "auto") {
+          resolvedScaffold = matchScaffold(optimizedMessage, engineIntent);
+        }
+
+        if (resolvedScaffold) {
+          const scaffoldContext = serializeScaffoldForPrompt(resolvedScaffold);
+          optimizedMessage = `${scaffoldContext}\n\n---\n\n${optimizedMessage}`;
+          debugLog("engine", "Scaffold injected", {
+            scaffoldId: resolvedScaffold.id,
+            family: resolvedScaffold.family,
+            mode: metaScaffoldMode,
+          });
+        }
+
         const engineSystemPrompt = buildSystemPrompt({
           intent: engineIntent,
           imageGenerations: resolvedImageGenerations,
@@ -498,8 +527,18 @@ export async function POST(req: Request) {
                         "assistant",
                         contentForVersion,
                       );
-                      const { parseFilesFromContent } = await import("@/lib/gen/version-manager");
-                      const filesJson = parseFilesFromContent(contentForVersion);
+                      const { parseFilesFromContent, mergeVersionFiles } = await import("@/lib/gen/version-manager");
+                      let filesJson = parseFilesFromContent(contentForVersion);
+                      if (resolvedScaffold) {
+                        const generatedFiles = (JSON.parse(filesJson) as Array<{ path: string; content: string; language?: string }>).map(f => ({ ...f, language: f.language || "tsx" }));
+                        const scaffoldBase = resolvedScaffold.files.map((f) => ({
+                          path: f.path,
+                          content: f.content,
+                          language: "tsx" as const,
+                        }));
+                        const mergedFiles = mergeVersionFiles(scaffoldBase, generatedFiles);
+                        filesJson = JSON.stringify(mergedFiles);
+                      }
                       const version = chatRepo.createVersion(
                         engineChat.id,
                         assistantMsg.id,
@@ -631,8 +670,18 @@ export async function POST(req: Request) {
                       "assistant",
                       contentForVersion,
                     );
-                    const { parseFilesFromContent } = await import("@/lib/gen/version-manager");
-                    const filesJson = parseFilesFromContent(contentForVersion);
+                    const { parseFilesFromContent, mergeVersionFiles } = await import("@/lib/gen/version-manager");
+                    let filesJson = parseFilesFromContent(contentForVersion);
+                    if (resolvedScaffold) {
+                      const generatedFiles = (JSON.parse(filesJson) as Array<{ path: string; content: string; language?: string }>).map(f => ({ ...f, language: f.language || "tsx" }));
+                      const scaffoldBase = resolvedScaffold.files.map((f) => ({
+                        path: f.path,
+                        content: f.content,
+                        language: "tsx" as const,
+                      }));
+                      const mergedFiles = mergeVersionFiles(scaffoldBase, generatedFiles);
+                      filesJson = JSON.stringify(mergedFiles);
+                    }
                     const version = chatRepo.createVersion(
                       engineChat.id,
                       assistantMsg.id,
@@ -687,8 +736,18 @@ export async function POST(req: Request) {
                 if (accumulatedContent) {
                   try {
                     const assistantMsg = chatRepo.addMessage(engineChat.id, "assistant", accumulatedContent);
-                    const { parseFilesFromContent } = await import("@/lib/gen/version-manager");
-                    const filesJson = parseFilesFromContent(accumulatedContent);
+                    const { parseFilesFromContent, mergeVersionFiles } = await import("@/lib/gen/version-manager");
+                    let filesJson = parseFilesFromContent(accumulatedContent);
+                    if (resolvedScaffold) {
+                      const generatedFiles = (JSON.parse(filesJson) as Array<{ path: string; content: string; language?: string }>).map(f => ({ ...f, language: f.language || "tsx" }));
+                      const scaffoldBase = resolvedScaffold.files.map((f) => ({
+                        path: f.path,
+                        content: f.content,
+                        language: "tsx" as const,
+                      }));
+                      const mergedFiles = mergeVersionFiles(scaffoldBase, generatedFiles);
+                      filesJson = JSON.stringify(mergedFiles);
+                    }
                     const version = chatRepo.createVersion(
                       engineChat.id,
                       assistantMsg.id,

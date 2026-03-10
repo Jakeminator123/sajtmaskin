@@ -42,6 +42,27 @@ Internal dashboard with tabs: Database, Environment, Analytics, Prompts.
 
 ## Key concepts
 
+### Template vs scaffold vs Vercel template
+
+These three concepts are different and should NOT be mixed:
+
+| Term | Swedish label | Meaning | Scope |
+|------|---------------|---------|-------|
+| **Template** | `kategori-mall` or `mallkategori` | Our current user-facing template/category system in sajtmaskin. Used for inspiration, filtering, and starting points in the builder UI. | Product/UI concept |
+| **Scaffold** | `grundmall`, `startmall`, or `hemsidemall` | An internal, code-level starter project that the LLM modifies instead of generating everything from scratch. Usually 3-8 files with working navigation, footer, layout, and components. | Internal engine concept |
+| **Vercel Template** | `extern Vercel-template` | A public template/starter repo from [vercel.com/templates](https://vercel.com/templates). These are references or source material for building our own scaffolds, not something we should fetch live during every generation. | External ecosystem concept |
+| **Multi-tenant** | `delad plattform` | One codebase / one deployment serving many tenants with different data/domains. Best term for the sajtmaskin app itself. | Hosting architecture concept |
+| **Multi-project** | `separata kundprojekt` | One isolated Vercel project per customer/app. Best term for generated user sites and deploy targets. | Hosting architecture concept |
+
+Preferred terminology:
+- In product copy for users: say **`hemsidemall`** or **`startmall`**
+- In engine/code discussions: say **`scaffold`** or **`starter scaffold`**
+- When referring to Vercel's public library: explicitly say **`Vercel template`**
+
+Important rule:
+- Do NOT call our internal scaffolds just `templates` without qualifier, since sajtmaskin already uses `templates` for another concept.
+- Do NOT use `multi-tenant` or `multi-project` as if they were template concepts. They describe hosting/deployment architecture, not content/category selection.
+
 ### Build method (`BuildMethod`)
 
 How the user entered the builder. One of:

@@ -49,6 +49,8 @@ export function useCreateChat(
     promptAssistMode,
     buildIntent,
     buildMethod,
+    scaffoldMode,
+    scaffoldId,
     mutateVersions,
     setCurrentDemoUrl,
     onPreviewRefresh,
@@ -247,6 +249,8 @@ export function useCreateChat(
         if (promptAssistMode) promptMeta.promptAssistMode = promptAssistMode;
         if (buildIntent) promptMeta.buildIntent = buildIntent;
         if (buildMethod) promptMeta.buildMethod = buildMethod;
+        if (scaffoldMode && scaffoldMode !== "off") promptMeta.scaffoldMode = scaffoldMode;
+        if (scaffoldId) promptMeta.scaffoldId = scaffoldId;
         if (appProjectId) promptMeta.appProjectId = appProjectId;
         promptMeta.modelId = selectedModelTier;
         promptMeta.modelTier = selectedModelTier;
@@ -403,6 +407,8 @@ export function useCreateChat(
       buildBuilderParams,
       buildIntent,
       buildMethod,
+      scaffoldMode,
+      scaffoldId,
       promptAssistModel,
       promptAssistDeep,
       promptAssistMode,

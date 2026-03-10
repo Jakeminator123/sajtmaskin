@@ -9,6 +9,7 @@ import {
   type BuildIntent,
   type BuildMethod,
 } from "@/lib/builder/build-intent";
+import type { ScaffoldMode } from "@/lib/gen/scaffolds";
 import {
   getDefaultPaletteState,
   type PaletteState,
@@ -123,6 +124,9 @@ export function useBuilderState(searchParams: ReadonlyURLSearchParams) {
   const loadedGenerationSettingsChatRef = useRef<string | null>(null);
   const applyingGenerationSettingsRef = useRef(false);
   const templateInitAttemptKeyRef = useRef<string | null>(null);
+
+  const [scaffoldMode, setScaffoldMode] = useState<ScaffoldMode>("auto");
+  const [scaffoldId, setScaffoldId] = useState<string | null>(null);
 
   const isThinkingSupported = true;
   const effectiveThinking = enableThinking && isThinkingSupported;
@@ -272,6 +276,10 @@ export function useBuilderState(searchParams: ReadonlyURLSearchParams) {
     loadedGenerationSettingsChatRef,
     applyingGenerationSettingsRef,
     templateInitAttemptKeyRef,
+    scaffoldMode,
+    setScaffoldMode,
+    scaffoldId,
+    setScaffoldId,
     isThinkingSupported,
     effectiveThinking,
     resolvedBuildIntent,
