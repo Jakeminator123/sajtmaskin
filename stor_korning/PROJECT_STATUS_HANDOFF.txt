@@ -144,6 +144,34 @@ Highest-value next steps:
    - deploy
 
 
+6b. LATEST FOLLOW-UP AFTER HANDOFF FILE WAS CREATED
+
+- The manual design-system picker in the builder header was removed from the
+  main UI because it was low-signal compared to the space/attention it took.
+- Underlying support is still present in code/state, so this can later return
+  as a smarter prompt-driven or advanced-only control.
+- `.env.local` / `.env.production` were lightly cleaned:
+  - removed dead `MCP_GENERATED_CODE_API_KEY`
+  - removed duplicated trailing `OPENAI_API_KEY`
+  - removed obviously unused `HUGGINGFACE_API_KEY`
+  - removed dead experimental model flags from local env
+- Current working theory for Unsplash/image confusion:
+  - image generation currently happens in two phases
+  - phase 1: placeholder -> direct Unsplash URL
+  - phase 2: optional Blob materialization/upload
+  - if Blob materialization is disabled or not available, images may still work
+    visually as Unsplash URLs but not end up persisted the way the user expects
+- Blob storage is namespaced per chat/version in code:
+  `images/{chatId}/{versionId}/{hash}.{ext}`
+- So the likely problem is not "all generations share one blob bucket path", but
+  rather when the Blob step runs, whether it runs at all, and whether the final
+  version content is refreshed after replacement.
+- The likely next engineering task is to unify image handling into one clearer
+  pipeline:
+  placeholder -> choose image -> if blob enabled upload immediately -> persist
+  final URL to version
+
+
 7. WHAT NOT TO PANIC ABOUT
 
 - extra wrapper divs in preview are often expected because preview panel,
@@ -163,6 +191,10 @@ Highest-value next steps:
 - src/lib/hooks/chat/helpers.ts
 - src/app/api/v0/chats/[chatId]/versions/[versionId]/error-log/route.ts
 - src/lib/db/chat-repository.ts
+- src/lib/imageAssets.ts
+- src/app/api/v0/chats/[chatId]/validate-images/route.ts
+- scripts/next-runner.mjs
+- src/components/builder/BuilderHeader.tsx
 
 
 9. SHORT HANDOFF SUMMARY
