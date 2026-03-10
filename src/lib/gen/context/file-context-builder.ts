@@ -3,6 +3,8 @@ import type { CodeFile } from "../parser";
 export interface FileContextOptions {
   files: CodeFile[];
   maxChars?: number;
+  includeContents?: boolean;
+  maxFilesWithContent?: number;
 }
 
 export interface FileContext {
@@ -41,8 +43,53 @@ function countLines(content: string): number {
   return content.split("\n").length;
 }
 
+function scoreFilePriority(path: string): number {
+  if (path === "app/page.tsx") return 0;
+  if (path === "app/layout.tsx") return 1;
+  if (path === "app/globals.css") return 2;
+  if (path.startsWith("app/")) return 3;
+  if (path.startsWith("components/")) return 4;
+  return 5;
+}
+
+function compareByPriority(a: CodeFile, b: CodeFile): number {
+  const priorityDelta = scoreFilePriority(a.path) - scoreFilePriority(b.path);
+  if (priorityDelta !== 0) return priorityDelta;
+  return a.path.localeCompare(b.path);
+}
+
+function buildContentSections(files: CodeFile[], maxChars: number): string {
+  const sections: string[] = ["## Current File Contents", ""];
+  let current = sections.join("\n");
+
+  for (const file of files) {
+    const block = [
+      `### ${file.path}`,
+      "",
+      "```",
+      file.content,
+      "```",
+      "",
+    ].join("\n");
+
+    if ((current + block).length > maxChars) {
+      break;
+    }
+
+    sections.push(`### ${file.path}`, "", "```", file.content, "```", "");
+    current = sections.join("\n");
+  }
+
+  return current.trim();
+}
+
 export function buildFileContext(options: FileContextOptions): FileContext {
-  const { files, maxChars = 6000 } = options;
+  const {
+    files,
+    maxChars = 6000,
+    includeContents = false,
+    maxFilesWithContent = 6,
+  } = options;
 
   const fileList = files.map((f) => f.path);
   let totalLines = 0;
@@ -103,6 +150,19 @@ export function buildFileContext(options: FileContextOptions): FileContext {
       ...preamble,
       ...rows.map((r) => `- ${r.path} (${r.lines} lines)`),
     ].join("\n");
+  }
+
+  if (includeContents && summary.length < maxChars) {
+    const prioritizedFiles = [...files]
+      .sort(compareByPriority)
+      .slice(0, Math.max(1, maxFilesWithContent));
+    const contentBudget = maxChars - summary.length - 2;
+    if (contentBudget > 300) {
+      const contentSections = buildContentSections(prioritizedFiles, contentBudget);
+      if (contentSections) {
+        summary = `${summary}\n\n${contentSections}`;
+      }
+    }
   }
 
   return { summary, fileList, totalFiles: files.length, totalLines };

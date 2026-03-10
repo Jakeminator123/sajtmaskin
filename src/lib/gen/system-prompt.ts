@@ -93,7 +93,13 @@ Derive the visual approach, layout rhythm, and atmosphere from the user's prompt
 - Create visual depth with layered backgrounds: \`bg-background\` for page, \`bg-card\` for elevated surfaces, \`bg-muted\` for recessed areas.
 - Use subtle gradients for hero sections: \`bg-gradient-to-b from-background to-muted/50\`.
 - Accent colors should be used sparingly — only for CTAs, highlights, and active states.
-- Do NOT default to blue/purple for every site. Derive the palette from the subject matter, atmosphere, and brand. Seasonal or cultural sites may fit evergreen, forest, deep red, warm gold, candlelight cream, bark brown, or snowy neutrals better than SaaS blue.
+- Do NOT default to blue/purple (hue 240-280) for every site. This is the single most common mistake. Instead, derive the OKLCh hue from the subject matter:
+  - Fashion/streetwear → deep black (L:0.12, C:0) + gold accent (hue 85) or neon (hue 150)
+  - Restaurant/food → warm amber (hue 60-80) or deep red (hue 25)
+  - Nature/eco → forest green (hue 145) or earth brown (hue 70)
+  - Tech/SaaS → you may use blue (hue 250) here, it fits
+  - Creative/art → bold complementary pairs, not monochrome blue
+  - If the user specifies colors, use exactly those. If not, choose based on the industry/mood, NOT blue by default.
 
 ### Typography & Spacing
 - Create clear typographic hierarchy: hero headings \`text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight\`, section headings \`text-3xl font-semibold\`, body \`text-lg text-muted-foreground leading-relaxed\`.

@@ -43,6 +43,18 @@ type PreviewValidationIssue = {
   severity: "error" | "warning";
 };
 
+function isPreviewBuiltinImportSource(source: string): boolean {
+  return (
+    source === "react" ||
+    source === "next/image" ||
+    source === "next/link" ||
+    source === "next/navigation" ||
+    source === "lucide-react" ||
+    source === "@/lib/utils" ||
+    source.startsWith("@/components/ui/")
+  );
+}
+
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
@@ -136,6 +148,7 @@ function findComponentFiles(files: CodeFile[], excluding: string): CodeFile[] {
     const withoutNextImports = stripNextImports(currentFile.content);
     const imports = parseImports(withoutNextImports);
     for (const imp of imports) {
+      if (isPreviewBuiltinImportSource(imp.source)) continue;
       const targetPath = resolveLocalImportPath(fileMap, currentFile.path, imp.source);
       if (!targetPath) continue;
 
@@ -421,6 +434,8 @@ function normalizeTranspiledModule(
     }
   }
 
+  result = result.replace(/\bconst\s+(?=[A-Z][A-Za-z_$]*\s*=)/g, "var ");
+
   return result;
 }
 
@@ -431,58 +446,97 @@ function escapeInlineScript(code: string): string {
 function buildPreviewBaseCss(): string {
   return [
     ":root {",
-    "  --background: 222 47% 11%;",
-    "  --foreground: 210 40% 98%;",
-    "  --card: 222 47% 14%;",
-    "  --card-foreground: 210 40% 98%;",
-    "  --popover: 222 47% 14%;",
-    "  --popover-foreground: 210 40% 98%;",
-    "  --primary: 217 91% 60%;",
-    "  --primary-foreground: 0 0% 100%;",
-    "  --secondary: 215 28% 17%;",
-    "  --secondary-foreground: 210 40% 98%;",
-    "  --muted: 217 33% 17%;",
-    "  --muted-foreground: 215 20% 70%;",
-    "  --accent: 159 64% 46%;",
-    "  --accent-foreground: 222 47% 11%;",
-    "  --destructive: 0 72% 51%;",
-    "  --destructive-foreground: 0 0% 100%;",
-    "  --border: 217 22% 26%;",
-    "  --ring: 217 91% 60%;",
+    "  --background: hsl(222 47% 11%);",
+    "  --foreground: hsl(210 40% 98%);",
+    "  --card: hsl(222 47% 14%);",
+    "  --card-foreground: hsl(210 40% 98%);",
+    "  --popover: hsl(222 47% 14%);",
+    "  --popover-foreground: hsl(210 40% 98%);",
+    "  --primary: hsl(217 91% 60%);",
+    "  --primary-foreground: hsl(0 0% 100%);",
+    "  --secondary: hsl(215 28% 17%);",
+    "  --secondary-foreground: hsl(210 40% 98%);",
+    "  --muted: hsl(217 33% 17%);",
+    "  --muted-foreground: hsl(215 20% 70%);",
+    "  --accent: hsl(159 64% 46%);",
+    "  --accent-foreground: hsl(222 47% 11%);",
+    "  --destructive: hsl(0 72% 51%);",
+    "  --destructive-foreground: hsl(0 0% 100%);",
+    "  --border: hsl(217 22% 26%);",
+    "  --ring: hsl(217 91% 60%);",
     "}",
     "html, body, #root {",
     "  min-height: 100%;",
     "}",
     "html {",
-    "  background-color: hsl(var(--background));",
-    "  color: hsl(var(--foreground));",
+    "  background-color: var(--background);",
+    "  color: var(--foreground);",
     "}",
     "body {",
     "  margin: 0;",
-    "  background-color: hsl(var(--background));",
-    "  color: hsl(var(--foreground));",
+    "  background-color: var(--background);",
+    "  color: var(--foreground);",
     "}",
-    ".bg-background { background-color: hsl(var(--background)) !important; }",
-    ".text-foreground { color: hsl(var(--foreground)) !important; }",
-    ".bg-card { background-color: hsl(var(--card)) !important; }",
-    ".text-card-foreground { color: hsl(var(--card-foreground)) !important; }",
-    ".bg-popover { background-color: hsl(var(--popover)) !important; }",
-    ".text-popover-foreground { color: hsl(var(--popover-foreground)) !important; }",
-    ".bg-primary { background-color: hsl(var(--primary)) !important; }",
-    ".text-primary-foreground { color: hsl(var(--primary-foreground)) !important; }",
-    ".bg-secondary { background-color: hsl(var(--secondary)) !important; }",
-    ".text-secondary-foreground { color: hsl(var(--secondary-foreground)) !important; }",
-    ".bg-muted { background-color: hsl(var(--muted)) !important; }",
-    ".text-muted-foreground { color: hsl(var(--muted-foreground)) !important; }",
-    ".bg-accent { background-color: hsl(var(--accent)) !important; }",
-    ".text-accent-foreground { color: hsl(var(--accent-foreground)) !important; }",
-    ".bg-destructive { background-color: hsl(var(--destructive)) !important; }",
-    ".text-destructive-foreground { color: hsl(var(--destructive-foreground)) !important; }",
-    ".border, .border-border { border-color: hsl(var(--border)) !important; }",
-    ".ring-ring { --tw-ring-color: hsl(var(--ring)) !important; }",
-    ".bg-muted\\/30 { background-color: hsl(var(--muted) / 0.3) !important; }",
-    ".bg-muted\\/50 { background-color: hsl(var(--muted) / 0.5) !important; }",
+    ".bg-background { background-color: var(--background) !important; }",
+    ".text-foreground { color: var(--foreground) !important; }",
+    ".text-primary { color: var(--primary) !important; }",
+    ".bg-card { background-color: var(--card) !important; }",
+    ".text-card-foreground { color: var(--card-foreground) !important; }",
+    ".bg-popover { background-color: var(--popover) !important; }",
+    ".text-popover-foreground { color: var(--popover-foreground) !important; }",
+    ".bg-primary { background-color: var(--primary) !important; }",
+    ".text-primary-foreground { color: var(--primary-foreground) !important; }",
+    ".bg-secondary { background-color: var(--secondary) !important; }",
+    ".text-secondary-foreground { color: var(--secondary-foreground) !important; }",
+    ".bg-muted { background-color: var(--muted) !important; }",
+    ".text-muted-foreground { color: var(--muted-foreground) !important; }",
+    ".bg-accent { background-color: var(--accent) !important; }",
+    ".text-accent-foreground { color: var(--accent-foreground) !important; }",
+    ".bg-destructive { background-color: var(--destructive) !important; }",
+    ".text-destructive-foreground { color: var(--destructive-foreground) !important; }",
+    ".border, .border-border { border-color: var(--border) !important; }",
+    ".border-primary { border-color: var(--primary) !important; }",
+    ".ring-ring { --tw-ring-color: var(--ring) !important; }",
+    ".bg-muted\\/30 { background-color: color-mix(in oklab, var(--muted) 30%, transparent) !important; }",
+    ".bg-muted\\/50 { background-color: color-mix(in oklab, var(--muted) 50%, transparent) !important; }",
+    ".bg-primary\\/10 { background-color: color-mix(in oklab, var(--primary) 10%, transparent) !important; }",
+    ".bg-primary\\/20 { background-color: color-mix(in oklab, var(--primary) 20%, transparent) !important; }",
+    ".bg-primary\\/25 { background-color: color-mix(in oklab, var(--primary) 25%, transparent) !important; }",
+    ".bg-accent\\/20 { background-color: color-mix(in oklab, var(--accent) 20%, transparent) !important; }",
+    ".border-primary\\/40 { border-color: color-mix(in oklab, var(--primary) 40%, transparent) !important; }",
+    ".border-primary\\/50 { border-color: color-mix(in oklab, var(--primary) 50%, transparent) !important; }",
   ].join("\n");
+}
+
+function buildThemeAliasLines(): string[] {
+  return [
+    "--background: var(--color-background);",
+    "--foreground: var(--color-foreground);",
+    "--card: var(--color-card);",
+    "--card-foreground: var(--color-card-foreground);",
+    "--popover: var(--color-card);",
+    "--popover-foreground: var(--color-card-foreground);",
+    "--primary: var(--color-primary);",
+    "--primary-foreground: var(--color-primary-foreground);",
+    "--secondary: var(--color-secondary);",
+    "--secondary-foreground: var(--color-secondary-foreground);",
+    "--muted: var(--color-muted);",
+    "--muted-foreground: var(--color-muted-foreground);",
+    "--accent: var(--color-accent);",
+    "--accent-foreground: var(--color-accent-foreground);",
+    "--border: var(--color-border);",
+    "--ring: var(--color-ring);",
+  ];
+}
+
+function normalizePreviewCss(input: string): string {
+  return input
+    .replace(/@import\s+["']tailwindcss["'];?\s*/g, "")
+    .replace(/@theme\s+inline\s*\{([\s\S]*?)\}/g, (_match, themeBody: string) => {
+      const body = themeBody.trim();
+      const aliasLines = buildThemeAliasLines();
+      return [":root {", body, ...aliasLines.map((line) => `  ${line}`), "}"].join("\n");
+    });
 }
 
 function resolveLocalImportPath(fileMap: Map<string, CodeFile>, importerPath: string, source: string): string | null {
@@ -675,26 +729,26 @@ function buildPreviewPrelude(modules: PreparedModule[]): string {
     "  });",
     "}",
     "const __s = {",
-    "  primary: 'hsl(var(--primary))',",
-    "  primaryFg: 'hsl(var(--primary-foreground))',",
-    "  secondary: 'hsl(var(--secondary))',",
-    "  secondaryFg: 'hsl(var(--secondary-foreground))',",
-    "  muted: 'hsl(var(--muted))',",
-    "  mutedFg: 'hsl(var(--muted-foreground))',",
-    "  card: 'hsl(var(--card))',",
-    "  cardFg: 'hsl(var(--card-foreground))',",
-    "  border: 'hsl(var(--border))',",
-    "  bg: 'hsl(var(--background))',",
-    "  fg: 'hsl(var(--foreground))',",
-    "  destructive: 'hsl(var(--destructive))',",
+    "  primary: 'var(--primary)',",
+    "  primaryFg: 'var(--primary-foreground)',",
+    "  secondary: 'var(--secondary)',",
+    "  secondaryFg: 'var(--secondary-foreground)',",
+    "  muted: 'var(--muted)',",
+    "  mutedFg: 'var(--muted-foreground)',",
+    "  card: 'var(--card)',",
+    "  cardFg: 'var(--card-foreground)',",
+    "  border: 'var(--border)',",
+    "  bg: 'var(--background)',",
+    "  fg: 'var(--foreground)',",
+    "  destructive: 'var(--destructive)',",
     "  radius: 'var(--radius, 0.5rem)',",
     "};",
     "const __previewUiMap = {",
     "  Accordion: __previewPrimitive('div'),",
     "  AccordionContent: __previewStyled('div', { padding: '0 16px 16px' }),",
-    "  AccordionItem: __previewStyled('div', { borderBottom: '1px solid ' + 'hsl(var(--border))' }),",
+    "  AccordionItem: __previewStyled('div', { borderBottom: '1px solid ' + 'var(--border)' }),",
     "  AccordionTrigger: __previewStyled('button', { type: 'button', display: 'flex', width: '100%', justifyContent: 'space-between', alignItems: 'center', padding: '16px 0', fontWeight: 500, fontSize: '14px', background: 'none', border: 'none', color: 'inherit', cursor: 'pointer', textAlign: 'left' }),",
-    "  Alert: __previewStyled('div', { border: '1px solid hsl(var(--border))', borderRadius: __s.radius, padding: '12px 16px' }),",
+    "  Alert: __previewStyled('div', { border: '1px solid var(--border)', borderRadius: __s.radius, padding: '12px 16px' }),",
     "  AlertDescription: __previewStyled('div', { fontSize: '14px', color: __s.mutedFg }),",
     "  AlertTitle: __previewStyled('div', { fontWeight: 600, fontSize: '14px', marginBottom: '4px' }),",
     "  Avatar: __previewStyled('div', { width: '40px', height: '40px', borderRadius: '50%', overflow: 'hidden', background: __s.muted, display: 'inline-flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }),",
@@ -702,7 +756,7 @@ function buildPreviewPrelude(modules: PreparedModule[]): string {
     "  AvatarImage: __previewPrimitive('img'),",
     "  Badge: __previewStyled('span', { display: 'inline-flex', alignItems: 'center', borderRadius: '9999px', padding: '2px 10px', fontSize: '12px', fontWeight: 600, background: __s.primary, color: __s.primaryFg, lineHeight: '1.5' }),",
     "  Button: __previewStyled('button', { display: 'inline-flex', alignItems: 'center', justifyContent: 'center', gap: '8px', borderRadius: __s.radius, padding: '8px 16px', fontSize: '14px', fontWeight: 500, background: __s.primary, color: __s.primaryFg, border: 'none', cursor: 'pointer', lineHeight: '1.5', whiteSpace: 'nowrap', transition: 'opacity 0.15s' }, { type: 'button' }),",
-    "  Card: __previewStyled('div', { borderRadius: __s.radius, border: '1px solid hsl(var(--border))', background: __s.card, color: __s.cardFg, boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }),",
+    "  Card: __previewStyled('div', { borderRadius: __s.radius, border: '1px solid var(--border)', background: __s.card, color: __s.cardFg, boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }),",
     "  CardContent: __previewStyled('div', { padding: '0 24px 24px' }),",
     "  CardDescription: __previewStyled('p', { fontSize: '14px', color: __s.mutedFg, margin: 0 }),",
     "  CardFooter: __previewStyled('div', { display: 'flex', alignItems: 'center', padding: '0 24px 24px' }),",
@@ -728,12 +782,12 @@ function buildPreviewPrelude(modules: PreparedModule[]): string {
     "  DropdownMenuGroup: __previewPrimitive('div'),",
     "  DropdownMenuItem: __previewStyled('button', { display: 'flex', alignItems: 'center', gap: '8px', width: '100%', padding: '6px 8px', background: 'none', border: 'none', fontSize: '14px', cursor: 'pointer', color: 'inherit' }, { type: 'button' }),",
     "  DropdownMenuLabel: __previewStyled('div', { padding: '6px 8px', fontSize: '12px', fontWeight: 600, color: __s.mutedFg }),",
-    "  DropdownMenuSeparator: __previewStyled('hr', { border: 'none', borderTop: '1px solid hsl(var(--border))', margin: '4px 0' }, { role: 'separator' }),",
+    "  DropdownMenuSeparator: __previewStyled('hr', { border: 'none', borderTop: '1px solid var(--border)', margin: '4px 0' }, { role: 'separator' }),",
     "  DropdownMenuTrigger: __previewStyled('button', { background: 'none', border: 'none', cursor: 'pointer', color: 'inherit' }, { type: 'button' }),",
     "  HoverCard: ({ children }) => React.createElement(React.Fragment, null, children),",
     "  HoverCardContent: () => null,",
     "  HoverCardTrigger: __previewPrimitive('button', { type: 'button' }),",
-    "  Input: __previewStyled('input', { width: '100%', padding: '8px 12px', borderRadius: __s.radius, border: '1px solid hsl(var(--border))', background: __s.bg, color: __s.fg, fontSize: '14px', outline: 'none' }),",
+    "  Input: __previewStyled('input', { width: '100%', padding: '8px 12px', borderRadius: __s.radius, border: '1px solid var(--border)', background: __s.bg, color: __s.fg, fontSize: '14px', outline: 'none' }),",
     "  Label: __previewStyled('label', { fontSize: '14px', fontWeight: 500, lineHeight: '1.5' }),",
     "  NavigationMenu: __previewStyled('nav', { display: 'flex', alignItems: 'center' }),",
     "  NavigationMenuContent: () => null,",
@@ -752,9 +806,9 @@ function buildPreviewPrelude(modules: PreparedModule[]): string {
     "  Select: ({ children }) => React.createElement(React.Fragment, null, children),",
     "  SelectContent: () => null,",
     "  SelectItem: __previewStyled('div', { padding: '6px 32px 6px 8px', fontSize: '14px', cursor: 'pointer' }),",
-    "  SelectTrigger: __previewStyled('button', { display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '8px 12px', borderRadius: __s.radius, border: '1px solid hsl(var(--border))', background: __s.bg, color: __s.fg, fontSize: '14px', cursor: 'pointer' }, { type: 'button' }),",
+    "  SelectTrigger: __previewStyled('button', { display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', padding: '8px 12px', borderRadius: __s.radius, border: '1px solid var(--border)', background: __s.bg, color: __s.fg, fontSize: '14px', cursor: 'pointer' }, { type: 'button' }),",
     "  SelectValue: __previewPrimitive('span'),",
-    "  Separator: __previewStyled('hr', { border: 'none', borderTop: '1px solid hsl(var(--border))', margin: '0', width: '100%' }, { role: 'separator' }),",
+    "  Separator: __previewStyled('hr', { border: 'none', borderTop: '1px solid var(--border)', margin: '0', width: '100%' }, { role: 'separator' }),",
     "  Sheet: ({ children }) => React.createElement(React.Fragment, null, children),",
     "  SheetContent: () => null,",
     "  SheetDescription: __previewStyled('p', { fontSize: '14px', color: __s.mutedFg }),",
@@ -767,16 +821,16 @@ function buildPreviewPrelude(modules: PreparedModule[]): string {
     "  Table: __previewStyled('table', { width: '100%', borderCollapse: 'collapse', fontSize: '14px' }),",
     "  TableBody: __previewPrimitive('tbody'),",
     "  TableCaption: __previewStyled('caption', { color: __s.mutedFg, fontSize: '14px', padding: '8px 0' }),",
-    "  TableCell: __previewStyled('td', { padding: '12px 16px', borderBottom: '1px solid hsl(var(--border))' }),",
+    "  TableCell: __previewStyled('td', { padding: '12px 16px', borderBottom: '1px solid var(--border)' }),",
     "  TableFooter: __previewStyled('tfoot', { fontWeight: 500, background: __s.muted }),",
-    "  TableHead: __previewStyled('th', { padding: '12px 16px', textAlign: 'left', fontWeight: 500, color: __s.mutedFg, borderBottom: '1px solid hsl(var(--border))' }),",
+    "  TableHead: __previewStyled('th', { padding: '12px 16px', textAlign: 'left', fontWeight: 500, color: __s.mutedFg, borderBottom: '1px solid var(--border)' }),",
     "  TableHeader: __previewPrimitive('thead'),",
-    "  TableRow: __previewStyled('tr', { borderBottom: '1px solid hsl(var(--border))', transition: 'background 0.15s' }),",
+    "  TableRow: __previewStyled('tr', { borderBottom: '1px solid var(--border)', transition: 'background 0.15s' }),",
     "  Tabs: ({ children, defaultValue }) => { const [tab, setTab] = React.useState(defaultValue || ''); return React.createElement('__TabsCtx', null, React.Children.map(children, c => React.isValidElement(c) ? React.cloneElement(c, { __activeTab: tab, __setTab: setTab }) : c)); },",
     "  TabsContent: React.forwardRef(function TabsContent(props, ref) { const { value, __activeTab, children, ...rest } = props || {}; if (__activeTab && value && __activeTab !== value) return null; return React.createElement('div', { ...rest, ref }, children); }),",
     "  TabsList: __previewStyled('div', { display: 'inline-flex', gap: '2px', padding: '4px', borderRadius: __s.radius, background: __s.muted }),",
     "  TabsTrigger: React.forwardRef(function TabsTrigger(props, ref) { const { value, __activeTab, __setTab, children, ...rest } = props || {}; const active = __activeTab === value; return React.createElement('button', { ...rest, ref, type: 'button', onClick: () => __setTab && __setTab(value), style: { padding: '6px 12px', borderRadius: 'calc(var(--radius,0.5rem) - 2px)', border: 'none', fontSize: '14px', fontWeight: 500, cursor: 'pointer', background: active ? __s.bg : 'transparent', color: active ? __s.fg : __s.mutedFg, boxShadow: active ? '0 1px 3px rgba(0,0,0,0.1)' : 'none', ...(rest.style||{}) } }, children); }),",
-    "  Textarea: __previewStyled('textarea', { width: '100%', minHeight: '80px', padding: '8px 12px', borderRadius: __s.radius, border: '1px solid hsl(var(--border))', background: __s.bg, color: __s.fg, fontSize: '14px', fontFamily: 'inherit', resize: 'vertical', outline: 'none' }),",
+    "  Textarea: __previewStyled('textarea', { width: '100%', minHeight: '80px', padding: '8px 12px', borderRadius: __s.radius, border: '1px solid var(--border)', background: __s.bg, color: __s.fg, fontSize: '14px', fontFamily: 'inherit', resize: 'vertical', outline: 'none' }),",
     "  Tooltip: ({ children }) => React.createElement(React.Fragment, null, children),",
     "  TooltipContent: () => null,",
     "  TooltipProvider: ({ children }) => React.createElement(React.Fragment, null, children),",
@@ -806,7 +860,7 @@ function buildPreviewPrelude(modules: PreparedModule[]): string {
 
   const emitBinding = (name: string, value: string) => {
     if (GLOBAL_STUBS.has(name)) return;
-    emit(`const ${name} = ${value};`);
+    emit(`var ${name} = ${value};`);
   };
 
   for (const preparedModule of modules) {
@@ -900,12 +954,12 @@ function buildLocalImportAliases(modules: PreparedModule[]): string {
         targetModule.defaultExportName &&
         imp.defaultImport !== targetModule.defaultExportName
       ) {
-        lines.add(`const ${imp.defaultImport} = ${targetModule.defaultExportName};`);
+        lines.add(`var ${imp.defaultImport} = ${targetModule.defaultExportName};`);
       }
 
       for (const binding of imp.namedImports) {
         if (binding.local !== binding.imported) {
-          lines.add(`const ${binding.local} = ${binding.imported};`);
+          lines.add(`var ${binding.local} = ${binding.imported};`);
         }
       }
     }
@@ -915,15 +969,7 @@ function buildLocalImportAliases(modules: PreparedModule[]): string {
 }
 
 function isPreviewHandledImportSource(source: string): boolean {
-  return (
-    source === "react" ||
-    source === "next/image" ||
-    source === "next/link" ||
-    source === "next/navigation" ||
-    source === "lucide-react" ||
-    source === "@/lib/utils" ||
-    source.startsWith("@/components/ui/")
-  );
+  return isPreviewBuiltinImportSource(source);
 }
 
 function collectPreviewValidationIssues(modules: PreparedModule[]): PreviewValidationIssue[] {
@@ -1086,12 +1132,20 @@ export function buildPreviewHtml(files: CodeFile[]): string | null {
 
   const cssFiles = findCssFiles(files);
   const componentFiles = findComponentFiles(files, pageFile.path);
-  const customCss = cssFiles.map((f) => f.content).join("\n");
+  const customCss = normalizePreviewCss(
+    cssFiles
+      .map((f) => f.content)
+      .join("\n"),
+  );
   const baseCss = buildPreviewBaseCss();
   const previewScript = buildPreviewScript(pageFile, componentFiles);
 
+  const allContent = [pageFile, ...componentFiles, ...cssFiles].map((f) => f.content).join("\n");
+  const wantsDark = /className=["'][^"']*\bdark\b/.test(allContent) || /class=["'][^"']*\bdark\b/.test(allContent);
+  const htmlClass = wantsDark ? ' class="dark"' : "";
+
   return `<!DOCTYPE html>
-<html lang="sv">
+<html lang="sv"${htmlClass}>
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -1116,6 +1170,9 @@ export function buildPreviewHtml(files: CodeFile[]): string | null {
   <script>
     window.__restorePreviewWarn?.();
     delete window.__restorePreviewWarn;
+    if (typeof tailwind !== 'undefined') {
+      tailwind.config = { darkMode: 'class' };
+    }
   </script>
   <style>
     ${baseCss}

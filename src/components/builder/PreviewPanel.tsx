@@ -294,6 +294,9 @@ export function PreviewPanel({
       const inspectorUrl = url.startsWith("/")
         ? `${window.location.origin}${url}`
         : url;
+
+      const isOwnEnginePreview = inspectorUrl.includes("/api/preview-render");
+
       const res = await fetch("/api/inspector-element-map", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -306,6 +309,9 @@ export function PreviewPanel({
       }
       setElementMap([]);
       setInspectorUnavailable(true);
+      if (isOwnEnginePreview) {
+        console.info("[inspector] Own-engine preview — inspector requires Playwright or inspector-worker to be running.");
+      }
       return 0;
     } catch {
       setElementMap([]);
@@ -1329,7 +1335,7 @@ export function PreviewPanel({
                       </span>
                       {inspectEngine === "map" && (
                         <span className="text-[10px] text-violet-400/70">
-                          {elementMapLoading ? "Laddar karta..." : inspectorUnavailable ? "Inspector inte tillgänglig för lokal preview" : `${elementMap.length} element`}
+                          {elementMapLoading ? "Laddar karta..." : inspectorUnavailable ? "Inspector kräver Playwright eller inspector-worker" : `${elementMap.length} element`}
                         </span>
                       )}
                       {totalAiCostUsd > 0 && (

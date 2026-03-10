@@ -56,6 +56,7 @@ export async function handleSseStream(
   let v0ProjectIdFromStream: string | null = null;
   let accumulatedThinking = "";
   let accumulatedContent = "";
+  let progressivePreviewFired = false;
   let didReceiveDone = false;
   const postCheckQueue: Array<{ chatId: string; versionId: string; demoUrl?: string | null }> = [];
   const materializeQueue: Array<{ chatId: string; versionId: string }> = [];
@@ -106,6 +107,8 @@ export async function handleSseStream(
                 : null,
               promptAssistModel: paModel,
               promptAssistDeep: ctx.promptAssistDeep ?? null,
+              scaffoldId: typeof meta.scaffoldId === "string" ? meta.scaffoldId : null,
+              scaffoldFamily: typeof meta.scaffoldFamily === "string" ? meta.scaffoldFamily : null,
             });
 
             if (!chatIdFromStream && typeof meta.chatId === "string" && meta.chatId) {
@@ -175,6 +178,15 @@ export async function handleSseStream(
                     : m,
                 ),
               );
+
+              if (!progressivePreviewFired && accumulatedContent.includes("\n```\n")) {
+                const fileBlockCount = (accumulatedContent.match(/```\w+\s+file="[^"]+"/g) || []).length;
+                const closedBlockCount = (accumulatedContent.match(/\n```\n/g) || []).length;
+                if (fileBlockCount >= 2 && closedBlockCount >= 2) {
+                  progressivePreviewFired = true;
+                  onPreviewRefresh?.();
+                }
+              }
             }
             break;
           }

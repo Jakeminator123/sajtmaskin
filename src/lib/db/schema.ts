@@ -399,6 +399,53 @@ export const kostnadsfriPages = pgTable("kostnadsfri_pages", {
   consumed_at: timestamp("consumed_at"),
 });
 
+// ---------------------------------------------------------------------------
+// ENGINE TABLES — own code-generation engine (migrated from SQLite)
+// ---------------------------------------------------------------------------
+
+export const engineChats = pgTable("engine_chats", {
+  id: text("id").primaryKey(),
+  projectId: text("project_id"),
+  title: text("title"),
+  model: text("model").notNull().default("gpt-5.4"),
+  systemPrompt: text("system_prompt"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+
+export const engineMessages = pgTable("engine_messages", {
+  id: text("id").primaryKey(),
+  chatId: text("chat_id").notNull().references(() => engineChats.id),
+  role: text("role").notNull(),
+  content: text("content").notNull(),
+  tokenCount: integer("token_count"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const engineVersions = pgTable("engine_versions", {
+  id: text("id").primaryKey(),
+  chatId: text("chat_id").notNull().references(() => engineChats.id),
+  messageId: text("message_id"),
+  versionNumber: integer("version_number").notNull(),
+  filesJson: text("files_json").notNull(),
+  sandboxUrl: text("sandbox_url"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+export const engineGenerationLogs = pgTable("engine_generation_logs", {
+  id: text("id").primaryKey(),
+  chatId: text("chat_id").notNull().references(() => engineChats.id),
+  model: text("model").notNull(),
+  promptTokens: integer("prompt_tokens"),
+  completionTokens: integer("completion_tokens"),
+  durationMs: integer("duration_ms"),
+  success: boolean("success").notNull().default(true),
+  errorMessage: text("error_message"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
+});
+
+// ---------------------------------------------------------------------------
+
 export const domainOrders = pgTable("domain_orders", {
   id: text("id").primaryKey(),
   project_id: text("project_id").notNull(),

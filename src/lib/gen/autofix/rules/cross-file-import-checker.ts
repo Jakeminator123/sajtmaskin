@@ -11,9 +11,18 @@ const LOCAL_PREFIXES = ["@/", "./", "../"];
 const EXTENSIONS = [".tsx", ".ts", ".jsx", ".js"];
 const INDEX_EXTENSIONS = EXTENSIONS.map((ext) => `/index${ext}`);
 const CANDIDATES = [...EXTENSIONS, ...INDEX_EXTENSIONS];
+const RUNTIME_PROVIDED_IMPORTS = [
+  "@/lib/utils",
+  "@/hooks/use-mobile",
+  "@/hooks/use-toast",
+];
 
 function isLocalImport(source: string): boolean {
   return LOCAL_PREFIXES.some((p) => source.startsWith(p));
+}
+
+function isRuntimeProvidedImport(source: string): boolean {
+  return source.startsWith("@/components/ui/") || RUNTIME_PROVIDED_IMPORTS.includes(source);
 }
 
 function normalizeToProjectPath(source: string, importerPath: string): string {
@@ -93,6 +102,7 @@ export function checkCrossFileImports(
     for (const match of file.content.matchAll(IMPORT_RE)) {
       const source = match[1];
       if (!isLocalImport(source)) continue;
+      if (isRuntimeProvidedImport(source)) continue;
 
       const projectPath = normalizeToProjectPath(source, file.path);
       if (fileExists(fileMap, projectPath)) continue;

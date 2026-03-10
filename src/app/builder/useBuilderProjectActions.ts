@@ -237,13 +237,18 @@ export function useBuilderProjectActions({
     if (chatId) {
       clearPersistedMessages(chatId);
     }
-    router.replace("/builder");
     pendingInstructionsRef.current = null;
     pendingInstructionsOnceRef.current = null;
     hasLoadedInstructions.current = false;
     hasLoadedInstructionsOnce.current = false;
+
+    setChatId(null);
+    setMessages([]);
+    setCurrentDemoUrl(null);
+    setAppProjectId(null);
+
+    router.replace("/builder");
     startUiTransition(() => {
-      setChatId(null);
       setAppProjectId(null);
       setAppProjectName(null);
       setPendingProjectName(null);

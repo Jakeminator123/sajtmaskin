@@ -608,6 +608,9 @@ function buildModelInfoSteps(info: ModelInfoData): string[] {
   if (typeof info.promptAssistDeep === "boolean") {
     steps.push(`Deep brief: ${info.promptAssistDeep ? "på" : "av"}`);
   }
+  if (info.scaffoldId) {
+    steps.push(`Scaffold: ${info.scaffoldId}${info.scaffoldFamily && info.scaffoldFamily !== info.scaffoldId ? ` (${info.scaffoldFamily})` : ""}`);
+  }
   return steps;
 }
 

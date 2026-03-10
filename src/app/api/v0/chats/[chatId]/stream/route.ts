@@ -31,7 +31,14 @@ import { orchestratePromptMessage } from "@/lib/builder/promptOrchestration";
 import { resolveModelSelection, resolveEngineModelId } from "@/lib/v0/modelSelection";
 import { shouldUseV0Fallback, createGenerationPipeline } from "@/lib/gen/fallback";
 import { compressUrls, expandUrls } from "@/lib/gen/url-compress";
-import { buildSystemPrompt, getSystemPromptLengths } from "@/lib/gen/system-prompt";
+import {
+  matchScaffoldWithEmbeddings,
+  getScaffoldById,
+  serializeScaffoldForPrompt,
+  detectScaffoldMode,
+} from "@/lib/gen/scaffolds";
+import type { ScaffoldManifest } from "@/lib/gen/scaffolds";
+import { buildSystemPrompt, getSystemPromptLengths, type Brief } from "@/lib/gen/system-prompt";
 import { SuspenseLineProcessor, parseSSEBuffer } from "@/lib/gen/route-helpers";
 import * as chatRepo from "@/lib/db/chat-repository";
 import type { BuildIntent } from "@/lib/builder/build-intent";
@@ -144,6 +151,36 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
           typeof (meta as { appProjectId?: unknown })?.appProjectId === "string"
             ? String((meta as { appProjectId?: string }).appProjectId).trim()
             : "";
+        const metaScaffoldMode =
+          typeof (meta as { scaffoldMode?: unknown })?.scaffoldMode === "string"
+            ? String((meta as { scaffoldMode?: string }).scaffoldMode)
+            : "auto";
+        const metaScaffoldId =
+          typeof (meta as { scaffoldId?: unknown })?.scaffoldId === "string"
+            ? String((meta as { scaffoldId?: string }).scaffoldId)
+            : null;
+        const metaThemeColors = (() => {
+          const raw = (meta as Record<string, unknown>)?.themeColors;
+          if (!raw || typeof raw !== "object") return null;
+          const tc = raw as Record<string, unknown>;
+          if (
+            typeof tc.primary === "string" &&
+            typeof tc.secondary === "string" &&
+            typeof tc.accent === "string"
+          ) {
+            return {
+              primary: tc.primary,
+              secondary: tc.secondary,
+              accent: tc.accent,
+            };
+          }
+          return null;
+        })();
+        const metaBrief = (() => {
+          const raw = (meta as Record<string, unknown>)?.brief;
+          if (!raw || typeof raw !== "object") return null;
+          return raw as Record<string, unknown>;
+        })();
 
         if (metaAppProjectId && engineChat.project_id !== metaAppProjectId) {
           try {
@@ -177,8 +214,28 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
         }
 
         if (previousFiles.length > 0) {
-          const fileCtx = buildFileContext({ files: previousFiles });
-          optimizedMessage = `${fileCtx.summary}\n\n---\n\n${optimizedMessage}`;
+          const fileCtx = buildFileContext({
+            files: previousFiles,
+            maxChars: 14_000,
+            includeContents: true,
+            maxFilesWithContent: 8,
+          });
+          optimizedMessage = [
+            "## Follow-up Editing Mode",
+            "",
+            "You are editing an existing project, not starting over.",
+            "Apply the user's requested changes directly to the current files below.",
+            "Make visible changes in the dominant UI files when the request affects design, layout, color, animation, or interaction.",
+            "Return only the files you need to create or modify. Files you omit will be kept as-is.",
+            "",
+            fileCtx.summary,
+            "",
+            "---",
+            "",
+            "## Requested Changes",
+            "",
+            optimizedMessage,
+          ].join("\n");
         }
 
         const promptForSystemContext = message;
@@ -216,10 +273,49 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
           metaBuildIntent === "app"
             ? (metaBuildIntent as BuildIntent)
             : "website";
+        let resolvedScaffold: ScaffoldManifest | null = null;
+        if (metaScaffoldMode === "manual" && metaScaffoldId) {
+          resolvedScaffold = getScaffoldById(metaScaffoldId);
+        } else if (metaScaffoldMode === "auto") {
+          resolvedScaffold = await matchScaffoldWithEmbeddings(
+            optimizedMessage,
+            engineIntent,
+          );
+        }
+
+        let scaffoldContextForPrompt: string | undefined;
+        if (resolvedScaffold) {
+          const briefStyleKeywords = (() => {
+            const raw = (metaBrief as Record<string, unknown> | null)?.visualDirection;
+            if (!raw || typeof raw !== "object") return undefined;
+            const visualDirection = raw as Record<string, unknown>;
+            return Array.isArray(visualDirection.styleKeywords)
+              ? (visualDirection.styleKeywords as string[])
+              : undefined;
+          })();
+          const serializeMode = detectScaffoldMode(
+            optimizedMessage,
+            briefStyleKeywords,
+          );
+          scaffoldContextForPrompt = serializeScaffoldForPrompt(
+            resolvedScaffold,
+            serializeMode,
+          );
+          debugLog("engine", "Scaffold injected for follow-up", {
+            chatId,
+            scaffoldId: resolvedScaffold.id,
+            family: resolvedScaffold.family,
+            mode: metaScaffoldMode,
+            serializeMode,
+          });
+        }
         const engineSystemPrompt = await buildSystemPrompt({
           intent: engineIntent,
           imageGenerations: resolvedImageGenerations,
+          themeOverride: metaThemeColors,
           originalPrompt: promptForSystemContext,
+          scaffoldContext: scaffoldContextForPrompt,
+          brief: metaBrief as Brief | null,
         });
         const promptLengths = getSystemPromptLengths(engineSystemPrompt);
         debugLog("prompt-cache", "System prompt lengths", promptLengths);
@@ -238,6 +334,41 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
           fallback: false,
         });
         const { compressed: enginePrompt, urlMap } = compressUrls(promptForLlm);
+        const prepareVersionFiles = async (generatedFiles: CodeFile[]): Promise<CodeFile[]> => {
+          const mergedFiles = previousFiles.length > 0
+            ? mergeVersionFiles(previousFiles, generatedFiles)
+            : generatedFiles;
+
+          const { checkCrossFileImports } = await import(
+            "@/lib/gen/autofix/rules/cross-file-import-checker"
+          );
+          const crossResult = checkCrossFileImports(mergedFiles);
+          let finalFiles = crossResult.files;
+          if (crossResult.fixes.length > 0) {
+            devLogAppend("latest", {
+              type: "cross-file-import-checker",
+              chatId,
+              fixes: crossResult.fixes,
+            });
+          }
+
+          if (resolvedScaffold) {
+            const { checkScaffoldImports } = await import(
+              "@/lib/gen/autofix/rules/scaffold-import-checker"
+            );
+            const scaffoldResult = checkScaffoldImports(finalFiles, resolvedScaffold);
+            finalFiles = scaffoldResult.files;
+            if (scaffoldResult.fixes.length > 0) {
+              devLogAppend("latest", {
+                type: "scaffold-import-checker",
+                chatId,
+                fixes: scaffoldResult.fixes,
+              });
+            }
+          }
+
+          return finalFiles;
+        };
         const pipelineStream = createGenerationPipeline({
           prompt: enginePrompt,
           systemPrompt: engineSystemPrompt,
@@ -299,6 +430,8 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
                   modelTier: resolvedModelTier,
                   thinking: resolvedThinking,
                   imageGenerations: resolvedImageGenerations,
+                  scaffoldId: resolvedScaffold?.id ?? null,
+                  scaffoldFamily: resolvedScaffold?.family ?? null,
                 }),
               ),
             );
@@ -392,16 +525,30 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
                         });
                       }
 
+                      try {
+                        const { materializeImages } = await import("@/lib/gen/post-process/image-materializer");
+                        const imgResult = await materializeImages(contentForVersion);
+                        if (imgResult.replacedCount > 0) {
+                          contentForVersion = imgResult.content;
+                          devLogAppend("latest", {
+                            type: "image-materialization",
+                            chatId,
+                            replacedCount: imgResult.replacedCount,
+                            queries: imgResult.queries.slice(0, 10),
+                          });
+                        }
+                      } catch (imgErr) {
+                        console.warn("[image-materializer] Non-fatal error in follow-up:", imgErr);
+                      }
+
                       const assistantMsg = chatRepo.addMessage(
                         chatId,
                         "assistant",
                         contentForVersion,
                       );
                       const generatedFiles = parseCodeProject(contentForVersion).files;
-                      const mergedFiles = previousFiles.length > 0
-                        ? mergeVersionFiles(previousFiles, generatedFiles)
-                        : generatedFiles;
-                      const filesJson = JSON.stringify(mergedFiles);
+                      const finalFiles = await prepareVersionFiles(generatedFiles);
+                      const filesJson = JSON.stringify(finalFiles);
                       const version = chatRepo.createVersion(
                         chatId,
                         assistantMsg.id,
@@ -521,12 +668,16 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
                     });
                     contentForVersion = bufferSyntaxResult.content;
 
+                    try {
+                      const { materializeImages } = await import("@/lib/gen/post-process/image-materializer");
+                      const imgResult = await materializeImages(contentForVersion);
+                      if (imgResult.replacedCount > 0) contentForVersion = imgResult.content;
+                    } catch { /* best-effort */ }
+
                     const assistantMsg = chatRepo.addMessage(chatId, "assistant", contentForVersion);
                     const bufferGenFiles = parseCodeProject(contentForVersion).files;
-                    const bufferMergedFiles = previousFiles.length > 0
-                      ? mergeVersionFiles(previousFiles, bufferGenFiles)
-                      : bufferGenFiles;
-                    const filesJson = JSON.stringify(bufferMergedFiles);
+                    const bufferFinalFiles = await prepareVersionFiles(bufferGenFiles);
+                    const filesJson = JSON.stringify(bufferFinalFiles);
                     const version = chatRepo.createVersion(chatId, assistantMsg.id, filesJson);
 
                     const doneData = evt.data as Record<string, unknown> | null;
@@ -575,12 +726,17 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
 
                 if (accumulatedContent) {
                   try {
-                    const assistantMsg = chatRepo.addMessage(chatId, "assistant", accumulatedContent);
-                    const fallbackGenFiles = parseCodeProject(accumulatedContent).files;
-                    const fallbackMergedFiles = previousFiles.length > 0
-                      ? mergeVersionFiles(previousFiles, fallbackGenFiles)
-                      : fallbackGenFiles;
-                    const filesJson = JSON.stringify(fallbackMergedFiles);
+                    let fallbackContent = accumulatedContent;
+                    try {
+                      const { materializeImages } = await import("@/lib/gen/post-process/image-materializer");
+                      const imgResult = await materializeImages(fallbackContent);
+                      if (imgResult.replacedCount > 0) fallbackContent = imgResult.content;
+                    } catch { /* best-effort */ }
+
+                    const assistantMsg = chatRepo.addMessage(chatId, "assistant", fallbackContent);
+                    const fallbackGenFiles = parseCodeProject(fallbackContent).files;
+                    const fallbackFinalFiles = await prepareVersionFiles(fallbackGenFiles);
+                    const filesJson = JSON.stringify(fallbackFinalFiles);
                     const version = chatRepo.createVersion(chatId, assistantMsg.id, filesJson);
                     const previewUrl = buildPreviewUrl(chatId, version.id);
                     didSendDone = true;

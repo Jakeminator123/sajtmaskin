@@ -42,6 +42,10 @@ export function useSendMessage(
     promptAssistDeep,
     buildIntent,
     buildMethod,
+    scaffoldMode,
+    scaffoldId,
+    themeColors,
+    pendingBriefRef,
     mutateVersions,
     setCurrentDemoUrl,
     onPreviewRefresh,
@@ -159,7 +163,14 @@ export function useSendMessage(
         };
         if (buildIntent) promptMeta.buildIntent = buildIntent;
         if (buildMethod) promptMeta.buildMethod = buildMethod;
+        if (scaffoldMode && scaffoldMode !== "off") promptMeta.scaffoldMode = scaffoldMode;
+        if (scaffoldId) promptMeta.scaffoldId = scaffoldId;
         if (appProjectId) promptMeta.appProjectId = appProjectId;
+        if (themeColors) promptMeta.themeColors = themeColors;
+        if (pendingBriefRef?.current) {
+          promptMeta.brief = pendingBriefRef.current;
+          pendingBriefRef.current = null;
+        }
         promptMeta.modelTier = selectedModelTier;
         promptMeta.modelId = selectedModelTier;
         promptMeta.imageGenerations = enableImageGenerations;

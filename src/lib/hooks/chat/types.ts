@@ -80,6 +80,8 @@ export type ModelInfoData = {
   promptAssistProvider?: string | null;
   promptAssistModel?: string | null;
   promptAssistDeep?: boolean | null;
+  scaffoldId?: string | null;
+  scaffoldFamily?: string | null;
 };
 
 export type IntegrationSseSignal = {
