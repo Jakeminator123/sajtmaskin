@@ -79,6 +79,8 @@ interface PreviewPanelProps {
 
 type PreviewViewMode = "preview" | "code" | "registry";
 type InspectEngine = "playwright" | "ai" | "map";
+const PREVIEW_READY_TIMEOUT_MS = 10_000;
+const PREVIEW_READY_POLL_MS = 250;
 
 type AiMatchResult = {
   tag: string;
@@ -142,7 +144,15 @@ export function PreviewPanel({
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   const inspectPulseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const codeScrollRef = useRef<HTMLDivElement | null>(null);
+  const previewReadyTimerRef = useRef<number | null>(null);
   const elementRegistryRef = useRef<ReturnType<typeof buildJsxElementRegistry>>([]);
+
+  const clearPreviewReadyTimer = useCallback(() => {
+    if (previewReadyTimerRef.current) {
+      window.clearTimeout(previewReadyTimerRef.current);
+      previewReadyTimerRef.current = null;
+    }
+  }, []);
 
   const buildPreviewSrc = useCallback((url: string, token?: number) => {
     let src = url;
@@ -547,8 +557,9 @@ export function PreviewPanel({
       if (inspectPulseTimerRef.current) {
         clearTimeout(inspectPulseTimerRef.current);
       }
+      clearPreviewReadyTimer();
     };
-  }, []);
+  }, [clearPreviewReadyTimer]);
 
   useEffect(() => {
     if (!demoUrl) return;
@@ -559,13 +570,34 @@ export function PreviewPanel({
   useEffect(() => {
     if (!demoUrl) return;
     setElementMap([]);
-    const timer = window.setTimeout(() => {
-      const container = iframeRef.current?.parentElement;
-      const w = container?.clientWidth || 1280;
-      const h = container?.clientHeight || 800;
-      fetchElementMap(demoUrl, w, h);
-    }, 3000);
-    return () => window.clearTimeout(timer);
+    let cancelled = false;
+    const sleep = (ms: number) =>
+      new Promise<void>((resolve) => {
+        const timerId = window.setTimeout(() => {
+          window.clearTimeout(timerId);
+          resolve();
+        }, ms);
+      });
+
+    const run = async () => {
+      // Retry map extraction up to ~10s to avoid false empty/502 during warmup.
+      const delays = [2000, 3000, 5000];
+      for (const delay of delays) {
+        await sleep(delay);
+        if (cancelled) return;
+        const container = iframeRef.current?.parentElement;
+        const w = container?.clientWidth || 1280;
+        const h = container?.clientHeight || 800;
+        const count = await fetchElementMap(demoUrl, w, h);
+        if (cancelled) return;
+        if (count > 0) return;
+      }
+    };
+
+    void run();
+    return () => {
+      cancelled = true;
+    };
   }, [demoUrl, versionId, fetchElementMap]);
 
   useEffect(() => {
@@ -720,17 +752,71 @@ export function PreviewPanel({
     });
   }, [showElementRegistry, selectedRegistryLine, selectedPath]);
 
+  const isOwnEnginePreview = useMemo(() => {
+    if (!demoUrl) return false;
+    return demoUrl.startsWith("/api/preview-render");
+  }, [demoUrl]);
+
   const handleIframeLoad = useCallback(() => {
+    clearPreviewReadyTimer();
+
+    const iframe = iframeRef.current;
+    if (!iframe) {
+      setIframeLoading(false);
+      setIframeError(false);
+      return;
+    }
+
+    // For own-engine preview, wait until iframe DOM actually contains rendered content.
+    if (isOwnEnginePreview) {
+      const startedAt = Date.now();
+      const checkReady = () => {
+        try {
+          const doc = iframe.contentDocument;
+          const root = doc?.getElementById("root");
+          const hasRootChildren = Boolean(root && root.childElementCount > 0);
+          const hasBodyContent = Boolean((doc?.body?.innerText || "").trim().length > 0);
+          const hasSubstantialDom = Boolean((doc?.body?.querySelectorAll("*").length || 0) > 12);
+          if (hasRootChildren || hasBodyContent || hasSubstantialDom) {
+            setIframeLoading(false);
+            setIframeError(false);
+            clearPreviewReadyTimer();
+            return;
+          }
+        } catch {
+          // If we cannot access iframe document, do not block loading spinner forever.
+          setIframeLoading(false);
+          setIframeError(false);
+          clearPreviewReadyTimer();
+          return;
+        }
+
+        if (Date.now() - startedAt >= PREVIEW_READY_TIMEOUT_MS) {
+          setIframeLoading(false);
+          setIframeError(false);
+          clearPreviewReadyTimer();
+          return;
+        }
+
+        previewReadyTimerRef.current = window.setTimeout(checkReady, PREVIEW_READY_POLL_MS);
+      };
+
+      previewReadyTimerRef.current = window.setTimeout(checkReady, PREVIEW_READY_POLL_MS);
+      return;
+    }
+
     setIframeLoading(false);
     setIframeError(false);
-  }, []);
+  }, [clearPreviewReadyTimer, isOwnEnginePreview]);
 
   const handleIframeError = useCallback(() => {
+    clearPreviewReadyTimer();
     setIframeLoading(false);
     setIframeError(true);
-  }, []);
+  }, [clearPreviewReadyTimer]);
 
   const handleRefresh = () => {
+    clearPreviewReadyTimer();
     setIframeLoading(true);
     setIframeError(false);
     const iframe = iframeRef.current;
@@ -747,6 +833,7 @@ export function PreviewPanel({
 
   const handleClear = () => {
     if (!onClear) return;
+    clearPreviewReadyTimer();
     setIframeLoading(true);
     setIframeError(false);
     onClear();
@@ -760,7 +847,6 @@ export function PreviewPanel({
     if (!demoUrl) return false;
     try { return /sandbox/i.test(new URL(demoUrl).hostname); } catch { return demoUrl.toLowerCase().includes("sandbox"); }
   }, [demoUrl]);
-
   if (!demoUrl && !isCodeView) {
     const isInitialEmpty = !chatId && !versionId && !externalLoading;
     const title = awaitingInput ? "AI väntar på ditt svar" : isInitialEmpty ? "Välkommen" : "Ingen förhandsvisning ännu";
@@ -785,10 +871,10 @@ export function PreviewPanel({
 
   const isLoading = externalLoading || iframeLoading;
   const previewSrc = demoUrl ? buildPreviewSrc(demoUrl, refreshToken) : "";
-  const isV0Preview = Boolean(demoUrl && demoUrl.includes("vusercontent.net"));
-  const showBlobWarning = Boolean(demoUrl && blobStatus && !blobStatus.enabled);
+  const isV0Preview = Boolean(demoUrl && !isOwnEnginePreview && demoUrl.includes("vusercontent.net"));
+  const showBlobWarning = Boolean(demoUrl && !isOwnEnginePreview && blobStatus && !blobStatus.enabled);
   const showExternalWarning = Boolean(demoUrl && isV0Preview);
-  const showSandboxWarning = Boolean(demoUrl && isSandboxPreview);
+  const showSandboxWarning = Boolean(demoUrl && !isOwnEnginePreview && isSandboxPreview);
   const showImagesDisabledWarning = Boolean(demoUrl && !imageGenerationsEnabled);
   const showImagesUnsupportedWarning = Boolean(demoUrl && imageGenerationsEnabled && !imageGenerationsSupported);
   const showBlobConfigWarning = Boolean(demoUrl && imageGenerationsEnabled && !isBlobConfigured);
@@ -864,7 +950,12 @@ export function PreviewPanel({
           </Button>
         </div>
       </div>
-      {!isCodeView && (showBlobWarning || showExternalWarning || showSandboxWarning || integrationError || showImagesDisabledWarning || showImagesUnsupportedWarning || showBlobConfigWarning) && (
+      {!isCodeView && isOwnEnginePreview && (
+        <div className="border-b border-sky-900/40 bg-sky-950/30 px-4 py-2 text-xs text-sky-200">
+          <div>Egen motor — preview renderas lokalt med React + Tailwind. Vissa Next.js-funktioner (routing, server components) visas inte.</div>
+        </div>
+      )}
+      {!isCodeView && !isOwnEnginePreview && (showBlobWarning || showExternalWarning || showSandboxWarning || integrationError || showImagesDisabledWarning || showImagesUnsupportedWarning || showBlobConfigWarning) && (
         <div className="border-b border-yellow-900/40 bg-yellow-950/30 px-4 py-2 text-xs text-yellow-200">
           {showExternalWarning && <div>Sajmaskinens preview körs i utvecklingsmilö för snabbhet. Externa media‑URL:er kan ge 404 eller blockeras. Ladda upp media via mediabiblioteket för publika Blob‑URL:er.</div>}
           {showSandboxWarning && <div>Preview körs från sandbox. Sandbox har separat runtime och kan sakna samma miljövariabler som din ordinarie miljö (t.ex. blob-token).</div>}

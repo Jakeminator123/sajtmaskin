@@ -1,4 +1,4 @@
-import type { ChatMessage, UiMessagePart } from "@/lib/builder/types";
+import type { ChatMessage } from "@/lib/builder/types";
 import type { BuildIntent, BuildMethod } from "@/lib/builder/build-intent";
 import type { ModelTier } from "@/lib/validations/chatSchemas";
 

@@ -2,6 +2,11 @@ V0 PROMPT GUIDE - Best Practices
 Source: https://v0.dev/docs/text-prompting
 Last updated: 2026-01-29
 
+*** LEGACY / FALLBACK ONLY ***
+This guide applies when V0_FALLBACK_BUILDER=y. The default engine (gen/ pipeline)
+uses GPT 5.2 with its own system prompt. See LLM/schemas_overview.txt and
+src/lib/gen/README.md for the primary generation flow.
+
 ================================================================================
 CORE FRAMEWORK (3-Part Structure)
 ================================================================================
@@ -178,4 +183,5 @@ REFERENCES
 
 - v0.dev/docs/text-prompting
 - vercel.com/blog/how-to-prompt-v0
-- Your code: src/lib/v0/v0-generator.ts
+- Fallback code: src/lib/v0/v0-generator.ts (used only when V0_FALLBACK_BUILDER=y)
+- Primary engine: src/lib/gen/ (GPT 5.2 + AI SDK)

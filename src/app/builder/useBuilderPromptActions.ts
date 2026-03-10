@@ -11,7 +11,7 @@ import {
   DEFAULT_CUSTOM_INSTRUCTIONS,
   SPEC_FILE_INSTRUCTION,
 } from "@/lib/builder/defaults";
-import { formatPromptForV0, isGatewayAssistModel } from "@/lib/builder/promptAssist";
+import { formatPrompt, isGatewayAssistModel } from "@/lib/builder/promptAssist";
 import { saveProjectData } from "@/lib/project-client";
 import { useCallback, type Dispatch, type MutableRefObject, type SetStateAction } from "react";
 import { toast } from "sonner";
@@ -122,7 +122,7 @@ export function useBuilderPromptActions({
         forceShallow: true,
         mode: "polish",
       });
-      return formatPromptForV0(enhanced);
+      return formatPrompt(enhanced);
     },
     [maybeEnhanceInitialPrompt],
   );

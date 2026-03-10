@@ -1,9 +1,18 @@
 SAJTMASKIN - ROADMAP NEXT
 =========================
 Skapad: 2026-03-03
+Uppdaterad: 2026-03-06
 Baserat pa: Genomgang av hela kodbasen + MCP-servrar (v0, openaiDeveloperDocs) + webb.
 
 Status-nyckel: [ ] = ej paborjad, [~] = delvis, [x] = klart
+
+KLART (egen motor WL 01-20):
+- [x] gen/ pipeline med GPT 5.2 + AI SDK (default)
+- [x] V0_FALLBACK_BUILDER env-switch for v0 fallback
+- [x] Suspense-regler (shadcn-import-fix, lucide-icon-fix, url-alias-expand)
+- [x] Autofix (import-validering, JSX-check, dep-komplettering)
+- [x] URL-komprimering fore LLM, expansion efter
+- [x] Preview via @vercel/sandbox
 
 ================================================================================
 A. DESIGN SYSTEM (v0 designSystemId)

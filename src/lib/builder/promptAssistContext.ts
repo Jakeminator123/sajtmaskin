@@ -2,9 +2,9 @@
  * Prompt Assist Context - Spec-First Chain
  * =========================================
  *
- * This module implements the "spec-first" pattern from the ChatGPT conversation:
- * 1. Use v0-1.5-lg via AI Gateway to generate a structured spec from user prompt
- * 2. Use that spec to send to Platform API for better code generation
+ * Implements the "spec-first" pattern:
+ * 1. Use an LLM via AI Gateway to generate a structured spec from user prompt
+ * 2. Use that spec for higher-quality code generation
  *
  * The spec contains:
  * - siteName, tagline, pitch
@@ -12,9 +12,8 @@
  * - pages and sections
  * - must-have and avoid constraints
  *
- * This approach gives higher quality results because:
- * - v0-1.5-lg has 512K context and better reasoning
- * - Platform API receives a structured, clear spec instead of raw user input
+ * This approach gives higher quality results because the code generator
+ * receives a structured, clear spec instead of raw user input.
  */
 
 import { generateObject } from "ai";
@@ -91,15 +90,14 @@ Be specific and concrete. If details are missing, make reasonable assumptions ba
 Output a JSON object matching the schema exactly. Do not include any explanations or markdown.`;
 
 /**
- * Generate a website spec from user prompt using v0-1.5-lg via AI Gateway
+ * Generate a website spec from user prompt using AI Gateway.
  *
  * @param userPrompt - The user's original website request
  * @returns A structured WebsiteSpec
  */
 export async function generateWebsiteSpec(userPrompt: string): Promise<WebsiteSpec> {
   try {
-    // Use AI Gateway with v0-1.5-lg model (or fallback to claude)
-    const model = gateway("anthropic/claude-sonnet-4.5"); // v0-1.5-lg not available via gateway yet
+    const model = gateway("anthropic/claude-sonnet-4.5");
 
     const result = await generateObject({
       model,
@@ -121,11 +119,11 @@ export async function generateWebsiteSpec(userPrompt: string): Promise<WebsiteSp
 }
 
 /**
- * Build a v0 Platform API prompt from a structured spec
+ * Build a code generation prompt from a structured spec.
  *
  * @param spec - The generated website spec
  * @param originalPrompt - The user's original prompt (for reference)
- * @returns A formatted prompt for v0 Platform API
+ * @returns A formatted prompt for the code generation engine
  */
 export function buildPlatformPromptFromSpec(spec: WebsiteSpec, originalPrompt: string): string {
   const pagesDescription = spec.pages
@@ -195,8 +193,8 @@ export async function processPromptWithSpec(userPrompt: string): Promise<{
 }
 
 // ── Spec file generation ────────────────────────────────────────────────
-// Converts a brief (from /api/ai/brief) into a structured JSON spec that
-// can be pushed to the v0 project as sajtmaskin.spec.json (locked file).
+// Converts a brief (from /api/ai/brief) into a structured JSON spec
+// (sajtmaskin.spec.json) used by the code generation engine.
 
 import type { ThemeColors } from "./theme-presets";
 import type { PaletteSpec, PaletteState } from "./palette";

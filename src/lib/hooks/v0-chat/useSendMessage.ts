@@ -1,13 +1,11 @@
 import { useCallback } from "react";
 import { toast } from "sonner";
-import { formatPromptForV0 } from "@/lib/builder/promptAssist";
-import { orchestratePromptMessage } from "@/lib/builder/promptOrchestration";
+import { formatPrompt } from "@/lib/builder/promptAssist";
 import { debugLog } from "@/lib/utils/debug";
 import { STREAM_SAFETY_TIMEOUT_DEFAULT_MS } from "./constants";
 import type { AutoFixPayload, MessageOptions, V0ChatMessagingParams } from "./types";
 import {
   appendAttachmentPrompt,
-  appendPromptStrategyPart,
   buildApiErrorMessage,
   isNetworkError,
 } from "./helpers";
@@ -32,6 +30,7 @@ export function useSendMessage(
 ) {
   const {
     chatId,
+    appProjectId,
     selectedModelTier,
     enableImageGenerations,
     enableImageMaterialization = false,
@@ -140,23 +139,7 @@ export function useSendMessage(
       let requestBody: Record<string, unknown> | null = null;
 
       try {
-        const orchestration = orchestratePromptMessage({
-          message: messageText,
-          buildMethod,
-          buildIntent,
-          isFirstPrompt: false,
-          attachmentsCount: options.attachments?.length ?? 0,
-        });
-        if (orchestration.strategyMeta.strategy !== "direct") {
-          appendPromptStrategyPart(setMessages, assistantMessageId, orchestration.strategyMeta);
-          toast.success(
-            orchestration.strategyMeta.strategy === "phase_plan_build_polish"
-              ? "Prompt optimerad: fasad"
-              : "Prompt optimerad: sammanfattad",
-          );
-        }
-
-        const formattedMessage = formatPromptForV0(orchestration.finalMessage);
+        const formattedMessage = formatPrompt(messageText);
         const finalMessage = appendAttachmentPrompt(
           formattedMessage,
           options.attachmentPrompt,
@@ -166,19 +149,15 @@ export function useSendMessage(
         const promptMeta: Record<string, unknown> = {
           promptOriginal: messageText,
           promptFormatted: formattedMessage,
+          formattedChanged: formattedMessage.trim() !== messageText.trim(),
           promptLength: messageText.length,
-          promptOptimizedLength: orchestration.strategyMeta.optimizedLength,
           formattedLength: formattedMessage.length,
           attachmentsCount: options.attachments?.length ?? 0,
-          promptStrategy: orchestration.strategyMeta.strategy,
-          promptType: orchestration.strategyMeta.promptType,
-          promptBudgetTarget: orchestration.strategyMeta.budgetTarget,
-          promptReductionRatio: orchestration.strategyMeta.reductionRatio,
-          promptStrategyReason: orchestration.strategyMeta.reason,
-          promptComplexityScore: orchestration.strategyMeta.complexityScore,
+          isFirstPrompt: false,
         };
         if (buildIntent) promptMeta.buildIntent = buildIntent;
         if (buildMethod) promptMeta.buildMethod = buildMethod;
+        if (appProjectId) promptMeta.appProjectId = appProjectId;
         promptMeta.modelTier = selectedModelTier;
         promptMeta.modelId = selectedModelTier;
         promptMeta.imageGenerations = enableImageGenerations;
@@ -300,6 +279,7 @@ export function useSendMessage(
     },
     [
       chatId,
+      appProjectId,
       createNewChat,
       enableImageGenerations,
       enableImageMaterialization,

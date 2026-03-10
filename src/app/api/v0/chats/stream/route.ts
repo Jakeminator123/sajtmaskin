@@ -37,8 +37,17 @@ import { devLogAppend, devLogFinalizeSite, devLogStartNewSite } from "@/lib/logg
 import { debugLog, errorLog, warnLog } from "@/lib/utils/debug";
 import { sanitizeV0Metadata } from "@/lib/v0/sanitize-metadata";
 import { createPromptLog } from "@/lib/db/services";
-import { resolveModelSelection } from "@/lib/v0/modelSelection";
+import { resolveModelSelection, resolveEngineModelId } from "@/lib/v0/modelSelection";
 import { AI } from "@/lib/config";
+import { shouldUseV0Fallback, createGenerationPipeline } from "@/lib/gen/fallback";
+import { compressUrls } from "@/lib/gen/url-compress";
+import { buildSystemPrompt, getSystemPromptLengths } from "@/lib/gen/system-prompt";
+import { SuspenseLineProcessor, parseSSEBuffer } from "@/lib/gen/route-helpers";
+import * as chatRepo from "@/lib/db/chat-repository";
+import type { BuildIntent } from "@/lib/builder/build-intent";
+import { runAutoFix } from "@/lib/gen/autofix/pipeline";
+import { validateAndFix } from "@/lib/gen/autofix/validate-and-fix";
+import { buildPreviewUrl } from "@/lib/gen/preview";
 
 export const runtime = "nodejs";
 export const maxDuration = 800;
@@ -95,8 +104,6 @@ export async function POST(req: Request) {
       const botError = requireNotBot(req);
       if (botError) return attachSessionCookie(botError);
 
-      assertV0Key();
-
       const body = await req.json().catch(() => ({}));
       const debugStream =
         process.env.NODE_ENV !== "production" && process.env.V0_STREAM_DEBUG === "1";
@@ -143,6 +150,10 @@ export async function POST(req: Request) {
         typeof (meta as { buildIntent?: unknown })?.buildIntent === "string"
           ? (meta as { buildIntent?: string }).buildIntent
           : null;
+      const metaAppProjectId =
+        typeof (meta as { appProjectId?: unknown })?.appProjectId === "string"
+          ? String((meta as { appProjectId?: string }).appProjectId).trim()
+          : "";
       const promptOrchestration = orchestratePromptMessage({
         message,
         buildMethod: metaBuildMethod,
@@ -236,7 +247,7 @@ export async function POST(req: Request) {
           event: "create_chat",
           userId: creditUser?.id || null,
           sessionId,
-          appProjectId: null,
+          appProjectId: metaAppProjectId || null,
           v0ProjectId: projectId ?? null,
           chatId: null,
           promptOriginal,
@@ -305,6 +316,438 @@ export async function POST(req: Request) {
         projectId,
         slug: metaBuildMethod || metaBuildIntent || undefined,
       });
+
+      // ── New Engine Path ───────────────────────────────────────────────
+      if (!shouldUseV0Fallback()) {
+        const engineIntent: BuildIntent =
+          metaBuildIntent === "template" || metaBuildIntent === "website" || metaBuildIntent === "app"
+            ? (metaBuildIntent as BuildIntent)
+            : "website";
+        const engineSystemPrompt = buildSystemPrompt({
+          intent: engineIntent,
+          imageGenerations: resolvedImageGenerations,
+        });
+        const promptLengths = getSystemPromptLengths(engineSystemPrompt);
+        debugLog("prompt-cache", "System prompt lengths", promptLengths);
+
+        const engineModel = resolveEngineModelId(resolvedModelTier, false);
+        debugLog("engine", "Own engine model resolved", {
+          resolvedModelTier,
+          engineModel,
+          fallback: false,
+        });
+        const { compressed: enginePrompt, urlMap } = compressUrls(optimizedMessage);
+        const pipelineStream = createGenerationPipeline({
+          prompt: enginePrompt,
+          systemPrompt: engineSystemPrompt,
+          model: engineModel,
+          thinking: resolvedThinking,
+        });
+
+        const projectIdForChat = metaAppProjectId || projectId || `proj-${nanoid()}`;
+        const engineChat = chatRepo.createChat(projectIdForChat, engineModel, engineSystemPrompt);
+        chatRepo.addMessage(engineChat.id, "user", optimizedMessage);
+
+        const engineStartedAt = Date.now();
+        const pipelineReader = pipelineStream.getReader();
+        const pipelineDecoder = new TextDecoder();
+        let engineControllerClosed = false;
+        let enginePingTimer: ReturnType<typeof setInterval> | null = null;
+        const stopEnginePing = () => {
+          if (!enginePingTimer) return;
+          clearInterval(enginePingTimer);
+          enginePingTimer = null;
+        };
+
+        const engineStream = new ReadableStream({
+          cancel() {
+            engineControllerClosed = true;
+            stopEnginePing();
+            pipelineReader.cancel().catch(() => {});
+          },
+          async start(controller) {
+            const enc = new TextEncoder();
+            let sseBuffer = "";
+            let accumulatedContent = "";
+            let didSendDone = false;
+            const suspense = new SuspenseLineProcessor(undefined, { urlMap });
+
+            const safeEnqueue = (data: Uint8Array) => {
+              if (engineControllerClosed) return;
+              try {
+                controller.enqueue(data);
+              } catch {
+                engineControllerClosed = true;
+                stopEnginePing();
+              }
+            };
+
+            const safeClose = () => {
+              if (engineControllerClosed) return;
+              engineControllerClosed = true;
+              stopEnginePing();
+              try {
+                controller.close();
+              } catch {
+                // already closed
+              }
+            };
+
+            safeEnqueue(enc.encode(formatSSEEvent("chatId", { id: engineChat.id })));
+            safeEnqueue(
+              enc.encode(
+                formatSSEEvent("meta", {
+                  modelId: engineModel,
+                  thinking: resolvedThinking,
+                  imageGenerations: resolvedImageGenerations,
+                  chatPrivacy: resolvedChatPrivacy,
+                }),
+              ),
+            );
+
+            enginePingTimer = setInterval(() => {
+              if (engineControllerClosed) return;
+              safeEnqueue(enc.encode(formatSSEEvent("ping", { ts: Date.now() })));
+            }, 15000);
+
+            try {
+              while (true) {
+                if (engineControllerClosed || req.signal?.aborted) break;
+                const { done, value } = await pipelineReader.read();
+                if (done) break;
+
+                sseBuffer += pipelineDecoder.decode(value, { stream: true });
+                const { events, remaining } = parseSSEBuffer(sseBuffer);
+                sseBuffer = remaining;
+
+                for (const evt of events) {
+                  if (engineControllerClosed) break;
+
+                  switch (evt.event) {
+                    case "thinking": {
+                      const text =
+                        typeof (evt.data as Record<string, unknown>)?.text === "string"
+                          ? (evt.data as Record<string, string>).text
+                          : "";
+                      if (text) {
+                        safeEnqueue(enc.encode(formatSSEEvent("thinking", text)));
+                      }
+                      break;
+                    }
+
+                    case "content": {
+                      const text =
+                        typeof (evt.data as Record<string, unknown>)?.text === "string"
+                          ? (evt.data as Record<string, string>).text
+                          : "";
+                      if (text) {
+                        const processed = suspense.process(text);
+                        accumulatedContent += processed;
+                        if (processed) {
+                          safeEnqueue(enc.encode(formatSSEEvent("content", processed)));
+                        }
+                      }
+                      break;
+                    }
+
+                    case "done": {
+                      const flushed = suspense.flush();
+                      if (flushed) {
+                        accumulatedContent += flushed;
+                        safeEnqueue(enc.encode(formatSSEEvent("content", flushed)));
+                      }
+
+                      let contentForVersion = accumulatedContent;
+                      try {
+                        const autoFixResult = await runAutoFix(accumulatedContent, {
+                          chatId: engineChat.id,
+                          model: engineModel,
+                        });
+                        contentForVersion = autoFixResult.fixedContent;
+
+                        if (autoFixResult.fixes.length > 0 || autoFixResult.warnings.length > 0) {
+                          devLogAppend("in-progress", {
+                            type: "autofix.result",
+                            chatId: engineChat.id,
+                            fixes: autoFixResult.fixes,
+                            warnings: autoFixResult.warnings.slice(0, 20),
+                            dependencies: autoFixResult.dependencies,
+                          });
+                        }
+                      } catch (autofixErr) {
+                        console.warn("[autofix] Pipeline error, using raw content:", autofixErr);
+                      }
+
+                      const syntaxResult = await validateAndFix(contentForVersion, {
+                        chatId: engineChat.id,
+                        model: engineModel,
+                      });
+                      contentForVersion = syntaxResult.content;
+                      if (syntaxResult.fixerUsed) {
+                        devLogAppend("in-progress", {
+                          type: "syntax-validation.result",
+                          chatId: engineChat.id,
+                          fixerImproved: syntaxResult.fixerImproved,
+                          errorsBefore: syntaxResult.errorsBefore,
+                          errorsAfter: syntaxResult.errorsAfter,
+                        });
+                      }
+
+                      const assistantMsg = chatRepo.addMessage(
+                        engineChat.id,
+                        "assistant",
+                        contentForVersion,
+                      );
+                      const { parseFilesFromContent } = await import("@/lib/gen/version-manager");
+                      const filesJson = parseFilesFromContent(contentForVersion);
+                      const version = chatRepo.createVersion(
+                        engineChat.id,
+                        assistantMsg.id,
+                        filesJson,
+                      );
+
+                      const doneData = evt.data as Record<string, unknown> | null;
+                      chatRepo.logGeneration(
+                        engineChat.id,
+                        engineModel,
+                        {
+                          prompt:
+                            typeof doneData?.promptTokens === "number"
+                              ? doneData.promptTokens
+                              : undefined,
+                          completion:
+                            typeof doneData?.completionTokens === "number"
+                              ? doneData.completionTokens
+                              : undefined,
+                        },
+                        Date.now() - engineStartedAt,
+                        true,
+                      );
+
+                      didSendDone = true;
+                      const previewUrl = buildPreviewUrl(engineChat.id, version.id);
+                      safeEnqueue(
+                        enc.encode(
+                          formatSSEEvent("done", {
+                            chatId: engineChat.id,
+                            versionId: version.id,
+                            messageId: assistantMsg.id,
+                            demoUrl: previewUrl,
+                          }),
+                        ),
+                      );
+
+                      devLogAppend("in-progress", {
+                        type: "site.done",
+                        chatId: engineChat.id,
+                        versionId: version.id,
+                        demoUrl: previewUrl,
+                        durationMs: Date.now() - engineStartedAt,
+                      });
+                      devLogFinalizeSite();
+                      await commitCreditsOnce();
+                      break;
+                    }
+
+                    case "error": {
+                      const msg =
+                        typeof (evt.data as Record<string, unknown>)?.message === "string"
+                          ? (evt.data as Record<string, string>).message
+                          : "Engine generation failed";
+                      safeEnqueue(
+                        enc.encode(formatSSEEvent("error", { message: msg })),
+                      );
+                      devLogAppend("in-progress", {
+                        type: "comm.error.create",
+                        chatId: engineChat.id,
+                        message: msg,
+                      });
+                      break;
+                    }
+                  }
+                }
+              }
+            } catch (error) {
+              console.error("Engine streaming error:", error);
+              safeEnqueue(
+                enc.encode(
+                  formatSSEEvent("error", {
+                    message:
+                      error instanceof Error
+                        ? error.message
+                        : "Engine streaming failed",
+                  }),
+                ),
+              );
+            } finally {
+              try {
+                pipelineReader.releaseLock();
+              } catch {
+                // Reader may already be released
+              }
+
+              // Flush any remaining SSE data left in the buffer after stream ends
+              if (sseBuffer.trim()) {
+                const { events: finalEvents } = parseSSEBuffer(sseBuffer + "\n");
+                for (const evt of finalEvents) {
+                  if (evt.event === "content") {
+                    const text =
+                      typeof (evt.data as Record<string, unknown>)?.text === "string"
+                        ? (evt.data as Record<string, string>).text
+                        : "";
+                    if (text) {
+                      const processed = suspense.process(text);
+                      accumulatedContent += processed;
+                      if (processed) {
+                        safeEnqueue(enc.encode(formatSSEEvent("content", processed)));
+                      }
+                    }
+                  } else if (evt.event === "done" && !didSendDone) {
+                    const flushed = suspense.flush();
+                    if (flushed) {
+                      accumulatedContent += flushed;
+                      safeEnqueue(enc.encode(formatSSEEvent("content", flushed)));
+                    }
+
+                    let contentForVersion = accumulatedContent;
+                    try {
+                      const autoFixResult = await runAutoFix(accumulatedContent, {
+                        chatId: engineChat.id,
+                        model: engineModel,
+                      });
+                      contentForVersion = autoFixResult.fixedContent;
+                    } catch {
+                      // use raw content
+                    }
+
+                    const bufferSyntaxResult = await validateAndFix(contentForVersion, {
+                      chatId: engineChat.id,
+                      model: engineModel,
+                    });
+                    contentForVersion = bufferSyntaxResult.content;
+
+                    const assistantMsg = chatRepo.addMessage(
+                      engineChat.id,
+                      "assistant",
+                      contentForVersion,
+                    );
+                    const { parseFilesFromContent } = await import("@/lib/gen/version-manager");
+                    const filesJson = parseFilesFromContent(contentForVersion);
+                    const version = chatRepo.createVersion(
+                      engineChat.id,
+                      assistantMsg.id,
+                      filesJson,
+                    );
+
+                    const doneData = evt.data as Record<string, unknown> | null;
+                    chatRepo.logGeneration(
+                      engineChat.id,
+                      engineModel,
+                      {
+                        prompt:
+                          typeof doneData?.promptTokens === "number"
+                            ? doneData.promptTokens
+                            : undefined,
+                        completion:
+                          typeof doneData?.completionTokens === "number"
+                            ? doneData.completionTokens
+                            : undefined,
+                      },
+                      Date.now() - engineStartedAt,
+                      true,
+                    );
+
+                    didSendDone = true;
+                    const previewUrl = buildPreviewUrl(engineChat.id, version.id);
+                    safeEnqueue(
+                      enc.encode(
+                        formatSSEEvent("done", {
+                          chatId: engineChat.id,
+                          versionId: version.id,
+                          messageId: assistantMsg.id,
+                          demoUrl: previewUrl,
+                        }),
+                      ),
+                    );
+                    debugLog("engine", "Saved version from buffer flush", {
+                      chatId: engineChat.id,
+                      versionId: version.id,
+                      contentLen: contentForVersion.length,
+                      filesJson: filesJson.slice(0, 200),
+                    });
+                    await commitCreditsOnce();
+                  }
+                }
+              }
+
+              if (!didSendDone) {
+                const flushed = suspense.flush();
+                if (flushed) accumulatedContent += flushed;
+
+                if (accumulatedContent) {
+                  try {
+                    const assistantMsg = chatRepo.addMessage(engineChat.id, "assistant", accumulatedContent);
+                    const { parseFilesFromContent } = await import("@/lib/gen/version-manager");
+                    const filesJson = parseFilesFromContent(accumulatedContent);
+                    const version = chatRepo.createVersion(
+                      engineChat.id,
+                      assistantMsg.id,
+                      filesJson,
+                    );
+                    const previewUrl = buildPreviewUrl(engineChat.id, version.id);
+                    didSendDone = true;
+                    safeEnqueue(
+                      enc.encode(
+                        formatSSEEvent("done", {
+                          chatId: engineChat.id,
+                          versionId: version.id,
+                          messageId: assistantMsg.id,
+                          demoUrl: previewUrl,
+                        }),
+                      ),
+                    );
+                    debugLog("engine", "Saved version from fallback flush", {
+                      chatId: engineChat.id,
+                      versionId: version.id,
+                      contentLen: accumulatedContent.length,
+                    });
+                    chatRepo.logGeneration(
+                      engineChat.id,
+                      engineModel,
+                      {},
+                      Date.now() - engineStartedAt,
+                      true,
+                      "Done from fallback flush",
+                    );
+                    await commitCreditsOnce();
+                  } catch {
+                    // ignore persistence errors in cleanup
+                  }
+                }
+
+                safeEnqueue(
+                  enc.encode(
+                    formatSSEEvent("done", {
+                      chatId: engineChat.id,
+                      versionId: null,
+                      messageId: null,
+                      demoUrl: null,
+                    }),
+                  ),
+                );
+                await commitCreditsOnce();
+              }
+              safeClose();
+            }
+          },
+        });
+
+        const engineHeaders = new Headers(createSSEHeaders());
+        return attachSessionCookie(new Response(engineStream, { headers: engineHeaders }));
+      }
+
+      // ── V0 Fallback Path ──────────────────────────────────────────────
+      assertV0Key();
 
       const generationStartedAt = Date.now();
 

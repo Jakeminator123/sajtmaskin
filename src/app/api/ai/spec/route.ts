@@ -21,15 +21,15 @@ const specRequestSchema = z.object({
  * POST /api/ai/spec
  *
  * Generate a structured website spec from a user prompt using the spec-first chain.
- * This uses v0-1.5-lg via AI Gateway to analyze the prompt and create a detailed
- * specification that can be used for higher quality code generation.
+ * Uses AI Gateway to analyze the prompt and create a detailed specification
+ * for higher quality code generation.
  *
  * Request body:
  * - prompt: string - The user's website request
  *
  * Response:
  * - spec: WebsiteSpec - The generated structured specification
- * - enhancedPrompt: string - A formatted prompt for v0 Platform API
+ * - enhancedPrompt: string - A formatted prompt for the code generation engine
  */
 export async function POST(req: Request) {
   const session = ensureSessionIdFromRequest(req);

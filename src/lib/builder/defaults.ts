@@ -4,13 +4,16 @@
  *
  * CONCEPTS:
  *
- * Model Tiers (v0 Platform API – code generation):
- *   - v0-1.5-md: Pro -- best error-free rate (93.87%), everyday tasks.
- *   - v0-1.5-lg: Max -- advanced reasoning, 512K context.
- *   - v0-max-fast: Max Fast -- default, verified from v0.app (Claude Opus 4.6 Fast).
- *   - v0-gpt-5:  GPT-5 composite model (MCP server).
+ * Model Tiers:
+ *   - Default engine (V0_FALLBACK_BUILDER not set): tiers map to OpenAI models
+ *     (gpt-5.2, gpt-4.1, gpt-4.1-mini). Max/premium → gpt-5.2.
+ *   - v0 fallback (V0_FALLBACK_BUILDER=y): v0 Platform API models:
+ *     - v0-1.5-md: Pro -- best error-free rate, everyday tasks.
+ *     - v0-1.5-lg: Max -- advanced reasoning, 512K context.
+ *     - v0-max-fast: Max Fast -- default.
+ *     - v0-gpt-5:  GPT-5 composite model.
  *
- * Prompt Assist (preprocessing user prompts before v0 generation):
+ * Prompt Assist (preprocessing user prompts before generation):
  *   - off:            No preprocessing, send prompt directly to v0.
  *   - gateway:        AI Gateway (Vercel's multi-provider routing with fallbacks).
  *   - openai-compat:  v0 Model API (v0-1.5-md/lg).
@@ -77,7 +80,6 @@ export const PROMPT_ASSIST_OFF_VALUE = "off";
 export const PROMPT_ASSIST_MODEL_OPTIONS: PromptAssistModelOption[] = [
   { value: PROMPT_ASSIST_OFF_VALUE, label: "Av – skicka direkt" },
   { value: "openai/gpt-5.2", label: "GPT‑5.2 (Gateway)" },
-  { value: "openai/gpt-5.2-pro", label: "GPT‑5.2 Pro (Gateway)" },
   { value: "anthropic/claude-opus-4.5", label: "Claude Opus 4.5 (Gateway)" },
   { value: "anthropic/claude-sonnet-4.5", label: "Claude Sonnet 4.5 (Gateway)" },
   { value: "v0-1.5-md", label: "Model API Medium" },

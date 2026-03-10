@@ -1,14 +1,12 @@
 import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
-import { formatPromptForV0, resolvePromptAssistProvider, isPromptAssistOff } from "@/lib/builder/promptAssist";
-import { orchestratePromptMessage } from "@/lib/builder/promptOrchestration";
+import { formatPrompt, resolvePromptAssistProvider, isPromptAssistOff } from "@/lib/builder/promptAssist";
 import { debugLog } from "@/lib/utils/debug";
 import { STREAM_SAFETY_TIMEOUT_DEFAULT_MS } from "./constants";
 import type { AutoFixPayload, MessageOptions, V0ChatMessagingParams } from "./types";
 import {
   appendAttachmentPrompt,
   appendModelInfoPart,
-  appendPromptStrategyPart,
   buildApiErrorMessage,
   buildCreateChatKey,
   clearCreateChatLock,
@@ -222,28 +220,10 @@ export function useCreateChat(
       let requestBody: Record<string, unknown> | null = null;
 
       try {
-        const orchestration = orchestratePromptMessage({
-          message: initialMessage,
-          buildMethod,
-          buildIntent,
-          isFirstPrompt: true,
-          attachmentsCount: options.attachments?.length ?? 0,
-        });
-        if (orchestration.strategyMeta.strategy !== "direct") {
-          appendPromptStrategyPart(setMessages, assistantMessageId, orchestration.strategyMeta);
-          toast.success(
-            orchestration.strategyMeta.strategy === "phase_plan_build_polish"
-              ? "Prompt optimerad: fasad"
-              : "Prompt optimerad: sammanfattad",
-          );
-        }
-
-        const formattedMessage = formatPromptForV0(orchestration.finalMessage);
+        const formattedMessage = formatPrompt(initialMessage);
         debugLog("AI", "Prompt formatting result", {
           originalLength: initialMessage.length,
-          optimizedLength: orchestration.strategyMeta.optimizedLength,
           finalLength: formattedMessage.length,
-          strategy: orchestration.strategyMeta.strategy,
           changed: formattedMessage.trim() !== initialMessage.trim(),
         });
         const finalMessage = appendAttachmentPrompt(
@@ -258,21 +238,16 @@ export function useCreateChat(
           promptFormatted: formattedMessage,
           formattedChanged: formattedMessage.trim() !== initialMessage.trim(),
           promptLength: initialMessage.length,
-          promptOptimizedLength: orchestration.strategyMeta.optimizedLength,
           formattedLength: formattedMessage.length,
           attachmentsCount: options.attachments?.length ?? 0,
-          promptStrategy: orchestration.strategyMeta.strategy,
-          promptType: orchestration.strategyMeta.promptType,
-          promptBudgetTarget: orchestration.strategyMeta.budgetTarget,
-          promptReductionRatio: orchestration.strategyMeta.reductionRatio,
-          promptStrategyReason: orchestration.strategyMeta.reason,
-          promptComplexityScore: orchestration.strategyMeta.complexityScore,
+          isFirstPrompt: true,
         };
         if (promptAssistModel) promptMeta.promptAssistModel = promptAssistModel;
         if (typeof promptAssistDeep === "boolean") promptMeta.promptAssistDeep = promptAssistDeep;
         if (promptAssistMode) promptMeta.promptAssistMode = promptAssistMode;
         if (buildIntent) promptMeta.buildIntent = buildIntent;
         if (buildMethod) promptMeta.buildMethod = buildMethod;
+        if (appProjectId) promptMeta.appProjectId = appProjectId;
         promptMeta.modelId = selectedModelTier;
         promptMeta.modelTier = selectedModelTier;
 

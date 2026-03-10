@@ -15,7 +15,11 @@ type EnvKeyDefinition = Omit<EnvKeyStatus, "present">;
 const ENV_KEYS: EnvKeyDefinition[] = [
   { key: "POSTGRES_URL", required: true, notes: "Primär databas (Supabase)" },
   { key: "DB_SSL_REJECT_UNAUTHORIZED", required: false, notes: "DB TLS strictness" },
-  { key: "V0_API_KEY", required: true, notes: "v0 generation" },
+  {
+    key: "V0_API_KEY",
+    required: true,
+    notes: "v0 Platform API (required when V0_FALLBACK_BUILDER=y for fallback mode)",
+  },
   { key: "V0_STREAMING_ENABLED", required: false, notes: "v0 streaming feature flag" },
   { key: "JWT_SECRET", required: true, notes: "Auth tokens" },
   { key: "CSP_ENFORCE", required: false, notes: "Enable CSP enforce mode" },
@@ -31,7 +35,11 @@ const ENV_KEYS: EnvKeyDefinition[] = [
   { key: "UPSTASH_REDIS_REST_TOKEN", required: false, notes: "Rate limits" },
   { key: "REDIS_URL", required: false, notes: "Redis cache" },
   { key: "KV_URL", required: false, notes: "Redis cache" },
-  { key: "OPENAI_API_KEY", required: false, notes: "Prompt‑assist (OpenAI)" },
+  {
+    key: "OPENAI_API_KEY",
+    required: false,
+    notes: "Code generation (default engine), prompt-assist. Required when V0_FALLBACK_BUILDER is not set.",
+  },
   { key: "ANTHROPIC_API_KEY", required: false, notes: "Prompt‑assist (Anthropic)" },
   { key: "AI_GATEWAY_API_KEY", required: false, notes: "AI Gateway" },
   { key: "VERCEL_TOKEN", required: false, notes: "Vercel API" },

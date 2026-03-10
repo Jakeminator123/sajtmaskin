@@ -1,6 +1,6 @@
 DEPENDENCY & INSTALLATION STATUS
 ================================
-Senast uppdaterad: 2026-03-04
+Senast uppdaterad: 2026-03-06
 
 NODE.JS VERSION
 ---------------
@@ -118,10 +118,14 @@ Auth/Säkerhet (KRÄVS I PROD):
 - JWT_SECRET (kritiskt — utan denna loggas varning och all auth misslyckas)
 - BACKOFFICE_PASSWORD (backoffice-auth)
 
-AI/v0:
-- V0_API_KEY (v0 Platform API för site generation)
+AI / Kodgenerering:
+- OPENAI_API_KEY (krävs när V0_FALLBACK_BUILDER ej satt): gen/ engine (GPT 5.2),
+  prompt-assist, transcribe, template embeddings, audit, text/analyze
+- V0_FALLBACK_BUILDER (optional): sätt till "y" för att använda v0 Platform API
+  istället för gen/ engine. Default: ej satt = ny motor
+- V0_API_KEY (krävs när V0_FALLBACK_BUILDER=y): v0 Platform API för site generation.
+  Används även för templates, registry init, download även utan fallback
 - AI_GATEWAY_API_KEY eller VERCEL_OIDC_TOKEN (prompt assist via gateway)
-- OPENAI_API_KEY (audit, embeddings, text/analyze)
 - BRAVE_API_KEY (Brave Web Search för company-lookup, competitors)
 - USE_RESPONSES_API=true (opt-in OpenAI Responses API migration)
 - AUDIT_WEB_SEARCH=false (opt-in web_search i audit-route)

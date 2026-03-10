@@ -2,7 +2,13 @@
  * v0 API Generator
  * =================
  *
- * KÄRNMODUL för all AI-kodgenerering. Kommunicerar med Vercel's v0 Platform API.
+ * FALLBACK-ONLY: Used when V0_FALLBACK_BUILDER=y. The default engine is the
+ * gen/ pipeline (GPT 5.2 + AI SDK). See src/lib/gen/fallback.ts.
+ *
+ * Also used for: templates (generateFromTemplate), registry init (initFromRegistry),
+ * and download (downloadVersionAsZip) — these flows still use v0 Platform API.
+ *
+ * KÄRNMODUL för v0-baserad AI-kodgenerering. Kommunicerar med Vercel's v0 Platform API.
  *
  * API-TYPER (båda använder samma V0_API_KEY):
  * - Platform API (v0-sdk): Returnerar filer, demoUrl, chatId - ANVÄNDS HÄR
@@ -45,6 +51,7 @@
 
 import { createClient, type ChatDetail } from "v0-sdk";
 import { enhancePromptForV0, type MediaLibraryItem } from "@/lib/utils/prompt-utils";
+import { compressUrls, expandUrls } from "@/lib/gen/url-compress";
 import { debugLog, logFinalPrompt, warnLog } from "@/lib/utils/debug";
 import { logV0 } from "@/lib/logging/file-logger";
 import { SECRETS } from "@/lib/config";
@@ -666,6 +673,10 @@ export async function generateCode(
     );
   }
 
+  // Compress long URLs to short aliases before sending to LLM (saves tokens)
+  const { compressed: compressedPrompt, urlMap } = compressUrls(fullPrompt);
+  fullPrompt = compressedPrompt;
+
   const systemPrompt = resolveBuildIntentSystemPrompt(options.buildIntent, options.systemPrompt);
   const resolvedImageGenerations =
     typeof options.imageGenerations === "boolean" ? options.imageGenerations : true;
@@ -818,11 +829,18 @@ export async function generateCode(
     console.info("[v0-generator] Using text fallback, length:", combinedCode.length);
   }
 
+  // Expand URL aliases back to full URLs in generated code
+  combinedCode = expandUrls(combinedCode, urlMap);
+  const expandedFiles = files.map((f) => ({
+    ...f,
+    content: expandUrls(f.content || "", urlMap),
+  }));
+
   console.info("[v0-generator] Generation complete, demoUrl:", chat.latestVersion?.demoUrl);
 
   return {
     code: combinedCode,
-    files,
+    files: expandedFiles,
     chatId: chat.id,
     demoUrl: chat.latestVersion?.demoUrl,
     screenshotUrl: chat.latestVersion?.screenshotUrl,
@@ -857,7 +875,11 @@ export async function refineCode(
     attachmentsCount: mediaLibrary?.length ?? 0,
     hardCap: MAX_CHAT_MESSAGE_CHARS,
   });
-  const refinementInstruction = refineOrchestration.finalMessage;
+  let refinementInstruction = refineOrchestration.finalMessage;
+  const { compressed: compressedRefinement, urlMap: refineUrlMap } =
+    compressUrls(refinementInstruction);
+  refinementInstruction = compressedRefinement;
+
   if (refineOrchestration.strategyMeta.strategy !== "direct") {
     warnLog("v0", "Refinement instruction orchestration applied", {
       strategy: refineOrchestration.strategyMeta.strategy,
@@ -952,9 +974,16 @@ export async function refineCode(
       console.warn("[v0-generator] ⚠️  WARNING: versionId did not change after refine!");
     }
 
+    const rawCode = mainFile?.content || chat.text || "";
+    const expandedCode = expandUrls(rawCode, refineUrlMap);
+    const expandedFiles = files.map((f) => ({
+      ...f,
+      content: expandUrls(f.content || "", refineUrlMap),
+    }));
+
     return {
-      code: mainFile?.content || chat.text || "",
-      files,
+      code: expandedCode,
+      files: expandedFiles,
       chatId: chat.id,
       demoUrl: newDemoUrl,
       screenshotUrl: chat.latestVersion?.screenshotUrl,

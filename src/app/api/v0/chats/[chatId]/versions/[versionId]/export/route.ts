@@ -6,6 +6,8 @@ import { assertV0Key, v0 } from "@/lib/v0";
 import { db } from "@/lib/db/client";
 import { versions } from "@/lib/db/schema";
 import { getChatByV0ChatIdForRequest } from "@/lib/tenant";
+import { shouldUseV0Fallback } from "@/lib/gen/fallback";
+import { getVersionFiles } from "@/lib/gen/version-manager";
 
 export const runtime = "nodejs";
 
@@ -25,8 +27,6 @@ export async function POST(
 ) {
   return withRateLimit(req, "blob:export", async () => {
     try {
-      assertV0Key();
-
       const blobToken = process.env.BLOB_READ_WRITE_TOKEN;
       if (!blobToken) {
         return NextResponse.json(
@@ -41,6 +41,49 @@ export async function POST(
       const { chatId, versionId } = await ctx.params;
       const { searchParams } = new URL(req.url);
       const format = searchParams.get("format") === "tar" ? "tar" : "zip";
+
+      // -----------------------------------------------------------------
+      // Non-fallback: build archive from SQLite files, upload to Blob
+      // -----------------------------------------------------------------
+      if (!shouldUseV0Fallback()) {
+        const codeFiles = getVersionFiles(versionId);
+        if (!codeFiles || codeFiles.length === 0) {
+          return NextResponse.json({ error: "Version not found" }, { status: 404 });
+        }
+
+        const JSZip = (await import("jszip")).default;
+        const zip = new JSZip();
+        for (const file of codeFiles) {
+          zip.file(file.path, file.content);
+        }
+
+        const buffer = await zip.generateAsync({ type: "nodebuffer" });
+
+        const safeChat = toSafeSegment(chatId) || "chat";
+        const safeVersion = toSafeSegment(versionId) || "version";
+        const contentType = "application/zip";
+        const pathname = `exports/${safeChat}/${safeVersion}-${Date.now()}.zip`;
+
+        const blob = await put(pathname, buffer, {
+          access: "public",
+          contentType,
+          token: blobToken,
+        });
+
+        return NextResponse.json({
+          ok: true,
+          format: "zip",
+          contentType,
+          size: buffer.byteLength,
+          blob,
+        });
+      }
+
+      // -----------------------------------------------------------------
+      // V0 fallback: existing v0 API download + Blob upload flow
+      // -----------------------------------------------------------------
+      assertV0Key();
+
       const includeDefaultFiles = searchParams.get("includeDefaultFiles") !== "false";
 
       const chat = await getChatByV0ChatIdForRequest(req, chatId);

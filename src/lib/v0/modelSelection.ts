@@ -1,12 +1,14 @@
 import {
   canonicalizeModelId,
   DEFAULT_MODEL_ID,
+  v0TierToOpenAIModel,
   type CanonicalModelId,
+  type OwnModelId,
 } from "@/lib/v0/models";
 import { warnLog } from "@/lib/utils/debug";
 
 /**
- * Resolve a model selection from request inputs to a canonical model ID.
+ * Resolve a model selection from request inputs to a canonical v0 model ID.
  *
  * Resolution order:
  * 1. `requestedModelId` — canonicalized if valid, else ignored
@@ -14,6 +16,9 @@ import { warnLog } from "@/lib/utils/debug";
  * 3. `fallbackTier` — canonicalized, or the global default
  *
  * Unknown/invalid IDs are logged when a fallback occurs.
+ *
+ * Use resolveEngineModelId() to get the actual model string for generation
+ * (v0 ID when fallback, OpenAI ID when using own engine).
  */
 export function resolveModelSelection(params: {
   requestedModelId?: string | null;
@@ -41,4 +46,22 @@ export function resolveModelSelection(params: {
   }
 
   return { modelId: resolved, modelTier: resolved };
+}
+
+/**
+ * Resolve the engine model ID for code generation.
+ *
+ * - When useV0Fallback: returns the v0 model ID (for v0 Platform API).
+ * - When not fallback: maps the v0 tier to the corresponding OpenAI model
+ *   (e.g. v0-max-fast → gpt-5.2, v0-gpt-5 → gpt-5.2).
+ *
+ * Requires OPENAI_API_KEY when useV0Fallback is false.
+ * Requires V0_API_KEY when useV0Fallback is true.
+ */
+export function resolveEngineModelId(
+  resolvedTier: CanonicalModelId,
+  useV0Fallback: boolean,
+): CanonicalModelId | OwnModelId {
+  if (useV0Fallback) return resolvedTier;
+  return v0TierToOpenAIModel(resolvedTier);
 }

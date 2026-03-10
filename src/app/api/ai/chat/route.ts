@@ -85,7 +85,6 @@ function getGatewayPreferredProvider(model: string): string | null {
 function defaultGatewayFallbackModels(primaryModel: string): string[] {
   const ordered = [
     "openai/gpt-5.2",
-    "openai/gpt-5.2-pro",
     "anthropic/claude-opus-4.5",
     "anthropic/claude-sonnet-4.5",
   ];

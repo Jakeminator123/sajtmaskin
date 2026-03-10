@@ -7,7 +7,6 @@ export type PromptAssistProvider = "gateway" | "v0";
 
 export const GATEWAY_ASSIST_MODELS = [
   "openai/gpt-5.2",
-  "openai/gpt-5.2-pro",
   "anthropic/claude-opus-4.5",
   "anthropic/claude-sonnet-4.5",
 ] as const;
@@ -252,8 +251,8 @@ const QUALITY_BAR_GUIDANCE = {
 };
 
 const IMAGE_DENSITY_GUIDANCE = [
-  "Include images in hero + at least 2-3 additional sections where it adds value.",
-  "Use consistent aspect ratios and professional cropping for visual harmony.",
+  "Images in hero + at least 2 additional sections.",
+  "Consistent aspect ratios and professional cropping throughout.",
 ];
 
 // ── Dynamic guidance resolvers ──────────────────────────────────────────
@@ -567,7 +566,7 @@ const ACCESSIBILITY_REQUIREMENTS = [
   "Dialoger måste ha DialogTitle + DialogDescription (sr-only ok) eller korrekt aria-describedby.",
 ];
 
-export function formatPromptForV0(prompt: string): string {
+export function formatPrompt(prompt: string): string {
   if (!prompt) return "";
   const normalized = normalizeWhitespace(String(prompt));
   if (!normalized) return "";
@@ -622,15 +621,19 @@ export function formatPromptForV0(prompt: string): string {
   return parts.join("\n\n");
 }
 
-export function buildV0RewriteSystemPrompt(params: {
+/** @deprecated Use `formatPrompt` instead. */
+export const formatPromptForV0 = formatPrompt;
+
+export function buildRewriteSystemPrompt(params: {
   codeContext?: string | null;
   buildIntent?: BuildIntent;
 } = {}): string {
   const intentLine = getBuildIntentIntro(params.buildIntent);
   const base =
-    "You are a prompt engineer for v0 (a website/app builder). " +
-    "Rewrite the user request into a single, concrete, high-quality build prompt for v0. " +
-    "Keep it concise, include key requirements and UI details, and avoid extra commentary. " +
+    "You are a prompt engineer for a code generation engine that builds Next.js + React + Tailwind CSS websites and apps. " +
+    "Rewrite the user request into a single, concrete, high-quality build prompt. " +
+    "Be specific about layout, sections, components, and visual direction. " +
+    "Keep it concise and avoid extra commentary. " +
     `Output ONLY the rewritten prompt.\n\nBuild intent: ${intentLine}`;
 
   const codeContext = params.codeContext?.trim();
@@ -647,7 +650,10 @@ export function buildV0RewriteSystemPrompt(params: {
   );
 }
 
-export function buildV0PolishSystemPrompt(params: {
+/** @deprecated Use `buildRewriteSystemPrompt` instead. */
+export const buildV0RewriteSystemPrompt = buildRewriteSystemPrompt;
+
+export function buildPolishSystemPrompt(params: {
   buildIntent?: BuildIntent;
   forceEnglish?: boolean;
 } = {}): string {
@@ -656,7 +662,7 @@ export function buildV0PolishSystemPrompt(params: {
     ? "Rewrite in English."
     : "Keep the original language. Only translate to English if the user explicitly asks for it.";
   return (
-    "You are a meticulous copy editor for v0 prompts. " +
+    "You are a meticulous copy editor for code generation prompts. " +
     "Polish the user's request with minimal changes: fix spelling, grammar, punctuation, and clarity. " +
     "Do NOT add new requirements, sections, or features. " +
     "Preserve meaning and keep length roughly the same. " +
@@ -666,9 +672,12 @@ export function buildV0PolishSystemPrompt(params: {
   );
 }
 
+/** @deprecated Use `buildPolishSystemPrompt` instead. */
+export const buildV0PolishSystemPrompt = buildPolishSystemPrompt;
+
 type Brief = any;
 
-export function buildV0PromptFromBrief(params: {
+export function buildPromptFromBrief(params: {
   brief: Brief;
   originalPrompt: string;
   imageGenerations: boolean;
@@ -785,8 +794,8 @@ export function buildV0PromptFromBrief(params: {
     ...qualityGuidance.map((line) => `- ${line}`),
     "",
     imageGenerations
-      ? "Imagery: v0 image generation is enabled — use AI-generated images wherever they add value. Do NOT use placeholder services (unsplash, picsum, placehold.co) when image generation is available. Use next/image for sizing, always include descriptive alt text, and never use blob: or data: URIs."
-      : "Imagery: image generation is disabled — use high-quality stock images from Unsplash or Picsum as placeholders. Prioritize layout, typography, and iconography. Always include descriptive alt text.",
+      ? "Imagery: image generation is enabled — use AI-generated images wherever they add value. Do NOT use placeholder services (unsplash, picsum, placehold.co). Use next/image for sizing, always include descriptive alt text, and never use blob: or data: URIs."
+      : "Imagery: image generation is disabled — use /placeholder.svg?height=H&width=W for all images. Prioritize layout, typography, and iconography. Always include descriptive alt text.",
     imageryStyle.length ? `- Image style keywords: ${imageryStyle.join(", ")}` : null,
     imagerySubjects.length ? `- Suggested image subjects: ${imagerySubjects.join(", ")}` : null,
     altRules.length ? `- Alt text rules: ${altRules.join(" | ")}` : null,
@@ -802,16 +811,20 @@ export function buildV0PromptFromBrief(params: {
     seoKeywords.length ? `- Keywords: ${seoKeywords.join(", ")}` : null,
     "",
     "Requirements:",
-    "- Mobile-first and fully responsive",
-    "- Accessible (semantic HTML, keyboard navigation, proper labels/alt text)",
-    "- Fast and clean UI with motion that matches the requested tone; avoid distracting gimmicks",
-    "- Use consistent spacing, typography scale, and component styling",
+    "- Mobile-first, fully responsive (sm/md/lg/xl breakpoints)",
+    "- Accessible: semantic HTML, keyboard nav, proper labels/alt text, WCAG AA contrast",
+    "- Clean UI with motion matching the requested tone — no distracting gimmicks",
+    "- Consistent spacing, typography scale, and component styling across all pages",
+    "- Complete, deployable code — no placeholders, TODOs, or broken references",
     "",
     `Original request (for reference): ${originalPrompt}`,
   ]
     .filter(Boolean)
     .join("\n");
 }
+
+/** @deprecated Use `buildPromptFromBrief` instead. */
+export const buildV0PromptFromBrief = buildPromptFromBrief;
 
 export function buildDynamicInstructionAddendumFromBrief(params: {
   brief: Brief;
@@ -896,6 +909,15 @@ export function buildDynamicInstructionAddendumFromBrief(params: {
     "## Build Intent",
     ...intentLines.map((line) => `- ${line}`),
     "",
+    "## Coding Direction",
+    "- Output complete files in CodeProject format: ```tsx file=\"path/file.tsx\"",
+    "- Every React component file uses a default export. Use kebab-case for all filenames.",
+    "- Import shadcn/ui from @/components/ui/* — never regenerate these components.",
+    "- Import all icons from lucide-react — never use inline SVG or other icon libraries.",
+    "- Use Tailwind semantic tokens (bg-primary, text-muted-foreground, etc.) — avoid hardcoded colors.",
+    "- Use cn() from @/lib/utils for conditional class merging.",
+    "- Use real, representative content — no lorem ipsum.",
+    "",
     "## Project Context",
     `- Title: ${projectTitle}`,
     ...(brandName ? [`- Brand: ${brandName}`] : []),
@@ -923,9 +945,9 @@ export function buildDynamicInstructionAddendumFromBrief(params: {
   parts.push(
     "## Imagery",
     imageGenerations
-      ? "v0 image generation is enabled — rely on AI-generated images as the primary source. Do NOT use placeholder services (unsplash, picsum, placehold.co) when image generation is available. Never use blob: or data: URIs."
-      : "Image generation is disabled — use high-quality stock images from Unsplash or Picsum as placeholders.",
-    "Always add descriptive alt text and optimize aspect ratios.",
+      ? "Image generation is enabled — use AI-generated images as the primary source. Do NOT use placeholder services (unsplash, picsum, placehold.co). Never use blob: or data: URIs."
+      : "Image generation is disabled — use /placeholder.svg?height=H&width=W for all images.",
+    "Alt text required on all images. Use next/image with explicit dimensions.",
     ...imageDensityGuidance.map((line) => `- ${line}`),
     ...(imageryNotes.length ? imageryNotes.map((note) => `- ${note}`) : []),
     "",
@@ -950,10 +972,10 @@ export function buildDynamicInstructionAddendumFromPrompt(params: {
   themeOverride?: ThemeColors | null;
 }): string {
   const { originalPrompt, imageGenerations, buildIntent, themeOverride } = params;
-  const formatted = formatPromptForV0(originalPrompt);
+  const formatted = formatPrompt(originalPrompt);
   const imageryLine = imageGenerations
-    ? "v0 image generation is enabled — use AI-generated images as the primary source. Do NOT use placeholder services (unsplash, picsum). Never use blob: or data: URIs. Always include alt text."
-    : "Image generation is disabled — use high-quality stock images (Unsplash/Picsum) with descriptive alt text.";
+    ? "Image generation is enabled — use AI-generated images as the primary source. Do NOT use placeholder services. Never use blob: or data: URIs. Always include alt text."
+    : "Image generation is disabled — use /placeholder.svg?height=H&width=W for all images. Always include alt text.";
   const intentLines = getBuildIntentInstructionLines(buildIntent);
   const themeLocked = hasThemeOverride(themeOverride);
   const colorPalette = themeLocked ? toColorPalette(themeOverride) : {};
@@ -977,6 +999,11 @@ export function buildDynamicInstructionAddendumFromPrompt(params: {
   return [
     "## Build Intent",
     ...intentLines.map((line) => `- ${line}`),
+    "",
+    "## Coding Direction",
+    "- Output CodeProject format. Default exports, kebab-case filenames.",
+    "- Import shadcn/ui from @/components/ui/*, icons from lucide-react.",
+    "- Tailwind semantic tokens only — no hardcoded colors. Use cn() for class merging.",
     "",
     "## Project Context",
     formatted || originalPrompt.trim(),

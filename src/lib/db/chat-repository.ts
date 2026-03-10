@@ -1,0 +1,210 @@
+import { getDb } from "./sqlite";
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
+
+export interface Chat {
+  id: string;
+  project_id: string;
+  title: string | null;
+  model: string;
+  system_prompt: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Message {
+  id: string;
+  chat_id: string;
+  role: "system" | "user" | "assistant" | "thinking";
+  content: string;
+  token_count: number | null;
+  created_at: string;
+}
+
+export interface Version {
+  id: string;
+  chat_id: string;
+  message_id: string | null;
+  version_number: number;
+  files_json: string;
+  sandbox_url: string | null;
+  created_at: string;
+}
+
+export interface GenerationLog {
+  id: string;
+  chat_id: string;
+  model: string;
+  prompt_tokens: number | null;
+  completion_tokens: number | null;
+  duration_ms: number | null;
+  success: number;
+  error_message: string | null;
+  created_at: string;
+}
+
+export interface ChatWithMessages extends Chat {
+  messages: Message[];
+}
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
+
+function uuid(): string {
+  return crypto.randomUUID();
+}
+
+// ---------------------------------------------------------------------------
+// CRUD
+// ---------------------------------------------------------------------------
+
+export function createChat(
+  projectId: string,
+  model: string = "gpt-5.2",
+  systemPrompt?: string,
+): Chat {
+  const db = getDb();
+  const id = uuid();
+
+  db.prepare(
+    `INSERT INTO chats (id, project_id, model, system_prompt) VALUES (?, ?, ?, ?)`,
+  ).run(id, projectId, model, systemPrompt ?? null);
+
+  return db.prepare(`SELECT * FROM chats WHERE id = ?`).get(id) as Chat;
+}
+
+export function getChat(id: string): ChatWithMessages | null {
+  const db = getDb();
+  const chat = db.prepare(`SELECT * FROM chats WHERE id = ?`).get(id) as Chat | undefined;
+  if (!chat) return null;
+
+  const messages = db
+    .prepare(`SELECT * FROM messages WHERE chat_id = ? ORDER BY created_at ASC`)
+    .all(chat.id) as Message[];
+
+  return { ...chat, messages };
+}
+
+export function addMessage(
+  chatId: string,
+  role: Message["role"],
+  content: string,
+  tokenCount?: number,
+): Message {
+  const db = getDb();
+  const id = uuid();
+
+  db.prepare(
+    `INSERT INTO messages (id, chat_id, role, content, token_count) VALUES (?, ?, ?, ?, ?)`,
+  ).run(id, chatId, role, content, tokenCount ?? null);
+
+  db.prepare(`UPDATE chats SET updated_at = datetime('now') WHERE id = ?`).run(chatId);
+
+  return db.prepare(`SELECT * FROM messages WHERE id = ?`).get(id) as Message;
+}
+
+export function createVersion(
+  chatId: string,
+  messageId: string | null,
+  filesJson: string,
+  sandboxUrl?: string,
+): Version {
+  const db = getDb();
+  const id = uuid();
+
+  const latest = db
+    .prepare(
+      `SELECT COALESCE(MAX(version_number), 0) AS max_ver FROM versions WHERE chat_id = ?`,
+    )
+    .get(chatId) as { max_ver: number };
+
+  const versionNumber = latest.max_ver + 1;
+
+  db.prepare(
+    `INSERT INTO versions (id, chat_id, message_id, version_number, files_json, sandbox_url)
+     VALUES (?, ?, ?, ?, ?, ?)`,
+  ).run(id, chatId, messageId, versionNumber, filesJson, sandboxUrl ?? null);
+
+  return db.prepare(`SELECT * FROM versions WHERE id = ?`).get(id) as Version;
+}
+
+export function getLatestVersion(chatId: string): Version | null {
+  const db = getDb();
+  return (
+    (db
+      .prepare(
+        `SELECT * FROM versions WHERE chat_id = ? ORDER BY version_number DESC LIMIT 1`,
+      )
+      .get(chatId) as Version | undefined) ?? null
+  );
+}
+
+export function listChatsByProject(projectId: string): Chat[] {
+  const db = getDb();
+  return db
+    .prepare(`SELECT * FROM chats WHERE project_id = ? ORDER BY updated_at DESC`)
+    .all(projectId) as Chat[];
+}
+
+export function updateChatProjectId(chatId: string, projectId: string): boolean {
+  const db = getDb();
+  const result = db
+    .prepare(`UPDATE chats SET project_id = ?, updated_at = datetime('now') WHERE id = ?`)
+    .run(projectId, chatId);
+  return result.changes > 0;
+}
+
+export function getVersionsByChat(chatId: string): Version[] {
+  const db = getDb();
+  return db
+    .prepare(`SELECT * FROM versions WHERE chat_id = ? ORDER BY version_number DESC`)
+    .all(chatId) as Version[];
+}
+
+export function getVersionById(versionId: string): Version | null {
+  const db = getDb();
+  return (
+    (db.prepare(`SELECT * FROM versions WHERE id = ?`).get(versionId) as Version | undefined) ??
+    null
+  );
+}
+
+export function updateVersionFiles(versionId: string, filesJson: string): boolean {
+  const db = getDb();
+  const result = db
+    .prepare(`UPDATE versions SET files_json = ? WHERE id = ?`)
+    .run(filesJson, versionId);
+  return result.changes > 0;
+}
+
+export function logGeneration(
+  chatId: string,
+  model: string,
+  tokens: { prompt?: number; completion?: number },
+  durationMs: number,
+  success: boolean,
+  error?: string,
+): GenerationLog {
+  const db = getDb();
+  const id = uuid();
+
+  db.prepare(
+    `INSERT INTO generation_logs
+       (id, chat_id, model, prompt_tokens, completion_tokens, duration_ms, success, error_message)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+  ).run(
+    id,
+    chatId,
+    model,
+    tokens.prompt ?? null,
+    tokens.completion ?? null,
+    durationMs,
+    success ? 1 : 0,
+    error ?? null,
+  );
+
+  return db.prepare(`SELECT * FROM generation_logs WHERE id = ?`).get(id) as GenerationLog;
+}

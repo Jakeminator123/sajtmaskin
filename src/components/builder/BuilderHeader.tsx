@@ -262,9 +262,9 @@ export function BuilderHeader(props: {
                   </TooltipTrigger>
                   <TooltipContent side="left" className="max-w-xs">
                     <p className="text-xs">
-                      Välj vilken v0-modell som bygger sajten. Max Fast rekommenderas för bäst
-                      kvalitet. Prompt Assist är en separat AI som förbättrar prompten före
-                      generering.
+                      Välj modellnivå för bygg. Standardmotorn använder GPT 5.2; Max-nivå
+                      använder också GPT 5.2. Vid v0-fallback används v0-modeller. Prompt Assist är en
+                      separat AI som förbättrar prompten före generering.
                     </p>
                   </TooltipContent>
                 </Tooltip>

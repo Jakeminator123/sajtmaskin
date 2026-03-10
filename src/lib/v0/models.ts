@@ -4,18 +4,33 @@
  * All model IDs, labels, legacy aliases, and the default tier are defined
  * here. Every other module (validation, pricing, UI, selection) imports
  * from this file instead of maintaining its own copy.
+ *
+ * V0_MODELS: v0 Platform API models (used when V0_FALLBACK_BUILDER=y).
+ * OWN_MODELS: OpenAI models for the default engine (GPT 5.2).
  */
 
-export const CANONICAL_MODEL_IDS = [
+/** v0 Platform API model IDs — used for fallback when V0_FALLBACK_BUILDER=y */
+export const V0_MODEL_IDS = [
   "v0-max-fast",
   "v0-1.5-md",
   "v0-1.5-lg",
   "v0-gpt-5",
 ] as const;
 
-export type CanonicalModelId = (typeof CANONICAL_MODEL_IDS)[number];
+/** @deprecated Use V0_MODEL_IDS for clarity. Kept for backward compatibility. */
+export const CANONICAL_MODEL_IDS = V0_MODEL_IDS;
+
+export type CanonicalModelId = (typeof V0_MODEL_IDS)[number];
 
 export const DEFAULT_MODEL_ID: CanonicalModelId = "v0-max-fast";
+
+/** OpenAI model IDs for the default engine (when not using v0 fallback) */
+export const OWN_MODEL_IDS = ["gpt-5.2", "gpt-4.1", "gpt-4.1-mini"] as const;
+
+export type OwnModelId = (typeof OWN_MODEL_IDS)[number];
+
+/** Default OpenAI model for code generation */
+export const DEFAULT_OWN_MODEL_ID: OwnModelId = "gpt-5.2";
 
 /**
  * Old model IDs that may exist in persisted data (localStorage, DB rows,
@@ -83,3 +98,30 @@ export const QUALITY_TO_MODEL: Record<QualityLevel, CanonicalModelId> = {
   premium: "v0-max-fast",
   max: "v0-max-fast",
 };
+
+/**
+ * Maps quality level to OpenAI model ID for the default engine.
+ * Used when V0_FALLBACK_BUILDER is not set (own GPT 5.2 engine).
+ */
+export const QUALITY_TO_OPENAI_MODEL: Record<QualityLevel, OwnModelId> = {
+  light: "gpt-5.2",
+  standard: "gpt-5.2",
+  pro: "gpt-5.2",
+  premium: "gpt-5.2",
+  max: "gpt-5.2",
+};
+
+/**
+ * Maps v0 model tier to OpenAI model ID for non-fallback generation.
+ * Used when user selects a tier and we use the own engine.
+ */
+export function v0TierToOpenAIModel(v0Tier: CanonicalModelId): OwnModelId {
+  const qualityMap: Partial<Record<CanonicalModelId, QualityLevel>> = {
+    "v0-1.5-md": "standard",
+    "v0-max-fast": "max",
+    "v0-1.5-lg": "max",
+    "v0-gpt-5": "max",
+  };
+  const quality = qualityMap[v0Tier] ?? "standard";
+  return QUALITY_TO_OPENAI_MODEL[quality];
+}

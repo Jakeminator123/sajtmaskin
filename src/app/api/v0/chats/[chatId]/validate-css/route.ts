@@ -4,6 +4,9 @@ import { getChatByV0ChatIdForRequest } from "@/lib/tenant";
 import { validateFiles, formatIssuesForDisplay, fixCssIssues } from "@/lib/utils/css-validator";
 import { z } from "zod";
 import { resolveVersionFiles } from "@/lib/v0/resolve-version-files";
+import { shouldUseV0Fallback } from "@/lib/gen/fallback";
+import { getVersionFiles } from "@/lib/gen/version-manager";
+import { updateVersionFiles } from "@/lib/db/chat-repository";
 
 export const runtime = "nodejs";
 
@@ -12,41 +15,9 @@ const validateRequestSchema = z.object({
   autoFix: z.boolean().optional().default(false),
 });
 
-/**
- * POST /api/v0/chats/[chatId]/validate-css
- *
- * Validates CSS files in a chat version for Tailwind v4 compatibility issues.
- * Optionally auto-fixes issues if autoFix is true.
- *
- * Common issues detected:
- * - Empty custom property values: `--color: ;`
- * - Unclosed var() references: `var(--foo`
- * - Invalid var() syntax: `var(--foo: value)`
- * - Missing semicolons
- *
- * Request body:
- * {
- *   versionId: string,
- *   autoFix?: boolean
- * }
- *
- * Response:
- * {
- *   valid: boolean,
- *   issues: FileValidationResult[],
- *   fixed?: boolean,
- *   message?: string
- * }
- */
 export async function POST(req: Request, { params }: { params: Promise<{ chatId: string }> }) {
   try {
-    assertV0Key();
     const { chatId } = await params;
-
-    const dbChat = await getChatByV0ChatIdForRequest(req, chatId);
-    if (!dbChat) {
-      return NextResponse.json({ error: "Chat not found" }, { status: 404 });
-    }
 
     const body = await req.json().catch(() => ({}));
     const validation = validateRequestSchema.safeParse(body);
@@ -59,7 +30,87 @@ export async function POST(req: Request, { params }: { params: Promise<{ chatId:
 
     const { versionId, autoFix } = validation.data;
 
-    // Get current version files
+    // ---------------------------------------------------------------
+    // Non-fallback: fetch & update via SQLite
+    // ---------------------------------------------------------------
+    if (!shouldUseV0Fallback()) {
+      const codeFiles = getVersionFiles(versionId);
+      if (!codeFiles || codeFiles.length === 0) {
+        return NextResponse.json({
+          valid: true,
+          issues: [],
+          message: "No files to validate",
+        });
+      }
+
+      const filePairs = codeFiles.map((f) => ({ name: f.path, content: f.content }));
+      const results = validateFiles(filePairs);
+      const hasErrors = results.some((r) => r.issues.some((i) => i.severity === "error"));
+
+      if (results.length === 0) {
+        return NextResponse.json({
+          valid: true,
+          issues: [],
+          message: "All CSS files are valid",
+        });
+      }
+
+      if (autoFix && hasErrors) {
+        const fixedIssueCount = results.reduce(
+          (sum, result) =>
+            sum +
+            result.issues.filter(
+              (issue) => issue.severity === "error" && Boolean(issue.suggestion),
+            ).length,
+          0,
+        );
+
+        const updatedFiles = codeFiles.map((file) => {
+          const result = results.find((r) => r.fileName === file.path);
+          const errorIssues = result
+            ? result.issues.filter(
+                (issue) => issue.severity === "error" && Boolean(issue.suggestion),
+              )
+            : [];
+          if (errorIssues.length > 0) {
+            return { ...file, content: fixCssIssues(file.content, errorIssues) };
+          }
+          return file;
+        });
+
+        updateVersionFiles(versionId, JSON.stringify(updatedFiles));
+
+        return NextResponse.json({
+          valid: false,
+          issues: results,
+          fixed: true,
+          message: `Fixed ${fixedIssueCount} CSS issues`,
+          demoUrl: null,
+          formattedIssues: formatIssuesForDisplay(results),
+        });
+      }
+
+      return NextResponse.json({
+        valid: !hasErrors,
+        issues: results,
+        fixed: false,
+        message: hasErrors
+          ? `Found ${results.reduce((sum, r) => sum + r.issues.filter((i) => i.severity === "error").length, 0)} CSS errors that may cause Tailwind v4 runtime issues`
+          : "Found warnings but no critical errors",
+        formattedIssues: formatIssuesForDisplay(results),
+      });
+    }
+
+    // ---------------------------------------------------------------
+    // V0 fallback: existing flow
+    // ---------------------------------------------------------------
+    assertV0Key();
+
+    const dbChat = await getChatByV0ChatIdForRequest(req, chatId);
+    if (!dbChat) {
+      return NextResponse.json({ error: "Chat not found" }, { status: 404 });
+    }
+
     const resolved = await resolveVersionFiles({
       chatId,
       versionId,
@@ -75,9 +126,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ chatId:
       });
     }
 
-    // Validate CSS in files
     const results = validateFiles(files.map((f: any) => ({ name: f.name, content: f.content })));
-
     const hasErrors = results.some((r) => r.issues.some((i) => i.severity === "error"));
 
     if (results.length === 0) {
@@ -88,7 +137,6 @@ export async function POST(req: Request, { params }: { params: Promise<{ chatId:
       });
     }
 
-    // Auto-fix if requested
     if (autoFix && hasErrors) {
       const fixedIssueCount = results.reduce(
         (sum, result) =>
@@ -112,11 +160,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ chatId:
             locked: file.locked,
           };
         }
-        return {
-          name: file.name,
-          content: file.content,
-          locked: file.locked,
-        };
+        return { name: file.name, content: file.content, locked: file.locked };
       });
 
       try {

@@ -1,5 +1,6 @@
 export interface StreamEvent {
   type:
+    | "meta"
     | "thinking"
     | "content"
     | "parts"

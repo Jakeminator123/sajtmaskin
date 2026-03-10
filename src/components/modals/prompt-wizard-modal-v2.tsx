@@ -61,7 +61,7 @@ import { useAuth } from "@/lib/auth/auth-store";
 import { StepVisual } from "@/components/modals/step-visual";
 import { CompetitorMap } from "@/components/modals/competitor-map";
 import { LocationPicker } from "@/components/modals/location-picker";
-import { formatPromptForV0 } from "@/lib/builder/promptAssist";
+import { formatPrompt } from "@/lib/builder/promptAssist";
 import { MAX_PROMPT_HANDOFF_CHARS } from "@/lib/builder/promptLimits";
 import type { CompanyLookupResult } from "@/app/api/wizard/company-lookup/route";
 import type { Competitor } from "@/app/api/wizard/competitors/route";
@@ -1260,7 +1260,7 @@ export function PromptWizardModalV2({
       sections.push(`\nScope: ${intentHint}`);
 
       const expandedPrompt = sections.join("\n");
-      const preflightPrompt = formatPromptForV0(expandedPrompt).trim();
+      const preflightPrompt = formatPrompt(expandedPrompt).trim();
       if (!preflightPrompt) {
         throw new Error("Prompten blev tom efter preflight. Lägg till mer information och försök igen.");
       }
@@ -1315,7 +1315,7 @@ export function PromptWizardModalV2({
 
   // Final completion
   const handleComplete = useCallback(() => {
-    const finalPrompt = formatPromptForV0((editedPrompt || generatedPrompt || "").trim()).trim();
+    const finalPrompt = formatPrompt((editedPrompt || generatedPrompt || "").trim()).trim();
     if (!finalPrompt) {
       setError("Briefen är tom. Generera eller skriv in en giltig prompt innan du fortsätter.");
       return;

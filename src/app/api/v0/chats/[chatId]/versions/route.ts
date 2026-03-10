@@ -4,16 +4,36 @@ import { db, dbConfigured } from "@/lib/db/client";
 import { versions } from "@/lib/db/schema";
 import { eq, desc, and, or } from "drizzle-orm";
 import { getChatByV0ChatIdForRequest } from "@/lib/tenant";
+import { shouldUseV0Fallback } from "@/lib/gen/fallback";
+import { getVersionsByChat } from "@/lib/db/chat-repository";
 
 export async function GET(req: Request, ctx: { params: Promise<{ chatId: string }> }) {
   try {
+    const { chatId } = await ctx.params;
+
+    // ---------------------------------------------------------------
+    // Non-fallback: fetch versions from SQLite
+    // ---------------------------------------------------------------
+    if (!shouldUseV0Fallback()) {
+      const sqliteVersions = getVersionsByChat(chatId);
+      const versionsList = sqliteVersions.map((v) => ({
+        id: v.id,
+        versionNumber: v.version_number,
+        messageId: v.message_id,
+        sandboxUrl: v.sandbox_url,
+        createdAt: v.created_at,
+      }));
+      return NextResponse.json({ versions: versionsList });
+    }
+
+    // ---------------------------------------------------------------
+    // V0 fallback: existing Drizzle/Postgres flow
+    // ---------------------------------------------------------------
     assertV0Key();
 
     if (!dbConfigured) {
       return NextResponse.json({ versions: [], warning: "Database not configured." });
     }
-
-    const { chatId } = await ctx.params;
 
     const dbChat = await getChatByV0ChatIdForRequest(req, chatId);
     if (!dbChat) {

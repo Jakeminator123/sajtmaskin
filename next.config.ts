@@ -2,7 +2,7 @@ import type { NextConfig } from "next";
 import path from "path";
 
 const nextConfig: NextConfig = {
-  // Fix workspace root detection (prevents lockfile warning)
+  serverExternalPackages: ["better-sqlite3", "esbuild"],
   outputFileTracingRoot: path.join(__dirname, "./"),
   images: {
     remotePatterns: [
@@ -82,6 +82,14 @@ const nextConfig: NextConfig = {
         pathname: "/**",
       },
     ],
+  },
+  async rewrites() {
+    return [
+      {
+        source: "/placeholder.svg",
+        destination: "/api/placeholder",
+      },
+    ];
   },
   // Cross-Origin Isolation headers required for WebContainer (SharedArrayBuffer)
   // ONLY applied to /project/* routes where WebContainer is used (after takeover)

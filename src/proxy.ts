@@ -33,14 +33,31 @@ function needsUserAuth(pathname: string): boolean {
   return AUTH_REQUIRED_PATHS.has(pathname);
 }
 
-function buildCspPolicy(nonce: string): string {
+function buildCspPolicy(pathname: string, nonce: string): string {
+  if (pathname.startsWith("/api/preview-render")) {
+    return [
+      "default-src 'self' https: data: blob:",
+      "script-src 'self' 'unsafe-inline' https://cdn.tailwindcss.com https://unpkg.com",
+      "style-src 'self' 'unsafe-inline'",
+      "img-src 'self' data: blob: https:",
+      "font-src 'self' data: https:",
+      "frame-src 'self' *.vusercontent.net",
+      "connect-src 'self' https: *.vusercontent.net wss:",
+      "media-src 'self' blob: data:",
+      "object-src 'none'",
+      "base-uri 'self'",
+      "frame-ancestors 'self'",
+      "report-uri /api/csp-report",
+    ].join("; ");
+  }
+
   return [
     "default-src 'self'",
     `script-src 'self' 'nonce-${nonce}'`,
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob: *.vusercontent.net *.blob.vercel-storage.com api.dicebear.com quickchart.io images.unsplash.com images.pexels.com ui.shadcn.com https://ui.shadcn.com",
     "font-src 'self' data:",
-    "frame-src *.vusercontent.net",
+    "frame-src 'self' *.vusercontent.net",
     "connect-src 'self' *.vusercontent.net wss:",
     "media-src 'self' blob:",
     "object-src 'none'",
@@ -50,7 +67,12 @@ function buildCspPolicy(nonce: string): string {
   ].join("; ");
 }
 
-function addSecurityHeaders(response: NextResponse, nonce: string, enforceCsp: boolean): void {
+function addSecurityHeaders(
+  response: NextResponse,
+  pathname: string,
+  nonce: string,
+  enforceCsp: boolean,
+): void {
   response.headers.set("X-Frame-Options", "SAMEORIGIN");
   response.headers.set("X-Content-Type-Options", "nosniff");
   response.headers.set("Referrer-Policy", "strict-origin-when-cross-origin");
@@ -59,7 +81,7 @@ function addSecurityHeaders(response: NextResponse, nonce: string, enforceCsp: b
     "max-age=63072000; includeSubDomains",
   );
 
-  const policy = buildCspPolicy(nonce);
+  const policy = buildCspPolicy(pathname, nonce);
   if (enforceCsp) {
     response.headers.set("Content-Security-Policy", policy);
     response.headers.delete("Content-Security-Policy-Report-Only");
@@ -108,7 +130,7 @@ export async function proxy(request: NextRequest) {
   if (isApiRoute(pathname) && request.method === "OPTIONS") {
     const preflight = new NextResponse(null, { status: 204 });
     addCorsHeaders(preflight, origin);
-    addSecurityHeaders(preflight, nonce, enforceCsp);
+    addSecurityHeaders(preflight, pathname, nonce, enforceCsp);
     return preflight;
   }
 
@@ -132,12 +154,12 @@ export async function proxy(request: NextRequest) {
     if (needsAdminAuth(pathname)) {
       if (!payload || !isAdminEmailEdge(payload.email)) {
         const redirect = NextResponse.redirect(new URL("/", request.url));
-        addSecurityHeaders(redirect, nonce, enforceCsp);
+        addSecurityHeaders(redirect, pathname, nonce, enforceCsp);
         return redirect;
       }
     } else if (!payload) {
       const redirect = NextResponse.redirect(new URL("/", request.url));
-      addSecurityHeaders(redirect, nonce, enforceCsp);
+      addSecurityHeaders(redirect, pathname, nonce, enforceCsp);
       return redirect;
     }
   }
@@ -155,7 +177,7 @@ export async function proxy(request: NextRequest) {
   }
 
   // ---- Security headers on all responses ----
-  addSecurityHeaders(response, nonce, enforceCsp);
+  addSecurityHeaders(response, pathname, nonce, enforceCsp);
 
   return response;
 }

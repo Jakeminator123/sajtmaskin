@@ -52,6 +52,7 @@ export async function handleSseStream(
   signal: AbortSignal,
 ): Promise<{ streamQuality: StreamQualitySignal; chatIdFromStream: string | null }> {
   let chatIdFromStream: string | null = null;
+  let versionIdFromStream: string | null = null;
   let v0ProjectIdFromStream: string | null = null;
   let accumulatedThinking = "";
   let accumulatedContent = "";
@@ -104,13 +105,33 @@ export async function handleSseStream(
               promptAssistModel: paModel,
               promptAssistDeep: ctx.promptAssistDeep ?? null,
             });
+
+            if (!chatIdFromStream && typeof meta.chatId === "string" && meta.chatId) {
+              const id = meta.chatId;
+              chatIdFromStream = id;
+              setChatId?.(id);
+              if (chatIdParam !== id && buildBuilderParams && router) {
+                const params = buildBuilderParams({
+                  chatId: id,
+                  project: appProjectId ?? undefined,
+                });
+                router.replace(`/builder?${params.toString()}`);
+              }
+              if (pendingCreateKeyRef?.current) {
+                updateCreateChatLockChatId(pendingCreateKeyRef.current, id);
+              }
+            }
+            if (!versionIdFromStream && typeof meta.versionId === "string" && meta.versionId) {
+              versionIdFromStream = meta.versionId;
+            }
             break;
           }
           case "thinking": {
             const thinkingText =
               typeof data === "string"
                 ? data
-                : (data as Record<string, unknown>)?.thinking ||
+                : (data as Record<string, unknown>)?.text ||
+                  (data as Record<string, unknown>)?.thinking ||
                   (data as Record<string, unknown>)?.reasoning ||
                   null;
             if (thinkingText) {
@@ -250,6 +271,7 @@ export async function handleSseStream(
               doneData.version_id ||
               (doneData.latestVersion as Record<string, unknown> | undefined)?.id ||
               (doneData.latestVersion as Record<string, unknown> | undefined)?.versionId ||
+              versionIdFromStream ||
               null;
             const awaitingInput = Boolean(doneData.awaitingInput);
 

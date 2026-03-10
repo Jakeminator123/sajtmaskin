@@ -37,7 +37,8 @@ AC - UX/Debug
 - [x] Tool debug forklarar hasInput/hasOutput/state/toolCallId och visar post-check-sammanfattning.
 
 Noter:
-- Platform API (v0-sdk) bygger sajten (v0-max-fast/v0-1.5-lg/v0-1.5-md/v0-gpt-5).
+- gen/ pipeline (default): Egen motor via OpenAI GPT 5.2 + AI SDK. Entry: src/lib/gen/fallback.ts.
+- Platform API (v0-sdk) = fallback nar V0_FALLBACK_BUILDER=y (v0-max-fast/v0-1.5-lg/v0-1.5-md/v0-gpt-5).
   Source of truth: src/lib/v0/models.ts
 - Model API (AI SDK / @ai-sdk/openai) anvander v0-1.5-md/lg for text, ej for build.
 - CSS-validering auto-fixar Tailwind v4 fel efter generation; post-check ar read-only.

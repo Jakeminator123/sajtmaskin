@@ -4,6 +4,9 @@ import { assertV0Key, v0 } from "@/lib/v0";
 import { getChatByV0ChatIdForRequest } from "@/lib/tenant";
 import { normalizeUnicodeEscapes } from "@/lib/utils/unicode-normalizer";
 import { resolveVersionFiles } from "@/lib/v0/resolve-version-files";
+import { shouldUseV0Fallback } from "@/lib/gen/fallback";
+import { getVersionFiles } from "@/lib/gen/version-manager";
+import { updateVersionFiles } from "@/lib/db/chat-repository";
 
 export const runtime = "nodejs";
 
@@ -14,13 +17,7 @@ const normalizeRequestSchema = z.object({
 
 export async function POST(req: Request, { params }: { params: Promise<{ chatId: string }> }) {
   try {
-    assertV0Key();
     const { chatId } = await params;
-
-    const dbChat = await getChatByV0ChatIdForRequest(req, chatId);
-    if (!dbChat) {
-      return NextResponse.json({ error: "Chat not found" }, { status: 404 });
-    }
 
     const body = await req.json().catch(() => ({}));
     const parsed = normalizeRequestSchema.safeParse(body);
@@ -32,6 +29,66 @@ export async function POST(req: Request, { params }: { params: Promise<{ chatId:
     }
 
     const { versionId, autoFix } = parsed.data;
+
+    // ---------------------------------------------------------------
+    // Non-fallback: fetch & update via SQLite
+    // ---------------------------------------------------------------
+    if (!shouldUseV0Fallback()) {
+      const files = getVersionFiles(versionId);
+      if (!files || files.length === 0) {
+        return NextResponse.json({
+          normalized: true,
+          changed: false,
+          changedFiles: 0,
+          replacements: 0,
+          message: "No files to normalize",
+        });
+      }
+
+      let changedFiles = 0;
+      let replacements = 0;
+      const updatedFiles = files.map((file) => {
+        if (typeof file?.content !== "string") return file;
+        const { output, summary } = normalizeUnicodeEscapes(file.content);
+        if (summary.changed) {
+          changedFiles += 1;
+          replacements += summary.replacements;
+        }
+        return { ...file, content: output };
+      });
+
+      if (!autoFix || changedFiles === 0) {
+        return NextResponse.json({
+          normalized: true,
+          changed: changedFiles > 0,
+          changedFiles,
+          replacements,
+          message: changedFiles > 0 ? "Unicode escapes detected" : "No unicode escapes found",
+        });
+      }
+
+      updateVersionFiles(versionId, JSON.stringify(updatedFiles));
+
+      return NextResponse.json({
+        normalized: true,
+        changed: true,
+        changedFiles,
+        replacements,
+        fixed: true,
+        demoUrl: null,
+      });
+    }
+
+    // ---------------------------------------------------------------
+    // V0 fallback: existing flow
+    // ---------------------------------------------------------------
+    assertV0Key();
+
+    const dbChat = await getChatByV0ChatIdForRequest(req, chatId);
+    if (!dbChat) {
+      return NextResponse.json({ error: "Chat not found" }, { status: 404 });
+    }
+
     const resolved = await resolveVersionFiles({
       chatId,
       versionId,
@@ -53,22 +110,14 @@ export async function POST(req: Request, { params }: { params: Promise<{ chatId:
     let replacements = 0;
     const updatedFiles = files.map((file: any) => {
       if (typeof file?.content !== "string") {
-        return {
-          name: file.name,
-          content: file.content,
-          locked: file.locked,
-        };
+        return { name: file.name, content: file.content, locked: file.locked };
       }
       const { output, summary } = normalizeUnicodeEscapes(file.content);
       if (summary.changed) {
         changedFiles += 1;
         replacements += summary.replacements;
       }
-      return {
-        name: file.name,
-        content: output,
-        locked: file.locked,
-      };
+      return { name: file.name, content: output, locked: file.locked };
     });
 
     if (!autoFix || changedFiles === 0) {

@@ -5,12 +5,59 @@ import { versions } from "@/lib/db/schema";
 import { and, eq, desc } from "drizzle-orm";
 import { getChatByV0ChatIdForRequest } from "@/lib/tenant";
 import { nanoid } from "nanoid";
+import { shouldUseV0Fallback } from "@/lib/gen/fallback";
+import { getChat } from "@/lib/db/chat-repository";
+import { getLatestVersion } from "@/lib/db/chat-repository";
 
 export async function GET(req: Request, ctx: { params: Promise<{ chatId: string }> }) {
   try {
-    assertV0Key();
-
     const { chatId } = await ctx.params;
+
+    // ---------------------------------------------------------------
+    // Non-fallback: fetch from SQLite (own engine data)
+    // ---------------------------------------------------------------
+    if (!shouldUseV0Fallback()) {
+      const chat = getChat(chatId);
+      if (!chat) {
+        return NextResponse.json(
+          { error: "Chat not found" },
+          { status: 404 },
+        );
+      }
+
+      const latest = getLatestVersion(chatId);
+
+      return NextResponse.json({
+        id: chat.id,
+        chatId: chat.id,
+        projectId: chat.project_id,
+        title: chat.title,
+        model: chat.model,
+        createdAt: chat.created_at,
+        updatedAt: chat.updated_at,
+        messages: chat.messages.map((m) => ({
+          id: m.id,
+          role: m.role,
+          content: m.content,
+          tokenCount: m.token_count,
+          createdAt: m.created_at,
+        })),
+        latestVersion: latest
+          ? {
+              id: latest.id,
+              versionNumber: latest.version_number,
+              messageId: latest.message_id,
+              sandboxUrl: latest.sandbox_url,
+              createdAt: latest.created_at,
+            }
+          : null,
+      });
+    }
+
+    // ---------------------------------------------------------------
+    // V0 fallback: existing flow
+    // ---------------------------------------------------------------
+    assertV0Key();
 
     const dbChat = await getChatByV0ChatIdForRequest(req, chatId);
 

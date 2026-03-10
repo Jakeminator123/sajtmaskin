@@ -120,6 +120,7 @@ export const serverSchema = z.object({
   USE_RESPONSES_API: z.string().optional(),
   AUDIT_WEB_SEARCH: z.string().optional(),
   V0_STREAMING_ENABLED: z.string().optional(),
+  V0_FALLBACK_BUILDER: z.string().optional(),
   LOG_PROMPTS: z.string().optional(),
   CSP_ENFORCE: z.string().optional(),
   DB_SSL_REJECT_UNAUTHORIZED: z.string().optional(),

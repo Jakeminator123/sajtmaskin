@@ -53,7 +53,6 @@ setInterval(cleanupStaleInFlightAudits, 60 * 1000);
 // Model configuration (fallback chain) via AI Gateway
 const AUDIT_MODEL_CANDIDATES = [
   "openai/gpt-5.2",
-  "openai/gpt-5.2-pro",
   "anthropic/claude-opus-4.5",
   "anthropic/claude-sonnet-4.5",
 ] as const;

@@ -5,6 +5,12 @@ import { chats } from "@/lib/db/schema";
 import { getCurrentUser } from "@/lib/auth/auth";
 import { getSessionIdFromRequest } from "@/lib/auth/session";
 import { getProjectByIdForOwner, getProjectData } from "@/lib/db/services";
+import { shouldUseV0Fallback } from "@/lib/gen/fallback";
+import {
+  getChat as getSqliteChat,
+  listChatsByProject as listSqliteChatsByProject,
+  updateChatProjectId as updateSqliteChatProjectId,
+} from "@/lib/db/chat-repository";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -21,6 +27,39 @@ async function findChatFromProjectData(projectId: string): Promise<ChatRow | nul
   const persistedChatId =
     typeof data?.chat_id === "string" ? data.chat_id.trim() : "";
   if (!persistedChatId) return null;
+
+  if (!shouldUseV0Fallback()) {
+    const sqliteChat = getSqliteChat(persistedChatId);
+    if (sqliteChat) {
+      if (sqliteChat.project_id !== projectId) {
+        console.warn("[API/projects/:id/chat] Restoring legacy chat mapping", {
+          projectId,
+          persistedChatId,
+          sqliteProjectId: sqliteChat.project_id,
+        });
+        try {
+          updateSqliteChatProjectId(sqliteChat.id, projectId);
+        } catch (error) {
+          console.warn("[API/projects/:id/chat] Failed to repair chat project mapping", {
+            projectId,
+            persistedChatId,
+            error: error instanceof Error ? error.message : String(error),
+          });
+        }
+      }
+      return {
+        id: sqliteChat.id,
+        v0ChatId: sqliteChat.id,
+        createdAt: new Date(sqliteChat.created_at),
+      };
+    }
+
+    console.warn("[API/projects/:id/chat] Saved chat reference not found", {
+      projectId,
+      persistedChatId,
+    });
+    return null;
+  }
 
   // Preferred path: project_data.chat_id stores the v0 chat ID.
   const byV0ChatId = await db
@@ -79,6 +118,26 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
         chatId: chatFromProjectData.v0ChatId,
         v0ChatId: chatFromProjectData.v0ChatId,
         internalChatId: chatFromProjectData.id,
+      });
+    }
+
+    if (!shouldUseV0Fallback()) {
+      const latestChat = listSqliteChatsByProject(projectId)[0];
+      if (!latestChat) {
+        return NextResponse.json({
+          success: true,
+          chatId: null,
+          v0ChatId: null,
+          internalChatId: null,
+          message: "No chat found for this project",
+        });
+      }
+
+      return NextResponse.json({
+        success: true,
+        chatId: latestChat.id,
+        v0ChatId: latestChat.id,
+        internalChatId: latestChat.id,
       });
     }
 

@@ -14,8 +14,54 @@ import { ensureSessionIdFromRequest } from "@/lib/auth/session";
 import { prepareCredits } from "@/lib/credits/server";
 import { WARN_CHAT_MESSAGE_CHARS, WARN_CHAT_SYSTEM_CHARS } from "@/lib/builder/promptLimits";
 import { orchestratePromptMessage } from "@/lib/builder/promptOrchestration";
-import { resolveModelSelection } from "@/lib/v0/modelSelection";
+import { resolveModelSelection, resolveEngineModelId } from "@/lib/v0/modelSelection";
 import { AI } from "@/lib/config";
+import { shouldUseV0Fallback } from "@/lib/gen/fallback";
+import {
+  createChat as createSqliteChat,
+  addMessage,
+  listChatsByProject,
+} from "@/lib/db/chat-repository";
+import { createVersionFromContent } from "@/lib/gen/version-manager";
+import { buildSystemPrompt } from "@/lib/gen/system-prompt";
+import { streamText } from "ai";
+import { getOpenAIModel } from "@/lib/gen/models";
+import { DEFAULT_BUILD_INTENT } from "@/lib/builder/build-intent";
+
+export async function GET(req: Request) {
+  if (shouldUseV0Fallback()) {
+    try {
+      assertV0Key();
+      const { searchParams } = new URL(req.url);
+      const projectId = searchParams.get("projectId");
+      if (!projectId) {
+        return NextResponse.json({ chats: [] });
+      }
+      const result = await v0.chats.find();
+      return NextResponse.json({ chats: result ?? [] });
+    } catch (err) {
+      return NextResponse.json(
+        { error: err instanceof Error ? err.message : "Unknown error" },
+        { status: 500 },
+      );
+    }
+  }
+
+  try {
+    const { searchParams } = new URL(req.url);
+    const projectId = searchParams.get("projectId");
+    if (!projectId) {
+      return NextResponse.json({ chats: [] });
+    }
+    const chatList = listChatsByProject(projectId);
+    return NextResponse.json({ chats: chatList });
+  } catch (err) {
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "Unknown error" },
+      { status: 500 },
+    );
+  }
+}
 
 export async function POST(req: Request) {
   const session = ensureSessionIdFromRequest(req);
@@ -31,7 +77,9 @@ export async function POST(req: Request) {
       const botError = requireNotBot(req);
       if (botError) return attachSessionCookie(botError);
 
-      assertV0Key();
+      if (shouldUseV0Fallback()) {
+        assertV0Key();
+      }
 
       const body = await req.json().catch(() => ({}));
       const validationResult = createChatSchema.safeParse(body);
@@ -77,6 +125,10 @@ export async function POST(req: Request) {
         typeof (meta as { buildIntent?: unknown })?.buildIntent === "string"
           ? (meta as { buildIntent?: string }).buildIntent
           : null;
+      const metaAppProjectId =
+        typeof (meta as { appProjectId?: unknown })?.appProjectId === "string"
+          ? String((meta as { appProjectId?: string }).appProjectId).trim()
+          : "";
       const promptOrchestration = orchestratePromptMessage({
         message,
         buildMethod: metaBuildMethod,
@@ -151,6 +203,97 @@ export async function POST(req: Request) {
         return attachSessionCookie(creditCheck.response);
       }
 
+      // ---------------------------------------------------------------
+      // Non-fallback: generate via own engine, persist in SQLite
+      // ---------------------------------------------------------------
+      if (!shouldUseV0Fallback()) {
+        const genStartedAt = Date.now();
+        try {
+          const intent =
+            (metaBuildIntent as "template" | "website" | "app") || DEFAULT_BUILD_INTENT;
+          const ownSystemPrompt = buildSystemPrompt({
+            intent,
+            originalPrompt: message,
+            imageGenerations: resolvedImageGenerations,
+          });
+
+          const engineModel = resolveEngineModelId(resolvedModelTier, false);
+          debugLog("engine", "Own engine model resolved", {
+            resolvedModelTier,
+            engineModel,
+            fallback: false,
+          });
+          const model = getOpenAIModel(engineModel);
+          const genResult = streamText({
+            model,
+            system: ownSystemPrompt,
+            messages: [{ role: "user", content: optimizedMessage }],
+            maxOutputTokens: 16_384,
+          });
+
+          const fullContent = await genResult.text;
+          const usage = await genResult.usage;
+
+          const resolvedProjectId = metaAppProjectId || projectId || "default";
+          const chat = createSqliteChat(resolvedProjectId, engineModel, ownSystemPrompt);
+          addMessage(chat.id, "user", optimizedMessage);
+          const assistantMsg = addMessage(
+            chat.id,
+            "assistant",
+            fullContent,
+            usage?.outputTokens,
+          );
+          const version = createVersionFromContent(chat.id, assistantMsg.id, fullContent);
+
+          try {
+            await creditCheck.commit();
+          } catch (error) {
+            console.error("[credits] Failed to charge prompt:", error);
+          }
+
+          devLogAppend("latest", {
+            type: "comm.response.create.sync",
+            chatId: chat.id,
+            versionId: version.id,
+            demoUrl: version.sandbox_url,
+            durationMs: Date.now() - genStartedAt,
+          });
+
+          return attachSessionCookie(
+            NextResponse.json({
+              id: chat.id,
+              internalChatId: chat.id,
+              model: engineModel,
+              latestVersion: {
+                id: version.id,
+                versionNumber: version.version_number,
+                sandboxUrl: version.sandbox_url,
+              },
+              usage: {
+                promptTokens: usage?.inputTokens ?? 0,
+                completionTokens: usage?.outputTokens ?? 0,
+              },
+            }),
+          );
+        } catch (genErr) {
+          devLogAppend("latest", {
+            type: "comm.error.create.sync",
+            message: genErr instanceof Error ? genErr.message : "Generation failed",
+            engine: "own",
+            durationMs: Date.now() - genStartedAt,
+          });
+          return attachSessionCookie(
+            NextResponse.json(
+              { error: genErr instanceof Error ? genErr.message : "Generation failed" },
+              { status: 500 },
+            ),
+          );
+        }
+      }
+
+      // ---------------------------------------------------------------
+      // V0 fallback: existing v0 Platform API flow
+      // ---------------------------------------------------------------
       const result = await v0.chats.create({
         message: optimizedMessage,
         ...(hasSystemPrompt ? { system: trimmedSystemPrompt } : {}),
@@ -165,7 +308,6 @@ export async function POST(req: Request) {
         ...(designSystemId ? { designSystemId } : {}),
       } as Parameters<typeof v0.chats.create>[0] & { designSystemId?: string });
 
-      // Save chat and initial version to database (best-effort).
       let internalChatId: string | null = null;
       try {
         const chatResult =
@@ -182,7 +324,6 @@ export async function POST(req: Request) {
         }
 
         internalChatId = nanoid();
-        // Use standardized v0ProjectId resolution
         const v0ProjectId = resolveV0ProjectId({
           v0ChatId,
           chatDataProjectId: chatResult?.projectId,

@@ -4,17 +4,52 @@ import { db } from "@/lib/db/client";
 import { versions } from "@/lib/db/schema";
 import { eq, and } from "drizzle-orm";
 import { getChatByV0ChatIdForRequest } from "@/lib/tenant";
+import { shouldUseV0Fallback } from "@/lib/gen/fallback";
+import { getVersionFiles } from "@/lib/gen/version-manager";
+import { buildCompleteProject } from "@/lib/gen/project-scaffold";
 
 export async function GET(
   req: Request,
   ctx: { params: Promise<{ chatId: string; versionId: string }> },
 ) {
   try {
-    assertV0Key();
-
     const { chatId, versionId } = await ctx.params;
     const { searchParams } = new URL(req.url);
     const format = searchParams.get("format") || "zip";
+
+    // -----------------------------------------------------------------
+    // Non-fallback: build archive from SQLite files
+    // -----------------------------------------------------------------
+    if (!shouldUseV0Fallback()) {
+      const codeFiles = getVersionFiles(versionId);
+      if (!codeFiles || codeFiles.length === 0) {
+        return NextResponse.json({ error: "Version not found" }, { status: 404 });
+      }
+
+      const completeProject = buildCompleteProject(codeFiles);
+      const JSZip = (await import("jszip")).default;
+      const zip = new JSZip();
+      for (const file of completeProject) {
+        zip.file(file.path, file.content);
+      }
+
+      const buffer = await zip.generateAsync({ type: "nodebuffer" });
+      const ext = format === "tar" ? "zip" : "zip";
+      const filename = `version-${versionId.slice(0, 8)}.${ext}`;
+
+      return new Response(new Uint8Array(buffer), {
+        headers: {
+          "Content-Type": "application/zip",
+          "Content-Disposition": `attachment; filename="${filename}"`,
+        },
+      });
+    }
+
+    // -----------------------------------------------------------------
+    // V0 fallback: existing v0 API download flow
+    // -----------------------------------------------------------------
+    assertV0Key();
+
     const includeDefaultFiles = searchParams.get("includeDefaultFiles") !== "false";
 
     const chat = await getChatByV0ChatIdForRequest(req, chatId);

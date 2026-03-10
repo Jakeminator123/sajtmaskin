@@ -1,7 +1,7 @@
 import {
-  buildV0PromptFromBrief,
-  buildV0PolishSystemPrompt,
-  buildV0RewriteSystemPrompt,
+  buildPromptFromBrief,
+  buildPolishSystemPrompt,
+  buildRewriteSystemPrompt,
   buildDynamicInstructionAddendumFromBrief,
   buildDynamicInstructionAddendumFromPrompt,
   isGatewayAssistModel,
@@ -138,8 +138,8 @@ export function usePromptAssist(params: UsePromptAssistParams) {
         /\b(english|in english|på engelska|engelska)\b/i.test(originalPrompt);
       const systemPrompt =
         mode === "polish"
-          ? buildV0PolishSystemPrompt({ buildIntent, forceEnglish: wantsEnglish })
-          : buildV0RewriteSystemPrompt({ codeContext, buildIntent });
+          ? buildPolishSystemPrompt({ buildIntent, forceEnglish: wantsEnglish })
+          : buildRewriteSystemPrompt({ codeContext, buildIntent });
       const startedAt = Date.now();
       const resolvedDeep = isGatewayAssistModel(normalizedModel) ? deep : false;
       const allowDeep = mode !== "polish";
@@ -297,7 +297,7 @@ export function usePromptAssist(params: UsePromptAssistParams) {
               throw new Error("AI Assist brief returned invalid JSON");
             }
 
-            const finalPrompt = buildV0PromptFromBrief({
+            const finalPrompt = buildPromptFromBrief({
               brief,
               originalPrompt,
               imageGenerations,

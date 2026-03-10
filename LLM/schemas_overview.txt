@@ -13,7 +13,13 @@ How to update:
 1) Nar post-generation checks utokas (CSS/unicode) -> uppdatera post-generation-checks.txt.
 
 Terminologi:
-- Platform API (v0-sdk) = kodgenerering + preview.
+- gen/ pipeline (default): Egen kodgenereringsmotor via OpenAI GPT 5.2 + AI SDK.
+  Entry: src/lib/gen/fallback.ts createGenerationPipeline().
+  Engine: src/lib/gen/engine.ts (streamText + createCodeGenSSEStream).
+  Postprocessering: src/lib/gen/suspense/ (TransformStream-regler).
+  Autofix: src/lib/gen/autofix/ (import-validering, JSX-check, dep-komplettering).
+  Se src/lib/gen/README.md for arkitektur.
+- Platform API (v0-sdk) = fallback kodgenerering (V0_FALLBACK_BUILDER=y).
   Canonical tiers: v0-max-fast (default), v0-1.5-lg, v0-1.5-md, v0-gpt-5.
   Legacy aliases: v0-mini -> v0-1.5-md, v0-pro -> v0-1.5-md, v0-max -> v0-max-fast.
   Source of truth: src/lib/v0/models.ts

@@ -8,6 +8,9 @@ import { and, eq, or } from "drizzle-orm";
 import { materializeImagesInTextFiles } from "@/lib/imageAssets";
 import { resolveVersionFiles } from "@/lib/v0/resolve-version-files";
 import { normalizeV0Error } from "@/lib/v0/errors";
+import { shouldUseV0Fallback } from "@/lib/gen/fallback";
+import { getVersionFiles, getLatestVersionFiles } from "@/lib/gen/version-manager";
+import { getVersionById, updateVersionFiles } from "@/lib/db/chat-repository";
 
 function v0ErrorResponse(err: unknown, fallbackMessage: string) {
   const info = normalizeV0Error(err);
@@ -30,6 +33,54 @@ const updateFilesSchema = z.object({
     .min(1, "At least one file is required"),
 });
 
+type V0FileEntry = {
+  name: string;
+  content: string;
+  locked?: boolean;
+};
+
+type V0VersionPayload = {
+  id?: string | null;
+  demoUrl?: string | null;
+  files?: unknown;
+  latestVersion?: {
+    id?: string | null;
+  } | null;
+};
+
+function getV0VersionPayload(value: unknown): V0VersionPayload {
+  return (value as V0VersionPayload | null) ?? {};
+}
+
+function getV0VersionId(value: unknown): string | null {
+  const id = getV0VersionPayload(value).id;
+  return typeof id === "string" && id.length > 0 ? id : null;
+}
+
+function getV0LatestVersionId(value: unknown): string | null {
+  const latestId = getV0VersionPayload(value).latestVersion?.id;
+  return typeof latestId === "string" && latestId.length > 0 ? latestId : null;
+}
+
+function getV0Files(value: unknown): V0FileEntry[] {
+  const files = getV0VersionPayload(value).files;
+  if (!Array.isArray(files)) return [];
+  return files.flatMap((file) => {
+    if (!file || typeof file !== "object") return [];
+    const entry = file as {
+      name?: unknown;
+      content?: unknown;
+      locked?: unknown;
+    };
+    if (typeof entry.name !== "string" || entry.name.length === 0) return [];
+    return [{
+      name: entry.name,
+      content: typeof entry.content === "string" ? entry.content : "",
+      locked: typeof entry.locked === "boolean" ? entry.locked : undefined,
+    }];
+  });
+}
+
 async function isPinnedVersion(chatId: string, versionId: string) {
   const rows = await db
     .select({ pinned: versions.pinned })
@@ -44,10 +95,68 @@ async function isPinnedVersion(chatId: string, versionId: string) {
   return rows[0]?.pinned ?? false;
 }
 
+function inferLanguage(fileName: string): string {
+  const normalized = fileName.toLowerCase();
+  if (normalized.endsWith(".tsx")) return "tsx";
+  if (normalized.endsWith(".ts")) return "ts";
+  if (normalized.endsWith(".jsx")) return "jsx";
+  if (normalized.endsWith(".js")) return "js";
+  if (normalized.endsWith(".css")) return "css";
+  if (normalized.endsWith(".json")) return "json";
+  if (normalized.endsWith(".md")) return "md";
+  if (normalized.endsWith(".html")) return "html";
+  return "text";
+}
+
 export async function GET(req: Request, { params }: { params: Promise<{ chatId: string }> }) {
   try {
-    assertV0Key();
     const { chatId } = await params;
+
+    // ---------------------------------------------------------------
+    // Non-fallback: fetch files from SQLite
+    // ---------------------------------------------------------------
+    if (!shouldUseV0Fallback()) {
+      const { searchParams } = new URL(req.url);
+      const requestedVersionId = searchParams.get("versionId");
+
+      let files;
+      let resolvedVersionId: string | null = null;
+
+      if (requestedVersionId) {
+        files = getVersionFiles(requestedVersionId);
+        resolvedVersionId = requestedVersionId;
+        if (!files) {
+          return NextResponse.json(
+            { error: "Version not found" },
+            { status: 404 },
+          );
+        }
+      } else {
+        files = getLatestVersionFiles(chatId);
+        if (!files) {
+          return NextResponse.json(
+            { error: "No versions found for this chat" },
+            { status: 404 },
+          );
+        }
+      }
+
+      const formattedFiles = files.map((f) => ({
+        name: f.path,
+        content: f.content,
+        language: f.language,
+      }));
+
+      return NextResponse.json({
+        versionId: resolvedVersionId,
+        files: formattedFiles,
+      });
+    }
+
+    // ---------------------------------------------------------------
+    // V0 fallback: existing flow
+    // ---------------------------------------------------------------
+    assertV0Key();
     const dbChat = await getChatByV0ChatIdForRequest(req, chatId);
     if (!dbChat) return NextResponse.json({ error: "Chat not found" }, { status: 404 });
     const { searchParams } = new URL(req.url);
@@ -57,7 +166,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ chatId: 
 
     const chat = await v0.chats.getById({ chatId });
 
-    const versionIdToFetch = requestedVersionId || (chat as any).latestVersion?.id || null;
+    const versionIdToFetch = requestedVersionId || getV0LatestVersionId(chat) || null;
 
     if (!versionIdToFetch) {
       return NextResponse.json({ error: "No version found for this chat" }, { status: 404 });
@@ -83,14 +192,15 @@ export async function GET(req: Request, { params }: { params: Promise<{ chatId: 
 
     const version = versionResponse.version;
 
-    let files = (versionResponse.files.length > 0
-      ? versionResponse.files
-      : ((version as any)?.files || [])) as Array<{
-      name: string;
-      content: string;
-      locked?: boolean;
-    }>;
-    let resolvedVersionId = (version as any).id;
+    let files: V0FileEntry[] =
+      versionResponse.files.length > 0
+        ? versionResponse.files.map((file) => ({
+            name: file.name,
+            content: typeof file.content === "string" ? file.content : "",
+            locked: file.locked,
+          }))
+        : getV0Files(version);
+    let resolvedVersionId = getV0VersionId(version);
 
     if (shouldMaterialize && process.env.BLOB_READ_WRITE_TOKEN) {
       const isPinned = await isPinnedVersion(dbChat.id, versionIdToFetch);
@@ -117,8 +227,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ chatId: 
               versionId: versionIdToFetch,
               files: updatedFiles,
             });
-            resolvedVersionId = (updatedVersion as any).id || resolvedVersionId;
-            files = (updatedVersion as any).files || updatedFiles;
+            resolvedVersionId = getV0VersionId(updatedVersion) || resolvedVersionId;
+            files = getV0Files(updatedVersion).length > 0 ? getV0Files(updatedVersion) : updatedFiles;
           }
         } catch (error) {
           console.error("Error materializing images:", error);
@@ -138,10 +248,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ chatId: 
 
 export async function PUT(req: Request, { params }: { params: Promise<{ chatId: string }> }) {
   try {
-    assertV0Key();
     const { chatId } = await params;
-    const dbChat = await getChatByV0ChatIdForRequest(req, chatId);
-    if (!dbChat) return NextResponse.json({ error: "Chat not found" }, { status: 404 });
     const body = await req.json();
 
     const validationResult = updateFilesSchema.safeParse(body);
@@ -153,6 +260,52 @@ export async function PUT(req: Request, { params }: { params: Promise<{ chatId: 
     }
 
     const { versionId, files } = validationResult.data;
+
+    if (!shouldUseV0Fallback()) {
+      const version = getVersionById(versionId);
+      if (!version || version.chat_id !== chatId) {
+        return NextResponse.json({ error: "Version not found" }, { status: 404 });
+      }
+
+      const existingFiles = getVersionFiles(versionId) ?? [];
+      const nextFiles = [...existingFiles];
+
+      for (const file of files) {
+        const nextFile = {
+          path: file.name,
+          content: file.content,
+          language:
+            existingFiles.find((existing) => existing.path === file.name)?.language ??
+            inferLanguage(file.name),
+        };
+        const existingIndex = nextFiles.findIndex((existing) => existing.path === file.name);
+        if (existingIndex >= 0) {
+          nextFiles[existingIndex] = nextFile;
+        } else {
+          nextFiles.push(nextFile);
+        }
+      }
+
+      const updated = updateVersionFiles(versionId, JSON.stringify(nextFiles));
+      if (!updated) {
+        return NextResponse.json({ error: "Failed to update version files" }, { status: 500 });
+      }
+
+      return NextResponse.json({
+        success: true,
+        versionId,
+        files: nextFiles.map((file) => ({
+          name: file.path,
+          content: file.content,
+        })),
+        demoUrl: null,
+      });
+    }
+
+    assertV0Key();
+    const dbChat = await getChatByV0ChatIdForRequest(req, chatId);
+    if (!dbChat) return NextResponse.json({ error: "Chat not found" }, { status: 404 });
+
     if (await isPinnedVersion(dbChat.id, versionId)) {
       return NextResponse.json({ error: "Version is pinned and read-only" }, { status: 409 });
     }
@@ -165,9 +318,9 @@ export async function PUT(req: Request, { params }: { params: Promise<{ chatId: 
 
     return NextResponse.json({
       success: true,
-      versionId: (updatedVersion as any).id,
-      files: (updatedVersion as any).files,
-      demoUrl: (updatedVersion as any).demoUrl,
+      versionId: getV0VersionId(updatedVersion),
+      files: getV0Files(updatedVersion),
+      demoUrl: getV0VersionPayload(updatedVersion).demoUrl ?? null,
     });
   } catch (err) {
     console.error("Error updating files:", err);
@@ -209,7 +362,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ chatId
       includeDefaultFiles: true,
     });
 
-    const updatedFiles = ((currentVersion as any).files || []).map((file: any) => {
+    const updatedFiles = getV0Files(currentVersion).map((file) => {
       if (file.name === fileName) {
         return {
           name: fileName,
@@ -224,7 +377,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ chatId
       };
     });
 
-    if (!updatedFiles.some((f: any) => f.name === fileName)) {
+    if (!updatedFiles.some((f) => f.name === fileName)) {
       updatedFiles.push({
         name: fileName,
         content,
@@ -240,9 +393,9 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ chatId
 
     return NextResponse.json({
       success: true,
-      versionId: (updatedVersion as any).id,
-      file: (updatedVersion as any).files?.find((f: any) => f.name === fileName),
-      demoUrl: (updatedVersion as any).demoUrl,
+      versionId: getV0VersionId(updatedVersion),
+      file: getV0Files(updatedVersion).find((f) => f.name === fileName),
+      demoUrl: getV0VersionPayload(updatedVersion).demoUrl ?? null,
     });
   } catch (err) {
     console.error("Error updating file:", err);
@@ -277,9 +430,9 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ chatI
       includeDefaultFiles: true,
     });
 
-    const updatedFiles = ((currentVersion as any).files || [])
-      .filter((file: any) => file.name !== fileName)
-      .map((file: any) => ({
+    const updatedFiles = getV0Files(currentVersion)
+      .filter((file) => file.name !== fileName)
+      .map((file) => ({
         name: file.name,
         content: file.content,
         locked: file.locked,
@@ -294,8 +447,8 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ chatI
     return NextResponse.json({
       success: true,
       deleted: fileName,
-      versionId: (updatedVersion as any).id,
-      remainingFiles: (updatedVersion as any).files?.length ?? 0,
+      versionId: getV0VersionId(updatedVersion),
+      remainingFiles: getV0Files(updatedVersion).length,
     });
   } catch (err) {
     console.error("Error deleting file:", err);

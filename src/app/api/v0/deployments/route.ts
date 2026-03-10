@@ -26,6 +26,9 @@ import { getChatByIdForRequest, getChatByV0ChatIdForRequest } from "@/lib/tenant
 import { requireNotBot } from "@/lib/botProtection";
 import { devLogAppend } from "@/lib/logging/devLog";
 import { prepareCredits } from "@/lib/credits/server";
+import { shouldUseV0Fallback } from "@/lib/gen/fallback";
+import { getVersionFiles } from "@/lib/gen/version-manager";
+import { getVersionById } from "@/lib/db/chat-repository";
 
 export const runtime = "nodejs";
 
@@ -345,8 +348,6 @@ export async function POST(req: Request) {
       const botError = requireNotBot(req);
       if (botError) return botError;
 
-      assertV0Key();
-
       const body = await req.json().catch(() => ({}));
       const validationResult = createDeploymentSchema.safeParse(body);
       if (!validationResult.success) {
@@ -359,6 +360,135 @@ export async function POST(req: Request) {
       const { chatId, versionId, projectName, target, imageStrategy } = validationResult.data;
       const resolvedImageStrategy: ImageAssetStrategy =
         imageStrategy ?? (process.env.BLOB_READ_WRITE_TOKEN ? "blob" : "external");
+      const deployTarget = target === "preview" ? "preview" : "production";
+
+      // -----------------------------------------------------------------
+      // Non-fallback: fetch version files from SQLite
+      // -----------------------------------------------------------------
+      if (!shouldUseV0Fallback()) {
+        const creditCheck = await prepareCredits(
+          req,
+          deployTarget === "preview" ? "deploy.preview" : "deploy.production",
+          { target: deployTarget },
+        );
+        if (!creditCheck.ok) {
+          return creditCheck.response;
+        }
+
+        const sqliteVersion = getVersionById(versionId);
+        if (!sqliteVersion) {
+          return NextResponse.json({ error: "Version not found" }, { status: 404 });
+        }
+
+        const codeFiles = getVersionFiles(versionId);
+        if (!codeFiles || codeFiles.length === 0) {
+          return NextResponse.json(
+            { error: "No files found for this version" },
+            { status: 404 },
+          );
+        }
+
+        const textFiles = codeFiles.map((f) => ({ name: f.path, content: f.content }));
+
+        devLogAppend("latest", {
+          type: "site.deploy.start",
+          requestedChatId: chatId,
+          requestedVersionId: versionId,
+          source: "sqlite",
+          target: deployTarget,
+          imageStrategy: resolvedImageStrategy,
+        });
+
+        const vercelProjectName = sanitizeVercelProjectName(
+          projectName || `sajtmaskin-${chatId}`,
+        );
+
+        const { files: fixedFiles, fixesApplied, warnings } = applyPreDeployFixes(textFiles);
+        if (fixesApplied.length > 0) {
+          console.info("[deploy] applied fixes:", fixesApplied);
+        }
+        if (warnings.length > 0) {
+          console.warn("[deploy] pre-deploy warnings:", warnings.slice(0, 5));
+        }
+
+        devLogAppend("latest", {
+          type: "site.deploy.precheck",
+          chatId,
+          versionId,
+          fixesApplied,
+          warnings,
+          fileCount: fixedFiles.length,
+        });
+
+        const blobToken = process.env.BLOB_READ_WRITE_TOKEN;
+        const imageAssets = await materializeImagesInTextFiles({
+          files: fixedFiles,
+          strategy: resolvedImageStrategy,
+          blobToken,
+          namespace: { chatId, versionId },
+        });
+
+        if (imageAssets.warnings.length > 0) {
+          console.info("[deploy] image assets warnings:", imageAssets.warnings.slice(0, 5));
+        }
+
+        const vercelFiles = toVercelFilesFromTextFiles(imageAssets.files);
+
+        const created = await createVercelDeployment({
+          projectName: vercelProjectName,
+          target: deployTarget,
+          files: vercelFiles,
+        });
+
+        if (created.vercelProjectId) {
+          const envSync = await syncEnvVarsToVercelProject(created.vercelProjectId, {});
+          if (envSync.errors.length > 0) {
+            console.warn("[deploy] env var project sync errors:", envSync.errors);
+          }
+        }
+
+        const mapped = mapVercelReadyStateToStatus(created.readyState);
+
+        devLogAppend("latest", {
+          type: "site.deploy.done",
+          chatId,
+          versionId,
+          source: "sqlite",
+          status: mapped.status,
+          readyState: created.readyState,
+          url: created.url ?? null,
+          inspectorUrl: created.inspectorUrl ?? null,
+        });
+
+        try {
+          await creditCheck.commit();
+        } catch (error) {
+          console.error("[credits] Failed to charge deploy:", error);
+        }
+
+        return NextResponse.json({
+          id: `local-${Date.now()}`,
+          chatId,
+          versionId,
+          status: mapped.status,
+          vercelDeploymentId: created.vercelDeploymentId,
+          vercelProjectId: created.vercelProjectId,
+          url: created.url,
+          inspectorUrl: created.inspectorUrl,
+          readyState: created.readyState,
+          fixesApplied,
+          preDeployWarnings: warnings,
+          imageStrategyRequested: imageStrategy ?? null,
+          imageStrategyUsed: imageAssets.strategyUsed,
+          imageAssetsSummary: imageAssets.summary,
+          imageAssetsWarnings: imageAssets.warnings,
+        });
+      }
+
+      // -----------------------------------------------------------------
+      // V0 fallback: existing Drizzle/Postgres + v0 API flow
+      // -----------------------------------------------------------------
+      assertV0Key();
 
       let chat = await getChatByV0ChatIdForRequest(req, chatId);
       if (!chat) chat = await getChatByIdForRequest(req, chatId);
@@ -390,7 +520,6 @@ export async function POST(req: Request) {
 
       const internalVersionId = version[0].id;
       const v0VersionId = version[0].v0VersionId;
-      const deployTarget = target === "preview" ? "preview" : "production";
       const creditCheck = await prepareCredits(
         req,
         deployTarget === "preview" ? "deploy.preview" : "deploy.production",
@@ -489,7 +618,6 @@ export async function POST(req: Request) {
           envVars: Object.keys(deployEnvVars).length > 0 ? deployEnvVars : undefined,
         });
 
-        // Persist env vars at the Vercel project level for future redeploys
         if (created.vercelProjectId && Object.keys(deployEnvVars).length > 0) {
           const envSync = await syncEnvVarsToVercelProject(
             created.vercelProjectId,

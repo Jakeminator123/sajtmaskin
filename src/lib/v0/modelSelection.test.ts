@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resolveModelSelection } from "./modelSelection";
+import { resolveModelSelection, resolveEngineModelId } from "./modelSelection";
 
 describe("resolveModelSelection", () => {
   it("returns the canonical ID when requestedModelId is canonical", () => {
@@ -51,5 +51,19 @@ describe("resolveModelSelection", () => {
       requestedModelTier: "v0-1.5-md",
     });
     expect(result).toEqual({ modelId: "v0-1.5-md", modelTier: "v0-1.5-md" });
+  });
+});
+
+describe("resolveEngineModelId", () => {
+  it("returns v0 tier when useV0Fallback is true", () => {
+    expect(resolveEngineModelId("v0-max-fast", true)).toBe("v0-max-fast");
+    expect(resolveEngineModelId("v0-gpt-5", true)).toBe("v0-gpt-5");
+  });
+
+  it("maps v0 tier to OpenAI model when useV0Fallback is false", () => {
+    expect(resolveEngineModelId("v0-max-fast", false)).toBe("gpt-5.2");
+    expect(resolveEngineModelId("v0-1.5-md", false)).toBe("gpt-5.2");
+    expect(resolveEngineModelId("v0-gpt-5", false)).toBe("gpt-5.2");
+    expect(resolveEngineModelId("v0-1.5-lg", false)).toBe("gpt-5.2");
   });
 });
