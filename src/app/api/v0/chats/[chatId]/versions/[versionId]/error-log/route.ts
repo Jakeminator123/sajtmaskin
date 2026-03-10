@@ -4,7 +4,12 @@ import { versions } from "@/lib/db/schema";
 import { and, eq } from "drizzle-orm";
 import { getChatByV0ChatIdForRequest } from "@/lib/tenant";
 import { shouldUseV0Fallback } from "@/lib/gen/fallback";
-import { getChat as getEngineChat, getVersionById as getEngineVersion } from "@/lib/db/chat-repository";
+import {
+  createVersionErrorLogs as createEngineVersionErrorLogs,
+  getChat as getEngineChat,
+  getVersionById as getEngineVersion,
+  getVersionErrorLogs as getEngineVersionErrorLogs,
+} from "@/lib/db/chat-repository";
 import { createVersionErrorLog, createVersionErrorLogs, getVersionErrorLogs } from "@/lib/db/services";
 
 type RouteParams = { params: Promise<{ chatId: string; versionId: string }> };
@@ -43,8 +48,40 @@ export async function POST(request: Request, ctx: RouteParams) {
       if (!version || version.chat_id !== chatId) {
         return NextResponse.json({ error: "Version not found" }, { status: 404 });
       }
-      await request.json().catch(() => null);
-      return NextResponse.json({ success: true, stored: false, logs: [] });
+      const body = (await request.json().catch(() => null)) as
+        | { logs?: ErrorLogPayload[] }
+        | ErrorLogPayload
+        | null;
+      if (!body) {
+        return NextResponse.json({ error: "Missing payload" }, { status: 400 });
+      }
+
+      if ("logs" in body && Array.isArray(body.logs)) {
+        const rows = createEngineVersionErrorLogs(
+          body.logs.map((log) => ({
+            chatId,
+            versionId,
+            level: log.level,
+            category: log.category || null,
+            message: log.message,
+            meta: log.meta || null,
+          })),
+        );
+        return NextResponse.json({ success: true, stored: true, logs: rows });
+      }
+
+      const payload = body as ErrorLogPayload;
+      const [row] = createEngineVersionErrorLogs([
+        {
+          chatId,
+          versionId,
+          level: payload.level,
+          category: payload.category || null,
+          message: payload.message,
+          meta: payload.meta || null,
+        },
+      ]);
+      return NextResponse.json({ success: true, stored: true, log: row });
     }
 
     const chat = await getChatByV0ChatIdForRequest(request, chatId);
@@ -112,7 +149,8 @@ export async function GET(request: Request, ctx: RouteParams) {
       if (!version || version.chat_id !== chatId) {
         return NextResponse.json({ error: "Version not found" }, { status: 404 });
       }
-      return NextResponse.json({ success: true, stored: false, logs: [] });
+      const logs = getEngineVersionErrorLogs(versionId);
+      return NextResponse.json({ success: true, stored: true, logs });
     }
 
     const chat = await getChatByV0ChatIdForRequest(request, chatId);

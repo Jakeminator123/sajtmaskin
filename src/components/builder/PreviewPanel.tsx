@@ -66,8 +66,8 @@ type PreviewIssuePayload = {
 
 type PreviewIframeMessage = {
   source?: string;
-  type?: "preview-error" | "preview-ready";
-  payload?: PreviewIssuePayload;
+  type?: "preview-error" | "preview-ready" | "navigation-attempt";
+  payload?: PreviewIssuePayload & { href?: string | null };
 };
 
 function summarizePreviewReason(kind: string, message: string, name?: string | null): string {
@@ -105,10 +105,24 @@ function detectOwnEnginePreviewIssue(doc: Document | null): PreviewIssuePayload 
   return null;
 }
 
+function buildOwnEngineRoutePreviewUrl(currentUrl: string, nextHref: string): string | null {
+  const href = nextHref.trim();
+  if (!href.startsWith("/")) return null;
+
+  try {
+    const url = new URL(currentUrl, window.location.origin);
+    url.searchParams.set("route", href);
+    return `${url.pathname}${url.search}`;
+  } catch {
+    return null;
+  }
+}
+
 interface PreviewPanelProps {
   chatId: string | null;
   versionId: string | null;
   demoUrl: string | null;
+  onNavigatePreviewUrl?: (url: string) => void;
   isLoading?: boolean;
   onClear?: () => void;
   onFixPreview?: () => void;
@@ -153,6 +167,7 @@ export function PreviewPanel({
   chatId,
   versionId,
   demoUrl,
+  onNavigatePreviewUrl,
   isLoading: externalLoading,
   onClear,
   onFixPreview,
@@ -699,13 +714,25 @@ export function PreviewPanel({
       if (!iframeWindow || event.source !== iframeWindow) return;
       const data = event.data;
       if (!data || typeof data !== "object" || data.source !== "sajtmaskin-preview") return;
-      if (!isOwnEnginePreview || data.type !== "preview-error") return;
+      if (!isOwnEnginePreview) return;
+
+      if (data.type === "navigation-attempt") {
+        const href = typeof data.payload?.href === "string" ? data.payload.href : "";
+        if (!demoUrl || !href) return;
+        const nextUrl = buildOwnEngineRoutePreviewUrl(demoUrl, href);
+        if (nextUrl && nextUrl !== demoUrl) {
+          onNavigatePreviewUrl?.(nextUrl);
+        }
+        return;
+      }
+
+      if (data.type !== "preview-error") return;
       void reportPreviewIssue(data.payload ?? {});
     };
 
     window.addEventListener("message", handlePreviewMessage);
     return () => window.removeEventListener("message", handlePreviewMessage);
-  }, [isOwnEnginePreview, reportPreviewIssue]);
+  }, [demoUrl, isOwnEnginePreview, onNavigatePreviewUrl, reportPreviewIssue]);
 
   useEffect(() => {
     if (!demoUrl) return;
@@ -1101,7 +1128,7 @@ export function PreviewPanel({
       </div>
       {!isCodeView && isOwnEnginePreview && (
         <div className="border-b border-sky-900/40 bg-sky-950/30 px-4 py-2 text-xs text-sky-200">
-          <div>Egen motor — preview renderas lokalt med React + Tailwind. Vissa Next.js-funktioner (routing, server components) visas inte.</div>
+                  <div>Egen motor — preview renderas lokalt med React + Tailwind. Interna länkar kan nu växla mellan genererade `app/.../page.tsx`-routes här, men sandbox är fortfarande säkrare för full Next.js-runtime, server components och exakt build-verifiering.</div>
         </div>
       )}
       {!isCodeView && !isOwnEnginePreview && (showBlobWarning || showExternalWarning || showSandboxWarning || integrationError || showImagesDisabledWarning || showImagesUnsupportedWarning || showBlobConfigWarning) && (

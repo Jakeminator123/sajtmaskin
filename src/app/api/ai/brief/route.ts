@@ -12,9 +12,8 @@ import {
   normalizeAssistModel,
 } from "@/lib/builder/promptAssist";
 import { MAX_AI_BRIEF_PROMPT_CHARS } from "@/lib/builder/promptLimits";
-
 export const runtime = "nodejs";
-export const maxDuration = 600; // 10 minutes for deep brief with slow models
+export const maxDuration = 600;
 
 // Token limits configurable via env (for server-side control)
 const ENV_MAX_TOKENS = Number(process.env.AI_BRIEF_MAX_TOKENS) || 8192;

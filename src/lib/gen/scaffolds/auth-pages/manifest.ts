@@ -31,7 +31,7 @@ export const authPagesManifest: ScaffoldManifest = {
   --color-foreground: oklch(0.95 0.004 0);
   --color-card: oklch(0.18 0.004 0);
   --color-card-foreground: oklch(0.95 0.004 0);
-  --color-primary: oklch(0.6 0.004 0);
+  --color-primary: oklch(0.58 0.16 258);
   --color-primary-foreground: oklch(0.98 0 0);
   --color-secondary: oklch(0.22 0.004 0);
   --color-secondary-foreground: oklch(0.9 0.004 0);
@@ -41,7 +41,7 @@ export const authPagesManifest: ScaffoldManifest = {
   --color-accent-foreground: oklch(0.9 0.004 0);
   --color-border: oklch(0.26 0.004 0);
   --color-input: oklch(0.2 0.004 0);
-  --color-ring: oklch(0.6 0.004 0);
+  --color-ring: oklch(0.58 0.16 258);
   --radius: 0.75rem;
 }
 
@@ -53,6 +53,8 @@ export const authPagesManifest: ScaffoldManifest = {
   body {
     @apply bg-background text-foreground antialiased;
     font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+    background-image:
+      radial-gradient(circle at top left, color-mix(in oklab, var(--color-primary) 14%, transparent) 0%, transparent 30%);
   }
 }
 `,

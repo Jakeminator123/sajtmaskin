@@ -13,6 +13,7 @@ import { devLogAppend } from "@/lib/logging/devLog";
 import { WARN_CHAT_MESSAGE_CHARS, WARN_CHAT_SYSTEM_CHARS } from "@/lib/builder/promptLimits";
 import { orchestratePromptMessage } from "@/lib/builder/promptOrchestration";
 import { resolveModelSelection } from "@/lib/v0/modelSelection";
+import { DEFAULT_MODEL_ID } from "@/lib/v0/models";
 
 export async function POST(req: Request, ctx: { params: Promise<{ chatId: string }> }) {
   const session = ensureSessionIdFromRequest(req);
@@ -49,7 +50,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
       const modelSelection = resolveModelSelection({
         requestedModelId: modelId,
         requestedModelTier: metaRequestedModelTier,
-        fallbackTier: "v0-max-fast",
+        fallbackTier: DEFAULT_MODEL_ID,
       });
 
       const dbChat = await getChatByV0ChatIdForRequest(req, chatId);

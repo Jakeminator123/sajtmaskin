@@ -32,8 +32,8 @@ export const saasLandingManifest: ScaffoldManifest = {
   --color-foreground: oklch(0.97 0 0);
   --color-card: oklch(0.19 0.004 0);
   --color-card-foreground: oklch(0.97 0 0);
-  --color-primary: oklch(0.72 0.004 0);
-  --color-primary-foreground: oklch(0.14 0.004 0);
+  --color-primary: oklch(0.58 0.16 258);
+  --color-primary-foreground: oklch(0.98 0 0);
   --color-secondary: oklch(0.23 0.004 0);
   --color-secondary-foreground: oklch(0.95 0.004 0);
   --color-muted: oklch(0.22 0.004 0);
@@ -41,7 +41,7 @@ export const saasLandingManifest: ScaffoldManifest = {
   --color-accent: oklch(0.24 0.004 0);
   --color-accent-foreground: oklch(0.95 0.004 0);
   --color-border: oklch(0.28 0.004 0);
-  --color-ring: oklch(0.72 0.004 0);
+  --color-ring: oklch(0.58 0.16 258);
   --radius: 0.95rem;
 }
 

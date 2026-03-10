@@ -8,5 +8,5 @@ alwaysApply: true
 - **v0 code generation or chat management** -> use the `v0` MCP server directly
 - **Vercel deploy/project management** -> use the `Vercel` MCP server
 - **OpenAI API docs** -> use `openaiDeveloperDocs`
-- **Full generated site code** -> use `sajtmaskin-generated-code` MCP server
+- **Own-engine generation or generated site code** -> use `sajtmaskin-engine` MCP server
 - **Internal scaffolds, manifests, files** -> use `sajtmaskin-scaffolds` MCP server

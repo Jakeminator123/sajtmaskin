@@ -1,5 +1,6 @@
 import { streamText } from "ai";
 
+import { AUTOFIX_MAX_OUTPUT_TOKENS } from "../defaults";
 import { getOpenAIModel } from "../models";
 import { parseCodeProject, type CodeFile } from "../parser";
 import { FIXER_SYSTEM_PROMPT, buildFixerUserPrompt } from "./fixer-prompt";
@@ -12,8 +13,6 @@ export interface FixerResult {
 }
 
 const DEFAULT_FIXER_MODEL = "gpt-4.1-mini";
-const DEFAULT_MAX_TOKENS = 8192;
-
 export async function runLlmFixer(
   content: string,
   errors: string[],
@@ -29,7 +28,7 @@ export async function runLlmFixer(
       model,
       system: FIXER_SYSTEM_PROMPT,
       messages: [{ role: "user", content: userPrompt }],
-      maxOutputTokens: options?.maxTokens ?? DEFAULT_MAX_TOKENS,
+      maxOutputTokens: options?.maxTokens ?? AUTOFIX_MAX_OUTPUT_TOKENS,
     });
 
     const fixedText = await result.text;

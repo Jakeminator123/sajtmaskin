@@ -38,6 +38,7 @@ import { debugLog, errorLog, warnLog } from "@/lib/utils/debug";
 import { sanitizeV0Metadata } from "@/lib/v0/sanitize-metadata";
 import { createPromptLog } from "@/lib/db/services";
 import { resolveModelSelection, resolveEngineModelId } from "@/lib/v0/modelSelection";
+import { DEFAULT_MODEL_ID, MODEL_LABELS, v0TierToOpenAIModel } from "@/lib/v0/models";
 import { AI } from "@/lib/config";
 import { shouldUseV0Fallback, createGenerationPipeline } from "@/lib/gen/fallback";
 import {
@@ -143,7 +144,7 @@ export async function POST(req: Request) {
       const modelSelection = resolveModelSelection({
         requestedModelId: modelId,
         requestedModelTier: metaRequestedModelTier,
-        fallbackTier: "v0-max-fast",
+        fallbackTier: DEFAULT_MODEL_ID,
       });
       const resolvedModelId = modelSelection.modelId;
       const resolvedModelTier = modelSelection.modelTier;
@@ -282,9 +283,14 @@ export async function POST(req: Request) {
         console.warn("[prompt-log] Failed to record prompt log:", error);
       }
 
-      debugLog("v0", "Chat stream request (own engine unless fallback=true)", {
-        modelId: resolvedModelId,
-        modelTier: resolvedModelTier,
+      const usingV0Fallback = shouldUseV0Fallback();
+      debugLog("build", "Chat stream request", {
+        modelTierId: resolvedModelTier,
+        modelTierLabel: MODEL_LABELS[resolvedModelTier],
+        enginePath: usingV0Fallback ? "v0-fallback" : "own-engine",
+        engineModel: usingV0Fallback
+          ? resolvedModelId
+          : v0TierToOpenAIModel(resolvedModelTier),
         promptLength: optimizedMessage.length,
         originalPromptLength: message.length,
         attachments: Array.isArray(attachments) ? attachments.length : 0,
@@ -409,7 +415,12 @@ export async function POST(req: Request) {
         });
 
         const projectIdForChat = metaAppProjectId || projectId || `proj-${nanoid()}`;
-        const engineChat = chatRepo.createChat(projectIdForChat, engineModel, engineSystemPrompt);
+        const engineChat = chatRepo.createChat(
+          projectIdForChat,
+          engineModel,
+          engineSystemPrompt,
+          resolvedScaffold?.id,
+        );
         chatRepo.addMessage(engineChat.id, "user", optimizedMessage);
 
         const engineStartedAt = Date.now();

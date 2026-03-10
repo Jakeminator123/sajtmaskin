@@ -4,7 +4,6 @@ const BLOCK_ENTIRELY = [
   /^\s*import\s+.*\s+from\s+["']next\/og["']/,
   /^\s*import\s+.*\s+from\s+["']server-only["']/,
   /^\s*import\s+.*\s+from\s+["']next\/headers["']/,
-  /^\s*import\s+.*\s+from\s+["']next\/font\/[^"']+["']/,
 ];
 
 export const forbiddenImportStrip: SuspenseRule = {

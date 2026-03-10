@@ -39,7 +39,7 @@ export const contentSiteManifest: ScaffoldManifest = {
   --color-foreground: oklch(0.95 0.004 0);
   --color-card: oklch(0.17 0.004 0);
   --color-card-foreground: oklch(0.95 0.004 0);
-  --color-primary: oklch(0.65 0.004 0);
+  --color-primary: oklch(0.58 0.16 258);
   --color-primary-foreground: oklch(0.98 0 0);
   --color-secondary: oklch(0.2 0.004 0);
   --color-secondary-foreground: oklch(0.9 0.004 0);
@@ -51,7 +51,7 @@ export const contentSiteManifest: ScaffoldManifest = {
   --color-destructive-foreground: oklch(0.98 0.005 25);
   --color-border: oklch(0.25 0.004 0);
   --color-input: oklch(0.22 0.004 0);
-  --color-ring: oklch(0.65 0.004 0);
+  --color-ring: oklch(0.58 0.16 258);
   --radius: 0.625rem;
 }
 
@@ -63,6 +63,8 @@ export const contentSiteManifest: ScaffoldManifest = {
   body {
     @apply bg-background text-foreground;
     font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+    background-image:
+      radial-gradient(circle at top left, color-mix(in oklab, var(--color-primary) 16%, transparent) 0%, transparent 32%);
   }
 }
 `,

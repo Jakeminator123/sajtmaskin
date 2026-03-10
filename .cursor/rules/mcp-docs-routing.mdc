@@ -16,7 +16,7 @@ up-to-date documentation and capabilities.
 | `v0`                 | v0 Platform API, code generation, chat mgmt    | Tools      |
 | `Vercel`             | Vercel projects, deployments, logs, docs search | Tools      |
 | `openaiDeveloperDocs`| OpenAI API and model documentation             | Resources  |
-| `sajtmaskin-generated-code` | Fetch full generated code from sajtmaskin projects | Tools |
+| `sajtmaskin-engine`        | Local own-engine generation, manifests, files, runtime URLs | Tools |
 | `sajtmaskin-scaffolds`     | Internal scaffold manifests, files, tags, comparison | Tools |
 
 ## Routing rules
@@ -25,5 +25,5 @@ up-to-date documentation and capabilities.
 2. **Vercel deployments, projects, env vars, platform docs** -> `Vercel` MCP server.
 3. **OpenAI API, models, embeddings** -> `openaiDeveloperDocs`.
 4. **AI SDK (Vercel)** -> Check web search.
-5. **Generated site code, version files, code download** -> `sajtmaskin-generated-code` MCP server.
+5. **Own-engine generation, generated site code, version files, runtime URLs** -> `sajtmaskin-engine` MCP server.
 6. **Internal scaffolds, scaffold files, scaffold comparison** -> `sajtmaskin-scaffolds` MCP server.

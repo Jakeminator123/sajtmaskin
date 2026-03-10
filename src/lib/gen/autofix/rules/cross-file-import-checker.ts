@@ -1,4 +1,5 @@
 import type { CodeFile } from "@/lib/gen/parser";
+import { isRuntimeProvidedImport } from "@/lib/gen/runtime-imports";
 
 interface CrossFileImportFix {
   sourceFile: string;
@@ -11,18 +12,9 @@ const LOCAL_PREFIXES = ["@/", "./", "../"];
 const EXTENSIONS = [".tsx", ".ts", ".jsx", ".js"];
 const INDEX_EXTENSIONS = EXTENSIONS.map((ext) => `/index${ext}`);
 const CANDIDATES = [...EXTENSIONS, ...INDEX_EXTENSIONS];
-const RUNTIME_PROVIDED_IMPORTS = [
-  "@/lib/utils",
-  "@/hooks/use-mobile",
-  "@/hooks/use-toast",
-];
 
 function isLocalImport(source: string): boolean {
   return LOCAL_PREFIXES.some((p) => source.startsWith(p));
-}
-
-function isRuntimeProvidedImport(source: string): boolean {
-  return source.startsWith("@/components/ui/") || RUNTIME_PROVIDED_IMPORTS.includes(source);
 }
 
 function normalizeToProjectPath(source: string, importerPath: string): string {

@@ -1,6 +1,21 @@
 """
-Advanced Vercel template scraper
-=================================
+Advanced Vercel template scraper (OFFLINE DISCOVERY TOOL)
+==========================================================
+
+**This script is an offline discovery and curation tool, not a runtime
+dependency.**  It is used to find promising external templates that can
+later be converted into internal scaffold manifests in
+``src/lib/gen/scaffolds/``.  The runtime scaffold source of truth is
+always the internal registry (``registry.ts``), never live scraping.
+
+Curation pipeline::
+
+  1. Run this script with ``--candidates`` to discover external templates.
+  2. Run ``scripts/curate-scaffold-candidates.mjs`` to score and rank.
+  3. Human review -> add approved repos to ``scripts/sync-scaffold-refs.mjs``.
+  4. Run ``sync-scaffold-refs.mjs`` to download reference code.
+  5. Build new internal scaffolds in ``src/lib/gen/scaffolds/``.
+  6. Regenerate embeddings with ``scripts/generate-scaffold-embeddings.ts``.
 
 This module provides a command‑line interface for scraping the
 Vercel template directory across *all* of the available filter groups

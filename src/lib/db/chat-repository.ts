@@ -10,6 +10,7 @@ export interface Chat {
   title: string | null;
   model: string;
   system_prompt: string | null;
+  scaffold_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -45,6 +46,17 @@ export interface GenerationLog {
   created_at: string;
 }
 
+export interface VersionErrorLog {
+  id: string;
+  chat_id: string;
+  version_id: string;
+  level: "info" | "warning" | "error";
+  category: string | null;
+  message: string;
+  meta: string | null;
+  created_at: string;
+}
+
 export interface ChatWithMessages extends Chat {
   messages: Message[];
 }
@@ -65,13 +77,14 @@ export function createChat(
   projectId: string,
   model: string = "gpt-5.2",
   systemPrompt?: string,
+  scaffoldId?: string,
 ): Chat {
   const db = getDb();
   const id = uuid();
 
   db.prepare(
-    `INSERT INTO chats (id, project_id, model, system_prompt) VALUES (?, ?, ?, ?)`,
-  ).run(id, projectId, model, systemPrompt ?? null);
+    `INSERT INTO chats (id, project_id, model, system_prompt, scaffold_id) VALUES (?, ?, ?, ?, ?)`,
+  ).run(id, projectId, model, systemPrompt ?? null, scaffoldId ?? null);
 
   return db.prepare(`SELECT * FROM chats WHERE id = ?`).get(id) as Chat;
 }
@@ -157,6 +170,14 @@ export function updateChatProjectId(chatId: string, projectId: string): boolean 
   return result.changes > 0;
 }
 
+export function updateChatScaffoldId(chatId: string, scaffoldId: string | null): boolean {
+  const db = getDb();
+  const result = db
+    .prepare(`UPDATE chats SET scaffold_id = ?, updated_at = datetime('now') WHERE id = ?`)
+    .run(scaffoldId, chatId);
+  return result.changes > 0;
+}
+
 export function getVersionsByChat(chatId: string): Version[] {
   const db = getDb();
   return db
@@ -178,6 +199,54 @@ export function updateVersionFiles(versionId: string, filesJson: string): boolea
     .prepare(`UPDATE versions SET files_json = ? WHERE id = ?`)
     .run(filesJson, versionId);
   return result.changes > 0;
+}
+
+export function createVersionErrorLogs(
+  payloads: Array<{
+    chatId: string;
+    versionId: string;
+    level: "info" | "warning" | "error";
+    category?: string | null;
+    message: string;
+    meta?: Record<string, unknown> | null;
+  }>,
+): VersionErrorLog[] {
+  const db = getDb();
+  if (payloads.length === 0) return [];
+
+  const insert = db.prepare(
+    `INSERT INTO version_error_logs (id, chat_id, version_id, level, category, message, meta)
+     VALUES (?, ?, ?, ?, ?, ?, ?)`,
+  );
+  const select = db.prepare(`SELECT * FROM version_error_logs WHERE id = ?`);
+
+  return payloads.map((payload) => {
+    const id = uuid();
+    insert.run(
+      id,
+      payload.chatId,
+      payload.versionId,
+      payload.level,
+      payload.category ?? null,
+      payload.message,
+      payload.meta ? JSON.stringify(payload.meta) : null,
+    );
+    return select.get(id) as VersionErrorLog;
+  });
+}
+
+export function getVersionErrorLogs(versionId: string): Array<
+  Omit<VersionErrorLog, "meta"> & { meta: Record<string, unknown> | null }
+> {
+  const db = getDb();
+  const rows = db
+    .prepare(`SELECT * FROM version_error_logs WHERE version_id = ? ORDER BY created_at DESC`)
+    .all(versionId) as VersionErrorLog[];
+
+  return rows.map((row) => ({
+    ...row,
+    meta: row.meta ? (JSON.parse(row.meta) as Record<string, unknown>) : null,
+  }));
 }
 
 export function logGeneration(

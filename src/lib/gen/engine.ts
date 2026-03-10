@@ -1,5 +1,6 @@
 import { streamText, type ModelMessage } from "ai";
 
+import { ENGINE_MAX_OUTPUT_TOKENS } from "./defaults";
 import { getOpenAIModel, DEFAULT_MODEL } from "./models";
 import { createCodeGenSSEStream, type StreamMeta } from "./stream-format";
 
@@ -12,8 +13,6 @@ export interface GenerateOptions {
   maxTokens?: number;
   abortSignal?: AbortSignal;
 }
-
-const DEFAULT_MAX_TOKENS = 16_384;
 
 /**
  * Generates code from a prompt using AI SDK + OpenAI.
@@ -50,7 +49,7 @@ export function generateCode(
     model,
     system: systemPrompt,
     messages,
-    maxOutputTokens: maxTokens ?? DEFAULT_MAX_TOKENS,
+    maxOutputTokens: maxTokens ?? ENGINE_MAX_OUTPUT_TOKENS,
     abortSignal,
   });
 

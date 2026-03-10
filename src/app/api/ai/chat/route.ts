@@ -15,9 +15,8 @@ import {
   normalizeAssistModel,
 } from "@/lib/builder/promptAssist";
 import { MAX_AI_CHAT_MESSAGE_CHARS } from "@/lib/builder/promptLimits";
-
 export const runtime = "nodejs";
-export const maxDuration = 600; // 10 minutes for prompt assist with slow models
+export const maxDuration = 600;
 
 const BASE_URL = "https://api.v0.dev/v1";
 

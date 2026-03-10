@@ -2,6 +2,15 @@ import fs from "node:fs";
 import nodePath from "node:path";
 import type { CodeFile } from "./parser";
 
+/**
+ * Download/export scaffold.
+ *
+ * This is separate from the small runtime scaffolds under `gen/scaffolds/`:
+ * - runtime scaffolds shape the model prompt before generation
+ * - this file fills in missing project boilerplate when exporting/downloading
+ *
+ * `_template_refs/` is a third, separate concept: research material only.
+ */
 const PACKAGE_JSON = `{
   "name": "sajtmaskin-project",
   "version": "0.1.0",

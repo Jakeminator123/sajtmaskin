@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { shouldUseV0Fallback } from "@/lib/gen/fallback";
 import { getVersionFiles, getLatestVersionFiles } from "@/lib/gen/version-manager";
 import { buildPreviewHtml } from "@/lib/gen/preview";
+import { repairGeneratedFiles } from "@/lib/gen/repair-generated-files";
 
 export const runtime = "nodejs";
 
@@ -18,6 +19,7 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const chatId = searchParams.get("chatId");
   const versionId = searchParams.get("versionId");
+  const routePath = searchParams.get("route");
 
   if (!chatId) {
     return NextResponse.json({ error: "chatId is required" }, { status: 400 });
@@ -39,7 +41,8 @@ export async function GET(req: Request) {
     );
   }
 
-  const html = buildPreviewHtml(files);
+  const repairedFiles = repairGeneratedFiles(files).files;
+  const html = buildPreviewHtml(repairedFiles, routePath);
 
   if (!html) {
     return new Response(

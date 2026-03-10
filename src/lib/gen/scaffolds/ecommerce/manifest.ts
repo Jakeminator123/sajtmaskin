@@ -34,7 +34,7 @@ export const ecommerceManifest: ScaffoldManifest = {
   --color-card-foreground: oklch(0.13 0.004 0);
   --color-popover: oklch(0.97 0 0);
   --color-popover-foreground: oklch(0.13 0.004 0);
-  --color-primary: oklch(0.45 0.004 0);
+  --color-primary: oklch(0.58 0.16 258);
   --color-primary-foreground: oklch(0.98 0 0);
   --color-secondary: oklch(0.94 0.004 0);
   --color-secondary-foreground: oklch(0.2 0.004 0);
@@ -46,7 +46,7 @@ export const ecommerceManifest: ScaffoldManifest = {
   --color-destructive-foreground: oklch(0.98 0 0);
   --color-border: oklch(0.88 0.004 0);
   --color-input: oklch(0.88 0.004 0);
-  --color-ring: oklch(0.45 0.004 0);
+  --color-ring: oklch(0.58 0.16 258);
   --color-chart-1: oklch(0.6 0.004 0);
   --color-chart-2: oklch(0.65 0.15 160);
   --color-chart-3: oklch(0.55 0.18 30);
@@ -58,6 +58,8 @@ export const ecommerceManifest: ScaffoldManifest = {
 @layer base {
   body {
     @apply bg-background text-foreground antialiased;
+    background-image:
+      radial-gradient(circle at top left, color-mix(in oklab, var(--color-primary) 10%, white) 0%, transparent 28%);
   }
 }
 `,

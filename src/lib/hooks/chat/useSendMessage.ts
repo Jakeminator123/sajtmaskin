@@ -2,7 +2,7 @@ import { useCallback } from "react";
 import { toast } from "sonner";
 import { formatPrompt } from "@/lib/builder/promptAssist";
 import { debugLog } from "@/lib/utils/debug";
-import { MODEL_LABELS, canonicalizeModelId } from "@/lib/v0/models";
+import { MODEL_LABELS, canonicalizeModelId, v0TierToOpenAIModel } from "@/lib/v0/models";
 import { STREAM_SAFETY_TIMEOUT_DEFAULT_MS } from "./constants";
 import type { AutoFixPayload, MessageOptions, ChatMessagingParams } from "./types";
 import {
@@ -75,12 +75,15 @@ export function useSendMessage(
       const now = Date.now();
       const userMessageId = `user-${now}`;
       const assistantMessageId = `assistant-${now}`;
+      const canonicalTier = canonicalizeModelId(selectedModelTier) ?? "v0-1.5-lg";
+      const engineModel = v0TierToOpenAIModel(canonicalTier);
 
       debugLog("AI", "Send message requested", {
         messageLength: messageText.length,
         attachments: options.attachments?.length ?? 0,
-        modelTier: MODEL_LABELS[canonicalizeModelId(selectedModelTier) ?? "v0-1.5-lg"],
-        modelId: selectedModelTier,
+        modelTier: MODEL_LABELS[canonicalTier],
+        modelTierId: canonicalTier,
+        engineModel,
       });
 
       setMessages((prev) => [
@@ -172,7 +175,8 @@ export function useSendMessage(
           pendingBriefRef.current = null;
         }
         promptMeta.modelTier = selectedModelTier;
-        promptMeta.modelId = selectedModelTier;
+        promptMeta.modelTierId = canonicalTier;
+        promptMeta.modelId = engineModel;
         promptMeta.imageGenerations = enableImageGenerations;
 
         requestBody = {

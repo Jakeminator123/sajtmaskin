@@ -40,6 +40,31 @@ const ENV_KEYS: EnvKeyDefinition[] = [
     required: false,
     notes: "Code generation (default engine), prompt-assist. Required when V0_FALLBACK_BUILDER is not set.",
   },
+  {
+    key: "SAJTMASKIN_ENGINE_MAX_OUTPUT_TOKENS",
+    required: false,
+    notes: "Own engine max output token budget for long page/site generations",
+  },
+  {
+    key: "SAJTMASKIN_AUTOFIX_MAX_OUTPUT_TOKENS",
+    required: false,
+    notes: "Autofix max output token budget",
+  },
+  {
+    key: "SAJTMASKIN_STREAM_SAFETY_TIMEOUT_MS",
+    required: false,
+    notes: "Client stream safety timeout before aborting stalled generations",
+  },
+  {
+    key: "SAJTMASKIN_ENGINE_ROUTE_MAX_DURATION_SECONDS",
+    required: false,
+    notes: "Max route duration for build/refine streaming routes",
+  },
+  {
+    key: "SAJTMASKIN_ASSIST_ROUTE_MAX_DURATION_SECONDS",
+    required: false,
+    notes: "Max route duration for prompt-assist and brief routes",
+  },
   { key: "ANTHROPIC_API_KEY", required: false, notes: "Prompt‑assist (Anthropic)" },
   { key: "AI_GATEWAY_API_KEY", required: false, notes: "AI Gateway" },
   { key: "VERCEL_TOKEN", required: false, notes: "Vercel API" },
@@ -65,9 +90,9 @@ const ENV_KEYS: EnvKeyDefinition[] = [
   { key: "TEMPLATE_EMBEDDINGS_STORAGE", required: false, notes: "Embeddings storage mode: auto/blob/local" },
   { key: "TEMPLATE_EMBEDDINGS_BLOB_KEY", required: false, notes: "Blob path for template embeddings JSON" },
   { key: "TEMPLATE_EMBEDDINGS_AUTO_REBUILD", required: false, notes: "Enable weekly cron rebuild for embeddings" },
-  { key: "MCP_GENERATED_CODE_API_KEY", required: false, notes: "Service key for MCP generated-code integration" },
   { key: "UNSPLASH_ACCESS_KEY", required: false, notes: "Unsplash" },
   { key: "FIGMA_ACCESS_TOKEN", required: false, notes: "Figma" },
+  { key: "RESEND_API_KEY", required: false, notes: "Resend — kontaktformulär, e-postverifiering, återställ lösenord" },
 ];
 
 function sanitizeEnvValue(value: string | undefined): string | null {

@@ -44,6 +44,8 @@ Skriptet kommer att:
 
 Hämtar externa GitHub-referenser till `_template_refs/` för scaffold- och hemsidemallsarbete.
 
+**OBS:** `_template_refs/` används inte vid runtime. Skriptet behövs endast om du utvecklar nya scaffolds från externa referenser. Se `_template_refs/README.md` för mer information.
+
 ### Användning
 
 ```bash

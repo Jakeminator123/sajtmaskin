@@ -1,5 +1,5 @@
 export { generateCode, type GenerateOptions } from "./engine";
-export { DEFAULT_MODEL, resolveModel, getOpenAIModel, type ModelTier } from "./models";
+export { DEFAULT_MODEL, getOpenAIModel } from "./models";
 export {
   buildSystemPrompt,
   getSystemPromptLengths,

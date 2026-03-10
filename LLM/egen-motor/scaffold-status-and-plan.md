@@ -8,7 +8,17 @@ A scaffold is a small internal starter structure, shaped for one category of sit
 
 ## Current scaffold system state
 
-The scaffold system is fully implemented with 9 scaffolds, intelligent matching, and post-generation validation.
+The scaffold system is fully implemented with 10 internal runtime scaffolds,
+intelligent matching, and post-generation validation.
+
+There are three separate scaffold/template concepts in the repo:
+
+1. Internal runtime scaffolds in `src/lib/gen/scaffolds/`
+   These are the only scaffolds used during generation.
+2. Download/project scaffold in `src/lib/gen/project-scaffold.ts`
+   This fills in missing boilerplate when exporting/downloading a project.
+3. External reference repos in `_template_refs/`
+   These are research material only and are not used at runtime.
 
 ### Infrastructure
 
@@ -21,7 +31,7 @@ The scaffold system is fully implemented with 9 scaffolds, intelligent matching,
 - Neutral oklch color palette in all scaffolds (model adapts to prompt)
 - Generic placeholder names (`[Företagsnamn]`, `[Produktnamn]`, etc.)
 
-### All 9 scaffolds
+### All 10 runtime scaffolds
 
 | # | ID | Family | Use case |
 |---|----|----|---------|
@@ -34,7 +44,17 @@ The scaffold system is fully implemented with 9 scaffolds, intelligent matching,
 | 7 | `auth-pages` | auth-pages | Login, register, password reset |
 | 8 | `ecommerce` | ecommerce | Online stores, product catalogs |
 | 9 | `content-site` | content-site | Broad fallback for content sites |
-| -- | `app-shell` | app-shell | Broad fallback for app prompts |
+| 10 | `app-shell` | app-shell | Broad fallback for app prompts |
+
+### Current runtime reality
+
+- `base-nextjs` is intentionally rudimentary and acts as the minimal fallback.
+- `landing-page`, `portfolio`, and `blog` are lighter website starters.
+- `saas-landing`, `dashboard`, `auth-pages`, and `app-shell` are more app/product oriented.
+- `content-site` and `ecommerce` sit in the middle as broader reusable starters.
+- The runtime scaffolds now share a more consistent blue primary/ring baseline
+  so they start from the same visual defaults instead of mixed neutral-gray
+  accents.
 
 ### Key code locations
 
@@ -42,6 +62,7 @@ The scaffold system is fully implemented with 9 scaffolds, intelligent matching,
 - `src/lib/gen/scaffolds/registry.ts` -- ALL_SCAFFOLDS array
 - `src/lib/gen/scaffolds/matcher.ts` -- keyword matching (10 keyword arrays)
 - `src/lib/gen/scaffolds/serialize.ts` -- prompt serialization with maxChars
+- `src/lib/gen/project-scaffold.ts` -- download/export-only scaffold
 - `src/lib/gen/stream/finalize-version.ts` -- shared autofix + merge + save pipeline
 - `src/lib/gen/autofix/rules/scaffold-import-checker.ts` -- post-merge import verification
 - `src/lib/gen/version-manager.ts` -- mergeVersionFiles with MergeWarning
@@ -60,7 +81,7 @@ The scaffold system is fully implemented with 9 scaffolds, intelligent matching,
 
 ## What is done
 
-- All 9 scaffolds implemented and registered
+- All 10 runtime scaffolds implemented and registered
 - Matcher with Swedish + English keywords for all categories
 - Scaffold context injected in system prompt (not user message)
 - Brief data passed to system prompt for new chats
@@ -69,6 +90,8 @@ The scaffold system is fully implemented with 9 scaffolds, intelligent matching,
 - Merge warnings for significant file shrinkage
 - Serialize truncates oversized first files instead of exceeding maxChars
 - `finalizeAndSaveVersion()` deduplicates 3 repeated version-save blocks
+- Runtime docs now distinguish internal scaffolds, download scaffold, and `_template_refs/`
+- Runtime scaffold defaults are less arbitrary: blue primary/ring tokens are consistent across the internal set
 
 ## Remaining improvements (future)
 

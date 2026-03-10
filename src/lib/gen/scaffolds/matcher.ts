@@ -353,6 +353,10 @@ export async function matchScaffoldWithEmbeddings(
   buildIntent?: BuildIntent | null,
 ): Promise<ScaffoldManifest | null> {
   const keywordResult = matchScaffold(prompt, buildIntent);
+  const lower = prompt.toLowerCase();
+  const authScore = countKeywordMatches(lower, AUTH_KEYWORDS);
+  const appScore = countKeywordMatches(lower, APP_KEYWORDS);
+  const dashboardScore = countKeywordMatches(lower, DASHBOARD_KEYWORDS);
 
   const isGenericDefault =
     !keywordResult ||
@@ -364,7 +368,25 @@ export async function matchScaffoldWithEmbeddings(
   try {
     const results = await searchScaffolds(prompt, 1);
     if (results.length > 0 && results[0].score >= EMBEDDING_MIN_SCORE) {
-      return results[0].scaffold;
+      const embeddingResult = results[0].scaffold;
+
+      // Embeddings are only allowed to override generic website defaults when the
+      // prompt actually signals the specialized scaffold. This prevents cases
+      // where a generic one-page site is incorrectly pushed into auth/app shells.
+      if (embeddingResult.id === "auth-pages" && authScore < 1) {
+        return keywordResult;
+      }
+
+      if (
+        buildIntent !== "app" &&
+        (embeddingResult.id === "dashboard" || embeddingResult.id === "app-shell") &&
+        appScore < 1 &&
+        dashboardScore < 1
+      ) {
+        return keywordResult;
+      }
+
+      return embeddingResult;
     }
   } catch {
     // embedding search is best-effort; fall through to keyword result

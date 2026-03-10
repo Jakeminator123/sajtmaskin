@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS chats (
   title TEXT,
   model TEXT NOT NULL DEFAULT 'gpt-5.2',
   system_prompt TEXT,
+  scaffold_id TEXT,
   created_at TEXT NOT NULL DEFAULT (datetime('now')),
   updated_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
@@ -53,9 +54,21 @@ CREATE TABLE IF NOT EXISTS generation_logs (
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
+CREATE TABLE IF NOT EXISTS version_error_logs (
+  id TEXT PRIMARY KEY,
+  chat_id TEXT NOT NULL REFERENCES chats(id),
+  version_id TEXT NOT NULL REFERENCES versions(id) ON DELETE CASCADE,
+  level TEXT NOT NULL CHECK(level IN ('info', 'warning', 'error')),
+  category TEXT,
+  message TEXT NOT NULL,
+  meta TEXT,
+  created_at TEXT NOT NULL DEFAULT (datetime('now'))
+);
+
 CREATE INDEX IF NOT EXISTS idx_messages_chat ON messages(chat_id);
 CREATE INDEX IF NOT EXISTS idx_versions_chat ON versions(chat_id);
 CREATE INDEX IF NOT EXISTS idx_gen_logs_chat ON generation_logs(chat_id);
+CREATE INDEX IF NOT EXISTS idx_version_error_logs_version ON version_error_logs(version_id);
 `;
 
 let _db: Database.Database | null = null;
@@ -71,6 +84,31 @@ function loadSchemaSql(): string {
 
 function applySchema(db: Database.Database): void {
   db.exec(loadSchemaSql());
+  runMigrations(db);
+}
+
+function runMigrations(db: Database.Database): void {
+  const columns = db
+    .prepare("PRAGMA table_info(chats)")
+    .all() as Array<{ name: string }>;
+  const hasScaffoldId = columns.some((c) => c.name === "scaffold_id");
+  if (!hasScaffoldId) {
+    db.exec("ALTER TABLE chats ADD COLUMN scaffold_id TEXT;");
+  }
+
+  db.exec(`
+    CREATE TABLE IF NOT EXISTS version_error_logs (
+      id TEXT PRIMARY KEY,
+      chat_id TEXT NOT NULL REFERENCES chats(id),
+      version_id TEXT NOT NULL REFERENCES versions(id) ON DELETE CASCADE,
+      level TEXT NOT NULL CHECK(level IN ('info', 'warning', 'error')),
+      category TEXT,
+      message TEXT NOT NULL,
+      meta TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_version_error_logs_version ON version_error_logs(version_id);
+  `);
 }
 
 /**

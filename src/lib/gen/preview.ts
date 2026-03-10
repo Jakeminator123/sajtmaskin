@@ -1,6 +1,7 @@
 import path from "node:path";
 import ts from "typescript";
 import type { CodeFile } from "./parser";
+import { isRuntimeProvidedImport } from "./runtime-imports";
 
 const PAGE_CANDATES = [
   "app/page.tsx",
@@ -50,8 +51,7 @@ function isPreviewBuiltinImportSource(source: string): boolean {
     source === "next/link" ||
     source === "next/navigation" ||
     source === "lucide-react" ||
-    source === "@/lib/utils" ||
-    source.startsWith("@/components/ui/")
+    isRuntimeProvidedImport(source)
   );
 }
 
@@ -65,6 +65,53 @@ function normalizeFilePath(filePath: string): string {
     .replace(/^\.\//, "")
     .replace(/\/{2,}/g, "/")
     .trim();
+}
+
+function normalizeRoutePath(routePath?: string | null): string {
+  const raw = (routePath ?? "").trim();
+  if (!raw) return "/";
+
+  let pathname = raw;
+  try {
+    pathname = new URL(raw, "https://preview.local").pathname;
+  } catch {
+    pathname = raw.split(/[?#]/, 1)[0] || raw;
+  }
+
+  pathname = pathname.replace(/\\/g, "/").replace(/\/{2,}/g, "/");
+  if (!pathname.startsWith("/")) pathname = `/${pathname}`;
+  if (pathname.length > 1) pathname = pathname.replace(/\/+$/, "");
+  return pathname || "/";
+}
+
+function routeFromPageFile(filePath: string): string | null {
+  let normalized = normalizeFilePath(filePath);
+  if (normalized.startsWith("src/")) normalized = normalized.slice(4);
+
+  const appMatch = normalized.match(/^app\/(.+)\/page\.(tsx|jsx|ts|js)$/);
+  if (appMatch) {
+    const parts = appMatch[1]
+      .split("/")
+      .filter((segment) => segment !== "page")
+      .filter((segment) => !(segment.startsWith("(") && segment.endsWith(")")));
+    return parts.length > 0 ? `/${parts.join("/")}` : "/";
+  }
+
+  if (/^app\/page\.(tsx|jsx|ts|js)$/.test(normalized)) {
+    return "/";
+  }
+
+  if (/^pages\/index\.(tsx|jsx|ts|js)$/.test(normalized)) {
+    return "/";
+  }
+
+  const pagesMatch = normalized.match(/^pages\/(.+)\.(tsx|jsx|ts|js)$/);
+  if (pagesMatch) {
+    const parts = pagesMatch[1].split("/").filter((segment) => segment !== "index");
+    return parts.length > 0 ? `/${parts.join("/")}` : "/";
+  }
+
+  return null;
 }
 
 function registerFileAlias(map: Map<string, CodeFile>, file: CodeFile, alias: string): void {
@@ -113,7 +160,11 @@ function buildPreparedModuleMap(modules: PreparedModule[]): Map<string, Prepared
   return moduleMap;
 }
 
-function findPageFile(files: CodeFile[]): CodeFile | null {
+function findPageFile(files: CodeFile[], routePath?: string | null): CodeFile | null {
+  const requestedRoute = normalizeRoutePath(routePath);
+  const exactMatch = files.find((file) => routeFromPageFile(file.path) === requestedRoute);
+  if (exactMatch) return exactMatch;
+
   for (const candidate of PAGE_CANDATES) {
     const match = files.find((f) => f.path === candidate || f.path.endsWith(`/${candidate}`));
     if (match) return match;
@@ -600,10 +651,11 @@ function prepareModules(pageFile: CodeFile, componentFiles: CodeFile[]): Prepare
   return prepared;
 }
 
-function buildPreviewPrelude(modules: PreparedModule[]): string {
+function buildPreviewPrelude(modules: PreparedModule[], routePath: string): string {
   const lines: string[] = [
     "const __previewRoot = document.getElementById('root');",
     "const __previewReportedErrors = new Set();",
+    `const __previewPathname = ${JSON.stringify(routePath)};`,
     "function __previewPost(type, payload) {",
     "  try {",
     "    if (window.parent && window.parent !== window) {",
@@ -660,9 +712,23 @@ function buildPreviewPrelude(modules: PreparedModule[]): string {
     "  const imgStyle = { ...style, width: typeof w === 'number' ? w + 'px' : w, height: typeof h === 'number' ? h + 'px' : h, objectFit: 'cover' };",
     "  return React.createElement('img', { ...rest, src, alt: alt || '', style: imgStyle, onError: () => setFailed(true) });",
     "};",
-    "const Link = ({ href, children, ...props }) => React.createElement('a', { href: href || '#', ...props, onClick: (e) => { e.preventDefault(); if (typeof __previewPost === 'function') __previewPost('navigation-attempt', { href }); } }, children);",
+    "const Link = ({ href, children, onClick, ...props }) => React.createElement('a', { href: href || '#', ...props, onClick: (e) => {",
+    "  onClick?.(e);",
+    "  if (e.defaultPrevented) return;",
+    "  const rawHref = typeof href === 'string' ? href : '';",
+    "  const isInternal = rawHref.startsWith('/') || rawHref.startsWith('./') || rawHref.startsWith('../');",
+    "  if (!isInternal) return;",
+    "  e.preventDefault();",
+    "  let nextHref = rawHref || '/';",
+    "  try {",
+    "    nextHref = new URL(rawHref, 'https://preview.local' + (__previewPathname.endsWith('/') ? __previewPathname : __previewPathname + '/')).pathname || '/';",
+    "  } catch {",
+    "    nextHref = rawHref || '/';",
+    "  }",
+    "  if (typeof __previewPost === 'function') __previewPost('navigation-attempt', { href: nextHref });",
+    "} }, children);",
     "const useRouter = () => ({ push: () => {}, replace: () => {}, back: () => {}, forward: () => {}, prefetch: async () => {} });",
-    "const usePathname = () => '/';",
+    "const usePathname = () => __previewPathname;",
     "const useSearchParams = () => new URLSearchParams();",
     "window.addEventListener('error', (event) => {",
     "  if (__previewRoot && !__previewRoot.hasChildNodes()) __previewShowError(event.error ?? event.message);",
@@ -1061,9 +1127,13 @@ function buildMissingImportStubs(modules: PreparedModule[], issues: PreviewValid
   return lines.join("\n");
 }
 
-function buildPreviewScript(pageFile: CodeFile, componentFiles: CodeFile[]): string {
+function buildPreviewScript(
+  pageFile: CodeFile,
+  componentFiles: CodeFile[],
+  routePath: string,
+): string {
   const modules = prepareModules(pageFile, componentFiles);
-  const prelude = buildPreviewPrelude(modules);
+  const prelude = buildPreviewPrelude(modules, routePath);
   const transpileFailures = modules.flatMap((module) =>
     module.transpileErrors.map((error) => `${module.file.path}: ${error}`),
   );
@@ -1126,8 +1196,9 @@ function buildPreviewScript(pageFile: CodeFile, componentFiles: CodeFile[]): str
   );
 }
 
-export function buildPreviewHtml(files: CodeFile[]): string | null {
-  const pageFile = findPageFile(files);
+export function buildPreviewHtml(files: CodeFile[], routePath?: string | null): string | null {
+  const normalizedRoute = normalizeRoutePath(routePath);
+  const pageFile = findPageFile(files, normalizedRoute);
   if (!pageFile) return null;
 
   const cssFiles = findCssFiles(files);
@@ -1138,7 +1209,7 @@ export function buildPreviewHtml(files: CodeFile[]): string | null {
       .join("\n"),
   );
   const baseCss = buildPreviewBaseCss();
-  const previewScript = buildPreviewScript(pageFile, componentFiles);
+  const previewScript = buildPreviewScript(pageFile, componentFiles, normalizedRoute);
 
   const allContent = [pageFile, ...componentFiles, ...cssFiles].map((f) => f.content).join("\n");
   const wantsDark = /className=["'][^"']*\bdark\b/.test(allContent) || /class=["'][^"']*\bdark\b/.test(allContent);
@@ -1210,6 +1281,7 @@ export function buildPreviewUrl(
   chatId: string,
   versionId: string,
   projectId?: string | null,
+  routePath?: string | null,
 ): string {
   const params = new URLSearchParams({
     chatId,
@@ -1217,6 +1289,10 @@ export function buildPreviewUrl(
   });
   if (projectId) {
     params.set("projectId", projectId);
+  }
+  const normalizedRoute = normalizeRoutePath(routePath);
+  if (normalizedRoute !== "/") {
+    params.set("route", normalizedRoute);
   }
   return `/api/preview-render?${params.toString()}`;
 }

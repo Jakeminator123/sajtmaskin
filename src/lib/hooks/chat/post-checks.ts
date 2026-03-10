@@ -244,6 +244,22 @@ export function findMissingRoutes(links: string[], routes: string[]): string[] {
   return links.filter((link) => !matchers.some((matcher) => matcher.test(link)));
 }
 
+function findLucideLinkMisuse(files: FileEntry[]): string[] {
+  const affected = new Set<string>();
+  const lucideLinkImport =
+    /import\s*\{[^}]*\bLink\b[^}]*\}\s*from\s*["']lucide-react["'];?/;
+  const hrefUsage = /<Link\b[^>]*\bhref=/;
+
+  for (const file of files) {
+    if (!file?.content) continue;
+    if (!lucideLinkImport.test(file.content)) continue;
+    if (!hrefUsage.test(file.content)) continue;
+    affected.add(file.name);
+  }
+
+  return Array.from(affected);
+}
+
 // ---------------------------------------------------------------------------
 // Post-check summary formatting
 // ---------------------------------------------------------------------------
@@ -435,10 +451,16 @@ export async function runPostGenerationChecks(params: {
     const routePaths = extractAppRoutePaths(currentFiles);
     const internalLinks = extractStaticInternalLinks(currentFiles);
     const missingRoutes = findMissingRoutes(internalLinks, routePaths);
+    const lucideLinkMisuse = findLucideLinkMisuse(currentFiles);
     if (missingRoutes.length > 0) {
       const preview = missingRoutes.slice(0, 6).join(", ");
       const suffix = missingRoutes.length > 6 ? " …" : "";
       warnings.push(`Saknar route för ${preview}${suffix}.`);
+    }
+    if (lucideLinkMisuse.length > 0) {
+      const preview = lucideLinkMisuse.slice(0, 6).join(", ");
+      const suffix = lucideLinkMisuse.length > 6 ? " …" : "";
+      warnings.push(`Fel Link-import i ${preview}${suffix}. Använd \`next/link\`, inte \`lucide-react\`.`);
     }
     const versionEntry = versions.find(
       (entry) => entry.versionId === versionId || entry.id === versionId,
@@ -529,6 +551,9 @@ export async function runPostGenerationChecks(params: {
     if (streamQuality?.hasCriticalAnomaly) {
       qualityGateFailures.push(`stream_anomaly:${streamQuality.reasons.join(",")}`);
     }
+    if (lucideLinkMisuse.length > 0) {
+      qualityGateFailures.push("invalid_link_import");
+    }
     const qualityGatePassed = qualityGateFailures.length === 0;
     steps.push(
       qualityGatePassed
@@ -571,6 +596,7 @@ export async function runPostGenerationChecks(params: {
       },
       warnings,
       missingRoutes,
+      lucideLinkMisuse,
       suspiciousUseCalls,
       designTokens,
       imageValidation,
@@ -608,6 +634,14 @@ export async function runPostGenerationChecks(params: {
         meta: { suspiciousUseCalls },
       });
     }
+    if (lucideLinkMisuse.length > 0) {
+      logItems.push({
+        level: "warning",
+        category: "navigation",
+        message: "Felaktig Link-import upptackt.",
+        meta: { files: lucideLinkMisuse },
+      });
+    }
     if (imageValidation?.broken?.length) {
       logItems.push({
         level: "warning",
@@ -641,6 +675,7 @@ export async function runPostGenerationChecks(params: {
     const autoFixReasons: string[] = [];
     if (!finalDemoUrl) autoFixReasons.push("preview saknas");
     if (missingRoutes.length > 0) autoFixReasons.push("saknade routes");
+    if (lucideLinkMisuse.length > 0) autoFixReasons.push("fel Link-import");
     if (suspiciousUseCalls.length > 0) autoFixReasons.push("misstankt use()");
     if (imageValidation?.broken?.length) autoFixReasons.push("trasiga bilder");
     if (imageValidation?.warnings?.some((warning) => warning.includes("[semantic-image]"))) {
@@ -652,7 +687,9 @@ export async function runPostGenerationChecks(params: {
         versionId,
         reasons: autoFixReasons,
         meta: {
+          previousVersionId,
           missingRoutes,
+          lucideLinkMisuse,
           suspiciousUseCalls,
           imageValidation,
           demoUrl: finalDemoUrl,

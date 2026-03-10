@@ -646,6 +646,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               chatId={vm.chatId}
               versionId={vm.activeVersionId}
               demoUrl={vm.currentDemoUrl}
+              onNavigatePreviewUrl={(url) => vm.setCurrentDemoUrl(url)}
               isLoading={vm.isAnyStreaming || vm.isCreatingChat}
               imageGenerationsEnabled={vm.enableImageGenerations}
               imageGenerationsSupported={vm.isImageGenerationsSupported}

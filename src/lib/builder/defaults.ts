@@ -25,6 +25,7 @@
 import { GATEWAY_ASSIST_MODELS, V0_ASSIST_MODELS } from "./promptAssist";
 import type { ScaffoldMode } from "@/lib/gen/scaffolds";
 import type { ModelTier } from "@/lib/validations/chatSchemas";
+import { DEFAULT_MODEL_ID } from "@/lib/v0/models";
 
 // ============================================
 // MODEL TIER OPTIONS
@@ -63,7 +64,7 @@ export const MODEL_TIER_OPTIONS: ModelTierOption[] = [
 ];
 
 /** Default build tier for new chats */
-export const DEFAULT_MODEL_TIER: ModelTier = "v0-1.5-lg";
+export const DEFAULT_MODEL_TIER: ModelTier = DEFAULT_MODEL_ID;
 
 /** Default scaffold selection for new chats — off means no scaffold unless user picks one */
 export const DEFAULT_SCAFFOLD_MODE: ScaffoldMode = "auto";

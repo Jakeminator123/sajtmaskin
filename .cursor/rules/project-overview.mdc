@@ -12,7 +12,7 @@ and get a working site generated, previewed, and deployed.
 
 - **Framework**: Next.js 16 (App Router), React 19, TypeScript 5.9
 - **Styling**: Tailwind CSS 4, shadcn/ui (Radix primitives)
-- **AI/Generation**: v0 Platform API (v0-sdk), AI SDK 6 (@ai-sdk/openai, @ai-sdk/vercel)
+- **AI/Generation**: Own engine (OpenAI via AI SDK) default; v0 Platform API fallback when V0_FALLBACK_BUILDER=y
 - **Database**: PostgreSQL (Supabase) via Drizzle ORM
 - **Cache**: Redis (Upstash/ioredis)
 - **State**: Zustand (auth), React hooks (builder state)
@@ -23,8 +23,11 @@ and get a working site generated, previewed, and deployed.
 ## Architecture
 
 ```
-User prompt -> Builder UI -> v0 Platform API -> Generated code -> Preview -> Deploy to Vercel
+User prompt -> Builder UI -> Own engine (default) or v0 Platform API (fallback) -> Generated code -> Preview -> Deploy to Vercel
 ```
+
+- **Own engine**: `src/lib/gen/` — streamText, scaffolds, autofix, preview. Kräver OPENAI_API_KEY.
+- **v0 fallback**: När V0_FALLBACK_BUILDER=y skickas till v0 Platform API. Kräver V0_API_KEY.
 
 ### Key directories
 
@@ -32,7 +35,8 @@ User prompt -> Builder UI -> v0 Platform API -> Generated code -> Preview -> Dep
 |-----------|---------|
 | `src/app/builder/` | Main builder page (prompt -> generate -> preview -> deploy) |
 | `src/app/admin/` | Admin dashboard |
-| `src/app/api/v0/` | v0 Platform API proxy routes (chat, stream, projects) |
+| `src/app/api/v0/` | Chat/stream routes (own engine eller v0 proxy) |
+| `src/lib/gen/` | Own engine — scaffolds, system prompt, autofix, preview |
 | `src/app/api/auth/` | Authentication (email, Google, GitHub OAuth) |
 | `src/app/api/ai/` | AI Gateway routes (prompt assist, brief, spec) |
 | `src/components/builder/` | Builder UI components (ChatInterface, MessageList, PreviewPanel) |![1772500015428](image/project-overview/1772500015428.png)
@@ -52,18 +56,19 @@ User prompt -> Builder UI -> v0 Platform API -> Generated code -> Preview -> Dep
 1. User enters prompt in `ChatInterface.tsx`
 2. Prompt optionally enhanced via `/api/ai/chat` (prompt assist)
 3. Sent to `/api/v0/chats/stream` or `/api/v0/chats/[chatId]/stream`
-4. v0 Platform API generates code, streamed back via SSE
-5. Preview rendered in `PreviewPanel.tsx`
+4. Own engine (default) or v0 Platform API (fallback) generates code, streamed via SSE
+5. Preview rendered in `PreviewPanel.tsx` (app preview route för own engine)
 6. User can refine, deploy, or start new
 
 ### Database tables (Drizzle)
 
-projects, chats, versions, deployments, users, transactions, user_integrations
+**Supabase (main):** projects, chats, versions, deployments, users, transactions, user_integrations  
+**Own engine (PostgreSQL eller SQLite):** engine_chats, engine_messages, engine_versions, engine_generation_logs
 
 ### Config
 
 All env vars accessed through `src/lib/config.ts` (SECRETS, FEATURES, PATHS, URLS).
-Feature flags auto-detect available services.
+Feature flags auto-detect available services. Se `ENV.md` för env-översikt.
 
 ## Conventions
 

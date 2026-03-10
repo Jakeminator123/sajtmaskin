@@ -20,6 +20,7 @@ import {
   buildOwnEnginePreviewRuntime,
   createSandboxRuntimeFromFiles,
 } from "./runtime-url";
+import { DEFAULT_MODEL_ID } from "@/lib/v0/models";
 
 export type GenerateSiteParams = {
   prompt: string;
@@ -98,7 +99,7 @@ export async function generateSiteFromPrompt(
 
   const modelSelection = resolveModelSelection({
     requestedModelId: params.modelId ?? null,
-    fallbackTier: "v0-max-fast",
+    fallbackTier: DEFAULT_MODEL_ID,
   });
   const engineModel = resolveEngineModelId(modelSelection.modelTier, false);
 
@@ -138,7 +139,12 @@ export async function generateSiteFromPrompt(
     // with an internal project id stored in the chat repository.
   }
 
-  const chat = chatRepo.createChat(projectId, String(engineModel), systemPrompt);
+  const chat = chatRepo.createChat(
+    projectId,
+    String(engineModel),
+    systemPrompt,
+    resolvedScaffold?.id,
+  );
   chatRepo.addMessage(chat.id, "user", prompt);
 
   const startedAt = Date.now();

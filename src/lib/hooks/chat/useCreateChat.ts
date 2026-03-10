@@ -122,12 +122,16 @@ export function useCreateChat(
       const userMessageId = `user-${now}`;
       const assistantMessageId = `assistant-${now}`;
 
+      const canonicalTier = canonicalizeModelId(selectedModelTier) ?? "v0-1.5-lg";
+      const engineModel = v0TierToOpenAIModel(canonicalTier);
+
       debugLog("AI", "Create chat requested", {
         messageLength: initialMessage.length,
         attachments: options.attachments?.length ?? 0,
         imageGenerations: enableImageGenerations,
-        buildTier: MODEL_LABELS[canonicalizeModelId(selectedModelTier) ?? "v0-1.5-lg"],
-        engine: v0TierToOpenAIModel(canonicalizeModelId(selectedModelTier) ?? "v0-1.5-lg"),
+        buildTier: MODEL_LABELS[canonicalTier],
+        modelTierId: canonicalTier,
+        engine: engineModel,
         systemPromptProvided: Boolean(effectiveSystemPrompt?.trim()),
       });
 
@@ -151,7 +155,7 @@ export function useCreateChat(
             : null;
         appendModelInfoPart(setMessages, assistantMessageId, {
           modelId:
-            (typeof meta?.modelId === "string" && meta?.modelId) || selectedModelTier || null,
+            (typeof meta?.modelId === "string" && meta?.modelId) || engineModel || null,
           modelTier:
             (typeof meta?.modelTier === "string" && meta?.modelTier) || selectedModelTier || null,
           thinking: typeof meta?.thinking === "boolean" ? (meta.thinking as boolean) : null,
@@ -263,8 +267,9 @@ export function useCreateChat(
           promptMeta.brief = pendingBriefRef.current;
           pendingBriefRef.current = null;
         }
-        promptMeta.modelId = selectedModelTier;
+        promptMeta.modelId = engineModel;
         promptMeta.modelTier = selectedModelTier;
+        promptMeta.modelTierId = canonicalTier;
 
         requestBody = {
           message: finalMessage,

@@ -249,7 +249,7 @@ export function finalizeStreamStats(stats: StreamDebugStats): StreamQualitySigna
     partsEvents: stats.partsEvents,
   };
 
-  debugLog("v0", "Stream summary", summary);
+  debugLog("build", "Stream summary", summary);
 
   const reasons: string[] = [];
   if (!stats.didReceiveDone) {
@@ -264,7 +264,7 @@ export function finalizeStreamStats(stats: StreamDebugStats): StreamQualitySigna
 
   const hasCriticalAnomaly = reasons.length > 0;
   if (hasCriticalAnomaly) {
-    warnLog("v0", "Stream anomaly detected", { ...summary, reasons });
+    warnLog("build", "Stream anomaly detected", { ...summary, reasons });
   }
   return { hasCriticalAnomaly, reasons };
 }
@@ -825,6 +825,12 @@ export function buildStreamErrorMessage(errorData: Record<string, unknown> | nul
 
 export function buildAutoFixPrompt(payload: AutoFixPayload): string {
   const reasons = payload.reasons.length > 0 ? payload.reasons.join(", ") : "unknown issues";
+  const currentVersionErrors = Array.isArray(payload.meta?.currentVersionErrors)
+    ? payload.meta.currentVersionErrors.filter((value): value is string => typeof value === "string")
+    : [];
+  const previousVersionErrors = Array.isArray(payload.meta?.previousVersionErrors)
+    ? payload.meta.previousVersionErrors.filter((value): value is string => typeof value === "string")
+    : [];
   const lines = [
     "AUTO-FIX REQUEST — STRICT MINIMAL DIFF",
     "",
@@ -843,6 +849,12 @@ export function buildAutoFixPrompt(payload: AutoFixPayload): string {
     "- All internal links resolve to existing routes.",
     "- No broken images or invalid React use() calls.",
   ];
+  if (currentVersionErrors.length > 0) {
+    lines.push("", "Persisted errors for this version:", ...currentVersionErrors.map((entry) => `- ${entry}`));
+  }
+  if (previousVersionErrors.length > 0) {
+    lines.push("", "Related unresolved errors from previous version:", ...previousVersionErrors.map((entry) => `- ${entry}`));
+  }
   if (payload.meta) {
     const metaStr = JSON.stringify(payload.meta, null, 2);
     const truncated = metaStr.length > 3000 ? metaStr.slice(0, 3000) + "\n..." : metaStr;

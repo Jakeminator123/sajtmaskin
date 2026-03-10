@@ -29,7 +29,7 @@ export const CANONICAL_MODEL_IDS = V0_MODEL_IDS;
 
 export type CanonicalModelId = (typeof V0_MODEL_IDS)[number];
 
-export const DEFAULT_MODEL_ID: CanonicalModelId = "v0-max-fast";
+export const DEFAULT_MODEL_ID: CanonicalModelId = "v0-1.5-lg";
 
 /** OpenAI model IDs for the default engine (when not using v0 fallback) */
 export const OWN_MODEL_IDS = [

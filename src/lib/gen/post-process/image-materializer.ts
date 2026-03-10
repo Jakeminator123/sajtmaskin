@@ -84,6 +84,147 @@ function shortenQuery(normalized: string, maxWords = 3): string {
   return normalized.split(/\s+/).slice(0, maxWords).join(" ");
 }
 
+const STYLE_WORDS = new Set([
+  "dramatic",
+  "dramatiskt",
+  "dramatiska",
+  "futuristic",
+  "futuristisk",
+  "futuristiska",
+  "cinematic",
+  "cinematisk",
+  "cinematiska",
+  "neon",
+  "neonaktiga",
+  "intelligent",
+  "nyfiket",
+  "nyfikna",
+  "family",
+  "friendly",
+  "familjevanlig",
+  "familjevänlig",
+  "adventure",
+  "adventurous",
+  "upptackarkansla",
+  "upptäckarkänsla",
+  "high",
+  "contrast",
+  "kontrast",
+  "future",
+  "framtid",
+  "framtidskansla",
+  "framtidskänsla",
+]);
+
+const QUERY_REPLACEMENTS: Array<[RegExp, string]> = [
+  [/\bapor\b/giu, "monkeys"],
+  [/\bapa\b/giu, "monkey"],
+  [/\bnärbild\b/giu, "close up"],
+  [/\buttryck\b/giu, "expression"],
+  [/\brörelse\b/giu, "movement"],
+  [/\bnaturmiljö\b/giu, "nature"],
+  [/\bnaturlandskap\b/giu, "nature landscape"],
+  [/\bmallorca-liknande\b/giu, "mallorca"],
+  [/\bmedelhav(?:s)?\b/giu, "mediterranean"],
+  [/\bklippmiljö\b/giu, "cliffs"],
+  [/\bklippor\b/giu, "cliffs"],
+  [/\bgrönska\b/giu, "greenery"],
+  [/\bgrönt\b/giu, "green"],
+  [/\bgröna\b/giu, "green"],
+  [/\bgult\b/giu, "yellow"],
+  [/\bgula\b/giu, "yellow"],
+  [/\bljusdetaljer\b/giu, "light details"],
+  [/\bneonreflexer\b/giu, "neon reflections"],
+  [/\bdramatiskt\b/giu, "dramatic"],
+  [/\bdramatiska\b/giu, "dramatic"],
+  [/\bfamiljevänlig\b/giu, "family friendly"],
+  [/\bupptäckarkänsla\b/giu, "adventure"],
+  [/\bskymningen\b/giu, "twilight"],
+];
+
+function normalizeWhitespace(value: string): string {
+  return value.replace(/\s+/g, " ").trim();
+}
+
+function translateSearchQuery(raw: string): string {
+  let translated = raw.toLowerCase();
+  for (const [pattern, replacement] of QUERY_REPLACEMENTS) {
+    translated = translated.replace(pattern, replacement);
+  }
+  return normalizeWhitespace(translated);
+}
+
+function stripStyleWords(raw: string, maxWords = 6): string {
+  const words = raw
+    .split(/\s+/)
+    .filter((word) => word.length > 0 && !STYLE_WORDS.has(word.toLowerCase()));
+  return words.slice(0, maxWords).join(" ");
+}
+
+function buildBroadFallbackQuery(raw: string): string | null {
+  const words = raw.toLowerCase().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return null;
+
+  const hasMonkey = words.some((word) =>
+    ["monkey", "monkeys", "ape", "apes", "primate", "primates"].includes(word),
+  );
+  const hasPortrait = words.some((word) =>
+    ["portrait", "close", "closeup", "face", "expression"].includes(word),
+  );
+  const hasNature = words.some((word) =>
+    [
+      "nature",
+      "landscape",
+      "cliffs",
+      "coast",
+      "coastline",
+      "greenery",
+      "forest",
+      "jungle",
+      "outdoor",
+      "mediterranean",
+    ].includes(word),
+  );
+  const hasAction = words.some((word) =>
+    ["movement", "action", "running", "jumping", "motion"].includes(word),
+  );
+  const hasMallorca = words.includes("mallorca") || words.includes("majorca");
+
+  if (hasMonkey && hasPortrait) return "monkey portrait";
+  if (hasMonkey && hasAction) return "monkey in nature";
+  if (hasMonkey && hasNature && hasMallorca) return "monkey mediterranean nature";
+  if (hasMonkey && hasNature) return "monkey in nature";
+  if (hasMonkey) return "monkey";
+  if (hasMallorca && hasNature) return "mallorca coast nature";
+  if (hasNature) return "nature landscape";
+
+  return words.slice(0, 3).join(" ");
+}
+
+function buildSearchCandidates(raw: string): string[] {
+  const normalized = normalizeSearchQuery(raw);
+  const translated = normalizeSearchQuery(translateSearchQuery(raw), 8);
+  const strippedNormalized = stripStyleWords(normalized);
+  const strippedTranslated = stripStyleWords(translated);
+  const broadFallback = buildBroadFallbackQuery(
+    strippedTranslated || translated || strippedNormalized || normalized,
+  );
+
+  return [
+    normalized,
+    translated,
+    strippedNormalized,
+    strippedTranslated,
+    normalized ? shortenQuery(normalized, 4) : "",
+    translated ? shortenQuery(translated, 4) : "",
+    strippedTranslated ? shortenQuery(strippedTranslated, 3) : "",
+    broadFallback ?? "",
+  ]
+    .map((candidate) => normalizeWhitespace(candidate))
+    .filter(Boolean)
+    .filter((candidate, index, arr) => arr.indexOf(candidate) === index);
+}
+
 export interface MaterializeResult {
   content: string;
   replacedCount: number;
@@ -135,26 +276,30 @@ export async function materializeImages(content: string): Promise<MaterializeRes
   for (const match of matches) {
     const cacheKey = `${match.text}|${match.width}|${match.height}`;
     let url = seen.get(cacheKey);
+    let queryUsed = match.text;
 
     if (!url) {
       const orientation = chooseOrientation(match.width, match.height);
-      const normalized = normalizeSearchQuery(match.text);
-      let rawUrl = await searchUnsplash(normalized, accessKey, orientation);
-      if (!rawUrl && normalized.split(/\s+/).length > 3) {
-        rawUrl = await searchUnsplash(shortenQuery(normalized), accessKey, orientation);
-      }
-      if (rawUrl) {
+      const candidates = buildSearchCandidates(match.text);
+      for (const candidate of candidates) {
+        const rawUrl = await searchUnsplash(candidate, accessKey, orientation);
+        if (!rawUrl) continue;
         url = buildUnsplashUrl(rawUrl, match.width, match.height);
+        queryUsed = candidate;
         seen.set(cacheKey, url);
+        break;
       }
     }
 
     if (url) {
       result = result.replace(match.fullMatch, url);
       replaced++;
-      queries.push(match.text);
+      queries.push(queryUsed);
     } else {
-      warnLog("images", `No Unsplash result for: ${match.text}`);
+      warnLog("images", "No Unsplash result", {
+        originalQuery: match.text,
+        attemptedQueries: buildSearchCandidates(match.text),
+      });
     }
   }
 

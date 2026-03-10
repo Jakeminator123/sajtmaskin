@@ -29,10 +29,10 @@ import { sendMessageSchema } from "@/lib/validations/chatSchemas";
 import { WARN_CHAT_MESSAGE_CHARS, WARN_CHAT_SYSTEM_CHARS } from "@/lib/builder/promptLimits";
 import { orchestratePromptMessage } from "@/lib/builder/promptOrchestration";
 import { resolveModelSelection, resolveEngineModelId } from "@/lib/v0/modelSelection";
+import { DEFAULT_MODEL_ID, MODEL_LABELS, v0TierToOpenAIModel } from "@/lib/v0/models";
 import { shouldUseV0Fallback, createGenerationPipeline } from "@/lib/gen/fallback";
-import { compressUrls, expandUrls } from "@/lib/gen/url-compress";
+import { compressUrls } from "@/lib/gen/url-compress";
 import {
-  matchScaffoldWithEmbeddings,
   getScaffoldById,
   serializeScaffoldForPrompt,
   detectScaffoldMode,
@@ -42,12 +42,9 @@ import { buildSystemPrompt, getSystemPromptLengths, type Brief } from "@/lib/gen
 import { SuspenseLineProcessor, parseSSEBuffer } from "@/lib/gen/route-helpers";
 import * as chatRepo from "@/lib/db/chat-repository";
 import type { BuildIntent } from "@/lib/builder/build-intent";
-import { runAutoFix } from "@/lib/gen/autofix/pipeline";
-import { validateAndFix } from "@/lib/gen/autofix/validate-and-fix";
-import { buildPreviewUrl } from "@/lib/gen/preview";
 import { buildFileContext } from "@/lib/gen/context";
-import { parseCodeProject, type CodeFile } from "@/lib/gen/parser";
-import { mergeVersionFiles } from "@/lib/gen/version-manager";
+import type { CodeFile } from "@/lib/gen/parser";
+import { finalizeAndSaveVersion } from "@/lib/gen/stream/finalize-version";
 
 export const runtime = "nodejs";
 export const maxDuration = 800;
@@ -122,7 +119,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
       const modelSelection = resolveModelSelection({
         requestedModelId: modelId,
         requestedModelTier: metaRequestedModelTier,
-        fallbackTier: "v0-max-fast",
+        fallbackTier: DEFAULT_MODEL_ID,
       });
 
       // ── New Engine Path ───────────────────────────────────────────────
@@ -274,13 +271,18 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
             ? (metaBuildIntent as BuildIntent)
             : "website";
         let resolvedScaffold: ScaffoldManifest | null = null;
-        if (metaScaffoldMode === "manual" && metaScaffoldId) {
+        const persistedScaffoldId = engineChat.scaffold_id;
+        if (metaScaffoldMode === "off") {
+          resolvedScaffold = null;
+        } else if (persistedScaffoldId) {
+          resolvedScaffold = getScaffoldById(persistedScaffoldId);
+        } else if (metaScaffoldMode === "manual" && metaScaffoldId) {
           resolvedScaffold = getScaffoldById(metaScaffoldId);
-        } else if (metaScaffoldMode === "auto") {
-          resolvedScaffold = await matchScaffoldWithEmbeddings(
-            optimizedMessage,
-            engineIntent,
-          );
+        }
+        if (resolvedScaffold && !persistedScaffoldId) {
+          try {
+            chatRepo.updateChatScaffoldId(chatId, resolvedScaffold.id);
+          } catch { /* best-effort persist */ }
         }
 
         let scaffoldContextForPrompt: string | undefined;
@@ -328,47 +330,26 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
           }));
 
         const engineModel = resolveEngineModelId(resolvedModelTier, false);
+        debugLog("build", "Follow-up chat stream request", {
+          chatId,
+          modelTierId: resolvedModelTier,
+          modelTierLabel: MODEL_LABELS[resolvedModelTier],
+          enginePath: "own-engine",
+          engineModel: v0TierToOpenAIModel(resolvedModelTier),
+          promptLength: optimizedMessage.length,
+          originalPromptLength: message.length,
+          attachments: Array.isArray(attachments) ? attachments.length : 0,
+          thinking: resolvedThinking,
+          imageGenerations: resolvedImageGenerations,
+          promptStrategy: promptOrchestration.strategyMeta.strategy,
+          promptType: promptOrchestration.strategyMeta.promptType,
+        });
         debugLog("engine", "Own engine model resolved", {
           resolvedModelTier,
           engineModel,
           fallback: false,
         });
         const { compressed: enginePrompt, urlMap } = compressUrls(promptForLlm);
-        const prepareVersionFiles = async (generatedFiles: CodeFile[]): Promise<CodeFile[]> => {
-          const mergedFiles = previousFiles.length > 0
-            ? mergeVersionFiles(previousFiles, generatedFiles)
-            : generatedFiles;
-
-          const { checkCrossFileImports } = await import(
-            "@/lib/gen/autofix/rules/cross-file-import-checker"
-          );
-          const crossResult = checkCrossFileImports(mergedFiles);
-          let finalFiles = crossResult.files;
-          if (crossResult.fixes.length > 0) {
-            devLogAppend("latest", {
-              type: "cross-file-import-checker",
-              chatId,
-              fixes: crossResult.fixes,
-            });
-          }
-
-          if (resolvedScaffold) {
-            const { checkScaffoldImports } = await import(
-              "@/lib/gen/autofix/rules/scaffold-import-checker"
-            );
-            const scaffoldResult = checkScaffoldImports(finalFiles, resolvedScaffold);
-            finalFiles = scaffoldResult.files;
-            if (scaffoldResult.fixes.length > 0) {
-              devLogAppend("latest", {
-                type: "scaffold-import-checker",
-                chatId,
-                fixes: scaffoldResult.fixes,
-              });
-            }
-          }
-
-          return finalFiles;
-        };
         const pipelineStream = createGenerationPipeline({
           prompt: enginePrompt,
           systemPrompt: engineSystemPrompt,
@@ -488,109 +469,39 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
                         safeEnqueue(enc.encode(formatSSEEvent("content", flushed)));
                       }
 
-                      let contentForVersion = accumulatedContent;
-                      try {
-                        const autoFixResult = await runAutoFix(accumulatedContent, {
-                          chatId,
-                          model: engineModel,
-                        });
-                        contentForVersion = autoFixResult.fixedContent;
-
-                        if (autoFixResult.fixes.length > 0 || autoFixResult.warnings.length > 0) {
-                          devLogAppend("latest", {
-                            type: "autofix.result",
-                            chatId,
-                            fixes: autoFixResult.fixes,
-                            warnings: autoFixResult.warnings.slice(0, 20),
-                            dependencies: autoFixResult.dependencies,
-                          });
-                        }
-                      } catch (autofixErr) {
-                        console.warn("[autofix] Pipeline error, using raw content:", autofixErr);
-                      }
-
-                      const syntaxResult = await validateAndFix(contentForVersion, {
+                      const doneData = evt.data as Record<string, unknown> | null;
+                      const tokenUsage = {
+                        prompt: typeof doneData?.promptTokens === "number" ? doneData.promptTokens : undefined,
+                        completion: typeof doneData?.completionTokens === "number" ? doneData.completionTokens : undefined,
+                      };
+                      const finalized = await finalizeAndSaveVersion({
+                        accumulatedContent,
                         chatId,
                         model: engineModel,
+                        resolvedScaffold,
+                        urlMap,
+                        startedAt: engineStartedAt,
+                        previousFiles,
+                        tokenUsage,
+                        logNote: "Follow-up done",
                       });
-                      contentForVersion = syntaxResult.content;
-                      contentForVersion = expandUrls(contentForVersion, urlMap);
-                      if (syntaxResult.fixerUsed) {
-                        devLogAppend("latest", {
-                          type: "syntax-validation.result",
-                          chatId,
-                          fixerImproved: syntaxResult.fixerImproved,
-                          errorsBefore: syntaxResult.errorsBefore,
-                          errorsAfter: syntaxResult.errorsAfter,
-                        });
-                      }
-
-                      try {
-                        const { materializeImages } = await import("@/lib/gen/post-process/image-materializer");
-                        const imgResult = await materializeImages(contentForVersion);
-                        if (imgResult.replacedCount > 0) {
-                          contentForVersion = imgResult.content;
-                          devLogAppend("latest", {
-                            type: "image-materialization",
-                            chatId,
-                            replacedCount: imgResult.replacedCount,
-                            queries: imgResult.queries.slice(0, 10),
-                          });
-                        }
-                      } catch (imgErr) {
-                        console.warn("[image-materializer] Non-fatal error in follow-up:", imgErr);
-                      }
-
-                      const assistantMsg = chatRepo.addMessage(
-                        chatId,
-                        "assistant",
-                        contentForVersion,
-                      );
-                      const generatedFiles = parseCodeProject(contentForVersion).files;
-                      const finalFiles = await prepareVersionFiles(generatedFiles);
-                      const filesJson = JSON.stringify(finalFiles);
-                      const version = chatRepo.createVersion(
-                        chatId,
-                        assistantMsg.id,
-                        filesJson,
-                      );
-
-                      const doneData = evt.data as Record<string, unknown> | null;
-                      chatRepo.logGeneration(
-                        chatId,
-                        engineModel,
-                        {
-                          prompt:
-                            typeof doneData?.promptTokens === "number"
-                              ? doneData.promptTokens
-                              : undefined,
-                          completion:
-                            typeof doneData?.completionTokens === "number"
-                              ? doneData.completionTokens
-                              : undefined,
-                        },
-                        Date.now() - engineStartedAt,
-                        true,
-                      );
 
                       didSendDone = true;
-                      const previewUrl = buildPreviewUrl(chatId, version.id);
                       safeEnqueue(
                         enc.encode(
                           formatSSEEvent("done", {
                             chatId,
-                            versionId: version.id,
-                            messageId: assistantMsg.id,
-                            demoUrl: previewUrl,
+                            versionId: finalized.version.id,
+                            messageId: finalized.messageId,
+                            demoUrl: finalized.previewUrl,
                           }),
                         ),
                       );
-
                       devLogAppend("latest", {
                         type: "site.message.done",
                         chatId,
-                        versionId: version.id,
-                        demoUrl: previewUrl,
+                        versionId: finalized.version.id,
+                        demoUrl: finalized.previewUrl,
                         durationMs: Date.now() - engineStartedAt,
                       });
                       await commitCreditsOnce();
@@ -651,69 +562,32 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
                       safeEnqueue(enc.encode(formatSSEEvent("content", flushed)));
                     }
 
-                    let contentForVersion = accumulatedContent;
-                    try {
-                      const autoFixResult = await runAutoFix(accumulatedContent, {
-                        chatId,
-                        model: engineModel,
-                      });
-                      contentForVersion = autoFixResult.fixedContent;
-                    } catch {
-                      // use raw content
-                    }
-
-                    const bufferSyntaxResult = await validateAndFix(contentForVersion, {
+                    const bufferFinalized = await finalizeAndSaveVersion({
+                      accumulatedContent,
                       chatId,
                       model: engineModel,
+                      resolvedScaffold,
+                      urlMap,
+                      startedAt: engineStartedAt,
+                      previousFiles,
+                      logNote: "Follow-up buffer flush",
                     });
-                    contentForVersion = bufferSyntaxResult.content;
-
-                    try {
-                      const { materializeImages } = await import("@/lib/gen/post-process/image-materializer");
-                      const imgResult = await materializeImages(contentForVersion);
-                      if (imgResult.replacedCount > 0) contentForVersion = imgResult.content;
-                    } catch { /* best-effort */ }
-
-                    const assistantMsg = chatRepo.addMessage(chatId, "assistant", contentForVersion);
-                    const bufferGenFiles = parseCodeProject(contentForVersion).files;
-                    const bufferFinalFiles = await prepareVersionFiles(bufferGenFiles);
-                    const filesJson = JSON.stringify(bufferFinalFiles);
-                    const version = chatRepo.createVersion(chatId, assistantMsg.id, filesJson);
-
-                    const doneData = evt.data as Record<string, unknown> | null;
-                    chatRepo.logGeneration(
-                      chatId,
-                      engineModel,
-                      {
-                        prompt:
-                          typeof doneData?.promptTokens === "number"
-                            ? doneData.promptTokens
-                            : undefined,
-                        completion:
-                          typeof doneData?.completionTokens === "number"
-                            ? doneData.completionTokens
-                            : undefined,
-                      },
-                      Date.now() - engineStartedAt,
-                      true,
-                    );
 
                     didSendDone = true;
-                    const previewUrl = buildPreviewUrl(chatId, version.id);
                     safeEnqueue(
                       enc.encode(
                         formatSSEEvent("done", {
                           chatId,
-                          versionId: version.id,
-                          messageId: assistantMsg.id,
-                          demoUrl: previewUrl,
+                          versionId: bufferFinalized.version.id,
+                          messageId: bufferFinalized.messageId,
+                          demoUrl: bufferFinalized.previewUrl,
                         }),
                       ),
                     );
                     debugLog("engine", "Saved version from buffer flush", {
                       chatId,
-                      versionId: version.id,
-                      contentLen: contentForVersion.length,
+                      versionId: bufferFinalized.version.id,
+                      contentLen: bufferFinalized.contentForVersion.length,
                     });
                     await commitCreditsOnce();
                   }
@@ -726,53 +600,53 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
 
                 if (accumulatedContent) {
                   try {
-                    let fallbackContent = accumulatedContent;
-                    try {
-                      const { materializeImages } = await import("@/lib/gen/post-process/image-materializer");
-                      const imgResult = await materializeImages(fallbackContent);
-                      if (imgResult.replacedCount > 0) fallbackContent = imgResult.content;
-                    } catch { /* best-effort */ }
+                    const fallbackFinalized = await finalizeAndSaveVersion({
+                      accumulatedContent,
+                      chatId,
+                      model: engineModel,
+                      resolvedScaffold,
+                      urlMap,
+                      startedAt: engineStartedAt,
+                      previousFiles,
+                      runAutofix: false,
+                      logNote: "Follow-up fallback flush",
+                    });
 
-                    const assistantMsg = chatRepo.addMessage(chatId, "assistant", fallbackContent);
-                    const fallbackGenFiles = parseCodeProject(fallbackContent).files;
-                    const fallbackFinalFiles = await prepareVersionFiles(fallbackGenFiles);
-                    const filesJson = JSON.stringify(fallbackFinalFiles);
-                    const version = chatRepo.createVersion(chatId, assistantMsg.id, filesJson);
-                    const previewUrl = buildPreviewUrl(chatId, version.id);
                     didSendDone = true;
                     safeEnqueue(
                       enc.encode(
                         formatSSEEvent("done", {
                           chatId,
-                          versionId: version.id,
-                          messageId: assistantMsg.id,
-                          demoUrl: previewUrl,
+                          versionId: fallbackFinalized.version.id,
+                          messageId: fallbackFinalized.messageId,
+                          demoUrl: fallbackFinalized.previewUrl,
                         }),
                       ),
                     );
                     debugLog("engine", "Saved version from fallback flush", {
                       chatId,
-                      versionId: version.id,
-                      contentLen: accumulatedContent.length,
+                      versionId: fallbackFinalized.version.id,
+                      contentLen: fallbackFinalized.contentForVersion.length,
                     });
-                    chatRepo.logGeneration(chatId, engineModel, {}, Date.now() - engineStartedAt, true, "Done from fallback flush");
                     await commitCreditsOnce();
                   } catch {
                     // ignore persistence errors in cleanup
                   }
                 }
 
-                safeEnqueue(
-                  enc.encode(
-                    formatSSEEvent("done", {
-                      chatId,
-                      versionId: null,
-                      messageId: null,
-                      demoUrl: null,
-                    }),
-                  ),
-                );
-                await commitCreditsOnce();
+                if (!didSendDone) {
+                  safeEnqueue(
+                    enc.encode(
+                      formatSSEEvent("done", {
+                        chatId,
+                        versionId: null,
+                        messageId: null,
+                        demoUrl: null,
+                      }),
+                    ),
+                  );
+                  await commitCreditsOnce();
+                }
               }
               safeClose();
             }

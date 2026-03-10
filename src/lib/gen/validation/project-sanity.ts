@@ -85,6 +85,15 @@ export function runProjectSanityChecks(files: CodeFile[]): SanityResult {
       }
     }
 
+    // 2b. Preview-only stripped imports must never leak into saved/exported code
+    if (file.content.includes("(stripped for preview compatibility)")) {
+      issues.push({
+        file: file.path,
+        severity: "error",
+        message: "Preview-only stripped import leaked into saved project files",
+      });
+    }
+
     // 3. Default export check for page/layout files
     if (file.path.match(/\/(page|layout)\.(tsx|jsx)$/)) {
       if (!file.content.includes("export default")) {

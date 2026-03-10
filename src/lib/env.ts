@@ -113,12 +113,14 @@ export const serverSchema = z.object({
   OPENAI_API_KEY: z.string().optional(),
   AI_GATEWAY_API_KEY: z.string().optional(),
   VERCEL_OIDC_TOKEN: z.string().optional(),
+  SAJTMASKIN_ENGINE_MAX_OUTPUT_TOKENS: z.string().optional(),
+  SAJTMASKIN_AUTOFIX_MAX_OUTPUT_TOKENS: z.string().optional(),
+  SAJTMASKIN_STREAM_SAFETY_TIMEOUT_MS: z.string().optional(),
+  SAJTMASKIN_ENGINE_ROUTE_MAX_DURATION_SECONDS: z.string().optional(),
+  SAJTMASKIN_ASSIST_ROUTE_MAX_DURATION_SECONDS: z.string().optional(),
 
   // v0 Design System
   DESIGN_SYSTEM_ID: z.string().optional(),
-
-  // MCP integration (generated code access)
-  MCP_GENERATED_CODE_API_KEY: z.string().optional(),
 
   // Feature flags
   ENABLE_PEXELS: z.string().optional(),

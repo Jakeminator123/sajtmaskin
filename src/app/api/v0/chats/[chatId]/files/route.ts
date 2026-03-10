@@ -11,6 +11,7 @@ import { normalizeV0Error } from "@/lib/v0/errors";
 import { shouldUseV0Fallback } from "@/lib/gen/fallback";
 import { getVersionFiles, getLatestVersionFiles } from "@/lib/gen/version-manager";
 import { getVersionById, updateVersionFiles } from "@/lib/db/chat-repository";
+import { repairGeneratedFiles } from "@/lib/gen/repair-generated-files";
 
 function v0ErrorResponse(err: unknown, fallbackMessage: string) {
   const info = normalizeV0Error(err);
@@ -143,6 +144,14 @@ export async function GET(req: Request, { params }: { params: Promise<{ chatId: 
       }
 
       const effectiveVersionId = resolvedVersionId ?? requestedVersionId ?? chatId;
+
+      const repairResult = repairGeneratedFiles(files);
+      if (repairResult.fixes.length > 0) {
+        files = repairResult.files;
+        if (resolvedVersionId) {
+          updateVersionFiles(resolvedVersionId, JSON.stringify(files));
+        }
+      }
 
       if (shouldMaterialize && process.env.BLOB_READ_WRITE_TOKEN) {
         try {

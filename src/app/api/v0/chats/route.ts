@@ -15,8 +15,10 @@ import { prepareCredits } from "@/lib/credits/server";
 import { WARN_CHAT_MESSAGE_CHARS, WARN_CHAT_SYSTEM_CHARS } from "@/lib/builder/promptLimits";
 import { orchestratePromptMessage } from "@/lib/builder/promptOrchestration";
 import { resolveModelSelection, resolveEngineModelId } from "@/lib/v0/modelSelection";
+import { DEFAULT_MODEL_ID } from "@/lib/v0/models";
 import { AI } from "@/lib/config";
 import { shouldUseV0Fallback } from "@/lib/gen/fallback";
+import { ENGINE_MAX_OUTPUT_TOKENS } from "@/lib/gen/defaults";
 import {
   createChat as createSqliteChat,
   addMessage,
@@ -112,7 +114,7 @@ export async function POST(req: Request) {
       const modelSelection = resolveModelSelection({
         requestedModelId: modelId,
         requestedModelTier: metaRequestedModelTier,
-        fallbackTier: "v0-max-fast",
+        fallbackTier: DEFAULT_MODEL_ID,
       });
       const resolvedModelId = modelSelection.modelId;
       const resolvedModelTier = modelSelection.modelTier;
@@ -228,7 +230,7 @@ export async function POST(req: Request) {
             model,
             system: ownSystemPrompt,
             messages: [{ role: "user", content: optimizedMessage }],
-            maxOutputTokens: 16_384,
+            maxOutputTokens: ENGINE_MAX_OUTPUT_TOKENS,
           });
 
           const fullContent = await genResult.text;

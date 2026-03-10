@@ -409,6 +409,7 @@ export const engineChats = pgTable("engine_chats", {
   title: text("title"),
   model: text("model").notNull().default("gpt-5.4"),
   systemPrompt: text("system_prompt"),
+  scaffoldId: text("scaffold_id"),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });

@@ -17,6 +17,7 @@ export interface Chat {
   title: string | null;
   model: string;
   system_prompt: string | null;
+  scaffold_id: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -73,6 +74,7 @@ export async function createChat(
   projectId: string,
   model = "gpt-5.4",
   systemPrompt?: string,
+  scaffoldId?: string,
 ): Promise<Chat> {
   const id = uuid();
   await db.insert(engineChats).values({
@@ -80,6 +82,7 @@ export async function createChat(
     projectId,
     model,
     systemPrompt: systemPrompt ?? null,
+    scaffoldId: scaffoldId ?? null,
   });
   const rows = await db.select().from(engineChats).where(eq(engineChats.id, id)).limit(1);
   return toRow(rows[0]) as unknown as Chat;
@@ -168,6 +171,14 @@ export async function updateChatProjectId(chatId: string, projectId: string): Pr
   const result = await db
     .update(engineChats)
     .set({ projectId, updatedAt: new Date() })
+    .where(eq(engineChats.id, chatId));
+  return (result.rowCount ?? 0) > 0;
+}
+
+export async function updateChatScaffoldId(chatId: string, scaffoldId: string | null): Promise<boolean> {
+  const result = await db
+    .update(engineChats)
+    .set({ scaffoldId, updatedAt: new Date() })
     .where(eq(engineChats.id, chatId));
   return (result.rowCount ?? 0) > 0;
 }

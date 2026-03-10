@@ -7,6 +7,7 @@ import { getChatByV0ChatIdForRequest } from "@/lib/tenant";
 import { shouldUseV0Fallback } from "@/lib/gen/fallback";
 import { getVersionFiles } from "@/lib/gen/version-manager";
 import { buildCompleteProject } from "@/lib/gen/project-scaffold";
+import { repairGeneratedFiles } from "@/lib/gen/repair-generated-files";
 
 export async function GET(
   req: Request,
@@ -26,7 +27,7 @@ export async function GET(
         return NextResponse.json({ error: "Version not found" }, { status: 404 });
       }
 
-      const completeProject = buildCompleteProject(codeFiles);
+      const completeProject = repairGeneratedFiles(buildCompleteProject(codeFiles)).files;
       const JSZip = (await import("jszip")).default;
       const zip = new JSZip();
       for (const file of completeProject) {

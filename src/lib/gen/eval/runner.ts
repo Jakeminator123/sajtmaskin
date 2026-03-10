@@ -1,4 +1,5 @@
 import { generateCode } from "../engine";
+import { ENGINE_MAX_OUTPUT_TOKENS } from "../defaults";
 import { buildSystemPrompt } from "../system-prompt";
 import { parseCodeProject } from "../parser";
 import { runAutoFix } from "../autofix/pipeline";
@@ -92,7 +93,7 @@ async function evaluatePrompt(
     systemPrompt,
     model,
     thinking: false,
-    maxTokens: 16_384,
+    maxTokens: ENGINE_MAX_OUTPUT_TOKENS,
   });
 
   const content = await collectSSEContent(stream);

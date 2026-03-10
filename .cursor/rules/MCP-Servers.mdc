@@ -8,13 +8,31 @@ alwaysApply: true
 Konfigurerade i `.cursor/mcp.json`. Använd alltid relevant MCP-server
 före web search eller träningsdata.
 
+## Topologi
+
+### Projektlokala stdio-servrar (on-demand, körs i repot)
+
+| Server | Vad den gör |
+|--------|-------------|
+| `sajtmaskin-engine` | Lokal own-engine MCP-server för generering, manifest, filer och runtime-URL:er utan HTTP-proxy via appens MCP-routes. |
+| `sajtmaskin-scaffolds` | Inspektera interna scaffolds -- manifests, filer, taggar, jämför. Läser direkt från registret. |
+
+Dessa körs lokalt via `npx tsx services/mcp/...` och ska användas för
+projektinterna arbetsflöden som inte hör hemma i produktionsrouten eller
+externa plattforms-MCP:er.
+
+### Externa/remote MCP-servrar
+
 | Server | Vad den gör |
 |--------|-------------|
 | `v0` | v0 Platform API -- skapa chattar, generera kod, hantera projekt |
 | `openaiDeveloperDocs` | OpenAI API-dokumentation -- sök, läs, hämta spec |
 | `Vercel` | Vercel-plattformen -- deploys, projekt, loggar, docs |
+
+### User-level MCP-servrar (inte i `.cursor/mcp.json`)
+
+| Server | Vad den gör |
+|--------|-------------|
 | `openclaw-docs` | OpenClaw-dokumentation -- installation, gateway, kanaler |
-| `sajtmaskin-generated-code` | Hämta full genererad kod från sajtmaskin (chatId/versionId) |
-| `sajtmaskin-scaffolds` | Inspektera interna scaffolds -- manifests, filer, taggar, jämför |
 
 Se `mcp-docs-routing.mdc` för detaljerade routingregler.
