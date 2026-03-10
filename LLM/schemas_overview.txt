@@ -3,10 +3,12 @@ Purpose: Samla en standard for hur anrop och floden fungerar.
 Scope: Endast beskrivande dokument (ingen runtime).
 
 Files in this folder:
-(No standalone API call doc yet. API flows are documented inline in the source code.)
+- `LLM/scaffold-schema.txt` - human-readable contract for internal scaffold design and usage
+- (No standalone API call doc yet. API flows are documented inline in the source code.)
 
 Relation to other docs:
 - src/...: kodkalla for sanning, schemas maste uppdateras nar kod andras.
+- `LLM/egen-motor/scaffold-status-and-plan.md`: roadmap/status for scaffold expansion
 
 How to update:
 0) Uppdatera endast pa uttrycklig begaran.

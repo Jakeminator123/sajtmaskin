@@ -6,8 +6,15 @@ Primära dokument:
 - LLM/DEPS-STATUS.txt
 - LLM/atgardsmatris.txt
 - LLM/schemas_overview.txt
+- LLM/scaffold-schema.txt
 - LLM/v0-prompt-guide.txt (v0 prompt best practices + templates)
 - LLM/ROADMAP-next.txt (prioriterad forbattringslista 2026-03)
+
+Egen motor / prompts / scaffolds:
+- LLM/egen-motor/README.md
+- LLM/egen-motor/MOTOR-STATUS.md
+- LLM/egen-motor/NEXT-CHAT-HANDOFF.md
+- LLM/egen-motor/scaffold-status-and-plan.md
 
 Säkerhet (allt klart utom polish):
 - upcoming_polish.md (rotmappen — kvarstaende icke-bradskande forbattringar)
