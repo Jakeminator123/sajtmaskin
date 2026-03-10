@@ -505,8 +505,6 @@ export function BuilderShellContent(vm: BuilderViewModel) {
         promptAssistDeep={vm.promptAssistDeep}
         onPromptAssistDeepChange={vm.setPromptAssistDeep}
         canUseDeepBrief={!vm.chatId}
-        designSystemId={vm.designSystemId}
-        onDesignSystemIdChange={vm.setDesignSystemId}
         scaffoldMode={vm.scaffoldMode}
         scaffoldId={vm.scaffoldId}
         onScaffoldModeChange={vm.setScaffoldMode}
