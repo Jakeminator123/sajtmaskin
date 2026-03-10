@@ -671,7 +671,7 @@ export function BuilderShellContent(vm: BuilderViewModel) {
               onVersionSelect={vm.handleVersionSelect}
               isCollapsed={vm.isVersionPanelCollapsed}
               onToggleCollapse={vm.handleToggleVersionPanel}
-              versions={vm.versions}
+              versions={vm.effectiveVersionsList}
               mutateVersions={vm.mutateVersions}
             />
           </div>

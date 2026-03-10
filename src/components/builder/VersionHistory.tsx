@@ -62,6 +62,7 @@ export function VersionHistory({
   const [exportingGitHubVersionId, setExportingGitHubVersionId] = useState<string | null>(null);
   const [pinningVersionId, setPinningVersionId] = useState<string | null>(null);
   const [returnTo, setReturnTo] = useState("/projects");
+  const [syncingElapsed, setSyncingElapsed] = useState(false);
 
   useEffect(() => {
     if (isInitialized) return;
@@ -73,6 +74,15 @@ export function VersionHistory({
     const path = `${window.location.pathname}${window.location.search}${window.location.hash}`;
     setReturnTo(path || "/projects");
   }, []);
+
+  useEffect(() => {
+    if (!chatId || versionList.length > 0) {
+      setSyncingElapsed(false);
+      return;
+    }
+    const timer = setTimeout(() => setSyncingElapsed(true), 5000);
+    return () => clearTimeout(timer);
+  }, [chatId, versionList.length]);
 
   const handleDownload = async (e: React.MouseEvent, version: any) => {
     e.stopPropagation();
@@ -264,10 +274,13 @@ export function VersionHistory({
   }
 
   if (versions.length === 0) {
+    const showSyncing = Boolean(chatId) && !syncingElapsed;
     return (
       <div className="text-muted-foreground flex h-full items-center justify-center p-4">
         <p className="text-center text-sm">
-          No versions yet. Generate a component to create versions.
+          {showSyncing
+            ? "Synkar versionshistorik..."
+            : "Inga versioner ännu. Generera en sida för att skapa en version."}
         </p>
       </div>
     );

@@ -8,6 +8,9 @@ const CONTENT_KEYWORDS = [
   "gallery", "showcase", "work", "projects", "case study", "stories",
   "landing", "marketing", "startup", "company", "business", "brand",
   "hemsida", "webbplats", "sajt", "företag", "byrå", "fotograf",
+  "saas", "software", "platform", "pricing", "subscription", "tier", "plan",
+  "feature", "product", "service", "solution",
+  "plattform", "tjänst", "mjukvara", "pris", "abonnemang",
 ];
 
 const APP_KEYWORDS = [

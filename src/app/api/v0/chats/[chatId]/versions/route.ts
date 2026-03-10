@@ -6,6 +6,7 @@ import { eq, desc, and, or } from "drizzle-orm";
 import { getChatByV0ChatIdForRequest } from "@/lib/tenant";
 import { shouldUseV0Fallback } from "@/lib/gen/fallback";
 import { getVersionsByChat } from "@/lib/db/chat-repository";
+import { buildPreviewUrl } from "@/lib/gen/preview";
 
 export async function GET(req: Request, ctx: { params: Promise<{ chatId: string }> }) {
   try {
@@ -18,10 +19,12 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
       const sqliteVersions = getVersionsByChat(chatId);
       const versionsList = sqliteVersions.map((v) => ({
         id: v.id,
+        versionId: v.id,
+        demoUrl: buildPreviewUrl(chatId, v.id),
+        createdAt: v.created_at,
         versionNumber: v.version_number,
         messageId: v.message_id,
         sandboxUrl: v.sandbox_url,
-        createdAt: v.created_at,
       }));
       return NextResponse.json({ versions: versionsList });
     }

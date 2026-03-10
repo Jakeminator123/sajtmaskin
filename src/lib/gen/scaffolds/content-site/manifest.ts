@@ -15,12 +15,19 @@ export const contentSiteManifest: ScaffoldManifest = {
     "content",
     "company",
     "agency",
+    "saas",
+    "software",
+    "platform",
+    "pricing",
+    "service",
   ],
   promptHints: [
     "This scaffold has a hero, features grid, testimonials, and footer.",
     "Modify the content and sections to match the user's business.",
     "Add or remove sections as needed. Keep the navigation and footer structure.",
     "Use Unsplash images where appropriate.",
+    "For SaaS/software sites: include pricing tiers, feature comparison, trust signals, and clear CTAs.",
+    "For company/brand sites: include hero, about, team, services, and contact sections.",
   ],
   files: [
     {

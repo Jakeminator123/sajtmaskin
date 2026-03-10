@@ -139,6 +139,7 @@ export function PreviewPanel({
   const [totalAiCostUsd, setTotalAiCostUsd] = useState(0);
   const [elementMap, setElementMap] = useState<ElementMapItem[]>([]);
   const [elementMapLoading, setElementMapLoading] = useState(false);
+  const [inspectorUnavailable, setInspectorUnavailable] = useState(false);
   const [hoveredMapElement, setHoveredMapElement] = useState<ElementMapItem | null>(null);
   const [hoveredPlacement, setHoveredPlacement] = useState<InsertionPoint | null>(null);
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
@@ -184,11 +185,15 @@ export function PreviewPanel({
 
   const fetchElementMap = useCallback(async (url: string, width: number, height: number) => {
     setElementMapLoading(true);
+    setInspectorUnavailable(false);
     try {
+      const inspectorUrl = url.startsWith("/")
+        ? `${window.location.origin}${url}`
+        : url;
       const res = await fetch("/api/inspector-element-map", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url, viewportWidth: width, viewportHeight: height, maxElements: 300 }),
+        body: JSON.stringify({ url: inspectorUrl, viewportWidth: width, viewportHeight: height, maxElements: 300 }),
       });
       const data = (await res.json().catch(() => null)) as ElementMapResponse | null;
       if (res.ok && data?.success && Array.isArray(data.elements)) {
@@ -196,9 +201,11 @@ export function PreviewPanel({
         return data.elements.length;
       }
       setElementMap([]);
+      setInspectorUnavailable(true);
       return 0;
     } catch {
       setElementMap([]);
+      setInspectorUnavailable(true);
       return 0;
     } finally {
       setElementMapLoading(false);
@@ -1186,7 +1193,7 @@ export function PreviewPanel({
                       </span>
                       {inspectEngine === "map" && (
                         <span className="text-[10px] text-violet-400/70">
-                          {elementMapLoading ? "Laddar karta..." : `${elementMap.length} element`}
+                          {elementMapLoading ? "Laddar karta..." : inspectorUnavailable ? "Inspector inte tillgänglig för lokal preview" : `${elementMap.length} element`}
                         </span>
                       )}
                       {totalAiCostUsd > 0 && (

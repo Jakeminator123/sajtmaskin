@@ -1283,6 +1283,7 @@ export function useBuilderPageController() {
 
     // External data
     versions,
+    effectiveVersionsList: derived.effectiveVersionsList,
     mutateVersions,
 
     // Messaging

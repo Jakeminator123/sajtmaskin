@@ -74,20 +74,17 @@ export const PROMPT_ASSIST_OFF_VALUE = "off";
 
 export const PROMPT_ASSIST_MODEL_OPTIONS: PromptAssistModelOption[] = [
   { value: PROMPT_ASSIST_OFF_VALUE, label: "Av – skicka direkt" },
-  { value: "anthropic-direct/claude-haiku-4-5-20251001", label: "Claude Haiku 4.5 (Fast)" },
-  { value: "openai/gpt-4.1-mini", label: "GPT‑4.1 Mini (Fast)" },
+  { value: "anthropic-direct/claude-haiku-4-5-20251001", label: "Claude Haiku 4.5 (Snabb)" },
+  { value: "openai/gpt-4.1-mini", label: "GPT‑4.1 Mini (Snabb)" },
   { value: "openai/gpt-5.2", label: "GPT‑5.2 (Standard)" },
-  { value: "openai/gpt-5.4", label: "GPT‑5.4 (Kvalitet)" },
-  { value: "openai/gpt-5.3-codex", label: "GPT‑5.3 Codex (Experimentell)" },
-  { value: "anthropic-direct/claude-sonnet-4-6", label: "Claude Sonnet 4.6" },
-  { value: "anthropic-direct/claude-opus-4-6", label: "Claude Opus 4.6" },
-  { value: "v0-1.5-md", label: "Model API Medium" },
-  { value: "v0-1.5-lg", label: "Model API Large" },
 ];
 
 const PROMPT_ASSIST_MODEL_ALLOWLIST = new Set<string>([
   ...GATEWAY_ASSIST_MODELS,
   ...V0_ASSIST_MODELS,
+  "anthropic-direct/claude-haiku-4-5-20251001",
+  "anthropic-direct/claude-sonnet-4-6",
+  "anthropic-direct/claude-opus-4-6",
 ]);
 
 export function getPromptAssistModelOptions(): PromptAssistModelOption[] {
@@ -110,10 +107,12 @@ export interface PromptAssistDefaults {
 }
 
 /**
+/**
  * Default prompt assist configuration.
- * - Default provider is AI Gateway to keep all external models on the gateway.
- * - Fast prompt assist is the sensible default; code generation is already expensive.
- * - Deep Brief OFF by default for speed; user can enable for harder prompts.
+ * Förbättra-knappen gör en lätt polish av prompten — rättar stavfel,
+ * förtydligar struktur och formaterar för bättre AI-förståelse.
+ * Den är INTE en full plan/spec-generator.
+ * Claude Haiku 4.5 via direkt Anthropic API är snabb och billig för denna uppgift.
  */
 export const DEFAULT_PROMPT_ASSIST: PromptAssistDefaults = {
   model: "anthropic-direct/claude-haiku-4-5-20251001",

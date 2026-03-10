@@ -8,6 +8,7 @@ import { nanoid } from "nanoid";
 import { shouldUseV0Fallback } from "@/lib/gen/fallback";
 import { getChat } from "@/lib/db/chat-repository";
 import { getLatestVersion } from "@/lib/db/chat-repository";
+import { buildPreviewUrl } from "@/lib/gen/preview";
 
 export async function GET(req: Request, ctx: { params: Promise<{ chatId: string }> }) {
   try {
@@ -45,10 +46,12 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
         latestVersion: latest
           ? {
               id: latest.id,
+              versionId: latest.id,
+              demoUrl: buildPreviewUrl(chatId, latest.id),
+              createdAt: latest.created_at,
               versionNumber: latest.version_number,
               messageId: latest.message_id,
               sandboxUrl: latest.sandbox_url,
-              createdAt: latest.created_at,
             }
           : null,
       });
