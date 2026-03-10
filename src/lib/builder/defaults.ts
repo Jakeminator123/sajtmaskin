@@ -148,8 +148,11 @@ export const DEFAULT_THINKING = true;
 /** Default for spec mode in builder */
 export const DEFAULT_SPEC_MODE = true;
 
-/** Default system instructions for new chats (editable in UI) */
-export const DEFAULT_CUSTOM_INSTRUCTIONS = `## Tech Stack
+/**
+ * Core instructions — always relevant regardless of scaffold/engine.
+ * Covers tech stack, shadcn setup, language, and accessibility basics.
+ */
+export const CORE_CUSTOM_INSTRUCTIONS = `## Tech Stack
 - Next.js App Router with TypeScript (React 19)
 - Tailwind CSS v4 for styling (utility classes)
 - shadcn/ui components (\`@/components/ui/*\`, style "new-york-v4")
@@ -164,15 +167,28 @@ export const DEFAULT_CUSTOM_INSTRUCTIONS = `## Tech Stack
 - Use Tailwind v4 animation utilities via "tw-animate-css" (import it in globals.css when using animate-* utilities)
 - Add @radix-ui/* packages only when a specific component requires them
 
-## Design System Execution
+## Language
+- Match the user's language for all visible copy. Only translate if the user explicitly asks.
+
+## Accessibility
+- Semantic HTML: header, main, section, article, footer
+- Proper heading hierarchy (h1 → h2 → h3)
+- ARIA labels where needed
+- Dialogs must include DialogTitle + DialogDescription (sr-only ok)
+- Keyboard navigation support
+- Focus-visible rings on interactive elements`;
+
+/**
+ * Extended instructions — visual design, layout, motion, images.
+ * Only useful when NO scaffold is active, since scaffolds (and the engine's
+ * STATIC_CORE) already provide comprehensive design guidance.
+ */
+export const EXTENDED_CUSTOM_INSTRUCTIONS = `## Design System Execution
 - Treat theme tokens as source of truth. Do not drift into ad-hoc colors if a theme is selected.
 - Build in this order: small reusable components -> section blocks -> full page composition.
 - Reuse existing UI primitives/components before adding new ones.
 - Prefer token-driven styling in globals.css over one-off inline styles.
 - Keep outputs compatible with registry/Open-in-Builder workflows when possible.
-
-## Language
-- Match the user's language for all visible copy. Only translate if the user explicitly asks.
 
 ## Component Usage
 - Use existing shadcn/ui components; avoid duplicating component files (use cn() from \`@/lib/utils\`)
@@ -205,8 +221,9 @@ export const DEFAULT_CUSTOM_INSTRUCTIONS = `## Tech Stack
 ## Motion & Interaction
 - Add tasteful hover states on all interactive elements
 - Use subtle scroll-reveal animations (fade-in, slide-up) in hero and at least 2 sections
-- Use Tailwind's built-in animations; avoid custom @keyframes or @property rules
-- For advanced motion (timelines, carousels, staggered reveals), you MAY use framer-motion (add dependency if missing)
+- Prefer Tailwind animate-* utilities for simple transitions; use custom @keyframes in globals.css when the design calls for it
+- For advanced motion (timelines, carousels, staggered reveals, atmospheric effects), use framer-motion (add dependency if missing)
+- For creative visual effects (smoke, particles, parallax, glitch, neon), use @keyframes, CSS animations, or framer-motion freely
 - Respect prefers-reduced-motion for accessibility
 
 ## Visual Quality
@@ -230,15 +247,38 @@ export const DEFAULT_CUSTOM_INSTRUCTIONS = `## Tech Stack
 ## Figma Workflow
 - If the user provides Figma, extract structure first (nav, hero, sections, footer) before polishing visuals.
 - Prefer iterative conversion: implement key components first, then assemble the full page.
-- Preserve spacing rhythm and typography hierarchy from the design reference.
+- Preserve spacing rhythm and typography hierarchy from the design reference.`;
 
-## Accessibility
-- Semantic HTML: header, main, section, article, footer
-- Proper heading hierarchy (h1 → h2 → h3)
-- ARIA labels where needed
-- Dialogs must include DialogTitle + DialogDescription (sr-only ok)
-- Keyboard navigation support
-- Focus-visible rings on interactive elements`;
+/**
+ * Returns the appropriate default Custom Instructions based on scaffold mode.
+ *
+ * - scaffold "auto" / "manual" → CORE only (scaffold + engine STATIC_CORE
+ *   already cover design, layout, motion, images).
+ * - scaffold "off" → CORE + EXTENDED (full guidance for v0 fallback or
+ *   scaffoldless generation).
+ */
+export function getDefaultCustomInstructions(scaffoldMode: ScaffoldMode): string {
+  if (scaffoldMode === "auto" || scaffoldMode === "manual") {
+    return CORE_CUSTOM_INSTRUCTIONS;
+  }
+  return `${CORE_CUSTOM_INSTRUCTIONS}\n\n${EXTENDED_CUSTOM_INSTRUCTIONS}`;
+}
+
+/**
+ * All known default instruction variants so we can detect whether the user
+ * has manually edited the instructions or is still on a default.
+ */
+const ALL_DEFAULTS = new Set([
+  CORE_CUSTOM_INSTRUCTIONS.trim(),
+  `${CORE_CUSTOM_INSTRUCTIONS}\n\n${EXTENDED_CUSTOM_INSTRUCTIONS}`.trim(),
+]);
+
+export function isDefaultCustomInstructions(value: string): boolean {
+  return ALL_DEFAULTS.has(value.trim());
+}
+
+/** Legacy constant — full instructions (scaffold off). Prefer getDefaultCustomInstructions(). */
+export const DEFAULT_CUSTOM_INSTRUCTIONS = `${CORE_CUSTOM_INSTRUCTIONS}\n\n${EXTENDED_CUSTOM_INSTRUCTIONS}`;
 
 /** Spec file reference to append to system prompt when spec mode is active */
 export const SPEC_FILE_INSTRUCTION = `\n\n## Spec File

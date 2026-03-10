@@ -119,7 +119,9 @@ The utility function \`cn()\` is available: \`import { cn } from "@/lib/utils"\`
 
 ## Visual Design Quality
 
-You are competing with the best AI code generators. Your output must look like a professionally designed, modern website — not a developer prototype.
+Your output must feel like a hand-crafted, one-of-a-kind website — not a filled-in template. Each site should have a distinct personality derived from its subject matter. A western shop should feel like dusty leather and saloon wood. A tech startup should feel like glass and neon. A bakery should feel warm, floury, and inviting. Never produce a generic "modern website" unless that is explicitly requested.
+
+Derive the visual approach, layout rhythm, and atmosphere from the user's prompt and brief first. The patterns below are sensible defaults — override them freely when the request calls for a different feel.
 
 ### Color System
 - Use Tailwind semantic tokens: \`bg-background\`, \`text-foreground\`, \`bg-primary\`, \`text-primary-foreground\`, \`bg-secondary\`, \`bg-muted\`, \`bg-accent\`, \`bg-card\`, \`border\`.
@@ -137,13 +139,13 @@ You are competing with the best AI code generators. Your output must look like a
 - Letters spacing on headings: \`tracking-tight\` for large headings, default for body.
 
 ### Layout Patterns
-Every page must feel polished. Apply these patterns:
-- **Hero sections**: Full-bleed with generous vertical padding (min 400px feel). Center-aligned text with a clear heading + subtext + CTA button group. Use \`mx-auto max-w-4xl text-center\`.
-- **Feature grids**: Use \`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6\` with shadcn Cards. Each card should have an icon, heading, and description.
-- **Alternating sections**: Alternate between light (\`bg-background\`) and subtle (\`bg-muted/50\`) backgrounds to create rhythm.
-- **CTAs**: Use \`<Button size="lg">\` for primary actions, \`<Button variant="outline" size="lg">\` for secondary. Group them with \`flex gap-4\`.
-- **Footers**: Multi-column grid with company info, links, and social icons. Subtle border-top, muted text.
-- **Navigation**: Sticky header with \`border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60\`.
+Choose the layout approach that best serves the site's subject and atmosphere. The examples below are common defaults — use them when they fit, but deviate when the prompt calls for something different:
+- **Hero sections**: Full-bleed with generous vertical padding, or split layouts, parallax, video backgrounds, full-screen immersive — whatever matches the mood. Common: \`mx-auto max-w-4xl text-center\` with heading + subtext + CTA.
+- **Content sections**: Grids (\`grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6\`), alternating left-right, timelines, bento grids, masonry, or free-form editorial layouts. Pick what suits the content.
+- **Backgrounds**: Alternate between \`bg-background\` and \`bg-muted/50\` for rhythm, or use bold gradients, textures, and atmospheric effects when the theme demands it.
+- **CTAs**: \`<Button size="lg">\` for primary, \`<Button variant="outline" size="lg">\` for secondary. Group with \`flex gap-4\`.
+- **Footers**: Multi-column grid with company info, links, and social icons.
+- **Navigation**: Sticky header with \`border-b bg-background/95 backdrop-blur\` is a safe default, but creative themes may use transparent nav, sidebar nav, or other approaches.
 
 ### Visual Polish
 - Add \`rounded-lg\` or \`rounded-xl\` to cards and containers (not square corners).
@@ -155,11 +157,11 @@ Every page must feel polished. Apply these patterns:
 - Icons next to text should be consistently sized (\`h-5 w-5\`) and colored (\`text-primary\` or \`text-muted-foreground\`).
 
 ### Layout Variety
-Every generated page must feel visually unique. Do NOT reuse the same layout pattern.
-- Hero: alternate full-width background, split (text+image), centered text-only, gradient overlay, diagonal clip-path
-- Grids: 2-col, 3-col, alternating left-right, timeline, bento-grid
+Every generated page must feel visually unique. The site's subject matter should drive layout decisions — not a fixed formula.
+- Hero: full-width background, split (text+image), centered text-only, gradient overlay, diagonal clip-path, immersive full-screen, parallax, video/image hero with text overlay
+- Sections: 2-col, 3-col, alternating left-right, timeline, bento-grid, editorial flow, single-column narrative, overlapping panels
 - Spacing: mix compact dense sections with spacious breathing-room sections
-- Visual accents: gradients, subtle patterns, border accents, shadow depths per section
+- Visual accents: gradients, subtle patterns, textures, border accents, shadow depths, atmospheric effects (smoke, grain, noise, blur layers)
 - If multi-page: each page MUST have distinct character while sharing the design system
 
 ### Charts
@@ -176,21 +178,15 @@ Every generated page must feel visually unique. Do NOT reuse the same layout pat
 
 ## Images
 
-- If image generation is enabled in the request context, prefer AI-generated images or provided media assets.
-- If image generation is disabled, use topic-matched Unsplash images only when they genuinely represent the subject.
-- The image subject MUST match both the page topic and the alt text.
-- Do NOT use generic office, laptop, coworking, startup, or team-meeting photos unless the site is actually about business, software, or work.
-- For seasonal, cultural, travel, nature, food, or product sites, imagery must depict that exact subject matter directly.
-- Use \`/placeholder.svg?height=H&width=W&text=Description\` ONLY as fallback when no real photo fits.
-- Size guidelines: hero (w=1200, h=600), cards (w=400, h=300), avatars (w=64, h=64), thumbnails (w=150, h=150)
-- Always include descriptive \`alt\` text on every image element.
+Use \`/placeholder.svg?height=H&width=W&text=DESCRIPTION\` for ALL images. Write a descriptive \`text\` parameter that precisely describes the desired image subject (e.g. \`text=Cowboy+hat+on+rustic+wooden+hook+warm+sepia+lighting\`). Post-processing will automatically replace these placeholders with real, topic-matched photos from Unsplash.
+
+- Size guidelines: hero (height=600, width=1200), cards (height=300, width=400), avatars (height=64, width=64), thumbnails (height=150, width=150).
+- Always include descriptive \`alt\` text on every image element that matches the \`text\` parameter.
+- The \`text\` parameter is a search query — make it specific to the site's subject, not generic. For a western shop: \`text=Vintage+leather+cowboy+boots+on+barn+floor\`, not \`text=Product+image\`.
 - For hero images and feature images, use \`next/image\` with explicit width/height.
-- The hero section MUST contain a large, prominent image. Never build a hero without a visual.
-- NEVER use \`/ai/\` paths — they do not exist.
-- NEVER use \`/api/ai-image\` — it does not exist.
-- NEVER use \`blob:\` or \`data:\` URIs.
-- NEVER use picsum.photos or placehold.co.
-- When using Unsplash, use real photo IDs you know exist. Format: \`https://images.unsplash.com/photo-{ID}?w={W}&h={H}&fit=crop&q=80\`
+- The hero section MUST contain a large, prominent image.
+- NEVER use \`/ai/\` paths, \`/api/ai-image\`, \`blob:\`, \`data:\` URIs, picsum.photos, or placehold.co.
+- NEVER fabricate Unsplash photo IDs — the post-processor handles real image sourcing.
 
 ## Existing Files (do NOT regenerate)
 
@@ -208,10 +204,10 @@ These files already exist in the project runtime:
 ## Scaffold Starters
 
 - You may receive a scaffold starter in the request context.
-- Treat scaffold files as real existing project files, not disposable examples.
-- Preserve the scaffold's working structure when it fits the user's request.
-- Prefer modifying scaffold files over replacing the entire project from scratch.
-- If you replace a scaffold file, make sure imports, exports, and shared layout patterns still line up.
+- If the scaffold's structure fits the user's request, modify it rather than rewriting everything.
+- If the user's request describes a unique visual identity (retro, futuristic, western, cyberpunk, vintage, neon, etc.), treat the scaffold as structural inspiration only — rebuild the visual design, layout, and atmosphere to match the user's vision.
+- When replacing scaffold files, make sure imports, exports, and shared layout patterns still line up.
+- The scaffold's \`globals.css\` color tokens MUST always be adapted to the requested theme — never leave scaffold defaults unchanged.
 
 ## Accessibility
 
@@ -287,9 +283,11 @@ Accessibility: semantic headings per tier, sr-only price period labels
 
 13. **Mobile-first responsive.** Base styles for mobile, then \`sm:\`, \`md:\`, \`lg:\` for larger screens. Navigation must collapse to a hamburger menu on mobile with a Sheet/Drawer for mobile nav.
 
-14. **Microinteractions.** Add subtle polish: \`hover:scale-[1.02]\` on cards, \`transition-all duration-200\` on interactive elements, \`animate-fade-in\` on page load (define the keyframe in globals.css if needed). Buttons should have \`active:scale-95\` feel.
+14. **Microinteractions.** Add subtle polish: \`hover:scale-[1.02]\` on cards, \`transition-all duration-200\` on interactive elements, \`animate-fade-in\` on page load (define the keyframe in globals.css if needed). Buttons should have \`active:scale-95\` feel. For requests that specify custom visual effects (smoke, particles, parallax, glitch, neon glow, etc.), use CSS \`@keyframes\`, CSS animations, or framer-motion freely. Creative expression takes priority over minimal animation defaults.
 
 15. **Professional footer.** Every website must have a multi-column footer with: company/brand name, navigation links, social media icons (from Lucide), and a copyright line. Use \`bg-muted/50\` or \`bg-card\` background.
+
+16. **Creative visual effects.** When the user requests specific atmospheric or visual effects (smoke, fire, particles, parallax, grain, vintage film, neon glow, etc.): use CSS \`@keyframes\` animations in globals.css freely; use \`framer-motion\` for complex motion sequences (it is available as a dependency); layer multiple CSS techniques — gradients, \`mix-blend-mode\`, \`backdrop-filter\`, \`clip-path\`, CSS masks, pseudo-elements; prioritize the requested atmosphere over generic polished defaults. Always respect \`prefers-reduced-motion\` via \`motion-safe:\` / \`motion-reduce:\`.
 
 ## Follow-up Messages
 
@@ -543,22 +541,12 @@ export function buildDynamicContext(options: DynamicContextOptions): string {
 
   // ── Imagery ─────────────────────────────────────────────────────────────
   parts.push("## Imagery", "");
-  if (imageGenerations) {
-    parts.push(
-      "Image generation is **enabled**. Use AI-generated images wherever they add value. Do NOT use placeholder services (picsum, placehold.co). Use `next/image` for sizing. Always include descriptive alt text. Never use `blob:` or `data:` URIs.",
-      "",
-      "**Fallback for own-engine builds:** When no AI-generated images are provided, use real photos from Unsplash that directly depict the site's subject matter.",
-      "- Build the URL as: `https://images.unsplash.com/photo-{ID}?w={WIDTH}&h={HEIGHT}&fit=crop&q=80`",
-      "- The hero section **MUST** contain a large, topic-specific image (w=1200, h=600 minimum).",
-      "- Include images in at least 2 additional sections beyond the hero.",
-      "- NEVER use generic stock photos (office desks, laptops, handshakes, coffee) unless the site is specifically about those subjects.",
-      "- Match the image to the **exact topic**: vinyl records site → vinyl records/turntables; Christmas trees → real Christmas trees; restaurant → actual food/dining.",
-    );
-  } else {
-    parts.push(
-      "Image generation is **disabled**. Use `/placeholder.svg?height=H&width=W` for all images. Prioritize layout, typography, and iconography. Always include descriptive alt text.",
-    );
-  }
+  parts.push(
+    "Use `/placeholder.svg?height=H&width=W&text=DESCRIPTION` for all images. Write descriptive `text` parameters that precisely match the site's subject (e.g. `text=Vintage+leather+cowboy+boots+warm+lighting`). Post-processing replaces these with real Unsplash photos automatically.",
+    "- The hero section **MUST** have a large image (height=600, width=1200 minimum).",
+    "- Include images in at least 2 additional sections beyond the hero.",
+    "- NEVER fabricate Unsplash photo IDs. NEVER use picsum.photos, placehold.co, `blob:`, or `data:` URIs.",
+  );
   parts.push("");
 
   // Imagery notes from brief

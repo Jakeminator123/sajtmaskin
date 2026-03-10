@@ -254,6 +254,7 @@ export function useBuilderPageController() {
   // ── Prompt actions ───────────────────────────────────────────────────
   const promptActions = useBuilderPromptActions({
     chatId: state.chatId,
+    scaffoldMode: state.scaffoldMode,
     customInstructions: state.customInstructions,
     applyInstructionsOnce: state.applyInstructionsOnce,
     promptAssistDeep: state.promptAssistDeep,

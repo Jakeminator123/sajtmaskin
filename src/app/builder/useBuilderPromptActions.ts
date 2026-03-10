@@ -4,13 +4,15 @@ import type { ShadcnBlockSelection } from "@/components/builder/UiElementPicker"
 import type { ChatMessage } from "@/lib/builder/types";
 import type { PaletteSelection, PaletteState } from "@/lib/builder/palette";
 import type { BuildMethod } from "@/lib/builder/build-intent";
+import type { ScaffoldMode } from "@/lib/gen/scaffolds";
 import type { DesignTheme, ThemeColors } from "@/lib/builder/theme-presets";
 import { buildPaletteInstruction, mergePaletteSelection } from "@/lib/builder/palette";
 import { briefToSpec, promptToSpec } from "@/lib/builder/promptAssistContext";
 import {
-  DEFAULT_CUSTOM_INSTRUCTIONS,
   DEFAULT_PROMPT_POLISH_MODEL,
   SPEC_FILE_INSTRUCTION,
+  getDefaultCustomInstructions,
+  isDefaultCustomInstructions,
 } from "@/lib/builder/defaults";
 import { formatPrompt, isGatewayAssistModel } from "@/lib/builder/promptAssist";
 import { saveProjectData } from "@/lib/project-client";
@@ -22,6 +24,7 @@ import type { ModelTier } from "@/lib/validations/chatSchemas";
 
 type Args = {
   chatId: string | null;
+  scaffoldMode: ScaffoldMode;
   customInstructions: string;
   applyInstructionsOnce: boolean;
   promptAssistDeep: boolean;
@@ -73,6 +76,7 @@ type Args = {
 
 export function useBuilderPromptActions({
   chatId,
+  scaffoldMode,
   customInstructions,
   applyInstructionsOnce,
   promptAssistDeep,
@@ -156,11 +160,11 @@ export function useBuilderPromptActions({
           pendingSpecRef.current = promptToSpec(trimmed, themeColors, paletteState);
         }
 
+        const scaffoldDefault = getDefaultCustomInstructions(scaffoldMode);
         const baseInstructions =
-          customInstructions.trim() &&
-          customInstructions.trim() !== DEFAULT_CUSTOM_INSTRUCTIONS.trim()
+          customInstructions.trim() && !isDefaultCustomInstructions(customInstructions)
             ? customInstructions.trim()
-            : DEFAULT_CUSTOM_INSTRUCTIONS.trim();
+            : scaffoldDefault.trim();
         const specSuffix = pendingSpecRef.current ? SPEC_FILE_INSTRUCTION : "";
         const paletteHint = buildPaletteInstruction(paletteState);
         const paletteSuffix = paletteHint ? `\n\n${paletteHint}` : "";
@@ -180,6 +184,7 @@ export function useBuilderPromptActions({
     },
     [
       chatId,
+      scaffoldMode,
       customInstructions,
       generateDynamicInstructions,
       paletteState,

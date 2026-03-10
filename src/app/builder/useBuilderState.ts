@@ -16,7 +16,6 @@ import {
 } from "@/lib/builder/palette";
 import { DEFAULT_DESIGN_THEME, getThemeColors, type DesignTheme } from "@/lib/builder/theme-presets";
 import {
-  DEFAULT_CUSTOM_INSTRUCTIONS,
   DEFAULT_IMAGE_GENERATIONS,
   DEFAULT_MODEL_TIER,
   DEFAULT_PROMPT_ASSIST,
@@ -24,11 +23,13 @@ import {
   DEFAULT_SCAFFOLD_MODE,
   DEFAULT_SPEC_MODE,
   DEFAULT_THINKING,
+  getDefaultCustomInstructions,
+  isDefaultCustomInstructions,
   getDefaultPromptAssistModel,
 } from "@/lib/builder/defaults";
 import type { ModelTier } from "@/lib/validations/chatSchemas";
 import type { ReadonlyURLSearchParams } from "next/navigation";
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 export function useBuilderState(searchParams: ReadonlyURLSearchParams) {
   const chatIdParam = searchParams.get("chatId");
@@ -75,7 +76,9 @@ export function useBuilderState(searchParams: ReadonlyURLSearchParams) {
   const pendingBriefRef = useRef<Record<string, unknown> | null>(null);
   const [showStructuredChat, setShowStructuredChat] = useState(false);
   const [isIntentionalReset, setIsIntentionalReset] = useState(false);
-  const [customInstructions, setCustomInstructions] = useState(DEFAULT_CUSTOM_INSTRUCTIONS);
+  const [customInstructions, setCustomInstructions] = useState(() =>
+    getDefaultCustomInstructions(DEFAULT_SCAFFOLD_MODE),
+  );
   const [applyInstructionsOnce, setApplyInstructionsOnce] = useState(false);
   const featureWarnedRef = useRef({ v0: false, blob: false });
   const hasLoadedInstructions = useRef(false);
@@ -130,6 +133,13 @@ export function useBuilderState(searchParams: ReadonlyURLSearchParams) {
 
   const [scaffoldMode, setScaffoldMode] = useState<ScaffoldMode>(DEFAULT_SCAFFOLD_MODE);
   const [scaffoldId, setScaffoldId] = useState<string | null>(DEFAULT_SCAFFOLD_ID);
+
+  useEffect(() => {
+    setCustomInstructions((prev) => {
+      if (!isDefaultCustomInstructions(prev)) return prev;
+      return getDefaultCustomInstructions(scaffoldMode);
+    });
+  }, [scaffoldMode]);
 
   const isThinkingSupported = true;
   const effectiveThinking = enableThinking && isThinkingSupported;

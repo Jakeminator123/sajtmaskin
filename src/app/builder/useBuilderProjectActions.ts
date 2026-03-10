@@ -3,12 +3,12 @@
 import type { ChatMessage } from "@/lib/builder/types";
 import type { PaletteState } from "@/lib/builder/palette";
 import {
-  DEFAULT_CUSTOM_INSTRUCTIONS,
   DEFAULT_IMAGE_GENERATIONS,
   DEFAULT_MODEL_TIER,
   DEFAULT_PROMPT_ASSIST,
   DEFAULT_SCAFFOLD_ID,
   DEFAULT_SCAFFOLD_MODE,
+  getDefaultCustomInstructions,
 } from "@/lib/builder/defaults";
 import { DEFAULT_DESIGN_THEME, type DesignTheme } from "@/lib/builder/theme-presets";
 import { clearPersistedMessages } from "@/lib/builder/messagesStorage";
@@ -262,7 +262,7 @@ export function useBuilderProjectActions({
       setDesignTheme(DEFAULT_DESIGN_THEME);
       setScaffoldMode(DEFAULT_SCAFFOLD_MODE);
       setScaffoldId(DEFAULT_SCAFFOLD_ID);
-      setCustomInstructions(DEFAULT_CUSTOM_INSTRUCTIONS);
+      setCustomInstructions(getDefaultCustomInstructions(DEFAULT_SCAFFOLD_MODE));
       setApplyInstructionsOnce(false);
     });
   }, [

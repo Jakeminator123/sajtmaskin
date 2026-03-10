@@ -1,16 +1,62 @@
 import type { ScaffoldManifest } from "./types";
 import { buildFileContext } from "../context/file-context-builder";
 
-export function serializeScaffoldForPrompt(scaffold: ScaffoldManifest): string {
+const CREATIVE_THEME_KEYWORDS = [
+  "retro", "vintage", "western", "cowboy", "vilda västern", "steampunk",
+  "cyberpunk", "futuristic", "futuristisk", "neon", "grunge", "gothic",
+  "art deco", "art nouveau", "brutalist", "brutalistisk", "psychedelic",
+  "vaporwave", "synthwave", "pixel", "8-bit", "glitch", "noir", "film noir",
+  "comic", "manga", "anime", "fantasy", "medieval", "medeltida", "pirate",
+  "space", "rymd", "underwater", "tropical", "tropisk", "arctic", "arktisk",
+  "jungle", "desert", "öken", "industrial", "industriell", "warehouse",
+  "saloon", "barn", "rustic", "rustik", "bohemian", "boho", "hippie",
+  "punk", "rave", "disco", "70-tal", "80-tal", "90-tal", "y2k",
+];
+
+export type ScaffoldSerializeMode = "structural" | "inspirational";
+
+/**
+ * Detect whether the prompt describes a creative/unique theme that should
+ * use inspirational (lightweight) scaffold injection instead of full files.
+ */
+export function detectScaffoldMode(prompt: string, styleKeywords?: string[]): ScaffoldSerializeMode {
+  const lower = prompt.toLowerCase();
+  const kwHits = CREATIVE_THEME_KEYWORDS.filter((kw) => lower.includes(kw));
+  if (kwHits.length >= 1) return "inspirational";
+  if (styleKeywords && styleKeywords.length > 0) {
+    const styleLower = styleKeywords.map((s) => s.toLowerCase());
+    const styleHits = CREATIVE_THEME_KEYWORDS.filter((kw) =>
+      styleLower.some((s) => s.includes(kw)),
+    );
+    if (styleHits.length >= 1) return "inspirational";
+  }
+  return "structural";
+}
+
+export function serializeScaffoldForPrompt(
+  scaffold: ScaffoldManifest,
+  mode: ScaffoldSerializeMode = "structural",
+): string {
+  const hints = scaffold.promptHints.length > 0
+    ? `\n\nScaffold hints:\n${scaffold.promptHints.map((h) => `- ${h}`).join("\n")}`
+    : "";
+
+  if (mode === "inspirational") {
+    const filePaths = scaffold.files.map((f) => `- ${f.path}`).join("\n");
+    const globalsCss = scaffold.files.find((f) => f.path.endsWith("globals.css"));
+    const themeBlock = globalsCss
+      ? `\n\n## Scaffold Theme Reference (adapt freely)\n\n\`\`\`css file="${globalsCss.path}"\n${globalsCss.content}\n\`\`\``
+      : "";
+
+    return `## Scaffold: ${scaffold.label} (inspirational mode)\n\n${scaffold.description}\n\nThe user's request describes a unique visual identity. Use the scaffold's file structure as a starting point, but **create the visual design and layout from scratch** based on the user's vision. You are not bound by the scaffold's existing layout or component patterns.\n\nScaffold file paths (create these files with your own implementation):\n${filePaths}${themeBlock}\n\n**IMPORTANT — Color adaptation:** Update the \`@theme inline\` color tokens to match the user's requested palette and atmosphere. Never leave scaffold defaults unchanged.${hints}`;
+  }
+
   const ctx = buildFileContext({
     files: scaffold.files.map((f) => ({ path: f.path, content: f.content, language: inferLang(f.path) })),
     maxChars: 2400,
   });
 
   const fileBlocks = renderScaffoldFiles(scaffold);
-  const hints = scaffold.promptHints.length > 0
-    ? `\n\nScaffold hints:\n${scaffold.promptHints.map((h) => `- ${h}`).join("\n")}`
-    : "";
 
   return `## Scaffold: ${scaffold.label}\n\n${scaffold.description}\n\nTreat these scaffold files as the current starter project. Modify them when they already fit the request instead of rewriting everything from scratch. Only return files you need to CREATE or MODIFY. Files you omit are kept as-is.\n\n**IMPORTANT — Color adaptation:** The scaffold's \`app/globals.css\` contains neutral placeholder colors. You MUST update the \`@theme inline\` color tokens (--color-primary, --color-secondary, --color-accent, etc.) to match the user's requested color palette or the site's subject matter. Never leave the default neutral/gray theme unchanged.\n\n${ctx.summary}\n\n## Scaffold Files\n\n${fileBlocks}${hints}`;
 }

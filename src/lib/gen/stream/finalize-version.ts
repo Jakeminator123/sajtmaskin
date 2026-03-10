@@ -3,6 +3,7 @@ import { runAutoFix } from "@/lib/gen/autofix/pipeline";
 import { validateAndFix } from "@/lib/gen/autofix/validate-and-fix";
 import { checkScaffoldImports } from "@/lib/gen/autofix/rules/scaffold-import-checker";
 import { expandUrls } from "@/lib/gen/url-compress";
+import { materializeImages } from "@/lib/gen/post-process/image-materializer";
 import { buildPreviewUrl } from "@/lib/gen/preview";
 import * as chatRepo from "@/lib/db/chat-repository";
 import { devLogAppend } from "@/lib/logging/devLog";
@@ -90,6 +91,22 @@ export async function finalizeAndSaveVersion(
 
   // 3. URL expansion
   contentForVersion = expandUrls(contentForVersion, urlMap);
+
+  // 3b. Image materialization (replace /placeholder.svg?text=... with real Unsplash URLs)
+  try {
+    const imgResult = await materializeImages(contentForVersion);
+    if (imgResult.replacedCount > 0) {
+      contentForVersion = imgResult.content;
+      devLogAppend("in-progress", {
+        type: "image-materialization",
+        chatId,
+        replacedCount: imgResult.replacedCount,
+        queries: imgResult.queries.slice(0, 10),
+      });
+    }
+  } catch (imgErr) {
+    console.warn("[image-materializer] Non-fatal error, continuing with placeholders:", imgErr);
+  }
 
   // 4. Save assistant message
   const assistantMsg = chatRepo.addMessage(chatId, "assistant", contentForVersion);

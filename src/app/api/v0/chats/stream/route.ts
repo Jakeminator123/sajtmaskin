@@ -40,7 +40,7 @@ import { createPromptLog } from "@/lib/db/services";
 import { resolveModelSelection, resolveEngineModelId } from "@/lib/v0/modelSelection";
 import { AI } from "@/lib/config";
 import { shouldUseV0Fallback, createGenerationPipeline } from "@/lib/gen/fallback";
-import { matchScaffold, getScaffoldById, serializeScaffoldForPrompt } from "@/lib/gen/scaffolds";
+import { matchScaffold, getScaffoldById, serializeScaffoldForPrompt, detectScaffoldMode } from "@/lib/gen/scaffolds";
 import type { ScaffoldManifest } from "@/lib/gen/scaffolds";
 import { compressUrls, expandUrls } from "@/lib/gen/url-compress";
 import { buildSystemPrompt, getSystemPromptLengths, type Brief } from "@/lib/gen/system-prompt";
@@ -360,11 +360,19 @@ export async function POST(req: Request) {
 
         let scaffoldContextForPrompt: string | undefined;
         if (resolvedScaffold) {
-          scaffoldContextForPrompt = serializeScaffoldForPrompt(resolvedScaffold);
+          const briefStyleKeywords = (() => {
+            const raw = (metaBrief as Record<string, unknown> | null)?.visualDirection;
+            if (!raw || typeof raw !== "object") return undefined;
+            const vd = raw as Record<string, unknown>;
+            return Array.isArray(vd.styleKeywords) ? (vd.styleKeywords as string[]) : undefined;
+          })();
+          const serializeMode = detectScaffoldMode(optimizedMessage, briefStyleKeywords);
+          scaffoldContextForPrompt = serializeScaffoldForPrompt(resolvedScaffold, serializeMode);
           debugLog("engine", "Scaffold injected", {
             scaffoldId: resolvedScaffold.id,
             family: resolvedScaffold.family,
             mode: metaScaffoldMode,
+            serializeMode,
           });
         }
 

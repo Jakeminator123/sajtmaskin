@@ -3,10 +3,11 @@
 import { isGatewayAssistModel, resolvePromptAssistProvider } from "@/lib/builder/promptAssist";
 import type { ModelTier } from "@/lib/validations/chatSchemas";
 import {
-  DEFAULT_CUSTOM_INSTRUCTIONS,
   MODEL_TIER_OPTIONS,
   PROMPT_ASSIST_OFF_VALUE,
   getPromptAssistModelOptions,
+  getDefaultCustomInstructions,
+  isDefaultCustomInstructions,
 } from "@/lib/builder/defaults";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/lib/auth/auth-store";
@@ -205,7 +206,7 @@ export function BuilderHeader(props: {
   const [isInstructionsOpen, setIsInstructionsOpen] = useState(false);
   const applyOnceId = useId();
   const hasCustomInstructions = Boolean(customInstructions.trim());
-  const isDefaultInstructions = customInstructions.trim() === DEFAULT_CUSTOM_INSTRUCTIONS.trim();
+  const isDefaultInstructions = isDefaultCustomInstructions(customInstructions);
   const isAssistOff = promptAssistModel === PROMPT_ASSIST_OFF_VALUE;
   const isGatewayProvider = isGatewayAssistModel(promptAssistModel);
   const isDeepBriefDisabled = isBusy || isAssistOff || !isGatewayProvider || !canUseDeepBrief;
@@ -798,7 +799,7 @@ export function BuilderHeader(props: {
             <div className="flex justify-end gap-2">
               <Button
                 variant="outline"
-                onClick={() => onCustomInstructionsChange(DEFAULT_CUSTOM_INSTRUCTIONS)}
+                onClick={() => onCustomInstructionsChange(getDefaultCustomInstructions(scaffoldMode))}
                 disabled={isBusy || isDefaultInstructions}
               >
                 Använd standard
