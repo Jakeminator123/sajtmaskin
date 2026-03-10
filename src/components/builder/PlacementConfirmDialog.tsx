@@ -40,7 +40,7 @@ export function PlacementConfirmDialog({
 
   return (
     <Dialog open={open}>
-      <DialogContent className="max-w-xl" onClose={onCancel}>
+      <DialogContent className="max-w-xl">
         <DialogHeader>
           <DialogTitle>Bekräfta placering</DialogTitle>
           <DialogDescription>

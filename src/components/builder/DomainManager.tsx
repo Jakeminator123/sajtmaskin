@@ -238,8 +238,8 @@ export function DomainManager({ open, onClose, projectId, deploymentId }: Domain
   }, []);
 
   return (
-    <Dialog open={open} onClose={onClose}>
-      <DialogContent className="max-w-lg" onClose={onClose}>
+    <Dialog open={open} onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Globe className="h-5 w-5" />

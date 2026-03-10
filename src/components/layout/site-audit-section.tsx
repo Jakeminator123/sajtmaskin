@@ -292,10 +292,9 @@ export function SiteAuditSection({
         ))}
       </div>
 
-      <Dialog open={showModeDialog} onClose={() => setShowModeDialog(false)}>
+      <Dialog open={showModeDialog} onOpenChange={setShowModeDialog}>
         <DialogContent
           className="max-w-2xl border-border/40 bg-background/95 backdrop-blur-xl rounded-2xl shadow-2xl"
-          onClose={() => setShowModeDialog(false)}
         >
           <DialogHeader>
             <DialogTitle className="text-foreground font-(--font-heading)">Välj analysnivå</DialogTitle>

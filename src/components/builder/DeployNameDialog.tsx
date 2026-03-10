@@ -35,8 +35,8 @@ export function DeployNameDialog({
   const disabled = isDeploying || isSaving;
 
   return (
-    <Dialog open={open} onClose={onCancel}>
-      <DialogContent className="max-w-md" onClose={onCancel}>
+    <Dialog open={open} onOpenChange={(open) => { if (!open) onCancel(); }}>
+      <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>Publicera till Vercel</DialogTitle>
           <DialogDescription>

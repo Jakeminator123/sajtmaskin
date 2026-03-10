@@ -430,8 +430,8 @@ export function UnifiedElementPicker({
   const showPlacement = (activeTab === "ui" || activeTab === "ai") && hasChat;
 
   return (
-    <Dialog open={open} onClose={onClose}>
-      <DialogContent className="flex h-[80vh] max-h-[900px] w-[min(96vw,1100px)] max-w-5xl flex-col overflow-hidden rounded-2xl border-border/50 bg-background/95 p-0 shadow-2xl backdrop-blur-xl" onClose={onClose}>
+    <Dialog open={open} onOpenChange={(open) => { if (!open) onClose(); }}>
+      <DialogContent className="flex h-[80vh] max-h-[900px] w-[min(96vw,1100px)] max-w-5xl flex-col overflow-hidden rounded-2xl border-border/50 bg-background/95 p-0 shadow-2xl backdrop-blur-xl">
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as UnifiedPickerTab)} className="contents">
         {/* ── Header ── */}
         <div className="relative overflow-hidden">

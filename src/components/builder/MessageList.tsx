@@ -648,8 +648,8 @@ const MessageListComponent = ({
 
       {pendingReply && (
         <>
-          <Dialog open={isReplyDialogOpen} onClose={() => setIsReplyDialogOpen(false)}>
-            <DialogContent className="sm:max-w-md" onClose={() => setIsReplyDialogOpen(false)}>
+          <Dialog open={isReplyDialogOpen} onOpenChange={setIsReplyDialogOpen}>
+            <DialogContent className="sm:max-w-md">
               <DialogHeader>
                 <DialogTitle className="font-semibold text-amber-300">
                   Svar krävs för att fortsätta

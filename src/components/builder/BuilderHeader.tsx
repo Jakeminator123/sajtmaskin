@@ -681,8 +681,8 @@ export function BuilderHeader(props: {
         )}
       </div>
 
-      <Dialog open={isInstructionsOpen} onClose={() => setIsInstructionsOpen(false)}>
-        <DialogContent className="max-w-lg" onClose={() => setIsInstructionsOpen(false)}>
+      <Dialog open={isInstructionsOpen} onOpenChange={setIsInstructionsOpen}>
+        <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>Custom Instructions</DialogTitle>
             <DialogDescription>
