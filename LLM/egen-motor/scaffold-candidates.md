@@ -120,6 +120,82 @@ Vi använder externa templates/repon på tre olika sätt:
 - Det är en plattformsapp, inte en användarsajt
 - Ska inspirera sajtmaskin-appen, inte genererade kundsidor
 
+### 6. `nextjs/saas-starter`
+
+- Källa: [Template-sida](https://vercel.com/templates/authentication/next-js-saas-starter), [GitHub](https://github.com/nextjs/saas-starter)
+- Typ: full SaaS-starter med auth, pricing och dashboard
+- Stack: Next.js, shadcn/ui, Postgres, Stripe, auth, dashboard- och teamflöden
+- Status: **Behåll som strukturreferens**
+
+**Varför:**
+- Mycket bra referens för:
+  - `saas-landing`
+  - `dashboard`
+  - `auth-pages`
+  - pricing och upgrade-flöden
+
+**Varför inte som direkt scaffold:**
+- För mycket backend- och betalningslogik
+- Kräver env/config och flera externa tjänster
+- Bättre som källa för att destillera separata interna mallar
+
+### 7. `auth0-developer-hub/auth0-b2b-saas-starter`
+
+- Källa: [Template-sida](https://vercel.com/templates/authentication/auth0-nextjs-saas-starter), [GitHub](https://github.com/auth0-developer-hub/auth0-b2b-saas-starter)
+- Typ: B2B SaaS-starter
+- Stack: Next.js, Auth0, organisations-/team-flöden
+- Status: **Behåll som auth-/B2B-referens**
+
+**Varför:**
+- Bra för att förstå organisationer, B2B-auth och account-boundary patterns
+
+**Varför inte som scaffold:**
+- För identitetsleverantörsspecifik
+- För tung som första intern starter
+
+### 8. `dzlau/stripe-supabase-saas-template`
+
+- Källa: [Template-sida](https://vercel.com/templates/next.js/stripe-supabase-saas-starter-kit), [GitHub](https://github.com/dzlau/stripe-supabase-saas-template)
+- Typ: SaaS-template med auth, db och betalningar
+- Stack: Stripe, Supabase, Next.js
+- Status: **Behåll som strukturreferens**
+
+**Varför:**
+- Bra sekundär referens för SaaS-flöden med onboarding, billing och auth
+
+**Varför inte som scaffold:**
+- För infra-/backend-tung
+- Ska inte bli intern starter rakt av
+
+### 9. `vercel/next.js/examples/with-cloudinary`
+
+- Källa: [Template-sida](https://vercel.com/templates/next.js/image-gallery-starter), [GitHub](https://github.com/vercel/next.js/tree/canary/examples/with-cloudinary)
+- Typ: bildgalleri / media-site
+- Stack: Next.js, Cloudinary, Tailwind
+- Status: **Behåll som media-/gallerireferens**
+
+**Varför:**
+- Bra referens för bildgalleri, mediaflöden och bildtunga portfolioytor
+
+**Varför inte som scaffold:**
+- Kräver Cloudinary och extern setup
+- För specialiserad för första vågens generella hemsidemallar
+
+### 10. `ibelick/nim`
+
+- Källa: [GitHub](https://github.com/ibelick/nim)
+- Typ: minimalistisk personlig sajt / portfolio
+- Stack: Next.js 15, React 19, Tailwind v4
+- Status: **Behåll som struktur- och stilreferens**
+
+**Varför:**
+- Stark referens för en ren, modern och personlig `portfolio`
+- Låg komplexitet och bra visuell riktning
+
+**Varför inte som enda portfolio-bas:**
+- Väldigt stilsmal
+- Bör kombineras med `vercel/examples/solutions/blog` för bredare portfolio/blog-mappning
+
 ## Sammanfattande beslut
 
 | Kandidat | Beslut | Roll |
@@ -129,6 +205,11 @@ Vi använder externa templates/repon på tre olika sätt:
 | `medusajs/nextjs-starter-medusa` | Delvis | Sekundär commerce-referens, ej första scaffold |
 | `Blazity/next-enterprise` | Behåll | Kvalitets-/boilerplate-referens |
 | `vercel/platforms` | Behåll | Plattforms-/hostingreferens för sajtmaskin |
+| `nextjs/saas-starter` | Behåll | Strukturreferens för `saas-landing`, `dashboard`, `auth-pages` |
+| `auth0-b2b-saas-starter` | Behåll | Auth-/B2B-referens, ej direkt scaffold |
+| `stripe-supabase-saas-template` | Behåll | Sekundär SaaS-strukturreferens |
+| `vercel/next.js with-cloudinary` | Behåll | Media-/gallerireferens för portfolio |
+| `ibelick/nim` | Behåll | Stil-/strukturreferens för minimalistisk portfolio |
 
 ## Första scaffold-vågen (rekommenderad)
 
@@ -159,13 +240,12 @@ src/lib/gen/scaffolds/
 
 ## Rekommenderat nästa steg
 
-1. Extrahera `base-nextjs` från `vercel/examples/nextjs`
-2. Definiera scaffold-metadata-format
-3. Bygg första 3 scaffolds:
-   - `base-nextjs`
+1. Implementera `blog` utifrån `nextjs-examples` och `vercel-examples`
+2. Implementera `dashboard` och `auth-pages` utifrån `nextjs-saas-starter`
+3. Behåll `next-enterprise` som engineering reference och inte som scaffoldkälla
+4. Validera matcher-logiken mot de nu implementerade:
    - `landing-page`
-   - `dashboard`
-4. Lägg till scaffold-väljare i buildern:
-   - Av
-   - Auto
-   - Välj själv
+   - `saas-landing`
+   - `portfolio`
+   - `content-site`
+   - `app-shell`

@@ -181,6 +181,8 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
           optimizedMessage = `${fileCtx.summary}\n\n---\n\n${optimizedMessage}`;
         }
 
+        const promptForSystemContext = message;
+
         const creditContext = {
           modelId: resolvedModelId,
           thinking: resolvedThinking,
@@ -217,6 +219,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
         const engineSystemPrompt = buildSystemPrompt({
           intent: engineIntent,
           imageGenerations: resolvedImageGenerations,
+          originalPrompt: promptForSystemContext,
         });
         const promptLengths = getSystemPromptLengths(engineSystemPrompt);
         debugLog("prompt-cache", "System prompt lengths", promptLengths);

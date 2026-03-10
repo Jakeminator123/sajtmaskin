@@ -16,28 +16,33 @@ export const baseNextjsManifest: ScaffoldManifest = {
       path: "app/globals.css",
       content: `@import "tailwindcss";
 
-:root {
-  --background: oklch(0.15 0.01 260);
-  --foreground: oklch(0.95 0.01 260);
-  --card: oklch(0.18 0.01 260);
-  --card-foreground: oklch(0.95 0.01 260);
-  --primary: oklch(0.65 0.2 260);
-  --primary-foreground: oklch(0.98 0.005 260);
-  --secondary: oklch(0.22 0.015 260);
-  --secondary-foreground: oklch(0.9 0.01 260);
-  --muted: oklch(0.22 0.01 260);
-  --muted-foreground: oklch(0.6 0.02 260);
-  --accent: oklch(0.25 0.015 260);
-  --accent-foreground: oklch(0.9 0.01 260);
-  --border: oklch(0.28 0.015 260);
-  --ring: oklch(0.65 0.2 260);
+@theme inline {
+  --color-background: oklch(0.15 0.01 260);
+  --color-foreground: oklch(0.95 0.01 260);
+  --color-card: oklch(0.18 0.01 260);
+  --color-card-foreground: oklch(0.95 0.01 260);
+  --color-primary: oklch(0.65 0.2 260);
+  --color-primary-foreground: oklch(0.98 0.005 260);
+  --color-secondary: oklch(0.22 0.015 260);
+  --color-secondary-foreground: oklch(0.9 0.01 260);
+  --color-muted: oklch(0.22 0.01 260);
+  --color-muted-foreground: oklch(0.6 0.02 260);
+  --color-accent: oklch(0.25 0.015 260);
+  --color-accent-foreground: oklch(0.9 0.01 260);
+  --color-border: oklch(0.28 0.015 260);
+  --color-ring: oklch(0.65 0.2 260);
   --radius: 0.625rem;
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  }
 }
 `,
     },

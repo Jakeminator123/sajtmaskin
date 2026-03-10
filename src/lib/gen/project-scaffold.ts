@@ -197,54 +197,46 @@ function collectRequiredUiComponents(files: CodeFile[]): UiComponent[] {
     }
   }
 
-  const resolved: UiComponent[] = [];
   const searchDirs = [
     nodePath.resolve(process.cwd(), "src/components/ui"),
     nodePath.resolve(process.cwd(), "components/ui"),
   ];
+  const resolved = new Map<string, UiComponent>();
+  const queue = [...needed];
 
-  for (const name of needed) {
-    const filename = `${name}.tsx`;
-    let content: string | null = null;
+  while (queue.length > 0) {
+    const name = queue.shift();
+    if (!name || resolved.has(name)) continue;
 
-    for (const dir of searchDirs) {
-      const fullPath = nodePath.join(dir, filename);
-      try {
-        content = fs.readFileSync(fullPath, "utf-8");
-        break;
-      } catch {
-        continue;
-      }
-    }
+    const content = readUiComponent(name, searchDirs);
+    if (!content) continue;
 
-    if (content) {
-      resolved.push({ filename, content });
-    }
-  }
+    resolved.set(name, { filename: `${name}.tsx`, content });
 
-  const transitiveDeps = new Set<string>();
-  for (const comp of resolved) {
-    for (const match of comp.content.matchAll(UI_IMPORT_RE)) {
-      if (!needed.has(match[1])) {
-        transitiveDeps.add(match[1]);
+    for (const match of content.matchAll(UI_IMPORT_RE)) {
+      const dependency = match[1];
+      if (!resolved.has(dependency)) {
+        queue.push(dependency);
       }
     }
   }
 
-  for (const name of transitiveDeps) {
-    const filename = `${name}.tsx`;
-    for (const dir of searchDirs) {
-      try {
-        const content = fs.readFileSync(nodePath.join(dir, filename), "utf-8");
-        resolved.push({ filename, content });
-        break;
-      } catch {
-        continue;
-      }
+  return Array.from(resolved.values());
+}
+
+function readUiComponent(name: string, searchDirs: string[]): string | null {
+  const filename = `${name}.tsx`;
+
+  for (const dir of searchDirs) {
+    const fullPath = nodePath.join(dir, filename);
+    try {
+      return fs.readFileSync(fullPath, "utf-8");
+    } catch {
+      continue;
     }
   }
 
-  return resolved;
+  return null;
 }
 
 function inferLanguage(filePath: string): string {

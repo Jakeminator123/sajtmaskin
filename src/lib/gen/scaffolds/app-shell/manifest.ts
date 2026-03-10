@@ -19,32 +19,37 @@ export const appShellManifest: ScaffoldManifest = {
       path: "app/globals.css",
       content: `@import "tailwindcss";
 
-:root {
-  --background: oklch(0.12 0.01 260);
-  --foreground: oklch(0.95 0.01 260);
-  --card: oklch(0.16 0.01 260);
-  --card-foreground: oklch(0.95 0.01 260);
-  --primary: oklch(0.65 0.2 260);
-  --primary-foreground: oklch(0.98 0.005 260);
-  --secondary: oklch(0.19 0.015 260);
-  --secondary-foreground: oklch(0.9 0.01 260);
-  --muted: oklch(0.19 0.01 260);
-  --muted-foreground: oklch(0.6 0.02 260);
-  --accent: oklch(0.22 0.015 260);
-  --accent-foreground: oklch(0.9 0.01 260);
-  --destructive: oklch(0.55 0.2 25);
-  --destructive-foreground: oklch(0.98 0.005 25);
-  --border: oklch(0.23 0.015 260);
-  --input: oklch(0.2 0.015 260);
-  --ring: oklch(0.65 0.2 260);
+@theme inline {
+  --color-background: oklch(0.12 0.01 260);
+  --color-foreground: oklch(0.95 0.01 260);
+  --color-card: oklch(0.16 0.01 260);
+  --color-card-foreground: oklch(0.95 0.01 260);
+  --color-primary: oklch(0.65 0.2 260);
+  --color-primary-foreground: oklch(0.98 0.005 260);
+  --color-secondary: oklch(0.19 0.015 260);
+  --color-secondary-foreground: oklch(0.9 0.01 260);
+  --color-muted: oklch(0.19 0.01 260);
+  --color-muted-foreground: oklch(0.6 0.02 260);
+  --color-accent: oklch(0.22 0.015 260);
+  --color-accent-foreground: oklch(0.9 0.01 260);
+  --color-destructive: oklch(0.55 0.2 25);
+  --color-destructive-foreground: oklch(0.98 0.005 25);
+  --color-border: oklch(0.23 0.015 260);
+  --color-input: oklch(0.2 0.015 260);
+  --color-ring: oklch(0.65 0.2 260);
   --radius: 0.5rem;
   --sidebar-width: 260px;
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  }
 }
 `,
     },
@@ -58,8 +63,8 @@ import { AppSidebar } from "@/components/app-sidebar";
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
 export const metadata: Metadata = {
-  title: "Dashboard",
-  description: "Analytics dashboard",
+  title: "Workspace Dashboard",
+  description: "A reusable application starter with navigation, stats, and data views.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -240,7 +245,7 @@ export function AppSidebar() {
   return (
     <aside className="flex h-full w-(--sidebar-width) flex-col border-r border-border bg-card">
       <div className="flex h-16 items-center px-6">
-        <span className="text-lg font-bold tracking-tight">Acme Inc</span>
+        <span className="text-lg font-bold tracking-tight">Workspace</span>
       </div>
 
       <Separator />
@@ -278,8 +283,8 @@ export function AppSidebar() {
           </AvatarFallback>
         </Avatar>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium truncate">Jane Doe</p>
-          <p className="text-xs text-muted-foreground truncate">jane@acme.se</p>
+          <p className="text-sm font-medium truncate">Team Member</p>
+          <p className="text-xs text-muted-foreground truncate">team@example.com</p>
         </div>
       </div>
     </aside>

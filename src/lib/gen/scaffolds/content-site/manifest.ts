@@ -34,31 +34,36 @@ export const contentSiteManifest: ScaffoldManifest = {
       path: "app/globals.css",
       content: `@import "tailwindcss";
 
-:root {
-  --background: oklch(0.13 0.01 260);
-  --foreground: oklch(0.95 0.01 260);
-  --card: oklch(0.17 0.01 260);
-  --card-foreground: oklch(0.95 0.01 260);
-  --primary: oklch(0.65 0.2 260);
-  --primary-foreground: oklch(0.98 0.005 260);
-  --secondary: oklch(0.2 0.015 260);
-  --secondary-foreground: oklch(0.9 0.01 260);
-  --muted: oklch(0.2 0.01 260);
-  --muted-foreground: oklch(0.6 0.02 260);
-  --accent: oklch(0.23 0.015 260);
-  --accent-foreground: oklch(0.9 0.01 260);
-  --destructive: oklch(0.55 0.2 25);
-  --destructive-foreground: oklch(0.98 0.005 25);
-  --border: oklch(0.25 0.015 260);
-  --input: oklch(0.22 0.015 260);
-  --ring: oklch(0.65 0.2 260);
+@theme inline {
+  --color-background: oklch(0.13 0.01 260);
+  --color-foreground: oklch(0.95 0.01 260);
+  --color-card: oklch(0.17 0.01 260);
+  --color-card-foreground: oklch(0.95 0.01 260);
+  --color-primary: oklch(0.65 0.2 260);
+  --color-primary-foreground: oklch(0.98 0.005 260);
+  --color-secondary: oklch(0.2 0.015 260);
+  --color-secondary-foreground: oklch(0.9 0.01 260);
+  --color-muted: oklch(0.2 0.01 260);
+  --color-muted-foreground: oklch(0.6 0.02 260);
+  --color-accent: oklch(0.23 0.015 260);
+  --color-accent-foreground: oklch(0.9 0.01 260);
+  --color-destructive: oklch(0.55 0.2 25);
+  --color-destructive-foreground: oklch(0.98 0.005 25);
+  --color-border: oklch(0.25 0.015 260);
+  --color-input: oklch(0.22 0.015 260);
+  --color-ring: oklch(0.65 0.2 260);
   --radius: 0.625rem;
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+    font-family: var(--font-sans), ui-sans-serif, system-ui, sans-serif;
+  }
 }
 `,
     },
@@ -73,8 +78,8 @@ import { SiteFooter } from "@/components/site-footer";
 const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
 
 export const metadata: Metadata = {
-  title: "Norrsken Digital — Webbyrå i Stockholm",
-  description: "Vi bygger moderna webbplatser och digitala upplevelser för framåtlutade företag.",
+  title: "Brand Studio — Modern webbplats",
+  description: "En modern innehållssajt med stark hero, sektioner och tydliga CTA-ytor.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -120,7 +125,7 @@ const testimonials = [
   {
     name: "Emma Lindqvist",
     role: "VD, Bloom Studio",
-    quote: "Norrsken Digital levererade en webbplats som överträffade våra förväntningar. Proffsigt och snabbt.",
+    quote: "Teamet levererade en webbplats som överträffade våra förväntningar. Proffsigt, snabbt och tydligt.",
     rating: 5,
   },
   {
@@ -152,7 +157,7 @@ export default function Home() {
           />
         </div>
         <Badge variant="secondary" className="text-sm">
-          Webbyrå i Stockholm
+          Digital studio
         </Badge>
         <h1 className="max-w-3xl text-5xl font-bold tracking-tight sm:text-6xl">
           Vi bygger webbplatser som driver resultat
@@ -264,7 +269,7 @@ export function SiteHeader() {
     <header className="sticky top-0 z-50 border-b border-border bg-background/80 backdrop-blur-md">
       <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
         <a href="/" className="text-lg font-bold tracking-tight">
-          Norrsken Digital
+          Brand Studio
         </a>
 
         <nav className="hidden md:flex items-center gap-8">
@@ -346,9 +351,9 @@ export function SiteFooter() {
       <div className="mx-auto max-w-6xl">
         <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-4">
           <div className="space-y-4">
-            <p className="text-lg font-bold tracking-tight">Norrsken Digital</p>
+            <p className="text-lg font-bold tracking-tight">Brand Studio</p>
             <p className="text-sm text-muted-foreground max-w-xs">
-              Vi hjälper företag att växa online med moderna webbplatser och digitala strategier.
+              En flexibel starter för moderna företagssajter, kampanjsidor och innehållsdrivna upplevelser.
             </p>
             <div className="flex gap-3">
               <a href="#" className="text-muted-foreground hover:text-foreground transition-colors" aria-label="GitHub">
@@ -386,7 +391,7 @@ export function SiteFooter() {
 
         <div className="flex flex-col items-center justify-between gap-4 sm:flex-row">
           <p className="text-xs text-muted-foreground">
-            &copy; {new Date().getFullYear()} Norrsken Digital. Alla rättigheter förbehållna.
+            &copy; {new Date().getFullYear()} Brand Studio. Alla rättigheter förbehållna.
           </p>
           <div className="flex gap-6">
             <a href="#" className="text-xs text-muted-foreground hover:text-foreground transition-colors">

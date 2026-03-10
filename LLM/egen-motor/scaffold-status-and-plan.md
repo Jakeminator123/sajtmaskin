@@ -67,6 +67,12 @@ Current pieces that exist:
 - route-level integration
 - merge of scaffold files with generated files
 
+Recent implementation hardening:
+
+- scaffold prompt serialization now includes the actual starter files, not just file metadata
+- matcher logic now uses safer keyword boundary matching and better Swedish app vocabulary
+- current scaffold CSS now uses Tailwind v4-friendly `@theme inline` tokens
+
 Key code locations:
 
 - `src/lib/gen/scaffolds/types.ts`
@@ -79,11 +85,14 @@ Key code locations:
 
 ## What is actually implemented today
 
-There are only three real scaffolds today:
+There are now six real scaffolds in code:
 
 1. `base-nextjs`
-2. `content-site`
-3. `app-shell`
+2. `landing-page`
+3. `saas-landing`
+4. `portfolio`
+5. `content-site`
+6. `app-shell`
 
 ### What they currently cover
 
@@ -93,11 +102,29 @@ There are only three real scaffolds today:
 - useful when the prompt is broad or unclear
 - good as a lowest-common-denominator base
 
+`landing-page`
+
+- specific company/service landing page starter
+- best for generic marketing, campaign, and service-led websites
+- gives the model a stronger default than the old umbrella starter
+
+`saas-landing`
+
+- specific product-marketing starter
+- best for software, subscription, platform, and pricing-led prompts
+- adds product-preview and pricing structure directly in the starter
+
+`portfolio`
+
+- specific personal/creative starter
+- best for designers, developers, photographers, consultants, and studios
+- gives the model a clearer place for selected work, writing, and credibility
+
 `content-site`
 
 - broad website starter
-- used for many marketing/content-style prompts
-- currently stands in for multiple more specific categories
+- still useful as a fallback for blog/content-style prompts
+- no longer the only website-oriented starter
 
 `app-shell`
 
@@ -112,14 +139,13 @@ The current problem is the scaffold granularity.
 
 Today:
 
-- `content-site` is too broad
+- `content-site` is still too broad for blog/editorial needs
 - `app-shell` is too broad
-- matcher logic is still fairly simple
+- matcher logic is improved, but still not yet embedding-based
 
 As a result:
 
-- many sites start from similar shapes
-- SaaS, portfolio, blog, and generic landing pages can feel too alike
+- blog/content prompts can still collapse toward similar shapes
 - app prompts can collapse toward the same dashboard shell
 - visual variety has to come too late from prompt interpretation alone
 
@@ -282,18 +308,15 @@ Current to target mapping:
 
 Build in this order:
 
-1. `landing-page`
-2. `saas-landing`
-3. `portfolio`
-4. `blog`
-5. `dashboard`
-6. `auth-pages`
-7. `ecommerce`
+1. `blog`
+2. `dashboard`
+3. `auth-pages`
+4. `ecommerce`
 
 Why this order:
 
-- the first four improve the most common freeform website prompts
-- they directly improve start quality for hero/layout/content structure
+- `landing-page`, `saas-landing`, and `portfolio` are already in place
+- `blog` now becomes the main missing content-site split
 - `dashboard` and `auth-pages` then stabilize app prompts
 - `ecommerce` should come after the matcher is stronger and the starter philosophy is proven
 
@@ -381,9 +404,8 @@ Not done:
 
 If continuing this work, the next practical move should be:
 
-1. define final manifest shape expectations
-2. implement `landing-page`
-3. implement `saas-landing`
-4. implement `portfolio`
-5. upgrade matcher accordingly
-6. validate with test prompts and `npx tsc --noEmit`
+1. implement `blog`
+2. implement `dashboard`
+3. implement `auth-pages`
+4. upgrade matcher accordingly
+5. validate with test prompts and `npx tsc --noEmit`

@@ -1,4 +1,13 @@
-export type ScaffoldFamily = "base-nextjs" | "content-site" | "app-shell";
+export type ScaffoldFamily =
+  | "base-nextjs"
+  | "content-site"
+  | "app-shell"
+  | "landing-page"
+  | "saas-landing"
+  | "portfolio"
+  | "blog"
+  | "dashboard"
+  | "auth-pages";
 export type ScaffoldMode = "off" | "auto" | "manual";
 
 export interface ScaffoldFile {

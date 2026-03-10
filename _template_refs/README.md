@@ -77,6 +77,64 @@ Användning:
 - destillera till intern `blog`-scaffold
 - använd som referens för postlista, article page, metadataflöde
 
+## Nya referenser att hämta/synka
+
+Dessa kan hämtas med:
+
+```bash
+node scripts/sync-scaffold-refs.mjs
+```
+
+### SaaS / auth / app-referenser
+
+- `nextjs-saas-starter/`
+  - källa: `nextjs/saas-starter`
+  - roll: primär strukturreferens för `saas-landing`, `dashboard`, `auth-pages`
+
+- `auth0-b2b-saas-starter/`
+  - källa: `auth0-developer-hub/auth0-b2b-saas-starter`
+  - roll: auth- och B2B-flödesreferens, inte direkt scaffold
+
+- `stripe-supabase-saas-template/`
+  - källa: `dzlau/stripe-supabase-saas-template`
+  - roll: betalning/auth/database-referens för framtida SaaS-appflöden
+
+- `saasfly/`
+  - källa: `nextify-limited/saasfly` (`apps/nextjs`)
+  - roll: SaaS marketing/app-referens
+
+- `next-enterprise/`
+  - källa: `Blazity/next-enterprise`
+  - roll: engineering reference, inte hemsidemall
+
+### Portfolio / media / content-referenser
+
+- `ibelick-nim/`
+  - källa: `ibelick/nim`
+  - roll: minimalistisk portfolio-referens
+
+- `nextjs-with-cloudinary/`
+  - källa: `vercel/next.js` (`examples/with-cloudinary`)
+  - roll: bildtung portfolio/galleri-referens
+
+- `payload-website-starter/`
+  - källa: `payloadcms/payload` (`templates/with-vercel-website`)
+  - roll: CMS-/contentreferens för blog/portfolio, för tung som direkt scaffold
+
+### Övriga referenser
+
+- `next-email-client/`
+  - källa: `leerob/next-email-client`
+  - roll: app layout/master-detail-referens
+
+- `makeswift-basic-typescript/`
+  - källa: `makeswift/makeswift` (`examples/basic-typescript`)
+  - roll: builder-/editorintegrationsreferens
+
+- `vercel-labs-slacker/`
+  - källa: `vercel-labs/slacker`
+  - roll: integrationsreferens, inte scaffoldkandidat för första vågen
+
 ## Relaterad dokumentation
 
 - `LLM/egen-motor/scaffold-candidates.md`

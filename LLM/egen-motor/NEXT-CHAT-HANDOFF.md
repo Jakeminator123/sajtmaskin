@@ -30,6 +30,15 @@ The biggest remaining gaps are:
 - expanding the scaffold library so generations start from stronger templates
 - improving preview fidelity
 
+Recent hardening completed:
+
+- scaffold serialization now includes actual starter file contents, not only a file summary
+- scaffold matcher now uses safer boundary-aware keyword scoring and better Swedish app vocabulary
+- current scaffold CSS now aligns with Tailwind v4 `@theme inline` tokens used by project export
+- system prompt now explains scaffold starters explicitly
+- system prompts now receive the original user request in both create and follow-up engine routes
+- downloadable project scaffold now resolves transitive shadcn/ui dependencies recursively
+
 ## Estimated score vs v0
 
 | Area | v0 | Custom engine | Notes |
@@ -98,6 +107,9 @@ The next goal is not to copy v0 literally. The goal is to make our own flow more
 Implemented scaffolds:
 
 - `base-nextjs`
+- `landing-page`
+- `saas-landing`
+- `portfolio`
 - `content-site`
 - `app-shell`
 
@@ -112,7 +124,8 @@ These are already wired into the generation flow through:
 This means:
 
 - scaffold infrastructure exists
-- scaffold library is still too broad and too small
+- the first specific website scaffold wave has started
+- `content-site` and `app-shell` still remain as broader fallback families
 
 ## Scaffold target state
 
@@ -130,9 +143,6 @@ First real wave of internal starters:
 Interpretation of current broad scaffolds:
 
 - `content-site` is currently a rough umbrella for:
-  - `landing-page`
-  - `saas-landing`
-  - `portfolio`
   - `blog`
 - `app-shell` is currently a rough umbrella for:
   - `dashboard`
@@ -143,17 +153,15 @@ Interpretation of current broad scaffolds:
 
 Recommended order:
 
-1. `landing-page`
-2. `saas-landing`
-3. `portfolio`
-4. `blog`
-5. `dashboard`
-6. `auth-pages`
-7. `ecommerce`
+1. `blog`
+2. `dashboard`
+3. `auth-pages`
+4. `ecommerce`
 
 Why:
 
 - the first four directly improve the most common "build me a site" prompts
+- `landing-page`, `saas-landing`, and `portfolio` are now implemented as specific starters
 - `dashboard` and `auth-pages` strengthen app use cases
 - `ecommerce` matters a lot, but should come after the matcher and base starter shapes are more stable
 
@@ -175,9 +183,9 @@ In the next chat:
    - user prompt
    - internal planning/thinking contract
 3. Keep prompt polish, but narrow its responsibility so it does not overwrite user intent.
-4. Split `content-site` into more specific website starters.
+4. Implement `blog` as the next specific content starter.
 5. Split `app-shell` into more specific app starters.
-6. Improve matcher logic so scaffold selection becomes more stable.
+6. Keep improving matcher logic so scaffold selection becomes more stable.
 7. Validate with `npx tsc --noEmit` and lint checks after meaningful changes.
 
 ## Suggested opening instruction for the next chat

@@ -15,6 +15,7 @@ Egen motor / prompts / scaffolds:
 - LLM/egen-motor/MOTOR-STATUS.md
 - LLM/egen-motor/NEXT-CHAT-HANDOFF.md
 - LLM/egen-motor/scaffold-status-and-plan.md
+- LLM/egen-motor/BYGGPLAN-SCAFFOLDS-OCH-MOTOR.md (bugg-/bristanalys + byggplan + matris)
 
 Säkerhet (allt klart utom polish):
 - upcoming_polish.md (rotmappen — kvarstaende icke-bradskande forbattringar)

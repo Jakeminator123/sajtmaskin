@@ -342,6 +342,8 @@ export async function POST(req: Request) {
           resolvedScaffold = matchScaffold(optimizedMessage, engineIntent);
         }
 
+        const promptForSystemContext = optimizedMessage;
+
         if (resolvedScaffold) {
           const scaffoldContext = serializeScaffoldForPrompt(resolvedScaffold);
           optimizedMessage = `${scaffoldContext}\n\n---\n\n${optimizedMessage}`;
@@ -355,6 +357,7 @@ export async function POST(req: Request) {
         const engineSystemPrompt = buildSystemPrompt({
           intent: engineIntent,
           imageGenerations: resolvedImageGenerations,
+          originalPrompt: promptForSystemContext,
         });
         const promptLengths = getSystemPromptLengths(engineSystemPrompt);
         debugLog("prompt-cache", "System prompt lengths", promptLengths);

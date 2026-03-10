@@ -4,14 +4,15 @@ import { buildFileContext } from "../context/file-context-builder";
 export function serializeScaffoldForPrompt(scaffold: ScaffoldManifest): string {
   const ctx = buildFileContext({
     files: scaffold.files.map((f) => ({ path: f.path, content: f.content, language: inferLang(f.path) })),
-    maxChars: 8000,
+    maxChars: 2400,
   });
 
+  const fileBlocks = renderScaffoldFiles(scaffold);
   const hints = scaffold.promptHints.length > 0
     ? `\n\nScaffold hints:\n${scaffold.promptHints.map((h) => `- ${h}`).join("\n")}`
     : "";
 
-  return `## Scaffold: ${scaffold.label}\n\n${scaffold.description}\n\nModify this starter to match the user's request. Only return files you need to CREATE or MODIFY. Files you omit are kept as-is.\n\n${ctx.summary}${hints}`;
+  return `## Scaffold: ${scaffold.label}\n\n${scaffold.description}\n\nTreat these scaffold files as the current starter project. Modify them when they already fit the request instead of rewriting everything from scratch. Only return files you need to CREATE or MODIFY. Files you omit are kept as-is.\n\n${ctx.summary}\n\n## Scaffold Files\n\n${fileBlocks}${hints}`;
 }
 
 function inferLang(path: string): string {
@@ -20,4 +21,22 @@ function inferLang(path: string): string {
   if (path.endsWith(".css")) return "css";
   if (path.endsWith(".json")) return "json";
   return "text";
+}
+
+function renderScaffoldFiles(scaffold: ScaffoldManifest, maxChars = 14000): string {
+  const blocks: string[] = [];
+  let usedChars = 0;
+
+  for (const file of scaffold.files) {
+    const block = `\`\`\`${inferLang(file.path)} file="${file.path}"\n${file.content}\n\`\`\``;
+    if (usedChars > 0 && usedChars + block.length > maxChars) {
+      blocks.push(`_Additional scaffold files omitted for length: ${scaffold.files.length - blocks.length}_`);
+      break;
+    }
+
+    blocks.push(block);
+    usedChars += block.length;
+  }
+
+  return blocks.join("\n\n");
 }
