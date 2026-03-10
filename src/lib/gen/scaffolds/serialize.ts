@@ -12,7 +12,7 @@ export function serializeScaffoldForPrompt(scaffold: ScaffoldManifest): string {
     ? `\n\nScaffold hints:\n${scaffold.promptHints.map((h) => `- ${h}`).join("\n")}`
     : "";
 
-  return `## Scaffold: ${scaffold.label}\n\n${scaffold.description}\n\nTreat these scaffold files as the current starter project. Modify them when they already fit the request instead of rewriting everything from scratch. Only return files you need to CREATE or MODIFY. Files you omit are kept as-is.\n\n${ctx.summary}\n\n## Scaffold Files\n\n${fileBlocks}${hints}`;
+  return `## Scaffold: ${scaffold.label}\n\n${scaffold.description}\n\nTreat these scaffold files as the current starter project. Modify them when they already fit the request instead of rewriting everything from scratch. Only return files you need to CREATE or MODIFY. Files you omit are kept as-is.\n\n**IMPORTANT — Color adaptation:** The scaffold's \`app/globals.css\` contains neutral placeholder colors. You MUST update the \`@theme inline\` color tokens (--color-primary, --color-secondary, --color-accent, etc.) to match the user's requested color palette or the site's subject matter. Never leave the default neutral/gray theme unchanged.\n\n${ctx.summary}\n\n## Scaffold Files\n\n${fileBlocks}${hints}`;
 }
 
 function inferLang(path: string): string {

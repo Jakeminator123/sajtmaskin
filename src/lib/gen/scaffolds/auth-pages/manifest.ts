@@ -27,20 +27,20 @@ export const authPagesManifest: ScaffoldManifest = {
       content: `@import "tailwindcss";
 
 @theme inline {
-  --color-background: oklch(0.14 0.01 260);
-  --color-foreground: oklch(0.95 0.01 260);
-  --color-card: oklch(0.18 0.01 260);
-  --color-card-foreground: oklch(0.95 0.01 260);
+  --color-background: oklch(0.14 0.004 250);
+  --color-foreground: oklch(0.95 0.003 250);
+  --color-card: oklch(0.18 0.004 250);
+  --color-card-foreground: oklch(0.95 0.003 250);
   --color-primary: oklch(0.6 0.18 250);
-  --color-primary-foreground: oklch(0.98 0.004 250);
-  --color-secondary: oklch(0.22 0.015 260);
-  --color-secondary-foreground: oklch(0.9 0.01 260);
-  --color-muted: oklch(0.2 0.01 260);
-  --color-muted-foreground: oklch(0.6 0.02 260);
-  --color-accent: oklch(0.24 0.015 260);
-  --color-accent-foreground: oklch(0.9 0.01 260);
-  --color-border: oklch(0.26 0.015 260);
-  --color-input: oklch(0.2 0.015 260);
+  --color-primary-foreground: oklch(0.98 0.003 250);
+  --color-secondary: oklch(0.22 0.005 250);
+  --color-secondary-foreground: oklch(0.9 0.003 250);
+  --color-muted: oklch(0.2 0.004 250);
+  --color-muted-foreground: oklch(0.6 0.01 250);
+  --color-accent: oklch(0.24 0.005 250);
+  --color-accent-foreground: oklch(0.9 0.003 250);
+  --color-border: oklch(0.26 0.005 250);
+  --color-input: oklch(0.2 0.005 250);
   --color-ring: oklch(0.6 0.18 250);
   --radius: 0.75rem;
 }

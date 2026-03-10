@@ -28,19 +28,19 @@ export const saasLandingManifest: ScaffoldManifest = {
       content: `@import "tailwindcss";
 
 @theme inline {
-  --color-background: oklch(0.145 0.02 258);
-  --color-foreground: oklch(0.97 0.004 255);
-  --color-card: oklch(0.19 0.02 258);
-  --color-card-foreground: oklch(0.97 0.004 255);
+  --color-background: oklch(0.145 0.005 250);
+  --color-foreground: oklch(0.97 0.003 250);
+  --color-card: oklch(0.19 0.005 250);
+  --color-card-foreground: oklch(0.97 0.003 250);
   --color-primary: oklch(0.72 0.16 150);
-  --color-primary-foreground: oklch(0.14 0.01 150);
-  --color-secondary: oklch(0.23 0.02 258);
-  --color-secondary-foreground: oklch(0.95 0.006 255);
-  --color-muted: oklch(0.22 0.018 258);
-  --color-muted-foreground: oklch(0.72 0.02 258);
-  --color-accent: oklch(0.24 0.04 220);
-  --color-accent-foreground: oklch(0.95 0.006 255);
-  --color-border: oklch(0.28 0.018 258);
+  --color-primary-foreground: oklch(0.14 0.004 150);
+  --color-secondary: oklch(0.23 0.005 250);
+  --color-secondary-foreground: oklch(0.95 0.003 250);
+  --color-muted: oklch(0.22 0.005 250);
+  --color-muted-foreground: oklch(0.72 0.01 250);
+  --color-accent: oklch(0.24 0.01 250);
+  --color-accent-foreground: oklch(0.95 0.003 250);
+  --color-border: oklch(0.28 0.005 250);
   --color-ring: oklch(0.72 0.16 150);
   --radius: 0.95rem;
 }

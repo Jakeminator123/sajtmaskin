@@ -28,20 +28,20 @@ export const portfolioManifest: ScaffoldManifest = {
       content: `@import "tailwindcss";
 
 @theme inline {
-  --color-background: oklch(0.985 0.004 95);
-  --color-foreground: oklch(0.19 0.02 260);
+  --color-background: oklch(0.985 0.003 250);
+  --color-foreground: oklch(0.15 0.004 250);
   --color-card: oklch(1 0 0);
-  --color-card-foreground: oklch(0.21 0.02 260);
-  --color-primary: oklch(0.45 0.12 275);
-  --color-primary-foreground: oklch(0.98 0.004 275);
-  --color-secondary: oklch(0.96 0.01 260);
-  --color-secondary-foreground: oklch(0.25 0.02 260);
-  --color-muted: oklch(0.955 0.008 260);
-  --color-muted-foreground: oklch(0.5 0.02 260);
-  --color-accent: oklch(0.94 0.02 310);
-  --color-accent-foreground: oklch(0.25 0.02 260);
-  --color-border: oklch(0.9 0.01 260);
-  --color-ring: oklch(0.45 0.12 275);
+  --color-card-foreground: oklch(0.18 0.004 250);
+  --color-primary: oklch(0.45 0.12 250);
+  --color-primary-foreground: oklch(0.98 0.003 250);
+  --color-secondary: oklch(0.96 0.004 250);
+  --color-secondary-foreground: oklch(0.2 0.004 250);
+  --color-muted: oklch(0.955 0.003 250);
+  --color-muted-foreground: oklch(0.45 0.01 250);
+  --color-accent: oklch(0.94 0.01 250);
+  --color-accent-foreground: oklch(0.2 0.004 250);
+  --color-border: oklch(0.91 0.004 250);
+  --color-ring: oklch(0.45 0.12 250);
   --radius: 1rem;
 }
 

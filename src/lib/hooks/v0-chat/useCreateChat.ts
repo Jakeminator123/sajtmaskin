@@ -2,7 +2,7 @@ import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
 import { formatPrompt, resolvePromptAssistProvider, isPromptAssistOff } from "@/lib/builder/promptAssist";
 import { debugLog } from "@/lib/utils/debug";
-import { MODEL_LABELS, canonicalizeModelId } from "@/lib/v0/models";
+import { MODEL_LABELS, canonicalizeModelId, v0TierToOpenAIModel } from "@/lib/v0/models";
 import { STREAM_SAFETY_TIMEOUT_DEFAULT_MS } from "./constants";
 import type { AutoFixPayload, MessageOptions, V0ChatMessagingParams } from "./types";
 import {
@@ -125,8 +125,8 @@ export function useCreateChat(
         messageLength: initialMessage.length,
         attachments: options.attachments?.length ?? 0,
         imageGenerations: enableImageGenerations,
-        modelTier: MODEL_LABELS[canonicalizeModelId(selectedModelTier) ?? "v0-1.5-lg"],
-        modelId: selectedModelTier,
+        buildTier: MODEL_LABELS[canonicalizeModelId(selectedModelTier) ?? "v0-1.5-lg"],
+        engine: v0TierToOpenAIModel(canonicalizeModelId(selectedModelTier) ?? "v0-1.5-lg"),
         systemPromptProvided: Boolean(effectiveSystemPrompt?.trim()),
       });
 
