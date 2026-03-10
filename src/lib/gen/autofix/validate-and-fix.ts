@@ -77,7 +77,7 @@ export async function validateAndFix(
     return {
       content,
       hadErrors: true,
-      fixerUsed: true,
+      fixerUsed: false,
       fixerImproved: false,
       errorsBefore: validation.errors.length,
       errorsAfter: validation.errors.length,

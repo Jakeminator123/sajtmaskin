@@ -206,16 +206,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
 
         chatRepo.addMessage(engineChat.id, "user", optimizedMessage);
 
-        let promptForLlm = optimizedMessage;
-        if (previousFiles.length > 0) {
-          const fileCtx = buildFileContext({ files: previousFiles });
-          promptForLlm = `${fileCtx.summary}\n\n---\n\n${optimizedMessage}`;
-          debugLog("engine", "File context injected", {
-            totalFiles: fileCtx.totalFiles,
-            totalLines: fileCtx.totalLines,
-            summaryChars: fileCtx.summary.length,
-          });
-        }
+        const promptForLlm = optimizedMessage;
 
         const engineIntent: BuildIntent =
           metaBuildIntent === "template" ||

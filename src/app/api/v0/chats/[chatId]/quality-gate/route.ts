@@ -10,6 +10,7 @@ import { versions } from "@/lib/db/schema";
 import { and, eq } from "drizzle-orm";
 import { shouldUseV0Fallback } from "@/lib/gen/fallback";
 import { getVersionFiles } from "@/lib/gen/version-manager";
+import { getVersionById } from "@/lib/db/chat-repository";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -169,14 +170,18 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
 
         const failedLogs = results
           .filter((r) => !r.passed)
-          .map((r) => ({
-            chatId,
-            versionId,
-            level: "error" as const,
-            category: `quality-gate:${r.check}`,
-            message: `${r.check} failed (exit ${r.exitCode})`,
-            meta: { output: r.output.slice(0, 4000), exitCode: r.exitCode },
-          }));
+          .map((r) => {
+            const versionObj = getVersionById(versionId);
+            const resolvedChatId = versionObj?.chat_id ?? chatId;
+            return {
+              chatId: resolvedChatId,
+              versionId,
+              level: "error" as const,
+              category: `quality-gate:${r.check}`,
+              message: `${r.check} failed (exit ${r.exitCode})`,
+              meta: { output: r.output.slice(0, 4000), exitCode: r.exitCode },
+            };
+          });
         if (failedLogs.length > 0 && dbConfigured) {
           await createVersionErrorLogs(failedLogs).catch((err) => {
             console.warn("[quality-gate] Failed to persist error logs:", err);
