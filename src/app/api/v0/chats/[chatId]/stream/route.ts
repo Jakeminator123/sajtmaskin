@@ -756,6 +756,9 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
         }
         return null;
       })();
+      const v0FbPalette = extractPaletteStateFromMeta(meta);
+      const v0FbDesignThemePreset = extractDesignThemePresetFromMeta(meta);
+      const v0FbDesignReferences = summarizeDesignReferences(requestAttachments);
       const promptOrchestration = orchestratePromptMessage({
         message,
         buildMethod: metaBuildMethod,
@@ -856,9 +859,9 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
         brief: metaBrief,
         themeColors: metaThemeColors,
         imageGenerations: resolvedImageGenerations,
-        componentPalette: undefined,
-        designThemePreset: undefined,
-        designReferences: undefined,
+        componentPalette: v0FbPalette,
+        designThemePreset: v0FbDesignThemePreset,
+        designReferences: v0FbDesignReferences,
       });
 
       const v0SystemPrompt = [

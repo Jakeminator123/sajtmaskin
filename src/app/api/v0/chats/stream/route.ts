@@ -118,8 +118,6 @@ export async function POST(req: Request) {
       if (botError) return attachSessionCookie(botError);
 
       const body = await req.json().catch(() => ({}));
-      const _debugStream =
-        process.env.NODE_ENV !== "production" && process.env.V0_STREAM_DEBUG === "1";
 
       const validationResult = createChatSchema.safeParse(body);
       if (!validationResult.success) {
