@@ -1,6 +1,6 @@
 # gen/ — Code Generation Module
 
-Sajtmaskin's own code generation engine. Uses OpenAI GPT 5.2 + Vercel AI SDK to generate Next.js/React sites from prompts. Replaces v0 Platform API as the default path.
+Sajtmaskin's own code generation engine. Uses OpenAI models (gpt-5.3-codex default, gpt-5.4 max) via AI SDK to generate Next.js/React sites from prompts. Replaces v0 Platform API as the default path.
 
 ## Architecture
 

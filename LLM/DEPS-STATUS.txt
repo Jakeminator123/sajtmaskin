@@ -119,8 +119,8 @@ Auth/Säkerhet (KRÄVS I PROD):
 - BACKOFFICE_PASSWORD (backoffice-auth)
 
 AI / Kodgenerering:
-- OPENAI_API_KEY (krävs när V0_FALLBACK_BUILDER ej satt): gen/ engine (GPT 5.2),
-  prompt-assist, transcribe, template embeddings, audit, text/analyze
+- OPENAI_API_KEY (kravs nar V0_FALLBACK_BUILDER ej satt): gen/ engine
+  (gpt-5.3-codex default, gpt-5.4 max), transcribe, template embeddings
 - V0_FALLBACK_BUILDER (optional): sätt till "y" för att använda v0 Platform API
   istället för gen/ engine. Default: ej satt = ny motor
 - V0_API_KEY (krävs när V0_FALLBACK_BUILDER=y): v0 Platform API för site generation.
@@ -131,13 +131,17 @@ AI / Kodgenerering:
 - AUDIT_WEB_SEARCH=false (opt-in web_search i audit-route)
 
 Rate Limiting (REKOMMENDERAT I PROD):
-- UPSTASH_REDIS_REST_URL (Upstash Redis för distribuerad rate limiting)
-- UPSTASH_REDIS_REST_TOKEN
-- Not: Utan Redis faller rate limiting tillbaka till in-memory (ej pålitligt i serverless)
+- UPSTASH_REDIS_REST_URL eller KV_REST_API_URL (Upstash Redis REST)
+- UPSTASH_REDIS_REST_TOKEN eller KV_REST_API_TOKEN
+- Koden kollar bada namnkonventionerna (Vercels integration satter KV_REST_API_*)
+- Not: Utan Redis faller rate limiting tillbaka till in-memory (ej palitligt i serverless)
+- Alla Redis-nycklar har REDIS_KEY_PREFIX ("dev:" / "prod:") for miljo-isolering
 
 Övrigt:
-- BLOB_READ_WRITE_TOKEN (Vercel Blob för bilder)
-- REDIS_URL (caching)
+- BLOB_READ_WRITE_TOKEN (Vercel Blob for bilder)
+- REDIS_URL (caching via ioredis)
+- KV_URL (fallback for REDIS_URL)
+- UNSPLASH_ACCESS_KEY (Unsplash stock-bilder i genererade sajter)
 - CRON_SECRET (skyddar cron-endpoints)
-- KOSTNADSFRI_API_KEY (API-nyckel för kostnadsfri-tjänsten)
-- Se .env.local för fullständig lista
+- KOSTNADSFRI_API_KEY (API-nyckel for kostnadsfri-tjansten)
+- Se ENV.md for fullstandig infra-topologi

@@ -31,7 +31,7 @@ export type CanonicalModelId = (typeof V0_MODEL_IDS)[number];
 
 export const DEFAULT_MODEL_ID: CanonicalModelId = "v0-1.5-lg";
 
-/** OpenAI model IDs for the default engine (when not using v0 fallback) */
+/** Model IDs for the default engine (when not using v0 fallback) */
 export const OWN_MODEL_IDS = [
   "gpt-5.4",
   "gpt-5.3-codex",
@@ -39,6 +39,8 @@ export const OWN_MODEL_IDS = [
   "gpt-5.2",
   "gpt-4.1",
   "gpt-4.1-mini",
+  "claude-sonnet-4.6",
+  "claude-opus-4.6",
 ] as const;
 
 export type OwnModelId = (typeof OWN_MODEL_IDS)[number];

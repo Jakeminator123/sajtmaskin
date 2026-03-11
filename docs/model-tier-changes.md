@@ -58,6 +58,28 @@ state, persistence, and hook wiring have been removed.
 - Removed `v0-1.5-sm`, experimental model ID system, and `FORCED_MODEL_TIER`.
 - Simplified thinking logic (all remaining models support it).
 
+## Own Engine Model Mapping
+
+When the own engine is active (default), canonical tier IDs map to OpenAI models:
+
+| Tier | Canonical ID | OpenAI model | Use case |
+|------|-------------|-------------|----------|
+| Fast | `v0-max-fast` | `gpt-4.1` | Quick edits, simple sites |
+| Pro | `v0-1.5-md` | `gpt-5.3-codex` | Code-specialized, balanced (default) |
+| Max | `v0-1.5-lg` | `gpt-5.4` | Flagship, best reasoning |
+| Codex Max | `v0-gpt-5` | `gpt-5.1-codex-max` | Code + xhigh reasoning |
+
+## AI Gateway Models (prompt assist, audit, wizard)
+
+| Model | Use | Cost/M in+out |
+|-------|-----|------|
+| `openai/gpt-4.1-mini` | Polish mode (quick text cleanup) | ~$0.40 |
+| `openai/gpt-5.3-codex` | Default prompt assist (rewrite) | $2.50/$15 |
+| `openai/gpt-5.4` | Fallback #1 | $2.50/$15 |
+| `anthropic/claude-opus-4.6` | Fallback #2, premium assist | $5/$25 |
+| `anthropic/claude-sonnet-4.6` | Fallback #3, spec generation | $3/$15 |
+| `openai/gpt-5.2` | Fallback #4, wizard/domain routes | ~$2/$10 |
+
 ## Verification
 
 - `v0-max-fast` confirmed via v0.app Network tab (`modelId` in

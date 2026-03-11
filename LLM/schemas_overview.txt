@@ -30,9 +30,15 @@ Terminologi:
   Source of truth: src/lib/v0/models.ts
   OBS: Tier-ID:n borjar med "v0-" av historiska skal -- de anvands av bade v0-fallback
   och egen motor. I egen motor mappas de till OpenAI-modeller via v0TierToOpenAIModel().
-- AI Gateway = prompt assist och deep brief.
-  Nyckel: AI_GATEWAY_API_KEY eller VERCEL_OIDC_TOKEN.
-  Anvands for "Forbattra"-knappen och Deep Brief-flodet.
+- AI Gateway = prompt assist, deep brief, audit, wizard, domain suggestions.
+  Nyckel: AI_GATEWAY_API_KEY eller VERCEL_OIDC_TOKEN (eller KV_REST_API_*).
+  Gateway-modeller: openai/gpt-5.4, anthropic/claude-opus-4.6,
+    anthropic/claude-sonnet-4.6, openai/gpt-5.2, openai/gpt-5.3-codex,
+    openai/gpt-4.1-mini.
+  Fallback-ordning: gpt-5.4 -> claude-opus-4.6 -> claude-sonnet-4.6 -> gpt-5.2.
+  Tva typer av prompt assist:
+    1. "polish" (Forbattra-knappen i chattrutan) = alltid gpt-4.1-mini (snabb/billig)
+    2. "rewrite" (forbattrar inskickad prompt) = anvandarens valda modell (default gpt-5.3-codex)
 
 Scaffolds (9 st + 1 fallback):
 1. base-nextjs -- minimal starter
