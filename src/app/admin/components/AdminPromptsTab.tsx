@@ -2,6 +2,8 @@
 
 import { FileText, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { getPromptAssistModelLabel } from "@/lib/builder/defaults";
+import { MODEL_LABELS, canonicalizeModelId } from "@/lib/v0/models";
 import type { PromptLog } from "./types";
 
 interface AdminPromptsTabProps {
@@ -56,7 +58,15 @@ export function AdminPromptsTab({
                 <div className="flex flex-wrap items-center gap-2 text-xs text-gray-400">
                   <span>{log.createdAt ? new Date(log.createdAt).toLocaleString("sv-SE") : "okänd tid"}</span>
                   <span>• {log.event}</span>
-                  {log.modelTier && <span>• Tier: {log.modelTier}</span>}
+                  {log.modelTier && (
+                    <span>
+                      • Byggmodell:{" "}
+                      {(() => {
+                        const canonicalModelTier = canonicalizeModelId(log.modelTier);
+                        return canonicalModelTier ? MODEL_LABELS[canonicalModelTier] : log.modelTier;
+                      })()}
+                    </span>
+                  )}
                   {log.buildIntent && <span>• Intent: {log.buildIntent}</span>}
                   {log.buildMethod && <span>• Metod: {log.buildMethod}</span>}
                   {typeof log.imageGenerations === "boolean" && (
@@ -65,7 +75,9 @@ export function AdminPromptsTab({
                   {typeof log.thinking === "boolean" && (
                     <span>• Thinking: {log.thinking ? "på" : "av"}</span>
                   )}
-                  {log.promptAssistModel && <span>• Förbättra-modell: {log.promptAssistModel}</span>}
+                  {log.promptAssistModel && (
+                    <span>• Förbättra-modell: {getPromptAssistModelLabel(log.promptAssistModel)}</span>
+                  )}
                   {typeof log.promptAssistDeep === "boolean" && (
                     <span>• Deep: {log.promptAssistDeep ? "ja" : "nej"}</span>
                   )}

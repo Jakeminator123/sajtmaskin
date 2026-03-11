@@ -5,11 +5,9 @@ import { and, eq } from "drizzle-orm";
 import { getChatByV0ChatIdForRequest } from "@/lib/tenant";
 import { shouldUseV0Fallback } from "@/lib/gen/fallback";
 import {
-  createVersionErrorLogs as createEngineVersionErrorLogs,
   getChat as getEngineChat,
   getVersionById as getEngineVersion,
-  getVersionErrorLogs as getEngineVersionErrorLogs,
-} from "@/lib/db/chat-repository";
+} from "@/lib/db/chat-repository-pg";
 import { createVersionErrorLog, createVersionErrorLogs, getVersionErrorLogs } from "@/lib/db/services";
 
 type RouteParams = { params: Promise<{ chatId: string; versionId: string }> };
@@ -20,6 +18,42 @@ type ErrorLogPayload = {
   message: string;
   meta?: Record<string, unknown> | null;
 };
+
+type ErrorLogRow = {
+  level: string;
+  category?: string | null;
+  message: string;
+  meta?: unknown;
+};
+
+function buildErrorLogSummary(logs: ErrorLogRow[]) {
+  const byLevel = { info: 0, warning: 0, error: 0 };
+  const byCategory: Record<string, number> = {};
+
+  for (const log of logs) {
+    const level =
+      log.level === "error" || log.level === "warning" || log.level === "info"
+        ? log.level
+        : "info";
+    byLevel[level] += 1;
+    const category = typeof log.category === "string" && log.category.trim()
+      ? log.category.trim()
+      : "uncategorized";
+    byCategory[category] = (byCategory[category] ?? 0) + 1;
+  }
+
+  return {
+    total: logs.length,
+    byLevel,
+    byCategory,
+    latestPreflight:
+      logs.find((log) => typeof log.category === "string" && log.category.startsWith("preflight:")) ?? null,
+    latestQualityGate:
+      logs.find((log) => typeof log.category === "string" && log.category.startsWith("quality-gate:")) ?? null,
+    latestRender:
+      logs.find((log) => log.category === "render-telemetry" || log.category === "preview") ?? null,
+  };
+}
 
 async function resolveVersionId(chatId: string, versionId: string) {
   const byInternal = await db
@@ -40,11 +74,11 @@ export async function POST(request: Request, ctx: RouteParams) {
   try {
     const { chatId, versionId } = await ctx.params;
     if (!shouldUseV0Fallback()) {
-      const chat = getEngineChat(chatId);
+      const chat = await getEngineChat(chatId);
       if (!chat) {
         return NextResponse.json({ error: "Chat not found" }, { status: 404 });
       }
-      const version = getEngineVersion(versionId);
+      const version = await getEngineVersion(versionId);
       if (!version || version.chat_id !== chatId) {
         return NextResponse.json({ error: "Version not found" }, { status: 404 });
       }
@@ -57,7 +91,7 @@ export async function POST(request: Request, ctx: RouteParams) {
       }
 
       if ("logs" in body && Array.isArray(body.logs)) {
-        const rows = createEngineVersionErrorLogs(
+        const rows = await createVersionErrorLogs(
           body.logs.map((log) => ({
             chatId,
             versionId,
@@ -71,7 +105,7 @@ export async function POST(request: Request, ctx: RouteParams) {
       }
 
       const payload = body as ErrorLogPayload;
-      const [row] = createEngineVersionErrorLogs([
+      const [row] = await createVersionErrorLogs([
         {
           chatId,
           versionId,
@@ -141,16 +175,16 @@ export async function GET(request: Request, ctx: RouteParams) {
   try {
     const { chatId, versionId } = await ctx.params;
     if (!shouldUseV0Fallback()) {
-      const chat = getEngineChat(chatId);
+      const chat = await getEngineChat(chatId);
       if (!chat) {
         return NextResponse.json({ error: "Chat not found" }, { status: 404 });
       }
-      const version = getEngineVersion(versionId);
+      const version = await getEngineVersion(versionId);
       if (!version || version.chat_id !== chatId) {
         return NextResponse.json({ error: "Version not found" }, { status: 404 });
       }
-      const logs = getEngineVersionErrorLogs(versionId);
-      return NextResponse.json({ success: true, stored: true, logs });
+      const logs = await getVersionErrorLogs(versionId);
+      return NextResponse.json({ success: true, stored: true, logs, summary: buildErrorLogSummary(logs) });
     }
 
     const chat = await getChatByV0ChatIdForRequest(request, chatId);
@@ -164,7 +198,7 @@ export async function GET(request: Request, ctx: RouteParams) {
     }
 
     const logs = await getVersionErrorLogs(version.id);
-    return NextResponse.json({ success: true, logs });
+    return NextResponse.json({ success: true, logs, summary: buildErrorLogSummary(logs) });
   } catch (error) {
     console.error("[API] Failed to load version error logs:", error);
     return NextResponse.json(

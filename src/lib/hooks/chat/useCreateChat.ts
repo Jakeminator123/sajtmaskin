@@ -2,12 +2,13 @@ import { useCallback, useRef, useState } from "react";
 import { toast } from "sonner";
 import { formatPrompt, resolvePromptAssistProvider, isPromptAssistOff } from "@/lib/builder/promptAssist";
 import { debugLog } from "@/lib/utils/debug";
-import { MODEL_LABELS, canonicalizeModelId, v0TierToOpenAIModel } from "@/lib/v0/models";
+import { MODEL_LABELS, canonicalizeModelId, getBuildProfileId, v0TierToOpenAIModel } from "@/lib/v0/models";
 import { STREAM_SAFETY_TIMEOUT_DEFAULT_MS } from "./constants";
 import type { AutoFixPayload, MessageOptions, ChatMessagingParams } from "./types";
 import {
   appendAttachmentPrompt,
   appendModelInfoPart,
+  appendPromptStrategyPart,
   buildApiErrorMessage,
   buildCreateChatKey,
   clearCreateChatLock,
@@ -124,15 +125,17 @@ export function useCreateChat(
       const userMessageId = `user-${now}`;
       const assistantMessageId = `assistant-${now}`;
 
-      const canonicalTier = canonicalizeModelId(selectedModelTier) ?? "v0-1.5-lg";
+      const canonicalTier = canonicalizeModelId(selectedModelTier) ?? "max";
       const engineModel = v0TierToOpenAIModel(canonicalTier);
+      const buildProfileId = getBuildProfileId(canonicalTier);
 
       debugLog("AI", "Create chat requested", {
         messageLength: initialMessage.length,
         attachments: options.attachments?.length ?? 0,
         imageGenerations: enableImageGenerations,
-        buildTier: MODEL_LABELS[canonicalTier],
-        modelTierId: canonicalTier,
+        buildProfile: MODEL_LABELS[canonicalTier],
+        buildProfileId,
+        internalModelSelection: canonicalTier,
         engine: engineModel,
         systemPromptProvided: Boolean(effectiveSystemPrompt?.trim()),
       });
@@ -160,6 +163,11 @@ export function useCreateChat(
             (typeof meta?.modelId === "string" && meta?.modelId) || engineModel || null,
           modelTier:
             (typeof meta?.modelTier === "string" && meta?.modelTier) || selectedModelTier || null,
+          buildProfileId:
+            typeof meta?.buildProfileId === "string" ? (meta.buildProfileId as string) : null,
+          buildProfileLabel:
+            typeof meta?.buildProfileLabel === "string" ? (meta.buildProfileLabel as string) : null,
+          enginePath: typeof meta?.enginePath === "string" ? (meta.enginePath as string) : null,
           thinking: typeof meta?.thinking === "boolean" ? (meta.thinking as boolean) : null,
           imageGenerations:
             typeof meta?.imageGenerations === "boolean"
@@ -172,6 +180,45 @@ export function useCreateChat(
           promptAssistModel: promptAssistModel ?? null,
           promptAssistDeep: promptAssistDeep ?? null,
         });
+        const promptStrategy =
+          meta?.promptStrategy === "direct" ||
+          meta?.promptStrategy === "summarize" ||
+          meta?.promptStrategy === "phase_plan_build_polish"
+            ? meta.promptStrategy
+            : null;
+        const promptType =
+          meta?.promptType === "audit" ||
+          meta?.promptType === "wizard" ||
+          meta?.promptType === "freeform" ||
+          meta?.promptType === "template" ||
+          meta?.promptType === "followup_general" ||
+          meta?.promptType === "followup_technical" ||
+          meta?.promptType === "unknown"
+            ? meta.promptType
+            : null;
+        const promptBudgetTarget =
+          typeof meta?.promptBudgetTarget === "number" ? (meta.promptBudgetTarget as number) : null;
+        const promptOriginalLength =
+          typeof meta?.promptOriginalLength === "number" ? (meta.promptOriginalLength as number) : null;
+        const promptOptimizedLength =
+          typeof meta?.promptOptimizedLength === "number" ? (meta.promptOptimizedLength as number) : null;
+        if (promptStrategy && promptType && promptBudgetTarget !== null && promptOriginalLength !== null &&
+          promptOptimizedLength !== null) {
+          appendPromptStrategyPart(setMessages, assistantMessageId, {
+            strategy: promptStrategy,
+            promptType,
+            budgetTarget: promptBudgetTarget,
+            originalLength: promptOriginalLength,
+            optimizedLength: promptOptimizedLength,
+            reductionRatio:
+              typeof meta?.promptReductionRatio === "number" ? (meta.promptReductionRatio as number) : 0,
+            reason: typeof meta?.promptStrategyReason === "string" ? (meta.promptStrategyReason as string) : "",
+            phaseHints: [],
+            complexityScore:
+              typeof meta?.promptComplexityScore === "number" ? (meta.promptComplexityScore as number) : 0,
+            wasChanged: promptOriginalLength !== promptOptimizedLength,
+          });
+        }
         const newChatId =
           data.id || data.chatId || data.v0ChatId || (data.chat as Record<string, unknown>)?.id;
         const newV0ProjectId = data.v0ProjectId || data.v0_project_id || null;
@@ -275,6 +322,8 @@ export function useCreateChat(
         promptMeta.modelId = engineModel;
         promptMeta.modelTier = selectedModelTier;
         promptMeta.modelTierId = canonicalTier;
+        promptMeta.buildProfile = MODEL_LABELS[canonicalTier];
+        promptMeta.buildProfileId = buildProfileId;
 
         requestBody = {
           message: finalMessage,

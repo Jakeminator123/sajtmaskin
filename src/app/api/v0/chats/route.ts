@@ -15,15 +15,15 @@ import { prepareCredits } from "@/lib/credits/server";
 import { WARN_CHAT_MESSAGE_CHARS, WARN_CHAT_SYSTEM_CHARS } from "@/lib/builder/promptLimits";
 import { orchestratePromptMessage } from "@/lib/builder/promptOrchestration";
 import { resolveModelSelection, resolveEngineModelId } from "@/lib/v0/modelSelection";
-import { DEFAULT_MODEL_ID } from "@/lib/v0/models";
+import { DEFAULT_MODEL_ID, MODEL_LABELS, getBuildProfileId } from "@/lib/v0/models";
 import { AI } from "@/lib/config";
-import { shouldUseV0Fallback } from "@/lib/gen/fallback";
+import { shouldUseExplicitBuilderFallback, shouldUseV0Fallback } from "@/lib/gen/fallback";
 import { ENGINE_MAX_OUTPUT_TOKENS } from "@/lib/gen/defaults";
 import {
   createChat as createSqliteChat,
   addMessage,
   listChatsByProject,
-} from "@/lib/db/chat-repository";
+} from "@/lib/db/chat-repository-pg";
 import { createVersionFromContent } from "@/lib/gen/version-manager";
 import { prepareGenerationContext } from "@/lib/gen/orchestrate";
 import { streamText } from "ai";
@@ -66,7 +66,7 @@ export async function GET(req: Request) {
     if (!projectId) {
       return NextResponse.json({ chats: [] });
     }
-    const chatList = listChatsByProject(projectId);
+    const chatList = await listChatsByProject(projectId);
     return NextResponse.json({ chats: chatList });
   } catch (err) {
     return NextResponse.json(
@@ -90,10 +90,6 @@ export async function POST(req: Request) {
       const botError = requireNotBot(req);
       if (botError) return attachSessionCookie(botError);
 
-      if (shouldUseV0Fallback()) {
-        assertV0Key();
-      }
-
       const body = await req.json().catch(() => ({}));
       const validationResult = createChatSchema.safeParse(body);
       if (!validationResult.success) {
@@ -110,7 +106,7 @@ export async function POST(req: Request) {
         attachments,
         projectId,
         system,
-        modelId = "v0-max-fast",
+        modelId = DEFAULT_MODEL_ID,
         thinking,
         imageGenerations,
         chatPrivacy,
@@ -130,6 +126,8 @@ export async function POST(req: Request) {
       });
       const resolvedModelId = modelSelection.modelId;
       const resolvedModelTier = modelSelection.modelTier;
+      const buildProfileId = getBuildProfileId(resolvedModelTier);
+      const usingV0Fallback = shouldUseExplicitBuilderFallback(meta);
 
       const metaBuildMethod =
         typeof (meta as { buildMethod?: unknown })?.buildMethod === "string"
@@ -157,6 +155,7 @@ export async function POST(req: Request) {
       const resolvedImageGenerations =
         typeof imageGenerations === "boolean" ? imageGenerations : true;
       const resolvedChatPrivacy = chatPrivacy ?? "private";
+      const fallbackModelId = resolveEngineModelId(resolvedModelTier, true);
       if (
         message.length > WARN_CHAT_MESSAGE_CHARS ||
         optimizedMessage.length > WARN_CHAT_MESSAGE_CHARS ||
@@ -174,7 +173,11 @@ export async function POST(req: Request) {
 
       debugLog("v0", "v0 chat request (sync)", {
         modelId: resolvedModelId,
-        modelTier: resolvedModelTier,
+        buildProfileId,
+        buildProfileLabel: MODEL_LABELS[resolvedModelTier],
+        internalModelSelection: resolvedModelTier,
+        fallbackConfigured: shouldUseV0Fallback(),
+        enginePath: usingV0Fallback ? "v0-fallback" : "own-engine",
         promptLength: optimizedMessage.length,
         originalPromptLength: message.length,
         attachments: requestAttachments.length,
@@ -215,9 +218,9 @@ export async function POST(req: Request) {
       }
 
       // ---------------------------------------------------------------
-      // Non-fallback: generate via own engine, persist in SQLite
+      // Non-fallback: generate via own engine, persist in Postgres
       // ---------------------------------------------------------------
-      if (!shouldUseV0Fallback()) {
+      if (!usingV0Fallback) {
         const genStartedAt = Date.now();
         try {
           const intent =
@@ -254,20 +257,20 @@ export async function POST(req: Request) {
           const usage = await genResult.usage;
 
           const resolvedProjectId = metaAppProjectId || projectId || "default";
-          const chat = createSqliteChat(
+          const chat = await createSqliteChat(
             resolvedProjectId,
             engineModel,
             ownSystemPrompt,
             ownOrchestration.resolvedScaffold?.id,
           );
-          addMessage(chat.id, "user", optimizedMessage);
-          const assistantMsg = addMessage(
+          await addMessage(chat.id, "user", optimizedMessage);
+          const assistantMsg = await addMessage(
             chat.id,
             "assistant",
             fullContent,
             usage?.outputTokens,
           );
-          const version = createVersionFromContent(chat.id, assistantMsg.id, fullContent);
+          const version = await createVersionFromContent(chat.id, assistantMsg.id, fullContent);
 
           try {
             await creditCheck.commit();
@@ -318,19 +321,20 @@ export async function POST(req: Request) {
       // ---------------------------------------------------------------
       // V0 fallback: existing v0 Platform API flow
       // ---------------------------------------------------------------
+      assertV0Key();
       const result = await v0.chats.create({
         message: optimizedMessage,
         ...(hasSystemPrompt ? { system: trimmedSystemPrompt } : {}),
         projectId,
         chatPrivacy: resolvedChatPrivacy,
         modelConfiguration: {
-          modelId: resolvedModelId as string,
+          modelId: fallbackModelId,
           thinking: resolvedThinking,
           imageGenerations: resolvedImageGenerations,
         },
         ...(requestAttachments.length > 0 ? { attachments: requestAttachments } : {}),
         ...(designSystemId ? { designSystemId } : {}),
-      } as Parameters<typeof v0.chats.create>[0] & { designSystemId?: string });
+      } as unknown as Parameters<typeof v0.chats.create>[0] & { designSystemId?: string });
 
       let internalChatId: string | null = null;
       try {

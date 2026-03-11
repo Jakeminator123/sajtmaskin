@@ -3,6 +3,7 @@ import { z } from "zod/v4";
 import { hashPassword } from "@/lib/auth/auth";
 import { createKostnadsfriPage, getKostnadsfriPageBySlug } from "@/lib/db/services";
 import { generateSlug, generatePassword } from "@/lib/kostnadsfri";
+import { getAppBaseUrl } from "@/lib/app-url";
 
 /**
  * POST /api/kostnadsfri — Create a new kostnadsfri page
@@ -93,7 +94,7 @@ export async function POST(request: NextRequest) {
     });
 
     // Build the full URL
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://sajtmaskin.vercel.app";
+    const baseUrl = getAppBaseUrl();
     const url = `${baseUrl}/kostnadsfri/${slug}`;
 
     return NextResponse.json({

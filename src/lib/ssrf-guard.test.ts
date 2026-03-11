@@ -67,6 +67,15 @@ describe("ssrf-guard", () => {
     expect(globalThis.fetch).toHaveBeenCalledTimes(1);
   });
 
+  it("blocks unsafe initial targets in safeFetch before any fetch happens", async () => {
+    globalThis.fetch = vi.fn() as unknown as typeof fetch;
+
+    const res = await safeFetch("http://127.0.0.1/internal");
+    expect(res.status).toBe(403);
+    expect(await res.text()).toContain("Request blocked");
+    expect(globalThis.fetch).not.toHaveBeenCalled();
+  });
+
   it("follows safe redirects in safeFetch", async () => {
     const redirectResponse = new Response(null, {
       status: 302,
@@ -119,6 +128,24 @@ describe("ssrf-guard", () => {
     expect(res.status).toBe(400);
     expect(await res.text()).toContain("Too many redirects");
     expect(globalThis.fetch).toHaveBeenCalledTimes(6);
+  });
+
+  it("returns 400 for invalid URLs", async () => {
+    globalThis.fetch = vi.fn() as unknown as typeof fetch;
+
+    const res = await safeFetch("not a url");
+    expect(res.status).toBe(400);
+    expect(await res.text()).toContain("Invalid URL");
+    expect(globalThis.fetch).not.toHaveBeenCalled();
+  });
+
+  it("supports allowlist-only mode from the initial request", async () => {
+    globalThis.fetch = vi.fn() as unknown as typeof fetch;
+
+    const res = await safeFetch("https://example.com", { allowlistOnly: true });
+    expect(res.status).toBe(403);
+    expect(await res.text()).toContain("allowlist");
+    expect(globalThis.fetch).not.toHaveBeenCalled();
   });
 
   it("follows multi-hop safe redirect chain to completion", async () => {

@@ -17,6 +17,9 @@ const INDEX_EXTENSIONS = EXTENSIONS.map((ext) => `/index${ext}`);
 
 const FONT_USAGE_RE = /\b(Inter|Geist|Geist_Mono|Roboto|Open_Sans|Lato|Montserrat|Poppins|Raleway|Nunito)\s*\(/;
 const FONT_IMPORT_RE = /import\s+\{[^}]*\}\s+from\s+["']next\/font\/google["']/;
+const USE_CLIENT_RE = /^["']use client["'];?\s*$/m;
+const METADATA_EXPORT_RE =
+  /\bexport\s+(?:const\s+metadata\b|(?:async\s+)?function\s+generateMetadata\b)/;
 
 function fileExists(fileMap: Map<string, CodeFile>, basePath: string): boolean {
   if (fileMap.has(basePath)) return true;
@@ -103,6 +106,19 @@ export function runProjectSanityChecks(files: CodeFile[]): SanityResult {
           message: "Page/layout file is missing a default export",
         });
       }
+    }
+
+    // 3b. App Router metadata is not allowed in client components
+    if (
+      file.path.match(/(^|\/)(page|layout)\.(tsx|jsx)$/) &&
+      USE_CLIENT_RE.test(file.content) &&
+      METADATA_EXPORT_RE.test(file.content)
+    ) {
+      issues.push({
+        file: file.path,
+        severity: "error",
+        message: 'Client component exports metadata/generateMetadata, which Next.js App Router disallows',
+      });
     }
   }
 

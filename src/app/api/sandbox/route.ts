@@ -4,6 +4,9 @@ import ms, { StringValue } from "ms";
 import { z } from "zod";
 import { withRateLimit } from "@/lib/rateLimit";
 import { requireNotBot } from "@/lib/botProtection";
+import { buildCompleteProject } from "@/lib/gen/project-scaffold";
+import { repairGeneratedFiles } from "@/lib/gen/repair-generated-files";
+import type { CodeFile } from "@/lib/gen/parser";
 
 const createSandboxSchema = z.object({
   source: z.discriminatedUnion("type", [
@@ -33,6 +36,29 @@ function isSafeRelativePath(path: string): boolean {
   if (path.startsWith("/") || path.startsWith("\\")) return false;
   if (path.includes("..")) return false;
   return /^[A-Za-z0-9._/-]+$/.test(path);
+}
+
+function inferLanguage(fileName: string): string {
+  const normalized = fileName.toLowerCase();
+  if (normalized.endsWith(".tsx")) return "tsx";
+  if (normalized.endsWith(".ts")) return "ts";
+  if (normalized.endsWith(".jsx")) return "jsx";
+  if (normalized.endsWith(".js")) return "js";
+  if (normalized.endsWith(".css")) return "css";
+  if (normalized.endsWith(".json")) return "json";
+  if (normalized.endsWith(".md")) return "md";
+  return "text";
+}
+
+function buildSandboxProjectFiles(sourceFiles: Record<string, string>): Array<[string, string]> {
+  const codeFiles: CodeFile[] = Object.entries(sourceFiles).map(([path, content]) => ({
+    path,
+    content: String(content ?? ""),
+    language: inferLanguage(path),
+  }));
+
+  const completedFiles = repairGeneratedFiles(buildCompleteProject(codeFiles)).files;
+  return completedFiles.map((file) => [file.path, file.content]);
 }
 
 export async function POST(req: Request) {
@@ -72,7 +98,7 @@ export async function POST(req: Request) {
 
       const timeoutMs = ms(timeout as StringValue);
 
-      const fileEntries = source.type === "files" ? Object.entries(source.files) : null;
+      const fileEntries = source.type === "files" ? buildSandboxProjectFiles(source.files) : null;
       if (fileEntries) {
         if (fileEntries.length > MAX_FILES) {
           return NextResponse.json(

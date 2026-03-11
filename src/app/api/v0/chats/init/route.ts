@@ -269,7 +269,7 @@ export async function POST(req: Request) {
       const creditCheck = await prepareCredits(
         req,
         "prompt.create",
-        { modelId: "v0-1.5-md" },
+        { modelId: "pro" },
         { sessionId },
       );
       if (!creditCheck.ok) {

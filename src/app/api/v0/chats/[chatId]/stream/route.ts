@@ -29,8 +29,8 @@ import { sendMessageSchema } from "@/lib/validations/chatSchemas";
 import { WARN_CHAT_MESSAGE_CHARS, WARN_CHAT_SYSTEM_CHARS } from "@/lib/builder/promptLimits";
 import { orchestratePromptMessage } from "@/lib/builder/promptOrchestration";
 import { resolveModelSelection, resolveEngineModelId } from "@/lib/v0/modelSelection";
-import { DEFAULT_MODEL_ID, MODEL_LABELS, v0TierToOpenAIModel } from "@/lib/v0/models";
-import { shouldUseV0Fallback, createGenerationPipeline } from "@/lib/gen/fallback";
+import { DEFAULT_MODEL_ID, MODEL_LABELS, getBuildProfileId, v0TierToOpenAIModel } from "@/lib/v0/models";
+import { shouldUseExplicitBuilderFallback, shouldUseV0Fallback, createGenerationPipeline } from "@/lib/gen/fallback";
 import { compressUrls } from "@/lib/gen/url-compress";
 import { prepareGenerationContext } from "@/lib/gen/orchestrate";
 import { getSystemPromptLengths } from "@/lib/gen/system-prompt";
@@ -46,7 +46,7 @@ import {
   summarizeDesignReferences,
 } from "@/lib/gen/request-metadata";
 import { SuspenseLineProcessor, parseSSEBuffer } from "@/lib/gen/route-helpers";
-import * as chatRepo from "@/lib/db/chat-repository";
+import * as chatRepo from "@/lib/db/chat-repository-pg";
 import type { BuildIntent } from "@/lib/builder/build-intent";
 import { buildFileContext } from "@/lib/gen/context";
 import type { CodeFile } from "@/lib/gen/parser";
@@ -138,10 +138,21 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
         requestedModelTier: metaRequestedModelTier,
         fallbackTier: DEFAULT_MODEL_ID,
       });
+      let usingV0Fallback = shouldUseExplicitBuilderFallback(meta);
+      let engineChat = usingV0Fallback ? null : await chatRepo.getChat(chatId);
+      if (!usingV0Fallback && !engineChat) {
+        const mappedV0Chat = await getChatByV0ChatIdForRequest(req, chatId, { sessionId });
+        if (mappedV0Chat) {
+          usingV0Fallback = true;
+        } else {
+          return attachSessionCookie(
+            NextResponse.json({ error: "Chat not found" }, { status: 404 }),
+          );
+        }
+      }
 
       // ── New Engine Path ───────────────────────────────────────────────
-      if (!shouldUseV0Fallback()) {
-        const engineChat = chatRepo.getChat(chatId);
+      if (!usingV0Fallback) {
         if (!engineChat) {
           return attachSessionCookie(
             NextResponse.json({ error: "Chat not found" }, { status: 404 }),
@@ -150,6 +161,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
 
         const resolvedModelId = modelSelection.modelId;
         const resolvedModelTier = modelSelection.modelTier;
+        const buildProfileId = getBuildProfileId(resolvedModelTier);
         const resolvedThinking = typeof thinking === "boolean" ? thinking : true;
         const resolvedImageGenerations =
           typeof imageGenerations === "boolean" ? imageGenerations : true;
@@ -172,7 +184,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
 
         if (metaAppProjectId && engineChat.project_id !== metaAppProjectId) {
           try {
-            chatRepo.updateChatProjectId(engineChat.id, metaAppProjectId);
+            await chatRepo.updateChatProjectId(engineChat.id, metaAppProjectId);
             engineChat.project_id = metaAppProjectId;
           } catch (error) {
             console.warn("[API/v0/chats/:chatId/stream] Failed to repair chat project mapping", {
@@ -193,7 +205,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
         });
         let optimizedMessage = promptOrchestration.finalMessage;
 
-        const latestEngineVersion = chatRepo.getLatestVersion(chatId);
+        const latestEngineVersion = await chatRepo.getLatestVersion(chatId);
         let previousFiles: CodeFile[] = [];
         if (latestEngineVersion?.files_json) {
           try {
@@ -249,7 +261,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
           }
         };
 
-        chatRepo.addMessage(engineChat.id, "user", optimizedMessage);
+        await chatRepo.addMessage(engineChat.id, "user", optimizedMessage);
 
         const promptForLlm = optimizedMessage;
 
@@ -276,7 +288,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
         const { resolvedScaffold, engineSystemPrompt } = orchestration;
         if (resolvedScaffold && !persistedScaffoldId) {
           try {
-            chatRepo.updateChatScaffoldId(chatId, resolvedScaffold.id);
+            await chatRepo.updateChatScaffoldId(chatId, resolvedScaffold.id);
           } catch { /* best-effort persist */ }
         }
         const promptLengths = getSystemPromptLengths(engineSystemPrompt);
@@ -292,8 +304,10 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
         const engineModel = resolveEngineModelId(resolvedModelTier, false);
         debugLog("build", "Follow-up chat stream request", {
           chatId,
-          modelTierId: resolvedModelTier,
-          modelTierLabel: MODEL_LABELS[resolvedModelTier],
+          buildProfileId,
+          buildProfileLabel: MODEL_LABELS[resolvedModelTier],
+          internalModelSelection: resolvedModelTier,
+          fallbackConfigured: shouldUseV0Fallback(),
           enginePath: "own-engine",
           engineModel: v0TierToOpenAIModel(resolvedModelTier),
           promptLength: optimizedMessage.length,
@@ -434,10 +448,21 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
                 formatSSEEvent("meta", {
                   modelId: engineModel,
                   modelTier: resolvedModelTier,
+                  buildProfileId,
+                  buildProfileLabel: MODEL_LABELS[resolvedModelTier],
+                  enginePath: "own-engine",
                   thinking: resolvedThinking,
                   imageGenerations: resolvedImageGenerations,
                   scaffoldId: resolvedScaffold?.id ?? null,
                   scaffoldFamily: resolvedScaffold?.family ?? null,
+                  promptStrategy: promptOrchestration.strategyMeta.strategy,
+                  promptType: promptOrchestration.strategyMeta.promptType,
+                  promptBudgetTarget: promptOrchestration.strategyMeta.budgetTarget,
+                  promptOriginalLength: promptOrchestration.strategyMeta.originalLength,
+                  promptOptimizedLength: promptOrchestration.strategyMeta.optimizedLength,
+                  promptReductionRatio: promptOrchestration.strategyMeta.reductionRatio,
+                  promptStrategyReason: promptOrchestration.strategyMeta.reason,
+                  promptComplexityScore: promptOrchestration.strategyMeta.complexityScore,
                 }),
               ),
             );
@@ -922,6 +947,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
         typeof thinking === "boolean" ? thinking : true;
       const resolvedImageGenerations =
         typeof imageGenerations === "boolean" ? imageGenerations : true;
+      const fallbackModelId = resolveEngineModelId(resolvedModelTier, true);
       const metaBuildMethod =
         typeof (meta as { buildMethod?: unknown })?.buildMethod === "string"
           ? (meta as { buildMethod?: string }).buildMethod
@@ -983,13 +1009,17 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
         });
       }
 
+      const buildProfileId = getBuildProfileId(resolvedModelTier);
       debugLog("v0", "Follow-up message request (own engine unless fallback=true)", {
         chatId,
         messageLength: optimizedMessage.length,
         originalMessageLength: message.length,
         attachments: requestAttachments.length,
         modelId: resolvedModelId,
-        modelTier: resolvedModelTier,
+        buildProfileId,
+        buildProfileLabel: MODEL_LABELS[resolvedModelTier],
+        internalModelSelection: resolvedModelTier,
+        fallbackConfigured: shouldUseV0Fallback(),
         thinking: resolvedThinking,
         imageGenerations: resolvedImageGenerations,
         promptStrategy: strategyMeta.strategy,
@@ -1074,7 +1104,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
           message: optimizedMessage,
           attachments: requestAttachments,
           modelConfiguration: {
-            modelId: resolvedModelId,
+            modelId: fallbackModelId,
             thinking: resolvedThinking,
             imageGenerations: resolvedImageGenerations,
           },
@@ -1091,7 +1121,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
           message: optimizedMessage,
           attachments: requestAttachments,
           modelConfiguration: {
-            modelId: resolvedModelId,
+            modelId: fallbackModelId,
             thinking: resolvedThinking,
             imageGenerations: resolvedImageGenerations,
           },
@@ -1366,6 +1396,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
                       .onConflictDoUpdate({
                         target: [versions.chatId, versions.v0VersionId],
                         set: {
+                          v0MessageId: lastMessageId,
                           demoUrl: finalDemoUrl,
                           metadata: sanitizeV0Metadata(resolved.latestChat ?? null),
                         },

@@ -6,7 +6,7 @@ import { z } from "zod";
 import { resolveVersionFiles } from "@/lib/v0/resolve-version-files";
 import { shouldUseV0Fallback } from "@/lib/gen/fallback";
 import { getVersionFiles } from "@/lib/gen/version-manager";
-import { updateVersionFiles } from "@/lib/db/chat-repository";
+import { updateVersionFiles } from "@/lib/db/chat-repository-pg";
 
 export const runtime = "nodejs";
 
@@ -31,74 +31,68 @@ export async function POST(req: Request, { params }: { params: Promise<{ chatId:
     const { versionId, autoFix } = validation.data;
 
     // ---------------------------------------------------------------
-    // Non-fallback: fetch & update via SQLite
+    // Non-fallback: fetch & update via Postgres engine store
     // ---------------------------------------------------------------
     if (!shouldUseV0Fallback()) {
-      const codeFiles = getVersionFiles(versionId);
-      if (!codeFiles || codeFiles.length === 0) {
-        return NextResponse.json({
-          valid: true,
-          issues: [],
-          message: "No files to validate",
-        });
-      }
+      const codeFiles = await getVersionFiles(versionId);
+      if (codeFiles && codeFiles.length > 0) {
+        const filePairs = codeFiles.map((f) => ({ name: f.path, content: f.content }));
+        const results = validateFiles(filePairs);
+        const hasErrors = results.some((r) => r.issues.some((i) => i.severity === "error"));
 
-      const filePairs = codeFiles.map((f) => ({ name: f.path, content: f.content }));
-      const results = validateFiles(filePairs);
-      const hasErrors = results.some((r) => r.issues.some((i) => i.severity === "error"));
+        if (results.length === 0) {
+          return NextResponse.json({
+            valid: true,
+            issues: [],
+            message: "All CSS files are valid",
+          });
+        }
 
-      if (results.length === 0) {
-        return NextResponse.json({
-          valid: true,
-          issues: [],
-          message: "All CSS files are valid",
-        });
-      }
-
-      if (autoFix && hasErrors) {
-        const fixedIssueCount = results.reduce(
-          (sum, result) =>
-            sum +
-            result.issues.filter(
-              (issue) => issue.severity === "error" && Boolean(issue.suggestion),
-            ).length,
-          0,
-        );
-
-        const updatedFiles = codeFiles.map((file) => {
-          const result = results.find((r) => r.fileName === file.path);
-          const errorIssues = result
-            ? result.issues.filter(
+        if (autoFix && hasErrors) {
+          const fixedIssueCount = results.reduce(
+            (sum, result) =>
+              sum +
+              result.issues.filter(
                 (issue) => issue.severity === "error" && Boolean(issue.suggestion),
-              )
-            : [];
-          if (errorIssues.length > 0) {
-            return { ...file, content: fixCssIssues(file.content, errorIssues) };
-          }
-          return file;
-        });
+              ).length,
+            0,
+          );
 
-        updateVersionFiles(versionId, JSON.stringify(updatedFiles));
+          const updatedFiles = codeFiles.map((file) => {
+            const result = results.find((r) => r.fileName === file.path);
+            const errorIssues = result
+              ? result.issues.filter(
+                  (issue) => issue.severity === "error" && Boolean(issue.suggestion),
+                )
+              : [];
+            if (errorIssues.length > 0) {
+              return { ...file, content: fixCssIssues(file.content, errorIssues) };
+            }
+            return file;
+          });
+
+          await updateVersionFiles(versionId, JSON.stringify(updatedFiles));
+
+          return NextResponse.json({
+            valid: false,
+            issues: results,
+            fixed: true,
+            message: `Fixed ${fixedIssueCount} CSS issues`,
+            demoUrl: null,
+            formattedIssues: formatIssuesForDisplay(results),
+          });
+        }
 
         return NextResponse.json({
-          valid: false,
+          valid: !hasErrors,
           issues: results,
-          fixed: true,
-          message: `Fixed ${fixedIssueCount} CSS issues`,
-          demoUrl: null,
+          fixed: false,
+          message: hasErrors
+            ? `Found ${results.reduce((sum, r) => sum + r.issues.filter((i) => i.severity === "error").length, 0)} CSS errors that may cause Tailwind v4 runtime issues`
+            : "Found warnings but no critical errors",
           formattedIssues: formatIssuesForDisplay(results),
         });
       }
-
-      return NextResponse.json({
-        valid: !hasErrors,
-        issues: results,
-        fixed: false,
-        message: hasErrors
-          ? `Found ${results.reduce((sum, r) => sum + r.issues.filter((i) => i.severity === "error").length, 0)} CSS errors that may cause Tailwind v4 runtime issues`
-          : "Found warnings but no critical errors",
-        formattedIssues: formatIssuesForDisplay(results),
-      });
     }
 
     // ---------------------------------------------------------------

@@ -6,8 +6,7 @@ import { and, eq, desc } from "drizzle-orm";
 import { getChatByV0ChatIdForRequest } from "@/lib/tenant";
 import { nanoid } from "nanoid";
 import { shouldUseV0Fallback } from "@/lib/gen/fallback";
-import { getChat } from "@/lib/db/chat-repository";
-import { getLatestVersion } from "@/lib/db/chat-repository";
+import { getChat, getLatestVersion } from "@/lib/db/chat-repository-pg";
 import { buildPreviewUrl } from "@/lib/gen/preview";
 
 export async function GET(req: Request, ctx: { params: Promise<{ chatId: string }> }) {
@@ -15,46 +14,110 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
     const { chatId } = await ctx.params;
 
     // ---------------------------------------------------------------
-    // Non-fallback: fetch from SQLite (own engine data)
+    // Non-fallback: fetch from Postgres-backed own engine data
     // ---------------------------------------------------------------
     if (!shouldUseV0Fallback()) {
-      const chat = getChat(chatId);
-      if (!chat) {
+      const chat = await getChat(chatId);
+      if (chat) {
+        const latest = await getLatestVersion(chatId);
+
+        return NextResponse.json({
+          id: chat.id,
+          chatId: chat.id,
+          projectId: chat.project_id,
+          title: chat.title,
+          model: chat.model,
+          createdAt: chat.created_at,
+          updatedAt: chat.updated_at,
+          messages: chat.messages.map((m) => ({
+            id: m.id,
+            role: m.role,
+            content: m.content,
+            tokenCount: m.token_count,
+            createdAt: m.created_at,
+          })),
+          latestVersion: latest
+            ? {
+                id: latest.id,
+                versionId: latest.id,
+                demoUrl: buildPreviewUrl(chatId, latest.id),
+                createdAt: latest.created_at,
+                versionNumber: latest.version_number,
+                messageId: latest.message_id,
+                sandboxUrl: latest.sandbox_url,
+              }
+            : null,
+        });
+      }
+
+      const mappedV0Chat = await getChatByV0ChatIdForRequest(req, chatId);
+      if (mappedV0Chat) {
+        const latestMappedVersion = await db
+          .select()
+          .from(versions)
+          .where(eq(versions.chatId, mappedV0Chat.id))
+          .orderBy(desc(versions.createdAt))
+          .limit(1);
+        if (latestMappedVersion.length > 0) {
+          return NextResponse.json({
+            chatId,
+            id: mappedV0Chat.id,
+            v0ChatId: mappedV0Chat.v0ChatId,
+            v0ProjectId: mappedV0Chat.v0ProjectId,
+            webUrl: mappedV0Chat.webUrl,
+            createdAt: mappedV0Chat.createdAt,
+            updatedAt: mappedV0Chat.updatedAt,
+            latestVersion: {
+              versionId: latestMappedVersion[0].v0VersionId,
+              messageId: latestMappedVersion[0].v0MessageId,
+              demoUrl: latestMappedVersion[0].demoUrl,
+              createdAt: latestMappedVersion[0].createdAt,
+            },
+            demoUrl: latestMappedVersion[0].demoUrl,
+          });
+        }
+      }
+
+      // Template/category builds can still return raw v0 chat IDs even when
+      // the own engine path is active. If the DB mapping is missing or stale,
+      // fall back to a direct v0 lookup instead of hard 404.
+      try {
+        assertV0Key();
+        const v0Chat = await v0.chats.getById({ chatId });
+        const latest = (v0Chat as any)?.latestVersion || null;
+        const versionId =
+          (latest && (latest.id || latest.versionId)) ||
+          (v0Chat as any)?.versionId ||
+          null;
+        const demoUrl =
+          (latest && (latest.demoUrl || latest.demo_url)) || (v0Chat as any)?.demoUrl || null;
+        const messageId = latest?.messageId || null;
+        return NextResponse.json({
+          chatId,
+          id: chatId,
+          v0ChatId: chatId,
+          v0ProjectId: null,
+          webUrl: (v0Chat as any)?.webUrl ?? null,
+          createdAt: (v0Chat as any)?.createdAt ?? null,
+          updatedAt: (v0Chat as any)?.updatedAt ?? null,
+          latestVersion:
+            versionId || demoUrl
+              ? {
+                  versionId: typeof versionId === "string" ? versionId : null,
+                  messageId: typeof messageId === "string" ? messageId : null,
+                  demoUrl: typeof demoUrl === "string" ? demoUrl : null,
+                  createdAt: null,
+                }
+              : null,
+          demoUrl: typeof demoUrl === "string" ? demoUrl : null,
+        });
+      } catch (lookupError) {
+        console.warn("[chat] Non-fallback chat lookup failed in v0 fallback path:", lookupError);
         return NextResponse.json(
           { error: "Chat not found" },
           { status: 404 },
         );
       }
-
-      const latest = getLatestVersion(chatId);
-
-      return NextResponse.json({
-        id: chat.id,
-        chatId: chat.id,
-        projectId: chat.project_id,
-        title: chat.title,
-        model: chat.model,
-        createdAt: chat.created_at,
-        updatedAt: chat.updated_at,
-        messages: chat.messages.map((m) => ({
-          id: m.id,
-          role: m.role,
-          content: m.content,
-          tokenCount: m.token_count,
-          createdAt: m.created_at,
-        })),
-        latestVersion: latest
-          ? {
-              id: latest.id,
-              versionId: latest.id,
-              demoUrl: buildPreviewUrl(chatId, latest.id),
-              createdAt: latest.created_at,
-              versionNumber: latest.version_number,
-              messageId: latest.message_id,
-              sandboxUrl: latest.sandbox_url,
-            }
-          : null,
-      });
     }
 
     // ---------------------------------------------------------------
@@ -113,7 +176,10 @@ export async function GET(req: Request, ctx: { params: Promise<{ chatId: string 
             })
             .onConflictDoUpdate({
               target: [versions.chatId, versions.v0VersionId],
-              set: { demoUrl: latestFromV0.demoUrl ?? null },
+              set: {
+                v0MessageId: latestFromV0.messageId ?? null,
+                demoUrl: latestFromV0.demoUrl ?? null,
+              },
             });
         } catch (dbErr) {
           console.warn("[chat] Failed to upsert latest version from v0:", dbErr);

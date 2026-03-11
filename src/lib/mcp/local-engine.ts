@@ -1,4 +1,4 @@
-import * as chatRepo from "@/lib/db/chat-repository";
+import * as chatRepo from "@/lib/db/chat-repository-pg";
 import { shouldUseV0Fallback } from "@/lib/gen/fallback";
 import { getLatestVersionFiles, getVersionFiles } from "@/lib/gen/version-manager";
 import { assertV0Key, v0 } from "@/lib/v0";
@@ -49,9 +49,9 @@ interface ResolvedGeneratedFilesResult {
   resolvedVersionId: string | null;
 }
 
-function getOwnEngineProjectId(chatId: string): string | null {
+async function getOwnEngineProjectId(chatId: string): Promise<string | null> {
   if (shouldUseV0Fallback()) return null;
-  const chat = chatRepo.getChat(chatId);
+  const chat = await chatRepo.getChat(chatId);
   return typeof chat?.project_id === "string" && chat.project_id.trim()
     ? chat.project_id
     : null;
@@ -85,11 +85,13 @@ async function resolveGeneratedFiles(
   versionId?: string | null,
 ): Promise<ResolvedGeneratedFilesResult> {
   if (!shouldUseV0Fallback()) {
-    const raw = versionId ? getVersionFiles(versionId) : getLatestVersionFiles(chatId);
+    const raw = versionId
+      ? await getVersionFiles(versionId)
+      : await getLatestVersionFiles(chatId);
     if (!raw) {
       return {
         files: [],
-        resolvedVersionId: versionId ?? chatRepo.getLatestVersion(chatId)?.id ?? null,
+        resolvedVersionId: versionId ?? (await chatRepo.getLatestVersion(chatId))?.id ?? null,
       };
     }
     return {
@@ -99,7 +101,7 @@ async function resolveGeneratedFiles(
         language: file.language ?? inferLanguage(file.path),
         bytes: file.content.length,
       })),
-      resolvedVersionId: versionId ?? chatRepo.getLatestVersion(chatId)?.id ?? null,
+      resolvedVersionId: versionId ?? (await chatRepo.getLatestVersion(chatId))?.id ?? null,
     };
   }
 
@@ -163,7 +165,7 @@ export async function loadGeneratedManifest(
 ): Promise<LocalGeneratedManifest> {
   const { files, resolvedVersionId } = await resolveGeneratedFiles(chatId, versionId);
   return {
-    projectId: getOwnEngineProjectId(chatId),
+    projectId: await getOwnEngineProjectId(chatId),
     chatId,
     versionId: resolvedVersionId,
     totalFiles: files.length,
@@ -191,10 +193,10 @@ export async function createLocalGeneratedRuntime(
   params: CreateLocalGeneratedRuntimeParams,
 ): Promise<LocalGeneratedRuntimeResult> {
   const { chatId, versionId, mode = "sandbox", ...sandboxOptions } = params;
-  const projectId = getOwnEngineProjectId(chatId);
+  const projectId = await getOwnEngineProjectId(chatId);
 
   if (mode === "preview") {
-    const resolvedVersionId = versionId ?? chatRepo.getLatestVersion(chatId)?.id ?? null;
+    const resolvedVersionId = versionId ?? (await chatRepo.getLatestVersion(chatId))?.id ?? null;
     if (shouldUseV0Fallback()) {
       throw new Error("Own-engine preview URL is not available in v0 fallback mode");
     }

@@ -43,40 +43,38 @@ export async function POST(
       const format = searchParams.get("format") === "tar" ? "tar" : "zip";
 
       // -----------------------------------------------------------------
-      // Non-fallback: build archive from SQLite files, upload to Blob
+      // Non-fallback: build archive from Postgres engine files, upload to Blob
       // -----------------------------------------------------------------
       if (!shouldUseV0Fallback()) {
-        const codeFiles = getVersionFiles(versionId);
-        if (!codeFiles || codeFiles.length === 0) {
-          return NextResponse.json({ error: "Version not found" }, { status: 404 });
+        const codeFiles = await getVersionFiles(versionId);
+        if (codeFiles && codeFiles.length > 0) {
+          const JSZip = (await import("jszip")).default;
+          const zip = new JSZip();
+          for (const file of codeFiles) {
+            zip.file(file.path, file.content);
+          }
+
+          const buffer = await zip.generateAsync({ type: "nodebuffer" });
+
+          const safeChat = toSafeSegment(chatId) || "chat";
+          const safeVersion = toSafeSegment(versionId) || "version";
+          const contentType = "application/zip";
+          const pathname = `exports/${safeChat}/${safeVersion}-${Date.now()}.zip`;
+
+          const blob = await put(pathname, buffer, {
+            access: "public",
+            contentType,
+            token: blobToken,
+          });
+
+          return NextResponse.json({
+            ok: true,
+            format: "zip",
+            contentType,
+            size: buffer.byteLength,
+            blob,
+          });
         }
-
-        const JSZip = (await import("jszip")).default;
-        const zip = new JSZip();
-        for (const file of codeFiles) {
-          zip.file(file.path, file.content);
-        }
-
-        const buffer = await zip.generateAsync({ type: "nodebuffer" });
-
-        const safeChat = toSafeSegment(chatId) || "chat";
-        const safeVersion = toSafeSegment(versionId) || "version";
-        const contentType = "application/zip";
-        const pathname = `exports/${safeChat}/${safeVersion}-${Date.now()}.zip`;
-
-        const blob = await put(pathname, buffer, {
-          access: "public",
-          contentType,
-          token: blobToken,
-        });
-
-        return NextResponse.json({
-          ok: true,
-          format: "zip",
-          contentType,
-          size: buffer.byteLength,
-          blob,
-        });
       }
 
       // -----------------------------------------------------------------

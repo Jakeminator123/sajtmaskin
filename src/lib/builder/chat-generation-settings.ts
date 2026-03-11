@@ -3,6 +3,7 @@ import {
   MODEL_TIER_OPTIONS,
 } from "@/lib/builder/defaults";
 import type { ModelTier } from "@/lib/validations/chatSchemas";
+import { canonicalizeModelId } from "@/lib/v0/models";
 
 export type ChatGenerationSettings = {
   modelTier: ModelTier;
@@ -23,9 +24,10 @@ export function readChatGenerationSettings(chatId: string): ChatGenerationSettin
     if (!raw) return null;
     const parsed = JSON.parse(raw) as Partial<ChatGenerationSettings> | null;
     if (!parsed || typeof parsed !== "object") return null;
-    if (!parsed.modelTier || !MODEL_TIER_SET.has(parsed.modelTier as ModelTier)) return null;
+    const canonicalModelTier = canonicalizeModelId(parsed.modelTier);
+    if (!canonicalModelTier || !MODEL_TIER_SET.has(canonicalModelTier as ModelTier)) return null;
     return {
-      modelTier: parsed.modelTier as ModelTier,
+      modelTier: canonicalModelTier as ModelTier,
       imageGenerations:
         typeof parsed.imageGenerations === "boolean"
           ? parsed.imageGenerations

@@ -5,6 +5,7 @@ import type { ModelTier } from "@/lib/validations/chatSchemas";
 import {
   MODEL_TIER_OPTIONS,
   PROMPT_ASSIST_OFF_VALUE,
+  getPromptAssistModelLabel,
   getPromptAssistModelOptions,
   getDefaultCustomInstructions,
   isDefaultCustomInstructions,
@@ -189,9 +190,17 @@ export function BuilderHeader(props: {
   const isAssistOff = promptAssistModel === PROMPT_ASSIST_OFF_VALUE;
   const isGatewayProvider = isGatewayAssistModel(promptAssistModel);
   const isDeepBriefDisabled = isBusy || isAssistOff || !isGatewayProvider || !canUseDeepBrief;
+  const assistModelLabel = getPromptAssistModelLabel(promptAssistModel);
+  const assistProviderName = (() => {
+    const provider = resolvePromptAssistProvider(promptAssistModel);
+    if (provider === "v0") return "Model API";
+    if (provider === "gateway") return "Gateway";
+    if (provider === "anthropic") return "Anthropic";
+    return provider;
+  })();
   const assistProviderLabel = isAssistOff
     ? "Av"
-    : `${resolvePromptAssistProvider(promptAssistModel)}: ${promptAssistModel}`;
+    : `${assistProviderName}: ${assistModelLabel}`;
   const assistStatusSummary = isAssistOff
     ? "Förbättra: Av"
     : `Förbättra: ${assistProviderLabel}${promptAssistDeep && isGatewayProvider ? " (deep)" : ""}`;
@@ -254,7 +263,7 @@ export function BuilderHeader(props: {
           </TooltipProvider>
           <DropdownMenuContent align="end" className="w-64">
             <DropdownMenuLabel className="flex items-center gap-2">
-              <span>Model Tier</span>
+              <span>Byggmodell</span>
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -264,10 +273,11 @@ export function BuilderHeader(props: {
                   </TooltipTrigger>
                   <TooltipContent side="left" className="max-w-xs">
                     <p className="text-xs">
-                      Detta är byggtiers för själva genereringen. Om `V0_FALLBACK_BUILDER=y`
-                      används motsvarande v0-tier direkt. Annars mappar samma tier till egen motor
-                      ungefär som GPT-4.1 Mini, GPT-5.2 och GPT-5.4. Prompt Assist nedan är separat
-                      och används bara för att förbättra prompt, scaffold-val och designbrief innan bygg.
+                      Detta är builderns byggprofiler. Om `V0_FALLBACK_BUILDER=y` och fallback
+                      uttryckligen begars används motsvarande v0-modell direkt. Annars mappar samma
+                      byggprofil till egen motor som `GPT-4.1`, `GPT-5.3 Codex`, `GPT-5.4` eller
+                      `GPT-5.1 Codex Max`. Prompt Assist nedan är separat och används bara för att förbättra prompt,
+                      scaffold-val och designbrief innan bygg.
                     </p>
                   </TooltipContent>
                 </Tooltip>

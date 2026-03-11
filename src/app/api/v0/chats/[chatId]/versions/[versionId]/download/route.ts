@@ -19,31 +19,29 @@ export async function GET(
     const format = searchParams.get("format") || "zip";
 
     // -----------------------------------------------------------------
-    // Non-fallback: build archive from SQLite files
+    // Non-fallback: build archive from Postgres engine files
     // -----------------------------------------------------------------
     if (!shouldUseV0Fallback()) {
-      const codeFiles = getVersionFiles(versionId);
-      if (!codeFiles || codeFiles.length === 0) {
-        return NextResponse.json({ error: "Version not found" }, { status: 404 });
+      const codeFiles = await getVersionFiles(versionId);
+      if (codeFiles && codeFiles.length > 0) {
+        const completeProject = repairGeneratedFiles(buildCompleteProject(codeFiles)).files;
+        const JSZip = (await import("jszip")).default;
+        const zip = new JSZip();
+        for (const file of completeProject) {
+          zip.file(file.path, file.content);
+        }
+
+        const buffer = await zip.generateAsync({ type: "nodebuffer" });
+        const ext = format === "tar" ? "zip" : "zip";
+        const filename = `version-${versionId.slice(0, 8)}.${ext}`;
+
+        return new Response(new Uint8Array(buffer), {
+          headers: {
+            "Content-Type": "application/zip",
+            "Content-Disposition": `attachment; filename="${filename}"`,
+          },
+        });
       }
-
-      const completeProject = repairGeneratedFiles(buildCompleteProject(codeFiles)).files;
-      const JSZip = (await import("jszip")).default;
-      const zip = new JSZip();
-      for (const file of completeProject) {
-        zip.file(file.path, file.content);
-      }
-
-      const buffer = await zip.generateAsync({ type: "nodebuffer" });
-      const ext = format === "tar" ? "zip" : "zip";
-      const filename = `version-${versionId.slice(0, 8)}.${ext}`;
-
-      return new Response(new Uint8Array(buffer), {
-        headers: {
-          "Content-Type": "application/zip",
-          "Content-Disposition": `attachment; filename="${filename}"`,
-        },
-      });
     }
 
     // -----------------------------------------------------------------

@@ -1,4 +1,5 @@
 import type { UiMessagePart } from "@/lib/builder/types";
+import { runProjectSanityChecks } from "@/lib/gen/validation/project-sanity";
 import { DESIGN_TOKEN_FILES, POST_CHECK_MARKER } from "./constants";
 import type {
   DesignTokenSummary,
@@ -50,6 +51,17 @@ export async function fetchChatFiles(
     throw new Error(data?.error || `Failed to fetch files (HTTP ${response.status})`);
   }
   return Array.isArray(data?.files) ? data.files : [];
+}
+
+function inferLanguage(fileName: string): string {
+  const normalized = fileName.toLowerCase();
+  if (normalized.endsWith(".tsx")) return "tsx";
+  if (normalized.endsWith(".ts")) return "ts";
+  if (normalized.endsWith(".jsx")) return "jsx";
+  if (normalized.endsWith(".js")) return "js";
+  if (normalized.endsWith(".css")) return "css";
+  if (normalized.endsWith(".json")) return "json";
+  return "text";
 }
 
 // ---------------------------------------------------------------------------
@@ -452,6 +464,15 @@ export async function runPostGenerationChecks(params: {
     const internalLinks = extractStaticInternalLinks(currentFiles);
     const missingRoutes = findMissingRoutes(internalLinks, routePaths);
     const lucideLinkMisuse = findLucideLinkMisuse(currentFiles);
+    const sanity = runProjectSanityChecks(
+      currentFiles.map((file) => ({
+        path: file.name,
+        content: file.content ?? "",
+        language: inferLanguage(file.name),
+      })),
+    );
+    const sanityErrors = sanity.issues.filter((issue) => issue.severity === "error");
+    const sanityWarnings = sanity.issues.filter((issue) => issue.severity === "warning");
     if (missingRoutes.length > 0) {
       const preview = missingRoutes.slice(0, 6).join(", ");
       const suffix = missingRoutes.length > 6 ? " …" : "";
@@ -461,6 +482,10 @@ export async function runPostGenerationChecks(params: {
       const preview = lucideLinkMisuse.slice(0, 6).join(", ");
       const suffix = lucideLinkMisuse.length > 6 ? " …" : "";
       warnings.push(`Fel Link-import i ${preview}${suffix}. Använd \`next/link\`, inte \`lucide-react\`.`);
+    }
+    if (sanityErrors.length > 0 || sanityWarnings.length > 0) {
+      const summary = `Kodsanity: ${sanityErrors.length} error, ${sanityWarnings.length} warning.`;
+      warnings.push(summary);
     }
     const versionEntry = versions.find(
       (entry) => entry.versionId === versionId || entry.id === versionId,
@@ -481,6 +506,22 @@ export async function runPostGenerationChecks(params: {
     }
     if (warnings.length > 0) {
       steps.push(...warnings);
+    }
+    if (sanityErrors.length > 0) {
+      const preview = sanityErrors
+        .slice(0, 6)
+        .map((issue) => `${issue.file}: ${issue.message}`)
+        .join(" | ");
+      const suffix = sanityErrors.length > 6 ? " …" : "";
+      steps.push(`Kodsanity errors: ${preview}${suffix}`);
+    }
+    if (sanityWarnings.length > 0) {
+      const preview = sanityWarnings
+        .slice(0, 6)
+        .map((issue) => `${issue.file}: ${issue.message}`)
+        .join(" | ");
+      const suffix = sanityWarnings.length > 6 ? " …" : "";
+      steps.push(`Kodsanity warnings: ${preview}${suffix}`);
     }
     if (designTokens) {
       const names = designTokens.tokens.map((token) => token.name);
@@ -554,6 +595,9 @@ export async function runPostGenerationChecks(params: {
     if (lucideLinkMisuse.length > 0) {
       qualityGateFailures.push("invalid_link_import");
     }
+    if (sanityErrors.length > 0) {
+      qualityGateFailures.push("project_sanity_errors");
+    }
     const qualityGatePassed = qualityGateFailures.length === 0;
     steps.push(
       qualityGatePassed
@@ -595,6 +639,7 @@ export async function runPostGenerationChecks(params: {
         warnings: warnings.length,
       },
       warnings,
+      sanityIssues: sanity.issues,
       missingRoutes,
       lucideLinkMisuse,
       suspiciousUseCalls,
@@ -642,6 +687,14 @@ export async function runPostGenerationChecks(params: {
         meta: { files: lucideLinkMisuse },
       });
     }
+    if (sanityErrors.length > 0 || sanityWarnings.length > 0) {
+      logItems.push({
+        level: sanityErrors.length > 0 ? "error" : "warning",
+        category: "project-sanity",
+        message: "Kodsanity rapporterade problem.",
+        meta: { issues: sanity.issues.slice(0, 20) },
+      });
+    }
     if (imageValidation?.broken?.length) {
       logItems.push({
         level: "warning",
@@ -677,6 +730,7 @@ export async function runPostGenerationChecks(params: {
     if (missingRoutes.length > 0) autoFixReasons.push("saknade routes");
     if (lucideLinkMisuse.length > 0) autoFixReasons.push("fel Link-import");
     if (suspiciousUseCalls.length > 0) autoFixReasons.push("misstankt use()");
+    if (sanityErrors.length > 0) autoFixReasons.push("kodsanity error");
     if (imageValidation?.broken?.length) autoFixReasons.push("trasiga bilder");
     if (imageValidation?.warnings?.some((warning) => warning.includes("[semantic-image]"))) {
       autoFixReasons.push("misstankt irrelevanta bilder");
@@ -691,6 +745,7 @@ export async function runPostGenerationChecks(params: {
           missingRoutes,
           lucideLinkMisuse,
           suspiciousUseCalls,
+          sanityIssues: sanity.issues,
           imageValidation,
           demoUrl: finalDemoUrl,
         },

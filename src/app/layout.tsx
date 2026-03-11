@@ -11,7 +11,7 @@ import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Toaster } from "@/components/ui/sonner";
 import { OpenClawChatLazy } from "@/components/openclaw/OpenClawChatLazy";
-import { OPENCLAW } from "@/lib/config";
+import { OPENCLAW, URLS } from "@/lib/config";
 
 const openclawEnabled = OPENCLAW.enabled;
 
@@ -44,9 +44,7 @@ export const metadata: Metadata = {
   },
   description:
     "Skapa professionella webbplatser på minuter med AI. En tjänst från Pretty Good AB.",
-  metadataBase: new URL(
-    process.env.NEXT_PUBLIC_APP_URL || "https://sajtmaskin.se",
-  ),
+  metadataBase: new URL(URLS.baseUrl),
   icons: {
     icon: "/icon.svg",
   },

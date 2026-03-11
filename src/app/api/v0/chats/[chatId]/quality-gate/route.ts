@@ -10,7 +10,9 @@ import { versions } from "@/lib/db/schema";
 import { and, eq } from "drizzle-orm";
 import { shouldUseV0Fallback } from "@/lib/gen/fallback";
 import { getVersionFiles } from "@/lib/gen/version-manager";
-import { getVersionById } from "@/lib/db/chat-repository";
+import { getVersionById } from "@/lib/db/chat-repository-pg";
+import { buildCompleteProject } from "@/lib/gen/project-scaffold";
+import { repairGeneratedFiles } from "@/lib/gen/repair-generated-files";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -35,6 +37,29 @@ type GateResult = {
   checks: CheckResult[];
   sandboxDurationMs: number;
 };
+
+function buildQualityGateSummaryLog(params: {
+  checkResults: CheckResult[];
+  sandboxDurationMs: number;
+}) {
+  const { checkResults, sandboxDurationMs } = params;
+  return {
+    level: checkResults.every((result) => result.passed) ? "info" as const : "error" as const,
+    category: "preflight:quality-gate",
+    message: checkResults.every((result) => result.passed)
+      ? "Automatic quality gate passed."
+      : "Automatic quality gate failed.",
+    meta: {
+      passed: checkResults.every((result) => result.passed),
+      checks: checkResults.map((result) => ({
+        check: result.check,
+        passed: result.passed,
+        exitCode: result.exitCode,
+      })),
+      sandboxDurationMs,
+    },
+  };
+}
 
 const CHECK_COMMANDS: Record<string, string> = {
   typecheck: "npx tsc --noEmit 2>&1 || true",
@@ -147,53 +172,62 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
     const { versionId, checks } = validation.data;
 
     // ---------------------------------------------------------------
-    // Non-fallback: fetch files from SQLite
+    // Non-fallback: fetch files from Postgres engine store
     // ---------------------------------------------------------------
     if (!shouldUseV0Fallback()) {
-      const codeFiles = getVersionFiles(versionId);
-      if (!codeFiles || codeFiles.length === 0) {
-        return NextResponse.json({ error: "No files found for version" }, { status: 404 });
-      }
+      const codeFiles = await getVersionFiles(versionId);
+      if (codeFiles && codeFiles.length > 0) {
+        const completeProjectFiles = repairGeneratedFiles(buildCompleteProject(codeFiles)).files;
+        const sandboxFiles = completeProjectFiles
+          .filter((f) => f.content != null)
+          .map((f) => ({ name: f.path, content: f.content }));
 
-      const sandboxFiles = codeFiles
-        .filter((f) => f.content != null)
-        .map((f) => ({ name: f.path, content: f.content }));
+        try {
+          const { results, sandboxDurationMs } = await runSandboxChecks(sandboxFiles, checks);
 
-      try {
-        const { results, sandboxDurationMs } = await runSandboxChecks(sandboxFiles, checks);
+          const gateResult: GateResult = {
+            passed: results.every((r) => r.passed),
+            checks: results,
+            sandboxDurationMs,
+          };
 
-        const gateResult: GateResult = {
-          passed: results.every((r) => r.passed),
-          checks: results,
-          sandboxDurationMs,
-        };
-
-        const failedLogs = results
-          .filter((r) => !r.passed)
-          .map((r) => {
-            const versionObj = getVersionById(versionId);
-            const resolvedChatId = versionObj?.chat_id ?? chatId;
-            return {
+          const versionObj = await getVersionById(versionId);
+          const resolvedChatId = versionObj?.chat_id ?? chatId;
+          const logs = [
+            {
               chatId: resolvedChatId,
               versionId,
-              level: "error" as const,
-              category: `quality-gate:${r.check}`,
-              message: `${r.check} failed (exit ${r.exitCode})`,
-              meta: { output: r.output.slice(0, 4000), exitCode: r.exitCode },
-            };
-          });
-        if (failedLogs.length > 0 && dbConfigured) {
-          await createVersionErrorLogs(failedLogs).catch((err) => {
-            console.warn("[quality-gate] Failed to persist error logs:", err);
-          });
-        }
+              ...buildQualityGateSummaryLog({
+                checkResults: results,
+                sandboxDurationMs,
+              }),
+            },
+            ...results
+            .filter((r) => !r.passed)
+            .map((r) => {
+              return {
+                chatId: resolvedChatId,
+                versionId,
+                level: "error" as const,
+                category: `quality-gate:${r.check}`,
+                message: `${r.check} failed (exit ${r.exitCode})`,
+                meta: { output: r.output.slice(0, 4000), exitCode: r.exitCode },
+              };
+            }),
+          ];
+          if (logs.length > 0 && dbConfigured) {
+            await createVersionErrorLogs(logs).catch((err) => {
+              console.warn("[quality-gate] Failed to persist error logs:", err);
+            });
+          }
 
-        return NextResponse.json(gateResult);
-      } catch (err) {
-        if (err instanceof SandboxNotConfiguredError) {
-          return NextResponse.json({ error: err.message }, { status: 501 });
+          return NextResponse.json(gateResult);
+        } catch (err) {
+          if (err instanceof SandboxNotConfiguredError) {
+            return NextResponse.json({ error: err.message }, { status: 501 });
+          }
+          throw err;
         }
-        throw err;
       }
     }
 
@@ -233,7 +267,17 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
 
       const version = await resolveInternalVersionId(dbChat.id, versionId);
       if (version) {
-        const logs = results
+        const logs = [
+          {
+            chatId: dbChat.id,
+            versionId: version.id,
+            v0VersionId: version.v0VersionId,
+            ...buildQualityGateSummaryLog({
+              checkResults: results,
+              sandboxDurationMs,
+            }),
+          },
+          ...results
           .filter((r) => !r.passed)
           .map((r) => ({
             chatId: dbChat.id,
@@ -243,7 +287,8 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
             category: `quality-gate:${r.check}`,
             message: `${r.check} failed (exit ${r.exitCode})`,
             meta: { output: r.output.slice(0, 4000), exitCode: r.exitCode },
-          }));
+          })),
+        ];
         if (logs.length > 0) {
           await createVersionErrorLogs(logs).catch((err) => {
             console.warn("[quality-gate] Failed to persist error logs:", err);

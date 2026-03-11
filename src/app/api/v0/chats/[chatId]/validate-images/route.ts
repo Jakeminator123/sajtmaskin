@@ -6,7 +6,7 @@ import { validateImages } from "@/lib/utils/image-validator";
 import { z } from "zod";
 import { shouldUseV0Fallback } from "@/lib/gen/fallback";
 import { getVersionFiles } from "@/lib/gen/version-manager";
-import { updateVersionFiles } from "@/lib/db/chat-repository";
+import { updateVersionFiles } from "@/lib/db/chat-repository-pg";
 
 export const runtime = "nodejs";
 
@@ -31,61 +31,51 @@ export async function POST(req: Request, { params }: { params: Promise<{ chatId:
     const { versionId, autoFix } = validation.data;
 
     // ---------------------------------------------------------------
-    // Non-fallback: fetch & update via SQLite
+    // Non-fallback: fetch & update via Postgres engine store
     // ---------------------------------------------------------------
     if (!shouldUseV0Fallback()) {
-      const codeFiles = getVersionFiles(versionId);
-      if (!codeFiles || codeFiles.length === 0) {
+      const codeFiles = await getVersionFiles(versionId);
+      if (codeFiles && codeFiles.length > 0) {
+        const filePairs = codeFiles.map((f) => ({
+          name: f.path,
+          content: f.content,
+        }));
+
+        const unsplashKey = FEATURES.useUnsplash ? SECRETS.unsplashAccessKey : null;
+        const result = await validateImages({
+          files: filePairs,
+          autoFix,
+          unsplashAccessKey: unsplashKey,
+        });
+
+        let fixed = false;
+        if (autoFix && result.replacedCount > 0) {
+          try {
+            const updatedFiles = codeFiles.map((file) => {
+              const replacement = result.files.find((f) => f.name === file.path);
+              return replacement ? { ...file, content: replacement.content } : file;
+            });
+            await updateVersionFiles(versionId, JSON.stringify(updatedFiles));
+            fixed = true;
+          } catch (updateError) {
+            console.error("[validate-images] Failed to update version:", updateError);
+            result.warnings.push("Kunde inte spara fixade bilder till versionen.");
+          }
+        }
+
         return NextResponse.json({
-          valid: true,
-          total: 0,
-          broken: [],
-          replacedCount: 0,
-          warnings: [],
-          fixed: false,
-          message: "No files to validate",
+          valid: result.broken.length === 0,
+          total: result.total,
+          broken: result.broken,
+          replacedCount: result.replacedCount,
+          warnings: result.warnings,
+          fixed,
+          demoUrl: null,
+          message: result.broken.length === 0
+            ? `Alla ${result.total} bild-URL:er är giltiga`
+            : `${result.broken.length} av ${result.total} bilder trasiga${fixed ? `, ${result.replacedCount} ersatta` : ""}`,
         });
       }
-
-      const filePairs = codeFiles.map((f) => ({
-        name: f.path,
-        content: f.content,
-      }));
-
-      const unsplashKey = FEATURES.useUnsplash ? SECRETS.unsplashAccessKey : null;
-      const result = await validateImages({
-        files: filePairs,
-        autoFix,
-        unsplashAccessKey: unsplashKey,
-      });
-
-      let fixed = false;
-      if (autoFix && result.replacedCount > 0) {
-        try {
-          const updatedFiles = codeFiles.map((file) => {
-            const replacement = result.files.find((f) => f.name === file.path);
-            return replacement ? { ...file, content: replacement.content } : file;
-          });
-          updateVersionFiles(versionId, JSON.stringify(updatedFiles));
-          fixed = true;
-        } catch (updateError) {
-          console.error("[validate-images] Failed to update version:", updateError);
-          result.warnings.push("Kunde inte spara fixade bilder till versionen.");
-        }
-      }
-
-      return NextResponse.json({
-        valid: result.broken.length === 0,
-        total: result.total,
-        broken: result.broken,
-        replacedCount: result.replacedCount,
-        warnings: result.warnings,
-        fixed,
-        demoUrl: null,
-        message: result.broken.length === 0
-          ? `Alla ${result.total} bild-URL:er är giltiga`
-          : `${result.broken.length} av ${result.total} bilder trasiga${fixed ? `, ${result.replacedCount} ersatta` : ""}`,
-      });
     }
 
     // ---------------------------------------------------------------

@@ -1,6 +1,7 @@
 import type { UiMessagePart } from "@/lib/builder/types";
+import { getPromptAssistModelLabel } from "@/lib/builder/defaults";
 import type { PromptStrategyMeta } from "@/lib/builder/promptOrchestration";
-import { MODEL_LABELS, canonicalizeModelId } from "@/lib/v0/models";
+import { MODEL_LABELS, canonicalizeModelId, getBuildProfileId } from "@/lib/v0/models";
 import { CREATE_CHAT_LOCK_KEY, CREATE_CHAT_LOCK_TTL_MS } from "./constants";
 import type {
   AutoFixPayload,
@@ -577,6 +578,14 @@ export function integrationSignalToToolPart(
 // Model info / prompt strategy tool parts
 // ---------------------------------------------------------------------------
 
+function formatEnginePathLabel(enginePath: string | null | undefined): string | null {
+  if (!enginePath) return null;
+  if (enginePath === "own-engine") return "egen motor";
+  if (enginePath === "v0-fallback") return "v0 fallback";
+  if (enginePath === "plan-mode") return "planlage";
+  return enginePath;
+}
+
 function buildModelInfoSteps(info: ModelInfoData): string[] {
   const steps: string[] = [];
   const modelId = info.modelId ? String(info.modelId) : null;
@@ -584,12 +593,29 @@ function buildModelInfoSteps(info: ModelInfoData): string[] {
     typeof info.modelTier === "string" && info.modelTier.trim().length > 0
       ? info.modelTier.trim()
       : null;
+  const buildProfileId =
+    typeof info.buildProfileId === "string" && info.buildProfileId.trim().length > 0
+      ? info.buildProfileId.trim()
+      : null;
+  const buildProfileLabel =
+    typeof info.buildProfileLabel === "string" && info.buildProfileLabel.trim().length > 0
+      ? info.buildProfileLabel.trim()
+      : null;
   const canonicalTier = modelTier ? canonicalizeModelId(modelTier) : null;
   const modelTierLabel = canonicalTier ? MODEL_LABELS[canonicalTier] : null;
-  if (modelTier) {
-    steps.push(`Byggtier: ${modelTierLabel ?? modelTier}`);
+  const resolvedProfileLabel = buildProfileLabel ?? modelTierLabel ?? modelTier;
+  const resolvedProfileId = buildProfileId ?? (canonicalTier ? getBuildProfileId(canonicalTier) : modelTier);
+  if (resolvedProfileLabel) {
+    steps.push(`Byggprofil: ${resolvedProfileLabel}`);
   }
-  steps.push(`${modelTier ? "Motor" : "Model"}: ${modelId || "okänd"}`);
+  if (resolvedProfileId) {
+    steps.push(`Profil-ID: ${resolvedProfileId}`);
+  }
+  const enginePathLabel = formatEnginePathLabel(info.enginePath);
+  if (enginePathLabel) {
+    steps.push(`Motorvag: ${enginePathLabel}`);
+  }
+  steps.push(`${modelTier ? "Kormodell" : "Model"}: ${modelId || "okand"}`);
   if (typeof info.thinking === "boolean") {
     steps.push(`Thinking: ${info.thinking ? "på" : "av"}`);
   }
@@ -600,10 +626,18 @@ function buildModelInfoSteps(info: ModelInfoData): string[] {
     steps.push(`Chat privacy: ${info.chatPrivacy}`);
   }
   if (typeof info.promptAssistProvider === "string") {
-    steps.push(`Provider: ${info.promptAssistProvider}`);
+    const providerLabel =
+      info.promptAssistProvider === "v0"
+        ? "Model API"
+        : info.promptAssistProvider === "gateway"
+          ? "Gateway"
+          : info.promptAssistProvider === "anthropic"
+            ? "Anthropic"
+            : info.promptAssistProvider;
+    steps.push(`Provider: ${providerLabel}`);
   }
   if (typeof info.promptAssistModel === "string") {
-    steps.push(`Assist model: ${info.promptAssistModel}`);
+    steps.push(`Assist model: ${getPromptAssistModelLabel(info.promptAssistModel)}`);
   }
   if (typeof info.promptAssistDeep === "boolean") {
     steps.push(`Deep brief: ${info.promptAssistDeep ? "på" : "av"}`);
@@ -743,7 +777,7 @@ export function buildApiErrorMessage(params: {
       return "Bilagan är för stor (max 3 MB). Försök med en mindre fil.";
     }
     if (looksLikeUnsupportedModelError(nestedMsg)) {
-      return `Model ID avvisades av AI-tjänsten: "${nestedMsg}". Byt till en giltig modell (Max Fast, Max, Pro eller GPT-5).`;
+      return `Model ID avvisades av AI-tjänsten: "${nestedMsg}". Byt till en giltig byggmodell (GPT-4.1, GPT-5.3 Codex, GPT-5.4 eller GPT-5.1 Codex Max).`;
     }
     return nestedMsg || "Ogiltigt anrop (422). Kontrollera bilagor och meddelande.";
   }
@@ -753,7 +787,7 @@ export function buildApiErrorMessage(params: {
     (typeof errorData?.message === "string" && errorData.message) ||
     "";
   if (looksLikeUnsupportedModelError(directMessage)) {
-    return `Model ID avvisades av AI-tjänsten: "${directMessage}". Byt till en giltig modell (Max Fast, Max, Pro eller GPT-5).`;
+    return `Model ID avvisades av AI-tjänsten: "${directMessage}". Byt till en giltig byggmodell (GPT-4.1, GPT-5.3 Codex, GPT-5.4 eller GPT-5.1 Codex Max).`;
   }
 
   let message = directMessage || fallbackMessage;
@@ -823,7 +857,7 @@ export function buildStreamErrorMessage(errorData: Record<string, unknown> | nul
     return "Preview-version kunde inte fastställas från streamen. Försök igen eller kör reparera preview.";
   }
   if (looksLikeUnsupportedModelError(rawMessage)) {
-    return `Model ID avvisades av AI-tjänsten: "${rawMessage}". Byt till en giltig modell (Max Fast, Max, Pro eller GPT-5).`;
+    return `Model ID avvisades av AI-tjänsten: "${rawMessage}". Byt till en giltig byggmodell (GPT-4.1, GPT-5.3 Codex, GPT-5.4 eller GPT-5.1 Codex Max).`;
   }
   if (rawMessage.toLowerCase().includes("no preview version was generated")) {
     return "Preview-version saknas efter streamen. Försök igen eller kör reparera preview.";

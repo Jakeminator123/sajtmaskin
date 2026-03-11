@@ -35,17 +35,17 @@ export type PricingContext = {
 // ─── Prompt costs by model tier ───────────────────────────────────
 // Base rate: 1 credit ≈ 3 SEK
 const PROMPT_CREATE_COSTS: Record<ModelTier, number> = {
-  "v0-max-fast": 10,
-  "v0-1.5-md": 7,
-  "v0-1.5-lg": 10,
-  "v0-gpt-5": 10,
+  fast: 10,
+  pro: 7,
+  max: 10,
+  codex: 10,
 };
 
 const PROMPT_REFINE_COSTS: Record<ModelTier, number> = {
-  "v0-max-fast": 6,
-  "v0-1.5-md": 4,
-  "v0-1.5-lg": 6,
-  "v0-gpt-5": 6,
+  fast: 6,
+  pro: 4,
+  max: 6,
+  codex: 6,
 };
 
 // QUALITY_TO_MODEL, MODEL_LABELS, and legacy alias mapping are

@@ -28,7 +28,7 @@ import { devLogAppend } from "@/lib/logging/devLog";
 import { prepareCredits } from "@/lib/credits/server";
 import { shouldUseV0Fallback } from "@/lib/gen/fallback";
 import { getVersionFiles } from "@/lib/gen/version-manager";
-import { getVersionById } from "@/lib/db/chat-repository";
+import { getVersionById } from "@/lib/db/chat-repository-pg";
 
 export const runtime = "nodejs";
 
@@ -363,7 +363,7 @@ export async function POST(req: Request) {
       const deployTarget = target === "preview" ? "preview" : "production";
 
       // -----------------------------------------------------------------
-      // Non-fallback: fetch version files from SQLite
+      // Non-fallback: fetch version files from Postgres engine store
       // -----------------------------------------------------------------
       if (!shouldUseV0Fallback()) {
         const creditCheck = await prepareCredits(
@@ -375,12 +375,12 @@ export async function POST(req: Request) {
           return creditCheck.response;
         }
 
-        const sqliteVersion = getVersionById(versionId);
-        if (!sqliteVersion) {
+        const engineVersion = await getVersionById(versionId);
+        if (!engineVersion) {
           return NextResponse.json({ error: "Version not found" }, { status: 404 });
         }
 
-        const codeFiles = getVersionFiles(versionId);
+        const codeFiles = await getVersionFiles(versionId);
         if (!codeFiles || codeFiles.length === 0) {
           return NextResponse.json(
             { error: "No files found for this version" },
@@ -394,7 +394,7 @@ export async function POST(req: Request) {
           type: "site.deploy.start",
           requestedChatId: chatId,
           requestedVersionId: versionId,
-          source: "sqlite",
+          source: "engine-postgres",
           target: deployTarget,
           imageStrategy: resolvedImageStrategy,
         });
@@ -453,7 +453,7 @@ export async function POST(req: Request) {
           type: "site.deploy.done",
           chatId,
           versionId,
-          source: "sqlite",
+          source: "engine-postgres",
           status: mapped.status,
           readyState: created.readyState,
           url: created.url ?? null,

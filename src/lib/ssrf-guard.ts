@@ -80,9 +80,9 @@ const MAX_REDIRECTS = 5;
 
 export async function safeFetch(
   url: string,
-  init?: RequestInit & { timeoutMs?: number },
+  init?: RequestInit & { timeoutMs?: number; allowlistOnly?: boolean },
 ): Promise<Response> {
-  const { timeoutMs = FETCH_TIMEOUT_MS, ...rest } = init ?? {};
+  const { timeoutMs = FETCH_TIMEOUT_MS, allowlistOnly = false, ...rest } = init ?? {};
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   const signal = rest.signal
@@ -90,7 +90,18 @@ export async function safeFetch(
     : controller.signal;
 
   try {
-    let currentUrl = url;
+    let currentUrl: string;
+    try {
+      const initialUrl = new URL(url);
+      const initialCheck = validateSsrfTarget(initialUrl, { allowlistOnly });
+      if (!initialCheck.ok) {
+        return new Response(`Request blocked: ${initialCheck.reason}`, { status: 403 });
+      }
+      currentUrl = initialUrl.toString();
+    } catch {
+      return new Response("Invalid URL", { status: 400 });
+    }
+
     let redirectCount = 0;
 
     for (;;) {
@@ -115,7 +126,7 @@ export async function safeFetch(
         return res;
       }
 
-      const check = validateSsrfTarget(redirectUrl);
+      const check = validateSsrfTarget(redirectUrl, { allowlistOnly });
       if (!check.ok) {
         return new Response(`Redirect blocked: ${check.reason}`, { status: 403 });
       }

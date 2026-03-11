@@ -32,7 +32,9 @@ export async function GET(req: Request) {
     );
   }
 
-  const files = versionId ? getVersionFiles(versionId) : getLatestVersionFiles(chatId);
+  const files = versionId
+    ? await getVersionFiles(versionId)
+    : await getLatestVersionFiles(chatId);
 
   if (!files || files.length === 0) {
     return new Response(

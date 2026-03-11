@@ -666,7 +666,7 @@ const MessageListComponent = ({
 
                 {message.role === "assistant" ? (
                   textContent ? (
-                    textContent.includes('file="') ? (
+                    (textContent.includes('file="') || textContent.includes("```")) ? (
                       <GenerationSummary content={textContent} isStreaming={Boolean(message.isStreaming)} />
                     ) : (
                       <MessageResponse>

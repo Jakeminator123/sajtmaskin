@@ -8,8 +8,10 @@ import { expandUrls } from "@/lib/gen/url-compress";
 import { materializeImages } from "@/lib/gen/post-process/image-materializer";
 import { buildPreviewUrl } from "@/lib/gen/preview";
 import { repairGeneratedFiles } from "@/lib/gen/repair-generated-files";
+import { buildCompleteProject } from "@/lib/gen/project-scaffold";
 import type { CodeFile } from "@/lib/gen/parser";
-import * as chatRepo from "@/lib/db/chat-repository";
+import * as chatRepo from "@/lib/db/chat-repository-pg";
+import { createVersionErrorLogs } from "@/lib/db/services";
 import { devLogAppend } from "@/lib/logging/devLog";
 import { debugLog, warnLog } from "@/lib/utils/debug";
 
@@ -86,6 +88,8 @@ export async function finalizeAndSaveVersion(
   } = params;
 
   let contentForVersion = accumulatedContent;
+  let preflightIssues: Array<{ file: string; severity: "error" | "warning"; message: string }> = [];
+  let preflightFileCount = 0;
 
   // 1. Autofix
   if (runAutofix) {
@@ -172,7 +176,7 @@ export async function finalizeAndSaveVersion(
   }
 
   // 4. Save assistant message
-  const assistantMsg = chatRepo.addMessage(chatId, "assistant", contentForVersion);
+  const assistantMsg = await chatRepo.addMessage(chatId, "assistant", contentForVersion);
 
   // 5. Parse files + merge (scaffold-based for first gen, previousFiles-based for follow-up)
   const { parseFilesFromContent, mergeVersionFilesWithWarnings } = await import(
@@ -286,13 +290,17 @@ export async function finalizeAndSaveVersion(
         fixes: repairResult.fixes,
       });
     }
-    const sanity = runProjectSanityChecks(finalFiles);
+    const completeProjectFiles = repairGeneratedFiles(buildCompleteProject(finalFiles)).files;
+    preflightFileCount = completeProjectFiles.length;
+    const sanity = runProjectSanityChecks(completeProjectFiles);
+    preflightIssues = sanity.issues;
     if (sanity.issues.length > 0) {
       devLogAppend("in-progress", {
         type: "project-sanity",
         chatId,
         valid: sanity.valid,
         issues: sanity.issues.slice(0, 20),
+        completeProjectFiles: completeProjectFiles.length,
       });
     }
   } catch (sanityErr) {
@@ -300,10 +308,48 @@ export async function finalizeAndSaveVersion(
   }
 
   // 6. Create version
-  const version = chatRepo.createVersion(chatId, assistantMsg.id, filesJson);
+  const version = await chatRepo.createVersion(chatId, assistantMsg.id, filesJson);
+  const preflightErrors = preflightIssues.filter((issue) => issue.severity === "error");
+  const preflightWarnings = preflightIssues.filter((issue) => issue.severity === "warning");
+  const preflightLogs: Array<{
+    chatId: string;
+    versionId: string;
+    level: "info" | "warning" | "error";
+    category: string;
+    message: string;
+    meta: Record<string, unknown>;
+  }> = [
+    {
+      chatId,
+      versionId: version.id,
+      level: preflightErrors.length > 0 ? "error" as const : "info" as const,
+      category: "preflight:summary",
+      message:
+        preflightErrors.length > 0
+          ? "Automatic preflight found blocking issues."
+          : "Automatic preflight completed.",
+      meta: {
+        filesChecked: preflightFileCount,
+        issueCount: preflightIssues.length,
+        errorCount: preflightErrors.length,
+        warningCount: preflightWarnings.length,
+      },
+    },
+  ];
+  if (preflightIssues.length > 0) {
+    preflightLogs.push({
+      chatId,
+      versionId: version.id,
+      level: preflightErrors.length > 0 ? "error" as const : "warning" as const,
+      category: "preflight:issues",
+      message: "Automatic preflight reported issues.",
+      meta: { issues: preflightIssues.slice(0, 20) },
+    });
+  }
+  await createVersionErrorLogs(preflightLogs);
 
   // 7. Log generation
-  chatRepo.logGeneration(
+  await chatRepo.logGeneration(
     chatId,
     model,
     {

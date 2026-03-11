@@ -3,7 +3,7 @@ import {
   getLatestVersion,
   getVersionById,
   type Version,
-} from "@/lib/db/chat-repository";
+} from "@/lib/db/chat-repository-pg";
 import { parseCodeProject, type CodeFile } from "./parser";
 
 /**
@@ -21,12 +21,12 @@ export function parseFilesFromContent(content: string): string {
  * Parses the content into individual files, stores them as files_json,
  * and auto-increments the version number within the chat.
  */
-export function createVersionFromContent(
+export async function createVersionFromContent(
   chatId: string,
   messageId: string | null,
   content: string,
   sandboxUrl?: string,
-): Version {
+): Promise<Version> {
   const filesJson = parseFilesFromContent(content);
   return createVersion(chatId, messageId, filesJson, sandboxUrl);
 }
@@ -35,8 +35,8 @@ export function createVersionFromContent(
  * Retrieves parsed files for a given version ID.
  * Returns null if the version doesn't exist.
  */
-export function getVersionFiles(versionId: string): CodeFile[] | null {
-  const version = getVersionById(versionId);
+export async function getVersionFiles(versionId: string): Promise<CodeFile[] | null> {
+  const version = await getVersionById(versionId);
   if (!version) return null;
 
   try {
@@ -50,8 +50,8 @@ export function getVersionFiles(versionId: string): CodeFile[] | null {
  * Retrieves parsed files for the latest version of a chat.
  * Returns null if no versions exist.
  */
-export function getLatestVersionFiles(chatId: string): CodeFile[] | null {
-  const version = getLatestVersion(chatId);
+export async function getLatestVersionFiles(chatId: string): Promise<CodeFile[] | null> {
+  const version = await getLatestVersion(chatId);
   if (!version) return null;
 
   try {

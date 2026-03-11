@@ -38,9 +38,9 @@ import { debugLog, errorLog, warnLog } from "@/lib/utils/debug";
 import { sanitizeV0Metadata } from "@/lib/v0/sanitize-metadata";
 import { createPromptLog } from "@/lib/db/services";
 import { resolveModelSelection, resolveEngineModelId } from "@/lib/v0/modelSelection";
-import { DEFAULT_MODEL_ID, MODEL_LABELS, v0TierToOpenAIModel } from "@/lib/v0/models";
+import { DEFAULT_MODEL_ID, MODEL_LABELS, getBuildProfileId, v0TierToOpenAIModel } from "@/lib/v0/models";
 import { AI } from "@/lib/config";
-import { shouldUseV0Fallback, createGenerationPipeline } from "@/lib/gen/fallback";
+import { shouldUseExplicitBuilderFallback, shouldUseV0Fallback, createGenerationPipeline } from "@/lib/gen/fallback";
 import { prepareGenerationContext } from "@/lib/gen/orchestrate";
 import { buildPlannerSystemPrompt, parsePlanResponse } from "@/lib/gen/plan-prompt";
 import { detectIntegrations } from "@/lib/gen/detect-integrations";
@@ -58,7 +58,7 @@ import {
   summarizeDesignReferences,
 } from "@/lib/gen/request-metadata";
 import { SuspenseLineProcessor, parseSSEBuffer } from "@/lib/gen/route-helpers";
-import * as chatRepo from "@/lib/db/chat-repository";
+import * as chatRepo from "@/lib/db/chat-repository-pg";
 import type { BuildIntent } from "@/lib/builder/build-intent";
 import { EmptyGenerationError, finalizeAndSaveVersion } from "@/lib/gen/stream/finalize-version";
 
@@ -134,7 +134,7 @@ export async function POST(req: Request) {
         attachments,
         projectId,
         system,
-        modelId = "v0-max-fast",
+        modelId = DEFAULT_MODEL_ID,
         thinking = true,
         imageGenerations,
         chatPrivacy,
@@ -181,6 +181,7 @@ export async function POST(req: Request) {
       const resolvedImageGenerations =
         typeof imageGenerations === "boolean" ? imageGenerations : true;
       const resolvedChatPrivacy = chatPrivacy ?? "private";
+      const fallbackModelId = resolveEngineModelId(resolvedModelTier, true);
       if (
         message.length > WARN_CHAT_MESSAGE_CHARS ||
         optimizedMessage.length > WARN_CHAT_MESSAGE_CHARS ||
@@ -288,13 +289,16 @@ export async function POST(req: Request) {
         console.warn("[prompt-log] Failed to record prompt log:", error);
       }
 
-      const usingV0Fallback = shouldUseV0Fallback();
+      const usingV0Fallback = shouldUseExplicitBuilderFallback(meta);
+      const buildProfileId = getBuildProfileId(resolvedModelTier);
       debugLog("build", "Chat stream request", {
-        modelTierId: resolvedModelTier,
-        modelTierLabel: MODEL_LABELS[resolvedModelTier],
+        buildProfileId,
+        buildProfileLabel: MODEL_LABELS[resolvedModelTier],
+        internalModelSelection: resolvedModelTier,
+        fallbackConfigured: shouldUseV0Fallback(),
         enginePath: usingV0Fallback ? "v0-fallback" : "own-engine",
         engineModel: usingV0Fallback
-          ? resolvedModelId
+          ? fallbackModelId
           : v0TierToOpenAIModel(resolvedModelTier),
         promptLength: optimizedMessage.length,
         originalPromptLength: message.length,
@@ -410,8 +414,19 @@ export async function POST(req: Request) {
             safeEnqueue(enc.encode(formatSSEEvent("meta", {
               modelId: engineModel,
               modelTier: resolvedModelTier,
+              buildProfileId,
+              buildProfileLabel: MODEL_LABELS[resolvedModelTier],
+              enginePath: "plan-mode",
               thinking: resolvedThinking,
               planMode: true,
+              promptStrategy: strategyMeta.strategy,
+              promptType: strategyMeta.promptType,
+              promptBudgetTarget: strategyMeta.budgetTarget,
+              promptOriginalLength: strategyMeta.originalLength,
+              promptOptimizedLength: strategyMeta.optimizedLength,
+              promptReductionRatio: strategyMeta.reductionRatio,
+              promptStrategyReason: strategyMeta.reason,
+              promptComplexityScore: strategyMeta.complexityScore,
             })));
 
             let toolPlanArtifact: Record<string, unknown> | null = null;
@@ -524,7 +539,7 @@ export async function POST(req: Request) {
       }
 
       // ── New Engine Path ───────────────────────────────────────────────
-      if (!shouldUseV0Fallback()) {
+      if (!usingV0Fallback) {
         const engineIntent: BuildIntent =
           metaBuildIntent === "template" || metaBuildIntent === "website" || metaBuildIntent === "app"
             ? (metaBuildIntent as BuildIntent)
@@ -574,13 +589,13 @@ export async function POST(req: Request) {
         });
 
         const projectIdForChat = metaAppProjectId || projectId || `proj-${nanoid()}`;
-        const engineChat = chatRepo.createChat(
+        const engineChat = await chatRepo.createChat(
           projectIdForChat,
           engineModel,
           engineSystemPrompt,
           resolvedScaffold?.id,
         );
-        chatRepo.addMessage(engineChat.id, "user", optimizedMessage);
+        await chatRepo.addMessage(engineChat.id, "user", optimizedMessage);
 
         const engineStartedAt = Date.now();
         const pipelineReader = pipelineStream.getReader();
@@ -692,6 +707,9 @@ export async function POST(req: Request) {
                 formatSSEEvent("meta", {
                   modelId: engineModel,
                   modelTier: resolvedModelTier,
+                  buildProfileId,
+                  buildProfileLabel: MODEL_LABELS[resolvedModelTier],
+                  enginePath: "own-engine",
                   thinking: resolvedThinking,
                   imageGenerations: resolvedImageGenerations,
                   chatPrivacy: resolvedChatPrivacy,
@@ -699,6 +717,14 @@ export async function POST(req: Request) {
                   scaffoldFamily: resolvedScaffold?.family ?? null,
                   scaffoldLabel: resolvedScaffold?.label ?? null,
                   capabilities: engineCapabilities,
+                  promptStrategy: strategyMeta.strategy,
+                  promptType: strategyMeta.promptType,
+                  promptBudgetTarget: strategyMeta.budgetTarget,
+                  promptOriginalLength: strategyMeta.originalLength,
+                  promptOptimizedLength: strategyMeta.optimizedLength,
+                  promptReductionRatio: strategyMeta.reductionRatio,
+                  promptStrategyReason: strategyMeta.reason,
+                  promptComplexityScore: strategyMeta.complexityScore,
                 }),
               ),
             );
@@ -1066,14 +1092,14 @@ export async function POST(req: Request) {
         projectId,
         chatPrivacy: resolvedChatPrivacy,
         modelConfiguration: {
-          modelId: resolvedModelId as string,
+          modelId: fallbackModelId,
           thinking: resolvedThinking,
           imageGenerations: resolvedImageGenerations,
         },
         responseMode: "experimental_stream",
         ...(requestAttachments.length > 0 ? { attachments: requestAttachments } : {}),
         ...(designSystemId ? { designSystemId } : {}),
-      } as Parameters<typeof v0.chats.create>[0] & { responseMode?: string; designSystemId?: string });
+      } as unknown as Parameters<typeof v0.chats.create>[0] & { responseMode?: string; designSystemId?: string });
 
       if (result && typeof (result as unknown as { getReader?: unknown }).getReader === "function") {
         const v0Stream = result as unknown as ReadableStream<Uint8Array>;
@@ -1152,9 +1178,20 @@ export async function POST(req: Request) {
                 formatSSEEvent("meta", {
                   modelId: resolvedModelId,
                   modelTier: resolvedModelTier,
+                  buildProfileId,
+                  buildProfileLabel: MODEL_LABELS[resolvedModelTier],
+                  enginePath: "v0-fallback",
                   thinking: resolvedThinking,
                   imageGenerations: resolvedImageGenerations,
                   chatPrivacy: resolvedChatPrivacy,
+                  promptStrategy: strategyMeta.strategy,
+                  promptType: strategyMeta.promptType,
+                  promptBudgetTarget: strategyMeta.budgetTarget,
+                  promptOriginalLength: strategyMeta.originalLength,
+                  promptOptimizedLength: strategyMeta.optimizedLength,
+                  promptReductionRatio: strategyMeta.reductionRatio,
+                  promptStrategyReason: strategyMeta.reason,
+                  promptComplexityScore: strategyMeta.complexityScore,
                 }),
               ),
             );
@@ -1411,6 +1448,7 @@ export async function POST(req: Request) {
                           .onConflictDoUpdate({
                             target: [versions.chatId, versions.v0VersionId],
                             set: {
+                              v0MessageId: messageId || null,
                               demoUrl: finalDemoUrl ?? null,
                               metadata: sanitizeV0Metadata(parsed),
                             },
@@ -1514,6 +1552,7 @@ export async function POST(req: Request) {
                       .onConflictDoUpdate({
                         target: [versions.chatId, versions.v0VersionId],
                         set: {
+                          v0MessageId: lastMessageId,
                           demoUrl: finalDemoUrl,
                           metadata: sanitizeV0Metadata(resolved.latestChat ?? null),
                         },

@@ -76,6 +76,9 @@ export type FileEntry = { name: string; content: string };
 export type ModelInfoData = {
   modelId?: string | null;
   modelTier?: string | null;
+  buildProfileId?: string | null;
+  buildProfileLabel?: string | null;
+  enginePath?: string | null;
   thinking?: boolean | null;
   imageGenerations?: boolean | null;
   chatPrivacy?: string | null;

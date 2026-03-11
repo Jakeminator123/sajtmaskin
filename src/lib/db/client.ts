@@ -19,12 +19,8 @@ function resolveDbConnectionString(): string | null {
       warnOnUninterpolated: process.env.NODE_ENV === "development",
     })?.connectionString || null;
   if (!connectionString) {
-    if (process.env.NODE_ENV === "production" && !isBuildPhase()) {
+    if (!isBuildPhase()) {
       throw new Error(MISSING_DB_MESSAGE);
-    }
-
-    if (process.env.NODE_ENV === "development") {
-      console.warn(`[db/client] ${MISSING_DB_MESSAGE} Database features are disabled.`);
     }
 
     return null;

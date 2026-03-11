@@ -11,6 +11,16 @@ const LUCIDE_IMPORT_RE =
   /import\s*\{([\s\S]*?)\}\s*from\s*["']lucide-react["'];?/m;
 const NEXT_LINK_IMPORT_RE = /import\s+Link\s+from\s+["']next\/link["'];?/;
 const HREF_LINK_USAGE_RE = /<Link\b[^>]*\bhref=/;
+const USE_CLIENT_DIRECTIVE_RE = /^["']use client["'];?\s*\n/;
+const STATIC_METADATA_EXPORT_RE =
+  /export\s+const\s+metadata(?:\s*:\s*Metadata)?\s*=\s*\{[\s\S]*?\n\};?\s*/m;
+const GENERATE_METADATA_EXPORT_RE = /\bexport\s+(?:async\s+)?function\s+generateMetadata\b/;
+const CLIENT_HOOKS_RE =
+  /\b(useState|useEffect|useCallback|useMemo|useRef|useContext|useReducer|useTransition|useOptimistic|useRouter|useSearchParams|usePathname|useParams|useSelectedLayoutSegment|useSelectedLayoutSegments|useFormStatus|useActionState)\b/;
+const EVENT_HANDLERS_RE =
+  /\b(onClick|onChange|onSubmit|onKeyDown|onKeyUp|onFocus|onBlur|onMouseEnter|onMouseLeave)\b/;
+const BROWSER_APIS_RE = /\b(window\.|document\.|localStorage|sessionStorage|navigator\.)\b/;
+const FRAMER_MOTION_IMPORT_RE = /from\s+["']framer-motion["']/;
 
 function insertImportAfterDirectives(code: string, importLine: string): string {
   const directiveRe = /^("use client"|'use client'|"use server"|'use server');?\s*$/gm;
@@ -27,6 +37,88 @@ function insertImportAfterDirectives(code: string, importLine: string): string {
   }
 
   return `${importLine}\n${code}`;
+}
+
+function hasUseClientDirective(code: string): boolean {
+  return USE_CLIENT_DIRECTIVE_RE.test(code);
+}
+
+function hasMetadataExport(code: string): boolean {
+  return STATIC_METADATA_EXPORT_RE.test(code) || GENERATE_METADATA_EXPORT_RE.test(code);
+}
+
+function needsUseClient(code: string): boolean {
+  return (
+    CLIENT_HOOKS_RE.test(code) ||
+    EVENT_HANDLERS_RE.test(code) ||
+    BROWSER_APIS_RE.test(code) ||
+    FRAMER_MOTION_IMPORT_RE.test(code)
+  );
+}
+
+function stripUseClientDirective(code: string): string {
+  return code.replace(USE_CLIENT_DIRECTIVE_RE, "");
+}
+
+function stripMetadataImport(code: string): string {
+  return code.replace(
+    /import\s+(type\s+)?\{([^}]*)\}\s+from\s+["']next["'];?\s*\n?/g,
+    (full, typePrefix: string | undefined, specifiers: string) => {
+      const remaining = specifiers
+        .split(",")
+        .map((part) => part.trim())
+        .filter(Boolean)
+        .filter((part) => part !== "Metadata" && part !== "type Metadata");
+
+      if (remaining.length === 0) {
+        return "";
+      }
+
+      const prefix = typePrefix ?? "";
+      return `import ${prefix}{ ${remaining.join(", ")} } from "next";\n`;
+    },
+  );
+}
+
+function fixMetadataClientConflict(code: string, filePath: string): {
+  code: string;
+  fixed: boolean;
+  fixes: RepairEntry[];
+} {
+  if (!hasUseClientDirective(code) || !hasMetadataExport(code)) {
+    return { code, fixed: false, fixes: [] };
+  }
+
+  if (!needsUseClient(code)) {
+    const nextCode = stripUseClientDirective(code);
+    return {
+      code: nextCode,
+      fixed: nextCode !== code,
+      fixes: nextCode !== code
+        ? [{
+            fixer: "metadata-client-conflict-fixer",
+            description: 'Removed unnecessary "use client" directive from metadata file',
+            file: filePath,
+          }]
+        : [],
+    };
+  }
+
+  const withoutStaticMetadata = code.replace(STATIC_METADATA_EXPORT_RE, "");
+  if (withoutStaticMetadata !== code) {
+    const cleaned = stripMetadataImport(withoutStaticMetadata);
+    return {
+      code: cleaned,
+      fixed: true,
+      fixes: [{
+        fixer: "metadata-client-conflict-fixer",
+        description: "Removed static metadata export from client component to keep App Router valid",
+        file: filePath,
+      }],
+    };
+  }
+
+  return { code, fixed: false, fixes: [] };
 }
 
 function fixLucideLinkImport(code: string, filePath: string): {
@@ -104,6 +196,12 @@ export function repairGeneratedFiles(files: CodeFile[]): {
     if (linkResult.fixed) {
       content = linkResult.code;
       fixes.push(...linkResult.fixes);
+    }
+
+    const metadataConflictResult = fixMetadataClientConflict(content, file.path);
+    if (metadataConflictResult.fixed) {
+      content = metadataConflictResult.code;
+      fixes.push(...metadataConflictResult.fixes);
     }
 
     return content === file.content ? file : { ...file, content };

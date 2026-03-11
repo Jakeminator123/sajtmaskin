@@ -8,7 +8,13 @@
  * do not need to change.
  */
 import { db } from "./client";
-import { engineChats, engineMessages, engineVersions, engineGenerationLogs } from "./schema";
+import {
+  engineChats,
+  engineMessages,
+  engineVersions,
+  engineGenerationLogs,
+  versionErrorLogs,
+} from "./schema";
 import { eq, desc, sql } from "drizzle-orm";
 
 export interface Chat {
@@ -50,6 +56,17 @@ export interface GenerationLog {
   duration_ms: number | null;
   success: number;
   error_message: string | null;
+  created_at: string;
+}
+
+export interface VersionErrorLog {
+  id: string;
+  chat_id: string;
+  version_id: string;
+  level: "info" | "warning" | "error";
+  category: string | null;
+  message: string;
+  meta: Record<string, unknown> | null;
   created_at: string;
 }
 
@@ -234,4 +251,61 @@ export async function logGeneration(
     .where(eq(engineGenerationLogs.id, id))
     .limit(1);
   return toRow(rows[0]) as unknown as GenerationLog;
+}
+
+export async function createVersionErrorLogs(
+  payloads: Array<{
+    chatId: string;
+    versionId: string;
+    level: "info" | "warning" | "error";
+    category?: string | null;
+    message: string;
+    meta?: Record<string, unknown> | null;
+  }>,
+): Promise<VersionErrorLog[]> {
+  if (payloads.length === 0) return [];
+  const rows = await db
+    .insert(versionErrorLogs)
+    .values(
+      payloads.map((payload) => ({
+        id: uuid(),
+        chat_id: payload.chatId,
+        version_id: payload.versionId,
+        v0_version_id: null,
+        level: payload.level,
+        category: payload.category ?? null,
+        message: payload.message,
+        meta: payload.meta ?? null,
+        created_at: new Date(),
+      })),
+    )
+    .returning();
+  return rows.map((row) => {
+    const normalized = toRow(row) as unknown as Omit<VersionErrorLog, "meta"> & { meta: unknown };
+    return {
+      ...normalized,
+      meta:
+        normalized.meta && typeof normalized.meta === "object"
+          ? (normalized.meta as Record<string, unknown>)
+          : null,
+    };
+  });
+}
+
+export async function getVersionErrorLogs(versionId: string): Promise<VersionErrorLog[]> {
+  const rows = await db
+    .select()
+    .from(versionErrorLogs)
+    .where(eq(versionErrorLogs.version_id, versionId))
+    .orderBy(desc(versionErrorLogs.created_at));
+  return rows.map((row) => {
+    const normalized = toRow(row) as unknown as Omit<VersionErrorLog, "meta"> & { meta: unknown };
+    return {
+      ...normalized,
+      meta:
+        normalized.meta && typeof normalized.meta === "object"
+          ? (normalized.meta as Record<string, unknown>)
+          : null,
+    };
+  });
 }

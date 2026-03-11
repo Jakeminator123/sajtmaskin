@@ -4,17 +4,17 @@
  *
  * CONCEPTS:
  *
- * Model Tiers:
- *   - The first group represents build tiers, not prompt-assist models.
+ * Build Models:
+ *   - The first group represents build profiles, not prompt-assist models.
  *   - When V0_FALLBACK_BUILDER=y, these map to v0 Platform API models.
- *   - Otherwise, the same tiers map to the own engine's OpenAI models.
+ *   - Otherwise, the same profiles map to the own engine's OpenAI models.
  *   - Prompt Assist models are listed separately below and are only used to
  *     rewrite/brief the prompt before generation.
  *
  * Prompt Assist (preprocessing user prompts before generation):
- *   - off:            No preprocessing, send prompt directly to v0.
+ *   - off:            No preprocessing, send prompt directly to the build engine.
  *   - gateway:        AI Gateway (Vercel's multi-provider routing with fallbacks).
- *   - openai-compat:  v0 Model API (v0-1.5-md/lg).
+ *   - openai-compat:  Model API fallback models.
  *
  * Deep Brief Mode:
  *   When enabled, AI first generates a structured "brief" (specification)
@@ -40,26 +40,26 @@ export interface ModelTierOption {
 
 export const MODEL_TIER_OPTIONS: ModelTierOption[] = [
   {
-    value: "v0-max-fast",
-    label: "Fast",
-    description: "Snabb och effektiv. Använder GPT-4.1 — bra för enkla sidor och snabba ändringar.",
-    hint: "Snabbast",
+    value: "fast",
+    label: "GPT-4.1",
+    description: "Fast and Good. Snabb och stabil för enklare sidor och snabba ändringar.",
+    hint: "Fast and Good",
   },
   {
-    value: "v0-1.5-md",
-    label: "Pro",
-    description: "Kodspecialiserad motor. Använder GPT-5.3 Codex — bäst balans mellan kvalitet och hastighet.",
+    value: "pro",
+    label: "GPT-5.3 Codex",
+    description: "Pro-profil. Kodspecialiserad och bäst balans mellan kvalitet och hastighet.",
     hint: "Rekommenderad",
   },
   {
-    value: "v0-1.5-lg",
-    label: "Max",
-    description: "Flaggskeppsmodell. Använder GPT-5.4 — bäst resonemang och mest komplett output.",
+    value: "max",
+    label: "GPT-5.4",
+    description: "Max-profil. Flaggskeppsmodell med bäst resonemang och mest komplett output.",
   },
   {
-    value: "v0-gpt-5",
-    label: "Codex Max",
-    description: "Avancerad kodmotor med djupt resonemang. Använder GPT-5.1 Codex Max — för komplexa projekt.",
+    value: "codex",
+    label: "GPT-5.1 Codex Max",
+    description: "Codex-profil. Avancerad kodmotor med djupt resonemang för komplexa projekt.",
   },
 ];
 
@@ -87,8 +87,8 @@ export const PROMPT_ASSIST_MODEL_OPTIONS: PromptAssistModelOption[] = [
   { value: "openai/gpt-5.2", label: "GPT‑5.2 (Gateway)" },
   { value: "openai/gpt-4.1-mini", label: "GPT‑4.1 Mini (Gateway)" },
   { value: "anthropic-direct/claude-sonnet-4-6", label: "Claude Sonnet 4.6" },
-  { value: "v0-1.5-md", label: "v0 1.5 Medium" },
-  { value: "v0-1.5-lg", label: "v0 1.5 Large" },
+  { value: "v0-1.5-md", label: "Model API Medium" },
+  { value: "v0-1.5-lg", label: "Model API Large" },
 ];
 
 const PROMPT_ASSIST_MODEL_ALLOWLIST = new Set<string>([
@@ -101,6 +101,10 @@ const PROMPT_ASSIST_MODEL_ALLOWLIST = new Set<string>([
 
 export function getPromptAssistModelOptions(): PromptAssistModelOption[] {
   return PROMPT_ASSIST_MODEL_OPTIONS;
+}
+
+export function getPromptAssistModelLabel(model: string): string {
+  return PROMPT_ASSIST_MODEL_OPTIONS.find((option) => option.value === model)?.label || model;
 }
 
 export function getDefaultPromptAssistModel(): string {

@@ -3,6 +3,7 @@ import { assertV0Key, v0 } from "@/lib/v0";
 import { sendMessageSchema } from "@/lib/validations/chatSchemas";
 import { db } from "@/lib/db/client";
 import { versions } from "@/lib/db/schema";
+import { and, eq } from "drizzle-orm";
 import { nanoid } from "nanoid";
 import { withRateLimit } from "@/lib/rateLimit";
 import { getChatByV0ChatIdForRequest } from "@/lib/tenant";
@@ -12,7 +13,7 @@ import { ensureSessionIdFromRequest } from "@/lib/auth/session";
 import { devLogAppend } from "@/lib/logging/devLog";
 import { WARN_CHAT_MESSAGE_CHARS, WARN_CHAT_SYSTEM_CHARS } from "@/lib/builder/promptLimits";
 import { orchestratePromptMessage } from "@/lib/builder/promptOrchestration";
-import { resolveModelSelection } from "@/lib/v0/modelSelection";
+import { resolveEngineModelId, resolveModelSelection } from "@/lib/v0/modelSelection";
 import { DEFAULT_MODEL_ID } from "@/lib/v0/models";
 import { normalizeRequestAttachments } from "@/lib/gen/request-metadata";
 
@@ -66,6 +67,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
         typeof thinking === "boolean" ? thinking : true;
       const resolvedImageGenerations =
         typeof imageGenerations === "boolean" ? imageGenerations : true;
+      const fallbackModelId = resolveEngineModelId(resolvedModelTier, true);
       const metaBuildMethod =
         typeof (meta as { buildMethod?: unknown })?.buildMethod === "string"
           ? (meta as { buildMethod?: string }).buildMethod
@@ -132,7 +134,7 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
         message: optimizedMessage,
         attachments: requestAttachments,
         modelConfiguration: {
-          modelId: resolvedModelId,
+          modelId: fallbackModelId,
           thinking: resolvedThinking,
           imageGenerations: resolvedImageGenerations,
         },
@@ -155,15 +157,30 @@ export async function POST(req: Request, ctx: { params: Promise<{ chatId: string
       let savedVersionId: string | null = null;
       try {
         if (versionId) {
-          savedVersionId = nanoid();
-          await db.insert(versions).values({
-            id: savedVersionId,
-            chatId: dbChat.id,
-            v0VersionId: versionId,
-            v0MessageId: actualMessageId,
-            demoUrl,
-            metadata: sanitizeV0Metadata(messageResult),
-          });
+          const existing = await db
+            .select({ id: versions.id })
+            .from(versions)
+            .where(and(eq(versions.chatId, dbChat.id), eq(versions.v0VersionId, String(versionId))))
+            .limit(1);
+          savedVersionId = existing[0]?.id ?? nanoid();
+          await db
+            .insert(versions)
+            .values({
+              id: savedVersionId,
+              chatId: dbChat.id,
+              v0VersionId: String(versionId),
+              v0MessageId: actualMessageId,
+              demoUrl: typeof demoUrl === "string" ? demoUrl : null,
+              metadata: sanitizeV0Metadata(messageResult),
+            })
+            .onConflictDoUpdate({
+              target: [versions.chatId, versions.v0VersionId],
+              set: {
+                v0MessageId: actualMessageId,
+                demoUrl: typeof demoUrl === "string" ? demoUrl : null,
+                metadata: sanitizeV0Metadata(messageResult),
+              },
+            });
         }
       } catch (dbError) {
         console.error(

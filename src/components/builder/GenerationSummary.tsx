@@ -14,31 +14,50 @@ interface ParsedContent {
   proseText: string;
   files: GeneratedFile[];
   hasCodeBlocks: boolean;
+  genericCodeBlocks: number;
+  totalCodeLines: number;
 }
 
 const CODE_BLOCK_RE = /```(\w+)\s+file="([^"]+)"[^\n]*\n([\s\S]*?)```/g;
+const GENERIC_CODE_BLOCK_RE = /```(\w+)?[^\n]*\n([\s\S]*?)```/g;
 const THINKING_RE = /<Thinking>([\s\S]*?)<\/Thinking>/gi;
 
 function parseGenerationContent(raw: string): ParsedContent {
   const files: GeneratedFile[] = [];
+  let genericCodeBlocks = 0;
+  let totalCodeLines = 0;
 
   const codeBlockRe = new RegExp(CODE_BLOCK_RE.source, CODE_BLOCK_RE.flags);
   let match: RegExpExecArray | null;
   while ((match = codeBlockRe.exec(raw)) !== null) {
+    const lineCount = match[3].split("\n").length;
     files.push({
       path: match[2],
       language: match[1],
-      lineCount: match[3].split("\n").length,
+      lineCount,
     });
+  }
+
+  const genericCodeBlockRe = new RegExp(GENERIC_CODE_BLOCK_RE.source, GENERIC_CODE_BLOCK_RE.flags);
+  while ((match = genericCodeBlockRe.exec(raw)) !== null) {
+    genericCodeBlocks += 1;
+    totalCodeLines += match[2].split("\n").length;
   }
 
   const proseText = raw
     .replace(CODE_BLOCK_RE, "")
+    .replace(GENERIC_CODE_BLOCK_RE, "")
     .replace(THINKING_RE, "")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
 
-  return { proseText, files, hasCodeBlocks: files.length > 0 };
+  return {
+    proseText,
+    files,
+    hasCodeBlocks: genericCodeBlocks > 0,
+    genericCodeBlocks,
+    totalCodeLines,
+  };
 }
 
 function langBadge(lang: string): { color: string; label: string } {
@@ -78,13 +97,20 @@ export const GenerationSummary = memo(function GenerationSummary({
     );
   }
 
-  const totalLines = parsed.files.reduce((sum, f) => sum + f.lineCount, 0);
+  const previewText =
+    isStreaming && parsed.proseText.length > 320
+      ? `${parsed.proseText.slice(0, 320).trimEnd()}…`
+      : parsed.proseText;
+  const generatedUnitLabel =
+    parsed.files.length > 0
+      ? `${parsed.files.length} ${parsed.files.length === 1 ? "fil" : "filer"}`
+      : `${parsed.genericCodeBlocks} ${parsed.genericCodeBlocks === 1 ? "kodblock" : "kodblock"}`;
 
   return (
     <div className="space-y-2 min-w-0">
-      {parsed.proseText && (
+      {previewText && (
         <div className="rounded-2xl bg-zinc-800 px-4 py-3 text-sm leading-relaxed text-zinc-100 whitespace-pre-wrap overflow-hidden wrap-break-word">
-          {parsed.proseText}
+          {previewText}
         </div>
       )}
 
@@ -103,46 +129,49 @@ export const GenerationSummary = memo(function GenerationSummary({
             )}
             <span className="text-xs font-medium text-zinc-200">
               {isStreaming ? "Genererar" : "Genererat"}{" "}
-              <span className="text-emerald-400">{parsed.files.length}</span>{" "}
-              {parsed.files.length === 1 ? "fil" : "filer"}
+              <span className="text-emerald-400">{generatedUnitLabel}</span>
             </span>
-            <span className="text-[10px] text-zinc-500">{totalLines} rader</span>
+            <span className="text-[10px] text-zinc-500">{parsed.totalCodeLines} rader</span>
           </div>
-          <button
-            type="button"
-            onClick={() => setShowRaw((prev) => !prev)}
-            className={cn(
-              "flex items-center gap-1 rounded-md px-2 py-1 text-[11px] transition-colors",
-              showRaw
-                ? "bg-zinc-700/50 text-zinc-200"
-                : "text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300",
-            )}
-          >
-            {showRaw ? <ChevronUp className="size-3" /> : <ChevronDown className="size-3" />}
-            {showRaw ? "Dölj" : "Kod"}
-          </button>
+          {!isStreaming && (
+            <button
+              type="button"
+              onClick={() => setShowRaw((prev) => !prev)}
+              className={cn(
+                "flex items-center gap-1 rounded-md px-2 py-1 text-[11px] transition-colors",
+                showRaw
+                  ? "bg-zinc-700/50 text-zinc-200"
+                  : "text-zinc-500 hover:bg-zinc-800 hover:text-zinc-300",
+              )}
+            >
+              {showRaw ? <ChevronUp className="size-3" /> : <ChevronDown className="size-3" />}
+              {showRaw ? "Dölj" : "Kod"}
+            </button>
+          )}
         </div>
 
-        <div className="flex flex-wrap gap-1 px-3 pb-2.5">
-          {parsed.files.map((file) => {
-            const badge = langBadge(file.language);
-            return (
-              <span
-                key={file.path}
-                className={cn(
-                  "inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-[10px] font-medium",
-                  badge.color,
-                )}
-                title={file.path}
-              >
-                <span className="max-w-[140px] truncate font-mono">
-                  {file.path.split("/").pop()}
+        {parsed.files.length > 0 && (
+          <div className="flex flex-wrap gap-1 px-3 pb-2.5">
+            {parsed.files.map((file) => {
+              const badge = langBadge(file.language);
+              return (
+                <span
+                  key={file.path}
+                  className={cn(
+                    "inline-flex items-center gap-1.5 rounded-md border px-2 py-0.5 text-[10px] font-medium",
+                    badge.color,
+                  )}
+                  title={file.path}
+                >
+                  <span className="max-w-[140px] truncate font-mono">
+                    {file.path.split("/").pop()}
+                  </span>
+                  <span className="opacity-50">{file.lineCount}L</span>
                 </span>
-                <span className="opacity-50">{file.lineCount}L</span>
-              </span>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
 
         {showRaw && (
           <div className="border-t border-zinc-700/40 bg-black/30">

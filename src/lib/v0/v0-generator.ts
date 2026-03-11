@@ -41,10 +41,10 @@
  * - "failed": Fel → sluta polla, logga error
  *
  * MODELLER (canonical IDs — see src/lib/v0/models.ts):
- * - v0-max-fast: Max Fast (default, Claude Opus 4.6 Fast)
- * - v0-1.5-lg:   Max (avancerat resonemang, 512K kontext)
- * - v0-1.5-md:   Pro (bäst felfri-ratio, vardagsuppgifter)
- * - v0-gpt-5:    GPT-5 kompositmodell (experimentell)
+ * - fast:  GPT-4.1
+ * - pro:   GPT-5.3 Codex
+ * - max:   GPT-5.4
+ * - codex: GPT-5.1 Codex Max
  *
  * All operations include error handling and structured logging.
  */

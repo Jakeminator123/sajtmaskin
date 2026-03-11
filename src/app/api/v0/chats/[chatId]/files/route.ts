@@ -10,7 +10,11 @@ import { resolveVersionFiles } from "@/lib/v0/resolve-version-files";
 import { normalizeV0Error } from "@/lib/v0/errors";
 import { shouldUseV0Fallback } from "@/lib/gen/fallback";
 import { getVersionFiles, getLatestVersionFiles } from "@/lib/gen/version-manager";
-import { getVersionById, updateVersionFiles } from "@/lib/db/chat-repository";
+import {
+  getLatestVersion as getLatestEngineVersion,
+  getVersionById,
+  updateVersionFiles,
+} from "@/lib/db/chat-repository-pg";
 import { repairGeneratedFiles } from "@/lib/gen/repair-generated-files";
 
 function v0ErrorResponse(err: unknown, fallbackMessage: string) {
@@ -114,7 +118,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ chatId: 
     const { chatId } = await params;
 
     // ---------------------------------------------------------------
-    // Non-fallback: fetch files from SQLite (+ optional blob materialization)
+    // Non-fallback: fetch files from Postgres engine store (+ optional blob materialization)
     // ---------------------------------------------------------------
     if (!shouldUseV0Fallback()) {
       const { searchParams } = new URL(req.url);
@@ -125,72 +129,63 @@ export async function GET(req: Request, { params }: { params: Promise<{ chatId: 
       let resolvedVersionId: string | null = null;
 
       if (requestedVersionId) {
-        files = getVersionFiles(requestedVersionId);
+        files = await getVersionFiles(requestedVersionId);
         resolvedVersionId = requestedVersionId;
-        if (!files) {
-          return NextResponse.json(
-            { error: "Version not found" },
-            { status: 404 },
-          );
-        }
       } else {
-        files = getLatestVersionFiles(chatId);
-        if (!files) {
-          return NextResponse.json(
-            { error: "No versions found for this chat" },
-            { status: 404 },
-          );
-        }
+        files = await getLatestVersionFiles(chatId);
+        resolvedVersionId = (await getLatestEngineVersion(chatId))?.id ?? null;
       }
 
-      const effectiveVersionId = resolvedVersionId ?? requestedVersionId ?? chatId;
+      if (files) {
+        const effectiveVersionId = resolvedVersionId ?? requestedVersionId ?? chatId;
 
-      const repairResult = repairGeneratedFiles(files);
-      if (repairResult.fixes.length > 0) {
-        files = repairResult.files;
-        if (resolvedVersionId) {
-          updateVersionFiles(resolvedVersionId, JSON.stringify(files));
-        }
-      }
-
-      if (shouldMaterialize && process.env.BLOB_READ_WRITE_TOKEN) {
-        try {
-          const textFiles = files.map((f) => ({ name: f.path, content: f.content }));
-          const imageAssets = await materializeImagesInTextFiles({
-            files: textFiles,
-            strategy: "blob",
-            blobToken: process.env.BLOB_READ_WRITE_TOKEN,
-            namespace: { chatId, versionId: effectiveVersionId },
-          });
-
-          if (imageAssets.summary.replaced > 0) {
-            const blobFileMap = new Map(imageAssets.files.map((f) => [f.name, f.content]));
-            files = files.map((f) => ({
-              ...f,
-              content: blobFileMap.get(f.path) ?? f.content,
-            }));
-            if (resolvedVersionId) {
-              updateVersionFiles(resolvedVersionId, JSON.stringify(files));
-            }
-            console.log(
-              `[materialize] Own engine: uploaded ${imageAssets.summary.uploaded} images, replaced ${imageAssets.summary.replaced} references`,
-            );
+        const repairResult = repairGeneratedFiles(files);
+        if (repairResult.fixes.length > 0) {
+          files = repairResult.files;
+          if (resolvedVersionId) {
+            await updateVersionFiles(resolvedVersionId, JSON.stringify(files));
           }
-        } catch (error) {
-          console.error("[materialize] Own engine image materialization failed:", error);
         }
+
+        if (shouldMaterialize && process.env.BLOB_READ_WRITE_TOKEN) {
+          try {
+            const textFiles = files.map((f) => ({ name: f.path, content: f.content }));
+            const imageAssets = await materializeImagesInTextFiles({
+              files: textFiles,
+              strategy: "blob",
+              blobToken: process.env.BLOB_READ_WRITE_TOKEN,
+              namespace: { chatId, versionId: effectiveVersionId },
+            });
+
+            if (imageAssets.summary.replaced > 0) {
+              const blobFileMap = new Map(imageAssets.files.map((f) => [f.name, f.content]));
+              files = files.map((f) => ({
+                ...f,
+                content: blobFileMap.get(f.path) ?? f.content,
+              }));
+              if (resolvedVersionId) {
+                await updateVersionFiles(resolvedVersionId, JSON.stringify(files));
+              }
+              console.log(
+                `[materialize] Own engine: uploaded ${imageAssets.summary.uploaded} images, replaced ${imageAssets.summary.replaced} references`,
+              );
+            }
+          } catch (error) {
+            console.error("[materialize] Own engine image materialization failed:", error);
+          }
+        }
+
+        const formattedFiles = files.map((f) => ({
+          name: f.path,
+          content: f.content,
+          language: f.language,
+        }));
+
+        return NextResponse.json({
+          versionId: resolvedVersionId,
+          files: formattedFiles,
+        });
       }
-
-      const formattedFiles = files.map((f) => ({
-        name: f.path,
-        content: f.content,
-        language: f.language,
-      }));
-
-      return NextResponse.json({
-        versionId: resolvedVersionId,
-        files: formattedFiles,
-      });
     }
 
     // ---------------------------------------------------------------
@@ -302,44 +297,42 @@ export async function PUT(req: Request, { params }: { params: Promise<{ chatId: 
     const { versionId, files } = validationResult.data;
 
     if (!shouldUseV0Fallback()) {
-      const version = getVersionById(versionId);
-      if (!version || version.chat_id !== chatId) {
-        return NextResponse.json({ error: "Version not found" }, { status: 404 });
-      }
+      const version = await getVersionById(versionId);
+      if (version && version.chat_id === chatId) {
+        const existingFiles = (await getVersionFiles(versionId)) ?? [];
+        const nextFiles = [...existingFiles];
 
-      const existingFiles = getVersionFiles(versionId) ?? [];
-      const nextFiles = [...existingFiles];
-
-      for (const file of files) {
-        const nextFile = {
-          path: file.name,
-          content: file.content,
-          language:
-            existingFiles.find((existing) => existing.path === file.name)?.language ??
-            inferLanguage(file.name),
-        };
-        const existingIndex = nextFiles.findIndex((existing) => existing.path === file.name);
-        if (existingIndex >= 0) {
-          nextFiles[existingIndex] = nextFile;
-        } else {
-          nextFiles.push(nextFile);
+        for (const file of files) {
+          const nextFile = {
+            path: file.name,
+            content: file.content,
+            language:
+              existingFiles.find((existing) => existing.path === file.name)?.language ??
+              inferLanguage(file.name),
+          };
+          const existingIndex = nextFiles.findIndex((existing) => existing.path === file.name);
+          if (existingIndex >= 0) {
+            nextFiles[existingIndex] = nextFile;
+          } else {
+            nextFiles.push(nextFile);
+          }
         }
-      }
 
-      const updated = updateVersionFiles(versionId, JSON.stringify(nextFiles));
-      if (!updated) {
-        return NextResponse.json({ error: "Failed to update version files" }, { status: 500 });
-      }
+        const updated = await updateVersionFiles(versionId, JSON.stringify(nextFiles));
+        if (!updated) {
+          return NextResponse.json({ error: "Failed to update version files" }, { status: 500 });
+        }
 
-      return NextResponse.json({
-        success: true,
-        versionId,
-        files: nextFiles.map((file) => ({
-          name: file.path,
-          content: file.content,
-        })),
-        demoUrl: null,
-      });
+        return NextResponse.json({
+          success: true,
+          versionId,
+          files: nextFiles.map((file) => ({
+            name: file.path,
+            content: file.content,
+          })),
+          demoUrl: null,
+        });
+      }
     }
 
     assertV0Key();

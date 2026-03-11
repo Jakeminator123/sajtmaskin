@@ -7,10 +7,10 @@ import { getSessionIdFromRequest } from "@/lib/auth/session";
 import { getProjectByIdForOwner, getProjectData } from "@/lib/db/services";
 import { shouldUseV0Fallback } from "@/lib/gen/fallback";
 import {
-  getChat as getSqliteChat,
-  listChatsByProject as listSqliteChatsByProject,
-  updateChatProjectId as updateSqliteChatProjectId,
-} from "@/lib/db/chat-repository";
+  getChat as getEngineChat,
+  listChatsByProject as listEngineChatsByProject,
+  updateChatProjectId as updateEngineChatProjectId,
+} from "@/lib/db/chat-repository-pg";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -27,39 +27,6 @@ async function findChatFromProjectData(projectId: string): Promise<ChatRow | nul
   const persistedChatId =
     typeof data?.chat_id === "string" ? data.chat_id.trim() : "";
   if (!persistedChatId) return null;
-
-  if (!shouldUseV0Fallback()) {
-    const sqliteChat = getSqliteChat(persistedChatId);
-    if (sqliteChat) {
-      if (sqliteChat.project_id !== projectId) {
-        console.warn("[API/projects/:id/chat] Restoring legacy chat mapping", {
-          projectId,
-          persistedChatId,
-          sqliteProjectId: sqliteChat.project_id,
-        });
-        try {
-          updateSqliteChatProjectId(sqliteChat.id, projectId);
-        } catch (error) {
-          console.warn("[API/projects/:id/chat] Failed to repair chat project mapping", {
-            projectId,
-            persistedChatId,
-            error: error instanceof Error ? error.message : String(error),
-          });
-        }
-      }
-      return {
-        id: sqliteChat.id,
-        v0ChatId: sqliteChat.id,
-        createdAt: new Date(sqliteChat.created_at),
-      };
-    }
-
-    console.warn("[API/projects/:id/chat] Saved chat reference not found", {
-      projectId,
-      persistedChatId,
-    });
-    return null;
-  }
 
   // Preferred path: project_data.chat_id stores the v0 chat ID.
   const byV0ChatId = await db
@@ -84,6 +51,32 @@ async function findChatFromProjectData(projectId: string): Promise<ChatRow | nul
     .where(eq(chats.id, persistedChatId))
     .limit(1);
   if (byInternalId[0]) return byInternalId[0];
+
+  const engineChat = await getEngineChat(persistedChatId);
+  if (engineChat) {
+    if (engineChat.project_id !== projectId) {
+      console.warn("[API/projects/:id/chat] Restoring engine chat mapping", {
+        projectId,
+        persistedChatId,
+        engineProjectId: engineChat.project_id,
+      });
+      try {
+        await updateEngineChatProjectId(engineChat.id, projectId);
+      } catch (error) {
+        console.warn("[API/projects/:id/chat] Failed to repair engine chat project mapping", {
+          projectId,
+          persistedChatId,
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+
+    return {
+      id: engineChat.id,
+      v0ChatId: engineChat.id,
+      createdAt: new Date(engineChat.created_at),
+    };
+  }
 
   console.warn("[API/projects/:id/chat] Saved chat reference not found", {
     projectId,
@@ -122,7 +115,7 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
     }
 
     if (!shouldUseV0Fallback()) {
-      const latestChat = listSqliteChatsByProject(projectId)[0];
+      const latestChat = (await listEngineChatsByProject(projectId))[0];
       if (!latestChat) {
         return NextResponse.json({
           success: true,

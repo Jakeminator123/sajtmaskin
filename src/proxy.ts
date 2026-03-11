@@ -4,6 +4,7 @@ import {
   getTokenFromRequestEdge,
   isAdminEmailEdge,
 } from "@/lib/auth/edge-auth";
+import { getAppBaseUrl } from "@/lib/app-url";
 
 // ---------------------------------------------------------------------------
 // Path sets
@@ -14,7 +15,7 @@ const ADMIN_PREFIX = "/admin";
 const AUTH_REQUIRED_PATHS = new Set(["/projects", "/buy-credits", "/inspector"]);
 
 const ALLOWED_ORIGINS = new Set([
-  process.env.NEXT_PUBLIC_APP_URL?.replace(/\/+$/, "") || "http://localhost:3000",
+  getAppBaseUrl(),
 ]);
 
 // ---------------------------------------------------------------------------

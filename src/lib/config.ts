@@ -4,6 +4,7 @@
  */
 
 import path from "path";
+import { getAppBaseUrl } from "./app-url";
 import { getServerEnv } from "./env";
 
 const env = getServerEnv();
@@ -307,7 +308,7 @@ export const REDIS_KEY_PREFIX = IS_PRODUCTION ? "prod:" : "dev:";
  */
 export const URLS = {
   get baseUrl() {
-    return env.NEXT_PUBLIC_APP_URL.replace(/\/+$/, "") || "http://localhost:3000";
+    return getAppBaseUrl();
   },
 
   get googleCallbackUrl() {
@@ -388,6 +389,10 @@ function resolveDbLogLabel(): string {
   return "not-configured";
 }
 
+function resolveStorageLogLabel(): string {
+  return "postgres";
+}
+
 declare global {
   var __configLogged: boolean | undefined;
 }
@@ -412,7 +417,7 @@ export function logConfig(): void {
     .join(", ");
 
   console.info(
-    `[Config] ${IS_PRODUCTION ? "PROD" : "DEV"} | DB: ${resolveDbLogLabel()} | Features: ${
+    `[Config] ${IS_PRODUCTION ? "PROD" : "DEV"} | Storage: ${resolveStorageLogLabel()} | DB: ${resolveDbLogLabel()} | Features: ${
       features || "none"
     }`,
   );
@@ -425,6 +430,10 @@ export function logConfig(): void {
 export function validateEnv(): { valid: boolean; missing: string[] } {
   const coreSecrets: SecretName[] = IS_PRODUCTION ? ["jwtSecret", "v0ApiKey"] : [];
   const missing = validateRequiredSecrets(coreSecrets);
+  const dbConfigured = resolveDbLogLabel() !== "not-configured";
+  if (!dbConfigured) {
+    missing.push("POSTGRES_URL");
+  }
 
   if (missing.length > 0 && IS_PRODUCTION) {
     console.error("[Config] CRITICAL: Missing required environment variables:", missing);

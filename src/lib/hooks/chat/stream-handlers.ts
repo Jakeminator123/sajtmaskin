@@ -4,6 +4,7 @@ import type { AutoFixPayload, SetMessages, StreamQualitySignal } from "./types";
 import { toast } from "sonner";
 import {
   appendModelInfoPart,
+  appendPromptStrategyPart,
   appendToolPartToMessage,
   buildStreamErrorMessage,
   coerceIntegrationSignals,
@@ -98,6 +99,11 @@ export async function handleSseStream(
               modelId: (meta.modelId as string) ?? selectedModelTier,
               modelTier:
                 (typeof meta.modelTier === "string" && meta.modelTier) || selectedModelTier || null,
+              buildProfileId:
+                typeof meta.buildProfileId === "string" ? meta.buildProfileId : null,
+              buildProfileLabel:
+                typeof meta.buildProfileLabel === "string" ? meta.buildProfileLabel : null,
+              enginePath: typeof meta.enginePath === "string" ? meta.enginePath : null,
               thinking: typeof meta.thinking === "boolean" ? meta.thinking : null,
               imageGenerations:
                 typeof meta.imageGenerations === "boolean" ? meta.imageGenerations : null,
@@ -112,6 +118,51 @@ export async function handleSseStream(
               scaffoldLabel: typeof meta.scaffoldLabel === "string" ? meta.scaffoldLabel : null,
               capabilities: meta.capabilities && typeof meta.capabilities === "object" ? meta.capabilities as Record<string, boolean> : null,
             });
+
+            const promptStrategy =
+              meta.promptStrategy === "direct" ||
+              meta.promptStrategy === "summarize" ||
+              meta.promptStrategy === "phase_plan_build_polish"
+                ? meta.promptStrategy
+                : null;
+            const promptType =
+              meta.promptType === "audit" ||
+              meta.promptType === "wizard" ||
+              meta.promptType === "freeform" ||
+              meta.promptType === "template" ||
+              meta.promptType === "followup_general" ||
+              meta.promptType === "followup_technical" ||
+              meta.promptType === "unknown"
+                ? meta.promptType
+                : null;
+            const promptBudgetTarget =
+              typeof meta.promptBudgetTarget === "number" ? meta.promptBudgetTarget : null;
+            const promptOriginalLength =
+              typeof meta.promptOriginalLength === "number" ? meta.promptOriginalLength : null;
+            const promptOptimizedLength =
+              typeof meta.promptOptimizedLength === "number" ? meta.promptOptimizedLength : null;
+            const promptReductionRatio =
+              typeof meta.promptReductionRatio === "number" ? meta.promptReductionRatio : 0;
+            const promptStrategyReason =
+              typeof meta.promptStrategyReason === "string" ? meta.promptStrategyReason : "";
+            const promptComplexityScore =
+              typeof meta.promptComplexityScore === "number" ? meta.promptComplexityScore : 0;
+
+            if (promptStrategy && promptType && promptBudgetTarget !== null && promptOriginalLength !== null &&
+              promptOptimizedLength !== null) {
+              appendPromptStrategyPart(setMessages, assistantMessageId, {
+                strategy: promptStrategy,
+                promptType,
+                budgetTarget: promptBudgetTarget,
+                originalLength: promptOriginalLength,
+                optimizedLength: promptOptimizedLength,
+                reductionRatio: promptReductionRatio,
+                reason: promptStrategyReason,
+                phaseHints: [],
+                complexityScore: promptComplexityScore,
+                wasChanged: promptOriginalLength !== promptOptimizedLength,
+              });
+            }
 
             if (!chatIdFromStream && typeof meta.chatId === "string" && meta.chatId) {
               const id = meta.chatId;

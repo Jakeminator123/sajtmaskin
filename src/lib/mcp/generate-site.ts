@@ -1,5 +1,5 @@
 import { nanoid } from "nanoid";
-import * as chatRepo from "@/lib/db/chat-repository";
+import * as chatRepo from "@/lib/db/chat-repository-pg";
 import { createProject as createAppProject, saveProjectData } from "@/lib/db/services/projects";
 import { createGenerationPipeline, shouldUseV0Fallback } from "@/lib/gen/fallback";
 import { finalizeAndSaveVersion } from "@/lib/gen/stream/finalize-version";
@@ -135,17 +135,17 @@ export async function generateSiteFromPrompt(
       projectId = appProject.id;
     }
   } catch {
-    // Best-effort only. If app DB isn't configured locally we still proceed
-    // with an internal project id stored in the chat repository.
+    // Best-effort only. If project creation fails for another reason we still
+    // proceed with an internal project id stored in the engine repository.
   }
 
-  const chat = chatRepo.createChat(
+  const chat = await chatRepo.createChat(
     projectId,
     String(engineModel),
     systemPrompt,
     resolvedScaffold?.id,
   );
-  chatRepo.addMessage(chat.id, "user", prompt);
+  await chatRepo.addMessage(chat.id, "user", prompt);
 
   const startedAt = Date.now();
   const { compressed: enginePrompt, urlMap } = compressUrls(prompt);
@@ -279,13 +279,14 @@ export async function generateSiteFromPrompt(
   }
 
   try {
+    const persistedChat = await chatRepo.getChat(chat.id);
     await saveProjectData({
       project_id: projectId,
       chat_id: chat.id,
       demo_url: runtimeUrl ?? finalized.previewUrl,
       current_code: finalized.contentForVersion,
       files,
-      messages: chatRepo.getChat(chat.id)?.messages ?? [],
+      messages: persistedChat?.messages ?? [],
       meta: {
         source: "mcp.generate-site",
         scaffoldId: resolvedScaffold?.id ?? null,

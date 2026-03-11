@@ -56,8 +56,8 @@ async function fetchFiles(
 ): Promise<FileEntry[]> {
   if (!shouldUseV0Fallback()) {
     const raw = versionId
-      ? getVersionFiles(versionId)
-      : getLatestVersionFiles(chatId);
+      ? await getVersionFiles(versionId)
+      : await getLatestVersionFiles(chatId);
     if (!raw) return [];
     return raw.map((f) => ({
       name: f.path,

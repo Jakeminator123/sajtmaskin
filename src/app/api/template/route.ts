@@ -1,4 +1,6 @@
 import { cacheTemplateResult, getCachedTemplate } from "@/lib/db/services";
+import { db } from "@/lib/db/client";
+import { chats, versions } from "@/lib/db/schema";
 import { findMainFile, generateFromTemplate } from "@/lib/v0/v0-generator";
 import { TEMPLATES } from "@/lib/templates/template-data";
 import { getCurrentUser } from "@/lib/auth/auth";
@@ -7,6 +9,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { ensureSessionIdFromRequest } from "@/lib/auth/session";
 import { prepareCredits } from "@/lib/credits/server";
 import { withRateLimit } from "@/lib/rateLimit";
+import { sanitizeV0Metadata } from "@/lib/v0/sanitize-metadata";
+import { nanoid } from "nanoid";
 
 // Allow 5 minutes for v0 API responses
 export const maxDuration = 300;
@@ -21,6 +25,78 @@ const loadingMessages = [
 
 function getRandomMessage() {
   return loadingMessages[Math.floor(Math.random() * loadingMessages.length)];
+}
+
+async function persistTemplateChatState(params: {
+  request: NextRequest;
+  chatId: string;
+  versionId?: string | null;
+  demoUrl?: string | null;
+  model?: string | null;
+  filesCount?: number;
+}): Promise<string | null> {
+  const { request, chatId, versionId, demoUrl, model, filesCount } = params;
+  const v0ProjectId = resolveV0ProjectId({ v0ChatId: chatId });
+  const projectName = generateProjectName({ v0ChatId: chatId });
+  const project = await ensureProjectForRequest({
+    req: request,
+    v0ProjectId,
+    name: projectName,
+  });
+
+  const insertedChat = await db
+    .insert(chats)
+    .values({
+      id: nanoid(),
+      v0ChatId: chatId,
+      v0ProjectId,
+      projectId: project.id,
+      webUrl: null,
+    })
+    .onConflictDoUpdate({
+      target: chats.v0ChatId,
+      set: {
+        v0ProjectId,
+        projectId: project.id,
+        updatedAt: new Date(),
+      },
+    })
+    .returning({ id: chats.id });
+
+  const internalChatId = insertedChat[0]?.id ?? null;
+  if (internalChatId && versionId) {
+    await db
+      .insert(versions)
+      .values({
+        id: nanoid(),
+        chatId: internalChatId,
+        v0VersionId: versionId,
+        v0MessageId: null,
+        demoUrl: demoUrl ?? null,
+        metadata: sanitizeV0Metadata({
+          id: versionId,
+          demoUrl: demoUrl ?? null,
+          model: model ?? null,
+          source: "template-init",
+          filesCount: filesCount ?? 0,
+        }),
+      })
+      .onConflictDoUpdate({
+        target: [versions.chatId, versions.v0VersionId],
+        set: {
+          demoUrl: demoUrl ?? null,
+          metadata: sanitizeV0Metadata({
+            id: versionId,
+            demoUrl: demoUrl ?? null,
+            model: model ?? null,
+            source: "template-init",
+            filesCount: filesCount ?? 0,
+          }),
+        },
+      });
+  }
+
+  return project.id;
 }
 
 export async function POST(request: NextRequest) {
@@ -101,14 +177,14 @@ export async function POST(request: NextRequest) {
         // This allows users to continue their own template conversations without creating new chats
         let projectId: string | null = null;
         try {
-          const v0ProjectId = resolveV0ProjectId({ v0ChatId: cached.chat_id });
-          const projectName = generateProjectName({ v0ChatId: cached.chat_id });
-          const project = await ensureProjectForRequest({
-            req: request,
-            v0ProjectId,
-            name: projectName,
+          projectId = await persistTemplateChatState({
+            request,
+            chatId: cached.chat_id,
+            versionId: cached.version_id,
+            demoUrl: cached.demo_url,
+            model: cached.model,
+            filesCount: files?.length ?? 0,
           });
-          projectId = project.id;
         } catch {
           projectId = null;
         }
@@ -178,14 +254,14 @@ export async function POST(request: NextRequest) {
     let projectId: string | null = null;
     if (result.chatId) {
       try {
-        const v0ProjectId = resolveV0ProjectId({ v0ChatId: result.chatId });
-        const projectName = generateProjectName({ v0ChatId: result.chatId });
-        const project = await ensureProjectForRequest({
-          req: request,
-          v0ProjectId,
-          name: projectName,
+        projectId = await persistTemplateChatState({
+          request,
+          chatId: result.chatId,
+          versionId: result.versionId,
+          demoUrl: result.demoUrl,
+          model: result.model,
+          filesCount: result.files?.length ?? 0,
         });
-        projectId = project.id;
         await cacheTemplateResult(
           templateId,
           {
